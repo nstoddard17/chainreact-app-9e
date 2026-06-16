@@ -96,6 +96,25 @@ describe("/api/cron/cleanup-workflow-files route", () => {
     expect(res.status).toBe(200);
   });
 
+  it("V2-READY-39 — logs a structured done summary with counts (incl. failed)", async () => {
+    const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    mockRequireCronAuth.mockReturnValueOnce({ authorized: true });
+    mockCleanupExpiredFiles.mockResolvedValueOnce({
+      scanned: 7,
+      storageDeleted: 6,
+      metadataDeleted: 6,
+      failed: 1,
+      startedAt: "2026-05-12T12:00:00Z",
+    });
+
+    await POST(req());
+
+    const logged = infoSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("cron.cleanup_workflow_files.done");
+    expect(logged).toContain('"failed":1'); // swallowed per-row delete failures reach the logs
+    infoSpy.mockRestore();
+  });
+
   it("returns 500 with a generic error when cleanupExpiredFiles throws", async () => {
     const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     mockRequireCronAuth.mockReturnValueOnce({ authorized: true });

@@ -37,6 +37,13 @@ async function handle(request: Request): Promise<Response> {
 
   try {
     const result = await cleanupExpiredFiles();
+    // V2-READY-39 — structured per-tick summary so the aggregate counts (incl.
+    // `failed`, the per-row storage/metadata delete failures the service
+    // swallows-and-continues) reach the logs. Counts-only — no row ids, storage
+    // paths, or user ids (per docs/rules/file-output-contract.md).
+    console.info(
+      JSON.stringify({ event: "cron.cleanup_workflow_files.done", ...result }),
+    );
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error(

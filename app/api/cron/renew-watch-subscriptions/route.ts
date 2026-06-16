@@ -31,6 +31,12 @@ async function handle(request: Request): Promise<Response> {
 
   try {
     const result = await runRenewals();
+    // V2-READY-39 — structured per-tick summary so the aggregate counts (incl.
+    // `errors` from failed renewals — a silent renewal failure means a watch
+    // subscription quietly expires) reach the logs. Counts-only — no ids.
+    console.info(
+      JSON.stringify({ event: "cron.renew_watch_subscriptions.done", ...result }),
+    );
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     console.error(

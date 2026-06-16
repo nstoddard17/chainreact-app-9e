@@ -109,6 +109,24 @@ describe("/api/cron/poll-triggers — happy path", () => {
     expect(res.status).toBe(200);
     expect(mockRunPollingTriggers).toHaveBeenCalledTimes(1);
   });
+
+  it("V2-READY-39 — logs a structured done summary with counts (incl. errors)", async () => {
+    const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    mockRunPollingTriggers.mockResolvedValueOnce({
+      examined: 4,
+      processed: 2,
+      skipped: 1,
+      errors: 1,
+      startedAt: "2026-05-07T12:00:00.000Z",
+    });
+
+    await POST(reqWithAuth("POST", "Bearer test-secret"));
+
+    const logged = infoSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("cron.poll_triggers.done");
+    expect(logged).toContain('"errors":1'); // failure count reaches the logs
+    infoSpy.mockRestore();
+  });
 });
 
 describe("/api/cron/poll-triggers — fault tolerance", () => {

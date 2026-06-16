@@ -86,6 +86,25 @@ describe("/api/cron/renew-watch-subscriptions route", () => {
     expect(res.status).toBe(200);
   });
 
+  it("V2-READY-39 — logs a structured done summary with counts (incl. errors)", async () => {
+    const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    mockRequireCronAuth.mockReturnValueOnce({ authorized: true });
+    mockRunRenewals.mockResolvedValueOnce({
+      examined: 5,
+      renewed: 3,
+      skipped: 1,
+      errors: 1,
+      startedAt: "2026-05-08T12:00:00Z",
+    });
+
+    await POST(req());
+
+    const logged = infoSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("cron.renew_watch_subscriptions.done");
+    expect(logged).toContain('"errors":1'); // a silent renewal failure would expire a subscription
+    infoSpy.mockRestore();
+  });
+
   it("returns 500 with a generic error when runRenewals throws", async () => {
     const errSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     mockRequireCronAuth.mockReturnValueOnce({ authorized: true });

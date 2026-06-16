@@ -33,6 +33,12 @@ async function handle(request: Request): Promise<Response> {
 
   try {
     const result = await runScheduledTriggers();
+    // V2-READY-39 — structured per-tick summary so the aggregate counts (incl.
+    // `errors`) reach the logs (Vercel does not log the JSON response body).
+    // Counts-only — no workflow/account ids.
+    console.info(
+      JSON.stringify({ event: "cron.run_scheduled_triggers.done", ...result }),
+    );
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     // Don't surface internals — log structured + return generic 500.

@@ -33,6 +33,13 @@ async function handle(request: Request): Promise<Response> {
 
   try {
     const result = await runPollingTriggers();
+    // V2-READY-39 — structured per-tick summary so the aggregate counts
+    // (incl. `errors` from swallowed per-handler failures) reach the logs.
+    // Vercel logs the invocation but NOT the JSON response body, so without
+    // this a tick with errors>0 looked like a clean 200. Counts-only — no ids.
+    console.info(
+      JSON.stringify({ event: "cron.poll_triggers.done", ...result }),
+    );
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     // Don't surface internals — log structured + return generic 500.

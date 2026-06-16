@@ -104,6 +104,24 @@ describe("/api/cron/run-scheduled-triggers — happy path", () => {
     expect(mockRunScheduledTriggers).toHaveBeenCalledTimes(1);
   });
 
+  it("V2-READY-39 — logs a structured done summary with counts (incl. errors)", async () => {
+    const infoSpy = jest.spyOn(console, "info").mockImplementation(() => {});
+    mockRunScheduledTriggers.mockResolvedValueOnce({
+      examined: 3,
+      fired: 1,
+      skipped: 1,
+      errors: 1,
+      startedAt: "2026-05-16T12:00:00Z",
+    });
+
+    await POST(reqWithAuth("POST", "Bearer test-secret"));
+
+    const logged = infoSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(logged).toContain("cron.run_scheduled_triggers.done");
+    expect(logged).toContain('"errors":1');
+    infoSpy.mockRestore();
+  });
+
   it("scheduler throwing produces a generic 500 (no internal leakage)", async () => {
     mockRunScheduledTriggers.mockRejectedValueOnce(
       new Error("db connection lost"),
