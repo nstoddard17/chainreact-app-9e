@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-15 @ 69e3792d8 (MCP internal diagnostic + reporting suite COMPLETE — stages 2A–2D, 43 tools, local-only)
+> Last curated: 2026-06-15 @ 589036fb0 (AI-REPAIR-3 Apply arc LIVE in prod — deterministic variable-reference repair + guarded Apply)
 
 ## Current status
 
@@ -95,6 +95,16 @@
 
 ## Recently completed arcs
 
+- **AI repair Apply arc (AI-REPAIR-3A→3L) — deterministic variable-reference repair + guarded Apply, LIVE in prod (2026-06-15)** —
+  Check deterministically flags deleted-/unknown-node variable references (**no LLM / no AI credits / no
+  model-call telemetry**). For an apply-safe field: **zero** candidates → manual "Open field", no Apply;
+  **one** → "Preview fix" → "Apply fix"; **multiple** → user picks a replacement → "Preview selected fix"
+  → "Apply fix" (app **never auto-picks**; selection re-validated server-side, anti-injection). Deterministic
+  Preview + Apply are **no-LLM / no-credit / no-model-telemetry**; Apply **persists DRAFT only** — never
+  runs/activates/deactivates/registers triggers, never mutates creds/integrations/provider accounts. Apply
+  eligibility is fail-closed (`assessApplyReadiness`). **No migration, no flag.** Marcus prod-smoked all three
+  flows. `HEAD==origin/v2-main==589036fb0` →
+  [`ai-repair-3-apply-arc-closeout.md`](./slices/phase-4/ai/ai-repair-3-apply-arc-closeout.md).
 - **AI diagnosis explanation (AI-DIAG-2) — safe single-call "Explain with AI", local-only (2026-06-12)** —
   deterministic check stays 0-credit/ungated (telemetry now → workflow-owning account); optional
   explicit-click explanation re-derives the safe DTO server-side, sends only an allow-listed projection
