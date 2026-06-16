@@ -31,6 +31,12 @@ jest.mock("@/services/ai/repair/previewWorkflowRepair", () => ({
   REPAIR_PREVIEW_NOT_APPLIED_NOTICE: "This is a preview only — your workflow wasn't changed, saved, or run.",
 }));
 
+// AI-REPAIR-3H — the deterministic (free, model-free) preview lives in its own module.
+const mockRunDeterministic = jest.fn();
+jest.mock("@/services/ai/repair/deterministicRepairPreview", () => ({
+  runDeterministicRepairPreview: (...a: unknown[]) => mockRunDeterministic(...a),
+}));
+
 const mockGate = jest.fn();
 jest.mock("@/services/billing/aiCreditGate", () => ({
   aiCreditGate: (...a: unknown[]) => mockGate(...a),
@@ -115,6 +121,8 @@ beforeEach(() => {
   mockPreviewRepair.mockResolvedValue(previewOk);
   mockHasRepairable.mockReset();
   mockHasRepairable.mockReturnValue(true); // default: the re-derived diagnosis still has an issue
+  mockRunDeterministic.mockReset();
+  mockRunDeterministic.mockResolvedValue(null); // default: no deterministic repair → model path
   mockGate.mockReset();
   mockGate.mockResolvedValue({ ok: true, skipped: true, reason: "enforcement_disabled" });
   mockRecCompleted.mockReset();
@@ -412,5 +420,88 @@ describe("ai/repair/preview — boundaries (preview-only)", () => {
     expect(src).not.toMatch(/applyWorkflowPatchForAI|applyPatchToDefinition/);
     expect(src).not.toMatch(/saveWorkflow|executeWorkflow|runWorkflow|updateDraftDefinition/);
     expect(src).not.toMatch(/hermes/i);
+  });
+});
+
+describe("ai/repair/preview — deterministic preview is FREE (AI-REPAIR-3H)", () => {
+  const detResult = {
+    ok: true,
+    preview: {
+      ok: true,
+      patchSummary: "Re-point the broken variable reference",
+      changes: [{ op: "repairVariableReference", description: "Re-points a variable reference.", nodeId: "slack-1" }],
+      affectedNodeIds: ["slack-1"],
+      affectedEdgeIds: [],
+      riskLevel: "low",
+      requiresConfirmation: false,
+      riskReasons: [],
+      validation: { ok: true, errors: [], warnings: [] },
+      userFacingSummaryText: "Re-point the broken variable reference — 1 change(s). Risk: low.",
+      canApplyLater: true,
+      apply: { applyable: true, operations: [{ op: "repairVariableReference", nodeId: "slack-1", fieldPath: "message", newReference: "{{trigger.text}}" }], baseRevision: "rev-1" },
+    },
+  };
+
+  it("deterministic preview → 200 with the preview; NO credit gate, NO model client, NO model telemetry", async () => {
+    mockRunDeterministic.mockResolvedValueOnce(detResult);
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.preview).toEqual(detResult.preview);
+    expect(body.notAppliedNotice).toBe("This is a preview only — your workflow wasn't changed, saved, or run.");
+
+    // Free + model-free: no gate, no model factory, no model preview, no telemetry.
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+    expect(mockRecCompleted).not.toHaveBeenCalled();
+    expect(mockRecFailed).not.toHaveBeenCalled();
+  });
+
+  it("the Apply metadata (applyable + operations + baseRevision) survives so the Apply button still shows", async () => {
+    mockRunDeterministic.mockResolvedValueOnce(detResult);
+    const body = await (await call("wf-1")).json();
+    expect(body.preview.apply).toEqual({
+      applyable: true,
+      operations: [{ op: "repairVariableReference", nodeId: "slack-1", fieldPath: "message", newReference: "{{trigger.text}}" }],
+      baseRevision: "rev-1",
+    });
+  });
+
+  it("works even when OpenAI is unconfigured — no model is needed", async () => {
+    mockProviderEnabled.mockReturnValue(false);
+    delete process.env.OPENAI_API_KEY;
+    mockRunDeterministic.mockResolvedValueOnce(detResult);
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    expect((await res.json()).ok).toBe(true);
+    expect(mockGate).not.toHaveBeenCalled();
+  });
+
+  it("works even when AI credits are exhausted — the gate is never consulted", async () => {
+    mockGate.mockResolvedValue({ ok: false, reason: "insufficient", used: 100, limit: 100 });
+    mockRunDeterministic.mockResolvedValueOnce(detResult);
+    const res = await call("wf-1");
+    expect(res.status).toBe(200); // NOT 402 — deterministic preview returned before the gate
+    expect(mockGate).not.toHaveBeenCalled();
+  });
+
+  it("is tried only AFTER the access wall + repairable gate, with the re-derived DTO (never a client DTO)", async () => {
+    mockRunDeterministic.mockResolvedValueOnce(detResult);
+    await call("wf-1");
+    expect(mockRunDeterministic).toHaveBeenCalledTimes(1);
+    expect(mockRunDeterministic).toHaveBeenCalledWith(
+      expect.objectContaining({ dto: okDto, userId: "user-1", workflowId: "wf-1" }),
+    );
+  });
+
+  it("no deterministic repair → falls through to the gated, telemetered model path", async () => {
+    mockRunDeterministic.mockResolvedValueOnce(null);
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    expect(mockGate).toHaveBeenCalledTimes(1);
+    expect(mockPreviewRepair).toHaveBeenCalledTimes(1);
+    expect(mockRecCompleted).toHaveBeenCalledTimes(1); // normal model telemetry still recorded
   });
 });

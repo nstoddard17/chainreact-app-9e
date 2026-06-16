@@ -9,11 +9,10 @@ import type {
 import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { AgentWorkflowDiagnosisDTO } from "@/services/ai/diagnostics/diagnoseWorkflowForAgent";
 import { buildDiagnosisExplainContext } from "@/services/ai/diagnostics/buildDiagnosisExplainContext";
-import { getWorkflowGraphForAI, type WorkflowGraphView } from "@/services/ai/tools/workflowContext";
+import { getWorkflowGraphForAI } from "@/services/ai/tools/workflowContext";
 import { previewWorkflowPatchForAI } from "@/services/ai/preview";
 import type { PatchPreviewResult } from "@/services/ai/preview/types";
 import type { PatchOperation, WorkflowPatch } from "@/services/workflows/patch/types";
-import { buildVariableRepairOutcome } from "./repairStrategies";
 
 /**
  * LLM validated-patch PREVIEW for a safe workflow-diagnosis DTO (Slice 4.AI-REPAIR-2b).
@@ -218,77 +217,12 @@ function firstMissingFieldNodeId(dto: AgentWorkflowDiagnosisDTO): string | null 
   return null;
 }
 
-/** Sentinel model id for a MODEL-FREE deterministic preview (no OpenAI call made). */
-const DETERMINISTIC_REPAIR_MODEL_ID = "deterministic:variable-reference";
-
-/** First diagnosed broken-variable-reference node id (internal target), or null. */
-function firstInvalidVariableRefNodeId(dto: AgentWorkflowDiagnosisDTO): string | null {
-  for (const f of dto.findings ?? []) {
-    if (f.code === "INVALID_VARIABLE_REFERENCE" && f.nodeIds && f.nodeIds.length > 0) {
-      return f.nodeIds[0] ?? null;
-    }
-  }
-  return null;
-}
-
 /**
- * AI-REPAIR-3G — deterministic, MODEL-FREE preview for the safe single-broken-
- * variable-reference case. When the diagnosis names an `INVALID_VARIABLE_REFERENCE`
- * node, run the EXISTING deterministic strategy (`buildVariableRepairOutcome`): it
- * emits a `repairVariableReference` op ONLY when there is exactly one broken
- * reference AND exactly one matching upstream replacement. The op is then run
- * through the SAME deterministic preview engine (`previewWorkflowPatchForAI` —
- * validation + apply-safety + recomputed risk), so a recipient/secret/credential
- * field is blocked there exactly as for any other op.
- *
- * Returns the applyable preview when it cleanly validates; null to fall through to
- * the model path (zero/multiple candidates, a safety-blocked field, or a failed
- * validate). NO model call, NO AI tokens — the preview is fully deterministic.
+ * AI-REPAIR-3H — the deterministic (model-free) repair preview lives in its own
+ * module (`./deterministicRepairPreview`) and is run by the ROUTE *before* the credit
+ * gate / model client, so it is free + emits no model telemetry. This file is now
+ * exclusively the paid model path.
  */
-async function attemptDeterministicVariableRepairPreview(args: {
-  userId: string;
-  workflowId: string;
-  dto: AgentWorkflowDiagnosisDTO;
-  graph: WorkflowGraphView;
-  tier: ModelTier;
-  draftDefinition?: WorkflowDefinition;
-}): Promise<PreviewWorkflowRepairResult | null> {
-  const nodeId = firstInvalidVariableRefNodeId(args.dto);
-  if (!nodeId) return null;
-
-  const outcome = await buildVariableRepairOutcome(args.userId, args.workflowId, args.graph, nodeId);
-  if (outcome.repairability !== "repairable" || outcome.operations.length === 0) return null;
-
-  const patch: WorkflowPatch = {
-    patchId: `repair-preview-var:${args.workflowId}`,
-    workflowId: args.workflowId,
-    baseRevision: args.graph.updatedAt,
-    operations: [...outcome.operations] as PatchOperation[],
-    summary: "Re-point the broken variable reference",
-    rationale: outcome.recommendations[0] ?? "Deterministic variable-reference repair.",
-  };
-
-  let res;
-  try {
-    res = await previewWorkflowPatchForAI({
-      userId: args.userId,
-      workflowId: args.workflowId,
-      patch,
-      ...(args.draftDefinition ? { draftDefinition: args.draftDefinition } : {}),
-    });
-  } catch {
-    return null; // fall through to the model path
-  }
-  // Only surface as the deterministic fix when it cleanly validated (applyable). A
-  // blocked preview (safety-sensitive field, or a candidate that didn't validate)
-  // falls through to the model path → safe guidance / NO_SAFE_PATCH.
-  if (!res || !res.ok || res.data.ok !== true) return null;
-  return {
-    ok: true,
-    preview: res.data,
-    model: { modelId: DETERMINISTIC_REPAIR_MODEL_ID, tier: args.tier },
-  };
-}
 
 /**
  * AI-REPAIR-2G — deterministic, MODEL-FREE targeted blocked preview built from the
@@ -455,20 +389,11 @@ export async function previewWorkflowRepair(
   }
   const graph = graphRes.data;
 
-  // AI-REPAIR-3G — deterministic, MODEL-FREE fast-path for the safe single-broken-
-  // variable-reference case. Returns an applyable preview with NO model call when
-  // there is exactly one broken reference + exactly one upstream replacement and the
-  // field clears the apply-safety contract; otherwise null → fall through to the LLM
-  // path below (which yields safe guidance / NO_SAFE_PATCH).
-  const deterministic = await attemptDeterministicVariableRepairPreview({
-    userId,
-    workflowId,
-    dto: input.dto,
-    graph,
-    tier,
-    ...(draftDefinition ? { draftDefinition } : {}),
-  });
-  if (deterministic) return deterministic;
+  // AI-REPAIR-3H — the deterministic (model-free) repair preview is attempted by the
+  // ROUTE *before* the credit gate / model client, so it is free + emits no model
+  // telemetry. By the time this service runs, that fast-path has already returned null
+  // (no deterministic repair available) — this function is exclusively the paid model
+  // path. See `runDeterministicRepairPreview` above.
 
   // Inventory source = the draft (when provided) so the model targets ids that
   // exist in the SAME definition the patch will be validated against.

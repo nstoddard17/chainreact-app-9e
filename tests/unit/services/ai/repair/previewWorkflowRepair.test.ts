@@ -35,6 +35,7 @@ import {
   previewWorkflowRepair,
   PROPOSE_WORKFLOW_REPAIR_PATCH_TOOL_NAME,
 } from "@/services/ai/repair/previewWorkflowRepair";
+import { runDeterministicRepairPreview } from "@/services/ai/repair/deterministicRepairPreview";
 import type { ModelClient, ModelGenerateInput, ModelResult } from "@/core/ai/modelTypes";
 
 function clientReturning(result: ModelResult): ModelClient {
@@ -602,8 +603,11 @@ describe("previewWorkflowRepair (AI-REPAIR-2b)", () => {
   });
 });
 
-// ───────────────── AI-REPAIR-3G: deterministic variable-reference repair ─────────────────
-describe("previewWorkflowRepair — deterministic variable-reference fast-path (AI-REPAIR-3G)", () => {
+// ───────────── AI-REPAIR-3G/3H: deterministic variable-reference repair ─────────────
+// The deterministic preview is now a SEPARATE, model-free entry point
+// (`runDeterministicRepairPreview`) the ROUTE calls BEFORE the credit gate / model
+// client (AI-REPAIR-3H). It takes NO model client and returns `{ ok, preview } | null`.
+describe("runDeterministicRepairPreview — model-free fast-path (AI-REPAIR-3G/3H)", () => {
   const base = { userId: "user-1", workflowId: "wf-OPAQUE" } as const;
 
   /** Diagnosis whose only repairable issue is a broken ref on the Slack message field. */
@@ -622,6 +626,14 @@ describe("previewWorkflowRepair — deterministic variable-reference fast-path (
         invalidReferences: [{ fieldLabel: "Message", token: "{{ghost.text}}" }],
       },
     ],
+  } as never;
+
+  /** Diagnosis with NO invalid-variable-reference finding (e.g. a missing field). */
+  const missingFieldDto = {
+    workflowId: "wf-OPAQUE",
+    access: "OK",
+    overallReady: false,
+    findings: [{ source: "field", code: "MISSING_REQUIRED_FIELD", severity: "error", title: "x", nodeIds: ["node-B"] }],
   } as never;
 
   /** Saved graph: the Slack Message field still holds a deleted-node reference. */
@@ -643,24 +655,16 @@ describe("previewWorkflowRepair — deterministic variable-reference fast-path (
     data: { variables: [{ nodeId: "trigger-1", nodeType: "native:manual_trigger", nodeKind: "trigger", path: "text", reference: "{{trigger.text}}", type: "string", sensitive: false }] },
   };
 
-  function spyClient() {
-    const spy = jest.fn(async () => success(modelPatchText));
-    return { client: { generateStructuredJson: spy } as ModelClient, spy };
-  }
-
   beforeEach(() => {
     mockGetGraph.mockResolvedValue({ ok: true, data: brokenGraph });
   });
 
-  it("exactly one broken ref + exactly one candidate → repairVariableReference op, NO model call", async () => {
+  it("exactly one broken ref + one candidate → applyable preview + typed repairVariableReference op", async () => {
     mockGetVars.mockResolvedValue(oneCandidate);
-    const { client, spy } = spyClient();
-
-    const res = await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
-
-    // The model was NEVER called — the preview is fully deterministic.
-    expect(spy).not.toHaveBeenCalled();
-    expect(res.ok).toBe(true);
+    const res = await runDeterministicRepairPreview({ dto: brokenRefDto, ...base });
+    expect(res).not.toBeNull();
+    expect(res!.ok).toBe(true);
+    expect(res!.preview.ok).toBe(true); // applyable
 
     // The patch handed to the existing preview engine is a typed repairVariableReference.
     expect(mockPreview).toHaveBeenCalledTimes(1);
@@ -671,26 +675,26 @@ describe("previewWorkflowRepair — deterministic variable-reference fast-path (
     expect(patch.baseRevision).toBe("rev-token-1");
   });
 
-  it("surfaces the deterministic preview (applyable) without an advisory model risk", async () => {
+  it("uses the SAME validation/apply path (previewWorkflowPatchForAI) — no separate engine", async () => {
     mockGetVars.mockResolvedValue(oneCandidate);
-    const { client } = spyClient();
-    const res = await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
-    expect(res.ok).toBe(true);
-    if (res.ok) {
-      // The same validated (applyable) preview the existing engine returned is surfaced.
-      expect(res.preview.ok).toBe(true);
-      expect(res.model.modelId).toBe("deterministic:variable-reference");
-    }
+    await runDeterministicRepairPreview({ dto: brokenRefDto, ...base });
+    // Goes through the existing preview engine (which attaches apply-readiness metadata).
+    expect(mockPreview).toHaveBeenCalledTimes(1);
   });
 
-  it("ZERO matching candidates → falls through to the model path (no deterministic op)", async () => {
+  it("returns null WITHOUT reading the graph when there is no invalid-reference finding", async () => {
+    const res = await runDeterministicRepairPreview({ dto: missingFieldDto, ...base });
+    expect(res).toBeNull();
+    expect(mockGetGraph).not.toHaveBeenCalled(); // zero overhead before the gated model path
+    expect(mockPreview).not.toHaveBeenCalled();
+  });
+
+  it("ZERO matching candidates → null (caller runs the paid model path)", async () => {
     mockGetVars.mockResolvedValue({ ok: true, data: { variables: [] } });
-    const { client, spy } = spyClient();
-    await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
-    expect(spy).toHaveBeenCalledTimes(1); // model path ran
+    expect(await runDeterministicRepairPreview({ dto: brokenRefDto, ...base })).toBeNull();
   });
 
-  it("MULTIPLE matching candidates → ambiguous → falls through to the model path", async () => {
+  it("MULTIPLE matching candidates → ambiguous → null", async () => {
     mockGetVars.mockResolvedValue({
       ok: true,
       data: {
@@ -700,18 +704,42 @@ describe("previewWorkflowRepair — deterministic variable-reference fast-path (
         ],
       },
     });
-    const { client, spy } = spyClient();
-    await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(await runDeterministicRepairPreview({ dto: brokenRefDto, ...base })).toBeNull();
   });
 
-  it("a safety-BLOCKED deterministic preview (e.g. recipient field) falls through to the model path", async () => {
+  it("a safety-BLOCKED preview (e.g. recipient field) → null (caller runs the model path)", async () => {
     mockGetVars.mockResolvedValue(oneCandidate);
-    // The deterministic patch validates as BLOCKED (apply-safety rejected the field) →
-    // the fast-path returns null and the model path takes over.
     mockPreview.mockResolvedValue({ ok: true, data: { ...validPreviewData, ok: false, blockedReason: "Recipient field change requires confirmation." } });
-    const { client, spy } = spyClient();
-    await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: client });
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(await runDeterministicRepairPreview({ dto: brokenRefDto, ...base })).toBeNull();
+  });
+
+  it("graph unavailable → null (caller's model path surfaces GRAPH_UNAVAILABLE safely)", async () => {
+    mockGetVars.mockResolvedValue(oneCandidate);
+    mockGetGraph.mockResolvedValue({ ok: false, code: "NOT_FOUND" });
+    expect(await runDeterministicRepairPreview({ dto: brokenRefDto, ...base })).toBeNull();
+  });
+});
+
+// AI-REPAIR-3H — `previewWorkflowRepair` is now EXCLUSIVELY the paid model path: it no
+// longer short-circuits the deterministic case (the route handles that first).
+describe("previewWorkflowRepair — is now exclusively the model path (AI-REPAIR-3H)", () => {
+  const base = { userId: "user-1", workflowId: "wf-OPAQUE" } as const;
+  const brokenRefDto = {
+    workflowId: "wf-OPAQUE",
+    access: "OK",
+    overallReady: false,
+    findings: [{ source: "graph", code: "INVALID_VARIABLE_REFERENCE", severity: "error", title: "x", nodeIds: ["node-B"] }],
+  } as never;
+
+  it("calls the model even for an invalid-variable-reference dto (no in-service fast-path)", async () => {
+    const cap = capturingClient(modelPatchText);
+    await previewWorkflowRepair({ dto: brokenRefDto, ...base, modelClient: cap.client });
+    // The model WAS consulted — the deterministic short-circuit lives in the route now.
+    expect(() => cap.lastInput()).not.toThrow();
+  });
+
+  it("the service no longer emits a sentinel deterministic model id", () => {
+    const src = readFileSync(resolve(process.cwd(), "services/ai/repair/previewWorkflowRepair.ts"), "utf8");
+    expect(src).not.toMatch(/deterministic:variable-reference/);
   });
 });

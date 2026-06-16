@@ -7,6 +7,7 @@ import {
   type PreviewWorkflowRepairResult,
   REPAIR_PREVIEW_NOT_APPLIED_NOTICE,
 } from "@/services/ai/repair/previewWorkflowRepair";
+import { runDeterministicRepairPreview } from "@/services/ai/repair/deterministicRepairPreview";
 import {
   aiCreditGate,
   type AiCreditGateOutcome,
@@ -205,6 +206,27 @@ export async function POST(
       ok: false,
       code: "NOTHING_TO_PREVIEW",
       message: "This issue may already be fixed. Run Check workflow again for an up-to-date result.",
+    });
+  }
+
+  // AI-REPAIR-3H — a deterministic (model-free) repair preview is produced WITHOUT any
+  // model call, so it must be FREE: no OpenAI-config requirement, no credit gate, and
+  // no `ai_model_call_*` telemetry. Try it FIRST; when it yields an applyable preview
+  // (the safe single-broken-variable-reference case), return it directly. Only fall
+  // through to the paid model path below when no deterministic repair is available.
+  // The returned `preview` is the SAME `PatchPreviewResult` shape the model path
+  // returns (same validation + apply-readiness metadata) — no user-facing downgrade.
+  const deterministic = await runDeterministicRepairPreview({
+    dto,
+    userId: auth.userId,
+    workflowId: id,
+    ...(override.draftOverride ? { draftDefinition: override.draftOverride } : {}),
+  });
+  if (deterministic) {
+    return NextResponse.json({
+      ok: true,
+      preview: deterministic.preview,
+      notAppliedNotice: REPAIR_PREVIEW_NOT_APPLIED_NOTICE,
     });
   }
 
