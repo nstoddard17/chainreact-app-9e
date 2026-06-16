@@ -83,6 +83,7 @@ const NPM_CHECK_DESCRIPTIONS: Readonly<Record<string, string>> = {
   typecheck: "TypeScript typecheck (tsc --noEmit). Read-only.",
   lint: "ESLint over the repo (eslint .). Read-only.",
   "lint:structure": "Leaf-folder file-count cap check. Read-only.",
+  "lint:migrations": "Static migration RLS/GRANT lint (check-migration-rls.mjs). Read-only — never applies migrations.",
 };
 
 /** Inventory of the non-mutating checks the MCP server may run. Inventory-only. */
@@ -128,5 +129,12 @@ export const commandTools: ToolDefinition[] = [
       "Run the leaf-folder structure check (npm run lint:structure). Local, read-only. Returns exit code + output.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     handler: () => runNpmScript("lint:structure"),
+  },
+  {
+    name: "run_migration_lint",
+    description:
+      "Run the migration RLS/GRANT lint (npm run lint:migrations → check-migration-rls.mjs). Static, read-only — it NEVER applies migrations, runs db:push, or connects to a DB. Returns exit code + output.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    handler: () => runNpmScript("lint:migrations"),
   },
 ];

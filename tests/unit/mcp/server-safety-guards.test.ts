@@ -63,7 +63,10 @@ describe("internal MCP server safety guards", () => {
 
   it("only allowlists exact, non-mutating npm scripts", () => {
     const allowed = Object.values(ALLOWED_NPM_SCRIPTS);
-    expect(allowed.sort()).toEqual(["lint", "lint:structure", "typecheck"]);
+    // lint:migrations (Phase B) is the STATIC migration RLS lint
+    // (check-migration-rls.mjs) — it reads migration files and never applies
+    // them / runs db:push / connects to a DB. It is read-only like the others.
+    expect(allowed.sort()).toEqual(["lint", "lint:migrations", "lint:structure", "typecheck"]);
 
     const banned = [
       "db:push",
@@ -77,6 +80,10 @@ describe("internal MCP server safety guards", () => {
     ];
     for (const script of banned) {
       expect(allowed).not.toContain(script);
+    }
+    // No allowlisted script may be an apply/push/deploy/migration-apply variant.
+    for (const script of allowed) {
+      expect(script).not.toMatch(/db:push|deploy|apply|--push/i);
     }
   });
 

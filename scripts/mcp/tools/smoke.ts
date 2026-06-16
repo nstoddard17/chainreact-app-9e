@@ -129,7 +129,56 @@ function readSmokeFailureContext(args: Record<string, unknown>): string {
   ].join("\n");
 }
 
+/**
+ * Pure summary of the single most recent failure in a sanitized artifact (or a
+ * safe "nothing to report" message). Exported for tests. The artifact is already
+ * sanitized at write time — this returns only category/title/status/errorClass/
+ * stepLabel, never raw error text, URLs, or paths.
+ */
+export function summarizeLastFailure(data: SmokeArtifact | null): string {
+  if (!data || !Array.isArray(data.records)) {
+    return "No recent failure artifact found. Run `npm run smoke:prod` to generate one (it is gitignored and produced per run).";
+  }
+  const records = data.records;
+  const failures = records.filter((r) => isFailure(r.status));
+  const when = data.generatedAt ?? "(unknown time)";
+  if (failures.length === 0) {
+    return `No failures in the latest artifact (generatedAt: ${when}; ${records.length} record(s)).`;
+  }
+  const first = failures[0];
+  if (!first) {
+    return `No failures in the latest artifact (generatedAt: ${when}).`;
+  }
+  return [
+    `Latest test failure (sanitized; generatedAt: ${when}; ${failures.length} failing of ${records.length}):`,
+    `- category: ${first.category}`,
+    `- title: ${first.title}`,
+    `- status: ${first.status}`,
+    `- errorClass: ${first.errorClass ?? "(none)"}`,
+    `- stepLabel: ${first.stepLabel ?? "(none)"}`,
+    failures.length > 1 ? `…and ${failures.length - 1} more — use list_recent_smoke_failures for the full list.` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function summarizeLastTestFailure(): string {
+  const loaded = loadArtifact();
+  if (!loaded.ok) {
+    // Missing artifact is a normal state, not an error.
+    return "No recent failure artifact found. Run `npm run smoke:prod` to generate one (it is gitignored and produced per run).";
+  }
+  return summarizeLastFailure(loaded.data);
+}
+
 export const smokeTools: ToolDefinition[] = [
+  {
+    name: "summarize_last_test_failure",
+    description:
+      "Summarize the most recent failure from the latest sanitized smoke artifact (category/title/status/errorClass/stepLabel only — no raw errors/paths/URLs). Returns a safe message when no artifact exists. Local, read-only.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    handler: summarizeLastTestFailure,
+  },
   {
     name: "list_recent_smoke_failures",
     description:

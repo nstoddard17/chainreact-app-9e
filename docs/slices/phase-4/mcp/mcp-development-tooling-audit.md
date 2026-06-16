@@ -21,9 +21,11 @@ Nothing pushed.
 > `provider_capability_matrix`, `provider_action_trigger_counts`,
 > `provider_metadata_consistency_check`, `option_source_coverage_check` (repo-static; manifests
 > text-parsed, `*.meta.ts` counts, committed option-source JSON, `_registry.ts` text; no code
-> execution). Registry now **31 tools**. Phase B (targeted test runners) + Phase C
-> (diagnostics doctors/reports) remain queued; smoke runners + any mutating/deploy tools remain
-> Phase D / do-not-build.
+> execution). **Phase B SHIPPED** — `run_jest_for_path` (validated, `tests/`-only),
+> `run_route_structure_tests` + `run_provider_metadata_tests` (fixed targets), `run_migration_lint`
+> (static RLS lint — never applies migrations), `summarize_last_test_failure` (sanitized artifact).
+> Registry now **36 tools**. Phase C (diagnostics doctors/reports) remains queued; smoke runners +
+> any mutating/deploy tools remain Phase D / do-not-build.
 
 **Source of truth (every file below was read for this audit):**
 [scripts/mcp/tools/index.ts](../../../../scripts/mcp/tools/index.ts) (the explicit registry) ·

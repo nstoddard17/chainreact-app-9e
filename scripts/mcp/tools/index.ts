@@ -14,6 +14,7 @@ import { docsTools } from "./docs";
 import { providerTools } from "./providers";
 import { repoNavTools } from "./repoNav";
 import { smokeTools } from "./smoke";
+import { testRunnerTools } from "./testRunners";
 import { verifyTools } from "./verify";
 
 /** Build a registry with every internal MCP tool registered. */
@@ -36,5 +37,8 @@ export function buildRegistry(): ToolRegistry {
   // verification advisory). Static/local; no live data, no mutation.
   for (const tool of repoNavTools) registry.register(tool);
   for (const tool of verifyTools) registry.register(tool);
+  // Phase B — bounded local jest runners (run_jest_for_path + fixed structure
+  // wrappers). Local/read-only; validated argv; no shell passthrough.
+  for (const tool of testRunnerTools) registry.register(tool);
   return registry;
 }

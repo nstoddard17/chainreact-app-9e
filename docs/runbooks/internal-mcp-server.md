@@ -87,6 +87,7 @@ npm script with a timeout and truncated output):
 | `run_typecheck` | `npm run typecheck` (`tsc --noEmit`) |
 | `run_lint` | `npm run lint` (`eslint .`) |
 | `run_structure_lint` | `npm run lint:structure` (leaf-folder counts) |
+| `run_migration_lint` | `npm run lint:migrations` (`check-migration-rls.mjs`) — **static** RLS/GRANT lint; reads migration files, **never applies them / runs db:push / connects to a DB**. *(Phase B)* |
 | `list_available_npm_checks` | **Inventory-only** — lists the exact non-mutating checks above with descriptions. Runs nothing. *(Phase A-1)* |
 
 Every result is **redacted then size-capped** before it leaves the process (order
@@ -114,9 +115,22 @@ text; no provider code executed, no API/DB; unparseable → null/"unknown"):
 | `provider_metadata_consistency_check` | Manifest capability flags vs *.meta.ts files + registry membership → ERROR / WARNING / UNKNOWN findings (never guesses). *(Phase A-2)* |
 | `option_source_coverage_check` | `optionsSource:` references in *.meta.ts vs the registered option-source manifest → MISSING (referenced, unregistered) + UNUSED (registered, no meta reference). *(Phase A-2)* |
 
-The full live registry today is **31 tools** (`npm run mcp:smoke`) — the context tools
-above, the command wrappers, the Phase A-1 helpers, the Phase A-2 provider tools, and
-the Stage-2A/2B diagnostics (below).
+Phase B targeted local verification helpers (run LOCAL, read-only checks; validated
+argv with `shell:false`; bounded + redacted output; wall-clock timeout):
+
+| Tool | What it runs |
+|---|---|
+| `run_jest_for_path` | jest for ONE file under `tests/` (path validated: under `tests/`, no traversal/absolute/percent-encoded/shell chars, must exist). *(Phase B)* |
+| `run_route_structure_tests` | jest on the fixed target `tests/structure/api-route-authorization.test.ts`. *(Phase B)* |
+| `run_provider_metadata_tests` | jest on the fixed target `tests/structure/discovery-meta-coverage.test.ts`. *(Phase B)* |
+| `summarize_last_test_failure` | Summarizes the most recent failure from the sanitized smoke artifact (category/title/status/errorClass/stepLabel only); safe message when none. *(Phase B)* |
+
+(`run_migration_lint` is listed with the command wrappers above.) Phase B deliberately
+ships **no** smoke runner and **no** mutating/deploy/db/git tool.
+
+The full live registry today is **36 tools** (`npm run mcp:smoke`) — the context tools
+above, the command wrappers, the Phase A-1 helpers, the Phase A-2 provider tools, the
+Phase B verification helpers, and the Stage-2A/2B diagnostics (below).
 
 ### Stage 2A — Plane-A diagnostics (local-artifact + repo-static)
 

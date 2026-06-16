@@ -166,4 +166,18 @@ export const ALLOWED_NPM_SCRIPTS: Readonly<Record<string, string>> = {
   typecheck: "typecheck",
   lint: "lint",
   "lint:structure": "lint:structure",
+  // Read-only migration RLS/GRANT lint (node scripts/check-migration-rls.mjs).
+  // It STATICALLY checks migration files — it never connects to a DB, runs
+  // db:push, or applies a migration. No apply/push/deploy script is allowlisted.
+  "lint:migrations": "lint:migrations",
+} as const;
+
+/**
+ * Exact, fixed jest test targets the structure-test wrappers may run. Each value
+ * is a constant repo-relative path under `tests/` — never a tool argument — so
+ * there is no injection surface for these wrappers.
+ */
+export const FIXED_TEST_TARGETS = {
+  routeStructure: "tests/structure/api-route-authorization.test.ts",
+  providerMetadata: "tests/structure/discovery-meta-coverage.test.ts",
 } as const;
