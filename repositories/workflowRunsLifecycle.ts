@@ -71,6 +71,13 @@ export interface CreateWorkflowRunStartInput {
   /** COST-2 estimate, known pre-execution. Optional. */
   estimatedTaskCost?: number | null;
   taskCostPolicyVersion?: string | null;
+  /**
+   * V2-READY-41I — the immutable active revision this run executes, resolved by
+   * the engine before steps run. Set for live runs that resolved an active
+   * revision; NULL for draft/test/preview and the safe draft fallback. Written
+   * once at create; finalize never changes it. Internal attribution only.
+   */
+  revisionId?: string | null;
 }
 
 export interface CreateWorkflowRunStartResult {
@@ -110,6 +117,7 @@ export async function createWorkflowRunStart(
     estimated_task_cost: input.estimatedTaskCost ?? null,
     actual_task_cost: null,
     task_cost_policy_version: input.taskCostPolicyVersion ?? null,
+    revision_id: input.revisionId ?? null,
     // billing_status intentionally left NULL — no reservation at create time.
   });
   if (error) {

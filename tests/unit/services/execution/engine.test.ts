@@ -534,6 +534,137 @@ describe("WorkflowEngine — fatal errors", () => {
     });
   });
 
+  // V2-READY-41I — the engine stamps the executed revision on the run row at the
+  // pre-run-row create point (the single central path every trigger source
+  // reaches via enqueueRun). The resolved revisionId comes from
+  // getDefinitionForExecution (mocked here; its null/active/dangling logic is
+  // unit-tested in activeRevision.test.ts) and is null for draft/test/fallback.
+  describe("revision attribution on the run row (V2-READY-41I)", () => {
+    const triggerOnly = () => ({ nodes: [trigger("t1")], edges: [] });
+
+    it("live run + active revision: stores the active revision_id on the pre-run row", async () => {
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        activeRevisionId: "rev-1",
+        draftDefinition: triggerOnly(),
+      });
+      mockGetDefinitionForExecution.mockResolvedValueOnce({
+        definition: triggerOnly(),
+        source: "active_revision",
+        revisionId: "rev-1",
+      });
+
+      await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+
+      expect(mockCreateWorkflowRunStart).toHaveBeenCalledWith(
+        expect.objectContaining({ revisionId: "rev-1" }),
+      );
+    });
+
+    it("test run: stores null revision_id (ran the draft, mode 'draft')", async () => {
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        activeRevisionId: "rev-1",
+        draftDefinition: triggerOnly(),
+      });
+      // Default resolver returns { source: 'draft', revisionId: null } for draft mode.
+
+      await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+        testMode: true,
+      });
+
+      expect(mockGetDefinitionForExecution).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "wf-1" }),
+        "draft",
+      );
+      expect(mockCreateWorkflowRunStart).toHaveBeenCalledWith(
+        expect.objectContaining({ revisionId: null, isTest: true }),
+      );
+    });
+
+    it("legacy active workflow (null active_revision_id): runs and stores null revision_id", async () => {
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        activeRevisionId: null,
+        draftDefinition: triggerOnly(),
+      });
+      // Resolver falls back to the draft → revisionId null (default impl).
+
+      await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+
+      expect(mockCreateWorkflowRunStart).toHaveBeenCalledWith(
+        expect.objectContaining({ revisionId: null }),
+      );
+    });
+
+    it("dangling active_revision_id: safe draft fallback stores null revision_id", async () => {
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        activeRevisionId: "rev-gone",
+        draftDefinition: triggerOnly(),
+      });
+      // Resolver could not load the revision → falls back to the draft (null).
+      mockGetDefinitionForExecution.mockResolvedValueOnce({
+        definition: triggerOnly(),
+        source: "draft",
+        revisionId: null,
+      });
+
+      await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+
+      expect(mockCreateWorkflowRunStart).toHaveBeenCalledWith(
+        expect.objectContaining({ revisionId: null }),
+      );
+    });
+
+    it("every live trigger source inherits the same attribution through the central path", async () => {
+      for (const triggeredBy of ["webhook", "scheduled", "api_key", "manual"] as const) {
+        mockCreateWorkflowRunStart.mockClear();
+        mockGetByIdServiceRole.mockResolvedValueOnce({
+          ...baseWorkflow,
+          activeRevisionId: "rev-9",
+          draftDefinition: triggerOnly(),
+        });
+        mockGetDefinitionForExecution.mockResolvedValueOnce({
+          definition: triggerOnly(),
+          source: "active_revision",
+          revisionId: "rev-9",
+        });
+
+        await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+          workflowId: "wf-1",
+          triggerNodeId: "t1",
+          triggerEvent,
+          triggeredBy,
+        });
+
+        // Non-test source → mode "live" → executes + attributes the active revision.
+        expect(mockGetDefinitionForExecution).toHaveBeenLastCalledWith(
+          expect.objectContaining({ id: "wf-1" }),
+          "live",
+        );
+        expect(mockCreateWorkflowRunStart).toHaveBeenCalledWith(
+          expect.objectContaining({ revisionId: "rev-9", triggeredBy }),
+        );
+      }
+    });
+  });
+
   // B — engine pre-dispatch readiness backstop (the universal choke point that
   // also covers webhook + scheduled, which reach the engine via enqueueRun).
   it("fails with WORKFLOW_NOT_READY when an action is unreachable (real run), instead of silently skipping it", async () => {

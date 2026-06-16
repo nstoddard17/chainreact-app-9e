@@ -156,7 +156,8 @@ export class WorkflowEngine {
     // draft → the mutable draft. Resolution lives in
     // services/workflows/activeRevision.ts.
     const mode = input.executionDefinitionMode ?? (isTest ? "draft" : "live");
-    const def = (await getDefinitionForExecution(workflow, mode)).definition;
+    const resolved = await getDefinitionForExecution(workflow, mode);
+    const def = resolved.definition;
     const triggerNode = def.nodes.find((n) => n.id === input.triggerNodeId);
     if (!triggerNode) {
       const finishedAt = new Date().toISOString();
@@ -209,6 +210,10 @@ export class WorkflowEngine {
         startedAt,
         isTest,
         triggeredBy,
+        // V2-READY-41I — single attribution point: stamp the executed revision on
+        // the pre-run row before any step runs (null for draft/test/fallback).
+        // Preserved through finalize (UPDATE never rewrites it).
+        revisionId: resolved.revisionId,
       });
       if (!startOutcome.created) {
         log("execution.run.duplicate_dispatch", {});

@@ -355,6 +355,23 @@ describe("workflowRuns.getById", () => {
     expect(result).toBeNull();
   });
 
+  it("does NOT expose revision_id on the run record (V2-READY-41I — internal attribution only)", async () => {
+    // The raw DB row carries the new column; the mapped record must not surface
+    // it (no definition pointer leaks into the run detail DTO).
+    const state: ChainState = {
+      filters: [],
+      resultData: null,
+      resultError: null,
+      maybeSingleResult: { data: { ...row, revision_id: "rev-1" }, error: null },
+    };
+    mockSSR.current = makeMockClient(state);
+    const result = await getById("run-1");
+    expect(result).not.toBeNull();
+    const keys = Object.keys(result as object);
+    expect(keys).not.toContain("revisionId");
+    expect(keys).not.toContain("revision_id");
+  });
+
   it("propagates Supabase errors", async () => {
     const state: ChainState = {
       filters: [],
@@ -405,9 +422,18 @@ describe("workflowRuns.createWorkflowRunStart", () => {
       estimated_task_cost: 3,
       actual_task_cost: null,
       task_cost_policy_version: "v1",
+      // V2-READY-41I — attribution defaults NULL when omitted (draft/test/legacy).
+      revision_id: null,
     });
     // No reservation is taken at create time.
     expect("billing_status" in payload).toBe(false);
+  });
+
+  it("stamps revision_id on the pre-run row when supplied (V2-READY-41I)", async () => {
+    const state: ChainState = { filters: [], resultData: null, resultError: null };
+    mockServiceRole.current = makeMockClient(state);
+    await createWorkflowRunStart({ ...baseInput, revisionId: "rev-1" });
+    expect((state.insertPayload as Record<string, unknown>).revision_id).toBe("rev-1");
   });
 
   it("is duplicate-safe: PK conflict (23505) returns created:false and does not throw", async () => {
