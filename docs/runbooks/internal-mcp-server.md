@@ -103,9 +103,20 @@ roots; bounded output; never a full file body):
 | `get_file_outline` | **Structural** outline of one allow-listed file (markdown headings / exported symbol names / route methods / test names). Never the full body; byte-capped + redacted. *(Phase A-1)* |
 | `suggest_verification_for_changed_files` | Recommends which local checks to run for the changed files (read-only `git diff` vs HEAD + untracked, or an explicit `paths` list). **Advisory only — executes nothing.** *(Phase A-1)* |
 
-The full live registry today is **27 tools** (`npm run mcp:smoke`) — the context tools
-above, the command wrappers, the Phase A-1 helpers, and the Stage-2A/2B diagnostics
-(below).
+Phase A-2 provider readiness / metadata-consistency tools (read-only; repo-static —
+manifests text-parsed, `*.meta.ts` file counts, committed option-source JSON, registry
+text; no provider code executed, no API/DB; unparseable → null/"unknown"):
+
+| Tool | What it returns |
+|---|---|
+| `provider_capability_matrix` | Capability row per provider (or one): isEnabled, actions/webhookTrigger/pollingTrigger, authFlow, refreshable, apiVersion. Manifest text-parsed. *(Phase A-2)* |
+| `provider_action_trigger_counts` | Per-provider action *.meta.ts / trigger *.meta.ts counts, registered option-source count, and discovery-metadata-file present/absent. *(Phase A-2)* |
+| `provider_metadata_consistency_check` | Manifest capability flags vs *.meta.ts files + registry membership → ERROR / WARNING / UNKNOWN findings (never guesses). *(Phase A-2)* |
+| `option_source_coverage_check` | `optionsSource:` references in *.meta.ts vs the registered option-source manifest → MISSING (referenced, unregistered) + UNUSED (registered, no meta reference). *(Phase A-2)* |
+
+The full live registry today is **31 tools** (`npm run mcp:smoke`) — the context tools
+above, the command wrappers, the Phase A-1 helpers, the Phase A-2 provider tools, and
+the Stage-2A/2B diagnostics (below).
 
 ### Stage 2A — Plane-A diagnostics (local-artifact + repo-static)
 

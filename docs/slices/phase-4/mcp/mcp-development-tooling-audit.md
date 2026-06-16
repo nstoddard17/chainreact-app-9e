@@ -14,6 +14,16 @@ Nothing pushed.
 > `docs/slices/phase-4/` had reached the 50-file leaf-folder cap (`lint:structure`). Existing
 > `phase-4/mcp-*.md` docs stay in place (many files link to them); future MCP-suite docs should
 > land here.
+>
+> **Implementation status:** **Phase A-1 SHIPPED** (`78d32e8cd`) — `repo_file_search`,
+> `find_route_handlers`, `find_tests_for_file`, `get_file_outline`,
+> `suggest_verification_for_changed_files`, `list_available_npm_checks`. **Phase A-2 SHIPPED** —
+> `provider_capability_matrix`, `provider_action_trigger_counts`,
+> `provider_metadata_consistency_check`, `option_source_coverage_check` (repo-static; manifests
+> text-parsed, `*.meta.ts` counts, committed option-source JSON, `_registry.ts` text; no code
+> execution). Registry now **31 tools**. Phase B (targeted test runners) + Phase C
+> (diagnostics doctors/reports) remain queued; smoke runners + any mutating/deploy tools remain
+> Phase D / do-not-build.
 
 **Source of truth (every file below was read for this audit):**
 [scripts/mcp/tools/index.ts](../../../../scripts/mcp/tools/index.ts) (the explicit registry) ·
