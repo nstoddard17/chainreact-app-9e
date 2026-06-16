@@ -13,6 +13,10 @@ entirely from being grounded in the real repo, not from plausible-sounding guess
 > curated project memory, relevant rule docs, provider manifests, builder-metadata gaps, and
 > current slice status to orient, then inspect (and cite) the actual files/code in the doc.
 
+> **Planning diagnostics/doctor work?** Ground the design in
+> [`chainreactv2-diagnostics-builder`](../chainreactv2-diagnostics-builder/SKILL.md)'s layered,
+> gated, no-leak architecture rather than re-deriving it.
+
 ## Hard boundaries (state these in the doc and honor them)
 
 - **Inspect the real code first.** Open the actual files in the relevant call path. The

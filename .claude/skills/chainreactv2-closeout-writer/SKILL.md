@@ -13,6 +13,10 @@ should be able to read it and know exactly where things stand without re-derivin
 > curated project memory, current slice status, and relevant rule docs to orient, then verify
 > the commit chain and verification baseline against git/the real files before writing the closeout.
 
+> **Closing out a diagnostics arc?** See
+> [`chainreactv2-diagnostics-builder`](../chainreactv2-diagnostics-builder/SKILL.md) for the
+> architecture + safety guarantees to report accurately (gate state, safe-DTO no-leak, layering).
+
 ## Hard rules (honesty first)
 
 - **Docs-only.** No source/test/migration/UI changes. Local commit, **no push.**

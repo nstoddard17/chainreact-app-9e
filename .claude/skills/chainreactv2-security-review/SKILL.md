@@ -14,6 +14,11 @@ Use this whenever a slice touches sensitive surface area. It applies to both **a
 > `database-security`, `oauth-dispatcher`, `webhook-receipt-routes`) to orient, then inspect
 > the actual code/RLS/routes before reviewing or changing anything.
 
+> **Reviewing diagnostic/doctor output?** Pair with
+> [`chainreactv2-diagnostics-builder`](../chainreactv2-diagnostics-builder/SKILL.md), which owns
+> the diagnostics three-layer + safe-DTO + gate rules; this skill supplies the underlying no-leak
+> defaults it builds on.
+
 ## When this skill is mandatory
 
 OAuth tokens · personal or account credentials · API keys/secrets · inbound/outbound

@@ -14,6 +14,12 @@ pass.
 > curated project memory, relevant rule docs, provider manifests, builder-metadata gaps, and
 > current slice status to orient, then inspect the actual files/code before changing anything.
 
+> **Diagnostics work?** If the slice touches the diagnostic/doctor surface — MCP diagnostic
+> tools, `/api/internal/diagnostics/*`, `services/diagnostics/*` / `services/ai/diagnostics/*`,
+> workflow-readiness, run failure/visibility, connection diagnosis, or AI diagnosis/explanation/
+> repair — follow [`chainreactv2-diagnostics-builder`](../chainreactv2-diagnostics-builder/SKILL.md)
+> for the layered (route=gate · service=brain · MCP=adapter), gated, no-leak architecture.
+
 ## Operating rules
 
 1. **Local only. Never push.** No `git push`, no PRs, no remote triggers unless Marcus
