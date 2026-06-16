@@ -1,5 +1,6 @@
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import type { ResolveContext } from "@/workflow-engine/variables/resolveValue";
+import type { ExecutionDefinitionMode } from "@/services/workflows/activeRevision";
 
 /**
  * Public types for the workflow execution engine. Extracted from
@@ -135,6 +136,14 @@ export interface RunWorkflowInput {
    */
   triggeredByApiKeyId?: string | null;
   triggeredByApiKeyPrefix?: string | null;
+  /**
+   * V2-READY-41E — which definition to execute (see `ExecutionDefinitionMode`).
+   * Omitted → derived from `testMode` (`testMode ? "draft" : "live"`) so a test
+   * preview never accidentally executes the published revision and a real run
+   * never silently reads the draft. Live trigger paths (webhook/cron/poll/public
+   * API) omit it and get "live"; the run-now route passes it explicitly.
+   */
+  executionDefinitionMode?: ExecutionDefinitionMode;
 }
 
 export interface EngineDependencies {

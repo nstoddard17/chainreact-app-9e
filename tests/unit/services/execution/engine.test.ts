@@ -387,7 +387,7 @@ describe("WorkflowEngine — fatal errors", () => {
         triggerEvent,
       });
 
-      expect(mockGetDefinitionForExecution).toHaveBeenCalledWith(wf);
+      expect(mockGetDefinitionForExecution).toHaveBeenCalledWith(wf, "live");
       expect(result.fatalError?.code).toBe("TRIGGER_NODE_NOT_FOUND");
     });
 
@@ -446,6 +446,51 @@ describe("WorkflowEngine — fatal errors", () => {
       expect(result.steps.map((s) => s.nodeId)).toEqual(["t1", "a-rev"]);
       expect(revHandler).toHaveBeenCalledTimes(1);
       expect(draftHandler).not.toHaveBeenCalled();
+    });
+
+    it("derives definition mode 'live' for a real run and 'draft' for a test run (V2-READY-41E)", async () => {
+      const def = { nodes: [trigger("t1")], edges: [] };
+      // Real run (testMode omitted) → "live".
+      mockGetByIdServiceRole.mockResolvedValueOnce({ ...baseWorkflow, draftDefinition: def });
+      await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+      expect(mockGetDefinitionForExecution).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: "wf-1" }),
+        "live",
+      );
+
+      // Test run (testMode true) → "draft".
+      mockGetByIdServiceRole.mockResolvedValueOnce({ ...baseWorkflow, draftDefinition: def });
+      await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+        testMode: true,
+      });
+      expect(mockGetDefinitionForExecution).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: "wf-1" }),
+        "draft",
+      );
+    });
+
+    it("an explicit executionDefinitionMode overrides the testMode derivation (V2-READY-41E)", async () => {
+      const def = { nodes: [trigger("t1")], edges: [] };
+      // testMode true but explicit "live" → engine passes "live".
+      mockGetByIdServiceRole.mockResolvedValueOnce({ ...baseWorkflow, draftDefinition: def });
+      await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+        testMode: true,
+        executionDefinitionMode: "live",
+      });
+      expect(mockGetDefinitionForExecution).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: "wf-1" }),
+        "live",
+      );
     });
 
     it("parity: an equal draft and revision produce identical step results (OFF-draft vs ON-revision)", async () => {

@@ -150,10 +150,12 @@ export class WorkflowEngine {
       };
     }
 
-    // V2-READY-41B — flag-gated definition source: active revision when ON,
-    // mutable draft when OFF (default, byte-identical to pre-41B). The flag +
-    // draft fallback live in services/workflows/activeRevision.ts.
-    const def = (await getDefinitionForExecution(workflow)).definition;
+    // V2-READY-41B/41E — flag-gated definition source. Mode: explicit when set,
+    // else derived from testMode (test/preview → draft; real → live). Live +
+    // flag ON → active revision; draft OR flag OFF → draft (byte-identical to
+    // pre-41B). Flag + fallback live in services/workflows/activeRevision.ts.
+    const mode = input.executionDefinitionMode ?? (isTest ? "draft" : "live");
+    const def = (await getDefinitionForExecution(workflow, mode)).definition;
     const triggerNode = def.nodes.find((n) => n.id === input.triggerNodeId);
     if (!triggerNode) {
       const finishedAt = new Date().toISOString();

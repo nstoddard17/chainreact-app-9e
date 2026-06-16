@@ -186,6 +186,28 @@ describe("getDefinitionForExecution (flag gate)", () => {
     });
   });
 
+  it("draft mode ALWAYS returns the draft, even with the flag ON (V2-READY-41E test/preview)", async () => {
+    process.env[FLAG] = "true";
+    const wf = makeWorkflow({ activeRevisionId: "rev-1" });
+    const result = await getDefinitionForExecution(wf, "draft");
+    expect(result).toEqual({ definition: draftDef, source: "draft", revisionId: null });
+    expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
+  });
+
+  it("live mode + flag ON reads the active revision (V2-READY-41E)", async () => {
+    process.env[FLAG] = "true";
+    const wf = makeWorkflow({ activeRevisionId: "rev-1" });
+    mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
+      id: "rev-1",
+      workflowId: "wf-1",
+      definition: revisionDef,
+      createdAt: "2026-06-15T00:00:00Z",
+    });
+    const result = await getDefinitionForExecution(wf, "live");
+    expect(result.source).toBe("active_revision");
+    expect(result.definition).toBe(revisionDef);
+  });
+
   it("flag ON + null active_revision_id: safe draft fallback", async () => {
     process.env[FLAG] = "true";
     const wf = makeWorkflow({ activeRevisionId: null });

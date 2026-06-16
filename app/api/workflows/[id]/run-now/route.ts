@@ -22,6 +22,10 @@ import {
   workflowNotFoundResponse,
 } from "../../_shared";
 import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
+import {
+  getDefinitionForExecution,
+  type ExecutionDefinitionMode,
+} from "@/services/workflows/activeRevision";
 
 /**
  * POST /api/workflows/[id]/run-now — Native-nodes Slice 2 Commit 1.
@@ -211,7 +215,18 @@ export async function POST(
     );
   }
 
-  const triggerNode = workflow.draftDefinition.nodes.find(
+  // V2-READY-41E — resolve the SAME definition the engine will execute, so the
+  // pre-flight trigger lookup + readiness + risk gate validate against it:
+  //   - test preview → the mutable draft (no publish required);
+  //   - real manual run → the active revision when ENABLE_ACTIVE_REVISION_EXECUTION
+  //     is ON (matching scheduled/webhook/poll), else the draft.
+  // Flag OFF → always the draft, byte-identical to pre-41E behavior.
+  const executionDefinitionMode: ExecutionDefinitionMode = testMode ? "draft" : "live";
+  const executionDef = (
+    await getDefinitionForExecution(workflow, executionDefinitionMode)
+  ).definition;
+
+  const triggerNode = executionDef.nodes.find(
     (n) =>
       n.kind === "trigger" &&
       n.provider === MANUAL_TRIGGER_PROVIDER &&
@@ -241,7 +256,7 @@ export async function POST(
     | ReturnType<typeof findConfirmationRequiredActions>
     | null = null;
   if (!testMode) {
-    risk = findConfirmationRequiredActions(workflow.draftDefinition.nodes);
+    risk = findConfirmationRequiredActions(executionDef.nodes);
     if (risk.requiresConfirmation && !isValidConfirmationText(confirmationText)) {
       return NextResponse.json(
         {
@@ -271,7 +286,7 @@ export async function POST(
     // Shared validator (B): required fields AND graph integrity (one trigger,
     // no orphan/unreachable actions, no edges referencing missing nodes).
     // Returns MISSING_REQUIRED_FIELDS or INVALID_WORKFLOW_GRAPH.
-    const readinessError = checkWorkflowReadiness(workflow.draftDefinition);
+    const readinessError = checkWorkflowReadiness(executionDef);
     if (readinessError) {
       return NextResponse.json(readinessError, { status: 422 });
     }
@@ -298,6 +313,8 @@ export async function POST(
     event,
     testMode,
     triggeredBy,
+    // V2-READY-41E — execute the same definition we validated against above.
+    executionDefinitionMode,
     // 4.ACCOUNT-MODEL-8: manual + test runs are human-initiated — record the
     // caller as the actor (workflow_runs.triggered_by_user_id). Webhook/cron
     // paths omit this → NULL.

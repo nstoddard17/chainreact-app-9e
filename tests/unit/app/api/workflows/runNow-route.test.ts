@@ -17,8 +17,14 @@ jest.mock("@/utils/supabase/server", () => ({
 }));
 
 const mockGetById = jest.fn();
+// V2-READY-41E — the route resolves the executed definition via the REAL
+// getDefinitionForExecution. With the flag OFF (default) it returns the draft
+// without a revision read; the flag-ON tests below mock the revision read.
+const mockGetRevisionByIdServiceRole = jest.fn();
 jest.mock("@/repositories/workflows", () => ({
   getById: (...args: unknown[]) => mockGetById(...args),
+  getRevisionByIdServiceRole: (...args: unknown[]) =>
+    mockGetRevisionByIdServiceRole(...args),
 }));
 
 // 4.TEAM-WORKFLOWS-2B: run-now now authorizes by account MEMBERSHIP of
@@ -142,6 +148,12 @@ beforeEach(() => {
   // Default: account is operational (not frozen).
   mockIsAccountFrozen.mockReset();
   mockIsAccountFrozen.mockResolvedValue(false);
+  mockGetRevisionByIdServiceRole.mockReset();
+  delete process.env.ENABLE_ACTIVE_REVISION_EXECUTION;
+});
+
+afterEach(() => {
+  delete process.env.ENABLE_ACTIVE_REVISION_EXECUTION;
 });
 
 // ── auth + ownership ────────────────────────────────────────────────────────
@@ -1251,5 +1263,99 @@ describe("POST /run-now — keepAlive serverless lifecycle wiring", () => {
     expect(res.status).toBe(422);
     expect(mockEnqueueRun).not.toHaveBeenCalled();
     expect(mockAfter).not.toHaveBeenCalled();
+  });
+});
+
+// ── V2-READY-41E: live-vs-draft execution definition semantics ───────────────
+describe("POST /run-now — execution definition mode (V2-READY-41E)", () => {
+  // A valid revision definition whose manual-trigger node id DIFFERS from the
+  // draft's ("trigger-node") — proves a live run validates/enqueues against the
+  // revision, not the mutable draft.
+  const revisionDefinition = {
+    nodes: [
+      {
+        id: "rev-trigger",
+        kind: "trigger" as const,
+        provider: "native",
+        type: "manual.run",
+        config: {},
+        position: { x: 0, y: 0 },
+      },
+      {
+        id: "action-node",
+        kind: "action" as const,
+        provider: "slack",
+        type: "send_channel_message",
+        config: { channel: "C1", text: "hi" },
+        position: { x: 0, y: 100 },
+      },
+    ],
+    edges: [{ id: "e1", from: "rev-trigger", to: "action-node" }],
+  };
+
+  it("real run + flag ON: executes the ACTIVE REVISION (trigger from revision, mode 'live')", async () => {
+    process.env.ENABLE_ACTIVE_REVISION_EXECUTION = "true";
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce({ ...baseWorkflow, activeRevisionId: "rev-1" });
+    mockGetRevisionByIdServiceRole.mockResolvedValueOnce({
+      id: "rev-1",
+      workflowId: "wf-1",
+      definition: revisionDefinition,
+      createdAt: "2026-06-15T00:00:00Z",
+    });
+
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+
+    expect(res.status).toBe(202);
+    expect(mockGetRevisionByIdServiceRole).toHaveBeenCalledWith("rev-1");
+    const call = mockEnqueueRun.mock.calls[0]![0] as {
+      triggerNodeId: string;
+      executionDefinitionMode: string;
+    };
+    expect(call.triggerNodeId).toBe("rev-trigger"); // revision's node, not the draft's
+    expect(call.executionDefinitionMode).toBe("live");
+  });
+
+  it("test run + flag ON: executes the DRAFT (mode 'draft', no revision read)", async () => {
+    process.env.ENABLE_ACTIVE_REVISION_EXECUTION = "true";
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce({ ...baseWorkflow, activeRevisionId: "rev-1" });
+
+    const res = await POST(
+      buildRequest({ body: JSON.stringify({ testMode: true }) }),
+      { params: Promise.resolve({ id: "wf-1" }) },
+    );
+
+    expect(res.status).toBe(202);
+    expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
+    const call = mockEnqueueRun.mock.calls[0]![0] as {
+      triggerNodeId: string;
+      executionDefinitionMode: string;
+      testMode: boolean;
+    };
+    expect(call.triggerNodeId).toBe("trigger-node"); // the draft's node
+    expect(call.executionDefinitionMode).toBe("draft");
+    expect(call.testMode).toBe(true);
+  });
+
+  it("flag OFF: a real run uses the draft and forwards mode 'live' (no revision read)", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce({ ...baseWorkflow, activeRevisionId: "rev-1" });
+
+    const res = await POST(buildRequest({ body: "{}" }), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+
+    expect(res.status).toBe(202);
+    // flag OFF → live mode resolves to the draft without touching the revision.
+    expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
+    const call = mockEnqueueRun.mock.calls[0]![0] as {
+      triggerNodeId: string;
+      executionDefinitionMode: string;
+    };
+    expect(call.triggerNodeId).toBe("trigger-node");
+    expect(call.executionDefinitionMode).toBe("live");
   });
 });

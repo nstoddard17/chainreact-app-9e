@@ -22,6 +22,18 @@ import { isActiveRevisionExecutionEnabled } from "@/services/workflows/flags";
 
 export type DefinitionSource = "draft" | "active_revision";
 
+/**
+ * V2-READY-41E — which definition an execution should run:
+ *   - "live"  → the active revision when ENABLE_ACTIVE_REVISION_EXECUTION is ON
+ *               (else the draft). The semantics of every production trigger
+ *               path: manual run-now (real), scheduled, webhook, polling, public
+ *               API trigger. Live execution must match what triggers fire.
+ *   - "draft" → ALWAYS the mutable draft, regardless of the flag. The builder
+ *               test / preview path — you preview what you're editing, no publish
+ *               required.
+ */
+export type ExecutionDefinitionMode = "live" | "draft";
+
 export interface ResolvedDefinition {
   /** The definition the caller should use. */
   definition: WorkflowDefinition;
@@ -79,21 +91,24 @@ export async function getActiveDefinition(
 }
 
 /**
- * Flag-gated entry point for the EXECUTION engine (V2-READY-41B).
+ * Flag-gated entry point for the EXECUTION engine (V2-READY-41B, mode added 41E).
  *
- * - `ENABLE_ACTIVE_REVISION_EXECUTION` OFF (default): returns the draft WITHOUT
- *   reading any revision — byte-identical to the pre-41B execution path.
- * - ON: delegates to `getActiveDefinition` (active revision, with the safe draft
- *   fallback for null / dangling pointers).
+ * - `mode === "draft"` (builder test / preview): ALWAYS returns the draft, even
+ *   when the flag is ON — preview reads what you're editing, no publish required.
+ * - `mode === "live"` (default; all production trigger paths) + flag OFF: returns
+ *   the draft — byte-identical to the pre-41B execution path.
+ * - `mode === "live"` + flag ON: delegates to `getActiveDefinition` (active
+ *   revision, with the safe draft fallback for null / dangling pointers).
  *
- * Keeping the flag here (not in the engine) means the engine has a single,
+ * Keeping the flag + mode here (not in the engine) means the engine has a single,
  * stable call site and the rollout toggle lives with the rest of the
  * active-revision logic.
  */
 export async function getDefinitionForExecution(
   workflow: WorkflowRecord,
+  mode: ExecutionDefinitionMode = "live",
 ): Promise<ResolvedDefinition> {
-  if (!isActiveRevisionExecutionEnabled()) {
+  if (mode === "draft" || !isActiveRevisionExecutionEnabled()) {
     return { definition: workflow.draftDefinition, source: "draft", revisionId: null };
   }
   return getActiveDefinition(workflow);

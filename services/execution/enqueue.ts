@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import { resolveStrict } from "@/workflow-engine/variables/resolveValue";
 import { WorkflowEngine, type RunTriggerSource } from "./engine";
+import type { ExecutionDefinitionMode } from "@/services/workflows/activeRevision";
 
 /**
  * Webhook → execution handoff.
@@ -52,6 +53,13 @@ export interface EnqueueRunInput {
    */
   triggeredByApiKeyId?: string | null;
   triggeredByApiKeyPrefix?: string | null;
+  /**
+   * V2-READY-41E — which definition the engine executes. Live trigger
+   * dispatchers (webhook/cron/poll/public API) omit it → the engine derives
+   * "live" from their non-test runs. The run-now route passes "draft" for test
+   * preview, "live" for a real manual run. Forwarded verbatim to the engine.
+   */
+  executionDefinitionMode?: ExecutionDefinitionMode;
   /**
    * Serverless lifecycle extender. The background engine promise is
    * fire-and-forget by default, which on a serverless platform can be
@@ -128,6 +136,10 @@ async function runWorkflowInBackground(
       triggeredByUserId: input.triggeredByUserId ?? null,
       triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
       triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
+      // V2-READY-41E — undefined here lets the engine derive from testMode.
+      ...(input.executionDefinitionMode !== undefined
+        ? { executionDefinitionMode: input.executionDefinitionMode }
+        : {}),
     });
   } catch (err) {
     console.error(
