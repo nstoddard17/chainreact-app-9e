@@ -6,7 +6,7 @@
  * (field/connection are owned by the input/setup groups); each maps to friendly
  * guidance with NO raw code/id; finding order + severity are preserved.
  */
-import { attentionFindingCards } from "@/features/workflow-builder/ai/attentionFindings";
+import { attentionFindingCards, invalidReferenceCards } from "@/features/workflow-builder/ai/attentionFindings";
 import type { AgentWorkflowDiagnosis } from "@/lib/api/ai";
 
 const f = (source: string, code: string, severity = "error") => ({ source, code, severity, title: "x" });
@@ -63,28 +63,64 @@ describe("attentionFindingCards — copy + no-leak", () => {
   });
 });
 
-describe("attentionFindingCards — invalid variable references (AI-REPAIR-3G)", () => {
-  it("renders a broken-reference card with the field label + user-typed token", () => {
-    const cards = attentionFindingCards(
-      dx([
-        {
-          source: "graph",
-          code: "INVALID_VARIABLE_REFERENCE",
-          severity: "error",
-          title: "x",
-          invalidReferences: [{ fieldLabel: "Message", token: "{{ghost.to}}" }],
-        },
-      ]),
-    );
-    expect(cards).toHaveLength(1);
-    expect(cards[0]!.message).toContain("Message");
-    expect(cards[0]!.message).toContain("{{ghost.to}}");
-    expect(cards[0]!.message).toContain("Re-point");
+describe("invalidReferenceCards — actionable invalid-reference cards (AI-REPAIR-3I)", () => {
+  const refFinding = (refs: unknown[]) =>
+    dx([
+      {
+        source: "graph",
+        code: "INVALID_VARIABLE_REFERENCE",
+        severity: "error",
+        title: "x",
+        nodeIds: ["slack-1"],
+        invalidReferences: refs,
+      },
+    ]);
+
+  it("invalid-reference findings are NOT returned by attentionFindingCards (they're actionable)", () => {
+    const d = refFinding([{ fieldLabel: "Message", token: "{{ghost.to}}", fieldKey: "message", replacementReason: "none" }]);
+    expect(attentionFindingCards(d)).toEqual([]); // moved to invalidReferenceCards
   });
 
-  it("falls back to generic guidance when display metadata is absent", () => {
-    const cards = attentionFindingCards(dx([f("graph", "INVALID_VARIABLE_REFERENCE")]));
+  it("zero candidates → 'choose a valid variable or remove' guidance + nav targets (not rendered)", () => {
+    const cards = invalidReferenceCards(
+      refFinding([{ fieldLabel: "Message", token: "{{ghost.to}}", fieldKey: "message", replacementReason: "none" }]),
+    );
     expect(cards).toHaveLength(1);
-    expect(cards[0]!.message).toContain("deleted or missing step");
+    expect(cards[0]).toMatchObject({ nodeId: "slack-1", fieldKey: "message", fieldLabel: "Message" });
+    expect(cards[0]!.message).toContain("Message");
+    expect(cards[0]!.message).toContain("choose a valid variable or remove");
+    // No-leak: the raw field key / node id never appear in the user-facing message.
+    expect(cards[0]!.message).not.toContain("slack-1");
+  });
+
+  it("multiple candidates → manual-choice guidance", () => {
+    const cards = invalidReferenceCards(
+      refFinding([{ fieldLabel: "Message", token: "{{ghost.to}}", fieldKey: "message", replacementReason: "multiple" }]),
+    );
+    expect(cards[0]!.message).toContain("More than one replacement");
+    expect(cards[0]!.message).toContain("choose the correct variable manually");
+  });
+
+  it("one candidate → points to the automatic 'Suggest a fix' repair as well", () => {
+    const cards = invalidReferenceCards(
+      refFinding([{ fieldLabel: "Message", token: "{{ghost.to}}", fieldKey: "message", replacementReason: "one" }]),
+    );
+    expect(cards[0]!.message).toContain("Suggest a fix");
+  });
+
+  it("missing reason → safe generic guidance", () => {
+    const cards = invalidReferenceCards(
+      refFinding([{ fieldLabel: "Message", token: "{{ghost.to}}", fieldKey: "message" }]),
+    );
+    expect(cards[0]!.message).toContain("choose a valid variable or remove");
+  });
+
+  it("skips a ref missing its navigation key (e.g. a pre-3I rehydrated diagnosis)", () => {
+    const cards = invalidReferenceCards(refFinding([{ fieldLabel: "Message", token: "{{ghost.to}}" }]));
+    expect(cards).toEqual([]);
+  });
+
+  it("returns [] when there are no invalid-reference findings", () => {
+    expect(invalidReferenceCards(dx([f("graph", "no_trigger")]))).toEqual([]);
   });
 });

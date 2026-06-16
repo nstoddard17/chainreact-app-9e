@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview } from "@/lib/api/ai";
 import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
 import { setupFindingCards } from "../ai/setupFindings";
-import { attentionFindingCards } from "../ai/attentionFindings";
+import { attentionFindingCards, invalidReferenceCards } from "../ai/attentionFindings";
 import {
   useRepairFieldTarget,
   useRepairFieldTargets,
@@ -345,7 +345,10 @@ export function DiagnosisAttentionActions({
   readonly diagnosis: AgentWorkflowDiagnosis;
 }) {
   const cards = attentionFindingCards(diagnosis);
-  if (cards.length === 0) return null;
+  // AI-REPAIR-3I — actionable broken-variable-reference cards (each with an
+  // "Open <field> field" button) render in the SAME "Needs attention" group.
+  const refCards = invalidReferenceCards(diagnosis);
+  if (cards.length === 0 && refCards.length === 0) return null;
   return (
     <div data-testid="builder-ai-diagnosis-attention" className="flex flex-col gap-1 pt-1">
       <p className="text-[11px] font-medium" style={{ color: "var(--builder-text)" }}>
@@ -354,17 +357,82 @@ export function DiagnosisAttentionActions({
       <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
         Review these issues manually.
       </p>
-      <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
-        {cards.map((card) => (
-          <li
-            key={card.key}
-            data-testid="builder-ai-diagnosis-attention-item"
-            style={{ color: "var(--builder-text)" }}
-          >
+      {cards.length > 0 && (
+        <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
+          {cards.map((card) => (
+            <li
+              key={card.key}
+              data-testid="builder-ai-diagnosis-attention-item"
+              style={{ color: "var(--builder-text)" }}
+            >
+              {card.message}
+            </li>
+          ))}
+        </ul>
+      )}
+      {refCards.map((card) => (
+        <div
+          key={card.key}
+          data-testid="builder-ai-diagnosis-invalid-ref"
+          className="flex flex-col gap-1"
+        >
+          <p className="text-xs" style={{ color: "var(--builder-text)" }}>
             {card.message}
-          </li>
-        ))}
-      </ul>
+          </p>
+          <InvalidReferenceGoToField
+            nodeId={card.nodeId}
+            fieldKey={card.fieldKey}
+            fieldLabel={card.fieldLabel}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Slice 4.AI-REPAIR-3I — "Open <field> field" navigation affordance for a broken
+ * variable reference with no safe automatic Apply. NAVIGATION ONLY: resolves the
+ * affected node from the LIVE graph, opens its config rail, pans the canvas to it,
+ * and highlights the field (the SAME `revealNode` seam the missing-field + blocked-
+ * preview affordances use). NEVER writes a config value, saves, runs, mutates the
+ * graph, or shows an Apply control. Renders a guidance-only line (no broken button)
+ * when the node isn't on the canvas. Shows only the field LABEL — never the raw node
+ * id or field key (both are navigation targets only).
+ */
+function InvalidReferenceGoToField({
+  nodeId,
+  fieldKey,
+  fieldLabel,
+}: {
+  readonly nodeId: string;
+  readonly fieldKey: string;
+  readonly fieldLabel: string;
+}) {
+  function handleClick() {
+    // Resolve the node's CURRENT config from the live graph for the rail draft. If the
+    // node isn't on the canvas (stale diagnosis), no-op — never throw.
+    const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    useConfigSlice.getState().revealNode({
+      nodeId: node.id,
+      initialValues: node.config,
+      fieldKey,
+    });
+  }
+
+  return (
+    <div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleClick}
+        data-testid="builder-ai-invalid-ref-open-field-button"
+        className="h-7 text-xs"
+      >
+        Open {fieldLabel} field
+      </Button>
     </div>
   );
 }

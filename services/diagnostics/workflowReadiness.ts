@@ -70,15 +70,23 @@ export interface NodeLabelDTO {
 }
 
 /**
- * AI-REPAIR-3G — one broken (deleted-/unknown-node) variable reference found in a
- * node's config. Carries SAFE display fields only: the containing node id (internal
- * targeting handle, like every other finding's `nodeId`), the field LABEL, and the
- * user-AUTHORED `{{...}}` token. No resolved value, no secret, no non-token config.
+ * AI-REPAIR-3G/3I — one broken (deleted-/unknown-node) variable reference found in a
+ * node's config. Carries SAFE display fields plus INTERNAL navigation/compute targets:
+ *   - `nodeId` — internal targeting handle (like every other finding's `nodeId`).
+ *   - `fieldLabel` — display label (rendered).
+ *   - `token` — the user-AUTHORED `{{...}}` token (safe; the user typed it).
+ *   - `fieldKey` — the config key holding the ref. INTERNAL navigation target only
+ *     (passed to `revealNode`); NEVER rendered as user-facing text (3I).
+ *   - `refPath` — the broken reference's dotted path. INTERNAL — used by the agent
+ *     layer to count safe upstream replacements; NEVER rendered (3I).
+ * No resolved value, no secret, no non-token config.
  */
 export interface InvalidVariableRefDTO {
   readonly nodeId: string;
   readonly fieldLabel: string;
   readonly token: string;
+  readonly fieldKey: string;
+  readonly refPath: string;
 }
 
 export interface WorkflowReadinessDTO {
@@ -119,14 +127,13 @@ function buildInvalidVariableRefs(
   nodes: readonly WorkflowNode[],
 ): InvalidVariableRefDTO[] {
   const nodesById = new Map(nodes.map((n) => [n.id, n]));
-  return findInvalidVariableReferences(nodes).map((ref) => {
-    const node = nodesById.get(ref.nodeId);
-    return {
-      nodeId: ref.nodeId,
-      fieldLabel: node ? resolveFieldLabel(node, ref.fieldKey) : ref.fieldKey,
-      token: ref.token,
-    };
-  });
+  return findInvalidVariableReferences(nodes).map((ref) => ({
+    nodeId: ref.nodeId,
+    fieldLabel: nodesById.has(ref.nodeId) ? resolveFieldLabel(nodesById.get(ref.nodeId)!, ref.fieldKey) : ref.fieldKey,
+    token: ref.token,
+    fieldKey: ref.fieldKey,
+    refPath: ref.refPath,
+  }));
 }
 
 /** Build the nodeId → safe display-label inventory for the diagnosed graph. */

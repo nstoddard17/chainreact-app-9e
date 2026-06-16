@@ -6,6 +6,7 @@ import {
 } from "@/services/diagnostics/integrationConnection";
 import { diagnoseRunReport } from "@/services/diagnostics/runReport";
 import { listByWorkflow } from "@/repositories/workflowRuns";
+import { getAvailableVariablesForAI } from "@/services/ai/tools/variables";
 import { renderWorkflowDiagnosis } from "./renderWorkflowDiagnosis";
 
 /**
@@ -79,13 +80,25 @@ export interface AgentFinding {
   readonly missingScopes?: readonly string[];
   readonly credentialClass?: "personal" | "account";
   /**
-   * AI-REPAIR-3G — broken variable references for an `INVALID_VARIABLE_REFERENCE`
+   * AI-REPAIR-3G/3I — broken variable references for an `INVALID_VARIABLE_REFERENCE`
    * finding. Each carries the SAFE field LABEL + the user-AUTHORED `{{...}}` token
-   * (the only place a token-embedded node id is allowed in user-facing text). NEVER
-   * forwarded to the model (`buildDiagnosisExplainContext` does not project it), so
-   * the raw id stays out of the prompt; the summary describes the issue by label.
+   * (the only place a token-embedded node id is allowed in user-facing text), plus
+   * INTERNAL targets for the "Open <field> field" affordance:
+   *   - `fieldKey` — config key passed to `revealNode`; NEVER rendered as text (3I).
+   *   - `replacementReason` — deterministic count of SAFE upstream replacements,
+   *     computed from the SAME source the repair path uses (`getAvailableVariablesForAI`),
+   *     so it predicts whether an Apply preview exists: `none` (no safe replacement) /
+   *     `one` (the existing applyable-preview case) / `multiple` (user must choose).
+   *     Absent when it couldn't be determined → the UI shows generic guidance.
+   * NEVER forwarded to the model (`buildDiagnosisExplainContext` does not project it),
+   * so the raw id/key stay out of the prompt; the summary describes the issue by label.
    */
-  readonly invalidReferences?: readonly { readonly fieldLabel: string; readonly token: string }[];
+  readonly invalidReferences?: readonly {
+    readonly fieldLabel: string;
+    readonly token: string;
+    readonly fieldKey: string;
+    readonly replacementReason?: "none" | "one" | "multiple";
+  }[];
   /**
    * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal for this
    * provider's resolved credential (boolean only; never the raw timestamp). Present
@@ -286,13 +299,33 @@ export async function diagnoseWorkflowForAgent(input: {
   // no connection/reconnect action — it isn't either of those). Each carries the
   // safe field LABEL + user-authored token for display.
   const invalidRefs = readiness.invalidVariableRefs ?? [];
-  const invalidRefsByNode = new Map<string, { fieldLabel: string; token: string }[]>();
+  const invalidRefsByNode = new Map<
+    string,
+    { fieldLabel: string; token: string; fieldKey: string; refPath: string }[]
+  >();
   for (const ref of invalidRefs) {
     const list = invalidRefsByNode.get(ref.nodeId) ?? [];
-    list.push({ fieldLabel: ref.fieldLabel, token: ref.token });
+    list.push({ fieldLabel: ref.fieldLabel, token: ref.token, fieldKey: ref.fieldKey, refPath: ref.refPath });
     invalidRefsByNode.set(ref.nodeId, list);
   }
   for (const [nodeId, refs] of invalidRefsByNode) {
+    // AI-REPAIR-3I — count SAFE upstream replacements per broken ref via the SAME
+    // source the deterministic repair path uses (`getAvailableVariablesForAI`), so a
+    // `one`/`none`/`multiple` reason exactly predicts whether an applyable Apply
+    // preview exists (3G/3H). Read-only + best-effort: a failure leaves the reason
+    // absent (UI falls back to generic guidance), never breaks the diagnosis.
+    let replacementPaths: string[] | null = null;
+    try {
+      const vars = await getAvailableVariablesForAI(subjectUserId, workflowId, nodeId);
+      replacementPaths = vars.ok ? vars.data.variables.map((v) => v.path) : null;
+    } catch {
+      replacementPaths = null;
+    }
+    const reasonFor = (refPath: string): "none" | "one" | "multiple" | undefined => {
+      if (!replacementPaths) return undefined;
+      const n = replacementPaths.filter((p) => p === refPath).length;
+      return n === 0 ? "none" : n === 1 ? "one" : "multiple";
+    };
     findings.push({
       source: "graph",
       code: "INVALID_VARIABLE_REFERENCE",
@@ -300,7 +333,15 @@ export async function diagnoseWorkflowForAgent(input: {
       title: graphTitle("INVALID_VARIABLE_REFERENCE"),
       nodeIds: [nodeId],
       ...withLabels([nodeId]),
-      invalidReferences: refs,
+      invalidReferences: refs.map((r) => {
+        const reason = reasonFor(r.refPath);
+        return {
+          fieldLabel: r.fieldLabel,
+          token: r.token,
+          fieldKey: r.fieldKey,
+          ...(reason ? { replacementReason: reason } : {}),
+        };
+      }),
     });
   }
   for (const p of connections.providers ?? []) {

@@ -182,7 +182,7 @@ describe("renderWorkflowDiagnosis — invalid variable references (AI-REPAIR-3G)
     title: "A step references a deleted or missing step.",
     nodeIds: ["slack-1"],
     nodeLabels: ["Slack — Send Channel Message"],
-    invalidReferences: [{ fieldLabel: "Message", token: "{{ghost.to}}" }],
+    invalidReferences: [{ fieldLabel: "Message", token: "{{ghost.to}}", fieldKey: "message" }],
   };
 
   it("cites the broken-reference reason even when runnable + connected", () => {

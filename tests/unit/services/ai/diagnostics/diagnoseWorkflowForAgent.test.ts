@@ -33,6 +33,12 @@ jest.mock("@/repositories/workflowRuns", () => ({
   listByWorkflow: (...a: unknown[]) => mockListRuns(...a),
 }));
 
+// AI-REPAIR-3I — invalid-ref findings count safe upstream replacements via this.
+const mockGetVars = jest.fn();
+jest.mock("@/services/ai/tools/variables", () => ({
+  getAvailableVariablesForAI: (...a: unknown[]) => mockGetVars(...a),
+}));
+
 import { diagnoseWorkflowForAgent } from "@/services/ai/diagnostics/diagnoseWorkflowForAgent";
 
 const WF = "wf-1";
@@ -118,6 +124,8 @@ beforeEach(() => {
   mockRunReport.mockReset();
   mockListRuns.mockReset();
   mockListRuns.mockResolvedValue([]); // default: no runs
+  mockGetVars.mockReset();
+  mockGetVars.mockResolvedValue({ ok: true, data: { variables: [] } }); // default: no candidates → "none"
 });
 
 // ───────────────────────── access short-circuit ─────────────────────────
@@ -234,8 +242,27 @@ describe("diagnoseWorkflowForAgent — invalid variable references", () => {
       graphIssues: [],
       fieldGaps: [],
       nodeLabels: [{ nodeId: "slack-1", label: "Slack — Send Channel Message" }],
-      invalidVariableRefs: [{ nodeId: "slack-1", fieldLabel: "Message", token: BROKEN_TOKEN }],
+      invalidVariableRefs: [
+        { nodeId: "slack-1", fieldLabel: "Message", token: BROKEN_TOKEN, fieldKey: "message", refPath: "to" },
+      ],
     });
+  }
+  /** Upstream variables with `count` paths matching the broken ref's path ("to"). */
+  function varsWithToMatches(count: number) {
+    return {
+      ok: true,
+      data: {
+        variables: Array.from({ length: count }, (_, i) => ({
+          nodeId: `up-${i}`,
+          nodeType: "x:y",
+          nodeKind: "action",
+          path: "to",
+          reference: `{{up-${i}.to}}`,
+          type: "string",
+          sensitive: false,
+        })),
+      },
+    };
   }
   function connectionsAllReady() {
     return connectionsOk({
@@ -279,9 +306,43 @@ describe("diagnoseWorkflowForAgent — invalid variable references", () => {
     expect(finding!.source).toBe("graph");
     expect(finding!.severity).toBe("error");
     expect(finding!.nodeIds).toEqual(["slack-1"]);
-    expect(finding!.invalidReferences).toEqual([{ fieldLabel: "Message", token: BROKEN_TOKEN }]);
+    // AI-REPAIR-3I — carries the nav target (fieldKey) + replacement reason. Default
+    // mock has no upstream candidates → "none".
+    expect(finding!.invalidReferences).toEqual([
+      { fieldLabel: "Message", token: BROKEN_TOKEN, fieldKey: "message", replacementReason: "none" },
+    ]);
     // It is NOT a missing-required-field finding (no "Open field" / Apply-on-field card).
     expect(dto.findings!.some((f) => f.code === "MISSING_REQUIRED_FIELD")).toBe(false);
+  });
+
+  it("replacementReason reflects the candidate count from the SAME source the repair path uses", async () => {
+    mockReadiness.mockResolvedValue(readinessBrokenRef());
+    mockConnections.mockResolvedValue(connectionsAllReady());
+
+    // none
+    mockGetVars.mockResolvedValueOnce(varsWithToMatches(0));
+    let dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    expect(dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE")!.invalidReferences![0]!.replacementReason).toBe("none");
+
+    // one (the existing applyable-preview case)
+    mockGetVars.mockResolvedValueOnce(varsWithToMatches(1));
+    dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    expect(dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE")!.invalidReferences![0]!.replacementReason).toBe("one");
+
+    // multiple
+    mockGetVars.mockResolvedValueOnce(varsWithToMatches(3));
+    dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    expect(dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE")!.invalidReferences![0]!.replacementReason).toBe("multiple");
+  });
+
+  it("replacementReason is omitted (not faked) when upstream variables can't be resolved", async () => {
+    mockReadiness.mockResolvedValue(readinessBrokenRef());
+    mockConnections.mockResolvedValue(connectionsAllReady());
+    mockGetVars.mockResolvedValueOnce({ ok: false, code: "NOT_FOUND", message: "x" });
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+    const ref = dto.findings!.find((f) => f.code === "INVALID_VARIABLE_REFERENCE")!.invalidReferences![0]!;
+    expect(ref.replacementReason).toBeUndefined();
+    expect(ref.fieldKey).toBe("message"); // nav target still present
   });
 
   it("does NOT leak the raw token (node uuid) into the model-visible summaryText", async () => {

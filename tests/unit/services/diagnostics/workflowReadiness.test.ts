@@ -207,7 +207,10 @@ describe("diagnoseWorkflowReadiness — invalid variable references (AI-REPAIR-3
     const result = await call();
     expect(result.access).toBe("OK");
     expect(result.invalidVariableRefs).toEqual([
-      { nodeId: "gmail-1", fieldLabel: expect.any(String), token: BROKEN },
+      // AI-REPAIR-3I — carries the internal navigation/compute targets (fieldKey +
+      // refPath) alongside the safe display fields. The broken token is `{{<uuid>.email}}`
+      // in the `to` field, so fieldKey="to" and refPath="email".
+      { nodeId: "gmail-1", fieldLabel: expect.any(String), token: BROKEN, fieldKey: "to", refPath: "email" },
     ]);
   });
 

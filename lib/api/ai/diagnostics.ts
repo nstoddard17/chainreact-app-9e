@@ -47,12 +47,20 @@ export interface AgentDiagnosisFinding {
   readonly missingScopes?: readonly string[];
   readonly credentialClass?: "personal" | "account";
   /**
-   * AI-REPAIR-3G — broken variable references on an `INVALID_VARIABLE_REFERENCE`
-   * finding. `fieldLabel` is a safe field name; `token` is the user-AUTHORED
-   * `{{...}}` reference (safe to display — the user typed it). Rendered client-side
-   * by the "Needs attention" group; never sent to the model.
+   * AI-REPAIR-3G/3I — broken variable references on an `INVALID_VARIABLE_REFERENCE`
+   * finding. `fieldLabel` is a safe field label; `token` is the user-AUTHORED
+   * `{{...}}` reference (safe to display). `fieldKey` is an INTERNAL navigation
+   * target for the "Open <field> field" action (passed to `revealNode`) — never
+   * rendered as text. `replacementReason` (`none`/`one`/`multiple`) drives the
+   * "why Apply isn't available" copy. Rendered client-side by the "Needs attention"
+   * group; never sent to the model.
    */
-  readonly invalidReferences?: readonly { readonly fieldLabel: string; readonly token: string }[];
+  readonly invalidReferences?: readonly {
+    readonly fieldLabel: string;
+    readonly token: string;
+    readonly fieldKey: string;
+    readonly replacementReason?: "none" | "one" | "multiple";
+  }[];
   /**
    * CHECK-ACTIONS-3 — persisted reconnect-needed health for this provider's
    * credential (boolean only; the server never sends the raw timestamp). Connection

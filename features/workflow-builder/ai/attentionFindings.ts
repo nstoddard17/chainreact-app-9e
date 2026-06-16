@@ -11,6 +11,11 @@ import type { AgentWorkflowDiagnosis } from "@/lib/api/ai";
  * action for "the workflow has no trigger" or "the last run failed" from this card).
  * No model call, no I/O, no AI credits.
  *
+ * AI-REPAIR-3I — broken variable references are NO LONGER returned here; they are
+ * actionable (carry an "Open <field> field" target), so they live in
+ * `invalidReferenceCards` below and render with a button. `attentionFindingCards`
+ * stays value-free / button-free.
+ *
  * No-leak: renders only deterministic guidance strings keyed off the finding's stable
  * code — never the raw code, node id, field key, provider/type key, or any config
  * value. Run findings deliberately surface only generic guidance (not the stored run
@@ -40,30 +45,9 @@ function graphGuidance(code: string): string {
 }
 
 /**
- * AI-REPAIR-3G — friendly "Needs attention" line for a broken variable reference.
- * Names the affected field(s) and echoes the user-AUTHORED `{{...}}` token(s) — the
- * one place a token-embedded node id is allowed in user-facing text (the user typed
- * it; the design-time field validator shows it too). Falls back to generic guidance
- * when the safe display metadata is absent (e.g. a rehydrated historical diagnosis).
- */
-function invalidReferenceGuidance(
-  refs: readonly { readonly fieldLabel: string; readonly token: string }[] | undefined,
-): string {
-  if (!refs || refs.length === 0) {
-    return "A step references a deleted or missing step. Re-point it to an available step, or remove the reference.";
-  }
-  const parts = refs.map((r) => `${r.fieldLabel} (${r.token})`).join(", ");
-  const lead =
-    refs.length === 1
-      ? `The ${parts} field references a step that's no longer in this workflow.`
-      : `These fields reference steps that are no longer in this workflow: ${parts}.`;
-  return `${lead} Re-point it to an available step, or remove the reference.`;
-}
-
-/**
- * Map a diagnosis to its ordered "Needs attention" cards (graph + run findings, in
- * finding order). Returns an empty array when there are none, so the caller renders
- * nothing.
+ * Map a diagnosis to its ordered "Needs attention" cards (structural graph + run
+ * findings, in finding order). Returns an empty array when there are none, so the
+ * caller renders nothing. Excludes `INVALID_VARIABLE_REFERENCE` (→ `invalidReferenceCards`).
  */
 export function attentionFindingCards(
   diagnosis: AgentWorkflowDiagnosis | null | undefined,
@@ -73,12 +57,8 @@ export function attentionFindingCards(
   for (const finding of diagnosis?.findings ?? []) {
     const severity: "error" | "warning" =
       finding.severity === "warning" ? "warning" : "error";
-    if (finding.source === "graph") {
-      const message =
-        finding.code === "INVALID_VARIABLE_REFERENCE"
-          ? invalidReferenceGuidance(finding.invalidReferences)
-          : graphGuidance(finding.code);
-      out.push({ key: `graph:${finding.code}:${i}`, severity, message });
+    if (finding.source === "graph" && finding.code !== "INVALID_VARIABLE_REFERENCE") {
+      out.push({ key: `graph:${finding.code}:${i}`, severity, message: graphGuidance(finding.code) });
     } else if (finding.source === "run") {
       out.push({
         key: `run:${finding.code}:${i}`,
@@ -87,6 +67,79 @@ export function attentionFindingCards(
       });
     }
     i += 1;
+  }
+  return out;
+}
+
+/**
+ * AI-REPAIR-3I — an actionable "Needs attention" card for ONE broken variable
+ * reference. Unlike the structural cards above, it carries an "Open <field> field"
+ * navigation target (`nodeId` + `fieldKey`) so the UI can render a button that
+ * reveals + highlights the affected field. The user then fixes it manually (choose a
+ * valid variable or remove the reference) — there's no safe automatic Apply for the
+ * zero/multiple-candidate case.
+ *
+ * No-leak: `nodeId` / `fieldKey` are NAVIGATION TARGETS only (never rendered); the
+ * `message` + button label use the field LABEL. The `replacementReason` selects the
+ * "why Apply isn't available" copy.
+ */
+export interface InvalidReferenceCard {
+  /** Stable React key. Not rendered. */
+  readonly key: string;
+  readonly severity: "error" | "warning";
+  /** Navigation target — passed to `revealNode`; NEVER rendered. */
+  readonly nodeId: string;
+  /** Navigation target (config key) — passed to `revealNode`; NEVER rendered. */
+  readonly fieldKey: string;
+  /** Display label for the button + copy. */
+  readonly fieldLabel: string;
+  /** Deterministic guidance for why Apply isn't offered + what to do instead. */
+  readonly message: string;
+}
+
+/** Reason-specific guidance copy. Field LABEL only — never the key, id, or raw token. */
+function invalidReferenceMessage(
+  fieldLabel: string,
+  reason: "none" | "one" | "multiple" | undefined,
+): string {
+  switch (reason) {
+    case "multiple":
+      return `This ${fieldLabel} field references a missing step. More than one replacement may fit, so open the field and choose the correct variable manually.`;
+    case "one":
+      return `This ${fieldLabel} field references a step that's no longer in this workflow. Open the field to fix it, or use “Suggest a fix” for an automatic repair.`;
+    case "none":
+    default:
+      // Zero candidates (or unknown) — the safe, always-valid guidance.
+      return `This ${fieldLabel} field references a step that's no longer in this workflow. Open the field and choose a valid variable or remove the reference.`;
+  }
+}
+
+/**
+ * Flatten a diagnosis into ordered, actionable invalid-variable-reference cards (one
+ * per broken ref). Empty when there are none. Skips any ref missing its safe display
+ * label or navigation key (e.g. a rehydrated historical diagnosis that predates 3I).
+ */
+export function invalidReferenceCards(
+  diagnosis: AgentWorkflowDiagnosis | null | undefined,
+): InvalidReferenceCard[] {
+  const out: InvalidReferenceCard[] = [];
+  let i = 0;
+  for (const finding of diagnosis?.findings ?? []) {
+    if (finding.code !== "INVALID_VARIABLE_REFERENCE") continue;
+    const nodeId = finding.nodeIds?.[0];
+    const severity: "error" | "warning" = finding.severity === "warning" ? "warning" : "error";
+    for (const ref of finding.invalidReferences ?? []) {
+      if (!nodeId || !ref.fieldKey || !ref.fieldLabel) continue;
+      out.push({
+        key: `invalid-ref:${i}`,
+        severity,
+        nodeId,
+        fieldKey: ref.fieldKey,
+        fieldLabel: ref.fieldLabel,
+        message: invalidReferenceMessage(ref.fieldLabel, ref.replacementReason),
+      });
+      i += 1;
+    }
   }
   return out;
 }
