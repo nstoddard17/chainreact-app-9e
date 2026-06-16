@@ -35,6 +35,7 @@ It is **live internal tooling** (not flag-gated).
 | `chainreact app list` | Lists discovered providers with text-derived fields: id, displayName, enabled, action handler/meta/schema counts, trigger-meta count. Never imports provider code. Deterministic (sorted by id). |
 | `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. |
 | `chainreact app validate --all [--verbose]` | Runs the validator across **every** discovered provider; prints a summary (total / pass / warn / fail + per-provider status). Failures list their errors inline; `--verbose` also lists warnings. |
+| `chainreact app scaffold <id> [--dry-run]` | Creates a minimal, contract-valid provider skeleton under `integrations/<id>/` (a single `manifest.ts`, capabilities off, TODOs for the rest). Refuses to overwrite an existing provider; never edits the registry. `--dry-run` prints the plan + predicted validation and writes nothing. |
 | `chainreact --help` / `-h` | Usage. |
 
 ## Usage
@@ -49,6 +50,8 @@ npm run chainreact -- app list
 npm run chainreact -- app validate slack
 npm run chainreact -- app validate --all
 npm run chainreact -- app validate --all --verbose
+npm run chainreact -- app scaffold linear --dry-run
+npm run chainreact -- app scaffold linear
 ```
 
 `npm run chainreact` builds first (`chainreact:build`) then runs — so it always
@@ -142,6 +145,34 @@ next to handlers (slack) and metas in a dedicated `actions/meta/` subfolder
 - `app validate <provider>` — after editing one provider's actions/metas/manifest.
 - `app validate --all` — before a provider-touching commit/PR (and in any future
   provider-readiness gate) to catch orphan metas / manifest drift across the board.
+- `app scaffold <id>` — to start a new provider (see below).
+
+## `app scaffold <provider>`
+
+Generates the **smallest conventional skeleton**: a single, contract-valid
+`integrations/<id>/manifest.ts` with capabilities all `false`, empty scopes,
+`tokenScope: "user"`, `isEnabled: false`, and explicit `TODO(<id>)` comments for
+every human/provider-specific decision (OAuth, scopes, endpoints, actions,
+triggers, fields, tests, icon/category). It **invents nothing** — no scopes, no
+endpoints, no fake actions/triggers, no network calls.
+
+Design choices (grounded in repo conventions): manifests register by **explicit
+import** in `integrations/_registry.ts`, so scaffold does **not** edit the registry
+(documented manual TODO) — the generated provider is inert until wired. No provider
+ships a README/TODO file, so TODOs live as manifest comments + printed guidance, not
+a new file. Empty `actions/`/`triggers/` dirs aren't git-tracked and generating
+placeholder actions would invent behavior, so the skeleton is manifest-only.
+
+**It refuses to overwrite** an existing `integrations/<id>/` (no `--force` in this
+slice). `--dry-run` prints the file plan + predicted validation and writes nothing.
+Writes go through the injectable `FsWriter` (the only write surface in the CLI);
+everything else stays read-only.
+
+**Does it pass validation immediately?** Yes — `app validate <id>` PASSES right after
+scaffold (complete manifest, no actions/triggers). It also satisfies the repo's
+`integration-manifests` structure test (the folder has a `manifest.ts`). It will
+**not** appear in the running app until a developer registers it in
+`integrations/_registry.ts` and implements the TODOs.
 
 **Future slices** should extend `validateProvider()` in
 [`commands/appValidate.ts`](./commands/appValidate.ts) by appending `Finding`s — the

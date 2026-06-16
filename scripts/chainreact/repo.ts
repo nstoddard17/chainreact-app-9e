@@ -7,7 +7,7 @@
  * read-only implementation. Nothing here writes, executes, or reaches the
  * network; reads are confined under the resolved repo root.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 /** Read-only filesystem surface (repo-relative paths). */
@@ -20,6 +20,20 @@ export interface FsDeps {
   listDir(relPath: string): string[];
   /** UTF-8 text of a repo-relative file ("" if missing/unreadable). */
   readText(relPath: string): string;
+}
+
+/**
+ * Narrow WRITE surface — the ONLY part of the CLI that creates files (used by
+ * `app scaffold`). Kept separate from the read-only `FsDeps` so the rest of the
+ * CLI stays demonstrably read-only, and injectable so scaffold tests use an
+ * in-memory writer (no disk). It can only create directories + write files under
+ * the repo root; it has no delete, no move, no exec, no network.
+ */
+export interface FsWriter {
+  /** Recursively create a repo-relative directory. */
+  ensureDir(relPath: string): void;
+  /** Write UTF-8 text to a repo-relative file (creates parent dirs). */
+  writeFile(relPath: string, content: string): void;
 }
 
 /**
@@ -67,6 +81,20 @@ export function defaultFsDeps(repoRoot: string): FsDeps {
       } catch {
         return "";
       }
+    },
+  };
+}
+
+/** Real write surface rooted at `repoRoot`. Creates dirs + files only. */
+export function defaultFsWriter(repoRoot: string): FsWriter {
+  const abs = (relPath: string): string => resolve(repoRoot, relPath);
+  return {
+    ensureDir: (relPath) => {
+      mkdirSync(abs(relPath), { recursive: true });
+    },
+    writeFile: (relPath, content) => {
+      mkdirSync(dirname(abs(relPath)), { recursive: true });
+      writeFileSync(abs(relPath), content, "utf8");
     },
   };
 }

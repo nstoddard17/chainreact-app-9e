@@ -10,6 +10,7 @@
 import { parseArgs, wantsHelp } from "@/scripts/chainreact/args";
 import { run } from "@/scripts/chainreact/cli";
 import { listProviders, renderProviderList } from "@/scripts/chainreact/commands/appList";
+import { buildScaffoldPlan, camelCaseId, humanizeId, normalizeProviderId, overlayFs, runAppScaffold } from "@/scripts/chainreact/commands/appScaffold";
 import {
   renderValidation,
   renderValidationSummary,
@@ -24,7 +25,7 @@ import { runMcpSmoke } from "@/scripts/chainreact/commands/mcpSmoke";
 import { collectStatus, renderStatus } from "@/scripts/chainreact/commands/status";
 import { buildVerifyPlan, executeVerify } from "@/scripts/chainreact/commands/verify";
 import { helpText } from "@/scripts/chainreact/help";
-import type { FsDeps } from "@/scripts/chainreact/repo";
+import type { FsDeps, FsWriter } from "@/scripts/chainreact/repo";
 import type { CommandRunner, RunResult } from "@/scripts/chainreact/runner";
 
 // ── in-memory FsDeps fake ──────────────────────────────────────────────────
@@ -681,5 +682,124 @@ describe("app validate — value checks end-to-end + --all", () => {
     expect(summary.fail).toBe(1);
     expect(verdictOf(results[0]!)).toBe("PASS"); // alpha
     expect(verdictOf(results[1]!)).toBe("FAIL"); // zeta — invalid category
+  });
+});
+
+// ── app scaffold ────────────────────────────────────────────────────────────
+function fakeWriter(): FsWriter & { dirs: string[]; files: Map<string, string> } {
+  const dirs: string[] = [];
+  const files = new Map<string, string>();
+  return { dirs, files, ensureDir: (p) => void dirs.push(p), writeFile: (p, c) => void files.set(p, c) };
+}
+
+describe("app scaffold — id normalization (pure)", () => {
+  it("normalizes case/whitespace and accepts valid ids", () => {
+    expect(normalizeProviderId("  Linear ")).toEqual({ ok: true, id: "linear" });
+    expect(normalizeProviderId("test-provider_2").ok).toBe(true);
+  });
+  it("rejects invalid ids (spaces, leading digit, symbols, empty)", () => {
+    expect(normalizeProviderId("Bad Id!").ok).toBe(false);
+    expect(normalizeProviderId("123foo").ok).toBe(false);
+    expect(normalizeProviderId("").ok).toBe(false);
+  });
+  it("camelCaseId / humanizeId handle multi-word ids", () => {
+    expect(camelCaseId("google-analytics")).toBe("googleAnalytics");
+    expect(humanizeId("google-analytics")).toBe("Google Analytics");
+  });
+});
+
+describe("app scaffold — plan + overlay (pure)", () => {
+  it("plans exactly the manifest file, deterministically", () => {
+    const a = buildScaffoldPlan("linear");
+    const b = buildScaffoldPlan("linear");
+    expect(a.files.map((f) => f.path)).toEqual(["integrations/linear/manifest.ts"]);
+    expect(a).toEqual(b); // deterministic
+    expect(a.files[0]!.content).toContain('id: "linear"');
+    expect(a.files[0]!.content).toContain("linearManifest");
+  });
+  it("overlayFs surfaces planned files over a base fs without writing", () => {
+    const plan = buildScaffoldPlan("linear");
+    const ov = overlayFs(fakeFs({}), plan.files);
+    expect(ov.isDirectory("integrations/linear")).toBe(true);
+    expect(ov.exists("integrations/linear/manifest.ts")).toBe(true);
+    expect(ov.readText("integrations/linear/manifest.ts")).toContain('id: "linear"');
+  });
+});
+
+describe("app scaffold — runAppScaffold", () => {
+  it("dry-run writes nothing and reports a passing prediction (exit 0)", () => {
+    const w = fakeWriter();
+    const r = runAppScaffold("linear", { dryRun: true }, fakeFs({}), w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(w.dirs.length).toBe(0);
+    expect(r.output).toContain("would write: integrations/linear/manifest.ts");
+    expect(r.output).toContain("PASS");
+  });
+
+  it("creates exactly the expected files (exit 0)", () => {
+    const w = fakeWriter();
+    const r = runAppScaffold("linear", { dryRun: false }, fakeFs({}), w);
+    expect(r.code).toBe(0);
+    expect([...w.files.keys()]).toEqual(["integrations/linear/manifest.ts"]);
+    expect(w.files.get("integrations/linear/manifest.ts")).toContain("ProviderManifestSchema.parse");
+    expect(r.output).toContain("wrote: integrations/linear/manifest.ts");
+  });
+
+  it("refuses to overwrite an existing provider (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const r = runAppScaffold("slack", { dryRun: false }, fakeFs({ "integrations/slack/manifest.ts": SLACK_MANIFEST }), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/already exists/);
+  });
+
+  it("rejects an invalid provider id (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const r = runAppScaffold("Bad Id!", { dryRun: false }, fakeFs({}), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/Invalid provider id/);
+  });
+
+  it("reports the post-scaffold validation result + manual TODOs + next commands", () => {
+    const r = runAppScaffold("linear", { dryRun: true }, fakeFs({}), fakeWriter());
+    expect(r.output).toContain("Validation (predicted from the generated files):");
+    expect(r.output).toContain("Manual TODOs");
+    expect(r.output).toContain("npm run chainreact -- app validate linear");
+    expect(r.output).toContain("integrations/_registry.ts");
+  });
+});
+
+describe("app scaffold — dispatch via run()", () => {
+  const rt = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
+
+  it("`app scaffold <id> --dry-run` → exit 0, no writes", () => {
+    const w = fakeWriter();
+    const out: string[] = [];
+    const code = run(["app", "scaffold", "linear", "--dry-run"], { fs: fakeFs({}), writer: w, runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(out.join("\n")).toContain("dry-run");
+  });
+
+  it("`app scaffold <id>` → exit 0 and writes the manifest", () => {
+    const w = fakeWriter();
+    const code = run(["app", "scaffold", "linear"], { fs: fakeFs({}), writer: w, runtime: rt, log: () => {} });
+    expect(code).toBe(0);
+    expect([...w.files.keys()]).toEqual(["integrations/linear/manifest.ts"]);
+  });
+
+  it("`app scaffold` with no id → usage, exit 2", () => {
+    const out: string[] = [];
+    const code = run(["app", "scaffold"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/Usage:.*app scaffold/);
+  });
+
+  it("unknown `app` subcommand mentions scaffold", () => {
+    const out: string[] = [];
+    run(["app", "bogus"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(out.join("\n")).toMatch(/scaffold/);
   });
 });

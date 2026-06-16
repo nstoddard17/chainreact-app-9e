@@ -12,6 +12,7 @@
  */
 import { parseArgs, wantsHelp } from "./args";
 import { listProviders, renderProviderList } from "./commands/appList";
+import { runAppScaffold } from "./commands/appScaffold";
 import {
   renderValidation,
   renderValidationSummary,
@@ -22,11 +23,12 @@ import { renderMcpSmoke, runMcpSmoke } from "./commands/mcpSmoke";
 import { collectStatus, renderStatus } from "./commands/status";
 import { buildVerifyPlan, executeVerify, renderVerify } from "./commands/verify";
 import { helpText } from "./help";
-import { defaultFsDeps, findRepoRoot, type FsDeps } from "./repo";
+import { defaultFsDeps, defaultFsWriter, findRepoRoot, type FsDeps, type FsWriter } from "./repo";
 import { type CommandRunner, defaultRunner } from "./runner";
 
 export interface CliDeps {
   readonly fs?: FsDeps;
+  readonly writer?: FsWriter;
   readonly runner?: CommandRunner;
   readonly runtime?: { nodeVersion: string; platform: string; cwd: string; repoRoot: string };
   readonly availableScripts?: ReadonlySet<string>;
@@ -54,6 +56,7 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
 
   const repoRoot = deps.runtime?.repoRoot ?? findRepoRoot(process.cwd());
   const fs = deps.fs ?? defaultFsDeps(repoRoot);
+  const writer = deps.writer ?? defaultFsWriter(repoRoot);
   const runner = deps.runner ?? defaultRunner;
   const availableScripts = deps.availableScripts ?? loadAvailableScripts(fs);
 
@@ -87,6 +90,16 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         log(renderProviderList(listProviders(fs)));
         return 0;
       }
+      if (parsed.subcommand === "scaffold") {
+        const provider = parsed.positionals[0] ?? "";
+        if (!provider) {
+          log("Usage: chainreact app scaffold <provider> [--dry-run]");
+          return 2;
+        }
+        const outcome = runAppScaffold(provider, { dryRun: parsed.flags["dry-run"] === true }, fs, writer);
+        log(outcome.output);
+        return outcome.code;
+      }
       if (parsed.subcommand === "validate") {
         if (parsed.flags.all === true) {
           const results = validateAllProviders(fs);
@@ -102,7 +115,7 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         log(renderValidation(result));
         return result.ok ? 0 : 1;
       }
-      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all`);
+      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider>`);
       return 2;
     }
 
