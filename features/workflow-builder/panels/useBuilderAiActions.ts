@@ -415,11 +415,22 @@ export function useBuilderAiActions() {
   // AI" / "Suggest a fix" actions live in their own hook (extracted in
   // 4.AI-REPAIR-CLEANUP-1). It owns its in-flight + already-actioned state and
   // renders results through this hook's `appendMessage`.
+  // AI-REPAIR-3E — refetch + re-hydrate the draft after a successful repair apply,
+  // reusing the SAME getWorkflow → graphSlice.hydrate path the planner apply uses
+  // (Slice 4.BUILDER-APPLY-HYDRATE-RACE-1: pass the post-apply revision so a later
+  // stale prop-driven hydrate is ignored). No run, no activation.
+  async function refreshDraftAfterApply(): Promise<void> {
+    if (!workflowId) return;
+    const detail = await getWorkflow(workflowId);
+    hydrate(workflowId, detail.draftDefinition, detail.updatedAt);
+  }
+
   const diagnosis = useBuilderDiagnosisActions({
     workflowId,
     busy,
     currentDraft,
     appendMessage,
+    refreshDraftAfterApply,
   });
 
   function handleClear(): void {
@@ -469,6 +480,9 @@ export function useBuilderAiActions() {
     suggestedDiagnosisIds: diagnosis.suggestedDiagnosisIds,
     previewing: diagnosis.previewing,
     previewedProposalIds: diagnosis.previewedProposalIds,
+    applyingId: diagnosis.applyingId,
+    appliedPreviewIds: diagnosis.appliedPreviewIds,
+    applyErrorByPreviewId: diagnosis.applyErrorByPreviewId,
     prompt,
     setPrompt,
     canSubmitDetails,
@@ -481,5 +495,6 @@ export function useBuilderAiActions() {
     handleExplainDiagnosis: diagnosis.handleExplainDiagnosis,
     handleSuggestFix: diagnosis.handleSuggestFix,
     handlePreviewFix: diagnosis.handlePreviewFix,
+    handleApplyRepair: diagnosis.handleApplyRepair,
   };
 }

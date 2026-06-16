@@ -403,12 +403,34 @@ export function RepairProposalBody({
  * risk, an optional candidate/cost summary, and — when the patch failed validation
  * — a friendly blocked reason + humanized validation messages. Pure presentational;
  * shows ONLY the safe, client-owned `RepairPreview` (no raw node ids, no raw JSON,
- * no model metadata). There is deliberately NO Apply control.
+ * no model metadata).
+ *
+ * Slice 4.AI-REPAIR-3E — when `canApply` is true (the LATEST preview, server-marked
+ * applyable, with the opaque operations + baseRevision), it renders the Apply button.
+ * The raw operations are NEVER rendered — only the value-free `changes`. Apply is hidden
+ * for a blocked / non-latest / metadata-less preview. On success it shows "Applied fix.
+ * Workflow not run."; on stale/blocked/network failure it shows safe copy and removes
+ * the button (the user re-runs Check / Preview).
  */
 export function RepairPreviewBody({
   preview,
+  canApply = false,
+  applying = false,
+  applied = false,
+  applyError = null,
+  onApply,
 }: {
   readonly preview: RepairPreview;
+  /** Show the Apply button — set true only for the LATEST applyable preview. */
+  readonly canApply?: boolean;
+  /** An apply round-trip is in flight (disables the button). */
+  readonly applying?: boolean;
+  /** This preview was applied (success line; no button). */
+  readonly applied?: boolean;
+  /** Safe stale/blocked/network copy for a failed apply (removes the button). */
+  readonly applyError?: string | null;
+  /** Explicit-click handler (never auto-called). */
+  readonly onApply?: () => void;
 }) {
   const blocked = !preview.ok;
   return (
@@ -492,13 +514,56 @@ export function RepairPreviewBody({
         </div>
       )}
 
-      <p
-        data-testid="builder-ai-repair-preview-not-applied"
-        className="text-[10px]"
-        style={{ color: "var(--builder-muted)" }}
-      >
-        {REPAIR_PREVIEW_NOT_APPLIED_NOTICE_UI}
-      </p>
+      {/* AI-REPAIR-3E — Apply affordance for a VALIDATED, applyable preview only. The
+          raw operations are forwarded by the parent, never rendered here. */}
+      {applied ? (
+        <p
+          data-testid="builder-ai-repair-apply-success"
+          role="status"
+          className="text-xs text-emerald-700 dark:text-emerald-400"
+        >
+          ✓ Applied fix. Workflow not run.
+        </p>
+      ) : applyError ? (
+        <p
+          data-testid="builder-ai-repair-apply-error"
+          role="status"
+          className="text-xs"
+          style={{ color: "var(--builder-warn)" }}
+        >
+          {applyError}
+        </p>
+      ) : canApply ? (
+        <div data-testid="builder-ai-repair-apply" className="flex flex-col gap-1 pt-1">
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={onApply}
+              disabled={applying}
+              data-testid="builder-ai-repair-apply-button"
+            >
+              {applying ? "Applying…" : "Apply fix"}
+            </Button>
+          </div>
+          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            Applies this validated change to your workflow. It won&rsquo;t run or activate the
+            workflow.
+          </p>
+        </div>
+      ) : null}
+
+      {/* The "nothing changed yet" notice — hidden once applied (it would be misleading). */}
+      {!applied && (
+        <p
+          data-testid="builder-ai-repair-preview-not-applied"
+          className="text-[10px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          {REPAIR_PREVIEW_NOT_APPLIED_NOTICE_UI}
+        </p>
+      )}
     </div>
   );
 }

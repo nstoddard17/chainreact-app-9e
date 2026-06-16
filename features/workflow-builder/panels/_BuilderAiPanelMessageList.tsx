@@ -137,6 +137,20 @@ interface Props {
   readonly previewing: boolean;
   readonly previewedProposalIds: ReadonlySet<ChatMessageId>;
   /**
+   * Slice 4.AI-REPAIR-3E — Apply wiring for the LATEST validated repair preview.
+   * `onApplyRepair` forwards the preview's opaque operations + baseRevision to the
+   * apply route; `applyingId` is the in-flight preview (disables its button);
+   * `appliedPreviewIds` relabels an applied preview ("Applied"); `applyErrorByPreviewId`
+   * carries the safe stale/blocked/network copy.
+   */
+  readonly onApplyRepair: (
+    previewMessageId: ChatMessageId,
+    applyMeta: { operations: readonly unknown[]; baseRevision: string },
+  ) => void;
+  readonly applyingId: ChatMessageId | null;
+  readonly appliedPreviewIds: ReadonlySet<ChatMessageId>;
+  readonly applyErrorByPreviewId: ReadonlyMap<ChatMessageId, string>;
+  /**
    * Slice 4.AI-CONFIG-ASSIST-3 / 3B — chat-fill wiring. `onConfirmFill` writes the
    * pending config draft (CS-2) + appends a summary; `onCancelFill` dismisses
    * (no write); both mark the proposal resolved. `resolvedFillIds` disables a
@@ -178,6 +192,10 @@ export function BuilderAiPanelMessageList({
   onPreviewFix,
   previewing,
   previewedProposalIds,
+  onApplyRepair,
+  applyingId,
+  appliedPreviewIds,
+  applyErrorByPreviewId,
   onConfirmFill,
   onCancelFill,
   resolvedFillIds,
@@ -235,6 +253,17 @@ export function BuilderAiPanelMessageList({
     const m = messages[i]!;
     if (m.role === "assistant" && m.kind === "repair_proposal") {
       latestRepairProposalMessageId = m.id;
+      break;
+    }
+  }
+
+  // AI-REPAIR-3E — only the LATEST repair_preview may offer Apply (mirrors the
+  // latest-proposal gating), so a stale historical preview never shows a live button.
+  let latestRepairPreviewMessageId: ChatMessageId | null = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role === "assistant" && m.kind === "repair_preview") {
+      latestRepairPreviewMessageId = m.id;
       break;
     }
   }
@@ -378,9 +407,33 @@ export function BuilderAiPanelMessageList({
           );
         }
         if (message.kind === "repair_preview") {
+          // AI-REPAIR-3E — the Apply button shows ONLY when this is the latest preview
+          // AND the server marked it applyable with the opaque operations + baseRevision
+          // to forward. A blocked / metadata-less / historical preview → no button.
+          const apply = message.preview.apply;
+          const canApply =
+            message.id === latestRepairPreviewMessageId &&
+            apply?.applyable === true &&
+            Array.isArray(apply.operations) &&
+            typeof apply.baseRevision === "string";
           return (
             <AssistantBubble key={message.id}>
-              <RepairPreviewBody preview={message.preview} />
+              <RepairPreviewBody
+                preview={message.preview}
+                canApply={canApply}
+                applying={applyingId === message.id}
+                applied={appliedPreviewIds.has(message.id)}
+                applyError={applyErrorByPreviewId.get(message.id) ?? null}
+                {...(canApply && apply?.operations && apply.baseRevision
+                  ? {
+                      onApply: () =>
+                        onApplyRepair(message.id, {
+                          operations: apply.operations as readonly unknown[],
+                          baseRevision: apply.baseRevision as string,
+                        }),
+                    }
+                  : {})}
+              />
             </AssistantBubble>
           );
         }

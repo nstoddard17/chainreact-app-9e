@@ -19,6 +19,7 @@ import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { WorkflowCostEstimate } from "@/services/billing/workflowCostEstimator";
 import type {
   PatchErrorCode,
+  PatchOperation,
   PatchOperationKind,
   PatchValidationError,
   PatchValidationWarning,
@@ -94,6 +95,26 @@ export interface PatchPreviewResult {
   readonly canApplyLater: boolean;
   /** Set when `ok` is false — the first blocking error, code + message. */
   readonly blockedReason?: string;
+  /**
+   * AI-REPAIR-3E — server-computed apply readiness for THIS preview. `applyable` is
+   * true ONLY when validation passed AND every operation is apply-eligible (no
+   * secret / credential / recipient / destructive / whole-graph / trigger / unknown
+   * op — via the shared `classifyOperationSafety`). The typed `operations` +
+   * `baseRevision` are included ONLY when applyable, so they are SECRET-FREE by
+   * construction (a secret-keyed op would block applyability). They are a
+   * NON-RENDERED carrier the client forwards to the apply route — the UI shows the
+   * value-free `changes`, never these. Not applyable ⇒ no operations ⇒ no Apply
+   * affordance.
+   */
+  readonly apply: PreviewApplyReadiness;
+}
+
+export interface PreviewApplyReadiness {
+  readonly applyable: boolean;
+  /** Present ONLY when applyable — the typed operations to forward to the apply route. */
+  readonly operations?: readonly PatchOperation[];
+  /** Present ONLY when applyable — the revision the patch was built against. */
+  readonly baseRevision?: string;
 }
 
 export type { PatchErrorCode };

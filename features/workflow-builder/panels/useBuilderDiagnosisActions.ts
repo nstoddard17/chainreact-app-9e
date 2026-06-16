@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   AiApiError,
   AI_CREDITS_EXHAUSTED_MESSAGE,
+  applyWorkflowRepair,
   diagnoseWorkflow,
   explainDiagnosis,
   planWorkflowRepair,
@@ -40,6 +41,25 @@ export interface BuilderDiagnosisActionsInput {
   readonly currentDraft: WorkflowDraftSnapshot;
   /** Parent message-list appender. */
   readonly appendMessage: (message: ChatMessage) => void;
+  /**
+   * AI-REPAIR-3E — refetch + re-hydrate the builder draft from the server after a
+   * successful repair apply (the SAME getWorkflow → graphSlice.hydrate path the
+   * planner apply uses). Best-effort: the apply already persisted server-side.
+   */
+  readonly refreshDraftAfterApply?: () => Promise<void>;
+}
+
+/** AI-REPAIR-3E — safe, code-keyed copy for a handled repair-apply failure. */
+function safeApplyFailureMessage(code: string): string {
+  switch (code) {
+    case "STALE_PATCH":
+      return "This preview is out of date. Run Check workflow again.";
+    case "NOT_APPLYABLE":
+      return "This change can't be applied. Run Check workflow again.";
+    default:
+      // EXECUTION_FAILED | anything else.
+      return "Couldn't apply this change. Run Check workflow again.";
+  }
 }
 
 export function useBuilderDiagnosisActions({
@@ -47,6 +67,7 @@ export function useBuilderDiagnosisActions({
   busy,
   currentDraft,
   appendMessage,
+  refreshDraftAfterApply,
 }: BuilderDiagnosisActionsInput) {
   // AI-DIAG-1b — true while a read-only "Check this workflow" diagnosis is in
   // flight. Independent of the plan/apply state machine (the diagnosis never
@@ -74,6 +95,17 @@ export function useBuilderDiagnosisActions({
   const [previewedProposalIds, setPreviewedProposalIds] = useState<
     ReadonlySet<ChatMessageId>
   >(() => new Set());
+  // AI-REPAIR-3E — Apply state, keyed by the repair_preview message id. `applyingId`
+  // is the in-flight preview (disables its button + blocks a second apply);
+  // `appliedPreviewIds` records a successful apply (relabels to "Applied", no re-apply);
+  // `applyErrorByPreviewId` holds the safe failure copy for a stale/blocked/network apply.
+  const [applyingId, setApplyingId] = useState<ChatMessageId | null>(null);
+  const [appliedPreviewIds, setAppliedPreviewIds] = useState<ReadonlySet<ChatMessageId>>(
+    () => new Set(),
+  );
+  const [applyErrorByPreviewId, setApplyErrorByPreviewId] = useState<
+    ReadonlyMap<ChatMessageId, string>
+  >(() => new Map());
 
   async function handleCheckWorkflow(): Promise<void> {
     if (!workflowId) return;
@@ -277,9 +309,65 @@ export function useBuilderDiagnosisActions({
     }
   }
 
+  async function handleApplyRepair(
+    previewMessageId: ChatMessageId,
+    applyMeta: { operations: readonly unknown[]; baseRevision: string },
+  ): Promise<void> {
+    if (!workflowId) return;
+    const wfId: string = workflowId;
+    // AI-REPAIR-3E — apply a VALIDATED, applyable repair preview. EXPLICIT click only.
+    // Guard against any concurrent op + a second apply of any preview + re-applying an
+    // already-applied one. The server re-authorizes + re-validates + re-runs the safety
+    // contract/executor and persists the DRAFT ONLY — no LLM, no run, no activation.
+    if (busy || checking || explaining || suggesting || previewing || applyingId !== null) return;
+    if (appliedPreviewIds.has(previewMessageId)) return;
+    // Clear any prior error for this preview as we retry.
+    setApplyErrorByPreviewId((prev) => {
+      if (!prev.has(previewMessageId)) return prev;
+      const next = new Map(prev);
+      next.delete(previewMessageId);
+      return next;
+    });
+    setApplyingId(previewMessageId);
+    try {
+      const res = await applyWorkflowRepair(wfId, {
+        operations: applyMeta.operations,
+        baseRevision: applyMeta.baseRevision,
+      });
+      if (res.ok) {
+        setAppliedPreviewIds((prev) => new Set(prev).add(previewMessageId));
+        // Refresh the builder draft from the server so the canvas reflects the saved
+        // result (best-effort; the apply already persisted). No run, no activation.
+        if (refreshDraftAfterApply) {
+          try {
+            await refreshDraftAfterApply();
+          } catch {
+            /* best-effort refresh; apply already succeeded */
+          }
+        }
+      } else {
+        setApplyErrorByPreviewId((prev) =>
+          new Map(prev).set(previewMessageId, safeApplyFailureMessage(res.code)),
+        );
+      }
+    } catch (err) {
+      // Transport failure (401 / 403 / 404 / 400 / network) — retry-safe copy.
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content =
+        status === 401
+          ? "Please sign in to apply this change."
+          : status === 404
+            ? "This workflow couldn’t be found."
+            : "Couldn’t apply this change right now. Please try again.";
+      setApplyErrorByPreviewId((prev) => new Map(prev).set(previewMessageId, content));
+    } finally {
+      setApplyingId(null);
+    }
+  }
+
   /**
    * Reset the metered-action state on a full conversation Clear. Resets
-   * explain/suggest/preview in-flight + already-actioned sets, and deliberately
+   * explain/suggest/preview + apply in-flight + already-actioned sets, and deliberately
    * does NOT touch `checking` (the read-only check has no charge / id-set to clear).
    */
   function resetDiagnosisActions(): void {
@@ -289,6 +377,9 @@ export function useBuilderDiagnosisActions({
     setSuggestedDiagnosisIds(new Set());
     setPreviewing(false);
     setPreviewedProposalIds(new Set());
+    setApplyingId(null);
+    setAppliedPreviewIds(new Set());
+    setApplyErrorByPreviewId(new Map());
   }
 
   return {
@@ -299,10 +390,14 @@ export function useBuilderDiagnosisActions({
     suggestedDiagnosisIds,
     previewing,
     previewedProposalIds,
+    applyingId,
+    appliedPreviewIds,
+    applyErrorByPreviewId,
     handleCheckWorkflow,
     handleExplainDiagnosis,
     handleSuggestFix,
     handlePreviewFix,
+    handleApplyRepair,
     resetDiagnosisActions,
   };
 }

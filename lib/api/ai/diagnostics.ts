@@ -273,6 +273,19 @@ export interface RepairPreview {
   readonly canApplyLater: boolean;
   /** Set when `ok` is false — the first blocking error message (humanized). */
   readonly blockedReason?: string;
+  /**
+   * AI-REPAIR-3E — server-computed apply readiness. The Apply button renders ONLY when
+   * `apply.applyable` is true AND `apply.operations` + `apply.baseRevision` are present.
+   * `operations` is OPAQUE to the client — it is NEVER decoded or rendered, only
+   * forwarded verbatim to the apply route. It is secret-free by construction (the
+   * server omits it unless every op is apply-eligible). Absent on a blocked preview or
+   * a rehydrated historical preview that predates 3E (→ no Apply button).
+   */
+  readonly apply?: {
+    readonly applyable: boolean;
+    readonly operations?: readonly unknown[];
+    readonly baseRevision?: string;
+  };
 }
 
 export interface RepairPreviewSuccess {
@@ -334,4 +347,48 @@ export async function previewWorkflowRepair(
   if (result.ok) return result;
   // Normalize handled-failure copy to a safe, code-keyed constant — no raw server text reaches the UI.
   return { ok: false, code: result.code, message: safeRepairPreviewMessage(result.code) };
+}
+
+/**
+ * AI-REPAIR-3E — APPLY a validated repair preview (POST /api/workflows/[id]/ai/repair/apply).
+ *
+ * Sends ONLY the opaque `operations` carried by an APPLYABLE preview (`preview.apply`)
+ * + its `baseRevision` — never raw model text, secrets, or the whole definition. The
+ * server re-authorizes, re-validates against the FRESH definition, re-runs the safety
+ * contract + executor, and persists the DRAFT ONLY (optimistic concurrency). It does
+ * NOT call the LLM, run, activate, or register triggers. Handled outcomes (200 / 409
+ * STALE_PATCH / 422 NOT_APPLYABLE|EXECUTION_FAILED) return as a structured result;
+ * transport / auth failures (401 / 403 / 404 / 400 / network) throw `AiApiError` (or a
+ * raw fetch error), which the caller maps to a safe retry message.
+ */
+export interface ApplyRepairAppliedOperation {
+  readonly op: string;
+  readonly nodeId?: string;
+  readonly edgeId?: string;
+  readonly fields?: readonly string[];
+}
+export interface ApplyWorkflowRepairSuccess {
+  readonly ok: true;
+  readonly applied: true;
+  readonly currentRevision: string;
+  readonly appliedOperations: readonly ApplyRepairAppliedOperation[];
+}
+export interface ApplyWorkflowRepairFailure {
+  readonly ok: false;
+  readonly applied: false;
+  /** NOT_APPLYABLE | EXECUTION_FAILED | STALE_PATCH */
+  readonly code: string;
+  readonly message: string;
+  readonly blockedCategories?: readonly string[];
+}
+export type ApplyWorkflowRepairResult = ApplyWorkflowRepairSuccess | ApplyWorkflowRepairFailure;
+
+export async function applyWorkflowRepair(
+  workflowId: string,
+  input: { operations: readonly unknown[]; baseRevision: string },
+): Promise<ApplyWorkflowRepairResult> {
+  return postStructured<ApplyWorkflowRepairResult>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/repair/apply`,
+    { operations: input.operations, baseRevision: input.baseRevision },
+  );
 }

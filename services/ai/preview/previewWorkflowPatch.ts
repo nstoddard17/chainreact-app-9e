@@ -27,6 +27,7 @@ import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
 import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 import { normalizeAiPatchNodeKeys } from "@/services/ai/patch/normalizeAiPatchNodeKeys";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
+import { classifyOperationSafety } from "@/services/workflows/patch/applySafety";
 import type { PatchOperation, PatchValidationError } from "@/services/workflows/patch/types";
 import type {
   PatchChangeSummary,
@@ -397,6 +398,22 @@ export async function previewWorkflowPatchForAI(
     ? userFacingErrors[0]?.message ?? "This change can't be applied as-is."
     : undefined;
 
+  // AI-REPAIR-3E — server-computed apply readiness. Applyable ONLY when validation
+  // passed AND every op is apply-eligible (the shared classifier blocks secret /
+  // credential / recipient / destructive / whole-graph / trigger / unknown ops —
+  // `workflowActive: "unknown"` fails closed for triggers). The typed operations +
+  // baseRevision are emitted ONLY when applyable, so they are secret-free by
+  // construction (a secret-keyed op would not be applyable). They are forwarded by the
+  // client to the apply route and never rendered.
+  const { blocks: applyOpBlocks } = classifyOperationSafety(operations, {
+    workflowActive: "unknown",
+    currentNodeIds: currentDef.nodes.map((n) => n.id),
+  });
+  const applyable = validation.ok && applyOpBlocks.length === 0;
+  const apply = applyable
+    ? { applyable: true, operations, baseRevision: currentRevision }
+    : { applyable: false };
+
   const costClause = validation.taskCostEstimate
     ? ` ~${validation.taskCostEstimate.estimatedTasksPerRun} task(s)/run.`
     : "";
@@ -430,5 +447,6 @@ export async function previewWorkflowPatchForAI(
     userFacingSummaryText,
     canApplyLater: validation.ok,
     ...(blockedReason ? { blockedReason } : {}),
+    apply,
   });
 }

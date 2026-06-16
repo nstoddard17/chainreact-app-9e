@@ -136,16 +136,32 @@ describe("apply route — persistence / reachability boundary", () => {
     }
   });
 
-  it("no client references the apply route/service — not wired to UI", () => {
+  it("only the AI API client wires the apply route — no direct UI/component call", () => {
+    // AI-REPAIR-3E intentionally wires Apply: the `applyWorkflowRepair` client in
+    // `lib/api/ai` forwards to this route, and the builder panel calls THAT client —
+    // never the route path or the server service directly. So the only legitimate
+    // reference is the API client; features/components/hooks must not hit the route
+    // path or import the server service.
     let hits = "";
     try {
       hits = execSync(
-        'git grep -lE "applyRepairPatch|repair/apply[\\"\'`]" -- "features/**" "components/**" "lib/api/**" "hooks/**"',
+        'git grep -lE "applyRepairPatch|repair/apply[\\"\'`]" -- "features/**" "components/**" "hooks/**"',
         { cwd: process.cwd(), encoding: "utf8" },
       );
     } catch {
       hits = ""; // git grep exits non-zero with no matches
     }
     expect(hits.trim()).toBe("");
+    // The server apply SERVICE is never imported by client code.
+    let svcHits = "";
+    try {
+      svcHits = execSync(
+        'git grep -lE "applyRepairPatch" -- "features/**" "components/**" "lib/api/**" "hooks/**"',
+        { cwd: process.cwd(), encoding: "utf8" },
+      );
+    } catch {
+      svcHits = "";
+    }
+    expect(svcHits.trim()).toBe("");
   });
 });
