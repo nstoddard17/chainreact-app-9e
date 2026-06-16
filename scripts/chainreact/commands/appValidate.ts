@@ -35,7 +35,7 @@ import {
   scanField,
 } from "../providers";
 import type { FsDeps } from "../repo";
-import { checkManifestContent, checkMetaContent } from "./metaChecks";
+import { checkManifestContent, checkMetaContent, loadContractAllowlists } from "./metaChecks";
 
 // Re-export the shared finding types so existing import sites keep working.
 export type { Finding, FindingLevel };
@@ -79,6 +79,9 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
     };
   }
 
+  // Value allow-lists (category / tokenScope) parsed from the contract files.
+  const allow = loadContractAllowlists(fs);
+
   // manifest.ts
   const manifestPath = `${dir}/manifest.ts`;
   if (!fs.exists(manifestPath)) {
@@ -97,8 +100,9 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
     if (!hasField(text, "isEnabled")) {
       findings.push({ level: "warning", code: "MANIFEST_NO_ISENABLED", message: `${manifestPath} has no \`isEnabled\` flag — set it explicitly (true/false).` });
     }
-    // Deeper manifest completeness (tokenScope / scopes / capabilities / health).
-    findings.push(...checkManifestContent(text, id));
+    // Deeper manifest completeness + safe value checks (value enums parsed from
+    // the contract files — no import, skipped if a contract can't be read).
+    findings.push(...checkManifestContent(text, id, { allowedTokenScopes: allow.tokenScopes }));
   }
 
   // Actions follow the established `<name>.ts` + `.meta.ts` + `.schema.ts` triad,
@@ -120,9 +124,9 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
     if (u.handler && u.schema && !u.meta) {
       findings.push({ level: "warning", code: "ACTION_META_GAP", message: `Action '${base}.ts' has a schema but no '${base}.meta.ts'. Covered providers require a meta (discovery-meta-coverage).` });
     }
-    // Deep ActionMeta completeness + provider/key consistency (text-only).
+    // Deep ActionMeta completeness + provider/key consistency + value checks.
     if (u.meta && u.metaPath) {
-      findings.push(...checkMetaContent(fs.readText(u.metaPath), "action", id, base));
+      findings.push(...checkMetaContent(fs.readText(u.metaPath), "action", id, base, { allowedCategories: allow.categories }));
     }
   }
 
@@ -130,7 +134,7 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
   // contract is identical and statically checkable — deep-check each one.
   for (const [base, u] of triggers) {
     if (u.meta && u.metaPath) {
-      findings.push(...checkMetaContent(fs.readText(u.metaPath), "trigger", id, base));
+      findings.push(...checkMetaContent(fs.readText(u.metaPath), "trigger", id, base, { allowedCategories: allow.categories }));
     }
   }
 

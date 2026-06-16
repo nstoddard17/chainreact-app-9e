@@ -95,6 +95,31 @@ never a false error.
 contract-required fields beyond id/displayName — `tokenScope`, `scopes`,
 `capabilities`, `healthCheckIntervalMs`.
 
+**Value checks (ERROR for enum violations, WARNING for shape/literalness):** all
+value scans run on **comment-stripped** text (provider JSDoc routinely mentions keys
+like `` `healthCheckIntervalMs: 12h` ``, which must not be read as the code value).
+- `category` value must be one of `ActionCategorySchema` — **parsed at runtime from
+  `contracts/actionMeta.ts`** (no import, no hardcoded list; skipped if unparseable).
+  Out-of-enum → ERROR (Zod rejects it → invisible in builder/AI). Non-literal → WARNING.
+- `tokenScope` value must be one of `TokenScopeSchema` (parsed from
+  `contracts/integration.ts`) → ERROR if invalid, WARNING if non-literal.
+- `requiresIntegration` should be a `true`/`false` literal → WARNING if not.
+- `fields` (and `outputs`/`payloadShape` when present), `scopes`, `capabilities`
+  should be obvious array/object literals → WARNING if a static literal can't be
+  confirmed (could be a builder function — text can't prove it wrong, so it never
+  fails the run).
+
+**Deliberately NOT checked** (each would need real AST parsing to stay
+false-positive-free, and the build-time Zod parse already enforces them):
+duplicate field/output **names** (the `name:` key is ambiguous across
+`fields[]`/`outputs[]`), field/output **type values** (`type:` is ambiguous between
+the distinct `FieldType` and `OutputType` enums), `scopes.required`-non-empty-when-
+OAuth (fragile nested parse), and `healthCheckIntervalMs` numeric value (arithmetic
+expressions + JSDoc mentions). **AI/builder visibility** has no per-meta static field
+in the contract — visibility is derived from a registered meta existing, which the
+`ACTION_META_GAP` / orphan-meta checks + `discovery-meta-coverage` test already
+cover — so there is nothing extra to validate here.
+
 It intentionally does **not** assume a trigger *handler* layout (triggers use a
 different shape — e.g. `<name>.meta.ts` + `filter.ts`); it checks the trigger meta
 **file** content and reports trigger metas as a count. All scope/field/AI-visibility
@@ -121,19 +146,21 @@ next to handlers (slack) and metas in a dedicated `actions/meta/` subfolder
 **Future slices** should extend `validateProvider()` in
 [`commands/appValidate.ts`](./commands/appValidate.ts) by appending `Finding`s — the
 result shape, `--all` summary, and renderer already support it (append a `Finding`).
-Deferred, higher-confidence-required next checks (each needs structural parsing, not
-text scan, to stay false-positive-free): OAuth required-scope **values**,
-field-definition shape, AI/builder-visibility **value** completeness, icons,
-category-value validity, and per-field trigger validation. Keep the no-import /
-text-scan posture (do not pull app code into the CLI) and keep findings actionable.
+Deferred next checks that need real AST parsing (not text scan) to stay
+false-positive-free: per-field shape (key/label/type validity inside `fields[]`),
+duplicate field/output **names**, output/field **type-value** validity, and
+`scopes.required`-non-empty-when-OAuth. Keep the no-import / text-scan posture (do
+not pull app code into the CLI) and keep findings actionable.
 
 ## Tests
 
 `tests/unit/chainreact/cli.test.ts` — arg parsing, help, status (in-memory fs),
-`app validate` structural + **deep meta/manifest completeness** findings (error vs
-warning, provider/key consistency, non-analyzable-meta safety, manifest fields),
-`app validate --all` summary, `app list`, verify planning/execution (fake runner),
-mcp-smoke wrapping, and `run()` dispatch. No disk, no spawned processes.
+`app validate` structural + **deep meta/manifest completeness** + **value checks**
+(category/tokenScope enum validity parsed from seeded contracts, comment-stripping
+robustness, requiresIntegration/fields/scopes shape warnings, error-vs-warning),
+`app validate --all` summary (incl. a value-level failure), `app list`, verify
+planning/execution (fake runner), mcp-smoke wrapping, and `run()` dispatch. No disk,
+no spawned processes.
 
 ## Adding a command (deliberately)
 

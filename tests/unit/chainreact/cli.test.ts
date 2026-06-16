@@ -19,7 +19,7 @@ import {
   verdictOf,
 } from "@/scripts/chainreact/commands/appValidate";
 import { inventoryAllProviders, listKnownProviders } from "@/scripts/chainreact/providers";
-import { checkManifestContent, checkMetaContent, hasTopLevelKey } from "@/scripts/chainreact/commands/metaChecks";
+import { checkManifestContent, checkMetaContent, hasTopLevelKey, parseZodEnum, stripCommentLines } from "@/scripts/chainreact/commands/metaChecks";
 import { runMcpSmoke } from "@/scripts/chainreact/commands/mcpSmoke";
 import { collectStatus, renderStatus } from "@/scripts/chainreact/commands/status";
 import { buildVerifyPlan, executeVerify } from "@/scripts/chainreact/commands/verify";
@@ -470,6 +470,9 @@ const deepFs = (
   opts: { manifest?: string; triggerMeta?: string } = {},
 ): FsDeps =>
   fakeFs({
+    // Seed the contract files so the value allow-lists (category / tokenScope) load.
+    "contracts/actionMeta.ts": 'export const ActionCategorySchema = z.enum(["messaging", "data", "email", "logic"]);',
+    "contracts/integration.ts": 'export const TokenScopeSchema = z.enum(["user", "workspace"]);',
     "integrations/acme/manifest.ts": opts.manifest ?? manifestSrc("acme"),
     "integrations/acme/actions/doIt.ts": "",
     "integrations/acme/actions/doIt.schema.ts": "",
@@ -575,5 +578,108 @@ describe("metaChecks (pure)", () => {
   it("checkManifestContent flags every missing required field", () => {
     const findings = checkManifestContent('ProviderManifestSchema.parse({ id: "acme" });', "acme");
     expect(findings.map((f) => f.code)).toEqual(["MANIFEST_FIELD_MISSING", "MANIFEST_FIELD_MISSING", "MANIFEST_FIELD_MISSING", "MANIFEST_FIELD_MISSING"]);
+  });
+
+  it("parseZodEnum extracts the enum values; null when not found", () => {
+    const text = 'export const ActionCategorySchema = z.enum([\n  "messaging",\n  "data",\n]);';
+    expect(parseZodEnum(text, "ActionCategorySchema")).toEqual(["messaging", "data"]);
+    expect(parseZodEnum(text, "NopeSchema")).toBeNull();
+  });
+
+  it("stripCommentLines drops JSDoc / // lines but keeps code", () => {
+    const text = ["/**", " * healthCheckIntervalMs: 12h", " */", "// a note", 'category: "data",'].join("\n");
+    const code = stripCommentLines(text);
+    expect(code).not.toContain("12h");
+    expect(code).toContain('category: "data"');
+  });
+});
+
+// ── value-level checks (category / tokenScope enums, literalness, shapes) ────
+const CATS = new Set(["messaging", "data", "email", "logic"]);
+const SCOPES = new Set(["user", "workspace"]);
+
+describe("metaChecks — value checks (pure)", () => {
+  it("ERROR when category value is not in the enum", () => {
+    const meta = actionMetaSrc("acme", "do_it").replace('"messaging"', '"bogus"');
+    const f = checkMetaContent(meta, "action", "acme", "doIt", { allowedCategories: CATS });
+    expect(f.some((x) => x.code === "ACTION_META_CATEGORY_INVALID" && x.level === "error")).toBe(true);
+  });
+
+  it("PASS (no findings) when category value is valid", () => {
+    const f = checkMetaContent(actionMetaSrc("acme", "do_it"), "action", "acme", "doIt", { allowedCategories: CATS });
+    expect(f).toEqual([]);
+  });
+
+  it("WARNING (not error) + no crash for a non-literal/dynamic category", () => {
+    const meta = `import type { ActionMeta } from "@/contracts/actionMeta";\nexport const m: ActionMeta = { key: "acme:do_it", provider: "acme", type: "do_it", displayName: "X", description: "x", category: CATEGORY, requiresIntegration: true, fields: [] };`;
+    const f = checkMetaContent(meta, "action", "acme", "doIt", { allowedCategories: CATS });
+    expect(f.some((x) => x.code === "ACTION_META_CATEGORY_NOT_LITERAL" && x.level === "warning")).toBe(true);
+    expect(f.some((x) => x.level === "error")).toBe(false);
+  });
+
+  it("category value is read from CODE, not from a JSDoc comment mention", () => {
+    const meta = `/**\n * category: "bogus" (this is prose, must be ignored)\n */\nimport type { ActionMeta } from "@/contracts/actionMeta";\nexport const m: ActionMeta = { key: "acme:do_it", provider: "acme", type: "do_it", displayName: "X", description: "x", category: "data", requiresIntegration: true, fields: [] };`;
+    const f = checkMetaContent(meta, "action", "acme", "doIt", { allowedCategories: CATS });
+    expect(f).toEqual([]); // the real (code) category "data" is valid; comment "bogus" is ignored
+  });
+
+  it("WARNING when requiresIntegration is not a true/false literal", () => {
+    const meta = actionMetaSrc("acme", "do_it").replace("requiresIntegration: true", "requiresIntegration: needsAuth");
+    const f = checkMetaContent(meta, "action", "acme", "doIt", { allowedCategories: CATS });
+    expect(f.some((x) => x.code === "ACTION_META_REQUIRES_INTEGRATION_NOT_BOOLEAN" && x.level === "warning")).toBe(true);
+  });
+
+  it("WARNING when fields is not an array literal", () => {
+    const meta = actionMetaSrc("acme", "do_it").replace("fields: []", "fields: buildFields()");
+    const f = checkMetaContent(meta, "action", "acme", "doIt", { allowedCategories: CATS });
+    expect(f.some((x) => x.code === "ACTION_META_FIELDS_NOT_ARRAY" && x.level === "warning")).toBe(true);
+  });
+
+  it("manifest: ERROR for an invalid tokenScope value", () => {
+    const m = manifestSrc("acme").replace('tokenScope: "user"', 'tokenScope: "galaxy"');
+    const f = checkManifestContent(m, "acme", { allowedTokenScopes: SCOPES });
+    expect(f.some((x) => x.code === "MANIFEST_TOKENSCOPE_INVALID" && x.level === "error")).toBe(true);
+  });
+
+  it("manifest: WARNING when scopes is not an object literal", () => {
+    const m = manifestSrc("acme").replace("scopes: { required: [\"x\"] }", "scopes: buildScopes()");
+    const f = checkManifestContent(m, "acme", { allowedTokenScopes: SCOPES });
+    expect(f.some((x) => x.code === "MANIFEST_SCOPES_NOT_OBJECT" && x.level === "warning")).toBe(true);
+  });
+
+  it("manifest: a JSDoc 'healthCheckIntervalMs: 12h' mention does not cause a finding", () => {
+    const m = `/**\n * healthCheckIntervalMs: 12h — tier note\n */\n${manifestSrc("acme")}`;
+    const f = checkManifestContent(m, "acme", { allowedTokenScopes: SCOPES });
+    expect(f).toEqual([]);
+  });
+});
+
+describe("app validate — value checks end-to-end + --all", () => {
+  it("an invalid category fails the provider via validateProvider", () => {
+    const meta = actionMetaSrc("acme", "do_it").replace('"messaging"', '"bogus"');
+    const r = validateProvider("acme", deepFs(meta));
+    expect(r.ok).toBe(false);
+    expect(r.findings.some((f) => f.code === "ACTION_META_CATEGORY_INVALID")).toBe(true);
+  });
+
+  it("--all flips to fail when one provider has a value-level error", () => {
+    const fs = fakeFs({
+      "contracts/actionMeta.ts": 'export const ActionCategorySchema = z.enum(["messaging", "data"]);',
+      "contracts/integration.ts": 'export const TokenScopeSchema = z.enum(["user", "workspace"]);',
+      "integrations/alpha/manifest.ts": manifestSrc("alpha"),
+      "integrations/alpha/actions/a.ts": "",
+      "integrations/alpha/actions/a.schema.ts": "",
+      "integrations/alpha/actions/a.meta.ts": actionMetaSrc("alpha", "a"),
+      "integrations/zeta/manifest.ts": manifestSrc("zeta"),
+      "integrations/zeta/actions/z.ts": "",
+      "integrations/zeta/actions/z.schema.ts": "",
+      "integrations/zeta/actions/z.meta.ts": actionMetaSrc("zeta", "z").replace('"messaging"', '"nonsense"'),
+    });
+    const results = validateAllProviders(fs);
+    const summary = summarizeValidation(results);
+    expect(summary.total).toBe(2);
+    expect(summary.fail).toBe(1);
+    expect(verdictOf(results[0]!)).toBe("PASS"); // alpha
+    expect(verdictOf(results[1]!)).toBe("FAIL"); // zeta — invalid category
   });
 });
