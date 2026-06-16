@@ -9,6 +9,11 @@ Maintains [`docs/PROJECT_MEMORY.md`](../../../docs/PROJECT_MEMORY.md) — one ro
 pruned, curated state index that lets a fresh chat get oriented in ~2 minutes. It is an
 **index + thin durable-decision log**, not a knowledge base and not source of truth.
 
+> **Context first.** Before gathering ChainReactV2 repo/project context, follow the
+> [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill — use the MCP
+> (`get_project_memory`, rule docs, current slice status) to orient, then verify every line
+> against git/the real docs before writing. MCP is orientation; the repo wins on any conflict.
+
 ## Hard rules
 
 - **Memory is NOT source of truth.** Repo docs, commits, and code win. Every memory line

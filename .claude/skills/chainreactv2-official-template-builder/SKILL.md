@@ -16,6 +16,12 @@ This skill inherits all of [`chainreactv2-local-slice-executor`](../chainreactv2
 defaults of [`chainreactv2-security-review`](../chainreactv2-security-review/SKILL.md).
 When `CLAUDE.md` or an explicit Marcus instruction conflicts with this skill, they win.
 
+> **Context first.** Before gathering ChainReactV2 repo/project context, follow the
+> [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill — use the MCP for
+> provider manifests/metadata contracts (which provider/action/trigger ids are real and
+> supported), curated project memory, and relevant rules to orient, then inspect the actual
+> metadata/registry before building any template.
+
 ---
 
 ## Verified current state (read these before you write anything)

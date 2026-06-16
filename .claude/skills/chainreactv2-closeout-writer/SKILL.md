@@ -8,6 +8,11 @@ description: Use when a ChainReactV2 arc or slice-group is complete and needs a 
 For wrapping up a finished arc. The closeout is a **handoff**: the next chat (or Marcus)
 should be able to read it and know exactly where things stand without re-deriving it.
 
+> **Context first.** Before gathering ChainReactV2 repo/project context, follow the
+> [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill — use the MCP for
+> curated project memory, current slice status, and relevant rule docs to orient, then verify
+> the commit chain and verification baseline against git/the real files before writing the closeout.
+
 ## Hard rules (honesty first)
 
 - **Docs-only.** No source/test/migration/UI changes. Local commit, **no push.**

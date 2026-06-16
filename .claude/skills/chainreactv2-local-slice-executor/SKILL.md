@@ -9,6 +9,11 @@ Default workflow for implementing a bounded, local "slice" of work. A slice is a
 small-to-medium, clearly-bounded change you can describe, verify, and commit in one
 pass.
 
+> **Context first.** Before gathering ChainReactV2 repo/project context, follow the
+> [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill — use the MCP for
+> curated project memory, relevant rule docs, provider manifests, builder-metadata gaps, and
+> current slice status to orient, then inspect the actual files/code before changing anything.
+
 ## Operating rules
 
 1. **Local only. Never push.** No `git push`, no PRs, no remote triggers unless Marcus

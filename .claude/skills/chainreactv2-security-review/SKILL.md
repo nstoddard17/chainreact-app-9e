@@ -8,6 +8,12 @@ description: Use for auditing OR implementing any ChainReactV2 area that handles
 Use this whenever a slice touches sensitive surface area. It applies to both **audits**
 (produce a risk doc) and **implementation** (build it safely + prove no leaks).
 
+> **Context first.** Before gathering ChainReactV2 repo/project context, follow the
+> [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill — use the MCP for
+> curated project memory and the relevant rule docs (`account-ownership-model`,
+> `database-security`, `oauth-dispatcher`, `webhook-receipt-routes`) to orient, then inspect
+> the actual code/RLS/routes before reviewing or changing anything.
+
 ## When this skill is mandatory
 
 OAuth tokens · personal or account credentials · API keys/secrets · inbound/outbound

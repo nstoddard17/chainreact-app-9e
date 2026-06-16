@@ -307,6 +307,11 @@ Before pushing, Claude should explicitly report:
   to ground in the repo's source of truth. What it exposes / deliberately does NOT
   expose (no prod data, no DB, no secrets, no mutation) + the Claude usage workflow:
   [`docs/runbooks/internal-mcp-server.md`](./docs/runbooks/internal-mcp-server.md).
+- **For ChainReactV2 work, gather context via the MCP first** — before relying on stale
+  memory or a broad manual file hunt — then read the actual files/code to implement. The
+  [`chainreactv2-mcp-context`](./.claude/skills/chainreactv2-mcp-context/SKILL.md) skill is
+  the shared routing procedure (when/what to pull, and the hard scope limits). MCP is
+  orientation only; repo files, commits, and code remain the source of truth.
 
 ## Reminders
 

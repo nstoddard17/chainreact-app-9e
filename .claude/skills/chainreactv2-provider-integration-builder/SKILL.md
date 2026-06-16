@@ -8,6 +8,11 @@ description: Use to add a NEW app/provider integration to ChainReactV2 end-to-en
 For adding a new provider/app integration. The goal is a complete, real, V2-native
 integration — not a V1 transplant.
 
+> **Context first.** Before gathering ChainReactV2 repo/project context, follow the
+> [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill — use the MCP for
+> curated project memory, relevant rule docs, provider manifests/metadata contracts, and
+> builder-metadata gaps to orient, then inspect the actual manifests/handlers/code before changing anything.
+
 ## Guiding principles
 
 - **Port, don't transplant.** Consult V1 (`chainreact-app-9e`) for proven provider

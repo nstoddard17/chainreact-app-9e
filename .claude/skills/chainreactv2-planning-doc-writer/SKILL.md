@@ -8,6 +8,11 @@ description: Use for a ChainReactV2 planning-only slice — designing an approac
 For planning/design slices. The deliverable is **a doc, not code.** Its credibility comes
 entirely from being grounded in the real repo, not from plausible-sounding guesses.
 
+> **Context first.** Before gathering ChainReactV2 repo/project context, follow the
+> [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill — use the MCP for
+> curated project memory, relevant rule docs, provider manifests, builder-metadata gaps, and
+> current slice status to orient, then inspect (and cite) the actual files/code in the doc.
+
 ## Hard boundaries (state these in the doc and honor them)
 
 - **Inspect the real code first.** Open the actual files in the relevant call path. The

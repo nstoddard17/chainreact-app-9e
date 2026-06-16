@@ -23,6 +23,7 @@ at these, never paste their content.
 
 | Skill | Use when | Output |
 |---|---|---|
+| [`chainreactv2-mcp-context`](./chainreactv2-mcp-context/SKILL.md) | **Shared routing skill** (not an implementation skill). Orienting before any ChainReactV2 work — session start, planning a slice, provider/metadata, builder/security/lifecycle, or diagnostics. Other skills point here for the "how to gather context" step. | No artifact — defines how to use the MCP for context, then read real files. Changes nothing. |
 | [`chainreactv2-local-slice-executor`](./chainreactv2-local-slice-executor/SKILL.md) | **Default** for implementing a bounded local coding slice (feature, fix, refactor). | Code changes + local commit + slice report. |
 | [`chainreactv2-security-review`](./chainreactv2-security-review/SKILL.md) | Auditing or implementing anything touching credentials, OAuth, API keys, webhooks, membership, RLS, service-role routes, deletion/transfer, billing gates, or public endpoints. | Threat note + no-leak review/tests, or a security audit doc. |
 | [`chainreactv2-planning-doc-writer`](./chainreactv2-planning-doc-writer/SKILL.md) | A **planning-only** slice — design before implementation. | A grounded planning doc under `docs/slices/...`. No source changes. |
@@ -30,6 +31,14 @@ at these, never paste their content.
 | [`chainreactv2-memory-curator`](./chainreactv2-memory-curator/SKILL.md) | After an arc closeout, a major status change (go-live, branch switch), or a durable decision — or when Marcus asks to update project memory. | Updated [`docs/PROJECT_MEMORY.md`](../../docs/PROJECT_MEMORY.md) (rolling state index) + short report. Docs-only. |
 | [`chainreactv2-provider-integration-builder`](./chainreactv2-provider-integration-builder/SKILL.md) | Adding a **new app/provider integration** end-to-end. | Manifest + actions/triggers + handlers + tests + owner-task report. |
 | [`chainreactv2-official-template-builder`](./chainreactv2-official-template-builder/SKILL.md) | Adding **official ChainReact workflow templates** / seeding the marketplace catalog. | `source='official'` template(s) on real, supported, credential-free nodes + no-leak tests + local commit. |
+
+`chainreactv2-mcp-context` is the one **shared, non-implementation** skill: it centralizes
+*when and how* to use the read-only ChainReactV2 MCP server for orientation (curated project
+memory, rule docs, provider manifests, builder-metadata gaps, slice status) so the other
+skills don't each re-explain it. MCP is for context discovery only — repo files, commits, and
+code remain the source of truth, and the MCP is never for prod data, secrets, DB/workflow
+mutation, shell, or git/deploy. Full contract:
+[`docs/runbooks/internal-mcp-server.md`](../../docs/runbooks/internal-mcp-server.md).
 
 ## Always-on project rules (every skill inherits these)
 
