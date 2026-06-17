@@ -14,7 +14,7 @@
  * planned commands without running anything expensive.
  */
 import type { ChangedFilesResult } from "../git";
-import type { CommandRunner } from "../runner";
+import { type CommandExecutor, type CommandRunner, type ExecCommand, validateExecCommand } from "../runner";
 
 export interface VerifyStep {
   readonly name: string;
@@ -135,17 +135,17 @@ export function renderVerify(plan: VerifyPlan, outcome: VerifyOutcome | null): s
 // ─────────────────────── verify --changed (diff-aware) ───────────────────────
 
 /**
- * One recommended check. `npmScript` is set ONLY when the check maps to a bare
- * `npm run <script>` (so the existing runner can execute it under `--run`);
- * everything else (targeted `jest <dir>`, `app validate <provider>`) is
- * recommendation-only — printed for the human/agent to run, never auto-executed
- * (the runner seam intentionally cannot pass arbitrary argv).
+ * One recommended check. `exec` is the STRUCTURED form (npm-script / chainreact /
+ * jest) the executor can run safely under `--run`; it is set for every
+ * auto-runnable check. A recommendation with no `exec` (or whose `exec` the
+ * allow-list rejects at run time) is manual-only — printed for the human/agent to
+ * run, never auto-executed.
  */
 export interface CheckRecommendation {
-  /** Full, copy-pasteable command. Always printed. */
+  /** Full, copy-pasteable command. Always printed. Matches renderExecCommand(exec). */
   readonly command: string;
-  /** Bare npm script when auto-runnable via the runner; absent → print-only. */
-  readonly npmScript?: string;
+  /** Structured, allow-list-checked command when auto-runnable; absent → manual. */
+  readonly exec?: ExecCommand;
   /** Heavy (full suite) — only auto-run with --with-tests. */
   readonly heavy: boolean;
   /** Why this check is recommended (grouped in output). */
@@ -200,44 +200,48 @@ export function recommendChecks(changedPaths: readonly string[]): Recommendation
   const config = has((p) => /^(package\.json|package-lock\.json|tsconfig.*\.json|eslint\.config\.mjs|jest\.config\.(js|ts|mjs|cjs))$/.test(p));
   const providers = [...new Set(changedPaths.map((p) => PROVIDER_RE.exec(p)?.[1]).filter((x): x is string => Boolean(x)))].sort();
 
-  // ── cheap, auto-runnable bare scripts (cheap → ...) ──
+  const npmScript = (script: string): ExecCommand => ({ kind: "npm-script", script });
+  const jest = (...paths: string[]): ExecCommand => ({ kind: "jest", paths });
+  const chainreact = (...args: string[]): ExecCommand => ({ kind: "chainreact", args });
+
+  // ── cheap bare scripts (cheap → ...) ──
   if (sourceOrTest) {
-    add({ command: "npm run lint:structure", npmScript: "lint:structure", heavy: false, reason: "source/test files changed — leaf-folder file-count cap (cheap, always safe)" });
+    add({ command: "npm run lint:structure", exec: npmScript("lint:structure"), heavy: false, reason: "source/test files changed — leaf-folder file-count cap (cheap, always safe)" });
   }
   if (ts) {
-    add({ command: "npm run typecheck", npmScript: "typecheck", heavy: false, reason: "TypeScript changed — tsc --noEmit across the repo" });
+    add({ command: "npm run typecheck", exec: npmScript("typecheck"), heavy: false, reason: "TypeScript changed — tsc --noEmit across the repo" });
   }
   if (cli) {
-    add({ command: "npm run chainreact:build", npmScript: "chainreact:build", heavy: false, reason: "scripts/chainreact changed — compile the operator CLI" });
+    add({ command: "npm run chainreact:build", exec: npmScript("chainreact:build"), heavy: false, reason: "scripts/chainreact changed — compile the operator CLI" });
   }
   if (migrations) {
-    add({ command: "npm run lint:migrations", npmScript: "lint:migrations", heavy: false, reason: "migration changed — RLS/grant migration lint (no DB write)" });
+    add({ command: "npm run lint:migrations", exec: npmScript("lint:migrations"), heavy: false, reason: "migration changed — RLS/grant migration lint (no DB write)" });
   }
   if (config) {
-    add({ command: "npm run lint", npmScript: "lint", heavy: false, reason: "package/config changed — eslint . (repo-wide)" });
+    add({ command: "npm run lint", exec: npmScript("lint"), heavy: false, reason: "package/config changed — eslint . (repo-wide)" });
   }
 
-  // ── targeted, recommendation-only (the runner can't pass argv) ──
+  // ── targeted (now auto-runnable via the structured executor + allow-list) ──
   if (cli) {
-    add({ command: "npx jest tests/unit/chainreact", heavy: false, reason: "scripts/chainreact changed — operator-CLI unit suite" });
+    add({ command: "npx jest tests/unit/chainreact", exec: jest("tests/unit/chainreact"), heavy: false, reason: "scripts/chainreact changed — operator-CLI unit suite" });
   }
   for (const provider of providers) {
-    add({ command: `npm run chainreact -- app validate ${provider}`, heavy: false, reason: `integrations/${provider}/ changed — validate that provider's metadata` });
+    add({ command: `npm run chainreact -- app validate ${provider}`, exec: chainreact("app", "validate", provider), heavy: false, reason: `integrations/${provider}/ changed — validate that provider's metadata` });
   }
   if (discovery || cliValidation) {
-    add({ command: "npm run chainreact -- app validate --all", heavy: false, reason: "registry/discovery (or CLI validation code) changed — validate every provider" });
+    add({ command: "npm run chainreact -- app validate --all", exec: chainreact("app", "validate", "--all"), heavy: false, reason: "registry/discovery (or CLI validation code) changed — validate every provider" });
   }
   if (builder) {
-    add({ command: "npx jest tests/unit/features/workflow-builder", heavy: false, reason: "workflow-builder/execution changed — builder unit suite" });
+    add({ command: "npx jest tests/unit/features/workflow-builder", exec: jest("tests/unit/features/workflow-builder"), heavy: false, reason: "workflow-builder/execution changed — builder unit suite" });
   }
   if (security || migrations) {
-    add({ command: "npx jest tests/integration/security", heavy: false, reason: "security/RLS/migration changed — security integration suite (no DB write / no secrets)" });
-    add({ command: "npx jest tests/structure", heavy: false, reason: "security/RLS/migration changed — structural guards (grants, coverage)" });
+    add({ command: "npx jest tests/integration/security", exec: jest("tests/integration/security"), heavy: false, reason: "security/RLS/migration changed — security integration suite (no DB write / no secrets)" });
+    add({ command: "npx jest tests/structure", exec: jest("tests/structure"), heavy: false, reason: "security/RLS/migration changed — structural guards (grants, coverage)" });
   }
 
   // ── heavy (only auto-run with --with-tests) ──
   if (config) {
-    add({ command: "npm run test", npmScript: "test", heavy: true, reason: "package/config changed — full jest suite advisable (heavy; opt-in via --with-tests)" });
+    add({ command: "npm run test", exec: npmScript("test"), heavy: true, reason: "package/config changed — full jest suite advisable (heavy; opt-in via --with-tests)" });
   }
 
   return { changedCount: changedPaths.length, recommendations: recs };
@@ -267,42 +271,75 @@ export function buildChangedVerifyPlan(changed: ChangedFilesResult, flags: Chang
   return { mode, ok: true, changedFiles: changed.files, result: recommendChecks(changed.files), withTests: flags.withTests };
 }
 
-/** True when a recommendation is auto-runnable under `--run` for the given flags. */
-function willRunRec(rec: CheckRecommendation, withTests: boolean): boolean {
-  if (!rec.npmScript) return false; // print-only (runner can't pass argv)
-  if (rec.heavy && !withTests) return false;
-  return true;
+/**
+ * Disposition of a recommendation for the current flags + available scripts:
+ *   - `auto`    — safe + runnable now (executed under --run).
+ *   - `heavy`   — full suite; runs only with --with-tests (shown as HEAVY).
+ *   - `manual`  — no structured form, or allow-list rejected → print, don't run.
+ *   - `missing` — references an npm script not in package.json → skip gracefully.
+ */
+export type RecTier = "auto" | "heavy" | "manual" | "missing";
+
+export interface ClassifiedRec {
+  readonly rec: CheckRecommendation;
+  readonly tier: RecTier;
+}
+
+/** Classify one recommendation. Pure (no execution). */
+export function classifyRec(rec: CheckRecommendation, withTests: boolean, availableScripts: ReadonlySet<string>): RecTier {
+  if (!rec.exec) return "manual";
+  const v = validateExecCommand(rec.exec, availableScripts);
+  if (!v.ok) return v.reason === "missing-script" ? "missing" : "manual";
+  if (rec.heavy && !withTests) return "heavy";
+  return "auto";
+}
+
+/** Classify every recommendation in the plan. Pure. */
+export function classifyRecommendations(plan: ChangedVerifyPlan, availableScripts: ReadonlySet<string>): ClassifiedRec[] {
+  return (plan.result?.recommendations ?? []).map((rec) => ({ rec, tier: classifyRec(rec, plan.withTests, availableScripts) }));
+}
+
+export interface ExecResult {
+  /** Display command that was executed. */
+  readonly command: string;
+  readonly status: number | null;
+  readonly passed: boolean;
+}
+
+export interface ChangedVerifyOutcome {
+  readonly executed: readonly ExecResult[];
+  /** Display commands skipped because their npm script is absent. */
+  readonly skippedMissing: readonly string[];
+  readonly allPassed: boolean;
 }
 
 /**
- * Execute the auto-runnable recommendations (bare npm scripts), in order,
- * fail-fast, via the injected runner. Print-only recs are never executed.
+ * Execute the `auto`-tier recommendations, in order, fail-fast, via the injected
+ * structured executor. `heavy`/`manual` recs are never executed; `missing` recs
+ * are reported (and make the run non-passing so the gap is visible).
  */
-export function executeChangedVerify(
-  plan: ChangedVerifyPlan,
-  runner: CommandRunner,
-  availableScripts: ReadonlySet<string>,
-): VerifyOutcome {
-  const results: StepResult[] = [];
-  const skippedMissing: string[] = [];
-  for (const rec of plan.result?.recommendations ?? []) {
-    if (!willRunRec(rec, plan.withTests)) continue;
-    const script = rec.npmScript as string;
-    if (!availableScripts.has(script)) {
-      skippedMissing.push(script);
-      continue;
-    }
-    const r = runner(script);
+export function executeChangedVerify(classified: readonly ClassifiedRec[], executor: CommandExecutor): ChangedVerifyOutcome {
+  const executed: ExecResult[] = [];
+  const skippedMissing = classified.filter((c) => c.tier === "missing").map((c) => c.rec.command);
+  for (const { rec, tier } of classified) {
+    if (tier !== "auto") continue;
+    const r = executor(rec.exec as ExecCommand);
     const passed = r.status === 0;
-    results.push({ name: script, npmScript: script, status: r.status, passed });
+    executed.push({ command: rec.command, status: r.status, passed });
     if (!passed) break; // fail-fast
   }
-  const allPassed = results.every((r) => r.passed) && skippedMissing.length === 0;
-  return { results, allPassed, skippedMissing };
+  const allPassed = executed.every((e) => e.passed) && skippedMissing.length === 0;
+  return { executed, skippedMissing, allPassed };
 }
 
-/** Render the changed-aware plan (and optional execution outcome). Pure. */
-export function renderChangedVerify(plan: ChangedVerifyPlan, outcome: VerifyOutcome | null): string {
+const TIER_LABEL: Record<RecTier, string> = { auto: "auto ", heavy: "HEAVY", manual: "manual", missing: "missng" };
+
+/** Render the changed-aware plan + classification (and optional execution outcome). Pure. */
+export function renderChangedVerify(
+  plan: ChangedVerifyPlan,
+  classified: readonly ClassifiedRec[],
+  outcome: ChangedVerifyOutcome | null,
+): string {
   const lines: string[] = [`ChainReact — verify --changed (${plan.mode})`];
 
   if (!plan.ok) {
@@ -314,7 +351,6 @@ export function renderChangedVerify(plan: ChangedVerifyPlan, outcome: VerifyOutc
     return lines.join("\n");
   }
 
-  const recs = plan.result?.recommendations ?? [];
   lines.push(`  changed files: ${plan.changedFiles.length}`, "");
 
   if (plan.changedFiles.length === 0) {
@@ -325,7 +361,7 @@ export function renderChangedVerify(plan: ChangedVerifyPlan, outcome: VerifyOutc
     return lines.join("\n");
   }
 
-  if (recs.length === 0) {
+  if (classified.length === 0) {
     lines.push(
       "Changed files don't match any targeted check rule.",
       "Run the standard batch: `npm run chainreact -- verify`.",
@@ -336,10 +372,10 @@ export function renderChangedVerify(plan: ChangedVerifyPlan, outcome: VerifyOutc
   // Group reasons (deduped, in first-seen order).
   const reasons: string[] = [];
   const seenReason = new Set<string>();
-  for (const r of recs) {
-    if (!seenReason.has(r.reason)) {
-      seenReason.add(r.reason);
-      reasons.push(r.reason);
+  for (const { rec } of classified) {
+    if (!seenReason.has(rec.reason)) {
+      seenReason.add(rec.reason);
+      reasons.push(rec.reason);
     }
   }
   lines.push("Why (grouped):");
@@ -347,13 +383,12 @@ export function renderChangedVerify(plan: ChangedVerifyPlan, outcome: VerifyOutc
   lines.push("");
 
   lines.push("Recommended commands (cheap → heavy, in order):");
-  for (const r of recs) {
-    const tier = r.heavy ? "HEAVY" : r.npmScript ? "auto " : "manual";
-    lines.push(`  [${tier}] ${r.command}`);
+  for (const { rec, tier } of classified) {
+    lines.push(`  [${TIER_LABEL[tier]}] ${rec.command}`);
   }
   lines.push(
     "",
-    "Legend: [auto ] runnable now via --run · [manual] run yourself (targeted argv) · [HEAVY] full suite, opt-in via --with-tests.",
+    "Legend: [auto ] runnable now via --run · [HEAVY] full suite, opt-in via --with-tests · [manual] run yourself · [missng] npm script absent.",
   );
 
   if (plan.mode === "dry-run") {
@@ -365,21 +400,23 @@ export function renderChangedVerify(plan: ChangedVerifyPlan, outcome: VerifyOutc
     return lines.join("\n");
   }
 
-  lines.push("", "Execution (auto checks only):");
+  lines.push("", "Execution (auto checks):");
   if (outcome) {
-    if (outcome.results.length === 0 && outcome.skippedMissing.length === 0) {
-      lines.push("  (no auto-runnable checks for this diff — run the [manual] commands above)");
+    if (outcome.executed.length === 0) {
+      lines.push("  (no auto-runnable checks for this diff)");
     }
-    for (const r of outcome.results) {
-      lines.push(`  [${r.passed ? "PASS" : "FAIL"}] npm run ${r.npmScript} (exit ${r.status})`);
+    for (const r of outcome.executed) {
+      lines.push(`  [${r.passed ? "PASS" : "FAIL"}] ${r.command} (exit ${r.status})`);
     }
     for (const missing of outcome.skippedMissing) {
-      lines.push(`  [SKIP] npm run ${missing} — script not found in package.json`);
+      lines.push(`  [SKIP] ${missing} — npm script not found in package.json`);
     }
-    const manual = recs.filter((r) => !r.npmScript || (r.heavy && !plan.withTests));
-    if (manual.length > 0) {
+    const notRun = classified.filter((c) => c.tier === "heavy" || c.tier === "manual");
+    if (notRun.length > 0) {
       lines.push("", "Still recommended (NOT executed — run these yourself):");
-      for (const r of manual) lines.push(`  - ${r.command}`);
+      for (const { rec, tier } of notRun) {
+        lines.push(`  - ${rec.command}${tier === "heavy" ? "  (heavy — add --with-tests)" : ""}`);
+      }
     }
     lines.push("", outcome.allPassed ? "All executed auto checks passed." : "One or more checks failed (stopped at first failure).");
   }

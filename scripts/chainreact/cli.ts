@@ -28,6 +28,7 @@ import { collectStatus, renderStatus } from "./commands/status";
 import {
   buildChangedVerifyPlan,
   buildVerifyPlan,
+  classifyRecommendations,
   executeChangedVerify,
   executeVerify,
   renderChangedVerify,
@@ -36,12 +37,14 @@ import {
 import { type ChangedFilesReader, defaultChangedFiles } from "./git";
 import { helpText } from "./help";
 import { defaultFsDeps, defaultFsWriter, findRepoRoot, type FsDeps, type FsWriter } from "./repo";
-import { type CommandRunner, defaultRunner } from "./runner";
+import { type CommandExecutor, type CommandRunner, defaultExecutor, defaultRunner } from "./runner";
 
 export interface CliDeps {
   readonly fs?: FsDeps;
   readonly writer?: FsWriter;
   readonly runner?: CommandRunner;
+  /** Structured executor for `verify --changed --run` (npm/jest, allow-listed). */
+  readonly executor?: CommandExecutor;
   /** Changed-file discovery seam (git). Injected in tests so git never runs. */
   readonly changedFiles?: ChangedFilesReader;
   readonly runtime?: { nodeVersion: string; platform: string; cwd: string; repoRoot: string };
@@ -86,10 +89,15 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
       const withTests = parsed.flags["with-tests"] === true;
       if (parsed.flags.changed === true) {
         const changedFiles = deps.changedFiles ?? defaultChangedFiles;
+        const executor = deps.executor ?? defaultExecutor;
         const plan = buildChangedVerifyPlan(changedFiles(), { run, withTests });
-        const outcome = plan.ok && plan.mode === "run" ? executeChangedVerify(plan, runner, availableScripts) : null;
-        log(renderChangedVerify(plan, outcome));
-        if (!plan.ok) return 1; // git discovery failed
+        if (!plan.ok) {
+          log(renderChangedVerify(plan, [], null));
+          return 1; // git discovery failed
+        }
+        const classified = classifyRecommendations(plan, availableScripts);
+        const outcome = plan.mode === "run" ? executeChangedVerify(classified, executor) : null;
+        log(renderChangedVerify(plan, classified, outcome));
         return outcome && !outcome.allPassed ? 1 : 0;
       }
       const flags = { run, withTests };
