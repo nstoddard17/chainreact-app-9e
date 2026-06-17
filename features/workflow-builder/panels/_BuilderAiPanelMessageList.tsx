@@ -137,6 +137,10 @@ interface Props {
    */
   readonly onPreviewSelfLoopEdgeFix: () => void;
   /**
+   * Slice 4.AI-REPAIR-COVERAGE-2 — deterministic duplicate edge cleanup preview (removeEdge).
+   */
+  readonly onPreviewDuplicateEdgeFix: () => void;
+  /**
    * Slice 4.AI-REPAIR-3E — Apply wiring for the LATEST validated repair preview.
    * `onApplyRepair` forwards the preview's opaque operations + baseRevision to the
    * apply route; `applyingId` is the in-flight preview (disables its button);
@@ -195,6 +199,7 @@ export function BuilderAiPanelMessageList({
   onPreviewSelectedFix,
   onPreviewDanglingEdgeFix,
   onPreviewSelfLoopEdgeFix,
+  onPreviewDuplicateEdgeFix,
   onApplyRepair,
   applyingId,
   appliedPreviewIds,
@@ -337,6 +342,7 @@ export function BuilderAiPanelMessageList({
           onPreviewSelectedFix={onPreviewSelectedFix}
           onPreviewDanglingEdgeFix={onPreviewDanglingEdgeFix}
           onPreviewSelfLoopEdgeFix={onPreviewSelfLoopEdgeFix}
+          onPreviewDuplicateEdgeFix={onPreviewDuplicateEdgeFix}
           onApplyRepair={onApplyRepair}
           applyingId={applyingId}
           appliedPreviewIds={appliedPreviewIds}

@@ -65,7 +65,10 @@ export function attentionFindingCards(
       finding.code !== "STALE_EDGE" &&
       // AI-REPAIR-COVERAGE-1 — SELF_LOOP_EDGE is actionable too (removeEdge); it renders
       // via `selfLoopEdgeCards`, not as a generic no-button structure card.
-      finding.code !== "SELF_LOOP_EDGE"
+      finding.code !== "SELF_LOOP_EDGE" &&
+      // AI-REPAIR-COVERAGE-2 — DUPLICATE_EDGE is actionable too (removeEdge); it renders
+      // via `duplicateEdgeCards`, not as a generic no-button structure card.
+      finding.code !== "DUPLICATE_EDGE"
     ) {
       out.push({ key: `graph:${finding.code}:${i}`, severity, message: graphGuidance(finding.code) });
     } else if (finding.source === "run") {
@@ -248,6 +251,52 @@ export function selfLoopEdgeCards(
       severity: finding.severity === "warning" ? "warning" : "error",
       message,
       steps,
+    });
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * AI-REPAIR-COVERAGE-2 — an actionable "Needs attention" card for redundant duplicate
+ * connections (two steps connected more than once by an identical edge). The safe
+ * deterministic repair removes the duplicate copy/copies (`removeEdge`, keep-first); the
+ * card offers a "Preview fix" (Apply lives only on the resulting preview). Labels only —
+ * `connections` are the server-built safe endpoint display names; raw edge / node ids and
+ * the branch label are never present here. Distinct branches (same endpoints, different
+ * label) are never surfaced as duplicates.
+ */
+export interface DuplicateEdgeCard {
+  readonly key: string;
+  readonly severity: "error" | "warning";
+  /** Count-aware headline (singular for one, plural with the count for many). */
+  readonly message: string;
+  /** One safe descriptor per duplicate connection — endpoint step labels only. */
+  readonly connections: readonly { readonly fromLabel: string; readonly toLabel: string }[];
+}
+
+/**
+ * One actionable duplicate-edge card per DUPLICATE_EDGE finding. Empty when there are
+ * none. The single deterministic `removeEdge` preview clears ALL redundant duplicates, so
+ * the headline is count-aware (matching the batch-remove behavior).
+ */
+export function duplicateEdgeCards(
+  diagnosis: AgentWorkflowDiagnosis | null | undefined,
+): DuplicateEdgeCard[] {
+  const out: DuplicateEdgeCard[] = [];
+  let i = 0;
+  for (const finding of diagnosis?.findings ?? []) {
+    if (finding.code !== "DUPLICATE_EDGE") continue;
+    const connections = finding.duplicateConnections ?? [];
+    const message =
+      connections.length <= 1
+        ? "Two steps in this workflow are connected more than once."
+        : `${connections.length} duplicate connections were found between steps.`;
+    out.push({
+      key: `duplicate-edge:${i}`,
+      severity: finding.severity === "warning" ? "warning" : "error",
+      message,
+      connections,
     });
     i += 1;
   }

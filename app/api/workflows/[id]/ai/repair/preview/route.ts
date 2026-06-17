@@ -13,6 +13,7 @@ import {
   runDeterministicRepairPreview,
   runSelectedVariableRepairPreview,
   runSelfLoopEdgeRepairPreview,
+  runDuplicateEdgeRepairPreview,
 } from "@/services/ai/repair/deterministicRepairPreview";
 import {
   aiCreditGate,
@@ -297,6 +298,33 @@ export async function POST(
       code: "NO_SAFE_PATCH",
       message:
         "That self-connection can't be removed automatically. Run Check workflow again, or remove the connection manually.",
+    });
+  }
+
+  // AI-REPAIR-COVERAGE-2 — explicit duplicate edge cleanup. When the body sets
+  // `repairDuplicateEdges`, run ONLY the deterministic `removeEdge` preview (keep the first
+  // of each identical (from,to,label) group; no node deletion, no new endpoints, no branch
+  // change) and NEVER fall through to the model path. Free: no OpenAI-config requirement, no
+  // credit gate, no telemetry — same ordering as the self-loop / dangling-edge paths above.
+  if ((body as { repairDuplicateEdges?: unknown })?.repairDuplicateEdges === true) {
+    const duplicatePreview = await runDuplicateEdgeRepairPreview({
+      dto,
+      userId: auth.userId,
+      workflowId: id,
+      ...(override.draftOverride ? { draftDefinition: override.draftOverride } : {}),
+    });
+    if (duplicatePreview) {
+      return NextResponse.json({
+        ok: true,
+        preview: duplicatePreview.preview,
+        notAppliedNotice: REPAIR_PREVIEW_NOT_APPLIED_NOTICE,
+      });
+    }
+    return NextResponse.json({
+      ok: false,
+      code: "NO_SAFE_PATCH",
+      message:
+        "Those duplicate connections can't be removed automatically. Run Check workflow again, or remove them manually.",
     });
   }
 

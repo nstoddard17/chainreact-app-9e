@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, SelectedRepair } from "@/lib/api/ai";
 import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
 import { setupFindingCards } from "../ai/setupFindings";
-import { attentionFindingCards, danglingEdgeCards, invalidReferenceCards, selfLoopEdgeCards } from "../ai/attentionFindings";
-import { DanglingEdgeCardView, InvalidReferenceCardView, SelfLoopEdgeCardView } from "./_BuilderAiPanelInvalidRefCard";
+import { attentionFindingCards, danglingEdgeCards, duplicateEdgeCards, invalidReferenceCards, selfLoopEdgeCards } from "../ai/attentionFindings";
+import { DanglingEdgeCardView, DuplicateEdgeCardView, InvalidReferenceCardView, SelfLoopEdgeCardView } from "./_BuilderAiPanelInvalidRefCard";
 import {
   useRepairFieldTarget,
   useRepairFieldTargets,
@@ -346,6 +346,7 @@ export function DiagnosisAttentionActions({
   onPreviewSelectedInvalidRef,
   onPreviewDanglingEdge,
   onPreviewSelfLoopEdge,
+  onPreviewDuplicateEdge,
   previewing = false,
   alreadyPreviewedInvalidRef = false,
 }: {
@@ -378,6 +379,12 @@ export function DiagnosisAttentionActions({
    * telemetry). Absent → no Preview-fix button on the self-loop card.
    */
   readonly onPreviewSelfLoopEdge?: () => void;
+  /**
+   * AI-REPAIR-COVERAGE-2 — explicit-click handler for the duplicate-edge "Preview fix".
+   * Runs the deterministic `removeEdge` cleanup preview (no LLM / no credits / no
+   * telemetry). Absent → no Preview-fix button on the duplicate-edge card.
+   */
+  readonly onPreviewDuplicateEdge?: () => void;
   /** A preview round-trip is in flight (disables the Preview-fix button). */
   readonly previewing?: boolean;
   /** This diagnosis already triggered a preview (disables + relabels — no repeat). */
@@ -391,11 +398,14 @@ export function DiagnosisAttentionActions({
   const edgeCards = danglingEdgeCards(diagnosis);
   // AI-REPAIR-COVERAGE-1 — actionable self-loop-edge cards (each with a "Preview fix").
   const loopCards = selfLoopEdgeCards(diagnosis);
+  // AI-REPAIR-COVERAGE-2 — actionable duplicate-edge cards (each with a "Preview fix").
+  const dupCards = duplicateEdgeCards(diagnosis);
   if (
     cards.length === 0 &&
     refCards.length === 0 &&
     edgeCards.length === 0 &&
-    loopCards.length === 0
+    loopCards.length === 0 &&
+    dupCards.length === 0
   )
     return null;
   return (
@@ -444,6 +454,14 @@ export function DiagnosisAttentionActions({
           key={card.key}
           card={card}
           {...(onPreviewSelfLoopEdge ? { onPreviewFix: onPreviewSelfLoopEdge } : {})}
+          previewing={previewing}
+        />
+      ))}
+      {dupCards.map((card) => (
+        <DuplicateEdgeCardView
+          key={card.key}
+          card={card}
+          {...(onPreviewDuplicateEdge ? { onPreviewFix: onPreviewDuplicateEdge } : {})}
           previewing={previewing}
         />
       ))}

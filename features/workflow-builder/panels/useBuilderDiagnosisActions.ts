@@ -355,6 +355,14 @@ export function useBuilderDiagnosisActions({
     );
   }
 
+  // AI-REPAIR-COVERAGE-2 — deterministic preview of redundant duplicate edge cleanup
+  // (removeEdge, keep-first). EXPLICIT click only.
+  async function handlePreviewDuplicateEdgeFix(): Promise<void> {
+    await runFreeRepairPreview((wfId) =>
+      previewWorkflowRepair(wfId, currentDraft, undefined, undefined, undefined, undefined, true),
+    );
+  }
+
   async function handleApplyRepair(
     previewMessageId: ChatMessageId,
     applyMeta: { operations: readonly unknown[]; baseRevision: string },
@@ -446,6 +454,7 @@ export function useBuilderDiagnosisActions({
     handlePreviewSelectedFix,
     handlePreviewDanglingEdgeFix,
     handlePreviewSelfLoopEdgeFix,
+    handlePreviewDuplicateEdgeFix,
     handleApplyRepair,
     resetDiagnosisActions,
   };

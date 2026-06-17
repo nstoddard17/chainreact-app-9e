@@ -192,6 +192,51 @@ describe("diagnoseWorkflowForAgent — self-loop edge (Check stricter than runti
   });
 });
 
+// ───────────────── AI-REPAIR-COVERAGE-2 — duplicate edge finding ─────────────────
+describe("diagnoseWorkflowForAgent — duplicate edge (Check stricter than runtime)", () => {
+  it("emits a DUPLICATE_EDGE finding with safe endpoint labels + gates overallReady false, even when runnable is clean", async () => {
+    // An otherwise-ready workflow whose only problem is a redundant duplicate edge.
+    // `runnable` is TRUE (the runtime validator ignores duplicates), but Check must NOT say ready.
+    mockReadiness.mockResolvedValue(
+      readinessOk({
+        runnable: true,
+        readinessError: null,
+        graphIssues: [],
+        fieldGaps: [],
+        nodeLabels: [
+          { nodeId: "n1", label: "Trigger" },
+          { nodeId: "n2", label: "Send Email" },
+        ],
+        duplicateEdges: [{ fromNodeId: "n1", toNodeId: "n2" }],
+      }),
+    );
+    mockConnections.mockResolvedValue({ workflowId: WF, access: "OK", allRequiredConnected: true, providers: [] });
+
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+
+    expect(dto.access).toBe("OK");
+    // Check is NOT ready despite a clean runtime verdict.
+    expect(dto.runnable).toBe(true);
+    expect(dto.overallReady).toBe(false);
+    const finding = (dto.findings ?? []).find((f) => f.code === "DUPLICATE_EDGE");
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe("error");
+    expect(finding!.title).toBe("Two steps are connected more than once.");
+    // Safe endpoint display labels only.
+    expect(finding!.duplicateConnections).toEqual([{ fromLabel: "Trigger", toLabel: "Send Email" }]);
+    // No-leak: the raw node ids never reach the finding's surfaced fields or the summary.
+    const surfaced = JSON.stringify({
+      title: finding!.title,
+      conns: finding!.duplicateConnections,
+      summary: dto.summaryText,
+    });
+    expect(surfaced).not.toContain("n1");
+    expect(surfaced).not.toContain("n2");
+    // The summary names the duplicate reason.
+    expect(dto.summaryText).toMatch(/connected more than once/i);
+  });
+});
+
 // ───────────────── composition + direct service consumption ─────────────────
 describe("diagnoseWorkflowForAgent — composes services/diagnostics directly", () => {
   it("builds findings from readiness + connections + a failed latest run", async () => {

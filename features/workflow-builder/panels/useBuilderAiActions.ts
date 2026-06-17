@@ -498,6 +498,7 @@ export function useBuilderAiActions() {
     handlePreviewSelectedFix: diagnosis.handlePreviewSelectedFix,
     handlePreviewDanglingEdgeFix: diagnosis.handlePreviewDanglingEdgeFix,
     handlePreviewSelfLoopEdgeFix: diagnosis.handlePreviewSelfLoopEdgeFix,
+    handlePreviewDuplicateEdgeFix: diagnosis.handlePreviewDuplicateEdgeFix,
     handleApplyRepair: diagnosis.handleApplyRepair,
   };
 }

@@ -9,6 +9,7 @@
  */
 
 import { findInvalidVariableReferences } from "@/core/workflows/invalidVariableReferences";
+import { findDuplicateEdges } from "@/core/workflows/duplicateEdges";
 import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 import { getAvailableVariablesForAI } from "@/services/ai/tools/variables";
 import type {
@@ -290,6 +291,28 @@ export function buildSelfLoopEdgeRepairOutcome(graph: WorkflowGraphView): Strate
     operations: selfLoops.map((e) => ({ op: "removeEdge", edgeId: e.id })),
     requiredUserInput: [],
     recommendations: [`Remove ${selfLoops.length} connection(s) from a step to itself.`],
+    confidence: "high",
+    safetyNotes: [],
+  };
+}
+
+/**
+ * Redundant duplicate edges (two-or-more edges identical by `(from, to, label ?? "")` —
+ * the graph's own edge-identity key) → propose `removeEdge` for every LATER copy, keeping
+ * the first of each group. Returns null when there are none (so the caller can fall through
+ * to another category). Deterministic + safe: removing an exact duplicate leaves identical
+ * reachability + identical branch matching. Same-`(from,to)`-different-`label` edges are
+ * DISTINCT branches and are never touched (AI-REPAIR-COVERAGE-2).
+ */
+export function buildDuplicateEdgeRepairOutcome(graph: WorkflowGraphView): StrategyOutcome | null {
+  const duplicates = findDuplicateEdges(graph.edges);
+  if (duplicates.length === 0) return null;
+  return {
+    repairability: "repairable",
+    reasonCode: "INVALID_EDGE",
+    operations: duplicates.map((d) => ({ op: "removeEdge", edgeId: d.edgeId })),
+    requiredUserInput: [],
+    recommendations: [`Remove ${duplicates.length} duplicate connection(s).`],
     confidence: "high",
     safetyNotes: [],
   };

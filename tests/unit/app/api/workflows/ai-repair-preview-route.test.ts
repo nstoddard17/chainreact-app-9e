@@ -38,12 +38,14 @@ const mockRunSelected = jest.fn();
 const mockParseSelected = jest.fn();
 const mockRunDanglingEdge = jest.fn();
 const mockRunSelfLoop = jest.fn();
+const mockRunDuplicate = jest.fn();
 jest.mock("@/services/ai/repair/deterministicRepairPreview", () => ({
   runDeterministicRepairPreview: (...a: unknown[]) => mockRunDeterministic(...a),
   runSelectedVariableRepairPreview: (...a: unknown[]) => mockRunSelected(...a),
   parseSelectedRepairSelection: (...a: unknown[]) => mockParseSelected(...a),
   runDanglingEdgeRepairPreview: (...a: unknown[]) => mockRunDanglingEdge(...a),
   runSelfLoopEdgeRepairPreview: (...a: unknown[]) => mockRunSelfLoop(...a),
+  runDuplicateEdgeRepairPreview: (...a: unknown[]) => mockRunDuplicate(...a),
 }));
 
 const mockGate = jest.fn();
@@ -140,6 +142,8 @@ beforeEach(() => {
   mockRunDanglingEdge.mockResolvedValue(null);
   mockRunSelfLoop.mockReset();
   mockRunSelfLoop.mockResolvedValue(null);
+  mockRunDuplicate.mockReset();
+  mockRunDuplicate.mockResolvedValue(null);
   mockGate.mockReset();
   mockGate.mockResolvedValue({ ok: true, skipped: true, reason: "enforcement_disabled" });
   mockRecCompleted.mockReset();
@@ -708,5 +712,62 @@ describe("ai/repair/preview — self-loop edge cleanup (AI-REPAIR-COVERAGE-1)", 
     mockRunDeterministic.mockResolvedValueOnce(null);
     await call("wf-1");
     expect(mockRunSelfLoop).not.toHaveBeenCalled();
+  });
+});
+
+// AI-REPAIR-COVERAGE-2 — deterministic redundant-duplicate edge cleanup (removeEdge), free path.
+describe("ai/repair/preview — duplicate edge cleanup (AI-REPAIR-COVERAGE-2)", () => {
+  const duplicateResult = {
+    ok: true,
+    preview: {
+      ok: true,
+      patchSummary: "Remove the duplicate connection",
+      changes: [{ op: "removeEdge", description: "Removes a duplicate connection.", edgeId: "e2" }],
+      affectedNodeIds: [],
+      affectedEdgeIds: ["e2"],
+      riskLevel: "low",
+      requiresConfirmation: false,
+      riskReasons: [],
+      validation: { ok: true, errors: [], warnings: [] },
+      userFacingSummaryText: "Remove the duplicate connection — 1 change(s). Risk: low.",
+      canApplyLater: true,
+      apply: { applyable: true, operations: [{ op: "removeEdge", edgeId: "e2" }], baseRevision: "rev-1" },
+    },
+  };
+
+  it("repairDuplicateEdges + service returns a preview → 200; NO gate/model/telemetry, NO model-path fall-through", async () => {
+    mockRunDuplicate.mockResolvedValueOnce(duplicateResult);
+    const res = await callBody("wf-1", { repairDuplicateEdges: true });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.preview).toEqual(duplicateResult.preview);
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+    expect(mockRecCompleted).not.toHaveBeenCalled();
+    expect(mockRecFailed).not.toHaveBeenCalled();
+    expect(mockRunDeterministic).not.toHaveBeenCalled();
+    expect(mockRunDuplicate).toHaveBeenCalledWith(
+      expect.objectContaining({ dto: okDto, userId: "user-1", workflowId: "wf-1" }),
+    );
+  });
+
+  it("repairDuplicateEdges but the service rejects it → 200 NO_SAFE_PATCH; NEVER the gate/model path (fail-closed)", async () => {
+    mockRunDuplicate.mockResolvedValueOnce(null);
+    const res = await callBody("wf-1", { repairDuplicateEdges: true });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("NO_SAFE_PATCH");
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockPreviewRepair).not.toHaveBeenCalled();
+    expect(mockRunDeterministic).not.toHaveBeenCalled();
+  });
+
+  it("no repairDuplicateEdges flag → the duplicate-edge path is never invoked", async () => {
+    mockRunDeterministic.mockResolvedValueOnce(null);
+    await call("wf-1");
+    expect(mockRunDuplicate).not.toHaveBeenCalled();
   });
 });

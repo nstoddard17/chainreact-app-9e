@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { SelectedRepair } from "@/lib/api/ai";
-import type { DanglingEdgeCard, InvalidReferenceCard, SelfLoopEdgeCard } from "../ai/attentionFindings";
+import type { DanglingEdgeCard, DuplicateEdgeCard, InvalidReferenceCard, SelfLoopEdgeCard } from "../ai/attentionFindings";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 
@@ -196,6 +196,63 @@ export function SelfLoopEdgeCardView({
             {many
               ? "Preview shows exactly which self-connections will be removed. Nothing is changed, saved, or run until you choose to apply it."
               : "Preview shows exactly which self-connection will be removed. Nothing is changed, saved, or run until you choose to apply it."}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * AI-REPAIR-COVERAGE-2 — a "Needs attention" card for redundant duplicate connections (two
+ * steps connected more than once by an identical edge). The PRIMARY action is "Preview fix"
+ * — it runs the deterministic `removeEdge` cleanup preview (keep-first); Apply lives only on
+ * the resulting preview card (never on this Check card). No node is deleted, no branch is
+ * changed, and distinct branches (same endpoints, different label) are never touched.
+ *
+ * No-leak: shows only the server-built safe endpoint step labels; never a raw edge / node id
+ * or branch label. There is no field to "Open" for a duplicate connection.
+ */
+export function DuplicateEdgeCardView({
+  card,
+  onPreviewFix,
+  previewing = false,
+}: {
+  readonly card: DuplicateEdgeCard;
+  readonly onPreviewFix?: () => void;
+  readonly previewing?: boolean;
+}) {
+  const many = card.connections.length > 1;
+  return (
+    <div data-testid="builder-ai-diagnosis-duplicate-edge" className="flex flex-col gap-1">
+      <p className="text-xs" style={{ color: "var(--builder-text)" }}>
+        {card.message}
+      </p>
+      {card.connections.length > 0 && (
+        <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[11px]" style={{ color: "var(--builder-muted)" }}>
+          {card.connections.map((c, i) => (
+            <li key={i}>{`From “${c.fromLabel}” to “${c.toLabel}”.`}</li>
+          ))}
+        </ul>
+      )}
+      {onPreviewFix && (
+        <>
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={onPreviewFix}
+              disabled={previewing}
+              data-testid="builder-ai-duplicate-edge-preview-fix-button"
+            >
+              {previewing ? "Previewing fix…" : "Preview fix"}
+            </Button>
+          </div>
+          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            {many
+              ? "Preview shows exactly which duplicate connections will be removed (one copy of each is kept). Nothing is changed, saved, or run until you choose to apply it."
+              : "Preview shows exactly which duplicate connection will be removed (one copy is kept). Nothing is changed, saved, or run until you choose to apply it."}
           </p>
         </>
       )}

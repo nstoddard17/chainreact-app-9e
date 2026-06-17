@@ -96,6 +96,17 @@ export interface AgentDiagnosisFinding {
    */
   readonly selfLoopNodeLabels?: readonly string[];
   /**
+   * AI-REPAIR-COVERAGE-2 — one safe descriptor per REDUNDANT duplicate connection, for a
+   * `DUPLICATE_EDGE` finding. The deterministic repair removes the duplicate copy
+   * (`removeEdge`) — requested via `previewWorkflowRepair(..., true)` (7th arg). `fromLabel`
+   * / `toLabel` are endpoint step display names — labels only; no raw edge / node id, no
+   * branch label. Distinct branches (same endpoints, different label) are never present.
+   */
+  readonly duplicateConnections?: readonly {
+    readonly fromLabel: string;
+    readonly toLabel: string;
+  }[];
+  /**
    * CHECK-ACTIONS-3 — persisted reconnect-needed health for this provider's
    * credential (boolean only; the server never sends the raw timestamp). Connection
    * findings only.
@@ -402,6 +413,7 @@ export async function previewWorkflowRepair(
   selectedRepair?: SelectedRepair,
   danglingEdgeRepair?: boolean,
   selfLoopEdgeRepair?: boolean,
+  duplicateEdgeRepair?: boolean,
 ): Promise<RepairPreviewResult> {
   const requestBody: Record<string, unknown> = {};
   if (draftDefinition) requestBody.draftDefinition = draftDefinition;
@@ -415,6 +427,9 @@ export async function previewWorkflowRepair(
   // AI-REPAIR-COVERAGE-1 — when true, the route runs the deterministic self-loop edge
   // cleanup (removeEdge) preview and never reaches the model path.
   if (selfLoopEdgeRepair) requestBody.repairSelfLoopEdges = true;
+  // AI-REPAIR-COVERAGE-2 — when true, the route runs the deterministic redundant-duplicate
+  // edge cleanup (removeEdge) preview and never reaches the model path.
+  if (duplicateEdgeRepair) requestBody.repairDuplicateEdges = true;
   const result = await postStructured<RepairPreviewResult>(
     `/api/workflows/${encodeURIComponent(workflowId)}/ai/repair/preview`,
     requestBody,

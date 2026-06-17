@@ -138,6 +138,19 @@ export interface AgentFinding {
    */
   readonly selfLoopNodeLabels?: readonly string[];
   /**
+   * AI-REPAIR-COVERAGE-2 — one safe descriptor per REDUNDANT duplicate connection, for a
+   * `DUPLICATE_EDGE` finding. The safe deterministic repair removes the duplicate copy
+   * (`removeEdge`), keeping the first of each identical group. `fromLabel` / `toLabel` are
+   * the endpoint steps' display names — labels only; the raw edge id / node ids / branch
+   * `label` stay server-side (the deterministic preview re-derives them); never rendered,
+   * never sent to the model. Distinct branches (same endpoints, different label) are never
+   * present here.
+   */
+  readonly duplicateConnections?: readonly {
+    readonly fromLabel: string;
+    readonly toLabel: string;
+  }[];
+  /**
    * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal for this
    * provider's resolved credential (boolean only; never the raw timestamp). Present
    * on connection findings; lets the UI show provider-aware reconnect copy.
@@ -204,6 +217,8 @@ function graphTitle(code: string): string {
       return "A step references a deleted or missing step.";
     case "SELF_LOOP_EDGE":
       return "A step is connected to itself.";
+    case "DUPLICATE_EDGE":
+      return "Two steps are connected more than once.";
     default:
       return `Workflow structure issue (${code}).`;
   }
@@ -369,6 +384,26 @@ export async function diagnoseWorkflowForAgent(input: {
       ...(labels.length > 0 ? { selfLoopNodeLabels: labels } : {}),
     });
   }
+  // AI-REPAIR-COVERAGE-2 — one actionable DUPLICATE_EDGE finding carrying SAFE from/to
+  // labels per redundant duplicate connection. Detected Check-only (never via the runtime
+  // graph validator), so it never changes the engine's `runnable` / the Activate gate —
+  // only the Check verdict + an applyable removeEdge repair. The endpoint nodes both exist
+  // (the schema-key duplicate is between real steps); a label that doesn't resolve falls
+  // back to the neutral "a step" — never a raw node id. The raw branch `label` is never
+  // included (it's the duplicate-grouping key, kept server-side).
+  const duplicateEdges = readiness.duplicateEdges ?? [];
+  if (duplicateEdges.length > 0) {
+    findings.push({
+      source: "graph",
+      code: "DUPLICATE_EDGE",
+      severity: "error",
+      title: graphTitle("DUPLICATE_EDGE"),
+      duplicateConnections: duplicateEdges.map((d) => ({
+        fromLabel: labelMap.get(d.fromNodeId) ?? "a step",
+        toLabel: labelMap.get(d.toNodeId) ?? "a step",
+      })),
+    });
+  }
   for (const f of readiness.fieldGaps ?? []) {
     findings.push({
       source: "field",
@@ -517,8 +552,11 @@ export async function diagnoseWorkflowForAgent(input: {
   // AI-REPAIR-COVERAGE-1 — a self-loop is a structural break Check gates on, even when
   // the engine's `runnable` is clean (same stricter-than-runtime stance as invalid refs).
   const hasSelfLoopEdges = selfLoopEdges.length > 0;
+  // AI-REPAIR-COVERAGE-2 — a redundant duplicate connection is a structural break Check
+  // gates on, even when the engine's `runnable` is clean (same stricter-than-runtime stance).
+  const hasDuplicateEdges = duplicateEdges.length > 0;
   const overallReady =
-    runnable && allRequiredConnected && !hasInvalidRefs && !hasSelfLoopEdges;
+    runnable && allRequiredConnected && !hasInvalidRefs && !hasSelfLoopEdges && !hasDuplicateEdges;
 
   const { summaryText, nextSteps } = renderWorkflowDiagnosis({
     overallReady,
@@ -527,6 +565,7 @@ export async function diagnoseWorkflowForAgent(input: {
     findings,
     hasInvalidReferences: hasInvalidRefs,
     hasSelfLoopEdges,
+    hasDuplicateEdges,
     ...(latestRun ? { latestRun } : {}),
   });
 

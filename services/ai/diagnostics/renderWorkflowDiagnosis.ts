@@ -30,6 +30,12 @@ export interface RenderWorkflowDiagnosisInput {
    * "can't run yet" reason (the engine's `runnable` can still be true).
    */
   readonly hasSelfLoopEdges?: boolean;
+  /**
+   * AI-REPAIR-COVERAGE-2 — at least one pair of steps is connected more than once
+   * (a redundant duplicate edge). Adds a specific "can't run yet" reason (the engine's
+   * `runnable` can still be true).
+   */
+  readonly hasDuplicateEdges?: boolean;
   readonly latestRun?: AgentLatestRunSummary;
 }
 
@@ -54,6 +60,8 @@ function nextStepFor(f: AgentFinding): string | null {
         return "Re-point or remove the broken variable reference(s) on the flagged steps.";
       if (f.code === "SELF_LOOP_EDGE")
         return "Remove the connection from a step to itself.";
+      if (f.code === "DUPLICATE_EDGE")
+        return "Remove the duplicate connection(s) between steps.";
       return "Fix the workflow structure before running.";
     case "connection":
       switch (f.code) {
@@ -85,7 +93,7 @@ function nextStepFor(f: AgentFinding): string | null {
 export function renderWorkflowDiagnosis(
   input: RenderWorkflowDiagnosisInput,
 ): RenderedWorkflowDiagnosis {
-  const { overallReady, runnable, allRequiredConnected, findings, hasInvalidReferences, hasSelfLoopEdges, latestRun } = input;
+  const { overallReady, runnable, allRequiredConnected, findings, hasInvalidReferences, hasSelfLoopEdges, hasDuplicateEdges, latestRun } = input;
 
   // ── summaryText ──
   const lines: string[] = [];
@@ -100,6 +108,8 @@ export function renderWorkflowDiagnosis(
     if (hasInvalidReferences) reasons.push("one or more steps reference a deleted or missing step");
     // AI-REPAIR-COVERAGE-1 — a self-loop blocks readiness on its own.
     if (hasSelfLoopEdges) reasons.push("one or more steps connect to themselves");
+    // AI-REPAIR-COVERAGE-2 — a redundant duplicate connection blocks readiness on its own.
+    if (hasDuplicateEdges) reasons.push("two or more steps are connected more than once");
     lines.push(
       reasons.length > 0
         ? `This workflow can't run yet because ${reasons.join(" and ")}.`

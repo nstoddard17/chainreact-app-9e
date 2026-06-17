@@ -106,6 +106,51 @@ describe("diagnoseWorkflowReadiness — self-loop edges (AI-REPAIR-COVERAGE-1, C
   });
 });
 
+describe("diagnoseWorkflowReadiness — duplicate edges (AI-REPAIR-COVERAGE-2, Check-only)", () => {
+  it("surfaces a redundant duplicate edge WITHOUT changing runnable/readinessError (no runtime/Activate impact)", async () => {
+    // trigger → action twice (identical unlabeled edge): the second is redundant.
+    mockGetWorkflow.mockResolvedValue(
+      workflow(
+        [triggerNode, gmailAction],
+        [
+          { id: "e1", from: "trigger-1", to: "action-1" },
+          { id: "e2", from: "trigger-1", to: "action-1" },
+        ],
+      ),
+    );
+    const result = await call();
+    expect(result.access).toBe("OK");
+    // The redundant duplicate is detected for Check (keep-first → e1 kept, e2 reported)…
+    expect(result.duplicateEdges).toEqual([{ fromNodeId: "trigger-1", toNodeId: "action-1" }]);
+    // …but it must NOT change the runtime verdict.
+    expect(result.readinessError).not.toBe("INVALID_WORKFLOW_GRAPH");
+    // No raw edge id leaks (only internal node ids, allowed in the DTO).
+    expect(JSON.stringify(result.duplicateEdges)).not.toContain("e2");
+  });
+
+  it("does NOT flag same from/to with DIFFERENT labels (distinct branches)", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflow(
+        [triggerNode, gmailAction],
+        [
+          { id: "e1", from: "trigger-1", to: "action-1", label: "yes" },
+          { id: "e2", from: "trigger-1", to: "action-1", label: "no" },
+        ],
+      ),
+    );
+    const result = await call();
+    expect(result.duplicateEdges).toEqual([]);
+  });
+
+  it("reports no duplicate edges for a clean linear graph", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflow([triggerNode, gmailAction], [{ id: "e1", from: "trigger-1", to: "action-1" }]),
+    );
+    const result = await call();
+    expect(result.duplicateEdges).toEqual([]);
+  });
+});
+
 describe("diagnoseWorkflowReadiness — NOT_FOUND", () => {
   it("returns NOT_FOUND and does NOT call membership", async () => {
     mockGetWorkflow.mockResolvedValue(null);

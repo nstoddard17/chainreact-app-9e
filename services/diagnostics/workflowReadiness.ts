@@ -6,6 +6,7 @@ import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflowDefin
 import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
 import { findInvalidVariableReferences } from "@/core/workflows/invalidVariableReferences";
 import { findSelfLoopEdges } from "@/core/workflows/selfLoopEdges";
+import { findDuplicateEdges } from "@/core/workflows/duplicateEdges";
 import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 
 /**
@@ -117,6 +118,19 @@ export interface WorkflowReadinessDTO {
    * → none.
    */
   readonly selfLoopEdges?: readonly { readonly nodeId: string }[];
+  /**
+   * AI-REPAIR-COVERAGE-2 — redundant duplicate edges (two-or-more edges identical by the
+   * graph's own key `(from, to, label ?? "")`). Check-only: detected here (diagnosis), NOT
+   * in the shared runtime validator, so it never changes the engine's `runnable` / the
+   * Activate gate. Each carries the redundant copy's `fromNodeId` / `toNodeId` (for safe
+   * label resolution); the `edgeId` stays server-side — the deterministic `removeEdge`
+   * repair re-derives it from the graph. Same-`(from,to)`-different-`label` (distinct
+   * branches) are NEVER included. Empty/absent → none.
+   */
+  readonly duplicateEdges?: readonly {
+    readonly fromNodeId: string;
+    readonly toNodeId: string;
+  }[];
 }
 
 /**
@@ -256,6 +270,12 @@ export async function diagnoseWorkflowReadiness(input: {
   const invalidVariableRefs = buildInvalidVariableRefs(def.nodes);
   // AI-REPAIR-COVERAGE-1 — Check-only self-loop detection (does NOT feed `runnable`).
   const selfLoopEdges = findSelfLoopEdges(def.edges).map((s) => ({ nodeId: s.nodeId }));
+  // AI-REPAIR-COVERAGE-2 — Check-only redundant-duplicate-edge detection (does NOT feed
+  // `runnable`). Keyed on (from, to, label ?? "") so distinct branches are never flagged.
+  const duplicateEdges = findDuplicateEdges(def.edges).map((d) => ({
+    fromNodeId: d.fromNodeId,
+    toNodeId: d.toNodeId,
+  }));
 
   return {
     workflowId,
@@ -268,5 +288,6 @@ export async function diagnoseWorkflowReadiness(input: {
     nodeLabels,
     invalidVariableRefs,
     selfLoopEdges,
+    duplicateEdges,
   };
 }

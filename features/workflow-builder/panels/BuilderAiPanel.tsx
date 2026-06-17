@@ -121,6 +121,7 @@ export function BuilderAiPanel() {
         onPreviewSelectedFix={a.handlePreviewSelectedFix}
         onPreviewDanglingEdgeFix={a.handlePreviewDanglingEdgeFix}
         onPreviewSelfLoopEdgeFix={a.handlePreviewSelfLoopEdgeFix}
+        onPreviewDuplicateEdgeFix={a.handlePreviewDuplicateEdgeFix}
         onApplyRepair={a.handleApplyRepair}
         applyingId={a.applyingId}
         appliedPreviewIds={a.appliedPreviewIds}

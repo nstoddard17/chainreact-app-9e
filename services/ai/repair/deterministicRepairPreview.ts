@@ -11,6 +11,7 @@ import {
   buildVariableRepairOutcome,
   buildEdgeRepairOutcome,
   buildSelfLoopEdgeRepairOutcome,
+  buildDuplicateEdgeRepairOutcome,
 } from "./repairStrategies";
 
 /**
@@ -360,6 +361,67 @@ export async function runSelfLoopEdgeRepairPreview(
     summary,
     rationale: outcome.recommendations[0] ?? "Deterministic self-loop edge cleanup.",
     patchIdPrefix: "repair-preview-selfloop",
+    ...(input.draftDefinition ? { draftDefinition: input.draftDefinition } : {}),
+  });
+  return preview ? { ok: true, preview } : null;
+}
+
+// ─── AI-REPAIR-COVERAGE-2 — deterministic duplicate edge cleanup ──────────────
+
+/** True when the diagnosis carries at least one duplicate-edge finding. */
+function hasDuplicateEdgeFinding(dto: AgentWorkflowDiagnosisDTO): boolean {
+  return (dto.findings ?? []).some((f) => f.code === "DUPLICATE_EDGE");
+}
+
+export interface DuplicateEdgeRepairPreviewInput {
+  readonly dto: AgentWorkflowDiagnosisDTO;
+  readonly userId: string;
+  readonly workflowId: string;
+  readonly draftDefinition?: WorkflowDefinition;
+}
+
+/**
+ * Route-callable, MODEL-FREE deterministic preview for redundant duplicate edge cleanup.
+ * A redundant duplicate is a later edge identical to an earlier one by the graph's own
+ * edge-identity key `(from, to, label ?? "")`. The repair is the narrow, safe `removeEdge`
+ * op (keep the first of each identical group; no node deletion, no new endpoints, no
+ * branch-label/trigger changes) sourced from `buildDuplicateEdgeRepairOutcome`, then run
+ * through the SAME validate + apply-safety engine.
+ *
+ * Same-`(from,to)`-different-`label` edges are DISTINCT branches and are never flagged or
+ * removed (the dedup key includes `label`). Like the self-loop / dangling cleanups, the
+ * patch validator rejects a candidate that STILL contains an invalid edge, so this removes
+ * ALL redundant duplicates in one preview → the candidate validates clean. If another
+ * invalid edge (a self-loop / dangling one) remains, validation blocks → null (fail-closed;
+ * the matching repair handles that case). NEVER calls the model, the gate, or telemetry.
+ * Short-circuits with no graph read when there's no duplicate-edge finding.
+ */
+export async function runDuplicateEdgeRepairPreview(
+  input: DuplicateEdgeRepairPreviewInput,
+): Promise<{ ok: true; preview: PatchPreviewResult } | null> {
+  if (!hasDuplicateEdgeFinding(input.dto)) return null;
+
+  const graphRes = await getWorkflowGraphForAI(input.userId, input.workflowId);
+  if (!graphRes.ok) return null;
+  const graph = graphRes.data;
+
+  const outcome = buildDuplicateEdgeRepairOutcome(graph);
+  if (!outcome || outcome.repairability !== "repairable" || outcome.operations.length === 0) return null;
+
+  const removeCount = outcome.operations.length;
+  const summary =
+    removeCount === 1
+      ? "Remove the duplicate connection"
+      : `Remove all ${removeCount} duplicate connections`;
+
+  const preview = await previewRepairOps({
+    userId: input.userId,
+    workflowId: input.workflowId,
+    graph,
+    operations: outcome.operations as PatchOperation[],
+    summary,
+    rationale: outcome.recommendations[0] ?? "Deterministic duplicate edge cleanup.",
+    patchIdPrefix: "repair-preview-duplicate-edge",
     ...(input.draftDefinition ? { draftDefinition: input.draftDefinition } : {}),
   });
   return preview ? { ok: true, preview } : null;
