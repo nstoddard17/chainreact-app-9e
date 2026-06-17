@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-16 @ 67ee7f6a6 (Builder UX mini-arc closeout — canvas ergonomics + tabs + Setup|Test|Data config tabs + Data Map MVP + Settings MVP; local/unpushed)
+> Last curated: 2026-06-16 @ 1f34cd7ba (grant-audit arc closeout — integrations/trigger_resources/workflow_files/workflow_runs service-role-only; local/unpushed)
 
 ## Current status
 
@@ -79,17 +79,18 @@
   `20260626000000_workflow_runs_revision_id.sql` applied to **dev DB only** — **not pushed, not in
   prod**; deploy must apply it →
   [`active-revision-model-closeout.md`](./slices/phase-4/readiness/active-revision-model-closeout.md).
-- [2026-06-16] **`integrations` is service-role-only at the Data API (LOCAL/UNPUSHED).**
-  `authenticated` has **zero** direct DML/SELECT on `public.integrations` (47B revoked
-  INSERT/UPDATE/DELETE `20260627000000`; 47D revoked SELECT `20260628000000` — both applied to
-  **dev DB only**, not pushed/prod; deploy must apply them). `service_role` is the only
-  reader/writer; every client-visible read flows through a **membership-gated** service-role
-  repository + an **allow-listed DTO** (Apps page `getRole` gate; AI/options already service-role).
-  RLS unchanged; the personal/account model stays in `core/integrations/credentialSharing.ts`,
-  **never re-encoded in SQL**. A net-effective-grant regression guard
-  (`tests/structure/no-authenticated-integration-grants.test.ts`) fails any future re-GRANT.
-  **CONN-SHARE deferred — must not re-open broad grants** →
-  [`v2-ready-47e-integrations-access-closeout.md`](./slices/phase-4/readiness/v2-ready-47e-integrations-access-closeout.md).
+- [2026-06-16] **Sensitive-table Data API grant audit COMPLETE — four tables service-role-only (LOCAL/UNPUSHED).**
+  `authenticated` can no longer directly read/write `integrations` (47B/47D, `20260627`/`20260628`),
+  `trigger_resources` (50, `20260629`), `workflow_files` (52, `20260630`), or `workflow_runs` (51,
+  `20260701`) where locked down; OAuth callback role re-check done (48). Every client read flows through a
+  **service-role repository + explicit membership gate + allow-listed DTO**; `workflow_runs` detail strips
+  raw `trigger_event`/`fatal_error`/raw step output, exposing SEC-7-redacted output ONLY to the test-run
+  author. RLS unchanged; the personal/account model stays in `core/integrations/credentialSharing.ts`,
+  **never re-encoded in SQL**. Regression guard `tests/structure/no-authenticated-integration-grants.test.ts`
+  locks all four tables; gated RLS DB tests prove member direct SELECT → `42501`. **Migrations dev-DB-applied
+  only, not pushed/prod — deploy must apply them. CONN-SHARE must not re-open broad grants** →
+  [`v2-ready-49-sensitive-table-grant-audit.md`](./slices/phase-4/readiness/v2-ready-49-sensitive-table-grant-audit.md)
+  + 47E/50/51/52 closeouts (`0cac51058`/`2c99a71bd`/`1f34cd7ba`/`88cf2d483`).
 
 ## Open risks & follow-ups
 
