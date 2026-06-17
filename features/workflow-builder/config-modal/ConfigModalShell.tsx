@@ -25,6 +25,11 @@ import {
   useProviderTriggers,
 } from "../hooks/useProviderTriggers";
 import { SchemaForm } from "./SchemaForm";
+import {
+  ConfigNodeTabBar,
+  ConfigTabEmptyState,
+  type ConfigNodeTab,
+} from "./ConfigNodeTabs";
 import { validateRoutesValue } from "./fields/_routesValidator";
 
 /**
@@ -80,6 +85,12 @@ export function ConfigModalShell() {
 
   // C — confirm-before-discard state for the close (`×` / Cancel) affordances.
   const [pendingClose, setPendingClose] = useState(false);
+
+  // Slice 4.BUILDER-CONFIG-TABS-1 — the single selected-node tab model. Setup is
+  // the default (the real config form); Test / Data show honest empty states
+  // until their systems land. Advanced is omitted entirely until a node actually
+  // has advanced options (no dead tab) — see `visibleTabs` below.
+  const [activeTab, setActiveTab] = useState<ConfigNodeTab>("setup");
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const renameNode = useGraphSlice((s) => s.renameNode);
@@ -223,6 +234,16 @@ export function ConfigModalShell() {
         ).error !== null
       : false;
 
+  // BUILDER-CONFIG-TABS-1 — Advanced is shown ONLY when the node actually has
+  // advanced options. There is no advanced-field concept in the metadata yet, so
+  // it is omitted (never a dead tab); add it here once such options exist.
+  const hasAdvancedOptions = false;
+  const visibleTabs: ConfigNodeTab[] = hasAdvancedOptions
+    ? ["setup", "test", "data", "advanced"]
+    : ["setup", "test", "data"];
+  // Guard: never strand the panel on a tab that isn't visible.
+  const currentTab: ConfigNodeTab = visibleTabs.includes(activeTab) ? activeTab : "setup";
+
   return (
     <aside
       aria-label="Node configuration"
@@ -261,24 +282,13 @@ export function ConfigModalShell() {
         </Button>
       </header>
 
-      <nav aria-label="Configuration sections" className="flex gap-1 border-b">
-        <span
-          className="border-b-2 border-primary px-3 py-1.5 text-xs font-medium"
-          aria-current="page"
-        >
-          Setup
-        </span>
-        <span className="px-3 py-1.5 text-xs text-muted-foreground" title="Coming soon">
-          Advanced
-        </span>
-        <span className="px-3 py-1.5 text-xs text-muted-foreground" title="Coming soon">
-          Results
-        </span>
-        <span className="px-3 py-1.5 text-xs text-muted-foreground" title="Coming soon">
-          Data Inspector
-        </span>
-      </nav>
+      <ConfigNodeTabBar tabs={visibleTabs} activeTab={currentTab} onSelect={setActiveTab} />
 
+      {currentTab === "test" ? (
+        <ConfigTabEmptyState tab="test" />
+      ) : currentTab === "data" ? (
+        <ConfigTabEmptyState tab="data" />
+      ) : (
       <section aria-label="Setup fields" className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <label
@@ -340,6 +350,7 @@ export function ConfigModalShell() {
           />
         )}
       </section>
+      )}
 
       {pendingClose ? (
         <div

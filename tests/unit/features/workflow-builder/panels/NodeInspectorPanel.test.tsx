@@ -26,7 +26,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NodeInspectorPanel } from "@/features/workflow-builder/panels/NodeInspectorPanel";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -87,25 +87,29 @@ describe("NodeInspectorPanel", () => {
     ).toBeInTheDocument();
   });
 
-  // Slice 4.BUILDER-DESIGN-PARITY-1 — the inspector now surfaces the
-  // design's Setup / Advanced / Test / Variables tab strip. V2 only
-  // wires Setup today; the rest render as disabled placeholders.
-  it("renders the Setup / Advanced / Test / Variables tab strip with only Setup active", () => {
+  // Slice 4.BUILDER-CONFIG-TABS-1 — the duplicate outer tab row was removed; the
+  // single selected-node tab strip (Setup | Test | Data) lives in ConfigModalShell.
+  it("removes the duplicate outer tab row and shows ONE Setup | Test | Data strip", () => {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        { id: "trig", kind: "trigger", provider: "slack", type: "", config: {}, position: { x: 0, y: 0 } },
+      ],
+      edges: [],
+    });
     render(<NodeInspectorPanel />);
-    const strip = screen.getByTestId("node-inspector-tabs");
-    const tabs = Array.from(strip.querySelectorAll('[role="tab"]'));
-    expect(tabs.map((t) => t.textContent)).toEqual([
-      "Setup",
-      "Advanced",
-      "Test",
-      "Variables",
-    ]);
+    act(() => {
+      useConfigSlice.getState().openNode({ nodeId: "trig", initialValues: {} });
+    });
+    // The old outer inspector tab row is gone (no duplicate / dead tabs).
+    expect(screen.queryByTestId("node-inspector-tabs")).toBeNull();
+    // Exactly one tab strip, from the config shell.
+    const strip = screen.getByTestId("config-node-tabs");
+    const tabs = within(strip).getAllByRole("tab");
+    expect(tabs.map((t) => t.textContent)).toEqual(["Setup", "Test", "Data"]);
+    // Advanced is hidden (no advanced options); none are disabled placeholders.
+    expect(tabs.map((t) => t.textContent)).not.toContain("Advanced");
+    for (const t of tabs) expect(t).toBeEnabled();
     expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
-    expect(tabs[0]!).not.toBeDisabled();
-    for (const t of tabs.slice(1)) {
-      expect(t.getAttribute("aria-selected")).toBe("false");
-      expect(t).toBeDisabled();
-    }
   });
 });
 

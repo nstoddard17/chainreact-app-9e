@@ -17,8 +17,10 @@ import { DeleteNodeConfirmDialog } from "./DeleteNodeConfirmDialog";
  * 4.BUILDER-NODE-DELETE-1).
  *
  * Wraps `ConfigModalShell` with the Anthropic ChainV2 inspector chrome:
- *   - Tab strip (Setup / Advanced / Test / Variables) — Setup is the
- *     only active tab in V2 today; the others are disabled placeholders.
+ *   - Slice 4.BUILDER-CONFIG-TABS-1 — the duplicate outer tab strip was removed.
+ *     The single selected-node tab model (Setup | Test | Data, + Advanced when a
+ *     node has advanced options) now lives inside `ConfigModalShell`, so there is
+ *     exactly one tab row instead of two confusing/duplicated ones.
  *   - **Delete node** button in the footer that opens a
  *     `DeleteNodeConfirmDialog`. The dialog previews the rewire plan via
  *     the pure helper and lets the user confirm or cancel.
@@ -42,7 +44,6 @@ export function NodeInspectorPanel() {
       className="flex flex-1 flex-col"
       style={{ minHeight: 0 }}
     >
-      <InspectorTabs />
       <div className="flex flex-1 flex-col overflow-y-auto">
         <ConfigModalShell />
         <DeleteNodeAffordance />
@@ -136,54 +137,5 @@ function DeleteNodeAffordance() {
         />
       ) : null}
     </>
-  );
-}
-
-function InspectorTabs() {
-  return (
-    <div
-      role="tablist"
-      data-testid="node-inspector-tabs"
-      className="flex gap-0.5 px-2"
-      style={{
-        background: "var(--builder-panel-2)",
-        borderBottom: "1px solid var(--builder-border)",
-      }}
-    >
-      <Tab label="Setup" active />
-      <Tab label="Advanced" disabled />
-      <Tab label="Test" disabled />
-      <Tab label="Variables" disabled />
-    </div>
-  );
-}
-
-function Tab({
-  label,
-  active,
-  disabled,
-}: {
-  label: string;
-  active?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active ? "true" : "false"}
-      disabled={disabled}
-      title={disabled ? "Coming soon" : undefined}
-      className="inline-flex items-center gap-1.5 px-2.5 py-2 text-[12px] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-      style={{
-        background: active ? "var(--builder-panel)" : "transparent",
-        borderBottom: `2px solid ${active ? "var(--builder-accent)" : "transparent"}`,
-        color: active ? "var(--builder-text)" : "var(--builder-muted)",
-        marginBottom: -1,
-        border: "0",
-      }}
-    >
-      {label}
-    </button>
   );
 }

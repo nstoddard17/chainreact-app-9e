@@ -23,7 +23,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfigModalShell } from "@/features/workflow-builder/config-modal/ConfigModalShell";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -166,6 +166,65 @@ describe("ConfigModalShell — closed state", () => {
   it("renders nothing when no node is active", () => {
     const { container } = render(<ConfigModalShell />);
     expect(container.firstChild).toBeNull();
+  });
+});
+
+describe("ConfigModalShell — selected-node tabs (BUILDER-CONFIG-TABS-1)", () => {
+  function configTab(name: RegExp) {
+    return within(screen.getByTestId("config-node-tabs")).getByRole("tab", { name });
+  }
+
+  it("shows ONE Setup | Test | Data strip with Setup active by default; Advanced hidden", async () => {
+    bootWithNativeAction();
+    render(<ConfigModalShell />);
+    await waitFor(() => expect(screen.getByLabelText("URL")).toBeInTheDocument());
+    const tabs = within(screen.getByTestId("config-node-tabs")).getAllByRole("tab");
+    expect(tabs.map((t) => t.textContent)).toEqual(["Setup", "Test", "Data"]);
+    expect(configTab(/^Setup$/).getAttribute("aria-selected")).toBe("true");
+    // The Setup form is the default content.
+    expect(screen.getByLabelText("URL")).toBeInTheDocument();
+    expect(screen.queryByTestId("config-tab-empty-state")).toBeNull();
+  });
+
+  it("Test tab shows a polished empty state and hides the Setup form", async () => {
+    bootWithNativeAction();
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => expect(screen.getByLabelText("URL")).toBeInTheDocument());
+    await user.click(configTab(/^Test$/));
+    const panel = screen.getByTestId("config-tab-empty-state");
+    expect(panel.getAttribute("data-tab")).toBe("test");
+    expect(panel.textContent).toMatch(/test this step/i);
+    // Setup form fields are not shown while on Test.
+    expect(screen.queryByLabelText("URL")).toBeNull();
+  });
+
+  it("Data tab absorbs Variables/Results/Data Inspector as a user-facing empty state (no raw JSON/schema)", async () => {
+    bootWithNativeAction();
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => expect(screen.getByLabelText("URL")).toBeInTheDocument());
+    await user.click(configTab(/^Data$/));
+    const panel = screen.getByTestId("config-tab-empty-state");
+    expect(panel.getAttribute("data-tab")).toBe("data");
+    expect(panel.textContent).toMatch(/variables available from the trigger/i);
+    expect(panel.textContent).not.toMatch(/JSON|schema/i);
+  });
+
+  it("returns to the Setup form when Setup is reselected; fields still render + save", async () => {
+    const { nodeId } = bootWithNativeAction();
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await waitFor(() => expect(screen.getByLabelText("URL")).toBeInTheDocument());
+    await user.click(configTab(/^Data$/));
+    expect(screen.queryByLabelText("URL")).toBeNull();
+    await user.click(configTab(/^Setup$/));
+    // The real config form is back and still saves into graphSlice.
+    await user.type(screen.getByLabelText("URL"), "https://example.com");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(
+      useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)?.config,
+    ).toMatchObject({ url: "https://example.com" });
   });
 });
 
