@@ -192,8 +192,11 @@ optional SELECT lockdown is taken.
 
 **Defense-in-depth note (no migration):** the ingest/callback routes (§1.6) rely on the connect-start
 role gate via the bound state. A future small hardening could resolve the account from the consumed
-state and re-assert `requireAccountRole` for `isAccountCredentialProvider` at the callback/ingest
-boundary. It is **not** a live gap today and is out of scope for this audit.
+state and re-assert the role for `isAccountCredentialProvider` at the callback/ingest boundary. It is
+**not** a live gap today and is out of scope for this audit. — **DONE in V2-READY-48:** the dispatcher
+re-checks owner/admin (`getRoleServiceRole` on the signed-state `accountId`/`userId`) for account-shared
+providers at completion in BOTH `handleCallback` and `handleTokenIngest`, fail-safe `StateAccountAccessError`
+(no provider call, no upsert); personal providers skip it. No migration, no state-format change.
 
 ---
 

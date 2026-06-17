@@ -53,6 +53,9 @@ jest.mock("@/services/accounts/accountFreeze", () => ({
 // OAUTH-ACCT-BIND — handleCallback re-verifies state-bound-account membership.
 jest.mock("@/repositories/accountMemberships", () => ({
   isMemberServiceRole: jest.fn().mockResolvedValue(true),
+  // V2-READY-48 — handleCallback re-checks owner/admin at completion for account-
+  // shared providers; default to owner so this encryption-contract test completes.
+  getRoleServiceRole: jest.fn().mockResolvedValue("owner"),
 }));
 
 jest.mock("@/repositories/oauthStates", () => ({

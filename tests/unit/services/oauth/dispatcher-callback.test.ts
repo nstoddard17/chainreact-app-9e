@@ -28,6 +28,9 @@ jest.mock("@/services/accounts/accountFreeze", () => ({
 // state-bound account. Member-true by default.
 jest.mock("@/repositories/accountMemberships", () => ({
   isMemberServiceRole: jest.fn().mockResolvedValue(true),
+  // V2-READY-48 — handleCallback re-checks owner/admin at completion for account-
+  // shared providers; default to owner so these callback tests complete as before.
+  getRoleServiceRole: jest.fn().mockResolvedValue("owner"),
 }));
 
 jest.mock("@/integrations/slack/oauth", () => ({

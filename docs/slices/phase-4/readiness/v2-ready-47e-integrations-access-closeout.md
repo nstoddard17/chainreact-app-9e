@@ -129,5 +129,7 @@ creator-pin, 22D-2 option redaction, and `toOwnerControlledView` untouched. Noth
 Integrations Data-API access is locked to service-role-only, enforced at the GRANT layer,
 fronted by membership-gated server repositories + allow-listed DTOs, proven by gated DB tests,
 and protected against regression by a net-effective-grant structure guard. Remaining (separate)
-follow-ups, unrelated to this invariant: the ingest/callback defense-in-depth role re-check
-(noted in the 47 audit) and, if/when built, CONN-SHARE under the constraints in §5.
+follow-ups, unrelated to this invariant: ~~the ingest/callback defense-in-depth role re-check
+(noted in the 47 audit)~~ **— DONE in V2-READY-48** (dispatcher re-checks owner/admin at OAuth
+completion for account-shared providers in `handleCallback` + `handleTokenIngest`); and, if/when
+built, CONN-SHARE under the constraints in §5.

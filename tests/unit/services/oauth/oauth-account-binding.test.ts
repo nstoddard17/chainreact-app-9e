@@ -15,6 +15,9 @@
  *     round trip cannot redirect the write.
  *   - handleCallback() re-verifies the initiator is still a member of the
  *     state-bound account (fail-safe StateAccountAccessError, no upsert).
+ *   - V2-READY-48: handleCallback() ALSO re-checks owner/admin at completion for
+ *     account-shared providers (a downgrade between connect and callback fails
+ *     safe, no upsert); personal providers skip the role check (own identity).
  *   - a frozen state-bound account fails safe (no upsert).
  *   - reconnect writes only to the state-bound row's account.
  *   - providerHint (per-tenant) still rides with the state-bound account.
@@ -30,6 +33,8 @@ const mockAssertOperational = jest.fn();
 const mockIsMember = jest.fn();
 const mockNotionHandleCallback = jest.fn();
 const mockSlackHandleCallback = jest.fn();
+const mockGmailHandleCallback = jest.fn();
+const mockGetRole = jest.fn();
 
 jest.mock("@/repositories/integrations", () => ({
   upsertActive: (...a: unknown[]) => mockUpsertActive(...a),
@@ -45,6 +50,7 @@ jest.mock("@/services/accounts/accountFreeze", () => ({
 }));
 jest.mock("@/repositories/accountMemberships", () => ({
   isMemberServiceRole: (...a: unknown[]) => mockIsMember(...a),
+  getRoleServiceRole: (...a: unknown[]) => mockGetRole(...a),
 }));
 jest.mock("@/integrations/notion/oauth", () => ({
   notionOAuth: {
@@ -65,6 +71,19 @@ jest.mock("@/integrations/slack/oauth", () => ({
         `https://slack.com/oauth/v2/authorize?state=${encodeURIComponent(state)}`,
     ),
     handleCallback: (...a: unknown[]) => mockSlackHandleCallback(...a),
+    refreshToken: jest.fn(),
+    revoke: jest.fn(),
+  },
+}));
+// gmail = a PERSONAL-credential provider — used to prove the completion role
+// re-check is SKIPPED for personal providers (connects the member's own identity).
+jest.mock("@/integrations/gmail/oauth", () => ({
+  gmailOAuth: {
+    buildAuthUrl: jest.fn(
+      (state: string) =>
+        `https://accounts.google.com/o/oauth2/v2/auth?state=${encodeURIComponent(state)}`,
+    ),
+    handleCallback: (...a: unknown[]) => mockGmailHandleCallback(...a),
     refreshToken: jest.fn(),
     revoke: jest.fn(),
   },
@@ -98,6 +117,10 @@ beforeEach(() => {
   mockOAuthStatesCreate.mockResolvedValue(undefined);
   mockAssertOperational.mockResolvedValue(undefined);
   mockIsMember.mockResolvedValue(true);
+  // V2-READY-48 — default the completion role check to owner so existing
+  // account-shared (notion/slack) callback tests still complete. Personal-provider
+  // tests assert this is never consulted.
+  mockGetRole.mockResolvedValue("owner");
   mockUpsertActive.mockImplementation(async (args: { accountId: string }) => ({
     id: "int-1",
     accountId: args.accountId,
@@ -210,6 +233,104 @@ describe("handleCallback() writes to the SIGNED-STATE account only", () => {
       handleCallback({ provider: "notion", code: "c", state: token }),
     ).rejects.toBeInstanceOf(StateAccountAccessError);
     expect(mockNotionHandleCallback).not.toHaveBeenCalled();
+  });
+});
+
+describe("V2-READY-48 — owner/admin role re-check at completion (account-shared providers)", () => {
+  beforeEach(() => {
+    mockNotionHandleCallback.mockResolvedValue({
+      tokens: { accessToken: "t", refreshToken: null, scopes: [], expiresAt: null },
+      account: { providerAccountId: "ws-1", displayName: "Team WS", metadata: {} },
+    });
+    mockGmailHandleCallback.mockResolvedValue({
+      tokens: { accessToken: "t", refreshToken: null, scopes: [], expiresAt: null },
+      account: { providerAccountId: "user@x.test", displayName: "user@x.test", metadata: {} },
+    });
+    // gmail upsert mock returns the bound account so we can assert it.
+    mockUpsertActive.mockImplementation(async (args: { accountId: string; provider: string }) => ({
+      id: "int-1",
+      accountId: args.accountId,
+      provider: args.provider,
+    }));
+  });
+
+  it("owner completing an account-shared (notion) connect → upsert proceeds (role checked)", async () => {
+    mockGetRole.mockResolvedValue("owner");
+    const token = await stateFor(TEAM, "notion");
+    await handleCallback({ provider: "notion", code: "c", state: token });
+    expect(mockUpsertActive).toHaveBeenCalledTimes(1);
+    expect(mockGetRole).toHaveBeenCalledWith(TEAM, USER); // checked against signed state
+  });
+
+  it("admin completing an account-shared connect → upsert proceeds", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    const token = await stateFor(TEAM, "notion");
+    await handleCallback({ provider: "notion", code: "c", state: token });
+    expect(mockUpsertActive).toHaveBeenCalledTimes(1);
+  });
+
+  it("role DOWNGRADED owner/admin→member before callback → StateAccountAccessError, NO upsert, NO provider call", async () => {
+    mockIsMember.mockResolvedValue(true); // still a member…
+    mockGetRole.mockResolvedValue("member"); // …but no longer owner/admin
+    const token = await stateFor(TEAM, "notion");
+    await expect(
+      handleCallback({ provider: "notion", code: "c", state: token }),
+    ).rejects.toBeInstanceOf(StateAccountAccessError);
+    expect(mockUpsertActive).not.toHaveBeenCalled();
+    expect(mockNotionHandleCallback).not.toHaveBeenCalled(); // fail-fast: no token exchange
+    expect(mockGetRole).toHaveBeenCalledWith(TEAM, USER);
+  });
+
+  it("removed from account before callback → blocked by the membership check first (NO role lookup, NO upsert)", async () => {
+    mockIsMember.mockResolvedValue(false); // membership check throws before the role check
+    const token = await stateFor(TEAM, "notion");
+    await expect(
+      handleCallback({ provider: "notion", code: "c", state: token }),
+    ).rejects.toBeInstanceOf(StateAccountAccessError);
+    expect(mockUpsertActive).not.toHaveBeenCalled();
+    expect(mockGetRole).not.toHaveBeenCalled();
+  });
+
+  it("PERSONAL provider (gmail): a non-owner member completes — role check SKIPPED, upsert proceeds", async () => {
+    mockGetRole.mockResolvedValue("member"); // would block an account provider…
+    const token = await stateFor(TEAM, "gmail");
+    const { integration } = await handleCallback({ provider: "gmail", code: "c", state: token });
+    expect(mockUpsertActive).toHaveBeenCalledTimes(1); // …but personal connects the member's OWN identity
+    expect(integration.accountId).toBe(TEAM);
+    expect(mockGetRole).not.toHaveBeenCalled(); // personal → no role lookup at all
+  });
+
+  it("personal-account owner flow unchanged: gmail on the personal account completes", async () => {
+    mockGetRole.mockResolvedValue("owner");
+    const token = await stateFor(PERSONAL, "gmail");
+    await handleCallback({ provider: "gmail", code: "c", state: token });
+    expect(mockUpsertActive.mock.calls[0]![0]).toMatchObject({ accountId: PERSONAL });
+    expect(mockGetRole).not.toHaveBeenCalled(); // gmail is personal → role skipped even on a personal acct
+  });
+
+  it("reconnect of an account-shared connection by a downgraded user → blocked BEFORE the reconnect row lookup", async () => {
+    mockGetRole.mockResolvedValue("member");
+    const { token, payload } = await createState({
+      userId: USER,
+      accountId: TEAM,
+      provider: "notion",
+      requestedScopes: [],
+      reconnect: { integrationId: "int-9" },
+    });
+    mockOAuthStatesConsume.mockResolvedValueOnce({
+      nonce: payload.nonce,
+      userId: payload.userId,
+      provider: payload.provider,
+      pkceCodeVerifier: null,
+      pkceCodeChallengeMethod: null,
+    });
+    await expect(
+      handleCallback({ provider: "notion", code: "c", state: token }),
+    ).rejects.toBeInstanceOf(StateAccountAccessError);
+    expect(mockUpsertActive).not.toHaveBeenCalled();
+    // the role gate runs before the provider call AND the reconnect identity lookup.
+    expect(mockNotionHandleCallback).not.toHaveBeenCalled();
+    expect(mockGetByIdForAccount).not.toHaveBeenCalled();
   });
 });
 

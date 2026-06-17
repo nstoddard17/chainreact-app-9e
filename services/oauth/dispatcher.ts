@@ -44,10 +44,11 @@ import {
   type IntegrationRecord,
 } from "@/repositories/integrations";
 import { notifyReconnectNeeded } from "@/services/integrations/reconnectNotification";
-import { isMemberServiceRole } from "@/repositories/accountMemberships";
+import { isMemberServiceRole, getRoleServiceRole } from "@/repositories/accountMemberships";
 import { assertAccountOperational } from "@/services/accounts/accountFreeze";
+import { isAccountCredentialProvider } from "@/core/integrations/credentialSharing";
 import { refreshLockKey, withRefreshLock } from "./refreshLock";
-import { createState, consumeState, InvalidStateError } from "./state";
+import { createState, consumeState, InvalidStateError, type OAuthStatePayload } from "./state";
 
 /**
  * Generic OAuth dispatcher.
@@ -187,6 +188,35 @@ export class StateAccountAccessError extends Error {
   constructor() {
     super("state account access revoked");
     this.name = "StateAccountAccessError";
+  }
+}
+
+/**
+ * V2-READY-48 — defense-in-depth ROLE re-check at OAuth COMPLETION time.
+ *
+ * Connect-start (APPS-PERM-1) requires owner/admin to START an account/service
+ * connection (Slack / Stripe / Notion / Shopify / HubSpot / Mailchimp), and
+ * reconnect-start requires it too. But a user could be downgraded owner/admin →
+ * member BETWEEN connect and callback while STILL a member, so the membership
+ * re-check (`isMemberServiceRole`) at completion would pass and let them complete
+ * (create / overwrite) a SHARED org credential they may no longer manage.
+ *
+ * This re-verifies owner/admin at completion for ACCOUNT-shared providers only.
+ * Personal providers stay open to any member (they connect their OWN identity),
+ * exactly matching connect-start — and personal reconnect is additionally pinned
+ * by `assertReconnectIdentityMatch` (only the identity-holder can re-authorize).
+ *
+ * Reads the role via service-role against the SIGNED-STATE (accountId, userId) —
+ * never the current active account, never a callback session. On loss it fails
+ * safe with `StateAccountAccessError` (the SAME no-leak surface as membership
+ * loss — role-loss must not be distinguishable from member-removal), so the
+ * provider token exchange + `upsertActive` never run. No state-format change.
+ */
+async function assertCompletionRole(payload: OAuthStatePayload): Promise<void> {
+  if (!isAccountCredentialProvider(payload.provider)) return;
+  const role = await getRoleServiceRole(payload.accountId, payload.userId);
+  if (role !== "owner" && role !== "admin") {
+    throw new StateAccountAccessError();
   }
 }
 
@@ -426,6 +456,10 @@ export async function handleCallback(
   if (!(await isMemberServiceRole(payload.accountId, payload.userId))) {
     throw new StateAccountAccessError();
   }
+  // V2-READY-48 — re-check owner/admin at completion for account-shared providers
+  // (defense-in-depth against a role downgrade between connect-start and callback).
+  // Runs BEFORE the provider token exchange, so a downgraded user fetches no token.
+  await assertCompletionRole(payload);
 
   const oauth = OAUTH_BY_PROVIDER[input.provider];
   if (!oauth) {
@@ -528,6 +562,10 @@ export async function handleTokenIngest(
   if (!(await isMemberServiceRole(payload.accountId, payload.userId))) {
     throw new StateAccountAccessError();
   }
+  // V2-READY-48 — token-ingest parity: re-check owner/admin at completion for
+  // account-shared providers. Runs BEFORE the provider verify call, so a
+  // downgraded user's token is never sent to the provider and nothing is upserted.
+  await assertCompletionRole(payload);
 
   const { tokens, account } = await ingestAuth.verifyAndIngestToken({
     token: input.token,
