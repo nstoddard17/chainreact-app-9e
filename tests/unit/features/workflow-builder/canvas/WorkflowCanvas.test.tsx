@@ -122,22 +122,17 @@ describe("WorkflowCanvas — node click dispatches configSlice.openNode", () => 
 });
 
 describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () => {
-  it("renders the canvas action bar above the canvas with Builder active + secondaries disabled", () => {
+  it("renders Builder | Runs | Data Map | Settings — all enabled, Builder active by default (BUILDER-SHELL-TABS-1)", () => {
     render(<WorkflowCanvas providerLabels={providerLabels} />);
     const bar = screen.getByTestId("canvas-action-bar");
-    expect(bar).toBeInTheDocument();
     const tabs = within(bar).getAllByRole("tab");
-    // Builder / Run history / Schema / Settings.
-    expect(tabs).toHaveLength(4);
-    expect(tabs[0]!.textContent).toMatch(/^Builder$/);
+    expect(tabs.map((t) => t.textContent)).toEqual(["Builder", "Runs", "Data Map", "Settings"]);
+    // No dead tabs — every tab is interactive (none disabled).
+    for (const t of tabs) expect(t).toBeEnabled();
+    // Builder is selected by default and shows the canvas (no placeholder).
     expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
-    // Secondary tabs are present-but-disabled placeholders (V2 doesn't
-    // surface those flows inside the builder yet — documented as
-    // deferred in the slice doc).
-    for (const t of tabs.slice(1)) {
-      expect(t).toBeDisabled();
-      expect(t.getAttribute("aria-selected")).toBe("false");
-    }
+    for (const t of tabs.slice(1)) expect(t.getAttribute("aria-selected")).toBe("false");
+    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
   });
 
   it("Add action canvas button fires the supplied callback when enabled, disabled otherwise", () => {
@@ -181,6 +176,58 @@ describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () 
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
     render(<WorkflowCanvas providerLabels={providerLabels} onArrange={jest.fn()} />);
     expect(screen.getByTestId("canvas-arrange-button")).toBeDisabled();
+  });
+});
+
+describe("WorkflowCanvas — top tabs + empty states (BUILDER-SHELL-TABS-1)", () => {
+  function clickTab(name: RegExp) {
+    fireEvent.click(screen.getByRole("tab", { name }));
+  }
+
+  it("Runs tab shows a polished empty state and replaces the canvas (no dead tab)", () => {
+    const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
+    // Builder canvas (ReactFlow surface) is present initially.
+    expect(container.querySelector(".react-flow")).not.toBeNull();
+    clickTab(/^Runs$/);
+    const panel = screen.getByTestId("builder-tab-placeholder");
+    expect(panel.getAttribute("data-tab")).toBe("runs");
+    expect(panel.textContent).toMatch(/run history will appear here/i);
+    expect(panel.textContent).toMatch(/status|duration|tasks used/i);
+    // The ReactFlow canvas is swapped out for the empty state.
+    expect(container.querySelector(".react-flow")).toBeNull();
+  });
+
+  it("Data Map tab explains user-facing variable data (no raw JSON/schema dump)", () => {
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    clickTab(/^Data Map$/);
+    const panel = screen.getByTestId("builder-tab-placeholder");
+    expect(panel.getAttribute("data-tab")).toBe("data-map");
+    expect(panel.textContent).toMatch(/data you can use/i);
+    expect(panel.textContent).toMatch(/variable/i);
+    expect(panel.textContent).not.toMatch(/JSON|schema/i);
+  });
+
+  it("Settings tab keeps credentials in Apps and node config in the step panel (rules honored)", () => {
+    render(<WorkflowCanvas providerLabels={providerLabels} />);
+    clickTab(/^Settings$/);
+    const panel = screen.getByTestId("builder-tab-placeholder");
+    expect(panel.getAttribute("data-tab")).toBe("settings");
+    expect(panel.textContent).toMatch(/name|description|timezone|notification/i);
+    // Workflow Settings must NOT host provider credentials…
+    expect(panel.textContent).not.toMatch(/credential|token|password|api key/i);
+    // …and it points the user to where connections / step settings actually live.
+    expect(panel.textContent).toMatch(/connections live in Apps/i);
+    expect(panel.textContent).toMatch(/config panel/i);
+  });
+
+  it("returns to the canvas when Builder is reselected", () => {
+    const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
+    clickTab(/^Settings$/);
+    expect(screen.getByTestId("builder-tab-placeholder")).toBeInTheDocument();
+    expect(container.querySelector(".react-flow")).toBeNull();
+    clickTab(/^Builder$/);
+    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
+    expect(container.querySelector(".react-flow")).not.toBeNull();
   });
 });
 

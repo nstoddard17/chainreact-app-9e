@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -35,6 +35,8 @@ import {
 import { EmptyCanvasState } from "./EmptyCanvasState";
 import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
 import { BuilderNodeActionsProvider } from "./nodeActionsContext";
+import { BuilderTabPlaceholder, type BuilderTab } from "./BuilderTabPlaceholder";
+import { CanvasActionBar } from "./CanvasActionBar";
 import { WorkflowEdge } from "./WorkflowEdge";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
 
@@ -167,6 +169,12 @@ function WorkflowCanvasInner({
   const openNode = useConfigSlice((s) => s.openNode);
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
 
+  // Slice 4.BUILDER-SHELL-TABS-1 — top tabs: Builder | Runs | Data Map | Settings.
+  // "builder" shows the canvas; the others show a polished empty-state panel until
+  // their real systems land (no dead tabs). Local to the center workspace — the
+  // left rail / right drawer are unaffected by this first slice.
+  const [activeTab, setActiveTab] = useState<BuilderTab>("builder");
+
   // Slice 4.AI-REPAIR-2F — pan/zoom the viewport to a node when a "Go to field"
   // reveal is requested (configSlice canvas-focus signal). Navigation only.
   useCanvasNodeFocus();
@@ -294,6 +302,8 @@ function WorkflowCanvasInner({
         onAddAction={onAddAction}
         canAddAction={canAddAction}
         addActionBlockedReason={addActionBlockedReason}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
       />
       <div
         aria-label="Workflow canvas"
@@ -305,6 +315,8 @@ function WorkflowCanvasInner({
           aria-hidden
           className="builder-dot-grid pointer-events-none absolute inset-0"
         />
+        {activeTab === "builder" ? (
+          <>
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
@@ -364,6 +376,10 @@ function WorkflowCanvasInner({
         {showRecoveryBanner ? (
           <NoTriggerRecoveryBanner onChooseTrigger={onAddTrigger} />
         ) : null}
+          </>
+        ) : (
+          <BuilderTabPlaceholder tab={activeTab} />
+        )}
       </div>
       {pendingDelete !== null ? (
         <DeleteNodeConfirmDialog
@@ -382,75 +398,6 @@ function WorkflowCanvasInner({
   );
 }
 
-function CanvasActionBar({
-  nodeCountText,
-  triggerTagText,
-  onAddAction,
-  canAddAction,
-  addActionBlockedReason,
-}: {
-  nodeCountText: string;
-  triggerTagText?: string;
-  onAddAction?: () => void;
-  canAddAction?: boolean;
-  addActionBlockedReason?: "no-trigger" | "multiple-tails";
-}) {
-  return (
-    <div
-      data-testid="canvas-action-bar"
-      className="flex h-9 shrink-0 items-center justify-between gap-2 px-2.5"
-      style={{
-        background: "var(--builder-panel)",
-        borderBottom: "1px solid var(--builder-border)",
-      }}
-    >
-      <div
-        className="flex items-center gap-0.5 rounded-md p-0.5"
-        role="tablist"
-        style={{
-          background: "var(--builder-panel-2)",
-          border: "1px solid var(--builder-border)",
-        }}
-      >
-        <CanvasTab label="Builder" active />
-        <CanvasTab label="Run history" disabled />
-        <CanvasTab label="Schema" disabled />
-        <CanvasTab label="Settings" disabled />
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="hidden items-center gap-1 md:flex">
-          <Tag text="env: draft" />
-          {triggerTagText ? <Tag text={triggerTagText} /> : null}
-          <Tag text={nodeCountText} />
-        </div>
-        {onAddAction ? (
-          <button
-            type="button"
-            onClick={onAddAction}
-            disabled={canAddAction === false}
-            data-testid="canvas-add-action-button"
-            title={
-              addActionBlockedReason === "no-trigger"
-                ? "Add a trigger before adding actions."
-                : addActionBlockedReason === "multiple-tails"
-                  ? "This workflow has multiple branch ends. Use the + on the step you want to extend."
-                  : "Add an action to the end of the workflow"
-            }
-            className="inline-flex h-6 items-center gap-1.5 rounded-[4px] px-2 text-[11.5px] font-medium disabled:opacity-50"
-            style={{
-              background: "var(--builder-accent)",
-              border: "1px solid var(--builder-accent)",
-              color: "white",
-            }}
-          >
-            + Add action
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 /**
  * BUILDER-CANVAS-ERGONOMICS-FIX-1 — the Arrange glyph for the bottom-left control
  * button (tidy rows). Inherits `currentColor` so it matches ReactFlow's control
@@ -463,49 +410,5 @@ function ArrangeIcon() {
       <rect x="9" y="16" width="6" height="5" rx="1" />
       <path d="M12 8v8" />
     </svg>
-  );
-}
-
-function CanvasTab({
-  label,
-  active,
-  disabled,
-}: {
-  label: string;
-  active?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active ? "true" : "false"}
-      disabled={disabled}
-      title={disabled ? "Coming soon" : undefined}
-      className="builder-mono inline-flex h-[22px] items-center rounded-[3px] px-2 text-[11.5px] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-      style={{
-        background: active ? "var(--builder-panel)" : "transparent",
-        boxShadow: active ? "var(--builder-shadow-sm)" : undefined,
-        color: active ? "var(--builder-text)" : "var(--builder-muted)",
-        border: "0",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Tag({ text }: { text: string }) {
-  return (
-    <span
-      className="builder-mono rounded-[3px] px-1.5 py-0.5 text-[10.5px]"
-      style={{
-        background: "var(--builder-bg)",
-        border: "1px solid var(--builder-border)",
-        color: "var(--builder-muted)",
-      }}
-    >
-      {text}
-    </span>
   );
 }
