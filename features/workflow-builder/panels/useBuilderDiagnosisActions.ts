@@ -10,6 +10,7 @@ import {
   planWorkflowRepair,
   previewWorkflowRepair,
   type RepairPreviewProposalContext,
+  type RepairPreviewResult,
   type SelectedRepair,
   type WorkflowDraftSnapshot,
 } from "@/lib/api/ai";
@@ -18,6 +19,12 @@ import {
   type ChatMessage,
   type ChatMessageId,
 } from "./_BuilderAiPanelChat";
+import {
+  aiAssistantTransportErrorMessage,
+  REPAIR_PREVIEW_GENERIC_ERROR,
+  repairPreviewFailureMessage,
+  safeApplyFailureMessage,
+} from "./_BuilderAiPanelDiagnosisMessages";
 
 /**
  * Builder AI diagnosis-family actions — "Check workflow" (AI-DIAG-1b), "Explain
@@ -48,19 +55,6 @@ export interface BuilderDiagnosisActionsInput {
    * planner apply uses). Best-effort: the apply already persisted server-side.
    */
   readonly refreshDraftAfterApply?: () => Promise<void>;
-}
-
-/** AI-REPAIR-3E — safe, code-keyed copy for a handled repair-apply failure. */
-function safeApplyFailureMessage(code: string): string {
-  switch (code) {
-    case "STALE_PATCH":
-      return "This preview is out of date. Run Check workflow again.";
-    case "NOT_APPLYABLE":
-      return "This change can't be applied. Run Check workflow again.";
-    default:
-      // EXECUTION_FAILED | anything else.
-      return "Couldn't apply this change. Run Check workflow again.";
-  }
 }
 
 export function useBuilderDiagnosisActions({
@@ -188,12 +182,10 @@ export function useBuilderDiagnosisActions({
     } catch (err) {
       // Transport failure (401 / 404 / 500). Safe, status-mapped copy.
       const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to use the AI assistant."
-          : status === 404
-            ? "This workflow couldn’t be found."
-            : "Couldn’t generate an explanation right now. Please try again.";
+      const content = aiAssistantTransportErrorMessage(
+        status,
+        "Couldn’t generate an explanation right now. Please try again.",
+      );
       appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
     } finally {
       setExplaining(false);
@@ -237,12 +229,10 @@ export function useBuilderDiagnosisActions({
     } catch (err) {
       // Transport failure (401 / 404 / 500). Safe, status-mapped copy.
       const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to use the AI assistant."
-          : status === 404
-            ? "This workflow couldn’t be found."
-            : "Couldn’t suggest a fix right now. Please try again.";
+      const content = aiAssistantTransportErrorMessage(
+        status,
+        "Couldn’t suggest a fix right now. Please try again.",
+      );
       appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
     } finally {
       setSuggesting(false);
@@ -285,157 +275,84 @@ export function useBuilderDiagnosisActions({
         // For genuine failures (MODEL_FAILED / PARSE_FAILED / unknown) force a generic
         // line — defense in depth so a raw model/server message can NEVER leak here.
         // Not marked previewed in any case, so the user can re-Check and retry.
-        let content: string;
-        if (res.code === "AI_CREDITS_EXHAUSTED") {
-          content = AI_CREDITS_EXHAUSTED_MESSAGE;
-        } else if (res.code === "NOTHING_TO_PREVIEW" || res.code === "NO_SAFE_PATCH") {
-          content = res.message;
-        } else {
-          content = "Couldn’t build a repair preview right now. Please try again.";
-        }
+        const content = repairPreviewFailureMessage(res);
         appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
       }
     } catch (err) {
       // Transport failure (401 / 404 / 500). Safe, status-mapped copy.
       const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to use the AI assistant."
-          : status === 404
-            ? "This workflow couldn’t be found."
-            : "Couldn’t build a repair preview right now. Please try again.";
+      const content = aiAssistantTransportErrorMessage(status, REPAIR_PREVIEW_GENERIC_ERROR);
       appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
     } finally {
       setPreviewing(false);
     }
   }
 
+  /**
+   * Shared body for the FREE deterministic repair previews — selected-candidate
+   * (AI-REPAIR-3L), dangling-edge (AI-REPAIR-4A), and self-loop edge
+   * (AI-REPAIR-COVERAGE-1). Each route runs its deterministic `removeEdge`/selected-
+   * replacement preview BEFORE the gate/model, so all are FREE — no model call, no
+   * credits, no telemetry. Because they're free there is NO repeat-charge guard; only
+   * the shared in-flight guard prevents concurrent ops. They differ ONLY in the
+   * `previewWorkflowRepair` arguments, passed via `runPreview`. Produces a
+   * repair_preview message — Apply stays a separate click; never applies/saves/runs.
+   *
+   * This is the seam for future deterministic repair categories: add a thin handler
+   * that calls `runFreeRepairPreview` with the right preview args.
+   */
+  async function runFreeRepairPreview(
+    runPreview: (wfId: string) => Promise<RepairPreviewResult>,
+  ): Promise<void> {
+    if (!workflowId) return;
+    const wfId: string = workflowId;
+    if (busy || checking || explaining || suggesting || previewing) return;
+    setPreviewing(true);
+    try {
+      const res = await runPreview(wfId);
+      if (res.ok) {
+        appendMessage({
+          id: nextChatMessageId(),
+          role: "assistant",
+          kind: "repair_preview",
+          preview: res.preview,
+        });
+      } else {
+        const content = repairPreviewFailureMessage(res);
+        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+      }
+    } catch (err) {
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content = aiAssistantTransportErrorMessage(status, REPAIR_PREVIEW_GENERIC_ERROR);
+      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  // AI-REPAIR-3L — deterministic preview of a USER-CHOSEN replacement (multiple-candidate
+  // case). EXPLICIT click only; re-validated server-side. The user may preview a DIFFERENT
+  // candidate afterward (no repeat-charge — it's free).
   async function handlePreviewSelectedFix(selection: SelectedRepair): Promise<void> {
-    if (!workflowId) return;
-    const wfId: string = workflowId;
-    // AI-REPAIR-3L — deterministic preview of a USER-CHOSEN replacement (multiple-
-    // candidate case). EXPLICIT click only. The route runs the deterministic
-    // selected-replacement preview (re-validated server-side) BEFORE the gate/model, so
-    // it's FREE — no model call, no credits, no telemetry. Because it's free there's no
-    // repeat-charge guard; only the shared in-flight guard prevents concurrent ops (the
-    // user may preview a DIFFERENT candidate afterward). Produces a repair_preview
-    // message — Apply stays a separate click on that preview; never applies/saves/runs.
-    if (busy || checking || explaining || suggesting || previewing) return;
-    setPreviewing(true);
-    try {
-      const res = await previewWorkflowRepair(wfId, currentDraft, undefined, selection);
-      if (res.ok) {
-        appendMessage({
-          id: nextChatMessageId(),
-          role: "assistant",
-          kind: "repair_preview",
-          preview: res.preview,
-        });
-      } else {
-        const content =
-          res.code === "AI_CREDITS_EXHAUSTED"
-            ? AI_CREDITS_EXHAUSTED_MESSAGE
-            : res.code === "NOTHING_TO_PREVIEW" || res.code === "NO_SAFE_PATCH"
-              ? res.message
-              : "Couldn’t build a repair preview right now. Please try again.";
-        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-      }
-    } catch (err) {
-      const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to use the AI assistant."
-          : status === 404
-            ? "This workflow couldn’t be found."
-            : "Couldn’t build a repair preview right now. Please try again.";
-      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-    } finally {
-      setPreviewing(false);
-    }
+    await runFreeRepairPreview((wfId) =>
+      previewWorkflowRepair(wfId, currentDraft, undefined, selection),
+    );
   }
 
+  // AI-REPAIR-4A — deterministic preview of dangling/broken-edge cleanup (removeEdge).
+  // EXPLICIT click only.
   async function handlePreviewDanglingEdgeFix(): Promise<void> {
-    if (!workflowId) return;
-    const wfId: string = workflowId;
-    // AI-REPAIR-4A — deterministic preview of dangling/broken-edge cleanup (removeEdge).
-    // EXPLICIT click only. The route runs the deterministic edge-repair preview BEFORE
-    // the gate/model, so it's FREE — no model call, no credits, no telemetry. No
-    // repeat-charge guard (it's free); only the shared in-flight guard. Produces a
-    // repair_preview message — Apply stays a separate click; never applies/saves/runs.
-    if (busy || checking || explaining || suggesting || previewing) return;
-    setPreviewing(true);
-    try {
-      const res = await previewWorkflowRepair(wfId, currentDraft, undefined, undefined, true);
-      if (res.ok) {
-        appendMessage({
-          id: nextChatMessageId(),
-          role: "assistant",
-          kind: "repair_preview",
-          preview: res.preview,
-        });
-      } else {
-        const content =
-          res.code === "AI_CREDITS_EXHAUSTED"
-            ? AI_CREDITS_EXHAUSTED_MESSAGE
-            : res.code === "NOTHING_TO_PREVIEW" || res.code === "NO_SAFE_PATCH"
-              ? res.message
-              : "Couldn’t build a repair preview right now. Please try again.";
-        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-      }
-    } catch (err) {
-      const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to use the AI assistant."
-          : status === 404
-            ? "This workflow couldn’t be found."
-            : "Couldn’t build a repair preview right now. Please try again.";
-      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-    } finally {
-      setPreviewing(false);
-    }
+    await runFreeRepairPreview((wfId) =>
+      previewWorkflowRepair(wfId, currentDraft, undefined, undefined, true),
+    );
   }
 
+  // AI-REPAIR-COVERAGE-1 — deterministic preview of self-loop edge cleanup (removeEdge).
+  // EXPLICIT click only.
   async function handlePreviewSelfLoopEdgeFix(): Promise<void> {
-    if (!workflowId) return;
-    const wfId: string = workflowId;
-    // AI-REPAIR-COVERAGE-1 — deterministic preview of self-loop edge cleanup (removeEdge).
-    // EXPLICIT click only. The route runs the deterministic edge-repair preview BEFORE the
-    // gate/model, so it's FREE — no model call, no credits, no telemetry. No repeat-charge
-    // guard (it's free); only the shared in-flight guard. Produces a repair_preview message
-    // — Apply stays a separate click; never applies/saves/runs.
-    if (busy || checking || explaining || suggesting || previewing) return;
-    setPreviewing(true);
-    try {
-      const res = await previewWorkflowRepair(wfId, currentDraft, undefined, undefined, undefined, true);
-      if (res.ok) {
-        appendMessage({
-          id: nextChatMessageId(),
-          role: "assistant",
-          kind: "repair_preview",
-          preview: res.preview,
-        });
-      } else {
-        const content =
-          res.code === "AI_CREDITS_EXHAUSTED"
-            ? AI_CREDITS_EXHAUSTED_MESSAGE
-            : res.code === "NOTHING_TO_PREVIEW" || res.code === "NO_SAFE_PATCH"
-              ? res.message
-              : "Couldn’t build a repair preview right now. Please try again.";
-        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-      }
-    } catch (err) {
-      const status = err instanceof AiApiError ? err.status : 0;
-      const content =
-        status === 401
-          ? "Please sign in to use the AI assistant."
-          : status === 404
-            ? "This workflow couldn’t be found."
-            : "Couldn’t build a repair preview right now. Please try again.";
-      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
-    } finally {
-      setPreviewing(false);
-    }
+    await runFreeRepairPreview((wfId) =>
+      previewWorkflowRepair(wfId, currentDraft, undefined, undefined, undefined, true),
+    );
   }
 
   async function handleApplyRepair(
