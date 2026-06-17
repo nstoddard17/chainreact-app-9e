@@ -232,24 +232,74 @@ describeDb("workflow_runs account RLS — Slice 4.ACCOUNT-MODEL-8", () => {
     expect(anonOnA).toHaveLength(0);
   });
 
-  it("trigger_resources: A sees rows for their workflow (join-through RLS); B does not", async () => {
+  it("trigger_resources: direct authenticated SELECT is denied (V2-READY-50; 42501) — reads flow through service-role", async () => {
     const a = sessions[0]!;
     const b = sessions[1]!;
     const supaA = await sessionClient(a.email, a.password);
     const supaB = await sessionClient(b.email, b.password);
 
-    const { data: aOwn, error: aErr } = await supaA
+    // Member A can no longer read directly — SELECT was revoked from authenticated;
+    // trigger_resources is service-role-only (lifecycle/dispatch read it).
+    const aRead = await supaA
       .from("trigger_resources")
       .select("id")
       .eq("id", a.triggerResourceId);
-    expect(aErr).toBeNull();
-    expect(aOwn).toHaveLength(1);
+    expect(aRead.error).not.toBeNull();
+    expect(aRead.error!.code).toBe("42501");
 
-    const { data: bOnA } = await supaB
+    // Non-member B is likewise denied at the privilege layer.
+    const bRead = await supaB
       .from("trigger_resources")
       .select("id")
       .eq("id", a.triggerResourceId);
-    expect(bOnA).toHaveLength(0);
+    expect(bRead.error).not.toBeNull();
+    expect(bRead.error!.code).toBe("42501");
+
+    // The row is intact and still readable by the service-role path.
+    const svc = await admin
+      .from("trigger_resources")
+      .select("id")
+      .eq("id", a.triggerResourceId);
+    expect(svc.error).toBeNull();
+    expect(svc.data).toHaveLength(1);
+  });
+
+  it("trigger_resources: member direct INSERT/UPDATE/DELETE is denied (V2-READY-50; 42501) — lifecycle is the only writer", async () => {
+    const a = sessions[0]!;
+    const supaA = await sessionClient(a.email, a.password);
+
+    const ins = await supaA.from("trigger_resources").insert({
+      workflow_id: a.workflowId,
+      user_id: a.userId,
+      provider: "slack",
+      event_type: "message_received",
+      node_id: "injected",
+    });
+    expect(ins.error).not.toBeNull();
+    expect(ins.error!.code).toBe("42501");
+
+    const upd = await supaA
+      .from("trigger_resources")
+      .update({ event_type: "HIJACKED" })
+      .eq("id", a.triggerResourceId);
+    expect(upd.error).not.toBeNull();
+    expect(upd.error!.code).toBe("42501");
+
+    const del = await supaA
+      .from("trigger_resources")
+      .delete()
+      .eq("id", a.triggerResourceId);
+    expect(del.error).not.toBeNull();
+    expect(del.error!.code).toBe("42501");
+
+    // Row survived; event_type unchanged.
+    const svc = await admin
+      .from("trigger_resources")
+      .select("event_type")
+      .eq("id", a.triggerResourceId)
+      .single<{ event_type: string }>();
+    expect(svc.error).toBeNull();
+    expect(svc.data!.event_type).toBe("message_received");
   });
 
   it("workflow_files: A sees rows for their workflow (join-through RLS); B does not", async () => {

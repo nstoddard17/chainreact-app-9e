@@ -1,23 +1,24 @@
 /**
  * @jest-environment node
  *
- * V2-READY-47E — regression guard: `public.integrations` must stay SERVICE-ROLE-
- * ONLY at the Data API. The `authenticated` role must have ZERO direct table
- * privileges (no SELECT / INSERT / UPDATE / DELETE) on `public.integrations`, so a
- * regular member can never read or mutate a co-member's credential row directly
- * via PostgREST/supabase-js — every access flows through a membership-gated
- * service-role path + safe DTO.
+ * Regression guard: every SERVICE-ROLE-ONLY table must keep `authenticated` at
+ * ZERO direct Data API privileges (no SELECT / INSERT / UPDATE / DELETE), so a
+ * regular member can never read or mutate those rows directly via PostgREST/
+ * supabase-js — every access flows through a membership-gated service-role path.
  *
- * V2-READY-47B revoked INSERT/UPDATE/DELETE; 47D revoked SELECT. This guard keeps
- * those revokes from being silently undone: it REPLAYS every GRANT/REVOKE on
- * `public.integrations` for `authenticated` across the whole migration corpus (in
- * chronological filename order) and asserts the NET effective privilege set is
- * empty. Replaying the net — rather than flagging individual statements — is what
- * lets the historical `20260619000000` GRANT (later fully revoked) pass while a
- * FUTURE re-GRANT that isn't matched by a REVOKE fails loudly.
+ * V2-READY-47E introduced this for `public.integrations` (47B revoked
+ * INSERT/UPDATE/DELETE; 47D revoked SELECT). V2-READY-50 generalized it to the
+ * SET below and added `public.trigger_resources` (50 revoked all four — trigger
+ * rows are lifecycle infrastructure, never client-edited).
  *
- * Narrow by construction: only `public.integrations` × `authenticated`. It does
- * not touch any other table's grants, `service_role`, or RLS policies.
+ * It REPLAYS every GRANT/REVOKE on each table for `authenticated` across the whole
+ * migration corpus (chronological filename order) and asserts the NET effective
+ * privilege set is empty. Net-replay — rather than flagging individual statements —
+ * lets the historical broad GRANT (`20260619000000`, later fully revoked) pass while
+ * a FUTURE re-GRANT not matched by a REVOKE fails loudly, naming the migration.
+ *
+ * Narrow by construction: only the listed tables × `authenticated`. It does not
+ * touch other tables' grants, `service_role`, or RLS policies.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -26,7 +27,10 @@ const MIGRATIONS_DIR = resolve(process.cwd(), "supabase/migrations");
 const WRITE_PRIVS = ["SELECT", "INSERT", "UPDATE", "DELETE"] as const;
 type Priv = (typeof WRITE_PRIVS)[number];
 
-/** One GRANT/REVOKE on public.integrations for authenticated, with its privileges. */
+/** Tables that must be service-role-only at the Data API (zero authenticated grant). */
+const SERVICE_ROLE_ONLY_TABLES = ["integrations", "trigger_resources"] as const;
+
+/** One GRANT/REVOKE on `public.<table>` for authenticated, with its privileges. */
 interface GrantStmt {
   op: "GRANT" | "REVOKE";
   privs: ReadonlySet<Priv>;
@@ -34,18 +38,19 @@ interface GrantStmt {
 }
 
 /**
- * Extract every GRANT/REVOKE statement in `sql` that targets `public.integrations`
- * AND the `authenticated` role, with the SELECT/INSERT/UPDATE/DELETE privileges it
+ * Extract every GRANT/REVOKE statement in `sql` that targets `public.<table>` AND
+ * the `authenticated` role, with the SELECT/INSERT/UPDATE/DELETE privileges it
  * names (`ALL` expands to all four). Line-anchored on GRANT/REVOKE so the keyword
  * inside a `--` comment can't spawn a phantom match; each statement runs to its
  * terminating `;`.
  */
-function parseAuthenticatedIntegrationsGrants(sql: string, file: string): GrantStmt[] {
+function parseAuthenticatedGrants(sql: string, table: string, file: string): GrantStmt[] {
+  const onTable = new RegExp(`\\bON\\s+public\\.${table}\\b`, "i");
   const out: GrantStmt[] = [];
   for (const m of sql.matchAll(/^[ \t]*(GRANT|REVOKE)\b[\s\S]*?;/gim)) {
     const stmt = m[0];
     const keyword = (m[1] ?? "").toUpperCase();
-    if (!/\bON\s+public\.integrations\b/i.test(stmt)) continue;
+    if (!onTable.test(stmt)) continue;
     if (!/\bauthenticated\b/i.test(stmt)) continue;
 
     // Privileges are named before `ON`. The GRANT/REVOKE keyword itself contains
@@ -77,8 +82,8 @@ function replayNet(statements: readonly GrantStmt[]): Set<Priv> {
   return net;
 }
 
-/** Replay all statements (chronological) → the net privileges authenticated holds. */
-function netAuthenticatedIntegrationsPrivs(): {
+/** Replay all migrations (chronological) → the net authenticated privileges on `table`. */
+function netAuthenticatedPrivs(table: string): {
   net: Set<Priv>;
   lastGrantBy: Map<Priv, string>;
   statements: GrantStmt[];
@@ -91,7 +96,7 @@ function netAuthenticatedIntegrationsPrivs(): {
   const statements: GrantStmt[] = [];
   for (const file of files) {
     const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
-    for (const s of parseAuthenticatedIntegrationsGrants(sql, file)) {
+    for (const s of parseAuthenticatedGrants(sql, table, file)) {
       statements.push(s);
       for (const p of s.privs) {
         if (s.op === "GRANT") {
@@ -106,30 +111,34 @@ function netAuthenticatedIntegrationsPrivs(): {
   return { net, lastGrantBy, statements };
 }
 
-describe("guardrail — public.integrations is service-role-only for authenticated (V2-READY-47E)", () => {
-  it("authenticated holds ZERO direct privileges on public.integrations (net across all migrations)", () => {
-    const { net, lastGrantBy, statements } = netAuthenticatedIntegrationsPrivs();
-    if (net.size > 0) {
-      const offenders = [...net]
-        .map((p) => `  • ${p} (last granted by ${lastGrantBy.get(p) ?? "?"})`)
-        .join("\n");
-      throw new Error(
-        `public.integrations grants ${net.size} privilege(s) to \`authenticated\`:\n` +
-          offenders +
-          "\n\n" +
-          "`public.integrations` must stay SERVICE-ROLE-ONLY (V2-READY-47B/47D). The\n" +
-          "`authenticated` role must have NO direct SELECT/INSERT/UPDATE/DELETE — a member\n" +
-          "could otherwise read/mutate a co-member's credential row directly via PostgREST.\n" +
-          "If a new migration needs the grant, it almost certainly does NOT: route the access\n" +
-          "through a membership-gated service-role repository + safe DTO instead. See\n" +
-          "docs/slices/phase-4/readiness/v2-ready-47e-integrations-access-closeout.md.",
-      );
-    }
-    // Sanity: the corpus DID touch these grants (so a silently-empty parse can't
-    // make the guard vacuously pass).
-    expect(statements.length).toBeGreaterThan(0);
-    expect(net.size).toBe(0);
-  });
+describe("guardrail — service-role-only tables hold ZERO authenticated grants (V2-READY-47E/50)", () => {
+  it.each(SERVICE_ROLE_ONLY_TABLES)(
+    "authenticated holds ZERO direct privileges on public.%s (net across all migrations)",
+    (table) => {
+      const { net, lastGrantBy, statements } = netAuthenticatedPrivs(table);
+      if (net.size > 0) {
+        const offenders = [...net]
+          .map((p) => `  • ${p} (last granted by ${lastGrantBy.get(p) ?? "?"})`)
+          .join("\n");
+        throw new Error(
+          `public.${table} grants ${net.size} privilege(s) to \`authenticated\`:\n` +
+            offenders +
+            "\n\n" +
+            `public.${table} must stay SERVICE-ROLE-ONLY. The \`authenticated\` role must\n` +
+            "have NO direct SELECT/INSERT/UPDATE/DELETE — a member could otherwise read/mutate\n" +
+            "a co-member's row directly via PostgREST, bypassing the membership-gated service-\n" +
+            "role path. If a new migration needs the grant, it almost certainly does NOT: route\n" +
+            "the access through a service-role repository + safe DTO instead. See\n" +
+            "docs/slices/phase-4/readiness/v2-ready-47e-integrations-access-closeout.md and\n" +
+            "docs/slices/phase-4/readiness/v2-ready-50-trigger-resources-service-role-only.md.",
+        );
+      }
+      // Sanity: the corpus DID touch these grants (so a silently-empty parse can't
+      // make the guard vacuously pass).
+      expect(statements.length).toBeGreaterThan(0);
+      expect(net.size).toBe(0);
+    },
+  );
 
   // Classification — pin the parser so its definition can't silently drift.
   describe("parser classification", () => {
@@ -139,7 +148,16 @@ describe("guardrail — public.integrations is service-role-only for authenticat
         "REVOKE INSERT, UPDATE, DELETE ON public.integrations FROM authenticated;",
         "REVOKE SELECT ON public.integrations FROM authenticated;",
       ].join("\n");
-      const net = replayNet(parseAuthenticatedIntegrationsGrants(sql, "x.sql"));
+      const net = replayNet(parseAuthenticatedGrants(sql, "integrations", "x.sql"));
+      expect(net.size).toBe(0);
+    });
+
+    it("nets the single combined REVOKE to empty (the trigger_resources shape)", () => {
+      const sql = [
+        "GRANT SELECT, INSERT, UPDATE, DELETE ON public.trigger_resources TO authenticated;",
+        "REVOKE SELECT, INSERT, UPDATE, DELETE ON public.trigger_resources FROM authenticated;",
+      ].join("\n");
+      const net = replayNet(parseAuthenticatedGrants(sql, "trigger_resources", "x.sql"));
       expect(net.size).toBe(0);
     });
 
@@ -147,25 +165,28 @@ describe("guardrail — public.integrations is service-role-only for authenticat
       const sql =
         "REVOKE SELECT ON public.integrations FROM authenticated;\n" +
         "GRANT SELECT ON public.integrations TO authenticated;"; // the regression
-      const net = replayNet(parseAuthenticatedIntegrationsGrants(sql, "future.sql"));
+      const net = replayNet(parseAuthenticatedGrants(sql, "integrations", "future.sql"));
       expect(net.has("SELECT")).toBe(true);
     });
 
     it("expands GRANT ALL to all four privileges", () => {
-      const stmts = parseAuthenticatedIntegrationsGrants(
+      const stmts = parseAuthenticatedGrants(
         "GRANT ALL ON public.integrations TO authenticated;",
+        "integrations",
         "x.sql",
       );
       expect([...stmts[0]!.privs].sort()).toEqual(["DELETE", "INSERT", "SELECT", "UPDATE"]);
     });
 
-    it("ignores grants on OTHER tables and OTHER roles", () => {
+    it("ignores grants on OTHER tables and OTHER roles, and partial-name collisions", () => {
       const sql = [
         "GRANT SELECT ON public.workflows TO authenticated;", // other table
         "GRANT SELECT, INSERT, UPDATE, DELETE ON public.integrations TO service_role;", // other role
         "-- GRANT SELECT ON public.integrations TO authenticated;", // commented out
+        "GRANT SELECT ON public.trigger_resources_archive TO authenticated;", // \b prevents prefix match
       ].join("\n");
-      expect(parseAuthenticatedIntegrationsGrants(sql, "x.sql")).toHaveLength(0);
+      expect(parseAuthenticatedGrants(sql, "integrations", "x.sql")).toHaveLength(0);
+      expect(parseAuthenticatedGrants(sql, "trigger_resources", "x.sql")).toHaveLength(0);
     });
   });
 });

@@ -3,10 +3,10 @@
  *
  * Tests for repositories/triggerResources.ts.
  *
- * The repo has two callers — the trigger lifecycle service (SSR-cookie auth
- * for user-scoped writes) and the webhook dispatcher (service-role for
- * provider-scoped reads). Both paths are mocked here so the test never
- * touches the network.
+ * V2-READY-50: the repo is SERVICE-ROLE-ONLY — every read/write (lifecycle
+ * upsert/delete/list + dispatch/polling/renewal crons) goes through the
+ * service-role client (direct authenticated access was revoked). The
+ * service-role client is mocked here so the test never touches the network.
  */
 
 interface ChainState {
@@ -83,7 +83,7 @@ function freshState(resultData: unknown = baseRow): ChainState {
 describe("trigger_resources.upsert", () => {
   it("upserts on the (workflow_id, node_id) conflict target", async () => {
     const state = freshState(baseRow);
-    mockSupabase.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     const result = await upsert({
       workflowId: "wf-1",
       userId: "user-1",
@@ -110,7 +110,7 @@ describe("trigger_resources.upsert", () => {
 
   it("defaults config + account_id + expires_at to safe nulls", async () => {
     const state = freshState(baseRow);
-    mockSupabase.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     await upsert({
       workflowId: "wf-1",
       userId: "user-1",
@@ -129,7 +129,7 @@ describe("trigger_resources.upsert", () => {
 describe("trigger_resources.deleteByWorkflow", () => {
   it("deletes all rows for the workflow id", async () => {
     const state = freshState(null);
-    mockSupabase.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     await deleteByWorkflow("wf-1");
     expect(state.filters).toContainEqual({ op: "eq", args: ["workflow_id", "wf-1"] });
   });
@@ -138,7 +138,7 @@ describe("trigger_resources.deleteByWorkflow", () => {
 describe("trigger_resources.listByWorkflow", () => {
   it("returns the rows for the workflow id", async () => {
     const state = freshState([baseRow, { ...baseRow, id: "tr-2", node_id: "n2" }]);
-    mockSupabase.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     const result = await listByWorkflow("wf-1");
     expect(result.map((r) => r.id)).toEqual(["tr-1", "tr-2"]);
     expect(state.filters).toContainEqual({ op: "eq", args: ["workflow_id", "wf-1"] });

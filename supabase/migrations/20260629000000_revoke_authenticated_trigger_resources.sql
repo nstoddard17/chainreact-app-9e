@@ -1,0 +1,41 @@
+-- V2-READY-50 — make public.trigger_resources SERVICE-ROLE-ONLY at the Data API.
+--
+-- Security hardening (NOT a product behavior change). Closes the V2-READY-49
+-- finding: `trigger_resources` had a broad `authenticated` SELECT/INSERT/UPDATE/
+-- DELETE grant + account-member RLS, so a regular member could
+-- `supabase.from('trigger_resources').insert/update/delete/select` DIRECTLY via
+-- PostgREST/supabase-js — BYPASSING the server-side trigger lifecycle
+-- (`TriggerLifecycleManager` / `LifecycleOrchestrator`: integration-health
+-- preconditions, snapshot init, provider webhook (un)registration, and the
+-- account-freeze gate) — and could read provider-side account ids + external
+-- resource ids (channel/subscription/sync ids) across the account. The
+-- INSERT/UPDATE/DELETE RLS policies also lacked the `accounts.deletion_status`
+-- gate that SELECT carries.
+--
+-- Mirrors the integrations arc (47B/47D): trigger-resource rows are infrastructure
+-- created/destroyed only by the activation lifecycle, never hand-edited by a
+-- client. After this migration, `authenticated` has NO direct DML/SELECT on
+-- `trigger_resources`; every read/write flows through the service-role repository
+-- (`repositories/triggerResources.ts`), which is only reachable from the trigger
+-- lifecycle + the dispatch/polling/renewal crons. The authorization that RLS used
+-- to provide is preserved UPSTREAM at the lifecycle entry points: the workflow
+-- transition routes gate account membership (`requireWorkflowAccountMember`) and
+-- the orchestrator gates freeze (`assertAccountOperational`) BEFORE any trigger
+-- registration runs.
+--
+-- Scope guarantees:
+--   * `service_role` is UNCHANGED — full DML, bypasses RLS; the sole reader/writer.
+--   * `anon` is UNCHANGED (never had a grant).
+--   * NO RLS policy is altered. No workflow-lifecycle rule is re-encoded in SQL —
+--     it stays in services/triggers/* + services/workflows/lifecycleOrchestrator.ts.
+--   * Idempotent — REVOKE of an absent privilege is a no-op; re-applying is safe.
+--
+-- Privilege is checked before RLS, so an `authenticated` read/write without the
+-- GRANT is denied with SQLSTATE 42501 regardless of any row policy. The
+-- account-member RLS policies are left in place but are now unreachable for
+-- `authenticated`; a future re-GRANT would re-expose them and must be caught in
+-- migration review (guarded by tests/structure/no-authenticated-integration-grants.test.ts,
+-- generalized in V2-READY-50 to assert net-zero authenticated grants on every
+-- service-role-only table — integrations + trigger_resources).
+
+REVOKE SELECT, INSERT, UPDATE, DELETE ON public.trigger_resources FROM authenticated;

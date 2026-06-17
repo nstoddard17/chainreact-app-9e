@@ -1,15 +1,20 @@
-import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 
 /**
  * Repository for trigger_resources.
  *
- * Per docs/rules/database-security.md + workflow-lifecycle.md:
- *   - User-scoped writes (insert / delete) go through the SSR auth client
- *     so RLS gates per-user access.
- *   - Dispatcher lookups happen on inbound webhooks with no user session;
- *     they go through the service-role client (RLS bypass) and filter on
- *     the canonical (provider, eventType) index.
+ * V2-READY-50: SERVICE-ROLE-ONLY. Direct authenticated SELECT/INSERT/UPDATE/DELETE
+ * on `trigger_resources` was REVOKED (migration 20260629000000) — trigger-resource
+ * rows are lifecycle infrastructure (created on activate, deleted on
+ * deactivate/disable/delete, renewed by cron), never hand-edited by a client. So
+ * EVERY function here uses the service-role client. The authorization that RLS used
+ * to provide is enforced UPSTREAM, before the lifecycle ever reaches this repo:
+ *   - the workflow-transition routes gate account membership
+ *     (`requireWorkflowAccountMember`), and
+ *   - `LifecycleOrchestrator` gates account freeze (`assertAccountOperational`)
+ *     before any trigger registration runs.
+ * The dispatch / polling / renewal / webhook-receive crons run with no user session
+ * and were already service-role.
  *
  * Naming note (Slice 4.ACCOUNT-MODEL-6): the underlying column
  * `trigger_resources.account_id` (text) stores the *provider* account id
@@ -135,7 +140,9 @@ export interface UpsertTriggerResourceInput {
 export async function upsert(
   input: UpsertTriggerResourceInput,
 ): Promise<TriggerResourceRecord> {
-  const supabase = await createClient();
+  const supabase = getServiceRoleClient(
+    `trigger lifecycle: upsert trigger_resources for workflow ${input.workflowId}/${input.nodeId}`,
+  );
   const { data, error } = await supabase
     .from("trigger_resources")
     .upsert(
@@ -163,7 +170,9 @@ export async function upsert(
 }
 
 export async function deleteByWorkflow(workflowId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = getServiceRoleClient(
+    `trigger lifecycle: deleteByWorkflow trigger_resources for workflow ${workflowId}`,
+  );
   const { error } = await supabase
     .from("trigger_resources")
     .delete()
@@ -176,7 +185,9 @@ export async function deleteByWorkflow(workflowId: string): Promise<void> {
 export async function listByWorkflow(
   workflowId: string,
 ): Promise<readonly TriggerResourceRecord[]> {
-  const supabase = await createClient();
+  const supabase = getServiceRoleClient(
+    `trigger lifecycle: listByWorkflow trigger_resources for workflow ${workflowId}`,
+  );
   const { data, error } = await supabase
     .from("trigger_resources")
     .select("*, workflows!inner(account_id)")
