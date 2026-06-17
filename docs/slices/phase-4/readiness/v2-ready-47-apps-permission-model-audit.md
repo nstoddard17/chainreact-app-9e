@@ -5,6 +5,14 @@ change in this slice. Nothing pushed.**
 **Date:** 2026-06-16
 **Branch:** `v2-main` (local/unpushed)
 **Governing skill:** `chainreactv2-security-review`
+
+> **STATUS UPDATE (2026-06-16):** the §4 recommended fix is **DONE** — V2-READY-47B
+> shipped migration `20260627000000_revoke_authenticated_integration_writes.sql`
+> (`REVOKE INSERT, UPDATE, DELETE ON public.integrations FROM authenticated`, SELECT
+> preserved), applied to the V2 dev DB, with gated RLS proof that a member's direct
+> INSERT/UPDATE/DELETE now fails `42501` while SELECT + service-role writes are
+> intact. Local/unpushed. The optional SELECT lockdown + ingest/callback defense-in-
+> depth re-check remain follow-ups.
 **Builds on:** [`integration-permission-model-audit.md`](../integration-permission-model-audit.md)
 (4.INTEG-PERM, 2026-06-12) · [`team-integration-credential-access-audit.md`](../team-integration-credential-access-audit.md)
 (22A) · WF-RUNPERM run/edit policy (`6a02131ed`/`42fe1ce29`) · CONN-SHARE (flag-OFF).

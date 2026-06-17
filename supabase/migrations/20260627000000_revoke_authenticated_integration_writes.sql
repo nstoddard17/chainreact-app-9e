@@ -1,0 +1,38 @@
+-- V2-READY-47B — revoke DIRECT authenticated WRITE access to public.integrations.
+--
+-- Security hardening (NOT a product behavior change). Closes the V2-READY-47
+-- audit finding: the broad `authenticated` INSERT/UPDATE/DELETE GRANT (from
+-- 20260619000000_backfill_data_api_grants.sql) combined with account-member write
+-- RLS let a regular account member write integration rows DIRECTLY via PostgREST /
+-- supabase-js, BYPASSING the service-layer owner/admin/connector authorization
+-- enforced by the connect (APPS-PERM-1), disconnect, and reconnect chokepoints.
+-- RLS enforces the account BOUNDARY but not the role/connector permission model;
+-- the table GRANT is what made the bypass reachable.
+--
+-- After this migration, `authenticated` may only SELECT integrations — the Apps /
+-- integrations read path (repositories/integrations.ts:listActiveByAccount via the
+-- SSR client, RLS-gated by account membership). ALL mutations must go through the
+-- service-role chokepoints (services/oauth/dispatcher upsertActive, the disconnect
+-- service, markNeedsReconnect / clearNeedsReconnect). This matches how the app
+-- already writes — NO app path writes integrations via the authenticated client
+-- (verified: every integration write uses getServiceRoleClient).
+--
+-- Privilege is checked BEFORE RLS, so a `authenticated` write without the GRANT is
+-- denied with SQLSTATE 42501 regardless of any row policy.
+--
+-- Scope guarantees:
+--   * `service_role` is UNCHANGED — it keeps full DML and bypasses RLS; it owns
+--     every authorized write. This migration does not touch its grants.
+--   * SELECT for `authenticated` is intentionally PRESERVED (no change).
+--   * NO RLS policy is altered. The personal/account credential permission model
+--     is NOT re-encoded in SQL — it stays in core/integrations/credentialSharing.ts
+--     and the service layer (per the security rule against duplicating it in SQL).
+--   * Idempotent — REVOKE of an absent privilege is a no-op; re-applying is safe.
+--
+-- Note: the account-member INSERT/UPDATE/DELETE RLS policies on integrations are
+-- deliberately LEFT in place but are now unreachable for `authenticated` (no table
+-- privilege). They are harmless without the GRANT; a future re-GRANT would re-
+-- expose them and must be caught in migration review. Dropping them is an optional
+-- follow-up, intentionally out of scope for this minimal, approved hardening.
+
+REVOKE INSERT, UPDATE, DELETE ON public.integrations FROM authenticated;

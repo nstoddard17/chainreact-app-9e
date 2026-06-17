@@ -297,15 +297,18 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
       .eq("user_id", b.userId);
   });
 
-  it("cross-account UPDATE by a non-member is a no-op (row unchanged)", async () => {
+  it("cross-account UPDATE by a non-member is denied (42501; row unchanged)", async () => {
     const b = sessions[1]!;
     const supaB = await sessionClient(b.email, b.password);
     const { error } = await supaB
       .from("integrations")
       .update({ display_name: "HIJACKED" })
       .eq("id", personalAIntegrationId);
-    // RLS UPDATE matching no visible row → success with zero rows affected.
-    expect(error).toBeNull();
+    // Post V2-READY-47B: `authenticated` has NO update privilege, so this is a
+    // HARD permission denial (privilege is checked before RLS) — strictly
+    // stronger than the prior RLS-filtered silent no-op. Row integrity unchanged.
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
 
     const { data } = await admin
       .from("integrations")
@@ -316,14 +319,16 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
     expect(data!.display_name).toBe("slack test");
   });
 
-  it("cross-account DELETE by a non-member is a no-op (row survives)", async () => {
+  it("cross-account DELETE by a non-member is denied (42501; row survives)", async () => {
     const b = sessions[1]!;
     const supaB = await sessionClient(b.email, b.password);
     const { error } = await supaB
       .from("integrations")
       .delete()
       .eq("id", personalAIntegrationId);
-    expect(error).toBeNull();
+    // Post V2-READY-47B: hard permission denial (no delete privilege), not a no-op.
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
 
     const { data } = await admin
       .from("integrations")
@@ -360,5 +365,146 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
     // not truncation/hashing.
     expect(decryptToken(storedAccess)).toBe(FAKE_ACCESS_PLAINTEXT);
     expect(decryptToken(storedRefresh)).toBe(FAKE_REFRESH_PLAINTEXT);
+  });
+
+  /**
+   * V2-READY-47B — direct authenticated WRITES are revoked.
+   *
+   * The cross-account no-op tests above prove RLS blocks NON-members. This block
+   * proves the harder case: even a legitimate account MEMBER (who passes the
+   * account-membership write RLS) cannot mutate integrations DIRECTLY via the
+   * authenticated client, because the INSERT/UPDATE/DELETE table GRANT was revoked
+   * (migration 20260627000000). Privilege is checked before RLS, so each write is
+   * denied with SQLSTATE 42501 — forcing all mutations through the service-role
+   * chokepoints (connect APPS-PERM-1 / disconnect / reconnect), where the
+   * owner/admin/connector authorization actually lives.
+   *
+   * REQUIRES the migration applied to the target DB (this file's standing
+   * precondition). SELECT for members stays intact.
+   */
+  describe("direct authenticated writes are revoked (V2-READY-47B)", () => {
+    beforeAll(async () => {
+      // B joins the team account as a regular MEMBER — passes write RLS, so the
+      // ONLY thing denying a direct write is the revoked table privilege.
+      await admin
+        .from("account_memberships")
+        .insert({ account_id: teamAccountId, user_id: sessions[1]!.userId, role: "member" });
+    });
+
+    afterAll(async () => {
+      await admin
+        .from("account_memberships")
+        .delete()
+        .eq("account_id", teamAccountId)
+        .eq("user_id", sessions[1]!.userId);
+    });
+
+    it("member B can still SELECT the team integration (read path preserved)", async () => {
+      const b = sessions[1]!;
+      const supaB = await sessionClient(b.email, b.password);
+      const { data, error } = await supaB
+        .from("integrations")
+        .select("id")
+        .eq("id", teamIntegrationId);
+      expect(error).toBeNull();
+      expect(data).toHaveLength(1);
+    });
+
+    it("member B CANNOT INSERT an integration row directly (42501; nothing written)", async () => {
+      const b = sessions[1]!;
+      const supaB = await sessionClient(b.email, b.password);
+      const { error } = await supaB
+        .from("integrations")
+        .insert({
+          account_id: teamAccountId,
+          connected_by_user_id: b.userId,
+          provider: "discord",
+          provider_account_id: "B-INJECT",
+          display_name: "injected",
+          access_token_encrypted: encryptToken(FAKE_ACCESS_PLAINTEXT),
+          scopes: [],
+          account_metadata: {},
+        })
+        .select("id");
+      // Hard permission denial, not a silent RLS no-op.
+      expect(error).not.toBeNull();
+      expect(error!.code).toBe("42501");
+      // …and the row truly was not created.
+      const check = await admin
+        .from("integrations")
+        .select("id")
+        .eq("account_id", teamAccountId)
+        .eq("provider", "discord");
+      expect(check.data).toHaveLength(0);
+    });
+
+    it("member B CANNOT UPDATE the team integration directly (42501; row unchanged)", async () => {
+      const b = sessions[1]!;
+      const supaB = await sessionClient(b.email, b.password);
+      const { error } = await supaB
+        .from("integrations")
+        .update({ display_name: "HIJACKED-BY-MEMBER" })
+        .eq("id", teamIntegrationId);
+      expect(error).not.toBeNull();
+      expect(error!.code).toBe("42501");
+
+      const { data } = await admin
+        .from("integrations")
+        .select("display_name")
+        .eq("id", teamIntegrationId)
+        .single<{ display_name: string }>();
+      expect(data!.display_name).toBe("gmail test"); // seeded value, unchanged
+    });
+
+    it("member B CANNOT DELETE the team integration directly (42501; row survives)", async () => {
+      const b = sessions[1]!;
+      const supaB = await sessionClient(b.email, b.password);
+      const { error } = await supaB
+        .from("integrations")
+        .delete()
+        .eq("id", teamIntegrationId);
+      expect(error).not.toBeNull();
+      expect(error!.code).toBe("42501");
+
+      const { data } = await admin
+        .from("integrations")
+        .select("id")
+        .eq("id", teamIntegrationId);
+      expect(data).toHaveLength(1); // still there
+    });
+
+    it("service-role STILL performs the full write cycle (chokepoint path unaffected)", async () => {
+      // Proves the revoke only closed the authenticated bypass — the authorized
+      // service-role path (what the OAuth dispatcher / disconnect service use)
+      // keeps full INSERT/UPDATE/DELETE.
+      const ins = await admin
+        .from("integrations")
+        .insert({
+          account_id: teamAccountId,
+          connected_by_user_id: sessions[0]!.userId,
+          provider: "trello",
+          provider_account_id: "svc-role-cycle",
+          display_name: "svc-role test",
+          access_token_encrypted: encryptToken(FAKE_ACCESS_PLAINTEXT),
+          scopes: [],
+          account_metadata: {},
+        })
+        .select("id")
+        .single<{ id: string }>();
+      expect(ins.error).toBeNull();
+      const newId = ins.data!.id;
+
+      const upd = await admin
+        .from("integrations")
+        .update({ display_name: "svc-role updated" })
+        .eq("id", newId);
+      expect(upd.error).toBeNull();
+
+      const del = await admin.from("integrations").delete().eq("id", newId);
+      expect(del.error).toBeNull();
+
+      const gone = await admin.from("integrations").select("id").eq("id", newId);
+      expect(gone.data).toHaveLength(0);
+    });
   });
 });
