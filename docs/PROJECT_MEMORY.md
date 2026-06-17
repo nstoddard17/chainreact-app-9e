@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-16 @ 3a146901f (AI-REPAIR-4 dangling-edge cleanup repair — local/unpushed; extends the AI-REPAIR-3 deterministic-repair Apply arc)
+> Last curated: 2026-06-16 @ d812e02b6 (Builder UX paper-cuts mini-arc — local/unpushed canvas layout + node quick actions)
 
 ## Current status
 
@@ -95,6 +95,16 @@
 
 ## Recently completed arcs
 
+- **Builder UX paper-cuts mini-arc — canvas layout + node quick actions, LOCAL/UNPUSHED (2026-06-16)** —
+  fixes Marcus's live-usage paper cuts: nodes can no longer overlap; "+ Add action" appends at the
+  **chain tail** with non-overlap placement; the edge "+" mid-chain insert opens a row (shifts the
+  downstream subtree, branch-safe); an **Arrange** action re-lays the whole graph cleanly; and nodes get
+  **inline rename + delete quick actions** on the card (delete reuses the existing confirm + safe rewire;
+  action-only, trigger/start node is rename-only). Pure layout helpers in `workflowLayout.ts`. **UI/canvas/
+  client-graph-state only** — no migration, no backend/runtime/execution/activation/trigger/credential/AI
+  change, no flag. `a6ec958ac` (LAYOUT-1) / `424facf54` (LAYOUT-2) / `d812e02b6` (QUICK-ACTIONS-1); not
+  pushed / not prod-smoked →
+  [`builder-ux-paper-cuts-closeout.md`](./slices/phase-4/workflows/builder-ux-paper-cuts-closeout.md).
 - **AI repair dangling-edge cleanup (AI-REPAIR-4A/4B) — 2nd deterministic repair category, LOCAL/UNPUSHED (2026-06-16)** —
   removes a **dangling edge** (a connection whose `from`/`to` step no longer exists). Check surfaces an
   actionable `STALE_EDGE` card (safe labels only; 4B adds per-endpoint "which side vanished" flags →
