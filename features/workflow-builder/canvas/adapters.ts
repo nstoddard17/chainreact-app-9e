@@ -52,6 +52,13 @@ export interface WorkflowNodeData extends Record<string, unknown> {
    * the pure type-key fallback so it stays a synchronous converter.
    */
   displayName: string;
+  /**
+   * The node's RAW user-set custom name (`node.displayName`), or undefined when
+   * the user hasn't named it (Slice 4.BUILDER-NODE-QUICK-ACTIONS-1). The inline
+   * rename editor seeds from this (empty when unset, with `displayName` — the
+   * resolved default — shown as the placeholder). Never identity.
+   */
+  customName?: string;
   /** Optional provider-friendly label (e.g. "Slack" instead of "slack"). */
   providerLabel?: string;
   /**
@@ -113,6 +120,7 @@ export function workflowNodesToFlowNodes(
       provider: node.provider,
       type: node.type,
       displayName: getNodeDisplayName(node),
+      ...(node.displayName !== undefined ? { customName: node.displayName } : {}),
       providerLabel: ctx.providerLabels?.[node.provider],
       providerIcon: ctx.providerIcons?.[node.provider],
       missingRequiredConfig:

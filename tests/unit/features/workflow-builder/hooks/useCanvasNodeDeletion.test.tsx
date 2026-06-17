@@ -293,6 +293,56 @@ describe("useCanvasNodeDeletion — handleCancel", () => {
   });
 });
 
+describe("useCanvasNodeDeletion — requestDelete (node quick action)", () => {
+  it("arms the same single-node confirm flow the keyboard path uses", () => {
+    hydrateChainABC();
+    const { result } = renderHook(() => useCanvasNodeDeletion());
+    act(() => {
+      result.current.requestDelete("b");
+    });
+    const pending = result.current.pendingDelete;
+    expect(pending?.kind).toBe("single");
+    if (pending?.kind !== "single") return;
+    expect(pending.nodeId).toBe("b");
+    expect(pending.preview.ok).toBe(true);
+    // It does NOT mutate the graph by itself — deletion happens on handleConfirm.
+    expect(useGraphSlice.getState().pendingNodes.map((n) => n.id).sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("requestDelete → handleConfirm removes the node with a safe rewire", () => {
+    hydrateChainABC();
+    const { result } = renderHook(() => useCanvasNodeDeletion());
+    act(() => {
+      result.current.requestDelete("b");
+    });
+    act(() => {
+      result.current.handleConfirm();
+    });
+    const graph = useGraphSlice.getState();
+    expect(graph.pendingNodes.map((n) => n.id).sort()).toEqual(["a", "c"]);
+    expect(graph.pendingEdges).toHaveLength(1);
+    expect(graph.pendingEdges[0]).toMatchObject({ from: "a", to: "c" });
+    expect(result.current.pendingDelete).toBeNull();
+  });
+
+  it("requestDelete on a multi-edge router arms a blocked preview (no mutation on confirm)", () => {
+    hydrateRouter();
+    const before = useGraphSlice.getState().pendingNodes;
+    const { result } = renderHook(() => useCanvasNodeDeletion());
+    act(() => {
+      result.current.requestDelete("router");
+    });
+    const pending = result.current.pendingDelete;
+    expect(pending?.kind).toBe("single");
+    if (pending?.kind !== "single") return;
+    expect(pending.preview.ok).toBe(false);
+    act(() => {
+      result.current.handleConfirm();
+    });
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+  });
+});
+
 describe("useCanvasNodeDeletion — keyboard delete is safe (no raw removeNode)", () => {
   it("never calls graphSlice.removeNode — only deleteNodeAndRewire on confirm", async () => {
     hydrateChainABC();

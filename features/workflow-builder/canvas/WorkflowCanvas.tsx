@@ -31,6 +31,7 @@ import {
 } from "./adapters";
 import { EmptyCanvasState } from "./EmptyCanvasState";
 import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
+import { BuilderNodeActionsProvider } from "./nodeActionsContext";
 import { WorkflowEdge } from "./WorkflowEdge";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
 
@@ -145,6 +146,7 @@ function WorkflowCanvasInner({
   const updateNodePosition = useGraphSlice((s) => s.updateNodePosition);
   const connectNodes = useGraphSlice((s) => s.connectNodes);
   const removeEdge = useGraphSlice((s) => s.removeEdge);
+  const renameNode = useGraphSlice((s) => s.renameNode);
 
   const openNode = useConfigSlice((s) => s.openNode);
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
@@ -163,7 +165,16 @@ function WorkflowCanvasInner({
     handleBeforeDelete,
     handleConfirm: handleConfirmDelete,
     handleCancel: handleCancelDelete,
+    requestDelete,
   } = useCanvasNodeDeletion();
+
+  // Slice 4.BUILDER-NODE-QUICK-ACTIONS-1 — ambient rename/delete handlers for the
+  // node cards. `renameNode` is a stable slice action; `requestDelete` opens the
+  // existing confirmation dialog. Memoized so node `data` identity stays stable.
+  const nodeActions = useMemo(
+    () => ({ onRenameNode: renameNode, onRequestDeleteNode: requestDelete }),
+    [renameNode, requestDelete],
+  );
 
   const pendingDeleteNode =
     pendingDelete?.kind === "single"
@@ -235,6 +246,7 @@ function WorkflowCanvasInner({
   const nodeCountText = `${pendingNodes.length} node${pendingNodes.length === 1 ? "" : "s"} · ${pendingEdges.length} edge${pendingEdges.length === 1 ? "" : "s"}`;
 
   return (
+    <BuilderNodeActionsProvider value={nodeActions}>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <CanvasActionBar
         nodeCountText={nodeCountText}
@@ -313,6 +325,7 @@ function WorkflowCanvasInner({
         />
       ) : null}
     </div>
+    </BuilderNodeActionsProvider>
   );
 }
 

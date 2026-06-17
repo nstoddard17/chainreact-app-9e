@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { WorkflowNodeData } from "./adapters";
 import { classifyNodeStatus, type NodeStatus } from "../utils/classifyNodeStatus";
+import { useBuilderNodeActions } from "./nodeActionsContext";
+import { NodeQuickActions } from "./NodeCardQuickActions";
 
 /**
  * Builder node card (Slice 4.BUILDER-CANVAS-1, restyled in
@@ -37,11 +39,52 @@ import { classifyNodeStatus, type NodeStatus } from "../utils/classifyNodeStatus
  * that data yet (see slice doc §Deferred).
  */
 export function WorkflowNodeCard({
+  id,
   data,
   selected,
 }: NodeProps & { data: WorkflowNodeData }) {
   const isTrigger = data.kind === "trigger";
   const providerLabel = data.providerLabel ?? data.provider;
+
+  // Slice 4.BUILDER-NODE-QUICK-ACTIONS-1 — ambient rename/delete handlers from
+  // the canvas. Each affordance renders only when its handler is wired.
+  const { onRenameNode, onRequestDeleteNode } = useBuilderNodeActions();
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  // True while an Escape/Enter is handling exit, so the input's trailing onBlur
+  // doesn't double-commit (Enter) or wrongly commit (Escape).
+  const skipBlurCommitRef = useRef(false);
+
+  function startRename(): void {
+    setNameDraft(data.customName ?? "");
+    setEditingName(true);
+  }
+  function commitRename(): void {
+    onRenameNode?.(id, nameDraft);
+    setEditingName(false);
+  }
+  function handleRenameKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    // Isolate the editor from canvas shortcuts (Delete/Backspace must not delete
+    // the node; arrows/space must not pan) while the user types a name.
+    event.stopPropagation();
+    if (event.key === "Enter") {
+      event.preventDefault();
+      skipBlurCommitRef.current = true;
+      commitRename();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      skipBlurCommitRef.current = true;
+      setEditingName(false); // cancel — discard the draft, no rename
+    }
+  }
+  function handleRenameBlur(): void {
+    if (skipBlurCommitRef.current) {
+      skipBlurCommitRef.current = false;
+      setEditingName(false);
+      return;
+    }
+    commitRename();
+  }
   const status: NodeStatus = classifyNodeStatus({
     type: data.type,
     missingRequiredConfig: data.missingRequiredConfig,
@@ -91,6 +134,13 @@ export function WorkflowNodeCard({
         />
       ) : null}
 
+      <NodeQuickActions
+        canRename={!!onRenameNode && !editingName}
+        canDelete={!!onRequestDeleteNode && data.kind === "action"}
+        onRename={startRename}
+        onDelete={() => onRequestDeleteNode?.(id)}
+      />
+
       <div className="flex gap-2.5 px-3 pb-1.5 pt-2.5">
         <ProviderAvatar
           provider={data.provider}
@@ -107,13 +157,45 @@ export function WorkflowNodeCard({
               #{data.kind === "trigger" ? "trigger" : "action"}
             </code>
           </div>
-          <div
-            className="mt-0.5 truncate text-[12.5px] font-semibold leading-tight"
-            title={data.displayName}
-            style={{ color: "var(--builder-text)" }}
-          >
-            {data.displayName}
-          </div>
+          {editingName ? (
+            <input
+              data-testid="node-rename-input"
+              type="text"
+              maxLength={120}
+              autoFocus
+              aria-label="Node name"
+              value={nameDraft}
+              placeholder={data.displayName}
+              onChange={(event) => setNameDraft(event.target.value)}
+              onKeyDown={handleRenameKeyDown}
+              onBlur={handleRenameBlur}
+              // Don't let a click/drag inside the field select / drag / open the node.
+              onClick={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              className="nodrag nopan mt-0.5 w-full rounded-[3px] px-1 py-0.5 text-[12.5px] font-semibold leading-tight outline-none"
+              style={{
+                background: "var(--builder-bg)",
+                border: "1px solid var(--builder-accent)",
+                color: "var(--builder-text)",
+              }}
+            />
+          ) : (
+            <div
+              className="mt-0.5 truncate text-[12.5px] font-semibold leading-tight"
+              title={data.displayName}
+              onDoubleClick={
+                onRenameNode
+                  ? (event) => {
+                      event.stopPropagation();
+                      startRename();
+                    }
+                  : undefined
+              }
+              style={{ color: "var(--builder-text)" }}
+            >
+              {data.displayName}
+            </div>
+          )}
           <div
             className="mt-0.5 truncate text-[10.5px] leading-tight"
             style={{ color: "var(--builder-muted)" }}

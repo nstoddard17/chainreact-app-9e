@@ -70,6 +70,14 @@ export interface UseCanvasNodeDeletionResult {
   handleConfirm(): void;
   /** Close the dialog without mutating the graph. */
   handleCancel(): void;
+  /**
+   * Slice 4.BUILDER-NODE-QUICK-ACTIONS-1 — open the SAME single-node delete
+   * confirmation the keyboard path uses, but for a node-card "Delete" quick
+   * action (an explicit click, not a keyboard event). Computes the rewire
+   * preview and arms `pendingDelete`; the dialog + `handleConfirm` path then
+   * runs the existing safe `deleteNodeAndRewire`. Never mutates the graph itself.
+   */
+  requestDelete(nodeId: string): void;
 }
 
 export function useCanvasNodeDeletion(): UseCanvasNodeDeletionResult {
@@ -125,10 +133,30 @@ export function useCanvasNodeDeletion(): UseCanvasNodeDeletionResult {
     setPendingDelete(null);
   }, []);
 
+  const requestDelete = useCallback(
+    (nodeId: string) => {
+      // Reuse the same pure intent classifier as the keyboard path; a single
+      // node always resolves to a "single" intent (with the rewire preview).
+      const intent = computeKeyboardDeleteIntent({
+        selectedNodeIds: [nodeId],
+        pendingNodes,
+        pendingEdges,
+      });
+      if (intent.kind !== "single") return;
+      setPendingDelete({
+        kind: "single",
+        nodeId: intent.nodeId,
+        preview: intent.preview,
+      });
+    },
+    [pendingNodes, pendingEdges],
+  );
+
   return {
     pendingDelete,
     handleBeforeDelete,
     handleConfirm,
     handleCancel,
+    requestDelete,
   };
 }
