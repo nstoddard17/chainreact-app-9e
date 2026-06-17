@@ -40,7 +40,7 @@ It is **live internal tooling** (not flag-gated).
 | `chainreact app register <id>` | Wires an **existing** provider's manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). Requires `integrations/<id>/manifest.ts` to exist; refuses unknown dirs; no-ops cleanly if already registered; refuses (writes nothing) if the registry format can't be patched safely. `--dry-run` prints the patch and writes nothing. |
 | `chainreact app action scaffold <provider> <action> [--dry-run]` | Creates a minimal action **triad** (`<base>.ts` handler + `.schema.ts` + `.meta.ts`) for an **existing** provider. The handler validates config then **throws "not implemented"** (no network, no fake success); the meta is Zod-valid (no fields/outputs, `category: "other"`) so the provider keeps passing `app validate`. Refuses unknown providers, invalid action ids, and collisions with an existing action unit. Does **not** register the handler/meta or change `isEnabled`. `--dry-run` prints the plan + predicted validation and writes nothing. |
 | `chainreact app action register <provider> <action> [--dry-run]` | Wires an **implemented** action's handler + meta into the app inventories (handler → `_handlerInventory.ts` `ALL_HANDLERS`; meta → central `ALL_ACTION_META` **or** the provider's discovery barrel `<X>_ACTION_METAS`). Requires the full triad to exist; **refuses a scaffold placeholder** (handler still throws "not implemented"); no-ops if already registered; refuses (writes nothing) if a registry's anchors are missing/unreadable. `--dry-run` prints the planned edits and writes nothing. |
-| `chainreact app trigger scaffold <provider> <trigger> [--dry-run]` | Creates a minimal trigger **meta** (`triggers/<base>/<base>.meta.ts`, the dominant folder-per-trigger layout) for an **existing** provider. **Inert**: `activation: "manual"`, no fields/payload, **no webhook/polling runtime files** (those encode real provider behavior). Zod-valid so the provider keeps passing `app validate`. Refuses unknown providers, invalid ids, and collisions. **Not auto-registered** (trigger registration is a documented manual step — no patching this slice). `--dry-run` prints the plan + predicted validation and writes nothing. |
+| `chainreact app trigger scaffold <provider> <trigger> [--dry-run]` | Creates a minimal trigger **meta** (`triggers/<base>/<base>.meta.ts`, the dominant folder-per-trigger layout) for an **existing** provider. **Inert**: `activation: "manual"`, no fields/payload, **no webhook/polling runtime files** (those encode real provider behavior). Zod-valid so the provider keeps passing `app validate`. Refuses unknown providers, invalid ids, and collisions. **Not auto-registered** (trigger registration is a documented manual step — no trigger-registry patching). `--dry-run` prints the plan + predicted validation and writes nothing. |
 | `chainreact --help` / `-h` | Usage. |
 
 ## Usage
@@ -453,7 +453,7 @@ won't load until the provider is wired (`app register <id>`).
 repo whose discovery inventory is present it shows **PASS with 1 warning**
 (`TRIGGER_META_NOT_REGISTERED`) — clearly explained, never an error.
 
-**Trigger registration is DETECTION-ONLY this slice (patching deferred).** `app
+**Trigger registration is DETECTION-ONLY (patching deferred).** `app
 validate` warns `TRIGGER_META_NOT_REGISTERED` when a trigger meta isn't wired into the
 discovery inventory (`ALL_TRIGGER_META`, or a provider barrel's `<X>_TRIGGER_METAS`) —
 detection combines the central inventory with the provider's barrel, anchored on the

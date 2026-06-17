@@ -214,7 +214,7 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         log(renderValidation(result));
         return result.ok ? 0 : 1;
       }
-      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider> [--register] | chainreact app register <provider> | chainreact app action scaffold <provider> <action> | chainreact app trigger scaffold <provider> <trigger>`);
+      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider> [--register] | chainreact app register <provider> | chainreact app action scaffold <provider> <action> | chainreact app action register <provider> <action> | chainreact app trigger scaffold <provider> <trigger>`);
       return 2;
     }
 
