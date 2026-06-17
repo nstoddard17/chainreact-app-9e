@@ -296,11 +296,13 @@ export async function listWorkflowRuns(
 /**
  * Slice 3.8 — fetch the detail of one run for the test-run output preview.
  *
- * Hits `GET /api/workflows/[id]/runs/[runId]`. Surfaces the steps[],
- * triggerEvent, and fatalError that the list endpoint intentionally
- * strips. The builder's RunResultsPanel polls this every 1s while the
- * run is in flight, then stops on terminal status (succeeded / failed)
- * or after a poll-count ceiling.
+ * Hits `GET /api/workflows/[id]/runs/[runId]`. Surfaces the per-step
+ * results (`steps[]`) that the list endpoint omits to keep the list view
+ * light. V2-READY-51: the detail surface no longer carries raw `triggerEvent`
+ * or `fatalError`, and per-step `output` is present only for the run's own
+ * author viewing a TEST run (server-gated). The builder's RunResultsPanel polls
+ * this every 1s while the run is in flight, then stops on terminal status
+ * (succeeded / failed) or after a poll-count ceiling.
  *
  * A 404 surfaces as `WorkflowApiError(code: "WORKFLOW_NOT_FOUND")` —
  * the polling layer interprets that as "still enqueueing" for the

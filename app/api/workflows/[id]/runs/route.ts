@@ -1,17 +1,25 @@
 import { NextResponse } from "next/server";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
-import { requireUser, toWorkflowRunSummary } from "../../_shared";
+import {
+  requireUser,
+  toWorkflowRunSummary,
+  loadWorkflowForMember,
+} from "../../_shared";
 
 /**
  * GET /api/workflows/[id]/runs — list this workflow's recent runs.
  *
- * RLS gates the read by user_id; the query implicitly returns only the
- * authenticated user's runs (workflowRuns.listByWorkflow uses the
- * SSR-cookie client). Defaults to 25; ?limit=N caps at 100 (enforced in
- * the repository).
+ * V2-READY-51: `workflowRuns.listByWorkflow` now reads via service-role (the
+ * authenticated SELECT grant on `workflow_runs` was revoked) and is
+ * NON-AUTHORIZING. This route therefore authorizes EXPLICITLY:
+ * `loadWorkflowForMember` loads the workflow and confirms the caller is a
+ * member of its account — a missing / soft-deleted workflow AND a non-member
+ * both collapse to the same `WORKFLOW_NOT_FOUND` 404 (no existence leak). Only
+ * then do we read the runs. Defaults to 25; ?limit=N caps at 100 (repository).
  *
- * Workflow ownership is also gated by RLS: a workflow_id that doesn't
- * belong to the user produces an empty list, never a leak.
+ * The response maps each record through `toWorkflowRunSummary`, which strips
+ * `steps` / `triggerEvent` / `fatalError` — the list view never carries raw
+ * payloads.
  */
 export async function GET(
   request: Request,
@@ -21,6 +29,9 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
+  const authorized = await loadWorkflowForMember(id, auth.userId);
+  if (!authorized.ok) return authorized.response;
+
   const url = new URL(request.url);
   const limitParam = url.searchParams.get("limit");
   const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : null;

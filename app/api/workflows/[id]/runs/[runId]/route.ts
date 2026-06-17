@@ -1,35 +1,41 @@
 import { NextResponse } from "next/server";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import * as workflowsRepo from "@/repositories/workflows";
-import { requireUser, toWorkflowRunDetail } from "../../../_shared";
+import {
+  requireUser,
+  toWorkflowRunDetail,
+  requireWorkflowAccountMember,
+} from "../../../_shared";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 
 /**
  * GET /api/workflows/[id]/runs/[runId] — fetch a single run's detail.
  *
- * Slice 3.8: the existing summary endpoint at `../route.ts` strips
- * `steps[]`, `triggerEvent`, and `fatalError` to keep the list view
- * light. This detail endpoint adds them back so the builder's
- * RunResultsPanel can show per-step output for the most-recent test
- * run — without bloating the list payload.
+ * Slice 3.8: the summary endpoint at `../route.ts` keeps the list view light;
+ * this detail endpoint feeds the builder's RunResultsPanel.
  *
- * Slice 3.SEC-7: the route also fetches the workflow record so
- * `toWorkflowRunDetail` can look up each step's action meta and apply
- * `OutputMeta.sensitive` redaction before serializing. The added query
- * is a single RLS-scoped SELECT through `workflowsRepo.getById` —
- * cheap and necessary for the redaction lookup. If the workflow no
- * longer exists (deleted post-run), the record was already null and we
- * return 404 before we'd need its nodes.
+ * V2-READY-51 (payload lockdown): `workflowRuns.getById` now reads via
+ * service-role (the authenticated SELECT grant was revoked) and is
+ * NON-AUTHORIZING, so this route authorizes EXPLICITLY:
+ *   1. Fetch the run by id (service-role, no RLS).
+ *   2. Cross-validate `record.workflowId === id` so a malformed deep-link can't
+ *      return the wrong run; a mismatch / missing run → 404.
+ *   3. `requireWorkflowAccountMember` confirms the caller is a member of the
+ *      run's account — a non-member gets the SAME 404 (no existence leak).
+ * `toWorkflowRunDetail` then emits the sanitized DTO: NO raw `triggerEvent`, NO
+ * raw `fatalError` (the humanized `errorClassification` is the error surface),
+ * step names/statuses + sanitized step errors always, and SEC-7-redacted
+ * per-step OUTPUT ONLY when the caller is the run's own author viewing a TEST
+ * run. The caller id is threaded so the mapper can apply that gate.
  *
- * RLS gates per-user access via the SSR-cookie client inside both
- * repository calls. A runId that belongs to another user returns
- * `null` from the repo and surfaces as a 404 here — never a leak.
- * The path's `[id]` is cross-validated against the run's stored
- * `workflowId` so a malformed deep-link doesn't return the wrong run.
+ * Slice 3.SEC-7: when output IS exposed, the route loads the workflow so the
+ * serializer can resolve per-step (provider, type) for `OutputMeta.sensitive`
+ * redaction. If the lookup throws OR the workflow row is missing (deleted
+ * post-run), we degrade gracefully (no per-field redaction; the author-test
+ * gate still bounds whether any output is shown at all).
  *
- * The route is deliberately a thin couple of SELECTs — no
- * orchestration, no enqueue logic, no side effects. Polling cost stays
- * predictable even when the builder hits it once per second.
+ * The route is deliberately a thin couple of SELECTs — no orchestration, no
+ * side effects. Polling cost stays predictable even at once-per-second.
  */
 export async function GET(
   _request: Request,
@@ -45,14 +51,15 @@ export async function GET(
     return NextResponse.json({ error: "Run not found." }, { status: 404 });
   }
 
-  // Slice 3.SEC-7 — load the workflow so the serializer can resolve
-  // per-step (provider, type) for sensitive-output redaction. RLS-
-  // scoped through `workflowsRepo.getById`. If the lookup throws OR
-  // the workflow row is missing (deleted post-run, transient DB
-  // error), we degrade gracefully and call the serializer with
-  // undefined nodes — redaction is skipped for this response but the
-  // run detail still returns. The redactor's missing-meta path is
-  // documented in `core/security/redactOutput.ts` JSDoc.
+  // V2-READY-51 — explicit membership gate (the repo read bypasses RLS). A
+  // non-member of the run's account collapses to the standard WORKFLOW_NOT_FOUND
+  // 404 (no existence leak), matching the missing-run shape above.
+  const authorized = await requireWorkflowAccountMember(
+    auth.userId,
+    record.accountId,
+  );
+  if (!authorized.ok) return authorized.response;
+
   let workflowNodes: WorkflowDefinition["nodes"] | undefined;
   try {
     const workflow = await workflowsRepo.getById(id);
@@ -61,5 +68,5 @@ export async function GET(
     workflowNodes = undefined;
   }
 
-  return NextResponse.json(toWorkflowRunDetail(record, workflowNodes));
+  return NextResponse.json(toWorkflowRunDetail(record, auth.userId, workflowNodes));
 }

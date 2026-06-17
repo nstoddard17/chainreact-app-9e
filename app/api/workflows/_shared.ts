@@ -563,43 +563,53 @@ export function toWorkflowRunSummary(
 }
 
 /**
- * Slice 3.SEC-7 — when the optional `workflowNodes` argument is supplied
- * the serializer redacts `steps[].output` per the action's
- * `OutputMeta.sensitive` flags before returning to the client. The DB
- * row stays unmodified.
+ * V2-READY-51 (Option C) — the run-detail DTO exposes SAFE operational fields
+ * only. It drops the raw `triggerEvent` (upstream payload) and the raw
+ * `fatalError` (engine-internal code/message); the humanized `errorClassification`
+ * (from the summary) is the user-facing error surface. Each step always carries
+ * `nodeId` + `status` and a sanitized `error`.
  *
- * Calling without `workflowNodes` preserves legacy behavior (no
- * redaction) — call sites that haven't been updated for SEC-7 keep
- * working. The new run-details route ALWAYS supplies the nodes; the
- * legacy summary path (`toWorkflowRunSummary` above) never returns
- * step outputs and so doesn't need this.
+ * Per-step OUTPUT is exposed ONLY when the caller is the run's own author
+ * (`record.triggeredByUserId === callerUserId`) viewing a TEST run
+ * (`record.isTest`). That is the single legitimate execution-output surface —
+ * an author inspecting their own test run in the builder. A real (non-test) run,
+ * or ANY other member (including owner/admin), receives status-only steps; raw
+ * outputs stay server-internal. (Note: a test run is always started by a human
+ * in the builder, so `triggeredByUserId` IS the author for `isTest` rows.)
  *
- * Edge case — workflow edited since run: if a `step.nodeId` is no
- * longer present in `workflowNodes` (the node was deleted post-run),
- * the redactor sees no meta for that step and returns the output
- * unchanged. This is fail-open at the redactor layer. The trade-off is
- * documented in `core/security/redactOutput.ts` JSDoc. The mitigating
- * factor is RLS: only the workflow owner can edit nodes; only the
- * workflow owner can read the run; a malicious owner has direct DB
- * access to their own data already.
+ * Slice 3.SEC-7 — when output IS exposed and `workflowNodes` is supplied, the
+ * serializer additionally redacts `steps[].output` per the action's
+ * `OutputMeta.sensitive` flags before returning. The DB row stays unmodified.
+ *
+ * Edge case — workflow edited since run: if a `step.nodeId` is no longer present
+ * in `workflowNodes` (node deleted post-run), the redactor sees no meta and
+ * returns that step's output unchanged (fail-open at the redactor layer, see
+ * `core/security/redactOutput.ts`). The author-test gate already bounds whether
+ * any output is shown at all, and only the author of their own test run reaches
+ * this branch.
  */
 export function toWorkflowRunDetail(
   record: WorkflowRunRecord,
+  callerUserId: string,
   workflowNodes?: readonly WorkflowNode[],
 ): WorkflowRunDetail {
-  const nodeMetaLookup = buildNodeMetaLookup(workflowNodes);
+  const includeOutput =
+    record.isTest &&
+    record.triggeredByUserId !== null &&
+    record.triggeredByUserId === callerUserId;
+  const nodeMetaLookup = buildNodeMetaLookup(
+    includeOutput ? workflowNodes : undefined,
+  );
   return {
     ...toWorkflowRunSummary(record),
-    triggerEvent: record.triggerEvent,
     steps: record.steps.map((s) => ({
       nodeId: s.nodeId,
       status: s.status,
-      ...(s.output !== undefined
+      ...(includeOutput && s.output !== undefined
         ? { output: redactStepOutput(s.output, s.nodeId, nodeMetaLookup) }
         : {}),
       ...(s.error !== undefined ? { error: toSafeStepError(s.error) } : {}),
     })),
-    fatalError: record.fatalError,
   };
 }
 

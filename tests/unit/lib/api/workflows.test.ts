@@ -260,6 +260,9 @@ describe("listWorkflowRuns", () => {
 });
 
 describe("getWorkflowRun", () => {
+  // V2-READY-51: the run-detail wire shape no longer carries raw triggerEvent or
+  // fatalError; per-step output appears only for an author's own test run (this
+  // models an author-test response that still includes output).
   const sampleDetail = {
     id: "44444444-4444-4444-4444-444444444444",
     workflowId: SAMPLE.id,
@@ -268,19 +271,10 @@ describe("getWorkflowRun", () => {
     startedAt: "2026-05-17T00:00:00Z",
     finishedAt: "2026-05-17T00:00:01Z",
     errorClassification: null,
-    triggerEvent: {
-      provider: "native",
-      eventType: "manual.run",
-      eventId: "ev1",
-      occurredAt: "2026-05-17T00:00:00Z",
-      providerAccountId: "system",
-      payload: { inputs: {} },
-    },
     steps: [
       { nodeId: "t1", status: "succeeded" as const, output: {} },
       { nodeId: "a1", status: "succeeded" as const, output: { sentTo: "C123" } },
     ],
-    fatalError: null,
   };
 
   it("GETs /api/workflows/<id>/runs/<runId> and returns the detail", async () => {

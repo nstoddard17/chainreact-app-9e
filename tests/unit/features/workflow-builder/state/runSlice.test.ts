@@ -40,16 +40,7 @@ const SAMPLE: WorkflowRunDetail = {
   startedAt: "2026-05-17T00:00:00Z",
   finishedAt: "2026-05-17T00:00:01Z",
   errorClassification: null,
-  triggerEvent: {
-    provider: "native",
-    eventType: "manual.run",
-    eventId: "ev1",
-    occurredAt: "2026-05-17T00:00:00Z",
-    providerAccountId: "system",
-    payload: { inputs: {} },
-  },
   steps: [{ nodeId: "t1", status: "succeeded", output: {} }],
-  fatalError: null,
 };
 
 beforeEach(() => {

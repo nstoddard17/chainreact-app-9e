@@ -11,7 +11,10 @@
  * SET below and added `public.trigger_resources` (50 revoked all four — trigger
  * rows are lifecycle infrastructure, never client-edited). V2-READY-52 added
  * `public.workflow_files` (52 revoked the unused SELECT — file rows are
- * engine-managed output metadata, never client-read).
+ * engine-managed output metadata, never client-read). V2-READY-51 added
+ * `public.workflow_runs` (51 revoked SELECT — run rows carry raw
+ * trigger_event / steps / fatal_error payloads; every client read now flows
+ * through a membership-gated service-role repository + a sanitized DTO).
  *
  * It REPLAYS every GRANT/REVOKE on each table for `authenticated` across the whole
  * migration corpus (chronological filename order) and asserts the NET effective
@@ -30,7 +33,12 @@ const WRITE_PRIVS = ["SELECT", "INSERT", "UPDATE", "DELETE"] as const;
 type Priv = (typeof WRITE_PRIVS)[number];
 
 /** Tables that must be service-role-only at the Data API (zero authenticated grant). */
-const SERVICE_ROLE_ONLY_TABLES = ["integrations", "trigger_resources", "workflow_files"] as const;
+const SERVICE_ROLE_ONLY_TABLES = [
+  "integrations",
+  "trigger_resources",
+  "workflow_files",
+  "workflow_runs",
+] as const;
 
 /** One GRANT/REVOKE on `public.<table>` for authenticated, with its privileges. */
 interface GrantStmt {
@@ -113,7 +121,7 @@ function netAuthenticatedPrivs(table: string): {
   return { net, lastGrantBy, statements };
 }
 
-describe("guardrail — service-role-only tables hold ZERO authenticated grants (V2-READY-47E/50)", () => {
+describe("guardrail — service-role-only tables hold ZERO authenticated grants (V2-READY-47E/50/51/52)", () => {
   it.each(SERVICE_ROLE_ONLY_TABLES)(
     "authenticated holds ZERO direct privileges on public.%s (net across all migrations)",
     (table) => {

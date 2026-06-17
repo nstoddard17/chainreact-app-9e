@@ -5,9 +5,12 @@
  * + workflow_files) are gated by account membership ONLY after the final
  * Phase-B cutover. This proves the post-cutover RLS surface:
  *
- *   - workflow_runs: the legacy `workflow_runs_select_own` (user_id) policy is
- *     dropped; only `workflow_runs_select_account_member` remains. Member A
- *     reads their run; non-member B does not; anon does not.
+ *   - workflow_runs: V2-READY-51 revoked the `authenticated` SELECT grant, so the
+ *     table is now SERVICE-ROLE-ONLY at the Data API. Member A's DIRECT PostgREST
+ *     SELECT on their own run is denied (42501); non-member B is likewise denied;
+ *     the row is still readable via service-role (the membership-gated repository
+ *     path). The account-member RLS policy stays in place but is unreachable for
+ *     `authenticated`.
  *   - trigger_resources + workflow_files: their _own (user_id) policies are
  *     dropped and replaced with account-membership policies that JOIN through
  *     workflows.account_id. A sees rows for their workflow; B does not. (Their
@@ -209,27 +212,32 @@ describeDb("workflow_runs account RLS — Slice 4.ACCOUNT-MODEL-8", () => {
     }
   });
 
-  it("workflow_runs: account member A sees their run; non-member B does not; anon does not", async () => {
+  it("workflow_runs: member direct authenticated SELECT is denied (V2-READY-51; 42501) — reads flow through service-role", async () => {
     const a = sessions[0]!;
     const b = sessions[1]!;
     const supaA = await sessionClient(a.email, a.password);
     const supaB = await sessionClient(b.email, b.password);
 
-    const { data: aOwn, error: aErr } = await supaA
-      .from("workflow_runs")
-      .select("id")
-      .eq("id", a.runId);
-    expect(aErr).toBeNull();
-    expect(aOwn).toHaveLength(1);
+    // Member A can no longer read their OWN run directly — SELECT was revoked from
+    // authenticated; workflow_runs is service-role-only (trigger_event / steps /
+    // fatal_error never reach a client via PostgREST, only via a sanitized DTO).
+    const aRead = await supaA.from("workflow_runs").select("id").eq("id", a.runId);
+    expect(aRead.error).not.toBeNull();
+    expect(aRead.error!.code).toBe("42501");
 
-    const { data: bOnA } = await supaB.from("workflow_runs").select("id").eq("id", a.runId);
-    expect(bOnA).toHaveLength(0);
+    // Non-member B is likewise denied at the privilege layer.
+    const bRead = await supaB.from("workflow_runs").select("id").eq("id", a.runId);
+    expect(bRead.error).not.toBeNull();
+    expect(bRead.error!.code).toBe("42501");
 
-    const anon = createClient(URL!, ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data: anonOnA } = await anon.from("workflow_runs").select("id").eq("id", a.runId);
-    expect(anonOnA).toHaveLength(0);
+    // (anon is unchanged by this migration — it only revoked `authenticated`;
+    // mirrors the trigger_resources / workflow_files sibling tests, which assert
+    // the member-privilege denial, not anon.)
+
+    // The row is intact and still readable by the service-role path.
+    const svc = await admin.from("workflow_runs").select("id").eq("id", a.runId);
+    expect(svc.error).toBeNull();
+    expect(svc.data).toHaveLength(1);
   });
 
   it("trigger_resources: direct authenticated SELECT is denied (V2-READY-50; 42501) — reads flow through service-role", async () => {

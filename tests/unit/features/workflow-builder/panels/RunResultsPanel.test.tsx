@@ -21,6 +21,9 @@ import { RunResultsPanel } from "@/features/workflow-builder/panels/RunResultsPa
 import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
 import type { WorkflowRunDetail } from "@/contracts/workflow";
 
+// V2-READY-51: WorkflowRunDetail no longer carries raw triggerEvent / fatalError;
+// per-step output appears only for an author's own test run (the route gates it,
+// so a fixture that includes output models that author-test case).
 const succeededDetail: WorkflowRunDetail = {
   id: "44444444-4444-4444-4444-444444444444",
   workflowId: "33333333-3333-3333-3333-333333333333",
@@ -29,14 +32,6 @@ const succeededDetail: WorkflowRunDetail = {
   startedAt: "2026-05-17T00:00:00Z",
   finishedAt: "2026-05-17T00:00:01Z",
   errorClassification: null,
-  triggerEvent: {
-    provider: "native",
-    eventType: "manual.run",
-    eventId: "ev1",
-    occurredAt: "2026-05-17T00:00:00Z",
-    providerAccountId: "system",
-    payload: { inputs: {} },
-  },
   steps: [
     { nodeId: "t1", status: "succeeded", output: { event: "fired" } },
     {
@@ -45,7 +40,6 @@ const succeededDetail: WorkflowRunDetail = {
       output: { channel: "C123", text: "hi" },
     },
   ],
-  fatalError: null,
 };
 
 beforeEach(() => {
@@ -90,11 +84,12 @@ describe("RunResultsPanel", () => {
     expect(out.textContent).toContain("C123");
   });
 
-  it("surfaces fatalError + errorClassification on a failed run", () => {
+  // V2-READY-51 — the raw fatalError block was removed from the panel; the
+  // humanized errorClassification is now the sole failure surface.
+  it("surfaces errorClassification (no raw fatalError block) on a failed run", () => {
     const failedDetail: WorkflowRunDetail = {
       ...succeededDetail,
       status: "failed",
-      fatalError: { code: "HANDLER_FAILED", message: "Slack call timed out" },
       errorClassification: {
         title: "Slack call timed out",
         description: "Slack didn't respond in time.",
@@ -115,7 +110,8 @@ describe("RunResultsPanel", () => {
       .startTracking({ workflowId: failedDetail.workflowId, runId: failedDetail.id });
     useRunSlice.setState({ status: "failed", detail: failedDetail });
     render(<RunResultsPanel />);
-    expect(screen.getByTestId("run-fatal-error")).toHaveTextContent("HANDLER_FAILED");
+    // The raw fatal-error block is gone; the humanized classification remains.
+    expect(screen.queryByTestId("run-fatal-error")).not.toBeInTheDocument();
     expect(screen.getByTestId("run-error-classification")).toHaveTextContent(
       "Slack call timed out",
     );
@@ -158,18 +154,9 @@ describe("RepairBlock (AI-13)", () => {
       description: "userId is required.",
       severity: "error",
     },
-    triggerEvent: {
-      provider: "native",
-      eventType: "manual.run",
-      eventId: "ev1",
-      occurredAt: "2026-05-25T00:00:00Z",
-      providerAccountId: "system",
-      payload: { inputs: {} },
-    },
     steps: [
       { nodeId: "n-slack", status: "failed", error: { code: "MISSING_REQUIRED_FIELD", message: "userId required" } },
     ],
-    fatalError: null,
   };
 
   function mountFailed() {

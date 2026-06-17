@@ -188,16 +188,6 @@ it("Run Now → terminal succeeded → picker shows trigger.payload.subject prev
     startedAt: "2026-05-17T10:00:00Z",
     finishedAt: "2026-05-17T10:00:01Z",
     errorClassification: null,
-    triggerEvent: {
-      provider: "native",
-      eventType: "manual.run",
-      eventId: "ev-1",
-      occurredAt: "2026-05-17T10:00:00Z",
-      providerAccountId: "system",
-      payload: {
-        payload: { subject: "Hello world", from: "alice@example.com" },
-      },
-    },
     steps: [
       {
         nodeId: triggerNode!.id,
@@ -212,7 +202,6 @@ it("Run Now → terminal succeeded → picker shows trigger.payload.subject prev
         output: { status: 200 },
       },
     ],
-    fatalError: null,
   };
   mockGetWorkflowRun.mockResolvedValueOnce(successDetail);
 

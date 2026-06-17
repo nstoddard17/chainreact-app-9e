@@ -3,8 +3,10 @@
  *
  * Tests for repositories/workflowRuns.ts.
  *
- * Mocks both the SSR-cookie + service-role clients to exercise the two
- * code paths (recordRun via service role, listByWorkflow via SSR).
+ * V2-READY-51: every read + write path now uses the service-role client
+ * (`getById` / `listByWorkflow` moved off the SSR-cookie client when the
+ * authenticated SELECT grant on `workflow_runs` was revoked). The SSR client is
+ * no longer imported by the repo, so only the service-role mock is wired here.
  */
 
 interface ChainState {
@@ -60,16 +62,9 @@ function makeMockClient(state: ChainState) {
   return { from: jest.fn(() => builder), state };
 }
 
-const mockSSR: { current: ReturnType<typeof makeMockClient> | null } = {
-  current: null,
-};
 const mockServiceRole: { current: ReturnType<typeof makeMockClient> | null } = {
   current: null,
 };
-
-jest.mock("@/utils/supabase/server", () => ({
-  createClient: jest.fn(async () => mockSSR.current),
-}));
 
 jest.mock("@/repositories/supabase/serviceRoleClient", () => ({
   getServiceRoleClient: jest.fn(() => mockServiceRole.current),
@@ -277,7 +272,7 @@ describe("workflowRuns.listByWorkflow", () => {
       created_at: "2026-05-07T00:00:00Z",
     };
     const state: ChainState = { filters: [], resultData: [row], resultError: null };
-    mockSSR.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     const result = await listByWorkflow("wf-1");
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe("run-1");
@@ -291,8 +286,8 @@ describe("workflowRuns.listByWorkflow", () => {
 
   it("caps the limit at 100 even when the caller asks for more", async () => {
     const state: ChainState = { filters: [], resultData: [], resultError: null };
-    mockSSR.current = makeMockClient(state);
-    const limitSpy = mockSSR.current.from().limit as unknown as jest.Mock;
+    mockServiceRole.current = makeMockClient(state);
+    const limitSpy = mockServiceRole.current.from().limit as unknown as jest.Mock;
     await listByWorkflow("wf-1", { limit: 999 });
     // limitSpy is the .limit() mock from the chain; assert the cap applied.
     expect(limitSpy).toHaveBeenLastCalledWith(100);
@@ -300,7 +295,7 @@ describe("workflowRuns.listByWorkflow", () => {
 
   it("returns an empty array when no runs exist", async () => {
     const state: ChainState = { filters: [], resultData: [], resultError: null };
-    mockSSR.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     const result = await listByWorkflow("wf-1");
     expect(result).toEqual([]);
   });
@@ -330,7 +325,7 @@ describe("workflowRuns.getById", () => {
       resultError: null,
       maybeSingleResult: { data: row, error: null },
     };
-    mockSSR.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     const result = await getById("run-1");
     expect(result).not.toBeNull();
     expect(result!.id).toBe("run-1");
@@ -343,14 +338,14 @@ describe("workflowRuns.getById", () => {
     expect(state.filters).toContainEqual({ op: "neq", args: ["status", "running"] });
   });
 
-  it("returns null when the row does not exist (RLS or missing)", async () => {
+  it("returns null when the row does not exist", async () => {
     const state: ChainState = {
       filters: [],
       resultData: null,
       resultError: null,
       maybeSingleResult: { data: null, error: null },
     };
-    mockSSR.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     const result = await getById("run-missing");
     expect(result).toBeNull();
   });
@@ -364,7 +359,7 @@ describe("workflowRuns.getById", () => {
       resultError: null,
       maybeSingleResult: { data: { ...row, revision_id: "rev-1" }, error: null },
     };
-    mockSSR.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     const result = await getById("run-1");
     expect(result).not.toBeNull();
     const keys = Object.keys(result as object);
@@ -379,7 +374,7 @@ describe("workflowRuns.getById", () => {
       resultError: null,
       maybeSingleResult: { data: null, error: { message: "boom" } },
     };
-    mockSSR.current = makeMockClient(state);
+    mockServiceRole.current = makeMockClient(state);
     await expect(getById("run-1")).rejects.toThrow(/boom/);
   });
 });

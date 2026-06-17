@@ -264,14 +264,6 @@ describe("useUpstreamVariables — latestValuesBySource (Slice 3.9)", () => {
       startedAt: "2026-05-17T00:00:00Z",
       finishedAt: "2026-05-17T00:00:01Z",
       errorClassification: null,
-      triggerEvent: {
-        provider: "native",
-        eventType: "manual.run",
-        eventId: "ev1",
-        occurredAt: "2026-05-17T00:00:00Z",
-        providerAccountId: "system",
-        payload: { inputs: { foo: "bar" } },
-      },
       steps: [
         {
           nodeId: triggerNodeId,
@@ -284,7 +276,6 @@ describe("useUpstreamVariables — latestValuesBySource (Slice 3.9)", () => {
           output: { status: 200, body: "OK" },
         },
       ],
-      fatalError: null,
     };
   }
 

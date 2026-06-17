@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { WorkflowDefinitionSchema } from "./workflowDefinition";
-import { TriggerEventSchema } from "./triggerEvent";
 
 /**
  * Cross-layer workflow contracts.
@@ -230,18 +229,23 @@ export const WorkflowRunFatalErrorSchema = z.object({
 export type WorkflowRunFatalError = z.infer<typeof WorkflowRunFatalErrorSchema>;
 
 /**
- * Detail shape returned by GET /api/workflows/[id]/runs/[runId]. Extends
- * the summary with `steps[]`, `triggerEvent`, and `fatalError`. Used by
- * Slice 3.8's RunResultsPanel to show per-step output for the latest run.
+ * Detail shape returned by GET /api/workflows/[id]/runs/[runId]. Extends the
+ * summary with per-step results (`steps[]`). Used by Slice 3.8's RunResultsPanel.
  *
- * Intentionally omits `userId` (RLS-gated; UI never needs it) and the
- * raw `createdAt` (the engine writes `startedAt`/`finishedAt`; `createdAt`
- * is a row-insert timestamp not a workflow-execution timestamp).
+ * V2-READY-51 (payload lockdown): the detail surface exposes SAFE operational
+ * fields only. It does NOT carry the raw `triggerEvent` (upstream webhook /
+ * manual-input payload) or the raw `fatalError` (engine-internal code/message) —
+ * the humanized `errorClassification` (inherited from the summary) is the
+ * user-facing error surface. Each step always carries its `nodeId` + `status`
+ * and a SANITIZED `error`; per-step `output` is present ONLY when the caller is
+ * the run's own author viewing a TEST run (gated in `toWorkflowRunDetail`), so a
+ * co-member — or any real (non-test) run — never receives execution outputs.
+ *
+ * Intentionally omits `userId` and the raw `createdAt` (a row-insert timestamp,
+ * not a workflow-execution timestamp).
  */
 export const WorkflowRunDetailSchema = WorkflowRunSummarySchema.extend({
-  triggerEvent: TriggerEventSchema,
   steps: z.array(WorkflowRunStepSchema),
-  fatalError: WorkflowRunFatalErrorSchema.nullable(),
 });
 export type WorkflowRunDetail = z.infer<typeof WorkflowRunDetailSchema>;
 

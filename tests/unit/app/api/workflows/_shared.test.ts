@@ -595,6 +595,15 @@ describe("toWorkflowRunSummary", () => {
 });
 
 // ── Slice 3.SEC-7 — toWorkflowRunDetail redaction ───────────────────────────
+//
+// V2-READY-51 (Option C): per-step OUTPUT is exposed ONLY to the run's own
+// author viewing their TEST run. The SEC-7 redaction tests below therefore run
+// against an AUTHOR-TEST record (isTest:true, triggeredByUserId === RUN_AUTHOR)
+// and pass RUN_AUTHOR as the caller — the one path where output is shown (and
+// then sensitive-field-redacted). The gating itself (non-test / co-member → NO
+// output; never triggerEvent/fatalError) is covered in its own block further
+// down.
+const RUN_AUTHOR = "user-1";
 describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () => {
   const triggerEvent: TriggerEvent = {
     provider: "native",
@@ -612,7 +621,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       id: "11111111-1111-1111-1111-111111111111",
       workflowId: "22222222-2222-2222-2222-222222222222",
       accountId: "acct-1",
-      triggeredByUserId: "user-1",
+      triggeredByUserId: RUN_AUTHOR,
       status: "succeeded",
       triggerNodeId: "t1",
       triggerEvent,
@@ -622,8 +631,9 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       startedAt: "2026-05-22T00:00:00Z",
       finishedAt: "2026-05-22T00:00:01Z",
       createdAt: "2026-05-22T00:00:00Z",
-      isTest: false,
-      triggeredBy: "unknown",
+      // Author-test run — the one context where per-step output is exposed.
+      isTest: true,
+      triggeredBy: "test",
       triggeredByApiKeyId: null,
       triggeredByApiKeyPrefix: null,
     };
@@ -658,7 +668,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       },
     ]);
     const nodes = [makeNode("cust-node", "stripe", "create_customer")];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     expect(detail.steps[0]!.output).toEqual({
       customerId: "cus_1",
       email: REDACTED_SENTINEL,
@@ -675,7 +685,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       },
     ]);
     const nodes = [makeNode("cust-node", "stripe", "create_customer")];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     const out = detail.steps[0]!.output as Record<string, unknown>;
     expect(out.customerId).toBe("cus_1");
     expect(out.email).toBe(REDACTED_SENTINEL);
@@ -695,7 +705,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       },
     ]);
     const nodes = [makeNode("http-node", "native", "http_request")];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     const out = detail.steps[0]!.output as Record<string, unknown>;
     expect(out.body).toBe(REDACTED_SENTINEL);
     expect(out.bodyJson).toBe(REDACTED_SENTINEL);
@@ -716,7 +726,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       },
     ]);
     const nodes = [makeNode("find-node", "stripe", "find_customer")];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     const out = detail.steps[0]!.output as Record<string, unknown>;
     expect(out.found).toBe(true);
     expect(out.customer).toBe(REDACTED_SENTINEL);
@@ -730,7 +740,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
         output: { customerId: "cus_1", email: "alice@example.com" },
       },
     ]);
-    const detail = toWorkflowRunDetail(record);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR);
     const out = detail.steps[0]!.output as Record<string, unknown>;
     expect(out.email).toBe("alice@example.com");
   });
@@ -745,7 +755,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
     ]);
     // Workflow no longer has that node — fail-open: output unchanged.
     const nodes: WorkflowNode[] = [];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     expect(detail.steps[0]!.output).toEqual({ secret: "abc" });
   });
 
@@ -758,7 +768,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       { nodeId: "cust-node", status: "succeeded", output: originalOutput },
     ]);
     const nodes = [makeNode("cust-node", "stripe", "create_customer")];
-    toWorkflowRunDetail(record, nodes);
+    toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     // Persisted record is unchanged.
     expect(originalOutput.email).toBe("alice@example.com");
     expect(record.steps[0]!.output).toBe(originalOutput);
@@ -781,7 +791,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       makeNode("cust-node", "stripe", "create_customer"),
       makeNode("fmt-node", "native", "format_transformer"),
     ];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     const custOut = detail.steps[0]!.output as Record<string, unknown>;
     const fmtOut = detail.steps[1]!.output as Record<string, unknown>;
     expect(custOut.email).toBe(REDACTED_SENTINEL);
@@ -805,7 +815,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
         },
       },
     ]);
-    const detail = toWorkflowRunDetail(record);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR);
     const stepErr = detail.steps[0]!.error!;
     expect(stepErr.code).toBe("HANDLER_FAILED");
     const serialized = JSON.stringify(stepErr);
@@ -831,7 +841,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
         error: { code: "HANDLER_FAILED", message: "Slack chat.postMessage failed: channel_not_found" },
       },
     ]);
-    const stepErr = toWorkflowRunDetail(record).steps[0]!.error!;
+    const stepErr = toWorkflowRunDetail(record, RUN_AUTHOR).steps[0]!.error!;
     expect(stepErr.code).toBe("HANDLER_FAILED");
     expect(stepErr.message).not.toContain("chat.postMessage");
     expect(stepErr.message.toLowerCase()).toContain("channel");
@@ -849,7 +859,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
         },
       },
     ]);
-    const stepErr = toWorkflowRunDetail(record).steps[0]!.error!;
+    const stepErr = toWorkflowRunDetail(record, RUN_AUTHOR).steps[0]!.error!;
     expect(stepErr.code).toBe("MISSING_VARIABLE");
     // The user's own template reference is safe + useful; raw details are dropped.
     expect(stepErr.message).toContain("trigger.unknown");
@@ -868,7 +878,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
         },
       },
     ]);
-    const serialized = JSON.stringify(toWorkflowRunDetail(record).steps[0]!.error);
+    const serialized = JSON.stringify(toWorkflowRunDetail(record, RUN_AUTHOR).steps[0]!.error);
     for (const leak of ["ya29.SECRET", "svc@acme.com", "gmail.send", "access_token", "invalid_grant"]) {
       expect(serialized).not.toContain(leak);
     }
@@ -877,7 +887,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
   it("V2-READY-2: does NOT mutate the persisted record's step error (raw stays in the DB record)", () => {
     const original = { code: "HANDLER_FAILED", message: `raw token=${(["xoxb", "keep", "in", "db"].join("-"))}` };
     const record = makeRecord([{ nodeId: "a1", status: "failed", error: original }]);
-    toWorkflowRunDetail(record);
+    toWorkflowRunDetail(record, RUN_AUTHOR);
     expect(record.steps[0]!.error).toBe(original);
     expect(original.message).toBe(`raw token=${(["xoxb", "keep", "in", "db"].join("-"))}`);
   });
@@ -908,7 +918,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
     ]);
     const nodes = [makeNode("cust-node", "stripe", "create_customer")];
 
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
 
     // Output redaction (SEC-7) on the succeeded step.
     const out = detail.steps[0]!.output as Record<string, unknown>;
@@ -950,7 +960,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
         },
       },
     ]);
-    const stepErr = toWorkflowRunDetail(record).steps[0]!.error!;
+    const stepErr = toWorkflowRunDetail(record, RUN_AUTHOR).steps[0]!.error!;
     expect(stepErr.code).toBe("HANDLER_FAILED");
     expect(stepErr.message).toBe("Workflow step failed");
     const serialized = JSON.stringify(stepErr);
@@ -980,7 +990,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       { nodeId: "find-pi-node", status: "succeeded", output: originalOutput },
     ]);
     const nodes = [makeNode("find-pi-node", "stripe", "find_payment_intent")];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     const out = detail.steps[0]!.output as Record<string, unknown>;
     expect(out.found).toBe(true);
     expect(out.paymentIntent).toBe(REDACTED_SENTINEL);
@@ -1002,7 +1012,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       { nodeId: "search-node", status: "succeeded", output: originalOutput },
     ]);
     const nodes = [makeNode("search-node", "gmail", "search_emails")];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     const out = detail.steps[0]!.output as Record<string, unknown>;
     expect(out.messages).toBe(REDACTED_SENTINEL);
     // Non-sensitive siblings remain visible.
@@ -1026,7 +1036,7 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       { nodeId: "get-msg-node", status: "succeeded", output: originalOutput },
     ]);
     const nodes = [makeNode("get-msg-node", "slack", "get_messages")];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     const out = detail.steps[0]!.output as Record<string, unknown>;
     expect(out.messages).toBe(REDACTED_SENTINEL);
     expect(out.count).toBe(1);
@@ -1047,11 +1057,126 @@ describe("toWorkflowRunDetail — Slice 3.SEC-7 sensitive-output redaction", () 
       { nodeId: "search-node", status: "succeeded", output: originalOutput },
     ]);
     const nodes = [makeNode("search-node", "notion", "search")];
-    const detail = toWorkflowRunDetail(record, nodes);
+    const detail = toWorkflowRunDetail(record, RUN_AUTHOR, nodes);
     const out = detail.steps[0]!.output as Record<string, unknown>;
     expect(out.results).toBe(REDACTED_SENTINEL);
     expect(out.hasMore).toBe(false);
     expect(out.nextCursor).toBe(null);
     expect(originalOutput.results).toHaveLength(2);
+  });
+});
+
+// ── V2-READY-51 (Option C) — per-step output gating + payload omission ───────
+//
+// The run-detail DTO exposes per-step OUTPUT only to the run's own author
+// viewing their TEST run. Everyone else (a co-member, or any real/non-test run)
+// gets status-only steps + sanitized errors. The DTO NEVER carries the raw
+// triggerEvent or the raw fatalError; the humanized errorClassification (from
+// the summary) is the failure surface.
+describe("toWorkflowRunDetail — V2-READY-51 output gating + payload omission", () => {
+  const triggerEvent: TriggerEvent = {
+    provider: "native",
+    eventType: "manual.run",
+    eventId: "ev-1",
+    occurredAt: "2026-05-22T00:00:00Z",
+    providerAccountId: "system",
+    payload: { secret: "trigger-body" },
+  };
+
+  function record(over: Partial<WorkflowRunRecord>): WorkflowRunRecord {
+    return {
+      id: "11111111-1111-1111-1111-111111111111",
+      workflowId: "22222222-2222-2222-2222-222222222222",
+      accountId: "acct-1",
+      triggeredByUserId: RUN_AUTHOR,
+      status: "succeeded",
+      triggerNodeId: "t1",
+      triggerEvent,
+      steps: [{ nodeId: "a1", status: "succeeded", output: { token: "sk-leak-42" } }],
+      fatalError: { code: "HANDLER_FAILED", message: "raw fatal boom" },
+      errorClassification: {
+        title: "Step failed",
+        description: "Something went wrong.",
+        severity: "error",
+      },
+      startedAt: "2026-05-22T00:00:00Z",
+      finishedAt: "2026-05-22T00:00:01Z",
+      createdAt: "2026-05-22T00:00:00Z",
+      isTest: true,
+      triggeredBy: "test",
+      triggeredByApiKeyId: null,
+      triggeredByApiKeyPrefix: null,
+      ...over,
+    };
+  }
+
+  const node: WorkflowNode = {
+    id: "a1",
+    kind: "action",
+    provider: "native",
+    type: "http_request",
+    config: {},
+    position: { x: 0, y: 0 },
+  };
+
+  it("author viewing their TEST run → step output IS present", () => {
+    const detail = toWorkflowRunDetail(record({}), RUN_AUTHOR, [node]);
+    expect(detail.steps[0]!.output).toBeDefined();
+  });
+
+  it("author's REAL (non-test) run → step output OMITTED (and not on the wire)", () => {
+    const detail = toWorkflowRunDetail(
+      record({ isTest: false, triggeredBy: "manual" }),
+      RUN_AUTHOR,
+      [node],
+    );
+    expect("output" in detail.steps[0]!).toBe(false);
+    expect(JSON.stringify(detail)).not.toContain("sk-leak-42");
+  });
+
+  it("CO-MEMBER viewing the author's test run → step output OMITTED", () => {
+    const detail = toWorkflowRunDetail(record({}), "other-member", [node]);
+    expect("output" in detail.steps[0]!).toBe(false);
+    expect(JSON.stringify(detail)).not.toContain("sk-leak-42");
+  });
+
+  it("test run with a NULL actor (no author) → step output OMITTED", () => {
+    const detail = toWorkflowRunDetail(
+      record({ triggeredByUserId: null }),
+      RUN_AUTHOR,
+      [node],
+    );
+    expect("output" in detail.steps[0]!).toBe(false);
+  });
+
+  it("NEVER exposes raw triggerEvent or fatalError (author-test included)", () => {
+    const detail = toWorkflowRunDetail(record({}), RUN_AUTHOR, [node]);
+    expect("triggerEvent" in detail).toBe(false);
+    expect("fatalError" in detail).toBe(false);
+    const serialized = JSON.stringify(detail);
+    expect(serialized).not.toContain("trigger-body");
+    expect(serialized).not.toContain("raw fatal boom");
+  });
+
+  it("real run still carries step status + sanitized error + humanized classification", () => {
+    const failing = record({
+      isTest: false,
+      triggeredBy: "manual",
+      status: "failed",
+      steps: [
+        {
+          nodeId: "a1",
+          status: "failed",
+          error: { code: "HANDLER_FAILED", message: "raw token=sk-leak-42" },
+        },
+      ],
+    });
+    const detail = toWorkflowRunDetail(failing, RUN_AUTHOR);
+    expect(detail.steps[0]!.status).toBe("failed");
+    expect(detail.steps[0]!.error!.code).toBe("HANDLER_FAILED");
+    expect("output" in detail.steps[0]!).toBe(false);
+    // Raw error text is humanized away; the humanized classification survives.
+    expect(JSON.stringify(detail)).not.toContain("sk-leak-42");
+    expect(detail.errorClassification).not.toBeNull();
   });
 });

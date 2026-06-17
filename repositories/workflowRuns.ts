@@ -1,15 +1,25 @@
-import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 
 /**
  * Repository for workflow_runs.
  *
- * Engine path (recordRun) writes via service-role — runs persist in
- * background after a webhook returns 200, with no user session.
+ * Engine path (recordRun / createWorkflowRunStart / finalize) writes via
+ * service-role — runs persist in the background after a webhook returns 200,
+ * with no user session.
  *
- * UI path (listByWorkflow) reads via the SSR-cookie client so RLS gates
- * per-user access.
+ * UI path (getById / listByWorkflow / listByAccountForDisplay) ALSO reads via
+ * service-role as of V2-READY-51: `authenticated` no longer holds a direct
+ * Data API SELECT on `workflow_runs` (the grant was revoked so a member can't
+ * `supabase.from('workflow_runs').select('trigger_event, steps, fatal_error')`
+ * directly via PostgREST). These readers are therefore NON-AUTHORIZING — they
+ * bypass RLS. Every caller MUST gate access itself before returning anything to
+ * a client: the run-history routes resolve the caller's own account; the
+ * builder run-list / run-detail routes authorize the caller as a member of the
+ * workflow's account (`loadWorkflowForMember` / `requireWorkflowAccountMember`).
+ * The route DTOs (`toWorkflowRunSummary` / `toWorkflowRunDetail` /
+ * `toRunListItem`) sanitize the payload columns; the raw record never leaves
+ * the app.
  */
 
 export type WorkflowRunStatus = "succeeded" | "failed";
@@ -239,16 +249,19 @@ export async function claimNotificationFanout(runId: string): Promise<boolean> {
 }
 
 /**
- * Fetch a single run by id. Returns null when the row does not exist or
- * RLS hides it from the current user. Used by the detail endpoint in
- * Slice 3.8 (test-run output preview); the list endpoint stays
- * `listByWorkflow` for cheap pagination.
+ * Fetch a single run by id. Returns null when the row does not exist.
+ * Used by the builder run-detail endpoint (Slice 3.8 test-run output preview);
+ * the list endpoint stays `listByWorkflow` for cheap pagination.
  *
- * Reads via the SSR-cookie client so RLS gates per-user access — a
- * runId that belongs to another user surfaces as `null`, not a leak.
+ * V2-READY-51: reads via SERVICE-ROLE (the authenticated SELECT grant was
+ * revoked). NON-AUTHORIZING — the detail route MUST authorize the caller as a
+ * member of `record.accountId` before returning, and cross-validate the run's
+ * `workflowId` against the route's `[id]`. Returns the full record (incl.
+ * `steps` / `triggerEvent` / `fatalError`) for the route's DTO mapper to
+ * sanitize; the raw record never reaches a client.
  */
 export async function getById(runId: string): Promise<WorkflowRunRecord | null> {
-  const supabase = await createClient();
+  const supabase = getServiceRoleClient(`runs: getById ${runId}`);
   const { data, error } = await supabase
     .from("workflow_runs")
     .select("*")
@@ -266,11 +279,21 @@ export async function getById(runId: string): Promise<WorkflowRunRecord | null> 
   return rowToRecord(data as WorkflowRunsRow);
 }
 
+/**
+ * List a workflow's recent runs (terminal only), newest first. Used by the
+ * builder run-list endpoint.
+ *
+ * V2-READY-51: reads via SERVICE-ROLE (the authenticated SELECT grant was
+ * revoked). NON-AUTHORIZING — the run-list route MUST authorize the caller as a
+ * member of the workflow's account (`loadWorkflowForMember`) before calling
+ * this. The route maps each record through `toWorkflowRunSummary`, which strips
+ * `steps` / `triggerEvent` / `fatalError`.
+ */
 export async function listByWorkflow(
   workflowId: string,
   opts: ListRunsOptions = {},
 ): Promise<readonly WorkflowRunRecord[]> {
-  const supabase = await createClient();
+  const supabase = getServiceRoleClient(`runs: listByWorkflow ${workflowId}`);
   const limit = Math.min(opts.limit ?? 25, 100);
   const { data, error } = await supabase
     .from("workflow_runs")
@@ -313,9 +336,13 @@ export async function listByWorkflow(
  * Test-mode rows are returned by default; the UI hides them behind
  * an opt-in toggle.
  *
- * RLS gates account-member access (SSR-cookie client). The account_id WHERE
- * is defense-in-depth; an attacker who somehow bypasses RLS still cannot
- * read another account's rows through this method.
+ * V2-READY-51: reads via SERVICE-ROLE (the authenticated SELECT grant was
+ * revoked). NON-AUTHORIZING — the `account_id` is supplied by the caller, which
+ * resolves it from the CALLER'S OWN session (`/api/runs` + the `/runs` page use
+ * `ensurePersonalAccount` / `resolveActiveAccount`, both of which reject an
+ * account the caller is not a member of). The hard `eq('account_id', accountId)`
+ * predicate scopes the read to that one account. The SELECT is already narrowed
+ * to the safe `DISPLAY_RUN_COLUMNS` (no `trigger_event` / `steps` / `fatal_error`).
  */
 export interface WorkflowRunDisplayRecord {
   id: string;
@@ -357,7 +384,9 @@ export async function listByAccountForDisplay(
   accountId: string,
   opts: ListRunsForDisplayOptions = {},
 ): Promise<readonly WorkflowRunDisplayRecord[]> {
-  const supabase = await createClient();
+  const supabase = getServiceRoleClient(
+    `runs: listByAccountForDisplay account ${accountId}`,
+  );
   const limit = Math.min(opts.limit ?? 50, 200);
   const { data, error } = await supabase
     .from("workflow_runs")

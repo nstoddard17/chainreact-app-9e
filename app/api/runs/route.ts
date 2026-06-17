@@ -19,11 +19,14 @@ import {
  *   1. Display runs (limit-capped at 200, default 50).
  *   2. Workflow names for the ids referenced by the runs slice.
  *
- * Auth gate is inline `auth.getUser()`. The run scope is the caller's
- * account (resolved at entry, personal account until the switcher ships):
- * the repo's `eq('account_id', accountId)` predicate + the
- * `workflow_runs_select_account_member` RLS policy both enforce
- * account-scoping; the inline 401 only short-circuits anonymous callers.
+ * Auth gate is inline `auth.getUser()`. The run scope is the caller's OWN
+ * account, resolved server-side via `ensurePersonalAccount(user.id)` — never a
+ * client-supplied id. V2-READY-51: `listByAccountForDisplay` now reads via
+ * service-role (the authenticated SELECT grant on `workflow_runs` was revoked),
+ * so the `eq('account_id', accountId)` predicate against the caller-derived
+ * account IS the authorization; the inline 401 short-circuits anonymous callers.
+ * The repo's `DISPLAY_RUN_COLUMNS` projection keeps raw `trigger_event` /
+ * `steps` / `fatal_error` off the wire.
  */
 export async function GET(request: Request) {
   const supabase = await createClient();

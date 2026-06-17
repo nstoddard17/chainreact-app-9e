@@ -11,15 +11,6 @@ import {
 } from "@/core/workflows/latestRunValues";
 import type { WorkflowRunDetail } from "@/contracts/workflow";
 
-const triggerEvent = {
-  provider: "native" as const,
-  eventType: "manual.run",
-  eventId: "ev1",
-  occurredAt: "2026-05-17T00:00:00Z",
-  providerAccountId: "system",
-  payload: { inputs: {} },
-};
-
 function makeDetail(overrides: Partial<WorkflowRunDetail> = {}): WorkflowRunDetail {
   return {
     id: "44444444-4444-4444-4444-444444444444",
@@ -29,12 +20,10 @@ function makeDetail(overrides: Partial<WorkflowRunDetail> = {}): WorkflowRunDeta
     startedAt: "2026-05-17T00:00:00Z",
     finishedAt: "2026-05-17T00:00:01Z",
     errorClassification: null,
-    triggerEvent,
     steps: [
       { nodeId: "t1", status: "succeeded", output: { event: "fired" } },
       { nodeId: "a1", status: "succeeded", output: { sentTo: "C123" } },
     ],
-    fatalError: null,
     ...overrides,
   };
 }

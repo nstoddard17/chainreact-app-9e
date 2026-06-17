@@ -133,7 +133,8 @@ function Body({
   return (
     <>
       <RunStatusLine detail={detail} />
-      {detail.fatalError ? <FatalErrorBlock error={detail.fatalError} /> : null}
+      {/* V2-READY-51 — the raw `fatalError` is no longer on the wire; the
+          humanized `errorClassification` is the user-facing failure surface. */}
       {detail.errorClassification ? (
         <ClassifiedErrorBlock classification={detail.errorClassification} />
       ) : null}
@@ -253,25 +254,6 @@ function StatusPill({ status }: { status: WorkflowRunStep["status"] }) {
     >
       {label}
     </span>
-  );
-}
-
-function FatalErrorBlock({
-  error,
-}: {
-  error: NonNullable<
-    NonNullable<ReturnType<typeof useRunSlice.getState>["detail"]>["fatalError"]
-  >;
-}) {
-  return (
-    <div
-      role="alert"
-      className="flex flex-col gap-0.5 rounded bg-destructive/10 p-2 text-xs"
-      data-testid="run-fatal-error"
-    >
-      <span className="font-medium">Fatal: {error.code}</span>
-      <span className="text-muted-foreground">{error.message}</span>
-    </div>
   );
 }
 

@@ -1,0 +1,37 @@
+-- V2-READY-51 — make public.workflow_runs SERVICE-ROLE-ONLY at the Data API.
+--
+-- Security hardening. Closes the last V2-READY-49 grant-audit gap: `workflow_runs`
+-- had an `authenticated` SELECT grant + account-member RLS, so a member could
+-- `supabase.from('workflow_runs').select('trigger_event, steps, fatal_error')`
+-- DIRECTLY via PostgREST and read raw trigger payloads, per-step output blobs, and
+-- raw fatal errors for EVERY run in their account(s) — including team-workflow runs
+-- they did not create — bypassing every sanitized DTO. Those columns can carry
+-- resolved secrets / PII / provider payloads.
+--
+-- After this migration `authenticated` has NO direct access to `workflow_runs`.
+-- Every client-visible run read now flows through a MEMBERSHIP-GATED service-role
+-- repository (`repositories/workflowRuns.ts:getById / listByWorkflow /
+-- listByAccountForDisplay`) + an allow-listed DTO that exposes safe operational
+-- fields only (status / timing / step names+statuses / humanized error summary).
+-- Per-step OUTPUT is exposed only to a run's own author viewing their TEST run
+-- (V2-READY-51 product decision). There was NO authenticated WRITE grant to revoke
+-- (the execution engine writes run rows via service_role, with no user session).
+--
+-- Mirrors the integrations / trigger_resources / workflow_files arc (47B/47D, 50, 52).
+--
+-- Scope guarantees:
+--   * `service_role` is UNCHANGED — full DML, bypasses RLS; the sole reader/writer.
+--   * `anon` is UNCHANGED (never had a grant).
+--   * NO RLS policy is altered (the account-member SELECT policy stays in place but
+--     is now unreachable for `authenticated`). No execution-engine / billing /
+--     notification / retention behavior changes.
+--   * Idempotent — REVOKE of an absent privilege is a no-op; re-applying is safe.
+--
+-- Privilege is checked before RLS, so an `authenticated` SELECT without the GRANT is
+-- denied with SQLSTATE 42501 regardless of any row policy. A future re-GRANT would
+-- re-expose the raw payloads and must be caught in migration review — guarded by
+-- tests/structure/no-authenticated-integration-grants.test.ts, which covers the
+-- service-role-only table set (integrations + trigger_resources + workflow_files +
+-- workflow_runs).
+
+REVOKE SELECT ON public.workflow_runs FROM authenticated;
