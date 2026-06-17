@@ -5,6 +5,7 @@ import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness"
 import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflowDefinition";
 import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
 import { findInvalidVariableReferences } from "@/core/workflows/invalidVariableReferences";
+import { findSelfLoopEdges } from "@/core/workflows/selfLoopEdges";
 import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 
 /**
@@ -107,6 +108,15 @@ export interface WorkflowReadinessDTO {
    * `checkWorkflowReadiness` graph/field verdict is clean. Empty/absent → none.
    */
   readonly invalidVariableRefs?: readonly InvalidVariableRefDTO[];
+  /**
+   * AI-REPAIR-COVERAGE-1 — self-loop edges (a connection from a step to itself).
+   * Check-only: detected here (diagnosis), NOT in the shared runtime validator, so
+   * it never changes the engine's `runnable` / the Activate gate. Each carries the
+   * internal looping `nodeId` (for safe label resolution); `edgeId` stays server-side
+   * — the deterministic `removeEdge` repair re-derives it from the graph. Empty/absent
+   * → none.
+   */
+  readonly selfLoopEdges?: readonly { readonly nodeId: string }[];
 }
 
 /**
@@ -244,6 +254,8 @@ export async function diagnoseWorkflowReadiness(input: {
       : [];
 
   const invalidVariableRefs = buildInvalidVariableRefs(def.nodes);
+  // AI-REPAIR-COVERAGE-1 — Check-only self-loop detection (does NOT feed `runnable`).
+  const selfLoopEdges = findSelfLoopEdges(def.edges).map((s) => ({ nodeId: s.nodeId }));
 
   return {
     workflowId,
@@ -255,5 +267,6 @@ export async function diagnoseWorkflowReadiness(input: {
     providers,
     nodeLabels,
     invalidVariableRefs,
+    selfLoopEdges,
   };
 }

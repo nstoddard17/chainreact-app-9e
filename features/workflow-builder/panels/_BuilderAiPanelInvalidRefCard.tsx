@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { SelectedRepair } from "@/lib/api/ai";
-import type { DanglingEdgeCard, InvalidReferenceCard } from "../ai/attentionFindings";
+import type { DanglingEdgeCard, InvalidReferenceCard, SelfLoopEdgeCard } from "../ai/attentionFindings";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 
@@ -140,6 +140,62 @@ export function DanglingEdgeCardView({
             {many
               ? "Preview shows exactly which broken connections will be removed. Nothing is changed, saved, or run until you choose to apply it."
               : "Preview shows exactly which broken connection will be removed. Nothing is changed, saved, or run until you choose to apply it."}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * AI-REPAIR-COVERAGE-1 — a "Needs attention" card for self-loop edges (a step connected
+ * to itself). The PRIMARY action is "Preview fix" — it runs the deterministic `removeEdge`
+ * cleanup preview; Apply lives only on the resulting preview card (never on this Check
+ * card). No node is deleted and no endpoint is guessed.
+ *
+ * No-leak: shows only the server-built safe step labels; never a raw edge / node id. There
+ * is no field to "Open" for a self-loop connection, so this card has no Open-field affordance.
+ */
+export function SelfLoopEdgeCardView({
+  card,
+  onPreviewFix,
+  previewing = false,
+}: {
+  readonly card: SelfLoopEdgeCard;
+  readonly onPreviewFix?: () => void;
+  readonly previewing?: boolean;
+}) {
+  const many = card.steps.length > 1;
+  return (
+    <div data-testid="builder-ai-diagnosis-self-loop-edge" className="flex flex-col gap-1">
+      <p className="text-xs" style={{ color: "var(--builder-text)" }}>
+        {card.message}
+      </p>
+      {card.steps.length > 0 && (
+        <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[11px]" style={{ color: "var(--builder-muted)" }}>
+          {card.steps.map((s, i) => (
+            <li key={i}>{`“${s}”`}</li>
+          ))}
+        </ul>
+      )}
+      {onPreviewFix && (
+        <>
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={onPreviewFix}
+              disabled={previewing}
+              data-testid="builder-ai-self-loop-edge-preview-fix-button"
+            >
+              {previewing ? "Previewing fix…" : "Preview fix"}
+            </Button>
+          </div>
+          <p className="text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+            {many
+              ? "Preview shows exactly which self-connections will be removed. Nothing is changed, saved, or run until you choose to apply it."
+              : "Preview shows exactly which self-connection will be removed. Nothing is changed, saved, or run until you choose to apply it."}
           </p>
         </>
       )}

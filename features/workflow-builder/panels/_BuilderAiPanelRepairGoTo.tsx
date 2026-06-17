@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, SelectedRepair } from "@/lib/api/ai";
 import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
 import { setupFindingCards } from "../ai/setupFindings";
-import { attentionFindingCards, danglingEdgeCards, invalidReferenceCards } from "../ai/attentionFindings";
-import { DanglingEdgeCardView, InvalidReferenceCardView } from "./_BuilderAiPanelInvalidRefCard";
+import { attentionFindingCards, danglingEdgeCards, invalidReferenceCards, selfLoopEdgeCards } from "../ai/attentionFindings";
+import { DanglingEdgeCardView, InvalidReferenceCardView, SelfLoopEdgeCardView } from "./_BuilderAiPanelInvalidRefCard";
 import {
   useRepairFieldTarget,
   useRepairFieldTargets,
@@ -345,6 +345,7 @@ export function DiagnosisAttentionActions({
   onPreviewInvalidRef,
   onPreviewSelectedInvalidRef,
   onPreviewDanglingEdge,
+  onPreviewSelfLoopEdge,
   previewing = false,
   alreadyPreviewedInvalidRef = false,
 }: {
@@ -371,6 +372,12 @@ export function DiagnosisAttentionActions({
    * telemetry). Absent → no Preview-fix button on the dangling-edge card.
    */
   readonly onPreviewDanglingEdge?: () => void;
+  /**
+   * AI-REPAIR-COVERAGE-1 — explicit-click handler for the self-loop-edge "Preview fix".
+   * Runs the deterministic `removeEdge` cleanup preview (no LLM / no credits / no
+   * telemetry). Absent → no Preview-fix button on the self-loop card.
+   */
+  readonly onPreviewSelfLoopEdge?: () => void;
   /** A preview round-trip is in flight (disables the Preview-fix button). */
   readonly previewing?: boolean;
   /** This diagnosis already triggered a preview (disables + relabels — no repeat). */
@@ -382,7 +389,15 @@ export function DiagnosisAttentionActions({
   const refCards = invalidReferenceCards(diagnosis);
   // AI-REPAIR-4A — actionable dangling/broken-edge cards (each with a "Preview fix").
   const edgeCards = danglingEdgeCards(diagnosis);
-  if (cards.length === 0 && refCards.length === 0 && edgeCards.length === 0) return null;
+  // AI-REPAIR-COVERAGE-1 — actionable self-loop-edge cards (each with a "Preview fix").
+  const loopCards = selfLoopEdgeCards(diagnosis);
+  if (
+    cards.length === 0 &&
+    refCards.length === 0 &&
+    edgeCards.length === 0 &&
+    loopCards.length === 0
+  )
+    return null;
   return (
     <div data-testid="builder-ai-diagnosis-attention" className="flex flex-col gap-1 pt-1">
       <p className="text-[11px] font-medium" style={{ color: "var(--builder-text)" }}>
@@ -421,6 +436,14 @@ export function DiagnosisAttentionActions({
           key={card.key}
           card={card}
           {...(onPreviewDanglingEdge ? { onPreviewFix: onPreviewDanglingEdge } : {})}
+          previewing={previewing}
+        />
+      ))}
+      {loopCards.map((card) => (
+        <SelfLoopEdgeCardView
+          key={card.key}
+          card={card}
+          {...(onPreviewSelfLoopEdge ? { onPreviewFix: onPreviewSelfLoopEdge } : {})}
           previewing={previewing}
         />
       ))}

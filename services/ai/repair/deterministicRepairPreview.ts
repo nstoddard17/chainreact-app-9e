@@ -7,7 +7,11 @@ import { getAvailableVariablesForAI } from "@/services/ai/tools/variables";
 import { previewWorkflowPatchForAI } from "@/services/ai/preview";
 import type { PatchPreviewResult } from "@/services/ai/preview/types";
 import type { PatchOperation, WorkflowPatch } from "@/services/workflows/patch/types";
-import { buildVariableRepairOutcome, buildEdgeRepairOutcome } from "./repairStrategies";
+import {
+  buildVariableRepairOutcome,
+  buildEdgeRepairOutcome,
+  buildSelfLoopEdgeRepairOutcome,
+} from "./repairStrategies";
 
 /**
  * Deterministic, MODEL-FREE repair preview (Slice 4.AI-REPAIR-3G/3H/3L).
@@ -298,6 +302,64 @@ export async function runDanglingEdgeRepairPreview(
     summary,
     rationale: outcome.recommendations[0] ?? "Deterministic dangling-edge cleanup.",
     patchIdPrefix: "repair-preview-edge",
+    ...(input.draftDefinition ? { draftDefinition: input.draftDefinition } : {}),
+  });
+  return preview ? { ok: true, preview } : null;
+}
+
+// ─── AI-REPAIR-COVERAGE-1 — deterministic self-loop edge cleanup ──────────────
+
+/** True when the diagnosis carries at least one self-loop-edge finding. */
+function hasSelfLoopEdgeFinding(dto: AgentWorkflowDiagnosisDTO): boolean {
+  return (dto.findings ?? []).some((f) => f.code === "SELF_LOOP_EDGE");
+}
+
+export interface SelfLoopEdgeRepairPreviewInput {
+  readonly dto: AgentWorkflowDiagnosisDTO;
+  readonly userId: string;
+  readonly workflowId: string;
+  readonly draftDefinition?: WorkflowDefinition;
+}
+
+/**
+ * Route-callable, MODEL-FREE deterministic preview for self-loop edge cleanup. A
+ * self-loop is an edge whose `from` and `to` are the SAME node (a step wired to itself).
+ * The repair is the narrow, safe `removeEdge` op (no node deletion, no new endpoints,
+ * no branch-label/trigger changes) sourced from `buildSelfLoopEdgeRepairOutcome`, then
+ * run through the SAME validate + apply-safety engine.
+ *
+ * Like the dangling-edge cleanup, the patch validator rejects a candidate that STILL
+ * contains an invalid edge, so this removes ALL self-loops in one preview → the candidate
+ * validates clean. If another invalid edge (e.g. a dangling one) remains, validation blocks
+ * → null (fail-closed; the dangling-edge repair handles that case). NEVER calls the model,
+ * the gate, or telemetry. Short-circuits with no graph read when there's no self-loop finding.
+ */
+export async function runSelfLoopEdgeRepairPreview(
+  input: SelfLoopEdgeRepairPreviewInput,
+): Promise<{ ok: true; preview: PatchPreviewResult } | null> {
+  if (!hasSelfLoopEdgeFinding(input.dto)) return null;
+
+  const graphRes = await getWorkflowGraphForAI(input.userId, input.workflowId);
+  if (!graphRes.ok) return null;
+  const graph = graphRes.data;
+
+  const outcome = buildSelfLoopEdgeRepairOutcome(graph);
+  if (!outcome || outcome.repairability !== "repairable" || outcome.operations.length === 0) return null;
+
+  const removeCount = outcome.operations.length;
+  const summary =
+    removeCount === 1
+      ? "Remove the connection from a step to itself"
+      : `Remove all ${removeCount} connections from a step to itself`;
+
+  const preview = await previewRepairOps({
+    userId: input.userId,
+    workflowId: input.workflowId,
+    graph,
+    operations: outcome.operations as PatchOperation[],
+    summary,
+    rationale: outcome.recommendations[0] ?? "Deterministic self-loop edge cleanup.",
+    patchIdPrefix: "repair-preview-selfloop",
     ...(input.draftDefinition ? { draftDefinition: input.draftDefinition } : {}),
   });
   return preview ? { ok: true, preview } : null;

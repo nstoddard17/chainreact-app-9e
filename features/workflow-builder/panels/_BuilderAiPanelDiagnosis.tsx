@@ -46,6 +46,7 @@ export function DiagnosisBody({
   onPreviewInvalidRef,
   onPreviewSelectedInvalidRef,
   onPreviewDanglingEdge,
+  onPreviewSelfLoopEdge,
   previewing = false,
   alreadyPreviewedInvalidRef = false,
 }: {
@@ -105,6 +106,12 @@ export function DiagnosisBody({
    * Runs the deterministic `removeEdge` preview (no LLM / no credits / no telemetry).
    */
   readonly onPreviewDanglingEdge?: () => void;
+  /**
+   * Slice 4.AI-REPAIR-COVERAGE-1 — explicit-click handler for the self-loop-edge
+   * "Preview fix". Forwarded to `DiagnosisAttentionActions`; only wired for the LATEST
+   * diagnosis. Runs the deterministic `removeEdge` preview (no LLM / no credits / no telemetry).
+   */
+  readonly onPreviewSelfLoopEdge?: () => void;
   /** A preview round-trip is in flight (disables the Preview-fix button). */
   readonly previewing?: boolean;
   /** This diagnosis already triggered a preview (disables + relabels — no repeat). */
@@ -187,6 +194,7 @@ export function DiagnosisBody({
           {...(onPreviewInvalidRef ? { onPreviewInvalidRef } : {})}
           {...(onPreviewSelectedInvalidRef ? { onPreviewSelectedInvalidRef } : {})}
           {...(onPreviewDanglingEdge ? { onPreviewDanglingEdge } : {})}
+          {...(onPreviewSelfLoopEdge ? { onPreviewSelfLoopEdge } : {})}
           previewing={previewing}
           alreadyPreviewedInvalidRef={alreadyPreviewedInvalidRef}
         />

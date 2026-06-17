@@ -12,6 +12,7 @@ import {
   runDanglingEdgeRepairPreview,
   runDeterministicRepairPreview,
   runSelectedVariableRepairPreview,
+  runSelfLoopEdgeRepairPreview,
 } from "@/services/ai/repair/deterministicRepairPreview";
 import {
   aiCreditGate,
@@ -269,6 +270,33 @@ export async function POST(
       code: "NO_SAFE_PATCH",
       message:
         "That broken connection can't be removed automatically. Run Check workflow again, or fix the connection manually.",
+    });
+  }
+
+  // AI-REPAIR-COVERAGE-1 — explicit self-loop edge cleanup. When the body sets
+  // `repairSelfLoopEdges`, run ONLY the deterministic `removeEdge` preview (no node
+  // deletion, no new endpoints) and NEVER fall through to the model path. Free: no
+  // OpenAI-config requirement, no credit gate, no telemetry — same ordering as the
+  // dangling-edge path above.
+  if ((body as { repairSelfLoopEdges?: unknown })?.repairSelfLoopEdges === true) {
+    const selfLoopPreview = await runSelfLoopEdgeRepairPreview({
+      dto,
+      userId: auth.userId,
+      workflowId: id,
+      ...(override.draftOverride ? { draftDefinition: override.draftOverride } : {}),
+    });
+    if (selfLoopPreview) {
+      return NextResponse.json({
+        ok: true,
+        preview: selfLoopPreview.preview,
+        notAppliedNotice: REPAIR_PREVIEW_NOT_APPLIED_NOTICE,
+      });
+    }
+    return NextResponse.json({
+      ok: false,
+      code: "NO_SAFE_PATCH",
+      message:
+        "That self-connection can't be removed automatically. Run Check workflow again, or remove the connection manually.",
     });
   }
 

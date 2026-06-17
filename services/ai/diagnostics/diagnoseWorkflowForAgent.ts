@@ -131,6 +131,13 @@ export interface AgentFinding {
     readonly toMissing: boolean;
   }[];
   /**
+   * AI-REPAIR-COVERAGE-1 — safe display labels of the step(s) connected to themselves,
+   * for a `SELF_LOOP_EDGE` finding. The safe deterministic repair removes the self-loop
+   * edge (`removeEdge`). Labels only — the raw edge id / node ids stay server-side (the
+   * deterministic preview re-derives them); never rendered, never sent to the model.
+   */
+  readonly selfLoopNodeLabels?: readonly string[];
+  /**
    * CHECK-ACTIONS-3 — the persisted reconnect-needed health signal for this
    * provider's resolved credential (boolean only; never the raw timestamp). Present
    * on connection findings; lets the UI show provider-aware reconnect copy.
@@ -195,6 +202,8 @@ function graphTitle(code: string): string {
       return "This workflow has a connection to a step that no longer exists.";
     case "INVALID_VARIABLE_REFERENCE":
       return "A step references a deleted or missing step.";
+    case "SELF_LOOP_EDGE":
+      return "A step is connected to itself.";
     default:
       return `Workflow structure issue (${code}).`;
   }
@@ -344,6 +353,22 @@ export async function diagnoseWorkflowForAgent(input: {
       }),
     });
   }
+  // AI-REPAIR-COVERAGE-1 — one actionable SELF_LOOP_EDGE finding carrying the SAFE
+  // display label(s) of the step(s) connected to themselves. Detected Check-only
+  // (never via the runtime graph validator), so it never changes the engine's
+  // `runnable` / the Activate gate — only the Check verdict + an applyable removeEdge
+  // repair (mirrors how INVALID_VARIABLE_REFERENCE is stricter than runtime).
+  const selfLoopEdges = readiness.selfLoopEdges ?? [];
+  if (selfLoopEdges.length > 0) {
+    const labels = labelsFor(selfLoopEdges.map((s) => s.nodeId));
+    findings.push({
+      source: "graph",
+      code: "SELF_LOOP_EDGE",
+      severity: "error",
+      title: graphTitle("SELF_LOOP_EDGE"),
+      ...(labels.length > 0 ? { selfLoopNodeLabels: labels } : {}),
+    });
+  }
   for (const f of readiness.fieldGaps ?? []) {
     findings.push({
       source: "field",
@@ -489,7 +514,11 @@ export async function diagnoseWorkflowForAgent(input: {
   // would fail at resolution time. Gate the Check-level verdict here WITHOUT
   // changing the engine's `runnable` (that gates live execution and is out of scope).
   const hasInvalidRefs = invalidRefs.length > 0;
-  const overallReady = runnable && allRequiredConnected && !hasInvalidRefs;
+  // AI-REPAIR-COVERAGE-1 — a self-loop is a structural break Check gates on, even when
+  // the engine's `runnable` is clean (same stricter-than-runtime stance as invalid refs).
+  const hasSelfLoopEdges = selfLoopEdges.length > 0;
+  const overallReady =
+    runnable && allRequiredConnected && !hasInvalidRefs && !hasSelfLoopEdges;
 
   const { summaryText, nextSteps } = renderWorkflowDiagnosis({
     overallReady,
@@ -497,6 +526,7 @@ export async function diagnoseWorkflowForAgent(input: {
     allRequiredConnected,
     findings,
     hasInvalidReferences: hasInvalidRefs,
+    hasSelfLoopEdges,
     ...(latestRun ? { latestRun } : {}),
   });
 

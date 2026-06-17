@@ -89,6 +89,13 @@ export interface AgentDiagnosisFinding {
     readonly toMissing?: boolean;
   }[];
   /**
+   * AI-REPAIR-COVERAGE-1 — safe display labels of the step(s) connected to themselves,
+   * for a `SELF_LOOP_EDGE` finding. The deterministic repair removes the self-loop edge
+   * (`removeEdge`) — requested via `previewWorkflowRepair(..., true)` (6th arg). Labels
+   * only — no raw edge / node id.
+   */
+  readonly selfLoopNodeLabels?: readonly string[];
+  /**
    * CHECK-ACTIONS-3 — persisted reconnect-needed health for this provider's
    * credential (boolean only; the server never sends the raw timestamp). Connection
    * findings only.
@@ -394,6 +401,7 @@ export async function previewWorkflowRepair(
   proposalContext?: RepairPreviewProposalContext,
   selectedRepair?: SelectedRepair,
   danglingEdgeRepair?: boolean,
+  selfLoopEdgeRepair?: boolean,
 ): Promise<RepairPreviewResult> {
   const requestBody: Record<string, unknown> = {};
   if (draftDefinition) requestBody.draftDefinition = draftDefinition;
@@ -404,6 +412,9 @@ export async function previewWorkflowRepair(
   // AI-REPAIR-4A — when true, the route runs the deterministic dangling-edge cleanup
   // (removeEdge) preview and never reaches the model path.
   if (danglingEdgeRepair) requestBody.repairDanglingEdges = true;
+  // AI-REPAIR-COVERAGE-1 — when true, the route runs the deterministic self-loop edge
+  // cleanup (removeEdge) preview and never reaches the model path.
+  if (selfLoopEdgeRepair) requestBody.repairSelfLoopEdges = true;
   const result = await postStructured<RepairPreviewResult>(
     `/api/workflows/${encodeURIComponent(workflowId)}/ai/repair/preview`,
     requestBody,

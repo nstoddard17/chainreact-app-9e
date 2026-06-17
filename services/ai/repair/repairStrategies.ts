@@ -274,3 +274,23 @@ export function buildEdgeRepairOutcome(graph: WorkflowGraphView): StrategyOutcom
     safetyNotes: [],
   };
 }
+
+/**
+ * Self-loop edges (an edge whose `from` and `to` are the SAME node — a step wired to
+ * itself) → propose `removeEdge`. Returns null when there are none (so the caller can
+ * fall through to another category). Deterministic + safe: an edge from a step to itself
+ * is never valid, and removing it can never disconnect anything else (AI-REPAIR-COVERAGE-1).
+ */
+export function buildSelfLoopEdgeRepairOutcome(graph: WorkflowGraphView): StrategyOutcome | null {
+  const selfLoops = graph.edges.filter((e) => e.from === e.to);
+  if (selfLoops.length === 0) return null;
+  return {
+    repairability: "repairable",
+    reasonCode: "INVALID_EDGE",
+    operations: selfLoops.map((e) => ({ op: "removeEdge", edgeId: e.id })),
+    requiredUserInput: [],
+    recommendations: [`Remove ${selfLoops.length} connection(s) from a step to itself.`],
+    confidence: "high",
+    safetyNotes: [],
+  };
+}

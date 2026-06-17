@@ -156,6 +156,42 @@ describe("diagnoseWorkflowForAgent — access wall short-circuits", () => {
   });
 });
 
+// ───────────────── AI-REPAIR-COVERAGE-1 — self-loop edge finding ─────────────────
+describe("diagnoseWorkflowForAgent — self-loop edge (Check stricter than runtime)", () => {
+  it("emits a SELF_LOOP_EDGE finding with safe labels + gates overallReady false, even when runnable is clean", async () => {
+    // An otherwise-ready workflow whose only problem is a self-loop edge. `runnable`
+    // is TRUE (the runtime validator ignores self-loops), but Check must NOT say ready.
+    mockReadiness.mockResolvedValue(
+      readinessOk({
+        runnable: true,
+        readinessError: null,
+        graphIssues: [],
+        fieldGaps: [],
+        nodeLabels: [{ nodeId: "n2", label: "Send Email" }],
+        selfLoopEdges: [{ nodeId: "n2" }],
+      }),
+    );
+    mockConnections.mockResolvedValue({ workflowId: WF, access: "OK", allRequiredConnected: true, providers: [] });
+
+    const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
+
+    expect(dto.access).toBe("OK");
+    // Check is NOT ready despite a clean runtime verdict.
+    expect(dto.runnable).toBe(true);
+    expect(dto.overallReady).toBe(false);
+    const finding = (dto.findings ?? []).find((f) => f.code === "SELF_LOOP_EDGE");
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe("error");
+    expect(finding!.title).toBe("A step is connected to itself.");
+    // Safe display label only.
+    expect(finding!.selfLoopNodeLabels).toEqual(["Send Email"]);
+    // No-leak: the raw looping node id never reaches the finding's surfaced fields.
+    expect(JSON.stringify({ title: finding!.title, labels: finding!.selfLoopNodeLabels, summary: dto.summaryText })).not.toContain("n2");
+    // The summary names the self-loop reason.
+    expect(dto.summaryText).toMatch(/connect to themselves/i);
+  });
+});
+
 // ───────────────── composition + direct service consumption ─────────────────
 describe("diagnoseWorkflowForAgent — composes services/diagnostics directly", () => {
   it("builds findings from readiness + connections + a failed latest run", async () => {

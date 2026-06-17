@@ -73,6 +73,8 @@ interface MessageItemProps {
   readonly onPreviewSelectedFix: (selection: SelectedRepair) => void;
   // AI-REPAIR-4A — deterministic dangling/broken-edge cleanup preview.
   readonly onPreviewDanglingEdgeFix: () => void;
+  // AI-REPAIR-COVERAGE-1 — deterministic self-loop edge cleanup preview.
+  readonly onPreviewSelfLoopEdgeFix: () => void;
   // Repair-preview Apply wiring.
   readonly onApplyRepair: (
     previewMessageId: ChatMessageId,
@@ -117,6 +119,7 @@ export function MessageItem({
   previewedProposalIds,
   onPreviewSelectedFix,
   onPreviewDanglingEdgeFix,
+  onPreviewSelfLoopEdgeFix,
   onApplyRepair,
   applyingId,
   appliedPreviewIds,
@@ -212,6 +215,9 @@ export function MessageItem({
           // AI-REPAIR-4A — a dangling/broken edge gets a "Preview fix" that runs the
           // deterministic removeEdge cleanup preview (no LLM/credits/telemetry).
           onPreviewDanglingEdge={onPreviewDanglingEdgeFix}
+          // AI-REPAIR-COVERAGE-1 — a self-loop edge gets a "Preview fix" that runs the
+          // deterministic removeEdge cleanup preview (no LLM/credits/telemetry).
+          onPreviewSelfLoopEdge={onPreviewSelfLoopEdgeFix}
           previewing={previewing}
           alreadyPreviewedInvalidRef={previewedProposalIds.has(message.id)}
         />

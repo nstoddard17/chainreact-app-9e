@@ -73,6 +73,39 @@ beforeEach(() => {
 const call = (workflowId = "wf-1", subjectUserId = "u1") =>
   diagnoseWorkflowReadiness({ subjectUserId, workflowId });
 
+describe("diagnoseWorkflowReadiness — self-loop edges (AI-REPAIR-COVERAGE-1, Check-only)", () => {
+  it("surfaces a self-loop edge WITHOUT changing runnable/readinessError (no runtime/Activate impact)", async () => {
+    // trigger → action, plus a self-loop on the action (from === to).
+    mockGetWorkflow.mockResolvedValue(
+      workflow(
+        [triggerNode, gmailAction],
+        [
+          { id: "e1", from: "trigger-1", to: "action-1" },
+          { id: "e-loop", from: "action-1", to: "action-1" },
+        ],
+      ),
+    );
+    const result = await call();
+    expect(result.access).toBe("OK");
+    // The self-loop is detected for Check…
+    expect(result.selfLoopEdges).toEqual([{ nodeId: "action-1" }]);
+    // …but it must NOT change the runtime verdict: findGraphIssues ignores self-loops,
+    // so `runnable` stays driven only by required-field/graph integrity (here: missing
+    // required field on gmail), and `readinessError` is NOT INVALID_WORKFLOW_GRAPH.
+    expect(result.readinessError).not.toBe("INVALID_WORKFLOW_GRAPH");
+    // No raw edge id leaks (only the internal node id, allowed in the DTO).
+    expect(JSON.stringify(result.selfLoopEdges)).not.toContain("e-loop");
+  });
+
+  it("reports no self-loop edges for a clean linear graph", async () => {
+    mockGetWorkflow.mockResolvedValue(
+      workflow([triggerNode, gmailAction], [{ id: "e1", from: "trigger-1", to: "action-1" }]),
+    );
+    const result = await call();
+    expect(result.selfLoopEdges).toEqual([]);
+  });
+});
+
 describe("diagnoseWorkflowReadiness — NOT_FOUND", () => {
   it("returns NOT_FOUND and does NOT call membership", async () => {
     mockGetWorkflow.mockResolvedValue(null);

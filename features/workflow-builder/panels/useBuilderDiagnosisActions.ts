@@ -396,6 +396,48 @@ export function useBuilderDiagnosisActions({
     }
   }
 
+  async function handlePreviewSelfLoopEdgeFix(): Promise<void> {
+    if (!workflowId) return;
+    const wfId: string = workflowId;
+    // AI-REPAIR-COVERAGE-1 — deterministic preview of self-loop edge cleanup (removeEdge).
+    // EXPLICIT click only. The route runs the deterministic edge-repair preview BEFORE the
+    // gate/model, so it's FREE — no model call, no credits, no telemetry. No repeat-charge
+    // guard (it's free); only the shared in-flight guard. Produces a repair_preview message
+    // — Apply stays a separate click; never applies/saves/runs.
+    if (busy || checking || explaining || suggesting || previewing) return;
+    setPreviewing(true);
+    try {
+      const res = await previewWorkflowRepair(wfId, currentDraft, undefined, undefined, undefined, true);
+      if (res.ok) {
+        appendMessage({
+          id: nextChatMessageId(),
+          role: "assistant",
+          kind: "repair_preview",
+          preview: res.preview,
+        });
+      } else {
+        const content =
+          res.code === "AI_CREDITS_EXHAUSTED"
+            ? AI_CREDITS_EXHAUSTED_MESSAGE
+            : res.code === "NOTHING_TO_PREVIEW" || res.code === "NO_SAFE_PATCH"
+              ? res.message
+              : "Couldn’t build a repair preview right now. Please try again.";
+        appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+      }
+    } catch (err) {
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content =
+        status === 401
+          ? "Please sign in to use the AI assistant."
+          : status === 404
+            ? "This workflow couldn’t be found."
+            : "Couldn’t build a repair preview right now. Please try again.";
+      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   async function handleApplyRepair(
     previewMessageId: ChatMessageId,
     applyMeta: { operations: readonly unknown[]; baseRevision: string },
@@ -486,6 +528,7 @@ export function useBuilderDiagnosisActions({
     handlePreviewFix,
     handlePreviewSelectedFix,
     handlePreviewDanglingEdgeFix,
+    handlePreviewSelfLoopEdgeFix,
     handleApplyRepair,
     resetDiagnosisActions,
   };

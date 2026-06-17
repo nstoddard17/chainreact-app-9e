@@ -25,6 +25,11 @@ export interface RenderWorkflowDiagnosisInput {
    * a specific "can't run yet" reason (the engine's `runnable` can still be true).
    */
   readonly hasInvalidReferences?: boolean;
+  /**
+   * AI-REPAIR-COVERAGE-1 — at least one step is connected to itself. Adds a specific
+   * "can't run yet" reason (the engine's `runnable` can still be true).
+   */
+  readonly hasSelfLoopEdges?: boolean;
   readonly latestRun?: AgentLatestRunSummary;
 }
 
@@ -47,6 +52,8 @@ function nextStepFor(f: AgentFinding): string | null {
       if (f.code === "no_trigger") return "Add a trigger to start the workflow.";
       if (f.code === "INVALID_VARIABLE_REFERENCE")
         return "Re-point or remove the broken variable reference(s) on the flagged steps.";
+      if (f.code === "SELF_LOOP_EDGE")
+        return "Remove the connection from a step to itself.";
       return "Fix the workflow structure before running.";
     case "connection":
       switch (f.code) {
@@ -78,7 +85,7 @@ function nextStepFor(f: AgentFinding): string | null {
 export function renderWorkflowDiagnosis(
   input: RenderWorkflowDiagnosisInput,
 ): RenderedWorkflowDiagnosis {
-  const { overallReady, runnable, allRequiredConnected, findings, hasInvalidReferences, latestRun } = input;
+  const { overallReady, runnable, allRequiredConnected, findings, hasInvalidReferences, hasSelfLoopEdges, latestRun } = input;
 
   // ── summaryText ──
   const lines: string[] = [];
@@ -91,6 +98,8 @@ export function renderWorkflowDiagnosis(
     // AI-REPAIR-3G — a broken variable reference blocks readiness on its own, even
     // when the engine's graph/required-field verdict is clean.
     if (hasInvalidReferences) reasons.push("one or more steps reference a deleted or missing step");
+    // AI-REPAIR-COVERAGE-1 — a self-loop blocks readiness on its own.
+    if (hasSelfLoopEdges) reasons.push("one or more steps connect to themselves");
     lines.push(
       reasons.length > 0
         ? `This workflow can't run yet because ${reasons.join(" and ")}.`

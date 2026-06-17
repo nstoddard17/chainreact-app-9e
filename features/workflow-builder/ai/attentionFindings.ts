@@ -62,7 +62,10 @@ export function attentionFindingCards(
       finding.code !== "INVALID_VARIABLE_REFERENCE" &&
       // AI-REPAIR-4A — STALE_EDGE is actionable (deterministic removeEdge repair); it
       // renders via `danglingEdgeCards`, not as a generic no-button structure card.
-      finding.code !== "STALE_EDGE"
+      finding.code !== "STALE_EDGE" &&
+      // AI-REPAIR-COVERAGE-1 — SELF_LOOP_EDGE is actionable too (removeEdge); it renders
+      // via `selfLoopEdgeCards`, not as a generic no-button structure card.
+      finding.code !== "SELF_LOOP_EDGE"
     ) {
       out.push({ key: `graph:${finding.code}:${i}`, severity, message: graphGuidance(finding.code) });
     } else if (finding.source === "run") {
@@ -201,6 +204,50 @@ export function danglingEdgeCards(
         fromMissing: e.fromMissing ?? false,
         toMissing: e.toMissing ?? false,
       })),
+    });
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * AI-REPAIR-COVERAGE-1 — an actionable "Needs attention" card for self-loop edges (a
+ * step connected to itself). The safe deterministic repair removes the self-loop
+ * edge(s) (`removeEdge`); the card offers a "Preview fix" (Apply lives only on the
+ * resulting preview). Labels only — `steps` are the server-built safe display names of
+ * the looping step(s); raw edge / node ids are never present here.
+ */
+export interface SelfLoopEdgeCard {
+  readonly key: string;
+  readonly severity: "error" | "warning";
+  /** Count-aware headline (singular for one, plural with the count for many). */
+  readonly message: string;
+  /** Safe display labels of the step(s) connected to themselves. */
+  readonly steps: readonly string[];
+}
+
+/**
+ * One actionable self-loop-edge card per SELF_LOOP_EDGE finding. Empty when there are
+ * none. The single deterministic `removeEdge` preview clears ALL self-loops, so the
+ * headline is count-aware (matching the batch-remove behavior).
+ */
+export function selfLoopEdgeCards(
+  diagnosis: AgentWorkflowDiagnosis | null | undefined,
+): SelfLoopEdgeCard[] {
+  const out: SelfLoopEdgeCard[] = [];
+  let i = 0;
+  for (const finding of diagnosis?.findings ?? []) {
+    if (finding.code !== "SELF_LOOP_EDGE") continue;
+    const steps = finding.selfLoopNodeLabels ?? [];
+    const message =
+      steps.length <= 1
+        ? "A step in this workflow is connected to itself."
+        : `${steps.length} steps in this workflow are connected to themselves.`;
+    out.push({
+      key: `self-loop-edge:${i}`,
+      severity: finding.severity === "warning" ? "warning" : "error",
+      message,
+      steps,
     });
     i += 1;
   }
