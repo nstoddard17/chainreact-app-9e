@@ -294,7 +294,7 @@ export function runAppActionScaffold(
   lines.push("");
   lines.push(
     predicted.ok
-      ? `The action triad PASSES \`app validate ${provider}\` now (complete, valid meta — no fields/outputs yet). The handler is a placeholder that THROWS until you implement it; it is NOT registered in the execution/discovery registries, so it does not run or appear in the builder yet.`
+      ? `The action triad PASSES \`app validate ${provider}\` now (complete, valid meta — no fields/outputs yet). The handler is a placeholder that THROWS until you implement it; it is NOT registered in the execution/discovery registries, so it does not run or appear in the builder yet. Once you implement the handler, wire it in with \`chainreact app action register ${provider} ${a.type}\` (it refuses while the handler is still a placeholder).`
       : `NOTE: the generated action does not pass validation — see the validation block above.`,
   );
 

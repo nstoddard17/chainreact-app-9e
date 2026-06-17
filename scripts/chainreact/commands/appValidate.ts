@@ -34,6 +34,13 @@ import {
   type ProviderCounts,
   scanField,
 } from "../providers";
+import {
+  detectHandlerRegistration,
+  detectMetaRegistration,
+  HANDLER_INVENTORY_PATH,
+  META_INVENTORY_PATH,
+  readMetaRegistryText,
+} from "../actionRegistry";
 import { registrationStatus } from "../registry";
 import type { FsDeps } from "../repo";
 import { checkManifestContent, checkMetaContent, loadContractAllowlists } from "./metaChecks";
@@ -125,6 +132,12 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
   const actions = collectActionUnits(fs, `${dir}/actions`);
   const triggers = collectActionUnits(fs, `${dir}/triggers`);
 
+  // Read the action inventories ONCE for this provider's registry checks (text
+  // only — never imported). Empty/unreadable → "unknown" downstream, never a
+  // false negative.
+  const handlerInv = fs.readText(HANDLER_INVENTORY_PATH);
+  const metaInv = readMetaRegistryText(fs, id);
+
   for (const [base, u] of actions) {
     if (u.meta && !u.handler) {
       findings.push({ level: "error", code: "ORPHAN_META", message: `action meta '${base}.meta.ts' has no handler '${base}.ts' (orphan meta). Add the handler or remove the meta.` });
@@ -140,6 +153,27 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
     // Deep ActionMeta completeness + provider/key consistency + value checks.
     if (u.meta && u.metaPath) {
       findings.push(...checkMetaContent(fs.readText(u.metaPath), "action", id, base, { allowedCategories: allow.categories }));
+    }
+
+    // Action-registry wiring (text-derived). Only for COMPLETE triads — a
+    // freshly-scaffolded action is intentionally unregistered until implemented,
+    // so "not registered" is a WARNING, never an error. "unknown" (inventory
+    // unreadable) is skipped — we never assert a false negative.
+    if (u.handler && u.meta && u.schema) {
+      if (detectMetaRegistration(metaInv, id, base) === "unregistered") {
+        findings.push({
+          level: "warning",
+          code: "ACTION_META_NOT_REGISTERED",
+          message: `action '${base}' meta is not registered in ${META_INVENTORY_PATH} — it won't appear in the builder/AI until wired. Run \`chainreact app action register ${id} ${base}\` once implemented.`,
+        });
+      }
+      if (detectHandlerRegistration(handlerInv, id, base) === "unregistered") {
+        findings.push({
+          level: "warning",
+          code: "ACTION_HANDLER_NOT_REGISTERED",
+          message: `action '${base}' handler is not registered in ${HANDLER_INVENTORY_PATH} — it can't execute until wired. Run \`chainreact app action register ${id} ${base}\` once implemented.`,
+        });
+      }
     }
   }
 

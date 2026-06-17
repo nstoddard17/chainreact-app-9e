@@ -10,6 +10,23 @@
 import { parseArgs, wantsHelp } from "@/scripts/chainreact/args";
 import { run } from "@/scripts/chainreact/cli";
 import {
+  buildHandlerInventoryPatch,
+  buildMetaInventoryPatch,
+  detectHandlerRegistration,
+  detectMetaRegistration,
+  HANDLER_INVENTORY_PATH,
+  handlerRegistrationStatus,
+  looksLikeScaffoldPlaceholder,
+  META_INVENTORY_PATH,
+  metaBarrelPath,
+  metaRegistrationStatus,
+  readActionHandlerExportName,
+  readActionMetaExportName,
+  readMetaRegistryText,
+  resolveMetaRegistryTarget,
+} from "@/scripts/chainreact/actionRegistry";
+import { runAppActionRegister } from "@/scripts/chainreact/commands/appActionRegister";
+import {
   actionMetaExportName,
   buildActionScaffoldPlan,
   chooseMetaPath,
@@ -1321,5 +1338,381 @@ describe("app action scaffold — dispatch via run()", () => {
     const out: string[] = [];
     run(["app", "bogus"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
     expect(out.join("\n")).toMatch(/action scaffold/);
+  });
+
+  it("scaffold output points to `app action register` for the next step", () => {
+    const w = fakeWriter();
+    const r = runAppActionScaffold("alpha", "send-test-message", { dryRun: true }, providerFs(), w);
+    expect(r.output).toMatch(/app action register alpha send_test_message/);
+  });
+});
+
+// ── action registry awareness ────────────────────────────────────────────────
+// Handler inventory: single file, all-direct imports + ALL_HANDLERS entries.
+const HANDLER_INV = [
+  'import type { ActionHandler } from "./types";',
+  'import { sendChannelMessage as slackSendChannelMessage } from "@/integrations/slack/actions/sendChannelMessage";',
+  'import { addReaction as slackAddReaction } from "@/integrations/slack/actions/addReaction";',
+  "",
+  "export const ALL_HANDLERS = [",
+  '  { provider: "slack", type: "send_channel_message", handler: slackSendChannelMessage },',
+  '  { provider: "slack", type: "add_reaction", handler: slackAddReaction },',
+  "];",
+  "",
+].join("\n");
+// Central meta inventory: slack direct + airtable via barrel spread.
+const META_INV = [
+  'import { slackSendChannelMessageMeta } from "@/integrations/slack/actions/sendChannelMessage.meta";',
+  'import { AIRTABLE_ACTION_METAS } from "./providers/airtable";',
+  "",
+  "export const ALL_ACTION_META = [",
+  "  slackSendChannelMessageMeta,",
+  "  ...AIRTABLE_ACTION_METAS,",
+  "];",
+  "export const ALL_TRIGGER_META = [];",
+  "",
+].join("\n");
+// Airtable discovery barrel (the @/integrations meta import lives HERE, not centrally).
+const AIRTABLE_BARREL = [
+  'import type { ActionMeta } from "@/contracts/actionMeta";',
+  'import { airtableCreateRecordMeta } from "@/integrations/airtable/actions/createRecord.meta";',
+  "",
+  "export const AIRTABLE_ACTION_METAS: ReadonlyArray<ActionMeta> = [",
+  "  airtableCreateRecordMeta,",
+  "];",
+  "",
+].join("\n");
+const AIRTABLE_BARREL_PATH = metaBarrelPath("airtable");
+// Real (implemented) vs scaffold-placeholder handler text.
+const realHandlerSrc = (base: string): string =>
+  `import type { ActionHandler } from "@/services/execution/handlers/types";\nexport const ${base}: ActionHandler = async (input) => { return { output: {} }; };`;
+const placeholderHandlerSrc = (provider: string, type: string): string =>
+  `import type { ActionHandler } from "@/services/execution/handlers/types";\nexport const x: ActionHandler = async (input) => { throw new Error("${provider}:${type} is not implemented yet (scaffolded placeholder — see the TODOs in this file)."); };`;
+const metaFileSrc = (provider: string, type: string, exportName: string): string =>
+  `import type { ActionMeta } from "@/contracts/actionMeta";\nexport const ${exportName}: ActionMeta = { key: "${provider}:${type}", provider: "${provider}", type: "${type}", displayName: "X", description: "x", category: "messaging", requiresIntegration: true, fields: [] };`;
+
+describe("action registry detection (pure)", () => {
+  it("handler: registered when imported + referenced by an ALL_HANDLERS entry", () => {
+    expect(detectHandlerRegistration(HANDLER_INV, "slack", "sendChannelMessage")).toBe("registered");
+    expect(detectHandlerRegistration(HANDLER_INV, "slack", "addReaction")).toBe("registered");
+  });
+  it("handler: unregistered when absent; unknown when inventory empty", () => {
+    expect(detectHandlerRegistration(HANDLER_INV, "slack", "newThing")).toBe("unregistered");
+    expect(detectHandlerRegistration("", "slack", "sendChannelMessage")).toBe("unknown");
+  });
+  it("meta: registered via DIRECT central import", () => {
+    expect(detectMetaRegistration(META_INV, "slack", "sendChannelMessage")).toBe("registered");
+  });
+  it("meta: barrel-backed provider needs the barrel text (false-negative on central alone)", () => {
+    expect(detectMetaRegistration(META_INV, "airtable", "createRecord")).toBe("unregistered");
+    expect(detectMetaRegistration(`${META_INV}\n${AIRTABLE_BARREL}`, "airtable", "createRecord")).toBe("registered");
+  });
+  it("meta: unknown when inventory empty", () => {
+    expect(detectMetaRegistration("", "slack", "sendChannelMessage")).toBe("unknown");
+  });
+  it("placeholder detection matches the scaffold marker only", () => {
+    expect(looksLikeScaffoldPlaceholder(placeholderHandlerSrc("slack", "send_test_message"))).toBe(true);
+    expect(looksLikeScaffoldPlaceholder(realHandlerSrc("sendTestMessage"))).toBe(false);
+  });
+  it("reads the exported meta/handler symbols", () => {
+    expect(readActionMetaExportName(metaFileSrc("slack", "x", "slackXMeta"))).toBe("slackXMeta");
+    expect(readActionHandlerExportName(realHandlerSrc("sendThing"))).toBe("sendThing");
+    expect(readActionMetaExportName("// nothing")).toBeNull();
+  });
+});
+
+describe("action registry detection — via fs (combines central + barrel)", () => {
+  const fs = fakeFs({ [HANDLER_INVENTORY_PATH]: HANDLER_INV, [META_INVENTORY_PATH]: META_INV, [AIRTABLE_BARREL_PATH]: AIRTABLE_BARREL });
+  it("metaRegistrationStatus reads central + provider barrel", () => {
+    expect(metaRegistrationStatus(fs, "slack", "sendChannelMessage")).toBe("registered");
+    expect(metaRegistrationStatus(fs, "airtable", "createRecord")).toBe("registered");
+    expect(metaRegistrationStatus(fs, "slack", "ghost")).toBe("unregistered");
+  });
+  it("handlerRegistrationStatus reads the handler inventory", () => {
+    expect(handlerRegistrationStatus(fs, "slack", "addReaction")).toBe("registered");
+    expect(handlerRegistrationStatus(fs, "slack", "ghost")).toBe("unregistered");
+  });
+  it("readMetaRegistryText appends the barrel only when present", () => {
+    expect(readMetaRegistryText(fs, "airtable")).toContain("AIRTABLE_ACTION_METAS");
+    expect(readMetaRegistryText(fs, "slack")).not.toContain("airtableCreateRecordMeta");
+  });
+});
+
+describe("resolveMetaRegistryTarget", () => {
+  it("targets the barrel + its array when one exists", () => {
+    const fs = fakeFs({ [META_INVENTORY_PATH]: META_INV, [AIRTABLE_BARREL_PATH]: AIRTABLE_BARREL });
+    expect(resolveMetaRegistryTarget(fs, "airtable")).toEqual({ path: AIRTABLE_BARREL_PATH, arrayDecl: "AIRTABLE_ACTION_METAS" });
+  });
+  it("targets central ALL_ACTION_META for a direct provider", () => {
+    const fs = fakeFs({ [META_INVENTORY_PATH]: META_INV });
+    expect(resolveMetaRegistryTarget(fs, "slack")).toEqual({ path: META_INVENTORY_PATH, arrayDecl: "ALL_ACTION_META" });
+  });
+});
+
+describe("action registry patch (pure)", () => {
+  it("handler patch appends import + ALL_HANDLERS entry; result detects registered", () => {
+    const p = buildHandlerInventoryPatch(HANDLER_INV, { provider: "slack", type: "new_thing", exportName: "newThing", handlerImportPath: "slack/actions/newThing" });
+    if (!p.ok) throw new Error("expected ok");
+    expect(p.importLine).toBe('import { newThing as slackNewThing } from "@/integrations/slack/actions/newThing";');
+    expect(p.arrayEntry).toBe('{ provider: "slack", type: "new_thing", handler: slackNewThing },');
+    expect(detectHandlerRegistration(p.newText, "slack", "newThing")).toBe("registered");
+  });
+  it("meta patch (central) appends to ALL_ACTION_META", () => {
+    const p = buildMetaInventoryPatch(META_INV, { metaExport: "slackNewThingMeta", metaImportPath: "slack/actions/newThing.meta", arrayDecl: "ALL_ACTION_META", label: META_INVENTORY_PATH });
+    if (!p.ok) throw new Error("expected ok");
+    expect(p.newText).toMatch(/import \{ slackNewThingMeta \} from "@\/integrations\/slack\/actions\/newThing\.meta";/);
+    expect(p.newText).toMatch(/\.\.\.AIRTABLE_ACTION_METAS,\n {2}slackNewThingMeta,\n\];/);
+  });
+  it("meta patch (barrel) appends to the barrel array", () => {
+    const p = buildMetaInventoryPatch(AIRTABLE_BARREL, { metaExport: "airtableNewMeta", metaImportPath: "airtable/actions/new.meta", arrayDecl: "AIRTABLE_ACTION_METAS", label: AIRTABLE_BARREL_PATH });
+    if (!p.ok) throw new Error("expected ok");
+    expect(p.newText).toMatch(/airtableCreateRecordMeta,\n {2}airtableNewMeta,\n\];/);
+  });
+  it("refuses empty / no-array / no-import-anchor", () => {
+    expect(buildHandlerInventoryPatch("", { provider: "p", type: "t", exportName: "e", handlerImportPath: "p/actions/e" }).ok).toBe(false);
+    expect(buildMetaInventoryPatch("export const ALL_ACTION_META = [\n];", { metaExport: "m", metaImportPath: "p/actions/m.meta", arrayDecl: "ALL_ACTION_META", label: "x" }).ok).toBe(false); // no import anchor
+    expect(buildMetaInventoryPatch('import { x } from "@/integrations/p/actions/x.meta";', { metaExport: "m", metaImportPath: "p/actions/m.meta", arrayDecl: "ALL_ACTION_META", label: "x" }).ok).toBe(false); // no array
+  });
+});
+
+// fakeFs with a provider manifest + one action triad + the action inventories.
+const actionFs = (opts: {
+  base: string;
+  type: string;
+  handler: string;
+  registeredHandler: string;
+  registeredMeta: string;
+  metaExport?: string;
+}): FsDeps =>
+  fakeFs({
+    "integrations/slack/manifest.ts": manifestSrc("slack"),
+    [`integrations/slack/actions/${opts.base}.ts`]: opts.handler,
+    [`integrations/slack/actions/${opts.base}.schema.ts`]: "",
+    [`integrations/slack/actions/${opts.base}.meta.ts`]: metaFileSrc("slack", opts.type, opts.metaExport ?? "slackThingMeta"),
+    [HANDLER_INVENTORY_PATH]: opts.registeredHandler,
+    [META_INVENTORY_PATH]: opts.registeredMeta,
+  });
+
+describe("app validate — action registry warnings", () => {
+  it("registered triad → no ACTION_*_NOT_REGISTERED warnings", () => {
+    const fs = actionFs({
+      base: "sendChannelMessage",
+      type: "send_channel_message",
+      handler: realHandlerSrc("sendChannelMessage"),
+      registeredHandler: HANDLER_INV,
+      registeredMeta: META_INV,
+    });
+    const r = validateProvider("slack", fs);
+    expect(r.findings.some((f) => f.code.startsWith("ACTION_") && f.code.endsWith("NOT_REGISTERED"))).toBe(false);
+  });
+
+  it("unregistered complete triad → both warnings, still ok (WARN)", () => {
+    const fs = actionFs({
+      base: "newThing",
+      type: "new_thing",
+      handler: realHandlerSrc("newThing"),
+      registeredHandler: HANDLER_INV, // does not include newThing
+      registeredMeta: META_INV,
+    });
+    const r = validateProvider("slack", fs);
+    const codes = r.findings.map((f) => f.code);
+    expect(codes).toContain("ACTION_META_NOT_REGISTERED");
+    expect(codes).toContain("ACTION_HANDLER_NOT_REGISTERED");
+    expect(r.findings.every((f) => f.level === "warning")).toBe(true);
+    expect(r.ok).toBe(true);
+    expect(verdictOf(r)).toBe("WARN");
+  });
+
+  it("placeholder (unregistered) triad warns, never errors", () => {
+    const fs = actionFs({
+      base: "newThing",
+      type: "new_thing",
+      handler: placeholderHandlerSrc("slack", "new_thing"),
+      registeredHandler: HANDLER_INV,
+      registeredMeta: META_INV,
+    });
+    const r = validateProvider("slack", fs);
+    expect(r.ok).toBe(true);
+    expect(r.findings.some((f) => f.code === "ACTION_HANDLER_NOT_REGISTERED")).toBe(true);
+  });
+
+  it("inventories absent (unknown) → no false-negative warnings", () => {
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/actions/newThing.ts": realHandlerSrc("newThing"),
+      "integrations/slack/actions/newThing.schema.ts": "",
+      "integrations/slack/actions/newThing.meta.ts": metaFileSrc("slack", "new_thing", "slackNewThingMeta"),
+    });
+    const r = validateProvider("slack", fs);
+    expect(r.findings.some((f) => f.code.endsWith("NOT_REGISTERED"))).toBe(false);
+  });
+
+  it("incomplete triad (handler+schema, no meta) → no registry warnings (only ACTION_META_GAP)", () => {
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/actions/partial.ts": realHandlerSrc("partial"),
+      "integrations/slack/actions/partial.schema.ts": "",
+      [HANDLER_INVENTORY_PATH]: HANDLER_INV,
+      [META_INVENTORY_PATH]: META_INV,
+    });
+    const r = validateProvider("slack", fs);
+    expect(r.findings.some((f) => f.code === "ACTION_META_GAP")).toBe(true);
+    expect(r.findings.some((f) => f.code.endsWith("NOT_REGISTERED"))).toBe(false);
+  });
+});
+
+describe("app action register — runAppActionRegister", () => {
+  // Implemented, UNregistered action 'newThing' under slack (central meta target).
+  const unregisteredFs = (): FsDeps =>
+    fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/actions/newThing.ts": realHandlerSrc("newThing"),
+      "integrations/slack/actions/newThing.schema.ts": "",
+      "integrations/slack/actions/newThing.meta.ts": metaFileSrc("slack", "new_thing", "slackNewThingMeta"),
+      [HANDLER_INVENTORY_PATH]: HANDLER_INV,
+      [META_INVENTORY_PATH]: META_INV,
+    });
+
+  it("dry-run prints planned edits and writes nothing", () => {
+    const w = fakeWriter();
+    const r = runAppActionRegister("slack", "new-thing", { dryRun: true }, unregisteredFs(), w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toContain(`${HANDLER_INVENTORY_PATH} (handler)`);
+    expect(r.output).toContain('import { newThing as slackNewThing }');
+    expect(r.output).toContain("import { slackNewThingMeta }");
+  });
+
+  it("real run patches BOTH inventories", () => {
+    const w = fakeWriter();
+    const r = runAppActionRegister("slack", "new-thing", { dryRun: false }, unregisteredFs(), w);
+    expect(r.code).toBe(0);
+    expect([...w.files.keys()].sort()).toEqual([META_INVENTORY_PATH, HANDLER_INVENTORY_PATH].sort());
+    expect(detectHandlerRegistration(w.files.get(HANDLER_INVENTORY_PATH)!, "slack", "newThing")).toBe("registered");
+    expect(detectMetaRegistration(w.files.get(META_INVENTORY_PATH)!, "slack", "newThing")).toBe("registered");
+  });
+
+  it("refuses a scaffold placeholder handler (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/actions/newThing.ts": placeholderHandlerSrc("slack", "new_thing"),
+      "integrations/slack/actions/newThing.schema.ts": "",
+      "integrations/slack/actions/newThing.meta.ts": metaFileSrc("slack", "new_thing", "slackNewThingMeta"),
+      [HANDLER_INVENTORY_PATH]: HANDLER_INV,
+      [META_INVENTORY_PATH]: META_INV,
+    });
+    const r = runAppActionRegister("slack", "new-thing", { dryRun: false }, fs, w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/still a scaffold placeholder/);
+  });
+
+  it("no-ops when already registered (exit 0, no writes)", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/actions/sendChannelMessage.ts": realHandlerSrc("sendChannelMessage"),
+      "integrations/slack/actions/sendChannelMessage.schema.ts": "",
+      "integrations/slack/actions/sendChannelMessage.meta.ts": metaFileSrc("slack", "send_channel_message", "slackSendChannelMessageMeta"),
+      [HANDLER_INVENTORY_PATH]: HANDLER_INV,
+      [META_INVENTORY_PATH]: META_INV,
+    });
+    const r = runAppActionRegister("slack", "send-channel-message", { dryRun: false }, fs, w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/Already registered/);
+  });
+
+  it("refuses an unknown provider (exit 2)", () => {
+    const w = fakeWriter();
+    const r = runAppActionRegister("ghost", "do-thing", { dryRun: false }, unregisteredFs(), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/unknown provider/);
+  });
+
+  it("refuses an incomplete triad (exit 2)", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/actions/halfThing.ts": realHandlerSrc("halfThing"), // no schema/meta
+      [HANDLER_INVENTORY_PATH]: HANDLER_INV,
+      [META_INVENTORY_PATH]: META_INV,
+    });
+    const r = runAppActionRegister("slack", "half-thing", { dryRun: false }, fs, w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/incomplete|missing/);
+  });
+
+  it("refuses an unsafe registry format (exit 2, no writes, manual instructions)", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/actions/newThing.ts": realHandlerSrc("newThing"),
+      "integrations/slack/actions/newThing.schema.ts": "",
+      "integrations/slack/actions/newThing.meta.ts": metaFileSrc("slack", "new_thing", "slackNewThingMeta"),
+      [HANDLER_INVENTORY_PATH]: "// no array, no anchors here",
+      [META_INVENTORY_PATH]: "// likewise unsafe",
+    });
+    const r = runAppActionRegister("slack", "new-thing", { dryRun: false }, fs, w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/cannot patch the registries safely/);
+    expect(r.output).toMatch(/by hand/);
+  });
+
+  it("targets the provider's barrel for a barrel-backed provider", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/airtable/manifest.ts": manifestSrc("airtable"),
+      "integrations/airtable/actions/newThing.ts": realHandlerSrc("newThing"),
+      "integrations/airtable/actions/newThing.schema.ts": "",
+      "integrations/airtable/actions/newThing.meta.ts": metaFileSrc("airtable", "new_thing", "airtableNewThingMeta"),
+      [HANDLER_INVENTORY_PATH]: HANDLER_INV,
+      [META_INVENTORY_PATH]: META_INV,
+      [AIRTABLE_BARREL_PATH]: AIRTABLE_BARREL,
+    });
+    const r = runAppActionRegister("airtable", "new-thing", { dryRun: false }, fs, w);
+    expect(r.code).toBe(0);
+    expect(w.files.has(AIRTABLE_BARREL_PATH)).toBe(true); // meta went to the barrel
+    expect(w.files.has(META_INVENTORY_PATH)).toBe(false); // not central
+    expect(detectMetaRegistration(`${META_INV}\n${w.files.get(AIRTABLE_BARREL_PATH)!}`, "airtable", "newThing")).toBe("registered");
+  });
+});
+
+describe("app action register — dispatch via run()", () => {
+  const rt = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
+  const fsWith = (): FsDeps =>
+    fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/actions/sendChannelMessage.ts": realHandlerSrc("sendChannelMessage"),
+      "integrations/slack/actions/sendChannelMessage.schema.ts": "",
+      "integrations/slack/actions/sendChannelMessage.meta.ts": metaFileSrc("slack", "send_channel_message", "slackSendChannelMessageMeta"),
+      [HANDLER_INVENTORY_PATH]: HANDLER_INV,
+      [META_INVENTORY_PATH]: META_INV,
+    });
+
+  it("`app action register <p> <a> --dry-run` (already registered) → exit 0, no writes", () => {
+    const w = fakeWriter();
+    const out: string[] = [];
+    const code = run(["app", "action", "register", "slack", "send-channel-message", "--dry-run"], { fs: fsWith(), writer: w, runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(out.join("\n")).toMatch(/app action register: slack:send_channel_message/);
+  });
+
+  it("`app action register` with missing args → usage, exit 2", () => {
+    const out: string[] = [];
+    const code = run(["app", "action", "register", "slack"], { fs: fsWith(), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/Usage:.*app action register/);
+  });
+
+  it("unknown `app action` subcommand mentions register", () => {
+    const out: string[] = [];
+    run(["app", "action", "bogus", "x", "y"], { fs: fsWith(), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(out.join("\n")).toMatch(/register/);
   });
 });

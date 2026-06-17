@@ -33,11 +33,12 @@ It is **live internal tooling** (not flag-gated).
 | `chainreact verify [--run] [--with-tests]` | Prints the pre-push/deploy verification batch. **Default: dry-run** (prints, runs nothing). `--run` executes the safe subset (`lint:structure`, `typecheck`, `lint`); `--run --with-tests` also runs the full `test` suite (heavy, opt-in). Fail-fast. |
 | `chainreact mcp smoke [--dry-run]` | Thin wrapper over the existing `npm run mcp:smoke`. `--dry-run` prints the command. Fails gracefully if the script is absent. Adds no MCP tools/permissions. |
 | `chainreact app list` | Lists discovered providers with text-derived fields: id, displayName, enabled, **registered** (`yes`/`no`/`?`), action handler/meta/schema counts, trigger-meta count. Never imports provider code. Deterministic (sorted by id). |
-| `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. Adds a `MANIFEST_NOT_REGISTERED` **warning** when the manifest isn't wired into `_registry.ts` (never an error). |
+| `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. Adds a `MANIFEST_NOT_REGISTERED` **warning** when the manifest isn't wired into `_registry.ts`, and `ACTION_META_NOT_REGISTERED` / `ACTION_HANDLER_NOT_REGISTERED` **warnings** for a complete action triad that isn't wired into the discovery/handler inventories (never errors). |
 | `chainreact app validate --all [--verbose]` | Runs the validator across **every** discovered provider; prints a summary (total / pass / warn / fail + per-provider status). Failures list their errors inline; `--verbose` also lists warnings. |
 | `chainreact app scaffold <id> [--dry-run] [--register]` | Creates a minimal, contract-valid provider skeleton under `integrations/<id>/` (a single `manifest.ts`, capabilities off, TODOs for the rest). Refuses to overwrite an existing provider. **Default: does not edit the registry** (provider stays inert). `--register` additionally wires the new manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). `--dry-run` prints the plan (+ the registry patch when `--register`) and writes nothing. |
 | `chainreact app register <id>` | Wires an **existing** provider's manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). Requires `integrations/<id>/manifest.ts` to exist; refuses unknown dirs; no-ops cleanly if already registered; refuses (writes nothing) if the registry format can't be patched safely. `--dry-run` prints the patch and writes nothing. |
 | `chainreact app action scaffold <provider> <action> [--dry-run]` | Creates a minimal action **triad** (`<base>.ts` handler + `.schema.ts` + `.meta.ts`) for an **existing** provider. The handler validates config then **throws "not implemented"** (no network, no fake success); the meta is Zod-valid (no fields/outputs, `category: "other"`) so the provider keeps passing `app validate`. Refuses unknown providers, invalid action ids, and collisions with an existing action unit. Does **not** register the handler/meta or change `isEnabled`. `--dry-run` prints the plan + predicted validation and writes nothing. |
+| `chainreact app action register <provider> <action> [--dry-run]` | Wires an **implemented** action's handler + meta into the app inventories (handler → `_handlerInventory.ts` `ALL_HANDLERS`; meta → central `ALL_ACTION_META` **or** the provider's discovery barrel `<X>_ACTION_METAS`). Requires the full triad to exist; **refuses a scaffold placeholder** (handler still throws "not implemented"); no-ops if already registered; refuses (writes nothing) if a registry's anchors are missing/unreadable. `--dry-run` prints the planned edits and writes nothing. |
 | `chainreact --help` / `-h` | Usage. |
 
 ## Usage
@@ -60,6 +61,8 @@ npm run chainreact -- app register linear --dry-run
 npm run chainreact -- app register linear
 npm run chainreact -- app action scaffold slack send-test-message --dry-run
 npm run chainreact -- app action scaffold slack send-test-message
+npm run chainreact -- app action register slack send-channel-message --dry-run   # no-op (already registered)
+npm run chainreact -- app action register slack my-implemented-action            # after implementing it
 ```
 
 `npm run chainreact` builds first (`chainreact:build`) then runs — so it always
@@ -257,10 +260,60 @@ created but the action won't load until the provider is wired (`app register <id
 `validateProvider`, so `--dry-run` shows the exact `app validate <provider>` verdict —
 a clean triad keeps the provider **PASS**.
 
-The handler/meta are **not** registered in `services/execution/handlers/_registry.ts`
-or `services/discovery/_registry.ts`, and `isEnabled` is untouched — so the action does
-not run or appear in the builder until a developer finishes + registers it. Next:
-`app validate <provider>` → `app validate --all`.
+The handler/meta are **not** registered in the app inventories, and `isEnabled` is
+untouched — so the action does not run or appear in the builder until a developer
+finishes it + runs `app action register`. Next: `app validate <provider>` → `app
+validate --all`.
+
+## Action registry awareness (`app validate` + `app action register`)
+
+Actions are wired into the app through two hand-maintained inventories (text-read
+only — never imported). See [`actionRegistry.ts`](./actionRegistry.ts).
+
+- **Handler inventory** `services/execution/handlers/_handlerInventory.ts` — a single
+  file: `import { <export> as <alias> }` + `ALL_HANDLERS` entries
+  `{ provider, type, handler: <alias> }`.
+- **Discovery meta inventory** `services/discovery/_metaInventory.ts` — **two
+  patterns**: ~140 metas imported directly (`@/integrations/…/X.meta` →
+  `ALL_ACTION_META`), and ~18 providers imported **indirectly** through a barrel
+  `services/discovery/providers/<provider>.ts` that owns the `@/integrations` import +
+  a `<X>_ACTION_METAS` array spread into `ALL_ACTION_META`. Detection therefore reads
+  the central inventory **plus the provider's barrel** — reading central alone
+  false-negatives every barrel-backed provider.
+
+**Detection** is anchored on the IMPORT PATH (`@/integrations/<provider>/actions/<…>/
+<base>[.meta]`), exactly the provider + action basename, so it is independent of
+export/alias casing (mirrors the provider-registry detection). Handler = imported +
+referenced by an `ALL_HANDLERS` entry; meta = imported + present in an action-metas
+array. Unreadable inventory → `unknown` (skipped — never a false negative).
+
+**`app validate`** emits, per **complete** triad (handler + meta + schema):
+`ACTION_META_NOT_REGISTERED` and/or `ACTION_HANDLER_NOT_REGISTERED` as **warnings**
+(never errors) — a freshly-scaffolded, unimplemented action is intentionally
+unregistered, so it must warn, not fail. Real registered actions stay clean
+(`app validate --all` = 25 pass / 0 warn / 0 fail).
+
+**`app action register`** patches the inventories with the same narrow, deterministic
+append used for the provider registry (import after the last matching import; entry
+before the array's `];`). It:
+- requires the full triad to exist;
+- **refuses a scaffold placeholder** — if the handler still contains the exact
+  `app action scaffold` throw marker, it exits 2 and tells you to implement it first
+  (operator safety, **not** a security boundary — it only recognizes the known
+  marker);
+- no-ops cleanly when already registered;
+- routes the meta to the provider's **barrel** when one exists, else central
+  `ALL_ACTION_META`; the handler always goes to `_handlerInventory.ts`;
+- refuses (writing nothing) with manual instructions when a registry's anchors are
+  missing/unreadable;
+- patches only the side(s) actually missing (e.g. meta-only when the handler is
+  already wired).
+
+**`app list` action-registry counts were deliberately skipped.** The table already
+carries 8 columns (`enabled · registered · actions · meta · schema · trigMeta`), and
+per-action registration is surfaced precisely and actionably by `app validate`
+(`ACTION_*_NOT_REGISTERED` warnings). Two more numeric columns would widen the table
+for marginal at-a-glance value — the task explicitly permits skipping with rationale.
 
 **Future slices** should extend `validateProvider()` in
 [`commands/appValidate.ts`](./commands/appValidate.ts) by appending `Finding`s — the
@@ -284,7 +337,11 @@ construction + refusal on unsafe formats, `scaffold --register`, `app register`)
 **action scaffolding** (id normalization to snake/camel/Pascal/Title, sibling-vs-
 `actions/meta/` layout choice, dry-run-writes-nothing, triad creation, correct
 meta key/provider, overlay validation, unknown-provider / invalid-id / collision
-refusals, unregistered-provider warning), verify planning/execution (fake runner),
+refusals, unregistered-provider warning), **action registry awareness** (handler +
+meta detection anchored on import path, central-vs-barrel meta detection, placeholder
+detection, `ACTION_*_NOT_REGISTERED` validate warnings, narrow patch construction +
+refusals, `app action register` dry-run/real/placeholder-refusal/no-op/unknown/
+incomplete/unsafe + barrel-target routing), verify planning/execution (fake runner),
 mcp-smoke wrapping, and `run()` dispatch. No disk, no spawned processes.
 
 ## Adding a command (deliberately)

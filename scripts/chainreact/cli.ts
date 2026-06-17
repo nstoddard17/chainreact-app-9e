@@ -11,6 +11,7 @@
  * Built to runnable CommonJS via scripts/chainreact/tsconfig.json (→ dist/, gitignored).
  */
 import { parseArgs, wantsHelp } from "./args";
+import { runAppActionRegister } from "./commands/appActionRegister";
 import { runAppActionScaffold } from "./commands/appActionScaffold";
 import { listProviders, renderProviderList } from "./commands/appList";
 import { runAppRegister } from "./commands/appRegister";
@@ -118,22 +119,32 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         return outcome.code;
       }
       if (parsed.subcommand === "action") {
-        // `app action scaffold <provider> <action>` — positionals are
+        // `app action <scaffold|register> <provider> <action>` — positionals are
         // [sub, provider, action] (the parser only peels one subcommand token).
         const sub = parsed.positionals[0] ?? "";
-        if (sub !== "scaffold") {
-          log(`Unknown 'app action' subcommand: '${sub}'. Try: chainreact app action scaffold <provider> <action>`);
-          return 2;
-        }
         const provider = parsed.positionals[1] ?? "";
         const action = parsed.positionals[2] ?? "";
-        if (!provider || !action) {
-          log("Usage: chainreact app action scaffold <provider> <action> [--dry-run]");
-          return 2;
+        const dryRun = parsed.flags["dry-run"] === true;
+        if (sub === "scaffold") {
+          if (!provider || !action) {
+            log("Usage: chainreact app action scaffold <provider> <action> [--dry-run]");
+            return 2;
+          }
+          const outcome = runAppActionScaffold(provider, action, { dryRun }, fs, writer);
+          log(outcome.output);
+          return outcome.code;
         }
-        const outcome = runAppActionScaffold(provider, action, { dryRun: parsed.flags["dry-run"] === true }, fs, writer);
-        log(outcome.output);
-        return outcome.code;
+        if (sub === "register") {
+          if (!provider || !action) {
+            log("Usage: chainreact app action register <provider> <action> [--dry-run]");
+            return 2;
+          }
+          const outcome = runAppActionRegister(provider, action, { dryRun }, fs, writer);
+          log(outcome.output);
+          return outcome.code;
+        }
+        log(`Unknown 'app action' subcommand: '${sub}'. Try: chainreact app action scaffold <provider> <action> | chainreact app action register <provider> <action>`);
+        return 2;
       }
       if (parsed.subcommand === "validate") {
         if (parsed.flags.all === true) {
