@@ -31,7 +31,7 @@ It is **live internal tooling** (not flag-gated).
 |---|---|
 | `chainreact status` | Concise local repo/tooling snapshot: repo root, Node/platform, package manager, key file/doc presence, provider-manifest + rule-doc counts. No network, no secrets. |
 | `chainreact verify [--run] [--with-tests]` | Prints the pre-push/deploy verification batch. **Default: dry-run** (prints, runs nothing). `--run` executes the safe subset (`lint:structure`, `typecheck`, `lint`); `--run --with-tests` also runs the full `test` suite (heavy, opt-in). Fail-fast. |
-| `chainreact verify --changed [--run] [--with-tests]` | **Diff-aware** verify: inspects the local git diff (working tree + staged + untracked) and recommends the *smallest* sensible batch for what changed. Dry-run by default. `--run` executes the **auto** checks via a structured, allow-listed executor — bare `npm run <script>` **and** safe targeted commands (`app validate --all`/`<provider>`, bounded `jest <dir>`); **heavy** full-suite runs only with `--with-tests`. Allow-list rejects write/deploy/DB commands (kept as manual). Falls back gracefully (exit 1 + message) if git is unavailable. Git + execution are behind injectable seams — tests never spawn git or processes. |
+| `chainreact verify --changed [--run] [--with-tests] [--report] [--json]` | **Diff-aware** verify: inspects the local git diff (working tree + staged + untracked) and recommends the *smallest* sensible batch for what changed. Dry-run by default. `--run` executes the **auto** checks via a structured, allow-listed executor — bare `npm run <script>` **and** safe targeted commands (`app validate --all`/`<provider>`, bounded `jest <dir>`); **heavy** full-suite runs only with `--with-tests`. Allow-list rejects write/deploy/DB commands (kept as manual). `--report` appends a compact copy-pasteable closeout summary (final status + executed/skipped/failed + next steps); `--json` emits only a deterministic machine-readable report. Falls back gracefully (exit 1 + message) if git is unavailable. Git + execution are behind injectable seams — tests never spawn git or processes. |
 | `chainreact mcp smoke [--dry-run]` | Thin wrapper over the existing `npm run mcp:smoke`. `--dry-run` prints the command. Fails gracefully if the script is absent. Adds no MCP tools/permissions. |
 | `chainreact app list` | Lists discovered providers with text-derived fields: id, displayName, enabled, **registered** (`yes`/`no`/`?`), action handler/meta/schema counts, trigger-meta count. Never imports provider code. Deterministic (sorted by id). |
 | `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. Adds a `MANIFEST_NOT_REGISTERED` **warning** when the manifest isn't wired into `_registry.ts`, `ACTION_META_NOT_REGISTERED` / `ACTION_HANDLER_NOT_REGISTERED` **warnings** for a complete action triad that isn't wired into the discovery/handler inventories, and `TRIGGER_META_NOT_REGISTERED` **warning** for a trigger meta not wired into the discovery trigger inventory (all warnings — never errors). |
@@ -52,6 +52,8 @@ npm run chainreact -- verify --run        # run the safe subset
 npm run chainreact -- verify --run --with-tests
 npm run chainreact -- verify --changed            # recommend a batch for the local diff
 npm run chainreact -- verify --changed --run      # run the auto (cheap) subset for the diff
+npm run chainreact -- verify --changed --report   # + copy-pasteable closeout summary
+npm run chainreact -- verify --changed --json     # deterministic machine-readable report
 npm run chainreact -- mcp smoke
 npm run chainreact -- app list
 npm run chainreact -- app validate slack
@@ -135,6 +137,42 @@ runs `HEAVY` checks. It never runs DB writes, migrations, deploys, or network ca
 only read-only/test commands the allow-list permits. Existing `verify`, `verify --run`,
 and `verify --run --with-tests` are unchanged (they still use the bare-script
 `CommandRunner` seam).
+
+### `--report` and `--json` (closeout)
+
+For deliverable/closeout reports, add `--report` to append a compact, copy-pasteable
+summary block (built by [`commands/verifyReport.ts`](./commands/verifyReport.ts) —
+pure):
+
+```
+── verify --changed summary ──
+status: PASS                         # PASS | FAIL | DRY-RUN | NO-CHANGES | ERROR
+changed files: 6
+mode: run (with-tests: no)
+executed: 4 passed, 0 failed
+  PASS npm run lint:structure
+  ...
+next:
+  - npm run chainreact -- app validate --all
+```
+
+`finalStatus` is derived deterministically: `ERROR` (git discovery failed) ·
+`NO-CHANGES` (empty diff) · `DRY-RUN` (no `--run`) · `PASS` / `FAIL` (run mode).
+On `FAIL` the report names the **failed command + exit code** and the auto checks
+**not run because fail-fast stopped the rest**. The CLI says "failed targeted check"
+— it does NOT judge whether the failure is "related"; the human/agent adds context.
+
+The **Next commands** block is non-noisy: dry-run → suggest `--run` (and `--with-tests`
+when heavy checks exist); `PASS` with gated heavy → suggest `--with-tests`; `FAIL` →
+re-run the failed command after fixing; and it always includes
+`app validate --all` when provider/integration validation was recommended but not
+successfully executed.
+
+`--json` emits **only** a deterministic JSON object (no human output) — fixed key
+order, ordered arrays, no deps — with `finalStatus`, `changedFiles`, `recommendations`,
+`executed`, `skippedMissing`, `notRunHeavy/Manual`, `notRunDueToFailFast`,
+`failedCommand`, and `nextCommands`. `--report`/`--json` never change exit codes or the
+safety allow-list.
 
 ## Safe usage expectations
 
@@ -463,8 +501,11 @@ change type with structured `exec`, **command rendering + allow-list accept/reje
 targeted `app validate`/`jest` commands in order, heavy-only-with-`--with-tests`,
 manual/rejected not executed, fail-fast, missing-script skip, graceful git failure,
 existing `verify` unchanged — all via injected changed-files reader + structured
-executor, no git/process spawned), mcp-smoke wrapping, and `run()` dispatch. No disk,
-no spawned processes.
+executor, no git/process spawned), **closeout report** (`computeFinalStatus` for all 5
+statuses, `buildChangedReport` fail-fast/failed-command capture, next-command
+suggestions per status, no shell-metacharacters in output, deterministic `--json`
+shape, `--report` appends / `--json` emits-only via dispatch), mcp-smoke wrapping, and
+`run()` dispatch. No disk, no spawned processes.
 
 ## Adding a command (deliberately)
 

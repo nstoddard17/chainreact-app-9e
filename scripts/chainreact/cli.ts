@@ -34,6 +34,7 @@ import {
   renderChangedVerify,
   renderVerify,
 } from "./commands/verify";
+import { buildChangedReport, renderChangedReport, renderChangedReportJson } from "./commands/verifyReport";
 import { type ChangedFilesReader, defaultChangedFiles } from "./git";
 import { helpText } from "./help";
 import { defaultFsDeps, defaultFsWriter, findRepoRoot, type FsDeps, type FsWriter } from "./repo";
@@ -90,14 +91,19 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
       if (parsed.flags.changed === true) {
         const changedFiles = deps.changedFiles ?? defaultChangedFiles;
         const executor = deps.executor ?? defaultExecutor;
+        const report = parsed.flags.report === true;
+        const json = parsed.flags.json === true;
         const plan = buildChangedVerifyPlan(changedFiles(), { run, withTests });
-        if (!plan.ok) {
-          log(renderChangedVerify(plan, [], null));
-          return 1; // git discovery failed
+        const classified = plan.ok ? classifyRecommendations(plan, availableScripts) : [];
+        const outcome = plan.ok && plan.mode === "run" ? executeChangedVerify(classified, executor) : null;
+        if (json) {
+          // Machine-readable mode: emit ONLY deterministic JSON.
+          log(renderChangedReportJson(buildChangedReport(plan, classified, outcome)));
+        } else {
+          log(renderChangedVerify(plan, classified, outcome));
+          if (report) log(`\n${renderChangedReport(buildChangedReport(plan, classified, outcome))}`);
         }
-        const classified = classifyRecommendations(plan, availableScripts);
-        const outcome = plan.mode === "run" ? executeChangedVerify(classified, executor) : null;
-        log(renderChangedVerify(plan, classified, outcome));
+        if (!plan.ok) return 1; // git discovery failed
         return outcome && !outcome.allPassed ? 1 : 0;
       }
       const flags = { run, withTests };

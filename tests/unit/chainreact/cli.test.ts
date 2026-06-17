@@ -74,6 +74,12 @@ import {
   recommendChecks,
   renderChangedVerify,
 } from "@/scripts/chainreact/commands/verify";
+import {
+  buildChangedReport,
+  computeFinalStatus,
+  renderChangedReport,
+  renderChangedReportJson,
+} from "@/scripts/chainreact/commands/verifyReport";
 import { type ChangedFilesReader, mergeChangedPaths } from "@/scripts/chainreact/git";
 import { helpText } from "@/scripts/chainreact/help";
 import type { FsDeps, FsWriter } from "@/scripts/chainreact/repo";
@@ -2327,5 +2333,189 @@ describe("verify --changed — dispatch via run()", () => {
     expect(code).toBe(0);
     expect(runner.calls).toEqual(["lint:structure", "typecheck", "lint"]); // plain verify still uses CommandRunner
     expect(executor.calls).toEqual([]); // structured executor untouched by plain verify
+  });
+});
+
+// ── verify --changed --report (closeout) ─────────────────────────────────────
+// Build a report for a given diff + flags, mirroring the CLI: execute ONLY in
+// run mode (dry-run → outcome null), exactly like cli.ts does.
+const reportFor = (files: string[], flags: { run: boolean; withTests: boolean }, byCommand: Record<string, number> = {}) => {
+  const plan = buildChangedVerifyPlan({ ok: true, files }, flags);
+  const classified = classifyRecommendations(plan, EXEC_SCRIPTS);
+  const outcome = flags.run ? executeChangedVerify(classified, fakeExecutor(byCommand)) : null;
+  return buildChangedReport(plan, classified, outcome);
+};
+
+describe("computeFinalStatus", () => {
+  it("ERROR on git failure", () => {
+    expect(computeFinalStatus(buildChangedVerifyPlan({ ok: false, files: [], error: "x" }, { run: true, withTests: false }), null)).toBe("ERROR");
+  });
+  it("NO-CHANGES when no files", () => {
+    expect(computeFinalStatus(buildChangedVerifyPlan({ ok: true, files: [] }, { run: true, withTests: false }), null)).toBe("NO-CHANGES");
+  });
+  it("DRY-RUN when not run", () => {
+    expect(computeFinalStatus(buildChangedVerifyPlan({ ok: true, files: ["lib/a.ts"] }, { run: false, withTests: false }), null)).toBe("DRY-RUN");
+  });
+  it("PASS / FAIL in run mode", () => {
+    const plan = buildChangedVerifyPlan({ ok: true, files: ["lib/a.ts"] }, { run: true, withTests: false });
+    expect(computeFinalStatus(plan, { executed: [{ command: "npm run typecheck", status: 0, passed: true }], skippedMissing: [], allPassed: true })).toBe("PASS");
+    expect(computeFinalStatus(plan, { executed: [{ command: "npm run typecheck", status: 1, passed: false }], skippedMissing: [], allPassed: false })).toBe("FAIL");
+  });
+});
+
+describe("buildChangedReport + next commands", () => {
+  it("dry-run: DRY-RUN status, suggests --run (and --with-tests when heavy present)", () => {
+    const r = reportFor(["scripts/chainreact/cli.ts"], { run: false, withTests: false });
+    expect(r.finalStatus).toBe("DRY-RUN");
+    expect(r.executed).toEqual([]);
+    expect(r.nextCommands).toContain("npm run chainreact -- verify --changed --run");
+
+    const heavy = reportFor(["package.json"], { run: false, withTests: false });
+    expect(heavy.nextCommands).toContain("npm run chainreact -- verify --changed --run --with-tests");
+  });
+
+  it("dry-run with provider validation recommended → suggests app validate --all", () => {
+    const r = reportFor(["integrations/slack/actions/x.ts"], { run: false, withTests: false });
+    expect(r.nextCommands).toContain("npm run chainreact -- app validate --all");
+  });
+
+  it("run pass: PASS status; suggests --with-tests only when heavy gated", () => {
+    const r = reportFor(["lib/a.ts"], { run: true, withTests: false }); // typecheck + lint:structure only
+    expect(r.finalStatus).toBe("PASS");
+    expect(r.executed.every((e) => e.passed)).toBe(true);
+    expect(r.nextCommands).not.toContain("npm run chainreact -- verify --changed --run"); // no noisy re-run advice
+
+    const heavy = reportFor(["package.json"], { run: true, withTests: false });
+    expect(heavy.finalStatus).toBe("PASS");
+    expect(heavy.nextCommands).toContain("npm run chainreact -- verify --changed --run --with-tests");
+  });
+
+  it("run fail: FAIL status, failed command + fail-fast not-run captured", () => {
+    // CLI change → lint:structure, typecheck, chainreact:build, jest chainreact (auto, in order).
+    const r = reportFor(["scripts/chainreact/cli.ts"], { run: true, withTests: false }, { "npm run typecheck": 1 });
+    expect(r.finalStatus).toBe("FAIL");
+    expect(r.failedCommand).toEqual({ command: "npm run typecheck", status: 1 });
+    // everything after typecheck didn't run (fail-fast)
+    expect(r.notRunDueToFailFast).toContain("npm run chainreact:build");
+    expect(r.notRunDueToFailFast).toContain("npx jest tests/unit/chainreact");
+    expect(r.nextCommands.some((c) => c.startsWith("npm run typecheck") && c.includes("# fix"))).toBe(true);
+  });
+
+  it("run fail before app-validate → still suggests app validate --all", () => {
+    // validation-code change → includes app validate --all (auto, after the cheap scripts).
+    const r = reportFor(["scripts/chainreact/commands/appValidate.ts"], { run: true, withTests: false }, { "npm run lint:structure": 1 });
+    expect(r.finalStatus).toBe("FAIL");
+    expect(r.nextCommands).toContain("npm run chainreact -- app validate --all");
+  });
+
+  it("no-changes report", () => {
+    const r = reportFor([], { run: true, withTests: false });
+    expect(r.finalStatus).toBe("NO-CHANGES");
+    expect(r.nextCommands).toContain("npm run chainreact -- verify");
+  });
+
+  it("git-failure report", () => {
+    const plan = buildChangedVerifyPlan({ ok: false, files: [], error: "not a git repository" }, { run: true, withTests: false });
+    const r = buildChangedReport(plan, [], null);
+    expect(r.finalStatus).toBe("ERROR");
+    expect(r.error).toMatch(/not a git repository/);
+    expect(r.nextCommands).toContain("npm run chainreact -- verify");
+  });
+});
+
+describe("renderChangedReport + JSON", () => {
+  it("renders a compact summary with status/changed/next", () => {
+    const out = renderChangedReport(reportFor(["scripts/chainreact/cli.ts"], { run: false, withTests: false }));
+    expect(out).toContain("── verify --changed summary ──");
+    expect(out).toContain("status: DRY-RUN");
+    expect(out).toContain("changed files: 1");
+    expect(out).toContain("next:");
+  });
+
+  it("run-fail render shows failed command + fail-fast line", () => {
+    const out = renderChangedReport(reportFor(["scripts/chainreact/cli.ts"], { run: true, withTests: false }, { "npm run typecheck": 1 }));
+    expect(out).toContain("status: FAIL");
+    expect(out).toMatch(/failed command: npm run typecheck \(exit 1\)/);
+    expect(out).toMatch(/not run \(fail-fast/);
+  });
+
+  it("report output contains no shell-injection metacharacters", () => {
+    const out = renderChangedReport(reportFor(["scripts/chainreact/commands/appValidate.ts", "integrations/slack/x.ts", "supabase/migrations/x.sql"], { run: true, withTests: true }, { "npm run lint:structure": 1 }));
+    for (const bad of [";", "&&", "||", "|", "`", "$(", ">", "<"]) {
+      expect(out.includes(bad)).toBe(false);
+    }
+  });
+
+  it("JSON mode is deterministic and parses with the documented shape", () => {
+    const json = renderChangedReportJson(reportFor(["scripts/chainreact/cli.ts"], { run: false, withTests: false }));
+    expect(json).toBe(renderChangedReportJson(reportFor(["scripts/chainreact/cli.ts"], { run: false, withTests: false }))); // deterministic
+    const parsed = JSON.parse(json);
+    expect(parsed.finalStatus).toBe("DRY-RUN");
+    expect(parsed.changedFiles).toBe(1);
+    expect(Array.isArray(parsed.recommendations)).toBe(true);
+    expect(Array.isArray(parsed.executed)).toBe(true);
+    expect(parsed.nextCommands).toContain("npm run chainreact -- verify --changed --run");
+  });
+});
+
+describe("verify --changed --report / --json — dispatch via run()", () => {
+  const rt = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
+
+  it("--report appends the summary block after normal output (exit 0)", () => {
+    const out: string[] = [];
+    const code = run(["verify", "--changed", "--report"], {
+      changedFiles: fakeChanged(["scripts/chainreact/cli.ts"]),
+      executor: fakeExecutor(),
+      availableScripts: EXEC_SCRIPTS,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(0);
+    const joined = out.join("\n");
+    expect(joined).toContain("Recommended commands"); // normal output still present
+    expect(joined).toContain("── verify --changed summary ──"); // + report block
+    expect(joined).toContain("status: DRY-RUN");
+  });
+
+  it("--json emits ONLY JSON (no human output)", () => {
+    const out: string[] = [];
+    run(["verify", "--changed", "--json"], {
+      changedFiles: fakeChanged(["scripts/chainreact/cli.ts"]),
+      executor: fakeExecutor(),
+      availableScripts: EXEC_SCRIPTS,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    const joined = out.join("\n");
+    expect(joined).not.toContain("Recommended commands");
+    expect(joined).not.toContain("── verify --changed summary ──");
+    expect(() => JSON.parse(joined)).not.toThrow();
+    expect(JSON.parse(joined).finalStatus).toBe("DRY-RUN");
+  });
+
+  it("--run --report: executes + reports; exit reflects pass/fail", () => {
+    const out: string[] = [];
+    const code = run(["verify", "--changed", "--run", "--report"], {
+      changedFiles: fakeChanged(["scripts/chainreact/cli.ts"]),
+      executor: fakeExecutor({ "npm run typecheck": 1 }),
+      availableScripts: EXEC_SCRIPTS,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(1);
+    expect(out.join("\n")).toContain("status: FAIL");
+  });
+
+  it("--json on git failure exits 1 and emits ERROR json", () => {
+    const out: string[] = [];
+    const code = run(["verify", "--changed", "--json"], {
+      changedFiles: fakeChanged([], false, "not a git repository"),
+      executor: fakeExecutor(),
+      availableScripts: EXEC_SCRIPTS,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(1);
+    expect(JSON.parse(out.join("\n")).finalStatus).toBe("ERROR");
   });
 });
