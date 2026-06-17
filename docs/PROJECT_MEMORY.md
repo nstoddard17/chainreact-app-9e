@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-16 @ 1f34cd7ba (grant-audit arc closeout — integrations/trigger_resources/workflow_files/workflow_runs service-role-only; local/unpushed)
+> Last curated: 2026-06-17 @ 882519ba0 (AI-REPAIR-COVERAGE-1 self-loop edge repair closeout; local/unpushed)
 
 ## Current status
 
@@ -119,6 +119,18 @@
   for unbuilt behavior; no creds/node-config). **UI/canvas/state-only — no migration, no backend/runtime, no flag.**
   Interleaved with unrelated parallel CLI/security commits (NOT this arc). Not pushed / not prod-smoked →
   [`builder-ux-mini-arc-closeout.md`](./slices/phase-4/workflows/builder-ux-mini-arc-closeout.md).
+- **AI repair self-loop edge cleanup (AI-REPAIR-COVERAGE-1) — 3rd deterministic repair category, LOCAL/UNPUSHED (2026-06-17)** —
+  removes a **self-loop edge** (a connection whose `from === to` — a step wired to itself). Check-ONLY
+  detection (`findSelfLoopEdges` in readiness diagnostic → `SELF_LOOP_EDGE` finding, safe labels, gates
+  `overallReady` false); the shared runtime/activation validator is **intentionally untouched** (Check
+  stricter than runtime, like the invalid-ref precedent). Deterministic Preview + Apply are **no-LLM /
+  no-credit / no-model-telemetry**; **`removeEdge` only** (batch-removes all self-loops in one validated
+  preview), validated through the existing preview/apply safety engine, fail-closed. Apply is
+  **validated-preview-only + draft-only** (never runs/activates/registers triggers, never mutates
+  creds/integrations). **No migration, no flag.** `useBuilderDiagnosisActions.ts` now over the soft
+  400-line cap (extract handlers next). Single commit `882519ba0`, atop interleaved parallel work. Not
+  pushed / not prod-smoked →
+  [`ai-repair-coverage-1-self-loop-closeout.md`](./slices/phase-4/ai/ai-repair-coverage-1-self-loop-closeout.md).
 - **AI repair dangling-edge cleanup (AI-REPAIR-4A/4B) — 2nd deterministic repair category, LOCAL/UNPUSHED (2026-06-16)** —
   removes a **dangling edge** (a connection whose `from`/`to` step no longer exists). Check surfaces an
   actionable `STALE_EDGE` card (safe labels only; 4B adds per-endpoint "which side vanished" flags →
