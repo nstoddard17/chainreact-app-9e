@@ -3,15 +3,24 @@
 **Type:** Post-ship closeout (docs-only). Nothing pushed from this arc.
 **Date:** 2026-06-16
 **Branch:** `v2-main`
-**Scope:** workflow-builder canvas layout + add-node ergonomics + node quick actions + top tabs.
+**Scope:** workflow-builder canvas layout + add-node ergonomics + node quick actions + top
+tabs + single selected-node config tab model + Data Map MVP outline + single config-panel
+close.
 
 > **STATUS: LOCAL / UNPUSHED.** All commits are local on `v2-main` and **not pushed**.
 > Not yet production-smoked. **No migration, no feature flag, no backend change** — this
 > arc is entirely builder UI / canvas / client graph-state.
 >
 > An earlier closeout (`720e2195e`) was written **prematurely** and **reverted**
-> (`cfa837bfe`) because the arc was not complete; this doc is the real closeout after the
-> ergonomics fix + tab cleanup landed.
+> (`cfa837bfe`). An interim closeout (`abea98f81`) covered the arc through SHELL-TABS-1;
+> **this doc supersedes it** as the real closeout after the config-tab consolidation, the
+> duplicate-close-X removal, and the Data Map MVP landed.
+>
+> **Parallel-session note:** a separate parallel AI / CLI / security session committed its
+> own unrelated local work **interleaved** with this arc (CLI scaffolding/executor +
+> `V2-READY-47E/48/49` security/docs). Those commits are **NOT part of this arc** — see §9
+> for the explicit split. They advanced `HEAD` between builder commits but touch disjoint
+> files.
 
 ---
 
@@ -22,9 +31,16 @@
 3. A **manual drag** could still drop a node on top of another (overlap).
 4. No clear **add-at-bottom / branch-tail append** affordance — add effectively happened mid-chain or only via a top-right button.
 5. **Rename / delete** required opening the config panel.
-6. The **top tabs were dead disabled placeholders**, and **"Schema"** was not user-friendly.
+6. The **top builder tabs were dead disabled placeholders**.
+7. **"Schema"** was not a user-friendly tab name.
+8. The **right-side config panel had duplicated / dead tab rows** (an outer
+   `Setup | Advanced | Test | Variables` over an inner `Setup | Advanced | Results | Data
+   Inspector` — both confusing and mostly dead).
+9. The config panel showed **two close (×) controls** (one in the panel header, one inside
+   the selected-node content near the title).
+10. **Data Map was still only a placeholder** even when the workflow already had nodes.
 
-## 2. Completed commit chain
+## 2. Completed commit chain (builder UX only)
 
 - `a6ec958ac` — non-overlap append-at-end + arrange-all canvas layout (BUILDER-CANVAS-LAYOUT-1) _(2026-06-16)_
 - `424facf54` — non-overlapping mid-chain insert placement (BUILDER-CANVAS-LAYOUT-2) _(2026-06-16)_
@@ -32,6 +48,9 @@
 - `cfa837bfe` — **revert** of the premature closeout (`720e2195e`) _(2026-06-16)_
 - `79f47ffc2` — canvas ergonomics: Arrange in controls, drag non-overlap, tail + append (BUILDER-CANVAS-ERGONOMICS-FIX-1) _(2026-06-16)_
 - `48392d318` — rename top tabs to Builder | Runs | Data Map | Settings + empty states (BUILDER-SHELL-TABS-1) _(2026-06-16)_
+- `abea98f81` — interim closeout, superseded by this doc (BUILDER-UX-MINI-ARC-CLOSEOUT) _(2026-06-16)_
+- `5024f184f` — single selected-node config tab model: Setup | Test | Data (BUILDER-CONFIG-TABS-1) _(2026-06-16)_
+- `9de915b50` — Data Map MVP outline + single config-panel close (BUILDER-DATA-MAP-MVP-1) _(2026-06-16)_
 
 ## 3. What shipped
 
@@ -61,6 +80,17 @@
   tabs — each clickable tab swaps the canvas for a polished panel describing what will live
   there (Settings explicitly notes connections live in Apps and step config lives in the
   step panel).
+- **Right config panel now has ONE tab strip: Setup | Test | Data** (CONFIG-TABS-1) — the
+  duplicated outer + inner tab rows collapsed into a single functional model. Setup is the
+  real form; Test / Data show honest empty states (per-step test execution + the node-level
+  data context are deferred). **Advanced is omitted entirely until a node actually has
+  advanced metadata** (no dead tab).
+- **Data Map MVP shows a graph-derived workflow outline when actions exist** (DATA-MAP-MVP-1)
+  — see §5. Trigger-only / empty workflows keep the honest empty state.
+- **Duplicate inner config-panel close (×) removed** (DATA-MAP-MVP-1) — only the
+  drawer-level close (next to "Node configuration") remains. The unsaved-edit discard guard
+  the inner × triggered is preserved via the footer **Cancel** button (same handler), so no
+  behavior was lost.
 
 ## 4. Branch behavior
 
@@ -73,7 +103,33 @@
 - **Arrange lays split branches side-by-side by column** (`layoutWorkflowGraph`: component →
   BFS-depth rows → sibling columns), not stacked.
 
-## 5. Safety constraints honored
+## 5. Data Map behavior (DATA-MAP-MVP-1)
+
+- **Frontend-only.** Derived entirely from the current **draft** graph
+  (`graphSlice.pending*`) + existing node/action/trigger metadata. No run-result /
+  sample-data plumbing, no backend call.
+- **Trigger-only / empty workflow** → the same honest empty state (reuses the SHELL-TABS-1
+  placeholder copy); no outline.
+- **Workflow with action steps** → a **workflow-ordered outline** (forward BFS from the
+  trigger; trigger first, then actions in graph order). Per node: display name,
+  provider label, operation/type label, **configured field LABELS** (never values),
+  **variables used** (friendly source label + path; deleted/unknown source refs flagged
+  "no longer available"), and **metadata-declared outputs** (or an honest "appears after
+  testing / once metadata available" note).
+- **No-leak posture:** field labels only — **never config values**; variable references show
+  a friendly source label + path, **never the raw `{{nodeId.path}}` token or internal node
+  id**; broken refs say "Unknown step"; **no raw JSON / schema dump**; no DB ids; no provider
+  secrets (credentials never live in node config). The **trigger's** outputs offer a safe
+  copyable `{{trigger.<path>}}` token (carries no id); **action-output copy tokens are
+  deferred** (they would require rendering a raw node id).
+- **Reuse, not reinvention:** tokenization via `core/workflows/variableReferences`
+  (`parseReferences`); the broken-ref definition mirrors
+  `core/workflows/invalidVariableReferences.ts`; meta resolution mirrors the
+  `useUpstreamVariables` pattern. New pure helper:
+  `core/workflows/configVariableReferences.ts` (all-refs collector, top-level string /
+  string[] scope — same as the broken-ref detector).
+
+## 6. Safety constraints honored
 
 UI / canvas / client-graph-state only:
 - **No DB migration.**
@@ -87,9 +143,10 @@ UI / canvas / client-graph-state only:
   the existing safe-rewire contract. Workflow Settings hosts no credentials and no node-level
   config (by design + asserted by test).
 
-## 6. Verification summary
+## 7. Verification baseline
 
-Measured **this session** during each implementation slice (per the slice reports):
+**Inherited** from each slice's own implementation report (measured at the time of that
+slice, **not re-run for this closeout**):
 
 | Slice | Focused tests | Full builder suite | tsc | lint / structure |
 |------|---------------|--------------------|-----|------------------|
@@ -97,48 +154,85 @@ Measured **this session** during each implementation slice (per the slice report
 | LAYOUT-2 `424facf54` | 121 | 1776 | exit 0 | eslint touched 0; structure OK |
 | QUICK-ACTIONS-1 `d812e02b6` | 91 | 1790 | exit 0 | eslint touched 0; `npm run lint` 0 errors; structure OK |
 | ERGONOMICS-FIX-1 `79f47ffc2` | 196 | 1806 | exit 0 | eslint touched 0; `npm run lint` 0 errors / 23 warnings; structure OK |
-| SHELL-TABS-1 `48392d318` | 20 (canvas) | 1810 | exit 0 | eslint touched 0; structure OK; see §7 lint note |
+| SHELL-TABS-1 `48392d318` | 20 (canvas) | 1810 | exit 0 | eslint touched 0; structure OK |
+| CONFIG-TABS-1 `5024f184f` | config-modal suite | (per slice report) | exit 0 | eslint touched 0; structure OK |
+
+**Newly measured this conversation** for DATA-MAP-MVP-1 `9de915b50` (via the MCP
+verification tools, exact results):
+
+- `typecheck` → **exit 0**.
+- Focused / related Jest suites — **all green**: `configVariableReferences.test.ts` 6/6 ·
+  `DataMapPanel.test.tsx` 7/7 · `ConfigModalShell.test.tsx` 50/50 (covers the CONFIG-TABS-1
+  tab model + the single-close-control assertions) · `WorkflowCanvas.test.tsx` 20/20 ·
+  `NodeInspectorPanel.test.tsx` 10/10 · `canvas-config-sync.test.tsx` 6/6 ·
+  `BuilderRightDrawer.test.tsx` 6/6.
+- `npm run lint` → **0 errors / 23 warnings** (all warnings pre-existing in files NOT
+  touched by this arc — incl. the parallel session's `services/oauth/dispatcher.ts`).
+  `lint:structure` → **OK** (every leaf folder ≤ 50 files).
+
+> The full `~1810+`-test builder suite was **not** re-run as a whole this conversation; the
+> per-slice totals above are inherited from the slice reports. **This closeout edit itself
+> is docs-only — it runs nothing new.**
 
 New deterministic coverage added across the arc: pure `workflowLayout` helpers
 (`findChainTailId`, `computeNonOverlappingPosition`, `layoutWorkflowGraph`,
 `collectDownstreamIds`, `resolveNonOverlappingDrop`), `addAction` chain-tail + non-overlap,
 `addActionAfter`, `autoLayout`, mid-chain insert overlap/branch cases, node quick
 rename/delete + keyboard isolation, tail "+" rendering/branch-specific append, branch-aware
-CTA gating (driven through the real mounted builder), and the renamed tabs + per-tab empty
-states. **This closeout is docs-only — no tests / typecheck / lint were run for it.**
+CTA gating, renamed tabs + per-tab empty states, the single Setup | Test | Data tab model +
+single-close-control assertions, the Data Map outline (trigger-only empty / linear /
+action→action / trigger-token / no-leak), and the `configVariableReferences` collector.
 
-## 7. Caveats / deferred
+## 8. Caveats / deferred
 
 - **Real Runs tab wiring deferred** — `features/workflow-builder/panels/RunHistory.tsx`
   exists but is server-fed (via `app/workflows/[id]/page.tsx`); wiring it into the tab needs
   client data plumbing. It is the future seam.
-- **Real Data Map system deferred** — the tab ships a user-facing empty state only.
-- **Real Settings system deferred** — the tab ships an empty state only.
+- **Real workflow Settings system deferred** — the tab ships an empty state only.
+- **Node-level Test execution deferred** — the config panel's Test tab is an honest empty
+  state; per-step test runs aren't wired.
+- **Node-level Data tab wiring remains empty-state-only** — the per-node data context (in
+  the config panel) is not yet populated; the top-level Data Map MVP is the live surface.
+- **Run-result / sample-data plumbing deferred** — the Data Map (and node Data tab) show
+  metadata-declared shape, not captured run values.
+- **Action-output copy tokens deferred** — only the trigger offers copyable
+  `{{trigger.<path>}}`; action outputs would need a raw node id, so no copy button yet.
+- **Nested-config variable scanning deferred** — the variable collector scans top-level
+  string / string[] config (same scope as the broken-ref detector); keyvalue maps / router
+  routes are out of scope for this slice.
 - **Tail "+ Add step" lives in the node footer** for now (ReactFlow card clipping), not a
   hanging connector below the card. Still at the chain/branch end and clearly "add the next
   step." A hanging connector is possible later polish.
 - **No browser E2E** for ReactFlow internals — jsdom can't simulate ReactFlow drag, so
   drag-overlap is verified at the pure-helper seam + typed wiring; tab swap is verified via
   the `.react-flow` container. Seams are covered by helper / component / hook / state tests.
-- **Full `npm run lint` is currently blocked by unrelated untracked parallel work** (an
-  integration-access structure test with 2 lint errors); the builder UX touched files are
-  clean (eslint exit 0). The 2 errors are not part of this arc.
-- **A `max-lines` warning on `graphSlice.ts`** (now ~468 lines) is pre-existing (already
-  >400 before this arc); under the 500 hard cap. `WorkflowCanvas.tsx` was kept under the cap
-  by extracting `CanvasActionBar.tsx` + `BuilderTabPlaceholder.tsx` in SHELL-TABS-1.
+- **A `max-lines` warning on `graphSlice.ts`** (~468 lines) is pre-existing (already >400
+  before this arc); under the 500 hard cap. `WorkflowCanvas.tsx` was kept under the cap by
+  extracting `CanvasActionBar.tsx` + `BuilderTabPlaceholder.tsx` (SHELL-TABS-1) and
+  `DataMapPanel.tsx` (DATA-MAP-MVP-1). A future `graphSlice` extraction is possible if it
+  grows past the soft cap.
 
-## 8. Push / deploy status
+## 9. Push / deploy status
 
 - **Local only.** Nothing pushed.
 - `v2-main` is **ahead of `origin/v2-main`** (these commits + earlier unpushed work).
 - **No production push / deploy** from this arc; not yet prod-smoked.
+- **Parallel non-builder commits exist locally and are NOT part of this arc.** A separate
+  parallel AI / CLI / security session committed, interleaved with the builder commits:
+  `3bdd5486c` (cli: trigger scaffolding), `0cac51058` (V2-READY-47E), `1acdf0382`
+  (cli: verify --changed), `42433bff6` (V2-READY-48), `578452dda` (cli: structured
+  executor), `0a91d4ad7` (V2-READY-49). They touch disjoint files (CLI / OAuth / security
+  docs) and advanced `HEAD` between builder commits; the builder arc owns only the eight
+  commits in §2. That session also has in-flight uncommitted edits under
+  `scripts/chainreact/**` + `tests/unit/chainreact/cli.test.ts` — **left untouched** by this
+  closeout.
 
-## 9. Closeout confirmation
+## 10. Closeout confirmation
 
 Docs-only. Nothing pushed. Doc:
 `docs/slices/phase-4/workflows/builder-ux-mini-arc-closeout.md`.
 
-> **PROJECT_MEMORY note:** a compact memory bullet for this mini-arc was **deferred** this
-> turn because `docs/PROJECT_MEMORY.md` currently carries uncommitted unrelated parallel-work
-> edits; committing it would entangle that work. Record the bullet once the parallel edit
-> lands (or via the memory-curator) — marked LOCAL/UNPUSHED.
+> **PROJECT_MEMORY:** the deferral noted in the interim closeout is resolved —
+> `docs/PROJECT_MEMORY.md` is now clean (the parallel session's earlier memory edits
+> committed), so one compact LOCAL/UNPUSHED bullet for this mini-arc is recorded under
+> "Recently completed arcs" in the same commit as this doc.

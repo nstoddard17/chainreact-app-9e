@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-16 @ 3a146901f (AI-REPAIR-4 dangling-edge cleanup repair — local/unpushed; extends the AI-REPAIR-3 deterministic-repair Apply arc)
+> Last curated: 2026-06-16 @ 9de915b50 (Builder UX mini-arc closeout — canvas ergonomics + tabs + Setup|Test|Data config tabs + Data Map MVP; local/unpushed)
 
 ## Current status
 
@@ -106,6 +106,16 @@
 
 ## Recently completed arcs
 
+- **Builder UX mini-arc — canvas ergonomics + tabs + config-tab consolidation + Data Map MVP, LOCAL/UNPUSHED (2026-06-16)** —
+  8 builder commits `a6ec958ac → 9de915b50`: non-overlap append/insert + drag resolve, Arrange moved to
+  the zoom/fit controls, per-branch tail "+ Add step" (global Add disabled when multiple tails), inline
+  node rename + delete (existing safe-rewire), top tabs **Builder | Runs | Data Map | Settings** (no dead
+  tabs), one config tab strip **Setup | Test | Data** (Advanced hidden until real metadata), single
+  config-panel close ×, and a **frontend-only Data Map MVP** outline (graph/draft/metadata-derived; field
+  **labels** not values; friendly variable source labels, broken refs flagged; trigger `{{trigger.…}}` copy
+  only; no raw ids/JSON/secrets). **UI/canvas/state-only — no migration, no backend/runtime, no flag.**
+  Interleaved with unrelated parallel CLI/security commits (NOT this arc). Not pushed / not prod-smoked →
+  [`builder-ux-mini-arc-closeout.md`](./slices/phase-4/workflows/builder-ux-mini-arc-closeout.md).
 - **AI repair dangling-edge cleanup (AI-REPAIR-4A/4B) — 2nd deterministic repair category, LOCAL/UNPUSHED (2026-06-16)** —
   removes a **dangling edge** (a connection whose `from`/`to` step no longer exists). Check surfaces an
   actionable `STALE_EDGE` card (safe labels only; 4B adds per-endpoint "which side vanished" flags →
