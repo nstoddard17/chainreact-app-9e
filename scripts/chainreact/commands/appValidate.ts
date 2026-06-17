@@ -37,6 +37,7 @@ import {
 import {
   detectHandlerRegistration,
   detectMetaRegistration,
+  detectTriggerMetaRegistration,
   HANDLER_INVENTORY_PATH,
   META_INVENTORY_PATH,
   readMetaRegistryText,
@@ -178,10 +179,21 @@ export function validateProvider(provider: string, fs: FsDeps): ValidationResult
   }
 
   // Trigger metas use a different (folder-based) layout, but the META FILE
-  // contract is identical and statically checkable — deep-check each one.
+  // contract is identical and statically checkable — deep-check each one. A
+  // trigger has no handler/schema (runtime self-registers separately); the meta
+  // is the unit. Registry wiring is the discovery ALL_TRIGGER_META / barrel
+  // <X>_TRIGGER_METAS — unregistered → WARNING (a scaffolded trigger is inert
+  // until wired); "unknown" (inventory unreadable) is skipped.
   for (const [base, u] of triggers) {
     if (u.meta && u.metaPath) {
       findings.push(...checkMetaContent(fs.readText(u.metaPath), "trigger", id, base, { allowedCategories: allow.categories }));
+      if (detectTriggerMetaRegistration(metaInv, id, base) === "unregistered") {
+        findings.push({
+          level: "warning",
+          code: "TRIGGER_META_NOT_REGISTERED",
+          message: `trigger '${base}' meta is not registered in the discovery inventory (ALL_TRIGGER_META / <X>_TRIGGER_METAS) — it won't appear in the builder/AI until wired. Register it manually (see scripts/chainreact/README.md → trigger scaffolding).`,
+        });
+      }
     }
   }
 

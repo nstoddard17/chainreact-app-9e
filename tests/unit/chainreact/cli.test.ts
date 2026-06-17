@@ -14,6 +14,7 @@ import {
   buildMetaInventoryPatch,
   detectHandlerRegistration,
   detectMetaRegistration,
+  detectTriggerMetaRegistration,
   HANDLER_INVENTORY_PATH,
   handlerRegistrationStatus,
   looksLikeScaffoldPlaceholder,
@@ -24,8 +25,15 @@ import {
   readActionMetaExportName,
   readMetaRegistryText,
   resolveMetaRegistryTarget,
+  triggerMetaRegistrationStatus,
 } from "@/scripts/chainreact/actionRegistry";
 import { runAppActionRegister } from "@/scripts/chainreact/commands/appActionRegister";
+import {
+  buildTriggerScaffoldPlan,
+  runAppTriggerScaffold,
+  triggerMetaExportName,
+  triggerMetaPath,
+} from "@/scripts/chainreact/commands/appTriggerScaffold";
 import {
   actionMetaExportName,
   buildActionScaffoldPlan,
@@ -1714,5 +1722,216 @@ describe("app action register — dispatch via run()", () => {
     const out: string[] = [];
     run(["app", "action", "bogus", "x", "y"], { fs: fsWith(), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
     expect(out.join("\n")).toMatch(/register/);
+  });
+});
+
+// ── trigger scaffolding + trigger registry detection ─────────────────────────
+// Discovery trigger inventory: slack direct + airtable via barrel.
+const TRIGGER_META_INV = [
+  'import { reactionAddedTriggerMeta } from "@/integrations/slack/triggers/reactionAdded/reactionAdded.meta";',
+  'import { AIRTABLE_TRIGGER_METAS } from "./providers/airtable";',
+  "",
+  "export const ALL_TRIGGER_META = [",
+  "  reactionAddedTriggerMeta,",
+  "  ...AIRTABLE_TRIGGER_METAS,",
+  "];",
+  "",
+].join("\n");
+const AIRTABLE_TRIGGER_BARREL = [
+  'import type { TriggerMeta } from "@/contracts/triggerMeta";',
+  'import { airtableRecordChangedTriggerMeta } from "@/integrations/airtable/triggers/recordChanged/recordChanged.meta";',
+  "",
+  "export const AIRTABLE_TRIGGER_METAS: ReadonlyArray<TriggerMeta> = [",
+  "  airtableRecordChangedTriggerMeta,",
+  "];",
+  "",
+].join("\n");
+const AIRTABLE_TRIG_BARREL_PATH = metaBarrelPath("airtable");
+
+describe("trigger meta export naming + path (pure)", () => {
+  it("derives a provider-prefixed TriggerMeta export name", () => {
+    expect(triggerMetaExportName("slack", normalizeActionId("message-posted"))).toBe("slackMessagePostedTriggerMeta");
+    expect(triggerMetaExportName("google-analytics", normalizeActionId("report-ready"))).toBe("googleAnalyticsReportReadyTriggerMeta");
+  });
+  it("uses the folder-per-trigger layout", () => {
+    expect(triggerMetaPath("slack", "messagePosted")).toBe("integrations/slack/triggers/messagePosted/messagePosted.meta.ts");
+    const plan = buildTriggerScaffoldPlan("slack", normalizeActionId("message-posted"));
+    expect(plan.files.map((f) => f.path)).toEqual(["integrations/slack/triggers/messagePosted/messagePosted.meta.ts"]);
+    expect(plan.files[0]!.content).toContain('activation: "manual"');
+    expect(plan.files[0]!.content).toContain('key: "slack:message_posted"');
+  });
+});
+
+describe("trigger meta registry detection (pure + fs)", () => {
+  it("registered via DIRECT central import", () => {
+    expect(detectTriggerMetaRegistration(TRIGGER_META_INV, "slack", "reactionAdded")).toBe("registered");
+  });
+  it("barrel-backed provider needs the barrel text", () => {
+    expect(detectTriggerMetaRegistration(TRIGGER_META_INV, "airtable", "recordChanged")).toBe("unregistered");
+    expect(detectTriggerMetaRegistration(`${TRIGGER_META_INV}\n${AIRTABLE_TRIGGER_BARREL}`, "airtable", "recordChanged")).toBe("registered");
+  });
+  it("unregistered when absent; unknown when inventory empty", () => {
+    expect(detectTriggerMetaRegistration(TRIGGER_META_INV, "slack", "ghost")).toBe("unregistered");
+    expect(detectTriggerMetaRegistration("", "slack", "reactionAdded")).toBe("unknown");
+  });
+  it("triggerMetaRegistrationStatus combines central + provider barrel via fs", () => {
+    const fs = fakeFs({ [META_INVENTORY_PATH]: TRIGGER_META_INV, [AIRTABLE_TRIG_BARREL_PATH]: AIRTABLE_TRIGGER_BARREL });
+    expect(triggerMetaRegistrationStatus(fs, "slack", "reactionAdded")).toBe("registered");
+    expect(triggerMetaRegistrationStatus(fs, "airtable", "recordChanged")).toBe("registered");
+    expect(triggerMetaRegistrationStatus(fs, "slack", "ghost")).toBe("unregistered");
+  });
+});
+
+describe("app validate — trigger registry warning", () => {
+  it("registered trigger meta → no TRIGGER_META_NOT_REGISTERED warning", () => {
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/triggers/reactionAdded/reactionAdded.meta.ts": triggerMetaSrc("slack", "reaction_added"),
+      [META_INVENTORY_PATH]: TRIGGER_META_INV,
+    });
+    const r = validateProvider("slack", fs);
+    expect(r.findings.some((f) => f.code === "TRIGGER_META_NOT_REGISTERED")).toBe(false);
+  });
+  it("unregistered trigger meta → WARNING, still ok (WARN)", () => {
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/triggers/ghostTrigger/ghostTrigger.meta.ts": triggerMetaSrc("slack", "ghost_trigger"),
+      [META_INVENTORY_PATH]: TRIGGER_META_INV,
+    });
+    const r = validateProvider("slack", fs);
+    const warn = r.findings.find((f) => f.code === "TRIGGER_META_NOT_REGISTERED");
+    expect(warn?.level).toBe("warning");
+    expect(r.ok).toBe(true);
+    expect(verdictOf(r)).toBe("WARN");
+  });
+  it("inventory absent (unknown) → no false-negative trigger warning", () => {
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/triggers/ghostTrigger/ghostTrigger.meta.ts": triggerMetaSrc("slack", "ghost_trigger"),
+    });
+    const r = validateProvider("slack", fs);
+    expect(r.findings.some((f) => f.code === "TRIGGER_META_NOT_REGISTERED")).toBe(false);
+  });
+});
+
+describe("app trigger scaffold — runAppTriggerScaffold", () => {
+  const providerFs = (): FsDeps => fakeFs({ "integrations/slack/manifest.ts": manifestSrc("slack"), [REGISTRY_PATH]: REGISTRY_SRC });
+
+  it("dry-run writes nothing and predicts a passing validation (exit 0)", () => {
+    const w = fakeWriter();
+    const r = runAppTriggerScaffold("slack", "message-posted", { dryRun: true }, providerFs(), w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(w.dirs.length).toBe(0);
+    expect(r.output).toContain("would write: integrations/slack/triggers/messagePosted/messagePosted.meta.ts");
+    expect(r.output).toContain("Trigger key: slack:message_posted");
+    expect(r.output).toContain("PASS");
+  });
+
+  it("creates exactly the one meta file in folder layout (exit 0)", () => {
+    const w = fakeWriter();
+    const r = runAppTriggerScaffold("slack", "message-posted", { dryRun: false }, providerFs(), w);
+    expect(r.code).toBe(0);
+    expect([...w.files.keys()]).toEqual(["integrations/slack/triggers/messagePosted/messagePosted.meta.ts"]);
+  });
+
+  it("generated meta has the correct key/provider/type/export and inert activation", () => {
+    const w = fakeWriter();
+    runAppTriggerScaffold("slack", "message-posted", { dryRun: false }, providerFs(), w);
+    const meta = w.files.get("integrations/slack/triggers/messagePosted/messagePosted.meta.ts")!;
+    expect(meta).toContain('key: "slack:message_posted"');
+    expect(meta).toContain('provider: "slack"');
+    expect(meta).toContain('type: "message_posted"');
+    expect(meta).toContain("export const slackMessagePostedTriggerMeta: TriggerMeta");
+    expect(meta).toContain('activation: "manual"');
+    expect(meta).toContain("payloadShape: []");
+    expect(meta).toContain("displayOrder: null");
+  });
+
+  it("generated trigger validates clean in the overlay (no inventory → no false warning)", () => {
+    const fs = fakeFs({ "integrations/slack/manifest.ts": manifestSrc("slack") });
+    const r = runAppTriggerScaffold("slack", "message-posted", { dryRun: true }, fs, fakeWriter());
+    expect(r.output).toContain("PASS — no structural issues detected");
+    expect(r.output).not.toContain("[ERROR]");
+  });
+
+  it("refuses an unknown provider (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const r = runAppTriggerScaffold("ghostprovider", "do-thing", { dryRun: false }, providerFs(), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/unknown provider/);
+  });
+
+  it("refuses an invalid trigger id (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const r = runAppTriggerScaffold("slack", "Bad Trigger!", { dryRun: false }, providerFs(), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/Invalid action id|Invalid trigger id/);
+  });
+
+  it("refuses a collision with an existing trigger (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/slack/manifest.ts": manifestSrc("slack"),
+      "integrations/slack/triggers/messagePosted/messagePosted.meta.ts": triggerMetaSrc("slack", "message_posted"),
+      [REGISTRY_PATH]: REGISTRY_SRC,
+    });
+    const r = runAppTriggerScaffold("slack", "message-posted", { dryRun: false }, fs, w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/already has a trigger|refusing to overwrite/);
+  });
+
+  it("unregistered provider → warning but still succeeds (exit 0, file created)", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({ "integrations/beta/manifest.ts": manifestSrc("beta"), [REGISTRY_PATH]: REGISTRY_SRC });
+    const r = runAppTriggerScaffold("beta", "thing-happened", { dryRun: false }, fs, w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(1);
+    expect(r.output).toMatch(/not registered in integrations\/_registry\.ts/);
+    expect(r.output).toMatch(/will NOT load/);
+  });
+});
+
+describe("app trigger scaffold — dispatch via run()", () => {
+  const rt = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
+  const providerFs = (): FsDeps => fakeFs({ "integrations/slack/manifest.ts": manifestSrc("slack") });
+
+  it("`app trigger scaffold <p> <t> --dry-run` → exit 0, no writes", () => {
+    const w = fakeWriter();
+    const out: string[] = [];
+    const code = run(["app", "trigger", "scaffold", "slack", "message-posted", "--dry-run"], { fs: providerFs(), writer: w, runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(out.join("\n")).toContain("app trigger scaffold: slack:message_posted");
+  });
+
+  it("`app trigger scaffold <p> <t>` → exit 0 and writes the meta", () => {
+    const w = fakeWriter();
+    const code = run(["app", "trigger", "scaffold", "slack", "message-posted"], { fs: providerFs(), writer: w, runtime: rt, log: () => {} });
+    expect(code).toBe(0);
+    expect(w.files.size).toBe(1);
+  });
+
+  it("`app trigger scaffold` with missing args → usage, exit 2", () => {
+    const out: string[] = [];
+    const code = run(["app", "trigger", "scaffold", "slack"], { fs: providerFs(), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/Usage:.*app trigger scaffold/);
+  });
+
+  it("unknown `app trigger` subcommand → exit 2", () => {
+    const out: string[] = [];
+    const code = run(["app", "trigger", "bogus", "slack", "x"], { fs: providerFs(), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/app trigger scaffold/);
+  });
+
+  it("unknown `app` subcommand mentions trigger scaffold", () => {
+    const out: string[] = [];
+    run(["app", "bogus"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(out.join("\n")).toMatch(/trigger scaffold/);
   });
 });

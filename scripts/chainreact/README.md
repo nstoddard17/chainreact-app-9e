@@ -33,12 +33,13 @@ It is **live internal tooling** (not flag-gated).
 | `chainreact verify [--run] [--with-tests]` | Prints the pre-push/deploy verification batch. **Default: dry-run** (prints, runs nothing). `--run` executes the safe subset (`lint:structure`, `typecheck`, `lint`); `--run --with-tests` also runs the full `test` suite (heavy, opt-in). Fail-fast. |
 | `chainreact mcp smoke [--dry-run]` | Thin wrapper over the existing `npm run mcp:smoke`. `--dry-run` prints the command. Fails gracefully if the script is absent. Adds no MCP tools/permissions. |
 | `chainreact app list` | Lists discovered providers with text-derived fields: id, displayName, enabled, **registered** (`yes`/`no`/`?`), action handler/meta/schema counts, trigger-meta count. Never imports provider code. Deterministic (sorted by id). |
-| `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. Adds a `MANIFEST_NOT_REGISTERED` **warning** when the manifest isn't wired into `_registry.ts`, and `ACTION_META_NOT_REGISTERED` / `ACTION_HANDLER_NOT_REGISTERED` **warnings** for a complete action triad that isn't wired into the discovery/handler inventories (never errors). |
+| `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. Adds a `MANIFEST_NOT_REGISTERED` **warning** when the manifest isn't wired into `_registry.ts`, `ACTION_META_NOT_REGISTERED` / `ACTION_HANDLER_NOT_REGISTERED` **warnings** for a complete action triad that isn't wired into the discovery/handler inventories, and `TRIGGER_META_NOT_REGISTERED` **warning** for a trigger meta not wired into the discovery trigger inventory (all warnings — never errors). |
 | `chainreact app validate --all [--verbose]` | Runs the validator across **every** discovered provider; prints a summary (total / pass / warn / fail + per-provider status). Failures list their errors inline; `--verbose` also lists warnings. |
 | `chainreact app scaffold <id> [--dry-run] [--register]` | Creates a minimal, contract-valid provider skeleton under `integrations/<id>/` (a single `manifest.ts`, capabilities off, TODOs for the rest). Refuses to overwrite an existing provider. **Default: does not edit the registry** (provider stays inert). `--register` additionally wires the new manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). `--dry-run` prints the plan (+ the registry patch when `--register`) and writes nothing. |
 | `chainreact app register <id>` | Wires an **existing** provider's manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). Requires `integrations/<id>/manifest.ts` to exist; refuses unknown dirs; no-ops cleanly if already registered; refuses (writes nothing) if the registry format can't be patched safely. `--dry-run` prints the patch and writes nothing. |
 | `chainreact app action scaffold <provider> <action> [--dry-run]` | Creates a minimal action **triad** (`<base>.ts` handler + `.schema.ts` + `.meta.ts`) for an **existing** provider. The handler validates config then **throws "not implemented"** (no network, no fake success); the meta is Zod-valid (no fields/outputs, `category: "other"`) so the provider keeps passing `app validate`. Refuses unknown providers, invalid action ids, and collisions with an existing action unit. Does **not** register the handler/meta or change `isEnabled`. `--dry-run` prints the plan + predicted validation and writes nothing. |
 | `chainreact app action register <provider> <action> [--dry-run]` | Wires an **implemented** action's handler + meta into the app inventories (handler → `_handlerInventory.ts` `ALL_HANDLERS`; meta → central `ALL_ACTION_META` **or** the provider's discovery barrel `<X>_ACTION_METAS`). Requires the full triad to exist; **refuses a scaffold placeholder** (handler still throws "not implemented"); no-ops if already registered; refuses (writes nothing) if a registry's anchors are missing/unreadable. `--dry-run` prints the planned edits and writes nothing. |
+| `chainreact app trigger scaffold <provider> <trigger> [--dry-run]` | Creates a minimal trigger **meta** (`triggers/<base>/<base>.meta.ts`, the dominant folder-per-trigger layout) for an **existing** provider. **Inert**: `activation: "manual"`, no fields/payload, **no webhook/polling runtime files** (those encode real provider behavior). Zod-valid so the provider keeps passing `app validate`. Refuses unknown providers, invalid ids, and collisions. **Not auto-registered** (trigger registration is a documented manual step — no patching this slice). `--dry-run` prints the plan + predicted validation and writes nothing. |
 | `chainreact --help` / `-h` | Usage. |
 
 ## Usage
@@ -63,6 +64,8 @@ npm run chainreact -- app action scaffold slack send-test-message --dry-run
 npm run chainreact -- app action scaffold slack send-test-message
 npm run chainreact -- app action register slack send-channel-message --dry-run   # no-op (already registered)
 npm run chainreact -- app action register slack my-implemented-action            # after implementing it
+npm run chainreact -- app trigger scaffold slack message-posted --dry-run
+npm run chainreact -- app trigger scaffold slack message-posted
 ```
 
 `npm run chainreact` builds first (`chainreact:build`) then runs — so it always
@@ -315,6 +318,53 @@ per-action registration is surfaced precisely and actionably by `app validate`
 (`ACTION_*_NOT_REGISTERED` warnings). Two more numeric columns would widen the table
 for marginal at-a-glance value — the task explicitly permits skipping with rationale.
 
+## `app trigger scaffold <provider> <trigger>`
+
+Creates the smallest repo-conventional trigger unit for an **existing** provider.
+See [`commands/appTriggerScaffold.ts`](./commands/appTriggerScaffold.ts).
+
+**Layout chosen — folder-per-trigger** (`triggers/<base>/<base>.meta.ts`), the
+dominant convention (slack, gmail, airtable, monday, stripe, outlook …; only the
+`native` pseudo-provider uses a flat `triggers/<base>.meta.ts`). **Triggers do NOT
+follow the action triad** — there is no handler/schema sibling. Runtime arming
+(webhook subscription / polling / filter) lives in activation-specific files
+(`activate.ts`, `deactivate.ts`, `poll.ts`, `filter.ts`, `index.ts`, `schema.ts`, …)
+that encode REAL provider behavior, so the scaffold emits **none** of them — only the
+builder/AI `*.meta.ts`.
+
+**Naming** (from `message-posted`): key `<provider>:message_posted` (snake `type`,
+matching the `TriggerMetaSchema` key regex), file basename `messagePosted`, meta
+export `<providerCamel>MessagePostedTriggerMeta`.
+
+**Generated metadata (intentionally TODO + inert):** a Zod-valid `TriggerMeta` with
+correct `key`/`provider`/`type`, Title-Case `displayName`, a `TODO(...)` description,
+`category: "other"`, `requiresIntegration: true`, empty `fields`/`payloadShape`, and
+`displayOrder: null` (the inferred type requires `payloadShape` + `displayOrder`
+explicitly). **`activation: "manual"`** is the inert choice — a manual trigger fires
+only via run-now, subscribes to nothing and polls nothing, so the scaffold invents no
+webhook/polling behavior and the trigger is never accidentally runnable/subscribable.
+
+**Refusals:** unknown provider (no `manifest.ts`), invalid trigger id, and any
+collision with an existing trigger unit / `triggers/<base>/` folder. No `--force`.
+**Unregistered provider** is a **warning, not a failure** — the file is created but
+won't load until the provider is wired (`app register <id>`).
+
+**Predicted validation:** the meta is built into an overlay and run through
+`validateProvider`. A scaffolded trigger is intentionally unregistered, so against a
+repo whose discovery inventory is present it shows **PASS with 1 warning**
+(`TRIGGER_META_NOT_REGISTERED`) — clearly explained, never an error.
+
+**Trigger registration is DETECTION-ONLY this slice (patching deferred).** `app
+validate` warns `TRIGGER_META_NOT_REGISTERED` when a trigger meta isn't wired into the
+discovery inventory (`ALL_TRIGGER_META`, or a provider barrel's `<X>_TRIGGER_METAS`) —
+detection combines the central inventory with the provider's barrel, anchored on the
+import path, exactly like the action-meta check. There is **no `app trigger
+register`**: a real trigger also needs its runtime files + a side-effect import in
+`integrations/_registry.ts`, which is not a safe blind text-patch. **Manual step:**
+implement the runtime + add the meta import/array entry to `_metaInventory.ts`
+(`ALL_TRIGGER_META`) or the provider barrel, then add the runtime side-effect import.
+Next: `app validate <provider>` → `app validate --all`.
+
 **Future slices** should extend `validateProvider()` in
 [`commands/appValidate.ts`](./commands/appValidate.ts) by appending `Finding`s — the
 result shape, `--all` summary, and renderer already support it (append a `Finding`).
@@ -341,8 +391,12 @@ refusals, unregistered-provider warning), **action registry awareness** (handler
 meta detection anchored on import path, central-vs-barrel meta detection, placeholder
 detection, `ACTION_*_NOT_REGISTERED` validate warnings, narrow patch construction +
 refusals, `app action register` dry-run/real/placeholder-refusal/no-op/unknown/
-incomplete/unsafe + barrel-target routing), verify planning/execution (fake runner),
-mcp-smoke wrapping, and `run()` dispatch. No disk, no spawned processes.
+incomplete/unsafe + barrel-target routing), **trigger scaffolding** (export
+naming + folder layout, central-vs-barrel trigger-meta detection,
+`TRIGGER_META_NOT_REGISTERED` validate warning, dry-run-writes-nothing, inert
+manual-activation meta, unknown-provider / invalid-id / collision refusals,
+unregistered-provider warning), verify planning/execution (fake runner), mcp-smoke
+wrapping, and `run()` dispatch. No disk, no spawned processes.
 
 ## Adding a command (deliberately)
 

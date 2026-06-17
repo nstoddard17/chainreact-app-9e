@@ -13,6 +13,7 @@
 import { parseArgs, wantsHelp } from "./args";
 import { runAppActionRegister } from "./commands/appActionRegister";
 import { runAppActionScaffold } from "./commands/appActionScaffold";
+import { runAppTriggerScaffold } from "./commands/appTriggerScaffold";
 import { listProviders, renderProviderList } from "./commands/appList";
 import { runAppRegister } from "./commands/appRegister";
 import { runAppScaffold } from "./commands/appScaffold";
@@ -146,6 +147,24 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         log(`Unknown 'app action' subcommand: '${sub}'. Try: chainreact app action scaffold <provider> <action> | chainreact app action register <provider> <action>`);
         return 2;
       }
+      if (parsed.subcommand === "trigger") {
+        // `app trigger scaffold <provider> <trigger>` — positionals are
+        // [sub, provider, trigger].
+        const sub = parsed.positionals[0] ?? "";
+        const provider = parsed.positionals[1] ?? "";
+        const trigger = parsed.positionals[2] ?? "";
+        if (sub !== "scaffold") {
+          log(`Unknown 'app trigger' subcommand: '${sub}'. Try: chainreact app trigger scaffold <provider> <trigger>`);
+          return 2;
+        }
+        if (!provider || !trigger) {
+          log("Usage: chainreact app trigger scaffold <provider> <trigger> [--dry-run]");
+          return 2;
+        }
+        const outcome = runAppTriggerScaffold(provider, trigger, { dryRun: parsed.flags["dry-run"] === true }, fs, writer);
+        log(outcome.output);
+        return outcome.code;
+      }
       if (parsed.subcommand === "validate") {
         if (parsed.flags.all === true) {
           const results = validateAllProviders(fs);
@@ -161,7 +180,7 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         log(renderValidation(result));
         return result.ok ? 0 : 1;
       }
-      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider> [--register] | chainreact app register <provider> | chainreact app action scaffold <provider> <action>`);
+      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider> [--register] | chainreact app register <provider> | chainreact app action scaffold <provider> <action> | chainreact app trigger scaffold <provider> <trigger>`);
       return 2;
     }
 

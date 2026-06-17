@@ -12,10 +12,11 @@
  * This module reads BOTH as TEXT only — it never imports them or any provider
  * runtime code — to (a) detect whether an action's handler/meta are registered
  * and (b) compute NARROW, deterministic append patches that wire an IMPLEMENTED
- * action in. Detection is anchored on the IMPORT PATH (`@/integrations/<provider>/
- * actions/<…>/<base>[.meta]`), which is exactly the provider + action basename
- * and therefore independent of export-symbol/alias casing — mirrors the provider
- * registry detection in registry.ts.
+ * action in. It also detects a TRIGGER's meta registration (detection only — no
+ * trigger patching this slice). Detection is anchored on the IMPORT PATH
+ * (`@/integrations/<provider>/<actions|triggers>/<…>/<base>[.meta]`), which is
+ * exactly the provider + basename and therefore independent of export-symbol/alias
+ * casing — mirrors the provider registry detection in registry.ts.
  *
  * Pure over injected `FsDeps` for reads; patch computation is a pure string
  * transform. Both are fully unit-testable with in-memory fakes.
@@ -70,21 +71,38 @@ const cap = (w: string): string => w.charAt(0).toUpperCase() + w.slice(1);
 const SUBPATH = "(?:[A-Za-z0-9_-]+/)*";
 
 /**
- * Detect META registration from the meta-inventory TEXT, anchored on the import
- * path `@/integrations/<provider>/actions/<…>/<base>.meta`. Registered when that
- * import exists AND the imported symbol also appears in `ALL_ACTION_META` (i.e.
- * ≥2 occurrences: the import + the array entry). Empty text → `unknown`.
+ * Detect META registration from the discovery-inventory TEXT, anchored on the
+ * import path `@/integrations/<provider>/<segment>/<…>/<base>.meta` (segment =
+ * `actions` or `triggers`). Registered when that import exists AND the imported
+ * symbol also appears in an array (i.e. ≥2 occurrences: the import + the array
+ * entry — `ALL_ACTION_META`/`ALL_TRIGGER_META` or a barrel `<X>_*_METAS`). Empty
+ * text → `unknown`. Casing-independent (anchored on the path, not the symbol).
  */
-export function detectMetaRegistration(metaInventoryText: string, provider: string, base: string): RegistrationStatus {
+function detectMetaInSegment(
+  metaInventoryText: string,
+  provider: string,
+  base: string,
+  segment: "actions" | "triggers",
+): RegistrationStatus {
   if (!metaInventoryText.trim()) return "unknown";
   const importRe = new RegExp(
-    `import\\s*\\{\\s*([A-Za-z_$][\\w$]*)\\s*\\}\\s*from\\s*["']@/integrations/${escapeRe(provider)}/actions/${SUBPATH}${escapeRe(base)}\\.meta["']`,
+    `import\\s*\\{\\s*([A-Za-z_$][\\w$]*)\\s*\\}\\s*from\\s*["']@/integrations/${escapeRe(provider)}/${segment}/${SUBPATH}${escapeRe(base)}\\.meta["']`,
   );
   const m = metaInventoryText.match(importRe);
   const sym = m?.[1];
   if (!sym) return "unregistered";
   const count = (metaInventoryText.match(new RegExp(`\\b${escapeRe(sym)}\\b`, "g")) ?? []).length;
   return count >= 2 ? "registered" : "unregistered";
+}
+
+/** Detect ACTION-meta registration (discovery `ALL_ACTION_META` / barrel `<X>_ACTION_METAS`). */
+export function detectMetaRegistration(metaInventoryText: string, provider: string, base: string): RegistrationStatus {
+  return detectMetaInSegment(metaInventoryText, provider, base, "actions");
+}
+
+/** Detect TRIGGER-meta registration (discovery `ALL_TRIGGER_META` / barrel `<X>_TRIGGER_METAS`). */
+export function detectTriggerMetaRegistration(metaInventoryText: string, provider: string, base: string): RegistrationStatus {
+  return detectMetaInSegment(metaInventoryText, provider, base, "triggers");
 }
 
 /**
@@ -108,6 +126,11 @@ export function detectHandlerRegistration(handlerInventoryText: string, provider
 /** Read the relevant meta registry text via `fs` and report an action's meta-registration status. */
 export function metaRegistrationStatus(fs: FsDeps, provider: string, base: string): RegistrationStatus {
   return detectMetaRegistration(readMetaRegistryText(fs, provider), provider, base);
+}
+
+/** Read the relevant meta registry text via `fs` and report a trigger's meta-registration status. */
+export function triggerMetaRegistrationStatus(fs: FsDeps, provider: string, base: string): RegistrationStatus {
+  return detectTriggerMetaRegistration(readMetaRegistryText(fs, provider), provider, base);
 }
 
 /**
