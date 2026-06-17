@@ -139,6 +139,49 @@ describe("toAppCatalogItem — route-DTO safety contract", () => {
     expect(serialized).not.toContain("accountMetadata");
     expect(serialized).not.toContain("scopes");
   });
+
+  // V2-READY-47C — the privacy contract for a CO-MEMBER's PERSONAL credential.
+  // On a team account a member-connected personal work identity (e.g. a
+  // teammate's Gmail/Outlook) is an account-owned resource: the viewer may see
+  // the connection LABEL (so the UI can say "this connection belongs to another
+  // member" + offer Duplicate) and that they cannot manage it — but NONE of the
+  // sensitive provider metadata (tokens, scopes, provider account internals, raw
+  // account_metadata, or the connector's user id).
+  it("a non-creator member viewing a co-member's PERSONAL connection sees only the label + disabled controls — no sensitive metadata", () => {
+    const item = toAppCatalogItem(
+      mkProvider({ id: "gmail", displayName: "Gmail" }),
+      [
+        mkRecord({
+          provider: "gmail",
+          connectedByUserId: "member-nate", // connected by a DIFFERENT member
+          displayName: "nate@company.com", // the connection label — team-visible
+          providerAccountId: "nate-google-sub-1234567890", // provider internal — must NOT leak
+          scopes: ["https://www.googleapis.com/auth/gmail.modify"],
+          accountMetadata: { email: "nate@company.com", picture: "https://avatar/nate.png" },
+        }),
+      ],
+      // The viewer is a regular member who did NOT connect this row.
+      { callerUserId: "viewer-jamie", callerRole: "member" },
+    );
+    const acc = item.accounts[0]!;
+    // Not the connector and not owner/admin → cannot manage (UI hides controls;
+    // the routes re-authorize regardless).
+    expect(acc.canDisconnect).toBe(false);
+    expect(acc.canReconnect).toBe(false);
+    expect(acc.canShare).toBe(false);
+    expect(acc.canUnshare).toBe(false);
+    // Minimal UX disclosure: the label is allowed (account-owned work identity).
+    expect(acc.displayName).toBe("nate@company.com");
+    // …but NO sensitive provider metadata leaks for someone else's credential.
+    const serialized = JSON.stringify(item);
+    expect(serialized).not.toContain("nate-google-sub-1234567890"); // provider account id
+    expect(serialized).not.toContain("gmail.modify"); // scope
+    expect(serialized).not.toContain("avatar/nate.png"); // account_metadata blob
+    expect(serialized).not.toContain("member-nate"); // connector user id
+    expect(serialized).not.toContain("providerAccountId");
+    expect(serialized).not.toContain("accountMetadata");
+    expect(serialized).not.toContain("scopes");
+  });
 });
 
 describe("toAppCatalogItem — flags + derived fields", () => {
