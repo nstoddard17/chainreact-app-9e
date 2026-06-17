@@ -79,6 +79,17 @@
   `20260626000000_workflow_runs_revision_id.sql` applied to **dev DB only** — **not pushed, not in
   prod**; deploy must apply it →
   [`active-revision-model-closeout.md`](./slices/phase-4/readiness/active-revision-model-closeout.md).
+- [2026-06-16] **`integrations` is service-role-only at the Data API (LOCAL/UNPUSHED).**
+  `authenticated` has **zero** direct DML/SELECT on `public.integrations` (47B revoked
+  INSERT/UPDATE/DELETE `20260627000000`; 47D revoked SELECT `20260628000000` — both applied to
+  **dev DB only**, not pushed/prod; deploy must apply them). `service_role` is the only
+  reader/writer; every client-visible read flows through a **membership-gated** service-role
+  repository + an **allow-listed DTO** (Apps page `getRole` gate; AI/options already service-role).
+  RLS unchanged; the personal/account model stays in `core/integrations/credentialSharing.ts`,
+  **never re-encoded in SQL**. A net-effective-grant regression guard
+  (`tests/structure/no-authenticated-integration-grants.test.ts`) fails any future re-GRANT.
+  **CONN-SHARE deferred — must not re-open broad grants** →
+  [`v2-ready-47e-integrations-access-closeout.md`](./slices/phase-4/readiness/v2-ready-47e-integrations-access-closeout.md).
 
 ## Open risks & follow-ups
 
