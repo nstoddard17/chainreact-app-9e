@@ -31,6 +31,7 @@ It is **live internal tooling** (not flag-gated).
 |---|---|
 | `chainreact status` | Concise local repo/tooling snapshot: repo root, Node/platform, package manager, key file/doc presence, provider-manifest + rule-doc counts. No network, no secrets. |
 | `chainreact verify [--run] [--with-tests]` | Prints the pre-push/deploy verification batch. **Default: dry-run** (prints, runs nothing). `--run` executes the safe subset (`lint:structure`, `typecheck`, `lint`); `--run --with-tests` also runs the full `test` suite (heavy, opt-in). Fail-fast. |
+| `chainreact verify --changed [--run] [--with-tests]` | **Diff-aware** verify: inspects the local git diff (working tree + staged + untracked) and recommends the *smallest* sensible batch for what changed. Dry-run by default. `--run` executes only the **auto** checks (bare `npm run <script>`); **manual** checks (targeted `jest <dir>`, `app validate <provider>`) are printed for you to run; **heavy** full-suite runs only with `--with-tests`. Falls back gracefully (exit 1 + message) if git is unavailable. Git access is behind an injectable seam — tests never spawn git. |
 | `chainreact mcp smoke [--dry-run]` | Thin wrapper over the existing `npm run mcp:smoke`. `--dry-run` prints the command. Fails gracefully if the script is absent. Adds no MCP tools/permissions. |
 | `chainreact app list` | Lists discovered providers with text-derived fields: id, displayName, enabled, **registered** (`yes`/`no`/`?`), action handler/meta/schema counts, trigger-meta count. Never imports provider code. Deterministic (sorted by id). |
 | `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. Adds a `MANIFEST_NOT_REGISTERED` **warning** when the manifest isn't wired into `_registry.ts`, `ACTION_META_NOT_REGISTERED` / `ACTION_HANDLER_NOT_REGISTERED` **warnings** for a complete action triad that isn't wired into the discovery/handler inventories, and `TRIGGER_META_NOT_REGISTERED` **warning** for a trigger meta not wired into the discovery trigger inventory (all warnings — never errors). |
@@ -49,6 +50,8 @@ npm run chainreact -- status
 npm run chainreact -- verify              # dry-run (default)
 npm run chainreact -- verify --run        # run the safe subset
 npm run chainreact -- verify --run --with-tests
+npm run chainreact -- verify --changed            # recommend a batch for the local diff
+npm run chainreact -- verify --changed --run      # run the auto (cheap) subset for the diff
 npm run chainreact -- mcp smoke
 npm run chainreact -- app list
 npm run chainreact -- app validate slack
@@ -74,6 +77,48 @@ reflects current source.
 **Exit codes:** `0` ok, `1` validation/verification failure, `2` usage error. For
 `app validate --all`, exit is `0` only when **no** provider has an ERROR finding —
 warnings never fail the command. `app list` is read-only and always exits `0`.
+`verify --changed` exits `1` when git discovery fails (so CI/agents notice).
+
+## `verify --changed` (diff-aware verification)
+
+Stops agents from guessing which checks to run. It collects the local diff and maps
+it to the smallest sensible batch. See [`commands/verify.ts`](./commands/verify.ts)
+(`recommendChecks` — pure mapping) + [`git.ts`](./git.ts) (changed-file seam).
+
+**Changed-file discovery** combines, dedupes, and sorts three read-only git reads —
+`git diff --name-only` (working tree), `git diff --cached --name-only` (staged), and
+`git ls-files --others --exclude-standard` (untracked). It runs behind an injectable
+`ChangedFilesReader` seam, so unit tests never spawn git. If git is missing or the dir
+isn't a repo, it fails gracefully (`ok:false` + message; the CLI prints a fallback to
+plain `verify` and exits 1). No fetch, no write, no network.
+
+**Recommendation mapping** (conservative; reuses existing `package.json` scripts only
+— never invents one):
+
+| Changed | Recommends | Tier |
+|---|---|---|
+| `scripts/chainreact/**` | `npm run chainreact:build`, `npx jest tests/unit/chainreact` | auto + manual |
+| CLI validation code (`appValidate*`, `actionRegistry.ts`, `registry.ts`, `providers.ts`) | `app validate --all` | manual |
+| `*.ts/*.tsx/*.mts/*.cts` | `npm run typecheck` | auto |
+| source/test trees (`integrations`/`services`/`app`/`features`/…/`tests`) | `npm run lint:structure` | auto |
+| `integrations/<provider>/**` | `app validate <provider>` (one per provider, sorted; skips `_`-dirs) | manual |
+| `integrations/_registry.ts`, `services/discovery/**`, `services/execution/handlers/**` | `app validate --all` | manual |
+| `supabase/migrations/*.sql` | `npm run lint:migrations`, `jest tests/integration/security`, `jest tests/structure` | auto + manual |
+| security/RLS (`**/security/**`, `**/rls/**`, `**/policies/**`, `admin-auth`) | `jest tests/integration/security` | manual |
+| `features/workflow-builder/**`, `services/execution/**`, `lib|services/triggers/**` | `jest tests/unit/features/workflow-builder` | manual |
+| `package.json`, `tsconfig*.json`, `eslint.config.mjs`, `jest.config.*` | `npm run lint`, `npm run test` | auto + **heavy** |
+
+**Tiers** — `auto` = a bare `npm run <script>` the existing runner can execute under
+`--run`; `manual` = a targeted command with argv the runner can't pass (printed, you
+run it); `heavy` = full `test` suite, only auto-run with `--with-tests`. Output is
+ordered cheap → heavy and groups the "why" so it's readable for humans and agents.
+
+**Run vs dry-run:** default is dry-run (recommend only). `--run` executes the `auto`
+checks via the existing runner seam (fail-fast), then **explicitly lists the `manual`
+checks it did NOT run**. `--with-tests` additionally runs `heavy` checks. It never
+runs DB writes, migrations, deploys, or network calls — only the existing read-only/
+test npm scripts. Existing `verify`, `verify --run`, and `verify --run --with-tests`
+are unchanged.
 
 ## Safe usage expectations
 
@@ -395,8 +440,12 @@ incomplete/unsafe + barrel-target routing), **trigger scaffolding** (export
 naming + folder layout, central-vs-barrel trigger-meta detection,
 `TRIGGER_META_NOT_REGISTERED` validate warning, dry-run-writes-nothing, inert
 manual-activation meta, unknown-provider / invalid-id / collision refusals,
-unregistered-provider warning), verify planning/execution (fake runner), mcp-smoke
-wrapping, and `run()` dispatch. No disk, no spawned processes.
+unregistered-provider warning), verify planning/execution (fake runner),
+**diff-aware verify** (`mergeChangedPaths` dedupe/sort, `recommendChecks` mapping per
+change type, dry-run-doesn't-execute, `--run` runs only auto bare-scripts in order,
+heavy-only-with-`--with-tests`, fail-fast, missing-script skip, graceful git failure,
+existing `verify` unchanged — all via an injected changed-files reader, no git
+spawned), mcp-smoke wrapping, and `run()` dispatch. No disk, no spawned processes.
 
 ## Adding a command (deliberately)
 

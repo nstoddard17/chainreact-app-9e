@@ -64,7 +64,15 @@ import { inventoryAllProviders, listKnownProviders } from "@/scripts/chainreact/
 import { checkManifestContent, checkMetaContent, hasTopLevelKey, parseZodEnum, stripCommentLines } from "@/scripts/chainreact/commands/metaChecks";
 import { runMcpSmoke } from "@/scripts/chainreact/commands/mcpSmoke";
 import { collectStatus, renderStatus } from "@/scripts/chainreact/commands/status";
-import { buildVerifyPlan, executeVerify } from "@/scripts/chainreact/commands/verify";
+import {
+  buildChangedVerifyPlan,
+  buildVerifyPlan,
+  executeChangedVerify,
+  executeVerify,
+  recommendChecks,
+  renderChangedVerify,
+} from "@/scripts/chainreact/commands/verify";
+import { type ChangedFilesReader, mergeChangedPaths } from "@/scripts/chainreact/git";
 import { helpText } from "@/scripts/chainreact/help";
 import type { FsDeps, FsWriter } from "@/scripts/chainreact/repo";
 import type { CommandRunner, RunResult } from "@/scripts/chainreact/runner";
@@ -1933,5 +1941,247 @@ describe("app trigger scaffold — dispatch via run()", () => {
     const out: string[] = [];
     run(["app", "bogus"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
     expect(out.join("\n")).toMatch(/trigger scaffold/);
+  });
+});
+
+// ── verify --changed (diff-aware) ────────────────────────────────────────────
+const fakeChanged = (files: string[], ok = true, error?: string): ChangedFilesReader => () => ({ ok, files, error });
+const ALL_SCRIPTS = new Set(["lint:structure", "typecheck", "lint", "lint:migrations", "chainreact:build", "test"]);
+const commandsOf = (paths: string[]): string[] => recommendChecks(paths).recommendations.map((r) => r.command);
+
+describe("mergeChangedPaths (pure)", () => {
+  it("dedupes across staged/unstaged/untracked and sorts deterministically", () => {
+    expect(
+      mergeChangedPaths([
+        ["b.ts", "a.ts"], // unstaged
+        ["a.ts", "c.ts"], // staged (a.ts dup)
+        ["  ", "z.ts", "a.ts"], // untracked (blank trimmed, a.ts dup)
+      ]),
+    ).toEqual(["a.ts", "b.ts", "c.ts", "z.ts"]);
+  });
+  it("empty lists → empty", () => {
+    expect(mergeChangedPaths([[], [], []])).toEqual([]);
+  });
+});
+
+describe("recommendChecks (pure mapping)", () => {
+  it("no changes → no recommendations", () => {
+    const r = recommendChecks([]);
+    expect(r.changedCount).toBe(0);
+    expect(r.recommendations).toEqual([]);
+  });
+
+  it("CLI change → chainreact:build + chainreact jest + structure + typecheck", () => {
+    const cmds = commandsOf(["scripts/chainreact/cli.ts"]);
+    expect(cmds).toContain("npm run chainreact:build");
+    expect(cmds).toContain("npx jest tests/unit/chainreact");
+    expect(cmds).toContain("npm run typecheck");
+    expect(cmds).toContain("npm run lint:structure");
+  });
+
+  it("CLI VALIDATION code change → app validate --all", () => {
+    expect(commandsOf(["scripts/chainreact/actionRegistry.ts"])).toContain("npm run chainreact -- app validate --all");
+    expect(commandsOf(["scripts/chainreact/commands/appValidate.ts"])).toContain("npm run chainreact -- app validate --all");
+  });
+
+  it("provider change → that provider's validate (not --all unless registry)", () => {
+    const cmds = commandsOf(["integrations/slack/actions/sendChannelMessage.ts"]);
+    expect(cmds).toContain("npm run chainreact -- app validate slack");
+    expect(cmds).not.toContain("npm run chainreact -- app validate --all");
+  });
+
+  it("multiple providers → one validate each, sorted; excludes _-prefixed dirs", () => {
+    const cmds = commandsOf([
+      "integrations/stripe/actions/x.ts",
+      "integrations/airtable/actions/y.ts",
+      "integrations/_shared/util.ts", // not a provider
+    ]);
+    expect(cmds).toContain("npm run chainreact -- app validate airtable");
+    expect(cmds).toContain("npm run chainreact -- app validate stripe");
+    expect(cmds.indexOf("npm run chainreact -- app validate airtable")).toBeLessThan(
+      cmds.indexOf("npm run chainreact -- app validate stripe"),
+    );
+    expect(cmds.some((c) => c.includes("_shared"))).toBe(false);
+  });
+
+  it("registry/discovery change → app validate --all", () => {
+    expect(commandsOf(["integrations/_registry.ts"])).toContain("npm run chainreact -- app validate --all");
+    expect(commandsOf(["services/discovery/_metaInventory.ts"])).toContain("npm run chainreact -- app validate --all");
+    expect(commandsOf(["services/execution/handlers/_handlerInventory.ts"])).toContain("npm run chainreact -- app validate --all");
+  });
+
+  it("TypeScript source change → typecheck", () => {
+    expect(commandsOf(["lib/foo.ts"])).toContain("npm run typecheck");
+    expect(commandsOf(["app/page.tsx"])).toContain("npm run typecheck");
+  });
+
+  it("migration change → lint:migrations + security/structure suites (no DB write)", () => {
+    const cmds = commandsOf(["supabase/migrations/20260101_add.sql"]);
+    expect(cmds).toContain("npm run lint:migrations");
+    expect(cmds).toContain("npx jest tests/integration/security");
+    expect(cmds).toContain("npx jest tests/structure");
+  });
+
+  it("security/RLS change → security integration suite", () => {
+    expect(commandsOf(["tests/integration/security/integrations-rls.test.ts"])).toContain("npx jest tests/integration/security");
+    expect(commandsOf(["lib/security/policies.ts"])).toContain("npx jest tests/integration/security");
+  });
+
+  it("workflow-builder change → builder jest suite + typecheck", () => {
+    const cmds = commandsOf(["features/workflow-builder/canvas/WorkflowCanvas.tsx"]);
+    expect(cmds).toContain("npx jest tests/unit/features/workflow-builder");
+    expect(cmds).toContain("npm run typecheck");
+  });
+
+  it("package/config change → lint + heavy full suite (heavy flagged)", () => {
+    const r = recommendChecks(["package.json"]);
+    const cmds = r.recommendations.map((x) => x.command);
+    expect(cmds).toContain("npm run lint");
+    const heavy = r.recommendations.find((x) => x.command === "npm run test");
+    expect(heavy?.heavy).toBe(true);
+  });
+
+  it("orders cheap auto bare-scripts before manual targeted checks", () => {
+    const r = recommendChecks(["scripts/chainreact/cli.ts"]);
+    const firstManual = r.recommendations.findIndex((x) => !x.npmScript);
+    const lastAuto = r.recommendations.map((x) => Boolean(x.npmScript)).lastIndexOf(true);
+    expect(lastAuto).toBeLessThan(firstManual);
+  });
+});
+
+describe("buildChangedVerifyPlan / executeChangedVerify", () => {
+  it("git failure → ok:false + error, no recommendations", () => {
+    const plan = buildChangedVerifyPlan({ ok: false, files: [], error: "not a git repository" }, { run: true, withTests: false });
+    expect(plan.ok).toBe(false);
+    expect(plan.error).toMatch(/not a git repository/);
+    expect(plan.result).toBeNull();
+  });
+
+  it("--run executes ONLY auto bare-scripts (not jest/app-validate/heavy), in order", () => {
+    const plan = buildChangedVerifyPlan({ ok: true, files: ["scripts/chainreact/cli.ts", "lib/x.ts"] }, { run: true, withTests: false });
+    const runner = fakeRunner();
+    const outcome = executeChangedVerify(plan, runner, ALL_SCRIPTS);
+    expect(runner.calls).toEqual(["lint:structure", "typecheck", "chainreact:build"]);
+    expect(runner.calls.some((c) => c.includes("jest") || c.includes("validate") || c === "test")).toBe(false);
+    expect(outcome.allPassed).toBe(true);
+  });
+
+  it("heavy steps run only with --with-tests", () => {
+    const planNo = buildChangedVerifyPlan({ ok: true, files: ["package.json"] }, { run: true, withTests: false });
+    const r1 = fakeRunner();
+    executeChangedVerify(planNo, r1, ALL_SCRIPTS);
+    expect(r1.calls).not.toContain("test");
+
+    const planYes = buildChangedVerifyPlan({ ok: true, files: ["package.json"] }, { run: true, withTests: true });
+    const r2 = fakeRunner();
+    executeChangedVerify(planYes, r2, ALL_SCRIPTS);
+    expect(r2.calls).toContain("test");
+  });
+
+  it("fail-fast: stops at the first failing auto check", () => {
+    const plan = buildChangedVerifyPlan({ ok: true, files: ["scripts/chainreact/cli.ts"] }, { run: true, withTests: false });
+    const runner = fakeRunner({ typecheck: 1 });
+    const outcome = executeChangedVerify(plan, runner, ALL_SCRIPTS);
+    expect(runner.calls).toEqual(["lint:structure", "typecheck"]); // stops; chainreact:build not reached
+    expect(outcome.allPassed).toBe(false);
+  });
+
+  it("a recommended auto script missing from package.json is skipped, not run", () => {
+    const plan = buildChangedVerifyPlan({ ok: true, files: ["supabase/migrations/x.sql"] }, { run: true, withTests: false });
+    const runner = fakeRunner();
+    const outcome = executeChangedVerify(plan, runner, new Set(["lint:structure", "typecheck"])); // no lint:migrations
+    expect(runner.calls).not.toContain("lint:migrations");
+    expect(outcome.skippedMissing).toContain("lint:migrations");
+  });
+
+  it("renderChangedVerify shows graceful git-failure fallback", () => {
+    const plan = buildChangedVerifyPlan({ ok: false, files: [], error: "git not found on PATH" }, { run: false, withTests: false });
+    const out = renderChangedVerify(plan, null);
+    expect(out).toMatch(/Could not determine changed files/);
+    expect(out).toMatch(/chainreact -- verify/);
+  });
+
+  it("renderChangedVerify reports no changed files", () => {
+    const plan = buildChangedVerifyPlan({ ok: true, files: [] }, { run: false, withTests: false });
+    expect(renderChangedVerify(plan, null)).toMatch(/No changed files/);
+  });
+});
+
+describe("verify --changed — dispatch via run()", () => {
+  const rt = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
+
+  it("dry-run does NOT execute anything (runner untouched), exit 0", () => {
+    const runner = fakeRunner();
+    const out: string[] = [];
+    const code = run(["verify", "--changed"], {
+      changedFiles: fakeChanged(["scripts/chainreact/cli.ts"]),
+      runner,
+      availableScripts: ALL_SCRIPTS,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(0);
+    expect(runner.calls).toEqual([]);
+    expect(out.join("\n")).toContain("verify --changed (dry-run)");
+    expect(out.join("\n")).toContain("[auto ] npm run chainreact:build");
+  });
+
+  it("--changed --run executes the auto checks via the runner", () => {
+    const runner = fakeRunner();
+    const code = run(["verify", "--changed", "--run"], {
+      changedFiles: fakeChanged(["scripts/chainreact/cli.ts", "lib/x.ts"]),
+      runner,
+      availableScripts: ALL_SCRIPTS,
+      runtime: rt,
+      log: () => {},
+    });
+    expect(code).toBe(0);
+    expect(runner.calls).toEqual(["lint:structure", "typecheck", "chainreact:build"]);
+  });
+
+  it("git failure → exit 1, graceful message, runner untouched", () => {
+    const runner = fakeRunner();
+    const out: string[] = [];
+    const code = run(["verify", "--changed", "--run"], {
+      changedFiles: fakeChanged([], false, "not a git repository (or git unavailable)"),
+      runner,
+      availableScripts: ALL_SCRIPTS,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(1);
+    expect(runner.calls).toEqual([]);
+    expect(out.join("\n")).toMatch(/Could not determine changed files/);
+  });
+
+  it("no changed files → exit 0, nothing run", () => {
+    const runner = fakeRunner();
+    const out: string[] = [];
+    const code = run(["verify", "--changed", "--run"], {
+      changedFiles: fakeChanged([]),
+      runner,
+      availableScripts: ALL_SCRIPTS,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(0);
+    expect(runner.calls).toEqual([]);
+    expect(out.join("\n")).toMatch(/No changed files/);
+  });
+
+  it("existing `verify` (no --changed) is unchanged: dry-run, runner untouched", () => {
+    const runner = fakeRunner();
+    const out: string[] = [];
+    const code = run(["verify"], { runner, availableScripts: ALL_SCRIPTS, runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(0);
+    expect(runner.calls).toEqual([]);
+    expect(out.join("\n")).toContain("ChainReact — verify (dry-run)");
+  });
+
+  it("existing `verify --run` is unchanged: runs the fixed safe subset", () => {
+    const runner = fakeRunner();
+    const code = run(["verify", "--run"], { runner, availableScripts: ALL_SCRIPTS, runtime: rt, log: () => {} });
+    expect(code).toBe(0);
+    expect(runner.calls).toEqual(["lint:structure", "typecheck", "lint"]);
   });
 });

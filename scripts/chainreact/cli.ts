@@ -25,7 +25,15 @@ import {
 } from "./commands/appValidate";
 import { renderMcpSmoke, runMcpSmoke } from "./commands/mcpSmoke";
 import { collectStatus, renderStatus } from "./commands/status";
-import { buildVerifyPlan, executeVerify, renderVerify } from "./commands/verify";
+import {
+  buildChangedVerifyPlan,
+  buildVerifyPlan,
+  executeChangedVerify,
+  executeVerify,
+  renderChangedVerify,
+  renderVerify,
+} from "./commands/verify";
+import { type ChangedFilesReader, defaultChangedFiles } from "./git";
 import { helpText } from "./help";
 import { defaultFsDeps, defaultFsWriter, findRepoRoot, type FsDeps, type FsWriter } from "./repo";
 import { type CommandRunner, defaultRunner } from "./runner";
@@ -34,6 +42,8 @@ export interface CliDeps {
   readonly fs?: FsDeps;
   readonly writer?: FsWriter;
   readonly runner?: CommandRunner;
+  /** Changed-file discovery seam (git). Injected in tests so git never runs. */
+  readonly changedFiles?: ChangedFilesReader;
   readonly runtime?: { nodeVersion: string; platform: string; cwd: string; repoRoot: string };
   readonly availableScripts?: ReadonlySet<string>;
   readonly log?: (line: string) => void;
@@ -72,7 +82,17 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
     }
 
     case "verify": {
-      const flags = { run: parsed.flags.run === true, withTests: parsed.flags["with-tests"] === true };
+      const run = parsed.flags.run === true;
+      const withTests = parsed.flags["with-tests"] === true;
+      if (parsed.flags.changed === true) {
+        const changedFiles = deps.changedFiles ?? defaultChangedFiles;
+        const plan = buildChangedVerifyPlan(changedFiles(), { run, withTests });
+        const outcome = plan.ok && plan.mode === "run" ? executeChangedVerify(plan, runner, availableScripts) : null;
+        log(renderChangedVerify(plan, outcome));
+        if (!plan.ok) return 1; // git discovery failed
+        return outcome && !outcome.allPassed ? 1 : 0;
+      }
+      const flags = { run, withTests };
       const plan = buildVerifyPlan(flags);
       const outcome = plan.mode === "run" ? executeVerify(plan, runner, availableScripts) : null;
       log(renderVerify(plan, outcome));
