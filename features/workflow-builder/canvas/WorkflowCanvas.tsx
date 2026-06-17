@@ -37,6 +37,7 @@ import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
 import { BuilderNodeActionsProvider } from "./nodeActionsContext";
 import { BuilderTabPlaceholder, type BuilderTab } from "./BuilderTabPlaceholder";
 import { DataMapPanel } from "./DataMapPanel";
+import { SettingsPanel, type WorkflowSettingsMeta } from "./SettingsPanel";
 import { CanvasActionBar } from "./CanvasActionBar";
 import { WorkflowEdge } from "./WorkflowEdge";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
@@ -129,6 +130,13 @@ interface Props {
    * "Needs setup" chip instead of "Ready". Optional (no map → prior behavior).
    */
   requiredFieldsByType?: import("../validation/collectBuilderValidationIssues").RequiredFieldsByType;
+  /**
+   * Slice 4.BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the top-level
+   * Settings tab (the `WorkflowDetail` subset threaded from `WorkflowBuilder`).
+   * Optional so isolated canvas tests keep passing; the Settings tab still
+   * renders graph-derived rows (counts / trigger / save status) without it.
+   */
+  workflowSettings?: WorkflowSettingsMeta;
 }
 
 const NODE_TYPES = {
@@ -159,6 +167,7 @@ function WorkflowCanvasInner({
   addActionBlockedReason,
   triggerTagText,
   requiredFieldsByType,
+  workflowSettings,
 }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
@@ -383,6 +392,10 @@ function WorkflowCanvasInner({
           // workflow data outline once actions exist; it falls back to the
           // shared empty-state panel (via BuilderTabPlaceholder) otherwise.
           <DataMapPanel providerLabels={providerLabels} />
+        ) : activeTab === "settings" ? (
+          // Slice 4.BUILDER-SETTINGS-MVP-1 — the Settings tab shows real
+          // workflow-level metadata + behavior (read-only this slice).
+          <SettingsPanel settings={workflowSettings} providerLabels={providerLabels} />
         ) : (
           <BuilderTabPlaceholder tab={activeTab} />
         )}

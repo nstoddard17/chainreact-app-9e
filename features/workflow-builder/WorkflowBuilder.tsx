@@ -374,6 +374,15 @@ export function WorkflowBuilder({
           onArrange={handleArrange}
           triggerTagText={triggerTagText}
           requiredFieldsByType={requiredFieldsByType}
+          // BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the Settings tab.
+          workflowSettings={{
+            name: workflow.name,
+            state: workflow.state,
+            createdAt: workflow.createdAt,
+            updatedAt: workflow.updatedAt,
+            activeRevisionId: workflow.activeRevisionId,
+            unpublishedChanges: workflow.unpublishedChanges,
+          }}
         />
         {addPanelMode !== null ? (
           <AddNodePanel

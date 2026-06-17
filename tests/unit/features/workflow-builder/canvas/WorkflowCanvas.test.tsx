@@ -219,12 +219,29 @@ describe("WorkflowCanvas — top tabs + empty states (BUILDER-SHELL-TABS-1)", ()
     expect(container.querySelector(".react-flow")).toBeNull();
   });
 
-  it("Settings tab keeps credentials in Apps and node config in the step panel (rules honored)", () => {
-    render(<WorkflowCanvas providerLabels={providerLabels} />);
+  it("Settings tab shows real workflow-level metadata and keeps credentials in Apps / node config in the step panel", () => {
+    // BUILDER-SETTINGS-MVP-1 — the Settings tab renders the real panel (not the
+    // dead placeholder) with workflow-level metadata threaded from the builder.
+    render(
+      <WorkflowCanvas
+        providerLabels={providerLabels}
+        workflowSettings={{
+          name: "Demo Workflow",
+          state: "draft",
+          createdAt: "2026-06-01T09:00:00.000Z",
+          updatedAt: "2026-06-02T09:00:00.000Z",
+          activeRevisionId: null,
+          unpublishedChanges: false,
+        }}
+      />,
+    );
     clickTab(/^Settings$/);
-    const panel = screen.getByTestId("builder-tab-placeholder");
-    expect(panel.getAttribute("data-tab")).toBe("settings");
-    expect(panel.textContent).toMatch(/name|description|timezone|notification/i);
+    const panel = screen.getByTestId("settings-panel");
+    expect(panel).toBeInTheDocument();
+    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
+    // Real workflow-level values render.
+    expect(within(panel).getByText("Demo Workflow")).toBeInTheDocument();
+    expect(within(panel).getByText(/message_received/)).toBeInTheDocument();
     // Workflow Settings must NOT host provider credentials…
     expect(panel.textContent).not.toMatch(/credential|token|password|api key/i);
     // …and it points the user to where connections / step settings actually live.
@@ -234,7 +251,9 @@ describe("WorkflowCanvas — top tabs + empty states (BUILDER-SHELL-TABS-1)", ()
 
   it("returns to the canvas when Builder is reselected", () => {
     const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
-    clickTab(/^Settings$/);
+    // Runs is still a placeholder tab — use it to prove the canvas is swapped
+    // out and restored when Builder is reselected.
+    clickTab(/^Runs$/);
     expect(screen.getByTestId("builder-tab-placeholder")).toBeInTheDocument();
     expect(container.querySelector(".react-flow")).toBeNull();
     clickTab(/^Builder$/);
