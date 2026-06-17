@@ -302,24 +302,37 @@ describeDb("workflow_runs account RLS — Slice 4.ACCOUNT-MODEL-8", () => {
     expect(svc.data!.event_type).toBe("message_received");
   });
 
-  it("workflow_files: A sees rows for their workflow (join-through RLS); B does not", async () => {
+  it("workflow_files: direct authenticated SELECT is denied (V2-READY-52; 42501) — reads flow through service-role", async () => {
     const a = sessions[0]!;
     const b = sessions[1]!;
     const supaA = await sessionClient(a.email, a.password);
     const supaB = await sessionClient(b.email, b.password);
 
-    const { data: aOwn, error: aErr } = await supaA
+    // Member A can no longer read directly — SELECT was revoked from authenticated.
+    // workflow_files is service-role-only; storage_path / file_name never reach a
+    // client via PostgREST (the future file-read path will use a gated DTO).
+    const aRead = await supaA
       .from("workflow_files")
       .select("id")
       .eq("id", a.fileId);
-    expect(aErr).toBeNull();
-    expect(aOwn).toHaveLength(1);
+    expect(aRead.error).not.toBeNull();
+    expect(aRead.error!.code).toBe("42501");
 
-    const { data: bOnA } = await supaB
+    // Non-member B is likewise denied at the privilege layer.
+    const bRead = await supaB
       .from("workflow_files")
       .select("id")
       .eq("id", a.fileId);
-    expect(bOnA).toHaveLength(0);
+    expect(bRead.error).not.toBeNull();
+    expect(bRead.error!.code).toBe("42501");
+
+    // The row is intact and still readable by the service-role path.
+    const svc = await admin
+      .from("workflow_files")
+      .select("id")
+      .eq("id", a.fileId);
+    expect(svc.error).toBeNull();
+    expect(svc.data).toHaveLength(1);
   });
 
   it("service-role bypasses RLS and reads both accounts' runs", async () => {

@@ -1,0 +1,35 @@
+-- V2-READY-52 — make public.workflow_files SERVICE-ROLE-ONLY at the Data API.
+--
+-- Security hardening (NOT a product behavior change). Closes the V2-READY-49
+-- finding: `workflow_files` had an `authenticated` SELECT grant + account-member
+-- RLS, so a member could `supabase.from('workflow_files').select('*')` DIRECTLY via
+-- PostgREST and read `storage_path` (the `<userId>/<workflowId>/<runId>/<nodeId>/
+-- <filename>` bucket hierarchy) + `file_name` (possible PII) across the account —
+-- bypassing any DTO. The grant is UNUSED by the app: every read/write in
+-- `repositories/workflowFiles.ts` already goes through the service-role client
+-- (no `createClient` import), and there is no `from("workflow_files")` call
+-- anywhere outside that repo. There is NO authenticated WRITE grant to revoke
+-- (writes were always service-role).
+--
+-- Mirrors the integrations / trigger_resources arc (47B/47D, 50): file rows are
+-- engine-managed output metadata (staged mid-execution, retention-cleaned by cron),
+-- never hand-read by a client. After this migration, `authenticated` has NO direct
+-- access to `workflow_files`; the future user-facing file-read path will be built
+-- service-role + an explicit workflow/account gate + a safe DTO / signed-download
+-- flow (it does not exist yet).
+--
+-- Scope guarantees:
+--   * `service_role` is UNCHANGED — full DML, bypasses RLS; the sole reader/writer.
+--   * `anon` is UNCHANGED (never had a grant).
+--   * NO RLS policy is altered. No file-output contract / retention / cleanup-cron /
+--     storage behavior changes.
+--   * Idempotent — REVOKE of an absent privilege is a no-op; re-applying is safe.
+--
+-- Privilege is checked before RLS, so an `authenticated` SELECT without the GRANT is
+-- denied with SQLSTATE 42501 regardless of any row policy. The account-member RLS
+-- policy is left in place but is now unreachable for `authenticated`; a future
+-- re-GRANT would re-expose it and must be caught in migration review (guarded by
+-- tests/structure/no-authenticated-integration-grants.test.ts, which covers the
+-- service-role-only table set — integrations + trigger_resources + workflow_files).
+
+REVOKE SELECT ON public.workflow_files FROM authenticated;
