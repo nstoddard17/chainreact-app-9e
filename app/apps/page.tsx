@@ -46,12 +46,22 @@ export default async function AppsPage({ searchParams }: Props) {
   // active account can't be resolved (e.g. frozen).
   const resolved = await resolveActiveAccount(user.id);
   const ownerAccount = resolved.ok ? resolved.account : await ensurePersonalAccount(user.id);
-  const [records, callerRole, unreadNotifications, recentNotificationRecords] =
+  // 4.APPS-DISCONNECT / CD-3: the caller's role on the active account drives the
+  // per-account `canDisconnect` flag (session-client, RLS-self).
+  // V2-READY-47D: this role lookup is ALSO the explicit membership gate for the
+  // integrations read. `listActiveByAccount` now reads via service-role (direct
+  // authenticated SELECT was revoked), so RLS no longer scopes it — we read ONLY
+  // when the caller is a member of `ownerAccount` (`callerRole !== null`).
+  // `resolveActiveAccount` already returns a member account and the personal
+  // fallback is the caller's own account, so this is non-null in every normal
+  // path; the gate is defense-in-depth so a service-role read can never surface a
+  // non-member account's connections.
+  const callerRole = await getRole(ownerAccount.id, user.id);
+  const [records, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
-      integrationsRepo.listActiveByAccount(ownerAccount.id),
-      // 4.APPS-DISCONNECT / CD-3: the caller's role on the active account drives
-      // the per-account `canDisconnect` flag (session-client, RLS-self).
-      getRole(ownerAccount.id, user.id),
+      callerRole !== null
+        ? integrationsRepo.listActiveByAccount(ownerAccount.id)
+        : Promise.resolve([] as const),
       notificationsRepo.countUnreadForUser(user.id),
       notificationsRepo.listForUser(user.id, {
         limit: NOTIFICATION_BELL_PREVIEW_LIMIT,

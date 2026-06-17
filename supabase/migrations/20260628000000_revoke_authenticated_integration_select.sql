@@ -1,0 +1,40 @@
+-- V2-READY-47D — revoke DIRECT authenticated SELECT on public.integrations.
+--
+-- Security hardening (NOT a product behavior change). Closes the V2-READY-47C
+-- read-side finding: `integrations` kept a broad `authenticated` SELECT GRANT +
+-- account-member SELECT RLS, so a regular account member could
+-- `supabase.from('integrations').select('*')` DIRECTLY via PostgREST/supabase-js
+-- and read ALL columns of every row in the account — incl. encrypted token blobs,
+-- `scopes`, `provider_account_id`, and `account_metadata` of a CO-MEMBER's
+-- PERSONAL credential — bypassing the safe app DTO. RLS gated the account
+-- boundary but not the personal/creator scope, and the table GRANT made the
+-- direct read reachable.
+--
+-- Completes the arc: V2-READY-47B revoked INSERT/UPDATE/DELETE; this revokes
+-- SELECT. After this migration, `authenticated` has NO direct DML/SELECT on
+-- `integrations` at all — every read and write must go through a server-side
+-- service-role path with its own authorization + safe-DTO projection.
+--
+-- Read-path move (lands in the SAME change as this migration): the only
+-- authenticated-client read, `repositories/integrations.ts:listActiveByAccount`,
+-- switches to `getServiceRoleClient`; the Apps page adds an explicit account-
+-- membership gate before calling it (RLS no longer gates that read). Every other
+-- `listActiveByAccount` caller already passes an account membership-verified
+-- upstream (activate route / RLS-readable workflow / the caller's own personal
+-- account). No app path reads `integrations` via the authenticated client anymore.
+--
+-- Scope guarantees:
+--   * `service_role` is UNCHANGED — full DML, bypasses RLS; the sole reader/writer.
+--   * `anon` is UNCHANGED (never had a grant).
+--   * NO RLS policy is altered. The personal/account credential model is NOT
+--     re-encoded in SQL — it stays in core/integrations/credentialSharing.ts +
+--     the service/DTO layer (per the rule against duplicating it in SQL).
+--   * NO column-level grants (per the 47D decision — uniform table-level revoke).
+--   * Idempotent — REVOKE of an absent privilege is a no-op; re-applying is safe.
+--
+-- The account-member SELECT RLS policy on integrations is left in place but is now
+-- unreachable for `authenticated` (no table privilege; privilege is checked before
+-- RLS, so a read without the GRANT is denied with SQLSTATE 42501). A future
+-- re-GRANT would re-expose it and must be caught in migration review.
+
+REVOKE SELECT ON public.integrations FROM authenticated;

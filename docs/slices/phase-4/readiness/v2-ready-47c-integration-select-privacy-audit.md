@@ -7,6 +7,16 @@
 **Arc:** [`v2-ready-47-apps-permission-model-audit.md`](./v2-ready-47-apps-permission-model-audit.md)
 (audit) → V2-READY-47B (`dd2fac832`, revoked direct authenticated WRITES) → **47C (this — read side).**
 
+> **STATUS UPDATE (2026-06-16):** the §3 Option A fix is **DONE** — V2-READY-47D
+> shipped migration `20260628000000_revoke_authenticated_integration_select.sql`
+> (`REVOKE SELECT ON public.integrations FROM authenticated`), moved the sole
+> authenticated read (`listActiveByAccount`) to service-role, and added an explicit
+> account-membership gate at the Apps page. Applied to the V2 dev DB; gated RLS proof
+> shows a member's direct `select('*')` (incl. co-member personal token/scope/
+> provider-account-id/metadata columns) now fails `42501`, while the Apps DTO +
+> service-role paths are intact. After 47B+47D, `authenticated` has **zero** direct
+> DML/SELECT on `integrations`. Local/unpushed.
+
 ---
 
 ## Executive summary (go / no-go)

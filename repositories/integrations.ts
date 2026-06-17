@@ -1,4 +1,3 @@
-import { createClient } from "@/utils/supabase/server";
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
 import type { EncryptedTokens, ProviderAccountInfo } from "@/contracts/integration";
@@ -430,18 +429,27 @@ export async function updateTokens(input: UpdateTokensInput): Promise<Integratio
 }
 
 /**
- * List the active integrations owned by an account. Used by the
- * integrations / apps list page and activation preconditions.
+ * List the active integrations owned by an account. Used by the Apps list page,
+ * activation preconditions, and the AI availability tools.
  *
- * Uses the SSR-cookie session client so RLS gates by account membership
- * — a member can see every active integration on every account they
- * belong to. Today there is one personal account per user; future
- * team/org accounts surface multiple.
+ * V2-READY-47D: reads via SERVICE-ROLE. Direct authenticated SELECT on
+ * `integrations` was REVOKED (migration 20260628000000) to close the PostgREST
+ * `select('*')` metadata bypass, so RLS no longer gates this read. Every caller
+ * MUST therefore pass an account it has already membership-verified UPSTREAM:
+ *   - Apps page (`app/apps/page.tsx`): explicit `getRole` membership gate before
+ *     calling (only reads when the caller is a member of the active account).
+ *   - `checkActivationPreconditions`: the workflow was loaded by the membership-
+ *     gated activate route, so `workflow.accountId` is trusted.
+ *   - AI tools (`getConnectedIntegrationsForAI` / `getWorkflowIntegrationAvailabilityForAI`):
+ *     the account is resolved from an RLS-readable workflow (`loadOwned` /
+ *     `resolveWorkflowCreatorContext`) or the caller's OWN personal account.
+ * Every client-facing caller projects the rows to a safe DTO; token / scope /
+ * provider_account_id / account_metadata columns never leave the server.
  */
 export async function listActiveByAccount(
   accountId: string,
 ): Promise<readonly IntegrationRecord[]> {
-  const supabase = await createClient();
+  const supabase = getServiceRoleClient(`integrations: listActiveByAccount ${accountId}`);
   const { data, error } = await supabase
     .from("integrations")
     .select("*")

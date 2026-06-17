@@ -1,22 +1,26 @@
 /**
  * @jest-environment node
  *
- * Slice 4.SECURITY-INTEGRATIONS-RLS — gated DB proof of the `integrations`
- * table's account-membership RLS + no-cleartext-at-rest posture, ahead of
- * live OAuth testing.
+ * Slice 4.SECURITY-INTEGRATIONS-RLS (+ V2-READY-47B/47D) — gated DB proof of the
+ * `integrations` table access posture + no-cleartext-at-rest, ahead of live OAuth.
  *
- * Post 4.ACCOUNT-MODEL-6 cutover, `integrations` is account-owned: RLS gates
- * read/write by membership in the owning account (policies
- * integrations_{select,insert,update,delete}_account_member in
- * 20260530000001_account_id_foundation.sql; the legacy user_id policies were
- * dropped in 20260530000002). This test proves, against a live DB, that:
- *   - a member reads their own account's integrations (personal + team),
- *   - a NON-member cannot read another account's integrations,
- *   - personal/team separation: joining a team account grants read; a
- *     stranger still sees nothing,
- *   - cross-account UPDATE / DELETE by a non-member are no-ops (RLS-filtered),
+ * `integrations` is account-owned. Originally RLS gated read/write by account
+ * membership (policies integrations_{select,insert,update,delete}_account_member
+ * in 20260530000001; legacy user_id policies dropped in 20260530000002).
+ * V2-READY-47B then REVOKED INSERT/UPDATE/DELETE and V2-READY-47D REVOKED SELECT
+ * from `authenticated`, so the table is now SERVICE-ROLE-ONLY at the Data API:
+ * every DIRECT authenticated operation (member OR non-member) is denied with
+ * SQLSTATE 42501, and all app reads/writes flow through gated service-role paths
+ * + safe DTOs. This test proves, against a live DB, that:
+ *   - a member's DIRECT authenticated SELECT is denied (42501) — no row, no
+ *     metadata; reads go through service-role (the Apps page + safe DTO),
+ *   - a non-member's direct SELECT is likewise denied (42501),
+ *   - joining the account does NOT grant a direct authenticated read,
+ *   - direct authenticated INSERT/UPDATE/DELETE are denied (42501) (V2-READY-47B),
+ *   - a member cannot read a co-member's PERSONAL credential columns directly,
+ *   - cross-account UPDATE / DELETE by a non-member are denied (42501),
  *   - anon sees nothing,
- *   - service-role still reads every row (engine path), and
+ *   - service-role still reads/writes every row (engine / app path), and
  *   - the stored *_encrypted columns are opaque — they contain NONE of the
  *     fixture plaintext token patterns, yet decrypt back to the fixtures.
  *
@@ -217,27 +221,37 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
     }
   });
 
-  it("member A reads their personal account's integration", async () => {
+  it("member A's DIRECT authenticated SELECT is denied (V2-READY-47D; 42501) — reads flow through service-role", async () => {
     const a = sessions[0]!;
     const supaA = await sessionClient(a.email, a.password);
-    const { data, error } = await supaA
+    const { error } = await supaA
       .from("integrations")
       .select("id, account_id, provider")
       .eq("id", personalAIntegrationId);
-    expect(error).toBeNull();
-    expect(data).toHaveLength(1);
-    expect(data![0]!.account_id).toBe(a.personalAccountId);
+    // SELECT was revoked from `authenticated`; even the owning member can no
+    // longer read the table directly — the app reads via service-role + safe DTO.
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
+
+    // The row is intact and still readable by the service-role (engine/app) path.
+    const svc = await admin
+      .from("integrations")
+      .select("id, account_id")
+      .eq("id", personalAIntegrationId)
+      .single<{ id: string; account_id: string }>();
+    expect(svc.error).toBeNull();
+    expect(svc.data!.account_id).toBe(a.personalAccountId);
   });
 
-  it("non-member B cannot read account A's personal integration", async () => {
+  it("non-member B's direct authenticated SELECT is denied (42501; no metadata leak)", async () => {
     const b = sessions[1]!;
     const supaB = await sessionClient(b.email, b.password);
-    const { data, error } = await supaB
+    const { error } = await supaB
       .from("integrations")
       .select("id")
       .eq("id", personalAIntegrationId);
-    expect(error).toBeNull(); // RLS filters silently, not an error
-    expect(data).toHaveLength(0);
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
   });
 
   it("anon client sees no integrations", async () => {
@@ -252,42 +266,22 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
     expect(data).toHaveLength(0);
   });
 
-  it("team separation: member A reads the team integration; non-member B does NOT", async () => {
-    const a = sessions[0]!;
-    const b = sessions[1]!;
-    const supaA = await sessionClient(a.email, a.password);
-    const supaB = await sessionClient(b.email, b.password);
-
-    const aRead = await supaA.from("integrations").select("id").eq("id", teamIntegrationId);
-    expect(aRead.error).toBeNull();
-    expect(aRead.data).toHaveLength(1);
-
-    const bRead = await supaB.from("integrations").select("id").eq("id", teamIntegrationId);
-    expect(bRead.error).toBeNull();
-    expect(bRead.data).toHaveLength(0);
-  });
-
-  it("membership grants read: after B joins the team account, B can read the team integration", async () => {
+  it("joining the account does NOT grant a direct authenticated read (still 42501) — membership no longer gates a direct SELECT", async () => {
     const b = sessions[1]!;
     await admin
       .from("account_memberships")
       .insert({ account_id: teamAccountId, user_id: b.userId, role: "member" });
 
     const supaB = await sessionClient(b.email, b.password);
-    const { data, error } = await supaB
+    const { error } = await supaB
       .from("integrations")
       .select("id")
       .eq("id", teamIntegrationId);
-    expect(error).toBeNull();
-    expect(data).toHaveLength(1);
-
-    // …but B STILL cannot read account A's PERSONAL integration (separate account).
-    const personal = await supaB
-      .from("integrations")
-      .select("id")
-      .eq("id", personalAIntegrationId);
-    expect(personal.error).toBeNull();
-    expect(personal.data).toHaveLength(0);
+    // Pre-47D this read succeeded for a member; now SELECT is revoked entirely, so
+    // membership is irrelevant to a DIRECT read — it is denied at the privilege
+    // layer. Member-scoped reads happen only through the service-role app path.
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
 
     // restore seed state so later assertions about "non-member B" hold if reordered.
     await admin
@@ -382,10 +376,11 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
    * REQUIRES the migration applied to the target DB (this file's standing
    * precondition). SELECT for members stays intact.
    */
-  describe("direct authenticated writes are revoked (V2-READY-47B)", () => {
+  describe("direct authenticated reads + writes are revoked (V2-READY-47B/47D)", () => {
     beforeAll(async () => {
-      // B joins the team account as a regular MEMBER — passes write RLS, so the
-      // ONLY thing denying a direct write is the revoked table privilege.
+      // B joins the team account as a regular MEMBER — passes the membership RLS,
+      // so the ONLY thing denying a direct read/write is the revoked table
+      // privilege (47B revoked writes; 47D revoked SELECT).
       await admin
         .from("account_memberships")
         .insert({ account_id: teamAccountId, user_id: sessions[1]!.userId, role: "member" });
@@ -399,15 +394,35 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
         .eq("user_id", sessions[1]!.userId);
     });
 
-    it("member B can still SELECT the team integration (read path preserved)", async () => {
+    it("member B CANNOT directly SELECT the team integration (V2-READY-47D; 42501)", async () => {
       const b = sessions[1]!;
       const supaB = await sessionClient(b.email, b.password);
-      const { data, error } = await supaB
+      const { error } = await supaB
         .from("integrations")
         .select("id")
         .eq("id", teamIntegrationId);
-      expect(error).toBeNull();
-      expect(data).toHaveLength(1);
+      // A member of the account, yet the direct authenticated read is denied —
+      // reads flow through the service-role app path + safe DTO instead.
+      expect(error).not.toBeNull();
+      expect(error!.code).toBe("42501");
+    });
+
+    it("member B CANNOT read a co-member's PERSONAL credential sensitive columns directly (42501)", async () => {
+      // teamIntegrationId is A's personal Gmail work-identity on the shared team
+      // account. Pre-47D, member B could `select('*')` it (incl. token blobs,
+      // scopes, provider_account_id, account_metadata). Now SELECT is revoked, so
+      // the co-member's personal credential metadata is unreachable via the
+      // authenticated client — the V2-READY-47C privacy gap is closed at the DB.
+      const b = sessions[1]!;
+      const supaB = await sessionClient(b.email, b.password);
+      const { error } = await supaB
+        .from("integrations")
+        .select(
+          "access_token_encrypted, refresh_token_encrypted, scopes, provider_account_id, account_metadata",
+        )
+        .eq("id", teamIntegrationId);
+      expect(error).not.toBeNull();
+      expect(error!.code).toBe("42501");
     });
 
     it("member B CANNOT INSERT an integration row directly (42501; nothing written)", async () => {
