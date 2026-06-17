@@ -337,6 +337,53 @@ describe("graphSlice.addAction — chain-tail anchor + non-overlap (BUILDER-CANV
   });
 });
 
+describe("graphSlice.addActionAfter (BUILDER-CANVAS-ERGONOMICS-FIX-1)", () => {
+  it("appends after a SPECIFIC node and stitches the edge from it (branch-specific)", () => {
+    // Branch: trigger → a, trigger → b. Append after b explicitly.
+    const def: WorkflowDefinition = {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "m", config: {}, position: { x: 0, y: 0 } },
+        { id: "a", kind: "action", provider: "slack", type: "x", config: {}, position: { x: 0, y: 120 } },
+        { id: "b", kind: "action", provider: "gmail", type: "x", config: {}, position: { x: 320, y: 120 } },
+      ],
+      edges: [
+        { id: "e1", from: "t1", to: "a" },
+        { id: "e2", from: "t1", to: "b" },
+      ],
+    };
+    useGraphSlice.getState().hydrate("wf-1", def);
+    const added = useGraphSlice.getState().addActionAfter("b", { provider: "http" });
+    const s = useGraphSlice.getState();
+    // Edge stitched from b (the chosen branch end), NOT a or the trigger.
+    expect(s.pendingEdges.find((e) => e.to === added.id)!.from).toBe("b");
+    // Non-overlapping with every existing node.
+    const others = s.pendingNodes.filter((n) => n.id !== added.id);
+    for (const n of others) {
+      expect(
+        Math.abs(n.position.x - added.position.x) < 280 &&
+          Math.abs(n.position.y - added.position.y) < 100,
+      ).toBe(false);
+    }
+    expect(s.isDirty).toBe(true);
+  });
+
+  it("addActionAfterFromMeta derives config + appends after the named node", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const node = useGraphSlice.getState().addActionAfterFromMeta("t1", httpRequestMeta);
+    const s = useGraphSlice.getState();
+    expect(s.pendingEdges.find((e) => e.to === node.id)!.from).toBe("t1");
+    expect(node.provider).toBe("native");
+    expect(node.type).toBe("http_request");
+  });
+
+  it("throws on an unknown anchor node (never guesses)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    expect(() =>
+      useGraphSlice.getState().addActionAfter("ghost", { provider: "slack" }),
+    ).toThrow(/unknown node/i);
+  });
+});
+
 describe("graphSlice.autoLayout (BUILDER-CANVAS-LAYOUT-1)", () => {
   it("re-lays a messy linear chain into a clean column and flips dirty", () => {
     const def: WorkflowDefinition = {

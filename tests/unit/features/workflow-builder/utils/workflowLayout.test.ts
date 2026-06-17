@@ -13,6 +13,7 @@ import {
   findChainTailId,
   layoutWorkflowGraph,
   positionsOverlap,
+  resolveNonOverlappingDrop,
 } from "@/features/workflow-builder/utils/workflowLayout";
 
 function node(
@@ -56,6 +57,38 @@ describe("findChainTailId", () => {
     const nodes = [node("a", "action", 0, 0), node("b", "action", 0, 120)];
     const edges = [edge("e1", "a", "b"), edge("e2", "b", "a")];
     expect(findChainTailId(nodes, edges)).toBeNull();
+  });
+});
+
+describe("resolveNonOverlappingDrop (manual drag)", () => {
+  it("keeps a clear drop exactly where the user released it", () => {
+    const others = [node("a", "trigger", 0, 0), node("b", "action", 0, 120)];
+    const dropped = { x: 400, y: 400 };
+    expect(resolveNonOverlappingDrop(dropped, others)).toEqual({ x: 400, y: 400 });
+  });
+
+  it("steps a drop-on-top down to the nearest clear slot (never persists an overlap)", () => {
+    const others = [node("a", "trigger", 0, 0), node("b", "action", 0, 120)];
+    // Released right on top of node b.
+    const resolved = resolveNonOverlappingDrop({ x: 0, y: 120 }, others);
+    expect(positionsOverlap(resolved, { x: 0, y: 120 })).toBe(false);
+    expect(positionsOverlap(resolved, { x: 0, y: 0 })).toBe(false);
+    expect(resolved).toEqual({ x: 0, y: 240 });
+  });
+
+  it("steps past a stacked column until fully clear", () => {
+    const others = [
+      node("a", "action", 0, 0),
+      node("b", "action", 0, 120),
+      node("c", "action", 0, 240),
+    ];
+    const resolved = resolveNonOverlappingDrop({ x: 0, y: 0 }, others);
+    expect(others.every((n) => !positionsOverlap(n.position, resolved))).toBe(true);
+  });
+
+  it("does not consider the node's own prior position (others excludes self)", () => {
+    // Only the dragged node exists → any drop is clear.
+    expect(resolveNonOverlappingDrop({ x: 50, y: 50 }, [])).toEqual({ x: 50, y: 50 });
   });
 });
 

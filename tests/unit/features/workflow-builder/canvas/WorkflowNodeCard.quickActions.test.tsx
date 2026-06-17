@@ -98,6 +98,41 @@ describe("WorkflowNodeCard quick actions — delete", () => {
   });
 });
 
+describe("WorkflowNodeCard tail add (BUILDER-CANVAS-ERGONOMICS-FIX-1)", () => {
+  it("renders the tail '+' on a tail node and appends after THIS node when clicked", () => {
+    const onAppendAfter = jest.fn();
+    renderCard({ data: { ...actionData, isTail: true }, actions: { onAppendAfter } });
+    const add = screen.getByTestId("node-tail-add");
+    expect(add).toBeInTheDocument();
+    fireEvent.click(add);
+    expect(onAppendAfter).toHaveBeenCalledWith("n1");
+  });
+
+  it("does NOT render the tail '+' on a non-tail node", () => {
+    const onAppendAfter = jest.fn();
+    renderCard({ data: { ...actionData, isTail: false }, actions: { onAppendAfter } });
+    expect(screen.queryByTestId("node-tail-add")).toBeNull();
+  });
+
+  it("does NOT render the tail '+' when no append handler is wired", () => {
+    renderCard({ data: { ...actionData, isTail: true } });
+    expect(screen.queryByTestId("node-tail-add")).toBeNull();
+  });
+
+  it("renders the tail '+' on a trigger that has no next step (append the first action)", () => {
+    const onAppendAfter = jest.fn();
+    renderCard({ data: { ...triggerData, isTail: true }, actions: { onAppendAfter } });
+    fireEvent.click(screen.getByTestId("node-tail-add"));
+    expect(onAppendAfter).toHaveBeenCalledWith("n1");
+  });
+
+  it("uses a safe label — never a raw node id", () => {
+    renderCard({ data: { ...actionData, isTail: true }, actions: { onAppendAfter: jest.fn() } });
+    expect(screen.getByTestId("node-tail-add").getAttribute("aria-label")).toBe("Add next step");
+    expect(document.body.textContent).not.toContain("n1");
+  });
+});
+
 describe("WorkflowNodeCard quick actions — inline rename", () => {
   it("edits inline and commits on Enter via onRenameNode(id, value)", () => {
     const onRenameNode = jest.fn();

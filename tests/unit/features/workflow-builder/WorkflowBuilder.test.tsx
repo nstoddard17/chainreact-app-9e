@@ -255,6 +255,51 @@ describe("WorkflowBuilder", () => {
     expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
   });
 
+  // ─── BUILDER-CANVAS-ERGONOMICS-FIX-1 — branch-aware "Add action" CTA ───
+  const linearWorkflow: WorkflowDetail = {
+    ...baseWorkflow,
+    draftDefinition: {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "m", config: {}, position: { x: 0, y: 0 } },
+        { id: "a", kind: "action", provider: "slack", type: "x", config: {}, position: { x: 0, y: 120 } },
+      ],
+      edges: [{ id: "e1", from: "t1", to: "a" }],
+    },
+  };
+  const branchWorkflow: WorkflowDetail = {
+    ...baseWorkflow,
+    draftDefinition: {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "m", config: {}, position: { x: 0, y: 0 } },
+        { id: "a", kind: "action", provider: "slack", type: "x", config: {}, position: { x: 0, y: 120 } },
+        { id: "b", kind: "action", provider: "gmail", type: "x", config: {}, position: { x: 320, y: 120 } },
+      ],
+      edges: [
+        { id: "e1", from: "t1", to: "a" },
+        { id: "e2", from: "t1", to: "b" },
+      ],
+    },
+  };
+
+  it("the global 'Add action' CTA is ENABLED for a single-tail linear chain", () => {
+    render(
+      <WorkflowBuilder workflow={linearWorkflow} triggerProviders={triggerProviders} actionProviders={actionProviders} />,
+    );
+    const cta = screen.getByTestId("canvas-add-action-button");
+    expect(cta).toBeEnabled();
+  });
+
+  it("the global 'Add action' CTA is DISABLED with a branch-redirect tooltip when there are multiple tails", () => {
+    render(
+      <WorkflowBuilder workflow={branchWorkflow} triggerProviders={triggerProviders} actionProviders={actionProviders} />,
+    );
+    const cta = screen.getByTestId("canvas-add-action-button");
+    expect(cta).toBeDisabled();
+    expect(cta.getAttribute("title")).toMatch(/use the \+ on the step/i);
+    // No raw ids in the redirect copy.
+    expect(cta.getAttribute("title")).not.toMatch(/t1|wf-1/);
+  });
+
   // Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — a stale prop re-render (same id,
   // older revision) must NOT clobber a freshly-applied graph. The hydrate
   // effect re-fires (draftDefinition ref changed) but the graphSlice revision

@@ -117,6 +117,29 @@ export function collectDownstreamIds(
   return result;
 }
 
+/**
+ * Resolve a just-dropped node position to the nearest non-overlapping slot
+ * (Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1). The product rule is that nodes
+ * must NEVER overlap — including after a manual drag-and-drop, not just on
+ * add/insert.
+ *
+ * `others` is every node EXCEPT the one being dropped. When the dropped
+ * position is already clear (the common case) it is returned unchanged, so a
+ * normal drag is never disturbed. When it would overlap, the node steps down one
+ * row at a time until the slot is clear — deterministic, terminating, and not
+ * jarring (it only moves on a real collision, and only as far as needed).
+ */
+export function resolveNonOverlappingDrop(
+  desired: WorkflowNodePosition,
+  others: readonly WorkflowNode[],
+): WorkflowNodePosition {
+  let candidate: WorkflowNodePosition = { x: desired.x, y: desired.y };
+  while (others.some((n) => positionsOverlap(n.position, candidate))) {
+    candidate = { x: candidate.x, y: candidate.y + LAYOUT_ROW_GAP_Y };
+  }
+  return candidate;
+}
+
 /** Sort key for choosing/ordering roots: triggers first, then authoring order. */
 function rootRank(node: WorkflowNode, index: number): number {
   return (node.kind === "trigger" ? 0 : 1) * 1_000_000 + index;

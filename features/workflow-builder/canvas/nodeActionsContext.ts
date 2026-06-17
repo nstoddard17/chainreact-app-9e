@@ -27,6 +27,12 @@ export interface BuilderNodeActions {
    * Never deletes without confirmation.
    */
   readonly onRequestDeleteNode?: (nodeId: string) => void;
+  /**
+   * Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — append a new action AFTER this node
+   * (the tail "+"). Opens the action picker targeted at this exact branch end, so
+   * an append never guesses which branch to extend.
+   */
+  readonly onAppendAfter?: (nodeId: string) => void;
 }
 
 const BuilderNodeActionsContext = createContext<BuilderNodeActions>({});

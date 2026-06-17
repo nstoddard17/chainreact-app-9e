@@ -48,7 +48,8 @@ export function WorkflowNodeCard({
 
   // Slice 4.BUILDER-NODE-QUICK-ACTIONS-1 — ambient rename/delete handlers from
   // the canvas. Each affordance renders only when its handler is wired.
-  const { onRenameNode, onRequestDeleteNode } = useBuilderNodeActions();
+  const { onRenameNode, onRequestDeleteNode, onAppendAfter } = useBuilderNodeActions();
+  const showTailAdd = !!data.isTail && !!onAppendAfter;
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   // True while an Escape/Enter is handling exit, so the input's trailing onBlur
@@ -207,12 +208,35 @@ export function WorkflowNodeCard({
       </div>
 
       <div
-        className="flex items-center justify-end gap-1 px-3 py-1.5"
+        className="flex items-center justify-between gap-1 px-3 py-1.5"
         style={{
           background: "var(--builder-panel-2)",
           borderTop: "1px dashed var(--builder-border)",
         }}
       >
+        {showTailAdd ? (
+          <button
+            type="button"
+            data-testid="node-tail-add"
+            aria-label="Add next step"
+            title="Add the next step after this one"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAppendAfter?.(id);
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            className="nodrag inline-flex h-5 items-center gap-1 rounded-[3px] px-1.5 text-[10px] font-medium"
+            style={{
+              background: "var(--builder-accent-soft)",
+              border: "1px dashed var(--builder-accent)",
+              color: "var(--builder-accent)",
+            }}
+          >
+            + Add step
+          </button>
+        ) : (
+          <span />
+        )}
         {isUnconfigured ? (
           <NotConfiguredBadge />
         ) : needsSetup ? (

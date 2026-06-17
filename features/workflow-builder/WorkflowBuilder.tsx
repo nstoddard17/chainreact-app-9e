@@ -196,10 +196,21 @@ export function WorkflowBuilder({
   const [addPanelMode, setAddPanelMode] = useState<AddNodePanelMode | null>(
     null,
   );
+  // Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — when the action picker is opened by a
+  // per-node tail "+", this holds the exact branch end to append after. Null when
+  // opened by the global "Add action" CTA (→ append to the sole chain tail). A ref
+  // (not state) so the picker's pick handler reads the latest target without
+  // re-creating the callback. Read in `handlePickAction`, then cleared on close.
+  const appendAfterRef = useRef<string | null>(null);
   const openTriggerPicker = useCallback(() => {
     setAddPanelMode({ kind: "trigger" });
   }, []);
   const openActionPicker = useCallback(() => {
+    appendAfterRef.current = null;
+    setAddPanelMode({ kind: "action" });
+  }, []);
+  const handleAppendAfter = useCallback((nodeId: string) => {
+    appendAfterRef.current = nodeId;
     setAddPanelMode({ kind: "action" });
   }, []);
   // Slice 4.BUILDER-CANVAS-LAYOUT-1 — re-arrange the whole graph into a clean,
@@ -208,6 +219,7 @@ export function WorkflowBuilder({
     useGraphSlice.getState().autoLayout();
   }, []);
   const closeAddPanel = useCallback(() => {
+    appendAfterRef.current = null;
     setAddPanelMode(null);
   }, []);
   const handleEdgePlusClick = useCallback((edgeId: string) => {
@@ -220,18 +232,41 @@ export function WorkflowBuilder({
   const handlePickAction = useCallback(
     (meta: ActionMeta, insertContext: { edgeId: string } | null) => {
       const slice = useGraphSlice.getState();
-      if (!insertContext) {
-        slice.addActionFromMeta(meta);
+      if (insertContext) {
+        insertActionAtEdge(insertContext.edgeId, meta);
         return;
       }
-      insertActionAtEdge(insertContext.edgeId, meta);
+      // BUILDER-CANVAS-ERGONOMICS-FIX-1 — a tail "+" names the exact branch end to
+      // extend; the global CTA leaves it null → append to the sole chain tail.
+      const appendAfter = appendAfterRef.current;
+      if (appendAfter) {
+        slice.addActionAfterFromMeta(appendAfter, meta);
+        return;
+      }
+      slice.addActionFromMeta(meta);
     },
     [],
   );
 
+  const pendingNodes = useGraphSlice((s) => s.pendingNodes);
+  const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const hasTrigger = useGraphSlice((s) =>
     s.pendingNodes.some((n) => n.kind === "trigger"),
   );
+  // BUILDER-CANVAS-ERGONOMICS-FIX-1 — count chain/branch ends (nodes with no
+  // outgoing edge). The global "Add action" CTA only appends safely when there is
+  // ONE tail; with multiple branch ends it would have to guess, so it's disabled
+  // and the user is redirected to a branch's own tail "+".
+  const tailCount = useMemo(() => {
+    const withOutgoing = new Set(pendingEdges.map((e) => e.from));
+    return pendingNodes.filter((n) => !withOutgoing.has(n.id)).length;
+  }, [pendingNodes, pendingEdges]);
+  const canAddAction = hasTrigger && tailCount <= 1;
+  const addActionBlockedReason: "no-trigger" | "multiple-tails" | undefined = !hasTrigger
+    ? "no-trigger"
+    : tailCount > 1
+      ? "multiple-tails"
+      : undefined;
   const triggerNode = useGraphSlice((s) =>
     s.pendingNodes.find((n) => n.kind === "trigger"),
   );
@@ -333,7 +368,9 @@ export function WorkflowBuilder({
           onAddTrigger={openTriggerPicker}
           onEdgePlusClick={memoizedEdgePlusClick}
           onAddAction={openActionPicker}
-          canAddAction={hasTrigger}
+          canAddAction={canAddAction}
+          addActionBlockedReason={addActionBlockedReason}
+          onAppendAfterNode={handleAppendAfter}
           onArrange={handleArrange}
           triggerTagText={triggerTagText}
           requiredFieldsByType={requiredFieldsByType}

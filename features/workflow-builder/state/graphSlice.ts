@@ -90,6 +90,16 @@ export interface GraphSliceActions {
    */
   addActionFromMeta(meta: ActionMeta): WorkflowNode;
   /**
+   * Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — append an action AFTER a SPECIFIC
+   * node (the tail "+" affordance / a branch end), connecting `anchorNodeId → N`
+   * and placing N at a non-overlapping slot below the anchor. Unlike `addAction`
+   * (which picks the sole chain tail), this never guesses: the caller names the
+   * exact branch end. Throws on an unknown anchor.
+   */
+  addActionAfter(anchorNodeId: string, input: AddNodeInput): WorkflowNode;
+  /** Metadata-derived variant of `addActionAfter` (mirrors `addActionFromMeta`). */
+  addActionAfterFromMeta(anchorNodeId: string, meta: ActionMeta): WorkflowNode;
+  /**
    * Slice 3.3 — add a trigger node by its TriggerMeta. Symmetric to
    * `addActionFromMeta`: derives the default config from
    * `meta.fields[].defaultValue` so e.g. the scheduled trigger's
@@ -424,6 +434,44 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     // Delegates to addAction with metadata-derived defaults so the
     // dirty-check + edge-creation behavior stays single-sourced.
     return get().addAction({
+      provider: meta.provider,
+      type: meta.type,
+      config: deriveDefaultConfig(meta),
+    });
+  },
+
+  addActionAfter(anchorNodeId, input) {
+    const { pendingNodes, pendingEdges } = get();
+    const anchor = pendingNodes.find((n) => n.id === anchorNodeId);
+    if (!anchor) {
+      throw new Error("Cannot append after an unknown node.");
+    }
+    const node: WorkflowNode = {
+      id: newNodeId(),
+      kind: "action",
+      provider: input.provider,
+      type: input.type ?? "",
+      config: input.config ?? {},
+      // Non-overlap placement below the chosen branch end (BUILDER-CANVAS-LAYOUT-1
+      // helper) so a branch-specific append never lands on an existing node.
+      position: computeNonOverlappingPosition(anchor.position, pendingNodes),
+    };
+    const newEdge: WorkflowEdge = {
+      id: newEdgeId(),
+      from: anchor.id,
+      to: node.id,
+    };
+    set({
+      pendingNodes: [...pendingNodes, node],
+      pendingEdges: [...pendingEdges, newEdge],
+      isDirty: true,
+      saveError: null,
+    });
+    return node;
+  },
+
+  addActionAfterFromMeta(anchorNodeId, meta) {
+    return get().addActionAfter(anchorNodeId, {
       provider: meta.provider,
       type: meta.type,
       config: deriveDefaultConfig(meta),

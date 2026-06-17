@@ -92,6 +92,21 @@ describe("workflowNodesToFlowNodes", () => {
   });
 });
 
+describe("workflowNodesToFlowNodes — isTail (BUILDER-CANVAS-ERGONOMICS-FIX-1)", () => {
+  it("flags only the nodes named in tailNodeIds", () => {
+    const flowNodes = workflowNodesToFlowNodes([triggerNode, actionNode], {
+      tailNodeIds: new Set(["act-1"]),
+    });
+    expect(flowNodes.find((n) => n.id === "trig-1")!.data.isTail).toBeUndefined();
+    expect(flowNodes.find((n) => n.id === "act-1")!.data.isTail).toBe(true);
+  });
+
+  it("leaves isTail undefined when no tail set is supplied (back-compat)", () => {
+    const [n] = workflowNodesToFlowNodes([actionNode]);
+    expect(n!.data.isTail).toBeUndefined();
+  });
+});
+
 describe("workflowEdgesToFlowEdges", () => {
   const baseEdge: WorkflowEdge = {
     id: "edge-1",

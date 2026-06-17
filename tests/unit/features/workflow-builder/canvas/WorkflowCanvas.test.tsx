@@ -163,17 +163,20 @@ describe("WorkflowCanvas — canvas action bar (4.BUILDER-DESIGN-PARITY-1)", () 
     expect(onAddAction).toHaveBeenCalledTimes(1);
   });
 
-  it("Arrange button fires onArrange when the canvas has nodes (BUILDER-CANVAS-LAYOUT-1)", () => {
+  it("Arrange now lives in the bottom-left zoom/fit control cluster, NOT the action bar (ERGONOMICS-FIX-1)", () => {
     const onArrange = jest.fn();
     render(<WorkflowCanvas providerLabels={providerLabels} onArrange={onArrange} />);
     const btn = screen.getByTestId("canvas-arrange-button");
-    // baseDef has nodes → enabled.
+    // It's inside the ReactFlow controls cluster (beside zoom in/out + fit)…
+    expect(btn.closest(".react-flow__controls")).not.toBeNull();
+    // …and NOT inside the top action bar.
+    expect(within(screen.getByTestId("canvas-action-bar")).queryByTestId("canvas-arrange-button")).toBeNull();
     expect(btn).toBeEnabled();
     fireEvent.click(btn);
     expect(onArrange).toHaveBeenCalledTimes(1);
   });
 
-  it("Arrange button is disabled when the canvas is empty", () => {
+  it("Arrange control is disabled when the canvas is empty", () => {
     useGraphSlice.getState().reset();
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
     render(<WorkflowCanvas providerLabels={providerLabels} onArrange={jest.fn()} />);

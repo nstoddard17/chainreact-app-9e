@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import {
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   MiniMap,
   ReactFlow,
@@ -15,6 +16,8 @@ import {
   type OnNodeDrag,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+
+import { resolveNonOverlappingDrop } from "../utils/workflowLayout";
 
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
@@ -93,13 +96,24 @@ interface Props {
    */
   canAddAction?: boolean;
   /**
-   * Slice 4.BUILDER-CANVAS-LAYOUT-1 — fires when the user clicks the
-   * "Arrange" CTA in the canvas action bar. WorkflowBuilder wires this to
-   * `graphSlice.autoLayout`, which re-lays the whole graph into a clean,
-   * non-overlapping top-down layout. When undefined the button is hidden
-   * (preserves test-isolation rendering).
+   * Slice 4.BUILDER-CANVAS-LAYOUT-1 — re-lays the whole graph into a clean,
+   * non-overlapping layout. Wired to `graphSlice.autoLayout`. Slice 4.BUILDER-
+   * CANVAS-ERGONOMICS-FIX-1 moved this control into the bottom-left zoom/fit
+   * cluster (a ReactFlow `ControlButton`); when undefined it's hidden.
    */
   onArrange?: () => void;
+  /**
+   * Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — append a new action AFTER a
+   * specific node (the per-node tail "+"). Branch-specific: the node id names the
+   * exact branch end to extend, so an append never guesses.
+   */
+  onAppendAfterNode?: (nodeId: string) => void;
+  /**
+   * Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — why the top-right "Add action" CTA
+   * is disabled, so the tooltip can redirect the user. `"multiple-tails"` means
+   * the workflow has split branches and the user must use a branch's own "+".
+   */
+  addActionBlockedReason?: "no-trigger" | "multiple-tails";
   /**
    * Optional trigger-tag chip text (e.g. "trigger: slack.message"). The
    * canvas action bar renders it next to the env tag. Omitted when no
@@ -138,6 +152,8 @@ function WorkflowCanvasInner({
   onAddAction,
   canAddAction,
   onArrange,
+  onAppendAfterNode,
+  addActionBlockedReason,
   triggerTagText,
   requiredFieldsByType,
 }: Props) {
@@ -168,13 +184,27 @@ function WorkflowCanvasInner({
     requestDelete,
   } = useCanvasNodeDeletion();
 
-  // Slice 4.BUILDER-NODE-QUICK-ACTIONS-1 — ambient rename/delete handlers for the
-  // node cards. `renameNode` is a stable slice action; `requestDelete` opens the
-  // existing confirmation dialog. Memoized so node `data` identity stays stable.
+  // Slice 4.BUILDER-NODE-QUICK-ACTIONS-1 / ERGONOMICS-FIX-1 — ambient rename /
+  // delete / append-after handlers for the node cards. `renameNode` is a stable
+  // slice action; `requestDelete` opens the existing confirmation dialog;
+  // `onAppendAfterNode` opens the action picker targeted at a branch end.
+  // Memoized so node `data` identity stays stable.
   const nodeActions = useMemo(
-    () => ({ onRenameNode: renameNode, onRequestDeleteNode: requestDelete }),
-    [renameNode, requestDelete],
+    () => ({
+      onRenameNode: renameNode,
+      onRequestDeleteNode: requestDelete,
+      ...(onAppendAfterNode ? { onAppendAfter: onAppendAfterNode } : {}),
+    }),
+    [renameNode, requestDelete, onAppendAfterNode],
   );
+
+  // Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — tail nodes (no outgoing edge) get an
+  // "add next step" `+`. Derived once from the edge list and threaded to the node
+  // adapter so the card knows it's a chain/branch end.
+  const tailNodeIds = useMemo(() => {
+    const withOutgoing = new Set(pendingEdges.map((e) => e.from));
+    return new Set(pendingNodes.filter((n) => !withOutgoing.has(n.id)).map((n) => n.id));
+  }, [pendingNodes, pendingEdges]);
 
   const pendingDeleteNode =
     pendingDelete?.kind === "single"
@@ -186,12 +216,13 @@ function WorkflowCanvasInner({
       providerLabels,
       providerIcons,
       requiredFieldsByType,
+      tailNodeIds,
     });
     if (!activeNodeId) return base;
     return base.map((n) =>
       n.id === activeNodeId ? { ...n, selected: true } : n,
     );
-  }, [pendingNodes, providerLabels, providerIcons, requiredFieldsByType, activeNodeId]);
+  }, [pendingNodes, providerLabels, providerIcons, requiredFieldsByType, tailNodeIds, activeNodeId]);
 
   const flowEdges = useMemo<FlowEdge[]>(
     () => workflowEdgesToFlowEdges(pendingEdges, { onEdgePlusClick }),
@@ -210,7 +241,16 @@ function WorkflowCanvasInner({
   const handleNodeDragStop = useCallback<OnNodeDrag>(
     (_event, node) => {
       const { nodeId, position } = flowNodePositionPatch(node);
-      updateNodePosition(nodeId, position);
+      // Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — nodes must never overlap, including
+      // after a manual drag. Resolve the drop against every OTHER node before
+      // persisting: a clear drop is kept as-is; a drop on top of a node steps down
+      // to the nearest clear slot. Read the live nodes (not a stale closure) so a
+      // multi-drag session resolves against the latest positions.
+      const others = useGraphSlice
+        .getState()
+        .pendingNodes.filter((n) => n.id !== nodeId);
+      const resolved = resolveNonOverlappingDrop(position, others);
+      updateNodePosition(nodeId, resolved);
     },
     [updateNodePosition],
   );
@@ -253,8 +293,7 @@ function WorkflowCanvasInner({
         triggerTagText={triggerTagText}
         onAddAction={onAddAction}
         canAddAction={canAddAction}
-        onArrange={onArrange}
-        canArrange={!isEmpty}
+        addActionBlockedReason={addActionBlockedReason}
       />
       <div
         aria-label="Workflow canvas"
@@ -293,7 +332,21 @@ function WorkflowCanvasInner({
               borderRadius: 6,
               boxShadow: "var(--builder-shadow-sm)",
             }}
-          />
+          >
+            {/* BUILDER-CANVAS-ERGONOMICS-FIX-1 — Arrange lives beside zoom/fit in the
+                bottom-left control cluster (moved out of the top action bar). */}
+            {onArrange ? (
+              <ControlButton
+                onClick={onArrange}
+                disabled={isEmpty}
+                data-testid="canvas-arrange-button"
+                aria-label="Arrange"
+                title="Arrange the workflow into a clean, non-overlapping layout"
+              >
+                <ArrangeIcon />
+              </ControlButton>
+            ) : null}
+          </Controls>
           <MiniMap
             data-testid="workflow-canvas-minimap"
             pannable
@@ -334,15 +387,13 @@ function CanvasActionBar({
   triggerTagText,
   onAddAction,
   canAddAction,
-  onArrange,
-  canArrange,
+  addActionBlockedReason,
 }: {
   nodeCountText: string;
   triggerTagText?: string;
   onAddAction?: () => void;
   canAddAction?: boolean;
-  onArrange?: () => void;
-  canArrange?: boolean;
+  addActionBlockedReason?: "no-trigger" | "multiple-tails";
 }) {
   return (
     <div
@@ -372,23 +423,6 @@ function CanvasActionBar({
           {triggerTagText ? <Tag text={triggerTagText} /> : null}
           <Tag text={nodeCountText} />
         </div>
-        {onArrange ? (
-          <button
-            type="button"
-            onClick={onArrange}
-            disabled={canArrange === false}
-            data-testid="canvas-arrange-button"
-            title="Arrange the workflow into a clean, non-overlapping layout"
-            className="inline-flex h-6 items-center gap-1.5 rounded-[4px] px-2 text-[11.5px] font-medium disabled:opacity-50"
-            style={{
-              background: "var(--builder-panel-2)",
-              border: "1px solid var(--builder-border)",
-              color: "var(--builder-text)",
-            }}
-          >
-            Arrange
-          </button>
-        ) : null}
         {onAddAction ? (
           <button
             type="button"
@@ -396,9 +430,11 @@ function CanvasActionBar({
             disabled={canAddAction === false}
             data-testid="canvas-add-action-button"
             title={
-              canAddAction === false
+              addActionBlockedReason === "no-trigger"
                 ? "Add a trigger before adding actions."
-                : "Add an action to the workflow"
+                : addActionBlockedReason === "multiple-tails"
+                  ? "This workflow has multiple branch ends. Use the + on the step you want to extend."
+                  : "Add an action to the end of the workflow"
             }
             className="inline-flex h-6 items-center gap-1.5 rounded-[4px] px-2 text-[11.5px] font-medium disabled:opacity-50"
             style={{
@@ -412,6 +448,21 @@ function CanvasActionBar({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * BUILDER-CANVAS-ERGONOMICS-FIX-1 — the Arrange glyph for the bottom-left control
+ * button (tidy rows). Inherits `currentColor` so it matches ReactFlow's control
+ * icon styling.
+ */
+function ArrangeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="9" y="3" width="6" height="5" rx="1" />
+      <rect x="9" y="16" width="6" height="5" rx="1" />
+      <path d="M12 8v8" />
+    </svg>
   );
 }
 

@@ -59,6 +59,12 @@ export interface WorkflowNodeData extends Record<string, unknown> {
    * resolved default — shown as the placeholder). Never identity.
    */
   customName?: string;
+  /**
+   * Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — true when this node has NO outgoing
+   * edge (a chain/branch end). Tail nodes render an "add next step" `+` so users
+   * can append at the end (or extend a specific branch) without the top-right CTA.
+   */
+  isTail?: boolean;
   /** Optional provider-friendly label (e.g. "Slack" instead of "slack"). */
   providerLabel?: string;
   /**
@@ -94,6 +100,12 @@ export interface NodeConversionContext {
    * unconfigured-only behavior.
    */
   requiredFieldsByType?: RequiredFieldsByType;
+  /**
+   * Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — ids of nodes with no outgoing edge
+   * (chain/branch ends). The canvas derives this once from the edge list; the
+   * adapter flags each node's `isTail` so the card can render the tail `+`.
+   */
+  tailNodeIds?: ReadonlySet<string>;
 }
 
 export interface EdgeConversionContext {
@@ -121,6 +133,7 @@ export function workflowNodesToFlowNodes(
       type: node.type,
       displayName: getNodeDisplayName(node),
       ...(node.displayName !== undefined ? { customName: node.displayName } : {}),
+      ...(ctx.tailNodeIds?.has(node.id) ? { isTail: true } : {}),
       providerLabel: ctx.providerLabels?.[node.provider],
       providerIcon: ctx.providerIcons?.[node.provider],
       missingRequiredConfig:
