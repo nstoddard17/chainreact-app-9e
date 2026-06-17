@@ -36,6 +36,7 @@ import { EmptyCanvasState } from "./EmptyCanvasState";
 import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
 import { BuilderNodeActionsProvider } from "./nodeActionsContext";
 import { BuilderTabPlaceholder, type BuilderTab } from "./BuilderTabPlaceholder";
+import { DataMapPanel } from "./DataMapPanel";
 import { CanvasActionBar } from "./CanvasActionBar";
 import { WorkflowEdge } from "./WorkflowEdge";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
@@ -377,6 +378,11 @@ function WorkflowCanvasInner({
           <NoTriggerRecoveryBanner onChooseTrigger={onAddTrigger} />
         ) : null}
           </>
+        ) : activeTab === "data-map" ? (
+          // Slice 4.BUILDER-DATA-MAP-MVP-1 — the Data Map tab shows a real
+          // workflow data outline once actions exist; it falls back to the
+          // shared empty-state panel (via BuilderTabPlaceholder) otherwise.
+          <DataMapPanel providerLabels={providerLabels} />
         ) : (
           <BuilderTabPlaceholder tab={activeTab} />
         )}

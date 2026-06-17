@@ -197,14 +197,26 @@ describe("WorkflowCanvas — top tabs + empty states (BUILDER-SHELL-TABS-1)", ()
     expect(container.querySelector(".react-flow")).toBeNull();
   });
 
-  it("Data Map tab explains user-facing variable data (no raw JSON/schema dump)", () => {
-    render(<WorkflowCanvas providerLabels={providerLabels} />);
+  it("Data Map tab shows a workflow-ordered data outline once actions exist (no raw JSON/schema dump)", () => {
+    // BUILDER-DATA-MAP-MVP-1 — with action nodes present (baseDef has one), the
+    // Data Map tab renders the real data outline, NOT the dead placeholder.
+    const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
+    expect(container.querySelector(".react-flow")).not.toBeNull();
     clickTab(/^Data Map$/);
-    const panel = screen.getByTestId("builder-tab-placeholder");
-    expect(panel.getAttribute("data-tab")).toBe("data-map");
-    expect(panel.textContent).toMatch(/data you can use/i);
-    expect(panel.textContent).toMatch(/variable/i);
+    const panel = screen.getByTestId("data-map-panel");
+    expect(panel).toBeInTheDocument();
+    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
+    // Workflow-ordered cards: trigger first, then the action.
+    const cards = within(panel).getAllByTestId("data-map-node");
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveAttribute("data-node-kind", "trigger");
+    expect(cards[1]).toHaveAttribute("data-node-kind", "action");
+    // Friendly provider labels surface; no raw JSON / schema dump.
+    expect(within(cards[0]!).getByText(/Slack/)).toBeInTheDocument();
+    expect(within(cards[1]!).getByText(/GitHub/)).toBeInTheDocument();
     expect(panel.textContent).not.toMatch(/JSON|schema/i);
+    // The ReactFlow canvas is swapped out for the outline.
+    expect(container.querySelector(".react-flow")).toBeNull();
   });
 
   it("Settings tab keeps credentials in Apps and node config in the step panel (rules honored)", () => {

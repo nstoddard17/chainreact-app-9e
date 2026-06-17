@@ -272,14 +272,13 @@ export function ConfigModalShell() {
             provider={activeNode.provider}
           />
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={requestClose}
-          aria-label="Close configuration"
-        >
-          ×
-        </Button>
+        {/*
+          Slice 4.BUILDER-DATA-MAP-MVP-1 — the duplicate inner close (×) was
+          removed. The single panel close lives in the drawer header
+          (BuilderRightDrawer, "Close drawer"). The unsaved-edit discard guard
+          this × used to trigger (requestClose) is still reachable via the
+          footer Cancel button below, so no behavior is lost.
+        */}
       </header>
 
       <ConfigNodeTabBar tabs={visibleTabs} activeTab={currentTab} onSelect={setActiveTab} />

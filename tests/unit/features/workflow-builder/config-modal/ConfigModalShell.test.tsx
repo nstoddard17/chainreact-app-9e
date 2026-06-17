@@ -26,6 +26,7 @@ jest.mock("@/lib/api/discovery", () => ({
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfigModalShell } from "@/features/workflow-builder/config-modal/ConfigModalShell";
+import { BuilderRightDrawer } from "@/features/workflow-builder/layout/BuilderRightDrawer";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
@@ -324,7 +325,7 @@ describe("ConfigModalShell — native action open state", () => {
 });
 
 describe("ConfigModalShell — C: unsaved-edit discard guard", () => {
-  it("× on a dirty draft warns instead of silently discarding; draft is preserved", async () => {
+  it("Cancel on a dirty draft warns instead of silently discarding; draft is preserved", async () => {
     const { nodeId } = bootWithNativeAction();
     const user = userEvent.setup();
     render(<ConfigModalShell />);
@@ -332,9 +333,7 @@ describe("ConfigModalShell — C: unsaved-edit discard guard", () => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
     await user.type(screen.getByLabelText("URL"), "https://keep.me");
-    await user.click(
-      screen.getByRole("button", { name: /close configuration/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     expect(
       screen.getByTestId("config-modal-discard-confirm"),
     ).toBeInTheDocument();
@@ -363,20 +362,52 @@ describe("ConfigModalShell — C: unsaved-edit discard guard", () => {
     expect(useConfigSlice.getState().drafts[nodeId]!.isDirty).toBe(true);
   });
 
-  it("× on a CLEAN draft closes immediately without a warning", async () => {
+  it("Cancel on a CLEAN draft closes immediately without a warning", async () => {
     bootWithNativeAction();
     const user = userEvent.setup();
     render(<ConfigModalShell />);
     await waitFor(() => {
       expect(screen.getByLabelText("URL")).toBeInTheDocument();
     });
-    await user.click(
-      screen.getByRole("button", { name: /close configuration/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     expect(
       screen.queryByTestId("config-modal-discard-confirm"),
     ).not.toBeInTheDocument();
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
+  });
+});
+
+describe("ConfigModalShell — BUILDER-DATA-MAP-MVP-1: single panel close control", () => {
+  it("renders no inner close (×) control inside the config content", async () => {
+    bootWithNativeAction();
+    render(<ConfigModalShell />);
+    await waitFor(() => {
+      expect(screen.getByLabelText("URL")).toBeInTheDocument();
+    });
+    // The duplicate inner close was removed — the only panel close lives in
+    // the drawer header. The shell itself exposes no close affordance.
+    expect(
+      screen.queryByRole("button", { name: /close configuration/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /close drawer/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("exposes exactly one close control for the config panel when wrapped in the drawer", async () => {
+    bootWithNativeAction();
+    render(
+      <BuilderRightDrawer title="Node configuration" onClose={() => {}}>
+        <ConfigModalShell />
+      </BuilderRightDrawer>,
+    );
+    await waitFor(() => {
+      expect(screen.getByLabelText("URL")).toBeInTheDocument();
+    });
+    // Only the drawer's "Close drawer" × should be present — no duplicate.
+    const closeControls = screen.getAllByRole("button", { name: /close/i });
+    expect(closeControls).toHaveLength(1);
+    expect(closeControls[0]).toHaveAttribute("aria-label", "Close drawer");
   });
 });
 
