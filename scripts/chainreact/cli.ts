@@ -11,6 +11,7 @@
  * Built to runnable CommonJS via scripts/chainreact/tsconfig.json (→ dist/, gitignored).
  */
 import { parseArgs, wantsHelp } from "./args";
+import { runAppActionScaffold } from "./commands/appActionScaffold";
 import { listProviders, renderProviderList } from "./commands/appList";
 import { runAppRegister } from "./commands/appRegister";
 import { runAppScaffold } from "./commands/appScaffold";
@@ -116,6 +117,24 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         log(outcome.output);
         return outcome.code;
       }
+      if (parsed.subcommand === "action") {
+        // `app action scaffold <provider> <action>` — positionals are
+        // [sub, provider, action] (the parser only peels one subcommand token).
+        const sub = parsed.positionals[0] ?? "";
+        if (sub !== "scaffold") {
+          log(`Unknown 'app action' subcommand: '${sub}'. Try: chainreact app action scaffold <provider> <action>`);
+          return 2;
+        }
+        const provider = parsed.positionals[1] ?? "";
+        const action = parsed.positionals[2] ?? "";
+        if (!provider || !action) {
+          log("Usage: chainreact app action scaffold <provider> <action> [--dry-run]");
+          return 2;
+        }
+        const outcome = runAppActionScaffold(provider, action, { dryRun: parsed.flags["dry-run"] === true }, fs, writer);
+        log(outcome.output);
+        return outcome.code;
+      }
       if (parsed.subcommand === "validate") {
         if (parsed.flags.all === true) {
           const results = validateAllProviders(fs);
@@ -131,7 +150,7 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
         log(renderValidation(result));
         return result.ok ? 0 : 1;
       }
-      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider> [--register] | chainreact app register <provider>`);
+      log(`Unknown 'app' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact app list | chainreact app validate <provider> | chainreact app validate --all | chainreact app scaffold <provider> [--register] | chainreact app register <provider> | chainreact app action scaffold <provider> <action>`);
       return 2;
     }
 

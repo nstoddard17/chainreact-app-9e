@@ -37,6 +37,7 @@ It is **live internal tooling** (not flag-gated).
 | `chainreact app validate --all [--verbose]` | Runs the validator across **every** discovered provider; prints a summary (total / pass / warn / fail + per-provider status). Failures list their errors inline; `--verbose` also lists warnings. |
 | `chainreact app scaffold <id> [--dry-run] [--register]` | Creates a minimal, contract-valid provider skeleton under `integrations/<id>/` (a single `manifest.ts`, capabilities off, TODOs for the rest). Refuses to overwrite an existing provider. **Default: does not edit the registry** (provider stays inert). `--register` additionally wires the new manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). `--dry-run` prints the plan (+ the registry patch when `--register`) and writes nothing. |
 | `chainreact app register <id>` | Wires an **existing** provider's manifest into `_registry.ts` (1 import + 1 `ALL_MANIFESTS` entry). Requires `integrations/<id>/manifest.ts` to exist; refuses unknown dirs; no-ops cleanly if already registered; refuses (writes nothing) if the registry format can't be patched safely. `--dry-run` prints the patch and writes nothing. |
+| `chainreact app action scaffold <provider> <action> [--dry-run]` | Creates a minimal action **triad** (`<base>.ts` handler + `.schema.ts` + `.meta.ts`) for an **existing** provider. The handler validates config then **throws "not implemented"** (no network, no fake success); the meta is Zod-valid (no fields/outputs, `category: "other"`) so the provider keeps passing `app validate`. Refuses unknown providers, invalid action ids, and collisions with an existing action unit. Does **not** register the handler/meta or change `isEnabled`. `--dry-run` prints the plan + predicted validation and writes nothing. |
 | `chainreact --help` / `-h` | Usage. |
 
 ## Usage
@@ -57,6 +58,8 @@ npm run chainreact -- app scaffold linear --register --dry-run
 npm run chainreact -- app scaffold linear --register
 npm run chainreact -- app register linear --dry-run
 npm run chainreact -- app register linear
+npm run chainreact -- app action scaffold slack send-test-message --dry-run
+npm run chainreact -- app action scaffold slack send-test-message
 ```
 
 `npm run chainreact` builds first (`chainreact:build`) then runs — so it always
@@ -211,6 +214,54 @@ registry or any provider code) to know whether a manifest is wired in. See
 separate: `scaffold` never touches an existing `integrations/<id>/`, and `register`
 never creates a manifest.
 
+## `app action scaffold <provider> <action>`
+
+Creates the smallest repo-conventional **action unit** for an **existing** provider.
+See [`commands/appActionScaffold.ts`](./commands/appActionScaffold.ts). It invents
+nothing — no scopes, no endpoints, no real behavior, no secrets, no network.
+
+**Layout chosen — the sibling triad** (the dominant / new-provider convention; only
+hubspot uses an `actions/meta/` subfolder, 24/25 providers use siblings):
+
+```
+integrations/<provider>/actions/<base>.ts          # handler
+integrations/<provider>/actions/<base>.schema.ts   # resolved-config Zod schema
+integrations/<provider>/actions/<base>.meta.ts     # ActionMeta (builder/AI)
+```
+
+A provider's **existing** convention is preserved: if `actions/meta/` already exists,
+the meta is written there instead (handler + schema stay in `actions/`).
+
+**Naming** (from `send-test-message`): metadata key `<provider>:send_test_message`
+(snake_case `type`, matching the `ActionMetaSchema` key regex); file basename
+`sendTestMessage` (camelCase); schema const `SendTestMessageConfigSchema`; meta export
+`<providerCamel>SendTestMessageMeta`.
+
+**Generated behavior (intentionally TODO):**
+- **Handler** — validates `input.config` against the schema (defense-in-depth) then
+  `throw new Error("<provider>:<type> is not implemented yet …")`. No provider call, no
+  fake success — it can never be mistaken for production-ready.
+- **Schema** — `z.object({})` with a TODO to add real fields, kept in sync with the
+  meta's `fields[]`.
+- **Meta** — Zod-valid `ActionMeta`: correct `key`/`provider`/`type`, `displayName`
+  (Title Case), a `TODO(...)` description, `category: "other"`, `requiresIntegration:
+  true`, empty `fields`/`outputs`, and the safe risk/file defaults the inferred type
+  requires (`producesFileRef:false`, `displayOrder:null`, `riskLevel:"low"`, …).
+
+**Refusals:** unknown provider (no `manifest.ts`), invalid action id, and any collision
+with an existing action unit of the same basename (sibling or `actions/meta/`). No
+`--force`. **Unregistered provider** is a **warning, not a failure** — the files are
+created but the action won't load until the provider is wired (`app register <id>`).
+
+**Predicted validation:** the triad is built into an overlay and run through
+`validateProvider`, so `--dry-run` shows the exact `app validate <provider>` verdict —
+a clean triad keeps the provider **PASS**.
+
+The handler/meta are **not** registered in `services/execution/handlers/_registry.ts`
+or `services/discovery/_registry.ts`, and `isEnabled` is untouched — so the action does
+not run or appear in the builder until a developer finishes + registers it. Next:
+`app validate <provider>` → `app validate --all`.
+
 **Future slices** should extend `validateProvider()` in
 [`commands/appValidate.ts`](./commands/appValidate.ts) by appending `Finding`s — the
 result shape, `--all` summary, and renderer already support it (append a `Finding`).
@@ -230,8 +281,11 @@ robustness, requiresIntegration/fields/scopes shape warnings, error-vs-warning),
 **registered** column), **registry awareness** (detection by import-path with
 divergent export casing, `MANIFEST_NOT_REGISTERED` warning, narrow patch
 construction + refusal on unsafe formats, `scaffold --register`, `app register`),
-verify planning/execution (fake runner), mcp-smoke wrapping, and `run()` dispatch.
-No disk, no spawned processes.
+**action scaffolding** (id normalization to snake/camel/Pascal/Title, sibling-vs-
+`actions/meta/` layout choice, dry-run-writes-nothing, triad creation, correct
+meta key/provider, overlay validation, unknown-provider / invalid-id / collision
+refusals, unregistered-provider warning), verify planning/execution (fake runner),
+mcp-smoke wrapping, and `run()` dispatch. No disk, no spawned processes.
 
 ## Adding a command (deliberately)
 

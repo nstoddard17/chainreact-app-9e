@@ -9,6 +9,13 @@
  */
 import { parseArgs, wantsHelp } from "@/scripts/chainreact/args";
 import { run } from "@/scripts/chainreact/cli";
+import {
+  actionMetaExportName,
+  buildActionScaffoldPlan,
+  chooseMetaPath,
+  normalizeActionId,
+  runAppActionScaffold,
+} from "@/scripts/chainreact/commands/appActionScaffold";
 import { listProviders, renderProviderList } from "@/scripts/chainreact/commands/appList";
 import { runAppRegister } from "@/scripts/chainreact/commands/appRegister";
 import { buildScaffoldPlan, camelCaseId, humanizeId, normalizeProviderId, overlayFs, runAppScaffold } from "@/scripts/chainreact/commands/appScaffold";
@@ -1111,5 +1118,208 @@ describe("registry dispatch via run()", () => {
     const out: string[] = [];
     run(["app", "bogus"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
     expect(out.join("\n")).toMatch(/register/);
+  });
+});
+
+// ── action scaffolding ───────────────────────────────────────────────────────
+describe("app action scaffold — id normalization (pure)", () => {
+  it("derives snake/camel/Pascal/Title forms from a kebab id (case-insensitive)", () => {
+    expect(normalizeActionId("Send-Test-Message")).toEqual({
+      ok: true,
+      type: "send_test_message",
+      base: "sendTestMessage",
+      pascal: "SendTestMessage",
+      display: "Send Test Message",
+    });
+  });
+  it("treats - and _ identically", () => {
+    expect(normalizeActionId("send_test_message").type).toBe("send_test_message");
+    expect(normalizeActionId("send_test_message").base).toBe("sendTestMessage");
+  });
+  it("rejects invalid ids (leading digit, symbols, double/trailing separators, empty)", () => {
+    expect(normalizeActionId("1foo").ok).toBe(false);
+    expect(normalizeActionId("bad id!").ok).toBe(false);
+    expect(normalizeActionId("send--test").ok).toBe(false);
+    expect(normalizeActionId("send-").ok).toBe(false);
+    expect(normalizeActionId("").ok).toBe(false);
+  });
+  it("export-const name follows <provider><Action>Meta with provider camelCase", () => {
+    const a = normalizeActionId("foo-bar");
+    expect(actionMetaExportName("slack", a)).toBe("slackFooBarMeta");
+    expect(actionMetaExportName("google-analytics", a)).toBe("googleAnalyticsFooBarMeta");
+  });
+});
+
+describe("app action scaffold — layout choice (pure)", () => {
+  it("defaults to the sibling triad layout", () => {
+    const fs = fakeFs({ "integrations/slack/manifest.ts": manifestSrc("slack") });
+    expect(chooseMetaPath(fs, "slack", "sendTestMessage")).toBe("integrations/slack/actions/sendTestMessage.meta.ts");
+  });
+  it("respects an existing actions/meta/ subfolder convention (hubspot-style)", () => {
+    const fs = fakeFs({
+      "integrations/hubspot/manifest.ts": manifestSrc("hubspot"),
+      "integrations/hubspot/actions/meta/createContact.meta.ts": actionMetaSrc("hubspot", "create_contact"),
+    });
+    expect(chooseMetaPath(fs, "hubspot", "createDeal")).toBe("integrations/hubspot/actions/meta/createDeal.meta.ts");
+    const plan = buildActionScaffoldPlan(fs, "hubspot", normalizeActionId("create-deal"));
+    expect(plan.files.map((f) => f.path)).toEqual([
+      "integrations/hubspot/actions/createDeal.ts",
+      "integrations/hubspot/actions/createDeal.schema.ts",
+      "integrations/hubspot/actions/meta/createDeal.meta.ts",
+    ]);
+  });
+});
+
+describe("app action scaffold — runAppActionScaffold", () => {
+  // Provider exists + is registered (alpha is in REGISTRY_SRC).
+  const providerFs = (): FsDeps =>
+    fakeFs({ "integrations/alpha/manifest.ts": manifestSrc("alpha"), [REGISTRY_PATH]: REGISTRY_SRC });
+
+  it("dry-run writes nothing and predicts a passing validation (exit 0)", () => {
+    const w = fakeWriter();
+    const r = runAppActionScaffold("alpha", "send-test-message", { dryRun: true }, providerFs(), w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(w.dirs.length).toBe(0);
+    expect(r.output).toContain("would write: integrations/alpha/actions/sendTestMessage.ts");
+    expect(r.output).toContain("Action key: alpha:send_test_message");
+    expect(r.output).toContain("PASS");
+  });
+
+  it("creates exactly the three triad files (exit 0)", () => {
+    const w = fakeWriter();
+    const r = runAppActionScaffold("alpha", "send-test-message", { dryRun: false }, providerFs(), w);
+    expect(r.code).toBe(0);
+    expect([...w.files.keys()].sort()).toEqual([
+      "integrations/alpha/actions/sendTestMessage.meta.ts",
+      "integrations/alpha/actions/sendTestMessage.schema.ts",
+      "integrations/alpha/actions/sendTestMessage.ts",
+    ]);
+  });
+
+  it("generated meta has the correct key + provider + export const", () => {
+    const w = fakeWriter();
+    runAppActionScaffold("alpha", "send-test-message", { dryRun: false }, providerFs(), w);
+    const meta = w.files.get("integrations/alpha/actions/sendTestMessage.meta.ts")!;
+    expect(meta).toContain('key: "alpha:send_test_message"');
+    expect(meta).toContain('provider: "alpha"');
+    expect(meta).toContain('type: "send_test_message"');
+    expect(meta).toContain("export const alphaSendTestMessageMeta: ActionMeta");
+    expect(meta).toContain('category: "other"');
+    // handler is a placeholder that throws — never fake success
+    const handler = w.files.get("integrations/alpha/actions/sendTestMessage.ts")!;
+    expect(handler).toMatch(/throw new Error\(/);
+    expect(handler).toMatch(/not implemented yet/);
+  });
+
+  it("generated triad validates clean in the overlay", () => {
+    const w = fakeWriter();
+    const r = runAppActionScaffold("alpha", "send-test-message", { dryRun: true }, providerFs(), w);
+    expect(r.output).toContain("PASS — no structural issues detected");
+    expect(r.output).not.toContain("[ERROR]");
+  });
+
+  it("refuses an unknown provider (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const r = runAppActionScaffold("ghostprovider", "do-thing", { dryRun: false }, providerFs(), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/unknown provider/);
+  });
+
+  it("refuses an invalid action id (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const r = runAppActionScaffold("alpha", "Bad Action!", { dryRun: false }, providerFs(), w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/Invalid action id/);
+  });
+
+  it("refuses a collision with an existing action unit (exit 2, no writes)", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/alpha/manifest.ts": manifestSrc("alpha"),
+      "integrations/alpha/actions/sendTestMessage.ts": "", // existing handler basename
+      [REGISTRY_PATH]: REGISTRY_SRC,
+    });
+    const r = runAppActionScaffold("alpha", "send-test-message", { dryRun: false }, fs, w);
+    expect(r.code).toBe(2);
+    expect(w.files.size).toBe(0);
+    expect(r.output).toMatch(/already has|refusing to overwrite/);
+  });
+
+  it("unregistered provider → warning but still succeeds (exit 0, files created)", () => {
+    const w = fakeWriter();
+    // beta exists but is NOT in REGISTRY_SRC.
+    const fs = fakeFs({ "integrations/beta/manifest.ts": manifestSrc("beta"), [REGISTRY_PATH]: REGISTRY_SRC });
+    const r = runAppActionScaffold("beta", "send-test-message", { dryRun: false }, fs, w);
+    expect(r.code).toBe(0);
+    expect(w.files.size).toBe(3);
+    expect(r.output).toMatch(/not registered in integrations\/_registry\.ts/);
+    expect(r.output).toMatch(/will NOT load/);
+  });
+
+  it("places the meta in actions/meta/ for a provider using that layout", () => {
+    const w = fakeWriter();
+    const fs = fakeFs({
+      "integrations/hubspot/manifest.ts": manifestSrc("hubspot"),
+      "integrations/hubspot/actions/meta/createContact.meta.ts": actionMetaSrc("hubspot", "create_contact"),
+      [REGISTRY_PATH]: REGISTRY_SRC,
+    });
+    runAppActionScaffold("hubspot", "create-deal", { dryRun: false }, fs, w);
+    expect(w.files.has("integrations/hubspot/actions/meta/createDeal.meta.ts")).toBe(true);
+    expect(w.files.has("integrations/hubspot/actions/createDeal.ts")).toBe(true);
+  });
+});
+
+describe("app action scaffold — dispatch via run()", () => {
+  const rt = { nodeVersion: "v20.0.0", platform: "linux", cwd: "/repo", repoRoot: "/repo" };
+  const providerFs = (): FsDeps =>
+    fakeFs({ "integrations/alpha/manifest.ts": manifestSrc("alpha"), [REGISTRY_PATH]: REGISTRY_SRC });
+
+  it("`app action scaffold <p> <a> --dry-run` → exit 0, no writes", () => {
+    const w = fakeWriter();
+    const out: string[] = [];
+    const code = run(["app", "action", "scaffold", "alpha", "send-test-message", "--dry-run"], {
+      fs: providerFs(),
+      writer: w,
+      runtime: rt,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(0);
+    expect(w.files.size).toBe(0);
+    expect(out.join("\n")).toContain("app action scaffold: alpha:send_test_message");
+  });
+
+  it("`app action scaffold <p> <a>` → exit 0 and writes the triad", () => {
+    const w = fakeWriter();
+    const code = run(["app", "action", "scaffold", "alpha", "send-test-message"], {
+      fs: providerFs(),
+      writer: w,
+      runtime: rt,
+      log: () => {},
+    });
+    expect(code).toBe(0);
+    expect(w.files.size).toBe(3);
+  });
+
+  it("`app action scaffold` with missing args → usage, exit 2", () => {
+    const out: string[] = [];
+    const code = run(["app", "action", "scaffold", "alpha"], { fs: providerFs(), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/Usage:.*app action scaffold/);
+  });
+
+  it("unknown `app action` subcommand → exit 2", () => {
+    const out: string[] = [];
+    const code = run(["app", "action", "bogus", "alpha", "x"], { fs: providerFs(), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(code).toBe(2);
+    expect(out.join("\n")).toMatch(/app action scaffold/);
+  });
+
+  it("unknown `app` subcommand mentions action scaffold", () => {
+    const out: string[] = [];
+    run(["app", "bogus"], { fs: fakeFs({}), writer: fakeWriter(), runtime: rt, log: (l) => out.push(l) });
+    expect(out.join("\n")).toMatch(/action scaffold/);
   });
 });
