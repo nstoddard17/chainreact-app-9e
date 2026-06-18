@@ -257,14 +257,14 @@ describe("Personal Pro task cap (CS-PRO-2)", () => {
     expect(fields.tasksLimit).toBe(100);
   });
 
-  it("a TEAM checkout does NOT set a personal task cap (account-level billing unchanged)", async () => {
+  it("a TEAM checkout stamps the Team task cap (7,500) from policy (PRICING-LOCK)", async () => {
     mockGetAccount.mockResolvedValueOnce({ id: "t1", type: "team", deletionStatus: "active" });
     const obj = { customer: "cus_t", subscription: "sub_t", metadata: { accountId: "t1", plan: "team" } };
     const body = event("checkout.session.completed", obj);
     await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields.plan).toBe("team");
-    expect(fields).not.toHaveProperty("tasksLimit"); // team task cap is not touched here
+    expect(fields.tasksLimit).toBe(7500);
   });
 
   it("an invalid/disallowed plan sets NEITHER plan NOR a task limit (no unsafe cap)", async () => {

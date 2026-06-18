@@ -1,8 +1,7 @@
-import type { AccountType } from "@/contracts/accounts";
 import * as foldersRepo from "@/repositories/workflowFolders";
 import type { WorkflowFolderRecord } from "@/repositories/workflowFolders";
 import * as workflowsRepo from "@/repositories/workflows";
-import { folderLimitFor, MAX_FOLDER_DEPTH } from "./folderLimits";
+import { MAX_FOLDER_DEPTH } from "./folderLimits";
 import {
   depthForChildOf,
   moveCreatesCycle,
@@ -81,7 +80,8 @@ export async function listFolders(
 
 export interface CreateFolderServiceInput {
   accountId: string;
-  accountType: AccountType;
+  /** Plan-resolved live-folder cap (PRICING-LOCK); `null` = uncapped (enterprise). */
+  folderLimit: number | null;
   userId: string;
   name: string;
   parentFolderId?: string | null;
@@ -106,8 +106,9 @@ export async function createFolder(
     return fail("FOLDER_TOO_DEEP", `Folders can be nested at most ${MAX_FOLDER_DEPTH} levels deep.`);
   }
 
-  // Tier limit (live folders only — trashed don't count; the list is live-only).
-  if (live.length >= folderLimitFor(input.accountType)) {
+  // Plan limit (live folders only; trashed don't count, the list is live-only). A null cap
+  // means uncapped (enterprise), so no check.
+  if (input.folderLimit !== null && live.length >= input.folderLimit) {
     return fail("FOLDER_LIMIT_REACHED", "You've reached the folder limit for this plan.");
   }
 

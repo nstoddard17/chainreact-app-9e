@@ -358,11 +358,20 @@ export async function initAccountBillingServiceRole(
   const supabase = getServiceRoleClient(
     `account_billing: init for account ${accountId}`,
   );
-  // CS-1: a new team/org account seeds its type's default plan (the column default
-  // 'free' is correct for the trigger-seeded personal path). Limits are unchanged —
-  // tasks_limit still defaults to 100; `plan` is metadata only.
-  const row: { account_id: string; plan?: PlanTier } = { account_id: accountId };
-  if (plan) row.plan = plan;
+  // A new team/org account seeds its type's default plan (the column default 'free' is
+  // correct for the trigger-seeded personal path). PRICING-LOCK enforcement: when a plan is
+  // given, also stamp tasks_limit from planPolicy so the account is born with the right cap
+  // (team = 7,500) instead of the column default (100). Insert-only via ignoreDuplicates, so
+  // an existing billing row is never overwritten. planPolicy stays the single source of the
+  // number; enterprise (taskLimit null) keeps the column default and is set per deal.
+  const row: { account_id: string; plan?: PlanTier; tasks_limit?: number } = {
+    account_id: accountId,
+  };
+  if (plan) {
+    row.plan = plan;
+    const taskLimit = planLimitsFor(plan).taskLimit;
+    if (taskLimit !== null) row.tasks_limit = taskLimit;
+  }
   const { error } = await supabase
     .from("account_billing")
     .upsert(row, { onConflict: "account_id", ignoreDuplicates: true });

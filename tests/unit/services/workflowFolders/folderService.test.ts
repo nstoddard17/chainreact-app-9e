@@ -77,25 +77,49 @@ describe("listFolders", () => {
 describe("createFolder", () => {
   it("succeeds for an account member", async () => {
     foldersRepo.listByAccount.mockResolvedValue([]);
-    const r = await createFolder({ accountId: ACCT, accountType: "personal", userId: "u1", name: "Marketing" });
+    const r = await createFolder({ accountId: ACCT, folderLimit: 10, userId: "u1", name: "Marketing" });
     expect(r.ok).toBe(true);
     expect(foldersRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ accountId: ACCT, name: "Marketing", parentFolderId: null, position: 0 }),
     );
   });
 
-  it("rejects when the tier limit is reached (personal = 10)", async () => {
+  it("rejects when the tier limit is reached (Free personal = 10)", async () => {
     foldersRepo.listByAccount.mockResolvedValue(
       Array.from({ length: 10 }, (_, i) => folder({ id: `f${i}`, name: `f${i}` })),
     );
-    const r = await createFolder({ accountId: ACCT, accountType: "personal", userId: "u1", name: "f10" });
+    const r = await createFolder({ accountId: ACCT, folderLimit: 10, userId: "u1", name: "f10" });
     expect(r).toMatchObject({ ok: false, code: "FOLDER_LIMIT_REACHED" });
     expect(foldersRepo.create).not.toHaveBeenCalled();
   });
 
+  it("a Pro cap (25) allows an 11th folder that the Free cap (10) would reject (PRICING-LOCK)", async () => {
+    foldersRepo.listByAccount.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => folder({ id: `f${i}`, name: `f${i}` })),
+    );
+    const r = await createFolder({ accountId: ACCT, folderLimit: 25, userId: "u1", name: "f10" });
+    expect(r.ok).toBe(true);
+  });
+
+  it("rejects the 26th folder on the Pro cap (25)", async () => {
+    foldersRepo.listByAccount.mockResolvedValue(
+      Array.from({ length: 25 }, (_, i) => folder({ id: `f${i}`, name: `f${i}` })),
+    );
+    const r = await createFolder({ accountId: ACCT, folderLimit: 25, userId: "u1", name: "f25" });
+    expect(r).toMatchObject({ ok: false, code: "FOLDER_LIMIT_REACHED" });
+  });
+
+  it("an uncapped plan (null cap = Enterprise) allows creation past any tier default", async () => {
+    foldersRepo.listByAccount.mockResolvedValue(
+      Array.from({ length: 300 }, (_, i) => folder({ id: `f${i}`, name: `f${i}` })),
+    );
+    const r = await createFolder({ accountId: ACCT, folderLimit: null, userId: "u1", name: "f300" });
+    expect(r.ok).toBe(true);
+  });
+
   it("rejects a duplicate live sibling name (case-insensitive)", async () => {
     foldersRepo.listByAccount.mockResolvedValue([folder({ id: "m", name: "Marketing", parentFolderId: null })]);
-    const r = await createFolder({ accountId: ACCT, accountType: "personal", userId: "u1", name: "  marketing " });
+    const r = await createFolder({ accountId: ACCT, folderLimit: 10, userId: "u1", name: "  marketing " });
     expect(r).toMatchObject({ ok: false, code: "FOLDER_NAME_TAKEN" });
   });
 
@@ -104,7 +128,7 @@ describe("createFolder", () => {
       folder({ id: "p1", name: "P1", parentFolderId: null }),
       folder({ id: "sub", name: "Sub", parentFolderId: "p1" }),
     ]);
-    const r = await createFolder({ accountId: ACCT, accountType: "personal", userId: "u1", name: "Sub" }); // parent null
+    const r = await createFolder({ accountId: ACCT, folderLimit: 10, userId: "u1", name: "Sub" }); // parent null
     expect(r.ok).toBe(true);
   });
 
@@ -115,13 +139,13 @@ describe("createFolder", () => {
       folder({ id: "a", parentFolderId: "r" }),
       folder({ id: "b", parentFolderId: "a" }),
     ]);
-    const r = await createFolder({ accountId: ACCT, accountType: "personal", userId: "u1", name: "x", parentFolderId: "b" });
+    const r = await createFolder({ accountId: ACCT, folderLimit: 10, userId: "u1", name: "x", parentFolderId: "b" });
     expect(r).toMatchObject({ ok: false, code: "FOLDER_TOO_DEEP" });
   });
 
   it("rejects an unknown / cross-account parent (not in the account's live set)", async () => {
     foldersRepo.listByAccount.mockResolvedValue([]);
-    const r = await createFolder({ accountId: ACCT, accountType: "personal", userId: "u1", name: "x", parentFolderId: "ghost" });
+    const r = await createFolder({ accountId: ACCT, folderLimit: 10, userId: "u1", name: "x", parentFolderId: "ghost" });
     expect(r).toMatchObject({ ok: false, code: "FOLDER_NOT_FOUND" });
   });
 });

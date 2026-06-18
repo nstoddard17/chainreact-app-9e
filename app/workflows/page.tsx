@@ -6,7 +6,8 @@ import * as notificationsRepo from "@/repositories/notifications";
 import * as foldersRepo from "@/repositories/workflowFolders";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
-import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
+import { folderLimitForAccount } from "@/services/workflowFolders/folderLimits";
+import { resolveAccountPlan } from "@/services/billing/planCapabilities";
 import { computeViewerCanRunEditBatch, toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { toWorkflowFolder } from "@/app/api/folders/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
@@ -52,19 +53,28 @@ export default async function WorkflowsPage() {
   // back to the personal floor for display.
   const resolved = await resolveActiveAccount(user.id);
   const ownerAccount = resolved.ok ? resolved.account : await ensurePersonalAccount(user.id);
-  const [records, runStats, folderRecords, unreadNotifications, recentNotificationRecords] =
-    await Promise.all([
-      workflowsRepo.listByAccount(ownerAccount.id),
-      // 4.ACCOUNT-SWITCHER-1: run stats scoped to the active account (matches
-      // the workflows + folders lists above).
-      workflowRunStatsRepo.getStatsForAccount(ownerAccount.id),
-      // 4.WORKFLOW-FOLDERS-6 / WF-5 — live folders for the dashboard folder tree.
-      foldersRepo.listByAccount(ownerAccount.id),
-      notificationsRepo.countUnreadForUser(user.id),
-      notificationsRepo.listForUser(user.id, {
-        limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
-      }),
-    ]);
+  const [
+    records,
+    runStats,
+    folderRecords,
+    unreadNotifications,
+    recentNotificationRecords,
+    planResolution,
+  ] = await Promise.all([
+    workflowsRepo.listByAccount(ownerAccount.id),
+    // 4.ACCOUNT-SWITCHER-1: run stats scoped to the active account (matches
+    // the workflows + folders lists above).
+    workflowRunStatsRepo.getStatsForAccount(ownerAccount.id),
+    // 4.WORKFLOW-FOLDERS-6 / WF-5 — live folders for the dashboard folder tree.
+    foldersRepo.listByAccount(ownerAccount.id),
+    notificationsRepo.countUnreadForUser(user.id),
+    notificationsRepo.listForUser(user.id, {
+      limit: NOTIFICATION_BELL_PREVIEW_LIMIT,
+    }),
+    // PRICING-LOCK: plan-aware folder cap so the create-folder affordance honors Pro's 25
+    // (not the personal-type default of 10). Fails closed to "free" inside the resolver.
+    resolveAccountPlan(ownerAccount.id),
+  ]);
   // CS-5b — accurate per-row run/edit eligibility in bounded queries (flag OFF → conservative, no DB).
   const viewerCanRunEdit = await computeViewerCanRunEditBatch(records, user.id);
   const workflows = records.map((r) => toWorkflowListItem(r, runStats, user.id, viewerCanRunEdit));
@@ -88,7 +98,7 @@ export default async function WorkflowsPage() {
         <WorkflowsDashboard
           initialWorkflows={workflows}
           initialFolders={folders}
-          folderLimit={folderLimitFor(ownerAccount.type)}
+          folderLimit={folderLimitForAccount(planResolution.plan, ownerAccount.type)}
         />
       </main>
     </AppShell>

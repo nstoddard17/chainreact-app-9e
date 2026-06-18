@@ -71,15 +71,15 @@ export interface PlanLimits {
  *     verified personal Pro activation (applyResolvedPlan). Enforced.
  *   - Business task cap: stamped by the team to business upgrade RPC, which defaults
  *     p_tasks_limit from planLimitsFor('business'). Enforced for new upgrades.
- *   - Team task cap: NOT yet stamped on team-plan activation. A team account keeps the
- *     account_billing default (100) unless it arrives via a business to team downgrade
- *     (which stamps the team cap from policy). Documented, not fully enforced. Follow-up:
- *     extend applyResolvedPlan to stamp team/org task caps + backfill existing teams.
- *   - Member/folder caps are resolved by the AccountType-keyed helpers
- *     (services/accounts/memberLimits.ts, services/workflowFolders/folderLimits.ts), NOT by
- *     this map. Pro's folderLimit (25) is therefore policy/documentation only: folder
- *     creation still enforces the personal account-type default (10). Follow-up: make
- *     folder enforcement plan-aware to honor Pro 25.
+ *   - Team task cap: stamped from policy at team-account creation (initAccountBillingServiceRole)
+ *     AND on team-plan activation (applyResolvedPlan). Enforced for new team accounts. Pre-existing
+ *     team rows created before PRICING-LOCK keep the old default (100) until re-stamped (no
+ *     backfill migration here; see the doc follow-up).
+ *   - Member caps are resolved by the AccountType-keyed helper
+ *     (services/accounts/memberLimits.ts), NOT by this map.
+ *   - Folder caps: folder creation now resolves the account's PLAN and enforces
+ *     planLimitsFor(plan).folderLimit (services/workflowFolders/folderLimits.folderLimitForPlan),
+ *     so personal Pro = 25 while personal Free = 10. Enforced.
  * `enterprise` is uncapped/config (null); per-deal values are set on account_billing directly.
  */
 export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {

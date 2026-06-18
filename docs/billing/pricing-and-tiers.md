@@ -79,10 +79,13 @@ These are two independent dials, by design.
 
 Built and enforced today:
 - Seat caps (Team 5 / Business 25), enforced at invite time via member-limit helpers.
-- Folder caps by account type (personal 10 / team 100 / organization 250), enforced at folder
-  creation. NOTE: this is account-type-keyed, so Pro's documented 25 folders is not yet honored
-  (see gaps below).
+- Folder caps, enforced at folder creation against the account's PLAN
+  (`folderLimitForPlan` → `planLimitsFor(plan).folderLimit`), so Free personal = 10, Pro
+  personal = 25, Team = 100, Business = 250, Enterprise = uncapped. The folder route resolves
+  the stored plan (fail-closed to Free).
 - Monthly task limit, enforced at execution (flat 1/run) against `account_billing.tasks_limit`.
+  Team accounts are now born with the 7,500 cap (stamped from policy at account creation and on
+  team-plan activation), not the old 100 default.
 - Bulk export gate (Free no, paid yes) via `canBulkExportForPlan` (resolver exists;
   route-level wiring per feature).
 - Built-in template use for all tiers.
@@ -113,10 +116,10 @@ Planned / not yet built (do not advertise as available):
 | Monthly task limit | Yes (blocks) | `executionBillingGate` to `deductTasks` RPC; lazy period rollover |
 | Pro task cap propagation | Yes | Webhook `applyResolvedPlan` stamps personal `tasks_limit` from policy |
 | Business task cap propagation | Yes (new upgrades) | `apply_business_upgrade` RPC defaults `p_tasks_limit` from policy |
-| Team task cap propagation | **No (gap)** | Team accounts keep the `account_billing` default (100); only a business to team downgrade stamps the team cap. Follow-up: stamp team/org caps on team-plan activation + backfill |
+| Team task cap propagation | Yes (new teams) | Stamped from policy at creation (`initAccountBillingServiceRole`) and on team-plan activation (`applyResolvedPlan`). Teams created before PRICING-LOCK keep the old 100 until re-stamped (no backfill migration shipped) |
 | AI credit limit | Gate exists, OFF | `aiCreditGate` no-op until `ENABLE_AI_CREDIT_ENFORCEMENT=true`; not wired into AI routes yet |
 | Seat / member limit | Yes (blocks) | Enforced at invitation |
-| Folder limit | Yes, by account type | Personal 10 (so Pro 25 is **not** honored yet); team 100; org 250 |
+| Folder limit | Yes, plan-aware | Folder creation resolves the plan and enforces `planLimitsFor(plan).folderLimit`: Free 10, Pro 25, Team 100, Business 250, Enterprise uncapped |
 | Template limit | No | Policy + helpers exist; no route consumes the cap yet |
 | Active workflows | Not implemented | No field/model |
 | Run-history retention | Not implemented | No TTL/delete policy |
@@ -133,14 +136,15 @@ Mailchimp) can be shared at the account level; everything else is personal. See
 
 ## Follow-ups before public pricing launch
 
-1. **Team task enforcement.** Stamp team/org `tasks_limit` from policy on team-plan activation
-   (extend `applyResolvedPlan`) and backfill existing team accounts, or accept that team caps
-   only apply via the downgrade path.
-2. **Pro folder enforcement.** Make folder enforcement plan-aware (currently account-type-keyed),
-   or set Pro folders back to 10 in policy + docs to match enforcement.
-3. **Decide annual vs monthly modeling** if annual pricing ships (add a billing-interval
+1. **Team task backfill (only remaining piece of the team gap).** Team task enforcement is now
+   stamped from policy at creation + activation, but team accounts created BEFORE PRICING-LOCK
+   still hold `tasks_limit = 100`. A one-time backfill is needed for them. Safe SQL (does not
+   touch Business/Enterprise or custom rows): `UPDATE public.account_billing SET tasks_limit =
+   7500 WHERE plan = 'team' AND tasks_limit = 100;` Not shipped here (no prod team subscriptions
+   yet); run before launch if any team accounts exist. Do NOT widen the predicate to other plans.
+2. **Decide annual vs monthly modeling** if annual pricing ships (add a billing-interval
    dimension to `platformStripePrices.ts`).
-4. **Decide which Pro/Team/Business feature bullets to gate** (active workflows, retention,
+3. **Decide which Pro/Team/Business feature bullets to gate** (active workflows, retention,
    connected-accounts-per-app) and build the enforcement before advertising hard numbers.
-5. **Set the Stripe Price IDs** (`STRIPE_PRICE_PRO/TEAM/BUSINESS`) to prices matching this doc
+4. **Set the Stripe Price IDs** (`STRIPE_PRICE_PRO/TEAM/BUSINESS`) to prices matching this doc
    before flipping `ENABLE_PLATFORM_BILLING`.

@@ -138,14 +138,14 @@ function toUpgradeInput(
 }
 
 /**
- * Apply the resolved (signed-metadata) plan to the sync fields — and, for a PERSONAL
- * account, set its monthly task cap from policy (CS-PRO-2). The plan is validated against
- * plan policy before any write (an invalid / type-disallowed plan sets NOTHING, so an
- * unsafe plan can never carry an unsafe task limit). The number lives ONLY in `planPolicy`
- * (never duplicated here); `tasks_limit` is webhook-set (source-of-truth), never
- * client/route-supplied. Mirrors the personal `subscription.deleted` reset-to-Free task cap,
- * for the activation/sync path. Team/organization task caps are unchanged (account-level
- * billing, not personal Pro).
+ * Apply the resolved (signed-metadata) plan to the sync fields, and stamp the monthly task
+ * cap from policy for the activations that have no dedicated writer: personal (free/pro) and
+ * team (PRICING-LOCK). The plan is validated against plan policy before any write (an invalid
+ * or type-disallowed plan sets NOTHING, so an unsafe plan can never carry an unsafe task
+ * limit). The number lives ONLY in planPolicy (never duplicated here); tasks_limit is
+ * webhook-set, never client/route-supplied. Business is stamped by the dedicated
+ * team->business upgrade RPC, so an org sync is left alone (no clobber of a custom/business
+ * cap); enterprise is custom (taskLimit null, never stamped here).
  */
 function applyResolvedPlan(
   accountType: AccountType,
@@ -155,7 +155,7 @@ function applyResolvedPlan(
   const plan = metadataPlan(obj);
   if (!plan || !isPlanAllowedForType(accountType, plan)) return;
   fields.plan = plan;
-  if (accountType === "personal") {
+  if (accountType === "personal" || accountType === "team") {
     const taskLimit = planLimitsFor(plan).taskLimit;
     if (taskLimit !== null) fields.tasksLimit = taskLimit;
   }

@@ -9,6 +9,8 @@ import {
   listFolders,
   reorderFolders,
 } from "@/services/workflowFolders/folderService";
+import { folderLimitForPlan } from "@/services/workflowFolders/folderLimits";
+import { resolveAccountPlan } from "@/services/billing/planCapabilities";
 import {
   folderErrorResponse,
   parseJsonBody,
@@ -41,15 +43,20 @@ export async function POST(request: Request) {
   const parsed = await parseJsonBody(request, CreateFolderRequestSchema);
   if (!parsed.ok) return parsed.response;
 
-  // Tier limit needs the account type (RLS-readable by members).
+  // Account existence guard (RLS-readable by members).
   const account = await accountsRepo.getById(auth.accountId);
   if (!account) {
     return NextResponse.json({ error: "Account not found.", code: "ACCOUNT_NOT_FOUND" }, { status: 404 });
   }
 
+  // Plan-aware folder cap (PRICING-LOCK): resolve the account's stored billing plan so a
+  // personal Pro account gets 25 folders, not the Free/personal-type default of 10. Fails
+  // closed to "free" inside resolveAccountPlan, which is the restrictive (safe) cap.
+  const { plan } = await resolveAccountPlan(auth.accountId);
+
   const result = await createFolder({
     accountId: auth.accountId,
-    accountType: account.type,
+    folderLimit: folderLimitForPlan(plan),
     userId: auth.userId,
     name: parsed.data.name,
     parentFolderId: parsed.data.parentFolderId ?? null,

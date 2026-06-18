@@ -12,7 +12,7 @@ import {
 } from "@/services/billing/billingFeatureFlags";
 import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
-import { folderLimitFor } from "@/services/workflowFolders/folderLimits";
+import { folderLimitForAccount } from "@/services/workflowFolders/folderLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { AccountSettings } from "@/features/account/AccountSettings";
@@ -126,7 +126,9 @@ export default async function AccountPage({ searchParams }: Props) {
       usage,
       memberLimit: memberLimitFor(active.type),
       memberCount,
-      folderLimit: folderLimitFor(active.type),
+      // Plan-aware folder cap (PRICING-LOCK): a personal Pro account shows 25, not 10. Falls
+      // back to the account-type default when the stored plan is absent/unreadable.
+      folderLimit: folderLimitForAccount(usage?.plan ?? null, active.type),
       frozen,
       // CS-1: explicit billing tier from account_billing (null → type-default label).
       plan: usage?.plan ?? null,
