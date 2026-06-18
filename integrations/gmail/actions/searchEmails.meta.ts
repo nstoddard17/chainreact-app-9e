@@ -72,6 +72,7 @@ export const searchEmailsMeta: ActionMeta = {
     },
     {
       name: "to",
+      sensitivity: "recipient",
       label: "To (filter mode)",
       description: "Recipient address (substring match). Filter mode only.",
       type: "text",

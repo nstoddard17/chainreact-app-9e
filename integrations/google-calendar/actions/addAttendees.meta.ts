@@ -42,6 +42,7 @@ export const googleCalendarAddAttendeesMeta: ActionMeta = {
     },
     {
       name: "attendees",
+      sensitivity: "recipient",
       label: "Attendees To Add",
       description: "Email addresses to add. Already-invited addresses are skipped.",
       type: "string-array",

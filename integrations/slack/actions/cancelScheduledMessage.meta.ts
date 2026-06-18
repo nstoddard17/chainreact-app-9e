@@ -24,6 +24,7 @@ export const slackCancelScheduledMessageMeta: ActionMeta = {
   fields: [
     {
       name: "channel",
+      sensitivity: "recipient",
       label: "Channel",
       description:
         "Channel the scheduled message was created against. Searchable picker over public + private channels visible to the bot; the saved value is the channel id.",

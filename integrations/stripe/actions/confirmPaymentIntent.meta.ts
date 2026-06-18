@@ -58,6 +58,7 @@ export const stripeConfirmPaymentIntentMeta: ActionMeta = {
     },
     {
       name: "receipt_email",
+      sensitivity: "recipient",
       label: "Receipt email",
       description:
         "Optional email Stripe sends the receipt to after a successful charge.",
@@ -67,6 +68,7 @@ export const stripeConfirmPaymentIntentMeta: ActionMeta = {
     },
     {
       name: "return_url",
+      sensitivity: "recipient",
       label: "Return URL",
       description:
         "Optional URL Stripe redirects the customer to after 3D Secure / off-session redirect flows complete. Required when the PaymentIntent uses payment methods that need redirect (e.g. iDEAL, SOFORT).",

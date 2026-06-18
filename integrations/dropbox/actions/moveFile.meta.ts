@@ -41,6 +41,7 @@ export const dropboxMoveFileMeta: ActionMeta = {
     },
     {
       name: "toPath",
+      sensitivity: "recipient",
       label: "To (destination path)",
       description: "Full destination path, including the new name.",
       type: "text",

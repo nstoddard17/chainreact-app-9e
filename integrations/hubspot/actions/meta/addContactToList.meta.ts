@@ -45,6 +45,7 @@ export const hubspotAddContactToListMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description:
         "Contact's email address. Required. HubSpot resolves email → contactId server-side; if no contact matches, the call returns an empty `contactIdsAdded` (no error).",

@@ -30,6 +30,7 @@ export const stripeCreateCustomerMeta: ActionMeta = {
   fields: [
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description:
         "Customer email (RFC format). Stripe stores it and uses it for receipt delivery.",

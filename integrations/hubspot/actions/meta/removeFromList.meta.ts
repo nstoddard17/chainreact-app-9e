@@ -40,6 +40,7 @@ export const hubspotRemoveFromListMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description:
         "Contact's email address. Required. HubSpot resolves email → contactId server-side; if no list-member matches, the call returns an empty `contactIdsRemoved` (no error).",

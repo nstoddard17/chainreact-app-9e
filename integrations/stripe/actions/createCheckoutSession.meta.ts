@@ -80,6 +80,7 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
     },
     {
       name: "successUrl",
+      sensitivity: "recipient",
       label: "Success URL",
       description:
         "Absolute URL Stripe redirects the customer to after successful payment. Stripe appends `?session_id={CHECKOUT_SESSION_ID}` if the literal placeholder is included.",
@@ -89,6 +90,7 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
     },
     {
       name: "cancelUrl",
+      sensitivity: "recipient",
       label: "Cancel URL",
       description:
         "Absolute URL Stripe redirects the customer to if they abandon the checkout page.",
@@ -116,6 +118,7 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
     },
     {
       name: "customerEmail",
+      sensitivity: "recipient",
       label: "Customer email",
       description:
         "Optional email to pre-fill on the Stripe-hosted checkout page. **Mutex with Customer ID — pass one, not both.** Stripe will create a guest customer if you pass email but no customer id.",

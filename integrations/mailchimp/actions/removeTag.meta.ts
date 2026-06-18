@@ -34,6 +34,7 @@ export const mailchimpRemoveTagMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description: "Subscriber email. Required.",
       type: "text",

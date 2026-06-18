@@ -24,6 +24,7 @@ export const slackUnarchiveChannelMeta: ActionMeta = {
   fields: [
     {
       name: "channel",
+      sensitivity: "recipient",
       label: "Channel",
       description:
         "Slack channel id to unarchive (C…/G…). The async picker only surfaces non-archived channels; wire the id via `{{...}}` from a List Channels output when needed.",

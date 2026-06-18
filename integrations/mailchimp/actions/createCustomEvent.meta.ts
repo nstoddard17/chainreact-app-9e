@@ -54,6 +54,7 @@ export const mailchimpCreateCustomEventMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description: "Subscriber email. Required.",
       type: "text",

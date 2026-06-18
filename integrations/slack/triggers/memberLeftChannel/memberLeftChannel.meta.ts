@@ -27,6 +27,7 @@ export const memberLeftChannelTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel ID (optional)",
       description:
         "When set, only departures from this channel fire the workflow. When blank, every member-left event matches.",

@@ -51,6 +51,7 @@ export const mailchimpAddSubscriberMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description: "Subscriber's email address. Required. Used to derive the per-list subscriber hash for the API path.",
       type: "text",
@@ -88,6 +89,7 @@ export const mailchimpAddSubscriberMeta: ActionMeta = {
     },
     {
       name: "phone",
+      sensitivity: "recipient",
       label: "Phone",
       description: "Optional. Maps to Mailchimp's `PHONE` merge tag.",
       type: "text",
@@ -95,6 +97,7 @@ export const mailchimpAddSubscriberMeta: ActionMeta = {
     },
     {
       name: "address",
+      sensitivity: "recipient",
       label: "Address",
       description: "Optional. Maps to Mailchimp's `ADDRESS` merge tag.",
       type: "text",

@@ -252,6 +252,16 @@ describe("classifyOperationSafety — schema-driven field sensitivity (CS-2)", (
     expect(opCodes(ops, { fieldSensitivity: sens({ endpoint: "recipient" }) })).toContain("RECIPIENT_CHANGE");
   });
 
+  it("exempted false-positive field names are STILL blocked by the heuristics (exemption is guard-only, not a gate bypass)", () => {
+    // These names are exempted in tests/structure/field-sensitivity-coverage.test.ts
+    // (they're NOT annotated as sensitive), yet the key-name heuristic must still block a
+    // blind auto-write to them — over-blocking is the safe failure mode.
+    expect(opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { emailId: "x" } }])).toContain("RECIPIENT_CHANGE");
+    expect(opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { pageToken: "x" } }])).toContain("SECRET_WRITE");
+    expect(opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { targetFormat: "json" } }])).toContain("RECIPIENT_CHANGE");
+    expect(opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { tracking_url: "x" } }])).toContain("RECIPIENT_CHANGE");
+  });
+
   it("absent / non-matching metadata reproduces the pre-CS-2 behavior exactly", () => {
     const ops = [{ op: "updateNodeConfig", nodeId: "n1", config: { text: "hello" } }];
     expect(classifyOperationSafety(ops).blocks).toEqual([]);

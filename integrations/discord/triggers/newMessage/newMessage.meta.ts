@@ -65,6 +65,7 @@ export const discordNewMessageTriggerMeta: TriggerMeta = {
     },
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel",
       description:
         "Text channel to watch for new messages. Picker sourced from `discord:channels`; gated on Server — change the Server and the channel picker re-fetches. Voice / category / thread channels are excluded.",

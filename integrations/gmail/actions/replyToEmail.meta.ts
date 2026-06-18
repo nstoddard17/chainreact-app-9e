@@ -61,6 +61,7 @@ export const replyToEmailMeta: ActionMeta = {
     },
     {
       name: "cc",
+      sensitivity: "recipient",
       label: "Cc (additional)",
       description:
         "Additional Cc recipients ON TOP OF the derived reply-to-sender. Press Enter or click Add to append.",
@@ -70,6 +71,7 @@ export const replyToEmailMeta: ActionMeta = {
     },
     {
       name: "bcc",
+      sensitivity: "recipient",
       label: "Bcc (additional)",
       description: "Additional Bcc recipients.",
       type: "string-array",
@@ -78,6 +80,7 @@ export const replyToEmailMeta: ActionMeta = {
     },
     {
       name: "replyTo",
+      sensitivity: "recipient",
       label: "Reply-To",
       description:
         "Optional Reply-To header on the sent reply. Bare email or display-name form.",

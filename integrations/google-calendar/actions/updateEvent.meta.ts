@@ -90,6 +90,7 @@ export const googleCalendarUpdateEventMeta: ActionMeta = {
     },
     {
       name: "attendees",
+      sensitivity: "recipient",
       label: "Attendees (Replace)",
       description:
         "Replaces the ENTIRE attendee list with these emails. To add without removing, use Add Attendees instead.",

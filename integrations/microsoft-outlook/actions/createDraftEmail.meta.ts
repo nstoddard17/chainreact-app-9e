@@ -24,6 +24,7 @@ export const outlookCreateDraftEmailMeta: ActionMeta = {
   fields: [
     {
       name: "to",
+      sensitivity: "recipient",
       label: "To",
       description: "Draft recipients. Press Enter or click Add to append each address.",
       type: "string-array",
@@ -32,6 +33,7 @@ export const outlookCreateDraftEmailMeta: ActionMeta = {
     },
     {
       name: "cc",
+      sensitivity: "recipient",
       label: "Cc",
       description: "Optional Cc recipients.",
       type: "string-array",
@@ -40,6 +42,7 @@ export const outlookCreateDraftEmailMeta: ActionMeta = {
     },
     {
       name: "bcc",
+      sensitivity: "recipient",
       label: "Bcc",
       description: "Optional Bcc recipients (not visible to other recipients).",
       type: "string-array",

@@ -35,6 +35,7 @@ export const outlookForwardEmailMeta: ActionMeta = {
     },
     {
       name: "to",
+      sensitivity: "recipient",
       label: "To",
       description:
         "Forward recipients. Press Enter or click Add to append each address.",
@@ -44,6 +45,7 @@ export const outlookForwardEmailMeta: ActionMeta = {
     },
     {
       name: "cc",
+      sensitivity: "recipient",
       label: "Cc",
       description: "Optional Cc recipients.",
       type: "string-array",

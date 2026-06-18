@@ -44,6 +44,7 @@ export const hubspotGetOwnersMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email filter",
       description:
         "Optional server-side EXACT email match (HubSpot's `email` query param). Use to look up a specific owner by their work email.",

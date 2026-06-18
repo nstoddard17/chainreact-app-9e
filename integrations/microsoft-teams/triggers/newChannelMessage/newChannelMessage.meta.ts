@@ -42,6 +42,7 @@ export const microsoftTeamsNewChannelMessageTriggerMeta: TriggerMeta = {
     },
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel",
       description: "The channel to watch for new messages. Pick a team first.",
       type: "combobox",

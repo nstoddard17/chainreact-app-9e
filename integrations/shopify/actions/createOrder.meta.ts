@@ -24,6 +24,7 @@ export const shopifyCreateOrderMeta: ActionMeta = {
   fields: [
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Customer Email",
       description: "Email of the customer the order is created for.",
       type: "text",
@@ -79,6 +80,7 @@ export const shopifyCreateOrderMeta: ActionMeta = {
     },
     {
       name: "shipping_address",
+      sensitivity: "recipient",
       label: "Shipping Address (paste JSON)",
       description:
         'Optional. JSON object: `{ "address1", "address2", "city", "province", "country_code" (ISO 3166-1 alpha-2 e.g. "US"), "zip" }`.',
@@ -89,6 +91,7 @@ export const shopifyCreateOrderMeta: ActionMeta = {
     },
     {
       name: "billing_address",
+      sensitivity: "recipient",
       label: "Billing Address (paste JSON)",
       description:
         'Optional. Same shape as Shipping Address: `{ "address1", "address2", "city", "province", "country_code", "zip" }`.',

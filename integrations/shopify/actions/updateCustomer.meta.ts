@@ -26,6 +26,7 @@ export const shopifyUpdateCustomerMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description: "Optional new email.",
       type: "text",
@@ -47,6 +48,7 @@ export const shopifyUpdateCustomerMeta: ActionMeta = {
     },
     {
       name: "phone",
+      sensitivity: "recipient",
       label: "Phone",
       description: "Optional new phone number.",
       type: "text",

@@ -55,6 +55,7 @@ export const mailchimpUnsubscribeSubscriberMeta: ActionMeta = {
     },
     {
       name: "emailAddress",
+      sensitivity: "recipient",
       label: "Email",
       description:
         "Subscriber email. Required. Field name is `emailAddress` (camelCase) — preserved verbatim from the action schema.",

@@ -56,6 +56,7 @@ export const discordFetchMessagesMeta: ActionMeta = {
     },
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel",
       description: "Channel to read messages from. Gated on Server.",
       type: "combobox",

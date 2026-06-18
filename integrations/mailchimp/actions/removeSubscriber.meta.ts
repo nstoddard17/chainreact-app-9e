@@ -50,6 +50,7 @@ export const mailchimpRemoveSubscriberMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description: "Subscriber email to remove. Required.",
       type: "text",

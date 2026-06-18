@@ -41,6 +41,7 @@ export const microsoftOneDriveCopyItemMeta: ActionMeta = {
     },
     {
       name: "targetParentItemId",
+      sensitivity: "recipient",
       label: "Target Folder",
       description: "The destination folder for the copy (required).",
       type: "combobox",

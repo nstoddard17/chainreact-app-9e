@@ -27,6 +27,7 @@ export const createDraftMeta: ActionMeta = {
   fields: [
     {
       name: "to",
+      sensitivity: "recipient",
       label: "To",
       description: "Draft recipients. Press Enter or click Add to append each address.",
       type: "string-array",
@@ -35,6 +36,7 @@ export const createDraftMeta: ActionMeta = {
     },
     {
       name: "cc",
+      sensitivity: "recipient",
       label: "Cc",
       description: "Optional Cc recipients.",
       type: "string-array",
@@ -43,6 +45,7 @@ export const createDraftMeta: ActionMeta = {
     },
     {
       name: "bcc",
+      sensitivity: "recipient",
       label: "Bcc",
       description: "Optional Bcc recipients (not visible to other recipients).",
       type: "string-array",
@@ -78,6 +81,7 @@ export const createDraftMeta: ActionMeta = {
     },
     {
       name: "replyTo",
+      sensitivity: "recipient",
       label: "Reply-To",
       description:
         "Optional Reply-To header. Accepts bare email or display-name form.",

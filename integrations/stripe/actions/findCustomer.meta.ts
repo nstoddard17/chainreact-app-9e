@@ -37,6 +37,7 @@ export const stripeFindCustomerMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description:
         "Customer email for list-filter lookup. Returns the first match when multiple customers share the email. Leave empty when looking up by Customer ID instead.",

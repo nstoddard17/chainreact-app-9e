@@ -22,6 +22,7 @@ export const googleAnalyticsCreateConversionEventMeta: ActionMeta = {
   fields: [
     {
       name: "accountId",
+      sensitivity: "connection",
       label: "Account",
       description: "Pick an account to choose its property below.",
       type: "combobox",

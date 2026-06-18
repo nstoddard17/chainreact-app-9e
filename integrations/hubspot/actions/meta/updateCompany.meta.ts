@@ -49,6 +49,7 @@ export const hubspotUpdateCompanyMeta: ActionMeta = {
     },
     {
       name: "phone",
+      sensitivity: "recipient",
       label: "Phone",
       description: "HubSpot `phone` property.",
       type: "text",
@@ -63,6 +64,7 @@ export const hubspotUpdateCompanyMeta: ActionMeta = {
     },
     {
       name: "address",
+      sensitivity: "recipient",
       label: "Address",
       description: "HubSpot `address` property.",
       type: "text",

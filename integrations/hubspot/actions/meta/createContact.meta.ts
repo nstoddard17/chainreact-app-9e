@@ -34,6 +34,7 @@ export const hubspotCreateContactMeta: ActionMeta = {
   fields: [
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description:
         "Contact's email address. Required. Used as the dedup key when `Duplicate handling` is `update` or `skip`.",
@@ -59,6 +60,7 @@ export const hubspotCreateContactMeta: ActionMeta = {
     },
     {
       name: "phone",
+      sensitivity: "recipient",
       label: "Phone",
       description: "HubSpot `phone` property — free-form string, no format validation.",
       type: "text",
@@ -110,6 +112,7 @@ export const hubspotCreateContactMeta: ActionMeta = {
     },
     {
       name: "address",
+      sensitivity: "recipient",
       label: "Address",
       description: "HubSpot `address` property — single line.",
       type: "text",

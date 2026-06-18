@@ -46,6 +46,7 @@ export const mailchimpUpdateSubscriberMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description: "Current subscriber email. Required — used to derive the per-list subscriber hash for the API path.",
       type: "text",
@@ -54,6 +55,7 @@ export const mailchimpUpdateSubscriberMeta: ActionMeta = {
     },
     {
       name: "new_email",
+      sensitivity: "recipient",
       label: "New email",
       description:
         "Optional. Change the subscriber's email address. Triggers Mailchimp's `upemail` webhook downstream.",
@@ -91,6 +93,7 @@ export const mailchimpUpdateSubscriberMeta: ActionMeta = {
     },
     {
       name: "phone",
+      sensitivity: "recipient",
       label: "Phone",
       description: "Optional. Maps to Mailchimp's `PHONE` merge tag.",
       type: "text",
@@ -98,6 +101,7 @@ export const mailchimpUpdateSubscriberMeta: ActionMeta = {
     },
     {
       name: "address",
+      sensitivity: "recipient",
       label: "Address",
       description: "Optional. Maps to Mailchimp's `ADDRESS` merge tag.",
       type: "text",

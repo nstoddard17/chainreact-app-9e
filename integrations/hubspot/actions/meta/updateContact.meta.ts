@@ -39,6 +39,7 @@ export const hubspotUpdateContactMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description: "Update HubSpot's `email` property. Note: changing email can affect dedup keys for downstream automations.",
       type: "text",
@@ -61,6 +62,7 @@ export const hubspotUpdateContactMeta: ActionMeta = {
     },
     {
       name: "phone",
+      sensitivity: "recipient",
       label: "Phone",
       description: "HubSpot `phone` property.",
       type: "text",
@@ -104,6 +106,7 @@ export const hubspotUpdateContactMeta: ActionMeta = {
     },
     {
       name: "address",
+      sensitivity: "recipient",
       label: "Address",
       description: "HubSpot `address` property.",
       type: "text",

@@ -41,6 +41,7 @@ export const reactionAddedTriggerMeta: TriggerMeta = {
     },
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel ID (optional)",
       description:
         "When set, only reactions on messages in this public channel fire the workflow. Slack public channel ids start with 'C'.",

@@ -30,6 +30,7 @@ export const memberJoinedChannelTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel ID (optional)",
       description:
         "When set, only joins to this channel fire the workflow. When blank, every member-joined event matches. Public and private channels are both supported.",

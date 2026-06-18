@@ -34,6 +34,7 @@ export const stripeUpdateCustomerMeta: ActionMeta = {
     },
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description:
         "Optional. When supplied, replaces the customer's email.",

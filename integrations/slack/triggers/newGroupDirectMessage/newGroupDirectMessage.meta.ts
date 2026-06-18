@@ -28,6 +28,7 @@ export const newGroupDirectMessageTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel ID (optional)",
       description:
         "When set, only messages in this group-DM channel fire the workflow. When blank, every group-DM message the bot can see matches. Slack group-DM ids start with 'G'.",

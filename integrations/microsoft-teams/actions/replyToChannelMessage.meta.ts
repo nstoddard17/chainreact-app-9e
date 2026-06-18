@@ -31,6 +31,7 @@ export const microsoftTeamsReplyToChannelMessageMeta: ActionMeta = {
     },
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel",
       description: "The channel containing the message. Pick a team first.",
       type: "combobox",

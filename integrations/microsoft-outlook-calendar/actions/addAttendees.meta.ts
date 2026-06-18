@@ -37,6 +37,7 @@ export const microsoftOutlookCalendarAddAttendeesMeta: ActionMeta = {
     },
     {
       name: "attendees",
+      sensitivity: "recipient",
       label: "Attendees To Add",
       description:
         "Email addresses to add. Already-invited addresses are skipped automatically (case-insensitive).",

@@ -28,6 +28,7 @@ export const microsoftTeamsGetChannelDetailsMeta: ActionMeta = {
     },
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel",
       description: "The channel to read. Pick a team first.",
       type: "combobox",

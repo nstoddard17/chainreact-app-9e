@@ -56,6 +56,7 @@ export const createDraftReplyMeta: ActionMeta = {
     },
     {
       name: "cc",
+      sensitivity: "recipient",
       label: "Cc (additional)",
       description:
         "Additional Cc recipients ON TOP OF the derived reply-to-sender.",
@@ -65,6 +66,7 @@ export const createDraftReplyMeta: ActionMeta = {
     },
     {
       name: "bcc",
+      sensitivity: "recipient",
       label: "Bcc (additional)",
       description: "Additional Bcc recipients.",
       type: "string-array",
@@ -73,6 +75,7 @@ export const createDraftReplyMeta: ActionMeta = {
     },
     {
       name: "replyTo",
+      sensitivity: "recipient",
       label: "Reply-To",
       description: "Optional Reply-To header on the draft.",
       type: "text",

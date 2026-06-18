@@ -42,6 +42,7 @@ export const microsoftOneDriveMoveItemMeta: ActionMeta = {
     },
     {
       name: "targetParentItemId",
+      sensitivity: "recipient",
       label: "Target Folder",
       description:
         "Destination folder (optional — omit to keep the current folder and only rename).",

@@ -33,6 +33,7 @@ export const mondayMoveItemMeta: ActionMeta = {
     },
     {
       name: "targetGroupId",
+      sensitivity: "recipient",
       label: "Target group",
       type: "combobox",
       optionsSource: "monday:groups",

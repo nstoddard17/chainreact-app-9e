@@ -30,6 +30,7 @@ export const slackListScheduledMessagesMeta: ActionMeta = {
   fields: [
     {
       name: "channel",
+      sensitivity: "recipient",
       label: "Channel",
       description:
         "Optional. Narrow results to a single channel. Leave blank to list workspace-wide. Searchable picker over public + private channels visible to the bot; saved value is the channel id.",

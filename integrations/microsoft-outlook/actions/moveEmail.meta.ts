@@ -33,6 +33,7 @@ export const outlookMoveEmailMeta: ActionMeta = {
     },
     {
       name: "destinationFolderId",
+      sensitivity: "recipient",
       label: "Destination folder",
       description:
         "Target folder. Accepts well-known names ('inbox', 'sentitems', 'deleteditems', 'drafts', 'archive', 'junkemail', 'outbox') OR a custom Graph folder id.",

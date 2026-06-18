@@ -18,6 +18,7 @@ export const shopifyCreateCustomerMeta: ActionMeta = {
   fields: [
     {
       name: "email",
+      sensitivity: "recipient",
       label: "Email",
       description: "Customer email.",
       type: "text",
@@ -48,6 +49,7 @@ export const shopifyCreateCustomerMeta: ActionMeta = {
     },
     {
       name: "phone",
+      sensitivity: "recipient",
       label: "Phone",
       description: "Optional customer phone number.",
       type: "text",

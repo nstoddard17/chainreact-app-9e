@@ -60,6 +60,7 @@ export const slackUploadFileMeta: ActionMeta = {
   fields: [
     {
       name: "channel",
+      sensitivity: "recipient",
       label: "Channel",
       description:
         "Searchable picker over public + private channels visible to the bot. The picker surfaces friendly `#name` labels; the saved value is the underlying channel id (C…/G…/D…).",

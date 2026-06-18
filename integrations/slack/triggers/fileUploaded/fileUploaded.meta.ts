@@ -36,6 +36,7 @@ export const fileUploadedTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel ID (optional)",
       description:
         "When set, only file shares in this channel fire the workflow. When blank, every file_shared event matches. Public and private channels are both supported.",

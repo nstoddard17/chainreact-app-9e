@@ -65,6 +65,7 @@ export const discordDeleteMessageMeta: ActionMeta = {
     },
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel",
       description: "Channel containing the message(s) to delete. Gated on Server.",
       type: "combobox",

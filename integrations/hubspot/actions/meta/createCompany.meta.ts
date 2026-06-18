@@ -47,6 +47,7 @@ export const hubspotCreateCompanyMeta: ActionMeta = {
     },
     {
       name: "phone",
+      sensitivity: "recipient",
       label: "Phone",
       description: "HubSpot `phone` property — free-form string.",
       type: "text",
@@ -62,6 +63,7 @@ export const hubspotCreateCompanyMeta: ActionMeta = {
     },
     {
       name: "address",
+      sensitivity: "recipient",
       label: "Address",
       description: "HubSpot `address` property — single line.",
       type: "text",

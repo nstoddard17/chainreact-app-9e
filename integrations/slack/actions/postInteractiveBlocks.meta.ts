@@ -39,6 +39,7 @@ export const slackPostInteractiveBlocksMeta: ActionMeta = {
   fields: [
     {
       name: "channel",
+      sensitivity: "recipient",
       label: "Channel",
       description:
         "Searchable picker over public + private channels visible to the bot. The saved value is the underlying channel id (C…/G…/D…).",

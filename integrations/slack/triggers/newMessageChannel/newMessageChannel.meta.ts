@@ -42,6 +42,7 @@ export const newMessageChannelTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel ID (optional)",
       description:
         "When set, only messages in this public channel fire the workflow. When blank, fires for every public-channel message in the workspace. Slack public channel ids start with 'C'.",

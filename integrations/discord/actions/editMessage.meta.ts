@@ -51,6 +51,7 @@ export const discordEditMessageMeta: ActionMeta = {
     },
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel",
       description: "Channel containing the bot-authored message. Gated on Server.",
       type: "combobox",

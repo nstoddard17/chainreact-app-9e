@@ -97,6 +97,7 @@ export const microsoftOneNoteCopyPageMeta: ActionMeta = {
     },
     {
       name: "targetSectionId",
+      sensitivity: "recipient",
       label: "Target section id",
       description:
         "Destination section id. **Text input — no picker.** Paste a section id from a URL or chain a `list_sections` action upstream and use the variable picker to insert `{{nodeId.sections[].id}}`. The dual-hierarchy picker limitation is documented in the action description.",

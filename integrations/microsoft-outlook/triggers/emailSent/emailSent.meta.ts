@@ -30,6 +30,7 @@ export const outlookEmailSentTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "to",
+      sensitivity: "recipient",
       label: "To recipients (optional)",
       description:
         "Optional recipient filter — fires only when at least one address in the sent message's ToRecipients[] matches at least one address in this list. When empty, every sent message matches.",

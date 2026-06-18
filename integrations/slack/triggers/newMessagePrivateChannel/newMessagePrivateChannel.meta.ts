@@ -30,6 +30,7 @@ export const newMessagePrivateChannelTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "channelId",
+      sensitivity: "recipient",
       label: "Channel ID (optional)",
       description:
         "When set, only messages in this private channel fire the workflow. When blank, fires for every private-channel message the bot can see. Modern private channels use 'C' ids; legacy private channels use 'G' ids — both are accepted.",
