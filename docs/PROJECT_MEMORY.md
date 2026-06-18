@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-17 @ ba0af6616 (AI-REPAIR-COVERAGE-2 duplicate-edge closeout; b45bcabbc PUSHED to origin/v2-main)
+> Last curated: 2026-06-17 @ ba0af6616 (AI-GUIDANCE-UNREACHABLE-NODE-1 closeout; c4407ae4d LOCAL/UNPUSHED · origin still ba0af6616)
 
 ## Current status
 
@@ -119,6 +119,16 @@
   for unbuilt behavior; no creds/node-config). **UI/canvas/state-only — no migration, no backend/runtime, no flag.**
   Interleaved with unrelated parallel CLI/security commits (NOT this arc). Not pushed / not prod-smoked →
   [`builder-ux-mini-arc-closeout.md`](./slices/phase-4/workflows/builder-ux-mini-arc-closeout.md).
+- **AI guidance unreachable/orphan-node card (AI-GUIDANCE-UNREACHABLE-NODE-1) — GUIDANCE-ONLY, LOCAL/UNPUSHED (2026-06-17)** —
+  promotes the existing `unreachable_node` graph finding from a generic one-line attention item to a
+  dedicated **guidance-only** Builder AI card: count-aware copy (singular/plural "…not connected to the
+  trigger, so it/they won't run"), safe step LABELS, and a static "What you can do" list (connect / move /
+  delete). Multiple orphan findings aggregate into one card. **Deliberately NOT apply-capable** — NO
+  Preview/Apply button, no patch/strategy/preview-flag/model/credit (the fix needs user intent; `removeNode`
+  apply-blocked, `addEdge` target ambiguous). Detection UNCHANGED (still a shared `findGraphIssues` runtime/
+  Activate blocker) — presentation-only. No-leak: labels only (tests assert raw ids absent from payload+DOM).
+  No migration, no flag. Commit `c4407ae4d` local/unpushed (origin still `ba0af6616`) →
+  [`ai-guidance-unreachable-node-1-closeout.md`](./slices/phase-4/ai/ai-guidance-unreachable-node-1-closeout.md).
 - **AI repair narrow duplicate-edge cleanup (AI-REPAIR-COVERAGE-2) — 4th deterministic repair category, PUSHED to origin/v2-main (2026-06-17)** —
   removes a **redundant duplicate edge** (later edge identical by the graph key `(from, to, label ?? "")`;
   keep-first, removeEdge the rest). Same `from/to` with DIFFERENT labels = legitimate branch fan-out and
