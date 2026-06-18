@@ -45,9 +45,9 @@ const NAV_COLS: ReadonlyArray<{
   {
     h: "Legal",
     links: [
-      { label: "Privacy", href: "#privacy" },
+      { label: "Privacy", href: "/privacy", internal: true },
       { label: "Terms", href: "#terms" },
-      { label: "Security", href: "#security" },
+      { label: "Security", href: "/security", internal: true },
     ],
   },
 ];
