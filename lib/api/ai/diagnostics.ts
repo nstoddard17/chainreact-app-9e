@@ -194,6 +194,45 @@ export async function explainDiagnosis(
 }
 
 /**
+ * Slice 4.AI-DIAG-QA-2 — single-shot, explanation-ONLY Q&A about the (already-computed)
+ * safe diagnosis. The server re-derives the diagnosis and sends only an allow-listed
+ * projection (+ a safe selected-node data summary) to the model — the client NEVER sends
+ * the raw DTO as source of truth, only the workflow id + question (+ optional draft +
+ * optional selected node id). Handled failures (402/403/503) return as a structured
+ * `ok:false` result; transport failures (401/404/400/500) throw `AiApiError`. The answer is
+ * text-only advice — no patch / apply / run / mutation.
+ */
+export interface AiDiagnosisQaSuccess {
+  readonly ok: true;
+  readonly answer: string;
+  readonly pointers?: readonly string[];
+  /** True when the answer needs a choice only the user can make (no safe auto-decision). */
+  readonly needsUserDecision?: boolean;
+}
+export interface AiDiagnosisQaFailure {
+  readonly ok: false;
+  /** AI_CREDITS_EXHAUSTED | ACCOUNT_PENDING_DELETION | AI_GATE_ERROR | MODEL_FAILED | PARSE_FAILED */
+  readonly code: string;
+  readonly message: string;
+}
+export type AiDiagnosisQaResult = AiDiagnosisQaSuccess | AiDiagnosisQaFailure;
+
+export async function askDiagnosisQuestion(
+  workflowId: string,
+  question: string,
+  draftDefinition?: WorkflowDraftSnapshot,
+  selectedNodeId?: string,
+): Promise<AiDiagnosisQaResult> {
+  const requestBody: Record<string, unknown> = { question };
+  if (draftDefinition) requestBody.draftDefinition = draftDefinition;
+  if (selectedNodeId) requestBody.selectedNodeId = selectedNodeId;
+  return postStructured<AiDiagnosisQaResult>(
+    `/api/workflows/${encodeURIComponent(workflowId)}/ai/diagnose/qa`,
+    requestBody,
+  );
+}
+
+/**
  * Slice 4.AI-REPAIR-1b — optional LLM REPAIR PROPOSAL for the (already-computed)
  * safe diagnosis (POST /api/workflows/[id]/ai/repair/plan). Proposal-ONLY: the
  * server re-derives the diagnosis, sends only an allow-listed projection to the

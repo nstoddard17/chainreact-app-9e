@@ -12,6 +12,7 @@ import {
   AiApiError,
   AI_CREDITS_EXHAUSTED_MESSAGE,
   applyWorkflowPatch,
+  askDiagnosisQuestion,
   diagnoseWorkflow,
   explainDiagnosis,
   planWorkflow,
@@ -301,6 +302,49 @@ describe("AI-DIAG-FIX-1 — diagnosis clients forward the current builder draft"
     mockFetch(fetchMock);
     await planWorkflowRepair("wf-1", draft);
     expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({ draftDefinition: draft });
+  });
+});
+
+describe("askDiagnosisQuestion (AI-DIAG-QA-2)", () => {
+  const draft = {
+    nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual_trigger", config: {}, position: { x: 0, y: 0 } }],
+    edges: [],
+  } as never;
+
+  it("POSTs the encoded qa URL with { question } and optional draft + selectedNodeId; never a DTO", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { ok: true, answer: "x" }));
+    mockFetch(fetchMock);
+    await askDiagnosisQuestion("wf 1", "Why won't this run?", draft, "n1");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe("/api/workflows/wf%201/ai/diagnose/qa");
+    const body = JSON.parse((init as { body: string }).body);
+    expect(body).toEqual({ question: "Why won't this run?", draftDefinition: draft, selectedNodeId: "n1" });
+    expect(body).not.toHaveProperty("dto");
+  });
+
+  it("omits draftDefinition + selectedNodeId when not supplied", async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse(200, { ok: true, answer: "x" }));
+    mockFetch(fetchMock);
+    await askDiagnosisQuestion("wf-1", "What should I fix first?");
+    expect(JSON.parse((fetchMock.mock.calls[0]![1] as { body: string }).body)).toEqual({ question: "What should I fix first?" });
+  });
+
+  it("returns a structured ok:false body on 402 (credits) without throwing", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(402, { ok: false, code: "AI_CREDITS_EXHAUSTED", message: "x", errors: [] })));
+    const res = await askDiagnosisQuestion("wf-1", "hi");
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.code).toBe("AI_CREDITS_EXHAUSTED");
+  });
+
+  it("forwards a forward-compatible safe success body (answer + pointers + needsUserDecision)", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(200, { ok: true, answer: "Reconnect Gmail.", pointers: ["Use Preview fix"], needsUserDecision: false })));
+    const res = await askDiagnosisQuestion("wf-1", "hi");
+    expect(res).toMatchObject({ ok: true, answer: "Reconnect Gmail.", pointers: ["Use Preview fix"], needsUserDecision: false });
+  });
+
+  it("throws AiApiError for a 400 (bad question) error body (no ok flag)", async () => {
+    mockFetch(jest.fn().mockResolvedValue(jsonResponse(400, { error: "A question is required." })));
+    await expect(askDiagnosisQuestion("wf-1", "")).rejects.toMatchObject({ name: "AiApiError", status: 400 });
   });
 });
 
