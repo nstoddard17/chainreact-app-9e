@@ -59,28 +59,69 @@ export const AnalyticsMetricSchema = z.enum([
 export type AnalyticsMetric = z.infer<typeof AnalyticsMetricSchema>;
 
 /**
+ * A widget's DATA SOURCE — the discriminated forward-compat seam for
+ * connected-app analytics (Slice ANALYTICS-SOURCES-1).
+ *
+ *   - `internal` — ChainReact's own workflow/run analytics (the legacy flat
+ *     `source` + `metric` fields below carry the internal binding).
+ *   - `connected_app` — a read-only metric from a connected provider, resolved at
+ *     runtime through the analytics SOURCE REGISTRY
+ *     (services/analytics/sources/registry.ts). `provider` + `metricKey` are
+ *     validated against the registry's APPROVED list — never used to invoke an
+ *     arbitrary provider method, URL, or workflow node. `filters` / `groupBy` are
+ *     opaque here and validated per-metric by the adapter.
+ *
+ * ABSENCE of `dataSource` ⇒ internal (every existing widget reads unchanged —
+ * no backfill, no DB migration; `widgets` is opaque JSONB). Connected-app widget
+ * CREATION is NOT exposed in the UI yet (no real provider source shipped this
+ * slice).
+ */
+export const AnalyticsWidgetDataSourceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("internal") }).strict(),
+  z
+    .object({
+      kind: z.literal("connected_app"),
+      provider: z.string().min(1).max(60),
+      metricKey: z.string().min(1).max(80),
+      groupBy: z.string().max(60).optional(),
+      filters: z
+        .record(z.union([z.string(), z.number(), z.boolean()]))
+        .optional(),
+    })
+    .strict(),
+]);
+export type AnalyticsWidgetDataSource = z.infer<typeof AnalyticsWidgetDataSourceSchema>;
+
+/**
  * Per-widget configuration. `source` is "any" (account-wide) or a specific
  * workflow id (honored for scalar metrics via the overview's per-workflow
- * breakdown). `note` holds free text for note widgets.
+ * breakdown). `note` holds free text for note widgets. `dataSource` is the
+ * forward-compat discriminated source (above); when omitted the widget is
+ * internal, preserving every existing widget verbatim.
  *
  * `.strict()` rejects unknown keys so a malformed payload 400s rather than
  * silently persisting junk into the JSONB column.
- *
- * FORWARD-COMPAT — connected-app analytics data sources are a planned additive
- * extension. The future shape replaces this flat binding with a discriminated
- * `dataSource` ({kind:"internal"|"connected_app", …}) where ABSENCE reads as
- * "internal" → no backfill, and needs NO DB migration (widgets is opaque JSONB).
- * No speculative fields are added now. Full design + adapter contract + authz +
- * caching rules: docs/slices/phase-4/analytics/analytics-closeout.md.
  */
 export const AnalyticsWidgetConfigSchema = z
   .object({
     source: z.union([z.literal("any"), z.string().uuid()]).default("any"),
     metric: AnalyticsMetricSchema.optional(),
     note: z.string().max(2000).optional(),
+    dataSource: AnalyticsWidgetDataSourceSchema.optional(),
   })
   .strict();
 export type AnalyticsWidgetConfig = z.infer<typeof AnalyticsWidgetConfigSchema>;
+
+/**
+ * The effective source kind of a widget. Absent `dataSource` ⇒ "internal" (the
+ * legacy shape), so existing widgets resolve correctly. Single chokepoint so the
+ * UI + future data-fetch layer never re-derive this inconsistently.
+ */
+export function widgetSourceKind(
+  config: AnalyticsWidgetConfig,
+): "internal" | "connected_app" {
+  return config.dataSource?.kind === "connected_app" ? "connected_app" : "internal";
+}
 
 export const AnalyticsWidgetSchema = z
   .object({

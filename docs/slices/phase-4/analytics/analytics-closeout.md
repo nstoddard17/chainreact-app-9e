@@ -82,9 +82,60 @@ above — not a deferral.)
 
 # Future direction — connected-app analytics data sources (architecture note)
 
-> Status: **design intent only. Not implemented in ANALYTICS-1.** This note exists
-> so the current implementation does not block it and so the extension lands
-> additively. Do NOT build the full surface speculatively.
+> Status: **foundation built in ANALYTICS-SOURCES-1** (contract + registry +
+> internal reference adapter + widget-schema seam). **No external provider source
+> ships yet** and connected-app widget creation is **not exposed in the UI.** The
+> rest of this note remains the design for the provider adapters + query route +
+> cache that land in follow-up security-reviewed slices.
+
+## Built in ANALYTICS-SOURCES-1 (foundation)
+
+- **Source contract** — `services/analytics/sources/types.ts`:
+  `AnalyticsSourceAdapter` (providerKey, displayName, `connectedApp`, declarative
+  `metrics`, read-only `query()`), `AnalyticsSourceQuery` (metricKey + range +
+  groupBy + filters), `AnalyticsSourceContext` (accountId + userId — the authz +
+  credential-scope anchor; never a raw token), and the provider-neutral
+  `NormalizedAnalyticsResult` (shape / dimensions / measures / rows / totals /
+  `generatedAt` / `freshness` / `warnings` / `truncated`) with a Zod validator.
+  Typed `AnalyticsSourceError` (UNKNOWN_SOURCE / UNKNOWN_METRIC / MISSING_CREDENTIAL
+  / PROVIDER_ERROR / RATE_LIMITED).
+- **Registry** — `services/analytics/sources/registry.ts`: approved-only,
+  statically-registered adapters; `getAnalyticsSource` / `getAnalyticsSourceMetric`
+  / `isApprovedSourceMetric` / `listAnalyticsSources`. Unknown provider/metric →
+  null (caller surfaces a widget error). **No dynamic method-name / URL / node
+  dispatch from widget JSON.** Separate from the trigger/action registries.
+- **Internal reference adapter** — `services/analytics/sources/internal/index.ts`:
+  `providerKey:"internal"`, `connectedApp:false`. Proves the contract end-to-end
+  using REAL account data via `getAnalyticsOverview` (runs_over_time / success_rate
+  / top_workflows). No OAuth, no fake data, no node execution.
+- **Widget schema seam** — `contracts/analytics.ts`: optional discriminated
+  `config.dataSource` (`internal` | `connected_app{provider,metricKey,groupBy?,filters?}`);
+  **absence ⇒ internal**, so every existing widget reads unchanged (no backfill,
+  no DB migration). `widgetSourceKind(config)` is the single resolver.
+- **Architecture guard test** — pins that the source layer imports no
+  execution/engine path (read-only forever).
+
+**Why no external provider this slice:** a real provider adapter's credential
+scoping (personal vs. account, co-member protection per
+`core/integrations/credentialSharing.ts`), OAuth read-scope handling, rate
+limiting, and error normalization warrant their own security-reviewed slice. The
+brief sanctions the internal reference adapter as the foundation; forcing a
+provider here would risk the unsafe credential/scope shortcut the brief warns
+against. **Recommended first real provider: GitHub** (issue/PR counts — simple
+read, low PII).
+
+## Wiring still required before connected-app widgets go live (follow-ups)
+
+1. **Query route** — `GET /api/analytics/sources/[provider]/data` (or a unified
+   widget-data endpoint): `requireAccount` gate → resolve credentials through the
+   sharing-aware OAuth seam → `adapter.query()` → cache → normalized result. Maps
+   `AnalyticsSourceError` to a widget warning/error (never a page crash).
+2. **Per-account/provider rate limiting** (reuse the API-key limiter pattern).
+3. **Cache/snapshot table** (below).
+4. **Config panel + widget bodies** for connected-app sources (only once ≥1 real
+   provider works end-to-end — no fake UI).
+
+> Original design intent (still the target for the provider slices):
 
 Intended model: custom widgets can pull **read-only** data from a user's connected
 apps (Stripe, Slack, Notion, …), reusing the same OAuth/connection infrastructure

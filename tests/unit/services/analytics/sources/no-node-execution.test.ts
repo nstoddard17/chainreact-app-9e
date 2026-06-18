@@ -1,0 +1,52 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+/**
+ * Architecture guard (Slice ANALYTICS-SOURCES-1) — the non-negotiable rule:
+ * analytics sources must NEVER execute trigger/action nodes or the workflow
+ * engine. They are read-only aggregation. This pins that the source layer does
+ * not import any execution/engine/node-dispatch path, so a future provider
+ * adapter can't quietly wire widget config to connector execution.
+ */
+
+const SOURCE_FILES = [
+  "services/analytics/sources/types.ts",
+  "services/analytics/sources/registry.ts",
+  "services/analytics/sources/internal/index.ts",
+];
+
+// Substrings that would indicate workflow-node / engine execution wiring.
+const FORBIDDEN = [
+  "services/execution",
+  "executeAction",
+  "executeNode",
+  "executeWorkflow",
+  "runWorkflow",
+  "AdvancedExecutionEngine",
+  "WorkflowExecutionService",
+  "nodeExecutionService",
+  "/engine",
+  "triggerLifecycle",
+];
+
+describe("analytics sources never execute workflow nodes", () => {
+  it.each(SOURCE_FILES)("%s imports no execution/engine path", (file) => {
+    const content = readFileSync(resolve(process.cwd(), file), "utf8");
+    for (const needle of FORBIDDEN) {
+      expect(content.includes(needle)).toBe(false);
+    }
+  });
+
+  it("the only async capability an adapter exposes is read-only query()", () => {
+    // Compile-time the AnalyticsSourceAdapter interface has no execute/mutate
+    // member; this asserts the registered adapter surface at runtime too.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { internalAnalyticsSource } = require("@/services/analytics/sources/internal");
+    const keys = Object.keys(internalAnalyticsSource);
+    expect(keys).toEqual(
+      expect.arrayContaining(["providerKey", "displayName", "connectedApp", "metrics", "query"]),
+    );
+    expect(keys).not.toContain("execute");
+    expect(typeof internalAnalyticsSource.query).toBe("function");
+  });
+});
