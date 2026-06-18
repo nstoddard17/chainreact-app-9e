@@ -165,6 +165,14 @@ interface Props {
   readonly onConfirmFill: (messageId: ChatMessageId, proposal: ChatFillProposal) => void;
   readonly onCancelFill: (messageId: ChatMessageId) => void;
   readonly resolvedFillIds: ReadonlySet<ChatMessageId>;
+  /**
+   * AI-DIAG-QA-AUTOROUTE CS-2 — intent-clarification quick-action wiring. The two
+   * handlers receive the clarification message id; `resolvedClarificationIds`
+   * disables both buttons once a choice is made. CS-3 connects them to routing.
+   */
+  readonly onClarifyExplain: (messageId: ChatMessageId) => void;
+  readonly onClarifyPlan: (messageId: ChatMessageId) => void;
+  readonly resolvedClarificationIds: ReadonlySet<ChatMessageId>;
 }
 
 export function BuilderAiPanelMessageList({
@@ -207,6 +215,9 @@ export function BuilderAiPanelMessageList({
   onConfirmFill,
   onCancelFill,
   resolvedFillIds,
+  onClarifyExplain,
+  onClarifyPlan,
+  resolvedClarificationIds,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -350,6 +361,9 @@ export function BuilderAiPanelMessageList({
           onConfirmFill={onConfirmFill}
           onCancelFill={onCancelFill}
           resolvedFillIds={resolvedFillIds}
+          onClarifyExplain={onClarifyExplain}
+          onClarifyPlan={onClarifyPlan}
+          resolvedClarificationIds={resolvedClarificationIds}
         />
       ))}
 

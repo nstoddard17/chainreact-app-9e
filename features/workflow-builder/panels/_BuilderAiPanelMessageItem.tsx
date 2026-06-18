@@ -19,6 +19,7 @@ import {
   RepairProposalBody,
 } from "./_BuilderAiPanelDiagnosis";
 import { ChatFillBody } from "./_BuilderAiPanelChatFill";
+import { IntentClarificationBody } from "./_BuilderAiPanelClarification";
 
 /**
  * Per-message renderer for the React Agent chat (extracted from
@@ -90,6 +91,12 @@ interface MessageItemProps {
   readonly onConfirmFill: (messageId: ChatMessageId, proposal: ChatFillProposal) => void;
   readonly onCancelFill: (messageId: ChatMessageId) => void;
   readonly resolvedFillIds: ReadonlySet<ChatMessageId>;
+  // AI-DIAG-QA-AUTOROUTE CS-2 — intent-clarification quick actions. The handlers
+  // receive the clarification message id; CS-3 wires them to the real Q&A / planner
+  // routing. `resolvedClarificationIds` disables both buttons once a choice is made.
+  readonly onClarifyExplain: (messageId: ChatMessageId) => void;
+  readonly onClarifyPlan: (messageId: ChatMessageId) => void;
+  readonly resolvedClarificationIds: ReadonlySet<ChatMessageId>;
 }
 
 export function MessageItem({
@@ -131,6 +138,9 @@ export function MessageItem({
   onConfirmFill,
   onCancelFill,
   resolvedFillIds,
+  onClarifyExplain,
+  onClarifyPlan,
+  resolvedClarificationIds,
 }: MessageItemProps) {
   if (message.role === "user") {
     return <UserBubble kind={message.kind} content={message.content} />;
@@ -278,6 +288,19 @@ export function MessageItem({
                   }),
               }
             : {})}
+        />
+      </AssistantBubble>
+    );
+  }
+  if (message.kind === "intent_clarification") {
+    // AI-DIAG-QA-AUTOROUTE CS-2 — ambiguous prompt → ask "explain vs plan a fix".
+    // No model call / patch / Apply / Preview; the two actions only choose a route.
+    return (
+      <AssistantBubble>
+        <IntentClarificationBody
+          resolved={resolvedClarificationIds.has(message.id)}
+          onExplain={() => onClarifyExplain(message.id)}
+          onPlan={() => onClarifyPlan(message.id)}
         />
       </AssistantBubble>
     );

@@ -129,6 +129,9 @@ export function BuilderAiPanel() {
         onConfirmFill={chatFill.confirmFill}
         onCancelFill={chatFill.cancelFill}
         resolvedFillIds={chatFill.resolvedFillIds}
+        onClarifyExplain={a.handleClarifyExplain}
+        onClarifyPlan={a.handleClarifyPlan}
+        resolvedClarificationIds={a.resolvedClarificationIds}
       />
       <BuilderAiPanelComposer
         prompt={a.prompt}

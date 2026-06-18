@@ -175,6 +175,25 @@ export interface AssistantDiagnosisQaChatMessage {
 }
 
 /**
+ * Slice 4.AI-DIAG-QA-AUTOROUTE-1 (CS-2) — intent-clarification bubble. Shown when
+ * the one composer's deterministic router (`classifyComposerIntent`) returns
+ * `clarify` — the prompt is mutation-capable but the intent is unclear, so the
+ * assistant asks instead of guessing. Session-local only (never persisted —
+ * `persistedMessageToChat` has no `intent_clarification` case). Carries ONLY the
+ * user's own retained prompt (so a chosen action can reuse it — CS-3 wires the
+ * routing); the renderer does NOT echo it. No model call / credit / patch /
+ * Apply / Preview is involved.
+ */
+export interface AssistantIntentClarificationChatMessage {
+  readonly id: ChatMessageId;
+  readonly role: "assistant";
+  readonly kind: "intent_clarification";
+  /** The original composer text, retained for the chosen action (CS-3). Not rendered. */
+  readonly prompt: string;
+  readonly persisted?: boolean;
+}
+
+/**
  * Slice 4.AI-CONFIG-ASSIST-3 — chat-fill bubble. Session-local only (never
  * persisted). One discriminated `fill` payload covers the three phases:
  *   - `proposal` — "Put this in <field> on <node>?" + the exact value + Confirm/Cancel.
@@ -204,6 +223,7 @@ export type ChatMessage =
   | AssistantRepairProposalChatMessage
   | AssistantRepairPreviewChatMessage
   | AssistantDiagnosisQaChatMessage
+  | AssistantIntentClarificationChatMessage
   | AssistantChatFillChatMessage;
 
 let chatMessageIdCounter = 0;

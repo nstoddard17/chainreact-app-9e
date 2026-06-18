@@ -16,6 +16,7 @@ import {
   nextChatMessageId,
   persistedMessageToChat,
   type ChatMessage,
+  type ChatMessageId,
   type UserChatMessage,
 } from "./_BuilderAiPanelChat";
 import {
@@ -124,6 +125,13 @@ export function useBuilderAiActions() {
   const [stagedAnswers, setStagedAnswers] = useState<
     ReadonlyMap<string, RequiredInputAnswer>
   >(() => new Map());
+
+  // AI-DIAG-QA-AUTOROUTE CS-2 — intent-clarification bubbles that have been resolved
+  // (a quick action chosen), so their buttons disable. Session-local; reset on Clear.
+  // CS-2 only marks the choice resolved; CS-3 adds the actual Q&A / planner routing.
+  const [resolvedClarificationIds, setResolvedClarificationIds] = useState<
+    ReadonlySet<ChatMessageId>
+  >(() => new Set());
 
   const ai = useBuilderAi({
     workflowId,
@@ -439,6 +447,25 @@ export function useBuilderAiActions() {
     refreshDraftAfterApply,
   });
 
+  // AI-DIAG-QA-AUTOROUTE CS-2 — mark an intent-clarification choice resolved (buttons
+  // disable). CS-2 does NOT route anywhere — the actual Q&A / planner dispatch on the
+  // retained prompt is wired in CS-3. Kept as two named handlers so CS-3 only has to
+  // fill in the routing body, not re-thread the props.
+  function markClarificationResolved(messageId: ChatMessageId): void {
+    setResolvedClarificationIds((prev) => {
+      if (prev.has(messageId)) return prev;
+      const next = new Set(prev);
+      next.add(messageId);
+      return next;
+    });
+  }
+  function handleClarifyExplain(messageId: ChatMessageId): void {
+    markClarificationResolved(messageId);
+  }
+  function handleClarifyPlan(messageId: ChatMessageId): void {
+    markClarificationResolved(messageId);
+  }
+
   function handleClear(): void {
     if (!workflowId) return;
     const wfId: string = workflowId;
@@ -453,6 +480,7 @@ export function useBuilderAiActions() {
     setMessages([]);
     setPrompt("");
     setStagedAnswers(new Map());
+    setResolvedClarificationIds(new Set());
     // AI-DIAG-2b / AI-REPAIR-1c — also reset the explanation + repair-proposal
     // state on a full clear (does not touch the read-only `checking` flag).
     diagnosis.resetDiagnosisActions();
@@ -498,6 +526,9 @@ export function useBuilderAiActions() {
     handleRerunPlan,
     handleClear,
     handleStagedAnswerChange,
+    resolvedClarificationIds,
+    handleClarifyExplain,
+    handleClarifyPlan,
     handleCheckWorkflow: diagnosis.handleCheckWorkflow,
     handleAskDiagnosisQuestion: diagnosis.handleAskDiagnosisQuestion,
     handleExplainDiagnosis: diagnosis.handleExplainDiagnosis,
