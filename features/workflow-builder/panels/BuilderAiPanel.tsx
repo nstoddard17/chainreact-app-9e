@@ -7,6 +7,7 @@ import { useBuilderAiActions } from "./useBuilderAiActions";
 import { useChatFill } from "./useChatFill";
 import { useChatFillTarget, type ChatFillTarget } from "../ai/useChatFillTarget";
 import { shouldRouteChatFill } from "../ai/shouldRouteChatFill";
+import { classifyComposerIntent } from "../ai/classifyComposerIntent";
 import { useConfigSlice } from "../state/configSlice";
 
 /**
@@ -67,6 +68,7 @@ export function BuilderAiPanel() {
   }
 
   function handleComposerSubmit(): void {
+    // Precedence 1 — chat-fill (a config field is highlighted): unchanged behavior.
     if (chatFillActive && chatFillTarget) {
       const raw = a.prompt;
       if (raw.trim().length === 0) return;
@@ -77,6 +79,31 @@ export function BuilderAiPanel() {
       a.setPrompt("");
       return;
     }
+    // Precedence 2 — follow-up mode (a plan awaits required-input details): always the
+    // planner. A follow-up reply is never re-classified as a question (AUTOROUTE CS-3).
+    if (a.followUpMode) {
+      a.handleSubmit();
+      return;
+    }
+    // Precedence 3 — deterministic one-composer intent routing (AUTOROUTE CS-3).
+    const text = a.prompt;
+    if (text.trim().length === 0) return;
+    const { route } = classifyComposerIntent(text);
+    if (route === "qa") {
+      // Read-only diagnosis Q&A on the composer text (existing handler: re-derives the
+      // diagnosis server-side, forwards configSlice.activeNodeId as the safe hint).
+      a.handleAskDiagnosisQuestion(text);
+      a.setPrompt("");
+      return;
+    }
+    if (route === "clarify") {
+      // Ambiguous + mutation-capable → ask instead of guessing. Retain the prompt
+      // (not rendered) so a quick action can route it; clear the composer.
+      a.appendClarification(text);
+      a.setPrompt("");
+      return;
+    }
+    // route === "plan" — existing planner submit (reads + clears the composer text).
     a.handleSubmit();
   }
 

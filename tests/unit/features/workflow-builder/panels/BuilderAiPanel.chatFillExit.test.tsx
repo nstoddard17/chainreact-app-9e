@@ -140,7 +140,11 @@ describe("CS-7 — after clearing, composer is normal AI chat", () => {
     await renderPanelAndReveal();
     await user.click(screen.getByTestId("builder-ai-chatfill-exit"));
 
-    await user.type(screen.getByTestId("builder-ai-prompt"), "hello from ChainReact");
+    // AUTOROUTE CS-3 — after exiting chat-fill the composer is the normal AI chat,
+    // now intent-routed. Use a clearly PLAN-shaped request so it routes to the
+    // planner (a vague phrase would route to a clarification, which is also "not a
+    // field fill"); the point of this test is that chat-fill no longer intercepts it.
+    await user.type(screen.getByTestId("builder-ai-prompt"), "Add a Slack step");
     await user.click(screen.getByTestId("builder-ai-plan-button"));
 
     // Went to the planner (normal chat) — a plan failure bubble renders…

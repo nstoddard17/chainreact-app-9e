@@ -640,11 +640,14 @@ describe("follow-up composer (AI-21)", () => {
     // Composer is empty after Clear — typing a fresh prompt is required.
     const textarea = screen.getByTestId("builder-ai-prompt");
     expect(textarea).toHaveValue("");
-    await user.type(textarea, "totally different prompt");
+    // AUTOROUTE CS-3 — a fresh prompt is intent-routed; use a clearly plan-shaped
+    // request so it reaches the planner (the point here is Clear resets the chain, so
+    // the prompt is sent verbatim, NOT reconstructed).
+    await user.type(textarea, "Create a different workflow");
     await user.click(screen.getByTestId("builder-ai-plan-button"));
     await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
     const [, secondBody] = mockPlan.mock.calls[1]!;
-    expect((secondBody as { prompt: string }).prompt).toBe("totally different prompt");
+    expect((secondBody as { prompt: string }).prompt).toBe("Create a different workflow");
     expect((secondBody as { prompt: string }).prompt).not.toContain("Original request:");
   });
 
@@ -933,7 +936,9 @@ describe("required-input control parity (AI-35E)", () => {
       preview: undefined,
     });
     render(<BuilderAiPanel />);
-    await typeAndPlan("Do something");
+    // AUTOROUTE CS-3 — "Do something" is a vague→clarify prompt; this test pins the
+    // planner's clarification-entry rendering, so use a plan-shaped request to reach it.
+    await typeAndPlan("Add a step to this workflow");
     const needs = await screen.findByTestId("builder-ai-needs-input");
     expect(needs).toHaveTextContent("Can you clarify the overall goal?");
     // No interactive control for a pure clarification.

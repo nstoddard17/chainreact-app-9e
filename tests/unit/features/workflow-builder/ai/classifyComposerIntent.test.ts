@@ -54,6 +54,13 @@ describe("classifyComposerIntent — planner route", () => {
     "Set up an HTTP request action",
     "I want to add a filter here",
     "Fix this workflow", // explicit workflow object, command form → plan
+    "Post to Slack on new email", // 'post' is a build directive in a workflow builder
+    "Post to Slack",
+    "Use #general", // an edit directive (set the channel)
+    "Notify #oncall on failure",
+    "When I get an email send a Slack message", // trigger-prefixed build spec → plan
+    "When a new row is added, create a calendar event",
+    "tweak the slack post copy", // 'tweak' is an edit verb
   ];
   it.each(PLAN)("routes %p to plan", (s) => {
     expect(route(s)).toBe("plan");
@@ -130,6 +137,11 @@ describe("classifyComposerIntent — edge cases", () => {
   it("curly-apostrophe contractions are handled", () => {
     expect(route("Why won’t this run?")).toBe("qa");
     expect(route("Why can’t I save this?")).toBe("qa");
+  });
+
+  it("a genuine 'When does this run?' question (ends with ?) still routes to qa", () => {
+    expect(route("When does this run?")).toBe("qa");
+    expect(route("When will this trigger?")).toBe("qa");
   });
 
   it("multi-line prompts collapse to one normalized line", () => {

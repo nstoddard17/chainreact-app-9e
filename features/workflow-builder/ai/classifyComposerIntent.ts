@@ -44,7 +44,19 @@ export interface ComposerIntentResult {
  * plan, via its own marker.
  */
 const BUILD_VERBS =
-  "add|create|build|make|change|update|modify|edit|remove|delete|connect|disconnect|rename|set|move|insert|replace|send|route|trigger|schedule|wire|configure|enable|disable|automate";
+  "add|create|build|make|change|update|modify|edit|remove|delete|connect|disconnect|rename|set|move|insert|replace|send|post|route|trigger|schedule|wire|configure|enable|disable|automate|use|notify|watch|email|message|dm|tweak|adjust|swap";
+
+/**
+ * The verb-only subset used for the "an action verb ANYWHERE → plan" rule (below),
+ * which catches trigger-prefixed build specs like "When a new email arrives, send a
+ * Slack message". Excludes the noun-like members of BUILD_VERBS (post / set / trigger
+ * / watch / email / message / dm / use) so a mid-sentence NOUN ("what's the email
+ * address?") never forces a plan — those still route to plan only in LEADING position.
+ * Gated on the absence of any Q&A signal, so questions are never captured here.
+ */
+const ACTION_VERB_ANYWHERE = new RegExp(
+  "\\b(?:add|create|build|make|change|modify|edit|remove|delete|connect|disconnect|rename|move|insert|replace|send|route|schedule|configure|enable|disable|automate|notify|tweak|adjust|swap)\\b",
+);
 
 /** Leading imperative build command: "Add a Slack step", "please connect Gmail". */
 const LEADING_BUILD = new RegExp(`^(?:please\\s+|pls\\s+|just\\s+)?(?:${BUILD_VERBS})\\b`);
@@ -58,8 +70,14 @@ const WANT_TO_ACT = new RegExp(`\\b(?:i\\s+want|i'?d\\s+like|i\\s+would\\s+like|
 /** "fix this/the/my workflow" — a command to change the workflow (plan, per policy). */
 const FIX_WORKFLOW = /\bfix\s+(?:this|the|my)\s+workflow\b/;
 
-/** Leading interrogative — a question about the current workflow/check state. */
-const QA_INTERROGATIVE = /^(?:why|what|whats|what'?s|how|which|who|where|when)\b/;
+/**
+ * Leading interrogative — a question about the current workflow/check state.
+ * NOTE: "when" is deliberately EXCLUDED — in a workflow builder a leading "when" is
+ * almost always a TRIGGER clause of a build spec ("When a new email arrives, send a
+ * Slack message"), not a question. A genuine "When does this run?" is still caught by
+ * the ends-with-"?" Q&A signal.
+ */
+const QA_INTERROGATIVE = /^(?:why|what|whats|what'?s|how|which|who|where)\b/;
 
 /** Leading modal question — "Can I…", "Should I…", "Do I…", "Does this…", "Is this…". */
 const QA_MODAL = /^(?:can|could|should|do|does|did|is|are|was|were|will|would|have|has)\s+(?:i|we|this|that|the|these|those|there|it|my)\b/;
@@ -127,15 +145,18 @@ export function classifyComposerIntent(text: string): ComposerIntentResult {
   for (const m of QA_PHRASES) if (m.re.test(t)) qaSignals.push(m.name);
   if (ENDS_QUESTION.test(t)) qaSignals.push("qa:question-mark");
 
+  const vagueSignals = VAGUE_PHRASES.filter((m) => m.re.test(t)).map((m) => m.name);
+  const hasQa = qaSignals.length > 0;
+
   const planSignals: string[] = [];
   if (LEADING_BUILD.test(t)) planSignals.push("plan:leading-build");
   if (REQUEST_TO_ACT.test(t)) planSignals.push("plan:can-you-build");
   if (WANT_TO_ACT.test(t)) planSignals.push("plan:want-to-build");
   if (FIX_WORKFLOW.test(t)) planSignals.push("plan:fix-workflow");
-
-  const vagueSignals = VAGUE_PHRASES.filter((m) => m.re.test(t)).map((m) => m.name);
-
-  const hasQa = qaSignals.length > 0;
+  // A clear action verb anywhere, when the message carries NO question signal, is a
+  // build/edit request — e.g. a trigger-prefixed spec "When X happens, send a Slack
+  // message". Gated on `!hasQa` so "what should I add?" stays a question.
+  if (!hasQa && ACTION_VERB_ANYWHERE.test(t)) planSignals.push("plan:action-verb");
   const appendedAction = APPENDED_ACTION.test(t) || TRAILING_FIX_IT.test(t);
 
   // 2. MIXED — a diagnostic question AND an appended imperative action. Ask, don't guess.

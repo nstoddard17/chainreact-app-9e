@@ -319,10 +319,11 @@ describe("AI-24 — snapshot is derived from live state, not chat history", () =
       ],
       edges: [],
     });
-    // First plan so messages exist and the Clear button renders.
+    // First plan so messages exist and the Clear button renders. AUTOROUTE CS-3 —
+    // use a plan-shaped prompt so it routes to the planner (content is incidental here).
     mockPlan.mockResolvedValueOnce(planApplyReady);
     render(<BuilderAiPanel />);
-    await plan("first prompt");
+    await plan("Add a first step");
     await waitFor(() => expect(mockPlan).toHaveBeenCalled());
 
     const user = userEvent.setup();

@@ -330,6 +330,38 @@ export function useBuilderAiActions() {
     });
   }
 
+  // AI-DIAG-QA-AUTOROUTE CS-3 — plan a FRESH plan from an explicit prompt string
+  // (not the composer textarea). Used by the clarification "Plan a fix" action,
+  // which routes the RETAINED prompt to the planner. Mirrors `handleSubmit`'s
+  // fresh-plan path (append user bubble → persist → ai.plan → append result) but
+  // is always a brand-new plan (never a follow-up, no staged answers, no
+  // retry-restore — there is no composer text to restore). Planner backend
+  // behavior is unchanged; Apply remains explicit (PlanResultBody owns it).
+  async function submitPlanForText(text: string): Promise<void> {
+    if (!workflowId) return;
+    const wfId: string = workflowId;
+    const content = text.trim();
+    if (!content) return;
+    setRiskAcknowledged(false);
+    appendMessage({ id: nextChatMessageId(), role: "user", kind: "prompt", content });
+    void persistMessageBestEffort(wfId, { role: "user", kind: "prompt", content });
+    const result = await ai.plan(content, undefined, { currentGraph });
+    if (result === null) {
+      const errorContent =
+        "The AI assistant is unavailable right now. Please try again in a moment.";
+      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content: errorContent });
+      void persistMessageBestEffort(wfId, { role: "assistant", kind: "error", content: errorContent });
+      return;
+    }
+    appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "plan_result", result });
+    void persistMessageBestEffort(wfId, {
+      role: "assistant",
+      kind: "plan_result",
+      content: result.ok ? result.intentSummary : result.message,
+      safePayload: buildPlanResultSafePayload(result),
+    });
+  }
+
   async function handleApply(): Promise<void> {
     if (!workflowId) return;
     const wfId: string = workflowId;
@@ -447,10 +479,15 @@ export function useBuilderAiActions() {
     refreshDraftAfterApply,
   });
 
-  // AI-DIAG-QA-AUTOROUTE CS-2 — mark an intent-clarification choice resolved (buttons
-  // disable). CS-2 does NOT route anywhere — the actual Q&A / planner dispatch on the
-  // retained prompt is wired in CS-3. Kept as two named handlers so CS-3 only has to
-  // fill in the routing body, not re-thread the props.
+  // AI-DIAG-QA-AUTOROUTE CS-3 — append an intent-clarification bubble retaining the
+  // user's ORIGINAL prompt (the renderer never echoes it). The composer clears in the
+  // panel after this, same as any handled submit.
+  function appendClarification(prompt: string): void {
+    const content = prompt.trim();
+    if (content.length === 0) return;
+    appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "intent_clarification", prompt: content });
+  }
+
   function markClarificationResolved(messageId: ChatMessageId): void {
     setResolvedClarificationIds((prev) => {
       if (prev.has(messageId)) return prev;
@@ -459,11 +496,27 @@ export function useBuilderAiActions() {
       return next;
     });
   }
+
+  /** Read the retained prompt off a clarification message (null if not found/resolved). */
+  function clarificationPrompt(messageId: ChatMessageId): string | null {
+    const m = messages.find((x) => x.id === messageId);
+    return m && m.role === "assistant" && m.kind === "intent_clarification" ? m.prompt : null;
+  }
+
+  // AI-DIAG-QA-AUTOROUTE CS-3 — quick actions route the RETAINED prompt. Resolve-once:
+  // the buttons disable after a choice (CS-2) AND the guard blocks a double-submit if a
+  // second click slips through. The retained prompt is passed only to the chosen route.
   function handleClarifyExplain(messageId: ChatMessageId): void {
+    if (resolvedClarificationIds.has(messageId)) return;
+    const prompt = clarificationPrompt(messageId);
     markClarificationResolved(messageId);
+    if (prompt) void diagnosis.handleAskDiagnosisQuestion(prompt);
   }
   function handleClarifyPlan(messageId: ChatMessageId): void {
+    if (resolvedClarificationIds.has(messageId)) return;
+    const prompt = clarificationPrompt(messageId);
     markClarificationResolved(messageId);
+    if (prompt) void submitPlanForText(prompt);
   }
 
   function handleClear(): void {
@@ -529,6 +582,7 @@ export function useBuilderAiActions() {
     resolvedClarificationIds,
     handleClarifyExplain,
     handleClarifyPlan,
+    appendClarification,
     handleCheckWorkflow: diagnosis.handleCheckWorkflow,
     handleAskDiagnosisQuestion: diagnosis.handleAskDiagnosisQuestion,
     handleExplainDiagnosis: diagnosis.handleExplainDiagnosis,

@@ -350,7 +350,9 @@ describe("AI-25 — follow-up + required-input selection do not mutate the graph
     mockPlan.mockResolvedValueOnce(planNeedsInput);
     const before = snapshotGraph();
     render(<BuilderAiPanel />);
-    const user = await plan("first prompt");
+    // AUTOROUTE CS-3 — a plan-shaped prompt so it routes to the planner (this test
+    // pins graph-immutability on Clear; the prompt content is incidental).
+    const user = await plan("Add a first step");
     await waitFor(() => expect(mockPlan).toHaveBeenCalled());
     // Clear conversation button only renders when messages exist.
     await user.click(screen.getByTestId("builder-ai-clear-button"));
