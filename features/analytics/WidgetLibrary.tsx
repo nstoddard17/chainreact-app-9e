@@ -20,7 +20,7 @@ export interface WidgetLibraryEntry {
 export const WIDGET_LIBRARY: readonly WidgetLibraryEntry[] = [
   { type: "stat", name: "Number with trend", desc: "Big number + sparkline + change vs last period.", icon: "Bolt" },
   { type: "line", name: "Line chart", desc: "Runs over time, successful vs failed.", icon: "History" },
-  { type: "bar", name: "Top list", desc: "Top automations or connected apps by volume.", icon: "Layers" },
+  { type: "bar", name: "Top list", desc: "Top automations by runs, or connected apps.", icon: "Layers" },
   { type: "donut", name: "Breakdown", desc: "Success vs. failure split.", icon: "Filter" },
   { type: "heatmap", name: "Activity heatmap", desc: "See when your automations run most.", icon: "Clock" },
   { type: "table", name: "Table", desc: "Automations with runs and success rate.", icon: "Database" },

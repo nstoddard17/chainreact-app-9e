@@ -51,6 +51,7 @@ export function AnalyticsDashboard({
   const [overview, setOverview] = useState<AnalyticsOverview | null>(initialOverview);
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [editing, setEditing] = useState(false);
   const [draftWidgets, setDraftWidgets] = useState<readonly AnalyticsWidget[]>([]);
@@ -94,7 +95,9 @@ export function AnalyticsDashboard({
     return () => {
       cancelled = true;
     };
-  }, [range]);
+  }, [range, reloadKey]);
+
+  const reloadData = useCallback(() => setReloadKey((k) => k + 1), []);
 
   const startEditing = () => {
     if (!active) return;
@@ -251,8 +254,18 @@ export function AnalyticsDashboard({
           </div>
           <button
             type="button"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground/80 hover:border-foreground/25 hover:text-foreground disabled:opacity-60"
+            onClick={reloadData}
+            disabled={loadingData}
+            title="Pull the latest data"
+          >
+            <AnalyticsIcon name="History" size={11} /> {loadingData ? "Refreshing…" : "Refresh"}
+          </button>
+          <button
+            type="button"
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground/80 hover:border-foreground/25 hover:text-foreground"
             onClick={exportDashboard}
+            title="Download this dashboard + its data as JSON"
           >
             <AnalyticsIcon name="Code" size={11} /> Export
           </button>
@@ -352,9 +365,7 @@ export function AnalyticsDashboard({
       )}
 
       {/* Error banners */}
-      {dataError && (
-        <ErrorBanner message={dataError} onRetry={() => setRange((r) => r)} retryLabel="Retry" />
-      )}
+      {dataError && <ErrorBanner message={dataError} onRetry={reloadData} retryLabel="Retry" />}
       {actionError && <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />}
 
       {/* Grid */}

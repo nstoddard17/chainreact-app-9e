@@ -74,7 +74,7 @@ export async function listOrSeedDashboards(
   const existing = await repo.listByAccount(accountId);
   if (existing.length > 0) return existing.map(toDashboard);
 
-  const seeded = await repo.createServiceRole({
+  const seeded = await repo.seedDefaultServiceRole({
     accountId,
     createdByUserId: userId,
     name: "Overview",
@@ -82,6 +82,12 @@ export async function listOrSeedDashboards(
     isDefault: true,
     widgets: DEFAULT_OVERVIEW_WIDGETS,
   });
+  // null → a concurrent first-load won the seed race (one-default unique index).
+  // Re-list so both requests converge on the same single default board.
+  if (seeded === null) {
+    const after = await repo.listByAccount(accountId);
+    return after.map(toDashboard);
+  }
   return [toDashboard(seeded)];
 }
 

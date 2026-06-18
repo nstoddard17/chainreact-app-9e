@@ -33,6 +33,12 @@ import { getProvider } from "@/integrations/_registry";
  *   - Time bucketing is UTC. Per-account/user timezone resolution is a follow-up.
  *   - All aggregation is in-memory over a capped run window; `truncated` flags
  *     when the cap was hit.
+ *
+ * EXTENSION POINT — this is the INTERNAL ("workflow analytics") data source. The
+ * planned connected-app analytics sources are siblings under
+ * `services/analytics/sources/<provider>/` that return a normalized result; they
+ * reuse the OAuth/connection infra read-only and never execute workflow nodes.
+ * See docs/slices/phase-4/analytics/analytics-closeout.md.
  */
 
 const HEATMAP_WEEKS = 16;

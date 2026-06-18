@@ -65,6 +65,13 @@ export type AnalyticsMetric = z.infer<typeof AnalyticsMetricSchema>;
  *
  * `.strict()` rejects unknown keys so a malformed payload 400s rather than
  * silently persisting junk into the JSONB column.
+ *
+ * FORWARD-COMPAT — connected-app analytics data sources are a planned additive
+ * extension. The future shape replaces this flat binding with a discriminated
+ * `dataSource` ({kind:"internal"|"connected_app", …}) where ABSENCE reads as
+ * "internal" → no backfill, and needs NO DB migration (widgets is opaque JSONB).
+ * No speculative fields are added now. Full design + adapter contract + authz +
+ * caching rules: docs/slices/phase-4/analytics/analytics-closeout.md.
  */
 export const AnalyticsWidgetConfigSchema = z
   .object({

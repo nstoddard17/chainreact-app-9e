@@ -134,6 +134,38 @@ export async function createServiceRole(
   return rowToRecord(data as AnalyticsDashboardsRow);
 }
 
+/**
+ * Seed the default dashboard, race-safe. Returns the created record, or `null`
+ * when a concurrent first-load already inserted the account's default (Postgres
+ * unique violation `23505` against `analytics_dashboards_one_default_per_account`
+ * — added in 20260702000001). The caller then re-lists. Real (non-conflict)
+ * errors still throw.
+ */
+export async function seedDefaultServiceRole(
+  input: CreateDashboardRecord,
+): Promise<AnalyticsDashboardRecord | null> {
+  const supabase = getServiceRoleClient(
+    `analytics_dashboards: seedDefault for account ${input.accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("analytics_dashboards")
+    .insert({
+      account_id: input.accountId,
+      created_by_user_id: input.createdByUserId,
+      name: input.name,
+      position: input.position,
+      is_default: input.isDefault,
+      widgets: input.widgets,
+    })
+    .select(COLUMNS)
+    .single();
+  if (error) {
+    if ((error as { code?: string }).code === "23505") return null;
+    throw new Error(`analytics_dashboards.seedDefaultServiceRole failed: ${error.message}`);
+  }
+  return rowToRecord(data as AnalyticsDashboardsRow);
+}
+
 export interface UpdateDashboardPatch {
   name?: string;
   position?: number;

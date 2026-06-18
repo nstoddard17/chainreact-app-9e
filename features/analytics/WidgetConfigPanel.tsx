@@ -194,8 +194,8 @@ export function WidgetConfigPanel({
                   <AnalyticsIcon name="AlertTriangle" size={11} />
                 </span>
                 <span>
-                  Scheduled refresh and run filters are coming soon. Widgets currently update
-                  live each time you open this dashboard.
+                  Widgets show live data for the dashboard's selected date range. Use Refresh to
+                  pull the latest.
                 </span>
               </div>
             </>
