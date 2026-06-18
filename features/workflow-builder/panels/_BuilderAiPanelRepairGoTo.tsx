@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import type { AgentWorkflowDiagnosis, RepairPreview, SelectedRepair } from "@/lib/api/ai";
 import { missingFieldNodeIds } from "../ai/firstMissingFieldNodeId";
 import { setupFindingCards } from "../ai/setupFindings";
-import { attentionFindingCards, danglingEdgeCards, duplicateEdgeCards, invalidReferenceCards, selfLoopEdgeCards } from "../ai/attentionFindings";
-import { DanglingEdgeCardView, DuplicateEdgeCardView, InvalidReferenceCardView, SelfLoopEdgeCardView } from "./_BuilderAiPanelInvalidRefCard";
+import { attentionFindingCards, danglingEdgeCards, duplicateEdgeCards, invalidReferenceCards, selfLoopEdgeCards, unreachableNodeCards } from "../ai/attentionFindings";
+import { DanglingEdgeCardView, DuplicateEdgeCardView, InvalidReferenceCardView, SelfLoopEdgeCardView, UnreachableNodeCardView } from "./_BuilderAiPanelInvalidRefCard";
 import {
   useRepairFieldTarget,
   useRepairFieldTargets,
@@ -400,12 +400,15 @@ export function DiagnosisAttentionActions({
   const loopCards = selfLoopEdgeCards(diagnosis);
   // AI-REPAIR-COVERAGE-2 — actionable duplicate-edge cards (each with a "Preview fix").
   const dupCards = duplicateEdgeCards(diagnosis);
+  // AI-GUIDANCE-UNREACHABLE-NODE-1 — GUIDANCE-ONLY unreachable/orphan-node card (no button).
+  const orphanCards = unreachableNodeCards(diagnosis);
   if (
     cards.length === 0 &&
     refCards.length === 0 &&
     edgeCards.length === 0 &&
     loopCards.length === 0 &&
-    dupCards.length === 0
+    dupCards.length === 0 &&
+    orphanCards.length === 0
   )
     return null;
   return (
@@ -464,6 +467,9 @@ export function DiagnosisAttentionActions({
           {...(onPreviewDuplicateEdge ? { onPreviewFix: onPreviewDuplicateEdge } : {})}
           previewing={previewing}
         />
+      ))}
+      {orphanCards.map((card) => (
+        <UnreachableNodeCardView key={card.key} card={card} />
       ))}
     </div>
   );

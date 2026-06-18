@@ -68,7 +68,11 @@ export function attentionFindingCards(
       finding.code !== "SELF_LOOP_EDGE" &&
       // AI-REPAIR-COVERAGE-2 — DUPLICATE_EDGE is actionable too (removeEdge); it renders
       // via `duplicateEdgeCards`, not as a generic no-button structure card.
-      finding.code !== "DUPLICATE_EDGE"
+      finding.code !== "DUPLICATE_EDGE" &&
+      // AI-GUIDANCE-UNREACHABLE-NODE-1 — `unreachable_node` renders via the richer
+      // GUIDANCE-ONLY `unreachableNodeCards` (count-aware + safe labels + suggestions),
+      // not as a generic one-line structure card.
+      finding.code !== "unreachable_node"
     ) {
       out.push({ key: `graph:${finding.code}:${i}`, severity, message: graphGuidance(finding.code) });
     } else if (finding.source === "run") {
@@ -301,6 +305,52 @@ export function duplicateEdgeCards(
     i += 1;
   }
   return out;
+}
+
+/**
+ * AI-GUIDANCE-UNREACHABLE-NODE-1 — a GUIDANCE-ONLY "Needs attention" card for unreachable /
+ * orphan action steps (a step not connected to the trigger path, so it never runs). Unlike
+ * the edge-repair cards, there is **no safe deterministic fix**: the correct action depends
+ * on user intent (connect it to which upstream step? move it to which branch? delete it?),
+ * `removeNode` is apply-blocked, and an `addEdge` target is ambiguous. So this card carries
+ * **no Preview/Apply affordance** — only a count-aware explanation + safe step labels. The
+ * static "what you can do" suggestions are UI copy in the view.
+ *
+ * No-leak: `steps` are the server-built safe display labels only — never a raw node id.
+ */
+export interface UnreachableNodeCard {
+  readonly key: string;
+  readonly severity: "error" | "warning";
+  /** Count-aware headline (singular for one, plural with the count for many). */
+  readonly message: string;
+  /** Safe display labels of the unreachable step(s). */
+  readonly steps: readonly string[];
+}
+
+/**
+ * Aggregate every `unreachable_node` graph finding into ONE guidance card. The diagnosis
+ * emits one finding per orphan node (each carrying its safe `nodeLabels`); this collects
+ * their labels and renders a single count-aware card. Empty when there are none.
+ */
+export function unreachableNodeCards(
+  diagnosis: AgentWorkflowDiagnosis | null | undefined,
+): UnreachableNodeCard[] {
+  const steps: string[] = [];
+  let severity: "error" | "warning" = "error";
+  let found = false;
+  for (const finding of diagnosis?.findings ?? []) {
+    if (finding.source !== "graph" || finding.code !== "unreachable_node") continue;
+    found = true;
+    if (finding.severity === "warning" && severity !== "error") severity = "warning";
+    for (const label of finding.nodeLabels ?? []) steps.push(label);
+  }
+  if (!found) return [];
+  const count = steps.length;
+  const message =
+    count <= 1
+      ? "A step in this workflow isn’t connected to the trigger, so it won’t run."
+      : `${count} steps in this workflow aren’t connected to the trigger, so they won’t run.`;
+  return [{ key: "unreachable-node", severity, message, steps }];
 }
 
 export function invalidReferenceCards(

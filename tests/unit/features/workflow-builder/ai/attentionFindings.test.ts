@@ -43,13 +43,18 @@ describe("attentionFindingCards — selection", () => {
 describe("attentionFindingCards — copy + no-leak", () => {
   it.each([
     ["no_trigger", "starting point"],
-    ["unreachable_node", "Connect every step"],
     ["empty_workflow", "trigger and at least one action"],
     ["some_other_graph_code", "structure"],
   ])("graph %s → friendly guidance containing '%s'", (code, fragment) => {
     const [card] = attentionFindingCards(dx([f("graph", code)]));
     expect(card!.message).toContain(fragment);
     expect(card!.message).not.toContain(code);
+  });
+
+  // AI-GUIDANCE-UNREACHABLE-NODE-1 — `unreachable_node` is now excluded from the generic
+  // one-line cards; it renders via the richer guidance-only `unreachableNodeCards` instead.
+  it("excludes unreachable_node from the generic structural cards", () => {
+    expect(attentionFindingCards(dx([f("graph", "unreachable_node")]))).toEqual([]);
   });
 
   it("run finding renders generic guidance, never the raw code", () => {

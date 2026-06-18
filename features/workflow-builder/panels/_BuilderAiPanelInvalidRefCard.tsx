@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { SelectedRepair } from "@/lib/api/ai";
-import type { DanglingEdgeCard, DuplicateEdgeCard, InvalidReferenceCard, SelfLoopEdgeCard } from "../ai/attentionFindings";
+import type { DanglingEdgeCard, DuplicateEdgeCard, InvalidReferenceCard, SelfLoopEdgeCard, UnreachableNodeCard } from "../ai/attentionFindings";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 
@@ -199,6 +199,42 @@ export function SelfLoopEdgeCardView({
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * AI-GUIDANCE-UNREACHABLE-NODE-1 — a GUIDANCE-ONLY card for unreachable / orphan steps (a
+ * step not connected to the trigger path, so it won't run). There is deliberately **no
+ * "Preview fix" and no "Apply" affordance** and **no callback prop** — the safe fix needs
+ * user intent (connect / move / delete), which the app can't choose deterministically. The
+ * card only explains the problem (count-aware), lists the safe step labels, and shows static
+ * "what you can do" guidance.
+ *
+ * No-leak: shows only the server-built safe step labels; never a raw node id, edge id, or
+ * config value.
+ */
+export function UnreachableNodeCardView({ card }: { readonly card: UnreachableNodeCard }) {
+  return (
+    <div data-testid="builder-ai-diagnosis-unreachable-node" className="flex flex-col gap-1">
+      <p className="text-xs" style={{ color: "var(--builder-text)" }}>
+        {card.message}
+      </p>
+      {card.steps.length > 0 && (
+        <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[11px]" style={{ color: "var(--builder-muted)" }}>
+          {card.steps.map((s, i) => (
+            <li key={i}>{`“${s}”`}</li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[10.5px] font-medium" style={{ color: "var(--builder-muted)" }}>
+        What you can do:
+      </p>
+      <ul className="flex list-disc flex-col gap-0.5 pl-4 text-[10.5px]" style={{ color: "var(--builder-muted)" }}>
+        <li>Connect it to the workflow so it runs after another step.</li>
+        <li>Move it into the right branch if it belongs there.</li>
+        <li>Delete it if you don’t need it.</li>
+      </ul>
     </div>
   );
 }
