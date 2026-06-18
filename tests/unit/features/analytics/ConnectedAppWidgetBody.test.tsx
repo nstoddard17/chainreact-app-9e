@@ -124,6 +124,20 @@ it("forwards Slack filters (channel) to the source query", async () => {
   );
 });
 
+it("initial load is cache-first; a manual Refresh (reloadKey change) bypasses cache", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: slackScalar() });
+  const { rerender } = render(<ConnectedAppWidgetBody widget={SLACK_WIDGET} range="7d" reloadKey={0} />);
+  await screen.findByText("57");
+  // First load does NOT force a refresh (cache-first — avoids provider rate limits).
+  expect(mockQuery.mock.calls[0]![0]).not.toHaveProperty("refresh", true);
+
+  // Dashboard Refresh bumps reloadKey → the widget re-queries bypassing the cache.
+  rerender(<ConnectedAppWidgetBody widget={SLACK_WIDGET} range="7d" reloadKey={1} />);
+  await waitFor(() =>
+    expect(mockQuery).toHaveBeenCalledWith(expect.objectContaining({ refresh: true })),
+  );
+});
+
 it("renders a Connect Slack CTA on MISSING_CREDENTIAL", async () => {
   mockQuery.mockResolvedValue({ ok: false, code: "MISSING_CREDENTIAL", message: "connect" });
   render(<ConnectedAppWidgetBody widget={SLACK_WIDGET} range="7d" reloadKey={0} />);

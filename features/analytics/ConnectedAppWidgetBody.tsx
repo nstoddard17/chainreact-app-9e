@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { AnalyticsRange, AnalyticsWidget } from "@/contracts/analytics";
 import type { NormalizedAnalyticsResult } from "@/services/analytics/sources/types";
@@ -72,15 +72,22 @@ export function ConnectedAppWidgetBody({
   const descriptor = provider ? getConnectedAppSource(provider) : null;
 
   const [state, setState] = useState<State>({ status: "loading" });
+  // A change in reloadKey means the user hit the dashboard's manual Refresh — that
+  // should bypass the source cache (match the internal widgets' "pull latest"),
+  // whereas the initial mount + range changes stay cache-first to avoid hammering
+  // provider rate limits on every load.
+  const lastReloadKey = useRef(reloadKey);
 
   useEffect(() => {
     if (!provider || !metric) {
       setState({ status: "error", message: "This widget isn't configured yet." });
       return;
     }
+    const manualRefresh = reloadKey !== lastReloadKey.current;
+    lastReloadKey.current = reloadKey;
     let cancelled = false;
     setState({ status: "loading" });
-    querySourceData({ provider, metric, range, filters })
+    querySourceData({ provider, metric, range, filters, ...(manualRefresh ? { refresh: true } : {}) })
       .then((out) => {
         if (cancelled) return;
         if (out.ok) {
