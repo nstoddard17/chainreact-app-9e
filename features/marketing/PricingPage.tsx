@@ -45,18 +45,18 @@ import {
  *    `core/billing/planPolicy.ts`, and NO dollar prices exist anywhere in the
  *    repo yet. So the cards/table are rebuilt on the real five-tier policy, the
  *    member / AI-credit / folder / template / bulk-export numbers are read
- *    straight from `planPolicy` (single source of truth — they can't drift),
+ *    straight from `planPolicy` (single source of truth, so they can't drift),
  *    and NO dollar amounts and NO billing toggle are shown (there is no
  *    decided price and no live checkout to honor them).
  *
  * HONESTY (carried from the homepage / privacy / security slices): every claim
  * describes how ChainReact actually works or is honestly framed as not-final.
  * No invented dollar prices, no "Save 20%", no live checkout. AI-credit and
- * (beyond Free/Pro) task limits are framed as current direction that may change
- * — `planPolicy` itself marks several as placeholders pending owner pricing.
- * Enterprise security/DPA language is "by arrangement" / "when available" — no
- * SOC 2 / SSO / SCIM / HIPAA / SLA claims. Paid upgrades route to sign-up
- * (start free, upgrade in-app later) or to sales — never a fake "Buy now".
+ * (beyond Free/Pro) task limits are framed as current direction that may change.
+ * (`planPolicy` itself marks several as placeholders pending owner pricing.)
+ * Enterprise security/DPA language is "by arrangement" / "when available", with
+ * no SOC 2 / SSO / SCIM / HIPAA / SLA claims. Paid upgrades route to sign-up
+ * (start free, upgrade in-app later) or to sales, never a fake "Buy now".
  */
 
 const SALES_EMAIL = "sales@chainreact.app";
@@ -72,7 +72,7 @@ interface TierView {
   icon: LucideIcon;
   tagline: string;
   who: string;
-  /** Big value line — capacity, not a price (no dollar prices exist yet). */
+  /** Big value line: capacity, not a price (no dollar prices exist yet). */
   big: string;
   bigUnit: string;
   priceNote: string;
@@ -174,7 +174,7 @@ const TIERS: ReadonlyArray<TierView> = [
   },
 ];
 
-// ─── Comparison table — repo-backed numbers, honest qualitative copy elsewhere ──
+// ─── Comparison table: repo-backed numbers, honest qualitative copy elsewhere ──
 
 type CellVal = boolean | string;
 
@@ -262,7 +262,7 @@ const METER_CARDS: ReadonlyArray<{ icon: LucideIcon; h: string; p: string; point
   {
     icon: Gauge,
     h: "Workflow tasks",
-    p: "Tasks measure automation work — roughly one action your workflow carries out when it runs.",
+    p: "Tasks measure automation work, roughly one action your workflow carries out when it runs.",
     points: [
       "Watching or waiting for a trigger doesn't use a task.",
       "Deterministic steps and validation don't use AI credits.",
@@ -276,7 +276,7 @@ const METER_CARDS: ReadonlyArray<{ icon: LucideIcon; h: string; p: string; point
     points: [
       "Used by optional AI features, not by ordinary runs.",
       "Paid AI is checked against your credits before the model runs.",
-      "AI credit enforcement is being rolled out — usage is shown in the app.",
+      "AI credit enforcement is being rolled out, and usage is shown in the app.",
     ],
   },
 ];
@@ -286,7 +286,7 @@ const METER_CARDS: ReadonlyArray<{ icon: LucideIcon; h: string; p: string; point
 const FAQ: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: "Can I start for free?",
-    a: "Yes. The Free plan needs no card — build personal workflows, connect any supported app, and run them by hand or on a trigger.",
+    a: "Yes. The Free plan needs no card. Build personal workflows, connect any supported app, and run them by hand or on a trigger.",
   },
   {
     q: "What counts as workflow usage?",
@@ -298,7 +298,7 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
   },
   {
     q: "Can I upgrade from Team to Business later?",
-    a: "Yes — in place. A Team account can move up to Business without starting over or creating a separate account, and Enterprise is available by arrangement from there.",
+    a: "Yes, in place. A Team account can move up to Business without starting over or creating a separate account, and Enterprise is available by arrangement from there.",
   },
   {
     q: "Are personal and team plans separate?",
@@ -379,7 +379,7 @@ export function PricingPage() {
 
       <main className="pr-main">
         <div className="pr">
-          {/* 1 — Hero */}
+          {/* 1. Hero */}
           <header className="pr-hero">
             <div className="pr-eyebrow">Pricing</div>
             <h1 className="pr-title">Pricing that scales with your workflows</h1>
@@ -414,7 +414,7 @@ export function PricingPage() {
             </p>
           </header>
 
-          {/* 2 — Tier cards */}
+          {/* 2. Tier cards */}
           <section className="pr-grid" aria-label="Plans">
             {TIERS.map((tier) => {
               const Icon = tier.icon;
@@ -452,19 +452,19 @@ export function PricingPage() {
             })}
           </section>
 
-          {/* 3 — Run/usage band */}
+          {/* 3. Run/usage band */}
           <section className="pr-band" aria-label="How usage is measured">
             <span className="pr-band-ic" aria-hidden>
               <Zap size={16} strokeWidth={1.9} />
             </span>
             <p className="pr-band-text">
               <strong>You spend usage on work that actually happens.</strong> A workflow task is one
-              action your automation carries out — watching for a trigger is free. AI features are
+              action your automation carries out, and watching for a trigger is free. AI features are
               metered separately as AI credits. <a className="pr-band-link" href="#meter">More on how usage works</a>.
             </p>
           </section>
 
-          {/* 4 — Workflow tasks vs AI credits */}
+          {/* 4. Workflow tasks vs AI credits */}
           <section className="pr-section pr-meter" id="meter">
             <div className="pr-section-head">
               <h2 className="pr-section-title">Workflow tasks and AI credits</h2>
@@ -505,7 +505,7 @@ export function PricingPage() {
             </p>
           </section>
 
-          {/* 5 — Comparison table */}
+          {/* 5. Comparison table */}
           <section className="pr-section pr-compare" id="compare">
             <div className="pr-section-head">
               <h2 className="pr-section-title">Compare every plan</h2>
@@ -563,7 +563,7 @@ export function PricingPage() {
             </div>
           </section>
 
-          {/* 6 — Team pricing & private credentials */}
+          {/* 6. Team pricing & private credentials */}
           <section className="pr-section pr-team" aria-label="Team pricing and private credentials">
             <div className="pr-team-card">
               <span className="pr-team-ic" aria-hidden>
@@ -579,7 +579,7 @@ export function PricingPage() {
                 </blockquote>
                 <p className="pr-team-p">
                   Team and business workflows belong to the team or business account, and usage bills
-                  that account — not the individual who built the workflow. Billing is account-scoped
+                  that account, not the individual who built the workflow. Billing is account-scoped
                   from the start.
                 </p>
                 <p className="pr-team-p">
@@ -599,7 +599,7 @@ export function PricingPage() {
             </div>
           </section>
 
-          {/* 7 — FAQ */}
+          {/* 7. FAQ */}
           <section className="pr-section pr-faq" id="faq" data-testid="pricing-faq">
             <div className="pr-section-head">
               <h2 className="pr-section-title">Questions, answered</h2>
@@ -626,7 +626,7 @@ export function PricingPage() {
             </div>
           </section>
 
-          {/* 8 — Final CTA */}
+          {/* 8. Final CTA */}
           <section className="pr-final" aria-label="Get started with ChainReact">
             <h2 className="pr-final-h">Start building workflows today</h2>
             <p className="pr-final-p">

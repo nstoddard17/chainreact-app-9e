@@ -5,8 +5,8 @@ import { PricingPage } from "@/features/marketing/PricingPage";
  * Public Pricing page (Slice 4.PRICING-1).
  *
  * Thin route shell. Like /privacy and /security (and unlike the homepage),
- * this is a static public marketing surface accessible to everyone — no auth
- * gate, no redirect. All content + chrome lives in the feature component,
+ * this is a static public marketing surface accessible to everyone, with no
+ * auth gate or redirect. All content + chrome lives in the feature component,
  * which carries the `[data-marketing-surface]` token scope.
  */
 export const metadata: Metadata = {
