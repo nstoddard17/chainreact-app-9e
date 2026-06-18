@@ -1,6 +1,7 @@
 import {
   AnalyticsWidgetConfigSchema,
   AnalyticsWidgetSchema,
+  AnalyticsWidgetsSchema,
   widgetSourceKind,
 } from "@/contracts/analytics";
 
@@ -78,5 +79,34 @@ describe("widget config back-compat + dataSource discriminator", () => {
       config: { source: "any", metric: "runs" },
     });
     expect(widgetSourceKind(widget.config)).toBe("internal");
+  });
+
+  it("persists + reparses a GitHub connected_app widget (dashboard round-trip)", () => {
+    const board = [
+      { id: "ov-runs", type: "stat", size: "s", title: "Runs", config: { source: "any", metric: "runs" } },
+      {
+        id: "gh-1",
+        type: "stat",
+        size: "s",
+        title: "Open issues",
+        icon: "Webhook",
+        config: {
+          source: "any",
+          dataSource: { kind: "connected_app", provider: "github", metricKey: "open_issues", filters: { repo: "octocat/hello" } },
+        },
+      },
+    ];
+    const parsed = AnalyticsWidgetsSchema.parse(board);
+    expect(parsed).toHaveLength(2);
+    expect(widgetSourceKind(parsed[0]!.config)).toBe("internal");
+    expect(widgetSourceKind(parsed[1]!.config)).toBe("connected_app");
+    // Re-serialize + reparse (JSONB round-trip) is stable.
+    const round = AnalyticsWidgetsSchema.parse(JSON.parse(JSON.stringify(parsed)));
+    expect(round[1]!.config.dataSource).toEqual({
+      kind: "connected_app",
+      provider: "github",
+      metricKey: "open_issues",
+      filters: { repo: "octocat/hello" },
+    });
   });
 });

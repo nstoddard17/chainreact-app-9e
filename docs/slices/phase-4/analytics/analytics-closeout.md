@@ -168,13 +168,38 @@ GitHub series widgets on one dashboard could approach GitHub's 30 req/min search
 limit, **the `analytics_source_snapshots` cache (below) is a prerequisite before
 UI exposure** — proposed as the next slice, not snuck in here.
 
-### Remaining before GitHub widgets go live in the UI
-1. HTTP query route (`requireAccount` + membership → `queryAnalyticsSource`),
-   mapping `AnalyticsSourceError` to a widget warning/error state.
+### GitHub UI exposure — DONE (ANALYTICS-SOURCES-GITHUB-UI-1)
+GitHub widgets are now creatable in the Analytics UI:
+1. ~~HTTP query route~~ — **DONE**: `GET /api/analytics/sources/[provider]/data`
+   (`requireAccount` → `queryAnalyticsSource` with the SESSION user's context;
+   `refresh` supported; `AnalyticsSourceError` → 200 `{ ok:false, code, message }`
+   safe widget state; unexpected → generic, no leak). Typed client
+   `querySourceData` in `lib/api/analytics.ts`.
 2. ~~`analytics_source_snapshots` cache~~ — **DONE** (ANALYTICS-SOURCES-CACHE-1, below).
-3. GitHub connection-detection + missing-connection UX in the config panel.
-4. Config-panel + widget-body support for `connected_app` sources (repo picker /
-   validated repo input), exposed only once the above are done and tested.
+3. ~~GitHub connection-detection + missing-connection UX~~ — **DONE**: the page
+   checks the **viewer's own** GitHub connection (`getActiveForExecution(..., {
+   connectedByUserId: user.id })`) → config-panel connect note; the widget body
+   renders a "Connect GitHub" CTA on `MISSING_CREDENTIAL`.
+4. ~~Config-panel + widget-body `connected_app` support~~ — **DONE**: config panel
+   has a ChainReact/GitHub data-source toggle (stat/line/bar widget types), GitHub
+   metric picker, and a client-validated `owner/repo` input (server-authoritative).
+   `ConnectedAppWidgetBody` fetches per-widget through the route, respects the
+   dashboard range + manual Refresh, and renders loading / success / empty /
+   error / missing-credential / stale-cache states + a "Your GitHub · repo"
+   attribution. One failing GitHub widget cannot crash the dashboard.
+
+**Personal-credential visibility (live behavior):** the route uses the VIEWER'S
+session user id, so a co-member opening a shared dashboard with a GitHub widget
+sees THEIR OWN GitHub result (or a connect CTA) — never the creator's data or
+cached snapshot (cache key + RLS enforce it). Widget config (provider/metric/repo)
+is shared; the data is per-viewer.
+
+**Remaining before GitHub analytics is "shippable to all users":** the GitHub
+widget data path is feature-complete + tested, but it has **not been run against
+the live GitHub API in a real browser session** (no authenticated end-to-end smoke
+in this environment). Recommend a manual connect-GitHub → add-widget → verify-data
+pass on a deployed/preview env before broad rollout. No new OAuth scopes are
+required (`repo` already granted).
 
 ## Source snapshot cache (ANALYTICS-SOURCES-CACHE-1)
 

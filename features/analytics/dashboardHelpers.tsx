@@ -1,6 +1,8 @@
 "use client";
 
 import type {
+  AnalyticsDashboard,
+  AnalyticsOverview,
   AnalyticsRange,
   AnalyticsWidget,
   AnalyticsWidgetSize,
@@ -10,6 +12,32 @@ import { AnalyticsIcon } from "@/components/analytics/icons";
 import { WIDGET_LIBRARY } from "./WidgetLibrary";
 
 /** Shared constants + small presentational helpers for AnalyticsDashboard. */
+
+/**
+ * Download the active dashboard's layout + currently-loaded data as JSON. Real,
+ * client-side export (no server round-trip). `overview` is the internal-source
+ * data already in memory; connected-app widget data is fetched per-widget and not
+ * included here (documented follow-up).
+ */
+export function downloadDashboardExport(
+  active: AnalyticsDashboard,
+  range: AnalyticsRange,
+  overview: AnalyticsOverview | null,
+): void {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    dashboard: { name: active.name, widgets: active.widgets },
+    range,
+    overview,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${active.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-analytics.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export const RANGE_OPTIONS: { id: AnalyticsRange; label: string }[] = [
   { id: "today", label: "Today" },

@@ -4,6 +4,7 @@ import type {
   AnalyticsRange,
   AnalyticsWidget,
 } from "@/contracts/analytics";
+import type { NormalizedAnalyticsResult } from "@/services/analytics/sources/types";
 
 /**
  * Typed client for the Analytics API (Slice ANALYTICS-1).
@@ -102,4 +103,41 @@ export async function getAnalyticsData(
   if (!res.ok) throw await parseError(res);
   const body = (await res.json()) as { overview: AnalyticsOverview };
   return body.overview;
+}
+
+/**
+ * Connected-app source query (Slice ANALYTICS-SOURCES-GITHUB-UI-1). Returns a
+ * discriminated outcome: `{ ok: true, result }` on success, or
+ * `{ ok: false, code, message }` for a source-level state (missing credential,
+ * rate limit, invalid config, …) so the widget renders a safe state. Throws
+ * `AnalyticsApiError` only on request-level failures (401 / 403 / 400 / 500).
+ *
+ * The browser never calls a provider API directly — this hits the server route,
+ * which resolves the caller's own credential server-side.
+ */
+export type SourceQueryOutcome =
+  | { ok: true; result: NormalizedAnalyticsResult }
+  | { ok: false; code: string; message: string };
+
+export interface SourceQueryInput {
+  provider: string;
+  metric: string;
+  range: AnalyticsRange;
+  repo?: string;
+  groupBy?: string;
+  refresh?: boolean;
+}
+
+export async function querySourceData(
+  input: SourceQueryInput,
+): Promise<SourceQueryOutcome> {
+  const params = new URLSearchParams({ metric: input.metric, range: input.range });
+  if (input.repo) params.set("repo", input.repo);
+  if (input.groupBy) params.set("groupBy", input.groupBy);
+  if (input.refresh) params.set("refresh", "1");
+  const res = await fetch(
+    `/api/analytics/sources/${encodeURIComponent(input.provider)}/data?${params.toString()}`,
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as SourceQueryOutcome;
 }

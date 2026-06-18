@@ -10,14 +10,22 @@ import type {
   AnalyticsWidgetSize,
   AnalyticsWidgetType,
 } from "@/contracts/analytics";
+import { widgetSourceKind } from "@/contracts/analytics";
 import * as analyticsApi from "@/lib/api/analytics";
 import { AnalyticsApiError } from "@/lib/api/analytics";
 import { AnalyticsIcon } from "@/components/analytics/icons";
 import { Widget } from "./Widget";
 import { WidgetBody } from "./widgetBodies";
+import { ConnectedAppWidgetBody } from "./ConnectedAppWidgetBody";
 import { WidgetLibrary } from "./WidgetLibrary";
 import { WidgetConfigPanel } from "./WidgetConfigPanel";
-import { RANGE_OPTIONS, makeWidget, ErrorBanner, EmptyDashboard } from "./dashboardHelpers";
+import {
+  RANGE_OPTIONS,
+  makeWidget,
+  ErrorBanner,
+  EmptyDashboard,
+  downloadDashboardExport,
+} from "./dashboardHelpers";
 
 /**
  * Analytics dashboard orchestrator (Slice ANALYTICS-1).
@@ -41,6 +49,8 @@ interface Props {
    * this regardless; this only governs control visibility.
    */
   canManage: boolean;
+  /** Whether the VIEWER has their own GitHub connection (drives the config note). */
+  githubConnected: boolean;
   initialDashboards: readonly Dashboard[];
   initialOverview: AnalyticsOverview;
   initialRange: AnalyticsRange;
@@ -49,6 +59,7 @@ interface Props {
 export function AnalyticsDashboard({
   accountName,
   canManage,
+  githubConnected,
   initialDashboards,
   initialOverview,
   initialRange,
@@ -204,20 +215,7 @@ export function AnalyticsDashboard({
   };
 
   const exportDashboard = () => {
-    if (!active) return;
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      dashboard: { name: active.name, widgets: active.widgets },
-      range,
-      overview,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${active.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-analytics.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (active) downloadDashboardExport(active, range, overview);
   };
 
   const rangeLabel = RANGE_OPTIONS.find((r) => r.id === range)?.label;
@@ -405,7 +403,11 @@ export function AnalyticsDashboard({
               onConfigure={(id) => setConfiguringId(id)}
               onMove={handleMove}
             >
-              <WidgetBody overview={loadingData ? null : overview} widget={w} />
+              {widgetSourceKind(w.config) === "connected_app" ? (
+                <ConnectedAppWidgetBody widget={w} range={range} reloadKey={reloadKey} />
+              ) : (
+                <WidgetBody overview={loadingData ? null : overview} widget={w} />
+              )}
             </Widget>
           ))}
           {editing && (
@@ -426,6 +428,7 @@ export function AnalyticsDashboard({
         <WidgetConfigPanel
           widget={configuringWidget}
           workflows={overview?.workflows ?? []}
+          githubConnected={githubConnected}
           onClose={() => setConfiguringId(null)}
           onSave={(config) => handleConfigSave(configuringWidget.id, config)}
         />

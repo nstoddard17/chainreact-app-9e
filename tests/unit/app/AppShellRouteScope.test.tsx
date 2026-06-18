@@ -54,6 +54,9 @@ jest.mock("@/repositories/workflowRuns", () => ({
 }));
 jest.mock("@/repositories/integrations", () => ({
   listActiveByAccount: jest.fn().mockResolvedValue([]),
+  // ANALYTICS-SOURCES-GITHUB-UI-1: the /analytics page checks the viewer's own
+  // GitHub connection for the config-panel note.
+  getActiveForExecution: jest.fn().mockResolvedValue(null),
 }));
 jest.mock("@/repositories/accountMemberships", () => ({
   getRole: jest.fn().mockResolvedValue("owner"),
