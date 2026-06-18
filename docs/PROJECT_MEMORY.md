@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-17 @ 882519ba0 (AI-REPAIR-COVERAGE-1 self-loop edge repair closeout; local/unpushed)
+> Last curated: 2026-06-17 @ ba0af6616 (AI-REPAIR-COVERAGE-2 duplicate-edge closeout; b45bcabbc PUSHED to origin/v2-main)
 
 ## Current status
 
@@ -119,6 +119,17 @@
   for unbuilt behavior; no creds/node-config). **UI/canvas/state-only — no migration, no backend/runtime, no flag.**
   Interleaved with unrelated parallel CLI/security commits (NOT this arc). Not pushed / not prod-smoked →
   [`builder-ux-mini-arc-closeout.md`](./slices/phase-4/workflows/builder-ux-mini-arc-closeout.md).
+- **AI repair narrow duplicate-edge cleanup (AI-REPAIR-COVERAGE-2) — 4th deterministic repair category, PUSHED to origin/v2-main (2026-06-17)** —
+  removes a **redundant duplicate edge** (later edge identical by the graph key `(from, to, label ?? "")`;
+  keep-first, removeEdge the rest). Same `from/to` with DIFFERENT labels = legitimate branch fan-out and
+  is NEVER flagged (broad `from/to`-only cleanup rejected). Check-only detection (`findDuplicateEdges` →
+  `DUPLICATE_EDGE` finding, safe endpoint labels, gates `overallReady` false); `findGraphIssues` untouched
+  by duplicates (Check stricter than runtime). Deterministic Preview + Apply are **no-LLM/no-credit/
+  no-telemetry**, `removeEdge`-only, draft-only, fail-closed → `NO_SAFE_PATCH`. **No migration, no flag.**
+  Commit `b45bcabbc` is on `origin/v2-main` (deploys to prod per posture). NOTE: a later separate arc
+  (AI-READINESS-CONVERGENCE `5c20d0011`) promoted **self-loop** into the shared `findGraphIssues` verdict —
+  that did NOT change duplicate-edge behavior →
+  [`ai-repair-coverage-2-closeout.md`](./slices/phase-4/ai/ai-repair-coverage-2-closeout.md).
 - **AI repair self-loop edge cleanup (AI-REPAIR-COVERAGE-1) — 3rd deterministic repair category, LOCAL/UNPUSHED (2026-06-17)** —
   removes a **self-loop edge** (a connection whose `from === to` — a step wired to itself). Check-ONLY
   detection (`findSelfLoopEdges` in readiness diagnostic → `SELF_LOOP_EDGE` finding, safe labels, gates
