@@ -38,6 +38,9 @@ export function MarketingHeader() {
           <Link href="/#apps" className="mk-nav-link">
             Apps
           </Link>
+          <Link href="/pricing" className="mk-nav-link">
+            Pricing
+          </Link>
           <Link href="/#what-you-get" className="mk-nav-link">
             Why ChainReact
           </Link>

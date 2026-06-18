@@ -24,7 +24,7 @@ const NAV_COLS: ReadonlyArray<{
       { label: "How it works", href: "/#how-it-works" },
       { label: "Examples", href: "/#examples" },
       { label: "Apps", href: "/apps", internal: true },
-      { label: "Pricing", href: "/#pricing" },
+      { label: "Pricing", href: "/pricing", internal: true },
     ],
   },
   {
