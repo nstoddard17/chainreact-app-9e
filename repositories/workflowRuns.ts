@@ -414,6 +414,75 @@ export async function listByAccountForDisplay(
   });
 }
 
+// ── Analytics aggregation reader (service-role, windowed, narrow columns) ─────
+//
+// ANALYTICS-1 — windowed reader for the account analytics overview. Selects ONLY
+// the columns the aggregation needs (id / workflow_id / status / started_at /
+// finished_at / is_test) for terminal runs in `accountId` since `since`, newest
+// first, capped. NON-AUTHORIZING (service-role, bypasses RLS): the caller is the
+// analytics service, invoked from the `/analytics` page + `/api/analytics/data`
+// AFTER `resolveActiveAccount`/`requireUserWithAccount` resolves the caller's own
+// account; the hard `eq('account_id', accountId)` predicate is the scope. No raw
+// `trigger_event` / `steps` / `fatal_error` is ever selected, so nothing
+// sensitive leaves the DB. `running` rows are excluded (terminal-only, like the
+// display reader). The cap bounds in-memory aggregation; when it's hit the
+// overview marks `truncated: true`.
+
+export interface AnalyticsRunRow {
+  id: string;
+  workflowId: string;
+  status: WorkflowRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  isTest: boolean;
+}
+
+export interface ListForAnalyticsOptions {
+  /** ISO timestamp lower bound (inclusive) on started_at. */
+  since: string;
+  /** Hard cap on rows scanned. Defaults to 5000, capped at 20000. */
+  limit?: number;
+}
+
+export async function listForAnalytics(
+  accountId: string,
+  opts: ListForAnalyticsOptions,
+): Promise<readonly AnalyticsRunRow[]> {
+  const supabase = getServiceRoleClient(
+    `runs: listForAnalytics account ${accountId}`,
+  );
+  const limit = Math.min(opts.limit ?? 5000, 20000);
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select("id,workflow_id,status,started_at,finished_at,is_test")
+    .eq("account_id", accountId)
+    .neq("status", "running")
+    .gte("started_at", opts.since)
+    .order("started_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    throw new Error(`workflow_runs.listForAnalytics failed: ${error.message}`);
+  }
+  return (data ?? []).map((r) => {
+    const row = r as {
+      id: string;
+      workflow_id: string;
+      status: WorkflowRunStatus;
+      started_at: string;
+      finished_at: string | null;
+      is_test: boolean;
+    };
+    return {
+      id: row.id,
+      workflowId: row.workflow_id,
+      status: row.status,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+      isTest: row.is_test,
+    };
+  });
+}
+
 // ── Pre-run lifecycle / billing projection / stale sweep ─────────────────────
 //
 // Extracted to `workflowRunsLifecycle.ts` (AI-28 follow-up, max-lines lint
