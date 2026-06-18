@@ -4,6 +4,7 @@ import {
   type NormalizedAnalyticsResult,
 } from "./types";
 import { getAnalyticsSource, getAnalyticsSourceMetric } from "./registry";
+import { queryWithCache } from "./cache";
 
 /**
  * Server-side analytics source query path (Slice ANALYTICS-SOURCES-GITHUB-1).
@@ -26,6 +27,10 @@ import { getAnalyticsSource, getAnalyticsSourceMetric } from "./registry";
  *
  * Errors are typed (`AnalyticsSourceError`) so the caller maps them to a widget
  * warning/error — they are never unhandled page crashes.
+ *
+ * Caching: results flow through the source cache layer (TTL per adapter). Default
+ * is cache-first; `options.refresh` forces a live re-fetch + snapshot rewrite.
+ * Sources with no TTL (internal) are always live.
  */
 
 export interface QueryAnalyticsSourceInput {
@@ -37,8 +42,14 @@ export interface QueryAnalyticsSourceInput {
   context: AnalyticsSourceContext;
 }
 
+export interface QueryAnalyticsSourceOptions {
+  /** Bypass the cache read and refresh the snapshot (manual refresh). */
+  refresh?: boolean;
+}
+
 export async function queryAnalyticsSource(
   input: QueryAnalyticsSourceInput,
+  options: QueryAnalyticsSourceOptions = {},
 ): Promise<NormalizedAnalyticsResult> {
   const source = getAnalyticsSource(input.providerKey);
   if (!source) {
@@ -83,13 +94,15 @@ export async function queryAnalyticsSource(
     }
   }
 
-  return source.query(
+  return queryWithCache(
+    source,
     {
+      context: input.context,
       metricKey: input.metricKey,
       range: input.range,
       ...(input.groupBy !== undefined ? { groupBy: input.groupBy } : {}),
       ...(input.filters !== undefined ? { filters: input.filters } : {}),
     },
-    input.context,
+    options,
   );
 }

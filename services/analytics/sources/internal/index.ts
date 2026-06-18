@@ -139,6 +139,8 @@ export const internalAnalyticsSource: AnalyticsSourceAdapter = {
   providerKey: "internal",
   displayName: "ChainReact",
   connectedApp: false,
+  // Internal data is cheap (reads the account's own aggregates) → always live.
+  cacheTtlSeconds: 0,
   metrics: METRICS,
   async query(
     query: AnalyticsSourceQuery,

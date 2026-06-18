@@ -13,6 +13,7 @@ const SOURCE_FILES = [
   "services/analytics/sources/types.ts",
   "services/analytics/sources/registry.ts",
   "services/analytics/sources/querySource.ts",
+  "services/analytics/sources/cache.ts",
   "services/analytics/sources/internal/index.ts",
   "services/analytics/sources/github/index.ts",
   "services/analytics/sources/github/api.ts",

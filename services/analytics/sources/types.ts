@@ -77,6 +77,12 @@ export const AnalyticsResultFreshnessSchema = z.object({
   ageSeconds: z.number().nonnegative().nullable(),
   /** TTL the snapshot was/will be stored under (null when not cached). */
   ttlSeconds: z.number().nonnegative().nullable(),
+  /**
+   * True when this is an EXPIRED snapshot served as a fallback because the live
+   * provider call failed (rate limit / transient error). Absent/false = within
+   * TTL or freshly computed. Set by the cache layer, not by adapters.
+   */
+  stale: z.boolean().optional(),
 });
 export type AnalyticsResultFreshness = z.infer<typeof AnalyticsResultFreshnessSchema>;
 
@@ -117,6 +123,12 @@ export interface AnalyticsSourceAdapter {
   connectedApp: boolean;
   /** The fixed, approved metric set. Anything not listed is rejected. */
   metrics: readonly AnalyticsSourceMetric[];
+  /**
+   * TTL (seconds) the cache layer stores this source's results under. Omit or 0
+   * = do NOT cache (always live) — appropriate for cheap internal sources.
+   * External/rate-limited sources (e.g. GitHub) set a practical TTL (5–15 min).
+   */
+  cacheTtlSeconds?: number;
   /** Read-only query. MUST NOT execute workflow nodes or mutate anything. */
   query(
     query: AnalyticsSourceQuery,

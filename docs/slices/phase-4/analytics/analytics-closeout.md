@@ -171,10 +171,58 @@ UI exposure** — proposed as the next slice, not snuck in here.
 ### Remaining before GitHub widgets go live in the UI
 1. HTTP query route (`requireAccount` + membership → `queryAnalyticsSource`),
    mapping `AnalyticsSourceError` to a widget warning/error state.
-2. `analytics_source_snapshots` cache (account-scoped, TTL, normalized-only).
+2. ~~`analytics_source_snapshots` cache~~ — **DONE** (ANALYTICS-SOURCES-CACHE-1, below).
 3. GitHub connection-detection + missing-connection UX in the config panel.
 4. Config-panel + widget-body support for `connected_app` sources (repo picker /
    validated repo input), exposed only once the above are done and tested.
+
+## Source snapshot cache (ANALYTICS-SOURCES-CACHE-1)
+
+TTL cache of normalized source results so connected-app widgets can be exposed
+later without hammering provider APIs. **Backend only.**
+
+- **Table `analytics_source_snapshots`** (migration `20260704000000`, dev-applied):
+  account-scoped; stores `result jsonb` = NormalizedAnalyticsResult **only** (no
+  raw payloads, tokens, or external ids). Unique `cache_key` (deterministic over
+  account + source-user + provider + metric + range_key + group_by + filters_hash)
+  → upsert-in-place. RLS: member-scoped SELECT, **personal rows
+  (`source_user_id` NOT NULL) readable only by that user**; service-role-only
+  writes (no authenticated write grant). Proven by
+  `tests/integration/security/analytics-source-snapshots-account.test.ts`
+  (gated, passing): shared-readable-by-member, **personal-NOT-readable-by-comember**,
+  owner-reads-own, non-member-no-leak, no-write-grant.
+- **Repo + cache service** — `repositories/analyticsSourceSnapshots.ts`
+  (service-role get/upsert/deleteExpired) + `services/analytics/sources/cache.ts`
+  (`queryWithCache`): cache-first; `refresh` bypasses the read; result Zod-validated
+  on read **and** write (corrupt blob → miss); cache-write failure never fails the
+  query. **Stale fallback:** on a TRANSIENT provider error (`RATE_LIMITED` /
+  `PROVIDER_ERROR`) an expired snapshot is served with `freshness.stale = true` +
+  a warning; non-transient errors (`MISSING_CREDENTIAL` / `INVALID_QUERY`) rethrow.
+- **TTL** is per-adapter via `cacheTtlSeconds`: internal = 0 (never cached, always
+  live), GitHub = 600s (10 min). No per-widget user scheduling UI.
+- **Integrated** into `queryAnalyticsSource(input, { refresh? })` after validation.
+
+### Personal-vs-account cache visibility — DECISION
+
+GitHub credentials are **personal**. A snapshot produced from a member's personal
+GitHub connection is **scoped to that member** and is **never** account-wide:
+`source_user_id = ctx.userId` is baked into the cache key (a co-member computes a
+different key → never reads it) AND the RLS policy blocks cross-user reads of
+personal rows. Account-shared-credential providers (slack/notion/stripe/…) cache
+with `source_user_id = NULL` → account-visible. This is the safe launch default.
+
+**Future sharing model (not built):** account/shared credentials already produce
+account-visible analytics; personal-credential analytics stay creator-visible
+until an explicit, opt-in dashboard/widget sharing model is designed. Do not flip
+personal-provider snapshots to account-wide without that explicit product +
+security decision.
+
+### Is GitHub UI exposure safe now?
+Not yet — **caching + personal isolation are done**, but UI exposure still needs:
+(1) the HTTP query route mapping typed errors → widget warning/error; (2) GitHub
+connection-detection + missing-connection UX; (3) config-panel + widget-body
+support for `connected_app` sources (validated repo input). Until then GitHub
+stays backend-only.
 
 ## Wiring still required before connected-app widgets go live (follow-ups)
 

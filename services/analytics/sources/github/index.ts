@@ -116,6 +116,8 @@ export const githubAnalyticsSource: AnalyticsSourceAdapter = {
   providerKey: PROVIDER_KEY,
   displayName: "GitHub",
   connectedApp: true,
+  // GitHub search is rate-limited (30 req/min) → cache normalized results 10 min.
+  cacheTtlSeconds: 600,
   metrics: METRICS,
 
   async query(
