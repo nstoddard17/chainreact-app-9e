@@ -253,6 +253,47 @@ slice does not do it. If prod cannot be audited, §4.1 promotion **must** stay b
 
 ---
 
+## 6.1 CS-0 audit RESULTS — DEV, read-only (2026-06-17)
+
+**Environment:** dev Supabase project (ref `qcepijemjlkssfkvzlio`). **Prod was NOT touched.**
+The script probed the **dev-only** `workflows.active_revision_id` column with a zero-row
+`limit 0` select first; its presence confirmed a dev-shaped DB before any row data was read
+(a prod-shaped DB lacking the column would have aborted with zero rows read). Ran the SAME pure
+detectors the runtime/Check use (`findSelfLoopEdges`, `findInvalidVariableReferences`). Counts
+only — no config values, tokens, payloads, names, or account/user ids. The one-off script was
+removed after running (its design is embedded in §6).
+
+| Metric | Count |
+|---|---|
+| Workflows scanned (drafts) | 38 |
+| Workflows in `active` state | 0 |
+| Workflows with an active revision | 0 |
+| **Drafts containing a self-loop edge** | **0** |
+| **Drafts containing an invalid variable reference** | **0** |
+| Active-revision rows scanned | 0 (none present in dev) |
+| Active-revision defs with self-loop / invalid-ref | 0 / 0 |
+
+**Verdict (dev):** **zero** of either finding. **No legacy cleanup needed.** §4.1 self-loop
+promotion into `findGraphIssues` is **safe in dev** (nothing live is affected; nothing to clean
+up). §4.2 invalid-ref write-path gating was already unconditionally safe.
+
+**Honest scope limits:**
+- **Prod is unaudited** (forbidden without approval). Prod has no active-revision columns yet, so
+  it runs **drafts**; the prod *draft* population for self-loops/invalid-refs is unknown. Because
+  self-loops are schema-rejected on every validated write (§2.4), the prod self-loop risk is
+  bounded to pre-rule legacy data — the dev result (0) is consistent with the schema rule holding.
+  **Recommendation:** run the §6 script against prod creds with Marcus's explicit approval before
+  the convergence deploys, OR accept the dev-proven-zero + schema-guarantee and re-run as a
+  pre-deploy gate.
+- Dev currently has **0 active workflows / 0 active revisions**, so the active-revision portion of
+  the scan was vacuous; the meaningful signal is the 38-draft scan (clean).
+
+**Proceed decision:** self-loop convergence (CS-1) and invalid-ref + Publish gate (CS-2) are
+**clear to implement** as separate slices. The only residual gate is a pre-deploy prod re-run of
+the count (self-loop only) — not a blocker for local implementation.
+
+---
+
 ## 7. API / service / UI expectations (described, not built)
 
 - **No new UI.** Check already renders both findings; the convergence only changes whether the
@@ -331,8 +372,15 @@ accessed. Docs-only, nothing pushed.
 
 ## 13. Recommended next step
 
-**CS-0: run the §6 read-only audit** — dev DB immediately on approval; prod only with Marcus's
-explicit sign-off. Its single output (`selfLoop` count) decides whether CS-1 (self-loop →
-`findGraphIssues`) ships as-is or behind a cleanup. CS-2 (invalid-ref + Publish gate) is safe to
-implement in parallel regardless of the audit result. Do **not** combine the audit run with the
-implementation in one slice.
+**CS-0 is COMPLETE (dev, 2026-06-17): zero self-loops, zero invalid-refs across 38 drafts; no
+active revisions; no cleanup needed (§6.1).** The convergence is cleared to implement:
+
+- **CS-1 — promote `SELF_LOOP_EDGE` into `findGraphIssues`** + Check derives it from the shared
+  verdict. Safe per the dev-zero result.
+- **CS-2 — invalid-ref write-path gate at Activate + Publish + add the missing Publish readiness
+  gate.** Unconditionally safe (never touches the engine path).
+
+Ship CS-1 and CS-2 as **separate** local slices (not combined with this audit). **One residual
+pre-deploy gate:** re-run the §6 self-loop count against **prod** (Marcus-approved) before the
+convergence deploys — bounded near-zero by the schema rule, but worth a final confirmation since
+prod runs drafts and was not audited here.
