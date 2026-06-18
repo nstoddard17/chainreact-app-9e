@@ -9,24 +9,32 @@ import type {
   AnalyticsWorkflowStat,
 } from "@/contracts/analytics";
 import { AnalyticsIcon } from "@/components/analytics/icons";
+import {
+  exposedConnectedAppSources,
+  findMetricOption,
+  getExposedConnectedAppSource,
+  metricsForType,
+  type ConnectedAppFilterKind,
+} from "./connectedAppSources";
+import { SectionHeading, SourceToggle } from "./widgetConfigParts";
+import { ConnectedAppConfig } from "./WidgetConnectedAppConfig";
 
 /**
- * Per-widget configuration drawer (Slice ANALYTICS-1; connected-app sources added
- * in ANALYTICS-SOURCES-GITHUB-UI-1).
+ * Per-widget configuration drawer (Slice ANALYTICS-1; connected-app sources
+ * generalized in ANALYTICS-SOURCES-SLACK-UI-1).
  *
- * Two data sources:
+ * Two kinds of data source:
  *   - ChainReact (internal): workflow/run metrics, optionally scoped to one
  *     workflow — the original behavior.
- *   - GitHub (connected app): a validated `owner/repo` + an approved metric. Writes
- *     `config.dataSource = { kind:"connected_app", provider:"github", metricKey,
- *     filters:{ repo } }`. Server validation is authoritative; the repo regex here
- *     is UX only. Arbitrary GitHub search qualifiers are NOT accepted.
+ *   - Connected app: a provider EXPOSED in features/analytics/connectedAppSources
+ *     (currently Slack; GitHub is held back). The provider's descriptor drives the
+ *     metric list + which filter inputs render (Slack channel picker, keyword,
+ *     GitHub owner/repo). Writes `config.dataSource = { kind:"connected_app",
+ *     provider, metricKey, filters }`. Server validation is authoritative; the
+ *     client checks here are UX only and never name an arbitrary provider method.
  *
- * GitHub is a PERSONAL credential — the widget always uses the VIEWER'S own GitHub
- * connection. If the current user hasn't connected GitHub, a connect note shows
- * (the widget still renders a connect CTA at runtime).
- *
- * Deferred (absent): refresh-schedule cadence, per-widget run filters, multi-repo.
+ * Only `exposed` providers ever appear here, so nothing ships a user-facing widget
+ * for a provider that isn't smoke-testable — and there are no dead controls.
  */
 
 const METRICS_BY_TYPE: Record<AnalyticsWidgetType, { id: AnalyticsMetric; label: string }[]> = {
@@ -54,51 +62,40 @@ const SOURCE_SCOPED: ReadonlySet<AnalyticsMetric> = new Set<AnalyticsMetric>([
   "avg_duration",
 ]);
 
-/**
- * GitHub metrics offered per widget type (scalar → stat; series → line/bar).
- * Other widget types don't support a GitHub metric, so GitHub isn't offered.
- */
-const GITHUB_METRICS_BY_TYPE: Partial<Record<AnalyticsWidgetType, { id: string; label: string }[]>> = {
-  stat: [
-    { id: "open_issues", label: "Open issues" },
-    { id: "open_prs", label: "Open pull requests" },
-  ],
-  line: [
-    { id: "issues_opened", label: "Issues opened over time" },
-    { id: "prs_opened", label: "Pull requests opened over time" },
-    { id: "prs_merged", label: "Pull requests merged over time" },
-  ],
-  bar: [
-    { id: "issues_opened", label: "Issues opened over time" },
-    { id: "prs_opened", label: "Pull requests opened over time" },
-    { id: "prs_merged", label: "Pull requests merged over time" },
-  ],
-};
-
 const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
+
+/** Map a UI filter kind to the server-side `dataSource.filters` key. */
+function filterDataKey(kind: ConnectedAppFilterKind): "repo" | "channel" | "keyword" {
+  return kind === "slack_channel" ? "channel" : kind;
+}
 
 export function WidgetConfigPanel({
   widget,
   workflows,
-  githubConnected,
+  connectedProviders,
   onClose,
   onSave,
 }: {
   widget: AnalyticsWidget;
   workflows: readonly AnalyticsWorkflowStat[];
-  githubConnected: boolean;
+  connectedProviders: Record<string, boolean>;
   onClose: () => void;
   onSave: (config: AnalyticsWidgetConfig) => void;
 }) {
   const isNote = widget.type === "note";
-  const metricOptions = METRICS_BY_TYPE[widget.type];
-  const githubMetrics = GITHUB_METRICS_BY_TYPE[widget.type];
-  const supportsGithub = !isNote && githubMetrics !== undefined;
 
+  // Connected-app providers exposed AND offering a metric for this widget type.
+  const appSources = isNote
+    ? []
+    : exposedConnectedAppSources().filter((s) => metricsForType(s, widget.type).length > 0);
+
+  const metricOptions = METRICS_BY_TYPE[widget.type];
   const existingDs = widget.config.dataSource;
-  const [sourceKind, setSourceKind] = useState<"internal" | "github">(
-    existingDs?.kind === "connected_app" ? "github" : "internal",
-  );
+  const existingProvider =
+    existingDs?.kind === "connected_app" ? getExposedConnectedAppSource(existingDs.provider) : null;
+
+  // sourceKind is "internal" or an exposed provider key.
+  const [sourceKind, setSourceKind] = useState<string>(existingProvider?.provider ?? "internal");
 
   const [source, setSource] = useState<string>(widget.config.source ?? "any");
   const [metric, setMetric] = useState<AnalyticsMetric | undefined>(
@@ -106,28 +103,60 @@ export function WidgetConfigPanel({
   );
   const [note, setNote] = useState<string>(widget.config.note ?? "");
 
-  const [ghMetric, setGhMetric] = useState<string>(
-    existingDs?.kind === "connected_app" ? existingDs.metricKey : (githubMetrics?.[0]?.id ?? ""),
+  const activeApp = sourceKind === "internal" ? null : getExposedConnectedAppSource(sourceKind);
+  const appMetrics = activeApp ? metricsForType(activeApp, widget.type) : [];
+
+  const [appMetricKey, setAppMetricKey] = useState<string>(
+    existingDs?.kind === "connected_app" ? existingDs.metricKey : (appMetrics[0]?.id ?? ""),
   );
+
+  const existingFilters =
+    existingDs?.kind === "connected_app" ? (existingDs.filters ?? {}) : {};
   const [repo, setRepo] = useState<string>(
-    existingDs?.kind === "connected_app" && typeof existingDs.filters?.repo === "string"
-      ? existingDs.filters.repo
-      : "",
+    typeof existingFilters.repo === "string" ? existingFilters.repo : "",
+  );
+  const [channel, setChannel] = useState<string>(
+    typeof existingFilters.channel === "string" ? existingFilters.channel : "",
+  );
+  const [keyword, setKeyword] = useState<string>(
+    typeof existingFilters.keyword === "string" ? existingFilters.keyword : "",
   );
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
+
+  // The metric the user has selected for the active connected-app provider.
+  const selectedAppMetric =
+    activeApp != null ? findMetricOption(activeApp, widget.type, appMetricKey) : null;
+  const requiredFilters = selectedAppMetric?.filters ?? [];
+
   const repoValid = REPO_RE.test(repo.trim());
-  const saveDisabled = sourceKind === "github" && (!ghMetric || !repoValid);
+  const keywordValid = keyword.trim().length >= 2 && keyword.trim().length <= 80;
+
+  function filterValid(kind: ConnectedAppFilterKind): boolean {
+    if (kind === "repo") return repoValid;
+    if (kind === "slack_channel") return channel.trim().length > 0;
+    return keywordValid; // keyword
+  }
+  const appSaveReady =
+    activeApp != null && appMetricKey.length > 0 && requiredFilters.every(filterValid);
+  const saveDisabled = activeApp != null && !appSaveReady;
 
   const save = () => {
-    if (sourceKind === "github" && supportsGithub) {
+    if (activeApp && selectedAppMetric) {
+      const filters: Record<string, string> = {};
+      for (const kind of requiredFilters) {
+        const key = filterDataKey(kind);
+        if (kind === "repo") filters[key] = repo.trim();
+        else if (kind === "slack_channel") filters[key] = channel.trim();
+        else filters[key] = keyword.trim();
+      }
       onSave({
         source: "any",
         dataSource: {
           kind: "connected_app",
-          provider: "github",
-          metricKey: ghMetric,
-          filters: { repo: repo.trim() },
+          provider: activeApp.provider,
+          metricKey: appMetricKey,
+          filters,
         },
       });
       return;
@@ -173,25 +202,48 @@ export function WidgetConfigPanel({
             <NoteConfig note={note} onChange={setNote} />
           ) : (
             <>
-              {supportsGithub && (
+              {appSources.length > 0 && (
                 <section className="flex flex-col gap-2">
                   <SectionHeading icon="Layers" label="Data source" />
                   <div className="grid grid-cols-2 gap-2">
-                    <SourceToggle label="ChainReact" active={sourceKind === "internal"} onClick={() => setSourceKind("internal")} icon="Bolt" />
-                    <SourceToggle label="GitHub" active={sourceKind === "github"} onClick={() => setSourceKind("github")} icon="Webhook" />
+                    <SourceToggle
+                      label="ChainReact"
+                      active={sourceKind === "internal"}
+                      onClick={() => setSourceKind("internal")}
+                      icon="Bolt"
+                    />
+                    {appSources.map((s) => (
+                      <SourceToggle
+                        key={s.provider}
+                        label={s.displayName}
+                        active={sourceKind === s.provider}
+                        onClick={() => {
+                          setSourceKind(s.provider);
+                          setAppMetricKey(metricsForType(s, widget.type)[0]?.id ?? "");
+                        }}
+                        icon={s.icon}
+                      />
+                    ))}
                   </div>
                 </section>
               )}
 
-              {sourceKind === "github" && supportsGithub ? (
-                <GithubConfig
-                  metrics={githubMetrics ?? []}
-                  ghMetric={ghMetric}
-                  onMetric={setGhMetric}
+              {activeApp ? (
+                <ConnectedAppConfig
+                  source={activeApp}
+                  metrics={appMetrics}
+                  metricKey={appMetricKey}
+                  onMetric={setAppMetricKey}
+                  requiredFilters={requiredFilters}
+                  connected={connectedProviders[activeApp.provider] === true}
                   repo={repo}
                   onRepo={setRepo}
                   repoValid={repoValid}
-                  githubConnected={githubConnected}
+                  channel={channel}
+                  onChannel={setChannel}
+                  keyword={keyword}
+                  onKeyword={setKeyword}
+                  keywordValid={keywordValid}
                 />
               ) : (
                 <InternalConfig
@@ -227,44 +279,6 @@ export function WidgetConfigPanel({
         </div>
       </aside>
     </>
-  );
-}
-
-function SectionHeading({ icon, label }: { icon: string; label: string }) {
-  return (
-    <div className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
-      <span className="text-primary">
-        <AnalyticsIcon name={icon} size={11} />
-      </span>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function SourceToggle({
-  label,
-  active,
-  onClick,
-  icon,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  icon: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        "flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[12.5px] " +
-        (active
-          ? "border-primary bg-primary/10 font-medium text-primary"
-          : "border-border bg-muted text-foreground hover:border-foreground/25")
-      }
-    >
-      <AnalyticsIcon name={icon} size={12} /> {label}
-    </button>
   );
 }
 
@@ -352,92 +366,6 @@ function InternalConfig({
             </option>
           ))}
         </select>
-      </section>
-    </>
-  );
-}
-
-function GithubConfig({
-  metrics,
-  ghMetric,
-  onMetric,
-  repo,
-  onRepo,
-  repoValid,
-  githubConnected,
-}: {
-  metrics: { id: string; label: string }[];
-  ghMetric: string;
-  onMetric: (m: string) => void;
-  repo: string;
-  onRepo: (v: string) => void;
-  repoValid: boolean;
-  githubConnected: boolean;
-}) {
-  return (
-    <>
-      {!githubConnected && (
-        <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-foreground">
-          <span className="mt-0.5 flex-shrink-0 text-warning">
-            <AnalyticsIcon name="AlertTriangle" size={11} />
-          </span>
-          <span>
-            You haven't connected GitHub. Connect it in Apps — this widget uses your own GitHub
-            connection, so each viewer sees their own data.
-          </span>
-        </div>
-      )}
-
-      <section className="flex flex-col gap-2">
-        <SectionHeading icon="Eye" label="GitHub metric" />
-        <div className="grid grid-cols-1 gap-1.5">
-          {metrics.map((m) => {
-            const on = ghMetric === m.id;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                className={
-                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-[12.5px] " +
-                  (on
-                    ? "border-primary bg-primary/10 font-medium text-primary"
-                    : "border-border bg-muted text-foreground hover:border-foreground/25")
-                }
-                onClick={() => onMetric(m.id)}
-              >
-                {on && (
-                  <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <AnalyticsIcon name="Check" size={10} />
-                  </span>
-                )}
-                <span>{m.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <SectionHeading icon="Layers" label="Repository" />
-        <p className="text-xs text-muted-foreground">
-          One repository as <span className="font-mono">owner/repo</span>.
-        </p>
-        <input
-          className={
-            "w-full rounded-lg border bg-muted px-3 py-2 font-mono text-[13px] text-foreground outline-none focus:border-primary " +
-            (repo.length > 0 && !repoValid ? "border-destructive" : "border-border")
-          }
-          value={repo}
-          onChange={(e) => onRepo(e.target.value)}
-          placeholder="octocat/hello-world"
-          aria-label="GitHub repository"
-          spellCheck={false}
-        />
-        {repo.length > 0 && !repoValid && (
-          <span className="text-[11px] text-destructive">
-            Enter a valid <span className="font-mono">owner/repo</span> (no spaces or extra text).
-          </span>
-        )}
       </section>
     </>
   );

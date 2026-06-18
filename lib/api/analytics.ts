@@ -123,7 +123,10 @@ export interface SourceQueryInput {
   provider: string;
   metric: string;
   range: AnalyticsRange;
+  /** GitHub `owner/repo` (back-compat convenience for `filters.repo`). */
   repo?: string;
+  /** Provider-specific filters (e.g. Slack `channel` / `keyword`). */
+  filters?: Readonly<Record<string, string>>;
   groupBy?: string;
   refresh?: boolean;
 }
@@ -133,6 +136,11 @@ export async function querySourceData(
 ): Promise<SourceQueryOutcome> {
   const params = new URLSearchParams({ metric: input.metric, range: input.range });
   if (input.repo) params.set("repo", input.repo);
+  if (input.filters) {
+    for (const [key, value] of Object.entries(input.filters)) {
+      if (value) params.set(key, value);
+    }
+  }
   if (input.groupBy) params.set("groupBy", input.groupBy);
   if (input.refresh) params.set("refresh", "1");
   const res = await fetch(

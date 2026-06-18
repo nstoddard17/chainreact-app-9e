@@ -84,6 +84,28 @@ it("forwards refresh=1 to the query path", async () => {
   expect(mockQuery.mock.calls[0]![1]).toEqual({ refresh: true });
 });
 
+it("forwards allow-listed Slack filters (channel + keyword) and the SESSION account", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  const slackParams = Promise.resolve({ provider: "slack" });
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/slack/data?metric=keyword_mentions&range=30d&channel=C012AB3CD&keyword=launch",
+    ),
+    { params: slackParams },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("slack");
+  expect(call.filters).toEqual({ channel: "C012AB3CD", keyword: "launch" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
+it("does not forward unknown query params as filters (allow-list only)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(req("?metric=open_issues&repo=octocat/hello&evil=DROP+TABLE"), { params });
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.filters).toEqual({ repo: "octocat/hello" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

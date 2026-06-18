@@ -74,3 +74,59 @@ it("does not throw when the fetch itself rejects (no dashboard crash)", async ()
   render(<ConnectedAppWidgetBody widget={WIDGET} range="7d" reloadKey={0} />);
   await waitFor(() => expect(screen.getByText(/Couldn't load this data/i)).toBeInTheDocument());
 });
+
+// ── Slack (account-shared) ───────────────────────────────────────────────────
+const SLACK_WIDGET: AnalyticsWidget = {
+  id: "w2",
+  type: "stat",
+  size: "s",
+  title: "Channel activity",
+  config: {
+    source: "any",
+    dataSource: {
+      kind: "connected_app",
+      provider: "slack",
+      metricKey: "channel_activity_count",
+      filters: { channel: "C012AB3CD" },
+    },
+  },
+};
+
+function slackScalar(): NormalizedAnalyticsResult {
+  return {
+    shape: "scalar",
+    dimensions: [],
+    measures: ["channel_activity_count"],
+    rows: [{ channel_activity_count: 57 }],
+    totals: { channel_activity_count: 57 },
+    generatedAt: "2026-06-17T00:00:00Z",
+    freshness: { cached: false, ageSeconds: 0, ttlSeconds: 600 },
+    warnings: [],
+    truncated: false,
+  };
+}
+
+it("renders a Slack scalar with an ACCOUNT 'Slack workspace' attribution (no raw channel id)", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: slackScalar() });
+  render(<ConnectedAppWidgetBody widget={SLACK_WIDGET} range="7d" reloadKey={0} />);
+  expect(await screen.findByText("57")).toBeInTheDocument();
+  expect(screen.getByText("Slack workspace")).toBeInTheDocument();
+  // The opaque channel id is never surfaced in attribution.
+  expect(screen.queryByText(/C012AB3CD/)).not.toBeInTheDocument();
+});
+
+it("forwards Slack filters (channel) to the source query", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: slackScalar() });
+  render(<ConnectedAppWidgetBody widget={SLACK_WIDGET} range="7d" reloadKey={0} />);
+  await screen.findByText("57");
+  expect(mockQuery).toHaveBeenCalledWith(
+    expect.objectContaining({ provider: "slack", metric: "channel_activity_count", filters: { channel: "C012AB3CD" } }),
+  );
+});
+
+it("renders a Connect Slack CTA on MISSING_CREDENTIAL", async () => {
+  mockQuery.mockResolvedValue({ ok: false, code: "MISSING_CREDENTIAL", message: "connect" });
+  render(<ConnectedAppWidgetBody widget={SLACK_WIDGET} range="7d" reloadKey={0} />);
+  expect(await screen.findByText(/Connect your Slack workspace/i)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Connect Slack/i })).toHaveAttribute("href", "/apps");
+});

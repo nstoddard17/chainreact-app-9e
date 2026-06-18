@@ -49,8 +49,12 @@ interface Props {
    * this regardless; this only governs control visibility.
    */
   canManage: boolean;
-  /** Whether the VIEWER has their own GitHub connection (drives the config note). */
-  githubConnected: boolean;
+  /**
+   * Connection status per EXPOSED connected-app provider (drives the config
+   * panel's connect note). Account-shared providers reflect the account's
+   * connection; personal providers reflect this viewer's own.
+   */
+  connectedProviders: Record<string, boolean>;
   initialDashboards: readonly Dashboard[];
   initialOverview: AnalyticsOverview;
   initialRange: AnalyticsRange;
@@ -59,7 +63,7 @@ interface Props {
 export function AnalyticsDashboard({
   accountName,
   canManage,
-  githubConnected,
+  connectedProviders,
   initialDashboards,
   initialOverview,
   initialRange,
@@ -428,7 +432,7 @@ export function AnalyticsDashboard({
         <WidgetConfigPanel
           widget={configuringWidget}
           workflows={overview?.workflows ?? []}
-          githubConnected={githubConnected}
+          connectedProviders={connectedProviders}
           onClose={() => setConfiguringId(null)}
           onSave={(config) => handleConfigSave(configuringWidget.id, config)}
         />

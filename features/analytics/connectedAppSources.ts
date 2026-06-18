@@ -1,0 +1,175 @@
+import type { AnalyticsWidgetType } from "@/contracts/analytics";
+
+/**
+ * Connected-app analytics UI exposure descriptor (Slice ANALYTICS-SOURCES-SLACK-UI-1).
+ *
+ * SINGLE SOURCE OF TRUTH for which connected-app providers the Analytics widget
+ * UI offers, and how each one's config panel + widget body render. The analytics
+ * SOURCE REGISTRY (services/analytics/sources/registry.ts) decides what's
+ * APPROVED for read-only querying; THIS module decides what's actually EXPOSED to
+ * users in the builder. They are deliberately separate:
+ *
+ *   - A provider can be registered (backend reachable, tested) but NOT exposed
+ *     here — so no user-facing widget ships until it's smoke-testable.
+ *   - GitHub is registered + tested but `exposed: false` because the deployed
+ *     environment can't complete a real authenticated GitHub smoke yet
+ *     (ANALYTICS-SOURCES-GITHUB-UI-1 is held back). Its descriptor is kept intact
+ *     so re-exposing it is a one-line flip once it's smoke-tested.
+ *
+ * No backend behavior depends on this file — it is client-safe (no server imports)
+ * and purely drives the config panel + widget body. Setting `exposed: false`
+ * removes a provider's toggle, config controls, AND its widget-body rendering path
+ * cleanly (no dead/fake controls).
+ */
+
+/** A filter input the config panel renders for a connected-app metric. */
+export type ConnectedAppFilterKind = "repo" | "slack_channel" | "keyword";
+
+export interface ConnectedAppMetricOption {
+  /** Metric key — MUST match an approved metric in the source registry. */
+  id: string;
+  label: string;
+  /**
+   * Extra filter inputs this metric needs (beyond the provider's required base
+   * filter). Drives which controls the config panel shows and which filter keys
+   * are written to `dataSource.filters`. The server re-validates every key
+   * against the metric's `supportedFilters` — this is UX only.
+   */
+  filters: readonly ConnectedAppFilterKind[];
+}
+
+export interface ConnectedAppSourceUi {
+  /** Provider key — matches the source registry + credentialSharing policy. */
+  provider: string;
+  displayName: string;
+  /**
+   * Master exposure switch. Only `exposed: true` providers appear in the widget
+   * config UI / widget body. Flip to expose a provider once it is smoke-testable.
+   */
+  exposed: boolean;
+  /** Toggle button icon (shared analytics icon set). */
+  icon: string;
+  /** Where the "connect" CTA points (Apps page). */
+  connectHref: string;
+  /** Missing-connection title shown in the widget body. */
+  connectTitle: string;
+  /** Missing-connection helper sentence. */
+  connectHelp: string;
+  /** Connect CTA button label. */
+  connectCtaLabel: string;
+  /**
+   * Attribution prefix shown on a rendered widget. `account` providers (shared
+   * workspace credential) read the same data for every account member; `personal`
+   * providers read each viewer's OWN connection. This drives copy + matches the
+   * credential-sharing policy in core/integrations/credentialSharing.ts.
+   */
+  visibility: "account" | "personal";
+  /** Attribution prefix, e.g. "Slack workspace" or "Your GitHub". */
+  attributionPrefix: string;
+  /** Per-widget-type metric options (scalar → stat; series → line/bar). */
+  metricsByType: Partial<Record<AnalyticsWidgetType, readonly ConnectedAppMetricOption[]>>;
+}
+
+const SERIES_TYPES = ["line", "bar"] as const;
+
+function seriesForBoth(
+  options: readonly ConnectedAppMetricOption[],
+): Partial<Record<AnalyticsWidgetType, readonly ConnectedAppMetricOption[]>> {
+  return Object.fromEntries(SERIES_TYPES.map((t) => [t, options]));
+}
+
+const GITHUB: ConnectedAppSourceUi = {
+  provider: "github",
+  displayName: "GitHub",
+  // HELD BACK — backend registered + tested, but not exposed until a real
+  // authenticated GitHub smoke is possible (see slice notes above).
+  exposed: false,
+  icon: "Webhook",
+  connectHref: "/apps",
+  connectTitle: "Connect your GitHub account",
+  connectHelp: "This widget uses your own GitHub connection. Connect it to see your data.",
+  connectCtaLabel: "Connect GitHub",
+  visibility: "personal",
+  attributionPrefix: "Your GitHub",
+  metricsByType: {
+    stat: [
+      { id: "open_issues", label: "Open issues", filters: ["repo"] },
+      { id: "open_prs", label: "Open pull requests", filters: ["repo"] },
+    ],
+    ...seriesForBoth([
+      { id: "issues_opened", label: "Issues opened over time", filters: ["repo"] },
+      { id: "prs_opened", label: "Pull requests opened over time", filters: ["repo"] },
+      { id: "prs_merged", label: "Pull requests merged over time", filters: ["repo"] },
+    ]),
+  },
+};
+
+const SLACK: ConnectedAppSourceUi = {
+  provider: "slack",
+  displayName: "Slack",
+  exposed: true,
+  icon: "Comment",
+  connectHref: "/apps",
+  connectTitle: "Connect your Slack workspace",
+  connectHelp:
+    "This widget reads activity from your workspace's connected Slack. Connect Slack to see it.",
+  connectCtaLabel: "Connect Slack",
+  // Slack is an ACCOUNT-shared workspace bot token — every account member sees the
+  // same workspace data (core/integrations/credentialSharing.ts → "account").
+  visibility: "account",
+  attributionPrefix: "Slack workspace",
+  metricsByType: {
+    stat: [
+      { id: "channel_activity_count", label: "Messages in channel", filters: ["slack_channel"] },
+      { id: "active_users_count", label: "Active people in channel", filters: ["slack_channel"] },
+    ],
+    ...seriesForBoth([
+      { id: "messages_over_time", label: "Messages over time", filters: ["slack_channel"] },
+      {
+        id: "keyword_mentions",
+        label: "Keyword mentions over time",
+        filters: ["slack_channel", "keyword"],
+      },
+    ]),
+  },
+};
+
+const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK];
+
+/** Every connected-app descriptor (exposed or not) — for tests + lookups. */
+export function allConnectedAppSources(): readonly ConnectedAppSourceUi[] {
+  return ALL;
+}
+
+/** Only the connected-app providers currently EXPOSED in the widget UI. */
+export function exposedConnectedAppSources(): readonly ConnectedAppSourceUi[] {
+  return ALL.filter((s) => s.exposed);
+}
+
+/** Descriptor for `provider`, or null. Returns even non-exposed providers. */
+export function getConnectedAppSource(provider: string): ConnectedAppSourceUi | null {
+  return ALL.find((s) => s.provider === provider) ?? null;
+}
+
+/** Descriptor for `provider` ONLY when exposed — null otherwise (UI-facing lookup). */
+export function getExposedConnectedAppSource(provider: string): ConnectedAppSourceUi | null {
+  const source = getConnectedAppSource(provider);
+  return source && source.exposed ? source : null;
+}
+
+/** Metric options an EXPOSED provider offers for a widget type ([] when none). */
+export function metricsForType(
+  source: ConnectedAppSourceUi,
+  type: AnalyticsWidgetType,
+): readonly ConnectedAppMetricOption[] {
+  return source.metricsByType[type] ?? [];
+}
+
+/** The metric option for `(provider, metricKey, type)`, or null. */
+export function findMetricOption(
+  source: ConnectedAppSourceUi,
+  type: AnalyticsWidgetType,
+  metricKey: string,
+): ConnectedAppMetricOption | null {
+  return metricsForType(source, type).find((m) => m.id === metricKey) ?? null;
+}

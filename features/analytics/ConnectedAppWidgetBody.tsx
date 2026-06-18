@@ -6,6 +6,10 @@ import type { AnalyticsRange, AnalyticsWidget } from "@/contracts/analytics";
 import type { NormalizedAnalyticsResult } from "@/services/analytics/sources/types";
 import { querySourceData } from "@/lib/api/analytics";
 import {
+  getConnectedAppSource,
+  type ConnectedAppSourceUi,
+} from "./connectedAppSources";
+import {
   BarChart,
   CHART_COLORS,
   LineChart,
@@ -15,13 +19,16 @@ import {
 import { AnalyticsIcon } from "@/components/analytics/icons";
 
 /**
- * Connected-app widget body (Slice ANALYTICS-SOURCES-GITHUB-UI-1).
+ * Connected-app widget body (Slice ANALYTICS-SOURCES-GITHUB-UI-1; generalized for
+ * Slack in ANALYTICS-SOURCES-SLACK-UI-1).
  *
- * Renders a `connected_app` widget (e.g. GitHub) by fetching the normalized
- * result through the server source route — which resolves the CURRENT VIEWER'S
- * OWN provider connection. So when a co-member opens a shared dashboard, they see
- * THEIR OWN GitHub result (or a connect CTA), never the creator's data. A failed
- * fetch becomes a local state, never a dashboard crash.
+ * Renders a `connected_app` widget by fetching the normalized result through the
+ * server source route. Copy + attribution come from the provider's descriptor:
+ *   - ACCOUNT-shared providers (Slack) resolve the account's connection — every
+ *     member sees the same workspace data.
+ *   - PERSONAL providers (GitHub) resolve the CURRENT VIEWER'S own connection — a
+ *     co-member sees THEIR OWN result or a connect CTA, never the creator's data.
+ * A failed fetch becomes a local state, never a dashboard crash.
  */
 
 type State =
@@ -36,6 +43,18 @@ function shortDate(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
+/** String-only filters from the widget config (the route allow-lists the keys). */
+function stringFilters(
+  filters: Readonly<Record<string, string | number | boolean>> | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!filters) return out;
+  for (const [key, value] of Object.entries(filters)) {
+    if (typeof value === "string" && value.length > 0) out[key] = value;
+  }
+  return out;
+}
+
 export function ConnectedAppWidgetBody({
   widget,
   range,
@@ -48,8 +67,9 @@ export function ConnectedAppWidgetBody({
   const ds = widget.config.dataSource;
   const provider = ds?.kind === "connected_app" ? ds.provider : null;
   const metric = ds?.kind === "connected_app" ? ds.metricKey : null;
-  const repo = ds?.kind === "connected_app" ? ds.filters?.repo : undefined;
-  const repoStr = typeof repo === "string" ? repo : undefined;
+  const filters = ds?.kind === "connected_app" ? stringFilters(ds.filters) : {};
+  const filtersKey = JSON.stringify(filters);
+  const descriptor = provider ? getConnectedAppSource(provider) : null;
 
   const [state, setState] = useState<State>({ status: "loading" });
 
@@ -60,7 +80,7 @@ export function ConnectedAppWidgetBody({
     }
     let cancelled = false;
     setState({ status: "loading" });
-    querySourceData({ provider, metric, range, ...(repoStr ? { repo: repoStr } : {}) })
+    querySourceData({ provider, metric, range, filters })
       .then((out) => {
         if (cancelled) return;
         if (out.ok) {
@@ -77,7 +97,8 @@ export function ConnectedAppWidgetBody({
     return () => {
       cancelled = true;
     };
-  }, [provider, metric, repoStr, range, reloadKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, metric, filtersKey, range, reloadKey]);
 
   if (state.status === "loading") {
     return (
@@ -91,17 +112,19 @@ export function ConnectedAppWidgetBody({
     return (
       <div className="flex h-full min-h-[80px] flex-col items-center justify-center gap-2 text-center">
         <span className="text-primary">
-          <AnalyticsIcon name="Webhook" size={20} />
+          <AnalyticsIcon name={descriptor?.icon ?? "Webhook"} size={20} />
         </span>
-        <div className="text-xs font-medium text-foreground">Connect your GitHub account</div>
+        <div className="text-xs font-medium text-foreground">
+          {descriptor?.connectTitle ?? "Connect this app"}
+        </div>
         <p className="max-w-[220px] text-[11px] text-muted-foreground">
-          This widget uses your own GitHub connection. Connect it to see your data.
+          {descriptor?.connectHelp ?? "Connect it to see your data."}
         </p>
         <Link
-          href="/apps"
+          href={descriptor?.connectHref ?? "/apps"}
           className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[11.5px] font-semibold text-primary-foreground hover:brightness-105"
         >
-          Connect GitHub
+          {descriptor?.connectCtaLabel ?? "Connect"}
         </Link>
       </div>
     );
@@ -118,19 +141,32 @@ export function ConnectedAppWidgetBody({
     );
   }
 
-  return <ResultView widget={widget} result={state.result} repo={repoStr} />;
+  return (
+    <ResultView
+      widget={widget}
+      result={state.result}
+      descriptor={descriptor}
+      repo={filters.repo}
+    />
+  );
 }
 
 function ResultView({
   widget,
   result,
+  descriptor,
   repo,
 }: {
   widget: AnalyticsWidget;
   result: NormalizedAnalyticsResult;
+  descriptor: ConnectedAppSourceUi | null;
   repo: string | undefined;
 }) {
   const stale = result.freshness.stale === true;
+  // Attribution: descriptor prefix, plus the repo for GitHub (the channel id is
+  // opaque, so account providers show the prefix only).
+  const prefix = descriptor?.attributionPrefix ?? "Connected app";
+  const attribution = repo ? `${prefix} · ${repo}` : prefix;
   return (
     <div className="flex h-full flex-col gap-2">
       {(stale || result.warnings.length > 0) && (
@@ -148,13 +184,11 @@ function ResultView({
         ) : widget.type === "bar" ? (
           <SeriesBar result={result} />
         ) : (
-          <SeriesLine result={result} />
+          <SeriesLine result={result} name={descriptor?.displayName ?? "Series"} />
         )}
       </div>
 
-      <div className="mt-auto truncate text-[10.5px] text-muted-foreground">
-        Your GitHub{repo ? ` · ${repo}` : ""}
-      </div>
+      <div className="mt-auto truncate text-[10.5px] text-muted-foreground">{attribution}</div>
     </div>
   );
 }
@@ -191,7 +225,7 @@ function seriesPoints(result: NormalizedAnalyticsResult): { label: string; value
   });
 }
 
-function SeriesLine({ result }: { result: NormalizedAnalyticsResult }) {
+function SeriesLine({ result, name }: { result: NormalizedAnalyticsResult; name: string }) {
   const pts = seriesPoints(result);
   if (pts.length === 0) {
     return (
@@ -203,7 +237,7 @@ function SeriesLine({ result }: { result: NormalizedAnalyticsResult }) {
   return (
     <LineChart
       labels={pts.map((p) => p.label)}
-      series={[{ name: "GitHub", data: pts.map((p) => p.value), color: CHART_COLORS.primary }]}
+      series={[{ name, data: pts.map((p) => p.value), color: CHART_COLORS.primary }]}
       height={200}
     />
   );

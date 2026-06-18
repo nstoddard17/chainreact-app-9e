@@ -46,6 +46,16 @@ describe("analytics source registry", () => {
     );
   });
 
+  it("registers Slack as a connected-app source (ANALYTICS-SOURCES-SLACK-1)", () => {
+    const slack = getAnalyticsSource("slack");
+    expect(slack?.connectedApp).toBe(true);
+    expect(slack?.metrics.map((m) => m.key).sort()).toEqual(
+      ["active_users_count", "channel_activity_count", "keyword_mentions", "messages_over_time"],
+    );
+    expect(isApprovedSourceMetric("slack", "messages_over_time")).toBe(true);
+    expect(isApprovedSourceMetric("slack", "read_all_dms")).toBe(false);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

@@ -1,6 +1,7 @@
 import type { AnalyticsSourceAdapter, AnalyticsSourceMetric } from "./types";
 import { internalAnalyticsSource } from "./internal";
 import { githubAnalyticsSource } from "./github";
+import { slackAnalyticsSource } from "./slack";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -19,15 +20,23 @@ import { githubAnalyticsSource } from "./github";
  *   - INTERNAL ChainReact reference adapter (real account data, no OAuth).
  *   - GITHUB (connected app, read-only Search API, requesting-user-pinned
  *     personal credential) — ANALYTICS-SOURCES-GITHUB-1.
+ *   - SLACK (connected app, read-only conversations.history, account-shared
+ *     workspace bot token) — ANALYTICS-SOURCES-SLACK-1.
  *
- * Further connected-app adapters (Stripe, Gmail, Slack, …) get added here in
- * their own security-reviewed slices once their credential-scope + rate-limit +
+ * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
+ * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
+ * switch in features/analytics/connectedAppSources.ts — GitHub is registered but
+ * held back from the UI until it's smoke-testable.
+ *
+ * Further connected-app adapters (Stripe, Gmail, …) get added here in their own
+ * security-reviewed slices once their credential-scope + rate-limit +
  * error-normalization behavior is proven.
  */
 
 const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   internalAnalyticsSource,
   githubAnalyticsSource,
+  slackAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

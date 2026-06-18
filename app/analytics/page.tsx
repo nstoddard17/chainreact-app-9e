@@ -10,6 +10,7 @@ import { getAnalyticsOverview } from "@/services/analytics/analyticsOverview";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
+import { exposedConnectedAppSources } from "@/features/analytics/connectedAppSources";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
@@ -31,6 +32,31 @@ import {
 
 const DEFAULT_RANGE = "7d" as const;
 
+/**
+ * For each connected-app provider EXPOSED in the widget UI, resolve whether it's
+ * connected so the config panel can show a connect note. Account-shared providers
+ * (e.g. Slack) check the ACCOUNT'S connection; personal providers check THIS
+ * viewer's own connection (never another member's) — matching the credential
+ * visibility declared in the descriptor.
+ */
+async function resolveConnectedProviders(
+  accountId: string,
+  userId: string,
+): Promise<Record<string, boolean>> {
+  const entries = await Promise.all(
+    exposedConnectedAppSources().map(async (source) => {
+      const integration = await getActiveForExecution(
+        accountId,
+        source.provider,
+        null,
+        source.visibility === "personal" ? { connectedByUserId: userId } : undefined,
+      );
+      return [source.provider, integration !== null] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
+}
+
 export default async function AnalyticsPage() {
   const supabase = await createClient();
   const {
@@ -45,7 +71,7 @@ export default async function AnalyticsPage() {
     dashboards,
     overview,
     authorRole,
-    githubIntegration,
+    connectedProviders,
     unreadNotifications,
     recentNotificationRecords,
   ] = await Promise.all([
@@ -55,14 +81,13 @@ export default async function AnalyticsPage() {
     // (a personal owner qualifies). Members get a clean read-only view. The
     // server routes are the real enforcement; this only drives control visibility.
     requireAccountRole(user.id, account.id, ["owner", "admin"]),
-    // GitHub is a PERSONAL credential — check THIS viewer's own connection so the
-    // config panel can show a connect note. Never another member's.
-    getActiveForExecution(account.id, "github", null, { connectedByUserId: user.id }),
+    // Connection status for each exposed connected-app provider (drives the
+    // config panel's connect note). Account vs personal pin per descriptor.
+    resolveConnectedProviders(account.id, user.id),
     notificationsRepo.countUnreadForUser(user.id),
     notificationsRepo.listForUser(user.id, { limit: NOTIFICATION_BELL_PREVIEW_LIMIT }),
   ]);
   const canManage = authorRole.ok;
-  const githubConnected = githubIntegration !== null;
 
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
   const bell = await applyCredentialRequestNotice(
@@ -80,7 +105,7 @@ export default async function AnalyticsPage() {
       <AnalyticsDashboard
         accountName={account.name}
         canManage={canManage}
-        githubConnected={githubConnected}
+        connectedProviders={connectedProviders}
         initialDashboards={dashboards}
         initialOverview={overview}
         initialRange={DEFAULT_RANGE}

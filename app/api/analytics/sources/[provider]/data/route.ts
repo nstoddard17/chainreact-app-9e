@@ -47,9 +47,19 @@ export async function GET(
 
   const rangeParsed = AnalyticsRangeSchema.safeParse(url.searchParams.get("range") ?? "7d");
   const range = rangeParsed.success ? rangeParsed.data : "7d";
-  const repo = url.searchParams.get("repo");
   const groupBy = url.searchParams.get("groupBy");
   const refresh = url.searchParams.get("refresh") === "1";
+
+  // Collect the allow-listed filter params present on the request. Each KEY is
+  // re-validated against the metric's `supportedFilters` inside
+  // `queryAnalyticsSource` (unsupported key → INVALID_QUERY), and each VALUE is
+  // validated by the adapter — so this is just transport, never trust.
+  const FILTER_PARAMS = ["repo", "channel", "keyword"] as const;
+  const filters: Record<string, string> = {};
+  for (const key of FILTER_PARAMS) {
+    const value = url.searchParams.get(key);
+    if (value) filters[key] = value;
+  }
 
   const win = computeRangeWindow(range, Date.now());
 
@@ -63,7 +73,7 @@ export async function GET(
           until: new Date(win.until).toISOString(),
         },
         ...(groupBy ? { groupBy } : {}),
-        ...(repo ? { filters: { repo } } : {}),
+        ...(Object.keys(filters).length > 0 ? { filters } : {}),
         context: { accountId: auth.accountId, userId: auth.userId },
       },
       { refresh },
