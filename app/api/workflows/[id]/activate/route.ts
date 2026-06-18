@@ -15,7 +15,7 @@ import {
   runLifecycle,
   toWorkflowSummary,
 } from "../../_shared";
-import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
+import { checkWritePathReadiness } from "@/services/workflows/executionReadiness";
 
 /**
  * POST /api/workflows/[id]/activate
@@ -130,12 +130,16 @@ export async function POST(
     }
   }
 
-  // B — execution-readiness gate. Block activation of a structurally-invalid or
-  // unconfigured workflow with a clear typed error (after the destructive gate
-  // so CONFIRMATION_REQUIRED still takes precedence). Missing/deleted rows defer
-  // to the orchestrator's LifecycleError mapping below (unchanged).
+  // B — write-path execution-readiness gate (AI-READINESS-CONVERGENCE CS-2). Block
+  // activation of a structurally-invalid / unconfigured workflow (incl. self-loops
+  // from CS-1) AND a draft whose config references a deleted/missing step
+  // (INVALID_VARIABLE_REFERENCE) — both of which Check already flags. After the
+  // destructive gate so CONFIRMATION_REQUIRED still takes precedence. Validates the
+  // DRAFT about to go live; does NOT touch the engine/run-now hot path or any existing
+  // active revision. Missing/deleted rows defer to the orchestrator's LifecycleError
+  // mapping below (unchanged).
   if (workflow && workflow.state !== "deleted") {
-    const readinessError = checkWorkflowReadiness(workflow.draftDefinition);
+    const readinessError = checkWritePathReadiness(workflow.draftDefinition);
     if (readinessError) {
       return NextResponse.json(readinessError, { status: 422 });
     }

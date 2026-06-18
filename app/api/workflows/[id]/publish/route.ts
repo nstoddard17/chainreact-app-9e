@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import * as workflowsRepo from "@/repositories/workflows";
 import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
+import { checkWritePathReadiness } from "@/services/workflows/executionReadiness";
 import {
   assertWorkflowRunEditAllowed,
   authorizeWorkflowLifecycleAccess,
@@ -43,6 +44,17 @@ export async function POST(
   if (record && record.state !== "deleted") {
     const runEditDenied = await assertWorkflowRunEditAllowed(record, auth.userId);
     if (runEditDenied) return runEditDenied;
+
+    // AI-READINESS-CONVERGENCE CS-2 — Publish previously had NO readiness gate. Publish
+    // snapshots the current DRAFT into a new immutable active revision, so validate the
+    // draft about to go live with the shared write-path gate: structural/field integrity
+    // (incl. self-loops from CS-1) AND broken deleted-step variable references — the same
+    // problems Check flags. Blocks a NEW publish of a broken draft WITHOUT touching the
+    // existing active revision (which keeps running). Typed 422; no config value leaks.
+    const readinessError = checkWritePathReadiness(record.draftDefinition);
+    if (readinessError) {
+      return NextResponse.json(readinessError, { status: 422 });
+    }
   }
 
   const orch = createLifecycleOrchestrator();

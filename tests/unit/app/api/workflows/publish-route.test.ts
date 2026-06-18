@@ -137,6 +137,54 @@ describe("POST /api/workflows/[id]/publish (V2-READY-41G route contract)", () =>
     expect(body).not.toHaveProperty("draftDefinition");
   });
 
+  // AI-READINESS-CONVERGENCE CS-2 — Publish previously had NO readiness gate. It now
+  // validates the DRAFT (about to be snapshotted into a new active revision) with the
+  // shared write-path gate, blocking a NEW publish of a broken draft. The existing active
+  // revision is untouched (orch.publish is never called).
+  const brokenRefRecord = {
+    ...baseRecord,
+    draftDefinition: {
+      ...baseRecord.draftDefinition,
+      nodes: [
+        baseRecord.draftDefinition.nodes[0]!, // trigger
+        { ...baseRecord.draftDefinition.nodes[1]!, config: { to: "{{ghost-node.email}}" } }, // broken ref
+      ],
+    },
+  };
+  const orphanRecord = {
+    ...baseRecord,
+    draftDefinition: { ...baseRecord.draftDefinition, edges: [] }, // action orphaned → structural break
+  };
+
+  it("CS-2: rejects publishing a draft with a broken deleted-step variable reference (422 INVALID_VARIABLE_REFERENCE), orchestrator never called", async () => {
+    authedAs("creator-1");
+    mockGetById.mockResolvedValue(brokenRefRecord);
+    mockIsMember.mockResolvedValue(true);
+
+    const res = await POST(req(), params);
+
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("INVALID_VARIABLE_REFERENCE");
+    expect(mockPublish).not.toHaveBeenCalled();
+    // No-leak: no config value / raw token in the rejection payload.
+    const text = JSON.stringify(body);
+    expect(text).not.toContain("ghost-node");
+    expect(text).not.toContain("{{");
+  });
+
+  it("CS-2: Publish now enforces the shared structural verdict it previously skipped (422 INVALID_WORKFLOW_GRAPH), orchestrator never called", async () => {
+    authedAs("creator-1");
+    mockGetById.mockResolvedValue(orphanRecord);
+    mockIsMember.mockResolvedValue(true);
+
+    const res = await POST(req(), params);
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("INVALID_WORKFLOW_GRAPH");
+    expect(mockPublish).not.toHaveBeenCalled();
+  });
+
   it("publishing a non-active workflow → 409 INVALID_TRANSITION (LifecycleError mapped by runLifecycle)", async () => {
     authedAs("creator-1");
     mockGetById.mockResolvedValue({ ...baseRecord, state: "paused" });

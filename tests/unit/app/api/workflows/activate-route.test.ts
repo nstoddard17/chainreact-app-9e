@@ -429,6 +429,23 @@ describe("POST /activate — B: execution-readiness gate", () => {
     expect(mockActivate).not.toHaveBeenCalled();
   });
 
+  it("blocks activation of a draft with a broken deleted-step variable reference (422 INVALID_VARIABLE_REFERENCE, CS-2)", async () => {
+    // `to` is non-empty (required field satisfied) but references a node not in the graph.
+    const brokenRefGmail = { ...emptyGmail, config: { to: "{{ghost-node.email}}" } };
+    mockGetById.mockResolvedValueOnce(
+      workflowGraph([trigger, brokenRefGmail], [{ id: "e1", from: "trigger-node", to: "action-node" }]),
+    );
+    const res = await POST(buildRequest(""), { params: Promise.resolve({ id: "wf-1" }) });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("INVALID_VARIABLE_REFERENCE");
+    expect(mockActivate).not.toHaveBeenCalled();
+    // No-leak: no config value / raw token in the rejection payload.
+    const text = JSON.stringify(body);
+    expect(text).not.toContain("ghost-node");
+    expect(text).not.toContain("{{");
+  });
+
   it("activates a valid, configured, connected workflow (200)", async () => {
     mockGetById.mockResolvedValueOnce(
       workflowGraph([trigger, configuredGmail], [{ id: "e1", from: "trigger-node", to: "action-node" }]),
