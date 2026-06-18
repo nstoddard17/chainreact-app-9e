@@ -2,6 +2,7 @@ import { isSecretLikeKey } from "@/core/security/secretKeys";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import { applyPatchToDefinition } from "./applyPatchToDefinition";
 import { classifyOperationSafety, type ApplyBlock, type ApplyReadiness } from "./applySafety";
+import type { ResolvedFieldSensitivity } from "./resolveFieldSensitivity";
 import type { PatchOperation, PatchOperationKind } from "./types";
 
 /**
@@ -69,6 +70,13 @@ export type PatchExecutionResult =
 export interface ExecuteWorkflowPatchOptions {
   /** FUTURE: a recipient/destination change the user explicitly confirmed. */
   readonly recipientChangeConfirmed?: boolean;
+  /**
+   * AI-REPAIR-SAFETY-HARDENING CS-2 — declared field sensitivity (opIndex → fieldKey →
+   * sensitivity), resolved by the caller from the registry. Threaded into the
+   * defense-in-depth `classifyOperationSafety` so the executor's independent re-check is
+   * also metadata-aware. Absent → heuristics-only (current behavior; never weaker).
+   */
+  readonly fieldSensitivity?: ResolvedFieldSensitivity;
 }
 
 /** Recursively sort object keys so the digest is order-independent for object configs. */
@@ -139,6 +147,7 @@ export function executeWorkflowPatch(
     workflowActive: "unknown",
     ...(options.recipientChangeConfirmed !== undefined ? { recipientChangeConfirmed: options.recipientChangeConfirmed } : {}),
     currentNodeIds: definition.nodes.map((n) => n.id),
+    ...(options.fieldSensitivity !== undefined ? { fieldSensitivity: options.fieldSensitivity } : {}),
   });
   if (blocks.length > 0) {
     return { ok: false, code: "OPERATION_NOT_EXECUTABLE", message: "An operation in this change can't be executed.", blocks };

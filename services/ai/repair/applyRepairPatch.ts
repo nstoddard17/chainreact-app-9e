@@ -3,6 +3,7 @@ import { updateDraftDefinitionIfRevisionMatches, type WorkflowRecord } from "@/r
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
 import type { PatchOperation, WorkflowPatch } from "@/services/workflows/patch/types";
 import { assessApplyReadiness, type ApplyBlockCode } from "@/services/workflows/patch/applySafety";
+import { resolveFieldSensitivity } from "@/services/workflows/patch/resolveFieldSensitivity";
 import {
   executeWorkflowPatch,
   type ExecutedOperationSummary,
@@ -95,6 +96,10 @@ export async function applyRepairPatch(
     validationOk = null;
   }
 
+  // CS-2 — resolve declared field sensitivity once; thread it into BOTH the readiness
+  // contract and the in-memory executor's defense-in-depth re-check.
+  const fieldSensitivity = resolveFieldSensitivity(operations, currentDef.nodes);
+
   // 2. Readiness contract.
   const readiness = assessApplyReadiness({
     operations,
@@ -105,6 +110,7 @@ export async function applyRepairPatch(
     workflowActive,
     currentNodeIds: currentDef.nodes.map((n) => n.id),
     ...(recipientChangeConfirmed !== undefined ? { recipientChangeConfirmed } : {}),
+    fieldSensitivity,
   });
 
   // 3. Gate — nothing is executed or persisted unless applyable.
@@ -122,7 +128,10 @@ export async function applyRepairPatch(
     currentDef,
     typedOps,
     readiness,
-    recipientChangeConfirmed !== undefined ? { recipientChangeConfirmed } : {},
+    {
+      ...(recipientChangeConfirmed !== undefined ? { recipientChangeConfirmed } : {}),
+      fieldSensitivity,
+    },
   );
   if (!executed.ok) {
     return { ok: false, code: "EXECUTION_FAILED", message: "This change couldn't be applied to the workflow." };

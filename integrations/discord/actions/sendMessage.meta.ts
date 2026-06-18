@@ -66,6 +66,7 @@ export const discordSendMessageMeta: ActionMeta = {
       optionsSource: "discord:channels",
       dependsOn: "guildId",
       required: true,
+      sensitivity: "recipient",
       placeholder: "Select Server first",
     },
     {

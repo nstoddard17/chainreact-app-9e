@@ -115,6 +115,7 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
         "Attendee email addresses to invite. All new attendees are added as required — use Add Attendees to invite optional attendees.",
       type: "string-array",
       required: false,
+      sensitivity: "recipient",
       placeholder: "person@example.com",
     },
     {

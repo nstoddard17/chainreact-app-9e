@@ -253,6 +253,39 @@ describe("FieldMetaSchema — dependsOn cardinality", () => {
   });
 });
 
+describe("FieldMetaSchema — sensitivity (CS-1)", () => {
+  it("omitting `sensitivity` parses (additive, default-absent)", () => {
+    const f = validField();
+    expect(f.sensitivity).toBeUndefined();
+  });
+
+  it.each(["secret", "connection", "recipient"] as const)(
+    "accepts the valid sensitivity value %s",
+    (value) => {
+      const f = validField({ sensitivity: value });
+      expect(f.sensitivity).toBe(value);
+    },
+  );
+
+  it("rejects an unknown sensitivity value", () => {
+    const result = FieldMetaSchema.safeParse({
+      name: "x",
+      label: "X",
+      type: "text",
+      required: false,
+      sensitivity: "pii",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("a sensitivity-bearing field round-trips through a full ActionMeta parse", () => {
+    const parsed = ActionMetaSchema.parse(
+      validMeta({ fields: [validField({ name: "to", sensitivity: "recipient" })] }),
+    );
+    expect(parsed.fields[0]!.sensitivity).toBe("recipient");
+  });
+});
+
 describe("ActionMetaSchema — multi-parent dependsOn cross-field validation", () => {
   it("accepts a field whose array dependsOn references known sibling fields", () => {
     expect(() =>

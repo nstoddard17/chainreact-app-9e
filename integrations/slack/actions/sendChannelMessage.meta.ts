@@ -38,6 +38,7 @@ export const slackSendChannelMessageMeta: ActionMeta = {
       type: "combobox",
       optionsSource: "slack:channels",
       required: true,
+      sensitivity: "recipient",
       placeholder: "Search channels…",
     },
     {

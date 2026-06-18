@@ -6,6 +6,7 @@ import {
   assessApplyReadiness,
   type ApplyReadiness,
 } from "@/services/workflows/patch/applySafety";
+import { resolveFieldSensitivity } from "@/services/workflows/patch/resolveFieldSensitivity";
 
 /**
  * AI-REPAIR-3B — DRY-RUN repair-apply readiness service.
@@ -85,6 +86,11 @@ export function assessRepairApplyReadiness(
     validationOk = null;
   }
 
+  // CS-2 — resolve declared field sensitivity from the registry BEFORE the pure
+  // safety contract, so a metadata-sensitive field blocks even when its key name slips
+  // the heuristics. Plain data in; the contract reads no schema itself.
+  const fieldSensitivity = resolveFieldSensitivity(operations, currentDef.nodes);
+
   const readiness = assessApplyReadiness({
     operations,
     validation: validationOk === null ? null : { ok: validationOk, requiresConfirmation },
@@ -94,6 +100,7 @@ export function assessRepairApplyReadiness(
     workflowActive,
     currentNodeIds: currentDef.nodes.map((n) => n.id),
     ...(recipientChangeConfirmed !== undefined ? { recipientChangeConfirmed } : {}),
+    fieldSensitivity,
   });
 
   return { readiness, currentRevision };

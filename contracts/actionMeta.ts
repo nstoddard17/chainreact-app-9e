@@ -106,6 +106,32 @@ export const FieldNumericBoundsSchema = z
 export type FieldNumericBounds = z.infer<typeof FieldNumericBoundsSchema>;
 
 /**
+ * Apply-safety sensitivity class for a config INPUT field (AI-REPAIR-SAFETY-HARDENING
+ * CS-1). Additive + optional, mirroring the `OutputMeta.sensitive` precedent (Slice
+ * 3.SEC-7) and the additive `riskLevel` flags (Slice 3.SEC-2A) — existing metas parse
+ * unchanged when it is omitted.
+ *
+ * It declares, in the schema, why a deterministic AI repair / Apply must treat a field
+ * as dangerous to auto-write — so the apply-safety contract
+ * (`services/workflows/patch/applySafety.ts`) can decide from METADATA instead of only
+ * guessing from the field's KEY NAME. The three values map 1:1 to the apply-safety
+ * block codes (no new categories, no new copy):
+ *
+ *   - `"secret"`     → `SECRET_WRITE` (token / password / API key / credential material)
+ *   - `"connection"` → `CREDENTIAL_OR_ACCOUNT_MUTATION` (account / connection / provider
+ *                      identity selector — re-points the step at a different credential)
+ *   - `"recipient"`  → `RECIPIENT_CHANGE` (where a message / event / request is SENT;
+ *                      still allowed only with explicit `recipientChangeConfirmed`)
+ *
+ * This is purely ADDITIVE protection: the existing key-name heuristics
+ * (`isSecretLikeKey` / `isRecipientOrDestinationKey` / connection-identity keys) stay as
+ * permanent defense-in-depth. The apply gate unions metadata WITH the heuristics and is
+ * fail-closed — metadata can only ADD a block, it can NEVER clear a heuristic block.
+ */
+export const FieldSensitivitySchema = z.enum(["secret", "connection", "recipient"]);
+export type FieldSensitivity = z.infer<typeof FieldSensitivitySchema>;
+
+/**
  * Normalize a `dependsOn` value into a stable `string[]`.
  *
  * `dependsOn` accepts either a single parent field name (`"baseId"`) for
@@ -152,6 +178,16 @@ export const FieldMetaSchema = z
      * submitted if they take no action.
      */
     defaultValue: z.unknown().optional(),
+    /**
+     * Apply-safety sensitivity class (AI-REPAIR-SAFETY-HARDENING CS-1). Optional +
+     * additive; absent = not sensitive. When set, the deterministic apply-safety
+     * contract blocks an auto-write / variable-reference repair to this field via the
+     * mapped block code (`secret` → SECRET_WRITE, `connection` →
+     * CREDENTIAL_OR_ACCOUNT_MUTATION, `recipient` → RECIPIENT_CHANGE). Unioned WITH the
+     * key-name heuristics (never replaces them); fail-closed — see
+     * `FieldSensitivitySchema` and `services/workflows/patch/applySafety.ts`.
+     */
+    sensitivity: FieldSensitivitySchema.optional(),
     /**
      * Name(s) of other field(s) in the same action whose value(s) gate
      * this field's options / visibility. When any parent changes, the

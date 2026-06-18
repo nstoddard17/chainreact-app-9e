@@ -36,6 +36,7 @@ export const facebookSendMessageMeta: ActionMeta = {
       optionsSource: "facebook:conversations",
       dependsOn: "pageId",
       required: true,
+      sensitivity: "recipient",
       placeholder: "Select a conversation",
     },
     {

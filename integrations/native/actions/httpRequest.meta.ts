@@ -48,6 +48,7 @@ export const httpRequestMeta: ActionMeta = {
       description: "The full URL to request. Only http:// and https:// schemes are allowed.",
       type: "text",
       required: true,
+      sensitivity: "recipient",
       placeholder: "https://api.example.com/v1/widgets",
     },
     {

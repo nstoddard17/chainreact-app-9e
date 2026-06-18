@@ -42,6 +42,7 @@ export const sendEmailMeta: ActionMeta = {
         "Recipient email addresses. Press Enter or click Add to append each address.",
       type: "string-array",
       required: true,
+      sensitivity: "recipient",
       placeholder: "alice@example.com",
     },
     {
@@ -50,6 +51,7 @@ export const sendEmailMeta: ActionMeta = {
       description: "Optional Cc recipients.",
       type: "string-array",
       required: false,
+      sensitivity: "recipient",
       placeholder: "carbon-copy@example.com",
     },
     {
@@ -58,6 +60,7 @@ export const sendEmailMeta: ActionMeta = {
       description: "Optional Bcc recipients (not visible to other recipients).",
       type: "string-array",
       required: false,
+      sensitivity: "recipient",
       placeholder: "blind-copy@example.com",
     },
     {
@@ -95,6 +98,7 @@ export const sendEmailMeta: ActionMeta = {
         "Optional Reply-To header. Accepts bare email or display-name form (e.g. 'Name <a@b.com>'). Used verbatim with no provider-side parsing.",
       type: "text",
       required: false,
+      sensitivity: "recipient",
       placeholder: "reply-to-this@example.com",
     },
     {

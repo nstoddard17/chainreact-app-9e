@@ -112,6 +112,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       description: "Attendee email addresses to invite.",
       type: "string-array",
       required: false,
+      sensitivity: "recipient",
       placeholder: "person@example.com",
     },
     {

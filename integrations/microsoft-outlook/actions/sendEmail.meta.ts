@@ -53,6 +53,7 @@ export const outlookSendEmailMeta: ActionMeta = {
         "Recipient email addresses. Press Enter or click Add to append each address.",
       type: "string-array",
       required: true,
+      sensitivity: "recipient",
       placeholder: "alice@example.com",
     },
     {
@@ -61,6 +62,7 @@ export const outlookSendEmailMeta: ActionMeta = {
       description: "Optional Cc recipients.",
       type: "string-array",
       required: false,
+      sensitivity: "recipient",
       placeholder: "carbon-copy@example.com",
     },
     {
@@ -69,6 +71,7 @@ export const outlookSendEmailMeta: ActionMeta = {
       description: "Optional Bcc recipients (not visible to other recipients).",
       type: "string-array",
       required: false,
+      sensitivity: "recipient",
       placeholder: "blind-copy@example.com",
     },
     {

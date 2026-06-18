@@ -36,6 +36,7 @@ export const microsoftTeamsSendChannelMessageMeta: ActionMeta = {
       required: true,
       optionsSource: "microsoft-teams:channels",
       dependsOn: "teamId",
+      sensitivity: "recipient",
       placeholder: "Select a team first",
     },
     {

@@ -1,5 +1,6 @@
 import { isSecretLikeKey } from "@/core/security/secretKeys";
 import { isRecipientOrDestinationKey } from "@/core/security/recipientKeys";
+import type { FieldSensitivity } from "@/contracts/actionMeta";
 import type { PatchOperationKind } from "./types";
 
 /**
@@ -140,6 +141,12 @@ export interface AssessApplyReadinessInput {
   readonly currentNodeIds?: readonly string[];
   /** FUTURE: a recipient/destination change explicitly confirmed by the user. Default false. */
   readonly recipientChangeConfirmed?: boolean;
+  /**
+   * AI-REPAIR-SAFETY-HARDENING CS-2 — declared field sensitivity resolved from the
+   * registry (opIndex → fieldKey → `FieldSensitivity`). Forwarded verbatim to the pure
+   * `classifyOperationSafety`. Absent → heuristics-only (current behavior).
+   */
+  readonly fieldSensitivity?: ReadonlyMap<number, Readonly<Record<string, FieldSensitivity>>>;
 }
 
 /**
@@ -157,25 +164,38 @@ const CONNECTION_IDENTITY_KEYS: ReadonlySet<string> = new Set([
   "connectedbyuserid",
 ]);
 
-function isConnectionIdentityKey(key: string): boolean {
+export function isConnectionIdentityKey(key: string): boolean {
   return CONNECTION_IDENTITY_KEYS.has(key.toLowerCase().replace(/[_\-\s]/g, ""));
 }
 
-/** Classify ONE config key into a blocking code, or null when the key is apply-safe. */
+/**
+ * Classify ONE config key into a blocking code, or null when the key is apply-safe.
+ *
+ * AI-REPAIR-SAFETY-HARDENING CS-2 — `metaSensitivity` is the field's declared
+ * `FieldMeta.sensitivity` (resolved from the registry BEFORE this pure function runs;
+ * see `resolveFieldSensitivity.ts`). The decision is the fail-closed UNION of the
+ * key-name heuristic AND the metadata flag: each category blocks when EITHER signal
+ * fires. Metadata can therefore only ADD a block (catching a sensitive field whose key
+ * the heuristic misses); it can NEVER clear a heuristic block (the heuristic `||` term
+ * is always evaluated). Precedence matches the historical order: secret → connection →
+ * recipient, so a key the secret heuristic flags stays a `SECRET_WRITE` regardless of
+ * any (mis)declared metadata.
+ */
 function classifyConfigKey(
   key: string,
   recipientChangeConfirmed: boolean,
+  metaSensitivity?: FieldSensitivity,
 ): { code: ApplyBlockCode; message: string } | null {
-  if (isSecretLikeKey(key)) {
+  if (isSecretLikeKey(key) || metaSensitivity === "secret") {
     return { code: "SECRET_WRITE", message: "This change writes to a sensitive field, which can't be applied automatically." };
   }
-  if (isConnectionIdentityKey(key)) {
+  if (isConnectionIdentityKey(key) || metaSensitivity === "connection") {
     return {
       code: "CREDENTIAL_OR_ACCOUNT_MUTATION",
       message: "This change would switch the connected account or credential, which can't be applied automatically.",
     };
   }
-  if (!recipientChangeConfirmed && isRecipientOrDestinationKey(key)) {
+  if (!recipientChangeConfirmed && (isRecipientOrDestinationKey(key) || metaSensitivity === "recipient")) {
     return {
       code: "RECIPIENT_CHANGE",
       message: "This change alters where the workflow sends. It needs your explicit confirmation before it can be applied.",
@@ -196,6 +216,14 @@ export interface ClassifyOperationSafetyOptions {
   readonly recipientChangeConfirmed?: boolean;
   /** Current node ids — enables precise whole-graph-replacement detection. */
   readonly currentNodeIds?: readonly string[];
+  /**
+   * AI-REPAIR-SAFETY-HARDENING CS-2 — declared field sensitivity, resolved from the
+   * registry BEFORE this pure classifier (opIndex → fieldKey → `FieldSensitivity`).
+   * Plain data only — this function never reads a schema/registry itself. Unioned with
+   * the key-name heuristics, fail-closed (metadata can only ADD a block). Absent → the
+   * heuristics alone decide (current behavior).
+   */
+  readonly fieldSensitivity?: ReadonlyMap<number, Readonly<Record<string, FieldSensitivity>>>;
 }
 
 /**
@@ -257,9 +285,10 @@ export function classifyOperationSafety(
       }
       case "updateNodeConfig": {
         const config = isPlainObject(op.config) ? op.config : {};
+        const opSensitivity = opts.fieldSensitivity?.get(opIndex);
         const seen = new Set<ApplyBlockCode>();
         for (const key of Object.keys(config)) {
-          const hit = classifyConfigKey(key, recipientConfirmed);
+          const hit = classifyConfigKey(key, recipientConfirmed, opSensitivity?.[key]);
           if (hit && !seen.has(hit.code)) {
             seen.add(hit.code);
             blocks.push({ ...hit, opIndex, opKind: kind });
@@ -269,7 +298,9 @@ export function classifyOperationSafety(
       }
       case "repairVariableReference": {
         const fieldPath = typeof op.fieldPath === "string" ? op.fieldPath : "";
-        const hit = fieldPath ? classifyConfigKey(fieldPath, recipientConfirmed) : null;
+        const hit = fieldPath
+          ? classifyConfigKey(fieldPath, recipientConfirmed, opts.fieldSensitivity?.get(opIndex)?.[fieldPath])
+          : null;
         if (hit) blocks.push({ ...hit, opIndex, opKind: kind });
         return;
       }
@@ -333,6 +364,7 @@ export function assessApplyReadiness(input: AssessApplyReadinessInput): ApplyRea
     workflowActive: input.workflowActive,
     ...(input.recipientChangeConfirmed !== undefined ? { recipientChangeConfirmed: input.recipientChangeConfirmed } : {}),
     ...(input.currentNodeIds !== undefined ? { currentNodeIds: input.currentNodeIds } : {}),
+    ...(input.fieldSensitivity !== undefined ? { fieldSensitivity: input.fieldSensitivity } : {}),
   });
   blocks.push(...opBlocks);
 

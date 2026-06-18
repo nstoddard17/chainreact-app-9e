@@ -28,6 +28,7 @@ import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 import { normalizeAiPatchNodeKeys } from "@/services/ai/patch/normalizeAiPatchNodeKeys";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
 import { classifyOperationSafety } from "@/services/workflows/patch/applySafety";
+import { resolveFieldSensitivity } from "@/services/workflows/patch/resolveFieldSensitivity";
 import type { PatchOperation, PatchValidationError } from "@/services/workflows/patch/types";
 import type {
   PatchChangeSummary,
@@ -408,6 +409,8 @@ export async function previewWorkflowPatchForAI(
   const { blocks: applyOpBlocks } = classifyOperationSafety(operations, {
     workflowActive: "unknown",
     currentNodeIds: currentDef.nodes.map((n) => n.id),
+    // CS-2 — metadata-driven field sensitivity (registry-resolved before the pure gate).
+    fieldSensitivity: resolveFieldSensitivity(operations, currentDef.nodes),
   });
   const applyable = validation.ok && applyOpBlocks.length === 0;
   const apply = applyable

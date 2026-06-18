@@ -31,6 +31,7 @@ export const googleAnalyticsSendEventMeta: ActionMeta = {
       type: "combobox",
       optionsSource: "google-analytics:accounts",
       required: false,
+      sensitivity: "connection",
       placeholder: "Select an account",
     },
     {
@@ -60,6 +61,7 @@ export const googleAnalyticsSendEventMeta: ActionMeta = {
         "The Measurement Protocol API secret for this data stream (treated as a secret — created in GA Admin → Data Streams → Measurement Protocol API secrets).",
       type: "text",
       required: true,
+      sensitivity: "secret",
       placeholder: "Measurement Protocol API secret",
     },
     {

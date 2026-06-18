@@ -11,11 +11,13 @@
  */
 import {
   assessApplyReadiness,
+  classifyOperationSafety,
   APPLY_ELIGIBLE_OPERATION_KINDS,
   APPLY_BLOCKED_OPERATION_KINDS,
   KNOWN_OPERATION_KINDS,
   type AssessApplyReadinessInput,
 } from "@/services/workflows/patch/applySafety";
+import type { FieldSensitivity } from "@/contracts/actionMeta";
 
 /** A fully apply-ready baseline: one safe config update, validated, fresh revision, inactive. */
 function base(over: Partial<AssessApplyReadinessInput> = {}): AssessApplyReadinessInput {
@@ -186,6 +188,74 @@ describe("assessApplyReadiness — no-leak", () => {
     for (const forbidden of ["SUPERSECRET_TOKEN", "hunter2", "acct_live_123", "apiKey", "password", "accountId"]) {
       expect(json).not.toContain(forbidden);
     }
+  });
+});
+
+describe("classifyOperationSafety — schema-driven field sensitivity (CS-2)", () => {
+  /** Build a one-op fieldSensitivity map. */
+  function sens(fields: Record<string, FieldSensitivity>) {
+    return new Map<number, Record<string, FieldSensitivity>>([[0, fields]]);
+  }
+  const opCodes = (
+    ops: unknown,
+    opts?: Parameters<typeof classifyOperationSafety>[1],
+  ) => classifyOperationSafety(ops, opts).blocks.map((b) => b.code);
+
+  it("metadata blocks an INNOCUOUS-named field the heuristics miss (secret / connection)", () => {
+    // `endpoint` / `inbox` are not in any key-name heuristic — only metadata catches them.
+    const secretOps = [{ op: "updateNodeConfig", nodeId: "n1", config: { signingMaterial: "x" } }];
+    expect(opCodes(secretOps)).not.toContain("SECRET_WRITE"); // heuristic alone misses it
+    expect(opCodes(secretOps, { fieldSensitivity: sens({ signingMaterial: "secret" }) })).toContain("SECRET_WRITE");
+
+    const connOps = [{ op: "updateNodeConfig", nodeId: "n1", config: { workspaceRef: "x" } }];
+    expect(opCodes(connOps)).not.toContain("CREDENTIAL_OR_ACCOUNT_MUTATION");
+    expect(opCodes(connOps, { fieldSensitivity: sens({ workspaceRef: "connection" }) })).toContain(
+      "CREDENTIAL_OR_ACCOUNT_MUTATION",
+    );
+  });
+
+  it("metadata 'recipient' blocks an innocuous-named field, still honoring recipientChangeConfirmed", () => {
+    const ops = [{ op: "updateNodeConfig", nodeId: "n1", config: { inbox: "a@b.com" } }];
+    expect(opCodes(ops)).not.toContain("RECIPIENT_CHANGE"); // `inbox` not in the heuristic list
+    expect(opCodes(ops, { fieldSensitivity: sens({ inbox: "recipient" }) })).toContain("RECIPIENT_CHANGE");
+    // The explicit-confirmation carve-out is preserved for metadata-flagged recipients.
+    expect(
+      opCodes(ops, { fieldSensitivity: sens({ inbox: "recipient" }), recipientChangeConfirmed: true }),
+    ).not.toContain("RECIPIENT_CHANGE");
+  });
+
+  it("the heuristics still block WITHOUT any metadata (defense-in-depth intact)", () => {
+    expect(opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { apiKey: "x" } }])).toContain("SECRET_WRITE");
+    expect(opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { to: "a@b.com" } }])).toContain("RECIPIENT_CHANGE");
+  });
+
+  it("metadata can NEVER clear a heuristic block (fail-closed union)", () => {
+    // A secret-named key stays SECRET_WRITE even when NO metadata is supplied for it…
+    expect(opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { apiKey: "x" } }], { fieldSensitivity: sens({}) })).toContain(
+      "SECRET_WRITE",
+    );
+    // …and even when its metadata is omitted while OTHER keys carry metadata.
+    expect(
+      opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { apiKey: "x", note: "ok" } }], {
+        fieldSensitivity: sens({ note: "recipient" }),
+      }),
+    ).toContain("SECRET_WRITE");
+    // A recipient-named key stays blocked regardless of metadata absence.
+    expect(opCodes([{ op: "updateNodeConfig", nodeId: "n1", config: { channel: "C1" } }], { fieldSensitivity: sens({}) })).toContain(
+      "RECIPIENT_CHANGE",
+    );
+  });
+
+  it("applies to repairVariableReference (its fieldPath is classified too)", () => {
+    const ops = [{ op: "repairVariableReference", nodeId: "n1", fieldPath: "endpoint", newReference: "{{n0.url}}" }];
+    expect(opCodes(ops)).not.toContain("RECIPIENT_CHANGE"); // `endpoint` not a heuristic recipient
+    expect(opCodes(ops, { fieldSensitivity: sens({ endpoint: "recipient" }) })).toContain("RECIPIENT_CHANGE");
+  });
+
+  it("absent / non-matching metadata reproduces the pre-CS-2 behavior exactly", () => {
+    const ops = [{ op: "updateNodeConfig", nodeId: "n1", config: { text: "hello" } }];
+    expect(classifyOperationSafety(ops).blocks).toEqual([]);
+    expect(classifyOperationSafety(ops, { fieldSensitivity: sens({ text: undefined as unknown as FieldSensitivity }) }).blocks).toEqual([]);
   });
 });
 
