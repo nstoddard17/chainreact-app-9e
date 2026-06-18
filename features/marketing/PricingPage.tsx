@@ -203,6 +203,10 @@ const aiCell = (t: PlanTier): CellVal => {
   const v = aiCreditsMonthlyLimitFor(t);
   return v == null ? "Custom" : fmt(v);
 };
+const taskCell = (t: PlanTier): CellVal => {
+  const v = planLimitsFor(t).taskLimit;
+  return v == null ? "Custom" : fmt(v);
+};
 const folderCell = (t: PlanTier): CellVal => {
   const v = planLimitsFor(t).folderLimit;
   return v == null ? "Custom" : fmt(v);
@@ -228,8 +232,7 @@ const COMPARE: ReadonlyArray<CmpGroup> = [
     rows: [
       { label: "Best for", vals: rec("Trying it", "Power users", "Small teams", "Growing teams", "Organizations") },
       { label: "Members included", vals: byTier(memberCell) },
-      // Free/Pro task caps are real (planPolicy); Team/Business are placeholders, so kept qualitative.
-      { label: "Monthly workflow tasks", vals: rec(fmt(planLimitsFor("free").taskLimit ?? 100), fmt(planLimitsFor("pro").taskLimit ?? 1000), "Expanded", "Larger", "Custom") },
+      { label: "Monthly workflow tasks", vals: byTier(taskCell) },
       { label: "Monthly AI credits", vals: byTier(aiCell) },
       { label: "Workflow folders", vals: byTier(folderCell) },
       { label: "Custom templates", vals: byTier(templateCell) },
@@ -497,11 +500,13 @@ export function PricingPage() {
             <p className="pr-meter-note">
               Today, Free includes {fmt(planLimitsFor("free").taskLimit ?? 100)} tasks and{" "}
               {fmt(aiCreditsMonthlyLimitFor("free") ?? 0)} AI credits a month; Pro raises that to{" "}
-              {fmt(planLimitsFor("pro").taskLimit ?? 1000)} tasks and{" "}
-              {fmt(aiCreditsMonthlyLimitFor("pro") ?? 0)} AI credits. Team and Business expand AI
-              credits to {fmt(aiCreditsMonthlyLimitFor("team") ?? 0)} and{" "}
-              {fmt(aiCreditsMonthlyLimitFor("business") ?? 0)}, with larger task allowances. Final
-              numbers are shown in the app and may change before launch.
+              {fmt(planLimitsFor("pro").taskLimit ?? 2000)} tasks and{" "}
+              {fmt(aiCreditsMonthlyLimitFor("pro") ?? 0)} AI credits. Team raises monthly tasks to{" "}
+              {fmt(planLimitsFor("team").taskLimit ?? 7500)} and AI credits to{" "}
+              {fmt(aiCreditsMonthlyLimitFor("team") ?? 0)}; Business to{" "}
+              {fmt(planLimitsFor("business").taskLimit ?? 25000)} tasks and{" "}
+              {fmt(aiCreditsMonthlyLimitFor("business") ?? 0)} AI credits. Enterprise is custom.
+              Limits are shown in the app and may change before launch.
             </p>
           </section>
 

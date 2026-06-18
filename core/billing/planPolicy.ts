@@ -60,20 +60,33 @@ export interface PlanLimits {
 }
 
 /**
- * Launch limits per tier. The capped-tier member/folder numbers EQUAL today's constants
- * (memberLimits: team 5 / org 25; folderLimits: personal 10 / team 100 / org 250). `pro`
- * matches `free` on members/folders but carries a HIGHER monthly task cap
- * (4.PLATFORM-BILLING-PRO-VALUE-3 / CS-PRO-2 — Pro's first real benefit: 1,000 vs Free 100).
- * The Pro task cap is applied to `account_billing.tasks_limit` by the billing webhook on a
- * verified personal Pro activation (this policy is the single source of the number; it is NOT
- * read by the AccountType-keyed member/folder helpers, which still resolve via the type
- * default). `enterprise` is uncapped/config (null).
+ * Launch limits per tier (locked 2026-06-17, PRICING-LOCK-1). This policy is the single
+ * source of these numbers. Task caps: Free 100, Pro 2,000, Team 7,500, Business 25,000,
+ * Enterprise custom (null). AI credits: Free 20, Pro 500, Team 2,000, Business 10,000,
+ * Enterprise null. Members: Free/Pro 1, Team 5, Business 25, Enterprise null. Templates:
+ * Free 0, Pro 25, Team 50, Business 250, Enterprise null.
+ *
+ * Enforcement propagation (full matrix in docs/billing/pricing-and-tiers.md):
+ *   - Pro task cap: stamped onto account_billing.tasks_limit by the billing webhook on a
+ *     verified personal Pro activation (applyResolvedPlan). Enforced.
+ *   - Business task cap: stamped by the team to business upgrade RPC, which defaults
+ *     p_tasks_limit from planLimitsFor('business'). Enforced for new upgrades.
+ *   - Team task cap: NOT yet stamped on team-plan activation. A team account keeps the
+ *     account_billing default (100) unless it arrives via a business to team downgrade
+ *     (which stamps the team cap from policy). Documented, not fully enforced. Follow-up:
+ *     extend applyResolvedPlan to stamp team/org task caps + backfill existing teams.
+ *   - Member/folder caps are resolved by the AccountType-keyed helpers
+ *     (services/accounts/memberLimits.ts, services/workflowFolders/folderLimits.ts), NOT by
+ *     this map. Pro's folderLimit (25) is therefore policy/documentation only: folder
+ *     creation still enforces the personal account-type default (10). Follow-up: make
+ *     folder enforcement plan-aware to honor Pro 25.
+ * `enterprise` is uncapped/config (null); per-deal values are set on account_billing directly.
  */
 export const PLAN_LIMITS: Readonly<Record<PlanTier, PlanLimits>> = {
   free: { memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0, aiCreditsMonthlyLimit: 20 },
-  pro: { memberLimit: 1, folderLimit: 10, taskLimit: 1000, templateLimit: 25, aiCreditsMonthlyLimit: 500 },
-  team: { memberLimit: 5, folderLimit: 100, taskLimit: 100, templateLimit: 50, aiCreditsMonthlyLimit: 2000 },
-  business: { memberLimit: 25, folderLimit: 250, taskLimit: 100, templateLimit: 250, aiCreditsMonthlyLimit: 10000 },
+  pro: { memberLimit: 1, folderLimit: 25, taskLimit: 2000, templateLimit: 25, aiCreditsMonthlyLimit: 500 },
+  team: { memberLimit: 5, folderLimit: 100, taskLimit: 7500, templateLimit: 50, aiCreditsMonthlyLimit: 2000 },
+  business: { memberLimit: 25, folderLimit: 250, taskLimit: 25000, templateLimit: 250, aiCreditsMonthlyLimit: 10000 },
   enterprise: { memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null, aiCreditsMonthlyLimit: null },
 };
 

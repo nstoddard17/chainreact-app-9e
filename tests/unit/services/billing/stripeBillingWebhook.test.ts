@@ -153,7 +153,7 @@ describe("event processing", () => {
       stripeSubscriptionId: "sub_1",
       planStatus: "active",
       plan: "pro",
-      tasksLimit: 1000, // CS-PRO-2: personal Pro activation sets the Pro task cap from policy
+      tasksLimit: 2000, // personal Pro activation sets the Pro task cap from policy (PRICING-LOCK-1)
     });
     expect(mockRecordProcessed).toHaveBeenCalledWith({
       eventId: "evt_1",
@@ -230,7 +230,7 @@ describe("event processing", () => {
 });
 
 describe("Personal Pro task cap (CS-PRO-2)", () => {
-  it("personal subscription.updated for Pro syncs the Pro task cap (1,000)", async () => {
+  it("personal subscription.updated for Pro syncs the Pro task cap (2,000)", async () => {
     mockGetAccount.mockResolvedValueOnce({ id: "p1", type: "personal", deletionStatus: "active" });
     const obj = {
       id: "sub_pro",
@@ -244,7 +244,7 @@ describe("Personal Pro task cap (CS-PRO-2)", () => {
     expect(r.ok && r.outcome).toBe("processed");
     const [, fields] = mockApplySync.mock.calls[0]!;
     expect(fields.plan).toBe("pro");
-    expect(fields.tasksLimit).toBe(1000);
+    expect(fields.tasksLimit).toBe(2000);
   });
 
   it("personal subscription.deleted resets the task cap back to Free (100)", async () => {

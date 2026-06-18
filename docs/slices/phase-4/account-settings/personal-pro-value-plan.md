@@ -1,5 +1,11 @@
 # 4.PLATFORM-BILLING-PRO-VALUE-1 — Personal Pro Value / Launch Decision Plan
 
+> **SUPERSEDED (2026-06-17, PRICING-LOCK-1):** the 1,000-task Pro cap discussed below was raised.
+> Locked launch caps are Pro 2,000 / Team 7,500 / Business 25,000 monthly tasks (Pro folders also
+> raised to 25). The canonical reference is now
+> [docs/billing/pricing-and-tiers.md](../../../billing/pricing-and-tiers.md); this doc is kept as a
+> historical planning record.
+
 **Type:** Planning / design only. **No source, migrations, tests, UI, env, Stripe, or
 behavior changes in this slice. Nothing pushed.**
 **Date:** 2026-06-07

@@ -13,6 +13,12 @@ this slice. Nothing pushed.**
 > [go-live checklist](./platform-billing-go-live-checklist.md). No backend route, webhook,
 > Stripe client, schema, pricing, metering, or plan-sync behavior changed in that UI slice.
 
+> **Update (2026-06-17, PRICING-LOCK-1):** the per-tier task caps referenced here (incl. Pro 1,000)
+> were raised to Pro 2,000 / Team 7,500 / Business 25,000 and Pro folders to 25. The canonical
+> pricing/limit reference is now
+> [docs/billing/pricing-and-tiers.md](../../../billing/pricing-and-tiers.md). AI-credit, seat,
+> and template caps are unchanged.
+
 > **Update (2026-06-07, docs-only, slices `03f4ef3b8` + `8ebaa44d1`):** Personal Pro now has a
 > real benefit and a dedicated dark-launch gate. **CS-PRO-1** added `ENABLE_PERSONAL_PRO`
 > (default OFF) gating the Pro upgrade UI **and** the checkout route's `plan="pro"`. **CS-PRO-2**

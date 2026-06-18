@@ -39,20 +39,30 @@ describe("planPolicy — tiers + limits", () => {
     expect([...PLAN_STATUSES]).toEqual(["active", "trialing", "past_due", "canceled", "incomplete"]);
   });
 
-  it("carries the launch limit numbers (Pro task cap raised in CS-PRO-2; template caps CS-XT-1; AI credits AI-CREDITS-3)", () => {
+  it("carries the locked launch limit numbers (PRICING-LOCK-1, 2026-06-17)", () => {
     expect(planLimitsFor("free")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 100, templateLimit: 0, aiCreditsMonthlyLimit: 20 });
-    // CS-PRO-2: Pro keeps Free's member/folder caps but gets a higher monthly task cap.
-    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 10, taskLimit: 1000, templateLimit: 25, aiCreditsMonthlyLimit: 500 });
-    expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 100, templateLimit: 50, aiCreditsMonthlyLimit: 2000 });
-    expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 100, templateLimit: 250, aiCreditsMonthlyLimit: 10000 });
+    expect(planLimitsFor("pro")).toEqual({ memberLimit: 1, folderLimit: 25, taskLimit: 2000, templateLimit: 25, aiCreditsMonthlyLimit: 500 });
+    expect(planLimitsFor("team")).toEqual({ memberLimit: 5, folderLimit: 100, taskLimit: 7500, templateLimit: 50, aiCreditsMonthlyLimit: 2000 });
+    expect(planLimitsFor("business")).toEqual({ memberLimit: 25, folderLimit: 250, taskLimit: 25000, templateLimit: 250, aiCreditsMonthlyLimit: 10000 });
     expect(planLimitsFor("enterprise")).toEqual({ memberLimit: null, folderLimit: null, taskLimit: null, templateLimit: null, aiCreditsMonthlyLimit: null });
   });
 
-  it("Pro's task cap is higher than Free's (the CS-PRO-2 benefit), member/folder caps equal", () => {
-    expect(planLimitsFor("pro").taskLimit).toBe(1000);
+  it("locks the per-tier monthly task caps (Free 100 / Pro 2k / Team 7.5k / Business 25k / Enterprise null)", () => {
     expect(planLimitsFor("free").taskLimit).toBe(100);
+    expect(planLimitsFor("pro").taskLimit).toBe(2000);
+    expect(planLimitsFor("team").taskLimit).toBe(7500);
+    expect(planLimitsFor("business").taskLimit).toBe(25000);
+    expect(planLimitsFor("enterprise").taskLimit).toBeNull();
+    // Task caps strictly increase across the paid ladder.
+    expect(planLimitsFor("pro").taskLimit!).toBeGreaterThan(planLimitsFor("free").taskLimit!);
+    expect(planLimitsFor("team").taskLimit!).toBeGreaterThan(planLimitsFor("pro").taskLimit!);
+    expect(planLimitsFor("business").taskLimit!).toBeGreaterThan(planLimitsFor("team").taskLimit!);
+  });
+
+  it("Pro keeps Free's member cap but raises folders (25 vs 10) and tasks", () => {
     expect(planLimitsFor("pro").memberLimit).toBe(planLimitsFor("free").memberLimit);
-    expect(planLimitsFor("pro").folderLimit).toBe(planLimitsFor("free").folderLimit);
+    expect(planLimitsFor("pro").folderLimit).toBe(25);
+    expect(planLimitsFor("free").folderLimit).toBe(10);
   });
 
   it("type guards accept known values and reject unknown", () => {
