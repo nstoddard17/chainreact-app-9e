@@ -29,18 +29,18 @@ export function MarketingHeader() {
         </Link>
 
         <nav className="mk-nav-links" aria-label="Primary">
-          <a href="#how-it-works" className="mk-nav-link">
+          <Link href="/#how-it-works" className="mk-nav-link">
             How it works
-          </a>
-          <a href="#examples" className="mk-nav-link">
+          </Link>
+          <Link href="/#examples" className="mk-nav-link">
             Examples
-          </a>
-          <a href="#apps" className="mk-nav-link">
+          </Link>
+          <Link href="/#apps" className="mk-nav-link">
             Apps
-          </a>
-          <a href="#what-you-get" className="mk-nav-link">
+          </Link>
+          <Link href="/#what-you-get" className="mk-nav-link">
             Why ChainReact
-          </a>
+          </Link>
         </nav>
 
         <div className="mk-nav-cta">
