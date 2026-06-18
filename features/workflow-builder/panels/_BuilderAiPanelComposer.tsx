@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { BuilderAiPanelQaInput } from "./_BuilderAiPanelQa";
 
 /**
  * Pinned-bottom composer for the React Agent chat (Slice 4.AI-21C).
@@ -41,6 +42,16 @@ interface Props {
   readonly onCheckWorkflow: () => void;
   readonly checking: boolean;
   /**
+   * Slice 4.AI-DIAG-QA-3 — single-shot workflow Q&A. `onAskDiagnosisQuestion`
+   * submits the typed question (explicit only — never auto-called); `asking` is true
+   * while the round-trip is in flight; `qaPanelBusy` is true when any OTHER panel op
+   * (plan / apply / check / explain / suggest / preview) is running, so the Q&A
+   * submit obeys the existing busy guards. The Q&A input owns its own text state.
+   */
+  readonly onAskDiagnosisQuestion: (question: string) => void;
+  readonly asking: boolean;
+  readonly qaPanelBusy: boolean;
+  /**
    * AI-22 — when true (any staged required-input answers exist), the
    * submit button is enabled even with an empty composer textarea. The
    * user can fill the controls and click Send details with no extra
@@ -79,14 +90,18 @@ export function BuilderAiPanelComposer({
   hasStagedAnswers,
   onCheckWorkflow,
   checking,
+  onAskDiagnosisQuestion,
+  asking,
+  qaPanelBusy,
   chatFillHint,
   onExitChatFill,
 }: Props) {
   const trimmed = prompt.trim();
   const tooLong = prompt.length > MAX_PROMPT_LENGTH;
   const hasContent = trimmed.length > 0 || hasStagedAnswers === true;
-  // A read-only check also blocks submitting so the panel never runs conflicting ops.
-  const canSubmit = hasContent && !tooLong && !busy && !checking;
+  // A read-only check / in-flight Q&A also block submitting so the panel never runs
+  // conflicting ops.
+  const canSubmit = hasContent && !tooLong && !busy && !checking && !asking;
   const showCounter = prompt.length >= COUNTER_THRESHOLD || tooLong;
 
   return (
@@ -100,14 +115,14 @@ export function BuilderAiPanelComposer({
           size="sm"
           variant="outline"
           onClick={onCheckWorkflow}
-          disabled={busy || checking}
+          disabled={busy || checking || asking}
           data-testid="builder-ai-check-button"
           className="h-6 px-2 text-[11px]"
           title="Run a read-only check: is this workflow ready to run?"
         >
           {checking ? "Checking…" : "Check workflow"}
         </Button>
-        {hasMessages && !busy && !checking ? (
+        {hasMessages && !busy && !checking && !asking ? (
           <Button
             type="button"
             size="sm"
@@ -120,6 +135,15 @@ export function BuilderAiPanelComposer({
           </Button>
         ) : null}
       </div>
+
+      {/* AI-DIAG-QA-3 — single-shot workflow Q&A, next to the deterministic
+          "Check workflow" action. Explicit submit only; renders a session-local
+          answer bubble; no Apply / Preview / mutation. */}
+      <BuilderAiPanelQaInput
+        onAsk={onAskDiagnosisQuestion}
+        asking={asking}
+        panelBusy={qaPanelBusy}
+      />
 
       {chatFillHint && (
         <div className="flex items-start justify-between gap-2 px-1">
@@ -191,7 +215,7 @@ export function BuilderAiPanelComposer({
             e.preventDefault();
             if (canSubmit) onSubmit();
           }}
-          disabled={busy || checking}
+          disabled={busy || checking || asking}
           maxLength={MAX_PROMPT_LENGTH + 100}
           aria-invalid={tooLong || undefined}
           rows={3}

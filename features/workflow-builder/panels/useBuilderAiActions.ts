@@ -11,6 +11,7 @@ import { getWorkflow } from "@/lib/api/workflows";
 import type { RequiredInputAnswer } from "../ai";
 import { useBuilderAi } from "../hooks/useBuilderAi";
 import { useGraphSlice } from "../state/graphSlice";
+import { useConfigSlice } from "../state/configSlice";
 import {
   nextChatMessageId,
   persistedMessageToChat,
@@ -75,6 +76,10 @@ export function useBuilderAiActions() {
   // against stale graph state.
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
+  // AI-DIAG-QA-3 — the currently-open config node (the EXISTING builder selection),
+  // forwarded to the Q&A route as a safe selected-node hint. Read-only; never
+  // rendered. Null when no node's config rail is open.
+  const activeNodeId = useConfigSlice((s) => s.activeNodeId);
   const [prompt, setPrompt] = useState("");
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
@@ -429,6 +434,7 @@ export function useBuilderAiActions() {
     workflowId,
     busy,
     currentDraft,
+    selectedNodeId: activeNodeId,
     appendMessage,
     refreshDraftAfterApply,
   });
@@ -480,6 +486,7 @@ export function useBuilderAiActions() {
     suggestedDiagnosisIds: diagnosis.suggestedDiagnosisIds,
     previewing: diagnosis.previewing,
     previewedProposalIds: diagnosis.previewedProposalIds,
+    asking: diagnosis.asking,
     applyingId: diagnosis.applyingId,
     appliedPreviewIds: diagnosis.appliedPreviewIds,
     applyErrorByPreviewId: diagnosis.applyErrorByPreviewId,
@@ -492,6 +499,7 @@ export function useBuilderAiActions() {
     handleClear,
     handleStagedAnswerChange,
     handleCheckWorkflow: diagnosis.handleCheckWorkflow,
+    handleAskDiagnosisQuestion: diagnosis.handleAskDiagnosisQuestion,
     handleExplainDiagnosis: diagnosis.handleExplainDiagnosis,
     handleSuggestFix: diagnosis.handleSuggestFix,
     handlePreviewFix: diagnosis.handlePreviewFix,

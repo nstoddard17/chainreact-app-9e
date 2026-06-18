@@ -142,6 +142,9 @@ export function BuilderAiPanel() {
         hasStagedAnswers={a.stagedAnswers.size > 0}
         onCheckWorkflow={a.handleCheckWorkflow}
         checking={a.checking}
+        onAskDiagnosisQuestion={a.handleAskDiagnosisQuestion}
+        asking={a.asking}
+        qaPanelBusy={a.busy || a.checking || a.explaining || a.suggesting || a.previewing}
         chatFillHint={chatFillHint}
         onExitChatFill={handleExitChatFill}
       />

@@ -14,6 +14,7 @@ import {
 import {
   DiagnosisBody,
   DiagnosisExplanationBody,
+  DiagnosisQaBody,
   RepairPreviewBody,
   RepairProposalBody,
 } from "./_BuilderAiPanelDiagnosis";
@@ -303,6 +304,19 @@ export function MessageItem({
           explanation={message.explanation}
           priorities={message.priorities}
           missingInfo={message.missingInfo}
+        />
+      </AssistantBubble>
+    );
+  }
+  if (message.kind === "diagnosis_qa") {
+    // AI-DIAG-QA-3 — read-only single-shot answer bubble. No Apply / Preview control.
+    return (
+      <AssistantBubble>
+        <DiagnosisQaBody
+          question={message.question}
+          answer={message.answer}
+          pointers={message.pointers}
+          needsUserDecision={message.needsUserDecision}
         />
       </AssistantBubble>
     );

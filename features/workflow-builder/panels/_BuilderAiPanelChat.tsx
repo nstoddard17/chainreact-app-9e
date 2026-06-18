@@ -154,6 +154,27 @@ export interface AssistantRepairPreviewChatMessage {
 }
 
 /**
+ * Slice 4.AI-DIAG-QA-3 — single-shot workflow diagnosis Q&A bubble. Session-local
+ * only (never persisted — `persistedMessageToChat` has no `diagnosis_qa` case, so a
+ * reopened workflow never rehydrates the model prose). Carries ONLY the safe API
+ * response fields plus the user's own question (echoed locally for context) — the
+ * answer text + optional pointer lines + an optional "needs your decision" flag.
+ * There is deliberately NO Apply / Preview control: a Q&A answer is plain guidance.
+ */
+export interface AssistantDiagnosisQaChatMessage {
+  readonly id: ChatMessageId;
+  readonly role: "assistant";
+  readonly kind: "diagnosis_qa";
+  /** The user's question, kept session-local so the answer renders in context. */
+  readonly question: string;
+  readonly answer: string;
+  readonly pointers?: readonly string[];
+  /** True when the answer needs a choice only the user can make. */
+  readonly needsUserDecision?: boolean;
+  readonly persisted?: boolean;
+}
+
+/**
  * Slice 4.AI-CONFIG-ASSIST-3 — chat-fill bubble. Session-local only (never
  * persisted). One discriminated `fill` payload covers the three phases:
  *   - `proposal` — "Put this in <field> on <node>?" + the exact value + Confirm/Cancel.
@@ -182,6 +203,7 @@ export type ChatMessage =
   | AssistantDiagnosisExplanationChatMessage
   | AssistantRepairProposalChatMessage
   | AssistantRepairPreviewChatMessage
+  | AssistantDiagnosisQaChatMessage
   | AssistantChatFillChatMessage;
 
 let chatMessageIdCounter = 0;

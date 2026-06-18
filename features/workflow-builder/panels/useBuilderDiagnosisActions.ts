@@ -5,6 +5,7 @@ import {
   AiApiError,
   AI_CREDITS_EXHAUSTED_MESSAGE,
   applyWorkflowRepair,
+  askDiagnosisQuestion,
   diagnoseWorkflow,
   explainDiagnosis,
   planWorkflowRepair,
@@ -21,6 +22,7 @@ import {
 } from "./_BuilderAiPanelChat";
 import {
   aiAssistantTransportErrorMessage,
+  diagnosisQaFailureMessage,
   REPAIR_PREVIEW_GENERIC_ERROR,
   repairPreviewFailureMessage,
   safeApplyFailureMessage,
@@ -47,6 +49,14 @@ export interface BuilderDiagnosisActionsInput {
   readonly busy: boolean;
   /** Current (possibly unsaved) builder draft — diagnoses what the user sees. */
   readonly currentDraft: WorkflowDraftSnapshot;
+  /**
+   * AI-DIAG-QA-3 — the currently-open config node id (`configSlice.activeNodeId`), if
+   * any. Forwarded to the Q&A route as a SAFE selected-node hint so the answer can be
+   * grounded in the node the user is looking at. Reuses the EXISTING selection state —
+   * no new selection system. The server validates it against the graph, ignores bogus
+   * ids, and NEVER echoes it back; the client never renders it. Null → omitted.
+   */
+  readonly selectedNodeId?: string | null;
   /** Parent message-list appender. */
   readonly appendMessage: (message: ChatMessage) => void;
   /**
@@ -61,6 +71,7 @@ export function useBuilderDiagnosisActions({
   workflowId,
   busy,
   currentDraft,
+  selectedNodeId,
   appendMessage,
   refreshDraftAfterApply,
 }: BuilderDiagnosisActionsInput) {
@@ -90,6 +101,11 @@ export function useBuilderDiagnosisActions({
   const [previewedProposalIds, setPreviewedProposalIds] = useState<
     ReadonlySet<ChatMessageId>
   >(() => new Set());
+  // AI-DIAG-QA-3 — "Ask a question" state. `asking` is the single in-flight
+  // indicator for the single-shot Q&A round-trip. There is NO per-message repeat
+  // guard (each submit is a distinct question, billed on its own); the in-flight
+  // flag alone prevents a concurrent second ask.
+  const [asking, setAsking] = useState(false);
   // AI-REPAIR-3E — Apply state, keyed by the repair_preview message id. `applyingId`
   // is the in-flight preview (disables its button + blocks a second apply);
   // `appliedPreviewIds` records a successful apply (relabels to "Applied", no re-apply);
@@ -105,9 +121,9 @@ export function useBuilderDiagnosisActions({
   async function handleCheckWorkflow(): Promise<void> {
     if (!workflowId) return;
     const wfId: string = workflowId;
-    // AI-DIAG-1b — read-only diagnosis. Never starts while a plan/apply or a
-    // prior check is running (the button is also disabled in those states).
-    if (busy || checking) return;
+    // AI-DIAG-1b — read-only diagnosis. Never starts while a plan/apply, a
+    // prior check, or a Q&A round-trip is running (the button is disabled too).
+    if (busy || checking || asking) return;
     // Session-local user-gesture marker (kind "action" → NOT a planner prompt,
     // NOT persisted). The STALE_PATCH re-run scan only picks `prompt` markers.
     appendMessage({
@@ -150,7 +166,7 @@ export function useBuilderDiagnosisActions({
     const wfId: string = workflowId;
     // AI-DIAG-2b — explanation-only, EXPLICIT click. Never auto-called. Guard
     // against concurrent ops and repeat-charge (already explained / in flight).
-    if (busy || checking || explaining) return;
+    if (busy || checking || explaining || asking) return;
     if (explainedDiagnosisIds.has(diagnosisMessageId)) return;
     setExplaining(true);
     try {
@@ -198,7 +214,7 @@ export function useBuilderDiagnosisActions({
     // AI-REPAIR-1c — proposal-only, EXPLICIT click. Never auto-called. Mirrors the
     // Explain guards: no concurrent op, no repeat-charge (already suggested / in
     // flight). Produces a repair-PROPOSAL message — it never applies/saves/runs.
-    if (busy || checking || explaining || suggesting) return;
+    if (busy || checking || explaining || suggesting || asking) return;
     if (suggestedDiagnosisIds.has(diagnosisMessageId)) return;
     setSuggesting(true);
     try {
@@ -250,7 +266,7 @@ export function useBuilderDiagnosisActions({
     // flight). Produces a repair-PREVIEW message — the server validates a proposed
     // patch against the current draft and returns what WOULD change. It never
     // applies/saves/runs, and there is no Apply control anywhere in this flow.
-    if (busy || checking || explaining || suggesting || previewing) return;
+    if (busy || checking || explaining || suggesting || previewing || asking) return;
     if (previewedProposalIds.has(proposalMessageId)) return;
     setPreviewing(true);
     try {
@@ -288,6 +304,60 @@ export function useBuilderDiagnosisActions({
     }
   }
 
+  async function handleAskDiagnosisQuestion(question: string): Promise<void> {
+    if (!workflowId) return;
+    const wfId: string = workflowId;
+    // AI-DIAG-QA-3 — single-shot, explanation-ONLY Q&A. EXPLICIT submit only; never
+    // auto-called. Guard against any concurrent op + a second in-flight ask. The
+    // composer also length-caps, but we re-guard against empty here defensively.
+    if (busy || checking || explaining || suggesting || previewing || asking) return;
+    const trimmed = question.trim();
+    if (trimmed.length === 0) return;
+    setAsking(true);
+    try {
+      const res = await askDiagnosisQuestion(
+        wfId,
+        trimmed,
+        currentDraft,
+        selectedNodeId ?? undefined,
+      );
+      if (res.ok) {
+        // Render ONLY the safe API response fields (+ the locally-kept question).
+        // No raw DTO / ids / config — and deliberately no Apply / Preview control.
+        appendMessage({
+          id: nextChatMessageId(),
+          role: "assistant",
+          kind: "diagnosis_qa",
+          question: trimmed,
+          answer: res.answer,
+          ...(res.pointers ? { pointers: res.pointers } : {}),
+          ...(res.needsUserDecision !== undefined
+            ? { needsUserDecision: res.needsUserDecision }
+            : {}),
+        });
+      } else {
+        // Handled ok:false (402 credits / 403 frozen / 503 model|gate). Safe,
+        // code-keyed copy only — never the raw code/message.
+        appendMessage({
+          id: nextChatMessageId(),
+          role: "assistant",
+          kind: "error",
+          content: diagnosisQaFailureMessage(res.code),
+        });
+      }
+    } catch (err) {
+      // Transport failure (401 / 404 / 400 too-long-or-empty / 500). Safe, status-mapped.
+      const status = err instanceof AiApiError ? err.status : 0;
+      const content = aiAssistantTransportErrorMessage(
+        status,
+        "Couldn’t answer that right now. Please try again.",
+      );
+      appendMessage({ id: nextChatMessageId(), role: "assistant", kind: "error", content });
+    } finally {
+      setAsking(false);
+    }
+  }
+
   /**
    * Shared body for the FREE deterministic repair previews — selected-candidate
    * (AI-REPAIR-3L), dangling-edge (AI-REPAIR-4A), and self-loop edge
@@ -306,7 +376,7 @@ export function useBuilderDiagnosisActions({
   ): Promise<void> {
     if (!workflowId) return;
     const wfId: string = workflowId;
-    if (busy || checking || explaining || suggesting || previewing) return;
+    if (busy || checking || explaining || suggesting || previewing || asking) return;
     setPreviewing(true);
     try {
       const res = await runPreview(wfId);
@@ -373,7 +443,8 @@ export function useBuilderDiagnosisActions({
     // Guard against any concurrent op + a second apply of any preview + re-applying an
     // already-applied one. The server re-authorizes + re-validates + re-runs the safety
     // contract/executor and persists the DRAFT ONLY — no LLM, no run, no activation.
-    if (busy || checking || explaining || suggesting || previewing || applyingId !== null) return;
+    if (busy || checking || explaining || suggesting || previewing || asking || applyingId !== null)
+      return;
     if (appliedPreviewIds.has(previewMessageId)) return;
     // Clear any prior error for this preview as we retry.
     setApplyErrorByPreviewId((prev) => {
@@ -431,6 +502,7 @@ export function useBuilderDiagnosisActions({
     setSuggestedDiagnosisIds(new Set());
     setPreviewing(false);
     setPreviewedProposalIds(new Set());
+    setAsking(false);
     setApplyingId(null);
     setAppliedPreviewIds(new Set());
     setApplyErrorByPreviewId(new Map());
@@ -444,10 +516,12 @@ export function useBuilderDiagnosisActions({
     suggestedDiagnosisIds,
     previewing,
     previewedProposalIds,
+    asking,
     applyingId,
     appliedPreviewIds,
     applyErrorByPreviewId,
     handleCheckWorkflow,
+    handleAskDiagnosisQuestion,
     handleExplainDiagnosis,
     handleSuggestFix,
     handlePreviewFix,

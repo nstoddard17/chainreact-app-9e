@@ -202,6 +202,16 @@ export async function explainDiagnosis(
  * `ok:false` result; transport failures (401/404/400/500) throw `AiApiError`. The answer is
  * text-only advice — no patch / apply / run / mutation.
  */
+/**
+ * Client-side mirror of the route's server-only `MAX_QUESTION_LENGTH`
+ * (`services/ai/diagnostics/answerWorkflowQuestion.ts`). The Builder Q&A input
+ * uses it to disable submit BEFORE the round-trip so an over-length question never
+ * leaves the client (the route still re-validates and 400s defensively). Kept in
+ * sync by hand — client code may not import the server module. If the server cap
+ * changes, update this constant too.
+ */
+export const DIAGNOSIS_QA_MAX_QUESTION_LENGTH = 500;
+
 export interface AiDiagnosisQaSuccess {
   readonly ok: true;
   readonly answer: string;

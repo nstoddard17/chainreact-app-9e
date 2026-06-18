@@ -43,6 +43,19 @@ export function aiAssistantTransportErrorMessage(status: number, fallback: strin
 }
 
 /**
+ * AI-DIAG-QA-3 — safe, code-keyed copy for a HANDLED (ok:false) workflow-Q&A result.
+ * AI_CREDITS_EXHAUSTED → the shared exhausted message; ACCOUNT_PENDING_DELETION →
+ * a fixed account line; anything else (AI_GATE_ERROR / MODEL_FAILED / PARSE_FAILED /
+ * unknown) → one generic retry line. Defense in depth — a raw model/server/gate
+ * message can NEVER leak through this mapper.
+ */
+export function diagnosisQaFailureMessage(code: string): string {
+  if (code === "AI_CREDITS_EXHAUSTED") return AI_CREDITS_EXHAUSTED_MESSAGE;
+  if (code === "ACCOUNT_PENDING_DELETION") return "This account is pending deletion.";
+  return "Couldn’t answer that right now. Please try again.";
+}
+
+/**
  * Safe copy for a HANDLED (ok:false) repair-preview result. AI_CREDITS_EXHAUSTED →
  * the shared exhausted message; NOTHING_TO_PREVIEW / NO_SAFE_PATCH are EXPECTED,
  * non-503 states whose client-normalized, UI-owned `message` is surfaced as-is; any

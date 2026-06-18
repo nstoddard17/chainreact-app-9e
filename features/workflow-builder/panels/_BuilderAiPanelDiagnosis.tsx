@@ -328,3 +328,73 @@ export function DiagnosisExplanationBody({
     </div>
   );
 }
+
+/**
+ * Slice 4.AI-DIAG-QA-3 — single-shot workflow diagnosis Q&A bubble. Renders the
+ * user's question, the model's plain-language answer, optional safe pointer lines,
+ * and an optional "needs your decision" note. Pure presentational — shows ONLY the
+ * safe API response fields (`answer` / `pointers` / `needsUserDecision`) plus the
+ * locally-kept question. NO raw ids / config / tokens / DTO, and deliberately NO
+ * Apply / Preview control: a Q&A answer is plain guidance. If the answer text points
+ * at an existing Preview fix, that stays prose — the deterministic check cards remain
+ * the only place an actual fix button lives.
+ */
+export function DiagnosisQaBody({
+  question,
+  answer,
+  pointers,
+  needsUserDecision = false,
+}: {
+  readonly question: string;
+  readonly answer: string;
+  readonly pointers?: readonly string[];
+  readonly needsUserDecision?: boolean;
+}) {
+  return (
+    <div data-testid="builder-ai-diagnosis-qa" className="flex flex-col gap-2">
+      <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+        AI answer
+      </p>
+      <p
+        data-testid="builder-ai-diagnosis-qa-question"
+        className="whitespace-pre-wrap text-[11px] italic"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        {question}
+      </p>
+      <p
+        data-testid="builder-ai-diagnosis-qa-answer"
+        className="whitespace-pre-wrap text-xs"
+        style={{ color: "var(--builder-text)" }}
+      >
+        {answer}
+      </p>
+      {pointers && pointers.length > 0 && (
+        <div data-testid="builder-ai-diagnosis-qa-pointers" className="flex flex-col gap-1">
+          <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+            Where to look
+          </p>
+          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
+            {pointers.map((p, i) => (
+              <li key={i}>{p}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {needsUserDecision && (
+        <p
+          data-testid="builder-ai-diagnosis-qa-needs-decision"
+          role="status"
+          className="text-[11px]"
+          style={{ color: "var(--builder-warn)" }}
+        >
+          This needs a decision only you can make — review the options above before
+          changing anything.
+        </p>
+      )}
+      <p className="text-[10px]" style={{ color: "var(--builder-muted)" }}>
+        This is an answer only — your workflow wasn&rsquo;t changed or run.
+      </p>
+    </div>
+  );
+}
