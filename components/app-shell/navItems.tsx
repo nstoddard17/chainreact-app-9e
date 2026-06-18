@@ -142,6 +142,29 @@ function NavIconTemplates() {
   );
 }
 
+// Slice ANALYTICS-1 — bar-chart glyph for the Analytics nav item. The
+// /analytics route renders the account-scoped customizable analytics dashboard.
+function NavIconAnalytics() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <line x1="3" y1="21" x2="21" y2="21" />
+      <rect x="5" y="11" width="3.5" height="7" rx="1" />
+      <rect x="10.25" y="6" width="3.5" height="12" rx="1" />
+      <rect x="15.5" y="14" width="3.5" height="4" rx="1" />
+    </svg>
+  );
+}
+
 // `/notifications` is intentionally NOT in the rail nav. The top-bar
 // `NotificationBell` (with real unread badge) is the canonical entry
 // point — duplicating it in the rail would be visual clutter without
@@ -158,6 +181,7 @@ export const APP_SHELL_NAV_ITEMS: ReadonlyArray<AppShellNavItem> = [
   { id: "templates", label: "Templates", href: "/templates", icon: <NavIconTemplates /> },
   { id: "apps", label: "Apps", href: "/apps", icon: <NavIconLayers /> },
   { id: "runs", label: "Runs", href: "/runs", icon: <NavIconClock /> },
+  { id: "analytics", label: "Analytics", href: "/analytics", icon: <NavIconAnalytics /> },
   { id: "team", label: "Team", href: "/team", icon: <NavIconTeam /> },
 ];
 

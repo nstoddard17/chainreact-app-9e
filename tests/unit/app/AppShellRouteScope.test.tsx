@@ -90,6 +90,42 @@ jest.mock("@/integrations/_registry", () => ({
   getProvider: jest.fn(),
   providerIconUrl: (id: string) => `/integrations/${id}.svg`,
 }));
+// ANALYTICS-1 — the /analytics page resolves the active account then fetches
+// dashboards + the overview via these services (both account-scoped).
+jest.mock("@/services/analytics/dashboards", () => ({
+  listOrSeedDashboards: jest.fn().mockResolvedValue([]),
+}));
+jest.mock("@/services/analytics/analyticsOverview", () => ({
+  getAnalyticsOverview: jest.fn().mockResolvedValue({
+    range: { id: "7d", since: "2026-06-10T00:00:00Z", until: "2026-06-17T00:00:00Z" },
+    totals: {
+      runs: 0,
+      succeeded: 0,
+      failed: 0,
+      successRate: 0,
+      avgDurationMs: null,
+      activeWorkflows: 0,
+      totalWorkflows: 0,
+      connectedApps: 0,
+    },
+    previousTotals: {
+      runs: 0,
+      succeeded: 0,
+      failed: 0,
+      successRate: 0,
+      avgDurationMs: null,
+      activeWorkflows: 0,
+      totalWorkflows: 0,
+      connectedApps: 0,
+    },
+    runsOverTime: [],
+    workflows: [],
+    apps: [],
+    heatmap: { weeks: 16, cells: [], maxCell: 0, total: 0 },
+    recentRuns: [],
+    truncated: false,
+  }),
+}));
 
 import { AppShell } from "@/components/app-shell/AppShell";
 import { MarketingHome } from "@/features/marketing/MarketingHome";
@@ -149,6 +185,12 @@ describe("AppShell — route scope: INCLUDED", () => {
   it("/runs renders AppShell", async () => {
     const { default: RunsPage } = await import("@/app/runs/page");
     const result = await RunsPage();
+    expect(containsElement(result, AppShell)).toBe(true);
+  });
+
+  it("/analytics renders AppShell (Slice ANALYTICS-1)", async () => {
+    const { default: AnalyticsPage } = await import("@/app/analytics/page");
+    const result = await AnalyticsPage();
     expect(containsElement(result, AppShell)).toBe(true);
   });
 });

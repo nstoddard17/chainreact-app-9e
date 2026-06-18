@@ -21,6 +21,7 @@ describe("APP_SHELL_NAV_ITEMS", () => {
       "/templates",
       "/apps",
       "/runs",
+      "/analytics",
       "/team",
     ]);
     for (const item of APP_SHELL_NAV_ITEMS) {
@@ -45,6 +46,13 @@ describe("APP_SHELL_NAV_ITEMS", () => {
     expect(runs).toBeDefined();
     expect(runs?.id).toBe("runs");
     expect(runs?.label).toBe("Runs");
+  });
+
+  it("includes /analytics after the real page landed (Slice ANALYTICS-1)", () => {
+    const analytics = APP_SHELL_NAV_ITEMS.find((i) => i.href === "/analytics");
+    expect(analytics).toBeDefined();
+    expect(analytics?.id).toBe("analytics");
+    expect(analytics?.label).toBe("Analytics");
   });
 
   it("includes /team after the real page landed (Slice 4.TEAM-PAGE-1)", () => {
