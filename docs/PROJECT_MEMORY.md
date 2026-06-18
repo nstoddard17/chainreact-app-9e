@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-17 @ ba0af6616 (AI-DIAG-QA-2 closeout; 893f44001 + 9ddd74df6 LOCAL/UNPUSHED · origin still ba0af6616)
+> Last curated: 2026-06-17 @ ba0af6616 (AI-DIAG-QA-3 UI closeout; 893f44001 + 9ddd74df6 + facc05666 LOCAL/UNPUSHED · origin still ba0af6616)
 
 ## Current status
 
@@ -107,6 +107,23 @@
 
 ## Recently completed arcs
 
+- **Workflow diagnosis Q&A UI (AI-DIAG-QA-3) — UI live, NO flag, LOCAL/UNPUSHED (2026-06-17)** —
+  exposes the AI-DIAG-QA-2 backend in the Builder AI panel: a small question box next to "Check
+  workflow" (placeholder "Ask why this workflow won't run…", Ask→Asking…, Enter submits / Shift+Enter
+  newline, clears on success). **Explicit submit only, single-shot, session-local** `diagnosis_qa`
+  message (question + answer + optional pointers + optional needsUserDecision + "answer only, not
+  changed/run" boundary); **never persisted** (not in `persistedMessageToChat`). Submit disabled on
+  empty/whitespace, >500 chars, in-flight, or any guarded panel op; `asking` threaded into all
+  diagnosis-action + composer guards. **No patch, no Preview/Apply from Q&A, no run/activate/cred/
+  integration mutation, no new flag.** `selectedNodeId` = existing `configSlice.activeNodeId` (hint
+  only, never rendered, omitted when no node open — no new selection system). Safe errors only
+  (402/403/503/transport; no raw model/server/gate text); hostile-mock test proves smuggled ids/
+  tokens/config/`{{` never reach DOM; UI imports no services/MCP. Inherited verification (not re-run
+  at closeout): diagnosisQa 17 + regressions (chatFillHint 10/explain 14/diagnose 8/suggest 13/
+  preview 15/apply 10/client 38), typecheck 0, eslint clean (12 files), lint:structure OK. Commit
+  `facc05666` LOCAL/UNPUSHED (origin `ba0af6616`). **Live UI needs the deployed batch incl. the
+  `workflow_qa` telemetry migration `20260703000000` (dev-DB only, not prod).** →
+  [`ai-diag-qa-3-closeout.md`](./slices/phase-4/ai/ai-diag-qa-3-closeout.md).
 - **Workflow diagnosis Q&A backend (AI-DIAG-QA-2) — backend live, NO UI, NO flag, LOCAL/UNPUSHED (2026-06-17)** —
   single-shot, explanation-ONLY Q&A about the safe diagnosis. New route `POST /ai/diagnose/qa` mirrors the
   Explain (AI-DIAG-2) contract: re-derive DTO server-side (never trust client DTO) → access wall → OpenAI-503
@@ -120,7 +137,8 @@
   to allow `workflow_qa` (non-destructive; **dev-DB-applied via db:push, NOT prod**), so telemetry records
   `feature:"workflow_qa"` (was `other` fallback); `metadata.kind` stays `workflow_diagnosis_qa`. **No UI / no
   Hermes / no multi-turn / no patch / no new flag.** Commits `893f44001` (backend) + `9ddd74df6` (telemetry),
-  LOCAL/UNPUSHED (origin `ba0af6616`). Next: CS-3 UI; ship batch must run the prod migration →
+  LOCAL/UNPUSHED (origin `ba0af6616`). UI now shipped (**AI-DIAG-QA-3** `facc05666`, above); ship
+  batch must run the prod migration →
   [`ai-diag-qa-2-closeout.md`](./slices/phase-4/ai/ai-diag-qa-2-closeout.md) · [`ai-diag-qa-plan-1.md`](./slices/phase-4/ai/ai-diag-qa-plan-1.md).
 - **Builder UX mini-arc — canvas ergonomics + tabs + config-tab consolidation + Data Map MVP + Settings MVP, LOCAL/UNPUSHED (2026-06-16)** —
   builder commits `a6ec958ac → 67ee7f6a6`: non-overlap append/insert + drag resolve, Arrange moved to
