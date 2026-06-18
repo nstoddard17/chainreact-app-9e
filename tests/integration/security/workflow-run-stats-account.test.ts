@@ -35,22 +35,36 @@ loadEnvLocal();
 const ALLOW = process.env.ALLOW_DB_INTEGRATION_TESTS === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const RUN = ALLOW && !!URL && !!SERVICE_KEY;
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const RUN = ALLOW && !!URL && !!SERVICE_KEY && !!ANON_KEY;
 const describeDb = RUN ? describe : describe.skip;
 
 if (!RUN) {
   console.log(
-    "SKIP workflow_run_stats account scope — set ALLOW_DB_INTEGRATION_TESTS=true with NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.",
+    "SKIP workflow_run_stats account scope — set ALLOW_DB_INTEGRATION_TESTS=true with NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY + SUPABASE_SERVICE_ROLE_KEY.",
   );
 }
 
 describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => {
   let admin: SupabaseClient;
   let userId = "";
+  let email = "";
+  let password = "";
   let personalId = "";
   let teamId = "";
   let wfPersonal = "";
   let wfTeam = "";
+
+  // Authenticated (anon-key + password) session for the seeded user — used to
+  // prove the V2-READY-51 lockdown + the security_invoker-view regression.
+  async function sessionClient(): Promise<SupabaseClient> {
+    const c = createClient(URL!, ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error } = await c.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(`signInWithPassword: ${error.message}`);
+    return c;
+  }
 
   async function seedWorkflow(accountId: string, name: string): Promise<string> {
     const { data, error } = await admin
@@ -80,9 +94,11 @@ describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
     const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    email = `wf-runstats-${slug}@chainreact.test`;
+    password = `Pw-${slug}!`;
     const { data, error } = await admin.auth.admin.createUser({
-      email: `wf-runstats-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
+      email,
+      password,
       email_confirm: true,
     });
     if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
@@ -140,5 +156,47 @@ describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => 
     expect(ids).toContain(wfTeam);
     expect(ids).not.toContain(wfPersonal);
     expect(Number(rows.find((r) => r.workflow_id === wfTeam)!.total)).toBe(2);
+  });
+
+  // ── V2-READY-51-HOTFIX — security_invoker view ↔ revoked base-table regression ──
+  //
+  // `workflow_run_stats` is a `security_invoker=true` view over `workflow_runs`.
+  // V2-READY-51 revoked `authenticated` SELECT on `workflow_runs`, so an
+  // authenticated read of the view fails 42501 ("permission denied for table
+  // workflow_runs") — which 500'd the authenticated /workflows shell + GET
+  // /api/workflows until the stats repo was moved to service-role. These pin the
+  // regression so re-introducing an authenticated read of the view (or re-granting
+  // the base table) fails loudly.
+  it("authenticated direct SELECT on workflow_runs is denied (42501) — V2-READY-51 lockdown intact", async () => {
+    const supa = await sessionClient();
+    const r = await supa.from("workflow_runs").select("id").eq("account_id", personalId);
+    expect(r.error).not.toBeNull();
+    expect(r.error!.code).toBe("42501");
+  });
+
+  it("authenticated direct SELECT on the security_invoker view workflow_run_stats FAILS (42501 on underlying workflow_runs) — the shell-500 condition", async () => {
+    const supa = await sessionClient();
+    const r = await supa
+      .from("workflow_run_stats")
+      .select("workflow_id, total")
+      .eq("account_id", personalId);
+    expect(r.error).not.toBeNull();
+    expect(r.error!.code).toBe("42501");
+  });
+
+  it("service-role reads workflow_run_stats successfully (the repository hotfix path) — and exposes only safe aggregates", async () => {
+    const { data, error } = await admin
+      .from("workflow_run_stats")
+      .select("workflow_id, total, succeeded, last_run_at, last_run_status, account_id")
+      .eq("account_id", personalId);
+    expect(error).toBeNull();
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    expect(rows.some((r) => r.workflow_id === wfPersonal)).toBe(true);
+    // The view is a safe aggregate projection — no raw run-payload columns leak.
+    for (const row of rows) {
+      for (const banned of ["trigger_event", "steps", "fatal_error"]) {
+        expect(banned in row).toBe(false);
+      }
+    }
   });
 });

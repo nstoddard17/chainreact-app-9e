@@ -1,17 +1,25 @@
-import { createClient } from "@/utils/supabase/server";
+import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { WorkflowRunStats } from "@/contracts/workflow";
 
 /**
  * Repository for the `workflow_run_stats` view (Slice 4.WORKFLOWS-PAGE-1;
  * account-scoped read added in 4.ACCOUNT-SWITCHER-1).
  *
- * Read via the SSR-cookie client so the view's `security_invoker` semantics +
- * the underlying `workflow_runs` RLS gate access. After the 4.ACCOUNT-MODEL-8
- * cutover that RLS is ACCOUNT-MEMBERSHIP based (not user_id), so the view
- * returns aggregates for every workflow the caller can see across ALL their
- * accounts. `getStatsForAccount` adds an explicit `account_id` filter so the
- * dashboard shows run stats for the caller's ACTIVE account only — matching the
- * account its workflow/folder lists are scoped to. One query (no N+1).
+ * V2-READY-51-HOTFIX: read via SERVICE-ROLE, not the SSR-cookie client.
+ * `workflow_run_stats` is a `security_invoker=true` view over `workflow_runs`,
+ * and V2-READY-51 revoked `authenticated` SELECT on `workflow_runs` (payload
+ * lockdown). A security_invoker view executes with the INVOKER's privileges, so
+ * reading it as `authenticated` now fails `42501 permission denied for table
+ * workflow_runs` — which 500'd the authenticated `/workflows` shell + GET
+ * /api/workflows. The view exposes ONLY safe aggregates (counts / last-run
+ * status), never raw payload columns, so routing it through a service-role
+ * repository is the correct fix (mirrors `workflowRuns.listByAccountForDisplay`).
+ *
+ * NON-AUTHORIZING — the service-role read bypasses RLS. The caller MUST pass an
+ * account it resolved from its OWN session (the `/workflows` page +
+ * `/api/workflows` both pass the caller's active account from
+ * `resolveActiveAccount`/`requireUserWithAccount`); the `eq('account_id', …)`
+ * filter then scopes the aggregates to that one account. One query (no N+1).
  */
 
 interface WorkflowRunStatsRow {
@@ -37,14 +45,17 @@ export function emptyRunStats(): WorkflowRunStats {
 
 /**
  * Lifetime run-stats for every workflow in `accountId`, keyed by workflow_id.
- * Explicit `account_id` filter scopes to the caller's ACTIVE account (RLS still
- * gates membership). Used by the workflows dashboard SSR + GET /api/workflows so
- * stats match the account whose workflows/folders are shown.
+ * Service-role read (see module header); the explicit `account_id` filter scopes
+ * to the caller's resolved ACTIVE account, which the caller authorized. Used by
+ * the workflows dashboard SSR + GET /api/workflows so stats match the account
+ * whose workflows/folders are shown.
  */
 export async function getStatsForAccount(
   accountId: string,
 ): Promise<Map<string, WorkflowRunStats>> {
-  const supabase = await createClient();
+  const supabase = getServiceRoleClient(
+    `workflow_run_stats: getStatsForAccount ${accountId}`,
+  );
   const { data, error } = await supabase
     .from("workflow_run_stats")
     .select("workflow_id, total, succeeded, last_run_at, last_run_status")
