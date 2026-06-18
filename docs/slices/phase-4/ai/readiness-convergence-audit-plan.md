@@ -31,6 +31,38 @@ in this slice. Nothing pushed.**
 
 ---
 
+## 0. CORRECTION (2026-06-17) — environment classification was WRONG; CS-0 already audited PRODUCTION
+
+An earlier version of this doc — and the original CS-0 results in §6.1 — labeled Supabase
+project `qcepijemjlkssfkvzlio` as **"dev."** **That label is wrong and is corrected here.**
+Marcus confirms `qcepijemjlkssfkvzlio` is the **PRODUCTION** Supabase project, and it is the
+**only** database the code has access to (the repo holds only `.env.example` + `.env.local`;
+`.env.local` points at `qcepijemjlkssfkvzlio`).
+
+**Consequences:**
+- **CS-0 already audited PRODUCTION.** The 38 workflow drafts it scanned, and the **0 self-loops
+  / 0 invalid-refs** it found, are **production** numbers — read-only, counts-only.
+- **The production pre-deploy self-loop count is therefore ALREADY SATISFIED: 0 self-loops across
+  38 production drafts.** No new query is required.
+- The flawed discriminator used in CS-0 — *"the `active_revision_id` column exists, therefore this
+  is dev"* — was **misleading**. The column's presence only proves the migration `20260626000000`
+  was **applied (`db:push`) to that project**; it says nothing about dev-vs-prod. **There is no
+  separate dev database** — local development uses the same production Supabase project. The
+  "dev-only migration" note in project memory means the **migration/local code is ahead of the
+  deployed app code**, NOT that a different database was touched. The deployed prod app (an older
+  commit) still executes **drafts** because its code predates the active-revision model — but the
+  database it reads IS `qcepijemjlkssfkvzlio`, the one CS-0 scanned. The `active_revision_id` rows
+  = 0 result is consistent: the column exists, but the deployed code has never written one.
+- **Read-only + no-leak unchanged.** CS-0 ran only counts-only `SELECT`s (plus a zero-row `limit 0`
+  probe); it performed no mutation and printed no names/config/tokens/identities. Only the
+  *environment label* was wrong — not the action or the data.
+
+**§2.5 and §6.1 below are corrected accordingly.** The prod self-loop pre-deploy gate is
+**SATISFIED (0)**; the convergence batch (CS-1 + CS-2) is clear for final local verification /
+deploy-readiness.
+
+---
+
 ## 1. Context
 
 The field-safety track (CS-1…CS-3 + full sweep, commits `55557a2fe` / `d98f877b9`) is
@@ -105,14 +137,25 @@ Publish, and run a workflow that Check calls not-ready for either finding.
   another node references. So invalid-refs **can be present in any current draft or active
   revision**, are not rare, and must be handled without retroactively breaking live workflows.
 
-### 2.5 Active-revision deployment status (critical for prod risk)
+### 2.5 Active-revision deployment status (critical for prod risk) — CORRECTED per §0
+
+> **CORRECTED:** the original wording below wrongly assumed prod was a *different database* that
+> *lacked* the `active_revision_id` column. In fact there is **one** Supabase project
+> (`qcepijemjlkssfkvzlio` = **production**); the migration `20260626000000` **was applied to it**,
+> so the column **exists in production**. What is "ahead of prod" is the **deployed app code**, not
+> the database. The conclusion that **prod live execution still runs DRAFTS** remains correct — but
+> for the right reason: the **deployed** app commit predates the active-revision model, so it never
+> writes `active_revision_id` (CS-0 confirmed **0** active-revision rows), and `getActiveDefinition`
+> takes the safe draft fallback. The retroactive-break surface in prod is therefore the set of
+> **currently-executed drafts** — exactly the population CS-0 scanned (and found clean).
 
 Per project memory + [active-revision-model-closeout.md](../readiness/active-revision-model-closeout.md):
-the active-revision migration `20260626000000` is **applied to dev only — not pushed, not in
-prod.** In **production today**, `active_revision_id` is effectively absent, so
+the active-revision migration `20260626000000` is **applied to the (production) DB but the
+deployed app code does not yet use it.** Because the deployed code predates the model,
 `getActiveDefinition` takes the **safe draft fallback** ([activeRevision.ts:67-68](../../../../services/workflows/activeRevision.ts)) and **live execution runs the DRAFT.** Therefore, in prod
 *right now*, the "active revision" the engine validates at pre-dispatch **is the draft**. The
-retroactive-break surface in prod is the set of **currently-executed drafts**, not revision rows.
+retroactive-break surface in prod is the set of **currently-executed drafts**, not revision rows
+(of which there are zero).
 
 ---
 
@@ -253,15 +296,16 @@ slice does not do it. If prod cannot be audited, §4.1 promotion **must** stay b
 
 ---
 
-## 6.1 CS-0 audit RESULTS — DEV, read-only (2026-06-17)
+## 6.1 CS-0 audit RESULTS — PRODUCTION, read-only (2026-06-17; environment label corrected per §0)
 
-**Environment:** dev Supabase project (ref `qcepijemjlkssfkvzlio`). **Prod was NOT touched.**
-The script probed the **dev-only** `workflows.active_revision_id` column with a zero-row
-`limit 0` select first; its presence confirmed a dev-shaped DB before any row data was read
-(a prod-shaped DB lacking the column would have aborted with zero rows read). Ran the SAME pure
-detectors the runtime/Check use (`findSelfLoopEdges`, `findInvalidVariableReferences`). Counts
-only — no config values, tokens, payloads, names, or account/user ids. The one-off script was
-removed after running (its design is embedded in §6).
+**Environment:** **PRODUCTION** Supabase project (ref `qcepijemjlkssfkvzlio`) — the only database
+the code accesses. _(Originally mislabeled "dev"; corrected per §0. The query did touch the
+production DB, but read-only and counts-only — that was the approved CS-0 audit.)_ The script
+probed `workflows.active_revision_id` with a zero-row `limit 0` select first; its presence
+confirms the migration is applied to this (production) project — it does NOT indicate "dev" (see
+§0). Ran the SAME pure detectors the runtime/Check use (`findSelfLoopEdges`,
+`findInvalidVariableReferences`). Counts only — no config values, tokens, payloads, names, or
+account/user ids. The one-off script was removed after running (its design is embedded in §6).
 
 | Metric | Count |
 |---|---|
@@ -270,27 +314,28 @@ removed after running (its design is embedded in §6).
 | Workflows with an active revision | 0 |
 | **Drafts containing a self-loop edge** | **0** |
 | **Drafts containing an invalid variable reference** | **0** |
-| Active-revision rows scanned | 0 (none present in dev) |
+| Active-revision rows scanned | 0 (none written — deployed code predates the model) |
 | Active-revision defs with self-loop / invalid-ref | 0 / 0 |
 
-**Verdict (dev):** **zero** of either finding. **No legacy cleanup needed.** §4.1 self-loop
-promotion into `findGraphIssues` is **safe in dev** (nothing live is affected; nothing to clean
-up). §4.2 invalid-ref write-path gating was already unconditionally safe.
+**Verdict (PRODUCTION):** **zero** of either finding across 38 production drafts. **No legacy
+cleanup needed.** §4.1 self-loop promotion into `findGraphIssues` is **safe in production**
+(nothing live is affected; nothing to clean up). §4.2 invalid-ref write-path gating was already
+unconditionally safe.
 
-**Honest scope limits:**
-- **Prod is unaudited** (forbidden without approval). Prod has no active-revision columns yet, so
-  it runs **drafts**; the prod *draft* population for self-loops/invalid-refs is unknown. Because
-  self-loops are schema-rejected on every validated write (§2.4), the prod self-loop risk is
-  bounded to pre-rule legacy data — the dev result (0) is consistent with the schema rule holding.
-  **Recommendation:** run the §6 script against prod creds with Marcus's explicit approval before
-  the convergence deploys, OR accept the dev-proven-zero + schema-guarantee and re-run as a
-  pre-deploy gate.
-- Dev currently has **0 active workflows / 0 active revisions**, so the active-revision portion of
-  the scan was vacuous; the meaningful signal is the 38-draft scan (clean).
+**Scope notes:**
+- **This IS the production pre-deploy self-loop count.** Because `qcepijemjlkssfkvzlio` is the
+  production DB (§0), the 38-draft scan covers the exact population prod executes today (it runs
+  drafts; see §2.5). The self-loop pre-deploy gate is **SATISFIED (0)** — no separate prod run is
+  needed.
+- Production currently has **0 active workflows / 0 active-revision rows**, so once the
+  active-revision code deploys there is also nothing pre-existing for CS-1 to newly block there.
+- Self-loops are schema-rejected on every validated write (§2.4), so the count cannot grow through
+  normal use between now and deploy.
 
-**Proceed decision:** self-loop convergence (CS-1) and invalid-ref + Publish gate (CS-2) are
-**clear to implement** as separate slices. The only residual gate is a pre-deploy prod re-run of
-the count (self-loop only) — not a blocker for local implementation.
+**Proceed decision:** self-loop convergence (CS-1) and invalid-ref + Publish gate (CS-2) are both
+**implemented locally** (commits `5c20d0011`, `eff216374`). The production self-loop pre-deploy
+gate is **SATISFIED**; the batch is clear for final local verification + a push-gated deploy on
+Marcus's approval.
 
 ---
 
@@ -372,15 +417,16 @@ accessed. Docs-only, nothing pushed.
 
 ## 13. Recommended next step
 
-**CS-0 is COMPLETE (dev, 2026-06-17): zero self-loops, zero invalid-refs across 38 drafts; no
-active revisions; no cleanup needed (§6.1).** The convergence is cleared to implement:
+**CS-0 is COMPLETE — and it ran against PRODUCTION (2026-06-17; environment label corrected per
+§0): zero self-loops, zero invalid-refs across 38 production drafts; no active-revision rows; no
+cleanup needed (§6.1).** Both convergence slices are implemented locally:
 
-- **CS-1 — promote `SELF_LOOP_EDGE` into `findGraphIssues`** + Check derives it from the shared
-  verdict. Safe per the dev-zero result.
-- **CS-2 — invalid-ref write-path gate at Activate + Publish + add the missing Publish readiness
-  gate.** Unconditionally safe (never touches the engine path).
+- **CS-1 — `SELF_LOOP_EDGE` promoted into `findGraphIssues`** + Check derives it from the shared
+  verdict. Shipped: commit `5c20d0011`.
+- **CS-2 — invalid-ref write-path gate at Activate + Publish + the missing Publish readiness
+  gate.** Shipped: commit `eff216374`.
 
-Ship CS-1 and CS-2 as **separate** local slices (not combined with this audit). **One residual
-pre-deploy gate:** re-run the §6 self-loop count against **prod** (Marcus-approved) before the
-convergence deploys — bounded near-zero by the schema rule, but worth a final confirmation since
-prod runs drafts and was not audited here.
+**The production self-loop pre-deploy gate is SATISFIED (0) — no separate prod run remains.** The
+batch (CS-1 + CS-2) is clear for final local verification and a push-gated deploy on Marcus's
+explicit approval. (Invalid-ref prod counts were also 0 in the same scan, though invalid-ref is
+write-path-only and never blocks live execution, so it was never a deploy gate.)
