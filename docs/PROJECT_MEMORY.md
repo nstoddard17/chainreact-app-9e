@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-17 @ ba0af6616 (AI-GUIDANCE-UNREACHABLE-NODE-1 closeout; c4407ae4d LOCAL/UNPUSHED · origin still ba0af6616)
+> Last curated: 2026-06-17 @ ba0af6616 (AI-DIAG-QA-2 closeout; 893f44001 + 9ddd74df6 LOCAL/UNPUSHED · origin still ba0af6616)
 
 ## Current status
 
@@ -107,6 +107,21 @@
 
 ## Recently completed arcs
 
+- **Workflow diagnosis Q&A backend (AI-DIAG-QA-2) — backend live, NO UI, NO flag, LOCAL/UNPUSHED (2026-06-17)** —
+  single-shot, explanation-ONLY Q&A about the safe diagnosis. New route `POST /ai/diagnose/qa` mirrors the
+  Explain (AI-DIAG-2) contract: re-derive DTO server-side (never trust client DTO) → access wall → OpenAI-503
+  → `aiCreditGate` BEFORE model (feature `workflow_qa`, fast, 1 credit, workflow-owning account; 402/403/503)
+  → `answerWorkflowQuestion` (injected client, structured tool, Zod, output cap; question = delimited DATA;
+  text-only; never a patch; `needsUserDecision`; points to existing Preview fix) → fail-open telemetry. Model
+  sees only `buildDiagnosisQaContext` (Explain allow-list + safe selected-node summary: path/type/description/
+  sensitive ONLY — no values/ids/tokens/`{{nodeId.path}}`); bogus `selectedNodeId` ignored+never echoed.
+  Client `askDiagnosisQuestion` sends id+question(+draft+selectedNodeId), never the DTO. **Telemetry now
+  first-class** (`AI-DIAG-QA-2-TELEMETRY-CHECK`): migration `20260703000000` widened `ai_cost_events_feature_chk`
+  to allow `workflow_qa` (non-destructive; **dev-DB-applied via db:push, NOT prod**), so telemetry records
+  `feature:"workflow_qa"` (was `other` fallback); `metadata.kind` stays `workflow_diagnosis_qa`. **No UI / no
+  Hermes / no multi-turn / no patch / no new flag.** Commits `893f44001` (backend) + `9ddd74df6` (telemetry),
+  LOCAL/UNPUSHED (origin `ba0af6616`). Next: CS-3 UI; ship batch must run the prod migration →
+  [`ai-diag-qa-2-closeout.md`](./slices/phase-4/ai/ai-diag-qa-2-closeout.md) · [`ai-diag-qa-plan-1.md`](./slices/phase-4/ai/ai-diag-qa-plan-1.md).
 - **Builder UX mini-arc — canvas ergonomics + tabs + config-tab consolidation + Data Map MVP + Settings MVP, LOCAL/UNPUSHED (2026-06-16)** —
   builder commits `a6ec958ac → 67ee7f6a6`: non-overlap append/insert + drag resolve, Arrange moved to
   the zoom/fit controls, per-branch tail "+ Add step" (global Add disabled when multiple tails), inline
