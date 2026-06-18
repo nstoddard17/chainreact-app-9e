@@ -129,6 +129,7 @@ export class AnalyticsSourceError extends Error {
   readonly code:
     | "UNKNOWN_SOURCE"
     | "UNKNOWN_METRIC"
+    | "INVALID_QUERY"
     | "MISSING_CREDENTIAL"
     | "PROVIDER_ERROR"
     | "RATE_LIMITED";

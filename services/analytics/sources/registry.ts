@@ -1,5 +1,6 @@
 import type { AnalyticsSourceAdapter, AnalyticsSourceMetric } from "./types";
 import { internalAnalyticsSource } from "./internal";
+import { githubAnalyticsSource } from "./github";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -14,13 +15,20 @@ import { internalAnalyticsSource } from "./internal";
  * node. Unknown provider/metric is rejected (`null` / not-approved) — callers
  * surface that as a widget error, never a crash.
  *
- * Today the only registered source is the INTERNAL ChainReact reference adapter
- * (real account data, no OAuth). External connected-app adapters (Stripe, GitHub,
- * Gmail, Slack, …) get added here in their own security-reviewed slices once their
- * credential-scope + rate-limit + error-normalization behavior is proven.
+ * Registered sources:
+ *   - INTERNAL ChainReact reference adapter (real account data, no OAuth).
+ *   - GITHUB (connected app, read-only Search API, requesting-user-pinned
+ *     personal credential) — ANALYTICS-SOURCES-GITHUB-1.
+ *
+ * Further connected-app adapters (Stripe, Gmail, Slack, …) get added here in
+ * their own security-reviewed slices once their credential-scope + rate-limit +
+ * error-normalization behavior is proven.
  */
 
-const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [internalAnalyticsSource];
+const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
+  internalAnalyticsSource,
+  githubAnalyticsSource,
+];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(
   SOURCE_LIST.map((a) => [a.providerKey, a]),

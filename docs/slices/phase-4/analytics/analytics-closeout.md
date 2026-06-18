@@ -124,6 +124,58 @@ provider here would risk the unsafe credential/scope shortcut the brief warns
 against. **Recommended first real provider: GitHub** (issue/PR counts — simple
 read, low PII).
 
+## GitHub connected-app source v1 (ANALYTICS-SOURCES-GITHUB-1) — BACKEND ONLY
+
+First real connected-app source. **Backend/service only — NOT exposed in the
+widget library or any UI** (no route shipped; see "remaining" below).
+
+- **Adapter** — `services/analytics/sources/github/`: read-only via the GitHub
+  **Search API** (`/search/issues`, exact `total_count`, no pagination). Metrics
+  (single repo): `open_issues`, `open_prs` (scalar), `issues_opened`, `prs_opened`,
+  `prs_merged` (series). Reuses the shared `githubRequest` helper (same `token`
+  auth header + API-version pin as the GitHub action handlers).
+- **Credential model (personal):** GitHub is `personal` in
+  `core/integrations/credentialSharing.ts`, so the adapter resolves the
+  **REQUESTING USER'S OWN** connection (`getActiveForExecution(accountId,
+  "github", null, { connectedByUserId: ctx.userId })`) — **never a co-member's**.
+  No connection → typed `MISSING_CREDENTIAL` (widget shows "connect GitHub"), never
+  another member's data, never a crash. Token decrypted server-side via
+  `decryptToken`; GitHub is non-refreshable so a 401 → `MISSING_CREDENTIAL`
+  (reconnect), no refresh attempt.
+- **Scopes:** uses only the already-granted `repo` scope. **No new scope requested.**
+- **Safety caps:** repo filter is a server-validated `owner/name` (regex
+  allow-list — no qualifier/injection, single repo, no unbounded multi-repo scan).
+  Series split into ≤ `MAX_BUCKETS` (12) buckets (granularity widens day→week→
+  month), so a series widget makes ≤ 12 search calls; a scalar makes 1.
+- **Errors:** all provider failures normalized to typed `AnalyticsSourceError`
+  (`MISSING_CREDENTIAL` / `RATE_LIMITED` / `PROVIDER_ERROR` / `INVALID_QUERY`) with
+  safe, identifier-free messages (no raw provider text leaks). `incomplete_results`
+  → a non-fatal `warnings[]` entry.
+- **Query path** — `services/analytics/sources/querySource.ts`: validates
+  provider + metric + range + groupBy + every filter key against the registry/metric
+  descriptor BEFORE any I/O; delegates to the adapter's read-only `query()`. No
+  arbitrary provider method / URL / node is reachable from widget JSON.
+- **Tests** (35 new; 53 total in the sources suite): bucketing + repo-filter
+  injection rejection + query construction; adapter metric registration, validation
+  pre-I/O, user-pinned credential resolution, missing-credential, scalar/series
+  normalization, 401→MISSING_CREDENTIAL, rate-limit→RATE_LIMITED, provider-error
+  no-leak, incomplete-results warning; querySource validation + delegation; the
+  no-node-execution guard now covers the GitHub + querySource files.
+
+**Caching:** NOT implemented (correct for backend-only). Results carry live
+`freshness` (`cached:false`) + `generatedAt` + `warnings` + caps. Because several
+GitHub series widgets on one dashboard could approach GitHub's 30 req/min search
+limit, **the `analytics_source_snapshots` cache (below) is a prerequisite before
+UI exposure** — proposed as the next slice, not snuck in here.
+
+### Remaining before GitHub widgets go live in the UI
+1. HTTP query route (`requireAccount` + membership → `queryAnalyticsSource`),
+   mapping `AnalyticsSourceError` to a widget warning/error state.
+2. `analytics_source_snapshots` cache (account-scoped, TTL, normalized-only).
+3. GitHub connection-detection + missing-connection UX in the config panel.
+4. Config-panel + widget-body support for `connected_app` sources (repo picker /
+   validated repo input), exposed only once the above are done and tested.
+
 ## Wiring still required before connected-app widgets go live (follow-ups)
 
 1. **Query route** — `GET /api/analytics/sources/[provider]/data` (or a unified

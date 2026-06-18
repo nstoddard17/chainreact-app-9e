@@ -33,17 +33,28 @@ describe("analytics source registry", () => {
   it("isApprovedSourceMetric gates (provider, metric) pairs", () => {
     expect(isApprovedSourceMetric("internal", "success_rate")).toBe(true);
     expect(isApprovedSourceMetric("internal", "arbitrary_method")).toBe(false);
+    expect(isApprovedSourceMetric("github", "open_issues")).toBe(true);
+    expect(isApprovedSourceMetric("github", "delete_repo")).toBe(false);
     expect(isApprovedSourceMetric("stripe", "revenue")).toBe(false); // not registered yet
+  });
+
+  it("registers GitHub as a connected-app source (ANALYTICS-SOURCES-GITHUB-1)", () => {
+    const gh = getAnalyticsSource("github");
+    expect(gh?.connectedApp).toBe(true);
+    expect(gh?.metrics.map((m) => m.key).sort()).toEqual(
+      ["issues_opened", "open_issues", "open_prs", "prs_merged", "prs_opened"],
+    );
   });
 
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");
     expect(internal).toBeDefined();
+    expect(internal?.connectedApp).toBe(false);
     expect(internal?.metrics.map((m) => m.key)).toEqual(
       expect.arrayContaining(["runs_over_time", "success_rate", "top_workflows"]),
     );
-    // No connected-app source is registered in this foundation slice.
-    expect(cat.every((c) => c.connectedApp === false)).toBe(true);
+    // Internal stays non-connected; GitHub is the first connected-app source.
+    expect(cat.find((c) => c.providerKey === "github")?.connectedApp).toBe(true);
   });
 });
