@@ -59,10 +59,9 @@ const FEATURE_BASE_CREDITS: Readonly<Record<string, number>> = {
   workflow_repair: 4,
   workflow_explanation: 1,
   // AI-DIAG-QA-2 — workflow diagnosis Q&A: one cheap (fast-tier) LLM call per
-  // submitted question, same cost class as explanation. Used ONLY for the credit
-  // CHARGE (computeAiCreditCharge) — NOT a DB `ai_cost_events.feature` value (that
-  // column's CHECK constraint has no `workflow_qa` entry; the Q&A cost-event row is
-  // recorded as `other` + `metadata.kind: "workflow_diagnosis_qa"` to avoid a migration).
+  // submitted question, same cost class as explanation. First-class for BOTH the credit
+  // charge (here) and the `ai_cost_events.feature` telemetry row (migration
+  // 20260703000000 widened the feature CHECK to allow `workflow_qa`).
   workflow_qa: 1,
   failed_run_analysis: 1,
   provider_discovery: 1,

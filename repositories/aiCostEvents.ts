@@ -23,6 +23,7 @@ export type AiCostFeature =
   | "workflow_editing"
   | "workflow_repair"
   | "workflow_explanation"
+  | "workflow_qa"
   | "failed_run_analysis"
   | "provider_discovery"
   | "template_recommendation"

@@ -246,17 +246,19 @@ describe("ai/diagnose/qa — credit gate before the model call", () => {
 });
 
 describe("ai/diagnose/qa — selected node + success + telemetry + no-leak", () => {
-  it("success → 200 {ok:true, answer, pointers, needsUserDecision}; records completed event under 'other' + qa kind on the workflow account", async () => {
+  it("success → 200 {ok:true, answer, pointers, needsUserDecision}; records completed event under first-class 'workflow_qa' + qa kind on the workflow account", async () => {
     const res = await call("wf-1");
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({ ok: true, answer: answerOk.answer, pointers: ["Reconnect Gmail in Apps"], needsUserDecision: false });
     expect(mockRecCompleted).toHaveBeenCalledTimes(1);
     const [scope, callInput] = mockRecCompleted.mock.calls[0]!;
-    // DB-valid feature 'other' (no migration for workflow_qa); attribution via metadata kind.
-    expect(scope).toMatchObject({ accountId: "acct-wf-1", userId: "user-1", feature: "other", workflowId: "wf-1" });
+    // AI-DIAG-QA-2-TELEMETRY-CHECK: telemetry feature now equals the credit feature
+    // (migration 20260703000000 widened the ai_cost_events.feature CHECK) — no more 'other'.
+    expect(scope).toMatchObject({ accountId: "acct-wf-1", userId: "user-1", feature: "workflow_qa", workflowId: "wf-1" });
+    expect(scope.feature).not.toBe("other");
     expect(callInput).toMatchObject({ aiCreditsCharged: 1, modelProvider: "openai" });
-    expect(callInput.metadata).toMatchObject({ kind: "workflow_diagnosis_qa", chargeFeature: "workflow_qa" });
+    expect(callInput.metadata).toMatchObject({ kind: "workflow_diagnosis_qa" });
   });
 
   it("a VALID selected-node summary is forwarded to the answerer", async () => {

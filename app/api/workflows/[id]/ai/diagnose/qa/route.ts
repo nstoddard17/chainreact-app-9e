@@ -52,15 +52,13 @@ import { loadWorkflowForMember, requireUser } from "../../../../_shared";
  */
 
 const MODEL_TIER = "fast" as const;
-/** Credit-CHARGE feature key (Marcus decision). NOT the DB `ai_cost_events.feature` value. */
-const QA_CHARGE_FEATURE = "workflow_qa" as const;
 /**
- * DB `ai_cost_events.feature` value for the telemetry row. The column's CHECK constraint has
- * no `workflow_qa` entry and this slice adds NO migration, so the row is recorded as `other`
- * + `metadata.kind: "workflow_diagnosis_qa"` (queryable/attributable). The CREDIT CHARGE is
- * still metered as `workflow_qa` via `computeAiCreditCharge` / the gate.
+ * Feature key for BOTH the credit charge (gate / `computeAiCreditCharge`) and the
+ * `ai_cost_events.feature` telemetry row. Migration `20260703000000` widened the feature
+ * CHECK to allow `workflow_qa`, so telemetry records it first-class (no more `other`
+ * fallback) — credit feature and telemetry feature are aligned for clean billing/audit.
  */
-const QA_EVENT_FEATURE = "other" as const;
+const QA_FEATURE = "workflow_qa" as const;
 const QA_EVENT_KIND = "workflow_diagnosis_qa" as const;
 
 /** Typed, no-leak `ok:false` credit-denial bodies (mirrors the explain route). */
@@ -111,11 +109,11 @@ async function recordQaEvent(
 ): Promise<void> {
   try {
     const charge = computeAiCreditCharge({
-      feature: QA_CHARGE_FEATURE,
+      feature: QA_FEATURE,
       isLlmCall: true,
       modelTier: MODEL_TIER,
     });
-    const scope = { accountId, userId, feature: QA_EVENT_FEATURE, workflowId };
+    const scope = { accountId, userId, feature: QA_FEATURE, workflowId };
     if (result.ok) {
       const micros = estimateModelCostMicros(result.model.modelId, result.model.usage);
       await recordAiModelCallCompleted(scope, {
@@ -129,7 +127,6 @@ async function recordQaEvent(
         aiCreditsCharged: charge.credits,
         metadata: {
           kind: QA_EVENT_KIND,
-          chargeFeature: QA_CHARGE_FEATURE,
           creditPolicyVersion: charge.policyVersion,
         },
       });
@@ -138,7 +135,7 @@ async function recordQaEvent(
         ...(result.model?.modelId ? { modelName: result.model.modelId } : {}),
         modelProvider: "openai",
         ...(result.model?.latencyMs !== undefined ? { latencyMs: result.model.latencyMs } : {}),
-        metadata: { kind: QA_EVENT_KIND, chargeFeature: QA_CHARGE_FEATURE, code: result.code },
+        metadata: { kind: QA_EVENT_KIND, code: result.code },
       });
     }
   } catch {
@@ -225,7 +222,7 @@ export async function POST(
   }
 
   // Credit gate BEFORE the model call. Metered as `workflow_qa` (fast tier).
-  const gate = await aiCreditGate({ accountId, feature: QA_CHARGE_FEATURE, plannedTier: MODEL_TIER });
+  const gate = await aiCreditGate({ accountId, feature: QA_FEATURE, plannedTier: MODEL_TIER });
   if (!gate.ok) return aiCreditDenialResponse(gate);
 
   // Build the SAFE selected-node data summary from the SAME authorized definition the
