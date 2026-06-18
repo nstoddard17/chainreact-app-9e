@@ -4,6 +4,7 @@ import {
   missingRequiredFields,
   requirementLookupKey,
 } from "./requiredFields";
+import { findSelfLoopEdges } from "./selfLoopEdges";
 
 /**
  * Shared execution-readiness validator (B).
@@ -25,6 +26,7 @@ export type GraphIssueCode =
   | "no_trigger"
   | "multiple_triggers"
   | "stale_edge"
+  | "self_loop_edge"
   | "unreachable_node";
 
 export interface GraphIssue {
@@ -98,6 +100,23 @@ export function findGraphIssues(
           "A connection points to a node that no longer exists. Remove it and reconnect the steps.",
       });
     }
+  }
+
+  // Self-loop edges (from === to — a step wired to itself). Promoted into the shared
+  // runtime verdict (AI-READINESS-CONVERGENCE CS-1) so Activate / run-now / engine
+  // pre-dispatch reject it, not just Check. Reuses the canonical `findSelfLoopEdges`
+  // detector — the same definition the deterministic `removeEdge` repair uses — so the
+  // gate and the repair can never disagree. Carries internal ids only (no node name);
+  // the diagnosis layer adds safe display labels separately.
+  for (const sl of findSelfLoopEdges(edges)) {
+    issues.push({
+      code: "self_loop_edge",
+      edgeId: sl.edgeId,
+      nodeId: sl.nodeId,
+      from: sl.nodeId,
+      to: sl.nodeId,
+      message: "A step is connected to itself. Remove the self-connection.",
+    });
   }
 
   // Reachability — only meaningful when at least one trigger exists.

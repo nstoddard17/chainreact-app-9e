@@ -5,7 +5,6 @@ import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness"
 import type { WorkflowDefinition, WorkflowNode } from "@/contracts/workflowDefinition";
 import { resolveNodeDisplayNameFromRegistry } from "@/services/ai/nodeLabel";
 import { findInvalidVariableReferences } from "@/core/workflows/invalidVariableReferences";
-import { findSelfLoopEdges } from "@/core/workflows/selfLoopEdges";
 import { findDuplicateEdges } from "@/core/workflows/duplicateEdges";
 import { getNodeSchema } from "@/services/ai/tools/providerCatalog";
 
@@ -109,15 +108,11 @@ export interface WorkflowReadinessDTO {
    * `checkWorkflowReadiness` graph/field verdict is clean. Empty/absent → none.
    */
   readonly invalidVariableRefs?: readonly InvalidVariableRefDTO[];
-  /**
-   * AI-REPAIR-COVERAGE-1 — self-loop edges (a connection from a step to itself).
-   * Check-only: detected here (diagnosis), NOT in the shared runtime validator, so
-   * it never changes the engine's `runnable` / the Activate gate. Each carries the
-   * internal looping `nodeId` (for safe label resolution); `edgeId` stays server-side
-   * — the deterministic `removeEdge` repair re-derives it from the graph. Empty/absent
-   * → none.
-   */
-  readonly selfLoopEdges?: readonly { readonly nodeId: string }[];
+  // AI-READINESS-CONVERGENCE CS-1 — self-loop edges are NO LONGER a separate DTO term.
+  // They are now promoted into the shared `findGraphIssues` verdict, so they appear in
+  // `graphIssues` with code `self_loop_edge` and drive `runnable` / `readinessError`
+  // like any other structural break. The Check diagnosis derives the SELF_LOOP_EDGE
+  // finding from `graphIssues` (see `diagnoseWorkflowForAgent`), not a duplicate term.
   /**
    * AI-REPAIR-COVERAGE-2 — redundant duplicate edges (two-or-more edges identical by the
    * graph's own key `(from, to, label ?? "")`). Check-only: detected here (diagnosis), NOT
@@ -268,8 +263,9 @@ export async function diagnoseWorkflowReadiness(input: {
       : [];
 
   const invalidVariableRefs = buildInvalidVariableRefs(def.nodes);
-  // AI-REPAIR-COVERAGE-1 — Check-only self-loop detection (does NOT feed `runnable`).
-  const selfLoopEdges = findSelfLoopEdges(def.edges).map((s) => ({ nodeId: s.nodeId }));
+  // AI-READINESS-CONVERGENCE CS-1 — self-loop detection moved into `findGraphIssues`
+  // (shared verdict); it now arrives via `graphIssues` (code `self_loop_edge`), no
+  // separate term here.
   // AI-REPAIR-COVERAGE-2 — Check-only redundant-duplicate-edge detection (does NOT feed
   // `runnable`). Keyed on (from, to, label ?? "") so distinct branches are never flagged.
   const duplicateEdges = findDuplicateEdges(def.edges).map((d) => ({
@@ -287,7 +283,6 @@ export async function diagnoseWorkflowReadiness(input: {
     providers,
     nodeLabels,
     invalidVariableRefs,
-    selfLoopEdges,
     duplicateEdges,
   };
 }

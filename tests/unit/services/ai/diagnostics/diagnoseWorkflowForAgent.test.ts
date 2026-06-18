@@ -156,19 +156,19 @@ describe("diagnoseWorkflowForAgent — access wall short-circuits", () => {
   });
 });
 
-// ───────────────── AI-REPAIR-COVERAGE-1 — self-loop edge finding ─────────────────
-describe("diagnoseWorkflowForAgent — self-loop edge (Check stricter than runtime)", () => {
-  it("emits a SELF_LOOP_EDGE finding with safe labels + gates overallReady false, even when runnable is clean", async () => {
-    // An otherwise-ready workflow whose only problem is a self-loop edge. `runnable`
-    // is TRUE (the runtime validator ignores self-loops), but Check must NOT say ready.
+// ───────────────── AI-READINESS-CONVERGENCE CS-1 — self-loop edge finding ─────────────────
+describe("diagnoseWorkflowForAgent — self-loop edge (now a SHARED graph verdict)", () => {
+  it("derives the SELF_LOOP_EDGE finding from graphIssues; runnable + overallReady both false", async () => {
+    // CS-1: self-loop is now in the shared `findGraphIssues` verdict, so it arrives via
+    // `graphIssues` (code `self_loop_edge`) and `runnable` is FALSE. The dedicated
+    // SELF_LOOP_EDGE finding (+ its repair) is derived from graphIssues, not a separate term.
     mockReadiness.mockResolvedValue(
       readinessOk({
-        runnable: true,
-        readinessError: null,
-        graphIssues: [],
+        runnable: false,
+        readinessError: "INVALID_WORKFLOW_GRAPH",
+        graphIssues: [{ code: "self_loop_edge", nodeId: "n2", edgeId: "e-loop", from: "n2", to: "n2" }],
         fieldGaps: [],
         nodeLabels: [{ nodeId: "n2", label: "Send Email" }],
-        selfLoopEdges: [{ nodeId: "n2" }],
       }),
     );
     mockConnections.mockResolvedValue({ workflowId: WF, access: "OK", allRequiredConnected: true, providers: [] });
@@ -176,8 +176,8 @@ describe("diagnoseWorkflowForAgent — self-loop edge (Check stricter than runti
     const dto = await diagnoseWorkflowForAgent({ subjectUserId: USER, workflowId: WF });
 
     expect(dto.access).toBe("OK");
-    // Check is NOT ready despite a clean runtime verdict.
-    expect(dto.runnable).toBe(true);
+    // CS-1: the runtime verdict now includes self-loops.
+    expect(dto.runnable).toBe(false);
     expect(dto.overallReady).toBe(false);
     const finding = (dto.findings ?? []).find((f) => f.code === "SELF_LOOP_EDGE");
     expect(finding).toBeDefined();
@@ -185,8 +185,13 @@ describe("diagnoseWorkflowForAgent — self-loop edge (Check stricter than runti
     expect(finding!.title).toBe("A step is connected to itself.");
     // Safe display label only.
     expect(finding!.selfLoopNodeLabels).toEqual(["Send Email"]);
-    // No-leak: the raw looping node id never reaches the finding's surfaced fields.
-    expect(JSON.stringify({ title: finding!.title, labels: finding!.selfLoopNodeLabels, summary: dto.summaryText })).not.toContain("n2");
+    // The self-loop is the dedicated card, NOT also a generic graph finding.
+    expect((dto.findings ?? []).filter((f) => f.code === "SELF_LOOP_EDGE")).toHaveLength(1);
+    expect((dto.findings ?? []).some((f) => f.code === "self_loop_edge")).toBe(false);
+    // No-leak: the raw looping node/edge id never reaches the finding's surfaced fields.
+    expect(
+      JSON.stringify({ title: finding!.title, labels: finding!.selfLoopNodeLabels, summary: dto.summaryText }),
+    ).not.toContain("n2");
     // The summary names the self-loop reason.
     expect(dto.summaryText).toMatch(/connect to themselves/i);
   });

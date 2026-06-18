@@ -32,6 +32,8 @@ import { validateRoutesValue } from "../config-modal/fields/_routesValidator";
  *   - `missing_required_field` (error) — a typed node left a required field empty.
  *   - `unreachable_node` (error) — action not connected to the trigger (won't run).
  *   - `stale_edge` (error) — an edge references a node that no longer exists.
+ *   - `self_loop_edge` (error) — an edge connects a step to itself (CS-1; now a shared
+ *     runtime/readiness issue, surfaced here too).
  *
  * Boundary rules: pure; provider-agnostic (only the native router type literal
  * is special-cased, as before). The required-field + connectivity rules live in
@@ -54,7 +56,8 @@ export type BuilderValidationIssueCode =
   | "router_routes_invalid"
   | "missing_required_field"
   | "unreachable_node"
-  | "stale_edge";
+  | "stale_edge"
+  | "self_loop_edge";
 
 export interface BuilderValidationIssue {
   /** Stable id for React keys. Built from `code` + node/edge id. */
@@ -165,8 +168,8 @@ export function collectBuilderValidationIssues(
     }
     issues.push({
       id:
-        g.code === "stale_edge"
-          ? `stale_edge:${g.edgeId}`
+        g.code === "stale_edge" || g.code === "self_loop_edge"
+          ? `${g.code}:${g.edgeId}`
           : `${g.code}:${g.nodeId}`,
       code: g.code,
       severity: "error",

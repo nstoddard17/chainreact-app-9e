@@ -48,6 +48,18 @@ describe("findGraphIssues", () => {
     expect(stale?.to).toBe("ghost");
   });
 
+  it("self_loop_edge when an edge connects a node to itself (CS-1)", () => {
+    const issues = findGraphIssues(
+      [trigger(), http("a1", {})],
+      [edge("e1", "t1", "a1"), edge("e2", "a1", "a1")],
+    );
+    const sl = issues.find((i) => i.code === "self_loop_edge");
+    expect(sl?.edgeId).toBe("e2");
+    expect(sl?.nodeId).toBe("a1");
+    // A self-loop on an EXISTING node is not mis-reported as a stale (dangling) edge.
+    expect(issues.some((i) => i.code === "stale_edge")).toBe(false);
+  });
+
   it("unreachable_node for an action with no path from the trigger", () => {
     const issues = findGraphIssues([trigger(), http("a1", {})], []);
     const u = issues.find((i) => i.code === "unreachable_node");
@@ -94,6 +106,18 @@ describe("evaluateExecutionReadiness + toReadinessError", () => {
     expect(err?.error).toBe("MISSING_REQUIRED_FIELDS");
     expect(err?.message).toBe("HTTP Request is missing required fields: Method, URL.");
     expect(err && "nodes" in err && err.nodes[0]?.missingFields).toEqual(["Method", "URL"]);
+  });
+
+  it("INVALID_WORKFLOW_GRAPH for a self-loop edge — now a shared runtime block (CS-1)", () => {
+    const result = evaluateExecutionReadiness({
+      nodes: connected,
+      edges: [...connectedEdges, edge("e-loop", "a1", "a1")],
+      requiredFieldsByType: HTTP_REQUIRED,
+    });
+    expect(result.ok).toBe(false);
+    const err = toReadinessError(result);
+    expect(err?.error).toBe("INVALID_WORKFLOW_GRAPH");
+    expect(err && "graph" in err && err.graph.some((g) => g.code === "self_loop_edge")).toBe(true);
   });
 
   it("INVALID_WORKFLOW_GRAPH for an orphan action (graph takes precedence over field gaps)", () => {

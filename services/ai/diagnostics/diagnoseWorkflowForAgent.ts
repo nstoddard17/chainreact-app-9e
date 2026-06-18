@@ -334,7 +334,7 @@ export async function diagnoseWorkflowForAgent(input: {
     // AI-REPAIR-4A — `stale_edge` (dangling edge) is actionable; it's aggregated into a
     // single deterministic-repairable STALE_EDGE finding below, NOT a generic no-button
     // graph card (mirrors how INVALID_VARIABLE_REFERENCE is handled separately).
-    if (g.code === "stale_edge") continue;
+    if (g.code === "stale_edge" || g.code === "self_loop_edge") continue;
     findings.push({
       source: "graph",
       code: g.code,
@@ -368,14 +368,16 @@ export async function diagnoseWorkflowForAgent(input: {
       }),
     });
   }
-  // AI-REPAIR-COVERAGE-1 — one actionable SELF_LOOP_EDGE finding carrying the SAFE
-  // display label(s) of the step(s) connected to themselves. Detected Check-only
-  // (never via the runtime graph validator), so it never changes the engine's
-  // `runnable` / the Activate gate — only the Check verdict + an applyable removeEdge
-  // repair (mirrors how INVALID_VARIABLE_REFERENCE is stricter than runtime).
-  const selfLoopEdges = readiness.selfLoopEdges ?? [];
-  if (selfLoopEdges.length > 0) {
-    const labels = labelsFor(selfLoopEdges.map((s) => s.nodeId));
+  // AI-READINESS-CONVERGENCE CS-1 — self-loop is now a SHARED graph issue (it drives
+  // `runnable` false at the engine/Activate/run-now gates). The actionable SELF_LOOP_EDGE
+  // finding is DERIVED from `graphIssues` (code `self_loop_edge`) instead of a separate
+  // readiness term — the finding code, its SAFE display labels, and the deterministic
+  // `removeEdge` repair it drives are all unchanged.
+  const selfLoopGraphIssues = (readiness.graphIssues ?? []).filter((g) => g.code === "self_loop_edge");
+  if (selfLoopGraphIssues.length > 0) {
+    const labels = labelsFor(
+      selfLoopGraphIssues.map((g) => g.nodeId).filter((id): id is string => typeof id === "string"),
+    );
     findings.push({
       source: "graph",
       code: "SELF_LOOP_EDGE",
@@ -549,14 +551,16 @@ export async function diagnoseWorkflowForAgent(input: {
   // would fail at resolution time. Gate the Check-level verdict here WITHOUT
   // changing the engine's `runnable` (that gates live execution and is out of scope).
   const hasInvalidRefs = invalidRefs.length > 0;
-  // AI-REPAIR-COVERAGE-1 — a self-loop is a structural break Check gates on, even when
-  // the engine's `runnable` is clean (same stricter-than-runtime stance as invalid refs).
-  const hasSelfLoopEdges = selfLoopEdges.length > 0;
+  // AI-READINESS-CONVERGENCE CS-1 — self-loop is now a SHARED graph issue, so it already
+  // drives `runnable` false. `overallReady` no longer needs a separate `!hasSelfLoopEdges`
+  // term — `runnable` carries it. `hasSelfLoopEdges` is still derived (from the shared
+  // graphIssues) to drive the render copy + the SELF_LOOP_EDGE card.
+  const hasSelfLoopEdges = selfLoopGraphIssues.length > 0;
   // AI-REPAIR-COVERAGE-2 — a redundant duplicate connection is a structural break Check
   // gates on, even when the engine's `runnable` is clean (same stricter-than-runtime stance).
   const hasDuplicateEdges = duplicateEdges.length > 0;
   const overallReady =
-    runnable && allRequiredConnected && !hasInvalidRefs && !hasSelfLoopEdges && !hasDuplicateEdges;
+    runnable && allRequiredConnected && !hasInvalidRefs && !hasDuplicateEdges;
 
   const { summaryText, nextSteps } = renderWorkflowDiagnosis({
     overallReady,

@@ -73,8 +73,8 @@ beforeEach(() => {
 const call = (workflowId = "wf-1", subjectUserId = "u1") =>
   diagnoseWorkflowReadiness({ subjectUserId, workflowId });
 
-describe("diagnoseWorkflowReadiness — self-loop edges (AI-REPAIR-COVERAGE-1, Check-only)", () => {
-  it("surfaces a self-loop edge WITHOUT changing runnable/readinessError (no runtime/Activate impact)", async () => {
+describe("diagnoseWorkflowReadiness — self-loop edges (AI-READINESS-CONVERGENCE CS-1, shared verdict)", () => {
+  it("surfaces a self-loop in the SHARED graph verdict: graphIssues + runnable false + INVALID_WORKFLOW_GRAPH", async () => {
     // trigger → action, plus a self-loop on the action (from === to).
     mockGetWorkflow.mockResolvedValue(
       workflow(
@@ -87,22 +87,29 @@ describe("diagnoseWorkflowReadiness — self-loop edges (AI-REPAIR-COVERAGE-1, C
     );
     const result = await call();
     expect(result.access).toBe("OK");
-    // The self-loop is detected for Check…
-    expect(result.selfLoopEdges).toEqual([{ nodeId: "action-1" }]);
-    // …but it must NOT change the runtime verdict: findGraphIssues ignores self-loops,
-    // so `runnable` stays driven only by required-field/graph integrity (here: missing
-    // required field on gmail), and `readinessError` is NOT INVALID_WORKFLOW_GRAPH.
-    expect(result.readinessError).not.toBe("INVALID_WORKFLOW_GRAPH");
-    // No raw edge id leaks (only the internal node id, allowed in the DTO).
-    expect(JSON.stringify(result.selfLoopEdges)).not.toContain("e-loop");
+    // CS-1: self-loop is now part of the SHARED `findGraphIssues` verdict, so it drives
+    // `runnable` false + `readinessError` INVALID_WORKFLOW_GRAPH (graph takes precedence
+    // over field gaps) and appears in `graphIssues` with code `self_loop_edge`.
+    expect(result.runnable).toBe(false);
+    expect(result.readinessError).toBe("INVALID_WORKFLOW_GRAPH");
+    expect(
+      (result.graphIssues ?? []).some((g) => g.code === "self_loop_edge" && g.nodeId === "action-1"),
+    ).toBe(true);
+    // The separate `selfLoopEdges` DTO term is gone (derived from graphIssues now).
+    expect((result as unknown as Record<string, unknown>).selfLoopEdges).toBeUndefined();
+    // No-leak: no config VALUE reaches the DTO (only safe codes / internal ids).
+    const json = JSON.stringify(result);
+    for (const secret of ["SECRET_VALUE", "victim@example.com", "C-SECRET-CHANNEL"]) {
+      expect(json).not.toContain(secret);
+    }
   });
 
-  it("reports no self-loop edges for a clean linear graph", async () => {
+  it("reports no self-loop graph issue for a clean linear graph", async () => {
     mockGetWorkflow.mockResolvedValue(
       workflow([triggerNode, gmailAction], [{ id: "e1", from: "trigger-1", to: "action-1" }]),
     );
     const result = await call();
-    expect(result.selfLoopEdges).toEqual([]);
+    expect((result.graphIssues ?? []).some((g) => g.code === "self_loop_edge")).toBe(false);
   });
 });
 
