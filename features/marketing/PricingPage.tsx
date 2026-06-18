@@ -65,6 +65,18 @@ const SIGN_UP = "/auth/sign-up";
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
+/**
+ * Launch prices. Source of truth: docs/billing/pricing-and-tiers.md (PRICING-LOCK-1,
+ * owner-approved). `month` = month-to-month price per month; `annual` = price per month when
+ * billed annually. No dollar amounts live elsewhere in code (Stripe holds the Price ids);
+ * these mirror the canonical doc's Price summary table.
+ */
+const PRICES: Readonly<Record<"pro" | "team" | "business", { month: number; annual: number }>> = {
+  pro: { month: 25, annual: 19 },
+  team: { month: 75, annual: 59 },
+  business: { month: 249, annual: 199 },
+};
+
 // ─── Per-tier card view, with the real numbers sourced from planPolicy ──────────
 
 interface TierView {
@@ -105,9 +117,9 @@ const TIERS: ReadonlyArray<TierView> = [
     icon: Zap,
     tagline: "For power users",
     who: "For individuals who automate every day.",
-    big: fmt(planLimitsFor("pro").taskLimit ?? 1000),
-    bigUnit: "tasks / mo",
-    priceNote: `+ ${fmt(aiCreditsMonthlyLimitFor("pro") ?? 0)} AI credits · price at launch`,
+    big: `$${PRICES.pro.month}`,
+    bigUnit: "/ mo",
+    priceNote: `or $${PRICES.pro.annual}/mo billed annually`,
     bullets: [
       `${fmt(planLimitsFor("pro").taskLimit ?? 1000)} workflow tasks a month`,
       `${fmt(aiCreditsMonthlyLimitFor("pro") ?? 0)} AI credits a month`,
@@ -124,9 +136,9 @@ const TIERS: ReadonlyArray<TierView> = [
     icon: Users,
     tagline: "For small teams",
     who: "For small teams building shared workflows together.",
-    big: `Up to ${fmt(planLimitsFor("team").memberLimit ?? 5)}`,
-    bigUnit: "members",
-    priceNote: `+ ${fmt(aiCreditsMonthlyLimitFor("team") ?? 0)} AI credits · price at launch`,
+    big: `$${PRICES.team.month}`,
+    bigUnit: "/ mo",
+    priceNote: `or $${PRICES.team.annual}/mo billed annually`,
     bullets: [
       "Everything in Pro, for the whole team",
       `Up to ${fmt(planLimitsFor("team").memberLimit ?? 5)} members included`,
@@ -142,9 +154,9 @@ const TIERS: ReadonlyArray<TierView> = [
     icon: Building2,
     tagline: "For growing teams",
     who: "For growing teams running operational workflows.",
-    big: `Up to ${fmt(planLimitsFor("business").memberLimit ?? 25)}`,
-    bigUnit: "members",
-    priceNote: `+ ${fmt(aiCreditsMonthlyLimitFor("business") ?? 0)} AI credits · price at launch`,
+    big: `$${PRICES.business.month}`,
+    bigUnit: "/ mo",
+    priceNote: `or $${PRICES.business.annual}/mo billed annually`,
     bullets: [
       "Everything in Team",
       `Up to ${fmt(planLimitsFor("business").memberLimit ?? 25)} members`,
@@ -293,7 +305,7 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
   },
   {
     q: "What counts as workflow usage?",
-    a: "A workflow task is one action your automation carries out when it runs. Quietly watching for a trigger doesn't count. Exact allowances are shown in the app and may change before broader launch.",
+    a: "A workflow task is one action your automation carries out when it runs. Quietly watching for a trigger doesn't count. Your monthly allowance is shown in the app.",
   },
   {
     q: "What are AI credits?",
@@ -317,7 +329,7 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
   },
   {
     q: "Is pricing final?",
-    a: "Not yet. We're finalizing pricing ahead of broader launch. The plans and limits on this page reflect current direction and may change.",
+    a: "Yes. The prices on this page are ChainReact's plan prices. Start on Free and upgrade whenever you're ready.",
   },
   {
     q: "What happens if I hit a usage limit?",
@@ -411,10 +423,6 @@ export function PricingPage() {
                 Compare plans
               </a>
             </div>
-            <p className="pr-disclaimer" role="note">
-              Pricing and limits may change as ChainReact moves toward broader launch. Plans below
-              reflect current direction.
-            </p>
           </header>
 
           {/* 2. Tier cards */}
@@ -506,7 +514,7 @@ export function PricingPage() {
               {fmt(aiCreditsMonthlyLimitFor("team") ?? 0)}; Business to{" "}
               {fmt(planLimitsFor("business").taskLimit ?? 25000)} tasks and{" "}
               {fmt(aiCreditsMonthlyLimitFor("business") ?? 0)} AI credits. Enterprise is custom.
-              Limits are shown in the app and may change before launch.
+              Your usage is always visible in the app.
             </p>
           </section>
 

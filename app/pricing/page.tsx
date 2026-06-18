@@ -12,7 +12,7 @@ import { PricingPage } from "@/features/marketing/PricingPage";
 export const metadata: Metadata = {
   title: "Pricing — ChainReact",
   description:
-    "ChainReact pricing across Free, Pro, Team, Business, and Enterprise plans. Start free and upgrade as your workflows, team, and AI usage grow. Workflow tasks and AI credits are metered separately. Pricing reflects current direction and may change before launch.",
+    "ChainReact pricing across Free, Pro, Team, Business, and Enterprise plans. Start free and upgrade as your workflows, team, and AI usage grow. Workflow tasks and AI credits are metered separately.",
 };
 
 export default function Page() {

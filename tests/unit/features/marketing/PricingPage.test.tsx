@@ -64,17 +64,29 @@ describe("PricingPage — CTA wiring to real V2 routes", () => {
 });
 
 describe("PricingPage — honesty (no invented pricing / overpromised features)", () => {
-  it("does NOT render invented dollar prices or a 'Save 20%' annual toggle", () => {
+  it("shows the real launch prices (month-to-month) for Free / Pro / Team / Business", () => {
     render(<PricingPage />);
-    expect(screen.queryByText(/\$19/)).toBeNull();
-    expect(screen.queryByText(/\$49/)).toBeNull();
-    expect(screen.queryByText(/save\s*~?\s*20\s*%/i)).toBeNull();
-    expect(screen.queryByText(/billed yearly/i)).toBeNull();
+    expect(screen.getByText("$0")).toBeInTheDocument();
+    expect(screen.getByText("$25")).toBeInTheDocument();
+    expect(screen.getByText("$75")).toBeInTheDocument();
+    expect(screen.getByText("$249")).toBeInTheDocument();
+    // Annual per-month prices appear in each paid card's sub-line.
+    expect(screen.getByText(/\$19\/mo billed annually/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$59\/mo billed annually/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$199\/mo billed annually/i)).toBeInTheDocument();
   });
 
-  it("frames pricing as not-final", () => {
+  it("keeps Enterprise as Custom and shows no fake 'Save 20%' toggle", () => {
     render(<PricingPage />);
-    expect(screen.getByText(/may change as ChainReact moves toward broader launch/i)).toBeInTheDocument();
+    expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/save\s*~?\s*20\s*%/i)).toBeNull();
+  });
+
+  it("removes the unfinished placeholder copy", () => {
+    render(<PricingPage />);
+    expect(screen.queryByText(/price at launch/i)).toBeNull();
+    expect(screen.queryByText(/may change as ChainReact moves toward broader launch/i)).toBeNull();
+    expect(screen.queryByText(/may change before launch/i)).toBeNull();
   });
 
   it("does NOT make absolute compliance/security claims for Enterprise", () => {
