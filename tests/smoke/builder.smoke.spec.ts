@@ -135,7 +135,7 @@ test.describe.serial("Workflow builder smoke", () => {
 
     // Commit the node config (graph-level draft), then close the inspector.
     await page.getByTestId("config-modal-save-button").click();
-    await page.getByRole("button", { name: "Close configuration" }).click();
+    await page.getByRole("button", { name: "Close drawer" }).click();
 
     // Node + header now report Ready. The node's healthy status enum is
     // "configured" (the on-card badge text is the cosmetic "ready"); the header
