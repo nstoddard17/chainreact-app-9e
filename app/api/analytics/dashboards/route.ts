@@ -4,7 +4,7 @@ import {
   listOrSeedDashboards,
   createDashboard,
 } from "@/services/analytics/dashboards";
-import { requireAccount, parseBody } from "../_shared";
+import { requireAccount, requireDashboardAuthor, parseBody } from "../_shared";
 
 /**
  * /api/analytics/dashboards (Slice ANALYTICS-1).
@@ -25,6 +25,10 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireAccount();
   if (!auth.ok) return auth.response;
+  // Authoring (create) is owner/admin-gated for shared accounts; personal owners
+  // qualify. Reads above stay open to any member.
+  const authored = await requireDashboardAuthor(auth.userId, auth.accountId);
+  if (!authored.ok) return authored.response;
   const body = await parseBody(request, CreateDashboardBodySchema);
   if (!body.ok) return body.response;
   const dashboard = await createDashboard(auth.accountId, auth.userId, {

@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import * as notificationsRepo from "@/repositories/notifications";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
+import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import { listOrSeedDashboards } from "@/services/analytics/dashboards";
 import { getAnalyticsOverview } from "@/services/analytics/analyticsOverview";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -39,13 +40,18 @@ export default async function AnalyticsPage() {
   const resolved = await resolveActiveAccount(user.id);
   const account = resolved.ok ? resolved.account : await ensurePersonalAccount(user.id);
 
-  const [dashboards, overview, unreadNotifications, recentNotificationRecords] =
+  const [dashboards, overview, authorRole, unreadNotifications, recentNotificationRecords] =
     await Promise.all([
       listOrSeedDashboards(account.id, user.id),
       getAnalyticsOverview(account.id, DEFAULT_RANGE),
+      // Dashboards are shared account objects: only owner/admin may author them
+      // (a personal owner qualifies). Members get a clean read-only view. The
+      // server routes are the real enforcement; this only drives control visibility.
+      requireAccountRole(user.id, account.id, ["owner", "admin"]),
       notificationsRepo.countUnreadForUser(user.id),
       notificationsRepo.listForUser(user.id, { limit: NOTIFICATION_BELL_PREVIEW_LIMIT }),
     ]);
+  const canManage = authorRole.ok;
 
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
   const bell = await applyCredentialRequestNotice(
@@ -62,6 +68,7 @@ export default async function AnalyticsPage() {
     >
       <AnalyticsDashboard
         accountName={account.name}
+        canManage={canManage}
         initialDashboards={dashboards}
         initialOverview={overview}
         initialRange={DEFAULT_RANGE}

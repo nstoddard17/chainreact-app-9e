@@ -26,9 +26,33 @@ capped (5000) with a `truncated` flag.
 
 - One account-scoped table, `analytics_dashboards`, widgets stored as a validated
   JSONB array (atomic "Done editing" save).
-- Reads: session-client, RLS member-gated. Writes: service-role only (no
-  authenticated write grant), authorized at the route by membership of the
-  dashboard's owning account; cross-account ids collapse to 404 (no leak).
+- Reads: session-client, RLS member-gated (any member may view). Writes:
+  service-role only (no authenticated write grant), authorized at the route by the
+  **authoring permission** below; cross-account ids collapse to 404 (no leak).
+
+### Dashboard authoring permission (shared-object model)
+
+Analytics dashboards are account-WIDE shared objects, so mutation is gated by role
+(distinct from simply viewing account-scoped data, which any member may do):
+
+| Account type | Create / rename / delete / edit layout / add-remove-resize-reorder / save | View / range / refresh / export |
+|---|---|---|
+| Personal | the owner (role `owner`) | owner |
+| Team / Business / Org | **owner or admin** | any member |
+
+- **Server is the enforcement.** Create gate: `requireDashboardAuthor` on the
+  active account (`POST /api/analytics/dashboards`). Update/delete gate:
+  `authorizeDashboardWrite` resolves the dashboard's owning account and requires
+  owner/admin (`PATCH`/`DELETE /api/analytics/dashboards/[id]`). Both reuse
+  `requireAccountRole(userId, accountId, ["owner","admin"])` — a personal owner is
+  `owner`, so personal users keep full self-serve with no special-casing.
+  Non-member → 404 (no leak); member-without-role → 403 `FORBIDDEN_DASHBOARD_AUTHOR`.
+- **UI follows.** The page computes `canManage` (owner/admin) server-side and
+  passes it to the client; members in shared accounts simply don't see Edit / New
+  dashboard / Delete (clean read-only view, no fake disabled controls). Client
+  gating is cosmetic — the routes enforce regardless.
+- **Not yet:** personal (per-user) dashboards and dashboard-level ACLs. Until
+  then, members cannot mutate shared account dashboards. Reads are unchanged.
 - One default ("Overview") per account enforced by a partial unique index; the
   seed is race-safe (loses the race → re-lists).
 - Range + widget config validated server-side (Zod, `.strict()`).
@@ -49,11 +73,10 @@ capped (5000) with a `truncated` flag.
   reserved DB columns were removed (`20260702000001`).
 - **Per-widget run filters** (mine/errors/active) — deferred; would need
   per-widget recompute. No filter UI is rendered.
-- **Dashboard authoring role-gating** — any account member can create/edit/delete
-  dashboards (consistent with member-level read of the same run/workflow data;
-  editing a layout exposes no new data; no billing widgets exist). Owner/admin
-  authoring gating for team/business is an optional fast-follow (product call).
 - **Export** is JSON (dashboard + current data). CSV/visual export can follow.
+
+(Dashboard authoring role-gating is now IMPLEMENTED — see the permission model
+above — not a deferral.)
 
 ---
 

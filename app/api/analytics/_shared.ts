@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { MembershipRole } from "@/contracts/accounts";
 import { createClient } from "@/utils/supabase/server";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
-import { isMember } from "@/repositories/accountMemberships";
+import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import { getDashboardAccount } from "@/services/analytics/dashboards";
+
+/**
+ * Roles allowed to AUTHOR (create / rename / delete / edit-layout) dashboards.
+ * Analytics dashboards are account-wide shared objects, so mutation is gated to
+ * owner/admin for shared accounts. A PERSONAL account's owner has role `owner`,
+ * so personal users keep full self-serve authoring with no special-casing.
+ * READS stay membership-authorized (any member) — viewing is not gated here.
+ */
+const DASHBOARD_AUTHOR_ROLES: readonly MembershipRole[] = ["owner", "admin"];
 
 /**
  * Shared route-layer helpers for /api/analytics (Slice ANALYTICS-1).
@@ -70,11 +80,40 @@ export function dashboardNotFoundResponse(): NextResponse {
   );
 }
 
+/** Standard 403 when a member lacks the owner/admin role to author dashboards. */
+export function dashboardAuthorForbiddenResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: "Only account owners and admins can manage dashboards.",
+      code: "FORBIDDEN_DASHBOARD_AUTHOR",
+    },
+    { status: 403 },
+  );
+}
+
 /**
- * Authorize a write to dashboard `id`: the caller must be a member of the
- * dashboard's owning account. Membership-based (not active-account-based) so a
- * member managing a dashboard while a different account is active still works.
- * Non-member / missing → 404 (no leak). Returns the owning account id on success.
+ * Authorize the caller to AUTHOR dashboards in `accountId` (owner/admin; a
+ * personal owner qualifies). Non-member → 404 (no existence leak); member without
+ * the role → 403. Used by the create route on the active account.
+ */
+export async function requireDashboardAuthor(
+  userId: string,
+  accountId: string,
+): Promise<{ ok: true } | RouteFailure> {
+  const role = await requireAccountRole(userId, accountId, DASHBOARD_AUTHOR_ROLES);
+  if (role.ok) return { ok: true };
+  return role.reason === "not_member"
+    ? { ok: false, response: dashboardNotFoundResponse() }
+    : { ok: false, response: dashboardAuthorForbiddenResponse() };
+}
+
+/**
+ * Authorize a WRITE to dashboard `id`: the caller must be an owner/admin (author)
+ * of the dashboard's owning account. Authoring-role-based, not just membership —
+ * analytics dashboards are shared account objects (a plain member may read but
+ * not mutate them). A missing dashboard OR a non-member both collapse to 404 (no
+ * existence leak); a member who lacks the role gets 403. Returns the owning
+ * account id on success.
  */
 export async function authorizeDashboardWrite(
   userId: string,
@@ -82,8 +121,8 @@ export async function authorizeDashboardWrite(
 ): Promise<{ ok: true; accountId: string } | RouteFailure> {
   const owner = await getDashboardAccount(id);
   if (!owner) return { ok: false, response: dashboardNotFoundResponse() };
-  const member = await isMember(userId, owner.accountId);
-  if (!member) return { ok: false, response: dashboardNotFoundResponse() };
+  const authored = await requireDashboardAuthor(userId, owner.accountId);
+  if (!authored.ok) return authored;
   return { ok: true, accountId: owner.accountId };
 }
 

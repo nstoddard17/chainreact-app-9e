@@ -97,10 +97,12 @@ export function ErrorBanner({
 
 export function EmptyDashboard({
   editing,
+  canManage,
   onAdd,
   onEdit,
 }: {
   editing: boolean;
+  canManage: boolean;
   onAdd: () => void;
   onEdit: () => void;
 }) {
@@ -111,16 +113,19 @@ export function EmptyDashboard({
       </span>
       <div className="text-sm font-medium text-foreground">This dashboard is empty</div>
       <p className="max-w-sm text-xs text-muted-foreground">
-        Add widgets to track runs, success rates, top automations, and more — all from your real
-        account activity.
+        {canManage
+          ? "Add widgets to track runs, success rates, top automations, and more — all from your real account activity."
+          : "There's nothing here yet. An account owner or admin can add widgets to this dashboard."}
       </p>
-      <button
-        type="button"
-        className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground hover:brightness-105"
-        onClick={editing ? onAdd : onEdit}
-      >
-        <AnalyticsIcon name="Plus" size={12} /> {editing ? "Add a widget" : "Edit dashboard"}
-      </button>
+      {canManage && (
+        <button
+          type="button"
+          className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground hover:brightness-105"
+          onClick={editing ? onAdd : onEdit}
+        >
+          <AnalyticsIcon name="Plus" size={12} /> {editing ? "Add a widget" : "Edit dashboard"}
+        </button>
+      )}
     </div>
   );
 }

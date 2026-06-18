@@ -34,6 +34,13 @@ import { RANGE_OPTIONS, makeWidget, ErrorBanner, EmptyDashboard } from "./dashbo
 
 interface Props {
   accountName: string;
+  /**
+   * Whether the viewer may author dashboards (owner/admin; personal owner). When
+   * false (a team/business/org member), edit/create/delete controls are hidden —
+   * reads, range, refresh, and export stay available. The server routes enforce
+   * this regardless; this only governs control visibility.
+   */
+  canManage: boolean;
   initialDashboards: readonly Dashboard[];
   initialOverview: AnalyticsOverview;
   initialRange: AnalyticsRange;
@@ -41,6 +48,7 @@ interface Props {
 
 export function AnalyticsDashboard({
   accountName,
+  canManage,
   initialDashboards,
   initialOverview,
   initialRange,
@@ -100,7 +108,7 @@ export function AnalyticsDashboard({
   const reloadData = useCallback(() => setReloadKey((k) => k + 1), []);
 
   const startEditing = () => {
-    if (!active) return;
+    if (!active || !canManage) return;
     setDraftWidgets(active.widgets.map((w) => ({ ...w })));
     setEditing(true);
   };
@@ -229,7 +237,9 @@ export function AnalyticsDashboard({
           </div>
           <h1 className="text-[28px] font-bold tracking-tight text-foreground">How everything's going</h1>
           <p className="mt-1.5 max-w-xl text-[13.5px] text-muted-foreground">
-            Your account's automations at a glance. Drag, resize, rename, or add widgets in edit mode.
+            {canManage
+              ? "Your account's automations at a glance. Drag, resize, rename, or add widgets in edit mode."
+              : "Your account's automations at a glance."}
           </p>
         </div>
 
@@ -269,28 +279,30 @@ export function AnalyticsDashboard({
           >
             <AnalyticsIcon name="Code" size={11} /> Export
           </button>
-          <button
-            type="button"
-            className={
-              "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[12.5px] font-semibold " +
-              (editing
-                ? "border-success bg-success text-success-foreground"
-                : "border-primary bg-primary text-primary-foreground") +
-              " hover:brightness-105 disabled:opacity-60"
-            }
-            onClick={() => (editing ? void doneEditing() : startEditing())}
-            disabled={saving || !active}
-          >
-            {editing ? (
-              <>
-                <AnalyticsIcon name="Check" size={11} /> {saving ? "Saving…" : "Done editing"}
-              </>
-            ) : (
-              <>
-                <AnalyticsIcon name="Settings" size={11} /> Edit dashboard
-              </>
-            )}
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              className={
+                "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[12.5px] font-semibold " +
+                (editing
+                  ? "border-success bg-success text-success-foreground"
+                  : "border-primary bg-primary text-primary-foreground") +
+                " hover:brightness-105 disabled:opacity-60"
+              }
+              onClick={() => (editing ? void doneEditing() : startEditing())}
+              disabled={saving || !active}
+            >
+              {editing ? (
+                <>
+                  <AnalyticsIcon name="Check" size={11} /> {saving ? "Saving…" : "Done editing"}
+                </>
+              ) : (
+                <>
+                  <AnalyticsIcon name="Settings" size={11} /> Edit dashboard
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -323,7 +335,7 @@ export function AnalyticsDashboard({
           );
         })}
         <span className="flex-1" />
-        {active && !active.isDefault && !editing && (
+        {canManage && active && !active.isDefault && !editing && (
           <button
             type="button"
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-destructive hover:bg-destructive/10"
@@ -332,14 +344,16 @@ export function AnalyticsDashboard({
             <AnalyticsIcon name="X" size={11} /> Delete
           </button>
         )}
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 px-3 py-1 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
-          onClick={() => void createDashboard()}
-          disabled={editing}
-        >
-          <AnalyticsIcon name="Plus" size={11} /> New dashboard
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-primary/50 px-3 py-1 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
+            onClick={() => void createDashboard()}
+            disabled={editing}
+          >
+            <AnalyticsIcon name="Plus" size={11} /> New dashboard
+          </button>
+        )}
       </div>
 
       {/* Edit banner */}
@@ -370,7 +384,12 @@ export function AnalyticsDashboard({
 
       {/* Grid */}
       {widgets.length === 0 ? (
-        <EmptyDashboard editing={editing} onAdd={() => setShowLibrary(true)} onEdit={startEditing} />
+        <EmptyDashboard
+          editing={editing}
+          canManage={canManage}
+          onAdd={() => setShowLibrary(true)}
+          onEdit={startEditing}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 [grid-auto-rows:minmax(190px,auto)]">
           {widgets.map((w) => (
