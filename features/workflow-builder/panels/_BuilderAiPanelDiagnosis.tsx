@@ -344,11 +344,19 @@ export function DiagnosisQaBody({
   answer,
   pointers,
   needsUserDecision = false,
+  selectedNodeLabel,
 }: {
   readonly question: string;
   readonly answer: string;
   readonly pointers?: readonly string[];
   readonly needsUserDecision?: boolean;
+  /**
+   * BUILDER-AI-SELECTED-NODE-QA-1 — a SAFE display label for the step the user had
+   * selected when asking (e.g. "Send Channel Message", a custom step name, or
+   * "Trigger"/"Action"). Already safe by construction (`getNodeDisplayName` never
+   * returns a raw id/config). Absent → no focus line (silent fallback).
+   */
+  readonly selectedNodeLabel?: string;
 }) {
   return (
     <div data-testid="builder-ai-diagnosis-qa" className="flex flex-col gap-2.5">
@@ -372,6 +380,18 @@ export function DiagnosisQaBody({
 
       {/* The question, clearly labelled so the answer reads in context. */}
       <div className="flex flex-col gap-0.5">
+        {selectedNodeLabel && (
+          <p
+            data-testid="builder-ai-diagnosis-qa-focus"
+            className="text-[10px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            Focused on:{" "}
+            <span className="font-medium" style={{ color: "var(--builder-text-2)" }}>
+              {selectedNodeLabel}
+            </span>
+          </p>
+        )}
         <p
           className="text-[10px] font-medium uppercase tracking-wide"
           style={{ color: "var(--builder-muted)" }}

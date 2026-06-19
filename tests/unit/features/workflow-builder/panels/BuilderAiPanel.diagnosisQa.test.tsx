@@ -295,3 +295,94 @@ describe("Workflow Q&A — Explain regression", () => {
     await screen.findByTestId("builder-ai-diagnosis-explanation");
   });
 });
+
+describe("Workflow Q&A — safe selected-node focus (BUILDER-AI-SELECTED-NODE-QA-1)", () => {
+  function selectNode(node: {
+    id: string;
+    kind: "trigger" | "action";
+    provider: string;
+    type: string;
+    displayName?: string;
+  }) {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [{ ...node, config: {}, position: { x: 0, y: 0 } }],
+      edges: [],
+    });
+    useConfigSlice.getState().openNode({ nodeId: node.id, initialValues: {} });
+  }
+
+  it("renders a safe 'Focused on' label (type label, never the raw node id) when a step is selected", async () => {
+    selectNode({ id: "n-slack-xyz", kind: "action", provider: "slack", type: "send_channel_message" });
+    const { user, submit } = await ask("What's wrong with this step?");
+    await user.click(submit);
+    // The id is still forwarded as the API hint…
+    expect(mockAsk.mock.calls[0][3]).toBe("n-slack-xyz");
+    const focus = await screen.findByTestId("builder-ai-diagnosis-qa-focus");
+    expect(focus.textContent).toMatch(/Focused on:/i);
+    // …but only the friendly type label is shown — never the raw id.
+    expect(focus.textContent).toContain("Send Channel Message");
+    const body = screen.getByTestId("builder-ai-diagnosis-qa");
+    expect(body.textContent).not.toContain("n-slack-xyz");
+  });
+
+  it("prefers the user's custom step name when set", async () => {
+    selectNode({
+      id: "n1",
+      kind: "action",
+      provider: "slack",
+      type: "send_channel_message",
+      displayName: "Notify on-call",
+    });
+    const { user, submit } = await ask("Why might this fail?");
+    await user.click(submit);
+    const focus = await screen.findByTestId("builder-ai-diagnosis-qa-focus");
+    expect(focus.textContent).toContain("Notify on-call");
+    expect(focus.textContent).not.toContain("n1");
+  });
+
+  it("shows NO focus line when no node is selected (silent fallback)", async () => {
+    const { user, submit } = await ask("Why won't this run?");
+    await user.click(submit);
+    await screen.findByTestId("builder-ai-diagnosis-qa");
+    expect(screen.queryByTestId("builder-ai-diagnosis-qa-focus")).toBeNull();
+  });
+
+  it("shows NO focus line for a bogus/stale selectedNodeId not in the draft, and never renders it", async () => {
+    // Node id is open in config but absent from the (empty) draft → no safe label.
+    useConfigSlice.getState().openNode({ nodeId: "ghost-node-123", initialValues: {} });
+    const { user, submit } = await ask("What's wrong here?");
+    await user.click(submit);
+    const body = await screen.findByTestId("builder-ai-diagnosis-qa");
+    expect(screen.queryByTestId("builder-ai-diagnosis-qa-focus")).toBeNull();
+    expect(body.textContent).not.toContain("ghost-node-123");
+  });
+
+  it("a selected-node Q&A still routes to Q&A (not planner), stays read-only, and leaks no internals", async () => {
+    selectNode({ id: "node-secret-id", kind: "action", provider: "slack", type: "send_channel_message" });
+    const { user, submit } = await ask("What should I check on this step?");
+    await user.click(submit);
+    expect(mockAsk).toHaveBeenCalledTimes(1);
+    expect(mockPlan).not.toHaveBeenCalled();
+    const body = await screen.findByTestId("builder-ai-diagnosis-qa");
+    // Read-only: no Apply/Preview controls anywhere on the answer.
+    expect(screen.queryByTestId("builder-ai-apply-button")).toBeNull();
+    expect(screen.queryByTestId("builder-ai-qa-apply")).toBeNull();
+    expect(screen.queryByTestId("builder-ai-qa-preview")).toBeNull();
+    // No raw id / reference token leakage.
+    expect(body.textContent).not.toContain("node-secret-id");
+    expect(body.textContent ?? "").not.toContain("{{");
+  });
+
+  it("a selected-node Q&A that hits the credit gate renders the safe exhausted copy, no focus line, no id", async () => {
+    mockAsk.mockResolvedValueOnce({ ok: false, code: "AI_CREDITS_EXHAUSTED", message: "raw gate msg" });
+    selectNode({ id: "node-denied-id", kind: "action", provider: "slack", type: "send_channel_message" });
+    const { user, submit } = await ask("What's wrong with this step?");
+    await user.click(submit);
+    const err = await screen.findByTestId("builder-ai-error-message");
+    expect(err.textContent).toBe(AI_CREDITS_EXHAUSTED_MESSAGE);
+    expect(err.textContent).not.toContain("raw gate msg");
+    expect(err.textContent).not.toContain("AI_CREDITS_EXHAUSTED");
+    expect(screen.queryByTestId("builder-ai-diagnosis-qa-focus")).toBeNull();
+    expect(screen.queryByTestId("builder-ai-diagnosis-qa")).toBeNull();
+  });
+});

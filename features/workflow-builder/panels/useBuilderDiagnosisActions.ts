@@ -27,6 +27,7 @@ import {
   repairPreviewFailureMessage,
   safeApplyFailureMessage,
 } from "./_BuilderAiPanelDiagnosisMessages";
+import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 
 /**
  * Builder AI diagnosis-family actions — "Check workflow" (AI-DIAG-1b), "Explain
@@ -322,8 +323,17 @@ export function useBuilderDiagnosisActions({
         selectedNodeId ?? undefined,
       );
       if (res.ok) {
-        // Render ONLY the safe API response fields (+ the locally-kept question).
-        // No raw DTO / ids / config — and deliberately no Apply / Preview control.
+        // BUILDER-AI-SELECTED-NODE-QA-1 — SAFE client-side label for the open node via
+        // `getNodeDisplayName` (reads only kind/provider/type/displayName; never the raw
+        // id/config/tokens). Bogus/absent id → undefined → UI omits the focus line.
+        const selectedNode =
+          selectedNodeId != null
+            ? currentDraft.nodes.find((n) => n.id === selectedNodeId)
+            : undefined;
+        const selectedNodeLabel = selectedNode ? getNodeDisplayName(selectedNode) : undefined;
+        // Render ONLY the safe API response fields (+ the locally-kept question + the
+        // safe selected-node label). No raw DTO / ids / config — and deliberately no
+        // Apply / Preview control.
         appendMessage({
           id: nextChatMessageId(),
           role: "assistant",
@@ -334,6 +344,7 @@ export function useBuilderDiagnosisActions({
           ...(res.needsUserDecision !== undefined
             ? { needsUserDecision: res.needsUserDecision }
             : {}),
+          ...(selectedNodeLabel ? { selectedNodeLabel } : {}),
         });
       } else {
         // Handled ok:false (402 credits / 403 frozen / 503 model|gate). Safe,

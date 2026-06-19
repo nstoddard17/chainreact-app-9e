@@ -171,6 +171,14 @@ export interface AssistantDiagnosisQaChatMessage {
   readonly pointers?: readonly string[];
   /** True when the answer needs a choice only the user can make. */
   readonly needsUserDecision?: boolean;
+  /**
+   * BUILDER-AI-SELECTED-NODE-QA-1 — a SAFE human-friendly display label for the node
+   * the user had selected when asking (derived client-side via `getNodeDisplayName`:
+   * custom name / metadata-or-type label / kind fallback). NEVER a raw node id, config
+   * value, token, or DTO field. Absent when no node was selected or no safe label could
+   * be derived → the UI shows no focus line.
+   */
+  readonly selectedNodeLabel?: string;
   readonly persisted?: boolean;
 }
 

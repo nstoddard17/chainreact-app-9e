@@ -340,6 +340,7 @@ export function MessageItem({
           answer={message.answer}
           pointers={message.pointers}
           needsUserDecision={message.needsUserDecision}
+          selectedNodeLabel={message.selectedNodeLabel}
         />
       </AssistantBubble>
     );
