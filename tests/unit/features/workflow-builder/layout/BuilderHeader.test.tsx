@@ -129,6 +129,45 @@ describe("BuilderHeader — status pill", () => {
         expect(alert.textContent ?? "").toMatch(/failed to save/i);
       });
   });
+
+  it("the save-error pill exposes a Retry action co-located with the error (BUILDER-SAVE-STATUS-UX-AUDIT-1)", async () => {
+    render(<BuilderHeader workflowName="x" />);
+    mockUpdateWorkflow.mockRejectedValueOnce(new Error("network down"));
+    act(() => {
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+    });
+    await useGraphSlice.getState().save().catch(() => undefined);
+
+    const retry = screen.getByTestId("builder-header-save-retry");
+    expect(retry).toBeInTheDocument();
+    // The raw thrown error is NOT leaked — the alert shows the safe generic copy.
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent ?? "").toMatch(/failed to save workflow/i);
+    expect(alert.textContent ?? "").not.toMatch(/network down/i);
+  });
+
+  it("clicking Retry re-runs the save and clears the error on success", async () => {
+    const user = userEvent.setup();
+    render(<BuilderHeader workflowName="x" />);
+    mockUpdateWorkflow.mockRejectedValueOnce(new Error("network down"));
+    act(() => {
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+    });
+    await useGraphSlice.getState().save().catch(() => undefined);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    // Second attempt succeeds → the error pill clears, no more alert.
+    mockUpdateWorkflow.mockResolvedValueOnce({
+      draftDefinition: { nodes: [{ id: "t", kind: "trigger", provider: "slack", type: "", config: {}, position: { x: 0, y: 0 } }], edges: [] },
+      updatedAt: "2026-06-19T00:00:00.000Z",
+    });
+    await user.click(screen.getByTestId("builder-header-save-retry"));
+
+    await waitFor(() => {
+      expect(mockUpdateWorkflow).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  });
 });
 
 describe("BuilderHeader — Save behavior", () => {

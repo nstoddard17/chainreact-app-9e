@@ -157,6 +157,7 @@ export function BuilderHeader({
           leftRail={leftRail}
           status={status}
           saveError={saveError}
+          onRetrySave={handleSave}
         />
         <HeaderCenterMeta workflowId={workflowId} />
         <HeaderRight
@@ -188,11 +189,13 @@ function HeaderLeft({
   leftRail,
   status,
   saveError,
+  onRetrySave,
 }: {
   workflowName: string;
   leftRail?: { isCollapsed: boolean; onToggle: () => void };
   status: SaveStatus;
   saveError: string | null;
+  onRetrySave?: () => void;
 }) {
   const router = useRouter();
   // Slice 4.WORKFLOWS-PAGE-1 follow-up — wire the header back arrow to the
@@ -248,7 +251,7 @@ function HeaderLeft({
           >
             {workflowName}
           </h2>
-          <StatusPill status={status} saveError={saveError} />
+          <StatusPill status={status} saveError={saveError} onRetry={onRetrySave} />
         </div>
       </div>
     </div>

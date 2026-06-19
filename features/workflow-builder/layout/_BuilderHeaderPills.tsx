@@ -78,9 +78,18 @@ export function HeaderValidationPill({
 export function StatusPill({
   status,
   saveError,
+  onRetry,
 }: {
   status: SaveStatus;
   saveError: string | null;
+  /**
+   * BUILDER-SAVE-STATUS-UX-AUDIT-1 — retry the save from the error pill itself.
+   * The save status renders by the workflow title (left), but the Save button is
+   * at the far-right of the header — so on failure the error and its recovery were
+   * visually disconnected. Wiring the same `save()` here co-locates retry with the
+   * error. Optional → no button when unwired (isolated pill tests).
+   */
+  onRetry?: () => void;
 }) {
   if (status === "idle") return null;
   if (status === "error") {
@@ -101,7 +110,17 @@ export function StatusPill({
           className="inline-block h-1.5 w-1.5 rounded-full"
           style={{ background: "var(--builder-danger)" }}
         />
-        {saveError ?? "Failed to save."}
+        <span>{saveError ?? "Failed to save."}</span>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            data-testid="builder-header-save-retry"
+            className="font-semibold underline underline-offset-2 hover:no-underline"
+          >
+            Retry
+          </button>
+        ) : null}
       </span>
     );
   }
