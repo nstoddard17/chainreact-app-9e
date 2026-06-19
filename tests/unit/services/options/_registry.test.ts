@@ -769,4 +769,15 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toBeUndefined();
     });
   });
+
+  describe("Gmail resolver (Slice ANALYTICS-SOURCES-GMAIL-1)", () => {
+    it("getOptionsResolver resolves gmail:labels (personal, no deps)", () => {
+      const r = getOptionsResolver("gmail:labels");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("gmail:labels");
+      expect(r?.provider).toBe("gmail");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+  });
 });

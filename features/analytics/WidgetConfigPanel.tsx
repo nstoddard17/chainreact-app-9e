@@ -65,9 +65,12 @@ const SOURCE_SCOPED: ReadonlySet<AnalyticsMetric> = new Set<AnalyticsMetric>([
 const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
-function filterDataKey(kind: ConnectedAppFilterKind): "repo" | "channel" | "keyword" | "calendar" {
+function filterDataKey(
+  kind: ConnectedAppFilterKind,
+): "repo" | "channel" | "keyword" | "calendar" | "label" {
   if (kind === "slack_channel") return "channel";
   if (kind === "gcal_calendar") return "calendar";
+  if (kind === "gmail_label") return "label";
   return kind;
 }
 
@@ -129,6 +132,9 @@ export function WidgetConfigPanel({
   const [calendar, setCalendar] = useState<string>(
     typeof existingFilters.calendar === "string" ? existingFilters.calendar : DEFAULT_CALENDAR_ID,
   );
+  const [label, setLabel] = useState<string>(
+    typeof existingFilters.label === "string" ? existingFilters.label : "",
+  );
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -144,6 +150,7 @@ export function WidgetConfigPanel({
     if (kind === "repo") return repoValid;
     if (kind === "slack_channel") return channel.trim().length > 0;
     if (kind === "gcal_calendar") return calendar.trim().length > 0;
+    if (kind === "gmail_label") return label.trim().length > 0;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -158,6 +165,7 @@ export function WidgetConfigPanel({
         if (kind === "repo") filters[key] = repo.trim();
         else if (kind === "slack_channel") filters[key] = channel.trim();
         else if (kind === "gcal_calendar") filters[key] = calendar.trim();
+        else if (kind === "gmail_label") filters[key] = label.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -256,6 +264,8 @@ export function WidgetConfigPanel({
                   keywordValid={keywordValid}
                   calendar={calendar}
                   onCalendar={setCalendar}
+                  label={label}
+                  onLabel={setLabel}
                 />
               ) : (
                 <InternalConfig

@@ -41,6 +41,13 @@ export interface UsersMessagesListInput {
   accessToken: string;
   /** Gmail search query syntax. Forwarded verbatim. */
   q?: string;
+  /**
+   * Restrict to messages carrying ALL of these label ids (Gmail's `labelIds`
+   * repeatable param). Added for the analytics label-count metric — lets a count
+   * pin to a label by id without relying on `label:<name>` normalization. Each id
+   * is forwarded as a separate `labelIds` query param.
+   */
+  labelIds?: readonly string[];
   /** Per-page cap; 1..500. Gmail's default when omitted is 100. */
   maxResults?: number;
   /** Token from a prior page's `nextPageToken` to continue paginating. */
@@ -72,6 +79,11 @@ export async function usersMessagesList(
   const params = new URLSearchParams();
   if (input.q !== undefined && input.q.length > 0) {
     params.set("q", input.q);
+  }
+  if (input.labelIds !== undefined) {
+    for (const labelId of input.labelIds) {
+      if (labelId.length > 0) params.append("labelIds", labelId);
+    }
   }
   if (input.maxResults !== undefined) {
     params.set("maxResults", String(input.maxResults));

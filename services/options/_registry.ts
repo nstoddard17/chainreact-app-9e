@@ -382,6 +382,14 @@ import { microsoftTeamsChannelsResolver } from "@/integrations/microsoft-teams/o
 //     `owner/repo` fallback in the UI keeps repos beyond the cap reachable.
 import { githubReposResolver } from "@/integrations/github/options/repos";
 
+// Gmail resolver — Slice ANALYTICS-SOURCES-GMAIL-1.
+//   - `gmail:labels` — the editor's own Gmail labels (system + user), backing the
+//     label picker on the Gmail analytics `label_message_count` widget. Read-only
+//     `users.labels.list`, using the already-granted `gmail.readonly` scope (no
+//     reconnect). Gmail is personal + refreshable → refreshAndRetry. Lists the
+//     EDITOR's labels only (no co-member exposure); only label id + name are read.
+import { gmailLabelsResolver } from "@/integrations/gmail/options/labels";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -538,6 +546,9 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // (non-refreshable), editor's-own-repos-only. UI keeps a manual owner/repo
   // fallback for repos beyond the cap.
   githubReposResolver,
+  // Slice ANALYTICS-SOURCES-GMAIL-1 — `gmail:labels` label picker for the Gmail
+  // analytics label-count widget. Read-only, refreshable, editor's-own-labels-only.
+  gmailLabelsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

@@ -3,6 +3,7 @@ import { internalAnalyticsSource } from "./internal";
 import { githubAnalyticsSource } from "./github";
 import { slackAnalyticsSource } from "./slack";
 import { googleCalendarAnalyticsSource } from "./google-calendar";
+import { gmailAnalyticsSource } from "./gmail";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -25,6 +26,8 @@ import { googleCalendarAnalyticsSource } from "./google-calendar";
  *     workspace bot token) — ANALYTICS-SOURCES-SLACK-1.
  *   - GOOGLE CALENDAR (connected app, read-only events.list, personal
  *     refreshable credential) — ANALYTICS-SOURCES-GCAL-1.
+ *   - GMAIL (connected app, read-only messages.list COUNT queries, personal
+ *     refreshable credential) — ANALYTICS-SOURCES-GMAIL-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -41,6 +44,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   githubAnalyticsSource,
   slackAnalyticsSource,
   googleCalendarAnalyticsSource,
+  gmailAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

@@ -23,7 +23,12 @@ import type { AnalyticsWidgetType } from "@/contracts/analytics";
  */
 
 /** A filter input the config panel renders for a connected-app metric. */
-export type ConnectedAppFilterKind = "repo" | "slack_channel" | "keyword" | "gcal_calendar";
+export type ConnectedAppFilterKind =
+  | "repo"
+  | "slack_channel"
+  | "keyword"
+  | "gcal_calendar"
+  | "gmail_label";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -162,7 +167,32 @@ const GOOGLE_CALENDAR: ConnectedAppSourceUi = {
   },
 };
 
-const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK, GOOGLE_CALENDAR];
+const GMAIL: ConnectedAppSourceUi = {
+  provider: "gmail",
+  displayName: "Gmail",
+  exposed: true,
+  icon: "Comment",
+  connectHref: "/apps",
+  connectTitle: "Connect your Gmail",
+  connectHelp: "This widget uses your own Gmail connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Gmail",
+  // Personal credential — each viewer sees THEIR OWN Gmail data, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Gmail",
+  metricsByType: {
+    stat: [
+      { id: "unread_count", label: "Unread emails", filters: [] },
+      { id: "label_message_count", label: "Emails in a label", filters: ["gmail_label"] },
+    ],
+    ...seriesForBoth([
+      { id: "emails_received_over_time", label: "Emails received over time", filters: [] },
+      { id: "emails_sent_over_time", label: "Emails sent over time", filters: [] },
+    ]),
+  },
+};
+
+const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK, GOOGLE_CALENDAR, GMAIL];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */
 export function allConnectedAppSources(): readonly ConnectedAppSourceUi[] {

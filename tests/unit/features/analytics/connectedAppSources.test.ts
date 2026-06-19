@@ -32,10 +32,39 @@ describe("exposure gating", () => {
     expect(getExposedConnectedAppSource("google-calendar")?.displayName).toBe("Google Calendar");
   });
 
+  it("exposes Gmail", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("gmail");
+    expect(getExposedConnectedAppSource("gmail")?.displayName).toBe("Gmail");
+  });
+
   it("every descriptor declares a credential visibility matching its sharing model", () => {
     expect(getConnectedAppSource("slack")?.visibility).toBe("account");
     expect(getConnectedAppSource("github")?.visibility).toBe("personal");
     expect(getConnectedAppSource("google-calendar")?.visibility).toBe("personal");
+    expect(getConnectedAppSource("gmail")?.visibility).toBe("personal");
+  });
+});
+
+describe("Gmail metric/filter shape", () => {
+  const gmail = getExposedConnectedAppSource("gmail")!;
+
+  it("offers scalars for stat (unread no-filter, label needs gmail_label) and series for line/bar", () => {
+    expect(metricsForType(gmail, "stat").map((m) => m.id).sort()).toEqual([
+      "label_message_count",
+      "unread_count",
+    ]);
+    expect(metricsForType(gmail, "line").map((m) => m.id).sort()).toEqual([
+      "emails_received_over_time",
+      "emails_sent_over_time",
+    ]);
+    expect(metricsForType(gmail, "donut")).toEqual([]);
+  });
+
+  it("unread_count takes NO filter; label_message_count takes a gmail_label filter", () => {
+    expect(findMetricOption(gmail, "stat", "unread_count")?.filters).toEqual([]);
+    expect(findMetricOption(gmail, "stat", "label_message_count")?.filters).toEqual(["gmail_label"]);
+    // series metrics take no filter (server-owned queries)
+    expect(findMetricOption(gmail, "line", "emails_received_over_time")?.filters).toEqual([]);
   });
 });
 

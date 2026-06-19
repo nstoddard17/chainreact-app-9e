@@ -225,3 +225,61 @@ it("Google Calendar widget: manual Refresh bypasses cache", async () => {
     ),
   );
 });
+
+// ── Gmail (personal) ─────────────────────────────────────────────────────────
+const GMAIL_WIDGET: AnalyticsWidget = {
+  id: "w4",
+  type: "stat",
+  size: "s",
+  title: "Unread emails",
+  config: {
+    source: "any",
+    dataSource: {
+      kind: "connected_app",
+      provider: "gmail",
+      metricKey: "unread_count",
+      filters: {},
+    },
+  },
+};
+
+function gmailScalar(): NormalizedAnalyticsResult {
+  return {
+    shape: "scalar",
+    dimensions: [],
+    measures: ["unread_count"],
+    rows: [{ unread_count: 23 }],
+    totals: { unread_count: 23 },
+    generatedAt: "2026-06-19T00:00:00Z",
+    freshness: { cached: false, ageSeconds: 0, ttlSeconds: 600 },
+    warnings: [],
+    truncated: false,
+  };
+}
+
+it("renders a Gmail scalar with a personal 'Your Gmail' attribution", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: gmailScalar() });
+  render(<ConnectedAppWidgetBody widget={GMAIL_WIDGET} range="7d" reloadKey={0} />);
+  expect(await screen.findByText("23")).toBeInTheDocument();
+  expect(screen.getByText("Your Gmail")).toBeInTheDocument();
+});
+
+it("renders a Connect Gmail CTA on MISSING_CREDENTIAL (never another member's data)", async () => {
+  mockQuery.mockResolvedValue({ ok: false, code: "MISSING_CREDENTIAL", message: "connect" });
+  render(<ConnectedAppWidgetBody widget={GMAIL_WIDGET} range="7d" reloadKey={0} />);
+  expect(await screen.findByText(/Connect your Gmail/i)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Connect Gmail/i })).toHaveAttribute("href", "/apps");
+});
+
+it("Gmail widget: manual Refresh bypasses cache", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: gmailScalar() });
+  const { rerender } = render(<ConnectedAppWidgetBody widget={GMAIL_WIDGET} range="7d" reloadKey={0} />);
+  await screen.findByText("23");
+  expect(mockQuery.mock.calls[0]![0]).not.toHaveProperty("refresh", true);
+  rerender(<ConnectedAppWidgetBody widget={GMAIL_WIDGET} range="7d" reloadKey={1} />);
+  await waitFor(() =>
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "gmail", refresh: true }),
+    ),
+  );
+});

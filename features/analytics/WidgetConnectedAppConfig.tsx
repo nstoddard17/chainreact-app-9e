@@ -30,6 +30,8 @@ export function ConnectedAppConfig({
   keywordValid,
   calendar,
   onCalendar,
+  label,
+  onLabel,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -47,6 +49,8 @@ export function ConnectedAppConfig({
   keywordValid: boolean;
   calendar: string;
   onCalendar: (v: string) => void;
+  label: string;
+  onLabel: (v: string) => void;
 }) {
   return (
     <>
@@ -129,21 +133,43 @@ export function ConnectedAppConfig({
       {requiredFilters.includes("gcal_calendar") && (
         <GcalCalendarField value={calendar} onChange={onCalendar} connected={connected} />
       )}
+
+      {requiredFilters.includes("gmail_label") && (
+        <GmailLabelField value={label} onChange={onLabel} connected={connected} />
+      )}
     </>
   );
 }
 
 /**
- * Slack channel picker. Loads the connected workspace's channels through the
- * existing `slack:channels` options source (public + private channels the bot can
- * see). No free-text channel entry — only a selected channel id is written, which
- * keeps the analytics query pinned to a real, bot-visible channel (DMs excluded).
+ * Shared options-backed `<select>` picker. Loads a single page from an options
+ * source and renders disconnected / loading / error / select states. No free-text
+ * entry — only a selected option value is written. Used by the Slack channel and
+ * Gmail label pickers (both pin the analytics query to a real, viewer-owned id).
  */
-function SlackChannelField({
+function OptionsSelectField({
+  source,
+  icon,
+  sectionLabel,
+  hint,
+  disconnectedHint,
+  loadingNoun,
+  errorFallback,
+  ariaLabel,
+  placeholder,
   value,
   onChange,
   connected,
 }: {
+  source: string;
+  icon: string;
+  sectionLabel: string;
+  hint: string;
+  disconnectedHint: string;
+  loadingNoun: string;
+  errorFallback: string;
+  ariaLabel: string;
+  placeholder: string;
   value: string;
   onChange: (v: string) => void;
   connected: boolean;
@@ -158,36 +184,31 @@ function SlackChannelField({
     if (!connected) return;
     let cancelled = false;
     setState({ status: "loading" });
-    fetchOptionsSource("slack:channels")
+    fetchOptionsSource(source)
       .then((res) => {
         if (cancelled) return;
-        if (res.ok) {
-          setState({ status: "ok", items: res.items });
-        } else {
-          setState({ status: "error", message: res.message });
-        }
+        if (res.ok) setState({ status: "ok", items: res.items });
+        else setState({ status: "error", message: res.message });
       })
       .catch(() => {
-        if (!cancelled) setState({ status: "error", message: "Couldn't load Slack channels." });
+        if (!cancelled) setState({ status: "error", message: errorFallback });
       });
     return () => {
       cancelled = true;
     };
-  }, [connected]);
+  }, [connected, source, errorFallback]);
 
   return (
     <section className="flex flex-col gap-2">
-      <SectionHeading icon="Comment" label="Channel" />
-      <p className="text-xs text-muted-foreground">
-        Pick a channel the ChainReact app has been added to.
-      </p>
+      <SectionHeading icon={icon} label={sectionLabel} />
+      <p className="text-xs text-muted-foreground">{hint}</p>
       {!connected ? (
         <div className="rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
-          Connect Slack to choose a channel.
+          {disconnectedHint}
         </div>
       ) : state.status === "loading" ? (
         <div className="animate-pulse rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
-          Loading channels…
+          Loading {loadingNoun}…
         </div>
       ) : state.status === "error" ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-muted-foreground">
@@ -198,9 +219,9 @@ function SlackChannelField({
           className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-[13px] text-foreground outline-none focus:border-primary"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          aria-label="Slack channel"
+          aria-label={ariaLabel}
         >
-          <option value="">Select a channel…</option>
+          <option value="">{placeholder}</option>
           {state.items.map((item) => (
             <option key={item.value} value={item.value}>
               {item.label}
@@ -209,6 +230,24 @@ function SlackChannelField({
         </select>
       )}
     </section>
+  );
+}
+
+/** Slack channel picker (`slack:channels`) — public + private channels the bot sees. */
+function SlackChannelField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="slack:channels"
+      icon="Comment"
+      sectionLabel="Channel"
+      hint="Pick a channel the ChainReact app has been added to."
+      disconnectedHint="Connect Slack to choose a channel."
+      loadingNoun="channels"
+      errorFallback="Couldn't load Slack channels."
+      ariaLabel="Slack channel"
+      placeholder="Select a channel…"
+      {...props}
+    />
   );
 }
 
@@ -385,5 +424,23 @@ function GcalCalendarField({
         </span>
       )}
     </section>
+  );
+}
+
+/** Gmail label picker (`gmail:labels`) — system + user labels for the viewer's Gmail. */
+function GmailLabelField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="gmail:labels"
+      icon="Layers"
+      sectionLabel="Label"
+      hint="Counts emails carrying this Gmail label."
+      disconnectedHint="Connect Gmail to choose a label."
+      loadingNoun="labels"
+      errorFallback="Couldn't load Gmail labels."
+      ariaLabel="Gmail label"
+      placeholder="Select a label…"
+      {...props}
+    />
   );
 }

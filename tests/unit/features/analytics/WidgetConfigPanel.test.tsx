@@ -22,6 +22,10 @@ const SLACK_CHANNELS = [
   { value: "C012AB3CD", label: "#general" },
   { value: "C0987ZYXW", label: "#random" },
 ];
+const GMAIL_LABELS = [
+  { value: "INBOX", label: "Inbox" },
+  { value: "Label_7", label: "Work" },
+];
 
 function widget(type: AnalyticsWidget["type"], config: AnalyticsWidget["config"]): AnalyticsWidget {
   return { id: "w1", type, size: "s", title: "Widget", config };
@@ -44,14 +48,11 @@ function renderPanel(w: AnalyticsWidget, connectedProviders: Record<string, bool
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFetchOptions.mockImplementation((source: string) =>
-    Promise.resolve({
-      ok: true,
-      source,
-      items: source === "github:repos" ? GITHUB_REPOS : SLACK_CHANNELS,
-      hasMore: false,
-    }),
-  );
+  mockFetchOptions.mockImplementation((source: string) => {
+    const items =
+      source === "github:repos" ? GITHUB_REPOS : source === "gmail:labels" ? GMAIL_LABELS : SLACK_CHANNELS;
+    return Promise.resolve({ ok: true, source, items, hasMore: false });
+  });
 });
 
 describe("WidgetConfigPanel — connected-app exposure", () => {
@@ -279,6 +280,60 @@ describe("WidgetConfigPanel — Google Calendar", () => {
         provider: "google-calendar",
         metricKey: "meetings_over_time",
         filters: { calendar: "team@group.calendar.google.com" },
+      },
+    });
+  });
+});
+
+describe("WidgetConfigPanel — Gmail", () => {
+  it("offers Gmail for a stat widget", () => {
+    renderPanel(widget("stat", { source: "any", metric: "runs" }), { slack: true, gmail: true });
+    expect(screen.getByRole("button", { name: "Gmail" })).toBeInTheDocument();
+  });
+
+  it("unread_count takes no filter — saves immediately", () => {
+    const { onSave } = renderPanel(widget("stat", { source: "any", metric: "runs" }), {
+      slack: true,
+      gmail: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Gmail" }));
+    // Default stat metric is unread_count (no filter) → save enabled right away.
+    const saveBtn = screen.getByRole("button", { name: /save widget/i });
+    expect(saveBtn).not.toBeDisabled();
+    fireEvent.click(saveBtn);
+    expect(onSave).toHaveBeenCalledWith({
+      source: "any",
+      dataSource: {
+        kind: "connected_app",
+        provider: "gmail",
+        metricKey: "unread_count",
+        filters: {},
+      },
+    });
+  });
+
+  it("label_message_count requires a label selection from the picker", async () => {
+    const { onSave } = renderPanel(widget("stat", { source: "any", metric: "runs" }), {
+      slack: true,
+      gmail: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Gmail" }));
+    fireEvent.click(screen.getByRole("button", { name: /Emails in a label/i }));
+
+    const saveBtn = screen.getByRole("button", { name: /save widget/i });
+    expect(saveBtn).toBeDisabled(); // no label picked yet
+
+    const select = await screen.findByLabelText("Gmail label");
+    fireEvent.change(select, { target: { value: "Label_7" } });
+    expect(saveBtn).not.toBeDisabled();
+    fireEvent.click(saveBtn);
+    expect(onSave).toHaveBeenCalledWith({
+      source: "any",
+      dataSource: {
+        kind: "connected_app",
+        provider: "gmail",
+        metricKey: "label_message_count",
+        filters: { label: "Label_7" },
       },
     });
   });
