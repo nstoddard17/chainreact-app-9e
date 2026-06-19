@@ -25,20 +25,27 @@ import { useConfigSlice } from "../state/configSlice";
 const REVEAL_ZOOM = 1.75;
 const REVEAL_DURATION_MS = 450;
 
-// BUILDER-CANVAS-FOCUS-SELECTED-NODE-1 — opening a node's config rail uses a gentler,
-// context-preserving zoom (not an extreme close-up) and a short, smooth animation. The
-// node is offset LEFT of viewport center (we center on a point to its right) so the
-// right-side config panel doesn't cover it. The offset is in flow coordinates, scaled
-// by zoom so the on-screen shift stays stable.
-const CONFIG_ZOOM = 1.2;
+// BUILDER-CANVAS-FOCUS-SELECTED-NODE-1 / -TUNE-1 — opening a node's config rail should feel
+// like a gentle zoom-IN toward the node, never a zoom-OUT.
+//
+// `CONFIG_MIN_ZOOM` is a FLOOR, not a forced level. We zoom UP to it when the canvas is more
+// zoomed-out, but PRESERVE a higher current zoom — clicking a node the user has already zoomed
+// into must not zoom away from it (the original flat `CONFIG_ZOOM = 1.2` did exactly that and
+// read as "zooming out"). 1.4 is clearly closer than the default fit view while staying gentler
+// than the close 1.75 reveal, so context around the node is preserved.
+const CONFIG_MIN_ZOOM = 1.4;
 const CONFIG_DURATION_MS = 300;
-const CONFIG_LEFT_OFFSET_SCREEN_PX = 220;
+// Small left bias so the node sits just left of the canvas-region center. The right config
+// drawer is a NON-overlapping flex column (it does not cover the canvas), so the previous 220px
+// "clear the panel" offset over-corrected and read as the node being pushed away. A gentle nudge
+// is enough. Screen px, scaled by zoom so the on-screen shift stays stable.
+const CONFIG_LEFT_OFFSET_SCREEN_PX = 60;
 
 const DEFAULT_NODE_WIDTH = 280;
 const DEFAULT_NODE_HEIGHT = 120;
 
 export function useCanvasNodeFocus(): void {
-  const { setCenter, getNode } = useReactFlow();
+  const { setCenter, getNode, getViewport } = useReactFlow();
   const canvasFocusNodeId = useConfigSlice((s) => s.canvasFocusNodeId);
   const canvasFocusSeq = useConfigSlice((s) => s.canvasFocusSeq);
   const canvasFocusMode = useConfigSlice((s) => s.canvasFocusMode);
@@ -58,14 +65,19 @@ export function useCanvasNodeFocus(): void {
     const width = node.measured?.width ?? DEFAULT_NODE_WIDTH;
     const height = node.measured?.height ?? DEFAULT_NODE_HEIGHT;
     const isReveal = canvasFocusMode === "reveal";
-    const zoom = isReveal ? REVEAL_ZOOM : CONFIG_ZOOM;
     const duration = isReveal ? REVEAL_DURATION_MS : CONFIG_DURATION_MS;
-    // Reveal stays centered; config-open shifts the node left of center so the config
-    // panel doesn't hide it (centering on a point to the node's right).
+    // Reveal forces its close inspect zoom. Config-open zooms IN to at least the config
+    // floor but never below the CURRENT zoom — so opening config on an already-zoomed-in
+    // node pans toward it without zooming away.
+    const zoom = isReveal
+      ? REVEAL_ZOOM
+      : Math.max(getViewport().zoom, CONFIG_MIN_ZOOM);
+    // Reveal stays centered; config-open applies a gentle left bias (the config drawer is a
+    // separate column, not an overlay) so the node sits just left of the canvas center.
     const offsetX = isReveal ? 0 : CONFIG_LEFT_OFFSET_SCREEN_PX / zoom;
     setCenter(node.position.x + width / 2 + offsetX, node.position.y + height / 2, {
       zoom,
       duration,
     });
-  }, [canvasFocusSeq, canvasFocusNodeId, canvasFocusMode, getNode, setCenter]);
+  }, [canvasFocusSeq, canvasFocusNodeId, canvasFocusMode, getNode, getViewport, setCenter]);
 }

@@ -11,9 +11,16 @@ import { renderHook } from "@testing-library/react";
 
 const mockSetCenter = jest.fn();
 const mockGetNode = jest.fn();
+// Current viewport zoom the hook reads via getViewport(). Tests set `currentZoom`
+// to model an already-zoomed-in vs zoomed-out canvas. Default 1 = a normal view.
+let currentZoom = 1;
 
 jest.mock("@xyflow/react", () => ({
-  useReactFlow: () => ({ setCenter: mockSetCenter, getNode: mockGetNode }),
+  useReactFlow: () => ({
+    setCenter: mockSetCenter,
+    getNode: mockGetNode,
+    getViewport: () => ({ x: 0, y: 0, zoom: currentZoom }),
+  }),
 }));
 
 import { useCanvasNodeFocus } from "@/features/workflow-builder/hooks/useCanvasNodeFocus";
@@ -23,6 +30,7 @@ beforeEach(() => {
   useConfigSlice.getState().reset();
   mockSetCenter.mockReset();
   mockGetNode.mockReset();
+  currentZoom = 1;
 });
 
 describe("useCanvasNodeFocus", () => {
@@ -79,8 +87,9 @@ describe("useCanvasNodeFocus", () => {
   });
 });
 
-describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTED-NODE-1)", () => {
-  it("opening a node's config pans with a gentle context zoom + a LEFT offset (clears the right panel)", () => {
+describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTED-NODE-1 / -TUNE-1)", () => {
+  it("opening a node's config zooms IN (gentle) with a small left bias", () => {
+    currentZoom = 1; // normal zoomed-out canvas
     mockGetNode.mockReturnValue({
       id: "n1",
       position: { x: 100, y: 200 },
@@ -93,14 +102,67 @@ describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTE
 
     expect(mockSetCenter).toHaveBeenCalledTimes(1);
     const [cx, cy, opts] = mockSetCenter.mock.calls[0]!;
-    // Node center is 100 + 140 = 240. Config-open centers to the RIGHT of the node so
-    // the node sits LEFT of viewport center (clear of the right config panel) → cx > 240.
+    // Node center is 100 + 140 = 240. Config-open keeps a small left bias → cx slightly > 240.
     expect(cx).toBeGreaterThan(240);
+    expect(cx).toBeLessThan(240 + 100); // gentle nudge, not the old 220px shove
     expect(cy).toBe(200 + 60);
-    // Conservative / context zoom — clearly gentler than the close 1.75 reveal.
-    expect(opts.zoom).toBeGreaterThan(0.8);
-    expect(opts.zoom).toBeLessThan(1.5);
+    // TUNE-1 — zooms IN to the config floor (1.4): clearly STRONGER than the old flat 1.2,
+    // and still gentler than the close 1.75 reveal so context around the node remains.
+    expect(opts.zoom).toBeGreaterThanOrEqual(1.4);
+    expect(opts.zoom).toBeLessThan(1.75);
     expect(opts.duration).toBeGreaterThan(0);
+  });
+
+  it("does NOT zoom out when the canvas is already zoomed in above the config floor", () => {
+    currentZoom = 1.6; // user already zoomed past the 1.4 config floor
+    mockGetNode.mockReturnValue({
+      id: "n1",
+      position: { x: 0, y: 0 },
+      measured: { width: 280, height: 120 },
+    });
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
+    rerender();
+
+    const [, , opts] = mockSetCenter.mock.calls[0]!;
+    // Preserve the current (higher) zoom — opening config must NOT zoom away from a node
+    // the user already zoomed into. This is the core "feels like it zooms out" fix.
+    expect(opts.zoom).toBe(1.6);
+  });
+
+  it("zooms IN to the config floor from a zoomed-out canvas", () => {
+    currentZoom = 0.7; // zoomed out below the floor
+    mockGetNode.mockReturnValue({
+      id: "n1",
+      position: { x: 0, y: 0 },
+      measured: { width: 280, height: 120 },
+    });
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
+    rerender();
+
+    const [, , opts] = mockSetCenter.mock.calls[0]!;
+    expect(opts.zoom).toBe(1.4); // raised up to the floor (zoom-in), never below it
+  });
+
+  it("reveal forces its closer zoom and is unaffected by the config floor / current zoom", () => {
+    currentZoom = 1.6;
+    mockGetNode.mockReturnValue({
+      id: "n1",
+      position: { x: 0, y: 0 },
+      measured: { width: 280, height: 120 },
+    });
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().revealNode({ nodeId: "n1", initialValues: {}, fieldKey: "text" });
+    rerender();
+
+    const [cx, , opts] = mockSetCenter.mock.calls[0]!;
+    // Reveal stays CLOSER than config-open and centered (no left bias).
+    expect(opts.zoom).toBe(1.75);
+    expect(cx).toBe(0 + 140); // dead-centered on the node
   });
 
   it("re-opening the SAME already-active node does NOT re-pan (no repeated zoom loop)", () => {
