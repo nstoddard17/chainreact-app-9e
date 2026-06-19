@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-19 @ 6a14173f6 (AI credit enforcement ON in prod closeout; AUTOROUTE + QA-2/QA-3 PUSHED & live in prod; origin/v2-main = 6a14173f6)
+> Last curated: 2026-06-19 @ cf0e43b97 (Builder AI polish batch closeout — 4 commits LOCAL/UNPUSHED; AI credit enforcement + AUTOROUTE live in prod; origin/v2-main = cf0e43b97)
 
 ## Current status
 
@@ -107,6 +107,23 @@
 
 ## Recently completed arcs
 
+- **Builder AI polish batch — LOCAL/UNPUSHED (2026-06-19)** — UI/copy polish on the live metered
+  Builder AI (no routing/billing-gate/env/provider/migration change). Friendlier out-of-AI-credits
+  copy (deterministic checks stay free + Account → Plan & billing path; no raw 402/code) + AI credits
+  shown in Account → Plan & billing (used/limit/remaining/reset from `account_billing` via
+  `getAiCreditUsage`, account-scoped). One-composer reframed ("Ask a question or describe a change";
+  send button "Send"); fill-only example chips (never auto-submit/bypass AUTOROUTE/spend credits);
+  clarification copy polished (retained prompt still hidden). Q&A answer presentation: "Read-only"
+  badge + "You asked"/answer/"What to check next" + unchanged-workflow footer + "Answering…" loading
+  state; **stays read-only, no Apply/Preview, no raw ids/config/tokens/DTO**. Planner result framed
+  up front ("nothing has changed yet — review before applying"); **still no auto-apply**. Verified
+  during the 4 slices (not re-run at closeout): typecheck 0, eslint 0 errors on touched files,
+  focused suites green (71/220/115→94/106); `lint:structure` now OK (`docs/slices/phase-4` split to
+  46); `_BuilderAiPanelChat.tsx` carries a pre-existing soft max-lines warning (416>400). Commits
+  `e984d1dfb` + `e5b959017` + `d20d45567` + `5a641290f` LOCAL/UNPUSHED (origin `cf0e43b97`); ship is
+  a UI-only deploy when approved. **Deferred:** chat-bubble "View AI usage" CTA, Q&A selected-node
+  label (no safe label carried), one-click chips, `_BuilderAiPanelChat.tsx` split. →
+  [`builder-ai-polish-closeout.md`](./slices/phase-4/ai/builder-ai-polish-closeout.md).
 - **AI credit enforcement ON in Production (env enablement) — LIVE & VERIFIED (2026-06-19)** —
   set `ENABLE_AI_CREDIT_ENFORCEMENT=true` for **Production** in Vercel and redeployed the existing
   commit `6a14173f6` (env + redeploy only; **NO code/commit/push/migration**). `aiCreditGate` (shipped
