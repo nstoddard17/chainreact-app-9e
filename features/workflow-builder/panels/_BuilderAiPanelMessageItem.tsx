@@ -393,83 +393,48 @@ export function MessageItem({
 /**
  * The transient in-flight indicators for the chat (extracted alongside
  * `MessageItem`). Each renders an assistant bubble while its round-trip is active —
- * planning / checking / explaining / suggesting / previewing. testIds + copy
- * unchanged from the pre-split list.
+ * planning / checking / asking (Q&A) / explaining / suggesting / previewing. Data-
+ * driven (BUILDER-AI-QA-PRESENTATION-POLISH-1) so adding an indicator stays one row;
+ * testIds + copy are unchanged from the pre-split list.
  */
 export function TransientIndicators({
   planning,
   checking,
+  asking,
   explaining,
   suggesting,
   previewing,
 }: {
   readonly planning: boolean;
   readonly checking: boolean;
+  readonly asking: boolean;
   readonly explaining: boolean;
   readonly suggesting: boolean;
   readonly previewing: boolean;
 }) {
+  const indicators: ReadonlyArray<{ active: boolean; testId: string; label: string }> = [
+    { active: planning, testId: "builder-ai-planning", label: "Planning your change…" },
+    { active: checking, testId: "builder-ai-checking", label: "Checking workflow…" },
+    { active: asking, testId: "builder-ai-asking", label: "Answering…" },
+    { active: explaining, testId: "builder-ai-explaining", label: "Explaining this check…" },
+    { active: suggesting, testId: "builder-ai-suggesting", label: "Suggesting a fix…" },
+    { active: previewing, testId: "builder-ai-previewing", label: "Previewing fix…" },
+  ];
   return (
     <>
-      {planning && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-planning"
-          >
-            Planning your change…
-          </p>
-        </AssistantBubble>
-      )}
-
-      {checking && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-checking"
-          >
-            Checking workflow…
-          </p>
-        </AssistantBubble>
-      )}
-
-      {explaining && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-explaining"
-          >
-            Explaining this check…
-          </p>
-        </AssistantBubble>
-      )}
-
-      {suggesting && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-suggesting"
-          >
-            Suggesting a fix…
-          </p>
-        </AssistantBubble>
-      )}
-
-      {previewing && (
-        <AssistantBubble>
-          <p
-            role="status"
-            className="text-xs text-muted-foreground"
-            data-testid="builder-ai-previewing"
-          >
-            Previewing fix…
-          </p>
-        </AssistantBubble>
-      )}
+      {indicators
+        .filter((indicator) => indicator.active)
+        .map((indicator) => (
+          <AssistantBubble key={indicator.testId}>
+            <p
+              role="status"
+              className="text-xs text-muted-foreground"
+              data-testid={indicator.testId}
+            >
+              {indicator.label}
+            </p>
+          </AssistantBubble>
+        ))}
     </>
   );
 }

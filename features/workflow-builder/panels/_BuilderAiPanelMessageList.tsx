@@ -77,6 +77,13 @@ interface Props {
    */
   readonly checking: boolean;
   /**
+   * BUILDER-AI-QA-PRESENTATION-POLISH-1 — true while a composer-routed Q&A round-trip
+   * is in flight. Drives the "Answering…" transient bubble so Q&A loading is consistent
+   * with the Checking…/Explaining… indicators (the answer renders as a `diagnosis_qa`
+   * message once it resolves).
+   */
+  readonly asking: boolean;
+  /**
    * Slice 4.REACT-AGENT-CHAT-QOL-1 — submit handler for the inline "Send
    * details" button rendered under the ACTIVE plan_result's required-input
    * controls. Identical to the composer's `onSubmit` (the panel passes the
@@ -213,6 +220,7 @@ export function BuilderAiPanelMessageList({
   onStagedAnswerChange,
   historyLoadFailed,
   checking,
+  asking,
   onSubmitDetails,
   canSubmitDetails,
   submittingDetails,
@@ -416,6 +424,7 @@ export function BuilderAiPanelMessageList({
       <TransientIndicators
         planning={planning}
         checking={checking}
+        asking={asking}
         explaining={explaining}
         suggesting={suggesting}
         previewing={previewing}

@@ -351,36 +351,68 @@ export function DiagnosisQaBody({
   readonly needsUserDecision?: boolean;
 }) {
   return (
-    <div data-testid="builder-ai-diagnosis-qa" className="flex flex-col gap-2">
-      <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
-        AI answer
-      </p>
-      <p
-        data-testid="builder-ai-diagnosis-qa-question"
-        className="whitespace-pre-wrap text-[11px] italic"
-        style={{ color: "var(--builder-muted)" }}
-      >
-        {question}
-      </p>
+    <div data-testid="builder-ai-diagnosis-qa" className="flex flex-col gap-2.5">
+      {/* Header — names the surface AND makes the read-only nature obvious up front. */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
+          AI answer
+        </span>
+        <span
+          data-testid="builder-ai-diagnosis-qa-readonly"
+          className="rounded-full px-1.5 py-px text-[9.5px] font-medium uppercase tracking-wide"
+          style={{
+            background: "var(--builder-panel-2)",
+            border: "1px solid var(--builder-border)",
+            color: "var(--builder-muted)",
+          }}
+        >
+          Read-only
+        </span>
+      </div>
+
+      {/* The question, clearly labelled so the answer reads in context. */}
+      <div className="flex flex-col gap-0.5">
+        <p
+          className="text-[10px] font-medium uppercase tracking-wide"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          You asked
+        </p>
+        <p
+          data-testid="builder-ai-diagnosis-qa-question"
+          className="whitespace-pre-wrap text-[11px] italic"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          {question}
+        </p>
+      </div>
+
+      {/* The direct answer — the primary content. */}
       <p
         data-testid="builder-ai-diagnosis-qa-answer"
-        className="whitespace-pre-wrap text-xs"
+        className="whitespace-pre-wrap text-xs leading-relaxed"
         style={{ color: "var(--builder-text)" }}
       >
         {answer}
       </p>
+
+      {/* Optional safe pointer lines → "What to check next". */}
       {pointers && pointers.length > 0 && (
         <div data-testid="builder-ai-diagnosis-qa-pointers" className="flex flex-col gap-1">
-          <p className="text-[11px] font-medium" style={{ color: "var(--builder-muted)" }}>
-            Where to look
+          <p
+            className="text-[10px] font-medium uppercase tracking-wide"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            What to check next
           </p>
-          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs">
+          <ul className="flex list-disc flex-col gap-0.5 pl-4 text-xs leading-relaxed">
             {pointers.map((p, i) => (
               <li key={i}>{p}</li>
             ))}
           </ul>
         </div>
       )}
+
       {needsUserDecision && (
         <p
           data-testid="builder-ai-diagnosis-qa-needs-decision"
@@ -392,7 +424,11 @@ export function DiagnosisQaBody({
           changing anything.
         </p>
       )}
-      <p className="text-[10px]" style={{ color: "var(--builder-muted)" }}>
+
+      <p
+        className="border-t pt-1.5 text-[10px]"
+        style={{ color: "var(--builder-muted)", borderColor: "var(--builder-border)" }}
+      >
         This is an answer only — your workflow wasn&rsquo;t changed or run.
       </p>
     </div>

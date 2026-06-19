@@ -133,6 +133,7 @@ export function BuilderAiPanel() {
         onStagedAnswerChange={a.handleStagedAnswerChange}
         historyLoadFailed={a.historyLoadFailed}
         checking={a.checking}
+        asking={a.asking}
         onSubmitDetails={a.handleSubmit}
         canSubmitDetails={a.canSubmitDetails}
         submittingDetails={a.busy}

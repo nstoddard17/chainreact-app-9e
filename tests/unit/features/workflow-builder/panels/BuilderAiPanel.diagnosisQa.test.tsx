@@ -112,8 +112,12 @@ describe("Workflow Q&A — one composer (no mini box)", () => {
     await user.click(submit);
     // In flight (`asking`) → the single send is disabled (no conflicting op can start).
     await waitFor(() => expect(screen.getByTestId("builder-ai-plan-button")).toBeDisabled());
+    // …and a Q&A loading bubble shows, consistent with Checking…/Explaining….
+    expect(screen.getByTestId("builder-ai-asking")).toBeInTheDocument();
     resolveAsk(answerOk);
     await screen.findByTestId("builder-ai-diagnosis-qa");
+    // The loading bubble clears once the answer renders.
+    expect(screen.queryByTestId("builder-ai-asking")).toBeNull();
     // Composer cleared on submit; typing a new prompt re-enables send (not stuck disabled).
     await user.type(screen.getByTestId("builder-ai-prompt"), "What next?");
     await waitFor(() => expect(screen.getByTestId("builder-ai-plan-button")).toBeEnabled());
@@ -137,6 +141,8 @@ describe("Workflow Q&A — happy path", () => {
     expect(screen.getByTestId("builder-ai-diagnosis-qa-question").textContent).toContain("Why won't this run?");
     expect(screen.getByTestId("builder-ai-diagnosis-qa-answer").textContent).toContain("Reconnect Gmail");
     expect(body.textContent).toMatch(/wasn.t changed or run/i);
+    // Clearly read-only, surfaced up front via a badge.
+    expect(screen.getByTestId("builder-ai-diagnosis-qa-readonly").textContent).toMatch(/read-only/i);
     // Composer cleared after the routed Q&A submit.
     expect((screen.getByTestId("builder-ai-prompt") as HTMLTextAreaElement).value).toBe("");
   });
@@ -145,6 +151,7 @@ describe("Workflow Q&A — happy path", () => {
     const { user, submit } = await ask("What should I fix first?");
     await user.click(submit);
     const pointers = await screen.findByTestId("builder-ai-diagnosis-qa-pointers");
+    expect(pointers.textContent).toMatch(/what to check next/i);
     expect(pointers.textContent).toContain("Reconnect Gmail in Apps");
     expect(pointers.textContent).toContain("re-check the workflow");
   });
