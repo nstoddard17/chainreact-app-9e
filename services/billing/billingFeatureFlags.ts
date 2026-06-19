@@ -38,38 +38,13 @@ export function isReserveReconcileShadowEnabled(): boolean {
   return process.env[RESERVE_RECONCILE_SHADOW_FLAG] === "true";
 }
 
-/**
- * Env var gating PLATFORM Stripe billing (Slice 4.BILLING-PLAN-METADATA / CS-1).
- *
- * DEFAULT OFF. CS-1 wires NOTHING to this flag — it only ships plan METADATA + the
- * central plan policy (no Stripe, checkout, portal, webhook, or payment behavior).
- * The flag exists so the later payment slices (CS-3+ checkout / portal / webhook /
- * lifecycle) gate their user-facing surfaces behind it. Read at call time. Separate
- * from the WORKFLOW Stripe provider (integrations/stripe/).
- */
-export const PLATFORM_BILLING_FLAG = "ENABLE_PLATFORM_BILLING";
-
-/** True only when ENABLE_PLATFORM_BILLING === "true". Default false. */
-export function isPlatformBillingEnabled(): boolean {
-  return process.env[PLATFORM_BILLING_FLAG] === "true";
-}
-
-/**
- * Env var dark-launching the PERSONAL PRO tier (Slice 4.PLATFORM-BILLING-PRO-VALUE-2 / CS-PRO-1).
- *
- * DEFAULT OFF. SEPARATE from ENABLE_PLATFORM_BILLING: the initial billing rollout launches
- * Team/Business while Personal Pro stays dark until it carries real value (see
- * docs/slices/phase-4/account-settings/personal-pro-value-plan.md). When OFF, the personal
- * Free → Pro upgrade affordance is hidden AND the checkout route rejects `plan="pro"` BEFORE
- * any Stripe call — UI hiding alone is not the protection (the route gate is). Has no effect
- * unless ENABLE_PLATFORM_BILLING is also ON. Read at call time. Does NOT touch Team/Business.
- */
-export const PERSONAL_PRO_FLAG = "ENABLE_PERSONAL_PRO";
-
-/** True only when ENABLE_PERSONAL_PRO === "true". Default false. */
-export function isPersonalProEnabled(): boolean {
-  return process.env[PERSONAL_PRO_FLAG] === "true";
-}
+// Platform billing + Personal Pro are LIVE by default — no feature-flag gate. The earlier
+// dark-launch flags (ENABLE_PLATFORM_BILLING / ENABLE_PERSONAL_PRO) were removed once live
+// Stripe config, products, and prices shipped. Safety did NOT move into a flag: the route +
+// service layers still fail closed when Stripe is unconfigured (503 PLATFORM_BILLING_NOT_CONFIGURED
+// / PRICE_NOT_CONFIGURED), still enforce auth + owner/admin role + freeze checks, and still
+// validate plan↔account-type server-side. Business → Team downgrade stays flag-gated below
+// because it is destructive (removes members, flattens folders) and owner-confirmed.
 
 /**
  * Env var gating the BUSINESS → TEAM downgrade path (Slice 4.PLATFORM-BILLING-BUSINESS-DOWNGRADE-2
@@ -78,8 +53,8 @@ export function isPersonalProEnabled(): boolean {
  * DEFAULT OFF. Downgrade is **destructive** (removes non-owner members via the existing
  * offboarding sequence and flattens the folder hierarchy to Trash; workflows are kept). It is an
  * explicit, owner-confirmed action — NEVER webhook-driven — and ships dark until deliberately
- * enabled (and only meaningful when ENABLE_PLATFORM_BILLING is also on). Read at call time.
- * Separate from Personal Pro + platform billing flags.
+ * enabled. Read at call time. This is the only remaining billing dark-launch flag (platform
+ * billing + Personal Pro are now live by default).
  */
 export const BUSINESS_DOWNGRADE_FLAG = "ENABLE_BUSINESS_DOWNGRADE";
 

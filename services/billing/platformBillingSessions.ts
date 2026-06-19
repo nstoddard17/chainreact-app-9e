@@ -16,8 +16,8 @@ import { resolvePlanPrice } from "@/services/billing/platformStripePrices";
  * (Slice 4.BILLING-PLAN-METADATA-4 / CS-3).
  *
  * Owns the server-side business logic behind the two account-scoped billing routes. The
- * ROUTE owns the feature-flag gate (404 when ENABLE_PLATFORM_BILLING is OFF), the auth
- * gate, and the owner/admin role gate; THIS service is reached only after those pass and
+ * ROUTE owns the auth gate and the owner/admin role gate (billing is live — no feature-flag
+ * gate); THIS service is reached only after those pass and
  * owns: freeze check, plan↔type validation, SERVER-side price resolution (a client may
  * never choose a price id), lazy + race-safe Stripe customer attach, and Stripe session
  * creation. It returns typed result unions the route maps to HTTP — no secret or Stripe

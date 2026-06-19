@@ -13,8 +13,8 @@ import { previewDowngrade } from "@/services/billing/downgradePreview";
  * PPT-1). Backend foundation for the Personal Pro → Free choice flow — NO checkout dialog
  * or Settings toggle UI here (those are PPT-3/PPT-4).
  *
- * The route owns the flag gate (ENABLE_PLATFORM_BILLING → 404), auth, and owner/admin
- * role gate; this service owns personal-only + freeze checks, the safe state read, and the
+ * The route owns the auth and owner/admin role gate (billing is live — no feature-flag
+ * gate); this service owns personal-only + freeze checks, the safe state read, and the
  * single mutation (set/undo cancel_at_period_end on the EXISTING personal subscription).
  *
  * Conservative by design: the cancel action sets ONLY the Stripe `cancel_at_period_end`

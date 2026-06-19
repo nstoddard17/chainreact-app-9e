@@ -17,8 +17,8 @@ import { ComingSoonRow, ReadOnlyRow, type ActiveAccountView } from "./settingsRo
  *
  * Read-only billing overview (tier / usage / member + folder caps) + the CS-5 warn-first
  * lifecycle banner + period row, plus the PPT-3 interactive PersonalPlanPanel for an
- * owner/admin on a personal account when ENABLE_PLATFORM_BILLING is on. No fake checkout/
- * payment controls; Business is labeled "Business", never "Organization".
+ * owner/admin on a personal account. Billing is live (no feature-flag gate). No fake
+ * checkout/payment controls; Business is labeled "Business", never "Organization".
  */
 
 /** Account billing/limit facts the page resolves for the ACTIVE account. */
@@ -52,12 +52,6 @@ export interface AccountBillingView {
   currentPeriodEnd?: string | null;
   /** Whether the subscription is set to cancel at period end (CS-5). */
   cancelAtPeriodEnd?: boolean | null;
-  /** ENABLE_PLATFORM_BILLING (PPT-3) — gates the interactive personal-plan panel. */
-  platformBillingEnabled?: boolean;
-  /** ENABLE_PERSONAL_PRO (CS-PRO-1) — dark-launch gate for the personal Free → Pro upgrade.
-   *  When false (default), the upgrade affordance is hidden even with platform billing ON
-   *  (the checkout route also rejects `plan="pro"`). Does not affect Team/Business. */
-  personalProEnabled?: boolean;
   /** ENABLE_BUSINESS_DOWNGRADE (CS-BD-3) — dark-launch gate for the destructive Business → Team
    *  downgrade. When false (default), the downgrade affordance is hidden (the route also 404s). */
   businessDowngradeEnabled?: boolean;
@@ -90,30 +84,23 @@ export function BillingSection({
   /** Injectable "now" for deterministic current-period derivation in tests. */
   now?: Date;
 }) {
-  // PPT-3: the interactive personal-plan panel renders only for an owner/admin on a
-  // personal account when platform billing is enabled.
+  // PPT-3: the interactive personal-plan panel renders for an owner/admin on a personal
+  // account. Billing is live (no flag gate).
   const showPersonalPlan =
-    Boolean(billing.platformBillingEnabled) &&
     Boolean(accountId) &&
     active?.type === "personal" &&
     (active.role === "owner" || active.role === "admin");
-  // BU-4: the Team → Business upgrade action shows only for an owner/admin on a (non-frozen)
-  // Team account when platform billing is enabled. An organization (already Business),
-  // personal account, member, or flag-OFF never sees it.
+  // BU-4: the Team → Business upgrade action shows for an owner/admin on a (non-frozen)
+  // Team account. An organization (already Business), personal account, or member never sees it.
   const showBusinessUpgrade =
-    Boolean(billing.platformBillingEnabled) &&
     Boolean(accountId) &&
     !billing.frozen &&
     active?.type === "team" &&
     (active.role === "owner" || active.role === "admin");
   // 4.PLATFORM-BILLING-UI-1: Personal Free → Pro upgrade. Owner/admin on a personal account
-  // whose current plan is Free (or unset), not frozen, flag ON. Hidden for paid Pro (handled
-  // by PersonalPlanPanel), team/business, members, frozen, or flag-OFF.
-  // CS-PRO-1: ALSO gated on ENABLE_PERSONAL_PRO (dark-launch) — when off, no upgrade button
-  // even with platform billing on (the checkout route is the authoritative gate).
+  // whose current plan is Free (or unset), not frozen. Hidden for paid Pro (handled by
+  // PersonalPlanPanel), team/business, members, or frozen. Personal Pro is live (no flag).
   const showPersonalUpgrade =
-    Boolean(billing.platformBillingEnabled) &&
-    Boolean(billing.personalProEnabled) &&
     Boolean(accountId) &&
     !billing.frozen &&
     active?.type === "personal" &&
@@ -122,19 +109,16 @@ export function BillingSection({
   // 4.PLATFORM-BILLING-UI-1: "Manage billing" portal. Shown only when a Stripe subscription
   // has actually been synced — `currentPeriodEnd` is written ONLY by the CS-4 webhook from a
   // real subscription, so it is a reliable "a Stripe customer exists / the portal will work"
-  // signal (account-type default plans like Team carry no such period). Owner/admin, not
-  // frozen, flag ON.
+  // signal (account-type default plans like Team carry no such period). Owner/admin, not frozen.
   const showManageBilling =
-    Boolean(billing.platformBillingEnabled) &&
     Boolean(accountId) &&
     !billing.frozen &&
     (active?.role === "owner" || active?.role === "admin") &&
     billing.currentPeriodEnd != null;
   // CS-BD-3: the destructive Business → Team downgrade. OWNER-only (admins/members never see it),
-  // on a non-frozen organization (Business) account, with BOTH platform billing AND the
-  // ENABLE_BUSINESS_DOWNGRADE dark-launch flag on. The backend route is itself owner-only.
+  // on a non-frozen organization (Business) account, gated on the ENABLE_BUSINESS_DOWNGRADE
+  // dark-launch flag (still flag-gated — destructive). The backend route is itself owner-only.
   const showBusinessDowngrade =
-    Boolean(billing.platformBillingEnabled) &&
     Boolean(billing.businessDowngradeEnabled) &&
     Boolean(accountId) &&
     !billing.frozen &&
@@ -230,7 +214,7 @@ export function BillingSection({
 
       <Panel
         title="Plan & billing"
-        desc="Paid plans and billing management are coming soon."
+        desc="Manage your plan, usage, and billing."
       >
         {active && (
           <ReadOnlyRow label="Account" value={active.name} />

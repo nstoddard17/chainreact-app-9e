@@ -3,10 +3,6 @@ import { z } from "zod";
 import { requireAuthedUserId, parseAccountBody } from "@/app/api/account/_shared";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import {
-  isPlatformBillingEnabled,
-  isPersonalProEnabled,
-} from "@/services/billing/billingFeatureFlags";
-import {
   createCheckoutSession,
   type CheckoutFailureReason,
 } from "@/services/billing/platformBillingSessions";
@@ -15,13 +11,12 @@ import {
  * POST /api/accounts/[id]/billing/checkout (Slice 4.BILLING-PLAN-METADATA-4 / CS-3).
  *
  * Starts a Stripe Checkout session (mode: subscription) for an account plan change and
- * returns ONLY `{ url }`. Gates, in order:
- *   1. ENABLE_PLATFORM_BILLING OFF → 404 (the surface is dark; no oracle it exists);
- *   2. auth → 401;
- *   3. owner/admin role on the target account → 403 (non-member vs forbidden, no leak);
- *   4. strict body { plan: pro|team|business } → 400 (client cannot send a price id or
+ * returns ONLY `{ url }`. Billing is live (no feature-flag gate). Gates, in order:
+ *   1. auth → 401;
+ *   2. owner/admin role on the target account → 403 (non-member vs forbidden, no leak);
+ *   3. strict body { plan: pro|team|business } → 400 (client cannot send a price id or
  *      any other field — price is resolved SERVER-side);
- *   5. service: freeze / plan↔type / price-config / Stripe-config → typed reason → HTTP.
+ *   4. service: freeze / plan↔type / price-config / Stripe-config → typed reason → HTTP.
  *
  * Checkout success is NOT proof of a subscription — this route NEVER mutates
  * account_billing.plan/status; the CS-4 webhook owns subscription state. No Stripe id or
@@ -90,8 +85,6 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  if (!isPlatformBillingEnabled()) return notFound();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { id: accountId } = await params;
@@ -102,17 +95,9 @@ export async function POST(
   const body = await parseAccountBody(request, CheckoutBodySchema);
   if (!body.ok) return body.response;
 
-  // CS-PRO-1: Personal Pro is dark-launched behind ENABLE_PERSONAL_PRO (default OFF). Reject a
-  // `pro` checkout BEFORE any Stripe call when the flag is off — the UI hides the button, but
-  // this route gate is the authoritative protection (a crafted POST must not be able to buy
-  // Pro). Generic typed error, no config leak. Team/Business checkouts are unaffected.
-  if (body.data.plan === "pro" && !isPersonalProEnabled()) {
-    return NextResponse.json(
-      { error: "That plan isn't available right now.", code: "PLAN_NOT_AVAILABLE" },
-      { status: 400 },
-    );
-  }
-
+  // Plan↔account-type validity (e.g. only personal accounts may buy `pro`) is enforced
+  // server-side by createCheckoutSession → `invalid_plan_for_type`. Missing Stripe config
+  // still fails closed there (503). No feature-flag gate — billing is live.
   try {
     const result = await createCheckoutSession({
       accountId,

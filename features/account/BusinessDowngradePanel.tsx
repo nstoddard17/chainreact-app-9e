@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
  * Business → Team downgrade affordance (Slice 4.PLATFORM-BILLING-BUSINESS-DOWNGRADE-5 / CS-BD-3).
  *
  * The explicit, owner-confirmed DESTRUCTIVE downgrade. The parent BillingSection gates eligibility
- * (Business/organization account, OWNER, not frozen, ENABLE_PLATFORM_BILLING + ENABLE_BUSINESS_DOWNGRADE
- * on). This component renders the full destructive warning, a "Export workflows first" download link
+ * (Business/organization account, OWNER, not frozen, ENABLE_BUSINESS_DOWNGRADE on — this path
+ * stays flag-gated because it is destructive). This component renders the full destructive warning, a "Export workflows first" download link
  * (the credential-free bulk export — CS-BD-4B), an explicit confirm checkbox, and the final
  * destructive button which calls the owner-only `POST /api/accounts/[id]/billing/downgrade-to-team`
  * route. On success it reloads so the account type/billing state re-renders.

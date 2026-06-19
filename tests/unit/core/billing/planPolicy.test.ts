@@ -31,7 +31,6 @@ import {
   BUSINESS_MAX_MEMBERS,
 } from "@/services/accounts/memberLimits";
 import { folderLimitFor, FOLDER_LIMITS } from "@/services/workflowFolders/folderLimits";
-import { isPlatformBillingEnabled, PLATFORM_BILLING_FLAG } from "@/services/billing/billingFeatureFlags";
 
 describe("planPolicy — tiers + limits", () => {
   it("knows exactly the five tiers + five statuses", () => {
@@ -182,26 +181,6 @@ describe("AI credit limits (AI-CREDITS-3)", () => {
     for (const plan of ["pro", "team", "business"] as const) {
       expect(aiCreditsMonthlyLimitFor(plan)!).toBeGreaterThan(free);
     }
-  });
-});
-
-describe("platform billing flag", () => {
-  const prev = process.env[PLATFORM_BILLING_FLAG];
-  afterEach(() => {
-    if (prev === undefined) delete process.env[PLATFORM_BILLING_FLAG];
-    else process.env[PLATFORM_BILLING_FLAG] = prev;
-  });
-
-  it("defaults OFF", () => {
-    delete process.env[PLATFORM_BILLING_FLAG];
-    expect(isPlatformBillingEnabled()).toBe(false);
-  });
-
-  it("is ON only when set exactly to 'true'", () => {
-    process.env[PLATFORM_BILLING_FLAG] = "true";
-    expect(isPlatformBillingEnabled()).toBe(true);
-    process.env[PLATFORM_BILLING_FLAG] = "1";
-    expect(isPlatformBillingEnabled()).toBe(false);
   });
 });
 

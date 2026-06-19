@@ -2,17 +2,11 @@
  * @jest-environment node
  *
  * Route tests for POST /api/accounts/[id]/billing/checkout (CS-3). Mocks supabase auth,
- * requireAccountRole, the platform-billing flag, and the session service. Load-bearing:
- * flag-off 404, auth/role gates, strict body (client can't send a price id), service
- * reason→HTTP mapping, happy path returns only { url } (no Stripe id leak).
+ * requireAccountRole, and the session service. Billing is live (no feature-flag gate).
+ * Load-bearing: auth/role gates, strict body (client can't send a price id), the Pro happy
+ * path (Personal Pro is live), service reason→HTTP mapping (incl. Stripe-not-configured 503),
+ * happy path returns only { url } (no Stripe id leak).
  */
-
-const mockIsFlagOn = jest.fn();
-const mockIsProOn = jest.fn();
-jest.mock("@/services/billing/billingFeatureFlags", () => ({
-  isPlatformBillingEnabled: () => mockIsFlagOn(),
-  isPersonalProEnabled: () => mockIsProOn(),
-}));
 
 const mockGetUser = jest.fn();
 jest.mock("@/utils/supabase/server", () => ({
@@ -49,24 +43,9 @@ function req(body: unknown) {
 }
 
 beforeEach(() => {
-  mockIsFlagOn.mockReset();
-  mockIsProOn.mockReset();
   mockGetUser.mockReset();
   mockRequireRole.mockReset();
   mockCreateCheckout.mockReset();
-  mockIsFlagOn.mockReturnValue(true); // default ON; flag-off test overrides
-  mockIsProOn.mockReturnValue(true); // default ON; personal-pro-off test overrides
-});
-
-describe("feature flag", () => {
-  it("404 when ENABLE_PLATFORM_BILLING is OFF — no auth, role, or service call", async () => {
-    mockIsFlagOn.mockReturnValue(false);
-    const res = await POST(req({ plan: "pro" }), params());
-    expect(res.status).toBe(404);
-    expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockRequireRole).not.toHaveBeenCalled();
-    expect(mockCreateCheckout).not.toHaveBeenCalled();
-  });
 });
 
 describe("auth + role gates", () => {
@@ -114,20 +93,8 @@ describe("body validation (client cannot choose a price)", () => {
   });
 });
 
-describe("Personal Pro dark-launch gate (CS-PRO-1)", () => {
-  it("400 PLAN_NOT_AVAILABLE for plan=pro when ENABLE_PERSONAL_PRO is OFF — no Stripe/service call", async () => {
-    mockIsProOn.mockReturnValue(false);
-    signedIn();
-    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
-    const res = await POST(req({ plan: "pro" }), params());
-    expect(res.status).toBe(400);
-    expect((await res.json()).code).toBe("PLAN_NOT_AVAILABLE");
-    // The route gate fires BEFORE the session service — no Stripe customer/session is created.
-    expect(mockCreateCheckout).not.toHaveBeenCalled();
-  });
-
-  it("allows plan=pro when BOTH platform billing and personal-pro flags are ON", async () => {
-    // both default ON in beforeEach
+describe("Personal Pro (live — no flag gate)", () => {
+  it("allows plan=pro → 200 { url }; plan↔type validity is enforced server-side", async () => {
     signedIn();
     mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
     mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/pro" });
@@ -141,32 +108,13 @@ describe("Personal Pro dark-launch gate (CS-PRO-1)", () => {
     });
   });
 
-  it("does NOT affect Team checkout when ENABLE_PERSONAL_PRO is OFF", async () => {
-    mockIsProOn.mockReturnValue(false);
+  it("a non-personal account buying pro is rejected by the service (invalid_plan_for_type → 400)", async () => {
     signedIn();
     mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
-    mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/team" });
-    const res = await POST(req({ plan: "team" }), params());
-    expect(res.status).toBe(200);
-    expect(mockCreateCheckout).toHaveBeenCalledWith({
-      accountId: ACCOUNT,
-      requestedPlan: "team",
-      contactEmail: "m@x.test",
-    });
-  });
-
-  it("does NOT affect Business checkout when ENABLE_PERSONAL_PRO is OFF", async () => {
-    mockIsProOn.mockReturnValue(false);
-    signedIn();
-    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "admin" });
-    mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/biz" });
-    const res = await POST(req({ plan: "business" }), params());
-    expect(res.status).toBe(200);
-    expect(mockCreateCheckout).toHaveBeenCalledWith({
-      accountId: ACCOUNT,
-      requestedPlan: "business",
-      contactEmail: "m@x.test",
-    });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: false, reason: "invalid_plan_for_type" });
+    const res = await POST(req({ plan: "pro" }), params());
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("INVALID_PLAN_FOR_TYPE");
   });
 });
 

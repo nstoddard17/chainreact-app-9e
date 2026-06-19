@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuthedUserId } from "@/app/api/account/_shared";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
-import { isPlatformBillingEnabled } from "@/services/billing/billingFeatureFlags";
 import {
   createPortalSession,
   type PortalFailureReason,
@@ -11,8 +10,8 @@ import {
  * POST /api/accounts/[id]/billing/portal (Slice 4.BILLING-PLAN-METADATA-4 / CS-3).
  *
  * Opens a Stripe Customer Portal session (upgrade / downgrade / cancel / payment method)
- * and returns ONLY `{ url }`. Same gate order as checkout: flag-off → 404, auth → 401,
- * owner/admin → 403. Requires an existing `stripe_customer_id` — it never lazily creates
+ * and returns ONLY `{ url }`. Same gate order as checkout (billing is live, no flag): auth
+ * → 401, owner/admin → 403. Requires an existing `stripe_customer_id` — it never lazily creates
  * a customer (→ `no_customer`, caller must checkout first). No body. This route NEVER
  * mutates plan/status; it only mints a portal URL. No Stripe id/secret in any response.
  */
@@ -56,8 +55,6 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  if (!isPlatformBillingEnabled()) return notFound();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { id: accountId } = await params;

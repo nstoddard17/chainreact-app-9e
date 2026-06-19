@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthedUserId, parseAccountBody } from "@/app/api/account/_shared";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
-import { isPlatformBillingEnabled } from "@/services/billing/billingFeatureFlags";
 import {
   getPersonalPlanState,
   setPersonalCancelAtPeriodEnd,
@@ -16,8 +15,8 @@ import {
  *          preview to Free). NO Stripe ids.
  *   POST — set/undo cancel_at_period_end on the personal subscription (period-end cancel).
  *
- * Both behind ENABLE_PLATFORM_BILLING (OFF → 404, no oracle), owner/admin only,
- * account-scoped, personal account only. POST additionally rejects a frozen account.
+ * Billing is live (no feature-flag gate): owner/admin only, account-scoped, personal
+ * account only. POST additionally rejects a frozen account.
  * The route never mutates plan/status — the CS-4 webhook stays authoritative. Responses
  * carry only booleans/dates — no Stripe customer/subscription id or secret.
  */
@@ -46,8 +45,6 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  if (!isPlatformBillingEnabled()) return notFound();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { id: accountId } = await params;
@@ -75,8 +72,6 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  if (!isPlatformBillingEnabled()) return notFound();
-
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { id: accountId } = await params;

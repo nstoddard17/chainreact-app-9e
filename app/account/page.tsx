@@ -6,11 +6,7 @@ import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount
 import { getDisplayName } from "@/repositories/userProfiles";
 import { getUsage } from "@/repositories/accountBilling";
 import { getAiCreditUsage } from "@/repositories/accountBillingAiCredits";
-import {
-  isPlatformBillingEnabled,
-  isPersonalProEnabled,
-  isBusinessDowngradeEnabled,
-} from "@/services/billing/billingFeatureFlags";
+import { isBusinessDowngradeEnabled } from "@/services/billing/billingFeatureFlags";
 import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
 import { folderLimitForAccount } from "@/services/workflowFolders/folderLimits";
@@ -147,10 +143,6 @@ export default async function AccountPage({ searchParams }: Props) {
       planStatus: usage?.planStatus ?? null,
       currentPeriodEnd: usage?.currentPeriodEnd ?? null,
       cancelAtPeriodEnd: usage?.cancelAtPeriodEnd ?? null,
-      // PPT-3: gate the interactive personal-plan panel on the platform-billing flag.
-      platformBillingEnabled: isPlatformBillingEnabled(),
-      // CS-PRO-1: dark-launch gate for the personal Free → Pro upgrade affordance.
-      personalProEnabled: isPersonalProEnabled(),
       // CS-BD-3: dark-launch gate for the destructive Business → Team downgrade affordance.
       businessDowngradeEnabled: isBusinessDowngradeEnabled(),
       // BU-4: the viewer's personal account id, so a Team→Business upgrade can run the

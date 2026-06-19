@@ -9,8 +9,9 @@ This doc explains and contextualizes those numbers; the code is authoritative fo
 > repo (except the marketing display copy). Stripe Price IDs are resolved from per-interval env
 > vars (`STRIPE_PRICE_{PRO,TEAM,BUSINESS}_{MONTHLY,ANNUAL}`) in
 > [`services/billing/platformStripePrices.ts`](../../services/billing/platformStripePrices.ts);
-> the dollar figures live in the Stripe dashboard. Checkout is dark-launched behind
-> `ENABLE_PLATFORM_BILLING` (default OFF), so no plan is publicly purchasable yet.
+> the dollar figures live in the Stripe dashboard. Platform checkout/portal and Personal Pro
+> are LIVE (no feature-flag gate); when Stripe env is unconfigured the routes fail closed with
+> a typed 503. Business → Team downgrade remains dark behind `ENABLE_BUSINESS_DOWNGRADE`.
 
 ## Price summary
 
@@ -95,10 +96,13 @@ Built and enforced today:
   route-level wiring per feature).
 - Built-in template use for all tiers.
 
+Live (no feature-flag gate):
+- Platform checkout / portal — live; fails closed with a typed 503 when Stripe env is
+  unconfigured (`ENABLE_PLATFORM_BILLING` flag removed).
+- Personal Free to Pro upgrade — live (`ENABLE_PERSONAL_PRO` flag removed).
+
 Built but flag-gated OFF (dark-launched):
-- Platform checkout / portal (`ENABLE_PLATFORM_BILLING`).
-- Personal Free to Pro upgrade (`ENABLE_PERSONAL_PRO`).
-- Business to Team downgrade (`ENABLE_BUSINESS_DOWNGRADE`).
+- Business to Team downgrade (`ENABLE_BUSINESS_DOWNGRADE`) — destructive, owner-confirmed.
 - AI credit enforcement gate (`ENABLE_AI_CREDIT_ENFORCEMENT`); credits are recorded today,
   deducted/blocked only when the flag is on.
 
@@ -148,11 +152,12 @@ Mailchimp) can be shared at the account level; everything else is personal. See
    7500 WHERE plan = 'team' AND tasks_limit = 100;` Not shipped here (no prod team subscriptions
    yet); run before launch if any team accounts exist. Do NOT widen the predicate to other plans.
 2. **Set the annual Stripe Price IDs.** Interval support is implemented (PRICING-INTERVAL-1);
-   annual checkout works once `STRIPE_PRICE_{PRO,TEAM,BUSINESS}_ANNUAL` are configured (and the
-   billing flags are on). Until then, annual is informational on the pricing page only.
+   annual checkout works once `STRIPE_PRICE_{PRO,TEAM,BUSINESS}_ANNUAL` are configured. Until
+   then, annual is informational on the pricing page only.
 3. **Decide which Pro/Team/Business feature bullets to gate** (active workflows, retention,
    connected-accounts-per-app) and build the enforcement before advertising hard numbers.
 4. **Set all six interval-specific Stripe Price IDs**
-   (`STRIPE_PRICE_{PRO,TEAM,BUSINESS}_{MONTHLY,ANNUAL}`) to prices matching this doc before
-   flipping `ENABLE_PLATFORM_BILLING`. (The legacy `STRIPE_PRICE_{PRO,TEAM,BUSINESS}` vars still
-   work as a monthly-only fallback.)
+   (`STRIPE_PRICE_{PRO,TEAM,BUSINESS}_{MONTHLY,ANNUAL}`) to prices matching this doc. Billing is
+   live by default, so unconfigured prices fail closed with a typed 503 rather than charging a
+   wrong amount. (The legacy `STRIPE_PRICE_{PRO,TEAM,BUSINESS}` vars still work as a monthly-only
+   fallback.)

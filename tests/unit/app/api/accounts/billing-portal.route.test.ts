@@ -2,14 +2,9 @@
  * @jest-environment node
  *
  * Route tests for POST /api/accounts/[id]/billing/portal (CS-3). Mocks supabase auth,
- * requireAccountRole, the platform-billing flag, and the session service. Load-bearing:
- * flag-off 404, auth/role gates, no_customer→409, reason→HTTP mapping, happy { url }.
+ * requireAccountRole, and the session service. Billing is live (no feature-flag gate).
+ * Load-bearing: auth/role gates, no_customer→409, reason→HTTP mapping, happy { url }.
  */
-
-const mockIsFlagOn = jest.fn();
-jest.mock("@/services/billing/billingFeatureFlags", () => ({
-  isPlatformBillingEnabled: () => mockIsFlagOn(),
-}));
 
 const mockGetUser = jest.fn();
 jest.mock("@/utils/supabase/server", () => ({
@@ -42,22 +37,12 @@ function req() {
 }
 
 beforeEach(() => {
-  mockIsFlagOn.mockReset();
   mockGetUser.mockReset();
   mockRequireRole.mockReset();
   mockCreatePortal.mockReset();
-  mockIsFlagOn.mockReturnValue(true);
 });
 
-describe("feature flag + gates", () => {
-  it("404 when the flag is OFF — no auth/role/service", async () => {
-    mockIsFlagOn.mockReturnValue(false);
-    const res = await POST(req(), params());
-    expect(res.status).toBe(404);
-    expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockCreatePortal).not.toHaveBeenCalled();
-  });
-
+describe("auth + role gates", () => {
   it("401 when unauthenticated", async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
     const res = await POST(req(), params());

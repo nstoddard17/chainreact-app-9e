@@ -1,15 +1,10 @@
 /**
  * @jest-environment node
  *
- * Route tests for /api/accounts/[id]/billing/personal (PPT-1). Mocks the flag, auth,
- * role, and the personalPlan service. Load-bearing: flag-off 404, auth/role gates,
- * personal-only, no Stripe id leak, body validation, reason→HTTP mapping.
+ * Route tests for /api/accounts/[id]/billing/personal (PPT-1). Mocks auth, role, and the
+ * personalPlan service. Billing is live (no feature-flag gate). Load-bearing: auth/role
+ * gates, personal-only, no Stripe id leak, body validation, reason→HTTP mapping.
  */
-
-const mockIsFlagOn = jest.fn();
-jest.mock("@/services/billing/billingFeatureFlags", () => ({
-  isPlatformBillingEnabled: () => mockIsFlagOn(),
-}));
 
 const mockGetUser = jest.fn();
 jest.mock("@/utils/supabase/server", () => ({
@@ -51,7 +46,6 @@ function postReq(body: unknown) {
 }
 
 beforeEach(() => {
-  mockIsFlagOn.mockReset().mockReturnValue(true);
   mockGetUser.mockReset();
   mockRequireRole.mockReset();
   mockGetState.mockReset();
@@ -59,14 +53,6 @@ beforeEach(() => {
 });
 
 describe("GET (read state)", () => {
-  it("404 when the flag is OFF — no auth/role/service", async () => {
-    mockIsFlagOn.mockReturnValue(false);
-    const res = await GET(getReq(), params());
-    expect(res.status).toBe(404);
-    expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockGetState).not.toHaveBeenCalled();
-  });
-
   it("401 unauthenticated", async () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
     expect((await GET(getReq(), params())).status).toBe(401);
@@ -112,12 +98,6 @@ describe("GET (read state)", () => {
 });
 
 describe("POST (set cancel at period end)", () => {
-  it("404 when the flag is OFF", async () => {
-    mockIsFlagOn.mockReturnValue(false);
-    expect((await POST(postReq({ cancelAtPeriodEnd: true }), params())).status).toBe(404);
-    expect(mockSetCancel).not.toHaveBeenCalled();
-  });
-
   it("403 for a plain member", async () => {
     signedIn();
     mockRequireRole.mockResolvedValueOnce({ ok: false, reason: "forbidden" });

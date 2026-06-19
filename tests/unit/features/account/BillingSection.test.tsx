@@ -286,26 +286,11 @@ describe("BillingSection — lifecycle status (CS-5)", () => {
 describe("BillingSection — personal-plan panel gating (PPT-3)", () => {
   const ACCT = "acct-1";
 
-  it("renders the personal-plan panel for a personal owner when the flag is ON", () => {
+  it("renders the personal-plan panel for a personal owner (billing is live)", () => {
     render(
-      <BillingSection
-        active={active("personal")}
-        accountId={ACCT}
-        billing={{ ...baseBilling, platformBillingEnabled: true }}
-      />,
+      <BillingSection active={active("personal")} accountId={ACCT} billing={baseBilling} />,
     );
     expect(screen.getByTestId("personal-plan-panel")).toBeInTheDocument();
-  });
-
-  it("does NOT render the panel when the platform-billing flag is OFF", () => {
-    render(
-      <BillingSection
-        active={active("personal")}
-        accountId={ACCT}
-        billing={{ ...baseBilling, platformBillingEnabled: false }}
-      />,
-    );
-    expect(screen.queryByTestId("personal-plan-panel")).toBeNull();
   });
 
   it("does NOT render the panel for a Team/Business account", () => {
@@ -313,7 +298,7 @@ describe("BillingSection — personal-plan panel gating (PPT-3)", () => {
       <BillingSection
         active={active("organization")}
         accountId={ACCT}
-        billing={{ ...baseBilling, platformBillingEnabled: true, memberLimit: 25, memberCount: 2, folderLimit: 250 }}
+        billing={{ ...baseBilling, memberLimit: 25, memberCount: 2, folderLimit: 250 }}
       />,
     );
     expect(screen.queryByTestId("personal-plan-panel")).toBeNull();
@@ -324,7 +309,7 @@ describe("BillingSection — personal-plan panel gating (PPT-3)", () => {
       <BillingSection
         active={active("personal", "Personal", "member")}
         accountId={ACCT}
-        billing={{ ...baseBilling, platformBillingEnabled: true }}
+        billing={baseBilling}
       />,
     );
     expect(screen.queryByTestId("personal-plan-panel")).toBeNull();
@@ -334,10 +319,10 @@ describe("BillingSection — personal-plan panel gating (PPT-3)", () => {
 describe("BillingSection — Business upgrade gating (BU-4)", () => {
   const ACCT = "team-1";
   function teamBilling(over: Partial<AccountBillingView> = {}) {
-    return { ...baseBilling, platformBillingEnabled: true, plan: "team" as const, memberLimit: 5, memberCount: 2, folderLimit: 100, personalAccountId: "personal-1", ...over };
+    return { ...baseBilling, plan: "team" as const, memberLimit: 5, memberCount: 2, folderLimit: 100, personalAccountId: "personal-1", ...over };
   }
 
-  it("shows 'Upgrade to Business' for a Team owner/admin with the flag ON", () => {
+  it("shows 'Upgrade to Business' for a Team owner/admin (billing is live)", () => {
     render(<BillingSection active={active("team")} accountId={ACCT} billing={teamBilling()} />);
     const panel = screen.getByTestId("business-upgrade-panel");
     expect(panel).toBeInTheDocument();
@@ -351,18 +336,13 @@ describe("BillingSection — Business upgrade gating (BU-4)", () => {
     expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
   });
 
-  it("hides the upgrade when the flag is OFF", () => {
-    render(<BillingSection active={active("team")} accountId={ACCT} billing={teamBilling({ platformBillingEnabled: false })} />);
-    expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
-  });
-
   it("hides the upgrade on a frozen Team account", () => {
     render(<BillingSection active={active("team")} accountId={ACCT} billing={teamBilling({ frozen: true })} />);
     expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
   });
 
   it("hides the upgrade on a personal account", () => {
-    render(<BillingSection active={active("personal")} accountId={ACCT} billing={{ ...baseBilling, platformBillingEnabled: true }} />);
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={baseBilling} />);
     expect(screen.queryByTestId("business-upgrade-panel")).toBeNull();
   });
 
@@ -380,30 +360,17 @@ describe("BillingSection — Business upgrade gating (BU-4)", () => {
 
 describe("BillingSection — Personal Free → Pro upgrade (4.PLATFORM-BILLING-UI-1)", () => {
   const ACCT = "personal-1";
-  // CS-PRO-1: the upgrade now requires BOTH platform billing AND the personal-pro dark-launch flag.
+  // Personal Pro is live (no flag gate) — the upgrade shows for an eligible personal Free owner.
   function personalBilling(over: Partial<AccountBillingView> = {}) {
-    return { ...baseBilling, platformBillingEnabled: true, personalProEnabled: true, ...over };
+    return { ...baseBilling, ...over };
   }
 
-  it("shows 'Upgrade to Pro' for a personal Free owner with both flags ON", () => {
+  it("shows 'Upgrade to Pro' for a personal Free owner (billing + Pro are live)", () => {
     render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling()} />);
     const panel = screen.getByTestId("personal-upgrade-panel");
     expect(within(panel).getByTestId("ccb")).toHaveAttribute("data-plan", "pro");
     // the redundant coming-soon "Upgrade or change plan" row is suppressed.
     expect(screen.getByTestId("account-section-billing")).not.toHaveTextContent(/Upgrade or change plan/);
-  });
-
-  it("hides 'Upgrade to Pro' when ENABLE_PERSONAL_PRO is OFF (dark-launch) even with platform billing ON", () => {
-    render(
-      <BillingSection
-        active={active("personal")}
-        accountId={ACCT}
-        billing={personalBilling({ personalProEnabled: false })}
-      />,
-    );
-    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
-    // and the honest coming-soon "Upgrade or change plan" row is shown instead.
-    expect(screen.getByTestId("account-section-billing")).toHaveTextContent(/Upgrade or change plan/);
   });
 
   it("does NOT show Upgrade to Pro for a paid Pro personal account", () => {
@@ -438,34 +405,9 @@ describe("BillingSection — Personal Free → Pro upgrade (4.PLATFORM-BILLING-U
     expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
   });
 
-  it("hides Upgrade to Pro when the platform-billing flag is OFF", () => {
-    render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling({ platformBillingEnabled: false })} />);
-    expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
-  });
-
   it("hides Upgrade to Pro on a frozen account (payment controls hidden)", () => {
     render(<BillingSection active={active("personal")} accountId={ACCT} billing={personalBilling({ frozen: true })} />);
     expect(screen.queryByTestId("personal-upgrade-panel")).toBeNull();
-  });
-
-  it("Team → Business upgrade is UNAFFECTED by ENABLE_PERSONAL_PRO (off)", () => {
-    render(
-      <BillingSection
-        active={active("team")}
-        accountId="team-1"
-        billing={{
-          ...baseBilling,
-          platformBillingEnabled: true,
-          personalProEnabled: false,
-          plan: "team",
-          memberLimit: 5,
-          memberCount: 2,
-          folderLimit: 100,
-          personalAccountId: "personal-1",
-        }}
-      />,
-    );
-    expect(screen.getByTestId("business-upgrade-panel")).toBeInTheDocument();
   });
 });
 
@@ -474,7 +416,6 @@ describe("BillingSection — Manage billing portal (4.PLATFORM-BILLING-UI-1)", (
   function subscribed(over: Partial<AccountBillingView> = {}) {
     return {
       ...baseBilling,
-      platformBillingEnabled: true,
       plan: "pro" as const,
       planStatus: "active" as const,
       currentPeriodEnd: "2026-08-01T00:00:00Z",
@@ -482,7 +423,7 @@ describe("BillingSection — Manage billing portal (4.PLATFORM-BILLING-UI-1)", (
     };
   }
 
-  it("shows Manage billing for an owner with a synced subscription + flag ON", () => {
+  it("shows Manage billing for an owner with a synced subscription", () => {
     render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed()} />);
     expect(screen.getByTestId("manage-billing")).toBeInTheDocument();
     expect(screen.getByTestId("manage-billing-trigger")).toHaveTextContent(/Manage billing/i);
@@ -490,11 +431,6 @@ describe("BillingSection — Manage billing portal (4.PLATFORM-BILLING-UI-1)", (
 
   it("hides Manage billing with no synced subscription (no Stripe customer state)", () => {
     render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed({ currentPeriodEnd: null })} />);
-    expect(screen.queryByTestId("manage-billing")).toBeNull();
-  });
-
-  it("hides Manage billing when the flag is OFF", () => {
-    render(<BillingSection active={active("personal")} accountId={ACCT} billing={subscribed({ platformBillingEnabled: false })} />);
     expect(screen.queryByTestId("manage-billing")).toBeNull();
   });
 
@@ -526,7 +462,6 @@ describe("BillingSection — Business → Team downgrade gating (CS-BD-3)", () =
   function orgBilling(over: Partial<AccountBillingView> = {}) {
     return {
       ...baseBilling,
-      platformBillingEnabled: true,
       businessDowngradeEnabled: true,
       plan: "business" as const,
       memberLimit: 25,
@@ -536,7 +471,7 @@ describe("BillingSection — Business → Team downgrade gating (CS-BD-3)", () =
     };
   }
 
-  it("shows the downgrade panel for a Business OWNER with both flags ON", () => {
+  it("shows the downgrade panel for a Business OWNER with ENABLE_BUSINESS_DOWNGRADE ON", () => {
     render(<BillingSection active={active("organization")} accountId={ACCT} billing={orgBilling()} />);
     expect(screen.getByTestId("business-downgrade-panel")).toBeInTheDocument();
   });
@@ -556,11 +491,6 @@ describe("BillingSection — Business → Team downgrade gating (CS-BD-3)", () =
     expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
   });
 
-  it("hides the downgrade when platform billing is OFF", () => {
-    render(<BillingSection active={active("organization")} accountId={ACCT} billing={orgBilling({ platformBillingEnabled: false })} />);
-    expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
-  });
-
   it("hides the downgrade on a frozen account", () => {
     render(<BillingSection active={active("organization")} accountId={ACCT} billing={orgBilling({ frozen: true })} />);
     expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
@@ -569,7 +499,7 @@ describe("BillingSection — Business → Team downgrade gating (CS-BD-3)", () =
   it("hides the downgrade on Team / personal accounts", () => {
     render(<BillingSection active={active("team")} accountId={ACCT} billing={orgBilling({ plan: "team", memberLimit: 5, folderLimit: 100 })} />);
     expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
-    render(<BillingSection active={active("personal")} accountId={ACCT} billing={{ ...baseBilling, platformBillingEnabled: true, businessDowngradeEnabled: true }} />);
+    render(<BillingSection active={active("personal")} accountId={ACCT} billing={{ ...baseBilling, businessDowngradeEnabled: true }} />);
     expect(screen.queryByTestId("business-downgrade-panel")).toBeNull();
   });
 });

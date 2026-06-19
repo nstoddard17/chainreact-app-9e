@@ -7,8 +7,8 @@ import { CheckoutChoiceButton } from "./CheckoutChoiceButton";
  *
  * A thin wrapper around the generic PPT-4 `CheckoutChoiceButton` that starts a paid Pro
  * checkout for the viewer's own PERSONAL account (plan='pro'). The parent BillingSection
- * gates eligibility (personal account, owner/admin, not frozen, current plan free,
- * ENABLE_PLATFORM_BILLING + ENABLE_PERSONAL_PRO on); this component only renders the copy +
+ * gates eligibility (personal account, owner/admin, not frozen, current plan free); billing
+ * + Personal Pro are live (no feature-flag gate). This component only renders the copy +
  * button.
  *
  * Because the checkout account IS the personal account, `CheckoutChoiceButton` skips the

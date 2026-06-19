@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
  *
  * Opens the Stripe Customer Portal (update card / view invoices / cancel) via the existing
  * CS-3 portal route — this slice adds no backend and never calls Stripe directly. The
- * parent BillingSection gates visibility (owner/admin, not frozen, ENABLE_PLATFORM_BILLING
- * on, and a synced subscription exists). On success it redirects to the Stripe-hosted portal
+ * parent BillingSection gates visibility (owner/admin, not frozen, and a synced subscription
+ * exists; billing is live — no feature-flag gate). On success it redirects to the Stripe-hosted portal
  * url ONLY — no Stripe customer/subscription id is read or shown.
  *
  * Defensive: if the account somehow has no Stripe customer yet (route → 409 `CONFLICT`),

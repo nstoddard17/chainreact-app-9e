@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
  * Personal-plan management panel (Slice 4.BILLING-PERSONAL-PRO-TEAM-CHOICE-3 / PPT-3).
  *
  * For an owner on a PERSONAL account (the parent BillingSection gates personal +
- * owner/admin + ENABLE_PLATFORM_BILLING), reads the safe PPT-1 state and lets the user
+ * owner/admin; billing is live — no feature-flag gate), reads the safe PPT-1 state and lets the user
  * schedule (or undo) a downgrade to Free at period end. It mutates ONLY the Stripe
  * cancel-at-period-end flag via the PPT-1 route — never plan/status (webhook authority).
  *
