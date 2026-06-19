@@ -27,7 +27,8 @@ export function IntentClarificationBody({
   return (
     <div data-testid="builder-ai-intent-clarification" className="flex flex-col gap-2">
       <p className="text-xs" style={{ color: "var(--builder-text)" }}>
-        I can explain what&rsquo;s wrong, or I can plan changes to fix it. Which do you want?
+        This could go two ways — I can explain what&rsquo;s wrong, or plan changes to fix it.
+        Which would you like?
       </p>
       <div className="flex items-center gap-2">
         <Button

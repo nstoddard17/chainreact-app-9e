@@ -69,7 +69,7 @@ describe("IntentClarificationBody — renderer", () => {
   it("renders the clarification copy + both quick actions with accessible names", () => {
     render(<IntentClarificationBody resolved={false} onExplain={jest.fn()} onPlan={jest.fn()} />);
     expect(screen.getByTestId("builder-ai-intent-clarification").textContent).toMatch(
-      /explain what.?s wrong, or i can plan changes to fix it/i,
+      /explain what.?s wrong, or plan changes to fix it/i,
     );
     expect(screen.getByRole("button", { name: "Explain the issue" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Plan a fix" })).toBeEnabled();

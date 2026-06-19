@@ -444,7 +444,7 @@ describe("apply-readiness gate (AI-20)", () => {
         { label: "What should the message say?", kind: "config_value" },
       ],
       canApplyLater: false, // service contract — AI-20 service gate
-      blockedReason: "More information is still needed — answer the questions above and run Plan with AI again.",
+      blockedReason: "More information is still needed — answer the questions above and send again.",
     });
     render(<BuilderAiPanel />);
     await typeAndPlan();
@@ -590,8 +590,8 @@ describe("follow-up composer (AI-21)", () => {
     expect(
       screen.queryByTestId("builder-ai-required-input-block"),
     ).not.toBeInTheDocument();
-    // Button copy returns to "Plan with AI" now that the chain is complete.
-    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Plan with AI");
+    // Button copy returns to the default "Send" now that the chain is complete.
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Send");
   });
 
   it("supports multi-turn chains — composer stays in follow-up mode when one question is still unresolved", async () => {
@@ -636,7 +636,7 @@ describe("follow-up composer (AI-21)", () => {
     await screen.findByTestId("builder-ai-required-input-block");
     await user.click(screen.getByTestId("builder-ai-clear-button"));
     expect(screen.queryByTestId("builder-ai-required-input-block")).not.toBeInTheDocument();
-    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Plan with AI");
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Send");
     // Composer is empty after Clear — typing a fresh prompt is required.
     const textarea = screen.getByTestId("builder-ai-prompt");
     expect(textarea).toHaveValue("");
@@ -677,7 +677,7 @@ describe("follow-up composer (AI-21)", () => {
     await user.click(screen.getByTestId("builder-ai-plan-another-button"));
     expect(screen.queryByTestId("builder-ai-apply-success")).not.toBeInTheDocument();
     expect(screen.queryByTestId("builder-ai-plan-result")).not.toBeInTheDocument();
-    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Plan with AI");
+    expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent("Send");
   });
 
   it("does NOT include raw patch / config / secrets in the reconstructed follow-up prompt", async () => {

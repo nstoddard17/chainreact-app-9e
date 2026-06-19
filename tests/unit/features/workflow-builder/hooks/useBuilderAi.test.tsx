@@ -74,7 +74,7 @@ const needsInputResponse = {
     taskCostEstimate: { estimatedTasksPerRun: 1 },
   },
   canApplyLater: false, // service gate — required input outstanding
-  blockedReason: "More information is still needed — answer the questions above and run Plan with AI again.",
+  blockedReason: "More information is still needed — answer the questions above and send again.",
   model: { modelId: "claude-sonnet-4-6", tier: "strong", feature: "creation", finishReason: "stop" },
 };
 

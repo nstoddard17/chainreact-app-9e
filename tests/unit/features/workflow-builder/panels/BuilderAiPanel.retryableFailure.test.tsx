@@ -320,9 +320,9 @@ describe("AI-25 — Clear conversation still resets the preserved chain", () => 
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId("builder-ai-error-message")).not.toBeInTheDocument();
     expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("");
-    // Composer is back in "Plan with AI" mode (no chain).
+    // Composer is back in the default "Send" mode (no chain).
     expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent(
-      "Plan with AI",
+      "Send",
     );
   });
 });
@@ -373,10 +373,10 @@ describe("AI-25 — successful follow-up still drops chain (regression guard)", 
     await user.type(screen.getByTestId("builder-ai-prompt"), "Use #general");
     await user.click(screen.getByTestId("builder-ai-plan-button"));
     await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
-    // Chain completed — composer returns to "Plan with AI" mode.
+    // Chain completed — composer returns to the default "Send" mode.
     await waitFor(() =>
       expect(screen.getByTestId("builder-ai-plan-button")).toHaveTextContent(
-        "Plan with AI",
+        "Send",
       ),
     );
     // Apply is now available.

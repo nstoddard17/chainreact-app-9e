@@ -8,7 +8,7 @@
  * with @/lib/api/ai mocked, and assert which backend the text reached, the
  * clarification flow, resolve-once, no-leak, and selectedNodeId forwarding.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockPlan = jest.fn();
@@ -219,5 +219,56 @@ describe("precedence", () => {
     await user.click(screen.getByTestId("builder-ai-plan-button"));
     await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(2));
     expect(mockAsk).not.toHaveBeenCalled();
+  });
+});
+
+describe("example-prompt chips (BUILDER-AI-COMPOSER-POLISH-1)", () => {
+  async function openEmptyPanel() {
+    const user = userEvent.setup();
+    render(<BuilderAiPanel />);
+    await waitFor(() =>
+      expect(screen.getByTestId("builder-ai-examples")).toBeInTheDocument(),
+    );
+    return user;
+  }
+
+  function clickChip(user: ReturnType<typeof userEvent.setup>, label: string) {
+    const chip = within(screen.getByTestId("builder-ai-examples")).getByText(label);
+    return user.click(chip);
+  }
+
+  it("renders the four example chips in the empty intro state", async () => {
+    await openEmptyPanel();
+    const chips = screen.getAllByTestId("builder-ai-example-chip");
+    expect(chips.map((c) => c.textContent)).toEqual([
+      "Why won't this run?",
+      "Explain this error",
+      "Add a Slack step",
+      "What should I fix first?",
+    ]);
+  });
+
+  it("a chip FILLS the one composer and calls NO backend (never bypasses AUTOROUTE)", async () => {
+    const user = await openEmptyPanel();
+    await clickChip(user, "Add a Slack step");
+    expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("Add a Slack step");
+    expect(mockPlan).not.toHaveBeenCalled();
+    expect(mockAsk).not.toHaveBeenCalled();
+  });
+
+  it("a build chip, once sent, routes to the planner (not Q&A)", async () => {
+    const user = await openEmptyPanel();
+    await clickChip(user, "Add a Slack step");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockPlan).toHaveBeenCalledTimes(1));
+    expect(mockAsk).not.toHaveBeenCalled();
+  });
+
+  it("a question chip, once sent, routes to read-only Q&A (not the planner)", async () => {
+    const user = await openEmptyPanel();
+    await clickChip(user, "Why won't this run?");
+    await user.click(screen.getByTestId("builder-ai-plan-button"));
+    await waitFor(() => expect(mockAsk).toHaveBeenCalledTimes(1));
+    expect(mockPlan).not.toHaveBeenCalled();
   });
 });

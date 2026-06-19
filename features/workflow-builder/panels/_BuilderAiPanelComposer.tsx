@@ -167,7 +167,7 @@ export function BuilderAiPanelComposer({
               ? `Type the ${chatFillHint.fieldLabel} value`
               : followUpMode
                 ? "Reply with the missing details"
-                : "Describe the workflow change"
+                : "Ask a question or describe a change"
           }
           data-testid="builder-ai-prompt"
           placeholder={
@@ -175,7 +175,7 @@ export function BuilderAiPanelComposer({
               ? `Type ${chatFillHint.fieldLabel} value…`
               : followUpMode
                 ? "Reply with the missing details — e.g. ‘Use #general and say Test from ChainReact AI.’"
-                : "Describe a change — e.g. ‘retry once on 5xx, then DM #oncall’"
+                : "Ask a question or describe a change — e.g. ‘Why won’t this run?’ or ‘Add a Slack step’"
           }
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
@@ -224,7 +224,7 @@ export function BuilderAiPanelComposer({
             >
               ↵
             </kbd>
-            <span className="ml-1.5">{followUpMode ? "send" : "plan"}</span>
+            <span className="ml-1.5">send</span>
             <span className="ml-1.5 opacity-70">· ⇧↵ newline</span>
           </span>
           <Button
@@ -240,7 +240,7 @@ export function BuilderAiPanelComposer({
               border: "1px solid var(--builder-text)",
             }}
           >
-            {planning ? "Thinking…" : followUpMode ? "Send details" : "Plan with AI"}
+            {planning ? "Thinking…" : followUpMode ? "Send details" : "Send"}
           </Button>
         </div>
       </div>

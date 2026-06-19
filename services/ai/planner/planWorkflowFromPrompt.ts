@@ -358,7 +358,7 @@ export async function planWorkflowFromPromptForAI(
   const blockedReason = canApplyLater
     ? undefined
     : requiredInputBlocking
-      ? "More information is still needed — answer the questions above and run Plan with AI again."
+      ? "More information is still needed — answer the questions above and send again."
       : (preview.blockedReason ?? "Preview rejected the proposed plan.");
 
   return {
