@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-19 @ cf0e43b97 (Builder AI polish batch closeout — 4 commits LOCAL/UNPUSHED; AI credit enforcement + AUTOROUTE live in prod; origin/v2-main = cf0e43b97)
+> Last curated: 2026-06-19 @ cf0e43b97 (Builder AI polish batch + selected-node Q&A label — 5 feature commits LOCAL/UNPUSHED; AI credit enforcement + AUTOROUTE live in prod; origin/v2-main = cf0e43b97)
 
 ## Current status
 
@@ -107,6 +107,18 @@
 
 ## Recently completed arcs
 
+- **Selected-node Q&A focus label — LOCAL/UNPUSHED (2026-06-19)** — a diagnostic question asked
+  with a step open now renders a subtle **"Focused on: <safe label>"** line in the read-only
+  `diagnosis_qa` answer. Label derived **client-side** from the visible draft node via canonical
+  `getNodeDisplayName(node)` (custom step name → metadata/type label → "Trigger"/"Action"); stale/
+  missing/unresolvable id → no line (silent fallback). **No raw selectedNodeId/config/secrets/`{{}}`/
+  DTO rendered; no server-side context projection; Q&A route/payload/model context unchanged; stays
+  read-only, no Apply/Preview; still routes to the Q&A endpoint; credit-denied still shows the safe
+  exhausted copy.** No routing/billing/env/provider/gate/migration change. Verified during the slice
+  (not re-run at closeout): diagnosisQa 21, consolidated 114, typecheck 0, eslint 0, lint:structure
+  OK. Commit `d2dfdc092` LOCAL/UNPUSHED (origin `cf0e43b97`); ships UI-only with the polish batch.
+  **Deferred:** provider-prefixed labels, backend model/schema changes. →
+  [`builder-ai-selected-node-qa-closeout.md`](./slices/phase-4/ai/builder-ai-selected-node-qa-closeout.md).
 - **Builder AI polish batch — LOCAL/UNPUSHED (2026-06-19)** — UI/copy polish on the live metered
   Builder AI (no routing/billing-gate/env/provider/migration change). Friendlier out-of-AI-credits
   copy (deterministic checks stay free + Account → Plan & billing path; no raw 402/code) + AI credits
