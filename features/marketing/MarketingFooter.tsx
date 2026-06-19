@@ -10,9 +10,8 @@ import Link from "next/link";
  * (Product / Get started / Legal), same `--mk-*` tokens, no motion.
  *
  * Link parity with the woven footer is deliberate so the two surfaces feel
- * identical. `Security` and `Privacy` point at the real `/security` and
- * `/privacy` routes; `Terms` remains a `#` placeholder (no such route exists
- * yet) — matching the homepage footer's current honesty posture.
+ * identical. `Privacy`, `Terms`, and `Security` point at the real `/privacy`,
+ * `/terms`, and `/security` routes.
  */
 const NAV_COLS: ReadonlyArray<{
   h: string;
@@ -38,7 +37,7 @@ const NAV_COLS: ReadonlyArray<{
     h: "Legal",
     links: [
       { label: "Privacy", href: "/privacy", internal: true },
-      { label: "Terms", href: "#" },
+      { label: "Terms", href: "/terms", internal: true },
       { label: "Security", href: "/security", internal: true },
     ],
   },
