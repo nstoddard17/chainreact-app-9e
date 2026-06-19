@@ -27,6 +27,8 @@
     "chainreact": "npm run chainreact:build && node scripts/chainreact/dist/cli.js",
     "test:e2e": "playwright test",
     "smoke:prod": "playwright test --config=playwright.smoke.config.ts",
+    "smoke:actions": "npm run chainreact -- smoke actions",
+    "smoke:actions:run": "jest tests/integration/smoke-actions tests/unit/smoke-actions",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

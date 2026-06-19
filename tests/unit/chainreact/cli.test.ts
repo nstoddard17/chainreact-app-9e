@@ -402,6 +402,44 @@ describe("run() dispatch", () => {
     const code = run(["mcp", "explode"], { fs: baseFs(), runtime: baseRuntime, log: () => {} });
     expect(code).toBe(2);
   });
+
+  const smokeFs = () =>
+    fakeFs({
+      "package.json": JSON.stringify({ scripts: {} }),
+      "services/execution/handlers/_handlerInventory.ts":
+        'export const ALL_HANDLERS = [\n' +
+        '  { provider: "slack", type: "list_channels", handler: a },\n' +
+        '  { provider: "native", type: "format_transformer", handler: b },\n];',
+      "tests/fixtures/action-smoke/native/format_transformer.ts": 'export default defineActionSmokeFixture({\n  risk: "read",\n});',
+    });
+  const noChanged: ChangedFilesReader = () => ({ ok: true, files: [] });
+
+  it("smoke actions → renders inventory and returns 0", () => {
+    const out: string[] = [];
+    const code = run(["smoke", "actions"], { fs: smokeFs(), runtime: baseRuntime, changedFiles: noChanged, log: (l) => out.push(l) });
+    expect(code).toBe(0);
+    expect(out.join("\n")).toContain("FIXTURE native:format_transformer");
+    expect(out.join("\n")).toContain("MISSING slack:list_channels");
+  });
+
+  it("smoke actions --provider native --json → JSON only, scoped to native", () => {
+    const out: string[] = [];
+    const code = run(["smoke", "actions", "--provider", "native", "--json"], {
+      fs: smokeFs(),
+      runtime: baseRuntime,
+      changedFiles: noChanged,
+      log: (l) => out.push(l),
+    });
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out.join("\n"));
+    expect(parsed.mode).toBe("inventory");
+    expect(parsed.rows.every((r: { provider: string }) => r.provider === "native")).toBe(true);
+  });
+
+  it("smoke with a bad subcommand → exit 2", () => {
+    const code = run(["smoke", "explode"], { fs: baseFs(), runtime: baseRuntime, log: () => {} });
+    expect(code).toBe(2);
+  });
 });
 
 // ── provider-wide: app validate --all + app list ────────────────────────────

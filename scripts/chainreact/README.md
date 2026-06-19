@@ -33,6 +33,7 @@ It is **live internal tooling** (not flag-gated).
 | `chainreact verify [--run] [--with-tests]` | Prints the pre-push/deploy verification batch. **Default: dry-run** (prints, runs nothing). `--run` executes the safe subset (`lint:structure`, `typecheck`, `lint`); `--run --with-tests` also runs the full `test` suite (heavy, opt-in). Fail-fast. |
 | `chainreact verify --changed [--run] [--with-tests] [--report] [--json]` | **Diff-aware** verify: inspects the local git diff (working tree + staged + untracked) and recommends the *smallest* sensible batch for what changed. Dry-run by default. `--run` executes the **auto** checks via a structured, allow-listed executor — bare `npm run <script>` **and** safe targeted commands (`app validate --all`/`<provider>`, bounded `jest <dir>`); **heavy** full-suite runs only with `--with-tests`. Allow-list rejects write/deploy/DB commands (kept as manual). `--report` appends a compact copy-pasteable closeout summary (final status + executed/skipped/failed + next steps); `--json` emits only a deterministic machine-readable report. Falls back gracefully (exit 1 + message) if git is unavailable. Git + execution are behind injectable seams — tests never spawn git or processes. |
 | `chainreact mcp smoke [--dry-run]` | Thin wrapper over the existing `npm run mcp:smoke`. `--dry-run` prints the command. Fails gracefully if the script is absent. Adds no MCP tools/permissions. |
+| `chainreact smoke actions [--provider <id>] [--all] [--json] [--changed] [--include-destructive]` | **Offline dry-run inventory** of registered actions vs smoke fixtures (`tests/fixtures/action-smoke/<provider>/<action>.ts`): which actions have fixtures, which are missing, which are skipped (destructive without `--include-destructive`) and why, plus per-provider totals. Reads the handler inventory + fixtures as TEXT (never imports app code); a parity test guards the parse against the real registry. Exits `1` on a malformed/mis-classified fixture. Does **not** execute — real runs live in the Jest harness (`npm run smoke:actions:run`). See [`docs/runbooks/action-smoke-cli.md`](../../docs/runbooks/action-smoke-cli.md). |
 | `chainreact app list` | Lists discovered providers with text-derived fields: id, displayName, enabled, **registered** (`yes`/`no`/`?`), action handler/meta/schema counts, trigger-meta count. Never imports provider code. Deterministic (sorted by id). |
 | `chainreact app validate <provider>` | Foundation validator for `integrations/<provider>/` metadata. Filesystem/text checks only — never imports provider code. Adds a `MANIFEST_NOT_REGISTERED` **warning** when the manifest isn't wired into `_registry.ts`, `ACTION_META_NOT_REGISTERED` / `ACTION_HANDLER_NOT_REGISTERED` **warnings** for a complete action triad that isn't wired into the discovery/handler inventories, and `TRIGGER_META_NOT_REGISTERED` **warning** for a trigger meta not wired into the discovery trigger inventory (all warnings — never errors). |
 | `chainreact app validate --all [--verbose]` | Runs the validator across **every** discovered provider; prints a summary (total / pass / warn / fail + per-provider status). Failures list their errors inline; `--verbose` also lists warnings. |
@@ -55,6 +56,12 @@ npm run chainreact -- verify --changed --run      # run the auto (cheap) subset 
 npm run chainreact -- verify --changed --report   # + copy-pasteable closeout summary
 npm run chainreact -- verify --changed --json     # deterministic machine-readable report
 npm run chainreact -- mcp smoke
+npm run chainreact -- smoke actions                       # full dry-run inventory
+npm run chainreact -- smoke actions --provider slack      # one provider
+npm run chainreact -- smoke actions --json                # machine-readable
+npm run chainreact -- smoke actions --changed             # scope to the local diff
+npm run smoke:actions -- --provider slack                 # npm-script alias
+npm run smoke:actions:run                                 # execute fixtures (Jest, real internals)
 npm run chainreact -- app list
 npm run chainreact -- app validate slack
 npm run chainreact -- app validate --all

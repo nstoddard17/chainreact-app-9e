@@ -24,6 +24,7 @@ import {
   validateProvider,
 } from "./commands/appValidate";
 import { renderMcpSmoke, runMcpSmoke } from "./commands/mcpSmoke";
+import { runSmokeActions } from "./commands/smokeActions";
 import { collectStatus, renderStatus } from "./commands/status";
 import {
   buildChangedVerifyPlan,
@@ -121,6 +122,34 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
       const result = runMcpSmoke({ dryRun: parsed.flags["dry-run"] === true }, runner, availableScripts);
       log(renderMcpSmoke(result));
       return result.status === 0 ? 0 : 1;
+    }
+
+    case "smoke": {
+      if (parsed.subcommand !== "actions") {
+        log(`Unknown 'smoke' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact smoke actions [--dry-run] [--provider <id>] [--all] [--json] [--changed] [--include-destructive]`);
+        return 2;
+      }
+      const changedFiles = deps.changedFiles ?? defaultChangedFiles;
+      // `--provider slack`, `--provider=slack`, and bare `smoke actions slack`
+      // all select a provider. `--dry-run` is accepted as an explicit alias for
+      // the only mode this offline command has (it never executes).
+      const provider =
+        typeof parsed.flags.provider === "string"
+          ? parsed.flags.provider
+          : parsed.positionals[0] ?? null;
+      const outcome = runSmokeActions(
+        {
+          provider,
+          all: parsed.flags.all === true,
+          json: parsed.flags.json === true,
+          changed: parsed.flags.changed === true,
+          includeDestructive: parsed.flags["include-destructive"] === true,
+        },
+        fs,
+        changedFiles,
+      );
+      log(outcome.output);
+      return outcome.code;
     }
 
     case "app": {

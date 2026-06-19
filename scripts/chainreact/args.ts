@@ -23,7 +23,7 @@ export interface ParsedArgs {
   readonly flags: Readonly<Record<string, string | boolean>>;
 }
 
-const KNOWN_SUBCOMMAND_PARENTS: ReadonlySet<string> = new Set(["mcp", "app"]);
+const KNOWN_SUBCOMMAND_PARENTS: ReadonlySet<string> = new Set(["mcp", "app", "smoke"]);
 
 /** Parse a raw argv tail (already stripped of node + script path). Pure. */
 export function parseArgs(argv: readonly string[]): ParsedArgs {
