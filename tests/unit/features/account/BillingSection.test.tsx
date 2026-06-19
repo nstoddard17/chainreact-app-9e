@@ -137,6 +137,48 @@ describe("BillingSection — usage", () => {
   });
 });
 
+describe("BillingSection — AI credits (BUILDER-AI-CREDIT-UX-POLISH-1)", () => {
+  it("renders real AI-credit usage + remaining for the current period", () => {
+    renderBilling(active("personal"), {
+      aiCredits: { used: 2, limit: 20, periodStartedAt: "2026-06-01T00:00:00Z" },
+    });
+    expect(screen.getByTestId("billing-ai-credits")).toHaveTextContent("2 / 20 credits");
+    expect(screen.getByTestId("billing-ai-credits-remaining")).toHaveTextContent("18 remaining");
+  });
+
+  it("shows the AI-credit reset date derived from its own period anchor", () => {
+    renderBilling(active("personal"), {
+      aiCredits: { used: 2, limit: 20, periodStartedAt: "2026-06-01T00:00:00Z" },
+    });
+    // Reset date lives in the row description (unique "Checks stay free" marker) for the
+    // non-exhausted state; the remaining span just shows the count.
+    expect(screen.getByTestId("account-section-billing")).toHaveTextContent(
+      /resets July 1, 2026\. Checks stay free/i,
+    );
+  });
+
+  it("exhausted state shows no-AI-credits-left copy WITH the reset date", () => {
+    renderBilling(active("personal"), {
+      aiCredits: { used: 20, limit: 20, periodStartedAt: "2026-06-01T00:00:00Z" },
+    });
+    const remaining = screen.getByTestId("billing-ai-credits-remaining");
+    expect(remaining).toHaveTextContent(/No AI credits left/i);
+    expect(remaining).toHaveTextContent(/resets July 1, 2026/i);
+  });
+
+  it("renders an unavailable state (not fake usage) when aiCredits is null", () => {
+    renderBilling(active("personal"), { aiCredits: null });
+    expect(screen.queryByTestId("billing-ai-credits")).toBeNull();
+    expect(screen.getByTestId("billing-ai-credits-unavailable")).toHaveTextContent(/unavailable/i);
+  });
+
+  it("omits the AI-credits row entirely when aiCredits is not provided (back-compat)", () => {
+    renderBilling(active("personal"));
+    expect(screen.queryByTestId("billing-ai-credits")).toBeNull();
+    expect(screen.queryByTestId("billing-ai-credits-unavailable")).toBeNull();
+  });
+});
+
 describe("BillingSection — limits", () => {
   it("renders member count/limit for Team/Business", () => {
     renderBilling(active("team"), { memberLimit: 5, memberCount: 2, folderLimit: 100 });

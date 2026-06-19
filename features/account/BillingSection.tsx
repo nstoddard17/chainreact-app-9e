@@ -25,6 +25,13 @@ import { ComingSoonRow, ReadOnlyRow, type ActiveAccountView } from "./settingsRo
 export interface AccountBillingView {
   /** Real task usage from `account_billing`, or null when unavailable. */
   usage: { tasksUsed: number; tasksLimit: number; periodStartedAt: string | null } | null;
+  /**
+   * Real AI-credit usage from `account_billing` (separate billing dimension from tasks),
+   * or null when unavailable. AI credits meter paid model calls (Builder AI Q&A / Explain
+   * / planner / repair); deterministic checks are free and never deduct. Optional so the
+   * pre-active fallback view and existing callers/tests don't have to supply it.
+   */
+  aiCredits?: { used: number; limit: number; periodStartedAt: string | null } | null;
   /** Total-member cap (team/business); null for personal / uncapped. */
   memberLimit: number | null;
   /** Current member count (team/business), or null when not loaded/applicable. */
@@ -160,6 +167,18 @@ export function BillingSection({
       })
     : null;
   const resetsOn = usageView?.resetsAt != null ? formatDate(usageView.resetsAt) : null;
+  // AI credits are a separate billing dimension that resets the SAME monthly way on its
+  // own anchor (`ai_credits_period_started_at`), so the task-usage period math is reused.
+  const aiCreditsView = billing.aiCredits
+    ? computeTaskUsageView({
+        tasksUsed: billing.aiCredits.used,
+        tasksLimit: billing.aiCredits.limit,
+        periodStartedAt: billing.aiCredits.periodStartedAt,
+        now: now ?? new Date(),
+      })
+    : null;
+  const aiCreditsResetsOn =
+    aiCreditsView?.resetsAt != null ? formatDate(aiCreditsView.resetsAt) : null;
 
   // CS-5: derive the warning-first lifecycle state from the synced billing facts. Only
   // shown when we have an explicit plan + status (paid accounts); free/active stays
@@ -263,6 +282,51 @@ export function BillingSection({
               </span>
             }
           />
+        )}
+
+        {billing.aiCredits && aiCreditsView ? (
+          <SettingRow
+            label="AI credits"
+            desc={
+              aiCreditsResetsOn
+                ? `Paid AI features (Builder AI Q&A / Explain) — resets ${aiCreditsResetsOn}. Checks stay free.`
+                : "Paid AI features (Builder AI Q&A / Explain). Deterministic checks stay free."
+            }
+          >
+            <span className="flex flex-col items-end gap-0.5 text-sm">
+              <span data-testid="billing-ai-credits" className="font-medium text-foreground">
+                {aiCreditsView.tasksUsed} / {aiCreditsView.tasksLimit} credits
+              </span>
+              <span
+                data-testid="billing-ai-credits-remaining"
+                className={
+                  aiCreditsView.exhausted
+                    ? "text-xs font-medium text-amber-600 dark:text-amber-400"
+                    : "text-xs text-muted-foreground"
+                }
+              >
+                {aiCreditsView.exhausted
+                  ? aiCreditsResetsOn
+                    ? `No AI credits left — resets ${aiCreditsResetsOn}`
+                    : "No AI credits left this period"
+                  : `${aiCreditsView.tasksRemaining} remaining`}
+              </span>
+            </span>
+          </SettingRow>
+        ) : (
+          billing.aiCredits === null && (
+            <ReadOnlyRow
+              label="AI credits"
+              value={
+                <span
+                  data-testid="billing-ai-credits-unavailable"
+                  className="text-muted-foreground"
+                >
+                  Usage unavailable
+                </span>
+              }
+            />
+          )
         )}
 
         {billing.memberLimit !== null && (

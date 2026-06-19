@@ -5,6 +5,7 @@ import { listUserAccountSummaries } from "@/services/accounts/accountList";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getDisplayName } from "@/repositories/userProfiles";
 import { getUsage } from "@/repositories/accountBilling";
+import { getAiCreditUsage } from "@/repositories/accountBillingAiCredits";
 import {
   isPlatformBillingEnabled,
   isPersonalProEnabled,
@@ -114,16 +115,26 @@ export default async function AccountPage({ searchParams }: Props) {
     frozen,
   };
   if (active) {
-    const [usage, memberCount] = await Promise.all([
+    const [usage, memberCount, aiCreditUsage] = await Promise.all([
       getUsage(active.id).catch(() => null),
       active.type !== "personal"
         ? listMembers(active.id)
             .then((m) => m.length)
             .catch(() => null)
         : Promise.resolve<number | null>(null),
+      // AI credits are a separate, account-owned billing dimension (same RLS-scoped read).
+      getAiCreditUsage(active.id).catch(() => null),
     ]);
     billing = {
       usage,
+      // null when no billing row → "unavailable" row; never faked.
+      aiCredits: aiCreditUsage
+        ? {
+            used: aiCreditUsage.aiCreditsUsed,
+            limit: aiCreditUsage.aiCreditsLimit,
+            periodStartedAt: aiCreditUsage.aiCreditsPeriodStartedAt,
+          }
+        : null,
       memberLimit: memberLimitFor(active.type),
       memberCount,
       // Plan-aware folder cap (PRICING-LOCK): a personal Pro account shows 25, not 10. Falls

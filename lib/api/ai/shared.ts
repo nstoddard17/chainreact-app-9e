@@ -24,10 +24,12 @@ export type AiOpaquePatch = Record<string, unknown>;
  * exhaustion denial (route returns `code: "AI_CREDITS_EXHAUSTED"`, HTTP 402).
  * Shared by the failure renderer (`PlanFailure`) and the hook's `friendlyError`
  * so the message can't drift. Plain, safe copy: no account ids, no raw counters,
- * no plan internals, no upgrade CTA (paywall UI is a later slice).
+ * no error codes, no plan internals, no upgrade-CTA button (paywall UI is a later
+ * slice). It DOES name where to see usage (Account settings → Plan & billing) and
+ * reassures that the free deterministic checks (e.g. Check workflow) still work.
  */
 export const AI_CREDITS_EXHAUSTED_MESSAGE =
-  "You've used all AI credits for this billing period. Try again after your credits reset, or upgrade your plan.";
+  "You're out of AI credits for this billing period. Deterministic checks like Check workflow still work for free. Your credits reset next billing period — see your AI usage under Account settings → Plan & billing, or upgrade your plan.";
 
 export class AiApiError extends Error {
   readonly status: number;
