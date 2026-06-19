@@ -46,22 +46,71 @@ beforeEach(() => {
 });
 
 describe("WidgetConfigPanel — connected-app exposure", () => {
-  it("offers Slack but NOT GitHub for a stat widget", () => {
+  it("offers BOTH Slack and GitHub for a stat widget", () => {
     renderPanel(widget("stat", { source: "any", metric: "runs" }));
     expect(screen.getByText("Data source")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Slack" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "GitHub" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "GitHub" })).toBeInTheDocument();
+  });
+
+  it("offers GitHub for line/bar but NOT for donut/table", () => {
+    renderPanel(widget("line", { source: "any", metric: "runs_over_time" }));
+    expect(screen.getByRole("button", { name: "GitHub" })).toBeInTheDocument();
   });
 
   it("does NOT offer a connected app for an unsupported widget type (donut)", () => {
     renderPanel(widget("donut", { source: "any", metric: "outcomes" }));
     expect(screen.queryByText("Data source")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "GitHub" })).not.toBeInTheDocument();
   });
 
   it("internal path is unchanged — saves metric, no dataSource", () => {
     const { onSave } = renderPanel(widget("stat", { source: "any", metric: "runs" }));
     fireEvent.click(screen.getByRole("button", { name: /save widget/i }));
     expect(onSave).toHaveBeenCalledWith({ source: "any", metric: "runs" });
+  });
+});
+
+describe("WidgetConfigPanel — GitHub repo", () => {
+  it("validates owner/repo and saves a connected_app github config (no Slack channel fetch)", () => {
+    const { onSave } = renderPanel(widget("stat", { source: "any", metric: "runs" }), {
+      slack: true,
+      github: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
+
+    const saveBtn = screen.getByRole("button", { name: /save widget/i });
+    // No repo yet → disabled.
+    expect(saveBtn).toBeDisabled();
+
+    const repo = screen.getByLabelText("GitHub repository");
+    fireEvent.change(repo, { target: { value: "not a repo" } });
+    expect(saveBtn).toBeDisabled();
+    expect(screen.getByText(/valid/i)).toBeInTheDocument();
+
+    fireEvent.change(repo, { target: { value: "octocat/hello" } });
+    expect(saveBtn).not.toBeDisabled();
+    fireEvent.click(saveBtn);
+    expect(onSave).toHaveBeenCalledWith({
+      source: "any",
+      dataSource: {
+        kind: "connected_app",
+        provider: "github",
+        metricKey: "open_issues",
+        filters: { repo: "octocat/hello" },
+      },
+    });
+    // GitHub config must not trigger the Slack channel options fetch.
+    expect(mockFetchOptions).not.toHaveBeenCalled();
+  });
+
+  it("shows a Connect note when GitHub isn't connected (viewer's own connection)", () => {
+    renderPanel(widget("stat", { source: "any", metric: "runs" }), {
+      slack: true,
+      github: false,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
+    expect(screen.getByText(/your own connection/i)).toBeInTheDocument();
   });
 });
 

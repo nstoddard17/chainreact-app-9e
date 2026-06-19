@@ -75,6 +75,20 @@ it("does not throw when the fetch itself rejects (no dashboard crash)", async ()
   await waitFor(() => expect(screen.getByText(/Couldn't load this data/i)).toBeInTheDocument());
 });
 
+it("GitHub widget: manual Refresh (reloadKey change) bypasses cache; initial load doesn't", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: scalar() });
+  const { rerender } = render(<ConnectedAppWidgetBody widget={WIDGET} range="7d" reloadKey={0} />);
+  await screen.findByText("1,843");
+  expect(mockQuery.mock.calls[0]![0]).not.toHaveProperty("refresh", true);
+
+  rerender(<ConnectedAppWidgetBody widget={WIDGET} range="7d" reloadKey={1} />);
+  await waitFor(() =>
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "github", refresh: true }),
+    ),
+  );
+});
+
 // ── Slack (account-shared) ───────────────────────────────────────────────────
 const SLACK_WIDGET: AnalyticsWidget = {
   id: "w2",

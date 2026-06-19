@@ -11,10 +11,10 @@ import type { AnalyticsWidgetType } from "@/contracts/analytics";
  *
  *   - A provider can be registered (backend reachable, tested) but NOT exposed
  *     here — so no user-facing widget ships until it's smoke-testable.
- *   - GitHub is registered + tested but `exposed: false` because the deployed
- *     environment can't complete a real authenticated GitHub smoke yet
- *     (ANALYTICS-SOURCES-GITHUB-UI-1 is held back). Its descriptor is kept intact
- *     so re-exposing it is a one-line flip once it's smoke-tested.
+ *   - Slack and GitHub are both exposed (smoke-tested). GitHub was briefly held
+ *     back (ANALYTICS-SOURCES-SLACK-1) when it couldn't be authenticated-smoked;
+ *     re-exposed in ANALYTICS-SOURCES-GITHUB-UI-2 once the GitHub connection was
+ *     fixed. The `exposed` switch stays the chokepoint for any future provider.
  *
  * No backend behavior depends on this file — it is client-safe (no server imports)
  * and purely drives the config panel + widget body. Setting `exposed: false`
@@ -81,9 +81,9 @@ function seriesForBoth(
 const GITHUB: ConnectedAppSourceUi = {
   provider: "github",
   displayName: "GitHub",
-  // HELD BACK — backend registered + tested, but not exposed until a real
-  // authenticated GitHub smoke is possible (see slice notes above).
-  exposed: false,
+  // Exposed (ANALYTICS-SOURCES-GITHUB-UI-2) now that the GitHub connection is
+  // fixed and smoke-testable. Personal credential — each viewer sees their own.
+  exposed: true,
   icon: "Webhook",
   connectHref: "/apps",
   connectTitle: "Connect your GitHub account",

@@ -1,9 +1,9 @@
 /**
  * @jest-environment node
  *
- * Connected-app UI exposure descriptor (Slice ANALYTICS-SOURCES-SLACK-UI-1).
- * The load-bearing invariant: GitHub is registered but NOT exposed in the widget
- * UI (held back until smoke-testable); Slack IS exposed. Plus metric/filter shape.
+ * Connected-app UI exposure descriptor (Slice ANALYTICS-SOURCES-SLACK-UI-1;
+ * GitHub re-exposed in ANALYTICS-SOURCES-GITHUB-UI-2). Both Slack and GitHub are
+ * exposed; the `exposed` switch remains the chokepoint for any future provider.
  */
 
 import {
@@ -16,12 +16,10 @@ import {
 } from "@/features/analytics/connectedAppSources";
 
 describe("exposure gating", () => {
-  it("does NOT expose GitHub in the widget UI (held back)", () => {
-    const exposed = exposedConnectedAppSources().map((s) => s.provider);
-    expect(exposed).not.toContain("github");
-    // …but the descriptor still exists for a one-line re-enable.
-    expect(getConnectedAppSource("github")?.exposed).toBe(false);
-    expect(getExposedConnectedAppSource("github")).toBeNull();
+  it("exposes GitHub in the widget UI (re-enabled after the connection was fixed)", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("github");
+    expect(getConnectedAppSource("github")?.exposed).toBe(true);
+    expect(getExposedConnectedAppSource("github")?.displayName).toBe("GitHub");
   });
 
   it("exposes Slack", () => {
@@ -32,6 +30,35 @@ describe("exposure gating", () => {
   it("every descriptor declares a credential visibility matching its sharing model", () => {
     expect(getConnectedAppSource("slack")?.visibility).toBe("account");
     expect(getConnectedAppSource("github")?.visibility).toBe("personal");
+  });
+});
+
+describe("GitHub metric/filter shape", () => {
+  const github = getExposedConnectedAppSource("github")!;
+
+  it("offers scalar metrics for stat and series metrics for line/bar (not donut/table)", () => {
+    expect(metricsForType(github, "stat").map((m) => m.id).sort()).toEqual([
+      "open_issues",
+      "open_prs",
+    ]);
+    expect(metricsForType(github, "line").map((m) => m.id).sort()).toEqual([
+      "issues_opened",
+      "prs_merged",
+      "prs_opened",
+    ]);
+    expect(metricsForType(github, "bar").map((m) => m.id)).toEqual(
+      metricsForType(github, "line").map((m) => m.id),
+    );
+    expect(metricsForType(github, "donut")).toEqual([]);
+    expect(metricsForType(github, "table")).toEqual([]);
+  });
+
+  it("every GitHub metric takes a single repo filter (no multi-repo / qualifiers)", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(github, type)) {
+        expect(m.filters).toEqual(["repo"]);
+      }
+    }
   });
 });
 
