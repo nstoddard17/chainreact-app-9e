@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-17 @ ba0af6616 (AI-DIAG-QA-3 UI closeout; 893f44001 + 9ddd74df6 + facc05666 LOCAL/UNPUSHED · origin still ba0af6616)
+> Last curated: 2026-06-19 @ dd285099f (AUTOROUTE one-composer closeout; e0212b481 + 7fa13774a + 1ff3c0b24 + d117cd2af LOCAL/UNPUSHED · local 15 ahead of origin dd285099f)
 
 ## Current status
 
@@ -107,7 +107,24 @@
 
 ## Recently completed arcs
 
-- **Workflow diagnosis Q&A UI (AI-DIAG-QA-3) — UI live, NO flag, LOCAL/UNPUSHED (2026-06-17)** —
+- **One Builder AI composer + deterministic auto-routing (AI-DIAG-QA-AUTOROUTE) — UI live, NO flag, LOCAL/UNPUSHED (2026-06-19)** —
+  collapses Builder AI to **one feed, one composer, one send**; **deletes the AI-DIAG-QA-3 mini Q&A box**
+  (`_BuilderAiPanelQa.tsx`, "chat in chat" Marcus rejected). Routing precedence in `handleComposerSubmit`:
+  chat-fill first → follow-up always planner → else pure `classifyComposerIntent(text)` → `qa | plan | clarify`.
+  Clear questions→read-only Q&A (`diagnosis_qa`), clear build/edit→planner, vague/mixed-mutation→session-local
+  `intent_clarification` bubble (retained prompt NOT rendered; "Explain the issue"→Q&A / "Plan a fix"→planner;
+  resolve-once; never persisted). **No LLM in the router**, no second control, no backend/route/client/migration/
+  flag/env change; Q&A still read-only (no patch/Apply/Preview/run/cred), planner Apply still explicit;
+  `selectedNodeId` still hint-only from `configSlice.activeNodeId`. `DIAGNOSIS_QA_MAX_QUESTION_LENGTH` now
+  unused client-side but retained/exported as backend-cap doc. Soft line-count warnings remain on
+  `_BuilderAiPanelChat.tsx`/`_BuilderAiPanelMessageItem.tsx`/`useBuilderAiActions.ts`. Inherited verification
+  (NOT re-run at closeout): CS-1 classifier 51→59, CS-2 intentClarification 10/diagnosisQa 17/chatFill 5/
+  diagnose 8, CS-3 autoRoute 14/classifier 59/68 suites 902, CS-4 diagnosisQa 15/chatFillHint 10/autoRoute 14/
+  intentClarification 10/68 suites 900, typecheck 0, eslint 0 touched, lint:structure OK. Commits
+  `e0212b481`+`7fa13774a`+`1ff3c0b24`+`d117cd2af` LOCAL/UNPUSHED (origin `dd285099f`). **Prod still shows the
+  old mini box until pushed; still needs the `workflow_qa` migration `20260703000000` (dev-DB only).** →
+  [`ai-diag-qa-autoroute-closeout.md`](./slices/phase-4/ai/ai-diag-qa-autoroute-closeout.md).
+- **Workflow diagnosis Q&A UI (AI-DIAG-QA-3) — UI live, NO flag, LOCAL/UNPUSHED (2026-06-17); mini box SUPERSEDED by AUTOROUTE (2026-06-19)** —
   exposes the AI-DIAG-QA-2 backend in the Builder AI panel: a small question box next to "Check
   workflow" (placeholder "Ask why this workflow won't run…", Ask→Asking…, Enter submits / Shift+Enter
   newline, clears on success). **Explicit submit only, single-shot, session-local** `diagnosis_qa`
