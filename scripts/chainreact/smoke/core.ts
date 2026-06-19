@@ -348,6 +348,15 @@ export function renderInventoryHuman(report: InventoryReport): string {
 
 export type SmokeOutcome = "pass" | "fail" | "skip";
 
+/**
+ * Which runtime executed the fixture:
+ *   - "handler"  — fast handler-dispatch mode (strict resolve -> real handler,
+ *                  injectable provider boundary). No workflow / DB.
+ *   - "workflow" — full manual run-now mode (persist a manual-run workflow ->
+ *                  enqueueRun -> wait for a terminal `workflow_runs` row).
+ */
+export type SmokeMode = "handler" | "workflow";
+
 export interface SmokeResult {
   readonly provider: string;
   readonly action: string;
@@ -357,6 +366,8 @@ export interface SmokeResult {
   readonly reason: string | null;
   /** Run id when an execution produced one (null otherwise). */
   readonly runId: string | null;
+  /** Temporary workflow id (workflow mode only; null otherwise). */
+  readonly workflowId?: string | null;
 }
 
 export interface ExecutionProviderTotals {
@@ -367,6 +378,7 @@ export interface ExecutionProviderTotals {
 }
 
 export interface ExecutionReport {
+  readonly mode: SmokeMode;
   readonly results: readonly SmokeResult[];
   readonly perProvider: readonly ExecutionProviderTotals[];
   readonly totals: { readonly pass: number; readonly fail: number; readonly skip: number };
@@ -374,7 +386,10 @@ export interface ExecutionReport {
   readonly ok: boolean;
 }
 
-export function buildExecutionReport(results: readonly SmokeResult[]): ExecutionReport {
+export function buildExecutionReport(
+  results: readonly SmokeResult[],
+  mode: SmokeMode = "handler",
+): ExecutionReport {
   const sorted = [...results].sort(
     (a, b) => a.provider.localeCompare(b.provider) || a.action.localeCompare(b.action),
   );
@@ -394,6 +409,7 @@ export function buildExecutionReport(results: readonly SmokeResult[]): Execution
     skip: sorted.filter((r) => r.outcome === "skip").length,
   };
   return {
+    mode,
     results: sorted,
     perProvider: [...byProvider.values()].sort((a, b) => a.provider.localeCompare(b.provider)),
     totals,
@@ -404,7 +420,8 @@ export function buildExecutionReport(results: readonly SmokeResult[]): Execution
 export function renderExecutionJson(report: ExecutionReport): string {
   return JSON.stringify(
     {
-      mode: "execution",
+      kind: "execution",
+      mode: report.mode,
       ok: report.ok,
       totals: report.totals,
       perProvider: report.perProvider,
@@ -423,13 +440,17 @@ const OUTCOME_LABEL: Record<SmokeOutcome, string> = {
 
 export function renderExecutionHuman(report: ExecutionReport): string {
   const lines: string[] = [];
-  lines.push("Action smoke — execution report");
+  lines.push(`Action smoke — execution report (mode: ${report.mode})`);
   lines.push("");
   for (const r of report.results) {
     const label = OUTCOME_LABEL[r.outcome].padEnd(5);
     const reason = r.reason ? `  — ${r.reason}` : "";
-    const runId = r.runId ? `  (run ${r.runId})` : "";
-    lines.push(`  ${label} ${r.provider}:${r.action} [${r.risk}]${reason}${runId}`);
+    const ids = [
+      r.workflowId ? `wf ${r.workflowId}` : null,
+      r.runId ? `run ${r.runId}` : null,
+    ].filter(Boolean);
+    const idTag = ids.length > 0 ? `  (${ids.join(", ")})` : "";
+    lines.push(`  ${label} ${r.provider}:${r.action} [${r.risk}]${reason}${idTag}`);
   }
   lines.push("");
   lines.push("Per-provider totals (pass / fail / skip):");

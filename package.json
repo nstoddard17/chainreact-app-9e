@@ -29,6 +29,7 @@
     "smoke:prod": "playwright test --config=playwright.smoke.config.ts",
     "smoke:actions": "npm run chainreact -- smoke actions",
     "smoke:actions:run": "jest tests/integration/smoke-actions tests/unit/smoke-actions",
+    "smoke:actions:run:workflow": "jest tests/integration/smoke-actions/run-all.workflow.dev.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

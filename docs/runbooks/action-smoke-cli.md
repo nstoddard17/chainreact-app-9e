@@ -5,18 +5,24 @@ internals instead of clicking every action in the builder UI. This is the
 **first slice** — it proves the harness architecture with a small, representative
 fixture set. It does **not** yet cover every provider/action.
 
-Two cooperating pieces, split by runtime:
+Three modes, split by runtime:
 
-| Piece | Where | What it does | Runtime |
+| Mode | Where | What it does | Runtime |
 |---|---|---|---|
-| **Dry-run inventory** | `chainreact smoke actions` | Lists which registered actions have fixtures, which are missing, which are skipped (and why). Offline, no execution. | Operator CLI (no app imports) |
-| **Execution harness** | `tests/smoke-actions/` + `tests/integration/smoke-actions/run-all.smoke.test.ts` | Runs fixture-backed actions through the real strict resolver → real handler registry → real handler. | Jest (V2 server runtime) |
+| **1. Dry-run inventory** | `chainreact smoke actions` | Lists which registered actions have fixtures, which are missing, which are skipped (and why). Offline, no execution. | Operator CLI (no app imports) |
+| **2. Handler-dispatch smoke** | `tests/smoke-actions/` + `tests/integration/smoke-actions/run-all.smoke.test.ts` | Runs fixture-backed actions through the real strict resolver → real handler registry → real handler. Fast; no workflow / DB. | Jest (V2 server runtime) |
+| **3. Full workflow-run smoke** | `tests/smoke-actions/workflowRun*.ts` + `tests/integration/smoke-actions/run-all.workflow.dev.test.ts` | Persists a minimal `{native:manual.run → action}` workflow, runs it via the same `enqueueRun` the run-now route uses, and asserts the persisted `workflow_runs` row reached a terminal state. | Jest + a real dev DB (gated) |
 
 The split is deliberate: the offline CLI can't import the handler registry
 (server-only + every provider client), so it reads the inventory as text; the
 Jest harness imports the real registry and executes. A parity test
 (`tests/unit/smoke-actions/registry-parity.test.ts`) guarantees the two never
 drift.
+
+**When to use which:**
+- **Inventory** — see the coverage gap; CI/pre-push gate on fixture validity. Always safe, always offline.
+- **Handler-dispatch** — cheapest contract smoke for a provider/action. Proves resolve→handler→classify without standing up a workflow or DB. Default for "does this action's handler behave".
+- **Workflow-run** — highest fidelity: proves the action runs through the real manual run-now path and produces a terminal persisted run. Needs a dev DB; use before trusting an action end-to-end.
 
 ## Where fixtures live
 
@@ -78,17 +84,17 @@ npm run chainreact -- smoke actions [--provider <id>] [--all] [--json] [--change
   Falls back to the full inventory if git is unavailable.
 - The CLI **never executes** anything (its standing charter).
 
-### Execute fixture-backed actions (real V2 internals)
+### Mode 2 — handler-dispatch smoke (no DB)
 
 ```bash
 npm run smoke:actions:run        # jest tests/integration/smoke-actions tests/unit/smoke-actions
-# or just the run-all smoke spec:
-npm test -- tests/integration/smoke-actions
+# or just the run-all spec:
+npm test -- tests/integration/smoke-actions/run-all.smoke.test.ts
 ```
 
-The run-all spec runs **every** fixture through the real path and **fails only on
-a FAIL result** — `PASS` and `SKIP` are both acceptable (`SKIP` = "couldn't
-safely run here", not "broken").
+The run-all spec runs **every** fixture through the real resolver→handler path and
+**fails only on a FAIL result** — `PASS` and `SKIP` are both acceptable (`SKIP` =
+"couldn't safely run here", not "broken").
 
 Safety model in an environment with no connected providers:
 
@@ -98,12 +104,49 @@ Safety model in an environment with no connected providers:
 - The Slack fixtures declare `requiredEnv` → they **SKIP** until you set the env
   for a throwaway smoke workspace:
   ```bash
-  SMOKE_SLACK_CONNECTED=1 SMOKE_SLACK_CHANNEL=C0SMOKE npm test -- tests/integration/smoke-actions
+  SMOKE_SLACK_CONNECTED=1 SMOKE_SLACK_CHANNEL=C0SMOKE npm test -- tests/integration/smoke-actions/run-all.smoke.test.ts
   ```
   Only set these against a smoke account + throwaway channel — `write`/
   `destructive` fixtures post / mutate real Slack state.
-- Destructive fixtures additionally need `includeDestructive` (wired into the
-  harness API; the run-all spec leaves it off by default).
+- Destructive fixtures additionally need `includeDestructive` (off by default).
+
+### Mode 3 — full workflow-run smoke (gated, needs a dev DB)
+
+Runs each fixture through the **same manual run-now path the app uses**: persist a
+minimal `{native:manual.run → action}` draft workflow → `enqueueRun` → wait for the
+engine → read the persisted `workflow_runs` row → PASS/FAIL/SKIP from the terminal
+status.
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true \
+  SMOKE_ACCOUNT_ID=<dev account uuid> SMOKE_USER_ID=<dev user uuid> \
+  npm run smoke:actions:run:workflow
+```
+
+Requirements (else the suite **SKIPs**, never fails): `ALLOW_DB_INTEGRATION_TESTS=true`,
+`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (auto-loaded from
+`.env.local`), and `SMOKE_ACCOUNT_ID` + `SMOKE_USER_ID` (a real dev account + a
+member user the throwaway workflow is created under).
+
+Safety model:
+
+- Runs in engine **test mode** by default. The `testModeGate` executes native
+  logic/transform handlers for real but **blocks every external/destructive
+  handler** — so there are **no real provider calls**. The native fixture
+  genuinely runs end-to-end and produces a terminal `succeeded` run.
+- Connected-provider fixtures **SKIP before any workflow is created** (their env
+  is unset).
+- Destructive fixtures still need `includeDestructive`.
+- Manual-trigger workflows register **no `trigger_resources`** (lifecycle rule).
+- Temporary workflows are **soft-deleted** (`state='deleted'`, named `smoke:…`) —
+  hidden from the UI, run history retained. They are not hard-purged.
+- Reports/logs carry only safe fields — the failure reason is the **humanized
+  error title or the engine fatal-error code**, never raw provider output,
+  tokens, file bytes, or step blobs.
+
+JSON output (`renderExecutionJson`) carries `kind`, `mode` (`handler`|`workflow`),
+`ok`, totals, and per-result `provider`/`action`/`outcome`/`reason`/`runId`/
+`workflowId`.
 
 ## How execution maps to the real engine
 
@@ -120,10 +163,13 @@ The harness runs the same per-node core the engine
    the real handler; tests inject a fake to drive deterministic pass/fail/skip
    (mocking ONLY the external provider boundary, per the testing-strategy rule).
 
-It deliberately does **not** stand up a full `WorkflowEngine.runWorkflow` (which
-needs a persisted workflow row, billing, and run persistence). Driving a real
-manual-run workflow + reading a terminal run state via the run readers is the
-documented next increment (see Limitations).
+Mode 3 (workflow-run) goes the rest of the way: it stands up a real persisted
+workflow and drives `enqueueRun` (the service the run-now route calls), so the
+**full** `WorkflowEngine.runWorkflow` path runs and writes a `workflow_runs` row.
+The harness orchestrator (`tests/smoke-actions/workflowRun.ts`) is pure over
+injected seams (`createSmokeWorkflow`/`runManualAndAwait`/`readRun`/`cleanupSmokeWorkflow`),
+so it unit-tests with fakes; the real wiring lives in `workflowRunDeps.ts` and runs
+only in the gated dev test.
 
 ## Adding the next fixtures
 
@@ -140,17 +186,27 @@ For each: add the fixture file, register it in `fixtures.ts`, run
 `npm run smoke:actions` to confirm it shows as fixture-backed, and
 `npm run smoke:actions:run` to confirm PASS/SKIP.
 
-## Limitations (first slice — honest scope)
+## Limitations (honest scope)
 
 - **Coverage is tiny by design:** 3 fixtures (native transform, Slack
   `list_channels`, Slack `send_channel_message`) + 1 destructive
   (`delete_message`). `npm run smoke:actions` shows the full gap (282 of 286
   registered actions have no fixture yet). This harness is the foundation for
   growing that, not a claim of broad coverage.
-- **No full-engine run / run-status read yet.** Execution is the resolver +
-  handler-dispatch core, not `WorkflowEngine.runWorkflow` + the `workflow_runs`
-  readers. That integration is the next increment.
-- **No live provider creds in CI.** Connected-provider fixtures SKIP unless their
-  `SMOKE_*` env is set; only the native fixture executes by default.
+- **Workflow-run mode is dev-DB-gated.** It requires `ALLOW_DB_INTEGRATION_TESTS`
+  + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID`. Without them
+  it SKIPs (never fails) — so CI exercises modes 1–2, not mode 3.
+- **Workflow-run mode runs in engine test mode.** Native logic handlers execute
+  for real; every external/destructive handler is blocked, so connected providers
+  are **not** truly exercised end-to-end through a workflow yet. A `live: true`
+  opt-in seam exists in the harness API but is off by default (it needs creds +
+  task balance + a real provider call) — wiring a connected live workflow run is
+  the next increment.
+- **Workflow-mode fixtures must be self-contained.** The manual trigger payload is
+  `{ inputs: {…} }`, so workflow mode sends empty inputs; fixtures that reference
+  `{{trigger.payload.*}}` are authored for handler mode. The native fixture (literal
+  config) is mode-agnostic and is the one that genuinely runs in mode 3 today.
+- **Temporary smoke workflows are soft-deleted, not purged.** They accumulate as
+  `state='deleted'` rows named `smoke:…` on the dev DB; periodic purge is manual.
 - **Destructive fixtures never run by default** and require both
   `--include-destructive`/`includeDestructive` and their env.
