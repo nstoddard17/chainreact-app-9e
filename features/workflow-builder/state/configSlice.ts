@@ -66,8 +66,16 @@ export interface ConfigSliceState {
    * repeated reveals of the SAME node re-trigger the pan (a bare id wouldn't).
    */
   canvasFocusNodeId: string | null;
-  /** Monotonic counter bumped on each `revealNode` so the canvas effect re-fires. */
+  /** Monotonic counter bumped on each focus request so the canvas effect re-fires. */
   canvasFocusSeq: number;
+  /**
+   * BUILDER-CANVAS-FOCUS-SELECTED-NODE-1 — which focus intent drove the last signal:
+   * `"reveal"` = the AI-REPAIR-2F "Go to field" deep reveal (close zoom, centered);
+   * `"config"` = opening a node's config rail (gentler, context zoom + left offset so
+   * the right-side config panel doesn't cover the node). Read by `useCanvasNodeFocus`
+   * to pick zoom/offset/duration. Null before any focus request.
+   */
+  canvasFocusMode: "reveal" | "config" | null;
 }
 
 export interface ConfigSliceActions {
@@ -139,6 +147,7 @@ const INITIAL_STATE: ConfigSliceState = Object.freeze({
   focusFieldKey: null,
   canvasFocusNodeId: null,
   canvasFocusSeq: 0,
+  canvasFocusMode: null,
 });
 
 function shallowEqual(
@@ -173,14 +182,24 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
   ...INITIAL_STATE,
 
   openNode({ nodeId, initialValues }) {
+    // BUILDER-CANVAS-FOCUS-SELECTED-NODE-1 — focus the canvas on a genuinely-NEW config
+    // selection so the node stays connected to the editing experience. Re-opening the
+    // already-active node does NOT re-pan (no annoying repeated zoom). Reveal/"Go to
+    // field" keeps its own (closer, centered) path via `revealNode`.
+    const isNewSelection = get().activeNodeId !== nodeId;
     const existing = get().drafts[nodeId];
-    if (existing) {
-      set({ activeNodeId: nodeId });
-      return;
-    }
     set({
       activeNodeId: nodeId,
-      drafts: { ...get().drafts, [nodeId]: makeDraft(nodeId, initialValues) },
+      ...(existing
+        ? {}
+        : { drafts: { ...get().drafts, [nodeId]: makeDraft(nodeId, initialValues) } }),
+      ...(isNewSelection
+        ? {
+            canvasFocusNodeId: nodeId,
+            canvasFocusSeq: get().canvasFocusSeq + 1,
+            canvasFocusMode: "config" as const,
+          }
+        : {}),
     });
   },
 
@@ -195,6 +214,7 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
       focusFieldKey: fieldKey ?? null,
       canvasFocusNodeId: nodeId,
       canvasFocusSeq: get().canvasFocusSeq + 1,
+      canvasFocusMode: "reveal" as const,
     });
   },
 

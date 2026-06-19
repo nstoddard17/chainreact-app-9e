@@ -98,4 +98,18 @@ describe("WorkflowCanvas — controlled-flow drag", () => {
     // No overlap at the drop point → the resolved position is the drop position.
     expect(slicePosOf("act")).toEqual({ x: 140, y: 260 });
   });
+
+  it("dragging a node never advances the canvas-focus signal (BUILDER-CANVAS-FOCUS-SELECTED-NODE-1)", () => {
+    render(<WorkflowCanvas />);
+    const seqBefore = useConfigSlice.getState().canvasFocusSeq;
+    const onNodesChange = capturedProps.onNodesChange as (changes: unknown[]) => void;
+    const onNodeDragStop = capturedProps.onNodeDragStop as (e: unknown, node: unknown) => void;
+    act(() => {
+      onNodesChange([{ id: "act", type: "position", position: { x: 50, y: 60 }, dragging: true }]);
+      onNodeDragStop({}, { id: "act", position: { x: 50, y: 60 } });
+    });
+    // Drag flows through the graph slice only — the config focus signal is untouched,
+    // so a drag can never trigger a focus/zoom (only opening config does).
+    expect(useConfigSlice.getState().canvasFocusSeq).toBe(seqBefore);
+  });
 });

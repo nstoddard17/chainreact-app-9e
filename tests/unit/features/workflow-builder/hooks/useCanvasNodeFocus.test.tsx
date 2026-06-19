@@ -78,3 +78,52 @@ describe("useCanvasNodeFocus", () => {
     expect(mockSetCenter).not.toHaveBeenCalled();
   });
 });
+
+describe("useCanvasNodeFocus — config-open focus (BUILDER-CANVAS-FOCUS-SELECTED-NODE-1)", () => {
+  it("opening a node's config pans with a gentle context zoom + a LEFT offset (clears the right panel)", () => {
+    mockGetNode.mockReturnValue({
+      id: "n1",
+      position: { x: 100, y: 200 },
+      measured: { width: 280, height: 120 },
+    });
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
+    rerender();
+
+    expect(mockSetCenter).toHaveBeenCalledTimes(1);
+    const [cx, cy, opts] = mockSetCenter.mock.calls[0]!;
+    // Node center is 100 + 140 = 240. Config-open centers to the RIGHT of the node so
+    // the node sits LEFT of viewport center (clear of the right config panel) → cx > 240.
+    expect(cx).toBeGreaterThan(240);
+    expect(cy).toBe(200 + 60);
+    // Conservative / context zoom — clearly gentler than the close 1.75 reveal.
+    expect(opts.zoom).toBeGreaterThan(0.8);
+    expect(opts.zoom).toBeLessThan(1.5);
+    expect(opts.duration).toBeGreaterThan(0);
+  });
+
+  it("re-opening the SAME already-active node does NOT re-pan (no repeated zoom loop)", () => {
+    mockGetNode.mockReturnValue({ id: "n1", position: { x: 0, y: 0 }, measured: { width: 200, height: 100 } });
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
+    rerender();
+    useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
+    rerender();
+
+    expect(mockSetCenter).toHaveBeenCalledTimes(1);
+  });
+
+  it("opening a DIFFERENT node pans again toward the new node", () => {
+    mockGetNode.mockReturnValue({ id: "any", position: { x: 0, y: 0 }, measured: { width: 200, height: 100 } });
+    const { rerender } = renderHook(() => useCanvasNodeFocus());
+
+    useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: {} });
+    rerender();
+    useConfigSlice.getState().openNode({ nodeId: "n2", initialValues: {} });
+    rerender();
+
+    expect(mockSetCenter).toHaveBeenCalledTimes(2);
+  });
+});
