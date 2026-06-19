@@ -67,6 +67,35 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("notion")?.visibility).toBe("account");
     // Trello is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("trello")?.visibility).toBe("personal");
+    // Airtable is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("airtable")?.visibility).toBe("personal");
+  });
+});
+
+describe("Airtable metric/filter shape", () => {
+  const airtable = getExposedConnectedAppSource("airtable")!;
+
+  it("exposes Airtable; record metrics need base+table, tables_count needs base only", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("airtable");
+    expect(metricsForType(airtable, "stat").map((m) => m.id).sort()).toEqual([
+      "record_count",
+      "tables_count",
+    ]);
+    expect(metricsForType(airtable, "line").map((m) => m.id)).toEqual(["records_created_over_time"]);
+    expect(metricsForType(airtable, "bar").map((m) => m.id)).toEqual(["records_created_over_time"]);
+    expect(metricsForType(airtable, "donut")).toEqual([]);
+  });
+
+  it("record metrics take base + table; tables_count takes base only", () => {
+    expect(findMetricOption(airtable, "stat", "record_count")?.filters).toEqual([
+      "airtable_base",
+      "airtable_table",
+    ]);
+    expect(findMetricOption(airtable, "stat", "tables_count")?.filters).toEqual(["airtable_base"]);
+    expect(findMetricOption(airtable, "line", "records_created_over_time")?.filters).toEqual([
+      "airtable_base",
+      "airtable_table",
+    ]);
   });
 });
 

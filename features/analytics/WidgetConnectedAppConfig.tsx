@@ -4,6 +4,8 @@ import { AnalyticsIcon } from "@/components/analytics/icons";
 import { SectionHeading } from "./widgetConfigParts";
 import type { ConnectedAppFilterKind, ConnectedAppSourceUi } from "./connectedAppSources";
 import {
+  AirtableBaseField,
+  AirtableTableField,
   GcalCalendarField,
   GithubRepoField,
   GmailLabelField,
@@ -47,6 +49,10 @@ export function ConnectedAppConfig({
   onOutlookCalendar,
   board,
   onBoard,
+  airtableBase,
+  onAirtableBase,
+  airtableTable,
+  onAirtableTable,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -72,6 +78,10 @@ export function ConnectedAppConfig({
   onOutlookCalendar: (v: string) => void;
   board: string;
   onBoard: (v: string) => void;
+  airtableBase: string;
+  onAirtableBase: (v: string) => void;
+  airtableTable: string;
+  onAirtableTable: (v: string) => void;
 }) {
   return (
     <>
@@ -148,6 +158,19 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("trello_board") && (
         <TrelloBoardField value={board} onChange={onBoard} connected={connected} />
+      )}
+
+      {requiredFilters.includes("airtable_base") && (
+        <AirtableBaseField value={airtableBase} onChange={onAirtableBase} connected={connected} />
+      )}
+
+      {requiredFilters.includes("airtable_table") && (
+        <AirtableTableField
+          value={airtableTable}
+          onChange={onAirtableTable}
+          connected={connected}
+          baseId={airtableBase}
+        />
       )}
     </>
   );

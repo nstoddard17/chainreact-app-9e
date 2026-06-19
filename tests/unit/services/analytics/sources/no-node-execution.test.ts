@@ -42,6 +42,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/trello/index.ts",
   "services/analytics/sources/trello/api.ts",
   "services/analytics/sources/trello/buckets.ts",
+  "services/analytics/sources/airtable/index.ts",
+  "services/analytics/sources/airtable/api.ts",
+  "services/analytics/sources/airtable/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

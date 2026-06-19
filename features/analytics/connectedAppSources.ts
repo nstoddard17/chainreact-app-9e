@@ -31,7 +31,9 @@ export type ConnectedAppFilterKind =
   | "gmail_label"
   | "outlook_folder"
   | "outlookcal_calendar"
-  | "trello_board";
+  | "trello_board"
+  | "airtable_base"
+  | "airtable_table";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -327,6 +329,34 @@ const TRELLO: ConnectedAppSourceUi = {
   },
 };
 
+const AIRTABLE: ConnectedAppSourceUi = {
+  provider: "airtable",
+  displayName: "Airtable",
+  exposed: true,
+  icon: "Database",
+  connectHref: "/apps",
+  connectTitle: "Connect your Airtable",
+  connectHelp: "This widget uses your own Airtable connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Airtable",
+  // Personal credential — each viewer sees THEIR OWN Airtable data, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Airtable",
+  metricsByType: {
+    stat: [
+      { id: "record_count", label: "Record count", filters: ["airtable_base", "airtable_table"] },
+      { id: "tables_count", label: "Tables in base", filters: ["airtable_base"] },
+    ],
+    ...seriesForBoth([
+      {
+        id: "records_created_over_time",
+        label: "Records created over time",
+        filters: ["airtable_base", "airtable_table"],
+      },
+    ]),
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -337,6 +367,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   OUTLOOK_CALENDAR,
   NOTION,
   TRELLO,
+  AIRTABLE,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

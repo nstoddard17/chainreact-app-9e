@@ -157,6 +157,21 @@ describe("analytics source registry", () => {
     for (const m of trello!.metrics) expect(m.supportedFilters).toEqual(["board"]);
   });
 
+  it("registers Airtable as a connected-app source (ANALYTICS-SOURCES-AIRTABLE-1)", () => {
+    const airtable = getAnalyticsSource("airtable");
+    expect(airtable?.connectedApp).toBe(true);
+    expect(airtable?.metrics.map((m) => m.key).sort()).toEqual([
+      "record_count",
+      "records_created_over_time",
+      "tables_count",
+    ]);
+    expect(isApprovedSourceMetric("airtable", "record_count")).toBe(true);
+    expect(isApprovedSourceMetric("airtable", "read_cell_values")).toBe(false);
+    const byKey = Object.fromEntries(airtable!.metrics.map((m) => [m.key, m.supportedFilters]));
+    expect(byKey.record_count).toEqual(["airtable_base", "airtable_table"]);
+    expect(byKey.tables_count).toEqual(["airtable_base"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

@@ -406,3 +406,105 @@ export function TrelloBoardField(props: { value: string; onChange: (v: string) =
     />
   );
 }
+
+/** Airtable base picker (`airtable:bases`) — the viewer's accessible bases (required). */
+export function AirtableBaseField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="airtable:bases"
+      icon="Database"
+      sectionLabel="Base"
+      hint="Pick an Airtable base to report on."
+      disconnectedHint="Connect Airtable to choose a base."
+      loadingNoun="bases"
+      errorFallback="Couldn't load Airtable bases."
+      ariaLabel="Airtable base"
+      placeholder="Select a base…"
+      {...props}
+    />
+  );
+}
+
+/**
+ * Airtable table picker (`airtable:tables`, deps: baseId) — CASCADES off the
+ * selected base. Re-fetches when `baseId` changes; shows a "select a base first"
+ * hint until one is picked. Only table id + name are loaded — never record content.
+ */
+export function AirtableTableField({
+  value,
+  onChange,
+  connected,
+  baseId,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  connected: boolean;
+  baseId: string;
+}) {
+  type LoadState =
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "ok"; items: readonly OptionItem[] }
+    | { status: "error"; message: string };
+  const [state, setState] = useState<LoadState>({ status: "idle" });
+
+  const hasBase = baseId.trim().length > 0;
+  useEffect(() => {
+    if (!connected || !hasBase) {
+      setState({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState({ status: "loading" });
+    fetchOptionsSource("airtable:tables", { deps: { baseId } })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) setState({ status: "ok", items: res.items });
+        else setState({ status: "error", message: res.message });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "error", message: "Couldn't load Airtable tables." });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, hasBase, baseId]);
+
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionHeading icon="Layers" label="Table" />
+      <p className="text-xs text-muted-foreground">Pick a table in the selected base.</p>
+      {!connected ? (
+        <div className="rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Connect Airtable to choose a table.
+        </div>
+      ) : !hasBase ? (
+        <div className="rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Select a base first.
+        </div>
+      ) : state.status === "loading" ? (
+        <div className="animate-pulse rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Loading tables…
+        </div>
+      ) : state.status === "error" ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-muted-foreground">
+          {state.message}
+        </div>
+      ) : state.status === "ok" ? (
+        <select
+          className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-[13px] text-foreground outline-none focus:border-primary"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label="Airtable table"
+        >
+          <option value="">Select a table…</option>
+          {state.items.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </section>
+  );
+}

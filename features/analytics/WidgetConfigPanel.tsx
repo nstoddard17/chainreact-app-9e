@@ -67,14 +67,24 @@ const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
 function filterDataKey(
   kind: ConnectedAppFilterKind,
-): "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" | "board" {
+):
+  | "repo"
+  | "channel"
+  | "keyword"
+  | "calendar"
+  | "label"
+  | "folder"
+  | "outlook_calendar"
+  | "board"
+  | "airtable_base"
+  | "airtable_table" {
   if (kind === "slack_channel") return "channel";
   if (kind === "gcal_calendar") return "calendar";
   if (kind === "gmail_label") return "label";
   if (kind === "outlook_folder") return "folder";
   if (kind === "outlookcal_calendar") return "outlook_calendar";
   if (kind === "trello_board") return "board";
-  return kind;
+  return kind; // repo | keyword | airtable_base | airtable_table (kind === data key)
 }
 
 /** Google Calendar's safe default — the viewer's primary calendar (no list scope needed). */
@@ -148,6 +158,18 @@ export function WidgetConfigPanel({
   const [board, setBoard] = useState<string>(
     typeof existingFilters.board === "string" ? existingFilters.board : "",
   );
+  const [airtableBase, setAirtableBase] = useState<string>(
+    typeof existingFilters.airtable_base === "string" ? existingFilters.airtable_base : "",
+  );
+  const [airtableTable, setAirtableTable] = useState<string>(
+    typeof existingFilters.airtable_table === "string" ? existingFilters.airtable_table : "",
+  );
+  // Changing the base clears the (now-stale) table selection so a widget can't be
+  // saved with a table id that belongs to a different base.
+  const onAirtableBaseChange = (v: string) => {
+    setAirtableBase(v);
+    setAirtableTable("");
+  };
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -168,6 +190,8 @@ export function WidgetConfigPanel({
     // Outlook Calendar is optional (blank = primary), so it's always save-ready.
     if (kind === "outlookcal_calendar") return true;
     if (kind === "trello_board") return board.trim().length > 0;
+    if (kind === "airtable_base") return airtableBase.trim().length > 0;
+    if (kind === "airtable_table") return airtableTable.trim().length > 0;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -186,6 +210,8 @@ export function WidgetConfigPanel({
         else if (kind === "outlook_folder") filters[key] = folder.trim();
         else if (kind === "outlookcal_calendar") filters[key] = outlookCalendar.trim();
         else if (kind === "trello_board") filters[key] = board.trim();
+        else if (kind === "airtable_base") filters[key] = airtableBase.trim();
+        else if (kind === "airtable_table") filters[key] = airtableTable.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -292,6 +318,10 @@ export function WidgetConfigPanel({
                   onOutlookCalendar={setOutlookCalendar}
                   board={board}
                   onBoard={setBoard}
+                  airtableBase={airtableBase}
+                  onAirtableBase={onAirtableBaseChange}
+                  airtableTable={airtableTable}
+                  onAirtableTable={setAirtableTable}
                 />
               ) : (
                 <InternalConfig
