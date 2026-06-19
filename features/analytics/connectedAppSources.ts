@@ -381,6 +381,34 @@ const MONDAY: ConnectedAppSourceUi = {
   },
 };
 
+const HUBSPOT: ConnectedAppSourceUi = {
+  provider: "hubspot",
+  displayName: "HubSpot",
+  exposed: true,
+  icon: "Database",
+  connectHref: "/apps",
+  connectTitle: "Connect your HubSpot account",
+  connectHelp:
+    "This widget reads CRM totals from your account's connected HubSpot portal. Connect HubSpot to see it.",
+  connectCtaLabel: "Connect HubSpot",
+  // HubSpot is an ACCOUNT-shared portal grant — every account member sees the same
+  // portal-level CRM aggregates (core/integrations/credentialSharing.ts → "account").
+  visibility: "account",
+  attributionPrefix: "HubSpot account",
+  metricsByType: {
+    stat: [
+      { id: "open_deals_count", label: "Open deals", filters: [] },
+      { id: "closed_won_deals_count", label: "Closed-won deals", filters: [] },
+    ],
+    ...seriesForBoth([
+      { id: "contacts_created_over_time", label: "Contacts created over time", filters: [] },
+      { id: "deals_created_over_time", label: "Deals created over time", filters: [] },
+      { id: "companies_created_over_time", label: "Companies created over time", filters: [] },
+      { id: "tickets_created_over_time", label: "Tickets created over time", filters: [] },
+    ]),
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -393,6 +421,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   TRELLO,
   AIRTABLE,
   MONDAY,
+  HUBSPOT,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

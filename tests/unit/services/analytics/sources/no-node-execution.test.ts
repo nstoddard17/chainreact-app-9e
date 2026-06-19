@@ -48,6 +48,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/monday/index.ts",
   "services/analytics/sources/monday/api.ts",
   "services/analytics/sources/monday/buckets.ts",
+  "services/analytics/sources/hubspot/index.ts",
+  "services/analytics/sources/hubspot/api.ts",
+  "services/analytics/sources/hubspot/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

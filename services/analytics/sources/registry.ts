@@ -11,6 +11,7 @@ import { notionAnalyticsSource } from "./notion";
 import { trelloAnalyticsSource } from "./trello";
 import { airtableAnalyticsSource } from "./airtable";
 import { mondayAnalyticsSource } from "./monday";
+import { hubspotAnalyticsSource } from "./hubspot";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -54,6 +55,10 @@ import { mondayAnalyticsSource } from "./monday";
  *   - MONDAY (connected app, read-only board items_count + items_page → item
  *     count/created + by-group, personal refreshable credential) —
  *     ANALYTICS-SOURCES-MONDAY-1.
+ *   - HUBSPOT (connected app, read-only CRM Search `total` counts → open/closed-won
+ *     deal scalars + contacts/deals/companies/tickets created-over-time, account-
+ *     shared refreshable credential, strictly count-only, no record data read) —
+ *     ANALYTICS-SOURCES-HUBSPOT-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -78,6 +83,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   trelloAnalyticsSource,
   airtableAnalyticsSource,
   mondayAnalyticsSource,
+  hubspotAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

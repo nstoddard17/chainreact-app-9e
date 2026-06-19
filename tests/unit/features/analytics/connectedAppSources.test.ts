@@ -71,6 +71,40 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("airtable")?.visibility).toBe("personal");
     // Monday is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("monday")?.visibility).toBe("personal");
+    // HubSpot is a shared portal grant → account-wide visibility.
+    expect(getConnectedAppSource("hubspot")?.visibility).toBe("account");
+  });
+});
+
+describe("HubSpot metric/filter shape", () => {
+  const hubspot = getExposedConnectedAppSource("hubspot")!;
+
+  it("exposes HubSpot with deal scalars for stat and created-over-time series for line/bar", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("hubspot");
+    expect(getExposedConnectedAppSource("hubspot")?.displayName).toBe("HubSpot");
+    expect(metricsForType(hubspot, "stat").map((m) => m.id).sort()).toEqual([
+      "closed_won_deals_count",
+      "open_deals_count",
+    ]);
+    expect(metricsForType(hubspot, "line").map((m) => m.id).sort()).toEqual([
+      "companies_created_over_time",
+      "contacts_created_over_time",
+      "deals_created_over_time",
+      "tickets_created_over_time",
+    ]);
+    expect(metricsForType(hubspot, "bar").map((m) => m.id)).toEqual(
+      metricsForType(hubspot, "line").map((m) => m.id),
+    );
+    expect(metricsForType(hubspot, "donut")).toEqual([]);
+    expect(metricsForType(hubspot, "table")).toEqual([]);
+  });
+
+  it("no HubSpot metric takes a filter (count-only, no CRM query surface)", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(hubspot, type)) {
+        expect(m.filters).toEqual([]);
+      }
+    }
   });
 });
 

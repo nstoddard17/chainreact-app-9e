@@ -185,6 +185,23 @@ describe("analytics source registry", () => {
     for (const m of monday!.metrics) expect(m.supportedFilters).toEqual(["monday_board"]);
   });
 
+  it("registers HubSpot as a connected-app source (ANALYTICS-SOURCES-HUBSPOT-1)", () => {
+    const hubspot = getAnalyticsSource("hubspot");
+    expect(hubspot?.connectedApp).toBe(true);
+    expect(hubspot?.metrics.map((m) => m.key).sort()).toEqual([
+      "closed_won_deals_count",
+      "companies_created_over_time",
+      "contacts_created_over_time",
+      "deals_created_over_time",
+      "open_deals_count",
+      "tickets_created_over_time",
+    ]);
+    expect(isApprovedSourceMetric("hubspot", "open_deals_count")).toBe(true);
+    expect(isApprovedSourceMetric("hubspot", "list_contact_emails")).toBe(false);
+    // Count-only, no picker → no metric takes a filter (no arbitrary CRM query surface).
+    for (const m of hubspot!.metrics) expect(m.supportedFilters).toEqual([]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");
