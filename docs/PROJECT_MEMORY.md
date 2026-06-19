@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-19 @ dd285099f (AUTOROUTE one-composer closeout; e0212b481 + 7fa13774a + 1ff3c0b24 + d117cd2af LOCAL/UNPUSHED · local 15 ahead of origin dd285099f)
+> Last curated: 2026-06-19 @ 6a14173f6 (AI credit enforcement ON in prod closeout; AUTOROUTE + QA-2/QA-3 PUSHED & live in prod; origin/v2-main = 6a14173f6)
 
 ## Current status
 
@@ -27,9 +27,9 @@
     account (AI-DIAG-2-pre). **"Explain with AI" SHIPPED** (AI-DIAG-2): explicit-click only; the
     route re-derives the safe DTO server-side and sends only an allow-listed projection to OpenAI
     fast, gated **before** the model call (`workflow_explanation`=1, workflow-owning account),
-    explanation-only UI. **Credit enforcement WIRED but OFF** (`ENABLE_AI_CREDIT_ENFORCEMENT` =
-    literal `"true"`); OpenAI provider not enabled → explain returns safe 503. **Next:** dev/OpenAI
-    smoke → later Q&A/repair → **only then** Hermes →
+    explanation-only UI. **LIVE in prod + credit enforcement ON** (2026-06-19): `ENABLE_AI_CREDIT_ENFORCEMENT=true`
+    (Production), OpenAI ON; Q&A + Explain deduct AI credits (see "Recently completed arcs"). **Next:**
+    credit-exhaustion product messaging → AI usage in billing UI → later Hermes →
     [`ai-diag-2-llm-explanation-plan.md` §0](./slices/phase-4/ai-diag-2-llm-explanation-plan.md) ·
     [`ai-credits-enforcement-3b-plan.md` §0](./slices/phase-4/ai-credits-enforcement-3b-plan.md).
 
@@ -107,7 +107,21 @@
 
 ## Recently completed arcs
 
-- **One Builder AI composer + deterministic auto-routing (AI-DIAG-QA-AUTOROUTE) — UI live, NO flag, LOCAL/UNPUSHED (2026-06-19)** —
+- **AI credit enforcement ON in Production (env enablement) — LIVE & VERIFIED (2026-06-19)** —
+  set `ENABLE_AI_CREDIT_ENFORCEMENT=true` for **Production** in Vercel and redeployed the existing
+  commit `6a14173f6` (env + redeploy only; **NO code/commit/push/migration**). `aiCreditGate` (shipped
+  flag-OFF in AI-CREDITS-3b, wired into Q&A/Explain routes by QA-2) now meters: runs **before** the
+  model call, deducts from the **workflow-owning account** AI pool, fail-closed. Q&A=`workflow_qa`,
+  Explain=`workflow_explanation`, **1 credit each** (fast tier). **Verified this session in prod:** Q&A
+  200/ok=true + answer renders; Explain 200/ok=true + explanation renders; Check stays
+  deterministic/free; account `ai_credits_used` **0/20 → 2/20** after 1 Q&A + 1 Explain; telemetry
+  `workflow_qa` 4→5 / `workflow_explanation` 7→8; standard smoke 24/8/0 + targeted credit smoke passed;
+  disposable workflow cleaned up. Denial paths stay safe (402 `AI_CREDITS_EXHAUSTED` / 403 frozen / 503
+  gate|provider). **Caveats:** no live insufficient-credit test (account had headroom); **Preview** flag
+  left unset/off (restore only when staging exists); still ONE Supabase project → treat `db:push` as
+  prod-impacting. `ENABLE_OPENAI_PROVIDER` left ON, OpenAI key untouched. →
+  [`ai-credits-enforcement-prod-enablement-closeout.md`](./slices/phase-4/ai-credits-enforcement-prod-enablement-closeout.md).
+- **One Builder AI composer + deterministic auto-routing (AI-DIAG-QA-AUTOROUTE) — PUSHED & LIVE in prod (2026-06-19)** —
   collapses Builder AI to **one feed, one composer, one send**; **deletes the AI-DIAG-QA-3 mini Q&A box**
   (`_BuilderAiPanelQa.tsx`, "chat in chat" Marcus rejected). Routing precedence in `handleComposerSubmit`:
   chat-fill first → follow-up always planner → else pure `classifyComposerIntent(text)` → `qa | plan | clarify`.
@@ -121,8 +135,8 @@
   (NOT re-run at closeout): CS-1 classifier 51→59, CS-2 intentClarification 10/diagnosisQa 17/chatFill 5/
   diagnose 8, CS-3 autoRoute 14/classifier 59/68 suites 902, CS-4 diagnosisQa 15/chatFillHint 10/autoRoute 14/
   intentClarification 10/68 suites 900, typecheck 0, eslint 0 touched, lint:structure OK. Commits
-  `e0212b481`+`7fa13774a`+`1ff3c0b24`+`d117cd2af` LOCAL/UNPUSHED (origin `dd285099f`). **Prod still shows the
-  old mini box until pushed; still needs the `workflow_qa` migration `20260703000000` (dev-DB only).** →
+  `e0212b481`+`7fa13774a`+`1ff3c0b24`+`d117cd2af` **PUSHED & live in prod** (origin `6a14173f6`, prod-smoked
+  2026-06-19); `workflow_qa` migration `20260703000000` **confirmed applied in prod**. →
   [`ai-diag-qa-autoroute-closeout.md`](./slices/phase-4/ai/ai-diag-qa-autoroute-closeout.md).
 - **Workflow diagnosis Q&A UI (AI-DIAG-QA-3) — UI live, NO flag, LOCAL/UNPUSHED (2026-06-17); mini box SUPERSEDED by AUTOROUTE (2026-06-19)** —
   exposes the AI-DIAG-QA-2 backend in the Builder AI panel: a small question box next to "Check
@@ -138,8 +152,8 @@
   tokens/config/`{{` never reach DOM; UI imports no services/MCP. Inherited verification (not re-run
   at closeout): diagnosisQa 17 + regressions (chatFillHint 10/explain 14/diagnose 8/suggest 13/
   preview 15/apply 10/client 38), typecheck 0, eslint clean (12 files), lint:structure OK. Commit
-  `facc05666` LOCAL/UNPUSHED (origin `ba0af6616`). **Live UI needs the deployed batch incl. the
-  `workflow_qa` telemetry migration `20260703000000` (dev-DB only, not prod).** →
+  `facc05666` **PUSHED & live in prod** (in origin `6a14173f6`); `workflow_qa` telemetry migration
+  `20260703000000` **confirmed applied in prod**. (Mini box superseded by AUTOROUTE.) →
   [`ai-diag-qa-3-closeout.md`](./slices/phase-4/ai/ai-diag-qa-3-closeout.md).
 - **Workflow diagnosis Q&A backend (AI-DIAG-QA-2) — backend live, NO UI, NO flag, LOCAL/UNPUSHED (2026-06-17)** —
   single-shot, explanation-ONLY Q&A about the safe diagnosis. New route `POST /ai/diagnose/qa` mirrors the
@@ -151,11 +165,10 @@
   sensitive ONLY — no values/ids/tokens/`{{nodeId.path}}`); bogus `selectedNodeId` ignored+never echoed.
   Client `askDiagnosisQuestion` sends id+question(+draft+selectedNodeId), never the DTO. **Telemetry now
   first-class** (`AI-DIAG-QA-2-TELEMETRY-CHECK`): migration `20260703000000` widened `ai_cost_events_feature_chk`
-  to allow `workflow_qa` (non-destructive; **dev-DB-applied via db:push, NOT prod**), so telemetry records
+  to allow `workflow_qa` (non-destructive; **confirmed applied in prod**), so telemetry records
   `feature:"workflow_qa"` (was `other` fallback); `metadata.kind` stays `workflow_diagnosis_qa`. **No UI / no
   Hermes / no multi-turn / no patch / no new flag.** Commits `893f44001` (backend) + `9ddd74df6` (telemetry),
-  LOCAL/UNPUSHED (origin `ba0af6616`). UI now shipped (**AI-DIAG-QA-3** `facc05666`, above); ship
-  batch must run the prod migration →
+  **PUSHED & live in prod** (in origin `6a14173f6`); credit enforcement now ON in prod (2026-06-19) →
   [`ai-diag-qa-2-closeout.md`](./slices/phase-4/ai/ai-diag-qa-2-closeout.md) · [`ai-diag-qa-plan-1.md`](./slices/phase-4/ai/ai-diag-qa-plan-1.md).
 - **Builder UX mini-arc — canvas ergonomics + tabs + config-tab consolidation + Data Map MVP + Settings MVP, LOCAL/UNPUSHED (2026-06-16)** —
   builder commits `a6ec958ac → 67ee7f6a6`: non-overlap append/insert + drag resolve, Arrange moved to
