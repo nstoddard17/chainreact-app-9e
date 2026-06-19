@@ -28,6 +28,17 @@ export const PLAN_STATUSES = [
 ] as const;
 export type PlanStatus = (typeof PLAN_STATUSES)[number];
 
+/**
+ * Billing interval for paid subscriptions (PRICING-INTERVAL-1). Pure literal set so the
+ * server (Stripe price resolution, checkout route/service) and the client (checkout helper)
+ * share one definition. `monthly` is the default and the backward-compatible interval.
+ */
+export const BILLING_INTERVALS = ["monthly", "annual"] as const;
+export type BillingInterval = (typeof BILLING_INTERVALS)[number];
+export function isBillingInterval(value: string): value is BillingInterval {
+  return (BILLING_INTERVALS as readonly string[]).includes(value);
+}
+
 export interface PlanLimits {
   /** Total members incl. owner; null = uncapped/config (enterprise). */
   memberLimit: number | null;

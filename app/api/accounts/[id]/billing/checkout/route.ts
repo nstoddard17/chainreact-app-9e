@@ -48,6 +48,9 @@ const CheckoutBodySchema = z
     // Only purchasable, fixed-price tiers. free / enterprise are not online-purchasable;
     // unknown values 400. .strict() blocks any client-supplied price/customer/plan-status.
     plan: z.enum(["pro", "team", "business"]),
+    // Optional billing interval; omitted defaults to monthly in the service (backward
+    // compatible). An invalid value 400s here, so a bad interval never reaches Stripe.
+    interval: z.enum(["monthly", "annual"]).optional(),
   })
   .strict();
 
@@ -114,6 +117,7 @@ export async function POST(
     const result = await createCheckoutSession({
       accountId,
       requestedPlan: body.data.plan,
+      interval: body.data.interval,
       contactEmail: auth.email,
     });
     if (!result.ok) return checkoutFailure(result.reason);

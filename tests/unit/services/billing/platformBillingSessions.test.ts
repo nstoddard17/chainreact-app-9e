@@ -337,3 +337,52 @@ describe("createCheckoutSession — Team → Business upgrade (BU-2)", () => {
     expect(checkout.body!.metadata).not.toHaveProperty("targetAccountType");
   });
 });
+
+describe("createCheckoutSession — billing interval (PRICING-INTERVAL-1)", () => {
+  function withCustomer(type: string) {
+    mockGetAccount.mockResolvedValueOnce(account(type));
+    mockGetAttachment.mockResolvedValueOnce({
+      stripeCustomerId: "cus_x",
+      stripeSubscriptionId: null,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    });
+    const { request, calls } = clientReturning();
+    mockGetClient.mockReturnValueOnce({ apiBase: "x", apiVersion: "v", request });
+    return calls;
+  }
+
+  it("annual checkout uses the ANNUAL price id", async () => {
+    process.env.STRIPE_PRICE_PRO_ANNUAL = "price_pro_annual";
+    const calls = withCustomer("personal");
+    const r = await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "pro", interval: "annual" });
+    expect(r.ok).toBe(true);
+    const checkout = calls.find((c) => c.path === "/v1/checkout/sessions")!;
+    expect(checkout.body).toMatchObject({ line_items: [{ price: "price_pro_annual", quantity: 1 }] });
+  });
+
+  it("monthly checkout uses the MONTHLY price id, preferred over the legacy var", async () => {
+    process.env.STRIPE_PRICE_PRO_MONTHLY = "price_pro_monthly";
+    process.env.STRIPE_PRICE_PRO = "price_pro_legacy";
+    const calls = withCustomer("personal");
+    await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "pro", interval: "monthly" });
+    const checkout = calls.find((c) => c.path === "/v1/checkout/sessions")!;
+    expect(checkout.body).toMatchObject({ line_items: [{ price: "price_pro_monthly", quantity: 1 }] });
+  });
+
+  it("omitted interval defaults to monthly (resolves the monthly price)", async () => {
+    process.env.STRIPE_PRICE_TEAM_MONTHLY = "price_team_monthly";
+    const calls = withCustomer("team");
+    await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "team" });
+    const checkout = calls.find((c) => c.path === "/v1/checkout/sessions")!;
+    expect(checkout.body).toMatchObject({ line_items: [{ price: "price_team_monthly", quantity: 1 }] });
+  });
+
+  it("price_not_configured when the requested interval has no price (annual unset, no legacy fallback)", async () => {
+    delete process.env.STRIPE_PRICE_PRO_ANNUAL;
+    mockGetAccount.mockResolvedValueOnce(account("personal"));
+    const r = await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "pro", interval: "annual" });
+    expect(r).toEqual({ ok: false, reason: "price_not_configured" });
+    expect(mockGetClient).not.toHaveBeenCalled();
+  });
+});

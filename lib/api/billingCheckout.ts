@@ -1,5 +1,5 @@
 import { AccountApiError, type AccountApiErrorCode } from "@/lib/api/accounts";
-import type { PlanTier } from "@/core/billing/planPolicy";
+import type { PlanTier, BillingInterval } from "@/core/billing/planPolicy";
 
 /**
  * Typed client for the platform checkout route
@@ -35,17 +35,26 @@ async function parseError(res: Response): Promise<AccountApiError> {
   return new AccountApiError(message, codeForStatus(res.status), res.status);
 }
 
-/** POST /api/accounts/[id]/billing/checkout → the Stripe Checkout redirect url. */
+/**
+ * POST /api/accounts/[id]/billing/checkout → the Stripe Checkout redirect url.
+ *
+ * `interval` (monthly | annual) is optional; when omitted the server defaults to monthly, so
+ * existing callers are unchanged. It is sent only when provided, keeping the request body
+ * minimal for the common (monthly) path.
+ */
 export async function startCheckout(
   accountId: string,
   plan: CheckoutPlan,
+  interval?: BillingInterval,
 ): Promise<{ url: string }> {
+  const body: { plan: CheckoutPlan; interval?: BillingInterval } = { plan };
+  if (interval) body.interval = interval;
   const res = await fetch(
     `/api/accounts/${encodeURIComponent(accountId)}/billing/checkout`,
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify(body),
     },
   );
   if (!res.ok) throw await parseError(res);

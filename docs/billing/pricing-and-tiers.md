@@ -6,8 +6,9 @@
 This doc explains and contextualizes those numbers; the code is authoritative for the numeric caps.
 
 > Honesty note: prices below are the recommended launch prices. They are NOT hardcoded in the
-> repo. Stripe Price IDs are resolved from env vars (`STRIPE_PRICE_PRO` / `_TEAM` / `_BUSINESS`)
-> in [`services/billing/platformStripePrices.ts`](../../services/billing/platformStripePrices.ts);
+> repo (except the marketing display copy). Stripe Price IDs are resolved from per-interval env
+> vars (`STRIPE_PRICE_{PRO,TEAM,BUSINESS}_{MONTHLY,ANNUAL}`) in
+> [`services/billing/platformStripePrices.ts`](../../services/billing/platformStripePrices.ts);
 > the dollar figures live in the Stripe dashboard. Checkout is dark-launched behind
 > `ENABLE_PLATFORM_BILLING` (default OFF), so no plan is publicly purchasable yet.
 
@@ -21,8 +22,12 @@ This doc explains and contextualizes those numbers; the code is authoritative fo
 | Business | $199/mo | $249/mo | Companies needing control, visibility, scale |
 | Enterprise | Custom | Custom | Custom limits, security, compliance, procurement |
 
-Monthly vs annual price variants are NOT yet modeled in code (single price per tier per
-`platformStripePrices.ts`; annual is a deferred decision). Document-only until that lands.
+Monthly and annual intervals are modeled in code (PRICING-INTERVAL-1): the checkout API accepts
+`interval: monthly | annual` (defaults to monthly) and resolves an interval-specific Stripe Price
+ID per paid tier. Required env vars: `STRIPE_PRICE_{PRO,TEAM,BUSINESS}_{MONTHLY,ANNUAL}` (the
+legacy `STRIPE_PRICE_{PRO,TEAM,BUSINESS}` vars remain a deprecated monthly fallback). The
+public pricing page shows the month-to-month price as the headline and the annual-equivalent as a
+sub-line. Annual is purchasable only once the annual Price IDs are set and billing flags are on.
 
 ## Limit matrix (per month unless noted)
 
@@ -142,9 +147,12 @@ Mailchimp) can be shared at the account level; everything else is personal. See
    touch Business/Enterprise or custom rows): `UPDATE public.account_billing SET tasks_limit =
    7500 WHERE plan = 'team' AND tasks_limit = 100;` Not shipped here (no prod team subscriptions
    yet); run before launch if any team accounts exist. Do NOT widen the predicate to other plans.
-2. **Decide annual vs monthly modeling** if annual pricing ships (add a billing-interval
-   dimension to `platformStripePrices.ts`).
+2. **Set the annual Stripe Price IDs.** Interval support is implemented (PRICING-INTERVAL-1);
+   annual checkout works once `STRIPE_PRICE_{PRO,TEAM,BUSINESS}_ANNUAL` are configured (and the
+   billing flags are on). Until then, annual is informational on the pricing page only.
 3. **Decide which Pro/Team/Business feature bullets to gate** (active workflows, retention,
    connected-accounts-per-app) and build the enforcement before advertising hard numbers.
-4. **Set the Stripe Price IDs** (`STRIPE_PRICE_PRO/TEAM/BUSINESS`) to prices matching this doc
-   before flipping `ENABLE_PLATFORM_BILLING`.
+4. **Set all six interval-specific Stripe Price IDs**
+   (`STRIPE_PRICE_{PRO,TEAM,BUSINESS}_{MONTHLY,ANNUAL}`) to prices matching this doc before
+   flipping `ENABLE_PLATFORM_BILLING`. (The legacy `STRIPE_PRICE_{PRO,TEAM,BUSINESS}` vars still
+   work as a monthly-only fallback.)

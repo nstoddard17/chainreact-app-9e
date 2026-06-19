@@ -170,6 +170,44 @@ describe("Personal Pro dark-launch gate (CS-PRO-1)", () => {
   });
 });
 
+describe("billing interval (PRICING-INTERVAL-1)", () => {
+  it("passes a valid interval through to the service", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/team-annual" });
+    const res = await POST(req({ plan: "team", interval: "annual" }), params());
+    expect(res.status).toBe(200);
+    expect(mockCreateCheckout).toHaveBeenCalledWith({
+      accountId: ACCOUNT,
+      requestedPlan: "team",
+      interval: "annual",
+      contactEmail: "m@x.test",
+    });
+  });
+
+  it("400 on an invalid interval (fail closed, no service call)", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    const res = await POST(req({ plan: "team", interval: "weekly" }), params());
+    expect(res.status).toBe(400);
+    expect(mockCreateCheckout).not.toHaveBeenCalled();
+  });
+
+  it("omitted interval still calls the service (which defaults to monthly)", async () => {
+    signedIn();
+    mockRequireRole.mockResolvedValueOnce({ ok: true, role: "owner" });
+    mockCreateCheckout.mockResolvedValueOnce({ ok: true, url: "https://stripe.test/team" });
+    const res = await POST(req({ plan: "team" }), params());
+    expect(res.status).toBe(200);
+    expect(mockCreateCheckout).toHaveBeenCalledWith({
+      accountId: ACCOUNT,
+      requestedPlan: "team",
+      interval: undefined,
+      contactEmail: "m@x.test",
+    });
+  });
+});
+
 describe("service reason → HTTP mapping", () => {
   it.each([
     ["account_frozen", 403, "ACCOUNT_PENDING_DELETION"],

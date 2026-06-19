@@ -76,18 +76,19 @@ with them blank still passes CI. Verified blank-but-present in `.env.example` li
 |---|---|---|---|
 | `STRIPE_SECRET_KEY` | All Stripe calls (checkout, portal, personal cancel, customer create) | `getPlatformStripeSecretKey()` in [platformStripeClient.ts:54-67](../../../../services/billing/platformStripeClient.ts) | Throws `PlatformStripeConfigError` → routes return **503** `PLATFORM_BILLING_NOT_CONFIGURED` |
 | `STRIPE_BILLING_WEBHOOK_SECRET` | Webhook signature verification | `handleStripeBillingWebhook()` [stripeBillingWebhook.ts:222-223](../../../../services/billing/stripeBillingWebhook.ts) | Fails closed → webhook returns **500** `not_configured` (Stripe retries) |
-| `STRIPE_PRICE_PRO` | Personal Free → Pro checkout | `resolvePlanPrice('pro')` [platformStripePrices.ts:56-64](../../../../services/billing/platformStripePrices.ts) | Checkout returns **503** `PRICE_NOT_CONFIGURED` |
-| `STRIPE_PRICE_TEAM` | Team paid checkout | `resolvePlanPrice('team')` | Checkout returns **503** `PRICE_NOT_CONFIGURED` |
-| `STRIPE_PRICE_BUSINESS` | Team → Business upgrade checkout | `resolvePlanPrice('business')` | Checkout returns **503** `PRICE_NOT_CONFIGURED` |
+| `STRIPE_PRICE_PRO_MONTHLY` / `_ANNUAL` | Personal Free → Pro checkout, per interval | `resolvePlanPrice('pro', interval)` [platformStripePrices.ts](../../../../services/billing/platformStripePrices.ts) | Checkout returns **503** `PRICE_NOT_CONFIGURED` for the requested interval |
+| `STRIPE_PRICE_TEAM_MONTHLY` / `_ANNUAL` | Team paid checkout, per interval | `resolvePlanPrice('team', interval)` | Checkout returns **503** `PRICE_NOT_CONFIGURED` |
+| `STRIPE_PRICE_BUSINESS_MONTHLY` / `_ANNUAL` | Team → Business upgrade checkout, per interval | `resolvePlanPrice('business', interval)` | Checkout returns **503** `PRICE_NOT_CONFIGURED` |
+| `STRIPE_PRICE_{PRO,TEAM,BUSINESS}` (legacy) | DEPRECATED monthly-only fallback (back-compat) | `resolvePlanPrice(..., 'monthly')` | Used only when the matching `_MONTHLY` var is unset |
 | `NEXT_PUBLIC_APP_URL` | Checkout `success_url`/`cancel_url`, portal `return_url` | `appBaseUrl()` [platformBillingSessions.ts:36-40](../../../../services/billing/platformBillingSessions.ts) | Falls back to `http://localhost:3000` — **must be the real domain in prod** |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Present in `.env.example` (line 21) | Not read by any platform-billing server file inspected | Optional today — redirect flow uses Stripe-hosted Checkout, no client SDK needed. Set it to the matching mode's pk anyway to avoid mode mismatch if any client surface starts using it. |
 
 **Rule — no Stripe id is an env var.** `account_billing.stripe_customer_id` /
 `stripe_subscription_id` are written by code (lazy customer attach / webhook), never set by
 hand. The only secrets are `STRIPE_SECRET_KEY` + `STRIPE_BILLING_WEBHOOK_SECRET`; the only
-config ids are the three price ids.
+config ids are the per-interval price ids.
 
-**Mode-match invariant:** `STRIPE_SECRET_KEY`, the three `STRIPE_PRICE_*` ids, and
+**Mode-match invariant:** `STRIPE_SECRET_KEY`, the `STRIPE_PRICE_*` ids, and
 `STRIPE_BILLING_WEBHOOK_SECRET` must **all be from the same Stripe mode** (all test, or all
 live). A live secret key with a test price id (or vice-versa) fails at Stripe with no local
 warning.
@@ -120,16 +121,18 @@ Tiers and what each price must represent (verified from
 | Tier | Env var | Caps (members / folders / tasks) | Notes |
 |---|---|---|---|
 | `free` | — (no price) | 1 / 10 / 100 | No charge; `resolvePlanPrice` returns `missing:false`. |
-| `pro` | `STRIPE_PRICE_PRO` | 1 / 10 / 1,000 | Personal Pro. Higher monthly **task** cap than Free (1,000 vs 100, CS-PRO-2); member/folder caps still match Free (differentiation deferred). Dark behind `ENABLE_PERSONAL_PRO`. |
-| `team` | `STRIPE_PRICE_TEAM` | 5 / 100 / 100 | Team account paid plan. |
-| `business` | `STRIPE_PRICE_BUSINESS` | 25 / 250 / 100 | The Team → Business in-place upgrade target. |
+| `pro` | `STRIPE_PRICE_PRO_MONTHLY` / `_ANNUAL` | see canonical pricing doc | Personal Pro. Dark behind `ENABLE_PERSONAL_PRO`. Caps governed by `planPolicy` (PRICING-LOCK); see [pricing-and-tiers.md](../../../billing/pricing-and-tiers.md). |
+| `team` | `STRIPE_PRICE_TEAM_MONTHLY` / `_ANNUAL` | see canonical pricing doc | Team account paid plan. |
+| `business` | `STRIPE_PRICE_BUSINESS_MONTHLY` / `_ANNUAL` | see canonical pricing doc | The Team → Business in-place upgrade target. |
 | `enterprise` | — (no price) | unlimited / unlimited / unlimited | Contact-sales; **no online checkout** (`resolvePlanPrice` returns `envVar:null`, route → `plan_not_purchasable`). |
 
 - [ ] Create one **Product per paid tier** (Pro / Team / Business) in the platform account.
-- [ ] Create exactly **one recurring Price per product** for launch (monthly). Annual/trials
-      are out of scope — the resolver is single-price-per-tier by design
-      ([platformStripePrices.ts:11-13](../../../../services/billing/platformStripePrices.ts)).
-- [ ] Copy each Price id (`price_…`) into the matching `STRIPE_PRICE_*` env var for that mode.
+- [ ] Create **two recurring Prices per product** — a **monthly** and an **annual** Price
+      (PRICING-INTERVAL-1 added interval support; the resolver picks per requested interval).
+      **Trials/coupons remain out of scope.**
+- [ ] Copy each Price id (`price_…`) into the matching interval-specific env var
+      (`STRIPE_PRICE_<TIER>_MONTHLY` / `STRIPE_PRICE_<TIER>_ANNUAL`) for that mode. The legacy
+      `STRIPE_PRICE_<TIER>` vars remain a monthly-only fallback.
 - [ ] **Do not** create an Enterprise price (none is wired; contact-sales).
 - [ ] Confirm all three price ids belong to the **same mode** as `STRIPE_SECRET_KEY`.
 
@@ -389,7 +392,9 @@ launch of the Pro/Team/Business monthly tiers, but support must know them:
   decision; a failing card does not pause workflows.
 - **No per-seat billing** — flat per-tier pricing.
 - **No metered usage / overage** — fixed per-tier task caps (Free 100 / Pro 1,000 / Team/Business 100), no pay-as-you-go.
-- **No annual pricing / trials** — single monthly price per tier.
+- **Annual pricing supported** (PRICING-INTERVAL-1: monthly + annual Price ids per tier;
+  checkout `interval` param, defaults monthly). **No trials/coupons.** Pricing page shows the
+  monthly headline + annual-equivalent sub-line.
 - **No full pricing table** in the UI.
 - **No customer-support / admin billing tooling** — corrections go through the Stripe dashboard.
 - ~~**`CheckoutChoiceButton` is not yet mounted for the personal Free → Pro upgrade path**~~ —
@@ -409,7 +414,8 @@ Explicitly out of scope for this go-live — **do not** turn these on as part of
 - **Do not** enable Enterprise self-serve checkout (no price; contact-sales only).
 - **Do not** turn `past_due` into a run-blocker / workflow-pause (warn-only by decision).
 - **Do not** wire metered/overage usage or per-seat billing.
-- **Do not** add annual prices/trials to the `STRIPE_PRICE_*` mapping (single-price-per-tier).
+- **Do not** add trials/coupons to checkout. Monthly + annual intervals are supported
+  (PRICING-INTERVAL-1); trial/coupon logic is intentionally not wired.
 - **Do not** point the workflow-provider Stripe integration (`integrations/stripe/`,
   `STRIPE_CLIENT_ID`/`STRIPE_CLIENT_SECRET`) at platform billing — they are separate accounts
   and credentials.

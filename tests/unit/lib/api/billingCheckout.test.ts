@@ -22,6 +22,15 @@ it("POSTs the plan to the account's checkout route and returns the url", async (
   expect((init as { body?: string }).body).toBe(JSON.stringify({ plan: "team" }));
 });
 
+it("includes interval in the POST body only when provided (PRICING-INTERVAL-1)", async () => {
+  const fetchMock = jest
+    .spyOn(global, "fetch")
+    .mockResolvedValue(new Response(JSON.stringify({ url: "https://stripe.test/c" }), { status: 200 }));
+  await startCheckout("acct-1", "pro", "annual");
+  const [, init] = fetchMock.mock.calls[0]!;
+  expect((init as { body?: string }).body).toBe(JSON.stringify({ plan: "pro", interval: "annual" }));
+});
+
 it("maps a non-OK response to AccountApiError (generic message, no Stripe internals)", async () => {
   // Fresh Response per call — a Response body can only be consumed once.
   jest

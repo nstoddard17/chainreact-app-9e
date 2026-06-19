@@ -1,4 +1,4 @@
-import type { PlanTier } from "@/core/billing/planPolicy";
+import type { PlanTier, BillingInterval } from "@/core/billing/planPolicy";
 import { isPlanAllowedForType, upgradeTargetAccountType } from "@/core/billing/planPolicy";
 import { getByIdServiceRole } from "@/repositories/accounts";
 import {
@@ -62,6 +62,8 @@ export interface CreateCheckoutInput {
    *  and purchasability — accepts any PlanTier so non-purchasable tiers are rejected
    *  here (defense-in-depth) even though the route's body schema only allows paid tiers. */
   requestedPlan: PlanTier;
+  /** Billing interval to purchase. Defaults to `monthly` when omitted (backward compatible). */
+  interval?: BillingInterval;
   /** Safe contact email for the Stripe customer (the acting owner/admin's session email),
    *  or null when unavailable. Never a client-supplied value. */
   contactEmail?: string | null;
@@ -82,6 +84,7 @@ export async function createCheckoutSession(
   input: CreateCheckoutInput,
 ): Promise<CreateCheckoutResult> {
   const { accountId, requestedPlan, contactEmail } = input;
+  const interval: BillingInterval = input.interval ?? "monthly";
 
   const account = await getByIdServiceRole(accountId);
   if (!account) return { ok: false, reason: "account_not_found" };
@@ -99,8 +102,9 @@ export async function createCheckoutSession(
     return { ok: false, reason: "invalid_plan_for_type" };
   }
 
-  // Resolve the price SERVER-side from config — the client never supplies a price id.
-  const price = resolvePlanPrice(requestedPlan);
+  // Resolve the price SERVER-side from config for the requested interval — the client never
+  // supplies a price id, only the interval (validated by the route enum).
+  const price = resolvePlanPrice(requestedPlan, interval);
   if (price.envVar === null) {
     // free (no charge) or enterprise (custom/contact-sales) — not purchasable online.
     return { ok: false, reason: "plan_not_purchasable" };

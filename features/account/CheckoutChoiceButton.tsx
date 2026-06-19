@@ -7,6 +7,7 @@ import {
   type PersonalPlanStateView,
 } from "@/lib/api/personalBilling";
 import { startCheckout, type CheckoutPlan } from "@/lib/api/billingCheckout";
+import type { BillingInterval } from "@/core/billing/planPolicy";
 import { AccountApiError } from "@/lib/api/accounts";
 import { Button } from "@/components/ui/button";
 
@@ -35,6 +36,9 @@ interface Props {
   /** Account being upgraded (team/business; or the personal account for a Pro upgrade). */
   checkoutAccountId: string;
   plan: CheckoutPlan;
+  /** Billing interval to purchase. Omitted → monthly (the server default). Wired so a future
+   *  interval selector can pass `annual` without further plumbing. */
+  interval?: BillingInterval;
   /** The caller's personal account id — read to decide whether to offer the choice. */
   personalAccountId: string;
   label?: string;
@@ -59,6 +63,7 @@ function formatDate(iso: string | null): string {
 export function CheckoutChoiceButton({
   checkoutAccountId,
   plan,
+  interval,
   personalAccountId,
   label,
   frozen = false,
@@ -74,7 +79,10 @@ export function CheckoutChoiceButton({
 
   async function proceedToCheckout() {
     try {
-      const { url } = await startCheckout(checkoutAccountId, plan);
+      // Pass interval only when set so the common monthly path keeps the 2-arg call shape.
+      const { url } = interval
+        ? await startCheckout(checkoutAccountId, plan, interval)
+        : await startCheckout(checkoutAccountId, plan);
       go(url);
     } catch (err) {
       setError(

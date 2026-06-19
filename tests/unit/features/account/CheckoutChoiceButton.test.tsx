@@ -66,6 +66,13 @@ it("no dialog when the personal account is Free — proceeds straight to checkou
   expect(redirect).toHaveBeenCalledWith("https://stripe.test/checkout");
 });
 
+it("forwards a provided interval to startCheckout (PRICING-INTERVAL-1)", async () => {
+  mockGetState.mockResolvedValueOnce(proState({ isPaidPersonalPro: false, plan: "free" }));
+  renderBtn({ interval: "annual" });
+  fireEvent.click(screen.getByTestId("checkout-choice-trigger"));
+  await waitFor(() => expect(mockStartCheckout).toHaveBeenCalledWith(TEAM, "team", "annual"));
+});
+
 it("shows the dialog when paid Pro + a Team checkout starts (no checkout yet)", async () => {
   mockGetState.mockResolvedValueOnce(proState());
   renderBtn();
