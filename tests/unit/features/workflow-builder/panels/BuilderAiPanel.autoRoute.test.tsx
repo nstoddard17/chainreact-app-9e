@@ -222,30 +222,37 @@ describe("precedence", () => {
   });
 });
 
-describe("example-prompt chips (BUILDER-AI-COMPOSER-POLISH-1)", () => {
+describe("example-prompt chips (BUILDER-AI-COMPOSER-POLISH-1 / ACTION-CHIPS-PLACEMENT-1)", () => {
   async function openEmptyPanel() {
     const user = userEvent.setup();
     render(<BuilderAiPanel />);
+    // ACTION-CHIPS-PLACEMENT-1 — chips now live in the composer action strip beside
+    // Check workflow, not the intro.
     await waitFor(() =>
-      expect(screen.getByTestId("builder-ai-examples")).toBeInTheDocument(),
+      expect(screen.getAllByTestId("builder-ai-example-chip").length).toBeGreaterThan(0),
     );
     return user;
   }
 
   function clickChip(user: ReturnType<typeof userEvent.setup>, label: string) {
-    const chip = within(screen.getByTestId("builder-ai-examples")).getByText(label);
+    const chip = within(screen.getByTestId("builder-ai-action-chips")).getByText(label);
     return user.click(chip);
   }
 
-  it("renders the four example chips in the empty intro state", async () => {
+  it("renders the four example chips in the action strip beside Check workflow", async () => {
     await openEmptyPanel();
-    const chips = screen.getAllByTestId("builder-ai-example-chip");
+    const strip = screen.getByTestId("builder-ai-action-chips");
+    // Check workflow is the first action in the strip, then the four example chips.
+    expect(within(strip).getByTestId("builder-ai-check-button")).toBeInTheDocument();
+    const chips = within(strip).getAllByTestId("builder-ai-example-chip");
     expect(chips.map((c) => c.textContent)).toEqual([
       "Why won't this run?",
       "Explain this error",
       "Add a Slack step",
       "What should I fix first?",
     ]);
+    // No longer rendered in the intro/empty-state message area.
+    expect(screen.queryByTestId("builder-ai-examples")).toBeNull();
   });
 
   it("a chip FILLS the one composer and calls NO backend (never bypasses AUTOROUTE)", async () => {
@@ -270,5 +277,23 @@ describe("example-prompt chips (BUILDER-AI-COMPOSER-POLISH-1)", () => {
     await user.click(screen.getByTestId("builder-ai-plan-button"));
     await waitFor(() => expect(mockAsk).toHaveBeenCalledTimes(1));
     expect(mockPlan).not.toHaveBeenCalled();
+  });
+
+  it("Check workflow (in the same strip) runs the deterministic diagnosis and does NOT fill the composer", async () => {
+    mockDiagnose.mockResolvedValueOnce({
+      workflowId: "wf-1",
+      access: "OK",
+      overallReady: true,
+      summaryText: "Looks ready.",
+      nextSteps: [],
+      findings: [],
+    });
+    const user = await openEmptyPanel();
+    await user.click(screen.getByTestId("builder-ai-check-button"));
+    await waitFor(() => expect(mockDiagnose).toHaveBeenCalledTimes(1));
+    // Free/deterministic action — must NOT fill the composer or hit Q&A/planner.
+    expect(screen.getByTestId("builder-ai-prompt")).toHaveValue("");
+    expect(mockPlan).not.toHaveBeenCalled();
+    expect(mockAsk).not.toHaveBeenCalled();
   });
 });

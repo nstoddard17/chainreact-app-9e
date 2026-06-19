@@ -160,9 +160,6 @@ export function BuilderAiPanel() {
         onClarifyExplain={a.handleClarifyExplain}
         onClarifyPlan={a.handleClarifyPlan}
         resolvedClarificationIds={a.resolvedClarificationIds}
-        // Example chips FILL the one composer (no submit, no API call); the user
-        // then sends through the same handleComposerSubmit → AUTOROUTE path.
-        onUseExamplePrompt={a.setPrompt}
       />
       <BuilderAiPanelComposer
         prompt={a.prompt}
@@ -179,6 +176,9 @@ export function BuilderAiPanel() {
         asking={a.asking}
         chatFillHint={chatFillHint}
         onExitChatFill={handleExitChatFill}
+        // Example chips FILL the one composer (no submit, no API call); the user then
+        // sends through the same handleComposerSubmit → AUTOROUTE path.
+        onUseExamplePrompt={a.setPrompt}
       />
     </section>
   );

@@ -72,7 +72,36 @@ interface Props {
    * already-typed config value.
    */
   readonly onExitChatFill?: () => void;
+  /**
+   * BUILDER-AI-ACTION-CHIPS-PLACEMENT-1 — example-prompt chips, rendered in the action
+   * strip beside the Check workflow pill (moved here from the empty-state intro). A chip
+   * FILLS the one composer with its text — it does NOT submit, call any API, or spend an
+   * AI credit; the user then sends through the normal composer → AUTOROUTE path. Shown
+   * only in the empty (no-messages) state. Omitted → no chips (back-compat).
+   */
+  readonly onUseExamplePrompt?: (text: string) => void;
 }
+
+/**
+ * Lightweight example prompts (moved from the intro in
+ * BUILDER-AI-ACTION-CHIPS-PLACEMENT-1). Clicking FILLS the composer; the deterministic
+ * AUTOROUTE classifier still decides where the SEND goes — chips never bypass it.
+ */
+const EXAMPLE_PROMPTS = [
+  "Why won't this run?",
+  "Explain this error",
+  "Add a Slack step",
+  "What should I fix first?",
+] as const;
+
+/** Shared pill/chip styling so Check workflow and the example chips match exactly. */
+const CHIP_CLASS =
+  "rounded-full px-2.5 py-1 text-[11px] leading-none transition-colors hover:opacity-80 disabled:opacity-50";
+const CHIP_STYLE = {
+  background: "var(--builder-panel-2)",
+  border: "1px solid var(--builder-border)",
+  color: "var(--builder-text-2)",
+} as const;
 
 export function BuilderAiPanelComposer({
   prompt,
@@ -89,6 +118,7 @@ export function BuilderAiPanelComposer({
   asking,
   chatFillHint,
   onExitChatFill,
+  onUseExamplePrompt,
 }: Props) {
   const trimmed = prompt.trim();
   const tooLong = prompt.length > MAX_PROMPT_LENGTH;
@@ -103,30 +133,50 @@ export function BuilderAiPanelComposer({
       data-testid="builder-ai-composer"
       className="shrink-0 flex flex-col gap-1"
     >
-      <div className="flex items-center gap-2">
-        <Button
+      {/*
+        BUILDER-AI-ACTION-CHIPS-PLACEMENT-1 — one action strip: the Check workflow pill
+        (deterministic / free; runs the diagnosis, never fills the composer), then the
+        example-prompt chips (empty state only; each FILLS the composer, no submit/API/
+        credit), then Clear conversation (mid-conversation). `flex-wrap` keeps it tidy on
+        narrow panels. Check + chips share CHIP_STYLE so they're visually identical.
+      */}
+      <div className="flex flex-wrap items-center gap-1.5" data-testid="builder-ai-action-chips">
+        <button
           type="button"
-          size="sm"
-          variant="outline"
           onClick={onCheckWorkflow}
           disabled={busy || checking || asking}
           data-testid="builder-ai-check-button"
-          className="h-6 px-2 text-[11px]"
+          className={CHIP_CLASS}
+          style={CHIP_STYLE}
           title="Run a read-only check: is this workflow ready to run?"
         >
           {checking ? "Checking…" : "Check workflow"}
-        </Button>
+        </button>
+        {!hasMessages && onUseExamplePrompt
+          ? EXAMPLE_PROMPTS.map((example) => (
+              <button
+                key={example}
+                type="button"
+                data-testid="builder-ai-example-chip"
+                onClick={() => onUseExamplePrompt(example)}
+                disabled={busy || checking || asking}
+                className={CHIP_CLASS}
+                style={CHIP_STYLE}
+              >
+                {example}
+              </button>
+            ))
+          : null}
         {hasMessages && !busy && !checking && !asking ? (
-          <Button
+          <button
             type="button"
-            size="sm"
-            variant="outline"
             onClick={onClear}
             data-testid="builder-ai-clear-button"
-            className="h-6 px-2 text-[11px]"
+            className={CHIP_CLASS}
+            style={CHIP_STYLE}
           >
             Clear conversation
-          </Button>
+          </button>
         ) : null}
       </div>
 

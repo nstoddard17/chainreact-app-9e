@@ -180,28 +180,7 @@ interface Props {
   readonly onClarifyExplain: (messageId: ChatMessageId) => void;
   readonly onClarifyPlan: (messageId: ChatMessageId) => void;
   readonly resolvedClarificationIds: ReadonlySet<ChatMessageId>;
-  /**
-   * BUILDER-AI-COMPOSER-POLISH-1 — example-prompt chips. Shown only in the empty
-   * intro state. A chip FILLS the one composer with its text (it does NOT submit or
-   * call any API), so the user reviews and sends through the same AUTOROUTE path —
-   * a chip can never bypass routing or spend an AI credit on its own. Optional:
-   * when omitted, no chips render (back-compat with existing tests/callers).
-   */
-  readonly onUseExamplePrompt?: (text: string) => void;
 }
-
-/**
- * BUILDER-AI-COMPOSER-POLISH-1 — lightweight example prompts that demonstrate the
- * one composer does BOTH jobs: diagnostic questions (route to read-only Q&A) and
- * build/edit commands (route to the planner). Clicking fills the composer; the
- * deterministic AUTOROUTE classifier still decides where the SEND goes.
- */
-const EXAMPLE_PROMPTS = [
-  "Why won't this run?",
-  "Explain this error",
-  "Add a Slack step",
-  "What should I fix first?",
-] as const;
 
 export function BuilderAiPanelMessageList({
   messages,
@@ -247,7 +226,6 @@ export function BuilderAiPanelMessageList({
   onClarifyExplain,
   onClarifyPlan,
   resolvedClarificationIds,
-  onUseExamplePrompt,
 }: Props) {
   const listEndRef = useRef<HTMLDivElement>(null);
 
@@ -338,40 +316,15 @@ export function BuilderAiPanelMessageList({
       )}
 
       {!hasMessages && !busy && !historyLoadFailed && (
-        <div className="flex flex-col gap-2 px-1 pt-1">
-          <p
-            data-testid="builder-ai-intro"
-            className="text-[11.5px] leading-relaxed"
-            style={{ color: "var(--builder-muted)" }}
-          >
-            Ask a question or describe a change — all in one place. Questions get a
-            read-only answer; changes get a preview you review before anything is
-            applied.
-          </p>
-          {onUseExamplePrompt && (
-            <div
-              data-testid="builder-ai-examples"
-              className="flex flex-wrap gap-1.5"
-            >
-              {EXAMPLE_PROMPTS.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  data-testid="builder-ai-example-chip"
-                  onClick={() => onUseExamplePrompt(example)}
-                  className="rounded-full px-2.5 py-1 text-[11px] leading-none transition-colors"
-                  style={{
-                    background: "var(--builder-panel-2)",
-                    border: "1px solid var(--builder-border)",
-                    color: "var(--builder-text-2)",
-                  }}
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <p
+          data-testid="builder-ai-intro"
+          className="px-1 pt-1 text-[11.5px] leading-relaxed"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          Ask a question or describe a change — all in one place. Questions get a
+          read-only answer; changes get a preview you review before anything is
+          applied. Try an example below.
+        </p>
       )}
 
       {messages.map((message) => (
