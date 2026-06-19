@@ -66,17 +66,18 @@ const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
 type FilterDataKey =
-  | "repo" | "channel" | "keyword" | "calendar" | "label" | "folder"
-  | "outlook_calendar" | "board" | "airtable_base" | "airtable_table" | "monday_board";
+  | "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" | "board"
+  | "airtable_base" | "airtable_table" | "monday_board" | "hubspot_pipeline";
+
+// Kinds not listed use their own name as the data key (repo / keyword / airtable_* /
+// monday_board / hubspot_pipeline — kind === data key).
+const FILTER_KEY_MAP: Partial<Record<ConnectedAppFilterKind, FilterDataKey>> = {
+  slack_channel: "channel", gcal_calendar: "calendar", gmail_label: "label",
+  outlook_folder: "folder", outlookcal_calendar: "outlook_calendar", trello_board: "board",
+};
 
 function filterDataKey(kind: ConnectedAppFilterKind): FilterDataKey {
-  if (kind === "slack_channel") return "channel";
-  if (kind === "gcal_calendar") return "calendar";
-  if (kind === "gmail_label") return "label";
-  if (kind === "outlook_folder") return "folder";
-  if (kind === "outlookcal_calendar") return "outlook_calendar";
-  if (kind === "trello_board") return "board";
-  return kind; // repo | keyword | airtable_base | airtable_table | monday_board (kind === data key)
+  return FILTER_KEY_MAP[kind] ?? (kind as FilterDataKey);
 }
 
 /** Google Calendar's safe default — the viewer's primary calendar (no list scope needed). */
@@ -165,6 +166,9 @@ export function WidgetConfigPanel({
   const [mondayBoard, setMondayBoard] = useState<string>(
     typeof existingFilters.monday_board === "string" ? existingFilters.monday_board : "",
   );
+  const [hubspotPipeline, setHubspotPipeline] = useState<string>(
+    typeof existingFilters.hubspot_pipeline === "string" ? existingFilters.hubspot_pipeline : "",
+  );
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -188,6 +192,7 @@ export function WidgetConfigPanel({
     if (kind === "airtable_base") return airtableBase.trim().length > 0;
     if (kind === "airtable_table") return airtableTable.trim().length > 0;
     if (kind === "monday_board") return mondayBoard.trim().length > 0;
+    if (kind === "hubspot_pipeline") return hubspotPipeline.trim().length > 0;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -209,6 +214,7 @@ export function WidgetConfigPanel({
         else if (kind === "airtable_base") filters[key] = airtableBase.trim();
         else if (kind === "airtable_table") filters[key] = airtableTable.trim();
         else if (kind === "monday_board") filters[key] = mondayBoard.trim();
+        else if (kind === "hubspot_pipeline") filters[key] = hubspotPipeline.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -321,6 +327,8 @@ export function WidgetConfigPanel({
                   onAirtableTable={setAirtableTable}
                   mondayBoard={mondayBoard}
                   onMondayBoard={setMondayBoard}
+                  hubspotPipeline={hubspotPipeline}
+                  onHubspotPipeline={setHubspotPipeline}
                 />
               ) : (
                 <InternalConfig

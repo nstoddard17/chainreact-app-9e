@@ -2,6 +2,7 @@ import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
 import { hubspotApiBase, HUBSPOT_CRM_VERSION } from "@/integrations/_shared/hubspot/api/_base";
 import { NotFoundError, surfaceHubSpotError } from "@/integrations/_shared/hubspot/errors";
 import type { ContactsSearchFilter } from "@/integrations/_shared/hubspot/api/contacts";
+import { pipelinesList } from "@/integrations/_shared/hubspot/api/pipelines";
 
 /**
  * Bounded, READ-ONLY, COUNT-ONLY HubSpot CRM reader for the analytics source
@@ -99,5 +100,41 @@ export function createdInRangeFilters(startMs: number, endMs: number): SearchFil
   return [
     { propertyName: "createdate", operator: "GTE", value: String(startMs) },
     { propertyName: "createdate", operator: "LT", value: String(endMs) },
+  ];
+}
+
+/** A non-archived deal stage — id + structure label only (NOT a CRM record). */
+export interface DealStage {
+  id: string;
+  label: string;
+}
+
+/**
+ * Ordered, non-archived stages of a deal pipeline, projected to `{ id, label }`.
+ * Reuses the shared `pipelinesList` wrapper (`GET /crm/v3/pipelines/deals`,
+ * unpaginated) — the same endpoint that backs the `hubspot:deal_pipelines` /
+ * `hubspot:deal_stages` option resolvers, so no new scope is needed. Stage LABELS are
+ * account-level pipeline-structure labels (like Trello list names / Monday group
+ * titles); no deal record is read. Returns `[]` when the pipeline id is unknown
+ * (renamed / archived) — the adapter maps that to a safe config error.
+ */
+export async function fetchDealStages(accessToken: string, pipelineId: string): Promise<DealStage[]> {
+  const res = await pipelinesList({ accessToken, objectType: "deals" });
+  const pipeline = (res.results ?? []).find((p) => p.id === pipelineId);
+  if (!pipeline) return [];
+  const stages: DealStage[] = [];
+  for (const s of pipeline.stages ?? []) {
+    if (s.archived === true) continue;
+    if (typeof s.id !== "string" || s.id.length === 0) continue;
+    stages.push({ id: s.id, label: typeof s.label === "string" && s.label.length > 0 ? s.label : s.id });
+  }
+  return stages;
+}
+
+/** Count deals currently in a given `(pipeline, stage)` — Search `total`, no record data. */
+export function dealsInStageFilters(pipelineId: string, stageId: string): SearchFilter[] {
+  return [
+    { propertyName: "pipeline", operator: "EQ", value: pipelineId },
+    { propertyName: "dealstage", operator: "EQ", value: stageId },
   ];
 }

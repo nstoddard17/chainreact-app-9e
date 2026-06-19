@@ -16,9 +16,14 @@ jest.mock("@/repositories/integrations", () => ({
 }));
 
 const mockSearchTotal = jest.fn();
+const mockFetchStages = jest.fn();
 jest.mock("@/services/analytics/sources/hubspot/api", () => {
   const actual = jest.requireActual("@/services/analytics/sources/hubspot/api");
-  return { ...actual, searchTotal: (...args: unknown[]) => mockSearchTotal(...args) };
+  return {
+    ...actual,
+    searchTotal: (...args: unknown[]) => mockSearchTotal(...args),
+    fetchDealStages: (...args: unknown[]) => mockFetchStages(...args),
+  };
 });
 
 const mockRefresh = jest.fn();
@@ -46,21 +51,30 @@ beforeEach(() => {
   mockGetIntegration.mockResolvedValue({ providerAccountId: null, accessTokenEncrypted: "enc" });
   mockRefresh.mockImplementation((input: { apiCall: (t: string) => unknown }) => input.apiCall("tok"));
   mockSearchTotal.mockResolvedValue(0);
+  mockFetchStages.mockResolvedValue([
+    { id: "appointmentscheduled", label: "Appointment scheduled" },
+    { id: "closedwon", label: "Closed won" },
+  ]);
 });
 
 describe("metric registration", () => {
-  it("exposes only the approved count-only metric set; no metric takes a filter", () => {
+  it("exposes the approved metric set; only deals_by_stage takes a pipeline filter", () => {
     expect(hubspotAnalyticsSource.providerKey).toBe("hubspot");
     expect(hubspotAnalyticsSource.connectedApp).toBe(true);
     expect(hubspotAnalyticsSource.metrics.map((m) => m.key).sort()).toEqual([
       "closed_won_deals_count",
       "companies_created_over_time",
       "contacts_created_over_time",
+      "deals_by_stage",
       "deals_created_over_time",
       "open_deals_count",
       "tickets_created_over_time",
     ]);
-    for (const m of hubspotAnalyticsSource.metrics) expect(m.supportedFilters).toEqual([]);
+    const byKey = Object.fromEntries(hubspotAnalyticsSource.metrics.map((m) => [m.key, m.supportedFilters]));
+    expect(byKey.deals_by_stage).toEqual(["hubspot_pipeline"]);
+    for (const m of hubspotAnalyticsSource.metrics) {
+      if (m.key !== "deals_by_stage") expect(m.supportedFilters).toEqual([]);
+    }
   });
 });
 
@@ -173,6 +187,61 @@ describe("series metrics (per-bucket created-date counts)", () => {
     mockSearchTotal.mockResolvedValue(4);
     const r = await hubspotAnalyticsSource.query({ metricKey: "deals_created_over_time", range: RANGE }, CTX);
     expect(JSON.stringify(r)).not.toMatch(/email|phone|dealname|amount|company|owner|associat|\bname\b/i);
+  });
+});
+
+describe("deals_by_stage (pipeline-health bar)", () => {
+  const withPipeline = (extra: Record<string, string> = {}) => ({ hubspot_pipeline: "default", ...extra });
+
+  it("rejects a missing / malformed pipeline id before any I/O", async () => {
+    await expect(
+      hubspotAnalyticsSource.query({ metricKey: "deals_by_stage", range: RANGE }, CTX),
+    ).rejects.toMatchObject({ code: "INVALID_QUERY" });
+    await expect(
+      hubspotAnalyticsSource.query({ metricKey: "deals_by_stage", range: RANGE, filters: { hubspot_pipeline: "bad id!" } }, CTX),
+    ).rejects.toMatchObject({ code: "INVALID_QUERY" });
+    expect(mockGetIntegration).not.toHaveBeenCalled();
+    expect(mockFetchStages).not.toHaveBeenCalled();
+  });
+
+  it("counts deals per stage and labels rows with the stage label only", async () => {
+    mockSearchTotal.mockResolvedValueOnce(9).mockResolvedValueOnce(4);
+    const r = await hubspotAnalyticsSource.query(
+      { metricKey: "deals_by_stage", range: RANGE, filters: withPipeline() },
+      CTX,
+    );
+    expect(() => NormalizedAnalyticsResultSchema.parse(r)).not.toThrow();
+    expect(r.shape).toBe("series");
+    expect(r.rows).toEqual([
+      { date: "Appointment scheduled", count: 9 },
+      { date: "Closed won", count: 4 },
+    ]);
+    expect(r.totals?.count).toBe(13);
+    expect(mockFetchStages.mock.calls[0]![1]).toBe("default");
+    // One Search per stage, each scoped to (pipeline, dealstage) — no record fields.
+    expect(mockSearchTotal).toHaveBeenCalledTimes(2);
+    for (const call of mockSearchTotal.mock.calls) {
+      expect(call[0].objectType).toBe("deals");
+      const props = (call[0].filters as Array<{ propertyName: string }>).map((f) => f.propertyName).sort();
+      expect(props).toEqual(["dealstage", "pipeline"]);
+    }
+  });
+
+  it("an unknown / empty pipeline → safe INVALID_QUERY config error (no blank widget)", async () => {
+    mockFetchStages.mockResolvedValue([]);
+    await expect(
+      hubspotAnalyticsSource.query({ metricKey: "deals_by_stage", range: RANGE, filters: withPipeline() }, CTX),
+    ).rejects.toMatchObject({ code: "INVALID_QUERY" });
+    expect(mockSearchTotal).not.toHaveBeenCalled();
+  });
+
+  it("never surfaces CRM record content — only stage labels + counts", async () => {
+    mockSearchTotal.mockResolvedValue(3);
+    const r = await hubspotAnalyticsSource.query(
+      { metricKey: "deals_by_stage", range: RANGE, filters: withPipeline() },
+      CTX,
+    );
+    expect(JSON.stringify(r)).not.toMatch(/email|phone|dealname|amount|owner|associat|contact|\bname\b/i);
   });
 });
 

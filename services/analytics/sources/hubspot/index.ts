@@ -15,10 +15,13 @@ import {
 import {
   HubSpotRateLimitError,
   createdInRangeFilters,
+  dealsInStageFilters,
+  fetchDealStages,
   searchTotal,
   type CrmObjectType,
+  type DealStage,
 } from "./api";
-import { planBuckets, type HubSpotTimeBucket } from "./buckets";
+import { parsePipelineId, planBuckets, type HubSpotTimeBucket } from "./buckets";
 
 /**
  * HubSpot connected-app analytics source — v1 (Slice ANALYTICS-SOURCES-HUBSPOT-1).
@@ -38,15 +41,17 @@ import { planBuckets, type HubSpotTimeBucket } from "./buckets";
  * `refreshAndRetry` (401 → refresh + retry once → reconnect signal on permanent
  * failure). No connection → typed MISSING_CREDENTIAL.
  *
- * PRIVACY: only COUNTS are computed and cached (deal/contact/company/ticket totals
- * and created timing). No contact names, emails, phone numbers, company names, deal
- * names, amounts, notes, owner names, associations, urls, object ids, or raw HubSpot
- * payloads are returned or stored — the reader requests `properties: []` and reads
- * only `total`.
+ * PRIVACY: only COUNTS are computed and cached (deal/contact/company/ticket totals,
+ * created timing, and per-stage deal counts). No contact names, emails, phone numbers,
+ * company names, deal names, amounts, notes, owner names, associations, urls, object
+ * ids, or raw HubSpot payloads are returned or stored — the reader requests
+ * `properties: []` and reads only `total`. The ONLY text surfaced is deal-pipeline
+ * STAGE LABELS on `deals_by_stage` (account-level structure labels, like Trello list
+ * names / Monday group titles).
  *
  * SCOPES: uses only already-granted read scopes (`crm.objects.contacts.read`,
- * `crm.objects.companies.read`, `crm.objects.deals.read`, `tickets`). No new scope is
- * requested.
+ * `crm.objects.companies.read`, `crm.objects.deals.read`, `tickets`,
+ * `crm.schemas.deals.read` for the pipeline/stage structure). No new scope is requested.
  */
 
 const PROVIDER_KEY = "hubspot";
@@ -54,6 +59,9 @@ const PROVIDER_KEY = "hubspot";
 /** Standard HubSpot deal properties used for the closed/closed-won scalars. */
 const DEAL_IS_CLOSED = "hs_is_closed";
 const DEAL_IS_CLOSED_WON = "hs_is_closed_won";
+
+/** UI/route filter key carrying the selected deal pipeline for deals_by_stage. */
+const PIPELINE_FILTER = ["hubspot_pipeline"] as const;
 
 /** Which CRM object a created-over-time metric counts. */
 const SERIES_OBJECT: Readonly<Record<string, CrmObjectType>> = {
@@ -111,6 +119,14 @@ const METRICS: readonly AnalyticsSourceMetric[] = [
     visualizations: ["series"],
     supportedGroupBy: [],
     supportedFilters: [],
+  },
+  {
+    key: "deals_by_stage",
+    label: "Deals by stage",
+    description: "Deal count per stage in the selected pipeline.",
+    visualizations: ["series"],
+    supportedGroupBy: [],
+    supportedFilters: PIPELINE_FILTER,
   },
 ];
 
@@ -171,6 +187,26 @@ function seriesResult(
   };
 }
 
+function barResult(
+  stages: readonly DealStage[],
+  counts: readonly number[],
+  generatedAt: string,
+): NormalizedAnalyticsResult {
+  return {
+    shape: "series",
+    dimensions: ["stage"],
+    measures: ["count"],
+    // Stage LABEL only (structure label), keyed as `date` so the shared bar renderer
+    // (ConnectedAppWidgetBody) shows it as the category — no deal record data.
+    rows: stages.map((s, i) => ({ date: s.label, count: counts[i] ?? 0 })),
+    totals: { count: counts.reduce((a, b) => a + b, 0) },
+    generatedAt,
+    freshness: liveFreshness(),
+    warnings: [],
+    truncated: false,
+  };
+}
+
 function emptySeries(generatedAt: string, warning: string): NormalizedAnalyticsResult {
   return {
     shape: "series",
@@ -202,6 +238,20 @@ export const hubspotAnalyticsSource: AnalyticsSourceAdapter = {
     }
 
     const generatedAt = new Date().toISOString();
+
+    // Validate the pipeline filter server-side BEFORE any I/O (deals_by_stage only).
+    let pipelineId = "";
+    if (query.metricKey === "deals_by_stage") {
+      try {
+        pipelineId = parsePipelineId(query.filters?.hubspot_pipeline);
+      } catch (err) {
+        throw new AnalyticsSourceError(
+          err instanceof Error ? err.message : "Pick a HubSpot deal pipeline.",
+          "INVALID_QUERY",
+        );
+      }
+    }
+
     await requireAccountHubSpot(ctx);
     // Account-shared: providerAccountId null (the account's single HubSpot portal).
     const run = <T>(apiCall: (accessToken: string) => Promise<T>): Promise<T> =>
@@ -228,6 +278,27 @@ export const hubspotAnalyticsSource: AnalyticsSourceAdapter = {
           }),
         );
         return scalarResult("closed_won_deals_count", count, generatedAt);
+      }
+
+      // ── Bar: deals by stage (per-stage Search count; stage labels only) ─────────
+      if (query.metricKey === "deals_by_stage") {
+        const { stages, counts } = await run(async (t) => {
+          const stages = await fetchDealStages(t, pipelineId);
+          const counts: number[] = [];
+          for (const s of stages) {
+            counts.push(await searchTotal({ accessToken: t, objectType: "deals", filters: dealsInStageFilters(pipelineId, s.id) }));
+          }
+          return { stages, counts };
+        });
+        if (stages.length === 0) {
+          // Pipeline id unknown (renamed / archived) or has no live stages — safe
+          // config error so the widget prompts a re-pick rather than rendering blank.
+          throw new AnalyticsSourceError(
+            "That HubSpot pipeline is unavailable. Re-pick a pipeline for this widget.",
+            "INVALID_QUERY",
+          );
+        }
+        return barResult(stages, counts, generatedAt);
       }
 
       // ── Series: created-over-time (one bounded count per bucket window) ──────────

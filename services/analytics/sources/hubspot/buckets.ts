@@ -1,6 +1,6 @@
 /**
- * Pure time-bucketing helpers for the HubSpot analytics source
- * (Slice ANALYTICS-SOURCES-HUBSPOT-1). No I/O — unit tested directly.
+ * Pure time-bucketing + pipeline-id validation helpers for the HubSpot analytics
+ * source (Slice ANALYTICS-SOURCES-HUBSPOT-1). No I/O — unit tested directly.
  *
  * The HubSpot adapter computes a created-over-time series by asking the CRM
  * Search API for the `total` count in each bucket's [startMs, endMs) window
@@ -56,4 +56,20 @@ export function planBuckets(
     buckets.push({ key: utcDate(s), startMs: s, endMs: s + bucketDays * DAY_MS });
   }
   return buckets;
+}
+
+/**
+ * Validate the `hubspot_pipeline` filter into a safe HubSpot deal-pipeline id. Pipeline
+ * ids are short tokens (`"default"` or numeric/alphanumeric portal ids). The value comes
+ * from the `hubspot:deal_pipelines` picker; this is the defense-in-depth server-side check
+ * before it is used as a Search filter value + matched against the fetched pipeline list.
+ * Throws on a bad value (the adapter maps the throw to INVALID_QUERY).
+ */
+const PIPELINE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+export function parsePipelineId(value: unknown): string {
+  if (typeof value !== "string" || !PIPELINE_ID_RE.test(value)) {
+    throw new Error("Pick a HubSpot deal pipeline for this widget.");
+  }
+  return value;
 }

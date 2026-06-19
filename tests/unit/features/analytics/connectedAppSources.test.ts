@@ -79,7 +79,7 @@ describe("exposure gating", () => {
 describe("HubSpot metric/filter shape", () => {
   const hubspot = getExposedConnectedAppSource("hubspot")!;
 
-  it("exposes HubSpot with deal scalars for stat and created-over-time series for line/bar", () => {
+  it("exposes HubSpot with deal scalars for stat, created-over-time series for line/bar, and deals_by_stage bar-only", () => {
     expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("hubspot");
     expect(getExposedConnectedAppSource("hubspot")?.displayName).toBe("HubSpot");
     expect(metricsForType(hubspot, "stat").map((m) => m.id).sort()).toEqual([
@@ -92,19 +92,27 @@ describe("HubSpot metric/filter shape", () => {
       "deals_created_over_time",
       "tickets_created_over_time",
     ]);
-    expect(metricsForType(hubspot, "bar").map((m) => m.id)).toEqual(
-      metricsForType(hubspot, "line").map((m) => m.id),
-    );
+    expect(metricsForType(hubspot, "bar").map((m) => m.id).sort()).toEqual([
+      "companies_created_over_time",
+      "contacts_created_over_time",
+      "deals_by_stage",
+      "deals_created_over_time",
+      "tickets_created_over_time",
+    ]);
+    // deals_by_stage is bar-only — never offered on a line widget.
+    expect(metricsForType(hubspot, "line").map((m) => m.id)).not.toContain("deals_by_stage");
     expect(metricsForType(hubspot, "donut")).toEqual([]);
     expect(metricsForType(hubspot, "table")).toEqual([]);
   });
 
-  it("no HubSpot metric takes a filter (count-only, no CRM query surface)", () => {
-    for (const type of ["stat", "line", "bar"] as const) {
+  it("count-only metrics take no filter; deals_by_stage takes a single hubspot_pipeline filter", () => {
+    for (const type of ["stat", "line"] as const) {
       for (const m of metricsForType(hubspot, type)) {
         expect(m.filters).toEqual([]);
       }
     }
+    expect(findMetricOption(hubspot, "bar", "deals_by_stage")?.filters).toEqual(["hubspot_pipeline"]);
+    expect(findMetricOption(hubspot, "bar", "deals_created_over_time")?.filters).toEqual([]);
   });
 });
 

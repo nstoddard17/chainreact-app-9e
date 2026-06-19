@@ -134,6 +134,21 @@ it("forwards the label filter for provider=gmail (session account)", async () =>
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the hubspot_pipeline filter for provider=hubspot (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/hubspot/data?metric=deals_by_stage&range=30d&hubspot_pipeline=default",
+    ),
+    { params: Promise.resolve({ provider: "hubspot" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("hubspot");
+  expect(call.metricKey).toBe("deals_by_stage");
+  expect(call.filters).toEqual({ hubspot_pipeline: "default" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

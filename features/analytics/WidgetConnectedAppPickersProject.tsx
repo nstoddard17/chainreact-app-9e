@@ -281,3 +281,25 @@ export function MondayBoardField(props: { value: string; onChange: (v: string) =
     />
   );
 }
+
+/**
+ * HubSpot deal-pipeline picker (`hubspot:deal_pipelines`) — the account portal's deal
+ * pipelines (required for deals_by_stage). HubSpot is account-shared, so the resolver
+ * lists the portal's pipelines; only pipeline id + label are loaded, never deal data.
+ */
+export function HubSpotPipelineField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="hubspot:deal_pipelines"
+      icon="Layers"
+      sectionLabel="Deal pipeline"
+      hint="Pick a HubSpot deal pipeline to break down by stage."
+      disconnectedHint="Connect HubSpot to choose a pipeline."
+      loadingNoun="pipelines"
+      errorFallback="Couldn't load HubSpot pipelines."
+      ariaLabel="HubSpot deal pipeline"
+      placeholder="Select a pipeline…"
+      {...props}
+    />
+  );
+}

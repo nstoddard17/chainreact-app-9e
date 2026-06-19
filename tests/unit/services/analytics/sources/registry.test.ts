@@ -192,14 +192,19 @@ describe("analytics source registry", () => {
       "closed_won_deals_count",
       "companies_created_over_time",
       "contacts_created_over_time",
+      "deals_by_stage",
       "deals_created_over_time",
       "open_deals_count",
       "tickets_created_over_time",
     ]);
     expect(isApprovedSourceMetric("hubspot", "open_deals_count")).toBe(true);
+    expect(isApprovedSourceMetric("hubspot", "deals_by_stage")).toBe(true);
     expect(isApprovedSourceMetric("hubspot", "list_contact_emails")).toBe(false);
-    // Count-only, no picker → no metric takes a filter (no arbitrary CRM query surface).
-    for (const m of hubspot!.metrics) expect(m.supportedFilters).toEqual([]);
+    // Only deals_by_stage takes a (pipeline) filter; the count-only metrics take none.
+    const byKey = Object.fromEntries(hubspot!.metrics.map((m) => [m.key, m.supportedFilters]));
+    expect(byKey.deals_by_stage).toEqual(["hubspot_pipeline"]);
+    expect(byKey.open_deals_count).toEqual([]);
+    expect(byKey.contacts_created_over_time).toEqual([]);
   });
 
   it("lists approved sources with their metric catalog", () => {

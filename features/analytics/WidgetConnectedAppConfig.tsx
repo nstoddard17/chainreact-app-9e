@@ -9,6 +9,7 @@ import {
   GcalCalendarField,
   GithubRepoField,
   GmailLabelField,
+  HubSpotPipelineField,
   KeywordField,
   MondayBoardField,
   OutlookCalendarField,
@@ -56,6 +57,8 @@ export function ConnectedAppConfig({
   onAirtableTable,
   mondayBoard,
   onMondayBoard,
+  hubspotPipeline,
+  onHubspotPipeline,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -87,6 +90,8 @@ export function ConnectedAppConfig({
   onAirtableTable: (v: string) => void;
   mondayBoard: string;
   onMondayBoard: (v: string) => void;
+  hubspotPipeline: string;
+  onHubspotPipeline: (v: string) => void;
 }) {
   return (
     <>
@@ -180,6 +185,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("monday_board") && (
         <MondayBoardField value={mondayBoard} onChange={onMondayBoard} connected={connected} />
+      )}
+
+      {requiredFilters.includes("hubspot_pipeline") && (
+        <HubSpotPipelineField value={hubspotPipeline} onChange={onHubspotPipeline} connected={connected} />
       )}
     </>
   );

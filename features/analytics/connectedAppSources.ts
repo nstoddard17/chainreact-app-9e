@@ -34,7 +34,8 @@ export type ConnectedAppFilterKind =
   | "trello_board"
   | "airtable_base"
   | "airtable_table"
-  | "monday_board";
+  | "monday_board"
+  | "hubspot_pipeline";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -400,12 +401,20 @@ const HUBSPOT: ConnectedAppSourceUi = {
       { id: "open_deals_count", label: "Open deals", filters: [] },
       { id: "closed_won_deals_count", label: "Closed-won deals", filters: [] },
     ],
-    ...seriesForBoth([
+    line: [
       { id: "contacts_created_over_time", label: "Contacts created over time", filters: [] },
       { id: "deals_created_over_time", label: "Deals created over time", filters: [] },
       { id: "companies_created_over_time", label: "Companies created over time", filters: [] },
       { id: "tickets_created_over_time", label: "Tickets created over time", filters: [] },
-    ]),
+    ],
+    bar: [
+      { id: "contacts_created_over_time", label: "Contacts created over time", filters: [] },
+      { id: "deals_created_over_time", label: "Deals created over time", filters: [] },
+      { id: "companies_created_over_time", label: "Companies created over time", filters: [] },
+      { id: "tickets_created_over_time", label: "Tickets created over time", filters: [] },
+      // Pipeline-health breakdown — bar only; needs a deal-pipeline pick.
+      { id: "deals_by_stage", label: "Deals by stage", filters: ["hubspot_pipeline"] },
+    ],
   },
 };
 
