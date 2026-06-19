@@ -91,7 +91,7 @@ describeDb("action smoke: full workflow-run mode (real dev DB)", () => {
     if (!report.ok) {
       console.error(renderExecutionHuman(report));
     }
-    expect(report.mode).toBe("workflow");
+    expect(report.mode).toBe("workflow-test");
     // No FAIL across the set (native PASSes; connected fixtures SKIP).
     expect(report.totals.fail).toBe(0);
 

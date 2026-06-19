@@ -43,6 +43,15 @@ export interface ActionSmokeFixture {
    * harness stays safe without connected-provider credentials.
    */
   readonly requiredEnv?: readonly string[];
+  /**
+   * Opt-in marker: may this fixture run in LIVE-connected workflow mode (real
+   * provider call, not engine test mode)? Only `liveSafe: true` fixtures run when
+   * the harness is in workflow-live mode — everything else SKIPs. Reserve this for
+   * read-only or extremely low-risk actions against a throwaway smoke resource.
+   * Absent / false → never runs live. Independent of `risk` (a destructive
+   * fixture is still blocked by the destructive double-opt-in even if liveSafe).
+   */
+  readonly liveSafe?: boolean;
   readonly expect: ActionSmokeExpectation;
   /** Optional free-text note for the runbook / report context. */
   readonly notes?: string;

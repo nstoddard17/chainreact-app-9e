@@ -12,6 +12,7 @@
 import {
   buildExecutionReport,
   type ExecutionReport,
+  type ProviderBoundary,
   type SmokeMode,
   type SmokeResult,
 } from "@/scripts/chainreact/smoke/core";
@@ -25,11 +26,17 @@ import {
 export interface RunActionSmokeOptions {
   readonly providerFilter?: string | null;
   readonly includeDestructive?: boolean;
+  /** Boundary label for handler mode (default "live"; tests pass "mocked"). */
+  readonly providerBoundary?: ProviderBoundary;
 }
 
-export interface RunActionSmokeWorkflowOptions extends RunActionSmokeOptions {
+export interface RunActionSmokeWorkflowOptions {
+  readonly providerFilter?: string | null;
+  readonly includeDestructive?: boolean;
   /** Opt into a real (non-test) engine run. Default false (engine test mode). */
   readonly live?: boolean;
+  /** Second half of the destructive double-opt-in in live mode. Default false. */
+  readonly allowDestructive?: boolean;
   readonly terminalReadAttempts?: number;
 }
 
@@ -57,7 +64,7 @@ export async function runActionSmoke(
 ): Promise<ExecutionReport> {
   const includeDestructive = options.includeDestructive ?? false;
   return runSmokeLoop(fixtures, options.providerFilter ?? null, "handler", (fixture) =>
-    runFixture(fixture, { includeDestructive }, deps),
+    runFixture(fixture, { includeDestructive, providerBoundary: options.providerBoundary }, deps),
   );
 }
 
@@ -68,10 +75,16 @@ export async function runActionSmokeWorkflowMode(
   envLookup: (name: string) => string | undefined = (n) => process.env[n],
 ): Promise<ExecutionReport> {
   const includeDestructive = options.includeDestructive ?? false;
-  return runSmokeLoop(fixtures, options.providerFilter ?? null, "workflow", (fixture) =>
+  const mode: SmokeMode = options.live ? "workflow-live" : "workflow-test";
+  return runSmokeLoop(fixtures, options.providerFilter ?? null, mode, (fixture) =>
     runFixtureWorkflowMode(
       fixture,
-      { includeDestructive, live: options.live, terminalReadAttempts: options.terminalReadAttempts },
+      {
+        includeDestructive,
+        live: options.live,
+        allowDestructive: options.allowDestructive,
+        terminalReadAttempts: options.terminalReadAttempts,
+      },
       deps,
       envLookup,
     ),

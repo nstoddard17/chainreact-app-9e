@@ -350,24 +350,57 @@ export type SmokeOutcome = "pass" | "fail" | "skip";
 
 /**
  * Which runtime executed the fixture:
- *   - "handler"  — fast handler-dispatch mode (strict resolve -> real handler,
- *                  injectable provider boundary). No workflow / DB.
- *   - "workflow" — full manual run-now mode (persist a manual-run workflow ->
- *                  enqueueRun -> wait for a terminal `workflow_runs` row).
+ *   - "handler"        — fast handler-dispatch mode (strict resolve -> real
+ *                        handler, injectable provider boundary). No workflow / DB.
+ *   - "workflow-test"  — full manual run-now mode in engine TEST mode (external
+ *                        and destructive handlers are blocked by testModeGate).
+ *   - "workflow-live"  — full manual run-now mode in REAL mode (external provider
+ *                        handlers actually run). Opt-in + heavily gated.
  */
-export type SmokeMode = "handler" | "workflow";
+export type SmokeMode = "handler" | "workflow-test" | "workflow-live";
+
+/**
+ * What boundary the provider handler hit on this run:
+ *   - "blocked" — engine test mode short-circuited the external handler (no call).
+ *   - "mocked"  — a fake/injected boundary stood in for the provider (unit tests).
+ *   - "live"    — the real provider handler ran against the real API.
+ */
+export type ProviderBoundary = "blocked" | "mocked" | "live";
 
 export interface SmokeResult {
   readonly provider: string;
   readonly action: string;
   readonly risk: ActionRisk;
   readonly outcome: SmokeOutcome;
-  /** Skip / fail reason (null on pass). */
+  /** Skip / fail reason (null on pass). Always sanitized — never carries secrets. */
   readonly reason: string | null;
   /** Run id when an execution produced one (null otherwise). */
   readonly runId: string | null;
   /** Temporary workflow id (workflow mode only; null otherwise). */
   readonly workflowId?: string | null;
+  /** Which provider boundary this result used. */
+  readonly providerBoundary?: ProviderBoundary;
+}
+
+/**
+ * Redact secret-shaped substrings + bound the length of any reason that may have
+ * passed through provider-derived text. Defense-in-depth: the harness already
+ * only surfaces humanized titles / engine codes, but a handler error message can
+ * carry a provider string, so every reason that touches untrusted text runs
+ * through here before it reaches a report. Idempotent.
+ */
+export function sanitizeFailureReason(reason: string | null): string | null {
+  if (reason === null) return null;
+  let s = reason;
+  // URLs first (signed URLs can embed long tokens we'd otherwise miss).
+  s = s.replace(/https?:\/\/\S+/gi, "[redacted-url]");
+  // Slack tokens (xoxb-/xoxp-/…), bearer tokens, then any long opaque blob.
+  s = s.replace(/xox[abprs]-[A-Za-z0-9-]+/gi, "[redacted-token]");
+  s = s.replace(/\bBearer\s+\S+/gi, "Bearer [redacted-token]");
+  s = s.replace(/[A-Za-z0-9_-]{40,}/g, "[redacted]");
+  const MAX = 200;
+  if (s.length > MAX) s = `${s.slice(0, MAX)}…`;
+  return s;
 }
 
 export interface ExecutionProviderTotals {
@@ -444,13 +477,14 @@ export function renderExecutionHuman(report: ExecutionReport): string {
   lines.push("");
   for (const r of report.results) {
     const label = OUTCOME_LABEL[r.outcome].padEnd(5);
+    const boundary = r.providerBoundary ? ` {${r.providerBoundary}}` : "";
     const reason = r.reason ? `  — ${r.reason}` : "";
     const ids = [
       r.workflowId ? `wf ${r.workflowId}` : null,
       r.runId ? `run ${r.runId}` : null,
     ].filter(Boolean);
     const idTag = ids.length > 0 ? `  (${ids.join(", ")})` : "";
-    lines.push(`  ${label} ${r.provider}:${r.action} [${r.risk}]${reason}${idTag}`);
+    lines.push(`  ${label} ${r.provider}:${r.action} [${r.risk}]${boundary}${reason}${idTag}`);
   }
   lines.push("");
   lines.push("Per-provider totals (pass / fail / skip):");

@@ -136,11 +136,11 @@ describe("runActionSmokeWorkflowMode: report + JSON shape", () => {
   it("emits mode=workflow and per-result workflow id, run id, status, reason in JSON", async () => {
     const { deps } = fakeDeps({ runId: "run-1", status: "succeeded", failureReason: null });
     const report = await runActionSmokeWorkflowMode([nativeFixture()], { includeDestructive: false }, deps, noEnv);
-    expect(report.mode).toBe("workflow");
+    expect(report.mode).toBe("workflow-test");
 
     const json = JSON.parse(renderExecutionJson(report));
     expect(json.kind).toBe("execution");
-    expect(json.mode).toBe("workflow");
+    expect(json.mode).toBe("workflow-test");
     const row = json.results[0];
     expect(row).toMatchObject({
       provider: "native",
@@ -149,6 +149,7 @@ describe("runActionSmokeWorkflowMode: report + JSON shape", () => {
       runId: "run-1",
       workflowId: "wf-1",
       reason: null,
+      providerBoundary: "blocked",
     });
   });
 

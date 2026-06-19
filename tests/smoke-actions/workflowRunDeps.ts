@@ -33,6 +33,7 @@ import {
 } from "@/integrations/native/triggers/manualTrigger";
 import { enqueueRun } from "@/services/execution/enqueue";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
+import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import type {
   RunManualInput,
   SmokeManualRunWorkflow,
@@ -113,9 +114,12 @@ export function makeRealWorkflowRunDeps(config: RealWorkflowRunDepsConfig): Work
         status: rec.status,
         failureReason:
           rec.status === "failed"
-            ? // SAFE: humanized title or the engine fatal-error CODE only.
-              // Never raw step output / provider responses / tokens.
-              rec.errorClassification?.title ?? rec.fatalError?.code ?? "run failed"
+            ? // SAFE: humanized title or the engine fatal-error CODE only (never
+              // raw step output / provider responses / tokens), then sanitized as
+              // belt-and-braces against a title that embedded provider text.
+              sanitizeFailureReason(
+                rec.errorClassification?.title ?? rec.fatalError?.code ?? "run failed",
+              )
             : null,
       };
     },

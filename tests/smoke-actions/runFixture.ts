@@ -22,7 +22,11 @@ import type {
   ActionHandlerResult,
 } from "@/services/execution/handlers/types";
 import { MissingVariableError, resolveStrict } from "@/workflow-engine/variables/resolveValue";
-import type { SmokeResult } from "@/scripts/chainreact/smoke/core";
+import {
+  sanitizeFailureReason,
+  type ProviderBoundary,
+  type SmokeResult,
+} from "@/scripts/chainreact/smoke/core";
 import type { ActionSmokeFixture } from "./contract";
 import { fixtureKey } from "./contract";
 
@@ -46,6 +50,11 @@ export const defaultSmokeDeps: SmokeHarnessDeps = {
 
 export interface RunFixtureOptions {
   readonly includeDestructive: boolean;
+  /**
+   * Boundary label stamped on every result. Default "live" (the real handler is
+   * dispatched). Tests injecting a fake `invoke` pass "mocked".
+   */
+  readonly providerBoundary?: ProviderBoundary;
 }
 
 // Synthetic provenance ids. Handlers use these only for logging/attribution; any
@@ -85,7 +94,12 @@ export async function runFixture(
   options: RunFixtureOptions,
   deps: SmokeHarnessDeps = defaultSmokeDeps,
 ): Promise<SmokeResult> {
-  const base = { provider: fixture.provider, action: fixture.action, risk: fixture.risk };
+  const base = {
+    provider: fixture.provider,
+    action: fixture.action,
+    risk: fixture.risk,
+    providerBoundary: options.providerBoundary ?? "live",
+  };
 
   // 1. Destructive gate — never run a destructive fixture without explicit opt-in.
   if (fixture.risk === "destructive" && !options.includeDestructive) {
@@ -147,12 +161,12 @@ export async function runFixture(
         return {
           ...base,
           outcome: "fail",
-          reason: `expected failure containing "${want}", got: ${message}`,
+          reason: sanitizeFailureReason(`expected failure containing "${want}", got: ${message}`),
           runId,
         };
       }
       return { ...base, outcome: "pass", reason: null, runId };
     }
-    return { ...base, outcome: "fail", reason: message, runId };
+    return { ...base, outcome: "fail", reason: sanitizeFailureReason(message), runId };
   }
 }

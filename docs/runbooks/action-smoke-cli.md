@@ -5,13 +5,18 @@ internals instead of clicking every action in the builder UI. This is the
 **first slice** — it proves the harness architecture with a small, representative
 fixture set. It does **not** yet cover every provider/action.
 
-Three modes, split by runtime:
+Four modes, split by runtime and fidelity:
 
-| Mode | Where | What it does | Runtime |
-|---|---|---|---|
-| **1. Dry-run inventory** | `chainreact smoke actions` | Lists which registered actions have fixtures, which are missing, which are skipped (and why). Offline, no execution. | Operator CLI (no app imports) |
-| **2. Handler-dispatch smoke** | `tests/smoke-actions/` + `tests/integration/smoke-actions/run-all.smoke.test.ts` | Runs fixture-backed actions through the real strict resolver → real handler registry → real handler. Fast; no workflow / DB. | Jest (V2 server runtime) |
-| **3. Full workflow-run smoke** | `tests/smoke-actions/workflowRun*.ts` + `tests/integration/smoke-actions/run-all.workflow.dev.test.ts` | Persists a minimal `{native:manual.run → action}` workflow, runs it via the same `enqueueRun` the run-now route uses, and asserts the persisted `workflow_runs` row reached a terminal state. | Jest + a real dev DB (gated) |
+| Mode | `mode` tag | Where | What it does | Runtime |
+|---|---|---|---|---|
+| **1. Dry-run inventory** | — | `chainreact smoke actions` | Lists which registered actions have fixtures, which are missing, which are skipped (and why). Offline, no execution. | Operator CLI (no app imports) |
+| **2. Handler-dispatch smoke** | `handler` | `tests/smoke-actions/` + `run-all.smoke.test.ts` | Real strict resolver → real handler registry → real handler. Fast; no workflow / DB. | Jest |
+| **3. Workflow-run (test mode)** | `workflow-test` | `workflowRun*.ts` + `run-all.workflow.dev.test.ts` | Persists a `{native:manual.run → action}` workflow, runs it via the same `enqueueRun` the run-now route uses, asserts the persisted `workflow_runs` row is terminal. Engine **test mode**: external/destructive handlers blocked → no real provider calls. | Jest + dev DB (gated) |
+| **4. Workflow-run (live)** | `workflow-live` | `workflowRun*.ts` + `run-all.workflow-live.dev.test.ts` | Same as mode 3 but engine **real mode** — the provider handler actually calls the provider. `liveSafe` fixtures only; double-gated. | Jest + dev DB + real providers (double-gated) |
+
+Each executed result carries a `providerBoundary`: `blocked` (mode 3 — testMode
+short-circuited the external handler), `mocked` (a fake boundary, unit tests), or
+`live` (mode 4 — real provider call).
 
 The split is deliberate: the offline CLI can't import the handler registry
 (server-only + every provider client), so it reads the inventory as text; the
@@ -21,8 +26,23 @@ drift.
 
 **When to use which:**
 - **Inventory** — see the coverage gap; CI/pre-push gate on fixture validity. Always safe, always offline.
-- **Handler-dispatch** — cheapest contract smoke for a provider/action. Proves resolve→handler→classify without standing up a workflow or DB. Default for "does this action's handler behave".
-- **Workflow-run** — highest fidelity: proves the action runs through the real manual run-now path and produces a terminal persisted run. Needs a dev DB; use before trusting an action end-to-end.
+- **Handler-dispatch** — cheapest contract smoke. Proves resolve→handler→classify without a workflow or DB.
+- **Workflow-run test** — proves the action runs through the real manual run-now path + terminal persisted run, with **no** provider calls. Use for native/logic actions and to validate the engine path.
+- **Workflow-run live** — the only mode that hits a real provider. Use sparingly, for `liveSafe` read-only actions against a throwaway smoke account, to confirm credentials + the real provider call actually work end-to-end.
+
+## Env vars (by mode)
+
+| Var | Required by | Purpose |
+|---|---|---|
+| `ALLOW_DB_INTEGRATION_TESTS=true` | modes 3, 4 | Master gate for any dev-DB run. |
+| `ALLOW_LIVE_PROVIDER_SMOKE=true` | mode 4 | Second gate — enables real provider calls. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | modes 3, 4 | Dev DB service-role access (auto-loaded from `.env.local`). |
+| `SMOKE_ACCOUNT_ID`, `SMOKE_USER_ID` | modes 3, 4 | The dev account + member user the throwaway workflow is created under. |
+| `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true` | mode 4, destructive only | Second half of the destructive opt-in (with `includeDestructive`). |
+| per-fixture `requiredEnv` (e.g. `SMOKE_SLACK_CONNECTED=1`) | modes 2–4 | Signals the smoke account has that provider connected. Unset → that fixture SKIPs **before** any workflow is created. |
+
+If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
+before any workflow is created.
 
 ## Where fixtures live
 
@@ -41,6 +61,7 @@ export default defineActionSmokeFixture({
   risk: "read",                   // read | write | destructive
   config: { kind: "public", limit: 50 },
   requiredEnv: ["SMOKE_SLACK_CONNECTED"],  // absent → SKIP (never FAIL)
+  liveSafe: true,                          // may run in LIVE mode (read-only/low-risk only)
   expect: { outcome: "success" },          // or { outcome: "failure", errorIncludes: "..." }
 });
 ```
@@ -61,6 +82,20 @@ A fixture whose action verb is obviously destructive (`delete_*`, `purge_*`,
 (`tests/unit/smoke-actions/fixtures-valid.test.ts` + the CLI inventory) rejects a
 `delete_message` fixture marked `read`/`write`, and rejects any fixture targeting
 an action with no registered handler.
+
+### `liveSafe` — opt into live-connected runs
+
+Live mode (mode 4) calls real providers, so it runs **only** fixtures marked
+`liveSafe: true`. Everything else SKIPs in live mode. Reserve `liveSafe` for:
+
+- read-only actions (lists/gets/schema reads) that don't mutate external state, **or**
+- pure local actions (the native transform) with no external boundary at all.
+
+`liveSafe` is **independent of `risk`**: a destructive fixture stays blocked by the
+destructive double-opt-in even if it were marked `liveSafe`. Do **not** mark a
+`write` fixture `liveSafe` unless it targets a throwaway resource and you accept the
+side effect. Current `liveSafe` fixtures: `native:format_transformer` (baseline) and
+`slack:list_channels` (read-only).
 
 ## Commands
 
@@ -144,9 +179,41 @@ Safety model:
   error title or the engine fatal-error code**, never raw provider output,
   tokens, file bytes, or step blobs.
 
-JSON output (`renderExecutionJson`) carries `kind`, `mode` (`handler`|`workflow`),
-`ok`, totals, and per-result `provider`/`action`/`outcome`/`reason`/`runId`/
-`workflowId`.
+JSON output (`renderExecutionJson`) carries `kind`, `mode`
+(`handler`|`workflow-test`|`workflow-live`), `ok`, totals, and per-result
+`provider`/`action`/`outcome`/`reason`/`runId`/`workflowId`/`providerBoundary`.
+
+### Mode 4 — live-connected workflow smoke (double-gated, real providers)
+
+The only mode that calls a real provider. Same path as mode 3 but engine **real
+mode**, so the provider handler actually runs. **Only `liveSafe` fixtures run.**
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<dev account uuid> SMOKE_USER_ID=<dev user uuid> \
+  SMOKE_SLACK_CONNECTED=1 \
+  npm run smoke:actions:run:workflow:live
+```
+
+Requirements (else the suite **SKIPs**): the mode-3 set **plus**
+`ALLOW_LIVE_PROVIDER_SMOKE=true`, plus each fixture's provider-connection env
+(e.g. `SMOKE_SLACK_CONNECTED=1`, which needs a real Slack connection on
+`SMOKE_ACCOUNT_ID`).
+
+Safety model (additions over mode 3):
+
+- **`liveSafe: true` required** — non-`liveSafe` fixtures SKIP before any workflow
+  is created. The shipped live fixtures are read-only (`slack:list_channels`) + the
+  pure native transform.
+- **Destructive double-opt-in** — a destructive fixture runs live ONLY with **both**
+  `includeDestructive` (the CLI/runner flag) **and** `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true`.
+  Neither is set by `smoke:actions:run:workflow:live` by default.
+- **Real runs consume one task** from `SMOKE_ACCOUNT_ID`'s balance.
+- **No data leak** — the report asserts only the terminal run status; it never
+  contains the channel list / provider output. Failure reasons are humanized
+  titles / engine codes, then run through `sanitizeFailureReason` (redacts
+  token/`Bearer`/long-blob/URL shapes, caps length) as belt-and-braces.
+- Every result is tagged `providerBoundary: "live"`.
 
 ## How execution maps to the real engine
 
@@ -163,13 +230,15 @@ The harness runs the same per-node core the engine
    the real handler; tests inject a fake to drive deterministic pass/fail/skip
    (mocking ONLY the external provider boundary, per the testing-strategy rule).
 
-Mode 3 (workflow-run) goes the rest of the way: it stands up a real persisted
-workflow and drives `enqueueRun` (the service the run-now route calls), so the
+Modes 3 + 4 (workflow-run) go the rest of the way: they stand up a real persisted
+workflow and drive `enqueueRun` (the service the run-now route calls), so the
 **full** `WorkflowEngine.runWorkflow` path runs and writes a `workflow_runs` row.
-The harness orchestrator (`tests/smoke-actions/workflowRun.ts`) is pure over
-injected seams (`createSmokeWorkflow`/`runManualAndAwait`/`readRun`/`cleanupSmokeWorkflow`),
-so it unit-tests with fakes; the real wiring lives in `workflowRunDeps.ts` and runs
-only in the gated dev test.
+Mode 3 runs in engine test mode (no provider call); mode 4 runs in real mode (the
+provider handler actually runs). The harness orchestrator
+(`tests/smoke-actions/workflowRun.ts`) is pure over injected seams
+(`createSmokeWorkflow`/`runManualAndAwait`/`readRun`/`cleanupSmokeWorkflow`), so it
+unit-tests with fakes; the real wiring lives in `workflowRunDeps.ts` and runs only
+in the gated dev tests.
 
 ## Adding the next fixtures
 
@@ -177,14 +246,17 @@ Good low-risk candidates already registered in V2:
 
 - More `native` pure actions (`http_request` is read-ish but hits the network —
   gate it on a `requiredEnv` sentinel).
-- Read actions on stable providers once a smoke connection exists: Airtable
-  `list_records` / `get_base_schema`, Google Sheets `read_rows`, Slack
-  `get_channel_info`.
-- Pair each `write` fixture with a throwaway target (smoke channel, smoke base).
+- Read actions on stable providers once a smoke connection exists — the best
+  **live** candidates (mark `liveSafe: true`): Airtable `get_base_schema` /
+  `list_records`, Google Sheets `read_rows`, Slack `get_channel_info`, Notion
+  `get_user` / `list_users`. All read-only.
+- Pair each `write` fixture with a throwaway target (smoke channel, smoke base) and
+  leave it **non-`liveSafe`** unless you accept the side effect.
 
 For each: add the fixture file, register it in `fixtures.ts`, run
 `npm run smoke:actions` to confirm it shows as fixture-backed, and
-`npm run smoke:actions:run` to confirm PASS/SKIP.
+`npm run smoke:actions:run` to confirm PASS/SKIP. Add `liveSafe: true` only after
+confirming the action is read-only / side-effect-free.
 
 ## Limitations (honest scope)
 
@@ -193,15 +265,18 @@ For each: add the fixture file, register it in `fixtures.ts`, run
   (`delete_message`). `npm run smoke:actions` shows the full gap (282 of 286
   registered actions have no fixture yet). This harness is the foundation for
   growing that, not a claim of broad coverage.
-- **Workflow-run mode is dev-DB-gated.** It requires `ALLOW_DB_INTEGRATION_TESTS`
-  + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID`. Without them
-  it SKIPs (never fails) — so CI exercises modes 1–2, not mode 3.
-- **Workflow-run mode runs in engine test mode.** Native logic handlers execute
-  for real; every external/destructive handler is blocked, so connected providers
-  are **not** truly exercised end-to-end through a workflow yet. A `live: true`
-  opt-in seam exists in the harness API but is off by default (it needs creds +
-  task balance + a real provider call) — wiring a connected live workflow run is
-  the next increment.
+- **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
+  + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
+  needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
+  modes 1–2, not 3–4.
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run; the
+  shipped set is `slack:list_channels` (read) + the native baseline. No `write` or
+  `destructive` fixture is `liveSafe` today, so live mode does not yet exercise a
+  provider *write* end-to-end — adding a throwaway-target write fixture is the next
+  increment.
+- **Live mode has not been run in this environment.** It self-skips without a dev
+  DB + a connected smoke Slack workspace; the path + gating + one read fixture are
+  ready for Marcus to run locally.
 - **Workflow-mode fixtures must be self-contained.** The manual trigger payload is
   `{ inputs: {…} }`, so workflow mode sends empty inputs; fixtures that reference
   `{{trigger.payload.*}}` are authored for handler mode. The native fixture (literal

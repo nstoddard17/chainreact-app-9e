@@ -16,6 +16,12 @@ export default defineActionSmokeFixture({
     limit: 50,
   },
   requiredEnv: ["SMOKE_SLACK_CONNECTED"],
+  // Read-only (conversations.list) — safe to run against a real connected Slack
+  // workspace in live mode. No mutation, no user-data leak in the report (we only
+  // assert the run reached a terminal succeeded state, never the channel list).
+  liveSafe: true,
   expect: { outcome: "success" },
-  notes: "Set SMOKE_SLACK_CONNECTED=1 only when the smoke account has a live Slack connection.",
+  notes:
+    "Live-connected read fixture. Set SMOKE_SLACK_CONNECTED=1 only when the smoke " +
+    "account has a live Slack connection; live mode then calls conversations.list.",
 });

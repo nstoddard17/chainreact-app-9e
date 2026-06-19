@@ -31,7 +31,11 @@ import {
   MANUAL_TRIGGER_EVENT_TYPE,
   MANUAL_TRIGGER_PROVIDER,
 } from "@/integrations/native/triggers/manualTrigger";
-import type { SmokeResult } from "@/scripts/chainreact/smoke/core";
+import {
+  sanitizeFailureReason,
+  type ProviderBoundary,
+  type SmokeResult,
+} from "@/scripts/chainreact/smoke/core";
 import type { ActionSmokeFixture } from "./contract";
 import { fixtureKey } from "./contract";
 
@@ -118,8 +122,19 @@ export interface WorkflowRunDeps {
 
 export interface RunFixtureWorkflowOptions {
   readonly includeDestructive: boolean;
-  /** Opt into a real (non-test) engine run — needs creds + balance. Default false. */
+  /**
+   * Opt into a real (non-test) engine run — the external provider handler runs
+   * against the real API. Needs creds + task balance. Default false (test mode:
+   * external/destructive handlers blocked by testModeGate).
+   */
   readonly live?: boolean;
+  /**
+   * The second half of the destructive double-opt-in in LIVE mode (mirrors the
+   * `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE` env gate). A destructive fixture runs live
+   * ONLY when `includeDestructive && allowDestructive`. Ignored in test mode
+   * (testModeGate blocks destructive handlers there regardless).
+   */
+  readonly allowDestructive?: boolean;
   /** How many times to re-read the run before giving up on a terminal state. */
   readonly terminalReadAttempts?: number;
 }
@@ -141,32 +156,49 @@ export async function runFixtureWorkflowMode(
   deps: WorkflowRunDeps,
   envLookup: (name: string) => string | undefined = (n) => process.env[n],
 ): Promise<SmokeResult> {
-  const base = { provider: fixture.provider, action: fixture.action, risk: fixture.risk };
+  const live = options.live === true;
+  const providerBoundary: ProviderBoundary = live ? "live" : "blocked";
+  const base = {
+    provider: fixture.provider,
+    action: fixture.action,
+    risk: fixture.risk,
+    providerBoundary,
+  };
+  const skip = (reason: string): SmokeResult => ({
+    ...base,
+    outcome: "skip",
+    reason,
+    runId: null,
+    workflowId: null,
+  });
 
-  // 1. Destructive gate — before any workflow is created.
-  if (fixture.risk === "destructive" && !options.includeDestructive) {
-    return {
-      ...base,
-      outcome: "skip",
-      reason: "destructive — pass includeDestructive to run",
-      runId: null,
-      workflowId: null,
-    };
+  // 1. Destructive gate — before any workflow is created. In LIVE mode a
+  // destructive fixture needs BOTH includeDestructive AND allowDestructive
+  // (mirrors --include-destructive + ALLOW_DESTRUCTIVE_PROVIDER_SMOKE).
+  const destructiveAllowed = live
+    ? options.includeDestructive && options.allowDestructive === true
+    : options.includeDestructive;
+  if (fixture.risk === "destructive" && !destructiveAllowed) {
+    return skip(
+      live
+        ? "destructive — needs includeDestructive + allowDestructive (ALLOW_DESTRUCTIVE_PROVIDER_SMOKE)"
+        : "destructive — pass includeDestructive to run",
+    );
   }
 
-  // 2. Missing env → SKIP, before creating/running anything.
+  // 2. Live-safety gate (live mode only): only liveSafe fixtures may hit a real
+  // provider. Everything else SKIPs before any workflow is created.
+  if (live && fixture.liveSafe !== true) {
+    return skip("not marked liveSafe — excluded from live-connected mode");
+  }
+
+  // 3. Missing env → SKIP, before creating/running anything.
   const missing = missingEnv(fixture, envLookup);
   if (missing.length > 0) {
-    return {
-      ...base,
-      outcome: "skip",
-      reason: `missing env: ${missing.join(", ")}`,
-      runId: null,
-      workflowId: null,
-    };
+    return skip(`missing env: ${missing.join(", ")}`);
   }
 
-  // 3. Build the manual-run workflow (pure + validated).
+  // 4. Build the manual-run workflow (pure + validated).
   let workflow: SmokeManualRunWorkflow;
   try {
     workflow = buildSmokeManualRunDefinition(fixture);
@@ -174,7 +206,7 @@ export async function runFixtureWorkflowMode(
     return {
       ...base,
       outcome: "fail",
-      reason: `could not build smoke workflow: ${(err as Error).message}`,
+      reason: sanitizeFailureReason(`could not build smoke workflow: ${(err as Error).message}`),
       runId: null,
       workflowId: null,
     };
@@ -205,7 +237,7 @@ export async function runFixtureWorkflowMode(
     return {
       ...base,
       outcome: "fail",
-      reason: (err as Error).message,
+      reason: sanitizeFailureReason((err as Error).message),
       runId: null,
       workflowId,
     };
@@ -231,22 +263,25 @@ async function readTerminalRun(
 }
 
 function classifyPersistedRun(
-  base: { provider: string; action: string; risk: ActionSmokeFixture["risk"] },
+  base: {
+    provider: string;
+    action: string;
+    risk: ActionSmokeFixture["risk"];
+    providerBoundary: ProviderBoundary;
+  },
   fixture: ActionSmokeFixture,
   run: SmokePersistedRun,
   workflowId: string,
 ): SmokeResult {
+  // run.failureReason is sanitized at the deps boundary; sanitize again here as
+  // defense-in-depth (idempotent) since fakes/other deps may not.
+  const safeReason = sanitizeFailureReason(run.failureReason) ?? "run failed";
+
   if (fixture.expect.outcome === "success") {
     if (run.status === "succeeded") {
       return { ...base, outcome: "pass", reason: null, runId: run.runId, workflowId };
     }
-    return {
-      ...base,
-      outcome: "fail",
-      reason: run.failureReason ?? "run failed",
-      runId: run.runId,
-      workflowId,
-    };
+    return { ...base, outcome: "fail", reason: safeReason, runId: run.runId, workflowId };
   }
 
   // expect.outcome === "failure"
@@ -256,7 +291,7 @@ function classifyPersistedRun(
       return {
         ...base,
         outcome: "fail",
-        reason: `expected failure containing "${want}", got: ${run.failureReason ?? "run failed"}`,
+        reason: sanitizeFailureReason(`expected failure containing "${want}", got: ${safeReason}`),
         runId: run.runId,
         workflowId,
       };

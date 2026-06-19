@@ -17,6 +17,9 @@ export default defineActionSmokeFixture({
     sourceFormat: "markdown",
     targetFormat: "html",
   },
+  // Pure local transform — no external boundary at all, so it is trivially
+  // liveSafe and serves as the live-mode baseline (always PASSes).
+  liveSafe: true,
   expect: { outcome: "success" },
   notes: "Pure deterministic transform; runs anywhere with no connected provider.",
 });
