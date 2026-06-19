@@ -126,6 +126,21 @@ describe("analytics source registry", () => {
     for (const m of cal!.metrics) expect(m.supportedFilters).toEqual(["outlook_calendar"]);
   });
 
+  it("registers Notion as a connected-app source (ANALYTICS-SOURCES-NOTION-1)", () => {
+    const notion = getAnalyticsSource("notion");
+    expect(notion?.connectedApp).toBe(true);
+    expect(notion?.metrics.map((m) => m.key).sort()).toEqual([
+      "pages_created_over_time",
+      "pages_edited_over_time",
+      "recently_updated_count",
+      "total_pages_count",
+    ]);
+    expect(isApprovedSourceMetric("notion", "total_pages_count")).toBe(true);
+    expect(isApprovedSourceMetric("notion", "read_page_content")).toBe(false);
+    // No filters on any Notion metric (no arbitrary search-query surface).
+    for (const m of notion!.metrics) expect(m.supportedFilters).toEqual([]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

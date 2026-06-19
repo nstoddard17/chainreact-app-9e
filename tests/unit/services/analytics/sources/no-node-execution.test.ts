@@ -36,6 +36,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/microsoft-outlook-calendar/index.ts",
   "services/analytics/sources/microsoft-outlook-calendar/api.ts",
   "services/analytics/sources/microsoft-outlook-calendar/buckets.ts",
+  "services/analytics/sources/notion/index.ts",
+  "services/analytics/sources/notion/api.ts",
+  "services/analytics/sources/notion/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

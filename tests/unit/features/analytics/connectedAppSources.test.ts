@@ -63,6 +63,35 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("microsoft-outlook")?.visibility).toBe("personal");
     // Outlook Calendar is a personal calendar → per-viewer visibility.
     expect(getConnectedAppSource("microsoft-outlook-calendar")?.visibility).toBe("personal");
+    // Notion is a shared workspace grant → account-wide visibility.
+    expect(getConnectedAppSource("notion")?.visibility).toBe("account");
+  });
+});
+
+describe("Notion metric/filter shape", () => {
+  const notion = getExposedConnectedAppSource("notion")!;
+
+  it("offers page-activity scalars for stat and series for line/bar; none take a filter", () => {
+    expect(metricsForType(notion, "stat").map((m) => m.id).sort()).toEqual([
+      "recently_updated_count",
+      "total_pages_count",
+    ]);
+    expect(metricsForType(notion, "line").map((m) => m.id).sort()).toEqual([
+      "pages_created_over_time",
+      "pages_edited_over_time",
+    ]);
+    expect(metricsForType(notion, "bar").map((m) => m.id)).toEqual(
+      metricsForType(notion, "line").map((m) => m.id),
+    );
+    expect(metricsForType(notion, "donut")).toEqual([]);
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(notion, type)) expect(m.filters).toEqual([]);
+    }
+  });
+
+  it("exposes Notion in the widget UI", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("notion");
+    expect(getExposedConnectedAppSource("notion")?.displayName).toBe("Notion");
   });
 });
 

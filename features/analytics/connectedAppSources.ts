@@ -273,6 +273,32 @@ const OUTLOOK_CALENDAR: ConnectedAppSourceUi = {
   },
 };
 
+const NOTION: ConnectedAppSourceUi = {
+  provider: "notion",
+  displayName: "Notion",
+  exposed: true,
+  icon: "Database",
+  connectHref: "/apps",
+  connectTitle: "Connect your Notion workspace",
+  connectHelp:
+    "This widget reads page activity from your account's connected Notion workspace. Connect Notion to see it.",
+  connectCtaLabel: "Connect Notion",
+  // Notion is an ACCOUNT-shared workspace grant — every account member sees the
+  // same workspace aggregates (core/integrations/credentialSharing.ts → "account").
+  visibility: "account",
+  attributionPrefix: "Notion workspace",
+  metricsByType: {
+    stat: [
+      { id: "total_pages_count", label: "Total pages", filters: [] },
+      { id: "recently_updated_count", label: "Recently updated pages", filters: [] },
+    ],
+    ...seriesForBoth([
+      { id: "pages_created_over_time", label: "Pages created over time", filters: [] },
+      { id: "pages_edited_over_time", label: "Pages edited over time", filters: [] },
+    ]),
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -281,6 +307,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   STRIPE,
   OUTLOOK,
   OUTLOOK_CALENDAR,
+  NOTION,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */
