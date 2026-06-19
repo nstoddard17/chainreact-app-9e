@@ -30,7 +30,8 @@ export type ConnectedAppFilterKind =
   | "gcal_calendar"
   | "gmail_label"
   | "outlook_folder"
-  | "outlookcal_calendar";
+  | "outlookcal_calendar"
+  | "trello_board";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -299,6 +300,33 @@ const NOTION: ConnectedAppSourceUi = {
   },
 };
 
+const TRELLO: ConnectedAppSourceUi = {
+  provider: "trello",
+  displayName: "Trello",
+  exposed: true,
+  icon: "Layers",
+  connectHref: "/apps",
+  connectTitle: "Connect your Trello",
+  connectHelp: "This widget uses your own Trello connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Trello",
+  // Personal credential — each viewer sees THEIR OWN Trello data, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Trello",
+  metricsByType: {
+    stat: [
+      { id: "open_cards_count", label: "Open cards", filters: ["trello_board"] },
+      { id: "closed_cards_count", label: "Archived cards", filters: ["trello_board"] },
+      { id: "overdue_cards_count", label: "Overdue cards", filters: ["trello_board"] },
+    ],
+    line: [{ id: "cards_created_over_time", label: "Cards created over time", filters: ["trello_board"] }],
+    bar: [
+      { id: "cards_created_over_time", label: "Cards created over time", filters: ["trello_board"] },
+      { id: "cards_by_list", label: "Cards by list", filters: ["trello_board"] },
+    ],
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -308,6 +336,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   OUTLOOK,
   OUTLOOK_CALENDAR,
   NOTION,
+  TRELLO,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

@@ -67,12 +67,13 @@ const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
 function filterDataKey(
   kind: ConnectedAppFilterKind,
-): "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" {
+): "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" | "board" {
   if (kind === "slack_channel") return "channel";
   if (kind === "gcal_calendar") return "calendar";
   if (kind === "gmail_label") return "label";
   if (kind === "outlook_folder") return "folder";
   if (kind === "outlookcal_calendar") return "outlook_calendar";
+  if (kind === "trello_board") return "board";
   return kind;
 }
 
@@ -144,6 +145,9 @@ export function WidgetConfigPanel({
   const [outlookCalendar, setOutlookCalendar] = useState<string>(
     typeof existingFilters.outlook_calendar === "string" ? existingFilters.outlook_calendar : "",
   );
+  const [board, setBoard] = useState<string>(
+    typeof existingFilters.board === "string" ? existingFilters.board : "",
+  );
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -163,6 +167,7 @@ export function WidgetConfigPanel({
     if (kind === "outlook_folder") return folder.trim().length > 0;
     // Outlook Calendar is optional (blank = primary), so it's always save-ready.
     if (kind === "outlookcal_calendar") return true;
+    if (kind === "trello_board") return board.trim().length > 0;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -180,6 +185,7 @@ export function WidgetConfigPanel({
         else if (kind === "gmail_label") filters[key] = label.trim();
         else if (kind === "outlook_folder") filters[key] = folder.trim();
         else if (kind === "outlookcal_calendar") filters[key] = outlookCalendar.trim();
+        else if (kind === "trello_board") filters[key] = board.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -284,6 +290,8 @@ export function WidgetConfigPanel({
                   onFolder={setFolder}
                   outlookCalendar={outlookCalendar}
                   onOutlookCalendar={setOutlookCalendar}
+                  board={board}
+                  onBoard={setBoard}
                 />
               ) : (
                 <InternalConfig

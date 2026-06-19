@@ -141,6 +141,22 @@ describe("analytics source registry", () => {
     for (const m of notion!.metrics) expect(m.supportedFilters).toEqual([]);
   });
 
+  it("registers Trello as a connected-app source (ANALYTICS-SOURCES-TRELLO-1)", () => {
+    const trello = getAnalyticsSource("trello");
+    expect(trello?.connectedApp).toBe(true);
+    expect(trello?.metrics.map((m) => m.key).sort()).toEqual([
+      "cards_by_list",
+      "cards_created_over_time",
+      "closed_cards_count",
+      "open_cards_count",
+      "overdue_cards_count",
+    ]);
+    expect(isApprovedSourceMetric("trello", "open_cards_count")).toBe(true);
+    expect(isApprovedSourceMetric("trello", "read_card_text")).toBe(false);
+    // Every Trello metric is board-scoped (a validated board id; no raw query).
+    for (const m of trello!.metrics) expect(m.supportedFilters).toEqual(["board"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

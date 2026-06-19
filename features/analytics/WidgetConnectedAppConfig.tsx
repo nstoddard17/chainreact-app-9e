@@ -11,6 +11,7 @@ import {
   OutlookCalendarField,
   OutlookFolderField,
   SlackChannelField,
+  TrelloBoardField,
 } from "./WidgetConnectedAppPickers";
 
 /**
@@ -44,6 +45,8 @@ export function ConnectedAppConfig({
   onFolder,
   outlookCalendar,
   onOutlookCalendar,
+  board,
+  onBoard,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -67,6 +70,8 @@ export function ConnectedAppConfig({
   onFolder: (v: string) => void;
   outlookCalendar: string;
   onOutlookCalendar: (v: string) => void;
+  board: string;
+  onBoard: (v: string) => void;
 }) {
   return (
     <>
@@ -139,6 +144,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("outlookcal_calendar") && (
         <OutlookCalendarField value={outlookCalendar} onChange={onOutlookCalendar} connected={connected} />
+      )}
+
+      {requiredFilters.includes("trello_board") && (
+        <TrelloBoardField value={board} onChange={onBoard} connected={connected} />
       )}
     </>
   );

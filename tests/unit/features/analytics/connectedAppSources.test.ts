@@ -65,6 +65,37 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("microsoft-outlook-calendar")?.visibility).toBe("personal");
     // Notion is a shared workspace grant → account-wide visibility.
     expect(getConnectedAppSource("notion")?.visibility).toBe("account");
+    // Trello is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("trello")?.visibility).toBe("personal");
+  });
+});
+
+describe("Trello metric/filter shape", () => {
+  const trello = getExposedConnectedAppSource("trello")!;
+
+  it("exposes Trello with board-scoped scalars/series; cards_by_list is bar-only", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("trello");
+    expect(metricsForType(trello, "stat").map((m) => m.id).sort()).toEqual([
+      "closed_cards_count",
+      "open_cards_count",
+      "overdue_cards_count",
+    ]);
+    expect(metricsForType(trello, "line").map((m) => m.id)).toEqual(["cards_created_over_time"]);
+    expect(metricsForType(trello, "bar").map((m) => m.id).sort()).toEqual([
+      "cards_by_list",
+      "cards_created_over_time",
+    ]);
+    // cards_by_list must NOT appear on a line widget.
+    expect(metricsForType(trello, "line").map((m) => m.id)).not.toContain("cards_by_list");
+    expect(metricsForType(trello, "donut")).toEqual([]);
+  });
+
+  it("every Trello metric takes a single trello_board filter", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(trello, type)) {
+        expect(m.filters).toEqual(["trello_board"]);
+      }
+    }
   });
 });
 

@@ -388,3 +388,21 @@ export function OutlookCalendarField(props: { value: string; onChange: (v: strin
     />
   );
 }
+
+/** Trello board picker (`trello:boards`) — the viewer's accessible boards (required). */
+export function TrelloBoardField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="trello:boards"
+      icon="Layers"
+      sectionLabel="Board"
+      hint="Pick a Trello board to report on."
+      disconnectedHint="Connect Trello to choose a board."
+      loadingNoun="boards"
+      errorFallback="Couldn't load Trello boards."
+      ariaLabel="Trello board"
+      placeholder="Select a board…"
+      {...props}
+    />
+  );
+}
