@@ -406,6 +406,9 @@ function HeaderRight({
           state={lifecycle.state}
           blockingIssueCount={blockingIssueCount}
           unpublishedChanges={lifecycle.unpublishedChanges}
+          // BUILDER-ACTIVATION-READINESS-UX-AUDIT-1 — the blocked-go-live hint's
+          // "Review" opens the same validation panel as the header pill.
+          onReviewIssues={validation?.onOpen}
         />
       ) : null}
     </div>

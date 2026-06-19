@@ -34,6 +34,16 @@ interface Props {
    * changes" chip + "Publish changes" button.
    */
   unpublishedChanges?: boolean;
+  /**
+   * BUILDER-ACTIVATION-READINESS-UX-AUDIT-1 — opens the validation panel. When a
+   * go-live action (Activate / Resume) is blocked by `blockingIssueCount`, the
+   * disabled-button reason was hover-only (`title`). We now render an always-visible
+   * "N setup issues — Review" line under the blocked button; "Review" calls this to
+   * open the validation drawer (the same panel the header pill opens), where each
+   * issue already opens + focuses its node. Optional → the line renders without the
+   * Review action (isolated tests / no panel wired).
+   */
+  onReviewIssues?: () => void;
 }
 
 type ActionKind = "activate" | "pause" | "resume" | "reactivate" | "publish";
@@ -84,6 +94,7 @@ export function LifecycleActions({
   state,
   blockingIssueCount = 0,
   unpublishedChanges = false,
+  onReviewIssues,
 }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState<ActionKind | null>(null);
@@ -99,6 +110,11 @@ export function LifecycleActions({
 
   const actions = actionsForState(state);
   if (actions.length === 0) return null;
+  // The single go-live action for this state, if any (draft→Activate, paused/
+  // eligible_to_resume→Resume). Drives the blocked-by-validation hint below.
+  const goLiveAction = actions.find(
+    (a) => a.kind === "activate" || a.kind === "resume",
+  );
 
   async function runKind(
     kind: ActionKind,
@@ -256,6 +272,31 @@ export function LifecycleActions({
           );
         })}
       </div>
+      {goLiveAction && blockingIssueCount > 0 ? (
+        // BUILDER-ACTIVATION-READINESS-UX-AUDIT-1 — always-visible reason for the disabled
+        // go-live button (was hover-only via `title`). Plain English, no node ids / config.
+        // "Review" opens the validation panel where each issue opens + focuses its node.
+        <div
+          data-testid="lifecycle-blocked-hint"
+          data-issue-count={blockingIssueCount}
+          role="status"
+          className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+        >
+          <span>
+            {`${blockingIssueCount} setup ${blockingIssueCount === 1 ? "issue" : "issues"} to fix before ${goLiveAction.label.toLowerCase()}`}
+          </span>
+          {onReviewIssues ? (
+            <button
+              type="button"
+              onClick={onReviewIssues}
+              data-testid="lifecycle-review-issues"
+              className="font-medium text-foreground underline underline-offset-2 hover:no-underline"
+            >
+              Review
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {error && (
         <span role="alert" className="text-xs text-destructive">
           {error}
