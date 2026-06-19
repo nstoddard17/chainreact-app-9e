@@ -107,6 +107,19 @@
 
 ## Recently completed arcs
 
+- **Builder activation/readiness UX: visible blocked-go-live reason — LOCAL/UNPUSHED (2026-06-19)** — the
+  readiness surface was already strong (`collectBuilderValidationIssues` maps the shared `core/workflows`
+  validator into plain-English, no-id builder issues; `ValidationSummary` groups errors→warnings; each
+  node-issue button calls `openNode` → opens config + focuses the node; `no_trigger` has a Choose-trigger
+  action; `LifecycleActions` already disables Activate/Resume when `blockingIssueCount>0`). **Gap:** the
+  disabled-button reason was **hover-only** (`title`). **Fix:** `LifecycleActions` now renders an
+  always-visible `role="status"` line under a blocked Activate/Resume — "N setup issue(s) to fix before
+  activate/resume" + a "Review" link wired (via `BuilderHeader`) to the existing validation panel; hidden
+  at 0 issues / on Pause. **No activation-rule/validation/bypass/backend/AI/migration/flag change; no
+  id/secret/token/DTO leak (asserted).** Verified: LifecycleActions+BuilderHeader+validation 103, full
+  layout+panels 630, eslint 0, typecheck clean, lint:structure OK; Check workflow untouched. Deferred:
+  header-level "jump to first blocking step". Commit `8faa6f3eb` LOCAL/UNPUSHED →
+  [`builder-activation-readiness-ux-closeout.md`](./slices/phase-4/workflows/builder-activation-readiness-ux-closeout.md).
 - **Builder canvas UX: drag + config-open focus(+zoom tune) + connection UX — LOCAL/UNPUSHED (2026-06-19)** —
   four client-only canvas fixes. (1) Live node drag: `WorkflowCanvas` ran controlled React Flow with no
   `onNodesChange`, so nodes only moved at drag-stop; now local `rfNodes` + `applyNodeChanges` move the
