@@ -28,7 +28,8 @@ export type ConnectedAppFilterKind =
   | "slack_channel"
   | "keyword"
   | "gcal_calendar"
-  | "gmail_label";
+  | "gmail_label"
+  | "outlook_folder";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -219,7 +220,32 @@ const STRIPE: ConnectedAppSourceUi = {
   },
 };
 
-const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK, GOOGLE_CALENDAR, GMAIL, STRIPE];
+const OUTLOOK: ConnectedAppSourceUi = {
+  provider: "microsoft-outlook",
+  displayName: "Microsoft Outlook",
+  exposed: true,
+  icon: "Comment",
+  connectHref: "/apps",
+  connectTitle: "Connect your Outlook",
+  connectHelp: "This widget uses your own Outlook connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Outlook",
+  // Personal credential — each viewer sees THEIR OWN Outlook data, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Outlook",
+  metricsByType: {
+    stat: [
+      { id: "unread_count", label: "Unread emails", filters: [] },
+      { id: "folder_message_count", label: "Emails in a folder", filters: ["outlook_folder"] },
+    ],
+    ...seriesForBoth([
+      { id: "emails_received_over_time", label: "Emails received over time", filters: [] },
+      { id: "emails_sent_over_time", label: "Emails sent over time", filters: [] },
+    ]),
+  },
+};
+
+const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK, GOOGLE_CALENDAR, GMAIL, STRIPE, OUTLOOK];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */
 export function allConnectedAppSources(): readonly ConnectedAppSourceUi[] {

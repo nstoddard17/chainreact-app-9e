@@ -5,6 +5,7 @@ import { slackAnalyticsSource } from "./slack";
 import { googleCalendarAnalyticsSource } from "./google-calendar";
 import { gmailAnalyticsSource } from "./gmail";
 import { stripeAnalyticsSource } from "./stripe";
+import { microsoftOutlookAnalyticsSource } from "./microsoft-outlook";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -32,6 +33,8 @@ import { stripeAnalyticsSource } from "./stripe";
  *   - STRIPE (connected app, read-only /v1/charges window scan → payment
  *     count/volume aggregates, account-shared refreshable credential) —
  *     ANALYTICS-SOURCES-STRIPE-1.
+ *   - MICROSOFT OUTLOOK (connected app, read-only Graph /me/messages COUNT
+ *     queries, personal refreshable credential) — ANALYTICS-SOURCES-OUTLOOK-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -50,6 +53,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   googleCalendarAnalyticsSource,
   gmailAnalyticsSource,
   stripeAnalyticsSource,
+  microsoftOutlookAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

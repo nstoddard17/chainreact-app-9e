@@ -42,6 +42,11 @@ describe("exposure gating", () => {
     expect(getExposedConnectedAppSource("stripe")?.displayName).toBe("Stripe");
   });
 
+  it("exposes Microsoft Outlook", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("microsoft-outlook");
+    expect(getExposedConnectedAppSource("microsoft-outlook")?.displayName).toBe("Microsoft Outlook");
+  });
+
   it("every descriptor declares a credential visibility matching its sharing model", () => {
     expect(getConnectedAppSource("slack")?.visibility).toBe("account");
     expect(getConnectedAppSource("github")?.visibility).toBe("personal");
@@ -49,6 +54,30 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("gmail")?.visibility).toBe("personal");
     // Stripe is a shared business account → account-wide visibility.
     expect(getConnectedAppSource("stripe")?.visibility).toBe("account");
+    // Outlook is a personal mailbox → per-viewer visibility.
+    expect(getConnectedAppSource("microsoft-outlook")?.visibility).toBe("personal");
+  });
+});
+
+describe("Outlook metric/filter shape", () => {
+  const outlook = getExposedConnectedAppSource("microsoft-outlook")!;
+
+  it("offers scalars for stat (unread no-filter, folder needs outlook_folder) and series for line/bar", () => {
+    expect(metricsForType(outlook, "stat").map((m) => m.id).sort()).toEqual([
+      "folder_message_count",
+      "unread_count",
+    ]);
+    expect(metricsForType(outlook, "line").map((m) => m.id).sort()).toEqual([
+      "emails_received_over_time",
+      "emails_sent_over_time",
+    ]);
+    expect(metricsForType(outlook, "donut")).toEqual([]);
+  });
+
+  it("unread_count takes NO filter; folder_message_count takes an outlook_folder filter", () => {
+    expect(findMetricOption(outlook, "stat", "unread_count")?.filters).toEqual([]);
+    expect(findMetricOption(outlook, "stat", "folder_message_count")?.filters).toEqual(["outlook_folder"]);
+    expect(findMetricOption(outlook, "line", "emails_received_over_time")?.filters).toEqual([]);
   });
 });
 

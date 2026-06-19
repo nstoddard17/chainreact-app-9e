@@ -390,6 +390,13 @@ import { githubReposResolver } from "@/integrations/github/options/repos";
 //     EDITOR's labels only (no co-member exposure); only label id + name are read.
 import { gmailLabelsResolver } from "@/integrations/gmail/options/labels";
 
+// Outlook folders resolver — Slice ANALYTICS-SOURCES-OUTLOOK-1. Backs the folder
+// picker on the Outlook analytics `folder_message_count` widget via Graph
+// `/me/mailFolders`, using the already-granted `Mail.Read` scope (no reconnect).
+// Outlook is personal + refreshable → refreshAndRetry. Lists the EDITOR's folders
+// only (no co-member exposure); only folder id + display name are read.
+import { outlookFoldersResolver } from "@/integrations/microsoft-outlook/options/folders";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -549,6 +556,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // Slice ANALYTICS-SOURCES-GMAIL-1 — `gmail:labels` label picker for the Gmail
   // analytics label-count widget. Read-only, refreshable, editor's-own-labels-only.
   gmailLabelsResolver,
+  outlookFoldersResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

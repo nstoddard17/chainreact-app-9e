@@ -32,6 +32,8 @@ export function ConnectedAppConfig({
   onCalendar,
   label,
   onLabel,
+  folder,
+  onFolder,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -51,6 +53,8 @@ export function ConnectedAppConfig({
   onCalendar: (v: string) => void;
   label: string;
   onLabel: (v: string) => void;
+  folder: string;
+  onFolder: (v: string) => void;
 }) {
   return (
     <>
@@ -136,6 +140,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("gmail_label") && (
         <GmailLabelField value={label} onChange={onLabel} connected={connected} />
+      )}
+
+      {requiredFilters.includes("outlook_folder") && (
+        <OutlookFolderField value={folder} onChange={onFolder} connected={connected} />
       )}
     </>
   );
@@ -440,6 +448,24 @@ function GmailLabelField(props: { value: string; onChange: (v: string) => void; 
       errorFallback="Couldn't load Gmail labels."
       ariaLabel="Gmail label"
       placeholder="Select a label…"
+      {...props}
+    />
+  );
+}
+
+/** Outlook folder picker (`microsoft-outlook:folders`) — the viewer's top-level mail folders. */
+function OutlookFolderField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="microsoft-outlook:folders"
+      icon="Layers"
+      sectionLabel="Folder"
+      hint="Counts emails received into this Outlook folder."
+      disconnectedHint="Connect Outlook to choose a folder."
+      loadingNoun="folders"
+      errorFallback="Couldn't load Outlook folders."
+      ariaLabel="Outlook folder"
+      placeholder="Select a folder…"
       {...props}
     />
   );
