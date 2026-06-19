@@ -1,14 +1,15 @@
 # Builder Canvas UX (drag + config-open focus + connection UX) — Closeout
 
 **Type:** Post-ship closeout (docs-only). Nothing pushed from this arc.
-**Date:** 2026-06-19 _(updated for connection UX: `BUILDER-CANVAS-UX-CLOSEOUT-2`)_
+**Date:** 2026-06-19 _(updated for config-focus zoom tune: `BUILDER-CANVAS-UX-CLOSEOUT-3`)_
 **Branch:** `v2-main`
-**Marker:** `BUILDER-CANVAS-UX-CLOSEOUT-1` → extended by `BUILDER-CANVAS-UX-CLOSEOUT-2`
+**Marker:** `BUILDER-CANVAS-UX-CLOSEOUT-1` → `-2` (connection UX) → `-3` (config-focus zoom tune)
 **Scope:** workflow-builder canvas — (1) live node drag with controlled React Flow + grab/grabbing
-cursor; (2) focus/zoom the canvas toward a node when its config panel opens; (3) connection/edge UX —
-discoverable handles + inline feedback when an invalid connection is refused.
+cursor; (2) focus/zoom the canvas toward a node when its config panel opens (+ zoom-floor tune so it
+zooms IN, never out); (3) connection/edge UX — discoverable handles + inline feedback when an invalid
+connection is refused.
 
-> **STATUS: LOCAL / UNPUSHED.** All three slices are local on `v2-main` and **not pushed**.
+> **STATUS: LOCAL / UNPUSHED.** All four slices are local on `v2-main` and **not pushed**.
 > **No migration, no feature flag, no backend change** — this arc is entirely builder UI /
 > canvas / client config-state. No workflow data, edge semantics, routing, billing, AI, or RLS impact.
 
@@ -20,10 +21,11 @@ discoverable handles + inline feedback when an invalid connection is refused.
   `onNodesChange`, so interactive position changes were never fed back during a drag — the node only
   jumped to its final spot at drag-stop. Now a local `rfNodes` state applies RF's own changes live on
   pointer movement, while the workflow graph slice is written only on `onNodeDragStop`.
-- **Config-open focus/zoom** (`fde9b1110`): opening a node's config rail now smoothly pans/zooms the
-  canvas toward that node (gentle context zoom, left offset so the right-side config panel doesn't
-  cover the node), reusing the existing `useCanvasNodeFocus` → `setCenter` seam. The "reveal"
-  ("Go to field") path is unchanged.
+- **Config-open focus/zoom** (`fde9b1110`, tuned in `dd53119ee`): opening a node's config rail smoothly
+  pans/zooms the canvas toward that node, reusing the existing `useCanvasNodeFocus` → `setCenter` seam.
+  The `-TUNE-1` follow-up made it feel like a gentle zoom-IN (never a zoom-out): config zoom is now a
+  **floor** (`Math.max(getViewport().zoom, CONFIG_MIN_ZOOM=1.4)`), and the left offset was reduced
+  220→60px. The "reveal" ("Go to field") path is unchanged (forced 1.75, centered, 450ms).
 - **Connection UX** (`784fe89d9`): connecting steps was functional but rough — `WorkflowCanvas` caught
   `connectNodes`' rejection in an **empty catch**, so invalid attempts (self-loop / duplicate) failed
   **silently**, and the handles were small / low-contrast / hard to discover. Now handles light up on
@@ -35,8 +37,10 @@ discoverable handles + inline feedback when an invalid connection is refused.
 - `192826625` — fix(builder-canvas): live node drag + grab/grabbing cursor (BUILDER-CANVAS-NODE-DRAG-UX-AUDIT-1) _(2026-06-19)_
 - `fde9b1110` — feat(builder-canvas): focus/zoom canvas toward a node when its config opens (BUILDER-CANVAS-FOCUS-SELECTED-NODE-1) _(2026-06-19)_
 - `784fe89d9` — feat(builder-canvas): connection UX — discoverable handles + invalid-connection feedback (BUILDER-CANVAS-CONNECTION-UX-AUDIT-1) _(2026-06-19)_
+- `dd53119ee` — fix(builder-canvas): config-open focus zooms IN, never out (BUILDER-CANVAS-CONFIG-FOCUS-ZOOM-TUNE-1) _(2026-06-19)_
 
-  _(The initial closeout `a32d06fbf` covered the first two slices; this revision — `BUILDER-CANVAS-UX-CLOSEOUT-2` — adds the connection UX slice.)_
+  _(Closeout `a32d06fbf` covered the first two slices; `cb4111fc8` (`-2`) added the connection UX slice;
+  this revision — `BUILDER-CANVAS-UX-CLOSEOUT-3` — adds the config-focus zoom tune.)_
 
 ## 3. Current behavior
 
@@ -54,17 +58,27 @@ discoverable handles + inline feedback when an invalid connection is refused.
 - **Cursor:** hover uses `grab`, active drag uses `grabbing` (added in `app/globals.css`); connection
   handles keep their own cursor behavior.
 
-### 3b. Config-open focus/zoom
+### 3b. Config-open focus/zoom _(tuned in `dd53119ee`)_
 - Opening a node config panel bumps the existing canvas-focus signal (`canvasFocusNodeId` +
   `canvasFocusSeq`) in a new `"config"` focus mode.
-- `useCanvasNodeFocus` calls `setCenter` with a gentle context zoom (**1.2**), a short **300ms** eased
-  animation, and a **left offset (~220px / zoom)** so the node sits left of viewport center, clear of
-  the right-side config rail.
+- `useCanvasNodeFocus` calls `setCenter` with a short **300ms** eased animation, a small **left bias
+  (~60px / zoom)**, and a **zoom floor** (see below).
+- **Zoom is a FLOOR, not a forced level** (the `-TUNE-1` fix): `zoom = Math.max(getViewport().zoom,
+  CONFIG_MIN_ZOOM)` with `CONFIG_MIN_ZOOM = 1.4`.
+  - **Root cause of the old "zooms out" feel:** config focus previously forced a flat `zoom = 1.2`, so
+    if the user had manually zoomed past 1.2 (common while editing a node) opening config snapped the
+    canvas back out to 1.2.
+  - **Now:** from a zoomed-out canvas it zooms **IN** up to the 1.4 floor; if the canvas is already
+    closer than 1.4 it **preserves the current zoom** (never zooms out). 1.4 is clearly closer than the
+    default fit view, still gentler than the 1.75 reveal so context around the node remains.
+  - **Offset reduced 220→60px:** the right config drawer is a non-overlapping flex column (it does not
+    cover the canvas — see the panel layout audit), so the large "clear the panel" offset over-corrected
+    and made the node feel pushed away. A gentle left bias is enough.
 - **No-repeat:** `openNode` advances the focus signal only on a genuinely-new selection — re-opening
   the already-active node does **not** re-pan (no repeated zoom loop).
 - Opening a **different** node pans again toward the new node.
 - The existing **reveal / "Go to field"** path is unchanged: `"reveal"` mode stays centered (offset 0)
-  with the closer zoom **1.75** / **450ms**.
+  with the closer **forced** zoom **1.75** / **450ms** — unaffected by the config floor / current zoom.
 - **Drag and connection-handle flows never trigger focus** — drag goes through the graph slice
   (`onNodeDragStop`) / local `rfNodes` (`onNodesChange`), and connecting goes through `onConnect` →
   `connectNodes`; none of these advance the config focus signal.
@@ -89,10 +103,11 @@ discoverable handles + inline feedback when an invalid connection is refused.
 
 ## 4. Security / no-leak guarantees
 
-No change to the security surface. All three slices are client-side builder UI / canvas-navigation
+No change to the security surface. All four slices are client-side builder UI / canvas-navigation
 only: no new endpoints, no credential/token handling, no membership or RLS-gated reads, no
-service-role writes. `useCanvasNodeFocus` is navigation-only (`setCenter`); the connection hint is
-local component state; none of it mutates anything beyond the in-memory graph slice on a valid connect.
+service-role writes. `useCanvasNodeFocus` is navigation-only (`setCenter` / `getViewport` reads); the
+connection hint is local component state; none of it mutates anything beyond the in-memory graph slice
+on a valid connect.
 
 ## 5. Data / RLS / model notes
 
@@ -102,8 +117,9 @@ None. No tables, no migrations, no RLS/GRANT changes, no account-model implicati
 
 - Dragging a node moves it live under the pointer; it settles into a non-overlapping final position on
   release. Cursor reflects `grab` (hover) → `grabbing` (active drag).
-- Clicking a node opens its config rail and gently pans/zooms the canvas so the node stays visible
-  beside the panel; clicking the same node again does nothing extra; clicking a different node re-pans.
+- Clicking a node opens its config rail and gently **zooms in** toward the node (never zooms out, even
+  if you were already zoomed in); clicking the same node again does nothing extra; clicking a different
+  node re-pans toward it.
 - "Go to field" / reveal continues to use its closer, centered focus.
 - Connection handles are quiet until you hover/select a node, then light up (accent ring) and show a
   crosshair cursor so connect points are easy to find and aim at. Attempting an invalid connection
@@ -113,10 +129,12 @@ None. No tables, no migrations, no RLS/GRANT changes, no account-model implicati
 
 ## 7. Deferred / known limitations
 
-- The config-panel offset is a **fixed `220px / zoom` heuristic**, not measured from the actual rail
-  width — if the rail width changes materially the clearance is approximate.
+- `CONFIG_MIN_ZOOM = 1.4` and the `~60px` left bias (`CONFIG_LEFT_OFFSET_SCREEN_PX`) are **tuned
+  constants** — easy one-line adjustments if the feel needs nudging. The offset is a small fixed nudge,
+  not measured from the actual rail width (acceptable now that the drawer is a non-overlapping column).
 - There is **no "already comfortably visible, skip focus" check** yet — opening config always pans/zooms
-  toward the node even when it is already well within view.
+  toward the node even when it is already well within view (the zoom floor avoids zooming *out*, but it
+  still pans/animates).
 - Some focus/config tests emit cosmetic React `act(...)` warnings around `openNode` calls (the tests
   call `openNode` outside `act`); the suites pass and behavior is unaffected. Clean up only if it
   becomes CI noise or those tests are touched again.
@@ -125,8 +143,9 @@ None. No tables, no migrations, no RLS/GRANT changes, no account-model implicati
   the banner is already visible.
 - **No toast system** was introduced intentionally — there is no toast library in V2, so the hint
   deliberately reuses the inline `role="status"` banner pattern rather than adding a dependency.
-- The `services/analytics/sources/monday/api.ts` **typecheck error is unrelated parallel WIP**, not
-  caused by this canvas slice (untracked file, not in this arc). Left for the analytics session.
+- The `services/analytics/sources/monday/api.ts` typecheck error seen during the connection slice was
+  **unrelated parallel analytics WIP** (not this arc); it has since been resolved by the analytics
+  session, and `typecheck` is clean at the zoom-tune commit.
 
 ## 8. Verification baseline
 
@@ -152,22 +171,31 @@ None. No tables, no migrations, no RLS/GRANT changes, no account-model implicati
 - `npm run typecheck` → one error in `services/analytics/sources/monday/api.ts` (**unrelated untracked
   parallel analytics WIP**, not in HEAD, not touched by this slice); the canvas files are type-clean.
 
+**Config-focus zoom tune (`dd53119ee`) — newly measured this session:**
+- `useCanvasNodeFocus` + `WorkflowCanvas.drag` + `WorkflowCanvas.connect` → **3 suites, 20 passed**
+  (new tests: zoom-in to the 1.4 floor + small left bias; **no zoom-out when current zoom 1.6 > floor**;
+  zoom-in to 1.4 from 0.7; reveal forces 1.75 centered, unaffected by floor/current zoom; same-node
+  no-re-pan retained).
+- Full `tests/unit/features/workflow-builder/canvas/` + `…/hooks/` → **27 suites, 301 passed**.
+- `npm run typecheck` → **exit 0 (clean)**; `eslint` on the 2 touched files → **0**; `lint:structure` → **OK**.
+
 **Migrations:** none. **Feature flags:** none added; behavior is unconditional builder UI.
 
 **Manual verification (human pass):** Marcus tested the connection UX in the running builder and
-reported: _"this feels super smooth. i've tested it"_ — the handle affordance and live connection
-preview confirmed by a human, closing out the subjective "feel" items the smoke step could not assert.
+reported: _"this feels super smooth. i've tested it"_ — handle affordance + live connection preview
+confirmed. He also **manually verified the tuned config-open focus** in the running builder (now reads
+as a gentle zoom-in, no longer a zoom-out), closing the subjective "feel" items the unit tests can't assert.
 
 ## 9. Recommended next tracks
 
-- Replace the fixed `220px / zoom` config offset with a value derived from the actual config-rail
-  width (e.g. measured panel width) so clearance is exact across rail-width changes.
-- Add an "already comfortably visible" guard so config-open skips the pan/zoom when the node is already
-  well within the viewport (avoids unnecessary motion).
+- Add an "already comfortably visible" guard so config-open skips the pan/zoom entirely when the node is
+  already well within the viewport (the zoom floor stops it zooming *out*, but it still pans/animates).
+- If the tuned constants need adjusting, `CONFIG_MIN_ZOOM` (1.4) and `CONFIG_LEFT_OFFSET_SCREEN_PX` (60)
+  are one-line changes in `useCanvasNodeFocus.ts`.
 - Silence the `act(...)` warnings if/when those focus tests are next touched.
 
 ## 10. Closeout confirmation
 
 **Docs-only. Nothing pushed.** Doc path: `docs/slices/phase-4/workflows/builder-canvas-ux-closeout.md`.
-All three source commits (`192826625`, `fde9b1110`, `784fe89d9`) plus the two closeout commits
-(`a32d06fbf`, this CLOSEOUT-2 revision) are local on `v2-main` and unpushed.
+All four source commits (`192826625`, `fde9b1110`, `784fe89d9`, `dd53119ee`) plus the three closeout
+commits (`a32d06fbf` = `-1`, `cb4111fc8` = `-2`, this `-3` revision) are local on `v2-main` and unpushed.
