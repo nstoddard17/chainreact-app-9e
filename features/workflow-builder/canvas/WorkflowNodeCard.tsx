@@ -126,12 +126,7 @@ export function WorkflowNodeCard({
           position={Position.Top}
           isConnectableStart={false}
           aria-label="Incoming edge target"
-          style={{
-            width: 8,
-            height: 8,
-            background: "var(--builder-panel)",
-            border: `1.5px solid ${selected ? "var(--builder-accent)" : "var(--builder-border-strong)"}`,
-          }}
+          className="builder-handle"
         />
       ) : null}
 
@@ -250,12 +245,7 @@ export function WorkflowNodeCard({
         type="source"
         position={Position.Bottom}
         aria-label="Outgoing edge source"
-        style={{
-          width: 8,
-          height: 8,
-          background: "var(--builder-panel)",
-          border: `1.5px solid ${selected ? "var(--builder-accent)" : "var(--builder-border-strong)"}`,
-        }}
+        className="builder-handle"
       />
     </div>
   );

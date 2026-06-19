@@ -36,6 +36,7 @@ import {
 } from "./adapters";
 import { EmptyCanvasState } from "./EmptyCanvasState";
 import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
+import { ConnectionHintBanner } from "./ConnectionHintBanner";
 import { BuilderNodeActionsProvider } from "./nodeActionsContext";
 import { BuilderTabPlaceholder, type BuilderTab } from "./BuilderTabPlaceholder";
 import { DataMapPanel } from "./DataMapPanel";
@@ -294,17 +295,36 @@ function WorkflowCanvasInner({
     [updateNodePosition],
   );
 
+  // BUILDER-CANVAS-CONNECTION-UX-AUDIT-1 — surface WHY an invalid connection was
+  // refused. `connectNodes` stays the single source of validation truth (self-loop /
+  // duplicate / unknown node); a rejected attempt used to snap back silently. We now
+  // catch its error and show its message as a transient hint. (Trigger nodes have no
+  // target handle, so action→trigger / trigger→trigger can't even be dragged.)
+  const [connectionHint, setConnectionHint] = useState<string | null>(null);
   const handleConnect = useCallback(
     (conn: Connection) => {
       if (!conn.source || !conn.target) return;
       try {
         connectNodes({ from: conn.source, to: conn.target });
-      } catch {
-        // Slice rejects self-loops / duplicates silently — canvas snaps back.
+        setConnectionHint(null); // valid connect clears any stale hint
+      } catch (err) {
+        setConnectionHint(
+          err instanceof Error
+            ? err.message
+            : "That connection isn't allowed.",
+        );
       }
     },
     [connectNodes],
   );
+
+  // Auto-dismiss the connection hint a few seconds after it appears (single concern:
+  // the hint's own lifetime). Re-arms on each new/distinct message via the dep.
+  useEffect(() => {
+    if (!connectionHint) return;
+    const timer = setTimeout(() => setConnectionHint(null), 4000);
+    return () => clearTimeout(timer);
+  }, [connectionHint]);
 
   const handleEdgesDelete = useCallback(
     (deleted: FlowEdge[]) => {
@@ -408,6 +428,10 @@ function WorkflowCanvasInner({
         {showRecoveryBanner ? (
           <NoTriggerRecoveryBanner onChooseTrigger={onAddTrigger} />
         ) : null}
+        <ConnectionHintBanner
+          message={connectionHint}
+          onDismiss={() => setConnectionHint(null)}
+        />
           </>
         ) : activeTab === "data-map" ? (
           // Slice 4.BUILDER-DATA-MAP-MVP-1 — the Data Map tab shows a real

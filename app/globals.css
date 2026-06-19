@@ -340,4 +340,34 @@
   .react-flow__node.draggable.dragging {
     cursor: grabbing;
   }
+
+  /* BUILDER-CANVAS-CONNECTION-UX-AUDIT-1 — connection handle affordance. Handles
+     stay subtle by default (no canvas clutter); on node hover/selection they light
+     up with the accent ring so connect points are easy to discover and aim at. The
+     `.react-flow__handle.builder-handle` double-class beats React Flow's base
+     `.react-flow__handle` rule regardless of stylesheet order. Crosshair cursor makes
+     the connect affordance unmistakable (RF only sets it via `.connectionindicator`). */
+  .react-flow__handle.builder-handle {
+    width: 9px;
+    height: 9px;
+    border-radius: 9999px;
+    background: var(--builder-panel);
+    border: 1.5px solid var(--builder-border-strong);
+    cursor: crosshair;
+    transition:
+      box-shadow 0.12s ease,
+      border-color 0.12s ease,
+      background-color 0.12s ease;
+  }
+  .react-flow__node:hover .react-flow__handle.builder-handle,
+  .react-flow__node.selected .react-flow__handle.builder-handle {
+    border-color: var(--builder-accent);
+    box-shadow: 0 0 0 4px var(--builder-accent-soft);
+  }
+  /* While actively dragging a connection FROM a handle, keep it filled accent so the
+     source point reads as "live". RF adds `.connectingfrom` during the drag. */
+  .react-flow__handle.builder-handle.connectingfrom {
+    background: var(--builder-accent);
+    border-color: var(--builder-accent);
+  }
 }
