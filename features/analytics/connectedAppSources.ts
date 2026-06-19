@@ -192,7 +192,34 @@ const GMAIL: ConnectedAppSourceUi = {
   },
 };
 
-const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK, GOOGLE_CALENDAR, GMAIL];
+const STRIPE: ConnectedAppSourceUi = {
+  provider: "stripe",
+  displayName: "Stripe",
+  exposed: true,
+  icon: "Cube",
+  connectHref: "/apps",
+  connectTitle: "Connect your Stripe account",
+  connectHelp:
+    "This widget reads payment totals from your account's connected Stripe. Connect Stripe to see it.",
+  connectCtaLabel: "Connect Stripe",
+  // Stripe is an ACCOUNT-shared business account — every account member sees the
+  // same payment data (core/integrations/credentialSharing.ts → "account").
+  visibility: "account",
+  attributionPrefix: "Stripe account",
+  metricsByType: {
+    stat: [
+      { id: "successful_payment_count", label: "Successful payments", filters: [] },
+      { id: "gross_payment_volume", label: "Gross payment volume", filters: [] },
+      { id: "failed_payment_count", label: "Failed payments", filters: [] },
+    ],
+    ...seriesForBoth([
+      { id: "successful_payments_over_time", label: "Successful payments over time", filters: [] },
+      { id: "gross_volume_over_time", label: "Gross volume over time", filters: [] },
+    ]),
+  },
+};
+
+const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK, GOOGLE_CALENDAR, GMAIL, STRIPE];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */
 export function allConnectedAppSources(): readonly ConnectedAppSourceUi[] {

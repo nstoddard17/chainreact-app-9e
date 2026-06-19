@@ -35,7 +35,7 @@ describe("analytics source registry", () => {
     expect(isApprovedSourceMetric("internal", "arbitrary_method")).toBe(false);
     expect(isApprovedSourceMetric("github", "open_issues")).toBe(true);
     expect(isApprovedSourceMetric("github", "delete_repo")).toBe(false);
-    expect(isApprovedSourceMetric("stripe", "revenue")).toBe(false); // not registered yet
+    expect(isApprovedSourceMetric("stripe", "revenue")).toBe(false); // not an approved metric key
   });
 
   it("registers GitHub as a connected-app source (ANALYTICS-SOURCES-GITHUB-1)", () => {
@@ -80,6 +80,22 @@ describe("analytics source registry", () => {
     ]);
     expect(isApprovedSourceMetric("gmail", "unread_count")).toBe(true);
     expect(isApprovedSourceMetric("gmail", "read_message_bodies")).toBe(false);
+  });
+
+  it("registers Stripe as a connected-app source (ANALYTICS-SOURCES-STRIPE-1)", () => {
+    const stripe = getAnalyticsSource("stripe");
+    expect(stripe?.connectedApp).toBe(true);
+    expect(stripe?.metrics.map((m) => m.key).sort()).toEqual([
+      "failed_payment_count",
+      "gross_payment_volume",
+      "gross_volume_over_time",
+      "successful_payment_count",
+      "successful_payments_over_time",
+    ]);
+    expect(isApprovedSourceMetric("stripe", "gross_payment_volume")).toBe(true);
+    expect(isApprovedSourceMetric("stripe", "list_customers")).toBe(false);
+    // No filters on any Stripe metric (no arbitrary query surface).
+    for (const m of stripe!.metrics) expect(m.supportedFilters).toEqual([]);
   });
 
   it("lists approved sources with their metric catalog", () => {

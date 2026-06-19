@@ -37,11 +37,47 @@ describe("exposure gating", () => {
     expect(getExposedConnectedAppSource("gmail")?.displayName).toBe("Gmail");
   });
 
+  it("exposes Stripe", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("stripe");
+    expect(getExposedConnectedAppSource("stripe")?.displayName).toBe("Stripe");
+  });
+
   it("every descriptor declares a credential visibility matching its sharing model", () => {
     expect(getConnectedAppSource("slack")?.visibility).toBe("account");
     expect(getConnectedAppSource("github")?.visibility).toBe("personal");
     expect(getConnectedAppSource("google-calendar")?.visibility).toBe("personal");
     expect(getConnectedAppSource("gmail")?.visibility).toBe("personal");
+    // Stripe is a shared business account → account-wide visibility.
+    expect(getConnectedAppSource("stripe")?.visibility).toBe("account");
+  });
+});
+
+describe("Stripe metric/filter shape", () => {
+  const stripe = getExposedConnectedAppSource("stripe")!;
+
+  it("offers payment scalars for stat and series for line/bar, none for donut/table", () => {
+    expect(metricsForType(stripe, "stat").map((m) => m.id).sort()).toEqual([
+      "failed_payment_count",
+      "gross_payment_volume",
+      "successful_payment_count",
+    ]);
+    expect(metricsForType(stripe, "line").map((m) => m.id).sort()).toEqual([
+      "gross_volume_over_time",
+      "successful_payments_over_time",
+    ]);
+    expect(metricsForType(stripe, "bar").map((m) => m.id)).toEqual(
+      metricsForType(stripe, "line").map((m) => m.id),
+    );
+    expect(metricsForType(stripe, "donut")).toEqual([]);
+    expect(metricsForType(stripe, "table")).toEqual([]);
+  });
+
+  it("no Stripe metric takes a filter (date window is server-owned, no raw query)", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(stripe, type)) {
+        expect(m.filters).toEqual([]);
+      }
+    }
   });
 });
 

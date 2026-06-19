@@ -83,6 +83,15 @@ export interface ChargesListInput {
   startingAfter?: string;
   /** Backward pagination cursor — mutex with `startingAfter`. */
   endingBefore?: string;
+  /**
+   * Lower bound on `created` (inclusive, Unix seconds) → `created[gte]`.
+   * Added for the read-only Stripe analytics source
+   * (ANALYTICS-SOURCES-STRIPE-1) to scope a charge count/volume scan to a
+   * date window. Additive: existing callers omit it. Optional.
+   */
+  createdGte?: number;
+  /** Upper bound on `created` (inclusive, Unix seconds) → `created[lte]`. */
+  createdLte?: number;
 }
 
 export async function chargesList(
@@ -96,6 +105,12 @@ export async function chargesList(
   }
   if (input.endingBefore !== undefined) {
     query.set("ending_before", input.endingBefore);
+  }
+  if (input.createdGte !== undefined) {
+    query.set("created[gte]", String(input.createdGte));
+  }
+  if (input.createdLte !== undefined) {
+    query.set("created[lte]", String(input.createdLte));
   }
 
   return stripeRequest<StripeChargeListResponse>({
