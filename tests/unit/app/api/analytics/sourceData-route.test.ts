@@ -106,6 +106,20 @@ it("does not forward unknown query params as filters (allow-list only)", async (
   expect(call.filters).toEqual({ repo: "octocat/hello" });
 });
 
+it("forwards the calendar filter for provider=google-calendar (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/google-calendar/data?metric=meetings_over_time&range=30d&calendar=primary",
+    ),
+    { params: Promise.resolve({ provider: "google-calendar" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("google-calendar");
+  expect(call.filters).toEqual({ calendar: "primary" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

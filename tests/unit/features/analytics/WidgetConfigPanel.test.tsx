@@ -226,3 +226,60 @@ describe("WidgetConfigPanel — Slack channel + keyword", () => {
     expect(mockFetchOptions).not.toHaveBeenCalled();
   });
 });
+
+describe("WidgetConfigPanel — Google Calendar", () => {
+  it("offers Google Calendar for stat/line/bar but not donut", () => {
+    renderPanel(widget("stat", { source: "any", metric: "runs" }), {
+      slack: true,
+      "google-calendar": true,
+    });
+    expect(screen.getByRole("button", { name: "Google Calendar" })).toBeInTheDocument();
+  });
+
+  it("defaults the calendar to primary and saves immediately (no guessing, no options fetch)", () => {
+    const { onSave } = renderPanel(widget("stat", { source: "any", metric: "runs" }), {
+      slack: true,
+      "google-calendar": true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Google Calendar" }));
+
+    // Calendar pre-filled with "primary" → save enabled right away.
+    const cal = screen.getByLabelText("Google Calendar ID") as HTMLInputElement;
+    expect(cal.value).toBe("primary");
+    const saveBtn = screen.getByRole("button", { name: /save widget/i });
+    expect(saveBtn).not.toBeDisabled();
+    fireEvent.click(saveBtn);
+    expect(onSave).toHaveBeenCalledWith({
+      source: "any",
+      dataSource: {
+        kind: "connected_app",
+        provider: "google-calendar",
+        metricKey: "upcoming_meetings_count",
+        filters: { calendar: "primary" },
+      },
+    });
+    // No calendar-list options call — there's no list scope (manual id only).
+    expect(mockFetchOptions).not.toHaveBeenCalledWith("google-calendar:calendars");
+  });
+
+  it("manual calendar id override persists", () => {
+    const { onSave } = renderPanel(widget("line", { source: "any", metric: "runs_over_time" }), {
+      slack: true,
+      "google-calendar": true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Google Calendar" }));
+    fireEvent.change(screen.getByLabelText("Google Calendar ID"), {
+      target: { value: "team@group.calendar.google.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save widget/i }));
+    expect(onSave).toHaveBeenCalledWith({
+      source: "any",
+      dataSource: {
+        kind: "connected_app",
+        provider: "google-calendar",
+        metricKey: "meetings_over_time",
+        filters: { calendar: "team@group.calendar.google.com" },
+      },
+    });
+  });
+});

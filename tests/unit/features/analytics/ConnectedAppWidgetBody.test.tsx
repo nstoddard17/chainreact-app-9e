@@ -158,3 +158,70 @@ it("renders a Connect Slack CTA on MISSING_CREDENTIAL", async () => {
   expect(await screen.findByText(/Connect your Slack workspace/i)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /Connect Slack/i })).toHaveAttribute("href", "/apps");
 });
+
+// ── Google Calendar (personal) ───────────────────────────────────────────────
+const GCAL_WIDGET: AnalyticsWidget = {
+  id: "w3",
+  type: "stat",
+  size: "s",
+  title: "Upcoming meetings",
+  config: {
+    source: "any",
+    dataSource: {
+      kind: "connected_app",
+      provider: "google-calendar",
+      metricKey: "upcoming_meetings_count",
+      filters: { calendar: "primary" },
+    },
+  },
+};
+
+function gcalScalar(): NormalizedAnalyticsResult {
+  return {
+    shape: "scalar",
+    dimensions: [],
+    measures: ["upcoming_meetings_count"],
+    rows: [{ upcoming_meetings_count: 9 }],
+    totals: { upcoming_meetings_count: 9 },
+    generatedAt: "2026-06-19T00:00:00Z",
+    freshness: { cached: false, ageSeconds: 0, ttlSeconds: 600 },
+    warnings: [],
+    truncated: false,
+  };
+}
+
+it("renders a Google Calendar scalar with a personal 'Your Google Calendar' attribution", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: gcalScalar() });
+  render(<ConnectedAppWidgetBody widget={GCAL_WIDGET} range="7d" reloadKey={0} />);
+  expect(await screen.findByText("9")).toBeInTheDocument();
+  expect(screen.getByText("Your Google Calendar")).toBeInTheDocument();
+});
+
+it("forwards the calendar filter to the source query", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: gcalScalar() });
+  render(<ConnectedAppWidgetBody widget={GCAL_WIDGET} range="7d" reloadKey={0} />);
+  await screen.findByText("9");
+  expect(mockQuery).toHaveBeenCalledWith(
+    expect.objectContaining({ provider: "google-calendar", filters: { calendar: "primary" } }),
+  );
+});
+
+it("renders a Connect Google Calendar CTA on MISSING_CREDENTIAL (no other member's data)", async () => {
+  mockQuery.mockResolvedValue({ ok: false, code: "MISSING_CREDENTIAL", message: "connect" });
+  render(<ConnectedAppWidgetBody widget={GCAL_WIDGET} range="7d" reloadKey={0} />);
+  expect(await screen.findByText(/Connect your Google Calendar/i)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Connect Google Calendar/i })).toHaveAttribute("href", "/apps");
+});
+
+it("Google Calendar widget: manual Refresh bypasses cache", async () => {
+  mockQuery.mockResolvedValue({ ok: true, result: gcalScalar() });
+  const { rerender } = render(<ConnectedAppWidgetBody widget={GCAL_WIDGET} range="7d" reloadKey={0} />);
+  await screen.findByText("9");
+  expect(mockQuery.mock.calls[0]![0]).not.toHaveProperty("refresh", true);
+  rerender(<ConnectedAppWidgetBody widget={GCAL_WIDGET} range="7d" reloadKey={1} />);
+  await waitFor(() =>
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "google-calendar", refresh: true }),
+    ),
+  );
+});

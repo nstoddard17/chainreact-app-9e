@@ -21,6 +21,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/slack/index.ts",
   "services/analytics/sources/slack/api.ts",
   "services/analytics/sources/slack/buckets.ts",
+  "services/analytics/sources/google-calendar/index.ts",
+  "services/analytics/sources/google-calendar/api.ts",
+  "services/analytics/sources/google-calendar/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

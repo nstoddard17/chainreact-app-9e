@@ -27,9 +27,43 @@ describe("exposure gating", () => {
     expect(getExposedConnectedAppSource("slack")?.displayName).toBe("Slack");
   });
 
+  it("exposes Google Calendar", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("google-calendar");
+    expect(getExposedConnectedAppSource("google-calendar")?.displayName).toBe("Google Calendar");
+  });
+
   it("every descriptor declares a credential visibility matching its sharing model", () => {
     expect(getConnectedAppSource("slack")?.visibility).toBe("account");
     expect(getConnectedAppSource("github")?.visibility).toBe("personal");
+    expect(getConnectedAppSource("google-calendar")?.visibility).toBe("personal");
+  });
+});
+
+describe("Google Calendar metric/filter shape", () => {
+  const gcal = getExposedConnectedAppSource("google-calendar")!;
+
+  it("offers a scalar for stat, series for line/bar; busy_hours_by_day is bar-only", () => {
+    expect(metricsForType(gcal, "stat").map((m) => m.id)).toEqual(["upcoming_meetings_count"]);
+    expect(metricsForType(gcal, "line").map((m) => m.id).sort()).toEqual([
+      "meeting_hours_over_time",
+      "meetings_over_time",
+    ]);
+    expect(metricsForType(gcal, "bar").map((m) => m.id).sort()).toEqual([
+      "busy_hours_by_day",
+      "meeting_hours_over_time",
+      "meetings_over_time",
+    ]);
+    // busy_hours_by_day must NOT appear on a line widget.
+    expect(metricsForType(gcal, "line").map((m) => m.id)).not.toContain("busy_hours_by_day");
+    expect(metricsForType(gcal, "donut")).toEqual([]);
+  });
+
+  it("every Google Calendar metric takes a single gcal_calendar filter", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(gcal, type)) {
+        expect(m.filters).toEqual(["gcal_calendar"]);
+      }
+    }
   });
 });
 

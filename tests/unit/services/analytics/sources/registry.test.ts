@@ -56,6 +56,19 @@ describe("analytics source registry", () => {
     expect(isApprovedSourceMetric("slack", "read_all_dms")).toBe(false);
   });
 
+  it("registers Google Calendar as a connected-app source (ANALYTICS-SOURCES-GCAL-1)", () => {
+    const gcal = getAnalyticsSource("google-calendar");
+    expect(gcal?.connectedApp).toBe(true);
+    expect(gcal?.metrics.map((m) => m.key).sort()).toEqual([
+      "busy_hours_by_day",
+      "meeting_hours_over_time",
+      "meetings_over_time",
+      "upcoming_meetings_count",
+    ]);
+    expect(isApprovedSourceMetric("google-calendar", "meetings_over_time")).toBe(true);
+    expect(isApprovedSourceMetric("google-calendar", "list_attendees")).toBe(false);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

@@ -65,9 +65,14 @@ const SOURCE_SCOPED: ReadonlySet<AnalyticsMetric> = new Set<AnalyticsMetric>([
 const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
-function filterDataKey(kind: ConnectedAppFilterKind): "repo" | "channel" | "keyword" {
-  return kind === "slack_channel" ? "channel" : kind;
+function filterDataKey(kind: ConnectedAppFilterKind): "repo" | "channel" | "keyword" | "calendar" {
+  if (kind === "slack_channel") return "channel";
+  if (kind === "gcal_calendar") return "calendar";
+  return kind;
 }
+
+/** Google Calendar's safe default — the viewer's primary calendar (no list scope needed). */
+const DEFAULT_CALENDAR_ID = "primary";
 
 export function WidgetConfigPanel({
   widget,
@@ -121,6 +126,9 @@ export function WidgetConfigPanel({
   const [keyword, setKeyword] = useState<string>(
     typeof existingFilters.keyword === "string" ? existingFilters.keyword : "",
   );
+  const [calendar, setCalendar] = useState<string>(
+    typeof existingFilters.calendar === "string" ? existingFilters.calendar : DEFAULT_CALENDAR_ID,
+  );
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -135,6 +143,7 @@ export function WidgetConfigPanel({
   function filterValid(kind: ConnectedAppFilterKind): boolean {
     if (kind === "repo") return repoValid;
     if (kind === "slack_channel") return channel.trim().length > 0;
+    if (kind === "gcal_calendar") return calendar.trim().length > 0;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -148,6 +157,7 @@ export function WidgetConfigPanel({
         const key = filterDataKey(kind);
         if (kind === "repo") filters[key] = repo.trim();
         else if (kind === "slack_channel") filters[key] = channel.trim();
+        else if (kind === "gcal_calendar") filters[key] = calendar.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -244,6 +254,8 @@ export function WidgetConfigPanel({
                   keyword={keyword}
                   onKeyword={setKeyword}
                   keywordValid={keywordValid}
+                  calendar={calendar}
+                  onCalendar={setCalendar}
                 />
               ) : (
                 <InternalConfig

@@ -28,6 +28,8 @@ export function ConnectedAppConfig({
   keyword,
   onKeyword,
   keywordValid,
+  calendar,
+  onCalendar,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -43,6 +45,8 @@ export function ConnectedAppConfig({
   keyword: string;
   onKeyword: (v: string) => void;
   keywordValid: boolean;
+  calendar: string;
+  onCalendar: (v: string) => void;
 }) {
   return (
     <>
@@ -120,6 +124,10 @@ export function ConnectedAppConfig({
             </span>
           )}
         </section>
+      )}
+
+      {requiredFilters.includes("gcal_calendar") && (
+        <GcalCalendarField value={calendar} onChange={onCalendar} connected={connected} />
       )}
     </>
   );
@@ -330,6 +338,50 @@ function GithubRepoField({
       {value.length > 0 && !repoValid && (
         <span className="text-[11px] text-destructive">
           Enter a valid <span className="font-mono">owner/repo</span> (no spaces or extra text).
+        </span>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Google Calendar calendar field — a manual calendar-id input that DEFAULTS to
+ * the viewer's primary calendar, so there's no guessing for the common case.
+ *
+ * Deliberately NOT a dropdown: listing calendars needs the `calendar.readonly`
+ * (calendarList.list) scope, which we do not add silently. The granted
+ * `calendar.events` scope reads events on a known calendar id, so the safe v1 is
+ * "primary by default, type a calendar ID to target another" (often your email,
+ * or a shared calendar's address). Server-side validation stays authoritative.
+ */
+function GcalCalendarField({
+  value,
+  onChange,
+  connected,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  connected: boolean;
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionHeading icon="Clock" label="Calendar" />
+      <p className="text-xs text-muted-foreground">
+        Defaults to your <span className="font-mono">primary</span> calendar. Enter a calendar ID
+        (often your email, or a shared calendar&apos;s address) to target another.
+      </p>
+      <input
+        className="w-full rounded-lg border border-border bg-muted px-3 py-2 font-mono text-[13px] text-foreground outline-none focus:border-primary"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="primary"
+        aria-label="Google Calendar ID"
+        spellCheck={false}
+        autoComplete="off"
+      />
+      {!connected && (
+        <span className="text-[11px] text-muted-foreground">
+          Connect Google Calendar to load this widget&apos;s data.
         </span>
       )}
     </section>

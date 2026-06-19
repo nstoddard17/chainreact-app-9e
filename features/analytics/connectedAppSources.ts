@@ -23,7 +23,7 @@ import type { AnalyticsWidgetType } from "@/contracts/analytics";
  */
 
 /** A filter input the config panel renders for a connected-app metric. */
-export type ConnectedAppFilterKind = "repo" | "slack_channel" | "keyword";
+export type ConnectedAppFilterKind = "repo" | "slack_channel" | "keyword" | "gcal_calendar";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -134,7 +134,35 @@ const SLACK: ConnectedAppSourceUi = {
   },
 };
 
-const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK];
+const GOOGLE_CALENDAR: ConnectedAppSourceUi = {
+  provider: "google-calendar",
+  displayName: "Google Calendar",
+  exposed: true,
+  icon: "Clock",
+  connectHref: "/apps",
+  connectTitle: "Connect your Google Calendar",
+  connectHelp:
+    "This widget uses your own Google Calendar connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Google Calendar",
+  // Personal credential — each viewer sees THEIR OWN calendar data, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Google Calendar",
+  metricsByType: {
+    stat: [{ id: "upcoming_meetings_count", label: "Upcoming meetings", filters: ["gcal_calendar"] }],
+    line: [
+      { id: "meetings_over_time", label: "Meetings over time", filters: ["gcal_calendar"] },
+      { id: "meeting_hours_over_time", label: "Meeting hours over time", filters: ["gcal_calendar"] },
+    ],
+    bar: [
+      { id: "meetings_over_time", label: "Meetings over time", filters: ["gcal_calendar"] },
+      { id: "meeting_hours_over_time", label: "Meeting hours over time", filters: ["gcal_calendar"] },
+      { id: "busy_hours_by_day", label: "Busy hours by weekday", filters: ["gcal_calendar"] },
+    ],
+  },
+};
+
+const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK, GOOGLE_CALENDAR];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */
 export function allConnectedAppSources(): readonly ConnectedAppSourceUi[] {
