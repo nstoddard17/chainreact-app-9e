@@ -107,17 +107,22 @@
 
 ## Recently completed arcs
 
-- **Builder canvas UX: drag + config-open focus — LOCAL/UNPUSHED (2026-06-19)** — two client-only
-  canvas fixes. (1) Live node drag: `WorkflowCanvas` ran controlled React Flow with no `onNodesChange`,
-  so nodes only moved at drag-stop; now local `rfNodes` + `applyNodeChanges` move the node live while
-  the graph slice is written **only** at `onNodeDragStop` (no per-mousemove slice/readiness/AI/autosave/
-  server work) — plus grab/grabbing cursor. (2) Config-open focus: opening a node's config bumps the
-  existing canvas-focus signal in a new `"config"` mode → `useCanvasNodeFocus` `setCenter` gentle zoom
-  1.2 / 300ms / left offset (~220/zoom) so the right rail doesn't cover the node; no re-pan on the same
-  node, re-pans on a different node; reveal/"Go to field" stays centered/1.75. No migration, flag,
-  backend, or RLS change. Verified this session: focus+drag suites 11 passed. Reported by impl session
-  (not re-run): canvas+builder 154, focus+drag+canvas 31, full workflow-builder 1972, typecheck 0,
-  eslint 0, lint:structure OK, manual builder OK. Commits `192826625` + `fde9b1110` LOCAL/UNPUSHED →
+- **Builder canvas UX: drag + config-open focus + connection UX — LOCAL/UNPUSHED (2026-06-19)** — three
+  client-only canvas fixes. (1) Live node drag: `WorkflowCanvas` ran controlled React Flow with no
+  `onNodesChange`, so nodes only moved at drag-stop; now local `rfNodes` + `applyNodeChanges` move the
+  node live while the graph slice is written **only** at `onNodeDragStop` (no per-mousemove slice/
+  readiness/AI/autosave/server work) — plus grab/grabbing cursor. (2) Config-open focus: opening a
+  node's config bumps the existing canvas-focus signal in a new `"config"` mode → `useCanvasNodeFocus`
+  `setCenter` gentle zoom 1.2 / 300ms / left offset (~220/zoom) so the right rail doesn't cover the
+  node; no re-pan on same node, re-pans on a different node; reveal/"Go to field" stays centered/1.75.
+  (3) Connection UX (`784fe89d9`): empty-catch on `connectNodes` made invalid connects fail silently;
+  now `.builder-handle` styling + hover/selected accent ring + crosshair cursor, and self-loop/duplicate
+  rejections surface the `connectNodes` message via a transient `role="status"` `ConnectionHintBanner`
+  (no toast lib added; hint is local state). Valid connects + edge semantics + trigger topology
+  unchanged. No migration, flag, backend, or RLS change. Verified (connection slice): connect+drag+
+  focus+node-card 36, +graphSlice 121, full canvas 115, eslint 0, lint:structure OK; typecheck error is
+  unrelated `monday/api.ts` parallel WIP. Marcus manually confirmed connection UX ("feels super smooth").
+  Commits `192826625` + `fde9b1110` + `784fe89d9` LOCAL/UNPUSHED →
   [`builder-canvas-ux-closeout.md`](./slices/phase-4/workflows/builder-canvas-ux-closeout.md).
 - **Selected-node Q&A focus label — LOCAL/UNPUSHED (2026-06-19)** — a diagnostic question asked
   with a step open now renders a subtle **"Focused on: <safe label>"** line in the read-only
