@@ -758,4 +758,15 @@ describe("options resolver registry", () => {
     expect("-slack:channels").not.toMatch(OPTIONS_SOURCE_KEY_REGEX);
     expect("slack:").not.toMatch(OPTIONS_SOURCE_KEY_REGEX);
   });
+
+  describe("GitHub resolver (Slice ANALYTICS-SOURCES-GITHUB-UI-3)", () => {
+    it("getOptionsResolver resolves github:repos (account-less personal, no deps)", () => {
+      const r = getOptionsResolver("github:repos");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("github:repos");
+      expect(r?.provider).toBe("github");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+  });
 });

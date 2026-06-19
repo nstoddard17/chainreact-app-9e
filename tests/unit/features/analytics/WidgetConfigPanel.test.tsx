@@ -6,12 +6,22 @@ import { fetchOptionsSource } from "@/lib/api/options";
 import type { AnalyticsWidget } from "@/contracts/analytics";
 
 /**
- * Config panel data-source selection (Slice ANALYTICS-SOURCES-SLACK-UI-1):
- * Slack offered for compatible widget types, GitHub NOT offered (held back),
- * channel picker + conditional keyword input, internal path unchanged.
+ * Config panel data-source selection (Slice ANALYTICS-SOURCES-SLACK-UI-1;
+ * GitHub re-exposed in ...-GITHUB-UI-2; GitHub repo picker in ...-GITHUB-UI-3):
+ * Slack + GitHub offered for compatible widget types, Slack channel picker +
+ * keyword input, GitHub repo combobox + manual fallback, internal unchanged.
  */
 
 const mockFetchOptions = fetchOptionsSource as jest.MockedFunction<typeof fetchOptionsSource>;
+
+const GITHUB_REPOS = [
+  { value: "octocat/hello-world", label: "octocat/hello-world" },
+  { value: "octocat/spoon-knife", label: "octocat/spoon-knife", description: "Private" },
+];
+const SLACK_CHANNELS = [
+  { value: "C012AB3CD", label: "#general" },
+  { value: "C0987ZYXW", label: "#random" },
+];
 
 function widget(type: AnalyticsWidget["type"], config: AnalyticsWidget["config"]): AnalyticsWidget {
   return { id: "w1", type, size: "s", title: "Widget", config };
@@ -34,15 +44,14 @@ function renderPanel(w: AnalyticsWidget, connectedProviders: Record<string, bool
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockFetchOptions.mockResolvedValue({
-    ok: true,
-    source: "slack:channels",
-    items: [
-      { value: "C012AB3CD", label: "#general" },
-      { value: "C0987ZYXW", label: "#random" },
-    ],
-    hasMore: false,
-  });
+  mockFetchOptions.mockImplementation((source: string) =>
+    Promise.resolve({
+      ok: true,
+      source,
+      items: source === "github:repos" ? GITHUB_REPOS : SLACK_CHANNELS,
+      hasMore: false,
+    }),
+  );
 });
 
 describe("WidgetConfigPanel — connected-app exposure", () => {
@@ -72,7 +81,7 @@ describe("WidgetConfigPanel — connected-app exposure", () => {
 });
 
 describe("WidgetConfigPanel — GitHub repo", () => {
-  it("validates owner/repo and saves a connected_app github config (no Slack channel fetch)", () => {
+  it("manual owner/repo entry: validates + saves the github connected_app config", () => {
     const { onSave } = renderPanel(widget("stat", { source: "any", metric: "runs" }), {
       slack: true,
       github: true,
@@ -88,9 +97,63 @@ describe("WidgetConfigPanel — GitHub repo", () => {
     expect(saveBtn).toBeDisabled();
     expect(screen.getByText(/valid/i)).toBeInTheDocument();
 
-    fireEvent.change(repo, { target: { value: "octocat/hello" } });
+    // Manual entry of a repo NOT in the picker still works (fallback path).
+    fireEvent.change(repo, { target: { value: "myorg/private-thing" } });
     expect(saveBtn).not.toBeDisabled();
     fireEvent.click(saveBtn);
+    expect(onSave).toHaveBeenCalledWith({
+      source: "any",
+      dataSource: {
+        kind: "connected_app",
+        provider: "github",
+        metricKey: "open_issues",
+        filters: { repo: "myorg/private-thing" },
+      },
+    });
+    // GitHub config fetches the repo picker — NOT the Slack channel source.
+    expect(mockFetchOptions).toHaveBeenCalledWith("github:repos");
+    expect(mockFetchOptions).not.toHaveBeenCalledWith("slack:channels");
+  });
+
+  it("picker: selecting a fetched repo fills owner/repo and saves it", async () => {
+    const { onSave } = renderPanel(widget("line", { source: "any", metric: "runs_over_time" }), {
+      slack: true,
+      github: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
+
+    const repo = screen.getByLabelText("GitHub repository");
+    fireEvent.focus(repo);
+    // Suggestion appears from the github:repos fetch; pick it (mousedown — fires before blur).
+    const option = await screen.findByText("octocat/hello-world");
+    fireEvent.mouseDown(option);
+
+    expect((repo as HTMLInputElement).value).toBe("octocat/hello-world");
+    fireEvent.click(screen.getByRole("button", { name: /save widget/i }));
+    expect(onSave).toHaveBeenCalledWith({
+      source: "any",
+      dataSource: {
+        kind: "connected_app",
+        provider: "github",
+        metricKey: "issues_opened",
+        filters: { repo: "octocat/hello-world" },
+      },
+    });
+  });
+
+  it("shows a Connect note + no repo fetch when GitHub isn't connected (manual entry still works)", () => {
+    const { onSave } = renderPanel(widget("stat", { source: "any", metric: "runs" }), {
+      slack: true,
+      github: false,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
+    expect(screen.getByText(/your own connection/i)).toBeInTheDocument();
+    // Disconnected → no repo picker fetch, but manual owner/repo still saves.
+    expect(mockFetchOptions).not.toHaveBeenCalledWith("github:repos");
+    fireEvent.change(screen.getByLabelText("GitHub repository"), {
+      target: { value: "octocat/hello" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save widget/i }));
     expect(onSave).toHaveBeenCalledWith({
       source: "any",
       dataSource: {
@@ -100,17 +163,6 @@ describe("WidgetConfigPanel — GitHub repo", () => {
         filters: { repo: "octocat/hello" },
       },
     });
-    // GitHub config must not trigger the Slack channel options fetch.
-    expect(mockFetchOptions).not.toHaveBeenCalled();
-  });
-
-  it("shows a Connect note when GitHub isn't connected (viewer's own connection)", () => {
-    renderPanel(widget("stat", { source: "any", metric: "runs" }), {
-      slack: true,
-      github: false,
-    });
-    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
-    expect(screen.getByText(/your own connection/i)).toBeInTheDocument();
   });
 });
 

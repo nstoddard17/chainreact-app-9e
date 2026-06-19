@@ -90,28 +90,7 @@ export function ConnectedAppConfig({
       </section>
 
       {requiredFilters.includes("repo") && (
-        <section className="flex flex-col gap-2">
-          <SectionHeading icon="Layers" label="Repository" />
-          <p className="text-xs text-muted-foreground">
-            One repository as <span className="font-mono">owner/repo</span>.
-          </p>
-          <input
-            className={
-              "w-full rounded-lg border bg-muted px-3 py-2 font-mono text-[13px] text-foreground outline-none focus:border-primary " +
-              (repo.length > 0 && !repoValid ? "border-destructive" : "border-border")
-            }
-            value={repo}
-            onChange={(e) => onRepo(e.target.value)}
-            placeholder="octocat/hello-world"
-            aria-label="GitHub repository"
-            spellCheck={false}
-          />
-          {repo.length > 0 && !repoValid && (
-            <span className="text-[11px] text-destructive">
-              Enter a valid <span className="font-mono">owner/repo</span> (no spaces or extra text).
-            </span>
-          )}
-        </section>
+        <GithubRepoField value={repo} onChange={onRepo} repoValid={repoValid} connected={connected} />
       )}
 
       {requiredFilters.includes("slack_channel") && (
@@ -220,6 +199,138 @@ function SlackChannelField({
             </option>
           ))}
         </select>
+      )}
+    </section>
+  );
+}
+
+/**
+ * GitHub repository field — a searchable combobox over the viewer's own repos
+ * (`github:repos` options source) WITH a free-text `owner/repo` fallback.
+ *
+ * The single input's value IS the stored `owner/repo`: typing both filters the
+ * fetched repo list AND serves as manual entry, so a repo that isn't in the
+ * (bounded) picker — an org repo beyond the cap, or one a viewer can reach but the
+ * author can't — is still reachable by typing it. Selecting a suggestion fills the
+ * full `owner/repo`. Client-side validation stays a UX hint; the server remains
+ * authoritative. The picker lists the EDITOR's repos only; no repo payload is
+ * stored, only the chosen/typed `owner/repo`.
+ */
+function GithubRepoField({
+  value,
+  onChange,
+  repoValid,
+  connected,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  repoValid: boolean;
+  connected: boolean;
+}) {
+  type LoadState =
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "ok"; items: readonly OptionItem[]; hasMore: boolean }
+    | { status: "error" };
+  const [load, setLoad] = useState<LoadState>({ status: "idle" });
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!connected) {
+      setLoad({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setLoad({ status: "loading" });
+    fetchOptionsSource("github:repos")
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) setLoad({ status: "ok", items: res.items, hasMore: res.hasMore });
+        else setLoad({ status: "error" });
+      })
+      .catch(() => {
+        if (!cancelled) setLoad({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected]);
+
+  const allItems = load.status === "ok" ? load.items : [];
+  const lower = value.trim().toLowerCase();
+  const suggestions = (
+    lower.length === 0
+      ? allItems
+      : allItems.filter((i) => i.label.toLowerCase().includes(lower) && i.label.toLowerCase() !== lower)
+  ).slice(0, 8);
+
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionHeading icon="Layers" label="Repository" />
+      <p className="text-xs text-muted-foreground">
+        Pick from your repos or type <span className="font-mono">owner/repo</span>.
+      </p>
+      <div className="relative">
+        <input
+          className={
+            "w-full rounded-lg border bg-muted px-3 py-2 font-mono text-[13px] text-foreground outline-none focus:border-primary " +
+            (value.length > 0 && !repoValid ? "border-destructive" : "border-border")
+          }
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+          placeholder="octocat/hello-world"
+          aria-label="GitHub repository"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        {open && connected && suggestions.length > 0 && (
+          <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-border bg-card shadow-lg">
+            {suggestions.map((item) => (
+              <li key={item.value}>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-[12.5px] text-foreground hover:bg-muted"
+                  // onMouseDown (not onClick) so the value is set before the input's onBlur fires.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange(item.value);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="truncate font-mono">{item.label}</span>
+                  {item.description && (
+                    <span className="flex-shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {item.description}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {connected && load.status === "loading" && (
+        <span className="text-[11px] text-muted-foreground">Loading your repos…</span>
+      )}
+      {connected && load.status === "error" && (
+        <span className="text-[11px] text-muted-foreground">
+          Couldn't load your repos — type <span className="font-mono">owner/repo</span> instead.
+        </span>
+      )}
+      {connected && load.status === "ok" && load.hasMore && (
+        <span className="text-[11px] text-muted-foreground">
+          Showing your most recent repos. Type the full <span className="font-mono">owner/repo</span> if yours isn't listed.
+        </span>
+      )}
+      {value.length > 0 && !repoValid && (
+        <span className="text-[11px] text-destructive">
+          Enter a valid <span className="font-mono">owner/repo</span> (no spaces or extra text).
+        </span>
       )}
     </section>
   );

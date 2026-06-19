@@ -103,6 +103,79 @@ export async function userReposCreate(
   });
 }
 
+// ─── userReposList ──────────────────────────────────────────────────────────
+
+/** One page is 100 (GitHub's max per_page). */
+export const REPOS_PAGE_SIZE = 100;
+/** Hard cap on pages so a user with thousands of repos can't make this unbounded. */
+export const REPOS_MAX_PAGES = 5;
+/** Absolute ceiling on repos listed (500). Beyond this, callers fall back to manual entry. */
+export const REPOS_MAX = REPOS_PAGE_SIZE * REPOS_MAX_PAGES;
+
+/** Normalized repo option — only the fields a picker needs; no raw payload. */
+export interface UserRepoOption {
+  /** `owner/repo` — the value a widget stores + the analytics adapter validates. */
+  fullName: string;
+  private: boolean;
+}
+
+export interface UserReposListResult {
+  repos: UserRepoOption[];
+  /** True when the user has more repos than the page cap returned. */
+  truncated: boolean;
+}
+
+export interface UserReposListInput {
+  accessToken: string;
+}
+
+/**
+ * List the authenticated user's accessible repositories, normalized to
+ * `{ fullName, private }`. READ-ONLY (`GET /user/repos`), sorted by most-recently
+ * updated, across owned + collaborator + org-member affiliations — using only the
+ * already-granted `repo` scope (no new scope). BOUNDED: at most
+ * {@link REPOS_MAX_PAGES} pages of {@link REPOS_PAGE_SIZE}; if the user has more,
+ * `truncated: true` and callers keep the manual `owner/repo` entry path. Raw repo
+ * payloads / tokens never escape — only `fullName` + a private flag.
+ */
+export async function userReposList(
+  input: UserReposListInput,
+): Promise<UserReposListResult> {
+  const repos: UserRepoOption[] = [];
+  let truncated = false;
+
+  for (let page = 1; page <= REPOS_MAX_PAGES; page++) {
+    const query = new URLSearchParams({
+      per_page: String(REPOS_PAGE_SIZE),
+      page: String(page),
+      sort: "updated",
+      affiliation: "owner,collaborator,organization_member",
+    });
+    const batch = await githubRequest<GitHubRepository[]>({
+      accessToken: input.accessToken,
+      method: "GET",
+      path: "/user/repos",
+      query,
+      resourceForNotFound: "your GitHub repositories",
+    });
+
+    for (const r of batch) {
+      if (r && typeof r.full_name === "string" && r.full_name.length > 0) {
+        repos.push({ fullName: r.full_name, private: Boolean(r.private) });
+      }
+    }
+
+    if (batch.length < REPOS_PAGE_SIZE) {
+      return { repos, truncated }; // last page reached
+    }
+    if (page === REPOS_MAX_PAGES) {
+      truncated = true; // a full page at the cap → more repos exist
+    }
+  }
+
+  return { repos, truncated };
+}
+
 // ─── gitRefGet ──────────────────────────────────────────────────────────────
 
 export interface GitRefGetInput {

@@ -9,10 +9,14 @@
  *   - gitRefsCreate (`create_branch` ref creation)
  */
 import {
+  REPOS_MAX,
+  REPOS_MAX_PAGES,
+  REPOS_PAGE_SIZE,
   gitRefGet,
   gitRefsCreate,
   reposGet,
   userReposCreate,
+  userReposList,
 } from "@/integrations/_shared/github/api/repos";
 
 afterEach(() => {
@@ -234,5 +238,79 @@ describe("gitRefsCreate", () => {
     const body = JSON.parse(spy.mock.calls[0]![1]!.body as string);
     expect(body.ref).toBe("refs/heads/feature/x");
     expect(body.ref).not.toContain("%2F");
+  });
+});
+
+// ─── userReposList (Slice ANALYTICS-SOURCES-GITHUB-UI-3) ─────────────────────
+
+function mockPages(pages: unknown[][]) {
+  const spy = jest.spyOn(globalThis, "fetch");
+  for (const page of pages) {
+    spy.mockResolvedValueOnce(new Response(JSON.stringify(page), { status: 200 }));
+  }
+  return spy;
+}
+
+const fullPage = () =>
+  Array.from({ length: REPOS_PAGE_SIZE }, (_, i) => ({
+    full_name: `o/r-${Math.random().toString(36).slice(2)}-${i}`,
+    private: false,
+  }));
+
+describe("userReposList", () => {
+  it("lists a single short page, normalized to {fullName, private}; not truncated", async () => {
+    const spy = mockPages([
+      [
+        { full_name: "octocat/alpha", private: false },
+        { full_name: "octocat/beta", private: true },
+      ],
+    ]);
+    const res = await userReposList({ accessToken: "tok" });
+    expect(res.repos).toEqual([
+      { fullName: "octocat/alpha", private: false },
+      { fullName: "octocat/beta", private: true },
+    ]);
+    expect(res.truncated).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // Read-only GET /user/repos with the safe bounded params.
+    const url = spy.mock.calls[0]![0] as string;
+    expect(url).toContain("/user/repos");
+    expect(url).toContain("per_page=100");
+    expect(url).toContain("page=1");
+    expect(url).toContain("sort=updated");
+    expect(url).toContain("affiliation=owner%2Ccollaborator%2Corganization_member");
+    expect(spy.mock.calls[0]![1]!.method).toBe("GET");
+  });
+
+  it("drops malformed entries (missing/empty/non-string full_name)", async () => {
+    mockPages([
+      [
+        { full_name: "octocat/kept" },
+        { full_name: "" },
+        { name: "no-full-name" },
+        { full_name: 123 },
+        null,
+      ],
+    ]);
+    const res = await userReposList({ accessToken: "tok" });
+    expect(res.repos).toEqual([{ fullName: "octocat/kept", private: false }]);
+  });
+
+  it("stops at the first short page (no extra requests)", async () => {
+    const spy = mockPages([fullPage(), [{ full_name: "octocat/last", private: false }]]);
+    const res = await userReposList({ accessToken: "tok" });
+    expect(res.repos).toHaveLength(REPOS_PAGE_SIZE + 1);
+    expect(res.truncated).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("caps at REPOS_MAX_PAGES and reports truncated when every page is full", async () => {
+    const spy = mockPages(Array.from({ length: REPOS_MAX_PAGES }, fullPage));
+    const res = await userReposList({ accessToken: "tok" });
+    expect(res.repos).toHaveLength(REPOS_MAX);
+    expect(res.truncated).toBe(true);
+    // Never exceeds the hard page cap, even though more repos exist.
+    expect(spy).toHaveBeenCalledTimes(REPOS_MAX_PAGES);
   });
 });

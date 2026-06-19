@@ -372,6 +372,16 @@ import { microsoftOneDriveItemsResolver } from "@/integrations/microsoft-onedriv
 import { microsoftTeamsTeamsResolver } from "@/integrations/microsoft-teams/options/teams";
 import { microsoftTeamsChannelsResolver } from "@/integrations/microsoft-teams/options/channels";
 
+// GitHub resolver — Slice ANALYTICS-SOURCES-GITHUB-UI-3.
+//   - `github:repos` — the editor's own accessible repositories, backing the
+//     searchable repo picker in the Analytics GitHub widget config (and any
+//     future GitHub `owner/repo` field). Read-only `GET /user/repos`, bounded
+//     (≤500), using the already-granted `repo` scope (no reconnect). GitHub is
+//     personal + non-refreshable → decrypt-direct auth (Slack/Trello pattern);
+//     lists the EDITOR's repos only (no co-member exposure). A free-text
+//     `owner/repo` fallback in the UI keeps repos beyond the cap reachable.
+import { githubReposResolver } from "@/integrations/github/options/repos";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -523,6 +533,11 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // deferred. Teams stays OUT of COVERED_PROVIDERS until TEAMS-META-3.
   microsoftTeamsTeamsResolver,
   microsoftTeamsChannelsResolver,
+  // Slice ANALYTICS-SOURCES-GITHUB-UI-3 — `github:repos` repository picker for
+  // the Analytics GitHub widget config. Read-only, bounded, decrypt-direct
+  // (non-refreshable), editor's-own-repos-only. UI keeps a manual owner/repo
+  // fallback for repos beyond the cap.
+  githubReposResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this
