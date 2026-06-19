@@ -330,4 +330,14 @@
     background-size: 18px 18px, 90px 90px;
     background-position: 0 0, 9px 9px;
   }
+  /* BUILDER-CANVAS-NODE-DRAG-UX-AUDIT-1 — clear grab affordance on a draggable node,
+     and a grabbing cursor while a drag is active (React Flow adds `.dragging` to the
+     node wrapper during a drag). Interactive children keep their own cursors:
+     connection handles and node buttons set pointer/crosshair locally, which wins. */
+  .react-flow__node.draggable {
+    cursor: grab;
+  }
+  .react-flow__node.draggable.dragging {
+    cursor: grabbing;
+  }
 }

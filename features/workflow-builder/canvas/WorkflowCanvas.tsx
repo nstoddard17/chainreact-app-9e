@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  applyNodeChanges,
   Background,
   BackgroundVariant,
   ControlButton,
@@ -14,6 +15,7 @@ import {
   type Node as FlowNode,
   type NodeMouseHandler,
   type OnNodeDrag,
+  type OnNodesChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -247,6 +249,25 @@ function WorkflowCanvasInner({
     [pendingEdges, onEdgePlusClick],
   );
 
+  // BUILDER-CANVAS-NODE-DRAG-UX-AUDIT-1 — React Flow must be a CONTROLLED flow with an
+  // `onNodesChange` handler for drag/measurement changes to apply live. Previously
+  // `nodes` was bound straight to the slice-derived `flowNodes` with no `onNodesChange`,
+  // so RF could not move a node during a drag — the node only jumped to its final spot
+  // when `onNodeDragStop` wrote `pendingNodes`. We now hold RF's working node array in
+  // local state, apply RF's own changes to it on every pointer move (live movement), and
+  // re-sync from `flowNodes` whenever the slice changes (add / remove / rename / config /
+  // selection / the resolved drag-stop position). The graph slice stays the source of
+  // truth and is written ONLY at `onNodeDragStop` — so a drag never triggers slice
+  // subscribers (readiness, AI, autosave) per mousemove; it just re-renders the canvas.
+  const [rfNodes, setRfNodes] = useState<FlowNode<WorkflowNodeData>[]>(flowNodes);
+  useEffect(() => {
+    setRfNodes(flowNodes);
+  }, [flowNodes]);
+  const onNodesChange = useCallback<OnNodesChange<FlowNode<WorkflowNodeData>>>(
+    (changes) => setRfNodes((current) => applyNodeChanges(changes, current)),
+    [],
+  );
+
   const handleNodeClick = useCallback<NodeMouseHandler>(
     (_event, node) => {
       const wfNode = pendingNodes.find((n) => n.id === node.id);
@@ -328,11 +349,12 @@ function WorkflowCanvasInner({
         {activeTab === "builder" ? (
           <>
         <ReactFlow
-          nodes={flowNodes}
+          nodes={rfNodes}
           edges={flowEdges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           onNodeClick={handleNodeClick}
+          onNodesChange={onNodesChange}
           onNodeDragStop={handleNodeDragStop}
           onConnect={handleConnect}
           onBeforeDelete={handleBeforeDelete}
