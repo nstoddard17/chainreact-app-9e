@@ -41,6 +41,18 @@ describe("shipped action-smoke fixtures", () => {
     }
   });
 
+  it("a destructive fixture is NEVER liveSafe (it must not be runnable in live mode)", () => {
+    for (const fixture of ALL_SMOKE_FIXTURES) {
+      const isDestructive =
+        fixture.risk === "destructive" ||
+        fixture.liveRisk === "destructive" ||
+        classifyObviouslyDestructive(fixture.action);
+      if (isDestructive) {
+        expect(fixture.liveSafe === true).toBe(false);
+      }
+    }
+  });
+
   it("no two fixtures collide on the same (provider, action) key", () => {
     const seen = new Set<string>();
     for (const f of ALL_SMOKE_FIXTURES) {

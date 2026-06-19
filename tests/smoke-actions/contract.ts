@@ -44,17 +44,55 @@ export interface ActionSmokeFixture {
    */
   readonly requiredEnv?: readonly string[];
   /**
+   * Maps a config FIELD to an ENV VAR NAME. At run time the harness overlays the
+   * env value onto `config[field]` (so a real channel id / base id comes from env,
+   * never a hardcoded literal). Each mapped env var should also appear in
+   * `requiredEnv` so a missing one SKIPs before any workflow is created.
+   */
+  readonly configFromEnv?: Readonly<Record<string, string>>;
+  /**
    * Opt-in marker: may this fixture run in LIVE-connected workflow mode (real
    * provider call, not engine test mode)? Only `liveSafe: true` fixtures run when
    * the harness is in workflow-live mode — everything else SKIPs. Reserve this for
-   * read-only or extremely low-risk actions against a throwaway smoke resource.
-   * Absent / false → never runs live. Independent of `risk` (a destructive
-   * fixture is still blocked by the destructive double-opt-in even if liveSafe).
+   * read-only or low-risk actions against a throwaway smoke resource. Absent /
+   * false → never runs live. A destructive action must NEVER be liveSafe.
    */
   readonly liveSafe?: boolean;
+  /**
+   * Live-mode risk classification, gating which env opt-ins live mode requires:
+   *   - "read"        — runs with ALLOW_LIVE_PROVIDER_SMOKE.
+   *   - "write"       — also needs ALLOW_LIVE_PROVIDER_WRITE_SMOKE.
+   *   - "destructive" — needs the destructive double-opt-in (includeDestructive +
+   *                     ALLOW_DESTRUCTIVE_PROVIDER_SMOKE).
+   * Defaults to `risk` when omitted (fail-safe: a write fixture can't be treated
+   * as a read by forgetting to set it).
+   */
+  readonly liveRisk?: ActionRisk;
   readonly expect: ActionSmokeExpectation;
   /** Optional free-text note for the runbook / report context. */
   readonly notes?: string;
+}
+
+/** Live-mode risk for gating: explicit `liveRisk`, else fall back to `risk`. */
+export function effectiveLiveRisk(fixture: ActionSmokeFixture): ActionRisk {
+  return fixture.liveRisk ?? fixture.risk;
+}
+
+/**
+ * Effective config = the fixture config with `configFromEnv` env values overlaid.
+ * Only overlays present, non-empty env values; missing ones are expected to be
+ * caught by the `requiredEnv` SKIP. Pure.
+ */
+export function resolveFixtureConfig(
+  fixture: ActionSmokeFixture,
+  envLookup: (name: string) => string | undefined,
+): Readonly<Record<string, unknown>> {
+  const overlay: Record<string, unknown> = {};
+  for (const [field, envName] of Object.entries(fixture.configFromEnv ?? {})) {
+    const v = envLookup(envName);
+    if (v !== undefined && v !== "") overlay[field] = v;
+  }
+  return { ...fixture.config, ...overlay };
 }
 
 /** Identity helper that pins the fixture type at authoring time. */

@@ -37,7 +37,7 @@ import {
   type SmokeResult,
 } from "@/scripts/chainreact/smoke/core";
 import type { ActionSmokeFixture } from "./contract";
-import { fixtureKey } from "./contract";
+import { effectiveLiveRisk, fixtureKey, resolveFixtureConfig } from "./contract";
 
 export const SMOKE_TRIGGER_NODE_ID = "smoke-trigger";
 export const SMOKE_ACTION_NODE_ID = "smoke-action";
@@ -58,6 +58,7 @@ export interface SmokeManualRunWorkflow {
  */
 export function buildSmokeManualRunDefinition(
   fixture: ActionSmokeFixture,
+  configOverride?: Readonly<Record<string, unknown>>,
 ): SmokeManualRunWorkflow {
   const definition = WorkflowDefinitionSchema.parse({
     nodes: [
@@ -74,7 +75,7 @@ export function buildSmokeManualRunDefinition(
         kind: "action",
         provider: fixture.provider,
         type: fixture.action,
-        config: fixture.config,
+        config: configOverride ?? fixture.config,
         position: { x: 0, y: 160 },
       },
     ],
@@ -135,6 +136,12 @@ export interface RunFixtureWorkflowOptions {
    * (testModeGate blocks destructive handlers there regardless).
    */
   readonly allowDestructive?: boolean;
+  /**
+   * Enables LIVE `write` fixtures (mirrors `ALLOW_LIVE_PROVIDER_WRITE_SMOKE`). A
+   * live fixture classified `write` runs ONLY when this is true. Ignored in test
+   * mode. Default false.
+   */
+  readonly allowWrite?: boolean;
   /** How many times to re-read the run before giving up on a terminal state. */
   readonly terminalReadAttempts?: number;
 }
@@ -157,11 +164,13 @@ export async function runFixtureWorkflowMode(
   envLookup: (name: string) => string | undefined = (n) => process.env[n],
 ): Promise<SmokeResult> {
   const live = options.live === true;
+  const liveRisk = effectiveLiveRisk(fixture);
   const providerBoundary: ProviderBoundary = live ? "live" : "blocked";
   const base = {
     provider: fixture.provider,
     action: fixture.action,
     risk: fixture.risk,
+    liveRisk,
     providerBoundary,
   };
   const skip = (reason: string): SmokeResult => ({
@@ -172,36 +181,44 @@ export async function runFixtureWorkflowMode(
     workflowId: null,
   });
 
-  // 1. Destructive gate — before any workflow is created. In LIVE mode a
-  // destructive fixture needs BOTH includeDestructive AND allowDestructive
-  // (mirrors --include-destructive + ALLOW_DESTRUCTIVE_PROVIDER_SMOKE).
-  const destructiveAllowed = live
-    ? options.includeDestructive && options.allowDestructive === true
-    : options.includeDestructive;
-  if (fixture.risk === "destructive" && !destructiveAllowed) {
-    return skip(
-      live
-        ? "destructive — needs includeDestructive + allowDestructive (ALLOW_DESTRUCTIVE_PROVIDER_SMOKE)"
-        : "destructive — pass includeDestructive to run",
-    );
+  // 1. Safety gates — all run BEFORE any workflow is created.
+  if (live) {
+    // (a) Only liveSafe fixtures may hit a real provider.
+    if (fixture.liveSafe !== true) {
+      return skip("not marked liveSafe — excluded from live-connected mode");
+    }
+    // (b) Per-class opt-in, keyed on the effective live risk (liveRisk ?? risk).
+    if (liveRisk === "destructive") {
+      if (!(options.includeDestructive && options.allowDestructive === true)) {
+        return skip(
+          "destructive — needs includeDestructive + allowDestructive (ALLOW_DESTRUCTIVE_PROVIDER_SMOKE)",
+        );
+      }
+    } else if (liveRisk === "write") {
+      if (options.allowWrite !== true) {
+        return skip("write — needs ALLOW_LIVE_PROVIDER_WRITE_SMOKE");
+      }
+    }
+    // read → the live-mode opt-in (ALLOW_LIVE_PROVIDER_SMOKE) is the only gate.
+  } else {
+    // Test mode: destructive needs includeDestructive (testModeGate blocks the
+    // handler anyway, so this is just to keep the report honest).
+    if (fixture.risk === "destructive" && !options.includeDestructive) {
+      return skip("destructive — pass includeDestructive to run");
+    }
   }
 
-  // 2. Live-safety gate (live mode only): only liveSafe fixtures may hit a real
-  // provider. Everything else SKIPs before any workflow is created.
-  if (live && fixture.liveSafe !== true) {
-    return skip("not marked liveSafe — excluded from live-connected mode");
-  }
-
-  // 3. Missing env → SKIP, before creating/running anything.
+  // 2. Missing env → SKIP, before creating/running anything.
   const missing = missingEnv(fixture, envLookup);
   if (missing.length > 0) {
     return skip(`missing env: ${missing.join(", ")}`);
   }
 
-  // 4. Build the manual-run workflow (pure + validated).
+  // 3. Build the manual-run workflow (pure + validated) with the env-config
+  // overlay applied (e.g. a real channel id sourced from SMOKE_SLACK_CHANNEL_ID).
   let workflow: SmokeManualRunWorkflow;
   try {
-    workflow = buildSmokeManualRunDefinition(fixture);
+    workflow = buildSmokeManualRunDefinition(fixture, resolveFixtureConfig(fixture, envLookup));
   } catch (err) {
     return {
       ...base,
@@ -267,6 +284,7 @@ function classifyPersistedRun(
     provider: string;
     action: string;
     risk: ActionSmokeFixture["risk"];
+    liveRisk: ActionSmokeFixture["risk"];
     providerBoundary: ProviderBoundary;
   },
   fixture: ActionSmokeFixture,

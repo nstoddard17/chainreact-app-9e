@@ -67,6 +67,8 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
 const USER_ID = process.env.SMOKE_USER_ID;
 const ALLOW_DESTRUCTIVE = process.env.ALLOW_DESTRUCTIVE_PROVIDER_SMOKE === "true";
+const ALLOW_WRITE = process.env.ALLOW_LIVE_PROVIDER_WRITE_SMOKE === "true";
+const HAS_SLACK_CHANNEL = !!process.env.SMOKE_SLACK_CHANNEL_ID;
 const RUN = ALLOW_DB && ALLOW_LIVE && !!URL && !!SERVICE_KEY && !!ACCOUNT_ID && !!USER_ID;
 
 const describeLive = RUN ? describe : describe.skip;
@@ -97,6 +99,7 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
         live: true,
         includeDestructive: ALLOW_DESTRUCTIVE,
         allowDestructive: ALLOW_DESTRUCTIVE,
+        allowWrite: ALLOW_WRITE,
         terminalReadAttempts: 5,
       },
       deps,
@@ -118,8 +121,18 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
     );
     expect(native?.outcome).toBe("pass");
 
-    // Non-liveSafe fixtures are skipped even in live mode.
+    // The Slack WRITE fixture: posts a real message only when the write gate AND
+    // the channel id are set; otherwise it SKIPs (never runs by accident).
     const send = report.results.find((r) => r.action === "send_channel_message");
-    expect(send?.outcome).toBe("skip");
+    expect(send?.liveRisk).toBe("write");
+    if (ALLOW_WRITE && HAS_SLACK_CHANNEL) {
+      expect(send?.outcome).toBe("pass");
+    } else {
+      expect(send?.outcome).toBe("skip");
+    }
+
+    // The destructive fixture is never liveSafe → always skipped here.
+    const del = report.results.find((r) => r.action === "delete_message");
+    expect(del?.outcome).toBe("skip");
   }, 30_000);
 });

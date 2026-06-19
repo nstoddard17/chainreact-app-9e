@@ -380,6 +380,12 @@ export interface SmokeResult {
   readonly workflowId?: string | null;
   /** Which provider boundary this result used. */
   readonly providerBoundary?: ProviderBoundary;
+  /**
+   * Live-mode risk classification (read | write | destructive) used to gate the
+   * fixture in workflow-live mode. Distinct from `risk` (the general / test-mode
+   * classification). Defaults to `risk` when a fixture doesn't declare it.
+   */
+  readonly liveRisk?: ActionRisk;
 }
 
 /**
@@ -478,13 +484,14 @@ export function renderExecutionHuman(report: ExecutionReport): string {
   for (const r of report.results) {
     const label = OUTCOME_LABEL[r.outcome].padEnd(5);
     const boundary = r.providerBoundary ? ` {${r.providerBoundary}}` : "";
+    const riskTag = `[${r.risk}${r.liveRisk && r.liveRisk !== r.risk ? `, live:${r.liveRisk}` : ""}]`;
     const reason = r.reason ? `  — ${r.reason}` : "";
     const ids = [
       r.workflowId ? `wf ${r.workflowId}` : null,
       r.runId ? `run ${r.runId}` : null,
     ].filter(Boolean);
     const idTag = ids.length > 0 ? `  (${ids.join(", ")})` : "";
-    lines.push(`  ${label} ${r.provider}:${r.action} [${r.risk}]${boundary}${reason}${idTag}`);
+    lines.push(`  ${label} ${r.provider}:${r.action} ${riskTag}${boundary}${reason}${idTag}`);
   }
   lines.push("");
   lines.push("Per-provider totals (pass / fail / skip):");

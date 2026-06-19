@@ -35,11 +35,14 @@ drift.
 | Var | Required by | Purpose |
 |---|---|---|
 | `ALLOW_DB_INTEGRATION_TESTS=true` | modes 3, 4 | Master gate for any dev-DB run. |
-| `ALLOW_LIVE_PROVIDER_SMOKE=true` | mode 4 | Second gate — enables real provider calls. |
+| `ALLOW_LIVE_PROVIDER_SMOKE=true` | mode 4 | Second gate — enables real provider calls (read/baseline live fixtures). |
+| `ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true` | mode 4, `write` fixtures | Third gate — enables live fixtures classified `liveRisk: "write"` (they post/mutate). |
 | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | modes 3, 4 | Dev DB service-role access (auto-loaded from `.env.local`). |
 | `SMOKE_ACCOUNT_ID`, `SMOKE_USER_ID` | modes 3, 4 | The dev account + member user the throwaway workflow is created under. |
-| `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true` | mode 4, destructive only | Second half of the destructive opt-in (with `includeDestructive`). |
-| per-fixture `requiredEnv` (e.g. `SMOKE_SLACK_CONNECTED=1`) | modes 2–4 | Signals the smoke account has that provider connected. Unset → that fixture SKIPs **before** any workflow is created. |
+| `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true` | mode 4, destructive only | Second half of the destructive opt-in (with `includeDestructive`). No shipped fixture is both `liveSafe` and destructive. |
+| `SMOKE_SLACK_CONNECTED=1` | Slack fixtures (modes 2–4) | Signals the smoke account has Slack connected. Unset → Slack fixtures SKIP. |
+| `SMOKE_SLACK_CHANNEL_ID=<channel id>` | Slack `send_channel_message` (write) | The target channel for the live write fixture (overlaid onto config). Unset → that fixture SKIPs **before** any workflow is created. |
+| other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
 before any workflow is created.
@@ -83,19 +86,34 @@ A fixture whose action verb is obviously destructive (`delete_*`, `purge_*`,
 `delete_message` fixture marked `read`/`write`, and rejects any fixture targeting
 an action with no registered handler.
 
-### `liveSafe` — opt into live-connected runs
+### `liveSafe` + `liveRisk` — live-connected runs
 
 Live mode (mode 4) calls real providers, so it runs **only** fixtures marked
-`liveSafe: true`. Everything else SKIPs in live mode. Reserve `liveSafe` for:
+`liveSafe: true`. Everything else SKIPs in live mode. Each `liveSafe` fixture also
+declares a `liveRisk` (defaults to `risk`) that decides which opt-ins live mode
+requires:
 
-- read-only actions (lists/gets/schema reads) that don't mutate external state, **or**
-- pure local actions (the native transform) with no external boundary at all.
+| `liveRisk` | Runs in live mode when… | Example |
+|---|---|---|
+| `read` | `ALLOW_LIVE_PROVIDER_SMOKE=true` (the live gate) | `slack:list_channels`, `native:format_transformer` |
+| `write` | live gate **+** `ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true` | `slack:send_channel_message` |
+| `destructive` | live gate **+** `includeDestructive` **+** `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true` | (none shipped) |
 
-`liveSafe` is **independent of `risk`**: a destructive fixture stays blocked by the
-destructive double-opt-in even if it were marked `liveSafe`. Do **not** mark a
-`write` fixture `liveSafe` unless it targets a throwaway resource and you accept the
-side effect. Current `liveSafe` fixtures: `native:format_transformer` (baseline) and
-`slack:list_channels` (read-only).
+Rules:
+
+- Reserve `liveSafe` for read-only actions, pure local actions, or a **write** that
+  targets a dedicated throwaway resource (with `liveRisk: "write"`).
+- A **destructive** action must **never** be `liveSafe` — enforced by the
+  `fixtures-valid` test (destructive ⇒ not liveSafe). `slack:delete_message` stays
+  non-`liveSafe`.
+- `liveRisk` defaults to `risk` (fail-safe: a write fixture can't be treated as a
+  read by forgetting to set it).
+- Channel ids / base ids come from env via `configFromEnv` (config field → env var
+  name), never a hardcoded literal. The mapped env var must also be in
+  `requiredEnv` so a missing one SKIPs before any workflow is created.
+
+Current `liveSafe` fixtures: `native:format_transformer` (baseline, read),
+`slack:list_channels` (read), `slack:send_channel_message` (**write**).
 
 ## Commands
 
@@ -188,6 +206,8 @@ JSON output (`renderExecutionJson`) carries `kind`, `mode`
 The only mode that calls a real provider. Same path as mode 3 but engine **real
 mode**, so the provider handler actually runs. **Only `liveSafe` fixtures run.**
 
+**Read-only live run** (Slack `list_channels` + native baseline):
+
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   SMOKE_ACCOUNT_ID=<dev account uuid> SMOKE_USER_ID=<dev user uuid> \
@@ -195,19 +215,38 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   npm run smoke:actions:run:workflow:live
 ```
 
+**Live WRITE run** (⚠️ posts a **real Slack message** to `SMOKE_SLACK_CHANNEL_ID`):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<dev account uuid> SMOKE_USER_ID=<dev user uuid> \
+  SMOKE_SLACK_CONNECTED=1 SMOKE_SLACK_CHANNEL_ID=<channel id> \
+  npm run smoke:actions:run:workflow:live
+```
+
+> ⚠️ **Write smoke posts a real, persistent Slack message** (a clearly-marked
+> "safe to ignore" message with a per-run marker). It is **not** deleted afterward.
+> Point `SMOKE_SLACK_CHANNEL_ID` at a **dedicated private smoke channel** you
+> control — never a real team channel.
+
 Requirements (else the suite **SKIPs**): the mode-3 set **plus**
 `ALLOW_LIVE_PROVIDER_SMOKE=true`, plus each fixture's provider-connection env
-(e.g. `SMOKE_SLACK_CONNECTED=1`, which needs a real Slack connection on
-`SMOKE_ACCOUNT_ID`).
+(`SMOKE_SLACK_CONNECTED=1` needs a real Slack connection on `SMOKE_ACCOUNT_ID`);
+the write fixture additionally needs `ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true` +
+`SMOKE_SLACK_CHANNEL_ID`.
 
 Safety model (additions over mode 3):
 
 - **`liveSafe: true` required** — non-`liveSafe` fixtures SKIP before any workflow
-  is created. The shipped live fixtures are read-only (`slack:list_channels`) + the
-  pure native transform.
+  is created.
+- **Per-class opt-in via `liveRisk`** — `read` runs on the live gate; `write` also
+  needs `ALLOW_LIVE_PROVIDER_WRITE_SMOKE`; `destructive` needs the destructive
+  double-opt-in. The write fixture SKIPs (before workflow creation) without its
+  write gate or `SMOKE_SLACK_CHANNEL_ID`.
 - **Destructive double-opt-in** — a destructive fixture runs live ONLY with **both**
-  `includeDestructive` (the CLI/runner flag) **and** `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true`.
-  Neither is set by `smoke:actions:run:workflow:live` by default.
+  `includeDestructive` **and** `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true`. No shipped
+  fixture is both `liveSafe` and destructive.
 - **Real runs consume one task** from `SMOKE_ACCOUNT_ID`'s balance.
 - **No data leak** — the report asserts only the terminal run status; it never
   contains the channel list / provider output. Failure reasons are humanized
@@ -269,14 +308,17 @@ confirming the action is read-only / side-effect-free.
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run; the
-  shipped set is `slack:list_channels` (read) + the native baseline. No `write` or
-  `destructive` fixture is `liveSafe` today, so live mode does not yet exercise a
-  provider *write* end-to-end — adding a throwaway-target write fixture is the next
-  increment.
-- **Live mode has not been run in this environment.** It self-skips without a dev
-  DB + a connected smoke Slack workspace; the path + gating + one read fixture are
-  ready for Marcus to run locally.
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run. The
+  shipped set is `slack:list_channels` (read), `native:format_transformer` (read
+  baseline), and `slack:send_channel_message` (the one low-risk **write**). No
+  `liveSafe` destructive fixture exists (and the validation test forbids one).
+- **The write fixture is not cleaned up.** It posts a persistent Slack message and
+  does not delete it (no destructive cleanup step this slice). Use a throwaway
+  channel.
+- **Live write has not been run in this environment.** It self-skips without a dev
+  DB + a connected smoke Slack workspace + the write gate + a channel id; the path,
+  gating, and fixture are ready for Marcus to run locally. (Live *read* was
+  verified by Marcus on a prior slice.)
 - **Workflow-mode fixtures must be self-contained.** The manual trigger payload is
   `{ inputs: {…} }`, so workflow mode sends empty inputs; fixtures that reference
   `{{trigger.payload.*}}` are authored for handler mode. The native fixture (literal

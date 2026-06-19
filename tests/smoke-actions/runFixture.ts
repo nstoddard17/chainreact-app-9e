@@ -28,7 +28,7 @@ import {
   type SmokeResult,
 } from "@/scripts/chainreact/smoke/core";
 import type { ActionSmokeFixture } from "./contract";
-import { fixtureKey } from "./contract";
+import { effectiveLiveRisk, fixtureKey, resolveFixtureConfig } from "./contract";
 
 /** Injection seams — default to the real V2 internals; overridden in tests. */
 export interface SmokeHarnessDeps {
@@ -98,6 +98,7 @@ export async function runFixture(
     provider: fixture.provider,
     action: fixture.action,
     risk: fixture.risk,
+    liveRisk: effectiveLiveRisk(fixture),
     providerBoundary: options.providerBoundary ?? "live",
   };
 
@@ -118,12 +119,15 @@ export async function runFixture(
     return { ...base, outcome: "fail", reason: "no registered handler for this action", runId: null };
   }
 
-  // 4. Strict pre-resolution of config (the Q2 engine contract).
+  // 4. Strict pre-resolution of config (the Q2 engine contract). Env-config
+  // overlay first, so a config field sourced from env (e.g. a channel id) is in
+  // place before resolution.
   const triggerEvent = buildTriggerEvent(fixture);
   const variables: Record<string, unknown> = { trigger: triggerEvent, ...(fixture.variables ?? {}) };
+  const effectiveConfig = resolveFixtureConfig(fixture, deps.envLookup);
   let resolvedConfig: Readonly<Record<string, unknown>>;
   try {
-    resolvedConfig = (deps.resolveStrict(fixture.config, { variables }) ?? {}) as Readonly<
+    resolvedConfig = (deps.resolveStrict(effectiveConfig, { variables }) ?? {}) as Readonly<
       Record<string, unknown>
     >;
   } catch (err) {

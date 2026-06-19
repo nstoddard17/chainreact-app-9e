@@ -20,6 +20,7 @@ export default defineActionSmokeFixture({
   // workspace in live mode. No mutation, no user-data leak in the report (we only
   // assert the run reached a terminal succeeded state, never the channel list).
   liveSafe: true,
+  liveRisk: "read",
   expect: { outcome: "success" },
   notes:
     "Live-connected read fixture. Set SMOKE_SLACK_CONNECTED=1 only when the smoke " +

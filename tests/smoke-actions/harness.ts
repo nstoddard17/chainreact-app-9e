@@ -37,6 +37,8 @@ export interface RunActionSmokeWorkflowOptions {
   readonly live?: boolean;
   /** Second half of the destructive double-opt-in in live mode. Default false. */
   readonly allowDestructive?: boolean;
+  /** Enable live `write` fixtures (ALLOW_LIVE_PROVIDER_WRITE_SMOKE). Default false. */
+  readonly allowWrite?: boolean;
   readonly terminalReadAttempts?: number;
 }
 
@@ -83,6 +85,7 @@ export async function runActionSmokeWorkflowMode(
         includeDestructive,
         live: options.live,
         allowDestructive: options.allowDestructive,
+        allowWrite: options.allowWrite,
         terminalReadAttempts: options.terminalReadAttempts,
       },
       deps,
