@@ -6,6 +6,14 @@ env vars set.**
 **Date:** 2026-06-19
 **Branch:** `v2-main`
 
+> **⚠️ CONCLUSION CORRECTED (2026-06-19) by
+> [react-agent-hermes-architecture.md](../ai/react-agent-hermes-architecture.md)
+> (REACT-AGENT-HERMES-ARCHITECTURE-CORRECTION-1).** The *audit* below stands and the
+> "Hermes does not exist yet" finding is true, but the *conclusion* over-redirected toward
+> MCP hosting as the answer to Hermes. Marcus DOES intend to start the product AI / Hermes
+> direction: **React Agent first, Hermes later as a scoped runtime/memory layer.** Treat this
+> doc as **MCP adapter hosting notes** (a separate, secondary track), NOT the product path.
+
 **Source of truth (verified current state — files actually read for this plan):**
 [docs/slices/phase-4/ai-credits-and-agent-runtime-plan.md](../../../docs/slices/phase-4/ai-credits-and-agent-runtime-plan.md) §7 (the only Hermes architecture reference) ·
 [docs/runbooks/internal-mcp-server.md](../../../docs/runbooks/internal-mcp-server.md) (stdio MCP server, security contract, 43-tool registry) ·

@@ -107,6 +107,21 @@
 
 ## Recently completed arcs
 
+- **AI architecture direction CORRECTED: React Agent + MCP + Hermes split — LOCAL/UNPUSHED (2026-06-19)** —
+  **React Agent** = in-app customer-facing assistant (the product AI path, **first**); **MCP** =
+  external/diagnostic **adapter** for ChatGPT/Claude/internal tools, **NOT** a dependency of the in-app
+  agent and **NOT** the product path; **Hermes** = **later** scoped runtime/memory layer (behind the
+  `AgentRuntimeAdapter` port), not a global shared brain; **ChainReact `services/*` stay the source of
+  truth**. Principles: account/workflow/conversation-scoped · permissioned · audited · credit-gated ·
+  deterministic-first · queued for long jobs (`agent_jobs`/worker, never long req/resp) · approval-based
+  workflow changes · AI optional to execution · NO global memory / cross-account retrieval / autonomous
+  mutation · safe DTOs only. Build order: deterministic diagnostics → Explain → Q&A → repair suggest →
+  approved apply (all ✅ shipped) → **Hermes later**. **Corrects [hermes-hosting-plan.md](./slices/phase-4/hermes/hermes-hosting-plan.md) (`9b87fdd86`):
+  audit stands + "Hermes unbuilt" true, but its MCP-hosting conclusion over-redirected — MCP hosting is a
+  separate secondary adapter track, NOT the answer to Hermes.** Next slices: React Agent service boundary
+  (CS-1) → conversation model → internal tool registry → audit events → queued jobs → Hermes memory.
+  Docs-only; no code/env/migration. Doc `react-agent-hermes-architecture.md` →
+  [`react-agent-hermes-architecture.md`](./slices/phase-4/ai/react-agent-hermes-architecture.md).
 - **Builder activation/readiness UX: visible blocked-go-live reason — LOCAL/UNPUSHED (2026-06-19)** — the
   readiness surface was already strong (`collectBuilderValidationIssues` maps the shared `core/workflows`
   validator into plain-English, no-id builder issues; `ValidationSummary` groups errors→warnings; each
