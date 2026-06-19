@@ -22,9 +22,7 @@ const baseProps = {
   hasMessages: false,
   onCheckWorkflow: jest.fn(),
   checking: false,
-  onAskDiagnosisQuestion: jest.fn(),
   asking: false,
-  qaPanelBusy: false,
 };
 
 describe("BuilderAiPanelComposer — chat-fill hint (CS-6)", () => {

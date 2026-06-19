@@ -1,17 +1,19 @@
 /**
- * Tests for the Builder AI single-shot workflow-diagnosis Q&A UI (Slice 4.AI-DIAG-QA-3).
+ * Tests for the Builder AI single-shot workflow-diagnosis Q&A behavior, driven through
+ * the ONE composer (Slice 4.AI-DIAG-QA-3 backend rendering + AI-DIAG-QA-AUTOROUTE CS-4).
  *
- * RTL component tests with `@/lib/api/ai` mocked (no fetch/network). They pin: the
- * Q&A input always renders; submit is disabled for empty/whitespace, over-length, and
- * in-flight states; an explicit submit calls `askDiagnosisQuestion(workflowId, question,
- * draft, selectedNodeId?)` with NO raw DTO; a successful answer renders question +
- * answer + optional pointers + needsUserDecision safely; 402 / 403 / 503 / transport
- * failures render safe copy with no internals; the answer bubble introduces no Apply /
- * Preview control; and no raw ids/secrets from the response reach the DOM.
+ * After CS-4 the separate mini Q&A box is gone — a diagnostic question typed into the
+ * single composer auto-routes to Q&A. RTL component tests with `@/lib/api/ai` mocked
+ * (no fetch/network). They pin: only ONE composer input exists (no mini box); a routed
+ * Q&A calls `askDiagnosisQuestion(workflowId, question, draft, selectedNodeId?)` with NO
+ * raw DTO; a successful answer renders question + answer + optional pointers +
+ * needsUserDecision safely; 402 / 403 / 503 / transport failures render safe copy with no
+ * internals; the answer bubble introduces no Apply / Preview control; and no raw
+ * ids/secrets from the response reach the DOM.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockDiagnose = jest.fn();
@@ -34,7 +36,6 @@ jest.mock("@/lib/api/ai", () => {
     appendBuilderAgentMessage: (...a: unknown[]) => mockAppendThreadMessage(...a),
     clearBuilderAgentThread: (...a: unknown[]) => mockClearThread(...a),
     AI_CREDITS_EXHAUSTED_MESSAGE: actual.AI_CREDITS_EXHAUSTED_MESSAGE,
-    DIAGNOSIS_QA_MAX_QUESTION_LENGTH: actual.DIAGNOSIS_QA_MAX_QUESTION_LENGTH,
     AiApiError: class AiApiError extends Error {
       status: number;
       constructor(message: string, status: number) {
@@ -48,11 +49,7 @@ jest.mock("@/lib/api/ai", () => {
 
 jest.mock("@/lib/api/workflows", () => ({ getWorkflow: jest.fn() }));
 
-import {
-  AiApiError,
-  AI_CREDITS_EXHAUSTED_MESSAGE,
-  DIAGNOSIS_QA_MAX_QUESTION_LENGTH,
-} from "@/lib/api/ai";
+import { AiApiError, AI_CREDITS_EXHAUSTED_MESSAGE } from "@/lib/api/ai";
 import { BuilderAiPanel } from "@/features/workflow-builder/panels/BuilderAiPanel";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
@@ -85,51 +82,41 @@ beforeEach(() => {
   useConfigSlice.getState().reset();
 });
 
-/** Type a question and return the userEvent instance + the input/submit nodes. */
+/**
+ * Type a diagnostic question into the ONE composer and return the userEvent instance
+ * + the send button. After CS-4 there is no mini Q&A box — a diagnostic question
+ * auto-routes to Q&A through the single composer.
+ */
 async function ask(question: string) {
   const user = userEvent.setup();
   render(<BuilderAiPanel />);
-  const input = screen.getByTestId("builder-ai-qa-input");
-  await user.type(input, question);
-  return { user, input, submit: screen.getByTestId("builder-ai-qa-submit") };
+  await user.type(screen.getByTestId("builder-ai-prompt"), question);
+  return { user, submit: screen.getByTestId("builder-ai-plan-button") };
 }
 
-describe("Workflow Q&A — input + submit gating", () => {
-  it("renders the question input + submit (always available, not gated on a prior check)", () => {
+describe("Workflow Q&A — one composer (no mini box)", () => {
+  it("the Builder AI panel exposes exactly ONE composer input and no separate Q&A mini-box", () => {
     render(<BuilderAiPanel />);
-    expect(screen.getByTestId("builder-ai-qa")).not.toBeNull();
-    expect(screen.getByTestId("builder-ai-qa-input")).not.toBeNull();
-    expect(screen.getByTestId("builder-ai-qa-submit")).not.toBeNull();
+    expect(screen.getByTestId("builder-ai-prompt")).not.toBeNull();
+    // CS-4 — the mini Q&A box is gone.
+    expect(screen.queryByTestId("builder-ai-qa")).toBeNull();
+    expect(screen.queryByTestId("builder-ai-qa-input")).toBeNull();
+    expect(screen.queryByTestId("builder-ai-qa-submit")).toBeNull();
   });
 
-  it("submit is disabled when the question is empty / whitespace", async () => {
-    const user = userEvent.setup();
-    render(<BuilderAiPanel />);
-    expect(screen.getByTestId("builder-ai-qa-submit")).toBeDisabled();
-    await user.type(screen.getByTestId("builder-ai-qa-input"), "   ");
-    expect(screen.getByTestId("builder-ai-qa-submit")).toBeDisabled();
-  });
-
-  it("submit is disabled when the question exceeds the backend max length", () => {
-    render(<BuilderAiPanel />);
-    const input = screen.getByTestId("builder-ai-qa-input");
-    fireEvent.change(input, { target: { value: "x".repeat(DIAGNOSIS_QA_MAX_QUESTION_LENGTH + 1) } });
-    expect(screen.getByTestId("builder-ai-qa-submit")).toBeDisabled();
-    expect(screen.getByTestId("builder-ai-qa-too-long")).not.toBeNull();
-    expect(mockAsk).not.toHaveBeenCalled();
-  });
-
-  it("submit is disabled while a Q&A request is in flight; re-enables after", async () => {
+  it("the composer send is disabled while a routed Q&A is in flight; not stuck after", async () => {
     let resolveAsk: (v: unknown) => void = () => {};
     mockAsk.mockReturnValue(new Promise((res) => { resolveAsk = res; }));
     const { user, submit } = await ask("Why won't this run?");
     expect(submit).toBeEnabled();
     await user.click(submit);
-    await waitFor(() => expect(screen.getByTestId("builder-ai-qa-submit")).toBeDisabled());
-    expect(screen.getByTestId("builder-ai-qa-submit").textContent).toContain("Asking");
+    // In flight (`asking`) → the single send is disabled (no conflicting op can start).
+    await waitFor(() => expect(screen.getByTestId("builder-ai-plan-button")).toBeDisabled());
     resolveAsk(answerOk);
     await screen.findByTestId("builder-ai-diagnosis-qa");
-    await waitFor(() => expect(screen.getByTestId("builder-ai-qa-submit").textContent).toContain("Ask"));
+    // Composer cleared on submit; typing a new prompt re-enables send (not stuck disabled).
+    await user.type(screen.getByTestId("builder-ai-prompt"), "What next?");
+    await waitFor(() => expect(screen.getByTestId("builder-ai-plan-button")).toBeEnabled());
   });
 });
 
@@ -150,8 +137,8 @@ describe("Workflow Q&A — happy path", () => {
     expect(screen.getByTestId("builder-ai-diagnosis-qa-question").textContent).toContain("Why won't this run?");
     expect(screen.getByTestId("builder-ai-diagnosis-qa-answer").textContent).toContain("Reconnect Gmail");
     expect(body.textContent).toMatch(/wasn.t changed or run/i);
-    // Input cleared after submit.
-    expect((screen.getByTestId("builder-ai-qa-input") as HTMLTextAreaElement).value).toBe("");
+    // Composer cleared after the routed Q&A submit.
+    expect((screen.getByTestId("builder-ai-prompt") as HTMLTextAreaElement).value).toBe("");
   });
 
   it("renders optional pointers safely", async () => {
@@ -266,10 +253,9 @@ describe("Workflow Q&A — no Apply/Preview + no-leak", () => {
     expect(t).toContain("Reconnect Gmail");
   });
 
-  it("the Q&A input + answer siblings import no service or MCP module (uses lib/api/ai)", () => {
+  it("the Q&A answer siblings import no service or MCP module (uses lib/api/ai)", () => {
     const importSpec = /(?:import\s[^"']*?from\s*|import\s*|require\s*\(\s*)["']([^"']+)["']/g;
     for (const rel of [
-      "features/workflow-builder/panels/_BuilderAiPanelQa.tsx",
       "features/workflow-builder/panels/_BuilderAiPanelDiagnosis.tsx",
       "features/workflow-builder/panels/_BuilderAiPanelDiagnosisMessages.ts",
     ]) {
@@ -283,7 +269,7 @@ describe("Workflow Q&A — no Apply/Preview + no-leak", () => {
 });
 
 describe("Workflow Q&A — Explain regression", () => {
-  it("Explain with AI still works alongside the Q&A input", async () => {
+  it("Explain with AI still works alongside the one composer", async () => {
     mockDiagnose.mockResolvedValue({
       workflowId: "wf-1",
       access: "OK",
