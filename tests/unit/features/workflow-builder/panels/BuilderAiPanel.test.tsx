@@ -402,6 +402,19 @@ describe("AI-11B UX hardening", () => {
     expect(disclaimer).toHaveTextContent(/Apply change/);
   });
 
+  it("frames the plan card up front ('nothing has changed yet') and never auto-applies (BUILDER-AI-PLAN-PREVIEW-POLISH-1)", async () => {
+    mockPlan.mockResolvedValueOnce(planApplyReady);
+    render(<BuilderAiPanel />);
+    await typeAndPlan();
+    const intro = await screen.findByTestId("builder-ai-plan-intro");
+    expect(intro).toHaveTextContent(/nothing has changed yet/i);
+    expect(intro).toHaveTextContent(/review it below/i);
+    // Proposal only — Apply is offered but NEVER auto-clicked.
+    expect(screen.getByTestId("builder-ai-apply-button")).toBeInTheDocument();
+    expect(screen.queryByTestId("builder-ai-apply-success")).toBeNull();
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
   it("renders risk reasons and validation warnings readably", async () => {
     mockPlan.mockResolvedValueOnce({
       ...planApplyReady,

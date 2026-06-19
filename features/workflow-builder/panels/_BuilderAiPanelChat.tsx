@@ -473,6 +473,16 @@ export function PlanResultBody({
     <div className="flex flex-col gap-2" data-testid="builder-ai-plan-result">
       <p className="text-sm font-medium">{planOk.intentSummary}</p>
 
+      {/* POLISH-1 — frame the card up front: proposal, nothing changed, review below. */}
+      <p
+        data-testid="builder-ai-plan-intro"
+        className="text-[11px]"
+        style={{ color: "var(--builder-muted)" }}
+      >
+        Here&rsquo;s the proposed plan — nothing has changed yet. Review it below before
+        anything is applied to your workflow.
+      </p>
+
       <AiBulletList
         title="Assumptions"
         items={planOk.assumptions}
