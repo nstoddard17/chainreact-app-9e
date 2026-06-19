@@ -29,7 +29,8 @@ export type ConnectedAppFilterKind =
   | "keyword"
   | "gcal_calendar"
   | "gmail_label"
-  | "outlook_folder";
+  | "outlook_folder"
+  | "outlookcal_calendar";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -245,7 +246,42 @@ const OUTLOOK: ConnectedAppSourceUi = {
   },
 };
 
-const ALL: readonly ConnectedAppSourceUi[] = [GITHUB, SLACK, GOOGLE_CALENDAR, GMAIL, STRIPE, OUTLOOK];
+const OUTLOOK_CALENDAR: ConnectedAppSourceUi = {
+  provider: "microsoft-outlook-calendar",
+  displayName: "Outlook Calendar",
+  exposed: true,
+  icon: "Clock",
+  connectHref: "/apps",
+  connectTitle: "Connect your Outlook Calendar",
+  connectHelp: "This widget uses your own Outlook Calendar connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Outlook Calendar",
+  // Personal credential — each viewer sees THEIR OWN calendar data, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Outlook Calendar",
+  metricsByType: {
+    stat: [{ id: "upcoming_meetings_count", label: "Upcoming meetings", filters: ["outlookcal_calendar"] }],
+    line: [
+      { id: "meetings_over_time", label: "Meetings over time", filters: ["outlookcal_calendar"] },
+      { id: "meeting_hours_over_time", label: "Meeting hours over time", filters: ["outlookcal_calendar"] },
+    ],
+    bar: [
+      { id: "meetings_over_time", label: "Meetings over time", filters: ["outlookcal_calendar"] },
+      { id: "meeting_hours_over_time", label: "Meeting hours over time", filters: ["outlookcal_calendar"] },
+      { id: "busy_hours_by_day", label: "Busy hours by weekday", filters: ["outlookcal_calendar"] },
+    ],
+  },
+};
+
+const ALL: readonly ConnectedAppSourceUi[] = [
+  GITHUB,
+  SLACK,
+  GOOGLE_CALENDAR,
+  GMAIL,
+  STRIPE,
+  OUTLOOK,
+  OUTLOOK_CALENDAR,
+];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */
 export function allConnectedAppSources(): readonly ConnectedAppSourceUi[] {

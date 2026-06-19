@@ -34,6 +34,8 @@ export function ConnectedAppConfig({
   onLabel,
   folder,
   onFolder,
+  outlookCalendar,
+  onOutlookCalendar,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -55,6 +57,8 @@ export function ConnectedAppConfig({
   onLabel: (v: string) => void;
   folder: string;
   onFolder: (v: string) => void;
+  outlookCalendar: string;
+  onOutlookCalendar: (v: string) => void;
 }) {
   return (
     <>
@@ -144,6 +148,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("outlook_folder") && (
         <OutlookFolderField value={folder} onChange={onFolder} connected={connected} />
+      )}
+
+      {requiredFilters.includes("outlookcal_calendar") && (
+        <OutlookCalendarField value={outlookCalendar} onChange={onOutlookCalendar} connected={connected} />
       )}
     </>
   );
@@ -466,6 +474,27 @@ function OutlookFolderField(props: { value: string; onChange: (v: string) => voi
       errorFallback="Couldn't load Outlook folders."
       ariaLabel="Outlook folder"
       placeholder="Select a folder…"
+      {...props}
+    />
+  );
+}
+
+/**
+ * Outlook Calendar picker (`microsoft-outlook-calendar:calendars`) — OPTIONAL; the
+ * empty option means "use your primary calendar" (server defaults to /me/calendarView).
+ */
+function OutlookCalendarField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="microsoft-outlook-calendar:calendars"
+      icon="Clock"
+      sectionLabel="Calendar"
+      hint="Defaults to your primary calendar. Pick another to scope the widget."
+      disconnectedHint="Connect Outlook Calendar to choose a calendar."
+      loadingNoun="calendars"
+      errorFallback="Couldn't load Outlook calendars."
+      ariaLabel="Outlook calendar"
+      placeholder="Your primary calendar"
       {...props}
     />
   );

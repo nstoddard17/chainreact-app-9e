@@ -67,11 +67,12 @@ const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
 function filterDataKey(
   kind: ConnectedAppFilterKind,
-): "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" {
+): "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" {
   if (kind === "slack_channel") return "channel";
   if (kind === "gcal_calendar") return "calendar";
   if (kind === "gmail_label") return "label";
   if (kind === "outlook_folder") return "folder";
+  if (kind === "outlookcal_calendar") return "outlook_calendar";
   return kind;
 }
 
@@ -139,6 +140,10 @@ export function WidgetConfigPanel({
   const [folder, setFolder] = useState<string>(
     typeof existingFilters.folder === "string" ? existingFilters.folder : "",
   );
+  // Outlook Calendar picker is OPTIONAL — empty means "primary calendar".
+  const [outlookCalendar, setOutlookCalendar] = useState<string>(
+    typeof existingFilters.outlook_calendar === "string" ? existingFilters.outlook_calendar : "",
+  );
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -156,6 +161,8 @@ export function WidgetConfigPanel({
     if (kind === "gcal_calendar") return calendar.trim().length > 0;
     if (kind === "gmail_label") return label.trim().length > 0;
     if (kind === "outlook_folder") return folder.trim().length > 0;
+    // Outlook Calendar is optional (blank = primary), so it's always save-ready.
+    if (kind === "outlookcal_calendar") return true;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -172,6 +179,7 @@ export function WidgetConfigPanel({
         else if (kind === "gcal_calendar") filters[key] = calendar.trim();
         else if (kind === "gmail_label") filters[key] = label.trim();
         else if (kind === "outlook_folder") filters[key] = folder.trim();
+        else if (kind === "outlookcal_calendar") filters[key] = outlookCalendar.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -274,6 +282,8 @@ export function WidgetConfigPanel({
                   onLabel={setLabel}
                   folder={folder}
                   onFolder={setFolder}
+                  outlookCalendar={outlookCalendar}
+                  onOutlookCalendar={setOutlookCalendar}
                 />
               ) : (
                 <InternalConfig

@@ -47,6 +47,11 @@ describe("exposure gating", () => {
     expect(getExposedConnectedAppSource("microsoft-outlook")?.displayName).toBe("Microsoft Outlook");
   });
 
+  it("exposes Outlook Calendar", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("microsoft-outlook-calendar");
+    expect(getExposedConnectedAppSource("microsoft-outlook-calendar")?.displayName).toBe("Outlook Calendar");
+  });
+
   it("every descriptor declares a credential visibility matching its sharing model", () => {
     expect(getConnectedAppSource("slack")?.visibility).toBe("account");
     expect(getConnectedAppSource("github")?.visibility).toBe("personal");
@@ -56,6 +61,35 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("stripe")?.visibility).toBe("account");
     // Outlook is a personal mailbox → per-viewer visibility.
     expect(getConnectedAppSource("microsoft-outlook")?.visibility).toBe("personal");
+    // Outlook Calendar is a personal calendar → per-viewer visibility.
+    expect(getConnectedAppSource("microsoft-outlook-calendar")?.visibility).toBe("personal");
+  });
+});
+
+describe("Outlook Calendar metric/filter shape", () => {
+  const cal = getExposedConnectedAppSource("microsoft-outlook-calendar")!;
+
+  it("offers a scalar for stat, series for line/bar; busy_hours_by_day is bar-only", () => {
+    expect(metricsForType(cal, "stat").map((m) => m.id)).toEqual(["upcoming_meetings_count"]);
+    expect(metricsForType(cal, "line").map((m) => m.id).sort()).toEqual([
+      "meeting_hours_over_time",
+      "meetings_over_time",
+    ]);
+    expect(metricsForType(cal, "bar").map((m) => m.id).sort()).toEqual([
+      "busy_hours_by_day",
+      "meeting_hours_over_time",
+      "meetings_over_time",
+    ]);
+    expect(metricsForType(cal, "line").map((m) => m.id)).not.toContain("busy_hours_by_day");
+    expect(metricsForType(cal, "donut")).toEqual([]);
+  });
+
+  it("every Outlook Calendar metric takes a single outlookcal_calendar filter", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(cal, type)) {
+        expect(m.filters).toEqual(["outlookcal_calendar"]);
+      }
+    }
   });
 });
 

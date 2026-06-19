@@ -397,6 +397,13 @@ import { gmailLabelsResolver } from "@/integrations/gmail/options/labels";
 // only (no co-member exposure); only folder id + display name are read.
 import { outlookFoldersResolver } from "@/integrations/microsoft-outlook/options/folders";
 
+// Outlook Calendar calendars resolver — Slice ANALYTICS-SOURCES-OUTLOOK-CAL-1.
+// Backs the (optional) calendar picker on the Outlook Calendar analytics widgets
+// via Graph `/me/calendars`, using the already-granted `Calendars.ReadWrite` scope
+// (no reconnect). Personal + refreshable → refreshAndRetry. Lists the EDITOR's
+// calendars only (no co-member exposure); only calendar id + name are read.
+import { outlookCalendarsResolver } from "@/integrations/microsoft-outlook-calendar/options/calendars";
+
 /**
  * Hand-maintained options-source resolver registry.
  *
@@ -557,6 +564,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // analytics label-count widget. Read-only, refreshable, editor's-own-labels-only.
   gmailLabelsResolver,
   outlookFoldersResolver,
+  outlookCalendarsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

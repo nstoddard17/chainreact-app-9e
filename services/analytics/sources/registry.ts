@@ -6,6 +6,7 @@ import { googleCalendarAnalyticsSource } from "./google-calendar";
 import { gmailAnalyticsSource } from "./gmail";
 import { stripeAnalyticsSource } from "./stripe";
 import { microsoftOutlookAnalyticsSource } from "./microsoft-outlook";
+import { microsoftOutlookCalendarAnalyticsSource } from "./microsoft-outlook-calendar";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -35,6 +36,9 @@ import { microsoftOutlookAnalyticsSource } from "./microsoft-outlook";
  *     ANALYTICS-SOURCES-STRIPE-1.
  *   - MICROSOFT OUTLOOK (connected app, read-only Graph /me/messages COUNT
  *     queries, personal refreshable credential) — ANALYTICS-SOURCES-OUTLOOK-1.
+ *   - MICROSOFT OUTLOOK CALENDAR (connected app, read-only Graph calendarView
+ *     window → meeting count/hours aggregates, personal refreshable credential) —
+ *     ANALYTICS-SOURCES-OUTLOOK-CAL-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -54,6 +58,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   gmailAnalyticsSource,
   stripeAnalyticsSource,
   microsoftOutlookAnalyticsSource,
+  microsoftOutlookCalendarAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

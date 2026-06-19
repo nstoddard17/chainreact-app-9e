@@ -111,6 +111,21 @@ describe("analytics source registry", () => {
     expect(isApprovedSourceMetric("microsoft-outlook", "read_message_bodies")).toBe(false);
   });
 
+  it("registers Microsoft Outlook Calendar as a connected-app source (ANALYTICS-SOURCES-OUTLOOK-CAL-1)", () => {
+    const cal = getAnalyticsSource("microsoft-outlook-calendar");
+    expect(cal?.connectedApp).toBe(true);
+    expect(cal?.metrics.map((m) => m.key).sort()).toEqual([
+      "busy_hours_by_day",
+      "meeting_hours_over_time",
+      "meetings_over_time",
+      "upcoming_meetings_count",
+    ]);
+    expect(isApprovedSourceMetric("microsoft-outlook-calendar", "meetings_over_time")).toBe(true);
+    expect(isApprovedSourceMetric("microsoft-outlook-calendar", "list_attendees")).toBe(false);
+    // Calendar filter only (no arbitrary Graph query surface).
+    for (const m of cal!.metrics) expect(m.supportedFilters).toEqual(["outlook_calendar"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

@@ -33,6 +33,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/microsoft-outlook/index.ts",
   "services/analytics/sources/microsoft-outlook/api.ts",
   "services/analytics/sources/microsoft-outlook/buckets.ts",
+  "services/analytics/sources/microsoft-outlook-calendar/index.ts",
+  "services/analytics/sources/microsoft-outlook-calendar/api.ts",
+  "services/analytics/sources/microsoft-outlook-calendar/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.
