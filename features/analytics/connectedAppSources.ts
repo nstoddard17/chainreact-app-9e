@@ -33,7 +33,8 @@ export type ConnectedAppFilterKind =
   | "outlookcal_calendar"
   | "trello_board"
   | "airtable_base"
-  | "airtable_table";
+  | "airtable_table"
+  | "monday_board";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -357,6 +358,29 @@ const AIRTABLE: ConnectedAppSourceUi = {
   },
 };
 
+const MONDAY: ConnectedAppSourceUi = {
+  provider: "monday",
+  displayName: "Monday",
+  exposed: true,
+  icon: "Layers",
+  connectHref: "/apps",
+  connectTitle: "Connect your Monday",
+  connectHelp: "This widget uses your own Monday connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Monday",
+  // Personal credential — each viewer sees THEIR OWN Monday data, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Monday",
+  metricsByType: {
+    stat: [{ id: "open_items_count", label: "Open items", filters: ["monday_board"] }],
+    line: [{ id: "items_created_over_time", label: "Items created over time", filters: ["monday_board"] }],
+    bar: [
+      { id: "items_created_over_time", label: "Items created over time", filters: ["monday_board"] },
+      { id: "items_by_group", label: "Items by group", filters: ["monday_board"] },
+    ],
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -368,6 +392,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   NOTION,
   TRELLO,
   AIRTABLE,
+  MONDAY,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

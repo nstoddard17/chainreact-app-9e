@@ -65,26 +65,18 @@ const SOURCE_SCOPED: ReadonlySet<AnalyticsMetric> = new Set<AnalyticsMetric>([
 const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
-function filterDataKey(
-  kind: ConnectedAppFilterKind,
-):
-  | "repo"
-  | "channel"
-  | "keyword"
-  | "calendar"
-  | "label"
-  | "folder"
-  | "outlook_calendar"
-  | "board"
-  | "airtable_base"
-  | "airtable_table" {
+type FilterDataKey =
+  | "repo" | "channel" | "keyword" | "calendar" | "label" | "folder"
+  | "outlook_calendar" | "board" | "airtable_base" | "airtable_table" | "monday_board";
+
+function filterDataKey(kind: ConnectedAppFilterKind): FilterDataKey {
   if (kind === "slack_channel") return "channel";
   if (kind === "gcal_calendar") return "calendar";
   if (kind === "gmail_label") return "label";
   if (kind === "outlook_folder") return "folder";
   if (kind === "outlookcal_calendar") return "outlook_calendar";
   if (kind === "trello_board") return "board";
-  return kind; // repo | keyword | airtable_base | airtable_table (kind === data key)
+  return kind; // repo | keyword | airtable_base | airtable_table | monday_board (kind === data key)
 }
 
 /** Google Calendar's safe default — the viewer's primary calendar (no list scope needed). */
@@ -170,6 +162,9 @@ export function WidgetConfigPanel({
     setAirtableBase(v);
     setAirtableTable("");
   };
+  const [mondayBoard, setMondayBoard] = useState<string>(
+    typeof existingFilters.monday_board === "string" ? existingFilters.monday_board : "",
+  );
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -192,6 +187,7 @@ export function WidgetConfigPanel({
     if (kind === "trello_board") return board.trim().length > 0;
     if (kind === "airtable_base") return airtableBase.trim().length > 0;
     if (kind === "airtable_table") return airtableTable.trim().length > 0;
+    if (kind === "monday_board") return mondayBoard.trim().length > 0;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -212,6 +208,7 @@ export function WidgetConfigPanel({
         else if (kind === "trello_board") filters[key] = board.trim();
         else if (kind === "airtable_base") filters[key] = airtableBase.trim();
         else if (kind === "airtable_table") filters[key] = airtableTable.trim();
+        else if (kind === "monday_board") filters[key] = mondayBoard.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -322,6 +319,8 @@ export function WidgetConfigPanel({
                   onAirtableBase={onAirtableBaseChange}
                   airtableTable={airtableTable}
                   onAirtableTable={setAirtableTable}
+                  mondayBoard={mondayBoard}
+                  onMondayBoard={setMondayBoard}
                 />
               ) : (
                 <InternalConfig

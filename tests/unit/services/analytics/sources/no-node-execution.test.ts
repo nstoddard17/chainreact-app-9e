@@ -45,6 +45,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/airtable/index.ts",
   "services/analytics/sources/airtable/api.ts",
   "services/analytics/sources/airtable/buckets.ts",
+  "services/analytics/sources/monday/index.ts",
+  "services/analytics/sources/monday/api.ts",
+  "services/analytics/sources/monday/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

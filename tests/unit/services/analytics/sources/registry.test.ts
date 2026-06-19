@@ -172,6 +172,19 @@ describe("analytics source registry", () => {
     expect(byKey.tables_count).toEqual(["airtable_base"]);
   });
 
+  it("registers Monday as a connected-app source (ANALYTICS-SOURCES-MONDAY-1)", () => {
+    const monday = getAnalyticsSource("monday");
+    expect(monday?.connectedApp).toBe(true);
+    expect(monday?.metrics.map((m) => m.key).sort()).toEqual([
+      "items_by_group",
+      "items_created_over_time",
+      "open_items_count",
+    ]);
+    expect(isApprovedSourceMetric("monday", "open_items_count")).toBe(true);
+    expect(isApprovedSourceMetric("monday", "read_item_columns")).toBe(false);
+    for (const m of monday!.metrics) expect(m.supportedFilters).toEqual(["monday_board"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

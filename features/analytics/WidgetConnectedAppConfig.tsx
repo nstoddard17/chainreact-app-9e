@@ -10,6 +10,7 @@ import {
   GithubRepoField,
   GmailLabelField,
   KeywordField,
+  MondayBoardField,
   OutlookCalendarField,
   OutlookFolderField,
   SlackChannelField,
@@ -53,6 +54,8 @@ export function ConnectedAppConfig({
   onAirtableBase,
   airtableTable,
   onAirtableTable,
+  mondayBoard,
+  onMondayBoard,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -82,6 +85,8 @@ export function ConnectedAppConfig({
   onAirtableBase: (v: string) => void;
   airtableTable: string;
   onAirtableTable: (v: string) => void;
+  mondayBoard: string;
+  onMondayBoard: (v: string) => void;
 }) {
   return (
     <>
@@ -171,6 +176,10 @@ export function ConnectedAppConfig({
           connected={connected}
           baseId={airtableBase}
         />
+      )}
+
+      {requiredFilters.includes("monday_board") && (
+        <MondayBoardField value={mondayBoard} onChange={onMondayBoard} connected={connected} />
       )}
     </>
   );

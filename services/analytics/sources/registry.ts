@@ -10,6 +10,7 @@ import { microsoftOutlookCalendarAnalyticsSource } from "./microsoft-outlook-cal
 import { notionAnalyticsSource } from "./notion";
 import { trelloAnalyticsSource } from "./trello";
 import { airtableAnalyticsSource } from "./airtable";
+import { mondayAnalyticsSource } from "./monday";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -50,6 +51,9 @@ import { airtableAnalyticsSource } from "./airtable";
  *   - AIRTABLE (connected app, read-only records list + base schema → record
  *     count/created + table count, personal refreshable credential) —
  *     ANALYTICS-SOURCES-AIRTABLE-1.
+ *   - MONDAY (connected app, read-only board items_count + items_page → item
+ *     count/created + by-group, personal refreshable credential) —
+ *     ANALYTICS-SOURCES-MONDAY-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -73,6 +77,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   notionAnalyticsSource,
   trelloAnalyticsSource,
   airtableAnalyticsSource,
+  mondayAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

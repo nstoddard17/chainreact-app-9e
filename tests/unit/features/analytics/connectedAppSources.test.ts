@@ -69,6 +69,32 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("trello")?.visibility).toBe("personal");
     // Airtable is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("airtable")?.visibility).toBe("personal");
+    // Monday is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("monday")?.visibility).toBe("personal");
+  });
+});
+
+describe("Monday metric/filter shape", () => {
+  const monday = getExposedConnectedAppSource("monday")!;
+
+  it("exposes Monday with a board-scoped scalar/series; items_by_group is bar-only", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("monday");
+    expect(metricsForType(monday, "stat").map((m) => m.id)).toEqual(["open_items_count"]);
+    expect(metricsForType(monday, "line").map((m) => m.id)).toEqual(["items_created_over_time"]);
+    expect(metricsForType(monday, "bar").map((m) => m.id).sort()).toEqual([
+      "items_by_group",
+      "items_created_over_time",
+    ]);
+    expect(metricsForType(monday, "line").map((m) => m.id)).not.toContain("items_by_group");
+    expect(metricsForType(monday, "donut")).toEqual([]);
+  });
+
+  it("every Monday metric takes a single monday_board filter", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(monday, type)) {
+        expect(m.filters).toEqual(["monday_board"]);
+      }
+    }
   });
 });
 
