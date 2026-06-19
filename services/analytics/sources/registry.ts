@@ -12,6 +12,7 @@ import { trelloAnalyticsSource } from "./trello";
 import { airtableAnalyticsSource } from "./airtable";
 import { mondayAnalyticsSource } from "./monday";
 import { hubspotAnalyticsSource } from "./hubspot";
+import { shopifyAnalyticsSource } from "./shopify";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -59,6 +60,10 @@ import { hubspotAnalyticsSource } from "./hubspot";
  *     deal scalars + contacts/deals/companies/tickets created-over-time, account-
  *     shared refreshable credential, strictly count-only, no record data read) —
  *     ANALYTICS-SOURCES-HUBSPOT-1.
+ *   - SHOPIFY (connected app, read-only `/orders.json` window scan → order count /
+ *     paid count / revenue sum + orders/revenue over-time, account-shared
+ *     non-refreshable credential, count/sum-only, no customer/order detail read) —
+ *     ANALYTICS-SOURCES-SHOPIFY-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -84,6 +89,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   airtableAnalyticsSource,
   mondayAnalyticsSource,
   hubspotAnalyticsSource,
+  shopifyAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

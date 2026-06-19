@@ -73,6 +73,34 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("monday")?.visibility).toBe("personal");
     // HubSpot is a shared portal grant → account-wide visibility.
     expect(getConnectedAppSource("hubspot")?.visibility).toBe("account");
+    // Shopify is a shared store → account-wide visibility.
+    expect(getConnectedAppSource("shopify")?.visibility).toBe("account");
+  });
+});
+
+describe("Shopify metric/filter shape", () => {
+  const shopify = getExposedConnectedAppSource("shopify")!;
+
+  it("exposes Shopify with sales scalars for stat and over-time series for line/bar; no filters", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("shopify");
+    expect(getExposedConnectedAppSource("shopify")?.displayName).toBe("Shopify");
+    expect(metricsForType(shopify, "stat").map((m) => m.id).sort()).toEqual([
+      "orders_count",
+      "paid_orders_count",
+      "revenue_sum",
+    ]);
+    expect(metricsForType(shopify, "line").map((m) => m.id).sort()).toEqual([
+      "orders_over_time",
+      "revenue_over_time",
+    ]);
+    expect(metricsForType(shopify, "bar").map((m) => m.id)).toEqual(
+      metricsForType(shopify, "line").map((m) => m.id),
+    );
+    expect(metricsForType(shopify, "donut")).toEqual([]);
+    expect(metricsForType(shopify, "table")).toEqual([]);
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(shopify, type)) expect(m.filters).toEqual([]);
+    }
   });
 });
 

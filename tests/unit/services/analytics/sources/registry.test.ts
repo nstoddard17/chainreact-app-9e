@@ -207,6 +207,22 @@ describe("analytics source registry", () => {
     expect(byKey.contacts_created_over_time).toEqual([]);
   });
 
+  it("registers Shopify as a connected-app source (ANALYTICS-SOURCES-SHOPIFY-1)", () => {
+    const shopify = getAnalyticsSource("shopify");
+    expect(shopify?.connectedApp).toBe(true);
+    expect(shopify?.metrics.map((m) => m.key).sort()).toEqual([
+      "orders_count",
+      "orders_over_time",
+      "paid_orders_count",
+      "revenue_over_time",
+      "revenue_sum",
+    ]);
+    expect(isApprovedSourceMetric("shopify", "revenue_sum")).toBe(true);
+    expect(isApprovedSourceMetric("shopify", "list_customers")).toBe(false);
+    // Count/sum-only, no picker → no metric takes a filter (no arbitrary query surface).
+    for (const m of shopify!.metrics) expect(m.supportedFilters).toEqual([]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

@@ -149,6 +149,19 @@ it("forwards the hubspot_pipeline filter for provider=hubspot (session account)"
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("runs provider=shopify with no filters (account-shared, session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request("http://localhost/api/analytics/sources/shopify/data?metric=revenue_sum&range=30d"),
+    { params: Promise.resolve({ provider: "shopify" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("shopify");
+  expect(call.metricKey).toBe("revenue_sum");
+  expect(call.filters).toBeUndefined();
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

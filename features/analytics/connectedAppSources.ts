@@ -418,6 +418,33 @@ const HUBSPOT: ConnectedAppSourceUi = {
   },
 };
 
+const SHOPIFY: ConnectedAppSourceUi = {
+  provider: "shopify",
+  displayName: "Shopify",
+  exposed: true,
+  icon: "Cube",
+  connectHref: "/apps",
+  connectTitle: "Connect your Shopify store",
+  connectHelp:
+    "This widget reads order totals from your account's connected Shopify store. Connect Shopify to see it.",
+  connectCtaLabel: "Connect Shopify",
+  // Shopify is an ACCOUNT-shared store — every account member sees the same store
+  // sales (core/integrations/credentialSharing.ts → "account").
+  visibility: "account",
+  attributionPrefix: "Shopify store",
+  metricsByType: {
+    stat: [
+      { id: "orders_count", label: "Orders", filters: [] },
+      { id: "paid_orders_count", label: "Paid orders", filters: [] },
+      { id: "revenue_sum", label: "Revenue", filters: [] },
+    ],
+    ...seriesForBoth([
+      { id: "orders_over_time", label: "Orders over time", filters: [] },
+      { id: "revenue_over_time", label: "Revenue over time", filters: [] },
+    ]),
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -431,6 +458,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   AIRTABLE,
   MONDAY,
   HUBSPOT,
+  SHOPIFY,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */
