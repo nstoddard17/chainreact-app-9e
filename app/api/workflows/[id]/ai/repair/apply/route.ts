@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { applyRepairPatch } from "@/services/ai/repair/applyRepairPatch";
+import { repairPatchRef } from "@/services/ai/repair/repairPatchRef";
+import type { PatchOperation } from "@/services/workflows/patch/types";
+import { reactAgentService } from "@/services/ai/reactAgent";
+import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import {
   assertWorkflowRunEditAllowed,
   loadWorkflowForMember,
@@ -69,16 +73,50 @@ export async function POST(
   const editDenied = await assertWorkflowRunEditAllowed(wf.record, auth.userId);
   if (editDenied) return editDenied;
 
-  const result = await applyRepairPatch({
-    record: wf.record,
-    workflowId: id,
-    operations: parsed.data.operations,
-    baseRevision: parsed.data.baseRevision ?? null,
-    ...(parsed.data.previewRevision !== undefined ? { previewRevision: parsed.data.previewRevision } : {}),
-    ...(parsed.data.recipientChangeConfirmed !== undefined
-      ? { recipientChangeConfirmed: parsed.data.recipientChangeConfirmed }
-      : {}),
+  // REACT-AGENT-CS-7D — run the ALREADY-authorized, ALREADY-validated deterministic apply
+  // THROUGH the React Agent registry (capability `repair_apply`, mode `requires_approval`).
+  // Auth, membership, the edit gate, request validation, and ALL patch safety
+  // (validateWorkflowPatch → assessApplyReadiness → executeWorkflowPatch → optimistic
+  // revision check) stay OWNED by `applyRepairPatch` / the route — the seam only validates
+  // scope + capability + intent and emits ONE `react_agent.repair_apply` audit row
+  // (success | failed). It adds NO model call, NO credit gate, and NO new apply behavior.
+  // `proposedPatchRef` is the opaque CS-7b ref over the SAME { workflowId, baseRevision,
+  // operations } the preview row used, so an apply correlates to its proposal. No raw
+  // operations / config / patch body enters the audit (metadata-free at the seam).
+  const baseRevision = parsed.data.baseRevision ?? null;
+  const proposedPatchRef = baseRevision
+    ? repairPatchRef({ workflowId: id, baseRevision, operations: parsed.data.operations as PatchOperation[] })
+    : null;
+
+  const outcome = await reactAgentService.runAuthorizedCapability({
+    scope: { userId: auth.userId, accountId: wf.record.accountId, workflowId: id },
+    intent: "apply_repair",
+    capabilityId: "repair_apply",
+    auditRecorder: reactAgentAuditRecorder,
+    classifyResult: (r) => (r.ok ? "success" : "failed"),
+    deriveProposedPatchRef: () => proposedPatchRef,
+    exec: () =>
+      applyRepairPatch({
+        record: wf.record,
+        workflowId: id,
+        operations: parsed.data.operations,
+        baseRevision: parsed.data.baseRevision ?? null,
+        ...(parsed.data.previewRevision !== undefined ? { previewRevision: parsed.data.previewRevision } : {}),
+        ...(parsed.data.recipientChangeConfirmed !== undefined
+          ? { recipientChangeConfirmed: parsed.data.recipientChangeConfirmed }
+          : {}),
+      }),
   });
+  if (!outcome.ok) {
+    // Unreachable on the wired path (route guarantees a valid scope + the apply_repair
+    // capability/intent). NOTHING applied; mapped to the route's existing NOT_APPLYABLE
+    // failure shape so the response contract is unchanged.
+    return NextResponse.json(
+      { ok: false, applied: false, code: "NOT_APPLYABLE", message: "This change can't be applied." },
+      { status: 422 },
+    );
+  }
+  const result = outcome.result;
 
   if (result.ok) {
     return NextResponse.json({

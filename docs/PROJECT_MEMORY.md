@@ -107,6 +107,20 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-7d repair-apply AUDIT wiring — LOCAL/UNPUSHED, apply now through the seam (2026-06-19)** — the
+  guarded apply route (`/ai/repair/apply`) now wraps the deterministic `applyRepairPatch` call in
+  `runAuthorizedCapability({capabilityId:"repair_apply", intent:"apply_repair", recorder, classifyResult,
+  deriveProposedPatchRef})` → emits ONE `react_agent.repair_apply` / `requires_approval` audit row (success on
+  applied, failed on STALE_PATCH/NOT_APPLYABLE/EXECUTION_FAILED, denied pre-exec). All safety
+  (validateWorkflowPatch→assessApplyReadiness→executeWorkflowPatch→optimistic revision) stays INSIDE
+  applyRepairPatch (untouched); auth/membership/edit-gate run BEFORE the seam (pre-seam denial → no audit). **NO
+  model call, NO aiCreditGate (creditFeature null), NO new apply behavior, NO UI/schema; response contract
+  byte-for-byte unchanged; metadata-free at seam.** `proposed_patch_ref` = `repairPatchRef({workflowId,
+  baseRevision,operations})` from the apply REQUEST input → MATCHES the CS-7b preview proposal row (correlation
+  closed, no approval table); null when baseRevision/operations absent. Verified: 227 tests (9 suites incl.
+  ref-matches-preview, failed-audit, fail-open, pre-seam-no-audit, no-leak), typecheck clean, eslint 0,
+  lint:structure OK. Next CS-7e: live smoke (query react_agent_audit_events by auditKind) / apply-governance
+  closeout. → [`react-agent-cs-7d-repair-apply-audit-wiring.md`](./slices/phase-4/ai/react-agent-cs-7d-repair-apply-audit-wiring.md).
 - **React Agent CS-7c repair-apply CAPABILITY (registration only) — LOCAL/UNPUSHED (2026-06-19)** — registers the
   first `requires_approval` capability. New intent `apply_repair` added to `ReactAgentIntent` but DELIBERATELY NOT
   in `RECOGNIZED_REACT_AGENT_INTENTS` → free-text `handle()` refuses it (`unsupported_intent`); apply reachable

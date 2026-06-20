@@ -30,8 +30,16 @@ jest.mock("@/services/ai/repair/applyRepairPatch", () => ({
   applyRepairPatch: (...a: unknown[]) => mockApply(...a),
 }));
 
+// REACT-AGENT-CS-7D — capture the injected audit recorder (the real seam runs unmocked).
+const mockAuditRecord = jest.fn();
+jest.mock("@/services/ai/reactAgent/audit", () => ({
+  reactAgentAuditRecorder: { record: (...a: unknown[]) => mockAuditRecord(...a) },
+}));
+
 import { NextResponse } from "next/server";
 import { POST } from "@/app/api/workflows/[id]/ai/repair/apply/route";
+import { repairPatchRef } from "@/services/ai/repair/repairPatchRef";
+import type { PatchOperation } from "@/services/workflows/patch/types";
 
 function call(id: string, body: unknown) {
   return POST(
@@ -55,6 +63,8 @@ beforeEach(() => {
   mockEditGate.mockResolvedValue(null); // allowed
   mockApply.mockReset();
   mockApply.mockResolvedValue({ ok: true, currentRevision: "rev-2", appliedOperations: [{ op: "updateNodeConfig", nodeId: "n1", fields: ["text"] }] });
+  mockAuditRecord.mockReset();
+  mockAuditRecord.mockResolvedValue(undefined);
 });
 
 describe("apply route — authz", () => {
@@ -123,6 +133,73 @@ describe("apply route — result mapping", () => {
     expect(arg.baseRevision).toBe("rev-1");
     expect(arg.recipientChangeConfirmed).toBe(true);
     expect((arg.record as { id: string }).id).toBe("wf-1");
+  });
+});
+
+describe("apply route — React Agent audit emission (CS-7d)", () => {
+  it("successful apply emits ONE react_agent.repair_apply success row (mode requires_approval) on the workflow scope", async () => {
+    const res = await call("wf-1", okBody);
+    expect(res.status).toBe(200);
+    expect(mockApply).toHaveBeenCalledTimes(1); // exec ran THROUGH the seam
+    expect(mockAuditRecord).toHaveBeenCalledTimes(1);
+    expect(mockAuditRecord.mock.calls[0]![0]).toMatchObject({
+      accountId: "acct-1",
+      actorUserId: "u1",
+      workflowId: "wf-1",
+      capabilityId: "repair_apply",
+      intent: "apply_repair",
+      mode: "requires_approval",
+      creditFeature: null,
+      auditKind: "react_agent.repair_apply",
+      outcome: "success",
+    });
+  });
+
+  it("proposedPatchRef matches the preview ref for the same { workflowId, baseRevision, operations }", async () => {
+    await call("wf-1", okBody);
+    const expected = repairPatchRef({
+      workflowId: "wf-1",
+      baseRevision: "rev-1",
+      operations: okBody.operations as PatchOperation[],
+    });
+    expect(expected).toMatch(/^repair_patch_sha256:[0-9a-f]{64}$/);
+    expect((mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>).proposedPatchRef).toBe(expected);
+  });
+
+  it.each([
+    ["STALE_PATCH", 409],
+    ["NOT_APPLYABLE", 422],
+    ["EXECUTION_FAILED", 422],
+  ])("a %s apply emits a `failed` audit row (response unchanged: %d)", async (code, status) => {
+    mockApply.mockResolvedValue({ ok: false, code, message: "x" });
+    const res = await call("wf-1", okBody);
+    expect(res.status).toBe(status);
+    expect(mockAuditRecord.mock.calls[0]![0]).toMatchObject({ capabilityId: "repair_apply", outcome: "failed" });
+  });
+
+  it("no metadata / no raw operations / config / node ids leak into the audit input", async () => {
+    await call("wf-1", okBody);
+    const input = mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).not.toHaveProperty("metadata");
+    const s = JSON.stringify(input);
+    expect(s).not.toContain("updateNodeConfig");
+    expect(s).not.toContain("n1");
+    expect(s).not.toContain("hi");
+  });
+
+  it("an audit recorder failure NEVER breaks the apply response (fail-open) — still 200", async () => {
+    mockAuditRecord.mockRejectedValueOnce(new Error("audit ledger down"));
+    const res = await call("wf-1", okBody);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, applied: true, currentRevision: "rev-2" });
+  });
+
+  it("does NOT emit audit before auth/membership/edit-gate (denial → no audit row)", async () => {
+    mockEditGate.mockResolvedValue(NextResponse.json({ error: "private", code: "WORKFLOW_USES_PRIVATE_CREDENTIAL" }, { status: 403 }));
+    const res = await call("wf-1", okBody);
+    expect(res.status).toBe(403);
+    expect(mockApply).not.toHaveBeenCalled();
+    expect(mockAuditRecord).not.toHaveBeenCalled();
   });
 });
 
