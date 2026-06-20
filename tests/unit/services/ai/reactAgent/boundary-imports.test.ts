@@ -75,4 +75,24 @@ describe("ReactAgent boundary — forbidden surfaces are absent", () => {
       }
     }
   });
+
+  // CS-5c — the audit recorder lives in the `audit/` SUBMODULE (which may import the
+  // DB repository) and is NOT scanned above (only top-level boundary `.ts` files are).
+  // This guard keeps the CORE boundary files import-safe: they must never import the
+  // audit submodule or a DB repository directly. CS-5d injects the recorder into
+  // `runAuthorizedCapability` from the gated ROUTE — the core stays DB-free.
+  it("core boundary files do not import the audit submodule or any DB repository", () => {
+    const importRe = /^\s*import\s[^;]*?from\s+["']([^"']+)["']/gm;
+    for (const { file, text } of readAllRaw()) {
+      let m: RegExpExecArray | null;
+      while ((m = importRe.exec(text)) !== null) {
+        const spec = m[1]!;
+        const forbidden =
+          spec.includes("/audit") ||
+          /(^|\/)repositories\//.test(spec) ||
+          spec.startsWith("@/repositories");
+        expect({ file, spec, forbidden }).toEqual({ file, spec, forbidden: false });
+      }
+    }
+  });
 });
