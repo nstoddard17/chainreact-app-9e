@@ -1,5 +1,15 @@
 # Hosted Hermes Workflow Guidance Brain — Plan + Foundation
 
+> ⚠️ **SUPERSEDED (HERMES-AGENT-PIVOT, 2026-06-20).** The "ChainReact calls a hosted Nous model
+> endpoint directly" approach in this plan is **abandoned**. ChainReact will instead talk to an
+> internal **Hermes Agent** service (OpenAI underneath), never a hosted model API directly, and Nous
+> Portal is not kept as a fallback. The direct-Nous adapter, `HERMES_*` model config/flag, model
+> prompt builder, OpenAI fallback policy, and the opt-in live Nous smoke were **removed**. The
+> generic guidance contracts, safe-DTO sanitizer, WorkflowPlan validator, and private→global
+> skill-event boundary were **retained**. Current direction:
+> [`hermes-agent-chainreact-architecture-spike.md`](./hermes-agent-chainreact-architecture-spike.md).
+> This doc is kept for history only.
+
 **Type:** Plan + foundation slice. **Config-gated, NOT production-routed.** No live Hermes call in
 tests/CI (mocked fetch); real Hermes env is NOT required for tests/typecheck/build; no workflow
 creation/apply; no migration; no React Agent route wired yet. Local commit, **nothing pushed**.

@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-20 @ 5a2e66d92 (+ HERMES-LIVE-SMOKE: opt-in live smoke proved real Nous transport works; finding = model returns prose not strict JSON → suggestion parser needs JSON-mode hardening before user-facing. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. parallel-session Hermes-guidance + analytics WIP)
+> Last curated: 2026-06-20 @ d135075d5 (+ HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
 
 ## Current status
 
@@ -120,50 +120,25 @@
   Gmail(15)/Outlook(11) registry meta-count tests without weakening. Selector ids are discovered into gitignored
   `.env.local` only — no secrets/selectors/account-or-run/workflow-ids/raw provider payloads stored. Nothing
   pushed/deployed/db:pushed → [`docs/runbooks/action-smoke-cli.md`](./runbooks/action-smoke-cli.md).
-- **Hosted Hermes LIVE SMOKE (opt-in, default-skipped) — LOCAL/UNPUSHED (2026-06-20)** — proves the REAL Nous
-  transport works end-to-end via the existing adapter seam, still NOT live-routed (no route/UI/React Agent). Added
-  `tests/unit/services/ai-guidance/nousHermesAdapter.live.dev.test.ts` (double-gated: ENABLE_HOSTED_HERMES_GUIDANCE
-  =true AND HERMES_LIVE_SMOKE=true from launch env — NOT auto-loaded; only HERMES_* config auto-loads from
-  .env.local; CI/focused run always SKIPs). Asserts key only in Authorization header (never body/response), canary
-  secret redacted from body + never echoed into a global skill event or logged output, advisory-only, plan-shaped
-  replies hit `validateWorkflowPlan`. **Live run once (2026-06-20): real endpoint called OK** — model
-  `nousresearch/hermes-4-70b`, ~3.3s, 3065 prompt + 141 completion = 3206 tokens. **FINDING:** GuidanceResult came
-  back `ok=false / INVALID_RESPONSE` — the model returned prose, not strict JSON, so the adapter's suggestion parser
-  extracted nothing. Transport + security are proven; **structured-suggestion extraction needs hardening**
-  (JSON-mode/`response_format` or a lenient parser) before anything user-facing. NO migration, nothing live-routed.
-  Runbook §5: [`hosted-hermes-setup.md`](./runbooks/hosted-hermes-setup.md). Next: parser/JSON-mode hardening, then
-  HERMES-GUIDANCE-CAPABILITY (React Agent advisory cap, scope-validated + audited).
-- **Hosted Hermes GUIDANCE BRAIN (config-gated, NOT live-routed) — LOCAL/UNPUSHED (2026-06-20)** — extends the
-  foundation into a real-but-inert Nous workflow-guidance brain. Marcus confirmed direct Nous API works
-  (`nousresearch/hermes-4-70b`, Nous Portal `https://inference-api.nousresearch.com/v1`; key SERVER-ONLY in
-  .env.local, never committed/logged, no NEXT_PUBLIC_). Added: contracts `guidanceSession.ts`
-  (GuidanceSession/Turn/WorkflowGuidanceIntent/WorkflowPlan) + `guidanceSkillEvents.ts` (SanitizedSkillEvent/
-  GuidancePattern); `nousHermesAdapter` (OpenAI-compatible /chat/completions, injectable fetch → NO live call in
-  tests, gated by ENABLE_HOSTED_HERMES_GUIDANCE+config); `buildWorkflowGuidancePrompt` (safe-DTO + redactSecrets);
-  `validateWorkflowPlan` (every trigger/action provider:type MUST hit discovery registry — Hermes can't invent
-  capabilities); `skillEventBoundary.toSanitizedSkillEvent` (PRIVATE→GLOBAL enforcement — strips ids/text/PII →
-  capability shape only); `hermesConfig` (HERMES_PROVIDER/MAX_OUTPUT_TOKENS/TEMPERATURE; status reports missing
-  NAMES not key); `guidanceFallbackPolicy` (OpenAI fallback skeleton, OFF, not wired). TWO boundaries: ChainReact→
-  Hermes per-request gets generalized shape+goal-text (NO secrets/config/tokens/DB/service-role); session→global
-  only sanitized skill events. NO migration (stateless; future stores = account-scoped RLS), NO workflow
-  create/apply, NO React Agent route wired (next slice), execution never depends on AI. Verified: 40 tests
-  (8 suites: capability-validation, private-not-promoted, sanitizer-strips, env-missing-safe, no-secret-in-prompt/
-  body, no-mutation, fallback-OFF), typecheck clean no-env, eslint 0, lint:structure OK. Next HERMES-LIVE-SMOKE
-  (gated .dev.test vs real endpoint) → HERMES-GUIDANCE-CAPABILITY (React Agent advisory cap). →
-  [`hosted-hermes-workflow-guidance-brain-plan.md`](./slices/phase-5/hosted-hermes-workflow-guidance-brain-plan.md).
-- **Hosted Hermes GUIDANCE FOUNDATION (skeleton, inert) — LOCAL/UNPUSHED (2026-06-20)** — Hermes-READY app infra,
-  NOT a live integration. Provider-neutral contracts `contracts/aiGuidance.ts` + `services/ai-guidance/`
-  (WorkflowGuidanceProvider port; sanitizer = PRIVACY BOUNDARY drops config/label/real-ids → keeps
-  kind/provider/type+topology by opaque n0/n1 refs, refMap internal; intake seam = no mutation/no repo/no
-  model/no DB; noop default; hosted-Hermes adapter SKELETON — gated by `ENABLE_HOSTED_HERMES_GUIDANCE` (default
-  OFF) + `getHermesGuidanceConfig()` reading HERMES_BASE_URL/API_KEY/MODEL/TIMEOUT_MS/PROVIDER_FORMAT, returns
-  null unconfigured; **NO transport shipped → NO live call possible**). Guidance is ADVISORY (suggests op-kinds,
-  never applies; acting on it = future CS-7 repair_apply path). NO migration (stateless; future audit reuses
-  react_agent_audit_events). Runbook `docs/runbooks/hosted-hermes-setup.md` lists what Marcus must provide
-  (env + provider format/pricing/timeout/rate-limits/retention). Verified: 16 tests (3 suites: privacy/no-leak,
-  no-mutation, adapter-OFF+no-network), typecheck clean (no real env), eslint 0, lint:structure OK. Next
-  HERMES-LIVE-1 (wire transport behind flag+config, mocked-fetch test). →
-  [`hosted-hermes-workflow-guidance-plan.md`](./slices/phase-4/ai/hosted-hermes-workflow-guidance-plan.md).
+- **HERMES-AGENT PIVOT — direct Nous hosted-model integration STRIPPED — LOCAL/UNPUSHED (2026-06-20)** — Marcus
+  changed direction: ChainReact will NOT call a hosted LLM model API directly, and Nous Portal is NOT a
+  fallback. Target arch = **ChainReact → Hermes Agent (internal learning/skills brain) → OpenAI (provider
+  underneath) → Hermes Agent → ChainReact validation/decision**. **Removed** from `services/ai-guidance` +
+  `contracts`: `nousHermesAdapter`, `hostedHermesGuidanceProvider`, `hermesConfig` (HERMES_* Nous-model
+  env/`ENABLE_HOSTED_HERMES_GUIDANCE` flag), `buildWorkflowGuidancePrompt`, `guidanceFallbackPolicy`, the opt-in
+  live Nous smoke + its tests, and `docs/runbooks/hosted-hermes-setup.md`. Also discarded the uncommitted
+  JSON-mode WIP (`guidanceIntake` contract + `parseGuidanceIntakeResponse`). **Retained (generic, Agent-ready):**
+  guidance contracts (`aiGuidance.ts`, `guidanceSession.ts`, `guidanceSkillEvents.ts`), `WorkflowGuidanceProvider`
+  port, safe-DTO `sanitizeWorkflowForGuidance` (privacy boundary), `workflowGuidanceIntake` seam (noop default),
+  `validateWorkflowPlan` (registry capability gate), `skillEventBoundary` (private→global generalized events).
+  Hard boundaries: Agent never mutates workflows / never touches Supabase/service-role/OAuth tokens/API
+  keys/raw integration rows; execution never depends on the Agent; global skills get only sanitized generalized
+  events. NO migration, nothing live-routed, no app/route/UI. New docs:
+  [`hermes-agent-chainreact-architecture-spike.md`](./slices/phase-5/hermes-agent-chainreact-architecture-spike.md)
+  + [`hermes-agent-sandbox.md`](./runbooks/hermes-agent-sandbox.md) (sandbox: Docker + persistent volume + OpenAI
+  in AGENT config; future env `HERMES_AGENT_BASE_URL`/`_INTERNAL_TOKEN`/`_TIMEOUT_MS`, not yet consumed). Prior
+  plan banner-superseded. Verified: tsc clean, 5 suites/21 tests pass, lint:structure OK. Next: HERMES-AGENT-SANDBOX
+  → HERMES-AGENT-CLIENT (inert `WorkflowGuidanceProvider` posting safe DTO, flag-OFF, mocked-fetch).
 - **React Agent GOVERNANCE ARC COMPLETE + live-verified — LOCAL/UNPUSHED (2026-06-20)** — CS-1 boundary →
   CS-7e live smoke (14 commits, `193627693`..`c6820d5a1`). One account/workflow/user-scoped seam
   (`runAuthorizedCapability`) validates scope+registry+intent and emits ONE `react_agent_audit_events` row

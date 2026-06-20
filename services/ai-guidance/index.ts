@@ -1,9 +1,20 @@
 /**
- * AI workflow-guidance — public surface (HOSTED-HERMES-GUIDANCE-FOUNDATION-1).
+ * AI workflow-guidance — public surface (provider-neutral, Hermes-Agent-ready).
  *
- * Hermes-READY foundation, not a live Hermes integration: provider-neutral contracts, the
- * `WorkflowGuidanceProvider` port, the privacy-boundary sanitizer, the intake seam, the noop
- * default, and the hosted-Hermes adapter SKELETON (gated, no transport → no live call).
+ * After the HERMES-AGENT pivot (2026-06-20) this module keeps ONLY the generic, transport-neutral
+ * guidance primitives that any guidance brain can sit behind — it no longer contains the direct
+ * Nous hosted-model adapter, its HERMES_* config/flag, the model prompt builder, or the OpenAI
+ * fallback policy (all removed). The future Hermes Agent client will implement
+ * `WorkflowGuidanceProvider` and plug in behind this same port; the noop provider is the default.
+ *
+ * What lives here (all generic):
+ *   - provider-neutral guidance contracts + the `WorkflowGuidanceProvider` port,
+ *   - the privacy-boundary sanitizer (safe DTO — the only shape that may leave ChainReact),
+ *   - the intake seam (sanitize → ask a provider; never mutates / never calls a model directly),
+ *   - the deterministic WorkflowPlan capability validator (ChainReact is the source of truth),
+ *   - the private→global sanitized skill-event boundary (generalized skills only, no raw user data).
+ *
+ * See docs/slices/phase-5/hermes-agent-chainreact-architecture-spike.md for the target shape.
  */
 
 export type {
@@ -27,24 +38,8 @@ export {
 } from "./sanitizeWorkflowForGuidance";
 export { requestWorkflowGuidance, type WorkflowGuidanceIntakeInput } from "./workflowGuidanceIntake";
 export { noopWorkflowGuidanceProvider } from "./noopGuidanceProvider";
-export {
-  createHostedHermesGuidanceProvider,
-  hostedHermesGuidanceProvider,
-  type HermesGuidanceTransport,
-  type HostedHermesGuidanceDeps,
-} from "./hostedHermesGuidanceProvider";
-export { isHostedHermesGuidanceEnabled, HOSTED_HERMES_GUIDANCE_FLAG } from "./flags";
-export {
-  getHermesGuidanceConfig,
-  describeHermesConfigStatus,
-  HERMES_ENV,
-  HERMES_REQUIRED_VARS,
-  type HermesGuidanceConfig,
-  type HermesConfigStatus,
-} from "./hermesConfig";
 
-// HOSTED-HERMES-GUIDANCE-BRAIN-2 — session/skill-event contracts, Nous adapter, prompt builder,
-// capability validator, private→global boundary, fallback policy skeleton.
+// Conversational guidance + global-learning contracts (generic; not tied to any model API).
 export type {
   GuidanceSession,
   GuidanceTurn,
@@ -66,20 +61,4 @@ export type {
 export { SKILL_EVENT_SCHEMA_VERSION } from "@/contracts/guidanceSkillEvents";
 
 export { validateWorkflowPlan, isPlanStepKnown, type ValidateWorkflowPlanResult, type InvalidPlanStep } from "./validateWorkflowPlan";
-export { buildWorkflowGuidancePrompt, redactSecretsFromText, type GuidanceChatMessage, type BuildGuidancePromptInput } from "./buildWorkflowGuidancePrompt";
 export { toSanitizedSkillEvent, type ToSanitizedSkillEventInput } from "./skillEventBoundary";
-export {
-  createNousHermesGuidanceProvider,
-  requestNousWorkflowGuidance,
-  defaultCapabilityCatalog,
-  type NousGuidanceDeps,
-  type HermesFetch,
-  type HermesHttpResponse,
-} from "./nousHermesAdapter";
-export {
-  decideGuidanceFallback,
-  isHermesOpenAiFallbackEnabled,
-  HERMES_OPENAI_FALLBACK_FLAG,
-  type GuidanceFallbackDecision,
-  type GuidanceFallbackInput,
-} from "./guidanceFallbackPolicy";
