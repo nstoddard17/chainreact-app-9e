@@ -634,6 +634,32 @@ const MICROSOFT_TEAMS: ConnectedAppSourceUi = {
   },
 };
 
+const MICROSOFT_ONENOTE: ConnectedAppSourceUi = {
+  provider: "microsoft-onenote",
+  displayName: "Microsoft OneNote",
+  exposed: true,
+  icon: "Layers",
+  connectHref: "/apps",
+  connectTitle: "Connect your OneNote",
+  connectHelp: "This widget uses your own OneNote connection. Connect it to see your data.",
+  connectCtaLabel: "Connect OneNote",
+  // Personal credential — each viewer sees THEIR OWN notebook metadata, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your OneNote",
+  metricsByType: {
+    stat: [
+      { id: "notebooks_count", label: "Notebooks", filters: [] },
+      { id: "sections_count", label: "Sections", filters: [] },
+      { id: "pages_count", label: "Pages", filters: [] },
+    ],
+    ...seriesForBoth([
+      { id: "pages_created_over_time", label: "Pages created over time", filters: [] },
+      { id: "pages_modified_over_time", label: "Pages modified over time", filters: [] },
+    ]),
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -656,6 +682,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   MICROSOFT_TEAMS,
   GOOGLE_DOCS,
   GOOGLE_SHEETS,
+  MICROSOFT_ONENOTE,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

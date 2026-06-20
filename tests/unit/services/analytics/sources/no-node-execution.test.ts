@@ -77,6 +77,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/_shared/googleWorkspaceAdapter.ts",
   "services/analytics/sources/google-docs/index.ts",
   "services/analytics/sources/google-sheets/index.ts",
+  "services/analytics/sources/microsoft-onenote/index.ts",
+  "services/analytics/sources/microsoft-onenote/api.ts",
+  "services/analytics/sources/microsoft-onenote/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

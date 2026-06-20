@@ -346,6 +346,21 @@ describe("analytics source registry", () => {
     for (const m of sheets!.metrics) expect(m.supportedFilters).toEqual([]);
   });
 
+  it("registers Microsoft OneNote as a connected-app source (ANALYTICS-SOURCES-ONENOTE-1)", () => {
+    const onenote = getAnalyticsSource("microsoft-onenote");
+    expect(onenote?.connectedApp).toBe(true);
+    expect(onenote?.metrics.map((m) => m.key).sort()).toEqual([
+      "notebooks_count",
+      "pages_count",
+      "pages_created_over_time",
+      "pages_modified_over_time",
+      "sections_count",
+    ]);
+    expect(isApprovedSourceMetric("microsoft-onenote", "notebooks_count")).toBe(true);
+    expect(isApprovedSourceMetric("microsoft-onenote", "read_page")).toBe(false);
+    for (const m of onenote!.metrics) expect(m.supportedFilters).toEqual([]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

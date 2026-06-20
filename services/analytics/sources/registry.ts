@@ -21,6 +21,7 @@ import { discordAnalyticsSource } from "./discord";
 import { microsoftTeamsAnalyticsSource } from "./microsoft-teams";
 import { googleDocsAnalyticsSource } from "./google-docs";
 import { googleSheetsAnalyticsSource } from "./google-sheets";
+import { microsoftOneNoteAnalyticsSource } from "./microsoft-onenote";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -100,6 +101,11 @@ import { googleSheetsAnalyticsSource } from "./google-sheets";
  *     over-time, personal refreshable credential, count-only + metadata-only
  *     fields(createdTime,modifiedTime), no file name/content/owner/permission read,
  *     shared _shared/googleWorkspaceAdapter) — ANALYTICS-SOURCES-GWORKSPACE-1.
+ *   - MICROSOFT ONENOTE (connected app, read-only account-wide Graph
+ *     me/onenote/{notebooks,sections,pages} metadata reads → notebook/section/page
+ *     counts + pages created/modified over-time, personal refreshable credential,
+ *     count-only + metadata-only $select(createdDateTime,lastModifiedDateTime), no page
+ *     title/content/preview/author read) — ANALYTICS-SOURCES-ONENOTE-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -134,6 +140,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   microsoftTeamsAnalyticsSource,
   googleDocsAnalyticsSource,
   googleSheetsAnalyticsSource,
+  microsoftOneNoteAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

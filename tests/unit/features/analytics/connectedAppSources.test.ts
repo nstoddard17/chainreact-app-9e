@@ -90,6 +90,34 @@ describe("exposure gating", () => {
     // Google Docs + Sheets are personal connections → per-viewer visibility.
     expect(getConnectedAppSource("google-docs")?.visibility).toBe("personal");
     expect(getConnectedAppSource("google-sheets")?.visibility).toBe("personal");
+    // Microsoft OneNote is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("microsoft-onenote")?.visibility).toBe("personal");
+  });
+});
+
+describe("Microsoft OneNote metric/filter shape", () => {
+  const onenote = getExposedConnectedAppSource("microsoft-onenote")!;
+
+  it("exposes OneNote with notebook/section/page scalars on stat + page series on line/bar, no filters", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("microsoft-onenote");
+    expect(getExposedConnectedAppSource("microsoft-onenote")?.displayName).toBe("Microsoft OneNote");
+    expect(metricsForType(onenote, "stat").map((m) => m.id).sort()).toEqual([
+      "notebooks_count",
+      "pages_count",
+      "sections_count",
+    ]);
+    expect(metricsForType(onenote, "line").map((m) => m.id).sort()).toEqual([
+      "pages_created_over_time",
+      "pages_modified_over_time",
+    ]);
+    expect(metricsForType(onenote, "bar").map((m) => m.id).sort()).toEqual([
+      "pages_created_over_time",
+      "pages_modified_over_time",
+    ]);
+    expect(metricsForType(onenote, "donut")).toEqual([]);
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(onenote, type)) expect(m.filters).toEqual([]);
+    }
   });
 });
 
