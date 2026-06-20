@@ -240,6 +240,24 @@ it("forwards the discord_guild + discord_channel filters for provider=discord (s
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the teams_team + teams_channel filters for provider=microsoft-teams (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/microsoft-teams/data?metric=channel_messages_count&range=30d&teams_team=19:t@thread.tacv2&teams_channel=19:c@thread.tacv2",
+    ),
+    { params: Promise.resolve({ provider: "microsoft-teams" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("microsoft-teams");
+  expect(call.metricKey).toBe("channel_messages_count");
+  expect(call.filters).toEqual({
+    teams_team: "19:t@thread.tacv2",
+    teams_channel: "19:c@thread.tacv2",
+  });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

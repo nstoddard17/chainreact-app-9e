@@ -12,6 +12,8 @@ import {
   GoogleDriveFolderField,
   DiscordGuildField,
   DiscordChannelField,
+  TeamsTeamField,
+  TeamsChannelField,
   GithubRepoField,
   GmailLabelField,
   HubSpotPipelineField,
@@ -77,6 +79,10 @@ export function ConnectedAppConfig({
   onDiscordGuild,
   discordChannel,
   onDiscordChannel,
+  teamsTeam,
+  onTeamsTeam,
+  teamsChannel,
+  onTeamsChannel,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -122,6 +128,10 @@ export function ConnectedAppConfig({
   onDiscordGuild: (v: string) => void;
   discordChannel: string;
   onDiscordChannel: (v: string) => void;
+  teamsTeam: string;
+  onTeamsTeam: (v: string) => void;
+  teamsChannel: string;
+  onTeamsChannel: (v: string) => void;
 }) {
   return (
     <>
@@ -247,6 +257,19 @@ export function ConnectedAppConfig({
           onChange={onDiscordChannel}
           connected={connected}
           guildId={discordGuild}
+        />
+      )}
+
+      {requiredFilters.includes("teams_team") && (
+        <TeamsTeamField value={teamsTeam} onChange={onTeamsTeam} connected={connected} />
+      )}
+
+      {requiredFilters.includes("teams_channel") && (
+        <TeamsChannelField
+          value={teamsChannel}
+          onChange={onTeamsChannel}
+          connected={connected}
+          teamId={teamsTeam}
         />
       )}
     </>

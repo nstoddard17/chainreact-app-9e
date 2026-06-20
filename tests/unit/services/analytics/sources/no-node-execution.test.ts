@@ -69,6 +69,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/discord/index.ts",
   "services/analytics/sources/discord/api.ts",
   "services/analytics/sources/discord/buckets.ts",
+  "services/analytics/sources/microsoft-teams/index.ts",
+  "services/analytics/sources/microsoft-teams/api.ts",
+  "services/analytics/sources/microsoft-teams/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

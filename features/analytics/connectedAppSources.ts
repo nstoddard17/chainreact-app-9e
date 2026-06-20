@@ -41,7 +41,9 @@ export type ConnectedAppFilterKind =
   | "onedrive_folder"
   | "gdrive_folder"
   | "discord_guild"
-  | "discord_channel";
+  | "discord_channel"
+  | "teams_team"
+  | "teams_channel";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -594,6 +596,43 @@ const DISCORD: ConnectedAppSourceUi = {
   },
 };
 
+const MICROSOFT_TEAMS: ConnectedAppSourceUi = {
+  provider: "microsoft-teams",
+  displayName: "Microsoft Teams",
+  exposed: true,
+  icon: "Comment",
+  connectHref: "/apps",
+  connectTitle: "Connect your Microsoft Teams",
+  connectHelp: "This widget uses your own Microsoft Teams connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Microsoft Teams",
+  // Personal credential — each viewer sees data from THEIR OWN Teams connection
+  // (core/integrations/credentialSharing.ts -> "personal"); cache is per-viewer isolated.
+  visibility: "personal",
+  attributionPrefix: "Your Microsoft Teams",
+  metricsByType: {
+    stat: [
+      { id: "team_channels_count", label: "Channels", filters: ["teams_team"] },
+      { id: "active_channels_count", label: "Active channels", filters: ["teams_team"] },
+      { id: "channel_messages_count", label: "Messages in channel", filters: ["teams_team", "teams_channel"] },
+    ],
+    line: [
+      {
+        id: "channel_messages_over_time",
+        label: "Messages over time",
+        filters: ["teams_team", "teams_channel"],
+      },
+    ],
+    bar: [
+      {
+        id: "channel_messages_over_time",
+        label: "Messages over time",
+        filters: ["teams_team", "teams_channel"],
+      },
+      { id: "messages_by_channel", label: "Messages by channel", filters: ["teams_team"] },
+    ],
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -613,6 +652,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   ONEDRIVE,
   GOOGLE_DRIVE,
   DISCORD,
+  MICROSOFT_TEAMS,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

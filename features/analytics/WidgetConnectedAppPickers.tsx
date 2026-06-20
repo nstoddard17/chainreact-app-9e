@@ -18,6 +18,8 @@ export {
   OutlookFolderField,
   DiscordGuildField,
   DiscordChannelField,
+  TeamsTeamField,
+  TeamsChannelField,
 } from "./WidgetConnectedAppPickersCommunication";
 
 export {

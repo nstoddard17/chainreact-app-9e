@@ -68,6 +68,11 @@ const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 /** Google Calendar's safe default — the viewer's primary calendar (no list scope needed). */
 const DEFAULT_CALENDAR_ID = "primary";
 
+/** Filter kinds that are optional (blank = a safe default), so they're always save-ready. */
+const OPTIONAL_FILTERS: ReadonlySet<ConnectedAppFilterKind> = new Set([
+  "outlookcal_calendar", "dropbox_folder", "onedrive_folder", "gdrive_folder",
+]);
+
 export function WidgetConfigPanel({
   widget,
   workflows,
@@ -147,6 +152,13 @@ export function WidgetConfigPanel({
     setDiscordGuild(v);
     setDiscordChannel("");
   };
+  const [teamsTeam, setTeamsTeam] = useState(initFilter("teams_team"));
+  const [teamsChannel, setTeamsChannel] = useState(initFilter("teams_channel"));
+  // Changing the team clears the (now-stale) channel selection.
+  const onTeamsTeamChange = (v: string) => {
+    setTeamsTeam(v);
+    setTeamsChannel("");
+  };
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -158,26 +170,24 @@ export function WidgetConfigPanel({
   const repoValid = REPO_RE.test(repo.trim());
   const keywordValid = keyword.trim().length >= 2 && keyword.trim().length <= 80;
 
+  // Resolved (trimmed) value per filter kind; `keyword` is the implicit fallback.
+  const filterValues: Partial<Record<ConnectedAppFilterKind, string>> = {
+    repo: repo.trim(), slack_channel: channel.trim(), gcal_calendar: calendar.trim(),
+    gmail_label: label.trim(), outlook_folder: folder.trim(), outlookcal_calendar: outlookCalendar.trim(),
+    trello_board: board.trim(), airtable_base: airtableBase.trim(), airtable_table: airtableTable.trim(),
+    monday_board: mondayBoard.trim(), hubspot_pipeline: hubspotPipeline.trim(),
+    mailchimp_audience: mailchimpAudience.trim(), dropbox_folder: dropboxFolder.trim(),
+    onedrive_folder: onedriveFolder.trim(), gdrive_folder: gdriveFolder.trim(),
+    discord_guild: discordGuild.trim(), discord_channel: discordChannel.trim(),
+    teams_team: teamsTeam.trim(), teams_channel: teamsChannel.trim(),
+  };
+
   function filterValid(kind: ConnectedAppFilterKind): boolean {
     if (kind === "repo") return repoValid;
-    if (kind === "slack_channel") return channel.trim().length > 0;
-    if (kind === "gcal_calendar") return calendar.trim().length > 0;
-    if (kind === "gmail_label") return label.trim().length > 0;
-    if (kind === "outlook_folder") return folder.trim().length > 0;
-    // Outlook Calendar is optional (blank = primary), so it's always save-ready.
-    if (kind === "outlookcal_calendar") return true;
-    if (kind === "trello_board") return board.trim().length > 0;
-    if (kind === "airtable_base") return airtableBase.trim().length > 0;
-    if (kind === "airtable_table") return airtableTable.trim().length > 0;
-    if (kind === "monday_board") return mondayBoard.trim().length > 0;
-    if (kind === "hubspot_pipeline") return hubspotPipeline.trim().length > 0;
-    if (kind === "mailchimp_audience") return mailchimpAudience.trim().length > 0;
-    // Dropbox / OneDrive / Google Drive folder is optional (blank = all files), so always save-ready.
-    if (kind === "dropbox_folder" || kind === "onedrive_folder" || kind === "gdrive_folder") return true;
-    // Discord server + channel are required ids (no "all" fallback).
-    if (kind === "discord_guild") return discordGuild.trim().length > 0;
-    if (kind === "discord_channel") return discordChannel.trim().length > 0;
-    return keywordValid; // keyword
+    if (kind === "keyword") return keywordValid;
+    // Optional filters (blank = a safe default), so always save-ready.
+    if (OPTIONAL_FILTERS.has(kind)) return true;
+    return (filterValues[kind] ?? "").length > 0; // required id/value
   }
   const appSaveReady =
     activeApp != null && appMetricKey.length > 0 && requiredFilters.every(filterValid);
@@ -185,16 +195,6 @@ export function WidgetConfigPanel({
 
   const save = () => {
     if (activeApp && selectedAppMetric) {
-      // Resolved value per filter kind; unlisted kinds (keyword) fall back below.
-      const filterValues: Partial<Record<ConnectedAppFilterKind, string>> = {
-        repo: repo.trim(), slack_channel: channel.trim(), gcal_calendar: calendar.trim(),
-        gmail_label: label.trim(), outlook_folder: folder.trim(), outlookcal_calendar: outlookCalendar.trim(),
-        trello_board: board.trim(), airtable_base: airtableBase.trim(), airtable_table: airtableTable.trim(),
-        monday_board: mondayBoard.trim(), hubspot_pipeline: hubspotPipeline.trim(),
-        mailchimp_audience: mailchimpAudience.trim(), dropbox_folder: dropboxFolder.trim(),
-        onedrive_folder: onedriveFolder.trim(), gdrive_folder: gdriveFolder.trim(),
-        discord_guild: discordGuild.trim(), discord_channel: discordChannel.trim(),
-      };
       const filters: Record<string, string> = {};
       for (const kind of requiredFilters) {
         filters[filterDataKey(kind)] = filterValues[kind] ?? keyword.trim();
@@ -323,6 +323,10 @@ export function WidgetConfigPanel({
                   onDiscordGuild={onDiscordGuildChange}
                   discordChannel={discordChannel}
                   onDiscordChannel={setDiscordChannel}
+                  teamsTeam={teamsTeam}
+                  onTeamsTeam={onTeamsTeamChange}
+                  teamsChannel={teamsChannel}
+                  onTeamsChannel={setTeamsChannel}
                 />
               ) : (
                 <InternalConfig

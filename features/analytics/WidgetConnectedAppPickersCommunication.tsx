@@ -203,3 +203,109 @@ export function DiscordChannelField({
     </section>
   );
 }
+
+/**
+ * Microsoft Teams team picker (`microsoft-teams:teams`) — REQUIRED. Lists the teams the
+ * connected user is a member of (id-as-value). Only team id + name are loaded, never
+ * message content, members, or user data.
+ */
+export function TeamsTeamField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="microsoft-teams:teams"
+      icon="Comment"
+      sectionLabel="Team"
+      hint="Pick a Microsoft Teams team to report on."
+      disconnectedHint="Connect Microsoft Teams to choose a team."
+      loadingNoun="teams"
+      errorFallback="Couldn't load Microsoft Teams teams."
+      ariaLabel="Microsoft Teams team"
+      placeholder="Select a team…"
+      {...props}
+    />
+  );
+}
+
+/**
+ * Microsoft Teams channel picker (`microsoft-teams:channels`) — REQUIRED, depends on
+ * the selected team (teamId). Lists channels in that team (id-as-value). Only channel
+ * id + name are loaded, never message content, members, or user data.
+ */
+export function TeamsChannelField({
+  value,
+  onChange,
+  connected,
+  teamId,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  connected: boolean;
+  teamId: string;
+}) {
+  type LoadState =
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "ok"; items: readonly OptionItem[] }
+    | { status: "error"; message: string };
+  const [state, setState] = useState<LoadState>({ status: "idle" });
+
+  const hasTeam = teamId.trim().length > 0;
+  useEffect(() => {
+    if (!connected || !hasTeam) {
+      setState({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState({ status: "loading" });
+    fetchOptionsSource("microsoft-teams:channels", { deps: { teamId } })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) setState({ status: "ok", items: res.items });
+        else setState({ status: "error", message: res.message });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "error", message: "Couldn't load Microsoft Teams channels." });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, hasTeam, teamId]);
+
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionHeading icon="Comment" label="Channel" />
+      <p className="text-xs text-muted-foreground">Pick a channel in the selected team.</p>
+      {!connected ? (
+        <div className="rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Connect Microsoft Teams to choose a channel.
+        </div>
+      ) : !hasTeam ? (
+        <div className="rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Select a team first.
+        </div>
+      ) : state.status === "loading" ? (
+        <div className="animate-pulse rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Loading channels…
+        </div>
+      ) : state.status === "error" ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-muted-foreground">
+          {state.message}
+        </div>
+      ) : state.status === "ok" ? (
+        <select
+          className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-[13px] text-foreground outline-none focus:border-primary"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label="Microsoft Teams channel"
+        >
+          <option value="">Select a channel…</option>
+          {state.items.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </section>
+  );
+}

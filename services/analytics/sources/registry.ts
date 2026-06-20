@@ -18,6 +18,7 @@ import { dropboxAnalyticsSource } from "./dropbox";
 import { microsoftOneDriveAnalyticsSource } from "./microsoft-onedrive";
 import { googleDriveAnalyticsSource } from "./google-drive";
 import { discordAnalyticsSource } from "./discord";
+import { microsoftTeamsAnalyticsSource } from "./microsoft-teams";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -88,6 +89,10 @@ import { discordAnalyticsSource } from "./discord";
  *     counts + messages over-time / by-channel / count + active-channels, personal
  *     credential gate, strictly count-only + metadata-only, no message
  *     content/author/username/user-id/member-listing read) — ANALYTICS-SOURCES-DISCORD-1.
+ *   - MICROSOFT TEAMS (connected app, read-only delegated-user Graph reads → team
+ *     channel count + messages over-time / by-channel / count + active-channels,
+ *     personal refreshable credential, strictly count-only + metadata-only $select, no
+ *     message content/subject/from/id/member read) — ANALYTICS-SOURCES-TEAMS-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -119,6 +124,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   microsoftOneDriveAnalyticsSource,
   googleDriveAnalyticsSource,
   discordAnalyticsSource,
+  microsoftTeamsAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

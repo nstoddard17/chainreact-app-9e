@@ -302,6 +302,25 @@ describe("analytics source registry", () => {
     ]);
   });
 
+  it("registers Microsoft Teams as a connected-app source (ANALYTICS-SOURCES-TEAMS-1)", () => {
+    const teams = getAnalyticsSource("microsoft-teams");
+    expect(teams?.connectedApp).toBe(true);
+    expect(teams?.metrics.map((m) => m.key).sort()).toEqual([
+      "active_channels_count",
+      "channel_messages_count",
+      "channel_messages_over_time",
+      "messages_by_channel",
+      "team_channels_count",
+    ]);
+    expect(isApprovedSourceMetric("microsoft-teams", "team_channels_count")).toBe(true);
+    expect(isApprovedSourceMetric("microsoft-teams", "send_message")).toBe(false);
+    expect(getAnalyticsSourceMetric("microsoft-teams", "team_channels_count")?.supportedFilters).toEqual(["teams_team"]);
+    expect(getAnalyticsSourceMetric("microsoft-teams", "channel_messages_count")?.supportedFilters).toEqual([
+      "teams_team",
+      "teams_channel",
+    ]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

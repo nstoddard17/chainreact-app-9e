@@ -85,6 +85,41 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("google-drive")?.visibility).toBe("personal");
     // Discord is a personal connection gate → per-viewer visibility.
     expect(getConnectedAppSource("discord")?.visibility).toBe("personal");
+    // Microsoft Teams is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("microsoft-teams")?.visibility).toBe("personal");
+  });
+});
+
+describe("Microsoft Teams metric/filter shape", () => {
+  const teams = getExposedConnectedAppSource("microsoft-teams")!;
+
+  it("exposes Teams with team/channel scalars on stat, message series on line/bar, by-channel bar-only", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("microsoft-teams");
+    expect(getExposedConnectedAppSource("microsoft-teams")?.displayName).toBe("Microsoft Teams");
+    expect(metricsForType(teams, "stat").map((m) => m.id).sort()).toEqual([
+      "active_channels_count",
+      "channel_messages_count",
+      "team_channels_count",
+    ]);
+    expect(metricsForType(teams, "line").map((m) => m.id)).toEqual(["channel_messages_over_time"]);
+    expect(metricsForType(teams, "bar").map((m) => m.id).sort()).toEqual([
+      "channel_messages_over_time",
+      "messages_by_channel",
+    ]);
+    expect(metricsForType(teams, "donut")).toEqual([]);
+  });
+
+  it("team-only metrics take just teams_team; channel metrics take team + channel", () => {
+    expect(findMetricOption(teams, "stat", "team_channels_count")?.filters).toEqual(["teams_team"]);
+    expect(findMetricOption(teams, "stat", "channel_messages_count")?.filters).toEqual([
+      "teams_team",
+      "teams_channel",
+    ]);
+    expect(findMetricOption(teams, "line", "channel_messages_over_time")?.filters).toEqual([
+      "teams_team",
+      "teams_channel",
+    ]);
+    expect(findMetricOption(teams, "bar", "messages_by_channel")?.filters).toEqual(["teams_team"]);
   });
 });
 
