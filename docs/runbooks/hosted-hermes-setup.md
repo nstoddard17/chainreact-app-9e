@@ -1,12 +1,16 @@
 # Runbook — Hosted Hermes Workflow Guidance setup
 
-**Status:** Foundation shipped (HOSTED-HERMES-GUIDANCE-FOUNDATION-1); **the live integration is
-NOT wired.** This runbook lists exactly what **Marcus must provide** before the live slice
-(HERMES-LIVE-1) can wire a real transport. Until then the adapter is inert
-(`PROVIDER_DISABLED` / `PROVIDER_NOT_CONFIGURED`) and makes no network call.
+**Status:** Foundation + brain shipped (HOSTED-HERMES-GUIDANCE-FOUNDATION-1,
+HOSTED-HERMES-GUIDANCE-BRAIN-2): the Nous adapter transport, safe-DTO prompt builder, capability
+validator, and private→global skill-event boundary all exist, **but nothing is live-routed** — no
+app route, UI, or React Agent wires the adapter into a request path. The adapter only calls out
+when `ENABLE_HOSTED_HERMES_GUIDANCE=true` AND HERMES_* is configured AND a caller injects it; until
+then it stays inert (`PROVIDER_DISABLED` / `PROVIDER_NOT_CONFIGURED`) and makes no network call.
+HERMES-LIVE-SMOKE (this slice) adds an **opt-in, default-skipped** live smoke that proves the real
+transport works (see §5). It does not route guidance anywhere.
 
-> Nothing here is required for tests, typecheck, or build — the foundation runs fully without
-> any of these values.
+> Nothing here is required for tests, typecheck, or build — the foundation/brain run fully without
+> any of these values. The only thing that calls the real endpoint is the opt-in live smoke in §5.
 
 ## 1. Env vars to provide
 
@@ -63,15 +67,54 @@ And the rollout flag (separate from config):
 
 ## 4. Go-live checklist (for the live slice, later)
 
-- [ ] Marcus provides §1 env + confirms §2 decisions.
-- [ ] HERMES-LIVE-1 wires the transport (fetch + AbortController timeout + defensive response parse
+- [x] Marcus provides §1 env + confirms §2 decisions (Nous Portal, OpenAI-compatible; values in §1).
+- [x] HERMES-LIVE-1 wired the transport (fetch + AbortController timeout + defensive response parse
       → `GuidanceResult`), behind the flag + config, with a **mocked-fetch** contract test (no real
-      network in CI).
+      network in CI) — shipped in HOSTED-HERMES-GUIDANCE-BRAIN-2
+      ([`nousHermesAdapter.ts`](../../services/ai-guidance/nousHermesAdapter.ts)).
+- [x] HERMES-LIVE-SMOKE: opt-in, default-skipped live smoke against the real endpoint (§5).
 - [ ] HERMES-RATE-LIMIT adds a limiter; nothing user-facing ships before it.
 - [ ] HERMES-GUIDANCE-CAPABILITY exposes guidance through the React Agent seam (scope-validated +
-      audited).
-- [ ] HERMES-LIVE-SMOKE: gated live smoke against the real endpoint (mirrors CS-7e), then enable the
-      flag in the target env.
+      audited), then enable the flag in the target env.
+
+## 5. Opt-in live smoke (HERMES-LIVE-SMOKE)
+
+A single, **double-gated, default-SKIPPED** test that calls the real Nous Hermes endpoint once to
+prove the transport works with ChainReact's `workflow_guidance_intake` prompt shape:
+
+**Test:** [`tests/unit/services/ai-guidance/nousHermesAdapter.live.dev.test.ts`](../../tests/unit/services/ai-guidance/nousHermesAdapter.live.dev.test.ts)
+
+> ⚠️ **This test calls the REAL, PAID Nous endpoint.** It consumes tokens on every run. Run it
+> deliberately, locally, **exactly once** per change. **Do NOT run it in CI** unless you have
+> explicitly configured the two switches AND the HERMES_* secret in that CI env (the default CI
+> environment has no `.env.local` and never sets the switches, so it always SKIPs there).
+
+**Env required to run (else it SKIPs — never fails):**
+
+| Var | Source | Notes |
+|-----|--------|-------|
+| `ENABLE_HOSTED_HERMES_GUIDANCE=true` | **launch env / CLI** | Opt-in switch #1. NOT auto-loaded from `.env.local` by the test. |
+| `HERMES_LIVE_SMOKE=true` | **launch env / CLI** | Opt-in switch #2. NOT auto-loaded from `.env.local` by the test. |
+| `HERMES_BASE_URL`, `HERMES_API_KEY`, `HERMES_MODEL` | `.env.local` (auto-loaded) | The 3 required config vars (§1). `HERMES_TIMEOUT_MS` / `HERMES_MAX_OUTPUT_TOKENS` / `HERMES_TEMPERATURE` are optional. |
+
+The test auto-loads only the `HERMES_*` **config** values from `.env.local`; it deliberately does
+NOT auto-load the two opt-in switches, so the focused non-live run
+(`npx jest tests/unit/services/ai-guidance`) and CI never call out.
+
+**Run it (bash), once:**
+
+```bash
+ENABLE_HOSTED_HERMES_GUIDANCE=true HERMES_LIVE_SMOKE=true \
+  npx jest tests/unit/services/ai-guidance/nousHermesAdapter.live.dev.test.ts
+```
+
+**Expected model slug:** `nousresearch/hermes-4-70b` (the test asserts `modelTag === HERMES_MODEL`).
+
+**What it asserts:** real call reaches `${HERMES_BASE_URL}/chat/completions`; a usable reply comes
+back; the API key is in the `Authorization` header and **nowhere** in the request body or response;
+a fake canary secret in the prompt is redacted out of the body and never echoed into a global skill
+event or any logged output; any plan-shaped reply validates against `validateWorkflowPlan`; the
+result stays advisory (no apply/mutation). It prints a secret-free latency + token-usage line.
 
 See [`docs/slices/phase-4/ai/hosted-hermes-workflow-guidance-plan.md`](../slices/phase-4/ai/hosted-hermes-workflow-guidance-plan.md)
 for the full design + post-foundation slice breakdown.

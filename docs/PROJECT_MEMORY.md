@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-20 @ 5a2e66d92 (action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. parallel-session Hermes-guidance + analytics WIP)
+> Last curated: 2026-06-20 @ 5a2e66d92 (+ HERMES-LIVE-SMOKE: opt-in live smoke proved real Nous transport works; finding = model returns prose not strict JSON → suggestion parser needs JSON-mode hardening before user-facing. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. parallel-session Hermes-guidance + analytics WIP)
 
 ## Current status
 
@@ -120,6 +120,19 @@
   Gmail(15)/Outlook(11) registry meta-count tests without weakening. Selector ids are discovered into gitignored
   `.env.local` only — no secrets/selectors/account-or-run/workflow-ids/raw provider payloads stored. Nothing
   pushed/deployed/db:pushed → [`docs/runbooks/action-smoke-cli.md`](./runbooks/action-smoke-cli.md).
+- **Hosted Hermes LIVE SMOKE (opt-in, default-skipped) — LOCAL/UNPUSHED (2026-06-20)** — proves the REAL Nous
+  transport works end-to-end via the existing adapter seam, still NOT live-routed (no route/UI/React Agent). Added
+  `tests/unit/services/ai-guidance/nousHermesAdapter.live.dev.test.ts` (double-gated: ENABLE_HOSTED_HERMES_GUIDANCE
+  =true AND HERMES_LIVE_SMOKE=true from launch env — NOT auto-loaded; only HERMES_* config auto-loads from
+  .env.local; CI/focused run always SKIPs). Asserts key only in Authorization header (never body/response), canary
+  secret redacted from body + never echoed into a global skill event or logged output, advisory-only, plan-shaped
+  replies hit `validateWorkflowPlan`. **Live run once (2026-06-20): real endpoint called OK** — model
+  `nousresearch/hermes-4-70b`, ~3.3s, 3065 prompt + 141 completion = 3206 tokens. **FINDING:** GuidanceResult came
+  back `ok=false / INVALID_RESPONSE` — the model returned prose, not strict JSON, so the adapter's suggestion parser
+  extracted nothing. Transport + security are proven; **structured-suggestion extraction needs hardening**
+  (JSON-mode/`response_format` or a lenient parser) before anything user-facing. NO migration, nothing live-routed.
+  Runbook §5: [`hosted-hermes-setup.md`](./runbooks/hosted-hermes-setup.md). Next: parser/JSON-mode hardening, then
+  HERMES-GUIDANCE-CAPABILITY (React Agent advisory cap, scope-validated + audited).
 - **Hosted Hermes GUIDANCE BRAIN (config-gated, NOT live-routed) — LOCAL/UNPUSHED (2026-06-20)** — extends the
   foundation into a real-but-inert Nous workflow-guidance brain. Marcus confirmed direct Nous API works
   (`nousresearch/hermes-4-70b`, Nous Portal `https://inference-api.nousresearch.com/v1`; key SERVER-ONLY in
