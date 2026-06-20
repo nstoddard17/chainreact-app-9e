@@ -107,6 +107,18 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-1 — service boundary (first product-AI code) — LOCAL/UNPUSHED (2026-06-19)** — narrow
+  account-scoped seam under `services/ai/reactAgent/` (`types.ts` + no-op `index.ts`): `ReactAgentScope`
+  (userId+accountId required; workflowId?/conversationId? optional), `ReactAgentIntent`
+  (explain_diagnosis/answer_diagnosis_question/propose_repair/unknown), `ReactAgentRequest/Response`
+  (safe DTO; ok-message+nextAction?/proposedPatchRef? | ok:false+reason+safe copy), `ReactAgentService`.
+  `dispatchReactAgentRequest` is pure: invalid scope→invalid_scope, unknown→unsupported_intent,
+  recognized→not_yet_available; **no model/tool/mutation/DB/MCP/fs/child_process/service-role**. Durable
+  import-guard test enforces that. CS-2+ wire the recognized intents to the EXISTING gated brains
+  (answerWorkflowQuestion/explainWorkflowDiagnosis/repair preview) THROUGH their routes (auth+aiCreditGate
+  +telemetry stay route-owned); DTO re-derived server-side, never posted through the boundary. No route/UI/
+  conversation/queue/Hermes. Verified: reactAgent suites 16, typecheck 0, eslint 0, lint:structure OK →
+  [`react-agent-cs-1-service-boundary.md`](./slices/phase-4/ai/react-agent-cs-1-service-boundary.md).
 - **AI architecture direction CORRECTED: React Agent + MCP + Hermes split — LOCAL/UNPUSHED (2026-06-19)** —
   **React Agent** = in-app customer-facing assistant (the product AI path, **first**); **MCP** =
   external/diagnostic **adapter** for ChatGPT/Claude/internal tools, **NOT** a dependency of the in-app
