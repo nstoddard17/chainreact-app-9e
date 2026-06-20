@@ -12,7 +12,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * module-load validation + duplicate-key rejection happen centrally — this
  * file is import grouping only.
  *
- * **Coverage:** 5 actions + 1 webhook trigger. Field names are camelCase to
+ * **Coverage:** 8 actions + 1 webhook trigger. Field names are camelCase to
  * mirror the Teams runtime Zod schemas 1:1 (drift fails the meta-coverage
  * structural test now that `microsoft-teams` is in `COVERED_PROVIDERS`).
  *
@@ -48,16 +48,23 @@ import { microsoftTeamsReplyToChannelMessageMeta } from "@/integrations/microsof
 import { microsoftTeamsSendChatMessageMeta } from "@/integrations/microsoft-teams/actions/sendChatMessage.meta";
 import { microsoftTeamsGetChannelDetailsMeta } from "@/integrations/microsoft-teams/actions/getChannelDetails.meta";
 import { microsoftTeamsGetTeamMembersMeta } from "@/integrations/microsoft-teams/actions/getTeamMembers.meta";
+import { microsoftTeamsListTeamsMeta } from "@/integrations/microsoft-teams/actions/listTeams.meta";
+import { microsoftTeamsListChannelsMeta } from "@/integrations/microsoft-teams/actions/listChannels.meta";
+import { microsoftTeamsListChannelMessagesMeta } from "@/integrations/microsoft-teams/actions/listChannelMessages.meta";
 
 import { microsoftTeamsNewChannelMessageTriggerMeta } from "@/integrations/microsoft-teams/triggers/newChannelMessage/newChannelMessage.meta";
 
-/** Teams action metas in displayOrder (10..50). */
+/** Teams action metas in displayOrder (10..80). */
 export const MICROSOFT_TEAMS_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   microsoftTeamsSendChannelMessageMeta,
   microsoftTeamsReplyToChannelMessageMeta,
   microsoftTeamsSendChatMessageMeta,
   microsoftTeamsGetChannelDetailsMeta,
   microsoftTeamsGetTeamMembersMeta,
+  // Slice 4.TEAMS-READ-2 — read-only list actions.
+  microsoftTeamsListTeamsMeta,
+  microsoftTeamsListChannelsMeta,
+  microsoftTeamsListChannelMessagesMeta,
 ];
 
 /** Teams trigger metas — 1 per-(team,channel) webhook trigger. */

@@ -59,6 +59,10 @@ import excelFindRow from "@/tests/fixtures/action-smoke/microsoft-excel/find_row
 // SMOKE-ACTIONS-15 — Microsoft Teams read-only batch (fixture-only; existing read actions).
 import teamsGetChannelDetails from "@/tests/fixtures/action-smoke/microsoft-teams/get_channel_details";
 import teamsGetTeamMembers from "@/tests/fixtures/action-smoke/microsoft-teams/get_team_members";
+// SMOKE-ACTIONS-16 — Microsoft Teams read-only batch (new list actions).
+import teamsListTeams from "@/tests/fixtures/action-smoke/microsoft-teams/list_teams";
+import teamsListChannels from "@/tests/fixtures/action-smoke/microsoft-teams/list_channels";
+import teamsListChannelMessages from "@/tests/fixtures/action-smoke/microsoft-teams/list_channel_messages";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -101,4 +105,7 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   excelFindRow,
   teamsGetChannelDetails,
   teamsGetTeamMembers,
+  teamsListTeams,
+  teamsListChannels,
+  teamsListChannelMessages,
 ];

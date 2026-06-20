@@ -150,6 +150,9 @@ import { listSections as oneNoteListSections } from "@/integrations/microsoft-on
 import { updatePage as oneNoteUpdatePage } from "@/integrations/microsoft-onenote/actions/updatePage";
 import { getChannelDetails as teamsGetChannelDetails } from "@/integrations/microsoft-teams/actions/getChannelDetails";
 import { getTeamMembers as teamsGetTeamMembers } from "@/integrations/microsoft-teams/actions/getTeamMembers";
+import { listChannelMessages as teamsListChannelMessages } from "@/integrations/microsoft-teams/actions/listChannelMessages";
+import { listChannels as teamsListChannels } from "@/integrations/microsoft-teams/actions/listChannels";
+import { listTeams as teamsListTeams } from "@/integrations/microsoft-teams/actions/listTeams";
 import { replyToChannelMessage as teamsReplyToChannelMessage } from "@/integrations/microsoft-teams/actions/replyToChannelMessage";
 import { sendChannelMessage as teamsSendChannelMessage } from "@/integrations/microsoft-teams/actions/sendChannelMessage";
 import { sendChatMessage as teamsSendChatMessage } from "@/integrations/microsoft-teams/actions/sendChatMessage";
@@ -600,6 +603,11 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-teams", type: "reply_to_channel_message", handler: teamsReplyToChannelMessage },
   { provider: "microsoft-teams", type: "get_channel_details", handler: teamsGetChannelDetails },
   { provider: "microsoft-teams", type: "get_team_members", handler: teamsGetTeamMembers },
+  // Slice 4.TEAMS-READ-2 — read-only list actions (reuse teamsList /
+  // channelsList; new channelMessagesList wrapper; metadata-only).
+  { provider: "microsoft-teams", type: "list_teams", handler: teamsListTeams },
+  { provider: "microsoft-teams", type: "list_channels", handler: teamsListChannels },
+  { provider: "microsoft-teams", type: "list_channel_messages", handler: teamsListChannelMessages },
   { provider: "notion", type: "create_page", handler: notionCreatePage },
   { provider: "notion", type: "update_page", handler: notionUpdatePage },
   { provider: "notion", type: "query_database", handler: notionQueryDatabase },
