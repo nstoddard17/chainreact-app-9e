@@ -49,6 +49,12 @@ drift.
 | `SMOKE_AIRTABLE_BASE_ID=<app…>` | Airtable fixtures | The base id. Unset → SKIP. |
 | `SMOKE_AIRTABLE_TABLE_ID=<tbl… or name>` | Airtable `get_table_schema`, `list_records`, `find_record`, `get_record` | The table id or name (`tableIdOrName`). Unset → SKIP. |
 | `SMOKE_AIRTABLE_RECORD_ID=<rec…>` | Airtable `get_record` | A record id to fetch. Unset → SKIP. |
+| `SMOKE_GOOGLE_SHEETS_CONNECTED=1` | Google Sheets fixtures | Signals the smoke account has Google Sheets connected. Unset → Sheets fixtures SKIP. |
+| `SMOKE_GSHEETS_SPREADSHEET_ID=<id>` | all Google Sheets fixtures | The spreadsheet id (overlaid onto `spreadsheetId`). Unset → SKIP. |
+| `SMOKE_GSHEETS_RANGE=<A1 range>` | Google Sheets `read_rows` | A1-notation range, e.g. `Sheet1!A1:D5` (overlaid onto `range`). Unset → SKIP. |
+| `SMOKE_GSHEETS_SHEET_NAME=<tab name>` | Google Sheets `get_cell_value`, `find_row` | Sheet/tab title (overlaid onto `sheetName`). Unset → SKIP. |
+| `SMOKE_GSHEETS_LOOKUP_COLUMN=<header>` | Google Sheets `find_row` | An existing header name to search (overlaid onto `column`). Unset → SKIP. |
+| `SMOKE_GSHEETS_LOOKUP_VALUE=<value>` | Google Sheets `find_row` | The value to match in that column (overlaid onto `value`). Unset → SKIP. |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -119,7 +125,7 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-### Current fixtures (14)
+### Current fixtures (21)
 
 | Fixture | risk / liveRisk | liveSafe | Required env | Notes |
 |---|---|---|---|---|
@@ -138,14 +144,18 @@ Rules:
 | `airtable:find_record` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID`, `SMOKE_AIRTABLE_TABLE_ID` | First record (`TRUE()` formula). |
 | `airtable:get_record` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID`, `SMOKE_AIRTABLE_TABLE_ID`, `SMOKE_AIRTABLE_RECORD_ID` | Single record by id. |
 | `google-sheets:get_sheet_metadata` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID` | Sheet structure (not cells). |
+| `google-sheets:read_rows` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID`, `SMOKE_GSHEETS_RANGE` | A1-range read; empty range still succeeds. |
+| `google-sheets:get_cell_value` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID`, `SMOKE_GSHEETS_SHEET_NAME` | Single cell `A1`; blank cell → `value:null`. |
+| `google-sheets:find_row` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID`, `SMOKE_GSHEETS_SHEET_NAME`, `SMOKE_GSHEETS_LOOKUP_COLUMN`, `SMOKE_GSHEETS_LOOKUP_VALUE` | Header-column lookup; no-match still succeeds. |
 | `google-drive:list_files` | read | ✅ | `SMOKE_GOOGLE_DRIVE_CONNECTED` | File list (metadata only). |
 | `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
 | `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
 
-Coverage: **18 fixtures** (16 read / 1 write / 1 destructive), 17 `liveSafe`, across
+Coverage: **21 fixtures** (19 read / 1 write / 1 destructive), 20 `liveSafe`, across
 5 providers (native, slack, airtable, google-sheets, google-drive). **Slack: 10
-fixtures** (8 read / 1 write / 1 destructive); **Airtable: 5 fixtures** (all read).
-The CLI prints a `Coverage:` line; `--json` exposes it as `coverage`.
+fixtures** (8 read / 1 write / 1 destructive); **Airtable: 5 fixtures** (all read);
+**Google Sheets: 4 fixtures** (all read). The CLI prints a `Coverage:` line; `--json`
+exposes it as `coverage`.
 
 **Slack-only inventory:** `npm run smoke:actions -- --provider slack`.
 
@@ -196,6 +206,33 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   `delete_record` (destructive), `add_attachment`, `create_multiple_records`,
   `update_multiple_records`. The 5 covered are all read-only (`get_base_schema`,
   `get_table_schema`, `list_records`, `find_record`, `get_record`).
+
+**Google Sheets-only inventory:** `npm run smoke:actions -- --provider google-sheets`.
+
+**Google Sheets live read run** (`get_sheet_metadata` + `read_rows` need a spreadsheet
+id; `read_rows` also needs an A1 range; `get_cell_value` + `find_row` also need a sheet
+name; `find_row` also needs a lookup column + value — any missing one SKIPs):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_GOOGLE_SHEETS_CONNECTED=1 \
+  SMOKE_GSHEETS_SPREADSHEET_ID=<spreadsheet id> \
+  SMOKE_GSHEETS_RANGE='Sheet1!A1:D5' SMOKE_GSHEETS_SHEET_NAME=Sheet1 \
+  SMOKE_GSHEETS_LOOKUP_COLUMN=<header> SMOKE_GSHEETS_LOOKUP_VALUE=<value> \
+  npm run smoke:actions:run:workflow:live
+```
+
+Point these at a **dedicated smoke spreadsheet** you control — all four fixtures are
+read-only, but they read whatever rows/cells the ids resolve to.
+
+**Google Sheets actions still uncovered / deferred (4 covered of 12 registered):**
+
+- All remaining Google Sheets actions are **writes / destructive** and are deferred
+  (they create/mutate spreadsheet state without a safe cleanup pattern):
+  `append_row`, `update_row`, `update_cell`, `batch_update`, `format_range`,
+  `create_spreadsheet`, `clear_range`, `delete_row` (destructive). The 4 covered are all
+  read-only (`get_sheet_metadata`, `read_rows`, `get_cell_value`, `find_row`).
 
 ## Commands
 
@@ -380,8 +417,6 @@ Next recommended **read-only** batches (all `liveRisk: "read"`, `liveSafe: true`
 
 - **More Slack reads:** `get_user_info` (needs a user id), `get_messages` /
   `get_thread_messages` (need a channel + ts).
-- **More Google Sheets reads:** `read_rows`, `get_cell_value` (need spreadsheet +
-  range/cell).
 - **Notion reads:** `get_user`, `list_users`, `search` (need a connected Notion).
 - **Gmail reads:** `search_emails` (reads real mail — report stays status-only, but
   prefer a throwaway mailbox).
@@ -394,16 +429,16 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **18 fixtures** (16 read / 1 write / 1 destructive)
-  across 5 providers (Slack: 10, Airtable: 5) — `npm run smoke:actions` shows the
-  full gap (268 of 286 registered actions have no fixture yet). This harness is the
-  foundation for growing that, not a claim of broad coverage.
+- **Coverage is still small:** **21 fixtures** (19 read / 1 write / 1 destructive)
+  across 5 providers (Slack: 10, Airtable: 5, Google Sheets: 4) — `npm run smoke:actions`
+  shows the full gap (265 of 286 registered actions have no fixture yet). This harness is
+  the foundation for growing that, not a claim of broad coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 17 today
-  (16 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 20 today
+  (19 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
   test forbids one). Selector-dependent reads (`get_user_info`, `get_thread_messages`,
   `get_file_info`, and the non-Slack reads) only run when their id/connection env is
   set; otherwise they SKIP.

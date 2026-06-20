@@ -29,6 +29,10 @@ import airtableGetTableSchema from "@/tests/fixtures/action-smoke/airtable/get_t
 import airtableListRecords from "@/tests/fixtures/action-smoke/airtable/list_records";
 import airtableFindRecord from "@/tests/fixtures/action-smoke/airtable/find_record";
 import airtableGetRecord from "@/tests/fixtures/action-smoke/airtable/get_record";
+// SMOKE-ACTIONS-8 — Google Sheets-only read-only batch.
+import sheetsReadRows from "@/tests/fixtures/action-smoke/google-sheets/read_rows";
+import sheetsGetCellValue from "@/tests/fixtures/action-smoke/google-sheets/get_cell_value";
+import sheetsFindRow from "@/tests/fixtures/action-smoke/google-sheets/find_row";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -49,4 +53,7 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   airtableListRecords,
   airtableFindRecord,
   airtableGetRecord,
+  sheetsReadRows,
+  sheetsGetCellValue,
+  sheetsFindRow,
 ];
