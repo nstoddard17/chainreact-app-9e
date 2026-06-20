@@ -377,7 +377,17 @@ export function renderInventoryHuman(report: InventoryReport): string {
 
 // ─── Execution report (shared by the Jest harness) ───────────────────────────
 
-export type SmokeOutcome = "pass" | "fail" | "skip";
+/**
+ * Outcome of one smoke result.
+ *   - "pass" / "fail"     — the action ran and reached / missed its expectation.
+ *   - "skip"              — did not run (not liveSafe, gate off, or missing env).
+ *   - "certified-skip"    — intentionally NOT run because the action is already
+ *                           certified `LIVE_PASS` and this is a default live run
+ *                           (budget-conserving). Distinct from "skip" so it is
+ *                           never confused with a missing-env skip. Re-run with
+ *                           SMOKE_RERUN_PASSED=1.
+ */
+export type SmokeOutcome = "pass" | "fail" | "skip" | "certified-skip";
 
 /**
  * Which runtime executed the fixture:
@@ -452,6 +462,8 @@ export interface ExecutionProviderTotals {
   readonly pass: number;
   readonly fail: number;
   readonly skip: number;
+  /** Actions intentionally skipped because already certified LIVE_PASS. */
+  readonly certifiedSkip: number;
 }
 
 /**
@@ -469,9 +481,21 @@ export interface ExecutionReport {
   readonly mode: SmokeMode;
   readonly results: readonly SmokeResult[];
   readonly perProvider: readonly ExecutionProviderTotals[];
-  readonly totals: { readonly pass: number; readonly fail: number; readonly skip: number };
+  readonly totals: {
+    readonly pass: number;
+    readonly fail: number;
+    readonly skip: number;
+    /** Certified LIVE_PASS actions intentionally not re-run (default planner). */
+    readonly certifiedSkip: number;
+  };
   /** True when there were zero FAIL results (the smoke gate). */
   readonly ok: boolean;
+  /**
+   * True when the run was an explicit rerun-passed sweep (SMOKE_RERUN_PASSED=1):
+   * certified LIVE_PASS actions were intentionally re-run instead of skipped.
+   * Makes a full regression sweep obvious in the report.
+   */
+  readonly rerunPassed: boolean;
   /**
    * Fixtures skipped for missing env, grouped per fixture (env NAMES only). Empty
    * when nothing skipped on the env path. Additive: existing consumers that read
@@ -483,24 +507,33 @@ export interface ExecutionReport {
 export function buildExecutionReport(
   results: readonly SmokeResult[],
   mode: SmokeMode = "handler",
+  rerunPassed = false,
 ): ExecutionReport {
   const sorted = [...results].sort(
     (a, b) => a.provider.localeCompare(b.provider) || a.action.localeCompare(b.action),
   );
   const byProvider = new Map<string, ExecutionProviderTotals>();
   for (const r of sorted) {
-    const cur = byProvider.get(r.provider) ?? { provider: r.provider, pass: 0, fail: 0, skip: 0 };
+    const cur = byProvider.get(r.provider) ?? {
+      provider: r.provider,
+      pass: 0,
+      fail: 0,
+      skip: 0,
+      certifiedSkip: 0,
+    };
     byProvider.set(r.provider, {
       provider: r.provider,
       pass: cur.pass + (r.outcome === "pass" ? 1 : 0),
       fail: cur.fail + (r.outcome === "fail" ? 1 : 0),
       skip: cur.skip + (r.outcome === "skip" ? 1 : 0),
+      certifiedSkip: cur.certifiedSkip + (r.outcome === "certified-skip" ? 1 : 0),
     });
   }
   const totals = {
     pass: sorted.filter((r) => r.outcome === "pass").length,
     fail: sorted.filter((r) => r.outcome === "fail").length,
     skip: sorted.filter((r) => r.outcome === "skip").length,
+    certifiedSkip: sorted.filter((r) => r.outcome === "certified-skip").length,
   };
   const missingEnv: MissingEnvEntry[] = sorted
     .filter((r) => (r.missingEnv?.length ?? 0) > 0)
@@ -510,7 +543,9 @@ export function buildExecutionReport(
     results: sorted,
     perProvider: [...byProvider.values()].sort((a, b) => a.provider.localeCompare(b.provider)),
     totals,
+    // The gate is still "zero FAIL"; certified-skip never affects it.
     ok: totals.fail === 0,
+    rerunPassed,
     missingEnv,
   };
 }
@@ -531,11 +566,14 @@ export function renderExecutionJson(report: ExecutionReport): string {
       kind: "execution",
       mode: report.mode,
       ok: report.ok,
+      // Additive: `rerunPassed` + `totals.certifiedSkip` + the "certified-skip"
+      // result outcome are new; existing consumers (kind/mode/ok/totals.pass|
+      // fail|skip/perProvider/results) are unaffected.
+      rerunPassed: report.rerunPassed,
       totals: report.totals,
       perProvider: report.perProvider,
       results: report.results,
-      // Additive: existing consumers (kind/mode/ok/totals/perProvider/results)
-      // are unaffected. Env NAMES only — never values.
+      // Env NAMES only — never values.
       missingEnv: report.missingEnv,
     },
     null,
@@ -547,14 +585,20 @@ const OUTCOME_LABEL: Record<SmokeOutcome, string> = {
   pass: "PASS",
   fail: "FAIL",
   skip: "SKIP",
+  "certified-skip": "CERT-SKIP",
 };
 
 export function renderExecutionHuman(report: ExecutionReport): string {
   const lines: string[] = [];
   lines.push(`Action smoke — execution report (mode: ${report.mode})`);
+  if (report.rerunPassed) {
+    lines.push(
+      "RERUN-PASSED MODE: certified LIVE_PASS actions were intentionally re-run (full regression sweep).",
+    );
+  }
   lines.push("");
   for (const r of report.results) {
-    const label = OUTCOME_LABEL[r.outcome].padEnd(5);
+    const label = OUTCOME_LABEL[r.outcome].padEnd(9);
     const boundary = r.providerBoundary ? ` {${r.providerBoundary}}` : "";
     const riskTag = `[${r.risk}${r.liveRisk && r.liveRisk !== r.risk ? `, live:${r.liveRisk}` : ""}]`;
     const reason = r.reason ? `  — ${r.reason}` : "";
@@ -566,9 +610,21 @@ export function renderExecutionHuman(report: ExecutionReport): string {
     lines.push(`  ${label} ${r.provider}:${r.action} ${riskTag}${boundary}${reason}${idTag}`);
   }
   lines.push("");
-  lines.push("Per-provider totals (pass / fail / skip):");
+  lines.push("Per-provider totals (pass / fail / skip / cert-skip):");
   for (const p of report.perProvider) {
-    lines.push(`  ${p.provider}: ${p.pass} / ${p.fail} / ${p.skip}`);
+    lines.push(`  ${p.provider}: ${p.pass} / ${p.fail} / ${p.skip} / ${p.certifiedSkip}`);
+  }
+
+  // Certified-skip summary — kept SEPARATE from the missing-env summary so an
+  // operator never confuses "already verified, intentionally not re-run" with
+  // "couldn't run because env is unset".
+  const certSkipped = report.results.filter((r) => r.outcome === "certified-skip");
+  if (certSkipped.length > 0) {
+    lines.push("");
+    lines.push(
+      `Certified-skip (${certSkipped.length} already LIVE_PASS — not re-run; set SMOKE_RERUN_PASSED=1 to re-run):`,
+    );
+    for (const r of certSkipped) lines.push(`  ${r.provider}:${r.action}`);
   }
 
   if (report.missingEnv.length > 0) {
@@ -585,8 +641,8 @@ export function renderExecutionHuman(report: ExecutionReport): string {
 
   lines.push("");
   lines.push(
-    `Totals: ${report.totals.pass} pass, ${report.totals.fail} fail, ${report.totals.skip} skip. ` +
-      `Gate: ${report.ok ? "OK" : "FAILED"}.`,
+    `Totals: ${report.totals.pass} pass, ${report.totals.fail} fail, ${report.totals.skip} skip, ` +
+      `${report.totals.certifiedSkip} cert-skip. Gate: ${report.ok ? "OK" : "FAILED"}.`,
   );
   return lines.join("\n");
 }

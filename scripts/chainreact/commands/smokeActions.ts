@@ -18,6 +18,11 @@ import {
   renderInventoryJson,
 } from "../smoke/core";
 import {
+  buildCertificationMatrix,
+  renderCertificationHuman,
+  renderCertificationJson,
+} from "../smoke/certification";
+import {
   changedOnlyKeys,
   readRegisteredActions,
   scanFixtures,
@@ -29,6 +34,8 @@ export interface SmokeActionsFlags {
   readonly json?: boolean;
   readonly changed?: boolean;
   readonly includeDestructive?: boolean;
+  /** Render the certification matrix (per-action LIVE_PASS / status) instead of the inventory. */
+  readonly cert?: boolean;
 }
 
 export interface SmokeActionsOutcome {
@@ -53,6 +60,17 @@ export function runSmokeActions(
   const { descriptors, errors } = scanFixtures(fs);
 
   const providerFilter = flags.provider && flags.provider.length > 0 ? flags.provider : null;
+
+  // Certification matrix view — enumerate every registered action with its
+  // durable certification status (LIVE_PASS = skipped by default in live runs).
+  // Exit 1 only on a stale certification (a cert with no registered action).
+  if (flags.cert) {
+    const matrix = buildCertificationMatrix(registered, descriptors, undefined, { providerFilter });
+    return {
+      output: flags.json ? renderCertificationJson(matrix) : renderCertificationHuman(matrix),
+      code: matrix.staleCerts.length > 0 ? 1 : 0,
+    };
+  }
 
   let onlyKeys: Set<string> | null = null;
   let changedNote: string | null = null;

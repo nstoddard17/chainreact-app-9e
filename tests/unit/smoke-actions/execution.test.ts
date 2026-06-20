@@ -166,7 +166,7 @@ describe("runActionSmoke: report aggregation + provider filter", () => {
       readFixture({ provider: "slack", action: "delete_message", risk: "destructive" }),
     ];
     const report = await runActionSmoke(fixtures, { includeDestructive: false }, deps);
-    expect(report.totals).toEqual({ pass: 1, fail: 0, skip: 2 });
+    expect(report.totals).toEqual({ pass: 1, fail: 0, skip: 2, certifiedSkip: 0 });
     expect(report.ok).toBe(true);
     expect(report.perProvider).toEqual(
       expect.arrayContaining([

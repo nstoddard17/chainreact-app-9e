@@ -55,6 +55,7 @@ import { ALL_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
 import { runActionSmokeWorkflowMode } from "@/tests/smoke-actions/harness";
 import { makeRealWorkflowRunDeps } from "@/tests/smoke-actions/workflowRunDeps";
 import { renderExecutionHuman, renderExecutionJson } from "@/scripts/chainreact/smoke/core";
+import { isCertifiedLivePass } from "@/scripts/chainreact/smoke/certification";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -84,6 +85,10 @@ const ALLOW_WRITE = process.env.ALLOW_LIVE_PROVIDER_WRITE_SMOKE === "true";
 const HAS_SLACK_CHANNEL = !!process.env.SMOKE_SLACK_CHANNEL_ID;
 // Optional single-provider scope (mirrors the inventory `--provider` flag).
 const PROVIDER_FILTER = process.env.SMOKE_PROVIDER || null;
+// Explicit full-regression sweep: re-run actions already certified LIVE_PASS
+// (default is to CERTIFIED-SKIP them to conserve task budget + provider calls).
+const RERUN_PASSED =
+  process.env.SMOKE_RERUN_PASSED === "1" || process.env.SMOKE_RERUN_PASSED === "true";
 /** True when the given provider's fixtures are in scope this run. */
 const inScope = (provider: string): boolean =>
   PROVIDER_FILTER === null || PROVIDER_FILTER === provider;
@@ -121,6 +126,12 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
         allowDestructive: ALLOW_DESTRUCTIVE,
         allowWrite: ALLOW_WRITE,
         terminalReadAttempts: 5,
+        // This is THE live verification runner: turn the certification planner
+        // ON so a default sweep skips already-certified LIVE_PASS actions
+        // (CERT-SKIP) and conserves task budget + provider calls. The operator
+        // opts into a full regression sweep with SMOKE_RERUN_PASSED=1.
+        applyCertificationPlanner: true,
+        rerunPassed: RERUN_PASSED,
       },
       deps,
     );
@@ -149,18 +160,24 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
       expect(native?.outcome).toBe("pass");
     }
 
-    // The Slack WRITE fixture: posts a real message only when the write gate AND
-    // the channel id are set; otherwise it SKIPs (never runs by accident).
+    // The Slack WRITE fixture: when already certified LIVE_PASS it is
+    // CERTIFIED-SKIPPED by default (no re-post); under SMOKE_RERUN_PASSED=1 it
+    // posts a real message only when the write gate AND the channel id are set;
+    // otherwise it SKIPs (never runs by accident).
     if (inScope("slack")) {
       const send = report.results.find((r) => r.action === "send_channel_message");
       expect(send?.liveRisk).toBe("write");
-      if (ALLOW_WRITE && HAS_SLACK_CHANNEL) {
+      const sendCertSkipped = !RERUN_PASSED && isCertifiedLivePass("slack", "send_channel_message");
+      if (sendCertSkipped) {
+        expect(send?.outcome).toBe("certified-skip");
+      } else if (ALLOW_WRITE && HAS_SLACK_CHANNEL) {
         expect(send?.outcome).toBe("pass");
       } else {
         expect(send?.outcome).toBe("skip");
       }
 
-      // The destructive fixture is never liveSafe → always skipped here.
+      // The destructive fixture is never liveSafe (and never LIVE_PASS) → always
+      // skipped here, regardless of the planner.
       const del = report.results.find((r) => r.action === "delete_message");
       expect(del?.outcome).toBe("skip");
     }

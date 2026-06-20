@@ -641,6 +641,60 @@ Safety model (additions over mode 3):
   token/`Bearer`/long-blob/URL shapes, caps length) as belt-and-braces.
 - Every result is tagged `providerBoundary: "live"`.
 
+### Certification matrix — don't re-run already-passed actions
+
+Live runs cost a task per fixture and a real provider API call, so the live runner
+does **not** re-verify actions that already passed. A durable **certification
+matrix** ([`scripts/chainreact/smoke/certification.ts`](../../scripts/chainreact/smoke/certification.ts))
+records a safe status per provider/action — **safe facts only** (provider/action key,
+status, date, short note; never secrets, selector values, account/run/workflow ids, or
+provider payloads). Statuses:
+
+| Status | Meaning | Default live run |
+|---|---|---|
+| `LIVE_PASS` | already passed live verification | **CERT-SKIP (not re-run)** |
+| `LIVE_NOT_RUN` | fixtured, never live-verified | runs |
+| `MISSING_FIXTURE` | registered action with no fixture (a gap) | n/a (no fixture) |
+| `BLOCKED_ENV` | couldn't run (account/resource/env missing, e.g. Excel) | runs once env appears |
+| `FAIL` / `BUG` | last run failed / known bug | runs (re-verify after a fix) |
+
+**Default behavior (budget-conserving).** The live runner (`npm run
+smoke:actions:run:workflow:live`) turns the certification **planner** on: any
+`liveSafe` action certified `LIVE_PASS` is reported `certified-skip` (a.k.a. `CERT-SKIP`)
+and **never reaches the engine** — no task spent, no provider call, no re-posted write.
+`CERT-SKIP` is reported **separately** from a missing-env skip (it is not a gap — it is
+"already green"). Per-provider totals are `pass / fail / skip / cert-skip`; the JSON adds
+`totals.certifiedSkip` + a top-level `rerunPassed` flag (additive). The
+`native:format_transformer` baseline is intentionally **not** certified, so it runs every
+sweep to prove the live path is real.
+
+**Full regression sweep (re-verify everything).** Set `SMOKE_RERUN_PASSED=1` to re-run
+`LIVE_PASS` actions too — for a release candidate or after a broad change. The report
+prints a `RERUN-PASSED MODE` banner so an intentional full sweep is obvious. (Write/
+destructive gates still apply — a rerun write only posts with `ALLOW_LIVE_PROVIDER_WRITE_SMOKE`,
+a destructive only with the destructive double-opt-in.)
+
+```bash
+# Default — skips already-certified LIVE_PASS actions (conserves task budget):
+… SMOKE_PROVIDER=airtable SMOKE_AIRTABLE_CONNECTED=1 … npm run smoke:actions:run:workflow:live
+
+# Full regression sweep — re-runs passed actions too:
+… SMOKE_RERUN_PASSED=1 SMOKE_PROVIDER=airtable SMOKE_AIRTABLE_CONNECTED=1 … npm run smoke:actions:run:workflow:live
+```
+
+**View the matrix (offline, no execution):**
+
+```bash
+npm run smoke:actions -- --cert                     # all providers
+npm run smoke:actions -- --cert --provider airtable  # one provider
+npm run smoke:actions -- --cert --json               # machine-readable
+```
+
+The planner only ever **skips** a certified read/write — it never makes an uncertified or
+destructive action run, so it cannot loosen any live gate. When an action is fixed or a
+new pass is observed, update its record in `certification.ts` (a unit test guards that the
+matrix enumerates every registered action and that no selector-like value lands in it).
+
 ### Per-provider live verification (`SMOKE_PROVIDER`)
 
 Live mode runs **all** fixtures by default; unconfigured providers self-skip. To verify

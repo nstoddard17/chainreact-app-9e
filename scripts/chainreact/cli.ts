@@ -126,7 +126,7 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
 
     case "smoke": {
       if (parsed.subcommand !== "actions") {
-        log(`Unknown 'smoke' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact smoke actions [--dry-run] [--provider <id>] [--all] [--json] [--changed] [--include-destructive]`);
+        log(`Unknown 'smoke' subcommand: '${parsed.subcommand ?? ""}'. Try: chainreact smoke actions [--dry-run] [--provider <id>] [--all] [--json] [--changed] [--include-destructive] [--cert]`);
         return 2;
       }
       const changedFiles = deps.changedFiles ?? defaultChangedFiles;
@@ -144,6 +144,7 @@ export function run(argv: readonly string[], deps: CliDeps = {}): number {
           json: parsed.flags.json === true,
           changed: parsed.flags.changed === true,
           includeDestructive: parsed.flags["include-destructive"] === true,
+          cert: parsed.flags.cert === true,
         },
         fs,
         changedFiles,
