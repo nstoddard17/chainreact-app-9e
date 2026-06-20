@@ -111,6 +111,8 @@ const previewOk = {
   ok: true,
   preview: {
     ok: true,
+    workflowId: "wf-1",
+    currentRevision: "rev-prev-1",
     patchSummary: "Set the recipient on the Gmail step.",
     changes: [{ op: "updateNodeConfig", description: 'Updates configuration for "Gmail — Send Email" (fields: to).', nodeId: "node-B", fields: ["to"] }],
     affectedNodeIds: ["node-B"],
@@ -121,6 +123,13 @@ const previewOk = {
     validation: { ok: true, errors: [], warnings: [] },
     userFacingSummaryText: "Set the recipient — 1 change(s). Risk: low.",
     canApplyLater: true,
+    // CS-7b — applyable previews carry the typed operations + baseRevision the apply
+    // route would receive; the patch-ref is derived from these (secret-free by construction).
+    apply: {
+      applyable: true,
+      operations: [{ op: "updateNodeConfig", nodeId: "node-B", config: { to: "ceo@corp.example" } }],
+      baseRevision: "rev-prev-1",
+    },
   },
   model: { modelId: "gpt-4.1-mini", tier: "fast", usage: { inputTokens: 12, outputTokens: 40 }, latencyMs: 7 },
 };
@@ -463,6 +472,41 @@ describe("ai/repair/preview — React Agent audit emission (CS-6)", () => {
     const input = mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>;
     expect(input).not.toHaveProperty("metadata");
     expect(JSON.stringify(input)).not.toContain(previewOk.preview.patchSummary);
+  });
+
+  it("CS-7b — an APPLYABLE preview success attaches an opaque proposed_patch_ref", async () => {
+    await call("wf-1");
+    const input = mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input.proposedPatchRef).toMatch(/^repair_patch_sha256:[0-9a-f]{64}$/);
+    // The ref is opaque — no raw operations/config leak through it.
+    expect(JSON.stringify(input)).not.toContain("ceo@corp.example");
+    expect(JSON.stringify(input)).not.toContain("node-B");
+  });
+
+  it("CS-7b — the ref is deterministic for the same applyable preview", async () => {
+    await call("wf-1");
+    const a = (mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>).proposedPatchRef;
+    mockAuditRecord.mockClear();
+    await call("wf-1");
+    const b = (mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>).proposedPatchRef;
+    expect(a).toBe(b);
+  });
+
+  it("CS-7b — a NON-applyable preview attaches NO proposed_patch_ref", async () => {
+    mockPreviewRepair.mockResolvedValueOnce({
+      ok: true,
+      preview: { ...previewOk.preview, ok: false, canApplyLater: false, apply: { applyable: false } },
+      model: previewOk.model,
+    });
+    await call("wf-1");
+    expect(mockAuditRecord.mock.calls[0]![0]).not.toHaveProperty("proposedPatchRef");
+  });
+
+  it("CS-7b — a model failure attaches NO proposed_patch_ref", async () => {
+    mockPreviewRepair.mockResolvedValueOnce({ ok: false, code: "MODEL_FAILED", model: { modelId: "gpt-4.1-mini", tier: "fast" } });
+    const res = await call("wf-1");
+    expect(res.status).toBe(503);
+    expect(mockAuditRecord.mock.calls[0]![0]).not.toHaveProperty("proposedPatchRef");
   });
 
   it("model failure → emits a `failed` audit row (response unchanged: 503 MODEL_FAILED)", async () => {

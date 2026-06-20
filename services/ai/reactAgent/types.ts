@@ -214,5 +214,12 @@ export interface ReactAgentService {
      * Does NOT affect the value returned to the caller.
      */
     readonly classifyResult?: (result: T) => ReactAgentAuditOutcome;
+    /**
+     * CS-7b — optional derivation of an OPAQUE `proposed_patch_ref` from a RESOLVED result
+     * (a one-way content ref, e.g. a hash of the previewed operations + baseRevision).
+     * Called only on the resolved path, fail-safe (throw/none → null). MUST NOT carry raw
+     * patch/config/model text. Does NOT affect the value returned to the caller.
+     */
+    readonly deriveProposedPatchRef?: (result: T) => string | null | undefined;
   }): Promise<ReactAgentCapabilityOutcome<T>>;
 }

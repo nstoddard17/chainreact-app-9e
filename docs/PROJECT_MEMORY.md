@@ -107,6 +107,18 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-7b repair PATCH-REF — LOCAL/UNPUSHED (2026-06-19)** — deterministic opaque one-way patch ref
+  + threaded into the repair PREVIEW audit row. Helper `services/ai/repair/repairPatchRef.ts`:
+  `repairPatchRef({workflowId,baseRevision,operations}) → "repair_patch_sha256:<64hex>"` or null (fail-safe);
+  REUSES `hashPayload` (core/workflows/idempotency.ts) canonical SHA-256 (sorted keys, preserved op order); pure,
+  no-leak (no raw id/config/op-JSON in output). Seam `runAuthorizedCapability` gained optional
+  `deriveProposedPatchRef(result)` (resolved-path only, fail-safe throw→null); preview route derives the ref ONLY
+  when `preview.apply.applyable` (operations+baseRevision present, secret-free by construction). NULL for:
+  non-applyable preview, NO_SAFE_PATCH/MODEL_FAILED, the PLAN route (NL proposal, no operations — not wired),
+  deterministic free paths, denied/throw. Still NO metadata at seam; response contracts UNCHANGED; apply still
+  UNWIRED. Verified: 210 tests (9 suites), eslint 0, lint:structure OK, typecheck clean for slice. Next CS-7c
+  register `repair_apply` (requires_approval) → CS-7d route apply through seam (reuse ref → proposal↔apply match). →
+  [`react-agent-cs-7b-repair-patch-ref.md`](./slices/phase-4/ai/react-agent-cs-7b-repair-patch-ref.md).
 - **React Agent CS-7 approval-governance PLAN (docs-only) — LOCAL/UNPUSHED (2026-06-19)** — design before wiring
   any `requires_approval` apply. Finding: the apply path (`/ai/repair/apply` → `applyRepairPatch` →
   validateWorkflowPatch + assessApplyReadiness + executeWorkflowPatch + optimistic `updateDraftDefinitionIfRevisionMatches`)

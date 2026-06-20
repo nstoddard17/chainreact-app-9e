@@ -32,6 +32,7 @@ import {
 } from "@/services/ai/modelClients/createModelClient";
 import { reactAgentService } from "@/services/ai/reactAgent";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
+import { repairPatchRef } from "@/services/ai/repair/repairPatchRef";
 import { loadWorkflowForMember, requireUser } from "../../../../_shared";
 
 /**
@@ -385,6 +386,18 @@ export async function POST(
     capabilityId: "repair_proposal",
     auditRecorder: reactAgentAuditRecorder,
     classifyResult: (r) => (r.ok ? "success" : "failed"),
+    // CS-7b — when the preview produced an APPLYABLE patch, attach the opaque,
+    // one-way content ref (hash of the previewed operations + baseRevision) so this
+    // proposal audit row can later correlate to its apply row. Not applyable / model
+    // failure / no-safe-patch → no operations → null. Never carries raw patch content.
+    deriveProposedPatchRef: (r) =>
+      r.ok && r.preview.apply.applyable && r.preview.apply.operations && r.preview.apply.baseRevision
+        ? repairPatchRef({
+            workflowId: r.preview.workflowId,
+            baseRevision: r.preview.apply.baseRevision,
+            operations: r.preview.apply.operations,
+          })
+        : null,
     exec: () =>
       previewWorkflowRepair({
         dto,

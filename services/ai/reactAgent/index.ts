@@ -134,6 +134,14 @@ export async function runAuthorizedCapability<T>(input: {
   auditRecorder?: ReactAgentAuditRecorder;
   /** CS-5d — map a RESOLVED result to an audit outcome (default `success`). */
   classifyResult?: (result: T) => ReactAgentAuditOutcome;
+  /**
+   * CS-7b — derive an OPAQUE `proposed_patch_ref` from a RESOLVED result (e.g. a
+   * deterministic content hash of the previewed operations + baseRevision). Called only
+   * on the resolved path; must return a safe, one-way ref or `null`/`undefined` when no
+   * deterministic patch identity exists. Wrapped fail-safe — a throw is treated as `null`
+   * and never breaks the path. NEVER use this to smuggle raw patch/config/model text.
+   */
+  deriveProposedPatchRef?: (result: T) => string | null | undefined;
 }): Promise<ReactAgentCapabilityOutcome<T>> {
   // Pure registry lookup (no side effect) up front so a denied audit still carries the
   // real mode / creditFeature / auditKind when the capability IS registered.
@@ -142,15 +150,17 @@ export async function runAuthorizedCapability<T>(input: {
   // Emit at most one audit row per call. The injected recorder is fail-open (CS-5c), but
   // the seam ALSO swallows here as defense in depth — a misbehaving/rejecting recorder must
   // never throw into, or change the outcome of, the agent/user path. Emission is a pure
-  // side effect; no metadata is attached at the seam (so nothing raw can leak).
+  // side effect; no metadata is attached at the seam (so nothing raw can leak). The only
+  // result-derived field is the OPAQUE `proposedPatchRef` (CS-7b), never raw content.
   const emit = async (
     outcome: ReactAgentAuditOutcome,
     reason: string | null,
+    proposedPatchRef: string | null = null,
   ): Promise<void> => {
     if (!input.auditRecorder) return;
     try {
       await input.auditRecorder.record(
-        buildAuditInput(input.scope, input.intent, input.capabilityId, capability, outcome, reason),
+        buildAuditInput(input.scope, input.intent, input.capabilityId, capability, outcome, reason, proposedPatchRef),
       );
     } catch {
       // Fail-open at the seam: audit failures never break Q&A / Explain.
@@ -182,7 +192,17 @@ export async function runAuthorizedCapability<T>(input: {
   // Resolved: `success` unless the route's classifier marks the result a failure
   // (e.g. a brain `{ ok: false }` model failure → `failed`).
   const outcome = input.classifyResult ? input.classifyResult(result) : "success";
-  await emit(outcome, outcome === "success" ? null : "exec_failed");
+  // CS-7b — derive the opaque patch ref from the resolved result, fail-safe (a missing
+  // deterministic patch shape, or a throw, → null). Never affects the returned value.
+  let proposedPatchRef: string | null = null;
+  if (input.deriveProposedPatchRef) {
+    try {
+      proposedPatchRef = input.deriveProposedPatchRef(result) ?? null;
+    } catch {
+      proposedPatchRef = null;
+    }
+  }
+  await emit(outcome, outcome === "success" ? null : "exec_failed", proposedPatchRef);
   return { ok: true, result };
 }
 
@@ -194,6 +214,7 @@ export async function runAuthorizedCapability<T>(input: {
  * absent, so `mode` falls back to `read_only` (nothing executed) and `auditKind` to a
  * synthetic `react_agent.<id>`; `outcome: denied` + `reason: unknown_capability` carry the
  * real signal. `aiCostEventId` is intentionally NOT linked in CS-5d (see the slice doc).
+ * `proposedPatchRef` (CS-7b) is an OPAQUE, one-way content ref or `null` — never raw patch.
  */
 function buildAuditInput(
   scope: ReactAgentScope,
@@ -202,6 +223,7 @@ function buildAuditInput(
   capability: ReactAgentCapabilityDefinition | undefined,
   outcome: ReactAgentAuditOutcome,
   reason: string | null,
+  proposedPatchRef: string | null,
 ): ReactAgentAuditRecorderInput {
   return {
     accountId: scope.accountId,
@@ -215,6 +237,7 @@ function buildAuditInput(
     auditKind: capability?.auditKind ?? `react_agent.${capabilityId}`,
     outcome,
     reason,
+    ...(proposedPatchRef ? { proposedPatchRef } : {}),
   };
 }
 

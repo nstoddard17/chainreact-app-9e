@@ -398,6 +398,58 @@ describe("ReactAgent boundary — runAuthorizedCapability audit emission (CS-5d)
     expect(JSON.stringify(input)).not.toContain("add a trigger");
   });
 
+  it("threads an opaque proposedPatchRef from deriveProposedPatchRef on success (CS-7b)", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({
+      scope: { userId: "u1", accountId: "acc1", workflowId: "wf1" },
+      intent: "propose_repair",
+      capabilityId: "repair_proposal",
+      auditRecorder,
+      classifyResult: (r: { ok: boolean }) => (r.ok ? "success" : "failed"),
+      deriveProposedPatchRef: () => "repair_patch_sha256:abc123",
+      exec: async () => ({ ok: true }),
+    });
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "success", proposedPatchRef: "repair_patch_sha256:abc123" });
+  });
+
+  it("omits proposedPatchRef when the deriver returns null", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({
+      ...QA,
+      auditRecorder,
+      deriveProposedPatchRef: () => null,
+      exec: async () => ({ ok: true }),
+    });
+    expect(record.mock.calls[0]![0]).not.toHaveProperty("proposedPatchRef");
+  });
+
+  it("swallows a throwing deriver (ref → null, result unchanged)", async () => {
+    const { auditRecorder, record } = recorder();
+    const outcome = await runAuthorizedCapability({
+      ...QA,
+      auditRecorder,
+      deriveProposedPatchRef: () => { throw new Error("bad result shape"); },
+      exec: async () => ({ ok: true, answer: "x" }),
+    });
+    expect(outcome).toEqual({ ok: true, result: { ok: true, answer: "x" } });
+    expect(record.mock.calls[0]![0]).not.toHaveProperty("proposedPatchRef");
+  });
+
+  it("does NOT derive a ref on a denied path (exec never ran)", async () => {
+    const { auditRecorder, record } = recorder();
+    const derive = jest.fn(() => "repair_patch_sha256:should-not-appear");
+    await runAuthorizedCapability({
+      ...QA,
+      scope: { userId: "", accountId: "acc1" },
+      auditRecorder,
+      deriveProposedPatchRef: derive,
+      exec: async () => ({ ok: true }),
+    });
+    expect(derive).not.toHaveBeenCalled();
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "denied" });
+    expect(record.mock.calls[0]![0]).not.toHaveProperty("proposedPatchRef");
+  });
+
   it("does NOT emit when no recorder is injected (backward-compatible)", async () => {
     // No throw, exec runs, result returned — covered by the CS-3 seam tests above; this
     // asserts the no-recorder path is side-effect-free (nothing to spy, so just exec runs).
