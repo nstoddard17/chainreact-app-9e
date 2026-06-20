@@ -35,7 +35,8 @@ export type ConnectedAppFilterKind =
   | "airtable_base"
   | "airtable_table"
   | "monday_board"
-  | "hubspot_pipeline";
+  | "hubspot_pipeline"
+  | "mailchimp_audience";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -445,6 +446,31 @@ const SHOPIFY: ConnectedAppSourceUi = {
   },
 };
 
+const MAILCHIMP: ConnectedAppSourceUi = {
+  provider: "mailchimp",
+  displayName: "Mailchimp",
+  exposed: true,
+  icon: "Comment",
+  connectHref: "/apps",
+  connectTitle: "Connect your Mailchimp account",
+  connectHelp:
+    "This widget reads audience + campaign totals from your account's connected Mailchimp. Connect Mailchimp to see it.",
+  connectCtaLabel: "Connect Mailchimp",
+  // Mailchimp is an ACCOUNT-shared marketing account — every account member sees the
+  // same account/audience aggregates (core/integrations/credentialSharing.ts → "account").
+  visibility: "account",
+  attributionPrefix: "Mailchimp account",
+  metricsByType: {
+    stat: [
+      { id: "audience_member_count", label: "Audience members", filters: ["mailchimp_audience"] },
+      { id: "campaign_count", label: "Campaigns sent", filters: [] },
+    ],
+    ...seriesForBoth([
+      { id: "campaigns_sent_over_time", label: "Campaigns sent over time", filters: [] },
+    ]),
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -459,6 +485,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   MONDAY,
   HUBSPOT,
   SHOPIFY,
+  MAILCHIMP,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

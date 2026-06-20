@@ -162,6 +162,21 @@ it("runs provider=shopify with no filters (account-shared, session account)", as
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the mailchimp_audience filter for provider=mailchimp (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/mailchimp/data?metric=audience_member_count&range=30d&mailchimp_audience=a1b2c3d4e5",
+    ),
+    { params: Promise.resolve({ provider: "mailchimp" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("mailchimp");
+  expect(call.metricKey).toBe("audience_member_count");
+  expect(call.filters).toEqual({ mailchimp_audience: "a1b2c3d4e5" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

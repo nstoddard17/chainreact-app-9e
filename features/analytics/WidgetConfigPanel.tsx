@@ -67,7 +67,7 @@ const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
 type FilterDataKey =
   | "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" | "board"
-  | "airtable_base" | "airtable_table" | "monday_board" | "hubspot_pipeline";
+  | "airtable_base" | "airtable_table" | "monday_board" | "hubspot_pipeline" | "mailchimp_audience";
 
 // Kinds not listed use their own name as the data key (repo / keyword / airtable_* /
 // monday_board / hubspot_pipeline — kind === data key).
@@ -126,49 +126,31 @@ export function WidgetConfigPanel({
 
   const existingFilters =
     existingDs?.kind === "connected_app" ? (existingDs.filters ?? {}) : {};
-  const [repo, setRepo] = useState<string>(
-    typeof existingFilters.repo === "string" ? existingFilters.repo : "",
-  );
-  const [channel, setChannel] = useState<string>(
-    typeof existingFilters.channel === "string" ? existingFilters.channel : "",
-  );
-  const [keyword, setKeyword] = useState<string>(
-    typeof existingFilters.keyword === "string" ? existingFilters.keyword : "",
-  );
-  const [calendar, setCalendar] = useState<string>(
-    typeof existingFilters.calendar === "string" ? existingFilters.calendar : DEFAULT_CALENDAR_ID,
-  );
-  const [label, setLabel] = useState<string>(
-    typeof existingFilters.label === "string" ? existingFilters.label : "",
-  );
-  const [folder, setFolder] = useState<string>(
-    typeof existingFilters.folder === "string" ? existingFilters.folder : "",
-  );
+  // Seed one connected-app filter from existing config (string only; else fallback).
+  const initFilter = (k: string, fallback = ""): string => {
+    const v = (existingFilters as Record<string, unknown>)[k];
+    return typeof v === "string" ? v : fallback;
+  };
+  const [repo, setRepo] = useState(initFilter("repo"));
+  const [channel, setChannel] = useState(initFilter("channel"));
+  const [keyword, setKeyword] = useState(initFilter("keyword"));
+  const [calendar, setCalendar] = useState(initFilter("calendar", DEFAULT_CALENDAR_ID));
+  const [label, setLabel] = useState(initFilter("label"));
+  const [folder, setFolder] = useState(initFilter("folder"));
   // Outlook Calendar picker is OPTIONAL — empty means "primary calendar".
-  const [outlookCalendar, setOutlookCalendar] = useState<string>(
-    typeof existingFilters.outlook_calendar === "string" ? existingFilters.outlook_calendar : "",
-  );
-  const [board, setBoard] = useState<string>(
-    typeof existingFilters.board === "string" ? existingFilters.board : "",
-  );
-  const [airtableBase, setAirtableBase] = useState<string>(
-    typeof existingFilters.airtable_base === "string" ? existingFilters.airtable_base : "",
-  );
-  const [airtableTable, setAirtableTable] = useState<string>(
-    typeof existingFilters.airtable_table === "string" ? existingFilters.airtable_table : "",
-  );
+  const [outlookCalendar, setOutlookCalendar] = useState(initFilter("outlook_calendar"));
+  const [board, setBoard] = useState(initFilter("board"));
+  const [airtableBase, setAirtableBase] = useState(initFilter("airtable_base"));
+  const [airtableTable, setAirtableTable] = useState(initFilter("airtable_table"));
   // Changing the base clears the (now-stale) table selection so a widget can't be
   // saved with a table id that belongs to a different base.
   const onAirtableBaseChange = (v: string) => {
     setAirtableBase(v);
     setAirtableTable("");
   };
-  const [mondayBoard, setMondayBoard] = useState<string>(
-    typeof existingFilters.monday_board === "string" ? existingFilters.monday_board : "",
-  );
-  const [hubspotPipeline, setHubspotPipeline] = useState<string>(
-    typeof existingFilters.hubspot_pipeline === "string" ? existingFilters.hubspot_pipeline : "",
-  );
+  const [mondayBoard, setMondayBoard] = useState(initFilter("monday_board"));
+  const [hubspotPipeline, setHubspotPipeline] = useState(initFilter("hubspot_pipeline"));
+  const [mailchimpAudience, setMailchimpAudience] = useState(initFilter("mailchimp_audience"));
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -193,6 +175,7 @@ export function WidgetConfigPanel({
     if (kind === "airtable_table") return airtableTable.trim().length > 0;
     if (kind === "monday_board") return mondayBoard.trim().length > 0;
     if (kind === "hubspot_pipeline") return hubspotPipeline.trim().length > 0;
+    if (kind === "mailchimp_audience") return mailchimpAudience.trim().length > 0;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -215,6 +198,7 @@ export function WidgetConfigPanel({
         else if (kind === "airtable_table") filters[key] = airtableTable.trim();
         else if (kind === "monday_board") filters[key] = mondayBoard.trim();
         else if (kind === "hubspot_pipeline") filters[key] = hubspotPipeline.trim();
+        else if (kind === "mailchimp_audience") filters[key] = mailchimpAudience.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -329,6 +313,8 @@ export function WidgetConfigPanel({
                   onMondayBoard={setMondayBoard}
                   hubspotPipeline={hubspotPipeline}
                   onHubspotPipeline={setHubspotPipeline}
+                  mailchimpAudience={mailchimpAudience}
+                  onMailchimpAudience={setMailchimpAudience}
                 />
               ) : (
                 <InternalConfig

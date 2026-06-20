@@ -302,4 +302,21 @@ export default [
       ],
     },
   },
+
+  // features/analytics/connectedAppSources.ts — hand-maintained connected-app
+  // analytics descriptor inventory: one literal block per provider (provider key,
+  // credential visibility, connect-CTA copy, per-widget-type metric options). Same
+  // rationale as the registry inventories above — keeping every provider's analytics
+  // descriptor in one reviewable list is the point; splitting it by alphabetical
+  // halves hurts review. Grows ~25 LOC per provider; capped at 600 to leave headroom
+  // for the remaining connected apps without allowing unbounded growth.
+  {
+    files: ["features/analytics/connectedAppSources.ts"],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 600, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
 ];

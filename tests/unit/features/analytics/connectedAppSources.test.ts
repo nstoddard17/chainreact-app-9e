@@ -75,6 +75,30 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("hubspot")?.visibility).toBe("account");
     // Shopify is a shared store → account-wide visibility.
     expect(getConnectedAppSource("shopify")?.visibility).toBe("account");
+    // Mailchimp is a shared marketing account → account-wide visibility.
+    expect(getConnectedAppSource("mailchimp")?.visibility).toBe("account");
+  });
+});
+
+describe("Mailchimp metric/filter shape", () => {
+  const mailchimp = getExposedConnectedAppSource("mailchimp")!;
+
+  it("exposes Mailchimp with audience/campaign scalars for stat and campaign series for line/bar", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("mailchimp");
+    expect(getExposedConnectedAppSource("mailchimp")?.displayName).toBe("Mailchimp");
+    expect(metricsForType(mailchimp, "stat").map((m) => m.id).sort()).toEqual([
+      "audience_member_count",
+      "campaign_count",
+    ]);
+    expect(metricsForType(mailchimp, "line").map((m) => m.id)).toEqual(["campaigns_sent_over_time"]);
+    expect(metricsForType(mailchimp, "bar").map((m) => m.id)).toEqual(["campaigns_sent_over_time"]);
+    expect(metricsForType(mailchimp, "donut")).toEqual([]);
+  });
+
+  it("audience_member_count needs an audience filter; campaign metrics take none", () => {
+    expect(findMetricOption(mailchimp, "stat", "audience_member_count")?.filters).toEqual(["mailchimp_audience"]);
+    expect(findMetricOption(mailchimp, "stat", "campaign_count")?.filters).toEqual([]);
+    expect(findMetricOption(mailchimp, "line", "campaigns_sent_over_time")?.filters).toEqual([]);
   });
 });
 

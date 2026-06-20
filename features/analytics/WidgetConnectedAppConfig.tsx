@@ -10,6 +10,7 @@ import {
   GithubRepoField,
   GmailLabelField,
   HubSpotPipelineField,
+  MailchimpAudienceField,
   KeywordField,
   MondayBoardField,
   OutlookCalendarField,
@@ -59,6 +60,8 @@ export function ConnectedAppConfig({
   onMondayBoard,
   hubspotPipeline,
   onHubspotPipeline,
+  mailchimpAudience,
+  onMailchimpAudience,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -92,6 +95,8 @@ export function ConnectedAppConfig({
   onMondayBoard: (v: string) => void;
   hubspotPipeline: string;
   onHubspotPipeline: (v: string) => void;
+  mailchimpAudience: string;
+  onMailchimpAudience: (v: string) => void;
 }) {
   return (
     <>
@@ -189,6 +194,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("hubspot_pipeline") && (
         <HubSpotPipelineField value={hubspotPipeline} onChange={onHubspotPipeline} connected={connected} />
+      )}
+
+      {requiredFilters.includes("mailchimp_audience") && (
+        <MailchimpAudienceField value={mailchimpAudience} onChange={onMailchimpAudience} connected={connected} />
       )}
     </>
   );

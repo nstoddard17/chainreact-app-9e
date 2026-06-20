@@ -303,3 +303,26 @@ export function HubSpotPipelineField(props: { value: string; onChange: (v: strin
     />
   );
 }
+
+/**
+ * Mailchimp audience picker (`mailchimp:audiences`) — the account's audiences (lists),
+ * required for audience-scoped metrics. Mailchimp is account-shared, so the resolver
+ * lists the account's audiences; only audience id + name are loaded, never subscriber
+ * data or campaign content.
+ */
+export function MailchimpAudienceField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="mailchimp:audiences"
+      icon="Database"
+      sectionLabel="Audience"
+      hint="Pick a Mailchimp audience to report on."
+      disconnectedHint="Connect Mailchimp to choose an audience."
+      loadingNoun="audiences"
+      errorFallback="Couldn't load Mailchimp audiences."
+      ariaLabel="Mailchimp audience"
+      placeholder="Select an audience…"
+      {...props}
+    />
+  );
+}

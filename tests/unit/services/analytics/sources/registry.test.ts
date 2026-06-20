@@ -223,6 +223,21 @@ describe("analytics source registry", () => {
     for (const m of shopify!.metrics) expect(m.supportedFilters).toEqual([]);
   });
 
+  it("registers Mailchimp as a connected-app source (ANALYTICS-SOURCES-MAILCHIMP-1)", () => {
+    const mailchimp = getAnalyticsSource("mailchimp");
+    expect(mailchimp?.connectedApp).toBe(true);
+    expect(mailchimp?.metrics.map((m) => m.key).sort()).toEqual([
+      "audience_member_count",
+      "campaign_count",
+      "campaigns_sent_over_time",
+    ]);
+    expect(isApprovedSourceMetric("mailchimp", "audience_member_count")).toBe(true);
+    expect(isApprovedSourceMetric("mailchimp", "list_subscriber_emails")).toBe(false);
+    const byKey = Object.fromEntries(mailchimp!.metrics.map((m) => [m.key, m.supportedFilters]));
+    expect(byKey.audience_member_count).toEqual(["mailchimp_audience"]);
+    expect(byKey.campaign_count).toEqual([]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

@@ -13,6 +13,7 @@ import { airtableAnalyticsSource } from "./airtable";
 import { mondayAnalyticsSource } from "./monday";
 import { hubspotAnalyticsSource } from "./hubspot";
 import { shopifyAnalyticsSource } from "./shopify";
+import { mailchimpAnalyticsSource } from "./mailchimp";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -64,6 +65,9 @@ import { shopifyAnalyticsSource } from "./shopify";
  *     paid count / revenue sum + orders/revenue over-time, account-shared
  *     non-refreshable credential, count/sum-only, no customer/order detail read) —
  *     ANALYTICS-SOURCES-SHOPIFY-1.
+ *   - MAILCHIMP (connected app, read-only aggregate reads → audience member count +
+ *     sent-campaign count / over-time, account-shared non-refreshable credential,
+ *     count-only, no subscriber/campaign content read) — ANALYTICS-SOURCES-MAILCHIMP-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -90,6 +94,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   mondayAnalyticsSource,
   hubspotAnalyticsSource,
   shopifyAnalyticsSource,
+  mailchimpAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

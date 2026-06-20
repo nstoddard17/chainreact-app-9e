@@ -30,4 +30,5 @@ export {
   AirtableTableField,
   MondayBoardField,
   HubSpotPipelineField,
+  MailchimpAudienceField,
 } from "./WidgetConnectedAppPickersProject";
