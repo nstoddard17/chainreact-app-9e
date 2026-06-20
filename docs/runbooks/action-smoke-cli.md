@@ -721,10 +721,14 @@ when fixtures skipped for unset env, a grouped **Missing env** summary:
   values.** Set the listed vars and re-run to convert SKIPs into live PASSes. The same data
   is in the JSON output under an additive `missingEnv` key.
 
-**Verification status.** **Slack live read + write are Marcus-verified.** The other
-providers' live reads (Airtable / Google Sheets / Google Drive / Gmail / Outlook / Notion /
-Excel / Teams) are wired and ready but **not yet live-verified** — use the per-provider
-commands above to verify each locally.
+**Verification status (2026-06-20).** **Live-verified reads:** Slack (read + write), Gmail,
+Google Drive, Microsoft Outlook, Airtable, Notion (incl. empty-query "search all"), Google
+Sheets, and Microsoft Teams. **Microsoft Excel is NOT yet verified** — the connected Microsoft
+account has no accessible OneDrive/SharePoint drive (see the Excel account-requirement note
+above); connect a drive-backed account and re-run `SMOKE_PROVIDER=microsoft-excel`. Selector
+ids are discovered from a connected smoke account into gitignored `.env.local` and are never
+committed (only env-var NAMES appear in reports — never values, account ids, run/workflow ids,
+or raw provider output).
 
 ## How execution maps to the real engine
 

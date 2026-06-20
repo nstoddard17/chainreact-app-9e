@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-19 @ cf0e43b97 (Builder AI polish batch + selected-node Q&A label — 5 feature commits LOCAL/UNPUSHED; AI credit enforcement + AUTOROUTE live in prod; origin/v2-main = cf0e43b97)
+> Last curated: 2026-06-20 @ 5a2e66d92 (action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. parallel-session Hermes-guidance + analytics WIP)
 
 ## Current status
 
@@ -107,6 +107,19 @@
 
 ## Recently completed arcs
 
+- **Action-smoke harness — live-verification arc substantially COMPLETE — LOCAL/UNPUSHED (2026-06-20)** —
+  CLI + Jest harness (`npm run smoke:actions[:run[:workflow[:live]]]`) drives real V2 internals; per-provider
+  live via `SMOKE_PROVIDER`, names-only missing-env summaries, double-gated live mode (read fixtures only — no
+  write/destructive runs). **Live-verified reads:** Slack (read+write), Gmail, Google Drive, Microsoft Outlook,
+  Airtable, Notion (incl. empty-query "search all"), Google Sheets, Microsoft Teams. **Microsoft Excel still
+  BLOCKED** — the connected Microsoft account has no accessible OneDrive/SharePoint drive (`get_workbooks` →
+  Graph "Operation not supported"); documented as an account/resource requirement, not a code bug. **Fixes:**
+  `e7a0db5f0` — a required field declaring a meta `defaultValue` is no longer a readiness gap (fixes Sheets
+  `read_rows` `majorDimension` + the whole required-with-default class for non-builder configs; Notion `search`
+  empty query consistently valid; Excel drive requirement documented); `4188b49ee` — refreshed stale
+  Gmail(15)/Outlook(11) registry meta-count tests without weakening. Selector ids are discovered into gitignored
+  `.env.local` only — no secrets/selectors/account-or-run/workflow-ids/raw provider payloads stored. Nothing
+  pushed/deployed/db:pushed → [`docs/runbooks/action-smoke-cli.md`](./runbooks/action-smoke-cli.md).
 - **Hosted Hermes GUIDANCE BRAIN (config-gated, NOT live-routed) — LOCAL/UNPUSHED (2026-06-20)** — extends the
   foundation into a real-but-inert Nous workflow-guidance brain. Marcus confirmed direct Nous API works
   (`nousresearch/hermes-4-70b`, Nous Portal `https://inference-api.nousresearch.com/v1`; key SERVER-ONLY in
@@ -147,163 +160,8 @@
   excluded from free-text handle). `proposed_patch_ref` (one-way sha256) correlates proposal↔apply w/ no approval
   table. CS-5b migration APPLIED+live-verified; arc added NO feature flags (governance always-on for wired
   routes; apply has no UI entry yet). DEFERRED: ai_cost_event_id link, `react_agent_approvals` table (CS-7f),
-  cross-ledger grant hardening, PROJECT_MEMORY prune, Hermes design. Next: push verified batch (Marcus approval)
+  cross-ledger grant hardening, Hermes design. Next: push verified batch (Marcus approval)
   or start Hermes. → [`react-agent-governance-closeout.md`](./slices/phase-4/ai/react-agent-governance-closeout.md).
-- **React Agent CS-7e apply-audit LIVE SMOKE — LOCAL/UNPUSHED, 4/4 PASSED + cleaned (2026-06-20)** — gated
-  self-cleaning integration test `tests/integration/ai/react-agent-repair-apply-audit.dev.test.ts` (opt-in
-  ALLOW_DB_INTEGRATION_TESTS; skipped in CI) drove the REAL seam + REAL live `reactAgentAuditRecorder`
-  (service-role insert) + REAL `assessApplyReadiness`/`executeWorkflowPatch` + REAL `repairPatchRef` against V2
-  (`qcepijemjlkssfkvzlio`). VERIFIED live: (1) repair_proposal success row (proposes_change, ref non-null); (2)
-  repair_apply success row (requires_approval, credit_feature null, **ref MATCHES proposal**), draft mutated
-  (moveNode), **state unchanged (no deactivation)**, **0 ai_cost_events** (no model call); (3) stale apply →
-  failed row, draft unchanged; (4) blocked removeNode → failed row. All rows metadata `{}`, no raw
-  patch/config/id leak. **Cleanup confirmed: 0 orphaned NULL-account rows** (delete audit before account, vs the
-  SET NULL FKs), 0 leftover workflows/users — DB pristine. NOT exercised (out of scope): HTTP route + SSR-cookie
-  persistence (CS-7d unit-tested) + OpenAI model call. Unit re-run 141 (5 suites), eslint 0, lint:structure OK,
-  typecheck clean. → [`react-agent-cs-7e-apply-audit-live-smoke.md`](./slices/phase-4/ai/react-agent-cs-7e-apply-audit-live-smoke.md).
-- **React Agent CS-7d repair-apply AUDIT wiring — LOCAL/UNPUSHED, apply now through the seam (2026-06-19)** — the
-  guarded apply route (`/ai/repair/apply`) now wraps the deterministic `applyRepairPatch` call in
-  `runAuthorizedCapability({capabilityId:"repair_apply", intent:"apply_repair", recorder, classifyResult,
-  deriveProposedPatchRef})` → emits ONE `react_agent.repair_apply` / `requires_approval` audit row (success on
-  applied, failed on STALE_PATCH/NOT_APPLYABLE/EXECUTION_FAILED, denied pre-exec). All safety
-  (validateWorkflowPatch→assessApplyReadiness→executeWorkflowPatch→optimistic revision) stays INSIDE
-  applyRepairPatch (untouched); auth/membership/edit-gate run BEFORE the seam (pre-seam denial → no audit). **NO
-  model call, NO aiCreditGate (creditFeature null), NO new apply behavior, NO UI/schema; response contract
-  byte-for-byte unchanged; metadata-free at seam.** `proposed_patch_ref` = `repairPatchRef({workflowId,
-  baseRevision,operations})` from the apply REQUEST input → MATCHES the CS-7b preview proposal row (correlation
-  closed, no approval table); null when baseRevision/operations absent. Verified: 227 tests (9 suites incl.
-  ref-matches-preview, failed-audit, fail-open, pre-seam-no-audit, no-leak), typecheck clean, eslint 0,
-  lint:structure OK. Next CS-7e: live smoke (query react_agent_audit_events by auditKind) / apply-governance
-  closeout. → [`react-agent-cs-7d-repair-apply-audit-wiring.md`](./slices/phase-4/ai/react-agent-cs-7d-repair-apply-audit-wiring.md).
-- **React Agent CS-7c repair-apply CAPABILITY (registration only) — LOCAL/UNPUSHED (2026-06-19)** — registers the
-  first `requires_approval` capability. New intent `apply_repair` added to `ReactAgentIntent` but DELIBERATELY NOT
-  in `RECOGNIZED_REACT_AGENT_INTENTS` → free-text `handle()` refuses it (`unsupported_intent`); apply reachable
-  ONLY via `runAuthorizedCapability`. Capability `repair_apply` (allowedIntent `apply_repair`, mode
-  `requires_approval`, creditFeature null [deterministic/0-credit], auditKind `react_agent.repair_apply`).
-  Registration does nothing alone — no route binds `exec`, so NO mutation/route-change. Apply route/service
-  (`/ai/repair/apply`, applyRepairPatch, executeWorkflowPatch) UNTOUCHED; no schema/UI. Verified: 193 tests
-  (7 suites: registration metadata, repair_apply matches only apply_repair else intent_mismatch no-exec,
-  unknown/invalid-scope fail-closed, handle() refuses apply, existing caps green), typecheck clean, eslint 0,
-  lint:structure OK. Next CS-7d: route apply through seam + emit `react_agent.repair_apply` reusing repairPatchRef
-  (proposal↔apply match). → [`react-agent-cs-7c-repair-apply-capability.md`](./slices/phase-4/ai/react-agent-cs-7c-repair-apply-capability.md).
-- **React Agent CS-7b repair PATCH-REF — LOCAL/UNPUSHED (2026-06-19)** — deterministic opaque one-way patch ref
-  + threaded into the repair PREVIEW audit row. Helper `services/ai/repair/repairPatchRef.ts`:
-  `repairPatchRef({workflowId,baseRevision,operations}) → "repair_patch_sha256:<64hex>"` or null (fail-safe);
-  REUSES `hashPayload` (core/workflows/idempotency.ts) canonical SHA-256 (sorted keys, preserved op order); pure,
-  no-leak (no raw id/config/op-JSON in output). Seam `runAuthorizedCapability` gained optional
-  `deriveProposedPatchRef(result)` (resolved-path only, fail-safe throw→null); preview route derives the ref ONLY
-  when `preview.apply.applyable` (operations+baseRevision present, secret-free by construction). NULL for:
-  non-applyable preview, NO_SAFE_PATCH/MODEL_FAILED, the PLAN route (NL proposal, no operations — not wired),
-  deterministic free paths, denied/throw. Still NO metadata at seam; response contracts UNCHANGED; apply still
-  UNWIRED. Verified: 210 tests (9 suites), eslint 0, lint:structure OK, typecheck clean for slice. Next CS-7c
-  register `repair_apply` (requires_approval) → CS-7d route apply through seam (reuse ref → proposal↔apply match). →
-  [`react-agent-cs-7b-repair-patch-ref.md`](./slices/phase-4/ai/react-agent-cs-7b-repair-patch-ref.md).
-- **React Agent CS-7 approval-governance PLAN (docs-only) — LOCAL/UNPUSHED (2026-06-19)** — design before wiring
-  any `requires_approval` apply. Finding: the apply path (`/ai/repair/apply` → `applyRepairPatch` →
-  validateWorkflowPatch + assessApplyReadiness + executeWorkflowPatch + optimistic `updateDraftDefinitionIfRevisionMatches`)
-  is ALREADY deterministic, revalidating, optimistic-concurrency-guarded, no-leak, lifecycle-safe (blocks trigger
-  changes instead of deactivating), and treats model output as advisory-only (validator recomputes risk). Real gaps
-  are governance-shaped: NOT through the seam, NO audit row, NO proposal↔apply correlation id, no first-class
-  approver. **Recommend NO new table** (A/C hybrid): route apply through `runAuthorizedCapability`, emit
-  `repair_apply`/`requires_approval`/`react_agent.repair_apply` audit (actor_user_id = approver), correlate via a
-  deterministic content-hash `proposed_patch_ref` (storage-free) on both the CS-6 preview row + the apply row; new
-  intent `apply_repair`, creditFeature null, apply NEVER calls the model. Durable `react_agent_approvals` table
-  DEFERRED (CS-7f) until server-minted proposals/one-time tokens have a driver. Next: CS-7b patch-ref helper →
-  CS-7c register repair_apply → CS-7d route+emit → CS-7e live smoke. →
-  [`react-agent-cs-7-approval-governance-plan.md`](./slices/phase-4/ai/react-agent-cs-7-approval-governance-plan.md).
-- **React Agent CS-6 repair PROPOSAL wiring — LOCAL/UNPUSHED, first `proposes_change` capability (2026-06-19)** —
-  registers `repair_proposal` (intent `propose_repair`, mode `proposes_change`, creditFeature `workflow_repair`,
-  auditKind `react_agent.repair_proposal`) and routes BOTH live LLM proposal routes' model brain through
-  `runAuthorizedCapability` + live recorder: `…/ai/repair/plan` (`planWorkflowRepair`, NL proposal) AND
-  `…/ai/repair/preview` (`previewWorkflowRepair`, validated-patch preview). PROPOSE + PREVIEW only — **NO apply,
-  NO mutation**; `…/ai/repair/apply` (+ applyRepairPatch/executeWorkflowPatch) UNTOUCHED. Deterministic model-free
-  preview paths (selected/dangling/self-loop/duplicate/deterministic) NOT wired (pre-gate, $0, not the AI
-  capability). Audit: success on proposal produced, failed on model failure (incl NO_SAFE_PATCH), denied on
-  scope/registry/intent reject (no exec); **metadata-free at seam** (no proposal/patch/config/model-text leak);
-  proposedPatchRef stays null. Routes still own auth/membership/DTO/OpenAI-config/aiCreditGate/cost-telemetry/
-  response; response contracts UNCHANGED; gate denial → no audit. Verified: 193 focused/route/recorder/repo/
-  migration tests (9 suites), eslint 0, lint:structure OK, typecheck clean for this slice (a transient error from
-  the parallel analytics WIP `WidgetConfigPanel.tsx` is unrelated + cleared on re-run). →
-  [`react-agent-cs-6-repair-proposal-wiring.md`](./slices/phase-4/ai/react-agent-cs-6-repair-proposal-wiring.md).
-- **React Agent CS-5d audit EMISSION (read-only) — LOCAL/UNPUSHED, runtime ACTIVE (2026-06-19)** — wires the
-  recorder into `runAuthorizedCapability`; Q&A + Explain routes inject `reactAgentAuditRecorder`. Seam emits ONE
-  `react_agent_audit_events` row/call: `denied` (invalid_scope|unknown_capability|intent_mismatch, no exec),
-  `failed` (exec throws → re-throws; or `classifyResult` maps brain `{ok:false}`→failed), else `success`.
-  Recorder contract (`ReactAgentAuditRecorder`/Input/Outcome) MOVED to boundary core `types.ts` (pure types) so
-  `index.ts` references it without importing `audit/`/repo — CS-5c guard still green. **Fail-open at BOTH layers**
-  (recorder + seam try/catch). **NO metadata at the seam** (scope ids + registry enums only — no question/answer/
-  DTO/config leak). Routes still own auth/membership/DTO/OpenAI-config/aiCreditGate/cost-telemetry/response;
-  response contracts UNCHANGED; emission only inside the authorized path (gate denial → no row). **`aiCostEventId`
-  DEFERRED** (seam emits before route records cost; `insertEvent` returns void — linking would distort billing;
-  ledgers correlatable by account/user/workflow/feature/time). No repair/proposes-change yet. Verified: 115
-  focused/route/recorder/repo/migration tests, typecheck 0, eslint 0, lint:structure OK. →
-  [`react-agent-cs-5d-audit-emission-readonly.md`](./slices/phase-4/ai/react-agent-cs-5d-audit-emission-readonly.md).
-- **React Agent CS-5c audit RECORDER — LOCAL/UNPUSHED, NOT wired into runtime (2026-06-19)** — injectable
-  recorder maps a safe capability outcome → `react_agent_audit_events` via `insertAuditEvent`. New `audit/`
-  submodule under `services/ai/reactAgent/`: `createReactAgentAuditRecorder`/`reactAgentAuditRecorder` (live),
-  `noopReactAgentAuditRecorder` (default injection), `types`, `index`. Reuses the SHARED `sanitizeAiEventMetadata`
-  (no 2nd sanitizer); coerces non-object metadata→`{}`; caps reason 128 / refs 256; **FAILS OPEN** (swallows repo
-  throw). Core (`index.ts`) UNCHANGED + DB-free — boundary import guard extended to forbid core importing
-  `audit/`/repositories. `runAuthorizedCapability` UNCHANGED — injection is CS-5d (route injects live recorder,
-  emits success|denied|failed for read-only Q&A/Explain, attaches `ai_cost_event_id`). Verified: focused+repo+
-  migration tests 57, typecheck 0, eslint 0, lint:structure OK. →
-  [`react-agent-cs-5c-audit-recorder.md`](./slices/phase-4/ai/react-agent-cs-5c-audit-recorder.md).
-- **React Agent CS-5b audit STORAGE — LOCAL/UNPUSHED, migration APPLIED+live-verified (2026-06-19)** — storage only,
-  no runtime emission. Migration `20260705000000_react_agent_audit_events.sql` creates the account-scoped
-  governance ledger (cols account_id/actor_user_id/workflow_id/conversation_id/capability_id/intent/mode/
-  credit_feature/audit_kind/outcome/reason/proposed_patch_ref/approval_id/ai_cost_event_id link/metadata/
-  anonymized_at/ledger_purge_after/created_at; CHECKs outcome∈success|denied|failed, mode∈read_only|
-  proposes_change|requires_approval, jsonb_typeof metadata=object, text caps; no raw-payload cols). RLS:
-  member-only read via account_memberships, **service-role-write-only** (no user write policy/grant), GRANT
-  authenticated SELECT only. **Deletion = anonymize-retain** (all FKs ON DELETE SET NULL, NO cascade; mirrors
-  ai_cost_events 20260531000008). Repo `repositories/reactAgentAuditEvents.ts` (insertAuditEvent service-role +
-  listAuditEventsForAccount RLS member read; metadata→object, detail-free DB error). `runAuthorizedCapability`
-  UNCHANGED — emission is CS-5c (recorder, DONE) + CS-5d (inject into seam, route attaches ai_cost_event_id).
-  **`db:push` APPLIED 2026-06-19** (project `qcepijemjlkssfkvzlio`); live-verified 23/24 (table/RLS/service-role
-  insert/member-read/non-member-deny/authenticated-write-RLS-denied/invalid outcome+mode+non-object metadata
-  rejected/all-FK SET NULL no-cascade/no raw cols/indexes). The 1 non-pass = `authenticated` has schema-default
-  grant-level writes (same as `ai_cost_events`); RLS still denies — grant-layer cleanup deferred to broader DB
-  hardening. → [`react-agent-cs-5b-audit-storage.md`](./slices/phase-4/ai/react-agent-cs-5b-audit-storage.md).
-- **React Agent CS-5 audit-seam PLAN (docs-only) — LOCAL/UNPUSHED (2026-06-19)** — design before wiring any
-  proposes-change capability. **Recommend a NEW account-scoped `react_agent_audit_events` table** (cols:
-  account_id owner, actor_user_id, workflow_id?, conversation_id?, capability_id, intent, mode, credit_feature,
-  audit_kind, outcome success|denied|failed, reason safe-enum, proposed_patch_ref?, approval_id?,
-  ai_cost_event_id link, metadata, created_at; RLS members-only read + service_role-only write; append-only).
-  Chosen over extending `ai_cost_events` (which DOES now have account_id/conversation_id/patch_id/ai_tool_called
-  — viable stop-gap, but its closed CHECK enums + cost-only purpose don't fit denials/approval/mode/future
-  memory-reads). **Emission = central seam `runAuthorizedCapability` via an INJECTED recorder** (keeps boundary
-  import-fenced); route still owns auth/gate/cost-telemetry + attaches ai_cost_event_id; fail-open. Cost stays
-  in ai_cost_events, audit LINKS it (no dup). No raw prompts/answers/config/secrets — ids/enums/counts only.
-  Registry↔gate consistency stays test-only + optional non-blocking dev assertion (no hard runtime block).
-  Slices CS-5b table→5c repo/recorder→5d seam-inject→5e assertion→5f tests; hold repair-proposal until 5d.
-  No code/migration/db:push. → [`react-agent-cs-5-audit-seam-plan.md`](./slices/phase-4/ai/react-agent-cs-5-audit-seam-plan.md).
-- **React Agent CS-1 (boundary) + CS-2 (Q&A) + CS-3 (registry) + CS-4 (Explain) — first product-AI code — LOCAL/UNPUSHED (2026-06-19)** —
-  narrow account-scoped seam under `services/ai/reactAgent/`. **CS-1** (`193627693`): `ReactAgentScope`
-  (userId+accountId required; workflowId?/conversationId? optional), `ReactAgentIntent`
-  (explain_diagnosis/answer_diagnosis_question/propose_repair/unknown), `ReactAgentRequest/Response`,
-  `ReactAgentService`; pure `dispatchReactAgentRequest` (invalid_scope/unsupported_intent/not_yet_available),
-  **no model/tool/mutation/DB/MCP/fs/child_process/service-role** — durable import-guard test enforces it.
-  **CS-2**: added a SERVER seam `runAuthorizedCapability<T>({scope,intent,exec})` (validates scope/intent,
-  runs the injected already-gated brain call, returns its exact result — still imports no brain/HTTP/gate).
-  The Q&A route `…/ai/diagnose/qa` now runs `answerWorkflowQuestion` THROUGH the seam; **route keeps owning
-  requireUser+membership+server-derived safe DTO+aiCreditGate(before model)+telemetry+response mapping —
-  frontend contract unchanged.** Path = `route guard/DTO/gate → React Agent → brain` (never agent→HTTP, never
-  bypass). User-facing `handle` still returns not_yet_available (no DTO there). **CS-3**: explicit capability
-  **allow-list** `capabilities.ts` (`ReactAgentCapabilityId` + `ReactAgentCapabilityDefinition{id,allowedIntent,
-  mode:read_only|proposes_change|requires_approval,creditFeature,auditKind}` + frozen `REACT_AGENT_CAPABILITIES`;
-  `diagnosis_qa`→answer_diagnosis_question/read_only/workflow_qa). `runAuthorizedCapability` now REQUIRES
-  `capabilityId` + validates scope→capability-exists→intent-matches-allowedIntent before exec;
-  unknown_capability/intent_mismatch fail closed (no exec, no leak of id/intent). Registry is metadata/
-  allow-list ONLY — route still owns auth/gate (creditFeature is doc, not enforcement); NOT Hermes, NOT MCP
-  (import guard still green). Q&A route passes `capabilityId:"diagnosis_qa"`; response unchanged. **CS-4**:
-  Explain wired as 2nd read-only capability — registry `diagnosis_explain`→explain_diagnosis/read_only/
-  workflow_explanation/audit react_agent.diagnosis_explain; Explain route `…/ai/diagnose/explain` runs
-  `explainWorkflowDiagnosis` THROUGH the seam (`capabilityId:"diagnosis_explain"`), route keeps owning
-  auth/DTO/aiCreditGate(workflow_explanation, before model)/telemetry, response unchanged. Test locks each
-  capability creditFeature to its route's gate feature (runtime route↔registry cross-check deferred to audit
-  slice). propose_repair still unwired. Verified (CS-4): reactAgent+explain+qa routes 66, builder client 38,
-  typecheck clean, eslint 0, lint:structure OK →
-  [`react-agent-cs-4-explain-wiring.md`](./slices/phase-4/ai/react-agent-cs-4-explain-wiring.md).
 - **AI architecture direction CORRECTED: React Agent + MCP + Hermes split — LOCAL/UNPUSHED (2026-06-19)** —
   **React Agent** = in-app customer-facing assistant (the product AI path, **first**); **MCP** =
   external/diagnostic **adapter** for ChatGPT/Claude/internal tools, **NOT** a dependency of the in-app
