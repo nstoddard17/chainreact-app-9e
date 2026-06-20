@@ -30,6 +30,8 @@ import {
   createModelClientForModel,
   isOpenAiProviderEnabled,
 } from "@/services/ai/modelClients/createModelClient";
+import { reactAgentService } from "@/services/ai/reactAgent";
+import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { loadWorkflowForMember, requireUser } from "../../../../_shared";
 
 /**
@@ -369,17 +371,48 @@ export async function POST(
   if (!gate.ok) return aiCreditDenialResponse(gate);
 
   const client = createModelClientForModel(getModelForProviderTier("openai", MODEL_TIER), apiKey);
-  const result = await previewWorkflowRepair({
-    dto,
-    userId: auth.userId,
-    workflowId: id,
-    modelClient: client,
-    tier: MODEL_TIER,
-    proposalContext,
-    // AI-REPAIR-2b — validate the patch against the SAME current-draft snapshot the
-    // diagnosis used (when supplied), so the preview never reflects stale saved state.
-    ...(override.draftOverride ? { draftDefinition: override.draftOverride } : {}),
+  // REACT-AGENT-CS-6 — run the ALREADY-authorized, ALREADY-gated repair-PROPOSAL (validated
+  // preview) brain call THROUGH the React Agent registry (capability `repair_proposal`, mode
+  // `proposes_change`). Auth, membership, safe-DTO re-derivation, the OpenAI-config check, and
+  // `aiCreditGate` (above) all stay route-owned; the seam emits ONE audit row (success |
+  // failed). PREVIEW only — `notAppliedNotice` is returned, NO patch is applied/persisted, and
+  // NO raw patch/config/model text enters the audit (metadata-free at the seam). The
+  // deterministic/model-free preview paths above run BEFORE the gate and are NOT this
+  // capability (no model, $0) — intentionally not routed through the seam.
+  const outcome = await reactAgentService.runAuthorizedCapability({
+    scope: { userId: auth.userId, accountId, workflowId: id },
+    intent: "propose_repair",
+    capabilityId: "repair_proposal",
+    auditRecorder: reactAgentAuditRecorder,
+    classifyResult: (r) => (r.ok ? "success" : "failed"),
+    exec: () =>
+      previewWorkflowRepair({
+        dto,
+        userId: auth.userId,
+        workflowId: id,
+        modelClient: client,
+        tier: MODEL_TIER,
+        proposalContext,
+        // AI-REPAIR-2b — validate the patch against the SAME current-draft snapshot the
+        // diagnosis used (when supplied), so the preview never reflects stale saved state.
+        ...(override.draftOverride ? { draftDefinition: override.draftOverride } : {}),
+      }),
   });
+  if (!outcome.ok) {
+    // Unreachable on the wired path (route guarantees a valid scope + the propose_repair
+    // capability/intent); mapped to the same safe 503 a genuine model failure produces so the
+    // response contract is unchanged.
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "MODEL_FAILED",
+        message: "Couldn't build a repair preview right now. Please try again.",
+        errors: [{ stage: "model", code: "MODEL_FAILED", message: "Repair preview unavailable." }],
+      },
+      { status: 503 },
+    );
+  }
+  const result = outcome.result;
 
   // Fail-open telemetry, billed to the workflow-owning account.
   await recordPreviewEvent(accountId, auth.userId, id, result);

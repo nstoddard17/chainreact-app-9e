@@ -20,6 +20,8 @@ import {
   createModelClientForModel,
   isOpenAiProviderEnabled,
 } from "@/services/ai/modelClients/createModelClient";
+import { reactAgentService } from "@/services/ai/reactAgent";
+import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { loadWorkflowForMember, requireUser } from "../../../../_shared";
 
 /**
@@ -199,7 +201,35 @@ export async function POST(
   if (!gate.ok) return aiCreditDenialResponse(gate);
 
   const client = createModelClientForModel(getModelForProviderTier("openai", MODEL_TIER), apiKey);
-  const result = await planWorkflowRepair({ dto, modelClient: client, tier: MODEL_TIER });
+  // REACT-AGENT-CS-6 — run the ALREADY-authorized, ALREADY-gated repair-PROPOSAL brain call
+  // THROUGH the React Agent registry (capability `repair_proposal`, mode `proposes_change`).
+  // Auth, membership, safe-DTO re-derivation, the OpenAI-config check, and `aiCreditGate`
+  // (above) all stay route-owned; the seam validates the capability + scope + intent and
+  // emits ONE audit row (success | failed). PROPOSE only — NO patch is applied/persisted
+  // here, and NO raw proposal/config/model text enters the audit (metadata-free at the seam).
+  const outcome = await reactAgentService.runAuthorizedCapability({
+    scope: { userId: auth.userId, accountId, workflowId: id },
+    intent: "propose_repair",
+    capabilityId: "repair_proposal",
+    auditRecorder: reactAgentAuditRecorder,
+    classifyResult: (r) => (r.ok ? "success" : "failed"),
+    exec: () => planWorkflowRepair({ dto, modelClient: client, tier: MODEL_TIER }),
+  });
+  if (!outcome.ok) {
+    // Unreachable on the wired path (route guarantees a valid scope + the propose_repair
+    // capability/intent); mapped to the same safe 503 the route uses for a model failure so
+    // the response contract is unchanged.
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "MODEL_FAILED",
+        message: "Couldn't suggest a fix right now. Please try again.",
+        errors: [{ stage: "model", code: "MODEL_FAILED", message: "Repair proposal unavailable." }],
+      },
+      { status: 503 },
+    );
+  }
+  const result = outcome.result;
 
   // Fail-open telemetry, billed to the workflow-owning account.
   await recordRepairEvent(accountId, auth.userId, id, result);

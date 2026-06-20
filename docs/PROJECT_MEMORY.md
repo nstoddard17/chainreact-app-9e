@@ -107,6 +107,20 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-6 repair PROPOSAL wiring — LOCAL/UNPUSHED, first `proposes_change` capability (2026-06-19)** —
+  registers `repair_proposal` (intent `propose_repair`, mode `proposes_change`, creditFeature `workflow_repair`,
+  auditKind `react_agent.repair_proposal`) and routes BOTH live LLM proposal routes' model brain through
+  `runAuthorizedCapability` + live recorder: `…/ai/repair/plan` (`planWorkflowRepair`, NL proposal) AND
+  `…/ai/repair/preview` (`previewWorkflowRepair`, validated-patch preview). PROPOSE + PREVIEW only — **NO apply,
+  NO mutation**; `…/ai/repair/apply` (+ applyRepairPatch/executeWorkflowPatch) UNTOUCHED. Deterministic model-free
+  preview paths (selected/dangling/self-loop/duplicate/deterministic) NOT wired (pre-gate, $0, not the AI
+  capability). Audit: success on proposal produced, failed on model failure (incl NO_SAFE_PATCH), denied on
+  scope/registry/intent reject (no exec); **metadata-free at seam** (no proposal/patch/config/model-text leak);
+  proposedPatchRef stays null. Routes still own auth/membership/DTO/OpenAI-config/aiCreditGate/cost-telemetry/
+  response; response contracts UNCHANGED; gate denial → no audit. Verified: 193 focused/route/recorder/repo/
+  migration tests (9 suites), eslint 0, lint:structure OK, typecheck clean for this slice (a transient error from
+  the parallel analytics WIP `WidgetConfigPanel.tsx` is unrelated + cleared on re-run). →
+  [`react-agent-cs-6-repair-proposal-wiring.md`](./slices/phase-4/ai/react-agent-cs-6-repair-proposal-wiring.md).
 - **React Agent CS-5d audit EMISSION (read-only) — LOCAL/UNPUSHED, runtime ACTIVE (2026-06-19)** — wires the
   recorder into `runAuthorizedCapability`; Q&A + Explain routes inject `reactAgentAuditRecorder`. Seam emits ONE
   `react_agent_audit_events` row/call: `denied` (invalid_scope|unknown_capability|intent_mismatch, no exec),

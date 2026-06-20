@@ -47,6 +47,12 @@ jest.mock("@/services/ai/modelClients/createModelClient", () => ({
   createModelClientForModel: (...a: unknown[]) => mockCreateClient(...a),
 }));
 
+// REACT-AGENT-CS-6 — capture the injected audit recorder (the real seam runs unmocked).
+const mockAuditRecord = jest.fn();
+jest.mock("@/services/ai/reactAgent/audit", () => ({
+  reactAgentAuditRecorder: { record: (...a: unknown[]) => mockAuditRecord(...a) },
+}));
+
 import { POST } from "@/app/api/workflows/[id]/ai/repair/plan/route";
 
 function call(id: string) {
@@ -106,6 +112,8 @@ beforeEach(() => {
   mockProviderEnabled.mockReturnValue(true);
   mockCreateClient.mockReset();
   mockCreateClient.mockReturnValue({ generateStructuredJson: jest.fn() });
+  mockAuditRecord.mockReset();
+  mockAuditRecord.mockResolvedValue(undefined);
   process.env.OPENAI_API_KEY = "test-openai-key";
 });
 
@@ -310,6 +318,52 @@ describe("ai/repair/plan — current draft override", () => {
     expect(mockDiagnose).not.toHaveBeenCalled();
     expect(mockGate).not.toHaveBeenCalled();
     expect(mockRepair).not.toHaveBeenCalled();
+  });
+});
+
+describe("ai/repair/plan — React Agent audit emission (CS-6)", () => {
+  it("success → emits ONE react_agent.repair_proposal row, mode proposes_change, on the workflow scope", async () => {
+    await call("wf-1");
+    expect(mockAuditRecord).toHaveBeenCalledTimes(1);
+    expect(mockAuditRecord.mock.calls[0]![0]).toMatchObject({
+      accountId: "acct-wf-1",
+      actorUserId: "user-1",
+      workflowId: "wf-1",
+      capabilityId: "repair_proposal",
+      intent: "propose_repair",
+      mode: "proposes_change",
+      creditFeature: "workflow_repair",
+      auditKind: "react_agent.repair_proposal",
+      outcome: "success",
+    });
+  });
+
+  it("attaches no metadata at the seam (no raw proposal body leaks into audit)", async () => {
+    await call("wf-1");
+    const input = mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).not.toHaveProperty("metadata");
+    expect(JSON.stringify(input)).not.toContain(repairOk.proposal.summary);
+  });
+
+  it("model failure → emits a `failed` audit row (response unchanged: 503 MODEL_FAILED)", async () => {
+    mockRepair.mockResolvedValueOnce({ ok: false, code: "MODEL_FAILED", model: { modelId: "gpt-4.1-mini", tier: "fast" } });
+    const res = await call("wf-1");
+    expect(res.status).toBe(503);
+    expect(mockAuditRecord.mock.calls[0]![0]).toMatchObject({ capabilityId: "repair_proposal", outcome: "failed" });
+  });
+
+  it("an audit recorder failure NEVER breaks the response (fail-open) — still 200", async () => {
+    mockAuditRecord.mockRejectedValueOnce(new Error("audit ledger down"));
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, proposal: { summary: repairOk.proposal.summary } });
+  });
+
+  it("does NOT emit audit when the gate denies (402 → no audit row)", async () => {
+    mockGate.mockResolvedValueOnce({ ok: false, reason: "insufficient_ai_credits", used: 40, limit: 40 });
+    const res = await call("wf-1");
+    expect(res.status).toBe(402);
+    expect(mockAuditRecord).not.toHaveBeenCalled();
   });
 });
 

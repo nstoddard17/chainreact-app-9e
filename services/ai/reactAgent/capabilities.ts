@@ -18,12 +18,16 @@
 import type { ReactAgentIntent } from "./types";
 
 /** Registered capability ids. Add a new id here AND an entry below to wire a capability. */
-export type ReactAgentCapabilityId = "diagnosis_qa" | "diagnosis_explain";
+export type ReactAgentCapabilityId =
+  | "diagnosis_qa"
+  | "diagnosis_explain"
+  | "repair_proposal";
 
 /**
- * How a capability affects workflow state. Drives later approval/audit policy. CS-3 wires
- * only a `read_only` capability; `proposes_change` / `requires_approval` are declared for
- * the repair-proposal/apply capabilities that land in later slices.
+ * How a capability affects workflow state. Drives later approval/audit policy. CS-3/CS-4
+ * wired only `read_only` capabilities; CS-6 wires the first `proposes_change` capability
+ * (repair proposal — propose + preview only, NEVER autonomous apply). `requires_approval`
+ * stays declared-only for the future approved-apply capability.
  */
 export type ReactAgentCapabilityMode =
   | "read_only"
@@ -46,9 +50,16 @@ export interface ReactAgentCapabilityDefinition {
 }
 
 /**
- * The allow-list. Both wired capabilities are READ-ONLY and credit-gated upstream by their
- * route (`workflow_qa` / `workflow_explanation`). `creditFeature` here MUST match the
+ * The allow-list. The two read-only capabilities are credit-gated upstream by their route
+ * (`workflow_qa` / `workflow_explanation`); `repair_proposal` is the first `proposes_change`
+ * capability (CS-6) and is gated as `workflow_repair`. `creditFeature` here MUST match the
  * `aiCreditGate` feature the corresponding route charges (kept in lockstep by test).
+ *
+ * `repair_proposal` covers BOTH LLM repair-proposal routes — `…/ai/repair/plan`
+ * (natural-language proposal, `planWorkflowRepair`) and `…/ai/repair/preview`
+ * (validated-patch preview, `previewWorkflowRepair`) — since both GENERATE an AI repair
+ * proposal and charge `workflow_repair`. It is PROPOSE + PREVIEW only: `…/ai/repair/apply`
+ * (the guarded persistence path) is NOT a React Agent capability and stays unwired.
  */
 export const REACT_AGENT_CAPABILITIES: Readonly<
   Record<ReactAgentCapabilityId, ReactAgentCapabilityDefinition>
@@ -66,6 +77,13 @@ export const REACT_AGENT_CAPABILITIES: Readonly<
     mode: "read_only",
     creditFeature: "workflow_explanation",
     auditKind: "react_agent.diagnosis_explain",
+  }),
+  repair_proposal: Object.freeze({
+    id: "repair_proposal",
+    allowedIntent: "propose_repair",
+    mode: "proposes_change",
+    creditFeature: "workflow_repair",
+    auditKind: "react_agent.repair_proposal",
   }),
 });
 

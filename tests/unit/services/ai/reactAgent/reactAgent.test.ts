@@ -90,6 +90,16 @@ describe("ReactAgent capability registry (CS-3)", () => {
     });
   });
 
+  it("registers repair_proposal as the first proposes_change capability for propose_repair (CS-6)", () => {
+    expect(getReactAgentCapability("repair_proposal")).toMatchObject({
+      id: "repair_proposal",
+      allowedIntent: "propose_repair",
+      mode: "proposes_change",
+      creditFeature: "workflow_repair",
+      auditKind: "react_agent.repair_proposal",
+    });
+  });
+
   it("returns undefined for an unregistered capability id", () => {
     expect(getReactAgentCapability("totally_made_up")).toBeUndefined();
   });
@@ -108,6 +118,7 @@ describe("ReactAgent capability registry (CS-3)", () => {
     // avoid incorrectly blocking it).
     expect(getReactAgentCapability("diagnosis_qa")?.creditFeature).toBe("workflow_qa");
     expect(getReactAgentCapability("diagnosis_explain")?.creditFeature).toBe("workflow_explanation");
+    expect(getReactAgentCapability("repair_proposal")?.creditFeature).toBe("workflow_repair");
   });
 });
 
@@ -361,6 +372,30 @@ describe("ReactAgent boundary — runAuthorizedCapability audit emission (CS-5d)
       expect(input).not.toHaveProperty(k);
     }
     expect(JSON.stringify(input)).not.toContain("private answer");
+  });
+
+  it("emits a `proposes_change` success row for the repair_proposal capability (CS-6)", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({
+      scope: { userId: "u1", accountId: "acc1", workflowId: "wf1" },
+      intent: "propose_repair",
+      capabilityId: "repair_proposal",
+      auditRecorder,
+      classifyResult: (r: { ok: boolean }) => (r.ok ? "success" : "failed"),
+      exec: async () => ({ ok: true, proposal: { summary: "add a trigger" } }),
+    });
+    expect(record.mock.calls[0]![0]).toMatchObject({
+      capabilityId: "repair_proposal",
+      intent: "propose_repair",
+      mode: "proposes_change",
+      creditFeature: "workflow_repair",
+      auditKind: "react_agent.repair_proposal",
+      outcome: "success",
+    });
+    // No raw proposal body leaks into the audit input (metadata-free at the seam).
+    const input = record.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).not.toHaveProperty("metadata");
+    expect(JSON.stringify(input)).not.toContain("add a trigger");
   });
 
   it("does NOT emit when no recorder is injected (backward-compatible)", async () => {
