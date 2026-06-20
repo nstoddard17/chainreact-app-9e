@@ -81,6 +81,36 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("dropbox")?.visibility).toBe("personal");
     // OneDrive is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("microsoft-onedrive")?.visibility).toBe("personal");
+    // Google Drive is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("google-drive")?.visibility).toBe("personal");
+  });
+});
+
+describe("Google Drive metric/filter shape", () => {
+  const gdrive = getExposedConnectedAppSource("google-drive")!;
+
+  it("exposes Google Drive with file/folder scalars for stat and file series for line/bar; files_by_type bar-only", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("google-drive");
+    expect(getExposedConnectedAppSource("google-drive")?.displayName).toBe("Google Drive");
+    expect(metricsForType(gdrive, "stat").map((m) => m.id).sort()).toEqual([
+      "files_count",
+      "folders_count",
+    ]);
+    expect(metricsForType(gdrive, "line").map((m) => m.id)).toEqual(["files_modified_over_time"]);
+    expect(metricsForType(gdrive, "bar").map((m) => m.id).sort()).toEqual([
+      "files_by_type",
+      "files_modified_over_time",
+    ]);
+    expect(metricsForType(gdrive, "line").map((m) => m.id)).not.toContain("files_by_type");
+    expect(metricsForType(gdrive, "donut")).toEqual([]);
+  });
+
+  it("every Google Drive metric takes a single (optional) gdrive_folder filter", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(gdrive, type)) {
+        expect(m.filters).toEqual(["gdrive_folder"]);
+      }
+    }
   });
 });
 

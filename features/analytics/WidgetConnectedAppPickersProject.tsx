@@ -370,3 +370,25 @@ export function OneDriveFolderField(props: { value: string; onChange: (v: string
     />
   );
 }
+
+/**
+ * Google Drive folder picker (`google-drive:folders`) — OPTIONAL: leaving it blank
+ * reports across the whole My Drive (root). Lists folders (id-as-value). Only folder
+ * id + name are loaded, never file content or web links.
+ */
+export function GoogleDriveFolderField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="google-drive:folders"
+      icon="Layers"
+      sectionLabel="Folder"
+      hint="Pick a Google Drive folder, or leave blank for all files."
+      disconnectedHint="Connect Google Drive to choose a folder."
+      loadingNoun="folders"
+      errorFallback="Couldn't load Google Drive folders."
+      ariaLabel="Google Drive folder"
+      placeholder="All files"
+      {...props}
+    />
+  );
+}

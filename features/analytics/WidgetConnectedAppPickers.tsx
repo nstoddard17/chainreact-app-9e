@@ -33,4 +33,5 @@ export {
   MailchimpAudienceField,
   DropboxFolderField,
   OneDriveFolderField,
+  GoogleDriveFolderField,
 } from "./WidgetConnectedAppPickersProject";

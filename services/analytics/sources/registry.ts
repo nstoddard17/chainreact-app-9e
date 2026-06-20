@@ -16,6 +16,7 @@ import { shopifyAnalyticsSource } from "./shopify";
 import { mailchimpAnalyticsSource } from "./mailchimp";
 import { dropboxAnalyticsSource } from "./dropbox";
 import { microsoftOneDriveAnalyticsSource } from "./microsoft-onedrive";
+import { googleDriveAnalyticsSource } from "./google-drive";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -78,6 +79,10 @@ import { microsoftOneDriveAnalyticsSource } from "./microsoft-onedrive";
  *     traversal → file / folder counts + files-modified over-time + files-by-type,
  *     personal refreshable credential, metadata-only $select, no file
  *     name/path/webUrl/owner/content read) — ANALYTICS-SOURCES-ONEDRIVE-1.
+ *   - GOOGLE DRIVE (connected app, read-only bounded recursive Drive v3 files.list
+ *     traversal → file / folder counts + files-modified over-time + files-by-type,
+ *     personal refreshable credential, metadata-only fields mask, no file
+ *     name/path/webViewLink/owner/content read) — ANALYTICS-SOURCES-GDRIVE-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -107,6 +112,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   mailchimpAnalyticsSource,
   dropboxAnalyticsSource,
   microsoftOneDriveAnalyticsSource,
+  googleDriveAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

@@ -68,7 +68,7 @@ const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 type FilterDataKey =
   | "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" | "board"
   | "airtable_base" | "airtable_table" | "monday_board" | "hubspot_pipeline" | "mailchimp_audience"
-  | "dropbox_folder" | "onedrive_folder";
+  | "dropbox_folder" | "onedrive_folder" | "gdrive_folder";
 
 // Kinds not listed use their own name as the data key (repo / keyword / airtable_* /
 // monday_board / hubspot_pipeline — kind === data key).
@@ -154,6 +154,7 @@ export function WidgetConfigPanel({
   const [mailchimpAudience, setMailchimpAudience] = useState(initFilter("mailchimp_audience"));
   const [dropboxFolder, setDropboxFolder] = useState(initFilter("dropbox_folder"));
   const [onedriveFolder, setOnedriveFolder] = useState(initFilter("onedrive_folder"));
+  const [gdriveFolder, setGdriveFolder] = useState(initFilter("gdrive_folder"));
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -179,9 +180,8 @@ export function WidgetConfigPanel({
     if (kind === "monday_board") return mondayBoard.trim().length > 0;
     if (kind === "hubspot_pipeline") return hubspotPipeline.trim().length > 0;
     if (kind === "mailchimp_audience") return mailchimpAudience.trim().length > 0;
-    // Dropbox / OneDrive folder is optional (blank = all files), so always save-ready.
-    if (kind === "dropbox_folder") return true;
-    if (kind === "onedrive_folder") return true;
+    // Dropbox / OneDrive / Google Drive folder is optional (blank = all files), so always save-ready.
+    if (kind === "dropbox_folder" || kind === "onedrive_folder" || kind === "gdrive_folder") return true;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -207,6 +207,7 @@ export function WidgetConfigPanel({
         else if (kind === "mailchimp_audience") filters[key] = mailchimpAudience.trim();
         else if (kind === "dropbox_folder") filters[key] = dropboxFolder.trim();
         else if (kind === "onedrive_folder") filters[key] = onedriveFolder.trim();
+        else if (kind === "gdrive_folder") filters[key] = gdriveFolder.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -327,6 +328,8 @@ export function WidgetConfigPanel({
                   onDropboxFolder={setDropboxFolder}
                   onedriveFolder={onedriveFolder}
                   onOnedriveFolder={setOnedriveFolder}
+                  gdriveFolder={gdriveFolder}
+                  onGdriveFolder={setGdriveFolder}
                 />
               ) : (
                 <InternalConfig

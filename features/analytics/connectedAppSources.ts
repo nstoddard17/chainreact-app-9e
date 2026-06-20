@@ -38,7 +38,8 @@ export type ConnectedAppFilterKind =
   | "hubspot_pipeline"
   | "mailchimp_audience"
   | "dropbox_folder"
-  | "onedrive_folder";
+  | "onedrive_folder"
+  | "gdrive_folder";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -525,6 +526,32 @@ const ONEDRIVE: ConnectedAppSourceUi = {
   },
 };
 
+const GOOGLE_DRIVE: ConnectedAppSourceUi = {
+  provider: "google-drive",
+  displayName: "Google Drive",
+  exposed: true,
+  icon: "Layers",
+  connectHref: "/apps",
+  connectTitle: "Connect your Google Drive",
+  connectHelp: "This widget uses your own Google Drive connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Google Drive",
+  // Personal credential — each viewer sees THEIR OWN Google Drive file metadata, never
+  // a co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Google Drive",
+  metricsByType: {
+    stat: [
+      { id: "files_count", label: "Files", filters: ["gdrive_folder"] },
+      { id: "folders_count", label: "Folders", filters: ["gdrive_folder"] },
+    ],
+    line: [{ id: "files_modified_over_time", label: "Files modified over time", filters: ["gdrive_folder"] }],
+    bar: [
+      { id: "files_modified_over_time", label: "Files modified over time", filters: ["gdrive_folder"] },
+      { id: "files_by_type", label: "Files by type", filters: ["gdrive_folder"] },
+    ],
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -542,6 +569,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   MAILCHIMP,
   DROPBOX,
   ONEDRIVE,
+  GOOGLE_DRIVE,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

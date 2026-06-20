@@ -9,6 +9,7 @@ import {
   GcalCalendarField,
   DropboxFolderField,
   OneDriveFolderField,
+  GoogleDriveFolderField,
   GithubRepoField,
   GmailLabelField,
   HubSpotPipelineField,
@@ -68,6 +69,8 @@ export function ConnectedAppConfig({
   onDropboxFolder,
   onedriveFolder,
   onOnedriveFolder,
+  gdriveFolder,
+  onGdriveFolder,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -107,6 +110,8 @@ export function ConnectedAppConfig({
   onDropboxFolder: (v: string) => void;
   onedriveFolder: string;
   onOnedriveFolder: (v: string) => void;
+  gdriveFolder: string;
+  onGdriveFolder: (v: string) => void;
 }) {
   return (
     <>
@@ -216,6 +221,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("onedrive_folder") && (
         <OneDriveFolderField value={onedriveFolder} onChange={onOnedriveFolder} connected={connected} />
+      )}
+
+      {requiredFilters.includes("gdrive_folder") && (
+        <GoogleDriveFolderField value={gdriveFolder} onChange={onGdriveFolder} connected={connected} />
       )}
     </>
   );

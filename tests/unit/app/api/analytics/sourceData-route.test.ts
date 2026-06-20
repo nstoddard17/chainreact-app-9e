@@ -207,6 +207,21 @@ it("forwards the onedrive_folder filter for provider=microsoft-onedrive (session
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the gdrive_folder filter for provider=google-drive (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/google-drive/data?metric=files_count&range=30d&gdrive_folder=1A2b3C-4d_5E",
+    ),
+    { params: Promise.resolve({ provider: "google-drive" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("google-drive");
+  expect(call.metricKey).toBe("files_count");
+  expect(call.filters).toEqual({ gdrive_folder: "1A2b3C-4d_5E" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

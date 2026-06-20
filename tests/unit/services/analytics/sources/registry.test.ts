@@ -267,6 +267,20 @@ describe("analytics source registry", () => {
     for (const m of onedrive!.metrics) expect(m.supportedFilters).toEqual(["onedrive_folder"]);
   });
 
+  it("registers Google Drive as a connected-app source (ANALYTICS-SOURCES-GDRIVE-1)", () => {
+    const gdrive = getAnalyticsSource("google-drive");
+    expect(gdrive?.connectedApp).toBe(true);
+    expect(gdrive?.metrics.map((m) => m.key).sort()).toEqual([
+      "files_by_type",
+      "files_count",
+      "files_modified_over_time",
+      "folders_count",
+    ]);
+    expect(isApprovedSourceMetric("google-drive", "files_count")).toBe(true);
+    expect(isApprovedSourceMetric("google-drive", "download_file")).toBe(false);
+    for (const m of gdrive!.metrics) expect(m.supportedFilters).toEqual(["gdrive_folder"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");
