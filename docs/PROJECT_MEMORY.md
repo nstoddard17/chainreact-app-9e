@@ -107,7 +107,7 @@
 
 ## Recently completed arcs
 
-- **React Agent CS-1 (boundary) + CS-2 (Q&A wiring) — first product-AI code — LOCAL/UNPUSHED (2026-06-19)** —
+- **React Agent CS-1 (boundary) + CS-2 (Q&A wiring) + CS-3 (capability registry) — first product-AI code — LOCAL/UNPUSHED (2026-06-19)** —
   narrow account-scoped seam under `services/ai/reactAgent/`. **CS-1** (`193627693`): `ReactAgentScope`
   (userId+accountId required; workflowId?/conversationId? optional), `ReactAgentIntent`
   (explain_diagnosis/answer_diagnosis_question/propose_repair/unknown), `ReactAgentRequest/Response`,
@@ -118,10 +118,17 @@
   The Q&A route `…/ai/diagnose/qa` now runs `answerWorkflowQuestion` THROUGH the seam; **route keeps owning
   requireUser+membership+server-derived safe DTO+aiCreditGate(before model)+telemetry+response mapping —
   frontend contract unchanged.** Path = `route guard/DTO/gate → React Agent → brain` (never agent→HTTP, never
-  bypass). User-facing `handle` still returns not_yet_available (no DTO there); CS-3 tool registry connects
-  the two. explain/propose still unwired. Verified: reactAgent+qa-route+brain 48, builder Q&A client 38,
-  eslint 0, lint:structure OK, touched files typecheck-clean (one unrelated analytics WIP tsc error) →
-  [`react-agent-cs-2-diagnosis-qa-wiring.md`](./slices/phase-4/ai/react-agent-cs-2-diagnosis-qa-wiring.md).
+  bypass). User-facing `handle` still returns not_yet_available (no DTO there). **CS-3**: explicit capability
+  **allow-list** `capabilities.ts` (`ReactAgentCapabilityId` + `ReactAgentCapabilityDefinition{id,allowedIntent,
+  mode:read_only|proposes_change|requires_approval,creditFeature,auditKind}` + frozen `REACT_AGENT_CAPABILITIES`;
+  `diagnosis_qa`→answer_diagnosis_question/read_only/workflow_qa). `runAuthorizedCapability` now REQUIRES
+  `capabilityId` + validates scope→capability-exists→intent-matches-allowedIntent before exec;
+  unknown_capability/intent_mismatch fail closed (no exec, no leak of id/intent). Registry is metadata/
+  allow-list ONLY — route still owns auth/gate (creditFeature is doc, not enforcement); NOT Hermes, NOT MCP
+  (import guard still green). Q&A route passes `capabilityId:"diagnosis_qa"`; response unchanged.
+  explain/propose still unwired. Verified (CS-3): reactAgent+qa-route 45, builder Q&A 38, typecheck clean,
+  eslint 0, lint:structure OK →
+  [`react-agent-cs-3-capability-registry.md`](./slices/phase-4/ai/react-agent-cs-3-capability-registry.md).
 - **AI architecture direction CORRECTED: React Agent + MCP + Hermes split — LOCAL/UNPUSHED (2026-06-19)** —
   **React Agent** = in-app customer-facing assistant (the product AI path, **first**); **MCP** =
   external/diagnostic **adapter** for ChatGPT/Claude/internal tools, **NOT** a dependency of the in-app

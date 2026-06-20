@@ -19,6 +19,10 @@ import {
   type ReactAgentScope,
   type ReactAgentService,
 } from "./types";
+import {
+  getReactAgentCapability,
+  type ReactAgentCapabilityId,
+} from "./capabilities";
 
 export type {
   ReactAgentScope,
@@ -32,6 +36,13 @@ export type {
   ReactAgentService,
 } from "./types";
 export { RECOGNIZED_REACT_AGENT_INTENTS } from "./types";
+export {
+  REACT_AGENT_CAPABILITIES,
+  getReactAgentCapability,
+  type ReactAgentCapabilityId,
+  type ReactAgentCapabilityMode,
+  type ReactAgentCapabilityDefinition,
+} from "./capabilities";
 
 /** A non-empty, non-whitespace string. */
 function isNonBlank(value: unknown): value is string {
@@ -56,6 +67,10 @@ const COPY = {
     "I can't help with that yet. Try asking about why a workflow won't run, or to explain a check.",
   not_yet_available:
     "The in-app assistant isn't available yet. For now, use Check workflow, Explain, and the repair suggestions in the builder.",
+  // CS-3 — server-side invariant failures (unreachable on a correctly-wired route). Safe,
+  // generic copy; never echoes the capability id / intent.
+  unknown_capability: "I can't help with that yet.",
+  intent_mismatch: "I can't help with that yet.",
 } as const;
 
 /**
@@ -88,27 +103,36 @@ export async function dispatchReactAgentRequest(
 }
 
 /**
- * Server-side execution seam (CS-2). The CALLER (a route) must have ALREADY performed
- * auth + account-membership + safe-DTO derivation + `aiCreditGate` before invoking this.
- * The boundary only:
+ * Server-side execution seam (CS-2, registry-gated in CS-3). The CALLER (a route) must have
+ * ALREADY performed auth + account-membership + safe-DTO derivation + `aiCreditGate` before
+ * invoking this. The boundary only:
  *   1. validates the scope SHAPE (it does NOT grant access — the route already did);
- *   2. rejects an `unknown` intent;
- *   3. runs the injected `exec` and returns its EXACT result.
+ *   2. looks up `capabilityId` in the registry — unknown id → safe failure, no `exec`;
+ *   3. checks the request `intent` matches the capability's `allowedIntent` — else safe
+ *      failure, no `exec`;
+ *   4. runs the injected `exec` and returns its EXACT result.
  *
- * No model/HTTP/gate/mutation here — `exec` is the already-authorized brain call, bound by
- * the route. On the wired path the result is always `{ ok: true, result }`; the `ok:false`
- * branches guard server-side invariants (a future audit hook lives at this single seam).
+ * This is an explicit ALLOW-LIST, not a generic exec pipe — only a registered
+ * `(capabilityId → allowedIntent)` pair can run. No model/HTTP/gate/mutation here — `exec`
+ * is the already-authorized brain call, bound by the route. On a correctly-wired route the
+ * result is always `{ ok: true, result }`; the `ok:false` branches guard server-side
+ * invariants and never leak the id/intent (a future audit hook lives at this single seam).
  */
 export async function runAuthorizedCapability<T>(input: {
   scope: ReactAgentScope;
   intent: ReactAgentIntent;
+  capabilityId: ReactAgentCapabilityId;
   exec: () => Promise<T>;
 }): Promise<ReactAgentCapabilityOutcome<T>> {
   if (!isValidReactAgentScope(input.scope)) {
     return { ok: false, reason: "invalid_scope", message: COPY.invalid_scope };
   }
-  if (input.intent === "unknown") {
-    return { ok: false, reason: "unsupported_intent", message: COPY.unsupported_intent };
+  const capability = getReactAgentCapability(input.capabilityId);
+  if (!capability) {
+    return { ok: false, reason: "unknown_capability", message: COPY.unknown_capability };
+  }
+  if (capability.allowedIntent !== input.intent) {
+    return { ok: false, reason: "intent_mismatch", message: COPY.intent_mismatch };
   }
   const result = await input.exec();
   return { ok: true, result };

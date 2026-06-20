@@ -80,7 +80,11 @@ export type ReactAgentRejectionReason =
   /** Intent not recognized (`unknown` or anything outside the recognized set). */
   | "unsupported_intent"
   /** Recognized intent, but the handler is not wired in this slice (CS-1). */
-  | "not_yet_available";
+  | "not_yet_available"
+  /** CS-3: the `capabilityId` is not in the React Agent capability registry. */
+  | "unknown_capability"
+  /** CS-3: the request intent does not match the capability's `allowedIntent`. */
+  | "intent_mismatch";
 
 export type ReactAgentResponse =
   | {
@@ -136,6 +140,12 @@ export interface ReactAgentService {
   runAuthorizedCapability<T>(input: {
     readonly scope: ReactAgentScope;
     readonly intent: ReactAgentIntent;
+    /**
+     * CS-3 — the registered capability this execution is for. Validated against the
+     * capability registry: an unknown id or an intent that doesn't match the capability's
+     * `allowedIntent` returns a safe failure WITHOUT running `exec`.
+     */
+    readonly capabilityId: import("./capabilities").ReactAgentCapabilityId;
     /** The already-authorized, already-gated capability execution (route-bound). */
     readonly exec: () => Promise<T>;
   }): Promise<ReactAgentCapabilityOutcome<T>>;

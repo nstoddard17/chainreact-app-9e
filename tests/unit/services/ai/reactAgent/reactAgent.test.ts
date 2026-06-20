@@ -8,7 +8,10 @@ import {
   isValidReactAgentScope,
   reactAgentService,
   runAuthorizedCapability,
+  REACT_AGENT_CAPABILITIES,
+  getReactAgentCapability,
   RECOGNIZED_REACT_AGENT_INTENTS,
+  type ReactAgentCapabilityId,
   type ReactAgentRequest,
   type ReactAgentScope,
 } from "@/services/ai/reactAgent";
@@ -65,23 +68,73 @@ describe("ReactAgent boundary — intent dispatch (CS-1 no-op)", () => {
   });
 });
 
-describe("ReactAgent boundary — runAuthorizedCapability (CS-2 server seam)", () => {
-  it("runs the injected exec and returns its EXACT result for a valid scope + intent", async () => {
-    const exec = jest.fn().mockResolvedValue({ ok: true, answer: "because it has no trigger" });
+describe("ReactAgent capability registry (CS-3)", () => {
+  it("registers diagnosis_qa as a read-only, workflow_qa-gated capability for answer_diagnosis_question", () => {
+    const cap = getReactAgentCapability("diagnosis_qa");
+    expect(cap).toBeDefined();
+    expect(cap).toMatchObject({
+      id: "diagnosis_qa",
+      allowedIntent: "answer_diagnosis_question",
+      mode: "read_only",
+      creditFeature: "workflow_qa",
+    });
+  });
+
+  it("returns undefined for an unregistered capability id", () => {
+    expect(getReactAgentCapability("totally_made_up")).toBeUndefined();
+  });
+
+  it("every registry entry's id matches its key and declares a single allowed intent", () => {
+    for (const [key, def] of Object.entries(REACT_AGENT_CAPABILITIES)) {
+      expect(def.id).toBe(key);
+      expect(typeof def.allowedIntent).toBe("string");
+    }
+  });
+});
+
+describe("ReactAgent boundary — runAuthorizedCapability (CS-3 registry-gated seam)", () => {
+  const QA = {
+    scope: okScope,
+    intent: "answer_diagnosis_question" as const,
+    capabilityId: "diagnosis_qa" as const,
+  };
+
+  it("runs exec and returns its EXACT result for a registered capability + matching intent", async () => {
+    const exec = jest.fn().mockResolvedValue({ ok: true, answer: "no trigger" });
+    const outcome = await runAuthorizedCapability({ ...QA, exec });
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ ok: true, result: { ok: true, answer: "no trigger" } });
+  });
+
+  it("does NOT run exec for an UNKNOWN capability → unknown_capability", async () => {
+    const exec = jest.fn().mockResolvedValue("nope");
     const outcome = await runAuthorizedCapability({
-      scope: okScope,
-      intent: "answer_diagnosis_question",
+      ...QA,
+      capabilityId: "made_up" as unknown as ReactAgentCapabilityId,
       exec,
     });
-    expect(exec).toHaveBeenCalledTimes(1);
-    expect(outcome).toEqual({ ok: true, result: { ok: true, answer: "because it has no trigger" } });
+    expect(exec).not.toHaveBeenCalled();
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("unknown_capability");
+  });
+
+  it("does NOT run exec when intent does not match the capability's allowedIntent → intent_mismatch", async () => {
+    const exec = jest.fn().mockResolvedValue("nope");
+    const outcome = await runAuthorizedCapability({
+      ...QA,
+      intent: "propose_repair",
+      exec,
+    });
+    expect(exec).not.toHaveBeenCalled();
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("intent_mismatch");
   });
 
   it("does NOT run exec when scope is invalid (no side effect) → invalid_scope", async () => {
     const exec = jest.fn().mockResolvedValue("nope");
     const outcome = await runAuthorizedCapability({
+      ...QA,
       scope: { userId: "", accountId: "acc1" },
-      intent: "answer_diagnosis_question",
       exec,
     });
     expect(exec).not.toHaveBeenCalled();
@@ -89,18 +142,21 @@ describe("ReactAgent boundary — runAuthorizedCapability (CS-2 server seam)", (
     if (!outcome.ok) expect(outcome.reason).toBe("invalid_scope");
   });
 
-  it("does NOT run exec for an unknown intent (no side effect) → unsupported_intent", async () => {
-    const exec = jest.fn().mockResolvedValue("nope");
-    const outcome = await runAuthorizedCapability({ scope: okScope, intent: "unknown", exec });
-    expect(exec).not.toHaveBeenCalled();
-    expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.reason).toBe("unsupported_intent");
+  it("a rejection never leaks the capability id / intent in its message", async () => {
+    const outcome = await runAuthorizedCapability({
+      ...QA,
+      capabilityId: "secret_thing" as unknown as ReactAgentCapabilityId,
+      exec: async () => "x",
+    });
+    if (!outcome.ok) {
+      expect(outcome.message).not.toContain("secret_thing");
+      expect(outcome.message).not.toContain("answer_diagnosis_question");
+    }
   });
 
   it("is exposed on reactAgentService and propagates the brain result", async () => {
     const outcome = await reactAgentService.runAuthorizedCapability({
-      scope: okScope,
-      intent: "answer_diagnosis_question",
+      ...QA,
       exec: async () => ({ ok: false, code: "MODEL_FAILED" }),
     });
     expect(outcome).toEqual({ ok: true, result: { ok: false, code: "MODEL_FAILED" } });

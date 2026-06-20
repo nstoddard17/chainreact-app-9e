@@ -239,6 +239,7 @@ export async function POST(
   const outcome = await reactAgentService.runAuthorizedCapability({
     scope: { userId: auth.userId, accountId, workflowId: id },
     intent: "answer_diagnosis_question",
+    capabilityId: "diagnosis_qa",
     exec: () =>
       answerWorkflowQuestion({
         dto,
