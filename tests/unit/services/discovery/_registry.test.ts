@@ -433,9 +433,9 @@ describe("per-provider accessors", () => {
     expect(triggerMetas.every((m) => m.category === "developer")).toBe(true);
   });
 
-  it("listActionMetasForProvider('gmail') returns the 13 Gmail actions in displayOrder", () => {
+  it("listActionMetasForProvider('gmail') returns the 15 Gmail actions in displayOrder", () => {
     const metas = listActionMetasForProvider("gmail");
-    expect(metas).toHaveLength(13);
+    expect(metas).toHaveLength(15);
     expect(metas.every((m) => m.provider === "gmail")).toBe(true);
     expect(metas.map((m) => m.key)).toEqual([
       "gmail:send_email",
@@ -451,6 +451,9 @@ describe("per-provider accessors", () => {
       "gmail:mark_as_unread",
       "gmail:archive_email",
       "gmail:delete_email",
+      // Slice 4.GMAIL-READ-1 — metadata-only reads (displayOrder 140/150).
+      "gmail:list_labels",
+      "gmail:get_profile",
     ]);
   });
 
@@ -727,9 +730,9 @@ describe("per-provider accessors", () => {
     }
   });
 
-  it("listActionMetasForProvider('microsoft-outlook') returns the 9 Outlook actions in displayOrder", () => {
+  it("listActionMetasForProvider('microsoft-outlook') returns the 11 Outlook actions in displayOrder", () => {
     const metas = listActionMetasForProvider("microsoft-outlook");
-    expect(metas).toHaveLength(9);
+    expect(metas).toHaveLength(11);
     expect(metas.every((m) => m.provider === "microsoft-outlook")).toBe(true);
     expect(metas.map((m) => m.key)).toEqual([
       "microsoft-outlook:send_email",
@@ -741,6 +744,9 @@ describe("per-provider accessors", () => {
       "microsoft-outlook:add_categories",
       "microsoft-outlook:move_email",
       "microsoft-outlook:delete_email",
+      // Slice 4.OUTLOOK-READ-1 — metadata-only reads (displayOrder 100/110).
+      "microsoft-outlook:list_folders",
+      "microsoft-outlook:get_profile",
     ]);
   });
 
