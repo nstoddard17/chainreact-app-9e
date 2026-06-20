@@ -15,6 +15,7 @@ import {
   TeamsTeamField,
   TeamsChannelField,
   FacebookPageField,
+  ExcelWorkbookField,
   GithubRepoField,
   GmailLabelField,
   HubSpotPipelineField,
@@ -86,6 +87,8 @@ export function ConnectedAppConfig({
   onTeamsChannel,
   facebookPage,
   onFacebookPage,
+  excelWorkbook,
+  onExcelWorkbook,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -137,6 +140,8 @@ export function ConnectedAppConfig({
   onTeamsChannel: (v: string) => void;
   facebookPage: string;
   onFacebookPage: (v: string) => void;
+  excelWorkbook: string;
+  onExcelWorkbook: (v: string) => void;
 }) {
   return (
     <>
@@ -280,6 +285,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("facebook_page") && (
         <FacebookPageField value={facebookPage} onChange={onFacebookPage} connected={connected} />
+      )}
+
+      {requiredFilters.includes("excel_workbook") && (
+        <ExcelWorkbookField value={excelWorkbook} onChange={onExcelWorkbook} connected={connected} />
       )}
     </>
   );

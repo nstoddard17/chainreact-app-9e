@@ -414,3 +414,25 @@ export function FacebookPageField(props: { value: string; onChange: (v: string) 
     />
   );
 }
+
+/**
+ * Microsoft Excel workbook picker (`microsoft-excel:workbooks`) — REQUIRED for
+ * worksheet/table-count metrics. Lists the user's `.xlsx` workbooks (id-as-value). Only
+ * workbook id + name are loaded, never worksheet cell values, formulas, or table rows.
+ */
+export function ExcelWorkbookField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="microsoft-excel:workbooks"
+      icon="Database"
+      sectionLabel="Workbook"
+      hint="Pick an Excel workbook to report on."
+      disconnectedHint="Connect Microsoft Excel to choose a workbook."
+      loadingNoun="workbooks"
+      errorFallback="Couldn't load Excel workbooks."
+      ariaLabel="Excel workbook"
+      placeholder="Select a workbook…"
+      {...props}
+    />
+  );
+}

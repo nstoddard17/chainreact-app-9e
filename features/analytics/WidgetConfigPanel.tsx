@@ -146,20 +146,17 @@ export function WidgetConfigPanel({
   const [gdriveFolder, setGdriveFolder] = useState(initFilter("gdrive_folder"));
   const [discordGuild, setDiscordGuild] = useState(initFilter("discord_guild"));
   const [discordChannel, setDiscordChannel] = useState(initFilter("discord_channel"));
-  // Changing the server clears the (now-stale) channel selection so a widget can't be
-  // saved with a channel id that belongs to a different server.
+  // Changing the server clears the (now-stale) channel selection.
   const onDiscordGuildChange = (v: string) => {
     setDiscordGuild(v);
     setDiscordChannel("");
   };
   const [teamsTeam, setTeamsTeam] = useState(initFilter("teams_team"));
   const [teamsChannel, setTeamsChannel] = useState(initFilter("teams_channel"));
-  // Changing the team clears the (now-stale) channel selection.
-  const onTeamsTeamChange = (v: string) => {
-    setTeamsTeam(v);
-    setTeamsChannel("");
-  };
+  // Changing the team/server clears the now-stale child channel selection.
+  const onTeamsTeamChange = (v: string) => { setTeamsTeam(v); setTeamsChannel(""); };
   const [facebookPage, setFacebookPage] = useState(initFilter("facebook_page"));
+  const [excelWorkbook, setExcelWorkbook] = useState(initFilter("excel_workbook"));
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -176,12 +173,10 @@ export function WidgetConfigPanel({
     repo: repo.trim(), slack_channel: channel.trim(), gcal_calendar: calendar.trim(),
     gmail_label: label.trim(), outlook_folder: folder.trim(), outlookcal_calendar: outlookCalendar.trim(),
     trello_board: board.trim(), airtable_base: airtableBase.trim(), airtable_table: airtableTable.trim(),
-    monday_board: mondayBoard.trim(), hubspot_pipeline: hubspotPipeline.trim(),
-    mailchimp_audience: mailchimpAudience.trim(), dropbox_folder: dropboxFolder.trim(),
-    onedrive_folder: onedriveFolder.trim(), gdrive_folder: gdriveFolder.trim(),
-    discord_guild: discordGuild.trim(), discord_channel: discordChannel.trim(),
-    teams_team: teamsTeam.trim(), teams_channel: teamsChannel.trim(),
-    facebook_page: facebookPage.trim(),
+    monday_board: mondayBoard.trim(), hubspot_pipeline: hubspotPipeline.trim(), mailchimp_audience: mailchimpAudience.trim(),
+    dropbox_folder: dropboxFolder.trim(), onedrive_folder: onedriveFolder.trim(), gdrive_folder: gdriveFolder.trim(),
+    discord_guild: discordGuild.trim(), discord_channel: discordChannel.trim(), teams_team: teamsTeam.trim(),
+    teams_channel: teamsChannel.trim(), facebook_page: facebookPage.trim(), excel_workbook: excelWorkbook.trim(),
   };
 
   function filterValid(kind: ConnectedAppFilterKind): boolean {
@@ -331,6 +326,8 @@ export function WidgetConfigPanel({
                   onTeamsChannel={setTeamsChannel}
                   facebookPage={facebookPage}
                   onFacebookPage={setFacebookPage}
+                  excelWorkbook={excelWorkbook}
+                  onExcelWorkbook={setExcelWorkbook}
                 />
               ) : (
                 <InternalConfig

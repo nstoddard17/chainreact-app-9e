@@ -54,7 +54,7 @@ export async function GET(
   // re-validated against the metric's `supportedFilters` inside
   // `queryAnalyticsSource` (unsupported key → INVALID_QUERY), and each VALUE is
   // validated by the adapter — so this is just transport, never trust.
-  const FILTER_PARAMS = ["repo", "channel", "keyword", "calendar", "label", "folder", "outlook_calendar", "board", "airtable_base", "airtable_table", "monday_board", "hubspot_pipeline", "mailchimp_audience", "dropbox_folder", "onedrive_folder", "gdrive_folder", "discord_guild", "discord_channel", "teams_team", "teams_channel", "facebook_page"] as const;
+  const FILTER_PARAMS = ["repo", "channel", "keyword", "calendar", "label", "folder", "outlook_calendar", "board", "airtable_base", "airtable_table", "monday_board", "hubspot_pipeline", "mailchimp_audience", "dropbox_folder", "onedrive_folder", "gdrive_folder", "discord_guild", "discord_channel", "teams_team", "teams_channel", "facebook_page", "excel_workbook"] as const;
   const filters: Record<string, string> = {};
   for (const key of FILTER_PARAMS) {
     const value = url.searchParams.get(key);

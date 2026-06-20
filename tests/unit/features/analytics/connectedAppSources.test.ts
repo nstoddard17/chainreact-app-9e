@@ -94,6 +94,38 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("microsoft-onenote")?.visibility).toBe("personal");
     // Facebook is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("facebook")?.visibility).toBe("personal");
+    // Microsoft Excel is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("microsoft-excel")?.visibility).toBe("personal");
+  });
+});
+
+describe("Microsoft Excel metric/filter shape", () => {
+  const excel = getExposedConnectedAppSource("microsoft-excel")!;
+
+  it("exposes Excel with workbook + worksheet/table scalars on stat and workbook series on line/bar", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("microsoft-excel");
+    expect(getExposedConnectedAppSource("microsoft-excel")?.displayName).toBe("Microsoft Excel");
+    expect(metricsForType(excel, "stat").map((m) => m.id).sort()).toEqual([
+      "tables_count",
+      "workbooks_count",
+      "worksheets_count",
+    ]);
+    expect(metricsForType(excel, "line").map((m) => m.id).sort()).toEqual([
+      "workbooks_created_over_time",
+      "workbooks_modified_over_time",
+    ]);
+    expect(metricsForType(excel, "bar").map((m) => m.id).sort()).toEqual([
+      "workbooks_created_over_time",
+      "workbooks_modified_over_time",
+    ]);
+    expect(metricsForType(excel, "donut")).toEqual([]);
+  });
+
+  it("workbook-level metrics need no filter; per-workbook metrics require excel_workbook", () => {
+    expect(findMetricOption(excel, "stat", "workbooks_count")?.filters).toEqual([]);
+    expect(findMetricOption(excel, "stat", "worksheets_count")?.filters).toEqual(["excel_workbook"]);
+    expect(findMetricOption(excel, "stat", "tables_count")?.filters).toEqual(["excel_workbook"]);
+    expect(findMetricOption(excel, "line", "workbooks_modified_over_time")?.filters).toEqual([]);
   });
 });
 

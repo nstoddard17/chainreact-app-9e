@@ -23,6 +23,7 @@ import { googleDocsAnalyticsSource } from "./google-docs";
 import { googleSheetsAnalyticsSource } from "./google-sheets";
 import { microsoftOneNoteAnalyticsSource } from "./microsoft-onenote";
 import { facebookAnalyticsSource } from "./facebook";
+import { microsoftExcelAnalyticsSource } from "./microsoft-excel";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -112,6 +113,11 @@ import { facebookAnalyticsSource } from "./facebook";
  *     credential, aggregate/metadata-only, page tokens derived at runtime + never
  *     cached, no post content/comment/reaction/user read; Page Insights deferred) —
  *     ANALYTICS-SOURCES-FACEBOOK-1.
+ *   - MICROSOFT EXCEL (connected app, read-only whole-drive .xlsx metadata search →
+ *     workbook count + created/modified over-time, plus per-workbook worksheet/table
+ *     counts via the metadata-only worksheets/tables list wrappers, personal refreshable
+ *     credential, count-only + metadata-only, no cell value/formula/range/table-row/file
+ *     name read) — ANALYTICS-SOURCES-EXCEL-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -148,6 +154,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   googleSheetsAnalyticsSource,
   microsoftOneNoteAnalyticsSource,
   facebookAnalyticsSource,
+  microsoftExcelAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

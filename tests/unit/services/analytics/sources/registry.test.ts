@@ -378,6 +378,23 @@ describe("analytics source registry", () => {
     expect(getAnalyticsSourceMetric("facebook", "page_posts_over_time")?.supportedFilters).toEqual(["facebook_page"]);
   });
 
+  it("registers Microsoft Excel as a connected-app source (ANALYTICS-SOURCES-EXCEL-1)", () => {
+    const excel = getAnalyticsSource("microsoft-excel");
+    expect(excel?.connectedApp).toBe(true);
+    expect(excel?.metrics.map((m) => m.key).sort()).toEqual([
+      "tables_count",
+      "workbooks_count",
+      "workbooks_created_over_time",
+      "workbooks_modified_over_time",
+      "worksheets_count",
+    ]);
+    expect(isApprovedSourceMetric("microsoft-excel", "workbooks_count")).toBe(true);
+    expect(isApprovedSourceMetric("microsoft-excel", "read_range")).toBe(false);
+    // Workbook-level metrics need no filter; per-workbook metrics require the workbook filter.
+    expect(getAnalyticsSourceMetric("microsoft-excel", "workbooks_count")?.supportedFilters).toEqual([]);
+    expect(getAnalyticsSourceMetric("microsoft-excel", "worksheets_count")?.supportedFilters).toEqual(["excel_workbook"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

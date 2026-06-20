@@ -83,6 +83,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/facebook/index.ts",
   "services/analytics/sources/facebook/api.ts",
   "services/analytics/sources/facebook/buckets.ts",
+  "services/analytics/sources/microsoft-excel/index.ts",
+  "services/analytics/sources/microsoft-excel/api.ts",
+  "services/analytics/sources/microsoft-excel/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

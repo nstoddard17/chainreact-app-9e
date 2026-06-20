@@ -309,6 +309,31 @@ it("forwards the facebook_page filter for provider=facebook (session account)", 
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the excel_workbook filter for provider=microsoft-excel (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request("http://localhost/api/analytics/sources/microsoft-excel/data?metric=worksheets_count&range=30d&excel_workbook=01ABC!123"),
+    { params: Promise.resolve({ provider: "microsoft-excel" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("microsoft-excel");
+  expect(call.metricKey).toBe("worksheets_count");
+  expect(call.filters).toEqual({ excel_workbook: "01ABC!123" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
+it("routes provider=microsoft-excel workbooks_count (no filters, session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request("http://localhost/api/analytics/sources/microsoft-excel/data?metric=workbooks_count&range=30d"),
+    { params: Promise.resolve({ provider: "microsoft-excel" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("microsoft-excel");
+  expect(call.metricKey).toBe("workbooks_count");
+  expect(call.filters).toBeUndefined();
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });
