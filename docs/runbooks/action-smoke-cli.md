@@ -629,6 +629,91 @@ Safety model (additions over mode 3):
   token/`Bearer`/long-blob/URL shapes, caps length) as belt-and-braces.
 - Every result is tagged `providerBoundary: "live"`.
 
+### Per-provider live verification (`SMOKE_PROVIDER`)
+
+Live mode runs **all** fixtures by default; unconfigured providers self-skip. To verify
+**one provider at a time** (recommended for working through the non-Slack reads), set
+`SMOKE_PROVIDER=<id>` — it mirrors the inventory `--provider` flag and narrows *which*
+fixtures run. It never bypasses any fixture-level env, write, or destructive gate.
+
+**Base env (every live run needs all of these):**
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true      # master dev-DB gate
+ALLOW_LIVE_PROVIDER_SMOKE=true       # live-read gate
+NEXT_PUBLIC_SUPABASE_URL=…           # auto-loaded from .env.local
+SUPABASE_SERVICE_ROLE_KEY=…          # auto-loaded from .env.local
+SMOKE_ACCOUNT_ID=<dev account uuid>
+SMOKE_USER_ID=<dev member user uuid>
+```
+
+**One provider at a time** (set the provider connection + any selector env it needs):
+
+```bash
+# Slack (Marcus-verified read + write)
+… SMOKE_PROVIDER=slack SMOKE_SLACK_CONNECTED=1 \
+  SMOKE_SLACK_CHANNEL_ID=<C…> SMOKE_SLACK_USER_ID=<U…> \
+  npm run smoke:actions:run:workflow:live
+
+# Google Drive
+… SMOKE_PROVIDER=google-drive SMOKE_GOOGLE_DRIVE_CONNECTED=1 \
+  SMOKE_GDRIVE_FILE_ID=<id> SMOKE_GDRIVE_QUERY=<text> npm run smoke:actions:run:workflow:live
+
+# Gmail
+… SMOKE_PROVIDER=gmail SMOKE_GMAIL_CONNECTED=1 SMOKE_GMAIL_QUERY='newer_than:7d' \
+  npm run smoke:actions:run:workflow:live
+
+# Microsoft Outlook
+… SMOKE_PROVIDER=microsoft-outlook SMOKE_MICROSOFT_OUTLOOK_CONNECTED=1 \
+  npm run smoke:actions:run:workflow:live
+
+# Airtable
+… SMOKE_PROVIDER=airtable SMOKE_AIRTABLE_CONNECTED=1 \
+  SMOKE_AIRTABLE_BASE_ID=<app…> SMOKE_AIRTABLE_TABLE_ID=<tbl…> SMOKE_AIRTABLE_RECORD_ID=<rec…> \
+  npm run smoke:actions:run:workflow:live
+
+# Google Sheets
+… SMOKE_PROVIDER=google-sheets SMOKE_GOOGLE_SHEETS_CONNECTED=1 \
+  SMOKE_GSHEETS_SPREADSHEET_ID=<id> SMOKE_GSHEETS_RANGE='Sheet1!A1:D5' \
+  SMOKE_GSHEETS_SHEET_NAME=Sheet1 SMOKE_GSHEETS_LOOKUP_COLUMN=<header> SMOKE_GSHEETS_LOOKUP_VALUE=<value> \
+  npm run smoke:actions:run:workflow:live
+
+# Notion
+… SMOKE_PROVIDER=notion SMOKE_NOTION_CONNECTED=1 \
+  SMOKE_NOTION_DATABASE_ID=<id> SMOKE_NOTION_PAGE_ID=<id> npm run smoke:actions:run:workflow:live
+
+# Microsoft Excel
+… SMOKE_PROVIDER=microsoft-excel SMOKE_MICROSOFT_EXCEL_CONNECTED=1 \
+  SMOKE_EXCEL_WORKBOOK_ID=<id> SMOKE_EXCEL_WORKSHEET_NAME=Sheet1 SMOKE_EXCEL_RANGE='A1:D10' \
+  SMOKE_EXCEL_TABLE_NAME=Table1 SMOKE_EXCEL_LOOKUP_COLUMN=<header> SMOKE_EXCEL_LOOKUP_VALUE=<value> \
+  npm run smoke:actions:run:workflow:live
+
+# Microsoft Teams
+… SMOKE_PROVIDER=microsoft-teams SMOKE_MICROSOFT_TEAMS_CONNECTED=1 \
+  SMOKE_TEAMS_TEAM_ID=<id> SMOKE_TEAMS_CHANNEL_ID=<id> npm run smoke:actions:run:workflow:live
+```
+
+(`…` = the base env block above. The full per-provider env var list is in the **Env vars**
+table near the top.)
+
+**Reading the result.** The run prints a human report ending in per-provider totals plus,
+when fixtures skipped for unset env, a grouped **Missing env** summary:
+
+- **PASS** — the fixture ran live and the persisted run was terminal as expected.
+- **FAIL** — it ran but the run was not the expected terminal state (gate: the suite fails
+  on any FAIL).
+- **SKIP** — it did not run: not `liveSafe`, a gate was off (write/destructive), or required
+  env was unset. SKIP is never a failure.
+- **Missing env** — lists each env-skipped fixture as `provider:action — ENV_NAME, …` and a
+  `Set: …` shortlist of every distinct missing var. **Only env var NAMES are printed, never
+  values.** Set the listed vars and re-run to convert SKIPs into live PASSes. The same data
+  is in the JSON output under an additive `missingEnv` key.
+
+**Verification status.** **Slack live read + write are Marcus-verified.** The other
+providers' live reads (Airtable / Google Sheets / Google Drive / Gmail / Outlook / Notion /
+Excel / Teams) are wired and ready but **not yet live-verified** — use the per-provider
+commands above to verify each locally.
+
 ## How execution maps to the real engine
 
 The harness runs the same per-node core the engine

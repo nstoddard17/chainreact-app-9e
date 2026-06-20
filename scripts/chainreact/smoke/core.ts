@@ -417,6 +417,13 @@ export interface SmokeResult {
    * classification). Defaults to `risk` when a fixture doesn't declare it.
    */
   readonly liveRisk?: ActionRisk;
+  /**
+   * Env var NAMES (never values) that were unset and caused this fixture to SKIP
+   * before any workflow was created. Populated only on the missing-env skip
+   * path; absent / empty for runs and for non-env skips. Feeds the report's
+   * grouped missing-env summary so an operator sees exactly what to set next.
+   */
+  readonly missingEnv?: readonly string[];
 }
 
 /**
@@ -447,6 +454,17 @@ export interface ExecutionProviderTotals {
   readonly skip: number;
 }
 
+/**
+ * One fixture that SKIPped because required env was unset. Carries only env var
+ * NAMES — never values — so the report can tell an operator what to set next
+ * without leaking secrets.
+ */
+export interface MissingEnvEntry {
+  readonly provider: string;
+  readonly action: string;
+  readonly env: readonly string[];
+}
+
 export interface ExecutionReport {
   readonly mode: SmokeMode;
   readonly results: readonly SmokeResult[];
@@ -454,6 +472,12 @@ export interface ExecutionReport {
   readonly totals: { readonly pass: number; readonly fail: number; readonly skip: number };
   /** True when there were zero FAIL results (the smoke gate). */
   readonly ok: boolean;
+  /**
+   * Fixtures skipped for missing env, grouped per fixture (env NAMES only). Empty
+   * when nothing skipped on the env path. Additive: existing consumers that read
+   * `results` / `totals` / `perProvider` are unaffected.
+   */
+  readonly missingEnv: readonly MissingEnvEntry[];
 }
 
 export function buildExecutionReport(
@@ -478,13 +502,27 @@ export function buildExecutionReport(
     fail: sorted.filter((r) => r.outcome === "fail").length,
     skip: sorted.filter((r) => r.outcome === "skip").length,
   };
+  const missingEnv: MissingEnvEntry[] = sorted
+    .filter((r) => (r.missingEnv?.length ?? 0) > 0)
+    .map((r) => ({ provider: r.provider, action: r.action, env: r.missingEnv as readonly string[] }));
   return {
     mode,
     results: sorted,
     perProvider: [...byProvider.values()].sort((a, b) => a.provider.localeCompare(b.provider)),
     totals,
     ok: totals.fail === 0,
+    missingEnv,
   };
+}
+
+/**
+ * Distinct env var names across all missing-env entries, sorted — the "set
+ * these" shortlist. Env NAMES only; never values.
+ */
+export function distinctMissingEnv(report: ExecutionReport): readonly string[] {
+  const names = new Set<string>();
+  for (const entry of report.missingEnv) for (const name of entry.env) names.add(name);
+  return [...names].sort();
 }
 
 export function renderExecutionJson(report: ExecutionReport): string {
@@ -496,6 +534,9 @@ export function renderExecutionJson(report: ExecutionReport): string {
       totals: report.totals,
       perProvider: report.perProvider,
       results: report.results,
+      // Additive: existing consumers (kind/mode/ok/totals/perProvider/results)
+      // are unaffected. Env NAMES only — never values.
+      missingEnv: report.missingEnv,
     },
     null,
     2,
@@ -529,6 +570,19 @@ export function renderExecutionHuman(report: ExecutionReport): string {
   for (const p of report.perProvider) {
     lines.push(`  ${p.provider}: ${p.pass} / ${p.fail} / ${p.skip}`);
   }
+
+  if (report.missingEnv.length > 0) {
+    lines.push("");
+    lines.push(
+      `Missing env (${report.missingEnv.length} fixture(s) skipped — set these to run more):`,
+    );
+    for (const entry of report.missingEnv) {
+      lines.push(`  ${entry.provider}:${entry.action} — ${entry.env.join(", ")}`);
+    }
+    const all = distinctMissingEnv(report);
+    if (all.length > 0) lines.push(`  Set: ${all.join(", ")}`);
+  }
+
   lines.push("");
   lines.push(
     `Totals: ${report.totals.pass} pass, ${report.totals.fail} fail, ${report.totals.skip} skip. ` +

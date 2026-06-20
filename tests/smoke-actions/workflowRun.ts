@@ -208,10 +208,12 @@ export async function runFixtureWorkflowMode(
     }
   }
 
-  // 2. Missing env → SKIP, before creating/running anything.
+  // 2. Missing env → SKIP, before creating/running anything. Attach the
+  // structured env NAMES (never values) so the report's grouped missing-env
+  // summary can tell the operator exactly what to set next.
   const missing = missingEnv(fixture, envLookup);
   if (missing.length > 0) {
-    return skip(`missing env: ${missing.join(", ")}`);
+    return { ...skip(`missing env: ${missing.join(", ")}`), missingEnv: missing };
   }
 
   // 3. Build the manual-run workflow (pure + validated) with the env-config

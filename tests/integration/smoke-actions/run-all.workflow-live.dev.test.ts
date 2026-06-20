@@ -28,9 +28,22 @@
  *   provider connection env per fixture (e.g. SMOKE_SLACK_CONNECTED=1 — needs a
  *   real Slack connection on SMOKE_ACCOUNT_ID; otherwise the Slack fixture SKIPs).
  *
+ * Optional:
+ *   SMOKE_PROVIDER=<id> — run only one provider's live fixtures (e.g.
+ *   SMOKE_PROVIDER=google-drive). Unset runs every fixture; unconfigured
+ *   providers self-skip. Mirrors the inventory `--provider` flag. The filter
+ *   only narrows WHICH fixtures run — it never bypasses any fixture-level env
+ *   or write/destructive gate.
+ *
  * Run (bash):
  *   ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
  *     SMOKE_ACCOUNT_ID=... SMOKE_USER_ID=... SMOKE_SLACK_CONNECTED=1 \
+ *     npm run smoke:actions:run:workflow:live
+ *
+ *   # one provider only:
+ *   ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+ *     SMOKE_ACCOUNT_ID=... SMOKE_USER_ID=... SMOKE_PROVIDER=google-drive \
+ *     SMOKE_GOOGLE_DRIVE_CONNECTED=1 \
  *     npm run smoke:actions:run:workflow:live
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -69,6 +82,11 @@ const USER_ID = process.env.SMOKE_USER_ID;
 const ALLOW_DESTRUCTIVE = process.env.ALLOW_DESTRUCTIVE_PROVIDER_SMOKE === "true";
 const ALLOW_WRITE = process.env.ALLOW_LIVE_PROVIDER_WRITE_SMOKE === "true";
 const HAS_SLACK_CHANNEL = !!process.env.SMOKE_SLACK_CHANNEL_ID;
+// Optional single-provider scope (mirrors the inventory `--provider` flag).
+const PROVIDER_FILTER = process.env.SMOKE_PROVIDER || null;
+/** True when the given provider's fixtures are in scope this run. */
+const inScope = (provider: string): boolean =>
+  PROVIDER_FILTER === null || PROVIDER_FILTER === provider;
 const RUN = ALLOW_DB && ALLOW_LIVE && !!URL && !!SERVICE_KEY && !!ACCOUNT_ID && !!USER_ID;
 
 const describeLive = RUN ? describe : describe.skip;
@@ -77,7 +95,8 @@ if (!RUN) {
   console.log(
     "SKIP action-smoke LIVE workflow harness — needs ALLOW_DB_INTEGRATION_TESTS=true AND " +
       "ALLOW_LIVE_PROVIDER_SMOKE=true with NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + " +
-      "SMOKE_ACCOUNT_ID + SMOKE_USER_ID (runs real provider calls for liveSafe fixtures).",
+      "SMOKE_ACCOUNT_ID + SMOKE_USER_ID (runs real provider calls for liveSafe fixtures). " +
+      "Optional SMOKE_PROVIDER=<id> scopes the run to one provider.",
   );
 }
 
@@ -97,6 +116,7 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
       ALL_SMOKE_FIXTURES,
       {
         live: true,
+        providerFilter: PROVIDER_FILTER,
         includeDestructive: ALLOW_DESTRUCTIVE,
         allowDestructive: ALLOW_DESTRUCTIVE,
         allowWrite: ALLOW_WRITE,
@@ -104,9 +124,10 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
       },
       deps,
     );
-    if (!report.ok) {
-      console.error(renderExecutionHuman(report));
-    }
+    // Always print the human report so the operator sees PASS / FAIL / SKIP +
+    // the grouped missing-env summary (env names only — no secrets).
+    console.log(renderExecutionHuman(report));
+
     expect(report.mode).toBe("workflow-live");
     expect(report.totals.fail).toBe(0);
 
@@ -115,24 +136,33 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
     expect(report.results.every((r) => r.providerBoundary === "live")).toBe(true);
     expect(serialized).not.toMatch(/xox[abprs]-/);
 
-    // The native baseline always runs live + passes.
-    const native = report.results.find(
-      (r) => r.provider === "native" && r.action === "format_transformer",
-    );
-    expect(native?.outcome).toBe("pass");
+    // A provider filter narrows the result set to that provider only.
+    if (PROVIDER_FILTER) {
+      expect(report.results.every((r) => r.provider === PROVIDER_FILTER)).toBe(true);
+    }
+
+    // The native baseline always runs live + passes (when in scope).
+    if (inScope("native")) {
+      const native = report.results.find(
+        (r) => r.provider === "native" && r.action === "format_transformer",
+      );
+      expect(native?.outcome).toBe("pass");
+    }
 
     // The Slack WRITE fixture: posts a real message only when the write gate AND
     // the channel id are set; otherwise it SKIPs (never runs by accident).
-    const send = report.results.find((r) => r.action === "send_channel_message");
-    expect(send?.liveRisk).toBe("write");
-    if (ALLOW_WRITE && HAS_SLACK_CHANNEL) {
-      expect(send?.outcome).toBe("pass");
-    } else {
-      expect(send?.outcome).toBe("skip");
-    }
+    if (inScope("slack")) {
+      const send = report.results.find((r) => r.action === "send_channel_message");
+      expect(send?.liveRisk).toBe("write");
+      if (ALLOW_WRITE && HAS_SLACK_CHANNEL) {
+        expect(send?.outcome).toBe("pass");
+      } else {
+        expect(send?.outcome).toBe("skip");
+      }
 
-    // The destructive fixture is never liveSafe → always skipped here.
-    const del = report.results.find((r) => r.action === "delete_message");
-    expect(del?.outcome).toBe("skip");
+      // The destructive fixture is never liveSafe → always skipped here.
+      const del = report.results.find((r) => r.action === "delete_message");
+      expect(del?.outcome).toBe("skip");
+    }
   }, 30_000);
 });

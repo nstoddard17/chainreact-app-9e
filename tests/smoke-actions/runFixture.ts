@@ -107,10 +107,11 @@ export async function runFixture(
     return { ...base, outcome: "skip", reason: "destructive — pass includeDestructive to run", runId: null };
   }
 
-  // 2. Missing test connection / env → SKIP (not FAIL). Safe-by-default.
+  // 2. Missing test connection / env → SKIP (not FAIL). Safe-by-default. The
+  // structured env NAMES (never values) feed the report's missing-env summary.
   const missing = missingEnv(fixture, deps);
   if (missing.length > 0) {
-    return { ...base, outcome: "skip", reason: `missing env: ${missing.join(", ")}`, runId: null };
+    return { ...base, outcome: "skip", reason: `missing env: ${missing.join(", ")}`, runId: null, missingEnv: missing };
   }
 
   // 3. Handler lookup (real registry).
