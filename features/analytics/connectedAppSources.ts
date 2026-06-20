@@ -37,7 +37,8 @@ export type ConnectedAppFilterKind =
   | "monday_board"
   | "hubspot_pipeline"
   | "mailchimp_audience"
-  | "dropbox_folder";
+  | "dropbox_folder"
+  | "onedrive_folder";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -498,6 +499,32 @@ const DROPBOX: ConnectedAppSourceUi = {
   },
 };
 
+const ONEDRIVE: ConnectedAppSourceUi = {
+  provider: "microsoft-onedrive",
+  displayName: "OneDrive",
+  exposed: true,
+  icon: "Layers",
+  connectHref: "/apps",
+  connectTitle: "Connect your OneDrive",
+  connectHelp: "This widget uses your own OneDrive connection. Connect it to see your data.",
+  connectCtaLabel: "Connect OneDrive",
+  // Personal credential — each viewer sees THEIR OWN OneDrive file metadata, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your OneDrive",
+  metricsByType: {
+    stat: [
+      { id: "files_count", label: "Files", filters: ["onedrive_folder"] },
+      { id: "folders_count", label: "Folders", filters: ["onedrive_folder"] },
+    ],
+    line: [{ id: "files_modified_over_time", label: "Files modified over time", filters: ["onedrive_folder"] }],
+    bar: [
+      { id: "files_modified_over_time", label: "Files modified over time", filters: ["onedrive_folder"] },
+      { id: "files_by_type", label: "Files by type", filters: ["onedrive_folder"] },
+    ],
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -514,6 +541,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   SHOPIFY,
   MAILCHIMP,
   DROPBOX,
+  ONEDRIVE,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

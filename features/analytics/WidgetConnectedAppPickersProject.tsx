@@ -348,3 +348,25 @@ export function DropboxFolderField(props: { value: string; onChange: (v: string)
     />
   );
 }
+
+/**
+ * OneDrive folder picker (`microsoft-onedrive:folders`) — OPTIONAL: leaving it blank
+ * reports across the whole drive (root). Lists top-level folders (id-as-value). Only
+ * folder id + name are loaded, never file content or download URLs.
+ */
+export function OneDriveFolderField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="microsoft-onedrive:folders"
+      icon="Layers"
+      sectionLabel="Folder"
+      hint="Pick a OneDrive folder, or leave blank for all files."
+      disconnectedHint="Connect OneDrive to choose a folder."
+      loadingNoun="folders"
+      errorFallback="Couldn't load OneDrive folders."
+      ariaLabel="OneDrive folder"
+      placeholder="All files"
+      {...props}
+    />
+  );
+}

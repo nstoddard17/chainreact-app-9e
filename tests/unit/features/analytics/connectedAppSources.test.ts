@@ -79,6 +79,36 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("mailchimp")?.visibility).toBe("account");
     // Dropbox is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("dropbox")?.visibility).toBe("personal");
+    // OneDrive is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("microsoft-onedrive")?.visibility).toBe("personal");
+  });
+});
+
+describe("OneDrive metric/filter shape", () => {
+  const onedrive = getExposedConnectedAppSource("microsoft-onedrive")!;
+
+  it("exposes OneDrive with file/folder scalars for stat and file series for line/bar; files_by_type bar-only", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("microsoft-onedrive");
+    expect(getExposedConnectedAppSource("microsoft-onedrive")?.displayName).toBe("OneDrive");
+    expect(metricsForType(onedrive, "stat").map((m) => m.id).sort()).toEqual([
+      "files_count",
+      "folders_count",
+    ]);
+    expect(metricsForType(onedrive, "line").map((m) => m.id)).toEqual(["files_modified_over_time"]);
+    expect(metricsForType(onedrive, "bar").map((m) => m.id).sort()).toEqual([
+      "files_by_type",
+      "files_modified_over_time",
+    ]);
+    expect(metricsForType(onedrive, "line").map((m) => m.id)).not.toContain("files_by_type");
+    expect(metricsForType(onedrive, "donut")).toEqual([]);
+  });
+
+  it("every OneDrive metric takes a single (optional) onedrive_folder filter", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(onedrive, type)) {
+        expect(m.filters).toEqual(["onedrive_folder"]);
+      }
+    }
   });
 });
 

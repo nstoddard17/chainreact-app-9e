@@ -15,6 +15,7 @@ import { hubspotAnalyticsSource } from "./hubspot";
 import { shopifyAnalyticsSource } from "./shopify";
 import { mailchimpAnalyticsSource } from "./mailchimp";
 import { dropboxAnalyticsSource } from "./dropbox";
+import { microsoftOneDriveAnalyticsSource } from "./microsoft-onedrive";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -73,6 +74,10 @@ import { dropboxAnalyticsSource } from "./dropbox";
  *     folder counts + files-modified over-time + files-by-type, personal refreshable
  *     credential, metadata-only, no file name/path/content read) —
  *     ANALYTICS-SOURCES-DROPBOX-1.
+ *   - MICROSOFT ONEDRIVE (connected app, read-only bounded recursive Graph children
+ *     traversal → file / folder counts + files-modified over-time + files-by-type,
+ *     personal refreshable credential, metadata-only $select, no file
+ *     name/path/webUrl/owner/content read) — ANALYTICS-SOURCES-ONEDRIVE-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -101,6 +106,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   shopifyAnalyticsSource,
   mailchimpAnalyticsSource,
   dropboxAnalyticsSource,
+  microsoftOneDriveAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

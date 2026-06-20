@@ -253,6 +253,20 @@ describe("analytics source registry", () => {
     for (const m of dropbox!.metrics) expect(m.supportedFilters).toEqual(["dropbox_folder"]);
   });
 
+  it("registers OneDrive as a connected-app source (ANALYTICS-SOURCES-ONEDRIVE-1)", () => {
+    const onedrive = getAnalyticsSource("microsoft-onedrive");
+    expect(onedrive?.connectedApp).toBe(true);
+    expect(onedrive?.metrics.map((m) => m.key).sort()).toEqual([
+      "files_by_type",
+      "files_count",
+      "files_modified_over_time",
+      "folders_count",
+    ]);
+    expect(isApprovedSourceMetric("microsoft-onedrive", "files_count")).toBe(true);
+    expect(isApprovedSourceMetric("microsoft-onedrive", "download_file")).toBe(false);
+    for (const m of onedrive!.metrics) expect(m.supportedFilters).toEqual(["onedrive_folder"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

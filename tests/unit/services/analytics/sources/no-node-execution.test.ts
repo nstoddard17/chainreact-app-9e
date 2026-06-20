@@ -60,6 +60,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/dropbox/index.ts",
   "services/analytics/sources/dropbox/api.ts",
   "services/analytics/sources/dropbox/buckets.ts",
+  "services/analytics/sources/microsoft-onedrive/index.ts",
+  "services/analytics/sources/microsoft-onedrive/api.ts",
+  "services/analytics/sources/microsoft-onedrive/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

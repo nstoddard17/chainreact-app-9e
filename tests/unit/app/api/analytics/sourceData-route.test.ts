@@ -192,6 +192,21 @@ it("forwards the dropbox_folder filter for provider=dropbox (session account)", 
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the onedrive_folder filter for provider=microsoft-onedrive (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/microsoft-onedrive/data?metric=files_count&range=30d&onedrive_folder=01ABC!123",
+    ),
+    { params: Promise.resolve({ provider: "microsoft-onedrive" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("microsoft-onedrive");
+  expect(call.metricKey).toBe("files_count");
+  expect(call.filters).toEqual({ onedrive_folder: "01ABC!123" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

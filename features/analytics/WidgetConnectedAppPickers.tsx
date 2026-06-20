@@ -32,4 +32,5 @@ export {
   HubSpotPipelineField,
   MailchimpAudienceField,
   DropboxFolderField,
+  OneDriveFolderField,
 } from "./WidgetConnectedAppPickersProject";
