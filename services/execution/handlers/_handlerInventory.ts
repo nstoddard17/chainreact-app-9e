@@ -122,8 +122,11 @@ import { createWorksheet as excelCreateWorksheet } from "@/integrations/microsof
 import { deleteRow as excelDeleteRow } from "@/integrations/microsoft-excel/actions/deleteRow";
 import { deleteWorksheet as excelDeleteWorksheet } from "@/integrations/microsoft-excel/actions/deleteWorksheet";
 import { exportSheet as excelExportSheet } from "@/integrations/microsoft-excel/actions/exportSheet";
+import { findRow as excelFindRow } from "@/integrations/microsoft-excel/actions/findRow";
 import { getWorkbooks as excelGetWorkbooks } from "@/integrations/microsoft-excel/actions/getWorkbooks";
 import { getWorksheets as excelGetWorksheets } from "@/integrations/microsoft-excel/actions/getWorksheets";
+import { readRange as excelReadRange } from "@/integrations/microsoft-excel/actions/readRange";
+import { readTableRows as excelReadTableRows } from "@/integrations/microsoft-excel/actions/readTableRows";
 import { renameWorksheet as excelRenameWorksheet } from "@/integrations/microsoft-excel/actions/renameWorksheet";
 import { updateRow as excelUpdateRow } from "@/integrations/microsoft-excel/actions/updateRow";
 import { copyItem as copyOneDriveItem } from "@/integrations/microsoft-onedrive/actions/copyItem";
@@ -506,6 +509,11 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // Microsoft Excel parity Commit 2 — worksheet rename + delete actions.
   { provider: "microsoft-excel", type: "rename_worksheet", handler: excelRenameWorksheet },
   { provider: "microsoft-excel", type: "delete_worksheet", handler: excelDeleteWorksheet },
+  // Slice 4.EXCEL-READ-2 — read-only range + table reads (reuse existing
+  // Excel API wrappers; metadata/value-bounded, no file content).
+  { provider: "microsoft-excel", type: "read_range", handler: excelReadRange },
+  { provider: "microsoft-excel", type: "read_table_rows", handler: excelReadTableRows },
+  { provider: "microsoft-excel", type: "find_row", handler: excelFindRow },
   { provider: "microsoft-onedrive", type: "upload_file", handler: uploadOneDriveFile },
   { provider: "microsoft-onedrive", type: "get_file", handler: getOneDriveFile },
   { provider: "microsoft-onedrive", type: "create_folder", handler: createOneDriveFolder },

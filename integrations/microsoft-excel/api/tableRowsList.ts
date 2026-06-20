@@ -28,15 +28,24 @@ export interface TableRowsListInput {
   accessToken: string;
   workbookId: string;
   tableName: string;
+  /**
+   * Optional Graph `$top` page cap (Slice 4.EXCEL-READ-2, consumed by the
+   * `read_table_rows` + `find_row` actions to bound a single page). When
+   * omitted the request is unchanged — the polling-trigger consumer keeps
+   * its existing full-collection behavior.
+   */
+  top?: number;
 }
 
 export async function tableRowsList(
   input: TableRowsListInput,
 ): Promise<ExcelTableRow[]> {
-  const url =
+  const base =
     `${graphApiBase()}/v1.0/me/drive/items/${encodeURIComponent(
       input.workbookId,
     )}/workbook/tables/${encodeURIComponent(input.tableName)}/rows`;
+  const url =
+    input.top !== undefined ? `${base}?$top=${encodeURIComponent(String(input.top))}` : base;
 
   const res = await fetch(url, {
     method: "GET",

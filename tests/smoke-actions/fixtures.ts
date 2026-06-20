@@ -52,6 +52,10 @@ import notionGetPage from "@/tests/fixtures/action-smoke/notion/get_page";
 // SMOKE-ACTIONS-13 — Microsoft Excel read-only batch (fixture-only; existing read actions).
 import excelGetWorkbooks from "@/tests/fixtures/action-smoke/microsoft-excel/get_workbooks";
 import excelGetWorksheets from "@/tests/fixtures/action-smoke/microsoft-excel/get_worksheets";
+// SMOKE-ACTIONS-14 — Microsoft Excel read-only batch (new range/table read actions).
+import excelReadRange from "@/tests/fixtures/action-smoke/microsoft-excel/read_range";
+import excelReadTableRows from "@/tests/fixtures/action-smoke/microsoft-excel/read_table_rows";
+import excelFindRow from "@/tests/fixtures/action-smoke/microsoft-excel/find_row";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -89,4 +93,7 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   notionGetPage,
   excelGetWorkbooks,
   excelGetWorksheets,
+  excelReadRange,
+  excelReadTableRows,
+  excelFindRow,
 ];

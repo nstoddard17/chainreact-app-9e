@@ -11,7 +11,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * `MICROSOFT_EXCEL_TRIGGER_METAS`; module-load validation + duplicate-key
  * rejection happen centrally — this file is import grouping only.
  *
- * **Coverage:** 10 actions + 5 polling triggers. Field names are camelCase
+ * **Coverage:** 13 actions + 5 polling triggers. Field names are camelCase
  * to mirror the Excel runtime Zod schemas 1:1 (drift fails the
  * meta-coverage structural test once `microsoft-excel` is in
  * `COVERED_PROVIDERS`). `workbookId` fields use the `microsoft-excel:workbooks`
@@ -35,6 +35,9 @@ import { microsoftExcelRenameWorksheetMeta } from "@/integrations/microsoft-exce
 import { microsoftExcelDeleteWorksheetMeta } from "@/integrations/microsoft-excel/actions/deleteWorksheet.meta";
 import { microsoftExcelGetWorkbooksMeta } from "@/integrations/microsoft-excel/actions/getWorkbooks.meta";
 import { microsoftExcelGetWorksheetsMeta } from "@/integrations/microsoft-excel/actions/getWorksheets.meta";
+import { microsoftExcelReadRangeMeta } from "@/integrations/microsoft-excel/actions/readRange.meta";
+import { microsoftExcelReadTableRowsMeta } from "@/integrations/microsoft-excel/actions/readTableRows.meta";
+import { microsoftExcelFindRowMeta } from "@/integrations/microsoft-excel/actions/findRow.meta";
 
 import { microsoftExcelNewRowTriggerMeta } from "@/integrations/microsoft-excel/triggers/newRow/newRow.meta";
 import { microsoftExcelUpdatedRowTriggerMeta } from "@/integrations/microsoft-excel/triggers/updatedRow/updatedRow.meta";
@@ -42,7 +45,7 @@ import { microsoftExcelNewTableRowTriggerMeta } from "@/integrations/microsoft-e
 import { microsoftExcelUpdatedTableRowTriggerMeta } from "@/integrations/microsoft-excel/triggers/updatedTableRow/updatedTableRow.meta";
 import { microsoftExcelNewWorksheetTriggerMeta } from "@/integrations/microsoft-excel/triggers/newWorksheet/newWorksheet.meta";
 
-/** Excel action metas in displayOrder (10..100). */
+/** Excel action metas in displayOrder (10..130). */
 export const MICROSOFT_EXCEL_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   microsoftExcelAddRowMeta,
   microsoftExcelUpdateRowMeta,
@@ -54,6 +57,10 @@ export const MICROSOFT_EXCEL_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   microsoftExcelDeleteWorksheetMeta,
   microsoftExcelGetWorkbooksMeta,
   microsoftExcelGetWorksheetsMeta,
+  // Slice 4.EXCEL-READ-2 — read-only range + table reads.
+  microsoftExcelReadRangeMeta,
+  microsoftExcelReadTableRowsMeta,
+  microsoftExcelFindRowMeta,
 ];
 
 /** Excel trigger metas in displayOrder (10..50) — all polling. */
