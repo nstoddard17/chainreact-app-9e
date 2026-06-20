@@ -238,6 +238,21 @@ describe("analytics source registry", () => {
     expect(byKey.campaign_count).toEqual([]);
   });
 
+  it("registers Dropbox as a connected-app source (ANALYTICS-SOURCES-DROPBOX-1)", () => {
+    const dropbox = getAnalyticsSource("dropbox");
+    expect(dropbox?.connectedApp).toBe(true);
+    expect(dropbox?.metrics.map((m) => m.key).sort()).toEqual([
+      "files_by_type",
+      "files_count",
+      "files_modified_over_time",
+      "folders_count",
+    ]);
+    expect(isApprovedSourceMetric("dropbox", "files_count")).toBe(true);
+    expect(isApprovedSourceMetric("dropbox", "download_file")).toBe(false);
+    // Every Dropbox metric takes a single optional folder filter (no raw query).
+    for (const m of dropbox!.metrics) expect(m.supportedFilters).toEqual(["dropbox_folder"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

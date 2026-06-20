@@ -77,6 +77,36 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("shopify")?.visibility).toBe("account");
     // Mailchimp is a shared marketing account → account-wide visibility.
     expect(getConnectedAppSource("mailchimp")?.visibility).toBe("account");
+    // Dropbox is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("dropbox")?.visibility).toBe("personal");
+  });
+});
+
+describe("Dropbox metric/filter shape", () => {
+  const dropbox = getExposedConnectedAppSource("dropbox")!;
+
+  it("exposes Dropbox with file/folder scalars for stat and file series for line/bar; files_by_type bar-only", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("dropbox");
+    expect(getExposedConnectedAppSource("dropbox")?.displayName).toBe("Dropbox");
+    expect(metricsForType(dropbox, "stat").map((m) => m.id).sort()).toEqual([
+      "files_count",
+      "folders_count",
+    ]);
+    expect(metricsForType(dropbox, "line").map((m) => m.id)).toEqual(["files_modified_over_time"]);
+    expect(metricsForType(dropbox, "bar").map((m) => m.id).sort()).toEqual([
+      "files_by_type",
+      "files_modified_over_time",
+    ]);
+    expect(metricsForType(dropbox, "line").map((m) => m.id)).not.toContain("files_by_type");
+    expect(metricsForType(dropbox, "donut")).toEqual([]);
+  });
+
+  it("every Dropbox metric takes a single (optional) dropbox_folder filter", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(dropbox, type)) {
+        expect(m.filters).toEqual(["dropbox_folder"]);
+      }
+    }
   });
 });
 

@@ -31,4 +31,5 @@ export {
   MondayBoardField,
   HubSpotPipelineField,
   MailchimpAudienceField,
+  DropboxFolderField,
 } from "./WidgetConnectedAppPickersProject";

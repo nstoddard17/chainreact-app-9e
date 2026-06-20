@@ -177,6 +177,21 @@ it("forwards the mailchimp_audience filter for provider=mailchimp (session accou
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the dropbox_folder filter for provider=dropbox (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/dropbox/data?metric=files_count&range=30d&dropbox_folder=/Photos",
+    ),
+    { params: Promise.resolve({ provider: "dropbox" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("dropbox");
+  expect(call.metricKey).toBe("files_count");
+  expect(call.filters).toEqual({ dropbox_folder: "/Photos" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

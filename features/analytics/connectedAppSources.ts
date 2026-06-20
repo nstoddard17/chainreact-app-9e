@@ -36,7 +36,8 @@ export type ConnectedAppFilterKind =
   | "airtable_table"
   | "monday_board"
   | "hubspot_pipeline"
-  | "mailchimp_audience";
+  | "mailchimp_audience"
+  | "dropbox_folder";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -471,6 +472,32 @@ const MAILCHIMP: ConnectedAppSourceUi = {
   },
 };
 
+const DROPBOX: ConnectedAppSourceUi = {
+  provider: "dropbox",
+  displayName: "Dropbox",
+  exposed: true,
+  icon: "Layers",
+  connectHref: "/apps",
+  connectTitle: "Connect your Dropbox",
+  connectHelp: "This widget uses your own Dropbox connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Dropbox",
+  // Personal credential — each viewer sees THEIR OWN Dropbox file metadata, never a
+  // co-member's (core/integrations/credentialSharing.ts → "personal").
+  visibility: "personal",
+  attributionPrefix: "Your Dropbox",
+  metricsByType: {
+    stat: [
+      { id: "files_count", label: "Files", filters: ["dropbox_folder"] },
+      { id: "folders_count", label: "Folders", filters: ["dropbox_folder"] },
+    ],
+    line: [{ id: "files_modified_over_time", label: "Files modified over time", filters: ["dropbox_folder"] }],
+    bar: [
+      { id: "files_modified_over_time", label: "Files modified over time", filters: ["dropbox_folder"] },
+      { id: "files_by_type", label: "Files by type", filters: ["dropbox_folder"] },
+    ],
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -486,6 +513,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   HUBSPOT,
   SHOPIFY,
   MAILCHIMP,
+  DROPBOX,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

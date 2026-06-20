@@ -326,3 +326,25 @@ export function MailchimpAudienceField(props: { value: string; onChange: (v: str
     />
   );
 }
+
+/**
+ * Dropbox folder picker (`dropbox:folders`) — OPTIONAL: the resolver prepends a Root
+ * option (value "") so leaving it on Root reports across all of Dropbox. Only folder
+ * path + name are loaded (path-as-value), never file content or names.
+ */
+export function DropboxFolderField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="dropbox:folders"
+      icon="Layers"
+      sectionLabel="Folder"
+      hint="Pick a Dropbox folder, or leave on Root for all files."
+      disconnectedHint="Connect Dropbox to choose a folder."
+      loadingNoun="folders"
+      errorFallback="Couldn't load Dropbox folders."
+      ariaLabel="Dropbox folder"
+      placeholder="Root (all files)"
+      {...props}
+    />
+  );
+}

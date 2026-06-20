@@ -14,6 +14,7 @@ import { mondayAnalyticsSource } from "./monday";
 import { hubspotAnalyticsSource } from "./hubspot";
 import { shopifyAnalyticsSource } from "./shopify";
 import { mailchimpAnalyticsSource } from "./mailchimp";
+import { dropboxAnalyticsSource } from "./dropbox";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -68,6 +69,10 @@ import { mailchimpAnalyticsSource } from "./mailchimp";
  *   - MAILCHIMP (connected app, read-only aggregate reads → audience member count +
  *     sent-campaign count / over-time, account-shared non-refreshable credential,
  *     count-only, no subscriber/campaign content read) — ANALYTICS-SOURCES-MAILCHIMP-1.
+ *   - DROPBOX (connected app, read-only bounded recursive list_folder scan → file /
+ *     folder counts + files-modified over-time + files-by-type, personal refreshable
+ *     credential, metadata-only, no file name/path/content read) —
+ *     ANALYTICS-SOURCES-DROPBOX-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -95,6 +100,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   hubspotAnalyticsSource,
   shopifyAnalyticsSource,
   mailchimpAnalyticsSource,
+  dropboxAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

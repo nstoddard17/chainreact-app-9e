@@ -67,7 +67,8 @@ const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
 /** Map a UI filter kind to the server-side `dataSource.filters` key. */
 type FilterDataKey =
   | "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" | "board"
-  | "airtable_base" | "airtable_table" | "monday_board" | "hubspot_pipeline" | "mailchimp_audience";
+  | "airtable_base" | "airtable_table" | "monday_board" | "hubspot_pipeline" | "mailchimp_audience"
+  | "dropbox_folder";
 
 // Kinds not listed use their own name as the data key (repo / keyword / airtable_* /
 // monday_board / hubspot_pipeline — kind === data key).
@@ -151,6 +152,7 @@ export function WidgetConfigPanel({
   const [mondayBoard, setMondayBoard] = useState(initFilter("monday_board"));
   const [hubspotPipeline, setHubspotPipeline] = useState(initFilter("hubspot_pipeline"));
   const [mailchimpAudience, setMailchimpAudience] = useState(initFilter("mailchimp_audience"));
+  const [dropboxFolder, setDropboxFolder] = useState(initFilter("dropbox_folder"));
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -176,6 +178,8 @@ export function WidgetConfigPanel({
     if (kind === "monday_board") return mondayBoard.trim().length > 0;
     if (kind === "hubspot_pipeline") return hubspotPipeline.trim().length > 0;
     if (kind === "mailchimp_audience") return mailchimpAudience.trim().length > 0;
+    // Dropbox folder is optional (blank = Root / all files), so always save-ready.
+    if (kind === "dropbox_folder") return true;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -199,6 +203,7 @@ export function WidgetConfigPanel({
         else if (kind === "monday_board") filters[key] = mondayBoard.trim();
         else if (kind === "hubspot_pipeline") filters[key] = hubspotPipeline.trim();
         else if (kind === "mailchimp_audience") filters[key] = mailchimpAudience.trim();
+        else if (kind === "dropbox_folder") filters[key] = dropboxFolder.trim();
         else filters[key] = keyword.trim();
       }
       onSave({
@@ -315,6 +320,8 @@ export function WidgetConfigPanel({
                   onHubspotPipeline={setHubspotPipeline}
                   mailchimpAudience={mailchimpAudience}
                   onMailchimpAudience={setMailchimpAudience}
+                  dropboxFolder={dropboxFolder}
+                  onDropboxFolder={setDropboxFolder}
                 />
               ) : (
                 <InternalConfig

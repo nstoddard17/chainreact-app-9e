@@ -57,6 +57,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/mailchimp/index.ts",
   "services/analytics/sources/mailchimp/api.ts",
   "services/analytics/sources/mailchimp/buckets.ts",
+  "services/analytics/sources/dropbox/index.ts",
+  "services/analytics/sources/dropbox/api.ts",
+  "services/analytics/sources/dropbox/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

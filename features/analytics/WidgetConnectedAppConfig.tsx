@@ -7,6 +7,7 @@ import {
   AirtableBaseField,
   AirtableTableField,
   GcalCalendarField,
+  DropboxFolderField,
   GithubRepoField,
   GmailLabelField,
   HubSpotPipelineField,
@@ -62,6 +63,8 @@ export function ConnectedAppConfig({
   onHubspotPipeline,
   mailchimpAudience,
   onMailchimpAudience,
+  dropboxFolder,
+  onDropboxFolder,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -97,6 +100,8 @@ export function ConnectedAppConfig({
   onHubspotPipeline: (v: string) => void;
   mailchimpAudience: string;
   onMailchimpAudience: (v: string) => void;
+  dropboxFolder: string;
+  onDropboxFolder: (v: string) => void;
 }) {
   return (
     <>
@@ -198,6 +203,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("mailchimp_audience") && (
         <MailchimpAudienceField value={mailchimpAudience} onChange={onMailchimpAudience} connected={connected} />
+      )}
+
+      {requiredFilters.includes("dropbox_folder") && (
+        <DropboxFolderField value={dropboxFolder} onChange={onDropboxFolder} connected={connected} />
       )}
     </>
   );
