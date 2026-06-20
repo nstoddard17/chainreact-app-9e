@@ -107,6 +107,19 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-5 audit-seam PLAN (docs-only) — LOCAL/UNPUSHED (2026-06-19)** — design before wiring any
+  proposes-change capability. **Recommend a NEW account-scoped `react_agent_audit_events` table** (cols:
+  account_id owner, actor_user_id, workflow_id?, conversation_id?, capability_id, intent, mode, credit_feature,
+  audit_kind, outcome success|denied|failed, reason safe-enum, proposed_patch_ref?, approval_id?,
+  ai_cost_event_id link, metadata, created_at; RLS members-only read + service_role-only write; append-only).
+  Chosen over extending `ai_cost_events` (which DOES now have account_id/conversation_id/patch_id/ai_tool_called
+  — viable stop-gap, but its closed CHECK enums + cost-only purpose don't fit denials/approval/mode/future
+  memory-reads). **Emission = central seam `runAuthorizedCapability` via an INJECTED recorder** (keeps boundary
+  import-fenced); route still owns auth/gate/cost-telemetry + attaches ai_cost_event_id; fail-open. Cost stays
+  in ai_cost_events, audit LINKS it (no dup). No raw prompts/answers/config/secrets — ids/enums/counts only.
+  Registry↔gate consistency stays test-only + optional non-blocking dev assertion (no hard runtime block).
+  Slices CS-5b table→5c repo/recorder→5d seam-inject→5e assertion→5f tests; hold repair-proposal until 5d.
+  No code/migration/db:push. → [`react-agent-cs-5-audit-seam-plan.md`](./slices/phase-4/ai/react-agent-cs-5-audit-seam-plan.md).
 - **React Agent CS-1 (boundary) + CS-2 (Q&A) + CS-3 (registry) + CS-4 (Explain) — first product-AI code — LOCAL/UNPUSHED (2026-06-19)** —
   narrow account-scoped seam under `services/ai/reactAgent/`. **CS-1** (`193627693`): `ReactAgentScope`
   (userId+accountId required; workflowId?/conversationId? optional), `ReactAgentIntent`
