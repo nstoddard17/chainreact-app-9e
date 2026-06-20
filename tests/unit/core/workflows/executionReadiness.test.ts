@@ -132,6 +132,86 @@ describe("evaluateExecutionReadiness + toReadinessError", () => {
     expect(err && "graph" in err && err.graph.some((g) => g.code === "unreachable_node")).toBe(true);
   });
 
+  it("a required field with a metadata default is satisfied even when config omits it (read_rows majorDimension)", () => {
+    // Mirrors google-sheets:read_rows — `majorDimension` is required but
+    // declares defaultValue "ROWS" (hasDefault). A config that supplies the
+    // non-defaulted required fields but omits the defaulted one is READY: the
+    // default fills it (deriveDefaultConfig at build-time / Zod .default() at
+    // runtime). Without this, the workflow failed pre-execution with
+    // "Read Rows is missing required fields: Major dimension."
+    const lookup: RequiredFieldsByType = {
+      "google-sheets:read_rows": {
+        displayName: "Read Rows",
+        requiredFields: [
+          { name: "spreadsheetId", label: "Spreadsheet", hasDefault: false },
+          { name: "range", label: "Range", hasDefault: false },
+          { name: "majorDimension", label: "Major dimension", hasDefault: true },
+        ],
+      },
+    };
+    const node: WorkflowNode = {
+      id: "a1", kind: "action", provider: "google-sheets", type: "read_rows",
+      config: { spreadsheetId: "ss-1", range: "Sheet1!A1:D5" }, // majorDimension omitted
+      position: { x: 0, y: 0 },
+    };
+    const result = evaluateExecutionReadiness({
+      nodes: [trigger(), node],
+      edges: [edge("e1", "t1", "a1")],
+      requiredFieldsByType: lookup,
+    });
+    expect(result.fieldGaps).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(toReadinessError(result)).toBeNull();
+  });
+
+  it("a required field with an empty-string value is satisfied when it declares a default (notion search query)", () => {
+    // Mirrors notion:search — `query` is required but empty "" means "search
+    // all accessible objects" and the field declares defaultValue "". An empty
+    // value on a defaulted field is NOT a gap (would otherwise fail with
+    // "Search is missing required fields: Search query.").
+    const lookup: RequiredFieldsByType = {
+      "notion:search": {
+        displayName: "Search",
+        requiredFields: [{ name: "query", label: "Search query", hasDefault: true }],
+      },
+    };
+    const node: WorkflowNode = {
+      id: "a1", kind: "action", provider: "notion", type: "search",
+      config: { query: "" }, position: { x: 0, y: 0 },
+    };
+    const result = evaluateExecutionReadiness({
+      nodes: [trigger(), node],
+      edges: [edge("e1", "t1", "a1")],
+      requiredFieldsByType: lookup,
+    });
+    expect(result.fieldGaps).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("a required field WITHOUT a default is still flagged when missing (no over-relaxation)", () => {
+    // Guard: the hasDefault relaxation must not leak to non-defaulted fields.
+    const lookup: RequiredFieldsByType = {
+      "google-sheets:read_rows": {
+        displayName: "Read Rows",
+        requiredFields: [
+          { name: "spreadsheetId", label: "Spreadsheet", hasDefault: false },
+          { name: "majorDimension", label: "Major dimension", hasDefault: true },
+        ],
+      },
+    };
+    const node: WorkflowNode = {
+      id: "a1", kind: "action", provider: "google-sheets", type: "read_rows",
+      config: { majorDimension: "ROWS" }, // spreadsheetId (no default) missing
+      position: { x: 0, y: 0 },
+    };
+    const result = evaluateExecutionReadiness({
+      nodes: [trigger(), node],
+      edges: [edge("e1", "t1", "a1")],
+      requiredFieldsByType: lookup,
+    });
+    expect(result.fieldGaps[0]?.missingFields).toEqual(["Spreadsheet"]);
+  });
+
   it("0 and false are valid required values (not missing)", () => {
     const lookup: RequiredFieldsByType = {
       "native:x": { displayName: "X", requiredFields: [{ name: "n", label: "N" }, { name: "b", label: "B" }] },

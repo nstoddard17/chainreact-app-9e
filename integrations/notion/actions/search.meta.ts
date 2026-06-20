@@ -38,6 +38,12 @@ export const notionSearchMeta: ActionMeta = {
         "Search text. Submit an empty string to return all accessible objects (Notion's `/v1/search` accepts empty-query lists). Notion's search is title-only; full-text body search is not available via this endpoint.",
       type: "text",
       required: true,
+      // Empty string is a VALID value here ("search all accessible objects" —
+      // the schema accepts `z.string()` and the handler treats "" as the
+      // all-objects list). Seed "" so the builder's deriveDefaultConfig writes
+      // the key (mirrors gmail:send_email subject) AND so readiness treats this
+      // required field as satisfied by its default — empty query is not a gap.
+      defaultValue: "",
       placeholder: "Q4 OKRs",
     },
     {

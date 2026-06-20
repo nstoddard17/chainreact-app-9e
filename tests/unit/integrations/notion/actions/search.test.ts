@@ -2,6 +2,12 @@
  * @jest-environment node
  */
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+import type { WorkflowNode } from "@/contracts/workflow";
+import { notionSearchMeta } from "@/integrations/notion/actions/search.meta";
+import {
+  buildRequiredFieldsByType,
+  missingRequiredFields,
+} from "@/core/workflows/requiredFields";
 
 const mockRefreshAndRetry = jest.fn();
 const mockSearch = jest.fn();
@@ -135,5 +141,28 @@ describe("search action", () => {
         triggerEvent: trigger(),
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("search meta — empty-query readiness consistency", () => {
+  // The handler accepts query: "" ("search all"); the builder/runbook call the
+  // query optional. Readiness must agree — `query` declares defaultValue "" so a
+  // search node with an empty/absent query is NOT a missing-required-fields gap.
+  // Regression for the live-smoke failure:
+  //   "Search is missing required fields: Search query."
+  it("query field declares defaultValue \"\" so the key is seeded and readiness is satisfied", () => {
+    const queryField = notionSearchMeta.fields.find((f) => f.name === "query");
+    expect(queryField?.required).toBe(true);
+    expect(queryField?.defaultValue).toBe("");
+
+    const map = buildRequiredFieldsByType([notionSearchMeta], []);
+    const queryReq = map["notion:search"]?.requiredFields.find((f) => f.name === "query");
+    expect(queryReq?.hasDefault).toBe(true);
+
+    const node: WorkflowNode = {
+      id: "n1", kind: "action", provider: "notion", type: "search",
+      config: { query: "" }, position: { x: 0, y: 0 },
+    };
+    expect(missingRequiredFields(node, map)).toEqual([]);
   });
 });

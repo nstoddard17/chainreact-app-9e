@@ -431,6 +431,18 @@ All five Excel fixtures are read-only; `read_range` / `read_table_rows` / `find_
 return bounded/capped cell values (the action's purpose), but the smoke report stays
 status-only (never workbook/worksheet names or cell content).
 
+> **Account requirement — Excel live verification needs an accessible drive.** Excel
+> reads enumerate workbooks via Microsoft Graph `me/drive/root/children`, so the
+> connected Microsoft account MUST have an accessible/provisioned **OneDrive (or
+> SharePoint) drive** with at least one `.xlsx` workbook. A Microsoft account with no
+> provisioned drive (some personal/tenant configurations) returns Graph **"Operation
+> not supported"** on `get_workbooks` — discovery can't find a workbook id, and the
+> Excel fixtures **skip** (no selector env) or **fail** (if `SMOKE_MICROSOFT_EXCEL_CONNECTED`
+> is set without a real, drive-backed workbook). To verify Excel, connect a Microsoft
+> account that has an accessible OneDrive/SharePoint drive + a smoke workbook, then
+> re-run with `SMOKE_PROVIDER=microsoft-excel`. (No SharePoint-drive fallback is built
+> into `get_workbooks` today — it reads the user's default drive only.)
+
 **Microsoft Excel audit + actions still uncovered / deferred (5 covered of 13 registered):**
 
 - **Audit:** the prior fixture-only slice covered the two pre-existing reads

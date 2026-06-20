@@ -27,6 +27,17 @@ import type { WorkflowNode } from "@/contracts/workflow";
 export interface NodeTypeRequirement {
   readonly name: string;
   readonly label: string;
+  /**
+   * True when the action/trigger metadata declares a `defaultValue` for this
+   * field. A required field WITH a default is always satisfiable without
+   * explicit user input — the builder's `deriveDefaultConfig` seeds it at
+   * node-creation and the handler's Zod `.default()` fills it at runtime — so
+   * it is NEVER a readiness gap, even when the stored config omits it (e.g. a
+   * config built outside the builder: AI planner, template import, API, or a
+   * smoke fixture). Keeps the metadata/default contract consistent with the
+   * handler schema (a required `enum().default("ROWS")` is runnable as-is).
+   */
+  readonly hasDefault?: boolean;
 }
 
 /** Required-field requirements for one node type, keyed by `provider:type`. */
@@ -60,7 +71,11 @@ export function buildRequiredFieldsByType(
       displayName: meta.displayName,
       requiredFields: meta.fields
         .filter((f: FieldMeta) => f.required)
-        .map((f: FieldMeta) => ({ name: f.name, label: f.label })),
+        .map((f: FieldMeta) => ({
+          name: f.name,
+          label: f.label,
+          hasDefault: f.defaultValue !== undefined,
+        })),
     };
   }
   return out;
@@ -94,6 +109,14 @@ export function isRequiredValueMissing(value: unknown): boolean {
  * canvas node-status adapter, and the server execution-readiness validator.
  * Router nodes are excluded — their `routes` config has a dedicated structural
  * validator (`router_routes_invalid`).
+ *
+ * A required field that declares a metadata `defaultValue` (`hasDefault`) is
+ * NEVER reported missing: the default is supplied by the builder's
+ * `deriveDefaultConfig` at node-creation and by the handler's Zod `.default()`
+ * at runtime, so the node is runnable even when the stored config omits the
+ * field. This keeps the readiness gate consistent with the handler schema and
+ * stops it being stricter than the runtime contract for configs built outside
+ * the builder (AI planner, template import, API, smoke fixtures).
  */
 export function missingRequiredFields(
   node: WorkflowNode,
@@ -104,7 +127,7 @@ export function missingRequiredFields(
   if (key === ROUTER_NODE_TYPE) return [];
   const reqs = requiredFieldsByType?.[key];
   if (!reqs) return [];
-  return reqs.requiredFields.filter((f) =>
-    isRequiredValueMissing((node.config ?? {})[f.name]),
+  return reqs.requiredFields.filter(
+    (f) => !f.hasDefault && isRequiredValueMissing((node.config ?? {})[f.name]),
   );
 }
