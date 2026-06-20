@@ -63,6 +63,10 @@ drift.
 | `SMOKE_GMAIL_QUERY=<q-syntax>` | Gmail `search_emails` | Gmail q-syntax search string (overlaid onto `query`). Unset → SKIP. |
 | `SMOKE_MICROSOFT_OUTLOOK_CONNECTED=1` | Outlook fixtures | Signals the smoke account has Microsoft Outlook connected. Unset → Outlook fixtures SKIP. |
 | `SMOKE_OUTLOOK_QUERY=<$search>` | Outlook `fetch_emails` (optional) | Optional Graph `$search` string (overlaid onto `query`). Unset → fetches recent messages. |
+| `SMOKE_NOTION_CONNECTED=1` | Notion fixtures | Signals the smoke account has Notion connected. Unset → Notion fixtures SKIP. |
+| `SMOKE_NOTION_QUERY=<text>` | Notion `search` (optional) | Optional search text (overlaid onto `query`). Unset → searches all accessible objects. |
+| `SMOKE_NOTION_DATABASE_ID=<id>` | Notion `query_database` | A database id to query (overlaid onto `databaseId`). Unset → SKIP. |
+| `SMOKE_NOTION_PAGE_ID=<id>` | Notion `get_page` | A page id to read (overlaid onto `pageId`). Unset → SKIP. |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -133,7 +137,7 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-### Current fixtures (29)
+### Current fixtures (33)
 
 | Fixture | risk / liveRisk | liveSafe | Required env | Notes |
 |---|---|---|---|---|
@@ -164,16 +168,20 @@ Rules:
 | `microsoft-outlook:list_folders` | read | ✅ | `SMOKE_MICROSOFT_OUTLOOK_CONNECTED` | Mail folder list (metadata only, no content). |
 | `microsoft-outlook:get_profile` | read | ✅ | `SMOKE_MICROSOFT_OUTLOOK_CONNECTED` | Mailbox identity (no content). |
 | `microsoft-outlook:fetch_emails` | read | ✅ | `SMOKE_MICROSOFT_OUTLOOK_CONNECTED` | Message fetch, one page, max 5 (status-only). |
+| `notion:search` | read | ✅ | `SMOKE_NOTION_CONNECTED` | Search pages/databases, one page, max 5. |
+| `notion:list_users` | read | ✅ | `SMOKE_NOTION_CONNECTED` | Workspace user list, one page, max 5. |
+| `notion:query_database` | read | ✅ | `SMOKE_NOTION_CONNECTED`, `SMOKE_NOTION_DATABASE_ID` | DB query, one page, max 5 (status-only). |
+| `notion:get_page` | read | ✅ | `SMOKE_NOTION_CONNECTED`, `SMOKE_NOTION_PAGE_ID` | Page metadata/properties (status-only). |
 | `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
 | `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
 
-Coverage: **29 fixtures** (27 read / 1 write / 1 destructive), 28 `liveSafe`, across
-7 providers (native, slack, airtable, google-sheets, google-drive, gmail,
-microsoft-outlook). **Slack: 10 fixtures** (8 read / 1 write / 1 destructive);
+Coverage: **33 fixtures** (31 read / 1 write / 1 destructive), 32 `liveSafe`, across
+8 providers (native, slack, airtable, google-sheets, google-drive, gmail,
+microsoft-outlook, notion). **Slack: 10 fixtures** (8 read / 1 write / 1 destructive);
 **Airtable: 5 fixtures** (all read); **Google Sheets: 4 fixtures** (all read); **Google
 Drive: 3 fixtures** (all read); **Gmail: 3 fixtures** (all read); **Microsoft Outlook: 3
-fixtures** (all read). The CLI prints a `Coverage:` line; `--json` exposes it as
-`coverage`.
+fixtures** (all read); **Notion: 4 fixtures** (all read). The CLI prints a `Coverage:`
+line; `--json` exposes it as `coverage`.
 
 **Slack-only inventory:** `npm run smoke:actions -- --provider slack`.
 
@@ -345,6 +353,41 @@ Outlook at a **throwaway / smoke mailbox**; the report stays status-only.
 - **Deferred:** the 6 write actions + `delete_email` (destructive) are out of scope for
   read-only batches (no safe cleanup pattern). `get_attachment` is intentionally excluded
   — it returns attachment content (FileRef / bytes).
+
+**Notion-only inventory:** `npm run smoke:actions -- --provider notion`.
+
+**Notion live read run** (`search` + `list_users` need only a connected Notion;
+`query_database` also needs a database id; `get_page` also needs a page id — missing
+required env SKIPs):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_NOTION_CONNECTED=1 \
+  SMOKE_NOTION_DATABASE_ID=<id> SMOKE_NOTION_PAGE_ID=<id> \
+  npm run smoke:actions:run:workflow:live
+```
+
+All four Notion fixtures are read-only and capped at one small page; the report stays
+status-only (never page/database titles, properties, or block content).
+
+**Notion audit + actions still uncovered / deferred (4 covered of 16 registered):**
+
+- **Audit:** Notion already registered a rich read surface, so this slice is
+  **fixture-only** — no new actions. Fixtured 4 of the registered reads:
+  `search` (pages/databases), `list_users` (workspace users), `query_database` (one page),
+  `get_page` (page metadata/properties). All `liveSafe` read fixtures, capped at one small
+  page; reports stay status-only (the actions' own outputs carry properties, but the smoke
+  harness never surfaces them).
+- **Other registered reads not fixtured this slice** (kept the batch to the 4 most
+  representative metadata reads): `get_user`, `list_comments`, `get_block`,
+  `get_block_children` (`get_block_children` deliberately left out — it returns block
+  content, which this read-only batch avoids surfacing even though the report is
+  status-only).
+- **Deferred (writes / destructive):** `create_page`, `update_page`,
+  `create_database_entry`, `append_block_children`, `restore_page`, `create_comment`,
+  `create_database` (writes) and `archive_page` (destructive) — out of scope for
+  read-only batches (no safe cleanup pattern).
 
 ## Commands
 
@@ -541,21 +584,21 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **29 fixtures** (27 read / 1 write / 1 destructive)
-  across 7 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
-  Gmail: 3, Microsoft Outlook: 3) — `npm run smoke:actions` shows the full gap (263 of
-  292 registered actions have no fixture yet). This harness is the foundation for growing
-  that, not a claim of broad coverage.
+- **Coverage is still small:** **33 fixtures** (31 read / 1 write / 1 destructive)
+  across 8 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
+  Gmail: 3, Microsoft Outlook: 3, Notion: 4) — `npm run smoke:actions` shows the full gap
+  (259 of 292 registered actions have no fixture yet). This harness is the foundation for
+  growing that, not a claim of broad coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 28 today
-  (27 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 32 today
+  (31 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
   test forbids one). Selector-dependent reads (`get_user_info`, `get_thread_messages`,
-  `get_file_info`, `get_file_metadata`, `search_files`, `search_emails`, and the other
-  connection/query-gated reads) only run when their id/connection/query env is set;
-  otherwise they SKIP.
+  `get_file_info`, `get_file_metadata`, `search_files`, `search_emails`, `query_database`,
+  `get_page`, and the other connection/query-gated reads) only run when their
+  id/connection/query env is set; otherwise they SKIP.
 - **The write fixture is not cleaned up.** It posts a persistent Slack message and
   does not delete it (no destructive cleanup step this slice). Use a throwaway
   channel.

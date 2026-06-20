@@ -44,6 +44,11 @@ import gmailSearchEmails from "@/tests/fixtures/action-smoke/gmail/search_emails
 import outlookListFolders from "@/tests/fixtures/action-smoke/microsoft-outlook/list_folders";
 import outlookGetProfile from "@/tests/fixtures/action-smoke/microsoft-outlook/get_profile";
 import outlookFetchEmails from "@/tests/fixtures/action-smoke/microsoft-outlook/fetch_emails";
+// SMOKE-ACTIONS-12 — Notion read-only batch (fixture-only; existing read actions).
+import notionSearch from "@/tests/fixtures/action-smoke/notion/search";
+import notionListUsers from "@/tests/fixtures/action-smoke/notion/list_users";
+import notionQueryDatabase from "@/tests/fixtures/action-smoke/notion/query_database";
+import notionGetPage from "@/tests/fixtures/action-smoke/notion/get_page";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -75,4 +80,8 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   outlookListFolders,
   outlookGetProfile,
   outlookFetchEmails,
+  notionSearch,
+  notionListUsers,
+  notionQueryDatabase,
+  notionGetPage,
 ];
