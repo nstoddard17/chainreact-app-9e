@@ -234,6 +234,32 @@ read-only, but they read whatever rows/cells the ids resolve to.
   `create_spreadsheet`, `clear_range`, `delete_row` (destructive). The 4 covered are all
   read-only (`get_sheet_metadata`, `read_rows`, `get_cell_value`, `find_row`).
 
+**Google Drive-only inventory:** `npm run smoke:actions -- --provider google-drive`.
+
+**Google Drive live read run** (`list_files` needs only a connected Drive — it lists
+across My Drive, metadata only):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_GOOGLE_DRIVE_CONNECTED=1 \
+  npm run smoke:actions:run:workflow:live
+```
+
+**Google Drive actions still uncovered / deferred (1 covered of 5 registered):**
+
+- **The read surface is already fully covered.** `list_files` is the *only* registered
+  read-only Google Drive action, and it has a fixture. V2 does not (yet) register a
+  get-file-metadata, search-files, list-folder-contents, or permissions-list action — so
+  there is nothing further to fixture in a read-only batch. Adding more Drive read
+  coverage would first require **building** those read actions (a provider-action slice,
+  not a smoke-fixture slice); the reserved selector env vars for that future work are
+  `SMOKE_GDRIVE_FILE_ID` / `SMOKE_GDRIVE_FOLDER_ID` / `SMOKE_GDRIVE_QUERY`.
+- The remaining 4 registered actions are **writes / destructive** and are out of scope
+  for read-only batches: `upload_file`, `create_folder`, `move_file` (writes) and
+  `delete_file` (destructive — never `liveSafe`). They are deferred for the same
+  no-safe-cleanup reason as the Slack / Airtable / Sheets writes.
+
 ## Commands
 
 ### Dry-run inventory
