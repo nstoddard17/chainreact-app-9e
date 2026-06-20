@@ -112,30 +112,58 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-Current `liveSafe` fixtures: `native:format_transformer` (baseline, read),
-`slack:list_channels` (read), `slack:send_channel_message` (**write**).
+### Current fixtures (9)
+
+| Fixture | risk / liveRisk | liveSafe | Required env | Notes |
+|---|---|---|---|---|
+| `native:format_transformer` | read | ✅ | — | Pure local baseline; runs anywhere. |
+| `slack:list_channels` | read | ✅ | `SMOKE_SLACK_CONNECTED` | conversations.list. |
+| `slack:list_users` | read | ✅ | `SMOKE_SLACK_CONNECTED` | users.list (no selector). |
+| `slack:get_channel_info` | read | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | conversations.info. |
+| `airtable:get_base_schema` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID` | Schema metadata (not records). |
+| `google-sheets:get_sheet_metadata` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID` | Sheet structure (not cells). |
+| `google-drive:list_files` | read | ✅ | `SMOKE_GOOGLE_DRIVE_CONNECTED` | File list (metadata only). |
+| `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
+| `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
+
+Coverage: **9 fixtures** (7 read / 1 write / 1 destructive), 8 `liveSafe`, across
+5 providers (native, slack, airtable, google-sheets, google-drive). The CLI prints
+this as a `Coverage:` line; `--json` exposes it as `coverage`.
 
 ## Commands
 
 ### Dry-run inventory
 
 ```bash
-npm run smoke:actions                         # all providers
-npm run smoke:actions -- --provider slack     # one provider
-npm run smoke:actions -- --json               # machine-readable JSON
-npm run smoke:actions -- --changed            # scope to the local git diff
-npm run smoke:actions -- --include-destructive  # show destructive fixtures as runnable
+npm run smoke:actions                              # all providers
+npm run smoke:actions -- --provider slack          # only Slack
+npm run smoke:actions -- --provider airtable       # only Airtable
+npm run smoke:actions -- --provider google-sheets  # only Google Sheets
+npm run smoke:actions -- --provider google-drive   # only Google Drive
+npm run smoke:actions -- --json                    # machine-readable JSON (+ coverage)
+npm run smoke:actions -- --changed                 # scope to the local git diff
+npm run smoke:actions -- --include-destructive     # show destructive fixtures as runnable
 
 # equivalent direct form
 npm run chainreact -- smoke actions [--provider <id>] [--all] [--json] [--changed] [--include-destructive]
 ```
 
+- The footer prints a `Totals:` line (registered / fixture-backed / missing /
+  skipped) and a `Coverage:` line (liveSafe count + read/write/destructive
+  breakdown), so coverage growth is visible at a glance. `--json` exposes both as
+  `totals` + `coverage`.
 - Exit `0` when every fixture is well-formed; exit `1` when any fixture is
   malformed or mis-classified (suitable for a pre-push hook / CI gate).
 - `--changed` maps a changed fixture file to its exact action and a changed
   handler file (`integrations/<provider>/actions/...`) to that whole provider.
   Falls back to the full inventory if git is unavailable.
 - The CLI **never executes** anything (its standing charter).
+
+> **Per-provider execution:** the `npm run smoke:actions:run*` test runners execute
+> the **whole** fixture set; fixtures for providers you haven't connected simply
+> SKIP (missing env). To narrow *inventory* to one provider use `--provider`;
+> per-provider *execution* selection (the harness `providerFilter`) isn't wired to
+> an npm flag yet — connect only the provider you want and the rest self-skip.
 
 ### Mode 2 — handler-dispatch smoke (no DB)
 
@@ -281,37 +309,38 @@ in the gated dev tests.
 
 ## Adding the next fixtures
 
-Good low-risk candidates already registered in V2:
+Next recommended **read-only** batches (all `liveRisk: "read"`, `liveSafe: true`):
 
-- More `native` pure actions (`http_request` is read-ish but hits the network —
-  gate it on a `requiredEnv` sentinel).
-- Read actions on stable providers once a smoke connection exists — the best
-  **live** candidates (mark `liveSafe: true`): Airtable `get_base_schema` /
-  `list_records`, Google Sheets `read_rows`, Slack `get_channel_info`, Notion
-  `get_user` / `list_users`. All read-only.
-- Pair each `write` fixture with a throwaway target (smoke channel, smoke base) and
-  leave it **non-`liveSafe`** unless you accept the side effect.
+- **More Slack reads:** `get_user_info` (needs a user id), `get_messages` /
+  `get_thread_messages` (need a channel + ts).
+- **More Airtable reads:** `list_records`, `get_table_schema` (need base + table id).
+- **More Google Sheets reads:** `read_rows`, `get_cell_value` (need spreadsheet +
+  range/cell).
+- **Notion reads:** `get_user`, `list_users`, `search` (need a connected Notion).
+- **Gmail reads:** `search_emails` (reads real mail — report stays status-only, but
+  prefer a throwaway mailbox).
 
 For each: add the fixture file, register it in `fixtures.ts`, run
-`npm run smoke:actions` to confirm it shows as fixture-backed, and
-`npm run smoke:actions:run` to confirm PASS/SKIP. Add `liveSafe: true` only after
-confirming the action is read-only / side-effect-free.
+`npm run smoke:actions` to confirm it shows as fixture-backed (and the `Coverage:`
+count grew), and `npm run smoke:actions:run` to confirm PASS/SKIP. Add
+`liveSafe: true` only after confirming the action is read-only / side-effect-free,
+and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is tiny by design:** 3 fixtures (native transform, Slack
-  `list_channels`, Slack `send_channel_message`) + 1 destructive
-  (`delete_message`). `npm run smoke:actions` shows the full gap (282 of 286
+- **Coverage is still small:** **9 fixtures** (7 read / 1 write / 1 destructive)
+  across 5 providers — `npm run smoke:actions` shows the full gap (277 of 286
   registered actions have no fixture yet). This harness is the foundation for
   growing that, not a claim of broad coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run. The
-  shipped set is `slack:list_channels` (read), `native:format_transformer` (read
-  baseline), and `slack:send_channel_message` (the one low-risk **write**). No
-  `liveSafe` destructive fixture exists (and the validation test forbids one).
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 8 today
+  (7 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+  test forbids one). The non-Slack read fixtures (Airtable / Sheets / Drive) only
+  run if you connect those providers on the smoke account and set their env;
+  otherwise they SKIP.
 - **The write fixture is not cleaned up.** It posts a persistent Slack message and
   does not delete it (no destructive cleanup step this slice). Use a throwaway
   channel.

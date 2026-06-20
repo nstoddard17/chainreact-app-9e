@@ -76,7 +76,13 @@ export function parseFixtureDescriptor(
     ? [...(envBlock[1] ?? "").matchAll(/["']([^"']+)["']/g)].map((m) => m[1] as string)
     : [];
 
-  return { descriptor: { provider, action, risk, requiredEnv } };
+  // Only include `liveSafe` when true (keeps the descriptor shape minimal — a
+  // non-liveSafe fixture simply omits the key).
+  const liveSafe = /\bliveSafe:\s*true\b/.test(fixtureText);
+
+  return {
+    descriptor: { provider, action, risk, requiredEnv, ...(liveSafe ? { liveSafe: true } : {}) },
+  };
 }
 
 export interface FixtureScan {

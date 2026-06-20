@@ -12,10 +12,21 @@ import nativeFormatTransformer from "@/tests/fixtures/action-smoke/native/format
 import slackListChannels from "@/tests/fixtures/action-smoke/slack/list_channels";
 import slackSendChannelMessage from "@/tests/fixtures/action-smoke/slack/send_channel_message";
 import slackDeleteMessage from "@/tests/fixtures/action-smoke/slack/delete_message";
+// SMOKE-ACTIONS-5 — read-only coverage batch (4 providers).
+import slackListUsers from "@/tests/fixtures/action-smoke/slack/list_users";
+import slackGetChannelInfo from "@/tests/fixtures/action-smoke/slack/get_channel_info";
+import airtableGetBaseSchema from "@/tests/fixtures/action-smoke/airtable/get_base_schema";
+import sheetsGetMetadata from "@/tests/fixtures/action-smoke/google-sheets/get_sheet_metadata";
+import driveListFiles from "@/tests/fixtures/action-smoke/google-drive/list_files";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
   slackListChannels,
   slackSendChannelMessage,
   slackDeleteMessage,
+  slackListUsers,
+  slackGetChannelInfo,
+  airtableGetBaseSchema,
+  sheetsGetMetadata,
+  driveListFiles,
 ];

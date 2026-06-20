@@ -47,6 +47,8 @@ export interface FixtureDescriptor {
   readonly risk: ActionRisk;
   /** Env var names a REAL execution needs; their absence makes a run SKIP. */
   readonly requiredEnv: readonly string[];
+  /** Whether the fixture opts into live-connected runs (`liveSafe: true`). */
+  readonly liveSafe?: boolean;
 }
 
 export function actionKey(provider: string, action: string): string {
@@ -143,6 +145,15 @@ export interface InventoryReport {
     readonly fixtureBacked: number;
     readonly missingFixture: number;
     readonly skipped: number;
+  };
+  /**
+   * Coverage breakdown over the in-scope fixtures (separate from `totals` so the
+   * existing totals shape stays stable). Makes coverage growth obvious without a
+   * dashboard.
+   */
+  readonly coverage: {
+    readonly liveSafe: number;
+    readonly byRisk: { readonly read: number; readonly write: number; readonly destructive: number };
   };
   readonly violations: readonly string[];
   readonly providerFilter: string | null;
@@ -256,6 +267,19 @@ export function buildInventory(
     violations.push(...validateFixtureDescriptor(f, registeredKeys));
   }
 
+  // Coverage over the in-scope fixtures that map to a registered action.
+  const inScope = fixtures.filter(
+    (f) => registeredKeys.has(actionKey(f.provider, f.action)) && matches(f.provider, f.action),
+  );
+  const coverage = {
+    liveSafe: inScope.filter((f) => f.liveSafe === true).length,
+    byRisk: {
+      read: inScope.filter((f) => f.risk === "read").length,
+      write: inScope.filter((f) => f.risk === "write").length,
+      destructive: inScope.filter((f) => f.risk === "destructive").length,
+    },
+  };
+
   return {
     rows,
     perProvider,
@@ -265,6 +289,7 @@ export function buildInventory(
       missingFixture: rows.filter((r) => r.status === "missing-fixture").length,
       skipped: rows.filter((r) => r.status === "skipped").length,
     },
+    coverage,
     violations: violations.sort(),
     providerFilter,
     includeDestructive,
@@ -281,6 +306,7 @@ export function renderInventoryJson(report: InventoryReport): string {
       providerFilter: report.providerFilter,
       includeDestructive: report.includeDestructive,
       totals: report.totals,
+      coverage: report.coverage,
       perProvider: report.perProvider,
       rows: report.rows,
       violations: report.violations,
@@ -326,6 +352,11 @@ export function renderInventoryHuman(report: InventoryReport): string {
   lines.push(
     `Totals: ${report.totals.registered} registered, ${report.totals.fixtureBacked} fixture-backed, ` +
       `${report.totals.missingFixture} missing, ${report.totals.skipped} skipped.`,
+  );
+  lines.push(
+    `Coverage: ${report.coverage.liveSafe} liveSafe; ` +
+      `risk read ${report.coverage.byRisk.read} / write ${report.coverage.byRisk.write} / ` +
+      `destructive ${report.coverage.byRisk.destructive}.`,
   );
 
   if (report.violations.length > 0) {

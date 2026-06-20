@@ -91,6 +91,31 @@ describe("action-smoke inventory: --changed scoping", () => {
   });
 });
 
+describe("action-smoke inventory: coverage breakdown", () => {
+  const FIXTURES_WITH_LIVESAFE: FixtureDescriptor[] = [
+    { provider: "native", action: "format_transformer", risk: "read", requiredEnv: [], liveSafe: true },
+    { provider: "slack", action: "list_channels", risk: "read", requiredEnv: ["X"], liveSafe: true },
+    { provider: "slack", action: "send_channel_message", risk: "write", requiredEnv: [], liveSafe: true },
+    { provider: "slack", action: "delete_message", risk: "destructive", requiredEnv: [] },
+  ];
+
+  it("counts liveSafe fixtures + a read/write/destructive risk breakdown", () => {
+    const report = buildInventory(REGISTERED, FIXTURES_WITH_LIVESAFE);
+    expect(report.coverage).toEqual({
+      liveSafe: 3,
+      byRisk: { read: 2, write: 1, destructive: 1 },
+    });
+  });
+
+  it("scopes coverage to the provider filter", () => {
+    const report = buildInventory(REGISTERED, FIXTURES_WITH_LIVESAFE, { providerFilter: "slack" });
+    expect(report.coverage).toEqual({
+      liveSafe: 2,
+      byRisk: { read: 1, write: 1, destructive: 1 },
+    });
+  });
+});
+
 describe("action-smoke inventory: stable machine-readable JSON", () => {
   it("emits parseable JSON whose string form is deterministic across builds", () => {
     const a = renderInventoryJson(buildInventory(REGISTERED, FIXTURES));
