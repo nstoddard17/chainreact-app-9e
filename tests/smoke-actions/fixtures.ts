@@ -36,6 +36,10 @@ import sheetsFindRow from "@/tests/fixtures/action-smoke/google-sheets/find_row"
 // SMOKE-ACTIONS-9 — Google Drive read-only batch (new read actions).
 import driveGetFileMetadata from "@/tests/fixtures/action-smoke/google-drive/get_file_metadata";
 import driveSearchFiles from "@/tests/fixtures/action-smoke/google-drive/search_files";
+// SMOKE-ACTIONS-10 — Gmail read-only batch (search + 2 new read actions).
+import gmailListLabels from "@/tests/fixtures/action-smoke/gmail/list_labels";
+import gmailGetProfile from "@/tests/fixtures/action-smoke/gmail/get_profile";
+import gmailSearchEmails from "@/tests/fixtures/action-smoke/gmail/search_emails";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -61,4 +65,7 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   sheetsFindRow,
   driveGetFileMetadata,
   driveSearchFiles,
+  gmailListLabels,
+  gmailGetProfile,
+  gmailSearchEmails,
 ];

@@ -64,6 +64,8 @@ import { markAsReadMeta } from "@/integrations/gmail/actions/markAsRead.meta";
 import { markAsUnreadMeta } from "@/integrations/gmail/actions/markAsUnread.meta";
 import { archiveEmailMeta } from "@/integrations/gmail/actions/archiveEmail.meta";
 import { deleteEmailMeta } from "@/integrations/gmail/actions/deleteEmail.meta";
+import { listLabelsMeta } from "@/integrations/gmail/actions/listLabels.meta";
+import { getProfileMeta } from "@/integrations/gmail/actions/getProfile.meta";
 
 // GitHub trigger metadata.
 import { newCommitTriggerMeta } from "@/integrations/github/triggers/newCommit/newCommit.meta";
@@ -430,6 +432,9 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   markAsUnreadMeta,
   archiveEmailMeta,
   deleteEmailMeta,
+  // Slice 4.GMAIL-READ-1 — read-only metadata actions (displayOrder 140/150).
+  listLabelsMeta,
+  getProfileMeta,
   // Microsoft Outlook Mail (Slice 3.17). Ordered to match each meta's
   // displayOrder (10/20/30/40/50/60/70/80/90).
   outlookSendEmailMeta,

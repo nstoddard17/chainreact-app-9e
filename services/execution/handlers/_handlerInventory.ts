@@ -39,6 +39,8 @@ import { createDraftReply as gmailCreateDraftReply } from "@/integrations/gmail/
 import { createLabel as gmailCreateLabel } from "@/integrations/gmail/actions/createLabel";
 import { deleteEmail as gmailDeleteEmail } from "@/integrations/gmail/actions/deleteEmail";
 import { getAttachment as gmailGetAttachment } from "@/integrations/gmail/actions/getAttachment";
+import { getProfile as gmailGetProfile } from "@/integrations/gmail/actions/getProfile";
+import { listLabels as gmailListLabels } from "@/integrations/gmail/actions/listLabels";
 import { markAsRead as gmailMarkAsRead } from "@/integrations/gmail/actions/markAsRead";
 import { markAsUnread as gmailMarkAsUnread } from "@/integrations/gmail/actions/markAsUnread";
 import { removeLabel as gmailRemoveLabel } from "@/integrations/gmail/actions/removeLabel";
@@ -390,6 +392,10 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // Gmail 2.3 Commit 5 — get_attachment (download_attachment folded
   // into get_attachment per Gmail 2.3 plan §8 decision 13.1).
   { provider: "gmail", type: "get_attachment", handler: gmailGetAttachment },
+  // Slice 4.GMAIL-READ-1 — read-only metadata actions (reuse existing
+  // users.labels.list / users.getProfile wrappers; metadata-only).
+  { provider: "gmail", type: "list_labels", handler: gmailListLabels },
+  { provider: "gmail", type: "get_profile", handler: gmailGetProfile },
   { provider: "google-calendar", type: "create_event", handler: createEvent },
   { provider: "google-calendar", type: "list_events", handler: listEvents },
   { provider: "google-calendar", type: "update_event", handler: updateEvent },
