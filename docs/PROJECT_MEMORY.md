@@ -107,6 +107,19 @@
 
 ## Recently completed arcs
 
+- **Hosted Hermes GUIDANCE FOUNDATION (skeleton, inert) — LOCAL/UNPUSHED (2026-06-20)** — Hermes-READY app infra,
+  NOT a live integration. Provider-neutral contracts `contracts/aiGuidance.ts` + `services/ai-guidance/`
+  (WorkflowGuidanceProvider port; sanitizer = PRIVACY BOUNDARY drops config/label/real-ids → keeps
+  kind/provider/type+topology by opaque n0/n1 refs, refMap internal; intake seam = no mutation/no repo/no
+  model/no DB; noop default; hosted-Hermes adapter SKELETON — gated by `ENABLE_HOSTED_HERMES_GUIDANCE` (default
+  OFF) + `getHermesGuidanceConfig()` reading HERMES_BASE_URL/API_KEY/MODEL/TIMEOUT_MS/PROVIDER_FORMAT, returns
+  null unconfigured; **NO transport shipped → NO live call possible**). Guidance is ADVISORY (suggests op-kinds,
+  never applies; acting on it = future CS-7 repair_apply path). NO migration (stateless; future audit reuses
+  react_agent_audit_events). Runbook `docs/runbooks/hosted-hermes-setup.md` lists what Marcus must provide
+  (env + provider format/pricing/timeout/rate-limits/retention). Verified: 16 tests (3 suites: privacy/no-leak,
+  no-mutation, adapter-OFF+no-network), typecheck clean (no real env), eslint 0, lint:structure OK. Next
+  HERMES-LIVE-1 (wire transport behind flag+config, mocked-fetch test). →
+  [`hosted-hermes-workflow-guidance-plan.md`](./slices/phase-4/ai/hosted-hermes-workflow-guidance-plan.md).
 - **React Agent GOVERNANCE ARC COMPLETE + live-verified — LOCAL/UNPUSHED (2026-06-20)** — CS-1 boundary →
   CS-7e live smoke (14 commits, `193627693`..`c6820d5a1`). One account/workflow/user-scoped seam
   (`runAuthorizedCapability`) validates scope+registry+intent and emits ONE `react_agent_audit_events` row
