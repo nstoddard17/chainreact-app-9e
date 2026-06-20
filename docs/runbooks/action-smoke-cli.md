@@ -41,7 +41,10 @@ drift.
 | `SMOKE_ACCOUNT_ID`, `SMOKE_USER_ID` | modes 3, 4 | The dev account + member user the throwaway workflow is created under. |
 | `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true` | mode 4, destructive only | Second half of the destructive opt-in (with `includeDestructive`). No shipped fixture is both `liveSafe` and destructive. |
 | `SMOKE_SLACK_CONNECTED=1` | Slack fixtures (modes 2–4) | Signals the smoke account has Slack connected. Unset → Slack fixtures SKIP. |
-| `SMOKE_SLACK_CHANNEL_ID=<channel id>` | Slack `send_channel_message` (write) | The target channel for the live write fixture (overlaid onto config). Unset → that fixture SKIPs **before** any workflow is created. |
+| `SMOKE_SLACK_CHANNEL_ID=<channel id>` | Slack `send_channel_message` (write), `get_channel_info`, `get_messages`, `get_thread_messages` | Target channel id (overlaid onto config). Unset → those fixtures SKIP **before** any workflow is created. |
+| `SMOKE_SLACK_USER_ID=<U…>` | Slack `get_user_info` | A Slack user id to look up. Unset → SKIP. |
+| `SMOKE_SLACK_THREAD_TS=<ts>` | Slack `get_thread_messages` | A parent thread ts in the smoke channel. Unset → SKIP. |
+| `SMOKE_SLACK_FILE_ID=<F…>` | Slack `get_file_info` | A Slack file id to look up. Unset → SKIP. |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -112,23 +115,58 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-### Current fixtures (9)
+### Current fixtures (14)
 
 | Fixture | risk / liveRisk | liveSafe | Required env | Notes |
 |---|---|---|---|---|
 | `native:format_transformer` | read | ✅ | — | Pure local baseline; runs anywhere. |
 | `slack:list_channels` | read | ✅ | `SMOKE_SLACK_CONNECTED` | conversations.list. |
 | `slack:list_users` | read | ✅ | `SMOKE_SLACK_CONNECTED` | users.list (no selector). |
+| `slack:list_scheduled_messages` | read | ✅ | `SMOKE_SLACK_CONNECTED` | scheduledMessages.list (no selector). |
 | `slack:get_channel_info` | read | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | conversations.info. |
+| `slack:get_messages` | read | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | conversations.history. |
+| `slack:get_user_info` | read | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_USER_ID` | users.info. |
+| `slack:get_thread_messages` | read | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID`, `SMOKE_SLACK_THREAD_TS` | conversations.replies. |
+| `slack:get_file_info` | read | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_FILE_ID` | files.info. |
 | `airtable:get_base_schema` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID` | Schema metadata (not records). |
 | `google-sheets:get_sheet_metadata` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID` | Sheet structure (not cells). |
 | `google-drive:list_files` | read | ✅ | `SMOKE_GOOGLE_DRIVE_CONNECTED` | File list (metadata only). |
 | `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
 | `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
 
-Coverage: **9 fixtures** (7 read / 1 write / 1 destructive), 8 `liveSafe`, across
-5 providers (native, slack, airtable, google-sheets, google-drive). The CLI prints
-this as a `Coverage:` line; `--json` exposes it as `coverage`.
+Coverage: **14 fixtures** (12 read / 1 write / 1 destructive), 13 `liveSafe`, across
+5 providers (native, slack, airtable, google-sheets, google-drive). **Slack: 10
+fixtures** (8 read / 1 write / 1 destructive). The CLI prints a `Coverage:` line;
+`--json` exposes it as `coverage`.
+
+**Slack-only inventory:** `npm run smoke:actions -- --provider slack`.
+
+**Slack live read run** (the no-selector reads run with just a connection; the
+selector reads need their id env, else SKIP):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_SLACK_CONNECTED=1 \
+  SMOKE_SLACK_CHANNEL_ID=<C…> SMOKE_SLACK_USER_ID=<U…> \
+  npm run smoke:actions:run:workflow:live
+```
+
+**Slack actions still uncovered / deferred (10 covered of 31 registered):**
+
+- **Writes needing an existing target message ts** — `add_reaction`,
+  `remove_reaction`, `pin_message`, `unpin_message`, `update_message`. Deferred:
+  they need a posted message to act on (a post→act→cleanup chain the harness
+  doesn't model yet).
+- **Channel/workspace admin writes** — `create_channel`, `archive_channel`,
+  `unarchive_channel`, `rename_channel`, `join_channel`, `leave_channel`,
+  `invite_users_to_channel`, `remove_user_from_channel`, `set_channel_topic`,
+  `set_channel_purpose`. Deferred: durable side effects without a safe cleanup.
+- **Other writes** — `send_direct_message` (DMs a user), `schedule_message` /
+  `cancel_scheduled_message` (scheduling side effect), `upload_file` /
+  `download_file` (file side effects), `post_interactive_blocks`. Deferred for the
+  same reason.
+- **Destructive** — `delete_message` stays inventory/handler-only (non-`liveSafe`).
 
 ## Commands
 
@@ -328,19 +366,19 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **9 fixtures** (7 read / 1 write / 1 destructive)
-  across 5 providers — `npm run smoke:actions` shows the full gap (277 of 286
-  registered actions have no fixture yet). This harness is the foundation for
+- **Coverage is still small:** **14 fixtures** (12 read / 1 write / 1 destructive)
+  across 5 providers (Slack: 10) — `npm run smoke:actions` shows the full gap (272
+  of 286 registered actions have no fixture yet). This harness is the foundation for
   growing that, not a claim of broad coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 8 today
-  (7 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
-  test forbids one). The non-Slack read fixtures (Airtable / Sheets / Drive) only
-  run if you connect those providers on the smoke account and set their env;
-  otherwise they SKIP.
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 13 today
+  (12 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+  test forbids one). Selector-dependent reads (`get_user_info`, `get_thread_messages`,
+  `get_file_info`, and the non-Slack reads) only run when their id/connection env is
+  set; otherwise they SKIP.
 - **The write fixture is not cleaned up.** It posts a persistent Slack message and
   does not delete it (no destructive cleanup step this slice). Use a throwaway
   channel.

@@ -18,6 +18,12 @@ import slackGetChannelInfo from "@/tests/fixtures/action-smoke/slack/get_channel
 import airtableGetBaseSchema from "@/tests/fixtures/action-smoke/airtable/get_base_schema";
 import sheetsGetMetadata from "@/tests/fixtures/action-smoke/google-sheets/get_sheet_metadata";
 import driveListFiles from "@/tests/fixtures/action-smoke/google-drive/list_files";
+// SMOKE-ACTIONS-6 — Slack-only read-only batch.
+import slackGetUserInfo from "@/tests/fixtures/action-smoke/slack/get_user_info";
+import slackGetMessages from "@/tests/fixtures/action-smoke/slack/get_messages";
+import slackListScheduledMessages from "@/tests/fixtures/action-smoke/slack/list_scheduled_messages";
+import slackGetThreadMessages from "@/tests/fixtures/action-smoke/slack/get_thread_messages";
+import slackGetFileInfo from "@/tests/fixtures/action-smoke/slack/get_file_info";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -29,4 +35,9 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   airtableGetBaseSchema,
   sheetsGetMetadata,
   driveListFiles,
+  slackGetUserInfo,
+  slackGetMessages,
+  slackListScheduledMessages,
+  slackGetThreadMessages,
+  slackGetFileInfo,
 ];
