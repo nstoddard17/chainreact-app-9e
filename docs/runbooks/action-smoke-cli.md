@@ -67,6 +67,8 @@ drift.
 | `SMOKE_NOTION_QUERY=<text>` | Notion `search` (optional) | Optional search text (overlaid onto `query`). Unset → searches all accessible objects. |
 | `SMOKE_NOTION_DATABASE_ID=<id>` | Notion `query_database` | A database id to query (overlaid onto `databaseId`). Unset → SKIP. |
 | `SMOKE_NOTION_PAGE_ID=<id>` | Notion `get_page` | A page id to read (overlaid onto `pageId`). Unset → SKIP. |
+| `SMOKE_MICROSOFT_EXCEL_CONNECTED=1` | Excel fixtures | Signals the smoke account has Microsoft Excel connected. Unset → Excel fixtures SKIP. |
+| `SMOKE_EXCEL_WORKBOOK_ID=<id>` | Excel `get_worksheets` | A workbook (drive item) id (overlaid onto `workbookId`). Unset → SKIP. |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -137,7 +139,7 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-### Current fixtures (33)
+### Current fixtures (35)
 
 | Fixture | risk / liveRisk | liveSafe | Required env | Notes |
 |---|---|---|---|---|
@@ -172,16 +174,19 @@ Rules:
 | `notion:list_users` | read | ✅ | `SMOKE_NOTION_CONNECTED` | Workspace user list, one page, max 5. |
 | `notion:query_database` | read | ✅ | `SMOKE_NOTION_CONNECTED`, `SMOKE_NOTION_DATABASE_ID` | DB query, one page, max 5 (status-only). |
 | `notion:get_page` | read | ✅ | `SMOKE_NOTION_CONNECTED`, `SMOKE_NOTION_PAGE_ID` | Page metadata/properties (status-only). |
+| `microsoft-excel:get_workbooks` | read | ✅ | `SMOKE_MICROSOFT_EXCEL_CONNECTED` | Workbook list (metadata, one page max 5). |
+| `microsoft-excel:get_worksheets` | read | ✅ | `SMOKE_MICROSOFT_EXCEL_CONNECTED`, `SMOKE_EXCEL_WORKBOOK_ID` | Worksheet list (metadata only). |
 | `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
 | `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
 
-Coverage: **33 fixtures** (31 read / 1 write / 1 destructive), 32 `liveSafe`, across
-8 providers (native, slack, airtable, google-sheets, google-drive, gmail,
-microsoft-outlook, notion). **Slack: 10 fixtures** (8 read / 1 write / 1 destructive);
-**Airtable: 5 fixtures** (all read); **Google Sheets: 4 fixtures** (all read); **Google
-Drive: 3 fixtures** (all read); **Gmail: 3 fixtures** (all read); **Microsoft Outlook: 3
-fixtures** (all read); **Notion: 4 fixtures** (all read). The CLI prints a `Coverage:`
-line; `--json` exposes it as `coverage`.
+Coverage: **35 fixtures** (33 read / 1 write / 1 destructive), 34 `liveSafe`, across
+9 providers (native, slack, airtable, google-sheets, google-drive, gmail,
+microsoft-outlook, notion, microsoft-excel). **Slack: 10 fixtures** (8 read / 1 write / 1
+destructive); **Airtable: 5 fixtures** (all read); **Google Sheets: 4 fixtures** (all
+read); **Google Drive: 3 fixtures** (all read); **Gmail: 3 fixtures** (all read);
+**Microsoft Outlook: 3 fixtures** (all read); **Notion: 4 fixtures** (all read);
+**Microsoft Excel: 2 fixtures** (all read). The CLI prints a `Coverage:` line; `--json`
+exposes it as `coverage`.
 
 **Slack-only inventory:** `npm run smoke:actions -- --provider slack`.
 
@@ -389,6 +394,37 @@ status-only (never page/database titles, properties, or block content).
   `create_database` (writes) and `archive_page` (destructive) — out of scope for
   read-only batches (no safe cleanup pattern).
 
+**Microsoft Excel-only inventory:** `npm run smoke:actions -- --provider microsoft-excel`.
+
+**Excel live read run** (`get_workbooks` needs only a connected Excel; `get_worksheets`
+also needs a workbook id — missing required env SKIPs):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_MICROSOFT_EXCEL_CONNECTED=1 SMOKE_EXCEL_WORKBOOK_ID=<drive item id> \
+  npm run smoke:actions:run:workflow:live
+```
+
+Both Excel fixtures are read-only, metadata-only (workbook/worksheet listings); the
+report stays status-only (never workbook/worksheet names or cell content).
+
+**Microsoft Excel audit + actions still uncovered / deferred (2 covered of 10 registered):**
+
+- **Audit:** Excel registers two usable reads — `get_workbooks` (workbook list) and
+  `get_worksheets` (worksheet list for a workbook) — so this slice is **fixture-only**
+  (no new actions). Both are metadata listings (no cell content); reports stay
+  status-only.
+- **Not yet built (would need their own provider-action slice):** the preferred
+  `read_range` / `read_table_rows` / `find_row` reads have no registered action handler
+  today — the API wrappers exist (`worksheetUsedRange`, `tableRowsList`) but no action
+  exposes them. Adding them is a future Excel read provider-action slice, not a
+  fixture-only batch.
+- **Deferred (writes / destructive / file-content):** `add_row`, `add_table_row`,
+  `create_worksheet`, `update_row`, `rename_worksheet` (writes), `delete_row` +
+  `delete_worksheet` (destructive), and `export_sheet` (returns workbook file content) —
+  all out of scope for read-only batches.
+
 ## Commands
 
 ### Dry-run inventory
@@ -584,21 +620,21 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **33 fixtures** (31 read / 1 write / 1 destructive)
-  across 8 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
-  Gmail: 3, Microsoft Outlook: 3, Notion: 4) — `npm run smoke:actions` shows the full gap
-  (259 of 292 registered actions have no fixture yet). This harness is the foundation for
-  growing that, not a claim of broad coverage.
+- **Coverage is still small:** **35 fixtures** (33 read / 1 write / 1 destructive)
+  across 9 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
+  Gmail: 3, Microsoft Outlook: 3, Notion: 4, Microsoft Excel: 2) — `npm run smoke:actions`
+  shows the full gap (257 of 292 registered actions have no fixture yet). This harness is
+  the foundation for growing that, not a claim of broad coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 32 today
-  (31 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 34 today
+  (33 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
   test forbids one). Selector-dependent reads (`get_user_info`, `get_thread_messages`,
   `get_file_info`, `get_file_metadata`, `search_files`, `search_emails`, `query_database`,
-  `get_page`, and the other connection/query-gated reads) only run when their
-  id/connection/query env is set; otherwise they SKIP.
+  `get_page`, `get_worksheets`, and the other connection/selector-gated reads) only run
+  when their id/connection/query env is set; otherwise they SKIP.
 - **The write fixture is not cleaned up.** It posts a persistent Slack message and
   does not delete it (no destructive cleanup step this slice). Use a throwaway
   channel.
