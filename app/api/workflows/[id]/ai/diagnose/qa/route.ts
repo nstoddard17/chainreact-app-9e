@@ -23,6 +23,7 @@ import {
   isOpenAiProviderEnabled,
 } from "@/services/ai/modelClients/createModelClient";
 import { reactAgentService } from "@/services/ai/reactAgent";
+import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { loadWorkflowForMember, requireUser } from "../../../../_shared";
 
 /**
@@ -236,10 +237,16 @@ export async function POST(
   // React Agent service boundary. Auth, membership, safe-DTO re-derivation, the OpenAI-config
   // check, and `aiCreditGate` (above) all stay route-owned; the boundary only validates the
   // scope shape + intent and invokes the injected brain call — no HTTP, no gate, no mutation.
+  // REACT-AGENT-CS-5D — inject the fail-open audit recorder so the seam emits one
+  // `react_agent.diagnosis_qa` governance row (success | failed) inside this already-authorized
+  // path. The recorder never throws and carries no raw question/answer/DTO/config — only
+  // scope ids + registry enums. Audit failures cannot change the response.
   const outcome = await reactAgentService.runAuthorizedCapability({
     scope: { userId: auth.userId, accountId, workflowId: id },
     intent: "answer_diagnosis_question",
     capabilityId: "diagnosis_qa",
+    auditRecorder: reactAgentAuditRecorder,
+    classifyResult: (r) => (r.ok ? "success" : "failed"),
     exec: () =>
       answerWorkflowQuestion({
         dto,

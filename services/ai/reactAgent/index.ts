@@ -12,6 +12,9 @@
 
 import {
   RECOGNIZED_REACT_AGENT_INTENTS,
+  type ReactAgentAuditOutcome,
+  type ReactAgentAuditRecorder,
+  type ReactAgentAuditRecorderInput,
   type ReactAgentCapabilityOutcome,
   type ReactAgentIntent,
   type ReactAgentRequest,
@@ -21,6 +24,7 @@ import {
 } from "./types";
 import {
   getReactAgentCapability,
+  type ReactAgentCapabilityDefinition,
   type ReactAgentCapabilityId,
 } from "./capabilities";
 
@@ -33,6 +37,9 @@ export type {
   ReactAgentNextAction,
   ReactAgentRejectionReason,
   ReactAgentCapabilityOutcome,
+  ReactAgentAuditOutcome,
+  ReactAgentAuditRecorder,
+  ReactAgentAuditRecorderInput,
   ReactAgentService,
 } from "./types";
 export { RECOGNIZED_REACT_AGENT_INTENTS } from "./types";
@@ -123,19 +130,92 @@ export async function runAuthorizedCapability<T>(input: {
   intent: ReactAgentIntent;
   capabilityId: ReactAgentCapabilityId;
   exec: () => Promise<T>;
+  /** CS-5d — injected fail-open audit recorder (route-bound). Omitted → no emission. */
+  auditRecorder?: ReactAgentAuditRecorder;
+  /** CS-5d — map a RESOLVED result to an audit outcome (default `success`). */
+  classifyResult?: (result: T) => ReactAgentAuditOutcome;
 }): Promise<ReactAgentCapabilityOutcome<T>> {
+  // Pure registry lookup (no side effect) up front so a denied audit still carries the
+  // real mode / creditFeature / auditKind when the capability IS registered.
+  const capability = getReactAgentCapability(input.capabilityId);
+
+  // Emit at most one audit row per call. The injected recorder is fail-open (CS-5c), but
+  // the seam ALSO swallows here as defense in depth — a misbehaving/rejecting recorder must
+  // never throw into, or change the outcome of, the agent/user path. Emission is a pure
+  // side effect; no metadata is attached at the seam (so nothing raw can leak).
+  const emit = async (
+    outcome: ReactAgentAuditOutcome,
+    reason: string | null,
+  ): Promise<void> => {
+    if (!input.auditRecorder) return;
+    try {
+      await input.auditRecorder.record(
+        buildAuditInput(input.scope, input.intent, input.capabilityId, capability, outcome, reason),
+      );
+    } catch {
+      // Fail-open at the seam: audit failures never break Q&A / Explain.
+    }
+  };
+
   if (!isValidReactAgentScope(input.scope)) {
+    await emit("denied", "invalid_scope");
     return { ok: false, reason: "invalid_scope", message: COPY.invalid_scope };
   }
-  const capability = getReactAgentCapability(input.capabilityId);
   if (!capability) {
+    await emit("denied", "unknown_capability");
     return { ok: false, reason: "unknown_capability", message: COPY.unknown_capability };
   }
   if (capability.allowedIntent !== input.intent) {
+    await emit("denied", "intent_mismatch");
     return { ok: false, reason: "intent_mismatch", message: COPY.intent_mismatch };
   }
-  const result = await input.exec();
+
+  let result: T;
+  try {
+    result = await input.exec();
+  } catch (error) {
+    // `exec` threw (unexpected) — record `failed`, then RE-THROW so the route's existing
+    // error behavior is preserved exactly (the seam does not swallow brain errors).
+    await emit("failed", "exec_error");
+    throw error;
+  }
+  // Resolved: `success` unless the route's classifier marks the result a failure
+  // (e.g. a brain `{ ok: false }` model failure → `failed`).
+  const outcome = input.classifyResult ? input.classifyResult(result) : "success";
+  await emit(outcome, outcome === "success" ? null : "exec_failed");
   return { ok: true, result };
+}
+
+/**
+ * Build the SAFE audit input from scope + registry metadata. Carries only ids, registry
+ * enums, and a safe reason — NO metadata is attached at the seam (the recorder defaults it
+ * to `{}`), so no raw question / model output / safe DTO / config / provider payload can
+ * leak through this path. For the defensive `unknown_capability` branch the capability is
+ * absent, so `mode` falls back to `read_only` (nothing executed) and `auditKind` to a
+ * synthetic `react_agent.<id>`; `outcome: denied` + `reason: unknown_capability` carry the
+ * real signal. `aiCostEventId` is intentionally NOT linked in CS-5d (see the slice doc).
+ */
+function buildAuditInput(
+  scope: ReactAgentScope,
+  intent: ReactAgentIntent,
+  capabilityId: ReactAgentCapabilityId,
+  capability: ReactAgentCapabilityDefinition | undefined,
+  outcome: ReactAgentAuditOutcome,
+  reason: string | null,
+): ReactAgentAuditRecorderInput {
+  return {
+    accountId: scope.accountId,
+    actorUserId: scope.userId,
+    workflowId: scope.workflowId ?? null,
+    conversationId: scope.conversationId ?? null,
+    capabilityId,
+    intent,
+    mode: capability?.mode ?? "read_only",
+    creditFeature: capability?.creditFeature ?? null,
+    auditKind: capability?.auditKind ?? `react_agent.${capabilityId}`,
+    outcome,
+    reason,
+  };
 }
 
 /**

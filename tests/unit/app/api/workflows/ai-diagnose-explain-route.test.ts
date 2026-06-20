@@ -51,6 +51,12 @@ jest.mock("@/services/ai/modelClients/createModelClient", () => ({
   createModelClientForModel: (...a: unknown[]) => mockCreateClient(...a),
 }));
 
+// REACT-AGENT-CS-5D — capture the injected audit recorder (the real seam runs unmocked).
+const mockAuditRecord = jest.fn();
+jest.mock("@/services/ai/reactAgent/audit", () => ({
+  reactAgentAuditRecorder: { record: (...a: unknown[]) => mockAuditRecord(...a) },
+}));
+
 import { POST } from "@/app/api/workflows/[id]/ai/diagnose/explain/route";
 
 function call(id: string) {
@@ -102,6 +108,8 @@ beforeEach(() => {
   mockProviderEnabled.mockReturnValue(true);
   mockCreateClient.mockReset();
   mockCreateClient.mockReturnValue({ generateStructuredJson: jest.fn() });
+  mockAuditRecord.mockReset();
+  mockAuditRecord.mockResolvedValue(undefined);
   process.env.OPENAI_API_KEY = "test-openai-key";
 });
 
@@ -292,6 +300,52 @@ describe("ai/diagnose/explain — current draft override", () => {
     expect(mockDiagnose).not.toHaveBeenCalled();
     expect(mockGate).not.toHaveBeenCalled();
     expect(mockExplain).not.toHaveBeenCalled();
+  });
+});
+
+describe("ai/diagnose/explain — React Agent audit emission (CS-5d)", () => {
+  it("success → emits ONE react_agent.diagnosis_explain success row on the workflow account/user/scope", async () => {
+    await call("wf-1");
+    expect(mockAuditRecord).toHaveBeenCalledTimes(1);
+    expect(mockAuditRecord.mock.calls[0]![0]).toMatchObject({
+      accountId: "acct-wf-1",
+      actorUserId: "user-1",
+      workflowId: "wf-1",
+      capabilityId: "diagnosis_explain",
+      intent: "explain_diagnosis",
+      mode: "read_only",
+      creditFeature: "workflow_explanation",
+      auditKind: "react_agent.diagnosis_explain",
+      outcome: "success",
+    });
+  });
+
+  it("attaches no metadata at the seam (no raw explanation/DTO leak)", async () => {
+    await call("wf-1");
+    const input = mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).not.toHaveProperty("metadata");
+    expect(JSON.stringify(input)).not.toContain(explainOk.explanation);
+  });
+
+  it("model failure → emits a `failed` audit row (response unchanged: 503 MODEL_FAILED)", async () => {
+    mockExplain.mockResolvedValueOnce({ ok: false, code: "MODEL_FAILED", model: { modelId: "gpt-4.1-mini", tier: "fast" } });
+    const res = await call("wf-1");
+    expect(res.status).toBe(503);
+    expect(mockAuditRecord.mock.calls[0]![0]).toMatchObject({ capabilityId: "diagnosis_explain", outcome: "failed" });
+  });
+
+  it("an audit recorder failure NEVER breaks the response (fail-open) — still 200", async () => {
+    mockAuditRecord.mockRejectedValueOnce(new Error("audit ledger down"));
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, explanation: explainOk.explanation });
+  });
+
+  it("does NOT emit audit when the gate denies (402 → no audit row)", async () => {
+    mockGate.mockResolvedValueOnce({ ok: false, reason: "insufficient_ai_credits", used: 20, limit: 20 });
+    const res = await call("wf-1");
+    expect(res.status).toBe(402);
+    expect(mockAuditRecord).not.toHaveBeenCalled();
   });
 });
 

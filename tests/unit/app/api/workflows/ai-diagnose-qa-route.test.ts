@@ -52,6 +52,14 @@ jest.mock("@/services/ai/modelClients/createModelClient", () => ({
   createModelClientForModel: (...a: unknown[]) => mockCreateClient(...a),
 }));
 
+// REACT-AGENT-CS-5D — capture the injected audit recorder so we can assert the route emits
+// the governance event with the right scope/registry fields. The real React Agent seam
+// (`reactAgentService`) runs unmocked; only the DB-backed recorder is stubbed.
+const mockAuditRecord = jest.fn();
+jest.mock("@/services/ai/reactAgent/audit", () => ({
+  reactAgentAuditRecorder: { record: (...a: unknown[]) => mockAuditRecord(...a) },
+}));
+
 import { POST } from "@/app/api/workflows/[id]/ai/diagnose/qa/route";
 
 const okDto = {
@@ -112,6 +120,8 @@ beforeEach(() => {
   mockProviderEnabled.mockReturnValue(true);
   mockCreateClient.mockReset();
   mockCreateClient.mockReturnValue({ generateStructuredJson: jest.fn() });
+  mockAuditRecord.mockReset();
+  mockAuditRecord.mockResolvedValue(undefined);
   process.env.OPENAI_API_KEY = "test-openai-key";
 });
 
@@ -301,5 +311,51 @@ describe("ai/diagnose/qa — selected node + success + telemetry + no-leak", () 
     for (const needle of ["acct-wf-1", "gpt-4.1-mini", "inputTokens", "OPENAI_API_KEY", "ya29.", "sk-"]) {
       expect(s).not.toContain(needle);
     }
+  });
+});
+
+describe("ai/diagnose/qa — React Agent audit emission (CS-5d)", () => {
+  it("success → emits ONE react_agent.diagnosis_qa success row on the workflow account/user/scope", async () => {
+    await call("wf-1");
+    expect(mockAuditRecord).toHaveBeenCalledTimes(1);
+    expect(mockAuditRecord.mock.calls[0]![0]).toMatchObject({
+      accountId: "acct-wf-1",
+      actorUserId: "user-1",
+      workflowId: "wf-1",
+      capabilityId: "diagnosis_qa",
+      intent: "answer_diagnosis_question",
+      mode: "read_only",
+      creditFeature: "workflow_qa",
+      auditKind: "react_agent.diagnosis_qa",
+      outcome: "success",
+    });
+  });
+
+  it("audit metadata carries no raw question/answer (no metadata attached at the seam)", async () => {
+    await callBody("wf-1", { question: "my PRIVATE question?", dto: { access: "OK" } });
+    const input = mockAuditRecord.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).not.toHaveProperty("metadata");
+    expect(JSON.stringify(input)).not.toContain("PRIVATE question");
+  });
+
+  it("model failure → emits a `failed` audit row (response contract unchanged: 503 MODEL_FAILED)", async () => {
+    mockAnswer.mockResolvedValueOnce({ ok: false, code: "MODEL_FAILED", model: { modelId: "gpt-4.1-mini", tier: "fast" } });
+    const res = await call("wf-1");
+    expect(res.status).toBe(503);
+    expect(mockAuditRecord.mock.calls[0]![0]).toMatchObject({ capabilityId: "diagnosis_qa", outcome: "failed" });
+  });
+
+  it("an audit recorder failure NEVER breaks the response (fail-open) and still returns 200", async () => {
+    mockAuditRecord.mockRejectedValueOnce(new Error("audit ledger down"));
+    const res = await call("wf-1");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, answer: answerOk.answer });
+  });
+
+  it("does NOT emit audit before the gate (insufficient credits → 402, no audit row)", async () => {
+    mockGate.mockResolvedValueOnce({ ok: false, reason: "insufficient_ai_credits", used: 20, limit: 20 });
+    const res = await call("wf-1");
+    expect(res.status).toBe(402);
+    expect(mockAuditRecord).not.toHaveBeenCalled();
   });
 });

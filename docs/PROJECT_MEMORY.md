@@ -107,6 +107,19 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-5d audit EMISSION (read-only) — LOCAL/UNPUSHED, runtime ACTIVE (2026-06-19)** — wires the
+  recorder into `runAuthorizedCapability`; Q&A + Explain routes inject `reactAgentAuditRecorder`. Seam emits ONE
+  `react_agent_audit_events` row/call: `denied` (invalid_scope|unknown_capability|intent_mismatch, no exec),
+  `failed` (exec throws → re-throws; or `classifyResult` maps brain `{ok:false}`→failed), else `success`.
+  Recorder contract (`ReactAgentAuditRecorder`/Input/Outcome) MOVED to boundary core `types.ts` (pure types) so
+  `index.ts` references it without importing `audit/`/repo — CS-5c guard still green. **Fail-open at BOTH layers**
+  (recorder + seam try/catch). **NO metadata at the seam** (scope ids + registry enums only — no question/answer/
+  DTO/config leak). Routes still own auth/membership/DTO/OpenAI-config/aiCreditGate/cost-telemetry/response;
+  response contracts UNCHANGED; emission only inside the authorized path (gate denial → no row). **`aiCostEventId`
+  DEFERRED** (seam emits before route records cost; `insertEvent` returns void — linking would distort billing;
+  ledgers correlatable by account/user/workflow/feature/time). No repair/proposes-change yet. Verified: 115
+  focused/route/recorder/repo/migration tests, typecheck 0, eslint 0, lint:structure OK. →
+  [`react-agent-cs-5d-audit-emission-readonly.md`](./slices/phase-4/ai/react-agent-cs-5d-audit-emission-readonly.md).
 - **React Agent CS-5c audit RECORDER — LOCAL/UNPUSHED, NOT wired into runtime (2026-06-19)** — injectable
   recorder maps a safe capability outcome → `react_agent_audit_events` via `insertAuditEvent`. New `audit/`
   submodule under `services/ai/reactAgent/`: `createReactAgentAuditRecorder`/`reactAgentAuditRecorder` (live),

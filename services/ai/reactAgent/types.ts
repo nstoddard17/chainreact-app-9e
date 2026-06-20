@@ -17,6 +17,11 @@
  * gated routes — not by importing those services here in a way that bypasses gating.
  */
 
+import type {
+  ReactAgentCapabilityId,
+  ReactAgentCapabilityMode,
+} from "./capabilities";
+
 /**
  * Who/what the request is for. Account-scoped: `accountId` is the V2 ownership +
  * billing spine, so it (and the acting `userId`) are REQUIRED. `workflowId` /
@@ -121,6 +126,52 @@ export type ReactAgentCapabilityOutcome<T> =
       readonly message: string;
     };
 
+// ─── Audit recorder contract (REACT-AGENT-CS-5C/5D) ──────────────────────────
+//
+// The CONTRACT for the injectable audit recorder lives HERE in the boundary core
+// (pure types — no DB / no repository import) so `runAuthorizedCapability` can
+// reference the recorder + outcome types without importing the `audit/`
+// submodule. The IMPLEMENTATION (which imports the DB repository) lives in
+// `audit/` and is injected by the gated route; the core stays import-safe.
+
+/** Outcome of an authorized capability run, as recorded in the governance ledger. */
+export type ReactAgentAuditOutcome = "success" | "denied" | "failed";
+
+/**
+ * The SAFE input the seam hands the recorder. Every field is an id, a registry
+ * enum, a safe reason/opaque-ref string, or an aggregate-safe `metadata` summary.
+ * There is deliberately NO field for raw user text, model output, the safe DTO,
+ * provider payloads, or workflow config.
+ */
+export interface ReactAgentAuditRecorderInput {
+  readonly accountId: string;
+  readonly actorUserId: string;
+  readonly workflowId?: string | null;
+  readonly conversationId?: string | null;
+  readonly capabilityId: ReactAgentCapabilityId;
+  readonly intent: ReactAgentIntent;
+  readonly mode: ReactAgentCapabilityMode;
+  readonly creditFeature?: string | null;
+  readonly auditKind: string;
+  readonly outcome: ReactAgentAuditOutcome;
+  /** SAFE reason enum/string only (e.g. `invalid_scope`). NEVER a raw error. */
+  readonly reason?: string | null;
+  readonly proposedPatchRef?: string | null;
+  readonly approvalId?: string | null;
+  readonly aiCostEventId?: string | null;
+  /** Aggregate-safe summary only. Sanitized + defaulted to `{}` by the recorder. */
+  readonly metadata?: Record<string, unknown> | null;
+}
+
+/**
+ * The injectable recorder seam. `record` is FAIL-OPEN — it must resolve (never
+ * throw) on a persistence failure, so an audit-write problem can never break the
+ * agent/user path. The default (no recorder injected) is no emission.
+ */
+export interface ReactAgentAuditRecorder {
+  record(input: ReactAgentAuditRecorderInput): Promise<void>;
+}
+
 /**
  * The React Agent boundary contract.
  *
@@ -145,8 +196,23 @@ export interface ReactAgentService {
      * capability registry: an unknown id or an intent that doesn't match the capability's
      * `allowedIntent` returns a safe failure WITHOUT running `exec`.
      */
-    readonly capabilityId: import("./capabilities").ReactAgentCapabilityId;
+    readonly capabilityId: ReactAgentCapabilityId;
     /** The already-authorized, already-gated capability execution (route-bound). */
     readonly exec: () => Promise<T>;
+    /**
+     * CS-5d — optional injected audit recorder. When present, the seam emits exactly
+     * one `react_agent_audit_events` row per call: `denied` (no `exec`) for an invalid
+     * scope / unknown capability / intent mismatch, `failed` when `exec` throws (then
+     * re-throws), else the result of `classifyResult` (default `success`). The recorder
+     * is fail-open, so emission can never change the returned outcome. Omitted → no
+     * emission (the core never imports the recorder; the route injects it).
+     */
+    readonly auditRecorder?: ReactAgentAuditRecorder;
+    /**
+     * CS-5d — optional classifier mapping a RESOLVED `exec` result to an audit outcome
+     * (e.g. a brain `{ ok: false }` model failure → `failed`). Default → `success`.
+     * Does NOT affect the value returned to the caller.
+     */
+    readonly classifyResult?: (result: T) => ReactAgentAuditOutcome;
   }): Promise<ReactAgentCapabilityOutcome<T>>;
 }

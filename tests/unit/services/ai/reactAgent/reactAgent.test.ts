@@ -207,6 +207,172 @@ describe("ReactAgent boundary — runAuthorizedCapability (CS-3 registry-gated s
   });
 });
 
+describe("ReactAgent boundary — runAuthorizedCapability audit emission (CS-5d)", () => {
+  const QA = {
+    scope: { userId: "u1", accountId: "acc1", workflowId: "wf1" } as ReactAgentScope,
+    intent: "answer_diagnosis_question" as const,
+    capabilityId: "diagnosis_qa" as const,
+  };
+  function recorder() {
+    const record = jest.fn().mockResolvedValue(undefined);
+    return { auditRecorder: { record }, record };
+  }
+
+  it("emits ONE success row with the registry+scope fields on a resolved Q&A run", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({
+      ...QA,
+      auditRecorder,
+      classifyResult: (r: { ok: boolean }) => (r.ok ? "success" : "failed"),
+      exec: async () => ({ ok: true, answer: "reconnect gmail" }),
+    });
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0]![0]).toEqual({
+      accountId: "acc1",
+      actorUserId: "u1",
+      workflowId: "wf1",
+      conversationId: null,
+      capabilityId: "diagnosis_qa",
+      intent: "answer_diagnosis_question",
+      mode: "read_only",
+      creditFeature: "workflow_qa",
+      auditKind: "react_agent.diagnosis_qa",
+      outcome: "success",
+      reason: null,
+    });
+  });
+
+  it("emits a success row for a resolved Explain run with explain registry fields", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({
+      scope: { userId: "u1", accountId: "acc1", workflowId: "wf1" },
+      intent: "explain_diagnosis",
+      capabilityId: "diagnosis_explain",
+      auditRecorder,
+      classifyResult: (r: { ok: boolean }) => (r.ok ? "success" : "failed"),
+      exec: async () => ({ ok: true, explanation: "needs a trigger" }),
+    });
+    expect(record.mock.calls[0]![0]).toMatchObject({
+      capabilityId: "diagnosis_explain",
+      creditFeature: "workflow_explanation",
+      auditKind: "react_agent.diagnosis_explain",
+      outcome: "success",
+    });
+  });
+
+  it("classifyResult maps a resolved brain failure to a `failed` audit (exec still ran)", async () => {
+    const { auditRecorder, record } = recorder();
+    const outcome = await runAuthorizedCapability({
+      ...QA,
+      auditRecorder,
+      classifyResult: (r: { ok: boolean }) => (r.ok ? "success" : "failed"),
+      exec: async () => ({ ok: false, code: "MODEL_FAILED" }),
+    });
+    // The returned value is UNCHANGED (the brain result passes through verbatim).
+    expect(outcome).toEqual({ ok: true, result: { ok: false, code: "MODEL_FAILED" } });
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "failed", reason: "exec_failed" });
+  });
+
+  it("defaults a resolved run to `success` when no classifier is given", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({ ...QA, auditRecorder, exec: async () => ({ ok: false }) });
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "success" });
+  });
+
+  it("invalid scope → emits `denied` (reason invalid_scope) and does NOT run exec", async () => {
+    const { auditRecorder, record } = recorder();
+    const exec = jest.fn();
+    const outcome = await runAuthorizedCapability({
+      ...QA,
+      scope: { userId: "", accountId: "acc1" },
+      auditRecorder,
+      exec,
+    });
+    expect(exec).not.toHaveBeenCalled();
+    expect(outcome.ok).toBe(false);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "denied", reason: "invalid_scope" });
+  });
+
+  it("unknown capability → emits `denied` (reason unknown_capability), synthetic auditKind, no exec", async () => {
+    const { auditRecorder, record } = recorder();
+    const exec = jest.fn();
+    await runAuthorizedCapability({
+      ...QA,
+      capabilityId: "made_up" as unknown as ReactAgentCapabilityId,
+      auditRecorder,
+      exec,
+    });
+    expect(exec).not.toHaveBeenCalled();
+    expect(record.mock.calls[0]![0]).toMatchObject({
+      outcome: "denied",
+      reason: "unknown_capability",
+      mode: "read_only",
+      auditKind: "react_agent.made_up",
+      creditFeature: null,
+    });
+  });
+
+  it("intent mismatch → emits `denied` (reason intent_mismatch) with the real capability fields, no exec", async () => {
+    const { auditRecorder, record } = recorder();
+    const exec = jest.fn();
+    await runAuthorizedCapability({ ...QA, intent: "propose_repair", auditRecorder, exec });
+    expect(exec).not.toHaveBeenCalled();
+    expect(record.mock.calls[0]![0]).toMatchObject({
+      outcome: "denied",
+      reason: "intent_mismatch",
+      capabilityId: "diagnosis_qa",
+      mode: "read_only",
+    });
+  });
+
+  it("exec throws → emits `failed` (reason exec_error) AND re-throws to preserve route behavior", async () => {
+    const { auditRecorder, record } = recorder();
+    const boom = new Error("brain exploded: SECRET-INTERNAL");
+    await expect(
+      runAuthorizedCapability({ ...QA, auditRecorder, exec: async () => { throw boom; } }),
+    ).rejects.toBe(boom);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0]![0]).toMatchObject({ outcome: "failed", reason: "exec_error" });
+    // The audit input carries no raw error text.
+    expect(JSON.stringify(record.mock.calls[0]![0])).not.toContain("SECRET-INTERNAL");
+  });
+
+  it("a recorder that REJECTS is swallowed at the seam — the capability result is unchanged", async () => {
+    const record = jest.fn().mockRejectedValue(new Error("audit ledger down"));
+    const outcome = await runAuthorizedCapability({
+      ...QA,
+      auditRecorder: { record },
+      exec: async () => ({ ok: true, answer: "ok" }),
+    });
+    expect(outcome).toEqual({ ok: true, result: { ok: true, answer: "ok" } });
+  });
+
+  it("attaches NO metadata at the seam (no raw question/answer/DTO/config can leak)", async () => {
+    const { auditRecorder, record } = recorder();
+    await runAuthorizedCapability({
+      ...QA,
+      auditRecorder,
+      exec: async () => ({ ok: true, answer: "the user's private answer" }),
+    });
+    const input = record.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).not.toHaveProperty("metadata");
+    for (const k of ["question", "answer", "dto", "config", "explanation", "payload"]) {
+      expect(input).not.toHaveProperty(k);
+    }
+    expect(JSON.stringify(input)).not.toContain("private answer");
+  });
+
+  it("does NOT emit when no recorder is injected (backward-compatible)", async () => {
+    // No throw, exec runs, result returned — covered by the CS-3 seam tests above; this
+    // asserts the no-recorder path is side-effect-free (nothing to spy, so just exec runs).
+    const exec = jest.fn().mockResolvedValue({ ok: true });
+    const outcome = await runAuthorizedCapability({ ...QA, exec });
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ ok: true, result: { ok: true } });
+  });
+});
+
 describe("ReactAgent boundary — no-leak safe copy", () => {
   it("every fallback message is plain English with no ids/tokens/reference syntax", async () => {
     const messages: string[] = [];

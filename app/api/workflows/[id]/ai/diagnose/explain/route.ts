@@ -21,6 +21,7 @@ import {
   isOpenAiProviderEnabled,
 } from "@/services/ai/modelClients/createModelClient";
 import { reactAgentService } from "@/services/ai/reactAgent";
+import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { loadWorkflowForMember, requireUser } from "../../../../_shared";
 
 /**
@@ -202,10 +203,16 @@ export async function POST(
   // membership, safe-DTO re-derivation, the OpenAI-config check, and `aiCreditGate` (above)
   // all stay route-owned; the boundary only validates the registered capability + scope +
   // intent and invokes the injected brain call — no HTTP, no gate, no mutation.
+  // REACT-AGENT-CS-5D — inject the fail-open audit recorder so the seam emits one
+  // `react_agent.diagnosis_explain` governance row (success | failed) inside this
+  // already-authorized path. No raw explanation/DTO/config leaves the seam — scope ids +
+  // registry enums only; audit failures cannot change the response.
   const outcome = await reactAgentService.runAuthorizedCapability({
     scope: { userId: auth.userId, accountId, workflowId: id },
     intent: "explain_diagnosis",
     capabilityId: "diagnosis_explain",
+    auditRecorder: reactAgentAuditRecorder,
+    classifyResult: (r) => (r.ok ? "success" : "failed"),
     exec: () => explainWorkflowDiagnosis({ dto, modelClient: client, tier: MODEL_TIER }),
   });
   if (!outcome.ok) {
