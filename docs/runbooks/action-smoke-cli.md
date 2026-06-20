@@ -74,6 +74,9 @@ drift.
 | `SMOKE_EXCEL_TABLE_NAME=<name>` | Excel `read_table_rows`, `find_row` | Excel table name (overlaid onto `tableName`). Unset → SKIP. |
 | `SMOKE_EXCEL_LOOKUP_COLUMN=<header>` | Excel `find_row` | An existing table column header (overlaid onto `lookupColumn`). Unset → SKIP. |
 | `SMOKE_EXCEL_LOOKUP_VALUE=<value>` | Excel `find_row` | Value to match in that column (overlaid onto `lookupValue`). Unset → SKIP. |
+| `SMOKE_MICROSOFT_TEAMS_CONNECTED=1` | Teams fixtures | Signals the smoke account has Microsoft Teams connected. Unset → Teams fixtures SKIP. |
+| `SMOKE_TEAMS_TEAM_ID=<id>` | Teams `get_channel_details`, `get_team_members` | A team id (overlaid onto `teamId`). Unset → SKIP. |
+| `SMOKE_TEAMS_CHANNEL_ID=<id>` | Teams `get_channel_details` | A channel id (overlaid onto `channelId`). Unset → SKIP. |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -144,7 +147,7 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-### Current fixtures (38)
+### Current fixtures (40)
 
 | Fixture | risk / liveRisk | liveSafe | Required env | Notes |
 |---|---|---|---|---|
@@ -184,17 +187,19 @@ Rules:
 | `microsoft-excel:read_range` | read | ✅ | `SMOKE_MICROSOFT_EXCEL_CONNECTED`, `SMOKE_EXCEL_WORKBOOK_ID`, `SMOKE_EXCEL_WORKSHEET_NAME`, `SMOKE_EXCEL_RANGE` | Bounded A1 range read (status-only). |
 | `microsoft-excel:read_table_rows` | read | ✅ | `SMOKE_MICROSOFT_EXCEL_CONNECTED`, `SMOKE_EXCEL_WORKBOOK_ID`, `SMOKE_EXCEL_TABLE_NAME` | Table rows, one page max 5 (status-only). |
 | `microsoft-excel:find_row` | read | ✅ | `SMOKE_MICROSOFT_EXCEL_CONNECTED`, `SMOKE_EXCEL_WORKBOOK_ID`, `SMOKE_EXCEL_TABLE_NAME`, `SMOKE_EXCEL_LOOKUP_COLUMN`, `SMOKE_EXCEL_LOOKUP_VALUE` | Table lookup, first match (status-only). |
+| `microsoft-teams:get_channel_details` | read | ✅ | `SMOKE_MICROSOFT_TEAMS_CONNECTED`, `SMOKE_TEAMS_TEAM_ID`, `SMOKE_TEAMS_CHANNEL_ID` | Channel metadata (no content). |
+| `microsoft-teams:get_team_members` | read | ✅ | `SMOKE_MICROSOFT_TEAMS_CONNECTED`, `SMOKE_TEAMS_TEAM_ID` | Member list, one page max 5 (status-only). |
 | `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
 | `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
 
-Coverage: **38 fixtures** (36 read / 1 write / 1 destructive), 37 `liveSafe`, across
-9 providers (native, slack, airtable, google-sheets, google-drive, gmail,
-microsoft-outlook, notion, microsoft-excel). **Slack: 10 fixtures** (8 read / 1 write / 1
-destructive); **Airtable: 5 fixtures** (all read); **Google Sheets: 4 fixtures** (all
-read); **Google Drive: 3 fixtures** (all read); **Gmail: 3 fixtures** (all read);
-**Microsoft Outlook: 3 fixtures** (all read); **Notion: 4 fixtures** (all read);
-**Microsoft Excel: 5 fixtures** (all read). The CLI prints a `Coverage:` line; `--json`
-exposes it as `coverage`.
+Coverage: **40 fixtures** (38 read / 1 write / 1 destructive), 39 `liveSafe`, across
+10 providers (native, slack, airtable, google-sheets, google-drive, gmail,
+microsoft-outlook, notion, microsoft-excel, microsoft-teams). **Slack: 10 fixtures** (8
+read / 1 write / 1 destructive); **Airtable: 5 fixtures** (all read); **Google Sheets: 4
+fixtures** (all read); **Google Drive: 3 fixtures** (all read); **Gmail: 3 fixtures** (all
+read); **Microsoft Outlook: 3 fixtures** (all read); **Notion: 4 fixtures** (all read);
+**Microsoft Excel: 5 fixtures** (all read); **Microsoft Teams: 2 fixtures** (all read).
+The CLI prints a `Coverage:` line; `--json` exposes it as `coverage`.
 
 **Slack-only inventory:** `npm run smoke:actions -- --provider slack`.
 
@@ -436,6 +441,36 @@ status-only (never workbook/worksheet names or cell content).
   `delete_worksheet` (destructive), and `export_sheet` (returns workbook file content) —
   all out of scope for read-only batches.
 
+**Microsoft Teams-only inventory:** `npm run smoke:actions -- --provider microsoft-teams`.
+
+**Teams live read run** (`get_team_members` needs a team id; `get_channel_details` also
+needs a channel id — missing required env SKIPs):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_MICROSOFT_TEAMS_CONNECTED=1 \
+  SMOKE_TEAMS_TEAM_ID=<team id> SMOKE_TEAMS_CHANNEL_ID=<channel id> \
+  npm run smoke:actions:run:workflow:live
+```
+
+Both Teams fixtures are read-only; the report stays status-only (never channel names or
+member identities — `get_team_members` output carries member PII that is never surfaced).
+
+**Microsoft Teams audit + actions still uncovered / deferred (2 covered of 5 registered):**
+
+- **Audit:** Teams registers two usable reads — `get_channel_details` (channel metadata)
+  and `get_team_members` (one page of members) — so this slice is **fixture-only** (no new
+  actions). Both reports stay status-only.
+- **Not yet built (would need their own provider-action slice):** the preferred
+  `list_teams` / `list_channels` / `list_channel_messages` reads have no registered action
+  handler today — the wrappers exist (`teamsList`, `channelsList`, `channelMessageGet`)
+  and back the team/channel option resolvers, but no workflow action exposes them. Adding
+  them is a future Teams read provider-action slice, not a fixture-only batch.
+- **Deferred (writes):** `send_channel_message`, `reply_to_channel_message`,
+  `send_chat_message` — out of scope for read-only batches (no safe cleanup pattern).
+  Teams registers no destructive action.
+
 ## Commands
 
 ### Dry-run inventory
@@ -631,22 +666,23 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **38 fixtures** (36 read / 1 write / 1 destructive)
-  across 9 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
-  Gmail: 3, Microsoft Outlook: 3, Notion: 4, Microsoft Excel: 5) — `npm run smoke:actions`
-  shows the full gap (257 of 295 registered actions have no fixture yet). This harness is
-  the foundation for growing that, not a claim of broad coverage.
+- **Coverage is still small:** **40 fixtures** (38 read / 1 write / 1 destructive)
+  across 10 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
+  Gmail: 3, Microsoft Outlook: 3, Notion: 4, Microsoft Excel: 5, Microsoft Teams: 2) —
+  `npm run smoke:actions` shows the full gap (255 of 295 registered actions have no
+  fixture yet). This harness is the foundation for growing that, not a claim of broad
+  coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 37 today
-  (36 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 39 today
+  (38 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
   test forbids one). Selector-dependent reads (`get_user_info`, `get_thread_messages`,
   `get_file_info`, `get_file_metadata`, `search_files`, `search_emails`, `query_database`,
-  `get_page`, `get_worksheets`, `read_range`, `read_table_rows`, `find_row`, and the other
-  connection/selector-gated reads) only run when their id/connection/query env is set;
-  otherwise they SKIP.
+  `get_page`, `get_worksheets`, `read_range`, `read_table_rows`, `find_row`,
+  `get_channel_details`, `get_team_members`, and the other connection/selector-gated
+  reads) only run when their id/connection/query env is set; otherwise they SKIP.
 - **The write fixture is not cleaned up.** It posts a persistent Slack message and
   does not delete it (no destructive cleanup step this slice). Use a throwaway
   channel.
