@@ -428,7 +428,7 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toEqual(["propertyId"]);
     });
 
-    it("registers exactly the 4 accepted GA resolver keys", () => {
+    it("registers the accepted GA resolver keys (4 action pickers + the flat analytics-widget picker)", () => {
       const gaSources = listOptionsResolvers()
         .filter((r) => r.provider === "google-analytics")
         .map((r) => r.source)
@@ -438,6 +438,8 @@ describe("options resolver registry", () => {
         "google-analytics:conversion_events",
         "google-analytics:data_streams",
         "google-analytics:properties",
+        // ANALYTICS-SOURCES-GA-1 — flat property picker for the analytics dashboard widget.
+        "google-analytics:properties_flat",
       ]);
     });
 

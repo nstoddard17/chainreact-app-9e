@@ -263,6 +263,10 @@ import { googleAnalyticsAccountsResolver } from "@/integrations/google-analytics
 import { googleAnalyticsPropertiesResolver } from "@/integrations/google-analytics/options/properties";
 import { googleAnalyticsDataStreamsResolver } from "@/integrations/google-analytics/options/dataStreams";
 import { googleAnalyticsConversionEventsResolver } from "@/integrations/google-analytics/options/conversionEvents";
+// Slice ANALYTICS-SOURCES-GA-1 — FLAT property picker for the Analytics dashboard
+// widget (all properties across all accounts in one call; no accountId dep). The
+// cascade `:properties` resolver above stays the workflow-action picker.
+import { googleAnalyticsPropertiesFlatResolver } from "@/integrations/google-analytics/options/propertiesFlat";
 
 // Microsoft Excel resolvers — Slice 4.EXCEL-META-2 (resolver-first ahead
 // of EXCEL-META-3 action/trigger metas; Excel stays OUT of
@@ -507,6 +511,8 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   googleAnalyticsPropertiesResolver,
   googleAnalyticsDataStreamsResolver,
   googleAnalyticsConversionEventsResolver,
+  // Slice ANALYTICS-SOURCES-GA-1 — flat GA4 property picker (analytics widget).
+  googleAnalyticsPropertiesFlatResolver,
   // Slice 4.EXCEL-META-2 — 3 Microsoft Excel resolvers (resolver-first
   // ahead of EXCEL-META-3 metas). workbooks (root) → worksheets / tables
   // (dep: workbookId). columns deferred. Excel stays OUT of

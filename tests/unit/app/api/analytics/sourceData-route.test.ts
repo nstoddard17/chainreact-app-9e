@@ -334,6 +334,21 @@ it("routes provider=microsoft-excel workbooks_count (no filters, session account
   expect(call.filters).toBeUndefined();
 });
 
+it("forwards the ga_property filter for provider=google-analytics (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/google-analytics/data?metric=sessions&range=30d&ga_property=123456789",
+    ),
+    { params: Promise.resolve({ provider: "google-analytics" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("google-analytics");
+  expect(call.metricKey).toBe("sessions");
+  expect(call.filters).toEqual({ ga_property: "123456789" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

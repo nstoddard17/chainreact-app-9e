@@ -2,6 +2,7 @@ import type { AnalyticsWidgetType } from "@/contracts/analytics";
 import { GOOGLE_DOCS, GOOGLE_SHEETS } from "./connectedAppSourcesGoogleWorkspace";
 import { FACEBOOK } from "./connectedAppSourcesFacebook";
 import { MICROSOFT_EXCEL } from "./connectedAppSourcesMicrosoftExcel";
+import { GOOGLE_ANALYTICS } from "./connectedAppSourcesGoogleAnalytics";
 
 /**
  * Connected-app analytics UI exposure descriptor (Slice ANALYTICS-SOURCES-SLACK-UI-1).
@@ -47,7 +48,7 @@ export type ConnectedAppFilterKind =
   | "discord_channel"
   | "teams_team"
   | "teams_channel"
-  | "facebook_page" | "excel_workbook";
+  | "facebook_page" | "excel_workbook" | "ga_property";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -688,6 +689,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   MICROSOFT_ONENOTE,
   FACEBOOK,
   MICROSOFT_EXCEL,
+  GOOGLE_ANALYTICS,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

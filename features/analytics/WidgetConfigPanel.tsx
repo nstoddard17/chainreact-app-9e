@@ -157,6 +157,7 @@ export function WidgetConfigPanel({
   const onTeamsTeamChange = (v: string) => { setTeamsTeam(v); setTeamsChannel(""); };
   const [facebookPage, setFacebookPage] = useState(initFilter("facebook_page"));
   const [excelWorkbook, setExcelWorkbook] = useState(initFilter("excel_workbook"));
+  const [gaProperty, setGaProperty] = useState(initFilter("ga_property"));
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -176,7 +177,7 @@ export function WidgetConfigPanel({
     monday_board: mondayBoard.trim(), hubspot_pipeline: hubspotPipeline.trim(), mailchimp_audience: mailchimpAudience.trim(),
     dropbox_folder: dropboxFolder.trim(), onedrive_folder: onedriveFolder.trim(), gdrive_folder: gdriveFolder.trim(),
     discord_guild: discordGuild.trim(), discord_channel: discordChannel.trim(), teams_team: teamsTeam.trim(),
-    teams_channel: teamsChannel.trim(), facebook_page: facebookPage.trim(), excel_workbook: excelWorkbook.trim(),
+    teams_channel: teamsChannel.trim(), facebook_page: facebookPage.trim(), excel_workbook: excelWorkbook.trim(), ga_property: gaProperty.trim(),
   };
 
   function filterValid(kind: ConnectedAppFilterKind): boolean {
@@ -328,6 +329,7 @@ export function WidgetConfigPanel({
                   onFacebookPage={setFacebookPage}
                   excelWorkbook={excelWorkbook}
                   onExcelWorkbook={setExcelWorkbook}
+                  gaProperty={gaProperty} onGaProperty={setGaProperty}
                 />
               ) : (
                 <InternalConfig

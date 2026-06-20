@@ -24,6 +24,7 @@ import { googleSheetsAnalyticsSource } from "./google-sheets";
 import { microsoftOneNoteAnalyticsSource } from "./microsoft-onenote";
 import { facebookAnalyticsSource } from "./facebook";
 import { microsoftExcelAnalyticsSource } from "./microsoft-excel";
+import { googleAnalyticsAnalyticsSource } from "./google-analytics";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -118,6 +119,12 @@ import { microsoftExcelAnalyticsSource } from "./microsoft-excel";
  *     counts via the metadata-only worksheets/tables list wrappers, personal refreshable
  *     credential, count-only + metadata-only, no cell value/formula/range/table-row/file
  *     name read) — ANALYTICS-SOURCES-EXCEL-1.
+ *   - GOOGLE ANALYTICS (connected app, read-only GA4 Data API runReport scoped to
+ *     ONE validated property → aggregate scalars (active/total users, sessions,
+ *     page views, events) + the same metrics over time via the `date` dimension,
+ *     personal refreshable credential, AGGREGATE-ONLY, no user-id/client-id/page-
+ *     path/url/search-term/geo/device dimension read, no raw GA payload cached;
+ *     uses the already-granted analytics.readonly scope) — ANALYTICS-SOURCES-GA-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -155,6 +162,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   microsoftOneNoteAnalyticsSource,
   facebookAnalyticsSource,
   microsoftExcelAnalyticsSource,
+  googleAnalyticsAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

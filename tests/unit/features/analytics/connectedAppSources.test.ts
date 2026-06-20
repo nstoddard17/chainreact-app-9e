@@ -96,6 +96,43 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("facebook")?.visibility).toBe("personal");
     // Microsoft Excel is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("microsoft-excel")?.visibility).toBe("personal");
+    // Google Analytics is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("google-analytics")?.visibility).toBe("personal");
+  });
+});
+
+describe("Google Analytics metric/filter shape", () => {
+  const ga = getExposedConnectedAppSource("google-analytics")!;
+
+  it("exposes Google Analytics with aggregate scalars on stat and over-time series on line/bar", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("google-analytics");
+    expect(getExposedConnectedAppSource("google-analytics")?.displayName).toBe("Google Analytics");
+    expect(ga.attributionPrefix).toBe("Your Google Analytics");
+    expect(metricsForType(ga, "stat").map((m) => m.id).sort()).toEqual([
+      "active_users",
+      "event_count",
+      "screen_page_views",
+      "sessions",
+      "total_users",
+    ]);
+    expect(metricsForType(ga, "line").map((m) => m.id).sort()).toEqual([
+      "active_users_over_time",
+      "event_count_over_time",
+      "screen_page_views_over_time",
+      "sessions_over_time",
+    ]);
+    expect(metricsForType(ga, "bar").map((m) => m.id)).toEqual(
+      metricsForType(ga, "line").map((m) => m.id),
+    );
+    expect(metricsForType(ga, "donut")).toEqual([]);
+  });
+
+  it("every Google Analytics metric requires a single ga_property filter", () => {
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(ga, type)) {
+        expect(m.filters).toEqual(["ga_property"]);
+      }
+    }
   });
 });
 

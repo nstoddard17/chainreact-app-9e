@@ -16,6 +16,7 @@ import {
   TeamsChannelField,
   FacebookPageField,
   ExcelWorkbookField,
+  GoogleAnalyticsPropertyField,
   GithubRepoField,
   GmailLabelField,
   HubSpotPipelineField,
@@ -89,6 +90,8 @@ export function ConnectedAppConfig({
   onFacebookPage,
   excelWorkbook,
   onExcelWorkbook,
+  gaProperty,
+  onGaProperty,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -142,6 +145,8 @@ export function ConnectedAppConfig({
   onFacebookPage: (v: string) => void;
   excelWorkbook: string;
   onExcelWorkbook: (v: string) => void;
+  gaProperty: string;
+  onGaProperty: (v: string) => void;
 }) {
   return (
     <>
@@ -289,6 +294,10 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("excel_workbook") && (
         <ExcelWorkbookField value={excelWorkbook} onChange={onExcelWorkbook} connected={connected} />
+      )}
+
+      {requiredFilters.includes("ga_property") && (
+        <GoogleAnalyticsPropertyField value={gaProperty} onChange={onGaProperty} connected={connected} />
       )}
     </>
   );

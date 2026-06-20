@@ -436,3 +436,26 @@ export function ExcelWorkbookField(props: { value: string; onChange: (v: string)
     />
   );
 }
+
+/**
+ * Google Analytics property picker (`google-analytics:properties_flat`) — REQUIRED for
+ * every GA metric. Lists the GA4 properties the connected user can see across all their
+ * accounts (id-as-value; account name shown as the description). Only property id + name
+ * are loaded, never report rows, data streams, or the Measurement Protocol secret.
+ */
+export function GoogleAnalyticsPropertyField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="google-analytics:properties_flat"
+      icon="Eye"
+      sectionLabel="Property"
+      hint="Pick a Google Analytics property to report on."
+      disconnectedHint="Connect Google Analytics to choose a property."
+      loadingNoun="properties"
+      errorFallback="Couldn't load Google Analytics properties."
+      ariaLabel="Google Analytics property"
+      placeholder="Select a property…"
+      {...props}
+    />
+  );
+}

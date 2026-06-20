@@ -40,4 +40,5 @@ export {
   GoogleDriveFolderField,
   FacebookPageField,
   ExcelWorkbookField,
+  GoogleAnalyticsPropertyField,
 } from "./WidgetConnectedAppPickersProject";

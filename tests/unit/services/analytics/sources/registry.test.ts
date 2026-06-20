@@ -395,6 +395,27 @@ describe("analytics source registry", () => {
     expect(getAnalyticsSourceMetric("microsoft-excel", "worksheets_count")?.supportedFilters).toEqual(["excel_workbook"]);
   });
 
+  it("registers Google Analytics as a connected-app source (ANALYTICS-SOURCES-GA-1)", () => {
+    const ga = getAnalyticsSource("google-analytics");
+    expect(ga?.connectedApp).toBe(true);
+    expect(ga?.metrics.map((m) => m.key).sort()).toEqual([
+      "active_users",
+      "active_users_over_time",
+      "event_count",
+      "event_count_over_time",
+      "screen_page_views",
+      "screen_page_views_over_time",
+      "sessions",
+      "sessions_over_time",
+      "total_users",
+    ]);
+    expect(isApprovedSourceMetric("google-analytics", "active_users")).toBe(true);
+    expect(isApprovedSourceMetric("google-analytics", "run_report")).toBe(false);
+    expect(isApprovedSourceMetric("google-analytics", "user_explorer")).toBe(false);
+    // Every GA metric is property-scoped (a validated property id; no raw report).
+    for (const m of ga!.metrics) expect(m.supportedFilters).toEqual(["ga_property"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

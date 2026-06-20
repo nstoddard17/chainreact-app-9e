@@ -10,7 +10,7 @@ export type FilterDataKey =
   | "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" | "board"
   | "airtable_base" | "airtable_table" | "monday_board" | "hubspot_pipeline" | "mailchimp_audience"
   | "dropbox_folder" | "onedrive_folder" | "gdrive_folder" | "discord_guild" | "discord_channel"
-  | "teams_team" | "teams_channel" | "facebook_page" | "excel_workbook";
+  | "teams_team" | "teams_channel" | "facebook_page" | "excel_workbook" | "ga_property";
 
 // Kinds not listed use their own name as the data key (repo / keyword / airtable_* /
 // monday_board / hubspot_pipeline / discord_* — kind === data key).

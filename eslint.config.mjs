@@ -308,14 +308,17 @@ export default [
   // credential visibility, connect-CTA copy, per-widget-type metric options). Same
   // rationale as the registry inventories above — keeping every provider's analytics
   // descriptor in one reviewable list is the point; splitting it by alphabetical
-  // halves hurts review. Grows ~25 LOC per provider; capped at 600 to leave headroom
-  // for the remaining connected apps without allowing unbounded growth.
+  // halves hurts review. Most recent providers (Excel / Facebook / Workspace /
+  // Google Analytics) live in sibling descriptor files, so each costs only ~2
+  // registration lines (import + ALL entry) here. Capped at 620 to leave headroom
+  // for those registration lines without allowing unbounded growth (Google
+  // Analytics is the final connected-app provider — 25/25).
   {
     files: ["features/analytics/connectedAppSources.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 600, skipBlankLines: true, skipComments: true },
+        { max: 620, skipBlankLines: true, skipComments: true },
       ],
     },
   },

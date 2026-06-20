@@ -86,6 +86,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/microsoft-excel/index.ts",
   "services/analytics/sources/microsoft-excel/api.ts",
   "services/analytics/sources/microsoft-excel/buckets.ts",
+  "services/analytics/sources/google-analytics/index.ts",
+  "services/analytics/sources/google-analytics/api.ts",
+  "services/analytics/sources/google-analytics/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.
