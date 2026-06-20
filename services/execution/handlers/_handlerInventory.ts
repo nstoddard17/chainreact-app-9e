@@ -57,8 +57,10 @@ import { shareDocument as googleDocsShareDocument } from "@/integrations/google-
 import { updateDocument as googleDocsUpdateDocument } from "@/integrations/google-docs/actions/updateDocument";
 import { createFolder } from "@/integrations/google-drive/actions/createFolder";
 import { deleteFile } from "@/integrations/google-drive/actions/deleteFile";
+import { getFileMetadata } from "@/integrations/google-drive/actions/getFileMetadata";
 import { listFiles } from "@/integrations/google-drive/actions/listFiles";
 import { moveFile } from "@/integrations/google-drive/actions/moveFile";
+import { searchFiles } from "@/integrations/google-drive/actions/searchFiles";
 import { uploadFile } from "@/integrations/google-drive/actions/uploadFile";
 import { appendRow } from "@/integrations/google-sheets/actions/appendRow";
 import { batchUpdate as sheetsBatchUpdate } from "@/integrations/google-sheets/actions/batchUpdate";
@@ -398,6 +400,9 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "google-drive", type: "list_files", handler: listFiles },
   { provider: "google-drive", type: "move_file", handler: moveFile },
   { provider: "google-drive", type: "delete_file", handler: deleteFile },
+  // Slice 4.GDRIVE-READ-2 — read-only metadata + name search.
+  { provider: "google-drive", type: "get_file_metadata", handler: getFileMetadata },
+  { provider: "google-drive", type: "search_files", handler: searchFiles },
   // Slice 3.GDOCS-2 — Google Docs runtime port (5 actions).
   //   - share_document destructive-trio classification lands at the
   //     meta layer in GDOCS-4 (this slice ships runtime only).

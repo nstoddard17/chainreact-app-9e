@@ -12,9 +12,12 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * validation + duplicate-key rejection happen centrally — this file is
  * import grouping only.
  *
- * **Coverage:** 5 actions + 1 webhook trigger. Field names are camelCase to
+ * **Coverage:** 7 actions + 1 webhook trigger. Field names are camelCase to
  * mirror the Drive runtime Zod schemas 1:1 (drift fails the meta-coverage
  * structural test now that `google-drive` is in `COVERED_PROVIDERS`).
+ * Slice 4.GDRIVE-READ-2 added two read-only actions (`get_file_metadata`,
+ * `search_files`); `search_files.folderId` reuses the same
+ * `google-drive:folders` resolver, `get_file_metadata.fileId` is typeable.
  *
  * **Resolver wiring (REUSES the already-shipped `google-drive:folders`
  * resolver — no new resolver work):**
@@ -61,16 +64,20 @@ import { googleDriveCreateFolderMeta } from "@/integrations/google-drive/actions
 import { googleDriveListFilesMeta } from "@/integrations/google-drive/actions/listFiles.meta";
 import { googleDriveMoveFileMeta } from "@/integrations/google-drive/actions/moveFile.meta";
 import { googleDriveDeleteFileMeta } from "@/integrations/google-drive/actions/deleteFile.meta";
+import { googleDriveGetFileMetadataMeta } from "@/integrations/google-drive/actions/getFileMetadata.meta";
+import { googleDriveSearchFilesMeta } from "@/integrations/google-drive/actions/searchFiles.meta";
 
 import { googleDriveFileChangedTriggerMeta } from "@/integrations/google-drive/triggers/fileChanged/fileChanged.meta";
 
-/** Drive action metas in displayOrder (10..50). */
+/** Drive action metas in displayOrder (10..70). */
 export const GOOGLE_DRIVE_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   googleDriveUploadFileMeta,
   googleDriveCreateFolderMeta,
   googleDriveListFilesMeta,
   googleDriveMoveFileMeta,
   googleDriveDeleteFileMeta,
+  googleDriveGetFileMetadataMeta,
+  googleDriveSearchFilesMeta,
 ];
 
 /** Drive trigger metas — 1 watch-based webhook trigger. */

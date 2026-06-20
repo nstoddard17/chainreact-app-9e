@@ -55,6 +55,10 @@ drift.
 | `SMOKE_GSHEETS_SHEET_NAME=<tab name>` | Google Sheets `get_cell_value`, `find_row` | Sheet/tab title (overlaid onto `sheetName`). Unset → SKIP. |
 | `SMOKE_GSHEETS_LOOKUP_COLUMN=<header>` | Google Sheets `find_row` | An existing header name to search (overlaid onto `column`). Unset → SKIP. |
 | `SMOKE_GSHEETS_LOOKUP_VALUE=<value>` | Google Sheets `find_row` | The value to match in that column (overlaid onto `value`). Unset → SKIP. |
+| `SMOKE_GOOGLE_DRIVE_CONNECTED=1` | Google Drive fixtures | Signals the smoke account has Google Drive connected. Unset → Drive fixtures SKIP. |
+| `SMOKE_GDRIVE_FILE_ID=<id>` | Google Drive `get_file_metadata` | A file id to read metadata for (overlaid onto `fileId`). Unset → SKIP. |
+| `SMOKE_GDRIVE_QUERY=<text>` | Google Drive `search_files` | Name-search text (overlaid onto `query`). Unset → SKIP. |
+| `SMOKE_GDRIVE_FOLDER_ID=<id>` | Google Drive `search_files` (optional) | Optional folder to scope the search (overlaid onto `folderId`). Unset → searches across My Drive. |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -125,7 +129,7 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-### Current fixtures (21)
+### Current fixtures (23)
 
 | Fixture | risk / liveRisk | liveSafe | Required env | Notes |
 |---|---|---|---|---|
@@ -148,14 +152,16 @@ Rules:
 | `google-sheets:get_cell_value` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID`, `SMOKE_GSHEETS_SHEET_NAME` | Single cell `A1`; blank cell → `value:null`. |
 | `google-sheets:find_row` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID`, `SMOKE_GSHEETS_SHEET_NAME`, `SMOKE_GSHEETS_LOOKUP_COLUMN`, `SMOKE_GSHEETS_LOOKUP_VALUE` | Header-column lookup; no-match still succeeds. |
 | `google-drive:list_files` | read | ✅ | `SMOKE_GOOGLE_DRIVE_CONNECTED` | File list (metadata only). |
+| `google-drive:get_file_metadata` | read | ✅ | `SMOKE_GOOGLE_DRIVE_CONNECTED`, `SMOKE_GDRIVE_FILE_ID` | Single file's bounded metadata (no content). |
+| `google-drive:search_files` | read | ✅ | `SMOKE_GOOGLE_DRIVE_CONNECTED`, `SMOKE_GDRIVE_QUERY` | Name search, one page (metadata only). |
 | `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
 | `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
 
-Coverage: **21 fixtures** (19 read / 1 write / 1 destructive), 20 `liveSafe`, across
+Coverage: **23 fixtures** (21 read / 1 write / 1 destructive), 22 `liveSafe`, across
 5 providers (native, slack, airtable, google-sheets, google-drive). **Slack: 10
 fixtures** (8 read / 1 write / 1 destructive); **Airtable: 5 fixtures** (all read);
-**Google Sheets: 4 fixtures** (all read). The CLI prints a `Coverage:` line; `--json`
-exposes it as `coverage`.
+**Google Sheets: 4 fixtures** (all read); **Google Drive: 3 fixtures** (all read). The
+CLI prints a `Coverage:` line; `--json` exposes it as `coverage`.
 
 **Slack-only inventory:** `npm run smoke:actions -- --provider slack`.
 
@@ -236,29 +242,34 @@ read-only, but they read whatever rows/cells the ids resolve to.
 
 **Google Drive-only inventory:** `npm run smoke:actions -- --provider google-drive`.
 
-**Google Drive live read run** (`list_files` needs only a connected Drive — it lists
-across My Drive, metadata only):
+**Google Drive live read run** (`list_files` needs only a connected Drive;
+`get_file_metadata` also needs a file id; `search_files` also needs a query and may take
+an optional folder — any missing required one SKIPs):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
   SMOKE_GOOGLE_DRIVE_CONNECTED=1 \
+  SMOKE_GDRIVE_FILE_ID=<file id> SMOKE_GDRIVE_QUERY=<text> \
   npm run smoke:actions:run:workflow:live
 ```
 
-**Google Drive actions still uncovered / deferred (1 covered of 5 registered):**
+All three Drive fixtures are read-only and metadata-only (no content download, no FileRef,
+no bytes). Point the ids at a **dedicated smoke Drive** you control.
 
-- **The read surface is already fully covered.** `list_files` is the *only* registered
-  read-only Google Drive action, and it has a fixture. V2 does not (yet) register a
-  get-file-metadata, search-files, list-folder-contents, or permissions-list action — so
-  there is nothing further to fixture in a read-only batch. Adding more Drive read
-  coverage would first require **building** those read actions (a provider-action slice,
-  not a smoke-fixture slice); the reserved selector env vars for that future work are
-  `SMOKE_GDRIVE_FILE_ID` / `SMOKE_GDRIVE_FOLDER_ID` / `SMOKE_GDRIVE_QUERY`.
+**Google Drive actions still uncovered / deferred (3 covered of 7 registered):**
+
+- The 3 covered actions are all read-only (`list_files`, `get_file_metadata`,
+  `search_files`). `get_file_metadata` + `search_files` were added in Slice
+  4.GDRIVE-READ-2 (reuse the existing `filesGet` / `filesList` wrappers; metadata-only,
+  bounded/projected output — no raw provider response, owners, bytes, base64, or signed
+  URLs; `webViewLink` is an auth-gated deeplink, not a signed URL).
 - The remaining 4 registered actions are **writes / destructive** and are out of scope
   for read-only batches: `upload_file`, `create_folder`, `move_file` (writes) and
   `delete_file` (destructive — never `liveSafe`). They are deferred for the same
   no-safe-cleanup reason as the Slack / Airtable / Sheets writes.
+- Not yet built (would need their own provider-action slice): a `list_folder_contents`
+  variant beyond `list_files`'s folder filter, and a read-only permissions/sharing list.
 
 ## Commands
 
@@ -455,19 +466,20 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **21 fixtures** (19 read / 1 write / 1 destructive)
-  across 5 providers (Slack: 10, Airtable: 5, Google Sheets: 4) — `npm run smoke:actions`
-  shows the full gap (265 of 286 registered actions have no fixture yet). This harness is
-  the foundation for growing that, not a claim of broad coverage.
+- **Coverage is still small:** **23 fixtures** (21 read / 1 write / 1 destructive)
+  across 5 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3) —
+  `npm run smoke:actions` shows the full gap (265 of 288 registered actions have no
+  fixture yet). This harness is the foundation for growing that, not a claim of broad
+  coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 20 today
-  (19 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 22 today
+  (21 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
   test forbids one). Selector-dependent reads (`get_user_info`, `get_thread_messages`,
-  `get_file_info`, and the non-Slack reads) only run when their id/connection env is
-  set; otherwise they SKIP.
+  `get_file_info`, `get_file_metadata`, `search_files`, and the non-Slack reads) only
+  run when their id/connection env is set; otherwise they SKIP.
 - **The write fixture is not cleaned up.** It posts a persistent Slack message and
   does not delete it (no destructive cleanup step this slice). Use a throwaway
   channel.

@@ -57,6 +57,16 @@ export interface FilesListInput {
    */
   mimeType?: string;
   /**
+   * Optional free-text name filter — appends `name contains '<value>'` to
+   * the `q` clause (Slice 4.GDRIVE-READ-2, consumed by the `search_files`
+   * action). Drive's `name contains` matches the file title only (NOT file
+   * content — that would be `fullText contains`, deliberately not used so
+   * search stays predictable and metadata-scoped). Single quotes in the
+   * value are escaped the same way as `folderId` so a caller-supplied query
+   * cannot break out of the `q` literal.
+   */
+  nameContains?: string;
+  /**
    * Optional Drive `orderBy` query param (Drive v3 syntax —
    * `"modifiedTime desc"`, `"name"`, etc.). Slice 3.GDOCS-3 added this
    * so the options resolvers can sort their single-page results
@@ -123,6 +133,9 @@ export async function filesList(
   }
   if (!input.includeTrashed) qClauses.push("trashed=false");
   if (input.mimeType) qClauses.push(`mimeType='${input.mimeType}'`);
+  if (input.nameContains) {
+    qClauses.push(`name contains '${input.nameContains.replace(/'/g, "\\'")}'`);
+  }
   if (qClauses.length > 0) {
     url.searchParams.set("q", qClauses.join(" and "));
   }

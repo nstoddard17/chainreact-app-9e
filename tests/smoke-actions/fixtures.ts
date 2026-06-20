@@ -33,6 +33,9 @@ import airtableGetRecord from "@/tests/fixtures/action-smoke/airtable/get_record
 import sheetsReadRows from "@/tests/fixtures/action-smoke/google-sheets/read_rows";
 import sheetsGetCellValue from "@/tests/fixtures/action-smoke/google-sheets/get_cell_value";
 import sheetsFindRow from "@/tests/fixtures/action-smoke/google-sheets/find_row";
+// SMOKE-ACTIONS-9 — Google Drive read-only batch (new read actions).
+import driveGetFileMetadata from "@/tests/fixtures/action-smoke/google-drive/get_file_metadata";
+import driveSearchFiles from "@/tests/fixtures/action-smoke/google-drive/search_files";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -56,4 +59,6 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   sheetsReadRows,
   sheetsGetCellValue,
   sheetsFindRow,
+  driveGetFileMetadata,
+  driveSearchFiles,
 ];
