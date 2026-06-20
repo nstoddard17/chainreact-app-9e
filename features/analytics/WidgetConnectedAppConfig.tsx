@@ -10,6 +10,8 @@ import {
   DropboxFolderField,
   OneDriveFolderField,
   GoogleDriveFolderField,
+  DiscordGuildField,
+  DiscordChannelField,
   GithubRepoField,
   GmailLabelField,
   HubSpotPipelineField,
@@ -71,6 +73,10 @@ export function ConnectedAppConfig({
   onOnedriveFolder,
   gdriveFolder,
   onGdriveFolder,
+  discordGuild,
+  onDiscordGuild,
+  discordChannel,
+  onDiscordChannel,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -112,6 +118,10 @@ export function ConnectedAppConfig({
   onOnedriveFolder: (v: string) => void;
   gdriveFolder: string;
   onGdriveFolder: (v: string) => void;
+  discordGuild: string;
+  onDiscordGuild: (v: string) => void;
+  discordChannel: string;
+  onDiscordChannel: (v: string) => void;
 }) {
   return (
     <>
@@ -225,6 +235,19 @@ export function ConnectedAppConfig({
 
       {requiredFilters.includes("gdrive_folder") && (
         <GoogleDriveFolderField value={gdriveFolder} onChange={onGdriveFolder} connected={connected} />
+      )}
+
+      {requiredFilters.includes("discord_guild") && (
+        <DiscordGuildField value={discordGuild} onChange={onDiscordGuild} connected={connected} />
+      )}
+
+      {requiredFilters.includes("discord_channel") && (
+        <DiscordChannelField
+          value={discordChannel}
+          onChange={onDiscordChannel}
+          connected={connected}
+          guildId={discordGuild}
+        />
       )}
     </>
   );

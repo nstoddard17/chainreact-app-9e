@@ -83,6 +83,42 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("microsoft-onedrive")?.visibility).toBe("personal");
     // Google Drive is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("google-drive")?.visibility).toBe("personal");
+    // Discord is a personal connection gate → per-viewer visibility.
+    expect(getConnectedAppSource("discord")?.visibility).toBe("personal");
+  });
+});
+
+describe("Discord metric/filter shape", () => {
+  const discord = getExposedConnectedAppSource("discord")!;
+
+  it("exposes Discord with server/channel scalars on stat, message series on line/bar, by-channel bar-only", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("discord");
+    expect(getExposedConnectedAppSource("discord")?.displayName).toBe("Discord");
+    expect(metricsForType(discord, "stat").map((m) => m.id).sort()).toEqual([
+      "active_channels_count",
+      "messages_count",
+      "server_channels_count",
+      "server_member_count",
+    ]);
+    expect(metricsForType(discord, "line").map((m) => m.id)).toEqual(["channel_messages_over_time"]);
+    expect(metricsForType(discord, "bar").map((m) => m.id).sort()).toEqual([
+      "channel_messages_over_time",
+      "messages_by_channel",
+    ]);
+    expect(metricsForType(discord, "donut")).toEqual([]);
+  });
+
+  it("guild-only metrics take just discord_guild; channel metrics take guild + channel", () => {
+    expect(findMetricOption(discord, "stat", "server_channels_count")?.filters).toEqual(["discord_guild"]);
+    expect(findMetricOption(discord, "stat", "messages_count")?.filters).toEqual([
+      "discord_guild",
+      "discord_channel",
+    ]);
+    expect(findMetricOption(discord, "line", "channel_messages_over_time")?.filters).toEqual([
+      "discord_guild",
+      "discord_channel",
+    ]);
+    expect(findMetricOption(discord, "bar", "messages_by_channel")?.filters).toEqual(["discord_guild"]);
   });
 });
 

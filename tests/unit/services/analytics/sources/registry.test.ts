@@ -281,6 +281,27 @@ describe("analytics source registry", () => {
     for (const m of gdrive!.metrics) expect(m.supportedFilters).toEqual(["gdrive_folder"]);
   });
 
+  it("registers Discord as a connected-app source (ANALYTICS-SOURCES-DISCORD-1)", () => {
+    const discord = getAnalyticsSource("discord");
+    expect(discord?.connectedApp).toBe(true);
+    expect(discord?.metrics.map((m) => m.key).sort()).toEqual([
+      "active_channels_count",
+      "channel_messages_over_time",
+      "messages_by_channel",
+      "messages_count",
+      "server_channels_count",
+      "server_member_count",
+    ]);
+    expect(isApprovedSourceMetric("discord", "server_channels_count")).toBe(true);
+    expect(isApprovedSourceMetric("discord", "delete_message")).toBe(false);
+    // Guild-scoped metrics take only the guild filter; channel metrics take both.
+    expect(getAnalyticsSourceMetric("discord", "server_channels_count")?.supportedFilters).toEqual(["discord_guild"]);
+    expect(getAnalyticsSourceMetric("discord", "messages_count")?.supportedFilters).toEqual([
+      "discord_guild",
+      "discord_channel",
+    ]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

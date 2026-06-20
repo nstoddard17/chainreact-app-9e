@@ -66,6 +66,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/google-drive/index.ts",
   "services/analytics/sources/google-drive/api.ts",
   "services/analytics/sources/google-drive/buckets.ts",
+  "services/analytics/sources/discord/index.ts",
+  "services/analytics/sources/discord/api.ts",
+  "services/analytics/sources/discord/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

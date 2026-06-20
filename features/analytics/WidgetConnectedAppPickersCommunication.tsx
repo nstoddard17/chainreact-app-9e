@@ -1,12 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { fetchOptionsSource, type OptionItem } from "@/lib/api/options";
 import { SectionHeading } from "./widgetConfigParts";
 import { OptionsSelectField } from "./WidgetConnectedAppPickerShared";
 
 /**
- * Communication-provider picker fields (Slack / Gmail / Outlook mail) for the
- * connected-app config drawer. Split out of WidgetConnectedAppPickers.tsx in the
- * Monday-slice cleanup. Pure move — NO behavior change.
+ * Communication-provider picker fields (Slack / Gmail / Outlook mail / Discord) for
+ * the connected-app config drawer. Split out of WidgetConnectedAppPickers.tsx in the
+ * Monday-slice cleanup; Discord server/channel pickers added in the Discord-analytics
+ * slice. Pure move — NO behavior change.
  */
 
 /** Keyword text input (Slack keyword_mentions). */
@@ -92,5 +95,111 @@ export function OutlookFolderField(props: { value: string; onChange: (v: string)
       placeholder="Select a folder…"
       {...props}
     />
+  );
+}
+
+/**
+ * Discord server (guild) picker (`discord:guilds`) — REQUIRED. Lists the servers the
+ * ChainReact bot has been added to (id-as-value). Only guild id + name are loaded,
+ * never message content, members, or user data.
+ */
+export function DiscordGuildField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="discord:guilds"
+      icon="Comment"
+      sectionLabel="Server"
+      hint="Pick a Discord server to report on."
+      disconnectedHint="Connect Discord to choose a server."
+      loadingNoun="servers"
+      errorFallback="Couldn't load Discord servers."
+      ariaLabel="Discord server"
+      placeholder="Select a server…"
+      {...props}
+    />
+  );
+}
+
+/**
+ * Discord channel picker (`discord:channels`) — REQUIRED, depends on the selected
+ * server (guildId). Lists text-shaped channels in that server (id-as-value). Only
+ * channel id + name are loaded, never message content, members, or user data.
+ */
+export function DiscordChannelField({
+  value,
+  onChange,
+  connected,
+  guildId,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  connected: boolean;
+  guildId: string;
+}) {
+  type LoadState =
+    | { status: "idle" }
+    | { status: "loading" }
+    | { status: "ok"; items: readonly OptionItem[] }
+    | { status: "error"; message: string };
+  const [state, setState] = useState<LoadState>({ status: "idle" });
+
+  const hasGuild = guildId.trim().length > 0;
+  useEffect(() => {
+    if (!connected || !hasGuild) {
+      setState({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState({ status: "loading" });
+    fetchOptionsSource("discord:channels", { deps: { guildId } })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) setState({ status: "ok", items: res.items });
+        else setState({ status: "error", message: res.message });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "error", message: "Couldn't load Discord channels." });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, hasGuild, guildId]);
+
+  return (
+    <section className="flex flex-col gap-2">
+      <SectionHeading icon="Comment" label="Channel" />
+      <p className="text-xs text-muted-foreground">Pick a channel in the selected server.</p>
+      {!connected ? (
+        <div className="rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Connect Discord to choose a channel.
+        </div>
+      ) : !hasGuild ? (
+        <div className="rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Select a server first.
+        </div>
+      ) : state.status === "loading" ? (
+        <div className="animate-pulse rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-muted-foreground">
+          Loading channels…
+        </div>
+      ) : state.status === "error" ? (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[12px] text-muted-foreground">
+          {state.message}
+        </div>
+      ) : state.status === "ok" ? (
+        <select
+          className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-[13px] text-foreground outline-none focus:border-primary"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label="Discord channel"
+        >
+          <option value="">Select a channel…</option>
+          {state.items.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </section>
   );
 }

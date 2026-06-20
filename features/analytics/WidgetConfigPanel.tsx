@@ -17,6 +17,7 @@ import {
   type ConnectedAppFilterKind,
 } from "./connectedAppSources";
 import { SectionHeading, SourceToggle } from "./widgetConfigParts";
+import { filterDataKey } from "./widgetFilterKeys";
 import { ConnectedAppConfig } from "./WidgetConnectedAppConfig";
 
 /**
@@ -63,23 +64,6 @@ const SOURCE_SCOPED: ReadonlySet<AnalyticsMetric> = new Set<AnalyticsMetric>([
 ]);
 
 const REPO_RE = /^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/;
-
-/** Map a UI filter kind to the server-side `dataSource.filters` key. */
-type FilterDataKey =
-  | "repo" | "channel" | "keyword" | "calendar" | "label" | "folder" | "outlook_calendar" | "board"
-  | "airtable_base" | "airtable_table" | "monday_board" | "hubspot_pipeline" | "mailchimp_audience"
-  | "dropbox_folder" | "onedrive_folder" | "gdrive_folder";
-
-// Kinds not listed use their own name as the data key (repo / keyword / airtable_* /
-// monday_board / hubspot_pipeline — kind === data key).
-const FILTER_KEY_MAP: Partial<Record<ConnectedAppFilterKind, FilterDataKey>> = {
-  slack_channel: "channel", gcal_calendar: "calendar", gmail_label: "label",
-  outlook_folder: "folder", outlookcal_calendar: "outlook_calendar", trello_board: "board",
-};
-
-function filterDataKey(kind: ConnectedAppFilterKind): FilterDataKey {
-  return FILTER_KEY_MAP[kind] ?? (kind as FilterDataKey);
-}
 
 /** Google Calendar's safe default — the viewer's primary calendar (no list scope needed). */
 const DEFAULT_CALENDAR_ID = "primary";
@@ -155,6 +139,14 @@ export function WidgetConfigPanel({
   const [dropboxFolder, setDropboxFolder] = useState(initFilter("dropbox_folder"));
   const [onedriveFolder, setOnedriveFolder] = useState(initFilter("onedrive_folder"));
   const [gdriveFolder, setGdriveFolder] = useState(initFilter("gdrive_folder"));
+  const [discordGuild, setDiscordGuild] = useState(initFilter("discord_guild"));
+  const [discordChannel, setDiscordChannel] = useState(initFilter("discord_channel"));
+  // Changing the server clears the (now-stale) channel selection so a widget can't be
+  // saved with a channel id that belongs to a different server.
+  const onDiscordGuildChange = (v: string) => {
+    setDiscordGuild(v);
+    setDiscordChannel("");
+  };
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -182,6 +174,9 @@ export function WidgetConfigPanel({
     if (kind === "mailchimp_audience") return mailchimpAudience.trim().length > 0;
     // Dropbox / OneDrive / Google Drive folder is optional (blank = all files), so always save-ready.
     if (kind === "dropbox_folder" || kind === "onedrive_folder" || kind === "gdrive_folder") return true;
+    // Discord server + channel are required ids (no "all" fallback).
+    if (kind === "discord_guild") return discordGuild.trim().length > 0;
+    if (kind === "discord_channel") return discordChannel.trim().length > 0;
     return keywordValid; // keyword
   }
   const appSaveReady =
@@ -190,25 +185,19 @@ export function WidgetConfigPanel({
 
   const save = () => {
     if (activeApp && selectedAppMetric) {
+      // Resolved value per filter kind; unlisted kinds (keyword) fall back below.
+      const filterValues: Partial<Record<ConnectedAppFilterKind, string>> = {
+        repo: repo.trim(), slack_channel: channel.trim(), gcal_calendar: calendar.trim(),
+        gmail_label: label.trim(), outlook_folder: folder.trim(), outlookcal_calendar: outlookCalendar.trim(),
+        trello_board: board.trim(), airtable_base: airtableBase.trim(), airtable_table: airtableTable.trim(),
+        monday_board: mondayBoard.trim(), hubspot_pipeline: hubspotPipeline.trim(),
+        mailchimp_audience: mailchimpAudience.trim(), dropbox_folder: dropboxFolder.trim(),
+        onedrive_folder: onedriveFolder.trim(), gdrive_folder: gdriveFolder.trim(),
+        discord_guild: discordGuild.trim(), discord_channel: discordChannel.trim(),
+      };
       const filters: Record<string, string> = {};
       for (const kind of requiredFilters) {
-        const key = filterDataKey(kind);
-        if (kind === "repo") filters[key] = repo.trim();
-        else if (kind === "slack_channel") filters[key] = channel.trim();
-        else if (kind === "gcal_calendar") filters[key] = calendar.trim();
-        else if (kind === "gmail_label") filters[key] = label.trim();
-        else if (kind === "outlook_folder") filters[key] = folder.trim();
-        else if (kind === "outlookcal_calendar") filters[key] = outlookCalendar.trim();
-        else if (kind === "trello_board") filters[key] = board.trim();
-        else if (kind === "airtable_base") filters[key] = airtableBase.trim();
-        else if (kind === "airtable_table") filters[key] = airtableTable.trim();
-        else if (kind === "monday_board") filters[key] = mondayBoard.trim();
-        else if (kind === "hubspot_pipeline") filters[key] = hubspotPipeline.trim();
-        else if (kind === "mailchimp_audience") filters[key] = mailchimpAudience.trim();
-        else if (kind === "dropbox_folder") filters[key] = dropboxFolder.trim();
-        else if (kind === "onedrive_folder") filters[key] = onedriveFolder.trim();
-        else if (kind === "gdrive_folder") filters[key] = gdriveFolder.trim();
-        else filters[key] = keyword.trim();
+        filters[filterDataKey(kind)] = filterValues[kind] ?? keyword.trim();
       }
       onSave({
         source: "any",
@@ -330,6 +319,10 @@ export function WidgetConfigPanel({
                   onOnedriveFolder={setOnedriveFolder}
                   gdriveFolder={gdriveFolder}
                   onGdriveFolder={setGdriveFolder}
+                  discordGuild={discordGuild}
+                  onDiscordGuild={onDiscordGuildChange}
+                  discordChannel={discordChannel}
+                  onDiscordChannel={setDiscordChannel}
                 />
               ) : (
                 <InternalConfig

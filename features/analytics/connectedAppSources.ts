@@ -39,7 +39,9 @@ export type ConnectedAppFilterKind =
   | "mailchimp_audience"
   | "dropbox_folder"
   | "onedrive_folder"
-  | "gdrive_folder";
+  | "gdrive_folder"
+  | "discord_guild"
+  | "discord_channel";
 
 export interface ConnectedAppMetricOption {
   /** Metric key — MUST match an approved metric in the source registry. */
@@ -552,6 +554,46 @@ const GOOGLE_DRIVE: ConnectedAppSourceUi = {
   },
 };
 
+const DISCORD: ConnectedAppSourceUi = {
+  provider: "discord",
+  displayName: "Discord",
+  exposed: true,
+  icon: "Comment",
+  connectHref: "/apps",
+  connectTitle: "Connect your Discord",
+  connectHelp: "This widget uses your own Discord connection. Connect it to see your data.",
+  connectCtaLabel: "Connect Discord",
+  // Personal credential gate — each viewer needs their own Discord connection
+  // (core/integrations/credentialSharing.ts -> "personal"). Reads run as the global
+  // ChainReact bot, so the data is server/channel structure + counts, never a
+  // co-member's private data; cache is still per-viewer isolated.
+  visibility: "personal",
+  attributionPrefix: "Your Discord",
+  metricsByType: {
+    stat: [
+      { id: "server_channels_count", label: "Text channels", filters: ["discord_guild"] },
+      { id: "server_member_count", label: "Server members", filters: ["discord_guild"] },
+      { id: "active_channels_count", label: "Active channels", filters: ["discord_guild"] },
+      { id: "messages_count", label: "Messages in channel", filters: ["discord_guild", "discord_channel"] },
+    ],
+    line: [
+      {
+        id: "channel_messages_over_time",
+        label: "Messages over time",
+        filters: ["discord_guild", "discord_channel"],
+      },
+    ],
+    bar: [
+      {
+        id: "channel_messages_over_time",
+        label: "Messages over time",
+        filters: ["discord_guild", "discord_channel"],
+      },
+      { id: "messages_by_channel", label: "Messages by channel", filters: ["discord_guild"] },
+    ],
+  },
+};
+
 const ALL: readonly ConnectedAppSourceUi[] = [
   GITHUB,
   SLACK,
@@ -570,6 +612,7 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   DROPBOX,
   ONEDRIVE,
   GOOGLE_DRIVE,
+  DISCORD,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

@@ -17,6 +17,7 @@ import { mailchimpAnalyticsSource } from "./mailchimp";
 import { dropboxAnalyticsSource } from "./dropbox";
 import { microsoftOneDriveAnalyticsSource } from "./microsoft-onedrive";
 import { googleDriveAnalyticsSource } from "./google-drive";
+import { discordAnalyticsSource } from "./discord";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -83,6 +84,10 @@ import { googleDriveAnalyticsSource } from "./google-drive";
  *     traversal → file / folder counts + files-modified over-time + files-by-type,
  *     personal refreshable credential, metadata-only fields mask, no file
  *     name/path/webViewLink/owner/content read) — ANALYTICS-SOURCES-GDRIVE-1.
+ *   - DISCORD (connected app, read-only bot-token reads → server channel/member
+ *     counts + messages over-time / by-channel / count + active-channels, personal
+ *     credential gate, strictly count-only + metadata-only, no message
+ *     content/author/username/user-id/member-listing read) — ANALYTICS-SOURCES-DISCORD-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -113,6 +118,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   dropboxAnalyticsSource,
   microsoftOneDriveAnalyticsSource,
   googleDriveAnalyticsSource,
+  discordAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

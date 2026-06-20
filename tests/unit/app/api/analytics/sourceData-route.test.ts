@@ -222,6 +222,24 @@ it("forwards the gdrive_folder filter for provider=google-drive (session account
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the discord_guild + discord_channel filters for provider=discord (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request(
+      "http://localhost/api/analytics/sources/discord/data?metric=messages_count&range=30d&discord_guild=112233445566778899&discord_channel=998877665544332211",
+    ),
+    { params: Promise.resolve({ provider: "discord" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("discord");
+  expect(call.metricKey).toBe("messages_count");
+  expect(call.filters).toEqual({
+    discord_guild: "112233445566778899",
+    discord_channel: "998877665544332211",
+  });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

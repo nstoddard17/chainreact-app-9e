@@ -16,6 +16,8 @@ export {
   SlackChannelField,
   GmailLabelField,
   OutlookFolderField,
+  DiscordGuildField,
+  DiscordChannelField,
 } from "./WidgetConnectedAppPickersCommunication";
 
 export {
