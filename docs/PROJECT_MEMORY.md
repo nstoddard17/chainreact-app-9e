@@ -107,6 +107,19 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-7 approval-governance PLAN (docs-only) — LOCAL/UNPUSHED (2026-06-19)** — design before wiring
+  any `requires_approval` apply. Finding: the apply path (`/ai/repair/apply` → `applyRepairPatch` →
+  validateWorkflowPatch + assessApplyReadiness + executeWorkflowPatch + optimistic `updateDraftDefinitionIfRevisionMatches`)
+  is ALREADY deterministic, revalidating, optimistic-concurrency-guarded, no-leak, lifecycle-safe (blocks trigger
+  changes instead of deactivating), and treats model output as advisory-only (validator recomputes risk). Real gaps
+  are governance-shaped: NOT through the seam, NO audit row, NO proposal↔apply correlation id, no first-class
+  approver. **Recommend NO new table** (A/C hybrid): route apply through `runAuthorizedCapability`, emit
+  `repair_apply`/`requires_approval`/`react_agent.repair_apply` audit (actor_user_id = approver), correlate via a
+  deterministic content-hash `proposed_patch_ref` (storage-free) on both the CS-6 preview row + the apply row; new
+  intent `apply_repair`, creditFeature null, apply NEVER calls the model. Durable `react_agent_approvals` table
+  DEFERRED (CS-7f) until server-minted proposals/one-time tokens have a driver. Next: CS-7b patch-ref helper →
+  CS-7c register repair_apply → CS-7d route+emit → CS-7e live smoke. →
+  [`react-agent-cs-7-approval-governance-plan.md`](./slices/phase-4/ai/react-agent-cs-7-approval-governance-plan.md).
 - **React Agent CS-6 repair PROPOSAL wiring — LOCAL/UNPUSHED, first `proposes_change` capability (2026-06-19)** —
   registers `repair_proposal` (intent `propose_repair`, mode `proposes_change`, creditFeature `workflow_repair`,
   auditKind `react_agent.repair_proposal`) and routes BOTH live LLM proposal routes' model brain through
