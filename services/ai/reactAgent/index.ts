@@ -12,6 +12,8 @@
 
 import {
   RECOGNIZED_REACT_AGENT_INTENTS,
+  type ReactAgentCapabilityOutcome,
+  type ReactAgentIntent,
   type ReactAgentRequest,
   type ReactAgentResponse,
   type ReactAgentScope,
@@ -26,6 +28,7 @@ export type {
   ReactAgentResponse,
   ReactAgentNextAction,
   ReactAgentRejectionReason,
+  ReactAgentCapabilityOutcome,
   ReactAgentService,
 } from "./types";
 export { RECOGNIZED_REACT_AGENT_INTENTS } from "./types";
@@ -85,10 +88,39 @@ export async function dispatchReactAgentRequest(
 }
 
 /**
- * CS-1 boundary implementation of the `ReactAgentService` contract. A thin object wrapper
- * around the dispatcher so callers can depend on the interface; CS-2+ can swap in a real
- * implementation behind the same seam (and, later, an `AgentRuntimeAdapter` for Hermes).
+ * Server-side execution seam (CS-2). The CALLER (a route) must have ALREADY performed
+ * auth + account-membership + safe-DTO derivation + `aiCreditGate` before invoking this.
+ * The boundary only:
+ *   1. validates the scope SHAPE (it does NOT grant access — the route already did);
+ *   2. rejects an `unknown` intent;
+ *   3. runs the injected `exec` and returns its EXACT result.
+ *
+ * No model/HTTP/gate/mutation here — `exec` is the already-authorized brain call, bound by
+ * the route. On the wired path the result is always `{ ok: true, result }`; the `ok:false`
+ * branches guard server-side invariants (a future audit hook lives at this single seam).
+ */
+export async function runAuthorizedCapability<T>(input: {
+  scope: ReactAgentScope;
+  intent: ReactAgentIntent;
+  exec: () => Promise<T>;
+}): Promise<ReactAgentCapabilityOutcome<T>> {
+  if (!isValidReactAgentScope(input.scope)) {
+    return { ok: false, reason: "invalid_scope", message: COPY.invalid_scope };
+  }
+  if (input.intent === "unknown") {
+    return { ok: false, reason: "unsupported_intent", message: COPY.unsupported_intent };
+  }
+  const result = await input.exec();
+  return { ok: true, result };
+}
+
+/**
+ * Boundary implementation of the `ReactAgentService` contract. `handle` is the user-facing
+ * text seam (CS-1); `runAuthorizedCapability` is the server-side execution seam (CS-2).
+ * CS-3+ can swap in richer implementations behind the same interface (and, later, an
+ * `AgentRuntimeAdapter` for Hermes).
  */
 export const reactAgentService: ReactAgentService = {
   handle: dispatchReactAgentRequest,
+  runAuthorizedCapability,
 };

@@ -103,11 +103,40 @@ export type ReactAgentResponse =
     };
 
 /**
- * The React Agent boundary contract. CS-1 ships a no-op implementation
- * (`dispatchReactAgentRequest`) that validates scope and returns safe rejections; CS-2+
- * replace the `not_yet_available` branches with delegation to the existing gated routes.
- * Async by design so the signature does not churn when real (async) handlers land.
+ * Outcome of a server-side authorized capability run (see `runAuthorizedCapability`).
+ * On success it carries the EXACT result of the injected `exec` (e.g. the Q&A brain's
+ * structured result), so the calling route's downstream telemetry + response mapping stay
+ * unchanged. On failure it carries a safe rejection reason — these only fire for true
+ * server-side invariants (blank scope / `unknown` intent), never for normal brain output.
+ */
+export type ReactAgentCapabilityOutcome<T> =
+  | { readonly ok: true; readonly result: T }
+  | {
+      readonly ok: false;
+      readonly reason: ReactAgentRejectionReason;
+      readonly message: string;
+    };
+
+/**
+ * The React Agent boundary contract.
+ *
+ * Two distinct seams:
+ *   - `handle` — the USER-FACING text seam (CS-1). Validates scope, returns safe copy;
+ *     recognized intents return `not_yet_available` until a UI/tool path wires them.
+ *   - `runAuthorizedCapability` — the SERVER-SIDE execution seam (CS-2). A route that has
+ *     ALREADY done auth + account-membership + safe-DTO derivation + `aiCreditGate` runs the
+ *     already-gated brain call THROUGH this seam. The boundary validates scope + intent and
+ *     invokes the injected `exec` — it imports no brain, calls no HTTP, and re-implements no
+ *     gate. This is the single seam a later audit slice (CS-4) hooks into.
+ *
+ * Both async so signatures don't churn as real handlers land (CS-3+ / Hermes adapter).
  */
 export interface ReactAgentService {
   handle(request: ReactAgentRequest): Promise<ReactAgentResponse>;
+  runAuthorizedCapability<T>(input: {
+    readonly scope: ReactAgentScope;
+    readonly intent: ReactAgentIntent;
+    /** The already-authorized, already-gated capability execution (route-bound). */
+    readonly exec: () => Promise<T>;
+  }): Promise<ReactAgentCapabilityOutcome<T>>;
 }

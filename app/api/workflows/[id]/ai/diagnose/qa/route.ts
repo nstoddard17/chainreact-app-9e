@@ -22,6 +22,7 @@ import {
   createModelClientForModel,
   isOpenAiProviderEnabled,
 } from "@/services/ai/modelClients/createModelClient";
+import { reactAgentService } from "@/services/ai/reactAgent";
 import { loadWorkflowForMember, requireUser } from "../../../../_shared";
 
 /**
@@ -231,13 +232,36 @@ export async function POST(
   const selectedNode = buildSelectedNodeDataSummary(definition, selectedNodeId);
 
   const client = createModelClientForModel(getModelForProviderTier("openai", MODEL_TIER), apiKey);
-  const result = await answerWorkflowQuestion({
-    dto,
-    question,
-    ...(selectedNode ? { selectedNode } : {}),
-    modelClient: client,
-    tier: MODEL_TIER,
+  // REACT-AGENT-CS-2 — run the ALREADY-authorized, ALREADY-gated Q&A brain call THROUGH the
+  // React Agent service boundary. Auth, membership, safe-DTO re-derivation, the OpenAI-config
+  // check, and `aiCreditGate` (above) all stay route-owned; the boundary only validates the
+  // scope shape + intent and invokes the injected brain call — no HTTP, no gate, no mutation.
+  const outcome = await reactAgentService.runAuthorizedCapability({
+    scope: { userId: auth.userId, accountId, workflowId: id },
+    intent: "answer_diagnosis_question",
+    exec: () =>
+      answerWorkflowQuestion({
+        dto,
+        question,
+        ...(selectedNode ? { selectedNode } : {}),
+        modelClient: client,
+        tier: MODEL_TIER,
+      }),
   });
+  if (!outcome.ok) {
+    // Unreachable on the wired path (route guarantees a valid scope + the answer intent);
+    // mapped to the same safe 503 as a model failure so the response contract is unchanged.
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "MODEL_FAILED",
+        message: "Couldn't answer that right now. Please try again.",
+        errors: [{ stage: "model", code: "MODEL_FAILED", message: "Answer unavailable." }],
+      },
+      { status: 503 },
+    );
+  }
+  const result = outcome.result;
 
   // Fail-open telemetry, billed to the workflow-owning account.
   await recordQaEvent(accountId, auth.userId, id, result);

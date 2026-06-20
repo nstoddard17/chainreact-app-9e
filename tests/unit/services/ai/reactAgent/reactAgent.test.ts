@@ -7,6 +7,7 @@ import {
   dispatchReactAgentRequest,
   isValidReactAgentScope,
   reactAgentService,
+  runAuthorizedCapability,
   RECOGNIZED_REACT_AGENT_INTENTS,
   type ReactAgentRequest,
   type ReactAgentScope,
@@ -61,6 +62,48 @@ describe("ReactAgent boundary — intent dispatch (CS-1 no-op)", () => {
   it("reactAgentService.handle delegates to the dispatcher", async () => {
     const res = await reactAgentService.handle(req("explain_diagnosis"));
     expect(res.ok).toBe(false);
+  });
+});
+
+describe("ReactAgent boundary — runAuthorizedCapability (CS-2 server seam)", () => {
+  it("runs the injected exec and returns its EXACT result for a valid scope + intent", async () => {
+    const exec = jest.fn().mockResolvedValue({ ok: true, answer: "because it has no trigger" });
+    const outcome = await runAuthorizedCapability({
+      scope: okScope,
+      intent: "answer_diagnosis_question",
+      exec,
+    });
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ ok: true, result: { ok: true, answer: "because it has no trigger" } });
+  });
+
+  it("does NOT run exec when scope is invalid (no side effect) → invalid_scope", async () => {
+    const exec = jest.fn().mockResolvedValue("nope");
+    const outcome = await runAuthorizedCapability({
+      scope: { userId: "", accountId: "acc1" },
+      intent: "answer_diagnosis_question",
+      exec,
+    });
+    expect(exec).not.toHaveBeenCalled();
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("invalid_scope");
+  });
+
+  it("does NOT run exec for an unknown intent (no side effect) → unsupported_intent", async () => {
+    const exec = jest.fn().mockResolvedValue("nope");
+    const outcome = await runAuthorizedCapability({ scope: okScope, intent: "unknown", exec });
+    expect(exec).not.toHaveBeenCalled();
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("unsupported_intent");
+  });
+
+  it("is exposed on reactAgentService and propagates the brain result", async () => {
+    const outcome = await reactAgentService.runAuthorizedCapability({
+      scope: okScope,
+      intent: "answer_diagnosis_question",
+      exec: async () => ({ ok: false, code: "MODEL_FAILED" }),
+    });
+    expect(outcome).toEqual({ ok: true, result: { ok: false, code: "MODEL_FAILED" } });
   });
 });
 

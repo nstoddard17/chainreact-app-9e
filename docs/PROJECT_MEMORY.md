@@ -107,18 +107,21 @@
 
 ## Recently completed arcs
 
-- **React Agent CS-1 — service boundary (first product-AI code) — LOCAL/UNPUSHED (2026-06-19)** — narrow
-  account-scoped seam under `services/ai/reactAgent/` (`types.ts` + no-op `index.ts`): `ReactAgentScope`
+- **React Agent CS-1 (boundary) + CS-2 (Q&A wiring) — first product-AI code — LOCAL/UNPUSHED (2026-06-19)** —
+  narrow account-scoped seam under `services/ai/reactAgent/`. **CS-1** (`193627693`): `ReactAgentScope`
   (userId+accountId required; workflowId?/conversationId? optional), `ReactAgentIntent`
-  (explain_diagnosis/answer_diagnosis_question/propose_repair/unknown), `ReactAgentRequest/Response`
-  (safe DTO; ok-message+nextAction?/proposedPatchRef? | ok:false+reason+safe copy), `ReactAgentService`.
-  `dispatchReactAgentRequest` is pure: invalid scope→invalid_scope, unknown→unsupported_intent,
-  recognized→not_yet_available; **no model/tool/mutation/DB/MCP/fs/child_process/service-role**. Durable
-  import-guard test enforces that. CS-2+ wire the recognized intents to the EXISTING gated brains
-  (answerWorkflowQuestion/explainWorkflowDiagnosis/repair preview) THROUGH their routes (auth+aiCreditGate
-  +telemetry stay route-owned); DTO re-derived server-side, never posted through the boundary. No route/UI/
-  conversation/queue/Hermes. Verified: reactAgent suites 16, typecheck 0, eslint 0, lint:structure OK →
-  [`react-agent-cs-1-service-boundary.md`](./slices/phase-4/ai/react-agent-cs-1-service-boundary.md).
+  (explain_diagnosis/answer_diagnosis_question/propose_repair/unknown), `ReactAgentRequest/Response`,
+  `ReactAgentService`; pure `dispatchReactAgentRequest` (invalid_scope/unsupported_intent/not_yet_available),
+  **no model/tool/mutation/DB/MCP/fs/child_process/service-role** — durable import-guard test enforces it.
+  **CS-2**: added a SERVER seam `runAuthorizedCapability<T>({scope,intent,exec})` (validates scope/intent,
+  runs the injected already-gated brain call, returns its exact result — still imports no brain/HTTP/gate).
+  The Q&A route `…/ai/diagnose/qa` now runs `answerWorkflowQuestion` THROUGH the seam; **route keeps owning
+  requireUser+membership+server-derived safe DTO+aiCreditGate(before model)+telemetry+response mapping —
+  frontend contract unchanged.** Path = `route guard/DTO/gate → React Agent → brain` (never agent→HTTP, never
+  bypass). User-facing `handle` still returns not_yet_available (no DTO there); CS-3 tool registry connects
+  the two. explain/propose still unwired. Verified: reactAgent+qa-route+brain 48, builder Q&A client 38,
+  eslint 0, lint:structure OK, touched files typecheck-clean (one unrelated analytics WIP tsc error) →
+  [`react-agent-cs-2-diagnosis-qa-wiring.md`](./slices/phase-4/ai/react-agent-cs-2-diagnosis-qa-wiring.md).
 - **AI architecture direction CORRECTED: React Agent + MCP + Hermes split — LOCAL/UNPUSHED (2026-06-19)** —
   **React Agent** = in-app customer-facing assistant (the product AI path, **first**); **MCP** =
   external/diagnostic **adapter** for ChatGPT/Claude/internal tools, **NOT** a dependency of the in-app
