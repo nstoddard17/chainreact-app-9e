@@ -38,18 +38,27 @@ export interface ReactAgentScope {
 }
 
 /**
- * Recognized agent intents. These map to ALREADY-SHIPPED, safe capabilities the agent
- * will orchestrate over in CS-2+ (read-only Explain / Q&A, and approval-gated repair
- * PROPOSAL — never autonomous apply). `unknown` is the explicit catch-all for anything
- * the boundary does not recognize.
+ * Agent intents. Most map to ALREADY-SHIPPED, safe capabilities the agent will orchestrate
+ * over (read-only Explain / Q&A, and the approval-gated repair PROPOSAL). `apply_repair`
+ * (CS-7c) is the `requires_approval` APPLY intent — it is a valid intent so the capability
+ * registry + `runAuthorizedCapability` can match it, but it is deliberately NOT in the
+ * free-text recognized set below: an approved apply must ONLY run through the explicit
+ * `runAuthorizedCapability` approval seam, never via the user-facing `handle()` text path.
+ * `unknown` is the explicit catch-all for anything the boundary does not recognize.
  */
 export type ReactAgentIntent =
   | "explain_diagnosis"
   | "answer_diagnosis_question"
   | "propose_repair"
+  | "apply_repair"
   | "unknown";
 
-/** The recognized (non-`unknown`) intents, for validation + exhaustiveness. */
+/**
+ * The recognized (non-`unknown`) intents the free-text `handle()` seam will route. NOTE:
+ * `apply_repair` is INTENTIONALLY EXCLUDED — apply is a mutation that must be gated behind
+ * explicit approval through `runAuthorizedCapability`, so the text seam refuses it
+ * (`unsupported_intent`) and can never initiate an apply.
+ */
 export const RECOGNIZED_REACT_AGENT_INTENTS = [
   "explain_diagnosis",
   "answer_diagnosis_question",

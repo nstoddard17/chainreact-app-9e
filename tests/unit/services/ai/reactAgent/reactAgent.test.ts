@@ -53,6 +53,14 @@ describe("ReactAgent boundary — intent dispatch (CS-1 no-op)", () => {
     if (!res.ok) expect(res.reason).toBe("unsupported_intent");
   });
 
+  it("the free-text handle() REFUSES apply_repair (unsupported_intent) — never initiates apply (CS-7c)", async () => {
+    // apply_repair is a valid intent but intentionally NOT in the recognized free-text set:
+    // an approved apply must only run through runAuthorizedCapability, never via handle().
+    const res = await dispatchReactAgentRequest(req("apply_repair"));
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.reason).toBe("unsupported_intent");
+  });
+
   it.each(RECOGNIZED_REACT_AGENT_INTENTS)(
     "recognized intent '%s' returns not_yet_available in CS-1 (no model/mutation)",
     async (intent) => {
@@ -98,6 +106,18 @@ describe("ReactAgent capability registry (CS-3)", () => {
       creditFeature: "workflow_repair",
       auditKind: "react_agent.repair_proposal",
     });
+  });
+
+  it("registers repair_apply as the first requires_approval capability for apply_repair (CS-7c)", () => {
+    expect(getReactAgentCapability("repair_apply")).toMatchObject({
+      id: "repair_apply",
+      allowedIntent: "apply_repair",
+      mode: "requires_approval",
+      creditFeature: null,
+      auditKind: "react_agent.repair_apply",
+    });
+    // creditFeature is explicitly null — apply is deterministic / 0-credit (never a model call).
+    expect(getReactAgentCapability("repair_apply")?.creditFeature).toBeNull();
   });
 
   it("returns undefined for an unregistered capability id", () => {
@@ -146,6 +166,33 @@ describe("ReactAgent boundary — runAuthorizedCapability (CS-3 registry-gated s
     });
     expect(exec).toHaveBeenCalledTimes(1);
     expect(outcome).toEqual({ ok: true, result: { ok: true, explanation: "needs a trigger" } });
+  });
+
+  it("runs repair_apply ONLY for apply_repair (registry-matched) — CS-7c", async () => {
+    const exec = jest.fn().mockResolvedValue({ ok: true, applied: true });
+    const outcome = await runAuthorizedCapability({
+      scope: okScope,
+      intent: "apply_repair",
+      capabilityId: "repair_apply",
+      exec,
+    });
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ ok: true, result: { ok: true, applied: true } });
+  });
+
+  it("does NOT run repair_apply with any other intent → intent_mismatch (CS-7c)", async () => {
+    const exec = jest.fn();
+    for (const intent of ["propose_repair", "answer_diagnosis_question", "explain_diagnosis", "unknown"] as const) {
+      const outcome = await runAuthorizedCapability({
+        scope: okScope,
+        intent,
+        capabilityId: "repair_apply",
+        exec,
+      });
+      expect(outcome.ok).toBe(false);
+      if (!outcome.ok) expect(outcome.reason).toBe("intent_mismatch");
+    }
+    expect(exec).not.toHaveBeenCalled();
   });
 
   it("rejects a registered capability called with the WRONG matching intent (explain id + qa intent)", async () => {

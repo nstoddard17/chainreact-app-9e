@@ -107,6 +107,17 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-7c repair-apply CAPABILITY (registration only) — LOCAL/UNPUSHED (2026-06-19)** — registers the
+  first `requires_approval` capability. New intent `apply_repair` added to `ReactAgentIntent` but DELIBERATELY NOT
+  in `RECOGNIZED_REACT_AGENT_INTENTS` → free-text `handle()` refuses it (`unsupported_intent`); apply reachable
+  ONLY via `runAuthorizedCapability`. Capability `repair_apply` (allowedIntent `apply_repair`, mode
+  `requires_approval`, creditFeature null [deterministic/0-credit], auditKind `react_agent.repair_apply`).
+  Registration does nothing alone — no route binds `exec`, so NO mutation/route-change. Apply route/service
+  (`/ai/repair/apply`, applyRepairPatch, executeWorkflowPatch) UNTOUCHED; no schema/UI. Verified: 193 tests
+  (7 suites: registration metadata, repair_apply matches only apply_repair else intent_mismatch no-exec,
+  unknown/invalid-scope fail-closed, handle() refuses apply, existing caps green), typecheck clean, eslint 0,
+  lint:structure OK. Next CS-7d: route apply through seam + emit `react_agent.repair_apply` reusing repairPatchRef
+  (proposal↔apply match). → [`react-agent-cs-7c-repair-apply-capability.md`](./slices/phase-4/ai/react-agent-cs-7c-repair-apply-capability.md).
 - **React Agent CS-7b repair PATCH-REF — LOCAL/UNPUSHED (2026-06-19)** — deterministic opaque one-way patch ref
   + threaded into the repair PREVIEW audit row. Helper `services/ai/repair/repairPatchRef.ts`:
   `repairPatchRef({workflowId,baseRevision,operations}) → "repair_patch_sha256:<64hex>"` or null (fail-safe);

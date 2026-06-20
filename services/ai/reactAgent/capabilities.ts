@@ -21,13 +21,15 @@ import type { ReactAgentIntent } from "./types";
 export type ReactAgentCapabilityId =
   | "diagnosis_qa"
   | "diagnosis_explain"
-  | "repair_proposal";
+  | "repair_proposal"
+  | "repair_apply";
 
 /**
  * How a capability affects workflow state. Drives later approval/audit policy. CS-3/CS-4
- * wired only `read_only` capabilities; CS-6 wires the first `proposes_change` capability
- * (repair proposal — propose + preview only, NEVER autonomous apply). `requires_approval`
- * stays declared-only for the future approved-apply capability.
+ * wired only `read_only` capabilities; CS-6 wired the first `proposes_change` capability
+ * (repair proposal — propose + preview only, NEVER autonomous apply). CS-7c REGISTERS the
+ * first `requires_approval` capability (`repair_apply`) — registration only; the apply route
+ * is NOT wired through the seam yet (CS-7d), so nothing mutates a workflow via this capability.
  */
 export type ReactAgentCapabilityMode =
   | "read_only"
@@ -58,8 +60,13 @@ export interface ReactAgentCapabilityDefinition {
  * `repair_proposal` covers BOTH LLM repair-proposal routes — `…/ai/repair/plan`
  * (natural-language proposal, `planWorkflowRepair`) and `…/ai/repair/preview`
  * (validated-patch preview, `previewWorkflowRepair`) — since both GENERATE an AI repair
- * proposal and charge `workflow_repair`. It is PROPOSE + PREVIEW only: `…/ai/repair/apply`
- * (the guarded persistence path) is NOT a React Agent capability and stays unwired.
+ * proposal and charge `workflow_repair`. It is PROPOSE + PREVIEW only.
+ *
+ * `repair_apply` (CS-7c) is the `requires_approval` APPLY capability — `creditFeature: null`
+ * because apply is deterministic and 0-credit (never a model call). REGISTERED ONLY: the
+ * guarded persistence route `…/ai/repair/apply` is NOT yet routed through `runAuthorizedCapability`
+ * (CS-7d), so registering this id mutates nothing. Until then it is reachable only as a
+ * registry entry that `runAuthorizedCapability` would match for the `apply_repair` intent.
  */
 export const REACT_AGENT_CAPABILITIES: Readonly<
   Record<ReactAgentCapabilityId, ReactAgentCapabilityDefinition>
@@ -84,6 +91,13 @@ export const REACT_AGENT_CAPABILITIES: Readonly<
     mode: "proposes_change",
     creditFeature: "workflow_repair",
     auditKind: "react_agent.repair_proposal",
+  }),
+  repair_apply: Object.freeze({
+    id: "repair_apply",
+    allowedIntent: "apply_repair",
+    mode: "requires_approval",
+    creditFeature: null,
+    auditKind: "react_agent.repair_apply",
   }),
 });
 
