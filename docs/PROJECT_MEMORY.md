@@ -107,6 +107,20 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-5b audit STORAGE — LOCAL/UNPUSHED, migration NOT applied (2026-06-19)** — storage only,
+  no runtime emission. Migration `20260705000000_react_agent_audit_events.sql` creates the account-scoped
+  governance ledger (cols account_id/actor_user_id/workflow_id/conversation_id/capability_id/intent/mode/
+  credit_feature/audit_kind/outcome/reason/proposed_patch_ref/approval_id/ai_cost_event_id link/metadata/
+  anonymized_at/ledger_purge_after/created_at; CHECKs outcome∈success|denied|failed, mode∈read_only|
+  proposes_change|requires_approval, jsonb_typeof metadata=object, text caps; no raw-payload cols). RLS:
+  member-only read via account_memberships, **service-role-write-only** (no user write policy/grant), GRANT
+  authenticated SELECT only. **Deletion = anonymize-retain** (all FKs ON DELETE SET NULL, NO cascade; mirrors
+  ai_cost_events 20260531000008). Repo `repositories/reactAgentAuditEvents.ts` (insertAuditEvent service-role +
+  listAuditEventsForAccount RLS member read; metadata→object, detail-free DB error). `runAuthorizedCapability`
+  UNCHANGED — emission is CS-5c (recorder) + CS-5d (inject into seam, route attaches ai_cost_event_id). Verified:
+  repo+migration-shape tests 12, lint:migrations OK, typecheck 0, eslint 0, lint:structure OK. **`db:push` NOT
+  run — awaiting Marcus review; live RLS/CHECK DB tests after approval.** →
+  [`react-agent-cs-5b-audit-storage.md`](./slices/phase-4/ai/react-agent-cs-5b-audit-storage.md).
 - **React Agent CS-5 audit-seam PLAN (docs-only) — LOCAL/UNPUSHED (2026-06-19)** — design before wiring any
   proposes-change capability. **Recommend a NEW account-scoped `react_agent_audit_events` table** (cols:
   account_id owner, actor_user_id, workflow_id?, conversation_id?, capability_id, intent, mode, credit_feature,
