@@ -45,6 +45,10 @@ drift.
 | `SMOKE_SLACK_USER_ID=<U…>` | Slack `get_user_info` | A Slack user id to look up. Unset → SKIP. |
 | `SMOKE_SLACK_THREAD_TS=<ts>` | Slack `get_thread_messages` | A parent thread ts in the smoke channel. Unset → SKIP. |
 | `SMOKE_SLACK_FILE_ID=<F…>` | Slack `get_file_info` | A Slack file id to look up. Unset → SKIP. |
+| `SMOKE_AIRTABLE_CONNECTED=1` | Airtable fixtures | Signals the smoke account has Airtable connected. Unset → Airtable fixtures SKIP. |
+| `SMOKE_AIRTABLE_BASE_ID=<app…>` | Airtable fixtures | The base id. Unset → SKIP. |
+| `SMOKE_AIRTABLE_TABLE_ID=<tbl… or name>` | Airtable `get_table_schema`, `list_records`, `find_record`, `get_record` | The table id or name (`tableIdOrName`). Unset → SKIP. |
+| `SMOKE_AIRTABLE_RECORD_ID=<rec…>` | Airtable `get_record` | A record id to fetch. Unset → SKIP. |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -129,15 +133,19 @@ Rules:
 | `slack:get_thread_messages` | read | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID`, `SMOKE_SLACK_THREAD_TS` | conversations.replies. |
 | `slack:get_file_info` | read | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_FILE_ID` | files.info. |
 | `airtable:get_base_schema` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID` | Schema metadata (not records). |
+| `airtable:get_table_schema` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID`, `SMOKE_AIRTABLE_TABLE_ID` | One table's field metadata. |
+| `airtable:list_records` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID`, `SMOKE_AIRTABLE_TABLE_ID` | One small page of records. |
+| `airtable:find_record` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID`, `SMOKE_AIRTABLE_TABLE_ID` | First record (`TRUE()` formula). |
+| `airtable:get_record` | read | ✅ | `SMOKE_AIRTABLE_CONNECTED`, `SMOKE_AIRTABLE_BASE_ID`, `SMOKE_AIRTABLE_TABLE_ID`, `SMOKE_AIRTABLE_RECORD_ID` | Single record by id. |
 | `google-sheets:get_sheet_metadata` | read | ✅ | `SMOKE_GOOGLE_SHEETS_CONNECTED`, `SMOKE_GSHEETS_SPREADSHEET_ID` | Sheet structure (not cells). |
 | `google-drive:list_files` | read | ✅ | `SMOKE_GOOGLE_DRIVE_CONNECTED` | File list (metadata only). |
 | `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
 | `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
 
-Coverage: **14 fixtures** (12 read / 1 write / 1 destructive), 13 `liveSafe`, across
+Coverage: **18 fixtures** (16 read / 1 write / 1 destructive), 17 `liveSafe`, across
 5 providers (native, slack, airtable, google-sheets, google-drive). **Slack: 10
-fixtures** (8 read / 1 write / 1 destructive). The CLI prints a `Coverage:` line;
-`--json` exposes it as `coverage`.
+fixtures** (8 read / 1 write / 1 destructive); **Airtable: 5 fixtures** (all read).
+The CLI prints a `Coverage:` line; `--json` exposes it as `coverage`.
 
 **Slack-only inventory:** `npm run smoke:actions -- --provider slack`.
 
@@ -167,6 +175,27 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   `download_file` (file side effects), `post_interactive_blocks`. Deferred for the
   same reason.
 - **Destructive** — `delete_message` stays inventory/handler-only (non-`liveSafe`).
+
+**Airtable-only inventory:** `npm run smoke:actions -- --provider airtable`.
+
+**Airtable live read run** (`get_base_schema` needs only the base; the others also
+need a table id; `get_record` also needs a record id, else SKIP):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_AIRTABLE_CONNECTED=1 \
+  SMOKE_AIRTABLE_BASE_ID=<app…> SMOKE_AIRTABLE_TABLE_ID=<tbl… or name> \
+  npm run smoke:actions:run:workflow:live
+```
+
+**Airtable actions still uncovered / deferred (5 covered of 11 registered):**
+
+- All remaining Airtable actions are **writes / destructive** and are deferred (they
+  mutate a base without a safe cleanup pattern): `create_record`, `update_record`,
+  `delete_record` (destructive), `add_attachment`, `create_multiple_records`,
+  `update_multiple_records`. The 5 covered are all read-only (`get_base_schema`,
+  `get_table_schema`, `list_records`, `find_record`, `get_record`).
 
 ## Commands
 
@@ -351,7 +380,6 @@ Next recommended **read-only** batches (all `liveRisk: "read"`, `liveSafe: true`
 
 - **More Slack reads:** `get_user_info` (needs a user id), `get_messages` /
   `get_thread_messages` (need a channel + ts).
-- **More Airtable reads:** `list_records`, `get_table_schema` (need base + table id).
 - **More Google Sheets reads:** `read_rows`, `get_cell_value` (need spreadsheet +
   range/cell).
 - **Notion reads:** `get_user`, `list_users`, `search` (need a connected Notion).
@@ -366,16 +394,16 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **14 fixtures** (12 read / 1 write / 1 destructive)
-  across 5 providers (Slack: 10) — `npm run smoke:actions` shows the full gap (272
-  of 286 registered actions have no fixture yet). This harness is the foundation for
-  growing that, not a claim of broad coverage.
+- **Coverage is still small:** **18 fixtures** (16 read / 1 write / 1 destructive)
+  across 5 providers (Slack: 10, Airtable: 5) — `npm run smoke:actions` shows the
+  full gap (268 of 286 registered actions have no fixture yet). This harness is the
+  foundation for growing that, not a claim of broad coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 13 today
-  (12 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 17 today
+  (16 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
   test forbids one). Selector-dependent reads (`get_user_info`, `get_thread_messages`,
   `get_file_info`, and the non-Slack reads) only run when their id/connection env is
   set; otherwise they SKIP.

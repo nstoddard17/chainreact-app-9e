@@ -24,6 +24,11 @@ import slackGetMessages from "@/tests/fixtures/action-smoke/slack/get_messages";
 import slackListScheduledMessages from "@/tests/fixtures/action-smoke/slack/list_scheduled_messages";
 import slackGetThreadMessages from "@/tests/fixtures/action-smoke/slack/get_thread_messages";
 import slackGetFileInfo from "@/tests/fixtures/action-smoke/slack/get_file_info";
+// SMOKE-ACTIONS-7 — Airtable-only read-only batch.
+import airtableGetTableSchema from "@/tests/fixtures/action-smoke/airtable/get_table_schema";
+import airtableListRecords from "@/tests/fixtures/action-smoke/airtable/list_records";
+import airtableFindRecord from "@/tests/fixtures/action-smoke/airtable/find_record";
+import airtableGetRecord from "@/tests/fixtures/action-smoke/airtable/get_record";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -40,4 +45,8 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   slackListScheduledMessages,
   slackGetThreadMessages,
   slackGetFileInfo,
+  airtableGetTableSchema,
+  airtableListRecords,
+  airtableFindRecord,
+  airtableGetRecord,
 ];
