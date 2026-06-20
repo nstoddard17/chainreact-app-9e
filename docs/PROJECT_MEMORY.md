@@ -107,6 +107,18 @@
 
 ## Recently completed arcs
 
+- **React Agent CS-7e apply-audit LIVE SMOKE — LOCAL/UNPUSHED, 4/4 PASSED + cleaned (2026-06-20)** — gated
+  self-cleaning integration test `tests/integration/ai/react-agent-repair-apply-audit.dev.test.ts` (opt-in
+  ALLOW_DB_INTEGRATION_TESTS; skipped in CI) drove the REAL seam + REAL live `reactAgentAuditRecorder`
+  (service-role insert) + REAL `assessApplyReadiness`/`executeWorkflowPatch` + REAL `repairPatchRef` against V2
+  (`qcepijemjlkssfkvzlio`). VERIFIED live: (1) repair_proposal success row (proposes_change, ref non-null); (2)
+  repair_apply success row (requires_approval, credit_feature null, **ref MATCHES proposal**), draft mutated
+  (moveNode), **state unchanged (no deactivation)**, **0 ai_cost_events** (no model call); (3) stale apply →
+  failed row, draft unchanged; (4) blocked removeNode → failed row. All rows metadata `{}`, no raw
+  patch/config/id leak. **Cleanup confirmed: 0 orphaned NULL-account rows** (delete audit before account, vs the
+  SET NULL FKs), 0 leftover workflows/users — DB pristine. NOT exercised (out of scope): HTTP route + SSR-cookie
+  persistence (CS-7d unit-tested) + OpenAI model call. Unit re-run 141 (5 suites), eslint 0, lint:structure OK,
+  typecheck clean. → [`react-agent-cs-7e-apply-audit-live-smoke.md`](./slices/phase-4/ai/react-agent-cs-7e-apply-audit-live-smoke.md).
 - **React Agent CS-7d repair-apply AUDIT wiring — LOCAL/UNPUSHED, apply now through the seam (2026-06-19)** — the
   guarded apply route (`/ai/repair/apply`) now wraps the deterministic `applyRepairPatch` call in
   `runAuthorizedCapability({capabilityId:"repair_apply", intent:"apply_repair", recorder, classifyResult,
