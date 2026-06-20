@@ -20,6 +20,7 @@ import {
   createModelClientForModel,
   isOpenAiProviderEnabled,
 } from "@/services/ai/modelClients/createModelClient";
+import { reactAgentService } from "@/services/ai/reactAgent";
 import { loadWorkflowForMember, requireUser } from "../../../../_shared";
 
 /**
@@ -196,7 +197,32 @@ export async function POST(
   if (!gate.ok) return aiCreditDenialResponse(gate);
 
   const client = createModelClientForModel(getModelForProviderTier("openai", MODEL_TIER), apiKey);
-  const result = await explainWorkflowDiagnosis({ dto, modelClient: client, tier: MODEL_TIER });
+  // REACT-AGENT-CS-4 — run the ALREADY-authorized, ALREADY-gated explain brain call THROUGH
+  // the React Agent capability registry (capability `diagnosis_explain`, read-only). Auth,
+  // membership, safe-DTO re-derivation, the OpenAI-config check, and `aiCreditGate` (above)
+  // all stay route-owned; the boundary only validates the registered capability + scope +
+  // intent and invokes the injected brain call — no HTTP, no gate, no mutation.
+  const outcome = await reactAgentService.runAuthorizedCapability({
+    scope: { userId: auth.userId, accountId, workflowId: id },
+    intent: "explain_diagnosis",
+    capabilityId: "diagnosis_explain",
+    exec: () => explainWorkflowDiagnosis({ dto, modelClient: client, tier: MODEL_TIER }),
+  });
+  if (!outcome.ok) {
+    // Unreachable on the wired path (route guarantees a valid scope + the explain
+    // capability/intent); mapped to the same safe 503 as a model failure so the response
+    // contract is unchanged.
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "MODEL_FAILED",
+        message: "Couldn't generate an explanation right now. Please try again.",
+        errors: [{ stage: "model", code: "MODEL_FAILED", message: "Explanation unavailable." }],
+      },
+      { status: 503 },
+    );
+  }
+  const result = outcome.result;
 
   // Fail-open telemetry, billed to the workflow-owning account.
   await recordExplainEvent(accountId, auth.userId, id, result);

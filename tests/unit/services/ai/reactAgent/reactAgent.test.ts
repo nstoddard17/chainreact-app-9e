@@ -80,6 +80,16 @@ describe("ReactAgent capability registry (CS-3)", () => {
     });
   });
 
+  it("registers diagnosis_explain as a read-only, workflow_explanation-gated capability for explain_diagnosis (CS-4)", () => {
+    expect(getReactAgentCapability("diagnosis_explain")).toMatchObject({
+      id: "diagnosis_explain",
+      allowedIntent: "explain_diagnosis",
+      mode: "read_only",
+      creditFeature: "workflow_explanation",
+      auditKind: "react_agent.diagnosis_explain",
+    });
+  });
+
   it("returns undefined for an unregistered capability id", () => {
     expect(getReactAgentCapability("totally_made_up")).toBeUndefined();
   });
@@ -89,6 +99,15 @@ describe("ReactAgent capability registry (CS-3)", () => {
       expect(def.id).toBe(key);
       expect(typeof def.allowedIntent).toBe("string");
     }
+  });
+
+  it("each capability's creditFeature matches the feature key its route charges (defense-in-depth)", () => {
+    // Lock the registry metadata to the routes' aiCreditGate feature keys so a drift between
+    // the route's charged feature and the capability metadata is caught here. A RUNTIME
+    // route↔registry cross-check is deferred to the audit slice (kept out of the route to
+    // avoid incorrectly blocking it).
+    expect(getReactAgentCapability("diagnosis_qa")?.creditFeature).toBe("workflow_qa");
+    expect(getReactAgentCapability("diagnosis_explain")?.creditFeature).toBe("workflow_explanation");
   });
 });
 
@@ -104,6 +123,31 @@ describe("ReactAgent boundary — runAuthorizedCapability (CS-3 registry-gated s
     const outcome = await runAuthorizedCapability({ ...QA, exec });
     expect(exec).toHaveBeenCalledTimes(1);
     expect(outcome).toEqual({ ok: true, result: { ok: true, answer: "no trigger" } });
+  });
+
+  it("runs the explain capability through the same seam (CS-4)", async () => {
+    const exec = jest.fn().mockResolvedValue({ ok: true, explanation: "needs a trigger" });
+    const outcome = await runAuthorizedCapability({
+      scope: okScope,
+      intent: "explain_diagnosis",
+      capabilityId: "diagnosis_explain",
+      exec,
+    });
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ ok: true, result: { ok: true, explanation: "needs a trigger" } });
+  });
+
+  it("rejects a registered capability called with the WRONG matching intent (explain id + qa intent)", async () => {
+    const exec = jest.fn();
+    const outcome = await runAuthorizedCapability({
+      scope: okScope,
+      intent: "answer_diagnosis_question",
+      capabilityId: "diagnosis_explain",
+      exec,
+    });
+    expect(exec).not.toHaveBeenCalled();
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("intent_mismatch");
   });
 
   it("does NOT run exec for an UNKNOWN capability → unknown_capability", async () => {

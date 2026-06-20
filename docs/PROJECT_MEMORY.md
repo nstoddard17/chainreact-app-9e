@@ -107,7 +107,7 @@
 
 ## Recently completed arcs
 
-- **React Agent CS-1 (boundary) + CS-2 (Q&A wiring) + CS-3 (capability registry) — first product-AI code — LOCAL/UNPUSHED (2026-06-19)** —
+- **React Agent CS-1 (boundary) + CS-2 (Q&A) + CS-3 (registry) + CS-4 (Explain) — first product-AI code — LOCAL/UNPUSHED (2026-06-19)** —
   narrow account-scoped seam under `services/ai/reactAgent/`. **CS-1** (`193627693`): `ReactAgentScope`
   (userId+accountId required; workflowId?/conversationId? optional), `ReactAgentIntent`
   (explain_diagnosis/answer_diagnosis_question/propose_repair/unknown), `ReactAgentRequest/Response`,
@@ -125,10 +125,15 @@
   `capabilityId` + validates scope→capability-exists→intent-matches-allowedIntent before exec;
   unknown_capability/intent_mismatch fail closed (no exec, no leak of id/intent). Registry is metadata/
   allow-list ONLY — route still owns auth/gate (creditFeature is doc, not enforcement); NOT Hermes, NOT MCP
-  (import guard still green). Q&A route passes `capabilityId:"diagnosis_qa"`; response unchanged.
-  explain/propose still unwired. Verified (CS-3): reactAgent+qa-route 45, builder Q&A 38, typecheck clean,
-  eslint 0, lint:structure OK →
-  [`react-agent-cs-3-capability-registry.md`](./slices/phase-4/ai/react-agent-cs-3-capability-registry.md).
+  (import guard still green). Q&A route passes `capabilityId:"diagnosis_qa"`; response unchanged. **CS-4**:
+  Explain wired as 2nd read-only capability — registry `diagnosis_explain`→explain_diagnosis/read_only/
+  workflow_explanation/audit react_agent.diagnosis_explain; Explain route `…/ai/diagnose/explain` runs
+  `explainWorkflowDiagnosis` THROUGH the seam (`capabilityId:"diagnosis_explain"`), route keeps owning
+  auth/DTO/aiCreditGate(workflow_explanation, before model)/telemetry, response unchanged. Test locks each
+  capability creditFeature to its route's gate feature (runtime route↔registry cross-check deferred to audit
+  slice). propose_repair still unwired. Verified (CS-4): reactAgent+explain+qa routes 66, builder client 38,
+  typecheck clean, eslint 0, lint:structure OK →
+  [`react-agent-cs-4-explain-wiring.md`](./slices/phase-4/ai/react-agent-cs-4-explain-wiring.md).
 - **AI architecture direction CORRECTED: React Agent + MCP + Hermes split — LOCAL/UNPUSHED (2026-06-19)** —
   **React Agent** = in-app customer-facing assistant (the product AI path, **first**); **MCP** =
   external/diagnostic **adapter** for ChatGPT/Claude/internal tools, **NOT** a dependency of the in-app

@@ -18,7 +18,7 @@
 import type { ReactAgentIntent } from "./types";
 
 /** Registered capability ids. Add a new id here AND an entry below to wire a capability. */
-export type ReactAgentCapabilityId = "diagnosis_qa";
+export type ReactAgentCapabilityId = "diagnosis_qa" | "diagnosis_explain";
 
 /**
  * How a capability affects workflow state. Drives later approval/audit policy. CS-3 wires
@@ -46,8 +46,9 @@ export interface ReactAgentCapabilityDefinition {
 }
 
 /**
- * The allow-list. `diagnosis_qa` is the only wired capability (CS-2/CS-3) — read-only,
- * credit-gated upstream as `workflow_qa` by the Q&A route.
+ * The allow-list. Both wired capabilities are READ-ONLY and credit-gated upstream by their
+ * route (`workflow_qa` / `workflow_explanation`). `creditFeature` here MUST match the
+ * `aiCreditGate` feature the corresponding route charges (kept in lockstep by test).
  */
 export const REACT_AGENT_CAPABILITIES: Readonly<
   Record<ReactAgentCapabilityId, ReactAgentCapabilityDefinition>
@@ -58,6 +59,13 @@ export const REACT_AGENT_CAPABILITIES: Readonly<
     mode: "read_only",
     creditFeature: "workflow_qa",
     auditKind: "react_agent.diagnosis_qa",
+  }),
+  diagnosis_explain: Object.freeze({
+    id: "diagnosis_explain",
+    allowedIntent: "explain_diagnosis",
+    mode: "read_only",
+    creditFeature: "workflow_explanation",
+    auditKind: "react_agent.diagnosis_explain",
   }),
 });
 
