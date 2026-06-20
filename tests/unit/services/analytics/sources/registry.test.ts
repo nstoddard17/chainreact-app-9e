@@ -321,6 +321,31 @@ describe("analytics source registry", () => {
     ]);
   });
 
+  it("registers Google Docs + Google Sheets as connected-app sources (ANALYTICS-SOURCES-GWORKSPACE-1)", () => {
+    const docs = getAnalyticsSource("google-docs");
+    expect(docs?.connectedApp).toBe(true);
+    expect(docs?.metrics.map((m) => m.key).sort()).toEqual([
+      "documents_count",
+      "documents_created_over_time",
+      "documents_modified_over_time",
+    ]);
+    expect(isApprovedSourceMetric("google-docs", "documents_count")).toBe(true);
+    expect(isApprovedSourceMetric("google-docs", "read_document")).toBe(false);
+    for (const m of docs!.metrics) expect(m.supportedFilters).toEqual([]);
+
+    const sheets = getAnalyticsSource("google-sheets");
+    expect(sheets?.connectedApp).toBe(true);
+    expect(sheets?.metrics.map((m) => m.key).sort()).toEqual([
+      "spreadsheets_count",
+      "spreadsheets_created_over_time",
+      "spreadsheets_modified_over_time",
+    ]);
+    expect(isApprovedSourceMetric("google-sheets", "spreadsheets_count")).toBe(true);
+    // Docs metric keys are NOT approved on the Sheets provider (separate registries).
+    expect(isApprovedSourceMetric("google-sheets", "documents_count")).toBe(false);
+    for (const m of sheets!.metrics) expect(m.supportedFilters).toEqual([]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

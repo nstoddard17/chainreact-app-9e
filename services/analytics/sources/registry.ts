@@ -19,6 +19,8 @@ import { microsoftOneDriveAnalyticsSource } from "./microsoft-onedrive";
 import { googleDriveAnalyticsSource } from "./google-drive";
 import { discordAnalyticsSource } from "./discord";
 import { microsoftTeamsAnalyticsSource } from "./microsoft-teams";
+import { googleDocsAnalyticsSource } from "./google-docs";
+import { googleSheetsAnalyticsSource } from "./google-sheets";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -93,6 +95,11 @@ import { microsoftTeamsAnalyticsSource } from "./microsoft-teams";
  *     channel count + messages over-time / by-channel / count + active-channels,
  *     personal refreshable credential, strictly count-only + metadata-only $select, no
  *     message content/subject/from/id/member read) — ANALYTICS-SOURCES-TEAMS-1.
+ *   - GOOGLE DOCS + GOOGLE SHEETS (connected apps, read-only flat MIME-filtered Drive
+ *     files.list metadata scan → document/spreadsheet count + created/modified
+ *     over-time, personal refreshable credential, count-only + metadata-only
+ *     fields(createdTime,modifiedTime), no file name/content/owner/permission read,
+ *     shared _shared/googleWorkspaceAdapter) — ANALYTICS-SOURCES-GWORKSPACE-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -125,6 +132,8 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   googleDriveAnalyticsSource,
   discordAnalyticsSource,
   microsoftTeamsAnalyticsSource,
+  googleDocsAnalyticsSource,
+  googleSheetsAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

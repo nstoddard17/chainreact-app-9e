@@ -87,6 +87,45 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("discord")?.visibility).toBe("personal");
     // Microsoft Teams is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("microsoft-teams")?.visibility).toBe("personal");
+    // Google Docs + Sheets are personal connections → per-viewer visibility.
+    expect(getConnectedAppSource("google-docs")?.visibility).toBe("personal");
+    expect(getConnectedAppSource("google-sheets")?.visibility).toBe("personal");
+  });
+});
+
+describe("Google Docs + Sheets metric/filter shape", () => {
+  const docs = getExposedConnectedAppSource("google-docs")!;
+  const sheets = getExposedConnectedAppSource("google-sheets")!;
+
+  it("exposes Docs with a count scalar on stat + created/modified series on line/bar, no filters", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("google-docs");
+    expect(getExposedConnectedAppSource("google-docs")?.displayName).toBe("Google Docs");
+    expect(metricsForType(docs, "stat").map((m) => m.id)).toEqual(["documents_count"]);
+    expect(metricsForType(docs, "line").map((m) => m.id).sort()).toEqual([
+      "documents_created_over_time",
+      "documents_modified_over_time",
+    ]);
+    expect(metricsForType(docs, "bar").map((m) => m.id).sort()).toEqual([
+      "documents_created_over_time",
+      "documents_modified_over_time",
+    ]);
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(docs, type)) expect(m.filters).toEqual([]);
+    }
+  });
+
+  it("exposes Sheets with a count scalar on stat + created/modified series on line/bar, no filters", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("google-sheets");
+    expect(getExposedConnectedAppSource("google-sheets")?.displayName).toBe("Google Sheets");
+    expect(metricsForType(sheets, "stat").map((m) => m.id)).toEqual(["spreadsheets_count"]);
+    expect(metricsForType(sheets, "line").map((m) => m.id).sort()).toEqual([
+      "spreadsheets_created_over_time",
+      "spreadsheets_modified_over_time",
+    ]);
+    expect(metricsForType(sheets, "donut")).toEqual([]);
+    for (const type of ["stat", "line", "bar"] as const) {
+      for (const m of metricsForType(sheets, type)) expect(m.filters).toEqual([]);
+    }
   });
 });
 

@@ -258,6 +258,31 @@ it("forwards the teams_team + teams_channel filters for provider=microsoft-teams
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("routes provider=google-docs (no filters, session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request("http://localhost/api/analytics/sources/google-docs/data?metric=documents_count&range=30d"),
+    { params: Promise.resolve({ provider: "google-docs" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("google-docs");
+  expect(call.metricKey).toBe("documents_count");
+  expect(call.filters).toBeUndefined(); // no filter params → route omits `filters`
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
+it("routes provider=google-sheets (no filters, session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request("http://localhost/api/analytics/sources/google-sheets/data?metric=spreadsheets_count&range=30d"),
+    { params: Promise.resolve({ provider: "google-sheets" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("google-sheets");
+  expect(call.metricKey).toBe("spreadsheets_count");
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });

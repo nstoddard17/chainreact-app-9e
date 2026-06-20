@@ -1,4 +1,5 @@
 import type { AnalyticsWidgetType } from "@/contracts/analytics";
+import { GOOGLE_DOCS, GOOGLE_SHEETS } from "./connectedAppSourcesGoogleWorkspace";
 
 /**
  * Connected-app analytics UI exposure descriptor (Slice ANALYTICS-SOURCES-SLACK-UI-1).
@@ -653,6 +654,8 @@ const ALL: readonly ConnectedAppSourceUi[] = [
   GOOGLE_DRIVE,
   DISCORD,
   MICROSOFT_TEAMS,
+  GOOGLE_DOCS,
+  GOOGLE_SHEETS,
 ];
 
 /** Every connected-app descriptor (exposed or not) — for tests + lookups. */

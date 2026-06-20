@@ -72,6 +72,11 @@ const SOURCE_FILES = [
   "services/analytics/sources/microsoft-teams/index.ts",
   "services/analytics/sources/microsoft-teams/api.ts",
   "services/analytics/sources/microsoft-teams/buckets.ts",
+  "services/analytics/sources/_shared/googleWorkspaceFiles.ts",
+  "services/analytics/sources/_shared/googleWorkspaceBuckets.ts",
+  "services/analytics/sources/_shared/googleWorkspaceAdapter.ts",
+  "services/analytics/sources/google-docs/index.ts",
+  "services/analytics/sources/google-sheets/index.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.
