@@ -40,6 +40,10 @@ import driveSearchFiles from "@/tests/fixtures/action-smoke/google-drive/search_
 import gmailListLabels from "@/tests/fixtures/action-smoke/gmail/list_labels";
 import gmailGetProfile from "@/tests/fixtures/action-smoke/gmail/get_profile";
 import gmailSearchEmails from "@/tests/fixtures/action-smoke/gmail/search_emails";
+// SMOKE-ACTIONS-11 — Microsoft Outlook mail read-only batch (fetch + 2 new read actions).
+import outlookListFolders from "@/tests/fixtures/action-smoke/microsoft-outlook/list_folders";
+import outlookGetProfile from "@/tests/fixtures/action-smoke/microsoft-outlook/get_profile";
+import outlookFetchEmails from "@/tests/fixtures/action-smoke/microsoft-outlook/fetch_emails";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -68,4 +72,7 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gmailListLabels,
   gmailGetProfile,
   gmailSearchEmails,
+  outlookListFolders,
+  outlookGetProfile,
+  outlookFetchEmails,
 ];

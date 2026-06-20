@@ -61,6 +61,8 @@ drift.
 | `SMOKE_GDRIVE_FOLDER_ID=<id>` | Google Drive `search_files` (optional) | Optional folder to scope the search (overlaid onto `folderId`). Unset → searches across My Drive. |
 | `SMOKE_GMAIL_CONNECTED=1` | Gmail fixtures | Signals the smoke account has Gmail connected. Unset → Gmail fixtures SKIP. |
 | `SMOKE_GMAIL_QUERY=<q-syntax>` | Gmail `search_emails` | Gmail q-syntax search string (overlaid onto `query`). Unset → SKIP. |
+| `SMOKE_MICROSOFT_OUTLOOK_CONNECTED=1` | Outlook fixtures | Signals the smoke account has Microsoft Outlook connected. Unset → Outlook fixtures SKIP. |
+| `SMOKE_OUTLOOK_QUERY=<$search>` | Outlook `fetch_emails` (optional) | Optional Graph `$search` string (overlaid onto `query`). Unset → fetches recent messages. |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -131,7 +133,7 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-### Current fixtures (26)
+### Current fixtures (29)
 
 | Fixture | risk / liveRisk | liveSafe | Required env | Notes |
 |---|---|---|---|---|
@@ -159,15 +161,19 @@ Rules:
 | `gmail:list_labels` | read | ✅ | `SMOKE_GMAIL_CONNECTED` | Label list (metadata only, no content). |
 | `gmail:get_profile` | read | ✅ | `SMOKE_GMAIL_CONNECTED` | Mailbox counts + own email (no content). |
 | `gmail:search_emails` | read | ✅ | `SMOKE_GMAIL_CONNECTED`, `SMOKE_GMAIL_QUERY` | Message search, one page, max 3 (status-only). |
+| `microsoft-outlook:list_folders` | read | ✅ | `SMOKE_MICROSOFT_OUTLOOK_CONNECTED` | Mail folder list (metadata only, no content). |
+| `microsoft-outlook:get_profile` | read | ✅ | `SMOKE_MICROSOFT_OUTLOOK_CONNECTED` | Mailbox identity (no content). |
+| `microsoft-outlook:fetch_emails` | read | ✅ | `SMOKE_MICROSOFT_OUTLOOK_CONNECTED` | Message fetch, one page, max 5 (status-only). |
 | `slack:send_channel_message` | **write** | ✅ | `SMOKE_SLACK_CONNECTED`, `SMOKE_SLACK_CHANNEL_ID` | Posts a real message; needs the write gate. |
 | `slack:delete_message` | **destructive** | ❌ | — | Non-liveSafe; never runs live. |
 
-Coverage: **26 fixtures** (24 read / 1 write / 1 destructive), 25 `liveSafe`, across
-6 providers (native, slack, airtable, google-sheets, google-drive, gmail). **Slack: 10
-fixtures** (8 read / 1 write / 1 destructive); **Airtable: 5 fixtures** (all read);
-**Google Sheets: 4 fixtures** (all read); **Google Drive: 3 fixtures** (all read);
-**Gmail: 3 fixtures** (all read). The CLI prints a `Coverage:` line; `--json` exposes it
-as `coverage`.
+Coverage: **29 fixtures** (27 read / 1 write / 1 destructive), 28 `liveSafe`, across
+7 providers (native, slack, airtable, google-sheets, google-drive, gmail,
+microsoft-outlook). **Slack: 10 fixtures** (8 read / 1 write / 1 destructive);
+**Airtable: 5 fixtures** (all read); **Google Sheets: 4 fixtures** (all read); **Google
+Drive: 3 fixtures** (all read); **Gmail: 3 fixtures** (all read); **Microsoft Outlook: 3
+fixtures** (all read). The CLI prints a `Coverage:` line; `--json` exposes it as
+`coverage`.
 
 **Slack-only inventory:** `npm run smoke:actions -- --provider slack`.
 
@@ -307,6 +313,38 @@ smoke mailbox**; the fixture caps `maxResults` at 3 and the report stays status-
 - **Deferred:** the 10 write actions + `delete_email` (destructive) are out of scope for
   read-only batches (no safe cleanup pattern). `get_attachment` is intentionally excluded
   — it returns attachment content (FileRef / bytes), which this read-only slice avoids.
+
+**Microsoft Outlook-only inventory:** `npm run smoke:actions -- --provider microsoft-outlook`.
+
+**Outlook live read run** (`list_folders` + `get_profile` + `fetch_emails` need only a
+connected Outlook; `fetch_emails` optionally narrows via `SMOKE_OUTLOOK_QUERY`):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_MICROSOFT_OUTLOOK_CONNECTED=1 \
+  npm run smoke:actions:run:workflow:live
+```
+
+`fetch_emails` reads real message metadata (one page, max 5). Point the connected
+Outlook at a **throwaway / smoke mailbox**; the report stays status-only.
+
+**Outlook mail audit + actions still uncovered / deferred (3 covered of 11 registered):**
+
+- **Audit:** of Outlook's registered actions, only `fetch_emails` was a usable read; the
+  rest were writes (`send_email`, `reply_to_email`, `forward_email`, `create_draft_email`,
+  `move_email`, `add_categories`), destructive (`delete_email`), or file-content
+  (`get_attachment` — excluded as it returns attachment bytes). Slice 4.OUTLOOK-READ-1
+  added two small metadata-only read actions — `list_folders` (reuses the existing
+  `listMailFolders` wrapper) and `get_profile` (adds a provider-local `/me` wrapper that
+  throws `Unauthorized401Error` on 401 so the refresh path works, unlike the
+  OAuth-callback `getMe`). The read batch is `fetch_emails` + `list_folders` +
+  `get_profile`. Both new actions are bounded/projected (no raw Graph response spread, no
+  body / MIME / attachment / base64); `get_profile`'s `mail` / `userPrincipalName` /
+  `displayName` are marked sensitive.
+- **Deferred:** the 6 write actions + `delete_email` (destructive) are out of scope for
+  read-only batches (no safe cleanup pattern). `get_attachment` is intentionally excluded
+  — it returns attachment content (FileRef / bytes).
 
 ## Commands
 
@@ -503,21 +541,21 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **26 fixtures** (24 read / 1 write / 1 destructive)
-  across 6 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
-  Gmail: 3) — `npm run smoke:actions` shows the full gap (264 of 290 registered actions
-  have no fixture yet). This harness is the foundation for growing that, not a claim of
-  broad coverage.
+- **Coverage is still small:** **29 fixtures** (27 read / 1 write / 1 destructive)
+  across 7 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
+  Gmail: 3, Microsoft Outlook: 3) — `npm run smoke:actions` shows the full gap (263 of
+  292 registered actions have no fixture yet). This harness is the foundation for growing
+  that, not a claim of broad coverage.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
-- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 25 today
-  (24 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
+- **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 28 today
+  (27 read + 1 write). No `liveSafe` destructive fixture exists (and the validation
   test forbids one). Selector-dependent reads (`get_user_info`, `get_thread_messages`,
   `get_file_info`, `get_file_metadata`, `search_files`, `search_emails`, and the other
-  non-Slack reads) only run when their id/connection/query env is set; otherwise they
-  SKIP.
+  connection/query-gated reads) only run when their id/connection/query env is set;
+  otherwise they SKIP.
 - **The write fixture is not cleaned up.** It posts a persistent Slack message and
   does not delete it (no destructive cleanup step this slice). Use a throwaway
   channel.

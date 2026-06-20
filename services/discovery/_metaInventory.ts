@@ -44,6 +44,8 @@ import { outlookGetAttachmentMeta } from "@/integrations/microsoft-outlook/actio
 import { outlookAddCategoriesMeta } from "@/integrations/microsoft-outlook/actions/addCategories.meta";
 import { outlookMoveEmailMeta } from "@/integrations/microsoft-outlook/actions/moveEmail.meta";
 import { outlookDeleteEmailMeta } from "@/integrations/microsoft-outlook/actions/deleteEmail.meta";
+import { outlookListFoldersMeta } from "@/integrations/microsoft-outlook/actions/listFolders.meta";
+import { outlookGetProfileMeta } from "@/integrations/microsoft-outlook/actions/getProfile.meta";
 
 // Microsoft Outlook Mail trigger metadata (Slice 3.17 coverage scope).
 import { outlookNewEmailTriggerMeta } from "@/integrations/microsoft-outlook/triggers/newEmail/newEmail.meta";
@@ -446,6 +448,9 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   outlookAddCategoriesMeta,
   outlookMoveEmailMeta,
   outlookDeleteEmailMeta,
+  // Slice 4.OUTLOOK-READ-1 — read-only metadata actions (displayOrder 100/110).
+  outlookListFoldersMeta,
+  outlookGetProfileMeta,
   // Slack file actions (Slice 3.26 + 3.27). `download_file` is the
   // FileRef producer; `upload_file` is the FileRef consumer that
   // exercises the Slice 3.25 single-FileRef FileField (chip + picker
