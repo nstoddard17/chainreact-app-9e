@@ -38,4 +38,5 @@ export {
   DropboxFolderField,
   OneDriveFolderField,
   GoogleDriveFolderField,
+  FacebookPageField,
 } from "./WidgetConnectedAppPickersProject";

@@ -361,6 +361,23 @@ describe("analytics source registry", () => {
     for (const m of onenote!.metrics) expect(m.supportedFilters).toEqual([]);
   });
 
+  it("registers Facebook as a connected-app source (ANALYTICS-SOURCES-FACEBOOK-1)", () => {
+    const facebook = getAnalyticsSource("facebook");
+    expect(facebook?.connectedApp).toBe(true);
+    expect(facebook?.metrics.map((m) => m.key).sort()).toEqual([
+      "page_fan_count",
+      "page_followers_count",
+      "page_posts_count",
+      "page_posts_over_time",
+      "pages_count",
+    ]);
+    expect(isApprovedSourceMetric("facebook", "pages_count")).toBe(true);
+    expect(isApprovedSourceMetric("facebook", "create_post")).toBe(false);
+    // pages_count needs no filter; page-scoped metrics require the page filter.
+    expect(getAnalyticsSourceMetric("facebook", "pages_count")?.supportedFilters).toEqual([]);
+    expect(getAnalyticsSourceMetric("facebook", "page_posts_over_time")?.supportedFilters).toEqual(["facebook_page"]);
+  });
+
   it("lists approved sources with their metric catalog", () => {
     const cat = listAnalyticsSources();
     const internal = cat.find((c) => c.providerKey === "internal");

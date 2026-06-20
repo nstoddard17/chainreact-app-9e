@@ -392,3 +392,25 @@ export function GoogleDriveFolderField(props: { value: string; onChange: (v: str
     />
   );
 }
+
+/**
+ * Facebook Page picker (`facebook:pages`) — REQUIRED for page-scoped metrics. Lists the
+ * Pages the connected user manages (id-as-value). Only page id + name are loaded, never
+ * post content, user data, or the per-Page access token.
+ */
+export function FacebookPageField(props: { value: string; onChange: (v: string) => void; connected: boolean }) {
+  return (
+    <OptionsSelectField
+      source="facebook:pages"
+      icon="Comment"
+      sectionLabel="Page"
+      hint="Pick a Facebook Page to report on."
+      disconnectedHint="Connect Facebook to choose a Page."
+      loadingNoun="Pages"
+      errorFallback="Couldn't load Facebook Pages."
+      ariaLabel="Facebook Page"
+      placeholder="Select a Page…"
+      {...props}
+    />
+  );
+}

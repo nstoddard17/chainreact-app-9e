@@ -159,6 +159,7 @@ export function WidgetConfigPanel({
     setTeamsTeam(v);
     setTeamsChannel("");
   };
+  const [facebookPage, setFacebookPage] = useState(initFilter("facebook_page"));
 
   const sourceScoped = metric != null && SOURCE_SCOPED.has(metric);
 
@@ -180,6 +181,7 @@ export function WidgetConfigPanel({
     onedrive_folder: onedriveFolder.trim(), gdrive_folder: gdriveFolder.trim(),
     discord_guild: discordGuild.trim(), discord_channel: discordChannel.trim(),
     teams_team: teamsTeam.trim(), teams_channel: teamsChannel.trim(),
+    facebook_page: facebookPage.trim(),
   };
 
   function filterValid(kind: ConnectedAppFilterKind): boolean {
@@ -327,6 +329,8 @@ export function WidgetConfigPanel({
                   onTeamsTeam={onTeamsTeamChange}
                   teamsChannel={teamsChannel}
                   onTeamsChannel={setTeamsChannel}
+                  facebookPage={facebookPage}
+                  onFacebookPage={setFacebookPage}
                 />
               ) : (
                 <InternalConfig

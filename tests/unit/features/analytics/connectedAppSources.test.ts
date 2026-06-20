@@ -92,6 +92,33 @@ describe("exposure gating", () => {
     expect(getConnectedAppSource("google-sheets")?.visibility).toBe("personal");
     // Microsoft OneNote is a personal connection → per-viewer visibility.
     expect(getConnectedAppSource("microsoft-onenote")?.visibility).toBe("personal");
+    // Facebook is a personal connection → per-viewer visibility.
+    expect(getConnectedAppSource("facebook")?.visibility).toBe("personal");
+  });
+});
+
+describe("Facebook metric/filter shape", () => {
+  const facebook = getExposedConnectedAppSource("facebook")!;
+
+  it("exposes Facebook with managed-page + page scalars on stat and posts series on line/bar", () => {
+    expect(exposedConnectedAppSources().map((s) => s.provider)).toContain("facebook");
+    expect(getExposedConnectedAppSource("facebook")?.displayName).toBe("Facebook");
+    expect(metricsForType(facebook, "stat").map((m) => m.id).sort()).toEqual([
+      "page_fan_count",
+      "page_followers_count",
+      "page_posts_count",
+      "pages_count",
+    ]);
+    expect(metricsForType(facebook, "line").map((m) => m.id)).toEqual(["page_posts_over_time"]);
+    expect(metricsForType(facebook, "bar").map((m) => m.id)).toEqual(["page_posts_over_time"]);
+    expect(metricsForType(facebook, "donut")).toEqual([]);
+  });
+
+  it("pages_count needs no filter; page-scoped metrics require facebook_page", () => {
+    expect(findMetricOption(facebook, "stat", "pages_count")?.filters).toEqual([]);
+    expect(findMetricOption(facebook, "stat", "page_fan_count")?.filters).toEqual(["facebook_page"]);
+    expect(findMetricOption(facebook, "stat", "page_posts_count")?.filters).toEqual(["facebook_page"]);
+    expect(findMetricOption(facebook, "line", "page_posts_over_time")?.filters).toEqual(["facebook_page"]);
   });
 });
 

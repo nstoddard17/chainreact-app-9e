@@ -80,6 +80,9 @@ const SOURCE_FILES = [
   "services/analytics/sources/microsoft-onenote/index.ts",
   "services/analytics/sources/microsoft-onenote/api.ts",
   "services/analytics/sources/microsoft-onenote/buckets.ts",
+  "services/analytics/sources/facebook/index.ts",
+  "services/analytics/sources/facebook/api.ts",
+  "services/analytics/sources/facebook/buckets.ts",
 ];
 
 // Substrings that would indicate workflow-node / engine execution wiring.

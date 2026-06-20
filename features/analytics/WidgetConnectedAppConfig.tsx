@@ -14,6 +14,7 @@ import {
   DiscordChannelField,
   TeamsTeamField,
   TeamsChannelField,
+  FacebookPageField,
   GithubRepoField,
   GmailLabelField,
   HubSpotPipelineField,
@@ -83,6 +84,8 @@ export function ConnectedAppConfig({
   onTeamsTeam,
   teamsChannel,
   onTeamsChannel,
+  facebookPage,
+  onFacebookPage,
 }: {
   source: ConnectedAppSourceUi;
   metrics: readonly { id: string; label: string }[];
@@ -132,6 +135,8 @@ export function ConnectedAppConfig({
   onTeamsTeam: (v: string) => void;
   teamsChannel: string;
   onTeamsChannel: (v: string) => void;
+  facebookPage: string;
+  onFacebookPage: (v: string) => void;
 }) {
   return (
     <>
@@ -271,6 +276,10 @@ export function ConnectedAppConfig({
           connected={connected}
           teamId={teamsTeam}
         />
+      )}
+
+      {requiredFilters.includes("facebook_page") && (
+        <FacebookPageField value={facebookPage} onChange={onFacebookPage} connected={connected} />
       )}
     </>
   );

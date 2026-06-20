@@ -22,6 +22,7 @@ import { microsoftTeamsAnalyticsSource } from "./microsoft-teams";
 import { googleDocsAnalyticsSource } from "./google-docs";
 import { googleSheetsAnalyticsSource } from "./google-sheets";
 import { microsoftOneNoteAnalyticsSource } from "./microsoft-onenote";
+import { facebookAnalyticsSource } from "./facebook";
 
 /**
  * Analytics SOURCE registry (Slice ANALYTICS-SOURCES-1).
@@ -106,6 +107,11 @@ import { microsoftOneNoteAnalyticsSource } from "./microsoft-onenote";
  *     counts + pages created/modified over-time, personal refreshable credential,
  *     count-only + metadata-only $select(createdDateTime,lastModifiedDateTime), no page
  *     title/content/preview/author read) — ANALYTICS-SOURCES-ONENOTE-1.
+ *   - FACEBOOK (connected app, read-only Graph reads → managed-page count + page
+ *     fan/followers counts + page-post count / posts-over-time, personal NON-refreshable
+ *     credential, aggregate/metadata-only, page tokens derived at runtime + never
+ *     cached, no post content/comment/reaction/user read; Page Insights deferred) —
+ *     ANALYTICS-SOURCES-FACEBOOK-1.
  *
  * NOTE: registration here grants only READ/AGGREGATE access through the adapter.
  * Whether a provider is actually EXPOSED in the widget config UI is a SEPARATE
@@ -141,6 +147,7 @@ const SOURCE_LIST: readonly AnalyticsSourceAdapter[] = [
   googleDocsAnalyticsSource,
   googleSheetsAnalyticsSource,
   microsoftOneNoteAnalyticsSource,
+  facebookAnalyticsSource,
 ];
 
 const REGISTRY: ReadonlyMap<string, AnalyticsSourceAdapter> = new Map(

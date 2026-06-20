@@ -296,6 +296,19 @@ it("routes provider=microsoft-onenote (no filters, session account)", async () =
   expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
 });
 
+it("forwards the facebook_page filter for provider=facebook (session account)", async () => {
+  mockQuery.mockResolvedValue(okResult());
+  await GET(
+    new Request("http://localhost/api/analytics/sources/facebook/data?metric=page_posts_count&range=30d&facebook_page=1234567890"),
+    { params: Promise.resolve({ provider: "facebook" }) },
+  );
+  const call = mockQuery.mock.calls[0]![0];
+  expect(call.providerKey).toBe("facebook");
+  expect(call.metricKey).toBe("page_posts_count");
+  expect(call.filters).toEqual({ facebook_page: "1234567890" });
+  expect(call.context).toEqual({ accountId: "acct-1", userId: "u1" });
+});
+
 it("AnalyticsSourceError → 200 { ok:false, code } (safe widget state, not a crash)", async () => {
   mockQuery.mockRejectedValue(new AnalyticsSourceError("Connect your GitHub account.", "MISSING_CREDENTIAL"));
   const res = await GET(req("?metric=open_issues"), { params });
