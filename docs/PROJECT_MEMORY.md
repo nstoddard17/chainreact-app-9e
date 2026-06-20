@@ -107,6 +107,17 @@
 
 ## Recently completed arcs
 
+- **React Agent GOVERNANCE ARC COMPLETE + live-verified — LOCAL/UNPUSHED (2026-06-20)** — CS-1 boundary →
+  CS-7e live smoke (14 commits, `193627693`..`c6820d5a1`). One account/workflow/user-scoped seam
+  (`runAuthorizedCapability`) validates scope+registry+intent and emits ONE `react_agent_audit_events` row
+  (success/failed/denied, fail-open ×2, metadata-free/no-leak). Registry: `diagnosis_qa`(read_only/workflow_qa),
+  `diagnosis_explain`(read_only/workflow_explanation), `repair_proposal`(proposes_change/workflow_repair),
+  `repair_apply`(requires_approval/null-credit; apply is deterministic, NO model, NO aiCreditGate; `apply_repair`
+  excluded from free-text handle). `proposed_patch_ref` (one-way sha256) correlates proposal↔apply w/ no approval
+  table. CS-5b migration APPLIED+live-verified; arc added NO feature flags (governance always-on for wired
+  routes; apply has no UI entry yet). DEFERRED: ai_cost_event_id link, `react_agent_approvals` table (CS-7f),
+  cross-ledger grant hardening, PROJECT_MEMORY prune, Hermes design. Next: push verified batch (Marcus approval)
+  or start Hermes. → [`react-agent-governance-closeout.md`](./slices/phase-4/ai/react-agent-governance-closeout.md).
 - **React Agent CS-7e apply-audit LIVE SMOKE — LOCAL/UNPUSHED, 4/4 PASSED + cleaned (2026-06-20)** — gated
   self-cleaning integration test `tests/integration/ai/react-agent-repair-apply-audit.dev.test.ts` (opt-in
   ALLOW_DB_INTEGRATION_TESTS; skipped in CI) drove the REAL seam + REAL live `reactAgentAuditRecorder`
