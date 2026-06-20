@@ -21,7 +21,7 @@ const REQUEST: WorkflowGuidanceRequest = {
   workflow: { nodeCount: 0, edgeCount: 0, nodes: [], edges: [] },
 };
 
-const ENV_KEYS = [HOSTED_HERMES_GUIDANCE_FLAG, HERMES_ENV.baseUrl, HERMES_ENV.apiKey, HERMES_ENV.model, HERMES_ENV.timeoutMs, HERMES_ENV.providerFormat];
+const ENV_KEYS = [HOSTED_HERMES_GUIDANCE_FLAG, HERMES_ENV.provider, HERMES_ENV.baseUrl, HERMES_ENV.apiKey, HERMES_ENV.model, HERMES_ENV.timeoutMs, HERMES_ENV.maxOutputTokens, HERMES_ENV.temperature];
 const saved: Record<string, string | undefined> = {};
 
 beforeEach(() => { for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; } });

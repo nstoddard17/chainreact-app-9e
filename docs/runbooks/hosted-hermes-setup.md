@@ -19,8 +19,16 @@ reserved in [`services/ai-guidance/hermesConfig.ts`](../../services/ai-guidance/
 | `HERMES_BASE_URL` | **yes** | Base URL of the hosted Hermes guidance endpoint. | e.g. `https://<host>/v1`. Config reader returns `null` (→ `PROVIDER_NOT_CONFIGURED`) if missing. |
 | `HERMES_API_KEY` | **yes** | Bearer credential. | **Secret** — never logged, never echoed. Stored only in env. |
 | `HERMES_MODEL` | **yes** | Model id to request (the Nous Hermes variant). | e.g. `Hermes-3-Llama-3.1-…` (confirm exact id with the host). |
-| `HERMES_TIMEOUT_MS` | no | Per-request timeout. | Defaults to `15000` if unset/invalid. |
-| `HERMES_PROVIDER_FORMAT` | no | Wire format the live transport speaks. | Defaults to `openai-compatible`. Set if the host uses a different shape. |
+| `HERMES_PROVIDER` | no | Provider name; selects the adapter wire format. | Defaults to `nous` (OpenAI-compatible chat completions). |
+| `HERMES_TIMEOUT_MS` | no | Per-request timeout (ms). | Defaults to `15000` if unset/invalid (clamped 1s–120s). |
+| `HERMES_MAX_OUTPUT_TOKENS` | no | Max tokens in the guidance reply. | Defaults to `1024` (clamped 1–8192). |
+| `HERMES_TEMPERATURE` | no | Sampling temperature. | Defaults to `0.3` (clamped 0–2). |
+
+**Confirmed working values (Nous Portal, 2026-06-20):** `HERMES_PROVIDER=nous`,
+`HERMES_BASE_URL=https://inference-api.nousresearch.com/v1`, `HERMES_MODEL=nousresearch/hermes-4-70b`,
+`HERMES_TIMEOUT_MS=30000`, `HERMES_MAX_OUTPUT_TOKENS=1200`, `HERMES_TEMPERATURE=0.3`. The API key is
+**server-only** — it is in local `.env.local` only, never committed/logged, and must never get a
+`NEXT_PUBLIC_` prefix.
 
 And the rollout flag (separate from config):
 

@@ -107,6 +107,24 @@
 
 ## Recently completed arcs
 
+- **Hosted Hermes GUIDANCE BRAIN (config-gated, NOT live-routed) — LOCAL/UNPUSHED (2026-06-20)** — extends the
+  foundation into a real-but-inert Nous workflow-guidance brain. Marcus confirmed direct Nous API works
+  (`nousresearch/hermes-4-70b`, Nous Portal `https://inference-api.nousresearch.com/v1`; key SERVER-ONLY in
+  .env.local, never committed/logged, no NEXT_PUBLIC_). Added: contracts `guidanceSession.ts`
+  (GuidanceSession/Turn/WorkflowGuidanceIntent/WorkflowPlan) + `guidanceSkillEvents.ts` (SanitizedSkillEvent/
+  GuidancePattern); `nousHermesAdapter` (OpenAI-compatible /chat/completions, injectable fetch → NO live call in
+  tests, gated by ENABLE_HOSTED_HERMES_GUIDANCE+config); `buildWorkflowGuidancePrompt` (safe-DTO + redactSecrets);
+  `validateWorkflowPlan` (every trigger/action provider:type MUST hit discovery registry — Hermes can't invent
+  capabilities); `skillEventBoundary.toSanitizedSkillEvent` (PRIVATE→GLOBAL enforcement — strips ids/text/PII →
+  capability shape only); `hermesConfig` (HERMES_PROVIDER/MAX_OUTPUT_TOKENS/TEMPERATURE; status reports missing
+  NAMES not key); `guidanceFallbackPolicy` (OpenAI fallback skeleton, OFF, not wired). TWO boundaries: ChainReact→
+  Hermes per-request gets generalized shape+goal-text (NO secrets/config/tokens/DB/service-role); session→global
+  only sanitized skill events. NO migration (stateless; future stores = account-scoped RLS), NO workflow
+  create/apply, NO React Agent route wired (next slice), execution never depends on AI. Verified: 40 tests
+  (8 suites: capability-validation, private-not-promoted, sanitizer-strips, env-missing-safe, no-secret-in-prompt/
+  body, no-mutation, fallback-OFF), typecheck clean no-env, eslint 0, lint:structure OK. Next HERMES-LIVE-SMOKE
+  (gated .dev.test vs real endpoint) → HERMES-GUIDANCE-CAPABILITY (React Agent advisory cap). →
+  [`hosted-hermes-workflow-guidance-brain-plan.md`](./slices/phase-5/hosted-hermes-workflow-guidance-brain-plan.md).
 - **Hosted Hermes GUIDANCE FOUNDATION (skeleton, inert) — LOCAL/UNPUSHED (2026-06-20)** — Hermes-READY app infra,
   NOT a live integration. Provider-neutral contracts `contracts/aiGuidance.ts` + `services/ai-guidance/`
   (WorkflowGuidanceProvider port; sanitizer = PRIVACY BOUNDARY drops config/label/real-ids → keeps
