@@ -321,7 +321,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas 
             <div key={m.id} data-testid="workflow-guidance-message-assistant">
               {m.text.length > 0 && (
                 <div data-testid="workflow-guidance-result">
-                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Hermes: </span>
+                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">React: </span>
                   <span className="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
                     {m.text}
                   </span>
@@ -343,7 +343,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas 
 
       <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
         <Label htmlFor="workflow-guidance-goal" className="sr-only">
-          Message Hermes
+          Message React
         </Label>
         <Textarea
           id="workflow-guidance-goal"

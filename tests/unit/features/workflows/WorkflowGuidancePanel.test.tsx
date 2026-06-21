@@ -278,6 +278,20 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getByTestId("workflow-guidance-submit")).toHaveTextContent("Send");
   });
 
+  // HERMES-AGENT-RAIL-PRODUCT-LABEL — the assistant speaker is the product name "React:", never the
+  // internal runtime/provider name "Hermes". No internal name leaks into the chat transcript.
+  it("labels assistant turns 'React:' and never exposes the internal 'Hermes' name", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "Which Slack channel should the reminder go to?", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "remind the team{Enter}");
+    await screen.findByText("Which Slack channel should the reminder go to?");
+    expect(screen.getByText("React:")).toBeInTheDocument();
+    expect(screen.queryByText("Hermes:")).not.toBeInTheDocument();
+    // Defense in depth: the internal provider name never appears anywhere in the transcript.
+    expect(screen.getByTestId("workflow-guidance-messages").textContent ?? "").not.toMatch(/hermes/i);
+  });
+
   // HERMES-AGENT-BUILDER-RAIL-ENTER-TO-SEND — Enter sends, Shift+Enter newlines, guards empty/loading.
   describe("Enter-to-send composer", () => {
     it("Enter submits the message once (no newline)", async () => {

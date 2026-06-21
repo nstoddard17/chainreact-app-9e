@@ -23,7 +23,8 @@ interface Props {
    * HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — whether builder AI guidance is actually available
    * (Hermes enabled AND an account is resolved — the SAME signal the rail body uses to render the chat
    * vs. the "unavailable" note). The header status line reflects this so it can never claim
-   * "connected · Hermes" while the body shows "unavailable". Defaults to false (honest when omitted).
+   * "connected" while the body shows "unavailable". Defaults to false (honest when omitted). The
+   * runtime/provider name (Hermes) is internal and deliberately NOT shown in this user-facing status.
    */
   connected?: boolean;
   /**
@@ -151,7 +152,7 @@ export function BuilderLeftAgentRail({
                     : { background: "var(--builder-muted)" }
                 }
               />
-              {connected ? "connected · Hermes" : "not connected"}
+              {connected ? "connected" : "not connected"}
             </div>
           </div>
         </div>
