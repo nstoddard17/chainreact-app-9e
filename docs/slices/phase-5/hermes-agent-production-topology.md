@@ -44,11 +44,17 @@ Vercel ChainReact app
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 | **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
 | **UI entry point** "Build with me" advisory panel (workflows dashboard; server-gated on `HERMES_AGENT_ENABLED`; calls only the route via the client helper) — HERMES-AGENT-GUIDANCE-UI | [`features/workflows/WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) + helper [`lib/api/ai/guidance.ts`](../../../lib/api/ai/guidance.ts) |
+| **Builder UI entry point** "Build with me" advisory entry inside the workflow builder — a collapsed floating pill (bottom-left of the canvas) that reveals the SAME `WorkflowGuidancePanel`, passing the in-context `workflowId` so guidance is drawn from the current draft. Server-gated on `isHermesAgentEnabled()` AND a resolved `accountId`; reuses the route/helper/panel verbatim (no new request logic) — HERMES-AGENT-GUIDANCE-UI-BUILDER | [`features/workflow-builder/panels/BuilderGuidanceEntry.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceEntry.tsx) (mounted by [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx); gated in [`app/workflows/[id]/page.tsx`](../../../app/workflows/[id]/page.tsx)) |
 
 ### End-to-end advisory path (UI → route → capability → gateway)
 
+The same path is used by the builder entry — `BuilderGuidanceEntry` mounts the identical
+`WorkflowGuidancePanel`, the only difference being a trusted in-context `workflowId` in the body. The
+route then verifies that workflow belongs to the caller's account (no-leak 404 otherwise) and passes
+its sanitized saved draft as optional context to the capability.
+
 ```
-"Build with me" panel (browser, workflows page)
+"Build with me" panel (browser, workflows page OR builder; builder adds workflowId)
   → requestWorkflowGuidance() helper → POST /api/accounts/[id]/ai/workflow-guidance
     → route: auth + membership + freeze + optional-workflow-ownership + availability + aiCreditGate
       → runWorkflowGuidanceIntakeCapability → runAuthorizedCapability (audited)
@@ -104,5 +110,8 @@ the regression-localization checklist.
 5. **HERMES-AGENT-PLAN-EXTRACTION** — when the agent starts returning structured plans, parse the
    plan from `guidanceText`/a plan object and gate it through `validateWorkflowPlan` before it is
    ever surfaced as usable (still advisory, still no mutation).
-6. **HERMES-AGENT-GUIDANCE-UI-BUILDER** (optional) — a second entry inside the builder rail that
-   passes the in-context `workflowId` (the helper + route already support it).
+6. ✅ **HERMES-AGENT-GUIDANCE-UI-BUILDER (done)** — a second "Build with me" entry inside the
+   workflow builder (collapsed floating pill, bottom-left of the canvas) that reveals the same
+   `WorkflowGuidancePanel` and passes the in-context `workflowId`. Server-gated on
+   `isHermesAgentEnabled()` + a resolved `accountId`; reuses the route/helper/panel verbatim. Still
+   advisory only — no mutation, no plan extraction, no direct gateway/vendor calls.

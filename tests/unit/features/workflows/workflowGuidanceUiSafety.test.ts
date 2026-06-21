@@ -11,6 +11,10 @@ import { resolve } from "node:path";
 
 const PANEL = resolve(process.cwd(), "features/workflows/WorkflowGuidancePanel.tsx");
 const HELPER = resolve(process.cwd(), "lib/api/ai/guidance.ts");
+const BUILDER_ENTRY = resolve(
+  process.cwd(),
+  "features/workflow-builder/panels/BuilderGuidanceEntry.tsx",
+);
 
 describe("guidance UI — calls only the ChainReact route, no forbidden surface", () => {
   it("the client helper targets only the account guidance route", () => {
@@ -38,6 +42,23 @@ describe("guidance UI — calls only the ChainReact route, no forbidden surface"
       /nousresearch|api\.openai\.com/i,
       /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
       // workflow mutation / execution from this advisory panel
+      /updateWorkflow|saveDraftDefinition|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/,
+    ]) {
+      expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
+    }
+  });
+
+  it("the builder entry reuses the panel, makes no direct fetch, and touches no mutation/gateway/vendor", () => {
+    const src = readFileSync(BUILDER_ENTRY, "utf8");
+    // Reuses the existing dashboard panel rather than re-implementing request logic.
+    expect(src).toContain("WorkflowGuidancePanel");
+    for (const pat of [
+      /\bfetch\s*\(/, // no direct fetch from the builder entry
+      /requestWorkflowGuidance/, // no direct helper call either — the panel owns the request
+      /onrender\.com|\/api\/hermes-agent\/guidance|hermesAgentGatewayClient/,
+      /nousresearch|api\.openai\.com/i,
+      /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
+      // workflow mutation / execution from this advisory entry
       /updateWorkflow|saveDraftDefinition|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/,
     ]) {
       expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });

@@ -7,6 +7,7 @@ import * as membershipsRepo from "@/repositories/accountMemberships";
 import { getActiveAccountId } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
+import { isHermesAgentEnabled } from "@/services/ai-guidance/gateway/gatewayConfig";
 import {
   listAllActionMetas,
   listAllTriggerMetas,
@@ -138,6 +139,10 @@ export default async function WorkflowDetailPage({ params }: Props) {
         triggerProviders={triggerProviders}
         actionProviders={actionProviders}
         requiredFieldsByType={requiredFieldsByType}
+        // HERMES-AGENT-GUIDANCE-UI-BUILDER — advisory "Build with me" entry, scoped to this
+        // workflow's owning account. Server-gated (default OFF); accountId is never client-supplied.
+        accountId={record.accountId}
+        guidanceEnabled={isHermesAgentEnabled()}
         {...(teamContext ? { teamContext } : {})}
       />
     </main>

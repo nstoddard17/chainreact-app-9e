@@ -21,6 +21,7 @@ import {
   type ProviderOption,
 } from "./panels/AddNodePanel";
 import { BuilderAiPanel } from "./panels/BuilderAiPanel";
+import { BuilderGuidanceEntry } from "./panels/BuilderGuidanceEntry";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
 import { RunResultsPanel } from "./panels/RunResultsPanel";
 import { useConfigSlice } from "./state/configSlice";
@@ -49,6 +50,18 @@ interface Props {
    * isolated builder tests keep passing.
    */
   requiredFieldsByType?: import("./validation/collectBuilderValidationIssues").RequiredFieldsByType;
+  /**
+   * HERMES-AGENT-GUIDANCE-UI-BUILDER — owning account for the advisory "Build with me" guidance
+   * entry. Resolved server-side from the workflow record; never client-supplied. The entry renders
+   * only when this AND `guidanceEnabled` are present.
+   */
+  accountId?: string;
+  /**
+   * HERMES-AGENT-GUIDANCE-UI-BUILDER — server-evaluated `isHermesAgentEnabled()` flag (default OFF).
+   * Gates the builder guidance entry so it never shows a dead box where Hermes is unconfigured.
+   * Optional so isolated builder tests keep passing (undefined → entry hidden).
+   */
+  guidanceEnabled?: boolean;
 }
 
 /**
@@ -91,6 +104,8 @@ export function WorkflowBuilder({
   actionProviders,
   teamContext,
   requiredFieldsByType,
+  accountId,
+  guidanceEnabled,
 }: Props) {
   const hydrate = useGraphSlice((s) => s.hydrate);
   const reset = useGraphSlice((s) => s.reset);
@@ -358,7 +373,7 @@ export function WorkflowBuilder({
       }
     >
       <div
-        className="flex min-h-0 flex-1 flex-col"
+        className="relative flex min-h-0 flex-1 flex-col"
         aria-label="Workflow builder"
         data-testid="builder-center-workspace"
       >
@@ -394,6 +409,13 @@ export function WorkflowBuilder({
             onPickAction={handlePickAction}
             onClose={closeAddPanel}
           />
+        ) : null}
+        {/* HERMES-AGENT-GUIDANCE-UI-BUILDER — advisory "Build with me" entry, scoped to THIS
+            workflow. Server-gated on isHermesAgentEnabled() (default OFF) AND a resolved accountId;
+            it forwards workflowId so guidance is drawn from the current draft. Advisory only — it
+            never creates / mutates / runs the workflow. */}
+        {guidanceEnabled && accountId ? (
+          <BuilderGuidanceEntry accountId={accountId} workflowId={workflow.id} />
         ) : null}
       </div>
     </BuilderShell>
