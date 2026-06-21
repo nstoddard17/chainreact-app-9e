@@ -135,13 +135,17 @@
   from the generic barrel = server-only). **Gated/inert**: only calls out when HERMES_AGENT_ENABLED=true + config +
   explicit server caller; no route/UI/React Agent wired; not the app default. Verified: tsc clean, 40 mocked tests
   (client/config/safety incl. no-Render-secret-in-body, no browser import, token-only-in-header), lint:structure OK,
-  eslint 0. **Live smoke RAN once (opt-in)**: ChainReact→gateway leg + auth WORK, but gateway→private-agent hop
-  returns `HTTP 401 Missing Authentication header` → gateway 502 → client correctly returns PROVIDER_ERROR.
-  **FINDING (Render-side, not client):** the gateway must forward the agent's auth header (API_SERVER_KEY) — fix on
-  Render, then re-run smoke for a healthy `ok`. NO migration, nothing live-routed/user-facing. Docs:
+  eslint 0. **Live smoke VERIFIED HEALTHY end-to-end (2026-06-20)**: after a sequence of Render-side fixes
+  (inbound gateway auth → gateway→agent auth "Missing Authentication header" → agent provider config "Unknown
+  provider 'openai'" → model "Encrypted content not supported" feature) the gateway now returns HTTP 200 `ok=true`;
+  the ChainReact client smoke passes the 2xx branch ("OK end-to-end", ~3.5s), normalizing the OpenAI-style
+  `{ok:true,response:{choices:[{message:{content}}]}}` envelope into an advisory guidance result. Every blocker was
+  Render/agent-side config; ChainReact code needed NO change throughout. NO migration, nothing live-routed/user-facing
+  (client still gated + explicitly-constructed only). Docs:
   [`hermes-agent-render-prod.md`](./runbooks/hermes-agent-render-prod.md) (authoritative),
   [`hermes-agent-production-topology.md`](./slices/phase-5/hermes-agent-production-topology.md); sandbox runbook
-  marked secondary. Next: HERMES-AGENT-GATEWAY-FIX (Render) → HERMES-AGENT-CAPABILITY (scoped/audited server boundary).
+  marked secondary. Next: HERMES-AGENT-CAPABILITY (scoped/audited server boundary) → HERMES-AGENT-RESPONSE-CONTRACT
+  (tighten the now-verified gateway success schema + structured plan extraction behind validateWorkflowPlan).
 - **HERMES-AGENT PIVOT — direct Nous hosted-model integration STRIPPED — LOCAL/UNPUSHED (2026-06-20)** — Marcus
   changed direction: ChainReact will NOT call a hosted LLM model API directly, and Nous Portal is NOT a
   fallback. Target arch = **ChainReact → Hermes Agent (internal learning/skills brain) → OpenAI (provider

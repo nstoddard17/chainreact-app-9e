@@ -49,19 +49,20 @@ present AND a server caller explicitly constructs it. It is NOT the app-runtime 
   service-role data, or private provider config across this boundary; it sends only the safe DTO.
 - Workflow execution never depends on the Agent.
 
-## Observed gateway state (2026-06-20)
+## Gateway state — VERIFIED HEALTHY (2026-06-20)
 
-The opt-in live smoke proved the **ChainReact→gateway leg + auth succeed**, but the gateway→private
-Hermes Agent hop currently returns `HTTP 401: Missing Authentication header` (gateway responds
-`502 / HERMES_AGENT_ERROR`). The ChainReact client correctly maps this to a typed `PROVIDER_ERROR`.
-**Action (Render-side, not ChainReact):** the gateway must attach the agent's required auth header
-(`API_SERVER_KEY` / internal token) when forwarding. See the runbook §6.
+The opt-in live smoke now passes **end-to-end**: gateway returns HTTP 200 `ok=true`, the client
+normalizes the OpenAI-style `{ ok:true, response:{ choices:[{ message:{ content } }], usage } }`
+envelope into an advisory guidance result (~3.5s). Reaching this took four **Render/agent-side**
+config fixes (ChainReact code unchanged), each surfaced by the smoke: inbound gateway auth →
+gateway→agent auth (`Missing Authentication header`) → agent provider config (`Unknown provider
+'openai'`) → model feature (`Encrypted content is not supported with this model`). See runbook §6 for
+the regression-localization checklist.
 
 ## Next recommended slices
 
-1. **HERMES-AGENT-GATEWAY-FIX (Render-side)** — fix the gateway→agent auth forwarding, then re-run
-   the opt-in smoke to confirm a healthy `ok` end-to-end result.
+1. **HERMES-AGENT-RESPONSE-CONTRACT** — now that the gateway success shape is confirmed live
+   (`{ ok, response: { choices:[{ message:{ content } }], usage } }`), tighten the response schema
+   (Zod) + structured plan extraction behind `validateWorkflowPlan`.
 2. **HERMES-AGENT-CAPABILITY** — expose guidance through a scope-validated, audited server boundary
    (React Agent advisory capability), still no direct mutation; ChainReact validates every plan.
-3. **HERMES-AGENT-RESPONSE-CONTRACT** — once the gateway's success shape is confirmed live, tighten
-   the gateway response schema (Zod) + structured plan extraction behind `validateWorkflowPlan`.

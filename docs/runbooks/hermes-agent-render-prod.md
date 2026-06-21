@@ -102,12 +102,22 @@ ChainReact client contract (correct URL/method, token in the header only, never 
 gateway must map to a typed `PROVIDER_ERROR` (the client never invents guidance) and logs a loud,
 secret-free warning.
 
-### Known gateway state (observed 2026-06-20)
+### Gateway state — VERIFIED HEALTHY (2026-06-20)
 
-Running the smoke today: the **ChainReact→gateway leg + auth succeed**, but the gateway returns
-**HTTP 502** with `{ ok: false, error: "HERMES_AGENT_ERROR", response: { error: { message: "HTTP
-401: Missing Authentication header" } } }` — i.e. the **gateway→private Hermes Agent hop is missing
-its internal auth header**. This is a **Render-side configuration issue** (the gateway must attach
-`API_SERVER_KEY` / the internal token when forwarding), not a ChainReact client defect. Fix on
-Render: ensure `chainreact-ai-gateway-prod` forwards the agent's required `Authorization` header to
-`chainreact-hermes-agent-prod`. Until then ChainReact correctly receives `PROVIDER_ERROR`.
+The smoke now passes end-to-end: the gateway returns **HTTP 200** `{ ok: true, response: { choices:
+[{ message: { content } }], usage } }` and the ChainReact client normalizes it into an advisory `ok`
+guidance result (~3.5s round-trip). The full chain is healthy: inbound gateway auth → gateway→agent
+auth → agent provider config → model → OpenAI → reply.
+
+Getting here took a sequence of **Render/agent-side** config fixes (ChainReact code needed none),
+each surfaced by the smoke as a distinct downstream error:
+1. inbound gateway auth (`401 UNAUTHORIZED`) — token sync;
+2. gateway→agent auth (`HTTP 401: Missing Authentication header`) — gateway must forward
+   `API_SERVER_KEY` / the internal token to `chainreact-hermes-agent-prod`;
+3. agent provider config (`Unknown provider 'openai'`) — fix the agent's model/provider name
+   (`hermes doctor` / `hermes model`);
+4. model feature (`HTTP 400: Encrypted content is not supported with this model`) — pick a
+   compatible model / disable encrypted reasoning content.
+
+If the smoke regresses, compare its downstream error message against this list to localize which
+hop broke.
