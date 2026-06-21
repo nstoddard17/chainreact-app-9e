@@ -63,6 +63,13 @@ const FEATURE_BASE_CREDITS: Readonly<Record<string, number>> = {
   // charge (here) and the `ai_cost_events.feature` telemetry row (migration
   // 20260703000000 widened the feature CHECK to allow `workflow_qa`).
   workflow_qa: 1,
+  // HERMES-AGENT-CAPABILITY-ROUTE — advisory Hermes Agent workflow guidance: one cheap
+  // (fast-tier) round-trip per request, same cost class as explanation / Q&A. Used by the
+  // route's `aiCreditGate` AND the `workflow_guidance_intake` capability's registry
+  // `creditFeature` (kept in lockstep by test). The gate path needs no DB CHECK widening;
+  // this route does NOT write an `ai_cost_events` row (ChainReact makes no direct model
+  // call — the Hermes Agent does), so no migration is required.
+  workflow_guidance: 1,
   failed_run_analysis: 1,
   provider_discovery: 1,
   template_recommendation: 1,

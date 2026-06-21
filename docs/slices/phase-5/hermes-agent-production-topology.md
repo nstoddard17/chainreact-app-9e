@@ -42,6 +42,7 @@ Vercel ChainReact app
 | **Strict response contract** (Zod envelope schema + `normalizeGatewayResponse` → `NormalizedGatewayGuidance`: `guidanceText`/`source`/`workflowPlan:null`/`rawUsage?`/`warnings?`) — HERMES-AGENT-RESPONSE-CONTRACT | [`services/ai-guidance/gateway/gatewayResponseContract.ts`](../../../services/ai-guidance/gateway/gatewayResponseContract.ts) |
 | Gateway barrel + `resolveServerGuidanceProvider()` (gateway-when-enabled, else noop) | [`services/ai-guidance/gateway/index.ts`](../../../services/ai-guidance/gateway/index.ts) |
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
+| **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
 
 **Gated + inert:** the client only calls out when `HERMES_AGENT_ENABLED=true` AND the gateway env is
 present AND a server caller explicitly constructs it. It is NOT the app-runtime default, and nothing
@@ -75,9 +76,13 @@ the regression-localization checklist.
    React Agent capability; server-only runner through `runAuthorizedCapability` (scope-validated +
    audited), gated by `HERMES_AGENT_ENABLED`, advisory-only. **No route/UI and no billing gate yet**
    (`creditFeature: null` — documented gap; stays OFF by config).
-3. **HERMES-AGENT-CAPABILITY-ROUTE** — wire a gated route (auth + account-membership + `aiCreditGate`
-   + inject the persistent audit recorder) that calls the runner, then a UI entry point. Closes the
-   billing gap before any paid enablement.
-4. **HERMES-AGENT-PLAN-EXTRACTION** — when the agent starts returning structured plans, parse the
+3. ✅ **HERMES-AGENT-CAPABILITY-ROUTE (done)** — `POST /api/accounts/[id]/ai/workflow-guidance`:
+   auth + account-membership + freeze + optional-workflow ownership + Hermes-availability +
+   `aiCreditGate` (feature `workflow_guidance`) + persistent audit recorder, then the runner.
+   **Billing gap closed.** No `ai_cost_events` row / no migration (ChainReact makes no direct model
+   call). **No UI yet.**
+4. **HERMES-AGENT-GUIDANCE-UI** — a client entry point (e.g. in the builder) that POSTs to the route
+   and renders `guidanceText` / clarifying questions. The route already exists and is safe.
+5. **HERMES-AGENT-PLAN-EXTRACTION** — when the agent starts returning structured plans, parse the
    plan from `guidanceText`/a plan object and gate it through `validateWorkflowPlan` before it is
    ever surfaced as usable (still advisory, still no mutation).

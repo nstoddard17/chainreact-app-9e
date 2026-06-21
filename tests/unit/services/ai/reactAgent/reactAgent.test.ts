@@ -139,6 +139,8 @@ describe("ReactAgent capability registry (CS-3)", () => {
     expect(getReactAgentCapability("diagnosis_qa")?.creditFeature).toBe("workflow_qa");
     expect(getReactAgentCapability("diagnosis_explain")?.creditFeature).toBe("workflow_explanation");
     expect(getReactAgentCapability("repair_proposal")?.creditFeature).toBe("workflow_repair");
+    // HERMES-AGENT-CAPABILITY-ROUTE — the guidance route charges aiCreditGate({feature: "workflow_guidance"}).
+    expect(getReactAgentCapability("workflow_guidance_intake")?.creditFeature).toBe("workflow_guidance");
   });
 });
 

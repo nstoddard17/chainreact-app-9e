@@ -101,14 +101,15 @@ export const REACT_AGENT_CAPABILITIES: Readonly<
     auditKind: "react_agent.repair_apply",
   }),
   // HERMES-AGENT-CAPABILITY — advisory workflow-guidance intake. `read_only` (never mutates/runs a
-  // workflow). `creditFeature: null` — there is NO billing gate for Hermes Agent guidance yet (gap
-  // documented in docs/runbooks/hermes-agent-render-prod.md); the capability is gated by
-  // `HERMES_AGENT_ENABLED` (default OFF) and is server-only, not wired to any route/UI in this slice.
+  // workflow). `creditFeature: "workflow_guidance"` — HERMES-AGENT-CAPABILITY-ROUTE wired the gated
+  // route (`/api/accounts/[id]/ai/workflow-guidance`) which charges `aiCreditGate({feature:
+  // "workflow_guidance"})`; this metadata MUST match that feature key (kept in lockstep by test).
+  // Still gated by `HERMES_AGENT_ENABLED` (default OFF); read-only/advisory, never mutates a workflow.
   workflow_guidance_intake: Object.freeze({
     id: "workflow_guidance_intake",
     allowedIntent: "request_workflow_guidance",
     mode: "read_only",
-    creditFeature: null,
+    creditFeature: "workflow_guidance",
     auditKind: "react_agent.workflow_guidance_intake",
   }),
 });

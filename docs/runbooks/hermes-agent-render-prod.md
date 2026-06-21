@@ -158,13 +158,37 @@ The advisory guidance is exposed through the existing React Agent governance all
 - **Audit:** when a route injects the persistent recorder, exactly one `react_agent_audit_events` row
   is emitted (success / failed / denied) with safe metadata only — scope ids + registry enums, **no
   prompt / goal text / guidance text / token**.
-- **Billing GAP (intentional):** there is **no AI-credit gate** for Hermes Agent guidance yet
-  (`creditFeature: null`). Unlike `diagnosis_qa` / `repair_proposal` (which charge `workflow_qa` /
-  `workflow_repair` at their routes), this capability ships **no route and no billing**. It stays
-  gated OFF by `HERMES_AGENT_ENABLED` until a future slice wires a route + the established
-  `aiCreditGate` pattern. Do not enable it in a paid environment without that gate.
-- **No UI / no route this slice.** A future gated route does auth + account-membership +
-  `aiCreditGate` + injects the recorder, then calls the runner.
+
+### Route — `POST /api/accounts/[id]/ai/workflow-guidance` (HERMES-AGENT-CAPABILITY-ROUTE)
+
+The gated server boundary that invokes the capability. Source:
+[`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../app/api/accounts/[id]/ai/workflow-guidance/route.ts).
+Gate order (nothing charges/runs before its guard passes):
+
+1. **auth + account membership + freeze** — `requireUserWithAccount(id)` (401 / 403). `accountId` is
+   the validated URL param, **never** trusted from the body (`.strict()` body rejects a client `accountId`).
+2. **body** — `{ goalText (required, ≤2000), workflowId? }` → 400.
+3. **optional `workflowId`** — must belong to **this** account + caller is a member, else no-leak 404.
+   The workflow's saved draft is passed as the optional safe context (sanitized by the runner).
+4. **Hermes availability** (`HERMES_AGENT_ENABLED` + gateway config) **before any charge** → 503
+   `GUIDANCE_UNAVAILABLE` when disabled/unconfigured (no credit charge, no network).
+5. **`aiCreditGate`** (feature **`workflow_guidance`**, fast tier) → 402 `AI_CREDITS_EXHAUSTED` /
+   403 `ACCOUNT_PENDING_DELETION` / 503 `AI_GATE_ERROR`.
+6. **capability runner** through `runAuthorizedCapability`, injecting the persistent audit recorder.
+
+Response: normalized advisory fields **only** — `{ ok, guidanceText, source, workflowPlan, warnings? }`.
+Never the raw provider envelope, raw usage, prompt, gateway token, ids, or secrets. Provider/transport
+failures map to 503 `GUIDANCE_UNAVAILABLE`.
+
+- **Billing GAP CLOSED:** the capability's `creditFeature` is now **`workflow_guidance`** (base 1
+  credit, fast tier — same class as `workflow_qa`), and the route charges `aiCreditGate({feature:
+  "workflow_guidance"})`. The registry metadata and the route's charged feature are kept in lockstep
+  by test. Note `aiCreditGate` only deducts when `ENABLE_AI_CREDIT_ENFORCEMENT=true` (default OFF →
+  no-op), matching every other AI route.
+- **No `ai_cost_events` telemetry row** is written: ChainReact makes **no direct model call** here
+  (the Hermes Agent does), so there is nothing to attribute and **no migration** is required. Usage
+  reconciliation is a future slice.
+- **Still no UI.** A later slice adds the client entry point.
 
 ## 6. Opt-in live smoke
 

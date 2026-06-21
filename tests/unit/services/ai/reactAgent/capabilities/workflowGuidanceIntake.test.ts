@@ -53,12 +53,12 @@ function enable(): void {
 }
 
 describe("workflow_guidance_intake — registry metadata (advisory / no mutation)", () => {
-  it("is registered read_only for request_workflow_guidance, creditFeature null", () => {
+  it("is registered read_only for request_workflow_guidance, gated as workflow_guidance", () => {
     expect(getReactAgentCapability(WORKFLOW_GUIDANCE_INTAKE_CAPABILITY_ID)).toMatchObject({
       id: "workflow_guidance_intake",
       allowedIntent: WORKFLOW_GUIDANCE_INTAKE_INTENT,
       mode: "read_only",
-      creditFeature: null,
+      creditFeature: "workflow_guidance",
       auditKind: "react_agent.workflow_guidance_intake",
     });
   });
@@ -136,7 +136,7 @@ describe("workflow_guidance_intake — audit (safe metadata only)", () => {
       capabilityId: "workflow_guidance_intake",
       intent: "request_workflow_guidance",
       mode: "read_only",
-      creditFeature: null,
+      creditFeature: "workflow_guidance",
       auditKind: "react_agent.workflow_guidance_intake",
       outcome: "success",
     });

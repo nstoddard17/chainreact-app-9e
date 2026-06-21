@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-20 @ 2f5a52251 (+ HERMES-AGENT-CAPABILITY: advisory React Agent capability workflow_guidance_intake (read_only, audited, gated, server-only via runAuthorizedCapability; no route/UI; billing gap documented — creditFeature null, OFF by config). + HERMES-AGENT-RESPONSE-CONTRACT: strict Zod gateway envelope schema + normalizeGatewayResponse → advisory NormalizedGatewayGuidance, fail-closed, workflowPlan null unless validateWorkflowPlan passes; live smoke healthy end-to-end. + HERMES-AGENT-PROD-CLIENT: server-only Render gateway client shipped, gated/inert; Render prod infra live, sandbox skipped; gateway now VERIFIED healthy after Render-side fixes. + HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
+> Last curated: 2026-06-21 @ 383654b80 (+ HERMES-AGENT-CAPABILITY-ROUTE: gated POST /api/accounts/[id]/ai/workflow-guidance — auth+membership+freeze+optional-workflow-ownership+aiCreditGate(workflow_guidance)+persistent audit recorder; billing gap CLOSED; no ai_cost_events/no migration; advisory response only; no UI. + HERMES-AGENT-CAPABILITY: advisory React Agent capability workflow_guidance_intake (read_only, audited, gated, server-only via runAuthorizedCapability). + HERMES-AGENT-RESPONSE-CONTRACT: strict Zod gateway envelope schema + normalizeGatewayResponse → advisory NormalizedGatewayGuidance, fail-closed, workflowPlan null unless validateWorkflowPlan passes; live smoke healthy end-to-end. + HERMES-AGENT-PROD-CLIENT: server-only Render gateway client shipped, gated/inert; Render prod infra live, sandbox skipped; gateway now VERIFIED healthy after Render-side fixes. + HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
 
 ## Current status
 
@@ -120,6 +120,22 @@
   Gmail(15)/Outlook(11) registry meta-count tests without weakening. Selector ids are discovered into gitignored
   `.env.local` only — no secrets/selectors/account-or-run/workflow-ids/raw provider payloads stored. Nothing
   pushed/deployed/db:pushed → [`docs/runbooks/action-smoke-cli.md`](./runbooks/action-smoke-cli.md).
+- **HERMES-AGENT-CAPABILITY-ROUTE — gated server route for workflow guidance — LOCAL/UNPUSHED (2026-06-21)** — added
+  `POST /api/accounts/[id]/ai/workflow-guidance` ([route.ts](./../app/api/accounts/[id]/ai/workflow-guidance/route.ts)).
+  Gate order: `requireUserWithAccount(id)` (auth + account membership + freeze; accountId from URL param NEVER body,
+  `.strict()` body rejects client accountId) → strict `{goalText, workflowId?}` → optional workflow ownership (must
+  belong to THIS account → else no-leak 404; draft passed as safe context) → Hermes availability
+  (HERMES_AGENT_ENABLED + config) BEFORE charge → `aiCreditGate({feature:"workflow_guidance", fast})` → capability
+  runner via `runAuthorizedCapability` with the PERSISTENT `reactAgentAuditRecorder` injected. **Billing gap CLOSED:**
+  added `workflow_guidance` to `core/billing/aiCreditPolicy.ts` FEATURE_BASE_CREDITS (base 1, same class as qa) and
+  set the capability registry `creditFeature: "workflow_guidance"` (was null; lockstep test updated). **No
+  `ai_cost_events` write → NO migration** (ChainReact makes no direct model call; the agent does — usage reconciliation
+  deferred). Response = normalized advisory ONLY (`guidanceText/source/workflowPlan/warnings?`) — never raw envelope/
+  usage/prompt/token/ids; provider failures → 503 GUIDANCE_UNAVAILABLE. **NO workflow mutation; NO UI; NO direct
+  OpenAI/Nous/private-Hermes (route calls the runner, not the gateway client — static-scan test).** Verified: tsc clean,
+  170 tests pass (16 new route tests + updated capability/lockstep; qa-route + aiCreditPolicy regressions green),
+  lint:structure OK, eslint 0. Docs: runbook route section + topology. Next: HERMES-AGENT-GUIDANCE-UI (client entry
+  point) → HERMES-AGENT-PLAN-EXTRACTION.
 - **HERMES-AGENT-CAPABILITY — advisory React Agent capability `workflow_guidance_intake` — LOCAL/UNPUSHED (2026-06-20)**
   — exposed Hermes guidance through the existing React Agent governance allow-list, ADVISORY/read-only. Added registry
   entry in `services/ai/reactAgent/capabilities.ts` (`workflow_guidance_intake`, mode `read_only`, intent
