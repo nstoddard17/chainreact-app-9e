@@ -239,6 +239,42 @@ describe("BuilderGuidanceRail — 'Check workflow' pill (BUILDER-AGENT-RAIL-CHEC
     // Prefill only — no request fired (the user sends through the normal chat path).
     expect(mockRequest).not.toHaveBeenCalled();
   });
+
+  it("forwards getCheckReviewContext so a sent review reflects validation (not 'ready' while blocked)", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Looks great — it's valid and ready to activate!",
+      source: "hermes-agent",
+      workflowPlan: null,
+      previewDraft: null,
+    });
+    const getCheckReviewContext = () => ({
+      summary: "This workflow starts when Gmail new email, then runs 1 step: Slack send message.",
+      blockingIssueCount: 1,
+      issueMessages: ["Slack send message needs a Channel."],
+      issueCodes: ["missing_required_field"],
+    });
+    render(
+      <BuilderGuidanceRail
+        accountId="acct-1"
+        workflowId="wf-9"
+        guidanceEnabled
+        getCheckReviewContext={getCheckReviewContext}
+      />,
+    );
+    await user.click(screen.getByTestId("agent-check-workflow"));
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+
+    // Request carried the de-identified validation context.
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
+    expect((mockRequest.mock.calls[0]![0] as { goalText: string }).goalText).toContain("missing_required_field");
+    // Rendered review honors the deterministic verdict over the agent's overclaim.
+    const result = await screen.findByTestId("workflow-guidance-result");
+    expect(result).toHaveTextContent("not ready to activate");
+    expect(result).toHaveTextContent("Slack send message needs a Channel.");
+    expect(result.textContent ?? "").not.toMatch(/valid and ready/i);
+  });
 });
 
 describe("BuilderGuidanceRail — conversational (multi-turn)", () => {

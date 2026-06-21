@@ -436,3 +436,125 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getAllByTestId("workflow-guidance-message-user")).toHaveLength(2);
   });
 });
+
+/**
+ * BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — the "Check workflow" pill produces a deterministic,
+ * validation-aware review (not raw JSON, never contradicting the validation pill). The deterministic
+ * Status + Setup issues come from the injected `getCheckReviewContext`; the agent text only contributes
+ * Suggestions (JSON- and overclaim-guarded). The request also carries de-identified validation context.
+ */
+describe("WorkflowGuidancePanel — conversational 'Check workflow' review", () => {
+  const blockedContext = () => ({
+    summary: "This workflow starts when Gmail new email, then runs 1 step: Slack send message.",
+    blockingIssueCount: 1,
+    issueMessages: ["Slack send message needs a Channel."],
+    issueCodes: ["missing_required_field"],
+  });
+
+  async function clickPillAndSend(getCtx: () => ReturnType<typeof blockedContext>) {
+    const user = userEvent.setup();
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        getCheckReviewContext={getCtx}
+      />,
+    );
+    await user.click(screen.getByTestId("agent-check-workflow"));
+    // Prefill is the clean prompt — no validation noise dumped into the visible composer.
+    expect((screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement).value).toMatch(
+      /review my current workflow/i,
+    );
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    return user;
+  }
+
+  it("sends de-identified validation context (counts + codes) in the request when blockingIssueCount > 0", async () => {
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "Some ideas.", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+    await clickPillAndSend(blockedContext);
+
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
+    const arg = mockRequest.mock.calls[0]![0] as { goalText: string; workflowId: string };
+    expect(arg.workflowId).toBe("wf-9");
+    expect(arg.goalText).toContain("1 blocking setup issue");
+    expect(arg.goalText).toContain("missing_required_field");
+    expect(arg.goalText).toMatch(/not ready\s+to activate/i);
+    // The de-identified context carries codes/counts only — never the author-facing label/value.
+    expect(arg.goalText).not.toContain("Slack send message needs a Channel.");
+    // The visible user turn stays the clean prompt.
+    expect(screen.getByTestId("workflow-guidance-message-user")).toHaveTextContent(/review my current workflow/i);
+  });
+
+  it("does NOT claim valid/ready when validation has blockers, even if the agent says it is", async () => {
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Good news — your workflow is valid and ready to activate!",
+      source: "hermes-agent",
+      workflowPlan: null,
+      previewDraft: null,
+    });
+    await clickPillAndSend(blockedContext);
+
+    const result = await screen.findByTestId("workflow-guidance-result");
+    expect(result).toHaveTextContent("not ready to activate");
+    // The deterministic setup issue is surfaced…
+    expect(result).toHaveTextContent("Slack send message needs a Channel.");
+    // …and the agent's overclaim is suppressed (no positive validity/readiness wording survives).
+    expect(result.textContent ?? "").not.toMatch(/\bis (valid|ready)\b/i);
+    expect(result.textContent ?? "").not.toMatch(/valid and ready/i);
+  });
+
+  it("never renders a raw-JSON agent dump as the response body", async () => {
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: '{"nodes":[{"id":"a","provider":"slack","type":"send_message"}],"edges":[]}',
+      source: "hermes-agent",
+      workflowPlan: null,
+      previewDraft: null,
+    });
+    await clickPillAndSend(blockedContext);
+
+    const result = await screen.findByTestId("workflow-guidance-result");
+    // The raw JSON is not shown; a readable, structured review is.
+    expect(result.textContent ?? "").not.toContain('"nodes"');
+    expect(result.textContent ?? "").not.toContain('"provider"');
+    expect(result).toHaveTextContent("Status");
+    expect(result).toHaveTextContent("Setup issues");
+    expect(result).toHaveTextContent("not ready to activate");
+  });
+
+  it("reports a clean workflow as having no blockers and keeps the agent's suggestions", async () => {
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "Consider adding a delay before Slack.", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+    const cleanContext = () => ({
+      summary: "This workflow starts when Gmail new email, then runs 1 step: Slack send message.",
+      blockingIssueCount: 0,
+      issueMessages: [] as string[],
+      issueCodes: [] as string[],
+    });
+    const user = userEvent.setup();
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational getCheckReviewContext={cleanContext} />);
+    await user.click(screen.getByTestId("agent-check-workflow"));
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+
+    const result = await screen.findByTestId("workflow-guidance-result");
+    expect(result).toHaveTextContent("no blocking setup issues");
+    expect(result.textContent ?? "").not.toContain("not ready to activate");
+    expect(result).toHaveTextContent("Consider adding a delay before Slack.");
+  });
+
+  it("without getCheckReviewContext the pill is a plain prefill and the send is a normal request", async () => {
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+    const user = userEvent.setup();
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+    await user.click(screen.getByTestId("agent-check-workflow"));
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
+    // No validation context appended — the bare prompt is sent as-is.
+    expect(mockRequest).toHaveBeenCalledWith({
+      accountId: "acct-1",
+      goalText: "Review my current workflow and suggest improvements or fixes.",
+      workflowId: "wf-9",
+    });
+  });
+});

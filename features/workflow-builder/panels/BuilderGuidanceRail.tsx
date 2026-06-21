@@ -3,6 +3,7 @@
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
+import type { CheckWorkflowReviewContext } from "@/core/workflows/checkWorkflowReview";
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
 import { BuilderPreviewSetupCard } from "./BuilderPreviewSetupCard";
 
@@ -62,6 +63,13 @@ export interface BuilderGuidanceRailProps {
   readonly onPreviewConfigChange?: (previewId: string, fieldName: string, value: unknown) => void;
   /** The existing explicit "Apply preview" action — seeds previewConfig into the new draft nodes. */
   readonly onApplyPreview?: () => void;
+  /**
+   * BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — getter for the current DETERMINISTIC validation snapshot
+   * (the builder computes it from the same validator that drives the header pill / validation drawer).
+   * Forwarded verbatim to the panel so the "Check workflow" review reflects, and never contradicts, the
+   * validation surface. Absent → the pill is a plain prefill.
+   */
+  readonly getCheckReviewContext?: () => CheckWorkflowReviewContext;
 }
 
 export function BuilderGuidanceRail({
@@ -74,6 +82,7 @@ export function BuilderGuidanceRail({
   previewConfig,
   onPreviewConfigChange,
   onApplyPreview,
+  getCheckReviewContext,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -102,6 +111,7 @@ export function BuilderGuidanceRail({
             accountId={accountId!}
             workflowId={workflowId}
             conversational
+            {...(getCheckReviewContext ? { getCheckReviewContext } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {

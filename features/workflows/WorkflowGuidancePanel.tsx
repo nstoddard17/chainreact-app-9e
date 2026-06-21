@@ -12,6 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { requestWorkflowGuidance } from "@/lib/api/ai/guidance";
+import {
+  buildAgentReviewGoalText,
+  composeCheckWorkflowReview,
+  type CheckWorkflowReviewContext,
+} from "@/core/workflows/checkWorkflowReview";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
 
 /**
@@ -102,6 +107,15 @@ export interface WorkflowGuidancePanelProps {
    * only; the panel renders it as an opaque node (it owns no preview-config logic). Absent → nothing.
    */
   readonly transcriptFooter?: ReactNode;
+  /**
+   * BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — builder-only: a getter for the current DETERMINISTIC
+   * validation snapshot (computed by the builder from the same validator that drives the header pill /
+   * validation drawer). When present, clicking "Check workflow" arms a review send: the request carries
+   * de-identified validation context (counts + issue codes) and the rendered reply is framed
+   * deterministically (Status / Setup issues from validation; the agent text only contributes
+   * Suggestions, JSON- and overclaim-guarded). Absent (dashboard / tests) → the pill is a plain prefill.
+   */
+  readonly getCheckReviewContext?: () => CheckWorkflowReviewContext;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -263,12 +277,16 @@ function SparkleIcon() {
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const nextId = useRef(0);
   const makeId = () => String(nextId.current++);
+  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — armed by the "Check workflow" pill; the next send is
+  // then framed as a deterministic validation-aware review. Consumed (reset) on send. Only armable when
+  // the builder supplied `getCheckReviewContext` (dashboard/tests keep the plain prefill behavior).
+  const checkReviewArmed = useRef(false);
 
   // HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — keep the newest content in view. Scroll the transcript to the
   // bottom when a message is added OR the setup-card footer appears/disappears. Keyed on the message
@@ -292,6 +310,8 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   function handleCheckWorkflow(): void {
     if (loading) return;
     setInput(CHECK_WORKFLOW_PROMPT);
+    // Arm the deterministic review only when the builder wired a validation snapshot getter.
+    checkReviewArmed.current = getCheckReviewContext != null;
     composerRef.current?.focus();
   }
 
@@ -303,6 +323,15 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   async function handleSend(): Promise<void> {
     if (!canSend) return;
     const goalText = trimmed;
+    // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — consume the armed flag once. A check send carries the
+    // CURRENT deterministic validation snapshot (read at send time, after any edits) so the request
+    // context and the rendered review both reflect what the user sees in the pill right now.
+    const isCheckReview = checkReviewArmed.current && getCheckReviewContext != null;
+    checkReviewArmed.current = false;
+    const reviewContext = isCheckReview ? getCheckReviewContext!() : null;
+    // The visible user message stays the clean prompt; only the REQUEST carries the de-identified
+    // (counts + codes) validation context, so the agent has context without user labels leaking.
+    const requestGoalText = reviewContext ? buildAgentReviewGoalText(goalText, reviewContext) : goalText;
     // Prior turns (before appending this one) become the sanitized recent-conversation context.
     const recentTurns = toRecentTurns(messages);
     setMessages((prev) => [...prev, { id: makeId(), role: "user", text: goalText }]);
@@ -311,17 +340,28 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     try {
       const res = await requestWorkflowGuidance({
         accountId,
-        goalText,
+        goalText: requestGoalText,
         ...(workflowId ? { workflowId } : {}),
         ...(recentTurns.length ? { recentTurns } : {}),
       });
       if (res.ok) {
+        // For a check-workflow review, the rendered reply is framed by ChainReact's deterministic
+        // verdict (Status + Setup issues), with the agent text contributing only Suggestions (JSON- and
+        // overclaim-guarded) — so the review can never claim valid/ready while the pill reports issues.
+        const assistantText = reviewContext
+          ? composeCheckWorkflowReview({
+              summary: reviewContext.summary,
+              blockingIssueCount: reviewContext.blockingIssueCount,
+              issueMessages: reviewContext.issueMessages,
+              agentText: res.guidanceText,
+            })
+          : res.guidanceText;
         setMessages((prev) => [
           ...prev,
           {
             id: makeId(),
             role: "assistant",
-            text: res.guidanceText,
+            text: assistantText,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
           },
@@ -430,7 +470,11 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
           id="workflow-guidance-goal"
           ref={composerRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            // Clearing the composer cancels an armed check-workflow review (the user started over).
+            if (e.target.value.trim().length === 0) checkReviewArmed.current = false;
+            setInput(e.target.value);
+          }}
           onKeyDown={(e) => submitOnEnter(e, handleSend)}
           placeholder={CHAT_PLACEHOLDER}
           rows={2}

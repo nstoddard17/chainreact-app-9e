@@ -37,6 +37,7 @@ import { useLeftAgentRail } from "./hooks/useLeftAgentRail";
 import { useRightDrawer } from "./hooks/useRightDrawer";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
+import { buildCheckReviewContext } from "./validation/buildCheckReviewContext";
 
 interface Props {
   workflow: WorkflowDetail;
@@ -194,6 +195,21 @@ export function WorkflowBuilder({
 
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);
+
+  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — lazily snapshot the CURRENT deterministic validation
+  // verdict for the rail's "Check workflow" review. Read from the graph store at call time
+  // (`getState()`, no subscription → no extra re-renders) so the snapshot matches the header pill /
+  // validation drawer exactly. Reuses the shared builder validator.
+  const getCheckReviewContext = useCallback(
+    () =>
+      buildCheckReviewContext({
+        pendingNodes: useGraphSlice.getState().pendingNodes,
+        pendingEdges: useGraphSlice.getState().pendingEdges,
+        ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
+        providerLabels,
+      }),
+    [requiredFieldsByType, providerLabels],
+  );
 
   // Slice 4.BUILDER-INSPECTOR-1 → BUILDER-RUN-PANEL-1: right drawer
   // state machine.
@@ -520,6 +536,7 @@ export function WorkflowBuilder({
             previewConfig={previewConfig}
             onPreviewConfigChange={handlePreviewConfigChange}
             onApplyPreview={handleApplyPreview}
+            getCheckReviewContext={getCheckReviewContext}
           />
         </BuilderLeftAgentRail>
       }
