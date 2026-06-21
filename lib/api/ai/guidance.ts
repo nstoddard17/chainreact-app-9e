@@ -16,6 +16,7 @@
 
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { GuidanceConversationTurn } from "@/contracts/aiGuidance";
 import { postStructured } from "./shared";
 
 export type WorkflowGuidanceResponse =
@@ -34,10 +35,17 @@ export type WorkflowGuidanceResponse =
 export interface RequestWorkflowGuidanceInput {
   /** The account whose guidance is requested. Comes from server/router context — never arbitrary. */
   readonly accountId: string;
-  /** The user's own automation goal text. */
+  /** The user's own automation goal text (the latest turn). */
   readonly goalText: string;
   /** Optional builder-context workflow id; verified server-side to belong to the account. */
   readonly workflowId?: string;
+  /**
+   * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — optional session-scoped recent conversation (the builder
+   * rail's prior user/assistant turns) so a follow-up reads in context. PLAIN TEXT only — never config,
+   * secrets, tokens, ids, or raw workflow JSON. The server re-bounds/sanitizes it; omitted on the first
+   * turn so single-shot requests are byte-identical to before.
+   */
+  readonly recentTurns?: readonly GuidanceConversationTurn[];
 }
 
 /**
@@ -50,6 +58,10 @@ export async function requestWorkflowGuidance(
 ): Promise<WorkflowGuidanceResponse> {
   return postStructured<WorkflowGuidanceResponse>(
     `/api/accounts/${encodeURIComponent(input.accountId)}/ai/workflow-guidance`,
-    { goalText: input.goalText, ...(input.workflowId ? { workflowId: input.workflowId } : {}) },
+    {
+      goalText: input.goalText,
+      ...(input.workflowId ? { workflowId: input.workflowId } : {}),
+      ...(input.recentTurns && input.recentTurns.length > 0 ? { recentTurns: input.recentTurns } : {}),
+    },
   );
 }

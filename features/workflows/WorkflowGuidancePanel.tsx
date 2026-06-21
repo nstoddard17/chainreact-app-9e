@@ -1,32 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import {
+  MAX_GUIDANCE_CONVERSATION_TURNS,
+  MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
+  type GuidanceConversationTurn,
+} from "@/contracts/aiGuidance";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { requestWorkflowGuidance } from "@/lib/api/ai/guidance";
 
 /**
- * "Build with me" — the first user-facing entry point for advisory Hermes Agent workflow guidance
- * (HERMES-AGENT-GUIDANCE-UI). A user describes a vague automation goal; ChainReact asks the Hermes
- * Agent (via the server route) for clarifying questions / practical guidance and renders it.
+ * "Build with me" — advisory Hermes Agent workflow guidance (HERMES-AGENT-GUIDANCE-UI).
  *
- * ADVISORY ONLY: this never creates, changes, applies, or runs a workflow. It calls ONLY the
- * ChainReact route `POST /api/accounts/[id]/ai/workflow-guidance` through the `requestWorkflowGuidance`
- * helper — never the Render gateway / a model vendor / Nous / the private Hermes Agent, and never sees
- * a token. `accountId` comes from server/router context (a prop), not arbitrary user input. Failures
- * map to safe copy — no internal error / provider status / raw envelope / usage is shown.
+ * Two modes, ONE governed path. Both call ONLY the ChainReact route
+ * `POST /api/accounts/[id]/ai/workflow-guidance` through the `requestWorkflowGuidance` helper — never
+ * the Render gateway / a model vendor / Nous / the private Hermes Agent, and never a token. Neither
+ * mode creates, changes, applies, saves, or runs a workflow.
  *
- * HERMES-AGENT-PLAN-EXTRACTION: when the server returns a capability-validated `workflowPlan`, this
- * also renders a small REVIEW-ONLY "Suggested plan" section under the guidance. The plan is advisory
- * (`notApplied: true`) — there is intentionally NO create / apply / add-nodes / run control here;
- * surfacing it never changes the user's workflow.
+ *   - SINGLE-SHOT (default; the dashboard "Build with me"): one goal → one guidance result + optional
+ *     review-only plan / non-applied preview (HERMES-AGENT-PLAN-EXTRACTION / -DRAFT-PREVIEW).
+ *   - CONVERSATIONAL (`conversational`, the builder rail; HERMES-AGENT-BUILDER-RAIL-CHAT-MODE): a
+ *     session-scoped message list. A follow-up sends the prior turns as sanitized `recentTurns` so
+ *     Hermes answers in context. Conversation is in-memory only — NOT persisted, no durable memory.
+ *     Only the LATEST assistant turn's preview is actionable ("Show on canvas"); a newer preview
+ *     supersedes the prior pending one. Apply / Discard live in the builder's canvas overlay (explicit,
+ *     local-draft only) — this panel never applies/saves.
  */
 
 const GOAL_PLACEHOLDER =
   "Example: When a new lead comes in, remind me to follow up if I have not heard back in 3 days.";
+const CHAT_PLACEHOLDER = "Describe what to add or change. For example: add a Slack message after the trigger.";
 const UNAVAILABLE_MESSAGE = "AI workflow guidance is temporarily unavailable.";
 const MAX_GOAL_LENGTH = 2_000;
 
@@ -44,6 +51,127 @@ function asRenderablePreview(value: DraftPreview | null | undefined): DraftPrevi
   return Array.isArray(value.nodes) && value.nodes.length > 0 ? value : null;
 }
 
+/** Map an unavailable/transport outcome to safe copy (credits denial keeps its specific message). */
+function safeErrorMessage(res: { code: string; message: string } | null): string {
+  if (res && res.code === "AI_CREDITS_EXHAUSTED") return res.message;
+  return UNAVAILABLE_MESSAGE;
+}
+
+/** Review-only advisory plan block (text). Shared by both modes. No apply/create/run control. */
+function GuidancePlanSection({ plan }: { plan: WorkflowPlan }) {
+  return (
+    <div
+      data-testid="workflow-guidance-plan"
+      className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950"
+    >
+      <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Suggested plan</h3>
+      <p
+        data-testid="workflow-guidance-plan-disclaimer"
+        className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400"
+      >
+        Review only — this has not changed your workflow.
+      </p>
+      {plan.title.length > 0 && (
+        <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">{plan.title}</p>
+      )}
+      {plan.summary.length > 0 && (
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{plan.summary}</p>
+      )}
+      <ol className="mt-2 space-y-1.5">
+        {plan.steps.map((step, i) => (
+          <li key={step.ref} className="text-sm text-neutral-700 dark:text-neutral-300">
+            <span className="font-medium">{i + 1}.</span>{" "}
+            <span className="rounded bg-neutral-200 px-1 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+              {step.role}
+            </span>{" "}
+            <code className="text-xs">
+              {step.provider}:{step.type}
+            </code>
+            {step.purpose.length > 0 && (
+              <span className="text-neutral-600 dark:text-neutral-400"> — {step.purpose}</span>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/**
+ * Non-applied "Draft preview" block. Shared by both modes. "Show on canvas" appears only when a
+ * builder `onPreviewToCanvas` handler + a validated plan are present — it toggles a visual overlay and
+ * applies/creates nothing.
+ */
+function GuidancePreviewSection({
+  preview,
+  plan,
+  onPreviewToCanvas,
+}: {
+  preview: DraftPreview;
+  plan: WorkflowPlan | null;
+  onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
+}) {
+  return (
+    <div
+      data-testid="workflow-guidance-preview"
+      className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950"
+    >
+      <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Draft preview</h3>
+      <p
+        data-testid="workflow-guidance-preview-notice"
+        className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400"
+      >
+        {preview.notice}
+      </p>
+      {preview.title.length > 0 && (
+        <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">{preview.title}</p>
+      )}
+      {preview.summary.length > 0 && (
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{preview.summary}</p>
+      )}
+      <ol className="mt-2 space-y-1.5">
+        {preview.nodes.map((node, i) => (
+          <li key={node.previewId} className="text-sm text-neutral-700 dark:text-neutral-300">
+            <span className="font-medium">{i + 1}.</span>{" "}
+            <span className="rounded bg-neutral-200 px-1 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+              {node.role}
+            </span>{" "}
+            <code className="text-xs">{node.label}</code>
+            {node.purpose.length > 0 && (
+              <span className="text-neutral-600 dark:text-neutral-400"> — {node.purpose}</span>
+            )}
+            {node.missingInputs && node.missingInputs.length > 0 && (
+              <span className="block pl-5 text-xs text-amber-700 dark:text-amber-400">
+                Still needs: {node.missingInputs.join(", ")}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      {preview.edges.length > 0 && (
+        <p
+          data-testid="workflow-guidance-preview-flow"
+          className="mt-2 text-xs text-neutral-500 dark:text-neutral-400"
+        >
+          Flow: {preview.nodes.map((n) => n.label).join(" → ")}
+        </p>
+      )}
+      {onPreviewToCanvas && plan && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onPreviewToCanvas({ plan, preview })}
+          data-testid="workflow-guidance-show-on-canvas"
+          className="mt-3"
+        >
+          Show on canvas
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export interface WorkflowGuidancePanelProps {
   /** Account scope for the request (resolved server-side / from router context). */
   readonly accountId: string;
@@ -58,9 +186,24 @@ export interface WorkflowGuidancePanelProps {
    * the additive local-draft edit.
    */
   readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
+  /**
+   * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — render the session-scoped conversational rail (message list
+   * + bottom input + recent-conversation context) instead of the single-shot form. Default false keeps
+   * the dashboard "Build with me" behavior byte-identical.
+   */
+  readonly conversational?: boolean;
 }
 
-export function WorkflowGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: WorkflowGuidancePanelProps) {
+export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
+  return props.conversational ? (
+    <ConversationalGuidancePanel {...props} />
+  ) : (
+    <SingleShotGuidancePanel {...props} />
+  );
+}
+
+/** The original single-shot "Build with me" form (dashboard). Behavior unchanged. */
+function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: WorkflowGuidancePanelProps) {
   const [goal, setGoal] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [guidanceText, setGuidanceText] = useState("");
@@ -86,18 +229,14 @@ export function WorkflowGuidancePanel({ accountId, workflowId, onPreviewToCanvas
       });
       if (res.ok) {
         setGuidanceText(res.guidanceText);
-        // Review-only advisory plan (capability-validated server-side). Never auto-applied.
         setPlan(asRenderablePlan(res.workflowPlan));
-        // Ephemeral, non-applied preview derived from the validated plan. Never persisted/inserted.
         setPreview(asRenderablePreview(res.previewDraft));
         setStatus("done");
       } else {
-        // Only the credits denial carries distinct safe copy; everything else is generic-unavailable.
-        setErrorMessage(res.code === "AI_CREDITS_EXHAUSTED" ? res.message : UNAVAILABLE_MESSAGE);
+        setErrorMessage(safeErrorMessage(res));
         setStatus("error");
       }
     } catch {
-      // Transport failures (401/400/500) — never surface internal detail.
       setErrorMessage(UNAVAILABLE_MESSAGE);
       setStatus("error");
     }
@@ -161,118 +300,171 @@ export function WorkflowGuidancePanel({ accountId, workflowId, onPreviewToCanvas
         </div>
       )}
 
-      {/* "Suggested plan" (text) shows only when there's a validated plan but no richer preview to
-          avoid duplicating the same steps twice. When a preview exists, the preview section below
-          carries the steps/flow instead. */}
-      {status === "done" && plan && !preview && (
-        <div
-          data-testid="workflow-guidance-plan"
-          className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950"
-        >
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-            Suggested plan
-          </h3>
-          {/* Advisory framing — make it unmistakable that nothing was changed. No apply control. */}
-          <p
-            data-testid="workflow-guidance-plan-disclaimer"
-            className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400"
-          >
-            Review only — this has not changed your workflow.
-          </p>
-          {plan.title.length > 0 && (
-            <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">
-              {plan.title}
-            </p>
-          )}
-          {plan.summary.length > 0 && (
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{plan.summary}</p>
-          )}
-          <ol className="mt-2 space-y-1.5">
-            {plan.steps.map((step, i) => (
-              <li key={step.ref} className="text-sm text-neutral-700 dark:text-neutral-300">
-                <span className="font-medium">{i + 1}.</span>{" "}
-                <span className="rounded bg-neutral-200 px-1 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                  {step.role}
-                </span>{" "}
-                <code className="text-xs">
-                  {step.provider}:{step.type}
-                </code>
-                {step.purpose.length > 0 && (
-                  <span className="text-neutral-600 dark:text-neutral-400"> — {step.purpose}</span>
-                )}
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+      {status === "done" && plan && !preview && <GuidancePlanSection plan={plan} />}
 
       {status === "done" && preview && (
-        <div
-          data-testid="workflow-guidance-preview"
-          className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950"
-        >
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-            Draft preview
-          </h3>
-          {/* Fixed, server-provided review copy — make it unmistakable nothing changed. No apply control. */}
-          <p
-            data-testid="workflow-guidance-preview-notice"
-            className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400"
-          >
-            {preview.notice}
-          </p>
-          {preview.title.length > 0 && (
-            <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">
-              {preview.title}
-            </p>
-          )}
-          {preview.summary.length > 0 && (
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{preview.summary}</p>
-          )}
-          <ol className="mt-2 space-y-1.5">
-            {preview.nodes.map((node, i) => (
-              <li key={node.previewId} className="text-sm text-neutral-700 dark:text-neutral-300">
-                <span className="font-medium">{i + 1}.</span>{" "}
-                <span className="rounded bg-neutral-200 px-1 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                  {node.role}
-                </span>{" "}
-                <code className="text-xs">{node.label}</code>
-                {node.purpose.length > 0 && (
-                  <span className="text-neutral-600 dark:text-neutral-400"> — {node.purpose}</span>
-                )}
-                {node.missingInputs && node.missingInputs.length > 0 && (
-                  <span className="block pl-5 text-xs text-amber-700 dark:text-amber-400">
-                    Still needs: {node.missingInputs.join(", ")}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ol>
-          {preview.edges.length > 0 && (
-            <p
-              data-testid="workflow-guidance-preview-flow"
-              className="mt-2 text-xs text-neutral-500 dark:text-neutral-400"
-            >
-              Flow: {preview.nodes.map((n) => n.label).join(" → ")}
-            </p>
-          )}
-          {/* Builder-only: show the preview as a non-applied ghost overlay on the canvas. This does
-              NOT apply/create/add anything — it only toggles a visual preview layer. Passes the
-              validated plan (apply source of truth) alongside the display preview. */}
-          {onPreviewToCanvas && plan && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onPreviewToCanvas({ plan, preview })}
-              data-testid="workflow-guidance-show-on-canvas"
-              className="mt-3"
-            >
-              Show on canvas
-            </Button>
-          )}
-        </div>
+        <GuidancePreviewSection
+          preview={preview}
+          plan={plan}
+          {...(onPreviewToCanvas ? { onPreviewToCanvas } : {})}
+        />
       )}
+    </section>
+  );
+}
+
+type ChatMessage =
+  | { readonly id: string; readonly role: "user"; readonly text: string }
+  | {
+      readonly id: string;
+      readonly role: "assistant";
+      readonly text: string;
+      readonly plan: WorkflowPlan | null;
+      readonly preview: DraftPreview | null;
+    }
+  | { readonly id: string; readonly role: "error"; readonly text: string };
+
+/** Build the sanitized, bounded recent-conversation context from prior plain-text turns. */
+function toRecentTurns(messages: readonly ChatMessage[]): GuidanceConversationTurn[] {
+  return messages
+    .filter((m): m is Extract<ChatMessage, { role: "user" | "assistant" }> => m.role === "user" || m.role === "assistant")
+    .map((m) => ({ role: m.role, text: m.text.slice(0, MAX_GUIDANCE_CONVERSATION_TURN_TEXT) }))
+    .filter((t) => t.text.trim().length > 0)
+    .slice(-MAX_GUIDANCE_CONVERSATION_TURNS);
+}
+
+/** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: WorkflowGuidancePanelProps) {
+  const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const nextId = useRef(0);
+  const makeId = () => String(nextId.current++);
+
+  const trimmed = input.trim();
+  const canSend = trimmed.length > 0 && !loading;
+
+  // Only the most recent assistant turn's preview/plan is actionable — a newer preview supersedes the
+  // prior pending one (the older messages stay in the transcript as text).
+  let latestAssistantId: string | null = null;
+  for (const m of messages) if (m.role === "assistant") latestAssistantId = m.id;
+
+  async function handleSend(): Promise<void> {
+    if (!canSend) return;
+    const goalText = trimmed;
+    // Prior turns (before appending this one) become the sanitized recent-conversation context.
+    const recentTurns = toRecentTurns(messages);
+    setMessages((prev) => [...prev, { id: makeId(), role: "user", text: goalText }]);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await requestWorkflowGuidance({
+        accountId,
+        goalText,
+        ...(workflowId ? { workflowId } : {}),
+        ...(recentTurns.length ? { recentTurns } : {}),
+      });
+      if (res.ok) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: makeId(),
+            role: "assistant",
+            text: res.guidanceText,
+            plan: asRenderablePlan(res.workflowPlan),
+            preview: asRenderablePreview(res.previewDraft),
+          },
+        ]);
+      } else {
+        setMessages((prev) => [...prev, { id: makeId(), role: "error", text: safeErrorMessage(res) }]);
+      }
+    } catch {
+      setMessages((prev) => [...prev, { id: makeId(), role: "error", text: UNAVAILABLE_MESSAGE }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section
+      data-testid="workflow-guidance-panel"
+      aria-label="Build with me"
+      className="flex h-full min-h-0 flex-col rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+    >
+      <div>
+        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Build with me</h2>
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+          Describe what you want to automate and I will help you figure out the workflow. This is
+          guidance, not automatic workflow creation.
+        </p>
+      </div>
+
+      <div data-testid="workflow-guidance-messages" className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto">
+        {messages.map((m) => {
+          if (m.role === "user") {
+            return (
+              <div key={m.id} data-testid="workflow-guidance-message-user" className="text-sm">
+                <span className="font-medium text-neutral-900 dark:text-neutral-100">You: </span>
+                <span className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{m.text}</span>
+              </div>
+            );
+          }
+          if (m.role === "error") {
+            return (
+              <p
+                key={m.id}
+                role="alert"
+                data-testid="workflow-guidance-error"
+                className="text-sm text-red-700 dark:text-red-300"
+              >
+                {m.text}
+              </p>
+            );
+          }
+          const isLatest = m.id === latestAssistantId;
+          return (
+            <div key={m.id} data-testid="workflow-guidance-message-assistant">
+              {m.text.length > 0 && (
+                <div data-testid="workflow-guidance-result">
+                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Hermes: </span>
+                  <span className="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
+                    {m.text}
+                  </span>
+                </div>
+              )}
+              {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
+              {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
+              {isLatest && m.preview && (
+                <GuidancePreviewSection
+                  preview={m.preview}
+                  plan={m.plan}
+                  {...(onPreviewToCanvas ? { onPreviewToCanvas } : {})}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+        <Label htmlFor="workflow-guidance-goal" className="sr-only">
+          Message Hermes
+        </Label>
+        <Textarea
+          id="workflow-guidance-goal"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={CHAT_PLACEHOLDER}
+          rows={2}
+          maxLength={MAX_GOAL_LENGTH}
+          disabled={loading}
+        />
+        <div className="mt-2 flex items-center gap-3">
+          <Button type="button" onClick={handleSend} disabled={!canSend} data-testid="workflow-guidance-submit">
+            {loading ? "Thinking…" : "Send"}
+          </Button>
+        </div>
+      </div>
     </section>
   );
 }

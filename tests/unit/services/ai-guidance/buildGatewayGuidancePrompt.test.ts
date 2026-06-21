@@ -60,3 +60,37 @@ describe("buildGatewayGuidancePrompt — scope instruction + safe context", () =
     }
   });
 });
+
+describe("buildGatewayGuidancePrompt — recent conversation (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE)", () => {
+  it("renders the recent conversation turns as labeled lines (most recent last)", () => {
+    const prompt = buildGatewayGuidancePrompt({
+      request: EMPTY_REQUEST,
+      goalText: "Add a delay before Slack.",
+      recentTurns: [
+        { role: "user", text: "Add a Slack message after manual run." },
+        { role: "assistant", text: "Add Slack after the trigger." },
+      ],
+    });
+    expect(prompt).toContain("Recent conversation");
+    expect(prompt).toContain("User: Add a Slack message after manual run.");
+    expect(prompt).toContain("Assistant: Add Slack after the trigger.");
+    // The latest goal is still the request to answer now.
+    expect(prompt).toContain("User goal (their words): Add a delay before Slack.");
+  });
+
+  it("omits the conversation section entirely when no turns are passed", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
+    expect(prompt).not.toContain("Recent conversation");
+  });
+
+  it("defensively redacts obvious secret shapes inside a turn (a pasted token never reaches the gateway)", () => {
+    const prompt = buildGatewayGuidancePrompt({
+      request: EMPTY_REQUEST,
+      goalText: "use my token",
+      recentTurns: [{ role: "user", text: "here is my key sk-ABCDEF0123456789ABCDEF and a token xoxb-1111111111-2222" }],
+    });
+    expect(prompt).not.toContain("sk-ABCDEF0123456789ABCDEF");
+    expect(prompt).not.toContain("xoxb-1111111111-2222");
+    expect(prompt).toContain("[redacted]");
+  });
+});

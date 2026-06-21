@@ -236,3 +236,118 @@ describe("WorkflowGuidancePanel — request + render", () => {
     await waitFor(() => expect(screen.getByTestId("workflow-guidance-result")).toBeInTheDocument());
   });
 });
+
+/**
+ * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — the `conversational` mode (builder rail). Session-scoped chat
+ * over the SAME governed helper: multi-turn messages, follow-ups carry sanitized recent conversation,
+ * new previews supersede the prior pending one, and apply/save is never touched by the panel.
+ */
+function planFor(title: string) {
+  return {
+    schemaVersion: 1,
+    title,
+    summary: "",
+    notApplied: true,
+    steps: [{ ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" }],
+  };
+}
+function previewFor(title: string) {
+  return {
+    version: 1,
+    title,
+    summary: "",
+    notice: "Preview only — your workflow has not changed.",
+    notApplied: true as const,
+    nodes: [
+      { previewId: "preview-step-1", role: "trigger" as const, provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true as const },
+    ],
+    edges: [],
+  };
+}
+
+describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", () => {
+  it("renders a message list + bottom send input, no single-shot 'Get guidance' form", () => {
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+    expect(screen.getByTestId("workflow-guidance-messages")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Describe what to add or change/i)).toBeInTheDocument();
+    expect(screen.getByTestId("workflow-guidance-submit")).toHaveTextContent("Send");
+  });
+
+  it("renders multi-turn user + Hermes messages and a second submit carries sanitized recentTurns", async () => {
+    const user = userEvent.setup();
+    mockRequest
+      .mockResolvedValueOnce({ ok: true, guidanceText: "Add the Slack step after the trigger.", source: "hermes-agent", workflowPlan: null, previewDraft: null })
+      .mockResolvedValueOnce({ ok: true, guidanceText: "Okay, place a Delay node before the Slack step.", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "Add a Slack message after manual run.");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    expect(await screen.findByText("Add the Slack step after the trigger.")).toBeInTheDocument();
+    // First turn: no recentTurns (byte-identical to single-shot payload).
+    expect(mockRequest).toHaveBeenNthCalledWith(1, {
+      accountId: "acct-1",
+      goalText: "Add a Slack message after manual run.",
+      workflowId: "wf-9",
+    });
+
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "Add a delay before Slack.");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    expect(await screen.findByText("Okay, place a Delay node before the Slack step.")).toBeInTheDocument();
+    // Second turn: prior user + assistant turns sent as recentTurns (plain text only).
+    expect(mockRequest).toHaveBeenNthCalledWith(2, {
+      accountId: "acct-1",
+      goalText: "Add a delay before Slack.",
+      workflowId: "wf-9",
+      recentTurns: [
+        { role: "user", text: "Add a Slack message after manual run." },
+        { role: "assistant", text: "Add the Slack step after the trigger." },
+      ],
+    });
+    // Both user turns remain in the transcript.
+    expect(screen.getAllByTestId("workflow-guidance-message-user")).toHaveLength(2);
+  });
+
+  it("a follow-up preview supersedes the prior pending one (only the latest is actionable)", async () => {
+    const user = userEvent.setup();
+    const onPreviewToCanvas = jest.fn();
+    mockRequest
+      .mockResolvedValueOnce({ ok: true, guidanceText: "first", source: "hermes-agent", workflowPlan: planFor("First"), previewDraft: previewFor("First") })
+      .mockResolvedValueOnce({ ok: true, guidanceText: "second", source: "hermes-agent", workflowPlan: planFor("Second"), previewDraft: previewFor("Second") });
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByTestId("workflow-guidance-preview");
+    expect(screen.getAllByTestId("workflow-guidance-show-on-canvas")).toHaveLength(1);
+
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add delay");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await waitFor(() => expect(screen.getByTestId("workflow-guidance-preview")).toHaveTextContent("Second"));
+    // Still exactly ONE actionable preview — the newest replaces the prior pending one.
+    expect(screen.getAllByTestId("workflow-guidance-show-on-canvas")).toHaveLength(1);
+
+    await user.click(screen.getByTestId("workflow-guidance-show-on-canvas"));
+    expect(onPreviewToCanvas).toHaveBeenCalledTimes(1);
+    expect(onPreviewToCanvas.mock.calls[0]![0]).toMatchObject({ plan: { title: "Second" }, preview: { title: "Second" } });
+  });
+
+  it("an error turn is appended but the prior chat history is preserved", async () => {
+    const user = userEvent.setup();
+    mockRequest
+      .mockResolvedValueOnce({ ok: true, guidanceText: "Here is guidance.", source: "hermes-agent", workflowPlan: null, previewDraft: null })
+      .mockRejectedValueOnce(new Error("503 SECRET gateway detail"));
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "first");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByText("Here is guidance.");
+
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "second");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    const err = await screen.findByTestId("workflow-guidance-error");
+    expect(err.textContent ?? "").not.toMatch(/503|gateway|SECRET/i);
+    // Chat history kept: the earlier Hermes turn and both user turns are still present.
+    expect(screen.getByText("Here is guidance.")).toBeInTheDocument();
+    expect(screen.getAllByTestId("workflow-guidance-message-user")).toHaveLength(2);
+  });
+});

@@ -12,6 +12,10 @@ import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
 import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
+import {
+  MAX_GUIDANCE_CONVERSATION_TURNS,
+  MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
+} from "@/contracts/aiGuidance";
 import * as accountsRepo from "@/repositories/accounts";
 
 /**
@@ -50,10 +54,27 @@ import * as accountsRepo from "@/repositories/accounts";
 
 const MAX_GOAL_LENGTH = 2_000;
 
+/**
+ * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — optional, bounded, sanitized recent-conversation context.
+ * Trust boundary: role allow-list (`user`/`assistant`), per-turn text bounded + trimmed, the array
+ * capped at `MAX_GUIDANCE_CONVERSATION_TURNS` (extras keep the MOST RECENT via the route handler),
+ * unknown per-turn fields STRIPPED (no `.strict()` on the turn so a forward-compatible client field is
+ * ignored, not a 400). Optional → single-shot requests stay byte-identical.
+ */
+const ConversationTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  text: z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_GUIDANCE_CONVERSATION_TURN_TEXT),
+});
+
 const BodySchema = z
   .object({
     goalText: z.string().trim().min(1, "A goal description is required.").max(MAX_GOAL_LENGTH, `Goal is too long (max ${MAX_GOAL_LENGTH} characters).`),
     workflowId: z.string().trim().min(1).optional(),
+    recentTurns: z.array(ConversationTurnSchema).max(MAX_GUIDANCE_CONVERSATION_TURNS).optional(),
   })
   .strict();
 
@@ -103,7 +124,9 @@ export async function POST(
   // 2. Strict body — goalText required; a client-supplied accountId/extra field is rejected.
   const parsed = await parseJsonBody(request, BodySchema);
   if (!parsed.ok) return parsed.response;
-  const { goalText, workflowId } = parsed.data;
+  const { goalText, workflowId, recentTurns } = parsed.data;
+  // Belt-and-suspenders bound: keep only the MOST RECENT turns (schema already caps the count).
+  const boundedRecentTurns = recentTurns?.slice(-MAX_GUIDANCE_CONVERSATION_TURNS);
 
   // 3. Optional workflow context — must belong to THIS account + caller is a member (else 404).
   let definition: import("@/contracts/workflow").WorkflowDefinition | undefined;
@@ -147,6 +170,7 @@ export async function POST(
     {
       scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
       goalText,
+      ...(boundedRecentTurns && boundedRecentTurns.length ? { recentTurns: boundedRecentTurns } : {}),
       ...(definition ? { definition } : {}),
       contextInputs: {
         account: { type: accountType },

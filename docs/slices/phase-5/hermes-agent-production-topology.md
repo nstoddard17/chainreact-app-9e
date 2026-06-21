@@ -99,6 +99,17 @@ guarded by structure tests so a regression fails CI rather than silently re-intr
 **Live surface (keep-set):**
 - Builder AI = the left guidance rail: `BuilderGuidanceRail` → `WorkflowGuidancePanel` →
   `requestWorkflowGuidance` → `POST /api/accounts/[id]/ai/workflow-guidance`.
+  - **Chat mode (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE):** the rail enables the panel's
+    `conversational` mode — a session-scoped message list (user / Hermes / error turns) with a bottom
+    input. A follow-up sends the prior turns as an OPTIONAL, bounded, sanitized `recentTurns` array so
+    Hermes answers in context. Conversation is in-memory only (NO durable memory, NO DB write). The
+    dashboard "Build with me" stays single-shot (no prop). Only the latest assistant turn's preview is
+    actionable ("Show on canvas"); Apply / Discard remain explicit + local-draft-only in the canvas
+    overlay. `recentTurns` is plain text only (role allow-list `user`/`assistant`, per-turn text and
+    turn-count bounded server-side at the trust boundary, secrets defensively redacted in the prompt
+    builder, unknown per-turn fields stripped). No route added — the existing guidance route schema
+    gained the optional field (backward-compatible; single-shot requests are byte-identical). Not
+    stored in the audit row.
 - Run-results repair = governed account suggestion `requestAccountWorkflowRepair` →
   `POST /api/accounts/[id]/ai/workflow-repair` (deterministic, no model), plus EXPLICIT apply
   `applyWorkflowPatch` → `POST /api/workflows/[id]/ai/apply`.

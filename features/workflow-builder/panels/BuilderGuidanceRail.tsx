@@ -70,6 +70,7 @@ export function BuilderGuidanceRail({
           <WorkflowGuidancePanel
             accountId={accountId!}
             workflowId={workflowId}
+            conversational
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
           />
         </div>

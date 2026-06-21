@@ -54,7 +54,7 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
     });
     render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
 
-    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
 
     await waitFor(() =>
@@ -99,7 +99,7 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
     render(
       <BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled onShowPreview={onShowPreview} />,
     );
-    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
 
@@ -114,9 +114,39 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
     const user = userEvent.setup();
     mockRequest.mockRejectedValue(new Error("503 from gateway"));
     render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
-    await user.type(screen.getByPlaceholderText(/Example:/i), "do something");
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "do something");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     const err = await screen.findByTestId("workflow-guidance-error");
     expect(err.textContent ?? "").not.toMatch(/503|gateway/i);
+  });
+});
+
+describe("BuilderGuidanceRail — conversational (multi-turn)", () => {
+  it("renders multi-turn user + Hermes messages and a follow-up carries sanitized recentTurns", async () => {
+    const user = userEvent.setup();
+    mockRequest
+      .mockResolvedValueOnce({ ok: true, guidanceText: "Add Slack after the trigger.", source: "hermes-agent", workflowPlan: null, previewDraft: null })
+      .mockResolvedValueOnce({ ok: true, guidanceText: "Place a Delay before Slack.", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+    render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
+
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "Add a Slack message after manual run.");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    expect(await screen.findByText("Add Slack after the trigger.")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "Add a delay before Slack.");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    expect(await screen.findByText("Place a Delay before Slack.")).toBeInTheDocument();
+
+    // Follow-up still posts to the ACCOUNT workflow-guidance helper, now with recent conversation.
+    expect(mockRequest).toHaveBeenNthCalledWith(2, {
+      accountId: "acct-1",
+      goalText: "Add a delay before Slack.",
+      workflowId: "wf-9",
+      recentTurns: [
+        { role: "user", text: "Add a Slack message after manual run." },
+        { role: "assistant", text: "Add Slack after the trigger." },
+      ],
+    });
+    expect(screen.getAllByTestId("workflow-guidance-message-user")).toHaveLength(2);
   });
 });

@@ -92,3 +92,21 @@ export type GuidanceUnavailableCode =
 export type GuidanceResult =
   | { readonly ok: true; readonly response: WorkflowGuidanceResponse }
   | { readonly ok: false; readonly code: GuidanceUnavailableCode; readonly reason?: string };
+
+/**
+ * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — a single sanitized turn of the builder rail's session-scoped
+ * conversation. PLAIN TEXT ONLY (the user's words or Hermes's prior advisory prose). It carries NO
+ * config values, secrets, tokens, credential ids, provider account ids, or raw workflow JSON — the
+ * workflow shape still travels only through the sanitized `WorkflowGuidanceRequest`. Conversation is
+ * REQUEST-SCOPED: it is sent per request to give Hermes recent context and is NOT durably stored.
+ */
+export type GuidanceConversationRole = "user" | "assistant";
+
+export interface GuidanceConversationTurn {
+  readonly role: GuidanceConversationRole;
+  readonly text: string;
+}
+
+/** Bounds for the optional recent-conversation context (enforced server-side at the trust boundary). */
+export const MAX_GUIDANCE_CONVERSATION_TURNS = 8 as const;
+export const MAX_GUIDANCE_CONVERSATION_TURN_TEXT = 1_000 as const;

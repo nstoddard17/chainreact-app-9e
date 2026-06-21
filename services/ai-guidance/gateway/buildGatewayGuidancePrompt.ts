@@ -13,7 +13,8 @@
  * heavy system prompting on its side; this is just the safe, user-facing request payload.
  */
 
-import type { WorkflowGuidanceRequest } from "@/contracts/aiGuidance";
+import type { GuidanceConversationTurn, WorkflowGuidanceRequest } from "@/contracts/aiGuidance";
+import { MAX_GUIDANCE_CONVERSATION_TURNS, MAX_GUIDANCE_CONVERSATION_TURN_TEXT } from "@/contracts/aiGuidance";
 import type { SafeGuidanceContext } from "../guidanceContextPolicy";
 
 export interface BuildGatewayPromptInput {
@@ -21,6 +22,12 @@ export interface BuildGatewayPromptInput {
   readonly request: WorkflowGuidanceRequest;
   /** The user's own goal text (their words). Scrubbed of obvious secrets before inclusion. */
   readonly goalText?: string;
+  /**
+   * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — optional session-scoped recent conversation (plain-text
+   * user/assistant turns). Each turn is defensively secret-scrubbed + truncated and the list is bounded
+   * to the most recent turns, so a follow-up reads in context without leaking config/secrets/ids.
+   */
+  readonly recentTurns?: readonly GuidanceConversationTurn[];
   /** Public capability catalog the brain may propose from (provider:type keys). Safe — not user data. */
   readonly capabilityCatalog?: readonly string[];
   /**
@@ -70,6 +77,20 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     ? `User goal (their words): ${goal}`
     : "The user has not described a goal yet — ask clarifying questions.";
 
+  // Session-scoped recent conversation (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE). Bounded to the most
+  // recent turns; each turn defensively secret-scrubbed + truncated. Plain text only — no config/ids.
+  const recent = (input.recentTurns ?? [])
+    .slice(-MAX_GUIDANCE_CONVERSATION_TURNS)
+    .map((t) => {
+      const who = t.role === "assistant" ? "Assistant" : "User";
+      const text = redactSecretsFromText(t.text).slice(0, MAX_GUIDANCE_CONVERSATION_TURN_TEXT);
+      return `  ${who}: ${text}`;
+    })
+    .filter((l) => l.trim().length > 0);
+  const conversationLine = recent.length
+    ? `Recent conversation (most recent last, for context — the latest user goal above is the request to answer now):\n${recent.join("\n")}`
+    : "";
+
   const shapeLine =
     wf.nodeCount > 0
       ? `Current workflow shape: ${wf.nodeCount} step(s), ${wf.edgeCount} connection(s).\n` +
@@ -101,6 +122,7 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
   return [
     `Guidance kind: ${input.request.guidanceKind}`,
     goalLine,
+    conversationLine,
     shapeLine,
     findingsLine,
     catalogLine,

@@ -21,7 +21,11 @@
  * persistent audit recorder + the real account-membership authorization; this slice ships no route/UI.
  */
 
-import type { GuidanceUnavailableCode, WorkflowGuidanceRequest } from "@/contracts/aiGuidance";
+import type {
+  GuidanceConversationTurn,
+  GuidanceUnavailableCode,
+  WorkflowGuidanceRequest,
+} from "@/contracts/aiGuidance";
 import type { AccountType } from "@/contracts/accounts";
 import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
@@ -48,8 +52,14 @@ export const WORKFLOW_GUIDANCE_INTAKE_INTENT = "request_workflow_guidance" as co
 export interface WorkflowGuidanceIntakeInput {
   /** Account-scoped governance scope (userId + accountId required; workflowId optional). */
   readonly scope: ReactAgentScope;
-  /** The user's own goal text (their words). The prompt builder scrubs obvious secrets. */
+  /** The user's own goal text (their words / latest turn). The prompt builder scrubs obvious secrets. */
   readonly goalText: string;
+  /**
+   * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — optional session-scoped recent conversation (plain-text
+   * user/assistant turns) so a follow-up reads in context. Already bounded/role-checked by the route;
+   * the prompt builder additionally redacts + truncates each turn. Request-scoped — never persisted.
+   */
+  readonly recentTurns?: readonly GuidanceConversationTurn[];
   /** Optional current draft/workflow — sanitized to the safe DTO (config/labels/ids dropped). */
   readonly definition?: WorkflowDefinition;
   /** Optional public capability catalog (provider:type keys) — safe, not user data. */
@@ -152,6 +162,7 @@ export async function runWorkflowGuidanceIntakeCapability(
         request,
         config,
         goalText: input.goalText,
+        ...(input.recentTurns && input.recentTurns.length ? { recentTurns: input.recentTurns } : {}),
         ...(input.capabilityCatalog ? { capabilityCatalog: input.capabilityCatalog } : {}),
         ...(context ? { context } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),

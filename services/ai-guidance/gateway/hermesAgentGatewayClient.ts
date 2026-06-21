@@ -35,6 +35,7 @@ import {
 } from "./gatewayConfig";
 import { buildGatewayGuidancePrompt } from "./buildGatewayGuidancePrompt";
 import type { SafeGuidanceContext } from "../guidanceContextPolicy";
+import type { GuidanceConversationTurn } from "@/contracts/aiGuidance";
 import { normalizeGatewayResponse, type NormalizedGatewayGuidance } from "./gatewayResponseContract";
 
 /** Minimal injectable HTTP seam — decoupled from DOM fetch typing so tests mock it trivially. */
@@ -86,6 +87,8 @@ export async function requestHermesAgentGuidanceNormalized(params: {
   request: WorkflowGuidanceRequest;
   config: HermesAgentGatewayConfig;
   goalText?: string;
+  /** Session-scoped recent conversation (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE). Plain text only. */
+  recentTurns?: readonly GuidanceConversationTurn[];
   capabilityCatalog?: readonly string[];
   /** Scope-guarded context (HERMES-AGENT-MEMORY-SCOPE-GUARD). */
   context?: SafeGuidanceContext;
@@ -94,6 +97,7 @@ export async function requestHermesAgentGuidanceNormalized(params: {
   const prompt = buildGatewayGuidancePrompt({
     request: params.request,
     ...(params.goalText ? { goalText: params.goalText } : {}),
+    ...(params.recentTurns && params.recentTurns.length ? { recentTurns: params.recentTurns } : {}),
     ...(params.capabilityCatalog ? { capabilityCatalog: params.capabilityCatalog } : {}),
     ...(params.context ? { context: params.context } : {}),
   });
@@ -137,6 +141,7 @@ export async function requestHermesAgentGuidance(params: {
   request: WorkflowGuidanceRequest;
   config: HermesAgentGatewayConfig;
   goalText?: string;
+  recentTurns?: readonly GuidanceConversationTurn[];
   capabilityCatalog?: readonly string[];
   context?: SafeGuidanceContext;
   fetchImpl?: GatewayFetch;
