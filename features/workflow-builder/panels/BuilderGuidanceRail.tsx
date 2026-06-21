@@ -92,30 +92,33 @@ export function BuilderGuidanceRail({
       style={{ color: "var(--builder-text)" }}
     >
       {available ? (
-        <>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {/* Reuse the verified guidance panel verbatim — same helper / route / preview controls.
-                The builder workflowId + the canvas-preview hook are the only builder-specific wiring. */}
-            <WorkflowGuidancePanel
-              accountId={accountId!}
-              workflowId={workflowId}
-              conversational
-              {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
-            />
-          </div>
-          {/* HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — guided setup lives HERE (the rail), not inside
-              the holographic canvas nodes. Pinned below the chat, tied to the latest shown preview. */}
-          {previewForSetup && onPreviewConfigChange && onApplyPreview && (
-            <BuilderPreviewSetupCard
-              preview={previewForSetup}
-              {...(setupFieldsByType ? { setupFieldsByType } : {})}
-              {...(previewConfig ? { previewConfig } : {})}
-              onPreviewConfigChange={onPreviewConfigChange}
-              onApply={onApplyPreview}
-              workflowId={workflowId}
-            />
-          )}
-        </>
+        <div className="min-h-0 flex-1">
+          {/* Reuse the verified guidance panel verbatim — same helper / route / preview controls.
+              The builder workflowId + the canvas-preview hook are the only builder-specific wiring.
+              HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — the guided-setup card is passed as the transcript
+              FOOTER so it renders INSIDE the scrollable chat (after the latest response), and the panel's
+              composer stays pinned at the bottom. It is NOT a sibling below the composer. */}
+          <WorkflowGuidancePanel
+            accountId={accountId!}
+            workflowId={workflowId}
+            conversational
+            {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
+            {...(previewForSetup && onPreviewConfigChange && onApplyPreview
+              ? {
+                  transcriptFooter: (
+                    <BuilderPreviewSetupCard
+                      preview={previewForSetup}
+                      {...(setupFieldsByType ? { setupFieldsByType } : {})}
+                      {...(previewConfig ? { previewConfig } : {})}
+                      onPreviewConfigChange={onPreviewConfigChange}
+                      onApply={onApplyPreview}
+                      workflowId={workflowId}
+                    />
+                  ),
+                }
+              : {})}
+          />
+        </div>
       ) : (
         <div
           data-testid="builder-guidance-rail-unavailable"

@@ -11,7 +11,34 @@
 > added a narrow deterministic fallback that produces a validated partial preview when Hermes returns
 > text-only for an obvious shape**; **Phase 7 (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT) hides the
 > empty-state card during preview + fits the viewport once per shown preview, and documents the future
-> visual-diff rules** — see the status boxes.
+> visual-diff rules**; **Phase 8 (HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH) moved the guided-setup card
+> INTO the chat transcript and pinned the composer at the bottom** — see the status boxes.
+
+## Phase 8 status — IMPLEMENTED (RAIL CHAT LAYOUT POLISH)
+
+**Why:** the guided-setup card was a SIBLING below `WorkflowGuidancePanel` in `BuilderGuidanceRail`, so
+it rendered beneath the pinned composer — it felt like a separate panel tacked on after the chat input
+rather than part of React's response.
+
+**Shipped (layout-only — no route/schema/prompt/model/apply/save/activate/run change):**
+- `WorkflowGuidancePanel` (conversational) gained an optional `transcriptFooter?: ReactNode` rendered at
+  the END of the scrollable message area (after the latest assistant turn + its preview section). The
+  panel renders it as an opaque node — it owns no preview-config logic.
+- `BuilderGuidanceRail` now passes the `BuilderPreviewSetupCard` as that `transcriptFooter` instead of a
+  sibling. So the setup card lives INSIDE the chat transcript and scrolls with it; the panel's composer
+  (textarea + Send + Enter/Shift+Enter hint) stays pinned at the bottom as the bottom-most element. The
+  rail wrapper dropped its redundant outer `overflow-y-auto` so the panel's message area is the single
+  scroll region.
+- A lightweight auto-scroll keeps the newest content in view: the transcript scrolls to bottom when the
+  message COUNT changes or the footer toggles (keyed on count + a boolean, not the node identity, so no
+  per-render jank).
+- `BuilderPreviewSetupCard` restyled from a full-width `border-t` bar to a compact rounded inline card so
+  it reads as a React response/action card.
+
+Setup behavior, preview/apply, and the visual-only canvas are all unchanged — only DOM placement +
+styling moved.
+
+---
 
 ## Phase 7 status — IMPLEMENTED (PREVIEW CANVAS STATE + FIT)
 

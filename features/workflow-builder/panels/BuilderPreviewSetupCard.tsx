@@ -82,8 +82,10 @@ export function BuilderPreviewSetupCard({
     <section
       data-testid="builder-preview-setup-rail"
       aria-label="Finish workflow setup"
-      className="border-t p-3"
-      style={{ background: "var(--builder-panel)", borderColor: "var(--builder-border)" }}
+      // HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — an inline, compact chat response/action card inside the
+      // transcript (not a full-width page panel). Composer stays pinned below the transcript.
+      className="mt-1 rounded-md border p-3"
+      style={{ background: "var(--builder-panel-2)", borderColor: "var(--builder-border)" }}
     >
       <h3 className="text-[12px] font-semibold" style={{ color: "var(--builder-text)" }}>
         {hasSupported ? "Finish these details before applying:" : "Apply this workflow to your draft"}

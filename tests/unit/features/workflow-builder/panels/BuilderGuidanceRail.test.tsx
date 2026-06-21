@@ -13,7 +13,7 @@ jest.mock("@/lib/api/ai/guidance", () => ({
   requestWorkflowGuidance: (...a: unknown[]) => mockRequest(...a),
 }));
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BuilderGuidanceRail } from "@/features/workflow-builder/panels/BuilderGuidanceRail";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
@@ -177,6 +177,27 @@ describe("BuilderGuidanceRail — guided setup card (HERMES-AGENT-GUIDED-PREVIEW
     expect(screen.queryByTestId("preview-setup-preview-step-2-channel")).not.toBeInTheDocument();
     expect(screen.getByTestId("preview-setup-after-apply")).toHaveTextContent("channel");
     expect(screen.getByTestId("builder-preview-setup-apply")).toBeInTheDocument();
+  });
+
+  it("HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — the setup card renders INSIDE the chat transcript; the composer stays in its own pinned region (not in the transcript)", () => {
+    render(
+      <BuilderGuidanceRail
+        accountId="acct-1"
+        workflowId="wf-9"
+        guidanceEnabled
+        previewForSetup={previewForSetup}
+        setupFieldsByType={setupFieldsByType}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+        onApplyPreview={() => {}}
+      />,
+    );
+    const transcript = screen.getByTestId("workflow-guidance-messages");
+    // Setup card is part of the scrollable transcript (a React response/action card).
+    expect(within(transcript).getByTestId("builder-preview-setup-rail")).toBeInTheDocument();
+    // The composer (send button + textarea) is NOT inside the transcript — it's the pinned bottom region.
+    expect(within(transcript).queryByTestId("workflow-guidance-submit")).not.toBeInTheDocument();
+    expect(screen.getByTestId("workflow-guidance-submit")).toBeInTheDocument();
   });
 
   it("does NOT render the setup card when no preview is shown", () => {

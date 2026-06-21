@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import {
@@ -86,6 +86,14 @@ export interface WorkflowGuidancePanelProps {
    * the dashboard "Build with me" behavior byte-identical.
    */
   readonly conversational?: boolean;
+  /**
+   * HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — optional node rendered at the END of the conversational
+   * transcript (inside the scrollable message area, after the latest assistant turn), so a guided-setup
+   * card reads as part of React's response and the composer stays pinned at the bottom. The builder rail
+   * passes the {@link "../workflow-builder/panels/BuilderPreviewSetupCard"} here. Conversational mode
+   * only; the panel renders it as an opaque node (it owns no preview-config logic). Absent → nothing.
+   */
+  readonly transcriptFooter?: ReactNode;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -228,12 +236,23 @@ function toRecentTurns(messages: readonly ChatMessage[]): GuidanceConversationTu
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const nextId = useRef(0);
   const makeId = () => String(nextId.current++);
+
+  // HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — keep the newest content in view. Scroll the transcript to the
+  // bottom when a message is added OR the setup-card footer appears/disappears. Keyed on the message
+  // COUNT + a boolean for the footer (not the footer node identity) so it never re-scrolls on every
+  // render — no jank.
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const hasFooter = transcriptFooter != null && transcriptFooter !== false;
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length, hasFooter]);
 
   const trimmed = input.trim();
   const canSend = trimmed.length > 0 && !loading;
@@ -294,7 +313,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas 
         </p>
       </div>
 
-      <div data-testid="workflow-guidance-messages" className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto">
+      <div ref={messagesRef} data-testid="workflow-guidance-messages" className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto">
         {messages.map((m) => {
           if (m.role === "user") {
             return (
@@ -339,6 +358,10 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas 
             </div>
           );
         })}
+        {/* HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — guided-setup card lives INSIDE the transcript, after the
+            latest assistant turn it belongs to, so it reads as part of React's response and scrolls with
+            chat. The composer below stays pinned. Opaque node — the panel owns no preview-config logic. */}
+        {transcriptFooter}
       </div>
 
       <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
