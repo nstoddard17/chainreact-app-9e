@@ -45,6 +45,9 @@ interface Props {
   busyId: string | null;
   revokeId: string | null;
   actionError: string | null;
+  /** When false (default), revoked tokens are hidden from the list. */
+  showRevoked: boolean;
+  onShowRevokedChange: (value: boolean) => void;
   onRetry: () => void;
   onRevokeOpen: (tokenId: string) => void;
   onRevokeConfirm: (tokenId: string) => void;
@@ -59,11 +62,19 @@ export function McpTokenList({
   busyId,
   revokeId,
   actionError,
+  showRevoked,
+  onShowRevokedChange,
   onRetry,
   onRevokeOpen,
   onRevokeConfirm,
   onRevokeCancel,
 }: Props) {
+  const hasRevoked = tokens?.some((t) => t.status === "revoked") ?? false;
+  // Default view focuses on usable tokens — revoked tokens are hidden unless the
+  // toggle is on. Revoked rows are never deleted (DB keeps the audit history).
+  const visible =
+    tokens === null ? [] : showRevoked ? tokens : tokens.filter((t) => t.status !== "revoked");
+
   return (
     <>
       {tokens === null && !loadError && (
@@ -91,15 +102,42 @@ export function McpTokenList({
         </div>
       )}
 
+      {/* Show-revoked toggle — offered only when there's revoked history to reveal. */}
+      {tokens !== null && hasRevoked && (
+        <label
+          data-testid="mcp-show-revoked"
+          className="flex items-center gap-2 self-start text-xs text-muted-foreground"
+        >
+          <input
+            type="checkbox"
+            data-testid="mcp-show-revoked-toggle"
+            checked={showRevoked}
+            onChange={(e) => onShowRevokedChange(e.target.checked)}
+            className="h-3.5 w-3.5 accent-primary"
+          />
+          Show revoked tokens
+        </label>
+      )}
+
       {tokens !== null && tokens.length === 0 && (
         <p data-testid="mcp-tokens-empty" className="text-xs text-muted-foreground">
           No MCP tokens yet.
         </p>
       )}
 
-      {tokens !== null && tokens.length > 0 && (
+      {/* Tokens exist but all are filtered out (only revoked, toggle off). */}
+      {tokens !== null && tokens.length > 0 && visible.length === 0 && (
+        <div data-testid="mcp-tokens-no-active" className="flex flex-col gap-1">
+          <p className="text-xs text-muted-foreground">No active MCP tokens.</p>
+          <p className="text-[11px] text-muted-foreground">
+            Turn on Show revoked tokens to view revoked token history.
+          </p>
+        </div>
+      )}
+
+      {visible.length > 0 && (
         <ul data-testid="mcp-tokens-list" className="flex flex-col gap-2">
-          {tokens.map((t) => {
+          {visible.map((t) => {
             const rowBusy = busyId === t.id;
             const confirming = revokeId === t.id;
             return (

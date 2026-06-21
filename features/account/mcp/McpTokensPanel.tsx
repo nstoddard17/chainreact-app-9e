@@ -60,6 +60,10 @@ export function McpTokensPanel({ accountId, accountName, frozen }: McpTokensPane
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // List view: hide revoked tokens by default (audit history stays in the DB and is
+  // revealed by this local toggle). UI-only — no API/URL/store state.
+  const [showRevoked, setShowRevoked] = useState(false);
+
   const load = useCallback(async () => {
     setLoadError(null);
     try {
@@ -195,6 +199,8 @@ export function McpTokensPanel({ accountId, accountName, frozen }: McpTokensPane
         busyId={busyId}
         revokeId={revokeId}
         actionError={actionError}
+        showRevoked={showRevoked}
+        onShowRevokedChange={setShowRevoked}
         onRetry={() => void load()}
         onRevokeOpen={(tokenId) => {
           setRevokeId(tokenId);

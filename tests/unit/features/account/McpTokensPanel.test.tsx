@@ -78,7 +78,8 @@ describe("McpTokensPanel — list + safe fields", () => {
     // Account scope is shown per token (req #5 / #8).
     expect(within(row).getByTestId("mcp-token-account-t1")).toHaveTextContent("Northwind Labs");
     expect(row).toHaveTextContent("workflows:read");
-    expect(within(screen.getByTestId("mcp-token-row-t2")).getByText("Revoked")).toBeInTheDocument();
+    // Revoked tokens are hidden by default (see the "revoked filtering" suite).
+    expect(screen.queryByTestId("mcp-token-row-t2")).toBeNull();
     // No secret field is ever rendered.
     const panel = screen.getByTestId("mcp-tokens-panel");
     expect(panel).not.toHaveTextContent(/token_hash/i);
@@ -225,9 +226,13 @@ describe("McpTokensPanel — revoke", () => {
 
     await user.click(screen.getByTestId("mcp-token-revoke-confirm-t1"));
     await waitFor(() => expect(mockRevoke).toHaveBeenCalledWith("a1", "t1"));
-    await waitFor(() =>
-      expect(within(screen.getByTestId("mcp-token-row-t1")).getByText("Revoked")).toBeInTheDocument(),
-    );
+    // Default view hides the just-revoked token (the DB keeps it for audit).
+    await waitFor(() => expect(screen.queryByTestId("mcp-token-row-t1")).toBeNull());
+    // Revealing history shows it with the Revoked badge and NO revoke action.
+    await user.click(screen.getByTestId("mcp-show-revoked-toggle"));
+    expect(
+      within(screen.getByTestId("mcp-token-row-t1")).getByText("Revoked"),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("mcp-token-revoke-t1")).toBeNull();
   });
 
@@ -240,6 +245,51 @@ describe("McpTokensPanel — revoke", () => {
     await user.click(screen.getByTestId("mcp-token-revoke-cancel-t1"));
     expect(screen.queryByTestId("mcp-token-revoke-confirm-row-t1")).toBeNull();
     expect(mockRevoke).not.toHaveBeenCalled();
+  });
+});
+
+describe("McpTokensPanel — revoked filtering (hidden by default)", () => {
+  it("hides revoked tokens and shows active tokens by default, toggle off", async () => {
+    mockList.mockResolvedValue([token(), token({ id: "t2", name: "old", status: "revoked" })]);
+    render(<McpTokensPanel accountId="a1" accountName="Northwind Labs" frozen={false} />);
+    expect(await screen.findByTestId("mcp-token-row-t1")).toBeInTheDocument();
+    expect(screen.queryByTestId("mcp-token-row-t2")).toBeNull();
+    expect(screen.getByTestId("mcp-show-revoked-toggle")).not.toBeChecked();
+  });
+
+  it("reveals revoked tokens when the toggle is on — Revoked badge, no Revoke action", async () => {
+    const user = userEvent.setup();
+    mockList.mockResolvedValue([token(), token({ id: "t2", name: "old", status: "revoked" })]);
+    render(<McpTokensPanel accountId="a1" accountName="Northwind Labs" frozen={false} />);
+    await screen.findByTestId("mcp-token-row-t1");
+    expect(screen.queryByTestId("mcp-token-row-t2")).toBeNull();
+
+    await user.click(screen.getByTestId("mcp-show-revoked-toggle"));
+    const revoked = screen.getByTestId("mcp-token-row-t2");
+    expect(within(revoked).getByText("Revoked")).toBeInTheDocument();
+    expect(screen.queryByTestId("mcp-token-revoke-t2")).toBeNull(); // no revoke on revoked
+    expect(screen.getByTestId("mcp-token-row-t1")).toBeInTheDocument(); // active still shows
+  });
+
+  it("shows 'No active MCP tokens' when only revoked tokens exist and the toggle is off", async () => {
+    const user = userEvent.setup();
+    mockList.mockResolvedValue([token({ status: "revoked" })]);
+    render(<McpTokensPanel accountId="a1" accountName="Northwind Labs" frozen={false} />);
+    const note = await screen.findByTestId("mcp-tokens-no-active");
+    expect(note).toHaveTextContent("No active MCP tokens.");
+    expect(note).toHaveTextContent(/show revoked tokens/i);
+    expect(screen.queryByTestId("mcp-token-row-t1")).toBeNull();
+
+    await user.click(screen.getByTestId("mcp-show-revoked-toggle"));
+    expect(screen.getByTestId("mcp-token-row-t1")).toBeInTheDocument();
+    expect(screen.queryByTestId("mcp-tokens-no-active")).toBeNull();
+  });
+
+  it("does not offer the toggle when there are no revoked tokens", async () => {
+    mockList.mockResolvedValue([token()]);
+    render(<McpTokensPanel accountId="a1" accountName="Northwind Labs" frozen={false} />);
+    await screen.findByTestId("mcp-token-row-t1");
+    expect(screen.queryByTestId("mcp-show-revoked-toggle")).toBeNull();
   });
 });
 
