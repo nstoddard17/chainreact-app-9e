@@ -278,6 +278,72 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getByTestId("workflow-guidance-submit")).toHaveTextContent("Send");
   });
 
+  // HERMES-AGENT-BUILDER-RAIL-ENTER-TO-SEND — Enter sends, Shift+Enter newlines, guards empty/loading.
+  describe("Enter-to-send composer", () => {
+    it("Enter submits the message once (no newline)", async () => {
+      const user = userEvent.setup();
+      mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack{Enter}");
+      await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
+      expect(mockRequest).toHaveBeenCalledWith({ accountId: "acct-1", goalText: "add slack", workflowId: "wf-9" });
+    });
+
+    it("Shift+Enter inserts a newline and does NOT submit", async () => {
+      const user = userEvent.setup();
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      const ta = screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement;
+      await user.type(ta, "line1{Shift>}{Enter}{/Shift}line2");
+      expect(mockRequest).not.toHaveBeenCalled();
+      expect(ta.value).toBe("line1\nline2");
+    });
+
+    it("Enter on whitespace-only input does not submit", async () => {
+      const user = userEvent.setup();
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "   {Enter}");
+      expect(mockRequest).not.toHaveBeenCalled();
+    });
+
+    it("Enter while a request is in flight does not double-submit", async () => {
+      const user = userEvent.setup();
+      let resolve!: (v: unknown) => void;
+      mockRequest.mockReturnValue(new Promise((r) => { resolve = r; }));
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      const ta = screen.getByPlaceholderText(/Describe what to add or change/i);
+      await user.type(ta, "first{Enter}");
+      await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
+      // Composer is disabled while loading; a further type+Enter must not fire a second request.
+      await user.type(ta, "second{Enter}");
+      expect(mockRequest).toHaveBeenCalledTimes(1);
+      resolve({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+      await waitFor(() => expect(screen.getByText("ok")).toBeInTheDocument());
+    });
+
+    it("a follow-up sent via Enter still carries sanitized recentTurns", async () => {
+      const user = userEvent.setup();
+      mockRequest
+        .mockResolvedValueOnce({ ok: true, guidanceText: "Add Slack after the trigger.", source: "hermes-agent", workflowPlan: null, previewDraft: null })
+        .mockResolvedValueOnce({ ok: true, guidanceText: "Place a Delay before Slack.", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      const ta = () => screen.getByPlaceholderText(/Describe what to add or change/i);
+      await user.type(ta(), "Add a Slack message after manual run.{Enter}");
+      await screen.findByText("Add Slack after the trigger.");
+      await user.type(ta(), "Add a delay before Slack.{Enter}");
+      await waitFor(() =>
+        expect(mockRequest).toHaveBeenNthCalledWith(2, {
+          accountId: "acct-1",
+          goalText: "Add a delay before Slack.",
+          workflowId: "wf-9",
+          recentTurns: [
+            { role: "user", text: "Add a Slack message after manual run." },
+            { role: "assistant", text: "Add Slack after the trigger." },
+          ],
+        }),
+      );
+    });
+  });
+
   it("renders multi-turn user + Hermes messages and a second submit carries sanitized recentTurns", async () => {
     const user = userEvent.setup();
     mockRequest
