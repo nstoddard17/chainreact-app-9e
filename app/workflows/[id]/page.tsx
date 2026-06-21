@@ -113,8 +113,9 @@ export default async function WorkflowDetailPage({ params }: Props) {
     listAllTriggerMetas(),
   );
 
-  // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — supported, metadata-derived setup fields per node type for
-  // the holographic preview's "Set up these steps" controls. Static; same registry source.
+  // HERMES-AGENT-GUIDED-PREVIEW-SETUP — supported, metadata-derived setup fields per node type. Used to
+  // sanitize/seed the new nodes' config at Apply time (canvas preview nodes are visual-only after
+  // HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX; setup controls re-home to the rail). Static; same registry.
   const setupFieldsByType = buildPreviewSetupFields(listAllActionMetas(), listAllTriggerMetas());
 
   const providers = listProviders();

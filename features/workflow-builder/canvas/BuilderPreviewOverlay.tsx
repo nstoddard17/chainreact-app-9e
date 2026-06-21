@@ -1,27 +1,33 @@
 "use client";
 
+import { useState } from "react";
 import type { DraftPreview, DraftPreviewNode } from "@/contracts/workflowPlanPreview";
-import type {
-  PreviewSetupField,
-  PreviewSetupFieldsByType,
-} from "@/core/workflows/previewSetupFields";
 
 /**
- * Non-applied AI draft preview overlay (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY).
+ * Non-applied AI draft preview overlay (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY +
+ * HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX).
  *
  * Renders a capability-validated {@link DraftPreview} as a SEPARATE, ephemeral visual layer floating
- * over the builder canvas — shimmered/ghost "Suggested" nodes joined by dashed preview edges. It is a
- * pure presentational component: it reads the preview prop and an `onDiscard` callback, and renders.
+ * over the builder canvas. Each proposed step renders as a card that MIRRORS the real builder node
+ * card ({@link "./WorkflowNodeCard"}) — same provider avatar, kind chip, title, and provider label —
+ * but with a holographic / "proposed" treatment (glassy translucent surface, shimmer pulse, dashed
+ * glowing border, subtle "Preview" badge). The mental model the styling encodes:
  *
- * GUARANTEES:
- *   - It NEVER merges preview nodes/edges into the real React Flow graph or any builder store itself.
- *     The preview is its own DOM layer; the real canvas underneath is untouched while previewing.
- *   - It performs no network call and reads no secret. It surfaces exactly two explicit, user-clicked
- *     actions, both handled by the parent: `onDiscard` (drop the overlay, no mutation) and the OPTIONAL
- *     `onApply` (HERMES-AGENT-APPLY-PREVIEW-PATCH — additive local-draft edit via the graph slice).
- *   - There is NO Create / Use-this / separate-workflow / Run / Save control. "Apply preview" only
- *     adds the proposed nodes/edges to the LOCAL draft (dirty via the normal mechanism); the user
- *     still saves/activates through existing builder flows.
+ *   holographic/shimmering canvas node = PROPOSED, not accepted yet
+ *   solid draft node = accepted into the LOCAL draft (after explicit Apply)
+ *
+ * GUARANTEES (locked by `workflowGuidanceUiSafety` + `builder-ai-rail-no-old-endpoint`):
+ *   - PRESENTATIONAL ONLY. No store access, no network/fetch, no model/gateway call, no secret.
+ *     The preview node carries capability LABELS only (provider/type) — never config values.
+ *   - It NEVER merges preview nodes/edges into the real React Flow graph or any builder store.
+ *   - NO setup controls render on the canvas. Setup controls (dropdowns / text fields) live in the
+ *     React chat rail; normal config happens in the config drawer AFTER a node is accepted. The
+ *     canvas shows holographic node cards + dashed preview edges only — never a form. A proposed
+ *     node that still needs configuration shows a short "Needs setup" badge (with a field count),
+ *     NEVER a long missing-field list or an input.
+ *   - It surfaces exactly two explicit, user-clicked actions, both handled by the parent: `onDiscard`
+ *     (drop the overlay, no mutation) and the OPTIONAL `onApply` (additive local-draft edit via the
+ *     graph slice, in `WorkflowBuilder`). No Create / Use-this / Run / Save control.
  *
  * The container is `pointer-events-none` so the canvas underneath stays interactive; only the control
  * bar opts back into pointer events. Ghost nodes/edges are non-interactive.
@@ -38,44 +44,25 @@ export interface BuilderPreviewOverlayProps {
    */
   readonly onApply?: () => void;
   /**
-   * HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — supported, metadata-derived setup fields per `provider:type`.
-   * When present (with `onPreviewConfigChange`), the overlay renders a "Set up these steps" section so
-   * the user can fill known fields on the holographic preview BEFORE Apply. Deterministic + local: no
-   * model call, no provider/network resolver in this slice.
+   * Provider display-name map (`provider id → label`), so the holographic card shows the same
+   * friendly provider name as the real node card. Optional — falls back to the raw provider id.
    */
-  readonly setupFieldsByType?: PreviewSetupFieldsByType;
-  /** Ephemeral guided-setup values, keyed by previewId → fieldName → value. Owned by `WorkflowBuilder`. */
-  readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
-  /** Update one ephemeral guided-setup value. Preview-only — never touches real draft config. */
-  readonly onPreviewConfigChange?: (previewId: string, fieldName: string, value: unknown) => void;
+  readonly providerLabels?: Readonly<Record<string, string>>;
+  /**
+   * Provider icon-url map (`provider id → icon url`), so the holographic card shows the same provider
+   * avatar as the real node card. Optional — falls back to initials. These are public brand icon URLs
+   * (never credentials / account ids).
+   */
+  readonly providerIcons?: Readonly<Record<string, string>>;
 }
 
 export function BuilderPreviewOverlay({
   preview,
   onDiscard,
   onApply,
-  setupFieldsByType,
-  previewConfig,
-  onPreviewConfigChange,
+  providerLabels,
+  providerIcons,
 }: BuilderPreviewOverlayProps) {
-  // Per node: which still-missing fields can be collected now (supported local controls) vs. which
-  // must wait until after Apply (async/sensitive/unsupported). Deterministic, metadata-driven.
-  const setupNodes = onPreviewConfigChange
-    ? preview.nodes
-        .map((node) => {
-          const missing = node.missingInputs ?? [];
-          if (missing.length === 0) return null;
-          const all = setupFieldsByType?.[`${node.provider}:${node.type}`] ?? [];
-          const supported = all.filter((f) => missing.includes(f.name));
-          const supportedNames = new Set(supported.map((f) => f.name));
-          const afterApply = missing.filter((n) => !supportedNames.has(n));
-          if (supported.length === 0 && afterApply.length === 0) return null;
-          return { node, supported, afterApply };
-        })
-        .filter((x): x is { node: DraftPreviewNode; supported: PreviewSetupField[]; afterApply: string[] } => x !== null)
-    : [];
-  const showSetup = setupNodes.some((s) => s.supported.length > 0);
-
   return (
     <div
       data-testid="builder-preview-overlay"
@@ -144,42 +131,15 @@ export function BuilderPreviewOverlay({
         </div>
       )}
 
-      {/* Ghost node chain. Edges render as dashed connectors between consecutive ghost nodes. */}
+      {/* Ghost node chain — holographic cards that mirror the real node card, joined by dashed edges. */}
       <ol className="pointer-events-none flex flex-col items-center gap-0">
         {preview.nodes.map((node, i) => (
           <li key={node.previewId} className="flex flex-col items-center">
-            <div
-              data-testid="builder-preview-node"
-              data-preview="true"
-              className="builder-preview-node-ghost w-[260px] animate-pulse rounded-[8px] border border-dashed p-3 opacity-80"
-              style={{
-                background: "var(--builder-panel-2)",
-                borderColor: "var(--builder-accent)",
-                boxShadow: "0 0 0 3px color-mix(in oklab, var(--builder-accent) 18%, transparent)",
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                  style={{ background: "var(--builder-panel)", color: "var(--builder-muted)" }}
-                >
-                  {node.role}
-                </span>
-                <code className="text-[12px]" style={{ color: "var(--builder-text)" }}>
-                  {node.label}
-                </code>
-              </div>
-              {node.purpose.length > 0 && (
-                <div className="mt-1 text-[11.5px]" style={{ color: "var(--builder-muted)" }}>
-                  {node.purpose}
-                </div>
-              )}
-              {node.missingInputs && node.missingInputs.length > 0 && (
-                <div className="mt-1 text-[11px]" style={{ color: "var(--builder-warning, #b45309)" }}>
-                  Still needs: {node.missingInputs.join(", ")}
-                </div>
-              )}
-            </div>
+            <PreviewNodeCard
+              node={node}
+              providerLabel={providerLabels?.[node.provider] ?? node.provider}
+              iconUrl={providerIcons?.[node.provider]}
+            />
             {/* Dashed preview edge to the next ghost node (linear chain). */}
             {i < preview.nodes.length - 1 && (
               <span
@@ -193,133 +153,254 @@ export function BuilderPreviewOverlay({
           </li>
         ))}
       </ol>
-
-      {/* HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — "Set up these steps": fill known fields on the
-          holographic preview BEFORE Apply. Values are ephemeral (preview-only); nothing is saved or
-          made dirty until the user clicks Apply preview. Interactive → pointer-events-auto. */}
-      {showSetup && (
-        <section
-          data-testid="builder-preview-setup"
-          className="pointer-events-auto mt-4 w-[320px] rounded-[8px] border p-3 text-left"
-          style={{ background: "var(--builder-panel)", borderColor: "var(--builder-border)" }}
-        >
-          <h3 className="text-[12px] font-semibold" style={{ color: "var(--builder-text)" }}>
-            Set up these steps
-          </h3>
-          <p className="mt-0.5 text-[11px]" style={{ color: "var(--builder-muted)" }}>
-            Fill what you can now — values stay on the preview until you Apply. Nothing is saved.
-          </p>
-          {setupNodes.map(({ node, supported, afterApply }) => (
-            <div key={node.previewId} className="mt-2.5">
-              <div className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
-                {node.label}
-              </div>
-              {supported.map((field) => (
-                <PreviewSetupControl
-                  key={field.name}
-                  node={node}
-                  field={field}
-                  value={previewConfig?.[node.previewId]?.[field.name]}
-                  onChange={(v) => onPreviewConfigChange?.(node.previewId, field.name, v)}
-                />
-              ))}
-              {afterApply.length > 0 && (
-                <div
-                  data-testid="preview-setup-after-apply"
-                  className="mt-1 text-[11px]"
-                  style={{ color: "var(--builder-muted)" }}
-                >
-                  Needs setup after Apply: {afterApply.join(", ")}
-                </div>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
     </div>
   );
 }
 
-/** One guided-setup control for a supported preview field. Native primitives; preview-only value. */
-function PreviewSetupControl({
+/**
+ * One holographic preview node — mirrors {@link "./WorkflowNodeCard"}'s layout (3px status rail,
+ * avatar + kind chip + title + provider label head, status foot) with a proposed/holographic
+ * treatment. Presentational only: no inputs, no controls, no config drawer. A still-incomplete node
+ * shows a short "Needs setup" badge (with field count) — never a field list.
+ */
+function PreviewNodeCard({
   node,
-  field,
-  value,
-  onChange,
+  providerLabel,
+  iconUrl,
 }: {
   node: DraftPreviewNode;
-  field: PreviewSetupField;
-  value: unknown;
-  onChange: (value: unknown) => void;
+  providerLabel: string;
+  iconUrl?: string;
 }) {
-  const testid = `preview-setup-${node.previewId}-${field.name}`;
-  const inputStyle = {
-    background: "var(--builder-panel-2)",
-    border: "1px solid var(--builder-border)",
-    color: "var(--builder-text)",
-  } as const;
-  const strValue = typeof value === "string" ? value : typeof value === "number" ? String(value) : "";
+  const isTrigger = node.role === "trigger";
+  const railColor = isTrigger ? "var(--builder-success)" : "var(--builder-accent)";
+  const missingCount = node.missingInputs?.length ?? 0;
 
-  if (field.type === "boolean") {
+  return (
+    <div
+      data-testid="builder-preview-node"
+      data-preview="true"
+      data-kind={node.role}
+      // `builder-preview-node-ghost` + `animate-pulse` are the shared holographic markers (shimmer
+      // pulse); `border-dashed` + the accent glow ring read as "proposed, not accepted".
+      className="builder-preview-node-ghost relative w-[280px] animate-pulse overflow-hidden rounded-[6px] border border-dashed opacity-90"
+      style={{
+        // Glassy translucent surface so it reads as holographic, not a solid accepted card.
+        background: "color-mix(in oklab, var(--builder-panel) 80%, transparent)",
+        borderColor: "var(--builder-accent)",
+        boxShadow: "0 0 0 3px color-mix(in oklab, var(--builder-accent) 18%, transparent)",
+        backdropFilter: "blur(1.5px)",
+      }}
+    >
+      {/* 3px left status rail — the real card's signature detail. */}
+      <span
+        aria-hidden
+        className="absolute left-0 top-0 h-full w-[3px]"
+        style={{ background: railColor }}
+      />
+
+      <div className="flex gap-2.5 px-3 pb-1.5 pt-2.5">
+        <PreviewProviderAvatar provider={node.provider} label={providerLabel} iconUrl={iconUrl} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-1.5">
+            <PreviewKindChip kind={node.role} />
+            <code className="builder-mono text-[9.5px]" style={{ color: "var(--builder-muted-2)" }}>
+              #{isTrigger ? "trigger" : "action"}
+            </code>
+            <PreviewBadge />
+          </div>
+          <div
+            className="mt-0.5 truncate text-[12.5px] font-semibold leading-tight"
+            title={node.label}
+            style={{ color: "var(--builder-text)" }}
+          >
+            {humanizeType(node.type)}
+          </div>
+          {/* `provider:type` capability label (mono subtitle), mirroring the card's mono subtitle. */}
+          <code
+            className="builder-mono mt-0.5 truncate text-[9.5px] leading-tight"
+            style={{ color: "var(--builder-muted-2)" }}
+          >
+            {node.label}
+          </code>
+          <div
+            className="mt-0.5 truncate text-[10.5px] leading-tight"
+            style={{ color: "var(--builder-muted)" }}
+            title={providerLabel}
+          >
+            {providerLabel}
+          </div>
+        </div>
+      </div>
+
+      {/* Foot — short status only (no field list). */}
+      <div
+        className="flex items-center justify-end gap-1 px-3 py-1.5"
+        style={{
+          background: "color-mix(in oklab, var(--builder-panel-2) 80%, transparent)",
+          borderTop: "1px dashed var(--builder-border)",
+        }}
+      >
+        {missingCount > 0 ? <NeedsSetupBadge count={missingCount} /> : <ProposedReadyBadge />}
+      </div>
+    </div>
+  );
+}
+
+function PreviewBadge() {
+  return (
+    <span
+      data-testid="preview-node-badge"
+      className="builder-mono inline-flex items-center rounded-[3px] px-1.5 text-[9px] font-semibold uppercase tracking-[0.05em]"
+      style={{
+        background: "color-mix(in oklab, var(--builder-accent) 14%, transparent)",
+        color: "var(--builder-accent)",
+        border: "1px dashed var(--builder-accent)",
+        lineHeight: 1.5,
+      }}
+    >
+      Preview
+    </span>
+  );
+}
+
+function PreviewKindChip({ kind }: { kind: DraftPreviewNode["role"] }) {
+  const isTrigger = kind === "trigger";
+  const cfg = isTrigger
+    ? { bg: "var(--builder-success-soft)", fg: "var(--builder-success)", border: "var(--builder-success)" }
+    : { bg: "var(--builder-accent-soft)", fg: "var(--builder-accent)", border: "var(--builder-accent)" };
+  return (
+    <span
+      className="builder-mono inline-flex items-center rounded-[3px] px-1.5 text-[9px] font-semibold uppercase tracking-[0.05em]"
+      style={{ background: cfg.bg, color: cfg.fg, border: `1px solid ${cfg.border}`, lineHeight: 1.5 }}
+    >
+      {isTrigger ? "trigger" : "action"}
+    </span>
+  );
+}
+
+/** Short "Needs setup" status with a field count — NEVER a field list. */
+function NeedsSetupBadge({ count }: { count: number }) {
+  return (
+    <span
+      data-testid="preview-node-needs-setup"
+      className="builder-mono inline-flex items-center gap-1 rounded-[3px] px-1.5 py-0.5 text-[9.5px] font-medium"
+      style={{
+        background: "var(--builder-warn-soft)",
+        color: "var(--builder-warn)",
+        border: "1px solid var(--builder-warn)",
+      }}
+    >
+      Needs setup{count > 0 ? ` · ${count}` : ""}
+    </span>
+  );
+}
+
+function ProposedReadyBadge() {
+  return (
+    <span
+      className="builder-mono inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[9.5px]"
+      style={{
+        background: "color-mix(in oklab, var(--builder-panel) 80%, transparent)",
+        color: "var(--builder-muted)",
+        border: "1px solid var(--builder-border)",
+      }}
+    >
+      ready
+    </span>
+  );
+}
+
+/** Provider avatar mirroring the real card — icon when available, deterministic initials otherwise. */
+function PreviewProviderAvatar({
+  provider,
+  label,
+  iconUrl,
+}: {
+  provider: string;
+  label: string;
+  iconUrl?: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = !!iconUrl && !imageFailed;
+
+  if (showImage) {
     return (
-      <label className="mt-1.5 flex items-center gap-2 text-[11.5px]" style={{ color: "var(--builder-text)" }}>
-        <input
-          type="checkbox"
-          data-testid={testid}
-          aria-label={field.label}
-          checked={Boolean(value)}
-          onChange={(e) => onChange(e.target.checked)}
+      <span
+        aria-hidden="true"
+        data-testid="preview-provider-icon"
+        data-provider={provider}
+        className="flex h-[22px] w-[22px] shrink-0 items-center justify-center overflow-hidden rounded-[4px]"
+        style={{
+          background: "var(--builder-panel-2)",
+          border: "1px solid var(--builder-border)",
+          marginTop: 1,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={iconUrl}
+          alt=""
+          className="h-4 w-4 object-contain"
+          onError={() => setImageFailed(true)}
         />
-        {field.label}
-      </label>
+      </span>
     );
   }
 
+  const initials = computeInitials(label || provider);
+  const colorClass = provider
+    ? PREVIEW_AVATAR_PALETTE[hashToBucket(provider, PREVIEW_AVATAR_PALETTE.length)]
+    : PREVIEW_AVATAR_PALETTE[0];
   return (
-    <label className="mt-1.5 block text-[11px]" style={{ color: "var(--builder-muted)" }}>
-      {field.label}
-      {field.type === "textarea" ? (
-        <textarea
-          data-testid={testid}
-          aria-label={field.label}
-          value={strValue}
-          rows={2}
-          {...(field.placeholder ? { placeholder: field.placeholder } : {})}
-          onChange={(e) => onChange(e.target.value)}
-          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
-          style={inputStyle}
-        />
-      ) : field.type === "select" ? (
-        <select
-          data-testid={testid}
-          aria-label={field.label}
-          value={strValue}
-          onChange={(e) => onChange(e.target.value)}
-          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
-          style={inputStyle}
-        >
-          <option value="">Select…</option>
-          {field.options?.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type={field.type === "number" ? "number" : "text"}
-          data-testid={testid}
-          aria-label={field.label}
-          value={strValue}
-          {...(field.placeholder ? { placeholder: field.placeholder } : {})}
-          onChange={(e) => onChange(e.target.value)}
-          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
-          style={inputStyle}
-        />
-      )}
-    </label>
+    <span
+      aria-hidden="true"
+      data-testid="preview-provider-initials-avatar"
+      className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[4px] text-[10px] font-semibold ${colorClass}`}
+      style={{ marginTop: 1 }}
+    >
+      {initials}
+    </span>
   );
 }
+
+/** Humanize a capability `type` into a node-card-style title: `send_message` → "Send Message". */
+function humanizeType(type: string): string {
+  const cleaned = type.replace(/[_-]+/g, " ").trim();
+  if (!cleaned) return type;
+  return cleaned
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/** Up to two leading initials, uppercase. Falls back to "?" for empty input. */
+function computeInitials(input: string): string {
+  const cleaned = input.trim();
+  if (!cleaned) return "?";
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  return cleaned.slice(0, 2).toUpperCase();
+}
+
+/** Deterministic, salt-free bucket selector — avatar background only, never security-sensitive. */
+function hashToBucket(input: string, buckets: number): number {
+  if (buckets <= 0) return 0;
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 31 + input.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % buckets;
+}
+
+const PREVIEW_AVATAR_PALETTE = [
+  "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+  "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+  "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+  "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+] as const;
 
 const SparkleIcon = () => (
   <svg

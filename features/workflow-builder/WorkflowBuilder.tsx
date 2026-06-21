@@ -56,10 +56,12 @@ interface Props {
    */
   requiredFieldsByType?: import("./validation/collectBuilderValidationIssues").RequiredFieldsByType;
   /**
-   * HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — supported, metadata-derived setup fields per `provider:type`
+   * HERMES-AGENT-GUIDED-PREVIEW-SETUP — supported, metadata-derived setup fields per `provider:type`
    * (text/textarea/number/boolean/static-select; excludes secret/async/cascade/multi). Computed
-   * server-side from the discovery registry. Drives the holographic preview's "Set up these steps"
-   * controls. Optional so isolated builder tests keep passing.
+   * server-side from the discovery registry. Used to SANITIZE/seed the new nodes' config at Apply time
+   * (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX moved the setup CONTROLS off the canvas — the holographic
+   * nodes are visual-only; controls re-home to the React chat rail in a follow-up slice). Optional so
+   * isolated builder tests keep passing.
    */
   setupFieldsByType?: import("@/core/workflows/previewSetupFields").PreviewSetupFieldsByType;
   /**
@@ -143,10 +145,13 @@ export function WorkflowBuilder({
   // short-lived "Added from preview" badge on those cards AND the post-apply required-field hint
   // list. Lifetime is tied to the notice: cleared on dismiss / workflow switch / a new preview.
   const [appliedNodeIds, setAppliedNodeIds] = useState<readonly string[]>([]);
-  // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — ephemeral guided-setup values for the CURRENT holographic
+  // HERMES-AGENT-GUIDED-PREVIEW-SETUP — ephemeral guided-setup values for the CURRENT holographic
   // preview, keyed by previewId → fieldName → value. Preview-only: never written to configSlice / the
   // real draft / DB, never makes the workflow dirty. Cleared when a new preview supersedes, on
   // discard, and on workflow switch/unmount. Seeded into the new nodes' config ONLY on explicit Apply.
+  // NOTE (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX): the canvas no longer renders setup CONTROLS — the
+  // holographic nodes are visual-only. This map + the Apply-time seeding path stay wired so the React
+  // chat rail can populate it in a follow-up slice; today it stays empty (Apply seeds empty config).
   const [previewConfig, setPreviewConfig] = useState<Record<string, Record<string, unknown>>>({});
 
   // Hydrate from the server prop on initial mount AND whenever the prop's
@@ -363,18 +368,6 @@ export function WorkflowBuilder({
     [],
   );
 
-  // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — record one guided-setup value for the current preview. Pure
-  // local state: never touches configSlice / the real draft / DB, never makes the workflow dirty.
-  const handlePreviewConfigChange = useCallback(
-    (previewId: string, fieldName: string, value: unknown) => {
-      setPreviewConfig((prev) => ({
-        ...prev,
-        [previewId]: { ...(prev[previewId] ?? {}), [fieldName]: value },
-      }));
-    },
-    [],
-  );
-
   // HERMES-AGENT-APPLY-PREVIEW-PATCH — explicit, user-clicked apply. Builds a deterministic ADDITIVE
   // patch from the VALIDATED plan (not the display preview) and applies it to the LOCAL draft via the
   // graph slice — the same dirty-making path as manual edits. No save/activate/run; no separate
@@ -580,9 +573,8 @@ export function WorkflowBuilder({
               setPreviewOverlay(null);
               setPreviewConfig({});
             }}
-            {...(setupFieldsByType ? { setupFieldsByType } : {})}
-            previewConfig={previewConfig}
-            onPreviewConfigChange={handlePreviewConfigChange}
+            providerLabels={providerLabels}
+            providerIcons={providerIcons}
           />
         ) : null}
         {/* HERMES-AGENT-APPLY-PREVIEW-PATCH / -CONFIG-HINTS — transient confirmation after an explicit

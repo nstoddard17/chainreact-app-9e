@@ -1,7 +1,63 @@
 # Guided setup on the holographic preview — audit + design (HERMES-AGENT-RAIL-PRODUCT-LABEL-AND-GUIDED-PREVIEW-DESIGN)
 
-> **Design + Phase 1 status.** The audit/design below is unchanged. **Phase 1
-> (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1) is now IMPLEMENTED** — see the status box.
+> **Design + Phase 1 + Phase 2 status.** The audit/design below is unchanged. **Phase 1
+> (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1) is IMPLEMENTED**; **Phase 2
+> (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX) REDIRECTED the canvas surface** — see the status boxes.
+
+## Phase 2 status — IMPLEMENTED (HOLOGRAPHIC PREVIEW NODE UX)
+
+**Product direction correction (supersedes Phase 1's on-canvas controls):** the canvas is for
+*visualizing* the proposal, not for collecting config. The three surfaces of the mental model are now
+cleanly separated:
+
+| Surface | Role |
+|---------|------|
+| **Holographic/shimmering canvas node** | A PROPOSED node, not accepted yet — VISUAL ONLY. |
+| **React chat rail** | Where guided setup controls / questions live (re-home is a follow-up slice). |
+| **Config drawer / menu** | Normal setup for ACCEPTED draft nodes, after explicit Apply. |
+| **Solid draft node** | Accepted into the local draft (after Apply). |
+| **Saved / Activated** | Only after explicit Save / Activate. |
+
+Shipped (local, not pushed):
+- `BuilderPreviewOverlay` no longer renders ANY setup controls on the canvas. The "Set up these steps"
+  section + native inputs/selects/textareas (Phase 1) are removed. Each proposed step now renders as a
+  card that **mirrors the real node card** (`WorkflowNodeCard`): 3px status rail, provider avatar
+  (icon via `providerIcons`, deterministic initials fallback), kind chip, humanized title
+  (`send_message` → "Send Message"), the `provider:type` mono capability subtitle, and the provider
+  label. Reuse vs mirror: the real card is a React-Flow node (needs `Handle` + `useBuilderNodeActions`
+  context), so it is **mirrored** (same layout/classes/tokens), not imported.
+- Holographic/proposed treatment: glassy translucent surface (`color-mix(... 80%, transparent)` +
+  `backdrop-blur`), shimmer (`builder-preview-node-ghost animate-pulse`), dashed glowing accent border,
+  a subtle per-node **"Preview"** badge (`preview-node-badge`) + the global "Suggested" badge.
+- A still-incomplete proposed node shows only a SHORT status badge — **"Needs setup · N"**
+  (`preview-node-needs-setup`), the field COUNT, never a field-name list. No long "Still needs: …"
+  text on the canvas (that detail belongs in the rail / drawer).
+- Apply/Discard + dashed preview edges unchanged; the overlay stays presentational (no store, no fetch,
+  no model call — locked by `workflowGuidanceUiSafety`).
+- **PreviewConfig + seeding plumbing PRESERVED.** `WorkflowBuilder.previewConfig` ephemeral state, the
+  clear-on-new-preview/discard/switch lifecycle, and the `planToBuilderPatch({ previewConfig,
+  setupFieldsByType })` Apply-time seeding (sanitized via `sanitizeSeedConfig`) all remain wired for the
+  rail re-home. With no canvas control to populate `previewConfig` today, Apply seeds EMPTY config
+  (original additive behavior). The pure seeding/sanitize contract stays unit-tested in
+  `previewSetupFields.test.ts` + `planToBuilderPatch.test.ts`.
+- Auto-open-first-incomplete after Apply unchanged (fires when required fields remain missing).
+
+**"Being updated" indication:** patches are additive-only today (add / append / insert-between). Added
+nodes are holographic; existing nodes the insert lands between stay SOLID (the overlay is a separate
+clean layer and never mutates the real graph). A subtle highlight on an existing node that a future
+UPDATE-EXISTING patch would change is deferred until update-semantics exist.
+
+**Deferred to a follow-up slice:** re-home the setup controls (text/number/static-select AND async
+`optionsSource` dropdowns like Slack channel) into the React chat rail, populating the preserved
+`previewConfig` map from there. Recipient-class async fields (e.g. Slack `channel`,
+`sensitivity: "recipient"`) and their treatment in the rail are an open product+safety decision (the
+`recipient` class is an apply-safety / AI-auto-write guard, distinct from cross-member privacy).
+
+---
+
+> **Phase 1 (below) is superseded on the CANVAS by Phase 2** — the on-canvas controls it shipped were
+> removed; its pure seeding/sanitize core (`previewSetupFields.ts`, `planToBuilderPatch` seeding) is
+> retained for the rail re-home.
 
 ## Phase 1 status — IMPLEMENTED
 

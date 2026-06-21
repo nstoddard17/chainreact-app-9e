@@ -37,7 +37,7 @@ jest.mock("@/lib/api/ai/guidance", () => ({
   requestWorkflowGuidance: (...a: unknown[]) => mockRequest(...a),
 }));
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -395,103 +395,83 @@ describe("builder apply-preview — auto-open first incomplete node (HERMES-AGEN
   });
 });
 
-describe("builder apply-preview — guided setup on the holographic preview (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1)", () => {
-  // The slack action's "message" is a supported local control; "channel" is unsupported (async).
+// HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX — the on-canvas "Set up these steps" controls were
+// REMOVED: the holographic preview nodes are now visual-only (they look like real node cards with a
+// proposed/shimmer treatment). Setup controls re-home to the React chat rail in a follow-up slice.
+// The previewConfig → planToBuilderPatch SEEDING path is preserved and unit-tested directly in
+// tests/unit/services/ai-guidance/planToBuilderPatch.test.ts; with no canvas control to populate
+// previewConfig today, Apply seeds empty config (covered by the blank/existing apply tests above).
+describe("builder apply-preview — holographic preview nodes are visual-only (no canvas setup controls)", () => {
   const setupFieldsByType = {
     "slack:send_message": [{ name: "message", label: "Message", type: "textarea" as const, required: true }],
   };
-  // Preview where the slack node still needs `message` (supported) [+ optionally `channel`].
-  function previewMissing(missing: readonly string[]) {
-    return {
-      version: 1,
-      title: "Lead follow-up",
-      summary: "Watch then notify.",
-      notice: "Preview only — your workflow has not changed.",
-      notApplied: true,
-      nodes: [
-        { previewId: "preview-step-1", role: "trigger", provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true },
-        { previewId: "preview-step-2", role: "action", provider: "slack", type: "send_message", label: "slack:send_message", purpose: "notify", missingInputs: missing, notApplied: true },
-      ],
-      edges: [{ previewId: "preview-edge-1", fromPreviewId: "preview-step-1", toPreviewId: "preview-step-2", notApplied: true }],
-    };
-  }
-  function renderGuided(
-    wf: WorkflowDetail,
-    requiredFieldsByType: Record<string, { displayName: string; requiredFields: { name: string; label: string }[] }>,
-  ) {
-    return render(
-      <WorkflowBuilder
-        workflow={wf}
-        triggerProviders={triggerProviders}
-        actionProviders={actionProviders}
-        requiredFieldsByType={requiredFieldsByType}
-        setupFieldsByType={setupFieldsByType}
-        accountId="acct-1"
-        guidanceEnabled
-      />,
-    );
-  }
+  const previewMissing = {
+    version: 1,
+    title: "Lead follow-up",
+    summary: "Watch then notify.",
+    notice: "Preview only — your workflow has not changed.",
+    notApplied: true,
+    nodes: [
+      { previewId: "preview-step-1", role: "trigger", provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true },
+      { previewId: "preview-step-2", role: "action", provider: "slack", type: "send_message", label: "slack:send_message", purpose: "notify", missingInputs: ["message", "channel"], notApplied: true },
+    ],
+    edges: [{ previewId: "preview-edge-1", fromPreviewId: "preview-step-1", toPreviewId: "preview-step-2", notApplied: true }],
+  };
+  const slackNode = () => useGraphSlice.getState().pendingNodes.find((n) => n.provider === "slack" && n.type === "send_message");
+
   async function showPreview(user: ReturnType<typeof userEvent.setup>) {
     await user.type(screen.getByPlaceholderText(/Example:/i), "remind the team to review new leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
   }
-  const slackNode = () => useGraphSlice.getState().pendingNodes.find((n) => n.provider === "slack" && n.type === "send_message");
 
-  it("shows the setup control; filling it stays preview-only (no apply/dirty/save) until Apply, then seeds the new node config", async () => {
+  it("renders a holographic node with a short 'Needs setup' badge and NO setup controls on the canvas", async () => {
     const user = userEvent.setup();
-    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft: previewMissing(["message"]) });
-    renderGuided(workflow([], []), { "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "message", label: "Message" }] } });
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft: previewMissing });
+    render(
+      <WorkflowBuilder
+        workflow={workflow([], [])}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+        requiredFieldsByType={{ "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "message", label: "Message" }, { name: "channel", label: "Channel" }] } }}
+        setupFieldsByType={setupFieldsByType}
+        accountId="acct-1"
+        guidanceEnabled
+      />,
+    );
     await showPreview(user);
+    await screen.findByTestId("builder-preview-overlay");
 
-    const control = await screen.findByTestId("preview-setup-preview-step-2-message");
-    fireEvent.change(control, { target: { value: "Review new leads" } });
-    // Preview-only: nothing applied / dirtied / saved before Apply.
-    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
-    expect(useGraphSlice.getState().isDirty).toBe(false);
-    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
-
-    await user.click(screen.getByTestId("builder-preview-apply"));
-    // The new draft slack node is seeded with the guided value.
-    await waitFor(() => expect(slackNode()).toBeDefined());
-    expect(slackNode()!.config).toEqual({ message: "Review new leads" });
-    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
-    // All required fields satisfied → no incomplete node force-opened.
-    expect(useConfigSlice.getState().activeNodeId).toBeNull();
-  });
-
-  it("an unsupported (async) required field is NOT a control, shows 'after Apply', and still triggers auto-open after Apply", async () => {
-    const user = userEvent.setup();
-    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft: previewMissing(["message", "channel"]) });
-    renderGuided(workflow([], []), {
-      "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "message", label: "Message" }, { name: "channel", label: "Channel" }] },
-    });
-    await showPreview(user);
-
-    fireEvent.change(await screen.findByTestId("preview-setup-preview-step-2-message"), { target: { value: "Review new leads" } });
-    // Async field is not faked as a control; it's deferred.
+    // Short status badge with the field count; no on-canvas control / field list.
+    expect(screen.getByTestId("preview-node-needs-setup")).toHaveTextContent("Needs setup · 2");
+    expect(screen.queryByTestId("preview-setup-preview-step-2-message")).not.toBeInTheDocument();
     expect(screen.queryByTestId("preview-setup-preview-step-2-channel")).not.toBeInTheDocument();
-    expect(screen.getByTestId("preview-setup-after-apply")).toHaveTextContent("channel");
-
-    await user.click(screen.getByTestId("builder-preview-apply"));
-    await waitFor(() => expect(slackNode()).toBeDefined());
-    expect(slackNode()!.config).toEqual({ message: "Review new leads" });
-    // `channel` still missing → the first incomplete node auto-opens.
-    expect(useConfigSlice.getState().activeNodeId).toBe(slackNode()!.id);
+    expect(screen.queryByTestId("builder-preview-setup")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-testid='builder-preview-overlay'] input,[data-testid='builder-preview-overlay'] select,[data-testid='builder-preview-overlay'] textarea")).toBeNull();
   });
 
-  it("Discard clears the ephemeral guided values (a re-shown preview starts empty); nothing applied", async () => {
+  it("Apply still turns proposed nodes into real draft nodes (empty config — rail seeding is next); auto-open fires for the incomplete node", async () => {
     const user = userEvent.setup();
-    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft: previewMissing(["message"]) });
-    renderGuided(workflow([], []), { "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "message", label: "Message" }] } });
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft: previewMissing });
+    render(
+      <WorkflowBuilder
+        workflow={workflow([], [])}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+        requiredFieldsByType={{ "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "message", label: "Message" }, { name: "channel", label: "Channel" }] } }}
+        setupFieldsByType={setupFieldsByType}
+        accountId="acct-1"
+        guidanceEnabled
+      />,
+    );
     await showPreview(user);
-    fireEvent.change(await screen.findByTestId("preview-setup-preview-step-2-message"), { target: { value: "typed before discard" } });
-    await user.click(screen.getByTestId("builder-preview-discard"));
-    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+    await user.click(await screen.findByTestId("builder-preview-apply"));
 
-    // Re-show the (same-shaped) preview — the control is empty again (previewConfig was cleared).
-    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
-    const reshown = await screen.findByTestId("preview-setup-preview-step-2-message");
-    expect((reshown as HTMLTextAreaElement).value).toBe("");
+    await waitFor(() => expect(slackNode()).toBeDefined());
+    // No canvas control populated previewConfig → empty config seeded (nothing inferred).
+    expect(slackNode()!.config).toEqual({});
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+    // Required fields still missing → first incomplete node auto-opens.
+    expect(useConfigSlice.getState().activeNodeId).toBe(slackNode()!.id);
   });
 });
