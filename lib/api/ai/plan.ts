@@ -1,26 +1,19 @@
 /**
- * Builder AI plan / apply / complete client (Slice 4.AI-11 → AI-35B; extracted
- * from the monolithic `lib/api/ai.ts` in Slice 4.AI-REPAIR-CLEANUP-1 — refactor
- * only, no behavior change).
+ * Builder AI apply client (Slice 4.AI-11; extracted from the monolithic
+ * `lib/api/ai.ts` in Slice 4.AI-REPAIR-CLEANUP-1).
  *
- * ⚠️ DEPRECATED IN THE VISIBLE BUILDER (HERMES-AGENT-LEGACY-AI-ROUTE-AUDIT, 2026-06-21).
- * `planWorkflow` / `completePlan` are imported ONLY by the legacy `BuilderAiPanel` chat
- * (`useBuilderAi`), which is no longer mounted — the visible builder AI is Hermes guidance
- * (`requestWorkflowGuidance` → `/api/accounts/[id]/ai/workflow-guidance`). Do NOT import
- * `planWorkflow` into any newly-mounted UI. `applyWorkflowPatch` is the exception: it stays
- * LIVE because the run-results `RunResultsRepairBlock` (mounted) still uses it.
+ * HERMES-AGENT-RETIRE-LEGACY-PLAN-CHAT Phase 2 (2026-06-21): the dead `planWorkflow`
+ * (`…/ai/plan`) and `completePlan` (`…/ai/complete`) client functions + their routes were
+ * REMOVED — the visible builder AI is Hermes guidance (`requestWorkflowGuidance` →
+ * `/api/accounts/[id]/ai/workflow-guidance`). The ONLY live export here is
+ * `applyWorkflowPatch` → `POST /api/workflows/[id]/ai/apply`, used by the run-results
+ * `RunResultsRepairBlock` for explicit repair apply. The `AiPreview` / `AiApply*` types stay
+ * (live, consumed by `applyWorkflowPatch` + the repair contract in `runRepair.ts`); the
+ * remaining `AiPlan*` data types are inert contract types pending the Phase 3 services cleanup.
  *
- * Per project-structure-and-module-boundaries.md §4/§5: client code calls this
- * module (via the `@/lib/api/ai` barrel), never the server services or `fetch()`
- * from a component. These types are CLIENT-OWNED views of the (already-sanitized)
- * route responses — the client may not import the `@/services/**` result types,
- * and treats `proposedPatch` as OPAQUE (forwarded to the apply route, never
- * inspected or rendered).
- *
- *   - POST /api/workflows/[id]/ai/plan     → preview-only plan (AI-9A).
- *   - POST /api/workflows/[id]/ai/apply    → confirmed apply (AI-9B).
- *   - POST /api/workflows/[id]/ai/complete → deterministic required-input
- *     completion, no model call (AI-35B).
+ * Per project-structure-and-module-boundaries.md §4/§5: client code calls this module (via the
+ * `@/lib/api/ai` barrel), never the server services or `fetch()` from a component. It treats
+ * `proposedPatch` as OPAQUE (forwarded to the apply route, never inspected or rendered).
  */
 
 import { postStructured, type AiOpaquePatch } from "./shared";
@@ -202,34 +195,9 @@ export interface CurrentGraphSnapshot {
   }>;
 }
 
-export interface PlanWorkflowRequest {
-  readonly prompt: string;
-  readonly modelTier?: "fast" | "strong";
-  /** Slice 4.AI-24 — current builder-canvas snapshot. See {@link CurrentGraphSnapshot}. */
-  readonly currentGraph?: CurrentGraphSnapshot;
-  /**
-   * Slice 4.AI-35D — value-free telemetry tag distinguishing the user's first
-   * prompt (`initial_plan`) from a follow-up answer (`follow_up`, which today
-   * re-runs the FULL planner) so the dev cost guard + `ai_cost_events.metadata`
-   * can attribute repeat planner calls. Purely observability — the planner
-   * behavior is identical regardless of the value.
-   */
-  readonly interactionKind?: "initial_plan" | "follow_up" | "retry" | "unknown";
-}
-
 export interface ApplyWorkflowPatchRequest {
   readonly patch: AiOpaquePatch;
   readonly confirmation?: AiApplyConfirmation;
-}
-
-export async function planWorkflow(
-  workflowId: string,
-  request: PlanWorkflowRequest,
-): Promise<AiPlanResult> {
-  return postStructured<AiPlanResult>(
-    `/api/workflows/${encodeURIComponent(workflowId)}/ai/plan`,
-    request,
-  );
 }
 
 export async function applyWorkflowPatch(
@@ -242,55 +210,3 @@ export async function applyWorkflowPatch(
   );
 }
 
-/**
- * Slice 4.AI-35B — deterministic required-input completion (NO model call).
- *
- * When the user fills the EXACT required fields the planner already identified,
- * the client posts the staged answers + the pending patch here; the server
- * drops the values into the patch config (or builds an `updateNodeConfig` for an
- * existing-canvas node), previews, and returns an apply-ready plan — without a
- * model call. When the answers can't be safely mapped the server returns a
- * `NEEDS_REPLAN` signal and the caller falls back to {@link planWorkflow}.
- *
- * `proposedPatch` is the OPAQUE patch from the prior plan result (same value the
- * apply route accepts). `carryRequiredInput` preserves non-blocking entries
- * (e.g. `select_integration`) in the completed result.
- */
-export interface CompletePlanRequest {
-  readonly proposedPatch?: AiOpaquePatch | null;
-  readonly answers: ReadonlyArray<{
-    /**
-     * Target node id + field. BOTH optional (Slice 4.AI-35F): a bare answer for
-     * a rendered required text control with no node identity is forwarded
-     * without a target, and the server infers the unique missing required text
-     * field from the pending patch.
-     */
-    readonly nodeId?: string;
-    readonly field?: string;
-    readonly value: string;
-    readonly multiple?: boolean;
-  }>;
-  readonly currentGraph?: CurrentGraphSnapshot;
-  readonly intentSummary?: string;
-  readonly carryRequiredInput?: readonly AiRequiredUserInput[];
-}
-
-/** Server signal that deterministic completion isn't safe — caller re-plans. */
-export interface CompletePlanNeedsReplan {
-  readonly ok: false;
-  readonly code: "NEEDS_REPLAN";
-  readonly reason: string;
-}
-
-/** Either an apply-ready completed plan (same shape as a plan success) or a re-plan signal. */
-export type CompletePlanResponse = AiPlanSuccess | CompletePlanNeedsReplan;
-
-export async function completePlan(
-  workflowId: string,
-  request: CompletePlanRequest,
-): Promise<CompletePlanResponse> {
-  return postStructured<CompletePlanResponse>(
-    `/api/workflows/${encodeURIComponent(workflowId)}/ai/complete`,
-    request,
-  );
-}

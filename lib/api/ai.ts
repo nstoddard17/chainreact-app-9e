@@ -9,9 +9,9 @@
  *                          + cross-capability symbols. Internal helpers
  *                          (`postStructured` / `fetchJson`) are intentionally NOT
  *                          re-exported here (they were module-private before).
- *   - `./ai/plan`        — plan / apply / complete (AI-9A/9B/35B).
- *   - `./ai/thread`      — persistent Builder Agent chat history (AI-23).
- *   - `./ai/diagnostics` — diagnose / explain / repair-PROPOSAL (AI-DIAG / AI-REPAIR-1b).
+ *   - `./ai/plan`        — `applyWorkflowPatch` (`…/ai/apply`) + apply/preview types. The
+ *                          legacy `planWorkflow` / `completePlan` were removed in
+ *                          HERMES-AGENT-RETIRE-LEGACY-PLAN-CHAT Phase 2.
  *   - `./ai/runRepair`   — failed-run repair CONTRACT TYPES only (the request fn + its
  *                          `…/runs/[runId]/ai/repair` route were retired in
  *                          HERMES-AGENT-RETIRE-LEGACY-REPAIR-ROUTE; the governed client is
@@ -33,7 +33,5 @@
 export { AiApiError, AI_CREDITS_EXHAUSTED_MESSAGE } from "./ai/shared";
 export type { AiOpaquePatch } from "./ai/shared";
 export * from "./ai/plan";
-export * from "./ai/thread";
-export * from "./ai/diagnostics";
 export * from "./ai/runRepair";
 export * from "./ai/guidance";

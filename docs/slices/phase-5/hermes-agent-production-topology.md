@@ -336,3 +336,25 @@ the regression-localization checklist.
     compile (dead, no UI consumer). Stale rail-payload comments updated `BuilderAiPanel`→`BuilderGuidanceRail`.
     Structural scan gained Phase-1 guards (chat files deleted, barrel slimmed, repair block keeps the shared
     views). `tsc` clean; no behaviour change to the rail / repair / apply; no migration.
+20. ✅ **HERMES-AGENT-RETIRE-LEGACY-PLAN-CHAT — Phase 2 (routes + client helpers) (done)** — deleted the
+    UI-orphaned chat-only HTTP surface + dead browser API. **Removed routes (11 files):**
+    `/api/workflows/[id]/ai/{plan, complete, thread (+messages), diagnose (+explain, qa),
+    repair/plan, repair/preview, repair/apply, repair/apply-readiness}` + their 9 route tests. **Removed
+    client helpers:** `lib/api/ai/thread.ts` + `lib/api/ai/diagnostics.ts` (whole files — fully orphaned),
+    and `planWorkflow` + `completePlan` (+ their request/response types) from `lib/api/ai/plan.ts`; the
+    `@/lib/api/ai` barrel drops the thread/diagnostics re-exports; `ai.test.ts` trimmed to the live
+    `applyWorkflowPatch` tests. **Kept (live):** `POST /api/workflows/[id]/ai/apply` + `applyWorkflowPatch`
+    (explicit repair apply); the governed `/api/accounts/[id]/ai/{workflow-guidance, workflow-repair}`
+    routes; `BuilderGuidanceRail` / `WorkflowGuidancePanel` / `requestWorkflowGuidance`;
+    `RunResultsRepairBlock` + `requestAccountWorkflowRepair`; the `AiPreview` / `AiApply*` types +
+    `AiRepair*` repair contract; the deterministic repair suggester/validators; `services/ai-guidance/*`;
+    the memory/credential scope guards; the Hermes gateway/client/contract. **Deferred to Phase 3 (server
+    services):** `services/ai/planner`, `services/ai/diagnostics`, and the chat-only `services/ai/repair`
+    functions (`planWorkflowRepair`, `previewWorkflowRepair`, `applyRepairPatch`,
+    `assessRepairApplyReadiness`, `deterministicRepairPreview`) + their capability runners + tests — they
+    are now UI-orphaned but NOT browser-reachable, and are entangled with the LIVE events recorder
+    (`services/ai/events/recordAiRouteEvents.ts` imports `@/services/ai/planner`) and the live
+    `suggestWorkflowRepair` (shares `services/ai/repair/{repairStrategies,types}`), so they need careful
+    per-file surgery. Structural scan gained Phase-2 guards (routes/client files deleted, barrel/plan
+    cleaned, no client code references the removed endpoints, apply + governed routes survive). `tsc`
+    clean; no behaviour change to the rail / repair / apply; no migration.

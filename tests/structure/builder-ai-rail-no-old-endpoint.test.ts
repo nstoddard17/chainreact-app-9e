@@ -103,11 +103,7 @@ describe("legacy plan path is not user-mounted", () => {
     ).toBe(false);
   });
 
-  it("the deprecated /ai/plan route still exists (kept for its backend test + future rehoming)", () => {
-    // Audited decision: the route is NOT deleted — it is backend-tested and the chat planning UX
-    // is a Hermes-rehoming candidate. This guards the decision so an accidental deletion is noticed.
-    expect(existsSync(resolve(process.cwd(), "app/api/workflows/[id]/ai/plan/route.ts"))).toBe(true);
-  });
+  // (The /ai/plan route was retired in Phase 2 — see "legacy chat AI routes ... retired (Phase 2)".)
 });
 
 /**
@@ -202,5 +198,61 @@ describe("legacy builder chat UI subtree retired (Phase 1)", () => {
     const src = read("features/workflow-builder/panels/RunResultsRepairBlock.tsx");
     expect(src).toMatch(/AiBulletList/);
     expect(src).toMatch(/AiRequiredInputList/);
+  });
+});
+
+/**
+ * HERMES-AGENT-RETIRE-LEGACY-PLAN-CHAT (Phase 2) — the orphaned chat-only ROUTES + client helpers are
+ * deleted; the LIVE apply route + guidance/repair routes survive.
+ */
+describe("legacy chat AI routes + client helpers retired (Phase 2)", () => {
+  const DELETED_ROUTES = [
+    "app/api/workflows/[id]/ai/plan/route.ts",
+    "app/api/workflows/[id]/ai/complete/route.ts",
+    "app/api/workflows/[id]/ai/thread/route.ts",
+    "app/api/workflows/[id]/ai/diagnose/route.ts",
+    "app/api/workflows/[id]/ai/diagnose/explain/route.ts",
+    "app/api/workflows/[id]/ai/diagnose/qa/route.ts",
+    "app/api/workflows/[id]/ai/repair/plan/route.ts",
+    "app/api/workflows/[id]/ai/repair/preview/route.ts",
+    "app/api/workflows/[id]/ai/repair/apply/route.ts",
+    "app/api/workflows/[id]/ai/repair/apply-readiness/route.ts",
+  ] as const;
+  const DELETED_CLIENTS = [
+    "lib/api/ai/thread.ts",
+    "lib/api/ai/diagnostics.ts",
+  ] as const;
+
+  it.each(DELETED_ROUTES)("%s is deleted", (rel) => {
+    expect(existsSync(resolve(process.cwd(), rel))).toBe(false);
+  });
+
+  it.each(DELETED_CLIENTS)("%s is deleted", (rel) => {
+    expect(existsSync(resolve(process.cwd(), rel))).toBe(false);
+  });
+
+  it("the LIVE apply route + governed guidance/repair routes survive", () => {
+    expect(existsSync(resolve(process.cwd(), "app/api/workflows/[id]/ai/apply/route.ts"))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), "app/api/accounts/[id]/ai/workflow-guidance/route.ts"))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), "app/api/accounts/[id]/ai/workflow-repair/route.ts"))).toBe(true);
+  });
+
+  it("the AI client barrel keeps applyWorkflowPatch + repair/guidance, drops the chat plan/complete/thread/diagnose helpers", () => {
+    const barrel = read("lib/api/ai.ts");
+    expect(barrel).not.toMatch(/\.\/ai\/thread|\.\/ai\/diagnostics/);
+    const plan = read("lib/api/ai/plan.ts");
+    expect(plan).toMatch(/applyWorkflowPatch/); // live
+    // The dead chat client functions + their endpoints are gone from the code.
+    expect(plan).not.toMatch(/export async function planWorkflow\b/);
+    expect(plan).not.toMatch(/export async function completePlan\b/);
+    expect(plan).not.toMatch(/\/ai\/plan|\/ai\/complete/);
+  });
+
+  it("no client code references the removed legacy endpoints", () => {
+    for (const rel of ["lib/api/ai/plan.ts", "lib/api/ai/runRepair.ts", "lib/api/ai/workflowRepair.ts", "lib/api/ai/guidance.ts", "features/workflow-builder/panels/RunResultsRepairBlock.tsx"]) {
+      const src = read(rel);
+      expect(src).not.toMatch(/\/ai\/(plan|complete|thread|diagnose)/);
+      expect(src).not.toMatch(/\/ai\/repair\/(plan|preview|apply)/);
+    }
   });
 });
