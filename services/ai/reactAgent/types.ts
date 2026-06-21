@@ -51,6 +51,13 @@ export type ReactAgentIntent =
   | "answer_diagnosis_question"
   | "propose_repair"
   | "apply_repair"
+  /**
+   * HERMES-AGENT-CAPABILITY — advisory workflow-guidance intake (read-only). Like `apply_repair`
+   * it is INTENTIONALLY EXCLUDED from the recognized free-text set below: this slice ships no UI,
+   * so guidance runs ONLY through the explicit `runAuthorizedCapability` server seam, never via the
+   * user-facing `handle()` text path. A future UI slice may add it to the recognized set.
+   */
+  | "request_workflow_guidance"
   | "unknown";
 
 /**

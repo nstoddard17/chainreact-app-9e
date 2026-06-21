@@ -22,7 +22,8 @@ export type ReactAgentCapabilityId =
   | "diagnosis_qa"
   | "diagnosis_explain"
   | "repair_proposal"
-  | "repair_apply";
+  | "repair_apply"
+  | "workflow_guidance_intake";
 
 /**
  * How a capability affects workflow state. Drives later approval/audit policy. CS-3/CS-4
@@ -98,6 +99,17 @@ export const REACT_AGENT_CAPABILITIES: Readonly<
     mode: "requires_approval",
     creditFeature: null,
     auditKind: "react_agent.repair_apply",
+  }),
+  // HERMES-AGENT-CAPABILITY — advisory workflow-guidance intake. `read_only` (never mutates/runs a
+  // workflow). `creditFeature: null` — there is NO billing gate for Hermes Agent guidance yet (gap
+  // documented in docs/runbooks/hermes-agent-render-prod.md); the capability is gated by
+  // `HERMES_AGENT_ENABLED` (default OFF) and is server-only, not wired to any route/UI in this slice.
+  workflow_guidance_intake: Object.freeze({
+    id: "workflow_guidance_intake",
+    allowedIntent: "request_workflow_guidance",
+    mode: "read_only",
+    creditFeature: null,
+    auditKind: "react_agent.workflow_guidance_intake",
   }),
 });
 

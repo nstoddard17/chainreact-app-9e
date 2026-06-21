@@ -41,6 +41,7 @@ Vercel ChainReact app
 | Server-only gateway client + `WorkflowGuidanceProvider` impl (advisory; fail-closed) | [`services/ai-guidance/gateway/hermesAgentGatewayClient.ts`](../../../services/ai-guidance/gateway/hermesAgentGatewayClient.ts) |
 | **Strict response contract** (Zod envelope schema + `normalizeGatewayResponse` → `NormalizedGatewayGuidance`: `guidanceText`/`source`/`workflowPlan:null`/`rawUsage?`/`warnings?`) — HERMES-AGENT-RESPONSE-CONTRACT | [`services/ai-guidance/gateway/gatewayResponseContract.ts`](../../../services/ai-guidance/gateway/gatewayResponseContract.ts) |
 | Gateway barrel + `resolveServerGuidanceProvider()` (gateway-when-enabled, else noop) | [`services/ai-guidance/gateway/index.ts`](../../../services/ai-guidance/gateway/index.ts) |
+| **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 
 **Gated + inert:** the client only calls out when `HERMES_AGENT_ENABLED=true` AND the gateway env is
 present AND a server caller explicitly constructs it. It is NOT the app-runtime default, and nothing
@@ -70,8 +71,13 @@ the regression-localization checklist.
 1. ✅ **HERMES-AGENT-RESPONSE-CONTRACT (done)** — Zod envelope schema + `normalizeGatewayResponse`
    → `NormalizedGatewayGuidance` (advisory `guidanceText`, `workflowPlan: null`, sanitized `rawUsage`,
    fail-closed). Live smoke asserts non-empty `guidanceText`.
-2. **HERMES-AGENT-CAPABILITY** — expose guidance through a scope-validated, audited server boundary
-   (React Agent advisory capability), still no direct mutation; ChainReact validates every plan.
-3. **HERMES-AGENT-PLAN-EXTRACTION** — when the agent starts returning structured plans, parse the
+2. ✅ **HERMES-AGENT-CAPABILITY (done)** — `workflow_guidance_intake` registered as a `read_only`
+   React Agent capability; server-only runner through `runAuthorizedCapability` (scope-validated +
+   audited), gated by `HERMES_AGENT_ENABLED`, advisory-only. **No route/UI and no billing gate yet**
+   (`creditFeature: null` — documented gap; stays OFF by config).
+3. **HERMES-AGENT-CAPABILITY-ROUTE** — wire a gated route (auth + account-membership + `aiCreditGate`
+   + inject the persistent audit recorder) that calls the runner, then a UI entry point. Closes the
+   billing gap before any paid enablement.
+4. **HERMES-AGENT-PLAN-EXTRACTION** — when the agent starts returning structured plans, parse the
    plan from `guidanceText`/a plan object and gate it through `validateWorkflowPlan` before it is
    ever surfaced as usable (still advisory, still no mutation).

@@ -140,6 +140,32 @@ Unknown extra fields in the envelope are allowed but ignored (never copied into 
 output). `requestHermesAgentGuidance(...)` keeps returning the neutral `GuidanceResult` port shape as
 a thin adapter over the normalized result.
 
+### React Agent capability — `workflow_guidance_intake` (HERMES-AGENT-CAPABILITY)
+
+The advisory guidance is exposed through the existing React Agent governance allow-list:
+
+- Registry: [`services/ai/reactAgent/capabilities.ts`](../../services/ai/reactAgent/capabilities.ts) —
+  `workflow_guidance_intake`, `mode: read_only`, intent `request_workflow_guidance`,
+  `auditKind: react_agent.workflow_guidance_intake`. **Excluded** from the free-text recognized intent
+  set (runs only through the explicit server seam, never the user-facing `handle()` text path).
+- Runner (server-only): [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts)
+  — `runWorkflowGuidanceIntakeCapability(input, deps)`. Builds the safe DTO (sanitizer) → runs
+  `runAuthorizedCapability` → calls `requestHermesAgentGuidanceNormalized`. **Read-only / advisory:
+  never creates / updates / applies / runs / deletes a workflow.** Lives in the `capabilities/`
+  submodule (not a top-level boundary file) so the React Agent core stays import-fenced.
+- **Gating:** `HERMES_AGENT_ENABLED` (default OFF) + gateway config. Disabled/unconfigured → a typed
+  unavailable result with **no network call**.
+- **Audit:** when a route injects the persistent recorder, exactly one `react_agent_audit_events` row
+  is emitted (success / failed / denied) with safe metadata only — scope ids + registry enums, **no
+  prompt / goal text / guidance text / token**.
+- **Billing GAP (intentional):** there is **no AI-credit gate** for Hermes Agent guidance yet
+  (`creditFeature: null`). Unlike `diagnosis_qa` / `repair_proposal` (which charge `workflow_qa` /
+  `workflow_repair` at their routes), this capability ships **no route and no billing**. It stays
+  gated OFF by `HERMES_AGENT_ENABLED` until a future slice wires a route + the established
+  `aiCreditGate` pattern. Do not enable it in a paid environment without that gate.
+- **No UI / no route this slice.** A future gated route does auth + account-membership +
+  `aiCreditGate` + injects the recorder, then calls the runner.
+
 ## 6. Opt-in live smoke
 
 [`tests/unit/services/ai-guidance/hermesAgentGateway.live.dev.test.ts`](../../tests/unit/services/ai-guidance/hermesAgentGateway.live.dev.test.ts)
