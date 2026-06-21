@@ -459,6 +459,36 @@ export async function getByIdServiceRole(
 }
 
 /**
+ * Sessionless service-role list of an account's non-deleted workflows, newest
+ * first (Slice 4.PUBLIC-MCP-6). Mirrors `listByAccount` but for paths with no user
+ * session — the public MCP server, whose only identity is a verified account-scoped
+ * token. NON-AUTHORIZING (bypasses RLS): the caller MUST have resolved + verified
+ * the account upstream; the hard `eq("account_id", …)` predicate is the scope. The
+ * MCP route maps each record through the safe `toMcpWorkflowSummaryDto` projection,
+ * so no `draft_definition` / provenance leaves the app.
+ */
+export async function listByAccountServiceRole(
+  accountId: string,
+  opts: { limit?: number } = {},
+): Promise<readonly WorkflowRecord[]> {
+  const supabase = getServiceRoleClient(
+    `mcp: listByAccountServiceRole ${accountId}`,
+  );
+  const limit = Math.min(opts.limit ?? 100, 200);
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("*")
+    .eq("account_id", accountId)
+    .neq("state", "deleted")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) {
+    throw new Error(`workflows.listByAccountServiceRole failed: ${error.message}`);
+  }
+  return (data ?? []).map((r) => rowToRecord(r as WorkflowsRow));
+}
+
+/**
  * Webhook-dispatcher path: look up just the lifecycle state for a workflow
  * without a user session. Used by core/triggers/dispatch.ts to drop events
  * for paused / disabled / deleted workflows even when the trigger_resources

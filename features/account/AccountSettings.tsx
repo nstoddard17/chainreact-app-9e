@@ -18,6 +18,7 @@ import {
 } from "./AccountSections";
 import { ProfileSection } from "./ProfileSection";
 import { NotificationsSection } from "./NotificationsSection";
+import { DeveloperSection } from "./DeveloperSection";
 import { AccountDeletionCard } from "./AccountDeletionCard";
 
 /**
@@ -172,6 +173,13 @@ export function AccountSettings({
         )}
         {section === "api" && (
           <ApiSection
+            active={active}
+            accountId={activeAccountId ?? null}
+            frozen={billing.frozen}
+          />
+        )}
+        {section === "developer" && (
+          <DeveloperSection
             active={active}
             accountId={activeAccountId ?? null}
             frozen={billing.frozen}

@@ -14,6 +14,7 @@ export type AccountSection =
   | "security"
   | "billing"
   | "api"
+  | "developer"
   | "danger-zone";
 
 export const DEFAULT_ACCOUNT_SECTION: AccountSection = "account";
@@ -49,6 +50,10 @@ export const ACCOUNT_SECTION_HEADINGS: Record<AccountSection, AccountSectionHead
     title: "API & webhooks",
     sub: "Programmatic access to ChainReact — keys and event endpoints.",
   },
+  developer: {
+    title: "Developer",
+    sub: "Connect an MCP-compatible LLM client with a read-only access token.",
+  },
   "danger-zone": {
     title: "Danger zone",
     sub: "Permanently delete your personal account.",
@@ -75,6 +80,7 @@ const GLYPH = {
   security: "M6 11V8a6 6 0 1 1 12 0v3M5 11h14v9H5z",
   billing: "M3 7h18v10H3zM3 11h18",
   api: "M8 9l-3 3 3 3M16 9l3 3-3 3M13 7l-2 10",
+  developer: "M7 8l-4 4 4 4M17 8l4 4-4 4M10 19l4-14",
   danger: "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01",
 } as const;
 
@@ -93,6 +99,7 @@ export const ACCOUNT_NAV_GROUPS: readonly AccountNavGroup[] = [
     items: [
       { id: "billing", label: "Plan & billing", glyph: GLYPH.billing },
       { id: "api", label: "API & webhooks", glyph: GLYPH.api },
+      { id: "developer", label: "Developer", glyph: GLYPH.developer },
     ],
   },
   {
