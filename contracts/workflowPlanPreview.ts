@@ -66,3 +66,38 @@ export interface DraftPreview {
   /** ALWAYS true — preview only; nothing applied / saved / run / inserted. */
   readonly notApplied: true;
 }
+
+/**
+ * Deterministic ADDITIVE builder patch (HERMES-AGENT-APPLY-PREVIEW-PATCH).
+ *
+ * The shape the builder applies to its LOCAL draft graph when the user explicitly clicks "Apply
+ * preview". It is intentionally ADDITIVE-ONLY: `addNode` + `addEdge` described declaratively. There
+ * are deliberately NO delete / replace / update-config / replace-trigger / branch-rewrite operations
+ * in this slice. Refs are patch-local handles (`p0`, `p1`, …) — the graph slice assigns REAL node/edge
+ * ids on apply (so the patch itself stays deterministic and id-free). The patch is built from a
+ * capability-VALIDATED `WorkflowPlan` (the source of truth), never from the display `DraftPreview`.
+ *
+ * `kind: "additive"` is a literal marker so callers/tests can assert the additive-only contract.
+ */
+export interface BuilderPatchNode {
+  /** Patch-local handle (e.g. "p0"). NOT a real or preview id. */
+  readonly ref: string;
+  /** Builder node kind. Only trigger/action are representable (no "logic" graph kind in V2). */
+  readonly kind: "trigger" | "action";
+  /** Validated capability provider (registry-checked upstream). */
+  readonly provider: string;
+  /** Validated capability type (registry-checked upstream). */
+  readonly type: string;
+}
+
+export interface BuilderPatchEdge {
+  readonly fromRef: string;
+  readonly toRef: string;
+}
+
+export interface BuilderPreviewPatch {
+  /** Additive-only marker — this slice never deletes/replaces/updates existing graph pieces. */
+  readonly kind: "additive";
+  readonly nodes: readonly BuilderPatchNode[];
+  readonly edges: readonly BuilderPatchEdge[];
+}

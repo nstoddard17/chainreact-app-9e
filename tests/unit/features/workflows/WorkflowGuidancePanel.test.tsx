@@ -167,7 +167,7 @@ describe("WorkflowGuidancePanel — request + render", () => {
     expect(screen.queryByRole("button", { name: /create|apply|add node|use this|run/i })).not.toBeInTheDocument();
   });
 
-  it("offers 'Show on canvas' only when onPreviewToCanvas is provided, and calls it with the preview", async () => {
+  it("offers 'Show on canvas' only when onPreviewToCanvas is provided, and calls it with {plan, preview}", async () => {
     const user = userEvent.setup();
     const onPreviewToCanvas = jest.fn();
     const previewDraft = {
@@ -179,7 +179,8 @@ describe("WorkflowGuidancePanel — request + render", () => {
       nodes: [{ previewId: "preview-step-1", role: "trigger" as const, provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true as const }],
       edges: [],
     };
-    mockRequest.mockResolvedValue({ ok: true, guidanceText: "idea", source: "hermes-agent", workflowPlan: { schemaVersion: 1, title: "P", summary: "", notApplied: true, steps: [{ ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" }] }, previewDraft });
+    const workflowPlan = { schemaVersion: 1, title: "P", summary: "", notApplied: true, steps: [{ ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" }] };
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "idea", source: "hermes-agent", workflowPlan, previewDraft });
     render(<WorkflowGuidancePanel accountId="acct-1" onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Example:/i), "help");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
@@ -188,7 +189,8 @@ describe("WorkflowGuidancePanel — request + render", () => {
     const showBtn = screen.getByTestId("workflow-guidance-show-on-canvas");
     expect(showBtn).toHaveTextContent("Show on canvas");
     await user.click(showBtn);
-    expect(onPreviewToCanvas).toHaveBeenCalledWith(previewDraft);
+    // Carries BOTH the validated plan (apply source of truth) and the display preview.
+    expect(onPreviewToCanvas).toHaveBeenCalledWith({ plan: workflowPlan, preview: previewDraft });
   });
 
   it("does NOT offer 'Show on canvas' when no onPreviewToCanvas prop (e.g. dashboard, no canvas)", async () => {

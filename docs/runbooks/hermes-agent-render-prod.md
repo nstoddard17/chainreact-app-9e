@@ -260,6 +260,16 @@ questions. **Advisory only — it never creates / changes / runs a workflow.**
   marks the workflow dirty, never autosaves, and makes no network call. Discard clears the overlay
   state only (no rollback — nothing was mutated). **No operational/env/route change** — `previewDraft`
   already shipped in the route response (HERMES-AGENT-DRAFT-PREVIEW); this slice only renders it.
+- **Apply preview (HERMES-AGENT-APPLY-PREVIEW-PATCH).** The builder overlay's "Apply preview" button
+  is the FIRST mutation path. It converts the capability-VALIDATED `WorkflowPlan` (not the display
+  preview) into a deterministic ADDITIVE patch (`planToBuilderPatch`) and applies it to the LOCAL
+  builder draft via `graphSlice.applyAdditivePatch` — appending nodes (real ids, EMPTY config so
+  required fields show "needs setup") + linear edges, marking the draft dirty exactly like manual
+  edits. **Additive only:** no delete/replace/update-config/replace-trigger/branch-rewrite; a proposed
+  trigger is skipped when one already exists; existing graphs receive the chain as a SIDE CHAIN. It
+  does NOT save/activate/run, does NOT create a separate workflow, and makes NO network/route/gateway
+  call — the user still reviews fields and saves via existing builder flows. **No operational/env/route
+  change.** (Dashboard preview stays review-only — no Apply control there.)
 
 - The panel is **server-gated on `HERMES_AGENT_ENABLED`** — when the flag is OFF (default) the page
   does **not render the panel at all** (no dead box). The `accountId` is the page's resolved active

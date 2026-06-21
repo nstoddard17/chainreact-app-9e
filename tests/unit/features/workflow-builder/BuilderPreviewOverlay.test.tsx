@@ -62,10 +62,24 @@ describe("BuilderPreviewOverlay", () => {
     expect(onDiscard).toHaveBeenCalledTimes(1);
   });
 
-  it("has NO apply / create / use / add / run control", () => {
+  it("is review-only (no Apply control) when onApply is omitted", () => {
     render(<BuilderPreviewOverlay preview={preview} onDiscard={() => {}} />);
+    expect(screen.queryByTestId("builder-preview-apply")).not.toBeInTheDocument();
+    // Still no create/use-this/run controls regardless.
     expect(
-      screen.queryByRole("button", { name: /apply|create|use this|add node|run/i }),
+      screen.queryByRole("button", { name: /create|use this|add node|run/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows an 'Apply preview' control ONLY when onApply is provided, and calls it", async () => {
+    const user = userEvent.setup();
+    const onApply = jest.fn();
+    render(<BuilderPreviewOverlay preview={preview} onDiscard={() => {}} onApply={onApply} />);
+    const applyBtn = screen.getByTestId("builder-preview-apply");
+    expect(applyBtn).toHaveTextContent("Apply preview");
+    await user.click(applyBtn);
+    expect(onApply).toHaveBeenCalledTimes(1);
+    // No create/use-this/run controls beyond the explicit Apply.
+    expect(screen.queryByRole("button", { name: /create|use this|run\b/i })).not.toBeInTheDocument();
   });
 });

@@ -9,17 +9,18 @@ import type { DraftPreview } from "@/contracts/workflowPlanPreview";
  * over the builder canvas — shimmered/ghost "Suggested" nodes joined by dashed preview edges. It is a
  * pure presentational component: it reads the preview prop and an `onDiscard` callback, and renders.
  *
- * HARD GUARANTEES (this is visual-only):
- *   - It NEVER merges preview nodes/edges into the real React Flow graph or any builder store. The
- *     preview is its own DOM layer; the real canvas underneath is untouched and unchanged.
- *   - It performs no workflow create/mutate/apply/run, writes no persisted definition, marks nothing
- *     dirty, autosaves nothing, and makes no network call. The only action is `onDiscard`, which the
- *     parent uses to drop the overlay state.
- *   - There is intentionally NO Apply / Create / Use-this / Add-nodes / Run control. Applying a plan
- *     is a future, explicit, user-initiated slice handled by the deterministic builder.
+ * GUARANTEES:
+ *   - It NEVER merges preview nodes/edges into the real React Flow graph or any builder store itself.
+ *     The preview is its own DOM layer; the real canvas underneath is untouched while previewing.
+ *   - It performs no network call and reads no secret. It surfaces exactly two explicit, user-clicked
+ *     actions, both handled by the parent: `onDiscard` (drop the overlay, no mutation) and the OPTIONAL
+ *     `onApply` (HERMES-AGENT-APPLY-PREVIEW-PATCH — additive local-draft edit via the graph slice).
+ *   - There is NO Create / Use-this / separate-workflow / Run / Save control. "Apply preview" only
+ *     adds the proposed nodes/edges to the LOCAL draft (dirty via the normal mechanism); the user
+ *     still saves/activates through existing builder flows.
  *
- * The container is `pointer-events-none` so the canvas underneath stays interactive; only the discard
- * control opts back into pointer events. Ghost nodes/edges are non-interactive.
+ * The container is `pointer-events-none` so the canvas underneath stays interactive; only the control
+ * bar opts back into pointer events. Ghost nodes/edges are non-interactive.
  */
 
 export interface BuilderPreviewOverlayProps {
@@ -27,9 +28,14 @@ export interface BuilderPreviewOverlayProps {
   readonly preview: DraftPreview;
   /** Drop the overlay (UI state only). Never mutates the workflow. */
   readonly onDiscard: () => void;
+  /**
+   * Optional (builder-only): apply the preview as an additive patch to the LOCAL draft. When omitted,
+   * the overlay is review-only (no Apply control). Provided by `WorkflowBuilder`.
+   */
+  readonly onApply?: () => void;
 }
 
-export function BuilderPreviewOverlay({ preview, onDiscard }: BuilderPreviewOverlayProps) {
+export function BuilderPreviewOverlay({ preview, onDiscard, onApply }: BuilderPreviewOverlayProps) {
   return (
     <div
       data-testid="builder-preview-overlay"
@@ -59,6 +65,18 @@ export function BuilderPreviewOverlay({ preview, onDiscard }: BuilderPreviewOver
         >
           {preview.notice}
         </span>
+        {onApply && (
+          <button
+            type="button"
+            onClick={onApply}
+            data-testid="builder-preview-apply"
+            className="rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold text-white"
+            style={{ background: "var(--builder-accent)", border: "1px solid var(--builder-accent)" }}
+            title="Add the proposed nodes to your draft (you still review fields and save)"
+          >
+            Apply preview
+          </button>
+        )}
         <button
           type="button"
           onClick={onDiscard}

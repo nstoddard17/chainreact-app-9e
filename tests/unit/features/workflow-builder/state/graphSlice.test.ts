@@ -1572,3 +1572,74 @@ describe("graphSlice — delete + save persistence (AI-25 regression)", () => {
     expect(s.savedNodes.map((n) => n.id)).toEqual(["trig-1", "act-1"]);
   });
 });
+
+describe("graphSlice — applyAdditivePatch (HERMES-AGENT-APPLY-PREVIEW-PATCH)", () => {
+  const ADDITIVE_PATCH = {
+    kind: "additive" as const,
+    nodes: [
+      { ref: "p0", kind: "trigger" as const, provider: "gmail", type: "new_email" },
+      { ref: "p1", kind: "action" as const, provider: "slack", type: "send_message" },
+    ],
+    edges: [{ fromRef: "p0", toRef: "p1" }],
+  };
+
+  it("blank graph: adds the proposed nodes + edges with EMPTY config, marks dirty, mints real ids", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const outcome = useGraphSlice.getState().applyAdditivePatch(ADDITIVE_PATCH);
+    const s = useGraphSlice.getState();
+    expect(outcome.ok).toBe(true);
+    expect(s.pendingNodes).toHaveLength(2);
+    expect(s.pendingEdges).toHaveLength(1);
+    expect(s.pendingNodes.map((n) => `${n.provider}:${n.type}`)).toEqual(["gmail:new_email", "slack:send_message"]);
+    // Real ids (not patch refs) + empty config (nothing inferred).
+    expect(s.pendingNodes.every((n) => n.id !== "p0" && n.id !== "p1")).toBe(true);
+    expect(s.pendingNodes.every((n) => Object.keys(n.config).length === 0)).toBe(true);
+    expect(s.pendingEdges[0]).toMatchObject({ from: s.pendingNodes[0]!.id, to: s.pendingNodes[1]!.id });
+    expect(s.isDirty).toBe(true);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled(); // never auto-saves
+  });
+
+  it("existing graph: existing nodes/edges/config are untouched; new nodes are added (additive)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF); // one trigger t1 with config {}
+    const beforeIds = useGraphSlice.getState().pendingNodes.map((n) => n.id);
+    // The patch also proposes a trigger — it must be SKIPPED (no replace-trigger).
+    const outcome = useGraphSlice.getState().applyAdditivePatch(ADDITIVE_PATCH);
+    const s = useGraphSlice.getState();
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.skippedTrigger).toBe(true);
+    // Original trigger still present + unchanged.
+    expect(s.pendingNodes.find((n) => n.id === "t1")).toMatchObject({ provider: "slack", type: "message_received" });
+    expect(beforeIds.every((id) => s.pendingNodes.some((n) => n.id === id))).toBe(true);
+    // Only the action was added (trigger skipped) → 1 original + 1 new = 2, no new edge (its from-ref was skipped).
+    expect(s.pendingNodes).toHaveLength(2);
+    expect(s.pendingNodes.some((n) => n.provider === "slack" && n.type === "send_message")).toBe(true);
+    expect(s.pendingEdges).toHaveLength(0);
+  });
+
+  it("never deletes/replaces: a second action-only patch only appends", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().applyAdditivePatch({ kind: "additive", nodes: [{ ref: "p0", kind: "action", provider: "notion", type: "create_page" }], edges: [] });
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes).toHaveLength(2);
+    expect(s.pendingNodes.find((n) => n.id === "t1")).toBeDefined();
+  });
+
+  it("empty patch → ok:false, no mutation", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const outcome = useGraphSlice.getState().applyAdditivePatch({ kind: "additive", nodes: [], edges: [] });
+    expect(outcome.ok).toBe(false);
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("trigger-only patch on a graph that already has a trigger → nothing added", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const outcome = useGraphSlice.getState().applyAdditivePatch({ kind: "additive", nodes: [{ ref: "p0", kind: "trigger", provider: "gmail", type: "new_email" }], edges: [] });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.reason).toBe("nothing_added");
+      expect(outcome.skippedTrigger).toBe(true);
+    }
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1); // only the original trigger
+  });
+});

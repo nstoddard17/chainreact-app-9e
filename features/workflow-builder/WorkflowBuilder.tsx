@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
+import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import { planToBuilderPatch } from "@/services/ai-guidance/preview/planToBuilderPatch";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import {
@@ -118,10 +120,16 @@ export function WorkflowBuilder({
   const runId = useRunSlice((s) => s.runId);
 
   // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — ephemeral, UI-ONLY non-applied AI draft preview shown as a
-  // ghost overlay over the canvas. It is deliberately plain React state (NOT the graph store): it
-  // never touches pendingNodes/draftDefinition, never marks the workflow dirty, and never autosaves.
-  // Discarding just sets it back to null (no rollback needed — real state was never mutated).
-  const [previewOverlay, setPreviewOverlay] = useState<DraftPreview | null>(null);
+  // ghost overlay over the canvas. It is deliberately plain React state (NOT the graph store): showing
+  // it never touches pendingNodes/draftDefinition, never marks dirty, never autosaves. It carries the
+  // display `preview` AND the validated `plan` (the source of truth for an explicit Apply). Discarding
+  // just sets it back to null (no rollback needed — real state was never mutated).
+  const [previewOverlay, setPreviewOverlay] = useState<{
+    plan: WorkflowPlan;
+    preview: DraftPreview;
+  } | null>(null);
+  // HERMES-AGENT-APPLY-PREVIEW-PATCH — transient confirmation after an explicit "Apply preview".
+  const [applyNotice, setApplyNotice] = useState<string | null>(null);
 
   // Hydrate from the server prop on initial mount AND whenever the prop's
   // definition / revision changes (e.g. an external refresh). The graphSlice
@@ -140,8 +148,9 @@ export function WorkflowBuilder({
   useEffect(() => {
     resetConfigSlice();
     resetRunSlice();
-    // Drop any AI preview overlay when switching workflows (setState setter is stable).
+    // Drop any AI preview overlay / apply notice when switching workflows (setters are stable).
     setPreviewOverlay(null);
+    setApplyNotice(null);
     return () => {
       reset();
       resetConfigSlice();
@@ -304,6 +313,32 @@ export function WorkflowBuilder({
     [handleEdgePlusClick],
   );
 
+  // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — open the ghost overlay with the validated plan + display
+  // preview (clears any prior apply notice). Showing the overlay mutates nothing.
+  const handleShowPreview = useCallback(
+    (payload: { plan: WorkflowPlan; preview: DraftPreview }) => {
+      setApplyNotice(null);
+      setPreviewOverlay(payload);
+    },
+    [],
+  );
+
+  // HERMES-AGENT-APPLY-PREVIEW-PATCH — explicit, user-clicked apply. Builds a deterministic ADDITIVE
+  // patch from the VALIDATED plan (not the display preview) and applies it to the LOCAL draft via the
+  // graph slice — the same dirty-making path as manual edits. No save/activate/run; no separate
+  // workflow. Then clears the overlay and shows a safe confirmation.
+  const handleApplyPreview = useCallback(() => {
+    if (!previewOverlay) return;
+    const patch = planToBuilderPatch(previewOverlay.plan);
+    if (patch) {
+      const outcome = useGraphSlice.getState().applyAdditivePatch(patch);
+      if (outcome.ok) {
+        setApplyNotice("Preview applied to draft — review required fields before activating.");
+      }
+    }
+    setPreviewOverlay(null);
+  }, [previewOverlay]);
+
   // Drawer rendering — one of three modes is active at a time.
   // Inspector only renders when activeNodeId is set so the drawer
   // doesn't show an empty form during a flicker. Results renders
@@ -428,17 +463,45 @@ export function WorkflowBuilder({
           <BuilderGuidanceEntry
             accountId={accountId}
             workflowId={workflow.id}
-            onShowPreview={setPreviewOverlay}
+            onShowPreview={handleShowPreview}
           />
         ) : null}
         {/* HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — ephemeral, non-applied ghost overlay of an AI draft
-            preview. UI state only (above): it never merges into the real graph, never writes
-            draftDefinition, never marks dirty/saves. Discard just clears the state. */}
+            preview. UI state only (above): showing it never merges into the real graph, writes
+            draftDefinition, or saves. Discard clears the state; "Apply preview" runs the explicit,
+            additive local-draft edit (HERMES-AGENT-APPLY-PREVIEW-PATCH). */}
         {previewOverlay ? (
           <BuilderPreviewOverlay
-            preview={previewOverlay}
+            preview={previewOverlay.preview}
+            onApply={handleApplyPreview}
             onDiscard={() => setPreviewOverlay(null)}
           />
+        ) : null}
+        {/* HERMES-AGENT-APPLY-PREVIEW-PATCH — transient confirmation after an explicit apply. The
+            nodes are now part of the local draft (dirty); the user still reviews fields + saves. */}
+        {applyNotice ? (
+          <div
+            data-testid="builder-apply-notice"
+            role="status"
+            className="pointer-events-auto absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-3 rounded-md px-3 py-1.5 text-[12px] shadow-md"
+            style={{
+              background: "var(--builder-panel)",
+              border: "1px solid var(--builder-border)",
+              color: "var(--builder-text)",
+            }}
+          >
+            <span>{applyNotice}</span>
+            <button
+              type="button"
+              onClick={() => setApplyNotice(null)}
+              data-testid="builder-apply-notice-dismiss"
+              aria-label="Dismiss"
+              className="rounded px-1 text-[12px]"
+              style={{ color: "var(--builder-muted)" }}
+            >
+              ✕
+            </button>
+          </div>
         ) : null}
       </div>
     </BuilderShell>

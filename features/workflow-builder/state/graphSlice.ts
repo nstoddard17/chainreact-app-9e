@@ -3,6 +3,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDefinition, WorkflowDetail, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
+import type { BuilderPreviewPatch } from "@/contracts/workflowPlanPreview";
 import {
   WorkflowApiError,
   updateWorkflow,
@@ -179,10 +180,45 @@ export interface GraphSliceActions {
    * slice state. Never throws.
    */
   deleteNodeAndRewire(nodeId: string): DeleteNodeOutcome;
+  /**
+   * HERMES-AGENT-APPLY-PREVIEW-PATCH — apply a deterministic, ADDITIVE-ONLY builder patch (derived
+   * from a validated WorkflowPlan) to the LOCAL draft, exactly like user-added nodes/edges:
+   *
+   *   - Appends new nodes (real ids minted here) with EMPTY config (required fields surface as
+   *     "needs setup" — nothing inferred) and edges from the patch's linear refs.
+   *   - NEVER deletes/replaces/updates existing nodes, edges, or config — existing graph is untouched.
+   *   - NO replace-trigger: a patch `trigger` node is SKIPPED when the graph already has a trigger
+   *     (and across the patch itself once one trigger has been added) → `skippedTrigger: true`.
+   *   - Placed as a side chain to the right of existing nodes (blank graph → starts at origin). Exact
+   *     in-place insertion relative to existing nodes is a future slice.
+   *   - Marks the graph dirty via the SAME mechanism as manual edits. Does NOT save/activate/run.
+   *
+   * Returns an outcome; never throws. `{ ok: false }` when nothing additive remained to apply.
+   */
+  applyAdditivePatch(patch: BuilderPreviewPatch): ApplyAdditivePatchOutcome;
   /** Persist the pending graph → updated detail (callers react to server-side lifecycle
    * changes, e.g. a trigger edit that deactivates an active workflow); `undefined` if in-flight. */
   save(): Promise<WorkflowDetail | undefined>;
 }
+
+/** Outcome of {@link GraphSliceActions.applyAdditivePatch}. */
+export type ApplyAdditivePatchOutcome =
+  | {
+      readonly ok: true;
+      readonly addedNodeIds: readonly string[];
+      readonly addedEdgeIds: readonly string[];
+      /** True when a proposed trigger was skipped because the graph already had one (no replace). */
+      readonly skippedTrigger: boolean;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: "empty_patch" | "nothing_added";
+      readonly skippedTrigger: boolean;
+    };
+
+/** Side-chain placement constants for an applied additive patch. */
+const PATCH_SIDE_CHAIN_X_GAP = 400;
+const PATCH_NODE_Y_GAP = 160;
 
 /**
  * Outcome of `deleteNodeAndRewire`. Three shapes:
@@ -681,6 +717,73 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       removedEdgeIds: result.removedEdgeIds,
       rewiredEdgeId: result.rewiredEdgeId,
       warning: result.warning,
+    };
+  },
+
+  applyAdditivePatch(patch) {
+    const { pendingNodes, pendingEdges } = get();
+    if (!patch || patch.nodes.length === 0) {
+      return { ok: false, reason: "empty_patch", skippedTrigger: false };
+    }
+
+    // Side-chain base: to the right of all existing nodes (blank graph → origin). New nodes never
+    // overlap existing ones, and existing positions are never moved.
+    const baseX = pendingNodes.length
+      ? Math.max(...pendingNodes.map((n) => n.position.x)) + PATCH_SIDE_CHAIN_X_GAP
+      : 0;
+    const baseY = pendingNodes.length
+      ? Math.min(...pendingNodes.map((n) => n.position.y))
+      : 0;
+
+    let triggerPresent = pendingNodes.some((n) => n.kind === "trigger");
+    let skippedTrigger = false;
+    const refToId = new Map<string, string>();
+    const addedNodes: WorkflowNode[] = [];
+
+    for (const pn of patch.nodes) {
+      // No replace-trigger: skip a proposed trigger when one already exists (existing graph OR an
+      // earlier patch trigger). Edges referencing the skipped ref are dropped below.
+      if (pn.kind === "trigger" && triggerPresent) {
+        skippedTrigger = true;
+        continue;
+      }
+      if (pn.kind === "trigger") triggerPresent = true;
+      const id = newNodeId();
+      refToId.set(pn.ref, id);
+      addedNodes.push({
+        id,
+        kind: pn.kind,
+        provider: pn.provider,
+        type: pn.type,
+        // EMPTY config — nothing inferred. Required fields surface via existing node validation.
+        config: {},
+        position: { x: baseX, y: baseY + addedNodes.length * PATCH_NODE_Y_GAP },
+      });
+    }
+
+    if (addedNodes.length === 0) {
+      return { ok: false, reason: "nothing_added", skippedTrigger };
+    }
+
+    const addedEdges: WorkflowEdge[] = [];
+    for (const pe of patch.edges) {
+      const from = refToId.get(pe.fromRef);
+      const to = refToId.get(pe.toRef);
+      if (!from || !to || from === to) continue; // endpoint skipped (e.g. trigger) → drop the edge
+      addedEdges.push({ id: newEdgeId(), from, to });
+    }
+
+    set({
+      pendingNodes: [...pendingNodes, ...addedNodes],
+      pendingEdges: [...pendingEdges, ...addedEdges],
+      isDirty: true,
+      saveError: null,
+    });
+    return {
+      ok: true,
+      addedNodeIds: addedNodes.map((n) => n.id),
+      addedEdgeIds: addedEdges.map((e) => e.id),
+      skippedTrigger,
     };
   },
 

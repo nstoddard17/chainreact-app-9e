@@ -50,12 +50,14 @@ export interface WorkflowGuidancePanelProps {
   /** Optional builder-context workflow id; only included when present. */
   readonly workflowId?: string;
   /**
-   * Builder-only (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY): when provided, the preview section gains a
-   * "Show on canvas" control that hands the current `DraftPreview` to a non-applied canvas overlay.
-   * Absent on the dashboard (no canvas) → no such control. This NEVER applies/creates/mutates a
-   * workflow — it only toggles a visual preview layer.
+   * Builder-only (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY / -APPLY-PREVIEW-PATCH): when provided, the
+   * preview section gains a "Show on canvas" control that hands BOTH the capability-validated
+   * `WorkflowPlan` (the apply source of truth) and the display `DraftPreview` to the builder's
+   * non-applied canvas overlay. Absent on the dashboard (no canvas) → no such control. Showing the
+   * overlay NEVER applies/creates/mutates a workflow; an explicit "Apply preview" in the overlay does
+   * the additive local-draft edit.
    */
-  readonly onPreviewToCanvas?: (preview: DraftPreview) => void;
+  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
 }
 
 export function WorkflowGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: WorkflowGuidancePanelProps) {
@@ -255,13 +257,14 @@ export function WorkflowGuidancePanel({ accountId, workflowId, onPreviewToCanvas
             </p>
           )}
           {/* Builder-only: show the preview as a non-applied ghost overlay on the canvas. This does
-              NOT apply/create/add anything — it only toggles a visual preview layer. */}
-          {onPreviewToCanvas && (
+              NOT apply/create/add anything — it only toggles a visual preview layer. Passes the
+              validated plan (apply source of truth) alongside the display preview. */}
+          {onPreviewToCanvas && plan && (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => onPreviewToCanvas(preview)}
+              onClick={() => onPreviewToCanvas({ plan, preview })}
               data-testid="workflow-guidance-show-on-canvas"
               className="mt-3"
             >

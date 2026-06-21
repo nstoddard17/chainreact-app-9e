@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
 
@@ -30,10 +31,11 @@ export interface BuilderGuidanceEntryProps {
   /** The workflow currently open in the builder — forwarded as trusted draft context. */
   readonly workflowId: string;
   /**
-   * HERMES-AGENT-BUILDER-PREVIEW-OVERLAY: hand the latest `DraftPreview` to the builder's non-applied
-   * canvas overlay (UI state owned by `WorkflowBuilder`). Wiring only — never applies/mutates anything.
+   * HERMES-AGENT-BUILDER-PREVIEW-OVERLAY: hand the latest validated `WorkflowPlan` + display
+   * `DraftPreview` to the builder's non-applied canvas overlay (UI state owned by `WorkflowBuilder`).
+   * Wiring only — showing the overlay never applies/mutates anything.
    */
-  readonly onShowPreview?: (preview: DraftPreview) => void;
+  readonly onShowPreview?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
 }
 
 export function BuilderGuidanceEntry({ accountId, workflowId, onShowPreview }: BuilderGuidanceEntryProps) {

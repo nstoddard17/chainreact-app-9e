@@ -43,6 +43,7 @@ Vercel ChainReact app
 | **Plan extractor** (deterministic, model-free) — pulls a shape-valid `WorkflowPlan` from a fenced ` ```json ` block in the guidance text; the normalizer then gates it through `validateWorkflowPlan` (advisory validated plan only; `notApplied: true`; invalid → null + safe warning) — HERMES-AGENT-PLAN-EXTRACTION | [`services/ai-guidance/gateway/extractPlanFromText.ts`](../../../services/ai-guidance/gateway/extractPlanFromText.ts) + prompt [`buildGatewayGuidancePrompt.ts`](../../../services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts) + UI [`WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) |
 | **Draft preview converter** (deterministic) — turns a validated `WorkflowPlan` into an ephemeral, non-applied `DraftPreview` (preview-only ids, labels only, `notApplied: true`, missing field-keys → warnings; no config/persistence). Derived at the route from `result.workflowPlan` only — HERMES-AGENT-DRAFT-PREVIEW | [`services/ai-guidance/preview/planToDraftPreview.ts`](../../../services/ai-guidance/preview/planToDraftPreview.ts) + type [`contracts/workflowPlanPreview.ts`](../../../contracts/workflowPlanPreview.ts) + UI [`WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) |
 | **Builder preview overlay** (visual/ephemeral) — renders a `DraftPreview` as a SEPARATE ghost layer over the canvas (shimmered/dashed "Suggested" nodes + dashed edges + "Preview only…" notice + Discard). UI state in `WorkflowBuilder` only; never merges into the real graph / `draftDefinition` / dirty / save. Panel "Show on canvas" (builder-only) feeds it; Discard clears it — HERMES-AGENT-BUILDER-PREVIEW-OVERLAY | [`features/workflow-builder/canvas/BuilderPreviewOverlay.tsx`](../../../features/workflow-builder/canvas/BuilderPreviewOverlay.tsx) (state in [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx); wired via [`BuilderGuidanceEntry.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceEntry.tsx) → panel `onPreviewToCanvas`) |
+| **Apply-preview additive patch** (first mutation path) — explicit user "Apply preview" → `planToBuilderPatch` builds a deterministic ADDITIVE patch from the VALIDATED plan → `graphSlice.applyAdditivePatch` appends nodes/edges to the LOCAL draft (real ids, EMPTY config, dirty via the normal mechanism). NEVER deletes/replaces/updates existing pieces, replaces a trigger, saves, activates, runs, or creates a separate workflow — HERMES-AGENT-APPLY-PREVIEW-PATCH | [`services/ai-guidance/preview/planToBuilderPatch.ts`](../../../services/ai-guidance/preview/planToBuilderPatch.ts) + patch type [`contracts/workflowPlanPreview.ts`](../../../contracts/workflowPlanPreview.ts) + [`graphSlice.applyAdditivePatch`](../../../features/workflow-builder/state/graphSlice.ts) + overlay "Apply preview" + [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx) |
 | Gateway barrel + `resolveServerGuidanceProvider()` (gateway-when-enabled, else noop) | [`services/ai-guidance/gateway/index.ts`](../../../services/ai-guidance/gateway/index.ts) |
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 | **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
@@ -68,6 +69,8 @@ its sanitized saved draft as optional context to the capability.
 panel renders guidanceText + a preview-only "Draft preview" (or text "Suggested plan" when no preview)
   → (builder only) "Show on canvas" → BuilderPreviewOverlay renders a ghost layer over the canvas
     → "Discard preview" clears the overlay (UI state only; the real graph was never touched)
+    → "Apply preview" → planToBuilderPatch(validated plan) → graphSlice.applyAdditivePatch
+        → proposed nodes/edges appended to the LOCAL draft (dirty); user reviews fields + saves
 ```
 
 The browser never holds a token or calls the gateway/vendor directly; the route is the only boundary
@@ -144,7 +147,15 @@ the regression-localization checklist.
    canvas" control in the guidance panel. UI state in `WorkflowBuilder` only — it never merges into
    the real graph / `draftDefinition`, never marks dirty, never autosaves; Discard just clears state
    (no rollback). Still no apply/create/use/add/run control.
-9. **HERMES-AGENT-PLAN-APPLY (next, gated)** — the FIRST mutation path: an explicit, user-initiated
-   "Create / Use this" action that hands the validated `WorkflowPlan` to the **deterministic
-   ChainReact builder** to create a real draft. Must be its own approval-gated slice — the AI still
-   never auto-applies; everything so far is review/preview-only, nothing applies yet.
+9. ✅ **HERMES-AGENT-APPLY-PREVIEW-PATCH (done)** — the FIRST mutation path: an explicit "Apply
+   preview" converts the VALIDATED plan into a deterministic ADDITIVE patch (`planToBuilderPatch`) and
+   applies it to the LOCAL builder draft (`graphSlice.applyAdditivePatch`) like manually-added
+   nodes/edges — real ids, EMPTY config (nothing inferred), dirty via the normal mechanism. **Limits:**
+   additive only (addNode/addEdge); NO delete/replace/update-config/replace-trigger/branch-rewrite; a
+   proposed trigger is SKIPPED when one already exists; existing graphs get the chain as a SIDE CHAIN
+   (exact in-place insertion is a follow-up); NO automatic save/activate/run; NO separate workflow.
+   The user still reviews required fields and saves through existing builder flows.
+10. **HERMES-AGENT-APPLY-IN-PLACE (next)** — smarter, still-additive insertion relative to existing
+    nodes (e.g. append to a chosen branch tail / insert between two selected nodes) instead of a side
+    chain. Still no delete/replace, still explicit, still no auto-save. A separate slice could then add
+    config-prefill assistance (never secrets) and an apply-then-save affordance.
