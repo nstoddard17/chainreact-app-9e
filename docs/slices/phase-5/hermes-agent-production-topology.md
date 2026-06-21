@@ -26,6 +26,11 @@ Vercel ChainReact app
   direct OpenAI/Nous path and no Nous fallback.
 - The OpenAI key and `API_SERVER_KEY` live ONLY on Render. The only secret ChainReact holds is the
   gateway token.
+- **Model provider (under the Hermes Agent, verified 2026-06-20):** OpenAI is wired as a **custom
+  OpenAI-compatible provider named `openai-api`** (NOT the built-in `openai` name) with base URL
+  `https://api.openai.com/v1`; the working model is the one configured on the Hermes Agent service
+  (exposed to ChainReact as model `hermes-agent`). Direct Nous Portal / model API is not used, and
+  any OpenRouter/Nous warnings were from old/default config, not the intended path. See runbook §3.
 
 ## What this slice shipped (ChainReact side)
 

@@ -138,6 +138,11 @@
   eslint 0. **Live smoke VERIFIED HEALTHY end-to-end (2026-06-20)**: after a sequence of Render-side fixes
   (inbound gateway auth → gateway→agent auth "Missing Authentication header" → agent provider config "Unknown
   provider 'openai'" → model "Encrypted content not supported" feature) the gateway now returns HTTP 200 `ok=true`;
+  **Working model-provider config (on the Hermes Agent, NOT ChainReact):** OpenAI is wired as a CUSTOM
+  OpenAI-compatible provider named **`openai-api`** (NOT the built-in name `openai`), base URL
+  `https://api.openai.com/v1`, model = the one configured on the agent (exposed to ChainReact as `hermes-agent`).
+  `gpt-4o-mini` FAILED (agent sent encrypted reasoning content that model rejects); OpenRouter/Nous warnings were
+  old/default config, not the intended path; direct Nous Portal/model API is NOT used.
   the ChainReact client smoke passes the 2xx branch ("OK end-to-end", ~3.5s), normalizing the OpenAI-style
   `{ok:true,response:{choices:[{message:{content}}]}}` envelope into an advisory guidance result. Every blocker was
   Render/agent-side config; ChainReact code needed NO change throughout. NO migration, nothing live-routed/user-facing

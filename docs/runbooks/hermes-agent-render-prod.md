@@ -63,6 +63,28 @@ build, change, or run a workflow. Guidance is advisory; execution never depends 
 | `OPENAI_API_KEY` | The model-vendor key. Lives ONLY here. |
 | `API_SERVER_KEY` | Validates the inbound header from the gateway. |
 
+#### Working model-provider config (Hermes Agent) — VERIFIED 2026-06-20
+
+OpenAI is the model provider **underneath** the Hermes Agent (the agent is the brain; ChainReact
+never calls OpenAI directly). On the Hermes Agent it is wired as a **custom OpenAI-compatible
+provider**, NOT the built-in provider name `openai`:
+
+| Setting | Working value |
+|---|---|
+| Provider name | **`openai-api`** (custom OpenAI-compatible provider — NOT `openai`) |
+| Base URL | `https://api.openai.com/v1` |
+| Model | the model currently configured on the Hermes Agent service (the gateway exposes it to ChainReact as model `hermes-agent`) |
+
+**Gotchas that were resolved (do not regress):**
+- The literal provider name **`openai`** failed with `Unknown provider 'openai'` — use the custom
+  provider **`openai-api`** with the base URL above.
+- **`gpt-4o-mini` failed** with `HTTP 400: Encrypted content is not supported with this model.` —
+  the Hermes Agent sent **encrypted reasoning content** that model rejects. Use a model that
+  supports it (the currently-configured working model), or disable encrypted reasoning content.
+- Any **OpenRouter / Nous** provider warnings were from the **old/default** provider config and are
+  **no longer the intended path** — the intended path is `openai-api` → `https://api.openai.com/v1`.
+  Direct Nous Portal / model API is not used anywhere.
+
 ## 4. NEVER put these in Vercel / ChainReact / the browser
 
 - `OPENAI_API_KEY` — model-vendor key. Render private service only.
