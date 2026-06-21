@@ -24,15 +24,23 @@ import { isAccountFrozen } from "@/services/accounts/accountFreeze";
  * reserve-reconcile model is COST-2/COST-3 (see
  * docs/slices/phase-4/task-cost-billing-model-audit.md §5, §11).
  *
+ * Slice 4.BILLING-INTERNAL-ENTITLEMENT-1: an account explicitly marked
+ * `billing_mode = 'internal_free'` (internal / test / employee / demo) skips
+ * deduction entirely — allowed and non-billable, never refused for quota. This
+ * is ACCOUNT-scoped (read off the workflow-owning account's billing row), never
+ * a per-user bypass, and is checked AFTER the freeze guard (a frozen account is
+ * still refused) and AFTER the test-mode skip (already free, no DB read needed).
+ *
  * Returns a discriminated outcome:
  *   ok=true                  → run may proceed (task deducted).
- *   ok=true (skipped)        → run may proceed; deduction skipped (test mode).
+ *   ok=true (skipped)        → run may proceed; deduction skipped (test mode /
+ *                              internal_free account).
  *   ok=false (limit_reached) → run refused; engine surfaces BILLING_EXHAUSTED.
  */
 
 export type BillingGateOutcome =
   | { ok: true; used: number; limit: number }
-  | { ok: true; skipped: true; reason: "test_mode" }
+  | { ok: true; skipped: true; reason: "test_mode" | "internal_free" }
   | { ok: false; reason: "limit_reached"; used: number; limit: number }
   | { ok: false; reason: "account_frozen"; used: number; limit: number };
 
@@ -61,6 +69,14 @@ export async function executionBillingGate(
   // repository so no quota is consumed and no DB round-trip happens.
   if (options.testMode === true) {
     return { ok: true, skipped: true, reason: "test_mode" };
+  }
+
+  // BIE-1 — internal/test/employee accounts (billing_mode='internal_free') bypass
+  // the deduction gate: allowed + non-billable, never refused for quota. Read off
+  // the workflow-owning account's billing row (account-scoped, not user-scoped).
+  // Checked before deduction so the deduct RPC is never called for these accounts.
+  if ((await accountBillingRepo.getBillingModeServiceRole(accountId)) === "internal_free") {
+    return { ok: true, skipped: true, reason: "internal_free" };
   }
 
   // 4.ACCOUNT-MODEL-9c: bill the account that owns the workflow being run,

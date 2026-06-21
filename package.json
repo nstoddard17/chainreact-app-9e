@@ -15,6 +15,7 @@
     "verify:shadow-comparisons": "node scripts/verify-billing-shadow-comparisons.mjs",
     "review:shadow-comparisons": "node scripts/review-reserve-reconcile-shadow-data.mjs",
     "sweep:stale-runs": "node scripts/sweep-stale-workflow-runs.mjs",
+    "account:internal": "node scripts/mark-account-internal.mjs",
     "db:push": "node scripts/db-push.mjs",
     "test": "jest",
     "test:watch": "jest --watch",

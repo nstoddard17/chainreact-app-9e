@@ -18,10 +18,12 @@ jest.mock("@/repositories/accounts", () => ({
 const mockGetAttachment = jest.fn();
 const mockAttachCustomer = jest.fn();
 const mockUpdateAttachment = jest.fn();
+const mockGetBillingMode = jest.fn();
 jest.mock("@/repositories/accountBilling", () => ({
   getStripeAttachmentServiceRole: (...a: unknown[]) => mockGetAttachment(...a),
   attachStripeCustomerIfAbsentServiceRole: (...a: unknown[]) => mockAttachCustomer(...a),
   updateStripeAttachmentServiceRole: (...a: unknown[]) => mockUpdateAttachment(...a),
+  getBillingModeServiceRole: (...a: unknown[]) => mockGetBillingMode(...a),
 }));
 
 const mockGetClient = jest.fn();
@@ -65,6 +67,10 @@ beforeEach(() => {
   mockAttachCustomer.mockReset();
   mockUpdateAttachment.mockReset();
   mockGetClient.mockReset();
+  mockGetBillingMode.mockReset();
+  // Default: standard billing (the internal-free short-circuit is off unless a
+  // test opts in). Existing guard/happy-path tests rely on this default.
+  mockGetBillingMode.mockResolvedValue("standard");
   process.env = { ...origEnv };
   process.env.NEXT_PUBLIC_APP_URL = "https://app.test";
 });
@@ -88,6 +94,16 @@ describe("createCheckoutSession — guards", () => {
     mockGetAccount.mockResolvedValueOnce(account("personal", "pending_deletion"));
     const r = await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "pro" });
     expect(r).toEqual({ ok: false, reason: "account_frozen" });
+  });
+
+  it("internal_account (BIE-1): an internal-free account never creates a Stripe session", async () => {
+    mockGetAccount.mockResolvedValueOnce(account("personal"));
+    mockGetBillingMode.mockResolvedValueOnce("internal_free");
+    const r = await createCheckoutSession({ accountId: ACCOUNT, requestedPlan: "pro" });
+    expect(r).toEqual({ ok: false, reason: "internal_account" });
+    // Short-circuits before any Stripe customer/session creation.
+    expect(mockGetClient).not.toHaveBeenCalled();
+    expect(mockAttachCustomer).not.toHaveBeenCalled();
   });
 
   it("invalid_plan_for_type (team plan on a personal account)", async () => {
@@ -214,6 +230,15 @@ describe("createPortalSession", () => {
       ok: false,
       reason: "account_frozen",
     });
+  });
+
+  it("internal_account (BIE-1): an internal-free account has no portal and no Stripe call", async () => {
+    mockGetAccount.mockResolvedValueOnce(account("personal"));
+    mockGetBillingMode.mockResolvedValueOnce("internal_free");
+    const r = await createPortalSession({ accountId: ACCOUNT });
+    expect(r).toEqual({ ok: false, reason: "internal_account" });
+    expect(mockGetAttachment).not.toHaveBeenCalled();
+    expect(mockGetClient).not.toHaveBeenCalled();
   });
 
   it("no_customer when the account has no stripe_customer_id", async () => {

@@ -3,6 +3,7 @@ import { isPlanAllowedForType, upgradeTargetAccountType } from "@/core/billing/p
 import { getByIdServiceRole } from "@/repositories/accounts";
 import {
   attachStripeCustomerIfAbsentServiceRole,
+  getBillingModeServiceRole,
   getStripeAttachmentServiceRole,
 } from "@/repositories/accountBilling";
 import {
@@ -44,6 +45,8 @@ function appBaseUrl(): string {
 export type CheckoutFailureReason =
   | "account_not_found"
   | "account_frozen"
+  /** BIE-1 — account is internal_free; it has no paid billing and never checks out. */
+  | "internal_account"
   | "invalid_plan_for_type"
   /** free / enterprise — no fixed online price (enterprise = contact sales). */
   | "plan_not_purchasable"
@@ -90,6 +93,13 @@ export async function createCheckoutSession(
   if (!account) return { ok: false, reason: "account_not_found" };
   if (account.deletionStatus === "pending_deletion") {
     return { ok: false, reason: "account_frozen" };
+  }
+
+  // BIE-1 — internal_free accounts bypass paid billing entirely. Short-circuit
+  // BEFORE any Stripe call (no customer created, no checkout session) so a marked
+  // internal/test account never requires payment setup.
+  if ((await getBillingModeServiceRole(accountId)) === "internal_free") {
+    return { ok: false, reason: "internal_account" };
   }
 
   // Plan must be valid for the account's structural type (personal→pro, team→team,
@@ -173,6 +183,8 @@ export async function createCheckoutSession(
 export type PortalFailureReason =
   | "account_not_found"
   | "account_frozen"
+  /** BIE-1 — account is internal_free; it has no paid billing and no portal. */
+  | "internal_account"
   /** no stripe_customer_id yet — the account must complete a checkout first. */
   | "no_customer"
   | "stripe_not_configured";
@@ -200,6 +212,12 @@ export async function createPortalSession(
   if (!account) return { ok: false, reason: "account_not_found" };
   if (account.deletionStatus === "pending_deletion") {
     return { ok: false, reason: "account_frozen" };
+  }
+
+  // BIE-1 — internal_free accounts have no paid subscription / portal. Short-circuit
+  // before any Stripe call.
+  if ((await getBillingModeServiceRole(accountId)) === "internal_free") {
+    return { ok: false, reason: "internal_account" };
   }
 
   const attachment = await getStripeAttachmentServiceRole(accountId);

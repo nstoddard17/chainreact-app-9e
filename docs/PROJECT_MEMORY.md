@@ -35,6 +35,19 @@
 
 ## Durable decisions
 
+- [2026-06-21] **Internal billing entitlement is ACCOUNT-level, never user-level.**
+  `account_billing.billing_mode` (`standard` default | `internal_free`) explicitly marks
+  internal/test/employee/demo accounts. `internal_free` → the execution billing gate skips
+  task deduction (allowed/non-billable, never quota-refused) and checkout/portal short-circuit
+  before any Stripe call (no faked subscription/customer). Freeze still beats the bypass; test
+  mode still skips first. Set only via the service-role helpers in `repositories/accountBilling`
+  + `services/billing/internalBillingEntitlement` (audited reason names the actor) and the
+  `scripts/mark-account-internal.mjs` seed script — **no client/HTTP toggle, no UI**, no client
+  write policy. "Admin user" never globally bypasses billing; a non-internal account is always
+  billed regardless of who runs its workflows. Internal runs are still recorded in
+  `task_usage_events` (observability) but never touch `account_billing` counters, so parity
+  invariants hold. Migration `20260707000000_account_billing_internal_entitlement.sql`
+  (forward-only, applied to dev); Slice `BILLING-INTERNAL-ENTITLEMENT-1`.
 - [2026-06-11] Manual run-now execution is kept alive past the 202 via Next `after()`
   (→ Vercel `waitUntil`) so runs finalize on serverless instead of sticking in `running` —
   interim until a durable queue → commit `9abe08ab6` +

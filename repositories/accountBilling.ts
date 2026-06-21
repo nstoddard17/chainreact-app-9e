@@ -431,6 +431,127 @@ export async function getPlan(accountId: string): Promise<PlanTier | null> {
   return data?.plan ?? null;
 }
 
+// ─── Internal billing entitlement (BIE-1) — service-role ONLY ────────────────
+//
+// `billing_mode` marks an account as `internal_free` so the execution billing
+// gate skips deduction and the checkout/portal entry points skip Stripe. This is
+// ACCOUNT-scoped (keyed on account_id, like every other column here) — never a
+// user-level bypass. The columns are privileged flags: they are NOT part of the
+// client-facing getUsage projection, and there is no client/RLS write policy, so
+// the toggle is service-role only. The setter writes all four internal columns
+// together to satisfy the `account_billing_internal_consistency` CHECK.
+
+export type BillingMode = "standard" | "internal_free";
+
+/** Allowed values for `internal_reason` (mirrors the migration CHECK set). */
+export const INTERNAL_BILLING_REASONS = [
+  "employee",
+  "qa",
+  "demo",
+  "load_test",
+  "partner",
+  "other",
+] as const;
+export type InternalBillingReason = (typeof INTERNAL_BILLING_REASONS)[number];
+
+interface BillingModeRow {
+  billing_mode: BillingMode;
+}
+
+/**
+ * Service-role read of an account's billing mode — used by the execution billing
+ * gate and the checkout/portal entry points. A missing billing row resolves to
+ * `standard` (fail-safe to BILLED enforcement; the deduct RPC self-heals the row),
+ * so an absent/unknown account is never accidentally treated as internal-free.
+ */
+export async function getBillingModeServiceRole(
+  accountId: string,
+): Promise<BillingMode> {
+  const supabase = getServiceRoleClient(
+    `account_billing: read billing_mode for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_billing")
+    .select("billing_mode")
+    .eq("account_id", accountId)
+    .maybeSingle<BillingModeRow>();
+  if (error) {
+    throw new Error(`account_billing.getBillingModeServiceRole failed: ${error.message}`);
+  }
+  return data?.billing_mode ?? "standard";
+}
+
+/**
+ * Service-role: mark an account `internal_free` and stamp the audit provenance
+ * (reason + who + when) in one write. Throws when no billing row exists for the
+ * account (so the admin helper / seed script reports a bad account id rather than
+ * silently no-op'ing). The audit `reason` passed to the service-role client
+ * records the actor for the connection log.
+ */
+export async function setBillingModeInternalFreeServiceRole(
+  accountId: string,
+  reason: InternalBillingReason,
+  setByUserId: string,
+): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `account_billing: set billing_mode=internal_free (reason=${reason}) for account ${accountId} by user ${setByUserId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_billing")
+    .update({
+      billing_mode: "internal_free",
+      internal_reason: reason,
+      internal_set_by_user_id: setByUserId,
+      internal_set_at: new Date().toISOString(),
+    })
+    .eq("account_id", accountId)
+    .select("account_id");
+  if (error) {
+    throw new Error(
+      `account_billing.setBillingModeInternalFreeServiceRole failed: ${error.message}`,
+    );
+  }
+  if (!data || data.length === 0) {
+    throw new Error(
+      `account_billing.setBillingModeInternalFreeServiceRole: no billing row for account ${accountId}`,
+    );
+  }
+}
+
+/**
+ * Service-role: revert an account to `standard` billing and CLEAR all internal
+ * metadata in one write (satisfies the consistency CHECK). Throws when no billing
+ * row exists. After this the account flows through the normal deduction gate +
+ * Stripe checkout path again.
+ */
+export async function revertBillingModeToStandardServiceRole(
+  accountId: string,
+): Promise<void> {
+  const supabase = getServiceRoleClient(
+    `account_billing: revert billing_mode=standard for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_billing")
+    .update({
+      billing_mode: "standard",
+      internal_reason: null,
+      internal_set_by_user_id: null,
+      internal_set_at: null,
+    })
+    .eq("account_id", accountId)
+    .select("account_id");
+  if (error) {
+    throw new Error(
+      `account_billing.revertBillingModeToStandardServiceRole failed: ${error.message}`,
+    );
+  }
+  if (!data || data.length === 0) {
+    throw new Error(
+      `account_billing.revertBillingModeToStandardServiceRole: no billing row for account ${accountId}`,
+    );
+  }
+}
+
 // ─── Stripe attachment (CS-2) — service-role ONLY ────────────────────────────
 //
 // The Stripe customer/subscription ids attach platform billing to the account

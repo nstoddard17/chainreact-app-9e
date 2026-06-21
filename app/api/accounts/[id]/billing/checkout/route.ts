@@ -58,6 +58,14 @@ function checkoutFailure(reason: CheckoutFailureReason): NextResponse {
         { error: "This account is pending deletion.", code: "ACCOUNT_PENDING_DELETION" },
         { status: 403 },
       );
+    case "internal_account":
+      return NextResponse.json(
+        {
+          error: "This account uses internal billing and does not require checkout.",
+          code: "INTERNAL_BILLING_ACCOUNT",
+        },
+        { status: 409 },
+      );
     case "invalid_plan_for_type":
       return NextResponse.json(
         { error: "That plan is not available for this account.", code: "INVALID_PLAN_FOR_TYPE" },

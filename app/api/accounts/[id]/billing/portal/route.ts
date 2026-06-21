@@ -38,6 +38,14 @@ function portalFailure(reason: PortalFailureReason): NextResponse {
         { error: "This account is pending deletion.", code: "ACCOUNT_PENDING_DELETION" },
         { status: 403 },
       );
+    case "internal_account":
+      return NextResponse.json(
+        {
+          error: "This account uses internal billing and has no billing portal.",
+          code: "INTERNAL_BILLING_ACCOUNT",
+        },
+        { status: 409 },
+      );
     case "no_customer":
       return NextResponse.json(
         { error: "Start a subscription first.", code: "NO_BILLING_CUSTOMER" },
