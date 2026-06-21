@@ -46,12 +46,11 @@ describe("buildPreviewSetupFields", () => {
     expect(mode.options).toEqual([{ value: "a", label: "A" }, { value: "b", label: "B" }]);
   });
 
-  it("excludes sensitive, async-resolver, cascading, multi-value, dynamic-select, and unsupported types", () => {
+  it("excludes secret/connection, async-resolver, cascading, multi-value, dynamic-select, and unsupported types", () => {
     const map = buildPreviewSetupFields(
       [
         action("acme:do", [
           field({ name: "token", label: "Token", type: "text", required: true, sensitivity: "secret" }),
-          field({ name: "to", label: "To", type: "text", required: true, sensitivity: "recipient" }),
           field({ name: "conn", label: "Conn", type: "text", required: true, sensitivity: "connection" }),
           field({ name: "channel", label: "Channel", type: "select", required: true, optionsSource: "slack:channels" }),
           field({ name: "table", label: "Table", type: "select", required: true, dependsOn: "baseId", options: [{ value: "x", label: "X" }] }),
@@ -64,6 +63,23 @@ describe("buildPreviewSetupFields", () => {
       [],
     );
     expect(map["acme:do"]).toBeUndefined(); // nothing supported → type omitted entirely
+  });
+
+  it("INCLUDES a recipient-class field when it renders as a supported LOCAL control (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX)", () => {
+    const map = buildPreviewSetupFields(
+      [
+        action("acme:send", [
+          field({ name: "to", label: "To", type: "text", required: true, sensitivity: "recipient" }),
+          field({ name: "secretTo", label: "SecretTo", type: "text", required: true, sensitivity: "secret" }),
+          // recipient + async resolver stays deferred (optionsSource excluded), e.g. Slack channel.
+          field({ name: "channel", label: "Channel", type: "select", required: true, sensitivity: "recipient", optionsSource: "slack:channels" }),
+        ]),
+      ],
+      [],
+    );
+    const fields = map["acme:send"]!;
+    expect(fields.map((f) => f.name)).toEqual(["to"]); // recipient text in; secret + recipient-async out
+    expect(fields[0]!.type).toBe("text");
   });
 
   it("keys triggers too, and omits types with no supported fields", () => {

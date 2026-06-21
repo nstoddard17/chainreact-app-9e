@@ -149,9 +149,10 @@ export function WorkflowBuilder({
   // preview, keyed by previewId → fieldName → value. Preview-only: never written to configSlice / the
   // real draft / DB, never makes the workflow dirty. Cleared when a new preview supersedes, on
   // discard, and on workflow switch/unmount. Seeded into the new nodes' config ONLY on explicit Apply.
-  // NOTE (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX): the canvas no longer renders setup CONTROLS — the
-  // holographic nodes are visual-only. This map + the Apply-time seeding path stay wired so the React
-  // chat rail can populate it in a follow-up slice; today it stays empty (Apply seeds empty config).
+  // NOTE: the canvas holographic nodes are visual-only (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX). The
+  // guided setup CONTROLS live in the React rail's setup card (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX,
+  // BuilderPreviewSetupCard via BuilderGuidanceRail). This map is populated by that card and seeded into
+  // the new draft nodes on explicit Apply — never sent to Hermes/a model/a prompt.
   const [previewConfig, setPreviewConfig] = useState<Record<string, Record<string, unknown>>>({});
 
   // Hydrate from the server prop on initial mount AND whenever the prop's
@@ -368,6 +369,20 @@ export function WorkflowBuilder({
     [],
   );
 
+  // HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — record one guided-setup value for the current preview,
+  // entered in the RAIL setup card. Pure local state: never touches configSlice / the real draft / DB,
+  // never makes the workflow dirty, never sent to Hermes/a model. Seeded into the new nodes ONLY on
+  // explicit Apply.
+  const handlePreviewConfigChange = useCallback(
+    (previewId: string, fieldName: string, value: unknown) => {
+      setPreviewConfig((prev) => ({
+        ...prev,
+        [previewId]: { ...(prev[previewId] ?? {}), [fieldName]: value },
+      }));
+    },
+    [],
+  );
+
   // HERMES-AGENT-APPLY-PREVIEW-PATCH — explicit, user-clicked apply. Builds a deterministic ADDITIVE
   // patch from the VALIDATED plan (not the display preview) and applies it to the LOCAL draft via the
   // graph slice — the same dirty-making path as manual edits. No save/activate/run; no separate
@@ -493,6 +508,13 @@ export function WorkflowBuilder({
             {...(accountId ? { accountId } : {})}
             {...(guidanceEnabled !== undefined ? { guidanceEnabled } : {})}
             onShowPreview={handleShowPreview}
+            // HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — guided setup card lives in the rail, tied to
+            // the latest shown preview. PreviewConfig stays owned here (ephemeral, never dirty/saved).
+            previewForSetup={previewOverlay?.preview ?? null}
+            {...(setupFieldsByType ? { setupFieldsByType } : {})}
+            previewConfig={previewConfig}
+            onPreviewConfigChange={handlePreviewConfigChange}
+            onApplyPreview={handleApplyPreview}
           />
         </BuilderLeftAgentRail>
       }

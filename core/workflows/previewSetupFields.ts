@@ -2,19 +2,27 @@ import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 /**
- * Guided-preview setup fields (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1).
+ * Guided-preview setup fields (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 / -RAIL-UX).
  *
  * A deterministic, metadata-derived subset of a node type's fields that ChainReact can collect with a
  * SIMPLE LOCAL control while the proposed node is still a holographic preview (before Apply). The
- * source of truth is the action/trigger metadata (`FieldMeta`) — NEVER Hermes prose. This collection
- * is intentionally conservative for slice 1:
+ * source of truth is the action/trigger metadata (`FieldMeta`) — NEVER Hermes prose. Collected values
+ * live ONLY in ephemeral preview state and are seeded into the new draft node on explicit Apply; they
+ * are NEVER sent to Hermes / a model / a prompt / audit text. This collection is intentionally
+ * conservative:
  *
  *   - Supported control types only: `text`, `textarea`, `number`, `boolean`, and `select` ONLY when it
  *     has STATIC `options` (no async resolver). Everything else (combobox, keyvalue, file, cron,
  *     router-routes, string-array, file-array, dynamic select) is deferred.
- *   - EXCLUDED entirely: any field with a `sensitivity` (secret / connection / recipient), an
- *     `optionsSource` (async provider resolver — deferred to slice 2 so this slice adds no network),
- *     a `dependsOn` cascade, or `multiple`. These are never rendered or seeded pre-apply.
+ *   - `recipient`-class fields ARE allowed when they render as one of the supported LOCAL control types
+ *     (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX). A recipient is "where a message/event is sent" — a
+ *     deterministic value the user types/picks locally; it is seeded into draft config on Apply and is
+ *     NEVER sent to Hermes. (The apply-safety contract still guards AI auto-writes to recipients
+ *     separately; this is explicit user input, not an AI write.)
+ *   - EXCLUDED entirely: `secret` / `connection` sensitivity (credential/token/account-identity
+ *     material), an `optionsSource` (async provider resolver — the rail shows a "choose after Apply"
+ *     deferred state instead), a `dependsOn` cascade, or `multiple`. These are never rendered or
+ *     seeded pre-apply.
  *
  * `core/` may be imported by both the client (builder) and the server (page metadata build), and
  * imports only `contracts/`. Pure: no state, no fetch, no model call.
@@ -43,9 +51,11 @@ export type PreviewSetupFieldsByType = Readonly<Record<string, readonly PreviewS
 
 /** Map one `FieldMeta` to a supported `PreviewSetupField`, or `null` when not safely supported here. */
 function toPreviewSetupField(f: FieldMeta): PreviewSetupField | null {
-  // Never collect sensitive material (secret / connection / recipient) before Apply.
-  if (f.sensitivity !== undefined) return null;
-  // Async resolver dropdowns are deferred (slice 2) — no new network behavior in this slice.
+  // Never collect credential/token/account-identity material before Apply. `recipient` IS allowed
+  // (it's a deterministic, locally-entered "where to send" value, seeded on Apply, never sent to
+  // Hermes) — only `secret` / `connection` stay excluded.
+  if (f.sensitivity === "secret" || f.sensitivity === "connection") return null;
+  // Async resolver dropdowns are deferred — the rail shows a "choose after Apply" state, no network.
   if (f.optionsSource !== undefined) return null;
   // Cascading + multi-value fields are deferred.
   if (f.dependsOn !== undefined) return null;

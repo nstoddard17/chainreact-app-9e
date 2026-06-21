@@ -1,8 +1,49 @@
 # Guided setup on the holographic preview — audit + design (HERMES-AGENT-RAIL-PRODUCT-LABEL-AND-GUIDED-PREVIEW-DESIGN)
 
-> **Design + Phase 1 + Phase 2 status.** The audit/design below is unchanged. **Phase 1
+> **Design + Phase 1–3 status.** The audit/design below is unchanged. **Phase 1
 > (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1) is IMPLEMENTED**; **Phase 2
-> (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX) REDIRECTED the canvas surface** — see the status boxes.
+> (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX) REDIRECTED the canvas surface to visual-only**; **Phase 3
+> (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX) RE-HOMED the setup controls into the React rail** — see
+> the status boxes.
+
+## Phase 3 status — IMPLEMENTED (GUIDED SETUP IN THE RAIL)
+
+The guided setup controls now live in the **React chat rail**, tied to the latest shown preview, while
+the canvas stays visual-only. This realizes the mental model's three-surface split end to end:
+holographic canvas node = proposed shape · rail = setup controls/questions · config drawer = accepted
+nodes after Apply.
+
+Shipped (local, not pushed):
+- New `features/workflow-builder/panels/BuilderPreviewSetupCard.tsx` — a presentational "Finish these
+  details before applying:" card. Renders the supported local controls (text / textarea / number /
+  boolean / static-select) for each preview node's missing fields, a compact **"Choose after Apply"**
+  line for deferred fields (async `optionsSource`, unresolved `dependsOn`), and an **"Apply to draft"**
+  button wired to the existing explicit Apply. No store, no fetch, no model call.
+- `BuilderGuidanceRail` renders the card pinned below the chat panel when a preview is shown
+  (`previewForSetup` = `previewOverlay?.preview`, owned by `WorkflowBuilder`). The rail still delegates
+  ALL request logic to `WorkflowGuidancePanel` (no new network path) — locked by
+  `workflowGuidanceUiSafety` + `builder-ai-rail-no-old-endpoint`.
+- `WorkflowBuilder` re-introduced `handlePreviewConfigChange` and threads `previewConfig` +
+  `setupFieldsByType` + `handleApplyPreview` to the rail. `previewConfig` stays ephemeral
+  (previewId → field → value): never `configSlice` / draft / DB, never dirty; cleared on new preview,
+  Discard, and workflow switch/unmount; seeded into the new draft nodes ONLY on explicit Apply (via
+  `planToBuilderPatch` + `sanitizeSeedConfig`). Auto-open-first-incomplete after Apply unchanged.
+- The holographic **canvas** nodes are unchanged from Phase 2 — visual-only cards, short "Needs setup ·
+  N" badge, no inputs/selects/textareas.
+
+**Recipient-field handling (new this slice):** `previewSetupFields.toPreviewSetupField` now ALLOWS
+`recipient`-class fields when they render as a supported LOCAL control (e.g. a typed "to"). Rationale:
+a recipient is a deterministic, user-entered "where to send" value — it is seeded into draft config on
+Apply and is **NEVER sent to Hermes / a model / a prompt / audit text** (`previewConfig` is never part
+of any guidance request; the change handler only updates local state). `secret` / `connection` fields
+stay excluded entirely; a recipient field that is ALSO async (`combobox` + `optionsSource`, e.g. Slack
+`channel`) stays deferred ("Choose after Apply").
+
+**Deferred (unchanged):** async `optionsSource` dropdowns (real provider resolvers via
+`/api/options/[source]`) are NOT added in this slice — they show the deferred state. They are the next
+candidate: render the resolver-backed picker in the rail card for safe single-select sources.
+
+---
 
 ## Phase 2 status — IMPLEMENTED (HOLOGRAPHIC PREVIEW NODE UX)
 

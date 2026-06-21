@@ -2,7 +2,9 @@
 
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
+import { BuilderPreviewSetupCard } from "./BuilderPreviewSetupCard";
 
 /**
  * Builder left-rail AI assistant — Hermes Agent workflow guidance
@@ -46,6 +48,20 @@ export interface BuilderGuidanceRailProps {
    * additive local-draft edit.
    */
   readonly onShowPreview?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
+  /**
+   * HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — the LATEST preview shown on the canvas. When present,
+   * the rail renders a compact "Finish these details" setup card below the chat, tied to this preview.
+   * Owned by `WorkflowBuilder` (the same state that drives the holographic overlay). Absent → no card.
+   */
+  readonly previewForSetup?: DraftPreview | null;
+  /** Supported, metadata-derived setup fields per `provider:type` (drives the card's controls). */
+  readonly setupFieldsByType?: PreviewSetupFieldsByType;
+  /** Ephemeral guided-setup values (previewId → field → value). Owned by `WorkflowBuilder`. */
+  readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  /** Record one ephemeral setup value. Preview-only — never mutates the real draft before Apply. */
+  readonly onPreviewConfigChange?: (previewId: string, fieldName: string, value: unknown) => void;
+  /** The existing explicit "Apply preview" action — seeds previewConfig into the new draft nodes. */
+  readonly onApplyPreview?: () => void;
 }
 
 export function BuilderGuidanceRail({
@@ -53,6 +69,11 @@ export function BuilderGuidanceRail({
   workflowId,
   guidanceEnabled,
   onShowPreview,
+  previewForSetup,
+  setupFieldsByType,
+  previewConfig,
+  onPreviewConfigChange,
+  onApplyPreview,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -71,16 +92,29 @@ export function BuilderGuidanceRail({
       style={{ color: "var(--builder-text)" }}
     >
       {available ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {/* Reuse the verified guidance panel verbatim — same helper / route / preview controls.
-              The builder workflowId + the canvas-preview hook are the only builder-specific wiring. */}
-          <WorkflowGuidancePanel
-            accountId={accountId!}
-            workflowId={workflowId}
-            conversational
-            {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
-          />
-        </div>
+        <>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {/* Reuse the verified guidance panel verbatim — same helper / route / preview controls.
+                The builder workflowId + the canvas-preview hook are the only builder-specific wiring. */}
+            <WorkflowGuidancePanel
+              accountId={accountId!}
+              workflowId={workflowId}
+              conversational
+              {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
+            />
+          </div>
+          {/* HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — guided setup lives HERE (the rail), not inside
+              the holographic canvas nodes. Pinned below the chat, tied to the latest shown preview. */}
+          {previewForSetup && onPreviewConfigChange && onApplyPreview && (
+            <BuilderPreviewSetupCard
+              preview={previewForSetup}
+              {...(setupFieldsByType ? { setupFieldsByType } : {})}
+              {...(previewConfig ? { previewConfig } : {})}
+              onPreviewConfigChange={onPreviewConfigChange}
+              onApply={onApplyPreview}
+            />
+          )}
+        </>
       ) : (
         <div
           data-testid="builder-guidance-rail-unavailable"

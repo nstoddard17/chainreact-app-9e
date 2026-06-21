@@ -24,6 +24,10 @@ const PREVIEW_OVERLAY = resolve(
   process.cwd(),
   "features/workflow-builder/canvas/BuilderPreviewOverlay.tsx",
 );
+const PREVIEW_SETUP_CARD = resolve(
+  process.cwd(),
+  "features/workflow-builder/panels/BuilderPreviewSetupCard.tsx",
+);
 
 /**
  * Read source with comments stripped, so the scan asserts on actual CODE — not the explanatory
@@ -96,6 +100,26 @@ describe("guidance UI — calls only the ChainReact route, no forbidden surface"
     const src = readFileSync(PREVIEW_OVERLAY, "utf8");
     for (const pat of [
       /\bfetch\s*\(/, // no network from the overlay
+      /useGraphSlice|graphSlice|configSlice|runSlice|\.getState\(\)/, // no builder-store access/mutation
+      /draftDefinition|saveDraft|updateWorkflow|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/, // no persistence/mutation
+      /onrender\.com|\/api\/hermes-agent\/guidance|hermesAgentGatewayClient/,
+      /nousresearch|api\.openai\.com/i,
+      /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
+    ]) {
+      expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
+    }
+  });
+
+  it("the rail guided-setup card is presentational — no fetch, no store/mutation API, no Hermes/vendor (recipient values never leave the client until Apply)", () => {
+    // HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — the setup card collects setup values (incl.
+    // recipient-class) into ephemeral preview state via callbacks. It must NEVER call a model/route or
+    // touch a store: filling it (or a recipient field) is never sent to Hermes / a prompt / audit text.
+    // Scan CODE (comments stripped) — the card's doc comment legitimately names configSlice/DB/Hermes
+    // to document that it avoids them.
+    const src = readCode(PREVIEW_SETUP_CARD);
+    for (const pat of [
+      /\bfetch\s*\(/, // no network from the card
+      /requestWorkflowGuidance|requestAccountWorkflowRepair/, // never calls a guidance/model route
       /useGraphSlice|graphSlice|configSlice|runSlice|\.getState\(\)/, // no builder-store access/mutation
       /draftDefinition|saveDraft|updateWorkflow|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/, // no persistence/mutation
       /onrender\.com|\/api\/hermes-agent\/guidance|hermesAgentGatewayClient/,

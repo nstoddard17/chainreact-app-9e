@@ -16,6 +16,7 @@ jest.mock("@/lib/api/ai/guidance", () => ({
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BuilderGuidanceRail } from "@/features/workflow-builder/panels/BuilderGuidanceRail";
+import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 
 beforeEach(() => {
   mockRequest.mockReset();
@@ -137,6 +138,61 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     const err = await screen.findByTestId("workflow-guidance-error");
     expect(err.textContent ?? "").not.toMatch(/503|gateway/i);
+  });
+});
+
+describe("BuilderGuidanceRail — guided setup card (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX)", () => {
+  const previewForSetup: DraftPreview = {
+    version: 1,
+    title: "Lead follow-up",
+    summary: "Watch then notify.",
+    notice: "Preview only — your workflow has not changed.",
+    notApplied: true,
+    nodes: [
+      { previewId: "preview-step-1", role: "trigger", provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true },
+      { previewId: "preview-step-2", role: "action", provider: "slack", type: "send_message", label: "slack:send_message", purpose: "notify", missingInputs: ["text", "channel"], notApplied: true },
+    ],
+    edges: [{ previewId: "preview-edge-1", fromPreviewId: "preview-step-1", toPreviewId: "preview-step-2", notApplied: true }],
+  };
+  const setupFieldsByType = {
+    "slack:send_message": [{ name: "text", label: "Message", type: "textarea" as const, required: true }],
+  };
+
+  it("renders the setup card in the rail when a preview is shown (with the supported control)", () => {
+    render(
+      <BuilderGuidanceRail
+        accountId="acct-1"
+        workflowId="wf-9"
+        guidanceEnabled
+        previewForSetup={previewForSetup}
+        setupFieldsByType={setupFieldsByType}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+        onApplyPreview={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("builder-preview-setup-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("preview-setup-preview-step-2-text")).toBeInTheDocument();
+    // The async `channel` field defers to a compact "choose after Apply" line (no fake dropdown).
+    expect(screen.queryByTestId("preview-setup-preview-step-2-channel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("preview-setup-after-apply")).toHaveTextContent("channel");
+    expect(screen.getByTestId("builder-preview-setup-apply")).toBeInTheDocument();
+  });
+
+  it("does NOT render the setup card when no preview is shown", () => {
+    render(
+      <BuilderGuidanceRail
+        accountId="acct-1"
+        workflowId="wf-9"
+        guidanceEnabled
+        previewForSetup={null}
+        setupFieldsByType={setupFieldsByType}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+        onApplyPreview={() => {}}
+      />,
+    );
+    expect(screen.queryByTestId("builder-preview-setup-rail")).not.toBeInTheDocument();
   });
 });
 
