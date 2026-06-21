@@ -11,7 +11,9 @@
 import {
   normalizeGatewayResponse,
   gatewaySuccessEnvelopeSchema,
+  PLAN_NOT_VALIDATED_WARNING,
 } from "@/services/ai-guidance/gateway/gatewayResponseContract";
+import { listAllActionMetas, listAllTriggerMetas } from "@/services/discovery/_registry";
 
 /** The known live success envelope. */
 function envelope(content: string, extra: Record<string, unknown> = {}): unknown {
@@ -20,6 +22,14 @@ function envelope(content: string, extra: Record<string, unknown> = {}): unknown
     response: { choices: [{ message: { content } }], usage: { prompt_tokens: 13253, completion_tokens: 49, total_tokens: 13302 } },
     ...extra,
   };
+}
+
+/** Real, registry-known capability keys so a plan passes validateWorkflowPlan. */
+const realAction = listAllActionMetas()[0]!;
+const realTrigger = listAllTriggerMetas()[0]!;
+
+function fencedPlan(plan: unknown): string {
+  return "Here is how to approach it.\n\n```json\n" + JSON.stringify(plan) + "\n```\n\nLet me know if that helps.";
 }
 
 describe("normalizeGatewayResponse — success", () => {
@@ -102,6 +112,81 @@ describe("normalizeGatewayResponse — fail closed", () => {
   it("a plan-like object with unknown capabilities fails CLOSED (never accepts arbitrary JSON as a plan)", () => {
     const raw = envelope("here", { plan: { steps: [{ ref: "s0", role: "action", provider: "totally-fake", type: "nope" }] } });
     expect(normalizeGatewayResponse(raw)).toMatchObject({ ok: false, code: "INVALID_RESPONSE" });
+  });
+});
+
+describe("normalizeGatewayResponse — embedded plan extraction (HERMES-AGENT-PLAN-EXTRACTION)", () => {
+  it("prose-only guidance leaves workflowPlan null", () => {
+    const n = normalizeGatewayResponse(envelope("Connect Gmail, then add a Slack step. No JSON here."));
+    expect(n.ok).toBe(true);
+    if (n.ok) {
+      expect(n.workflowPlan).toBeNull();
+      expect(n.guidanceText).toContain("Connect Gmail");
+    }
+  });
+
+  it("a valid fenced WorkflowPlan is extracted, capability-validated, and returned (notApplied true)", () => {
+    const plan = {
+      title: "Lead follow-up",
+      summary: "Watch then notify.",
+      steps: [
+        { ref: "s0", role: "trigger", provider: realTrigger.provider, type: realTrigger.type, purpose: "start" },
+        { ref: "s1", role: "action", provider: realAction.provider, type: realAction.type, purpose: "do" },
+      ],
+    };
+    const n = normalizeGatewayResponse(envelope(fencedPlan(plan)));
+    expect(n.ok).toBe(true);
+    if (n.ok) {
+      expect(n.workflowPlan).not.toBeNull();
+      expect(n.workflowPlan!.notApplied).toBe(true);
+      expect(n.workflowPlan!.steps).toHaveLength(2);
+      // The raw JSON block is stripped from the display text; prose is preserved.
+      expect(n.guidanceText).toContain("Here is how to approach it.");
+      expect(n.guidanceText).not.toContain("```");
+      expect(n.warnings ?? []).not.toContain(PLAN_NOT_VALIDATED_WARNING);
+    }
+  });
+
+  it("an embedded plan with hallucinated capabilities → workflowPlan null + safe warning, guidance kept", () => {
+    const plan = { title: "x", steps: [{ ref: "s0", role: "action", provider: "totallymadeup", type: "do_magic", purpose: "x" }] };
+    const n = normalizeGatewayResponse(envelope(fencedPlan(plan)));
+    expect(n.ok).toBe(true);
+    if (n.ok) {
+      expect(n.workflowPlan).toBeNull();
+      expect(n.warnings).toContain(PLAN_NOT_VALIDATED_WARNING);
+      expect(n.guidanceText).toContain("Here is how to approach it.");
+    }
+  });
+
+  it("malformed JSON in a fence is ignored (plan null, guidance intact, no throw)", () => {
+    const n = normalizeGatewayResponse(envelope("Try this.\n\n```json\n{ broken,,, }\n```\n\nDone."));
+    expect(n.ok).toBe(true);
+    if (n.ok) {
+      expect(n.workflowPlan).toBeNull();
+      expect(n.guidanceText).toContain("Try this.");
+    }
+  });
+
+  it("multiple JSON blocks: a non-plan block is skipped and a valid plan is still found", () => {
+    const example = "```json\n" + JSON.stringify({ example: true }) + "\n```";
+    const plan = { steps: [{ role: "trigger", provider: realTrigger.provider, type: realTrigger.type, purpose: "start" }] };
+    const content = "Context.\n\n" + example + "\n\n```json\n" + JSON.stringify(plan) + "\n```";
+    const n = normalizeGatewayResponse(envelope(content));
+    expect(n.ok).toBe(true);
+    if (n.ok) expect(n.workflowPlan).not.toBeNull();
+  });
+
+  it("the surfaced plan is advisory only — notApplied true and no apply/exec field leaks", () => {
+    const plan = { steps: [{ role: "action", provider: realAction.provider, type: realAction.type, purpose: "do" }] };
+    const n = normalizeGatewayResponse(envelope(fencedPlan(plan)));
+    expect(n.ok).toBe(true);
+    if (n.ok && n.workflowPlan) {
+      expect(n.workflowPlan.notApplied).toBe(true);
+      const s = JSON.stringify(n.workflowPlan);
+      for (const needle of ["applied", "executed", "saved", "created", "draftDefinition"]) {
+        expect(s).not.toContain(needle);
+      }
+    }
   });
 });
 

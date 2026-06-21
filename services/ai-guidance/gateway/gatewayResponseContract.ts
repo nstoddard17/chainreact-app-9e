@@ -8,10 +8,14 @@
  *   - a malformed envelope / missing choices / missing or empty content → typed INVALID_RESPONSE;
  *   - `usage` is OPTIONAL and only a sanitized token summary (NOT trusted for billing);
  *   - unknown extra fields are allowed but ignored (never copied into the normalized output);
- *   - a plan-like object is NEVER accepted as a WorkflowPlan unless it passes the real ChainReact
- *     capability validator — and this slice keeps `workflowPlan: null` for the normal text reply.
+ *   - a plan is NEVER accepted as a WorkflowPlan unless it passes the real ChainReact capability
+ *     validator. A structured plan may be surfaced two ways: (a) an envelope-sibling plan object
+ *     (strict — an invalid one fails the whole response closed), or (b) a fenced ```json block
+ *     embedded in the guidance text (best-effort — an invalid embedded plan is dropped with a safe
+ *     warning, the prose guidance is still returned). HERMES-AGENT-PLAN-EXTRACTION added (b).
  *
- * Nothing here mutates a workflow, reads secrets, or calls a model/Nous/OpenAI directly.
+ * The plan is ADVISORY ONLY (`notApplied: true`); surfacing it never creates, mutates, applies,
+ * runs, or persists a workflow. Nothing here reads secrets or calls a model/Nous/OpenAI directly.
  */
 
 import { z } from "zod";
@@ -19,6 +23,17 @@ import type { GuidanceUnavailableCode } from "@/contracts/aiGuidance";
 import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession";
 import { WORKFLOW_PLAN_SCHEMA_VERSION } from "@/contracts/guidanceSession";
 import { validateWorkflowPlan } from "../validateWorkflowPlan";
+import { extractPlanFromText, stripSourceBlock } from "./extractPlanFromText";
+
+/**
+ * Safe warning surfaced when a structured plan was found embedded in the guidance text but failed
+ * ChainReact capability validation. The guidance text is still returned; the plan is dropped.
+ */
+export const PLAN_NOT_VALIDATED_WARNING = "Suggested plan could not be validated.";
+
+/** Neutral lead-in used only when the model returned a bare plan with no prose to display. */
+const PLAN_ONLY_FALLBACK_TEXT =
+  "Here's a suggested plan based on what you described. Review it below — nothing in your workflow has been changed.";
 
 /** Sanitized token summary — numeric counts only. NOT authoritative for billing. */
 export interface SanitizedUsage {
@@ -33,7 +48,7 @@ export type NormalizedGatewayGuidance =
       readonly ok: true;
       readonly guidanceText: string;
       readonly source: "hermes-agent";
-      /** null for now — a plan is only surfaced if a structured plan object passes validateWorkflowPlan. */
+      /** A capability-validated advisory plan, or null. Only set when validateWorkflowPlan passed. */
       readonly workflowPlan: WorkflowPlan | null;
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
@@ -144,12 +159,33 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
   const warnings: string[] = [];
   if (choices.length > 1) warnings.push("multiple_choices_truncated");
 
+  let guidanceText = content.trim();
+  // The envelope-sibling plan object (validated above) takes precedence; otherwise look for a plan
+  // embedded as a fenced ```json block in the guidance text. This is BEST-EFFORT and degrades
+  // gracefully (unlike the strict sibling-object path): an invalid embedded plan does NOT fail the
+  // whole response — we keep the guidance text, drop the plan, and add a safe warning.
+  let workflowPlan: WorkflowPlan | null = planCandidate ?? null;
+  if (!workflowPlan) {
+    const extracted = extractPlanFromText(guidanceText);
+    if (extracted) {
+      // Strip the raw JSON block either way — it's redundant with the separate plan surface, and ugly
+      // to show when the plan was rejected. Fall back to a neutral lead-in if nothing else remains.
+      const stripped = stripSourceBlock(guidanceText, extracted.sourceBlock);
+      guidanceText = stripped ?? PLAN_ONLY_FALLBACK_TEXT;
+      if (validateWorkflowPlan(extracted.plan).ok) {
+        workflowPlan = extracted.plan; // capability-checked → safe to surface (advisory only)
+      } else {
+        warnings.push(PLAN_NOT_VALIDATED_WARNING); // hallucinated capabilities → drop the plan
+      }
+    }
+  }
+
   const rawUsage = sanitizeUsage(parsed.data.response.usage);
   return {
     ok: true,
-    guidanceText: content.trim(),
+    guidanceText,
     source: "hermes-agent",
-    workflowPlan: planCandidate ?? null,
+    workflowPlan,
     ...(rawUsage ? { rawUsage } : {}),
     ...(warnings.length ? { warnings } : {}),
   };

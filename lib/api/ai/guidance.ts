@@ -6,15 +6,24 @@
  * ChainReact server route `POST /api/accounts/[id]/ai/workflow-guidance`, which owns auth, account
  * membership, the AI-credit gate, config gating, audit, and the safe (token-free) response.
  *
- * Advisory only: the response carries `guidanceText` (+ a safe `source` / `warnings`); `workflowPlan`
- * is treated as OPAQUE here (not rendered this slice — plan extraction is a later slice). No secret,
- * provider envelope, or token ever crosses this boundary.
+ * Advisory only: the response carries `guidanceText` (+ a safe `source` / `warnings`) and an OPTIONAL
+ * `workflowPlan` (HERMES-AGENT-PLAN-EXTRACTION). The plan is capability-validated server-side and is
+ * `notApplied: true` — rendered REVIEW-ONLY (no create/apply/run). No secret, provider envelope, or
+ * token ever crosses this boundary.
  */
 
+import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import { postStructured } from "./shared";
 
 export type WorkflowGuidanceResponse =
-  | { ok: true; guidanceText: string; source: string; workflowPlan: unknown; warnings?: readonly string[] }
+  | {
+      ok: true;
+      guidanceText: string;
+      source: string;
+      /** Capability-validated advisory plan, or null. Review-only — never applied by this response. */
+      workflowPlan: WorkflowPlan | null;
+      warnings?: readonly string[];
+    }
   | { ok: false; code: string; message: string };
 
 export interface RequestWorkflowGuidanceInput {

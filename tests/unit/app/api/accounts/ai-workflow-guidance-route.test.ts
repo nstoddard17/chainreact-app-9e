@@ -216,6 +216,22 @@ describe("workflow-guidance route — capability call + safe response", () => {
     }
   });
 
+  it("success WITH a validated workflowPlan → 200 returns the plan + warnings (advisory, no mutation)", async () => {
+    const plan = {
+      schemaVersion: 1,
+      title: "Lead follow-up",
+      summary: "Watch then notify.",
+      notApplied: true,
+      steps: [{ ref: "s0", role: "action", provider: "slack", type: "send_message", purpose: "notify" }],
+    };
+    mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Here's a plan.", source: "hermes-agent", workflowPlan: plan, warnings: ["Suggested plan could not be validated."] });
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ ok: true, guidanceText: "Here's a plan.", source: "hermes-agent", workflowPlan: plan, warnings: ["Suggested plan could not be validated."] });
+    expect(body.workflowPlan.notApplied).toBe(true);
+  });
+
   it("runner provider failure → 503 GUIDANCE_UNAVAILABLE; never leaks raw error", async () => {
     mockRunner.mockResolvedValueOnce({ ok: false, code: "PROVIDER_ERROR", message: "downstream SECRET detail" });
     const res = await call(ACCOUNT, goodBody);

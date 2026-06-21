@@ -86,6 +86,49 @@ describe("WorkflowGuidancePanel — request + render", () => {
     expect(err).not.toHaveTextContent("SECRET-INTERNAL");
   });
 
+  it("renders a REVIEW-ONLY 'Suggested plan' section when a workflowPlan is returned", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Here's the idea.",
+      source: "hermes-agent",
+      workflowPlan: {
+        schemaVersion: 1,
+        title: "Lead follow-up",
+        summary: "Watch then notify.",
+        notApplied: true,
+        steps: [
+          { ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch inbox" },
+          { ref: "s1", role: "action", provider: "slack", type: "send_message", purpose: "notify me" },
+        ],
+      },
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+
+    const planEl = await screen.findByTestId("workflow-guidance-plan");
+    expect(screen.getByRole("heading", { name: "Suggested plan" })).toBeInTheDocument();
+    // Copy must make clear nothing changed.
+    expect(screen.getByTestId("workflow-guidance-plan-disclaimer")).toHaveTextContent(
+      "Review only — this has not changed your workflow.",
+    );
+    expect(planEl).toHaveTextContent("gmail:new_email");
+    expect(planEl).toHaveTextContent("slack:send_message");
+    // No actionable apply/create/add/run controls in this slice.
+    expect(screen.queryByRole("button", { name: /create|apply|add node|run/i })).not.toBeInTheDocument();
+  });
+
+  it("does NOT render a 'Suggested plan' section when workflowPlan is null (prose-only)", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "Just connect Gmail.", source: "hermes-agent", workflowPlan: null });
+    render(<WorkflowGuidancePanel accountId="acct-1" />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "help");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await waitFor(() => expect(screen.getByTestId("workflow-guidance-result")).toBeInTheDocument());
+    expect(screen.queryByTestId("workflow-guidance-plan")).not.toBeInTheDocument();
+  });
+
   it("shows a loading state while the request is in flight (submit disabled, 'Thinking…')", async () => {
     const user = userEvent.setup();
     let resolve!: (v: unknown) => void;

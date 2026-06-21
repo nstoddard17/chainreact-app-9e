@@ -70,8 +70,26 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     shapeLine,
     findingsLine,
     catalogLine,
+    RESPONSE_FORMAT_INSTRUCTIONS,
     "This is advice only. ChainReact validates any proposed plan and is the only thing that can build, change, or run a workflow.",
   ]
     .filter((l) => l.length > 0)
     .join("\n\n");
 }
+
+/**
+ * Response-format guidance for the Hermes Agent (HERMES-AGENT-PLAN-EXTRACTION). Asks for normal-
+ * language help PLUS an OPTIONAL structured plan in a single fenced ```json block, only when there is
+ * enough detail. The plan shape mirrors ChainReact's WorkflowPlan; provider/type MUST come from the
+ * capability catalog above (ChainReact rejects anything it cannot find). The agent must NOT claim it
+ * created/changed/saved anything — ChainReact never applies a plan automatically.
+ */
+const RESPONSE_FORMAT_INSTRUCTIONS = [
+  "How to respond:",
+  "- Answer in clear, normal language first. If you need more detail, ask short clarifying questions.",
+  "- Only when you have enough detail, you MAY append ONE optional structured plan as a single fenced ```json code block, in this shape:",
+  '  {"title": "...", "summary": "...", "steps": [{"ref": "s0", "role": "trigger|action|logic", "provider": "<from the catalog>", "type": "<from the catalog>", "purpose": "...", "requiredInputs": ["fieldKey"]}], "clarifyingQuestions": ["..."]}',
+  "- Every step's provider:type MUST be one of the listed ChainReact capabilities. Do not invent providers, actions, or triggers.",
+  "- If you do not have enough detail for a plan, OMIT the json block entirely — do not guess.",
+  "- The plan is a suggestion for the user to review. Do NOT say you created, added, applied, saved, ran, or changed anything — nothing is changed in their workflow.",
+].join("\n");

@@ -39,7 +39,8 @@ Vercel ChainReact app
 | Server-only gateway config reader (flag + url + token + timeout; null when off/unconfigured) | [`services/ai-guidance/gateway/gatewayConfig.ts`](../../../services/ai-guidance/gateway/gatewayConfig.ts) |
 | Safe prompt builder (from de-identified DTO + scrubbed goal text) | [`services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts`](../../../services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts) |
 | Server-only gateway client + `WorkflowGuidanceProvider` impl (advisory; fail-closed) | [`services/ai-guidance/gateway/hermesAgentGatewayClient.ts`](../../../services/ai-guidance/gateway/hermesAgentGatewayClient.ts) |
-| **Strict response contract** (Zod envelope schema + `normalizeGatewayResponse` → `NormalizedGatewayGuidance`: `guidanceText`/`source`/`workflowPlan:null`/`rawUsage?`/`warnings?`) — HERMES-AGENT-RESPONSE-CONTRACT | [`services/ai-guidance/gateway/gatewayResponseContract.ts`](../../../services/ai-guidance/gateway/gatewayResponseContract.ts) |
+| **Strict response contract** (Zod envelope schema + `normalizeGatewayResponse` → `NormalizedGatewayGuidance`: `guidanceText`/`source`/`workflowPlan`/`rawUsage?`/`warnings?`) — HERMES-AGENT-RESPONSE-CONTRACT | [`services/ai-guidance/gateway/gatewayResponseContract.ts`](../../../services/ai-guidance/gateway/gatewayResponseContract.ts) |
+| **Plan extractor** (deterministic, model-free) — pulls a shape-valid `WorkflowPlan` from a fenced ` ```json ` block in the guidance text; the normalizer then gates it through `validateWorkflowPlan` (advisory validated plan only; `notApplied: true`; invalid → null + safe warning) — HERMES-AGENT-PLAN-EXTRACTION | [`services/ai-guidance/gateway/extractPlanFromText.ts`](../../../services/ai-guidance/gateway/extractPlanFromText.ts) + prompt [`buildGatewayGuidancePrompt.ts`](../../../services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts) + UI [`WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) |
 | Gateway barrel + `resolveServerGuidanceProvider()` (gateway-when-enabled, else noop) | [`services/ai-guidance/gateway/index.ts`](../../../services/ai-guidance/gateway/index.ts) |
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 | **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
@@ -59,13 +60,14 @@ its sanitized saved draft as optional context to the capability.
     → route: auth + membership + freeze + optional-workflow-ownership + availability + aiCreditGate
       → runWorkflowGuidanceIntakeCapability → runAuthorizedCapability (audited)
         → requestHermesAgentGuidanceNormalized → Render gateway → private Hermes Agent → OpenAI
-      ← NormalizedGatewayGuidance (guidanceText, advisory)
+      ← NormalizedGatewayGuidance (guidanceText + optional capability-validated workflowPlan, advisory)
   ← { ok, guidanceText, source, workflowPlan, warnings? }  (safe; no envelope/usage/token)
-panel renders guidanceText under "Guidance"
+panel renders guidanceText under "Guidance" + a review-only "Suggested plan" when workflowPlan present
 ```
 
 The browser never holds a token or calls the gateway/vendor directly; the route is the only boundary
-it touches. Nothing on this path creates, changes, or runs a workflow.
+it touches. Nothing on this path creates, changes, runs, or persists a workflow — a surfaced plan is
+`notApplied: true` and review-only (no apply/create/run control exists yet).
 
 **Gated + inert:** the client only calls out when `HERMES_AGENT_ENABLED=true` AND the gateway env is
 present AND a server caller explicitly constructs it. It is NOT the app-runtime default, and nothing
@@ -107,11 +109,21 @@ the regression-localization checklist.
 4. ✅ **HERMES-AGENT-GUIDANCE-UI (done)** — "Build with me" advisory panel on the workflows
    dashboard (server-gated on `HERMES_AGENT_ENABLED`), calls only the route via the client helper,
    renders `guidanceText`. No mutation, no direct gateway/vendor calls.
-5. **HERMES-AGENT-PLAN-EXTRACTION** — when the agent starts returning structured plans, parse the
-   plan from `guidanceText`/a plan object and gate it through `validateWorkflowPlan` before it is
-   ever surfaced as usable (still advisory, still no mutation).
+5. ✅ **HERMES-AGENT-PLAN-EXTRACTION (done)** — **advisory validated plan only.** The agent is
+   prompted to optionally append ONE fenced ` ```json ` plan; `extractPlanFromText` (deterministic,
+   model-free) pulls a shape-valid candidate, the normalizer gates it through `validateWorkflowPlan`
+   (every `provider:type` must exist in the registry). Valid → `workflowPlan` surfaced + raw block
+   stripped from `guidanceText`; invalid → `null` + safe `"Suggested plan could not be validated."`
+   warning, guidance kept; prose-only/malformed → `null`. UI renders a **review-only** "Suggested
+   plan" section ("Review only — this has not changed your workflow.") with **no apply/create/run
+   control**. Plan is `notApplied: true`. Still advisory — no mutation/execution/persistence.
 6. ✅ **HERMES-AGENT-GUIDANCE-UI-BUILDER (done)** — a second "Build with me" entry inside the
    workflow builder (collapsed floating pill, bottom-left of the canvas) that reveals the same
    `WorkflowGuidancePanel` and passes the in-context `workflowId`. Server-gated on
    `isHermesAgentEnabled()` + a resolved `accountId`; reuses the route/helper/panel verbatim. Still
-   advisory only — no mutation, no plan extraction, no direct gateway/vendor calls.
+   advisory only — no mutation, no direct gateway/vendor calls.
+7. **HERMES-AGENT-DRAFT-PREVIEW (next)** — convert a validated `WorkflowPlan` into an EPHEMERAL,
+   NON-APPLIED draft preview (e.g. an in-memory preview graph the user can look at), NOT a saved
+   `draftDefinition` change. The AI still never mutates/saves; an explicit user "apply/create" action
+   (a later slice) would hand the validated plan to the deterministic ChainReact builder. This slice
+   only prepared the validated-plan shape; nothing builds or persists a preview yet.

@@ -121,9 +121,28 @@ advisory **`NormalizedGatewayGuidance`**:
 | `ok: true` | success |
 | `guidanceText: string` | trimmed `response.choices[0].message.content` (the advisory text) |
 | `source: "hermes-agent"` | fixed origin tag |
-| `workflowPlan: WorkflowPlan \| null` | **null for now** — a plan is surfaced ONLY if a structured plan object passes `validateWorkflowPlan`; arbitrary JSON/prose is never accepted as a plan |
+| `workflowPlan: WorkflowPlan \| null` | a capability-validated advisory plan, or null. Surfaced ONLY if a structured plan passes `validateWorkflowPlan` (every step's `provider:type` must exist in the discovery registry). Arbitrary JSON/prose is never accepted. Always `notApplied: true`. |
 | `rawUsage?` | sanitized `{ promptTokens?, completionTokens?, totalTokens? }` — numeric counts only, **not trusted for billing** |
-| `warnings?: string[]` | e.g. `multiple_choices_truncated` |
+| `warnings?: string[]` | e.g. `multiple_choices_truncated`, or `Suggested plan could not be validated.` (an embedded plan was found but failed capability validation) |
+
+**Plan extraction (HERMES-AGENT-PLAN-EXTRACTION).** The Hermes Agent is prompted (see
+`buildGatewayGuidancePrompt.ts` → `RESPONSE_FORMAT_INSTRUCTIONS`) to answer in normal language and
+OPTIONALLY append ONE structured plan as a fenced ` ```json ` block, using only catalog
+`provider:type` keys, omitting the block when detail is thin, and never claiming it changed anything.
+`extractPlanFromText` (deterministic, model-free, never throws) pulls the first **shape-valid** plan
+out of the fenced block(s) (or a bare JSON-only reply); the normalizer then capability-validates it:
+
+| Embedded content | Result |
+|---|---|
+| prose only / no JSON | `workflowPlan: null` (guidance text returned as-is) |
+| malformed JSON / non-plan JSON / multiple blocks | first shape-valid plan wins; junk blocks skipped → `null` if none |
+| shape-valid plan, all `provider:type` known | `workflowPlan: <validated plan>`; the raw ` ```json ` block is stripped from `guidanceText` for clean display |
+| shape-valid plan, hallucinated capability | `workflowPlan: null` + `warnings: ["Suggested plan could not be validated."]`; guidance text kept |
+
+The plan is **advisory validated plan only** — `notApplied: true`. Nothing extracts/validates/surfaces
+a plan that creates, mutates, applies, runs, or persists a workflow. (An envelope-SIBLING plan object
+remains supported and stays STRICT — an invalid sibling object fails the whole response closed; only
+the in-text fenced path degrades gracefully.)
 
 **Fail-closed mapping** (advisory; never mutates/executes a workflow):
 
@@ -189,12 +208,21 @@ failures map to 503 `GUIDANCE_UNAVAILABLE`.
   (the Hermes Agent does), so there is nothing to attribute and **no migration** is required. Usage
   reconciliation is a future slice.
 
-### UI entry point — "Build with me" (HERMES-AGENT-GUIDANCE-UI)
+### UI entry point — "Build with me" (HERMES-AGENT-GUIDANCE-UI / -UI-BUILDER)
 
-The first user-facing surface: a small advisory panel on the workflows dashboard/start page
-([`app/workflows/page.tsx`](../../app/workflows/page.tsx) → [`features/workflows/WorkflowGuidancePanel.tsx`](../../features/workflows/WorkflowGuidancePanel.tsx)).
+The user-facing surface: a small advisory panel on the workflows dashboard
+([`app/workflows/page.tsx`](../../app/workflows/page.tsx) → [`features/workflows/WorkflowGuidancePanel.tsx`](../../features/workflows/WorkflowGuidancePanel.tsx)),
+and a second collapsed "Build with me" entry inside the builder
+([`features/workflow-builder/panels/BuilderGuidanceEntry.tsx`](../../features/workflow-builder/panels/BuilderGuidanceEntry.tsx) reuses the same panel, passing the in-context `workflowId`).
 The user types a vague automation goal, submits, and sees Hermes Agent guidance / clarifying
 questions. **Advisory only — it never creates / changes / runs a workflow.**
+
+- **Suggested plan (HERMES-AGENT-PLAN-EXTRACTION).** When the route returns a capability-validated
+  `workflowPlan`, the panel renders a small **review-only** "Suggested plan" section under the
+  guidance: title/summary + a numbered list of `role` · `provider:type` · purpose, with the copy
+  *"Review only — this has not changed your workflow."* There is **no Create / Apply / Add-nodes /
+  Run control** in this slice — surfacing a plan never mutates a workflow. A `null` plan renders
+  nothing; `guidanceText` stays the primary output.
 
 - The panel is **server-gated on `HERMES_AGENT_ENABLED`** — when the flag is OFF (default) the page
   does **not render the panel at all** (no dead box). The `accountId` is the page's resolved active
