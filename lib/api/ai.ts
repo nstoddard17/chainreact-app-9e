@@ -12,7 +12,10 @@
  *   - `./ai/plan`        — plan / apply / complete (AI-9A/9B/35B).
  *   - `./ai/thread`      — persistent Builder Agent chat history (AI-23).
  *   - `./ai/diagnostics` — diagnose / explain / repair-PROPOSAL (AI-DIAG / AI-REPAIR-1b).
- *   - `./ai/runRepair`   — failed-run repair (AI-13).
+ *   - `./ai/runRepair`   — failed-run repair CONTRACT TYPES only (the request fn + its
+ *                          `…/runs/[runId]/ai/repair` route were retired in
+ *                          HERMES-AGENT-RETIRE-LEGACY-REPAIR-ROUTE; the governed client is
+ *                          `./ai/workflowRepair` → `/api/accounts/[id]/ai/workflow-repair`).
  *
  * Per project-structure-and-module-boundaries.md §4/§5: client code calls this
  * module, never the server services or `fetch()` from a component. These types

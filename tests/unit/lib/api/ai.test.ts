@@ -18,7 +18,6 @@ import {
   planWorkflow,
   planWorkflowRepair,
   previewWorkflowRepair,
-  requestWorkflowRepair,
 } from "@/lib/api/ai";
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -125,85 +124,6 @@ describe("applyWorkflowPatch", () => {
   it("throws AiApiError for a 404 error body", async () => {
     mockFetch(jest.fn().mockResolvedValue(jsonResponse(404, { error: "Workflow not found." })));
     await expect(applyWorkflowPatch("wf-1", { patch: {} })).rejects.toBeInstanceOf(AiApiError);
-  });
-});
-
-describe("requestWorkflowRepair (AI-13)", () => {
-  it("posts to the nested run-scoped repair route and returns the structured result on 200", async () => {
-    const fetchMock = jest.fn().mockResolvedValue(
-      jsonResponse(200, {
-        ok: true,
-        workflowId: "wf-1",
-        workflowRunId: "run abc",
-        failureSummary: {},
-        repairability: "repairable",
-        reasonCode: "MISSING_REQUIRED_FIELD",
-        proposedPatch: { patchId: "repair:1" },
-        preview: { ok: true, riskLevel: "low", requiresConfirmation: false, validation: { ok: true, errors: [], warnings: [] } },
-        requiredUserInput: [],
-        recommendations: [],
-        confidence: "medium",
-        safetyNotes: [],
-      }),
-    );
-    mockFetch(fetchMock);
-
-    const result = await requestWorkflowRepair("wf 1", "run abc");
-    expect(result.ok).toBe(true);
-    const [url, init] = fetchMock.mock.calls[0]!;
-    // Both segments must be URL-encoded.
-    expect(String(url)).toBe("/api/workflows/wf%201/runs/run%20abc/ai/repair");
-    // Empty default body still serializes — the server accepts {} (see route body-handling test).
-    expect((init as { method?: string }).method).toBe("POST");
-  });
-
-  it("forwards the optional forward-compat fields verbatim (server ignores them but client must let UI send them)", async () => {
-    const fetchMock = jest.fn().mockResolvedValue(
-      jsonResponse(200, {
-        ok: true,
-        workflowId: "wf-1",
-        workflowRunId: "run-1",
-        failureSummary: {},
-        repairability: "needsUserInput",
-        reasonCode: "MISSING_REQUIRED_FIELD",
-        requiredUserInput: [],
-        recommendations: [],
-        confidence: "medium",
-        safetyNotes: [],
-      }),
-    );
-    mockFetch(fetchMock);
-    await requestWorkflowRepair("wf-1", "run-1", {
-      repairPrompt: "fix the slack node",
-      modelTier: "strong",
-      selectedNodeId: "n-slack",
-    });
-    const init = fetchMock.mock.calls[0]![1] as { body: string };
-    expect(JSON.parse(init.body)).toEqual({
-      repairPrompt: "fix the slack node",
-      modelTier: "strong",
-      selectedNodeId: "n-slack",
-    });
-  });
-
-  it("returns a structured ok:false body on a service-handled error (e.g. 200 + ok:false is impossible — 404/500 are thrown)", async () => {
-    // For the repair route every ok:true outcome is 200; service failures map to
-    // 404/500 with `error` bodies (no `ok` flag), so the client throws.
-    mockFetch(jest.fn().mockResolvedValue(jsonResponse(404, { error: "Workflow run not found." })));
-    await expect(requestWorkflowRepair("wf-1", "run-bogus")).rejects.toMatchObject({
-      name: "AiApiError",
-      status: 404,
-    });
-  });
-
-  it("throws AiApiError for a 401", async () => {
-    mockFetch(jest.fn().mockResolvedValue(jsonResponse(401, { error: "unauthenticated" })));
-    await expect(requestWorkflowRepair("wf-1", "run-1")).rejects.toBeInstanceOf(AiApiError);
-  });
-
-  it("throws AiApiError for a sanitized 500", async () => {
-    mockFetch(jest.fn().mockResolvedValue(jsonResponse(500, { error: "Failed to suggest a repair." })));
-    await expect(requestWorkflowRepair("wf-1", "run-1")).rejects.toMatchObject({ status: 500 });
   });
 });
 

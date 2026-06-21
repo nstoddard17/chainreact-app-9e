@@ -305,3 +305,15 @@ the regression-localization checklist.
     - **Legacy `…/runs/[runId]/ai/repair` kept** (its backend test still covers it; no live UI consumer
       after this slice). Structural scan asserts the UI uses the new governed helper (not the legacy
       ask) and the new route stays model-free and never applies a patch.
+18. ✅ **HERMES-AGENT-RETIRE-LEGACY-REPAIR-ROUTE (done)** — with no live consumer left, removed the dead
+    legacy per-workflow repair entry. **Deleted:** the route `app/api/workflows/[id]/runs/[runId]/ai/repair/route.ts`,
+    the client request function `requestWorkflowRepair` (+ its `RequestWorkflowRepairRequest` type) from
+    `lib/api/ai/runRepair.ts`, the route's dedicated backend test `ai-repair-route.test.ts`, and the
+    `requestWorkflowRepair` describe block from `tests/unit/lib/api/ai.test.ts`. **Preserved (live):** the
+    deterministic suggester `suggestWorkflowRepairForAI` + its validators/preview/apply contracts; the
+    governed account route `POST /api/accounts/[id]/ai/workflow-repair`; the explicit apply path
+    (`applyWorkflowPatch` → `…/ai/apply`); `RunResultsRepairBlock`; and the `AiRepair*` CONTRACT TYPES in
+    `runRepair.ts` (now a types-only module — still consumed by the governed client + the UI). Structural
+    scan gained retirement guards (legacy route file gone, `requestWorkflowRepair` absent from the client
+    code, account route still present, UI keeps explicit apply). No behaviour change to the governed route,
+    the deterministic suggester, or apply. No migration.

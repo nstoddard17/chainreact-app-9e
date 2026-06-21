@@ -1,18 +1,20 @@
 /**
- * AI-13 failed-run repair client (POST /api/workflows/[id]/runs/[runId]/ai/repair).
- * Extracted from the monolithic `lib/api/ai.ts` in Slice 4.AI-REPAIR-CLEANUP-1 —
- * refactor only, no behavior change.
+ * Failed-run repair CONTRACT TYPES (client view of the deterministic AI-7 service's
+ * `RepairSuggestionResult`).
  *
- * Client-side view of the AI-7 service's `RepairSuggestionResult`. Like
- * `proposedPatch` on the plan response, the repair patch is treated as OPAQUE by
- * the client — the Builder forwards it verbatim to the existing apply route
+ * HERMES-AGENT-RETIRE-LEGACY-REPAIR-ROUTE (2026-06-21): the old per-workflow request
+ * function (`requestWorkflowRepair` → `POST /api/workflows/[id]/runs/[runId]/ai/repair`)
+ * and that route were RETIRED — the run-results UI now asks through the governed,
+ * account-scoped client `requestAccountWorkflowRepair` (`lib/api/ai/workflowRepair.ts` →
+ * `POST /api/accounts/[id]/ai/workflow-repair`). These TYPES remain because they are the
+ * live repair contract shared by that governed client + `RunResultsRepairBlock`.
+ *
+ * Like `proposedPatch` on the plan response, the repair patch is treated as OPAQUE by the
+ * client — the Builder forwards it verbatim to the existing apply route
  * (`applyWorkflowPatch`) on confirmation, never inspects its config.
- *
- * Fields here mirror the route response (value-free recommendations + a preview's
- * structural summary). Extra fields the server adds in the future are tolerated.
  */
 
-import { postStructured, type AiOpaquePatch } from "./shared";
+import type { AiOpaquePatch } from "./shared";
 import type { AiPreview } from "./plan";
 
 export interface AiRepairFailureSummary {
@@ -64,21 +66,3 @@ export interface AiRepairFailure {
 }
 
 export type AiRepairResult = AiRepairSuccess | AiRepairFailure;
-
-/** Forward-compat: empty body is accepted; fields below are ignored at AI-13. */
-export interface RequestWorkflowRepairRequest {
-  readonly repairPrompt?: string;
-  readonly modelTier?: "fast" | "strong";
-  readonly selectedNodeId?: string;
-}
-
-export async function requestWorkflowRepair(
-  workflowId: string,
-  runId: string,
-  request: RequestWorkflowRepairRequest = {},
-): Promise<AiRepairResult> {
-  return postStructured<AiRepairResult>(
-    `/api/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/ai/repair`,
-    request,
-  );
-}

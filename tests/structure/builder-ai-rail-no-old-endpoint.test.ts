@@ -139,3 +139,31 @@ describe("run-results repair rehome — governed, deterministic", () => {
     expect(src).not.toMatch(/applyWorkflowPatch|applyRepairPatch/);
   });
 });
+
+/**
+ * HERMES-AGENT-RETIRE-LEGACY-REPAIR-ROUTE — the dead per-workflow legacy repair route + client
+ * request function are gone; the governed account route + the explicit apply path stay.
+ */
+describe("legacy run-repair route retired", () => {
+  it("the legacy /runs/[runId]/ai/repair route file is deleted", () => {
+    expect(
+      existsSync(resolve(process.cwd(), "app/api/workflows/[id]/runs/[runId]/ai/repair/route.ts")),
+    ).toBe(false);
+  });
+
+  it("the legacy requestWorkflowRepair request function is gone (types-only module remains)", () => {
+    const src = read("lib/api/ai/runRepair.ts");
+    // No request function / its route path in the actual code (the doc comment that names it is
+    // stripped by read()).
+    expect(src).not.toMatch(/requestWorkflowRepair/);
+    expect(src).not.toMatch(/\/runs\/.*\/ai\/repair/);
+    // The live repair contract types remain.
+    expect(src).toMatch(/AiRepairResult/);
+  });
+
+  it("the governed account repair route remains, and the UI keeps explicit apply", () => {
+    expect(existsSync(resolve(process.cwd(), "app/api/accounts/[id]/ai/workflow-repair/route.ts"))).toBe(true);
+    // Explicit apply is preserved in the run-results UI.
+    expect(read("features/workflow-builder/panels/RunResultsRepairBlock.tsx")).toMatch(/applyWorkflowPatch/);
+  });
+});
