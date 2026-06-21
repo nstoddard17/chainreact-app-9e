@@ -110,6 +110,35 @@ async function applyPreview(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByTestId("builder-preview-apply"));
 }
 
+describe("builder preview canvas state (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT)", () => {
+  it("hides the empty-state 'Choose a trigger' card while a preview is active, and restores it on Discard", async () => {
+    const user = userEvent.setup();
+    renderBuilder(workflow([], []));
+    // Empty draft, no preview yet → the empty-state card is shown.
+    expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
+
+    // Submit + Show on canvas → preview overlay active → empty-state hidden.
+    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
+    await screen.findByTestId("builder-preview-overlay");
+    expect(screen.queryByTestId("empty-canvas-state")).not.toBeInTheDocument();
+
+    // Discard → overlay gone, graph still empty → empty-state card returns; nothing mutated/saved.
+    await user.click(screen.getByTestId("builder-preview-discard"));
+    await waitFor(() => expect(screen.queryByTestId("builder-preview-overlay")).not.toBeInTheDocument());
+    expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("keeps the empty-state card in normal empty draft mode (no preview)", () => {
+    renderBuilder(workflow([], []));
+    expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
+  });
+});
+
 describe("builder apply-preview — blank workflow", () => {
   it("adds the proposed trigger+action+edge to the local draft (empty config), dirty, no save", async () => {
     const user = userEvent.setup();

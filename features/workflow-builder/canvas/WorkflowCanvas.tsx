@@ -25,6 +25,7 @@ import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
 import { useCanvasNodeDeletion } from "../hooks/useCanvasNodeDeletion";
 import { useCanvasNodeFocus } from "../hooks/useCanvasNodeFocus";
+import { useFitViewOnPreview } from "../hooks/useFitViewOnPreview";
 import { DeleteNodeConfirmDialog } from "../panels/DeleteNodeConfirmDialog";
 import {
   WORKFLOW_EDGE_TYPE,
@@ -146,6 +147,13 @@ interface Props {
    * renders graph-derived rows (counts / trigger / save status) without it.
    */
   workflowSettings?: WorkflowSettingsMeta;
+  /**
+   * HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — a per-show token from `WorkflowBuilder`: `null` when no
+   * AI preview overlay is active, and a NEW number each time a preview is shown. When non-null the
+   * canvas (a) hides the empty-state "Choose a trigger" card so the holographic preview reads clearly,
+   * and (b) fits the viewport once around the current graph. Visual only — no draft mutation.
+   */
+  previewToken?: number | null;
 }
 
 const NODE_TYPES = {
@@ -178,6 +186,7 @@ function WorkflowCanvasInner({
   requiredFieldsByType,
   appliedNodeIds,
   workflowSettings,
+  previewToken,
 }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
@@ -198,6 +207,11 @@ function WorkflowCanvasInner({
   // Slice 4.AI-REPAIR-2F — pan/zoom the viewport to a node when a "Go to field"
   // reveal is requested (configSlice canvas-focus signal). Navigation only.
   useCanvasNodeFocus();
+
+  // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — fit the viewport once each time a preview is shown.
+  // Navigation only; no draft mutation. `null` when no preview is active.
+  useFitViewOnPreview(previewToken ?? null);
+  const previewActive = previewToken !== null && previewToken !== undefined;
 
   // Slice 4.BUILDER-NODE-DELETE-2 — keyboard-delete state machine. Owns
   // the dialog state + the onBeforeDelete handler that gates ReactFlow's
@@ -432,7 +446,10 @@ function WorkflowCanvasInner({
             nodeColor={() => "var(--builder-muted-2)"}
           />
         </ReactFlow>
-        {isEmpty ? <EmptyCanvasState onAddTrigger={onAddTrigger} /> : null}
+        {/* HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — while an AI preview overlay is active, hide the
+            empty-state card so the holographic proposed nodes read clearly (the card returns on
+            Discard if the graph is still empty). Normal empty draft mode is unaffected. */}
+        {isEmpty && !previewActive ? <EmptyCanvasState onAddTrigger={onAddTrigger} /> : null}
         {showRecoveryBanner ? (
           <NoTriggerRecoveryBanner onChooseTrigger={onAddTrigger} />
         ) : null}

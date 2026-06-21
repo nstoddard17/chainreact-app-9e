@@ -139,6 +139,11 @@ export function WorkflowBuilder({
     plan: WorkflowPlan;
     preview: DraftPreview;
   } | null>(null);
+  // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — per-show counter. Bumped each time a preview is shown so
+  // the canvas fits the viewport once per show (and re-fits when a preview supersedes another). The
+  // canvas reads `previewToken` (this count while a preview is active, else null) to fit + hide the
+  // empty-state card. UI-only — never touches the draft.
+  const [previewShowCount, setPreviewShowCount] = useState(0);
   // HERMES-AGENT-APPLY-PREVIEW-PATCH — transient confirmation after an explicit "Apply preview".
   const [applyNotice, setApplyNotice] = useState<string | null>(null);
   // HERMES-AGENT-APPLY-CONFIG-HINTS — ids of the nodes the most recent apply ADDED. Drives the
@@ -365,6 +370,9 @@ export function WorkflowBuilder({
       // preview (previewIds are positional and would otherwise collide across previews).
       setPreviewConfig({});
       setPreviewOverlay(payload);
+      // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — bump the per-show token so the canvas fits once for
+      // this (possibly superseding) preview.
+      setPreviewShowCount((c) => c + 1);
     },
     [],
   );
@@ -559,6 +567,9 @@ export function WorkflowBuilder({
           // HERMES-AGENT-APPLY-CONFIG-HINTS — nodes the most recent apply added get the
           // short-lived "Added from preview" badge. Undefined when nothing was just applied.
           {...(appliedNodeIdSet ? { appliedNodeIds: appliedNodeIdSet } : {})}
+          // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — non-null while a preview is active (a fresh
+          // value per show) so the canvas fits the viewport once + hides the empty-state card.
+          previewToken={previewOverlay ? previewShowCount : null}
           // BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the Settings tab.
           workflowSettings={{
             name: workflow.name,

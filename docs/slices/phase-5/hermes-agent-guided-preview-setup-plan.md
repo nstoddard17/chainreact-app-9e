@@ -9,7 +9,52 @@
 > (HERMES-AGENT-PREFER-PARTIAL-PREVIEW-WITH-SETUP) tuned the guidance prompt to return a preview for a
 > clear shape even when config is missing**; **Phase 6 (HERMES-AGENT-DETERMINISTIC-SHAPE-FALLBACK)
 > added a narrow deterministic fallback that produces a validated partial preview when Hermes returns
-> text-only for an obvious shape** — see the status boxes.
+> text-only for an obvious shape**; **Phase 7 (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT) hides the
+> empty-state card during preview + fits the viewport once per shown preview, and documents the future
+> visual-diff rules** — see the status boxes.
+
+## Phase 7 status — IMPLEMENTED (PREVIEW CANVAS STATE + FIT)
+
+**Why:** when a preview was shown on an EMPTY workflow, the holographic nodes rendered but the
+"Choose a trigger to start" empty-state card stayed visible underneath, and the viewport wasn't framed
+— so the proposal read as cluttered.
+
+**Shipped:**
+- **Empty-state hidden during preview.** `WorkflowCanvas` takes a `previewToken` prop (`null` = no
+  preview; a fresh number per show). The empty-state card now renders only when
+  `isEmpty && !previewActive`, so it's hidden while a preview overlay is active and RETURNS on Discard
+  if the graph is still empty. Normal empty-draft mode is unchanged.
+- **Fit once per shown preview.** New hook `useFitViewOnPreview(previewToken)` (in
+  `WorkflowCanvasInner`, inside the `ReactFlowProvider`) calls React Flow `fitView` once each time the
+  token changes to a non-null value (re-fits on a superseding preview; resets on Discard). Navigation
+  only — no graph/draft mutation. `WorkflowBuilder` owns a `previewShowCount`, bumped in
+  `handleShowPreview`, and passes `previewToken = previewOverlay ? previewShowCount : null`.
+- **Canvas stays visual-only.** Holographic nodes remain cards with no inputs/selects/textareas; the
+  rail setup card remains the setup UI; Show/Apply still never save/activate/run or mutate the draft
+  before Apply.
+
+**Note on the current overlay vs. true viewport-fit:** the holographic preview is a SEPARATE,
+screen-centered DOM layer (not React Flow nodes with positions), so it is already centered on screen.
+`fitView` therefore frames the REAL underlying graph (meaningful for additive previews over an existing
+graph; a safe no-op on an empty graph). True React-Flow-viewport diff-fitting (bounds computed from
+positioned preview nodes) belongs to the future visual-diff model below, where proposed nodes become
+real positioned RF nodes.
+
+**Future visual-diff rules (documented + prepared; NOT implemented — no destructive patch model yet):**
+
+| Node/edge in a preview | Intended treatment |
+|------------------------|--------------------|
+| Added node (today's additive previews) | Holographic blue/glass shimmer card (current `builder-preview-node-ghost`). |
+| Existing unaffected node | Normal solid card (unchanged; never hidden for additive previews). |
+| Existing node that WOULD be updated/moved | Solid card + amber/blue "will update" outline/badge. |
+| Existing node that WOULD be removed/replaced | Red dashed outline / faded ghost + "Will remove" badge. |
+| Proposed edges | Dashed preview edges (current). |
+
+These remain DOCUMENTATION ONLY until a validated patch model expresses update/remove ops. Additive is
+the only safe semantics today; the preview never removes/hides existing nodes, and Apply never performs
+destructive replacement.
+
+---
 
 ## Phase 6 status — IMPLEMENTED (DETERMINISTIC SHAPE FALLBACK)
 
