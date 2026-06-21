@@ -18,6 +18,10 @@ import {
   looksLikeRawJson,
   type CheckWorkflowReviewContext,
 } from "@/core/workflows/checkWorkflowReview";
+import {
+  isPlanMeaningfulCanvasPreview,
+  type CanvasPreviewGraphNode,
+} from "@/core/workflows/canvasPreviewEligibility";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
 
 /**
@@ -117,6 +121,14 @@ export interface WorkflowGuidancePanelProps {
    * Suggestions, JSON- and overclaim-guarded). Absent (dashboard / tests) → the pill is a plain prefill.
    */
   readonly getCheckReviewContext?: () => CheckWorkflowReviewContext;
+  /**
+   * BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — builder-only: a getter for the CURRENT draft graph's
+   * shape (kind/provider/type per node — never config/labels). When present, "Show on canvas" is
+   * offered only for a plan that meaningfully adds/changes structure vs this shape; a same-shape
+   * restatement keeps the suggestion in the rail (no duplicate ghost nodes over existing ones). Absent
+   * → previous behavior (offer whenever a builder `onPreviewToCanvas` + validated plan exist).
+   */
+  readonly getCurrentGraphShape?: () => readonly CanvasPreviewGraphNode[];
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -282,7 +294,7 @@ function SparkleIcon() {
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -493,11 +505,19 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
               )}
               {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
               {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
+              {/* BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — offer "Show on canvas" ONLY when the plan
+                  meaningfully adds/changes structure vs the live graph. A same-shape restatement keeps
+                  the suggestion in the rail instead of ghosting duplicate nodes over existing ones. No
+                  graph-shape getter (dashboard/tests) → prior behavior. */}
               {isLatest && m.preview && (
                 <GuidancePreviewSection
                   preview={m.preview}
                   plan={m.plan}
-                  {...(onPreviewToCanvas ? { onPreviewToCanvas } : {})}
+                  {...(onPreviewToCanvas &&
+                  (getCurrentGraphShape == null ||
+                    isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: m.plan }))
+                    ? { onPreviewToCanvas }
+                    : {})}
                 />
               )}
             </div>

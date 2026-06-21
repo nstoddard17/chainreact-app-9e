@@ -211,6 +211,17 @@ export function WorkflowBuilder({
     [requiredFieldsByType, providerLabels],
   );
 
+  // BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — snapshot the LIVE draft graph's shape (kind/provider/type
+  // only, no config) so the rail can suppress "Show on canvas" for an AI suggestion that merely restates
+  // the current workflow. Read at call time (no subscription) so it matches what's on the canvas.
+  const getCurrentGraphShape = useCallback(
+    () =>
+      useGraphSlice
+        .getState()
+        .pendingNodes.map((n) => ({ kind: n.kind, provider: n.provider, type: n.type })),
+    [],
+  );
+
   // Slice 4.BUILDER-INSPECTOR-1 → BUILDER-RUN-PANEL-1: right drawer
   // state machine.
   const { mode, openDrawer, closeDrawer } = useRightDrawer();
@@ -537,6 +548,7 @@ export function WorkflowBuilder({
             onPreviewConfigChange={handlePreviewConfigChange}
             onApplyPreview={handleApplyPreview}
             getCheckReviewContext={getCheckReviewContext}
+            getCurrentGraphShape={getCurrentGraphShape}
           />
         </BuilderLeftAgentRail>
       }

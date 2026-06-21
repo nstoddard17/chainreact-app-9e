@@ -559,3 +559,130 @@ describe("WorkflowGuidancePanel — deterministic 'Check workflow' review", () =
     expect(mockRequest).toHaveBeenCalledWith({ accountId: "acct-1", goalText: "add a slack message", workflowId: "wf-9" });
   });
 });
+
+/**
+ * BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — "Show on canvas" must not ghost duplicate nodes for a plan
+ * that merely restates the current workflow. When a `getCurrentGraphShape` getter is wired, the button
+ * is offered only for a plan that meaningfully adds/changes structure; a same-shape plan stays in the
+ * rail as text/preview list.
+ */
+describe("WorkflowGuidancePanel — 'Show on canvas' eligibility guard", () => {
+  const MANUAL = { provider: "native", type: "manual.run" };
+  const SLACK = { provider: "slack", type: "send_channel_message" };
+
+  function planFor(steps: { ref: string; role: string; provider: string; type: string }[]) {
+    return { schemaVersion: 1, title: "P", summary: "", notApplied: true, steps: steps.map((s) => ({ ...s, purpose: "" })) };
+  }
+  function previewFor(nodes: { previewId: string; role: string; provider: string; type: string }[]) {
+    return {
+      version: 1,
+      title: "P",
+      summary: "",
+      notice: "Preview only — your workflow has not changed.",
+      notApplied: true as const,
+      nodes: nodes.map((n) => ({ ...n, label: `${n.provider}:${n.type}`, purpose: "", notApplied: true as const })),
+      edges: [],
+    };
+  }
+
+  async function sendFreeform(opts: {
+    workflowPlan: unknown;
+    previewDraft: unknown;
+    getCurrentGraphShape?: () => readonly { kind: string; provider: string; type: string }[];
+    onPreviewToCanvas?: jest.Mock;
+  }) {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "Here's a thought.", source: "hermes-agent", ...opts });
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        onPreviewToCanvas={opts.onPreviewToCanvas ?? jest.fn()}
+        {...(opts.getCurrentGraphShape ? { getCurrentGraphShape: opts.getCurrentGraphShape } : {})}
+      />,
+    );
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "review my workflow");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByTestId("workflow-guidance-preview");
+    return user;
+  }
+
+  it("suppresses 'Show on canvas' when the plan restates the existing manual.run → Slack shape", async () => {
+    const onPreviewToCanvas = jest.fn();
+    await sendFreeform({
+      workflowPlan: planFor([
+        { ref: "s0", role: "trigger", ...MANUAL },
+        { ref: "s1", role: "action", ...SLACK },
+      ]),
+      previewDraft: previewFor([
+        { previewId: "p1", role: "trigger", ...MANUAL },
+        { previewId: "p2", role: "action", ...SLACK },
+      ]),
+      getCurrentGraphShape: () => [
+        { kind: "trigger", ...MANUAL },
+        { kind: "action", ...SLACK },
+      ],
+      onPreviewToCanvas,
+    });
+
+    // No canvas button (would ghost duplicates), but the suggestion stays visible in the rail.
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+    expect(screen.getByTestId("workflow-guidance-result")).toHaveTextContent("Here's a thought.");
+    expect(screen.getByTestId("workflow-guidance-preview")).toBeInTheDocument();
+    // Nothing applied/mutated — the overlay callback is never auto-invoked.
+    expect(onPreviewToCanvas).not.toHaveBeenCalled();
+    // No raw JSON leaked into the rail.
+    expect(screen.getByTestId("workflow-guidance-messages").textContent ?? "").not.toContain('"nodes"');
+  });
+
+  it("still offers 'Show on canvas' for a genuinely additive plan (new step the graph lacks)", async () => {
+    await sendFreeform({
+      workflowPlan: planFor([
+        { ref: "s0", role: "trigger", ...MANUAL },
+        { ref: "s1", role: "action", ...SLACK },
+      ]),
+      previewDraft: previewFor([
+        { previewId: "p1", role: "trigger", ...MANUAL },
+        { previewId: "p2", role: "action", ...SLACK },
+      ]),
+      // Current graph has only the trigger → the Slack action is genuinely new.
+      getCurrentGraphShape: () => [{ kind: "trigger", ...MANUAL }],
+    });
+
+    expect(screen.getByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+  });
+
+  it("keeps prior behavior (offers the button) when no graph-shape getter is wired", async () => {
+    await sendFreeform({
+      workflowPlan: planFor([{ ref: "s0", role: "trigger", ...MANUAL }]),
+      previewDraft: previewFor([{ previewId: "p1", role: "trigger", ...MANUAL }]),
+      // getCurrentGraphShape omitted → back-compat.
+    });
+    expect(screen.getByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+  });
+
+  it("does not affect the deterministic Check workflow review (which has no canvas preview)", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        onPreviewToCanvas={jest.fn()}
+        getCurrentGraphShape={() => [{ kind: "trigger", ...MANUAL }, { kind: "action", ...SLACK }]}
+        getCheckReviewContext={() => ({
+          summary: "This workflow starts when you run it manually, then runs 1 step: Slack Send Channel Message.",
+          blockingIssueCount: 1,
+          issueMessages: ["Send Channel Message needs a Message."],
+          issueCodes: ["missing_required_field"],
+        })}
+      />,
+    );
+    await user.click(screen.getByTestId("agent-check-workflow"));
+    const result = await screen.findByTestId("workflow-guidance-result");
+    expect(result).toHaveTextContent("not ready to activate");
+    expect(mockRequest).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+  });
+});

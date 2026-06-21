@@ -4,6 +4,7 @@ import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
 import type { CheckWorkflowReviewContext } from "@/core/workflows/checkWorkflowReview";
+import type { CanvasPreviewGraphNode } from "@/core/workflows/canvasPreviewEligibility";
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
 import { BuilderPreviewSetupCard } from "./BuilderPreviewSetupCard";
 
@@ -70,6 +71,11 @@ export interface BuilderGuidanceRailProps {
    * validation surface. Absent → the pill is a plain prefill.
    */
   readonly getCheckReviewContext?: () => CheckWorkflowReviewContext;
+  /**
+   * BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — getter for the live draft graph shape (kind/provider/type
+   * only). Forwarded to the panel so "Show on canvas" is suppressed for a same-shape restatement.
+   */
+  readonly getCurrentGraphShape?: () => readonly CanvasPreviewGraphNode[];
 }
 
 export function BuilderGuidanceRail({
@@ -83,6 +89,7 @@ export function BuilderGuidanceRail({
   onPreviewConfigChange,
   onApplyPreview,
   getCheckReviewContext,
+  getCurrentGraphShape,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -112,6 +119,7 @@ export function BuilderGuidanceRail({
             workflowId={workflowId}
             conversational
             {...(getCheckReviewContext ? { getCheckReviewContext } : {})}
+            {...(getCurrentGraphShape ? { getCurrentGraphShape } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {
