@@ -82,7 +82,7 @@ describe("microsoft-excel manifest", () => {
     expect(providerSupports("microsoft-excel", "pollingTrigger")).toBe(true);
   });
 
-  it("when actions: true, the action-handler registry contains all 10 Excel actions (slice 15 + Microsoft Excel parity Commits 1+2)", () => {
+  it("when actions: true, the action-handler registry contains all 13 Excel actions (slice 15 + Microsoft Excel parity + EXCEL-READ-2 reads)", () => {
     if (microsoftExcelManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "microsoft-excel",
@@ -94,8 +94,11 @@ describe("microsoft-excel manifest", () => {
         "delete_row",
         "delete_worksheet",
         "export_sheet",
+        "find_row",
         "get_workbooks",
         "get_worksheets",
+        "read_range",
+        "read_table_rows",
         "rename_worksheet",
         "update_row",
       ]);

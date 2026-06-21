@@ -79,7 +79,10 @@ describe("microsoftExcelWorkbooksResolver — wrapper invocation", () => {
 
     const url = fetchSpy.mock.calls[0]![0] as string;
     expect(url).toContain("/v1.0/me/drive/root/children");
-    expect(url).toMatch(/%24top=100/);
+    // OneDrive forbids $filter on /drive/root/children — the wrapper scans a
+    // generous root page ($top=200) and filters .xlsx client-side (no $filter).
+    expect(url).not.toMatch(/%24filter/);
+    expect(url).toMatch(/%24top=200/);
     fetchSpy.mockRestore();
 
     const args = mockRefreshAndRetry.mock.calls[0]![0]!;

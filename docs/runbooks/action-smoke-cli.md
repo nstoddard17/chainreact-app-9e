@@ -431,17 +431,16 @@ All five Excel fixtures are read-only; `read_range` / `read_table_rows` / `find_
 return bounded/capped cell values (the action's purpose), but the smoke report stays
 status-only (never workbook/worksheet names or cell content).
 
-> **Account requirement — Excel live verification needs an accessible drive.** Excel
-> reads enumerate workbooks via Microsoft Graph `me/drive/root/children`, so the
-> connected Microsoft account MUST have an accessible/provisioned **OneDrive (or
-> SharePoint) drive** with at least one `.xlsx` workbook. A Microsoft account with no
-> provisioned drive (some personal/tenant configurations) returns Graph **"Operation
-> not supported"** on `get_workbooks` — discovery can't find a workbook id, and the
-> Excel fixtures **skip** (no selector env) or **fail** (if `SMOKE_MICROSOFT_EXCEL_CONNECTED`
-> is set without a real, drive-backed workbook). To verify Excel, connect a Microsoft
-> account that has an accessible OneDrive/SharePoint drive + a smoke workbook, then
-> re-run with `SMOKE_PROVIDER=microsoft-excel`. (No SharePoint-drive fallback is built
-> into `get_workbooks` today — it reads the user's default drive only.)
+> **Excel live verification — VERIFIED (2026-06-21).** All five Excel reads pass live.
+> Earlier they failed with Graph **"Operation not supported"** on
+> `me/drive/root/children`; the cause was a **bug**, not a missing drive: `workbooksList`
+> sent `?$filter=file/mimeType eq '…'`, and OneDrive does **not** support `$filter` on the
+> `children` collection (HTTP 400 `notSupported`). Fixed by listing the root page and
+> filtering `.xlsx` **client-side** (`workbooksList.ts`). To verify Excel you need a
+> connected Microsoft account with a normal **OneDrive** containing at least one `.xlsx`
+> workbook; `read_table_rows` + `find_row` additionally need a workbook that has an Excel
+> **Table** object (Insert → Table). Discovery prefers a table-bearing workbook
+> automatically. (Still reads the user's default drive only — no SharePoint-site fallback.)
 
 **Microsoft Excel audit + actions still uncovered / deferred (5 covered of 13 registered):**
 
@@ -775,14 +774,14 @@ when fixtures skipped for unset env, a grouped **Missing env** summary:
   values.** Set the listed vars and re-run to convert SKIPs into live PASSes. The same data
   is in the JSON output under an additive `missingEnv` key.
 
-**Verification status (2026-06-20).** **Live-verified reads:** Slack (read + write), Gmail,
-Google Drive, Microsoft Outlook, Airtable, Notion (incl. empty-query "search all"), Google
-Sheets, and Microsoft Teams. **Microsoft Excel is NOT yet verified** — the connected Microsoft
-account has no accessible OneDrive/SharePoint drive (see the Excel account-requirement note
-above); connect a drive-backed account and re-run `SMOKE_PROVIDER=microsoft-excel`. Selector
-ids are discovered from a connected smoke account into gitignored `.env.local` and are never
-committed (only env-var NAMES appear in reports — never values, account ids, run/workflow ids,
-or raw provider output).
+**Verification status (2026-06-21).** **Live-verified reads — ALL nine providers:** Slack
+(read + write), Gmail, Google Drive, Microsoft Outlook, Airtable, Notion (incl. empty-query
+"search all"), Google Sheets, Microsoft Teams, and **Microsoft Excel** (5/5, after fixing the
+`get_workbooks` OneDrive `$filter` bug — see the Excel note above). Every fixtured `liveSafe`
+read that can run has passed; the remaining non-passes are the always-run `native` baseline and
+the non-liveSafe destructive `slack:delete_message`, both by design. Selector ids are discovered
+from a connected smoke account into gitignored `.env.local` and are never committed (only env-var
+NAMES appear in reports — never values, account ids, run/workflow ids, or raw provider output).
 
 ## How execution maps to the real engine
 

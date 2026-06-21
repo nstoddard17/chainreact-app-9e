@@ -123,22 +123,18 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["microsoft-teams", "list_teams"],
     ["microsoft-teams", "list_channels"],
     ["microsoft-teams", "list_channel_messages"],
+    // Excel verified after fixing the get_workbooks OneDrive $filter bug (the
+    // failure was an unsupported server-side `$filter` on /drive/root/children,
+    // NOT a missing drive — see workbooksList.ts).
+    ["microsoft-excel", "get_workbooks"],
+    ["microsoft-excel", "get_worksheets"],
+    ["microsoft-excel", "read_range"],
+    ["microsoft-excel", "read_table_rows"],
+    ["microsoft-excel", "find_row"],
   ]),
   ...records("LIVE_PASS", "live write verified (dedicated smoke channel)", LIVE, [
     ["slack", "send_channel_message"],
   ]),
-  ...records(
-    "BLOCKED_ENV",
-    "no accessible OneDrive/SharePoint drive on the connected Microsoft account",
-    LIVE,
-    [
-      ["microsoft-excel", "get_workbooks"],
-      ["microsoft-excel", "get_worksheets"],
-      ["microsoft-excel", "read_range"],
-      ["microsoft-excel", "read_table_rows"],
-      ["microsoft-excel", "find_row"],
-    ],
-  ),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────

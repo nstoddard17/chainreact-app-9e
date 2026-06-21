@@ -37,24 +37,30 @@ const realDescriptors = (): FixtureDescriptor[] =>
 describe("certification matrix — derivation rules", () => {
   const registered: RegisteredAction[] = [
     { provider: "slack", action: "list_channels" }, // LIVE_PASS (explicit)
-    { provider: "slack", action: "list_users" }, // LIVE_PASS (explicit)
-    { provider: "microsoft-excel", action: "get_workbooks" }, // BLOCKED_ENV (explicit)
+    { provider: "slack", action: "list_users" }, // fixtured, uncertified -> LIVE_NOT_RUN
+    { provider: "acme", action: "blocked" }, // BLOCKED_ENV (explicit)
     { provider: "acme", action: "do_thing" }, // fixtured, uncertified -> LIVE_NOT_RUN
     { provider: "acme", action: "no_fixture" }, // no fixture -> MISSING_FIXTURE
   ];
   const fixtures: FixtureDescriptor[] = [
     { provider: "slack", action: "list_channels", risk: "read", requiredEnv: [], liveSafe: true },
     { provider: "slack", action: "list_users", risk: "read", requiredEnv: [], liveSafe: true },
-    { provider: "microsoft-excel", action: "get_workbooks", risk: "read", requiredEnv: [], liveSafe: true },
+    { provider: "acme", action: "blocked", risk: "read", requiredEnv: [], liveSafe: true },
     { provider: "acme", action: "do_thing", risk: "read", requiredEnv: [], liveSafe: true },
+  ];
+  // Explicit certs so the derivation rules are tested deterministically (not
+  // coupled to the evolving real certification seed).
+  const certs = [
+    { provider: "slack", action: "list_channels", status: "LIVE_PASS" as const },
+    { provider: "acme", action: "blocked", status: "BLOCKED_ENV" as const },
   ];
 
   it("enumerates every registered action and derives status correctly", () => {
-    const m = buildCertificationMatrix(registered, fixtures);
+    const m = buildCertificationMatrix(registered, fixtures, certs);
     const byKey = new Map(m.rows.map((r) => [`${r.provider}:${r.action}`, r]));
     expect(m.rows).toHaveLength(registered.length); // EVERY registered action present
     expect(byKey.get("slack:list_channels")?.status).toBe("LIVE_PASS");
-    expect(byKey.get("microsoft-excel:get_workbooks")?.status).toBe("BLOCKED_ENV");
+    expect(byKey.get("acme:blocked")?.status).toBe("BLOCKED_ENV"); // explicit non-LIVE_PASS wins
     expect(byKey.get("acme:do_thing")?.status).toBe("LIVE_NOT_RUN"); // fixtured, uncertified
     expect(byKey.get("acme:do_thing")?.explicit).toBe(false);
     expect(byKey.get("acme:no_fixture")?.status).toBe("MISSING_FIXTURE"); // gap stays visible
@@ -80,7 +86,7 @@ describe("certification matrix — derivation rules", () => {
 describe("certification lookups + planner predicate", () => {
   it("isCertifiedLivePass is true for a seeded LIVE_PASS, false otherwise", () => {
     expect(isCertifiedLivePass("airtable", "get_record")).toBe(true);
-    expect(isCertifiedLivePass("microsoft-excel", "get_workbooks")).toBe(false); // BLOCKED_ENV
+    expect(isCertifiedLivePass("microsoft-excel", "get_workbooks")).toBe(true); // verified after the workbooksList fix
     expect(isCertifiedLivePass("native", "format_transformer")).toBe(false); // baseline, always runs
     expect(isCertifiedLivePass("acme", "unknown")).toBe(false);
   });
@@ -88,7 +94,7 @@ describe("certification lookups + planner predicate", () => {
   it("shouldCertifiedSkip only skips LIVE_PASS and never under rerun", () => {
     expect(shouldCertifiedSkip("airtable", "get_record", false)).toBe(true);
     expect(shouldCertifiedSkip("airtable", "get_record", true)).toBe(false); // rerun sweep
-    expect(shouldCertifiedSkip("microsoft-excel", "get_workbooks", false)).toBe(false); // BLOCKED_ENV runs
+    expect(shouldCertifiedSkip("microsoft-excel", "get_workbooks", false)).toBe(true); // now LIVE_PASS → skipped
     expect(shouldCertifiedSkip("native", "format_transformer", false)).toBe(false); // baseline runs
   });
 
@@ -105,9 +111,9 @@ describe("certification matrix over the REAL registry", () => {
     expect(m.totals.livePass).toBeGreaterThan(0);
     expect(m.totals.missingFixture).toBeGreaterThan(0); // coverage gaps still surface
     expect(m.staleCerts).toEqual([]); // every seeded cert maps to a real action
-    // Excel is seeded BLOCKED_ENV (no accessible drive), not LIVE_PASS.
+    // Excel is LIVE_PASS after the get_workbooks OneDrive $filter fix.
     expect(m.rows.find((r) => r.provider === "microsoft-excel" && r.action === "get_workbooks")?.status).toBe(
-      "BLOCKED_ENV",
+      "LIVE_PASS",
     );
   });
 
