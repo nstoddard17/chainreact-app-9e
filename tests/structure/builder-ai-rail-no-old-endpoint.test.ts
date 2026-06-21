@@ -256,3 +256,134 @@ describe("legacy chat AI routes + client helpers retired (Phase 2)", () => {
     }
   });
 });
+
+/**
+ * HERMES-AGENT-RETIRE-LEGACY-PLAN-CHAT (Phase 3) — the route-less planner / diagnostics / chat-only
+ * repair SERVICES are deleted, the dead `AiPlan*` contract types are pruned, and the dead plan
+ * recorder is removed. The live deterministic-repair keep-set + the apply/repair recorders stay.
+ */
+describe("legacy route-less AI services retired (Phase 3)", () => {
+  const DELETED = [
+    "services/ai/planner",
+    "services/ai/diagnostics",
+    "services/ai/repair/planWorkflowRepair.ts",
+    "services/ai/repair/previewWorkflowRepair.ts",
+    "services/ai/repair/applyRepairPatch.ts",
+    "services/ai/repair/assessRepairApplyReadiness.ts",
+    "services/ai/repair/deterministicRepairPreview.ts",
+  ] as const;
+
+  it.each(DELETED)("%s is deleted", (rel) => {
+    expect(existsSync(resolve(process.cwd(), rel))).toBe(false);
+  });
+
+  it("the dead AiPlan* contract types are pruned from the apply client (applyWorkflowPatch stays)", () => {
+    const plan = read("lib/api/ai/plan.ts");
+    for (const t of ["AiPlanResult", "AiPlanSuccess", "AiPlanFailure", "AiModelMeta", "AiRequiredUserInput", "CurrentGraphSnapshot"]) {
+      expect(plan).not.toMatch(new RegExp(`\\b${t}\\b`));
+    }
+    expect(plan).toMatch(/applyWorkflowPatch/);
+  });
+
+  it("the dead plan recorder is gone; the live apply/repair recorders stay (module + barrel)", () => {
+    const rec = read("services/ai/events/recordAiRouteEvents.ts");
+    expect(rec).not.toMatch(/recordAiPlanOutcome/);
+    expect(rec).toMatch(/recordAiApplyOutcome/);
+    expect(rec).toMatch(/recordAiRepairOutcome/);
+    const barrel = read("services/ai/events/index.ts");
+    expect(barrel).not.toMatch(/recordAiPlanOutcome/);
+    expect(barrel).toMatch(/recordAiApplyOutcome/);
+    expect(barrel).toMatch(/recordAiRepairOutcome/);
+  });
+});
+
+/**
+ * CHAINREACT-AI-SURFACE-STRUCTURE-LOCKS — single consolidated lock for the intended ChainReact AI
+ * surface across the whole legacy-retirement arc. Encodes the architecture rules:
+ *   1. The visible builder AI is the account-scoped Hermes guidance rail (rail → panel → helper →
+ *      POST /api/accounts/[id]/ai/workflow-guidance).
+ *   3. Run-results repair = governed account suggestion (requestAccountWorkflowRepair) + explicit
+ *      apply (applyWorkflowPatch → /api/workflows/[id]/ai/apply) only.
+ *   4. No browser/client AI file leaks a gateway/model secret or imports the server-only gateway client.
+ *   5. Removed legacy modules stay removed.
+ *   6. The live keep-set stays present.
+ */
+describe("ChainReact AI surface — locked", () => {
+  // Rule 6 — live keep-set present.
+  const KEEP_SET = [
+    "features/workflow-builder/panels/BuilderGuidanceRail.tsx",
+    "features/workflows/WorkflowGuidancePanel.tsx",
+    "features/workflow-builder/panels/RunResultsRepairBlock.tsx",
+    "services/ai-guidance/index.ts",
+    "app/api/accounts/[id]/ai/workflow-guidance/route.ts",
+    "app/api/accounts/[id]/ai/workflow-repair/route.ts",
+    "app/api/workflows/[id]/ai/apply/route.ts",
+    "services/ai/repair/suggestWorkflowRepair.ts",
+    "services/ai/repair/repairStrategies.ts",
+    "services/ai/repair/repairPatchRef.ts",
+    "services/ai/repair/types.ts",
+  ] as const;
+  it.each(KEEP_SET)("%s is present (live keep-set)", (rel) => {
+    expect(existsSync(resolve(process.cwd(), rel))).toBe(true);
+  });
+
+  // Rule 5 — removed legacy modules stay removed (cross-phase summary lock).
+  const REMOVED = [
+    "features/workflow-builder/panels/BuilderAiPanel.tsx",
+    "features/workflow-builder/hooks/useBuilderAi.ts",
+    "features/workflow-builder/panels/useBuilderAiActions.ts",
+    "features/workflow-builder/panels/useBuilderDiagnosisActions.ts",
+    "features/workflow-builder/panels/useChatFill.ts",
+    "features/workflow-builder/panels/BuilderGuidanceEntry.tsx",
+    "services/ai/planner",
+    "services/ai/diagnostics",
+  ] as const;
+  it.each(REMOVED)("%s stays removed", (rel) => {
+    expect(existsSync(resolve(process.cwd(), rel))).toBe(false);
+  });
+
+  // Rule 1 + 3 — the builder rail delegates to the panel and adds no request/network logic, and must
+  // not import removed legacy client helpers or the server-only Hermes gateway client.
+  it("the builder rail delegates to WorkflowGuidancePanel and pulls in no removed helper / gateway client", () => {
+    const rail = read("features/workflow-builder/panels/BuilderGuidanceRail.tsx");
+    expect(rail).toMatch(/WorkflowGuidancePanel/);
+    expect(rail).not.toMatch(/\bfetch\s*\(/);
+    expect(rail).not.toMatch(/requestWorkflowGuidance/); // the panel owns the request
+    expect(rail).not.toMatch(/useBuilderAi\b|useBuilderAiActions|useBuilderDiagnosisActions|useChatFill|planWorkflow|completePlan/);
+    expect(rail).not.toMatch(/hermesAgentGatewayClient|ai-guidance\/gateway/);
+  });
+
+  // Rule 3 — run-results repair uses the governed suggestion helper + explicit apply only.
+  it("run-results repair uses requestAccountWorkflowRepair + applyWorkflowPatch only", () => {
+    const block = read("features/workflow-builder/panels/RunResultsRepairBlock.tsx");
+    expect(block).toMatch(/requestAccountWorkflowRepair/);
+    expect(block).toMatch(/applyWorkflowPatch/);
+    expect(block).not.toMatch(/\brequestWorkflowRepair\b/);
+    expect(block).not.toMatch(/\/ai\/repair\/(plan|preview|apply)/);
+  });
+
+  // Rule 4 — no browser/client AI file names a gateway/model secret or imports the gateway client.
+  const CLIENT_AI_SURFACE = [
+    "features/workflow-builder/panels/BuilderGuidanceRail.tsx",
+    "features/workflows/WorkflowGuidancePanel.tsx",
+    "features/workflow-builder/panels/RunResultsRepairBlock.tsx",
+    "lib/api/ai/guidance.ts",
+    "lib/api/ai/workflowRepair.ts",
+    "lib/api/ai/plan.ts",
+    "lib/api/ai/runRepair.ts",
+  ] as const;
+  it.each(CLIENT_AI_SURFACE)("%s names no gateway/model secret and no server-only gateway client", (rel) => {
+    const src = read(rel);
+    for (const pat of [
+      /CHAINREACT_AI_GATEWAY_TOKEN/,
+      /OPENAI_API_KEY|api\.openai\.com/i,
+      /nousresearch/i,
+      /onrender\.com/,
+      /\/api\/hermes-agent\/guidance/, // server-only gateway endpoint
+      /hermesAgentGatewayClient/, // server-only gateway client
+      /services\/ai-guidance\/gateway/, // server-only gateway module subtree
+    ]) {
+      expect({ rel, pat: String(pat), matched: pat.test(src) }).toEqual({ rel, pat: String(pat), matched: false });
+    }
+  });
+});

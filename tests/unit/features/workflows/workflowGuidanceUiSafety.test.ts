@@ -2,23 +2,40 @@
  * @jest-environment node
  *
  * Hermes guidance UI — boundary/safety guards (HERMES-AGENT-GUIDANCE-UI).
- * Proves the browser surface (panel + client helper) talks ONLY to the ChainReact route and never
- * to the Render gateway / a model vendor / Nous / the private Hermes Agent, holds no token, and
- * touches no workflow-mutation API. Static source scan.
+ * Proves the browser surface (panel + client helper + builder rail) talks ONLY to the ChainReact
+ * route and never to the Render gateway / a model vendor / Nous / the private Hermes Agent, holds no
+ * token, and touches no workflow-mutation API. Static source scan.
+ *
+ * Builder entry path (CHAINREACT-AI-SURFACE-STRUCTURE-LOCKS): the legacy floating
+ * `BuilderGuidanceEntry` was deleted in the Hermes legacy-retirement arc. The visible builder AI is
+ * now the left rail: BuilderGuidanceRail → WorkflowGuidancePanel → requestWorkflowGuidance →
+ * POST /api/accounts/[id]/ai/workflow-guidance.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PANEL = resolve(process.cwd(), "features/workflows/WorkflowGuidancePanel.tsx");
 const HELPER = resolve(process.cwd(), "lib/api/ai/guidance.ts");
-const BUILDER_ENTRY = resolve(
+const BUILDER_RAIL = resolve(
   process.cwd(),
-  "features/workflow-builder/panels/BuilderGuidanceEntry.tsx",
+  "features/workflow-builder/panels/BuilderGuidanceRail.tsx",
 );
 const PREVIEW_OVERLAY = resolve(
   process.cwd(),
   "features/workflow-builder/canvas/BuilderPreviewOverlay.tsx",
 );
+
+/**
+ * Read source with comments stripped, so the scan asserts on actual CODE — not the explanatory
+ * doc comments (which legitimately NAME the gateway / token / deprecated endpoints to document that
+ * the surface deliberately avoids them).
+ */
+function readCode(path: string): string {
+  return readFileSync(path, "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "") // block comments
+    .replace(/([^:])\/\/.*$/gm, "$1") // trailing line comments (keep `://` in URLs)
+    .replace(/^\s*\/\/.*$/gm, ""); // full-line comments
+}
 
 describe("guidance UI — calls only the ChainReact route, no forbidden surface", () => {
   it("the client helper targets only the account guidance route", () => {
@@ -52,17 +69,23 @@ describe("guidance UI — calls only the ChainReact route, no forbidden surface"
     }
   });
 
-  it("the builder entry reuses the panel, makes no direct fetch, and touches no mutation/gateway/vendor", () => {
-    const src = readFileSync(BUILDER_ENTRY, "utf8");
-    // Reuses the existing dashboard panel rather than re-implementing request logic.
+  it("the builder rail reuses the panel, makes no direct request, and imports no removed helper / gateway client / vendor", () => {
+    // Scan CODE (comments stripped): the rail's doc comment legitimately names the gateway/token to
+    // document that it avoids them. The rail delegates ALL request logic to WorkflowGuidancePanel —
+    // BuilderGuidanceRail → WorkflowGuidancePanel → requestWorkflowGuidance → account route.
+    const src = readCode(BUILDER_RAIL);
     expect(src).toContain("WorkflowGuidancePanel");
     for (const pat of [
-      /\bfetch\s*\(/, // no direct fetch from the builder entry
-      /requestWorkflowGuidance/, // no direct helper call either — the panel owns the request
-      /onrender\.com|\/api\/hermes-agent\/guidance|hermesAgentGatewayClient/,
+      /\bfetch\s*\(/, // no direct fetch from the rail
+      /requestWorkflowGuidance/, // the panel owns the request, not the rail
+      // removed legacy builder-AI client helpers must never come back to the rail
+      /useBuilderAi\b|useBuilderAiActions|useBuilderDiagnosisActions|useChatFill|planWorkflow|completePlan/,
+      // server-only Hermes gateway client must never be imported into the browser rail
+      /hermesAgentGatewayClient|ai-guidance\/gateway/,
+      /onrender\.com|\/api\/hermes-agent\/guidance/,
       /nousresearch|api\.openai\.com/i,
       /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
-      // workflow mutation / execution from this advisory entry
+      // workflow mutation / execution from this advisory rail
       /updateWorkflow|saveDraftDefinition|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/,
     ]) {
       expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
