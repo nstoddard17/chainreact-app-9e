@@ -98,6 +98,27 @@ describe("workflow_guidance_intake — advisory result + governance", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("HERMES-AGENT-MEMORY-SCOPE-GUARD: a foreign-member private connection becomes a generic notice in the prompt, no ids leak", async () => {
+    enable();
+    const fetchImpl = okFetch(envelope("ok"));
+    await runWorkflowGuidanceIntakeCapability(
+      {
+        scope: { userId: "viewer-1", accountId: "acc1", workflowId: "wf1" },
+        goalText: "improve this",
+        definition: { nodes: [{ id: "n1", kind: "action", provider: "gmail", type: "send_email", config: {}, position: { x: 0, y: 0 } }], edges: [] },
+        contextInputs: { account: { type: "team" }, workflowCreatedByUserId: "creator-OTHER" },
+      },
+      { fetchImpl },
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const body = String(fetchImpl.mock.calls[0]![1].body);
+    expect(body).toContain("private connection owned by another member");
+    expect(body).toContain("Use only the context included in this request");
+    // The viewer/creator ids are used only for the comparison — they never reach the prompt.
+    expect(body).not.toContain("viewer-1");
+    expect(body).not.toContain("creator-OTHER");
+  });
+
   it("a gateway provider error maps to a safe typed failure (PROVIDER_ERROR)", async () => {
     enable();
     const fetchImpl = okFetch({ ok: false, error: "HERMES_AGENT_ERROR", response: { error: { message: "downstream secret detail" } } });

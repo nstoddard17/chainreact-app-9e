@@ -22,9 +22,14 @@
  */
 
 import type { GuidanceUnavailableCode, WorkflowGuidanceRequest } from "@/contracts/aiGuidance";
+import type { AccountType } from "@/contracts/accounts";
 import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import { sanitizeWorkflowForGuidance } from "@/services/ai-guidance/sanitizeWorkflowForGuidance";
+import {
+  buildSafeGuidanceContext,
+  type SafeGuidanceContext,
+} from "@/services/ai-guidance/guidanceContextPolicy";
 import {
   requestHermesAgentGuidanceNormalized,
   type GatewayFetch,
@@ -49,6 +54,21 @@ export interface WorkflowGuidanceIntakeInput {
   readonly definition?: WorkflowDefinition;
   /** Optional public capability catalog (provider:type keys) — safe, not user data. */
   readonly capabilityCatalog?: readonly string[];
+  /**
+   * HERMES-AGENT-MEMORY-SCOPE-GUARD — server-resolved raw inputs for the scope-guarded context. The
+   * route gathers these under existing authorization; the client never supplies them. Optional fields
+   * are simply omitted from the context when not safely available. Identity (userId) comes from
+   * `scope`, not here.
+   */
+  readonly contextInputs?: {
+    readonly account: { readonly type: AccountType; readonly role?: string };
+    /** Creator of the authorized workflow (own-vs-foreign comparison only). */
+    readonly workflowCreatedByUserId?: string;
+    /** Account-shared connection providers known available (safe). */
+    readonly sharedCredentialProviders?: readonly string[];
+    /** The caller's OWN connection providers (safe for them). */
+    readonly ownConnectionProviders?: readonly string[];
+  };
 }
 
 export interface WorkflowGuidanceIntakeDeps {
@@ -95,6 +115,30 @@ export async function runWorkflowGuidanceIntakeCapability(
 
   const request = buildSafeRequest(input.definition);
 
+  // HERMES-AGENT-MEMORY-SCOPE-GUARD — build the scope-guarded context from server-resolved inputs. The
+  // selector guarantees no other-member private data / secrets / identity ever crosses the boundary.
+  const context: SafeGuidanceContext | undefined = input.contextInputs
+    ? buildSafeGuidanceContext({
+        viewerUserId: input.scope.userId,
+        account: input.contextInputs.account,
+        // Workflow scope only when there's an authorized workflow draft (definition present + creator).
+        ...(input.definition && input.contextInputs.workflowCreatedByUserId
+          ? {
+              workflow: {
+                createdByUserId: input.contextInputs.workflowCreatedByUserId,
+                generalized: request.workflow,
+              },
+            }
+          : {}),
+        ...(input.contextInputs.sharedCredentialProviders
+          ? { sharedCredentialProviders: input.contextInputs.sharedCredentialProviders }
+          : {}),
+        ...(input.contextInputs.ownConnectionProviders
+          ? { ownConnectionProviders: input.contextInputs.ownConnectionProviders }
+          : {}),
+      })
+    : undefined;
+
   // Run through the governance allow-list. Scope is shape-validated here; a future route owns the
   // real account-membership authorization. The injected recorder (if any) emits one safe audit row.
   const outcome = await runAuthorizedCapability<NormalizedGatewayGuidance>({
@@ -109,6 +153,7 @@ export async function runWorkflowGuidanceIntakeCapability(
         config,
         goalText: input.goalText,
         ...(input.capabilityCatalog ? { capabilityCatalog: input.capabilityCatalog } : {}),
+        ...(context ? { context } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
       }),
   });

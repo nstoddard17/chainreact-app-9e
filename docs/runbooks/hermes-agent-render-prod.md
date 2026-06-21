@@ -230,6 +230,26 @@ failures map to 503 `GUIDANCE_UNAVAILABLE`.
   (the Hermes Agent does), so there is nothing to attribute and **no migration** is required. Usage
   reconciliation is a future slice.
 
+### AI context / memory scope (HERMES-AGENT-MEMORY-SCOPE-GUARD)
+
+**A team/shared account does NOT mean shared private AI memory.** Guidance is **request-scoped** —
+there is no durable Hermes/ChainReact AI memory store, and the guidance/session/audit tables are NOT a
+memory source. `services/ai-guidance/guidanceContextPolicy.ts` (`buildSafeGuidanceContext`) is the
+deterministic guard for what context a request may carry:
+
+- **Allowed:** account type/role summary; account-SHARED connection availability (personal providers
+  filtered out); the caller's OWN connection availability; the route-authorized workflow's safe shape;
+  the capability registry; generic product patterns.
+- **Blocked (never representable in the output):** other members' private AI memory / preferences /
+  connections / credentials / prior prompts; OAuth/refresh tokens, secrets, sensitive provider account
+  ids; raw emails/messages/files; raw Supabase rows; service-role data; full audit payloads; the
+  caller's own userId / account id / email / name (identity stays server-side for auth+audit).
+- When a workflow uses a personal connection owned by **another member**, guidance gets only a generic
+  notice (no owner identity/credential). The route gathers raw inputs (account type via
+  `accounts.getById`, workflow `createdByUserId` for the own-vs-foreign comparison only) and the
+  capability runner builds the safe context via the policy. **No env/operational change.** Credential-
+  availability summaries are not yet wired from a live source (the guard omits them until then).
+
 ### UI entry point — "Build with me" (HERMES-AGENT-GUIDANCE-UI / -UI-BUILDER)
 
 The user-facing surface: a small advisory panel on the workflows dashboard

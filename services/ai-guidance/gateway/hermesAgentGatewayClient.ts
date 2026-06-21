@@ -34,6 +34,7 @@ import {
   type HermesAgentGatewayConfig,
 } from "./gatewayConfig";
 import { buildGatewayGuidancePrompt } from "./buildGatewayGuidancePrompt";
+import type { SafeGuidanceContext } from "../guidanceContextPolicy";
 import { normalizeGatewayResponse, type NormalizedGatewayGuidance } from "./gatewayResponseContract";
 
 /** Minimal injectable HTTP seam — decoupled from DOM fetch typing so tests mock it trivially. */
@@ -86,12 +87,15 @@ export async function requestHermesAgentGuidanceNormalized(params: {
   config: HermesAgentGatewayConfig;
   goalText?: string;
   capabilityCatalog?: readonly string[];
+  /** Scope-guarded context (HERMES-AGENT-MEMORY-SCOPE-GUARD). */
+  context?: SafeGuidanceContext;
   fetchImpl?: GatewayFetch;
 }): Promise<NormalizedGatewayGuidance> {
   const prompt = buildGatewayGuidancePrompt({
     request: params.request,
     ...(params.goalText ? { goalText: params.goalText } : {}),
     ...(params.capabilityCatalog ? { capabilityCatalog: params.capabilityCatalog } : {}),
+    ...(params.context ? { context: params.context } : {}),
   });
 
   const body = JSON.stringify({ prompt });
@@ -134,6 +138,7 @@ export async function requestHermesAgentGuidance(params: {
   config: HermesAgentGatewayConfig;
   goalText?: string;
   capabilityCatalog?: readonly string[];
+  context?: SafeGuidanceContext;
   fetchImpl?: GatewayFetch;
 }): Promise<GuidanceResult> {
   return toGuidanceResult(await requestHermesAgentGuidanceNormalized(params));

@@ -11,6 +11,7 @@ import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
+import * as accountsRepo from "@/repositories/accounts";
 
 /**
  * POST /api/accounts/[id]/ai/workflow-guidance (HERMES-AGENT-CAPABILITY-ROUTE).
@@ -105,11 +106,15 @@ export async function POST(
 
   // 3. Optional workflow context — must belong to THIS account + caller is a member (else 404).
   let definition: import("@/contracts/workflow").WorkflowDefinition | undefined;
+  let workflowCreatedByUserId: string | undefined;
   if (workflowId) {
     const wf = await loadWorkflowForMember(workflowId, userId);
     if (!wf.ok) return wf.response;
     if (wf.record.accountId !== accountId) return workflowNotFoundResponse(); // cross-account → no leak
     definition = wf.record.draftDefinition;
+    // Creator id is used ONLY for the scope guard's own-vs-foreign private-connection comparison;
+    // it is never sent to Hermes (the guard converts it to a generic notice, no owner identity).
+    workflowCreatedByUserId = wf.record.createdByUserId;
   }
 
   // 4. Hermes availability BEFORE any charge — disabled/unconfigured → 503, no charge, no network.
@@ -121,12 +126,23 @@ export async function POST(
   const gate = await aiCreditGate({ accountId, feature: "workflow_guidance", plannedTier: "fast" });
   if (!gate.ok) return aiCreditDenialResponse(gate);
 
+  // HERMES-AGENT-MEMORY-SCOPE-GUARD — resolve the account-scope summary for the context guard. Only
+  // the account TYPE crosses the boundary (never the id/name). Credential-availability summaries are
+  // not wired this slice (no existing safe source) — the guard simply omits them. Falls back to
+  // "personal" if the account row can't be read (no teammates → no cross-member leak risk).
+  const account = await accountsRepo.getById(accountId);
+  const accountType = account?.type ?? "personal";
+
   // 6. Run the advisory capability through the governance seam (audited). Read-only — no mutation.
   const result = await runWorkflowGuidanceIntakeCapability(
     {
       scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
       goalText,
       ...(definition ? { definition } : {}),
+      contextInputs: {
+        account: { type: accountType },
+        ...(workflowCreatedByUserId ? { workflowCreatedByUserId } : {}),
+      },
     },
     { auditRecorder: reactAgentAuditRecorder },
   );

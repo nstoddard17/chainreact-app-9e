@@ -14,6 +14,7 @@
  */
 
 import type { WorkflowGuidanceRequest } from "@/contracts/aiGuidance";
+import type { SafeGuidanceContext } from "../guidanceContextPolicy";
 
 export interface BuildGatewayPromptInput {
   /** Already-sanitized request (generalized shape + guidance kind + safe finding codes). */
@@ -22,7 +23,20 @@ export interface BuildGatewayPromptInput {
   readonly goalText?: string;
   /** Public capability catalog the brain may propose from (provider:type keys). Safe — not user data. */
   readonly capabilityCatalog?: readonly string[];
+  /**
+   * Scope-guarded context (HERMES-AGENT-MEMORY-SCOPE-GUARD) — account summary, account-shared /
+   * own-connection availability, and a private-connection notice. Built by `buildSafeGuidanceContext`,
+   * which guarantees no other-member private data / secrets / identity ever appears here.
+   */
+  readonly context?: SafeGuidanceContext;
 }
+
+/**
+ * Hard scope instruction sent every request (HERMES-AGENT-MEMORY-SCOPE-GUARD). The REAL enforcement
+ * is in ChainReact code (the selector decides what crosses the boundary); this just reinforces it.
+ */
+const CONTEXT_SCOPE_INSTRUCTION =
+  "Use only the context included in this request. Do not infer or claim access to other team members' private data, credentials, messages, files, or memories.";
 
 /**
  * Defensive redaction of obvious secret/token shapes from user free text. The goal text is the
@@ -64,13 +78,31 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     ? `Known issues (codes): ${input.request.findingCodes.join(", ")}`
     : "";
 
+  // Scope-guarded context (account-safe only). Each line is omitted when its field is absent.
+  const ctx = input.context;
+  const accountLine = ctx
+    ? `Account context: type=${ctx.account.type}${ctx.account.role ? `, your role=${ctx.account.role}` : ""}.`
+    : "";
+  const sharedConnLine = ctx?.sharedCredentialProviders?.length
+    ? `Shared account connections available: ${ctx.sharedCredentialProviders.join(", ")}.`
+    : "";
+  const ownConnLine = ctx?.ownConnectionProviders?.length
+    ? `Your own connected accounts: ${ctx.ownConnectionProviders.join(", ")}.`
+    : "";
+  const privateConnLine = ctx?.privateConnectionNotice ?? "";
+
   return [
     `Guidance kind: ${input.request.guidanceKind}`,
     goalLine,
     shapeLine,
     findingsLine,
     catalogLine,
+    accountLine,
+    sharedConnLine,
+    ownConnLine,
+    privateConnLine,
     RESPONSE_FORMAT_INSTRUCTIONS,
+    CONTEXT_SCOPE_INSTRUCTION,
     "This is advice only. ChainReact validates any proposed plan and is the only thing that can build, change, or run a workflow.",
   ]
     .filter((l) => l.length > 0)

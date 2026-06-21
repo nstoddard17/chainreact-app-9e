@@ -55,12 +55,15 @@ jest.mock("@/services/ai/reactAgent/capabilities/workflowGuidanceIntake", () => 
   runWorkflowGuidanceIntakeCapability: (...a: unknown[]) => mockRunner(...a),
 }));
 
+const mockGetAccount = jest.fn();
+jest.mock("@/repositories/accounts", () => ({ getById: (...a: unknown[]) => mockGetAccount(...a) }));
+
 import { POST } from "@/app/api/accounts/[id]/ai/workflow-guidance/route";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 
 const ACCOUNT = "acct-1";
 const guidanceOk = { ok: true, guidanceText: "What app do your leads live in?", source: "hermes-agent", workflowPlan: null };
-const wfRecord = { id: "wf-1", accountId: ACCOUNT, draftDefinition: { nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual_trigger", config: {} }], edges: [] } };
+const wfRecord = { id: "wf-1", accountId: ACCOUNT, createdByUserId: "user-1", draftDefinition: { nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual_trigger", config: {} }], edges: [] } };
 
 function call(id: string, body: unknown) {
   return POST(
@@ -82,6 +85,7 @@ beforeEach(() => {
   mockConfig.mockReset().mockReturnValue({ gatewayUrl: "https://gw.example.com", gatewayToken: "tok", timeoutMs: 30000 });
   mockAuditRecord.mockReset().mockResolvedValue(undefined);
   mockRunner.mockReset().mockResolvedValue(guidanceOk);
+  mockGetAccount.mockReset().mockResolvedValue({ id: ACCOUNT, type: "team" });
 });
 
 describe("workflow-guidance route — auth + membership", () => {
@@ -198,6 +202,20 @@ describe("workflow-guidance route — capability call + safe response", () => {
     const [input, deps] = mockRunner.mock.calls[0]!;
     expect(input).toMatchObject({ scope: { userId: "user-1", accountId: ACCOUNT }, goalText: goodBody.goalText });
     expect(deps).toEqual({ auditRecorder: reactAgentAuditRecorder });
+  });
+
+  it("passes scope-guard contextInputs (account type + workflow creator) to the runner — never the body", async () => {
+    await call(ACCOUNT, { ...goodBody, workflowId: "wf-1" });
+    const [input] = mockRunner.mock.calls[0]!;
+    expect(input.contextInputs).toEqual({ account: { type: "team" }, workflowCreatedByUserId: "user-1" });
+    // accountId/type came from the server (URL param + accounts repo), never the request body.
+    expect(mockGetAccount).toHaveBeenCalledWith(ACCOUNT);
+  });
+
+  it("no workflowId → contextInputs carries account type only (no workflow creator)", async () => {
+    await call(ACCOUNT, goodBody);
+    const [input] = mockRunner.mock.calls[0]!;
+    expect(input.contextInputs).toEqual({ account: { type: "team" } });
   });
 
   it("success → 200 with guidanceText/source/workflowPlan ONLY (no raw envelope/usage/prompt/secret)", async () => {

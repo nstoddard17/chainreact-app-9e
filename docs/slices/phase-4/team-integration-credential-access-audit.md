@@ -204,3 +204,14 @@ Keep the schema. **Do not** change ownership (`account_id`) or remove `connected
   `20260530000003_workflows_account_cutover.sql` (`workflows.created_by_user_id` provenance),
   `20260505000002_integrations.sql` (base schema; no `status`).
 - Manifests: `tokenScope` tally 44 `"user"` / 3 `"workspace"` — not a reliable sharing classifier.
+
+## AI guidance context note (HERMES-AGENT-MEMORY-SCOPE-GUARD, 2026-06-21)
+
+The same personal-vs-account credential classification (`core/integrations/credentialSharing.ts`)
+now also gates what AI workflow guidance may learn about credentials. `buildSafeGuidanceContext`
+(`services/ai-guidance/guidanceContextPolicy.ts`) may summarize **account-shared** connection
+availability and the **caller's own** connections, but NEVER another member's private connection — a
+team workflow that uses a personal-provider connection owned by a different member yields only a
+generic notice (no owner identity/credential). A team/shared account does not share private AI memory;
+guidance is request-scoped (no durable AI memory store). See
+`docs/slices/phase-5/hermes-agent-production-topology.md` (AI context / memory scopes).
