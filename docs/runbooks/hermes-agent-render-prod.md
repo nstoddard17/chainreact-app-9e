@@ -188,7 +188,25 @@ failures map to 503 `GUIDANCE_UNAVAILABLE`.
 - **No `ai_cost_events` telemetry row** is written: ChainReact makes **no direct model call** here
   (the Hermes Agent does), so there is nothing to attribute and **no migration** is required. Usage
   reconciliation is a future slice.
-- **Still no UI.** A later slice adds the client entry point.
+
+### UI entry point — "Build with me" (HERMES-AGENT-GUIDANCE-UI)
+
+The first user-facing surface: a small advisory panel on the workflows dashboard/start page
+([`app/workflows/page.tsx`](../../app/workflows/page.tsx) → [`features/workflows/WorkflowGuidancePanel.tsx`](../../features/workflows/WorkflowGuidancePanel.tsx)).
+The user types a vague automation goal, submits, and sees Hermes Agent guidance / clarifying
+questions. **Advisory only — it never creates / changes / runs a workflow.**
+
+- The panel is **server-gated on `HERMES_AGENT_ENABLED`** — when the flag is OFF (default) the page
+  does **not render the panel at all** (no dead box). The `accountId` is the page's resolved active
+  account, passed as a prop — never client-supplied.
+- The browser calls **only** the ChainReact route via the `requestWorkflowGuidance` client helper
+  ([`lib/api/ai/guidance.ts`](../../lib/api/ai/guidance.ts)) — never the Render gateway, a model
+  vendor, Nous, or the private Hermes Agent, and it never holds a token (a static test enforces this).
+- Failures map to safe copy ("AI workflow guidance is temporarily unavailable.") — no internal error,
+  provider status, raw envelope, or usage is shown.
+- **Operational note:** enabling `HERMES_AGENT_ENABLED` (+ gateway config) in an environment makes
+  this panel appear on the workflows page for that environment's users. The credit gate
+  (`workflow_guidance`) only deducts when `ENABLE_AI_CREDIT_ENFORCEMENT=true`.
 
 ## 6. Opt-in live smoke
 

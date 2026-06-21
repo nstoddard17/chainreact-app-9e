@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-21 @ 383654b80 (+ HERMES-AGENT-CAPABILITY-ROUTE: gated POST /api/accounts/[id]/ai/workflow-guidance — auth+membership+freeze+optional-workflow-ownership+aiCreditGate(workflow_guidance)+persistent audit recorder; billing gap CLOSED; no ai_cost_events/no migration; advisory response only; no UI. + HERMES-AGENT-CAPABILITY: advisory React Agent capability workflow_guidance_intake (read_only, audited, gated, server-only via runAuthorizedCapability). + HERMES-AGENT-RESPONSE-CONTRACT: strict Zod gateway envelope schema + normalizeGatewayResponse → advisory NormalizedGatewayGuidance, fail-closed, workflowPlan null unless validateWorkflowPlan passes; live smoke healthy end-to-end. + HERMES-AGENT-PROD-CLIENT: server-only Render gateway client shipped, gated/inert; Render prod infra live, sandbox skipped; gateway now VERIFIED healthy after Render-side fixes. + HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
+> Last curated: 2026-06-21 @ 245a9bcf6 (+ HERMES-AGENT-GUIDANCE-UI: first user-facing "Build with me" advisory panel on workflows dashboard, server-gated on HERMES_AGENT_ENABLED, calls only the route via client helper, renders guidanceText; no mutation/no direct gateway. + HERMES-AGENT-CAPABILITY-ROUTE: gated POST /api/accounts/[id]/ai/workflow-guidance — auth+membership+freeze+optional-workflow-ownership+aiCreditGate(workflow_guidance)+persistent audit recorder; billing gap CLOSED; no ai_cost_events/no migration; advisory response only. + HERMES-AGENT-CAPABILITY: advisory React Agent capability workflow_guidance_intake (read_only, audited, gated, server-only via runAuthorizedCapability). + HERMES-AGENT-RESPONSE-CONTRACT: strict Zod gateway envelope schema + normalizeGatewayResponse → advisory NormalizedGatewayGuidance, fail-closed, workflowPlan null unless validateWorkflowPlan passes; live smoke healthy end-to-end. + HERMES-AGENT-PROD-CLIENT: server-only Render gateway client shipped, gated/inert; Render prod infra live, sandbox skipped; gateway now VERIFIED healthy after Render-side fixes. + HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
 
 ## Current status
 
@@ -120,6 +120,19 @@
   Gmail(15)/Outlook(11) registry meta-count tests without weakening. Selector ids are discovered into gitignored
   `.env.local` only — no secrets/selectors/account-or-run/workflow-ids/raw provider payloads stored. Nothing
   pushed/deployed/db:pushed → [`docs/runbooks/action-smoke-cli.md`](./runbooks/action-smoke-cli.md).
+- **HERMES-AGENT-GUIDANCE-UI — first user-facing "Build with me" panel — LOCAL/UNPUSHED (2026-06-21)** — advisory
+  guidance UI on the workflows dashboard. `features/workflows/WorkflowGuidancePanel.tsx` (textarea + submit + loading
+  + safe error + renders `guidanceText` under "Guidance") mounted in `app/workflows/page.tsx`, **server-gated on
+  `isHermesAgentEnabled()`** (default OFF → panel not rendered, no dead box); `accountId` = page's resolved active
+  account (prop, never client-supplied). Client helper `lib/api/ai/guidance.ts` `requestWorkflowGuidance({accountId,
+  goalText, workflowId?})` → `postStructured` → `POST /api/accounts/[id]/ai/workflow-guidance` (barreled via
+  lib/api/ai.ts). Browser calls ONLY the ChainReact route — never gateway/vendor/Nous/private-Hermes, never a token
+  (static-scan test); component makes no direct fetch. Failures → safe "AI workflow guidance is temporarily
+  unavailable." (credits denial shows its own safe msg); never shows internal error/envelope/usage. **ADVISORY ONLY:
+  no workflow create/mutate/apply/run; no plan extraction (workflowPlan opaque, not rendered).** Verified: tsc clean,
+  352 tests pass (9 new UI: render/disabled-empty/success/failure/loading/workflowId-forward/no-direct-call + route +
+  reactAgent + ai-guidance green), lint:structure OK, eslint 0. Docs: runbook UI section + topology UI→route→capability
+  path. Next: HERMES-AGENT-PLAN-EXTRACTION; optional builder-rail entry passing in-context workflowId.
 - **HERMES-AGENT-CAPABILITY-ROUTE — gated server route for workflow guidance — LOCAL/UNPUSHED (2026-06-21)** — added
   `POST /api/accounts/[id]/ai/workflow-guidance` ([route.ts](./../app/api/accounts/[id]/ai/workflow-guidance/route.ts)).
   Gate order: `requireUserWithAccount(id)` (auth + account membership + freeze; accountId from URL param NEVER body,

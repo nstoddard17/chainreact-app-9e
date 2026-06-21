@@ -33,3 +33,4 @@ export * from "./ai/plan";
 export * from "./ai/thread";
 export * from "./ai/diagnostics";
 export * from "./ai/runRepair";
+export * from "./ai/guidance";

@@ -43,6 +43,23 @@ Vercel ChainReact app
 | Gateway barrel + `resolveServerGuidanceProvider()` (gateway-when-enabled, else noop) | [`services/ai-guidance/gateway/index.ts`](../../../services/ai-guidance/gateway/index.ts) |
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 | **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
+| **UI entry point** "Build with me" advisory panel (workflows dashboard; server-gated on `HERMES_AGENT_ENABLED`; calls only the route via the client helper) — HERMES-AGENT-GUIDANCE-UI | [`features/workflows/WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) + helper [`lib/api/ai/guidance.ts`](../../../lib/api/ai/guidance.ts) |
+
+### End-to-end advisory path (UI → route → capability → gateway)
+
+```
+"Build with me" panel (browser, workflows page)
+  → requestWorkflowGuidance() helper → POST /api/accounts/[id]/ai/workflow-guidance
+    → route: auth + membership + freeze + optional-workflow-ownership + availability + aiCreditGate
+      → runWorkflowGuidanceIntakeCapability → runAuthorizedCapability (audited)
+        → requestHermesAgentGuidanceNormalized → Render gateway → private Hermes Agent → OpenAI
+      ← NormalizedGatewayGuidance (guidanceText, advisory)
+  ← { ok, guidanceText, source, workflowPlan, warnings? }  (safe; no envelope/usage/token)
+panel renders guidanceText under "Guidance"
+```
+
+The browser never holds a token or calls the gateway/vendor directly; the route is the only boundary
+it touches. Nothing on this path creates, changes, or runs a workflow.
 
 **Gated + inert:** the client only calls out when `HERMES_AGENT_ENABLED=true` AND the gateway env is
 present AND a server caller explicitly constructs it. It is NOT the app-runtime default, and nothing
@@ -81,8 +98,11 @@ the regression-localization checklist.
    `aiCreditGate` (feature `workflow_guidance`) + persistent audit recorder, then the runner.
    **Billing gap closed.** No `ai_cost_events` row / no migration (ChainReact makes no direct model
    call). **No UI yet.**
-4. **HERMES-AGENT-GUIDANCE-UI** — a client entry point (e.g. in the builder) that POSTs to the route
-   and renders `guidanceText` / clarifying questions. The route already exists and is safe.
+4. ✅ **HERMES-AGENT-GUIDANCE-UI (done)** — "Build with me" advisory panel on the workflows
+   dashboard (server-gated on `HERMES_AGENT_ENABLED`), calls only the route via the client helper,
+   renders `guidanceText`. No mutation, no direct gateway/vendor calls.
 5. **HERMES-AGENT-PLAN-EXTRACTION** — when the agent starts returning structured plans, parse the
    plan from `guidanceText`/a plan object and gate it through `validateWorkflowPlan` before it is
    ever surfaced as usable (still advisory, still no mutation).
+6. **HERMES-AGENT-GUIDANCE-UI-BUILDER** (optional) — a second entry inside the builder rail that
+   passes the in-context `workflowId` (the helper + route already support it).

@@ -11,6 +11,8 @@ import { resolveAccountPlan } from "@/services/billing/planCapabilities";
 import { computeViewerCanRunEditBatch, toWorkflowListItem } from "@/app/api/workflows/_shared";
 import { toWorkflowFolder } from "@/app/api/folders/_shared";
 import { WorkflowsDashboard } from "@/features/workflows/WorkflowsDashboard";
+import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
+import { isHermesAgentEnabled } from "@/services/ai-guidance/gateway/gatewayConfig";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
@@ -95,6 +97,10 @@ export default async function WorkflowsPage() {
       recentNotifications={bell.recentNotifications}
     >
       <main className="flex w-full flex-col p-6 sm:p-8">
+        {/* HERMES-AGENT-GUIDANCE-UI — advisory "Build with me" entry point. Server-gated on
+            HERMES_AGENT_ENABLED (default OFF) so it doesn't render a dead box where Hermes is off.
+            accountId is the resolved active account — never client-supplied. */}
+        {isHermesAgentEnabled() && <WorkflowGuidancePanel accountId={ownerAccount.id} />}
         <WorkflowsDashboard
           initialWorkflows={workflows}
           initialFolders={folders}
