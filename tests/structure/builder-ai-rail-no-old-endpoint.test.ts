@@ -167,3 +167,40 @@ describe("legacy run-repair route retired", () => {
     expect(read("features/workflow-builder/panels/RunResultsRepairBlock.tsx")).toMatch(/applyWorkflowPatch/);
   });
 });
+
+/**
+ * HERMES-AGENT-RETIRE-LEGACY-PLAN-CHAT (Phase 1) — the unmounted legacy builder chat UI subtree
+ * (BuilderAiPanel + its hooks + the chat-only `ai/*` helpers) is deleted. The shared rendering views
+ * used by the live run-results repair block survive.
+ */
+describe("legacy builder chat UI subtree retired (Phase 1)", () => {
+  const DELETED = [
+    "features/workflow-builder/panels/BuilderAiPanel.tsx",
+    "features/workflow-builder/panels/useBuilderAiActions.ts",
+    "features/workflow-builder/panels/useBuilderDiagnosisActions.ts",
+    "features/workflow-builder/panels/useChatFill.ts",
+    "features/workflow-builder/hooks/useBuilderAi.ts",
+    "features/workflow-builder/ai/composeFollowUpPrompt.ts",
+    "features/workflow-builder/ai/deterministicCompletion.ts",
+    "features/workflow-builder/ai/setupFindings.ts",
+    "features/workflow-builder/ai/chatFillAction.ts",
+  ] as const;
+
+  it.each(DELETED)("%s is deleted", (rel) => {
+    expect(existsSync(resolve(process.cwd(), rel))).toBe(false);
+  });
+
+  it("the shared ai/ barrel keeps ONLY the live repair views (no chat-only helper exports)", () => {
+    const src = read("features/workflow-builder/ai/index.ts");
+    expect(src).toMatch(/AiBulletList/);
+    expect(src).toMatch(/AiRequiredInputList/);
+    // Chat-only helpers no longer exported.
+    expect(src).not.toMatch(/composeFollowUpPrompt|evaluateDeterministicCompletion|prepareChatFill|setupFindingCards|RequiredInputControl/);
+  });
+
+  it("the live run-results repair block still uses the shared views (kept)", () => {
+    const src = read("features/workflow-builder/panels/RunResultsRepairBlock.tsx");
+    expect(src).toMatch(/AiBulletList/);
+    expect(src).toMatch(/AiRequiredInputList/);
+  });
+});

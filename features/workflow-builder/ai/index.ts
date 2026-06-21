@@ -1,20 +1,12 @@
 /**
  * Shared AI result-rendering views (Slice 4.AI-14).
  *
- * Consumed by both the Builder AI panel (planner / preview / apply) and the
- * failed-run repair block. Surface-specific structure (cards, disclosures,
- * apply buttons, copy) stays in each consumer — these are the small pieces
- * with real, repeated rendering logic, extracted to eliminate drift.
- *
- * Intentionally NOT extracted (each surface owns its own version):
- *   - Preview summary card — Builder shows full validation/risk/cost; Repair
- *     shows a minimal `<details>` disclosure. Different scope per surface.
- *   - Apply state messages — copy is surface-specific
- *     ("Plan another change" vs "Re-run the workflow to verify").
- *   - Risk acknowledgement vs in-button confirmation — different mental
- *     models, different UX.
- *
- * See docs/slices/phase-4/ai-architecture-react-agent-plan.md AI-14 note.
+ * HERMES-AGENT-RETIRE-LEGACY-PLAN-CHAT (2026-06-21): the legacy builder chat subtree
+ * (BuilderAiPanel + its hooks + the chat-only `ai/*` helpers) was removed. The only
+ * remaining LIVE consumer of this module is the run-results repair block
+ * (`RunResultsRepairBlock`), which renders these two small, self-contained views. The
+ * chat-only helpers (composeFollowUpPrompt, deterministicCompletion, chatFill*,
+ * setup/attention findings, RequiredInputControl, etc.) were deleted with the chat.
  */
 
 export { AiBulletList } from "./AiBulletList";
@@ -29,54 +21,3 @@ export type {
   AiRequiredInputListProps,
   AiRequiredInputVariant,
 } from "./AiRequiredInputList";
-
-export { composeFollowUpPrompt } from "./composeFollowUpPrompt";
-export type {
-  ComposeFollowUpPromptInput,
-  ComposeFollowUpStructuredAnswer,
-} from "./composeFollowUpPrompt";
-
-export { RequiredInputControl, requiredInputKey } from "./RequiredInputControl";
-export type { RequiredInputAnswer } from "./RequiredInputControl";
-
-export {
-  resolveRequiredInputControl,
-  isRequiredInputControlRenderable,
-} from "./resolveRequiredInputControl";
-export type { RequiredInputControlKind } from "./resolveRequiredInputControl";
-
-export { evaluateDeterministicCompletion } from "./deterministicCompletion";
-export type {
-  DeterministicCompletionDecision,
-  ResolvedRequiredInputAnswer,
-} from "./deterministicCompletion";
-
-export { canExplainDiagnosis } from "./canExplainDiagnosis";
-
-export { firstMissingFieldNodeId, missingFieldNodeIds } from "./firstMissingFieldNodeId";
-
-export { setupFindingCards } from "./setupFindings";
-export type { SetupFindingAction, SetupFindingCard } from "./setupFindings";
-
-export { attentionFindingCards } from "./attentionFindings";
-export type { AttentionFindingCard } from "./attentionFindings";
-
-export {
-  isChatFillEligible,
-  validateChatFillValue,
-  MAX_CHAT_FILL_VALUE_LENGTH,
-} from "./chatFillEligibility";
-export type {
-  ChatFillEligibility,
-  ChatFillEligibilityInput,
-  ChatFillIneligibleReason,
-  ChatFillValueResult,
-  ChatFillValueReason,
-} from "./chatFillEligibility";
-
-export { prepareChatFill, applyChatFillToDraft } from "./chatFillAction";
-export type {
-  ChatFillInput,
-  ChatFillProposal,
-  ChatFillResult,
-} from "./chatFillAction";

@@ -317,3 +317,22 @@ the regression-localization checklist.
     scan gained retirement guards (legacy route file gone, `requestWorkflowRepair` absent from the client
     code, account route still present, UI keeps explicit apply). No behaviour change to the governed route,
     the deterministic suggester, or apply. No migration.
+19. ✅ **HERMES-AGENT-RETIRE-LEGACY-PLAN-CHAT — Phase 1 (UI subtree) (done)** — deleted the unmounted legacy
+    builder chat AI UI layer. Audit (grep) first confirmed: `BuilderAiPanel` has ZERO JSX mounts; the only
+    LIVE importer of `features/workflow-builder/ai/*` is `RunResultsRepairBlock` (uses `AiBulletList` +
+    `AiRequiredInputList`, which are self-contained); no live code imports any chat-only `ai/*` helper.
+    **Removed (37 source + 60 tests = 97 files):** `BuilderAiPanel.tsx` + all 14 `_BuilderAiPanel*`, the
+    chat hooks (`useBuilderAi`, `useBuilderAiActions`, `useBuilderDiagnosisActions`, `useChatFill`,
+    `_builderAgentPersistence`), and the 17 chat-only `ai/*` helpers (composeFollowUpPrompt,
+    deterministicCompletion, detectIntentCorrection, classifyComposerIntent, canExplainDiagnosis,
+    firstMissingFieldNodeId, setupFindings, attentionFindings, chatFill*, shouldRouteChatFill,
+    useChatFillTarget, useRepairFieldTarget, resolveRequiredInputControl, RequiredInputControl,
+    RequiredInputOptionsSourceControl) + their ~49 UI tests. **Kept (live):** `ai/AiBulletList` +
+    `ai/AiRequiredInputList` (+ slimmed `ai/index.ts`) used by `RunResultsRepairBlock`; the Hermes
+    `BuilderGuidanceRail`; the governed repair route; `applyWorkflowPatch` / `/ai/apply`; the deterministic
+    repair services/validators/types. **Deferred to Phase 2:** the now-UI-orphaned chat-only ROUTES
+    (`/ai/{plan,complete,thread,diagnose*,repair/plan,repair/preview,repair/apply*}`), their client helpers
+    (`planWorkflow`, `completePlan`, thread/diagnose/repair-plan/preview), and chat-only services — all still
+    compile (dead, no UI consumer). Stale rail-payload comments updated `BuilderAiPanel`→`BuilderGuidanceRail`.
+    Structural scan gained Phase-1 guards (chat files deleted, barrel slimmed, repair block keeps the shared
+    views). `tsc` clean; no behaviour change to the rail / repair / apply; no migration.

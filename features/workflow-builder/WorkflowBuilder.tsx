@@ -78,7 +78,7 @@ interface Props {
  * mode. The below-canvas RunNowPanel + RunResultsPanel mounts are
  * gone; there's exactly one of each visible at any time.
  *
- * Slice 4.BUILDER-LEFT-AGENT-1 — the React Agent (BuilderAiPanel)
+ * Slice 4.BUILDER-LEFT-AGENT-1 — the React Agent rail (BuilderGuidanceRail)
  * moved from the below-canvas slot into the new
  * `BuilderLeftAgentRail`, a persistent left rail that is visible by
  * default on desktop and collapsible via the header toggle. The right

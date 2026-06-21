@@ -11,7 +11,7 @@ interface Props {
    */
   banner?: ReactNode;
   /**
-   * Workflow-builder-scoped left rail — the React Agent (BuilderAiPanel).
+   * Workflow-builder-scoped left rail — the React Agent (BuilderGuidanceRail).
    * Optional so the shell stays usable from tests that only exercise the
    * header / content split. Slice 4.BUILDER-LEFT-AGENT-1.
    */

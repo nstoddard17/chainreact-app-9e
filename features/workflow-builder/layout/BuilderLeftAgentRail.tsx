@@ -20,7 +20,7 @@ interface Props {
    */
   onCollapse: () => void;
   /**
-   * Rail payload — the `BuilderAiPanel` in production. Kept as a slot so
+   * Rail payload — the `BuilderGuidanceRail` in production. Kept as a slot so
    * the wrapper itself stays free of AI-service logic and tests can
    * substitute a placeholder.
    */
@@ -31,7 +31,7 @@ interface Props {
  * Builder left rail container (Slice 4.BUILDER-LEFT-AGENT-1, restyled
  * in 4.BUILDER-DESIGN-PARITY-1).
  *
- * Hosts the workflow-builder-scoped React Agent (BuilderAiPanel) inside
+ * Hosts the workflow-builder-scoped React Agent (BuilderGuidanceRail) inside
  * the dense Anthropic ChainV2 chat frame: gradient sparkle logo, name +
  * connected status line, in-rail icon buttons (new conversation /
  * history / collapse), then the payload region.
@@ -40,7 +40,7 @@ interface Props {
  * collapsed (vertical spine). The previous 420px width is intentionally
  * tighter here — the design optimizes for a denser middle canvas at
  * 1280-wide laptops; the rail still has room for the chat composer
- * (which renders inside `BuilderAiPanel`).
+ * (which renders inside `BuilderGuidanceRail`).
  *
  * Scope guardrail: workflow-builder-scoped only. MUST NOT mount the
  * general app-level assistant. (See port plan §0 / §4 / §10.)
@@ -156,7 +156,7 @@ export function BuilderLeftAgentRail({
         AI-21B — the rail container previously owned the scroll
         (`overflow-y-auto`). That collapsed the chat layout because the
         whole rail scrolled together; messages and composer had no way to
-        split. We now hand scroll ownership down to `BuilderAiPanel` so it
+        split. We now hand scroll ownership down to `BuilderGuidanceRail` so it
         can run a `flex-1 overflow-y-auto` message list with a pinned
         composer footer underneath. The rail keeps `min-h-0` so the inner
         flex child can shrink as needed.
