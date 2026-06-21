@@ -1,11 +1,47 @@
 # Guided setup on the holographic preview — audit + design (HERMES-AGENT-RAIL-PRODUCT-LABEL-AND-GUIDED-PREVIEW-DESIGN)
 
-> **Design + Phase 1–4 status.** The audit/design below is unchanged. **Phase 1
+> **Design + Phase 1–5 status.** The audit/design below is unchanged. **Phase 1
 > (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1) is IMPLEMENTED**; **Phase 2
 > (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX) REDIRECTED the canvas surface to visual-only**; **Phase 3
 > (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX) RE-HOMED the setup controls into the React rail**; **Phase
 > 4 (HERMES-AGENT-GUIDED-PREVIEW-SETUP-ASYNC-OPTIONS-AND-DASHBOARD-CLEANUP) added async optionsSource
-> dropdowns to the rail card + removed the dashboard "Build with me" card** — see the status boxes.
+> dropdowns to the rail card + removed the dashboard "Build with me" card**; **Phase 5
+> (HERMES-AGENT-PREFER-PARTIAL-PREVIEW-WITH-SETUP) tuned the guidance prompt to return a preview for a
+> clear shape even when config is missing** — see the status boxes.
+
+## Phase 5 status — IMPLEMENTED (PREFER PARTIAL PREVIEW + GUIDED SETUP)
+
+**Observed live (2026-06-21):** for "When I run this manually, send a Slack message to a channel
+reminding the team to review new leads," React returned only plain-text questions ("Which Slack
+channel? Generic or specific?") and NO preview / setup card. The shape was clear (Manual Run → Slack
+Send Channel Message); the channel + message are config fields, not a reason to block the preview.
+
+**Fix (prompt-only — no contract/fallback change).** The contract already supports partial previews:
+plan steps carry `requiredInputs` → `planToDraftPreview` maps them to per-node `missingInputs` → the
+rail setup card collects them. The blocker was the prompt telling the model to omit the plan when detail
+is missing. `services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts` `RESPONSE_FORMAT_INSTRUCTIONS`
+now:
+- Separates SHAPE (which trigger/actions, in what order) from CONFIG VALUES (channel, recipient, message
+  text, dates). Missing config is NOT a reason to withhold the plan.
+- Tells the model: when the shape is clear, RETURN the plan and list unknown field keys in
+  `requiredInputs` (leaving values out); ChainReact collects them with its guided setup form — do NOT
+  ask for a channel/recipient/message text before returning the plan.
+- Restricts clarifying-questions-first to genuine SHAPE ambiguity (which trigger/action, which provider,
+  or materially different possible structures). "Missing config values alone never make the shape
+  ambiguous."
+- Keeps the fenced ```json plan contract, the catalog-only provider:type rule, and the
+  "nothing is created/saved/run" disclaimer.
+
+**No deterministic fallback added** (requirement #3): there is no existing goal→plan mapping subsystem
+(the legacy planner was removed), so a deterministic fallback would be a new subsystem — out of scope.
+If the live model still asks questions-only after this prompt change, a deterministic shape inferer is
+the recommended next slice.
+
+**Safety unchanged:** `validateWorkflowPlan` + preview validation still gate every plan (fail closed on
+invalid); ChainReact never auto-creates/saves/activates/runs; selected setup values are never sent to
+Hermes.
+
+---
 
 ## Phase 4 status — IMPLEMENTED (ASYNC OPTIONS IN THE RAIL + DASHBOARD CLEANUP)
 

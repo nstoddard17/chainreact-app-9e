@@ -527,6 +527,50 @@ describe("builder apply-preview — guided setup card in the rail (HERMES-AGENT-
     expect((reshown as HTMLTextAreaElement).value).toBe("");
   });
 
+  it("HERMES-AGENT-PREFER-PARTIAL-PREVIEW-WITH-SETUP — a partial plan (clear shape, missing config) renders holographic nodes + the setup card with the async channel dropdown + message control (no 'Choose after Apply')", async () => {
+    const user = userEvent.setup();
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [{ value: "C2", label: "#leads" }], hasMore: false });
+    // Hermes returns guidance + a PARTIAL plan: shape is clear (manual → slack send), channel/text unknown.
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Here's a manual-run reminder to Slack.",
+      source: "hermes-agent",
+      workflowPlan,
+      previewDraft: previewMissing(["channel", "message"]),
+    });
+    render(
+      <WorkflowBuilder
+        workflow={workflow([], [])}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+        requiredFieldsByType={{ "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "channel", label: "Channel" }, { name: "message", label: "Message" }] } }}
+        setupFieldsByType={{
+          "slack:send_message": [
+            { name: "channel", label: "Channel", type: "select-async" as const, required: true, optionsSource: "slack:channels" },
+            { name: "message", label: "Message", type: "textarea" as const, required: true },
+          ],
+        }}
+        accountId="acct-1"
+        guidanceEnabled
+      />,
+    );
+    await showPreview(user);
+    await screen.findByTestId("builder-preview-overlay");
+
+    // Preview appeared for the clear shape despite missing config: holographic nodes render visual-only.
+    expect(screen.getAllByTestId("builder-preview-node")).toHaveLength(2);
+    expect(document.querySelector("[data-testid='builder-preview-overlay'] input,[data-testid='builder-preview-overlay'] select,[data-testid='builder-preview-overlay'] textarea")).toBeNull();
+    // Rail setup card: channel renders as an async DROPDOWN (not deferred), message as a textarea.
+    expect(screen.getByTestId("builder-preview-setup-rail")).toBeInTheDocument();
+    const channel = await screen.findByTestId("preview-setup-preview-step-2-channel");
+    expect(channel.tagName).toBe("SELECT");
+    expect(screen.getByTestId("preview-setup-preview-step-2-message").tagName).toBe("TEXTAREA");
+    expect(screen.queryByTestId("preview-setup-after-apply")).not.toBeInTheDocument(); // nothing deferred
+    // Channel options came from the resolver, not Hermes; the guidance helper was called once (submit).
+    expect(mockFetchOptionsSource.mock.calls[0]![0]).toBe("slack:channels");
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
   it("async Slack-channel dropdown loads via the resolver (not Hermes), and Apply seeds the picked channel + message", async () => {
     const user = userEvent.setup();
     mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [{ value: "C2", label: "#leads" }], hasMore: false });

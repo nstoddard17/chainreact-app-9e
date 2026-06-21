@@ -140,18 +140,29 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
 }
 
 /**
- * Response-format guidance for the Hermes Agent (HERMES-AGENT-PLAN-EXTRACTION). Asks for normal-
- * language help PLUS an OPTIONAL structured plan in a single fenced ```json block, only when there is
- * enough detail. The plan shape mirrors ChainReact's WorkflowPlan; provider/type MUST come from the
- * capability catalog above (ChainReact rejects anything it cannot find). The agent must NOT claim it
+ * Response-format guidance for the Hermes Agent (HERMES-AGENT-PLAN-EXTRACTION +
+ * HERMES-AGENT-PREFER-PARTIAL-PREVIEW-WITH-SETUP). Asks for normal-language help PLUS an OPTIONAL
+ * structured plan in a single fenced ```json block.
+ *
+ * KEY RULE (the partial-preview correction): the plan describes the workflow SHAPE (which trigger /
+ * actions, in what order). Missing CONFIG VALUES — a Slack channel, a recipient, the exact message
+ * text, dates — are NOT a reason to withhold the plan. ChainReact collects those itself with a guided
+ * setup UI (dropdowns / text fields) AFTER the user reviews the shape. So whenever the trigger/action
+ * shape is clear, the agent should RETURN the plan and list the unknown field keys in `requiredInputs`,
+ * rather than asking for those values first. Clarifying questions come first ONLY when the SHAPE itself
+ * is ambiguous. The plan shape mirrors ChainReact's WorkflowPlan; provider/type MUST come from the
+ * capability catalog (ChainReact rejects anything it cannot find). The agent must NOT claim it
  * created/changed/saved anything — ChainReact never applies a plan automatically.
  */
 const RESPONSE_FORMAT_INSTRUCTIONS = [
   "How to respond:",
-  "- Answer in clear, normal language first. If you need more detail, ask short clarifying questions.",
-  "- Only when you have enough detail, you MAY append ONE optional structured plan as a single fenced ```json code block, in this shape:",
+  "- Answer in clear, normal language first (one or two sentences is fine).",
+  "- The structured plan describes the workflow SHAPE — which trigger and actions, in what order. Missing CONFIG VALUES (e.g. which Slack channel, the recipient, the exact message text, specific dates) are NOT part of the shape and are NOT a reason to withhold the plan: ChainReact collects them itself with a guided setup form (dropdowns / text fields) after the user reviews the shape.",
+  "- When the trigger/action shape is clear, RETURN the plan even if specific config values are still unknown. List each unknown field key the step needs in that step's `requiredInputs` (e.g. \"channel\", \"text\") and leave the values out — do NOT ask the user for a channel, recipient, or message text before returning the plan.",
+  "- Append the plan as ONE optional structured plan in a single fenced ```json code block, in this shape:",
   '  {"title": "...", "summary": "...", "steps": [{"ref": "s0", "role": "trigger|action|logic", "provider": "<from the catalog>", "type": "<from the catalog>", "purpose": "...", "requiredInputs": ["fieldKey"]}], "clarifyingQuestions": ["..."]}',
   "- Every step's provider:type MUST be one of the listed ChainReact capabilities. Do not invent providers, actions, or triggers.",
-  "- If you do not have enough detail for a plan, OMIT the json block entirely — do not guess.",
+  "- Ask short clarifying questions FIRST (and OMIT the json block) ONLY when the SHAPE itself is ambiguous — e.g. you cannot tell which trigger or action to use, which app/provider the user means, or the request could map to materially different workflow structures. Missing config values alone never make the shape ambiguous.",
+  "- If the shape is genuinely unclear and you cannot pick capabilities from the catalog, OMIT the json block — do not guess providers/actions.",
   "- The plan is a suggestion for the user to review. Do NOT say you created, added, applied, saved, ran, or changed anything — nothing is changed in their workflow.",
 ].join("\n");

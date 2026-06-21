@@ -61,6 +61,26 @@ describe("buildGatewayGuidancePrompt — scope instruction + safe context", () =
   });
 });
 
+describe("buildGatewayGuidancePrompt — prefer partial preview + guided setup (HERMES-AGENT-PREFER-PARTIAL-PREVIEW-WITH-SETUP)", () => {
+  it("instructs the model to return a plan for a clear shape even when config values are missing, collected by ChainReact setup UI", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "send a slack message when I run this" });
+    // Missing config is not a reason to withhold the plan.
+    expect(prompt).toContain("RETURN the plan even if specific config values are still unknown");
+    // ChainReact collects the values itself (setup UI), not via more model calls / pre-plan questions.
+    expect(prompt).toContain("ChainReact collects them itself with a guided setup form");
+    // Unknown field keys go in requiredInputs.
+    expect(prompt).toContain("requiredInputs");
+    // Explicitly: do not ask for channel/recipient/message text before returning the plan.
+    expect(prompt).toContain("do NOT ask the user for a channel, recipient, or message text before returning the plan");
+  });
+
+  it("instructs the model to ask clarifying questions FIRST only when the SHAPE is ambiguous", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "do something" });
+    expect(prompt).toContain("ONLY when the SHAPE itself is ambiguous");
+    expect(prompt).toContain("Missing config values alone never make the shape ambiguous");
+  });
+});
+
 describe("buildGatewayGuidancePrompt — recent conversation (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE)", () => {
   it("renders the recent conversation turns as labeled lines (most recent last)", () => {
     const prompt = buildGatewayGuidancePrompt({
