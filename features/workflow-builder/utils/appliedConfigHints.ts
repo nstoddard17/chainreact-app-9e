@@ -83,3 +83,17 @@ export function buildAppliedConfigHints(
 export function appliedConfigHintNeedsAttention(hint: AppliedConfigHint): boolean {
   return !hint.hasMetadata || hint.missingFieldLabels.length > 0;
 }
+
+/**
+ * HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY — the first newly-added node that metadata
+ * CONFIRMS is incomplete (has at least one missing required field), in `appliedNodeIds` order, or
+ * `null` when none is. Deterministic + metadata-driven (NOT Hermes prose). A node with no metadata
+ * (`hasMetadata: false`) is deliberately NOT auto-opened — we can't confirm it's incomplete, so we do
+ * not force focus on it (the conservative "Review this step's required fields." notice still shows).
+ */
+export function firstIncompleteAppliedNodeId(hints: readonly AppliedConfigHint[]): string | null {
+  for (const hint of hints) {
+    if (hint.hasMetadata && hint.missingFieldLabels.length > 0) return hint.nodeId;
+  }
+  return null;
+}

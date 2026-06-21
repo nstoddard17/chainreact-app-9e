@@ -3,6 +3,7 @@ import type { RequiredFieldsByType } from "@/features/workflow-builder/validatio
 import {
   appliedConfigHintNeedsAttention,
   buildAppliedConfigHints,
+  firstIncompleteAppliedNodeId,
 } from "@/features/workflow-builder/utils/appliedConfigHints";
 
 /**
@@ -91,5 +92,35 @@ describe("buildAppliedConfigHints", () => {
     ];
     const hints = buildAppliedConfigHints(["b", "a"], nodes, requiredFieldsByType);
     expect(hints.map((h) => h.nodeId)).toEqual(["b", "a"]);
+  });
+});
+
+/**
+ * HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY — the deterministic "which node to open" pick.
+ * Metadata-driven: only a node CONFIRMED incomplete (known type + a missing required field) qualifies.
+ */
+describe("firstIncompleteAppliedNodeId", () => {
+  it("returns the FIRST metadata-incomplete node in appliedNodeIds order", () => {
+    const nodes = [
+      node({ id: "a", config: {} }), // slack:send_message — missing channel + message
+      node({ id: "c", config: {} }), // slack:send_message — missing channel + message
+      node({ id: "b", config: { channel: "C", message: "M" } }), // complete
+    ];
+    // Order puts the complete one first, then two incompletes — the FIRST incomplete (c) wins.
+    expect(firstIncompleteAppliedNodeId(buildAppliedConfigHints(["b", "c", "a"], nodes, requiredFieldsByType))).toBe("c");
+  });
+
+  it("returns null when every applied node is complete", () => {
+    const nodes = [node({ id: "a", config: { channel: "C", message: "M" } })];
+    expect(firstIncompleteAppliedNodeId(buildAppliedConfigHints(["a"], nodes, requiredFieldsByType))).toBeNull();
+  });
+
+  it("does NOT pick a node whose type has no metadata (cannot confirm incomplete)", () => {
+    const nodes = [node({ id: "x", provider: "unknown", type: "mystery", config: {} })];
+    expect(firstIncompleteAppliedNodeId(buildAppliedConfigHints(["x"], nodes, requiredFieldsByType))).toBeNull();
+  });
+
+  it("returns null for no applied nodes", () => {
+    expect(firstIncompleteAppliedNodeId([])).toBeNull();
   });
 });

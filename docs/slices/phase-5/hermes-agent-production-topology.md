@@ -78,6 +78,11 @@ panel renders guidanceText + a preview-only "Draft preview" (or text "Suggested 
     → "Apply preview" → planToBuilderPatch(validated plan) → graphSlice.applyAdditivePatch
         → inserted between the selected node and its sole child (A→new→B) / appended / side chain
         → proposed nodes/edges added to the LOCAL draft (dirty); user reviews fields + saves
+        → the FIRST newly-added node that metadata confirms is incomplete is auto-selected/opened for
+          editing (HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY) — navigation only (sets the
+          active node → inspector drawer), reuses the same deterministic missing-required-field signal
+          as the post-apply hints, never saves/activates/runs/mutates; opens nothing when no added node
+          is metadata-confirmed incomplete
 ```
 
 The browser never holds a token or calls the gateway/vendor directly; the route is the only boundary

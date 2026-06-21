@@ -10,7 +10,7 @@ import { planToBuilderPatch } from "@/services/ai-guidance/preview/planToBuilder
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
-import { buildAppliedConfigHints } from "./utils/appliedConfigHints";
+import { buildAppliedConfigHints, firstIncompleteAppliedNodeId } from "./utils/appliedConfigHints";
 import {
   BuilderTeamProvider,
   type BuilderTeamContextValue,
@@ -374,6 +374,19 @@ export function WorkflowBuilder({
       // the "Added from preview" badge and the notice lists each new node's still-empty required
       // fields (names only, from metadata). Nothing inferred / saved / run.
       setAppliedNodeIds(outcome.addedNodeIds);
+      // HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY — UX only: select + open the config rail
+      // for the FIRST newly-added node that metadata confirms still needs a required field, so the user
+      // can finish configuration immediately. Reads the post-apply graph fresh; `openNode` is
+      // navigation only (sets the active node → inspector drawer opens) and never saves / activates /
+      // runs / mutates the graph. When no added node is metadata-confirmed incomplete, nothing opens.
+      const postApplyNodes = useGraphSlice.getState().pendingNodes;
+      const incompleteId = firstIncompleteAppliedNodeId(
+        buildAppliedConfigHints(outcome.addedNodeIds, postApplyNodes, requiredFieldsByType),
+      );
+      if (incompleteId) {
+        const node = postApplyNodes.find((n) => n.id === incompleteId);
+        useConfigSlice.getState().openNode({ nodeId: incompleteId, initialValues: node?.config ?? {} });
+      }
     } else {
       // No patch could be built, or nothing safe to apply (e.g. trigger-only into a graph that
       // already has a trigger). Surface a safe, non-scary notice.
@@ -381,7 +394,7 @@ export function WorkflowBuilder({
       setAppliedNodeIds([]);
     }
     setPreviewOverlay(null);
-  }, [previewOverlay]);
+  }, [previewOverlay, requiredFieldsByType]);
 
   // Drawer rendering — one of three modes is active at a time.
   // Inspector only renders when activeNodeId is set so the drawer

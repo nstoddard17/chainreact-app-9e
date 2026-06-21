@@ -307,3 +307,90 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });
+
+describe("builder apply-preview — auto-open first incomplete node (HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY)", () => {
+  // Only slack:send_message has metadata (with required fields) → the gmail trigger is "no metadata".
+  const slackMeta = {
+    "slack:send_message": {
+      displayName: "Send Message",
+      requiredFields: [
+        { name: "channel", label: "Channel" },
+        { name: "message", label: "Message" },
+      ],
+    },
+  };
+  function renderWith(wf: WorkflowDetail, meta: Record<string, { displayName: string; requiredFields: { name: string; label: string }[] }>) {
+    return render(
+      <WorkflowBuilder
+        workflow={wf}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+        requiredFieldsByType={meta}
+        accountId="acct-1"
+        guidanceEnabled
+      />,
+    );
+  }
+
+  it("selects/opens the first newly-added node that metadata confirms is incomplete", async () => {
+    const user = userEvent.setup();
+    renderWith(workflow([], []), slackMeta);
+    await applyPreview(user);
+
+    await waitFor(() => {
+      const slack = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "slack" && n.type === "send_message");
+      expect(slack).toBeDefined();
+      // The metadata-incomplete Slack action is selected (its config rail opens via activeNodeId).
+      expect(useConfigSlice.getState().activeNodeId).toBe(slack!.id);
+    });
+    // The no-metadata gmail trigger is NOT auto-opened (we can't confirm it's incomplete).
+    const gmail = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "gmail");
+    expect(useConfigSlice.getState().activeNodeId).not.toBe(gmail!.id);
+    // Existing post-apply hints still render; nothing was saved.
+    expect(screen.getByTestId("builder-apply-config-hints")).toBeInTheDocument();
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("opens the FIRST incomplete in added order when multiple newly-added nodes are incomplete", async () => {
+    const user = userEvent.setup();
+    const bothMeta = {
+      "gmail:new_email": { displayName: "New Email", requiredFields: [{ name: "label", label: "Label" }] },
+      "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "channel", label: "Channel" }] },
+    };
+    renderWith(workflow([], []), bothMeta);
+    await applyPreview(user);
+
+    await waitFor(() => {
+      const gmail = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "gmail" && n.type === "new_email");
+      expect(gmail).toBeDefined();
+      // The trigger is added first → it is the FIRST incomplete → it is the one opened.
+      expect(useConfigSlice.getState().activeNodeId).toBe(gmail!.id);
+    });
+  });
+
+  it("does NOT force-open any node when all newly-added nodes are complete", async () => {
+    const user = userEvent.setup();
+    const completeMeta = {
+      "gmail:new_email": { displayName: "New Email", requiredFields: [] },
+      "slack:send_message": { displayName: "Send Message", requiredFields: [] },
+    };
+    renderWith(workflow([], []), completeMeta);
+    await applyPreview(user);
+    await screen.findByTestId("builder-apply-notice");
+    expect(useConfigSlice.getState().activeNodeId).toBeNull();
+  });
+
+  it("Show on canvas alone, then Discard, never selects/opens a node (and applies nothing)", async () => {
+    const user = userEvent.setup();
+    renderWith(workflow([], []), slackMeta);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
+    // Showing the preview overlay selects nothing.
+    expect(useConfigSlice.getState().activeNodeId).toBeNull();
+    await user.click(await screen.findByTestId("builder-preview-discard"));
+    // Discard still selects nothing and applied nothing to the draft.
+    expect(useConfigSlice.getState().activeNodeId).toBeNull();
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+  });
+});
