@@ -782,6 +782,56 @@ describe("WorkflowBuilder", () => {
       expect(rail.contains(panel)).toBe(true);
     });
 
+    // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — regression for the smoke-test bug where the rail
+    // header said "connected · Hermes" but the body showed the static "unavailable" note (no chat
+    // input). The header status and the body must always agree.
+    it("shows the chat composer AND a 'connected' header when Hermes is enabled + accountId is present", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+        />,
+      );
+      // Body: the conversational chat composer is present (the bug was this being absent).
+      expect(screen.getByTestId("workflow-guidance-submit")).toBeInTheDocument();
+      expect(screen.queryByTestId("builder-guidance-rail-unavailable")).not.toBeInTheDocument();
+      // Header agrees.
+      expect(screen.getByTestId("builder-left-agent-rail-status")).toHaveAttribute("data-connected", "true");
+    });
+
+    it("header is NOT 'connected' when the body shows the unavailable note (Hermes disabled)", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled={false}
+        />,
+      );
+      const note = screen.getByTestId("builder-guidance-rail-unavailable");
+      expect(note).toHaveAttribute("data-reason", "guidance-disabled");
+      expect(screen.queryByTestId("workflow-guidance-submit")).not.toBeInTheDocument();
+      // The screenshot contradiction (header connected + body unavailable) is now impossible.
+      expect(screen.getByTestId("builder-left-agent-rail-status")).toHaveAttribute("data-connected", "false");
+    });
+
+    it("unavailable reason is 'no-account' when Hermes is enabled but no account is resolved", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          guidanceEnabled
+        />,
+      );
+      expect(screen.getByTestId("builder-guidance-rail-unavailable")).toHaveAttribute("data-reason", "no-account");
+      expect(screen.getByTestId("builder-left-agent-rail-status")).toHaveAttribute("data-connected", "false");
+    });
+
     it("renders the builder guidance rail exactly once (no duplicate below-canvas mount)", () => {
       render(
         <WorkflowBuilder

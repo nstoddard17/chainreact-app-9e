@@ -452,6 +452,10 @@ export function WorkflowBuilder({
         <BuilderLeftAgentRail
           isCollapsed={leftRail.isCollapsed}
           onCollapse={leftRail.collapse}
+          // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — drive the header status from the SAME availability
+          // rule the rail body uses, so the header can't claim "connected · Hermes" while the body shows
+          // the "unavailable" note.
+          connected={guidanceEnabled === true && !!accountId}
         >
           {/* HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — the left rail is now the single, primary builder
               AI entry: Hermes workflow guidance (account route), NOT the deprecated plan endpoint.

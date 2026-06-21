@@ -54,7 +54,14 @@ export function BuilderGuidanceRail({
   guidanceEnabled,
   onShowPreview,
 }: BuilderGuidanceRailProps) {
-  const available = guidanceEnabled === true && !!accountId;
+  // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
+  // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
+  // safe `data-reason` (no secrets) so the empty-rail state is diagnosable in tests/logs. Only TRUE
+  // unavailable states qualify: Hermes disabled (`guidance-disabled`) or no resolved account
+  // (`no-account`). With both present, the chat input renders.
+  const unavailableReason: "guidance-disabled" | "no-account" | null =
+    guidanceEnabled !== true ? "guidance-disabled" : !accountId ? "no-account" : null;
+  const available = unavailableReason === null;
 
   return (
     <section
@@ -77,6 +84,7 @@ export function BuilderGuidanceRail({
       ) : (
         <div
           data-testid="builder-guidance-rail-unavailable"
+          data-reason={unavailableReason ?? undefined}
           className="m-2 rounded-md p-3 text-[12px]"
           style={{
             background: "var(--builder-panel-2)",

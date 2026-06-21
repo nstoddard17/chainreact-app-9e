@@ -20,6 +20,13 @@ interface Props {
    */
   onCollapse: () => void;
   /**
+   * HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — whether builder AI guidance is actually available
+   * (Hermes enabled AND an account is resolved — the SAME signal the rail body uses to render the chat
+   * vs. the "unavailable" note). The header status line reflects this so it can never claim
+   * "connected · Hermes" while the body shows "unavailable". Defaults to false (honest when omitted).
+   */
+  connected?: boolean;
+  /**
    * Rail payload — the `BuilderGuidanceRail` in production. Kept as a slot so
    * the wrapper itself stays free of AI-service logic and tests can
    * substitute a placeholder.
@@ -48,6 +55,7 @@ interface Props {
 export function BuilderLeftAgentRail({
   isCollapsed,
   onCollapse,
+  connected = false,
   children,
 }: Props) {
   if (isCollapsed) {
@@ -126,18 +134,24 @@ export function BuilderLeftAgentRail({
               React Agent
             </div>
             <div
+              data-testid="builder-left-agent-rail-status"
+              data-connected={connected ? "true" : "false"}
               className="builder-mono mt-0.5 flex items-center gap-1.5 text-[10.5px]"
               style={{ color: "var(--builder-muted)" }}
             >
               <span
                 aria-hidden
                 className="inline-block h-1.5 w-1.5 rounded-full"
-                style={{
-                  background: "var(--builder-success)",
-                  boxShadow: "0 0 0 2px var(--builder-success-soft)",
-                }}
+                style={
+                  connected
+                    ? {
+                        background: "var(--builder-success)",
+                        boxShadow: "0 0 0 2px var(--builder-success-soft)",
+                      }
+                    : { background: "var(--builder-muted)" }
+                }
               />
-              connected · Hermes
+              {connected ? "connected · Hermes" : "not connected"}
             </div>
           </div>
         </div>

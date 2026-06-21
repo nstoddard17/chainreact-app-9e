@@ -22,23 +22,30 @@ beforeEach(() => {
 });
 
 describe("BuilderGuidanceRail — gating", () => {
-  it("renders the guidance panel when enabled AND accountId is present", () => {
+  it("renders the guidance panel + chat input when enabled AND accountId is present", () => {
     render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
     expect(screen.getByTestId("builder-guidance-rail")).toBeInTheDocument();
     expect(screen.getByTestId("workflow-guidance-panel")).toBeInTheDocument();
+    // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — the conversational chat composer must be present.
+    expect(screen.getByTestId("workflow-guidance-submit")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Describe what to add or change/i)).toBeInTheDocument();
     expect(screen.queryByTestId("builder-guidance-rail-unavailable")).not.toBeInTheDocument();
   });
 
-  it("shows a safe unavailable note (no panel) when guidance is disabled", () => {
+  it("shows a safe unavailable note (reason: guidance-disabled) when guidance is disabled", () => {
     render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled={false} />);
     expect(screen.queryByTestId("workflow-guidance-panel")).not.toBeInTheDocument();
-    expect(screen.getByTestId("builder-guidance-rail-unavailable")).toBeInTheDocument();
+    const note = screen.getByTestId("builder-guidance-rail-unavailable");
+    expect(note).toBeInTheDocument();
+    expect(note).toHaveAttribute("data-reason", "guidance-disabled");
   });
 
-  it("shows the unavailable note when accountId is absent even if enabled", () => {
+  it("shows the unavailable note (reason: no-account) when accountId is absent even if enabled", () => {
     render(<BuilderGuidanceRail workflowId="wf-9" guidanceEnabled />);
     expect(screen.queryByTestId("workflow-guidance-panel")).not.toBeInTheDocument();
-    expect(screen.getByTestId("builder-guidance-rail-unavailable")).toBeInTheDocument();
+    const note = screen.getByTestId("builder-guidance-rail-unavailable");
+    expect(note).toBeInTheDocument();
+    expect(note).toHaveAttribute("data-reason", "no-account");
   });
 });
 
