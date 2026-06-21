@@ -1,4 +1,5 @@
 import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
+import { normalizeDependsOn } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 
 /**
@@ -19,16 +20,28 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  *     deterministic value the user types/picks locally; it is seeded into draft config on Apply and is
  *     NEVER sent to Hermes. (The apply-safety contract still guards AI auto-writes to recipients
  *     separately; this is explicit user input, not an AI write.)
+ *   - ASYNC single-select (`select-async`): a `select` / `combobox` field with an `optionsSource`
+ *     (HERMES-AGENT-GUIDED-PREVIEW-SETUP-ASYNC-OPTIONS). The rail card loads its options through the
+ *     EXISTING authenticated, account-scoped resolver (`GET /api/options/[source]` via
+ *     `useOptionsSource`) — the SAME path normal builder config uses, never a model/Hermes call.
+ *     `recipient`-class async fields (e.g. Slack `channel`) are allowed; only single-select (not
+ *     `multiple`). `dependsOn` is carried so the card can gate the field until its parent values exist
+ *     in previewConfig.
  *   - EXCLUDED entirely: `secret` / `connection` sensitivity (credential/token/account-identity
- *     material), an `optionsSource` (async provider resolver — the rail shows a "choose after Apply"
- *     deferred state instead), a `dependsOn` cascade, or `multiple`. These are never rendered or
- *     seeded pre-apply.
+ *     material), `multiple` (multi-select, deferred), and a NON-async `dependsOn` cascade. These are
+ *     never rendered or seeded pre-apply.
  *
  * `core/` may be imported by both the client (builder) and the server (page metadata build), and
  * imports only `contracts/`. Pure: no state, no fetch, no model call.
  */
 
-export type PreviewSetupFieldType = "text" | "textarea" | "number" | "boolean" | "select";
+export type PreviewSetupFieldType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "boolean"
+  | "select"
+  | "select-async";
 
 export interface PreviewSetupFieldOption {
   readonly value: string;
@@ -44,6 +57,13 @@ export interface PreviewSetupField {
   readonly placeholder?: string;
   /** Static options — present only for `select`. */
   readonly options?: readonly PreviewSetupFieldOption[];
+  /** Async resolver key (e.g. `slack:channels`) — present only for `select-async`. */
+  readonly optionsSource?: string;
+  /**
+   * Normalized parent field name(s) whose values gate this field's options — present only for
+   * `select-async` fields that declare `dependsOn`. The rail card reads these from previewConfig.
+   */
+  readonly dependsOn?: readonly string[];
 }
 
 /** `provider:type` (== meta.key) → its supported preview-setup fields. */
@@ -55,11 +75,28 @@ function toPreviewSetupField(f: FieldMeta): PreviewSetupField | null {
   // (it's a deterministic, locally-entered "where to send" value, seeded on Apply, never sent to
   // Hermes) — only `secret` / `connection` stay excluded.
   if (f.sensitivity === "secret" || f.sensitivity === "connection") return null;
-  // Async resolver dropdowns are deferred — the rail shows a "choose after Apply" state, no network.
-  if (f.optionsSource !== undefined) return null;
-  // Cascading + multi-value fields are deferred.
-  if (f.dependsOn !== undefined) return null;
+  // Multi-select is deferred (single-select only this slice).
   if (f.multiple === true) return null;
+
+  // Async resolver single-select: a select/combobox with an `optionsSource`. The rail card loads its
+  // options through the existing authenticated resolver (`/api/options/[source]`) — never a model call.
+  // `dependsOn` is carried so the card can gate the field until parent values exist in previewConfig.
+  if (f.optionsSource !== undefined) {
+    if (f.type !== "select" && f.type !== "combobox") return null;
+    const deps = normalizeDependsOn(f.dependsOn);
+    return {
+      name: f.name,
+      label: f.label,
+      type: "select-async",
+      required: f.required,
+      optionsSource: f.optionsSource,
+      ...(deps.length > 0 ? { dependsOn: deps } : {}),
+      ...(f.placeholder !== undefined ? { placeholder: f.placeholder } : {}),
+    };
+  }
+
+  // Non-async cascading fields stay deferred (no local control for them yet).
+  if (f.dependsOn !== undefined) return null;
 
   const base = {
     name: f.name,
@@ -122,6 +159,11 @@ export function sanitizeSeedConfig(
     } else if (f.type === "select") {
       // Keep only a value that matches the static options.
       if (typeof v === "string" && (!f.options || f.options.some((o) => o.value === v))) out[f.name] = v;
+    } else if (f.type === "select-async") {
+      // Async resolver value (e.g. a Slack channel id). Options are loaded at runtime, so we cannot
+      // validate against them here — keep any non-empty string. It's still keyed to a known field, so
+      // unknown/secret keys are never seeded; the resolved value is a provider RESOURCE id, not a token.
+      if (typeof v === "string") out[f.name] = v;
     } else if (typeof v === "string") {
       // text / textarea
       out[f.name] = v;

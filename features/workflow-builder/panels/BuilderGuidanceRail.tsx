@@ -112,6 +112,7 @@ export function BuilderGuidanceRail({
               {...(previewConfig ? { previewConfig } : {})}
               onPreviewConfigChange={onPreviewConfigChange}
               onApply={onApplyPreview}
+              workflowId={workflowId}
             />
           )}
         </>

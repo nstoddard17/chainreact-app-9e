@@ -1,19 +1,29 @@
 /**
  * BuilderPreviewSetupCard — guided preview setup re-homed into the React rail
- * (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX).
+ * (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX + -ASYNC-OPTIONS).
  *
  * Proves the rail setup card renders supported local controls for the latest preview's missing fields,
- * defers async/unsupported fields to a compact "Choose after Apply" line (no fake dropdown), updates
- * ONLY the ephemeral previewConfig via onPreviewConfigChange (no store/network/Hermes), and applies via
- * the existing explicit onApply. Recipient-class fields render as local controls; secret/connection
- * fields are excluded upstream (never in setupFieldsByType) so they never render here. Pure
- * presentational — no fetch, no model call.
+ * renders async optionsSource fields as a dropdown loaded through the EXISTING resolver helper
+ * (`fetchOptionsSource` → GET /api/options/[source]; NEVER Hermes), handles loading/empty/error/
+ * deferred states, updates ONLY the ephemeral previewConfig via onPreviewConfigChange (no store/Hermes),
+ * and applies via the existing explicit onApply. Recipient-class fields render as local/async controls;
+ * secret/connection fields are excluded upstream (never in setupFieldsByType) so they never render here.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+const mockFetchOptionsSource = jest.fn();
+jest.mock("@/lib/api/options", () => ({
+  __esModule: true,
+  fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
+}));
+
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BuilderPreviewSetupCard } from "@/features/workflow-builder/panels/BuilderPreviewSetupCard";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
+
+beforeEach(() => {
+  mockFetchOptionsSource.mockReset();
+});
 
 function preview(missing: readonly string[]): DraftPreview {
   return {
@@ -136,5 +146,146 @@ describe("BuilderPreviewSetupCard", () => {
     expect((screen.getByTestId("preview-setup-preview-step-2-text") as HTMLTextAreaElement).value).toBe(
       "Review new leads",
     );
+  });
+});
+
+describe("BuilderPreviewSetupCard — async optionsSource dropdown (HERMES-AGENT-GUIDED-PREVIEW-SETUP-ASYNC-OPTIONS)", () => {
+  // Slack-channel-like async single-select (recipient + optionsSource). The card loads options via the
+  // existing resolver helper (fetchOptionsSource), never Hermes.
+  const asyncFields: PreviewSetupFieldsByType = {
+    "slack:send_channel_message": [
+      { name: "channel", label: "Channel", type: "select-async", required: true, optionsSource: "slack:channels" },
+    ],
+  };
+  // A two-field cascade: tableId depends on baseId (both async).
+  const cascadeFields: PreviewSetupFieldsByType = {
+    "slack:send_channel_message": [
+      { name: "baseId", label: "Base", type: "select-async", required: true, optionsSource: "airtable:bases" },
+      { name: "tableId", label: "Table", type: "select-async", required: true, optionsSource: "airtable:tables", dependsOn: ["baseId"] },
+    ],
+  };
+  function asyncPreview(missing: readonly string[]): DraftPreview {
+    return {
+      version: 1,
+      title: "t",
+      summary: "s",
+      notice: "Preview only — your workflow has not changed.",
+      notApplied: true,
+      nodes: [
+        { previewId: "preview-step-1", role: "action", provider: "slack", type: "send_channel_message", label: "slack:send_channel_message", purpose: "notify", missingInputs: missing, notApplied: true },
+      ],
+      edges: [],
+    };
+  }
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((r) => { resolve = r; });
+    return { promise, resolve };
+  }
+
+  it("renders an async field as a dropdown populated through the resolver helper (not Hermes)", async () => {
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [{ value: "C1", label: "#general" }, { value: "C2", label: "#leads" }], hasMore: false });
+    render(
+      <BuilderPreviewSetupCard
+        preview={asyncPreview(["channel"])}
+        setupFieldsByType={asyncFields}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+        onApply={() => {}}
+        workflowId="wf-9"
+      />,
+    );
+    const select = await screen.findByTestId("preview-setup-preview-step-1-channel");
+    await waitFor(() => expect(select.querySelectorAll("option").length).toBe(3)); // placeholder + 2
+    expect(select).toHaveTextContent("#general");
+    expect(select).toHaveTextContent("#leads");
+    // Loaded through the existing options helper with the right source + workflow provenance — NOT Hermes.
+    expect(mockFetchOptionsSource).toHaveBeenCalled();
+    expect(mockFetchOptionsSource.mock.calls[0]![0]).toBe("slack:channels");
+    expect(mockFetchOptionsSource.mock.calls[0]![1]).toMatchObject({ workflowId: "wf-9" });
+  });
+
+  it("renders a loading state while options load", async () => {
+    const d = deferred<unknown>();
+    mockFetchOptionsSource.mockReturnValue(d.promise);
+    render(
+      <BuilderPreviewSetupCard preview={asyncPreview(["channel"])} setupFieldsByType={asyncFields} previewConfig={{}} onPreviewConfigChange={() => {}} onApply={() => {}} />,
+    );
+    const select = screen.getByTestId("preview-setup-preview-step-1-channel") as HTMLSelectElement;
+    expect(select.disabled).toBe(true);
+    expect(select).toHaveTextContent("Loading…");
+    d.resolve({ ok: true, source: "slack:channels", items: [{ value: "C1", label: "#general" }], hasMore: false });
+    await waitFor(() => expect(select.disabled).toBe(false));
+  });
+
+  it("renders an empty state safely when the resolver returns no options", async () => {
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [], hasMore: false });
+    render(
+      <BuilderPreviewSetupCard preview={asyncPreview(["channel"])} setupFieldsByType={asyncFields} previewConfig={{}} onPreviewConfigChange={() => {}} onApply={() => {}} />,
+    );
+    const select = await screen.findByTestId("preview-setup-preview-step-1-channel");
+    await waitFor(() => expect(select).toHaveTextContent("No options available"));
+    expect((select as HTMLSelectElement).disabled).toBe(true);
+  });
+
+  it("renders an error state with retry safely (does not crash) when the resolver fails", async () => {
+    mockFetchOptionsSource.mockResolvedValue({ ok: false, source: "slack:channels", code: "PROVIDER_ERROR", message: "boom" });
+    render(
+      <BuilderPreviewSetupCard preview={asyncPreview(["channel"])} setupFieldsByType={asyncFields} previewConfig={{}} onPreviewConfigChange={() => {}} onApply={() => {}} />,
+    );
+    expect(await screen.findByTestId("preview-setup-preview-step-1-channel-error")).toBeInTheDocument();
+    expect(screen.getByTestId("preview-setup-preview-step-1-channel-retry")).toBeInTheDocument();
+    // The raw provider detail is never surfaced.
+    expect(screen.getByTestId("preview-setup-preview-step-1-channel-error").textContent ?? "").not.toMatch(/boom/);
+  });
+
+  it("selecting an async option updates previewConfig only (no Hermes, no graph mutation)", async () => {
+    const onPreviewConfigChange = jest.fn();
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [{ value: "C2", label: "#leads" }], hasMore: false });
+    render(
+      <BuilderPreviewSetupCard preview={asyncPreview(["channel"])} setupFieldsByType={asyncFields} previewConfig={{}} onPreviewConfigChange={onPreviewConfigChange} onApply={() => {}} />,
+    );
+    const select = await screen.findByTestId("preview-setup-preview-step-1-channel");
+    await waitFor(() => expect(select.querySelectorAll("option").length).toBe(2));
+    fireEvent.change(select, { target: { value: "C2" } });
+    expect(onPreviewConfigChange).toHaveBeenCalledWith("preview-step-1", "channel", "C2");
+  });
+
+  it("defers an async field whose dependsOn parent is missing ('Choose … first', no fetch)", () => {
+    // The parent (baseId) is itself async and DOES fetch; the gated child (tableId) must not.
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "airtable:bases", items: [], hasMore: false });
+    render(
+      <BuilderPreviewSetupCard
+        preview={asyncPreview(["baseId", "tableId"])}
+        setupFieldsByType={cascadeFields}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+        onApply={() => {}}
+      />,
+    );
+    const tableSelect = screen.getByTestId("preview-setup-preview-step-1-tableId") as HTMLSelectElement;
+    expect(tableSelect.disabled).toBe(true);
+    expect(tableSelect).toHaveTextContent("Choose baseId first");
+    // Only the parent (baseId) fetched; the gated child made no resolver call.
+    expect(mockFetchOptionsSource.mock.calls.every((c) => c[0] !== "airtable:tables")).toBe(true);
+  });
+
+  it("passes available dependsOn values to the resolver when the parent is filled", async () => {
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "airtable:tables", items: [{ value: "tbl1", label: "Tasks" }], hasMore: false });
+    render(
+      <BuilderPreviewSetupCard
+        preview={asyncPreview(["baseId", "tableId"])}
+        setupFieldsByType={cascadeFields}
+        previewConfig={{ "preview-step-1": { baseId: "appXYZ" } }}
+        onPreviewConfigChange={() => {}}
+        onApply={() => {}}
+      />,
+    );
+    await screen.findByTestId("preview-setup-preview-step-1-tableId");
+    await waitFor(() => {
+      const tablesCall = mockFetchOptionsSource.mock.calls.find((c) => c[0] === "airtable:tables");
+      expect(tablesCall).toBeDefined();
+      expect(tablesCall![1]).toMatchObject({ deps: { baseId: "appXYZ" } });
+    });
   });
 });

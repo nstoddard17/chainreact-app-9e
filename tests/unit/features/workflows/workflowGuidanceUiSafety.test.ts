@@ -28,6 +28,7 @@ const PREVIEW_SETUP_CARD = resolve(
   process.cwd(),
   "features/workflow-builder/panels/BuilderPreviewSetupCard.tsx",
 );
+const WORKFLOWS_DASHBOARD_PAGE = resolve(process.cwd(), "app/workflows/page.tsx");
 
 /**
  * Read source with comments stripped, so the scan asserts on actual CODE — not the explanatory
@@ -108,6 +109,15 @@ describe("guidance UI — calls only the ChainReact route, no forbidden surface"
     ]) {
       expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
     }
+  });
+
+  it("the /workflows dashboard is NOT an AI composer surface — it does not mount WorkflowGuidancePanel (HERMES-AGENT-…-DASHBOARD-CLEANUP)", () => {
+    // The dashboard "Build with me" card was removed; the single AI build surface is the builder rail.
+    const src = readCode(WORKFLOWS_DASHBOARD_PAGE);
+    expect(src).not.toMatch(/WorkflowGuidancePanel/);
+    expect(src).not.toMatch(/isHermesAgentEnabled/);
+    // The builder rail STILL renders the panel (the panel itself is not deleted).
+    expect(readCode(BUILDER_RAIL)).toContain("WorkflowGuidancePanel");
   });
 
   it("the rail guided-setup card is presentational — no fetch, no store/mutation API, no Hermes/vendor (recipient values never leave the client until Apply)", () => {

@@ -37,6 +37,15 @@ jest.mock("@/lib/api/ai/guidance", () => ({
   requestWorkflowGuidance: (...a: unknown[]) => mockRequest(...a),
 }));
 
+// HERMES-AGENT-GUIDED-PREVIEW-SETUP-ASYNC-OPTIONS — the rail setup card loads async optionsSource
+// fields through the EXISTING resolver helper (fetchOptionsSource → /api/options/[source]), never
+// Hermes. Mock it so the dropdown populates deterministically; non-async tests never call it.
+const mockFetchOptionsSource = jest.fn();
+jest.mock("@/lib/api/options", () => ({
+  __esModule: true,
+  fetchOptionsSource: (...a: unknown[]) => mockFetchOptionsSource(...a),
+}));
+
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -80,6 +89,7 @@ function workflow(nodes: WorkflowDetail["draftDefinition"]["nodes"], edges: Work
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
+  mockFetchOptionsSource.mockReset();
   mockRequest.mockReset().mockResolvedValue({ ok: true, guidanceText: "Here's an idea.", source: "hermes-agent", workflowPlan, previewDraft });
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
@@ -515,5 +525,48 @@ describe("builder apply-preview — guided setup card in the rail (HERMES-AGENT-
     await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
     const reshown = await screen.findByTestId("preview-setup-preview-step-2-message");
     expect((reshown as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("async Slack-channel dropdown loads via the resolver (not Hermes), and Apply seeds the picked channel + message", async () => {
+    const user = userEvent.setup();
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [{ value: "C2", label: "#leads" }], hasMore: false });
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft: previewMissing(["channel", "message"]) });
+    render(
+      <WorkflowBuilder
+        workflow={workflow([], [])}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+        requiredFieldsByType={{ "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "channel", label: "Channel" }, { name: "message", label: "Message" }] } }}
+        setupFieldsByType={{
+          "slack:send_message": [
+            { name: "channel", label: "Channel", type: "select-async" as const, required: true, optionsSource: "slack:channels" },
+            { name: "message", label: "Message", type: "textarea" as const, required: true },
+          ],
+        }}
+        accountId="acct-1"
+        guidanceEnabled
+      />,
+    );
+    await showPreview(user);
+
+    // The channel dropdown loads through the resolver helper (NOT Hermes).
+    const channelSelect = await screen.findByTestId("preview-setup-preview-step-2-channel");
+    await waitFor(() => expect(channelSelect.querySelectorAll("option").length).toBe(2));
+    expect(mockFetchOptionsSource.mock.calls[0]![0]).toBe("slack:channels");
+
+    fireEvent.change(channelSelect, { target: { value: "C2" } });
+    fireEvent.change(screen.getByTestId("preview-setup-preview-step-2-message"), { target: { value: "Review new leads" } });
+    // Preview-only until Apply.
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+    // Guidance helper called exactly once (the initial submit) — never for option load/selection.
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTestId("builder-preview-setup-apply"));
+    await waitFor(() => expect(slackNode()).toBeDefined());
+    expect(slackNode()!.config).toEqual({ channel: "C2", message: "Review new leads" });
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+    // All required filled → no auto-open.
+    expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });
 });

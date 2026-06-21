@@ -46,16 +46,15 @@ describe("buildPreviewSetupFields", () => {
     expect(mode.options).toEqual([{ value: "a", label: "A" }, { value: "b", label: "B" }]);
   });
 
-  it("excludes secret/connection, async-resolver, cascading, multi-value, dynamic-select, and unsupported types", () => {
+  it("excludes secret/connection, multi-value, non-async cascading, dynamic-select-without-options, and unsupported types", () => {
     const map = buildPreviewSetupFields(
       [
         action("acme:do", [
           field({ name: "token", label: "Token", type: "text", required: true, sensitivity: "secret" }),
           field({ name: "conn", label: "Conn", type: "text", required: true, sensitivity: "connection" }),
-          field({ name: "channel", label: "Channel", type: "select", required: true, optionsSource: "slack:channels" }),
-          field({ name: "table", label: "Table", type: "select", required: true, dependsOn: "baseId", options: [{ value: "x", label: "X" }] }),
-          field({ name: "tags", label: "Tags", type: "select", required: false, multiple: true, options: [{ value: "x", label: "X" }] }),
-          field({ name: "dynsel", label: "Dyn", type: "select", required: true }), // no static options
+          field({ name: "table", label: "Table", type: "select", required: true, dependsOn: "baseId", options: [{ value: "x", label: "X" }] }), // non-async dependsOn
+          field({ name: "tags", label: "Tags", type: "select", required: false, multiple: true, optionsSource: "x:tags" }), // multi-select async deferred
+          field({ name: "dynsel", label: "Dyn", type: "select", required: true }), // no static options, no resolver
           field({ name: "kv", label: "KV", type: "keyvalue", required: false }),
           field({ name: "file", label: "File", type: "file", required: false }),
         ]),
@@ -65,21 +64,47 @@ describe("buildPreviewSetupFields", () => {
     expect(map["acme:do"]).toBeUndefined(); // nothing supported → type omitted entirely
   });
 
-  it("INCLUDES a recipient-class field when it renders as a supported LOCAL control (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX)", () => {
+  it("INCLUDES a recipient-class LOCAL field (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX)", () => {
     const map = buildPreviewSetupFields(
       [
         action("acme:send", [
           field({ name: "to", label: "To", type: "text", required: true, sensitivity: "recipient" }),
           field({ name: "secretTo", label: "SecretTo", type: "text", required: true, sensitivity: "secret" }),
-          // recipient + async resolver stays deferred (optionsSource excluded), e.g. Slack channel.
-          field({ name: "channel", label: "Channel", type: "select", required: true, sensitivity: "recipient", optionsSource: "slack:channels" }),
         ]),
       ],
       [],
     );
     const fields = map["acme:send"]!;
-    expect(fields.map((f) => f.name)).toEqual(["to"]); // recipient text in; secret + recipient-async out
+    expect(fields.map((f) => f.name)).toEqual(["to"]); // recipient text in; secret out
     expect(fields[0]!.type).toBe("text");
+  });
+
+  it("INCLUDES async single-select (select/combobox + optionsSource) as `select-async`, incl. recipient; excludes multi + secret (HERMES-AGENT-GUIDED-PREVIEW-SETUP-ASYNC-OPTIONS)", () => {
+    const map = buildPreviewSetupFields(
+      [
+        action("acme:async", [
+          // Slack-channel-like: combobox + optionsSource + recipient → supported async single-select.
+          field({ name: "channel", label: "Channel", type: "combobox", required: true, sensitivity: "recipient", optionsSource: "slack:channels" }),
+          // select + optionsSource + dependsOn → supported, carries normalized dependsOn for gating.
+          field({ name: "tableId", label: "Table", type: "select", required: true, dependsOn: "baseId", optionsSource: "airtable:tables" }),
+          // multi-select async → deferred (single-select only this slice).
+          field({ name: "labels", label: "Labels", type: "select", required: false, multiple: true, optionsSource: "x:labels" }),
+          // secret async → excluded.
+          field({ name: "apiKeyPick", label: "Key", type: "select", required: false, sensitivity: "secret", optionsSource: "x:keys" }),
+        ]),
+      ],
+      [],
+    );
+    const fields = map["acme:async"]!;
+    expect(fields.map((f) => f.name)).toEqual(["channel", "tableId"]);
+    const channel = fields.find((f) => f.name === "channel")!;
+    expect(channel.type).toBe("select-async");
+    expect(channel.optionsSource).toBe("slack:channels");
+    expect(channel.dependsOn).toBeUndefined();
+    const tableId = fields.find((f) => f.name === "tableId")!;
+    expect(tableId.type).toBe("select-async");
+    expect(tableId.optionsSource).toBe("airtable:tables");
+    expect(tableId.dependsOn).toEqual(["baseId"]);
   });
 
   it("keys triggers too, and omits types with no supported fields", () => {
@@ -111,6 +136,16 @@ describe("sanitizeSeedConfig", () => {
 
   it("ignores unknown keys entirely (never seeds a key absent from the supported metadata)", () => {
     expect(sanitizeSeedConfig({ accessToken: "ya29.SECRET", message: "ok" }, fields)).toEqual({ message: "ok" });
+  });
+
+  it("keeps a non-empty async-select value (resolver options unknown at sanitize time), drops empty", () => {
+    const asyncFields: PreviewSetupField[] = [
+      { name: "channel", label: "Channel", type: "select-async", required: true, optionsSource: "slack:channels" },
+    ];
+    expect(sanitizeSeedConfig({ channel: "C12345" }, asyncFields)).toEqual({ channel: "C12345" });
+    expect(sanitizeSeedConfig({ channel: "" }, asyncFields)).toEqual({});
+    // Unknown/secret keys alongside an async field are still dropped.
+    expect(sanitizeSeedConfig({ channel: "C9", botToken: "xoxb-SECRET" }, asyncFields)).toEqual({ channel: "C9" });
   });
 
   it("returns {} for missing raw or fields", () => {

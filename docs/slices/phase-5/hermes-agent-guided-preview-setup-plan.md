@@ -1,10 +1,58 @@
 # Guided setup on the holographic preview — audit + design (HERMES-AGENT-RAIL-PRODUCT-LABEL-AND-GUIDED-PREVIEW-DESIGN)
 
-> **Design + Phase 1–3 status.** The audit/design below is unchanged. **Phase 1
+> **Design + Phase 1–4 status.** The audit/design below is unchanged. **Phase 1
 > (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1) is IMPLEMENTED**; **Phase 2
 > (HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX) REDIRECTED the canvas surface to visual-only**; **Phase 3
-> (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX) RE-HOMED the setup controls into the React rail** — see
-> the status boxes.
+> (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX) RE-HOMED the setup controls into the React rail**; **Phase
+> 4 (HERMES-AGENT-GUIDED-PREVIEW-SETUP-ASYNC-OPTIONS-AND-DASHBOARD-CLEANUP) added async optionsSource
+> dropdowns to the rail card + removed the dashboard "Build with me" card** — see the status boxes.
+
+## Phase 4 status — IMPLEMENTED (ASYNC OPTIONS IN THE RAIL + DASHBOARD CLEANUP)
+
+Two changes:
+
+**1. Dashboard "Build with me" card removed.** `app/workflows/page.tsx` no longer mounts
+`WorkflowGuidancePanel` (and drops the `isHermesAgentEnabled` import). `/workflows` is the workflow
+list/metrics/filters/folders+trash/Create surface only — NOT an AI composer. The single AI build
+surface is the builder's left React Agent rail (`BuilderGuidanceRail`). `WorkflowGuidancePanel` is NOT
+deleted — the builder rail still renders it (conversational mode). Locked by a `workflowGuidanceUiSafety`
+scan asserting the dashboard page references neither `WorkflowGuidancePanel` nor `isHermesAgentEnabled`
+while the rail still does.
+
+**2. Async optionsSource single-select dropdowns in the rail setup card.** Provider fields like Slack
+`channel` are now pickable in the rail BEFORE Apply, loaded through the EXISTING authenticated resolver:
+- `previewSetupFields` adds a `select-async` type. `toPreviewSetupField` now SUPPORTS a `select`/
+  `combobox` field with an `optionsSource` (single-select only — `multiple` still deferred), carrying
+  `optionsSource` + normalized `dependsOn`. `recipient`-class async fields (Slack channel) are allowed;
+  `secret`/`connection` still excluded. Non-async `dependsOn` cascades stay deferred.
+- `BuilderPreviewSetupCard` renders a `select-async` field via `PreviewAsyncSelectControl`, which calls
+  `useOptionsSource` → `fetchOptionsSource` → `GET /api/options/[source]` (the SAME hook/route normal
+  builder config uses — authenticated, account-scoped, credential-sharing-policy aware). The card is
+  threaded the builder `workflowId` for resolver provenance; no `nodeId` (no accepted node pre-Apply,
+  so the route uses the workflow-context credential policy — account-shared providers like Slack are
+  visible to members, personal providers stay creator-pinned). NO token/secret/credential-id in the
+  client request.
+- States: loading (disabled "Loading…"), ready (populated select), empty (disabled "No options
+  available"), error/disconnected/reauth (safe message + Try again; raw provider detail never shown),
+  owner-gated/owner-must-connect (safe message, finish after Apply), and dependsOn-unresolved (disabled
+  "Choose X first", no fetch). When a `dependsOn` parent is filled in previewConfig, its value is passed
+  to the resolver as `deps`.
+- Selecting an option updates `previewConfig` only (no dirty/save/graph mutation/Hermes). Apply seeds
+  the picked value through the existing `previewConfig → planToBuilderPatch → sanitizeSeedConfig` path
+  (`select-async` keeps any non-empty string — a provider RESOURCE id, not a token; unknown/secret keys
+  still dropped). Auto-open-first-incomplete after Apply unchanged.
+
+**Principle preserved:** Hermes/React owns planning/shape; ChainReact deterministic metadata + the
+authenticated options resolver own setup-field collection. Opening or picking a dropdown never calls
+Hermes and never sends the selected value to a model/prompt/audit text.
+
+**Canvas unchanged:** holographic nodes stay visual-only (no inputs/selects/textareas; short "Needs
+setup · N" badge).
+
+**Still deferred:** multi-select async (`multiple`), non-async `dependsOn` cascades as local controls,
+and moving setup onto a per-node selection.
+
+---
 
 ## Phase 3 status — IMPLEMENTED (GUIDED SETUP IN THE RAIL)
 

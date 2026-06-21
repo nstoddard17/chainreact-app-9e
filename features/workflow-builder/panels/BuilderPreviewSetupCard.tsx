@@ -5,6 +5,7 @@ import type {
   PreviewSetupField,
   PreviewSetupFieldsByType,
 } from "@/core/workflows/previewSetupFields";
+import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSource";
 
 /**
  * Guided preview setup card — React chat rail (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX).
@@ -21,9 +22,13 @@ import type {
  *   - Filling a control NEVER calls Hermes / a model and is NEVER sent to a prompt or audit text —
  *     including `recipient`-class values, which are deterministic local input seeded on Apply only.
  *   - Supported local controls: text / textarea / number / boolean / static-select (+ recipient-class
- *     when it renders as one of those). Async `optionsSource`, unresolved `dependsOn`, and
- *     secret/connection fields are NOT rendered — they show a compact "Choose after Apply" deferred
- *     line (or, for secret/connection, are dropped from the setup metadata entirely upstream).
+ *     when it renders as one of those).
+ *   - Async single-select (`select-async`, e.g. Slack `channel`): loaded through the EXISTING
+ *     authenticated, account-scoped resolver (`useOptionsSource` → `GET /api/options/[source]`) — the
+ *     SAME path normal builder config uses, NEVER a model/Hermes call. Opening or picking a dropdown
+ *     never calls Hermes; the selected value lives in previewConfig and is seeded on Apply only.
+ *     `dependsOn` parents are read from previewConfig; an unresolved parent defers the field
+ *     ("Choose X first"). secret/connection fields are dropped upstream and never render here.
  */
 
 export interface BuilderPreviewSetupCardProps {
@@ -37,6 +42,12 @@ export interface BuilderPreviewSetupCardProps {
   readonly onPreviewConfigChange: (previewId: string, fieldName: string, value: unknown) => void;
   /** The existing explicit "Apply preview" action (additive local-draft edit). */
   readonly onApply: () => void;
+  /**
+   * The workflow currently open in the builder — forwarded to the option resolver as account/workflow
+   * provenance (same scoping normal config uses). Never a token/secret. Absent → resolver uses the
+   * caller's account context only.
+   */
+  readonly workflowId?: string;
 }
 
 export function BuilderPreviewSetupCard({
@@ -45,6 +56,7 @@ export function BuilderPreviewSetupCard({
   previewConfig,
   onPreviewConfigChange,
   onApply,
+  workflowId,
 }: BuilderPreviewSetupCardProps) {
   // Per node: which still-missing fields can be collected now (supported local controls) vs. which
   // must wait until after Apply (async resolver / cascade / unsupported). Deterministic, metadata-driven.
@@ -88,15 +100,27 @@ export function BuilderPreviewSetupCard({
             <div className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
               {node.label}
             </div>
-            {supported.map((field) => (
-              <PreviewSetupControl
-                key={field.name}
-                node={node}
-                field={field}
-                value={previewConfig?.[node.previewId]?.[field.name]}
-                onChange={(v) => onPreviewConfigChange(node.previewId, field.name, v)}
-              />
-            ))}
+            {supported.map((field) =>
+              field.type === "select-async" ? (
+                <PreviewAsyncSelectControl
+                  key={field.name}
+                  node={node}
+                  field={field}
+                  value={previewConfig?.[node.previewId]?.[field.name]}
+                  nodeConfig={previewConfig?.[node.previewId]}
+                  {...(workflowId ? { workflowId } : {})}
+                  onChange={(v) => onPreviewConfigChange(node.previewId, field.name, v)}
+                />
+              ) : (
+                <PreviewSetupControl
+                  key={field.name}
+                  node={node}
+                  field={field}
+                  value={previewConfig?.[node.previewId]?.[field.name]}
+                  onChange={(v) => onPreviewConfigChange(node.previewId, field.name, v)}
+                />
+              ),
+            )}
             {afterApply.length > 0 && (
               <div
                 data-testid="preview-setup-after-apply"
@@ -121,6 +145,145 @@ export function BuilderPreviewSetupCard({
         Apply to draft
       </button>
     </section>
+  );
+}
+
+/**
+ * Async single-select control for a `select-async` preview field. Loads its options through the
+ * EXISTING authenticated, account-scoped resolver (`useOptionsSource` → `GET /api/options/[source]`).
+ * NEVER a model/Hermes call. The selected value updates previewConfig only (seeded on Apply). When a
+ * `dependsOn` parent is missing from this node's preview config, the field defers ("Choose X first").
+ */
+function PreviewAsyncSelectControl({
+  node,
+  field,
+  value,
+  nodeConfig,
+  workflowId,
+  onChange,
+}: {
+  node: DraftPreviewNode;
+  field: PreviewSetupField;
+  value: unknown;
+  nodeConfig: Readonly<Record<string, unknown>> | undefined;
+  workflowId?: string;
+  onChange: (value: unknown) => void;
+}) {
+  const testid = `preview-setup-${node.previewId}-${field.name}`;
+  const inputStyle = {
+    background: "var(--builder-panel-2)",
+    border: "1px solid var(--builder-border)",
+    color: "var(--builder-text)",
+  } as const;
+  const strValue = typeof value === "string" ? value : "";
+
+  // Resolve dependsOn parents from THIS node's ephemeral preview config (never from upstream graph).
+  const deps: Record<string, string> = {};
+  let missingDep: string | undefined;
+  for (const parent of field.dependsOn ?? []) {
+    const pv = nodeConfig?.[parent];
+    const s = typeof pv === "string" ? pv : typeof pv === "number" ? String(pv) : "";
+    if (s.trim().length === 0) {
+      if (!missingDep) missingDep = parent;
+      continue;
+    }
+    deps[parent] = s;
+  }
+  const depsUnresolved = (field.dependsOn?.length ?? 0) > 0 && missingDep !== undefined;
+
+  const { state, refetch } = useOptionsSource({
+    source: field.optionsSource ?? null,
+    deps,
+    enabled: !depsUnresolved,
+    ...(workflowId ? { workflowId } : {}),
+  });
+
+  const labelEl = (
+    <span className="block" style={{ color: "var(--builder-muted)" }}>
+      {field.label}
+    </span>
+  );
+
+  // Deferred until a dependsOn parent is chosen — disabled select, no fetch (enabled:false above).
+  if (depsUnresolved) {
+    return (
+      <label className="mt-1.5 block text-[11px]">
+        {labelEl}
+        <select
+          data-testid={testid}
+          aria-label={field.label}
+          disabled
+          value=""
+          onChange={() => {}}
+          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
+          style={inputStyle}
+        >
+          <option value="">Choose {missingDep} first</option>
+        </select>
+      </label>
+    );
+  }
+
+  // Error / disconnected / reauth / owner-gated → safe message; offer retry only where it can help.
+  if (
+    state.status === "error" ||
+    state.status === "disconnected" ||
+    state.status === "needs-reconnect" ||
+    state.status === "owner-gated" ||
+    state.status === "owner-must-connect"
+  ) {
+    const canRetry = state.status === "error" || state.status === "disconnected" || state.status === "needs-reconnect";
+    return (
+      <div className="mt-1.5 block text-[11px]">
+        {labelEl}
+        <div
+          data-testid={`${testid}-error`}
+          className="mt-0.5 rounded px-2 py-1 text-[11px]"
+          style={{ background: "var(--builder-panel-2)", border: "1px solid var(--builder-border)", color: "var(--builder-muted)" }}
+        >
+          Couldn&apos;t load options.{" "}
+          {canRetry && (
+            <button
+              type="button"
+              data-testid={`${testid}-retry`}
+              onClick={refetch}
+              className="underline"
+              style={{ color: "var(--builder-accent)" }}
+            >
+              Try again
+            </button>
+          )}
+          {!canRetry && <span>You can finish this after Apply.</span>}
+        </div>
+      </div>
+    );
+  }
+
+  const loading = state.status === "loading";
+  const empty = state.status === "empty";
+
+  return (
+    <label className="mt-1.5 block text-[11px]">
+      {labelEl}
+      <select
+        data-testid={testid}
+        aria-label={field.label}
+        value={strValue}
+        disabled={loading || empty}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
+        style={inputStyle}
+      >
+        <option value="">
+          {loading ? "Loading…" : empty ? "No options available" : "Select…"}
+        </option>
+        {state.items.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
