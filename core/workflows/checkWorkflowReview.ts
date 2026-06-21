@@ -142,11 +142,11 @@ export function composeCheckWorkflowReview(input: ComposeCheckWorkflowReviewInpu
   const suggestionsBody =
     suggestions ??
     (hasBlockers
-      ? "Focus on the setup issues above first."
-      : "No additional suggestions right now.");
+      ? "No AI needed yet. Complete the required setup fields first, then check again."
+      : "No AI needed yet. Your setup looks complete — test the workflow, or ask React for deeper suggestions.");
 
   const nextStep = hasBlockers
-    ? "Open the validation panel to fix the setup issues, then run a test."
+    ? "Open the step with missing fields and fill them in, or open the validation panel for the full list."
     : "Run a test to confirm it behaves the way you expect, then activate.";
 
   return [

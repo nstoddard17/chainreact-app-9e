@@ -15,6 +15,7 @@ import { requestWorkflowGuidance } from "@/lib/api/ai/guidance";
 import {
   buildAgentReviewGoalText,
   composeCheckWorkflowReview,
+  looksLikeRawJson,
   type CheckWorkflowReviewContext,
 } from "@/core/workflows/checkWorkflowReview";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
@@ -246,6 +247,10 @@ type ChatMessage =
       readonly plan: WorkflowPlan | null;
       readonly preview: DraftPreview | null;
     }
+  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a LOCAL, deterministic workflow review produced
+  // entirely from builder state (no LLM, no network, no AI credits). Rendered like a React turn but
+  // carries no plan/preview and offers an explicit, opt-in "Ask React for deeper suggestions" follow-up.
+  | { readonly id: string; readonly role: "review"; readonly text: string }
   | { readonly id: string; readonly role: "error"; readonly text: string };
 
 /** Build the sanitized, bounded recent-conversation context from prior plain-text turns. */
@@ -283,17 +288,12 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   const [loading, setLoading] = useState(false);
   const nextId = useRef(0);
   const makeId = () => String(nextId.current++);
-  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — armed by the "Check workflow" pill; the next send is
-  // then framed as a deterministic validation-aware review. Consumed (reset) on send. Only armable when
-  // the builder supplied `getCheckReviewContext` (dashboard/tests keep the plain prefill behavior).
-  const checkReviewArmed = useRef(false);
 
   // HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — keep the newest content in view. Scroll the transcript to the
   // bottom when a message is added OR the setup-card footer appears/disappears. Keyed on the message
   // COUNT + a boolean for the footer (not the footer node identity) so it never re-scrolls on every
   // render — no jank.
   const messagesRef = useRef<HTMLDivElement>(null);
-  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW — focus the composer after the pill prefills it.
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const hasFooter = transcriptFooter != null && transcriptFooter !== false;
   useEffect(() => {
@@ -304,38 +304,79 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   const trimmed = input.trim();
   const canSend = trimmed.length > 0 && !loading;
 
-  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW — prefill the composer with a workflow-review prompt and focus it.
-  // Suggested agent action: it does NOT auto-send, open the validation drawer, edit the workflow, or
-  // touch activation. The user reviews/sends through the existing chat path (one governed request).
+  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — the "Check workflow" pill runs an INSTANT, LOCAL,
+  // deterministic review and appends it to the transcript. It NEVER calls `requestWorkflowGuidance` /
+  // the Hermes model gateway / any LLM, never consumes AI credits or tasks, never prefills the composer,
+  // and never opens the validation drawer / mutates / saves / activates / runs / applies anything. The
+  // verdict comes only from the builder's own validation snapshot (`getCheckReviewContext`), so it can't
+  // contradict the header pill / drawer, and the rendered text is composed locally (no raw JSON ever).
   function handleCheckWorkflow(): void {
-    if (loading) return;
-    setInput(CHECK_WORKFLOW_PROMPT);
-    // Arm the deterministic review only when the builder wired a validation snapshot getter.
-    checkReviewArmed.current = getCheckReviewContext != null;
-    composerRef.current?.focus();
+    if (loading || !getCheckReviewContext) return;
+    const ctx = getCheckReviewContext();
+    const text = composeCheckWorkflowReview({
+      summary: ctx.summary,
+      blockingIssueCount: ctx.blockingIssueCount,
+      issueMessages: ctx.issueMessages,
+      agentText: null, // deterministic — no model output is ever folded into the default review
+    });
+    setMessages((prev) => [...prev, { id: makeId(), role: "review", text }]);
   }
 
   // Only the most recent assistant turn's preview/plan is actionable — a newer preview supersedes the
   // prior pending one (the older messages stay in the transcript as text).
   let latestAssistantId: string | null = null;
-  for (const m of messages) if (m.role === "assistant") latestAssistantId = m.id;
+  let latestReviewId: string | null = null;
+  for (const m of messages) {
+    if (m.role === "assistant") latestAssistantId = m.id;
+    if (m.role === "review") latestReviewId = m.id;
+  }
 
   async function handleSend(): Promise<void> {
     if (!canSend) return;
     const goalText = trimmed;
-    // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — consume the armed flag once. A check send carries the
-    // CURRENT deterministic validation snapshot (read at send time, after any edits) so the request
-    // context and the rendered review both reflect what the user sees in the pill right now.
-    const isCheckReview = checkReviewArmed.current && getCheckReviewContext != null;
-    checkReviewArmed.current = false;
-    const reviewContext = isCheckReview ? getCheckReviewContext!() : null;
-    // The visible user message stays the clean prompt; only the REQUEST carries the de-identified
-    // (counts + codes) validation context, so the agent has context without user labels leaking.
-    const requestGoalText = reviewContext ? buildAgentReviewGoalText(goalText, reviewContext) : goalText;
     // Prior turns (before appending this one) become the sanitized recent-conversation context.
     const recentTurns = toRecentTurns(messages);
     setMessages((prev) => [...prev, { id: makeId(), role: "user", text: goalText }]);
     setInput("");
+    setLoading(true);
+    try {
+      const res = await requestWorkflowGuidance({
+        accountId,
+        goalText,
+        ...(workflowId ? { workflowId } : {}),
+        ...(recentTurns.length ? { recentTurns } : {}),
+      });
+      if (res.ok) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: makeId(),
+            role: "assistant",
+            text: res.guidanceText,
+            plan: asRenderablePlan(res.workflowPlan),
+            preview: asRenderablePreview(res.previewDraft),
+          },
+        ]);
+      } else {
+        setMessages((prev) => [...prev, { id: makeId(), role: "error", text: safeErrorMessage(res) }]);
+      }
+    } catch {
+      setMessages((prev) => [...prev, { id: makeId(), role: "error", text: UNAVAILABLE_MESSAGE }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — the EXPLICIT, opt-in AI follow-up. Distinct from
+  // the default Check-workflow review: only THIS action calls the governed `requestWorkflowGuidance`
+  // path (which may use AI credits). It carries de-identified validation context (counts + issue codes)
+  // so the model reasons against the real state, renders as a normal React turn, and guards against a
+  // raw-JSON reply. Never auto-runs — the user taps "Ask React for deeper suggestions".
+  async function handleAskDeeper(): Promise<void> {
+    if (loading || !getCheckReviewContext) return;
+    const ctx = getCheckReviewContext();
+    const requestGoalText = buildAgentReviewGoalText(CHECK_WORKFLOW_PROMPT, ctx);
+    const recentTurns = toRecentTurns(messages);
     setLoading(true);
     try {
       const res = await requestWorkflowGuidance({
@@ -345,23 +386,16 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
         ...(recentTurns.length ? { recentTurns } : {}),
       });
       if (res.ok) {
-        // For a check-workflow review, the rendered reply is framed by ChainReact's deterministic
-        // verdict (Status + Setup issues), with the agent text contributing only Suggestions (JSON- and
-        // overclaim-guarded) — so the review can never claim valid/ready while the pill reports issues.
-        const assistantText = reviewContext
-          ? composeCheckWorkflowReview({
-              summary: reviewContext.summary,
-              blockingIssueCount: reviewContext.blockingIssueCount,
-              issueMessages: reviewContext.issueMessages,
-              agentText: res.guidanceText,
-            })
+        // Never surface a raw-JSON dump as the response body, even on the AI path.
+        const text = looksLikeRawJson(res.guidanceText)
+          ? "Here are some suggestions based on your current workflow."
           : res.guidanceText;
         setMessages((prev) => [
           ...prev,
           {
             id: makeId(),
             role: "assistant",
-            text: assistantText,
+            text,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
           },
@@ -413,6 +447,39 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
               </p>
             );
           }
+          if (m.role === "review") {
+            // Deterministic, local review (no LLM). Shares the `workflow-guidance-result` testid so
+            // result-text assertions cover it, plus a `review`-specific testid. The opt-in AI follow-up
+            // renders only under the LATEST review and only when guidance is wired (builder rail).
+            const isLatestReview = m.id === latestReviewId;
+            return (
+              <div key={m.id} data-testid="workflow-guidance-message-review">
+                <div data-testid="workflow-guidance-result">
+                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">React: </span>
+                  <span className="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
+                    {m.text}
+                  </span>
+                </div>
+                {isLatestReview && getCheckReviewContext != null && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={handleAskDeeper}
+                      disabled={loading}
+                      data-testid="agent-ask-deeper"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-neutral-300 px-2.5 py-1 text-[11.5px] font-medium text-neutral-700 disabled:opacity-60 dark:border-neutral-700 dark:text-neutral-300"
+                      title="Optional: ask React for deeper AI suggestions (uses AI credits)"
+                    >
+                      Ask React for deeper suggestions
+                      <span className="text-[10px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+                        Uses AI
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          }
           const isLatest = m.id === latestAssistantId;
           return (
             <div key={m.id} data-testid="workflow-guidance-message-assistant">
@@ -443,9 +510,10 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
       </div>
 
       <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
-        {/* BUILDER-AGENT-RAIL-CHECK-WORKFLOW — a compact suggested agent action directly ABOVE the chat
-            input: prefills a workflow-review prompt the user sends through the normal chat path. NOT a
-            validation warning — it never opens the validation drawer or blocks activation. */}
+        {/* BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a compact agent action directly ABOVE the
+            chat input. Clicking runs an INSTANT, LOCAL, deterministic review (no LLM, no AI credits, no
+            prefill) and appends it to the transcript. It never opens the validation drawer or blocks
+            activation. The optional AI follow-up is a separate button under the review itself. */}
         <div className="mb-2">
           <button
             type="button"
@@ -458,7 +526,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
               color: "var(--builder-accent)",
               borderColor: "var(--builder-accent)",
             }}
-            title="Ask React to review your current workflow and suggest improvements"
+            title="Run an instant, local review of your current workflow (no AI credits used)"
           >
             <SparkleIcon /> Check workflow
           </button>
@@ -470,11 +538,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
           id="workflow-guidance-goal"
           ref={composerRef}
           value={input}
-          onChange={(e) => {
-            // Clearing the composer cancels an armed check-workflow review (the user started over).
-            if (e.target.value.trim().length === 0) checkReviewArmed.current = false;
-            setInput(e.target.value);
-          }}
+          onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => submitOnEnter(e, handleSend)}
           placeholder={CHAT_PLACEHOLDER}
           rows={2}

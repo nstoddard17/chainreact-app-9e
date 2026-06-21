@@ -593,10 +593,10 @@ describe("WorkflowBuilder", () => {
       expect(screen.queryByTestId("lifecycle-blocked-hint")).toBeNull();
     });
 
-    // BUILDER-AGENT-RAIL-CHECK-WORKFLOW — the rail "Check workflow" pill is an AI review action, NOT the
-    // deterministic validation surface: it prefills the chat, never opens the validation drawer, and
-    // never changes activation gating.
-    it("the rail 'Check workflow' pill prefills the agent review but does not open the validation drawer or change Activate", async () => {
+    // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — the rail "Check workflow" pill runs an INSTANT,
+    // LOCAL deterministic review. It does NOT open the validation drawer, does NOT prefill the chat, and
+    // does NOT change activation gating. (It also makes no LLM call — covered in the panel/rail suites.)
+    it("the rail 'Check workflow' pill renders a deterministic review but does not open the validation drawer or change Activate", async () => {
       const user = userEvent.setup();
       render(
         <WorkflowBuilder
@@ -613,10 +613,11 @@ describe("WorkflowBuilder", () => {
 
       await user.click(screen.getByTestId("agent-check-workflow"));
 
-      // Prefilled the agent review path; did NOT open the validation drawer.
-      expect(
-        (screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement).value,
-      ).toMatch(/review my current workflow/i);
+      // A local review appears in the rail, honoring the deterministic verdict (no trigger → not ready).
+      const result = await screen.findByTestId("workflow-guidance-result");
+      expect(result).toHaveTextContent("not ready to activate");
+      // Did NOT prefill the composer and did NOT open the validation drawer.
+      expect((screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement).value).toBe("");
       expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
       // Activation gating unchanged by the agent action.
       expect(screen.getByRole("button", { name: /activate/i })).toBeDisabled();

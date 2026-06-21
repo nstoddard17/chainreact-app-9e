@@ -127,7 +127,7 @@ describe("composeCheckWorkflowReview", () => {
     expect(review).not.toContain('"nodes"');
     expect(review).not.toContain('"provider"');
     // Falls back to a safe Suggestions line instead.
-    expect(review).toContain("Focus on the setup issues above first.");
+    expect(review).toContain("No AI needed yet.");
   });
 
   it("for a clean workflow, reports no blocking issues and keeps the agent's suggestions", () => {
