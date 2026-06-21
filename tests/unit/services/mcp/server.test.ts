@@ -147,11 +147,11 @@ describe("services/mcp/server — account isolation (rule d)", () => {
 });
 
 describe("services/mcp/server — no-leak in tool output", () => {
-  it("list_integrations returns provider/label/status only — never tokens", async () => {
+  it("list_integrations returns provider/label/status/usage only — never tokens — and does not mark a co-member's private identity usable", async () => {
     mockIntegrationsList.mockResolvedValue([
       {
         id: "int-1",
-        provider: "slack",
+        provider: "slack", // account/service → usable by any member
         displayName: "acme.slack.com",
         accessTokenEncrypted: "ENC-LEAK",
         refreshTokenEncrypted: "ENC-LEAK-2",
@@ -159,17 +159,44 @@ describe("services/mcp/server — no-leak in tool output", () => {
         accountMetadata: { x: "META-LEAK" },
         providerAccountId: "T-LEAK",
         connectedByUserId: "U-LEAK",
+        integrationSharingScope: null,
         disconnectedAt: null,
         needsReconnectAt: null,
         createdAt: "2026-01-01T00:00:00Z",
       },
+      {
+        id: "int-2",
+        provider: "gmail", // personal identity connected by ANOTHER member
+        displayName: "nate@company.com",
+        accessTokenEncrypted: "ENC-LEAK-3",
+        refreshTokenEncrypted: "ENC-LEAK-4",
+        scopes: ["https://mail.google.com/"],
+        accountMetadata: { x: "META-LEAK-2" },
+        providerAccountId: "MAILBOX-LEAK",
+        connectedByUserId: "OTHER-MEMBER-LEAK",
+        integrationSharingScope: null,
+        disconnectedAt: null,
+        needsReconnectAt: null,
+        createdAt: "2026-01-02T00:00:00Z",
+      },
     ]);
+    // ctx actor "uA" is NOT the gmail connector.
     const { response } = await handleMcpRpc(call("list_integrations"), ctx());
-    const json = JSON.stringify((response?.result as { structuredContent: unknown }).structuredContent);
-    for (const leak of ["ENC-LEAK", "META-LEAK", "T-LEAK", "U-LEAK", "chat:write"]) {
+    const structured = (response?.result as {
+      structuredContent: { integrations: Array<{ id: string; usage: string }> };
+    }).structuredContent;
+    const json = JSON.stringify(structured);
+    for (const leak of [
+      "ENC-LEAK", "META-LEAK", "T-LEAK", "U-LEAK", "chat:write",
+      "MAILBOX-LEAK", "OTHER-MEMBER-LEAK", "mail.google.com",
+    ]) {
       expect(json).not.toContain(leak);
     }
     expect(json).toContain("acme.slack.com"); // the account's own label is fine
+
+    const byId = new Map(structured.integrations.map((i) => [i.id, i.usage]));
+    expect(byId.get("int-1")).toBe("available"); // shared service
+    expect(byId.get("int-2")).toBe("not_available"); // co-member's private mailbox
   });
 });
 

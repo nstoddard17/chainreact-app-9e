@@ -3,6 +3,7 @@ import type { MembershipRole } from "@/contracts/accounts";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowRunRecord } from "@/repositories/workflowRuns";
 import type { IntegrationRecord } from "@/repositories/integrations";
+import { decideIntegrationUsage } from "@/core/integrations/integrationUsagePolicy";
 
 /**
  * Safe MCP output serializers (Slice 4.PUBLIC-MCP-6).
@@ -211,33 +212,62 @@ export function toMcpRunDetailDto(run: WorkflowRunRecord): McpRunDetailDto {
 
 export type McpIntegrationStatus = "connected" | "needs_reconnect" | "disconnected";
 
+/** Whether the requesting actor may USE this connection (provider-identity gate). */
+export type McpIntegrationUsage = "available" | "not_available";
+
 export interface McpIntegrationDto {
   id: string;
   provider: string;
   /** The account's own label for the connection (e.g. a workspace/shop name). */
   displayName: string | null;
   status: McpIntegrationStatus;
+  /**
+   * Whether the VIEWER (the token actor) may use this connection's external
+   * identity — `not_available` for a co-member's private mailbox/calendar. Account
+   * ownership of an integration does NOT imply usability.
+   */
+  usage: McpIntegrationUsage;
+  /** Safe, id-free reason when `usage` is `not_available`; null otherwise. */
+  reason: string | null;
   connectedAt: string;
 }
 
-function integrationStatus(integration: IntegrationRecord): McpIntegrationStatus {
+export function mcpIntegrationStatus(integration: IntegrationRecord): McpIntegrationStatus {
   if (integration.disconnectedAt) return "disconnected";
   if (integration.needsReconnectAt) return "needs_reconnect";
   return "connected";
 }
 
 /**
- * Integration DTO with provider + label + status ONLY. Token columns
- * (`access_token_encrypted` / `refresh_token_encrypted`), `account_metadata` (raw
- * provider payload), `scopes`, `provider_account_id`, and `connected_by_user_id`
+ * Integration DTO with provider + label + status + per-viewer usability ONLY. Token
+ * columns (`access_token_encrypted` / `refresh_token_encrypted`), `account_metadata`
+ * (raw provider payload), `scopes`, `provider_account_id`, and `connected_by_user_id`
  * are NEVER serialized.
+ *
+ * `usage`/`reason` are derived from the same usage policy the MCP authz gate uses
+ * (`decideIntegrationUsage`), so the list never implies an unusable connection is
+ * usable. `connectionSharingEnabled` is passed in (keeps the serializer pure).
  */
-export function toMcpIntegrationDto(integration: IntegrationRecord): McpIntegrationDto {
+export function toMcpIntegrationDto(
+  integration: IntegrationRecord,
+  viewerUserId: string,
+  connectionSharingEnabled: boolean,
+): McpIntegrationDto {
+  const decision = decideIntegrationUsage({
+    provider: integration.provider,
+    connectedByUserId: integration.connectedByUserId,
+    sharingScope: integration.integrationSharingScope,
+    actorUserId: viewerUserId,
+    purpose: "configure_workflow",
+    connectionSharingEnabled,
+  });
   return {
     id: integration.id,
     provider: integration.provider,
     displayName: integration.displayName,
-    status: integrationStatus(integration),
+    status: mcpIntegrationStatus(integration),
+    usage: decision.allowed ? "available" : "not_available",
+    reason: decision.allowed ? null : decision.detail,
     connectedAt: integration.createdAt,
   };
 }

@@ -30,6 +30,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { generateMcpToken } from "@/core/mcp/token";
 import { verifyMcpToken } from "@/services/mcp/verify";
 import { handleMcpRpc } from "@/services/mcp/server";
+import { canActorUseIntegrationForMcp } from "@/services/mcp/integrationUsage";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -74,6 +75,10 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
   // A live personal-account token for A (raw kept in-memory for verify calls).
   let aTokenRaw = "";
   let aTokenId = "";
+  // Integration ids for the usage-authz cases.
+  let teamGmailId = ""; // gmail (personal identity) connected by A on the team
+  let teamSlackId = ""; // slack (account/service) connected by A on the team
+  let personalGmailAId = ""; // gmail on A's personal account (cross-account probe)
 
   async function createTestUser(label: string): Promise<Session> {
     const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -135,6 +140,32 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
     return { raw: t.raw, id: data.id };
   }
 
+  async function seedIntegration(
+    accountId: string,
+    connectedBy: string,
+    provider: string,
+    providerAccountId: string,
+    displayName: string,
+  ): Promise<string> {
+    // Placeholder ciphertext — never decrypted here; only authz behavior is tested.
+    const { data, error } = await admin
+      .from("integrations")
+      .insert({
+        account_id: accountId,
+        connected_by_user_id: connectedBy,
+        provider,
+        provider_account_id: providerAccountId,
+        display_name: displayName,
+        access_token_encrypted: "enc-placeholder-not-a-real-token",
+        scopes: ["read"],
+        account_metadata: {},
+      })
+      .select("id")
+      .single<{ id: string }>();
+    if (error || !data) throw new Error(`seedIntegration: ${error?.message ?? "no row"}`);
+    return data.id;
+  }
+
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -164,6 +195,19 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
       { account_id: team.id, user_id: a.userId, role: "owner" },
       { account_id: team.id, user_id: b.userId, role: "member" },
     ]);
+
+    // Integrations for the usage-authz cases: a personal-identity (gmail) connected
+    // by A, and a shared-service (slack) connected by A, both on the team; plus a
+    // gmail on A's personal account for the cross-account probe.
+    teamGmailId = await seedIntegration(team.id, a.userId, "gmail", "a@team.test", "a@team.test");
+    teamSlackId = await seedIntegration(team.id, a.userId, "slack", "team.slack", "acme.slack.com");
+    personalGmailAId = await seedIntegration(
+      a.personalAccountId,
+      a.userId,
+      "gmail",
+      "a@personal.test",
+      "a@personal.test",
+    );
   });
 
   afterAll(async () => {
@@ -174,6 +218,7 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
       await admin.from("account_mcp_tokens").delete().eq("account_id", id);
       await admin.from("mcp_request_audit").delete().eq("account_id", id);
       await admin.from("workflows").delete().eq("account_id", id);
+      await admin.from("integrations").delete().eq("account_id", id);
     }
     for (const id of createdAccountIds) {
       await admin.from("account_memberships").delete().eq("account_id", id);
@@ -257,6 +302,68 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
     const after = await verifyMcpToken(`Bearer ${revokable.raw}`);
     expect(after.ok).toBe(false);
     if (!after.ok) expect(after.reason).toBe("invalid");
+  });
+
+  it("a member CANNOT use a co-member's member-connected Gmail identity, but the connector CAN", async () => {
+    const a = sessions[0]!;
+    const b = sessions[1]!;
+
+    // B (member, not the connector) is denied A's gmail with a typed reason.
+    const bUsesAGmail = await canActorUseIntegrationForMcp({
+      actorUserId: b.userId,
+      accountId: teamAccountId,
+      integrationId: teamGmailId,
+      purpose: "run_workflow",
+    });
+    expect(bUsesAGmail).toMatchObject({ ok: false, reason: "integration_not_allowed_for_actor" });
+
+    // A (the connector) may use their own gmail identity.
+    const aUsesAGmail = await canActorUseIntegrationForMcp({
+      actorUserId: a.userId,
+      accountId: teamAccountId,
+      integrationId: teamGmailId,
+      purpose: "run_workflow",
+    });
+    expect(aUsesAGmail.ok).toBe(true);
+  });
+
+  it("a member CAN use a shared service (slack) integration on the account", async () => {
+    const b = sessions[1]!;
+    const r = await canActorUseIntegrationForMcp({
+      actorUserId: b.userId,
+      accountId: teamAccountId,
+      integrationId: teamSlackId,
+      purpose: "configure_workflow",
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("an integration from ANOTHER account is opaque not_found (no oracle)", async () => {
+    // A's personal-account gmail queried under the team account → not in scope → not_found.
+    const r = await canActorUseIntegrationForMcp({
+      actorUserId: sessions[0]!.userId,
+      accountId: teamAccountId,
+      integrationId: personalGmailAId,
+      purpose: "read",
+    });
+    expect(r).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("list_integrations does NOT mark a co-member's private Gmail usable", async () => {
+    const b = sessions[1]!;
+    const { response } = await handleMcpRpc(
+      { id: 1, method: "tools/call", params: { name: "list_integrations", arguments: {} } },
+      { accountId: teamAccountId, userId: b.userId, scopes: ["integrations:read"] },
+    );
+    const data = (response?.result as {
+      structuredContent: { integrations: Array<{ id: string; provider: string; usage: string }> };
+    }).structuredContent;
+    const gmail = data.integrations.find((i) => i.id === teamGmailId);
+    const slack = data.integrations.find((i) => i.id === teamSlackId);
+    expect(gmail?.usage).toBe("not_available");
+    expect(slack?.usage).toBe("available");
+    // No provenance / secret leaks in the listing.
+    expect(JSON.stringify(data)).not.toContain(sessions[0]!.userId);
   });
 
   it("a token stops verifying once its minter is removed from the account (offboarding)", async () => {

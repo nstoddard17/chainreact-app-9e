@@ -167,18 +167,55 @@ describe("services/mcp/tools/serialize — no-leak boundary", () => {
       updatedAt: "2026-01-01T00:00:00Z",
     } as unknown as IntegrationRecord;
 
-    const dto = toMcpIntegrationDto(integration);
+    // Slack is an account/service provider → usable by any member.
+    const dto = toMcpIntegrationDto(integration, "some-other-member", false);
     assertNoSensitive(dto);
     expect(dto).toEqual({
       id: "int-1",
       provider: "slack",
       displayName: "acme.slack.com",
       status: "connected",
+      usage: "available",
+      reason: null,
       connectedAt: "2026-01-01T00:00:00Z",
     });
     const json = JSON.stringify(dto);
     expect(json).not.toContain("T-WORKSPACE-SECRET");
     expect(json).not.toContain("chat:write"); // scopes are not exposed
+  });
+
+  it("integration DTO marks a co-member's private mailbox not_available, leaking no provenance", () => {
+    const gmail = {
+      id: "int-2",
+      accountId: "acct-1",
+      connectedByUserId: "connector-SECRET",
+      provider: "gmail",
+      providerAccountId: "mailbox-SECRET",
+      displayName: "nate@company.com",
+      accessTokenEncrypted: "SECRET-ACCESS-TOKEN",
+      refreshTokenEncrypted: "SECRET-REFRESH-TOKEN",
+      accessTokenExpiresAt: null,
+      scopes: ["https://mail.google.com/"],
+      accountMetadata: {},
+      disconnectedAt: null,
+      integrationSharingScope: null,
+      needsReconnectAt: null,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    } as unknown as IntegrationRecord;
+
+    // A DIFFERENT member views it → private to its connector, not usable.
+    const others = toMcpIntegrationDto(gmail, "viewer-not-connector", false);
+    expect(others.usage).toBe("not_available");
+    expect(others.reason).toBeTruthy();
+    const json = JSON.stringify(others);
+    expect(json).not.toContain("connector-SECRET");
+    expect(json).not.toContain("mailbox-SECRET");
+
+    // The CONNECTOR views their own mailbox → usable.
+    const own = toMcpIntegrationDto(gmail, "connector-SECRET", false);
+    expect(own.usage).toBe("available");
+    expect(own.reason).toBeNull();
   });
 
   it("workflow summary excludes the draft definition", () => {

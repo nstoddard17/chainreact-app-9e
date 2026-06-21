@@ -10,6 +10,7 @@ import { getRoleServiceRole } from "@/repositories/accountMemberships";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as runsRepo from "@/repositories/workflowRuns";
 import * as integrationsRepo from "@/repositories/integrations";
+import { isConnectionSharingEnabled } from "@/services/integrations/connectionSharingFlags";
 import {
   toMcpAccountDto,
   toMcpWorkflowSummaryDto,
@@ -222,13 +223,20 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
     name: "list_integrations",
     description:
       "List the connected apps (integrations) in your account: provider, the " +
-      "account's own label, status, and connect time. Never includes OAuth tokens, " +
-      "secrets, scopes, or raw provider data.",
+      "account's own label, status, and whether THIS token may use the connection " +
+      "(member-connected mailboxes/calendars are private to their connector). Never " +
+      "includes OAuth tokens, secrets, scopes, or raw provider data.",
     inputSchema: NO_ARGS_SCHEMA,
     requiredScope: MCP_SCOPE_INTEGRATIONS_READ,
     async handler(ctx) {
       const rows = await integrationsRepo.listActiveByAccount(ctx.accountId);
-      return { ok: true, data: { integrations: rows.map(toMcpIntegrationDto) } };
+      const sharingEnabled = isConnectionSharingEnabled();
+      return {
+        ok: true,
+        data: {
+          integrations: rows.map((r) => toMcpIntegrationDto(r, ctx.userId, sharingEnabled)),
+        },
+      };
     },
   },
 ];
