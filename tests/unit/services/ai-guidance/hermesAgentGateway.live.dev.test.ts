@@ -27,7 +27,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 import {
-  requestHermesAgentGuidance,
+  requestHermesAgentGuidanceNormalized,
   type GatewayFetch,
   type GatewayHttpResponse,
 } from "@/services/ai-guidance/gateway/hermesAgentGatewayClient";
@@ -108,7 +108,7 @@ describeLive("Hermes Agent gateway LIVE smoke — production Render gateway (opt
       };
 
       const startedAt = Date.now();
-      const res = await requestHermesAgentGuidance({ request: REQUEST, config: cfg, goalText: FAKE_PROMPT, fetchImpl: spyFetch });
+      const res = await requestHermesAgentGuidanceNormalized({ request: REQUEST, config: cfg, goalText: FAKE_PROMPT, fetchImpl: spyFetch });
       const elapsedMs = Date.now() - startedAt;
 
       // --- ChainReact CLIENT contract (always true): correct URL, method, auth header in the
@@ -118,16 +118,17 @@ describeLive("Hermes Agent gateway LIVE smoke — production Render gateway (opt
       expect(capturedInit?.headers.authorization).toBe(`Bearer ${cfg.gatewayToken}`);
       expect(capturedInit?.body ?? "").not.toContain(cfg.gatewayToken);
 
-      // --- Result must always be a well-formed GuidanceResult, mapped to the ACTUAL gateway state:
-      //   gateway healthy (HTTP 2xx) → advisory ok with suggestions;
-      //   gateway/agent erroring     → typed PROVIDER_ERROR (the client must NOT invent guidance).
+      // --- Normalized result must always be well-formed, mapped to the ACTUAL gateway state:
+      //   gateway healthy (HTTP 2xx) → ok with NON-EMPTY guidanceText, source "hermes-agent";
+      //   gateway/agent erroring     → typed error (the client must NOT invent guidance).
       if (capturedStatus >= 200 && capturedStatus < 300 && res.ok) {
-        expect(res.response.providerId).toBe("hermes-agent");
-        expect(res.response.suggestions.length).toBeGreaterThan(0);
-        console.log(`[HERMES-AGENT-GATEWAY-SMOKE] OK end-to-end — elapsedMs=${elapsedMs}`);
+        expect(res.source).toBe("hermes-agent");
+        expect(res.guidanceText.trim().length).toBeGreaterThan(0);
+        expect(res.workflowPlan).toBeNull();
+        console.log(`[HERMES-AGENT-GATEWAY-SMOKE] OK end-to-end — guidanceChars=${res.guidanceText.length} elapsedMs=${elapsedMs}`);
       } else {
         expect(res.ok).toBe(false);
-        if (!res.ok) expect(res.code).toBe("PROVIDER_ERROR");
+        if (!res.ok) expect(["PROVIDER_ERROR", "INVALID_RESPONSE", "TIMEOUT"]).toContain(res.code);
         // Loud, secret-free signal: the client is correct, but the gateway's downstream is unhealthy.
         console.warn(
           `[HERMES-AGENT-GATEWAY-SMOKE] CLIENT OK but GATEWAY UNHEALTHY — httpStatus=${capturedStatus} ` +

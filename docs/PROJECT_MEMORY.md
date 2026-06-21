@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-20 @ 1207a8cad (+ HERMES-AGENT-PROD-CLIENT: server-only Render gateway client shipped, gated/inert; Render prod infra live, sandbox skipped; live smoke shows gateway→agent auth hop broken on Render — client maps to PROVIDER_ERROR. + HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
+> Last curated: 2026-06-20 @ 97208929d (+ HERMES-AGENT-RESPONSE-CONTRACT: strict Zod gateway envelope schema + normalizeGatewayResponse → advisory NormalizedGatewayGuidance, fail-closed, workflowPlan null unless validateWorkflowPlan passes; live smoke healthy end-to-end. + HERMES-AGENT-PROD-CLIENT: server-only Render gateway client shipped, gated/inert; Render prod infra live, sandbox skipped; gateway now VERIFIED healthy after Render-side fixes. + HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
 
 ## Current status
 
@@ -120,6 +120,21 @@
   Gmail(15)/Outlook(11) registry meta-count tests without weakening. Selector ids are discovered into gitignored
   `.env.local` only — no secrets/selectors/account-or-run/workflow-ids/raw provider payloads stored. Nothing
   pushed/deployed/db:pushed → [`docs/runbooks/action-smoke-cli.md`](./runbooks/action-smoke-cli.md).
+- **HERMES-AGENT-RESPONSE-CONTRACT — strict gateway response normalization — LOCAL/UNPUSHED (2026-06-20)** — now
+  that the live success envelope is known (`{ ok:true, response:{ choices:[{ message:{ content } }], usage? } }`),
+  added `services/ai-guidance/gateway/gatewayResponseContract.ts`: Zod `gatewaySuccessEnvelopeSchema` + pure
+  `normalizeGatewayResponse(raw)` → advisory **`NormalizedGatewayGuidance`** (`ok, guidanceText, source:"hermes-agent",
+  workflowPlan: WorkflowPlan|null, rawUsage?, warnings?`). Fail-closed: malformed/missing-choices/missing-or-empty
+  content → INVALID_RESPONSE; gateway `{ok:false}` → PROVIDER_ERROR (safe short code only, nested downstream messages
+  NOT surfaced); non-2xx → PROVIDER_ERROR status_<n>; timeout → TIMEOUT. `usage` sanitized to numeric token counts
+  only (NOT billing-trusted); unknown extra fields ignored (never copied out). **workflowPlan stays null** — a plan
+  is only surfaced if a structured plan object passes `validateWorkflowPlan` (arbitrary JSON/prose never accepted as
+  a plan). Client now exposes `requestHermesAgentGuidanceNormalized` (+ `requestHermesAgentGuidance` thin adapter to
+  the `GuidanceResult` port); dropped the old loose extraction (raw-string/`{guidance}`/bare-choices). Verified: tsc
+  clean, 51 mocked tests (new `gatewayResponseContract.test.ts` + updated client test), lint:structure OK, eslint 0;
+  **live smoke PASSED healthy end-to-end** (non-empty guidanceText, ~4.8s). Nothing user-facing/live-routed; no
+  migration. Docs: runbook §5 response-contract table + topology doc. Next: HERMES-AGENT-CAPABILITY (scoped/audited
+  server boundary) → HERMES-AGENT-PLAN-EXTRACTION (gate structured plans through validateWorkflowPlan).
 - **HERMES-AGENT-PROD-CLIENT — Render gateway client (gated, inert) — LOCAL/UNPUSHED (2026-06-20)** — Marcus
   stood up real production-style infra on **Render**, so the local Docker **sandbox is SKIPPED** as the main
   direction. Topology: **Vercel ChainReact → Render public AI Gateway (`chainreact-ai-gateway-prod`,

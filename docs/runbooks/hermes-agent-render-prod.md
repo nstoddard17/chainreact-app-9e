@@ -104,6 +104,42 @@ imports a direct model client.
 - Safe prompt: [`buildGatewayGuidancePrompt.ts`](../../services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts) — built from the de-identified DTO + scrubbed goal text. No tokens/keys/ids/config/Supabase rows.
 - **Inert by default**: gated on `HERMES_AGENT_ENABLED`; not wired into any route/UI/React Agent.
 
+### Response contract (HERMES-AGENT-RESPONSE-CONTRACT)
+
+[`services/ai-guidance/gateway/gatewayResponseContract.ts`](../../services/ai-guidance/gateway/gatewayResponseContract.ts)
+validates the gateway reply with Zod and normalizes it. The **known success envelope** is:
+
+```json
+{ "ok": true, "response": { "choices": [ { "message": { "content": "..." } } ], "usage": { } } }
+```
+
+`normalizeGatewayResponse(raw)` (and `requestHermesAgentGuidanceNormalized(...)`) returns the
+advisory **`NormalizedGatewayGuidance`**:
+
+| Field | Meaning |
+|---|---|
+| `ok: true` | success |
+| `guidanceText: string` | trimmed `response.choices[0].message.content` (the advisory text) |
+| `source: "hermes-agent"` | fixed origin tag |
+| `workflowPlan: WorkflowPlan \| null` | **null for now** — a plan is surfaced ONLY if a structured plan object passes `validateWorkflowPlan`; arbitrary JSON/prose is never accepted as a plan |
+| `rawUsage?` | sanitized `{ promptTokens?, completionTokens?, totalTokens? }` — numeric counts only, **not trusted for billing** |
+| `warnings?: string[]` | e.g. `multiple_choices_truncated` |
+
+**Fail-closed mapping** (advisory; never mutates/executes a workflow):
+
+| Condition | Result |
+|---|---|
+| malformed envelope / missing `choices` / missing `message.content` | `{ ok:false, code:"INVALID_RESPONSE" }` |
+| empty / whitespace-only content | `{ ok:false, code:"INVALID_RESPONSE" }` |
+| gateway `{ ok:false, error }` (even on HTTP 2xx) | `{ ok:false, code:"PROVIDER_ERROR", reason:<safe code> }` (nested downstream messages are NOT surfaced) |
+| HTTP 401/403/500 / non-2xx | `{ ok:false, code:"PROVIDER_ERROR", reason:"status_<n>" }` |
+| timeout / abort | `{ ok:false, code:"TIMEOUT" }` |
+| transport error / non-JSON body | `{ ok:false, code:"PROVIDER_ERROR" / "INVALID_RESPONSE" }` |
+
+Unknown extra fields in the envelope are allowed but ignored (never copied into the normalized
+output). `requestHermesAgentGuidance(...)` keeps returning the neutral `GuidanceResult` port shape as
+a thin adapter over the normalized result.
+
 ## 6. Opt-in live smoke
 
 [`tests/unit/services/ai-guidance/hermesAgentGateway.live.dev.test.ts`](../../tests/unit/services/ai-guidance/hermesAgentGateway.live.dev.test.ts)

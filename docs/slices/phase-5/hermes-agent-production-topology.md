@@ -39,6 +39,7 @@ Vercel ChainReact app
 | Server-only gateway config reader (flag + url + token + timeout; null when off/unconfigured) | [`services/ai-guidance/gateway/gatewayConfig.ts`](../../../services/ai-guidance/gateway/gatewayConfig.ts) |
 | Safe prompt builder (from de-identified DTO + scrubbed goal text) | [`services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts`](../../../services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts) |
 | Server-only gateway client + `WorkflowGuidanceProvider` impl (advisory; fail-closed) | [`services/ai-guidance/gateway/hermesAgentGatewayClient.ts`](../../../services/ai-guidance/gateway/hermesAgentGatewayClient.ts) |
+| **Strict response contract** (Zod envelope schema + `normalizeGatewayResponse` → `NormalizedGatewayGuidance`: `guidanceText`/`source`/`workflowPlan:null`/`rawUsage?`/`warnings?`) — HERMES-AGENT-RESPONSE-CONTRACT | [`services/ai-guidance/gateway/gatewayResponseContract.ts`](../../../services/ai-guidance/gateway/gatewayResponseContract.ts) |
 | Gateway barrel + `resolveServerGuidanceProvider()` (gateway-when-enabled, else noop) | [`services/ai-guidance/gateway/index.ts`](../../../services/ai-guidance/gateway/index.ts) |
 
 **Gated + inert:** the client only calls out when `HERMES_AGENT_ENABLED=true` AND the gateway env is
@@ -66,8 +67,11 @@ the regression-localization checklist.
 
 ## Next recommended slices
 
-1. **HERMES-AGENT-RESPONSE-CONTRACT** — now that the gateway success shape is confirmed live
-   (`{ ok, response: { choices:[{ message:{ content } }], usage } }`), tighten the response schema
-   (Zod) + structured plan extraction behind `validateWorkflowPlan`.
+1. ✅ **HERMES-AGENT-RESPONSE-CONTRACT (done)** — Zod envelope schema + `normalizeGatewayResponse`
+   → `NormalizedGatewayGuidance` (advisory `guidanceText`, `workflowPlan: null`, sanitized `rawUsage`,
+   fail-closed). Live smoke asserts non-empty `guidanceText`.
 2. **HERMES-AGENT-CAPABILITY** — expose guidance through a scope-validated, audited server boundary
    (React Agent advisory capability), still no direct mutation; ChainReact validates every plan.
+3. **HERMES-AGENT-PLAN-EXTRACTION** — when the agent starts returning structured plans, parse the
+   plan from `guidanceText`/a plan object and gate it through `validateWorkflowPlan` before it is
+   ever surfaced as usable (still advisory, still no mutation).

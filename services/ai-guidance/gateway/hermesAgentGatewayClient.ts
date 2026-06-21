@@ -28,15 +28,13 @@ import type {
   WorkflowGuidanceRequest,
   WorkflowGuidanceResponse,
 } from "../types";
-import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession";
-import { WORKFLOW_PLAN_SCHEMA_VERSION } from "@/contracts/guidanceSession";
-import { validateWorkflowPlan } from "../validateWorkflowPlan";
 import {
   getHermesAgentGatewayConfig,
   isHermesAgentEnabled,
   type HermesAgentGatewayConfig,
 } from "./gatewayConfig";
 import { buildGatewayGuidancePrompt } from "./buildGatewayGuidancePrompt";
+import { normalizeGatewayResponse, type NormalizedGatewayGuidance } from "./gatewayResponseContract";
 
 /** Minimal injectable HTTP seam — decoupled from DOM fetch typing so tests mock it trivially. */
 export interface GatewayHttpResponse {
@@ -65,106 +63,31 @@ function defaultFetch(): GatewayFetch {
   return globalThis.fetch as unknown as GatewayFetch;
 }
 
-/** Pull the first non-empty guidance text from the shapes a gateway might plausibly return. */
-function extractGuidanceText(raw: unknown, depth = 0): string | null {
-  if (typeof raw === "string") return raw.trim() || null;
-  if (!raw || typeof raw !== "object") return null;
-  const obj = raw as Record<string, unknown>;
-  for (const key of ["guidance", "text", "content", "message", "reply", "answer"]) {
-    const v = obj[key];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  // OpenAI-compatible passthrough, if the gateway forwards that shape.
-  const choiceContent = (obj as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0]?.message?.content;
-  if (typeof choiceContent === "string" && choiceContent.trim()) return choiceContent.trim();
-  // The gateway wraps the agent reply under `response` (`{ ok, response: {...} }`). Recurse once.
-  if (depth < 2 && "response" in obj) {
-    const nested = extractGuidanceText(obj.response, depth + 1);
-    if (nested) return nested;
-  }
-  return null;
-}
-
-/** Safe short error code (uppercase/underscore) from the gateway's error envelope, else generic. */
-function safeGatewayErrorReason(raw: Record<string, unknown>): string {
-  const code = raw.error;
-  return typeof code === "string" && /^[A-Z0-9_]{1,40}$/.test(code) ? code : "gateway_error";
-}
-
-/** If the reply carries a plan-like object, build a WorkflowPlan for capability validation. */
-function extractPlanCandidate(raw: unknown): WorkflowPlan | null {
-  if (!raw || typeof raw !== "object") return null;
-  const top = raw as { workflowPlan?: unknown; plan?: unknown; response?: unknown };
-  const nested = top.response && typeof top.response === "object" ? (top.response as { workflowPlan?: unknown; plan?: unknown }) : undefined;
-  const planObj = top.workflowPlan ?? top.plan ?? nested?.workflowPlan ?? nested?.plan;
-  if (!planObj || typeof planObj !== "object") return null;
-  const steps = (planObj as { steps?: unknown }).steps;
-  if (!Array.isArray(steps)) return null;
-  const planSteps: WorkflowPlanStep[] = steps
-    .filter((s): s is Record<string, unknown> => !!s && typeof s === "object")
-    .filter((s) => typeof s.provider === "string" && typeof s.type === "string" && typeof s.role === "string")
-    .map((s, i) => ({
-      ref: typeof s.ref === "string" ? s.ref : `s${i}`,
-      role: s.role as WorkflowPlanStep["role"],
-      provider: s.provider as string,
-      type: s.type as string,
-      purpose: typeof s.purpose === "string" ? s.purpose : "",
-    }));
-  if (planSteps.length === 0) return null;
-  const p = planObj as { title?: unknown; summary?: unknown };
-  return {
-    schemaVersion: WORKFLOW_PLAN_SCHEMA_VERSION,
-    title: typeof p.title === "string" ? p.title : "",
-    summary: typeof p.summary === "string" ? p.summary : "",
-    steps: planSteps,
-    notApplied: true,
-  };
-}
-
-/**
- * Normalize a parsed gateway reply into a safe `GuidanceResult`. Advisory only:
- *   - any plan-like structure is capability-validated; an INVALID plan fails CLOSED,
- *   - prose is returned as a single guidance suggestion (text only),
- *   - no extractable guidance → INVALID_RESPONSE (fail closed).
- */
-function normalizeGatewayReply(raw: unknown): GuidanceResult {
-  // The gateway's own structured failure envelope (`{ ok: false, error, ... }`) — even on HTTP 2xx
-  // — is a provider error, not guidance. Surface only the safe short error code, never nested
-  // messages (which could carry downstream detail).
-  if (raw && typeof raw === "object" && (raw as { ok?: unknown }).ok === false) {
-    return { ok: false, code: "PROVIDER_ERROR", reason: safeGatewayErrorReason(raw as Record<string, unknown>) };
-  }
-
-  // Forward-looking: if a plan ever arrives, ChainReact (not the brain) decides if it is usable.
-  const plan = extractPlanCandidate(raw);
-  if (plan && !validateWorkflowPlan(plan).ok) {
-    return { ok: false, code: "INVALID_RESPONSE", reason: "plan referenced unknown capabilities" };
-  }
-
-  const text = extractGuidanceText(raw);
-  if (!text) return { ok: false, code: "INVALID_RESPONSE", reason: "no guidance text in reply" };
-
+/** Map the normalized advisory result onto the neutral `GuidanceResult` port shape. */
+function toGuidanceResult(n: NormalizedGatewayGuidance): GuidanceResult {
+  if (!n.ok) return { ok: false, code: n.code, ...(n.reason ? { reason: n.reason } : {}) };
   const response: WorkflowGuidanceResponse = {
     schemaVersion: 1,
     guidanceKind: "workflow_design",
     providerId: "hermes-agent",
-    suggestions: [{ title: "Guidance", detail: text }],
+    suggestions: [{ title: "Guidance", detail: n.guidanceText }],
     modelTag: "hermes-agent",
   };
   return { ok: true, response };
 }
 
 /**
- * Full gateway call: build safe prompt → POST to the public gateway → normalize. Never throws for a
- * transport/parse failure (maps to a safe `GuidanceResult` code); never logs the token.
+ * Full gateway call → STRICT normalized advisory result (HERMES-AGENT-RESPONSE-CONTRACT). Build the
+ * safe prompt → POST → validate/normalize via the response contract. Never throws; maps every
+ * transport/parse failure to a typed code; never logs the token.
  */
-export async function requestHermesAgentGuidance(params: {
+export async function requestHermesAgentGuidanceNormalized(params: {
   request: WorkflowGuidanceRequest;
   config: HermesAgentGatewayConfig;
   goalText?: string;
   capabilityCatalog?: readonly string[];
   fetchImpl?: GatewayFetch;
-}): Promise<GuidanceResult> {
+}): Promise<NormalizedGatewayGuidance> {
   const prompt = buildGatewayGuidancePrompt({
     request: params.request,
     ...(params.goalText ? { goalText: params.goalText } : {}),
@@ -191,20 +114,29 @@ export async function requestHermesAgentGuidance(params: {
     try {
       parsed = await res.json();
     } catch {
-      // Fall back to text() for a non-JSON gateway reply (still advisory prose).
-      try {
-        parsed = await res.text();
-      } catch {
-        return { ok: false, code: "INVALID_RESPONSE", reason: "unreadable reply" };
-      }
+      return { ok: false, code: "INVALID_RESPONSE", reason: "non-JSON reply" };
     }
-    return normalizeGatewayReply(parsed);
+    return normalizeGatewayResponse(parsed);
   } catch (err) {
     const aborted = err instanceof Error && err.name === "AbortError";
     return aborted ? { ok: false, code: "TIMEOUT" } : { ok: false, code: "PROVIDER_ERROR", reason: "transport_error" };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Full gateway call → neutral `GuidanceResult` (the `WorkflowGuidanceProvider` port shape). Thin
+ * adapter over {@link requestHermesAgentGuidanceNormalized}.
+ */
+export async function requestHermesAgentGuidance(params: {
+  request: WorkflowGuidanceRequest;
+  config: HermesAgentGatewayConfig;
+  goalText?: string;
+  capabilityCatalog?: readonly string[];
+  fetchImpl?: GatewayFetch;
+}): Promise<GuidanceResult> {
+  return toGuidanceResult(await requestHermesAgentGuidanceNormalized(params));
 }
 
 /**

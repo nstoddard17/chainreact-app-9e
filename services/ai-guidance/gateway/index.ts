@@ -32,11 +32,19 @@ export {
 } from "./buildGatewayGuidancePrompt";
 export {
   requestHermesAgentGuidance,
+  requestHermesAgentGuidanceNormalized,
   createHermesAgentGatewayProvider,
   type GatewayFetch,
   type GatewayHttpResponse,
   type HermesAgentGatewayDeps,
 } from "./hermesAgentGatewayClient";
+export {
+  normalizeGatewayResponse,
+  gatewaySuccessEnvelopeSchema,
+  type NormalizedGatewayGuidance,
+  type SanitizedUsage,
+  type GatewaySuccessEnvelope,
+} from "./gatewayResponseContract";
 
 /**
  * Server-only resolver: the gateway provider when enabled + configured, else the inert noop.

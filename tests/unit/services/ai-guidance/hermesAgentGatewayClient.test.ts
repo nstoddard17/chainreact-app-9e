@@ -1,16 +1,20 @@
 /**
  * @jest-environment node
  *
- * Hermes Agent gateway client (HERMES-AGENT-PROD-CLIENT).
- * Proves: disabled/unconfigured → no network; success path normalizes to advisory guidance;
- * 401/403/500 → typed PROVIDER_ERROR; timeout → typed TIMEOUT; the gateway token is ONLY in the
- * Authorization header (never in the body); the body never contains the OpenAI key / API_SERVER_KEY
- * / internal token / private Hermes URL. NO live network (injected mock fetch); needs no real env.
+ * Hermes Agent gateway client (HERMES-AGENT-PROD-CLIENT / HERMES-AGENT-RESPONSE-CONTRACT).
+ * Proves the CLIENT contract: disabled/unconfigured → no network; a valid live envelope normalizes
+ * to advisory guidance; HTTP 401/403/500 → typed PROVIDER_ERROR; the gateway's own {ok:false}
+ * envelope → typed PROVIDER_ERROR (safe code, no nested message); timeout → typed TIMEOUT; transport
+ * error → typed PROVIDER_ERROR; the gateway token is ONLY in the Authorization header (never in the
+ * body); the body never contains the OpenAI key / API_SERVER_KEY / internal token / private Hermes
+ * URL. NO live network (injected mock fetch). Response-shape normalization detail lives in
+ * gatewayResponseContract.test.ts.
  */
 
 import {
   createHermesAgentGatewayProvider,
   requestHermesAgentGuidance,
+  requestHermesAgentGuidanceNormalized,
   type GatewayFetch,
   type GatewayHttpResponse,
 } from "@/services/ai-guidance/gateway/hermesAgentGatewayClient";
@@ -29,6 +33,11 @@ const CONFIG: HermesAgentGatewayConfig = {
   gatewayToken: TOKEN,
   timeoutMs: 5_000,
 };
+
+/** The known live success envelope shape. */
+function envelope(content: string): unknown {
+  return { ok: true, response: { choices: [{ message: { content } }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } } };
+}
 
 // Secrets that must NEVER reach the request body (they belong only on Render).
 const FORBIDDEN_IN_BODY = {
@@ -70,7 +79,7 @@ function okFetch(payload: unknown, status = 200): jest.MockedFunction<GatewayFet
 
 describe("gateway provider — gating (no env needed)", () => {
   it("flag OFF (default) → PROVIDER_DISABLED; fetch never called", async () => {
-    const fetchImpl = okFetch({ guidance: "hi" });
+    const fetchImpl = okFetch(envelope("hi"));
     const res = await createHermesAgentGatewayProvider({ fetchImpl }).getWorkflowGuidance(REQUEST);
     expect(res).toEqual({ ok: false, code: "PROVIDER_DISABLED" });
     expect(fetchImpl).not.toHaveBeenCalled();
@@ -78,7 +87,7 @@ describe("gateway provider — gating (no env needed)", () => {
 
   it("flag ON but gateway env missing → PROVIDER_NOT_CONFIGURED; fetch never called", async () => {
     process.env[HERMES_AGENT_ENV.enabled] = "true";
-    const fetchImpl = okFetch({ guidance: "hi" });
+    const fetchImpl = okFetch(envelope("hi"));
     const res = await createHermesAgentGatewayProvider({ fetchImpl }).getWorkflowGuidance(REQUEST);
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.code).toBe("PROVIDER_NOT_CONFIGURED");
@@ -88,7 +97,7 @@ describe("gateway provider — gating (no env needed)", () => {
 
 describe("gateway client — request shape + secret discipline (mock fetch, no live call)", () => {
   it("POSTs the prompt; token ONLY in Authorization header, never in body; correct URL", async () => {
-    const fetchImpl = okFetch({ guidance: "Ask: what triggers your follow-up?" });
+    const fetchImpl = okFetch(envelope("Ask: what triggers your follow-up?"));
     const res = await requestHermesAgentGuidance({
       request: REQUEST,
       config: CONFIG,
@@ -110,50 +119,27 @@ describe("gateway client — request shape + secret discipline (mock fetch, no l
 
   it("request body never contains the OpenAI key / API_SERVER_KEY / internal token / private URL", async () => {
     for (const [k, v] of Object.entries(FORBIDDEN_IN_BODY)) process.env[k] = v;
-    const fetchImpl = okFetch({ guidance: "ok" });
-    await requestHermesAgentGuidance({
-      request: REQUEST,
-      config: CONFIG,
-      goalText: "help me build a follow-up workflow",
-      fetchImpl,
-    });
+    const fetchImpl = okFetch(envelope("ok"));
+    await requestHermesAgentGuidance({ request: REQUEST, config: CONFIG, goalText: "help me build a follow-up workflow", fetchImpl });
     const [, init] = fetchImpl.mock.calls[0]!;
     for (const v of Object.values(FORBIDDEN_IN_BODY)) expect(init.body).not.toContain(v);
   });
 
-  it("normalizes a prose reply into a single advisory guidance suggestion", async () => {
-    const res = await requestHermesAgentGuidance({
-      request: REQUEST,
-      config: CONFIG,
-      fetchImpl: okFetch({ guidance: "Let's start with what app your leads live in." }),
-    });
+  it("a valid live envelope → advisory guidance (port shape) + normalized guidanceText", async () => {
+    const fetchImpl = okFetch(envelope("Let's start with what app your leads live in."));
+    const res = await requestHermesAgentGuidance({ request: REQUEST, config: CONFIG, fetchImpl });
     expect(res.ok).toBe(true);
     if (res.ok) {
       expect(res.response.providerId).toBe("hermes-agent");
       expect(res.response.suggestions[0]!.detail).toContain("leads live in");
     }
-  });
-
-  it("accepts a raw string body and OpenAI-style choices shape", async () => {
-    const r1 = await requestHermesAgentGuidance({ request: REQUEST, config: CONFIG, fetchImpl: okFetch("plain prose guidance") });
-    expect(r1.ok).toBe(true);
-    const r2 = await requestHermesAgentGuidance({
-      request: REQUEST,
-      config: CONFIG,
-      fetchImpl: okFetch({ choices: [{ message: { content: "from choices" } }] }),
-    });
-    expect(r2.ok).toBe(true);
-    if (r2.ok) expect(r2.response.suggestions[0]!.detail).toBe("from choices");
-  });
-
-  it("gateway success envelope {ok:true, response:{...}} → extracts nested guidance", async () => {
-    const res = await requestHermesAgentGuidance({
-      request: REQUEST,
-      config: CONFIG,
-      fetchImpl: okFetch({ ok: true, response: { guidance: "What app do your leads live in?" } }),
-    });
-    expect(res.ok).toBe(true);
-    if (res.ok) expect(res.response.suggestions[0]!.detail).toContain("leads live in");
+    const n = await requestHermesAgentGuidanceNormalized({ request: REQUEST, config: CONFIG, fetchImpl: okFetch(envelope("hello world")) });
+    expect(n.ok).toBe(true);
+    if (n.ok) {
+      expect(n.guidanceText).toBe("hello world");
+      expect(n.source).toBe("hermes-agent");
+      expect(n.workflowPlan).toBeNull();
+    }
   });
 
   it("gateway error envelope {ok:false, error} → typed PROVIDER_ERROR with the safe code, no nested message", async () => {
@@ -167,27 +153,39 @@ describe("gateway client — request shape + secret discipline (mock fetch, no l
       }),
     });
     expect(res).toMatchObject({ ok: false, code: "PROVIDER_ERROR", reason: "HERMES_AGENT_ERROR" });
-    // The downstream message must NOT leak through.
     expect(JSON.stringify(res)).not.toContain("Missing Authentication");
   });
 
-  it("401/403/500 → typed PROVIDER_ERROR with safe status reason", async () => {
+  it("HTTP 401/403/500 → typed PROVIDER_ERROR with safe status reason", async () => {
     for (const status of [401, 403, 500]) {
       const res = await requestHermesAgentGuidance({ request: REQUEST, config: CONFIG, fetchImpl: okFetch({}, status) });
       expect(res).toMatchObject({ ok: false, code: "PROVIDER_ERROR", reason: `status_${status}` });
     }
   });
 
-  it("empty / unusable reply → INVALID_RESPONSE (fail closed)", async () => {
+  it("malformed 2xx body → INVALID_RESPONSE (fail closed)", async () => {
     const res = await requestHermesAgentGuidance({ request: REQUEST, config: CONFIG, fetchImpl: okFetch({ unrelated: 1 }) });
     expect(res).toMatchObject({ ok: false, code: "INVALID_RESPONSE" });
+  });
+
+  it("non-JSON 2xx body → INVALID_RESPONSE (fail closed)", async () => {
+    const badJson = jest.fn<Promise<GatewayHttpResponse>, Parameters<GatewayFetch>>(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error("not json");
+      },
+      text: async () => "oops",
+    }));
+    const res = await requestHermesAgentGuidance({ request: REQUEST, config: CONFIG, fetchImpl: badJson });
+    expect(res).toMatchObject({ ok: false, code: "INVALID_RESPONSE", reason: "non-JSON reply" });
   });
 
   it("a plan-like reply with unknown capabilities fails CLOSED (INVALID_RESPONSE)", async () => {
     const res = await requestHermesAgentGuidance({
       request: REQUEST,
       config: CONFIG,
-      fetchImpl: okFetch({ guidance: "here", plan: { steps: [{ ref: "s0", role: "action", provider: "totally-fake", type: "nope" }] } }),
+      fetchImpl: okFetch({ ...(envelope("here") as object), plan: { steps: [{ ref: "s0", role: "action", provider: "totally-fake", type: "nope" }] } }),
     });
     expect(res).toMatchObject({ ok: false, code: "INVALID_RESPONSE" });
   });
@@ -201,11 +199,7 @@ describe("gateway client — request shape + secret discipline (mock fetch, no l
           reject(e);
         });
       });
-    const res = await requestHermesAgentGuidance({
-      request: REQUEST,
-      config: { ...CONFIG, timeoutMs: 20 },
-      fetchImpl: abortFetch,
-    });
+    const res = await requestHermesAgentGuidance({ request: REQUEST, config: { ...CONFIG, timeoutMs: 20 }, fetchImpl: abortFetch });
     expect(res).toEqual({ ok: false, code: "TIMEOUT" });
   });
 
