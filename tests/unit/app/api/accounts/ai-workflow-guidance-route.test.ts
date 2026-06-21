@@ -58,6 +58,11 @@ jest.mock("@/services/ai/reactAgent/capabilities/workflowGuidanceIntake", () => 
 const mockGetAccount = jest.fn();
 jest.mock("@/repositories/accounts", () => ({ getById: (...a: unknown[]) => mockGetAccount(...a) }));
 
+const mockCredentials = jest.fn();
+jest.mock("@/services/integrations/guidanceCredentialAvailability", () => ({
+  getGuidanceCredentialAvailability: (...a: unknown[]) => mockCredentials(...a),
+}));
+
 import { POST } from "@/app/api/accounts/[id]/ai/workflow-guidance/route";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 
@@ -86,6 +91,7 @@ beforeEach(() => {
   mockAuditRecord.mockReset().mockResolvedValue(undefined);
   mockRunner.mockReset().mockResolvedValue(guidanceOk);
   mockGetAccount.mockReset().mockResolvedValue({ id: ACCOUNT, type: "team" });
+  mockCredentials.mockReset().mockResolvedValue({ accountSharedProviders: [], currentUserPrivateProviders: [] });
 });
 
 describe("workflow-guidance route — auth + membership", () => {
@@ -216,6 +222,26 @@ describe("workflow-guidance route — capability call + safe response", () => {
     await call(ACCOUNT, goodBody);
     const [input] = mockRunner.mock.calls[0]!;
     expect(input.contextInputs).toEqual({ account: { type: "team" } });
+  });
+
+  it("passes SANITIZED credential availability (provider keys) into the Hermes context", async () => {
+    mockCredentials.mockResolvedValueOnce({
+      accountSharedProviders: [{ providerKey: "slack", displayName: "Slack", status: "available" }],
+      currentUserPrivateProviders: [{ providerKey: "gmail", displayName: "Gmail", status: "available" }],
+    });
+    await call(ACCOUNT, goodBody);
+    expect(mockCredentials).toHaveBeenCalledWith({ accountId: ACCOUNT, userId: "user-1" });
+    const [input] = mockRunner.mock.calls[0]!;
+    expect(input.contextInputs.sharedCredentialProviders).toEqual(["slack"]); // keys only
+    expect(input.contextInputs.ownConnectionProviders).toEqual(["gmail"]);
+  });
+
+  it("credential source returning empty → no credential fields in contextInputs (safe degrade)", async () => {
+    mockCredentials.mockResolvedValueOnce({ accountSharedProviders: [], currentUserPrivateProviders: [] });
+    await call(ACCOUNT, goodBody);
+    const [input] = mockRunner.mock.calls[0]!;
+    expect(input.contextInputs.sharedCredentialProviders).toBeUndefined();
+    expect(input.contextInputs.ownConnectionProviders).toBeUndefined();
   });
 
   it("success → 200 with guidanceText/source/workflowPlan ONLY (no raw envelope/usage/prompt/secret)", async () => {

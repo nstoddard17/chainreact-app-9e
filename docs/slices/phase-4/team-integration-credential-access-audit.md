@@ -215,3 +215,10 @@ team workflow that uses a personal-provider connection owned by a different memb
 generic notice (no owner identity/credential). A team/shared account does not share private AI memory;
 guidance is request-scoped (no durable AI memory store). See
 `docs/slices/phase-5/hermes-agent-production-topology.md` (AI context / memory scopes).
+
+HERMES-AGENT-CREDENTIAL-AVAILABILITY-CONTEXT (2026-06-21) wired the LIVE source:
+`services/integrations/guidanceCredentialAvailability.ts` reads `integrations.listActiveByAccount` and
+returns provider KEYS (+ registry display names) only — account-class → account-shared; the current
+user's own personal connections → their own; another member's private connection excluded. No token /
+secret / provider account id / integration id / owner id / account id / row displayName. Conservative:
+explicitly-shared personal connections (CS slices) are not yet summarized as account-shared.

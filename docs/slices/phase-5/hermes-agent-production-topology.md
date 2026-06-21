@@ -45,6 +45,7 @@ Vercel ChainReact app
 | **Builder preview overlay** (visual/ephemeral) — renders a `DraftPreview` as a SEPARATE ghost layer over the canvas (shimmered/dashed "Suggested" nodes + dashed edges + "Preview only…" notice + Discard). UI state in `WorkflowBuilder` only; never merges into the real graph / `draftDefinition` / dirty / save. Panel "Show on canvas" (builder-only) feeds it; Discard clears it — HERMES-AGENT-BUILDER-PREVIEW-OVERLAY | [`features/workflow-builder/canvas/BuilderPreviewOverlay.tsx`](../../../features/workflow-builder/canvas/BuilderPreviewOverlay.tsx) (state in [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx); wired via [`BuilderGuidanceEntry.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceEntry.tsx) → panel `onPreviewToCanvas`) |
 | **Apply-preview additive patch** (first mutation path) — explicit user "Apply preview" → `planToBuilderPatch` builds a deterministic ADDITIVE patch from the VALIDATED plan → `graphSlice.applyAdditivePatch` appends nodes/edges to the LOCAL draft (real ids, EMPTY config, dirty via the normal mechanism). NEVER deletes/replaces/updates existing pieces, replaces a trigger, saves, activates, runs, or creates a separate workflow — HERMES-AGENT-APPLY-PREVIEW-PATCH | [`services/ai-guidance/preview/planToBuilderPatch.ts`](../../../services/ai-guidance/preview/planToBuilderPatch.ts) + patch type [`contracts/workflowPlanPreview.ts`](../../../contracts/workflowPlanPreview.ts) + [`graphSlice.applyAdditivePatch`](../../../features/workflow-builder/state/graphSlice.ts) + overlay "Apply preview" + [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx) |
 | **AI context / memory scope guard** (deterministic policy) — `buildSafeGuidanceContext` decides what request-scoped context crosses to Hermes: account type/role, account-shared connection availability, the caller's OWN connection availability, and a generic notice when a workflow uses ANOTHER member's private connection. Excludes all other-member private data / identity / secrets. NO durable memory store — guidance is request-scoped — HERMES-AGENT-MEMORY-SCOPE-GUARD | [`services/ai-guidance/guidanceContextPolicy.ts`](../../../services/ai-guidance/guidanceContextPolicy.ts) (used by [`workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts); rendered by [`buildGatewayGuidancePrompt.ts`](../../../services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts); raw inputs gathered in [`route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts)) |
+| **Live credential-availability source** (sanitized) — reads active integrations for the account and reduces them to provider KEYS (+ registry display names): account-class providers → account-shared; personal providers connected by the CURRENT user → their own; another member's private provider → excluded. No token/secret/provider-account-id/integration-id/owner/account-id. Degrades to empty on read error. Fed into the scope guard via the route — HERMES-AGENT-CREDENTIAL-AVAILABILITY-CONTEXT | [`services/integrations/guidanceCredentialAvailability.ts`](../../../services/integrations/guidanceCredentialAvailability.ts) (read by [`route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) → `contextInputs` → guard) |
 | Gateway barrel + `resolveServerGuidanceProvider()` (gateway-when-enabled, else noop) | [`services/ai-guidance/gateway/index.ts`](../../../services/ai-guidance/gateway/index.ts) |
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 | **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
@@ -100,9 +101,13 @@ Guidance is **request-scoped** — there is NO durable Hermes/ChainReact AI memo
 guidance/session/audit tables are NOT a memory source. `buildSafeGuidanceContext` is the deterministic
 guard for what context a request may carry, by scope:
 
-- **user** — the signed-in user's OWN data only (e.g. their own connection availability).
+- **user** — the signed-in user's OWN data only (e.g. their own private connection availability,
+  sourced live from integrations they personally connected).
 - **account** — shared ONLY when explicitly account-safe (account type/role; account-shared
-  connection availability — personal providers are filtered out even if mistakenly passed).
+  connection availability — personal providers are filtered out even if mistakenly passed). The
+  account-shared list is sourced LIVE from active integrations (account-class providers) via
+  `guidanceCredentialAvailability` (HERMES-AGENT-CREDENTIAL-AVAILABILITY-CONTEXT) — keys + display
+  names only.
 - **workflow** — only for a workflow the caller is already route-authorized to access.
 - **global** — generic product/workflow-building patterns; no customer data.
 
@@ -182,7 +187,14 @@ the regression-localization checklist.
     all other-member private data / identity / secrets excluded. No durable memory store — guidance is
     request-scoped; audit stays aggregate-safe. Policy + server enforcement + tests only (no new memory
     system, no Honcho, no migration, no workflow/apply change).
-11. **HERMES-AGENT-APPLY-IN-PLACE (next)** — smarter, still-additive insertion relative to existing
+11. ✅ **HERMES-AGENT-CREDENTIAL-AVAILABILITY-CONTEXT (done)** — wired the LIVE, sanitized credential
+    availability source (`services/integrations/guidanceCredentialAvailability.ts`) into the scope
+    guard via the route: account-class providers → account-shared; the caller's OWN personal
+    connections → their own; another member's private provider excluded; no token/secret/id/owner.
+    Prompt gains "Only suggest using connections listed as available…". Degrades to empty on read
+    error. Conservative limit: explicitly-shared personal connections not yet summarized as
+    account-shared (future widening).
+12. **HERMES-AGENT-APPLY-IN-PLACE (next)** — smarter, still-additive insertion relative to existing
     nodes (e.g. append to a chosen branch tail / insert between two selected nodes) instead of a side
     chain. Still no delete/replace, still explicit, still no auto-save. A separate slice could then add
     config-prefill assistance (never secrets) and an apply-then-save affordance.

@@ -39,6 +39,13 @@ const CONTEXT_SCOPE_INSTRUCTION =
   "Use only the context included in this request. Do not infer or claim access to other team members' private data, credentials, messages, files, or memories.";
 
 /**
+ * Provider-availability instruction (HERMES-AGENT-CREDENTIAL-AVAILABILITY-CONTEXT). Keeps suggestions
+ * grounded in the sanitized availability summary instead of assuming a connection exists.
+ */
+const CREDENTIAL_AVAILABILITY_INSTRUCTION =
+  "Only suggest using connections listed as available in this request, or ask the user to connect or share the provider first.";
+
+/**
  * Defensive redaction of obvious secret/token shapes from user free text. The goal text is the
  * user's own words, but a user could paste a key — redact common shapes so a pasted secret never
  * reaches the gateway. Returns the text with matches replaced by "[redacted]".
@@ -103,6 +110,7 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     privateConnLine,
     RESPONSE_FORMAT_INSTRUCTIONS,
     CONTEXT_SCOPE_INSTRUCTION,
+    CREDENTIAL_AVAILABILITY_INSTRUCTION,
     "This is advice only. ChainReact validates any proposed plan and is the only thing that can build, change, or run a workflow.",
   ]
     .filter((l) => l.length > 0)

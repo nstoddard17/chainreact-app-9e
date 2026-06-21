@@ -247,8 +247,25 @@ deterministic guard for what context a request may carry:
 - When a workflow uses a personal connection owned by **another member**, guidance gets only a generic
   notice (no owner identity/credential). The route gathers raw inputs (account type via
   `accounts.getById`, workflow `createdByUserId` for the own-vs-foreign comparison only) and the
-  capability runner builds the safe context via the policy. **No env/operational change.** Credential-
-  availability summaries are not yet wired from a live source (the guard omits them until then).
+  capability runner builds the safe context via the policy. **No env/operational change.**
+
+**Provider availability (HERMES-AGENT-CREDENTIAL-AVAILABILITY-CONTEXT).** The account-shared + own
+connection availability is now sourced LIVE from active integrations via
+`services/integrations/guidanceCredentialAvailability.ts`, which reduces rows to provider KEYS (+
+registry display names) under credential-sharing semantics:
+
+- **account-class** providers (slack/notion/stripe/shopify/hubspot/mailchimp) → summarized as
+  account-shared.
+- **personal-class** providers connected by the **current user** → summarized as their own.
+- **another member's** personal connection → EXCLUDED (no key, no identity).
+- NEVER any token/secret, provider account id, integration id, owner user id/email/name, account id,
+  scopes, sharing scope, or the integration row's `displayName` (only the registry name like "Gmail").
+- The source uses `listActiveByAccount` (service-role) but the route has already authorized the user
+  and the output is fully sanitized; it **degrades to empty** on any read error (guidance still runs,
+  just without credential context). The prompt instruction: "Only suggest using connections listed as
+  available in this request, or ask the user to connect or share the provider first." Enforcement is
+  in code (the source + the guard re-sanitize), not the prompt. Conservative limit: explicitly-shared
+  personal connections are not yet summarized as account-shared.
 
 ### UI entry point — "Build with me" (HERMES-AGENT-GUIDANCE-UI / -UI-BUILDER)
 

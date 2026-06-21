@@ -11,6 +11,7 @@ import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
+import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
 import * as accountsRepo from "@/repositories/accounts";
 
 /**
@@ -133,6 +134,14 @@ export async function POST(
   const account = await accountsRepo.getById(accountId);
   const accountType = account?.type ?? "personal";
 
+  // HERMES-AGENT-CREDENTIAL-AVAILABILITY-CONTEXT — live, SANITIZED provider availability (account-
+  // shared + the caller's OWN private connections). The service excludes other members' private
+  // connections and any token/secret/id/owner; the scope guard re-sanitizes downstream. Degrades to
+  // empty on read error (no credential context, never blocks guidance).
+  const credentials = await getGuidanceCredentialAvailability({ accountId, userId });
+  const sharedCredentialProviders = credentials.accountSharedProviders.map((p) => p.providerKey);
+  const ownConnectionProviders = credentials.currentUserPrivateProviders.map((p) => p.providerKey);
+
   // 6. Run the advisory capability through the governance seam (audited). Read-only — no mutation.
   const result = await runWorkflowGuidanceIntakeCapability(
     {
@@ -142,6 +151,8 @@ export async function POST(
       contextInputs: {
         account: { type: accountType },
         ...(workflowCreatedByUserId ? { workflowCreatedByUserId } : {}),
+        ...(sharedCredentialProviders.length ? { sharedCredentialProviders } : {}),
+        ...(ownConnectionProviders.length ? { ownConnectionProviders } : {}),
       },
     },
     { auditRecorder: reactAgentAuditRecorder },

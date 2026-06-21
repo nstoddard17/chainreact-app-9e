@@ -16,10 +16,11 @@ const EMPTY_REQUEST: WorkflowGuidanceRequest = {
 };
 
 describe("buildGatewayGuidancePrompt — scope instruction + safe context", () => {
-  it("always includes the scope instruction (even with no context)", () => {
+  it("always includes the scope + credential-availability instructions (even with no context)", () => {
     const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
     expect(prompt).toContain("Use only the context included in this request");
     expect(prompt).toContain("Do not infer or claim access to other team members");
+    expect(prompt).toContain("Only suggest using connections listed as available in this request");
   });
 
   it("renders account summary + shared/own connections + private-connection notice from context", () => {
