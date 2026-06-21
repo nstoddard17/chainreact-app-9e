@@ -15,7 +15,7 @@
  * components are intentionally NOT deleted (other tests/routes still cover them) — we
  * only assert the visible rail is disconnected from them.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
@@ -75,5 +75,37 @@ describe("builder AI rail — disconnected from the deprecated plan endpoint", (
   it("the builder rail header no longer labels the model as 'claude'", () => {
     const rail = read("features/workflow-builder/layout/BuilderLeftAgentRail.tsx");
     expect(rail).not.toMatch(/claude/i);
+  });
+});
+
+/**
+ * HERMES-AGENT-LEGACY-AI-ROUTE-AUDIT — the deprecated `…/ai/plan` path is no longer USER-MOUNTED.
+ * The only client of `planWorkflow` is the legacy `BuilderAiPanel`, which no builder composition
+ * root renders. We assert that here (against the actual builder composition files) so a future
+ * re-mount of the old chat — and with it the deprecated plan endpoint — fails CI.
+ */
+describe("legacy plan path is not user-mounted", () => {
+  const COMPOSITION_ROOTS = [
+    "features/workflow-builder/WorkflowBuilder.tsx",
+    "features/workflow-builder/layout/BuilderShell.tsx",
+    "features/workflow-builder/layout/BuilderLeftAgentRail.tsx",
+    "features/workflow-builder/panels/BuilderGuidanceRail.tsx",
+  ] as const;
+
+  it.each(COMPOSITION_ROOTS)("%s does not render <BuilderAiPanel> (the legacy chat)", (rel) => {
+    const src = read(rel);
+    expect(src).not.toMatch(/<BuilderAiPanel[\s/>]/);
+  });
+
+  it("the superseded floating BuilderGuidanceEntry component was removed", () => {
+    expect(
+      existsSync(resolve(process.cwd(), "features/workflow-builder/panels/BuilderGuidanceEntry.tsx")),
+    ).toBe(false);
+  });
+
+  it("the deprecated /ai/plan route still exists (kept for its backend test + future rehoming)", () => {
+    // Audited decision: the route is NOT deleted — it is backend-tested and the chat planning UX
+    // is a Hermes-rehoming candidate. This guards the decision so an accidental deletion is noticed.
+    expect(existsSync(resolve(process.cwd(), "app/api/workflows/[id]/ai/plan/route.ts"))).toBe(true);
   });
 });

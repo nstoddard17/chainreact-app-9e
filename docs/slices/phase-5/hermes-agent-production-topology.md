@@ -52,7 +52,7 @@ Vercel ChainReact app
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 | **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
 | **UI entry point** "Build with me" advisory panel (workflows dashboard; server-gated on `HERMES_AGENT_ENABLED`; calls only the route via the client helper) — HERMES-AGENT-GUIDANCE-UI | [`features/workflows/WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) + helper [`lib/api/ai/guidance.ts`](../../../lib/api/ai/guidance.ts) |
-| **Builder UI entry point** — the builder's LEFT CHAT RAIL is now the SINGLE, primary builder AI entry: it renders the SAME `WorkflowGuidancePanel` (passing the in-context `workflowId`), so typing in the rail → Hermes guidance → Show on canvas → preview → Apply preview. It REPLACED the old plan-based `BuilderAiPanel` (which called the deprecated `POST /api/workflows/[id]/ai/plan`, now 503) and the separate floating "Build with me" pill (`BuilderGuidanceEntry`, no longer rendered) so there is ONE AI surface. Gated on `isHermesAgentEnabled()` AND a resolved `accountId` (else a safe "unavailable" note, no dead box). Rail header label is "connected · Hermes" (no model/provider name). Reuses the route/helper/panel verbatim (no new request logic) — HERMES-AGENT-REPLACE-BUILDER-AI-PLAN (supersedes HERMES-AGENT-GUIDANCE-UI-BUILDER) | [`features/workflow-builder/panels/BuilderGuidanceRail.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceRail.tsx) (mounted in the rail by [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx); gated in [`app/workflows/[id]/page.tsx`](../../../app/workflows/[id]/page.tsx)). The old floating wrapper [`BuilderGuidanceEntry.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceEntry.tsx) remains as code but is no longer mounted. |
+| **Builder UI entry point** — the builder's LEFT CHAT RAIL is now the SINGLE, primary builder AI entry: it renders the SAME `WorkflowGuidancePanel` (passing the in-context `workflowId`), so typing in the rail → Hermes guidance → Show on canvas → preview → Apply preview. It REPLACED the old plan-based `BuilderAiPanel` (which called the deprecated `POST /api/workflows/[id]/ai/plan`, now 503) and the separate floating "Build with me" pill (`BuilderGuidanceEntry`, no longer rendered) so there is ONE AI surface. Gated on `isHermesAgentEnabled()` AND a resolved `accountId` (else a safe "unavailable" note, no dead box). Rail header label is "connected · Hermes" (no model/provider name). Reuses the route/helper/panel verbatim (no new request logic) — HERMES-AGENT-REPLACE-BUILDER-AI-PLAN (supersedes HERMES-AGENT-GUIDANCE-UI-BUILDER) | [`features/workflow-builder/panels/BuilderGuidanceRail.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceRail.tsx) (mounted in the rail by [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx); gated in [`app/workflows/[id]/page.tsx`](../../../app/workflows/[id]/page.tsx)). The superseded floating wrapper `BuilderGuidanceEntry.tsx` was DELETED in HERMES-AGENT-LEGACY-AI-ROUTE-AUDIT (dead, zero consumers). |
 
 ### End-to-end advisory path (UI → route → capability → gateway)
 
@@ -257,3 +257,27 @@ the regression-localization checklist.
       calls; no gateway-token exposure. Consequence: the old rail's diagnose / repair / chat-fill
       features (which also rode the deprecated AI endpoints) are no longer surfaced in the builder; their
       code + tests remain for any future re-integration on the Hermes path.
+16. ✅ **HERMES-AGENT-LEGACY-AI-ROUTE-AUDIT (done)** — audited the deprecated builder AI plan path and
+    recorded the keep/remove/rehome decision. Findings:
+    - **`POST /api/workflows/[id]/ai/plan` + `planWorkflow` (client):** NO user-facing consumer remains —
+      the only client is the unmounted `BuilderAiPanel` chat. KEPT (backend test `ai-plan-route.test.ts`
+      still covers it; chat planning is a Hermes-rehoming candidate) and MARKED DEPRECATED in the route +
+      `lib/api/ai/plan.ts` headers. NOT deleted.
+    - **Important correction to #15:** diagnose/repair are NOT fully gone from the builder. The
+      run-results repair entry [`RunResultsRepairBlock`](../../../features/workflow-builder/panels/RunResultsRepairBlock.tsx)
+      is STILL MOUNTED (via `RunResultsPanel` → builder right drawer) and calls `requestWorkflowRepair`
+      (`…/ai/repair`) + `applyWorkflowPatch` (`…/ai/apply`). Those routes + `lib/api/ai` (apply/repair) +
+      the shared `features/workflow-builder/ai/*` presentational helpers are LIVE — do NOT delete. Only
+      the CHAT-driven diagnose/repair/chat-fill (inside the unmounted `BuilderAiPanel`) is dead-in-prod.
+    - **Removed now (safe, small):** the superseded floating `BuilderGuidanceEntry.tsx` + its test — dead,
+      zero consumers, replaced by `BuilderGuidanceRail`. Deleting it removes the last duplicate builder AI
+      surface.
+    - **Kept (deprecated, dead-in-prod, rehome candidates):** the whole `BuilderAiPanel` chat subtree
+      (`BuilderAiPanel` / `useBuilderAi` / `useBuilderAiActions` / `_BuilderAiPanel*` / `useChatFill` /
+      `useBuilderDiagnosisActions`) + `…/ai/plan` / `…/ai/complete` / `…/ai/thread` / chat-only
+      `…/ai/diagnose*` / `…/ai/repair/{plan,preview}` and their ~35 tests. Marked deprecated in
+      `BuilderAiPanel.tsx` + `useBuilderAi.ts`.
+    - **Safety net:** the structural scan gained "legacy plan path is not user-mounted" assertions — no
+      builder composition root renders `<BuilderAiPanel>`, the floating entry file is gone, and the
+      `/ai/plan` route file still exists (guards the keep-decision). No code/route behaviour changed;
+      docs + deprecation comments + one deletion only.

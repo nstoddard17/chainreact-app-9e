@@ -15,6 +15,14 @@ import { useConfigSlice } from "../state/configSlice";
  * component-split in 4.AI-21C, orchestration extracted into
  * `useBuilderAiActions` in 4.AI-REPAIR-CLEANUP-1).
  *
+ * ⚠️ DEPRECATED / NOT MOUNTED (HERMES-AGENT-LEGACY-AI-ROUTE-AUDIT, 2026-06-21).
+ * This panel is no longer rendered anywhere — the builder left rail is now the Hermes
+ * guidance surface (`BuilderGuidanceRail` → `WorkflowGuidancePanel` →
+ * `POST /api/accounts/[id]/ai/workflow-guidance`). It is kept (with its tests) ONLY as a
+ * reference + a future Hermes-rehoming candidate for the chat / diagnose / chat-fill UX.
+ * Do NOT re-mount it; it still calls the deprecated `…/ai/plan` (`planWorkflow`) endpoint.
+ * (The run-results repair flow lives in the separate, still-mounted `RunResultsRepairBlock`.)
+ *
  * This file is now a thin RENDER SHELL: all chat state + the diagnose / explain /
  * suggest-fix / submit / apply / rerun / clear handlers + the workflow-scoped
  * thread load effect live in [`useBuilderAiActions`](./useBuilderAiActions.ts).

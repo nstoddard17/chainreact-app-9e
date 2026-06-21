@@ -14,6 +14,16 @@ import { loadWorkflowForMember, parseJsonBody, requireUser } from "../../../_sha
 /**
  * POST /api/workflows/[id]/ai/plan — the first app-facing AI route (Slice 4.AI-9A).
  *
+ * ⚠️ DEPRECATED USER-FACING (HERMES-AGENT-LEGACY-AI-ROUTE-AUDIT, 2026-06-21).
+ * No live builder/dashboard surface calls this route anymore. Its ONLY client was the
+ * legacy `BuilderAiPanel` chat (`useBuilderAi` → `planWorkflow`), which is no longer
+ * mounted — the visible builder AI is now Hermes guidance
+ * (`POST /api/accounts/[id]/ai/workflow-guidance`, via `BuilderGuidanceRail`). The route
+ * is kept ONLY because (a) its backend test still covers it and (b) the chat planning UX
+ * is a future Hermes-rehoming candidate. DO NOT wire new UI to this route — add new
+ * builder AI behaviour on the Hermes path instead. (NOTE: the sibling `…/ai/repair` and
+ * `…/ai/apply` routes ARE still user-facing via the run-results `RunResultsRepairBlock`.)
+ *
  * PREVIEW-ONLY. Turns a user prompt into a proposed `WorkflowPatch` + deterministic
  * preview via `planWorkflowFromPromptForAI` (model → parse → AI-3 validate → AI-5
  * preview). It NEVER applies a patch, NEVER mutates the workflow / DB, and NEVER

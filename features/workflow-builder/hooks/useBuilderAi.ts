@@ -23,6 +23,12 @@ import { detectIntentCorrection } from "@/features/workflow-builder/ai/detectInt
  * Plan → preview → confirm → apply state machine for the Builder AI panel
  * (Slice 4.AI-11; follow-up conversational state added in Slice 4.AI-21).
  *
+ * ⚠️ DEPRECATED / NOT MOUNTED (HERMES-AGENT-LEGACY-AI-ROUTE-AUDIT, 2026-06-21).
+ * Consumed only by the unmounted legacy `BuilderAiPanel`. It drives the deprecated
+ * `…/ai/plan` (`planWorkflow`) + `…/ai/complete` endpoints. The visible builder AI is now
+ * Hermes guidance (`requestWorkflowGuidance`). Kept for tests + future Hermes rehoming;
+ * do not wire it into any newly-mounted surface.
+ *
  * Wraps the `lib/api/ai` client. NEVER calls a model directly, NEVER mutates the
  * workflow except via the AI-9B apply route, and NEVER auto-applies (the panel
  * must call `apply()` from an explicit user action). Confirmation is attached

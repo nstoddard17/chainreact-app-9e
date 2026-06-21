@@ -3,6 +3,13 @@
  * from the monolithic `lib/api/ai.ts` in Slice 4.AI-REPAIR-CLEANUP-1 — refactor
  * only, no behavior change).
  *
+ * ⚠️ DEPRECATED IN THE VISIBLE BUILDER (HERMES-AGENT-LEGACY-AI-ROUTE-AUDIT, 2026-06-21).
+ * `planWorkflow` / `completePlan` are imported ONLY by the legacy `BuilderAiPanel` chat
+ * (`useBuilderAi`), which is no longer mounted — the visible builder AI is Hermes guidance
+ * (`requestWorkflowGuidance` → `/api/accounts/[id]/ai/workflow-guidance`). Do NOT import
+ * `planWorkflow` into any newly-mounted UI. `applyWorkflowPatch` is the exception: it stays
+ * LIVE because the run-results `RunResultsRepairBlock` (mounted) still uses it.
+ *
  * Per project-structure-and-module-boundaries.md §4/§5: client code calls this
  * module (via the `@/lib/api/ai` barrel), never the server services or `fetch()`
  * from a component. These types are CLIENT-OWNED views of the (already-sanitized)
