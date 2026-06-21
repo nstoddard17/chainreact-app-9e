@@ -54,6 +54,11 @@ export function HeaderValidationPill({
             color: "var(--builder-success)",
             borderColor: "var(--builder-success)",
           };
+  // BUILDER-HEADER-ACTION-BAR-POLISH — the issue/status control now shares the
+  // action group's h-8 / rounded-md geometry (was a rounded-full h-[26px] badge
+  // that floated off-baseline and over-emphasized the error state). A small status
+  // dot carries the severity colour so the control stays legible without shouting.
+  // Text + data-* + aria are unchanged — the validation-count contract is preserved.
   return (
     <button
       type="button"
@@ -63,13 +68,18 @@ export function HeaderValidationPill({
       data-state={state}
       data-error-count={errorCount}
       data-warning-count={warningCount}
-      className="inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium"
+      className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium"
       style={{
         border: "1px solid",
         ...style,
       }}
       title="Open validation summary"
     >
+      <span
+        aria-hidden
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{ background: "currentColor" }}
+      />
       {label}
     </button>
   );

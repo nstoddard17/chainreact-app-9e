@@ -89,9 +89,12 @@ export function HeaderRunControls({
 
   if (triggerKind === "automated") {
     return (
+      // BUILDER-HEADER-ACTION-BAR-POLISH — `relative` so the private-credential
+      // status line can hang BELOW the button (absolute) instead of growing the
+      // flex column and pushing the Test button off the header's shared baseline.
       <section
         aria-label="Workflow testing"
-        className="flex flex-col gap-1"
+        className="relative flex flex-col"
         data-testid="run-controls-panel-automated"
       >
         <Button
@@ -100,6 +103,7 @@ export function HeaderRunControls({
           variant="default"
           disabled
           data-testid="run-controls-test-button"
+          className="h-8 text-[12px]"
           title={
             runEditBlocked
               ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
@@ -112,8 +116,12 @@ export function HeaderRunControls({
           <p
             role="status"
             data-testid="run-controls-private-credential-status"
-            className="max-w-[220px] text-[11px] leading-tight"
-            style={{ color: "var(--builder-muted)" }}
+            className="absolute right-0 top-full z-10 mt-1 max-w-[220px] rounded-md px-2 py-1 text-[11px] leading-tight shadow-sm"
+            style={{
+              color: "var(--builder-muted)",
+              background: "var(--builder-panel)",
+              border: "1px solid var(--builder-border)",
+            }}
           >
             {PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY}
           </p>
@@ -134,9 +142,13 @@ export function HeaderRunControls({
 
   // Manual trigger surface.
   return (
+    // BUILDER-HEADER-ACTION-BAR-POLISH — `relative` so the private-credential
+    // status line hangs below (absolute) rather than growing this column and
+    // shifting the Test / Run buttons off the header baseline. The two buttons
+    // share h-8 so they read as one aligned pair.
     <section
       aria-label="Manual run"
-      className="flex flex-col gap-1"
+      className="relative flex flex-col"
       data-testid="run-controls-panel-manual"
     >
       <div
@@ -155,7 +167,7 @@ export function HeaderRunControls({
               ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
               : "Runs safely without calling connected provider APIs. External actions are skipped with test-mode outputs."
           }
-          className="builder-mono inline-flex h-7 items-center gap-1.5 px-2.5 text-[12px]"
+          className="builder-mono inline-flex h-8 items-center gap-1.5 px-2.5 text-[12px]"
         >
           <span>{runningMode === "test" ? "Testing…" : "Test Workflow"}</span>
         </Button>
@@ -166,6 +178,7 @@ export function HeaderRunControls({
           onClick={handleRunManually}
           disabled={anyRunning || runBlocked || runEditBlocked}
           data-testid="run-controls-run-manually-button"
+          className="builder-mono inline-flex h-8 items-center gap-1.5 px-2.5 text-[12px]"
           title={
             runEditBlocked
               ? PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY
@@ -181,8 +194,12 @@ export function HeaderRunControls({
         <p
           role="status"
           data-testid="run-controls-private-credential-status"
-          className="max-w-[260px] text-[11px] leading-tight"
-          style={{ color: "var(--builder-muted)" }}
+          className="absolute right-0 top-full z-10 mt-1 max-w-[260px] rounded-md px-2 py-1 text-[11px] leading-tight shadow-sm"
+          style={{
+            color: "var(--builder-muted)",
+            background: "var(--builder-panel)",
+            border: "1px solid var(--builder-border)",
+          }}
         >
           {PRIVATE_CREDENTIAL_RUN_BLOCKED_COPY}
         </p>

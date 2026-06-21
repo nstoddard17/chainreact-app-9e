@@ -260,16 +260,21 @@ function HeaderLeft({
 
 function HeaderCenterMeta({ workflowId }: { workflowId?: string }) {
   if (!workflowId) return <div />;
+  // BUILDER-HEADER-ACTION-BAR-POLISH — secondary, visually quiet run-stats strip.
+  // It is the FIRST thing to collapse on narrow widths (`hidden lg:flex`) so the
+  // primary action buttons never have to wrap; `min-w-0 max-w-*` keeps the (long
+  // uuid) ID truncating inside the strip instead of shoving the layout. The cells
+  // are display-only metadata — no behavior.
   return (
     <div
       data-testid="builder-header-meta-strip"
-      className="hidden items-center gap-3.5 rounded-md px-2.5 py-1 lg:flex"
+      className="hidden min-w-0 max-w-[460px] items-center gap-3 overflow-hidden rounded-md px-2.5 py-1 lg:flex xl:max-w-[560px]"
       style={{
         background: "var(--builder-panel-2)",
         border: "1px solid var(--builder-border)",
       }}
     >
-      <MetaPair label="ID" value={workflowId} />
+      <MetaPair label="ID" value={workflowId} truncate />
       <MetaPair label="runs/24h" value="—" deferred />
       <MetaPair label="success" value="—" deferred />
       <MetaPair label="tasks/run" value="—" deferred />
@@ -281,21 +286,24 @@ function MetaPair({
   label,
   value,
   deferred,
+  truncate,
 }: {
   label: string;
   value: string;
   deferred?: boolean;
+  /** Cap the value width and ellipsize it (used for the long workflow ID). */
+  truncate?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex min-w-0 items-center gap-1.5">
       <span
-        className="text-[10px] uppercase tracking-[0.05em]"
+        className="shrink-0 text-[10px] uppercase tracking-[0.05em]"
         style={{ color: "var(--builder-muted)" }}
       >
         {label}
       </span>
       <code
-        className="builder-mono text-[11.5px]"
+        className={`builder-mono text-[11.5px] ${truncate ? "min-w-0 max-w-[180px] truncate" : ""}`}
         style={{
           color: deferred ? "var(--builder-muted-2)" : "var(--builder-text-2)",
         }}
@@ -337,10 +345,20 @@ function HeaderRight({
   // trigger, unconfigured node, invalid router routes) blocks Run Manually +
   // go-live transitions.
   const blockingIssueCount = validationCounts?.errorCount ?? 0;
+  // BUILDER-HEADER-ACTION-BAR-POLISH — one baseline-aligned action row with three
+  // intentional groups separated by hairline dividers: [utility: undo/redo/history]
+  // | [workspace: Templates · Issues] | [run: Test · Run · Save] | [lifecycle:
+  // Activate]. Every primary control is h-8 / rounded-md so nothing sits at a
+  // different vertical position; secondary status text (the blocked-go-live hint,
+  // run-blocked copy) is lifted out of the button row by its own component so it can
+  // never push a button off the shared baseline. Behavior is unchanged — same
+  // handlers, same testids, same validation derivation.
   return (
-    <div className="flex items-center justify-end gap-1.5">
+    <div className="flex items-center justify-end gap-2">
+      {/* Utility cluster (undo/redo/history) — all disabled placeholders today, so it
+          collapses below xl to give the essential actions room before they'd overflow. */}
       <div
-        className="flex items-center gap-0.5 rounded-md p-0.5"
+        className="hidden items-center gap-0.5 rounded-md p-0.5 xl:flex"
         style={{
           background: "var(--builder-panel-2)",
           border: "1px solid var(--builder-border)",
@@ -356,13 +374,14 @@ function HeaderRight({
           <HistoryIcon />
         </BuilderIconButton>
       </div>
+      <HeaderDivider className="hidden xl:inline-block" />
       {/* In-builder template entry point — opens the create-new / replace-current modal. */}
       {workflowId ? (
         <button
           type="button"
           onClick={onOpenTemplates}
           data-testid="builder-header-templates-button"
-          className="inline-flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-[12px] font-medium"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium"
           style={{
             background: "var(--builder-panel-2)",
             color: "var(--builder-text-2)",
@@ -379,6 +398,7 @@ function HeaderRight({
           onOpen={validation.onOpen}
         />
       ) : null}
+      <HeaderDivider />
       <HeaderRunControls
         blockingIssueCount={blockingIssueCount}
         runEditBlocked={runEditBlocked}
@@ -388,7 +408,7 @@ function HeaderRight({
         onClick={onSave}
         disabled={!isDirty || isSaving}
         data-testid="builder-header-save-button"
-        className="inline-flex h-7 items-center gap-1.5 rounded-[5px] px-3 text-[12px] font-medium disabled:opacity-50"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium disabled:opacity-50"
         style={{
           background: "var(--builder-text)",
           color: "var(--builder-panel)",
@@ -398,23 +418,32 @@ function HeaderRight({
       >
         {isSaving ? "Saving…" : "Save"}
       </button>
-      <span
-        aria-hidden
-        className="mx-0.5 inline-block h-5 w-px"
-        style={{ background: "var(--builder-border)" }}
-      />
       {lifecycle ? (
-        <LifecycleActions
-          workflowId={lifecycle.workflowId}
-          state={lifecycle.state}
-          blockingIssueCount={blockingIssueCount}
-          unpublishedChanges={lifecycle.unpublishedChanges}
-          // BUILDER-ACTIVATION-READINESS-UX-AUDIT-1 — the blocked-go-live hint's
-          // "Review" opens the same validation panel as the header pill.
-          onReviewIssues={validation?.onOpen}
-        />
+        <>
+          <HeaderDivider />
+          <LifecycleActions
+            workflowId={lifecycle.workflowId}
+            state={lifecycle.state}
+            blockingIssueCount={blockingIssueCount}
+            unpublishedChanges={lifecycle.unpublishedChanges}
+            // BUILDER-ACTIVATION-READINESS-UX-AUDIT-1 — the blocked-go-live hint's
+            // "Review" opens the same validation panel as the header pill.
+            onReviewIssues={validation?.onOpen}
+          />
+        </>
       ) : null}
     </div>
+  );
+}
+
+/** Hairline vertical separator between header action groups (purely decorative). */
+function HeaderDivider({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-block h-5 w-px shrink-0 ${className ?? ""}`}
+      style={{ background: "var(--builder-border)" }}
+    />
   );
 }
 

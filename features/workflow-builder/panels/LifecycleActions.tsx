@@ -208,7 +208,12 @@ export function LifecycleActions({
     pending !== null || hasUnsavedChanges || confirmationDetail !== null;
 
   return (
-    <div className="flex flex-col items-end gap-1" aria-label="Lifecycle actions">
+    // BUILDER-HEADER-ACTION-BAR-POLISH — `relative` anchors the secondary status
+    // lines (blocked-go-live hint, error) so they hang BELOW the action row
+    // (absolute) instead of growing this column and pushing the go-live button off
+    // the header's shared baseline. The buttons share the action bar's h-8 /
+    // rounded-md geometry. Behavior, handlers, and testids are unchanged.
+    <div className="relative flex flex-col items-end gap-1" aria-label="Lifecycle actions">
       {state === "active" && unpublishedChanges ? (
         <div className="flex items-center gap-2">
           <span
@@ -227,7 +232,7 @@ export function LifecycleActions({
                 ? "Save your changes before publishing."
                 : "Make the current draft the live version."
             }
-            className="rounded bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-[12px] font-medium text-primary-foreground disabled:opacity-60"
           >
             {pending === "publish" ? "Publishing…" : "Publish changes"}
           </button>
@@ -246,7 +251,7 @@ export function LifecycleActions({
             confirmationDetail !== null ||
             blockedByValidation;
           const baseClasses =
-            "rounded px-3 py-1.5 text-sm font-medium disabled:opacity-60";
+            "inline-flex h-8 items-center rounded-md px-3 text-[12px] font-medium disabled:opacity-60";
           const variantClasses =
             action.variant === "primary"
               ? "bg-primary text-primary-foreground"
@@ -276,11 +281,18 @@ export function LifecycleActions({
         // BUILDER-ACTIVATION-READINESS-UX-AUDIT-1 — always-visible reason for the disabled
         // go-live button (was hover-only via `title`). Plain English, no node ids / config.
         // "Review" opens the validation panel where each issue opens + focuses its node.
+        // BUILDER-HEADER-ACTION-BAR-POLISH — absolutely anchored UNDER the action row so it
+        // no longer squeezes between/under the buttons; still always-visible (role=status),
+        // same copy + data-issue-count, in a small readable panel over the canvas.
         <div
           data-testid="lifecycle-blocked-hint"
           data-issue-count={blockingIssueCount}
           role="status"
-          className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+          className="absolute right-0 top-full z-10 mt-1 flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] text-muted-foreground shadow-sm"
+          style={{
+            background: "var(--builder-panel)",
+            borderColor: "var(--builder-border)",
+          }}
         >
           <span>
             {`${blockingIssueCount} setup ${blockingIssueCount === 1 ? "issue" : "issues"} to fix before ${goLiveAction.label.toLowerCase()}`}
@@ -298,7 +310,14 @@ export function LifecycleActions({
         </div>
       ) : null}
       {error && (
-        <span role="alert" className="text-xs text-destructive">
+        <span
+          role="alert"
+          className="absolute right-0 top-full z-10 mt-1 rounded-md border px-2 py-1 text-xs text-destructive shadow-sm"
+          style={{
+            background: "var(--builder-panel)",
+            borderColor: "var(--builder-border)",
+          }}
+        >
           {error}
         </span>
       )}
