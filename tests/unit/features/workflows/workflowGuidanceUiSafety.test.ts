@@ -36,6 +36,7 @@ const SETUP_FIELD_CONTROLS = resolve(
   process.cwd(),
   "features/workflow-builder/panels/builderSetupFieldControls.tsx",
 );
+const SINGLE_SHOT_PANEL = resolve(process.cwd(), "features/workflows/SingleShotGuidancePanel.tsx");
 const WORKFLOWS_DASHBOARD_PAGE = resolve(process.cwd(), "app/workflows/page.tsx");
 
 /**
@@ -76,6 +77,22 @@ describe("guidance UI — calls only the ChainReact route, no forbidden surface"
       /nousresearch|api\.openai\.com/i,
       /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
       // workflow mutation / execution from this advisory panel
+      /updateWorkflow|saveDraftDefinition|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/,
+    ]) {
+      expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
+    }
+  });
+
+  it("the extracted single-shot panel calls only the helper, makes no direct fetch, and touches no mutation/gateway/vendor", () => {
+    // BUILDER-AGENT-RAIL-WIRING-EXTRACT — the dashboard single-shot form moved out of WorkflowGuidancePanel;
+    // it must keep the same governed-only boundary (helper, never gateway/vendor/token/mutation).
+    const src = readFileSync(SINGLE_SHOT_PANEL, "utf8");
+    expect(src).toContain("requestWorkflowGuidance");
+    for (const pat of [
+      /\bfetch\s*\(/,
+      /onrender\.com|\/api\/hermes-agent\/guidance|hermesAgentGatewayClient/,
+      /nousresearch|api\.openai\.com/i,
+      /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
       /updateWorkflow|saveDraftDefinition|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/,
     ]) {
       expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import {
@@ -23,6 +23,17 @@ import {
   isPlanMeaningfulCanvasPreview,
   type CanvasPreviewGraphNode,
 } from "@/core/workflows/canvasPreviewEligibility";
+import {
+  CHAT_PLACEHOLDER,
+  CHECK_WORKFLOW_PROMPT,
+  MAX_GOAL_LENGTH,
+  UNAVAILABLE_MESSAGE,
+  asRenderablePlan,
+  asRenderablePreview,
+  safeErrorMessage,
+  submitOnEnter,
+} from "./guidancePanelShared";
+import { SingleShotGuidancePanel } from "./SingleShotGuidancePanel";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
 
 /**
@@ -33,8 +44,8 @@ import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestio
  * the Render gateway / a model vendor / Nous / the private Hermes Agent, and never a token. Neither
  * mode creates, changes, applies, saves, or runs a workflow.
  *
- *   - SINGLE-SHOT (default; the dashboard "Build with me"): one goal → one guidance result + optional
- *     review-only plan / non-applied preview (HERMES-AGENT-PLAN-EXTRACTION / -DRAFT-PREVIEW).
+ *   - SINGLE-SHOT (default; the dashboard "Build with me", {@link SingleShotGuidancePanel}): one goal →
+ *     one guidance result + optional review-only plan / non-applied preview.
  *   - CONVERSATIONAL (`conversational`, the builder rail; HERMES-AGENT-BUILDER-RAIL-CHAT-MODE): a
  *     session-scoped message list. A follow-up sends the prior turns as sanitized `recentTurns` so
  *     Hermes answers in context. Conversation is in-memory only — NOT persisted, no durable memory.
@@ -42,48 +53,6 @@ import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestio
  *     supersedes the prior pending one. Apply / Discard live in the builder's canvas overlay (explicit,
  *     local-draft only) — this panel never applies/saves.
  */
-
-const GOAL_PLACEHOLDER =
-  "Example: When a new lead comes in, remind me to follow up if I have not heard back in 3 days.";
-const CHAT_PLACEHOLDER = "Describe what to add or change. For example: add a Slack message after the trigger.";
-/**
- * BUILDER-AGENT-RAIL-CHECK-WORKFLOW — the prefill the "Check workflow" pill drops into the composer. It
- * is a SUGGESTED agent action (an AI/React-Agent review of the current draft), NOT a deterministic
- * validation run: clicking it prefills this review prompt above the input; the user sends it through the
- * SAME governed chat path. It never opens the validation drawer, never blocks activation, and never
- * edits the workflow (applying any suggestion stays the explicit Apply-preview step).
- */
-const CHECK_WORKFLOW_PROMPT = "Review my current workflow and suggest improvements or fixes.";
-const UNAVAILABLE_MESSAGE = "AI workflow guidance is temporarily unavailable.";
-const MAX_GOAL_LENGTH = 2_000;
-
-type Status = "idle" | "loading" | "done" | "error";
-
-/** Narrow the route's `workflowPlan` to a renderable plan with at least one step (else null). */
-function asRenderablePlan(value: WorkflowPlan | null | undefined): WorkflowPlan | null {
-  if (!value || typeof value !== "object") return null;
-  return Array.isArray(value.steps) && value.steps.length > 0 ? value : null;
-}
-
-/** Narrow the route's `previewDraft` to a renderable preview with at least one node (else null). */
-function asRenderablePreview(value: DraftPreview | null | undefined): DraftPreview | null {
-  if (!value || typeof value !== "object") return null;
-  return Array.isArray(value.nodes) && value.nodes.length > 0 ? value : null;
-}
-
-/** Map an unavailable/transport outcome to safe copy (credits denial keeps its specific message). */
-function safeErrorMessage(res: { code: string; message: string } | null): string {
-  if (res && res.code === "AI_CREDITS_EXHAUSTED") return res.message;
-  return UNAVAILABLE_MESSAGE;
-}
-
-/** HERMES-AGENT-BUILDER-RAIL-ENTER-TO-SEND — Enter submits; Shift+Enter newlines; IME composition never submits. `submit` already guards empty/whitespace + loading. */
-function submitOnEnter(e: KeyboardEvent<HTMLTextAreaElement>, submit: () => void): void {
-  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-    e.preventDefault();
-    submit();
-  }
-}
 
 export interface WorkflowGuidancePanelProps {
   /** Account scope for the request (resolved server-side / from router context). */
@@ -145,117 +114,6 @@ export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
     <ConversationalGuidancePanel {...props} />
   ) : (
     <SingleShotGuidancePanel {...props} />
-  );
-}
-
-/** The original single-shot "Build with me" form (dashboard). Behavior unchanged. */
-function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: WorkflowGuidancePanelProps) {
-  const [goal, setGoal] = useState("");
-  const [status, setStatus] = useState<Status>("idle");
-  const [guidanceText, setGuidanceText] = useState("");
-  const [plan, setPlan] = useState<WorkflowPlan | null>(null);
-  const [preview, setPreview] = useState<DraftPreview | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  const trimmed = goal.trim();
-  const canSubmit = trimmed.length > 0 && status !== "loading";
-
-  async function handleSubmit(): Promise<void> {
-    if (!canSubmit) return;
-    setStatus("loading");
-    setErrorMessage("");
-    setGuidanceText("");
-    setPlan(null);
-    setPreview(null);
-    try {
-      const res = await requestWorkflowGuidance({
-        accountId,
-        goalText: trimmed,
-        ...(workflowId ? { workflowId } : {}),
-      });
-      if (res.ok) {
-        setGuidanceText(res.guidanceText);
-        setPlan(asRenderablePlan(res.workflowPlan));
-        setPreview(asRenderablePreview(res.previewDraft));
-        setStatus("done");
-      } else {
-        setErrorMessage(safeErrorMessage(res));
-        setStatus("error");
-      }
-    } catch {
-      setErrorMessage(UNAVAILABLE_MESSAGE);
-      setStatus("error");
-    }
-  }
-
-  return (
-    <section
-      data-testid="workflow-guidance-panel"
-      aria-label="Build with me"
-      className="mb-6 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-    >
-      <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Build with me</h2>
-      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-        Describe what you want to automate and I&apos;ll help you figure out the workflow.
-      </p>
-
-      <div className="mt-3">
-        <Label htmlFor="workflow-guidance-goal" className="text-neutral-700 dark:text-neutral-300">
-          Your automation goal
-        </Label>
-        <Textarea
-          id="workflow-guidance-goal"
-          value={goal}
-          onChange={(e) => setGoal(e.target.value)}
-          onKeyDown={(e) => submitOnEnter(e, handleSubmit)}
-          placeholder={GOAL_PLACEHOLDER}
-          rows={3}
-          maxLength={MAX_GOAL_LENGTH}
-          disabled={status === "loading"}
-          className="mt-1"
-        />
-      </div>
-
-      <div className="mt-3 flex items-center gap-3">
-        <Button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          data-testid="workflow-guidance-submit"
-        >
-          {status === "loading" ? "Thinking…" : "Get guidance"}
-        </Button>
-      </div>
-
-      {status === "error" && (
-        <p
-          role="alert"
-          data-testid="workflow-guidance-error"
-          className="mt-3 text-sm text-red-700 dark:text-red-300"
-        >
-          {errorMessage}
-        </p>
-      )}
-
-      {status === "done" && guidanceText.length > 0 && (
-        <div data-testid="workflow-guidance-result" className="mt-4">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Guidance</h3>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
-            {guidanceText}
-          </p>
-        </div>
-      )}
-
-      {status === "done" && plan && !preview && <GuidancePlanSection plan={plan} />}
-
-      {status === "done" && preview && (
-        <GuidancePreviewSection
-          preview={preview}
-          plan={plan}
-          {...(onPreviewToCanvas ? { onPreviewToCanvas } : {})}
-        />
-      )}
-    </section>
   );
 }
 

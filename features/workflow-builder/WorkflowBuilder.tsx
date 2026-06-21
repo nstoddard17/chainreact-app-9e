@@ -27,8 +27,6 @@ import {
   type ProviderOption,
 } from "./panels/AddNodePanel";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
-import { BuilderNodeSetupCard } from "./panels/BuilderNodeSetupCard";
-import type { CheckWorkflowSetupTarget } from "@/core/workflows/checkWorkflowReview";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
 import { RunResultsPanel } from "./panels/RunResultsPanel";
 import { useConfigSlice } from "./state/configSlice";
@@ -37,9 +35,9 @@ import { useRunSlice } from "./state/runSlice";
 import { useLatestRunPolling } from "./hooks/useLatestRunPolling";
 import { useLeftAgentRail } from "./hooks/useLeftAgentRail";
 import { useRightDrawer } from "./hooks/useRightDrawer";
+import { useAgentRailWiring } from "./hooks/useAgentRailWiring";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
-import { buildCheckReviewContext } from "./validation/buildCheckReviewContext";
 
 interface Props {
   workflow: WorkflowDetail;
@@ -198,72 +196,15 @@ export function WorkflowBuilder({
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);
 
-  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-REVIEW — lazily snapshot the CURRENT deterministic validation
-  // verdict for the rail's "Check workflow" review. Read from the graph store at call time
-  // (`getState()`, no subscription → no extra re-renders) so the snapshot matches the header pill /
-  // validation drawer exactly. Reuses the shared builder validator.
-  const getCheckReviewContext = useCallback(
-    () =>
-      buildCheckReviewContext({
-        pendingNodes: useGraphSlice.getState().pendingNodes,
-        pendingEdges: useGraphSlice.getState().pendingEdges,
-        ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
-        providerLabels,
-      }),
-    [requiredFieldsByType, providerLabels],
-  );
-
-  // BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — snapshot the LIVE draft graph's shape (kind/provider/type
-  // only, no config) so the rail can suppress "Show on canvas" for an AI suggestion that merely restates
-  // the current workflow. Read at call time (no subscription) so it matches what's on the canvas.
-  const getCurrentGraphShape = useCallback(
-    () =>
-      useGraphSlice
-        .getState()
-        .pendingNodes.map((n) => ({ kind: n.kind, provider: n.provider, type: n.type })),
-    [],
-  );
-
-  // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — apply the rail's inline setup values to an EXISTING draft
-  // node by merging them into its current config via the normal graph-slice path (`updateNodeConfig`,
-  // which marks the draft dirty). This never saves/activates/runs/applies a preview or creates a node;
-  // the header pill + Check review naturally reflect the updated draft state on the next read.
-  const handleUpdateStepSetup = useCallback(
-    (nodeId: string, values: Record<string, unknown>) => {
-      if (Object.keys(values).length === 0) return;
-      const state = useGraphSlice.getState();
-      const current = state.pendingNodes.find((n) => n.id === nodeId);
-      if (!current) return;
-      state.updateNodeConfig(nodeId, { ...current.config, ...values });
-      // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-SYNC — keep an OPEN config panel for this node in sync so
-      // the visible field doesn't show a stale value after the rail update. No-op if the panel is closed.
-      useConfigSlice.getState().applyExternalConfig({ nodeId, values });
-    },
-    [],
-  );
-
-  // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-REVEAL — when the user focuses a rail setup control (or picks
-  // a dropdown value), open/select that EXISTING node in the config panel and highlight the matching
-  // field via the existing `revealNode` path (sets activeNodeId → inspector drawer opens; SchemaForm
-  // highlights `focusFieldKey`). Navigation only: it never writes the value, saves, runs, or activates.
-  const handleSetupFieldReveal = useCallback((nodeId: string, fieldName: string) => {
-    const current = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId);
-    if (!current) return;
-    useConfigSlice.getState().revealNode({ nodeId, initialValues: current.config, fieldKey: fieldName });
-  }, []);
-
-  const renderCheckSetup = useCallback(
-    (targets: readonly CheckWorkflowSetupTarget[]) => (
-      <BuilderNodeSetupCard
-        nodes={targets}
-        {...(setupFieldsByType ? { setupFieldsByType } : {})}
-        workflowId={workflow.id}
-        onUpdateStep={handleUpdateStepSetup}
-        onFieldInteract={handleSetupFieldReveal}
-      />
-    ),
-    [setupFieldsByType, workflow.id, handleUpdateStepSetup, handleSetupFieldReveal],
-  );
+  // BUILDER-AGENT-RAIL-WIRING-EXTRACT — the rail's deterministic Check-workflow / setup / canvas-guard
+  // callbacks live in a focused hook (no behavior change). All deterministic/local: no model call, no
+  // save/activate/run, no new nodes.
+  const { getCheckReviewContext, getCurrentGraphShape, renderCheckSetup } = useAgentRailWiring({
+    ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
+    providerLabels,
+    ...(setupFieldsByType ? { setupFieldsByType } : {}),
+    workflowId: workflow.id,
+  });
 
   // Slice 4.BUILDER-INSPECTOR-1 → BUILDER-RUN-PANEL-1: right drawer
   // state machine.
