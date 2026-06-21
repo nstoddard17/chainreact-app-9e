@@ -361,71 +361,32 @@ describe("LifecycleActions — BUILDER-READINESS gating", () => {
   });
 });
 
-describe("LifecycleActions — blocked-go-live visible reason (BUILDER-ACTIVATION-READINESS-UX-AUDIT-1)", () => {
-  it("shows an always-visible reason line (not just a hover title) when Activate is blocked", () => {
-    render(
-      <LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={2} />,
-    );
-    const hint = screen.getByTestId("lifecycle-blocked-hint");
-    expect(hint).toHaveAttribute("role", "status");
-    expect(hint).toHaveAttribute("data-issue-count", "2");
-    // Plain-English, pluralized, references the go-live verb — no node ids / config keys.
-    expect(hint.textContent).toMatch(/2 setup issues to fix before activate/i);
-  });
-
-  it("uses singular copy for a single issue and the correct verb for Resume", () => {
-    render(
-      <LifecycleActions workflowId="wf-1" state="paused" blockingIssueCount={1} />,
-    );
-    expect(screen.getByTestId("lifecycle-blocked-hint").textContent).toMatch(
-      /1 setup issue to fix before resume/i,
-    );
-  });
-
-  it("does NOT render the reason line when there are no blocking issues", () => {
-    render(
-      <LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={0} />,
-    );
+describe("LifecycleActions — blocked go-live (BUILDER-VALIDATION-DRAWER-CLOSE-AND-CALLOUT-CLEANUP)", () => {
+  // The floating "N setup issues to fix before activate" callout (an absolute overlay that hung over
+  // the right validation drawer's close ×) was REMOVED. The header validation pill is the single issue
+  // entry point; the disabled go-live button keeps a hover `title` explaining the blockage.
+  it("does NOT render the floating blocked-hint / Review callout (even when Activate is blocked)", () => {
+    render(<LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={2} />);
     expect(screen.queryByTestId("lifecycle-blocked-hint")).toBeNull();
-  });
-
-  it("does NOT render the reason line on a non-go-live state (active → Pause) even with issues", () => {
-    render(
-      <LifecycleActions workflowId="wf-1" state="active" blockingIssueCount={3} />,
-    );
-    expect(screen.queryByTestId("lifecycle-blocked-hint")).toBeNull();
-  });
-
-  it("'Review' opens the validation panel via onReviewIssues", async () => {
-    const user = userEvent.setup();
-    const onReviewIssues = jest.fn();
-    render(
-      <LifecycleActions
-        workflowId="wf-1"
-        state="draft"
-        blockingIssueCount={2}
-        onReviewIssues={onReviewIssues}
-      />,
-    );
-    await user.click(screen.getByTestId("lifecycle-review-issues"));
-    expect(onReviewIssues).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders the reason line WITHOUT a Review button when no onReviewIssues is wired", () => {
-    render(
-      <LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={2} />,
-    );
-    expect(screen.getByTestId("lifecycle-blocked-hint")).toBeInTheDocument();
     expect(screen.queryByTestId("lifecycle-review-issues")).toBeNull();
+    expect(screen.queryByText(/setup issues? to fix before/i)).not.toBeInTheDocument();
   });
 
-  it("does not leak raw node ids / config keys in the reason copy", () => {
-    render(
-      <LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={4} />,
-    );
-    const text = screen.getByTestId("lifecycle-blocked-hint").textContent ?? "";
-    // Only the count + plain words — no uuid-ish ids, no `provider:type`, no `{{ }}`.
-    expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
-    expect(text).not.toMatch(/:|\{\{|\}\}/);
+  it("still BLOCKS the go-live action when there are validation errors, with a hover-title reason", () => {
+    render(<LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={2} />);
+    const activate = screen.getByRole("button", { name: /activate/i });
+    expect(activate).toBeDisabled();
+    expect(activate).toHaveAttribute("data-blocked-by-validation", "true");
+    expect(activate.getAttribute("title") ?? "").toMatch(/2 setup issues before activate/i);
+  });
+
+  it("does NOT block a non-go-live action (active → Pause) even with issues", () => {
+    render(<LifecycleActions workflowId="wf-1" state="active" blockingIssueCount={3} />);
+    expect(screen.getByRole("button", { name: /pause/i })).not.toBeDisabled();
+  });
+
+  it("does NOT block go-live when there are no validation errors", () => {
+    render(<LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={0} />);
+    expect(screen.getByRole("button", { name: /activate/i })).not.toBeDisabled();
   });
 });

@@ -14,7 +14,35 @@
 > visual-diff rules**; **Phase 8 (HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH) moved the guided-setup card
 > INTO the chat transcript and pinned the composer at the bottom**; **Phase 9
 > (HERMES-AGENT-REMOVE-ADDED-FROM-PREVIEW-BADGE) removed the noisy on-card "Added from preview" badge so
-> accepted nodes look like normal draft nodes** — see the status boxes.
+> accepted nodes look like normal draft nodes**; **Phase 10
+> (BUILDER-VALIDATION-DRAWER-CLOSE-AND-CALLOUT-CLEANUP) removed the floating "fix before activate"
+> callout that obscured the validation drawer's close ×, leaving the header pill as the single issue
+> entry** — see the status boxes.
+
+## Phase 10 status — IMPLEMENTED (VALIDATION DRAWER CLOSE + CALLOUT CLEANUP)
+
+**Why:** the right validation/issues panel felt un-closeable because a floating "N setup issues to fix
+before activate" callout (`lifecycle-blocked-hint`, an `absolute right-0 top-full z-10` overlay anchored
+under the header) hung over the drawer's top-right where the close × lives — two competing issue UIs.
+
+**Findings:** the drawer (`BuilderRightDrawer`) ALREADY has an accessible close × ("Close drawer") + Esc,
+and the header ALREADY has a clean always-visible `HeaderValidationPill` (issue count → opens the panel).
+So the floating callout was purely redundant + obstructive.
+
+**Shipped (UI-only):**
+- Removed the `lifecycle-blocked-hint` floating callout (and its `lifecycle-review-issues` "Review" link)
+  from `LifecycleActions`, plus the now-unused `onReviewIssues` prop (and its `goLiveAction` local +
+  the `onReviewIssues={validation?.onOpen}` wiring in `BuilderHeader`).
+- The single issue entry point is now the header validation pill; the disabled go-live button keeps its
+  hover `title` explaining the blockage.
+- Validation panel open/close: open via the header pill → `BuilderRightDrawer` (Validation) with the
+  issue list; close via the × or Esc. The user is never trapped.
+
+**Unchanged:** activation is still BLOCKED while validation errors exist (disabled go-live button +
+`data-blocked-by-validation` + tooltip); issue count + issue text still render; save/run/React-Agent/
+preview/apply behavior untouched.
+
+---
 
 ## Phase 9 status — IMPLEMENTED (REMOVE "ADDED FROM PREVIEW" BADGE)
 

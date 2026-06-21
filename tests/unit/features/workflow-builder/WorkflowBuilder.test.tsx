@@ -564,6 +564,34 @@ describe("WorkflowBuilder", () => {
       await user.click(chooseTrigger);
       expect(screen.getByTestId("add-node-panel")).toBeInTheDocument();
     });
+
+    // BUILDER-VALIDATION-DRAWER-CLOSE-AND-CALLOUT-CLEANUP
+    it("opens the validation panel from the header pill, can CLOSE it, and renders no floating blocked-hint callout", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={actionOnlyWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      // The header pill is the single issue entry point — the floating callout is gone.
+      expect(screen.queryByTestId("lifecycle-blocked-hint")).toBeNull();
+      expect(screen.queryByTestId("lifecycle-review-issues")).toBeNull();
+      expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+
+      // Open the validation panel.
+      await user.click(screen.getByTestId("builder-header-validation-pill"));
+      const drawer = screen.getByTestId("builder-right-drawer");
+      expect(drawer.getAttribute("aria-label")).toMatch(/validation/i);
+      expect(screen.getByTestId("validation-choose-trigger")).toBeInTheDocument(); // issue still listed
+
+      // It has a visible, accessible close control and the user is never trapped.
+      await user.click(screen.getByRole("button", { name: /close drawer/i }));
+      expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+      // Still no floating callout after interacting.
+      expect(screen.queryByTestId("lifecycle-blocked-hint")).toBeNull();
+    });
   });
 
   // Slice 4.BUILDER-INSPECTOR-1 — drawer mount / close round-trip.
