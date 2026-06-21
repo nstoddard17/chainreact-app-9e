@@ -6,13 +6,16 @@
  * ChainReact server route `POST /api/accounts/[id]/ai/workflow-guidance`, which owns auth, account
  * membership, the AI-credit gate, config gating, audit, and the safe (token-free) response.
  *
- * Advisory only: the response carries `guidanceText` (+ a safe `source` / `warnings`) and an OPTIONAL
- * `workflowPlan` (HERMES-AGENT-PLAN-EXTRACTION). The plan is capability-validated server-side and is
- * `notApplied: true` — rendered REVIEW-ONLY (no create/apply/run). No secret, provider envelope, or
- * token ever crosses this boundary.
+ * Advisory only: the response carries `guidanceText` (+ a safe `source` / `warnings`), an OPTIONAL
+ * capability-validated `workflowPlan` (HERMES-AGENT-PLAN-EXTRACTION), and an OPTIONAL non-applied
+ * `previewDraft` derived deterministically from that validated plan (HERMES-AGENT-DRAFT-PREVIEW). Both
+ * are `notApplied: true` and rendered REVIEW/PREVIEW-ONLY — no create/apply/add/run. The preview is
+ * NOT a persisted workflow definition. No secret, provider envelope, or token ever crosses this
+ * boundary.
  */
 
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { postStructured } from "./shared";
 
 export type WorkflowGuidanceResponse =
@@ -22,6 +25,8 @@ export type WorkflowGuidanceResponse =
       source: string;
       /** Capability-validated advisory plan, or null. Review-only — never applied by this response. */
       workflowPlan: WorkflowPlan | null;
+      /** Ephemeral, non-applied preview derived from the validated plan, or null. Never persisted. */
+      previewDraft: DraftPreview | null;
       warnings?: readonly string[];
     }
   | { ok: false; code: string; message: string };

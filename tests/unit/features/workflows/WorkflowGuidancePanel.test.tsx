@@ -119,6 +119,54 @@ describe("WorkflowGuidancePanel — request + render", () => {
     expect(screen.queryByRole("button", { name: /create|apply|add node|run/i })).not.toBeInTheDocument();
   });
 
+  it("renders a PREVIEW-ONLY 'Draft preview' section when a previewDraft is returned", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Here's the idea.",
+      source: "hermes-agent",
+      workflowPlan: {
+        schemaVersion: 1,
+        title: "Lead follow-up",
+        summary: "Watch then notify.",
+        notApplied: true,
+        steps: [{ ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" }],
+      },
+      previewDraft: {
+        version: 1,
+        title: "Lead follow-up",
+        summary: "Watch then notify.",
+        notice: "Preview only — your workflow has not changed.",
+        notApplied: true,
+        nodes: [
+          { previewId: "preview-step-1", role: "trigger", provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true },
+          { previewId: "preview-step-2", role: "action", provider: "slack", type: "send_message", label: "slack:send_message", purpose: "notify", missingInputs: ["channel"], notApplied: true },
+        ],
+        edges: [{ previewId: "preview-edge-1", fromPreviewId: "preview-step-1", toPreviewId: "preview-step-2", notApplied: true }],
+      },
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+
+    const previewEl = await screen.findByTestId("workflow-guidance-preview");
+    expect(screen.getByRole("heading", { name: "Draft preview" })).toBeInTheDocument();
+    // Copy must make clear the workflow has not changed.
+    expect(screen.getByTestId("workflow-guidance-preview-notice")).toHaveTextContent(
+      "Preview only — your workflow has not changed.",
+    );
+    expect(previewEl).toHaveTextContent("gmail:new_email");
+    expect(previewEl).toHaveTextContent("slack:send_message");
+    expect(previewEl).toHaveTextContent("Still needs: channel"); // missing info, not config
+    expect(screen.getByTestId("workflow-guidance-preview-flow")).toHaveTextContent(
+      "Flow: gmail:new_email → slack:send_message",
+    );
+    // The text-only "Suggested plan" section is suppressed when a richer preview exists (no dup).
+    expect(screen.queryByTestId("workflow-guidance-plan")).not.toBeInTheDocument();
+    // No actionable controls in this slice.
+    expect(screen.queryByRole("button", { name: /create|apply|add node|use this|run/i })).not.toBeInTheDocument();
+  });
+
   it("does NOT render a 'Suggested plan' section when workflowPlan is null (prose-only)", async () => {
     const user = userEvent.setup();
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "Just connect Gmail.", source: "hermes-agent", workflowPlan: null });

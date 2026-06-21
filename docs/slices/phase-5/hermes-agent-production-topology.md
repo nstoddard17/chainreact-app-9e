@@ -41,6 +41,7 @@ Vercel ChainReact app
 | Server-only gateway client + `WorkflowGuidanceProvider` impl (advisory; fail-closed) | [`services/ai-guidance/gateway/hermesAgentGatewayClient.ts`](../../../services/ai-guidance/gateway/hermesAgentGatewayClient.ts) |
 | **Strict response contract** (Zod envelope schema + `normalizeGatewayResponse` → `NormalizedGatewayGuidance`: `guidanceText`/`source`/`workflowPlan`/`rawUsage?`/`warnings?`) — HERMES-AGENT-RESPONSE-CONTRACT | [`services/ai-guidance/gateway/gatewayResponseContract.ts`](../../../services/ai-guidance/gateway/gatewayResponseContract.ts) |
 | **Plan extractor** (deterministic, model-free) — pulls a shape-valid `WorkflowPlan` from a fenced ` ```json ` block in the guidance text; the normalizer then gates it through `validateWorkflowPlan` (advisory validated plan only; `notApplied: true`; invalid → null + safe warning) — HERMES-AGENT-PLAN-EXTRACTION | [`services/ai-guidance/gateway/extractPlanFromText.ts`](../../../services/ai-guidance/gateway/extractPlanFromText.ts) + prompt [`buildGatewayGuidancePrompt.ts`](../../../services/ai-guidance/gateway/buildGatewayGuidancePrompt.ts) + UI [`WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) |
+| **Draft preview converter** (deterministic) — turns a validated `WorkflowPlan` into an ephemeral, non-applied `DraftPreview` (preview-only ids, labels only, `notApplied: true`, missing field-keys → warnings; no config/persistence). Derived at the route from `result.workflowPlan` only — HERMES-AGENT-DRAFT-PREVIEW | [`services/ai-guidance/preview/planToDraftPreview.ts`](../../../services/ai-guidance/preview/planToDraftPreview.ts) + type [`contracts/workflowPlanPreview.ts`](../../../contracts/workflowPlanPreview.ts) + UI [`WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) |
 | Gateway barrel + `resolveServerGuidanceProvider()` (gateway-when-enabled, else noop) | [`services/ai-guidance/gateway/index.ts`](../../../services/ai-guidance/gateway/index.ts) |
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 | **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
@@ -61,13 +62,15 @@ its sanitized saved draft as optional context to the capability.
       → runWorkflowGuidanceIntakeCapability → runAuthorizedCapability (audited)
         → requestHermesAgentGuidanceNormalized → Render gateway → private Hermes Agent → OpenAI
       ← NormalizedGatewayGuidance (guidanceText + optional capability-validated workflowPlan, advisory)
-  ← { ok, guidanceText, source, workflowPlan, warnings? }  (safe; no envelope/usage/token)
-panel renders guidanceText under "Guidance" + a review-only "Suggested plan" when workflowPlan present
+    → route derives previewDraft = planToDraftPreview(workflowPlan)  (only when a validated plan exists)
+  ← { ok, guidanceText, source, workflowPlan, previewDraft, warnings? }  (safe; no envelope/usage/token)
+panel renders guidanceText + a preview-only "Draft preview" (or text "Suggested plan" when no preview)
 ```
 
 The browser never holds a token or calls the gateway/vendor directly; the route is the only boundary
-it touches. Nothing on this path creates, changes, runs, or persists a workflow — a surfaced plan is
-`notApplied: true` and review-only (no apply/create/run control exists yet).
+it touches. Nothing on this path creates, changes, runs, or persists a workflow — a surfaced plan and
+its `previewDraft` are both `notApplied: true` and review/preview-only (no apply/create/run control
+exists yet; the preview is ephemeral/in-memory and is never a persisted `draftDefinition`).
 
 **Gated + inert:** the client only calls out when `HERMES_AGENT_ENABLED=true` AND the gateway env is
 present AND a server caller explicitly constructs it. It is NOT the app-runtime default, and nothing
@@ -122,8 +125,15 @@ the regression-localization checklist.
    `WorkflowGuidancePanel` and passes the in-context `workflowId`. Server-gated on
    `isHermesAgentEnabled()` + a resolved `accountId`; reuses the route/helper/panel verbatim. Still
    advisory only — no mutation, no direct gateway/vendor calls.
-7. **HERMES-AGENT-DRAFT-PREVIEW (next)** — convert a validated `WorkflowPlan` into an EPHEMERAL,
-   NON-APPLIED draft preview (e.g. an in-memory preview graph the user can look at), NOT a saved
-   `draftDefinition` change. The AI still never mutates/saves; an explicit user "apply/create" action
-   (a later slice) would hand the validated plan to the deterministic ChainReact builder. This slice
-   only prepared the validated-plan shape; nothing builds or persists a preview yet.
+7. ✅ **HERMES-AGENT-DRAFT-PREVIEW (done)** — `planToDraftPreview` converts a validated `WorkflowPlan`
+   into an EPHEMERAL, NON-APPLIED `DraftPreview` (a distinct type from `WorkflowDefinition`):
+   preview-only ids (`preview-step-1`/`preview-edge-1`), capability labels only, linear sequence
+   edges, missing field-keys → warnings/`missingInputs` (never config), `notApplied: true` everywhere.
+   Derived at the route from `result.workflowPlan` only (never from an unvalidated plan; `null`
+   otherwise). UI renders a preview-only "Draft preview" section ("Preview only — your workflow has
+   not changed.") with **no apply/create/add/use-this/run control**. Ephemeral/in-memory only — no
+   `draftDefinition` write, no builder-state mutation, no persistence.
+8. **HERMES-AGENT-PLAN-APPLY (next, gated)** — the FIRST mutation path: an explicit, user-initiated
+   "Create / Use this" action that hands the validated `WorkflowPlan` to the **deterministic
+   ChainReact builder** to create a real draft. Must be its own approval-gated slice — the AI still
+   never auto-applies; this slice only built the review preview, nothing applies yet.

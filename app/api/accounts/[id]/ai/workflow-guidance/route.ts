@@ -10,6 +10,7 @@ import { aiCreditGate, type AiCreditGateOutcome } from "@/services/billing/aiCre
 import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai-guidance/gateway/gatewayConfig";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
+import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
 
 /**
  * POST /api/accounts/[id]/ai/workflow-guidance (HERMES-AGENT-CAPABILITY-ROUTE).
@@ -38,9 +39,11 @@ import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/ca
  * provides metering; usage reconciliation is a future slice. No migration is required.
  *
  * No-leak: the response carries only the normalized advisory fields (`guidanceText` / `source` /
- * `workflowPlan` / safe `warnings`) — never the raw provider envelope, raw usage, the prompt, the
- * gateway token, account/workflow ids, or any secret. The audit row carries scope ids + registry
- * enums only (no goal/guidance text). UI is a later slice.
+ * `workflowPlan` / a non-applied `previewDraft` derived from the validated plan / safe `warnings`) —
+ * never the raw provider envelope, raw usage, the prompt, the gateway token, account/workflow ids, or
+ * any secret. The `previewDraft` is ephemeral + `notApplied: true` (HERMES-AGENT-DRAFT-PREVIEW): it is
+ * NOT a persisted workflow definition and this route still never creates/mutates/applies/runs a
+ * workflow. The audit row carries scope ids + registry enums only (no goal/guidance text).
  */
 
 const MAX_GOAL_LENGTH = 2_000;
@@ -134,12 +137,18 @@ export async function POST(
     return guidanceUnavailableResponse();
   }
 
+  // Deterministic, ephemeral preview derived ONLY from the already-capability-validated plan
+  // (result.workflowPlan is non-null only after validateWorkflowPlan passed upstream). Pure transform
+  // — no workflow create/mutate/apply/run, no draftDefinition write. Null when there is no valid plan.
+  const previewDraft = result.workflowPlan ? planToDraftPreview(result.workflowPlan) : null;
+
   // Normalized advisory fields ONLY — no raw envelope, no raw usage, no prompt, no ids/secrets.
   return NextResponse.json({
     ok: true,
     guidanceText: result.guidanceText,
     source: result.source,
     workflowPlan: result.workflowPlan,
+    previewDraft,
     ...(result.warnings ? { warnings: result.warnings } : {}),
   });
 }

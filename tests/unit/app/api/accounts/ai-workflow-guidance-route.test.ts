@@ -205,7 +205,8 @@ describe("workflow-guidance route — capability call + safe response", () => {
     const res = await call(ACCOUNT, goodBody);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ ok: true, guidanceText: "Ask: which app?", source: "hermes-agent", workflowPlan: null, warnings: ["multiple_choices_truncated"] });
+    // previewDraft is null when there is no validated plan (HERMES-AGENT-DRAFT-PREVIEW).
+    expect(body).toEqual({ ok: true, guidanceText: "Ask: which app?", source: "hermes-agent", workflowPlan: null, previewDraft: null, warnings: ["multiple_choices_truncated"] });
     // rawUsage is dropped from the route response; no prompt / ids / gateway token leak.
     // (`warnings` is a safe enum and IS returned — so don't assert against generic substrings
     //  like "choices" that legitimately appear inside `multiple_choices_truncated`.)
@@ -216,20 +217,34 @@ describe("workflow-guidance route — capability call + safe response", () => {
     }
   });
 
-  it("success WITH a validated workflowPlan → 200 returns the plan + warnings (advisory, no mutation)", async () => {
+  it("success WITH a validated workflowPlan → 200 returns the plan + a non-applied previewDraft (advisory, no mutation)", async () => {
     const plan = {
       schemaVersion: 1,
       title: "Lead follow-up",
       summary: "Watch then notify.",
       notApplied: true,
-      steps: [{ ref: "s0", role: "action", provider: "slack", type: "send_message", purpose: "notify" }],
+      steps: [
+        { ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" },
+        { ref: "s1", role: "action", provider: "slack", type: "send_message", purpose: "notify" },
+      ],
     };
-    mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Here's a plan.", source: "hermes-agent", workflowPlan: plan, warnings: ["Suggested plan could not be validated."] });
+    mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Here's a plan.", source: "hermes-agent", workflowPlan: plan });
     const res = await call(ACCOUNT, goodBody);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ ok: true, guidanceText: "Here's a plan.", source: "hermes-agent", workflowPlan: plan, warnings: ["Suggested plan could not be validated."] });
+    expect(body.workflowPlan).toEqual(plan);
     expect(body.workflowPlan.notApplied).toBe(true);
+    // The route derives an ephemeral preview from the validated plan — preview-only ids, notApplied.
+    expect(body.previewDraft).not.toBeNull();
+    expect(body.previewDraft.notApplied).toBe(true);
+    expect(body.previewDraft.nodes.map((n: { previewId: string }) => n.previewId)).toEqual(["preview-step-1", "preview-step-2"]);
+    expect(body.previewDraft.notice).toBe("Preview only — your workflow has not changed.");
+  });
+
+  it("preview is NOT produced when there is no validated plan (previewDraft null)", async () => {
+    mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Just prose.", source: "hermes-agent", workflowPlan: null });
+    const body = await (await call(ACCOUNT, goodBody)).json();
+    expect(body.previewDraft).toBeNull();
   });
 
   it("runner provider failure → 503 GUIDANCE_UNAVAILABLE; never leaks raw error", async () => {

@@ -144,6 +144,28 @@ a plan that creates, mutates, applies, runs, or persists a workflow. (An envelop
 remains supported and stays STRICT — an invalid sibling object fails the whole response closed; only
 the in-text fenced path degrades gracefully.)
 
+**Draft preview (HERMES-AGENT-DRAFT-PREVIEW).** The route adds a `previewDraft` field, derived
+deterministically from the **already-validated** `workflowPlan` by
+[`services/ai-guidance/preview/planToDraftPreview.ts`](../../services/ai-guidance/preview/planToDraftPreview.ts)
+(`result.workflowPlan ? planToDraftPreview(...) : null`). The preview is an **ephemeral, non-applied**
+`DraftPreview` ([`contracts/workflowPlanPreview.ts`](../../contracts/workflowPlanPreview.ts)) — a
+DISTINCT type from the persisted `WorkflowDefinition`/`draftDefinition` so it can never be accidentally
+saved/applied:
+
+- preview-only ids (`preview-step-1`, `preview-edge-1`) — never real workflow/node/db ids;
+- nodes carry capability LABELS only (provider/type from the validated plan) — no config, credentials,
+  field mappings, resolved variables, secrets, or provider account ids;
+- step `requiredInputs` → plain-text `warnings` + per-node `missingInputs` (field keys only), never
+  executable config;
+- linear sequence edges (steps are ordered; branching is never invented);
+- `notice: "Preview only — your workflow has not changed."`; `notApplied: true` on the preview AND
+  every node/edge; an unconvertible plan (no steps) → `null`.
+
+Converting a plan to a preview **changes nothing** — no workflow create/mutate/apply/run, no
+`draftDefinition` write, no builder-state call, no persistence. There is no apply/create/add/run path
+in this slice. `previewDraft` is `null` whenever `workflowPlan` is `null` (never derived from an
+unvalidated plan).
+
 **Fail-closed mapping** (advisory; never mutates/executes a workflow):
 
 | Condition | Result |
@@ -223,6 +245,13 @@ questions. **Advisory only — it never creates / changes / runs a workflow.**
   *"Review only — this has not changed your workflow."* There is **no Create / Apply / Add-nodes /
   Run control** in this slice — surfacing a plan never mutates a workflow. A `null` plan renders
   nothing; `guidanceText` stays the primary output.
+- **Draft preview (HERMES-AGENT-DRAFT-PREVIEW).** When the route returns a `previewDraft`, the panel
+  renders a **preview-only** "Draft preview" section instead of the text "Suggested plan" (the
+  preview supersedes it to avoid duplication): title/summary + numbered nodes (`role` · `label` ·
+  purpose, with "Still needs: …" for missing field keys) + a "Flow: a → b → c" line from the preview
+  edges, under the copy *"Preview only — your workflow has not changed."* Still **no Create / Apply /
+  Add-nodes / Use-this / Run control**. The preview is ephemeral/in-memory only — it never touches
+  builder canvas state, the graph store, `draftDefinition`, save/dirty state, or any persistence.
 
 - The panel is **server-gated on `HERMES_AGENT_ENABLED`** — when the flag is OFF (default) the page
   does **not render the panel at all** (no dead box). The `accountId` is the page's resolved active

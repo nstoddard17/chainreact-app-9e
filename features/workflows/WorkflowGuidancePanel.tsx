@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -37,6 +38,12 @@ function asRenderablePlan(value: WorkflowPlan | null | undefined): WorkflowPlan 
   return Array.isArray(value.steps) && value.steps.length > 0 ? value : null;
 }
 
+/** Narrow the route's `previewDraft` to a renderable preview with at least one node (else null). */
+function asRenderablePreview(value: DraftPreview | null | undefined): DraftPreview | null {
+  if (!value || typeof value !== "object") return null;
+  return Array.isArray(value.nodes) && value.nodes.length > 0 ? value : null;
+}
+
 export interface WorkflowGuidancePanelProps {
   /** Account scope for the request (resolved server-side / from router context). */
   readonly accountId: string;
@@ -49,6 +56,7 @@ export function WorkflowGuidancePanel({ accountId, workflowId }: WorkflowGuidanc
   const [status, setStatus] = useState<Status>("idle");
   const [guidanceText, setGuidanceText] = useState("");
   const [plan, setPlan] = useState<WorkflowPlan | null>(null);
+  const [preview, setPreview] = useState<DraftPreview | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
   const trimmed = goal.trim();
@@ -60,6 +68,7 @@ export function WorkflowGuidancePanel({ accountId, workflowId }: WorkflowGuidanc
     setErrorMessage("");
     setGuidanceText("");
     setPlan(null);
+    setPreview(null);
     try {
       const res = await requestWorkflowGuidance({
         accountId,
@@ -70,6 +79,8 @@ export function WorkflowGuidancePanel({ accountId, workflowId }: WorkflowGuidanc
         setGuidanceText(res.guidanceText);
         // Review-only advisory plan (capability-validated server-side). Never auto-applied.
         setPlan(asRenderablePlan(res.workflowPlan));
+        // Ephemeral, non-applied preview derived from the validated plan. Never persisted/inserted.
+        setPreview(asRenderablePreview(res.previewDraft));
         setStatus("done");
       } else {
         // Only the credits denial carries distinct safe copy; everything else is generic-unavailable.
@@ -141,7 +152,10 @@ export function WorkflowGuidancePanel({ accountId, workflowId }: WorkflowGuidanc
         </div>
       )}
 
-      {status === "done" && plan && (
+      {/* "Suggested plan" (text) shows only when there's a validated plan but no richer preview to
+          avoid duplicating the same steps twice. When a preview exists, the preview section below
+          carries the steps/flow instead. */}
+      {status === "done" && plan && !preview && (
         <div
           data-testid="workflow-guidance-plan"
           className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950"
@@ -180,6 +194,59 @@ export function WorkflowGuidancePanel({ accountId, workflowId }: WorkflowGuidanc
               </li>
             ))}
           </ol>
+        </div>
+      )}
+
+      {status === "done" && preview && (
+        <div
+          data-testid="workflow-guidance-preview"
+          className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950"
+        >
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            Draft preview
+          </h3>
+          {/* Fixed, server-provided review copy — make it unmistakable nothing changed. No apply control. */}
+          <p
+            data-testid="workflow-guidance-preview-notice"
+            className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400"
+          >
+            {preview.notice}
+          </p>
+          {preview.title.length > 0 && (
+            <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">
+              {preview.title}
+            </p>
+          )}
+          {preview.summary.length > 0 && (
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{preview.summary}</p>
+          )}
+          <ol className="mt-2 space-y-1.5">
+            {preview.nodes.map((node, i) => (
+              <li key={node.previewId} className="text-sm text-neutral-700 dark:text-neutral-300">
+                <span className="font-medium">{i + 1}.</span>{" "}
+                <span className="rounded bg-neutral-200 px-1 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                  {node.role}
+                </span>{" "}
+                <code className="text-xs">{node.label}</code>
+                {node.purpose.length > 0 && (
+                  <span className="text-neutral-600 dark:text-neutral-400"> — {node.purpose}</span>
+                )}
+                {node.missingInputs && node.missingInputs.length > 0 && (
+                  <span className="block pl-5 text-xs text-amber-700 dark:text-amber-400">
+                    Still needs: {node.missingInputs.join(", ")}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
+          {preview.edges.length > 0 && (
+            <p
+              data-testid="workflow-guidance-preview-flow"
+              className="mt-2 text-xs text-neutral-500 dark:text-neutral-400"
+            >
+              Flow: {preview.nodes.map((n) => n.label).join(" → ")}
+            </p>
+          )}
         </div>
       )}
     </section>
