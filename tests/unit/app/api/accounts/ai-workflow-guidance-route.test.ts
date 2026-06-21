@@ -332,10 +332,40 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(body.previewDraft.notice).toBe("Preview only — your workflow has not changed.");
   });
 
-  it("preview is NOT produced when there is no validated plan (previewDraft null)", async () => {
+  it("preview is NOT produced when there is no validated plan AND the goal does not match a fallback shape (previewDraft null)", async () => {
+    // goodBody.goalText ("I keep forgetting to follow up with leads") matches no deterministic pattern.
     mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Just prose.", source: "hermes-agent", workflowPlan: null });
     const body = await (await call(ACCOUNT, goodBody)).json();
+    expect(body.workflowPlan).toBeNull();
     expect(body.previewDraft).toBeNull();
+  });
+
+  it("HERMES-AGENT-DETERMINISTIC-SHAPE-FALLBACK — Hermes text-only + an obvious shape → route injects a validated fallback plan + preview", async () => {
+    // Hermes returns useful prose but NO plan; the goal clearly maps to manual run → Slack channel msg.
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "This is a straightforward manual reminder. The only details left are the channel and the message.",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    const res = await call(ACCOUNT, {
+      goalText: "When I run this workflow manually, send a Slack message to a channel reminding the team to review new leads.",
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Hermes' prose is preserved; a deterministic, validated plan + non-applied preview are added.
+    expect(body.guidanceText).toContain("manual reminder");
+    expect(body.workflowPlan).not.toBeNull();
+    expect(body.workflowPlan.notApplied).toBe(true);
+    expect(body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`)).toEqual([
+      "native:manual.run",
+      "slack:send_channel_message",
+    ]);
+    expect(body.previewDraft).not.toBeNull();
+    expect(body.previewDraft.notApplied).toBe(true);
+    // The Slack node still needs its config (collected by the rail setup card, not another model call).
+    const slackNode = body.previewDraft.nodes.find((n: { type: string }) => n.type === "send_channel_message");
+    expect(slackNode.missingInputs).toEqual(expect.arrayContaining(["channel", "text"]));
   });
 
   it("runner provider failure → 503 GUIDANCE_UNAVAILABLE; never leaks raw error", async () => {

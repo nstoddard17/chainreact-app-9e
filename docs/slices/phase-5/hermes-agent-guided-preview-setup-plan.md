@@ -7,7 +7,38 @@
 > 4 (HERMES-AGENT-GUIDED-PREVIEW-SETUP-ASYNC-OPTIONS-AND-DASHBOARD-CLEANUP) added async optionsSource
 > dropdowns to the rail card + removed the dashboard "Build with me" card**; **Phase 5
 > (HERMES-AGENT-PREFER-PARTIAL-PREVIEW-WITH-SETUP) tuned the guidance prompt to return a preview for a
-> clear shape even when config is missing** — see the status boxes.
+> clear shape even when config is missing**; **Phase 6 (HERMES-AGENT-DETERMINISTIC-SHAPE-FALLBACK)
+> added a narrow deterministic fallback that produces a validated partial preview when Hermes returns
+> text-only for an obvious shape** — see the status boxes.
+
+## Phase 6 status — IMPLEMENTED (DETERMINISTIC SHAPE FALLBACK)
+
+**Why:** the Phase 5 prompt tuning was insufficient on its own — the live model still returned only
+plain-text questions ("which channel? generic or specific?") for the manual-Slack-reminder request,
+with no preview/setup card. The model understands the request but doesn't reliably follow the
+partial-plan contract.
+
+**Fix — a narrow, deterministic, catalog-validated fallback (NOT a planner).** New
+`services/ai-guidance/fallback/inferDeterministicPreview.ts` → `inferDeterministicPreviewPlan(goalText)`:
+- Matches only a tiny high-confidence allow-list. Pattern 1 (this slice): manual run → Slack channel
+  message — requires a manual-run signal (`/\bmanual(ly)?\b/`) AND a Slack signal AND a send-ish verb;
+  declines the explicit DM/direct-message shape. Everything else → `null`.
+- NEVER invents ids: `native:manual.run` + `slack:send_channel_message` are confirmed via the real
+  discovery registry (`getTriggerMeta`/`getActionMeta`), `requiredInputs` are read from the action's
+  real `meta.fields` (required only — yields `["channel","text"]`), and the whole plan is run through
+  `validateWorkflowPlan`. Any miss → `null` (fail closed).
+- Model-free + free: no Hermes/model/network call; produces only an advisory `WorkflowPlan`.
+
+**Wiring:** the guidance route (`app/api/accounts/[id]/ai/workflow-guidance/route.ts`) calls it ONLY
+when `result.ok && !result.workflowPlan` (`workflowPlan = result.workflowPlan ?? inferDeterministicPreviewPlan(goalText)`).
+Hermes' own validated plan always wins; the fallback fills the gap. The route then `planToDraftPreview`s
+the resulting plan exactly as before, so Show on canvas + the rail setup card (Slack channel async
+dropdown + message textarea) light up. Apply seeds the picked values via the existing path. No
+create/save/activate/run; selected setup values never sent to Hermes.
+
+**Scope:** only Pattern 1 shipped. Email/other patterns are deliberately deferred (don't overbuild).
+
+---
 
 ## Phase 5 status — IMPLEMENTED (PREFER PARTIAL PREVIEW + GUIDED SETUP)
 

@@ -11,6 +11,7 @@ import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
+import { inferDeterministicPreviewPlan } from "@/services/ai-guidance/fallback/inferDeterministicPreview";
 import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
@@ -43,6 +44,12 @@ import * as accountsRepo from "@/repositories/accounts";
  * Telemetry note: this route does NOT write an `ai_cost_events` model-call row — ChainReact makes no
  * direct model call here (the Hermes Agent does), so there is nothing to attribute. The credit GATE
  * provides metering; usage reconciliation is a future slice. No migration is required.
+ *
+ * Partial-preview fallback (HERMES-AGENT-DETERMINISTIC-SHAPE-FALLBACK): when Hermes returns guidance
+ * text but NO valid plan, a narrow, model-free, catalog-validated shape inferer may still produce an
+ * advisory plan for obvious supported patterns (e.g. "run manually → Slack channel message"). It runs
+ * AFTER Hermes (Hermes' own validated plan always wins), calls no model/network, returns null for
+ * anything ambiguous/unconfirmable, and its plan still passes `validateWorkflowPlan`.
  *
  * No-leak: the response carries only the normalized advisory fields (`guidanceText` / `source` /
  * `workflowPlan` / a non-applied `previewDraft` derived from the validated plan / safe `warnings`) —
@@ -188,17 +195,24 @@ export async function POST(
     return guidanceUnavailableResponse();
   }
 
-  // Deterministic, ephemeral preview derived ONLY from the already-capability-validated plan
-  // (result.workflowPlan is non-null only after validateWorkflowPlan passed upstream). Pure transform
-  // — no workflow create/mutate/apply/run, no draftDefinition write. Null when there is no valid plan.
-  const previewDraft = result.workflowPlan ? planToDraftPreview(result.workflowPlan) : null;
+  // HERMES-AGENT-DETERMINISTIC-SHAPE-FALLBACK — when Hermes returned guidance TEXT but NO valid plan,
+  // try a narrow, catalog-validated deterministic shape inferer for obvious supported patterns (e.g.
+  // "run this manually → send a Slack channel message"). It is model-free (no Hermes/network), returns
+  // null for anything ambiguous or unconfirmable in the registry, and only ever yields an advisory plan
+  // (still validated). Hermes' own plan always wins when present.
+  const workflowPlan = result.workflowPlan ?? inferDeterministicPreviewPlan(goalText);
+
+  // Deterministic, ephemeral preview derived ONLY from a capability-validated plan (Hermes' validated
+  // plan, or the fallback's — both pass validateWorkflowPlan). Pure transform — no workflow create/
+  // mutate/apply/run, no draftDefinition write. Null when there is no valid plan.
+  const previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
 
   // Normalized advisory fields ONLY — no raw envelope, no raw usage, no prompt, no ids/secrets.
   return NextResponse.json({
     ok: true,
     guidanceText: result.guidanceText,
     source: result.source,
-    workflowPlan: result.workflowPlan,
+    workflowPlan,
     previewDraft,
     ...(result.warnings ? { warnings: result.warnings } : {}),
   });
