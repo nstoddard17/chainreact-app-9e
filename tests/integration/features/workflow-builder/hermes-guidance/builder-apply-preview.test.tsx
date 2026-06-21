@@ -37,7 +37,7 @@ jest.mock("@/lib/api/ai/guidance", () => ({
   requestWorkflowGuidance: (...a: unknown[]) => mockRequest(...a),
 }));
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -170,6 +170,41 @@ describe("builder apply-preview — existing workflow", () => {
     expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent(
       "Preview applied to draft — review required fields before activating.",
     );
+  });
+});
+
+describe("builder apply-preview — insert between (selected mid-chain node)", () => {
+  const existingNodes = [
+    { id: "trig", kind: "trigger" as const, provider: "slack", type: "message_received", config: {}, position: { x: 0, y: 0 } },
+    { id: "act", kind: "action" as const, provider: "github", type: "add_comment", config: { repository: "octocat/x" }, position: { x: 0, y: 200 } },
+  ];
+  const existingEdges = [{ id: "e1", from: "trig", to: "act" }];
+
+  it("inserts the proposed action between the selected node and its single child (A → new → B)", async () => {
+    const user = userEvent.setup();
+    renderBuilder(workflow(existingNodes, existingEdges));
+    await user.click(screen.getByTestId("builder-guidance-toggle"));
+    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
+    // Select the mid-chain trigger node (its sole outgoing edge trig → act is the split point).
+    act(() => {
+      useConfigSlice.getState().openNode({ nodeId: "trig", initialValues: {} });
+    });
+    await user.click(await screen.findByTestId("builder-preview-apply"));
+
+    const s = useGraphSlice.getState();
+    const added = s.pendingNodes.find((n) => n.provider === "slack" && n.type === "send_message")!;
+    expect(added).toBeDefined();
+    // Split: e1 (trig → act) removed; replaced by trig → new and new → act. Existing config kept.
+    expect(s.pendingEdges.some((e) => e.id === "e1")).toBe(false);
+    expect(s.pendingEdges.some((e) => e.from === "trig" && e.to === added.id)).toBe(true);
+    expect(s.pendingEdges.some((e) => e.from === added.id && e.to === "act")).toBe(true);
+    expect(s.pendingNodes.find((n) => n.id === "act")).toMatchObject({ config: { repository: "octocat/x" } });
+    expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent(
+      "Preview inserted into draft — review required fields before activating.",
+    );
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });
 

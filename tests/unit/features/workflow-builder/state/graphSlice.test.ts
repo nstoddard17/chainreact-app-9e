@@ -1696,15 +1696,17 @@ describe("graphSlice — applyAdditivePatch in-place placement (HERMES-AGENT-APP
     expect(s.pendingEdges).toHaveLength(2);
   });
 
-  it("selected-node append: appends after the explicitly selected node (wins over tail)", () => {
-    useGraphSlice.getState().hydrate("wf-1", TRIGGER_ACTION_DEF);
-    // Select the TRIGGER, not the tail — the patch action should branch off the trigger.
+  it("selected node with MULTIPLE outgoing edges → appended (no split, no edge removed)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TWO_TAIL_DEF); // t1 → a1, t1 → a2
+    const beforeEdgeIds = useGraphSlice.getState().pendingEdges.map((e) => e.id);
+    // Select t1 (two outgoing) — must NOT split; branches off t1 additively instead.
     const outcome = useGraphSlice.getState().applyAdditivePatch(ACTION_PATCH, { appendAfterNodeId: "t1" });
     const s = useGraphSlice.getState();
     expect(outcome.ok && outcome.placement).toBe("appended");
-    const added = s.pendingNodes.find((n) => n.provider === "notion")!;
+    const added = s.pendingNodes.find((n) => !["t1", "a1", "a2"].includes(n.id))!;
     expect(s.pendingEdges.some((e) => e.from === "t1" && e.to === added.id)).toBe(true);
-    expect(s.pendingEdges.some((e) => e.id === "e1")).toBe(true); // existing edge preserved
+    // No existing edge removed.
+    expect(beforeEdgeIds.every((id) => s.pendingEdges.some((e) => e.id === id))).toBe(true);
   });
 
   it("trigger-first patch: trigger skipped, the action appends after the sole tail", () => {
@@ -1739,5 +1741,23 @@ describe("graphSlice — applyAdditivePatch in-place placement (HERMES-AGENT-APP
     const s = useGraphSlice.getState();
     expect(s.pendingNodes.find((n) => n.id === "a1")).toMatchObject({ config: { repo: "x" }, position: { x: 0, y: 160 } });
     expect(s.pendingNodes.find((n) => n.id === "t1")).toMatchObject({ position: { x: 0, y: 0 } });
+  });
+
+  it("insert-between: selecting a mid-chain node splits its sole edge (A → new → B); only that edge is removed", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_ACTION_DEF); // t1 → a1 (edge e1)
+    const outcome = useGraphSlice.getState().applyAdditivePatch(ACTION_PATCH, { appendAfterNodeId: "t1" });
+    const s = useGraphSlice.getState();
+    expect(outcome.ok && outcome.placement).toBe("inserted_between");
+    const added = s.pendingNodes.find((n) => n.provider === "notion" && n.type === "create_page")!;
+    // The original t1 → a1 edge (e1) is the ONLY edge removed; replaced by t1 → new and new → a1.
+    expect(s.pendingEdges.some((e) => e.id === "e1")).toBe(false);
+    expect(s.pendingEdges.some((e) => e.from === "t1" && e.to === added.id)).toBe(true);
+    expect(s.pendingEdges.some((e) => e.from === added.id && e.to === "a1")).toBe(true);
+    expect(s.pendingEdges).toHaveLength(2);
+    // Existing nodes + config untouched; nothing saved.
+    expect(s.pendingNodes.find((n) => n.id === "a1")).toMatchObject({ config: { repo: "x" } });
+    expect(s.pendingNodes).toHaveLength(3);
+    expect(s.isDirty).toBe(true);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });

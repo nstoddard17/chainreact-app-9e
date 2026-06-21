@@ -18,6 +18,11 @@ import {
   findChainTailId,
   layoutWorkflowGraph,
 } from "../utils/workflowLayout";
+import {
+  computeAdditivePatchPlacement,
+  type AdditivePatchPlacementKind,
+  type ResolvedInternalEdge,
+} from "../utils/additivePatchPlacement";
 
 /**
  * Builder graph slice.
@@ -189,14 +194,16 @@ export interface GraphSliceActions {
    *   - NEVER deletes/replaces/updates existing nodes, edges, or config — existing graph is untouched.
    *   - NO replace-trigger: a patch `trigger` node is SKIPPED when the graph already has a trigger
    *     (and across the patch itself once one trigger has been added) → `skippedTrigger: true`.
-   *   - **In-place placement (HERMES-AGENT-APPLY-IN-PLACE):** when the first added node is an ACTION
-   *     and a safe anchor exists, the chain is appended after it with ONE new edge `anchor → firstAction`
-   *     (`placement: "appended"`). Anchor priority: `options.appendAfterNodeId` (the selected/active
-   *     node) if it exists, else the SOLE chain tail (`findChainTailId`). Blank graph → origin layout
-   *     (`placement: "blank"`). Otherwise (ambiguous multi-tail / no anchor / first node is a trigger)
-   *     → side chain to the right (`placement: "side_chain"`).
-   *   - Edges are ADD-ONLY. Existing edges are never removed/rewritten/split. The anchor edge is only
-   *     added when its endpoints are distinct and it's not a duplicate (new ids → always safe).
+   *   - **Placement (HERMES-AGENT-APPLY-IN-PLACE / -INSERT-BETWEEN):** decided by the pure
+   *     `computeAdditivePatchPlacement` helper. When the first added node is an ACTION and the
+   *     selected/active node (`options.appendAfterNodeId`) has exactly ONE outgoing UNLABELED edge
+   *     A→B, the chain is INSERTED between them (split A→B into A→firstNew + lastNew→B;
+   *     `placement: "inserted_between"`). Selected with zero/multiple/labeled outgoing → `appended`
+   *     after it. No selection + sole tail → `appended`. Blank graph → `blank`. Anything ambiguous
+   *     (multi-tail / no anchor / trigger-first) → `side_chain`.
+   *   - Edges are ADD-ONLY except the single split edge during `inserted_between` (replaced by two new
+   *     edges involving a new id, so never a duplicate/invalid edge). All other existing edges + every
+   *     existing node + its config/position are untouched. No branch rewrite (labeled edges never split).
    *   - Marks the graph dirty via the SAME mechanism as manual edits. Does NOT save/activate/run.
    *
    * Returns an outcome; never throws. `{ ok: false }` when nothing additive remained to apply.
@@ -220,9 +227,10 @@ export type ApplyAdditivePatchOutcome =
       readonly skippedTrigger: boolean;
       /**
        * Where the chain landed: `blank` (empty graph → origin), `appended` (after a safe anchor with
-       * a new anchor edge), or `side_chain` (no safe anchor → detached chain to the right).
+       * a new anchor edge), `inserted_between` (split the anchor's sole unlabeled edge: A→new…→B), or
+       * `side_chain` (no safe anchor → detached chain to the right).
        */
-      readonly placement: "blank" | "appended" | "side_chain";
+      readonly placement: AdditivePatchPlacementKind;
     }
   | {
       readonly ok: false;
@@ -762,80 +770,43 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       return { ok: false, reason: "nothing_added", skippedTrigger };
     }
 
-    // 2. Decide placement + anchor (HERMES-AGENT-APPLY-IN-PLACE). In-place "appended" only when the
-    //    first added node is an ACTION (you never wire an existing node into a new trigger) AND a safe
-    //    anchor exists: the selected/active node first, else the SOLE chain tail. Blank graph → origin.
-    //    Everything else (ambiguous multi-tail / no anchor / trigger-first) → detached side chain.
-    let placement: "blank" | "appended" | "side_chain";
-    let anchorNode: WorkflowNode | undefined;
-    if (pendingNodes.length === 0) {
-      placement = "blank";
-    } else if (toAdd[0]!.kind === "action") {
-      const selected = options?.appendAfterNodeId
-        ? pendingNodes.find((n) => n.id === options.appendAfterNodeId)
-        : undefined;
-      const tailId = selected ? undefined : findChainTailId(pendingNodes, pendingEdges);
-      anchorNode = selected ?? (tailId ? pendingNodes.find((n) => n.id === tailId) : undefined);
-      placement = anchorNode ? "appended" : "side_chain";
-    } else {
-      placement = "side_chain";
-    }
-
-    // 3. Assign positions. Existing node positions are NEVER moved.
-    const addedNodes: WorkflowNode[] = [];
-    if (placement === "appended" && anchorNode) {
-      // Stack the chain straight down from the anchor, each slot cleared of existing + already-added.
-      let prevPos: WorkflowNodePosition = anchorNode.position;
-      for (const d of toAdd) {
-        const position = computeNonOverlappingPosition(prevPos, [...pendingNodes, ...addedNodes]);
-        addedNodes.push({ id: d.id, kind: d.kind, provider: d.provider, type: d.type, config: {}, position });
-        prevPos = position;
-      }
-    } else {
-      // Blank → origin column; side chain → to the right of all existing nodes. No overlap either way.
-      const baseX =
-        placement === "side_chain"
-          ? Math.max(...pendingNodes.map((n) => n.position.x)) + PATCH_SIDE_CHAIN_X_GAP
-          : 0;
-      const baseY = placement === "side_chain" ? Math.min(...pendingNodes.map((n) => n.position.y)) : 0;
-      toAdd.forEach((d, i) => {
-        addedNodes.push({
-          id: d.id,
-          kind: d.kind,
-          provider: d.provider,
-          type: d.type,
-          // EMPTY config — nothing inferred. Required fields surface via existing node validation.
-          config: {},
-          position: { x: baseX, y: baseY + i * PATCH_NODE_Y_GAP },
-        });
-      });
-    }
-
-    // 4. Edges are ADD-ONLY. The anchor edge (appended only) wires anchor → first added node; endpoints
-    //    are always distinct (new id) and never duplicate an existing edge, so it can't be invalid.
-    const addedEdges: WorkflowEdge[] = [];
-    if (placement === "appended" && anchorNode) {
-      addedEdges.push({ id: newEdgeId(), from: anchorNode.id, to: addedNodes[0]!.id });
-    }
+    // 2. Resolve the proposed chain's internal edges to real ids (skipped-trigger refs drop out).
+    const internalEdges: ResolvedInternalEdge[] = [];
     for (const pe of patch.edges) {
       const from = refToId.get(pe.fromRef);
       const to = refToId.get(pe.toRef);
-      if (!from || !to || from === to) continue; // endpoint skipped (e.g. trigger) → drop the edge
-      addedEdges.push({ id: newEdgeId(), from, to });
+      if (from && to && from !== to) internalEdges.push({ from, to });
     }
 
+    // 3. Plan placement (pure): blank / appended / inserted_between (one safe edge split) / side_chain.
+    const plan = computeAdditivePatchPlacement({
+      pendingNodes,
+      pendingEdges,
+      toAdd,
+      internalEdges,
+      ...(options?.appendAfterNodeId ? { appendAfterNodeId: options.appendAfterNodeId } : {}),
+      mintEdgeId: newEdgeId,
+      sideChainXGap: PATCH_SIDE_CHAIN_X_GAP,
+      nodeYGap: PATCH_NODE_Y_GAP,
+    });
+
+    // 4. Apply: append new nodes, remove ONLY the split edge (if any), add new edges. Existing nodes +
+    //    their config/position + all other edges are untouched. Dirty via the normal mechanism.
     set({
-      pendingNodes: [...pendingNodes, ...addedNodes],
-      pendingEdges: [...pendingEdges, ...addedEdges],
+      pendingNodes: [...pendingNodes, ...plan.addedNodes],
+      pendingEdges: [
+        ...pendingEdges.filter((e) => !plan.removedEdgeIds.includes(e.id)),
+        ...plan.addedEdges,
+      ],
       isDirty: true,
       saveError: null,
     });
     return {
       ok: true,
-      addedNodeIds: addedNodes.map((n) => n.id),
-      addedEdgeIds: addedEdges.map((e) => e.id),
+      addedNodeIds: plan.addedNodes.map((n) => n.id),
+      addedEdgeIds: plan.addedEdges.map((e) => e.id),
       skippedTrigger,
-      placement,
+      placement: plan.placement,
     };
   },
 

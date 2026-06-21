@@ -307,13 +307,19 @@ questions. **Advisory only — it never creates / changes / runs a workflow.**
   workflow, and makes NO network/route/gateway call — the user still reviews fields and saves via
   existing builder flows. **No operational/env/route change.** (Dashboard preview stays review-only —
   no Apply control there.)
-- **In-place placement (HERMES-AGENT-APPLY-IN-PLACE).** The appended chain now lands in-place: after
-  the user's selected/active node when present, else the sole chain tail, with one new anchor edge
-  (`placement: "appended"`, notice "Preview applied to draft — review required fields before
-  activating."). Blank graph → origin layout. Ambiguous multi-tail / no anchor / trigger-first → a
-  detached SIDE CHAIN with the safe notice "Preview added as a separate draft chain because ChainReact
-  could not safely determine where to insert it." Edges remain ADD-ONLY (no remove/rewrite/split);
-  existing node config and positions are never touched.
+- **In-place placement (HERMES-AGENT-APPLY-IN-PLACE / -INSERT-BETWEEN).** A pure planner
+  (`features/workflow-builder/utils/additivePatchPlacement.ts`) decides where the chain lands:
+  - **inserted_between** — the selected/active node has exactly ONE outgoing UNLABELED edge A→B → the
+    chain splits it into A→new…→B (notice "Preview inserted into draft — review required fields before
+    activating."). This is the ONLY edge removal/replacement performed, and only ever one edge.
+  - **appended** — selected node with zero/multiple/labeled outgoing edges, else the sole chain tail →
+    one new anchor edge (notice "Preview applied to draft — review required fields before activating.").
+  - **blank** — empty graph → origin layout.
+  - **side_chain** — ambiguous multi-tail / no anchor / trigger-first → detached chain (notice "Preview
+    added as a separate draft chain because ChainReact could not safely determine where to insert it.").
+  - If no safe operation applies (e.g. trigger-only into a graph that already has a trigger) → notice
+    "ChainReact could not safely apply this preview." Labeled/router branches are never split (no branch
+    rewrite); all existing node config + positions + all other edges are never touched.
 
 - The panel is **server-gated on `HERMES_AGENT_ENABLED`** — when the flag is OFF (default) the page
   does **not render the panel at all** (no dead box). The `accountId` is the page's resolved active
