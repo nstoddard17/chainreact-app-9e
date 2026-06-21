@@ -35,6 +35,14 @@ import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestio
 const GOAL_PLACEHOLDER =
   "Example: When a new lead comes in, remind me to follow up if I have not heard back in 3 days.";
 const CHAT_PLACEHOLDER = "Describe what to add or change. For example: add a Slack message after the trigger.";
+/**
+ * BUILDER-AGENT-RAIL-CHECK-WORKFLOW — the prefill the "Check workflow" pill drops into the composer. It
+ * is a SUGGESTED agent action (an AI/React-Agent review of the current draft), NOT a deterministic
+ * validation run: clicking it prefills this review prompt above the input; the user sends it through the
+ * SAME governed chat path. It never opens the validation drawer, never blocks activation, and never
+ * edits the workflow (applying any suggestion stays the explicit Apply-preview step).
+ */
+const CHECK_WORKFLOW_PROMPT = "Review my current workflow and suggest improvements or fixes.";
 const UNAVAILABLE_MESSAGE = "AI workflow guidance is temporarily unavailable.";
 const MAX_GOAL_LENGTH = 2_000;
 
@@ -235,6 +243,25 @@ function toRecentTurns(messages: readonly ChatMessage[]): GuidanceConversationTu
     .slice(-MAX_GUIDANCE_CONVERSATION_TURNS);
 }
 
+/** Small sparkle glyph for the "Check workflow" suggested-action pill. Inherits currentColor. */
+function SparkleIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" />
+    </svg>
+  );
+}
+
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
 function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
@@ -248,6 +275,8 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   // COUNT + a boolean for the footer (not the footer node identity) so it never re-scrolls on every
   // render — no jank.
   const messagesRef = useRef<HTMLDivElement>(null);
+  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW — focus the composer after the pill prefills it.
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const hasFooter = transcriptFooter != null && transcriptFooter !== false;
   useEffect(() => {
     const el = messagesRef.current;
@@ -256,6 +285,15 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
 
   const trimmed = input.trim();
   const canSend = trimmed.length > 0 && !loading;
+
+  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW — prefill the composer with a workflow-review prompt and focus it.
+  // Suggested agent action: it does NOT auto-send, open the validation drawer, edit the workflow, or
+  // touch activation. The user reviews/sends through the existing chat path (one governed request).
+  function handleCheckWorkflow(): void {
+    if (loading) return;
+    setInput(CHECK_WORKFLOW_PROMPT);
+    composerRef.current?.focus();
+  }
 
   // Only the most recent assistant turn's preview/plan is actionable — a newer preview supersedes the
   // prior pending one (the older messages stay in the transcript as text).
@@ -365,11 +403,32 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
       </div>
 
       <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+        {/* BUILDER-AGENT-RAIL-CHECK-WORKFLOW — a compact suggested agent action directly ABOVE the chat
+            input: prefills a workflow-review prompt the user sends through the normal chat path. NOT a
+            validation warning — it never opens the validation drawer or blocks activation. */}
+        <div className="mb-2">
+          <button
+            type="button"
+            onClick={handleCheckWorkflow}
+            disabled={loading}
+            data-testid="agent-check-workflow"
+            className="inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[11.5px] font-medium disabled:opacity-60"
+            style={{
+              background: "var(--builder-accent-soft)",
+              color: "var(--builder-accent)",
+              borderColor: "var(--builder-accent)",
+            }}
+            title="Ask React to review your current workflow and suggest improvements"
+          >
+            <SparkleIcon /> Check workflow
+          </button>
+        </div>
         <Label htmlFor="workflow-guidance-goal" className="sr-only">
           Message React
         </Label>
         <Textarea
           id="workflow-guidance-goal"
+          ref={composerRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => submitOnEnter(e, handleSend)}

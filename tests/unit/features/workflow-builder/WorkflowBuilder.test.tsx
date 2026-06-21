@@ -592,6 +592,35 @@ describe("WorkflowBuilder", () => {
       // Still no floating callout after interacting.
       expect(screen.queryByTestId("lifecycle-blocked-hint")).toBeNull();
     });
+
+    // BUILDER-AGENT-RAIL-CHECK-WORKFLOW — the rail "Check workflow" pill is an AI review action, NOT the
+    // deterministic validation surface: it prefills the chat, never opens the validation drawer, and
+    // never changes activation gating.
+    it("the rail 'Check workflow' pill prefills the agent review but does not open the validation drawer or change Activate", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={actionOnlyWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+        />,
+      );
+      // Deterministic validation still blocks Activate (no trigger), independent of the agent pill.
+      expect(screen.getByRole("button", { name: /activate/i })).toBeDisabled();
+      expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+
+      await user.click(screen.getByTestId("agent-check-workflow"));
+
+      // Prefilled the agent review path; did NOT open the validation drawer.
+      expect(
+        (screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement).value,
+      ).toMatch(/review my current workflow/i);
+      expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
+      // Activation gating unchanged by the agent action.
+      expect(screen.getByRole("button", { name: /activate/i })).toBeDisabled();
+    });
   });
 
   // Slice 4.BUILDER-INSPECTOR-1 — drawer mount / close round-trip.

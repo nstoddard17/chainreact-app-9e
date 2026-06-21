@@ -217,6 +217,30 @@ describe("BuilderGuidanceRail — guided setup card (HERMES-AGENT-GUIDED-PREVIEW
   });
 });
 
+describe("BuilderGuidanceRail — 'Check workflow' pill (BUILDER-AGENT-RAIL-CHECK-WORKFLOW)", () => {
+  it("renders a compact 'Check workflow' pill directly ABOVE the chat input (not in the transcript)", () => {
+    render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
+    const pill = screen.getByTestId("agent-check-workflow");
+    expect(pill).toHaveTextContent(/check workflow/i);
+    const textarea = screen.getByPlaceholderText(/Describe what to add or change/i);
+    // Directly above the input: the textarea follows the pill in DOM order.
+    expect(pill.compareDocumentPosition(textarea) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // It's a composer affordance, not a transcript message.
+    expect(within(screen.getByTestId("workflow-guidance-messages")).queryByTestId("agent-check-workflow")).toBeNull();
+  });
+
+  it("clicking it prefills the review prompt into the composer (starts the agent review path; does not auto-send)", async () => {
+    const user = userEvent.setup();
+    render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
+    const textarea = screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement;
+    expect(textarea.value).toBe("");
+    await user.click(screen.getByTestId("agent-check-workflow"));
+    expect(textarea.value).toMatch(/review my current workflow/i);
+    // Prefill only — no request fired (the user sends through the normal chat path).
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+});
+
 describe("BuilderGuidanceRail — conversational (multi-turn)", () => {
   it("renders multi-turn user + Hermes messages and a follow-up carries sanitized recentTurns", async () => {
     const user = userEvent.setup();

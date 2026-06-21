@@ -17,7 +17,30 @@
 > accepted nodes look like normal draft nodes**; **Phase 10
 > (BUILDER-VALIDATION-DRAWER-CLOSE-AND-CALLOUT-CLEANUP) removed the floating "fix before activate"
 > callout that obscured the validation drawer's close ×, leaving the header pill as the single issue
-> entry** — see the status boxes.
+> entry**; **Phase 11 (BUILDER-AGENT-RAIL-CHECK-WORKFLOW) restored a "Check workflow" AI-review pill in
+> the Agent rail directly above the chat input (distinct from the deterministic header validation pill)**
+> — see the status boxes.
+
+## Phase 11 status — IMPLEMENTED ("CHECK WORKFLOW" PILL IN THE AGENT RAIL)
+
+Restored a compact **"Check workflow"** pill in the React Agent rail, directly ABOVE the chat input —
+an AI/React-Agent review action, distinct from the deterministic header validation pill.
+
+**Product model (two separate surfaces):**
+- Header validation pill = deterministic setup blockers / activation issues (opens the validation
+  drawer; gates Activate).
+- Agent rail "Check workflow" pill = AI workflow review (suggested agent action).
+- Chat text box = freeform questions.
+
+**Shipped:** `WorkflowGuidancePanel` (conversational) renders the pill (`agent-check-workflow`) inside
+the composer block, directly above the textarea. Clicking it PREFILLS a review prompt
+("Review my current workflow and suggest improvements or fixes.") into the composer and focuses it; the
+user sends it through the EXISTING governed chat path (`requestWorkflowGuidance`) — no new endpoint, no
+auto-send, no auto-edit (applying any suggestion stays the explicit Apply-preview step). It does NOT
+open the validation drawer and does NOT touch activation gating. The old floating `lifecycle-blocked-hint`
+callout stays removed; no absolute-positioned setup-issue UI was reintroduced.
+
+---
 
 ## Phase 10 status — IMPLEMENTED (VALIDATION DRAWER CLOSE + CALLOUT CLEANUP)
 
