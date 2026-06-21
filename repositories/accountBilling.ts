@@ -484,8 +484,8 @@ export async function getBillingModeServiceRole(
 /**
  * Service-role: mark an account `internal_free` and stamp the audit provenance
  * (reason + who + when) in one write. Throws when no billing row exists for the
- * account (so the admin helper / seed script reports a bad account id rather than
- * silently no-op'ing). The audit `reason` passed to the service-role client
+ * account (so the internal tooling / seed script reports a bad account id rather
+ * than silently no-op'ing). The audit `reason` passed to the service-role client
  * records the actor for the connection log.
  */
 export async function setBillingModeInternalFreeServiceRole(

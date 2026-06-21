@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 /**
- * Admin / ops seed script — mark a known account as internal-free billing, or
- * revert it to standard (Slice 4.BILLING-INTERNAL-ENTITLEMENT-1 / BIE-1).
+ * Platform-operator / internal-admin seed script — mark a known internal/test
+ * account as internal-free billing, or revert it to standard
+ * (Slice 4.BILLING-INTERNAL-ENTITLEMENT-1 / BIE-1).
  *
- * ACCOUNT-level, server-only, service-role. There is no client/HTTP toggle and no
- * UI — flipping internal billing is intentionally an out-of-band admin action.
+ * Run by a ChainReact platform operator (Marcus / business partner / internal
+ * staff), NOT a customer/team account owner/admin. ACCOUNT-level, server-only,
+ * service-role. There is no client/HTTP toggle and no UI — flipping internal
+ * billing is intentionally an out-of-band internal admin action.
  * Mirrors the column writes of repositories/accountBilling
  * (set/revert BillingMode service-role helpers) and the consistency CHECK from the
  * migration: a `standard` row carries NO internal metadata.
@@ -12,7 +15,8 @@
  *   Mark internal-free:
  *     node scripts/mark-account-internal.mjs <accountId> <reason> <byEmail>
  *       reason ∈ employee | qa | demo | load_test | partner | other
- *       byEmail = the acting admin's auth email (recorded for audit provenance)
+ *       byEmail = the acting platform operator / internal admin's auth email
+ *                (recorded for audit provenance)
  *
  *   Revert to standard:
  *     node scripts/mark-account-internal.mjs --revert <accountId>
@@ -83,7 +87,8 @@ const [accountId, reason, byEmail] = args;
 if (!accountId || !reason || !byEmail) usage("mark requires <accountId> <reason> <byEmail>");
 if (!INTERNAL_REASONS.includes(reason)) usage(`invalid reason ${JSON.stringify(reason)}`);
 
-// Resolve the acting admin's user id from their email (audit provenance + FK).
+// Resolve the acting platform operator / internal admin's user id from their
+// email (audit provenance + FK).
 const { data: list, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
 if (listErr) { console.error(listErr); process.exit(1); }
 const actor = list.users.find((u) => u.email === byEmail);

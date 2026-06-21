@@ -43,8 +43,10 @@
   mode still skips first. Set only via the service-role helpers in `repositories/accountBilling`
   + `services/billing/internalBillingEntitlement` (audited reason names the actor) and the
   `scripts/mark-account-internal.mjs` seed script — **no client/HTTP toggle, no UI**, no client
-  write policy. "Admin user" never globally bypasses billing; a non-internal account is always
-  billed regardless of who runs its workflows. Internal runs are still recorded in
+  write policy. Set only by a ChainReact **platform operator / internal admin** (out-of-band),
+  NOT a customer/team account `owner`/`admin` role. Neither a platform operator nor any customer
+  account role globally bypasses billing; a non-internal account is always billed regardless of
+  who runs its workflows. Internal runs are still recorded in
   `task_usage_events` (observability) but never touch `account_billing` counters, so parity
   invariants hold. Migration `20260707000000_account_billing_internal_entitlement.sql`
   (forward-only, applied to dev); Slice `BILLING-INTERNAL-ENTITLEMENT-1`.

@@ -2,10 +2,12 @@
  * @jest-environment node
  *
  * Slice 4.BILLING-INTERNAL-ENTITLEMENT-1 / BIE-1 — internal billing entitlement
- * admin service.
+ * internal-admin service (platform operator / internal staff, NOT a customer
+ * account owner/admin role).
  *
- * Proves the admin-only service surface validates input and delegates to the
- * audited service-role repository writers — and never offers a user-level bypass.
+ * Proves the internal-admin / service-role surface validates input and delegates
+ * to the audited service-role repository writers — and never offers a user-level
+ * bypass.
  * The repository layer is mocked (its service-role boundary is covered in
  * accountBillingInternalEntitlement.test.ts); here we assert the service contract:
  * reason validation, required actor id, and correct delegation.

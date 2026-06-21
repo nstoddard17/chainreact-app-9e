@@ -8,8 +8,14 @@ import {
 } from "@/repositories/accountBilling";
 
 /**
- * Internal billing entitlement — admin-only service surface
+ * Internal billing entitlement — internal-admin / service-role-only surface
  * (Slice 4.BILLING-INTERNAL-ENTITLEMENT-1 / BIE-1).
+ *
+ * "Internal admin" here means a ChainReact PLATFORM operator (Marcus / business
+ * partner / internal staff) acting out-of-band — NOT a customer/team account
+ * member with `account_memberships.role = 'owner'` or `'admin'`. The entitlement
+ * is tied to the account's `billing_mode` column, never to any customer account
+ * role.
  *
  * The single programmatic entry point for marking an account `internal_free`
  * (task-limit + Stripe-checkout bypass) or reverting it to `standard`. There is
@@ -20,9 +26,10 @@ import {
  * audit `reason` (including the acting user id) to getServiceRoleClient so the
  * action is logged.
  *
- * This is ACCOUNT-level, not user-level: it flips a column on the workflow's
- * owning `account_billing` row. It does NOT grant any user a global bypass, and a
- * standard account is always billed regardless of who runs its workflows.
+ * This is ACCOUNT-level, not user-level: it flips a column on the workflow-owning
+ * account's `account_billing` row. It does NOT grant any user — platform operator
+ * or customer account owner/admin — a global bypass, and a standard account is
+ * always billed regardless of who runs its workflows.
  *
  * It never fakes Stripe state — an internal_free account simply has no
  * subscription; checkout/portal short-circuit before any Stripe call.
