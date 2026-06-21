@@ -189,13 +189,22 @@ export interface GraphSliceActions {
    *   - NEVER deletes/replaces/updates existing nodes, edges, or config — existing graph is untouched.
    *   - NO replace-trigger: a patch `trigger` node is SKIPPED when the graph already has a trigger
    *     (and across the patch itself once one trigger has been added) → `skippedTrigger: true`.
-   *   - Placed as a side chain to the right of existing nodes (blank graph → starts at origin). Exact
-   *     in-place insertion relative to existing nodes is a future slice.
+   *   - **In-place placement (HERMES-AGENT-APPLY-IN-PLACE):** when the first added node is an ACTION
+   *     and a safe anchor exists, the chain is appended after it with ONE new edge `anchor → firstAction`
+   *     (`placement: "appended"`). Anchor priority: `options.appendAfterNodeId` (the selected/active
+   *     node) if it exists, else the SOLE chain tail (`findChainTailId`). Blank graph → origin layout
+   *     (`placement: "blank"`). Otherwise (ambiguous multi-tail / no anchor / first node is a trigger)
+   *     → side chain to the right (`placement: "side_chain"`).
+   *   - Edges are ADD-ONLY. Existing edges are never removed/rewritten/split. The anchor edge is only
+   *     added when its endpoints are distinct and it's not a duplicate (new ids → always safe).
    *   - Marks the graph dirty via the SAME mechanism as manual edits. Does NOT save/activate/run.
    *
    * Returns an outcome; never throws. `{ ok: false }` when nothing additive remained to apply.
    */
-  applyAdditivePatch(patch: BuilderPreviewPatch): ApplyAdditivePatchOutcome;
+  applyAdditivePatch(
+    patch: BuilderPreviewPatch,
+    options?: { readonly appendAfterNodeId?: string },
+  ): ApplyAdditivePatchOutcome;
   /** Persist the pending graph → updated detail (callers react to server-side lifecycle
    * changes, e.g. a trigger edit that deactivates an active workflow); `undefined` if in-flight. */
   save(): Promise<WorkflowDetail | undefined>;
@@ -209,6 +218,11 @@ export type ApplyAdditivePatchOutcome =
       readonly addedEdgeIds: readonly string[];
       /** True when a proposed trigger was skipped because the graph already had one (no replace). */
       readonly skippedTrigger: boolean;
+      /**
+       * Where the chain landed: `blank` (empty graph → origin), `appended` (after a safe anchor with
+       * a new anchor edge), or `side_chain` (no safe anchor → detached chain to the right).
+       */
+      readonly placement: "blank" | "appended" | "side_chain";
     }
   | {
       readonly ok: false;
@@ -720,26 +734,18 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     };
   },
 
-  applyAdditivePatch(patch) {
+  applyAdditivePatch(patch, options) {
     const { pendingNodes, pendingEdges } = get();
     if (!patch || patch.nodes.length === 0) {
       return { ok: false, reason: "empty_patch", skippedTrigger: false };
     }
 
-    // Side-chain base: to the right of all existing nodes (blank graph → origin). New nodes never
-    // overlap existing ones, and existing positions are never moved.
-    const baseX = pendingNodes.length
-      ? Math.max(...pendingNodes.map((n) => n.position.x)) + PATCH_SIDE_CHAIN_X_GAP
-      : 0;
-    const baseY = pendingNodes.length
-      ? Math.min(...pendingNodes.map((n) => n.position.y))
-      : 0;
-
+    // 1. Resolve which patch nodes become real nodes (trigger skipped if one already exists), minting
+    //    real ids. Positions are assigned in step 3 once placement is known.
     let triggerPresent = pendingNodes.some((n) => n.kind === "trigger");
     let skippedTrigger = false;
     const refToId = new Map<string, string>();
-    const addedNodes: WorkflowNode[] = [];
-
+    const toAdd: Array<{ id: string; kind: WorkflowNode["kind"]; provider: string; type: string }> = [];
     for (const pn of patch.nodes) {
       // No replace-trigger: skip a proposed trigger when one already exists (existing graph OR an
       // earlier patch trigger). Edges referencing the skipped ref are dropped below.
@@ -750,22 +756,67 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       if (pn.kind === "trigger") triggerPresent = true;
       const id = newNodeId();
       refToId.set(pn.ref, id);
-      addedNodes.push({
-        id,
-        kind: pn.kind,
-        provider: pn.provider,
-        type: pn.type,
-        // EMPTY config — nothing inferred. Required fields surface via existing node validation.
-        config: {},
-        position: { x: baseX, y: baseY + addedNodes.length * PATCH_NODE_Y_GAP },
-      });
+      toAdd.push({ id, kind: pn.kind, provider: pn.provider, type: pn.type });
     }
-
-    if (addedNodes.length === 0) {
+    if (toAdd.length === 0) {
       return { ok: false, reason: "nothing_added", skippedTrigger };
     }
 
+    // 2. Decide placement + anchor (HERMES-AGENT-APPLY-IN-PLACE). In-place "appended" only when the
+    //    first added node is an ACTION (you never wire an existing node into a new trigger) AND a safe
+    //    anchor exists: the selected/active node first, else the SOLE chain tail. Blank graph → origin.
+    //    Everything else (ambiguous multi-tail / no anchor / trigger-first) → detached side chain.
+    let placement: "blank" | "appended" | "side_chain";
+    let anchorNode: WorkflowNode | undefined;
+    if (pendingNodes.length === 0) {
+      placement = "blank";
+    } else if (toAdd[0]!.kind === "action") {
+      const selected = options?.appendAfterNodeId
+        ? pendingNodes.find((n) => n.id === options.appendAfterNodeId)
+        : undefined;
+      const tailId = selected ? undefined : findChainTailId(pendingNodes, pendingEdges);
+      anchorNode = selected ?? (tailId ? pendingNodes.find((n) => n.id === tailId) : undefined);
+      placement = anchorNode ? "appended" : "side_chain";
+    } else {
+      placement = "side_chain";
+    }
+
+    // 3. Assign positions. Existing node positions are NEVER moved.
+    const addedNodes: WorkflowNode[] = [];
+    if (placement === "appended" && anchorNode) {
+      // Stack the chain straight down from the anchor, each slot cleared of existing + already-added.
+      let prevPos: WorkflowNodePosition = anchorNode.position;
+      for (const d of toAdd) {
+        const position = computeNonOverlappingPosition(prevPos, [...pendingNodes, ...addedNodes]);
+        addedNodes.push({ id: d.id, kind: d.kind, provider: d.provider, type: d.type, config: {}, position });
+        prevPos = position;
+      }
+    } else {
+      // Blank → origin column; side chain → to the right of all existing nodes. No overlap either way.
+      const baseX =
+        placement === "side_chain"
+          ? Math.max(...pendingNodes.map((n) => n.position.x)) + PATCH_SIDE_CHAIN_X_GAP
+          : 0;
+      const baseY = placement === "side_chain" ? Math.min(...pendingNodes.map((n) => n.position.y)) : 0;
+      toAdd.forEach((d, i) => {
+        addedNodes.push({
+          id: d.id,
+          kind: d.kind,
+          provider: d.provider,
+          type: d.type,
+          // EMPTY config — nothing inferred. Required fields surface via existing node validation.
+          config: {},
+          position: { x: baseX, y: baseY + i * PATCH_NODE_Y_GAP },
+        });
+      });
+    }
+
+    // 4. Edges are ADD-ONLY. The anchor edge (appended only) wires anchor → first added node; endpoints
+    //    are always distinct (new id) and never duplicate an existing edge, so it can't be invalid.
     const addedEdges: WorkflowEdge[] = [];
+    if (placement === "appended" && anchorNode) {
+      addedEdges.push({ id: newEdgeId(), from: anchorNode.id, to: addedNodes[0]!.id });
+    }
     for (const pe of patch.edges) {
       const from = refToId.get(pe.fromRef);
       const to = refToId.get(pe.toRef);
@@ -784,6 +835,7 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       addedNodeIds: addedNodes.map((n) => n.id),
       addedEdgeIds: addedEdges.map((e) => e.id),
       skippedTrigger,
+      placement,
     };
   },
 

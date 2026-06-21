@@ -1642,4 +1642,102 @@ describe("graphSlice — applyAdditivePatch (HERMES-AGENT-APPLY-PREVIEW-PATCH)",
     }
     expect(useGraphSlice.getState().pendingNodes).toHaveLength(1); // only the original trigger
   });
+
+  it("blank graph → placement 'blank'", () => {
+    useGraphSlice.getState().hydrate("wf-1", EMPTY_DEF);
+    const outcome = useGraphSlice.getState().applyAdditivePatch(ADDITIVE_PATCH);
+    expect(outcome.ok && outcome.placement).toBe("blank");
+  });
+});
+
+describe("graphSlice — applyAdditivePatch in-place placement (HERMES-AGENT-APPLY-IN-PLACE)", () => {
+  const TRIGGER_ACTION_DEF: WorkflowDefinition = {
+    nodes: [
+      { id: "t1", kind: "trigger", provider: "slack", type: "message_received", config: {}, position: { x: 0, y: 0 } },
+      { id: "a1", kind: "action", provider: "github", type: "add_comment", config: { repo: "x" }, position: { x: 0, y: 160 } },
+    ],
+    edges: [{ id: "e1", from: "t1", to: "a1" }],
+  };
+  const TWO_TAIL_DEF: WorkflowDefinition = {
+    nodes: [
+      { id: "t1", kind: "trigger", provider: "slack", type: "message_received", config: {}, position: { x: 0, y: 0 } },
+      { id: "a1", kind: "action", provider: "github", type: "add_comment", config: {}, position: { x: -120, y: 160 } },
+      { id: "a2", kind: "action", provider: "notion", type: "create_page", config: {}, position: { x: 120, y: 160 } },
+    ],
+    edges: [
+      { id: "e1", from: "t1", to: "a1" },
+      { id: "e2", from: "t1", to: "a2" },
+    ],
+  };
+  const ACTION_PATCH = {
+    kind: "additive" as const,
+    nodes: [{ ref: "p0", kind: "action" as const, provider: "notion", type: "create_page" }],
+    edges: [],
+  };
+  const TRIGGER_THEN_ACTION_PATCH = {
+    kind: "additive" as const,
+    nodes: [
+      { ref: "p0", kind: "trigger" as const, provider: "gmail", type: "new_email" },
+      { ref: "p1", kind: "action" as const, provider: "slack", type: "send_message" },
+    ],
+    edges: [{ fromRef: "p0", toRef: "p1" }],
+  };
+
+  it("sole-tail append: appends after the terminal action with a new anchor edge", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_ACTION_DEF);
+    const outcome = useGraphSlice.getState().applyAdditivePatch(ACTION_PATCH);
+    const s = useGraphSlice.getState();
+    expect(outcome.ok && outcome.placement).toBe("appended");
+    expect(s.pendingNodes).toHaveLength(3);
+    const added = s.pendingNodes.find((n) => n.provider === "notion" && n.type === "create_page")!;
+    // New anchor edge a1 → added; the existing trigger→action edge is untouched.
+    expect(s.pendingEdges.some((e) => e.from === "a1" && e.to === added.id)).toBe(true);
+    expect(s.pendingEdges.some((e) => e.id === "e1")).toBe(true);
+    expect(s.pendingEdges).toHaveLength(2);
+  });
+
+  it("selected-node append: appends after the explicitly selected node (wins over tail)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_ACTION_DEF);
+    // Select the TRIGGER, not the tail — the patch action should branch off the trigger.
+    const outcome = useGraphSlice.getState().applyAdditivePatch(ACTION_PATCH, { appendAfterNodeId: "t1" });
+    const s = useGraphSlice.getState();
+    expect(outcome.ok && outcome.placement).toBe("appended");
+    const added = s.pendingNodes.find((n) => n.provider === "notion")!;
+    expect(s.pendingEdges.some((e) => e.from === "t1" && e.to === added.id)).toBe(true);
+    expect(s.pendingEdges.some((e) => e.id === "e1")).toBe(true); // existing edge preserved
+  });
+
+  it("trigger-first patch: trigger skipped, the action appends after the sole tail", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_ACTION_DEF);
+    const outcome = useGraphSlice.getState().applyAdditivePatch(TRIGGER_THEN_ACTION_PATCH);
+    const s = useGraphSlice.getState();
+    expect(outcome.ok && outcome.placement).toBe("appended");
+    expect(outcome.ok && outcome.skippedTrigger).toBe(true);
+    expect(s.pendingNodes.filter((n) => n.kind === "trigger")).toHaveLength(1); // no replace-trigger
+    const added = s.pendingNodes.find((n) => n.provider === "slack" && n.type === "send_message")!;
+    expect(s.pendingEdges.some((e) => e.from === "a1" && e.to === added.id)).toBe(true);
+  });
+
+  it("ambiguous multi-tail (no selection) → side_chain fallback, no anchor edge", () => {
+    useGraphSlice.getState().hydrate("wf-1", TWO_TAIL_DEF);
+    const beforeEdgeIds = useGraphSlice.getState().pendingEdges.map((e) => e.id);
+    const outcome = useGraphSlice.getState().applyAdditivePatch(ACTION_PATCH);
+    const s = useGraphSlice.getState();
+    expect(outcome.ok && outcome.placement).toBe("side_chain");
+    expect(s.pendingNodes).toHaveLength(4);
+    const added = s.pendingNodes.find((n) => !["t1", "a1", "a2"].includes(n.id))!;
+    // No edge connects an existing node to the new one (detached chain).
+    expect(s.pendingEdges.some((e) => e.to === added.id)).toBe(false);
+    // Existing edges are all still present and unchanged.
+    expect(beforeEdgeIds.every((id) => s.pendingEdges.some((e) => e.id === id))).toBe(true);
+    expect(s.pendingEdges).toHaveLength(beforeEdgeIds.length); // none added, none removed
+  });
+
+  it("existing node config + positions are never mutated by an in-place append", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_ACTION_DEF);
+    useGraphSlice.getState().applyAdditivePatch(ACTION_PATCH, { appendAfterNodeId: "a1" });
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.find((n) => n.id === "a1")).toMatchObject({ config: { repo: "x" }, position: { x: 0, y: 160 } });
+    expect(s.pendingNodes.find((n) => n.id === "t1")).toMatchObject({ position: { x: 0, y: 0 } });
+  });
 });

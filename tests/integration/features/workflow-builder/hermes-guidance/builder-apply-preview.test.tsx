@@ -153,8 +153,51 @@ describe("builder apply-preview — existing workflow", () => {
     // Proposed trigger skipped (already have one); only the action was added.
     expect(s.pendingNodes).toHaveLength(3);
     expect(s.pendingNodes.filter((n) => n.kind === "trigger")).toHaveLength(1);
-    expect(s.pendingNodes.some((n) => n.provider === "slack" && n.type === "send_message")).toBe(true);
+    const added = s.pendingNodes.find((n) => n.provider === "slack" && n.type === "send_message")!;
+    expect(added).toBeDefined();
+    // HERMES-AGENT-APPLY-IN-PLACE: the action appends after the sole tail `act` (new anchor edge),
+    // and the existing trigger→action edge `e1` is preserved (not removed/rewritten).
+    expect(s.pendingEdges.some((e) => e.from === "act" && e.to === added.id)).toBe(true);
+    expect(s.pendingEdges.some((e) => e.id === "e1")).toBe(true);
     expect(s.isDirty).toBe(true);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("shows the in-place confirmation notice after an appended apply", async () => {
+    const user = userEvent.setup();
+    renderBuilder(workflow(existingNodes, existingEdges));
+    await applyPreview(user);
+    expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent(
+      "Preview applied to draft — review required fields before activating.",
+    );
+  });
+});
+
+describe("builder apply-preview — ambiguous multi-tail falls back to a side chain", () => {
+  const multiTailNodes = [
+    { id: "trig", kind: "trigger" as const, provider: "slack", type: "message_received", config: {}, position: { x: 0, y: 0 } },
+    { id: "a1", kind: "action" as const, provider: "github", type: "add_comment", config: {}, position: { x: -120, y: 200 } },
+    { id: "a2", kind: "action" as const, provider: "notion", type: "create_page", config: {}, position: { x: 120, y: 200 } },
+  ];
+  const multiTailEdges = [
+    { id: "e1", from: "trig", to: "a1" },
+    { id: "e2", from: "trig", to: "a2" },
+  ];
+
+  it("adds a detached chain and shows the safe fallback notice (no existing edge removed)", async () => {
+    const user = userEvent.setup();
+    renderBuilder(workflow(multiTailNodes, multiTailEdges));
+    await applyPreview(user);
+
+    const s = useGraphSlice.getState();
+    const added = s.pendingNodes.find((n) => !["trig", "a1", "a2"].includes(n.id))!;
+    expect(added).toBeDefined();
+    expect(s.pendingEdges.some((e) => e.to === added.id)).toBe(false); // detached
+    expect(s.pendingEdges.some((e) => e.id === "e1")).toBe(true); // existing edges preserved
+    expect(s.pendingEdges.some((e) => e.id === "e2")).toBe(true);
+    expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent(
+      "Preview added as a separate draft chain because ChainReact could not safely determine where to insert it.",
+    );
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });

@@ -303,10 +303,17 @@ questions. **Advisory only — it never creates / changes / runs a workflow.**
   builder draft via `graphSlice.applyAdditivePatch` — appending nodes (real ids, EMPTY config so
   required fields show "needs setup") + linear edges, marking the draft dirty exactly like manual
   edits. **Additive only:** no delete/replace/update-config/replace-trigger/branch-rewrite; a proposed
-  trigger is skipped when one already exists; existing graphs receive the chain as a SIDE CHAIN. It
-  does NOT save/activate/run, does NOT create a separate workflow, and makes NO network/route/gateway
-  call — the user still reviews fields and saves via existing builder flows. **No operational/env/route
-  change.** (Dashboard preview stays review-only — no Apply control there.)
+  trigger is skipped when one already exists. It does NOT save/activate/run, does NOT create a separate
+  workflow, and makes NO network/route/gateway call — the user still reviews fields and saves via
+  existing builder flows. **No operational/env/route change.** (Dashboard preview stays review-only —
+  no Apply control there.)
+- **In-place placement (HERMES-AGENT-APPLY-IN-PLACE).** The appended chain now lands in-place: after
+  the user's selected/active node when present, else the sole chain tail, with one new anchor edge
+  (`placement: "appended"`, notice "Preview applied to draft — review required fields before
+  activating."). Blank graph → origin layout. Ambiguous multi-tail / no anchor / trigger-first → a
+  detached SIDE CHAIN with the safe notice "Preview added as a separate draft chain because ChainReact
+  could not safely determine where to insert it." Edges remain ADD-ONLY (no remove/rewrite/split);
+  existing node config and positions are never touched.
 
 - The panel is **server-gated on `HERMES_AGENT_ENABLED`** — when the flag is OFF (default) the page
   does **not render the panel at all** (no dead box). The `accountId` is the page's resolved active

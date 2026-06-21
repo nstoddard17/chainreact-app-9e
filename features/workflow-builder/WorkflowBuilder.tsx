@@ -331,9 +331,18 @@ export function WorkflowBuilder({
     if (!previewOverlay) return;
     const patch = planToBuilderPatch(previewOverlay.plan);
     if (patch) {
-      const outcome = useGraphSlice.getState().applyAdditivePatch(patch);
+      // HERMES-AGENT-APPLY-IN-PLACE — prefer appending after the user's selected/active node; the
+      // graph slice falls back to the sole tail, then a detached side chain. Read fresh at click time.
+      const appendAfterNodeId = useConfigSlice.getState().activeNodeId ?? undefined;
+      const outcome = useGraphSlice
+        .getState()
+        .applyAdditivePatch(patch, appendAfterNodeId ? { appendAfterNodeId } : {});
       if (outcome.ok) {
-        setApplyNotice("Preview applied to draft — review required fields before activating.");
+        setApplyNotice(
+          outcome.placement === "side_chain"
+            ? "Preview added as a separate draft chain because ChainReact could not safely determine where to insert it."
+            : "Preview applied to draft — review required fields before activating.",
+        );
       }
     }
     setPreviewOverlay(null);
