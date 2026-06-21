@@ -5,7 +5,7 @@
 > copying long content. No secrets, env values, tokens, credentials, production data,
 > or private customer/user data.
 >
-> Last curated: 2026-06-20 @ d135075d5 (+ HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
+> Last curated: 2026-06-20 @ 1207a8cad (+ HERMES-AGENT-PROD-CLIENT: server-only Render gateway client shipped, gated/inert; Render prod infra live, sandbox skipped; live smoke shows gateway→agent auth hop broken on Render — client maps to PROVIDER_ERROR. + HERMES-AGENT PIVOT: stripped direct Nous hosted-model integration — adapter/config/flag/prompt-builder/fallback/live-smoke/setup-runbook removed; generic guidance contracts + sanitizer + plan validator + skill-event boundary retained; new direction = internal Hermes Agent with OpenAI underneath, spike + sandbox runbook added. action-smoke live-verification arc + readiness/registry fixes; pruned superseded React Agent CS sub-entries — governance rollup retained. origin/v2-main = 33fad13b4; several LOCAL/UNPUSHED commits ahead, incl. SMOKE-CERT-1 + analytics WIP)
 
 ## Current status
 
@@ -120,6 +120,28 @@
   Gmail(15)/Outlook(11) registry meta-count tests without weakening. Selector ids are discovered into gitignored
   `.env.local` only — no secrets/selectors/account-or-run/workflow-ids/raw provider payloads stored. Nothing
   pushed/deployed/db:pushed → [`docs/runbooks/action-smoke-cli.md`](./runbooks/action-smoke-cli.md).
+- **HERMES-AGENT-PROD-CLIENT — Render gateway client (gated, inert) — LOCAL/UNPUSHED (2026-06-20)** — Marcus
+  stood up real production-style infra on **Render**, so the local Docker **sandbox is SKIPPED** as the main
+  direction. Topology: **Vercel ChainReact → Render public AI Gateway (`chainreact-ai-gateway-prod`,
+  `https://chainreact-ai-gateway-prod.onrender.com`, `POST /api/hermes-agent/guidance`) → Render private Hermes
+  Agent (`chainreact-hermes-agent-prod`, Ohio :8642, disk /opt/data, model `hermes-agent`) → OpenAI**. ChainReact
+  calls ONLY the gateway — never a model vendor/Nous/private agent directly; holds ONLY
+  `CHAINREACT_AI_GATEWAY_TOKEN`. **OPENAI_API_KEY / API_SERVER_KEY / private Hermes URL / internal token NEVER go
+  in Vercel** (Render only). Shipped `services/ai-guidance/gateway/`: `gatewayConfig.ts` (reads HERMES_AGENT_ENABLED
+  + CHAINREACT_AI_GATEWAY_URL/TOKEN + HERMES_AGENT_TIMEOUT_MS; null when off/unconfigured), `buildGatewayGuidancePrompt.ts`
+  (safe prompt from de-identified DTO + scrubbed goal text), `hermesAgentGatewayClient.ts` (POST {prompt}, Bearer
+  gateway token in header only, advisory-only, fail-closed typed errors, `createHermesAgentGatewayProvider` impl of
+  the generic port), `index.ts` (`resolveServerGuidanceProvider` = gateway-when-enabled else noop; NOT re-exported
+  from the generic barrel = server-only). **Gated/inert**: only calls out when HERMES_AGENT_ENABLED=true + config +
+  explicit server caller; no route/UI/React Agent wired; not the app default. Verified: tsc clean, 40 mocked tests
+  (client/config/safety incl. no-Render-secret-in-body, no browser import, token-only-in-header), lint:structure OK,
+  eslint 0. **Live smoke RAN once (opt-in)**: ChainReact→gateway leg + auth WORK, but gateway→private-agent hop
+  returns `HTTP 401 Missing Authentication header` → gateway 502 → client correctly returns PROVIDER_ERROR.
+  **FINDING (Render-side, not client):** the gateway must forward the agent's auth header (API_SERVER_KEY) — fix on
+  Render, then re-run smoke for a healthy `ok`. NO migration, nothing live-routed/user-facing. Docs:
+  [`hermes-agent-render-prod.md`](./runbooks/hermes-agent-render-prod.md) (authoritative),
+  [`hermes-agent-production-topology.md`](./slices/phase-5/hermes-agent-production-topology.md); sandbox runbook
+  marked secondary. Next: HERMES-AGENT-GATEWAY-FIX (Render) → HERMES-AGENT-CAPABILITY (scoped/audited server boundary).
 - **HERMES-AGENT PIVOT — direct Nous hosted-model integration STRIPPED — LOCAL/UNPUSHED (2026-06-20)** — Marcus
   changed direction: ChainReact will NOT call a hosted LLM model API directly, and Nous Portal is NOT a
   fallback. Target arch = **ChainReact → Hermes Agent (internal learning/skills brain) → OpenAI (provider

@@ -1,10 +1,14 @@
 # Runbook — Hermes Agent local sandbox
 
-**Status:** Setup guide for the **Hermes Agent** internal service (HERMES-AGENT-PIVOT, 2026-06-20).
-Nothing here is wired into ChainReact yet — no app route, UI, client, or env is consumed by the app
-today. This documents how to run the Agent locally so a later slice can build the ChainReact-side
-client against it. See the architecture spike:
-[`docs/slices/phase-5/hermes-agent-chainreact-architecture-spike.md`](../slices/phase-5/hermes-agent-chainreact-architecture-spike.md).
+> ⚠️ **SECONDARY / NON-AUTHORITATIVE (HERMES-AGENT-PROD-CLIENT, 2026-06-20).** Marcus chose a
+> production-style **Render** topology, which is live. The authoritative setup is
+> [`hermes-agent-render-prod.md`](./hermes-agent-render-prod.md) (Vercel → Render public gateway →
+> Render private Hermes Agent → OpenAI). This local Docker sandbox is kept for local experiments
+> only and is NOT the chosen path — do not treat it as the production setup.
+
+**Status:** Local experiment guide for the **Hermes Agent** internal service. Nothing here is wired
+into ChainReact (the app calls the Render gateway, never a local sandbox). See the architecture
+spike: [`docs/slices/phase-5/hermes-agent-chainreact-architecture-spike.md`](../slices/phase-5/hermes-agent-chainreact-architecture-spike.md).
 
 > **Direction:** ChainReact → Hermes Agent (internal service) → OpenAI (LLM provider) → Hermes Agent
 > → ChainReact validation/decision. ChainReact never calls a hosted LLM model API directly. There is
