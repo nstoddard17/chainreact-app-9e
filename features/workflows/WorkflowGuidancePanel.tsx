@@ -49,9 +49,16 @@ export interface WorkflowGuidancePanelProps {
   readonly accountId: string;
   /** Optional builder-context workflow id; only included when present. */
   readonly workflowId?: string;
+  /**
+   * Builder-only (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY): when provided, the preview section gains a
+   * "Show on canvas" control that hands the current `DraftPreview` to a non-applied canvas overlay.
+   * Absent on the dashboard (no canvas) → no such control. This NEVER applies/creates/mutates a
+   * workflow — it only toggles a visual preview layer.
+   */
+  readonly onPreviewToCanvas?: (preview: DraftPreview) => void;
 }
 
-export function WorkflowGuidancePanel({ accountId, workflowId }: WorkflowGuidancePanelProps) {
+export function WorkflowGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: WorkflowGuidancePanelProps) {
   const [goal, setGoal] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [guidanceText, setGuidanceText] = useState("");
@@ -246,6 +253,20 @@ export function WorkflowGuidancePanel({ accountId, workflowId }: WorkflowGuidanc
             >
               Flow: {preview.nodes.map((n) => n.label).join(" → ")}
             </p>
+          )}
+          {/* Builder-only: show the preview as a non-applied ghost overlay on the canvas. This does
+              NOT apply/create/add anything — it only toggles a visual preview layer. */}
+          {onPreviewToCanvas && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onPreviewToCanvas(preview)}
+              data-testid="workflow-guidance-show-on-canvas"
+              className="mt-3"
+            >
+              Show on canvas
+            </Button>
           )}
         </div>
       )}

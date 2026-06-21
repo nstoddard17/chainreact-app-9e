@@ -252,6 +252,14 @@ questions. **Advisory only — it never creates / changes / runs a workflow.**
   edges, under the copy *"Preview only — your workflow has not changed."* Still **no Create / Apply /
   Add-nodes / Use-this / Run control**. The preview is ephemeral/in-memory only — it never touches
   builder canvas state, the graph store, `draftDefinition`, save/dirty state, or any persistence.
+- **Builder canvas overlay (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY).** In the builder, the panel adds a
+  builder-only "Show on canvas" control that renders the `DraftPreview` as a SEPARATE ghost overlay
+  layer over the canvas (shimmered/dashed "Suggested" nodes + dashed edges + the same "Preview only…"
+  notice + a "Discard preview" control). This is **purely visual client UI** (`WorkflowBuilder`
+  React state): it never merges into the real React Flow graph, never writes `draftDefinition`, never
+  marks the workflow dirty, never autosaves, and makes no network call. Discard clears the overlay
+  state only (no rollback — nothing was mutated). **No operational/env/route change** — `previewDraft`
+  already shipped in the route response (HERMES-AGENT-DRAFT-PREVIEW); this slice only renders it.
 
 - The panel is **server-gated on `HERMES_AGENT_ENABLED`** — when the flag is OFF (default) the page
   does **not render the panel at all** (no dead box). The `accountId` is the page's resolved active

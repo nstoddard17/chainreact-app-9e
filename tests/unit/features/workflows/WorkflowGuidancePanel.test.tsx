@@ -167,6 +167,50 @@ describe("WorkflowGuidancePanel — request + render", () => {
     expect(screen.queryByRole("button", { name: /create|apply|add node|use this|run/i })).not.toBeInTheDocument();
   });
 
+  it("offers 'Show on canvas' only when onPreviewToCanvas is provided, and calls it with the preview", async () => {
+    const user = userEvent.setup();
+    const onPreviewToCanvas = jest.fn();
+    const previewDraft = {
+      version: 1,
+      title: "P",
+      summary: "",
+      notice: "Preview only — your workflow has not changed.",
+      notApplied: true as const,
+      nodes: [{ previewId: "preview-step-1", role: "trigger" as const, provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true as const }],
+      edges: [],
+    };
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "idea", source: "hermes-agent", workflowPlan: { schemaVersion: 1, title: "P", summary: "", notApplied: true, steps: [{ ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" }] }, previewDraft });
+    render(<WorkflowGuidancePanel accountId="acct-1" onPreviewToCanvas={onPreviewToCanvas} />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "help");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByTestId("workflow-guidance-preview");
+
+    const showBtn = screen.getByTestId("workflow-guidance-show-on-canvas");
+    expect(showBtn).toHaveTextContent("Show on canvas");
+    await user.click(showBtn);
+    expect(onPreviewToCanvas).toHaveBeenCalledWith(previewDraft);
+  });
+
+  it("does NOT offer 'Show on canvas' when no onPreviewToCanvas prop (e.g. dashboard, no canvas)", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "idea",
+      source: "hermes-agent",
+      workflowPlan: { schemaVersion: 1, title: "P", summary: "", notApplied: true, steps: [{ ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" }] },
+      previewDraft: {
+        version: 1, title: "P", summary: "", notice: "Preview only — your workflow has not changed.", notApplied: true,
+        nodes: [{ previewId: "preview-step-1", role: "trigger", provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true }],
+        edges: [],
+      },
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "help");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByTestId("workflow-guidance-preview");
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
+  });
+
   it("does NOT render a 'Suggested plan' section when workflowPlan is null (prose-only)", async () => {
     const user = userEvent.setup();
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "Just connect Gmail.", source: "hermes-agent", workflowPlan: null });

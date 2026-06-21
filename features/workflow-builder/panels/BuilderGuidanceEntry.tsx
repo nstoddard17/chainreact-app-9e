@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
 
 /**
@@ -28,9 +29,14 @@ export interface BuilderGuidanceEntryProps {
   readonly accountId: string;
   /** The workflow currently open in the builder — forwarded as trusted draft context. */
   readonly workflowId: string;
+  /**
+   * HERMES-AGENT-BUILDER-PREVIEW-OVERLAY: hand the latest `DraftPreview` to the builder's non-applied
+   * canvas overlay (UI state owned by `WorkflowBuilder`). Wiring only — never applies/mutates anything.
+   */
+  readonly onShowPreview?: (preview: DraftPreview) => void;
 }
 
-export function BuilderGuidanceEntry({ accountId, workflowId }: BuilderGuidanceEntryProps) {
+export function BuilderGuidanceEntry({ accountId, workflowId, onShowPreview }: BuilderGuidanceEntryProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -40,8 +46,13 @@ export function BuilderGuidanceEntry({ accountId, workflowId }: BuilderGuidanceE
     >
       {open && (
         <div className="pointer-events-auto w-[380px] max-w-[90vw]">
-          {/* Reuse the dashboard panel verbatim — only the builder workflowId differs. */}
-          <WorkflowGuidancePanel accountId={accountId} workflowId={workflowId} />
+          {/* Reuse the dashboard panel verbatim — only the builder workflowId + the canvas-preview
+              hook differ. The hook adds a "Show on canvas" affordance (no apply implication). */}
+          <WorkflowGuidancePanel
+            accountId={accountId}
+            workflowId={workflowId}
+            {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
+          />
         </div>
       )}
 

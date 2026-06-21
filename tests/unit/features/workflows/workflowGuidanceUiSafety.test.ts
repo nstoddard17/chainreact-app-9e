@@ -15,6 +15,10 @@ const BUILDER_ENTRY = resolve(
   process.cwd(),
   "features/workflow-builder/panels/BuilderGuidanceEntry.tsx",
 );
+const PREVIEW_OVERLAY = resolve(
+  process.cwd(),
+  "features/workflow-builder/canvas/BuilderPreviewOverlay.tsx",
+);
 
 describe("guidance UI — calls only the ChainReact route, no forbidden surface", () => {
   it("the client helper targets only the account guidance route", () => {
@@ -60,6 +64,20 @@ describe("guidance UI — calls only the ChainReact route, no forbidden surface"
       /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
       // workflow mutation / execution from this advisory entry
       /updateWorkflow|saveDraftDefinition|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/,
+    ]) {
+      expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
+    }
+  });
+
+  it("the builder preview overlay is presentational — no store mutation, fetch, mutation API, or vendor", () => {
+    const src = readFileSync(PREVIEW_OVERLAY, "utf8");
+    for (const pat of [
+      /\bfetch\s*\(/, // no network from the overlay
+      /useGraphSlice|graphSlice|configSlice|runSlice|\.getState\(\)/, // no builder-store access/mutation
+      /draftDefinition|saveDraft|updateWorkflow|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/, // no persistence/mutation
+      /onrender\.com|\/api\/hermes-agent\/guidance|hermesAgentGatewayClient/,
+      /nousresearch|api\.openai\.com/i,
+      /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
     ]) {
       expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
     }

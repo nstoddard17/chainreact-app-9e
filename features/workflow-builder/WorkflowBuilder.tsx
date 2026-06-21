@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
+import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
+import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import {
   BuilderTeamProvider,
   type BuilderTeamContextValue,
@@ -115,6 +117,12 @@ export function WorkflowBuilder({
   const closeNode = useConfigSlice((s) => s.closeNode);
   const runId = useRunSlice((s) => s.runId);
 
+  // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — ephemeral, UI-ONLY non-applied AI draft preview shown as a
+  // ghost overlay over the canvas. It is deliberately plain React state (NOT the graph store): it
+  // never touches pendingNodes/draftDefinition, never marks the workflow dirty, and never autosaves.
+  // Discarding just sets it back to null (no rollback needed — real state was never mutated).
+  const [previewOverlay, setPreviewOverlay] = useState<DraftPreview | null>(null);
+
   // Hydrate from the server prop on initial mount AND whenever the prop's
   // definition / revision changes (e.g. an external refresh). The graphSlice
   // revision guard ignores a STALE re-hydrate — an older `updatedAt` arriving
@@ -132,6 +140,8 @@ export function WorkflowBuilder({
   useEffect(() => {
     resetConfigSlice();
     resetRunSlice();
+    // Drop any AI preview overlay when switching workflows (setState setter is stable).
+    setPreviewOverlay(null);
     return () => {
       reset();
       resetConfigSlice();
@@ -415,7 +425,20 @@ export function WorkflowBuilder({
             it forwards workflowId so guidance is drawn from the current draft. Advisory only — it
             never creates / mutates / runs the workflow. */}
         {guidanceEnabled && accountId ? (
-          <BuilderGuidanceEntry accountId={accountId} workflowId={workflow.id} />
+          <BuilderGuidanceEntry
+            accountId={accountId}
+            workflowId={workflow.id}
+            onShowPreview={setPreviewOverlay}
+          />
+        ) : null}
+        {/* HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — ephemeral, non-applied ghost overlay of an AI draft
+            preview. UI state only (above): it never merges into the real graph, never writes
+            draftDefinition, never marks dirty/saves. Discard just clears the state. */}
+        {previewOverlay ? (
+          <BuilderPreviewOverlay
+            preview={previewOverlay}
+            onDiscard={() => setPreviewOverlay(null)}
+          />
         ) : null}
       </div>
     </BuilderShell>
