@@ -1,8 +1,44 @@
 # Guided setup on the holographic preview — audit + design (HERMES-AGENT-RAIL-PRODUCT-LABEL-AND-GUIDED-PREVIEW-DESIGN)
 
-> **Design only.** This slice ships one tiny behavior change (chat label "Hermes:" → "React:",
-> header "connected · Hermes" → "connected") and this document. No guided-setup code is implemented
-> here. It records the audit + the recommended first implementation slice.
+> **Design + Phase 1 status.** The audit/design below is unchanged. **Phase 1
+> (HERMES-AGENT-GUIDED-PREVIEW-SETUP-1) is now IMPLEMENTED** — see the status box.
+
+## Phase 1 status — IMPLEMENTED
+
+Shipped (local, not pushed):
+- `core/workflows/previewSetupFields.ts` — `buildPreviewSetupFields` (metadata → supported fields:
+  text/textarea/number/boolean/static-select; excludes secret/connection/recipient `sensitivity`,
+  async `optionsSource`, `dependsOn`, `multiple`, dynamic select, unsupported renderer types) +
+  `sanitizeSeedConfig` (keep only supported keys, type-coerce, drop empties/unknown/secret).
+- `BuilderPatchNode.config?` + `ResolvedPatchNode.config?` + placement uses it + `graphSlice`
+  `applyAdditivePatch` carries it → new nodes can start with seeded config instead of empty.
+- `planToBuilderPatch(plan, { previewConfig, setupFieldsByType })` seeds per-node config, keyed by the
+  `preview-step-${i+1}` previewId (index over ALL steps; aligns across skipped logic steps), sanitized.
+- `BuilderPreviewOverlay` renders a **"Set up these steps"** section on the holographic preview:
+  native controls for supported missing fields (`data-testid=preview-setup-${previewId}-${name}`);
+  unsupported/async missing fields show **"Needs setup after Apply"** (no fake control).
+- `WorkflowBuilder` owns ephemeral `previewConfig` (previewId → field → value): preview-only, never
+  configSlice/draft/DB, never dirty. Cleared on new preview (`handleShowPreview`), Discard, and
+  workflow switch/unmount. Seeded into the new nodes' config ONLY on explicit Apply. Threaded from
+  `app/workflows/[id]/page.tsx` via `setupFieldsByType` (built from the discovery registry).
+
+**Placement chosen:** on the holographic preview overlay (an allowed option from the design below),
+NOT the literal chat rail — Apply + the ghost nodes + the appliable preview all live in
+`WorkflowBuilder`/the overlay, so colocating there avoids fragile cross-component state and previewId
+collisions across previews. The "Show on canvas" gesture brings the holographic nodes (and now their
+setup controls) onto the canvas.
+
+**Deferred to slice 2+:** async `optionsSource` dropdowns (e.g. Slack channel resolver via
+`GET /api/options/[source]`); optionally moving controls onto a per-node selection.
+
+**Guarantees verified by tests:** no Hermes/model call when filling controls; no auto-save/activate/
+run/auto-apply; preview-only until Apply (graph not dirtied, `updateWorkflow` not called); unknown/
+secret keys never seeded; new preview + Discard clear `previewConfig`; auto-open still fires for
+remaining missing fields and is skipped when guided setup completes all required fields.
+
+---
+
+> **Original design (unchanged).** The audit + recommended slice that this Phase 1 implements.
 
 ## Product label decision (shipped this slice)
 

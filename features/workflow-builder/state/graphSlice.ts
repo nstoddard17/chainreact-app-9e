@@ -753,7 +753,13 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
     let triggerPresent = pendingNodes.some((n) => n.kind === "trigger");
     let skippedTrigger = false;
     const refToId = new Map<string, string>();
-    const toAdd: Array<{ id: string; kind: WorkflowNode["kind"]; provider: string; type: string }> = [];
+    const toAdd: Array<{
+      id: string;
+      kind: WorkflowNode["kind"];
+      provider: string;
+      type: string;
+      config?: Readonly<Record<string, unknown>>;
+    }> = [];
     for (const pn of patch.nodes) {
       // No replace-trigger: skip a proposed trigger when one already exists (existing graph OR an
       // earlier patch trigger). Edges referencing the skipped ref are dropped below.
@@ -764,7 +770,9 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       if (pn.kind === "trigger") triggerPresent = true;
       const id = newNodeId();
       refToId.set(pn.ref, id);
-      toAdd.push({ id, kind: pn.kind, provider: pn.provider, type: pn.type });
+      // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — carry any seeded config (already sanitized by the
+      // producer) so the new node starts with the user's guided-setup values instead of empty config.
+      toAdd.push({ id, kind: pn.kind, provider: pn.provider, type: pn.type, ...(pn.config ? { config: pn.config } : {}) });
     }
     if (toAdd.length === 0) {
       return { ok: false, reason: "nothing_added", skippedTrigger };

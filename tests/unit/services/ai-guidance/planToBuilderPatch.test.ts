@@ -81,3 +81,67 @@ describe("planToBuilderPatch", () => {
     }
   });
 });
+
+// HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — guided-setup seeding.
+describe("planToBuilderPatch — guided-setup seeding", () => {
+  const setupFieldsByType = {
+    "slack:send_message": [
+      { name: "message", label: "Message", type: "textarea" as const, required: true },
+      { name: "count", label: "Count", type: "number" as const, required: false },
+    ],
+  };
+
+  it("seeds the matching node's config from previewConfig (sanitized), keyed by previewId", () => {
+    const patch = planToBuilderPatch(
+      plan([
+        { ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" },
+        { ref: "s1", role: "action", provider: "slack", type: "send_message", purpose: "notify" },
+      ]),
+      {
+        // preview-step-2 == the slack action (index 1 over ALL steps, 1-based).
+        previewConfig: { "preview-step-2": { message: "Review new leads", count: "3" } },
+        setupFieldsByType,
+      },
+    )!;
+    expect(patch.nodes[0]).toEqual({ ref: "p0", kind: "trigger", provider: "gmail", type: "new_email" });
+    expect(patch.nodes[1]).toEqual({
+      ref: "p1",
+      kind: "action",
+      provider: "slack",
+      type: "send_message",
+      config: { message: "Review new leads", count: 3 },
+    });
+  });
+
+  it("drops unknown/secret keys not present in the supported metadata", () => {
+    const patch = planToBuilderPatch(
+      plan([{ ref: "s0", role: "action", provider: "slack", type: "send_message", purpose: "x" }]),
+      {
+        previewConfig: { "preview-step-1": { message: "ok", accessToken: "ya29.SECRET", bogus: "y" } },
+        setupFieldsByType,
+      },
+    )!;
+    expect(patch.nodes[0]!.config).toEqual({ message: "ok" });
+    expect(JSON.stringify(patch)).not.toContain("ya29.SECRET");
+  });
+
+  it("aligns previewId across SKIPPED logic steps (index over all steps, not kept)", () => {
+    const patch = planToBuilderPatch(
+      plan([
+        { ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" },
+        { ref: "s1", role: "logic", provider: "native", type: "filter", purpose: "branch" },
+        { ref: "s2", role: "action", provider: "slack", type: "send_message", purpose: "notify" },
+      ]),
+      { previewConfig: { "preview-step-3": { message: "hi" } }, setupFieldsByType },
+    )!;
+    expect(patch.nodes).toHaveLength(2);
+    expect(patch.nodes[1]).toMatchObject({ provider: "slack", type: "send_message", config: { message: "hi" } });
+  });
+
+  it("with no opts → no config key (back-compat)", () => {
+    const patch = planToBuilderPatch(
+      plan([{ ref: "s0", role: "action", provider: "slack", type: "send_message", purpose: "x" }]),
+    )!;
+    expect(patch.nodes[0]).not.toHaveProperty("config");
+  });
+});

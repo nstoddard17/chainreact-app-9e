@@ -322,4 +322,19 @@ export default [
       ],
     },
   },
+
+  // features/workflow-builder/WorkflowBuilder.tsx — the central builder orchestrator. It owns the
+  // canvas/rail/drawer composition plus the ephemeral AI-preview lifecycle (overlay + guided-setup
+  // previewConfig + explicit Apply seeding, HERMES-AGENT-GUIDED-PREVIEW-SETUP-1). Splitting the
+  // preview lifecycle out into a hook is a real refactor (intertwined useState + callbacks) that
+  // belongs in its own slice, not a feature commit. Capped at 460 to make further drift visible.
+  {
+    files: ["features/workflow-builder/WorkflowBuilder.tsx"],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 460, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
 ];

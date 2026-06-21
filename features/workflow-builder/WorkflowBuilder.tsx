@@ -56,6 +56,13 @@ interface Props {
    */
   requiredFieldsByType?: import("./validation/collectBuilderValidationIssues").RequiredFieldsByType;
   /**
+   * HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — supported, metadata-derived setup fields per `provider:type`
+   * (text/textarea/number/boolean/static-select; excludes secret/async/cascade/multi). Computed
+   * server-side from the discovery registry. Drives the holographic preview's "Set up these steps"
+   * controls. Optional so isolated builder tests keep passing.
+   */
+  setupFieldsByType?: import("@/core/workflows/previewSetupFields").PreviewSetupFieldsByType;
+  /**
    * HERMES-AGENT-GUIDANCE-UI-BUILDER — owning account for the advisory "Build with me" guidance
    * entry. Resolved server-side from the workflow record; never client-supplied. The entry renders
    * only when this AND `guidanceEnabled` are present.
@@ -109,6 +116,7 @@ export function WorkflowBuilder({
   actionProviders,
   teamContext,
   requiredFieldsByType,
+  setupFieldsByType,
   accountId,
   guidanceEnabled,
 }: Props) {
@@ -135,6 +143,11 @@ export function WorkflowBuilder({
   // short-lived "Added from preview" badge on those cards AND the post-apply required-field hint
   // list. Lifetime is tied to the notice: cleared on dismiss / workflow switch / a new preview.
   const [appliedNodeIds, setAppliedNodeIds] = useState<readonly string[]>([]);
+  // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — ephemeral guided-setup values for the CURRENT holographic
+  // preview, keyed by previewId → fieldName → value. Preview-only: never written to configSlice / the
+  // real draft / DB, never makes the workflow dirty. Cleared when a new preview supersedes, on
+  // discard, and on workflow switch/unmount. Seeded into the new nodes' config ONLY on explicit Apply.
+  const [previewConfig, setPreviewConfig] = useState<Record<string, Record<string, unknown>>>({});
 
   // Hydrate from the server prop on initial mount AND whenever the prop's
   // definition / revision changes (e.g. an external refresh). The graphSlice
@@ -157,6 +170,7 @@ export function WorkflowBuilder({
     setPreviewOverlay(null);
     setApplyNotice(null);
     setAppliedNodeIds([]);
+    setPreviewConfig({});
     return () => {
       reset();
       resetConfigSlice();
@@ -341,7 +355,22 @@ export function WorkflowBuilder({
     (payload: { plan: WorkflowPlan; preview: DraftPreview }) => {
       setApplyNotice(null);
       setAppliedNodeIds([]);
+      // A NEW preview supersedes the old one — drop any guided-setup values entered for the prior
+      // preview (previewIds are positional and would otherwise collide across previews).
+      setPreviewConfig({});
       setPreviewOverlay(payload);
+    },
+    [],
+  );
+
+  // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — record one guided-setup value for the current preview. Pure
+  // local state: never touches configSlice / the real draft / DB, never makes the workflow dirty.
+  const handlePreviewConfigChange = useCallback(
+    (previewId: string, fieldName: string, value: unknown) => {
+      setPreviewConfig((prev) => ({
+        ...prev,
+        [previewId]: { ...(prev[previewId] ?? {}), [fieldName]: value },
+      }));
     },
     [],
   );
@@ -352,7 +381,12 @@ export function WorkflowBuilder({
   // workflow. Then clears the overlay and shows a safe confirmation.
   const handleApplyPreview = useCallback(() => {
     if (!previewOverlay) return;
-    const patch = planToBuilderPatch(previewOverlay.plan);
+    // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — seed the new nodes' config from the ephemeral guided-setup
+    // values, sanitized against the supported metadata (only known, non-sensitive keys are kept).
+    const patch = planToBuilderPatch(previewOverlay.plan, {
+      previewConfig,
+      ...(setupFieldsByType ? { setupFieldsByType } : {}),
+    });
     // HERMES-AGENT-APPLY-IN-PLACE / -INSERT-BETWEEN — prefer inserting after the user's selected/active
     // node (splitting its sole unlabeled edge), else appending after it, else the sole tail, else a
     // detached side chain. Read selection fresh at click time.
@@ -394,7 +428,8 @@ export function WorkflowBuilder({
       setAppliedNodeIds([]);
     }
     setPreviewOverlay(null);
-  }, [previewOverlay, requiredFieldsByType]);
+    setPreviewConfig({});
+  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType]);
 
   // Drawer rendering — one of three modes is active at a time.
   // Inspector only renders when activeNodeId is set so the drawer
@@ -541,7 +576,13 @@ export function WorkflowBuilder({
           <BuilderPreviewOverlay
             preview={previewOverlay.preview}
             onApply={handleApplyPreview}
-            onDiscard={() => setPreviewOverlay(null)}
+            onDiscard={() => {
+              setPreviewOverlay(null);
+              setPreviewConfig({});
+            }}
+            {...(setupFieldsByType ? { setupFieldsByType } : {})}
+            previewConfig={previewConfig}
+            onPreviewConfigChange={handlePreviewConfigChange}
           />
         ) : null}
         {/* HERMES-AGENT-APPLY-PREVIEW-PATCH / -CONFIG-HINTS — transient confirmation after an explicit

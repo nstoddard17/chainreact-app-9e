@@ -7,6 +7,7 @@ import * as membershipsRepo from "@/repositories/accountMemberships";
 import { getActiveAccountId } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
+import { buildPreviewSetupFields } from "@/core/workflows/previewSetupFields";
 import { isHermesAgentEnabled } from "@/services/ai-guidance/gateway/gatewayConfig";
 import {
   listAllActionMetas,
@@ -112,6 +113,10 @@ export default async function WorkflowDetailPage({ params }: Props) {
     listAllTriggerMetas(),
   );
 
+  // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — supported, metadata-derived setup fields per node type for
+  // the holographic preview's "Set up these steps" controls. Static; same registry source.
+  const setupFieldsByType = buildPreviewSetupFields(listAllActionMetas(), listAllTriggerMetas());
+
   const providers = listProviders();
   const triggerProviders = providers
     .filter((p) => p.isEnabled && p.capabilities.webhookTrigger)
@@ -139,6 +144,7 @@ export default async function WorkflowDetailPage({ params }: Props) {
         triggerProviders={triggerProviders}
         actionProviders={actionProviders}
         requiredFieldsByType={requiredFieldsByType}
+        setupFieldsByType={setupFieldsByType}
         // HERMES-AGENT-GUIDANCE-UI-BUILDER — advisory "Build with me" entry, scoped to this
         // workflow's owning account. Server-gated (default OFF); accountId is never client-supplied.
         accountId={record.accountId}

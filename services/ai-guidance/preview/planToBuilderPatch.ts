@@ -26,20 +26,53 @@ import type {
   BuilderPatchNode,
   BuilderPreviewPatch,
 } from "@/contracts/workflowPlanPreview";
+import {
+  sanitizeSeedConfig,
+  type PreviewSetupFieldsByType,
+} from "@/core/workflows/previewSetupFields";
 
-export function planToBuilderPatch(plan: WorkflowPlan | null | undefined): BuilderPreviewPatch | null {
+/**
+ * HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — optional guided-setup seeding. `previewConfig` is keyed by the
+ * SAME preview node id `planToDraftPreview` mints (`preview-step-${i+1}`, i = index over ALL plan
+ * steps incl. logic). `setupFieldsByType` is the supported-fields metadata used to sanitize: only
+ * known, non-sensitive keys are seeded; everything else is dropped. Absent ⇒ nodes get empty config
+ * (original behavior).
+ */
+export interface PlanToBuilderPatchOptions {
+  readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  readonly setupFieldsByType?: PreviewSetupFieldsByType;
+}
+
+/** Matches `planToDraftPreview`'s `previewStepId` (index over ALL plan steps, 1-based). */
+function previewStepId(originalIndex: number): string {
+  return `preview-step-${originalIndex + 1}`;
+}
+
+export function planToBuilderPatch(
+  plan: WorkflowPlan | null | undefined,
+  options: PlanToBuilderPatchOptions = {},
+): BuilderPreviewPatch | null {
   if (!plan || !Array.isArray(plan.steps)) return null;
 
-  // Only trigger/action steps map to real V2 graph nodes (no "logic" kind). Keep order.
-  const kept = plan.steps.filter((s) => s.role === "trigger" || s.role === "action");
+  // Only trigger/action steps map to real V2 graph nodes (no "logic" kind). Keep order, but remember
+  // each step's ORIGINAL index so its preview id (and thus its guided-setup config) aligns.
+  const kept = plan.steps
+    .map((step, originalIndex) => ({ step, originalIndex }))
+    .filter(({ step }) => step.role === "trigger" || step.role === "action");
   if (kept.length === 0) return null;
 
-  const nodes: BuilderPatchNode[] = kept.map((step, i) => ({
-    ref: `p${i}`,
-    kind: step.role as "trigger" | "action",
-    provider: step.provider,
-    type: step.type,
-  }));
+  const nodes: BuilderPatchNode[] = kept.map(({ step, originalIndex }, i) => {
+    const fields = options.setupFieldsByType?.[`${step.provider}:${step.type}`];
+    const raw = options.previewConfig?.[previewStepId(originalIndex)];
+    const config = sanitizeSeedConfig(raw, fields);
+    return {
+      ref: `p${i}`,
+      kind: step.role as "trigger" | "action",
+      provider: step.provider,
+      type: step.type,
+      ...(Object.keys(config).length > 0 ? { config } : {}),
+    };
+  });
 
   // Linear chain over the kept steps (the advisory plan carries no branch topology).
   const edges: BuilderPatchEdge[] = [];

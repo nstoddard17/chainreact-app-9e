@@ -1,6 +1,10 @@
 "use client";
 
-import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { DraftPreview, DraftPreviewNode } from "@/contracts/workflowPlanPreview";
+import type {
+  PreviewSetupField,
+  PreviewSetupFieldsByType,
+} from "@/core/workflows/previewSetupFields";
 
 /**
  * Non-applied AI draft preview overlay (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY).
@@ -33,9 +37,45 @@ export interface BuilderPreviewOverlayProps {
    * the overlay is review-only (no Apply control). Provided by `WorkflowBuilder`.
    */
   readonly onApply?: () => void;
+  /**
+   * HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — supported, metadata-derived setup fields per `provider:type`.
+   * When present (with `onPreviewConfigChange`), the overlay renders a "Set up these steps" section so
+   * the user can fill known fields on the holographic preview BEFORE Apply. Deterministic + local: no
+   * model call, no provider/network resolver in this slice.
+   */
+  readonly setupFieldsByType?: PreviewSetupFieldsByType;
+  /** Ephemeral guided-setup values, keyed by previewId → fieldName → value. Owned by `WorkflowBuilder`. */
+  readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  /** Update one ephemeral guided-setup value. Preview-only — never touches real draft config. */
+  readonly onPreviewConfigChange?: (previewId: string, fieldName: string, value: unknown) => void;
 }
 
-export function BuilderPreviewOverlay({ preview, onDiscard, onApply }: BuilderPreviewOverlayProps) {
+export function BuilderPreviewOverlay({
+  preview,
+  onDiscard,
+  onApply,
+  setupFieldsByType,
+  previewConfig,
+  onPreviewConfigChange,
+}: BuilderPreviewOverlayProps) {
+  // Per node: which still-missing fields can be collected now (supported local controls) vs. which
+  // must wait until after Apply (async/sensitive/unsupported). Deterministic, metadata-driven.
+  const setupNodes = onPreviewConfigChange
+    ? preview.nodes
+        .map((node) => {
+          const missing = node.missingInputs ?? [];
+          if (missing.length === 0) return null;
+          const all = setupFieldsByType?.[`${node.provider}:${node.type}`] ?? [];
+          const supported = all.filter((f) => missing.includes(f.name));
+          const supportedNames = new Set(supported.map((f) => f.name));
+          const afterApply = missing.filter((n) => !supportedNames.has(n));
+          if (supported.length === 0 && afterApply.length === 0) return null;
+          return { node, supported, afterApply };
+        })
+        .filter((x): x is { node: DraftPreviewNode; supported: PreviewSetupField[]; afterApply: string[] } => x !== null)
+    : [];
+  const showSetup = setupNodes.some((s) => s.supported.length > 0);
+
   return (
     <div
       data-testid="builder-preview-overlay"
@@ -153,7 +193,131 @@ export function BuilderPreviewOverlay({ preview, onDiscard, onApply }: BuilderPr
           </li>
         ))}
       </ol>
+
+      {/* HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — "Set up these steps": fill known fields on the
+          holographic preview BEFORE Apply. Values are ephemeral (preview-only); nothing is saved or
+          made dirty until the user clicks Apply preview. Interactive → pointer-events-auto. */}
+      {showSetup && (
+        <section
+          data-testid="builder-preview-setup"
+          className="pointer-events-auto mt-4 w-[320px] rounded-[8px] border p-3 text-left"
+          style={{ background: "var(--builder-panel)", borderColor: "var(--builder-border)" }}
+        >
+          <h3 className="text-[12px] font-semibold" style={{ color: "var(--builder-text)" }}>
+            Set up these steps
+          </h3>
+          <p className="mt-0.5 text-[11px]" style={{ color: "var(--builder-muted)" }}>
+            Fill what you can now — values stay on the preview until you Apply. Nothing is saved.
+          </p>
+          {setupNodes.map(({ node, supported, afterApply }) => (
+            <div key={node.previewId} className="mt-2.5">
+              <div className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
+                {node.label}
+              </div>
+              {supported.map((field) => (
+                <PreviewSetupControl
+                  key={field.name}
+                  node={node}
+                  field={field}
+                  value={previewConfig?.[node.previewId]?.[field.name]}
+                  onChange={(v) => onPreviewConfigChange?.(node.previewId, field.name, v)}
+                />
+              ))}
+              {afterApply.length > 0 && (
+                <div
+                  data-testid="preview-setup-after-apply"
+                  className="mt-1 text-[11px]"
+                  style={{ color: "var(--builder-muted)" }}
+                >
+                  Needs setup after Apply: {afterApply.join(", ")}
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
     </div>
+  );
+}
+
+/** One guided-setup control for a supported preview field. Native primitives; preview-only value. */
+function PreviewSetupControl({
+  node,
+  field,
+  value,
+  onChange,
+}: {
+  node: DraftPreviewNode;
+  field: PreviewSetupField;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const testid = `preview-setup-${node.previewId}-${field.name}`;
+  const inputStyle = {
+    background: "var(--builder-panel-2)",
+    border: "1px solid var(--builder-border)",
+    color: "var(--builder-text)",
+  } as const;
+  const strValue = typeof value === "string" ? value : typeof value === "number" ? String(value) : "";
+
+  if (field.type === "boolean") {
+    return (
+      <label className="mt-1.5 flex items-center gap-2 text-[11.5px]" style={{ color: "var(--builder-text)" }}>
+        <input
+          type="checkbox"
+          data-testid={testid}
+          aria-label={field.label}
+          checked={Boolean(value)}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        {field.label}
+      </label>
+    );
+  }
+
+  return (
+    <label className="mt-1.5 block text-[11px]" style={{ color: "var(--builder-muted)" }}>
+      {field.label}
+      {field.type === "textarea" ? (
+        <textarea
+          data-testid={testid}
+          aria-label={field.label}
+          value={strValue}
+          rows={2}
+          {...(field.placeholder ? { placeholder: field.placeholder } : {})}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
+          style={inputStyle}
+        />
+      ) : field.type === "select" ? (
+        <select
+          data-testid={testid}
+          aria-label={field.label}
+          value={strValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
+          style={inputStyle}
+        >
+          <option value="">Select…</option>
+          {field.options?.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type={field.type === "number" ? "number" : "text"}
+          data-testid={testid}
+          aria-label={field.label}
+          value={strValue}
+          {...(field.placeholder ? { placeholder: field.placeholder } : {})}
+          onChange={(e) => onChange(e.target.value)}
+          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
+          style={inputStyle}
+        />
+      )}
+    </label>
   );
 }
 

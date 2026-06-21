@@ -27,12 +27,14 @@ import { computeNonOverlappingPosition, findChainTailId } from "./workflowLayout
 
 export type AdditivePatchPlacementKind = "blank" | "appended" | "inserted_between" | "side_chain";
 
-/** A node to add — id already minted, config intentionally left to the caller (always empty). */
+/** A node to add — id already minted. `config` defaults to empty; a seeded config (guided preview
+ * setup, HERMES-AGENT-GUIDED-PREVIEW-SETUP-1) is used verbatim when present. */
 export interface ResolvedPatchNode {
   readonly id: string;
   readonly kind: WorkflowNode["kind"];
   readonly provider: string;
   readonly type: string;
+  readonly config?: Readonly<Record<string, unknown>>;
 }
 
 /** An internal chain edge between two added nodes, already resolved to real ids (distinct, present). */
@@ -110,7 +112,7 @@ export function computeAdditivePatchPlacement(
     let prevPos: WorkflowNodePosition = anchorNode.position;
     for (const d of toAdd) {
       const position = computeNonOverlappingPosition(prevPos, [...pendingNodes, ...addedNodes]);
-      addedNodes.push({ id: d.id, kind: d.kind, provider: d.provider, type: d.type, config: {}, position });
+      addedNodes.push({ id: d.id, kind: d.kind, provider: d.provider, type: d.type, config: { ...(d.config ?? {}) }, position });
       prevPos = position;
     }
   } else {
@@ -125,7 +127,7 @@ export function computeAdditivePatchPlacement(
         kind: d.kind,
         provider: d.provider,
         type: d.type,
-        config: {},
+        config: { ...(d.config ?? {}) },
         position: { x: baseX, y: baseY + i * input.nodeYGap },
       });
     });

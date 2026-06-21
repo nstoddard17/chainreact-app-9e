@@ -88,6 +88,13 @@ export interface BuilderPatchNode {
   readonly provider: string;
   /** Validated capability type (registry-checked upstream). */
   readonly type: string;
+  /**
+   * HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — optional seed config collected via guided setup controls on
+   * the holographic preview (sanitized to supported, non-sensitive metadata keys only). Absent ⇒ the
+   * node is created with EMPTY config (original behavior). Never contains secrets / async-resolver /
+   * unknown keys (the producer sanitizes against the action/trigger metadata).
+   */
+  readonly config?: Readonly<Record<string, unknown>>;
 }
 
 export interface BuilderPatchEdge {

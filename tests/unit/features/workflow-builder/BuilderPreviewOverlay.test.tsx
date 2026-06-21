@@ -4,10 +4,11 @@
  * preview markers, a "Suggested" badge + "Preview only…" notice, and a Discard control that calls
  * onDiscard. There is NO apply/create/use/add/run control. Pure presentational — no store/network.
  */
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BuilderPreviewOverlay } from "@/features/workflow-builder/canvas/BuilderPreviewOverlay";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
 
 const preview: DraftPreview = {
   version: 1,
@@ -81,5 +82,68 @@ describe("BuilderPreviewOverlay", () => {
     expect(onApply).toHaveBeenCalledTimes(1);
     // No create/use-this/run controls beyond the explicit Apply.
     expect(screen.queryByRole("button", { name: /create|use this|run\b/i })).not.toBeInTheDocument();
+  });
+});
+
+// HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — the "Set up these steps" controls on the holographic preview.
+describe("BuilderPreviewOverlay — guided setup", () => {
+  const setupFieldsByType: PreviewSetupFieldsByType = {
+    "slack:send_message": [{ name: "message", label: "Message", type: "textarea", required: true }],
+  };
+  const previewWithMissing: DraftPreview = {
+    ...preview,
+    nodes: [
+      preview.nodes[0]!,
+      { ...preview.nodes[1]!, missingInputs: ["message", "channel"] }, // message supported; channel not
+    ],
+  };
+
+  it("renders a 'Set up these steps' control for supported missing fields and marks the rest 'after Apply'", () => {
+    render(
+      <BuilderPreviewOverlay
+        preview={previewWithMissing}
+        onDiscard={() => {}}
+        onApply={() => {}}
+        setupFieldsByType={setupFieldsByType}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("builder-preview-setup")).toBeInTheDocument();
+    expect(screen.getByTestId("preview-setup-preview-step-2-message")).toBeInTheDocument();
+    // The async/unknown field is NOT rendered as a fake control — it waits until after Apply.
+    expect(screen.queryByTestId("preview-setup-preview-step-2-channel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("preview-setup-after-apply")).toHaveTextContent("channel");
+  });
+
+  it("typing a value calls onPreviewConfigChange (preview-only)", () => {
+    const onPreviewConfigChange = jest.fn();
+    render(
+      <BuilderPreviewOverlay
+        preview={previewWithMissing}
+        onDiscard={() => {}}
+        onApply={() => {}}
+        setupFieldsByType={setupFieldsByType}
+        previewConfig={{}}
+        onPreviewConfigChange={onPreviewConfigChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId("preview-setup-preview-step-2-message"), {
+      target: { value: "Review new leads" },
+    });
+    expect(onPreviewConfigChange).toHaveBeenCalledWith("preview-step-2", "message", "Review new leads");
+  });
+
+  it("renders NO setup section when setupFieldsByType is absent (e.g. dashboard / no metadata)", () => {
+    render(
+      <BuilderPreviewOverlay
+        preview={previewWithMissing}
+        onDiscard={() => {}}
+        onApply={() => {}}
+        previewConfig={{}}
+        onPreviewConfigChange={() => {}}
+      />,
+    );
+    expect(screen.queryByTestId("builder-preview-setup")).not.toBeInTheDocument();
   });
 });
