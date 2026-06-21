@@ -96,6 +96,61 @@ describe("BuilderNodeSetupCard", () => {
     expect(screen.queryByTestId("node-setup-a1-update")).toBeNull();
   });
 
+  it("pressing Enter in the Message textarea applies the update (parity with the Update step button)", async () => {
+    const onUpdateStep = jest.fn();
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [], hasMore: false });
+    render(<BuilderNodeSetupCard nodes={[slackTarget]} setupFieldsByType={setupFieldsByType} onUpdateStep={onUpdateStep} />);
+    const text = await screen.findByTestId("node-setup-a1-text");
+    fireEvent.change(text, { target: { value: "Hello team" } });
+    fireEvent.keyDown(text, { key: "Enter" });
+    expect(onUpdateStep).toHaveBeenCalledWith("a1", { text: "Hello team" });
+  });
+
+  it("Shift+Enter in the textarea does NOT submit (newline)", async () => {
+    const onUpdateStep = jest.fn();
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [], hasMore: false });
+    render(<BuilderNodeSetupCard nodes={[slackTarget]} setupFieldsByType={setupFieldsByType} onUpdateStep={onUpdateStep} />);
+    const text = await screen.findByTestId("node-setup-a1-text");
+    fireEvent.change(text, { target: { value: "line1" } });
+    fireEvent.keyDown(text, { key: "Enter", shiftKey: true });
+    expect(onUpdateStep).not.toHaveBeenCalled();
+  });
+
+  it("pressing Enter in a single-line text field submits the update", () => {
+    const onUpdateStep = jest.fn();
+    const target: CheckWorkflowSetupTarget = { ...slackTarget, missingFieldNames: ["subject"] };
+    const fields: PreviewSetupFieldsByType = {
+      "slack:send_channel_message": [{ name: "subject", label: "Subject", type: "text", required: true }],
+    };
+    render(<BuilderNodeSetupCard nodes={[target]} setupFieldsByType={fields} onUpdateStep={onUpdateStep} />);
+    const input = screen.getByTestId("node-setup-a1-subject");
+    fireEvent.change(input, { target: { value: "Standup" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onUpdateStep).toHaveBeenCalledWith("a1", { subject: "Standup" });
+  });
+
+  it("focusing a control emits onFieldInteract(focus) with the metadata field KEY", async () => {
+    const onFieldInteract = jest.fn();
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [], hasMore: false });
+    render(
+      <BuilderNodeSetupCard nodes={[slackTarget]} setupFieldsByType={setupFieldsByType} onUpdateStep={() => {}} onFieldInteract={onFieldInteract} />,
+    );
+    fireEvent.focus(await screen.findByTestId("node-setup-a1-text"));
+    expect(onFieldInteract).toHaveBeenCalledWith("a1", "text", "focus");
+  });
+
+  it("selecting an async dropdown option emits onFieldInteract(change)", async () => {
+    const onFieldInteract = jest.fn();
+    mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [{ value: "C1", label: "#general" }], hasMore: false });
+    render(
+      <BuilderNodeSetupCard nodes={[slackTarget]} setupFieldsByType={setupFieldsByType} workflowId="wf-9" onUpdateStep={() => {}} onFieldInteract={onFieldInteract} />,
+    );
+    const channel = await screen.findByTestId("node-setup-a1-channel");
+    await waitFor(() => expect(channel.querySelectorAll("option").length).toBe(2));
+    fireEvent.change(channel, { target: { value: "C1" } });
+    expect(onFieldInteract).toHaveBeenCalledWith("a1", "channel", "change");
+  });
+
   it("is presentational: filling a control does not call the options mutation/Hermes path on its own", async () => {
     const onUpdateStep = jest.fn();
     mockFetchOptionsSource.mockResolvedValue({ ok: true, source: "slack:channels", items: [], hasMore: false });

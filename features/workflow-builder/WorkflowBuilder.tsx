@@ -239,6 +239,16 @@ export function WorkflowBuilder({
     [],
   );
 
+  // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-REVEAL — when the user focuses a rail setup control (or picks
+  // a dropdown value), open/select that EXISTING node in the config panel and highlight the matching
+  // field via the existing `revealNode` path (sets activeNodeId → inspector drawer opens; SchemaForm
+  // highlights `focusFieldKey`). Navigation only: it never writes the value, saves, runs, or activates.
+  const handleSetupFieldReveal = useCallback((nodeId: string, fieldName: string) => {
+    const current = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId);
+    if (!current) return;
+    useConfigSlice.getState().revealNode({ nodeId, initialValues: current.config, fieldKey: fieldName });
+  }, []);
+
   const renderCheckSetup = useCallback(
     (targets: readonly CheckWorkflowSetupTarget[]) => (
       <BuilderNodeSetupCard
@@ -246,9 +256,10 @@ export function WorkflowBuilder({
         {...(setupFieldsByType ? { setupFieldsByType } : {})}
         workflowId={workflow.id}
         onUpdateStep={handleUpdateStepSetup}
+        onFieldInteract={handleSetupFieldReveal}
       />
     ),
-    [setupFieldsByType, workflow.id, handleUpdateStepSetup],
+    [setupFieldsByType, workflow.id, handleUpdateStepSetup, handleSetupFieldReveal],
   );
 
   // Slice 4.BUILDER-INSPECTOR-1 → BUILDER-RUN-PANEL-1: right drawer

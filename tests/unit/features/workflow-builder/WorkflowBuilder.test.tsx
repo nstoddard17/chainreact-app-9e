@@ -687,6 +687,56 @@ describe("WorkflowBuilder", () => {
       // Confirmation shown; nothing saved/activated/run.
       expect(screen.getByTestId("node-setup-a1-applied")).toBeInTheDocument();
     });
+
+    it("pressing Enter in the setup field updates the node (same path as the button), no new nodes", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={workflowWithIncompleteSlack}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+          requiredFieldsByType={requiredFieldsByType}
+          setupFieldsByType={setupFieldsByType}
+        />,
+      );
+      await user.click(screen.getByTestId("agent-check-workflow"));
+      const messageField = await screen.findByTestId("node-setup-a1-text");
+      fireEvent.change(messageField, { target: { value: "Standup at 9" } });
+      fireEvent.keyDown(messageField, { key: "Enter" });
+
+      const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1");
+      expect(node?.config.text).toBe("Standup at 9");
+      expect(useGraphSlice.getState().isDirty).toBe(true);
+      expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+    });
+
+    it("focusing a setup field opens the node config panel and highlights the matching field", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={workflowWithIncompleteSlack}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+          requiredFieldsByType={requiredFieldsByType}
+          setupFieldsByType={setupFieldsByType}
+        />,
+      );
+      await user.click(screen.getByTestId("agent-check-workflow"));
+      expect(useConfigSlice.getState().activeNodeId).toBeNull();
+
+      fireEvent.focus(await screen.findByTestId("node-setup-a1-text"));
+
+      // The existing node config panel opens for that node, with the matching field highlighted…
+      expect(useConfigSlice.getState().activeNodeId).toBe("a1");
+      expect(useConfigSlice.getState().focusFieldKey).toBe("text");
+      expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
+      // …and revealing did NOT mutate the draft (navigation only).
+      expect(useGraphSlice.getState().isDirty).toBe(false);
+    });
   });
 
   // Slice 4.BUILDER-INSPECTOR-1 — drawer mount / close round-trip.

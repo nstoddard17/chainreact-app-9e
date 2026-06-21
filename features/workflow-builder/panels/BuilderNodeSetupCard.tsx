@@ -43,6 +43,13 @@ export interface BuilderNodeSetupCardProps {
    * node's current config via the normal graph-slice path (marks dirty). Never saves/activates/runs.
    */
   readonly onUpdateStep: (nodeId: string, values: Record<string, unknown>) => void;
+  /**
+   * BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-REVEAL — emitted when the user focuses a setup control or
+   * selects a dropdown value. The builder opens/selects that node in the config panel and highlights the
+   * matching field (navigation only — never writes the value, saves, or runs). `fieldName` is the stable
+   * metadata KEY, not a label. Optional → no reveal wiring.
+   */
+  readonly onFieldInteract?: (nodeId: string, fieldName: string, interaction: "focus" | "change") => void;
 }
 
 interface ResolvedNode {
@@ -56,6 +63,7 @@ export function BuilderNodeSetupCard({
   setupFieldsByType,
   workflowId,
   onUpdateStep,
+  onFieldInteract,
 }: BuilderNodeSetupCardProps) {
   // Collected values per node, keyed nodeId → fieldName → value. Local + ephemeral until "Update step".
   const [values, setValues] = useState<Record<string, Record<string, unknown>>>({});
@@ -110,15 +118,26 @@ export function BuilderNodeSetupCard({
                 {target.label}
               </div>
 
-              {supported.map((field) =>
-                field.type === "select-async" ? (
+              {supported.map((field) => {
+                const isSelect = field.type === "select" || field.type === "select-async";
+                // Reveal-on-focus for every field; reveal-on-change for dropdown selection (parity with
+                // "selecting a dropdown opens the node config panel"). Navigation only — never writes.
+                const emitFocus = onFieldInteract
+                  ? () => onFieldInteract(target.nodeId, field.name, "focus")
+                  : undefined;
+                const handleChange = (v: unknown) => {
+                  setValue(target.nodeId, field.name, v);
+                  if (isSelect) onFieldInteract?.(target.nodeId, field.name, "change");
+                };
+                return field.type === "select-async" ? (
                   <SetupAsyncSelectControl
                     key={field.name}
                     field={field}
                     value={nodeConfig?.[field.name]}
                     nodeConfig={nodeConfig}
                     {...(workflowId ? { workflowId } : {})}
-                    onChange={(v) => setValue(target.nodeId, field.name, v)}
+                    onChange={handleChange}
+                    {...(emitFocus ? { onFocus: emitFocus } : {})}
                     testid={`node-setup-${target.nodeId}-${field.name}`}
                   />
                 ) : (
@@ -126,11 +145,13 @@ export function BuilderNodeSetupCard({
                     key={field.name}
                     field={field}
                     value={nodeConfig?.[field.name]}
-                    onChange={(v) => setValue(target.nodeId, field.name, v)}
+                    onChange={handleChange}
+                    {...(emitFocus ? { onFocus: emitFocus } : {})}
+                    onSubmit={() => handleUpdate({ target, supported, unsupported })}
                     testid={`node-setup-${target.nodeId}-${field.name}`}
                   />
-                ),
-              )}
+                );
+              })}
 
               {unsupported.length > 0 && (
                 <div

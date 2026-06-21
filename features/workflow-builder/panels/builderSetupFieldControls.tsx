@@ -27,6 +27,24 @@ const inputStyle = {
 } as const;
 
 /**
+ * BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-KEYBOARD — Enter submits the setup action (parity with the
+ * "Update step" button); Shift+Enter inserts a newline where the control is multiline. IME composition
+ * never submits. Mirrors the chat composer's feel but is scoped to the setup field — it NEVER sends a
+ * chat message or calls a model. `allowNewline` is true only for the textarea control.
+ */
+function submitOnEnter(
+  e: import("react").KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  onSubmit: (() => void) | undefined,
+  allowNewline: boolean,
+): void {
+  if (!onSubmit) return;
+  if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+  if (allowNewline && e.shiftKey) return; // Shift+Enter → newline in the textarea
+  e.preventDefault();
+  onSubmit();
+}
+
+/**
  * Async single-select control for a `select-async` field. Loads options through the existing
  * authenticated resolver (`useOptionsSource`). NEVER a model/Hermes call. `dependsOn` parents are read
  * from `nodeConfig` (this control's own collected values); an unresolved parent defers the field.
@@ -37,6 +55,7 @@ export function SetupAsyncSelectControl({
   nodeConfig,
   workflowId,
   onChange,
+  onFocus,
   testid,
 }: {
   field: PreviewSetupField;
@@ -44,6 +63,8 @@ export function SetupAsyncSelectControl({
   nodeConfig: Readonly<Record<string, unknown>> | undefined;
   workflowId?: string;
   onChange: (value: unknown) => void;
+  /** Optional: emitted when the control gains focus (existing-node setup → reveal the node config). */
+  onFocus?: () => void;
   testid: string;
 }) {
   const strValue = typeof value === "string" ? value : "";
@@ -140,6 +161,7 @@ export function SetupAsyncSelectControl({
         value={strValue}
         disabled={loading || empty}
         onChange={(e) => onChange(e.target.value)}
+        {...(onFocus ? { onFocus } : {})}
         className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
         style={inputStyle}
       >
@@ -159,14 +181,21 @@ export function SetupFieldControl({
   field,
   value,
   onChange,
+  onFocus,
+  onSubmit,
   testid,
 }: {
   field: PreviewSetupField;
   value: unknown;
   onChange: (value: unknown) => void;
+  /** Optional: emitted when the control gains focus (existing-node setup → reveal the node config). */
+  onFocus?: () => void;
+  /** Optional: Enter submits the setup action (text/number/textarea only; Shift+Enter = newline). */
+  onSubmit?: () => void;
   testid: string;
 }) {
   const strValue = typeof value === "string" ? value : typeof value === "number" ? String(value) : "";
+  const focusProp = onFocus ? { onFocus } : {};
 
   if (field.type === "boolean") {
     return (
@@ -177,6 +206,7 @@ export function SetupFieldControl({
           aria-label={field.label}
           checked={Boolean(value)}
           onChange={(e) => onChange(e.target.checked)}
+          {...focusProp}
         />
         {field.label}
       </label>
@@ -194,6 +224,8 @@ export function SetupFieldControl({
           rows={2}
           {...(field.placeholder ? { placeholder: field.placeholder } : {})}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => submitOnEnter(e, onSubmit, true)}
+          {...focusProp}
           className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
           style={inputStyle}
         />
@@ -203,6 +235,7 @@ export function SetupFieldControl({
           aria-label={field.label}
           value={strValue}
           onChange={(e) => onChange(e.target.value)}
+          {...focusProp}
           className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
           style={inputStyle}
         >
@@ -221,6 +254,8 @@ export function SetupFieldControl({
           value={strValue}
           {...(field.placeholder ? { placeholder: field.placeholder } : {})}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => submitOnEnter(e, onSubmit, false)}
+          {...focusProp}
           className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
           style={inputStyle}
         />
