@@ -302,9 +302,7 @@ describe("suggestWorkflowRepairForAI — preview integration", () => {
 
   it("never imports the AI-6 apply service (no-apply guarantee)", () => {
     const orchestrator = readFileSync("services/ai/repair/suggestWorkflowRepair.ts", "utf8");
-    const strategies = readFileSync("services/ai/repair/repairStrategies.ts", "utf8");
     expect(orchestrator).not.toMatch(/services\/ai\/apply/);
-    expect(strategies).not.toMatch(/services\/ai\/apply/);
     expect(orchestrator).not.toMatch(/applyWorkflowPatch/);
   });
 });

@@ -14,11 +14,11 @@ import type { ReactNode } from "react";
  * difference is just a className switch — extracted here so future AI
  * surfaces don't re-implement either.
  *
- * Item shape. The planner's `AiRequiredUserInput` and the repair service's
- * `AiRepairRequiredUserInput` differ only in `nodeId` cardinality (planner
- * optional, repair required). The shared view never reads `nodeId` — it
- * only renders `label` + (optionally) the metadata field key, both of which
- * are present on both shapes. A structural type captures the intersection.
+ * Item shape. The repair service's `AiRepairRequiredUserInput` (and any other
+ * required-input shape a future AI surface introduces) is captured here
+ * structurally — the shared view never reads `nodeId`, it only renders `label`
+ * + (optionally) the metadata field key, both of which are present on every
+ * such shape. A structural type captures the intersection.
  *
  * `showFieldHint` defaults to false so existing Builder behavior is byte-
  * preserved (Builder's items never have `field` populated today, so the
