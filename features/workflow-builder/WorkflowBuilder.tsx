@@ -458,7 +458,10 @@ export function WorkflowBuilder({
             onClose={handleDrawerClose}
           >
             {mode === "inspector" ? <NodeInspectorPanel /> : null}
-            {mode === "results" ? <RunResultsPanel /> : null}
+            {mode === "results" ? (
+              // HERMES-AGENT-REHOME-RUN-RESULTS-REPAIR — accountId scopes the governed repair route.
+              <RunResultsPanel {...(accountId ? { accountId } : {})} />
+            ) : null}
             {mode === "validation" ? (
               <ValidationSummary
                 onChooseTrigger={openTriggerPicker}

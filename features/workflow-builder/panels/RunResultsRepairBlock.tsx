@@ -4,24 +4,33 @@ import { useState } from "react";
 import {
   AiApiError,
   applyWorkflowPatch,
-  requestWorkflowRepair,
   type AiOpaquePatch,
   type AiRepairResult,
   type AiRepairSuccess,
 } from "@/lib/api/ai";
+import { requestAccountWorkflowRepair } from "@/lib/api/ai/workflowRepair";
 import { AiBulletList, AiRequiredInputList } from "../ai";
 
 /**
  * Slice 4.AI-13 — failed-run repair entry point.
  *
  * Rendered only when the run failed (the parent panel only mounts this on
- * `detail.status === "failed"`). Calls the deterministic AI-7 service via the
- * AI-13 route, then renders a value-free summary + (when present) a
- * structurally validated preview. Applying a proposed repair REUSES the
- * existing AI-9B apply route — no separate repair-apply path. The proposed
- * patch is treated as opaque on the client (never inspected / rendered as
- * config values). High-risk patches require explicit confirmation via the
- * existing apply route's confirmation contract.
+ * `detail.status === "failed"`).
+ *
+ * HERMES-AGENT-REHOME-RUN-RESULTS-REPAIR (2026-06-21): the "Ask AI to suggest a
+ * fix" call is now GOVERNED + account-scoped — it goes to
+ * `POST /api/accounts/[id]/ai/workflow-repair` (via `requestAccountWorkflowRepair`)
+ * instead of the legacy per-workflow `…/runs/[runId]/ai/repair` route. The repair
+ * suggestion stays DETERMINISTIC (the route makes no model call), so this block
+ * never sends run logs / payloads to a model and never sees a gateway token.
+ * Requires `accountId` (from trusted builder context); without it the block shows a
+ * safe "unavailable" note instead of the Ask button.
+ *
+ * Applying a proposed repair STILL reuses the existing deterministic AI-9B apply
+ * route (`applyWorkflowPatch`) — no separate repair-apply path, no auto-apply. The
+ * proposed patch is treated as opaque on the client (never inspected / rendered as
+ * config values). High-risk patches require explicit confirmation via the apply
+ * route's confirmation contract.
  *
  * Intentional non-goals: no chat history, no thread persistence, no model
  * settings, no auto-apply. A single Ask → Result → (optional) Apply flow.
@@ -37,20 +46,24 @@ type RepairUiState =
 export function RunResultsRepairBlock({
   workflowId,
   runId,
+  accountId,
 }: {
   workflowId: string;
   runId: string;
+  /** Owning account — governed-route scope (HERMES-AGENT-REHOME-RUN-RESULTS-REPAIR). */
+  accountId?: string;
 }) {
   const [state, setState] = useState<RepairUiState>("idle");
   const [result, setResult] = useState<AiRepairResult | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
 
   async function onAsk(): Promise<void> {
+    if (!accountId) return;
     setState("loading");
     setResult(null);
     setApplyError(null);
     try {
-      const res = await requestWorkflowRepair(workflowId, runId);
+      const res = await requestAccountWorkflowRepair({ accountId, workflowId, runId });
       setResult(res);
       setState("ready");
     } catch (err) {
@@ -109,7 +122,7 @@ export function RunResultsRepairBlock({
     >
       <header className="flex items-center justify-between gap-2">
         <h4 className="text-xs font-medium">AI repair suggestion</h4>
-        {state === "idle" ? (
+        {state === "idle" && accountId ? (
           <button
             type="button"
             className="rounded border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
@@ -120,6 +133,15 @@ export function RunResultsRepairBlock({
           </button>
         ) : null}
       </header>
+
+      {state === "idle" && !accountId ? (
+        <p
+          className="text-xs text-muted-foreground"
+          data-testid="repair-unavailable"
+        >
+          Repair suggestions are unavailable for this workflow right now.
+        </p>
+      ) : null}
 
       {state === "loading" ? (
         <p

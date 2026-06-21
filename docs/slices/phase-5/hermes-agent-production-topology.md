@@ -281,3 +281,27 @@ the regression-localization checklist.
       builder composition root renders `<BuilderAiPanel>`, the floating entry file is gone, and the
       `/ai/plan` route file still exists (guards the keep-decision). No code/route behaviour changed;
       docs + deprecation comments + one deletion only.
+17. ✅ **HERMES-AGENT-REHOME-RUN-RESULTS-REPAIR (done)** — moved the builder's run-results repair "Ask"
+    onto a governed, account-scoped route. **Audit-driven decision:** the live run-results repair
+    (`RunResultsRepairBlock` → `suggestWorkflowRepairForAI`) makes **NO model call** — it is fully
+    deterministic (rule-based classification → safe `WorkflowPatch` → deterministic AI-5 preview →
+    value-free result). So the rehome is **governance-only**: it preserves determinism rather than
+    routing a destructive-capable repair through an LLM (a real safety/cost regression we avoided).
+    - New route [`POST /api/accounts/[id]/ai/workflow-repair`](../../../app/api/accounts/[id]/ai/workflow-repair/route.ts):
+      `requireUserWithAccount` + strict `{workflowId, runId}` + workflow-belongs-to-account (no-leak
+      404) + the suggester's own run→workflow ownership (`NOT_FOUND` 404) + persistent audit via the
+      existing `recordAiRepairOutcome` seam. It delegates to the SAME deterministic
+      `suggestWorkflowRepairForAI` and returns the identical value-free `RepairSuggestionResult`.
+    - **No model / Hermes / gateway / OpenAI / Nous call** → no prompt or run-context payload is sent
+      anywhere, nothing to leak, no `CHAINREACT_AI_GATEWAY_TOKEN` involvement. The AI-credit + 
+      `HERMES_AGENT_ENABLED` gates are intentionally NOT applied (they gate model spend / Hermes
+      availability, neither of which exists here); a future LLM-backed repair-guidance augmentation
+      MUST add them around its model call.
+    - New client [`requestAccountWorkflowRepair`](../../../lib/api/ai/workflowRepair.ts); `RunResultsRepairBlock`
+      now asks through it (threaded `accountId` from `WorkflowBuilder` → `RunResultsPanel`). Without an
+      `accountId` it shows a safe "unavailable" note instead of the Ask button.
+    - **Apply is unchanged** — still the existing deterministic `applyWorkflowPatch` (`…/ai/apply`) with
+      explicit confirmation. No auto-apply, no auto-save, no activation/run, no separate workflow.
+    - **Legacy `…/runs/[runId]/ai/repair` kept** (its backend test still covers it; no live UI consumer
+      after this slice). Structural scan asserts the UI uses the new governed helper (not the legacy
+      ask) and the new route stays model-free and never applies a patch.

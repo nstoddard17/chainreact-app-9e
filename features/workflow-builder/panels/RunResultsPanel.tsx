@@ -32,7 +32,7 @@ const MISSING_NODE_LABEL = "a node that's no longer in this workflow";
  *   - Max-height scrollable per step so a chatty Slack response doesn't
  *     blow out the column height.
  */
-export function RunResultsPanel() {
+export function RunResultsPanel({ accountId }: { accountId?: string } = {}) {
   const status = useRunSlice((s) => s.status);
   const runId = useRunSlice((s) => s.runId);
   const detail = useRunSlice((s) => s.detail);
@@ -78,6 +78,7 @@ export function RunResultsPanel() {
         detail={detail}
         pollCount={pollCount}
         labelForNodeId={labelForNodeId}
+        accountId={accountId}
       />
     </section>
   );
@@ -88,11 +89,13 @@ function Body({
   detail,
   pollCount,
   labelForNodeId,
+  accountId,
 }: {
   status: ReturnType<typeof useRunSlice.getState>["status"];
   detail: ReturnType<typeof useRunSlice.getState>["detail"];
   pollCount: number;
   labelForNodeId: (nodeId: string) => string;
+  accountId?: string;
 }) {
   if (status === "idle") {
     return (
@@ -140,7 +143,11 @@ function Body({
       ) : null}
       <Steps steps={detail.steps} labelForNodeId={labelForNodeId} />
       {detail.status === "failed" ? (
-        <RunResultsRepairBlock workflowId={detail.workflowId} runId={detail.id} />
+        <RunResultsRepairBlock
+          workflowId={detail.workflowId}
+          runId={detail.id}
+          {...(accountId ? { accountId } : {})}
+        />
       ) : null}
     </>
   );

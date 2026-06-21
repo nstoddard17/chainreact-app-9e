@@ -109,3 +109,33 @@ describe("legacy plan path is not user-mounted", () => {
     expect(existsSync(resolve(process.cwd(), "app/api/workflows/[id]/ai/plan/route.ts"))).toBe(true);
   });
 });
+
+/**
+ * HERMES-AGENT-REHOME-RUN-RESULTS-REPAIR — the run-results repair "Ask" call is now on the governed
+ * account-scoped route. The deterministic apply stays on the existing path. These guards lock the
+ * rehome: the UI calls the new helper (not the legacy per-workflow one) and the new route stays
+ * deterministic (no model/gateway/token) and never applies a patch itself.
+ */
+describe("run-results repair rehome — governed, deterministic", () => {
+  it("RunResultsRepairBlock asks via the governed account helper, not the legacy per-workflow call", () => {
+    const src = read("features/workflow-builder/panels/RunResultsRepairBlock.tsx");
+    expect(src).toMatch(/requestAccountWorkflowRepair/);
+    // The legacy ask (`requestWorkflowRepair(workflowId, runId)`) is gone from the UI.
+    expect(src).not.toMatch(/\brequestWorkflowRepair\b/);
+  });
+
+  it("the account repair client posts ONLY to /api/accounts/[id]/ai/workflow-repair (no raw fetch / token)", () => {
+    const src = read("lib/api/ai/workflowRepair.ts");
+    expect(src).toMatch(/\/api\/accounts\/.*\/ai\/workflow-repair/);
+    expect(src).not.toMatch(/\bfetch\s*\(/);
+    expect(src).not.toMatch(/CHAINREACT_AI_GATEWAY_TOKEN/);
+  });
+
+  it("the account repair route is deterministic — no model/gateway call, and never applies a patch", () => {
+    const src = read("app/api/accounts/[id]/ai/workflow-repair/route.ts");
+    expect(src).not.toMatch(/openai|anthropic|callLLM|getAnthropic|getOpenAI|hermes|gateway/i);
+    expect(src).not.toMatch(/CHAINREACT_AI_GATEWAY_TOKEN/);
+    // Suggestion only — applying stays on the separate deterministic apply route.
+    expect(src).not.toMatch(/applyWorkflowPatch|applyRepairPatch/);
+  });
+});

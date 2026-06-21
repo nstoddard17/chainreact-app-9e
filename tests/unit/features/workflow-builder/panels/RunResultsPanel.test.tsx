@@ -4,13 +4,17 @@
  * Reads directly from the slice (no mock) so the render-vs-state
  * mapping is exercised end-to-end.
  */
+// HERMES-AGENT-REHOME-RUN-RESULTS-REPAIR — the "Ask" call now goes to the governed
+// account-scoped helper; apply stays on the existing deterministic apply path.
 const mockRequestRepair = jest.fn();
+jest.mock("@/lib/api/ai/workflowRepair", () => ({
+  requestAccountWorkflowRepair: (...a: unknown[]) => mockRequestRepair(...a),
+}));
 const mockApplyPatch = jest.fn();
 jest.mock("@/lib/api/ai", () => {
   const actual = jest.requireActual("@/lib/api/ai");
   return {
     ...actual,
-    requestWorkflowRepair: (...a: unknown[]) => mockRequestRepair(...a),
     applyWorkflowPatch: (...a: unknown[]) => mockApplyPatch(...a),
   };
 });
@@ -164,7 +168,7 @@ describe("RepairBlock (AI-13)", () => {
       .getState()
       .startTracking({ workflowId: failedDetail.workflowId, runId: failedDetail.id });
     useRunSlice.setState({ status: "failed", detail: failedDetail });
-    return render(<RunResultsPanel />);
+    return render(<RunResultsPanel accountId="acct-1" />);
   }
 
   it("is not rendered on a succeeded run", () => {
@@ -198,7 +202,11 @@ describe("RepairBlock (AI-13)", () => {
     );
     mountFailed();
     await user.click(screen.getByTestId("repair-ask"));
-    expect(mockRequestRepair).toHaveBeenCalledWith(failedDetail.workflowId, failedDetail.id);
+    expect(mockRequestRepair).toHaveBeenCalledWith({
+      accountId: "acct-1",
+      workflowId: failedDetail.workflowId,
+      runId: failedDetail.id,
+    });
     expect(screen.getByTestId("repair-loading")).toBeInTheDocument();
     // Resolve so React can finalize state changes (avoids act warnings).
     resolveRepair({
@@ -418,5 +426,46 @@ describe("RepairBlock (AI-13)", () => {
     );
     // No raw error_details / config values surfaced in the block.
     expect(screen.getByTestId("repair-block").textContent).not.toMatch(/connection-string|password|token/i);
+  });
+
+  // HERMES-AGENT-REHOME-RUN-RESULTS-REPAIR — governed-route scope + explicit-apply guards.
+  it("shows a safe unavailable note (no Ask button, no call) when accountId is absent", () => {
+    useRunSlice
+      .getState()
+      .startTracking({ workflowId: failedDetail.workflowId, runId: failedDetail.id });
+    useRunSlice.setState({ status: "failed", detail: failedDetail });
+    render(<RunResultsPanel />); // no accountId
+    expect(screen.getByTestId("repair-unavailable")).toBeInTheDocument();
+    expect(screen.queryByTestId("repair-ask")).not.toBeInTheDocument();
+    expect(mockRequestRepair).not.toHaveBeenCalled();
+  });
+
+  it("asking for a repair never auto-applies — apply fires only on an explicit Apply click", async () => {
+    const user = userEvent.setup();
+    mockRequestRepair.mockResolvedValueOnce({
+      ok: true,
+      workflowId: failedDetail.workflowId,
+      workflowRunId: failedDetail.id,
+      failureSummary: {},
+      repairability: "repairable",
+      reasonCode: "MISSING_REQUIRED_FIELD",
+      proposedPatch: { patchId: "repair:1", workflowId: "wf", baseRevision: "rev", operations: [], summary: "s", rationale: "r" },
+      preview: {
+        ok: true,
+        riskLevel: "low",
+        requiresConfirmation: false,
+        validation: { ok: true, errors: [], warnings: [] },
+        changes: [{ op: "updateNodeConfig", description: "Set userId on n-slack" }],
+      },
+      requiredUserInput: [],
+      recommendations: [],
+      confidence: "high",
+      safetyNotes: [],
+    });
+    mountFailed();
+    await user.click(screen.getByTestId("repair-ask"));
+    // A surfaced, valid proposal does NOT apply anything until the user clicks Apply.
+    await waitFor(() => expect(screen.getByTestId("repair-apply")).toBeInTheDocument());
+    expect(mockApplyPatch).not.toHaveBeenCalled();
   });
 });
