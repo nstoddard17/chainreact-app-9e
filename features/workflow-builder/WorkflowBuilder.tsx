@@ -26,8 +26,7 @@ import {
   type AddNodePanelMode,
   type ProviderOption,
 } from "./panels/AddNodePanel";
-import { BuilderAiPanel } from "./panels/BuilderAiPanel";
-import { BuilderGuidanceEntry } from "./panels/BuilderGuidanceEntry";
+import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
 import { RunResultsPanel } from "./panels/RunResultsPanel";
 import { useConfigSlice } from "./state/configSlice";
@@ -441,7 +440,15 @@ export function WorkflowBuilder({
           isCollapsed={leftRail.isCollapsed}
           onCollapse={leftRail.collapse}
         >
-          <BuilderAiPanel />
+          {/* HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — the left rail is now the single, primary builder
+              AI entry: Hermes workflow guidance (account route), NOT the deprecated plan endpoint.
+              Reuses the verified guidance panel + the same canvas-preview/apply path. */}
+          <BuilderGuidanceRail
+            workflowId={workflow.id}
+            {...(accountId ? { accountId } : {})}
+            {...(guidanceEnabled !== undefined ? { guidanceEnabled } : {})}
+            onShowPreview={handleShowPreview}
+          />
         </BuilderLeftAgentRail>
       }
       rightDrawer={
@@ -503,17 +510,9 @@ export function WorkflowBuilder({
             onClose={closeAddPanel}
           />
         ) : null}
-        {/* HERMES-AGENT-GUIDANCE-UI-BUILDER — advisory "Build with me" entry, scoped to THIS
-            workflow. Server-gated on isHermesAgentEnabled() (default OFF) AND a resolved accountId;
-            it forwards workflowId so guidance is drawn from the current draft. Advisory only — it
-            never creates / mutates / runs the workflow. */}
-        {guidanceEnabled && accountId ? (
-          <BuilderGuidanceEntry
-            accountId={accountId}
-            workflowId={workflow.id}
-            onShowPreview={handleShowPreview}
-          />
-        ) : null}
+        {/* HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — the separate floating "Build with me" pill
+            (BuilderGuidanceEntry) was removed: the left rail (BuilderGuidanceRail) is now the single
+            primary builder AI entry, so the builder no longer shows two competing AI surfaces. */}
         {/* HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — ephemeral, non-applied ghost overlay of an AI draft
             preview. UI state only (above): showing it never merges into the real graph, writes
             draftDefinition, or saves. Discard clears the state; "Apply preview" runs the explicit,

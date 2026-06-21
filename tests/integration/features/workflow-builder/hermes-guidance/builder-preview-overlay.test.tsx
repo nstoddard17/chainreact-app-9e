@@ -102,9 +102,9 @@ function renderBuilder() {
   );
 }
 
-/** Open the entry + submit + reach the "Show on canvas" affordance (does NOT click it yet). */
+/** Submit in the rail + reach the "Show on canvas" affordance (does NOT click it yet). */
 async function reachShowOnCanvas(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByTestId("builder-guidance-toggle"));
+  // HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — guidance is rendered directly in the left rail now.
   await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
   await user.click(screen.getByTestId("workflow-guidance-submit"));
   await screen.findByTestId("workflow-guidance-show-on-canvas");

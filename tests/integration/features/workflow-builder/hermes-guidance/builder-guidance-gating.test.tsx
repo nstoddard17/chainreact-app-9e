@@ -1,12 +1,12 @@
 /**
- * WorkflowBuilder — builder "Build with me" guidance entry gating
- * (HERMES-AGENT-GUIDANCE-UI-BUILDER).
+ * WorkflowBuilder — builder left-rail Hermes guidance gating
+ * (HERMES-AGENT-REPLACE-BUILDER-AI-PLAN, supersedes the floating-entry gating).
  *
- * Proves the server-flag gating: the advisory entry mounts ONLY when `guidanceEnabled` (the
- * server-evaluated isHermesAgentEnabled(), default OFF) AND a resolved `accountId` are both present —
- * mirroring the dashboard's `isHermesAgentEnabled() && <WorkflowGuidancePanel>` pattern. Either gate
- * absent → no entry (no dead box). Renders the full builder; the guidance helper is mocked so no
- * network is touched.
+ * The left rail is now the single primary builder AI entry. Proves the server-flag gating: the live
+ * guidance panel renders in the rail ONLY when `guidanceEnabled` (the server-evaluated
+ * isHermesAgentEnabled(), default OFF) AND a resolved `accountId` are both present. Either gate absent
+ * → a safe "unavailable" note instead of the panel (no dead box, no call to a disabled route). Renders
+ * the full builder; the guidance helper is mocked so no network is touched.
  */
 const mockRouterRefresh = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -58,8 +58,8 @@ beforeEach(() => {
   useConfigSlice.getState().reset();
 });
 
-describe("WorkflowBuilder — guidance entry gating", () => {
-  it("renders the entry when guidance is enabled AND accountId is resolved", () => {
+describe("WorkflowBuilder — rail guidance gating", () => {
+  it("renders the guidance panel in the rail when guidance is enabled AND accountId is resolved", () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -69,10 +69,14 @@ describe("WorkflowBuilder — guidance entry gating", () => {
         guidanceEnabled
       />,
     );
-    expect(screen.getByTestId("builder-guidance-entry")).toBeInTheDocument();
+    // The single AI entry lives in the left rail now — no separate floating "Build with me" pill.
+    expect(screen.getByTestId("builder-guidance-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("workflow-guidance-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("builder-guidance-rail-unavailable")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("builder-guidance-entry")).not.toBeInTheDocument();
   });
 
-  it("hides the entry when guidance is disabled (flag OFF)", () => {
+  it("shows the safe unavailable note (not the panel) when guidance is disabled (flag OFF)", () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -82,10 +86,11 @@ describe("WorkflowBuilder — guidance entry gating", () => {
         guidanceEnabled={false}
       />,
     );
-    expect(screen.queryByTestId("builder-guidance-entry")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("workflow-guidance-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-guidance-rail-unavailable")).toBeInTheDocument();
   });
 
-  it("hides the entry when accountId is absent even if enabled", () => {
+  it("shows the unavailable note when accountId is absent even if enabled", () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -94,10 +99,11 @@ describe("WorkflowBuilder — guidance entry gating", () => {
         guidanceEnabled
       />,
     );
-    expect(screen.queryByTestId("builder-guidance-entry")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("workflow-guidance-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-guidance-rail-unavailable")).toBeInTheDocument();
   });
 
-  it("hides the entry by default (no guidance props — isolated/back-compat render)", () => {
+  it("shows the unavailable note by default (no guidance props — isolated/back-compat render)", () => {
     render(
       <WorkflowBuilder
         workflow={baseWorkflow}
@@ -105,6 +111,7 @@ describe("WorkflowBuilder — guidance entry gating", () => {
         actionProviders={actionProviders}
       />,
     );
-    expect(screen.queryByTestId("builder-guidance-entry")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("workflow-guidance-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-guidance-rail-unavailable")).toBeInTheDocument();
   });
 });

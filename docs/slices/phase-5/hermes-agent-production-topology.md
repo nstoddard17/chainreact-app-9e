@@ -52,17 +52,19 @@ Vercel ChainReact app
 | **React Agent capability** `workflow_guidance_intake` (read-only, audited, gated; runs through `runAuthorizedCapability`) — HERMES-AGENT-CAPABILITY | [`services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts`](../../../services/ai/reactAgent/capabilities/workflowGuidanceIntake.ts) + registry [`capabilities.ts`](../../../services/ai/reactAgent/capabilities.ts) |
 | **Gated route** `POST /api/accounts/[id]/ai/workflow-guidance` (auth + membership + freeze + `aiCreditGate` feature `workflow_guidance` + persistent audit recorder + config gating) — HERMES-AGENT-CAPABILITY-ROUTE | [`app/api/accounts/[id]/ai/workflow-guidance/route.ts`](../../../app/api/accounts/[id]/ai/workflow-guidance/route.ts) |
 | **UI entry point** "Build with me" advisory panel (workflows dashboard; server-gated on `HERMES_AGENT_ENABLED`; calls only the route via the client helper) — HERMES-AGENT-GUIDANCE-UI | [`features/workflows/WorkflowGuidancePanel.tsx`](../../../features/workflows/WorkflowGuidancePanel.tsx) + helper [`lib/api/ai/guidance.ts`](../../../lib/api/ai/guidance.ts) |
-| **Builder UI entry point** "Build with me" advisory entry inside the workflow builder — a collapsed floating pill (bottom-left of the canvas) that reveals the SAME `WorkflowGuidancePanel`, passing the in-context `workflowId` so guidance is drawn from the current draft. Server-gated on `isHermesAgentEnabled()` AND a resolved `accountId`; reuses the route/helper/panel verbatim (no new request logic) — HERMES-AGENT-GUIDANCE-UI-BUILDER | [`features/workflow-builder/panels/BuilderGuidanceEntry.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceEntry.tsx) (mounted by [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx); gated in [`app/workflows/[id]/page.tsx`](../../../app/workflows/[id]/page.tsx)) |
+| **Builder UI entry point** — the builder's LEFT CHAT RAIL is now the SINGLE, primary builder AI entry: it renders the SAME `WorkflowGuidancePanel` (passing the in-context `workflowId`), so typing in the rail → Hermes guidance → Show on canvas → preview → Apply preview. It REPLACED the old plan-based `BuilderAiPanel` (which called the deprecated `POST /api/workflows/[id]/ai/plan`, now 503) and the separate floating "Build with me" pill (`BuilderGuidanceEntry`, no longer rendered) so there is ONE AI surface. Gated on `isHermesAgentEnabled()` AND a resolved `accountId` (else a safe "unavailable" note, no dead box). Rail header label is "connected · Hermes" (no model/provider name). Reuses the route/helper/panel verbatim (no new request logic) — HERMES-AGENT-REPLACE-BUILDER-AI-PLAN (supersedes HERMES-AGENT-GUIDANCE-UI-BUILDER) | [`features/workflow-builder/panels/BuilderGuidanceRail.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceRail.tsx) (mounted in the rail by [`WorkflowBuilder.tsx`](../../../features/workflow-builder/WorkflowBuilder.tsx); gated in [`app/workflows/[id]/page.tsx`](../../../app/workflows/[id]/page.tsx)). The old floating wrapper [`BuilderGuidanceEntry.tsx`](../../../features/workflow-builder/panels/BuilderGuidanceEntry.tsx) remains as code but is no longer mounted. |
 
 ### End-to-end advisory path (UI → route → capability → gateway)
 
-The same path is used by the builder entry — `BuilderGuidanceEntry` mounts the identical
+The same path is used by the builder LEFT CHAT RAIL — `BuilderGuidanceRail` mounts the identical
 `WorkflowGuidancePanel`, the only difference being a trusted in-context `workflowId` in the body. The
 route then verifies that workflow belongs to the caller's account (no-leak 404 otherwise) and passes
-its sanitized saved draft as optional context to the capability.
+its sanitized saved draft as optional context to the capability. The builder no longer has any path to
+the deprecated `POST /api/workflows/[id]/ai/plan` (`planWorkflow`) — proven by the structural scan
+[`tests/structure/builder-ai-rail-no-old-endpoint.test.ts`](../../../tests/structure/builder-ai-rail-no-old-endpoint.test.ts).
 
 ```
-"Build with me" panel (browser, workflows page OR builder; builder adds workflowId)
+"Build with me" panel (browser, workflows page OR builder LEFT CHAT RAIL; builder adds workflowId)
   → requestWorkflowGuidance() helper → POST /api/accounts/[id]/ai/workflow-guidance
     → route: auth + membership + freeze + optional-workflow-ownership + availability + aiCreditGate
       → runWorkflowGuidanceIntakeCapability → runAuthorizedCapability (audited)
@@ -233,3 +235,25 @@ the regression-localization checklist.
       through the existing flow; NO apply-then-save, auto-save, activation, run, separate workflow,
       delete-node, replace-trigger, config overwrite, or credential insertion. No direct OpenAI / Nous /
       private Hermes calls; no gateway-token browser exposure.
+15. ✅ **HERMES-AGENT-REPLACE-BUILDER-AI-PLAN (done)** — the builder's LEFT CHAT RAIL now IS the Hermes
+    guidance surface, replacing the old plan-based `BuilderAiPanel` that called the deprecated
+    `POST /api/workflows/[id]/ai/plan` (503 in current envs):
+    - New thin `BuilderGuidanceRail` renders the dashboard's `WorkflowGuidancePanel` verbatim in the
+      rail (reusing the `requestWorkflowGuidance` helper → `POST /api/accounts/[id]/ai/workflow-guidance`
+      with the in-context `workflowId`). Zero new network logic; the Show-on-canvas → preview → Apply
+      preview path is the existing one (`graphSlice.applyAdditivePatch`).
+    - The separate floating "Build with me" pill (`BuilderGuidanceEntry`) is no longer mounted — ONE AI
+      entry. The old `BuilderAiPanel` / `useBuilderAi` / `planWorkflow` code is intentionally NOT
+      deleted (still covered by their own tests + the route is used elsewhere); only the VISIBLE rail is
+      disconnected. A structural scan
+      [`tests/structure/builder-ai-rail-no-old-endpoint.test.ts`](../../../tests/structure/builder-ai-rail-no-old-endpoint.test.ts)
+      proves the rail's source no longer references `planWorkflow` / `/ai/plan` / the gateway token, and
+      that `WorkflowBuilder` no longer mounts `BuilderAiPanel` / the floating entry.
+    - Rail header model label changed "connected · claude" → "connected · Hermes" (no provider/model
+      name leaks). Gated on `isHermesAgentEnabled()` AND a resolved `accountId`; otherwise a safe
+      "unavailable" note (no dead box, no call to a disabled route).
+    - **Limits / unchanged:** advisory + explicit-apply only — NO auto-save, apply-then-save, activation,
+      run, or separate-workflow creation; no direct OpenAI / Nous / Render / private-Hermes browser
+      calls; no gateway-token exposure. Consequence: the old rail's diagnose / repair / chat-fill
+      features (which also rode the deprecated AI endpoints) are no longer surfaced in the builder; their
+      code + tests remain for any future re-integration on the Hermes path.

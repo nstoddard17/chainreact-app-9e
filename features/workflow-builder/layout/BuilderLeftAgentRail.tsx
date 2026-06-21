@@ -137,7 +137,7 @@ export function BuilderLeftAgentRail({
                   boxShadow: "0 0 0 2px var(--builder-success-soft)",
                 }}
               />
-              connected · claude
+              connected · Hermes
             </div>
           </div>
         </div>

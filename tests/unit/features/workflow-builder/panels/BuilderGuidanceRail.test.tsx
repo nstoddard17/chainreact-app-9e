@@ -1,0 +1,122 @@
+/**
+ * BuilderGuidanceRail — the builder left rail is now the single Hermes guidance entry
+ * (HERMES-AGENT-REPLACE-BUILDER-AI-PLAN).
+ *
+ * Proves the visible builder chat rail submits through the ACCOUNT workflow-guidance helper
+ * (`requestWorkflowGuidance` → POST /api/accounts/[id]/ai/workflow-guidance) carrying the builder
+ * workflowId, renders guidanceText, offers Show on canvas for a previewDraft, and gates safely to an
+ * "unavailable" note when guidance is off / no account. It never touches the deprecated plan endpoint
+ * (asserted structurally in builder-ai-rail-no-old-endpoint.test.ts).
+ */
+const mockRequest = jest.fn();
+jest.mock("@/lib/api/ai/guidance", () => ({
+  requestWorkflowGuidance: (...a: unknown[]) => mockRequest(...a),
+}));
+
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { BuilderGuidanceRail } from "@/features/workflow-builder/panels/BuilderGuidanceRail";
+
+beforeEach(() => {
+  mockRequest.mockReset();
+});
+
+describe("BuilderGuidanceRail — gating", () => {
+  it("renders the guidance panel when enabled AND accountId is present", () => {
+    render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
+    expect(screen.getByTestId("builder-guidance-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("workflow-guidance-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("builder-guidance-rail-unavailable")).not.toBeInTheDocument();
+  });
+
+  it("shows a safe unavailable note (no panel) when guidance is disabled", () => {
+    render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled={false} />);
+    expect(screen.queryByTestId("workflow-guidance-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-guidance-rail-unavailable")).toBeInTheDocument();
+  });
+
+  it("shows the unavailable note when accountId is absent even if enabled", () => {
+    render(<BuilderGuidanceRail workflowId="wf-9" guidanceEnabled />);
+    expect(screen.queryByTestId("workflow-guidance-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("builder-guidance-rail-unavailable")).toBeInTheDocument();
+  });
+});
+
+describe("BuilderGuidanceRail — submit goes to the account workflow-guidance route", () => {
+  it("submits goalText + workflowId + accountId through requestWorkflowGuidance and renders guidanceText", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Here is how to build it.",
+      source: "hermes-agent",
+      workflowPlan: null,
+      previewDraft: null,
+    });
+    render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
+
+    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+
+    await waitFor(() =>
+      expect(mockRequest).toHaveBeenCalledWith({
+        accountId: "acct-1",
+        goalText: "follow up with leads",
+        workflowId: "wf-9",
+      }),
+    );
+    expect(await screen.findByTestId("workflow-guidance-result")).toHaveTextContent(
+      "Here is how to build it.",
+    );
+  });
+
+  it("offers Show on canvas for a previewDraft and forwards the validated plan + preview", async () => {
+    const user = userEvent.setup();
+    const onShowPreview = jest.fn();
+    const workflowPlan = {
+      schemaVersion: 1,
+      title: "Lead follow-up",
+      summary: "Watch then notify.",
+      notApplied: true,
+      steps: [
+        { ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" },
+        { ref: "s1", role: "action", provider: "slack", type: "send_message", purpose: "notify" },
+      ],
+    };
+    const previewDraft = {
+      version: 1,
+      title: "Lead follow-up",
+      summary: "Watch then notify.",
+      notice: "Preview only — your workflow has not changed.",
+      notApplied: true,
+      nodes: [
+        { previewId: "preview-step-1", role: "trigger", provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true },
+        { previewId: "preview-step-2", role: "action", provider: "slack", type: "send_message", label: "slack:send_message", purpose: "notify", notApplied: true },
+      ],
+      edges: [{ previewId: "preview-edge-1", fromPreviewId: "preview-step-1", toPreviewId: "preview-step-2", notApplied: true }],
+    };
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft });
+
+    render(
+      <BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled onShowPreview={onShowPreview} />,
+    );
+    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
+
+    expect(onShowPreview).toHaveBeenCalledTimes(1);
+    expect(onShowPreview.mock.calls[0]![0]).toMatchObject({
+      plan: { title: "Lead follow-up" },
+      preview: { title: "Lead follow-up" },
+    });
+  });
+
+  it("maps a route failure to safe copy (no internal detail)", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockRejectedValue(new Error("503 from gateway"));
+    render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "do something");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    const err = await screen.findByTestId("workflow-guidance-error");
+    expect(err.textContent ?? "").not.toMatch(/503|gateway/i);
+  });
+});

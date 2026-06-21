@@ -92,7 +92,8 @@ function renderBuilder(wf: WorkflowDetail) {
 }
 
 async function applyPreview(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByTestId("builder-guidance-toggle"));
+  // HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — guidance now lives directly in the left rail (no
+  // floating toggle to open first).
   await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
   await user.click(screen.getByTestId("workflow-guidance-submit"));
   await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
@@ -183,7 +184,6 @@ describe("builder apply-preview — insert between (selected mid-chain node)", (
   it("inserts the proposed action between the selected node and its single child (A → new → B)", async () => {
     const user = userEvent.setup();
     renderBuilder(workflow(existingNodes, existingEdges));
-    await user.click(screen.getByTestId("builder-guidance-toggle"));
     await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));

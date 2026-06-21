@@ -767,7 +767,7 @@ describe("WorkflowBuilder", () => {
       window.localStorage.clear();
     });
 
-    it("mounts the BuilderAiPanel inside the left rail by default on desktop", () => {
+    it("mounts the builder guidance rail inside the left rail by default on desktop", () => {
       render(
         <WorkflowBuilder
           workflow={baseWorkflow}
@@ -777,12 +777,12 @@ describe("WorkflowBuilder", () => {
       );
       const rail = screen.getByTestId("builder-left-agent-rail");
       expect(rail).toBeInTheDocument();
-      const panel = screen.getByTestId("builder-ai-panel");
+      const panel = screen.getByTestId("builder-guidance-rail");
       expect(panel).toBeInTheDocument();
       expect(rail.contains(panel)).toBe(true);
     });
 
-    it("renders BuilderAiPanel exactly once (no duplicate below-canvas mount)", () => {
+    it("renders the builder guidance rail exactly once (no duplicate below-canvas mount)", () => {
       render(
         <WorkflowBuilder
           workflow={baseWorkflow}
@@ -790,7 +790,7 @@ describe("WorkflowBuilder", () => {
           actionProviders={actionProviders}
         />,
       );
-      expect(screen.getAllByTestId("builder-ai-panel")).toHaveLength(1);
+      expect(screen.getAllByTestId("builder-guidance-rail")).toHaveLength(1);
     });
 
     // Slice 4.BUILDER-DESIGN-PARITY-1 — collapsed rail now renders a 40px
@@ -799,7 +799,7 @@ describe("WorkflowBuilder", () => {
     // (and its state / effects) must NOT mount while collapsed — is
     // preserved and asserted below. Rail presence is now identified by
     // `data-collapsed="true"`.
-    it("header toggle collapses the rail (BuilderAiPanel unmounts; spine remains)", async () => {
+    it("header toggle collapses the rail (guidance rail unmounts; spine remains)", async () => {
       const user = userEvent.setup();
       render(
         <WorkflowBuilder
@@ -809,7 +809,7 @@ describe("WorkflowBuilder", () => {
         />,
       );
       expect(screen.getByTestId("builder-left-agent-rail")).toBeInTheDocument();
-      expect(screen.getByTestId("builder-ai-panel")).toBeInTheDocument();
+      expect(screen.getByTestId("builder-guidance-rail")).toBeInTheDocument();
       await user.click(
         screen.getByTestId("builder-header-left-rail-toggle"),
       );
@@ -820,7 +820,7 @@ describe("WorkflowBuilder", () => {
       ).toBe("true");
       // The panel disappears with the rail — its state / effects don't
       // run while collapsed. This is the load-bearing invariant.
-      expect(screen.queryByTestId("builder-ai-panel")).toBeNull();
+      expect(screen.queryByTestId("builder-guidance-rail")).toBeNull();
     });
 
     it("in-rail × button collapses the rail (alternative to the header toggle)", async () => {
@@ -845,7 +845,7 @@ describe("WorkflowBuilder", () => {
           .getByTestId("builder-left-agent-rail")
           .getAttribute("data-collapsed"),
       ).toBe("true");
-      expect(screen.queryByTestId("builder-ai-panel")).toBeNull();
+      expect(screen.queryByTestId("builder-guidance-rail")).toBeNull();
     });
 
     it("header toggle is bidirectional — clicking again restores the rail", async () => {
@@ -872,7 +872,7 @@ describe("WorkflowBuilder", () => {
           .getByTestId("builder-left-agent-rail")
           .getAttribute("data-collapsed"),
       ).toBe("false");
-      expect(screen.getByTestId("builder-ai-panel")).toBeInTheDocument();
+      expect(screen.getByTestId("builder-guidance-rail")).toBeInTheDocument();
     });
 
     it("collapsed state persists to localStorage so a refreshed page stays collapsed", async () => {
@@ -907,7 +907,7 @@ describe("WorkflowBuilder", () => {
           .getByTestId("builder-left-agent-rail")
           .getAttribute("data-collapsed"),
       ).toBe("true");
-      expect(screen.queryByTestId("builder-ai-panel")).toBeNull();
+      expect(screen.queryByTestId("builder-guidance-rail")).toBeNull();
     });
 
     // Independence — drawer state and rail state never affect each other.
