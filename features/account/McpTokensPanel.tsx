@@ -28,8 +28,31 @@ import { Input } from "@/components/ui/input";
  */
 interface Props {
   accountId: string;
+  /** Display name of the account these tokens are scoped to (account-scope clarity). */
+  accountName: string;
   /** True when the active account is pending deletion (read-only). */
   frozen: boolean;
+}
+
+/**
+ * The ready-to-paste MCP client config a customer drops into their LLM client,
+ * with the freshly-minted raw token inlined. Built ONLY at one-time reveal from the
+ * in-memory secret — never persisted or refetched (it lives and dies with
+ * `revealed`, exactly like the raw token field).
+ */
+function buildClientConfig(rawToken: string): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        chainreact: {
+          url: MCP_ENDPOINT_URL,
+          headers: { Authorization: `Bearer ${rawToken}` },
+        },
+      },
+    },
+    null,
+    2,
+  );
 }
 
 function formatDate(iso: string | null): string {
@@ -59,7 +82,7 @@ function StatusBadge({ status }: { status: McpTokenView["status"] }) {
   );
 }
 
-export function McpTokensPanel({ accountId, frozen }: Props) {
+export function McpTokensPanel({ accountId, accountName, frozen }: Props) {
   const [tokens, setTokens] = useState<McpTokenView[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -72,6 +95,7 @@ export function McpTokensPanel({ accountId, frozen }: Props) {
   // One-time raw-token reveal (in-memory only, discarded on dismiss).
   const [revealed, setRevealed] = useState<CreatedMcpToken | null>(null);
   const [copied, setCopied] = useState(false);
+  const [configCopied, setConfigCopied] = useState(false);
 
   // Revoke.
   const [revokeId, setRevokeId] = useState<string | null>(null);
@@ -106,6 +130,7 @@ export function McpTokensPanel({ accountId, frozen }: Props) {
       const created = await createMcpToken(accountId, { name: trimmed });
       setRevealed(created);
       setCopied(false);
+      setConfigCopied(false);
       setCreating(false);
       setName("");
       await load();
@@ -125,6 +150,16 @@ export function McpTokensPanel({ accountId, frozen }: Props) {
       setCopied(true);
     } catch {
       setCopied(false);
+    }
+  }
+
+  async function handleCopyConfig() {
+    if (!revealed) return;
+    try {
+      await navigator.clipboard.writeText(buildClientConfig(revealed.token));
+      setConfigCopied(true);
+    } catch {
+      setConfigCopied(false);
     }
   }
 
@@ -190,10 +225,10 @@ export function McpTokensPanel({ accountId, frozen }: Props) {
           className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3"
         >
           <span className="text-xs font-semibold text-foreground">
-            Token “{revealed.metadata.name}” created
+            Token “{revealed.metadata.name}” created for {accountName}
           </span>
           <p data-testid="mcp-token-reveal-warning" className="text-xs text-amber-600 dark:text-amber-400">
-            Copy this now. You won&apos;t be able to see it again.
+            Copy this token now. You will not be able to see it again.
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -214,6 +249,35 @@ export function McpTokensPanel({ accountId, frozen }: Props) {
               {copied ? "Copied!" : "Copy"}
             </Button>
           </div>
+
+          {/* Ready-to-paste MCP client config, token inlined (in-memory only). */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-foreground">Client config</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                data-testid="mcp-token-config-copy"
+                onClick={handleCopyConfig}
+              >
+                {configCopied ? "Copied!" : "Copy config"}
+              </Button>
+            </div>
+            <pre
+              data-testid="mcp-token-config"
+              className="overflow-x-auto rounded-md border border-input bg-background p-3 font-mono text-[11px] leading-relaxed text-foreground"
+            >
+              {buildClientConfig(revealed.token)}
+            </pre>
+            <p className="text-[11px] text-muted-foreground">
+              This token only works for{" "}
+              <span className="font-medium text-foreground">{accountName}</span>. It does not
+              follow your active-account changes — switching accounts won&apos;t change which
+              account this token can read.
+            </p>
+          </div>
+
           <div>
             <Button
               type="button"
@@ -223,6 +287,7 @@ export function McpTokensPanel({ accountId, frozen }: Props) {
               onClick={() => {
                 setRevealed(null);
                 setCopied(false);
+                setConfigCopied(false);
               }}
             >
               Done
@@ -372,6 +437,7 @@ export function McpTokensPanel({ accountId, frozen }: Props) {
                 </div>
 
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span data-testid={`mcp-token-account-${t.id}`}>Account: {accountName}</span>
                   <span>Scopes: {t.scopes.join(", ") || "—"}</span>
                   <span>Created {formatDate(t.createdAt)}</span>
                   <span>Last used {formatDate(t.lastUsedAt)}</span>

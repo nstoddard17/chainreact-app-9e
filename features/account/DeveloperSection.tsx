@@ -32,7 +32,10 @@ export function DeveloperSection({
         desc="Connect an MCP-compatible LLM client to this account, read-only."
       >
         {active && (
-          <SettingRow label="Account" desc="MCP access is scoped to this account.">
+          <SettingRow
+            label="Account"
+            desc="Tokens are scoped to this account only. A token works just for this account and does not follow your active-account changes."
+          >
             <span className="flex items-center gap-2">
               <span
                 data-testid="mcp-account-name"
@@ -52,7 +55,11 @@ export function DeveloperSection({
 
         <SettingRow label="Tokens" stacked>
           {canManage && accountId ? (
-            <McpTokensPanel accountId={accountId} frozen={frozen} />
+            <McpTokensPanel
+              accountId={accountId}
+              accountName={active?.name ?? "this account"}
+              frozen={frozen}
+            />
           ) : (
             <p data-testid="mcp-tokens-member-note" className="max-w-xl text-xs text-muted-foreground">
               {accountId ? (
@@ -75,12 +82,15 @@ export function DeveloperSection({
         title="Connecting a client"
         desc="Point any MCP-compatible client at ChainReact."
       >
-        <SettingRow label="Endpoint" stacked>
+        <SettingRow label="Server URL" stacked>
           <div className="flex max-w-xl flex-col gap-1 text-xs text-muted-foreground">
-            <code className="font-mono text-foreground">https://mcp.chainreact.app/mcp</code>
+            <code data-testid="mcp-server-url" className="font-mono text-foreground">
+              https://mcp.chainreact.app/mcp
+            </code>
             <p>
-              Add this as a custom MCP / streaming-HTTP connector in your client, then
-              authenticate with the token you created above. Available tools:{" "}
+              Use this URL to connect ChainReact to an MCP-compatible LLM client. Add it as
+              a custom MCP / streaming-HTTP connector in your client, then authenticate with
+              the token you created above. Available tools:{" "}
               <code className="font-mono">list_accounts</code>,{" "}
               <code className="font-mono">list_workflows</code>,{" "}
               <code className="font-mono">get_workflow</code>,{" "}
