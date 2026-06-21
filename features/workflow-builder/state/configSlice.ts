@@ -111,6 +111,19 @@ export interface ConfigSliceActions {
     value: unknown;
   }): void;
   /**
+   * BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-SYNC — sync an OPEN config draft after the node's config was
+   * changed externally (e.g. the Agent rail "Update step" wrote new values into the graph node). Merges
+   * `values` into BOTH the draft's `values` and `initialValues` for those keys, so the visible field
+   * shows the new value and is NOT flagged as a pending edit. Other in-progress draft edits are
+   * preserved (only the named keys change). The field highlight (`focusFieldKey`) is intentionally kept.
+   * No-op when no draft exists for `nodeId` (the panel will read fresh config when next opened).
+   * NAVIGATION/SYNC ONLY — it never writes back to the graph, saves, runs, or activates.
+   */
+  applyExternalConfig(input: {
+    nodeId: string;
+    values: Readonly<Record<string, unknown>>;
+  }): void;
+  /**
    * Set / clear inline errors for one field on the active node. Pass
    * `undefined` to clear.
    */
@@ -256,6 +269,32 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
       // AI-REPAIR-2F — once the user edits the highlighted field, the guidance
       // highlight has served its purpose; clear it so it doesn't linger.
       ...(get().focusFieldKey === name ? { focusFieldKey: null } : {}),
+    });
+  },
+
+  applyExternalConfig({ nodeId, values }) {
+    const draft = get().drafts[nodeId];
+    if (!draft) return; // panel not open for this node → nothing to sync
+    const keys = Object.keys(values);
+    if (keys.length === 0) return;
+    const nextValues = { ...draft.values, ...values };
+    const nextInitial = { ...draft.initialValues, ...values };
+    // The externally-applied keys are now the committed baseline → drop any stale inline errors.
+    const nextErrors = { ...draft.errors };
+    for (const k of keys) delete nextErrors[k];
+    set({
+      drafts: {
+        ...get().drafts,
+        [nodeId]: {
+          ...draft,
+          values: nextValues,
+          initialValues: nextInitial,
+          errors: nextErrors,
+          isDirty: !shallowEqual(nextValues, nextInitial),
+          lastUpdatedAt: Date.now(),
+        },
+      },
+      // focusFieldKey is intentionally PRESERVED so the rail-updated field stays highlighted.
     });
   },
 

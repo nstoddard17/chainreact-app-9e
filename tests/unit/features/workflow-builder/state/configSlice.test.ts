@@ -261,3 +261,47 @@ describe("configSlice — reset", () => {
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });
 });
+
+// BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-SYNC — syncing an OPEN config draft after the node config was
+// changed externally (the Agent rail "Update step"). The visible field must reflect the new value, the
+// field highlight must persist, and the synced keys must NOT read as pending edits.
+describe("configSlice — applyExternalConfig", () => {
+  it("patches an open draft's value + baseline so the field shows the new value and is not dirty", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "n1", initialValues: { text: "old" }, fieldKey: "text" });
+    useConfigSlice.getState().applyExternalConfig({ nodeId: "n1", values: { text: "new" } });
+    const draft = useConfigSlice.getState().drafts.n1!;
+    expect(draft.values.text).toBe("new");
+    expect(draft.initialValues.text).toBe("new");
+    expect(draft.isDirty).toBe(false); // it's the committed baseline now, not a pending edit
+  });
+
+  it("preserves the field highlight (focusFieldKey) — unlike a manual edit", () => {
+    useConfigSlice.getState().revealNode({ nodeId: "n1", initialValues: { text: "old" }, fieldKey: "text" });
+    useConfigSlice.getState().applyExternalConfig({ nodeId: "n1", values: { text: "new" } });
+    expect(useConfigSlice.getState().focusFieldKey).toBe("text");
+  });
+
+  it("does NOT overwrite an unrelated in-progress edit on another field", () => {
+    useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: { text: "", channel: "" } });
+    useConfigSlice.getState().updateField({ name: "text", value: "wip message" }); // manual edit
+    useConfigSlice.getState().applyExternalConfig({ nodeId: "n1", values: { channel: "C1" } });
+    const draft = useConfigSlice.getState().drafts.n1!;
+    expect(draft.values).toEqual({ text: "wip message", channel: "C1" });
+    // The manual text edit is still pending (diverges from its baseline); channel is committed.
+    expect(draft.isDirty).toBe(true);
+    expect(draft.initialValues.channel).toBe("C1");
+    expect(draft.initialValues.text).toBe("");
+  });
+
+  it("is a no-op when no draft exists for the node (panel not open)", () => {
+    useConfigSlice.getState().applyExternalConfig({ nodeId: "ghost", values: { text: "x" } });
+    expect(useConfigSlice.getState().drafts.ghost).toBeUndefined();
+  });
+
+  it("clears a stale inline error on a synced field", () => {
+    useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: { text: "" } });
+    useConfigSlice.getState().setFieldError({ name: "text", error: "Message is required." });
+    useConfigSlice.getState().applyExternalConfig({ nodeId: "n1", values: { text: "filled" } });
+    expect(useConfigSlice.getState().drafts.n1!.errors.text).toBeUndefined();
+  });
+});

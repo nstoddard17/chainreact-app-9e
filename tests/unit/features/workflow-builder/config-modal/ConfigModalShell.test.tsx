@@ -23,7 +23,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfigModalShell } from "@/features/workflow-builder/config-modal/ConfigModalShell";
 import { BuilderRightDrawer } from "@/features/workflow-builder/layout/BuilderRightDrawer";
@@ -1115,5 +1115,42 @@ describe("ConfigModalShell — node rename (Slice 4.BUILDER-NODE-IDENTITY-1)", (
     expect(
       useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId)!.displayName,
     ).toBeUndefined();
+  });
+});
+
+// BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-SYNC — an external config sync (Agent rail "Update step")
+// updates the VISIBLE field in the open config panel, not just the graph node.
+describe("ConfigModalShell — external config sync (rail Update step)", () => {
+  it("reflects an externally-synced value in the visible field (no stale value)", async () => {
+    const { nodeId } = bootWithNativeAction();
+    render(<ConfigModalShell />);
+    const url = (await screen.findByLabelText("URL")) as HTMLInputElement;
+    expect(url.value).toBe(""); // initial
+
+    // Simulate the rail update: graph node config changed + the open draft synced.
+    act(() => {
+      useGraphSlice.getState().updateNodeConfig(nodeId, { url: "https://synced.example" });
+      useConfigSlice.getState().applyExternalConfig({ nodeId, values: { url: "https://synced.example" } });
+    });
+
+    await waitFor(() => expect((screen.getByLabelText("URL") as HTMLInputElement).value).toBe("https://synced.example"));
+  });
+
+  it("does not overwrite an unrelated in-progress edit in the panel", async () => {
+    const { nodeId } = bootWithNativeAction();
+    const user = userEvent.setup();
+    render(<ConfigModalShell />);
+    await screen.findByLabelText("URL");
+    await user.type(screen.getByLabelText("URL"), "https://typed.example"); // manual panel edit
+
+    // The rail updates a DIFFERENT field (Timeout) on the same node.
+    act(() => {
+      useGraphSlice.getState().updateNodeConfig(nodeId, { url: "https://typed.example", timeoutSeconds: 20 });
+      useConfigSlice.getState().applyExternalConfig({ nodeId, values: { timeoutSeconds: 20 } });
+    });
+
+    // The manual URL edit is preserved; the synced Timeout shows the new value.
+    expect((screen.getByLabelText("URL") as HTMLInputElement).value).toBe("https://typed.example");
+    await waitFor(() => expect((screen.getByLabelText("Timeout") as HTMLInputElement).value).toBe("20"));
   });
 });

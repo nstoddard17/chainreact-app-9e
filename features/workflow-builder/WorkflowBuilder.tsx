@@ -235,6 +235,9 @@ export function WorkflowBuilder({
       const current = state.pendingNodes.find((n) => n.id === nodeId);
       if (!current) return;
       state.updateNodeConfig(nodeId, { ...current.config, ...values });
+      // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP-SYNC — keep an OPEN config panel for this node in sync so
+      // the visible field doesn't show a stale value after the rail update. No-op if the panel is closed.
+      useConfigSlice.getState().applyExternalConfig({ nodeId, values });
     },
     [],
   );

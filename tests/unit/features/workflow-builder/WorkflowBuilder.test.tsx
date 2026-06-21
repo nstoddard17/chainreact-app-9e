@@ -712,6 +712,41 @@ describe("WorkflowBuilder", () => {
       expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
     });
 
+    it("with the config panel open, a rail Update syncs the draft value and keeps the field highlighted", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={workflowWithIncompleteSlack}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+          requiredFieldsByType={requiredFieldsByType}
+          setupFieldsByType={setupFieldsByType}
+        />,
+      );
+      await user.click(screen.getByTestId("agent-check-workflow"));
+      const messageField = await screen.findByTestId("node-setup-a1-text");
+
+      // Focus opens/selects the node config panel (creates the draft) and highlights the field.
+      fireEvent.focus(messageField);
+      expect(useConfigSlice.getState().activeNodeId).toBe("a1");
+      expect(useConfigSlice.getState().focusFieldKey).toBe("text");
+
+      // Update from the rail.
+      fireEvent.change(messageField, { target: { value: "Hey" } });
+      fireEvent.keyDown(messageField, { key: "Enter" });
+
+      // The OPEN config draft (the source ConfigModalShell renders) reflects the new value, with no
+      // stale baseline, and the field stays highlighted. The graph node is updated too.
+      const draft = useConfigSlice.getState().drafts.a1!;
+      expect(draft.values.text).toBe("Hey");
+      expect(draft.initialValues.text).toBe("Hey");
+      expect(useConfigSlice.getState().focusFieldKey).toBe("text");
+      expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1")?.config.text).toBe("Hey");
+      expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+    });
+
     it("focusing a setup field opens the node config panel and highlights the matching field", async () => {
       const user = userEvent.setup();
       render(
