@@ -12,7 +12,23 @@
 > text-only for an obvious shape**; **Phase 7 (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT) hides the
 > empty-state card during preview + fits the viewport once per shown preview, and documents the future
 > visual-diff rules**; **Phase 8 (HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH) moved the guided-setup card
-> INTO the chat transcript and pinned the composer at the bottom** — see the status boxes.
+> INTO the chat transcript and pinned the composer at the bottom**; **Phase 9
+> (HERMES-AGENT-REMOVE-ADDED-FROM-PREVIEW-BADGE) removed the noisy on-card "Added from preview" badge so
+> accepted nodes look like normal draft nodes** — see the status boxes.
+
+## Phase 9 status — IMPLEMENTED (REMOVE "ADDED FROM PREVIEW" BADGE)
+
+The on-card "ADDED FROM PREVIEW" badge on accepted draft nodes was visually noisy and overlapped the
+node action buttons. Removed it: after Apply, accepted nodes now look like normal draft nodes (selection
+outline + normal state are enough). Removed the whole badge-only chain — `AddedFromPreviewBadge` +
+render in `WorkflowNodeCard`, the `addedFromPreview` field + `appliedNodeIds` ctx option in `adapters`,
+the `appliedNodeIds` prop/threading in `WorkflowCanvas`, and the `appliedNodeIdSet` memo + canvas prop in
+`WorkflowBuilder`. KEPT (unrelated to the badge): the `appliedNodeIds` STATE in `WorkflowBuilder` that
+drives the post-apply config-hints notice + auto-open-first-incomplete; the holographic overlay's per-
+node "Preview" badge + global "Suggested" banner before Apply; the config-hints notice. Behavior
+otherwise unchanged (Apply still adds draft nodes; no save/activate/run).
+
+---
 
 ## Phase 8 status — IMPLEMENTED (RAIL CHAT LAYOUT POLISH)
 

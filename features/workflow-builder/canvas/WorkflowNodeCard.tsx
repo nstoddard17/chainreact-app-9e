@@ -152,7 +152,6 @@ export function WorkflowNodeCard({
             >
               #{data.kind === "trigger" ? "trigger" : "action"}
             </code>
-            {data.addedFromPreview ? <AddedFromPreviewBadge /> : null}
           </div>
           {editingName ? (
             <input
@@ -328,25 +327,6 @@ function ProviderAvatar({
       style={{ marginTop: 1 }}
     >
       {initials}
-    </span>
-  );
-}
-
-function AddedFromPreviewBadge() {
-  // HERMES-AGENT-APPLY-CONFIG-HINTS — short-lived marker on nodes the most recent
-  // "Apply preview" added, so the user can spot the AI-added steps. Display only.
-  return (
-    <span
-      data-testid="added-from-preview-badge"
-      className="builder-mono inline-flex items-center rounded-[3px] px-1.5 text-[9px] font-semibold uppercase tracking-[0.05em]"
-      style={{
-        background: "var(--builder-accent-soft)",
-        color: "var(--builder-accent)",
-        border: "1px solid var(--builder-accent)",
-        lineHeight: 1.5,
-      }}
-    >
-      Added from preview
     </span>
   );
 }

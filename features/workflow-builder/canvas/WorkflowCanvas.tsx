@@ -135,12 +135,6 @@ interface Props {
    */
   requiredFieldsByType?: import("../validation/collectBuilderValidationIssues").RequiredFieldsByType;
   /**
-   * HERMES-AGENT-APPLY-CONFIG-HINTS — ids of nodes added by the most recent "Apply
-   * preview". Threaded to the node adapter so each such card renders a short-lived
-   * "Added from preview" badge. Optional (absent → no badges).
-   */
-  appliedNodeIds?: ReadonlySet<string>;
-  /**
    * Slice 4.BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the top-level
    * Settings tab (the `WorkflowDetail` subset threaded from `WorkflowBuilder`).
    * Optional so isolated canvas tests keep passing; the Settings tab still
@@ -184,7 +178,6 @@ function WorkflowCanvasInner({
   addActionBlockedReason,
   triggerTagText,
   requiredFieldsByType,
-  appliedNodeIds,
   workflowSettings,
   previewToken,
 }: Props) {
@@ -259,13 +252,12 @@ function WorkflowCanvasInner({
       providerIcons,
       requiredFieldsByType,
       tailNodeIds,
-      ...(appliedNodeIds ? { appliedNodeIds } : {}),
     });
     if (!activeNodeId) return base;
     return base.map((n) =>
       n.id === activeNodeId ? { ...n, selected: true } : n,
     );
-  }, [pendingNodes, providerLabels, providerIcons, requiredFieldsByType, tailNodeIds, appliedNodeIds, activeNodeId]);
+  }, [pendingNodes, providerLabels, providerIcons, requiredFieldsByType, tailNodeIds, activeNodeId]);
 
   const flowEdges = useMemo<FlowEdge[]>(
     () => workflowEdgesToFlowEdges(pendingEdges, { onEdgePlusClick }),

@@ -344,14 +344,11 @@ export function WorkflowBuilder({
     [handleEdgePlusClick],
   );
 
-  // HERMES-AGENT-APPLY-CONFIG-HINTS — set of just-applied node ids for the canvas "Added from
-  // preview" badge, and the per-node required-field hint list for the notice. Both recompute from
-  // the LIVE pending nodes, so a badge disappears if its node is deleted and a hint clears as soon
-  // as the user fills the field. Field names come from metadata — never inferred, never values.
-  const appliedNodeIdSet = useMemo(
-    () => (appliedNodeIds.length > 0 ? new Set(appliedNodeIds) : undefined),
-    [appliedNodeIds],
-  );
+  // HERMES-AGENT-APPLY-CONFIG-HINTS — the per-node required-field hint list for the post-apply notice
+  // (and the source for auto-opening the first incomplete node). Recomputes from the LIVE pending
+  // nodes, so a hint clears as soon as the user fills the field. Field names come from metadata —
+  // never inferred, never values. (The on-card "Added from preview" badge was removed in
+  // HERMES-AGENT-REMOVE-ADDED-FROM-PREVIEW-BADGE — accepted nodes look like normal draft nodes.)
   const appliedConfigHints = useMemo(
     () =>
       appliedNodeIds.length > 0
@@ -566,7 +563,6 @@ export function WorkflowBuilder({
           requiredFieldsByType={requiredFieldsByType}
           // HERMES-AGENT-APPLY-CONFIG-HINTS — nodes the most recent apply added get the
           // short-lived "Added from preview" badge. Undefined when nothing was just applied.
-          {...(appliedNodeIdSet ? { appliedNodeIds: appliedNodeIdSet } : {})}
           // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — non-null while a preview is active (a fresh
           // value per show) so the canvas fits the viewport once + hides the empty-state card.
           previewToken={previewOverlay ? previewShowCount : null}

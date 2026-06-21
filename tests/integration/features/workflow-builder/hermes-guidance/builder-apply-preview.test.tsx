@@ -313,19 +313,20 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     expect(hints.textContent ?? "").not.toMatch(/token|secret|xox|Bearer|account[_-]?id|password/i);
   });
 
-  it("marks the applied nodes with the short-lived 'Added from preview' badge", async () => {
+  it("HERMES-AGENT-REMOVE-ADDED-FROM-PREVIEW-BADGE — accepted nodes do NOT render an 'Added from preview' badge (they look like normal draft nodes)", async () => {
     const user = userEvent.setup();
     renderWithMeta(workflow([], []));
     await applyPreview(user);
 
-    const badges = await screen.findAllByTestId("added-from-preview-badge");
-    expect(badges.length).toBeGreaterThan(0);
-
-    // Dismissing the notice clears the badges (short-lived).
-    await user.click(screen.getByTestId("builder-apply-notice-dismiss"));
-    await waitFor(() =>
-      expect(screen.queryAllByTestId("added-from-preview-badge")).toHaveLength(0),
-    );
+    // The nodes were added to the draft...
+    await waitFor(() => expect(useGraphSlice.getState().pendingNodes.length).toBeGreaterThan(0));
+    expect(screen.getAllByTestId("workflow-node-view").length).toBeGreaterThan(0);
+    // ...but the noisy on-card badge is gone.
+    expect(screen.queryByTestId("added-from-preview-badge")).not.toBeInTheDocument();
+    expect(screen.queryByText(/added from preview/i)).not.toBeInTheDocument();
+    // The post-apply config-hints notice still renders (still useful) — and nothing was saved.
+    expect(screen.getByTestId("builder-apply-config-hints")).toBeInTheDocument();
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
   it("falls back to a generic review notice when the node type has no metadata", async () => {
