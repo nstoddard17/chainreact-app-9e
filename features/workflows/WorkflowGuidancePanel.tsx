@@ -250,8 +250,7 @@ function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: W
     >
       <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Build with me</h2>
       <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-        Describe what you want to automate and I will help you figure out the workflow. This is
-        guidance, not automatic workflow creation.
+        Describe what you want to automate and I&apos;ll help you figure out the workflow.
       </p>
 
       <div className="mt-3">
@@ -394,8 +393,9 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas 
       <div>
         <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Build with me</h2>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          Describe what you want to automate and I will help you figure out the workflow. This is
-          guidance, not automatic workflow creation.
+          Describe what you want to automate. I can suggest steps, show a preview on the canvas, and
+          add them to your draft when you choose Apply. You stay in control before saving or
+          activating.
         </p>
       </div>
 

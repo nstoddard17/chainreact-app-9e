@@ -32,6 +32,18 @@ describe("BuilderGuidanceRail — gating", () => {
     expect(screen.queryByTestId("builder-guidance-rail-unavailable")).not.toBeInTheDocument();
   });
 
+  it("HERMES-AGENT-BUILDER-RAIL-COPY-ACCURACY — uses accurate apply-preview copy, not 'workflow creation' disclaimers", () => {
+    render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled />);
+    // Stale/misleading disclaimers are gone.
+    expect(screen.queryByText(/not automatic workflow creation/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not workflow creation/i)).not.toBeInTheDocument();
+    // New copy describes suggest → preview on canvas → apply to draft, and staying in control.
+    const intro = screen.getByText(/I can suggest steps/i);
+    expect(intro).toHaveTextContent(/preview on the canvas/i);
+    expect(intro).toHaveTextContent(/add them to your draft when you choose Apply/i);
+    expect(intro).toHaveTextContent(/stay in control before saving or activating/i);
+  });
+
   it("shows a safe unavailable note (reason: guidance-disabled) when guidance is disabled", () => {
     render(<BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled={false} />);
     expect(screen.queryByTestId("workflow-guidance-panel")).not.toBeInTheDocument();

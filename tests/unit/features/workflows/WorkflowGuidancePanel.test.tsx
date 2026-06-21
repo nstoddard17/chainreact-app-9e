@@ -23,7 +23,12 @@ describe("WorkflowGuidancePanel — entry point", () => {
   it("renders the 'Build with me' entry, advisory copy, textarea + submit", () => {
     render(<WorkflowGuidancePanel accountId="acct-1" />);
     expect(screen.getByRole("heading", { name: "Build with me" })).toBeInTheDocument();
-    expect(screen.getByText(/guidance, not automatic workflow creation/i)).toBeInTheDocument();
+    // HERMES-AGENT-BUILDER-RAIL-COPY-ACCURACY — dashboard stays single-shot guidance (no canvas
+    // apply), so it must NOT use the stale "not automatic workflow creation" phrasing, but also must
+    // not overpromise preview/apply (those live in the builder rail).
+    expect(screen.getByText(/help you figure out the workflow/i)).toBeInTheDocument();
+    expect(screen.queryByText(/not automatic workflow creation/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not workflow creation/i)).not.toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Example: When a new lead comes in/i)).toBeInTheDocument();
     expect(screen.getByTestId("workflow-guidance-submit")).toBeInTheDocument();
   });
