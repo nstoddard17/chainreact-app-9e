@@ -120,7 +120,7 @@ describe("builder apply-preview — blank workflow", () => {
     await applyPreview(user);
     await waitFor(() => expect(screen.queryByTestId("builder-preview-overlay")).not.toBeInTheDocument());
     expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent(
-      "Preview applied to draft — review required fields before activating.",
+      "Preview applied to draft — review required fields before saving or activating.",
     );
   });
 
@@ -168,7 +168,7 @@ describe("builder apply-preview — existing workflow", () => {
     renderBuilder(workflow(existingNodes, existingEdges));
     await applyPreview(user);
     expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent(
-      "Preview applied to draft — review required fields before activating.",
+      "Preview applied to draft — review required fields before saving or activating.",
     );
   });
 });
@@ -202,7 +202,7 @@ describe("builder apply-preview — insert between (selected mid-chain node)", (
     expect(s.pendingEdges.some((e) => e.from === added.id && e.to === "act")).toBe(true);
     expect(s.pendingNodes.find((n) => n.id === "act")).toMatchObject({ config: { repository: "octocat/x" } });
     expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent(
-      "Preview inserted into draft — review required fields before activating.",
+      "Preview inserted into draft — review required fields before saving or activating.",
     );
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
@@ -233,6 +233,77 @@ describe("builder apply-preview — ambiguous multi-tail falls back to a side ch
     expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent(
       "Preview added as a separate draft chain because ChainReact could not safely determine where to insert it.",
     );
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+});
+
+describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-CONFIG-HINTS)", () => {
+  // slack:send_message required fields, sourced exactly like the discovery registry would supply.
+  const requiredFieldsByType = {
+    "slack:send_message": {
+      displayName: "Send Message",
+      requiredFields: [
+        { name: "channel", label: "Channel" },
+        { name: "message", label: "Message" },
+      ],
+    },
+  };
+
+  function renderWithMeta(wf: WorkflowDetail) {
+    return render(
+      <WorkflowBuilder
+        workflow={wf}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+        requiredFieldsByType={requiredFieldsByType}
+        accountId="acct-1"
+        guidanceEnabled
+      />,
+    );
+  }
+
+  it("lists the newly-added node's missing required FIELD NAMES from metadata (no values)", async () => {
+    const user = userEvent.setup();
+    renderWithMeta(workflow([], []));
+    await applyPreview(user);
+
+    const hints = await screen.findByTestId("builder-apply-config-hints");
+    // Field LABELS from metadata, names only.
+    expect(hints).toHaveTextContent("Needs configuration: Channel, Message");
+    // No values / secrets / tokens / credential ids ever rendered.
+    expect(hints.textContent ?? "").not.toMatch(/token|secret|xox|Bearer|account[_-]?id|password/i);
+  });
+
+  it("marks the applied nodes with the short-lived 'Added from preview' badge", async () => {
+    const user = userEvent.setup();
+    renderWithMeta(workflow([], []));
+    await applyPreview(user);
+
+    const badges = await screen.findAllByTestId("added-from-preview-badge");
+    expect(badges.length).toBeGreaterThan(0);
+
+    // Dismissing the notice clears the badges (short-lived).
+    await user.click(screen.getByTestId("builder-apply-notice-dismiss"));
+    await waitFor(() =>
+      expect(screen.queryAllByTestId("added-from-preview-badge")).toHaveLength(0),
+    );
+  });
+
+  it("falls back to a generic review notice when the node type has no metadata", async () => {
+    const user = userEvent.setup();
+    // No requiredFieldsByType prop → metadata unavailable for every applied node.
+    renderBuilder(workflow([], []));
+    await applyPreview(user);
+
+    const hints = await screen.findByTestId("builder-apply-config-hints");
+    expect(hints).toHaveTextContent("Review this step");
+    expect(hints).not.toHaveTextContent("Needs configuration:");
+  });
+
+  it("does not auto-save / update the workflow when surfacing hints", async () => {
+    const user = userEvent.setup();
+    renderWithMeta(workflow([], []));
+    await applyPreview(user);
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });

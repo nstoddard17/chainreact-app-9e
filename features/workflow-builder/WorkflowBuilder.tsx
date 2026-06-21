@@ -9,6 +9,8 @@ import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { planToBuilderPatch } from "@/services/ai-guidance/preview/planToBuilderPatch";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
+import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
+import { buildAppliedConfigHints } from "./utils/appliedConfigHints";
 import {
   BuilderTeamProvider,
   type BuilderTeamContextValue,
@@ -130,6 +132,10 @@ export function WorkflowBuilder({
   } | null>(null);
   // HERMES-AGENT-APPLY-PREVIEW-PATCH — transient confirmation after an explicit "Apply preview".
   const [applyNotice, setApplyNotice] = useState<string | null>(null);
+  // HERMES-AGENT-APPLY-CONFIG-HINTS — ids of the nodes the most recent apply ADDED. Drives the
+  // short-lived "Added from preview" badge on those cards AND the post-apply required-field hint
+  // list. Lifetime is tied to the notice: cleared on dismiss / workflow switch / a new preview.
+  const [appliedNodeIds, setAppliedNodeIds] = useState<readonly string[]>([]);
 
   // Hydrate from the server prop on initial mount AND whenever the prop's
   // definition / revision changes (e.g. an external refresh). The graphSlice
@@ -151,6 +157,7 @@ export function WorkflowBuilder({
     // Drop any AI preview overlay / apply notice when switching workflows (setters are stable).
     setPreviewOverlay(null);
     setApplyNotice(null);
+    setAppliedNodeIds([]);
     return () => {
       reset();
       resetConfigSlice();
@@ -313,11 +320,28 @@ export function WorkflowBuilder({
     [handleEdgePlusClick],
   );
 
+  // HERMES-AGENT-APPLY-CONFIG-HINTS — set of just-applied node ids for the canvas "Added from
+  // preview" badge, and the per-node required-field hint list for the notice. Both recompute from
+  // the LIVE pending nodes, so a badge disappears if its node is deleted and a hint clears as soon
+  // as the user fills the field. Field names come from metadata — never inferred, never values.
+  const appliedNodeIdSet = useMemo(
+    () => (appliedNodeIds.length > 0 ? new Set(appliedNodeIds) : undefined),
+    [appliedNodeIds],
+  );
+  const appliedConfigHints = useMemo(
+    () =>
+      appliedNodeIds.length > 0
+        ? buildAppliedConfigHints(appliedNodeIds, pendingNodes, requiredFieldsByType)
+        : [],
+    [appliedNodeIds, pendingNodes, requiredFieldsByType],
+  );
+
   // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — open the ghost overlay with the validated plan + display
   // preview (clears any prior apply notice). Showing the overlay mutates nothing.
   const handleShowPreview = useCallback(
     (payload: { plan: WorkflowPlan; preview: DraftPreview }) => {
       setApplyNotice(null);
+      setAppliedNodeIds([]);
       setPreviewOverlay(payload);
     },
     [],
@@ -342,15 +366,20 @@ export function WorkflowBuilder({
     if (outcome?.ok) {
       setApplyNotice(
         outcome.placement === "inserted_between"
-          ? "Preview inserted into draft — review required fields before activating."
+          ? "Preview inserted into draft — review required fields before saving or activating."
           : outcome.placement === "side_chain"
             ? "Preview added as a separate draft chain because ChainReact could not safely determine where to insert it."
-            : "Preview applied to draft — review required fields before activating.",
+            : "Preview applied to draft — review required fields before saving or activating.",
       );
+      // HERMES-AGENT-APPLY-CONFIG-HINTS — remember WHICH nodes this apply added so the cards show
+      // the "Added from preview" badge and the notice lists each new node's still-empty required
+      // fields (names only, from metadata). Nothing inferred / saved / run.
+      setAppliedNodeIds(outcome.addedNodeIds);
     } else {
       // No patch could be built, or nothing safe to apply (e.g. trigger-only into a graph that
       // already has a trigger). Surface a safe, non-scary notice.
       setApplyNotice("ChainReact could not safely apply this preview.");
+      setAppliedNodeIds([]);
     }
     setPreviewOverlay(null);
   }, [previewOverlay]);
@@ -450,6 +479,9 @@ export function WorkflowBuilder({
           onArrange={handleArrange}
           triggerTagText={triggerTagText}
           requiredFieldsByType={requiredFieldsByType}
+          // HERMES-AGENT-APPLY-CONFIG-HINTS — nodes the most recent apply added get the
+          // short-lived "Added from preview" badge. Undefined when nothing was just applied.
+          {...(appliedNodeIdSet ? { appliedNodeIds: appliedNodeIdSet } : {})}
           // BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the Settings tab.
           workflowSettings={{
             name: workflow.name,
@@ -493,31 +525,19 @@ export function WorkflowBuilder({
             onDiscard={() => setPreviewOverlay(null)}
           />
         ) : null}
-        {/* HERMES-AGENT-APPLY-PREVIEW-PATCH — transient confirmation after an explicit apply. The
-            nodes are now part of the local draft (dirty); the user still reviews fields + saves. */}
+        {/* HERMES-AGENT-APPLY-PREVIEW-PATCH / -CONFIG-HINTS — transient confirmation after an explicit
+            apply. The nodes are now part of the local draft (dirty); the user still reviews required
+            fields + saves. The notice lists each newly-added node's still-empty required fields (names
+            only, from metadata) so the user knows the workflow is incomplete. */}
         {applyNotice ? (
-          <div
-            data-testid="builder-apply-notice"
-            role="status"
-            className="pointer-events-auto absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-3 rounded-md px-3 py-1.5 text-[12px] shadow-md"
-            style={{
-              background: "var(--builder-panel)",
-              border: "1px solid var(--builder-border)",
-              color: "var(--builder-text)",
+          <BuilderApplyNotice
+            notice={applyNotice}
+            hints={appliedConfigHints}
+            onDismiss={() => {
+              setApplyNotice(null);
+              setAppliedNodeIds([]);
             }}
-          >
-            <span>{applyNotice}</span>
-            <button
-              type="button"
-              onClick={() => setApplyNotice(null)}
-              data-testid="builder-apply-notice-dismiss"
-              aria-label="Dismiss"
-              className="rounded px-1 text-[12px]"
-              style={{ color: "var(--builder-muted)" }}
-            >
-              ✕
-            </button>
-          </div>
+          />
         ) : null}
       </div>
     </BuilderShell>

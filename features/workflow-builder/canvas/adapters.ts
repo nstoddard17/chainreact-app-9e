@@ -74,6 +74,13 @@ export interface WorkflowNodeData extends Record<string, unknown> {
    */
   missingRequiredConfig?: boolean;
   /**
+   * HERMES-AGENT-APPLY-CONFIG-HINTS — true when this node was added by the most
+   * recent "Apply preview". The card renders a short-lived "Added from preview"
+   * badge so the user can spot the AI-added steps. Cleared when the apply notice
+   * is dismissed / the workflow is switched / a new preview is shown.
+   */
+  addedFromPreview?: boolean;
+  /**
    * Optional public SVG icon URL for the provider. Sourced from
    * `integrations/_registry:providerIconUrl(id)` and threaded through
    * `NodeConversionContext.providerIcons`. When present,
@@ -100,6 +107,11 @@ export interface NodeConversionContext {
    * unconfigured-only behavior.
    */
   requiredFieldsByType?: RequiredFieldsByType;
+  /**
+   * HERMES-AGENT-APPLY-CONFIG-HINTS — ids of nodes added by the most recent
+   * "Apply preview". Each such node's card gets the "Added from preview" badge.
+   */
+  appliedNodeIds?: ReadonlySet<string>;
   /**
    * Slice 4.BUILDER-CANVAS-ERGONOMICS-FIX-1 — ids of nodes with no outgoing edge
    * (chain/branch ends). The canvas derives this once from the edge list; the
@@ -134,6 +146,7 @@ export function workflowNodesToFlowNodes(
       displayName: getNodeDisplayName(node),
       ...(node.displayName !== undefined ? { customName: node.displayName } : {}),
       ...(ctx.tailNodeIds?.has(node.id) ? { isTail: true } : {}),
+      ...(ctx.appliedNodeIds?.has(node.id) ? { addedFromPreview: true } : {}),
       providerLabel: ctx.providerLabels?.[node.provider],
       providerIcon: ctx.providerIcons?.[node.provider],
       missingRequiredConfig:
