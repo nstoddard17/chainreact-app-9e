@@ -28,6 +28,14 @@ const PREVIEW_SETUP_CARD = resolve(
   process.cwd(),
   "features/workflow-builder/panels/BuilderPreviewSetupCard.tsx",
 );
+const NODE_SETUP_CARD = resolve(
+  process.cwd(),
+  "features/workflow-builder/panels/BuilderNodeSetupCard.tsx",
+);
+const SETUP_FIELD_CONTROLS = resolve(
+  process.cwd(),
+  "features/workflow-builder/panels/builderSetupFieldControls.tsx",
+);
 const WORKFLOWS_DASHBOARD_PAGE = resolve(process.cwd(), "app/workflows/page.tsx");
 
 /**
@@ -137,6 +145,27 @@ describe("guidance UI — calls only the ChainReact route, no forbidden surface"
       /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
     ]) {
       expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
+    }
+  });
+
+  it("the existing-node setup card + shared controls are presentational — no fetch, no store/mutation API, no Hermes/vendor (BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP)", () => {
+    // The card collects setup values into local state and applies them ONLY via the onUpdateStep
+    // callback (the builder owns the graph-slice write). It must never call a model/route or touch a
+    // store; async options load via useOptionsSource (the existing resolver), never Hermes. Scan CODE
+    // (comments stripped) — doc comments legitimately name the resolver/store to document avoidance.
+    for (const path of [NODE_SETUP_CARD, SETUP_FIELD_CONTROLS]) {
+      const src = readCode(path);
+      for (const pat of [
+        /\bfetch\s*\(/, // no direct network from the card/controls
+        /requestWorkflowGuidance|requestAccountWorkflowRepair/, // never a guidance/model route
+        /useGraphSlice|graphSlice|configSlice|runSlice|\.getState\(\)/, // no builder-store access/mutation
+        /draftDefinition|saveDraft|updateWorkflow|applyWorkflowPatch|createWorkflow|deleteWorkflow|runWorkflow|\/run-now/, // no persistence/mutation
+        /onrender\.com|\/api\/hermes-agent\/guidance|hermesAgentGatewayClient/,
+        /nousresearch|api\.openai\.com/i,
+        /CHAINREACT_AI_GATEWAY_TOKEN|OPENAI_API_KEY|API_SERVER_KEY/,
+      ]) {
+        expect({ path, pat: String(pat), matched: pat.test(src) }).toEqual({ path, pat: String(pat), matched: false });
+      }
     }
   });
 });

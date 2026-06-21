@@ -17,6 +17,7 @@ import {
   composeCheckWorkflowReview,
   looksLikeRawJson,
   type CheckWorkflowReviewContext,
+  type CheckWorkflowSetupTarget,
 } from "@/core/workflows/checkWorkflowReview";
 import {
   isPlanMeaningfulCanvasPreview,
@@ -129,6 +130,14 @@ export interface WorkflowGuidancePanelProps {
    * → previous behavior (offer whenever a builder `onPreviewToCanvas` + validated plan exist).
    */
   readonly getCurrentGraphShape?: () => readonly CanvasPreviewGraphNode[];
+  /**
+   * BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — builder-only render slot. When the deterministic Check
+   * workflow review finds existing draft nodes with missing required fields, the panel calls this with
+   * those targets and renders the returned node UNDER the latest review. The builder returns its
+   * existing-node setup card (controls + "Update step"); the panel stays agnostic (opaque node). Absent
+   * → no inline setup card.
+   */
+  readonly renderCheckSetup?: (targets: readonly CheckWorkflowSetupTarget[]) => ReactNode;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -262,7 +271,13 @@ type ChatMessage =
   // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a LOCAL, deterministic workflow review produced
   // entirely from builder state (no LLM, no network, no AI credits). Rendered like a React turn but
   // carries no plan/preview and offers an explicit, opt-in "Ask React for deeper suggestions" follow-up.
-  | { readonly id: string; readonly role: "review"; readonly text: string }
+  // `setupTargets` are existing draft nodes with missing required fields (for the inline setup card).
+  | {
+      readonly id: string;
+      readonly role: "review";
+      readonly text: string;
+      readonly setupTargets: readonly CheckWorkflowSetupTarget[];
+    }
   | { readonly id: string; readonly role: "error"; readonly text: string };
 
 /** Build the sanitized, bounded recent-conversation context from prior plain-text turns. */
@@ -294,7 +309,7 @@ function SparkleIcon() {
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, renderCheckSetup }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -331,7 +346,10 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
       issueMessages: ctx.issueMessages,
       agentText: null, // deterministic — no model output is ever folded into the default review
     });
-    setMessages((prev) => [...prev, { id: makeId(), role: "review", text }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: makeId(), role: "review", text, setupTargets: ctx.setupTargets },
+    ]);
   }
 
   // Only the most recent assistant turn's preview/plan is actionable — a newer preview supersedes the
@@ -472,6 +490,12 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                     {m.text}
                   </span>
                 </div>
+                {/* BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — inline "Fix setup issues" card for the
+                    latest review's existing-node targets. The builder owns the card (controls + Update
+                    step); the panel renders it opaquely. No targets / no slot → nothing. */}
+                {isLatestReview && renderCheckSetup && m.setupTargets.length > 0 && (
+                  <div className="mt-2">{renderCheckSetup(m.setupTargets)}</div>
+                )}
                 {isLatestReview && getCheckReviewContext != null && (
                   <div className="mt-2">
                     <button

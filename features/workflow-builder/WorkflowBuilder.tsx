@@ -27,6 +27,8 @@ import {
   type ProviderOption,
 } from "./panels/AddNodePanel";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
+import { BuilderNodeSetupCard } from "./panels/BuilderNodeSetupCard";
+import type { CheckWorkflowSetupTarget } from "@/core/workflows/checkWorkflowReview";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
 import { RunResultsPanel } from "./panels/RunResultsPanel";
 import { useConfigSlice } from "./state/configSlice";
@@ -220,6 +222,33 @@ export function WorkflowBuilder({
         .getState()
         .pendingNodes.map((n) => ({ kind: n.kind, provider: n.provider, type: n.type })),
     [],
+  );
+
+  // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — apply the rail's inline setup values to an EXISTING draft
+  // node by merging them into its current config via the normal graph-slice path (`updateNodeConfig`,
+  // which marks the draft dirty). This never saves/activates/runs/applies a preview or creates a node;
+  // the header pill + Check review naturally reflect the updated draft state on the next read.
+  const handleUpdateStepSetup = useCallback(
+    (nodeId: string, values: Record<string, unknown>) => {
+      if (Object.keys(values).length === 0) return;
+      const state = useGraphSlice.getState();
+      const current = state.pendingNodes.find((n) => n.id === nodeId);
+      if (!current) return;
+      state.updateNodeConfig(nodeId, { ...current.config, ...values });
+    },
+    [],
+  );
+
+  const renderCheckSetup = useCallback(
+    (targets: readonly CheckWorkflowSetupTarget[]) => (
+      <BuilderNodeSetupCard
+        nodes={targets}
+        {...(setupFieldsByType ? { setupFieldsByType } : {})}
+        workflowId={workflow.id}
+        onUpdateStep={handleUpdateStepSetup}
+      />
+    ),
+    [setupFieldsByType, workflow.id, handleUpdateStepSetup],
   );
 
   // Slice 4.BUILDER-INSPECTOR-1 → BUILDER-RUN-PANEL-1: right drawer
@@ -549,6 +578,7 @@ export function WorkflowBuilder({
             onApplyPreview={handleApplyPreview}
             getCheckReviewContext={getCheckReviewContext}
             getCurrentGraphShape={getCurrentGraphShape}
+            renderCheckSetup={renderCheckSetup}
           />
         </BuilderLeftAgentRail>
       }

@@ -19,6 +19,7 @@ const BLOCKED: CheckWorkflowReviewContext = {
   blockingIssueCount: 1,
   issueMessages: ["Slack send message needs a Channel."],
   issueCodes: ["missing_required_field"],
+  setupTargets: [],
 };
 
 const CLEAN: CheckWorkflowReviewContext = {
@@ -26,6 +27,7 @@ const CLEAN: CheckWorkflowReviewContext = {
   blockingIssueCount: 0,
   issueMessages: [],
   issueCodes: [],
+  setupTargets: [],
 };
 
 describe("looksLikeRawJson", () => {

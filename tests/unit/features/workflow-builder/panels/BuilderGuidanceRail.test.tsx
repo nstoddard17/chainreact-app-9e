@@ -236,6 +236,7 @@ describe("BuilderGuidanceRail — 'Check workflow' pill (BUILDER-AGENT-RAIL-CHEC
       blockingIssueCount: 1,
       issueMessages: ["Slack send message needs a Channel."],
       issueCodes: ["missing_required_field"],
+      setupTargets: [],
     });
     render(
       <BuilderGuidanceRail accountId="acct-1" workflowId="wf-9" guidanceEnabled getCheckReviewContext={getCheckReviewContext} />,

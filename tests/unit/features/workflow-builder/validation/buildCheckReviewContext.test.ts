@@ -40,6 +40,16 @@ describe("buildCheckReviewContext", () => {
     // Friendly summary uses provider labels + humanized types.
     expect(ctx.summary).toContain("Gmail new email");
     expect(ctx.summary).toContain("Slack send message");
+    // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — the missing-field node becomes a setup target (KEY names
+    // only, node identity from the live draft; no values).
+    expect(ctx.setupTargets).toHaveLength(1);
+    expect(ctx.setupTargets[0]).toMatchObject({
+      nodeId: "a",
+      provider: "slack",
+      type: "send_message",
+      missingFieldNames: ["channel"],
+    });
+    expect(ctx.setupTargets[0]!.label).toContain("Slack");
   });
 
   it("a fully-configured, connected workflow has zero blockers", () => {

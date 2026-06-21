@@ -20,6 +20,22 @@
  * framework-free so the builder UI and tests can both use it.
  */
 
+/**
+ * One existing draft node with missing required fields the rail can collect inline
+ * (BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP). Carries identity + provider/type + the missing field KEY
+ * names only — NEVER config values / secrets / labels of credentials. LOCAL ONLY: this is never sent to
+ * the agent (the goalText uses only counts + codes).
+ */
+export interface CheckWorkflowSetupTarget {
+  readonly nodeId: string;
+  readonly provider: string;
+  readonly type: string;
+  /** Friendly node label for display (user node name, else provider + type). */
+  readonly label: string;
+  /** KEY names of the missing required fields (e.g. ["channel", "text"]). No values. */
+  readonly missingFieldNames: readonly string[];
+}
+
 /** Deterministic validation snapshot for the current builder draft (local only). */
 export interface CheckWorkflowReviewContext {
   /** Plain-English description of the current workflow (built from node labels — local only). */
@@ -36,6 +52,11 @@ export interface CheckWorkflowReviewContext {
    * Safe to send to the agent as review context — carries no user labels / values / ids.
    */
   readonly issueCodes: readonly string[];
+  /**
+   * Existing draft nodes with missing required fields, for the rail's inline "Fix setup issues" card.
+   * LOCAL ONLY — never sent to the agent. Empty when nothing is inline-fixable.
+   */
+  readonly setupTargets: readonly CheckWorkflowSetupTarget[];
 }
 
 const STATUS_LABEL = "Status";

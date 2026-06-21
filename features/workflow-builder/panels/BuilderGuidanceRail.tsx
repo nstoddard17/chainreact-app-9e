@@ -3,7 +3,11 @@
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
-import type { CheckWorkflowReviewContext } from "@/core/workflows/checkWorkflowReview";
+import type { ReactNode } from "react";
+import type {
+  CheckWorkflowReviewContext,
+  CheckWorkflowSetupTarget,
+} from "@/core/workflows/checkWorkflowReview";
 import type { CanvasPreviewGraphNode } from "@/core/workflows/canvasPreviewEligibility";
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
 import { BuilderPreviewSetupCard } from "./BuilderPreviewSetupCard";
@@ -76,6 +80,11 @@ export interface BuilderGuidanceRailProps {
    * only). Forwarded to the panel so "Show on canvas" is suppressed for a same-shape restatement.
    */
   readonly getCurrentGraphShape?: () => readonly CanvasPreviewGraphNode[];
+  /**
+   * BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — render the inline "Fix setup issues" card for existing
+   * draft nodes the Check workflow review found with missing required fields. Forwarded to the panel.
+   */
+  readonly renderCheckSetup?: (targets: readonly CheckWorkflowSetupTarget[]) => ReactNode;
 }
 
 export function BuilderGuidanceRail({
@@ -90,6 +99,7 @@ export function BuilderGuidanceRail({
   onApplyPreview,
   getCheckReviewContext,
   getCurrentGraphShape,
+  renderCheckSetup,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -120,6 +130,7 @@ export function BuilderGuidanceRail({
             conversational
             {...(getCheckReviewContext ? { getCheckReviewContext } : {})}
             {...(getCurrentGraphShape ? { getCurrentGraphShape } : {})}
+            {...(renderCheckSetup ? { renderCheckSetup } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {

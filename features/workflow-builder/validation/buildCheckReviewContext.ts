@@ -1,5 +1,8 @@
 import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
-import type { CheckWorkflowReviewContext } from "@/core/workflows/checkWorkflowReview";
+import type {
+  CheckWorkflowReviewContext,
+  CheckWorkflowSetupTarget,
+} from "@/core/workflows/checkWorkflowReview";
 import {
   collectBuilderValidationIssues,
   countBuilderValidationIssues,
@@ -73,11 +76,38 @@ export function buildCheckReviewContext(
     ...(input.requiredFieldsByType ? { requiredFieldsByType: input.requiredFieldsByType } : {}),
   });
   const counts = countBuilderValidationIssues(issues);
+
+  // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — group missing-required-field issues by their existing node
+  // so the rail can render inline setup controls. Field KEY names only (no values), node identity from
+  // the live draft. Issues without a nodeId (graph-level) or for unknown nodes are skipped.
+  const nodeById = new Map(input.pendingNodes.map((n) => [n.id, n]));
+  const missingByNode = new Map<string, string[]>();
+  for (const issue of issues) {
+    if (issue.code !== "missing_required_field") continue;
+    if (!issue.nodeId || !issue.fieldName) continue;
+    const bucket = missingByNode.get(issue.nodeId);
+    if (bucket) bucket.push(issue.fieldName);
+    else missingByNode.set(issue.nodeId, [issue.fieldName]);
+  }
+  const setupTargets: CheckWorkflowSetupTarget[] = [];
+  for (const [nodeId, missingFieldNames] of missingByNode) {
+    const node = nodeById.get(nodeId);
+    if (!node) continue;
+    setupTargets.push({
+      nodeId,
+      provider: node.provider,
+      type: node.type,
+      label: nodeLabel(node, input.providerLabels),
+      missingFieldNames,
+    });
+  }
+
   return {
     summary: summarizeWorkflow(input.pendingNodes, input.providerLabels),
     // Every builder validation issue is an error-severity blocker today; mirror the pill count.
     blockingIssueCount: counts.errorCount,
     issueMessages: issues.map((i) => i.message),
     issueCodes: [...new Set(issues.map((i) => i.code))],
+    setupTargets,
   };
 }

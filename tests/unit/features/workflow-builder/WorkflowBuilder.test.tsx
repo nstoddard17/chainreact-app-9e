@@ -5,7 +5,7 @@
  * mocked typed client. Verify hydration, the add → save round-trip, and the
  * dirty / saved indicator.
  */
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockUpdateWorkflow = jest.fn();
@@ -621,6 +621,71 @@ describe("WorkflowBuilder", () => {
       expect(screen.queryByTestId("builder-right-drawer")).toBeNull();
       // Activation gating unchanged by the agent action.
       expect(screen.getByRole("button", { name: /activate/i })).toBeDisabled();
+    });
+  });
+
+  // BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — Check workflow surfaces inline setup controls for an
+  // existing draft node's missing required fields, and "Update step" edits that node's draft config
+  // through the normal graph-slice path (marks dirty) — without saving/activating/running.
+  describe("Check workflow inline setup for existing nodes", () => {
+    const workflowWithIncompleteSlack: WorkflowDetail = {
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [
+          { id: "t1", kind: "trigger", provider: "slack", type: "m", config: {}, position: { x: 0, y: 0 } },
+          { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: {}, position: { x: 0, y: 120 } },
+        ],
+        edges: [{ id: "e1", from: "t1", to: "a1" }],
+      },
+    };
+    const requiredFieldsByType = {
+      "slack:send_channel_message": {
+        displayName: "Slack message",
+        requiredFields: [{ name: "text", label: "Message" }],
+      },
+    };
+    const setupFieldsByType = {
+      "slack:send_channel_message": [
+        { name: "text", label: "Message", type: "textarea" as const, required: true },
+      ],
+    };
+
+    it("renders setup controls under the review and 'Update step' edits the existing node's draft config", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={workflowWithIncompleteSlack}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+          requiredFieldsByType={requiredFieldsByType}
+          setupFieldsByType={setupFieldsByType}
+        />,
+      );
+
+      await user.click(screen.getByTestId("agent-check-workflow"));
+
+      // The deterministic review + inline setup card for the existing Slack node appear.
+      await screen.findByTestId("builder-node-setup-rail");
+      const messageField = screen.getByTestId("node-setup-a1-text") as HTMLTextAreaElement;
+      expect(messageField).toBeInTheDocument();
+
+      // Fill the missing field and update the step.
+      fireEvent.change(messageField, { target: { value: "Daily standup reminder" } });
+      const before = useGraphSlice.getState();
+      const dirtyBefore = before.isDirty;
+      await user.click(screen.getByTestId("node-setup-a1-update"));
+
+      // The EXISTING draft node's config is updated through the normal graph-slice path…
+      const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1");
+      expect(node?.config.text).toBe("Daily standup reminder");
+      // …and the draft is dirty (same as editing the node normally). No new nodes were created.
+      expect(useGraphSlice.getState().isDirty).toBe(true);
+      expect(dirtyBefore).toBe(false);
+      expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+      // Confirmation shown; nothing saved/activated/run.
+      expect(screen.getByTestId("node-setup-a1-applied")).toBeInTheDocument();
     });
   });
 

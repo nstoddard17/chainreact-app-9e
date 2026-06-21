@@ -5,7 +5,7 @@ import type {
   PreviewSetupField,
   PreviewSetupFieldsByType,
 } from "@/core/workflows/previewSetupFields";
-import { useOptionsSource } from "@/features/workflow-builder/hooks/useOptionsSource";
+import { SetupAsyncSelectControl, SetupFieldControl } from "./builderSetupFieldControls";
 
 /**
  * Guided preview setup card — React chat rail (HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX).
@@ -104,22 +104,22 @@ export function BuilderPreviewSetupCard({
             </div>
             {supported.map((field) =>
               field.type === "select-async" ? (
-                <PreviewAsyncSelectControl
+                <SetupAsyncSelectControl
                   key={field.name}
-                  node={node}
                   field={field}
                   value={previewConfig?.[node.previewId]?.[field.name]}
                   nodeConfig={previewConfig?.[node.previewId]}
                   {...(workflowId ? { workflowId } : {})}
                   onChange={(v) => onPreviewConfigChange(node.previewId, field.name, v)}
+                  testid={`preview-setup-${node.previewId}-${field.name}`}
                 />
               ) : (
-                <PreviewSetupControl
+                <SetupFieldControl
                   key={field.name}
-                  node={node}
                   field={field}
                   value={previewConfig?.[node.previewId]?.[field.name]}
                   onChange={(v) => onPreviewConfigChange(node.previewId, field.name, v)}
+                  testid={`preview-setup-${node.previewId}-${field.name}`}
                 />
               ),
             )}
@@ -147,228 +147,5 @@ export function BuilderPreviewSetupCard({
         Apply to draft
       </button>
     </section>
-  );
-}
-
-/**
- * Async single-select control for a `select-async` preview field. Loads its options through the
- * EXISTING authenticated, account-scoped resolver (`useOptionsSource` → `GET /api/options/[source]`).
- * NEVER a model/Hermes call. The selected value updates previewConfig only (seeded on Apply). When a
- * `dependsOn` parent is missing from this node's preview config, the field defers ("Choose X first").
- */
-function PreviewAsyncSelectControl({
-  node,
-  field,
-  value,
-  nodeConfig,
-  workflowId,
-  onChange,
-}: {
-  node: DraftPreviewNode;
-  field: PreviewSetupField;
-  value: unknown;
-  nodeConfig: Readonly<Record<string, unknown>> | undefined;
-  workflowId?: string;
-  onChange: (value: unknown) => void;
-}) {
-  const testid = `preview-setup-${node.previewId}-${field.name}`;
-  const inputStyle = {
-    background: "var(--builder-panel-2)",
-    border: "1px solid var(--builder-border)",
-    color: "var(--builder-text)",
-  } as const;
-  const strValue = typeof value === "string" ? value : "";
-
-  // Resolve dependsOn parents from THIS node's ephemeral preview config (never from upstream graph).
-  const deps: Record<string, string> = {};
-  let missingDep: string | undefined;
-  for (const parent of field.dependsOn ?? []) {
-    const pv = nodeConfig?.[parent];
-    const s = typeof pv === "string" ? pv : typeof pv === "number" ? String(pv) : "";
-    if (s.trim().length === 0) {
-      if (!missingDep) missingDep = parent;
-      continue;
-    }
-    deps[parent] = s;
-  }
-  const depsUnresolved = (field.dependsOn?.length ?? 0) > 0 && missingDep !== undefined;
-
-  const { state, refetch } = useOptionsSource({
-    source: field.optionsSource ?? null,
-    deps,
-    enabled: !depsUnresolved,
-    ...(workflowId ? { workflowId } : {}),
-  });
-
-  const labelEl = (
-    <span className="block" style={{ color: "var(--builder-muted)" }}>
-      {field.label}
-    </span>
-  );
-
-  // Deferred until a dependsOn parent is chosen — disabled select, no fetch (enabled:false above).
-  if (depsUnresolved) {
-    return (
-      <label className="mt-1.5 block text-[11px]">
-        {labelEl}
-        <select
-          data-testid={testid}
-          aria-label={field.label}
-          disabled
-          value=""
-          onChange={() => {}}
-          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
-          style={inputStyle}
-        >
-          <option value="">Choose {missingDep} first</option>
-        </select>
-      </label>
-    );
-  }
-
-  // Error / disconnected / reauth / owner-gated → safe message; offer retry only where it can help.
-  if (
-    state.status === "error" ||
-    state.status === "disconnected" ||
-    state.status === "needs-reconnect" ||
-    state.status === "owner-gated" ||
-    state.status === "owner-must-connect"
-  ) {
-    const canRetry = state.status === "error" || state.status === "disconnected" || state.status === "needs-reconnect";
-    return (
-      <div className="mt-1.5 block text-[11px]">
-        {labelEl}
-        <div
-          data-testid={`${testid}-error`}
-          className="mt-0.5 rounded px-2 py-1 text-[11px]"
-          style={{ background: "var(--builder-panel-2)", border: "1px solid var(--builder-border)", color: "var(--builder-muted)" }}
-        >
-          Couldn&apos;t load options.{" "}
-          {canRetry && (
-            <button
-              type="button"
-              data-testid={`${testid}-retry`}
-              onClick={refetch}
-              className="underline"
-              style={{ color: "var(--builder-accent)" }}
-            >
-              Try again
-            </button>
-          )}
-          {!canRetry && <span>You can finish this after Apply.</span>}
-        </div>
-      </div>
-    );
-  }
-
-  const loading = state.status === "loading";
-  const empty = state.status === "empty";
-
-  return (
-    <label className="mt-1.5 block text-[11px]">
-      {labelEl}
-      <select
-        data-testid={testid}
-        aria-label={field.label}
-        value={strValue}
-        disabled={loading || empty}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
-        style={inputStyle}
-      >
-        <option value="">
-          {loading ? "Loading…" : empty ? "No options available" : "Select…"}
-        </option>
-        {state.items.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-/** One guided-setup control for a supported preview field. Native primitives; preview-only value. */
-function PreviewSetupControl({
-  node,
-  field,
-  value,
-  onChange,
-}: {
-  node: DraftPreviewNode;
-  field: PreviewSetupField;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  const testid = `preview-setup-${node.previewId}-${field.name}`;
-  const inputStyle = {
-    background: "var(--builder-panel-2)",
-    border: "1px solid var(--builder-border)",
-    color: "var(--builder-text)",
-  } as const;
-  const strValue = typeof value === "string" ? value : typeof value === "number" ? String(value) : "";
-
-  if (field.type === "boolean") {
-    return (
-      <label
-        className="mt-1.5 flex items-center gap-2 text-[11.5px]"
-        style={{ color: "var(--builder-text)" }}
-      >
-        <input
-          type="checkbox"
-          data-testid={testid}
-          aria-label={field.label}
-          checked={Boolean(value)}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        {field.label}
-      </label>
-    );
-  }
-
-  return (
-    <label className="mt-1.5 block text-[11px]" style={{ color: "var(--builder-muted)" }}>
-      {field.label}
-      {field.type === "textarea" ? (
-        <textarea
-          data-testid={testid}
-          aria-label={field.label}
-          value={strValue}
-          rows={2}
-          {...(field.placeholder ? { placeholder: field.placeholder } : {})}
-          onChange={(e) => onChange(e.target.value)}
-          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
-          style={inputStyle}
-        />
-      ) : field.type === "select" ? (
-        <select
-          data-testid={testid}
-          aria-label={field.label}
-          value={strValue}
-          onChange={(e) => onChange(e.target.value)}
-          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
-          style={inputStyle}
-        >
-          <option value="">Select…</option>
-          {field.options?.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type={field.type === "number" ? "number" : "text"}
-          data-testid={testid}
-          aria-label={field.label}
-          value={strValue}
-          {...(field.placeholder ? { placeholder: field.placeholder } : {})}
-          onChange={(e) => onChange(e.target.value)}
-          className="mt-0.5 w-full rounded px-2 py-1 text-[12px]"
-          style={inputStyle}
-        />
-      )}
-    </label>
   );
 }

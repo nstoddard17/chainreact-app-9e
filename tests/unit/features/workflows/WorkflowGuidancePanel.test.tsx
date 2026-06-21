@@ -450,6 +450,7 @@ describe("WorkflowGuidancePanel — deterministic 'Check workflow' review", () =
     blockingIssueCount: 2,
     issueMessages: ["Send Channel Message needs a Channel.", "Send Channel Message needs a Message."],
     issueCodes: ["missing_required_field"],
+    setupTargets: [] as const,
   });
 
   function renderWithContext(getCtx: () => ReturnType<typeof blockedContext>) {
@@ -508,6 +509,7 @@ describe("WorkflowGuidancePanel — deterministic 'Check workflow' review", () =
       blockingIssueCount: 0,
       issueMessages: [] as string[],
       issueCodes: [] as string[],
+      setupTargets: [] as const,
     });
     renderWithContext(cleanContext);
     await user.click(screen.getByTestId("agent-check-workflow"));
@@ -557,6 +559,57 @@ describe("WorkflowGuidancePanel — deterministic 'Check workflow' review", () =
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
     expect(mockRequest).toHaveBeenCalledWith({ accountId: "acct-1", goalText: "add a slack message", workflowId: "wf-9" });
+  });
+
+  it("renders the inline setup slot under the review with the existing-node targets (still zero-credit)", async () => {
+    const user = userEvent.setup();
+    const renderCheckSetup = jest.fn((targets: readonly { nodeId: string }[]) => (
+      <div data-testid="fake-setup-card">setup for {targets.map((t) => t.nodeId).join(",")}</div>
+    ));
+    const ctxWithTargets = () => ({
+      summary: "This workflow starts when you run it manually, then runs 1 step: Slack Send Channel Message.",
+      blockingIssueCount: 2,
+      issueMessages: ["Send Channel Message needs a Channel.", "Send Channel Message needs a Message."],
+      issueCodes: ["missing_required_field"],
+      setupTargets: [
+        { nodeId: "a1", provider: "slack", type: "send_channel_message", label: "Send Channel Message", missingFieldNames: ["channel", "text"] },
+      ],
+    });
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        getCheckReviewContext={ctxWithTargets}
+        renderCheckSetup={renderCheckSetup}
+      />,
+    );
+    await user.click(screen.getByTestId("agent-check-workflow"));
+
+    // The slot is rendered under the review with the existing-node targets…
+    expect(await screen.findByTestId("fake-setup-card")).toHaveTextContent("setup for a1");
+    expect(renderCheckSetup).toHaveBeenCalledWith(ctxWithTargets().setupTargets);
+    // …and the deterministic path stays zero-credit (no governed request).
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+
+  it("does not render the setup slot when there are no inline-fixable targets", async () => {
+    const user = userEvent.setup();
+    const renderCheckSetup = jest.fn(() => <div data-testid="fake-setup-card" />);
+    // blockedContext has setupTargets: [] → the slot must not be invoked.
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        getCheckReviewContext={blockedContext}
+        renderCheckSetup={renderCheckSetup}
+      />,
+    );
+    await user.click(screen.getByTestId("agent-check-workflow"));
+    await screen.findByTestId("workflow-guidance-result");
+    expect(renderCheckSetup).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("fake-setup-card")).toBeNull();
   });
 });
 
@@ -676,6 +729,7 @@ describe("WorkflowGuidancePanel — 'Show on canvas' eligibility guard", () => {
           blockingIssueCount: 1,
           issueMessages: ["Send Channel Message needs a Message."],
           issueCodes: ["missing_required_field"],
+          setupTargets: [],
         })}
       />,
     );
