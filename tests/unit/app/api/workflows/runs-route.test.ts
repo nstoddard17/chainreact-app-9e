@@ -19,6 +19,22 @@ jest.mock("@/repositories/workflowRuns", () => ({
   listByWorkflow: (...args: unknown[]) => mockListByWorkflow(...args),
 }));
 
+// V2-READY-51 — the list route authorizes EXPLICITLY before reading runs:
+// `loadWorkflowForMember` loads the workflow (`workflows.getById`) and confirms
+// the caller is a member of its account (`accountMemberships.isMember`). The
+// `workflow_runs` read is service-role / non-authorizing, so the gate is the
+// security boundary. Stub both data dependencies (not a fake Supabase client)
+// so these tests exercise the real gate + the wire-shape behavior.
+const mockWorkflowGetById = jest.fn();
+jest.mock("@/repositories/workflows", () => ({
+  getById: (...args: unknown[]) => mockWorkflowGetById(...args),
+}));
+
+const mockIsMember = jest.fn();
+jest.mock("@/repositories/accountMemberships", () => ({
+  isMember: (...args: unknown[]) => mockIsMember(...args),
+}));
+
 import { GET } from "@/app/api/workflows/[id]/runs/route";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 
@@ -51,6 +67,18 @@ const baseRecord = {
 beforeEach(() => {
   mockGetUser.mockReset();
   mockListByWorkflow.mockReset();
+  // Default: an existing workflow whose account the caller belongs to, so the
+  // existing wire-shape / limit-parsing assertions run against the post-gate
+  // (authorized) path. Individual tests override for the not-found / non-member
+  // cases.
+  mockWorkflowGetById.mockReset();
+  mockWorkflowGetById.mockResolvedValue({
+    id: "wf-1",
+    accountId: "acct-1",
+    state: "draft",
+  });
+  mockIsMember.mockReset();
+  mockIsMember.mockResolvedValue(true);
 });
 
 function authedUser(): void {
@@ -68,6 +96,26 @@ describe("GET /api/workflows/[id]/runs", () => {
       params: Promise.resolve({ id: "wf-1" }),
     });
     expect(res.status).toBe(401);
+    expect(mockListByWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the workflow is missing or soft-deleted (no run list read)", async () => {
+    authedUser();
+    mockWorkflowGetById.mockResolvedValueOnce(null);
+    const res = await GET(makeRequest(), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(404);
+    expect(mockListByWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 (no existence leak) when the caller is not a member of the workflow's account", async () => {
+    authedUser();
+    mockIsMember.mockResolvedValueOnce(false);
+    const res = await GET(makeRequest(), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(404);
     expect(mockListByWorkflow).not.toHaveBeenCalled();
   });
 
