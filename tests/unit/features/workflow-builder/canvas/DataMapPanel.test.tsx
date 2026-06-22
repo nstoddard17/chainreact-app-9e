@@ -65,7 +65,10 @@ const httpRequestMeta: ActionMeta = {
     { name: "url", label: "URL", type: "text", required: true },
     { name: "timeoutSeconds", label: "Timeout", type: "number", required: false },
   ],
-  outputs: [{ name: "status", type: "number" }],
+  outputs: [
+    { name: "status", type: "number" },
+    { name: "body", type: "object", fields: [{ name: "id", type: "string" }] },
+  ],
   producesFileRef: false,
   consumesFileRef: false,
   displayOrder: 10,
@@ -218,22 +221,38 @@ describe("DataMapPanel — workflow with actions", () => {
     expect(screen.queryByText(new RegExp(SECRET_VALUE))).not.toBeInTheDocument();
   });
 
-  it("resolves an action→action reference to the upstream step's friendly name (no raw id / token)", async () => {
+  it("Uses-variables side resolves an action→action reference to the upstream friendly name (never the raw id/token)", async () => {
     bootLinearGraph();
-    const { container } = render(<DataMapPanel />);
+    render(<DataMapPanel />);
     await screen.findByTestId("data-map-panel");
     const actionB = screen.getAllByTestId("data-map-node")[2]!;
 
     // action B (Delay) uses action A's `status` → resolved to the upstream
-    // step's FRIENDLY name ("HTTP Request"), not a raw id/token.
+    // step's FRIENDLY name ("HTTP Request") in the Uses-variables section.
     expect(within(actionB).getByText(/Uses variables/i)).toBeInTheDocument();
     expect(within(actionB).getByText("Seconds:")).toBeInTheDocument();
     expect(within(actionB).getByText("HTTP Request")).toBeInTheDocument();
 
-    // No internal node id and no raw action-source token anywhere in the UI.
-    expect(container.textContent).not.toContain(ACTION_A_ID);
-    expect(container.textContent).not.toContain(ACTION_B_ID);
-    expect(container.textContent).not.toContain(`{{${ACTION_A_ID}.status}}`);
+    // The Uses side stays id/token-free; Delay has no outputs, so B's card
+    // carries no produced-field token either → its card never shows a raw id.
+    expect(actionB.textContent).not.toContain(ACTION_A_ID);
+    expect(actionB.textContent).not.toContain(ACTION_B_ID);
+    expect(actionB.textContent).not.toContain(`{{${ACTION_A_ID}.status}}`);
+  });
+
+  it("Produces side offers a copyable {{nodeId.path}} token per action output, incl. flattened nested paths", async () => {
+    // Slice 4.BUILDER-DATA-MAP-2 — action outputs are now copyable (the whole
+    // point of the tab: paste variables into later steps). The node id in the
+    // token is a workflow-local identifier, not a secret.
+    bootLinearGraph();
+    render(<DataMapPanel />);
+    await screen.findByTestId("data-map-panel");
+    const actionA = screen.getAllByTestId("data-map-node")[1]!;
+
+    expect(within(actionA).getByText("status")).toBeInTheDocument();
+    expect(within(actionA).getByText("body.id")).toBeInTheDocument();
+    expect(within(actionA).getByText(`{{${ACTION_A_ID}.status}}`)).toBeInTheDocument();
+    expect(within(actionA).getByText(`{{${ACTION_A_ID}.body.id}}`)).toBeInTheDocument();
   });
 
   it("offers a safe copyable {{trigger.<path>}} token for the trigger's outputs", async () => {

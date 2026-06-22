@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   useWorkflowDataMap,
   type DataMapNode,
@@ -30,7 +30,7 @@ export function DataMapPanel({
 }: {
   providerLabels?: Readonly<Record<string, string>>;
 }) {
-  const { nodes, hasActions, loading } = useWorkflowDataMap(
+  const { nodes, hasActions, loading, sampleAvailable } = useWorkflowDataMap(
     providerLabels ? { providerLabels } : undefined,
   );
 
@@ -46,7 +46,7 @@ export function DataMapPanel({
       className="absolute inset-0 z-10 overflow-y-auto p-5"
     >
       <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
-        <header className="flex flex-col gap-1">
+        <header className="flex flex-col gap-1.5">
           <h2
             className="text-[15px] font-semibold"
             style={{ color: "var(--builder-text)" }}
@@ -54,8 +54,17 @@ export function DataMapPanel({
             Data Map
           </h2>
           <p className="text-[12.5px]" style={{ color: "var(--builder-muted)" }}>
-            The data each step uses and produces, in workflow order. Run a test to
-            capture real sample values.
+            See what each step produces and copy variables into later steps.
+          </p>
+          <p
+            data-testid="data-map-sample-banner"
+            data-sample-available={sampleAvailable}
+            className="text-[11.5px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            {sampleAvailable
+              ? "Sample from latest test run."
+              : "Run a test to capture real sample values."}
           </p>
         </header>
 
@@ -154,13 +163,24 @@ function DataMapNodeCard({
 
       <DataMapSection title="Produces">
         {node.outputsKnown ? (
-          <ul className="flex flex-col gap-1.5">
-            {node.expectedOutputs.map((output) => (
-              <li key={output.name}>
-                <OutputRow output={output} />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="flex flex-col gap-1.5">
+              {node.expectedOutputs.map((output) => (
+                <li key={output.path}>
+                  <OutputRow output={output} />
+                </li>
+              ))}
+            </ul>
+            {node.outputsTruncated ? (
+              <p
+                className="text-[11px]"
+                style={{ color: "var(--builder-muted)" }}
+                data-testid="data-map-truncated-note"
+              >
+                Some fields are hidden to keep this readable.
+              </p>
+            ) : null}
+          </>
         ) : (
           <p className="text-[12px]" style={{ color: "var(--builder-muted)" }}>
             This step&rsquo;s outputs will appear after you test or run the
@@ -218,8 +238,13 @@ function UsesVariableRow({ use }: { use: DataMapVariableUse }) {
 
 function OutputRow({ output }: { output: DataMapOutput }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
-      <span style={{ color: "var(--builder-text)" }}>{output.name}</span>
+    <div
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]"
+      data-testid="data-map-output"
+      data-output-path={output.path}
+      data-sensitive={output.sensitive ? "true" : undefined}
+    >
+      <code style={{ color: "var(--builder-text)" }}>{output.path}</code>
       <span
         className="rounded-[4px] px-1 py-0.5 text-[10.5px]"
         style={{
@@ -227,28 +252,56 @@ function OutputRow({ output }: { output: DataMapOutput }) {
           border: "1px solid var(--builder-border)",
           color: "var(--builder-muted)",
         }}
+        aria-label={`Type ${output.type}`}
+        data-testid="data-map-type-badge"
       >
         {output.type}
       </span>
       {output.sensitive ? (
         <span
-          className="text-[10.5px]"
-          style={{ color: "var(--builder-muted)" }}
-          title="This value may contain sensitive data and is hidden until you run the workflow."
+          data-testid="data-map-sensitive-badge"
+          className="rounded-[4px] px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300"
+          title="This value may contain sensitive data and is hidden."
         >
-          sensitive
+          Sensitive
+        </span>
+      ) : output.sample !== null ? (
+        <span
+          data-testid="data-map-sample-value"
+          className="text-[11px]"
+          style={{ color: "var(--builder-muted)" }}
+        >
+          Example:{" "}
+          <span className="builder-mono" style={{ color: "var(--builder-text)" }}>
+            {output.sample}
+          </span>
         </span>
       ) : null}
-      {output.copyToken ? <CopyTokenButton token={output.copyToken} /> : null}
+      <CopyTokenButton token={output.copyToken} />
     </div>
   );
 }
 
 function CopyTokenButton({ token }: { token: string }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending reset on unmount so a late timer never sets state on a
+  // torn-down component (e.g. when the user switches tabs after copying).
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
   const handleCopy = useCallback(() => {
     // Defensive: clipboard is unavailable in some environments (and tests). The
     // token is also rendered as selectable code text, so copy is an enhancement.
     void navigator.clipboard?.writeText(token);
+    setCopied(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), 1500);
   }, [token]);
 
   return (
@@ -256,7 +309,7 @@ function CopyTokenButton({ token }: { token: string }) {
       type="button"
       onClick={handleCopy}
       data-testid="data-map-copy-token"
-      title="Copy this variable path"
+      title="Copy this variable"
       className="inline-flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-[11px] transition-colors"
       style={{
         background: "var(--builder-panel-2)",
@@ -265,8 +318,13 @@ function CopyTokenButton({ token }: { token: string }) {
       }}
     >
       <code style={{ color: "var(--builder-text)" }}>{token}</code>
-      <span aria-hidden>⧉</span>
-      <span className="sr-only">Copy {token}</span>
+      <span aria-hidden>{copied ? "✓" : "⧉"}</span>
+      {copied ? (
+        <span data-testid="data-map-copied" style={{ color: "var(--builder-text)" }}>
+          Copied
+        </span>
+      ) : null}
+      <span className="sr-only">{copied ? "Copied" : `Copy ${token}`}</span>
     </button>
   );
 }

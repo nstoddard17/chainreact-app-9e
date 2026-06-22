@@ -11,9 +11,14 @@ import type {
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import { collectConfigVariableReferences } from "@/core/workflows/configVariableReferences";
+import { flattenOutputFields } from "@/core/workflows/dataMapFields";
+import { formatLatestValuePreview } from "@/core/workflows/formatLatestValuePreview";
+import { buildLatestValuesBySource } from "@/core/workflows/latestRunValues";
 import { formatTypeKey, getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import { resolveValueAtPath } from "@/core/workflows/resolveValueAtPath";
 import { formatReference } from "@/core/workflows/variableReferences";
 import { useGraphSlice } from "../state/graphSlice";
+import { useRunSlice } from "../state/runSlice";
 import { findNativeActionByKey, useNativeActions } from "./useNativeActions";
 import { findNativeTriggerByKey, useNativeTriggers } from "./useNativeTriggers";
 import {
@@ -69,16 +74,25 @@ export interface DataMapVariableUse {
 }
 
 export interface DataMapOutput {
-  readonly name: string;
+  /** Dotted path inside the source's data, e.g. `message.text`. */
+  readonly path: string;
   readonly type: OutputType;
   readonly description?: string;
   readonly sensitive: boolean;
   /**
-   * A safe, copyable variable token for this output, or null when none can be
-   * offered without exposing a raw node id. Only the trigger's outputs get one
-   * (`{{trigger.<name>}}`); action outputs are deferred.
+   * Canonical, copyable variable token for this field — `{{trigger.<path>}}` for
+   * the trigger (alias), `{{<nodeId>.<path>}}` for an action. The node id is a
+   * workflow-local identifier (not a secret); it is exactly what authors paste
+   * into later steps and what the runtime resolver consumes.
    */
-  readonly copyToken: string | null;
+  readonly copyToken: string;
+  /**
+   * Sanitized scalar sample value from the latest test run, or null when there's
+   * no sample, the value isn't scalar, or the field is sensitive. Sourced from
+   * the already-redacted `runSlice.detail` (author-test-gated server-side); the
+   * Data Map never reads raw provider payloads.
+   */
+  readonly sample: string | null;
 }
 
 export interface DataMapNode {
@@ -99,10 +113,14 @@ export interface DataMapNode {
   readonly configuredFieldLabels: readonly string[];
   /** Upstream variables this node's config references. */
   readonly usesVariables: readonly DataMapVariableUse[];
-  /** Output fields this node is expected to produce (from metadata). */
+  /** Output fields this node is expected to produce (from metadata, flattened). */
   readonly expectedOutputs: readonly DataMapOutput[];
   /** True when expected outputs are known from metadata. */
   readonly outputsKnown: boolean;
+  /** Canonical source id for variable tokens — `"trigger"` alias or node id. */
+  readonly sourceId: string;
+  /** True when some produced fields were hidden by the depth / count caps. */
+  readonly outputsTruncated: boolean;
 }
 
 export interface UseWorkflowDataMapResult {
@@ -114,6 +132,8 @@ export interface UseWorkflowDataMapResult {
   readonly hasActions: boolean;
   /** True when the workflow has no nodes at all. */
   readonly isEmpty: boolean;
+  /** True when the latest tracked run captured sample output for ≥1 source. */
+  readonly sampleAvailable: boolean;
 }
 
 export interface UseWorkflowDataMapOptions {
@@ -126,6 +146,7 @@ const EMPTY_RESULT: UseWorkflowDataMapResult = Object.freeze({
   loading: false,
   hasActions: false,
   isEmpty: true,
+  sampleAvailable: false,
 });
 
 export function useWorkflowDataMap(
@@ -134,6 +155,9 @@ export function useWorkflowDataMap(
   const providerLabels = options?.providerLabels;
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
+  // Single subscription to the latest tracked run so sample values appear after a
+  // test run finishes. Read-only — no fetch / poll / save here (runSlice owns that).
+  const latestRunDetail = useRunSlice((s) => s.detail);
 
   const nativeActions = useNativeActions();
   const nativeTriggers = useNativeTriggers();
@@ -156,6 +180,22 @@ export function useWorkflowDataMap(
     return trig?.provider ?? null;
   }, [pendingNodes]);
   const providerTriggers = useProviderTriggers(triggerProvider);
+
+  // Sanitized latest-run sample values keyed by source id (`"trigger"` alias /
+  // node id). Reuses the SAME bridge the variable picker uses — no second
+  // resolver, no new data path. Empty when nothing has been run.
+  const currentTriggerNodeId = useMemo<string | null>(() => {
+    const trig = pendingNodes.find((n) => n.kind === "trigger");
+    return trig?.id ?? null;
+  }, [pendingNodes]);
+  const latestValuesBySource = useMemo(
+    () =>
+      buildLatestValuesBySource({
+        detail: latestRunDetail,
+        currentTriggerNodeId,
+      }),
+    [latestRunDetail, currentTriggerNodeId],
+  );
 
   return useMemo<UseWorkflowDataMapResult>(() => {
     if (pendingNodes.length === 0) return EMPTY_RESULT;
@@ -227,18 +267,38 @@ export function useWorkflowDataMap(
         return { sourceLabel, path: ref.refPath, fieldLabel, broken };
       });
 
-      const expectedOutputs: DataMapOutput[] = (meta?.outputs ?? []).map((o) => ({
-        name: o.name,
-        type: o.type,
-        ...(o.description ? { description: o.description } : {}),
-        sensitive: o.sensitive ?? false,
-        // Only the trigger gets a copyable token — `{{trigger.<name>}}` carries
-        // no node id. Action outputs would need the raw id → deferred.
-        copyToken:
-          node.kind === "trigger"
-            ? formatReference({ nodeId: TRIGGER_ALIAS, path: o.name })
-            : null,
-      }));
+      // Canonical source id: the trigger uses the `"trigger"` alias (carries no
+      // id and is the form authors paste); actions use their node id. Both are
+      // exactly what the runtime resolver consumes — no second token scheme.
+      const sourceId = node.kind === "trigger" ? TRIGGER_ALIAS : node.id;
+      const { fields: flatFields, truncated: outputsTruncated } =
+        flattenOutputFields(meta?.outputs ?? []);
+      const sourceHasSample = Object.prototype.hasOwnProperty.call(
+        latestValuesBySource,
+        sourceId,
+      );
+      const latestForSource = latestValuesBySource[sourceId];
+
+      const expectedOutputs: DataMapOutput[] = flatFields.map((f) => {
+        // Sample is shown ONLY for non-sensitive scalar values from an already-
+        // sanitized run output. Objects / arrays / fileRefs (and sensitive
+        // fields) never render an inline value — only the type badge.
+        let sample: string | null = null;
+        if (!f.sensitive && sourceHasSample) {
+          const preview = formatLatestValuePreview(
+            resolveValueAtPath(latestForSource, f.path),
+          );
+          sample = preview.kind === "scalar" ? preview.preview : null;
+        }
+        return {
+          path: f.path,
+          type: f.type,
+          sensitive: f.sensitive,
+          ...(f.description ? { description: f.description } : {}),
+          copyToken: formatReference({ nodeId: sourceId, path: f.path }),
+          sample,
+        };
+      });
 
       return {
         nodeId: node.id,
@@ -254,6 +314,8 @@ export function useWorkflowDataMap(
         usesVariables,
         expectedOutputs,
         outputsKnown: expectedOutputs.length > 0,
+        sourceId,
+        outputsTruncated,
       };
     });
 
@@ -262,11 +324,13 @@ export function useWorkflowDataMap(
       loading,
       hasActions: pendingNodes.some((n) => n.kind === "action"),
       isEmpty: false,
+      sampleAvailable: Object.keys(latestValuesBySource).length > 0,
     };
   }, [
     pendingNodes,
     pendingEdges,
     providerLabels,
+    latestValuesBySource,
     nativeActions.actions,
     nativeActions.loading,
     nativeTriggers.triggers,
