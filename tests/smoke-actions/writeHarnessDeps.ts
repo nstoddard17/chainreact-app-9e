@@ -37,9 +37,16 @@ import {
 import { enqueueRun } from "@/services/execution/enqueue";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { getActiveForExecution } from "@/repositories/integrations";
+import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
+import { getOptionsResolver } from "@/services/options/_registry";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import { SMOKE_ACTION_NODE_ID, SMOKE_TRIGGER_NODE_ID } from "./workflowRun";
 import type { StepRunOutcome, WriteHarnessDeps } from "./writeHarness";
+import {
+  pickSmokeSafeTarget,
+  type ChosenTrelloTarget,
+  type TrelloListCandidate,
+} from "./writeTargets";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */
@@ -81,14 +88,67 @@ function buildSingleActionDefinition(
 }
 
 /**
- * Is the provider actually connected on the smoke account? Used by the dev test
- * to SKIP cleanly (never FAIL) when the pilot provider is not connected.
+ * Provider connection facts for a write pilot — the 4-way classification inputs.
+ * `dbConnected` = any active row on the account. `execUsable` = whether execution
+ * can resolve the credential under the smoke user:
+ *   - PERSONAL-class providers (trello, airtable, gmail, …) execute AS the
+ *     workflow creator, so the smoke user must be the connector
+ *     (`connected_by_user_id`); a co-member's row is connected-but-not-executable.
+ *   - ACCOUNT-class providers (notion, slack, stripe, …) are account-shared, so
+ *     execution does NOT filter by connector — `execUsable === dbConnected`.
+ * Never collapses "no smoke target" into "not connected".
  */
+export async function probeWriteConnection(
+  accountId: string,
+  userId: string,
+  provider: string,
+): Promise<{ dbConnected: boolean; execUsable: boolean }> {
+  const dbConnected = (await getActiveForExecution(accountId, provider, null)) !== null;
+  const execUsable = isPersonalCredentialProvider(provider)
+    ? (await getActiveForExecution(accountId, provider, null, { connectedByUserId: userId })) !== null
+    : dbConnected;
+  return { dbConnected, execUsable };
+}
+
+/** @deprecated prefer probeWriteConnection — kept for the existing dev test. */
 export async function isProviderConnectedForWrite(
   accountId: string,
   provider: string,
 ): Promise<boolean> {
   return (await getActiveForExecution(accountId, provider, null)) !== null;
+}
+
+/**
+ * Discover an EXPLICITLY smoke-safe Trello list (a board AND list both named for
+ * smoke/test use) via the read-only board/list option resolvers, then the pure
+ * `pickSmokeSafeTarget`. READ-ONLY (only list resolvers run — never a mutation).
+ * Returns the chosen target (id + safe LABELS) or null. The list id is for the
+ * env overlay only; only labels are safe to log.
+ */
+export async function discoverTrelloSmokeTarget(
+  accountId: string,
+  userId: string,
+): Promise<ChosenTrelloTarget | null> {
+  const integration = await getActiveForExecution(accountId, "trello", null, {
+    connectedByUserId: userId,
+  });
+  if (!integration) return null;
+  const boardsR = getOptionsResolver("trello:boards");
+  const listsR = getOptionsResolver("trello:lists");
+  if (!boardsR || !listsR) return null;
+
+  const boards = await boardsR.resolve({ userId, integration, q: "", deps: {} });
+  const candidates: TrelloListCandidate[] = [];
+  for (const b of boards.items) {
+    const boardLabel = b.label ?? "";
+    // Only descend into boards that already look smoke-safe (read-only, bounded).
+    if (!/smoke|test|chainreact/i.test(boardLabel)) continue;
+    const lists = await listsR.resolve({ userId, integration, q: "", deps: { boardId: b.value } });
+    for (const l of lists.items) {
+      candidates.push({ boardId: b.value, boardLabel, listId: l.value, listLabel: l.label ?? "" });
+    }
+  }
+  return pickSmokeSafeTarget(candidates);
 }
 
 export function makeRealWriteHarnessDeps(

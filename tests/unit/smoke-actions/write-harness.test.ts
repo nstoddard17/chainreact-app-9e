@@ -260,6 +260,48 @@ describe("risk gates block by default (req 6)", () => {
     expect(res.status).toBe("UNSAFE_NO_HARNESS");
     expect(deps.calls).toHaveLength(0);
   });
+
+  it("a missing smoke TARGET env is BLOCKED_ENV (not 'not connected'), and never mutates", async () => {
+    const deps = fakeDeps();
+    const fx: ActionSmokeFixture = {
+      provider: "acme",
+      action: "create_thing",
+      risk: "write",
+      config: {},
+      configFromEnv: { listId: "SMOKE_ACME_LIST_ID" },
+      // _CONNECTED is a connection signal (asserted by the real DB check), NOT a
+      // target — its absence must NOT block. The LIST_ID target is what blocks.
+      requiredEnv: ["SMOKE_ACME_CONNECTED", "SMOKE_ACME_LIST_ID"],
+      expect: { outcome: "success" },
+      writeHarness: { liveClass: "writeSafe", smokeMarker: "crsmoke-" },
+    };
+    const res = await runWriteSmoke(fx, { ...RUN, envLookup: () => undefined }, deps);
+    expect(res.status).toBe("BLOCKED_ENV");
+    expect(res.reason).toMatch(/SMOKE_ACME_LIST_ID/);
+    expect(res.reason).not.toMatch(/SMOKE_ACME_CONNECTED/); // connection signal excluded
+    expect(deps.calls).toHaveLength(0);
+  });
+
+  it("resolves when the target env is present (BLOCKED_ENV clears)", async () => {
+    const deps = fakeDeps({ "acme:create_thing": { ok: true, output: null, reason: null } });
+    const fx: ActionSmokeFixture = {
+      provider: "acme",
+      action: "create_thing",
+      risk: "write",
+      config: {},
+      configFromEnv: { listId: "SMOKE_ACME_LIST_ID" },
+      requiredEnv: ["SMOKE_ACME_CONNECTED", "SMOKE_ACME_LIST_ID"],
+      expect: { outcome: "success" },
+      writeHarness: { liveClass: "writeSafe", smokeMarker: "crsmoke-" },
+    };
+    const res = await runWriteSmoke(
+      fx,
+      { ...RUN, envLookup: (n) => (n === "SMOKE_ACME_LIST_ID" ? "L1" : undefined) },
+      deps,
+    );
+    expect(res.status).toBe("PASS");
+    expect(deps.calls.find((c) => c.action === "create_thing")?.config.listId).toBe("L1");
+  });
 });
 
 // ─── Happy path + helpers ────────────────────────────────────────────────────

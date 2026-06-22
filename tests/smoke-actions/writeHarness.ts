@@ -50,6 +50,7 @@ export type WriteSmokeStatus =
   | "VERIFY_FAILED"
   | "CLEANUP_FAILED"
   | "SKIP"
+  | "BLOCKED_ENV" // connected + gated, but a required smoke TARGET env is unset
   | "SANDBOX_REQUIRED"
   | "UNSAFE_NO_HARNESS";
 
@@ -346,6 +347,27 @@ export async function runWriteSmoke(
     return { ...base, status: gate.status, reason: gate.reason, phases, ledger: ledger.summary(), dryRun: false };
   }
 
+  // 1b. Target gate — a missing smoke TARGET env (board/list/page/base id, NOT a
+  // *_CONNECTED signal) is BLOCKED_ENV, never confused with "not connected". The
+  // dev test owns the real connection check; the orchestrator owns "do I have a
+  // place to safely write?". Connection-signal vars (SMOKE_*_CONNECTED) are
+  // excluded — those are asserted by the real DB check, not the env.
+  const targetEnv = (fixture.requiredEnv ?? []).filter((v) => !/_CONNECTED$/.test(v));
+  const missingTargets = targetEnv.filter((v) => {
+    const val = envLookup(v);
+    return val === undefined || val === "";
+  });
+  if (missingTargets.length > 0) {
+    return {
+      ...base,
+      status: "BLOCKED_ENV",
+      reason: `connected but no smoke target — set ${missingTargets.join(", ")}`,
+      phases,
+      ledger: ledger.summary(),
+      dryRun: false,
+    };
+  }
+
   // 2. Dry-run — plan the phases, call NO mutating seam.
   if (options.dryRun === true) {
     if (spec.setup) for (const _ of spec.setup) phases.push({ phase: "setup", outcome: "skipped", reason: "dry-run" });
@@ -492,6 +514,7 @@ const STATUS_TO_OUTCOME: Record<WriteSmokeStatus, SmokeResult["outcome"]> = {
   VERIFY_FAILED: "fail",
   CLEANUP_FAILED: "fail",
   SKIP: "skip",
+  BLOCKED_ENV: "skip",
   SANDBOX_REQUIRED: "skip",
   UNSAFE_NO_HARNESS: "skip",
 };

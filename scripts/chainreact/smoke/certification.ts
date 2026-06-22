@@ -194,13 +194,22 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     // first folder. Live-verified — discovers a real file with no manual env.
     ["microsoft-onedrive", "get_file"],
   ]),
-  // SMOKE-WRITE pilot — FIRST live write+cleanup verification. The write harness
-  // created one smoke-owned record (marker-stamped), confirmed the marker echoed
-  // back + the record existed, then deleted exactly that record. Ledger: created
-  // 1 / cleaned 1 / leaked 0. Needs the dedicated-base primary field via
-  // SMOKE_AIRTABLE_TEXT_FIELD to re-run.
-  ...records("LIVE_PASS", "live write+verify+cleanup verified (smoke-owned record)", SMOKE_WRITE, [
+  // SMOKE-WRITE pilots — live write+verify+cleanup verified. Each created one
+  // smoke-owned, marker-stamped resource, confirmed the marker, then removed
+  // exactly that resource. Ledger created 1 / cleaned 1 / leaked 0.
+  //   - airtable:create_record -> delete_record (dedicated smoke base; primary
+  //     field via SMOKE_AIRTABLE_TEXT_FIELD).
+  //   - trello:create_card -> archive_card (reversible); smoke list auto-discovered
+  //     from a board+list both explicitly named for smoke/test use.
+  ...records("LIVE_PASS", "live write+verify+cleanup verified (smoke-owned)", SMOKE_WRITE, [
     ["airtable", "create_record"],
+    ["trello", "create_card"],
+  ]),
+  // notion:create_page is CONNECTED + execution-usable (account-class), but has no
+  // confirmed safe smoke parent page -> BLOCKED_ENV (set SMOKE_NOTION_PARENT_PAGE_ID
+  // at a dedicated smoke page). NOT "not connected".
+  ...records("BLOCKED_ENV", "connected; needs confirmed smoke parent (SMOKE_NOTION_PARENT_PAGE_ID)", SMOKE_WRITE, [
+    ["notion", "create_page"],
   ]),
 ];
 
