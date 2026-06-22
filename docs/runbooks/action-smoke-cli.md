@@ -1024,6 +1024,77 @@ count grew), and `npm run smoke:actions:run` to confirm PASS/SKIP. Add
 `liveSafe: true` only after confirming the action is read-only / side-effect-free,
 and source any ids from env via `configFromEnv`.
 
+## Write / destructive harness (foundation — design + pilot)
+
+The read harness above covers reads + native logic. Mutating actions (the 201
+remaining create/update/delete/send actions) run through a separate **write
+harness** with a setup -> execute -> verify -> cleanup phase model so a smoke run
+never leaves provider junk, sends to a real destination, charges a customer, or
+deletes a pre-existing record. Full contract:
+[`../slices/phase-4/readiness/write-smoke-harness-design.md`](../slices/phase-4/readiness/write-smoke-harness-design.md).
+
+**Status (foundation slice):** the contract + a pure, unit-tested phase
+orchestrator landed; 3 gated pilot fixtures are authored but NOT registered in the
+Jest runnable list and NOT run live. The real account-scoped step wiring is
+deferred (same posture the read harness took before its first live run).
+
+**Phase model.** A mutating fixture adds a `writeHarness` spec
+([`tests/smoke-actions/contract.ts`](../../tests/smoke-actions/contract.ts)):
+
+```ts
+import { defineWriteSmokeFixture } from "@/tests/smoke-actions/contract";
+
+export default defineWriteSmokeFixture({
+  provider: "airtable", action: "create_record", risk: "write", liveRisk: "write",
+  config: { typecast: false, fields: { Name: { type: "singleLineText", value: "{{smokeMarker}}pilot" } } },
+  configFromEnv: { baseId: "SMOKE_AIRTABLE_BASE_ID", tableIdOrName: "SMOKE_AIRTABLE_TABLE_ID" },
+  requiredEnv: ["SMOKE_AIRTABLE_CONNECTED", "SMOKE_AIRTABLE_BASE_ID", "SMOKE_AIRTABLE_TABLE_ID"],
+  expect: { outcome: "success" },
+  writeHarness: {
+    liveClass: "destructiveSafe",              // safety class (see below)
+    smokeMarker: "crsmoke-",                   // unique prefix stamped on created names
+    captureResource: { resourceKey: "record", idPath: "id", kind: "record" },
+    verify:  { provider: "airtable", action: "get_record",    config: { /* ... */ recordId: "{{ledger.record.id}}" } },
+    cleanup: { provider: "airtable", action: "delete_record", config: { /* ... */ recordId: "{{ledger.record.id}}" } },
+  },
+});
+```
+
+- `setup` / `verify` / `cleanup` are themselves **registered actions** (no bespoke
+  provider code). Step configs resolve `{{smokeMarker}}` (the per-run unique
+  prefix) and `{{ledger.<key>.id}}` (a prior step's captured id).
+- **Resource ledger** is the cleanup authority: a cleanup may only target a
+  smoke-owned ledger id. A cleanup with a literal/foreign id is **refused** (so
+  deleting an arbitrary existing record is impossible).
+- **Cleanup is always attempted** (even after execute/verify failure) and reported
+  **separately**. A cleanup failure surfaces as `CLEANUP_FAILED` and is never a PASS.
+
+**Safety classes (`liveClass`) + gates:**
+
+| `liveClass` | Runs live only when... | Default |
+|---|---|---|
+| `writeSafe` | live + `ALLOW_LIVE_PROVIDER_WRITE_SMOKE` | SKIP |
+| `sendSafe` | write gate + the fixture's env-pinned smoke destination is set | SKIP |
+| `destructiveSafe` | write gate + `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE` + a smoke-owned ledger resource | SKIP |
+| `billingSensitive` | all the above + `requiresSandboxEnv` confirms a test-mode account | **SANDBOX_REQUIRED** |
+| `neverLive` | never | **UNSAFE_NO_HARNESS** |
+
+**Statuses:** `PASS` / `FAIL` / `VERIFY_FAILED` / `CLEANUP_FAILED` / `SKIP` /
+`SANDBOX_REQUIRED` / `UNSAFE_NO_HARNESS`. `VERIFY_FAILED` + `CLEANUP_FAILED` fold to
+the existing `ExecutionReport` gate's `fail`, so the suite gate fails and
+certification never records `LIVE_PASS` when cleanup failed. `SANDBOX_REQUIRED` +
+`UNSAFE_NO_HARNESS` are also durable **certification** statuses.
+
+**Pilots (authored, NOT run live this slice):** `airtable:create_record`,
+`notion:create_page` (archive is reversible), `trello:create_card` — all
+`destructiveSafe` create+cleanup pairs against a DEDICATED smoke base/page/board.
+A future slice wires the real step deps, runs one pilot live with Marcus, then
+rolls out per-provider write batches.
+
+**Self-tests:** [`tests/unit/smoke-actions/write-harness.test.ts`](../../tests/unit/smoke-actions/write-harness.test.ts)
+(14 tests — cleanup-after-execute/verify-failure, cleanup-failure-surfaced,
+smoke-owned guard, dry-run-never-mutates, every gate, PASS path, pure helpers).
+
 ## Limitations (honest scope)
 
 - **Coverage is growing but partial:** **94 fixtures** (92 read / 1 write / 1

@@ -32,8 +32,15 @@ import { actionKey, type FixtureDescriptor, type RegisteredAction } from "./core
  *                       runs by default once the env appears.
  *   - FAIL            — last live run failed → runs by default (re-run after fix).
  *   - BUG             — known bug → runs by default (re-run after fix).
+ *   - SANDBOX_REQUIRED — write harness: billingSensitive action that can only be
+ *                       live-smoked against a confirmed test-mode/sandbox account.
+ *                       Never run live without that account. Never LIVE_PASS.
+ *   - UNSAFE_NO_HARNESS — write harness: neverLive action that cannot be safely
+ *                       live-smoked (irreversible external effect). Unit/integration
+ *                       only. Never run live. Never LIVE_PASS.
  * Only LIVE_PASS is skipped by the default planner; every other status is
- * eligible to run.
+ * eligible to run (SANDBOX_REQUIRED / UNSAFE_NO_HARNESS are eligible in the sense
+ * that the planner never skips them, but their own gates keep them from running).
  */
 export type CertificationStatus =
   | "LIVE_PASS"
@@ -41,7 +48,9 @@ export type CertificationStatus =
   | "MISSING_FIXTURE"
   | "BLOCKED_ENV"
   | "FAIL"
-  | "BUG";
+  | "BUG"
+  | "SANDBOX_REQUIRED"
+  | "UNSAFE_NO_HARNESS";
 
 export const CERTIFICATION_STATUSES: readonly CertificationStatus[] = [
   "LIVE_PASS",
@@ -50,6 +59,8 @@ export const CERTIFICATION_STATUSES: readonly CertificationStatus[] = [
   "BLOCKED_ENV",
   "FAIL",
   "BUG",
+  "SANDBOX_REQUIRED",
+  "UNSAFE_NO_HARNESS",
 ];
 
 /** One durable certification record. Safe facts only (see file header). */
@@ -267,6 +278,8 @@ export interface CertificationProviderTotals {
   readonly blockedEnv: number;
   readonly fail: number;
   readonly bug: number;
+  readonly sandboxRequired: number;
+  readonly unsafeNoHarness: number;
 }
 
 export interface CertificationMatrix {
@@ -280,6 +293,8 @@ export interface CertificationMatrix {
     readonly blockedEnv: number;
     readonly fail: number;
     readonly bug: number;
+    readonly sandboxRequired: number;
+    readonly unsafeNoHarness: number;
   };
   /** Cert records whose key is NOT a registered action (stale — surface, don't crash). */
   readonly staleCerts: readonly string[];
@@ -342,6 +357,8 @@ export function buildCertificationMatrix(
       blockedEnv: 0,
       fail: 0,
       bug: 0,
+      sandboxRequired: 0,
+      unsafeNoHarness: 0,
     };
     byProvider.set(row.provider, {
       provider: row.provider,
@@ -352,6 +369,8 @@ export function buildCertificationMatrix(
       blockedEnv: cur.blockedEnv + (row.status === "BLOCKED_ENV" ? 1 : 0),
       fail: cur.fail + (row.status === "FAIL" ? 1 : 0),
       bug: cur.bug + (row.status === "BUG" ? 1 : 0),
+      sandboxRequired: cur.sandboxRequired + (row.status === "SANDBOX_REQUIRED" ? 1 : 0),
+      unsafeNoHarness: cur.unsafeNoHarness + (row.status === "UNSAFE_NO_HARNESS" ? 1 : 0),
     });
   }
 
@@ -372,6 +391,8 @@ export function buildCertificationMatrix(
       blockedEnv: count("BLOCKED_ENV"),
       fail: count("FAIL"),
       bug: count("BUG"),
+      sandboxRequired: count("SANDBOX_REQUIRED"),
+      unsafeNoHarness: count("UNSAFE_NO_HARNESS"),
     },
     staleCerts,
     providerFilter,
@@ -402,6 +423,8 @@ const CERT_LABEL: Record<CertificationStatus, string> = {
   BLOCKED_ENV: "BLOCKED",
   FAIL: "FAIL",
   BUG: "BUG",
+  SANDBOX_REQUIRED: "SANDBOX",
+  UNSAFE_NO_HARNESS: "UNSAFE",
 };
 
 export function renderCertificationHuman(matrix: CertificationMatrix): string {
@@ -428,7 +451,8 @@ export function renderCertificationHuman(matrix: CertificationMatrix): string {
   const t = matrix.totals;
   lines.push(
     `Totals: ${t.registered} registered, ${t.livePass} LIVE_PASS, ${t.liveNotRun} not-run, ` +
-      `${t.missingFixture} missing-fixture, ${t.blockedEnv} blocked-env, ${t.fail} fail, ${t.bug} bug.`,
+      `${t.missingFixture} missing-fixture, ${t.blockedEnv} blocked-env, ${t.fail} fail, ${t.bug} bug, ` +
+      `${t.sandboxRequired} sandbox-required, ${t.unsafeNoHarness} unsafe-no-harness.`,
   );
   lines.push(
     "Default live runs SKIP LIVE_PASS actions (CERT-SKIP). Re-run them with SMOKE_RERUN_PASSED=1.",

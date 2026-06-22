@@ -25,6 +25,75 @@ export interface ActionSmokeExpectation {
   readonly errorIncludes?: string;
 }
 
+/**
+ * Write-harness safety class (richer than `risk` / `liveRisk`). Decides which
+ * live opt-ins a MUTATING fixture needs and whether it can be live-smoked at all.
+ * See docs/slices/phase-4/readiness/write-smoke-harness-design.md.
+ *   - writeSafe        — creates/updates only a throwaway resource the run owns;
+ *                        can verify + clean up. Needs the write gate.
+ *   - sendSafe         — sends/notifies; can ONLY target a controlled smoke
+ *                        destination (env-pinned channel/mailbox). No provider
+ *                        cleanup (a sent message is delivered). Needs the write gate.
+ *   - destructiveSafe  — deletes/archives only a resource created by the SAME run.
+ *                        Needs the write + destructive gates AND a smoke-owned
+ *                        ledger resource.
+ *   - billingSensitive — charges / customers / subscriptions. SKIPPED
+ *                        (SANDBOX_REQUIRED) unless a dedicated test-mode account
+ *                        is confirmed via `requiresSandboxEnv`.
+ *   - neverLive        — cannot be safely live-smoked (irreversible external
+ *                        broadcast / real-world effect). UNSAFE_NO_HARNESS;
+ *                        unit/integration only.
+ */
+export type WriteLiveClass =
+  | "writeSafe"
+  | "sendSafe"
+  | "destructiveSafe"
+  | "billingSensitive"
+  | "neverLive";
+
+/** How to read a created external id out of a step's output into the ledger. */
+export interface CaptureSpec {
+  /** Stable key the ledger stores this resource under (referenced by later steps). */
+  readonly resourceKey: string;
+  /** Dot-path into the step output holding the external id (e.g. "id", "page.id"). */
+  readonly idPath: string;
+  /** Human kind label for the report (e.g. "record", "page", "card"). NEVER the id. */
+  readonly kind: string;
+}
+
+/**
+ * A registered action run as a setup / verify / cleanup step. Its config may
+ * reference the run marker via `{{smokeMarker}}` and a prior captured id via
+ * `{{ledger.<resourceKey>.id}}` — resolved by the harness (not the engine).
+ */
+export interface ActionStepSpec {
+  readonly provider: string;
+  readonly action: string;
+  readonly config: Readonly<Record<string, unknown>>;
+  /** When this step creates a resource, how to capture its id into the ledger. */
+  readonly captureResource?: CaptureSpec;
+}
+
+/**
+ * Mutation-smoke spec layered onto a fixture. Present only on write/destructive
+ * fixtures; absent on read fixtures (the read path ignores it entirely).
+ */
+export interface WriteHarnessSpec {
+  readonly liveClass: WriteLiveClass;
+  /** Unique prefix stamped onto created names/text so leaked junk is recognizable. */
+  readonly smokeMarker: string;
+  /** Registered actions that create prerequisite throwaway resources. */
+  readonly setup?: readonly ActionStepSpec[];
+  /** How to capture the execute action's created resource id into the ledger. */
+  readonly captureResource?: CaptureSpec;
+  /** A registered READ action keyed on a captured id (confirms the side effect). */
+  readonly verify?: ActionStepSpec;
+  /** A registered destructive action keyed on a captured id (removes the resource). */
+  readonly cleanup?: ActionStepSpec;
+  /** billingSensitive only: env var that confirms a test-mode/sandbox account. */
+  readonly requiresSandboxEnv?: string;
+}
+
 export interface ActionSmokeFixture {
   /** Provider id — matches the integrations/<provider> folder + handler entry. */
   readonly provider: string;
@@ -69,6 +138,13 @@ export interface ActionSmokeFixture {
    */
   readonly liveRisk?: ActionRisk;
   readonly expect: ActionSmokeExpectation;
+  /**
+   * Mutation-smoke spec — present only on write/destructive fixtures run through
+   * the write harness (tests/smoke-actions/writeHarness.ts). Absent on read
+   * fixtures; the read path never looks at it. Additive: existing fixtures and
+   * consumers are unaffected.
+   */
+  readonly writeHarness?: WriteHarnessSpec;
   /** Optional free-text note for the runbook / report context. */
   readonly notes?: string;
 }
@@ -97,6 +173,18 @@ export function resolveFixtureConfig(
 
 /** Identity helper that pins the fixture type at authoring time. */
 export function defineActionSmokeFixture(fixture: ActionSmokeFixture): ActionSmokeFixture {
+  return fixture;
+}
+
+/**
+ * Identity helper for a MUTATING fixture — pins the fixture type AND requires the
+ * `writeHarness` spec at authoring time (a write fixture without a phase plan is
+ * an authoring bug). Returns the same widened `ActionSmokeFixture` so it drops
+ * into `ALL_SMOKE_FIXTURES` unchanged.
+ */
+export function defineWriteSmokeFixture(
+  fixture: ActionSmokeFixture & { readonly writeHarness: WriteHarnessSpec },
+): ActionSmokeFixture {
   return fixture;
 }
 

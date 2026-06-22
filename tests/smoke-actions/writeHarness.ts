@@ -1,0 +1,477 @@
+/**
+ * Action smoke harness — WRITE / DESTRUCTIVE phase orchestrator (pure).
+ *
+ * Where workflowRun.ts runs ONE action node and reports the terminal run status,
+ * a mutating smoke needs a lifecycle: create a throwaway resource, confirm it,
+ * then remove it — without ever leaving provider junk, sending to a real
+ * destination, charging a customer, or deleting a pre-existing record.
+ *
+ *   setup    (optional) -> create prerequisite throwaway resource(s); record each
+ *                          created object in the resource ledger.
+ *   execute             -> run the action under test; capture any created id.
+ *   verify   (optional) -> run an already-registered READ action keyed on the
+ *                          captured id to confirm the side effect.
+ *   cleanup  (always
+ *             attempted) -> remove every smoke-owned ledger resource, EVEN when
+ *                          execute/verify failed. Reported SEPARATELY; a cleanup
+ *                          failure can never be a PASS.
+ *
+ * Design (mirrors workflowRun.ts):
+ *   - Pure over an injected `WriteHarnessDeps.runActionStep` seam, so it
+ *     unit-tests fully with fakes. The real account-scoped engine wiring is a
+ *     separate, gated dep (not built in the foundation slice).
+ *   - REUSES the action registry: setup/verify/cleanup are themselves registered
+ *     actions. No bespoke provider transport here.
+ *   - The resource ledger is the cleanup authority: a destructive/cleanup step
+ *     may ONLY target a smoke-owned ledger id — deleting an arbitrary existing
+ *     record is structurally impossible.
+ *   - Reporting is status-only: phase outcomes + ledger COUNTS + kind labels.
+ *     External ids live in memory only to drive cleanup; never printed/committed.
+ *
+ * Full contract: docs/slices/phase-4/readiness/write-smoke-harness-design.md.
+ */
+import {
+  sanitizeFailureReason,
+  type ProviderBoundary,
+  type SmokeResult,
+} from "@/scripts/chainreact/smoke/core";
+import type {
+  ActionSmokeFixture,
+  ActionStepSpec,
+  WriteHarnessSpec,
+  WriteLiveClass,
+} from "./contract";
+import { effectiveLiveRisk } from "./contract";
+
+/** Rich runtime status for a mutation smoke. Folds down to a SmokeResult gate. */
+export type WriteSmokeStatus =
+  | "PASS"
+  | "FAIL"
+  | "VERIFY_FAILED"
+  | "CLEANUP_FAILED"
+  | "SKIP"
+  | "SANDBOX_REQUIRED"
+  | "UNSAFE_NO_HARNESS";
+
+export type PhaseName = "setup" | "execute" | "verify" | "cleanup";
+export type PhaseOutcome = "ok" | "failed" | "skipped";
+
+export interface PhaseResult {
+  readonly phase: PhaseName;
+  readonly outcome: PhaseOutcome;
+  /** Sanitized reason (null on ok). Never carries ids / secrets / provider blobs. */
+  readonly reason: string | null;
+}
+
+/** Ledger summary for the report — COUNTS + kind labels only, never ids. */
+export interface LedgerSummary {
+  readonly created: number;
+  readonly cleaned: number;
+  /** Created resources NOT cleaned up (provider junk left behind). */
+  readonly leaked: number;
+  /** Distinct kind labels of created resources (e.g. ["record"]). */
+  readonly kinds: readonly string[];
+}
+
+export interface WriteSmokeResult {
+  readonly provider: string;
+  readonly action: string;
+  readonly liveClass: WriteLiveClass;
+  readonly status: WriteSmokeStatus;
+  readonly reason: string | null;
+  readonly phases: readonly PhaseResult[];
+  readonly ledger: LedgerSummary;
+  /** True when planned but no mutating seam was called. */
+  readonly dryRun: boolean;
+}
+
+/** One smoke-owned resource the run created. The id is in-memory only. */
+interface LedgerEntry {
+  readonly resourceKey: string;
+  readonly provider: string;
+  readonly kind: string;
+  readonly externalId: string;
+  readonly marker: string;
+  cleaned: boolean;
+}
+
+/**
+ * In-memory ledger of resources created by THIS run. The cleanup authority: a
+ * destructive step may only target an id recorded here. Never serialized.
+ */
+export class ResourceLedger {
+  private readonly byKey = new Map<string, LedgerEntry>();
+
+  record(entry: Omit<LedgerEntry, "cleaned">): void {
+    this.byKey.set(entry.resourceKey, { ...entry, cleaned: false });
+  }
+
+  has(resourceKey: string): boolean {
+    return this.byKey.has(resourceKey);
+  }
+
+  get(resourceKey: string): LedgerEntry | undefined {
+    return this.byKey.get(resourceKey);
+  }
+
+  /** True when this external id was created by the run (smoke-owned). */
+  isSmokeOwned(externalId: string): boolean {
+    for (const e of this.byKey.values()) if (e.externalId === externalId) return true;
+    return false;
+  }
+
+  markCleaned(resourceKey: string): void {
+    const e = this.byKey.get(resourceKey);
+    if (e) e.cleaned = true;
+  }
+
+  entries(): readonly LedgerEntry[] {
+    return [...this.byKey.values()];
+  }
+
+  summary(): LedgerSummary {
+    const all = this.entries();
+    return {
+      created: all.length,
+      cleaned: all.filter((e) => e.cleaned).length,
+      leaked: all.filter((e) => !e.cleaned).length,
+      kinds: [...new Set(all.map((e) => e.kind))].sort(),
+    };
+  }
+}
+
+/** Output of running one registered action step against the (real) engine. */
+export interface StepRunOutcome {
+  readonly ok: boolean;
+  readonly output: Readonly<Record<string, unknown>> | null;
+  readonly reason: string | null;
+}
+
+/** Injected seam. The real wiring runs an account-scoped engine step; tests fake it. */
+export interface WriteHarnessDeps {
+  runActionStep(input: {
+    readonly provider: string;
+    readonly action: string;
+    readonly config: Readonly<Record<string, unknown>>;
+  }): Promise<StepRunOutcome>;
+}
+
+export interface RunWriteSmokeOptions {
+  /** ALLOW_LIVE_PROVIDER_WRITE_SMOKE — required by every mutating class. */
+  readonly allowWrite?: boolean;
+  /** ALLOW_DESTRUCTIVE_PROVIDER_SMOKE — required by destructiveSafe. */
+  readonly allowDestructive?: boolean;
+  /** Plan only; never call a mutating seam. */
+  readonly dryRun?: boolean;
+  /** Per-run unique token used to build the marker. Passed in (pure), not generated. */
+  readonly runToken: string;
+  readonly envLookup?: (name: string) => string | undefined;
+}
+
+// ─── Gate ────────────────────────────────────────────────────────────────────
+
+/**
+ * Decide whether a mutating fixture may run live, by its `liveClass`. Returns a
+ * terminal {status, reason} to SKIP/refuse, or null to proceed. Pure.
+ */
+export function gateWriteClass(
+  spec: WriteHarnessSpec,
+  options: RunWriteSmokeOptions,
+  envLookup: (name: string) => string | undefined,
+): { status: WriteSmokeStatus; reason: string } | null {
+  if (spec.liveClass === "neverLive") {
+    return { status: "UNSAFE_NO_HARNESS", reason: "neverLive — cannot be safely live-smoked (unit/integration only)" };
+  }
+  if (spec.liveClass === "billingSensitive") {
+    const sandboxConfirmed =
+      spec.requiresSandboxEnv !== undefined &&
+      (envLookup(spec.requiresSandboxEnv) ?? "") !== "";
+    if (!sandboxConfirmed) {
+      return {
+        status: "SANDBOX_REQUIRED",
+        reason: `billingSensitive — needs a confirmed test-mode account (${spec.requiresSandboxEnv ?? "requiresSandboxEnv unset"})`,
+      };
+    }
+  }
+  if (options.allowWrite !== true) {
+    return { status: "SKIP", reason: "write — needs ALLOW_LIVE_PROVIDER_WRITE_SMOKE" };
+  }
+  if (spec.liveClass === "destructiveSafe" && options.allowDestructive !== true) {
+    return { status: "SKIP", reason: "destructiveSafe — needs ALLOW_DESTRUCTIVE_PROVIDER_SMOKE" };
+  }
+  return null;
+}
+
+// ─── Token substitution + capture (pure) ─────────────────────────────────────
+
+const LEDGER_TOKEN = /\{\{ledger\.([A-Za-z0-9_-]+)\.id\}\}/g;
+
+/** Ledger resourceKeys referenced by a step's RAW config (before resolution). */
+export function ledgerRefsIn(config: Readonly<Record<string, unknown>>): string[] {
+  const refs = new Set<string>();
+  const walk = (v: unknown): void => {
+    if (typeof v === "string") {
+      for (const m of v.matchAll(LEDGER_TOKEN)) if (m[1]) refs.add(m[1]);
+    } else if (Array.isArray(v)) {
+      v.forEach(walk);
+    } else if (v && typeof v === "object") {
+      Object.values(v).forEach(walk);
+    }
+  };
+  walk(config);
+  return [...refs];
+}
+
+/**
+ * Resolve `{{smokeMarker}}` and `{{ledger.<key>.id}}` tokens in a step config.
+ * Pure. A `{{ledger.<key>.id}}` whose key is not in the ledger is left literal so
+ * the smoke-owned guard can refuse the step.
+ */
+export function resolveStepConfig(
+  config: Readonly<Record<string, unknown>>,
+  marker: string,
+  ledger: ResourceLedger,
+): Readonly<Record<string, unknown>> {
+  const walk = (v: unknown): unknown => {
+    if (typeof v === "string") {
+      let s = v.split("{{smokeMarker}}").join(marker);
+      s = s.replace(LEDGER_TOKEN, (whole, key: string) => ledger.get(key)?.externalId ?? whole);
+      return s;
+    }
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      return out;
+    }
+    return v;
+  };
+  return walk(config) as Readonly<Record<string, unknown>>;
+}
+
+/**
+ * The smoke-owned guard: a destructive/cleanup step may run ONLY if it references
+ * at least one `{{ledger.<key>.id}}` AND every referenced key is a smoke-owned
+ * ledger entry. A cleanup with no ledger reference (a literal/foreign id) is
+ * refused — deleting an arbitrary existing record must be impossible.
+ */
+export function cleanupTargetsSmokeOwned(
+  step: ActionStepSpec,
+  ledger: ResourceLedger,
+): boolean {
+  const refs = ledgerRefsIn(step.config);
+  if (refs.length === 0) return false;
+  return refs.every((key) => ledger.has(key));
+}
+
+function readPath(output: Readonly<Record<string, unknown>> | null, path: string): string | null {
+  if (!output) return null;
+  let cur: unknown = output;
+  for (const seg of path.split(".")) {
+    if (cur && typeof cur === "object" && seg in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[seg];
+    } else {
+      return null;
+    }
+  }
+  return typeof cur === "string" ? cur : typeof cur === "number" ? String(cur) : null;
+}
+
+// ─── Orchestrator ─────────────────────────────────────────────────────────────
+
+const SANITIZE = (r: string | null): string | null => sanitizeFailureReason(r);
+
+/**
+ * Run one mutating fixture through setup -> execute -> verify -> cleanup. Never
+ * throws — every failure mode becomes a structured WriteSmokeResult. Cleanup is
+ * ALWAYS attempted for smoke-owned resources, and its failure is surfaced.
+ */
+export async function runWriteSmoke(
+  fixture: ActionSmokeFixture,
+  options: RunWriteSmokeOptions,
+  deps: WriteHarnessDeps,
+): Promise<WriteSmokeResult> {
+  const spec = fixture.writeHarness;
+  const envLookup = options.envLookup ?? ((n) => process.env[n]);
+  const ledger = new ResourceLedger();
+  const phases: PhaseResult[] = [];
+  const base = {
+    provider: fixture.provider,
+    action: fixture.action,
+    liveClass: spec?.liveClass ?? "neverLive",
+  } as const;
+
+  if (!spec) {
+    return {
+      ...base,
+      status: "FAIL",
+      reason: "fixture has no writeHarness spec (author it via defineWriteSmokeFixture)",
+      phases,
+      ledger: ledger.summary(),
+      dryRun: false,
+    };
+  }
+
+  const marker = `${spec.smokeMarker}${options.runToken}-`;
+
+  // 1. Gate by liveClass — before ANY seam call.
+  const gate = gateWriteClass(spec, options, envLookup);
+  if (gate) {
+    return { ...base, status: gate.status, reason: gate.reason, phases, ledger: ledger.summary(), dryRun: false };
+  }
+
+  // 2. Dry-run — plan the phases, call NO mutating seam.
+  if (options.dryRun === true) {
+    if (spec.setup) for (const _ of spec.setup) phases.push({ phase: "setup", outcome: "skipped", reason: "dry-run" });
+    phases.push({ phase: "execute", outcome: "skipped", reason: "dry-run" });
+    if (spec.verify) phases.push({ phase: "verify", outcome: "skipped", reason: "dry-run" });
+    if (spec.cleanup) phases.push({ phase: "cleanup", outcome: "skipped", reason: "dry-run" });
+    return {
+      ...base,
+      status: "SKIP",
+      reason: "dry-run — planned, no provider mutation",
+      phases,
+      ledger: ledger.summary(),
+      dryRun: true,
+    };
+  }
+
+  // Helper: run a step + capture into the ledger. Returns ok.
+  const runStep = async (
+    phase: PhaseName,
+    step: ActionStepSpec,
+  ): Promise<boolean> => {
+    const config = resolveStepConfig(step.config, marker, ledger);
+    const res = await deps.runActionStep({ provider: step.provider, action: step.action, config });
+    if (res.ok && step.captureResource) {
+      const id = readPath(res.output, step.captureResource.idPath);
+      if (id) {
+        ledger.record({
+          resourceKey: step.captureResource.resourceKey,
+          provider: step.provider,
+          kind: step.captureResource.kind,
+          externalId: id,
+          marker,
+        });
+      }
+    }
+    phases.push({ phase, outcome: res.ok ? "ok" : "failed", reason: SANITIZE(res.reason) });
+    return res.ok;
+  };
+
+  let actionStatus: WriteSmokeStatus = "PASS";
+
+  // 3. setup.
+  for (const step of spec.setup ?? []) {
+    const ok = await runStep("setup", step);
+    if (!ok) {
+      actionStatus = "FAIL";
+      break;
+    }
+  }
+
+  // 4. execute (only if setup did not already fail).
+  if (actionStatus === "PASS") {
+    const execStep: ActionStepSpec = {
+      provider: fixture.provider,
+      action: fixture.action,
+      config: fixture.config,
+      captureResource: spec.captureResource,
+    };
+    const ok = await runStep("execute", execStep);
+    if (!ok) actionStatus = "FAIL";
+
+    // 5. verify (only if execute succeeded).
+    if (ok && spec.verify) {
+      const vok = await runStep("verify", spec.verify);
+      if (!vok) actionStatus = "VERIFY_FAILED";
+    }
+  }
+
+  // 6. cleanup — ALWAYS attempted when there are smoke-owned resources, even on
+  // execute/verify failure. Reported separately; failure surfaces as CLEANUP_FAILED.
+  let cleanupFailed = false;
+  if (spec.cleanup) {
+    if (ledger.summary().leaked === 0) {
+      // Nothing was created (or all already clean) — no cleanup to do.
+      phases.push({ phase: "cleanup", outcome: "skipped", reason: "no smoke-owned resource to clean" });
+    } else if (!cleanupTargetsSmokeOwned(spec.cleanup, ledger)) {
+      // The smoke-owned guard: refuse to run a destructive step that does not
+      // target a resource THIS run created.
+      cleanupFailed = true;
+      phases.push({
+        phase: "cleanup",
+        outcome: "failed",
+        reason: "refused — cleanup target is not a smoke-owned ledger resource",
+      });
+    } else {
+      const config = resolveStepConfig(spec.cleanup.config, marker, ledger);
+      const res = await deps.runActionStep({
+        provider: spec.cleanup.provider,
+        action: spec.cleanup.action,
+        config,
+      });
+      if (res.ok) {
+        for (const key of ledgerRefsIn(spec.cleanup.config)) ledger.markCleaned(key);
+        phases.push({ phase: "cleanup", outcome: "ok", reason: null });
+      } else {
+        cleanupFailed = true;
+        phases.push({ phase: "cleanup", outcome: "failed", reason: SANITIZE(res.reason) });
+      }
+    }
+  }
+
+  // Final status: a cleanup failure can never be a PASS. If the action itself
+  // already failed, keep that (still non-PASS); only escalate an otherwise-PASS
+  // run to CLEANUP_FAILED.
+  let status: WriteSmokeStatus = actionStatus;
+  let reason: string | null = null;
+  if (cleanupFailed && (status === "PASS" || status === "VERIFY_FAILED")) {
+    status = "CLEANUP_FAILED";
+    reason = "action ran but a smoke resource was left behind (cleanup failed)";
+  } else if (status === "FAIL") {
+    reason = "action did not reach its expected outcome";
+  } else if (status === "VERIFY_FAILED") {
+    reason = "action ran but verify could not confirm the side effect";
+  }
+
+  return { ...base, status, reason, phases, ledger: ledger.summary(), dryRun: false };
+}
+
+// ─── Fold to the shared SmokeResult (so write results join the ExecutionReport) ─
+
+const STATUS_TO_OUTCOME: Record<WriteSmokeStatus, SmokeResult["outcome"]> = {
+  PASS: "pass",
+  FAIL: "fail",
+  VERIFY_FAILED: "fail",
+  CLEANUP_FAILED: "fail",
+  SKIP: "skip",
+  SANDBOX_REQUIRED: "skip",
+  UNSAFE_NO_HARNESS: "skip",
+};
+
+/**
+ * Map a WriteSmokeResult to the shared SmokeResult so it folds into the existing
+ * ExecutionReport gate (fail count). CLEANUP_FAILED / VERIFY_FAILED -> "fail",
+ * so the gate fails and certification can never record LIVE_PASS for the run.
+ */
+export function foldToSmokeResult(
+  fixture: ActionSmokeFixture,
+  result: WriteSmokeResult,
+): SmokeResult {
+  const providerBoundary: ProviderBoundary = result.dryRun ? "blocked" : "live";
+  // Keep the rich status visible in the reason for the human report.
+  const reason =
+    result.status === "PASS" ? null : SANITIZE(`${result.status}: ${result.reason ?? ""}`.trim());
+  return {
+    provider: fixture.provider,
+    action: fixture.action,
+    risk: fixture.risk,
+    liveRisk: effectiveLiveRisk(fixture),
+    outcome: STATUS_TO_OUTCOME[result.status],
+    reason,
+    runId: null,
+    workflowId: null,
+    providerBoundary,
+  };
+}
