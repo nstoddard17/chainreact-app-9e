@@ -169,6 +169,13 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     // is granted). Switched to the still-valid `page_post_engagements`; now live-
     // verified on the smoke page (day window).
     ["facebook", "get_page_insights"],
+    // TIER1-CLEANUP: new option-source pickers let these auto-discover their
+    // previously env-only selectors — mailchimp:members (audience→member email),
+    // notion:users (workspace user id), notion:pages (search→page/block id). All
+    // live-verified after wiring; reuse existing read wrappers, no new transport.
+    ["mailchimp", "get_subscriber"],
+    ["notion", "get_user"],
+    ["notion", "list_comments"],
   ]),
 ];
 

@@ -29,12 +29,13 @@ export const notionGetUserMeta: ActionMeta = {
   fields: [
     {
       name: "userId",
-      label: "User ID",
+      label: "User",
       description:
-        "Notion user id. Usually wired from upstream `{{notion:list_users.users[0].userId}}` or a trigger payload.",
-      type: "text",
+        "Notion user. Pick from the workspace users list, or wire from upstream `{{notion:list_users.users[0].userId}}` / a trigger payload.",
+      type: "combobox",
+      optionsSource: "notion:users",
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a user",
     },
   ],
   outputs: [

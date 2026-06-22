@@ -133,6 +133,18 @@
       ]
     },
     {
+      "source": "github:repos",
+      "provider": "github",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "gmail:labels",
+      "provider": "gmail",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "google-analytics:accounts",
       "provider": "google-analytics",
       "requiresIntegration": true,
@@ -161,6 +173,12 @@
       "requiredDeps": [
         "accountId"
       ]
+    },
+    {
+      "source": "google-analytics:properties_flat",
+      "provider": "google-analytics",
+      "requiresIntegration": true,
+      "requiredDeps": null
     },
     {
       "source": "google-docs:documents",
@@ -241,6 +259,14 @@
       "requiredDeps": null
     },
     {
+      "source": "mailchimp:members",
+      "provider": "mailchimp",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "audience_id"
+      ]
+    },
+    {
       "source": "mailchimp:segments",
       "provider": "mailchimp",
       "requiresIntegration": true,
@@ -305,6 +331,18 @@
       "requiredDeps": [
         "notebookId"
       ]
+    },
+    {
+      "source": "microsoft-outlook-calendar:calendars",
+      "provider": "microsoft-outlook-calendar",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "microsoft-outlook:folders",
+      "provider": "microsoft-outlook",
+      "requiresIntegration": true,
+      "requiredDeps": null
     },
     {
       "source": "microsoft-teams:channels",
@@ -380,6 +418,18 @@
       "requiredDeps": [
         "category"
       ]
+    },
+    {
+      "source": "notion:pages",
+      "provider": "notion",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "notion:users",
+      "provider": "notion",
+      "requiresIntegration": true,
+      "requiredDeps": null
     },
     {
       "source": "slack:channels",

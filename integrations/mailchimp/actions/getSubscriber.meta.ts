@@ -39,11 +39,13 @@ export const mailchimpGetSubscriberMeta: ActionMeta = {
     {
       name: "email",
       sensitivity: "recipient",
-      label: "Email",
-      description: "Subscriber email. Required — used to derive the per-list subscriber hash for the API path.",
-      type: "text",
+      label: "Subscriber",
+      description: "Subscriber email — pick a member of the selected audience, or type/wire an email. Required: used to derive the per-list subscriber hash for the API path.",
+      type: "combobox",
+      optionsSource: "mailchimp:members",
+      dependsOn: "audience_id",
       required: true,
-      placeholder: "subscriber@example.com",
+      placeholder: "Select or type a subscriber email",
     },
   ],
   outputs: [

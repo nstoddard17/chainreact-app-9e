@@ -620,10 +620,45 @@ auto-discovered from each provider's own APIs:
 - **Not connected on the smoke account** (cleanly reported, not a failure): monday
   (10), stripe (4), discord (1).
 - **Connected but selector not auto-discoverable** (set env to run): dropbox
-  `search_files` (free-text query), mailchimp `get_subscriber` (email), notion
-  `get_user` / `list_comments` (user/block id).
+  `search_files` (free-text query — see the Tier-1 cleanup note below).
 - **Connected but no usable object on the account:** google-analytics (4 — the GA
-  account exposes no property), microsoft-onedrive `get_file` (root has no file).
+  account exposes no property), microsoft-onedrive `get_file` (see cleanup note).
+
+**Tier-1 selector edge-case cleanup (after the Facebook fix).** Three of the
+previously "selector not auto-discoverable" reads were resolved by adding the
+missing builder option sources (they reuse existing read wrappers — no new
+transport — and are genuine builder pickers, not smoke-only hacks):
+
+- **mailchimp `get_subscriber` → LIVE_PASS.** New `mailchimp:members` option
+  source (deps `audience_id`, reuses `membersList`) backs the subscriber/email
+  picker. Discovery now cascades audience → first member email. (No more
+  "provide an email" requirement.)
+- **notion `get_user` → LIVE_PASS.** New `notion:users` option source (reuses
+  `usersList`) backs the user picker; discovery selects a workspace user id.
+- **notion `list_comments` → LIVE_PASS.** New `notion:pages` option source
+  (reuses the `search` wrapper, `object=page` filter) backs the block/page
+  picker; discovery selects an accessible page. Comments may be empty — still a
+  successful read.
+
+Still SKIP (honest classification, not bugs):
+
+- **dropbox `search_files` — env-required.** A search query is operator INTENT,
+  not a discoverable resource selector; there is no safe, non-arbitrary value to
+  auto-derive. Set `SMOKE_DROPBOX_QUERY` to run it. (Dropbox's `list_folder` /
+  `get_file_metadata` reads ARE LIVE_PASS via auto-discovery.)
+- **microsoft-onedrive `get_file` — no usable object via the cascade.** The root
+  has folders (40) and files (`list_items` is LIVE_PASS), but `get_file`'s
+  selector cascades folder → items, and the first folder is empty, so the
+  items-resolver page is empty. Files exist; the items resolver only lists a
+  folder's children (not root-level files), so the cascade can't reach a
+  root file. Set `SMOKE_ONEDRIVE_FILE_ID` to pin one. NOT a discovery bug —
+  verified the resolver returns items for a non-empty folder.
+- **google-analytics (4 reads) — genuinely no usable object.** Verified via the
+  `google-analytics:accounts` resolver against the smoke account: it returns
+  **0 accounts** (the connected Google account has no accessible GA4 property),
+  so `propertyId` cannot be discovered. NOT faked — confirmed empty, not an
+  error. Connect a Google account with a GA4 property (or set the property env)
+  to run these.
 - **Fixed — facebook `get_page_insights` (was a live BUG, now LIVE_PASS).** The
   `pageId` auto-discovered fine; the failure was the fixture's default **metric**.
   Graph returned `(#100) The value must be a valid insights metric` because Meta's

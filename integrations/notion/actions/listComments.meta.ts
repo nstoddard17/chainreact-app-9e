@@ -28,12 +28,13 @@ export const notionListCommentsMeta: ActionMeta = {
   fields: [
     {
       name: "blockId",
-      label: "Block / page ID",
+      label: "Block / page",
       description:
-        "Notion id to list comments for. Accepts both block ids and page ids — workflow authors typically pass a page id to list page-level comments.",
-      type: "text",
+        "Notion page (or block) to list comments for. Pick from accessible pages, or wire a block/page id from upstream. Accepts both block ids and page ids.",
+      type: "combobox",
+      optionsSource: "notion:pages",
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a page",
     },
     {
       name: "pageSize",

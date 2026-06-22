@@ -66,6 +66,14 @@ import { hubspotListsResolver } from "@/integrations/hubspot/options/lists";
 import { mailchimpAudiencesResolver } from "@/integrations/mailchimp/options/audiences";
 import { mailchimpCampaignsResolver } from "@/integrations/mailchimp/options/campaigns";
 import { mailchimpSegmentsResolver } from "@/integrations/mailchimp/options/segments";
+// SMOKE-ACTIONS-TIER1-CLEANUP — `mailchimp:members` (deps audience_id) backs the
+// subscriber/email picker on get_subscriber; reuses the membersList read wrapper.
+import { mailchimpMembersResolver } from "@/integrations/mailchimp/options/members";
+// Notion read pickers — `notion:users` backs get_user.userId (reuses usersList);
+// `notion:pages` backs list_comments.blockId (reuses the search wrapper, page
+// filter). Both read-only, account-scoped, single bounded page.
+import { notionUsersResolver } from "@/integrations/notion/options/users";
+import { notionPagesResolver } from "@/integrations/notion/options/pages";
 
 // Discord resolvers — Slice 3.DISCORD-3.
 //   - `discord:guilds` — bot's guild list (no deps; top-level picker
@@ -454,6 +462,12 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   mailchimpAudiencesResolver,
   mailchimpCampaignsResolver,
   mailchimpSegmentsResolver,
+  // SMOKE-ACTIONS-TIER1-CLEANUP — member picker (deps audience_id) for
+  // get_subscriber.email; read-only single page via membersList.
+  mailchimpMembersResolver,
+  // Notion read pickers (get_user.userId, list_comments.blockId).
+  notionUsersResolver,
+  notionPagesResolver,
   // Slice 3.DISCORD-3 — 6 Discord resolvers (resolver-first ahead of
   // DISCORD-4 action metas). Dep names preserved verbatim from V1
   // (`guildId`, `channelId` — camelCase, NOT snake_case).
