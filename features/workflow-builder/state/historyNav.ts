@@ -32,11 +32,16 @@ function syncOpenConfigPanel(): void {
 }
 
 export function undoWithConfigSync(): void {
+  // Guard the no-op (empty history) BEFORE syncing: a keyboard shortcut can reach this with nothing to
+  // undo, and re-syncing the open panel then would needlessly replace an in-progress draft. Toolbar
+  // callers never hit this (the button is disabled when empty).
+  if (useGraphSlice.getState().past.length === 0) return;
   useGraphSlice.getState().undo();
   syncOpenConfigPanel();
 }
 
 export function redoWithConfigSync(): void {
+  if (useGraphSlice.getState().future.length === 0) return;
   useGraphSlice.getState().redo();
   syncOpenConfigPanel();
 }

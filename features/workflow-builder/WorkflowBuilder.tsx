@@ -33,6 +33,7 @@ import { useConfigSlice } from "./state/configSlice";
 import { useGraphSlice } from "./state/graphSlice";
 import { useRunSlice } from "./state/runSlice";
 import { useLatestRunPolling } from "./hooks/useLatestRunPolling";
+import { useBuilderHistoryShortcuts } from "./hooks/useBuilderHistoryShortcuts";
 import { useLeftAgentRail } from "./hooks/useLeftAgentRail";
 import { useRightDrawer } from "./hooks/useRightDrawer";
 import { useAgentRailWiring } from "./hooks/useAgentRailWiring";
@@ -192,6 +193,11 @@ export function WorkflowBuilder({
 
   // Slice 3.8 — owns the 1s polling interval for the latest run.
   useLatestRunPolling();
+
+  // BUILDER-TOPBAR-UNDO-REDO (keyboard) — builder-scoped Ctrl/Cmd+Z / Ctrl+Y / Shift+Z undo/redo,
+  // mounted here so it only listens while the builder page is open. Reuses the toolbar's historyNav
+  // orchestrators (same config-panel resync); skips editable fields so native text undo keeps working.
+  useBuilderHistoryShortcuts();
 
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);

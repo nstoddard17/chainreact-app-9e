@@ -78,4 +78,17 @@ describe("historyNav — undo/redo with open-config-panel sync", () => {
     redoWithConfigSync();
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
+
+  it("a no-op (empty stack) does NOT touch the graph or wipe an in-progress draft", () => {
+    useGraphSlice.getState().hydrate("wf-1", DEF);
+    useConfigSlice.getState().openNode({ nodeId: "t1", initialValues: {} });
+    useConfigSlice.getState().updateField({ name: "channel", value: "typing…" }); // unsaved panel edit
+    const before = useGraphSlice.getState().pendingNodes;
+
+    undoWithConfigSync(); // empty history → guarded
+    redoWithConfigSync(); // empty future → guarded
+
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+    expect(useConfigSlice.getState().drafts.t1!.values).toEqual({ channel: "typing…" });
+  });
 });

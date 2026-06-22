@@ -780,6 +780,37 @@ describe("WorkflowBuilder", () => {
       expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
     });
 
+    // BUILDER-TOPBAR-UNDO-REDO (keyboard) — the builder-scoped Ctrl+Z shortcut is mounted by
+    // WorkflowBuilder and reverts a rail config edit + re-syncs the open config panel, just like the
+    // toolbar button. Firing from a NON-editable builder element (not the focused setup field).
+    it("Ctrl+Z keyboard shortcut reverts a rail config edit and re-syncs the open config panel", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={workflowWithIncompleteSlack}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+          requiredFieldsByType={requiredFieldsByType}
+          setupFieldsByType={setupFieldsByType}
+        />,
+      );
+      await user.click(screen.getByTestId("agent-check-workflow"));
+      const messageField = await screen.findByTestId("node-setup-a1-text");
+      fireEvent.focus(messageField);
+      fireEvent.change(messageField, { target: { value: "Hey" } });
+      fireEvent.keyDown(messageField, { key: "Enter" }); // rail Update → undoable graph edit
+      expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1")?.config.text).toBe("Hey");
+
+      // Ctrl+Z from the canvas workspace (a non-editable builder element).
+      fireEvent.keyDown(screen.getByTestId("builder-center-workspace"), { key: "z", ctrlKey: true });
+
+      expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1")?.config.text).toBeUndefined();
+      expect(useConfigSlice.getState().drafts.a1!.values.text).toBeUndefined(); // panel re-synced
+      expect(useGraphSlice.getState().pendingNodes).toHaveLength(2); // no nodes added/removed
+    });
+
     it("focusing a setup field opens the node config panel and highlights the matching field", async () => {
       const user = userEvent.setup();
       render(
