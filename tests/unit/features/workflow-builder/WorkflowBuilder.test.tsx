@@ -747,6 +747,39 @@ describe("WorkflowBuilder", () => {
       expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
     });
 
+    // BUILDER-TOPBAR-UNDO-REDO — the wired header Undo reverts a rail config edit AND updates the OPEN
+    // config panel value (no stale value), with no backend call.
+    it("the header Undo button reverts a rail config edit and re-syncs the open config panel", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={workflowWithIncompleteSlack}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+          requiredFieldsByType={requiredFieldsByType}
+          setupFieldsByType={setupFieldsByType}
+        />,
+      );
+      await user.click(screen.getByTestId("agent-check-workflow"));
+      const messageField = await screen.findByTestId("node-setup-a1-text");
+      fireEvent.focus(messageField); // opens the config panel for a1
+      fireEvent.change(messageField, { target: { value: "Hey" } });
+      fireEvent.keyDown(messageField, { key: "Enter" }); // rail Update → graph edit (undoable)
+      expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1")?.config.text).toBe("Hey");
+      expect(useConfigSlice.getState().drafts.a1!.values.text).toBe("Hey");
+
+      await user.click(screen.getByTestId("builder-header-undo"));
+
+      // Graph reverted to the saved baseline AND the open config draft re-synced (no stale "Hey").
+      expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1")?.config.text).toBeUndefined();
+      expect(useConfigSlice.getState().drafts.a1!.values.text).toBeUndefined();
+      expect(useGraphSlice.getState().isDirty).toBe(false);
+      // No nodes created/removed by the edit+undo round-trip; nothing saved.
+      expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+    });
+
     it("focusing a setup field opens the node config panel and highlights the matching field", async () => {
       const user = userEvent.setup();
       render(

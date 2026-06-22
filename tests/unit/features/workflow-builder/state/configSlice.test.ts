@@ -298,6 +298,29 @@ describe("configSlice — applyExternalConfig", () => {
     expect(useConfigSlice.getState().drafts.ghost).toBeUndefined();
   });
 
+  // BUILDER-TOPBAR-UNDO-REDO — full-replace sync used after undo/redo restores the node config.
+  describe("resyncDraftFromConfig", () => {
+    it("REPLACES values + baseline so undone keys disappear and the field is not dirty", () => {
+      useConfigSlice.getState().revealNode({ nodeId: "n1", initialValues: { text: "new", extra: "x" }, fieldKey: "text" });
+      useConfigSlice.getState().resyncDraftFromConfig({ nodeId: "n1", config: { text: "old" } });
+      const draft = useConfigSlice.getState().drafts.n1!;
+      expect(draft.values).toEqual({ text: "old" }); // `extra` removed (full replace, not merge)
+      expect(draft.initialValues).toEqual({ text: "old" });
+      expect(draft.isDirty).toBe(false);
+    });
+
+    it("preserves the field highlight (focusFieldKey)", () => {
+      useConfigSlice.getState().revealNode({ nodeId: "n1", initialValues: { text: "new" }, fieldKey: "text" });
+      useConfigSlice.getState().resyncDraftFromConfig({ nodeId: "n1", config: { text: "old" } });
+      expect(useConfigSlice.getState().focusFieldKey).toBe("text");
+    });
+
+    it("is a no-op when no draft exists", () => {
+      useConfigSlice.getState().resyncDraftFromConfig({ nodeId: "ghost", config: { text: "x" } });
+      expect(useConfigSlice.getState().drafts.ghost).toBeUndefined();
+    });
+  });
+
   it("clears a stale inline error on a synced field", () => {
     useConfigSlice.getState().openNode({ nodeId: "n1", initialValues: { text: "" } });
     useConfigSlice.getState().setFieldError({ name: "text", error: "Message is required." });

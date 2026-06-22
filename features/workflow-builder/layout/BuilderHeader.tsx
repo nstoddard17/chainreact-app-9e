@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { WorkflowState } from "@/contracts/workflow";
 import { useGraphSlice } from "../state/graphSlice";
+import { undoWithConfigSync, redoWithConfigSync } from "../state/historyNav";
 import { useBuilderShortcuts } from "../hooks/useBuilderShortcuts";
 import { LifecycleActions } from "../panels/LifecycleActions";
 import {
@@ -14,7 +15,6 @@ import {
 import {
   BuilderIconButton,
   ChevronLeftIcon,
-  HistoryIcon,
   LayersIcon,
   RedoIcon,
   UndoIcon,
@@ -99,6 +99,9 @@ export function BuilderHeader({
   const save = useGraphSlice((s) => s.save);
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
+  // BUILDER-TOPBAR-UNDO-REDO — undo/redo enable only when there's actually a draft edit to revert/redo.
+  const canUndo = useGraphSlice((s) => s.past.length > 0);
+  const canRedo = useGraphSlice((s) => s.future.length > 0);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const router = useRouter();
@@ -164,6 +167,8 @@ export function BuilderHeader({
           isDirty={isDirty}
           isSaving={isSaving}
           onSave={handleSave}
+          canUndo={canUndo}
+          canRedo={canRedo}
           workflowId={workflowId}
           onOpenTemplates={() => setTemplatesOpen(true)}
           validation={validation}
@@ -319,6 +324,8 @@ function HeaderRight({
   isDirty,
   isSaving,
   onSave,
+  canUndo,
+  canRedo,
   workflowId,
   onOpenTemplates,
   validation,
@@ -329,6 +336,8 @@ function HeaderRight({
   isDirty: boolean;
   isSaving: boolean;
   onSave: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   workflowId?: string;
   onOpenTemplates: () => void;
   validation?: { onOpen: () => void };
@@ -355,8 +364,11 @@ function HeaderRight({
   // handlers, same testids, same validation derivation.
   return (
     <div className="flex items-center justify-end gap-2">
-      {/* Utility cluster (undo/redo/history) — all disabled placeholders today, so it
-          collapses below xl to give the essential actions room before they'd overflow. */}
+      {/* BUILDER-TOPBAR-UNDO-REDO — utility cluster: undo/redo of LOCAL draft edits only. The redundant
+          run-history button was removed (the canvas "Runs" tab is the single run-history surface). Each
+          button is enabled only when there's something to revert/redo; clicking restores a draft graph
+          snapshot (no save/activate/run/route) and keeps an open config panel in sync. Collapses below
+          xl so the essential actions have room. */}
       <div
         className="hidden items-center gap-0.5 rounded-md p-0.5 xl:flex"
         style={{
@@ -364,14 +376,25 @@ function HeaderRight({
           border: "1px solid var(--builder-border)",
         }}
       >
-        <BuilderIconButton ariaLabel="Undo" title="Undo (coming soon)" disabled size="sm">
+        <BuilderIconButton
+          ariaLabel="Undo"
+          title="Undo"
+          onClick={undoWithConfigSync}
+          disabled={!canUndo}
+          testId="builder-header-undo"
+          size="sm"
+        >
           <UndoIcon />
         </BuilderIconButton>
-        <BuilderIconButton ariaLabel="Redo" title="Redo (coming soon)" disabled size="sm">
+        <BuilderIconButton
+          ariaLabel="Redo"
+          title="Redo"
+          onClick={redoWithConfigSync}
+          disabled={!canRedo}
+          testId="builder-header-redo"
+          size="sm"
+        >
           <RedoIcon />
-        </BuilderIconButton>
-        <BuilderIconButton ariaLabel="History" title="Run history (coming soon)" disabled size="sm">
-          <HistoryIcon />
         </BuilderIconButton>
       </div>
       <HeaderDivider className="hidden xl:inline-block" />

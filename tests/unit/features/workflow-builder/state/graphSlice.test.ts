@@ -1761,3 +1761,104 @@ describe("graphSlice — applyAdditivePatch in-place placement (HERMES-AGENT-APP
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });
+
+// ─── BUILDER-TOPBAR-UNDO-REDO — bounded draft-edit history ───────────────────
+describe("graphSlice — undo / redo", () => {
+  it("add node → undo removes it → redo restores it", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    expect(useGraphSlice.getState().past).toHaveLength(0);
+
+    const action = useGraphSlice.getState().addAction({ provider: "slack", type: "send_message" });
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+    expect(useGraphSlice.getState().past).toHaveLength(1);
+    expect(useGraphSlice.getState().future).toHaveLength(0);
+
+    useGraphSlice.getState().undo();
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+    expect(useGraphSlice.getState().pendingNodes.some((n) => n.id === action.id)).toBe(false);
+    expect(useGraphSlice.getState().future).toHaveLength(1);
+
+    useGraphSlice.getState().redo();
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+    expect(useGraphSlice.getState().pendingNodes.some((n) => n.id === action.id)).toBe(true);
+    expect(useGraphSlice.getState().future).toHaveLength(0);
+  });
+
+  it("edit node config → undo restores the previous config → redo restores the new config", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().updateNodeConfig("t1", { channel: "C1" });
+    expect(useGraphSlice.getState().pendingNodes[0]!.config).toEqual({ channel: "C1" });
+
+    useGraphSlice.getState().undo();
+    expect(useGraphSlice.getState().pendingNodes[0]!.config).toEqual({}); // back to the saved baseline
+
+    useGraphSlice.getState().redo();
+    expect(useGraphSlice.getState().pendingNodes[0]!.config).toEqual({ channel: "C1" });
+  });
+
+  it("undo back to the saved baseline clears isDirty; an intermediate redo is dirty again", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().updateNodeConfig("t1", { channel: "C1" });
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+
+    useGraphSlice.getState().undo();
+    expect(useGraphSlice.getState().isDirty).toBe(false); // identical to saved (by reference)
+
+    useGraphSlice.getState().redo();
+    expect(useGraphSlice.getState().isDirty).toBe(true);
+  });
+
+  it("a NEW edit after undo clears the redo (future) stack", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().addAction({ provider: "slack", type: "send_message" });
+    useGraphSlice.getState().undo();
+    expect(useGraphSlice.getState().future).toHaveLength(1);
+
+    useGraphSlice.getState().updateNodeConfig("t1", { x: 1 });
+    expect(useGraphSlice.getState().future).toHaveLength(0); // redo invalidated by the new edit
+  });
+
+  it("delete node → undo restores it", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const action = useGraphSlice.getState().addAction({ provider: "slack", type: "send_message" });
+    useGraphSlice.getState().deleteNodeAndRewire(action.id);
+    expect(useGraphSlice.getState().pendingNodes.some((n) => n.id === action.id)).toBe(false);
+
+    useGraphSlice.getState().undo();
+    expect(useGraphSlice.getState().pendingNodes.some((n) => n.id === action.id)).toBe(true);
+  });
+
+  it("no-op edits do not create history (unchanged position / unknown node)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().updateNodePosition("t1", { x: 0, y: 0 }); // same position → no-op
+    useGraphSlice.getState().renameNode("ghost", "x"); // unknown node → no-op
+    expect(useGraphSlice.getState().past).toHaveLength(0);
+  });
+
+  it("undo with empty history and redo with empty future are no-ops", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    const before = useGraphSlice.getState().pendingNodes;
+    useGraphSlice.getState().undo();
+    useGraphSlice.getState().redo();
+    expect(useGraphSlice.getState().pendingNodes).toBe(before);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+
+  it("hydrate clears history (you cannot undo across a fresh baseline)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().addAction({ provider: "slack", type: "send_message" });
+    expect(useGraphSlice.getState().past.length).toBeGreaterThan(0);
+
+    useGraphSlice.getState().hydrate("wf-2", TRIGGER_DEF);
+    expect(useGraphSlice.getState().past).toHaveLength(0);
+    expect(useGraphSlice.getState().future).toHaveLength(0);
+  });
+
+  it("undo / redo never call the workflow save route", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_DEF);
+    useGraphSlice.getState().addAction({ provider: "slack", type: "send_message" });
+    useGraphSlice.getState().undo();
+    useGraphSlice.getState().redo();
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+});

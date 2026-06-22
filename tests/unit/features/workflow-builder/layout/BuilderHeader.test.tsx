@@ -466,3 +466,38 @@ describe("BuilderHeader — Cmd+S keyboard wiring", () => {
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });
+
+// BUILDER-TOPBAR-UNDO-REDO — top-bar cleanup: redundant run-history button removed; undo/redo wired.
+describe("BuilderHeader — undo/redo cluster (top-bar cleanup)", () => {
+  it("no longer renders the redundant run-history button", () => {
+    render(<BuilderHeader workflowName="x" />);
+    expect(screen.queryByRole("button", { name: /^history$/i })).toBeNull();
+    expect(screen.queryByTitle(/run history/i)).toBeNull();
+  });
+
+  it("renders Undo/Redo, disabled when there is no draft history", () => {
+    render(<BuilderHeader workflowName="x" />);
+    expect(screen.getByTestId("builder-header-undo")).toBeDisabled();
+    expect(screen.getByTestId("builder-header-redo")).toBeDisabled();
+  });
+
+  it("enables Undo after a draft edit; clicking it reverts the edit (no save route)", async () => {
+    const user = userEvent.setup();
+    // A draft edit BEFORE render so canUndo is true on first paint.
+    act(() => {
+      useGraphSlice.getState().addTrigger({ provider: "slack", type: "message_received" });
+    });
+    render(<BuilderHeader workflowName="x" />);
+
+    const undo = screen.getByTestId("builder-header-undo");
+    expect(undo).toBeEnabled();
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(1);
+
+    await user.click(undo);
+
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0); // reverted
+    await waitFor(() => expect(screen.getByTestId("builder-header-undo")).toBeDisabled());
+    expect(screen.getByTestId("builder-header-redo")).toBeEnabled(); // redo now available
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled(); // pure-local, no backend
+  });
+});

@@ -124,6 +124,17 @@ export interface ConfigSliceActions {
     values: Readonly<Record<string, unknown>>;
   }): void;
   /**
+   * BUILDER-TOPBAR-UNDO-REDO — REPLACE an open draft's values + baseline with the node's current graph
+   * config after an undo/redo restored it (so the visible panel can't show a stale value, and config
+   * keys the undo REMOVED actually disappear — a full replace, unlike `applyExternalConfig`'s merge).
+   * Clears errors, sets `isDirty:false` (matches the restored graph), and PRESERVES `activeNodeId` /
+   * `focusFieldKey`. No-op when no draft exists for `nodeId`. SYNC ONLY — never writes back to the graph.
+   */
+  resyncDraftFromConfig(input: {
+    nodeId: string;
+    config: Readonly<Record<string, unknown>>;
+  }): void;
+  /**
    * Set / clear inline errors for one field on the active node. Pass
    * `undefined` to clear.
    */
@@ -295,6 +306,25 @@ export const useConfigSlice = create<ConfigSlice>((set, get) => ({
         },
       },
       // focusFieldKey is intentionally PRESERVED so the rail-updated field stays highlighted.
+    });
+  },
+
+  resyncDraftFromConfig({ nodeId, config }) {
+    const draft = get().drafts[nodeId];
+    if (!draft) return; // panel not open for this node → nothing to sync
+    set({
+      drafts: {
+        ...get().drafts,
+        [nodeId]: {
+          ...draft,
+          values: { ...config },
+          initialValues: { ...config },
+          errors: {},
+          isDirty: false,
+          lastUpdatedAt: Date.now(),
+        },
+      },
+      // activeNodeId + focusFieldKey intentionally preserved.
     });
   },
 

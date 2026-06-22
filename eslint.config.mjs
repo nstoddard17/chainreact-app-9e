@@ -337,4 +337,21 @@ export default [
       ],
     },
   },
+
+  // features/workflow-builder/state/graphSlice.ts — the single source of truth for the builder's
+  // nodes/edges/dirty/save state. It was already over the default cap (a long-standing, accepted
+  // pre-existing warning); BUILDER-TOPBAR-UNDO-REDO added the intrinsic draft-edit history (the
+  // history-capturing `set` wrapper + undo/redo, which must live ON the store's mutation surface to
+  // stay correct). Splitting the store is a real refactor (every action shares `set`/`get` + the
+  // hydrate/save reconciliation), not a top-bar cleanup commit. Capped at 650 to make further drift
+  // visible. Mirrors the engine.ts / WorkflowBuilder.tsx precedent above.
+  {
+    files: ["features/workflow-builder/state/graphSlice.ts"],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 650, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
 ];

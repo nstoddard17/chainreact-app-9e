@@ -65,6 +65,23 @@ export interface GraphSliceState {
    * `null` when unknown (legacy hydrate with no revision, or after reset).
    */
   hydratedRevision: string | null;
+
+  /**
+   * BUILDER-TOPBAR-UNDO-REDO — bounded draft-edit history. `past` holds prior
+   * `{nodes,edges}` snapshots (oldest→newest); `future` holds undone snapshots
+   * for redo. Captured automatically when an edit changes the pending graph
+   * (see the wrapped `set`); cleared on `hydrate`/`reset`. LOCAL ONLY — never
+   * persisted/sent anywhere; undo/redo only restore pending graph snapshots and
+   * never save/activate/run/call a route.
+   */
+  past: readonly GraphSnapshot[];
+  future: readonly GraphSnapshot[];
+}
+
+/** One bounded draft-graph snapshot for undo/redo (kept by reference for cheap dirty-vs-saved checks). */
+export interface GraphSnapshot {
+  readonly nodes: readonly WorkflowNode[];
+  readonly edges: readonly WorkflowEdge[];
 }
 
 export interface AddNodeInput {
@@ -215,6 +232,15 @@ export interface GraphSliceActions {
   /** Persist the pending graph → updated detail (callers react to server-side lifecycle
    * changes, e.g. a trigger edit that deactivates an active workflow); `undefined` if in-flight. */
   save(): Promise<WorkflowDetail | undefined>;
+  /**
+   * BUILDER-TOPBAR-UNDO-REDO — revert the last meaningful draft graph/config edit by restoring the most
+   * recent `past` snapshot (the current state moves to `future` for redo). No-op when `past` is empty.
+   * Pure-local: NEVER saves/activates/runs/tests/publishes or calls a route; only restores the pending
+   * graph snapshot + recomputes `isDirty` vs the saved baseline. Config-panel re-sync is the caller's job.
+   */
+  undo(): void;
+  /** BUILDER-TOPBAR-UNDO-REDO — re-apply the most recently undone edit (`future` → pending). No-op when empty. Same pure-local guarantees as `undo()`. */
+  redo(): void;
 }
 
 /** Outcome of {@link GraphSliceActions.applyAdditivePatch}. */
@@ -329,7 +355,12 @@ const INITIAL_STATE: GraphSliceState = Object.freeze({
   isSaving: false,
   saveError: null,
   hydratedRevision: null,
+  past: [],
+  future: [],
 });
+
+/** BUILDER-TOPBAR-UNDO-REDO — cap on retained snapshots so a long editing session can't grow unbounded. */
+const MAX_HISTORY = 50;
 
 /**
  * Slice 4.BUILDER-APPLY-HYDRATE-RACE-1 — is an incoming hydrate revision
@@ -379,7 +410,40 @@ function newEdgeId(): string {
   return `edge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export const useGraphSlice = create<GraphSlice>((set, get) => ({
+export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
+  // BUILDER-TOPBAR-UNDO-REDO — history-capturing wrapper around the store setter. Every existing edit
+  // action funnels through this `set`. An EDIT is an OBJECT partial that flips the graph DIRTY *and*
+  // carries new pending nodes/edges; for those, the PRE-edit snapshot is pushed onto `past` and `future`
+  // (redo) is cleared — merged into the SAME `set` so subscribers re-render once. Non-edits pass through
+  // untouched and are excluded automatically: hydrate/reset/save-reconcile set `isDirty:false`; save's
+  // leave-dirty + save-in-flight/failure carry no `pendingNodes`/`pendingEdges` key. undo()/redo() bypass
+  // this wrapper (they call `rawSet`) so navigating history never records new history. The existing edit
+  // actions are byte-identical — they simply use this `set`.
+  const set: typeof rawSet = ((
+    partial: Parameters<typeof rawSet>[0],
+    replace?: boolean,
+  ): void => {
+    const isEdit =
+      partial !== null &&
+      typeof partial === "object" &&
+      (partial as Partial<GraphSliceState>).isDirty === true &&
+      ("pendingNodes" in partial || "pendingEdges" in partial);
+    if (isEdit) {
+      // Edits are always partial updates (never a full replace), so a plain partial set is correct.
+      const before = get();
+      rawSet({
+        ...(partial as Partial<GraphSlice>),
+        past: [...before.past, { nodes: before.pendingNodes, edges: before.pendingEdges }].slice(
+          -MAX_HISTORY,
+        ),
+        future: [],
+      });
+      return;
+    }
+    (rawSet as (p: typeof partial, r?: boolean) => void)(partial, replace);
+  }) as typeof rawSet;
+
+  return {
   ...INITIAL_STATE,
 
   hydrate(workflowId, def, revision) {
@@ -419,6 +483,10 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       isSaving: false,
       saveError: null,
       hydratedRevision: nextRevision,
+      // BUILDER-TOPBAR-UNDO-REDO — a fresh baseline (initial load / strictly-newer external revision)
+      // starts a clean history; you can't undo across a hydrate.
+      past: [],
+      future: [],
     });
   },
 
@@ -855,4 +923,36 @@ export const useGraphSlice = create<GraphSlice>((set, get) => ({
       throw err;
     }
   },
-}));
+
+  undo() {
+    const { past, future, pendingNodes, pendingEdges, savedNodes, savedEdges } = get();
+    if (past.length === 0) return;
+    const prev = past[past.length - 1]!;
+    // Restore via rawSet so navigating history never records new history. Dirty is recomputed against
+    // the saved baseline BY REFERENCE: history keeps the exact array refs, and hydrate/save set
+    // `saved* === pending*`, so undoing back to the saved state matches by ref (isDirty:false).
+    rawSet({
+      pendingNodes: prev.nodes,
+      pendingEdges: prev.edges,
+      past: past.slice(0, -1),
+      future: [{ nodes: pendingNodes, edges: pendingEdges }, ...future].slice(0, MAX_HISTORY),
+      isDirty: !(prev.nodes === savedNodes && prev.edges === savedEdges),
+      saveError: null,
+    });
+  },
+
+  redo() {
+    const { past, future, pendingNodes, pendingEdges, savedNodes, savedEdges } = get();
+    if (future.length === 0) return;
+    const next = future[0]!;
+    rawSet({
+      pendingNodes: next.nodes,
+      pendingEdges: next.edges,
+      past: [...past, { nodes: pendingNodes, edges: pendingEdges }].slice(-MAX_HISTORY),
+      future: future.slice(1),
+      isDirty: !(next.nodes === savedNodes && next.edges === savedEdges),
+      saveError: null,
+    });
+  },
+  };
+});
