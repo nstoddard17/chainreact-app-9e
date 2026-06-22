@@ -9,6 +9,11 @@
  */
 import type { ActionSmokeFixture } from "./contract";
 import nativeFormatTransformer from "@/tests/fixtures/action-smoke/native/format_transformer";
+// SMOKE-ACTIONS-17 — native logic actions (3 pure-executing + 1 env-gated http).
+import nativeDelay from "@/tests/fixtures/action-smoke/native/delay";
+import nativeIfThenCondition from "@/tests/fixtures/action-smoke/native/if_then_condition";
+import nativeRouter from "@/tests/fixtures/action-smoke/native/router";
+import nativeHttpRequest from "@/tests/fixtures/action-smoke/native/http_request";
 import slackListChannels from "@/tests/fixtures/action-smoke/slack/list_channels";
 import slackSendChannelMessage from "@/tests/fixtures/action-smoke/slack/send_channel_message";
 import slackDeleteMessage from "@/tests/fixtures/action-smoke/slack/delete_message";
@@ -63,9 +68,63 @@ import teamsGetTeamMembers from "@/tests/fixtures/action-smoke/microsoft-teams/g
 import teamsListTeams from "@/tests/fixtures/action-smoke/microsoft-teams/list_teams";
 import teamsListChannels from "@/tests/fixtures/action-smoke/microsoft-teams/list_channels";
 import teamsListChannelMessages from "@/tests/fixtures/action-smoke/microsoft-teams/list_channel_messages";
+// SMOKE-ACTIONS-18 — Tier-2 zero-coverage provider read batch (12 providers) +
+// Notion leftover reads. All read-only, liveSafe, env-gated (SKIP when the
+// provider connection / selector env is unset).
+import mondayGetBoard from "@/tests/fixtures/action-smoke/monday/get_board";
+import mondayGetItem from "@/tests/fixtures/action-smoke/monday/get_item";
+import mondayGetUser from "@/tests/fixtures/action-smoke/monday/get_user";
+import mondayListBoards from "@/tests/fixtures/action-smoke/monday/list_boards";
+import mondayListGroups from "@/tests/fixtures/action-smoke/monday/list_groups";
+import mondayListItems from "@/tests/fixtures/action-smoke/monday/list_items";
+import mondayListSubitems from "@/tests/fixtures/action-smoke/monday/list_subitems";
+import mondayListUpdates from "@/tests/fixtures/action-smoke/monday/list_updates";
+import mondayListUsers from "@/tests/fixtures/action-smoke/monday/list_users";
+import mondaySearchItems from "@/tests/fixtures/action-smoke/monday/search_items";
+import hubspotGetCompanies from "@/tests/fixtures/action-smoke/hubspot/get_companies";
+import hubspotGetContacts from "@/tests/fixtures/action-smoke/hubspot/get_contacts";
+import hubspotGetDeals from "@/tests/fixtures/action-smoke/hubspot/get_deals";
+import hubspotGetLineItems from "@/tests/fixtures/action-smoke/hubspot/get_line_items";
+import hubspotGetOwners from "@/tests/fixtures/action-smoke/hubspot/get_owners";
+import hubspotGetProducts from "@/tests/fixtures/action-smoke/hubspot/get_products";
+import hubspotGetTickets from "@/tests/fixtures/action-smoke/hubspot/get_tickets";
+import onenoteGetNotebookDetails from "@/tests/fixtures/action-smoke/microsoft-onenote/get_notebook_details";
+import onenoteGetPageContent from "@/tests/fixtures/action-smoke/microsoft-onenote/get_page_content";
+import onenoteGetSectionDetails from "@/tests/fixtures/action-smoke/microsoft-onenote/get_section_details";
+import onenoteListNotebooks from "@/tests/fixtures/action-smoke/microsoft-onenote/list_notebooks";
+import onenoteListPages from "@/tests/fixtures/action-smoke/microsoft-onenote/list_pages";
+import onenoteListSections from "@/tests/fixtures/action-smoke/microsoft-onenote/list_sections";
+import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
+import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
+import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
+import gaRunReport from "@/tests/fixtures/action-smoke/google-analytics/run_report";
+import dropboxGetFileMetadata from "@/tests/fixtures/action-smoke/dropbox/get_file_metadata";
+import dropboxListFolder from "@/tests/fixtures/action-smoke/dropbox/list_folder";
+import dropboxSearchFiles from "@/tests/fixtures/action-smoke/dropbox/search_files";
+import onedriveGetFile from "@/tests/fixtures/action-smoke/microsoft-onedrive/get_file";
+import onedriveListItems from "@/tests/fixtures/action-smoke/microsoft-onedrive/list_items";
+import mailchimpGetCampaign from "@/tests/fixtures/action-smoke/mailchimp/get_campaign";
+import mailchimpGetCampaignStats from "@/tests/fixtures/action-smoke/mailchimp/get_campaign_stats";
+import mailchimpGetSubscriber from "@/tests/fixtures/action-smoke/mailchimp/get_subscriber";
+import mailchimpGetSubscribers from "@/tests/fixtures/action-smoke/mailchimp/get_subscribers";
+import stripeFindCustomer from "@/tests/fixtures/action-smoke/stripe/find_customer";
+import stripeFindPaymentIntent from "@/tests/fixtures/action-smoke/stripe/find_payment_intent";
+import stripeFindSubscription from "@/tests/fixtures/action-smoke/stripe/find_subscription";
+import stripeGetPayments from "@/tests/fixtures/action-smoke/stripe/get_payments";
+import discordFetchMessages from "@/tests/fixtures/action-smoke/discord/fetch_messages";
+import facebookGetPageInsights from "@/tests/fixtures/action-smoke/facebook/get_page_insights";
+import gcalListEvents from "@/tests/fixtures/action-smoke/google-calendar/list_events";
+import gdocsGetDocument from "@/tests/fixtures/action-smoke/google-docs/get_document";
+import outlookCalListEvents from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/list_events";
+import notionGetUser from "@/tests/fixtures/action-smoke/notion/get_user";
+import notionListComments from "@/tests/fixtures/action-smoke/notion/list_comments";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
+  nativeDelay,
+  nativeIfThenCondition,
+  nativeRouter,
+  nativeHttpRequest,
   slackListChannels,
   slackSendChannelMessage,
   slackDeleteMessage,
@@ -108,4 +167,52 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   teamsListTeams,
   teamsListChannels,
   teamsListChannelMessages,
+  // SMOKE-ACTIONS-18 — Tier-2 zero-coverage provider reads + Notion leftovers.
+  mondayGetBoard,
+  mondayGetItem,
+  mondayGetUser,
+  mondayListBoards,
+  mondayListGroups,
+  mondayListItems,
+  mondayListSubitems,
+  mondayListUpdates,
+  mondayListUsers,
+  mondaySearchItems,
+  hubspotGetCompanies,
+  hubspotGetContacts,
+  hubspotGetDeals,
+  hubspotGetLineItems,
+  hubspotGetOwners,
+  hubspotGetProducts,
+  hubspotGetTickets,
+  onenoteGetNotebookDetails,
+  onenoteGetPageContent,
+  onenoteGetSectionDetails,
+  onenoteListNotebooks,
+  onenoteListPages,
+  onenoteListSections,
+  gaFindConversion,
+  gaGetRealtimeData,
+  gaRunPivotReport,
+  gaRunReport,
+  dropboxGetFileMetadata,
+  dropboxListFolder,
+  dropboxSearchFiles,
+  onedriveGetFile,
+  onedriveListItems,
+  mailchimpGetCampaign,
+  mailchimpGetCampaignStats,
+  mailchimpGetSubscriber,
+  mailchimpGetSubscribers,
+  stripeFindCustomer,
+  stripeFindPaymentIntent,
+  stripeFindSubscription,
+  stripeGetPayments,
+  discordFetchMessages,
+  facebookGetPageInsights,
+  gcalListEvents,
+  gdocsGetDocument,
+  outlookCalListEvents,
+  notionGetUser,
+  notionListComments,
 ];

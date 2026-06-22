@@ -77,6 +77,21 @@ drift.
 | `SMOKE_MICROSOFT_TEAMS_CONNECTED=1` | Teams fixtures | Signals the smoke account has Microsoft Teams connected. Unset → Teams fixtures SKIP. |
 | `SMOKE_TEAMS_TEAM_ID=<id>` | Teams `get_channel_details`, `get_team_members`, `list_channels`, `list_channel_messages` | A team id (overlaid onto `teamId`). Unset → SKIP. |
 | `SMOKE_TEAMS_CHANNEL_ID=<id>` | Teams `get_channel_details`, `list_channel_messages` | A channel id (overlaid onto `channelId`). Unset → SKIP. |
+| `SMOKE_NATIVE_HTTP_URL=<https url>` | native `http_request` | A public **https** URL to GET (overlaid onto `url`). Unset → SKIP. The only native fixture that makes a real network call; the egress guard blocks private/loopback/metadata hosts. |
+| `SMOKE_MONDAY_CONNECTED=1` (+ `SMOKE_MONDAY_BOARD_ID`, `SMOKE_MONDAY_ITEM_ID`, `SMOKE_MONDAY_PARENT_ITEM_ID`, `SMOKE_MONDAY_USER_ID`, `SMOKE_MONDAY_QUERY`) | Monday read fixtures | Connection + per-action selectors (board/item/parent-item/user ids, search value). Any missing required one → SKIP. |
+| `SMOKE_HUBSPOT_CONNECTED=1` | HubSpot read fixtures | All 7 HubSpot reads are list/search-style — connection only, no selector. |
+| `SMOKE_MICROSOFT_ONENOTE_CONNECTED=1` (+ `SMOKE_ONENOTE_NOTEBOOK_ID`, `SMOKE_ONENOTE_SECTION_ID`, `SMOKE_ONENOTE_PAGE_ID`) | OneNote read fixtures | Connection + notebook/section/page id selectors. |
+| `SMOKE_GOOGLE_ANALYTICS_CONNECTED=1` (+ `SMOKE_GA_PROPERTY_ID`) | Google Analytics read fixtures | Connection + GA4 property id (all four reporting reads need it). |
+| `SMOKE_DROPBOX_CONNECTED=1` (+ `SMOKE_DROPBOX_QUERY`, `SMOKE_DROPBOX_FILE_PATH`) | Dropbox read fixtures | `list_folder` needs only a connection (root path); `search_files` needs a query; `get_file_metadata` needs a file path. |
+| `SMOKE_MICROSOFT_ONEDRIVE_CONNECTED=1` (+ `SMOKE_ONEDRIVE_FILE_ID`) | OneDrive read fixtures | `list_items` needs only a connection (root); `get_file` (metadata only, no bytes) needs an item id. |
+| `SMOKE_MAILCHIMP_CONNECTED=1` (+ `SMOKE_MAILCHIMP_AUDIENCE_ID`, `SMOKE_MAILCHIMP_SUBSCRIBER_EMAIL`, `SMOKE_MAILCHIMP_CAMPAIGN_ID`) | Mailchimp read fixtures | Connection + audience/subscriber/campaign selectors. |
+| `SMOKE_STRIPE_CONNECTED=1` (+ `SMOKE_STRIPE_CUSTOMER_EMAIL`, `SMOKE_STRIPE_PAYMENT_INTENT_ID`, `SMOKE_STRIPE_SUBSCRIPTION_ID`) | Stripe read fixtures | `get_payments` needs only a connection; the find_* reads need their id/email. |
+| `SMOKE_DISCORD_CONNECTED=1` (+ `SMOKE_DISCORD_GUILD_ID`, `SMOKE_DISCORD_CHANNEL_ID`) | Discord `fetch_messages` | Connection + guild + channel ids (guildId is schema-required). |
+| `SMOKE_FACEBOOK_CONNECTED=1` (+ `SMOKE_FACEBOOK_PAGE_ID`) | Facebook `get_page_insights` | Connection + page id (metric defaults to `page_impressions`). |
+| `SMOKE_GOOGLE_CALENDAR_CONNECTED=1` | Google Calendar `list_events` | Connection only (`calendarId` hardcoded `primary`). |
+| `SMOKE_GOOGLE_DOCS_CONNECTED=1` (+ `SMOKE_GDOCS_DOCUMENT_ID`) | Google Docs `get_document` | Connection + document id. |
+| `SMOKE_MICROSOFT_OUTLOOK_CALENDAR_CONNECTED=1` | Outlook Calendar `list_events` | Connection only (uses the default calendar). |
+| `SMOKE_NOTION_USER_ID`, `SMOKE_NOTION_BLOCK_ID` | Notion `get_user`, `list_comments` | Selector ids for the two leftover Notion reads (connection via existing `SMOKE_NOTION_CONNECTED`). |
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
@@ -147,7 +162,18 @@ Rules:
   name), never a hardcoded literal. The mapped env var must also be in
   `requiredEnv` so a missing one SKIPs before any workflow is created.
 
-### Current fixtures (43)
+> **Coverage update (SMOKE-ACTIONS-17/18).** The fixture set grew from 43 → **94**
+> (93 fixture-backed runnable + 1 destructive-skipped) across **23 providers**.
+> SMOKE-ACTIONS-17 added the **4 native logic actions** (`delay`,
+> `if_then_condition`, `router`, `http_request`); SMOKE-ACTIONS-18 added **47
+> read-only fixtures** across 12 previously-zero-coverage providers (monday,
+> hubspot, microsoft-onenote, google-analytics, dropbox, microsoft-onedrive,
+> mailchimp, stripe, discord, facebook, google-calendar, google-docs,
+> microsoft-outlook-calendar) plus 2 Notion leftover reads. See the
+> **SMOKE-ACTIONS-17/18 batch** section below. The table immediately following is
+> the original 43-fixture set.
+
+### Original fixtures (43)
 
 | Fixture | risk / liveRisk | liveSafe | Required env | Notes |
 |---|---|---|---|---|
@@ -472,6 +498,69 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
 All five Teams fixtures are read-only; the report stays status-only (never channel/team
 names, member identities, or message bodies — `get_team_members` carries member PII and
 `list_channel_messages` returns header-level metadata only, none surfaced).
+
+## SMOKE-ACTIONS-17/18 batch — native logic + Tier-2 read coverage
+
+Added 51 fixtures in two slices. **All read-only, all `liveSafe` / `liveRisk: "read"`**,
+all env-gated so they SKIP cleanly (clear "missing env" reason) when the provider
+is not connected on the smoke account.
+
+**SMOKE-ACTIONS-17 — native logic actions (4):**
+
+| Fixture | Executes offline? | Notes |
+|---|---|---|
+| `native:delay` | ✅ yes (PASS) | Pure 1s in-process sleep. No creds, no provider call. Genuinely runs in CI + workflow modes. |
+| `native:if_then_condition` | ✅ yes (PASS) | Pure boolean eval. Authored to land on the **null branch** (false + `onFalse:"skip"`) so it is terminal-node-safe in workflow modes (a non-null `branchTaken` on a single terminal node fails the engine with `INVALID_BRANCH`). |
+| `native:router` | ✅ yes (PASS) | Pure route eval. Authored to land on the **null branch** (no route matches, no `defaultRoute`) for the same terminal-node-safety reason. |
+| `native:http_request` | ⏭ SKIP unless env | The one native action that makes a real outbound **network** call. Env-gated on `SMOKE_NATIVE_HTTP_URL` (a public https URL) so it never fires a live fetch in offline CI. Egress guard blocks private/loopback/metadata hosts. |
+
+The three pure natives execute end-to-end (verified in mode 2 handler-dispatch AND
+mode 3 workflow-test on the dev DB — terminal `succeeded` runs). `http_request`
+SKIPs without `SMOKE_NATIVE_HTTP_URL`.
+
+**SMOKE-ACTIONS-18 — Tier-2 read coverage (47 fixtures, 12 new providers + Notion leftovers):**
+
+| Provider | Fixtures | Reads covered |
+|---|---|---|
+| `monday` | 10 | list_boards, list_groups, list_items, list_subitems, list_updates, list_users, get_board, get_item, get_user, search_items |
+| `hubspot` | 7 | get_companies, get_contacts, get_deals, get_line_items, get_owners, get_products, get_tickets (all connection-only, no selector) |
+| `microsoft-onenote` | 6 | list_notebooks, list_sections, list_pages, get_notebook_details, get_section_details, get_page_content |
+| `google-analytics` | 4 | run_report, run_pivot_report, get_realtime_data, find_conversion |
+| `dropbox` | 3 | list_folder, search_files, get_file_metadata |
+| `microsoft-onedrive` | 2 | list_items, get_file (metadata only — no bytes) |
+| `mailchimp` | 4 | get_subscribers, get_subscriber, get_campaign, get_campaign_stats |
+| `stripe` | 4 | get_payments, find_customer, find_payment_intent, find_subscription |
+| `discord` | 1 | fetch_messages |
+| `facebook` | 1 | get_page_insights |
+| `google-calendar` | 1 | list_events |
+| `google-docs` | 1 | get_document (structured JSON content — not file bytes; `export_document` excluded) |
+| `microsoft-outlook-calendar` | 1 | list_events |
+| `notion` (leftover) | 2 | get_user, list_comments |
+
+**Deliberate read exclusions** (consistent with the prior batches' "no raw
+bytes / signed URLs" rule): `monday:download_file`, `dropbox:download_file` /
+`get_temporary_link` (signed URL) / `create_shared_link` (write),
+`google-docs:export_document`, `*:get_attachment` — all return raw file bytes /
+FileRefs / signed URLs and are out of scope for status-only read smokes.
+`google-analytics:create_conversion_event` / `send_event` are writes.
+
+**Gmail / Outlook reads are already fully covered** — their only remaining
+non-write actions are `get_attachment` (raw bytes, intentionally excluded), so no
+leftover read fixtures were added there. Notion was the only already-covered
+provider with leftover metadata reads to add.
+
+**Honest verification status for this batch.** The 47 provider read fixtures are
+authored directly from each action's resolved-config **Zod schema** (exact field
+names, required vs optional, selectors sourced from env), and they pass the
+structural gates (`fixtures-valid`, inventory CLI `violations: []`, typecheck,
+the mode-2 run-all gate, and the mode-3 dev workflow gate). They have **NOT** been
+live-verified against real providers in this slice — each SKIPs cleanly until its
+`SMOKE_<PROVIDER>_CONNECTED` (+ any selector) env is set against a connected smoke
+account. To live-verify a connected provider, set its env and run
+`SMOKE_PROVIDER=<id> … npm run smoke:actions:run:workflow:live` (see the
+per-provider live-run section above). Uncertified fixtured actions derive
+`LIVE_NOT_RUN` in the certification matrix, so they run by default in a live
+sweep.
 
 **Microsoft Teams audit + actions still uncovered / deferred (5 covered of 8 registered):**
 
@@ -826,12 +915,13 @@ and source any ids from env via `configFromEnv`.
 
 ## Limitations (honest scope)
 
-- **Coverage is still small:** **43 fixtures** (41 read / 1 write / 1 destructive)
-  across 10 providers (Slack: 10, Airtable: 5, Google Sheets: 4, Google Drive: 3,
-  Gmail: 3, Microsoft Outlook: 3, Notion: 4, Microsoft Excel: 5, Microsoft Teams: 5) —
-  `npm run smoke:actions` shows the full gap (255 of 298 registered actions have no
-  fixture yet). This harness is the foundation for growing that, not a claim of broad
-  coverage.
+- **Coverage is growing but partial:** **94 fixtures** (92 read / 1 write / 1
+  destructive) across 23 providers after SMOKE-ACTIONS-17/18 — `npm run smoke:actions`
+  shows the remaining gap (**204 of 298** registered actions still have no fixture).
+  The uncovered 204 are overwhelmingly **writes / destructive** actions (create /
+  update / delete / send), which are intentionally deferred to a separate
+  create→verify→cleanup write-harness slice — not yet built. This read + native-logic
+  harness is the safe-by-default foundation.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
   + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
