@@ -367,6 +367,9 @@ import { trelloLabelsResolver } from "@/integrations/trello/options/labels";
 // personal drive under Files.ReadWrite; no driveId in any schema).
 import { microsoftOneDriveFoldersResolver } from "@/integrations/microsoft-onedrive/options/folders";
 import { microsoftOneDriveItemsResolver } from "@/integrations/microsoft-onedrive/options/items";
+// ONEDRIVE-GETFILE-DISCOVERY — flat file picker (root files first + bounded
+// one-level folder descent) backing get_file.itemId; reuses driveItemsList.
+import { microsoftOneDriveFilesResolver } from "@/integrations/microsoft-onedrive/options/files";
 
 // Microsoft Teams resolvers — Slice 4.TEAMS-META-2 (resolver-first ahead of
 // TEAMS-META-3 metas; Teams stays OUT of COVERED_PROVIDERS until those land).
@@ -568,6 +571,8 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // until ONEDRIVE-META-3.
   microsoftOneDriveFoldersResolver,
   microsoftOneDriveItemsResolver,
+  // ONEDRIVE-GETFILE-DISCOVERY — flat file picker for get_file.itemId.
+  microsoftOneDriveFilesResolver,
   // Slice 4.TEAMS-META-2 — 2 Microsoft Teams resolvers (resolver-first ahead
   // of TEAMS-META-3 metas). teams (root, no dep) + channels (dep: teamId).
   // New read helpers teamsList + channelsList (api/ had no list helper).

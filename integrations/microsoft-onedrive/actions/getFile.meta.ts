@@ -1,14 +1,17 @@
 import type { ActionMeta } from "@/contracts/actionMeta";
 
 /**
- * Builder metadata for `microsoft-onedrive:get_file` — Slice 4.ONEDRIVE-META-3.
- * Mirrors `getFile.schema.ts` (+ the UI-scope `parentItemId`). Read action
- * (low risk).
+ * Builder metadata for `microsoft-onedrive:get_file` — Slice 4.ONEDRIVE-META-3,
+ * `itemId` picker reworked in ONEDRIVE-GETFILE-DISCOVERY. Read action (low risk).
  *
- * Picker cascade: `parentItemId` (UI-scope, optional — microsoft-onedrive:folders)
- * → `itemId` (microsoft-onedrive:items, dependsOn parentItemId). `parentItemId`
- * is optional so an `itemId` wired from the file_changed trigger still
- * validates. `downloadUrl` output is sensitive.
+ * `itemId` is a FLAT file picker (`microsoft-onedrive:files`) that finds files
+ * directly — root files first, then a bounded one-level folder descent — so it
+ * surfaces a real file without first drilling into a folder (the old
+ * `folders → items` cascade missed root files and files past the first folder).
+ * The field still accepts a pasted item id or one wired from the file_changed
+ * trigger (file OR folder). The schema keeps `parentItemId` as an
+ * optional / handler-ignored field for backward compatibility with configs
+ * persisted under the old cascade. `downloadUrl` output is sensitive.
  *
  * **FileRef deferred:** the runtime returns the Graph `downloadUrl` as a
  * string (not a V2 FileRef) → `producesFileRef:false`.
@@ -24,24 +27,14 @@ export const microsoftOneDriveGetFileMeta: ActionMeta = {
   requiresIntegration: true,
   fields: [
     {
-      name: "parentItemId",
-      label: "Folder",
-      description:
-        "Pick a folder to populate the item picker below. Optional — leave empty if the item id comes from an upstream step (e.g. the file-changed trigger).",
-      type: "combobox",
-      required: false,
-      optionsSource: "microsoft-onedrive:folders",
-      placeholder: "Pick a folder",
-    },
-    {
       name: "itemId",
-      label: "Item",
-      description: "The file or folder to read. Pick a folder first, or paste an item id.",
+      label: "File",
+      description:
+        "The file to read. Pick from your files, or paste/wire an item id (file or folder, e.g. from the file-changed trigger).",
       type: "combobox",
       required: true,
-      optionsSource: "microsoft-onedrive:items",
-      dependsOn: "parentItemId",
-      placeholder: "Select a folder first, or paste an item id",
+      optionsSource: "microsoft-onedrive:files",
+      placeholder: "Select a file, or paste an item id",
     },
   ],
   outputs: [

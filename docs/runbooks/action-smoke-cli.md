@@ -646,13 +646,14 @@ Still SKIP (honest classification, not bugs):
   not a discoverable resource selector; there is no safe, non-arbitrary value to
   auto-derive. Set `SMOKE_DROPBOX_QUERY` to run it. (Dropbox's `list_folder` /
   `get_file_metadata` reads ARE LIVE_PASS via auto-discovery.)
-- **microsoft-onedrive `get_file` — no usable object via the cascade.** The root
-  has folders (40) and files (`list_items` is LIVE_PASS), but `get_file`'s
-  selector cascades folder → items, and the first folder is empty, so the
-  items-resolver page is empty. Files exist; the items resolver only lists a
-  folder's children (not root-level files), so the cascade can't reach a
-  root file. Set `SMOKE_ONEDRIVE_FILE_ID` to pin one. NOT a discovery bug —
-  verified the resolver returns items for a non-empty folder.
+- **microsoft-onedrive `get_file` — FIXED → LIVE_PASS.** Was SKIP because
+  `itemId` cascaded folder → items and the first root folder was empty (the
+  items resolver only lists one folder's children, never root-level files). New
+  flat `microsoft-onedrive:files` resolver lists **root files first**, then
+  descends a **bounded one level** into root folders only when root has none —
+  so a file at root or one level down is found. `itemId` now points at it (no
+  parent dep); `SMOKE_ONEDRIVE_FILE_ID` still pins a specific file. Live-verified
+  (auto-discovers a real file). All READ-ONLY (`driveItemsList` only).
 - **google-analytics (4 reads) — genuinely no usable object.** Verified via the
   `google-analytics:accounts` resolver against the smoke account: it returns
   **0 accounts** (the connected Google account has no accessible GA4 property),

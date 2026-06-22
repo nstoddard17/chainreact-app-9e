@@ -176,6 +176,11 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["mailchimp", "get_subscriber"],
     ["notion", "get_user"],
     ["notion", "list_comments"],
+    // ONEDRIVE-GETFILE-DISCOVERY: get_file's itemId now auto-discovers via the
+    // flat `microsoft-onedrive:files` picker (root files first + bounded folder
+    // descent), replacing the folder->items cascade that landed on an empty
+    // first folder. Live-verified — discovers a real file with no manual env.
+    ["microsoft-onedrive", "get_file"],
   ]),
 ];
 

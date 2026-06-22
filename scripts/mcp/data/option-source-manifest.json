@@ -297,6 +297,12 @@
       ]
     },
     {
+      "source": "microsoft-onedrive:files",
+      "provider": "microsoft-onedrive",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "microsoft-onedrive:folders",
       "provider": "microsoft-onedrive",
       "requiresIntegration": true,
