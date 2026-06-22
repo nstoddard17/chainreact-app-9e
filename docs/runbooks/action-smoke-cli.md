@@ -95,7 +95,61 @@ drift.
 | other per-fixture `requiredEnv` | modes 2–4 | Each fixture declares the env it needs; any missing one SKIPs **before** workflow creation. |
 
 If any required env/connection is missing, the fixture **SKIPs** (never FAILs),
-before any workflow is created.
+before any workflow is created — **except** in live mode, where selector env is
+now mostly OPTIONAL thanks to auto-discovery (see **Selector auto-discovery**
+below): a connected provider's selectors are discovered from its own safe
+list/search APIs, so you only set `SMOKE_<PROVIDER>_*` selector env to PIN a
+specific resource or when a selector has no safe auto-discovery.
+
+## Selector auto-discovery (live mode)
+
+In LIVE mode the harness no longer needs a hand-set `SMOKE_<PROVIDER>_*` selector
+id for every read. It:
+
+1. **Checks real connection** — `repositories/integrations.getActiveForExecution(account, provider)`,
+   NOT the `SMOKE_<PROVIDER>_CONNECTED` env. A connected provider is treated as
+   connected even when its selector env is unset. (`SMOKE_<PROVIDER>_CONNECTED`
+   still works as an explicit override.)
+2. **Auto-discovers selectors** — for each REQUIRED selector field of the action
+   (from its `ActionMeta`), it runs that field's `optionsSource` cascade (the same
+   builder dropdown resolvers — boards, customers, campaigns, files, properties,
+   notebooks→sections→pages, …) against the connected account and takes the first
+   item. Cascade PARENTS are discovered + overlaid too (so a OneNote
+   `notebookId`→`sectionId`→`pageId` chain is fully satisfied, not just the leaf).
+3. **Manual env always overrides** — a present `SMOKE_<PROVIDER>_*` value pins that
+   field (and seeds the cascade) instead of discovering it. Set one only to pin a
+   known fixture.
+4. **Falls back to env** only when auto-discovery is impossible: a required
+   selector with no `optionsSource` (free-text search/email/range/record-id) →
+   "unavailable", set its env to run.
+
+Discovery is **READ-ONLY** (only list/search option resolvers run — never a
+mutation) and runs only in live mode, only after the liveSafe/write/destructive
+gates pass. Engine + types: [`tests/smoke-actions/selectorDiscovery.ts`](../../tests/smoke-actions/selectorDiscovery.ts)
+(pure), wired to the real account-scoped resolvers in
+[`tests/smoke-actions/workflowRunDeps.ts`](../../tests/smoke-actions/workflowRunDeps.ts).
+
+**Reported states** (per result; the live human report groups them under
+"Selector auto-discovery"):
+
+| State | Meaning |
+|---|---|
+| `not connected in app` | provider has no active integration on the smoke account → SKIP (never a FAIL, never an env problem) |
+| `connected + auto-discovered selector` | ≥1 selector discovered from the provider's APIs → the fixture ran (field NAMES shown, never values) |
+| `connected + selectors from env / none needed` | connected; every selector came from a literal/env or the action needs none → ran |
+| `connected but auto-discovery unavailable` | a required selector has no safe auto-discovery → SKIP; set its `SMOKE_<PROVIDER>_*` env |
+| `connected but auto-discovery found no usable object` | the account has zero of that resource → SKIP |
+
+To live-verify connected providers with ZERO manual selector env:
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  npm run smoke:actions:run:workflow:live
+```
+
+Every connected provider's reads run + auto-discover; unconnected providers report
+`not connected in app`; already-`LIVE_PASS` actions CERT-SKIP.
 
 ## Where fixtures live
 
@@ -549,18 +603,31 @@ non-write actions are `get_attachment` (raw bytes, intentionally excluded), so n
 leftover read fixtures were added there. Notion was the only already-covered
 provider with leftover metadata reads to add.
 
-**Honest verification status for this batch.** The 47 provider read fixtures are
-authored directly from each action's resolved-config **Zod schema** (exact field
-names, required vs optional, selectors sourced from env), and they pass the
-structural gates (`fixtures-valid`, inventory CLI `violations: []`, typecheck,
-the mode-2 run-all gate, and the mode-3 dev workflow gate). They have **NOT** been
-live-verified against real providers in this slice — each SKIPs cleanly until its
-`SMOKE_<PROVIDER>_CONNECTED` (+ any selector) env is set against a connected smoke
-account. To live-verify a connected provider, set its env and run
-`SMOKE_PROVIDER=<id> … npm run smoke:actions:run:workflow:live` (see the
-per-provider live-run section above). Uncertified fixtured actions derive
-`LIVE_NOT_RUN` in the certification matrix, so they run by default in a live
-sweep.
+**Verification status for this batch (updated after the auto-discovery slice).**
+The 47 provider read fixtures were authored from each action's resolved-config
+**Zod schema** and pass the structural gates. After selector auto-discovery landed
+(see **Selector auto-discovery** above), a live sweep against the connected smoke
+account **live-verified 22 of them with ZERO manual selector env** — selectors
+auto-discovered from each provider's own APIs:
+
+- **LIVE_PASS (auto-discovered):** hubspot (all 7), microsoft-onenote (all 6, incl.
+  the `notebookId→sectionId→pageId` cascade), mailchimp (`get_campaign`,
+  `get_campaign_stats`, `get_subscribers`), dropbox (`list_folder`,
+  `get_file_metadata`), google-calendar (`list_events`), google-docs
+  (`get_document`), microsoft-onedrive (`list_items`), microsoft-outlook-calendar
+  (`list_events`).
+- **Not connected on the smoke account** (cleanly reported, not a failure): monday
+  (10), stripe (4), discord (1).
+- **Connected but selector not auto-discoverable** (set env to run): dropbox
+  `search_files` (free-text query), mailchimp `get_subscriber` (email), notion
+  `get_user` / `list_comments` (user/block id).
+- **Connected but no usable object on the account:** google-analytics (4 — the GA
+  account exposes no property), microsoft-onedrive `get_file` (root has no file).
+- **Known BUG (live 400, NOT a discovery issue):** facebook `get_page_insights` —
+  the `pageId` auto-discovers fine, but the Graph insights call returns 400
+  code=100 for the configured metric/period (page insights need `read_insights` +
+  a currently-valid metric + a page with data). Tracked as `BUG` in the
+  certification matrix; the live gate surfaces it separately (never masks it).
 
 **Microsoft Teams audit + actions still uncovered / deferred (5 covered of 8 registered):**
 

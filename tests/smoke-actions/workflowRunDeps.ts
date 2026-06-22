@@ -33,7 +33,17 @@ import {
 } from "@/integrations/native/triggers/manualTrigger";
 import { enqueueRun } from "@/services/execution/enqueue";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
+import { getActiveForExecution } from "@/repositories/integrations";
+import { getActionMeta } from "@/services/discovery/_registry";
+import { getOptionsResolver } from "@/services/options/_registry";
+import { OptionsResolverError } from "@/services/options/types";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
+import {
+  discoverSelectors,
+  type DiscoveryMeta,
+  type SelectorDiscoveryDeps,
+  type SourceResolveOutcome,
+} from "./selectorDiscovery";
 import type {
   RunManualInput,
   SmokeManualRunWorkflow,
@@ -52,10 +62,73 @@ export interface RealWorkflowRunDepsConfig {
   readonly newUuid: () => string;
 }
 
+/**
+ * Real selector-discovery seams over the SAME account-scoped internals the
+ * builder + engine use:
+ *   - connection  → repositories/integrations.getActiveForExecution(account, …)
+ *   - discovery   → the options resolver registry (the builder's dropdown
+ *                   loaders) run against the connected account, take items[0].
+ * READ-ONLY: only list/search option resolvers are invoked — never a mutation.
+ */
+function makeSelectorDiscoveryDeps(accountId: string, userId: string): SelectorDiscoveryDeps {
+  return {
+    getMeta(actionKey: string): DiscoveryMeta | undefined {
+      const meta = getActionMeta(actionKey);
+      if (!meta) return undefined;
+      return {
+        fields: (meta.fields ?? []).map((f) => ({
+          name: f.name,
+          ...(f.required === true ? { required: true } : {}),
+          ...(f.optionsSource ? { optionsSource: f.optionsSource } : {}),
+          ...(f.dependsOn ? { dependsOn: f.dependsOn } : {}),
+        })),
+      };
+    },
+    requiredDepsForSource(source: string): readonly string[] | undefined {
+      return getOptionsResolver(source)?.requiredDeps;
+    },
+    async resolveSource({ source, deps }): Promise<SourceResolveOutcome> {
+      const resolver = getOptionsResolver(source);
+      if (!resolver) return { kind: "error", reason: "no resolver registered" };
+
+      let integration = null;
+      if (resolver.requiresIntegration) {
+        integration = await getActiveForExecution(accountId, resolver.provider, null);
+        if (integration === null) return { kind: "not-connected" };
+      }
+
+      try {
+        const result = await resolver.resolve({ userId, integration, q: "", deps });
+        const values = result.items.map((i) => i.value).filter((v) => typeof v === "string" && v.length > 0);
+        if (values.length === 0) return { kind: "empty" };
+        return { kind: "items", values };
+      } catch (e) {
+        if (e instanceof OptionsResolverError) {
+          if (e.code === "INTEGRATION_DISCONNECTED" || e.code === "OWNER_MUST_CONNECT") {
+            return { kind: "not-connected" };
+          }
+          // Sanitized, closed code only — never the raw provider body.
+          return { kind: "error", reason: e.code };
+        }
+        return { kind: "error" };
+      }
+    },
+  };
+}
+
 export function makeRealWorkflowRunDeps(config: RealWorkflowRunDepsConfig): WorkflowRunDeps {
   const { supabase, accountId, userId } = config;
+  const selectorDeps = makeSelectorDiscoveryDeps(accountId, userId);
 
   return {
+    async isProviderConnected(provider: string): Promise<boolean> {
+      return (await getActiveForExecution(accountId, provider, null)) !== null;
+    },
+
+    async discoverSelectors(input) {
+      return discoverSelectors(input, selectorDeps);
+    },
+
     async createSmokeWorkflow(workflow: SmokeManualRunWorkflow) {
       const { data, error } = await supabase
         .from("workflows")

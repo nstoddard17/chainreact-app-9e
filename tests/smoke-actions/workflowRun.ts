@@ -34,10 +34,12 @@ import {
 import {
   sanitizeFailureReason,
   type ProviderBoundary,
+  type SmokeDiscoveryInfo,
   type SmokeResult,
 } from "@/scripts/chainreact/smoke/core";
 import type { ActionSmokeFixture } from "./contract";
 import { effectiveLiveRisk, fixtureKey, resolveFixtureConfig } from "./contract";
+import type { DiscoverSelectorsResult } from "./selectorDiscovery";
 
 export const SMOKE_TRIGGER_NODE_ID = "smoke-trigger";
 export const SMOKE_ACTION_NODE_ID = "smoke-action";
@@ -119,6 +121,25 @@ export interface WorkflowRunDeps {
   readRun(runId: string): Promise<SmokePersistedRun | null>;
   /** Best-effort cleanup (soft-delete) of a temporary smoke workflow. */
   cleanupSmokeWorkflow(workflowId: string): Promise<void>;
+  /**
+   * LIVE mode only — is this provider actually connected on the smoke account
+   * (an active integration row), independent of any `SMOKE_<PROVIDER>_*` env?
+   * When provided (alongside `discoverSelectors`), live mode uses a real
+   * connection check + selector auto-discovery instead of pure env-gating; the
+   * `SMOKE_<PROVIDER>_CONNECTED` env still works as an explicit override. Absent
+   * → legacy env-gating (handler / test mode / unit-test fakes).
+   */
+  isProviderConnected?(provider: string): Promise<boolean>;
+  /**
+   * LIVE mode only — discover values for the given selector fields from the
+   * provider's own safe list/search APIs (the builder's option resolvers).
+   * Absent → legacy env-gating.
+   */
+  discoverSelectors?(input: {
+    readonly provider: string;
+    readonly action: string;
+    readonly presentFields: Readonly<Record<string, unknown>>;
+  }): Promise<DiscoverSelectorsResult>;
 }
 
 export interface RunFixtureWorkflowOptions {
@@ -208,22 +229,96 @@ export async function runFixtureWorkflowMode(
     }
   }
 
-  // 2. Missing env → SKIP, before creating/running anything. Attach the
-  // structured env NAMES (never values) so the report's grouped missing-env
-  // summary can tell the operator exactly what to set next.
-  const missing = missingEnv(fixture, envLookup);
-  if (missing.length > 0) {
-    return { ...skip(`missing env: ${missing.join(", ")}`), missingEnv: missing };
+  // 2. Resolve the connection + selector values. Two paths:
+  //   (A) DISCOVERY path — live mode, a non-native provider, and the live deps
+  //       supplied the connection check + selector discovery seams. Connection
+  //       is a real integration lookup (env still works as an override); unset
+  //       selectors are auto-discovered from the provider's safe list/search
+  //       APIs. This is what lets a connected smoke account run read smokes with
+  //       NO manual SMOKE_<PROVIDER>_* selector env.
+  //   (B) LEGACY env-gating — handler / test mode, native http_request, or any
+  //       caller (unit-test fake) that didn't supply the discovery seams: a
+  //       missing required env SKIPs before anything is created.
+  const configFromEnv = fixture.configFromEnv ?? {};
+  const selectorEnvNames = new Set(Object.values(configFromEnv));
+  const connectionEnvs = (fixture.requiredEnv ?? []).filter((e) => !selectorEnvNames.has(e));
+  const discoveryEnabled =
+    live &&
+    fixture.provider !== "native" &&
+    deps.discoverSelectors !== undefined &&
+    deps.isProviderConnected !== undefined;
+
+  let effectiveConfig: Readonly<Record<string, unknown>>;
+  let discovery: SmokeDiscoveryInfo | undefined;
+
+  if (discoveryEnabled) {
+    // (A.1) Connection: a present SMOKE_<PROVIDER>_CONNECTED-style env is an
+    // explicit operator override; otherwise the real integration check decides.
+    const envAssertsConnected =
+      connectionEnvs.length > 0 &&
+      connectionEnvs.every((e) => {
+        const v = envLookup(e);
+        return v !== undefined && v !== "";
+      });
+    const connected = envAssertsConnected || (await deps.isProviderConnected!(fixture.provider));
+    if (!connected) {
+      return {
+        ...skip("not connected in app — no active integration for this provider on the smoke account"),
+        discovery: { state: "not-connected" },
+      };
+    }
+
+    // (A.2) Selectors: fields already valued (config literals + manual env pins)
+    // win; the action's remaining REQUIRED sourced fields auto-discover.
+    const presentFields: Record<string, unknown> = { ...fixture.config };
+    for (const [field, envName] of Object.entries(configFromEnv)) {
+      const v = envLookup(envName);
+      if (v !== undefined && v !== "") presentFields[field] = v;
+    }
+
+    const result = await deps.discoverSelectors!({
+      provider: fixture.provider,
+      action: fixture.action,
+      presentFields,
+    });
+    if (!result.ok) {
+      const envHint = configFromEnv[result.blockedField]
+        ? ` (or set ${configFromEnv[result.blockedField]})`
+        : "";
+      const reason =
+        result.state === "not-connected"
+          ? `not connected in app — selector "${result.blockedField}" source has no active integration`
+          : result.state === "unavailable"
+            ? `connected, but selector "${result.blockedField}" has no safe auto-discovery${envHint}`
+            : result.state === "empty"
+              ? `connected, but auto-discovery found no usable object for selector "${result.blockedField}"${envHint}`
+              : `connected, but selector auto-discovery failed for "${result.blockedField}"${envHint}`;
+      return { ...skip(reason), discovery: { state: result.state, blockedField: result.blockedField } };
+    }
+
+    effectiveConfig = { ...presentFields, ...result.overlay };
+    discovery =
+      result.discoveredFields.length > 0
+        ? { state: "discovered", fields: result.discoveredFields }
+        : { state: "connected" };
+  } else {
+    // (B) Legacy env-gating. Missing env → SKIP, before creating/running
+    // anything. Attach env NAMES (never values) for the report's summary.
+    const missing = missingEnv(fixture, envLookup);
+    if (missing.length > 0) {
+      return { ...skip(`missing env: ${missing.join(", ")}`), missingEnv: missing };
+    }
+    effectiveConfig = resolveFixtureConfig(fixture, envLookup);
   }
 
-  // 3. Build the manual-run workflow (pure + validated) with the env-config
-  // overlay applied (e.g. a real channel id sourced from SMOKE_SLACK_CHANNEL_ID).
+  // 3. Build the manual-run workflow (pure + validated) with the resolved config.
+  const runBase = discovery ? { ...base, discovery } : base;
   let workflow: SmokeManualRunWorkflow;
   try {
-    workflow = buildSmokeManualRunDefinition(fixture, resolveFixtureConfig(fixture, envLookup));
+    workflow = buildSmokeManualRunDefinition(fixture, effectiveConfig);
   } catch (err) {
     return {
-      ...base,
+      ...runBase,
       outcome: "fail",
       reason: sanitizeFailureReason(`could not build smoke workflow: ${(err as Error).message}`),
       runId: null,
@@ -243,7 +338,7 @@ export async function runFixtureWorkflowMode(
     const run = await readTerminalRun(deps, runId, options.terminalReadAttempts ?? 1);
     if (!run || run.status === null || run.status === "running") {
       return {
-        ...base,
+        ...runBase,
         outcome: "fail",
         reason: "run did not reach a terminal persisted state",
         runId,
@@ -251,10 +346,10 @@ export async function runFixtureWorkflowMode(
       };
     }
 
-    return classifyPersistedRun(base, fixture, run, workflowId);
+    return classifyPersistedRun(runBase, fixture, run, workflowId);
   } catch (err) {
     return {
-      ...base,
+      ...runBase,
       outcome: "fail",
       reason: sanitizeFailureReason((err as Error).message),
       runId: null,
@@ -288,6 +383,7 @@ function classifyPersistedRun(
     risk: ActionSmokeFixture["risk"];
     liveRisk: ActionSmokeFixture["risk"];
     providerBoundary: ProviderBoundary;
+    discovery?: SmokeDiscoveryInfo;
   },
   fixture: ActionSmokeFixture,
   run: SmokePersistedRun,

@@ -76,6 +76,7 @@ function records(
 }
 
 const LIVE = "2026-06-20";
+const LIVE_AUTODISCOVERY = "2026-06-21";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -135,6 +136,42 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS", "live write verified (dedicated smoke channel)", LIVE, [
     ["slack", "send_channel_message"],
   ]),
+  // Tier-1 selector auto-discovery slice — these read live-verified after the
+  // harness gained real connection checks + selector auto-discovery (no manual
+  // SMOKE_<PROVIDER>_* selector env needed). Connected providers on the smoke
+  // account; selectors auto-discovered from each provider's own list/search APIs.
+  ...records("LIVE_PASS", "live read verified (auto-discovered selectors)", LIVE_AUTODISCOVERY, [
+    ["hubspot", "get_companies"],
+    ["hubspot", "get_contacts"],
+    ["hubspot", "get_deals"],
+    ["hubspot", "get_line_items"],
+    ["hubspot", "get_owners"],
+    ["hubspot", "get_products"],
+    ["hubspot", "get_tickets"],
+    ["dropbox", "list_folder"],
+    ["dropbox", "get_file_metadata"],
+    ["google-calendar", "list_events"],
+    ["google-docs", "get_document"],
+    ["mailchimp", "get_campaign"],
+    ["mailchimp", "get_campaign_stats"],
+    ["mailchimp", "get_subscribers"],
+    ["microsoft-onedrive", "list_items"],
+    ["microsoft-onenote", "list_notebooks"],
+    ["microsoft-onenote", "list_sections"],
+    ["microsoft-onenote", "list_pages"],
+    ["microsoft-onenote", "get_notebook_details"],
+    ["microsoft-onenote", "get_section_details"],
+    ["microsoft-onenote", "get_page_content"],
+    ["microsoft-outlook-calendar", "list_events"],
+  ]),
+  // Known live FAIL — NOT a selector-discovery issue (the pageId is
+  // auto-discovered fine). The Graph insights call returns 400 code=100 for the
+  // configured metric/period; page insights need read_insights + a currently
+  // valid metric + a page with data. Tracked as BUG; runs by default to re-verify
+  // after a fix. The live gate surfaces it separately (does not mask it).
+  ...records("BUG", "live 400 code=100 on page insights metric/permission; pageId discovers fine", LIVE_AUTODISCOVERY, [
+    ["facebook", "get_page_insights"],
+  ]),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────
@@ -162,6 +199,22 @@ export function isCertifiedLivePass(
   certs: readonly CertificationRecord[] = CERTIFICATIONS,
 ): boolean {
   return getCertification(provider, action, certs)?.status === "LIVE_PASS";
+}
+
+/**
+ * True when the action is a KNOWN-FAILING certification (`FAIL` or `BUG`). The
+ * live runner uses this to surface known failures SEPARATELY from unexpected
+ * regressions: a known FAIL/BUG still runs (eligible) and still reports FAIL in
+ * the human report, but it does not flip the "no unexpected fails" gate. Re-verify
+ * after a fix (then move it to LIVE_PASS).
+ */
+export function isCertifiedFailing(
+  provider: string,
+  action: string,
+  certs: readonly CertificationRecord[] = CERTIFICATIONS,
+): boolean {
+  const status = getCertification(provider, action, certs)?.status;
+  return status === "FAIL" || status === "BUG";
 }
 
 /**

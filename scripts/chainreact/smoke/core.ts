@@ -408,6 +408,42 @@ export type SmokeMode = "handler" | "workflow-test" | "workflow-live";
  */
 export type ProviderBoundary = "blocked" | "mocked" | "live";
 
+/**
+ * How a live-connected run determined the provider connection + its selector
+ * values (Tier-1 selector auto-discovery). Reported per result so an operator
+ * sees the five distinct outcomes the slice promised:
+ *   - "not-connected" — the provider is NOT connected on the smoke account (no
+ *     active integration). The fixture SKIPs; it is NOT an env problem.
+ *   - "connected"     — connected, and every selector came from a manual env
+ *     override or the action needs none. The fixture ran.
+ *   - "discovered"    — connected, and ≥1 selector was auto-discovered from the
+ *     provider's own safe list/search APIs. The fixture ran. `fields` lists the
+ *     auto-discovered selector field NAMES (never values).
+ *   - "unavailable"   — connected, but a required selector has no safe
+ *     auto-discovery (no option source). Set its `SMOKE_<PROVIDER>_*` env to run.
+ *   - "empty"         — connected, but auto-discovery returned no usable object
+ *     for a selector (e.g. the account has zero boards). Nothing to select.
+ *   - "error"         — connected, but the discovery read call failed.
+ * `blockedField` names the selector that blocked discovery (unavailable/empty/
+ * error). Field NAMES only — never discovered ids/values (those are real
+ * resource ids and must not land in a report).
+ */
+export type SmokeDiscoveryState =
+  | "not-connected"
+  | "connected"
+  | "discovered"
+  | "unavailable"
+  | "empty"
+  | "error";
+
+export interface SmokeDiscoveryInfo {
+  readonly state: SmokeDiscoveryState;
+  /** Selector field NAMES auto-discovered (never values). */
+  readonly fields?: readonly string[];
+  /** Selector field NAME that blocked discovery (unavailable/empty/error). */
+  readonly blockedField?: string;
+}
+
 export interface SmokeResult {
   readonly provider: string;
   readonly action: string;
@@ -434,6 +470,15 @@ export interface SmokeResult {
    * grouped missing-env summary so an operator sees exactly what to set next.
    */
   readonly missingEnv?: readonly string[];
+  /**
+   * Live-connected discovery provenance: how the provider connection + selector
+   * values were determined (DB connection check + selector auto-discovery).
+   * Present only for live-mode results that went through the discovery path;
+   * absent for handler/test mode + non-discovery skips. Additive — existing
+   * consumers are unaffected. Carries field NAMES + a state enum only, never
+   * discovered ids/values.
+   */
+  readonly discovery?: SmokeDiscoveryInfo;
 }
 
 /**
@@ -637,6 +682,56 @@ export function renderExecutionHuman(report: ExecutionReport): string {
     }
     const all = distinctMissingEnv(report);
     if (all.length > 0) lines.push(`  Set: ${all.join(", ")}`);
+  }
+
+  // Selector auto-discovery summary — the five distinct connection/discovery
+  // states, so an operator can tell "not connected" from "connected but couldn't
+  // discover a selector" from "connected and auto-discovered + ran". Field NAMES
+  // only; never discovered ids/values.
+  const withDiscovery = report.results.filter((r) => r.discovery !== undefined);
+  if (withDiscovery.length > 0) {
+    const byState = (state: SmokeDiscoveryState) =>
+      withDiscovery.filter((r) => r.discovery?.state === state);
+    lines.push("");
+    lines.push("Selector auto-discovery (live, connected providers):");
+    const notConnected = byState("not-connected");
+    if (notConnected.length > 0) {
+      lines.push(`  not connected in app (${notConnected.length}):`);
+      for (const r of notConnected) lines.push(`    ${r.provider}:${r.action}`);
+    }
+    const discovered = byState("discovered");
+    if (discovered.length > 0) {
+      lines.push(`  connected + auto-discovered selector (${discovered.length}):`);
+      for (const r of discovered) {
+        lines.push(`    ${r.provider}:${r.action} — fields: ${(r.discovery?.fields ?? []).join(", ")}`);
+      }
+    }
+    const connected = byState("connected");
+    if (connected.length > 0) {
+      lines.push(`  connected + selectors from env / none needed (${connected.length}):`);
+      for (const r of connected) lines.push(`    ${r.provider}:${r.action}`);
+    }
+    const unavailable = byState("unavailable");
+    if (unavailable.length > 0) {
+      lines.push(`  connected but auto-discovery unavailable — set env (${unavailable.length}):`);
+      for (const r of unavailable) {
+        lines.push(`    ${r.provider}:${r.action}${r.discovery?.blockedField ? ` — field: ${r.discovery.blockedField}` : ""}`);
+      }
+    }
+    const empty = byState("empty");
+    if (empty.length > 0) {
+      lines.push(`  connected but auto-discovery found no usable object (${empty.length}):`);
+      for (const r of empty) {
+        lines.push(`    ${r.provider}:${r.action}${r.discovery?.blockedField ? ` — field: ${r.discovery.blockedField}` : ""}`);
+      }
+    }
+    const discErr = byState("error");
+    if (discErr.length > 0) {
+      lines.push(`  connected but auto-discovery errored (${discErr.length}):`);
+      for (const r of discErr) {
+        lines.push(`    ${r.provider}:${r.action}${r.discovery?.blockedField ? ` — field: ${r.discovery.blockedField}` : ""}`);
+      }
+    }
   }
 
   lines.push("");
