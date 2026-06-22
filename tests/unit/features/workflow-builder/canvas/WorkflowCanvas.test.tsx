@@ -14,15 +14,22 @@
  */
 
 const mockUpdateWorkflow = jest.fn();
+// Slice 4.BUILDER-RUNS-TAB-1 — the Runs tab now renders the real RunsPanel,
+// which fetches runs on mount. Stub the workflow-scoped run client so the tab
+// resolves deterministically (empty history) without touching real fetch.
+const mockListWorkflowRuns = jest.fn();
+const mockGetWorkflowRun = jest.fn();
 jest.mock("@/lib/api/workflows", () => {
   const actual = jest.requireActual("@/lib/api/workflows");
   return {
     ...actual,
     updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args),
+    listWorkflowRuns: (...args: unknown[]) => mockListWorkflowRuns(...args),
+    getWorkflowRun: (...args: unknown[]) => mockGetWorkflowRun(...args),
   };
 });
 
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { WorkflowCanvas } from "@/features/workflow-builder/canvas/WorkflowCanvas";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
@@ -54,6 +61,9 @@ const providerLabels = { slack: "Slack", github: "GitHub" };
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
+  mockListWorkflowRuns.mockReset();
+  mockListWorkflowRuns.mockResolvedValue([]);
+  mockGetWorkflowRun.mockReset();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
   useGraphSlice.getState().hydrate("wf-1", baseDef);
@@ -184,17 +194,19 @@ describe("WorkflowCanvas — top tabs + empty states (BUILDER-SHELL-TABS-1)", ()
     fireEvent.click(screen.getByRole("tab", { name }));
   }
 
-  it("Runs tab shows a polished empty state and replaces the canvas (no dead tab)", () => {
+  it("Runs tab renders the workflow Runs panel and replaces the canvas (no dead tab)", async () => {
+    // Slice 4.BUILDER-RUNS-TAB-1 — the Runs tab is now the real workflow-scoped
+    // run-history panel (no longer a placeholder).
     const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
     // Builder canvas (ReactFlow surface) is present initially.
     expect(container.querySelector(".react-flow")).not.toBeNull();
     clickTab(/^Runs$/);
-    const panel = screen.getByTestId("builder-tab-placeholder");
-    expect(panel.getAttribute("data-tab")).toBe("runs");
-    expect(panel.textContent).toMatch(/run history will appear here/i);
-    expect(panel.textContent).toMatch(/status|duration|tasks used/i);
-    // The ReactFlow canvas is swapped out for the empty state.
+    expect(screen.getByTestId("builder-runs-tab")).toBeInTheDocument();
+    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
+    // The ReactFlow canvas is swapped out for the Runs panel.
     expect(container.querySelector(".react-flow")).toBeNull();
+    // With no runs, the panel surfaces its empty-state hint.
+    expect(await screen.findByTestId("runs-empty-state")).toBeInTheDocument();
   });
 
   it("Data Map tab shows a workflow-ordered data outline once actions exist (no raw JSON/schema dump)", () => {
@@ -249,16 +261,18 @@ describe("WorkflowCanvas — top tabs + empty states (BUILDER-SHELL-TABS-1)", ()
     expect(panel.textContent).toMatch(/config panel/i);
   });
 
-  it("returns to the canvas when Builder is reselected", () => {
+  it("returns to the canvas when Builder is reselected", async () => {
     const { container } = render(<WorkflowCanvas providerLabels={providerLabels} />);
-    // Runs is still a placeholder tab — use it to prove the canvas is swapped
-    // out and restored when Builder is reselected.
+    // Switch to Runs (a non-canvas tab) to prove the canvas is swapped out, then
+    // back to Builder to prove it's restored.
     clickTab(/^Runs$/);
-    expect(screen.getByTestId("builder-tab-placeholder")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-runs-tab")).toBeInTheDocument();
     expect(container.querySelector(".react-flow")).toBeNull();
     clickTab(/^Builder$/);
-    expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
-    expect(container.querySelector(".react-flow")).not.toBeNull();
+    expect(screen.queryByTestId("builder-runs-tab")).toBeNull();
+    await waitFor(() =>
+      expect(container.querySelector(".react-flow")).not.toBeNull(),
+    );
   });
 });
 

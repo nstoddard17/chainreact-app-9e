@@ -184,6 +184,23 @@ export const HumanizedErrorSchema = z.object({
 });
 export type HumanizedErrorSummary = z.infer<typeof HumanizedErrorSchema>;
 
+/**
+ * Source labels mirrored from the `workflow_runs.triggered_by` CHECK
+ * constraint (Slice 3.SEC-2 migration). The display layer surfaces
+ * these as filter facets + per-row badges on the `/runs` page, and as
+ * the per-run source badge in the builder's workflow-scoped Runs tab.
+ */
+export const WorkflowRunTriggeredBySchema = z.enum([
+  "manual",
+  "test",
+  "webhook",
+  "scheduled",
+  "retry",
+  "api_key",
+  "unknown",
+]);
+export type WorkflowRunTriggeredBy = z.infer<typeof WorkflowRunTriggeredBySchema>;
+
 export const WorkflowRunSummarySchema = z.object({
   id: z.string().uuid(),
   workflowId: z.string().uuid(),
@@ -192,6 +209,14 @@ export const WorkflowRunSummarySchema = z.object({
   startedAt: z.string(),
   finishedAt: z.string(),
   errorClassification: HumanizedErrorSchema.nullable(),
+  // Slice 4.BUILDER-RUNS-TAB-1 — safe run provenance for the workflow-scoped
+  // builder Runs tab: the trigger source label + the test-run flag. SAME
+  // provenance already exposed on `RunListItem` (the account-wide /runs page),
+  // so this surfaces no new data class — both are non-secret operational
+  // metadata. `.optional()` for fixture/consumer back-compat;
+  // `toWorkflowRunSummary` always populates both from the record.
+  triggeredBy: WorkflowRunTriggeredBySchema.optional(),
+  isTest: z.boolean().optional(),
 });
 export type WorkflowRunSummary = z.infer<typeof WorkflowRunSummarySchema>;
 
@@ -248,22 +273,6 @@ export const WorkflowRunDetailSchema = WorkflowRunSummarySchema.extend({
   steps: z.array(WorkflowRunStepSchema),
 });
 export type WorkflowRunDetail = z.infer<typeof WorkflowRunDetailSchema>;
-
-/**
- * Source labels mirrored from the `workflow_runs.triggered_by` CHECK
- * constraint (Slice 3.SEC-2 migration). The display layer surfaces
- * these as filter facets + per-row badges on the `/runs` page.
- */
-export const WorkflowRunTriggeredBySchema = z.enum([
-  "manual",
-  "test",
-  "webhook",
-  "scheduled",
-  "retry",
-  "api_key",
-  "unknown",
-]);
-export type WorkflowRunTriggeredBy = z.infer<typeof WorkflowRunTriggeredBySchema>;
 
 /**
  * Wire shape returned by `GET /api/runs` and consumed by the Runs page

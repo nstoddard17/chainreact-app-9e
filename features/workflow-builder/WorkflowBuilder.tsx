@@ -595,6 +595,9 @@ export function WorkflowBuilder({
             activeRevisionId: workflow.activeRevisionId,
             unpublishedChanges: workflow.unpublishedChanges,
           }}
+          // BUILDER-RUNS-TAB-1 — hide the Runs tab "Run again" when the viewer
+          // can't run/edit (private-credential workflow). Mirrors HeaderRunControls.
+          runEditBlocked={workflow.viewerCanRunEdit === false}
         />
         {addPanelMode !== null ? (
           <AddNodePanel

@@ -559,6 +559,11 @@ export function toWorkflowRunSummary(
     startedAt: record.startedAt,
     finishedAt: record.finishedAt,
     errorClassification: record.errorClassification,
+    // Slice 4.BUILDER-RUNS-TAB-1 — safe source/test provenance for the
+    // workflow-scoped Runs tab. Non-secret operational metadata, identical
+    // provenance to the account-wide `RunListItem`; no raw payload exposure.
+    triggeredBy: record.triggeredBy,
+    isTest: record.isTest,
   };
 }
 

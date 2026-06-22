@@ -592,6 +592,18 @@ describe("toWorkflowRunSummary", () => {
       severity: "error",
     });
   });
+
+  it("forwards the safe source/test provenance (triggeredBy + isTest) for the Runs tab", () => {
+    // Slice 4.BUILDER-RUNS-TAB-1 — non-secret operational metadata, same
+    // provenance as the account-wide RunListItem. No raw payload exposure.
+    const summary = toWorkflowRunSummary({
+      ...baseRecord,
+      isTest: true,
+      triggeredBy: "manual",
+    });
+    expect(summary.triggeredBy).toBe("manual");
+    expect(summary.isTest).toBe(true);
+  });
 });
 
 // ── Slice 3.SEC-7 — toWorkflowRunDetail redaction ───────────────────────────

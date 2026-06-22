@@ -41,6 +41,7 @@ import { ConnectionHintBanner } from "./ConnectionHintBanner";
 import { BuilderNodeActionsProvider } from "./nodeActionsContext";
 import { BuilderTabPlaceholder, type BuilderTab } from "./BuilderTabPlaceholder";
 import { DataMapPanel } from "./DataMapPanel";
+import { RunsPanel } from "./RunsPanel";
 import { SettingsPanel, type WorkflowSettingsMeta } from "./SettingsPanel";
 import { CanvasActionBar } from "./CanvasActionBar";
 import { WorkflowEdge } from "./WorkflowEdge";
@@ -148,6 +149,13 @@ interface Props {
    * and (b) fits the viewport once around the current graph. Visual only — no draft mutation.
    */
   previewToken?: number | null;
+  /**
+   * WF-RUNPERM — true when the viewer may NOT run/edit this workflow (private
+   * credential). Threaded into the Runs tab so its "Run again" affordance hides,
+   * matching the header's run controls. The run-now route enforces the same
+   * policy server-side regardless.
+   */
+  runEditBlocked?: boolean;
 }
 
 const NODE_TYPES = {
@@ -180,6 +188,7 @@ function WorkflowCanvasInner({
   requiredFieldsByType,
   workflowSettings,
   previewToken,
+  runEditBlocked,
 }: Props) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
@@ -450,6 +459,16 @@ function WorkflowCanvasInner({
           onDismiss={() => setConnectionHint(null)}
         />
           </>
+        ) : activeTab === "runs" ? (
+          // Slice 4.BUILDER-RUNS-TAB-1 — the Runs tab is this workflow's
+          // execution history + run-detail/debugging surface. Reuses the
+          // existing workflow-scoped run list/detail endpoints + the latest-run
+          // poller; "Open failed step" switches back to the Builder tab so the
+          // canvas reveal lands.
+          <RunsPanel
+            onOpenFailedStep={() => setActiveTab("builder")}
+            {...(runEditBlocked !== undefined ? { runEditBlocked } : {})}
+          />
         ) : activeTab === "data-map" ? (
           // Slice 4.BUILDER-DATA-MAP-MVP-1 — the Data Map tab shows a real
           // workflow data outline once actions exist; it falls back to the
