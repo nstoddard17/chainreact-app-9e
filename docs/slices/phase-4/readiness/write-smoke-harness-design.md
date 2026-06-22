@@ -274,14 +274,27 @@ write results join the existing `ExecutionReport` gate).
   `ALL_SMOKE_FIXTURES` yet; not run live).
 - `tests/unit/smoke-actions/write-harness.test.ts` — the self-tests above.
 
-**Deferred (designed, not built):**
-- The real `WriteHarnessDeps.runActionStep` wiring (account-scoped engine runs for
-  setup/verify/cleanup) plus `{{env.*}}` resolution for sub-step ids. Same posture
-  as the read harness's `workflow-live` path before Marcus first ran it.
-- Registering pilots in the Jest `ALL_SMOKE_FIXTURES` runnable list and a
-  `smoke:writes` runner — held until the real deps + one live pilot run are done
-  with Marcus. (The offline fs-scan inventory DOES discover the 3 pilot files, so
-  `npm run smoke:actions --cert` now shows them as `NOT_RUN` fixture-backed and the
-  missing-fixture gap reads 201, not 204. They still never execute — live or test —
-  because they are absent from the Jest curated list.)
+**Built in the follow-up wiring slice (SMOKE-WRITE-2, 2026-06-22):**
+- Real `WriteHarnessDeps.runActionStep` (`writeHarnessDeps.ts`): each phase step
+  runs as its own `{manual.run -> action}` workflow live, and the action node's
+  output is read back from `workflow_runs.steps[]` so the orchestrator can capture
+  the created id. One workflow per step preserves the "cleanup always runs" finally.
+- `{{env.*}}` resolution in step values AND object keys, plus `markerEchoPath`
+  resolution, so a provider field NAME (e.g. an Airtable primary field) can be
+  operator config (`SMOKE_AIRTABLE_TEXT_FIELD`).
+- A separate `WRITE_SMOKE_FIXTURES` list + `runActionSmokeWriteMode` batch runner
+  (folds to the shared zero-FAIL gate) + a quadruple-gated `smoke:writes:live`
+  dev test (`SMOKE_PROVIDER` picks exactly one pilot).
+
+**Live status (SMOKE-WRITE-2):** the harness was exercised LIVE end-to-end against
+real Airtable. The create call reached the provider but was safely rejected
+(`Unknown field name` on the read-smoke base, whose primary field is not `Name`),
+so NO record was created, cleanup correctly skipped, and the run reported FAIL with
+zero leaked resources. A clean `LIVE_PASS` is blocked pending a confirmed DEDICATED
+smoke base/table (Trello is not connected on the smoke account). Pilot certified
+`BLOCKED_ENV` (honest: did not pass).
+
+**Deferred:**
+- One live pilot `LIVE_PASS` against a dedicated throwaway target (the only thing
+  between here and a green pilot).
 - The 201-action write coverage rollout (per-provider batches, like the read arc).

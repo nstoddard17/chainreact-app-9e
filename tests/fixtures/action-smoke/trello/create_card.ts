@@ -32,6 +32,9 @@ export default defineWriteSmokeFixture({
     liveClass: "destructiveSafe",
     smokeMarker: "crsmoke-",
     captureResource: { resourceKey: "card", idPath: "cardId", kind: "card" },
+    // create_card echoes the card name; confirm the unique marker round-tripped
+    // (Trello has no get_card read action to verify against).
+    markerEchoPath: "name",
     cleanup: {
       provider: "trello",
       action: "archive_card",

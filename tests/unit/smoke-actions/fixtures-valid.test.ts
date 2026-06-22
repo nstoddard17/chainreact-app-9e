@@ -13,15 +13,15 @@ import {
   validateFixtureDescriptor,
   type FixtureDescriptor,
 } from "@/scripts/chainreact/smoke/core";
-import { ALL_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
+import { ALL_FIXTURES_FOR_INVENTORY } from "@/tests/smoke-actions/fixtures";
 import { registeredActionKeys } from "@/tests/smoke-actions/discovery";
 
 describe("shipped action-smoke fixtures", () => {
   const keys = registeredActionKeys();
 
   it("there is at least one fixture and each targets a registered, correctly-classified action", () => {
-    expect(ALL_SMOKE_FIXTURES.length).toBeGreaterThan(0);
-    for (const fixture of ALL_SMOKE_FIXTURES) {
+    expect(ALL_FIXTURES_FOR_INVENTORY.length).toBeGreaterThan(0);
+    for (const fixture of ALL_FIXTURES_FOR_INVENTORY) {
       const descriptor: FixtureDescriptor = {
         provider: fixture.provider,
         action: fixture.action,
@@ -34,7 +34,7 @@ describe("shipped action-smoke fixtures", () => {
   });
 
   it("any fixture whose action verb is obviously destructive is classified destructive", () => {
-    for (const fixture of ALL_SMOKE_FIXTURES) {
+    for (const fixture of ALL_FIXTURES_FOR_INVENTORY) {
       if (classifyObviouslyDestructive(fixture.action)) {
         expect(fixture.risk).toBe("destructive");
       }
@@ -42,7 +42,7 @@ describe("shipped action-smoke fixtures", () => {
   });
 
   it("a destructive fixture is NEVER liveSafe (it must not be runnable in live mode)", () => {
-    for (const fixture of ALL_SMOKE_FIXTURES) {
+    for (const fixture of ALL_FIXTURES_FOR_INVENTORY) {
       const isDestructive =
         fixture.risk === "destructive" ||
         fixture.liveRisk === "destructive" ||
@@ -55,7 +55,7 @@ describe("shipped action-smoke fixtures", () => {
 
   it("no two fixtures collide on the same (provider, action) key", () => {
     const seen = new Set<string>();
-    for (const f of ALL_SMOKE_FIXTURES) {
+    for (const f of ALL_FIXTURES_FOR_INVENTORY) {
       const key = `${f.provider}:${f.action}`;
       expect(seen.has(key)).toBe(false);
       seen.add(key);

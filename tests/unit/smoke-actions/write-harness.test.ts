@@ -20,6 +20,7 @@ import {
   cleanupTargetsSmokeOwned,
   foldToSmokeResult,
   ledgerRefsIn,
+  resolveScalarTokens,
   resolveStepConfig,
   runWriteSmoke,
   type StepRunOutcome,
@@ -296,5 +297,89 @@ describe("PASS path + pure helpers", () => {
   it("ledgerRefsIn finds nested ledger references", () => {
     expect(ledgerRefsIn({ a: "{{ledger.x.id}}", b: ["{{ledger.y.id}}"], c: 1 }).sort()).toEqual(["x", "y"]);
     expect(ledgerRefsIn({ a: "literal" })).toEqual([]);
+  });
+});
+
+// ─── env sub-step resolution + configFromEnv overlay + marker echo ───────────
+
+describe("env resolution + marker echo (live wiring)", () => {
+  it("resolveStepConfig resolves {{env.NAME}} and leaves unresolved tokens literal", () => {
+    const ledger = new ResourceLedger();
+    const out = resolveStepConfig(
+      { a: "{{env.FOO}}", b: "{{env.MISSING}}" },
+      "m-",
+      ledger,
+      (n) => (n === "FOO" ? "bar" : undefined),
+    );
+    expect(out.a).toBe("bar");
+    expect(out.b).toBe("{{env.MISSING}}"); // left literal -> step fails loud, never wrong target
+  });
+
+  it("resolveStepConfig resolves env tokens in object KEYS (e.g. an Airtable field name)", () => {
+    const ledger = new ResourceLedger();
+    const out = resolveStepConfig(
+      { "{{env.FIELD}}": { type: "singleLineText", value: "{{smokeMarker}}x" } },
+      "crsmoke-T1-",
+      ledger,
+      (n) => (n === "FIELD" ? "Draft Name" : undefined),
+    );
+    expect(Object.keys(out)).toEqual(["Draft Name"]);
+    expect((out["Draft Name"] as Record<string, unknown>).value).toBe("crsmoke-T1-x");
+  });
+
+  it("resolveScalarTokens resolves env + marker (used for markerEchoPath)", () => {
+    expect(resolveScalarTokens("fields.{{env.F}}", "m-", (n) => (n === "F" ? "Draft Name" : undefined))).toBe(
+      "fields.Draft Name",
+    );
+  });
+
+  it("overlays the fixture configFromEnv onto the EXECUTE step config", async () => {
+    const deps = fakeDeps({ "acme:create_thing": { ok: true, output: { name: "crsmoke-T1-x" }, reason: null } });
+    const fx: ActionSmokeFixture = {
+      provider: "acme",
+      action: "create_thing",
+      risk: "write",
+      config: { name: "{{smokeMarker}}x" },
+      configFromEnv: { listId: "SMOKE_LIST" },
+      expect: { outcome: "success" },
+      writeHarness: { liveClass: "writeSafe", smokeMarker: "crsmoke-" },
+    };
+    await runWriteSmoke(fx, { ...RUN, envLookup: (n) => (n === "SMOKE_LIST" ? "L1" : undefined) }, deps);
+    const exec = deps.calls.find((c) => c.action === "create_thing");
+    expect(exec?.config.listId).toBe("L1"); // env overlaid
+    expect(exec?.config.name).toBe("crsmoke-T1-x"); // marker stamped
+  });
+
+  it("marker echo passes when the created resource echoes the marker", async () => {
+    const deps = fakeDeps({ "acme:create_thing": { ok: true, output: { name: "crsmoke-T1-pilot" }, reason: null } });
+    const fx = fixture("create_thing", {
+      liveClass: "writeSafe",
+      smokeMarker: "crsmoke-",
+      markerEchoPath: "name",
+    });
+    const res = await runWriteSmoke(fx, RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.phases.find((p) => p.phase === "verify")?.outcome).toBe("ok");
+  });
+
+  it("marker echo fails (VERIFY_FAILED) when the created resource lacks the marker", async () => {
+    const deps = fakeDeps({
+      "acme:create_thing": { ok: true, output: { name: "someone-elses-record" }, reason: null },
+    });
+    const fx = fixture("create_thing", {
+      liveClass: "destructiveSafe",
+      smokeMarker: "crsmoke-",
+      markerEchoPath: "name",
+      captureResource: { resourceKey: "r", idPath: "id", kind: "thing" },
+      cleanup: { provider: "acme", action: "delete_thing", config: { id: "{{ledger.r.id}}" } },
+    });
+    // give the create an id so it lands in the ledger + cleanup can run
+    deps.calls.length = 0;
+    const deps2 = fakeDeps({
+      "acme:create_thing": { ok: true, output: { id: "X", name: "someone-elses-record" }, reason: null },
+    });
+    const res = await runWriteSmoke(fx, RUN, deps2);
+    expect(res.status).toBe("VERIFY_FAILED");
+    expect(deps2.calls.some((c) => c.action === "delete_thing")).toBe(true); // cleanup still ran
   });
 });

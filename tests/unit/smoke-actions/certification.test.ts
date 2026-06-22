@@ -24,10 +24,10 @@ import {
   shouldCertifiedSkip,
 } from "@/scripts/chainreact/smoke/certification";
 import { listRegisteredActions } from "@/tests/smoke-actions/discovery";
-import { ALL_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
+import { ALL_FIXTURES_FOR_INVENTORY } from "@/tests/smoke-actions/fixtures";
 
 const realDescriptors = (): FixtureDescriptor[] =>
-  ALL_SMOKE_FIXTURES.map((f) => ({
+  ALL_FIXTURES_FOR_INVENTORY.map((f) => ({
     provider: f.provider,
     action: f.action,
     risk: f.risk,

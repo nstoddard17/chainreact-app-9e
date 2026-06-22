@@ -28,16 +28,29 @@ export default defineWriteSmokeFixture({
   liveSafe: false,
   config: {
     typecast: false,
-    fields: { Name: { type: "singleLineText", value: "{{smokeMarker}}pilot" } },
-    // baseId / tableIdOrName overlaid from env at run time (never hardcoded).
+    // The field NAME is operator config (the dedicated smoke table's primary
+    // text field, e.g. "Name") — resolved from SMOKE_AIRTABLE_TEXT_FIELD so the
+    // pilot is portable across smoke bases instead of hardcoding one base's
+    // schema. baseId / tableIdOrName overlaid from env too (never hardcoded).
+    fields: {
+      "{{env.SMOKE_AIRTABLE_TEXT_FIELD}}": { type: "singleLineText", value: "{{smokeMarker}}pilot" },
+    },
   },
   configFromEnv: { baseId: "SMOKE_AIRTABLE_BASE_ID", tableIdOrName: "SMOKE_AIRTABLE_TABLE_ID" },
-  requiredEnv: ["SMOKE_AIRTABLE_CONNECTED", "SMOKE_AIRTABLE_BASE_ID", "SMOKE_AIRTABLE_TABLE_ID"],
+  requiredEnv: [
+    "SMOKE_AIRTABLE_CONNECTED",
+    "SMOKE_AIRTABLE_BASE_ID",
+    "SMOKE_AIRTABLE_TABLE_ID",
+    "SMOKE_AIRTABLE_TEXT_FIELD",
+  ],
   expect: { outcome: "success" },
   writeHarness: {
     liveClass: "destructiveSafe",
     smokeMarker: "crsmoke-",
     captureResource: { resourceKey: "record", idPath: "id", kind: "record" },
+    // create_record echoes the stored fields; confirm the marker round-tripped on
+    // the configured primary field (env token resolved before the output read).
+    markerEchoPath: "fields.{{env.SMOKE_AIRTABLE_TEXT_FIELD}}",
     verify: {
       provider: "airtable",
       action: "get_record",

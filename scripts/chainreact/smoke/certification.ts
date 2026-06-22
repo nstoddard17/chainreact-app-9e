@@ -88,6 +88,7 @@ function records(
 
 const LIVE = "2026-06-20";
 const LIVE_AUTODISCOVERY = "2026-06-21";
+const SMOKE_WRITE = "2026-06-22";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -193,6 +194,17 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     // first folder. Live-verified — discovers a real file with no manual env.
     ["microsoft-onedrive", "get_file"],
   ]),
+  // SMOKE-WRITE pilot — the write harness is wired + was exercised LIVE (a real
+  // create attempt the provider safely rejected, creating nothing). A clean
+  // LIVE_PASS is blocked pending a confirmed DEDICATED smoke base/table + the
+  // primary-field env, since the configured base is a real working base, not a
+  // throwaway. Trello pilot blocked: not connected on the smoke account.
+  ...records(
+    "BLOCKED_ENV",
+    "write pilot wired; needs dedicated smoke base/table + SMOKE_AIRTABLE_TEXT_FIELD",
+    SMOKE_WRITE,
+    [["airtable", "create_record"]],
+  ),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────

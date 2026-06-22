@@ -118,6 +118,11 @@ import gdocsGetDocument from "@/tests/fixtures/action-smoke/google-docs/get_docu
 import outlookCalListEvents from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/list_events";
 import notionGetUser from "@/tests/fixtures/action-smoke/notion/get_user";
 import notionListComments from "@/tests/fixtures/action-smoke/notion/list_comments";
+// SMOKE-WRITE — mutating pilots (separate list; run via the write harness, NOT
+// the read runner, so registering them never changes read/native smoke behavior).
+import airtableCreateRecord from "@/tests/fixtures/action-smoke/airtable/create_record";
+import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
+import trelloCreateCard from "@/tests/fixtures/action-smoke/trello/create_card";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -215,4 +220,21 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   outlookCalListEvents,
   notionGetUser,
   notionListComments,
+];
+
+/**
+ * Mutating pilot fixtures, run ONLY through the write harness (writeRunner.ts).
+ * Kept OUT of ALL_SMOKE_FIXTURES so the read live runner never executes them.
+ * Each carries a `writeHarness` spec (setup -> execute -> verify -> cleanup).
+ */
+export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
+  airtableCreateRecord,
+  notionCreatePage,
+  trelloCreateCard,
+];
+
+/** Read + write fixtures — for inventory / validation / certification parity. */
+export const ALL_FIXTURES_FOR_INVENTORY: readonly ActionSmokeFixture[] = [
+  ...ALL_SMOKE_FIXTURES,
+  ...WRITE_SMOKE_FIXTURES,
 ];

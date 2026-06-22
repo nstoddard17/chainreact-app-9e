@@ -88,6 +88,13 @@ export interface WriteHarnessSpec {
   readonly captureResource?: CaptureSpec;
   /** A registered READ action keyed on a captured id (confirms the side effect). */
   readonly verify?: ActionStepSpec;
+  /**
+   * Dot-path into the EXECUTE output that should echo the unique smoke marker
+   * (e.g. the created card's `name`). When set, the harness confirms the marker
+   * round-tripped — a cheap existence+ownership check for pilots with no separate
+   * read-back action. A mismatch is VERIFY_FAILED.
+   */
+  readonly markerEchoPath?: string;
   /** A registered destructive action keyed on a captured id (removes the resource). */
   readonly cleanup?: ActionStepSpec;
   /** billingSensitive only: env var that confirms a test-mode/sandbox account. */

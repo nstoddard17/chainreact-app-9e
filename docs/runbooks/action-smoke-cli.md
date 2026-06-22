@@ -1033,10 +1033,40 @@ never leaves provider junk, sends to a real destination, charges a customer, or
 deletes a pre-existing record. Full contract:
 [`../slices/phase-4/readiness/write-smoke-harness-design.md`](../slices/phase-4/readiness/write-smoke-harness-design.md).
 
-**Status (foundation slice):** the contract + a pure, unit-tested phase
-orchestrator landed; 3 gated pilot fixtures are authored but NOT registered in the
-Jest runnable list and NOT run live. The real account-scoped step wiring is
-deferred (same posture the read harness took before its first live run).
+**Status (operational):** the contract + pure orchestrator + the real
+account-scoped `runActionStep` wiring + `{{env.*}}` sub-step resolution + a
+batch runner + a quadruple-gated live dev test are all landed. The 3 pilots are
+registered in a SEPARATE `WRITE_SMOKE_FIXTURES` list (kept out of the read
+runner). The harness has been exercised LIVE end-to-end (the create call reached
+the real provider). A clean pilot `LIVE_PASS` is **blocked pending a confirmed
+DEDICATED smoke target** — see below.
+
+**Run the pilot live** (quadruple-gated; `SMOKE_PROVIDER` picks exactly one so the
+others can never run live by accident):
+
+```bash
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
+  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_PROVIDER=airtable SMOKE_AIRTABLE_CONNECTED=1 \
+  SMOKE_AIRTABLE_BASE_ID=<dedicated smoke base> SMOKE_AIRTABLE_TABLE_ID=<smoke table> \
+  SMOKE_AIRTABLE_TEXT_FIELD='<the table primary text field, e.g. Name>' \
+  npm run smoke:writes:live
+```
+
+The harness creates one `crsmoke-<token>-pilot` record, confirms the marker
+round-tripped, then deletes exactly that record. **Point it at a DEDICATED
+throwaway base/table** — `SMOKE_AIRTABLE_TEXT_FIELD` must name that table's
+primary single-line-text field. (For Trello: `SMOKE_PROVIDER=trello`
+`SMOKE_TRELLO_CONNECTED=1` `SMOKE_TRELLO_LIST_ID=<dedicated smoke list>`.)
+
+> **First live attempt (2026-06-22):** run against the read-smoke Airtable base
+> with field `Name` — Airtable rejected it (`Unknown field name: "Name"`; that
+> base's primary field is different), so the create made **NO** record, cleanup
+> correctly skipped (nothing in the ledger), and the run reported `FAIL` with zero
+> leaked resources. The wiring + no-junk-on-failure guarantee are confirmed; that
+> base is a real working base, not a dedicated throwaway, so the pilot is
+> certified `BLOCKED_ENV` until a dedicated smoke base/table is provided.
 
 **Phase model.** A mutating fixture adds a `writeHarness` spec
 ([`tests/smoke-actions/contract.ts`](../../tests/smoke-actions/contract.ts)):

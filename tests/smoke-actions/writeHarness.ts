@@ -41,7 +41,7 @@ import type {
   WriteHarnessSpec,
   WriteLiveClass,
 } from "./contract";
-import { effectiveLiveRisk } from "./contract";
+import { effectiveLiveRisk, resolveFixtureConfig } from "./contract";
 
 /** Rich runtime status for a mutation smoke. Folds down to a SmokeResult gate. */
 export type WriteSmokeStatus =
@@ -205,6 +205,7 @@ export function gateWriteClass(
 // ─── Token substitution + capture (pure) ─────────────────────────────────────
 
 const LEDGER_TOKEN = /\{\{ledger\.([A-Za-z0-9_-]+)\.id\}\}/g;
+const ENV_TOKEN = /\{\{env\.([A-Za-z0-9_]+)\}\}/g;
 
 /** Ledger resourceKeys referenced by a step's RAW config (before resolution). */
 export function ledgerRefsIn(config: Readonly<Record<string, unknown>>): string[] {
@@ -223,30 +224,55 @@ export function ledgerRefsIn(config: Readonly<Record<string, unknown>>): string[
 }
 
 /**
- * Resolve `{{smokeMarker}}` and `{{ledger.<key>.id}}` tokens in a step config.
- * Pure. A `{{ledger.<key>.id}}` whose key is not in the ledger is left literal so
- * the smoke-owned guard can refuse the step.
+ * Resolve `{{smokeMarker}}`, `{{ledger.<key>.id}}`, and `{{env.<NAME>}}` tokens in
+ * a step config. Pure (env values flow in via the injected `envLookup`). A
+ * `{{ledger.<key>.id}}` whose key is not in the ledger is left literal so the
+ * smoke-owned guard can refuse the step; an unresolved `{{env.<NAME>}}` is left
+ * literal too (the setup/execute step then fails loudly rather than silently
+ * targeting the wrong resource).
  */
 export function resolveStepConfig(
   config: Readonly<Record<string, unknown>>,
   marker: string,
   ledger: ResourceLedger,
+  envLookup: (name: string) => string | undefined = () => undefined,
 ): Readonly<Record<string, unknown>> {
+  // Tokens resolve in both string VALUES and object KEYS (a provider field name
+  // can itself be operator config, e.g. an Airtable primary-field name).
+  const resolveStr = (s: string): string => {
+    let out = s.split("{{smokeMarker}}").join(marker);
+    out = out.replace(LEDGER_TOKEN, (whole, key: string) => ledger.get(key)?.externalId ?? whole);
+    out = out.replace(ENV_TOKEN, (whole, name: string) => {
+      const val = envLookup(name);
+      return val !== undefined && val !== "" ? val : whole;
+    });
+    return out;
+  };
   const walk = (v: unknown): unknown => {
-    if (typeof v === "string") {
-      let s = v.split("{{smokeMarker}}").join(marker);
-      s = s.replace(LEDGER_TOKEN, (whole, key: string) => ledger.get(key)?.externalId ?? whole);
-      return s;
-    }
+    if (typeof v === "string") return resolveStr(v);
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === "object") {
       const out: Record<string, unknown> = {};
-      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      for (const [k, val] of Object.entries(v)) out[resolveStr(k)] = walk(val);
       return out;
     }
     return v;
   };
   return walk(config) as Readonly<Record<string, unknown>>;
+}
+
+/** Resolve `{{env.<NAME>}}` / `{{smokeMarker}}` in a scalar string (e.g. markerEchoPath). */
+export function resolveScalarTokens(
+  s: string,
+  marker: string,
+  envLookup: (name: string) => string | undefined,
+): string {
+  let out = s.split("{{smokeMarker}}").join(marker);
+  out = out.replace(ENV_TOKEN, (whole, name: string) => {
+    const val = envLookup(name);
+    return val !== undefined && val !== "" ? val : whole;
+  });
+  return out;
 }
 
 /**
@@ -336,12 +362,13 @@ export async function runWriteSmoke(
     };
   }
 
-  // Helper: run a step + capture into the ledger. Returns ok.
+  // Helper: run a step + capture into the ledger. Returns ok + the step output
+  // (output stays in memory; it is never surfaced in a report).
   const runStep = async (
     phase: PhaseName,
     step: ActionStepSpec,
-  ): Promise<boolean> => {
-    const config = resolveStepConfig(step.config, marker, ledger);
+  ): Promise<StepRunOutcome> => {
+    const config = resolveStepConfig(step.config, marker, ledger, envLookup);
     const res = await deps.runActionStep({ provider: step.provider, action: step.action, config });
     if (res.ok && step.captureResource) {
       const id = readPath(res.output, step.captureResource.idPath);
@@ -356,35 +383,54 @@ export async function runWriteSmoke(
       }
     }
     phases.push({ phase, outcome: res.ok ? "ok" : "failed", reason: SANITIZE(res.reason) });
-    return res.ok;
+    return res;
   };
 
   let actionStatus: WriteSmokeStatus = "PASS";
 
   // 3. setup.
   for (const step of spec.setup ?? []) {
-    const ok = await runStep("setup", step);
-    if (!ok) {
+    const res = await runStep("setup", step);
+    if (!res.ok) {
       actionStatus = "FAIL";
       break;
     }
   }
 
-  // 4. execute (only if setup did not already fail).
+  // 4. execute (only if setup did not already fail). The execute config gets the
+  // fixture's `configFromEnv` overlay (the same field->env mechanism the read
+  // path uses) BEFORE token resolution, so e.g. a smoke listId / baseId comes
+  // from env, never a hardcoded literal.
   if (actionStatus === "PASS") {
     const execStep: ActionStepSpec = {
       provider: fixture.provider,
       action: fixture.action,
-      config: fixture.config,
+      config: resolveFixtureConfig(fixture, envLookup),
       captureResource: spec.captureResource,
     };
-    const ok = await runStep("execute", execStep);
-    if (!ok) actionStatus = "FAIL";
+    const exec = await runStep("execute", execStep);
+    if (!exec.ok) actionStatus = "FAIL";
 
-    // 5. verify (only if execute succeeded).
-    if (ok && spec.verify) {
-      const vok = await runStep("verify", spec.verify);
-      if (!vok) actionStatus = "VERIFY_FAILED";
+    // 5a. marker echo — when the created resource echoes a name/title field, the
+    // harness confirms the UNIQUE smoke marker round-tripped (so we know the
+    // object we will clean up is the one we just stamped). Used by pilots that
+    // have no separate read-back action (e.g. Trello create_card).
+    if (exec.ok && spec.markerEchoPath) {
+      const echoPath = resolveScalarTokens(spec.markerEchoPath, marker, envLookup);
+      const echo = readPath(exec.output, echoPath);
+      const ok = echo !== null && echo.includes(marker);
+      phases.push({
+        phase: "verify",
+        outcome: ok ? "ok" : "failed",
+        reason: ok ? null : "created resource did not echo the smoke marker",
+      });
+      if (!ok) actionStatus = "VERIFY_FAILED";
+    }
+
+    // 5b. verify (a registered read action keyed on the captured id).
+    if (actionStatus === "PASS" && spec.verify) {
+      const v = await runStep("verify", spec.verify);
+      if (!v.ok) actionStatus = "VERIFY_FAILED";
     }
   }
 
@@ -405,7 +451,7 @@ export async function runWriteSmoke(
         reason: "refused — cleanup target is not a smoke-owned ledger resource",
       });
     } else {
-      const config = resolveStepConfig(spec.cleanup.config, marker, ledger);
+      const config = resolveStepConfig(spec.cleanup.config, marker, ledger, envLookup);
       const res = await deps.runActionStep({
         provider: spec.cleanup.provider,
         action: spec.cleanup.action,
@@ -449,6 +495,26 @@ const STATUS_TO_OUTCOME: Record<WriteSmokeStatus, SmokeResult["outcome"]> = {
   SANDBOX_REQUIRED: "skip",
   UNSAFE_NO_HARNESS: "skip",
 };
+
+/**
+ * Status-only human report for a batch of write smokes. Phase outcomes + ledger
+ * COUNTS + kind labels only — never ids/secrets/provider output.
+ */
+export function renderWriteSmokeHuman(results: readonly WriteSmokeResult[]): string {
+  const lines: string[] = ["Write smoke — phase report"];
+  lines.push("");
+  for (const r of results) {
+    lines.push(`  ${r.status.padEnd(16)} ${r.provider}:${r.action} [${r.liveClass}]${r.reason ? `  — ${r.reason}` : ""}`);
+    for (const p of r.phases) {
+      lines.push(`      ${p.phase.padEnd(8)} ${p.outcome}${p.reason ? `  — ${p.reason}` : ""}`);
+    }
+    lines.push(
+      `      ledger: created ${r.ledger.created} / cleaned ${r.ledger.cleaned} / leaked ${r.ledger.leaked}` +
+        (r.ledger.kinds.length > 0 ? ` (${r.ledger.kinds.join(", ")})` : ""),
+    );
+  }
+  return lines.join("\n");
+}
 
 /**
  * Map a WriteSmokeResult to the shared SmokeResult so it folds into the existing
