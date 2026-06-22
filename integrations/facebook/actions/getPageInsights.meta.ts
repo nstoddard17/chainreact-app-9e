@@ -32,10 +32,12 @@ export const facebookGetPageInsightsMeta: ActionMeta = {
       name: "metric",
       label: "Metrics",
       description:
-        "Comma-separated Graph metric names (e.g. page_impressions,page_engaged_users).",
+        "Comma-separated Graph metric names (e.g. page_post_engagements,page_views_total). " +
+        "Note: Meta's 2024 Page Insights deprecation removed page_impressions* / page_fans / " +
+        "page_engaged_users — those return a (#100) invalid-metric error on current Graph versions.",
       type: "text",
       required: true,
-      placeholder: "page_impressions,page_engaged_users",
+      placeholder: "page_post_engagements,page_views_total",
     },
     {
       name: "period",

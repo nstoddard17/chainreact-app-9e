@@ -33,20 +33,20 @@ beforeEach(() => {
   mockRefresh.mockImplementation(async (i: { apiCall: (t: string) => Promise<unknown> }) => i.apiCall("USER_TOK"));
   mockGetPageToken.mockResolvedValue("PAGE_TOK");
   mockInsightsGet.mockResolvedValue({
-    data: [{ name: "page_impressions", period: "day", values: [{ value: 42 }] }],
+    data: [{ name: "page_post_engagements", period: "day", values: [{ value: 42 }] }],
   });
 });
 
 describe("facebook get_page_insights", () => {
   it("passes metric + period and returns normalized metrics", async () => {
     const result = await getPageInsights(
-      input({ pageId: "p", metric: "page_impressions", period: "day" }),
+      input({ pageId: "p", metric: "page_post_engagements", period: "day" }),
     );
     expect(mockInsightsGet.mock.calls[0]![0]).toMatchObject({
-      pageAccessToken: "PAGE_TOK", pageId: "p", metric: "page_impressions", period: "day",
+      pageAccessToken: "PAGE_TOK", pageId: "p", metric: "page_post_engagements", period: "day",
     });
     expect(result.output).toMatchObject({
-      count: 1, pageId: "p", metric: "page_impressions", period: "day",
+      count: 1, pageId: "p", metric: "page_post_engagements", period: "day",
     });
     expect(Array.isArray(result.output.metrics)).toBe(true);
   });

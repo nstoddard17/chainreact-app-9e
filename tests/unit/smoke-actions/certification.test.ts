@@ -18,6 +18,7 @@ import {
   CERTIFICATION_STATUSES,
   buildCertificationMatrix,
   getCertification,
+  isCertifiedFailing,
   isCertifiedLivePass,
   renderCertificationJson,
   shouldCertifiedSkip,
@@ -100,6 +101,22 @@ describe("certification lookups + planner predicate", () => {
 
   it("native baseline is intentionally NOT certified (always re-runs)", () => {
     expect(getCertification("native", "format_transformer")).toBeUndefined();
+  });
+
+  it("isCertifiedFailing is true for FAIL/BUG only (drives the live gate's known-vs-regression split)", () => {
+    const certs = [
+      { provider: "acme", action: "bug_one", status: "BUG" as const },
+      { provider: "acme", action: "fail_one", status: "FAIL" as const },
+      { provider: "acme", action: "good_one", status: "LIVE_PASS" as const },
+    ];
+    expect(isCertifiedFailing("acme", "bug_one", certs)).toBe(true);
+    expect(isCertifiedFailing("acme", "fail_one", certs)).toBe(true);
+    expect(isCertifiedFailing("acme", "good_one", certs)).toBe(false);
+    expect(isCertifiedFailing("acme", "unknown", certs)).toBe(false);
+    // facebook:get_page_insights was a BUG; after the metric fix it is LIVE_PASS
+    // (no longer a known-failing action against the real seed).
+    expect(isCertifiedFailing("facebook", "get_page_insights")).toBe(false);
+    expect(isCertifiedLivePass("facebook", "get_page_insights")).toBe(true);
   });
 });
 

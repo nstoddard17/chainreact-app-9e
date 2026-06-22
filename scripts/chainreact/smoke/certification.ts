@@ -163,13 +163,11 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["microsoft-onenote", "get_section_details"],
     ["microsoft-onenote", "get_page_content"],
     ["microsoft-outlook-calendar", "list_events"],
-  ]),
-  // Known live FAIL — NOT a selector-discovery issue (the pageId is
-  // auto-discovered fine). The Graph insights call returns 400 code=100 for the
-  // configured metric/period; page insights need read_insights + a currently
-  // valid metric + a page with data. Tracked as BUG; runs by default to re-verify
-  // after a fix. The live gate surfaces it separately (does not mask it).
-  ...records("BUG", "live 400 code=100 on page insights metric/permission; pageId discovers fine", LIVE_AUTODISCOVERY, [
+    // FB-FIX: was a BUG (live 400 code=100). Root cause was the fixture's default
+    // metric `page_impressions`, removed by Meta's 2024 Page Insights deprecation
+    // — NOT a selector or permission issue (pageId auto-discovers, read_insights
+    // is granted). Switched to the still-valid `page_post_engagements`; now live-
+    // verified on the smoke page (day window).
     ["facebook", "get_page_insights"],
   ]),
 ];

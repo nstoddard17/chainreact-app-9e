@@ -87,7 +87,7 @@ drift.
 | `SMOKE_MAILCHIMP_CONNECTED=1` (+ `SMOKE_MAILCHIMP_AUDIENCE_ID`, `SMOKE_MAILCHIMP_SUBSCRIBER_EMAIL`, `SMOKE_MAILCHIMP_CAMPAIGN_ID`) | Mailchimp read fixtures | Connection + audience/subscriber/campaign selectors. |
 | `SMOKE_STRIPE_CONNECTED=1` (+ `SMOKE_STRIPE_CUSTOMER_EMAIL`, `SMOKE_STRIPE_PAYMENT_INTENT_ID`, `SMOKE_STRIPE_SUBSCRIPTION_ID`) | Stripe read fixtures | `get_payments` needs only a connection; the find_* reads need their id/email. |
 | `SMOKE_DISCORD_CONNECTED=1` (+ `SMOKE_DISCORD_GUILD_ID`, `SMOKE_DISCORD_CHANNEL_ID`) | Discord `fetch_messages` | Connection + guild + channel ids (guildId is schema-required). |
-| `SMOKE_FACEBOOK_CONNECTED=1` (+ `SMOKE_FACEBOOK_PAGE_ID`) | Facebook `get_page_insights` | Connection + page id (metric defaults to `page_impressions`). |
+| `SMOKE_FACEBOOK_CONNECTED=1` (+ `SMOKE_FACEBOOK_PAGE_ID`) | Facebook `get_page_insights` | Connection + page id (pageId also auto-discovers; metric defaults to `page_post_engagements`). |
 | `SMOKE_GOOGLE_CALENDAR_CONNECTED=1` | Google Calendar `list_events` | Connection only (`calendarId` hardcoded `primary`). |
 | `SMOKE_GOOGLE_DOCS_CONNECTED=1` (+ `SMOKE_GDOCS_DOCUMENT_ID`) | Google Docs `get_document` | Connection + document id. |
 | `SMOKE_MICROSOFT_OUTLOOK_CALENDAR_CONNECTED=1` | Outlook Calendar `list_events` | Connection only (uses the default calendar). |
@@ -615,7 +615,8 @@ auto-discovered from each provider's own APIs:
   `get_campaign_stats`, `get_subscribers`), dropbox (`list_folder`,
   `get_file_metadata`), google-calendar (`list_events`), google-docs
   (`get_document`), microsoft-onedrive (`list_items`), microsoft-outlook-calendar
-  (`list_events`).
+  (`list_events`), and **facebook `get_page_insights`** (after the metric fix
+  below).
 - **Not connected on the smoke account** (cleanly reported, not a failure): monday
   (10), stripe (4), discord (1).
 - **Connected but selector not auto-discoverable** (set env to run): dropbox
@@ -623,11 +624,18 @@ auto-discovered from each provider's own APIs:
   `get_user` / `list_comments` (user/block id).
 - **Connected but no usable object on the account:** google-analytics (4 — the GA
   account exposes no property), microsoft-onedrive `get_file` (root has no file).
-- **Known BUG (live 400, NOT a discovery issue):** facebook `get_page_insights` —
-  the `pageId` auto-discovers fine, but the Graph insights call returns 400
-  code=100 for the configured metric/period (page insights need `read_insights` +
-  a currently-valid metric + a page with data). Tracked as `BUG` in the
-  certification matrix; the live gate surfaces it separately (never masks it).
+- **Fixed — facebook `get_page_insights` (was a live BUG, now LIVE_PASS).** The
+  `pageId` auto-discovered fine; the failure was the fixture's default **metric**.
+  Graph returned `(#100) The value must be a valid insights metric` because Meta's
+  2024 Page Insights deprecation removed the `page_impressions*` / `page_fans` /
+  `page_engaged_users` family (invalid on v23.0). Root cause was the metric, not a
+  selector, permission, or period issue (`read_insights` is granted; `period` is a
+  validated enum). Fixed by switching the fixture + action-meta example to the
+  still-valid, universally-available `page_post_engagements` (live-verified on the
+  smoke page, day window). The metric stays free-text by design (the catalog is
+  large + version-dependent — no static enum); the `insightsGet` wrapper has a unit
+  test pinning the produced Graph path/query. The live gate's known-FAIL/BUG
+  surfacing path (`isCertifiedFailing`) stays as infrastructure for future cases.
 
 **Microsoft Teams audit + actions still uncovered / deferred (5 covered of 8 registered):**
 
