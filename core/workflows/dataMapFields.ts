@@ -1,4 +1,5 @@
 import type { OutputMeta, OutputType } from "@/contracts/actionMeta";
+import { formatLatestValuePreview } from "@/core/workflows/formatLatestValuePreview";
 
 /**
  * Pure helpers for the builder **Data Map** tab (Slice 4.BUILDER-DATA-MAP-2).
@@ -107,6 +108,78 @@ export function flattenOutputFields(
   }
 
   return { fields, truncated };
+}
+
+/** Default cap on object children discovered from a sample value. */
+export const DEFAULT_MAX_OBJECT_CHILDREN = 12;
+
+/** Display type label for a Data Map field (superset of OutputType incl. "null"). */
+export type DataMapFieldType = OutputType | "null";
+
+export interface SampleChild {
+  /** Immediate child key (single segment, not the full path). */
+  readonly key: string;
+  readonly type: DataMapFieldType;
+  /** Sanitized scalar preview (quoted/truncated), or null for object/array. */
+  readonly scalarPreview: string | null;
+}
+
+/**
+ * Discover the immediate child fields of an object SAMPLE value, so the Data Map
+ * can flatten `message` → `message.text` / `message.user` even when the action's
+ * output metadata doesn't declare nested `fields`. Sample-driven, ONE level deep.
+ *
+ * The input value comes from the already-sanitized run-detail output (sensitive
+ * fields server-redacted), so this never sees raw secrets. Scalar children get a
+ * truncated preview via `formatLatestValuePreview`; object/array children render
+ * as a type label only (never expanded inline, never byte/content dumped).
+ *
+ * Returns `null` when the value is not a plain object (caller keeps the object as
+ * a single row + a "run a test to inspect fields" hint).
+ */
+export function describeSampleChildren(
+  value: unknown,
+  options?: { maxKeys?: number },
+): readonly SampleChild[] | null {
+  if (!isPlainObject(value)) return null;
+  const maxKeys = options?.maxKeys ?? DEFAULT_MAX_OBJECT_CHILDREN;
+  const keys = Object.keys(value).slice(0, maxKeys);
+  return keys.map((key) => {
+    const v = value[key];
+    const type = inferSampleType(v);
+    const preview = formatLatestValuePreview({ found: true, value: v });
+    return {
+      key,
+      type,
+      scalarPreview: preview.kind === "scalar" ? preview.preview : null,
+    };
+  });
+}
+
+/** Map a sample value to its Data Map display type. */
+export function inferSampleType(value: unknown): DataMapFieldType {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  switch (typeof value) {
+    case "string":
+      return "string";
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "object":
+      return "object";
+    default:
+      return "unknown";
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || proto === Object.prototype;
 }
 
 // High-signal secret-ish segments. Bare "key"/"auth" are intentionally excluded

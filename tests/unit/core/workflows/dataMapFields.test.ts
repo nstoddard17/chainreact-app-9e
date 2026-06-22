@@ -8,6 +8,7 @@
  * sub-paths), and secret-like names are flagged even without the metadata flag.
  */
 import {
+  describeSampleChildren,
   flattenOutputFields,
   looksSecretLike,
 } from "@/core/workflows/dataMapFields";
@@ -107,6 +108,45 @@ describe("flattenOutputFields", () => {
     const byPath = Object.fromEntries(fields.map((f) => [f.path, f.sensitive]));
     expect(byPath["accessToken"]).toBe(true);
     expect(byPath["text"]).toBe(false);
+  });
+});
+
+describe("describeSampleChildren", () => {
+  it("returns null for non-object sample values", () => {
+    expect(describeSampleChildren("x")).toBeNull();
+    expect(describeSampleChildren(42)).toBeNull();
+    expect(describeSampleChildren(null)).toBeNull();
+    expect(describeSampleChildren([1, 2])).toBeNull();
+  });
+
+  it("describes immediate children with type + sanitized scalar preview", () => {
+    const children = describeSampleChildren({
+      text: "Hey",
+      count: 3,
+      ok: true,
+      nested: { a: 1 },
+      items: [1, 2],
+    });
+    expect(children).not.toBeNull();
+    const byKey = Object.fromEntries(children!.map((c) => [c.key, c]));
+    expect(byKey["text"]).toMatchObject({ type: "string", scalarPreview: '"Hey"' });
+    expect(byKey["count"]).toMatchObject({ type: "number", scalarPreview: "3" });
+    expect(byKey["ok"]).toMatchObject({ type: "boolean", scalarPreview: "true" });
+    // Objects / arrays surface as a type label only — never expanded inline.
+    expect(byKey["nested"]).toMatchObject({ type: "object", scalarPreview: null });
+    expect(byKey["items"]).toMatchObject({ type: "array", scalarPreview: null });
+  });
+
+  it("caps the number of discovered children", () => {
+    const obj = Object.fromEntries(
+      Array.from({ length: 20 }, (_, i) => [`k${i}`, i]),
+    );
+    expect(describeSampleChildren(obj, { maxKeys: 5 })).toHaveLength(5);
+  });
+
+  it("infers the null type", () => {
+    const children = describeSampleChildren({ a: null });
+    expect(children![0]).toMatchObject({ key: "a", type: "null" });
   });
 });
 

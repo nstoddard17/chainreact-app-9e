@@ -1,17 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import type {
-  ActionCategory,
-  ActionMeta,
-  FieldMeta,
-  OutputMeta,
-  OutputType,
-} from "@/contracts/actionMeta";
-import type { TriggerMeta } from "@/contracts/triggerMeta";
-import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
+import type { ActionCategory, FieldMeta } from "@/contracts/actionMeta";
 import { collectConfigVariableReferences } from "@/core/workflows/configVariableReferences";
-import { flattenOutputFields } from "@/core/workflows/dataMapFields";
+import {
+  describeSampleChildren,
+  flattenOutputFields,
+  looksSecretLike,
+} from "@/core/workflows/dataMapFields";
 import { formatLatestValuePreview } from "@/core/workflows/formatLatestValuePreview";
 import { buildLatestValuesBySource } from "@/core/workflows/latestRunValues";
 import { formatTypeKey, getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
@@ -19,16 +15,21 @@ import { resolveValueAtPath } from "@/core/workflows/resolveValueAtPath";
 import { formatReference } from "@/core/workflows/variableReferences";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
-import { findNativeActionByKey, useNativeActions } from "./useNativeActions";
-import { findNativeTriggerByKey, useNativeTriggers } from "./useNativeTriggers";
+import { useNativeActions } from "./useNativeActions";
+import { useNativeTriggers } from "./useNativeTriggers";
+import { useProviderActionsForProviders } from "./useProviderActions";
+import { useProviderTriggers } from "./useProviderTriggers";
 import {
-  findProviderActionByKey,
-  useProviderActionsForProviders,
-} from "./useProviderActions";
-import {
-  findProviderTriggerByKey,
-  useProviderTriggers,
-} from "./useProviderTriggers";
+  fieldLabelFor,
+  isNonEmpty,
+  NATIVE_PROVIDER,
+  orderNodesForDataMap,
+  resolveNodeMeta,
+  sourceLabelFor,
+  sourceLoadingFor,
+  TRIGGER_ALIAS,
+  type ResolvedNodeMeta,
+} from "./workflowDataMapModel";
 
 /**
  * Compose graphSlice + the builder meta hooks into a user-facing data outline
@@ -55,9 +56,6 @@ import {
  *     the raw node id).
  */
 
-const NATIVE_PROVIDER = "native";
-const TRIGGER_ALIAS = "trigger";
-
 export interface DataMapVariableUse {
   /** Friendly source label — "Trigger" or the upstream step's display name. Never a raw id. */
   readonly sourceLabel: string;
@@ -73,10 +71,23 @@ export interface DataMapVariableUse {
   readonly broken: boolean;
 }
 
+export interface DataMapConfiguredField {
+  /** Human field label (never the raw key). */
+  readonly label: string;
+  readonly status: "configured" | "missing";
+  /**
+   * A short, safe preview of the configured value — shown ONLY for non-sensitive
+   * scalar fields whose value is not a variable token. null otherwise (the row
+   * then shows just the configured/missing status). Never a sensitive value.
+   */
+  readonly valuePreview: string | null;
+}
+
 export interface DataMapOutput {
   /** Dotted path inside the source's data, e.g. `message.text`. */
   readonly path: string;
-  readonly type: OutputType;
+  /** Display type label (OutputType for schema fields, plus `"null"` from samples). */
+  readonly type: string;
   readonly description?: string;
   readonly sensitive: boolean;
   /**
@@ -93,6 +104,12 @@ export interface DataMapOutput {
    * Data Map never reads raw provider payloads.
    */
   readonly sample: string | null;
+  /**
+   * True for an object output we could NOT expand (no schema `fields[]` and no
+   * sample object to discover children from). The UI shows a "run a test to
+   * inspect fields" hint instead of leaving a bare `object` row.
+   */
+  readonly objectNeedsTest: boolean;
 }
 
 export interface DataMapNode {
@@ -109,8 +126,8 @@ export interface DataMapNode {
   readonly metaResolved: boolean;
   /** True while this node's metadata catalog is still loading. */
   readonly loadingMeta: boolean;
-  /** Labels of fields that have a non-empty configured value. NEVER the values. */
-  readonly configuredFieldLabels: readonly string[];
+  /** Configured + required-missing fields with a safe status (and safe value preview). */
+  readonly configuredFields: readonly DataMapConfiguredField[];
   /** Upstream variables this node's config references. */
   readonly usesVariables: readonly DataMapVariableUse[];
   /** Output fields this node is expected to produce (from metadata, flattened). */
@@ -252,8 +269,8 @@ export function useWorkflowDataMap(
             ? "Trigger"
             : "Action";
 
-      const configuredFieldLabels = meta?.found
-        ? configuredFieldLabelsFor(node.config, meta.fields)
+      const configuredFields = meta?.found
+        ? configuredFieldsFor(node.config, meta.fields)
         : [];
 
       const usesVariables = collectConfigVariableReferences(node).map((ref) => {
@@ -279,26 +296,65 @@ export function useWorkflowDataMap(
       );
       const latestForSource = latestValuesBySource[sourceId];
 
-      const expectedOutputs: DataMapOutput[] = flatFields.map((f) => {
-        // Sample is shown ONLY for non-sensitive scalar values from an already-
-        // sanitized run output. Objects / arrays / fileRefs (and sensitive
-        // fields) never render an inline value — only the type badge.
-        let sample: string | null = null;
-        if (!f.sensitive && sourceHasSample) {
-          const preview = formatLatestValuePreview(
-            resolveValueAtPath(latestForSource, f.path),
-          );
-          sample = preview.kind === "scalar" ? preview.preview : null;
+      // Sample is shown ONLY for non-sensitive scalar values from an already-
+      // sanitized run output. Objects / arrays / fileRefs (and sensitive fields)
+      // never render an inline value — only the type badge.
+      const scalarSampleFor = (path: string, sensitive: boolean): string | null => {
+        if (sensitive || !sourceHasSample) return null;
+        const preview = formatLatestValuePreview(
+          resolveValueAtPath(latestForSource, path),
+        );
+        return preview.kind === "scalar" ? preview.preview : null;
+      };
+
+      const expectedOutputs: DataMapOutput[] = [];
+      for (const f of flatFields) {
+        // Sample-driven flattening: a schema object WITHOUT declared children is
+        // expanded one level from the sanitized sample when one exists; otherwise
+        // it stays a single row flagged for the "run a test" hint.
+        if (f.type === "object" && !f.sensitive) {
+          const resolved = sourceHasSample
+            ? resolveValueAtPath(latestForSource, f.path)
+            : { found: false, value: undefined };
+          const children = resolved.found
+            ? describeSampleChildren(resolved.value)
+            : null;
+          if (children && children.length > 0) {
+            for (const c of children) {
+              const childPath = `${f.path}.${c.key}`;
+              const childSensitive = looksSecretLike(childPath);
+              expectedOutputs.push({
+                path: childPath,
+                type: c.type,
+                sensitive: childSensitive,
+                copyToken: formatReference({ nodeId: sourceId, path: childPath }),
+                sample: childSensitive ? null : c.scalarPreview,
+                objectNeedsTest: false,
+              });
+            }
+            continue;
+          }
+          expectedOutputs.push({
+            path: f.path,
+            type: f.type,
+            sensitive: false,
+            ...(f.description ? { description: f.description } : {}),
+            copyToken: formatReference({ nodeId: sourceId, path: f.path }),
+            sample: null,
+            objectNeedsTest: true,
+          });
+          continue;
         }
-        return {
+        expectedOutputs.push({
           path: f.path,
           type: f.type,
           sensitive: f.sensitive,
           ...(f.description ? { description: f.description } : {}),
           copyToken: formatReference({ nodeId: sourceId, path: f.path }),
-          sample,
-        };
-      });
+          sample: scalarSampleFor(f.path, f.sensitive),
+          objectNeedsTest: false,
+        });
+      }
 
       return {
         nodeId: node.id,
@@ -310,7 +366,7 @@ export function useWorkflowDataMap(
         category: meta?.found ? meta.category : null,
         metaResolved,
         loadingMeta: !metaResolved && sourceState,
-        configuredFieldLabels,
+        configuredFields,
         usesVariables,
         expectedOutputs,
         outputsKnown: expectedOutputs.length > 0,
@@ -343,175 +399,49 @@ export function useWorkflowDataMap(
 }
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
-
-interface ResolvedNodeMeta {
-  readonly found: boolean;
-  readonly displayName: string;
-  readonly category: ActionCategory;
-  readonly fields: readonly FieldMeta[];
-  readonly outputs: readonly OutputMeta[];
-}
-
-interface ResolveCtx {
-  readonly nativeActions: readonly ActionMeta[];
-  readonly nativeTriggers: readonly TriggerMeta[];
-  readonly providerCatalogs: Readonly<Record<string, readonly ActionMeta[]>>;
-  readonly providerTriggers: readonly TriggerMeta[];
-}
-
-const NOT_FOUND: ResolvedNodeMeta = Object.freeze({
-  found: false,
-  displayName: "",
-  category: "other",
-  fields: [],
-  outputs: [],
-});
-
-function resolveNodeMeta(
-  node: WorkflowNode,
-  ctx: ResolveCtx,
-): ResolvedNodeMeta {
-  if (!node.type) return NOT_FOUND;
-  const key = `${node.provider}:${node.type}`;
-  if (node.kind === "trigger") {
-    const trig =
-      node.provider === NATIVE_PROVIDER
-        ? findNativeTriggerByKey(ctx.nativeTriggers, key)
-        : findProviderTriggerByKey(ctx.providerTriggers, key);
-    if (!trig) return NOT_FOUND;
-    return {
-      found: true,
-      displayName: trig.displayName,
-      category: trig.category,
-      fields: trig.fields,
-      outputs: trig.payloadShape,
-    };
-  }
-  const action =
-    node.provider === NATIVE_PROVIDER
-      ? findNativeActionByKey(ctx.nativeActions, key)
-      : findProviderActionByKey(ctx.providerCatalogs[node.provider] ?? [], key);
-  if (!action) return NOT_FOUND;
-  return {
-    found: true,
-    displayName: action.displayName,
-    category: action.category,
-    fields: action.fields,
-    outputs: action.outputs,
-  };
-}
+// Graph ordering, meta resolution, and label/loading helpers are pure + hook-free
+// and live in ./workflowDataMapModel (imported above). Only the config-summary
+// helpers below depend on this file's consumer types, so they stay here.
 
 /**
- * Is the catalog that WOULD resolve this node still loading? Used to tell
- * "metadata pending" apart from "metadata loaded but node unknown".
+ * Configured / required-missing field summary for a node. Includes every
+ * CONFIGURED field plus REQUIRED fields that are empty (so "Missing" is visible);
+ * optional-empty fields are skipped to avoid noise. Values are surfaced only for
+ * safe, non-sensitive scalars via `safeConfigPreview` — never sensitive content.
  */
-function sourceLoadingFor(
-  node: WorkflowNode,
-  loading: {
-    nativeActions: boolean;
-    nativeTriggers: boolean;
-    providerCatalogs: boolean;
-    providerTriggers: boolean;
-  },
-): boolean {
-  if (node.kind === "trigger") {
-    return node.provider === NATIVE_PROVIDER
-      ? loading.nativeTriggers
-      : loading.providerTriggers;
-  }
-  return node.provider === NATIVE_PROVIDER
-    ? loading.nativeActions
-    : loading.providerCatalogs;
-}
-
-/** Labels of fields that hold a non-empty configured value. Values are never read out. */
-function configuredFieldLabelsFor(
+function configuredFieldsFor(
   config: Record<string, unknown>,
   fields: readonly FieldMeta[],
-): string[] {
-  const out: string[] = [];
+): DataMapConfiguredField[] {
+  const out: DataMapConfiguredField[] = [];
   for (const field of fields) {
-    if (isNonEmpty(config[field.name])) out.push(field.label);
+    const value = config[field.name];
+    const configured = isNonEmpty(value);
+    if (!configured && !field.required) continue;
+    out.push({
+      label: field.label,
+      status: configured ? "configured" : "missing",
+      valuePreview: configured ? safeConfigPreview(field, value) : null,
+    });
   }
   return out;
 }
 
-function isNonEmpty(value: unknown): boolean {
-  if (value === undefined || value === null) return false;
-  if (typeof value === "string") return value.trim().length > 0;
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "object") return Object.keys(value as object).length > 0;
-  return true; // numbers / booleans are explicit choices
-}
-
-function fieldLabelFor(
-  fieldKey: string,
-  fields: readonly FieldMeta[] | undefined,
-): string {
-  const match = fields?.find((f) => f.name === fieldKey);
-  return match?.label ?? formatTypeKey(fieldKey);
-}
-
-function sourceLabelFor(
-  sourceId: string,
-  ctx: {
-    triggerLabel: string;
-    resolved: Map<string, ResolvedNodeMeta>;
-    broken: boolean;
-  },
-): string {
-  if (sourceId === TRIGGER_ALIAS) return ctx.triggerLabel;
-  if (ctx.broken) return "Unknown step";
-  const meta = ctx.resolved.get(sourceId);
-  // Friendly name when resolved; a neutral fallback otherwise — NEVER the raw id.
-  return meta?.found && meta.displayName ? meta.displayName : "Earlier step";
-}
-
 /**
- * Order nodes for the Data Map: forward graph order via BFS from the roots
- * (nodes with no incoming edge — the trigger is naturally a root and surfaces
- * first). Disconnected nodes and cycle members are appended in array order.
- * Pure; cycle-safe via a visited set.
+ * A short preview of a configured value, ONLY when it's safe to show: the field
+ * is not declared sensitive and its key doesn't read secret-like, and the value
+ * is a plain scalar that isn't a `{{variable}}` reference. Everything else
+ * returns null (the UI then shows only the configured/missing status).
  */
-export function orderNodesForDataMap(
-  nodes: readonly WorkflowNode[],
-  edges: readonly WorkflowEdge[],
-): WorkflowNode[] {
-  const byId = new Map(nodes.map((n) => [n.id, n] as const));
-  const indegree = new Map<string, number>();
-  const adj = new Map<string, string[]>();
-  for (const n of nodes) indegree.set(n.id, 0);
-  for (const e of edges) {
-    if (!byId.has(e.from) || !byId.has(e.to)) continue;
-    indegree.set(e.to, (indegree.get(e.to) ?? 0) + 1);
-    const list = adj.get(e.from);
-    if (list) list.push(e.to);
-    else adj.set(e.from, [e.to]);
+function safeConfigPreview(field: FieldMeta, value: unknown): string | null {
+  if (field.sensitivity !== undefined || looksSecretLike(field.name)) return null;
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return null;
+    if (trimmed.includes("{{")) return null; // variable reference → status only
+    return trimmed.length <= 32 ? trimmed : `${trimmed.slice(0, 31)}…`;
   }
-
-  // Roots in array order, but triggers first so a start node always leads.
-  const roots = nodes
-    .filter((n) => (indegree.get(n.id) ?? 0) === 0)
-    .sort((a, b) => triggerRank(a) - triggerRank(b));
-
-  const visited = new Set<string>();
-  const ordered: WorkflowNode[] = [];
-  const queue: WorkflowNode[] = [...roots];
-  while (queue.length > 0) {
-    const node = queue.shift()!;
-    if (visited.has(node.id)) continue;
-    visited.add(node.id);
-    ordered.push(node);
-    for (const toId of adj.get(node.id) ?? []) {
-      const next = byId.get(toId);
-      if (next && !visited.has(toId)) queue.push(next);
-    }
-  }
-  // Append anything unreachable from a root (disconnected pieces / pure cycles).
-  for (const n of nodes) if (!visited.has(n.id)) ordered.push(n);
-  return ordered;
-}
-
-function triggerRank(node: WorkflowNode): number {
-  return node.kind === "trigger" ? 0 : 1;
+  return null; // arrays / objects → status only
 }

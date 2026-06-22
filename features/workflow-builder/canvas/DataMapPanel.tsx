@@ -1,29 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  useWorkflowDataMap,
-  type DataMapNode,
-  type DataMapOutput,
-  type DataMapVariableUse,
-} from "../hooks/useWorkflowDataMap";
+import { useWorkflowDataMap, type DataMapNode } from "../hooks/useWorkflowDataMap";
 import { BuilderTabPlaceholder } from "./BuilderTabPlaceholder";
+import {
+  ConfiguredFieldRow,
+  DataMapSection,
+  ProducedFieldRow,
+  UsesVariableRow,
+} from "./dataMapParts";
 
 /**
- * Slice 4.BUILDER-DATA-MAP-MVP-1 — the top-level **Data Map** tab.
+ * Slice 4.BUILDER-DATA-MAP-3 — the top-level **Data Map** tab as a user-facing
+ * reference: "what does each step produce, and how do I use it later?".
  *
- * Frontend-only MVP. When the workflow has action steps it renders a
- * workflow-ordered outline of the data each step uses and produces, derived
- * entirely from the current DRAFT graph + existing node metadata. When the
- * workflow is empty or trigger-only it falls back to the existing honest
- * empty-state panel (no action steps → nothing useful to outline yet).
+ * Frontend-only, schema-driven (+ sanitized sample values when a test run
+ * exists). When the workflow has action steps it renders a workflow-ordered
+ * outline; empty / trigger-only falls back to the honest empty-state panel.
  *
  * No-leak posture (enforced by the hook's shape — see `useWorkflowDataMap`):
- *   - configured fields show LABELS, never values;
- *   - variable uses show a friendly source label + path, never the raw
- *     `{{nodeId.path}}` token / internal id;
- *   - only the trigger's outputs offer a copyable `{{trigger.<path>}}` token;
- *   - no provider secrets, no DB ids, no raw JSON/schema dump.
+ *   - the PRIMARY variable display is a friendly `Step N → path` label; the raw
+ *     engine token sits behind a "Show token" toggle (copy still writes it);
+ *   - configured fields show status (+ a safe scalar value preview), never
+ *     sensitive content;
+ *   - samples are sanitized scalar previews only; sensitive fields are masked;
+ *   - no provider secrets, no raw payloads, no byte/file content.
  */
 export function DataMapPanel({
   providerLabels,
@@ -34,8 +34,7 @@ export function DataMapPanel({
     providerLabels ? { providerLabels } : undefined,
   );
 
-  // Empty / trigger-only → reuse the polished empty state (honest copy already
-  // describes what will appear once actions are added).
+  // Empty / trigger-only → reuse the polished empty state.
   if (!hasActions) {
     return <BuilderTabPlaceholder tab="data-map" />;
   }
@@ -54,7 +53,8 @@ export function DataMapPanel({
             Data Map
           </h2>
           <p className="text-[12.5px]" style={{ color: "var(--builder-muted)" }}>
-            See what each step produces and copy variables into later steps.
+            Copy a variable, then paste it into a later step field. Each step&rsquo;s
+            outputs are available to the steps that come after it.
           </p>
           <p
             data-testid="data-map-sample-banner"
@@ -64,7 +64,7 @@ export function DataMapPanel({
           >
             {sampleAvailable
               ? "Sample from latest test run."
-              : "Run a test to capture real sample values."}
+              : "Run a test, then come back here to see real example values."}
           </p>
         </header>
 
@@ -89,6 +89,10 @@ function DataMapNodeCard({
   index: number;
   loading: boolean;
 }) {
+  // Friendly, step-scoped label reused for the header AND each produced field's
+  // primary variable display (so authors see "Step 1 → channel", not a UUID).
+  const stepLabel = node.kind === "trigger" ? "Trigger" : `Step ${index}`;
+
   return (
     <section
       data-testid="data-map-node"
@@ -106,7 +110,7 @@ function DataMapNodeCard({
             className="text-[10.5px] font-medium uppercase tracking-wide"
             style={{ color: "var(--builder-muted)" }}
           >
-            {node.kind === "trigger" ? "Trigger / start" : `Step ${index}`} ·{" "}
+            {node.kind === "trigger" ? "Trigger / start" : stepLabel} ·{" "}
             {node.providerLabel}
           </span>
           <h3
@@ -129,23 +133,15 @@ function DataMapNodeCard({
         </p>
       ) : null}
 
-      {node.configuredFieldLabels.length > 0 ? (
+      {node.configuredFields.length > 0 ? (
         <DataMapSection title="Configured">
-          <div className="flex flex-wrap gap-1.5">
-            {node.configuredFieldLabels.map((label) => (
-              <span
-                key={label}
-                className="rounded-[4px] px-1.5 py-0.5 text-[11px]"
-                style={{
-                  background: "var(--builder-panel-2)",
-                  border: "1px solid var(--builder-border)",
-                  color: "var(--builder-muted)",
-                }}
-              >
-                {label}
-              </span>
+          <ul className="flex flex-col gap-0.5">
+            {node.configuredFields.map((field) => (
+              <li key={field.label}>
+                <ConfiguredFieldRow field={field} />
+              </li>
             ))}
-          </div>
+          </ul>
         </DataMapSection>
       ) : null}
 
@@ -167,7 +163,7 @@ function DataMapNodeCard({
             <ul className="flex flex-col gap-1.5">
               {node.expectedOutputs.map((output) => (
                 <li key={output.path}>
-                  <OutputRow output={output} />
+                  <ProducedFieldRow output={output} stepLabel={stepLabel} />
                 </li>
               ))}
             </ul>
@@ -189,142 +185,5 @@ function DataMapNodeCard({
         )}
       </DataMapSection>
     </section>
-  );
-}
-
-function DataMapSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span
-        className="text-[11px] font-semibold uppercase tracking-wide"
-        style={{ color: "var(--builder-muted)" }}
-      >
-        {title}
-      </span>
-      {children}
-    </div>
-  );
-}
-
-function UsesVariableRow({ use }: { use: DataMapVariableUse }) {
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[12px]">
-      <span style={{ color: "var(--builder-muted)" }}>{use.fieldLabel}:</span>
-      <span style={{ color: "var(--builder-text)" }}>{use.sourceLabel}</span>
-      {use.path ? (
-        <span style={{ color: "var(--builder-muted)" }}>· {use.path}</span>
-      ) : null}
-      {use.broken ? (
-        <span
-          className="rounded-[4px] px-1 py-0.5 text-[10.5px]"
-          style={{
-            background: "var(--builder-panel-2)",
-            border: "1px solid var(--builder-border)",
-            color: "var(--builder-muted)",
-          }}
-        >
-          no longer available
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function OutputRow({ output }: { output: DataMapOutput }) {
-  return (
-    <div
-      className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]"
-      data-testid="data-map-output"
-      data-output-path={output.path}
-      data-sensitive={output.sensitive ? "true" : undefined}
-    >
-      <code style={{ color: "var(--builder-text)" }}>{output.path}</code>
-      <span
-        className="rounded-[4px] px-1 py-0.5 text-[10.5px]"
-        style={{
-          background: "var(--builder-panel-2)",
-          border: "1px solid var(--builder-border)",
-          color: "var(--builder-muted)",
-        }}
-        aria-label={`Type ${output.type}`}
-        data-testid="data-map-type-badge"
-      >
-        {output.type}
-      </span>
-      {output.sensitive ? (
-        <span
-          data-testid="data-map-sensitive-badge"
-          className="rounded-[4px] px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300"
-          title="This value may contain sensitive data and is hidden."
-        >
-          Sensitive
-        </span>
-      ) : output.sample !== null ? (
-        <span
-          data-testid="data-map-sample-value"
-          className="text-[11px]"
-          style={{ color: "var(--builder-muted)" }}
-        >
-          Example:{" "}
-          <span className="builder-mono" style={{ color: "var(--builder-text)" }}>
-            {output.sample}
-          </span>
-        </span>
-      ) : null}
-      <CopyTokenButton token={output.copyToken} />
-    </div>
-  );
-}
-
-function CopyTokenButton({ token }: { token: string }) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Clear any pending reset on unmount so a late timer never sets state on a
-  // torn-down component (e.g. when the user switches tabs after copying).
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
-  const handleCopy = useCallback(() => {
-    // Defensive: clipboard is unavailable in some environments (and tests). The
-    // token is also rendered as selectable code text, so copy is an enhancement.
-    void navigator.clipboard?.writeText(token);
-    setCopied(true);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setCopied(false), 1500);
-  }, [token]);
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      data-testid="data-map-copy-token"
-      title="Copy this variable"
-      className="inline-flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-[11px] transition-colors"
-      style={{
-        background: "var(--builder-panel-2)",
-        border: "1px solid var(--builder-border)",
-        color: "var(--builder-muted)",
-      }}
-    >
-      <code style={{ color: "var(--builder-text)" }}>{token}</code>
-      <span aria-hidden>{copied ? "✓" : "⧉"}</span>
-      {copied ? (
-        <span data-testid="data-map-copied" style={{ color: "var(--builder-text)" }}>
-          Copied
-        </span>
-      ) : null}
-      <span className="sr-only">{copied ? "Copied" : `Copy ${token}`}</span>
-    </button>
   );
 }

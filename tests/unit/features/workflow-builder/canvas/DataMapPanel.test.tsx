@@ -28,16 +28,17 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { DataMapPanel } from "@/features/workflow-builder/canvas/DataMapPanel";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
+import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
 import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/hooks/useNativeActions";
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
 import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
-import type { WorkflowDefinition } from "@/contracts/workflow";
+import type { WorkflowDefinition, WorkflowRunDetail } from "@/contracts/workflow";
 
 const manualTriggerMeta: TriggerMeta = {
   key: "native:manual.run",
@@ -68,6 +69,9 @@ const httpRequestMeta: ActionMeta = {
   outputs: [
     { name: "status", type: "number" },
     { name: "body", type: "object", fields: [{ name: "id", type: "string" }] },
+    // Object output WITHOUT declared child fields → "run a test" hint unless a
+    // sample exists to discover its children from.
+    { name: "headers", type: "object" },
   ],
   producesFileRef: false,
   consumesFileRef: false,
@@ -113,6 +117,7 @@ beforeEach(() => {
   __resetProviderActionsCacheForTests();
   __resetProviderTriggersCacheForTests();
   useGraphSlice.getState().reset();
+  useRunSlice.getState().reset();
 });
 
 function hydrate(def: WorkflowDefinition): void {
@@ -204,20 +209,22 @@ describe("DataMapPanel — workflow with actions", () => {
 
     // Friendly source label (the trigger's display name) + path — not the raw token.
     expect(within(actionA).getByText(/Uses variables/i)).toBeInTheDocument();
-    expect(within(actionA).getByText("URL:")).toBeInTheDocument();
+    expect(within(actionA).getAllByText("URL:").length).toBeGreaterThan(0);
     expect(within(actionA).getByText("Manual Trigger")).toBeInTheDocument();
     expect(within(actionA).getByText(/email/)).toBeInTheDocument();
   });
 
-  it("shows configured field LABELS but never their raw values", async () => {
+  it("shows configured field status but never raw sensitive / variable values", async () => {
     bootLinearGraph();
     render(<DataMapPanel />);
     await screen.findByTestId("data-map-panel");
     const actionA = screen.getAllByTestId("data-map-node")[1]!;
 
-    // "URL" is configured (label shown); the literal value is never rendered.
-    expect(within(actionA).getByText(/Configured/i)).toBeInTheDocument();
-    expect(within(actionA).getAllByText("URL").length).toBeGreaterThan(0);
+    // "URL" is configured (label + status shown); its value is a {{variable}}
+    // reference → shown as "configured", not the literal token. The non-meta
+    // `note` sentinel is never rendered.
+    expect(within(actionA).getByText("Configured")).toBeInTheDocument();
+    expect(within(actionA).getAllByText(/URL/).length).toBeGreaterThan(0);
     expect(screen.queryByText(new RegExp(SECRET_VALUE))).not.toBeInTheDocument();
   });
 
@@ -230,7 +237,7 @@ describe("DataMapPanel — workflow with actions", () => {
     // action B (Delay) uses action A's `status` → resolved to the upstream
     // step's FRIENDLY name ("HTTP Request") in the Uses-variables section.
     expect(within(actionB).getByText(/Uses variables/i)).toBeInTheDocument();
-    expect(within(actionB).getByText("Seconds:")).toBeInTheDocument();
+    expect(within(actionB).getAllByText("Seconds:").length).toBeGreaterThan(0);
     expect(within(actionB).getByText("HTTP Request")).toBeInTheDocument();
 
     // The Uses side stays id/token-free; Delay has no outputs, so B's card
@@ -240,29 +247,85 @@ describe("DataMapPanel — workflow with actions", () => {
     expect(actionB.textContent).not.toContain(`{{${ACTION_A_ID}.status}}`);
   });
 
-  it("Produces side offers a copyable {{nodeId.path}} token per action output, incl. flattened nested paths", async () => {
-    // Slice 4.BUILDER-DATA-MAP-2 — action outputs are now copyable (the whole
-    // point of the tab: paste variables into later steps). The node id in the
-    // token is a workflow-local identifier, not a secret.
+  it("Produces side shows friendly, step-scoped labels (not the raw UUID) + flattened nested paths", async () => {
+    // Slice 4.BUILDER-DATA-MAP-3 — the PRIMARY display is friendly; the schema
+    // object `body` flattens to `body.id`. The UUID token is NOT shown by default.
     bootLinearGraph();
     render(<DataMapPanel />);
     await screen.findByTestId("data-map-panel");
     const actionA = screen.getAllByTestId("data-map-node")[1]!;
 
-    expect(within(actionA).getByText("status")).toBeInTheDocument();
-    expect(within(actionA).getByText("body.id")).toBeInTheDocument();
-    expect(within(actionA).getByText(`{{${ACTION_A_ID}.status}}`)).toBeInTheDocument();
-    expect(within(actionA).getByText(`{{${ACTION_A_ID}.body.id}}`)).toBeInTheDocument();
+    expect(within(actionA).getByText("Step 1 → status")).toBeInTheDocument();
+    expect(within(actionA).getByText("Step 1 → body.id")).toBeInTheDocument();
+    expect(actionA.textContent).not.toContain(`{{${ACTION_A_ID}.status}}`);
   });
 
-  it("offers a safe copyable {{trigger.<path>}} token for the trigger's outputs", async () => {
+  it("reveals the real engine token (with node id) only behind the 'Show token' toggle", async () => {
+    bootLinearGraph();
+    const { container } = render(<DataMapPanel />);
+    await screen.findByTestId("data-map-panel");
+
+    const statusRow = container.querySelector('[data-output-path="status"]') as HTMLElement;
+    fireEvent.click(within(statusRow).getByTestId("data-map-token-toggle"));
+    expect(within(statusRow).getByTestId("data-map-var-token")).toHaveTextContent(
+      `{{${ACTION_A_ID}.status}}`,
+    );
+  });
+
+  it("shows a 'run a test' hint for an object output with no declared/sample fields", async () => {
     bootLinearGraph();
     render(<DataMapPanel />);
     await screen.findByTestId("data-map-panel");
+    const actionA = screen.getAllByTestId("data-map-node")[1]!;
+
+    expect(within(actionA).getByText("Step 1 → headers")).toBeInTheDocument();
+    expect(within(actionA).getByTestId("data-map-object-hint")).toHaveTextContent(
+      /run a test to inspect fields/i,
+    );
+  });
+
+  it("flattens an object output from sanitized sample data when a test run exists", async () => {
+    bootLinearGraph();
+    // Inject a sanitized run detail exposing action A's `headers` object output.
+    useRunSlice.setState({
+      detail: {
+        id: "11111111-1111-1111-1111-111111111111",
+        workflowId: "wf-1",
+        status: "succeeded",
+        triggerNodeId: "trigger-1",
+        startedAt: "2026-05-22T00:00:00Z",
+        finishedAt: "2026-05-22T00:00:01Z",
+        errorClassification: null,
+        steps: [
+          {
+            nodeId: ACTION_A_ID,
+            status: "succeeded",
+            output: { headers: { "content-type": "application/json" } },
+          },
+        ],
+      } as WorkflowRunDetail,
+    });
+    render(<DataMapPanel />);
+    await screen.findByTestId("data-map-panel");
+    const actionA = screen.getAllByTestId("data-map-node")[1]!;
+
+    expect(within(actionA).getByText("Step 1 → headers.content-type")).toBeInTheDocument();
+    expect(within(actionA).getByTestId("data-map-sample-value")).toHaveTextContent(
+      'Example: "application/json"',
+    );
+  });
+
+  it("offers a friendly trigger variable label, with {{trigger.<path>}} behind the toggle", async () => {
+    bootLinearGraph();
+    const { container } = render(<DataMapPanel />);
+    await screen.findByTestId("data-map-panel");
     const triggerCard = screen.getAllByTestId("data-map-node")[0]!;
 
-    // The trigger's `email` output is copyable; the token carries no node id.
-    expect(within(triggerCard).getByText("email")).toBeInTheDocument();
-    expect(within(triggerCard).getByText("{{trigger.email}}")).toBeInTheDocument();
+    expect(within(triggerCard).getByText("Trigger → email")).toBeInTheDocument();
+    const emailRow = container.querySelector('[data-output-path="email"]') as HTMLElement;
+    fireEvent.click(within(emailRow).getByTestId("data-map-token-toggle"));
+    expect(within(emailRow).getByTestId("data-map-var-token")).toHaveTextContent(
+      "{{trigger.email}}",
+    );
   });
 });
