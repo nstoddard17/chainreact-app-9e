@@ -162,6 +162,11 @@ export function WorkflowBuilder({
   // the new draft nodes on explicit Apply — never sent to Hermes/a model/a prompt.
   const [previewConfig, setPreviewConfig] = useState<Record<string, Record<string, unknown>>>({});
 
+  // Slice 4.BUILDER-SETTINGS-2 — the workflow name lives in local state so a
+  // rename from the Settings tab updates the header without a reload. Re-synced
+  // from the server prop on workflow switch (in the reset effect below).
+  const [workflowName, setWorkflowName] = useState(workflow.name);
+
   // Hydrate from the server prop on initial mount AND whenever the prop's
   // definition / revision changes (e.g. an external refresh). The graphSlice
   // revision guard ignores a STALE re-hydrate — an older `updatedAt` arriving
@@ -190,6 +195,14 @@ export function WorkflowBuilder({
       resetRunSlice();
     };
   }, [workflow.id, reset, resetConfigSlice, resetRunSlice]);
+
+  // Slice 4.BUILDER-SETTINGS-2 — keep the local workflow name in sync with the
+  // server prop (initial mount + workflow switch). A Settings rename updates the
+  // local state directly via `onWorkflowNameSaved`; since the server prop doesn't
+  // change on that path, this effect never clobbers a just-saved name.
+  useEffect(() => {
+    setWorkflowName(workflow.name);
+  }, [workflow.id, workflow.name]);
 
   // Slice 3.8 — owns the 1s polling interval for the latest run.
   useLatestRunPolling();
@@ -483,7 +496,7 @@ export function WorkflowBuilder({
     <BuilderShell
       header={
         <BuilderHeader
-          workflowName={workflow.name}
+          workflowName={workflowName}
           workflowId={workflow.id}
           leftRail={{
             isCollapsed: leftRail.isCollapsed,
@@ -588,13 +601,15 @@ export function WorkflowBuilder({
           previewToken={previewOverlay ? previewShowCount : null}
           // BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the Settings tab.
           workflowSettings={{
-            name: workflow.name,
+            name: workflowName,
             state: workflow.state,
             createdAt: workflow.createdAt,
             updatedAt: workflow.updatedAt,
             activeRevisionId: workflow.activeRevisionId,
             unpublishedChanges: workflow.unpublishedChanges,
           }}
+          // BUILDER-SETTINGS-2 — sync the header when the name is renamed in Settings.
+          onWorkflowNameSaved={setWorkflowName}
           // BUILDER-RUNS-TAB-1 — hide the Runs tab "Run again" when the viewer
           // can't run/edit (private-credential workflow). Mirrors HeaderRunControls.
           runEditBlocked={workflow.viewerCanRunEdit === false}

@@ -251,8 +251,8 @@ describe("WorkflowCanvas — top tabs + empty states (BUILDER-SHELL-TABS-1)", ()
     const panel = screen.getByTestId("settings-panel");
     expect(panel).toBeInTheDocument();
     expect(screen.queryByTestId("builder-tab-placeholder")).toBeNull();
-    // Real workflow-level values render.
-    expect(within(panel).getByText("Demo Workflow")).toBeInTheDocument();
+    // Real workflow-level values render. Name is now an editable input.
+    expect(within(panel).getByDisplayValue("Demo Workflow")).toBeInTheDocument();
     expect(within(panel).getByText(/message_received/)).toBeInTheDocument();
     // Workflow Settings must NOT host provider credentials…
     expect(panel.textContent).not.toMatch(/credential|token|password|api key/i);

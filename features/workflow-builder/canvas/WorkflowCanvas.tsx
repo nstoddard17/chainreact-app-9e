@@ -143,6 +143,12 @@ interface Props {
    */
   workflowSettings?: WorkflowSettingsMeta;
   /**
+   * Slice 4.BUILDER-SETTINGS-2 — called after a successful name save in the
+   * Settings tab so `WorkflowBuilder` can sync the header. Optional (isolated
+   * canvas tests omit it; the save still persists server-side regardless).
+   */
+  onWorkflowNameSaved?: (name: string) => void;
+  /**
    * HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — a per-show token from `WorkflowBuilder`: `null` when no
    * AI preview overlay is active, and a NEW number each time a preview is shown. When non-null the
    * canvas (a) hides the empty-state "Choose a trigger" card so the holographic preview reads clearly,
@@ -187,6 +193,7 @@ function WorkflowCanvasInner({
   triggerTagText,
   requiredFieldsByType,
   workflowSettings,
+  onWorkflowNameSaved,
   previewToken,
   runEditBlocked,
 }: Props) {
@@ -477,7 +484,11 @@ function WorkflowCanvasInner({
         ) : activeTab === "settings" ? (
           // Slice 4.BUILDER-SETTINGS-MVP-1 — the Settings tab shows real
           // workflow-level metadata + behavior (read-only this slice).
-          <SettingsPanel settings={workflowSettings} providerLabels={providerLabels} />
+          <SettingsPanel
+            settings={workflowSettings}
+            providerLabels={providerLabels}
+            {...(onWorkflowNameSaved ? { onNameSaved: onWorkflowNameSaved } : {})}
+          />
         ) : (
           <BuilderTabPlaceholder tab={activeTab} />
         )}

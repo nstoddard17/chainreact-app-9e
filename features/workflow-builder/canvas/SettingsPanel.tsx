@@ -1,29 +1,37 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import type { WorkflowDetail, WorkflowState } from "@/contracts/workflow";
 import { formatTypeKey } from "@/core/workflows/nodeDisplayName";
 import { useGraphSlice } from "../state/graphSlice";
+import { useRunSlice } from "../state/runSlice";
+import { getTriggerKind } from "../state/triggerKind";
+import {
+  CopyIdButton,
+  DangerZone,
+  DescriptionField,
+  formatLocalTime,
+  formatUtcTime,
+  NameEditor,
+  NoteRow,
+  SettingsRow,
+  SettingsSection,
+} from "./settingsParts";
 
 /**
- * Slice 4.BUILDER-SETTINGS-MVP-1 — the top-level **Settings** tab.
+ * Slice 4.BUILDER-SETTINGS-2 — the workflow Settings tab as a workflow-LEVEL
+ * control panel (not step config; app credentials live in Apps).
  *
- * Frontend-only MVP. Replaces the placeholder card with real workflow-LEVEL
- * metadata + behavior, derived entirely from data already available in the
- * builder: the `WorkflowDetail` subset threaded from `WorkflowBuilder`
- * (`settings`) and the live `graphSlice` draft (counts, trigger, save status).
+ * Supported, safe actions reuse existing client helpers:
+ *   - Name → `updateWorkflow(id, { name })` (PATCH name only; never mutates the
+ *     draft graph, never activates / publishes / runs).
+ *   - Delete → `deleteWorkflow(id)` (soft-delete → Trash), behind confirmation.
  *
- * Boundaries (asserted by tests):
- *   - This is workflow-LEVEL metadata only. Provider credentials live in Apps /
- *     Connections; node-level fields live in the right config panel. Neither is
- *     shown here.
- *   - Read-only this slice. Name/description editing is deferred — the v2 builder
- *     has no existing safe client name-edit path (`graphSlice.save()` persists
- *     only the draft definition), so wiring a name PATCH here would be net-new
- *     backend interaction that could race the draft save. Deferred edit path:
- *     PATCH `/api/workflows/[id]` `name`, ideally via a shared rename action.
- *   - No dead UI: not-yet-built behavior (description, folder, schedule, retry,
- *     notifications) renders an explicit "Coming later" row, never a blank space.
+ * Everything else reads from data already in the builder (the `WorkflowDetail`
+ * subset threaded from WorkflowBuilder + the live `graphSlice` / `runSlice`).
+ * Not-yet-supported settings (description, folder management, retry policy,
+ * notifications) are shown HONESTLY — disabled / "not configured" / "managed
+ * elsewhere" — never as dead "Coming later" action buttons.
  */
 
 /** The `WorkflowDetail` subset the Settings tab needs. Threaded from WorkflowBuilder. */
@@ -37,21 +45,27 @@ const STATE_LABEL: Record<WorkflowState, string> = {
   active: "Active",
   paused: "Paused",
   disabled: "Disabled",
-  eligible_to_resume: "Eligible to resume",
+  eligible_to_resume: "Ready to resume",
   deleted: "Deleted",
 };
 
 export function SettingsPanel({
   settings,
   providerLabels,
+  onNameSaved,
 }: {
   settings?: WorkflowSettingsMeta;
   providerLabels?: Readonly<Record<string, string>>;
+  /** Called after a successful name save so the parent can sync the header. */
+  onNameSaved?: (name: string) => void;
 }) {
+  const workflowId = useGraphSlice((s) => s.workflowId);
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
+  const runStatus = useRunSlice((s) => s.status);
+  const runDetail = useRunSlice((s) => s.detail);
 
   const triggerNode = useMemo(
     () => pendingNodes.find((n) => n.kind === "trigger"),
@@ -69,12 +83,44 @@ export function SettingsPanel({
     ? providerLabels?.[triggerNode.provider] ?? triggerNode.provider
     : null;
 
+  const triggerKind = getTriggerKind(pendingNodes);
+  const runExplanation = useMemo(() => {
+    if (triggerKind === "manual") {
+      return "Runs only when you click Run Manually or Run again.";
+    }
+    if (triggerKind === "none") {
+      return "Add a trigger to define when this workflow runs.";
+    }
+    if (
+      triggerNode?.provider === "native" &&
+      typeof triggerNode.type === "string" &&
+      triggerNode.type.startsWith("schedule")
+    ) {
+      const cron =
+        typeof triggerNode.config?.cronExpression === "string"
+          ? triggerNode.config.cronExpression
+          : null;
+      return cron
+        ? `Runs on a schedule: ${cron} (read-only here).`
+        : "Runs on a schedule.";
+    }
+    return "Runs automatically when its trigger event fires.";
+  }, [triggerKind, triggerNode]);
+
   const published = settings ? settings.activeRevisionId !== null : false;
   const savedLabel = isSaving
     ? "Saving…"
     : isDirty
       ? "You have unsaved changes"
       : "All changes saved";
+
+  const lastRunLabel = runDetail
+    ? runDetail.status === "succeeded"
+      ? "Succeeded"
+      : "Failed"
+    : runStatus === "pending"
+      ? "Running…"
+      : "Not run yet this session";
 
   return (
     <div
@@ -93,18 +139,34 @@ export function SettingsPanel({
         </header>
 
         <SettingsSection title="General">
-          <SettingsRow label="Name" value={settings?.name ?? null} />
-          <ComingLaterRow
-            label="Description"
-            note="A short description of what this workflow does — editable here later."
+          <NameEditor
+            workflowId={workflowId}
+            initialName={settings?.name ?? ""}
+            {...(onNameSaved ? { onSaved: onNameSaved } : {})}
           />
-          <ComingLaterRow
-            label="Folder"
-            note="Organize this workflow into a folder. Manage folders from the workflows list for now."
-          />
-          <p className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
-            Renaming from Settings is coming soon. For now, the name is shown read-only.
-          </p>
+          <DescriptionField />
+          <SettingsRow label="Folder">
+            <span style={{ color: "var(--builder-muted)" }}>
+              Manage folders from the{" "}
+              {/* Plain hard-nav anchor (not next/link) on purpose: a one-off,
+                  non-prefetched jump that doesn't depend on app-router context
+                  where the builder canvas may render in isolation. */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+              <a
+                href="/workflows"
+                data-testid="settings-folder-link"
+                style={{ color: "var(--builder-text)", textDecoration: "underline" }}
+              >
+                workflows list
+              </a>
+              .
+            </span>
+          </SettingsRow>
+          {workflowId ? (
+            <SettingsRow label="Workflow ID">
+              <CopyIdButton id={workflowId} />
+            </SettingsRow>
+          ) : null}
         </SettingsSection>
 
         <SettingsSection title="Status & publishing">
@@ -123,8 +185,13 @@ export function SettingsPanel({
             />
           ) : null}
           <SettingsRow label="Save status" value={savedLabel} />
-          <SettingsRow label="Created" value={formatTimestamp(settings?.createdAt)} />
-          <SettingsRow label="Last updated" value={formatTimestamp(settings?.updatedAt)} />
+          <SettingsRow label="Last run" value={lastRunLabel} />
+          <SettingsRow label="Created">
+            <TimeValue iso={settings?.createdAt} />
+          </SettingsRow>
+          <SettingsRow label="Last updated">
+            <TimeValue iso={settings?.updatedAt} />
+          </SettingsRow>
         </SettingsSection>
 
         <SettingsSection title="Run behavior">
@@ -138,107 +205,45 @@ export function SettingsPanel({
                 : "No trigger yet"
             }
           />
-          <SettingsRow label="Steps" value={`${actionCount} action${actionCount === 1 ? "" : "s"}`} />
+          <SettingsRow
+            label="Steps"
+            value={`${actionCount} action${actionCount === 1 ? "" : "s"}`}
+          />
           <SettingsRow
             label="Graph"
             value={`${pendingNodes.length} node${pendingNodes.length === 1 ? "" : "s"} · ${pendingEdges.length} edge${pendingEdges.length === 1 ? "" : "s"}`}
           />
-          <ComingLaterRow
-            label="Schedule & timezone"
-            note="Cron schedule and the timezone runs are evaluated in will be configurable here."
-          />
+          <p
+            data-testid="settings-run-explanation"
+            className="text-[12px]"
+            style={{ color: "var(--builder-muted)" }}
+          >
+            {runExplanation}
+          </p>
         </SettingsSection>
 
         <SettingsSection title="Error handling & notifications">
-          <ComingLaterRow
+          <NoteRow
             label="Retry & error handling"
-            note="Choose how a failed run retries and what happens on repeated failure."
+            note="Default: a run stops on the first failed step."
           />
-          <ComingLaterRow
-            label="Failure notifications"
-            note="Get notified when a run fails. Channels and recipients will be set here."
-          />
-          <ComingLaterRow
+          <NoteRow label="Failure notifications" note="Not configured." />
+          <NoteRow
             label="Access & permissions"
-            note="Who can view, run, and edit this workflow — summarized here later."
+            note="Managed by your account membership."
           />
         </SettingsSection>
+
+        <DangerZone workflowId={workflowId} workflowName={settings?.name ?? "this workflow"} />
       </div>
     </div>
   );
 }
 
-function SettingsSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section
-      data-testid="settings-section"
-      data-section={title}
-      className="flex flex-col gap-2 rounded-[8px] p-4"
-      style={{
-        background: "var(--builder-panel)",
-        border: "1px solid var(--builder-border)",
-        boxShadow: "var(--builder-shadow-sm)",
-      }}
-    >
-      <h3
-        className="text-[11px] font-semibold uppercase tracking-wide"
-        style={{ color: "var(--builder-muted)" }}
-      >
-        {title}
-      </h3>
-      <dl className="flex flex-col gap-1.5">{children}</dl>
-    </section>
-  );
-}
-
-function SettingsRow({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 text-[12.5px]">
-      <dt style={{ color: "var(--builder-muted)" }}>{label}</dt>
-      <dd className="text-right" style={{ color: "var(--builder-text)" }}>
-        {value ?? <span style={{ color: "var(--builder-muted)" }}>Not available</span>}
-      </dd>
-    </div>
-  );
-}
-
-function ComingLaterRow({ label, note }: { label: string; note: string }) {
-  return (
-    <div
-      data-testid="settings-coming-later-row"
-      className="flex items-baseline justify-between gap-3 text-[12.5px]"
-    >
-      <dt style={{ color: "var(--builder-muted)" }}>
-        {label}
-        <span className="block text-[11px]" style={{ color: "var(--builder-muted)" }}>
-          {note}
-        </span>
-      </dt>
-      <dd>
-        <span
-          className="whitespace-nowrap rounded-[4px] px-1.5 py-0.5 text-[10.5px]"
-          style={{
-            background: "var(--builder-panel-2)",
-            border: "1px solid var(--builder-border)",
-            color: "var(--builder-muted)",
-          }}
-        >
-          Coming later
-        </span>
-      </dd>
-    </div>
-  );
-}
-
-/**
- * Deterministic UTC timestamp formatter ("YYYY-MM-DD HH:MM UTC"). Locale- and
- * timezone-independent so the rendered value is stable across environments and
- * tests. Returns null for missing / unparseable input.
- */
-function formatTimestamp(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const isoStr = d.toISOString();
-  return `${isoStr.slice(0, 10)} ${isoStr.slice(11, 16)} UTC`;
+/** Local readable time with the exact UTC instant as a hover title. */
+function TimeValue({ iso }: { iso: string | null | undefined }) {
+  const local = formatLocalTime(iso);
+  const utc = formatUtcTime(iso);
+  if (!local) return <span style={{ color: "var(--builder-muted)" }}>Not available</span>;
+  return <span title={utc ?? undefined}>{local}</span>;
 }
