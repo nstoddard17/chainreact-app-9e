@@ -1033,13 +1033,13 @@ never leaves provider junk, sends to a real destination, charges a customer, or
 deletes a pre-existing record. Full contract:
 [`../slices/phase-4/readiness/write-smoke-harness-design.md`](../slices/phase-4/readiness/write-smoke-harness-design.md).
 
-**Status (operational):** the contract + pure orchestrator + the real
-account-scoped `runActionStep` wiring + `{{env.*}}` sub-step resolution + a
-batch runner + a quadruple-gated live dev test are all landed. The 3 pilots are
-registered in a SEPARATE `WRITE_SMOKE_FIXTURES` list (kept out of the read
-runner). The harness has been exercised LIVE end-to-end (the create call reached
-the real provider). A clean pilot `LIVE_PASS` is **blocked pending a confirmed
-DEDICATED smoke target** — see below.
+**Status (operational + first pilot LIVE_PASS).** The contract + pure orchestrator
++ the real account-scoped `runActionStep` wiring + `{{env.*}}` sub-step resolution
++ a batch runner + a quadruple-gated live dev test are all landed. The 3 pilots are
+registered in a SEPARATE `WRITE_SMOKE_FIXTURES` list (kept out of the read runner).
+**`airtable:create_record` is live-verified end to end** (create -> marker echo ->
+`get_record` -> `delete_record`; ledger created 1 / cleaned 1 / leaked 0) and
+certified `LIVE_PASS`. The other two pilots remain unrun live.
 
 **Run the pilot live** (quadruple-gated; `SMOKE_PROVIDER` picks exactly one so the
 others can never run live by accident):
@@ -1060,13 +1060,13 @@ throwaway base/table** — `SMOKE_AIRTABLE_TEXT_FIELD` must name that table's
 primary single-line-text field. (For Trello: `SMOKE_PROVIDER=trello`
 `SMOKE_TRELLO_CONNECTED=1` `SMOKE_TRELLO_LIST_ID=<dedicated smoke list>`.)
 
-> **First live attempt (2026-06-22):** run against the read-smoke Airtable base
-> with field `Name` — Airtable rejected it (`Unknown field name: "Name"`; that
-> base's primary field is different), so the create made **NO** record, cleanup
-> correctly skipped (nothing in the ledger), and the run reported `FAIL` with zero
-> leaked resources. The wiring + no-junk-on-failure guarantee are confirmed; that
-> base is a real working base, not a dedicated throwaway, so the pilot is
-> certified `BLOCKED_ENV` until a dedicated smoke base/table is provided.
+> **Live verification (2026-06-22):** first attempt with field `Name` was rejected
+> by Airtable (`Unknown field name`), which safely created NO record and skipped
+> cleanup (empty ledger) — confirming the no-junk-on-failure guarantee. After
+> setting `SMOKE_AIRTABLE_TEXT_FIELD='Draft Name'` (the base's primary field), the
+> pilot passed end to end: created one `crsmoke-` record, confirmed the marker
+> echoed + the record existed, deleted exactly that record. Ledger created 1 /
+> cleaned 1 / leaked 0. Now certified `LIVE_PASS`.
 
 **Phase model.** A mutating fixture adds a `writeHarness` spec
 ([`tests/smoke-actions/contract.ts`](../../tests/smoke-actions/contract.ts)):

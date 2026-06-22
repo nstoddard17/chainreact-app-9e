@@ -194,17 +194,14 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     // first folder. Live-verified — discovers a real file with no manual env.
     ["microsoft-onedrive", "get_file"],
   ]),
-  // SMOKE-WRITE pilot — the write harness is wired + was exercised LIVE (a real
-  // create attempt the provider safely rejected, creating nothing). A clean
-  // LIVE_PASS is blocked pending a confirmed DEDICATED smoke base/table + the
-  // primary-field env, since the configured base is a real working base, not a
-  // throwaway. Trello pilot blocked: not connected on the smoke account.
-  ...records(
-    "BLOCKED_ENV",
-    "write pilot wired; needs dedicated smoke base/table + SMOKE_AIRTABLE_TEXT_FIELD",
-    SMOKE_WRITE,
-    [["airtable", "create_record"]],
-  ),
+  // SMOKE-WRITE pilot — FIRST live write+cleanup verification. The write harness
+  // created one smoke-owned record (marker-stamped), confirmed the marker echoed
+  // back + the record existed, then deleted exactly that record. Ledger: created
+  // 1 / cleaned 1 / leaked 0. Needs the dedicated-base primary field via
+  // SMOKE_AIRTABLE_TEXT_FIELD to re-run.
+  ...records("LIVE_PASS", "live write+verify+cleanup verified (smoke-owned record)", SMOKE_WRITE, [
+    ["airtable", "create_record"],
+  ]),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────

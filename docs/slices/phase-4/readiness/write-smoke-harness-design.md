@@ -286,15 +286,16 @@ write results join the existing `ExecutionReport` gate).
   (folds to the shared zero-FAIL gate) + a quadruple-gated `smoke:writes:live`
   dev test (`SMOKE_PROVIDER` picks exactly one pilot).
 
-**Live status (SMOKE-WRITE-2):** the harness was exercised LIVE end-to-end against
-real Airtable. The create call reached the provider but was safely rejected
-(`Unknown field name` on the read-smoke base, whose primary field is not `Name`),
-so NO record was created, cleanup correctly skipped, and the run reported FAIL with
-zero leaked resources. A clean `LIVE_PASS` is blocked pending a confirmed DEDICATED
-smoke base/table (Trello is not connected on the smoke account). Pilot certified
-`BLOCKED_ENV` (honest: did not pass).
+**Live status (SMOKE-WRITE-2): `airtable:create_record` LIVE_PASS.** The harness
+ran end to end against real Airtable: created one smoke-owned record (marker
+`crsmoke-<token>-pilot` in the configured primary field), confirmed the marker
+echoed back AND `get_record` found it, then `delete_record` removed exactly that
+record. Ledger created 1 / cleaned 1 / leaked 0. (The first attempt with field
+`Name` was safely rejected by Airtable and created nothing, proving the
+no-junk-on-failure guarantee; `SMOKE_AIRTABLE_TEXT_FIELD='Draft Name'` fixed it.)
+Marcus confirmed the base is safe to write a throwaway record into. Trello pilot
+remains blocked (not connected on the smoke account).
 
 **Deferred:**
-- One live pilot `LIVE_PASS` against a dedicated throwaway target (the only thing
-  between here and a green pilot).
+- The other two pilots' live runs (`notion:create_page`, `trello:create_card`).
 - The 201-action write coverage rollout (per-provider batches, like the read arc).
