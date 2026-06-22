@@ -206,16 +206,20 @@ describe("SettingsPanel — name editing", () => {
 });
 
 describe("SettingsPanel — honest unsupported settings", () => {
-  it("shows Description as a clearly disabled future field", () => {
+  it("renders NO description control (no fake / disabled textarea, no migration faked)", () => {
+    // There is no workflow `description` column / contract field, so the panel
+    // shows no editable-looking control for it rather than a disabled stub.
     render(<SettingsPanel settings={meta()} />);
-    const desc = screen.getByTestId("settings-description");
-    expect(desc).toBeDisabled();
-    expect(screen.getByText(/saving a description isn.t available yet/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("settings-description")).not.toBeInTheDocument();
+    expect(document.querySelector("textarea")).toBeNull();
+    expect(screen.queryByText(/saving a description/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/description/i)).not.toBeInTheDocument();
   });
 
   it("does not render misleading 'Coming later' action spam", () => {
     render(<SettingsPanel settings={meta()} />);
     expect(screen.queryByText(/coming later/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId("settings-coming-later-row")).not.toBeInTheDocument();
   });
 
@@ -226,6 +230,73 @@ describe("SettingsPanel — honest unsupported settings", () => {
     expect(screen.getByText(/manage folders from the/i)).toBeInTheDocument();
     // No folder picker/select implying the builder itself can move folders.
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("states the REAL retry default (stops on first failed step) without implying config", () => {
+    render(<SettingsPanel settings={meta()} />);
+    expect(screen.getByText(/a run stops on the first failed step/i)).toBeInTheDocument();
+    // The retry/error row is a read-only note, not an interactive control.
+    const noteRows = screen.getAllByTestId("settings-note-row");
+    for (const row of noteRows) {
+      expect(row.querySelector("button")).toBeNull();
+      expect(row.querySelector("input")).toBeNull();
+      expect(row.querySelector("select")).toBeNull();
+    }
+  });
+
+  it("states the REAL failure-notification behavior (in-app to creator), not 'Not configured'", () => {
+    render(<SettingsPanel settings={meta()} />);
+    expect(
+      screen.getByText(/a failed run notifies the workflow's creator in-app/i),
+    ).toBeInTheDocument();
+    // Never claim it's unconfigured (it always fires in-app today) and never
+    // imply a routing control exists yet.
+    expect(screen.queryByText(/not configured/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("SettingsPanel — last run (session-scoped, safe)", () => {
+  it("shows a session-scoped empty state, never 'never run'", () => {
+    render(<SettingsPanel settings={meta()} />);
+    expect(screen.getByText(/no runs in this session/i)).toBeInTheDocument();
+  });
+
+  it("renders only from the in-session run pointer (succeeded/failed)", () => {
+    useRunSlice.setState({
+      status: "succeeded",
+      detail: {
+        id: "r1",
+        workflowId: WF_ID,
+        status: "succeeded",
+        triggerNodeId: "trigger-1",
+        startedAt: "2026-06-02T09:00:00.000Z",
+        finishedAt: "2026-06-02T09:00:01.000Z",
+        errorClassification: null,
+        steps: [],
+      },
+    });
+    render(<SettingsPanel settings={meta()} />);
+    expect(screen.getByText(/succeeded \(this session\)/i)).toBeInTheDocument();
+  });
+});
+
+describe("SettingsPanel — launch-ready completeness", () => {
+  it("renders every workflow-level section with no empty/stub placeholders", () => {
+    render(<SettingsPanel settings={meta()} />);
+    const sections = screen
+      .getAllByTestId("settings-section")
+      .map((s) => s.getAttribute("data-section"));
+    expect(sections).toEqual(
+      expect.arrayContaining([
+        "General",
+        "Status & publishing",
+        "Run behavior",
+        "Error handling & notifications",
+        "Danger zone",
+      ]),
+    );
+    // The delete action exists and is enabled (Danger Zone is real, not a stub).
+    expect(screen.getByTestId("settings-delete")).toBeEnabled();
   });
 });
 

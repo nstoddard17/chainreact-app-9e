@@ -14,8 +14,10 @@ import { deleteWorkflow } from "@/lib/api/trash";
  *   - Delete → `deleteWorkflow(id)` (SOFT-delete → Trash, recoverable), behind an
  *     explicit two-step confirmation.
  *
- * Unsupported-today settings are shown honestly (disabled / "not configured" /
- * "managed elsewhere"), never as a wall of "Coming later" action buttons.
+ * Settings without a real backend are shown honestly as read-only notes
+ * ("managed elsewhere" / a factual statement of current behavior) or removed
+ * outright — never as a fake control (even a disabled one) or a wall of
+ * "Coming later" action buttons.
  */
 
 export function SettingsSection({
@@ -197,33 +199,6 @@ export function NameEditor({
           {error}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-// ─── Description (not persisted yet — honest disabled field) ──────────────────
-
-export function DescriptionField() {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-[12.5px]" style={{ color: "var(--builder-muted)" }}>
-        Description
-      </label>
-      <textarea
-        data-testid="settings-description"
-        disabled
-        rows={2}
-        placeholder="A short description of what this workflow does"
-        className="resize-none rounded-[6px] border px-2.5 py-1.5 text-[13px] opacity-60"
-        style={{
-          background: "var(--builder-panel-2)",
-          borderColor: "var(--builder-border)",
-          color: "var(--builder-text)",
-        }}
-      />
-      <span className="text-[11px]" style={{ color: "var(--builder-muted)" }}>
-        Saving a description isn&rsquo;t available yet.
-      </span>
     </div>
   );
 }

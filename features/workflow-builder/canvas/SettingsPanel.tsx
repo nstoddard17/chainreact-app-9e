@@ -9,7 +9,6 @@ import { getTriggerKind } from "../state/triggerKind";
 import {
   CopyIdButton,
   DangerZone,
-  DescriptionField,
   formatLocalTime,
   formatUtcTime,
   NameEditor,
@@ -29,9 +28,21 @@ import {
  *
  * Everything else reads from data already in the builder (the `WorkflowDetail`
  * subset threaded from WorkflowBuilder + the live `graphSlice` / `runSlice`).
- * Not-yet-supported settings (description, folder management, retry policy,
- * notifications) are shown HONESTLY — disabled / "not configured" / "managed
- * elsewhere" — never as dead "Coming later" action buttons.
+ *
+ * Settings-completion pass (BUILDER-SETTINGS-COMPLETE): each remaining item is
+ * either real, removed, or HONEST read-only:
+ *   - Description: REMOVED. No workflow `description` column / contract field
+ *     exists; adding one needs a migration, so no fake (even disabled) textarea
+ *     is shown — a settings page without a description field is complete.
+ *   - Folder: read-only pointer to the workflows list, where account-correct
+ *     folder management lives (a folder picker here could offer wrong-account
+ *     targets when the builder runs in a mismatched active-account context).
+ *   - Retry/error handling: states the REAL engine default (a run stops on the
+ *     first failed step) — no configurable retry policy exists, so none is implied.
+ *   - Failure notifications: states the REAL behavior (a failed run notifies the
+ *     workflow's creator in-app) — no per-workflow routing config exists yet.
+ *   - Access & permissions: generic, safe membership statement (no roster).
+ * None render as dead "Coming later" action buttons.
  */
 
 /** The `WorkflowDetail` subset the Settings tab needs. Threaded from WorkflowBuilder. */
@@ -114,13 +125,16 @@ export function SettingsPanel({
       ? "You have unsaved changes"
       : "All changes saved";
 
+  // Session-scoped only: runSlice tracks the run started in THIS builder session
+  // (it resets on workflow switch / reload). Durable run history lives in the
+  // Runs tab — so the empty state says "this session", never "never run".
   const lastRunLabel = runDetail
     ? runDetail.status === "succeeded"
-      ? "Succeeded"
-      : "Failed"
+      ? "Succeeded (this session)"
+      : "Failed (this session)"
     : runStatus === "pending"
       ? "Running…"
-      : "Not run yet this session";
+      : "No runs in this session";
 
   return (
     <div
@@ -144,7 +158,6 @@ export function SettingsPanel({
             initialName={settings?.name ?? ""}
             {...(onNameSaved ? { onSaved: onNameSaved } : {})}
           />
-          <DescriptionField />
           <SettingsRow label="Folder">
             <span style={{ color: "var(--builder-muted)" }}>
               Manage folders from the{" "}
@@ -225,9 +238,12 @@ export function SettingsPanel({
         <SettingsSection title="Error handling & notifications">
           <NoteRow
             label="Retry & error handling"
-            note="Default: a run stops on the first failed step."
+            note="A run stops on the first failed step."
           />
-          <NoteRow label="Failure notifications" note="Not configured." />
+          <NoteRow
+            label="Failure notifications"
+            note="A failed run notifies the workflow's creator in-app."
+          />
           <NoteRow
             label="Access & permissions"
             note="Managed by your account membership."
