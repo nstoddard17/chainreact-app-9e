@@ -486,10 +486,11 @@ status-only (never page/database titles, properties, or block content).
   `get_block_children` (`get_block_children` deliberately left out — it returns block
   content, which this read-only batch avoids surfacing even though the report is
   status-only).
-- **Deferred (writes / destructive):** `create_page`, `update_page`,
-  `create_database_entry`, `append_block_children`, `restore_page`, `create_comment`,
-  `create_database` (writes) and `archive_page` (destructive) — out of scope for
-  read-only batches (no safe cleanup pattern).
+- **Writes — now LIVE-CERTIFIED via the WRITE harness** (not this read-only batch):
+  `create_page`, `update_page`, `create_database_entry`, `append_block_children`,
+  `restore_page`, `create_comment`, `archive_page`. See the write-smoke section's
+  certification matrix. **Still deferred:** `create_database` (no archive-database
+  action + no independent read — see the write-smoke "DEFERRED (exact blockers)" list).
 
 **Microsoft Excel-only inventory:** `npm run smoke:actions -- --provider microsoft-excel`.
 
@@ -1057,6 +1058,37 @@ running certification record; rows are added as each provider batch lands.
 | `notion:update_page` | create -> update title -> get_page (marker on title) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `notion:append_block_children` | create -> append paragraph -> get_block_children (marker in blocks) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `notion:create_comment` | create -> comment -> list_comments (marker in comments) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `trello:add_label_to_card` | create card -> add label -> cardsGet (idLabels contains label, + marker on name) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `trello:move_card` | create card -> move to 2nd smoke list -> cardsGet (idList == target, + marker on name) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `trello:archive_card` | create card -> archive -> cardsGet (closed == true, + marker on name) -> no cleanup | archived (left) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `notion:create_database_entry` | create entry -> query_database filtered to marker -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `notion:archive_page` | create -> archive -> get_page (archived == true, + marker on title) -> no cleanup | archived (left) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `notion:restore_page` | create -> archive -> restore -> get_page (archived == false, + marker on title) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+
+**Remaining Trello / Notion write actions — DEFERRED (exact blockers, SMOKE-WRITE-16).**
+Every registered Trello/Notion write action NOT in the matrix above is blocked by a
+missing cleanup path or missing independent verification — not by connection health.
+Inventory (action · blocker):
+- `trello:create_board` — no registered archive/delete-board action exists (only
+  `create_board`). The harness cleanup runs a REGISTERED action against a ledger
+  resource; with none, a created board persists VISIBLY (heavy artifact, accumulates
+  per run). Deferred until a board-archive action exists (or a justified smoke-only
+  mutation-cleanup seam).
+- `trello:create_list` — same shape: `integrations/trello/api/lists.ts` exposes only
+  `listsCreate` (no list-update/archive wrapper) and no registered list-archive
+  action, so a created list persists visibly on the smoke board. Deferred.
+- `notion:create_database` — DOUBLY blocked: (1) **cleanup** — `archive_page`
+  (`pages.update archived:true`) CANNOT archive a database id (Notion returns
+  "Could not find page"), and there is no registered archive-database action, so a
+  created database persists visibly under the parent page (heavy artifact); (2)
+  **verification** — Notion `POST /v1/search` is eventually-consistent (a probe found
+  a freshly-created database is NOT returned immediately), and there is no
+  `get_database` read action, so the only available proof would be the handler echo
+  (disallowed). Deferred until both a database-archive action and an independent
+  database read exist.
+
+These are coverage limits of the registered action set, not smoke gaps: forcing them
+would require echo-only verification and/or leave heavy visible artifacts.
 
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
