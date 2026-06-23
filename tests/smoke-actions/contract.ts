@@ -72,6 +72,13 @@ export interface ActionStepSpec {
   readonly config: Readonly<Record<string, unknown>>;
   /** When this step creates a resource, how to capture its id into the ledger. */
   readonly captureResource?: CaptureSpec;
+  /**
+   * Dot-path into THIS step's output that must contain the unique smoke marker.
+   * Used on a VERIFY (read-back) step to prove the marker on the persisted
+   * resource — stronger than "the id exists". Mismatch / missing -> VERIFY_FAILED.
+   * Env tokens (`{{env.*}}`) are resolved in the path.
+   */
+  readonly markerPath?: string;
 }
 
 /**

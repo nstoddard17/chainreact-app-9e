@@ -465,10 +465,25 @@ export async function runWriteSmoke(
       if (!ok) actionStatus = "VERIFY_FAILED";
     }
 
-    // 5b. verify (a registered read action keyed on the captured id).
+    // 5b. verify (a registered read action keyed on the captured id). When the
+    // verify step declares a `markerPath`, the harness reads that field from the
+    // READ-BACK response and confirms the unique marker — proving the marker on
+    // the persisted resource, not merely that the id exists.
     if (actionStatus === "PASS" && spec.verify) {
       const v = await runStep("verify", spec.verify);
-      if (!v.ok) actionStatus = "VERIFY_FAILED";
+      if (!v.ok) {
+        actionStatus = "VERIFY_FAILED";
+      } else if (spec.verify.markerPath) {
+        const echoPath = resolveScalarTokens(spec.verify.markerPath, marker, envLookup);
+        const echo = readPath(v.output, echoPath);
+        const ok = echo !== null && echo.includes(marker);
+        phases.push({
+          phase: "verify",
+          outcome: ok ? "ok" : "failed",
+          reason: ok ? "marker confirmed on read-back" : "read-back did not contain the smoke marker",
+        });
+        if (!ok) actionStatus = "VERIFY_FAILED";
+      }
     }
   }
 

@@ -66,6 +66,9 @@ describe("get_page action", () => {
 
     expect(result.output).toMatchObject({
       pageId: "p-1",
+      // top-level title convenience: extracted from the title-type property
+      // regardless of its name ("Name" here), bounded to the plain-text value.
+      title: "Q2 plan",
       url: "https://www.notion.so/p-1",
       archived: false,
       parent: { database_id: "db-1" },
@@ -75,6 +78,20 @@ describe("get_page action", () => {
       },
       skippedProperties: [{ name: "Owner", type: "people" }],
     });
+  });
+
+  it("title is null when the page has no title property", async () => {
+    mockRetrieve.mockResolvedValueOnce({ object: "page", id: "p-2", properties: {} });
+    const result = await getPage({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: { pageId: "p-2" },
+      triggerEvent: trigger(),
+    });
+    expect(result.output.title).toBeNull();
   });
 
   it("rejects empty pageId", async () => {

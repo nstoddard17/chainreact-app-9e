@@ -1046,7 +1046,7 @@ marker -> run cleanup):
 | `airtable:update_record` | create -> update -> echo -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `trello:create_card` | create -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:update_card` | create -> update -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
-| `notion:create_page` | create -> get_page -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `notion:create_page` | create -> get_page (marker on title) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
@@ -1063,6 +1063,17 @@ Smoke targets auto-discover per provider: Trello picks a list whose board AND li
 are both explicitly smoke/test-named (`pickSmokeSafeTarget`); Notion picks a
 smoke-named parent page (else the first accessible page on the throwaway account);
 Airtable uses the env-pinned smoke base + `SMOKE_AIRTABLE_TEXT_FIELD`.
+
+**Marker verification (not existence-only).** Every pilot proves the unique
+`crsmoke-<runToken>` marker is actually on the persisted resource:
+- Airtable / Trello — `markerEchoPath` reads the create/update **response** (the
+  provider echoes the stored field/name), confirming the marker round-tripped.
+- Notion — `create_page`'s response omits the title, so the verify step reads the
+  page back with `get_page` and a `markerPath: "title"` check (the harness's
+  read-back marker verification). `get_page` gained a bounded top-level `title`
+  output (the value of the title-type property) so this never spreads a raw Notion
+  property blob. A verify step's `markerPath` is the general way to confirm a
+  marker from a READ response rather than the write response.
 
 **Connection diagnosis (4-way, never conflate target with connection).** A provider
 is classified `NOT_CONNECTED` (only when the DB proves it) / `CONNECTED_NOT_EXECUTABLE`

@@ -39,6 +39,12 @@ export const notionGetPageMeta: ActionMeta = {
       description: "Notion page id (echoed from the response).",
     },
     {
+      name: "title",
+      type: "string",
+      description:
+        "The page's title text (value of the title-type property), or null. Bounded convenience so you can reference the title without knowing its property name.",
+    },
+    {
       name: "url",
       type: "string",
       description: "Public Notion URL.",

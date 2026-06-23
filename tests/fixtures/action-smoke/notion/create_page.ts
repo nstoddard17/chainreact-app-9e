@@ -7,11 +7,13 @@ import { defineWriteSmokeFixture } from "@/tests/smoke-actions/contract";
  * the page from view without true data loss — the gentlest of the three pilots.
  *
  *   execute  create_page  -> capture { pageId } into ledger key "page"
- *   verify   get_page     -> confirm the page exists (keyed on {{ledger.page.id}})
- *   cleanup  archive_page -> archive exactly the created page (reversible)
+ *   verify   get_page     -> read the page back and CONFIRM THE MARKER on its
+ *                            `title` (not merely that the id exists)
+ *   cleanup  archive_page -> archive exactly the ledger-created page (reversible)
  *
- * Parent is a dedicated smoke page (SMOKE_NOTION_PARENT_PAGE_ID). Title carries
- * the run marker. NOT registered in ALL_SMOKE_FIXTURES and NOT run live this slice.
+ * The parent smoke page is auto-discovered by the dev test (smoke/test-named
+ * preferred, else the first accessible page on the throwaway account) and overlaid
+ * onto SMOKE_NOTION_PARENT_PAGE_ID. Title carries the run marker.
  */
 export default defineWriteSmokeFixture({
   provider: "notion",
@@ -30,10 +32,13 @@ export default defineWriteSmokeFixture({
     smokeMarker: "crsmoke-",
     // create_page returns { pageId }, not { id }.
     captureResource: { resourceKey: "page", idPath: "pageId", kind: "page" },
+    // get_page now exposes a top-level `title`; confirm the unique marker on the
+    // read-back title (proves the marker on the persisted page, not just existence).
     verify: {
       provider: "notion",
       action: "get_page",
       config: { pageId: "{{ledger.page.id}}" },
+      markerPath: "title",
     },
     // archive_page is reversible (restore_page exists) -> best-effort, leaves a
     // harmless archived page (LIVE_PASS_LEFT_ARTIFACT), never a gate fail.

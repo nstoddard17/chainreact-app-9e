@@ -404,6 +404,40 @@ describe("env resolution + marker echo (live wiring)", () => {
     expect(res.phases.find((p) => p.phase === "verify")?.outcome).toBe("ok");
   });
 
+  it("verify markerPath confirms the marker on a READ-BACK response (PASS)", async () => {
+    const deps = fakeDeps({
+      "acme:create_thing": { ok: true, output: { id: "X" }, reason: null },
+      // the read-back (get) echoes the marker on its `title`
+      "acme:get_thing": { ok: true, output: { title: "crsmoke-T1-pilot" }, reason: null },
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: { resourceKey: "r", idPath: "id", kind: "thing" },
+      verify: { provider: "acme", action: "get_thing", config: { id: "{{ledger.r.id}}" }, markerPath: "title" },
+    });
+    const res = await runWriteSmoke(fixture("create_thing", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.phases.filter((p) => p.phase === "verify").some((p) => /marker confirmed/.test(p.reason ?? ""))).toBe(true);
+  });
+
+  it("verify markerPath fails (VERIFY_FAILED) when the read-back lacks the marker", async () => {
+    const deps = fakeDeps({
+      "acme:create_thing": { ok: true, output: { id: "X" }, reason: null },
+      "acme:get_thing": { ok: true, output: { title: "some other page" }, reason: null }, // exists but wrong marker
+      "acme:delete_thing": { ok: true, output: null, reason: null },
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: { resourceKey: "r", idPath: "id", kind: "thing" },
+      verify: { provider: "acme", action: "get_thing", config: { id: "{{ledger.r.id}}" }, markerPath: "title" },
+      cleanupKind: "delete",
+    });
+    const res = await runWriteSmoke(fixture("create_thing", spec), RUN, deps);
+    // existence alone is NOT enough — the marker must match.
+    expect(res.status).toBe("VERIFY_FAILED");
+    expect(deps.calls.some((c) => c.action === "delete_thing")).toBe(true); // cleanup still ran
+  });
+
   it("marker echo fails (VERIFY_FAILED) when the created resource lacks the marker", async () => {
     const deps = fakeDeps({
       "acme:create_thing": { ok: true, output: { name: "someone-elses-record" }, reason: null },

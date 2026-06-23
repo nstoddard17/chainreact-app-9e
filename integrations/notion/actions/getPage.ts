@@ -16,8 +16,14 @@ import { GetPageConfigSchema } from "./getPage.schema";
  * property and one `relation` property is still usable).
  *
  * Output shape (downstream variable refs):
- *   { pageId, url, archived, parent, createdTime, lastEditedTime,
+ *   { pageId, title, url, archived, parent, createdTime, lastEditedTime,
  *     properties, skippedProperties, icon, cover }
+ *   - `title` is the page's title text (the value of the `title`-type
+ *     property), or `null` when the page has none. A bounded, sanitized
+ *     convenience so workflows can reference `{{nodeId.title}}` without
+ *     knowing the title property's name (it is "title" for a page-parented
+ *     page, but the database's title field name for a database row). Already
+ *     concatenated plain_text — no raw rich-text segment blob.
  *   - `properties` is `Record<propertyName, ParsedPropertyValue>` —
  *     workflows can drill into `{{nodeId.properties.Name.value}}`.
  *   - `skippedProperties` is `Array<{ name, type }>` so workflows can
@@ -43,9 +49,16 @@ export const getPage: ActionHandler = async (input) => {
     (result.properties ?? {}) as Record<string, NotionPropertyResponse>,
   );
 
+  // Surface the page title as a top-level convenience: the value of the single
+  // `title`-type property (already concatenated plain_text), else null. Bounded
+  // — a single string, never a rich-text/property blob.
+  const titleProp = Object.values(parsed).find((p) => p.type === "title");
+  const title = titleProp && titleProp.type === "title" ? titleProp.value : null;
+
   return {
     output: {
       pageId: result.id,
+      title,
       url: result.url ?? null,
       archived: result.archived ?? false,
       parent: result.parent ?? null,

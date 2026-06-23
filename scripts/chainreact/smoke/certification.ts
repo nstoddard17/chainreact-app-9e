@@ -215,11 +215,14 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["airtable", "create_record"],
     ["airtable", "update_record"],
   ]),
-  // LEFT_ARTIFACT (a harmless marked object remains — archived / no hard delete):
+  // LEFT_ARTIFACT (a harmless marked object remains — archived / no hard delete).
+  // Verify confirms the crsmoke-* marker on the resource (Trello via the create/
+  // update response name; Notion via a get_page read-back title) — not just that
+  // the id exists:
   //   - trello:create_card / update_card -> archive_card (reversible; card persists).
   //   - notion:create_page -> archive_page (reversible; page persists). Parent page
   //     auto-discovered (smoke/test-named preferred) on the throwaway account.
-  ...records("LIVE_PASS_LEFT_ARTIFACT", "live write+verify, object archived (persists)", SMOKE_WRITE, [
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live write + marker verify, object archived", SMOKE_WRITE, [
     ["trello", "create_card"],
     ["trello", "update_card"],
     ["notion", "create_page"],
