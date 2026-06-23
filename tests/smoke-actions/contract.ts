@@ -131,6 +131,22 @@ export interface ActionStepSpec {
     readonly value: string;
   };
   /**
+   * Assert that the value at `path` in THIS step's (read-back) output is a
+   * NON-EMPTY array. Used to verify a side effect whose content the smoke marker
+   * cannot prove because the provider transforms it — e.g. Airtable REHOSTS an
+   * uploaded attachment (the URL/filename we sent is replaced), so the only honest
+   * proof is "the attachment field is now a populated array". `path` is token-
+   * resolved (`{{env.*}}` / `{{smokeMarker}}`) like `markerPath`, so a dynamic
+   * field name (`fields.{{env.SMOKE_AIRTABLE_ATTACHMENT_FIELD}}`) resolves. When
+   * `elementHasKey` is set, EVERY element must also carry a truthy value at that
+   * key (the strongest stable provider property — e.g. an attachment `id`).
+   * Empty / missing / non-array -> VERIFY_FAILED.
+   */
+  readonly expectNonEmptyArray?: {
+    readonly path: string;
+    readonly elementHasKey?: string;
+  };
+  /**
    * When true, this (verify) step is resolved by the SMOKE-ONLY read-back seam
    * (`WriteHarnessDeps.smokeReadBack`) rather than the registered-action engine
    * path — for providers that have no user-facing read action to verify against

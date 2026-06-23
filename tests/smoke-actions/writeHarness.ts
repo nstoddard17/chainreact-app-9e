@@ -421,6 +421,29 @@ export function valuePresentInArrayAtPath(
   return raw === expected;
 }
 
+/**
+ * Is the value at `path` a NON-EMPTY array? When `elementHasKey` is set, EVERY
+ * element must also be an object carrying a truthy value at that key. Used to prove
+ * a provider-TRANSFORMED side effect (e.g. an Airtable attachment field is now a
+ * populated array of `{id,...}` — the uploaded URL/filename is rehosted, so only
+ * "non-empty + each has a stable id" is honest). Missing / non-array / empty -> false.
+ */
+export function nonEmptyArrayAtPath(
+  output: Readonly<Record<string, unknown>> | null,
+  path: string,
+  elementHasKey?: string,
+): boolean {
+  const raw = rawValueAtPath(output, path);
+  if (!Array.isArray(raw) || raw.length === 0) return false;
+  if (!elementHasKey) return true;
+  return raw.every(
+    (el) =>
+      el !== null &&
+      typeof el === "object" &&
+      Boolean((el as Record<string, unknown>)[elementHasKey]),
+  );
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 const SANITIZE = (r: string | null): string | null => sanitizeFailureReason(r);
@@ -476,6 +499,22 @@ function applyVerifyAssertions(
       phase: "verify",
       outcome: hit ? "ok" : "failed",
       reason: hit ? `read-back ${path} contains the expected member${label}` : `read-back ${path} did not contain the expected member${label}`,
+    });
+    if (!hit) ok = false;
+  }
+  if (step.expectNonEmptyArray) {
+    // Path is token-resolved (env / marker) so a dynamic field name resolves.
+    const path = resolveScalarTokens(step.expectNonEmptyArray.path, marker, envLookup);
+    const hit = nonEmptyArrayAtPath(output, path, step.expectNonEmptyArray.elementHasKey);
+    const keyNote = step.expectNonEmptyArray.elementHasKey
+      ? ` (each with ${step.expectNonEmptyArray.elementHasKey})`
+      : "";
+    phases.push({
+      phase: "verify",
+      outcome: hit ? "ok" : "failed",
+      reason: hit
+        ? `read-back ${path} is a non-empty array${keyNote}${label}`
+        : `read-back ${path} was empty / not an array${keyNote}${label}`,
     });
     if (!hit) ok = false;
   }

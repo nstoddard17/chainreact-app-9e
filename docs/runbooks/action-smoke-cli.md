@@ -326,16 +326,14 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   npm run smoke:actions:run:workflow:live
 ```
 
-**Airtable coverage (10 covered of 11 registered):**
+**Airtable coverage (11 covered of 11 registered — COMPLETE):**
 
 - **Reads (5, live-certified):** `get_base_schema`, `get_table_schema`,
   `list_records`, `find_record`, `get_record`.
-- **Writes (5, live-certified via the WRITE harness):** `create_record` +
-  `update_record` + `create_multiple_records` + `update_multiple_records`
-  (`LIVE_PASS_CLEANED`), `delete_record` (`LIVE_PASS`, verified gone via an
-  independent `recordsList` read-back). See the write-smoke section below.
-- **Still uncovered (1, write):** `add_attachment` (needs a public file URL + a
-  non-empty-array verify primitive — attachments are re-hosted, so no marker match).
+- **Writes (6, live-certified via the WRITE harness):** `create_record` +
+  `update_record` + `create_multiple_records` + `update_multiple_records` +
+  `add_attachment` (`LIVE_PASS_CLEANED`), `delete_record` (`LIVE_PASS`, verified
+  gone via an independent `recordsList` read-back). See the write-smoke section below.
 
 **Google Sheets-only inventory:** `npm run smoke:actions -- --provider google-sheets`.
 
@@ -1051,6 +1049,7 @@ running certification record; rows are added as each provider batch lands.
 | `airtable:delete_record` | create -> **delete (action under test)** -> recordsList read-back (gone) | object deleted | `LIVE_PASS` |
 | `airtable:create_multiple_records` | create 2 -> verifyEach (recordsList marker per id) -> delete each | both deleted | `LIVE_PASS_CLEANED` |
 | `airtable:update_multiple_records` | create 2 -> update both -> verifyEach (marker-"updated" per id) -> delete each | both deleted | `LIVE_PASS_CLEANED` |
+| `airtable:add_attachment` | create record -> attach staged PNG (v2_storage) -> read-back attachment field non-empty (each {id}) -> delete record | record deleted | `LIVE_PASS_CLEANED` |
 | `trello:create_card` | create -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:update_card` | create -> update -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:add_comment` | create card -> comment -> card_comments read-back (marker) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
@@ -1212,6 +1211,20 @@ export default defineWriteSmokeFixture({
 - `cleanupEach` deletes EVERY captured id. **Partial cleanup is never PASS_CLEANED** —
   any failed delete leaves a leaked record and (delete-kind) flips to `CLEANUP_FAILED`.
   Single-resource (`idPath` / `verify` / `cleanup`) fixtures are unchanged.
+
+**Attachment / transformed-side-effect verification (SMOKE-WRITE-15).** Some writes
+produce content the provider TRANSFORMS, so the smoke marker can't survive — e.g.
+`airtable:add_attachment` uploads a file and Airtable REHOSTS it (the URL/filename
+we sent are replaced). The honest proof is `expectNonEmptyArray`: assert the read-back
+field is a populated array whose every element carries a stable provider id
+(`elementHasKey: "id"`), via the independent record seam — never the action's echo.
+The file source is SELF-CONTAINED: the dev test stages a tiny PNG in OUR
+`workflow-files` bucket and the fixture references it as a `v2_storage` FileRef (the
+handler mints a short-lived signed URL Airtable fetches) — NO invented external URL.
+The attachment field is auto-discovered (`discoverAirtableSmokeAttachmentField`, via
+`refreshAndRetry`); `SMOKE_AIRTABLE_ATTACHMENT_FIELD` overrides it, and a missing
+attachment field / unstaged file is `BLOCKED_ENV` (never a fake URL). The staged file
+is removed in the dev test's `finally`; the smoke record is deleted by the fixture.
 
 **Safety classes (`liveClass`) + gates:**
 

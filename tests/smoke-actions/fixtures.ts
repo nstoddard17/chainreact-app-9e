@@ -125,6 +125,7 @@ import airtableUpdateRecord from "@/tests/fixtures/action-smoke/airtable/update_
 import airtableDeleteRecord from "@/tests/fixtures/action-smoke/airtable/delete_record";
 import airtableCreateMultipleRecords from "@/tests/fixtures/action-smoke/airtable/create_multiple_records";
 import airtableUpdateMultipleRecords from "@/tests/fixtures/action-smoke/airtable/update_multiple_records";
+import airtableAddAttachment from "@/tests/fixtures/action-smoke/airtable/add_attachment";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
@@ -248,6 +249,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   airtableDeleteRecord,
   airtableCreateMultipleRecords,
   airtableUpdateMultipleRecords,
+  airtableAddAttachment,
   notionCreatePage,
   notionUpdatePage,
   notionAppendBlockChildren,

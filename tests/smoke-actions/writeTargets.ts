@@ -162,6 +162,20 @@ export function pickAirtablePrimaryTextField(
   return firstText ? firstText.name : null;
 }
 
+/** Airtable attachment field type (for `add_attachment`). */
+export const AIRTABLE_ATTACHMENT_FIELD_TYPE = "multipleAttachments";
+
+/**
+ * Pick the NAME of an attachment field on the smoke table (for `add_attachment`).
+ * Returns the first `multipleAttachments` field, or null when the table has none
+ * -> caller reports BLOCKED_ENV (set SMOKE_AIRTABLE_ATTACHMENT_FIELD). NEVER picks
+ * a non-attachment field. Pure.
+ */
+export function pickAirtableAttachmentField(table: AirtableTableLite): string | null {
+  const att = table.fields.find((f) => f.type === AIRTABLE_ATTACHMENT_FIELD_TYPE);
+  return att ? att.name : null;
+}
+
 // ─── Notion: smoke database discovery (for create_database_entry) ─────────────
 
 export interface NotionDatabaseHitLite {

@@ -12,6 +12,7 @@
  */
 import {
   classifyWriteTarget,
+  pickAirtableAttachmentField,
   pickAirtablePrimaryTextField,
   pickNotionSmokeDatabase,
   pickSecondSmokeList,
@@ -147,6 +148,33 @@ describe("pickAirtablePrimaryTextField — a writable text field for the marker"
       ],
     };
     expect(pickAirtablePrimaryTextField(table)).toBeNull(); // -> BLOCKED_ENV
+  });
+});
+
+describe("pickAirtableAttachmentField — an attachment field for add_attachment", () => {
+  it("returns the first multipleAttachments field", () => {
+    const table: AirtableTableLite = {
+      id: "t1",
+      primaryFieldId: "f1",
+      fields: [
+        { id: "f1", name: "Name", type: "singleLineText" },
+        { id: "f2", name: "Draft Image", type: "multipleAttachments" },
+        { id: "f3", name: "Other Files", type: "multipleAttachments" },
+      ],
+    };
+    expect(pickAirtableAttachmentField(table)).toBe("Draft Image");
+  });
+
+  it("returns null (never a non-attachment field) when the table has none", () => {
+    const table: AirtableTableLite = {
+      id: "t1",
+      primaryFieldId: "f1",
+      fields: [
+        { id: "f1", name: "Name", type: "singleLineText" },
+        { id: "f2", name: "Notes", type: "multilineText" },
+      ],
+    };
+    expect(pickAirtableAttachmentField(table)).toBeNull(); // -> BLOCKED_ENV, never a guess
   });
 });
 

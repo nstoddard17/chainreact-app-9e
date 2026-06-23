@@ -22,6 +22,7 @@ import {
   ledgerRefsIn,
   resolveScalarTokens,
   resolveStepConfig,
+  nonEmptyArrayAtPath,
   runWriteSmoke,
   valueEqualsAtPath,
   valuePresentInArrayAtPath,
@@ -593,6 +594,20 @@ describe("valueEqualsAtPath / valuePresentInArrayAtPath (pure)", () => {
     expect(valuePresentInArrayAtPath({ one: "b" }, "missing", "b")).toBe(false);
     expect(valuePresentInArrayAtPath(null, "idLabels", "b")).toBe(false);
   });
+
+  it("nonEmptyArrayAtPath: non-empty array, with optional per-element key", () => {
+    expect(nonEmptyArrayAtPath({ files: [{ id: "att1" }] }, "files")).toBe(true);
+    expect(nonEmptyArrayAtPath({ files: [] }, "files")).toBe(false); // empty
+    expect(nonEmptyArrayAtPath({ files: "x" }, "files")).toBe(false); // not an array
+    expect(nonEmptyArrayAtPath({}, "files")).toBe(false); // missing
+    expect(nonEmptyArrayAtPath(null, "files")).toBe(false);
+    // elementHasKey: every element must carry a truthy value at the key
+    expect(nonEmptyArrayAtPath({ files: [{ id: "att1" }, { id: "att2" }] }, "files", "id")).toBe(true);
+    expect(nonEmptyArrayAtPath({ files: [{ id: "att1" }, { url: "x" }] }, "files", "id")).toBe(false);
+    expect(nonEmptyArrayAtPath({ files: [{ id: "" }] }, "files", "id")).toBe(false); // falsy id
+    // nested path (the attachment-field case)
+    expect(nonEmptyArrayAtPath({ fields: { "Draft Image": [{ id: "att1" }] } }, "fields.Draft Image", "id")).toBe(true);
+  });
 });
 
 // ─── expectEquals (state) + expectContains (membership) verify primitives ────
@@ -709,6 +724,68 @@ describe("expectEquals / expectContains state + membership verification", () => 
       deps,
     );
     expect(res.status).toBe("VERIFY_FAILED");
+  });
+
+  it("expectNonEmptyArray PASS: attachment field populated (each with id), token-resolved path", async () => {
+    const deps = fakeDeps({ "acme:add_attachment": { ok: true, output: { recordId: "C1" }, reason: null } });
+    // read-back returns the record's fields with a populated attachment array
+    deps.smokeReadBack = async () => ({
+      ok: true,
+      output: { exists: true, fields: { "Draft Image": [{ id: "att1", url: "https://rehosted" }] } },
+      reason: null,
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: { resourceKey: "r", idPath: "recordId", kind: "record" },
+      cleanupKind: "delete",
+      verify: {
+        provider: "acme",
+        action: "record",
+        config: { recordId: "{{ledger.r.id}}" },
+        // path token-resolves the dynamic attachment field name
+        expectNonEmptyArray: { path: "fields.{{env.ATT_FIELD}}", elementHasKey: "id" },
+        smokeRead: true,
+      },
+    });
+    const res = await runWriteSmoke(
+      fixture("add_attachment", spec),
+      { ...RUN, envLookup: (n) => (n === "ATT_FIELD" ? "Draft Image" : undefined) },
+      deps,
+    );
+    expect(res.status).toBe("PASS");
+    expect(res.phases.some((p) => /non-empty array/.test(p.reason ?? ""))).toBe(true);
+  });
+
+  it("expectNonEmptyArray VERIFY_FAILED: attachment field stayed empty (ingestion produced nothing)", async () => {
+    const deps = fakeDeps({
+      "acme:add_attachment": { ok: true, output: { recordId: "C1" }, reason: null },
+      "acme:delete_record": { ok: true, output: null, reason: null },
+    });
+    deps.smokeReadBack = async () => ({
+      ok: true,
+      output: { exists: true, fields: { "Draft Image": [] } },
+      reason: null,
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: { resourceKey: "r", idPath: "recordId", kind: "record" },
+      cleanupKind: "delete",
+      cleanup: { provider: "acme", action: "delete_record", config: { recordId: "{{ledger.r.id}}" } },
+      verify: {
+        provider: "acme",
+        action: "record",
+        config: { recordId: "{{ledger.r.id}}" },
+        expectNonEmptyArray: { path: "fields.{{env.ATT_FIELD}}", elementHasKey: "id" },
+        smokeRead: true,
+      },
+    });
+    const res = await runWriteSmoke(
+      fixture("add_attachment", spec),
+      { ...RUN, envLookup: (n) => (n === "ATT_FIELD" ? "Draft Image" : undefined) },
+      deps,
+    );
+    expect(res.status).toBe("VERIFY_FAILED");
+    expect(deps.calls.some((c) => c.action === "delete_record")).toBe(true); // cleanup still runs
   });
 });
 

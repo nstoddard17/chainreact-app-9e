@@ -43,11 +43,13 @@ import { getOptionsResolver } from "@/services/options/_registry";
 import { cardsGet, cardsListComments } from "@/integrations/trello/api/cards";
 import { recordsList } from "@/integrations/airtable/api/records";
 import { basesGetSchema } from "@/integrations/airtable/api/bases";
+import { WORKFLOW_FILES_BUCKET } from "@/core/files/fetchFileBytes";
 import { search as notionSearch, type SearchHit } from "@/integrations/notion/api/search";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import { SMOKE_ACTION_NODE_ID, SMOKE_TRIGGER_NODE_ID } from "./workflowRun";
 import type { StepRunOutcome, WriteHarnessDeps } from "./writeHarness";
 import {
+  pickAirtableAttachmentField,
   pickAirtablePrimaryTextField,
   pickNotionSmokeDatabase,
   pickSecondSmokeList,
@@ -274,6 +276,71 @@ export async function discoverAirtableSmokeTextField(
     primaryFieldId: table.primaryFieldId,
     fields: table.fields.map((f) => ({ id: f.id, name: f.name, type: f.type })),
   });
+}
+
+/**
+ * Discover the NAME of an attachment field on the smoke table (for `add_attachment`)
+ * via the read-only schema (refresh-safe). Returns the first `multipleAttachments`
+ * field, or null when the table has none -> caller reports BLOCKED_ENV (set
+ * SMOKE_AIRTABLE_ATTACHMENT_FIELD). Never returns a non-attachment field. READ-ONLY.
+ */
+export async function discoverAirtableSmokeAttachmentField(
+  accountId: string,
+  userId: string,
+  baseId: string,
+  tableId: string,
+): Promise<string | null> {
+  const integration = await getActiveForExecution(accountId, "airtable", null, {
+    connectedByUserId: userId,
+  });
+  if (!integration) return null;
+  let schema;
+  try {
+    schema = await refreshAndRetry({
+      accountId,
+      provider: "airtable",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) => basesGetSchema({ accessToken, baseId, includeViews: false }),
+    });
+  } catch {
+    return null;
+  }
+  const table = schema.tables.find((t) => t.id === tableId || t.name === tableId);
+  if (!table) return null;
+  return pickAirtableAttachmentField({
+    id: table.id,
+    primaryFieldId: table.primaryFieldId,
+    fields: table.fields.map((f) => ({ id: f.id, name: f.name, type: f.type })),
+  });
+}
+
+/**
+ * Stage a tiny throwaway file in OUR `workflow-files` Supabase bucket so
+ * `add_attachment` can attach it via a `v2_storage` FileRef (the handler mints a
+ * short-lived signed URL Airtable fetches). This is the SELF-CONTAINED alternative
+ * to a public/external URL — the bytes are our own controlled 1x1 PNG, never an
+ * invented third-party URL. Returns the storagePath (for the FileRef) + a `remove`
+ * cleanup. Uses the caller's service-role client (same one the dev test builds).
+ */
+const SMOKE_ATTACHMENT_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+  "base64",
+);
+
+export async function stageSmokeAttachmentFile(
+  supabase: SupabaseClient,
+  storagePath: string,
+): Promise<{ storagePath: string; remove: () => Promise<void> } | null> {
+  const { error } = await supabase.storage
+    .from(WORKFLOW_FILES_BUCKET)
+    .upload(storagePath, SMOKE_ATTACHMENT_PNG, { contentType: "image/png", upsert: true });
+  if (error) return null;
+  return {
+    storagePath,
+    remove: async () => {
+      await supabase.storage.from(WORKFLOW_FILES_BUCKET).remove([storagePath]).catch(() => {});
+    },
+  };
 }
 
 /**

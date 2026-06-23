@@ -47,6 +47,8 @@ import {
   discoverNotionSmokeParentPage,
   discoverNotionSmokeDatabase,
   discoverAirtableSmokeTextField,
+  discoverAirtableSmokeAttachmentField,
+  stageSmokeAttachmentFile,
 } from "@/tests/smoke-actions/writeHarnessDeps";
 import { renderWriteSmokeHuman } from "@/tests/smoke-actions/writeHarness";
 import { classifyWriteTarget } from "@/tests/smoke-actions/writeTargets";
@@ -113,6 +115,9 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     //    board/list; other providers read their target from env (.env.local).
     const overlay: Record<string, string> = {};
     let targetLabel: string | null = null;
+    // Removes the throwaway file staged for airtable:add_attachment (if any). Run
+    // in a finally so a staged file is never left behind even on assertion failure.
+    let cleanupStagedFile: (() => Promise<void>) | null = null;
     if (provider === "trello" && execUsable) {
       const chosen = await discoverTrelloSmokeTarget(account, user);
       if (chosen) {
@@ -160,6 +165,24 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
           targetLabel = `base ${baseId} / table ${tableId} / text field "${field}"`;
         }
       }
+      // add_attachment needs an attachment field + a fetchable file. Discover the
+      // attachment field, then stage a throwaway PNG in OUR workflow-files bucket
+      // (a self-contained v2_storage source — never an invented external URL).
+      if (baseId && tableId) {
+        const attField =
+          process.env.SMOKE_AIRTABLE_ATTACHMENT_FIELD ||
+          (await discoverAirtableSmokeAttachmentField(account, user, baseId, tableId));
+        if (attField) {
+          overlay.SMOKE_AIRTABLE_ATTACHMENT_FIELD = attField;
+          const storagePath = `smoke/attach/${randomUUID()}.png`;
+          const staged = await stageSmokeAttachmentFile(supabase, storagePath);
+          if (staged) {
+            overlay.SMOKE_AIRTABLE_ATTACHMENT_STORAGE_PATH = staged.storagePath;
+            cleanupStagedFile = staged.remove;
+            targetLabel = `${targetLabel ?? `base ${baseId} / table ${tableId}`} / attachment field "${attField}"`;
+          }
+        }
+      }
     }
     const envLookup = (n: string): string | undefined => overlay[n] ?? process.env[n];
 
@@ -183,46 +206,52 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       return;
     }
 
-    const { report, writeResults } = await runActionSmokeWriteMode(
-      WRITE_SMOKE_FIXTURES,
-      {
-        providerFilter: provider,
-        allowWrite: true,
-        allowDestructive: true,
-        runToken: randomUUID().slice(0, 8),
-        envLookup,
-      },
-      deps,
-    );
+    try {
+      const { report, writeResults } = await runActionSmokeWriteMode(
+        WRITE_SMOKE_FIXTURES,
+        {
+          providerFilter: provider,
+          allowWrite: true,
+          allowDestructive: true,
+          runToken: randomUUID().slice(0, 8),
+          envLookup,
+        },
+        deps,
+      );
 
-    console.log(renderWriteSmokeHuman(writeResults));
-    expect(report.mode).toBe("workflow-live");
+      console.log(renderWriteSmokeHuman(writeResults));
+      expect(report.mode).toBe("workflow-live");
 
-    const serialized = renderExecutionJson(report);
-    expect(serialized).not.toMatch(/xox[abprs]-/);
-    expect(serialized).not.toMatch(/\bBearer\s+\S+/i);
+      const serialized = renderExecutionJson(report);
+      expect(serialized).not.toMatch(/xox[abprs]-/);
+      expect(serialized).not.toMatch(/\bBearer\s+\S+/i);
 
-    // Gate: no FAIL / VERIFY_FAILED / CLEANUP_FAILED. BLOCKED_ENV folds to skip
-    // (connected, but no safe target) — acceptable, not a failure.
-    expect(report.ok).toBe(true);
+      // Gate: no FAIL / VERIFY_FAILED / CLEANUP_FAILED. BLOCKED_ENV folds to skip
+      // (connected, but no safe target) — acceptable, not a failure.
+      expect(report.ok).toBe(true);
 
-    for (const r of writeResults) {
-      if (r.status === "PASS") {
-        // A REQUIRED (delete) cleanup failure can never reach PASS (it becomes
-        // CLEANUP_FAILED), so any leftover on a PASS run is intentional + harmless.
-        if (r.artifact === "cleaned" || r.artifact === "archived") {
-          // the cleanup step ran successfully -> nothing left un-dispositioned
-          expect(r.ledger.leaked).toBe(0);
-          expect(r.ledger.cleaned).toBe(r.ledger.created);
-        } else {
-          // "left" -> best-effort/no-cleanup (e.g. archive_page: the page is
-          // archived by the execute step and Notion forbids re-editing it). A
-          // harmless marked smoke object remains on the throwaway account.
-          expect(r.artifact).toBe("left");
+      for (const r of writeResults) {
+        if (r.status === "PASS") {
+          // A REQUIRED (delete) cleanup failure can never reach PASS (it becomes
+          // CLEANUP_FAILED), so any leftover on a PASS run is intentional + harmless.
+          if (r.artifact === "cleaned" || r.artifact === "archived") {
+            // the cleanup step ran successfully -> nothing left un-dispositioned
+            expect(r.ledger.leaked).toBe(0);
+            expect(r.ledger.cleaned).toBe(r.ledger.created);
+          } else {
+            // "left" -> best-effort/no-cleanup (e.g. archive_page: the page is
+            // archived by the execute step and Notion forbids re-editing it). A
+            // harmless marked smoke object remains on the throwaway account.
+            expect(r.artifact).toBe("left");
+          }
         }
+        // BLOCKED_ENV must read as a target problem, never "not connected".
+        if (r.status === "BLOCKED_ENV") expect(r.reason).toMatch(/smoke target/i);
       }
-      // BLOCKED_ENV must read as a target problem, never "not connected".
-      if (r.status === "BLOCKED_ENV") expect(r.reason).toMatch(/smoke target/i);
+    } finally {
+      // Always remove the throwaway staged attachment file (the smoke record it was
+      // attached to is deleted by the fixture's own cleanup).
+      if (cleanupStagedFile) await cleanupStagedFile();
     }
   }, 600_000);
 });
