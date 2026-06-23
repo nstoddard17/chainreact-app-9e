@@ -43,12 +43,14 @@ export const newMessageChannelTriggerMeta: TriggerMeta = {
     {
       name: "channelId",
       sensitivity: "recipient",
-      label: "Channel ID (optional)",
+      label: "Channel (optional)",
       description:
         "When set, only messages in this public channel fire the workflow. When blank, fires for every public-channel message in the workspace. Slack public channel ids start with 'C'.",
-      type: "text",
+      type: "combobox",
+      optionsSource: "slack:channels",
+      allowManualEntry: true,
       required: false,
-      placeholder: "C0123456789",
+      placeholder: "Search channels or paste a channel ID",
     },
   ],
   payloadShape: [

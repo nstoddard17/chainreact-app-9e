@@ -31,12 +31,14 @@ export const newMessagePrivateChannelTriggerMeta: TriggerMeta = {
     {
       name: "channelId",
       sensitivity: "recipient",
-      label: "Channel ID (optional)",
+      label: "Channel (optional)",
       description:
         "When set, only messages in this private channel fire the workflow. When blank, fires for every private-channel message the bot can see. Modern private channels use 'C' ids; legacy private channels use 'G' ids — both are accepted.",
-      type: "text",
+      type: "combobox",
+      optionsSource: "slack:channels",
+      allowManualEntry: true,
       required: false,
-      placeholder: "C0123456789",
+      placeholder: "Search channels or paste a channel ID",
     },
   ],
   payloadShape: [

@@ -479,6 +479,88 @@ describe("ComboboxField — async optionsSource (Slice 3.31)", () => {
   });
 });
 
+// ─── CS-2 — opt-in manual "name-or-ID" entry ───────────────────────────────
+
+describe("ComboboxField async optionsSource — allowManualEntry (CS-2)", () => {
+  it("does NOT offer manual entry by default (flag absent → unchanged behavior)", async () => {
+    setHookState({ status: "empty", items: [], hasMore: false });
+    const user = userEvent.setup();
+    render(
+      <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Channel" }));
+    await user.type(await screen.findByPlaceholderText("Search..."), "C0999XYZ");
+    expect(screen.queryByTestId("combobox-manual-entry")).not.toBeInTheDocument();
+  });
+
+  it("offers a 'Use this ID' item when allowManualEntry is set and the typed value matches no option", async () => {
+    setHookState({ status: "empty", items: [], hasMore: false });
+    const user = userEvent.setup();
+    render(
+      <ComboboxField
+        field={asyncField({ allowManualEntry: true })}
+        value=""
+        onChange={jest.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Channel" }));
+    await user.type(await screen.findByPlaceholderText("Search..."), "C0999XYZ");
+    const manual = await screen.findByTestId("combobox-manual-entry");
+    expect(manual).toHaveTextContent(/Use this ID/i);
+    expect(manual).toHaveTextContent("C0999XYZ");
+  });
+
+  it("committing manual entry stores the raw typed id via onChange", async () => {
+    setHookState({ status: "empty", items: [], hasMore: false });
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <ComboboxField
+        field={asyncField({ allowManualEntry: true })}
+        value=""
+        onChange={onChange}
+      />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Channel" }));
+    await user.type(await screen.findByPlaceholderText("Search..."), "C0999XYZ");
+    await user.click(await screen.findByTestId("combobox-manual-entry"));
+    expect(onChange).toHaveBeenCalledWith("C0999XYZ");
+  });
+
+  it("does NOT offer manual entry when the typed value exactly matches a loaded option", async () => {
+    setHookState({
+      status: "ready",
+      items: [{ value: "C1", label: "#general" }],
+      hasMore: false,
+    });
+    const user = userEvent.setup();
+    render(
+      <ComboboxField
+        field={asyncField({ allowManualEntry: true })}
+        value=""
+        onChange={jest.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Channel" }));
+    await user.type(await screen.findByPlaceholderText("Search..."), "C1");
+    expect(screen.queryByTestId("combobox-manual-entry")).not.toBeInTheDocument();
+    // The real option is still selectable.
+    expect(screen.getByText("#general")).toBeInTheDocument();
+  });
+
+  it("hydrates a previously pasted id on the trigger without crashing (allowManualEntry)", () => {
+    setHookState({ status: "ready", items: [{ value: "C1", label: "#general" }], hasMore: false });
+    render(
+      <ComboboxField
+        field={asyncField({ allowManualEntry: true })}
+        value="C-PASTED-99"
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Channel" })).toHaveTextContent("C-PASTED-99");
+  });
+});
+
 // ─── Slice 3.33 — dependsOn cascade props ──────────────────────────────────
 
 describe("ComboboxField async optionsSource — dependsOn cascade props (Slice 3.33)", () => {

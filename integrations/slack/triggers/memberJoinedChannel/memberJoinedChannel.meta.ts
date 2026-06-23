@@ -31,12 +31,14 @@ export const memberJoinedChannelTriggerMeta: TriggerMeta = {
     {
       name: "channelId",
       sensitivity: "recipient",
-      label: "Channel ID (optional)",
+      label: "Channel (optional)",
       description:
         "When set, only joins to this channel fire the workflow. When blank, every member-joined event matches. Public and private channels are both supported.",
-      type: "text",
+      type: "combobox",
+      optionsSource: "slack:channels",
+      allowManualEntry: true,
       required: false,
-      placeholder: "C0123456789",
+      placeholder: "Search channels or paste a channel ID",
     },
   ],
   payloadShape: [

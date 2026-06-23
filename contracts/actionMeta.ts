@@ -240,6 +240,16 @@ export const FieldMetaSchema = z
      */
     multiple: z.boolean().optional(),
     /**
+     * CS-2 (config-field UX) — opt-in "name-or-ID" manual entry for an async
+     * `combobox`. When true, the picker also lets a power user commit exactly
+     * what they typed (e.g. paste a stable id the resolver can't list, like a
+     * channel the bot can't enumerate) instead of forcing a pick from the
+     * loaded options. The stored value is still the raw string the handler
+     * schema expects. Default (absent/false) keeps the strict pick-from-list
+     * behavior, so existing comboboxes are unchanged.
+     */
+    allowManualEntry: z.boolean().optional(),
+    /**
      * For `keyvalue` fields, hint the renderer about cap behavior. The
      * underlying handler schema enforces the authoritative cap.
      */
@@ -295,6 +305,13 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["multiple"],
         message: "`multiple` is only valid on `select` or `combobox` fields.",
+      });
+    }
+    if (field.allowManualEntry && field.type !== "combobox") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["allowManualEntry"],
+        message: "`allowManualEntry` is only valid on `combobox` fields.",
       });
     }
     if (field.keyValueMaxRows && field.type !== "keyvalue") {

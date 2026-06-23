@@ -354,4 +354,21 @@ export default [
       ],
     },
   },
+
+  // features/workflow-builder/config-modal/fields/ComboboxField.tsx — the searchable single-select
+  // renderer. Already over the default cap as a long-standing, accepted pre-existing warning (its
+  // async-status-list switch covers every options-source UX arm: loading/ready/empty/error/
+  // disconnected/needs-reconnect/owner-gated, plus the static-options path). CS-2 added the opt-in
+  // `allowManualEntry` "name-or-ID" affordance. Splitting the async body / status list into its own
+  // file is a real refactor, not a field-UX commit. Capped at 460 to make further drift visible;
+  // mirrors the WorkflowBuilder.tsx / graphSlice.ts precedent above.
+  {
+    files: ["features/workflow-builder/config-modal/fields/ComboboxField.tsx"],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 460, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
 ];

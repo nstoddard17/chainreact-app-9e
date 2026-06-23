@@ -28,12 +28,14 @@ export const memberLeftChannelTriggerMeta: TriggerMeta = {
     {
       name: "channelId",
       sensitivity: "recipient",
-      label: "Channel ID (optional)",
+      label: "Channel (optional)",
       description:
         "When set, only departures from this channel fire the workflow. When blank, every member-left event matches.",
-      type: "text",
+      type: "combobox",
+      optionsSource: "slack:channels",
+      allowManualEntry: true,
       required: false,
-      placeholder: "C0123456789",
+      placeholder: "Search channels or paste a channel ID",
     },
   ],
   payloadShape: [

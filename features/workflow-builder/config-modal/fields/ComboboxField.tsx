@@ -124,6 +124,25 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
     ? (knownSelected?.label ?? value)
     : (field.placeholder ?? "Choose...");
 
+  // CS-2 — opt-in manual "name-or-ID" entry. When `field.allowManualEntry`,
+  // a power user can commit exactly what they typed (e.g. paste a stable id the
+  // resolver can't enumerate) instead of being forced to pick a loaded option.
+  // Shown only when the typed input is non-empty AND doesn't exactly match an
+  // already-loaded option value (so it never shadows a real pick).
+  const loadedItems =
+    state.status === "ready" || state.status === "loading" ? state.items : [];
+  const manualValue = searchInput.trim();
+  const showManualEntry =
+    field.allowManualEntry === true &&
+    manualValue.length > 0 &&
+    !loadedItems.some((o) => o.value === manualValue);
+
+  const commitManualEntry = (): void => {
+    onChange(manualValue);
+    setSelectedSnapshot({ value: manualValue, label: manualValue });
+    setOpen(false);
+  };
+
   const renderList = (): React.ReactNode => {
     switch (state.status) {
       case "idle":
@@ -339,7 +358,23 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
               value={searchInput}
               onValueChange={setSearchInput}
             />
-            <CommandList>{renderList()}</CommandList>
+            <CommandList>
+              {showManualEntry ? (
+                <CommandGroup>
+                  <CommandItem
+                    value={`__manual_entry__:${manualValue}`}
+                    data-testid="combobox-manual-entry"
+                    onSelect={commitManualEntry}
+                  >
+                    <Check className="mr-2 h-4 w-4 opacity-0" />
+                    <span>
+                      Use this ID: <span className="font-medium">{manualValue}</span>
+                    </span>
+                  </CommandItem>
+                </CommandGroup>
+              ) : null}
+              {renderList()}
+            </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
