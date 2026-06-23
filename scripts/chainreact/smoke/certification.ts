@@ -100,6 +100,7 @@ function records(
 const LIVE = "2026-06-20";
 const LIVE_AUTODISCOVERY = "2026-06-21";
 const SMOKE_WRITE = "2026-06-22";
+const SMOKE_WRITE_FILE = "2026-06-23";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -243,6 +244,28 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // create card -> comment -> read-back comments -> archive card.
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live write + independent comment read-back, archived", SMOKE_WRITE, [
     ["trello", "add_comment"],
+  ]),
+  // SMOKE-WRITE-19 — Dropbox + OneDrive file-provider batch. Each created one
+  // marker-named smoke-owned folder at the provider root, confirmed it on an
+  // INDEPENDENT read-back, then deleted exactly that folder. Object removed from
+  // the active namespace (get-by-path/id then NotFound) -> reported "cleaned".
+  // HONESTY: neither provider exposes a hard permanent-delete on these actions —
+  // Dropbox delete moves to TRASH (recoverable ~30d), OneDrive delete to the
+  // RECYCLE BIN (recoverable). The smoke object is gone from the active drive,
+  // but the disposition is reversible (disclosed here, not hidden).
+  //
+  //   create_folder: create -> get read-back (marker on persisted name +
+  //     isFolder/kind state) -> delete. delete (the verb action): setup create ->
+  //     delete -> INDEPENDENT existence probe exists==false (typed NotFound
+  //     distinguishes deleted from a permission error; the delete echo is never
+  //     trusted).
+  ...records("LIVE_PASS_CLEANED", "live write+verify, deleted to Dropbox trash (recoverable ~30d)", SMOKE_WRITE_FILE, [
+    ["dropbox", "create_folder"],
+    ["dropbox", "delete_file"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live write+verify, deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_FILE, [
+    ["microsoft-onedrive", "create_folder"],
+    ["microsoft-onedrive", "delete_item"],
   ]),
 ];
 
