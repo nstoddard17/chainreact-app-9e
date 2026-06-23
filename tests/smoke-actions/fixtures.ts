@@ -126,9 +126,12 @@ import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
 import notionCreateComment from "@/tests/fixtures/action-smoke/notion/create_comment";
+import notionArchivePage from "@/tests/fixtures/action-smoke/notion/archive_page";
+import notionRestorePage from "@/tests/fixtures/action-smoke/notion/restore_page";
 import trelloCreateCard from "@/tests/fixtures/action-smoke/trello/create_card";
 import trelloUpdateCard from "@/tests/fixtures/action-smoke/trello/update_card";
 import trelloAddComment from "@/tests/fixtures/action-smoke/trello/add_comment";
+import trelloAddLabelToCard from "@/tests/fixtures/action-smoke/trello/add_label_to_card";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -240,9 +243,12 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   notionUpdatePage,
   notionAppendBlockChildren,
   notionCreateComment,
+  notionArchivePage,
+  notionRestorePage,
   trelloCreateCard,
   trelloUpdateCard,
   trelloAddComment,
+  trelloAddLabelToCard,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

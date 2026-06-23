@@ -80,6 +80,29 @@ export interface ActionStepSpec {
    */
   readonly markerPath?: string;
   /**
+   * Assert that the scalar at `path` in THIS step's (read-back) output equals
+   * `value`. Used to verify a STATE CHANGE the run marker cannot prove — e.g.
+   * `{ path: "archived", value: true }` after archive_page, where the action's
+   * own output hard-codes the flag (so only an INDEPENDENT read-back proves it).
+   * Booleans/numbers compare strictly; a string `value` is token-resolved
+   * (`{{env.*}}` / `{{smokeMarker}}`) first. Mismatch / missing -> VERIFY_FAILED.
+   */
+  readonly expectEquals?: {
+    readonly path: string;
+    readonly value: string | number | boolean;
+  };
+  /**
+   * Assert that the ARRAY at `path` in THIS step's (read-back) output CONTAINS
+   * `value`. Used to verify MEMBERSHIP by independent read-back rather than input
+   * echo — e.g. `{ path: "idLabels", value: "{{env.SMOKE_TRELLO_LABEL_ID}}" }`
+   * after add_label_to_card. The `value` string is token-resolved first. Missing
+   * path / value absent -> VERIFY_FAILED.
+   */
+  readonly expectContains?: {
+    readonly path: string;
+    readonly value: string;
+  };
+  /**
    * When true, this (verify) step is resolved by the SMOKE-ONLY read-back seam
    * (`WriteHarnessDeps.smokeReadBack`) rather than the registered-action engine
    * path — for providers that have no user-facing read action to verify against

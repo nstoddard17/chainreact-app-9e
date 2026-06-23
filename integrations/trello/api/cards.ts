@@ -87,6 +87,34 @@ export async function cardsCreate(
   });
 }
 
+// ─── cardsGet ────────────────────────────────────────────────────────────
+
+export interface CardsGetInput {
+  accessToken: string;
+  cardId: string;
+}
+
+/**
+ * GET /1/cards/{id} — retrieve a single card's current persisted state. A
+ * bounded, READ-ONLY read-back of the fields V2 already surfaces on a card
+ * (`idList`, `idLabels`, `idMembers`, `closed`, name/desc). Used to verify a
+ * mutation INDEPENDENTLY of the mutating call's own response — e.g. confirm a
+ * label was actually applied by reading the card's `idLabels`, never trusting the
+ * add-label POST echo. `fields` is pinned so the payload stays small and the
+ * shape is stable.
+ */
+export async function cardsGet(input: CardsGetInput): Promise<TrelloCard> {
+  return trelloRequest<TrelloCard>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: `/1/cards/${encodeURIComponent(input.cardId)}`,
+    query: new URLSearchParams({
+      fields: "id,name,desc,idList,idBoard,idLabels,idMembers,closed,url",
+    }),
+    resourceForNotFound: `card ${input.cardId}`,
+  });
+}
+
 // ─── cardsUpdate ─────────────────────────────────────────────────────────
 
 export interface CardsUpdateInput {

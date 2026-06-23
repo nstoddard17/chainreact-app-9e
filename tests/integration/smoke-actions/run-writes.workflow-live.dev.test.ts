@@ -42,6 +42,7 @@ import {
   makeRealWriteHarnessDeps,
   probeWriteConnection,
   discoverTrelloSmokeTarget,
+  discoverTrelloSmokeLabel,
   discoverNotionSmokeParentPage,
 } from "@/tests/smoke-actions/writeHarnessDeps";
 import { renderWriteSmokeHuman } from "@/tests/smoke-actions/writeHarness";
@@ -114,6 +115,12 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       if (chosen) {
         overlay.SMOKE_TRELLO_LIST_ID = chosen.listId; // id -> env overlay only
         targetLabel = `board "${chosen.boardLabel}" / list "${chosen.listLabel}"`;
+        // add_label_to_card also needs a label id on the same smoke board.
+        const label = await discoverTrelloSmokeLabel(account, user, chosen.boardId);
+        if (label) {
+          overlay.SMOKE_TRELLO_LABEL_ID = label.labelId; // id -> env overlay only
+          targetLabel += ` / label "${label.label}"`;
+        }
       }
     } else if (provider === "notion" && execUsable) {
       const parent = await discoverNotionSmokeParentPage(account, user);
@@ -169,8 +176,18 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
 
     for (const r of writeResults) {
       if (r.status === "PASS") {
-        expect(r.ledger.leaked).toBe(0);
-        expect(r.ledger.cleaned).toBe(r.ledger.created);
+        // A REQUIRED (delete) cleanup failure can never reach PASS (it becomes
+        // CLEANUP_FAILED), so any leftover on a PASS run is intentional + harmless.
+        if (r.artifact === "cleaned" || r.artifact === "archived") {
+          // the cleanup step ran successfully -> nothing left un-dispositioned
+          expect(r.ledger.leaked).toBe(0);
+          expect(r.ledger.cleaned).toBe(r.ledger.created);
+        } else {
+          // "left" -> best-effort/no-cleanup (e.g. archive_page: the page is
+          // archived by the execute step and Notion forbids re-editing it). A
+          // harmless marked smoke object remains on the throwaway account.
+          expect(r.artifact).toBe("left");
+        }
       }
       // BLOCKED_ENV must read as a target problem, never "not connected".
       if (r.status === "BLOCKED_ENV") expect(r.reason).toMatch(/smoke target/i);

@@ -40,7 +40,7 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
 import { getOptionsResolver } from "@/services/options/_registry";
 import { decryptToken } from "@/core/encryption/tokens";
-import { cardsListComments } from "@/integrations/trello/api/cards";
+import { cardsGet, cardsListComments } from "@/integrations/trello/api/cards";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import { SMOKE_ACTION_NODE_ID, SMOKE_TRIGGER_NODE_ID } from "./workflowRun";
 import type { StepRunOutcome, WriteHarnessDeps } from "./writeHarness";
@@ -151,6 +151,29 @@ export async function discoverTrelloSmokeTarget(
     }
   }
   return pickSmokeSafeTarget(candidates);
+}
+
+/**
+ * Discover a Trello label id on a smoke board for `add_label_to_card` via the
+ * read-only `trello:labels` resolver. Trello boards ship 6 default color labels,
+ * so this resolves on any board. Returns the first label's id (env-overlay only)
+ * + a safe label for the report, or null when the board has no labels. READ-ONLY.
+ */
+export async function discoverTrelloSmokeLabel(
+  accountId: string,
+  userId: string,
+  boardId: string,
+): Promise<{ labelId: string; label: string } | null> {
+  const integration = await getActiveForExecution(accountId, "trello", null, {
+    connectedByUserId: userId,
+  });
+  if (!integration) return null;
+  const labelsR = getOptionsResolver("trello:labels");
+  if (!labelsR) return null;
+  const labels = await labelsR.resolve({ userId, integration, q: "", deps: { boardId } });
+  const chosen = labels.items[0];
+  if (!chosen) return null;
+  return { labelId: chosen.value, label: chosen.label ?? chosen.value };
 }
 
 /**
@@ -292,6 +315,31 @@ export function makeRealWriteHarnessDeps(
             date: a.date ?? null,
           }));
           return { ok: true, output: { comments }, reason: null };
+        }
+        if (input.provider === "trello" && input.action === "card") {
+          const integration = await getActiveForExecution(accountId, "trello", null, {
+            connectedByUserId: userId,
+          });
+          if (!integration) return { ok: false, output: null, reason: "trello not connected" };
+          const cardId = input.config.cardId;
+          if (typeof cardId !== "string" || cardId.length === 0) {
+            return { ok: false, output: null, reason: "card read-back: missing cardId" };
+          }
+          const accessToken = decryptToken(integration.accessTokenEncrypted);
+          const card = await cardsGet({ accessToken, cardId });
+          // Bounded mapping — only the membership/state fields verification reads.
+          return {
+            ok: true,
+            output: {
+              cardId: card.id,
+              name: card.name,
+              idList: card.idList ?? null,
+              idLabels: card.idLabels ?? [],
+              idMembers: card.idMembers ?? [],
+              closed: card.closed ?? false,
+            },
+            reason: null,
+          };
         }
         return { ok: false, output: null, reason: `no smoke reader for ${input.provider}:${input.action}` };
       } catch (err) {

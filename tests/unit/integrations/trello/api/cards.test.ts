@@ -9,6 +9,7 @@
  */
 import {
   cardsCreate,
+  cardsGet,
   cardsUpdate,
   cardsAddComment,
   cardsAddLabel,
@@ -100,6 +101,35 @@ describe("cardsCreate", () => {
     const body = JSON.parse(captured.body!);
     expect(body.idMembers).toBeUndefined();
     expect(body.idLabels).toBeUndefined();
+  });
+});
+
+describe("cardsGet", () => {
+  it("GETs /1/cards/{id} with a pinned fields set and no body", async () => {
+    const captured = captureFetch({
+      id: "c1",
+      name: "crsmoke-abc-seed",
+      idList: "l1",
+      idLabels: ["lab1"],
+      idMembers: [],
+      closed: false,
+    });
+    const card = await cardsGet({ accessToken: "t", cardId: "c1" });
+    expect(captured.method).toBe("GET");
+    const url = new URL(captured.url!);
+    expect(url.pathname).toBe("/1/cards/c1");
+    expect(url.searchParams.get("fields")).toBe(
+      "id,name,desc,idList,idBoard,idLabels,idMembers,closed,url",
+    );
+    expect(captured.body).toBeUndefined(); // GET has no body
+    expect(card.idLabels).toEqual(["lab1"]);
+    expect(card.name).toBe("crsmoke-abc-seed");
+  });
+
+  it("URL-encodes the card id in the path", async () => {
+    const captured = captureFetch({ id: "c/1" });
+    await cardsGet({ accessToken: "t", cardId: "c/1" });
+    expect(new URL(captured.url!).pathname).toBe("/1/cards/c%2F1");
   });
 });
 

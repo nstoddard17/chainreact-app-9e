@@ -23,6 +23,8 @@ import {
   resolveScalarTokens,
   resolveStepConfig,
   runWriteSmoke,
+  valueEqualsAtPath,
+  valuePresentInArrayAtPath,
   type StepRunOutcome,
   type WriteHarnessDeps,
 } from "@/tests/smoke-actions/writeHarness";
@@ -566,6 +568,147 @@ describe("smokeRead verify routes to the smoke read-back seam, never the engine"
     expect(res.status).toBe("VERIFY_FAILED");
     // card_comments was NEVER dispatched as a normal engine action
     expect(deps.calls.some((c) => c.action === "card_comments")).toBe(false);
+  });
+});
+
+// ─── pure path-assertion helpers ─────────────────────────────────────────────
+
+describe("valueEqualsAtPath / valuePresentInArrayAtPath (pure)", () => {
+  it("valueEqualsAtPath: strict scalar equality, missing/non-scalar -> false", () => {
+    expect(valueEqualsAtPath({ archived: true }, "archived", true)).toBe(true);
+    expect(valueEqualsAtPath({ archived: false }, "archived", true)).toBe(false);
+    expect(valueEqualsAtPath({ n: 3 }, "n", 3)).toBe(true);
+    expect(valueEqualsAtPath({ s: "x" }, "s", "x")).toBe(true);
+    expect(valueEqualsAtPath({ s: "x" }, "missing", "x")).toBe(false);
+    expect(valueEqualsAtPath(null, "archived", true)).toBe(false);
+    // a truthy non-matching type is never loosely equal
+    expect(valueEqualsAtPath({ archived: "true" }, "archived", true)).toBe(false);
+  });
+
+  it("valuePresentInArrayAtPath: array membership + scalar fallback", () => {
+    expect(valuePresentInArrayAtPath({ idLabels: ["a", "b"] }, "idLabels", "b")).toBe(true);
+    expect(valuePresentInArrayAtPath({ idLabels: ["a", "b"] }, "idLabels", "z")).toBe(false);
+    expect(valuePresentInArrayAtPath({ idLabels: [] }, "idLabels", "b")).toBe(false);
+    expect(valuePresentInArrayAtPath({ one: "b" }, "one", "b")).toBe(true); // scalar fallback
+    expect(valuePresentInArrayAtPath({ one: "b" }, "missing", "b")).toBe(false);
+    expect(valuePresentInArrayAtPath(null, "idLabels", "b")).toBe(false);
+  });
+});
+
+// ─── expectEquals (state) + expectContains (membership) verify primitives ────
+
+describe("expectEquals / expectContains state + membership verification", () => {
+  const captured = { resourceKey: "r", idPath: "id", kind: "thing" } as const;
+
+  it("expectEquals PASS: read-back scalar equals the expected state (archived==true)", async () => {
+    const deps = fakeDeps({
+      "acme:archive_thing": { ok: true, output: { id: "X" }, reason: null },
+      // the action's OWN output could lie; the INDEPENDENT get_thing read-back is trusted
+      "acme:get_thing": { ok: true, output: { title: "crsmoke-T1-seed", archived: true }, reason: null },
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: captured,
+      cleanupKind: "archive",
+      cleanup: { provider: "acme", action: "archive_thing2", config: { id: "{{ledger.r.id}}" } },
+      verify: {
+        provider: "acme",
+        action: "get_thing",
+        config: { id: "{{ledger.r.id}}" },
+        markerPath: "title",
+        expectEquals: { path: "archived", value: true },
+      },
+    });
+    const res = await runWriteSmoke(fixture("archive_thing", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.phases.filter((p) => p.phase === "verify").some((p) => /== expected state/.test(p.reason ?? ""))).toBe(true);
+  });
+
+  it("expectEquals VERIFY_FAILED: marker matches but the state did not change", async () => {
+    const deps = fakeDeps({
+      "acme:archive_thing": { ok: true, output: { id: "X" }, reason: null },
+      // OUR resource (marker) but archive never took effect (archived still false)
+      "acme:get_thing": { ok: true, output: { title: "crsmoke-T1-seed", archived: false }, reason: null },
+      "acme:archive_thing2": { ok: true, output: null, reason: null },
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: captured,
+      cleanupKind: "archive",
+      cleanup: { provider: "acme", action: "archive_thing2", config: { id: "{{ledger.r.id}}" } },
+      verify: {
+        provider: "acme",
+        action: "get_thing",
+        config: { id: "{{ledger.r.id}}" },
+        markerPath: "title",
+        expectEquals: { path: "archived", value: true },
+      },
+    });
+    const res = await runWriteSmoke(fixture("archive_thing", spec), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED"); // state assertion failed even though marker matched
+    expect(deps.calls.some((c) => c.action === "archive_thing2")).toBe(true); // cleanup still ran
+  });
+
+  it("expectContains PASS: read-back array contains the env-resolved member (label id)", async () => {
+    const deps = fakeDeps({
+      "acme:add_label": { ok: true, output: { id: "C1" }, reason: null },
+    });
+    // route the verify through the smoke read-back seam (independent of the write echo)
+    deps.smokeReadBack = async () => ({
+      ok: true,
+      output: { name: "crsmoke-T1-seed", idLabels: ["lblOther", "LBL-XYZ"] },
+      reason: null,
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: captured,
+      cleanupKind: "archive",
+      cleanup: { provider: "acme", action: "archive_thing2", config: { id: "{{ledger.r.id}}" } },
+      verify: {
+        provider: "acme",
+        action: "card",
+        config: { id: "{{ledger.r.id}}" },
+        markerPath: "name",
+        expectContains: { path: "idLabels", value: "{{env.SMOKE_LABEL}}" },
+        smokeRead: true,
+      },
+    });
+    const res = await runWriteSmoke(
+      fixture("add_label", spec),
+      { ...RUN, envLookup: (n) => (n === "SMOKE_LABEL" ? "LBL-XYZ" : undefined) },
+      deps,
+    );
+    expect(res.status).toBe("PASS");
+    expect(res.phases.filter((p) => p.phase === "verify").some((p) => /contains the expected member/.test(p.reason ?? ""))).toBe(true);
+  });
+
+  it("expectContains VERIFY_FAILED: the membership did not persist (label absent on read-back)", async () => {
+    const deps = fakeDeps({ "acme:add_label": { ok: true, output: { id: "C1" }, reason: null } });
+    // the WRITE could echo the label; the INDEPENDENT read-back shows it was NOT applied
+    deps.smokeReadBack = async () => ({
+      ok: true,
+      output: { name: "crsmoke-T1-seed", idLabels: [] },
+      reason: null,
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: captured,
+      cleanupKind: "archive",
+      cleanup: { provider: "acme", action: "archive_thing2", config: { id: "{{ledger.r.id}}" } },
+      verify: {
+        provider: "acme",
+        action: "card",
+        config: { id: "{{ledger.r.id}}" },
+        expectContains: { path: "idLabels", value: "{{env.SMOKE_LABEL}}" },
+        smokeRead: true,
+      },
+    });
+    const res = await runWriteSmoke(
+      fixture("add_label", spec),
+      { ...RUN, envLookup: (n) => (n === "SMOKE_LABEL" ? "LBL-XYZ" : undefined) },
+      deps,
+    );
+    expect(res.status).toBe("VERIFY_FAILED");
   });
 });
 

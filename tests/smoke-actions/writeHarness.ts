@@ -361,6 +361,39 @@ export function markerPresentAtPath(
   return serialized.includes(marker);
 }
 
+/**
+ * Does the scalar at `path` in a read-back output equal `expected`? Used to prove
+ * a STATE CHANGE the marker can't (e.g. `archived === true`). Strict for
+ * booleans/numbers; a string `expected` is compared as-is (callers token-resolve
+ * it first). A missing path / non-scalar value is never "equal".
+ */
+export function valueEqualsAtPath(
+  output: Readonly<Record<string, unknown>> | null,
+  path: string,
+  expected: string | number | boolean,
+): boolean {
+  const raw = rawValueAtPath(output, path);
+  if (raw === null || raw === undefined) return false;
+  return raw === expected;
+}
+
+/**
+ * Does the ARRAY at `path` in a read-back output CONTAIN `expected`? Used to prove
+ * MEMBERSHIP by independent read-back (e.g. a card's `idLabels` contains the added
+ * label id) rather than trusting the write response. A scalar (non-array) at the
+ * path is treated as a single-element membership check. Missing path -> false.
+ */
+export function valuePresentInArrayAtPath(
+  output: Readonly<Record<string, unknown>> | null,
+  path: string,
+  expected: string,
+): boolean {
+  const raw = rawValueAtPath(output, path);
+  if (raw === null || raw === undefined) return false;
+  if (Array.isArray(raw)) return raw.some((el) => el === expected);
+  return raw === expected;
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 const SANITIZE = (r: string | null): string | null => sanitizeFailureReason(r);
@@ -527,16 +560,51 @@ export async function runWriteSmoke(
       const v = await runStep("verify", spec.verify);
       if (!v.ok) {
         actionStatus = "VERIFY_FAILED";
-      } else if (spec.verify.markerPath) {
-        const echoPath = resolveScalarTokens(spec.verify.markerPath, marker, envLookup);
-        // Handles a scalar title OR a blocks/comments array read-back.
-        const ok = markerPresentAtPath(v.output, echoPath, marker);
-        phases.push({
-          phase: "verify",
-          outcome: ok ? "ok" : "failed",
-          reason: ok ? "marker confirmed on read-back" : "read-back did not contain the smoke marker",
-        });
-        if (!ok) actionStatus = "VERIFY_FAILED";
+      } else {
+        // A verify step may assert ANY of: the marker on the read-back (identity),
+        // a scalar STATE value (expectEquals), and ARRAY membership (expectContains).
+        // Each declared assertion must pass; together they let one read-back prove
+        // "this is OUR resource AND its state/membership changed as expected".
+        if (spec.verify.markerPath) {
+          const echoPath = resolveScalarTokens(spec.verify.markerPath, marker, envLookup);
+          // Handles a scalar title OR a blocks/comments array read-back.
+          const ok = markerPresentAtPath(v.output, echoPath, marker);
+          phases.push({
+            phase: "verify",
+            outcome: ok ? "ok" : "failed",
+            reason: ok ? "marker confirmed on read-back" : "read-back did not contain the smoke marker",
+          });
+          if (!ok) actionStatus = "VERIFY_FAILED";
+        }
+        if (spec.verify.expectEquals) {
+          const { path } = spec.verify.expectEquals;
+          const expected =
+            typeof spec.verify.expectEquals.value === "string"
+              ? resolveScalarTokens(spec.verify.expectEquals.value, marker, envLookup)
+              : spec.verify.expectEquals.value;
+          const ok = valueEqualsAtPath(v.output, path, expected);
+          phases.push({
+            phase: "verify",
+            outcome: ok ? "ok" : "failed",
+            reason: ok
+              ? `read-back ${path} == expected state`
+              : `read-back ${path} did not equal the expected state`,
+          });
+          if (!ok) actionStatus = "VERIFY_FAILED";
+        }
+        if (spec.verify.expectContains) {
+          const { path } = spec.verify.expectContains;
+          const expected = resolveScalarTokens(spec.verify.expectContains.value, marker, envLookup);
+          const ok = valuePresentInArrayAtPath(v.output, path, expected);
+          phases.push({
+            phase: "verify",
+            outcome: ok ? "ok" : "failed",
+            reason: ok
+              ? `read-back ${path} contains the expected member`
+              : `read-back ${path} did not contain the expected member`,
+          });
+          if (!ok) actionStatus = "VERIFY_FAILED";
+        }
       }
     }
   }
