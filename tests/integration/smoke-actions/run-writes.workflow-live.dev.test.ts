@@ -48,7 +48,7 @@ import {
   discoverNotionSmokeDatabase,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
-  stageSmokeAttachmentFile,
+  stageSmokeFile,
 } from "@/tests/smoke-actions/writeHarnessDeps";
 import { renderWriteSmokeHuman } from "@/tests/smoke-actions/writeHarness";
 import { classifyWriteTarget } from "@/tests/smoke-actions/writeTargets";
@@ -175,13 +175,25 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         if (attField) {
           overlay.SMOKE_AIRTABLE_ATTACHMENT_FIELD = attField;
           const storagePath = `smoke/attach/${randomUUID()}.png`;
-          const staged = await stageSmokeAttachmentFile(supabase, storagePath);
+          const staged = await stageSmokeFile(supabase, storagePath);
           if (staged) {
             overlay.SMOKE_AIRTABLE_ATTACHMENT_STORAGE_PATH = staged.storagePath;
             cleanupStagedFile = staged.remove;
             targetLabel = `${targetLabel ?? `base ${baseId} / table ${tableId}`} / attachment field "${attField}"`;
           }
         }
+      }
+    } else if (provider === "dropbox" && execUsable) {
+      // dropbox:upload_file consumes a FileRef (no inline content), so stage a
+      // throwaway file in OUR workflow-files bucket and pass it as a v2_storage
+      // FileRef (self-contained — never an invented external URL). OneDrive's
+      // upload_file takes inline content, so it needs NO staging.
+      const storagePath = `smoke/dropbox-upload/${randomUUID()}.png`;
+      const staged = await stageSmokeFile(supabase, storagePath);
+      if (staged) {
+        overlay.SMOKE_DROPBOX_UPLOAD_STORAGE_PATH = staged.storagePath;
+        cleanupStagedFile = staged.remove;
+        targetLabel = "staged upload file in workflow-files bucket";
       }
     }
     const envLookup = (n: string): string | undefined => overlay[n] ?? process.env[n];

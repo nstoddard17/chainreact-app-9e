@@ -132,8 +132,10 @@ import gdriveDeleteFile from "@/tests/fixtures/action-smoke/google-drive/delete_
 import gdriveMoveFile from "@/tests/fixtures/action-smoke/google-drive/move_file";
 import dropboxCreateFolder from "@/tests/fixtures/action-smoke/dropbox/create_folder";
 import dropboxDeleteFile from "@/tests/fixtures/action-smoke/dropbox/delete_file";
+import dropboxUploadFile from "@/tests/fixtures/action-smoke/dropbox/upload_file";
 import onedriveCreateFolder from "@/tests/fixtures/action-smoke/microsoft-onedrive/create_folder";
 import onedriveDeleteItem from "@/tests/fixtures/action-smoke/microsoft-onedrive/delete_item";
+import onedriveUploadFile from "@/tests/fixtures/action-smoke/microsoft-onedrive/upload_file";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
@@ -264,8 +266,10 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gdriveMoveFile,
   dropboxCreateFolder,
   dropboxDeleteFile,
+  dropboxUploadFile,
   onedriveCreateFolder,
   onedriveDeleteItem,
+  onedriveUploadFile,
   notionCreatePage,
   notionUpdatePage,
   notionAppendBlockChildren,

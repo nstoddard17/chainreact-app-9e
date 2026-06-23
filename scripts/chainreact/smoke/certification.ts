@@ -267,6 +267,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["microsoft-onedrive", "create_folder"],
     ["microsoft-onedrive", "delete_item"],
   ]),
+  // SMOKE-WRITE-20 — Dropbox + OneDrive upload_file follow-up. Each uploaded one
+  // marker-named smoke-owned FILE at the provider root, confirmed it on an
+  // INDEPENDENT get read-back (marker on the persisted name + isFolder==false /
+  // kind=="file"), then deleted exactly that file. Same reversible disposition as
+  // SMOKE-WRITE-19 (Dropbox trash / OneDrive recycle bin), disclosed not hidden.
+  //   - dropbox:upload_file consumes a FileRef -> bytes staged in OUR workflow-files
+  //     bucket as a v2_storage FileRef (self-contained, never an invented URL).
+  //   - microsoft-onedrive:upload_file takes INLINE content -> no staging needed.
+  ...records("LIVE_PASS_CLEANED", "live upload+verify, deleted to Dropbox trash (recoverable ~30d)", SMOKE_WRITE_FILE, [
+    ["dropbox", "upload_file"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live upload+verify, deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_FILE, [
+    ["microsoft-onedrive", "upload_file"],
+  ]),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────
