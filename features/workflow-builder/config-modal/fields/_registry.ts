@@ -11,6 +11,8 @@ import { CronField } from "./CronField";
 import { RouterRoutesField } from "./RouterRoutesField";
 import { StringArrayField } from "./StringArrayField";
 import { FileRefArrayField } from "./FileRefArrayField";
+import { TemporalField } from "./TemporalField";
+import { TimezoneField } from "./TimezoneField";
 import type { FieldComponent } from "./types";
 
 /**
@@ -39,6 +41,12 @@ export const FIELD_RENDERERS: Readonly<Record<FieldType, FieldComponent>> =
     "router-routes": RouterRoutesField,
     "string-array": StringArrayField,
     "file-array": FileRefArrayField,
+    // CS-1 temporal family — date/time/datetime share one renderer (keyed off
+    // `field.type`); timezone is a dedicated IANA selector.
+    date: TemporalField,
+    time: TemporalField,
+    datetime: TemporalField,
+    timezone: TimezoneField,
   });
 
 export function getFieldRenderer(type: FieldType): FieldComponent {

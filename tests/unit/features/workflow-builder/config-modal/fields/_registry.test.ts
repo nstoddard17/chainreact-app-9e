@@ -17,6 +17,8 @@ import {
 } from "@/features/workflow-builder/config-modal/fields/_registry";
 import { StringArrayField } from "@/features/workflow-builder/config-modal/fields/StringArrayField";
 import { FileRefArrayField } from "@/features/workflow-builder/config-modal/fields/FileRefArrayField";
+import { TemporalField } from "@/features/workflow-builder/config-modal/fields/TemporalField";
+import { TimezoneField } from "@/features/workflow-builder/config-modal/fields/TimezoneField";
 
 describe("field-renderer registry", () => {
   it("has exactly one renderer per FieldType variant", () => {
@@ -30,9 +32,9 @@ describe("field-renderer registry", () => {
     expect(Object.keys(FIELD_RENDERERS).sort()).toEqual([...types].sort());
   });
 
-  it("covers all 12 FieldType variants (Slice 3.21 added 'file-array')", () => {
-    expect(FieldTypeSchema.options).toHaveLength(12);
-    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(12);
+  it("covers all 16 FieldType variants (CS-1 added date/time/datetime/timezone)", () => {
+    expect(FieldTypeSchema.options).toHaveLength(16);
+    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(16);
   });
 
   it("FIELD_RENDERERS['string-array'] resolves to StringArrayField", () => {
@@ -41,6 +43,13 @@ describe("field-renderer registry", () => {
 
   it("FIELD_RENDERERS['file-array'] resolves to FileRefArrayField (Slice 3.21)", () => {
     expect(FIELD_RENDERERS["file-array"]).toBe(FileRefArrayField);
+  });
+
+  it("CS-1 — date/time/datetime share TemporalField; timezone uses TimezoneField", () => {
+    expect(FIELD_RENDERERS.date).toBe(TemporalField);
+    expect(FIELD_RENDERERS.time).toBe(TemporalField);
+    expect(FIELD_RENDERERS.datetime).toBe(TemporalField);
+    expect(FIELD_RENDERERS.timezone).toBe(TimezoneField);
   });
 
   it("getFieldRenderer returns the same component as FIELD_RENDERERS[type]", () => {

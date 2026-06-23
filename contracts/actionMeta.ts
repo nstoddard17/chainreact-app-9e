@@ -77,6 +77,16 @@ export const FieldTypeSchema = z.enum([
   "router-routes",
   "string-array",
   "file-array",
+  // CS-1 temporal family (config-field UX modernization). Native date/time
+  // pickers + IANA timezone selector that store the SAME schema-expected
+  // strings (no new date object shape, no silent timezone coercion):
+  //   date "YYYY-MM-DD" · time "HH:MM[:SS]" · datetime "YYYY-MM-DDTHH:MM:SS"
+  //   (offset-less local, paired with `timezone`) · timezone IANA name.
+  // date/time/datetime share TemporalField; timezone uses TimezoneField.
+  "date",
+  "time",
+  "datetime",
+  "timezone",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 

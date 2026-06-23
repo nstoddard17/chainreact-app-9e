@@ -120,12 +120,18 @@ function fieldTypeMatches(field: FieldMeta, value: unknown): boolean {
       return Array.isArray(value);
     case "keyvalue":
       return typeof value === "object" && value !== null && !Array.isArray(value);
+    // String-valued field types (CS-1 added date/time/datetime/timezone — all
+    // stored as schema-shaped strings).
     case "text":
     case "textarea":
     case "select":
     case "combobox":
     case "cron":
     case "file":
+    case "date":
+    case "time":
+    case "datetime":
+    case "timezone":
       return typeof value === "string";
     default:
       return true;
