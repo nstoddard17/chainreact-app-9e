@@ -51,12 +51,31 @@ export type WriteLiveClass =
   | "billingSensitive"
   | "neverLive";
 
-/** How to read a created external id out of a step's output into the ledger. */
+/**
+ * How to read created external id(s) out of a step's output into the ledger.
+ * Exactly ONE of `idPath` (single resource) or `idsPath` (multiple resources)
+ * must be set.
+ */
 export interface CaptureSpec {
   /** Stable key the ledger stores this resource under (referenced by later steps). */
   readonly resourceKey: string;
-  /** Dot-path into the step output holding the external id (e.g. "id", "page.id"). */
-  readonly idPath: string;
+  /**
+   * SINGLE-resource capture. Dot-path into the step output holding the external id
+   * (e.g. "id", "page.id"). The id is recorded under `resourceKey`, referenced
+   * later as `{{ledger.<resourceKey>.id}}`.
+   */
+  readonly idPath?: string;
+  /**
+   * MULTI-resource capture. Dot-path to an ARRAY of created resources in the step
+   * output (e.g. "records" for `create_multiple_records`'s `{records:[{id},...]}`).
+   * Each element's id (from `idField`, default "id") is recorded under a distinct
+   * derived key `<resourceKey><index>` (e.g. `record0`, `record1`) — referenced
+   * later as `{{ledger.record0.id}}` AND fanned over by `verifyEach`/`cleanupEach`
+   * via the `{{each.id}}` token. Mutually exclusive with `idPath`.
+   */
+  readonly idsPath?: string;
+  /** Id field within each `idsPath` array element (default "id"). */
+  readonly idField?: string;
   /** Human kind label for the report (e.g. "record", "page", "card"). NEVER the id. */
   readonly kind: string;
 }
@@ -79,6 +98,15 @@ export interface ActionStepSpec {
    * Env tokens (`{{env.*}}`) are resolved in the path.
    */
   readonly markerPath?: string;
+  /**
+   * Optional suffix appended to the run marker for the `markerPath` check, so a
+   * read-back can prove a SPECIFIC value (not just "our marker is present"). E.g.
+   * an update writes `{{smokeMarker}}updated`; `markerSuffix: "updated"` makes the
+   * check require `crsmoke-<token>-updated` — a "seed" record (same run marker, no
+   * "updated") then fails, proving the update actually landed. Absent -> the check
+   * uses the bare run marker (presence only).
+   */
+  readonly markerSuffix?: string;
   /**
    * Assert that the scalar at `path` in THIS step's (read-back) output equals
    * `value`. Used to verify a STATE CHANGE the run marker cannot prove — e.g.
@@ -128,6 +156,15 @@ export interface WriteHarnessSpec {
   /** A registered READ action keyed on a captured id (confirms the side effect). */
   readonly verify?: ActionStepSpec;
   /**
+   * MULTI-resource verify: run once PER captured ledger resource (the ids from an
+   * `idsPath` capture). Each iteration binds the reserved `{{each.id}}` token to one
+   * captured id, then applies `markerPath` / `markerSuffix` / `expectEquals` /
+   * `expectContains` to that record's INDEPENDENT read-back. ALL iterations must
+   * pass or the run is VERIFY_FAILED. Fans over every captured ledger resource —
+   * intended for a homogeneous multi-resource fixture (e.g. create/update_multiple).
+   */
+  readonly verifyEach?: ActionStepSpec;
+  /**
    * Dot-path into the EXECUTE output that should echo the unique smoke marker
    * (e.g. the created card's `name`). When set, the harness confirms the marker
    * round-tripped — a cheap existence+ownership check for pilots with no separate
@@ -147,6 +184,14 @@ export interface WriteHarnessSpec {
   readonly executeIsCleanup?: boolean;
   /** A registered destructive action keyed on a captured id (removes the resource). */
   readonly cleanup?: ActionStepSpec;
+  /**
+   * MULTI-resource cleanup: run once PER captured ledger resource, binding
+   * `{{each.id}}` to each captured id (e.g. `delete_record` per record from an
+   * `idsPath` capture). `cleanupKind` applies to each. Every captured resource must
+   * clean for `artifact: "cleaned"`; ANY failure -> the run is not PASS_CLEANED
+   * (delete-kind -> CLEANUP_FAILED, the gate fails). Partial cleanup is never a pass.
+   */
+  readonly cleanupEach?: ActionStepSpec;
   /**
    * What the cleanup action does to the smoke object — decides both whether
    * cleanup is REQUIRED for safety and how a leftover is reported:

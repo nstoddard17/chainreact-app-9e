@@ -326,16 +326,16 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   npm run smoke:actions:run:workflow:live
 ```
 
-**Airtable coverage (8 covered of 11 registered):**
+**Airtable coverage (10 covered of 11 registered):**
 
 - **Reads (5, live-certified):** `get_base_schema`, `get_table_schema`,
   `list_records`, `find_record`, `get_record`.
-- **Writes (3, live-certified via the WRITE harness):** `create_record` +
-  `update_record` (`LIVE_PASS_CLEANED`), `delete_record` (`LIVE_PASS`, verified
-  gone via an independent `recordsList` read-back). See the write-smoke section
-  below for the certification matrix.
-- **Still uncovered (3, writes):** `add_attachment`, `create_multiple_records`,
-  `update_multiple_records`.
+- **Writes (5, live-certified via the WRITE harness):** `create_record` +
+  `update_record` + `create_multiple_records` + `update_multiple_records`
+  (`LIVE_PASS_CLEANED`), `delete_record` (`LIVE_PASS`, verified gone via an
+  independent `recordsList` read-back). See the write-smoke section below.
+- **Still uncovered (1, write):** `add_attachment` (needs a public file URL + a
+  non-empty-array verify primitive — attachments are re-hosted, so no marker match).
 
 **Google Sheets-only inventory:** `npm run smoke:actions -- --provider google-sheets`.
 
@@ -1049,6 +1049,8 @@ running certification record; rows are added as each provider batch lands.
 | `airtable:create_record` | create -> get_record -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `airtable:update_record` | create -> update -> echo -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `airtable:delete_record` | create -> **delete (action under test)** -> recordsList read-back (gone) | object deleted | `LIVE_PASS` |
+| `airtable:create_multiple_records` | create 2 -> verifyEach (recordsList marker per id) -> delete each | both deleted | `LIVE_PASS_CLEANED` |
+| `airtable:update_multiple_records` | create 2 -> update both -> verifyEach (marker-"updated" per id) -> delete each | both deleted | `LIVE_PASS_CLEANED` |
 | `trello:create_card` | create -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:update_card` | create -> update -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:add_comment` | create card -> comment -> card_comments read-back (marker) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
@@ -1197,6 +1199,19 @@ export default defineWriteSmokeFixture({
   deleting an arbitrary existing record is impossible).
 - **Cleanup is always attempted** (even after execute/verify failure) and reported
   **separately**. A cleanup failure surfaces as `CLEANUP_FAILED` and is never a PASS.
+
+**Multi-resource fixtures (SMOKE-WRITE-14).** An action that creates MANY resources
+(e.g. `create_multiple_records`) uses array capture + per-id fan-out:
+- `captureResource: { resourceKey: "record", idsPath: "records", idField: "id" }`
+  records EACH created id under a derived key `record0` / `record1` / … (referenced
+  later by index, e.g. `{{ledger.record0.id}}`).
+- `verifyEach` runs a verify template ONCE PER captured id, binding `{{each.id}}` to
+  each id; every record's INDEPENDENT read-back must satisfy the assertions or the
+  run is `VERIFY_FAILED`. `markerSuffix` lets it prove a SPECIFIC value (e.g. an
+  update writes `…-updated`, so `markerSuffix: "updated"` rejects a still-"seed" record).
+- `cleanupEach` deletes EVERY captured id. **Partial cleanup is never PASS_CLEANED** —
+  any failed delete leaves a leaked record and (delete-kind) flips to `CLEANUP_FAILED`.
+  Single-resource (`idPath` / `verify` / `cleanup`) fixtures are unchanged.
 
 **Safety classes (`liveClass`) + gates:**
 

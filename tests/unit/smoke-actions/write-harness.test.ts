@@ -875,3 +875,199 @@ describe("cleanupKind + artifact disposition", () => {
     expect(deps.calls.map((c) => c.action)).toEqual(["setup_create", "update_thing", "delete_thing"]);
   });
 });
+
+// ─── multi-resource capture + verifyEach / cleanupEach fan-out ────────────────
+
+describe("multi-resource fixtures (idsPath capture, verifyEach, cleanupEach)", () => {
+  const multiCapture = { resourceKey: "record", idsPath: "records", idField: "id", kind: "record" } as const;
+
+  /** Deps with a scripted runActionStep + a scripted per-recordId smokeReadBack. */
+  function multiDeps(
+    plan: Record<string, StepRunOutcome>,
+    readByRecordId: Record<string, StepRunOutcome>,
+  ): RecordingDeps {
+    const calls: RecordingDeps["calls"] = [];
+    return {
+      calls,
+      async runActionStep(input) {
+        calls.push({ provider: input.provider, action: input.action, config: { ...input.config } });
+        return plan[`${input.provider}:${input.action}`] ?? { ok: true, output: null, reason: null };
+      },
+      async smokeReadBack(input) {
+        calls.push({ provider: input.provider, action: input.action, config: { ...input.config } });
+        const id = String(input.config.recordId);
+        return readByRecordId[id] ?? { ok: false, output: null, reason: `no read-back for ${id}` };
+      },
+    };
+  }
+
+  const createSpec = (over: Partial<WriteHarnessSpec> = {}): WriteHarnessSpec => ({
+    liveClass: "destructiveSafe",
+    smokeMarker: "crsmoke-",
+    captureResource: multiCapture,
+    verifyEach: {
+      provider: "acme",
+      action: "record",
+      config: { recordId: "{{each.id}}" },
+      markerPath: "fields",
+      smokeRead: true,
+    },
+    cleanupKind: "delete",
+    cleanupEach: { provider: "acme", action: "delete_record", config: { recordId: "{{each.id}}" } },
+    ...over,
+  });
+
+  it("captures every id from idsPath, verifies each, cleans each -> PASS cleaned", async () => {
+    const deps = multiDeps(
+      {
+        "acme:create_multi": { ok: true, output: { records: [{ id: "R0" }, { id: "R1" }] }, reason: null },
+        "acme:delete_record": { ok: true, output: null, reason: null },
+      },
+      {
+        R0: { ok: true, output: { exists: true, fields: { Name: "crsmoke-T1-a" } }, reason: null },
+        R1: { ok: true, output: { exists: true, fields: { Name: "crsmoke-T1-b" } }, reason: null },
+      },
+    );
+    const res = await runWriteSmoke(fixture("create_multi", createSpec(), { records: [] }), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("cleaned");
+    expect(res.ledger.created).toBe(2);
+    expect(res.ledger.cleaned).toBe(2);
+    expect(res.ledger.leaked).toBe(0);
+    // verifyEach + cleanupEach each ran once per captured id
+    expect(deps.calls.filter((c) => c.action === "record")).toHaveLength(2);
+    expect(deps.calls.filter((c) => c.action === "delete_record")).toHaveLength(2);
+    // {{each.id}} bound to each captured id
+    expect(deps.calls.filter((c) => c.action === "delete_record").map((c) => c.config.recordId).sort()).toEqual(["R0", "R1"]);
+  });
+
+  it("VERIFY_FAILED when ANY record's independent read-back lacks the marker (cleanup still runs)", async () => {
+    const deps = multiDeps(
+      {
+        "acme:create_multi": { ok: true, output: { records: [{ id: "R0" }, { id: "R1" }] }, reason: null },
+        "acme:delete_record": { ok: true, output: null, reason: null },
+      },
+      {
+        R0: { ok: true, output: { exists: true, fields: { Name: "crsmoke-T1-a" } }, reason: null },
+        R1: { ok: true, output: { exists: true, fields: { Name: "someone-else" } }, reason: null }, // no marker
+      },
+    );
+    const res = await runWriteSmoke(fixture("create_multi", createSpec(), { records: [] }), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED");
+    // every created record is still cleaned up despite the verify failure
+    expect(deps.calls.filter((c) => c.action === "delete_record")).toHaveLength(2);
+    expect(res.ledger.leaked).toBe(0);
+  });
+
+  it("PARTIAL cleanup failure is NEVER PASS_CLEANED -> CLEANUP_FAILED, leaked honest", async () => {
+    let deleteCalls = 0;
+    const calls: RecordingDeps["calls"] = [];
+    const deps: RecordingDeps = {
+      calls,
+      async runActionStep(input) {
+        calls.push({ provider: input.provider, action: input.action, config: { ...input.config } });
+        if (input.action === "create_multi") {
+          return { ok: true, output: { records: [{ id: "R0" }, { id: "R1" }] }, reason: null };
+        }
+        if (input.action === "delete_record") {
+          deleteCalls += 1;
+          // first delete (R0) succeeds, second (R1) fails
+          return deleteCalls === 1
+            ? { ok: true, output: null, reason: null }
+            : { ok: false, output: null, reason: "delete failed" };
+        }
+        return { ok: true, output: null, reason: null };
+      },
+      async smokeReadBack(input) {
+        calls.push({ provider: input.provider, action: input.action, config: { ...input.config } });
+        return { ok: true, output: { exists: true, fields: { Name: "crsmoke-T1-x" } }, reason: null };
+      },
+    };
+    const res = await runWriteSmoke(fixture("create_multi", createSpec(), { records: [] }), RUN, deps);
+    expect(res.status).toBe("CLEANUP_FAILED");
+    expect(res.ledger.created).toBe(2);
+    expect(res.ledger.cleaned).toBe(1); // only R0 cleaned
+    expect(res.ledger.leaked).toBe(1); // R1 left
+    expect(foldToSmokeResult(fixture("create_multi", createSpec(), { records: [] }), res).outcome).toBe("fail");
+  });
+
+  it("markerSuffix proves the UPDATED value (a seed-only read-back fails)", async () => {
+    const spec = createSpec({
+      setup: [
+        {
+          provider: "acme",
+          action: "create_multi",
+          config: { records: [] },
+          captureResource: multiCapture,
+        },
+      ],
+      verifyEach: {
+        provider: "acme",
+        action: "record",
+        config: { recordId: "{{each.id}}" },
+        markerPath: "fields",
+        markerSuffix: "updated",
+        smokeRead: true,
+      },
+    });
+    // execute = update_multi; read-back still shows the SEED value (update didn't land)
+    const deps = multiDeps(
+      {
+        "acme:create_multi": { ok: true, output: { records: [{ id: "R0" }, { id: "R1" }] }, reason: null },
+        "acme:update_multi": { ok: true, output: null, reason: null },
+        "acme:delete_record": { ok: true, output: null, reason: null },
+      },
+      {
+        R0: { ok: true, output: { exists: true, fields: { Name: "crsmoke-T1-seedA" } }, reason: null },
+        R1: { ok: true, output: { exists: true, fields: { Name: "crsmoke-T1-seedB" } }, reason: null },
+      },
+    );
+    const res = await runWriteSmoke(fixture("update_multi", spec, { records: [] }), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED"); // markerSuffix "updated" not present
+  });
+
+  it("markerSuffix passes when the read-back carries the updated value", async () => {
+    const spec = createSpec({
+      setup: [{ provider: "acme", action: "create_multi", config: { records: [] }, captureResource: multiCapture }],
+      verifyEach: {
+        provider: "acme",
+        action: "record",
+        config: { recordId: "{{each.id}}" },
+        markerPath: "fields",
+        markerSuffix: "updated",
+        smokeRead: true,
+      },
+    });
+    const deps = multiDeps(
+      {
+        "acme:create_multi": { ok: true, output: { records: [{ id: "R0" }, { id: "R1" }] }, reason: null },
+        "acme:update_multi": { ok: true, output: null, reason: null },
+        "acme:delete_record": { ok: true, output: null, reason: null },
+      },
+      {
+        R0: { ok: true, output: { exists: true, fields: { Name: "crsmoke-T1-updated" } }, reason: null },
+        R1: { ok: true, output: { exists: true, fields: { Name: "crsmoke-T1-updated" } }, reason: null },
+      },
+    );
+    const res = await runWriteSmoke(fixture("update_multi", spec, { records: [] }), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.ledger.created).toBe(2);
+    expect(res.ledger.cleaned).toBe(2);
+  });
+
+  it("does NOT disturb single-id idPath capture (regression)", async () => {
+    const deps = fakeDeps({
+      "acme:run_action": { ok: true, output: { id: "X" }, reason: null },
+      "acme:delete_thing": { ok: true, output: null, reason: null },
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: { resourceKey: "r", idPath: "id", kind: "thing" },
+      cleanupKind: "delete",
+    });
+    const res = await runWriteSmoke(fixture("run_action", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.ledger.created).toBe(1);
+    expect(res.artifact).toBe("cleaned");
+  });
+});

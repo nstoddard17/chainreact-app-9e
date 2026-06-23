@@ -233,6 +233,8 @@ export function gateWriteClass(
 
 const LEDGER_TOKEN = /\{\{ledger\.([A-Za-z0-9_-]+)\.id\}\}/g;
 const ENV_TOKEN = /\{\{env\.([A-Za-z0-9_]+)\}\}/g;
+/** Per-iteration token bound to the current id in a verifyEach / cleanupEach fan-out. */
+const EACH_TOKEN = "{{each.id}}";
 
 /** Ledger resourceKeys referenced by a step's RAW config (before resolution). */
 export function ledgerRefsIn(config: Readonly<Record<string, unknown>>): string[] {
@@ -263,11 +265,13 @@ export function resolveStepConfig(
   marker: string,
   ledger: ResourceLedger,
   envLookup: (name: string) => string | undefined = () => undefined,
+  eachId?: string,
 ): Readonly<Record<string, unknown>> {
   // Tokens resolve in both string VALUES and object KEYS (a provider field name
   // can itself be operator config, e.g. an Airtable primary-field name).
   const resolveStr = (s: string): string => {
     let out = s.split("{{smokeMarker}}").join(marker);
+    if (eachId !== undefined) out = out.split(EACH_TOKEN).join(eachId);
     out = out.replace(LEDGER_TOKEN, (whole, key: string) => ledger.get(key)?.externalId ?? whole);
     out = out.replace(ENV_TOKEN, (whole, name: string) => {
       const val = envLookup(name);
@@ -328,6 +332,29 @@ function readPath(output: Readonly<Record<string, unknown>> | null, path: string
     }
   }
   return typeof cur === "string" ? cur : typeof cur === "number" ? String(cur) : null;
+}
+
+/**
+ * Read an ARRAY of created ids out of a step output for a multi-resource capture:
+ * the array lives at `idsPath`, each element's id at `idField`. Returns the ids in
+ * order (empty when the path is missing / not an array / elements lack the field).
+ */
+function readIdsAtPath(
+  output: Readonly<Record<string, unknown>> | null,
+  idsPath: string,
+  idField: string,
+): string[] {
+  const raw = rawValueAtPath(output, idsPath);
+  if (!Array.isArray(raw)) return [];
+  const ids: string[] = [];
+  for (const el of raw) {
+    if (el && typeof el === "object") {
+      const v = (el as Record<string, unknown>)[idField];
+      if (typeof v === "string" && v.length > 0) ids.push(v);
+      else if (typeof v === "number") ids.push(String(v));
+    }
+  }
+  return ids;
 }
 
 /** Raw value at a dot-path (any type: scalar / array / object), or null. */
@@ -397,6 +424,63 @@ export function valuePresentInArrayAtPath(
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 const SANITIZE = (r: string | null): string | null => sanitizeFailureReason(r);
+
+/**
+ * Apply a verify step's assertions (markerPath [+ markerSuffix] / expectEquals /
+ * expectContains) to its read-back `output`, pushing a verify phase per assertion.
+ * Returns true only when every DECLARED assertion passed (no assertions -> true,
+ * relying on the step having returned ok). Shared by single `verify` and the
+ * per-id `verifyEach` fan-out so both prove the side effect identically.
+ */
+function applyVerifyAssertions(
+  step: ActionStepSpec,
+  output: Readonly<Record<string, unknown>> | null,
+  marker: string,
+  envLookup: (name: string) => string | undefined,
+  phases: PhaseResult[],
+  label = "",
+): boolean {
+  let ok = true;
+  if (step.markerPath) {
+    const echoPath = resolveScalarTokens(step.markerPath, marker, envLookup);
+    // markerSuffix lets a read-back prove a SPECIFIC value (e.g. "updated"), not
+    // just that the run marker is present.
+    const expectedMarker = marker + (step.markerSuffix ?? "");
+    const hit = markerPresentAtPath(output, echoPath, expectedMarker);
+    phases.push({
+      phase: "verify",
+      outcome: hit ? "ok" : "failed",
+      reason: hit ? `marker confirmed on read-back${label}` : `read-back did not contain the smoke marker${label}`,
+    });
+    if (!hit) ok = false;
+  }
+  if (step.expectEquals) {
+    const { path } = step.expectEquals;
+    const expected =
+      typeof step.expectEquals.value === "string"
+        ? resolveScalarTokens(step.expectEquals.value, marker, envLookup)
+        : step.expectEquals.value;
+    const hit = valueEqualsAtPath(output, path, expected);
+    phases.push({
+      phase: "verify",
+      outcome: hit ? "ok" : "failed",
+      reason: hit ? `read-back ${path} == expected state${label}` : `read-back ${path} did not equal the expected state${label}`,
+    });
+    if (!hit) ok = false;
+  }
+  if (step.expectContains) {
+    const { path } = step.expectContains;
+    const expected = resolveScalarTokens(step.expectContains.value, marker, envLookup);
+    const hit = valuePresentInArrayAtPath(output, path, expected);
+    phases.push({
+      phase: "verify",
+      outcome: hit ? "ok" : "failed",
+      reason: hit ? `read-back ${path} contains the expected member${label}` : `read-back ${path} did not contain the expected member${label}`,
+    });
+    if (!hit) ok = false;
+  }
+  return ok;
+}
 
 /**
  * Run one mutating fixture through setup -> execute -> verify -> cleanup. Never
@@ -496,15 +580,32 @@ export async function runWriteSmoke(
       res = await deps.runActionStep({ provider: step.provider, action: step.action, config });
     }
     if (res.ok && step.captureResource) {
-      const id = readPath(res.output, step.captureResource.idPath);
-      if (id) {
-        ledger.record({
-          resourceKey: step.captureResource.resourceKey,
-          provider: step.provider,
-          kind: step.captureResource.kind,
-          externalId: id,
-          marker,
+      const cap = step.captureResource;
+      if (cap.idsPath) {
+        // MULTI-resource capture: record each created id under a derived key
+        // <resourceKey><index> (record0, record1, …) — referenced later by index
+        // and fanned over by verifyEach / cleanupEach.
+        const ids = readIdsAtPath(res.output, cap.idsPath, cap.idField ?? "id");
+        ids.forEach((id, i) => {
+          ledger.record({
+            resourceKey: `${cap.resourceKey}${i}`,
+            provider: step.provider,
+            kind: cap.kind,
+            externalId: id,
+            marker,
+          });
         });
+      } else if (cap.idPath) {
+        const id = readPath(res.output, cap.idPath);
+        if (id) {
+          ledger.record({
+            resourceKey: cap.resourceKey,
+            provider: step.provider,
+            kind: cap.kind,
+            externalId: id,
+            marker,
+          });
+        }
       }
     }
     phases.push({ phase, outcome: res.ok ? "ok" : "failed", reason: SANITIZE(res.reason) });
@@ -560,50 +661,39 @@ export async function runWriteSmoke(
       const v = await runStep("verify", spec.verify);
       if (!v.ok) {
         actionStatus = "VERIFY_FAILED";
-      } else {
-        // A verify step may assert ANY of: the marker on the read-back (identity),
-        // a scalar STATE value (expectEquals), and ARRAY membership (expectContains).
-        // Each declared assertion must pass; together they let one read-back prove
-        // "this is OUR resource AND its state/membership changed as expected".
-        if (spec.verify.markerPath) {
-          const echoPath = resolveScalarTokens(spec.verify.markerPath, marker, envLookup);
-          // Handles a scalar title OR a blocks/comments array read-back.
-          const ok = markerPresentAtPath(v.output, echoPath, marker);
-          phases.push({
-            phase: "verify",
-            outcome: ok ? "ok" : "failed",
-            reason: ok ? "marker confirmed on read-back" : "read-back did not contain the smoke marker",
-          });
-          if (!ok) actionStatus = "VERIFY_FAILED";
+      } else if (!applyVerifyAssertions(spec.verify, v.output, marker, envLookup, phases)) {
+        // A verify step may assert the marker on the read-back (identity, + an
+        // optional markerSuffix for a specific value), a scalar STATE (expectEquals),
+        // and ARRAY membership (expectContains). Each declared assertion must pass.
+        actionStatus = "VERIFY_FAILED";
+      }
+    }
+
+    // 5c. verifyEach — MULTI-resource: run the verify template once PER captured
+    // ledger resource, binding {{each.id}} to each id. Every record's INDEPENDENT
+    // read-back must satisfy the assertions, or the run is VERIFY_FAILED. All
+    // captured records are checked (one failing record fails the run, but the loop
+    // still reports the others' outcomes). Cleanup always follows regardless.
+    if (actionStatus === "PASS" && spec.verifyEach) {
+      const targets = ledger.entries();
+      if (targets.length === 0) {
+        phases.push({ phase: "verify", outcome: "failed", reason: "verifyEach: no captured resources to verify" });
+        actionStatus = "VERIFY_FAILED";
+      }
+      for (const entry of targets) {
+        const stepConfig = resolveStepConfig(spec.verifyEach.config, marker, ledger, envLookup, entry.externalId);
+        const res = spec.verifyEach.smokeRead
+          ? deps.smokeReadBack
+            ? await deps.smokeReadBack({ provider: spec.verifyEach.provider, action: spec.verifyEach.action, config: stepConfig })
+            : { ok: false, output: null, reason: "smoke read-back seam not available" }
+          : await deps.runActionStep({ provider: spec.verifyEach.provider, action: spec.verifyEach.action, config: stepConfig });
+        if (!res.ok) {
+          phases.push({ phase: "verify", outcome: "failed", reason: SANITIZE(res.reason) });
+          actionStatus = "VERIFY_FAILED";
+          continue;
         }
-        if (spec.verify.expectEquals) {
-          const { path } = spec.verify.expectEquals;
-          const expected =
-            typeof spec.verify.expectEquals.value === "string"
-              ? resolveScalarTokens(spec.verify.expectEquals.value, marker, envLookup)
-              : spec.verify.expectEquals.value;
-          const ok = valueEqualsAtPath(v.output, path, expected);
-          phases.push({
-            phase: "verify",
-            outcome: ok ? "ok" : "failed",
-            reason: ok
-              ? `read-back ${path} == expected state`
-              : `read-back ${path} did not equal the expected state`,
-          });
-          if (!ok) actionStatus = "VERIFY_FAILED";
-        }
-        if (spec.verify.expectContains) {
-          const { path } = spec.verify.expectContains;
-          const expected = resolveScalarTokens(spec.verify.expectContains.value, marker, envLookup);
-          const ok = valuePresentInArrayAtPath(v.output, path, expected);
-          phases.push({
-            phase: "verify",
-            outcome: ok ? "ok" : "failed",
-            reason: ok
-              ? `read-back ${path} contains the expected member`
-              : `read-back ${path} did not contain the expected member`,
-          });
-          if (!ok) actionStatus = "VERIFY_FAILED";
+        if (!applyVerifyAssertions(spec.verifyEach, res.output, marker, envLookup, phases)) {
+          actionStatus = "VERIFY_FAILED";
         }
       }
     }
@@ -612,12 +702,41 @@ export async function runWriteSmoke(
   // 6. cleanup — ALWAYS attempted when there are smoke-owned resources, even on
   // execute/verify failure. `cleanupKind` decides whether it is REQUIRED (delete)
   // or BEST-EFFORT (archive), and how a leftover reads.
-  const cleanupKind: "delete" | "archive" | "none" = spec.cleanup
-    ? (spec.cleanupKind ?? "delete")
-    : "none";
+  const cleanupKind: "delete" | "archive" | "none" =
+    spec.cleanup || spec.cleanupEach ? (spec.cleanupKind ?? "delete") : "none";
   let cleanupFailed = false;
   let cleanupRan = false;
-  if (spec.cleanup) {
+  if (spec.cleanupEach) {
+    // MULTI-resource cleanup: run the cleanup template once per captured resource.
+    // EVERY captured resource must clean for a PASS_CLEANED; ANY failure leaves a
+    // leaked record -> not a clean pass (delete-kind -> CLEANUP_FAILED below).
+    const targets = ledger.entries();
+    if (targets.length === 0) {
+      phases.push({ phase: "cleanup", outcome: "skipped", reason: "no smoke-owned resource to clean" });
+    } else {
+      let anyOk = false;
+      for (const entry of targets) {
+        if (entry.cleaned) continue;
+        const config = resolveStepConfig(spec.cleanupEach.config, marker, ledger, envLookup, entry.externalId);
+        const res = await deps.runActionStep({
+          provider: spec.cleanupEach.provider,
+          action: spec.cleanupEach.action,
+          config,
+        });
+        if (res.ok) {
+          anyOk = true;
+          ledger.markCleaned(entry.resourceKey);
+          phases.push({ phase: "cleanup", outcome: "ok", reason: null });
+        } else {
+          cleanupFailed = true;
+          phases.push({ phase: "cleanup", outcome: "failed", reason: SANITIZE(res.reason) });
+        }
+      }
+      // cleanupRan = at least one delete succeeded; the leaked count (any not
+      // cleaned) drives the final cleaned-vs-CLEANUP_FAILED disposition.
+      cleanupRan = anyOk && ledger.summary().leaked === 0;
+    }
+  } else if (spec.cleanup) {
     if (ledger.summary().leaked === 0) {
       // Nothing was created (or all already clean) — no cleanup to do.
       phases.push({ phase: "cleanup", outcome: "skipped", reason: "no smoke-owned resource to clean" });

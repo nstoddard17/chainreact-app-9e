@@ -532,8 +532,12 @@ export function makeRealWriteHarnessDeps(
                 maxRecords: 1,
               }),
           });
-          const exists = list.records.some((r) => r.id === recordId);
-          return { ok: true, output: { exists }, reason: null };
+          // Return the found record's `fields` too so a verify can confirm the
+          // marker on the PROVIDER-persisted record (independent of the write echo).
+          // `fields` is {} when absent — a deleted record's `exists:false` probe
+          // (single delete_record fixture) is unaffected.
+          const found = list.records.find((r) => r.id === recordId);
+          return { ok: true, output: { exists: !!found, fields: found?.fields ?? {} }, reason: null };
         }
         return { ok: false, output: null, reason: `no smoke reader for ${input.provider}:${input.action}` };
       } catch (err) {
