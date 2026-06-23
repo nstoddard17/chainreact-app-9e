@@ -28,12 +28,14 @@ export const newDirectMessageTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "withUserId",
-      label: "Sender User ID (optional)",
+      label: "Sender (optional)",
       description:
         "When set, only DMs whose sender matches this user id fire the workflow. When blank, every incoming DM matches. Slack user ids start with 'U'.",
-      type: "text",
+      type: "combobox",
+      optionsSource: "slack:users",
+      allowManualEntry: true,
       required: false,
-      placeholder: "U0123456789",
+      placeholder: "Search users or paste a user ID",
     },
   ],
   payloadShape: [

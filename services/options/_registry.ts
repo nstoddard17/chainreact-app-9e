@@ -10,6 +10,11 @@ import { nativeExamplesResolver } from "./fixtures/nativeExamples";
 // First real provider resolver — Slice 3.32 (Slack channels picker for
 // `slack:upload_file.channel`).
 import { slackChannelsResolver } from "@/integrations/slack/options/channels";
+// CONFIG-FIELD-UX-SWEEP — `slack:users` backs the single-value Slack user-id
+// pickers (send_direct_message / get_user_info / remove_user_from_channel /
+// new_direct_message sender filter). Read-only `users.list` on the already-
+// granted `users:read` scope; returns id + display name only (no email).
+import { slackUsersResolver } from "@/integrations/slack/options/users";
 
 // Google Sheets resolvers — Slice 3.GSHEETS-2.
 // `spreadsheets` enumerates the connected user's spreadsheets via
@@ -448,6 +453,7 @@ import { outlookCalendarsResolver } from "@/integrations/microsoft-outlook-calen
 export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   nativeExamplesResolver,
   slackChannelsResolver,
+  slackUsersResolver,
   googleSheetsSpreadsheetsResolver,
   googleSheetsSheetsResolver,
   // HubSpot (Slice 3.HUBSPOT-2). Resolver-first ahead of HubSpot

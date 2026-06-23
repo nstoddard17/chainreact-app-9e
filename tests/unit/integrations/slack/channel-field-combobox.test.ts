@@ -83,9 +83,11 @@ describe("CS-2 — ineligible Slack fields are deliberately left unchanged", () 
     expect(channelCreatedTriggerMeta.fields).toHaveLength(0);
   });
 
-  it("send-direct-message keeps userId as text (needs a future slack:users resolver)", () => {
+  it("send-direct-message userId now uses the slack:users picker (built in the config-field UX sweep)", () => {
     const userField = slackSendDirectMessageMeta.fields.find((f) => f.name === "userId");
-    expect(userField!.type).toBe("text");
+    expect(userField!.type).toBe("combobox");
+    expect(userField!.optionsSource).toBe("slack:users");
+    expect(userField!.allowManualEntry).toBe(true);
     expect(ActionMetaSchema.safeParse(slackSendDirectMessageMeta).success).toBe(true);
   });
 
@@ -131,23 +133,25 @@ describe("CS-2b — every Slack channel combobox (action + trigger) allows manua
     }
   });
 
-  it("does NOT add manual entry to non-channel Slack fields (no accidental conversion)", () => {
+  it("manual entry only appears on the slack channel/user picker comboboxes (no accidental conversion)", () => {
+    // After the sweep, allowManualEntry is valid on the slack:channels AND
+    // slack:users single-select pickers — but never on any other field.
+    const isSlackPicker = (f: FieldMeta): boolean =>
+      f.type === "combobox" &&
+      (f.optionsSource === "slack:channels" || f.optionsSource === "slack:users");
     const allFields = [
       ...slackActionMetas.flatMap((m) => m.fields),
       ...slackTriggerMetas.flatMap((m) => m.fields),
     ];
     for (const f of allFields) {
-      if (!isSlackChannelField(f)) {
-        // Only the slack:channels channel comboboxes were touched.
+      if (!isSlackPicker(f)) {
         expect(f.allowManualEntry).toBeUndefined();
       }
     }
-    // Spot-check the known user / new-channel-name fields explicitly.
-    const userField = slackSendDirectMessageMeta.fields.find((f) => f.name === "userId");
-    expect(userField!.allowManualEntry).toBeUndefined();
-    expect(userField!.optionsSource).toBeUndefined();
+    // The new-channel-name + multi-value invite-users fields stay non-pickers.
     const nameField = slackCreateChannelMeta.fields.find((f) => f.name === "name");
     expect(nameField!.allowManualEntry).toBeUndefined();
+    expect(nameField!.optionsSource).toBeUndefined();
   });
 
   it("every Slack action + trigger meta still validates (handlers/schemas untouched — metadata only)", () => {

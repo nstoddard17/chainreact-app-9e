@@ -38,12 +38,14 @@ export const slackRemoveUserFromChannelMeta: ActionMeta = {
     },
     {
       name: "user",
-      label: "User id",
+      label: "User",
       description:
-        "Slack user id (U-prefixed). Wire from an upstream Slack action / trigger payload (e.g. `{{trigger.user}}`).",
-      type: "text",
+        "Pick a workspace user, or paste / wire a Slack user id (U-prefixed) such as `{{trigger.user}}`.",
+      type: "combobox",
+      optionsSource: "slack:users",
+      allowManualEntry: true,
       required: true,
-      placeholder: "U01ABC23DEF",
+      placeholder: "Search users or paste a user ID",
     },
   ],
   outputs: [

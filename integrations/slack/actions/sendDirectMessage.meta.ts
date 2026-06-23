@@ -32,12 +32,14 @@ export const slackSendDirectMessageMeta: ActionMeta = {
   fields: [
     {
       name: "userId",
-      label: "User id",
+      label: "User",
       description:
         "Slack user id (U-prefixed). Wire from an upstream Slack action / trigger payload (e.g. `{{trigger.user}}`, `{{slack:get_user_info.user.id}}`).",
-      type: "text",
+      type: "combobox",
+      optionsSource: "slack:users",
+      allowManualEntry: true,
       required: true,
-      placeholder: "U01ABC23DEF",
+      placeholder: "Search users or paste a user ID",
     },
     {
       name: "text",

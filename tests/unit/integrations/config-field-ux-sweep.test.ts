@@ -1,0 +1,132 @@
+/**
+ * Config-field UX sweep (CONFIG-FIELD-UX-SWEEP) — metadata-only adoptions:
+ *   - Outlook Calendar create/update event: datetime + timezone controls.
+ *   - Google Analytics run_report: date controls for the custom range.
+ *   - Google Calendar create/update event: colorId static enum select.
+ *
+ * Proves the new field types are wired, the stored config KEYS are unchanged
+ * (handlers/schemas read the same keys / value formats), required-ness is
+ * preserved, and every touched meta still validates against ActionMetaSchema.
+ */
+import { ActionMetaSchema, type ActionMeta, type FieldMeta } from "@/contracts/actionMeta";
+import { TriggerMetaSchema } from "@/contracts/triggerMeta";
+import {
+  listActionMetasForProvider,
+  listTriggerMetasForProvider,
+} from "@/services/discovery/_registry";
+
+function meta(provider: string, key: string): ActionMeta {
+  const m = listActionMetasForProvider(provider).find((x) => x.key === key);
+  if (!m) throw new Error(`meta not found: ${key}`);
+  return m;
+}
+function field(m: ActionMeta, name: string): FieldMeta {
+  const f = m.fields.find((x) => x.name === name);
+  if (!f) throw new Error(`field not found: ${m.key}.${name}`);
+  return f;
+}
+
+describe("sweep — Outlook Calendar datetime + timezone controls", () => {
+  it.each([
+    "microsoft-outlook-calendar:create_event",
+    "microsoft-outlook-calendar:update_event",
+  ])("%s start/end are datetime; time zones are timezone (keys unchanged)", (key) => {
+    const m = meta("microsoft-outlook-calendar", key);
+    expect(field(m, "startDateTime").type).toBe("datetime");
+    expect(field(m, "endDateTime").type).toBe("datetime");
+    expect(field(m, "startTimeZone").type).toBe("timezone");
+    expect(field(m, "endTimeZone").type).toBe("timezone");
+    // No raw "text" smell left on these temporal keys.
+    expect(field(m, "startDateTime").type).not.toBe("text");
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+
+  it("create_event keeps start/end required; update_event keeps them optional (validation unchanged)", () => {
+    const create = meta("microsoft-outlook-calendar", "microsoft-outlook-calendar:create_event");
+    expect(field(create, "startDateTime").required).toBe(true);
+    expect(field(create, "endDateTime").required).toBe(true);
+    const update = meta("microsoft-outlook-calendar", "microsoft-outlook-calendar:update_event");
+    expect(field(update, "startDateTime").required).toBe(false);
+  });
+});
+
+describe("sweep — Google Analytics custom-range date controls", () => {
+  it("run_report startDate/endDate are date controls, still optional, keys unchanged", () => {
+    const m = meta("google-analytics", "google-analytics:run_report");
+    expect(field(m, "startDate").type).toBe("date");
+    expect(field(m, "endDate").type).toBe("date");
+    expect(field(m, "startDate").required).toBe(false);
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+});
+
+describe("sweep — Google Calendar colorId static enum", () => {
+  it.each([
+    "google-calendar:create_event",
+    "google-calendar:update_event",
+  ])("%s colorId is a static select of the 11 Google Calendar colors storing 1..11", (key) => {
+    const m = meta("google-calendar", key);
+    const colorId = field(m, "colorId");
+    expect(colorId.type).toBe("select");
+    expect(colorId.optionsSource).toBeUndefined(); // static, not a resolver
+    const opts = colorId.options ?? [];
+    expect(opts).toHaveLength(11);
+    expect(opts.map((o) => o.value)).toEqual(
+      ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
+    );
+    // Friendly labels, stable Google Calendar event color names.
+    expect(opts[0]!.label).toMatch(/lavender/i);
+    expect(opts[10]!.label).toMatch(/tomato/i);
+    // Cosmetic, stays optional (no hidden default introduced).
+    expect(colorId.required).toBe(false);
+    expect(colorId.defaultValue).toBeUndefined();
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+});
+
+describe("sweep — Slack single-value user fields use the slack:users picker", () => {
+  const expectUserPicker = (f: FieldMeta) => {
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("slack:users");
+    expect(f.allowManualEntry).toBe(true);
+  };
+
+  it.each([
+    ["slack:send_direct_message", "userId", true],
+    ["slack:get_user_info", "user", true],
+    ["slack:remove_user_from_channel", "user", true],
+  ] as const)("%s.%s is a slack:users combobox (required=%s, key unchanged)", (key, name, req) => {
+    const m = meta("slack", key);
+    const f = field(m, name);
+    expectUserPicker(f);
+    expect(f.required).toBe(req);
+    expect(f.name).toBe(name); // stored config key unchanged → handler/schema intact
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+
+  it("new_direct_message sender filter (trigger) is a slack:users combobox, still optional", () => {
+    const t = listTriggerMetasForProvider("slack").find((x) => x.key === "slack:message.im");
+    if (!t) throw new Error("slack:message.im trigger not found");
+    const f = t.fields.find((x) => x.name === "withUserId");
+    expect(f).toBeDefined();
+    expectUserPicker(f!);
+    expect(f!.required).toBe(false);
+    expect(TriggerMetaSchema.safeParse(t).success).toBe(true);
+  });
+
+  it("does NOT convert the multi-value invite users field (combobox has no multi-select)", () => {
+    const invite = listActionMetasForProvider("slack").find(
+      (x) => x.key === "slack:invite_users_to_channel",
+    );
+    if (!invite) throw new Error("invite_users_to_channel not found");
+    const users = invite.fields.find((x) => x.name === "users");
+    expect(users).toBeDefined();
+    // Stays a multi-value chip input (string-array), NOT a single-select slack:users combobox.
+    expect(users!.type).toBe("string-array");
+    expect(users!.optionsSource).toBeUndefined();
+    // And no Slack field anywhere was wrongly pointed at slack:users as a multi field.
+    for (const f of invite.fields) {
+      if (f.optionsSource === "slack:users") expect(f.multiple).not.toBe(true);
+    }
+  });
+});

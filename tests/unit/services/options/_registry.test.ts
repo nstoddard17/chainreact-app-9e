@@ -679,12 +679,13 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toEqual(["parentItemId"]);
     });
 
-    it("registers exactly the 2 ONEDRIVE-META-2 resolver keys", () => {
+    it("registers the OneDrive resolver keys (META-2 folders/items + GETFILE-DISCOVERY files)", () => {
       const sources = listOptionsResolvers()
         .filter((r) => r.provider === "microsoft-onedrive")
         .map((r) => r.source)
         .sort();
       expect(sources).toEqual([
+        "microsoft-onedrive:files",
         "microsoft-onedrive:folders",
         "microsoft-onedrive:items",
       ]);

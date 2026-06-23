@@ -53,18 +53,16 @@ export const googleAnalyticsRunReportMeta: ActionMeta = {
     {
       name: "startDate",
       label: "Start date",
-      description: "Only for a Custom range. ISO date, e.g. 2026-01-01.",
-      type: "text",
+      description: "Only for a Custom range.",
+      type: "date",
       required: false,
-      placeholder: "2026-01-01",
     },
     {
       name: "endDate",
       label: "End date",
-      description: "Only for a Custom range. ISO date, e.g. 2026-01-31.",
-      type: "text",
+      description: "Only for a Custom range.",
+      type: "date",
       required: false,
-      placeholder: "2026-01-31",
     },
     {
       name: "metrics",

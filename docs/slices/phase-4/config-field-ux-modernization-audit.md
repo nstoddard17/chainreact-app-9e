@@ -320,3 +320,119 @@ credential exposure.
 Pick up **CS-1** (temporal field-type family + Google Calendar adopter), optionally preceded by
 the **CS-0** Slack-trigger combobox quick win. Both are client/metadata-only and carry no
 backend, migration, or provider-call risk.
+
+---
+
+## 14. Sweep execution status (live)
+
+This section is the running ledger for the "sweep-and-clean" execution. **Every remaining gap
+has an explicit reason + recommended action — no vague "future" notes.**
+
+### 14.1 Completed (shipped, local commits)
+
+| Slice | What shipped |
+|---|---|
+| **CS-1** | `date` / `time` / `datetime` / `timezone` field types + renderers; Google Calendar create/update event adopted (start/end datetime, start/end date, timezone). |
+| **CS-2** | 7 Slack **trigger** channel fields → `slack:channels` combobox + `allowManualEntry`. |
+| **CS-2b** | 24 Slack **action** channel comboboxes → `allowManualEntry` (paste parity). |
+| **SWEEP-1** | **Outlook Calendar** create/update event: `startDateTime`/`endDateTime` → `datetime`, `startTimeZone`/`endTimeZone` → `timezone` (offset-less local + separate IANA tz — same model the Outlook schema's flat-shim + `resolveTimezone` already expect; format preserved). **Google Analytics** `run_report`: `startDate`/`endDate` → `date` (custom range). **Google Calendar** create/update event: `colorId` text → static `select` of the 11 documented event colors (stores `"1".."11"`). |
+| **SWEEP-1 (slack:users)** | **Built** the `slack:users` option resolver (read-only `users.list`, **already-granted** `users:read` scope, returns id + `@displayName` only — **no email**: V2 omits `users:read.email`). **Wired** the 4 single-value Slack user-id fields → `combobox` + `slack:users` + `allowManualEntry`: `send_direct_message.userId`, `get_user_info.user`, `remove_user_from_channel.user`, and the `new_direct_message.withUserId` sender filter (trigger). Stored value stays the `U…` id; `invite_users_to_channel.users` (multi-value) deliberately untouched (combobox has no multi-select). |
+
+**Why these were safe:** each provider stores the SAME string the handler/schema already accepts
+(Outlook: naive `dateTime` + separate `timeZone`; GA: `YYYY-MM-DD`; GCal colorId: a `"1".."11"`
+string). No handler/schema/scope/wrapper/route/DB change. Existing offset-bearing or
+`{{variable}}` values hydrate via the temporal renderer's safe text fallback (never silently
+reinterpreted). `colorId` stays optional (no hidden default); `select` retains an out-of-options
+saved value rather than clobbering it.
+
+### 14.2 Blocked — needs a Marcus decision (do NOT build silently)
+
+1. **Instant (`...Z` / offset) temporal fields** — Outlook Cal `list_events` start/end window,
+   Google Cal `list_events` `timeMin`/`timeMax`, Trello `create_card`/`update_card` `due`/`start`,
+   Mailchimp `create_custom_event` `occurred_at`.
+   - **Reason:** these store a true UTC **instant** (`2026-06-01T00:00:00Z`), and the providers'
+     query/date APIs require the offset/`Z`. The CS-1 `datetime` renderer stores **offset-less**
+     local wall-clock and (correctly) has no companion timezone field on these actions —
+     converting them would either emit a naive string the API rejects (GCal/Outlook list windows)
+     or silently shift the instant by the local offset (Trello/Mailchimp), violating "no silent
+     timezone conversion."
+   - **Recommended action:** add a `datetime-utc` (instant) renderer that treats the picked
+     wall-clock as **UTC** and emits `…Z`, clearly labeled "UTC". **Decision needed:** is the
+     "enter the time in UTC" model acceptable, or do we want a picked-offset control? Either is a
+     small renderer add once the input model is chosen.
+   - **Marcus decision required: YES.**
+
+2. **Dual-format timestamp fields** — Slack `schedule_message` `postAt` (ISO-with-offset **or**
+   Unix-seconds int), HubSpot `create_meeting`/`create_call`/`create_task` `hs_timestamp` +
+   meeting start/end (ISO **or** epoch-ms).
+   - **Reason:** the handlers accept two value shapes; no single temporal renderer maps cleanly,
+     and these also carry offset/instant semantics (see #1).
+   - **Recommended action:** decide on a single canonical input (datetime-UTC per #1) and have the
+     handler keep accepting the legacy int form for back-compat. Bundle with #1's renderer.
+   - **Marcus decision required: YES** (tied to #1).
+
+3. **HubSpot portal-configurable enums** — `lifecyclestage`, `hs_lead_status`,
+   `hs_ticket_category`, `source_type`, `dealtype` on the create/update contact/company/ticket/deal
+   metas.
+   - **Reason:** these are **per-portal customizable** enums (the "typical values" in the meta
+     descriptions are best-effort, not authoritative). A static `select` would impose a fake
+     constraint and reject valid custom portal values — a regression.
+   - **Recommended action:** build a `hubspot:property_options` resolver (deps: object type +
+     property name) that reads the portal's real enum options via HubSpot's CRM **properties API**.
+     **Blocker:** needs verification that the properties read endpoint is covered by the **already-
+     granted** HubSpot scopes (the manifest has 18 scopes — likely yes, but unverified). If in
+     scope → buildable now as a normal resolver; if not → scope change required.
+   - **Marcus decision required: only if a scope add is needed** (pending the scope check).
+
+### 14.3 Blocked — backend/scope/product (unchanged from the original audit)
+
+- **Google Calendar `calendarId` picker** — `google-calendar:calendars` resolver is **scope-blocked**
+  (documented in the GCAL-META plan); needs a broader Calendar scope. **Marcus decision: YES** (OAuth scope).
+- **Location/address fields** (GCal/Outlook Cal `location`, HubSpot `hs_meeting_location`) — **Google
+  Places blocked**: needs API key + billing + server proxy + privacy/PII-egress decision + storage-format
+  choice (§6). Kept as honest free-text; help copy already states "address or place". **Marcus decision: YES.**
+
+### 14.4 Buildable resolver candidates (no scope/migration — recommended next slices)
+
+- **`google-drive:files`** — a searchable Drive **file** picker for the various `fileId` text fields
+  (delete/move/get-metadata/etc.). The `drive.metadata.readonly` scope is **already granted** (used by
+  `google-sheets:spreadsheets` / `google-docs:documents`); reuse the existing `filesList` wrapper without
+  the mime filter. **Open design choice (not a blocker):** Drive can hold thousands of files, so ship it as
+  a bounded single-page (≤200) search + `allowManualEntry` paste fallback (same pattern as `github:repos`).
+  **No Marcus decision needed** — recommend building as the next resolver slice.
+
+### 14.5 Confirmed already-complete (no action — verified this sweep)
+
+- **Resource-ID selectors** are otherwise fully wired: Slack channels, Google Sheets/Docs/Drive folders,
+  OneDrive items/files, Excel workbook/worksheet/table, Trello board/list/card/member/label, Airtable
+  base/table/view/field, Notion page/user, HubSpot owner/pipeline/stage/list, Mailchimp audience/campaign/
+  segment/member, Monday board/group/column/item, Discord guild/channel/member/role, Teams team/channel,
+  OneNote notebook/section/page, Dropbox folder/file, Facebook page/post/album, GitHub repos, Gmail labels.
+  The remaining raw-ID text fields are **intentional**: trigger/upstream-fed ids (`eventId`, `messageId`,
+  `fileId`), opaque Stripe ids, and Airtable `recordId` (record pickers explicitly rejected for v1).
+- **Variable insertion** covers the primary text surfaces: `TextField`, `TextareaField`, `FileField`,
+  `FileRefArrayField`, `RouterRoutesField` all mount `VariablePickerButton`. **Known gap:** `StringArrayField`
+  (multi-recipient chip lists, e.g. Gmail `from[]`, Calendar `attendees`) has no per-chip picker by design.
+  **Recommended action:** add an opt-in `supportsVariables` meta flag + per-chip picker to `StringArrayField`
+  (renderer-only, no backend) as a small follow-up. Also `gmail:add_label.labelIds` is a `string-array` and
+  cannot use `optionsSource` (arrays aren't supported by combobox) — a multi-select combobox is the real fix.
+- **ComboboxField variable insertion (follow-up from the slack:users wiring):** the 3 Slack **action** user
+  fields (`send_direct_message.userId`, `get_user_info.user`, `remove_user_from_channel.user`) were `TextField`s
+  with the one-click variable **browse** button, used for the common reply-to-sender `{{trigger.user}}` pattern.
+  Converting them to `combobox` keeps variable wiring (the `allowManualEntry` box accepts a typed `{{trigger.user}}`)
+  but drops the browse button. **Recommended action:** add a `VariablePickerButton` ("use a variable" → `onChange`
+  the token) to `ComboboxField` — restores one-click variable discoverability for ALL comboboxes (channels too),
+  renderer-only, no backend. **No Marcus decision needed.** (The trigger field `withUserId` has no upstream
+  variables, so it lost nothing.)
+
+### 14.6 Sweep coverage summary
+
+Swept all audit categories: **temporal** (Outlook Cal + GA done; instant fields blocked #1), **Slack
+selectors** (channels done CS-2/2b; **single-value users/DM-sender done this sweep via the new `slack:users`
+resolver**; the multi-value `invite_users_to_channel.users` needs a multi-select combobox; **group-DM (mpim)**
+has no resolver — Slack `users.list` doesn't enumerate mpim channels, so `new_group_direct_message.channelId`
+stays text pending a `conversations.list types=mpim` resolver, a buildable follow-up on the existing
+`conversationsList` wrapper), **Google/Microsoft selectors** (already wired; `google-drive:files` recommended),
+**Trello/Airtable/Notion** (already wired; record pickers rejected), **enum polish** (GCal colorId done;
+HubSpot portal enums blocked #3), **location** (Places blocked), **variable insertion** (text/textarea
+done; StringArrayField + ComboboxField-button follow-ups).
