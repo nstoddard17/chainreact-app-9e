@@ -27,6 +27,8 @@ import {
   type ProviderOption,
 } from "./panels/AddNodePanel";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
+import { AnonymousAgentRail } from "./panels/AnonymousAgentRail";
+import { LocalBuildBanner, LocalConfigNote } from "./panels/AnonymousLocalChrome";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
 import { RunResultsPanel } from "./panels/RunResultsPanel";
 import { useConfigSlice } from "./state/configSlice";
@@ -78,6 +80,23 @@ interface Props {
    * Optional so isolated builder tests keep passing (undefined → entry hidden).
    */
   guidanceEnabled?: boolean;
+  /**
+   * ANON-BUILDER-1 — local-only (logged-out) anonymous build mode. Additive:
+   * when omitted/false the builder is byte-identical to the authenticated path.
+   * When true the builder renders for a logged-out visitor with NO account: the
+   * persistent "building locally" banner shows, the header save/run/activate
+   * cluster is replaced by a single sign-up CTA, the React Agent rail shows the
+   * carried-over prompt + a sign-up CTA (no paid AI), and selecting a node shows
+   * a sign-up note instead of the credential-fetching config form. Graph editing
+   * stays fully local — `graphSlice` is in-memory with no autosave, so nothing
+   * touches the server.
+   */
+  localOnly?: boolean;
+  /**
+   * ANON-BUILDER-1 — the homepage prompt carried into the local-only React Agent
+   * rail (sessionStorage handoff). Only used when `localOnly` is true.
+   */
+  initialAgentPrompt?: string;
 }
 
 /**
@@ -123,6 +142,8 @@ export function WorkflowBuilder({
   setupFieldsByType,
   accountId,
   guidanceEnabled,
+  localOnly,
+  initialAgentPrompt,
 }: Props) {
   const hydrate = useGraphSlice((s) => s.hydrate);
   const reset = useGraphSlice((s) => s.reset);
@@ -514,10 +535,13 @@ export function WorkflowBuilder({
           // Only an explicit `false` blocks; undefined (fixture/back-compat) does
           // not. The run-now/activate routes still enforce with a typed 403.
           runEditBlocked={workflow.viewerCanRunEdit === false}
+          // ANON-BUILDER-1 — local-only: replace save/run/activate with a sign-up CTA.
+          {...(localOnly ? { localOnly: true } : {})}
         />
       }
       banner={
         <>
+          {localOnly ? <LocalBuildBanner /> : null}
           <ActiveAccountMismatchBanner />
           <WorkflowDisabledBanner
             state={workflow.state}
@@ -532,12 +556,17 @@ export function WorkflowBuilder({
           onCollapse={leftRail.collapse}
           // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — drive the header status from the SAME availability
           // rule the rail body uses, so the header can't claim "connected · Hermes" while the body shows
-          // the "unavailable" note.
-          connected={guidanceEnabled === true && !!accountId}
+          // the "unavailable" note. Local-only (logged-out) is never "connected".
+          connected={!localOnly && guidanceEnabled === true && !!accountId}
         >
-          {/* HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — the left rail is now the single, primary builder
+          {localOnly ? (
+            /* ANON-BUILDER-1 — logged-out visitor: show the carried-over prompt + a sign-up CTA
+               instead of the account-scoped, credit-billed live guidance panel. */
+            <AnonymousAgentRail {...(initialAgentPrompt ? { prompt: initialAgentPrompt } : {})} />
+          ) : (
+          /* HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — the left rail is now the single, primary builder
               AI entry: Hermes workflow guidance (account route), NOT the deprecated plan endpoint.
-              Reuses the verified guidance panel + the same canvas-preview/apply path. */}
+              Reuses the verified guidance panel + the same canvas-preview/apply path. */
           <BuilderGuidanceRail
             workflowId={workflow.id}
             {...(accountId ? { accountId } : {})}
@@ -554,6 +583,7 @@ export function WorkflowBuilder({
             getCurrentGraphShape={getCurrentGraphShape}
             renderCheckSetup={renderCheckSetup}
           />
+          )}
         </BuilderLeftAgentRail>
       }
       rightDrawer={
@@ -562,7 +592,9 @@ export function WorkflowBuilder({
             title={drawerTitle}
             onClose={handleDrawerClose}
           >
-            {mode === "inspector" ? <NodeInspectorPanel /> : null}
+            {mode === "inspector" ? (
+              localOnly ? <LocalConfigNote /> : <NodeInspectorPanel />
+            ) : null}
             {mode === "results" ? (
               // HERMES-AGENT-REHOME-RUN-RESULTS-REPAIR — accountId scopes the governed repair route.
               <RunResultsPanel {...(accountId ? { accountId } : {})} />

@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { setAnonPrompt } from "@/lib/anonymousBuilder";
 import { MarketingHeroMotion } from "./MarketingHeroMotion";
 
 /**
@@ -11,10 +12,10 @@ import { MarketingHeroMotion } from "./MarketingHeroMotion";
  * Three parts (mirroring the design's HeroV2 / V2Prompt / V2HeroMedia):
  *   1. Big editorial headline.
  *   2. Inline prompt textarea with a rotating typed example placeholder.
- *      Submit funnels signed-out users to `/auth/sign-up` (they'll land
- *      on the builder after sign-up). The placeholder is decorative —
- *      we don't preserve the prompt across auth, that's an unbuilt
- *      capability and would be a fake action to claim.
+ *      Submit (ANON-BUILDER-1) parks the typed prompt in sessionStorage and
+ *      sends the visitor straight into the local-only builder at `/start` —
+ *      NO sign-up required to start building. The rotating text is only the
+ *      decorative placeholder; the real typed value is what we carry over.
  *   3. Animated product visual — rotating illustrative "moments" cards
  *      (Gmail, Slack, Notion, HubSpot) on a dark grid. The copy stays
  *      generic-illustrative; no customer-attributed claims.
@@ -149,6 +150,9 @@ function PromptBox() {
   const router = useRouter();
   const [exIdx, setExIdx] = useState(0);
   const [typed, setTyped] = useState("");
+  // ANON-BUILDER-1 — the visitor's real typed prompt (distinct from the
+  // decorative rotating placeholder `typed`).
+  const [value, setValue] = useState("");
 
   useEffect(() => {
     const cur = PROMPT_EXAMPLES[exIdx] ?? "";
@@ -177,10 +181,11 @@ function PromptBox() {
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // The prompt itself isn't preserved across sign-up today (that's an
-    // unbuilt capability) — funnel to sign-up; the user picks up the
-    // builder fresh on the other side.
-    router.push("/auth/sign-up");
+    // ANON-BUILDER-1 — park the typed prompt (if any) in sessionStorage and go
+    // straight into the local-only builder. No login required to start; sign-up
+    // is prompted only when the visitor tries to save / connect / run.
+    setAnonPrompt(value);
+    router.push("/start");
   }
 
   return (
@@ -197,6 +202,9 @@ function PromptBox() {
           placeholder={typed + "▌"}
           rows={3}
           aria-label="Describe what you want to automate"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          maxLength={2000}
         />
         <div className="mk-prompt-bar">
           <div className="mk-prompt-chips" aria-hidden>

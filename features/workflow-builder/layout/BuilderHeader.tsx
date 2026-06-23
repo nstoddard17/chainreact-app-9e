@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { WorkflowState } from "@/contracts/workflow";
+import { HeaderRightLocalOnly } from "../panels/AnonymousLocalChrome";
 import { useGraphSlice } from "../state/graphSlice";
 import { undoWithConfigSync, redoWithConfigSync } from "../state/historyNav";
 import { useBuilderShortcuts } from "../hooks/useBuilderShortcuts";
@@ -63,6 +64,13 @@ interface Props {
    * Optional so isolated header tests keep passing (undefined → not blocked).
    */
   runEditBlocked?: boolean;
+  /**
+   * ANON-BUILDER-1 — local-only (logged-out) build mode. When true the header's
+   * save/run/activate/templates cluster is replaced by a single sign-up CTA (so
+   * none of the account-scoped, server-calling controls mount) and ⌘S is a
+   * no-op. Optional/additive — undefined keeps the authenticated header.
+   */
+  localOnly?: boolean;
 }
 
 /**
@@ -92,6 +100,7 @@ export function BuilderHeader({
   lifecycle,
   requiredFieldsByType,
   runEditBlocked,
+  localOnly,
 }: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
@@ -139,7 +148,9 @@ export function BuilderHeader({
     }
   }, [isDirty, isSaving, save, router]);
 
-  useBuilderShortcuts({ onSave: handleSave });
+  // ANON-BUILDER-1 — in local-only mode there is nothing to save server-side, so
+  // ⌘S must NOT call graphSlice.save() (which would PATCH and 401). No-op it.
+  useBuilderShortcuts({ onSave: localOnly ? noop : handleSave });
 
   const status = deriveStatus({ isDirty, isSaving, saveError, savedAt });
 
@@ -162,22 +173,26 @@ export function BuilderHeader({
           saveError={saveError}
           onRetrySave={handleSave}
         />
-        <HeaderCenterMeta workflowId={workflowId} />
-        <HeaderRight
-          isDirty={isDirty}
-          isSaving={isSaving}
-          onSave={handleSave}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          workflowId={workflowId}
-          onOpenTemplates={() => setTemplatesOpen(true)}
-          validation={validation}
-          validationCounts={validationCounts}
-          lifecycle={lifecycle}
-          runEditBlocked={runEditBlocked}
-        />
+        <HeaderCenterMeta workflowId={localOnly ? undefined : workflowId} />
+        {localOnly ? (
+          <HeaderRightLocalOnly />
+        ) : (
+          <HeaderRight
+            isDirty={isDirty}
+            isSaving={isSaving}
+            onSave={handleSave}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            workflowId={workflowId}
+            onOpenTemplates={() => setTemplatesOpen(true)}
+            validation={validation}
+            validationCounts={validationCounts}
+            lifecycle={lifecycle}
+            runEditBlocked={runEditBlocked}
+          />
+        )}
       </header>
-      {templatesOpen && workflowId ? (
+      {!localOnly && templatesOpen && workflowId ? (
         <BuilderTemplatesModal
           workflowId={workflowId}
           isDirty={isDirty}
@@ -455,6 +470,9 @@ function HeaderRight({
     </div>
   );
 }
+
+/** ANON-BUILDER-1 — ⌘S handler when there's nothing to save (local-only mode). */
+function noop() {}
 
 /** Hairline vertical separator between header action groups (purely decorative). */
 function HeaderDivider({ className }: { className?: string }) {
