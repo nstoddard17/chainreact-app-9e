@@ -1102,6 +1102,16 @@ primary text field (`discoverAirtableSmokeTextField`, via `refreshAndRetry`), wi
   add_comment weak-verification gap — its own response echoed the input, so the
   smoke must read the comment back independently. A missing seam fails the verify
   loud; it never silently routes an unknown action to the engine.
+- **Seam refresh invariant (SMOKE-WRITE-13).** Every smoke-only discovery /
+  read-back seam that hits a provider HTTP API MUST wrap the call in
+  `refreshAndRetry` (same path as the action handlers + option resolvers) — never
+  a raw `decryptToken(...)` + direct wrapper call. A raw call against a refreshable
+  provider's short-lived token 401s and falsely reports `BLOCKED_ENV` (the
+  Airtable SMOKE-WRITE-11/12 bug). All seams (Airtable record/schema, Trello
+  card/comments, Notion database search) are on the refresh path; the resolver-based
+  Trello/Notion discovery seams inherit it from the resolvers. Enforced by
+  [`tests/unit/smoke-actions/seam-refresh-guard.test.ts`](../../tests/unit/smoke-actions/seam-refresh-guard.test.ts)
+  (fails if a seam decrypts a token or calls a provider wrapper outside `refreshAndRetry`).
 
 **Connection diagnosis (4-way, never conflate target with connection).** A provider
 is classified `NOT_CONNECTED` (only when the DB proves it) / `CONNECTED_NOT_EXECUTABLE`

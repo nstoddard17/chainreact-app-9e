@@ -40,7 +40,6 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
 import { getOptionsResolver } from "@/services/options/_registry";
-import { decryptToken } from "@/core/encryption/tokens";
 import { cardsGet, cardsListComments } from "@/integrations/trello/api/cards";
 import { recordsList } from "@/integrations/airtable/api/records";
 import { basesGetSchema } from "@/integrations/airtable/api/bases";
@@ -294,11 +293,22 @@ export async function discoverNotionSmokeDatabase(
   if (!integration) return null;
   let response;
   try {
-    response = await notionSearch({
-      accessToken: decryptToken(integration.accessTokenEncrypted),
-      query: "",
-      filter: { value: "database", property: "object" },
-      pageSize: 100,
+    // refreshAndRetry mirrors the notion handlers + the notion:pages resolver.
+    // Notion is non-refreshable today (tokens are long-lived) so this is a no-op
+    // on success / surfaces a 401 on failure — but it keeps the seam on the SAME
+    // path as every other Notion read, so a future Notion-refresh slice can't
+    // silently leave this discovery raw (the Airtable SMOKE-WRITE-11 bug class).
+    response = await refreshAndRetry({
+      accountId,
+      provider: "notion",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) =>
+        notionSearch({
+          accessToken,
+          query: "",
+          filter: { value: "database", property: "object" },
+          pageSize: 100,
+        }),
     });
   } catch {
     return null;
@@ -441,8 +451,15 @@ export function makeRealWriteHarnessDeps(
           if (typeof cardId !== "string" || cardId.length === 0) {
             return { ok: false, output: null, reason: "card_comments read-back: missing cardId" };
           }
-          const accessToken = decryptToken(integration.accessTokenEncrypted);
-          const actions = await cardsListComments({ accessToken, cardId, limit: 20 });
+          // refreshAndRetry mirrors the Trello handlers + resolvers. Trello is
+          // non-refreshable (long-lived tokens) so this is a no-op on success today,
+          // but keeps every smoke read on the SAME refresh path as the handlers.
+          const actions = await refreshAndRetry({
+            accountId,
+            provider: "trello",
+            providerAccountId: integration.providerAccountId,
+            apiCall: (accessToken) => cardsListComments({ accessToken, cardId, limit: 20 }),
+          });
           // Bounded mapping — provider-confirmed comment text + ids only.
           const comments = actions.map((a) => ({
             commentId: a.id,
@@ -460,8 +477,12 @@ export function makeRealWriteHarnessDeps(
           if (typeof cardId !== "string" || cardId.length === 0) {
             return { ok: false, output: null, reason: "card read-back: missing cardId" };
           }
-          const accessToken = decryptToken(integration.accessTokenEncrypted);
-          const card = await cardsGet({ accessToken, cardId });
+          const card = await refreshAndRetry({
+            accountId,
+            provider: "trello",
+            providerAccountId: integration.providerAccountId,
+            apiCall: (accessToken) => cardsGet({ accessToken, cardId }),
+          });
           // Bounded mapping — only the membership/state fields verification reads.
           return {
             ok: true,
