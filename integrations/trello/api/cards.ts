@@ -153,6 +153,34 @@ export async function cardsAddComment(
   });
 }
 
+export interface CardsListCommentsInput {
+  accessToken: string;
+  cardId: string;
+  /** Bounded page size. */
+  limit?: number;
+}
+
+/**
+ * GET /1/cards/{id}/actions?filter=commentCard — the card's comment actions,
+ * provider-returned (an INDEPENDENT read-back, NOT the add-comment POST echo).
+ * Bounded by `limit`. Each item carries `data.text` (the persisted comment text),
+ * which is what smoke verification reads to prove the marker actually persisted.
+ */
+export async function cardsListComments(
+  input: CardsListCommentsInput,
+): Promise<ReadonlyArray<TrelloCommentAction>> {
+  return trelloRequest<ReadonlyArray<TrelloCommentAction>>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: `/1/cards/${encodeURIComponent(input.cardId)}/actions`,
+    query: new URLSearchParams({
+      filter: "commentCard",
+      limit: String(input.limit ?? 20),
+    }),
+    resourceForNotFound: `card ${input.cardId}`,
+  });
+}
+
 // ─── cardsAddLabel ───────────────────────────────────────────────────────
 
 /**

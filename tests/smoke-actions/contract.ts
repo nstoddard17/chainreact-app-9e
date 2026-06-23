@@ -79,6 +79,15 @@ export interface ActionStepSpec {
    * Env tokens (`{{env.*}}`) are resolved in the path.
    */
   readonly markerPath?: string;
+  /**
+   * When true, this (verify) step is resolved by the SMOKE-ONLY read-back seam
+   * (`WriteHarnessDeps.smokeReadBack`) rather than the registered-action engine
+   * path — for providers that have no user-facing read action to verify against
+   * (e.g. Trello card comments). `provider`/`action` name the smoke reader. The
+   * step still goes through `markerPath` to confirm the marker on the provider's
+   * INDEPENDENT read response (never the write echo).
+   */
+  readonly smokeRead?: boolean;
 }
 
 /**

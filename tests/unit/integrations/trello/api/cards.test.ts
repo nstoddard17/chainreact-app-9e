@@ -12,6 +12,7 @@ import {
   cardsUpdate,
   cardsAddComment,
   cardsAddLabel,
+  cardsListComments,
 } from "@/integrations/trello/api/cards";
 
 const ORIGINAL_FETCH = global.fetch;
@@ -158,6 +159,22 @@ describe("cardsAddComment", () => {
     expect(JSON.parse(captured.body!)).toEqual({ text: "hello" });
     expect(result.id).toBe("action-1");
     expect(result.data?.text).toBe("hello");
+  });
+});
+
+describe("cardsListComments", () => {
+  it("GETs /1/cards/{id}/actions filtered to commentCard, bounded by limit", async () => {
+    const captured = captureFetch([
+      { id: "act-1", type: "commentCard", date: "2026-05-11T00:00:00Z", data: { text: "crsmoke-abc-comment" } },
+    ]);
+    const result = await cardsListComments({ accessToken: "t", cardId: "c1", limit: 5 });
+    expect(captured.method).toBe("GET");
+    const url = new URL(captured.url!);
+    expect(url.pathname).toBe("/1/cards/c1/actions");
+    expect(url.searchParams.get("filter")).toBe("commentCard");
+    expect(url.searchParams.get("limit")).toBe("5");
+    expect(captured.body).toBeUndefined(); // GET has no body
+    expect(result[0]?.data?.text).toBe("crsmoke-abc-comment");
   });
 });
 

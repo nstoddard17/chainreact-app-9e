@@ -39,6 +39,8 @@ import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { getActiveForExecution } from "@/repositories/integrations";
 import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
 import { getOptionsResolver } from "@/services/options/_registry";
+import { decryptToken } from "@/core/encryption/tokens";
+import { cardsListComments } from "@/integrations/trello/api/cards";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import { SMOKE_ACTION_NODE_ID, SMOKE_TRIGGER_NODE_ID } from "./workflowRun";
 import type { StepRunOutcome, WriteHarnessDeps } from "./writeHarness";
@@ -263,6 +265,37 @@ export function makeRealWriteHarnessDeps(
             JSON.stringify({ event: "smoke.write.cleanup_failed", workflowId, error: delErr.message }),
           );
         }
+      }
+    },
+
+    // SMOKE-ONLY read-back: bounded, READ-ONLY provider calls used to verify a
+    // marker where no user-facing read action exists. Never mutates; never goes
+    // through the engine. Provider tokens are decrypted here exactly as the
+    // builder option resolvers do.
+    async smokeReadBack(input): Promise<StepRunOutcome> {
+      try {
+        if (input.provider === "trello" && input.action === "card_comments") {
+          const integration = await getActiveForExecution(accountId, "trello", null, {
+            connectedByUserId: userId,
+          });
+          if (!integration) return { ok: false, output: null, reason: "trello not connected" };
+          const cardId = input.config.cardId;
+          if (typeof cardId !== "string" || cardId.length === 0) {
+            return { ok: false, output: null, reason: "card_comments read-back: missing cardId" };
+          }
+          const accessToken = decryptToken(integration.accessTokenEncrypted);
+          const actions = await cardsListComments({ accessToken, cardId, limit: 20 });
+          // Bounded mapping — provider-confirmed comment text + ids only.
+          const comments = actions.map((a) => ({
+            commentId: a.id,
+            text: a.data?.text ?? null,
+            date: a.date ?? null,
+          }));
+          return { ok: true, output: { comments }, reason: null };
+        }
+        return { ok: false, output: null, reason: `no smoke reader for ${input.provider}:${input.action}` };
+      } catch (err) {
+        return { ok: false, output: null, reason: sanitizeFailureReason((err as Error).message) };
       }
     },
   };

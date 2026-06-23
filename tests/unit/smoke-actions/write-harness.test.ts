@@ -479,6 +479,96 @@ describe("env resolution + marker echo (live wiring)", () => {
   });
 });
 
+// ─── smoke-only read-back verify (Trello add_comment) ───────────────────────
+
+describe("smokeRead verify routes to the smoke read-back seam, never the engine", () => {
+  // A spec whose verify is a SMOKE READ-BACK (no registered read action).
+  function commentSpec(): WriteHarnessSpec {
+    return {
+      liveClass: "destructiveSafe",
+      smokeMarker: "crsmoke-",
+      setup: [
+        {
+          provider: "trello",
+          action: "create_card",
+          config: { name: "{{smokeMarker}}seed" },
+          captureResource: { resourceKey: "card", idPath: "cardId", kind: "card" },
+        },
+      ],
+      verify: {
+        provider: "trello",
+        action: "card_comments",
+        config: { cardId: "{{ledger.card.id}}" },
+        markerPath: "comments",
+        smokeRead: true,
+      },
+      cleanupKind: "archive",
+      cleanup: { provider: "trello", action: "archive_card", config: { cardId: "{{ledger.card.id}}" } },
+    };
+  }
+
+  function depsWith(
+    plan: Record<string, StepRunOutcome>,
+    smokePlan?: Record<string, StepRunOutcome>,
+  ): RecordingDeps {
+    const calls: RecordingDeps["calls"] = [];
+    const base: RecordingDeps = {
+      calls,
+      async runActionStep(input) {
+        calls.push({ provider: input.provider, action: input.action, config: { ...input.config } });
+        return plan[`${input.provider}:${input.action}`] ?? { ok: true, output: null, reason: null };
+      },
+    };
+    if (smokePlan) {
+      base.smokeReadBack = async (input) => {
+        calls.push({ provider: input.provider, action: input.action, config: { ...input.config } });
+        return smokePlan[`${input.provider}:${input.action}`] ?? { ok: false, output: null, reason: "no reader" };
+      };
+    }
+    return base;
+  }
+
+  it("PASS when the independent read-back contains the marker", async () => {
+    const deps = depsWith(
+      {
+        "trello:create_card": { ok: true, output: { cardId: "C1" }, reason: null },
+        "trello:add_comment": { ok: true, output: { commentId: "A1", text: "crsmoke-T1-comment" }, reason: null },
+      },
+      { "trello:card_comments": { ok: true, output: { comments: [{ text: "crsmoke-T1-comment" }] }, reason: null } },
+    );
+    const res = await runWriteSmoke(fixture("add_comment", commentSpec()), RUN, deps);
+    expect(res.status).toBe("PASS");
+    // the read-back went through smokeReadBack, never runActionStep for card_comments
+    expect(deps.calls.filter((c) => c.action === "card_comments")).toHaveLength(1);
+  });
+
+  it("input echo CANNOT satisfy verification: read-back without the marker -> VERIFY_FAILED", async () => {
+    const deps = depsWith(
+      {
+        "trello:create_card": { ok: true, output: { cardId: "C1" }, reason: null },
+        // the WRITE response echoes the marker (input echo) ...
+        "trello:add_comment": { ok: true, output: { commentId: "A1", text: "crsmoke-T1-comment" }, reason: null },
+      },
+      // ... but the INDEPENDENT read-back does NOT contain it (provider didn't persist)
+      { "trello:card_comments": { ok: true, output: { comments: [] }, reason: null } },
+    );
+    const res = await runWriteSmoke(fixture("add_comment", commentSpec()), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED"); // not a vacuous pass
+    expect(deps.calls.some((c) => c.action === "archive_card")).toBe(true); // cleanup still runs
+  });
+
+  it("a smokeRead step with no read-back seam fails loud (never runs an unknown action)", async () => {
+    const deps = depsWith({
+      "trello:create_card": { ok: true, output: { cardId: "C1" }, reason: null },
+      "trello:add_comment": { ok: true, output: { commentId: "A1" }, reason: null },
+    }); // no smokePlan -> deps.smokeReadBack undefined
+    const res = await runWriteSmoke(fixture("add_comment", commentSpec()), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED");
+    // card_comments was NEVER dispatched as a normal engine action
+    expect(deps.calls.some((c) => c.action === "card_comments")).toBe(false);
+  });
+});
+
 // ─── cleanupKind + artifact disposition (cleaned vs left) ────────────────────
 
 describe("cleanupKind + artifact disposition", () => {

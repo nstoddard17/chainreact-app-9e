@@ -11,6 +11,11 @@ import { AddCommentConfigSchema } from "./addComment.schema";
  * Output: comment identifying fields. The `commentId` is the Trello
  * action id — useful for downstream chains that need to reference
  * the comment later (e.g., notify channel about the comment).
+ *
+ * `text` reflects the PROVIDER-CONFIRMED comment text (`action.data.text`),
+ * or `null` when Trello did not echo it — it does NOT fall back to the input
+ * `config.text`. Echoing the input would make the output (and any verification
+ * built on it) misleadingly assert success the provider never confirmed.
  */
 export const addComment: ActionHandler = async (input) => {
   const config = AddCommentConfigSchema.parse(input.config);
@@ -31,7 +36,8 @@ export const addComment: ActionHandler = async (input) => {
   return {
     output: {
       commentId: action.id,
-      text: action.data?.text ?? config.text,
+      // Provider-confirmed text only — never the input fallback (see header).
+      text: action.data?.text ?? null,
       date: action.date ?? null,
       memberCreatorId: action.memberCreator?.id ?? null,
       memberCreatorUsername: action.memberCreator?.username ?? null,

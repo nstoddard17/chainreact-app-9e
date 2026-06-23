@@ -168,6 +168,19 @@ export interface WriteHarnessDeps {
     readonly action: string;
     readonly config: Readonly<Record<string, unknown>>;
   }): Promise<StepRunOutcome>;
+  /**
+   * SMOKE-ONLY read-back seam for verify steps marked `smokeRead` — a bounded,
+   * READ-ONLY provider call (NOT through the engine, NOT a user-facing action)
+   * for providers with no registered read action to verify against. `(provider,
+   * action)` selects the reader; `config` carries the (resolved) target id.
+   * Absent -> a `smokeRead` verify step fails with a clear reason (never silently
+   * routed to the write/engine path).
+   */
+  smokeReadBack?(input: {
+    readonly provider: string;
+    readonly action: string;
+    readonly config: Readonly<Record<string, unknown>>;
+  }): Promise<StepRunOutcome>;
 }
 
 export interface RunWriteSmokeOptions {
@@ -438,7 +451,17 @@ export async function runWriteSmoke(
     step: ActionStepSpec,
   ): Promise<StepRunOutcome> => {
     const config = resolveStepConfig(step.config, marker, ledger, envLookup);
-    const res = await deps.runActionStep({ provider: step.provider, action: step.action, config });
+    // A `smokeRead` verify step routes to the smoke-only read-back seam — NEVER to
+    // the engine/write path (a missing seam fails loud, never silently runs an
+    // unknown action).
+    let res: StepRunOutcome;
+    if (step.smokeRead) {
+      res = deps.smokeReadBack
+        ? await deps.smokeReadBack({ provider: step.provider, action: step.action, config })
+        : { ok: false, output: null, reason: "smoke read-back seam not available" };
+    } else {
+      res = await deps.runActionStep({ provider: step.provider, action: step.action, config });
+    }
     if (res.ok && step.captureResource) {
       const id = readPath(res.output, step.captureResource.idPath);
       if (id) {

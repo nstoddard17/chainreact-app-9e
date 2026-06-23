@@ -236,6 +236,14 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["notion", "append_block_children"],
     ["notion", "create_comment"],
   ]),
+  // SMOKE-WRITE-7 — trello:add_comment, previously deferred for weak verification
+  // (the add_comment output echoed config.text). Now verified via an INDEPENDENT
+  // smoke-only read-back (cardsListComments GET) that confirms the crsmoke-* marker
+  // in the PROVIDER-persisted comment text — input echo can no longer satisfy it.
+  // create card -> comment -> read-back comments -> archive card.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live write + independent comment read-back, archived", SMOKE_WRITE, [
+    ["trello", "add_comment"],
+  ]),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────

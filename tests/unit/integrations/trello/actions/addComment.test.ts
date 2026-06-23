@@ -85,6 +85,29 @@ describe("addComment handler", () => {
     });
   });
 
+  it("text reflects provider-confirmed data only — NEVER the input fallback", async () => {
+    wireIntegration();
+    // Trello did not echo data.text -> output.text must be null, not config.text.
+    // Echoing the input would let smoke verification assert a persistence the
+    // provider never confirmed (the add_comment weak-verification finding).
+    mockCardsAddComment.mockResolvedValue({
+      id: "act-2",
+      type: "commentCard",
+      date: "2026-05-11T01:00:00Z",
+      data: {},
+    });
+    const result = await addComment({
+      workflowId: "wf",
+      runId: "r",
+      nodeId: "n",
+      userId: "user-1",
+      accountId: "acct-user-1",
+      config: { cardId: "c1", text: "crsmoke-xyz-comment" },
+      triggerEvent,
+    });
+    expect(result.output.text).toBeNull();
+  });
+
   it("schema rejects empty text", () => {
     expect(
       AddCommentConfigSchema.safeParse({ cardId: "c1", text: "" }).success,

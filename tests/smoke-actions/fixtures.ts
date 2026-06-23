@@ -128,6 +128,7 @@ import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/appe
 import notionCreateComment from "@/tests/fixtures/action-smoke/notion/create_comment";
 import trelloCreateCard from "@/tests/fixtures/action-smoke/trello/create_card";
 import trelloUpdateCard from "@/tests/fixtures/action-smoke/trello/update_card";
+import trelloAddComment from "@/tests/fixtures/action-smoke/trello/add_comment";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -241,6 +242,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   notionCreateComment,
   trelloCreateCard,
   trelloUpdateCard,
+  trelloAddComment,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

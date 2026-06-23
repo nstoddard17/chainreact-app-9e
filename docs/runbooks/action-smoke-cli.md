@@ -1046,6 +1046,7 @@ marker -> run cleanup):
 | `airtable:update_record` | create -> update -> echo -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `trello:create_card` | create -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:update_card` | create -> update -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `trello:add_comment` | create card -> comment -> card_comments read-back (marker) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `notion:create_page` | create -> get_page (marker on title) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `notion:update_page` | create -> update title -> get_page (marker on title) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `notion:append_block_children` | create -> append paragraph -> get_block_children (marker in blocks) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
@@ -1084,6 +1085,16 @@ Airtable uses the env-pinned smoke base + `SMOKE_AIRTABLE_TEXT_FIELD`.
   substring hit is a true match. This is how the Notion content batch
   (`update_page`, `append_block_children`, `create_comment`) proves the marker on
   the persisted page / block / comment, not just that the id exists.
+- **Smoke-only read-back seam** (`smokeRead: true` on a verify step) — for a
+  provider with NO user-facing read action to verify against, the harness routes
+  the verify to `WriteHarnessDeps.smokeReadBack` (a bounded, READ-ONLY provider
+  call, never the engine/write path), then applies `markerPath`. `trello:add_comment`
+  uses it: Trello has no comment-read action, so verification does an independent
+  `GET /1/cards/{id}/actions?filter=commentCard` (`cardsListComments`) and confirms
+  the marker in the PROVIDER-persisted comment text. This is what closed the
+  add_comment weak-verification gap — its own response echoed the input, so the
+  smoke must read the comment back independently. A missing seam fails the verify
+  loud; it never silently routes an unknown action to the engine.
 
 **Connection diagnosis (4-way, never conflate target with connection).** A provider
 is classified `NOT_CONNECTED` (only when the DB proves it) / `CONNECTED_NOT_EXECUTABLE`
