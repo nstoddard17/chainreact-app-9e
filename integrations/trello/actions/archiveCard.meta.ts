@@ -55,8 +55,8 @@ export const trelloArchiveCardMeta: ActionMeta = {
   outputs: [
     { name: "cardId", type: "string", description: "The card id." },
     { name: "name", type: "string", description: "The card title." },
-    { name: "closed", type: "boolean", description: "New archived state." },
-    { name: "url", type: "string", description: "Full card URL." },
+    { name: "closed", type: "boolean", description: "New archived state, or null.", nullable: true },
+    { name: "url", type: "string", description: "Full card URL, or null.", nullable: true },
   ],
   producesFileRef: false,
   consumesFileRef: false,

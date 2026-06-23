@@ -6,9 +6,9 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * (medium risk).
  *
  * Picker cascade: `boardId` (UI-scope, optional) → `cardId`. The `text`
- * field is a textarea (Markdown). The output `text` echoes the comment
- * body → sensitive (also forced — `text` ∈ the sensitive-output suspicious
- * name set).
+ * field is a textarea (Markdown). The output `text` is the PROVIDER-CONFIRMED
+ * comment body (or null — no input fallback) → sensitive + nullable. (`text` ∈
+ * the sensitive-output suspicious name set, so sensitive is also forced.)
  */
 export const trelloAddCommentMeta: ActionMeta = {
   key: "trello:add_comment",
@@ -53,24 +53,33 @@ export const trelloAddCommentMeta: ActionMeta = {
     {
       name: "text",
       type: "string",
-      description: "The comment body (echo of the posted text).",
+      description: "Provider-confirmed comment text, or null if Trello did not return it (no input fallback).",
       sensitive: true,
+      nullable: true,
     },
-    { name: "date", type: "string", description: "ISO-8601 comment timestamp." },
+    {
+      name: "date",
+      type: "string",
+      description: "ISO-8601 comment timestamp, or null.",
+      nullable: true,
+    },
     {
       name: "memberCreatorId",
       type: "string",
-      description: "Id of the member who posted the comment.",
+      description: "Id of the member who posted the comment, or null.",
+      nullable: true,
     },
     {
       name: "memberCreatorUsername",
       type: "string",
-      description: "Username of the commenter.",
+      description: "Username of the commenter, or null.",
+      nullable: true,
     },
     {
       name: "memberCreatorFullName",
       type: "string",
-      description: "Display name of the commenter.",
+      description: "Display name of the commenter, or null.",
+      nullable: true,
     },
   ],
   producesFileRef: false,

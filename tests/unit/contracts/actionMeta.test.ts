@@ -286,6 +286,36 @@ describe("FieldMetaSchema — sensitivity (CS-1)", () => {
   });
 });
 
+describe("OutputMetaSchema — nullable output flag (honest output contract)", () => {
+  it("omitting `nullable` parses (additive, default-absent = always present)", () => {
+    const parsed = OutputMetaSchema.parse({ name: "cardId", type: "string" });
+    expect(parsed.nullable).toBeUndefined();
+  });
+
+  it("accepts an output marked nullable (type names the shape WHEN present)", () => {
+    const parsed = OutputMetaSchema.parse({
+      name: "text",
+      type: "string",
+      nullable: true,
+      sensitive: true,
+    });
+    expect(parsed.nullable).toBe(true);
+    expect(parsed.type).toBe("string");
+  });
+
+  it("rejects a non-boolean nullable (strict)", () => {
+    const result = OutputMetaSchema.safeParse({ name: "x", type: "string", nullable: "yes" });
+    expect(result.success).toBe(false);
+  });
+
+  it("a nullable output round-trips through a full ActionMeta parse", () => {
+    const parsed = ActionMetaSchema.parse(
+      validMeta({ outputs: [{ name: "text", type: "string", nullable: true }] }),
+    );
+    expect(parsed.outputs[0]!.nullable).toBe(true);
+  });
+});
+
 describe("ActionMetaSchema — multi-parent dependsOn cross-field validation", () => {
   it("accepts a field whose array dependsOn references known sibling fields", () => {
     expect(() =>

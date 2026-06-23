@@ -418,6 +418,20 @@ export interface OutputMeta {
    * per row (e.g. Notion `properties` map).
    */
   sensitive?: boolean;
+  /**
+   * Marks that the runtime output for this field (or nested field) can be
+   * `null` even though `type` names the value's shape WHEN PRESENT (e.g. a
+   * `type: "string"` field a provider may omit -> `null`). Honest output
+   * contract: a handler that returns `value ?? null` MUST set this so the
+   * variable picker / downstream consumers know the value may be absent.
+   *
+   * Default when omitted: NOT nullable (the field is always present). Purely
+   * additive — existing metas parse unchanged; consumers that don't read it are
+   * unaffected (same posture as `sensitive`). `type` stays the value's shape;
+   * this is the orthogonal presence signal (avoids a `"string|null"` type
+   * explosion in `OutputType`).
+   */
+  nullable?: boolean;
 }
 
 // Zod schema mirrors the type. `z.lazy` makes the recursion explicit; the
@@ -431,6 +445,7 @@ export const OutputMetaSchema: z.ZodType<OutputMeta> = z.lazy(() =>
       description: z.string().max(2048).optional(),
       fields: z.array(OutputMetaSchema).max(64).optional(),
       sensitive: z.boolean().optional(),
+      nullable: z.boolean().optional(),
     })
     .strict(),
 );
