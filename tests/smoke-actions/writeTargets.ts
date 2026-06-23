@@ -124,3 +124,80 @@ export function pickSmokeSafeTarget(
     listLabel: chosen.listLabel,
   };
 }
+
+// ─── Airtable: primary text field discovery (for record writes) ───────────────
+
+/** Airtable field types we can safely stamp a smoke marker string into. */
+export const AIRTABLE_TEXT_FIELD_TYPES: readonly string[] = [
+  "singleLineText",
+  "multilineText",
+  "richText",
+];
+
+export interface AirtableFieldLite {
+  readonly id: string;
+  readonly name: string;
+  readonly type: string;
+}
+
+export interface AirtableTableLite {
+  readonly id: string;
+  readonly primaryFieldId: string;
+  readonly fields: readonly AirtableFieldLite[];
+}
+
+/**
+ * Pick the field NAME a smoke marker can be written into on a table: prefer the
+ * PRIMARY field when it is text-typed (always present, always writable), else the
+ * first text-typed field. Returns null when the table exposes no writable text
+ * field -> the caller reports BLOCKED_ENV (set SMOKE_AIRTABLE_TEXT_FIELD). Pure.
+ */
+export function pickAirtablePrimaryTextField(
+  table: AirtableTableLite,
+  textTypes: readonly string[] = AIRTABLE_TEXT_FIELD_TYPES,
+): string | null {
+  const primary = table.fields.find((f) => f.id === table.primaryFieldId);
+  if (primary && textTypes.includes(primary.type)) return primary.name;
+  const firstText = table.fields.find((f) => textTypes.includes(f.type));
+  return firstText ? firstText.name : null;
+}
+
+// ─── Notion: smoke database discovery (for create_database_entry) ─────────────
+
+export interface NotionDatabaseHitLite {
+  readonly id: string;
+  /** Database title (plain text), for safe logging + smoke-name preference. */
+  readonly title: string;
+  /** Title-type property NAME (the key Notion requires on a new entry), or null. */
+  readonly titleFieldName: string | null;
+}
+
+export interface ChosenNotionDatabase {
+  readonly databaseId: string;
+  readonly title: string;
+  readonly titleFieldName: string;
+}
+
+/**
+ * Pick a safe smoke DATABASE to create an entry in, from `object=database` search
+ * hits. When `pinnedId` is set (SMOKE_NOTION_DATABASE_ID), that exact database is
+ * used; otherwise prefer a smoke/test-named database, else the first accessible one
+ * (harmless on a throwaway account). A database with no title-type property is
+ * unusable (Notion requires the title key on a new entry) -> skipped/null. Returns
+ * the database id + its title-property NAME, or null -> BLOCKED_ENV. Pure.
+ */
+export function pickNotionSmokeDatabase(
+  hits: readonly NotionDatabaseHitLite[],
+  pinnedId?: string | null,
+  pattern: RegExp = SMOKE_TARGET_NAME_RE,
+): ChosenNotionDatabase | null {
+  const usable = hits.filter((h) => h.titleFieldName !== null);
+  let chosen: NotionDatabaseHitLite | undefined;
+  if (pinnedId) {
+    chosen = usable.find((h) => h.id === pinnedId);
+  } else {
+    chosen = usable.find((h) => pattern.test(h.title)) ?? usable[0];
+  }
+  if (!chosen || chosen.titleFieldName === null) return null;
+  return { databaseId: chosen.id, title: chosen.title, titleFieldName: chosen.titleFieldName };
+}

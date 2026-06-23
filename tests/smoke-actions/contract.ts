@@ -134,6 +134,17 @@ export interface WriteHarnessSpec {
    * read-back action. A mismatch is VERIFY_FAILED.
    */
   readonly markerEchoPath?: string;
+  /**
+   * The EXECUTE action under test IS the disposition — it removes the captured
+   * ledger resource(s) (e.g. `delete_record`, `archive_card`). When true and the
+   * execute step succeeds, the harness marks every `{{ledger.*}}` resource the
+   * execute config references as cleaned and reports artifact "cleaned" (the
+   * smoke object is gone) — no separate `cleanup` step runs (and none should be
+   * declared). Verification still happens via an INDEPENDENT read-back proving the
+   * resource is absent (the delete itself is never trusted). On execute FAILURE
+   * the resource is left (honest leak); the run is already a gate failure.
+   */
+  readonly executeIsCleanup?: boolean;
   /** A registered destructive action keyed on a captured id (removes the resource). */
   readonly cleanup?: ActionStepSpec;
   /**

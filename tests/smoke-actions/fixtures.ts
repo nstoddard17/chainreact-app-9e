@@ -122,10 +122,12 @@ import notionListComments from "@/tests/fixtures/action-smoke/notion/list_commen
 // the read runner, so registering them never changes read/native smoke behavior).
 import airtableCreateRecord from "@/tests/fixtures/action-smoke/airtable/create_record";
 import airtableUpdateRecord from "@/tests/fixtures/action-smoke/airtable/update_record";
+import airtableDeleteRecord from "@/tests/fixtures/action-smoke/airtable/delete_record";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
 import notionCreateComment from "@/tests/fixtures/action-smoke/notion/create_comment";
+import notionCreateDatabaseEntry from "@/tests/fixtures/action-smoke/notion/create_database_entry";
 import notionArchivePage from "@/tests/fixtures/action-smoke/notion/archive_page";
 import notionRestorePage from "@/tests/fixtures/action-smoke/notion/restore_page";
 import trelloCreateCard from "@/tests/fixtures/action-smoke/trello/create_card";
@@ -133,6 +135,7 @@ import trelloUpdateCard from "@/tests/fixtures/action-smoke/trello/update_card";
 import trelloAddComment from "@/tests/fixtures/action-smoke/trello/add_comment";
 import trelloAddLabelToCard from "@/tests/fixtures/action-smoke/trello/add_label_to_card";
 import trelloMoveCard from "@/tests/fixtures/action-smoke/trello/move_card";
+import trelloArchiveCard from "@/tests/fixtures/action-smoke/trello/archive_card";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -240,10 +243,12 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
 export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   airtableCreateRecord,
   airtableUpdateRecord,
+  airtableDeleteRecord,
   notionCreatePage,
   notionUpdatePage,
   notionAppendBlockChildren,
   notionCreateComment,
+  notionCreateDatabaseEntry,
   notionArchivePage,
   notionRestorePage,
   trelloCreateCard,
@@ -251,6 +256,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   trelloAddComment,
   trelloAddLabelToCard,
   trelloMoveCard,
+  trelloArchiveCard,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

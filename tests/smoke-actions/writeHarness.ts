@@ -648,6 +648,17 @@ export async function runWriteSmoke(
     }
   }
 
+  // 6b. execute-is-cleanup — the action under test IS the disposition (e.g.
+  // delete_record / archive_card-as-delete). When the execute step succeeded,
+  // mark the ledger resources its config referenced as cleaned, so the report is
+  // honest ("cleaned" / gone) instead of a false "left" leak. Skipped on execute
+  // failure (actionStatus FAIL) — there the resource genuinely remains.
+  let executeCleaned = false;
+  if (spec.executeIsCleanup && actionStatus !== "FAIL") {
+    for (const key of ledgerRefsIn(fixture.config)) ledger.markCleaned(key);
+    executeCleaned = ledger.summary().created > 0;
+  }
+
   // Disposition of the created object + final status.
   const created = ledger.summary().created;
   let artifact: ArtifactDisposition = created === 0 ? "none" : "left";
@@ -664,12 +675,15 @@ export async function runWriteSmoke(
       status = "CLEANUP_FAILED";
       reason = "required cleanup failed; smoke resource left behind";
     }
+  } else if (executeCleaned) {
+    artifact = "cleaned";
   }
 
   if (status === "FAIL") reason = reason ?? "action did not reach its expected outcome";
   else if (status === "VERIFY_FAILED") reason = reason ?? "action ran but verify could not confirm the side effect";
   else if (status === "PASS") {
-    if (artifact === "archived") reason = "passed; smoke object archived (reversible, persists)";
+    if (executeCleaned) reason = "passed; smoke object removed by the action under test";
+    else if (artifact === "archived") reason = "passed; smoke object archived (reversible, persists)";
     else if (artifact === "left" && cleanupKind === "archive") reason = "passed; best-effort cleanup did not run — harmless smoke object left";
     else if (artifact === "left") reason = "passed; smoke object intentionally left (no cleanup action)";
   }

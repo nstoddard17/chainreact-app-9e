@@ -712,6 +712,95 @@ describe("expectEquals / expectContains state + membership verification", () => 
   });
 });
 
+// ─── executeIsCleanup — the action under test removes the ledger resource ─────
+
+describe("executeIsCleanup (delete-as-execute disposition)", () => {
+  // setup creates a record; the EXECUTE (delete) IS the cleanup; verify proves gone.
+  function deleteSpec(over: Partial<WriteHarnessSpec> = {}): WriteHarnessSpec {
+    return {
+      liveClass: "destructiveSafe",
+      smokeMarker: "crsmoke-",
+      setup: [
+        {
+          provider: "acme",
+          action: "create_record",
+          config: { name: "{{smokeMarker}}seed" },
+          captureResource: { resourceKey: "record", idPath: "id", kind: "record" },
+        },
+      ],
+      executeIsCleanup: true,
+      ...over,
+    };
+  }
+
+  it("marks the ledger resource cleaned + artifact 'cleaned' when the delete succeeds", async () => {
+    const deps = fakeDeps({
+      "acme:create_record": { ok: true, output: { id: "R1" }, reason: null },
+      "acme:delete_record": { ok: true, output: { id: "R1", deleted: true }, reason: null },
+    });
+    deps.smokeReadBack = async () => ({ ok: true, output: { exists: false }, reason: null });
+    const spec = deleteSpec({
+      verify: {
+        provider: "acme",
+        action: "record",
+        config: { id: "{{ledger.record.id}}" },
+        expectEquals: { path: "exists", value: false },
+        smokeRead: true,
+      },
+    });
+    const res = await runWriteSmoke(
+      { provider: "acme", action: "delete_record", risk: "write", config: { id: "{{ledger.record.id}}" }, expect: { outcome: "success" }, writeHarness: spec },
+      RUN,
+      deps,
+    );
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("cleaned"); // gone, not "left"
+    expect(res.ledger.leaked).toBe(0);
+    expect(res.ledger.cleaned).toBe(res.ledger.created);
+    expect(res.reason).toMatch(/removed by the action under test/);
+  });
+
+  it("does NOT mark cleaned when the delete (execute) fails — honest leak", async () => {
+    const deps = fakeDeps({
+      "acme:create_record": { ok: true, output: { id: "R1" }, reason: null },
+      "acme:delete_record": { ok: false, output: null, reason: "boom" },
+    });
+    const spec = deleteSpec();
+    const res = await runWriteSmoke(
+      { provider: "acme", action: "delete_record", risk: "write", config: { id: "{{ledger.record.id}}" }, expect: { outcome: "success" }, writeHarness: spec },
+      RUN,
+      deps,
+    );
+    expect(res.status).toBe("FAIL");
+    expect(res.artifact).toBe("left"); // delete failed -> record genuinely remains
+    expect(res.ledger.leaked).toBe(1);
+  });
+
+  it("VERIFY failure (record still present) does not certify, even via executeIsCleanup", async () => {
+    const deps = fakeDeps({
+      "acme:create_record": { ok: true, output: { id: "R1" }, reason: null },
+      "acme:delete_record": { ok: true, output: { id: "R1", deleted: true }, reason: null },
+    });
+    // independent read-back says the record still EXISTS -> verify must fail
+    deps.smokeReadBack = async () => ({ ok: true, output: { exists: true }, reason: null });
+    const spec = deleteSpec({
+      verify: {
+        provider: "acme",
+        action: "record",
+        config: { id: "{{ledger.record.id}}" },
+        expectEquals: { path: "exists", value: false },
+        smokeRead: true,
+      },
+    });
+    const res = await runWriteSmoke(
+      { provider: "acme", action: "delete_record", risk: "write", config: { id: "{{ledger.record.id}}" }, expect: { outcome: "success" }, writeHarness: spec },
+      RUN,
+      deps,
+    );
+    expect(res.status).toBe("VERIFY_FAILED");
+  });
+});
+
 // ─── cleanupKind + artifact disposition (cleaned vs left) ────────────────────
 
 describe("cleanupKind + artifact disposition", () => {

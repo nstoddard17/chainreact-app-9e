@@ -41,14 +41,22 @@ import { isPersonalCredentialProvider } from "@/core/integrations/credentialShar
 import { getOptionsResolver } from "@/services/options/_registry";
 import { decryptToken } from "@/core/encryption/tokens";
 import { cardsGet, cardsListComments } from "@/integrations/trello/api/cards";
+import { recordsGet } from "@/integrations/airtable/api/records";
+import { basesGetSchema } from "@/integrations/airtable/api/bases";
+import { NotFoundError } from "@/integrations/_shared/airtable/errors";
+import { search as notionSearch, type SearchHit } from "@/integrations/notion/api/search";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import { SMOKE_ACTION_NODE_ID, SMOKE_TRIGGER_NODE_ID } from "./workflowRun";
 import type { StepRunOutcome, WriteHarnessDeps } from "./writeHarness";
 import {
+  pickAirtablePrimaryTextField,
+  pickNotionSmokeDatabase,
   pickSecondSmokeList,
   pickSmokeSafeTarget,
+  type ChosenNotionDatabase,
   type ChosenTrelloSecondList,
   type ChosenTrelloTarget,
+  type NotionDatabaseHitLite,
   type TrelloListCandidate,
   type TrelloMoveListCandidate,
 } from "./writeTargets";
@@ -230,6 +238,94 @@ export async function discoverNotionSmokeParentPage(
   return { pageId: chosen.value, title: chosen.label ?? chosen.value };
 }
 
+/**
+ * Discover the primary text field NAME of the smoke Airtable table so record
+ * writes can stamp the marker into it without hardcoding a base's schema. READ-ONLY
+ * (meta schema GET). Returns the field name (env-overlay for SMOKE_AIRTABLE_TEXT_FIELD)
+ * or null when the table has no writable text field -> caller reports BLOCKED_ENV.
+ */
+export async function discoverAirtableSmokeTextField(
+  accountId: string,
+  userId: string,
+  baseId: string,
+  tableId: string,
+): Promise<string | null> {
+  const integration = await getActiveForExecution(accountId, "airtable", null, {
+    connectedByUserId: userId,
+  });
+  if (!integration) return null;
+  const accessToken = decryptToken(integration.accessTokenEncrypted);
+  let schema;
+  try {
+    schema = await basesGetSchema({ accessToken, baseId, includeViews: false });
+  } catch {
+    return null; // missing schema scope / base gone -> BLOCKED_ENV, never a guess
+  }
+  const table = schema.tables.find((t) => t.id === tableId || t.name === tableId);
+  if (!table) return null;
+  return pickAirtablePrimaryTextField({
+    id: table.id,
+    primaryFieldId: table.primaryFieldId,
+    fields: table.fields.map((f) => ({ id: f.id, name: f.name, type: f.type })),
+  });
+}
+
+/**
+ * Discover a safe smoke Notion DATABASE (+ its title-property name) for
+ * `create_database_entry` via the read-only search API (object=database). When
+ * `pinnedId` (SMOKE_NOTION_DATABASE_ID) is set, that exact database is used; else a
+ * smoke/test-named DB is preferred, falling back to the first accessible DB on a
+ * throwaway account. Returns the database id + title-field name (env-overlay only)
+ * or null -> caller reports BLOCKED_ENV. READ-ONLY (POST /v1/search).
+ */
+export async function discoverNotionSmokeDatabase(
+  accountId: string,
+  userId: string,
+  pinnedId?: string | null,
+): Promise<ChosenNotionDatabase | null> {
+  const integration = await getActiveForExecution(accountId, "notion", null);
+  if (!integration) return null;
+  let response;
+  try {
+    response = await notionSearch({
+      accessToken: decryptToken(integration.accessTokenEncrypted),
+      query: "",
+      filter: { value: "database", property: "object" },
+      pageSize: 100,
+    });
+  } catch {
+    return null;
+  }
+  const hits: NotionDatabaseHitLite[] = response.results
+    .filter((h) => h.object === "database")
+    .map((h) => ({
+      id: h.id,
+      title: notionDatabaseTitle(h),
+      titleFieldName: notionTitlePropertyName(h),
+    }));
+  return pickNotionSmokeDatabase(hits, pinnedId);
+}
+
+/** Plain-text title of a database search hit (rich-text array → string). */
+function notionDatabaseTitle(hit: SearchHit): string {
+  if (Array.isArray(hit.title)) {
+    const text = hit.title.map((t) => t.plain_text ?? t.text?.content ?? "").join("").trim();
+    if (text.length > 0) return text;
+  }
+  return hit.id;
+}
+
+/** The NAME of the title-type property in a database hit's schema, or null. */
+function notionTitlePropertyName(hit: SearchHit): string | null {
+  const props = hit.properties;
+  if (props && typeof props === "object") {
+    for (const [name, value] of Object.entries(props)) {
+      if ((value as { type?: string })?.type === "title") return name;
+    }
+  }
+  return null;
+}
+
 export function makeRealWriteHarnessDeps(
   config: RealWriteHarnessDepsConfig,
 ): WriteHarnessDeps {
@@ -372,6 +468,34 @@ export function makeRealWriteHarnessDeps(
             },
             reason: null,
           };
+        }
+        if (input.provider === "airtable" && input.action === "record") {
+          const integration = await getActiveForExecution(accountId, "airtable", null, {
+            connectedByUserId: userId,
+          });
+          if (!integration) return { ok: false, output: null, reason: "airtable not connected" };
+          const { baseId, tableIdOrName, recordId } = input.config;
+          if (
+            typeof baseId !== "string" ||
+            typeof tableIdOrName !== "string" ||
+            typeof recordId !== "string" ||
+            !baseId || !tableIdOrName || !recordId
+          ) {
+            return { ok: false, output: null, reason: "record read-back: missing baseId/tableIdOrName/recordId" };
+          }
+          const accessToken = decryptToken(integration.accessTokenEncrypted);
+          // Existence probe: recordsGet throws NotFoundError on a deleted record.
+          // We map ONLY a 404 to exists:false — any OTHER error propagates (never
+          // a false "deleted" verdict from an auth/network failure).
+          try {
+            await recordsGet({ accessToken, baseId, tableIdOrName, recordId });
+            return { ok: true, output: { exists: true }, reason: null };
+          } catch (err) {
+            if (err instanceof NotFoundError) {
+              return { ok: true, output: { exists: false }, reason: null };
+            }
+            throw err;
+          }
         }
         return { ok: false, output: null, reason: `no smoke reader for ${input.provider}:${input.action}` };
       } catch (err) {

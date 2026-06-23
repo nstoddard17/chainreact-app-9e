@@ -12,8 +12,12 @@
  */
 import {
   classifyWriteTarget,
+  pickAirtablePrimaryTextField,
+  pickNotionSmokeDatabase,
   pickSecondSmokeList,
   pickSmokeSafeTarget,
+  type AirtableTableLite,
+  type NotionDatabaseHitLite,
   type TrelloListCandidate,
   type TrelloMoveListCandidate,
 } from "@/tests/smoke-actions/writeTargets";
@@ -105,5 +109,79 @@ describe("pickSecondSmokeList — a safe move_card DESTINATION on the source boa
   it("is deterministic regardless of input order", () => {
     const shuffled = [lists[3]!, lists[1]!, lists[0]!, lists[2]!];
     expect(pickSecondSmokeList(shuffled, "src")?.listId).toBe("done");
+  });
+});
+
+describe("pickAirtablePrimaryTextField — a writable text field for the marker", () => {
+  it("prefers the PRIMARY field when it is text-typed", () => {
+    const table: AirtableTableLite = {
+      id: "t1",
+      primaryFieldId: "f1",
+      fields: [
+        { id: "f1", name: "Name", type: "singleLineText" },
+        { id: "f2", name: "Notes", type: "multilineText" },
+      ],
+    };
+    expect(pickAirtablePrimaryTextField(table)).toBe("Name");
+  });
+
+  it("falls back to the first text field when the primary is NOT text", () => {
+    const table: AirtableTableLite = {
+      id: "t1",
+      primaryFieldId: "f1",
+      fields: [
+        { id: "f1", name: "Count", type: "number" }, // primary, not text
+        { id: "f2", name: "Title", type: "singleLineText" },
+      ],
+    };
+    expect(pickAirtablePrimaryTextField(table)).toBe("Title");
+  });
+
+  it("returns null when the table has no writable text field", () => {
+    const table: AirtableTableLite = {
+      id: "t1",
+      primaryFieldId: "f1",
+      fields: [
+        { id: "f1", name: "Count", type: "number" },
+        { id: "f2", name: "When", type: "date" },
+      ],
+    };
+    expect(pickAirtablePrimaryTextField(table)).toBeNull(); // -> BLOCKED_ENV
+  });
+});
+
+describe("pickNotionSmokeDatabase — usable DB + its title-property name", () => {
+  const hits: NotionDatabaseHitLite[] = [
+    { id: "d1", title: "Customers", titleFieldName: "Name" },
+    { id: "d2", title: "Smoke Test DB", titleFieldName: "Title" },
+    { id: "d3", title: "No Title DB", titleFieldName: null }, // unusable
+  ];
+
+  it("uses the pinned database id exactly when provided", () => {
+    expect(pickNotionSmokeDatabase(hits, "d1")).toEqual({
+      databaseId: "d1",
+      title: "Customers",
+      titleFieldName: "Name",
+    });
+  });
+
+  it("returns null when the pinned database has no title property (unusable)", () => {
+    expect(pickNotionSmokeDatabase(hits, "d3")).toBeNull(); // -> BLOCKED_ENV
+  });
+
+  it("prefers a smoke/test-named database when no pin is given", () => {
+    expect(pickNotionSmokeDatabase(hits)?.databaseId).toBe("d2");
+  });
+
+  it("falls back to the first USABLE database (skips the title-less one)", () => {
+    const noNamed: NotionDatabaseHitLite[] = [
+      { id: "d3", title: "No Title DB", titleFieldName: null },
+      { id: "d1", title: "Customers", titleFieldName: "Name" },
+    ];
+    expect(pickNotionSmokeDatabase(noNamed)?.databaseId).toBe("d1");
+  });
+
+  it("returns null when there are no usable databases", () => {
+    expect(pickNotionSmokeDatabase([{ id: "d3", title: "x", titleFieldName: null }])).toBeNull();
   });
 });

@@ -45,6 +45,8 @@ import {
   discoverTrelloSmokeLabel,
   discoverTrelloSecondSmokeList,
   discoverNotionSmokeParentPage,
+  discoverNotionSmokeDatabase,
+  discoverAirtableSmokeTextField,
 } from "@/tests/smoke-actions/writeHarnessDeps";
 import { renderWriteSmokeHuman } from "@/tests/smoke-actions/writeHarness";
 import { classifyWriteTarget } from "@/tests/smoke-actions/writeTargets";
@@ -137,6 +139,26 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       if (parent) {
         overlay.SMOKE_NOTION_PARENT_PAGE_ID = parent.pageId; // id -> env overlay only
         targetLabel = `parent page "${parent.title}"`;
+      }
+      // create_database_entry needs a database + its title-property NAME. A pinned
+      // SMOKE_NOTION_DATABASE_ID wins; the title field is always discovered.
+      const db = await discoverNotionSmokeDatabase(account, user, process.env.SMOKE_NOTION_DATABASE_ID || null);
+      if (db) {
+        overlay.SMOKE_NOTION_DATABASE_ID = db.databaseId; // id -> env overlay only
+        overlay.SMOKE_NOTION_DB_TITLE_FIELD = db.titleFieldName;
+        targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}database "${db.title}"`;
+      }
+    } else if (provider === "airtable" && execUsable) {
+      // Record writes need the smoke table's primary text field NAME. baseId /
+      // tableId come from env; discover the field unless explicitly pinned.
+      const baseId = process.env.SMOKE_AIRTABLE_BASE_ID;
+      const tableId = process.env.SMOKE_AIRTABLE_TABLE_ID;
+      if (baseId && tableId && !process.env.SMOKE_AIRTABLE_TEXT_FIELD) {
+        const field = await discoverAirtableSmokeTextField(account, user, baseId, tableId);
+        if (field) {
+          overlay.SMOKE_AIRTABLE_TEXT_FIELD = field;
+          targetLabel = `base ${baseId} / table ${tableId} / text field "${field}"`;
+        }
       }
     }
     const envLookup = (n: string): string | undefined => overlay[n] ?? process.env[n];
