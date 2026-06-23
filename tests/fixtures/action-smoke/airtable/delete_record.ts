@@ -10,10 +10,14 @@ import { defineWriteSmokeFixture } from "@/tests/smoke-actions/contract";
  *   setup    create_record -> capture { id } into ledger key "record" (marker-seed
  *                             in the smoke table's primary text field)
  *   execute  delete_record -> delete exactly the ledger-created record
- *   verify   record (SMOKE READ-BACK) -> recordsGet maps a 404 to { exists:false };
+ *   verify   record (SMOKE READ-BACK) -> recordsList filtered by RECORD_ID();
  *            assert exists == false. The delete response (`{deleted:true}`) is NOT
- *            trusted — deletion is proven by the record being GONE on an independent
- *            read-back (a 404 ONLY, never an auth/network error -> false positive).
+ *            trusted — deletion is proven by the record being ABSENT from an
+ *            independent list read-back. (recordsList is used instead of get-by-id
+ *            because Airtable returns a CONFLATED 403 "invalid permissions, or the
+ *            requested model was not found" for a deleted record — a successful list
+ *            proves access; a thrown error -> honest VERIFY_FAILED, never a false
+ *            "deleted".)
  *   (executeIsCleanup)        the delete IS the disposition: the smoke record is
  *            removed. artifact "cleaned" — nothing left behind.
  *
@@ -58,8 +62,9 @@ export default defineWriteSmokeFixture({
         captureResource: { resourceKey: "record", idPath: "id", kind: "record" },
       },
     ],
-    // Independent existence probe via the smoke-only seam: a deleted record 404s ->
-    // exists:false. Proves the side effect rather than trusting `{deleted:true}`.
+    // Independent existence probe via the smoke-only seam (recordsList + RECORD_ID):
+    // a deleted record is ABSENT -> exists:false. Proves the side effect rather than
+    // trusting `{deleted:true}`.
     verify: {
       provider: "airtable",
       action: "record",

@@ -326,13 +326,16 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   npm run smoke:actions:run:workflow:live
 ```
 
-**Airtable actions still uncovered / deferred (5 covered of 11 registered):**
+**Airtable coverage (8 covered of 11 registered):**
 
-- All remaining Airtable actions are **writes / destructive** and are deferred (they
-  mutate a base without a safe cleanup pattern): `create_record`, `update_record`,
-  `delete_record` (destructive), `add_attachment`, `create_multiple_records`,
-  `update_multiple_records`. The 5 covered are all read-only (`get_base_schema`,
-  `get_table_schema`, `list_records`, `find_record`, `get_record`).
+- **Reads (5, live-certified):** `get_base_schema`, `get_table_schema`,
+  `list_records`, `find_record`, `get_record`.
+- **Writes (3, live-certified via the WRITE harness):** `create_record` +
+  `update_record` (`LIVE_PASS_CLEANED`), `delete_record` (`LIVE_PASS`, verified
+  gone via an independent `recordsList` read-back). See the write-smoke section
+  below for the certification matrix.
+- **Still uncovered (3, writes):** `add_attachment`, `create_multiple_records`,
+  `update_multiple_records`.
 
 **Google Sheets-only inventory:** `npm run smoke:actions -- --provider google-sheets`.
 
@@ -1033,17 +1036,19 @@ never leaves provider junk, sends to a real destination, charges a customer, or
 deletes a pre-existing record. Full contract:
 [`../slices/phase-4/readiness/write-smoke-harness-design.md`](../slices/phase-4/readiness/write-smoke-harness-design.md).
 
-**Status (first provider batch — 5 actions LIVE_PASS).** The contract + pure
+**Status (write harness landed; matrix grows per batch).** The contract + pure
 orchestrator + real `runActionStep` wiring + `{{env.*}}` sub-step + key resolution
-+ a batch runner + a quadruple-gated live dev test are landed. The pilots are in a
-SEPARATE `WRITE_SMOKE_FIXTURES` list (kept out of the read runner). All five are
++ a batch runner + a quadruple-gated live dev test are landed. Pilots live in a
+SEPARATE `WRITE_SMOKE_FIXTURES` list (kept out of the read runner). Each is
 live-verified end to end (create one `crsmoke-`marked resource -> confirm the
-marker -> run cleanup):
+marker via an INDEPENDENT read-back -> run cleanup). The matrix below is the
+running certification record; rows are added as each provider batch lands.
 
 | Action | Flow | Disposition | Cert |
 |---|---|---|---|
 | `airtable:create_record` | create -> get_record -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `airtable:update_record` | create -> update -> echo -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
+| `airtable:delete_record` | create -> **delete (action under test)** -> recordsList read-back (gone) | object deleted | `LIVE_PASS` |
 | `trello:create_card` | create -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:update_card` | create -> update -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:add_comment` | create card -> comment -> card_comments read-back (marker) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
@@ -1066,7 +1071,9 @@ whether cleanup is required and how a leftover reads:
 Smoke targets auto-discover per provider: Trello picks a list whose board AND list
 are both explicitly smoke/test-named (`pickSmokeSafeTarget`); Notion picks a
 smoke-named parent page (else the first accessible page on the throwaway account);
-Airtable uses the env-pinned smoke base + `SMOKE_AIRTABLE_TEXT_FIELD`.
+Airtable uses the env-pinned smoke base/table and AUTO-DISCOVERS the table's
+primary text field (`discoverAirtableSmokeTextField`, via `refreshAndRetry`), with
+`SMOKE_AIRTABLE_TEXT_FIELD` as an optional override.
 
 **Marker verification (not existence-only).** Every pilot proves the unique
 `crsmoke-<runToken>` marker is actually on the persisted resource:
@@ -1133,6 +1140,22 @@ primary single-line-text field. (For Trello: `SMOKE_PROVIDER=trello`
 > pilot passed end to end: created one `crsmoke-` record, confirmed the marker
 > echoed + the record existed, deleted exactly that record. Ledger created 1 /
 > cleaned 1 / leaked 0. Now certified `LIVE_PASS`.
+>
+> **Reconciliation (SMOKE-WRITE-12, current):** a later slice briefly reported
+> Airtable as `BLOCKED_ENV` / "never live-run" — that was a HARNESS DISCOVERY bug,
+> not a connection problem. Airtable OAuth tokens are short-lived; the new
+> text-field auto-discovery (`discoverAirtableSmokeTextField`) and the
+> `airtable:record` existence seam called the raw API wrappers WITHOUT
+> `refreshAndRetry`, so they 401'd on a stale token and falsely read as blocked.
+> The engine path (the actual create/update/delete handlers) always refreshes, so
+> create/update genuinely passed in SMOKE-WRITE-4. Fix: both discovery + seam now
+> wrap their reads in `refreshAndRetry` (mirroring the handlers). The
+> `airtable:record` seam also switched from get-by-id to `recordsList` +
+> `RECORD_ID()` because Airtable returns a CONFLATED 403 ("invalid permissions, or
+> the requested model was not found") for a deleted record — get-by-id can't tell
+> "deleted" from "no access", but a successful list proves access and the record's
+> absence proves deletion. All three Airtable writes re-verified `LIVE_PASS` against
+> base/table `Design Drafts` (primary text field "Draft Name", auto-discovered).
 
 **Phase model.** A mutating fixture adds a `writeHarness` spec
 ([`tests/smoke-actions/contract.ts`](../../tests/smoke-actions/contract.ts)):
@@ -1181,11 +1204,12 @@ the existing `ExecutionReport` gate's `fail`, so the suite gate fails and
 certification never records `LIVE_PASS` when cleanup failed. `SANDBOX_REQUIRED` +
 `UNSAFE_NO_HARNESS` are also durable **certification** statuses.
 
-**Pilots (authored, NOT run live this slice):** `airtable:create_record`,
-`notion:create_page` (archive is reversible), `trello:create_card` — all
-`destructiveSafe` create+cleanup pairs against a DEDICATED smoke base/page/board.
-A future slice wires the real step deps, runs one pilot live with Marcus, then
-rolls out per-provider write batches.
+**Live status:** the real step deps are wired and per-provider write batches have
+been run live under the four write gates. Airtable (`create_record`,
+`update_record`, `delete_record`), Trello, and Notion write pilots are
+live-certified (see the matrix + reconciliation note above). Airtable's primary
+text field is auto-discovered (`discoverAirtableSmokeTextField`, via
+`refreshAndRetry`); a `SMOKE_AIRTABLE_TEXT_FIELD` env pin still overrides it.
 
 **Self-tests:** [`tests/unit/smoke-actions/write-harness.test.ts`](../../tests/unit/smoke-actions/write-harness.test.ts)
 (14 tests — cleanup-after-execute/verify-failure, cleanup-failure-surfaced,

@@ -15,8 +15,10 @@ import { defineWriteSmokeFixture } from "@/tests/smoke-actions/contract";
  * ALLOW_LIVE_PROVIDER_WRITE_SMOKE + ALLOW_DESTRUCTIVE_PROVIDER_SMOKE, plus a
  * connected Airtable on a DEDICATED smoke base/table.
  *
- * NOT registered in ALL_SMOKE_FIXTURES and NOT run live this slice. Sub-step
- * `{{env.*}}` tokens are resolved by the (deferred) real WriteHarnessDeps wiring;
+ * Registered in WRITE_SMOKE_FIXTURES (the write runner, NOT the read runner's
+ * ALL_SMOKE_FIXTURES). LIVE-CERTIFIED (LIVE_PASS_CLEANED) — first in SMOKE-WRITE-4
+ * and re-confirmed in SMOKE-WRITE-12 after the token-refresh discovery fix. Sub-step
+ * `{{env.*}}` tokens are resolved by the real WriteHarnessDeps wiring;
  * `{{smokeMarker}}` + `{{ledger.*}}` are resolved by the pure orchestrator.
  */
 export default defineWriteSmokeFixture({

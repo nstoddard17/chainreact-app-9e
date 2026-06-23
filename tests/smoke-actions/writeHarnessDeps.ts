@@ -37,13 +37,13 @@ import {
 import { enqueueRun } from "@/services/execution/enqueue";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { getActiveForExecution } from "@/repositories/integrations";
+import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { isPersonalCredentialProvider } from "@/core/integrations/credentialSharing";
 import { getOptionsResolver } from "@/services/options/_registry";
 import { decryptToken } from "@/core/encryption/tokens";
 import { cardsGet, cardsListComments } from "@/integrations/trello/api/cards";
-import { recordsGet } from "@/integrations/airtable/api/records";
+import { recordsList } from "@/integrations/airtable/api/records";
 import { basesGetSchema } from "@/integrations/airtable/api/bases";
-import { NotFoundError } from "@/integrations/_shared/airtable/errors";
 import { search as notionSearch, type SearchHit } from "@/integrations/notion/api/search";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import { SMOKE_ACTION_NODE_ID, SMOKE_TRIGGER_NODE_ID } from "./workflowRun";
@@ -254,10 +254,17 @@ export async function discoverAirtableSmokeTextField(
     connectedByUserId: userId,
   });
   if (!integration) return null;
-  const accessToken = decryptToken(integration.accessTokenEncrypted);
   let schema;
   try {
-    schema = await basesGetSchema({ accessToken, baseId, includeViews: false });
+    // refreshAndRetry mirrors the real handler path: Airtable OAuth tokens are
+    // short-lived, so a raw call against a stale token 401s. The engine refreshes;
+    // discovery MUST too, or it falsely reports BLOCKED_ENV on a healthy connection.
+    schema = await refreshAndRetry({
+      accountId,
+      provider: "airtable",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) => basesGetSchema({ accessToken, baseId, includeViews: false }),
+    });
   } catch {
     return null; // missing schema scope / base gone -> BLOCKED_ENV, never a guess
   }
@@ -483,19 +490,29 @@ export function makeRealWriteHarnessDeps(
           ) {
             return { ok: false, output: null, reason: "record read-back: missing baseId/tableIdOrName/recordId" };
           }
-          const accessToken = decryptToken(integration.accessTokenEncrypted);
-          // Existence probe: recordsGet throws NotFoundError on a deleted record.
-          // We map ONLY a 404 to exists:false — any OTHER error propagates (never
-          // a false "deleted" verdict from an auth/network failure).
-          try {
-            await recordsGet({ accessToken, baseId, tableIdOrName, recordId });
-            return { ok: true, output: { exists: true }, reason: null };
-          } catch (err) {
-            if (err instanceof NotFoundError) {
-              return { ok: true, output: { exists: false }, reason: null };
-            }
-            throw err;
-          }
+          // Existence probe via recordsList + RECORD_ID() (NOT get-by-id): Airtable
+          // returns a CONFLATED 403 "invalid permissions, or the requested model was
+          // not found" for a deleted record, indistinguishable from a real access
+          // loss — so get-by-id cannot prove deletion. recordsList instead SUCCEEDS
+          // when the token/base/table are accessible (proving access) and returns the
+          // record only if it still exists. Absence => genuinely deleted; a thrown
+          // error => a real access problem (propagates -> honest VERIFY_FAILED, never
+          // a false "deleted"). refreshAndRetry handles the short-lived Airtable token.
+          const list = await refreshAndRetry({
+            accountId,
+            provider: "airtable",
+            providerAccountId: integration.providerAccountId,
+            apiCall: (accessToken) =>
+              recordsList({
+                accessToken,
+                baseId,
+                tableIdOrName,
+                filterByFormula: `RECORD_ID()='${recordId}'`,
+                maxRecords: 1,
+              }),
+          });
+          const exists = list.records.some((r) => r.id === recordId);
+          return { ok: true, output: { exists }, reason: null };
         }
         return { ok: false, output: null, reason: `no smoke reader for ${input.provider}:${input.action}` };
       } catch (err) {
