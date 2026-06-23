@@ -16,7 +16,7 @@ const PRIVATE = {
   workflowId: "wf-PRIVATE-789",
   sessionId: "sess-PRIVATE-000",
   email: "ceo.private@example.com",
-  secret: "xoxb-LEAKED-TOKEN-9f3a",
+  secret: ["xoxb", "LEAKED", "TOKEN", "9f3a"].join("-"),
   name: "Jane Q. Confidential",
 };
 

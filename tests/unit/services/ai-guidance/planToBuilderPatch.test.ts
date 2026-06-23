@@ -9,7 +9,7 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { planToBuilderPatch } from "@/services/ai-guidance/preview/planToBuilderPatch";
+import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
 import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession";
 
 function plan(steps: WorkflowPlanStep[]): WorkflowPlan {
@@ -69,7 +69,7 @@ describe("planToBuilderPatch", () => {
   });
 
   it("the module emits no delete/replace/update ops and no repo/DB/network/vendor (static)", () => {
-    const src = readFileSync(resolve(process.cwd(), "services/ai-guidance/preview/planToBuilderPatch.ts"), "utf8");
+    const src = readFileSync(resolve(process.cwd(), "core/workflows/planToBuilderPatch.ts"), "utf8");
     for (const pat of [
       /deleteNode|removeNode|replaceNode|updateNodeConfig|removeEdge|"delete"|"replace"|"update"/,
       /@\/repositories\//,

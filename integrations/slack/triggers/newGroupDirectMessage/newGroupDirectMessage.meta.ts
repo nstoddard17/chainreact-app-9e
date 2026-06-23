@@ -31,10 +31,12 @@ export const newGroupDirectMessageTriggerMeta: TriggerMeta = {
       sensitivity: "recipient",
       label: "Channel ID (optional)",
       description:
-        "When set, only messages in this group-DM channel fire the workflow. When blank, every group-DM message the bot can see matches. Slack group-DM ids start with 'G'.",
-      type: "text",
+        "When set, only messages in this group-DM channel fire the workflow. Pick from your group DMs, or paste a channel id. When blank, every group-DM message the bot can see matches. Slack group-DM ids start with 'G'.",
+      type: "combobox",
+      optionsSource: "slack:group_dms",
+      allowManualEntry: true,
       required: false,
-      placeholder: "G0123456789",
+      placeholder: "Search group DMs or paste a 'G…' id",
     },
   ],
   payloadShape: [

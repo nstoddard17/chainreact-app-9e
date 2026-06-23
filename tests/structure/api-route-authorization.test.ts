@@ -79,6 +79,9 @@ const AUTH_TOKENS: RegExp[] = [
   /\brequireUser\b/,
   /\brequireUserWithAccount\b/, // session + active-account resolver (workflows/folders/ai)
   /\brequireAuthedUserId\b/, // session uid resolver (account/profile, accounts, templates)
+  /\brequireAccount\b/, // analytics: auth.getUser() + resolveActiveAccount (app/api/analytics/_shared)
+  /\brequireDashboardAuthor\b/, // analytics dashboards: author-role gate on the owning account
+  /\brequireAccountRole\b/, // account-role gate (services/accounts/accountAuthz)
   /\brequireAuth\b/,
   /\brequireAccountRole\b/,
   /\brequireAdmin\b/,

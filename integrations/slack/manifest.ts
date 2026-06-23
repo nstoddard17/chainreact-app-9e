@@ -39,6 +39,14 @@ export const slackManifest: ProviderManifest = ProviderManifestSchema.parse({
       "im:history",
       // Slack 2.1 Commit 8 — slack_new_group_direct_message trigger.
       "mpim:history",
+      // CONFIG-FIELD-UX-SWEEP-4 (Marcus-approved pre-launch) — the
+      // `slack:group_dms` picker lists group DMs via
+      // conversations.list types=mpim, which requires `mpim:read` (mpim:history
+      // only grants reading message history, not LISTING the conversations).
+      // RE-CONSENT: existing Slack connections must reconnect to grant this; the
+      // group-DM resolver surfaces `missing_scope` as PROVIDER_REAUTH_REQUIRED
+      // and the field keeps a manual-id fallback.
+      "mpim:read",
       // Slack 2.1 Commit 8 — reaction_added / reaction_removed triggers.
       "reactions:read",
       // Slack 2.2 Commit 2 — slack_new_message_private_channel trigger

@@ -26,11 +26,14 @@ export const googleCalendarAddAttendeesMeta: ActionMeta = {
     {
       name: "calendarId",
       label: "Calendar",
-      description: 'Calendar that holds the event. Defaults to "primary".',
-      type: "text",
+      description:
+        'Calendar that holds the event. Pick from your calendars, or paste a calendar id. Defaults to "primary".',
+      type: "combobox",
+      optionsSource: "google-calendar:calendars",
+      allowManualEntry: true,
       required: false,
       defaultValue: "primary",
-      placeholder: "primary",
+      placeholder: "Search calendars or paste an ID",
     },
     {
       name: "eventId",

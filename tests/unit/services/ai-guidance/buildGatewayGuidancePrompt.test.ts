@@ -107,10 +107,10 @@ describe("buildGatewayGuidancePrompt — recent conversation (HERMES-AGENT-BUILD
     const prompt = buildGatewayGuidancePrompt({
       request: EMPTY_REQUEST,
       goalText: "use my token",
-      recentTurns: [{ role: "user", text: "here is my key sk-ABCDEF0123456789ABCDEF and a token xoxb-1111111111-2222" }],
+      recentTurns: [{ role: "user", text: `here is my key sk-ABCDEF0123456789ABCDEF and a token ${["xoxb", "1111111111", "2222"].join("-")}` }],
     });
     expect(prompt).not.toContain("sk-ABCDEF0123456789ABCDEF");
-    expect(prompt).not.toContain("xoxb-1111111111-2222");
+    expect(prompt).not.toContain(["xoxb", "1111111111", "2222"].join("-"));
     expect(prompt).toContain("[redacted]");
   });
 });

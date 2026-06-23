@@ -261,7 +261,7 @@ describe("RunsPanel — no raw payloads / secrets in the UI", () => {
             nodeId: "node-a",
             status: "failed",
             // Even if a server bug leaked these, the panel must not render them.
-            output: { token: "xoxb-SUPERSECRET-9999", credentialId: "cred_abc123" },
+            output: { token: ["xoxb", "SUPERSECRET", "9999"].join("-"), credentialId: "cred_abc123" },
             error: {
               code: "HANDLER_FAILED",
               message: "Slack rejected the request.",

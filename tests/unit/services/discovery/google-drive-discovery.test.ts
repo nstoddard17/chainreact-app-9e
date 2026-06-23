@@ -3,14 +3,15 @@
  *
  * Slice 4.GDRIVE-META-2 — Google Drive discovery-registry coverage.
  *
- * Pins the full 5-action Drive surface: keys in displayOrder,
+ * Pins the full 7-action Drive surface (GDRIVE-READ-2 added the read-only
+ * `get_file_metadata` + `search_files`): keys in displayOrder,
  * key===provider:type, category 'files', camelCase fields, folder pickers
- * wired to the REUSED `google-drive:folders` resolver (no new resolver
- * work), fileId fields typeable text (no `google-drive:files` reference),
- * the delete_file destructive trio (both modes), FileRef deferral
- * (producesFileRef/consumesFileRef false on all 5), and the deliberate
- * `list_files.files` sensitive mark. Rejected/deferred resolvers must stay
- * unreferenced. Trigger assertions live in
+ * wired to the REUSED `google-drive:folders` resolver, fileId fields wired
+ * to the shipped `google-drive:files` combobox resolver, the delete_file
+ * destructive trio (both modes), FileRef deferral
+ * (producesFileRef/consumesFileRef false on all 7), and the deliberate
+ * `list_files.files` sensitive mark. Remaining deferred resolvers (items /
+ * shared_drives) must stay unreferenced. Trigger assertions live in
  * google-drive-triggers-discovery.test.ts.
  */
 import {
@@ -25,24 +26,26 @@ const EXPECTED_KEYS_IN_ORDER = [
   "google-drive:list_files",
   "google-drive:move_file",
   "google-drive:delete_file",
+  "google-drive:get_file_metadata",
+  "google-drive:search_files",
 ];
 
-/** Actions whose fileId is typeable text (no resolver). */
+/** Actions whose fileId is a combobox wired to google-drive:files. */
 const FILE_ID_ACTIONS = [
   "google-drive:move_file",
   "google-drive:delete_file",
+  "google-drive:get_file_metadata",
 ];
 
 const DEFERRED_RESOLVERS = [
-  "google-drive:files",
   "google-drive:items",
   "google-drive:shared_drives",
 ];
 
 describe("google-drive discovery — surface", () => {
-  it("registers exactly 5 action metas in displayOrder", () => {
+  it("registers exactly 7 action metas in displayOrder", () => {
     const metas = listActionMetasForProvider("google-drive");
-    expect(metas).toHaveLength(5);
+    expect(metas).toHaveLength(7);
     expect(metas.map((m) => m.key)).toEqual(EXPECTED_KEYS_IN_ORDER);
   });
 
@@ -53,7 +56,7 @@ describe("google-drive discovery — surface", () => {
     }
   });
 
-  it("every action is category 'files' + requiresIntegration; FileRef deferred (consumes/producesFileRef both false)", () => {
+  it("every action is category 'files' + requiresIntegration; FileRef deferred (consumes/producesFileRef both false on all 7)", () => {
     for (const m of listActionMetasForProvider("google-drive")) {
       expect(m.category).toBe("files");
       expect(m.requiresIntegration).toBe(true);
@@ -62,10 +65,10 @@ describe("google-drive discovery — surface", () => {
     }
   });
 
-  it("displayOrder is strictly ascending (10..50)", () => {
+  it("displayOrder is strictly ascending (10..70)", () => {
     const orders = listActionMetasForProvider("google-drive").map((m) => m.displayOrder);
     expect(orders[0]).toBe(10);
-    expect(orders[orders.length - 1]).toBe(50);
+    expect(orders[orders.length - 1]).toBe(70);
     for (let i = 1; i < orders.length; i++) {
       expect(orders[i]!).toBeGreaterThan(orders[i - 1]!);
     }
@@ -115,11 +118,11 @@ describe("google-drive discovery — field hygiene + resolver wiring", () => {
     expect(f.required).toBe(true);
   });
 
-  it("fileId is typeable text with no resolver on move/delete (required)", () => {
+  it("fileId is a combobox wired to google-drive:files on move/delete/get_file_metadata (required)", () => {
     for (const key of FILE_ID_ACTIONS) {
       const fld = getActionMeta(key)!.fields.find((x) => x.name === "fileId")!;
-      expect(fld.type).toBe("text");
-      expect(fld.optionsSource).toBeUndefined();
+      expect(fld.type).toBe("combobox");
+      expect(fld.optionsSource).toBe("google-drive:files");
       expect(fld.required).toBe(true);
     }
   });
@@ -197,7 +200,7 @@ describe("google-drive discovery — risk (delete destructive both modes; writes
     expect(del.riskDescription).toMatch(/trash/i);
   });
 
-  it("upload/create/move are medium; list is low; none but delete is destructive", () => {
+  it("upload/create/move are medium; list/get_file_metadata/search are low; none but delete is destructive", () => {
     for (const key of [
       "google-drive:upload_file",
       "google-drive:create_folder",
@@ -205,12 +208,20 @@ describe("google-drive discovery — risk (delete destructive both modes; writes
     ]) {
       expect(getActionMeta(key)!.riskLevel).toBe("medium");
     }
-    expect(getActionMeta("google-drive:list_files")!.riskLevel).toBe("low");
+    for (const key of [
+      "google-drive:list_files",
+      "google-drive:get_file_metadata",
+      "google-drive:search_files",
+    ]) {
+      expect(getActionMeta(key)!.riskLevel).toBe("low");
+    }
     for (const key of [
       "google-drive:upload_file",
       "google-drive:create_folder",
       "google-drive:list_files",
       "google-drive:move_file",
+      "google-drive:get_file_metadata",
+      "google-drive:search_files",
     ]) {
       expect(getActionMeta(key)!.isDestructive).toBe(false);
       expect(getActionMeta(key)!.requiresConfirmation).toBe(false);

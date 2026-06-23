@@ -29,13 +29,16 @@ describe("google-calendar trigger discovery — event_changed", () => {
     expect(t.category).toBe("calendar");
   });
 
-  it("calendarId is the single typeable text config field (default 'primary', no resolver)", () => {
+  it("calendarId is the single google-calendar:calendars combobox config field (default 'primary', manual entry)", () => {
+    // CONFIG-FIELD-UX-SWEEP-4: the watch trigger's calendarId now picks from the
+    // calendar list with a typeable-id fallback; default stays 'primary'.
     const t = getTriggerMeta("google-calendar:event_changed")!;
     expect(t.fields.map((f) => f.name)).toEqual(["calendarId"]);
     const cal = t.fields[0]!;
-    expect(cal.type).toBe("text");
+    expect(cal.type).toBe("combobox");
+    expect(cal.optionsSource).toBe("google-calendar:calendars");
+    expect(cal.allowManualEntry).toBe(true);
     expect(cal.defaultValue).toBe("primary");
-    expect(cal.optionsSource).toBeUndefined();
   });
 
   it("attendees + description payload fields are sensitive; ids/titles/dates are not", () => {
@@ -79,11 +82,12 @@ describe("google-calendar trigger discovery — event_changed", () => {
     }
   });
 
-  it("no trigger field references the deferred/rejected Calendar resolvers", () => {
+  it("no trigger field references the still-deferred/rejected Calendar resolvers", () => {
+    // `google-calendar:calendars` shipped in SWEEP-4 (now wired above); the rest
+    // remain unbuilt.
     const t = getTriggerMeta("google-calendar:event_changed")!;
     for (const f of t.fields) {
       for (const resolver of [
-        "google-calendar:calendars",
         "google-calendar:events",
         "google-calendar:timezones",
         "google-calendar:colors",

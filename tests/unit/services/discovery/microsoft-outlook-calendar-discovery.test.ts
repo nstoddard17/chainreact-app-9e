@@ -91,30 +91,35 @@ describe("microsoft-outlook-calendar discovery — field hygiene + zero resolver
     }
   });
 
-  it("Approach-A flat time fields on create_event (4 flat fields, required pair)", () => {
+  it("Approach-A flat time fields on create_event (datetime pair required, timezone pair optional)", () => {
     const create = getActionMeta("microsoft-outlook-calendar:create_event")!;
     const startDateTime = create.fields.find((f) => f.name === "startDateTime")!;
     const endDateTime = create.fields.find((f) => f.name === "endDateTime")!;
     const startTimeZone = create.fields.find((f) => f.name === "startTimeZone")!;
     const endTimeZone = create.fields.find((f) => f.name === "endTimeZone")!;
-    expect(startDateTime.type).toBe("text");
+    expect(startDateTime.type).toBe("datetime");
     expect(startDateTime.required).toBe(true);
-    expect(endDateTime.type).toBe("text");
+    expect(endDateTime.type).toBe("datetime");
     expect(endDateTime.required).toBe(true);
-    expect(startTimeZone.type).toBe("text");
+    expect(startTimeZone.type).toBe("timezone");
     expect(startTimeZone.required).toBe(false);
-    expect(endTimeZone.type).toBe("text");
+    expect(endTimeZone.type).toBe("timezone");
     expect(endTimeZone.required).toBe(false);
     // No nested start/end exposed.
     expect(create.fields.find((f) => f.name === "start")).toBeUndefined();
     expect(create.fields.find((f) => f.name === "end")).toBeUndefined();
   });
 
-  it("Approach-A flat time fields on update_event (4 flat fields, all optional)", () => {
+  it("Approach-A flat time fields on update_event (4 flat fields, all optional; datetime pair + timezone pair)", () => {
     const update = getActionMeta("microsoft-outlook-calendar:update_event")!;
-    for (const name of ["startDateTime", "startTimeZone", "endDateTime", "endTimeZone"]) {
+    for (const name of ["startDateTime", "endDateTime"]) {
       const f = update.fields.find((x) => x.name === name)!;
-      expect(f.type).toBe("text");
+      expect(f.type).toBe("datetime");
+      expect(f.required).toBe(false);
+    }
+    for (const name of ["startTimeZone", "endTimeZone"]) {
+      const f = update.fields.find((x) => x.name === name)!;
+      expect(f.type).toBe("timezone");
       expect(f.required).toBe(false);
     }
     expect(update.fields.find((f) => f.name === "start")).toBeUndefined();

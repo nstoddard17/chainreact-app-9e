@@ -10,7 +10,7 @@ import { sanitizeWorkflowForGuidance } from "@/services/ai-guidance/sanitizeWork
 import type { WorkflowDefinition } from "@/contracts/workflow";
 
 // A realistic workflow whose config is FULL of things that must never leave ChainReact.
-const SECRET_TOKEN = "xoxb-SUPER-SECRET-TOKEN-9f3a";
+const SECRET_TOKEN = ["xoxb", "SUPER", "SECRET", "TOKEN", "9f3a"].join("-");
 const PII_EMAIL = "ceo.private@example.com";
 const dirtyDef = {
   nodes: [

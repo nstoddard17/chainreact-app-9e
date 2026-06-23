@@ -93,15 +93,21 @@ export const hubspotUpdateTicketMeta: ActionMeta = {
     {
       name: "hs_ticket_category",
       label: "Category",
-      description: "HubSpot `hs_ticket_category` property — portal-configured enum.",
-      type: "text",
+      description:
+        "HubSpot `hs_ticket_category` property. Pick from the portal's real, customizable categories, or paste a custom internal value.",
+      type: "combobox",
+      optionsSource: "hubspot:ticket_category",
+      allowManualEntry: true,
       required: false,
     },
     {
       name: "source_type",
       label: "Source",
-      description: "HubSpot `source_type` property — portal-configured enum.",
-      type: "text",
+      description:
+        "HubSpot `source_type` property. Pick from the portal's real, customizable sources, or paste a custom internal value.",
+      type: "combobox",
+      optionsSource: "hubspot:ticket_source_type",
+      allowManualEntry: true,
       required: false,
     },
     {

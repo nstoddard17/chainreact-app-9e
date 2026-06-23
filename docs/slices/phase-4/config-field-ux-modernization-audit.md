@@ -338,6 +338,7 @@ has an explicit reason + recommended action — no vague "future" notes.**
 | **SWEEP-1** | **Outlook Calendar** create/update event: `startDateTime`/`endDateTime` → `datetime`, `startTimeZone`/`endTimeZone` → `timezone` (offset-less local + separate IANA tz — same model the Outlook schema's flat-shim + `resolveTimezone` already expect; format preserved). **Google Analytics** `run_report`: `startDate`/`endDate` → `date` (custom range). **Google Calendar** create/update event: `colorId` text → static `select` of the 11 documented event colors (stores `"1".."11"`). |
 | **SWEEP-1 (slack:users)** | **Built** the `slack:users` option resolver (read-only `users.list`, **already-granted** `users:read` scope, returns id + `@displayName` only — **no email**: V2 omits `users:read.email`). **Wired** the 4 single-value Slack user-id fields → `combobox` + `slack:users` + `allowManualEntry`: `send_direct_message.userId`, `get_user_info.user`, `remove_user_from_channel.user`, and the `new_direct_message.withUserId` sender filter (trigger). Stored value stays the `U…` id; `invite_users_to_channel.users` (multi-value) deliberately untouched (combobox has no multi-select). |
 | **SWEEP-2** | **(A)** `ComboboxField` gained the shared `VariablePickerButton` (shown when `allowManualEntry` + upstream variables exist) — one-click `{{node.field}}` insertion restored on the converted Slack user/channel + Drive pickers; option selection + manual entry unaffected. **(B)** `StringArrayField` gained a per-chip `optionsSource` picker (stores stable id array, shows friendly labels, `allowManualEntry` for raw ids; free-text path unchanged) + contract now allows `optionsSource`/`allowManualEntry` on `string-array`; wired `gmail:add_label.labelIds` → `gmail:labels` (selection only — no auto-create). **(C)** Built `google-drive:files` resolver (reuses `filesList` + already-granted Drive scope; **metadata only** — id + name, folders excluded, no content); wired `get_file_metadata` / `delete_file` / `move_file` `fileId` → `combobox` + `google-drive:files` + `allowManualEntry`. |
+| **SWEEP-4** | **Marcus-approved pre-launch OAuth scope adds — closes the three scope-blocked pickers.** **(A) `google-calendar:calendars`** — added `calendar.readonly`; built the resolver (calendarList.list) + wired `calendarId` → combobox + manual entry on all 5 actions + the event_changed trigger (stores the calendar id, default `primary`). **(B) HubSpot contacts/companies/tickets enums** — added `crm.schemas.contacts.read` + `crm.schemas.companies.read` (tickets uses the existing broad `tickets` scope); extended the property-options factory with 5 resolvers + wired 10 fields: contact `lifecyclestage`/`hs_lead_status`, company `lifecyclestage`, ticket `hs_ticket_category`/`source_type` (create + update). **(C) `slack:group_dms`** — added `mpim:read`; built the resolver (conversations.list types=mpim) + wired the `new_group_direct_message` trigger `channelId` → combobox + manual entry. **Missing-scope handling:** added a shared `InsufficientScopeError` (HTTP 403); Google/HubSpot wrappers throw it and the resolvers map it to `PROVIDER_REAUTH_REQUIRED` (reconnect prompt); Slack's existing `missing_scope` → `PROVIDER_REAUTH_REQUIRED` path covers mpim. Refresh never silently masks a missing scope. All fields keep `allowManualEntry`. |
 | **SWEEP-3** | **(A) `datetime-utc` (instant) field type** — new temporal kind sharing `TemporalField` (picked wall-clock treated AS UTC, stored `YYYY-MM-DDTHH:MM:SSZ`, labeled "UTC", no local-zone shift; `{{var}}` / offset-bearing / epoch values preserved as text fallback). Adopted on the offset/`Z`-requiring fields: Slack `schedule_message.postAt`; HubSpot `create_meeting` start/end + `hs_timestamp` on call/meeting/note/task; Mailchimp `occurred_at`; Google + Outlook Calendar `list_events` windows; Trello `create_card`/`update_card` `due`/`start`. **(B) Geoapify `location` field type** — server-proxied address autocomplete (`/api/geoapify/autocomplete`, key server-only) + `LocationField` (debounced, skips short / `{{var}}` queries, free-text fallback, stores the formatted address string); wired Google/Outlook Calendar event `location` + HubSpot `hs_meeting_location`. **(D) `hubspot:deal_dealtype`** property-options resolver (reads the portal's real customizable `dealtype` enum via the CRM properties API on the already-granted `crm.schemas.deals.read` scope; stores internal value, shows label, `allowManualEntry`); wired `create_deal`/`update_deal` `dealtype`. |
 
 **Why these were safe:** each provider stores the SAME string the handler/schema already accepts
@@ -372,26 +373,25 @@ saved value rather than clobbering it.
      `makeHubspotPropertyOptionsResolver(source, objectType, propertyName)` underneath — adding more
      properties is one factory call + registration each.
    - **`lifecyclestage` (contact/company), `hs_lead_status` (contact), `hs_ticket_category` /
-     `source_type` (ticket) — ❌ BLOCKED on a NEW OAuth scope.** Reading these via the properties
-     API needs `crm.schemas.{contacts,companies,tickets}.read`; the manifest grants only
-     `crm.schemas.deals.read` (the object `crm.objects.*.read` scopes do NOT cover schema/property
-     reads). **Marcus decision required: YES (OAuth scope add + re-consent)** before these can be
-     wired. Until then they stay honest free text (no fake static `select`).
+     `source_type` (ticket) — ✅ DONE (SWEEP-4), Marcus-approved scope adds.** Added
+     `crm.schemas.contacts.read` + `crm.schemas.companies.read` to the manifest; tickets needed NO
+     add (HubSpot has no granular `crm.schemas.tickets.read` — the broad, already-granted `tickets`
+     scope covers ticket property reads). Wired all 10 fields (create + update) to
+     combobox + the per-property resolvers + `allowManualEntry`. **RE-CONSENT: existing HubSpot
+     connections must reconnect** to grant the two new contacts/companies scopes; a 403 on an old
+     token surfaces as `PROVIDER_REAUTH_REQUIRED` (reconnect prompt), and the free-text fallback
+     keeps the field usable until then.
 
 ### 14.3 Blocked — backend/scope/product
 
-- **Google Calendar `calendarId` picker (`google-calendar:calendars`) — ❌ STOPPED: NEW OAuth scope
-  required.** Verified this sweep against the live manifest
-  ([`integrations/google-calendar/manifest.ts`](../../../integrations/google-calendar/manifest.ts)):
-  the only granted Calendar scope is `https://www.googleapis.com/auth/calendar.events`. Listing the
-  user's calendars (`GET /calendar/v3/users/me/calendarList`, i.e. `calendarList.list`) requires
-  `calendar.readonly` (or full `calendar`) — `calendar.events` does NOT cover it (the manifest's own
-  header comment already documents this). Per the approved decision ("build only if existing scopes
-  already support it; stop if a new OAuth scope is required"), **NOT built.** `calendarId` stays
-  typeable text defaulting to `primary` with paste-another-id support. **Marcus decision required:
-  YES — add `calendar.readonly` to the manifest (forces a one-time re-OAuth for existing Google
-  Calendar connections).** The resolver is ~25 lines on the existing Calendar API helper once the
-  scope exists.
+- **Google Calendar `calendarId` picker (`google-calendar:calendars`) — ✅ DONE (SWEEP-4),
+  Marcus-approved scope add.** Added `https://www.googleapis.com/auth/calendar.readonly` (the minimal
+  scope that grants `calendarList.list`; the broader `calendar` scope would also grant writes we
+  don't need). Built the resolver + `calendarList.list` wrapper; wired `calendarId` → combobox +
+  `allowManualEntry` on all 5 actions + the event_changed trigger (stores the calendar id; `primary`
+  default + summary display preserved). **RE-CONSENT: existing Google Calendar connections must
+  reconnect** to gain the scope; an old token returns HTTP 403 → `InsufficientScopeError` →
+  `PROVIDER_REAUTH_REQUIRED` (reconnect prompt), with the manual-id fallback in the meantime.
 - **Location/address fields — ✅ DONE via Geoapify (SWEEP-3 B), NOT Google Places.** Marcus added
   `GEOAPIFY_API_KEY` to Vercel and approved Geoapify. Built a server-proxied `location` field type
   (`/api/geoapify/autocomplete`, key read server-side only, never bundled/sent to the browser;
@@ -406,17 +406,14 @@ saved value rather than clobbering it.
 - **`google-drive:files`** — ✅ **DONE (SWEEP-2).** Built reusing `filesList` + the already-granted Drive
   read scope; bounded 200-file `name contains` search, folders excluded, metadata only (id + name). Wired to
   `get_file_metadata` / `delete_file` / `move_file`.
-- **Slack group-DM (mpim) picker — ❌ BLOCKED on an OAuth scope. NOT built (confirmed SWEEP-3 E).**
-  `new_group_direct_message.channelId` (mpim) can't use `slack:channels`.
-  - **Exact blocker:** listing group DMs needs `conversations.list types=mpim`, which requires the
-    **`mpim:read`** scope. The Slack manifest grants **`mpim:history`** (read message history) but
-    **NOT `mpim:read`** (list the conversations).
-  - **Cost:** adding `mpim:read` to the Slack manifest required scopes forces **every existing Slack
-    connection to reconnect / re-consent** (a one-time re-OAuth for all current Slack users).
-  - **Implementation size:** small once the scope exists — the `conversationsList` wrapper already
-    supports `types: "mpim"`, so `slack:group_dms` is ~20 lines.
-  - **Marcus decision required: YES (OAuth scope add + re-consent).** Per the approved decision, the
-    resolver was NOT built this sweep. Until approved, the field stays honest free text.
+- **Slack group-DM (mpim) picker (`slack:group_dms`) — ✅ DONE (SWEEP-4), Marcus-approved scope add.**
+  Added `mpim:read` to the manifest; built the resolver (`conversations.list types=mpim`, reusing the
+  existing `conversationsList` wrapper) + wired the `new_group_direct_message` trigger `channelId` →
+  combobox + `allowManualEntry`. Stores the conversation id; displays Slack's own conversation `name`
+  (e.g. `mpdm-amy--bo--cy-1`) — the `members` array is never expanded, so no member PII leaks.
+  **RE-CONSENT: existing Slack connections must reconnect** to gain `mpim:read`; an old token returns
+  Slack `missing_scope` → `PROVIDER_REAUTH_REQUIRED` (reconnect prompt), with the manual-id fallback
+  meanwhile.
 
 ### 14.5 Confirmed already-complete (no action — verified this sweep)
 
@@ -458,17 +455,23 @@ StringArrayField free-text per-chip picker is the remaining follow-up).
   Calendar `list_events` windows; Trello `due`/`start`).
 - **`location` field type (Geoapify, server-proxied)** + Google/Outlook Calendar event `location` and
   HubSpot `hs_meeting_location`.
-- **`hubspot:deal_dealtype`** portal property-options resolver + `create_deal`/`update_deal` wiring.
+- **HubSpot portal property-options:** `deal_dealtype` (SWEEP-3) + contacts/companies/tickets
+  `lifecyclestage` / `hs_lead_status` / `hs_ticket_category` / `source_type` (SWEEP-4).
+- **`google-calendar:calendars`** picker on all 5 Calendar actions + the event_changed trigger (SWEEP-4).
+- **`slack:group_dms`** (mpim) picker on the group-DM trigger (SWEEP-4).
 - Slack channel + single-value user pickers; Google Drive file pickers; Gmail label per-chip picker;
   GCal `colorId` static enum; ComboboxField variable insertion. All resource-ID selectors (§14.5).
 
-**⛔ Blocked — needs a Marcus decision before it can ship (all are an OAuth scope add + re-consent):**
-1. **Google Calendar `calendarId` picker** — needs `calendar.readonly` (current `calendar.events`
-   does not cover `calendarList.list`). Stays typeable text + `primary` default until approved.
-2. **HubSpot contact/company/ticket portal enums** (`lifecyclestage`, `hs_lead_status`,
-   `hs_ticket_category`, `source_type`) — need `crm.schemas.{contacts,companies,tickets}.read`. Stay
-   free text until approved. (Deals `dealtype` shipped — its scope was already granted.)
-3. **Slack group-DM (mpim) picker** — needs `mpim:read`. Stays free text until approved.
+**🔁 RE-CONSENT REQUIRED (one-time, pre-launch — by design).** The SWEEP-4 pickers required adding
+OAuth scopes, so existing connections lack them until they reconnect:
+- **Google Calendar:** added `calendar.readonly` — existing Google Calendar connections must reconnect.
+- **HubSpot:** added `crm.schemas.contacts.read` + `crm.schemas.companies.read` — existing HubSpot
+  connections must reconnect (tickets needed no new scope).
+- **Slack:** added `mpim:read` — existing Slack connections must reconnect.
+In every case the picker degrades gracefully on an un-reconnected token: the resolver surfaces
+`PROVIDER_REAUTH_REQUIRED` (a Reconnect prompt in the picker) and the field keeps its manual-id /
+free-text fallback. A token refresh never silently masks a missing scope (it can't grant one).
 
-**Deferred (no decision needed, not blocking):** StringArrayField free-text per-chip variable picker;
-multi-select combobox for `invite_users_to_channel.users`; record pickers (intentionally rejected for v1).
+**⛔ Remaining blockers:** none in this arc. (Out of arc / no decision needed, not blocking:
+StringArrayField free-text per-chip variable picker; multi-select combobox for
+`invite_users_to_channel.users`; record pickers — intentionally rejected for v1.)

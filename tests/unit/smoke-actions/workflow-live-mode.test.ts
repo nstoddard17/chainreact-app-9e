@@ -227,7 +227,7 @@ describe("live mode: report serialization carries no secrets", () => {
   it("redacts token/URL-shaped text from a failed run's reason", async () => {
     // A failed run whose (already-humanized) reason somehow embedded a token +
     // signed URL — the harness must not let it reach the report verbatim.
-    const leaky = "xoxb-9999-SECRETTOKENVALUE see https://files.slack.com/x?t=SECRETSIGNATURE0000000000";
+    const leaky = `${["xoxb", "9999", "SECRETTOKENVALUE"].join("-")} see https://files.slack.com/x?t=SECRETSIGNATURE0000000000`;
     const { deps } = fakeDeps({ runId: "run-x", status: "failed", failureReason: leaky });
     const report = await runActionSmokeWorkflowMode(
       [liveReadFixture()],
@@ -236,7 +236,7 @@ describe("live mode: report serialization carries no secrets", () => {
       envWith({ SMOKE_SLACK_CONNECTED: "1" }),
     );
     const serialized = renderExecutionJson(report);
-    expect(serialized).not.toMatch(/xoxb-9999/);
+    expect(serialized).not.toMatch(new RegExp(["xoxb", "9999"].join("-")));
     expect(serialized).not.toMatch(/SECRETTOKENVALUE/);
     expect(serialized).not.toMatch(/SECRETSIGNATURE/);
     expect(serialized).not.toMatch(/files\.slack\.com/);

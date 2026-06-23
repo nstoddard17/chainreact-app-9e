@@ -1,4 +1,5 @@
 import {
+  InsufficientScopeError,
   IntegrationActionRequiredError,
   refreshAndRetry,
   Unauthorized401Error,
@@ -21,11 +22,13 @@ import { propertyGet } from "@/integrations/_shared/hubspot/api/properties";
  * property registers its own source via `makeHubspotPropertyOptionsResolver`,
  * which closes over the constants. The fetch / sanitize / error logic is shared.
  *
- * Scope gating: `propertyGet` is covered by `crm.schemas.{objectType}.read`.
- * Only object types whose schema-read scope is already granted may be wired.
- * At launch that is DEALS only (`crm.schemas.deals.read` is in the manifest).
- * Contacts / companies / tickets need a manifest scope add + re-consent and are
- * deliberately left as free text (no silent scope expansion).
+ * Scope gating: `propertyGet` is covered by `crm.schemas.{objectType}.read`
+ * (deals/contacts/companies) — those scopes are in the manifest. Tickets has no
+ * granular `crm.schemas.tickets.read` scope in HubSpot's catalog; the broad,
+ * already-granted `tickets` scope covers ticket property reads. A token that
+ * predates a newly-required scope returns HTTP 403 → `InsufficientScopeError` →
+ * `PROVIDER_REAUTH_REQUIRED` (reconnect prompt; refresh can't add a scope). The
+ * field keeps `allowManualEntry`, so it stays usable meanwhile.
  *
  * Mapping (HubSpot option → OptionItem):
  *   - `value`: the INTERNAL option value HubSpot stores (what the property
@@ -74,6 +77,13 @@ export function makeHubspotPropertyOptionsResolver(
             propertyGet({ accessToken, objectType, propertyName }),
         });
       } catch (err) {
+        if (err instanceof InsufficientScopeError) {
+          // Old token missing the schema-read scope — reconnect to grant it.
+          throw new OptionsResolverError(
+            "PROVIDER_REAUTH_REQUIRED",
+            "Reconnect HubSpot to allow reading this property's options.",
+          );
+        }
         if (
           err instanceof IntegrationActionRequiredError ||
           err instanceof Unauthorized401Error
@@ -130,4 +140,49 @@ export const hubspotDealTypeOptionsResolver: OptionsResolver =
     source: "hubspot:deal_dealtype",
     objectType: "deals",
     propertyName: "dealtype",
+  });
+
+// CONFIG-FIELD-UX-SWEEP-4 (Marcus-approved pre-launch scope adds). Contacts +
+// companies use the newly-added `crm.schemas.{contacts,companies}.read` scopes;
+// tickets uses the existing broad `tickets` scope (HubSpot has no granular
+// `crm.schemas.tickets.read`). All keep `allowManualEntry` for custom values.
+
+/** `lifecyclestage` enum on contacts. */
+export const hubspotContactLifecycleStageOptionsResolver: OptionsResolver =
+  makeHubspotPropertyOptionsResolver({
+    source: "hubspot:contact_lifecyclestage",
+    objectType: "contacts",
+    propertyName: "lifecyclestage",
+  });
+
+/** `hs_lead_status` enum on contacts. */
+export const hubspotContactLeadStatusOptionsResolver: OptionsResolver =
+  makeHubspotPropertyOptionsResolver({
+    source: "hubspot:contact_lead_status",
+    objectType: "contacts",
+    propertyName: "hs_lead_status",
+  });
+
+/** `lifecyclestage` enum on companies. */
+export const hubspotCompanyLifecycleStageOptionsResolver: OptionsResolver =
+  makeHubspotPropertyOptionsResolver({
+    source: "hubspot:company_lifecyclestage",
+    objectType: "companies",
+    propertyName: "lifecyclestage",
+  });
+
+/** `hs_ticket_category` enum on tickets. */
+export const hubspotTicketCategoryOptionsResolver: OptionsResolver =
+  makeHubspotPropertyOptionsResolver({
+    source: "hubspot:ticket_category",
+    objectType: "tickets",
+    propertyName: "hs_ticket_category",
+  });
+
+/** `source_type` enum on tickets. */
+export const hubspotTicketSourceTypeOptionsResolver: OptionsResolver =
+  makeHubspotPropertyOptionsResolver({
+    source: "hubspot:ticket_source_type",
+    objectType: "tickets",
+    propertyName: "source_type",
   });

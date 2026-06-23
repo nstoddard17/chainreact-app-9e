@@ -68,10 +68,15 @@ describe("CS-2 — eligible Slack channel fields became searchable comboboxes", 
 });
 
 describe("CS-2 — ineligible Slack fields are deliberately left unchanged", () => {
-  it("group-DM trigger keeps its channelId as text (slack:channels excludes mpims)", () => {
+  it("group-DM trigger channelId uses the slack:group_dms picker (mpim — built in SWEEP-4)", () => {
+    // SWEEP-4 added `mpim:read` + the `slack:group_dms` resolver, so the mpim
+    // filter is now a searchable picker (with a manual-id fallback) instead of
+    // raw text. slack:channels still excludes mpims; this is its own resolver.
     const f = channelField(newGroupDirectMessageTriggerMeta.fields);
-    expect(f!.type).toBe("text");
-    expect(f!.optionsSource).toBeUndefined();
+    expect(f!.type).toBe("combobox");
+    expect(f!.optionsSource).toBe("slack:group_dms");
+    expect(f!.allowManualEntry).toBe(true);
+    expect(f!.name).toBe("channelId");
   });
 
   it("direct-message trigger has no channel field (filters by sender user id)", () => {
@@ -133,12 +138,15 @@ describe("CS-2b — every Slack channel combobox (action + trigger) allows manua
     }
   });
 
-  it("manual entry only appears on the slack channel/user picker comboboxes (no accidental conversion)", () => {
-    // After the sweep, allowManualEntry is valid on the slack:channels AND
-    // slack:users single-select pickers — but never on any other field.
+  it("manual entry only appears on the slack channel/user/group-DM picker comboboxes (no accidental conversion)", () => {
+    // After the sweep, allowManualEntry is valid on the slack:channels,
+    // slack:users, and slack:group_dms single-select pickers — but never on any
+    // other field.
     const isSlackPicker = (f: FieldMeta): boolean =>
       f.type === "combobox" &&
-      (f.optionsSource === "slack:channels" || f.optionsSource === "slack:users");
+      (f.optionsSource === "slack:channels" ||
+        f.optionsSource === "slack:users" ||
+        f.optionsSource === "slack:group_dms");
     const allFields = [
       ...slackActionMetas.flatMap((m) => m.fields),
       ...slackTriggerMetas.flatMap((m) => m.fields),

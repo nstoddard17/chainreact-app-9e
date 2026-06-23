@@ -3,7 +3,8 @@
  *
  * Slice 4.EXCEL-META-3 — Microsoft Excel discovery-registry coverage.
  *
- * Pins the full 10-action Excel surface: keys in displayOrder,
+ * Pins the full 13-action Excel surface (EXCEL-READ-2 added the read-only
+ * `read_range` / `read_table_rows` / `find_row`): keys in displayOrder,
  * key===provider:type, category 'data', camelCase fields (Excel schemas
  * are camelCase), resolver wiring (workbooks / worksheets dependsOn
  * workbookId / tables dependsOn workbookId), delete risk trio, and
@@ -27,12 +28,15 @@ const EXPECTED_KEYS_IN_ORDER = [
   "microsoft-excel:delete_worksheet",
   "microsoft-excel:get_workbooks",
   "microsoft-excel:get_worksheets",
+  "microsoft-excel:read_range",
+  "microsoft-excel:read_table_rows",
+  "microsoft-excel:find_row",
 ];
 
 describe("microsoft-excel discovery — surface", () => {
-  it("registers exactly 10 action metas in displayOrder", () => {
+  it("registers exactly 13 action metas in displayOrder", () => {
     const metas = listActionMetasForProvider("microsoft-excel");
-    expect(metas).toHaveLength(10);
+    expect(metas).toHaveLength(13);
     expect(metas.map((m) => m.key)).toEqual(EXPECTED_KEYS_IN_ORDER);
   });
 
@@ -52,10 +56,10 @@ describe("microsoft-excel discovery — surface", () => {
     }
   });
 
-  it("displayOrder is strictly ascending (10..100)", () => {
+  it("displayOrder is strictly ascending (10..130)", () => {
     const orders = listActionMetasForProvider("microsoft-excel").map((m) => m.displayOrder);
     expect(orders[0]).toBe(10);
-    expect(orders[orders.length - 1]).toBe(100);
+    expect(orders[orders.length - 1]).toBe(130);
     for (let i = 1; i < orders.length; i++) {
       expect(orders[i]!).toBeGreaterThan(orders[i - 1]!);
     }
@@ -92,6 +96,7 @@ describe("microsoft-excel discovery — field hygiene + resolver wiring", () => 
       "microsoft-excel:export_sheet",
       "microsoft-excel:rename_worksheet",
       "microsoft-excel:delete_worksheet",
+      "microsoft-excel:read_range",
     ];
     for (const key of withWorksheet) {
       const f = getActionMeta(key)!.fields.find((x) => x.name === "worksheetName")!;
@@ -100,12 +105,16 @@ describe("microsoft-excel discovery — field hygiene + resolver wiring", () => 
     }
   });
 
-  it("tableName field uses the tables resolver dependsOn workbookId", () => {
-    const f = getActionMeta("microsoft-excel:add_table_row")!.fields.find(
-      (x) => x.name === "tableName",
-    )!;
-    expect(f.optionsSource).toBe("microsoft-excel:tables");
-    expect(f.dependsOn).toBe("workbookId");
+  it("tableName fields use the tables resolver dependsOn workbookId", () => {
+    for (const key of [
+      "microsoft-excel:add_table_row",
+      "microsoft-excel:read_table_rows",
+      "microsoft-excel:find_row",
+    ]) {
+      const f = getActionMeta(key)!.fields.find((x) => x.name === "tableName")!;
+      expect(f.optionsSource).toBe("microsoft-excel:tables");
+      expect(f.dependsOn).toBe("workbookId");
+    }
   });
 
   it("new-name fields stay plain text (no picker)", () => {
@@ -159,6 +168,9 @@ describe("microsoft-excel discovery — risk classifications", () => {
       "microsoft-excel:export_sheet",
       "microsoft-excel:get_workbooks",
       "microsoft-excel:get_worksheets",
+      "microsoft-excel:read_range",
+      "microsoft-excel:read_table_rows",
+      "microsoft-excel:find_row",
     ];
     for (const k of low) expect(getActionMeta(k)!.riskLevel).toBe("low");
 
@@ -190,6 +202,9 @@ describe("microsoft-excel discovery — sensitive cell-data outputs", () => {
       ["microsoft-excel:add_row", "rowsAdded"],
       ["microsoft-excel:add_table_row", "valuesWritten"],
       ["microsoft-excel:export_sheet", "rows"],
+      ["microsoft-excel:read_range", "values"],
+      ["microsoft-excel:read_table_rows", "rows"],
+      ["microsoft-excel:find_row", "firstMatch"],
     ];
     for (const [key, outName] of cases) {
       const o = getActionMeta(key)!.outputs.find((x) => x.name === outName)!;

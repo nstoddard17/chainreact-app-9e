@@ -3,10 +3,11 @@
  *
  * Slice 4.TEAMS-META-3 — Microsoft Teams discovery-registry coverage.
  *
- * Pins the full 5-action Teams surface: keys in displayOrder,
- * key===provider:type, category 'messaging', camelCase fields, resolver
- * wiring (teams root + channels dependsOn teamId), chatId/messageId staying
- * typeable text (no deferred-resolver references), get_team_members.top
+ * Pins the full 8-action Teams surface (TEAMS-READ-2 added the read-only
+ * `list_teams` / `list_channels` / `list_channel_messages`): keys in
+ * displayOrder, key===provider:type, category 'messaging', camelCase fields,
+ * resolver wiring (teams root + channels dependsOn teamId), chatId/messageId
+ * staying typeable text (no deferred-resolver references), get_team_members.top
  * bounds, all-medium-or-low / none-destructive risk, sensitive bodyContent
  * + channel/member email outputs, and the rejected/deferred Teams resolvers
  * staying absent. Trigger assertions live in
@@ -24,19 +25,33 @@ const EXPECTED_KEYS_IN_ORDER = [
   "microsoft-teams:send_chat_message",
   "microsoft-teams:get_channel_details",
   "microsoft-teams:get_team_members",
+  "microsoft-teams:list_teams",
+  "microsoft-teams:list_channels",
+  "microsoft-teams:list_channel_messages",
 ];
 
-/** Actions that carry the team→channel cascade. */
+/** Actions that carry the team→channel cascade (channelId dependsOn teamId). */
 const TEAM_CHANNEL = [
   "microsoft-teams:send_channel_message",
   "microsoft-teams:reply_to_channel_message",
   "microsoft-teams:get_channel_details",
+  "microsoft-teams:list_channel_messages",
+];
+
+/** Actions carrying a teamId picker (teams root, no dep). */
+const TEAM_PICKER = [
+  "microsoft-teams:send_channel_message",
+  "microsoft-teams:reply_to_channel_message",
+  "microsoft-teams:get_channel_details",
+  "microsoft-teams:get_team_members",
+  "microsoft-teams:list_channels",
+  "microsoft-teams:list_channel_messages",
 ];
 
 describe("microsoft-teams discovery — surface", () => {
-  it("registers exactly 5 action metas in displayOrder", () => {
+  it("registers exactly 8 action metas in displayOrder", () => {
     const metas = listActionMetasForProvider("microsoft-teams");
-    expect(metas).toHaveLength(5);
+    expect(metas).toHaveLength(8);
     expect(metas.map((m) => m.key)).toEqual(EXPECTED_KEYS_IN_ORDER);
   });
 
@@ -56,10 +71,10 @@ describe("microsoft-teams discovery — surface", () => {
     }
   });
 
-  it("displayOrder is strictly ascending (10..50)", () => {
+  it("displayOrder is strictly ascending (10..80)", () => {
     const orders = listActionMetasForProvider("microsoft-teams").map((m) => m.displayOrder);
     expect(orders[0]).toBe(10);
-    expect(orders[orders.length - 1]).toBe(50);
+    expect(orders[orders.length - 1]).toBe(80);
     for (let i = 1; i < orders.length; i++) {
       expect(orders[i]!).toBeGreaterThan(orders[i - 1]!);
     }
@@ -80,7 +95,7 @@ describe("microsoft-teams discovery — field hygiene + resolver wiring", () => 
   });
 
   it("teamId fields use microsoft-teams:teams (no dep)", () => {
-    for (const key of [...TEAM_CHANNEL, "microsoft-teams:get_team_members"]) {
+    for (const key of TEAM_PICKER) {
       const team = getActionMeta(key)!.fields.find((f) => f.name === "teamId")!;
       expect(team.optionsSource).toBe("microsoft-teams:teams");
       expect(team.dependsOn).toBeUndefined();
@@ -175,6 +190,9 @@ describe("microsoft-teams discovery — risk (medium writes / low reads, none de
     for (const key of [
       "microsoft-teams:get_channel_details",
       "microsoft-teams:get_team_members",
+      "microsoft-teams:list_teams",
+      "microsoft-teams:list_channels",
+      "microsoft-teams:list_channel_messages",
     ]) {
       expect(getActionMeta(key)!.riskLevel).toBe("low");
     }

@@ -228,3 +228,72 @@ describe("sweep-3 — HubSpot deal `dealtype` uses the portal property-options r
     },
   );
 });
+
+// ─── SWEEP-4 — Marcus-approved pre-launch scope adds (gcal/hubspot/slack) ─────
+
+describe("sweep-4 — Google Calendar calendarId uses the google-calendar:calendars picker", () => {
+  it.each([
+    "google-calendar:create_event",
+    "google-calendar:list_events",
+    "google-calendar:update_event",
+    "google-calendar:delete_event",
+    "google-calendar:add_attendees",
+  ])("%s calendarId is a combobox + manual entry, default 'primary' (key unchanged)", (key) => {
+    const m = meta("google-calendar", key);
+    const f = field(m, "calendarId");
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("google-calendar:calendars");
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.defaultValue).toBe("primary"); // stored value still the calendar id string
+    expect(f.name).toBe("calendarId");
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+
+  it("the event_changed trigger calendarId is the same picker", () => {
+    const t = listTriggerMetasForProvider("google-calendar").find(
+      (x) => x.key === "google-calendar:event_changed",
+    );
+    if (!t) throw new Error("google-calendar:event_changed not found");
+    const f = t.fields.find((x) => x.name === "calendarId")!;
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("google-calendar:calendars");
+    expect(f.allowManualEntry).toBe(true);
+    expect(TriggerMetaSchema.safeParse(t).success).toBe(true);
+  });
+});
+
+describe("sweep-4 — HubSpot contacts/companies/tickets portal enum pickers", () => {
+  it.each([
+    ["hubspot:create_contact", "lifecyclestage", "hubspot:contact_lifecyclestage"],
+    ["hubspot:update_contact", "lifecyclestage", "hubspot:contact_lifecyclestage"],
+    ["hubspot:create_contact", "hs_lead_status", "hubspot:contact_lead_status"],
+    ["hubspot:update_contact", "hs_lead_status", "hubspot:contact_lead_status"],
+    ["hubspot:create_company", "lifecyclestage", "hubspot:company_lifecyclestage"],
+    ["hubspot:update_company", "lifecyclestage", "hubspot:company_lifecyclestage"],
+    ["hubspot:create_ticket", "hs_ticket_category", "hubspot:ticket_category"],
+    ["hubspot:update_ticket", "hs_ticket_category", "hubspot:ticket_category"],
+    ["hubspot:create_ticket", "source_type", "hubspot:ticket_source_type"],
+    ["hubspot:update_ticket", "source_type", "hubspot:ticket_source_type"],
+  ] as const)("%s %s is a %s combobox with manual entry (stores internal value)", (key, name, source) => {
+    const m = meta("hubspot", key);
+    const f = field(m, name);
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe(source);
+    expect(f.allowManualEntry).toBe(true); // portal-custom values still settable
+    expect(f.name).toBe(name);
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+});
+
+describe("sweep-4 — Slack group-DM trigger uses the slack:group_dms picker", () => {
+  it("new_group_direct_message channelId is a slack:group_dms combobox with manual entry", () => {
+    const t = listTriggerMetasForProvider("slack").find((x) => x.key === "slack:message.mpim");
+    if (!t) throw new Error("slack:message.mpim trigger not found");
+    const f = t.fields.find((x) => x.name === "channelId")!;
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("slack:group_dms");
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.sensitivity).toBe("recipient"); // preserved
+    expect(TriggerMetaSchema.safeParse(t).success).toBe(true);
+  });
+});

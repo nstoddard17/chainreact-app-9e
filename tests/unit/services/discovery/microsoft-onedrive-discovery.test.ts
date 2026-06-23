@@ -5,12 +5,14 @@
  *
  * Pins the full 7-action OneDrive surface: keys in displayOrder,
  * key===provider:type, category 'files', camelCase fields, resolver wiring
- * (folders root + items dependsOn parentItemId — all single-parent), the
- * UI-scope parentItemId on item-targeted actions, delete_item risk trio,
+ * (folders root + items dependsOn parentItemId on move/copy/delete), the
+ * UI-scope parentItemId on those cascade actions, delete_item risk trio,
  * downloadUrl sensitive outputs (incl. nested list_items), FileRef-deferred
  * (no producesFileRef/consumesFileRef; content textarea), and the rejected
- * microsoft-onedrive:drives resolver staying absent. Trigger assertions live
- * in microsoft-onedrive-triggers-discovery.test.ts.
+ * microsoft-onedrive:drives resolver staying absent. NOTE: `get_file` was
+ * reworked (ONEDRIVE-GETFILE-DISCOVERY) to a FLAT `microsoft-onedrive:files`
+ * picker — no parentItemId, no cascade — so it is asserted separately.
+ * Trigger assertions live in microsoft-onedrive-triggers-discovery.test.ts.
  */
 import {
   getActionMeta,
@@ -28,9 +30,13 @@ const EXPECTED_KEYS_IN_ORDER = [
   "microsoft-onedrive:delete_item",
 ];
 
-/** Item-targeted actions carrying the optional UI-scope parentItemId + itemId. */
-const ITEM_TARGETED = [
-  "microsoft-onedrive:get_file",
+/**
+ * Cascade actions carrying the optional UI-scope parentItemId → folders +
+ * itemId → microsoft-onedrive:items (dependsOn parentItemId). `get_file` is
+ * deliberately NOT here — its itemId is a flat `microsoft-onedrive:files`
+ * picker with no parentItemId (asserted separately below).
+ */
+const ITEM_CASCADE = [
   "microsoft-onedrive:move_item",
   "microsoft-onedrive:copy_item",
   "microsoft-onedrive:delete_item",
@@ -87,14 +93,24 @@ describe("microsoft-onedrive discovery — field hygiene + resolver wiring", () 
     }
   });
 
-  it("item-targeted actions carry an optional UI-scope parentItemId → folders (no dep)", () => {
-    for (const key of ITEM_TARGETED) {
+  it("cascade actions carry an optional UI-scope parentItemId → folders (no dep)", () => {
+    for (const key of ITEM_CASCADE) {
       const parent = getActionMeta(key)!.fields.find((f) => f.name === "parentItemId")!;
       expect(parent.optionsSource).toBe("microsoft-onedrive:folders");
       expect(parent.dependsOn).toBeUndefined();
       expect(parent.required).toBe(false);
       expect(parent.type).toBe("combobox");
     }
+  });
+
+  it("get_file.itemId is a FLAT microsoft-onedrive:files picker — no parentItemId, no dep", () => {
+    const getFile = getActionMeta("microsoft-onedrive:get_file")!;
+    expect(getFile.fields.find((f) => f.name === "parentItemId")).toBeUndefined();
+    const itemId = getFile.fields.find((f) => f.name === "itemId")!;
+    expect(itemId.type).toBe("combobox");
+    expect(itemId.optionsSource).toBe("microsoft-onedrive:files");
+    expect(itemId.dependsOn).toBeUndefined();
+    expect(itemId.required).toBe(true);
   });
 
   it("real parentItemId fields (upload/create/list) use folders, no dep, optional", () => {
@@ -110,8 +126,8 @@ describe("microsoft-onedrive discovery — field hygiene + resolver wiring", () 
     }
   });
 
-  it("itemId fields use microsoft-onedrive:items dependsOn parentItemId", () => {
-    for (const key of ITEM_TARGETED) {
+  it("cascade itemId fields use microsoft-onedrive:items dependsOn parentItemId", () => {
+    for (const key of ITEM_CASCADE) {
       const itemId = getActionMeta(key)!.fields.find((f) => f.name === "itemId")!;
       expect(itemId.optionsSource).toBe("microsoft-onedrive:items");
       expect(itemId.dependsOn).toBe("parentItemId");

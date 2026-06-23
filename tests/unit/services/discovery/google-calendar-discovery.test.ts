@@ -33,8 +33,9 @@ const EVENT_ID_ACTIONS = [
   "google-calendar:add_attendees",
 ];
 
+// CONFIG-FIELD-UX-SWEEP-4 shipped `google-calendar:calendars` (calendar picker),
+// so it is no longer deferred. The rest remain unbuilt/rejected.
 const DEFERRED_RESOLVERS = [
-  "google-calendar:calendars",
   "google-calendar:events",
   "google-calendar:timezones",
   "google-calendar:colors",
@@ -86,12 +87,16 @@ describe("google-calendar discovery — field hygiene + no resolver wiring", () 
     }
   });
 
-  it("calendarId is typeable text defaulting to 'primary' with no resolver (all 5 actions)", () => {
+  it("calendarId is a google-calendar:calendars combobox with manual entry, default 'primary' (all 5 actions)", () => {
+    // CONFIG-FIELD-UX-SWEEP-4: calendarId picks from the calendar list while
+    // keeping the typeable-id fallback (allowManualEntry) + the 'primary'
+    // default. Stored value is still the calendar id string.
     for (const key of EXPECTED_KEYS_IN_ORDER) {
       const cal = getActionMeta(key)!.fields.find((f) => f.name === "calendarId")!;
-      expect(cal.type).toBe("text");
+      expect(cal.type).toBe("combobox");
+      expect(cal.optionsSource).toBe("google-calendar:calendars");
+      expect(cal.allowManualEntry).toBe(true);
       expect(cal.defaultValue).toBe("primary");
-      expect(cal.optionsSource).toBeUndefined();
       expect(cal.required).toBe(false);
     }
   });

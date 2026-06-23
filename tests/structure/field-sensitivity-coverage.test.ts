@@ -63,6 +63,14 @@ const HEURISTIC_FALSE_POSITIVES: Record<string, readonly string[]> = {
   "gmail:search_emails": ["pageToken"],
   "google-calendar:list_events": ["pageToken"],
   "google-drive:list_files": ["pageToken"],
+  "google-drive:search_files": ["pageToken"],
+  // `address` — an Excel A1 cell range ("A1:C10"), not an email/destination address. The
+  // "address" token incidentally matches the recipient heuristic.
+  "microsoft-excel:read_range": ["address"],
+  // `channelId` on a READ — which Teams channel to READ messages from (a resolver-backed
+  // selector / read filter, like `mailchimp:link_clicked.url`), not a send destination.
+  // Still heuristic-blocked at the apply gate.
+  "microsoft-teams:list_channel_messages": ["channelId"],
   // Enum / boolean / number whose name incidentally contains a recipient token — not a
   // destination. (Field type confirms: select / boolean / number.)
   "microsoft-outlook-calendar:add_attendees": ["attendeeType"], // select: required/optional attendee

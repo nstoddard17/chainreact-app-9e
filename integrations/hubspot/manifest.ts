@@ -109,6 +109,14 @@ export const hubspotManifest: ProviderManifest = ProviderManifestSchema.parse({
       "crm.lists.read",
       "crm.lists.write",
       "crm.schemas.deals.read",
+      // CONFIG-FIELD-UX-SWEEP-4 (Marcus-approved pre-launch). Schema-read scopes
+      // that back the portal property-options pickers (lifecyclestage /
+      // hs_lead_status on contacts, lifecyclestage on companies). Tickets needs
+      // no add — HubSpot has no granular `crm.schemas.tickets.read`; ticket
+      // property reads are covered by the broad `tickets` scope below.
+      // RE-CONSENT: existing HubSpot connections must reconnect to grant these.
+      "crm.schemas.contacts.read",
+      "crm.schemas.companies.read",
       "tickets",
       "automation",
       "forms",

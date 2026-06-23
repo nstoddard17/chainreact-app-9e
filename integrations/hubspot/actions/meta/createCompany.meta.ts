@@ -134,8 +134,10 @@ export const hubspotCreateCompanyMeta: ActionMeta = {
       name: "lifecyclestage",
       label: "Lifecycle stage",
       description:
-        "HubSpot `lifecyclestage` property on the company. Portal-configured enum (`subscriber` / `lead` / `customer` / etc.).",
-      type: "text",
+        "HubSpot `lifecyclestage` property on the company. Pick from the portal's real, customizable stages, or paste a custom internal value. Stores the internal stage name, shows the label.",
+      type: "combobox",
+      optionsSource: "hubspot:company_lifecyclestage",
+      allowManualEntry: true,
       required: false,
     },
     {

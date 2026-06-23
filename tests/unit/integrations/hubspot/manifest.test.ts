@@ -23,12 +23,14 @@ describe("hubspot manifest", () => {
     expect(getProvider("hubspot")).toBe(hubspotManifest);
   });
 
-  it("declares the 18 V1 scopes (CRM core + Batch 2 + automation/forms/oauth)", () => {
-    // Slice 13 confirmed scope decision §3: ports V1's 18-scope list
-    // verbatim. The 'oauth' scope is mandatory for basic functionality.
-    // The 'webhooks' scope is intentionally omitted — programmatic
-    // subscription management uses the standard CRM-write scopes per
-    // current HubSpot docs (and V1's oauthConfig.ts:399-402 note).
+  it("declares the 20 scopes (18 V1 + contacts/companies schema-read for property pickers)", () => {
+    // Slice 13 ported V1's 18-scope list; CONFIG-FIELD-UX-SWEEP-4 (Marcus-
+    // approved pre-launch) added `crm.schemas.contacts.read` +
+    // `crm.schemas.companies.read` so the portal property-options pickers
+    // (lifecyclestage / hs_lead_status) can read real enum options. Tickets
+    // needs no add — HubSpot has no granular `crm.schemas.tickets.read`; the
+    // broad `tickets` scope covers ticket property reads. The 'oauth' scope is
+    // mandatory; 'webhooks' stays intentionally omitted.
     expect(hubspotManifest.scopes.required).toEqual([
       "crm.objects.contacts.read",
       "crm.objects.contacts.write",
@@ -44,6 +46,8 @@ describe("hubspot manifest", () => {
       "crm.lists.read",
       "crm.lists.write",
       "crm.schemas.deals.read",
+      "crm.schemas.contacts.read",
+      "crm.schemas.companies.read",
       "tickets",
       "automation",
       "forms",

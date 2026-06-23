@@ -6,7 +6,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
-import { planToBuilderPatch } from "@/services/ai-guidance/preview/planToBuilderPatch";
+import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";

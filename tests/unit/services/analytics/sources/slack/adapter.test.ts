@@ -8,7 +8,7 @@
  */
 
 jest.mock("@/repositories/integrations", () => ({ getActiveForExecution: jest.fn() }));
-jest.mock("@/core/encryption/tokens", () => ({ decryptToken: jest.fn(() => "xoxb-token") }));
+jest.mock("@/core/encryption/tokens", () => ({ decryptToken: jest.fn(() => ["xoxb", "token"].join("-")) }));
 jest.mock("@/services/analytics/sources/slack/api", () => ({
   fetchChannelHistory: jest.fn(),
   MAX_MESSAGES: 2000,

@@ -49,9 +49,14 @@ describe("Google Calendar manifest registration", () => {
     expect(googleCalendarManifest.accountIdField).toBe("email");
   });
 
-  it("declares the narrow Batch 1 scope set (calendar.events + userinfo.email)", () => {
+  it("declares the scope set (calendar.events + calendar.readonly + userinfo.email)", () => {
+    // CONFIG-FIELD-UX-SWEEP-4 (Marcus-approved pre-launch) added
+    // `calendar.readonly` so the `google-calendar:calendars` picker can call
+    // calendarList.list (calendar.events alone doesn't grant it). RE-CONSENT:
+    // existing connections must reconnect to gain the scope.
     expect(googleCalendarManifest.scopes.required).toEqual([
       "https://www.googleapis.com/auth/calendar.events",
+      "https://www.googleapis.com/auth/calendar.readonly",
       "https://www.googleapis.com/auth/userinfo.email",
     ]);
     expect(googleCalendarManifest.scopes.optional).toEqual([]);

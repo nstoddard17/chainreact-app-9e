@@ -28,8 +28,14 @@ jest.mock("@/services/oauth/refreshAndRetry", () => {
 import {
   hubspotDealTypeOptionsResolver,
   makeHubspotPropertyOptionsResolver,
+  hubspotContactLifecycleStageOptionsResolver,
+  hubspotContactLeadStatusOptionsResolver,
+  hubspotCompanyLifecycleStageOptionsResolver,
+  hubspotTicketCategoryOptionsResolver,
+  hubspotTicketSourceTypeOptionsResolver,
 } from "@/integrations/hubspot/options/propertyOptions";
 import {
+  InsufficientScopeError,
   IntegrationActionRequiredError,
   Unauthorized401Error,
 } from "@/services/oauth/refreshAndRetry";
@@ -180,5 +186,52 @@ describe("makeHubspotPropertyOptionsResolver — factory", () => {
     mockRefreshAndRetry.mockResolvedValueOnce({ name: "custom_prop", options: [{ label: "A", value: "a" }] });
     const result = await resolver.resolve(ctx());
     expect(result.items).toEqual([{ value: "a", label: "A" }]);
+  });
+});
+
+// ─── CONFIG-FIELD-UX-SWEEP-4 — contacts / companies / tickets enum resolvers ──
+
+describe("hubspot SWEEP-4 property-options resolvers — shape", () => {
+  it.each([
+    [hubspotContactLifecycleStageOptionsResolver, "hubspot:contact_lifecyclestage"],
+    [hubspotContactLeadStatusOptionsResolver, "hubspot:contact_lead_status"],
+    [hubspotCompanyLifecycleStageOptionsResolver, "hubspot:company_lifecyclestage"],
+    [hubspotTicketCategoryOptionsResolver, "hubspot:ticket_category"],
+    [hubspotTicketSourceTypeOptionsResolver, "hubspot:ticket_source_type"],
+  ] as const)("%# declares source %s / provider hubspot / requiresIntegration", (resolver, source) => {
+    expect(resolver.source).toBe(source);
+    expect(resolver.provider).toBe("hubspot");
+    expect(resolver.requiresIntegration).toBe(true);
+  });
+
+  it("stores the internal value, shows the label (contacts lifecyclestage)", async () => {
+    mockRefreshAndRetry.mockResolvedValueOnce({
+      name: "lifecyclestage",
+      options: [
+        { label: "Lead", value: "lead" },
+        { label: "Customer", value: "customer" },
+        { label: "Hidden", value: "old", hidden: true },
+      ],
+    });
+    const result = await hubspotContactLifecycleStageOptionsResolver.resolve(ctx());
+    expect(result.items).toEqual([
+      { value: "lead", label: "Lead" },
+      { value: "customer", label: "Customer" },
+    ]);
+  });
+});
+
+describe("hubspot SWEEP-4 property-options — missing-scope / reconnect", () => {
+  it("InsufficientScopeError (403 — old token without the schema-read scope) → PROVIDER_REAUTH_REQUIRED", async () => {
+    mockRefreshAndRetry.mockRejectedValueOnce(
+      new InsufficientScopeError("HubSpot 403", "hubspot"),
+    );
+    try {
+      await hubspotContactLifecycleStageOptionsResolver.resolve(ctx());
+      throw new Error("expected throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(OptionsResolverError);
+      expect((err as OptionsResolverError).code).toBe("PROVIDER_REAUTH_REQUIRED");
+    }
   });
 });

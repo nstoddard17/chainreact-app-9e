@@ -28,11 +28,13 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       name: "calendarId",
       label: "Calendar",
       description:
-        'Calendar to create the event on. Defaults to "primary" (the account\'s main calendar). You can paste another calendar id (e.g. you@gmail.com).',
-      type: "text",
+        'Calendar to create the event on. Pick from your calendars, or paste a calendar id (e.g. you@gmail.com). Defaults to "primary".',
+      type: "combobox",
+      optionsSource: "google-calendar:calendars",
+      allowManualEntry: true,
       required: false,
       defaultValue: "primary",
-      placeholder: "primary",
+      placeholder: "Search calendars or paste an ID",
     },
     {
       name: "summary",

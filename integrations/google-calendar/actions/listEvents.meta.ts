@@ -23,11 +23,13 @@ export const googleCalendarListEventsMeta: ActionMeta = {
       name: "calendarId",
       label: "Calendar",
       description:
-        'Calendar to read. Defaults to "primary". You can paste another calendar id (e.g. you@gmail.com).',
-      type: "text",
+        'Calendar to read. Pick from your calendars, or paste a calendar id (e.g. you@gmail.com). Defaults to "primary".',
+      type: "combobox",
+      optionsSource: "google-calendar:calendars",
+      allowManualEntry: true,
       required: false,
       defaultValue: "primary",
-      placeholder: "primary",
+      placeholder: "Search calendars or paste an ID",
     },
     {
       name: "timeMin",

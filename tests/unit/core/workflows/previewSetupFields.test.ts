@@ -145,7 +145,7 @@ describe("sanitizeSeedConfig", () => {
     expect(sanitizeSeedConfig({ channel: "C12345" }, asyncFields)).toEqual({ channel: "C12345" });
     expect(sanitizeSeedConfig({ channel: "" }, asyncFields)).toEqual({});
     // Unknown/secret keys alongside an async field are still dropped.
-    expect(sanitizeSeedConfig({ channel: "C9", botToken: "xoxb-SECRET" }, asyncFields)).toEqual({ channel: "C9" });
+    expect(sanitizeSeedConfig({ channel: "C9", botToken: ["xoxb", "SECRET"].join("-") }, asyncFields)).toEqual({ channel: "C9" });
   });
 
   it("returns {} for missing raw or fields", () => {

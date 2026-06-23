@@ -1,4 +1,7 @@
-import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
+import {
+  InsufficientScopeError,
+  Unauthorized401Error,
+} from "@/services/oauth/refreshAndRetry";
 import { hubspotApiBase, HUBSPOT_CRM_VERSION } from "./_base";
 import { ConflictError, NotFoundError, surfaceHubSpotError } from "../errors";
 
@@ -95,6 +98,16 @@ export async function hubspotRequest<T>(
   if (res.status === 401) {
     throw new Unauthorized401Error(
       `HubSpot ${input.method} ${input.path} returned HTTP 401`,
+    );
+  }
+  if (res.status === 403) {
+    // 403 = the token lacks a required scope (HubSpot `MISSING_SCOPES`). A
+    // refresh keeps the same scopes, so this needs re-consent, not retry. Typed
+    // so option resolvers can map it to PROVIDER_REAUTH_REQUIRED. Body NOT
+    // surfaced (it can echo the granted/required scope list).
+    throw new InsufficientScopeError(
+      `HubSpot ${input.method} ${input.path} returned HTTP 403 (insufficient scope)`,
+      "hubspot",
     );
   }
   if (res.status === 404) {

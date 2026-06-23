@@ -57,6 +57,27 @@ export class Unauthorized401Error extends Error {
   }
 }
 
+/**
+ * Thrown by handler-level API wrappers when the provider returned HTTP 403
+ * because the stored token LACKS A REQUIRED SCOPE (e.g. Google
+ * `ACCESS_TOKEN_SCOPE_INSUFFICIENT` / `insufficientPermissions`, HubSpot
+ * `MISSING_SCOPES`). Distinct from `Unauthorized401Error` on purpose: a token
+ * refresh keeps the SAME granted scopes, so refreshing cannot fix a missing
+ * scope — the user must re-consent (reconnect). `refreshAndRetry` does NOT
+ * catch this (only 401 enters the refresh path), so it propagates verbatim to
+ * the caller, where option resolvers map it to `PROVIDER_REAUTH_REQUIRED`
+ * (the same reconnect UX Slack's `missing_scope` already produces). This is
+ * the canonical "old token predates a newly-required manifest scope" signal.
+ */
+export class InsufficientScopeError extends Error {
+  readonly provider: string | undefined;
+  constructor(message?: string, provider?: string) {
+    super(message ?? "Provider returned HTTP 403 (insufficient scope).");
+    this.name = "InsufficientScopeError";
+    this.provider = provider;
+  }
+}
+
 export type IntegrationActionRequiredReason =
   | "refresh_not_supported"
   | "refresh_failed";

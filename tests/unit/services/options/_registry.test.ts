@@ -800,4 +800,23 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toBeUndefined();
     });
   });
+
+  describe("CONFIG-FIELD-UX-SWEEP-4 resolvers (Marcus-approved scope adds)", () => {
+    it.each([
+      ["google-calendar:calendars", "google-calendar"],
+      ["slack:group_dms", "slack"],
+      ["hubspot:contact_lifecyclestage", "hubspot"],
+      ["hubspot:contact_lead_status", "hubspot"],
+      ["hubspot:company_lifecyclestage", "hubspot"],
+      ["hubspot:ticket_category", "hubspot"],
+      ["hubspot:ticket_source_type", "hubspot"],
+    ] as const)("getOptionsResolver resolves %s (provider %s, requiresIntegration, no deps)", (source, provider) => {
+      const r = getOptionsResolver(source);
+      expect(r).toBeDefined();
+      expect(r?.source).toBe(source);
+      expect(r?.provider).toBe(provider);
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
+  });
 });

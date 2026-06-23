@@ -14,7 +14,10 @@
  *   - Other non-2xx → generic Error with `surfaceHubSpotError` message.
  *   - `crmPath` helper produces `/crm/v3/...`.
  */
-import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
+import {
+  InsufficientScopeError,
+  Unauthorized401Error,
+} from "@/services/oauth/refreshAndRetry";
 import {
   crmPath,
   hubspotRequest,
@@ -172,6 +175,29 @@ describe("hubspotRequest — error mapping", () => {
         resourceForNotFound: "contacts",
       }),
     ).rejects.toThrow(Unauthorized401Error);
+  });
+
+  it("throws InsufficientScopeError on 403 (missing scope — reconnect, not refresh) without leaking the body", async () => {
+    // CONFIG-FIELD-UX-SWEEP-4: 403 = HubSpot MISSING_SCOPES. Refresh keeps the
+    // same scopes, so this is a reconnect signal, not a retry — and the body
+    // (which can echo the granted/required scope list) is never surfaced.
+    mockFetchOnce({
+      ok: false,
+      status: 403,
+      json: { status: "error", message: "MISSING_SCOPES granted=[a] required=[crm.schemas.contacts.read] leak" },
+    });
+    try {
+      await hubspotRequest({
+        accessToken: "tok",
+        method: "GET",
+        path: crmPath("properties/contacts/lifecyclestage"),
+        resourceForNotFound: "property contacts.lifecyclestage",
+      });
+      throw new Error("expected throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(InsufficientScopeError);
+      expect((err as Error).message).not.toContain("leak");
+    }
   });
 
   it("throws NotFoundError on 404 with surfaced message", async () => {

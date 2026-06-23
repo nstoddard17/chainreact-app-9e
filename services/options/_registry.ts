@@ -15,6 +15,10 @@ import { slackChannelsResolver } from "@/integrations/slack/options/channels";
 // new_direct_message sender filter). Read-only `users.list` on the already-
 // granted `users:read` scope; returns id + display name only (no email).
 import { slackUsersResolver } from "@/integrations/slack/options/users";
+// CONFIG-FIELD-UX-SWEEP-4 — `slack:group_dms` lists group DMs (mpim) for the
+// new_group_direct_message trigger filter. conversations.list types=mpim on the
+// newly-added `mpim:read` scope; surfaces missing_scope as reconnect.
+import { slackGroupDmsResolver } from "@/integrations/slack/options/groupDms";
 
 // Google Sheets resolvers — Slice 3.GSHEETS-2.
 // `spreadsheets` enumerates the connected user's spreadsheets via
@@ -44,10 +48,18 @@ import { googleSheetsSheetsResolver } from "@/integrations/google-sheets/options
 // All five core resolvers are read-only against scopes already in the
 // 18-scope HubSpot manifest; no reconnect required.
 import { hubspotOwnersResolver } from "@/integrations/hubspot/options/owners";
-// CONFIG-FIELD-UX-SWEEP-3 — portal-customizable property enum reader. Only the
-// DEALS object is wired (`crm.schemas.deals.read` is granted); contacts /
-// companies / tickets need a manifest scope add + re-consent and stay free text.
-import { hubspotDealTypeOptionsResolver } from "@/integrations/hubspot/options/propertyOptions";
+// Portal-customizable property enum readers. SWEEP-3 shipped deals `dealtype`;
+// SWEEP-4 (Marcus-approved pre-launch scope adds) adds contacts/companies via
+// the new `crm.schemas.{contacts,companies}.read` scopes + tickets via the
+// existing broad `tickets` scope.
+import {
+  hubspotDealTypeOptionsResolver,
+  hubspotContactLifecycleStageOptionsResolver,
+  hubspotContactLeadStatusOptionsResolver,
+  hubspotCompanyLifecycleStageOptionsResolver,
+  hubspotTicketCategoryOptionsResolver,
+  hubspotTicketSourceTypeOptionsResolver,
+} from "@/integrations/hubspot/options/propertyOptions";
 import { hubspotDealPipelinesResolver } from "@/integrations/hubspot/options/dealPipelines";
 import { hubspotDealStagesResolver } from "@/integrations/hubspot/options/dealStages";
 import { hubspotTicketPipelinesResolver } from "@/integrations/hubspot/options/ticketPipelines";
@@ -141,6 +153,12 @@ import { googleDriveFoldersResolver } from "@/integrations/google-drive/options/
 // pickers (get_file_metadata / delete_file / move_file). Reuses the existing
 // filesList wrapper + already-granted Drive read scope; metadata only (id + name).
 import { googleDriveFilesResolver } from "@/integrations/google-drive/options/files";
+
+// CONFIG-FIELD-UX-SWEEP-4 — `google-calendar:calendars` backs the calendarId
+// picker on every Google Calendar action + the event_changed trigger. Uses
+// calendarList.list on the newly-added `calendar.readonly` scope; a token
+// missing the scope surfaces PROVIDER_REAUTH_REQUIRED (reconnect).
+import { googleCalendarCalendarsResolver } from "@/integrations/google-calendar/options/calendars";
 
 // Microsoft OneNote resolvers — Slice 3.ONENOTE-3.
 //   - `microsoft-onenote:notebooks` — account-scoped notebook picker
@@ -462,6 +480,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   nativeExamplesResolver,
   slackChannelsResolver,
   slackUsersResolver,
+  slackGroupDmsResolver,
   googleSheetsSpreadsheetsResolver,
   googleSheetsSheetsResolver,
   // HubSpot (Slice 3.HUBSPOT-2). Resolver-first ahead of HubSpot
@@ -469,6 +488,11 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // read metas consume at least one of these resolvers.
   hubspotOwnersResolver,
   hubspotDealTypeOptionsResolver,
+  hubspotContactLifecycleStageOptionsResolver,
+  hubspotContactLeadStatusOptionsResolver,
+  hubspotCompanyLifecycleStageOptionsResolver,
+  hubspotTicketCategoryOptionsResolver,
+  hubspotTicketSourceTypeOptionsResolver,
   hubspotDealPipelinesResolver,
   hubspotDealStagesResolver,
   hubspotTicketPipelinesResolver,
@@ -501,6 +525,8 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   googleDocsDocumentsResolver,
   googleDriveFoldersResolver,
   googleDriveFilesResolver,
+  // CONFIG-FIELD-UX-SWEEP-4 — Google Calendar calendar picker.
+  googleCalendarCalendarsResolver,
   // Slice 3.ONENOTE-3 — Microsoft OneNote options resolvers
   // (resolver-first ahead of ONENOTE-4 action metas). First Microsoft
   // Graph options resolvers; pattern: PAGE_SIZE=100, nextLink →

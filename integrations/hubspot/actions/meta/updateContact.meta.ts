@@ -93,15 +93,20 @@ export const hubspotUpdateContactMeta: ActionMeta = {
       name: "lifecyclestage",
       label: "Lifecycle stage",
       description:
-        "HubSpot `lifecyclestage` property. Portal-configured enum (`subscriber` / `lead` / `marketingqualifiedlead` / `salesqualifiedlead` / `opportunity` / `customer` / `evangelist` / `other` plus customs).",
-      type: "text",
+        "HubSpot `lifecyclestage` property. Pick from the portal's real, customizable stages, or paste a custom internal value. Stores the internal stage name, shows the label.",
+      type: "combobox",
+      optionsSource: "hubspot:contact_lifecyclestage",
+      allowManualEntry: true,
       required: false,
     },
     {
       name: "hs_lead_status",
       label: "Lead status",
-      description: "HubSpot `hs_lead_status` property. Portal-configured enum.",
-      type: "text",
+      description:
+        "HubSpot `hs_lead_status` property. Pick from the portal's real, customizable statuses, or paste a custom internal value.",
+      type: "combobox",
+      optionsSource: "hubspot:contact_lead_status",
+      allowManualEntry: true,
       required: false,
     },
     {

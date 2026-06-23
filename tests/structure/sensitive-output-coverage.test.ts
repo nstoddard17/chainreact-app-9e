@@ -191,6 +191,17 @@ const ALLOWLIST: ReadonlyMap<string, string> = new Map([
     "slack:invite_users_to_channel::users",
     "CSV echo of caller-supplied user ids submitted to Slack.",
   ],
+
+  // ─── Microsoft Teams ───────────────────────────────────────────────────
+  // `list_channel_messages.messages` is deliberately HEADER-ONLY per the meta:
+  // `{ id, createdDateTime, lastModifiedDateTime, importance, messageType,
+  // fromUserId, webUrl }` — NO body, subject, attachments, or sender name. The
+  // ids are opaque Graph ids and webUrl is an auth-gated Teams deep link, not
+  // content/PII. The "messages" name trips the suspicious-name guard only.
+  [
+    "microsoft-teams:list_channel_messages::messages",
+    "Header-only message metadata (opaque ids + timestamps + webUrl); no body/subject/sender-name/PII.",
+  ],
 ]);
 
 // ─── Walker ─────────────────────────────────────────────────────────────────

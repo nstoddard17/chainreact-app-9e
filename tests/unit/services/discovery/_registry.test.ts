@@ -1209,14 +1209,15 @@ describe("per-provider accessors", () => {
         },
       );
 
-      it("send_direct_message exposes `userId` as a required text field (no slack:users resolver yet — Slice 3.39+)", () => {
+      it("send_direct_message exposes `userId` as a required slack:users combobox (shipped in the config-field UX sweep)", () => {
         const userId = metaByKey("slack:send_direct_message").fields.find(
           (f) => f.name === "userId",
         );
         expect(userId).toBeDefined();
-        expect(userId!.type).toBe("text");
+        expect(userId!.type).toBe("combobox");
         expect(userId!.required).toBe(true);
-        expect(userId!.optionsSource).toBeUndefined();
+        expect(userId!.optionsSource).toBe("slack:users");
+        expect(userId!.allowManualEntry).toBe(true);
       });
 
       it.each([
@@ -1705,14 +1706,15 @@ describe("per-provider accessors", () => {
         expect(flag!.defaultValue).toBeUndefined();
       });
 
-      it("remove_user_from_channel.user is a required text field (slack:users resolver deferred to 3.39+)", () => {
+      it("remove_user_from_channel.user is a required slack:users combobox (shipped in the config-field UX sweep)", () => {
         const user = metaByKey("slack:remove_user_from_channel").fields.find(
           (f) => f.name === "user",
         );
         expect(user).toBeDefined();
-        expect(user!.type).toBe("text");
+        expect(user!.type).toBe("combobox");
         expect(user!.required).toBe(true);
-        expect(user!.optionsSource).toBeUndefined();
+        expect(user!.optionsSource).toBe("slack:users");
+        expect(user!.allowManualEntry).toBe(true);
       });
 
       it.each([
@@ -1897,15 +1899,16 @@ describe("per-provider accessors", () => {
         },
       );
 
-      it("get_user_info `user` field is a required text field (slack:users resolver deferred to 3.39+)", () => {
+      it("get_user_info `user` field is a required slack:users combobox (shipped in the config-field UX sweep)", () => {
         const user = metaByKey("slack:get_user_info").fields.find(
           (f) => f.name === "user",
         );
         expect(user).toBeDefined();
-        expect(user!.type).toBe("text");
+        expect(user!.type).toBe("combobox");
         expect(user!.required).toBe(true);
-        expect(user!.optionsSource).toBeUndefined();
-        expect(user!.placeholder).toBe("U01ABC23DEF");
+        expect(user!.optionsSource).toBe("slack:users");
+        expect(user!.allowManualEntry).toBe(true);
+        expect(user!.placeholder).toBe("Search users or paste a user ID");
       });
 
       it("get_user_info output mirrors the handler's bounded scalar set", () => {
@@ -2744,10 +2747,11 @@ describe("per-provider accessors", () => {
           return notionActionMetas().find((m) => m.key === "notion:get_user")!;
         }
 
-        it("exposes only userId (required text)", () => {
+        it("exposes only userId (required notion:users combobox)", () => {
           expect(meta().fields.map((f) => f.name)).toEqual(["userId"]);
           const userId = meta().fields[0]!;
-          expect(userId.type).toBe("text");
+          expect(userId.type).toBe("combobox");
+          expect(userId.optionsSource).toBe("notion:users");
           expect(userId.required).toBe(true);
         });
 
