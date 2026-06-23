@@ -28,10 +28,13 @@ export const newCommitTriggerMeta: TriggerMeta = {
     {
       name: "repository",
       label: "Repository",
-      description: "Repository to watch, in 'owner/repo' format.",
-      type: "text",
+      description:
+        "Repository to watch. Pick from your accessible repositories, or type an `owner/repo` (e.g. `octocat/hello-world`).",
+      type: "combobox",
+      optionsSource: "github:repos",
+      allowManualEntry: true,
       required: true,
-      placeholder: "octocat/hello-world",
+      placeholder: "Search repos or type owner/repo",
     },
     {
       name: "branch",

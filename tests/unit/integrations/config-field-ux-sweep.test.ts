@@ -297,3 +297,37 @@ describe("sweep-4 — Slack group-DM trigger uses the slack:group_dms picker", (
     expect(TriggerMetaSchema.safeParse(t).success).toBe(true);
   });
 });
+
+// ─── BUILDER-QA-1 — GitHub repository picker (launch-QA sweep) ────────────────
+// The `github:repos` resolver was registered but the action/trigger `repository`
+// fields were still raw `owner/repo` text. Wired to the picker (stores the same
+// `owner/repo` string; manual entry preserves the paste-it path).
+
+describe("builder-qa-1 — GitHub repository fields use the github:repos picker", () => {
+  it.each([
+    "github:add_comment",
+    "github:create_branch",
+    "github:create_issue",
+    "github:create_pull_request",
+  ])("%s repository is a github:repos combobox with manual entry (stores owner/repo)", (key) => {
+    const m = meta("github", key);
+    const f = field(m, "repository");
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("github:repos");
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.required).toBe(true); // unchanged
+    expect(f.name).toBe("repository"); // stored config key unchanged → handler intact
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+
+  it("the new_commit trigger repository field is the same picker", () => {
+    const t = listTriggerMetasForProvider("github").find((x) => x.key === "github:new_commit");
+    if (!t) throw new Error("github:new_commit trigger not found");
+    const f = t.fields.find((x) => x.name === "repository")!;
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("github:repos");
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.required).toBe(true);
+    expect(TriggerMetaSchema.safeParse(t).success).toBe(true);
+  });
+});

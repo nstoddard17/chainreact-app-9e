@@ -26,10 +26,13 @@ export const createBranchMeta: ActionMeta = {
     {
       name: "repository",
       label: "Repository",
-      description: "Target repository in 'owner/repo' format.",
-      type: "text",
+      description:
+        "Target repository. Pick from your accessible repositories, or type an `owner/repo` (e.g. `octocat/hello-world`).",
+      type: "combobox",
+      optionsSource: "github:repos",
+      allowManualEntry: true,
       required: true,
-      placeholder: "octocat/hello-world",
+      placeholder: "Search repos or type owner/repo",
     },
     {
       name: "branchName",
