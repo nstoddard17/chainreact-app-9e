@@ -36,20 +36,22 @@ export const googleDriveGetFileMetadataMeta: ActionMeta = {
   ],
   outputs: [
     { name: "id", type: "string", description: "The file's id (echoed)." },
-    { name: "name", type: "string", description: "The file's name (or null)." },
-    { name: "mimeType", type: "string", description: "The file's MIME type (or null)." },
+    { name: "name", type: "string", description: "The file's name (or null).", nullable: true },
+    { name: "mimeType", type: "string", description: "The file's MIME type (or null).", nullable: true },
     {
       name: "size",
       type: "string",
       description:
         "Size in bytes as a string for binary files; null for native Google Docs/Sheets/Slides types.",
+      nullable: true,
     },
-    { name: "createdTime", type: "string", description: "ISO-8601 creation timestamp (or null)." },
-    { name: "modifiedTime", type: "string", description: "ISO-8601 last-modified timestamp (or null)." },
+    { name: "createdTime", type: "string", description: "ISO-8601 creation timestamp (or null).", nullable: true },
+    { name: "modifiedTime", type: "string", description: "ISO-8601 last-modified timestamp (or null).", nullable: true },
     {
       name: "webViewLink",
       type: "string",
       description: "Auth-gated Drive deeplink to open the file in a browser (or null).",
+      nullable: true,
     },
     { name: "trashed", type: "boolean", description: "True when the file is currently in Drive's trash." },
   ],

@@ -1064,6 +1064,18 @@ running certification record; rows are added as each provider batch lands.
 | `notion:create_database_entry` | create entry -> query_database filtered to marker -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `notion:archive_page` | create -> archive -> get_page (archived == true, + marker on title) -> no cleanup | archived (left) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `notion:restore_page` | create -> archive -> restore -> get_page (archived == false, + marker on title) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `google-drive:create_folder` | create folder (root) -> get_file_metadata (marker on name) -> **permanent delete** | object deleted | `LIVE_PASS_CLEANED` |
+| `google-drive:upload_file` | upload inline file (root) -> get_file_metadata (marker on name) -> **permanent delete** | object deleted | `LIVE_PASS_CLEANED` |
+| `google-drive:delete_file` | create folder -> **delete (trash)** -> get_file_metadata (trashed == true) -> **permanent delete** | object deleted | `LIVE_PASS_CLEANED` |
+
+**Google Drive write coverage (SMOKE-WRITE-17).** 3 of 4 write actions certified
+(`create_folder`, `upload_file`, `delete_file`). All smoke-owned (My Drive root, no
+target discovery), verified by INDEPENDENT `get_file_metadata` read-back (marker on
+`name`; `trashed == true` for the trash side effect — never the handler echo, whose
+`name`/`trashed` fall back to input), permanently deleted on cleanup. `upload_file`
+uses inline `content` (no FileRef/staging). **Deferred (certifiable, not selected
+this slice):** `move_file` — needs a 2nd smoke folder as the move target +
+parents-array read-back (setup-heavy); not blocked, just out of this small batch.
 
 **Remaining Trello / Notion write actions — DEFERRED (exact blockers, SMOKE-WRITE-16).**
 Every registered Trello/Notion write action NOT in the matrix above is blocked by a

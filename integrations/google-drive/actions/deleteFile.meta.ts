@@ -62,7 +62,8 @@ export const googleDriveDeleteFileMeta: ActionMeta = {
     {
       name: "trashed",
       type: "boolean",
-      description: "Trash mode only — true once the file was moved to trash.",
+      description: "Trash mode only — true once the file was moved to trash; absent on permanent delete.",
+      nullable: true,
     },
   ],
   producesFileRef: false,

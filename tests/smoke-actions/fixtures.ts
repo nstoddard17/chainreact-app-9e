@@ -126,6 +126,9 @@ import airtableDeleteRecord from "@/tests/fixtures/action-smoke/airtable/delete_
 import airtableCreateMultipleRecords from "@/tests/fixtures/action-smoke/airtable/create_multiple_records";
 import airtableUpdateMultipleRecords from "@/tests/fixtures/action-smoke/airtable/update_multiple_records";
 import airtableAddAttachment from "@/tests/fixtures/action-smoke/airtable/add_attachment";
+import gdriveCreateFolder from "@/tests/fixtures/action-smoke/google-drive/create_folder";
+import gdriveUploadFile from "@/tests/fixtures/action-smoke/google-drive/upload_file";
+import gdriveDeleteFile from "@/tests/fixtures/action-smoke/google-drive/delete_file";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
@@ -250,6 +253,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   airtableCreateMultipleRecords,
   airtableUpdateMultipleRecords,
   airtableAddAttachment,
+  gdriveCreateFolder,
+  gdriveUploadFile,
+  gdriveDeleteFile,
   notionCreatePage,
   notionUpdatePage,
   notionAppendBlockChildren,

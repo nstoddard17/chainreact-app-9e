@@ -186,10 +186,13 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     }
     const envLookup = (n: string): string | undefined => overlay[n] ?? process.env[n];
 
-    // Provider-level hasTarget: every in-scope fixture's target env resolves.
+    // Provider-level hasTarget: every in-scope fixture's target env resolves. A
+    // provider whose fixtures need NO target env (e.g. Google Drive writes land in
+    // My Drive root) trivially has a target — `[].every(...)` is true — so it must
+    // NOT read as BLOCKED_NO_TARGET.
     const inScope = WRITE_SMOKE_FIXTURES.filter((f) => f.provider === provider);
     const targetEnv = inScope.flatMap((f) => (f.requiredEnv ?? []).filter((v) => !/_CONNECTED$/.test(v)));
-    const hasTarget = targetEnv.length > 0 && targetEnv.every((v) => !!envLookup(v));
+    const hasTarget = targetEnv.every((v) => !!envLookup(v));
 
     const classification = classifyWriteTarget({ dbConnected, execUsable, hasTarget });
     console.log(
