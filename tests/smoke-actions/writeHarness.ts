@@ -297,12 +297,19 @@ export function resolveScalarTokens(
   s: string,
   marker: string,
   envLookup: (name: string) => string | undefined,
+  ledger?: ResourceLedger,
 ): string {
   let out = s.split("{{smokeMarker}}").join(marker);
   out = out.replace(ENV_TOKEN, (whole, name: string) => {
     const val = envLookup(name);
     return val !== undefined && val !== "" ? val : whole;
   });
+  // `{{ledger.<key>.id}}` — lets a verify assertion compare against a captured id
+  // (e.g. expectContains parents = the move target folder id). Only when a ledger
+  // is supplied; absent -> left literal (so a missing capture fails loudly).
+  if (ledger) {
+    out = out.replace(LEDGER_TOKEN, (whole, key: string) => ledger.get(key)?.externalId ?? whole);
+  }
   return out;
 }
 
@@ -462,10 +469,11 @@ function applyVerifyAssertions(
   envLookup: (name: string) => string | undefined,
   phases: PhaseResult[],
   label = "",
+  ledger?: ResourceLedger,
 ): boolean {
   let ok = true;
   if (step.markerPath) {
-    const echoPath = resolveScalarTokens(step.markerPath, marker, envLookup);
+    const echoPath = resolveScalarTokens(step.markerPath, marker, envLookup, ledger);
     // markerSuffix lets a read-back prove a SPECIFIC value (e.g. "updated"), not
     // just that the run marker is present.
     const expectedMarker = marker + (step.markerSuffix ?? "");
@@ -481,7 +489,7 @@ function applyVerifyAssertions(
     const { path } = step.expectEquals;
     const expected =
       typeof step.expectEquals.value === "string"
-        ? resolveScalarTokens(step.expectEquals.value, marker, envLookup)
+        ? resolveScalarTokens(step.expectEquals.value, marker, envLookup, ledger)
         : step.expectEquals.value;
     const hit = valueEqualsAtPath(output, path, expected);
     phases.push({
@@ -493,7 +501,9 @@ function applyVerifyAssertions(
   }
   if (step.expectContains) {
     const { path } = step.expectContains;
-    const expected = resolveScalarTokens(step.expectContains.value, marker, envLookup);
+    // ledger-aware: the expected member may be a captured id (e.g. a move target
+    // folder id) referenced as {{ledger.<key>.id}}.
+    const expected = resolveScalarTokens(step.expectContains.value, marker, envLookup, ledger);
     const hit = valuePresentInArrayAtPath(output, path, expected);
     phases.push({
       phase: "verify",
@@ -503,8 +513,8 @@ function applyVerifyAssertions(
     if (!hit) ok = false;
   }
   if (step.expectNonEmptyArray) {
-    // Path is token-resolved (env / marker) so a dynamic field name resolves.
-    const path = resolveScalarTokens(step.expectNonEmptyArray.path, marker, envLookup);
+    // Path is token-resolved (env / marker / ledger) so a dynamic field name resolves.
+    const path = resolveScalarTokens(step.expectNonEmptyArray.path, marker, envLookup, ledger);
     const hit = nonEmptyArrayAtPath(output, path, step.expectNonEmptyArray.elementHasKey);
     const keyNote = step.expectNonEmptyArray.elementHasKey
       ? ` (each with ${step.expectNonEmptyArray.elementHasKey})`
@@ -700,7 +710,7 @@ export async function runWriteSmoke(
       const v = await runStep("verify", spec.verify);
       if (!v.ok) {
         actionStatus = "VERIFY_FAILED";
-      } else if (!applyVerifyAssertions(spec.verify, v.output, marker, envLookup, phases)) {
+      } else if (!applyVerifyAssertions(spec.verify, v.output, marker, envLookup, phases, "", ledger)) {
         // A verify step may assert the marker on the read-back (identity, + an
         // optional markerSuffix for a specific value), a scalar STATE (expectEquals),
         // and ARRAY membership (expectContains). Each declared assertion must pass.
@@ -731,7 +741,7 @@ export async function runWriteSmoke(
           actionStatus = "VERIFY_FAILED";
           continue;
         }
-        if (!applyVerifyAssertions(spec.verifyEach, res.output, marker, envLookup, phases)) {
+        if (!applyVerifyAssertions(spec.verifyEach, res.output, marker, envLookup, phases, "", ledger)) {
           actionStatus = "VERIFY_FAILED";
         }
       }

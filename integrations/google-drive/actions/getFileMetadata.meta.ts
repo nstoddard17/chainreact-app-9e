@@ -54,6 +54,11 @@ export const googleDriveGetFileMetadataMeta: ActionMeta = {
       nullable: true,
     },
     { name: "trashed", type: "boolean", description: "True when the file is currently in Drive's trash." },
+    {
+      name: "parents",
+      type: "array",
+      description: "Parent folder ids (empty when the file lives only at My Drive root).",
+    },
   ],
   producesFileRef: false,
   consumesFileRef: false,

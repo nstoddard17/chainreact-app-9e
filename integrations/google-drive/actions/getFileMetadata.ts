@@ -21,7 +21,7 @@ import {
  * list_files / OneDrive `webUrl` / Calendar `htmlLink`).
  */
 const FIELDS_MASK =
-  "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,trashed";
+  "id,name,mimeType,size,createdTime,modifiedTime,webViewLink,trashed,parents";
 
 export const getFileMetadata: ActionHandler = async (input) => {
   const config: GetFileMetadataConfig = GetFileMetadataConfigSchema.parse(
@@ -55,6 +55,10 @@ export const getFileMetadata: ActionHandler = async (input) => {
       modifiedTime: result.modifiedTime ?? null,
       webViewLink: result.webViewLink ?? null,
       trashed: result.trashed ?? false,
+      // Parent folder ids — same non-sensitive class as the file id already
+      // returned. Lets downstream workflows branch on location + lets a move be
+      // verified by independent read-back. Always an array (empty for root-only).
+      parents: result.parents ?? [],
     },
   };
 };

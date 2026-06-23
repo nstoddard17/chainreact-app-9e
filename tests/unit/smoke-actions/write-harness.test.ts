@@ -1148,3 +1148,70 @@ describe("multi-resource fixtures (idsPath capture, verifyEach, cleanupEach)", (
     expect(res.artifact).toBe("cleaned");
   });
 });
+
+// ─── verify assertion values resolve {{ledger.*}} (move_file parents check) ───
+
+describe("verify assertions resolve {{ledger.*}} in expected values", () => {
+  function moveSpec(): WriteHarnessSpec {
+    return {
+      liveClass: "destructiveSafe",
+      smokeMarker: "crsmoke-",
+      setup: [
+        {
+          provider: "gdrive",
+          action: "create_folder",
+          config: { name: "{{smokeMarker}}target" },
+          captureResource: { resourceKey: "target", idPath: "folderId", kind: "folder" },
+        },
+        {
+          provider: "gdrive",
+          action: "upload_file",
+          config: { filename: "{{smokeMarker}}movable" },
+          captureResource: { resourceKey: "movable", idPath: "fileId", kind: "file" },
+        },
+      ],
+      verify: {
+        provider: "gdrive",
+        action: "get_file_metadata",
+        config: { fileId: "{{ledger.movable.id}}" },
+        markerPath: "name",
+        // expected member is a CAPTURED id, referenced via {{ledger.*}}
+        expectContains: { path: "parents", value: "{{ledger.target.id}}" },
+      },
+      cleanupKind: "delete",
+      cleanupEach: { provider: "gdrive", action: "delete_file", config: { fileId: "{{each.id}}", permanent: true } },
+    };
+  }
+
+  it("PASS when read-back parents contains the captured target id", async () => {
+    const deps = fakeDeps({
+      "gdrive:create_folder": { ok: true, output: { folderId: "B" }, reason: null },
+      "gdrive:upload_file": { ok: true, output: { fileId: "F" }, reason: null },
+      "gdrive:move_file": { ok: true, output: { fileId: "F", parents: ["B"] }, reason: null },
+      // independent read-back: marker on name + parents now contains target B
+      "gdrive:get_file_metadata": { ok: true, output: { name: "crsmoke-T1-movable", parents: ["B"] }, reason: null },
+      "gdrive:delete_file": { ok: true, output: null, reason: null },
+    });
+    const res = await runWriteSmoke(fixture("move_file", moveSpec()), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("cleaned");
+    expect(res.ledger.created).toBe(2); // target + movable
+    expect(res.ledger.cleaned).toBe(2); // cleanupEach deletes both
+    expect(res.phases.some((p) => /contains the expected member/.test(p.reason ?? ""))).toBe(true);
+  });
+
+  it("VERIFY_FAILED when read-back parents lacks the captured target id (move didn't land)", async () => {
+    const deps = fakeDeps({
+      "gdrive:create_folder": { ok: true, output: { folderId: "B" }, reason: null },
+      "gdrive:upload_file": { ok: true, output: { fileId: "F" }, reason: null },
+      "gdrive:move_file": { ok: true, output: { fileId: "F" }, reason: null },
+      // parents still the original root, NOT the target -> assertion fails
+      "gdrive:get_file_metadata": { ok: true, output: { name: "crsmoke-T1-movable", parents: ["root"] }, reason: null },
+      "gdrive:delete_file": { ok: true, output: null, reason: null },
+    });
+    const res = await runWriteSmoke(fixture("move_file", moveSpec()), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED");
+    // both smoke resources still cleaned up despite the verify failure
+    expect(res.ledger.cleaned).toBe(2);
+  });
+});

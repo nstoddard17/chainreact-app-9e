@@ -69,6 +69,8 @@ describe("getFileMetadata action", () => {
     const passed = mockFilesGet.mock.calls[0]![0] as { fields: string };
     // Bounded mask — must NOT request owners / permissions / capabilities.
     expect(passed.fields).not.toMatch(/owners|permissions|capabilities/);
+    // ...but DOES request parents (bounded, non-sensitive folder ids).
+    expect(passed.fields).toMatch(/\bparents\b/);
   });
 
   it("returns a bounded projection and does NOT spread raw provider fields", async () => {
@@ -99,6 +101,7 @@ describe("getFileMetadata action", () => {
       modifiedTime: "2026-05-08T00:00:00Z",
       webViewLink: "https://drive.google.com/file/d/file-1/view",
       trashed: false,
+      parents: [], // surfaced (empty when the mock omits it); non-sensitive folder ids
     });
     expect(result.output).not.toHaveProperty("owners");
     expect(result.output).not.toHaveProperty("permissions");
@@ -116,6 +119,7 @@ describe("getFileMetadata action", () => {
     expect(result.output.name).toBeNull();
     expect(result.output.webViewLink).toBeNull();
     expect(result.output.trashed).toBe(false);
+    expect(result.output.parents).toEqual([]); // defaults to [] when absent
   });
 
   it("rejects a missing fileId before calling the provider", async () => {

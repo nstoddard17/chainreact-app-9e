@@ -1067,15 +1067,28 @@ running certification record; rows are added as each provider batch lands.
 | `google-drive:create_folder` | create folder (root) -> get_file_metadata (marker on name) -> **permanent delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `google-drive:upload_file` | upload inline file (root) -> get_file_metadata (marker on name) -> **permanent delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `google-drive:delete_file` | create folder -> **delete (trash)** -> get_file_metadata (trashed == true) -> **permanent delete** | object deleted | `LIVE_PASS_CLEANED` |
+| `google-drive:move_file` | create target folder + upload movable file -> move file into target -> get_file_metadata (marker on name + parents contains target) -> **permanent-delete both** | both deleted | `LIVE_PASS_CLEANED` |
 
-**Google Drive write coverage (SMOKE-WRITE-17).** 3 of 4 write actions certified
-(`create_folder`, `upload_file`, `delete_file`). All smoke-owned (My Drive root, no
-target discovery), verified by INDEPENDENT `get_file_metadata` read-back (marker on
-`name`; `trashed == true` for the trash side effect — never the handler echo, whose
+**Google Drive write coverage (SMOKE-WRITE-17/18) — COMPLETE (4 of 4 write actions).**
+`create_folder`, `upload_file`, `delete_file`, `move_file` all certified. Smoke-owned
+(My Drive root, no target discovery), verified by INDEPENDENT `get_file_metadata`
+read-back (marker on `name`; `trashed == true` for the trash side effect;
+`parents` contains the captured target for a move — never the handler echo, whose
 `name`/`trashed` fall back to input), permanently deleted on cleanup. `upload_file`
-uses inline `content` (no FileRef/staging). **Deferred (certifiable, not selected
-this slice):** `move_file` — needs a 2nd smoke folder as the move target +
-parents-array read-back (setup-heavy); not blocked, just out of this small batch.
+uses inline `content` (no FileRef/staging). SMOKE-WRITE-18 added `parents` to
+`get_file_metadata` output (bounded, non-sensitive folder ids) + ledger-token
+resolution in verify assertions (so an assertion can compare against a captured id,
+e.g. the move target), and used `cleanupEach` to delete both smoke resources.
+
+**Next file-provider cluster — Dropbox + OneDrive (inspected, certifiable, deferred).**
+Both expose registered create/read/delete actions that need NO harness/code changes:
+- Dropbox: `create_folder` (path) -> `get_file_metadata` (marker on `name`) ->
+  `delete_file` (path). Capture the path as the ledger id; delete by path.
+- OneDrive: `create_folder` (name, root) -> `get_file` (marker on `name`,
+  `itemId`) -> `delete_item` (itemId). create_folder's `name` output falls back to
+  config -> verify via independent `get_file`.
+Deferred to the next slice (this slice changed Drive code; per the sweep rule
+Dropbox/OneDrive fixtures wait for a code-change-free slice).
 
 **Remaining Trello / Notion write actions — DEFERRED (exact blockers, SMOKE-WRITE-16).**
 Every registered Trello/Notion write action NOT in the matrix above is blocked by a
