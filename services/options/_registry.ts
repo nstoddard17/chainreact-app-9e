@@ -133,6 +133,10 @@ import { discordRolesResolver } from "@/integrations/discord/options/roles";
 // those land.
 import { googleDocsDocumentsResolver } from "@/integrations/google-docs/options/documents";
 import { googleDriveFoldersResolver } from "@/integrations/google-drive/options/folders";
+// CONFIG-FIELD-UX-SWEEP-2 — `google-drive:files` backs the Drive action fileId
+// pickers (get_file_metadata / delete_file / move_file). Reuses the existing
+// filesList wrapper + already-granted Drive read scope; metadata only (id + name).
+import { googleDriveFilesResolver } from "@/integrations/google-drive/options/files";
 
 // Microsoft OneNote resolvers — Slice 3.ONENOTE-3.
 //   - `microsoft-onenote:notebooks` — account-scoped notebook picker
@@ -491,6 +495,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // extended google-drive filesList wrapper.
   googleDocsDocumentsResolver,
   googleDriveFoldersResolver,
+  googleDriveFilesResolver,
   // Slice 3.ONENOTE-3 — Microsoft OneNote options resolvers
   // (resolver-first ahead of ONENOTE-4 action metas). First Microsoft
   // Graph options resolvers; pattern: PAGE_SIZE=100, nextLink →

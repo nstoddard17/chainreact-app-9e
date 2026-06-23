@@ -50,7 +50,7 @@ describe("google-drive manifest", () => {
     expect(providerSupports("google-drive", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 5 Drive actions", () => {
+  it("when actions: true, the action-handler registry contains all 7 Drive actions", () => {
     if (googleDriveManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "google-drive",
@@ -58,8 +58,10 @@ describe("google-drive manifest", () => {
       expect(registered.map((r) => r.type).sort()).toEqual([
         "create_folder",
         "delete_file",
+        "get_file_metadata",
         "list_files",
         "move_file",
+        "search_files",
         "upload_file",
       ]);
     }

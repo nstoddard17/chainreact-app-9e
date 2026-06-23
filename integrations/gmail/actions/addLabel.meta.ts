@@ -10,9 +10,12 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * compose a loop upstream.
  *
  * `labelIds` is a non-empty array of Gmail label ids — `string-array`
- * field type with chip input. Name-to-id lookup is intentionally NOT
- * supported (V1's `createIfNotExists` was a Q11 surprise); use
- * `create_label` to generate ids first.
+ * field type with chip input, backed by the `gmail:labels` option source
+ * (CONFIG-FIELD-UX-SWEEP-2): authors PICK existing labels by name and the
+ * field stores their ids; `allowManualEntry` keeps the raw-id paste path.
+ * This is selection only — auto-CREATING a label from a typed name is still
+ * intentionally NOT supported (V1's `createIfNotExists` was a Q11 surprise);
+ * use `create_label` upstream to mint a new label id.
  *
  * Required scope: `gmail.modify`.
  *
@@ -38,12 +41,14 @@ export const addLabelMeta: ActionMeta = {
     },
     {
       name: "labelIds",
-      label: "Label ids to add",
+      label: "Labels to add",
       description:
-        "One or more Gmail label ids to add. Press Enter or click Add to append each id. System labels use uppercase names (e.g. 'STARRED'); user labels use 'Label_<n>' ids.",
+        "Pick one or more Gmail labels (stored as label ids), or paste a raw id. System labels use uppercase names (e.g. 'STARRED'); user labels use 'Label_<n>' ids.",
       type: "string-array",
+      optionsSource: "gmail:labels",
+      allowManualEntry: true,
       required: true,
-      placeholder: "Label_12345",
+      placeholder: "Search labels or paste a label ID",
     },
   ],
   outputs: [

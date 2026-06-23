@@ -337,6 +337,7 @@ has an explicit reason + recommended action — no vague "future" notes.**
 | **CS-2b** | 24 Slack **action** channel comboboxes → `allowManualEntry` (paste parity). |
 | **SWEEP-1** | **Outlook Calendar** create/update event: `startDateTime`/`endDateTime` → `datetime`, `startTimeZone`/`endTimeZone` → `timezone` (offset-less local + separate IANA tz — same model the Outlook schema's flat-shim + `resolveTimezone` already expect; format preserved). **Google Analytics** `run_report`: `startDate`/`endDate` → `date` (custom range). **Google Calendar** create/update event: `colorId` text → static `select` of the 11 documented event colors (stores `"1".."11"`). |
 | **SWEEP-1 (slack:users)** | **Built** the `slack:users` option resolver (read-only `users.list`, **already-granted** `users:read` scope, returns id + `@displayName` only — **no email**: V2 omits `users:read.email`). **Wired** the 4 single-value Slack user-id fields → `combobox` + `slack:users` + `allowManualEntry`: `send_direct_message.userId`, `get_user_info.user`, `remove_user_from_channel.user`, and the `new_direct_message.withUserId` sender filter (trigger). Stored value stays the `U…` id; `invite_users_to_channel.users` (multi-value) deliberately untouched (combobox has no multi-select). |
+| **SWEEP-2** | **(A)** `ComboboxField` gained the shared `VariablePickerButton` (shown when `allowManualEntry` + upstream variables exist) — one-click `{{node.field}}` insertion restored on the converted Slack user/channel + Drive pickers; option selection + manual entry unaffected. **(B)** `StringArrayField` gained a per-chip `optionsSource` picker (stores stable id array, shows friendly labels, `allowManualEntry` for raw ids; free-text path unchanged) + contract now allows `optionsSource`/`allowManualEntry` on `string-array`; wired `gmail:add_label.labelIds` → `gmail:labels` (selection only — no auto-create). **(C)** Built `google-drive:files` resolver (reuses `filesList` + already-granted Drive scope; **metadata only** — id + name, folders excluded, no content); wired `get_file_metadata` / `delete_file` / `move_file` `fileId` → `combobox` + `google-drive:files` + `allowManualEntry`. |
 
 **Why these were safe:** each provider stores the SAME string the handler/schema already accepts
 (Outlook: naive `dateTime` + separate `timeZone`; GA: `YYYY-MM-DD`; GCal colorId: a `"1".."11"`
@@ -392,14 +393,19 @@ saved value rather than clobbering it.
   Places blocked**: needs API key + billing + server proxy + privacy/PII-egress decision + storage-format
   choice (§6). Kept as honest free-text; help copy already states "address or place". **Marcus decision: YES.**
 
-### 14.4 Buildable resolver candidates (no scope/migration — recommended next slices)
+### 14.4 Buildable resolver candidates
 
-- **`google-drive:files`** — a searchable Drive **file** picker for the various `fileId` text fields
-  (delete/move/get-metadata/etc.). The `drive.metadata.readonly` scope is **already granted** (used by
-  `google-sheets:spreadsheets` / `google-docs:documents`); reuse the existing `filesList` wrapper without
-  the mime filter. **Open design choice (not a blocker):** Drive can hold thousands of files, so ship it as
-  a bounded single-page (≤200) search + `allowManualEntry` paste fallback (same pattern as `github:repos`).
-  **No Marcus decision needed** — recommend building as the next resolver slice.
+- **`google-drive:files`** — ✅ **DONE (SWEEP-2).** Built reusing `filesList` + the already-granted Drive
+  read scope; bounded 200-file `name contains` search, folders excluded, metadata only (id + name). Wired to
+  `get_file_metadata` / `delete_file` / `move_file`.
+- **Slack group-DM (mpim) picker — ❌ BLOCKED on an OAuth scope.** `new_group_direct_message.channelId`
+  (mpim) can't use `slack:channels`. Listing group DMs needs `conversations.list types=mpim`, which requires
+  the **`mpim:read`** scope. The Slack manifest grants **`mpim:history`** (read message history) but **NOT
+  `mpim:read`** (list the conversations). The `conversationsList` wrapper already supports `types: "mpim"`, so
+  the resolver is ~20 lines once the scope exists. **Recommended action:** add `mpim:read` to the Slack
+  manifest required scopes (forces a one-time re-OAuth for existing Slack connections), then ship
+  `slack:group_dms`. **Marcus decision required: YES (OAuth scope add + re-consent).** Until then the field
+  stays honest free-text.
 
 ### 14.5 Confirmed already-complete (no action — verified this sweep)
 
@@ -411,19 +417,15 @@ saved value rather than clobbering it.
   The remaining raw-ID text fields are **intentional**: trigger/upstream-fed ids (`eventId`, `messageId`,
   `fileId`), opaque Stripe ids, and Airtable `recordId` (record pickers explicitly rejected for v1).
 - **Variable insertion** covers the primary text surfaces: `TextField`, `TextareaField`, `FileField`,
-  `FileRefArrayField`, `RouterRoutesField` all mount `VariablePickerButton`. **Known gap:** `StringArrayField`
-  (multi-recipient chip lists, e.g. Gmail `from[]`, Calendar `attendees`) has no per-chip picker by design.
-  **Recommended action:** add an opt-in `supportsVariables` meta flag + per-chip picker to `StringArrayField`
-  (renderer-only, no backend) as a small follow-up. Also `gmail:add_label.labelIds` is a `string-array` and
-  cannot use `optionsSource` (arrays aren't supported by combobox) — a multi-select combobox is the real fix.
-- **ComboboxField variable insertion (follow-up from the slack:users wiring):** the 3 Slack **action** user
-  fields (`send_direct_message.userId`, `get_user_info.user`, `remove_user_from_channel.user`) were `TextField`s
-  with the one-click variable **browse** button, used for the common reply-to-sender `{{trigger.user}}` pattern.
-  Converting them to `combobox` keeps variable wiring (the `allowManualEntry` box accepts a typed `{{trigger.user}}`)
-  but drops the browse button. **Recommended action:** add a `VariablePickerButton` ("use a variable" → `onChange`
-  the token) to `ComboboxField` — restores one-click variable discoverability for ALL comboboxes (channels too),
-  renderer-only, no backend. **No Marcus decision needed.** (The trigger field `withUserId` has no upstream
-  variables, so it lost nothing.)
+  `FileRefArrayField`, `RouterRoutesField`, and now **`ComboboxField`** (SWEEP-2 Scope A — shown when
+  `allowManualEntry` + upstream variables exist) all mount `VariablePickerButton`. The 3 Slack action user
+  fields therefore regained one-click `{{trigger.user}}` insertion. **Remaining `StringArrayField` free-text
+  gap:** free-text chip lists with NO `optionsSource` (e.g. Gmail `from[]`, Calendar `attendees`) still have no
+  per-chip variable picker. **Recommended action:** add an opt-in `supportsVariables` flag + per-chip picker to
+  the free-text `StringArrayField` body (renderer-only, no backend). Not blocking.
+- **`gmail:add_label.labelIds`** — ✅ **DONE (SWEEP-2 Scope B):** `string-array` now supports `optionsSource`,
+  so `labelIds` is a per-chip `gmail:labels` picker (stores ids, shows names, manual-entry for raw ids). The
+  earlier "arrays can't use optionsSource" limitation is resolved.
 
 ### 14.6 Sweep coverage summary
 

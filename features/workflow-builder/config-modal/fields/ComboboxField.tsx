@@ -24,6 +24,8 @@ import type { OptionItem } from "@/lib/api/options";
 import { normalizeDependsOn } from "@/contracts/actionMeta";
 import { useGraphSlice } from "../../state/graphSlice";
 import { useConfigSlice } from "../../state/configSlice";
+import { useActiveNodeUpstreamVariables } from "../../hooks/useActiveNodeUpstreamVariables";
+import { VariablePickerButton } from "./VariablePickerButton";
 
 /**
  * `combobox` field renderer. Searchable single-select.
@@ -140,6 +142,22 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
   const commitManualEntry = (): void => {
     onChange(manualValue);
     setSelectedSnapshot({ value: manualValue, label: manualValue });
+    setOpen(false);
+  };
+
+  // CONFIG-FIELD-UX-SWEEP-2 (Scope A) — variable insertion. A field that accepts
+  // free values (allowManualEntry) can also be set to an upstream `{{node.field}}`
+  // token. Reuses the same VariablePickerButton + upstream-variable source that
+  // TextField/TextareaField use; the button hides itself when there are no
+  // upstream variables (e.g. trigger config). Setting a variable REPLACES the
+  // single combobox value (it isn't a cursor insert) — the trigger then shows the
+  // token via the raw-value fallback, and option selection / manual entry are
+  // unaffected.
+  const { sources, latestValuesBySource } = useActiveNodeUpstreamVariables();
+  const showVariablePicker = field.allowManualEntry === true;
+  const setToVariable = (token: string): void => {
+    onChange(token);
+    setSelectedSnapshot({ value: token, label: token });
     setOpen(false);
   };
 
@@ -335,6 +353,7 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
       description={field.description}
       error={error}
     >
+      <div className="flex items-start gap-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -345,7 +364,7 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
             aria-expanded={open}
             aria-invalid={error ? true : undefined}
             disabled={disabled}
-            className="w-full justify-between font-normal"
+            className="flex-1 justify-between font-normal"
           >
             {triggerLabel}
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -378,6 +397,16 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
           </Command>
         </PopoverContent>
       </Popover>
+      {showVariablePicker ? (
+        <VariablePickerButton
+          sources={sources}
+          onInsertAtCursor={setToVariable}
+          ariaLabel={`Insert variable into ${field.label}`}
+          testIdRoot={`combobox-${field.name}-picker`}
+          latestValuesBySource={latestValuesBySource}
+        />
+      ) : null}
+      </div>
     </FieldShell>
   );
 };

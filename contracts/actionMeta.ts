@@ -285,12 +285,27 @@ export const FieldMetaSchema = z
           "Field cannot declare both `options` (static) and `optionsSource` (dynamic).",
       });
     }
-    if ((field.options || field.optionsSource) && field.type !== "select" && field.type !== "combobox") {
+    if (field.options && field.type !== "select" && field.type !== "combobox") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["type"],
+        message: "Static `options` are only valid on `select` or `combobox` fields.",
+      });
+    }
+    // `optionsSource` (dynamic) is valid on select / combobox AND on `string-array`
+    // (CONFIG-FIELD-UX-SWEEP-2 Scope B — per-chip option picking that stores stable
+    // ids while showing friendly labels).
+    if (
+      field.optionsSource &&
+      field.type !== "select" &&
+      field.type !== "combobox" &&
+      field.type !== "string-array"
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["type"],
         message:
-          "`options` / `optionsSource` are only valid on `select` or `combobox` fields.",
+          "`optionsSource` is only valid on `select`, `combobox`, or `string-array` fields.",
       });
     }
     if (field.numeric && field.type !== "number") {
@@ -307,11 +322,15 @@ export const FieldMetaSchema = z
         message: "`multiple` is only valid on `select` or `combobox` fields.",
       });
     }
-    if (field.allowManualEntry && field.type !== "combobox") {
+    if (
+      field.allowManualEntry &&
+      field.type !== "combobox" &&
+      field.type !== "string-array"
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["allowManualEntry"],
-        message: "`allowManualEntry` is only valid on `combobox` fields.",
+        message: "`allowManualEntry` is only valid on `combobox` or `string-array` fields.",
       });
     }
     if (field.keyValueMaxRows && field.type !== "keyvalue") {

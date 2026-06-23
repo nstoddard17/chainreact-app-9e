@@ -29,11 +29,14 @@ export const googleDriveDeleteFileMeta: ActionMeta = {
   fields: [
     {
       name: "fileId",
-      label: "File Id",
-      description: "The file to delete. Often comes from a trigger or List Files.",
-      type: "text",
+      label: "File",
+      description:
+        "The file to delete. Pick a Drive file, or paste / wire a file id such as {{trigger.fileId}}.",
+      type: "combobox",
+      optionsSource: "google-drive:files",
+      allowManualEntry: true,
       required: true,
-      placeholder: "{{trigger.fileId}}",
+      placeholder: "Search files or paste a file ID",
     },
     {
       name: "permanent",

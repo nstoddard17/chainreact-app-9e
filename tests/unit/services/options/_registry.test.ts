@@ -175,6 +175,15 @@ describe("options resolver registry", () => {
       expect(r?.requiresIntegration).toBe(true);
       expect(r?.requiredDeps).toBeUndefined();
     });
+
+    it("getOptionsResolver resolves google-drive:files (CONFIG-FIELD-UX-SWEEP-2, no deps)", () => {
+      const r = getOptionsResolver("google-drive:files");
+      expect(r).toBeDefined();
+      expect(r?.source).toBe("google-drive:files");
+      expect(r?.provider).toBe("google-drive");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
   });
 
   describe("Microsoft OneNote resolvers (Slice 3.ONENOTE-3)", () => {

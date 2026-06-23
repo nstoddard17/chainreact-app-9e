@@ -130,3 +130,32 @@ describe("sweep — Slack single-value user fields use the slack:users picker", 
     }
   });
 });
+
+// ─── SWEEP-2 — Drive file pickers + Gmail labels per-chip picker ─────────────
+
+describe("sweep-2 — Google Drive fileId fields use the google-drive:files picker", () => {
+  it.each([
+    "google-drive:delete_file",
+    "google-drive:get_file_metadata",
+    "google-drive:move_file",
+  ])("%s fileId is a google-drive:files combobox with manual entry (key unchanged)", (key) => {
+    const m = meta("google-drive", key);
+    const f = field(m, "fileId");
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("google-drive:files");
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.name).toBe("fileId"); // stored config key unchanged → handler intact
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+});
+
+describe("sweep-2 — Gmail add_label labelIds is a per-chip label picker", () => {
+  it("labelIds stays string-array but adds gmail:labels + manual entry (stores ids)", () => {
+    const m = meta("gmail", "gmail:add_label");
+    const f = field(m, "labelIds");
+    expect(f.type).toBe("string-array"); // still an array — handler shape unchanged
+    expect(f.optionsSource).toBe("gmail:labels");
+    expect(f.allowManualEntry).toBe(true);
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+});

@@ -24,12 +24,14 @@ export const googleDriveGetFileMetadataMeta: ActionMeta = {
   fields: [
     {
       name: "fileId",
-      label: "File Id",
+      label: "File",
       description:
-        "The file to read. Often comes from a trigger or a List Files / Search Files output.",
-      type: "text",
+        "The file to read. Pick a Drive file, or paste / wire a file id such as {{trigger.fileId}}.",
+      type: "combobox",
+      optionsSource: "google-drive:files",
+      allowManualEntry: true,
       required: true,
-      placeholder: "{{trigger.fileId}}",
+      placeholder: "Search files or paste a file ID",
     },
   ],
   outputs: [
