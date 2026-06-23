@@ -30,8 +30,9 @@ export const slackCancelScheduledMessageMeta: ActionMeta = {
         "Channel the scheduled message was created against. Searchable picker over public + private channels visible to the bot; the saved value is the channel id.",
       type: "combobox",
       optionsSource: "slack:channels",
+      allowManualEntry: true,
       required: true,
-      placeholder: "Search channels…",
+      placeholder: "Search channels or paste a channel ID",
     },
     {
       name: "scheduledMessageId",

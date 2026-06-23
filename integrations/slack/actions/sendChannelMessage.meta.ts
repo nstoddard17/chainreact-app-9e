@@ -37,9 +37,10 @@ export const slackSendChannelMessageMeta: ActionMeta = {
         "Searchable picker over public + private channels visible to the bot. The picker surfaces friendly `#name` labels; the saved value is the underlying channel id (C…/G…/D…).",
       type: "combobox",
       optionsSource: "slack:channels",
+      allowManualEntry: true,
       required: true,
       sensitivity: "recipient",
-      placeholder: "Search channels…",
+      placeholder: "Search channels or paste a channel ID",
     },
     {
       name: "text",

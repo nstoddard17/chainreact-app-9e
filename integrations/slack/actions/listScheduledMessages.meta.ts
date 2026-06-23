@@ -36,8 +36,9 @@ export const slackListScheduledMessagesMeta: ActionMeta = {
         "Optional. Narrow results to a single channel. Leave blank to list workspace-wide. Searchable picker over public + private channels visible to the bot; saved value is the channel id.",
       type: "combobox",
       optionsSource: "slack:channels",
+      allowManualEntry: true,
       required: false,
-      placeholder: "Search channels…",
+      placeholder: "Search channels or paste a channel ID",
     },
     {
       name: "limit",

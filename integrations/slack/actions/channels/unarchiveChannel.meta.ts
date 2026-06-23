@@ -30,6 +30,7 @@ export const slackUnarchiveChannelMeta: ActionMeta = {
         "Slack channel id to unarchive (C…/G…). The async picker only surfaces non-archived channels; wire the id via `{{...}}` from a List Channels output when needed.",
       type: "combobox",
       optionsSource: "slack:channels",
+      allowManualEntry: true,
       required: true,
       placeholder: "Search or wire channel id…",
     },

@@ -7,6 +7,10 @@
  */
 import { TriggerMetaSchema } from "@/contracts/triggerMeta";
 import { ActionMetaSchema, type FieldMeta } from "@/contracts/actionMeta";
+import {
+  listActionMetasForProvider,
+  listTriggerMetasForProvider,
+} from "@/services/discovery/_registry";
 
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
 import { reactionAddedTriggerMeta } from "@/integrations/slack/triggers/reactionAdded/reactionAdded.meta";
@@ -89,5 +93,69 @@ describe("CS-2 — ineligible Slack fields are deliberately left unchanged", () 
     const nameField = slackCreateChannelMeta.fields.find((f) => f.name === "name");
     expect(nameField!.type).toBe("text");
     expect(nameField!.optionsSource).toBeUndefined();
+  });
+});
+
+// ─── CS-2b — Slack ACTION channel comboboxes get manual entry too ───────────
+
+const isSlackChannelField = (f: FieldMeta): boolean =>
+  f.type === "combobox" && f.optionsSource === "slack:channels";
+
+describe("CS-2b — every Slack channel combobox (action + trigger) allows manual entry", () => {
+  const slackActionMetas = listActionMetasForProvider("slack");
+  const slackTriggerMetas = listTriggerMetasForProvider("slack");
+
+  it("finds Slack action metas with slack:channels fields (sanity — registry wired)", () => {
+    const withChannel = slackActionMetas.filter((m) => m.fields.some(isSlackChannelField));
+    // CS-2b touched 24 action channel fields; guard against an empty/over-broad match.
+    expect(withChannel.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it("ALL slack:channels combobox fields (actions) carry allowManualEntry + store the channel value", () => {
+    for (const meta of slackActionMetas) {
+      for (const f of meta.fields.filter(isSlackChannelField)) {
+        expect(f.allowManualEntry).toBe(true);
+        // Field name (the stored config key handlers read) is unchanged.
+        expect(f.name === "channel" || f.name === "channelId").toBe(true);
+        // User-facing label, never "Channel ID".
+        expect(f.label?.toLowerCase()).not.toContain("channel id");
+      }
+    }
+  });
+
+  it("ALL slack:channels combobox fields (triggers, from CS-2) still carry allowManualEntry", () => {
+    for (const meta of slackTriggerMetas) {
+      for (const f of meta.fields.filter(isSlackChannelField)) {
+        expect(f.allowManualEntry).toBe(true);
+      }
+    }
+  });
+
+  it("does NOT add manual entry to non-channel Slack fields (no accidental conversion)", () => {
+    const allFields = [
+      ...slackActionMetas.flatMap((m) => m.fields),
+      ...slackTriggerMetas.flatMap((m) => m.fields),
+    ];
+    for (const f of allFields) {
+      if (!isSlackChannelField(f)) {
+        // Only the slack:channels channel comboboxes were touched.
+        expect(f.allowManualEntry).toBeUndefined();
+      }
+    }
+    // Spot-check the known user / new-channel-name fields explicitly.
+    const userField = slackSendDirectMessageMeta.fields.find((f) => f.name === "userId");
+    expect(userField!.allowManualEntry).toBeUndefined();
+    expect(userField!.optionsSource).toBeUndefined();
+    const nameField = slackCreateChannelMeta.fields.find((f) => f.name === "name");
+    expect(nameField!.allowManualEntry).toBeUndefined();
+  });
+
+  it("every Slack action + trigger meta still validates (handlers/schemas untouched — metadata only)", () => {
+    for (const meta of slackActionMetas) {
+      expect(ActionMetaSchema.safeParse(meta).success).toBe(true);
+    }
+    for (const meta of slackTriggerMetas) {
+      expect(TriggerMetaSchema.safeParse(meta).success).toBe(true);
+    }
   });
 });
