@@ -151,6 +151,28 @@ export async function discoverTrelloSmokeTarget(
   return pickSmokeSafeTarget(candidates);
 }
 
+/**
+ * Discover a safe Notion PARENT page for `create_page` via the read-only
+ * `notion:pages` resolver (POST /search, object=page). Prefers a smoke/test-named
+ * page; on a THROWAWAY smoke account, falls back to the first accessible page
+ * (creating a marked child page + archiving it is harmless there). Returns the
+ * parent page id (env-overlay only) + its title for the report, or null.
+ */
+export async function discoverNotionSmokeParentPage(
+  accountId: string,
+  userId: string,
+): Promise<{ pageId: string; title: string } | null> {
+  const integration = await getActiveForExecution(accountId, "notion", null);
+  if (!integration) return null;
+  const pagesR = getOptionsResolver("notion:pages");
+  if (!pagesR) return null;
+  const pages = await pagesR.resolve({ userId, integration, q: "", deps: {} });
+  if (pages.items.length === 0) return null;
+  const named = pages.items.find((p) => /smoke|test|chainreact/i.test(p.label ?? ""));
+  const chosen = named ?? pages.items[0]!;
+  return { pageId: chosen.value, title: chosen.label ?? chosen.value };
+}
+
 export function makeRealWriteHarnessDeps(
   config: RealWriteHarnessDepsConfig,
 ): WriteHarnessDeps {

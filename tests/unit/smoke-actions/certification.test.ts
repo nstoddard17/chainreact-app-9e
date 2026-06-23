@@ -103,6 +103,20 @@ describe("certification lookups + planner predicate", () => {
     expect(getCertification("native", "format_transformer")).toBeUndefined();
   });
 
+  it("LIVE_PASS_CLEANED and LIVE_PASS_LEFT_ARTIFACT both count as passed (skip-by-default)", () => {
+    const certs = [
+      { provider: "acme", action: "cleaned", status: "LIVE_PASS_CLEANED" as const },
+      { provider: "acme", action: "artifact", status: "LIVE_PASS_LEFT_ARTIFACT" as const },
+    ];
+    expect(isCertifiedLivePass("acme", "cleaned", certs)).toBe(true);
+    expect(isCertifiedLivePass("acme", "artifact", certs)).toBe(true);
+    expect(shouldCertifiedSkip("acme", "cleaned", false, certs)).toBe(true);
+    expect(shouldCertifiedSkip("acme", "artifact", true, certs)).toBe(false); // rerun sweep
+    // The write pilots use these statuses against the real seed.
+    expect(isCertifiedLivePass("airtable", "create_record")).toBe(true);
+    expect(isCertifiedLivePass("trello", "create_card")).toBe(true);
+  });
+
   it("isCertifiedFailing is true for FAIL/BUG only (drives the live gate's known-vs-regression split)", () => {
     const certs = [
       { provider: "acme", action: "bug_one", status: "BUG" as const },

@@ -425,3 +425,78 @@ describe("env resolution + marker echo (live wiring)", () => {
     expect(deps2.calls.some((c) => c.action === "delete_thing")).toBe(true); // cleanup still ran
   });
 });
+
+// ─── cleanupKind + artifact disposition (cleaned vs left) ────────────────────
+
+describe("cleanupKind + artifact disposition", () => {
+  const captured = { resourceKey: "r", idPath: "id", kind: "thing" } as const;
+
+  it("delete cleanup success -> artifact 'cleaned', PASS", async () => {
+    const deps = fakeDeps({ "acme:run_action": { ok: true, output: { id: "X" }, reason: null } });
+    const spec = destructiveSpec({ setup: undefined, captureResource: captured, cleanupKind: "delete" });
+    const res = await runWriteSmoke(fixture("run_action", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("cleaned");
+  });
+
+  it("archive cleanup success -> artifact 'archived', PASS (object persists)", async () => {
+    const deps = fakeDeps({ "acme:run_action": { ok: true, output: { id: "X" }, reason: null } });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: captured,
+      cleanupKind: "archive",
+      cleanup: { provider: "acme", action: "archive_thing", config: { id: "{{ledger.r.id}}" } },
+    });
+    const res = await runWriteSmoke(fixture("run_action", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("archived");
+  });
+
+  it("archive cleanup FAILURE -> artifact 'left', still PASS (best-effort, not CLEANUP_FAILED)", async () => {
+    const deps = fakeDeps({
+      "acme:run_action": { ok: true, output: { id: "X" }, reason: null },
+      "acme:archive_thing": { ok: false, output: null, reason: "archive failed" },
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: captured,
+      cleanupKind: "archive",
+      cleanup: { provider: "acme", action: "archive_thing", config: { id: "{{ledger.r.id}}" } },
+    });
+    const res = await runWriteSmoke(fixture("run_action", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("left");
+  });
+
+  it("delete cleanup FAILURE -> CLEANUP_FAILED (required), artifact 'left'", async () => {
+    const deps = fakeDeps({
+      "acme:run_action": { ok: true, output: { id: "X" }, reason: null },
+      "acme:delete_thing": { ok: false, output: null, reason: "del failed" },
+    });
+    const spec = destructiveSpec({ setup: undefined, captureResource: captured, cleanupKind: "delete" });
+    const res = await runWriteSmoke(fixture("run_action", spec), RUN, deps);
+    expect(res.status).toBe("CLEANUP_FAILED");
+    expect(res.artifact).toBe("left");
+  });
+
+  it("no cleanup action -> artifact 'left' when something was created (NOT a leak)", async () => {
+    const deps = fakeDeps({ "acme:create_thing": { ok: true, output: { id: "X" }, reason: null } });
+    const spec: WriteHarnessSpec = { liveClass: "writeSafe", smokeMarker: "crsmoke-", captureResource: captured };
+    const res = await runWriteSmoke(fixture("create_thing", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("left");
+  });
+
+  it("update-flow: setup creates, execute updates, cleanup deletes -> PASS cleaned", async () => {
+    const deps = fakeDeps({
+      "acme:setup_create": { ok: true, output: { id: "X" }, reason: null },
+      "acme:update_thing": { ok: true, output: { id: "X", name: "crsmoke-T1-updated" }, reason: null },
+      "acme:delete_thing": { ok: true, output: null, reason: null },
+    });
+    const spec = destructiveSpec({ markerEchoPath: "name", cleanupKind: "delete" });
+    const res = await runWriteSmoke(fixture("update_thing", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("cleaned");
+    expect(deps.calls.map((c) => c.action)).toEqual(["setup_create", "update_thing", "delete_thing"]);
+  });
+});

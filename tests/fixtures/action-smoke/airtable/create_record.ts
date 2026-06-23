@@ -51,6 +51,9 @@ export default defineWriteSmokeFixture({
     // create_record echoes the stored fields; confirm the marker round-tripped on
     // the configured primary field (env token resolved before the output read).
     markerEchoPath: "fields.{{env.SMOKE_AIRTABLE_TEXT_FIELD}}",
+    // delete_record removes the smoke record -> required cleanup; success ->
+    // LIVE_PASS_CLEANED, failure -> CLEANUP_FAILED.
+    cleanupKind: "delete",
     verify: {
       provider: "airtable",
       action: "get_record",

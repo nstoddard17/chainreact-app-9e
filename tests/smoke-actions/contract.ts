@@ -97,6 +97,18 @@ export interface WriteHarnessSpec {
   readonly markerEchoPath?: string;
   /** A registered destructive action keyed on a captured id (removes the resource). */
   readonly cleanup?: ActionStepSpec;
+  /**
+   * What the cleanup action does to the smoke object — decides both whether
+   * cleanup is REQUIRED for safety and how a leftover is reported:
+   *   - "delete" (default when `cleanup` is set) — REQUIRED: a delete flow's
+   *     safety claim depends on it. Success -> artifact "cleaned" (object gone);
+   *     failure -> CLEANUP_FAILED (gate fail).
+   *   - "archive" — BEST-EFFORT: success -> artifact "archived" (object persists,
+   *     reversible); failure -> artifact "left", still PASS (harmless on a
+   *     throwaway smoke account). Use for providers without a hard delete.
+   * Absent + no `cleanup` -> the create intentionally leaves an artifact ("left").
+   */
+  readonly cleanupKind?: "delete" | "archive";
   /** billingSensitive only: env var that confirms a test-mode/sandbox account. */
   readonly requiresSandboxEnv?: string;
 }

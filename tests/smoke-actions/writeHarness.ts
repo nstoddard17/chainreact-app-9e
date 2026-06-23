@@ -74,6 +74,17 @@ export interface LedgerSummary {
   readonly kinds: readonly string[];
 }
 
+/**
+ * What became of the smoke-created object(s):
+ *   - "cleaned"  — deleted (gone); the strongest cleanup. -> LIVE_PASS_CLEANED.
+ *   - "archived" — a successful archive cleanup ran, but the object PERSISTS
+ *                  (reversible). -> LIVE_PASS_LEFT_ARTIFACT.
+ *   - "left"     — a harmless smoke object remains (no cleanup, or a best-effort
+ *                  cleanup did not run). NOT a "leak". -> LIVE_PASS_LEFT_ARTIFACT.
+ *   - "none"     — nothing was created (e.g. the action failed before creating).
+ */
+export type ArtifactDisposition = "cleaned" | "archived" | "left" | "none";
+
 export interface WriteSmokeResult {
   readonly provider: string;
   readonly action: string;
@@ -82,6 +93,8 @@ export interface WriteSmokeResult {
   readonly reason: string | null;
   readonly phases: readonly PhaseResult[];
   readonly ledger: LedgerSummary;
+  /** What became of the created object — distinguishes cleaned vs harmless artifact. */
+  readonly artifact: ArtifactDisposition;
   /** True when planned but no mutating seam was called. */
   readonly dryRun: boolean;
 }
@@ -335,6 +348,7 @@ export async function runWriteSmoke(
       reason: "fixture has no writeHarness spec (author it via defineWriteSmokeFixture)",
       phases,
       ledger: ledger.summary(),
+      artifact: "none",
       dryRun: false,
     };
   }
@@ -344,7 +358,7 @@ export async function runWriteSmoke(
   // 1. Gate by liveClass — before ANY seam call.
   const gate = gateWriteClass(spec, options, envLookup);
   if (gate) {
-    return { ...base, status: gate.status, reason: gate.reason, phases, ledger: ledger.summary(), dryRun: false };
+    return { ...base, status: gate.status, reason: gate.reason, phases, ledger: ledger.summary(), artifact: "none", dryRun: false };
   }
 
   // 1b. Target gate — a missing smoke TARGET env (board/list/page/base id, NOT a
@@ -364,6 +378,7 @@ export async function runWriteSmoke(
       reason: `connected but no smoke target — set ${missingTargets.join(", ")}`,
       phases,
       ledger: ledger.summary(),
+      artifact: "none",
       dryRun: false,
     };
   }
@@ -380,6 +395,7 @@ export async function runWriteSmoke(
       reason: "dry-run — planned, no provider mutation",
       phases,
       ledger: ledger.summary(),
+      artifact: "none",
       dryRun: true,
     };
   }
@@ -457,8 +473,13 @@ export async function runWriteSmoke(
   }
 
   // 6. cleanup — ALWAYS attempted when there are smoke-owned resources, even on
-  // execute/verify failure. Reported separately; failure surfaces as CLEANUP_FAILED.
+  // execute/verify failure. `cleanupKind` decides whether it is REQUIRED (delete)
+  // or BEST-EFFORT (archive), and how a leftover reads.
+  const cleanupKind: "delete" | "archive" | "none" = spec.cleanup
+    ? (spec.cleanupKind ?? "delete")
+    : "none";
   let cleanupFailed = false;
+  let cleanupRan = false;
   if (spec.cleanup) {
     if (ledger.summary().leaked === 0) {
       // Nothing was created (or all already clean) — no cleanup to do.
@@ -480,6 +501,7 @@ export async function runWriteSmoke(
         config,
       });
       if (res.ok) {
+        cleanupRan = true;
         for (const key of ledgerRefsIn(spec.cleanup.config)) ledger.markCleaned(key);
         phases.push({ phase: "cleanup", outcome: "ok", reason: null });
       } else {
@@ -489,21 +511,33 @@ export async function runWriteSmoke(
     }
   }
 
-  // Final status: a cleanup failure can never be a PASS. If the action itself
-  // already failed, keep that (still non-PASS); only escalate an otherwise-PASS
-  // run to CLEANUP_FAILED.
+  // Disposition of the created object + final status.
+  const created = ledger.summary().created;
+  let artifact: ArtifactDisposition = created === 0 ? "none" : "left";
   let status: WriteSmokeStatus = actionStatus;
   let reason: string | null = null;
-  if (cleanupFailed && (status === "PASS" || status === "VERIFY_FAILED")) {
-    status = "CLEANUP_FAILED";
-    reason = "action ran but a smoke resource was left behind (cleanup failed)";
-  } else if (status === "FAIL") {
-    reason = "action did not reach its expected outcome";
-  } else if (status === "VERIFY_FAILED") {
-    reason = "action ran but verify could not confirm the side effect";
+
+  if (cleanupRan) {
+    artifact = cleanupKind === "archive" ? "archived" : "cleaned";
+  } else if (cleanupFailed) {
+    artifact = "left";
+    // REQUIRED (delete) cleanup failure can never be a PASS. BEST-EFFORT (archive)
+    // failure leaves a harmless marked artifact and does NOT fail the gate.
+    if (cleanupKind === "delete" && (status === "PASS" || status === "VERIFY_FAILED")) {
+      status = "CLEANUP_FAILED";
+      reason = "required cleanup failed; smoke resource left behind";
+    }
   }
 
-  return { ...base, status, reason, phases, ledger: ledger.summary(), dryRun: false };
+  if (status === "FAIL") reason = reason ?? "action did not reach its expected outcome";
+  else if (status === "VERIFY_FAILED") reason = reason ?? "action ran but verify could not confirm the side effect";
+  else if (status === "PASS") {
+    if (artifact === "archived") reason = "passed; smoke object archived (reversible, persists)";
+    else if (artifact === "left" && cleanupKind === "archive") reason = "passed; best-effort cleanup did not run — harmless smoke object left";
+    else if (artifact === "left") reason = "passed; smoke object intentionally left (no cleanup action)";
+  }
+
+  return { ...base, status, reason, phases, ledger: ledger.summary(), artifact, dryRun: false };
 }
 
 // ─── Fold to the shared SmokeResult (so write results join the ExecutionReport) ─
@@ -531,9 +565,13 @@ export function renderWriteSmokeHuman(results: readonly WriteSmokeResult[]): str
     for (const p of r.phases) {
       lines.push(`      ${p.phase.padEnd(8)} ${p.outcome}${p.reason ? `  — ${p.reason}` : ""}`);
     }
+    // "remaining" = cleanup-required resources NOT cleaned up (a real problem only
+    // when status is CLEANUP_FAILED). `artifact` separately says whether a harmless
+    // smoke object was intentionally left/archived — never called a "leak".
     lines.push(
-      `      ledger: created ${r.ledger.created} / cleaned ${r.ledger.cleaned} / leaked ${r.ledger.leaked}` +
-        (r.ledger.kinds.length > 0 ? ` (${r.ledger.kinds.join(", ")})` : ""),
+      `      created ${r.ledger.created} / cleaned ${r.ledger.cleaned} / remaining ${r.ledger.leaked}` +
+        (r.ledger.kinds.length > 0 ? ` (${r.ledger.kinds.join(", ")})` : "") +
+        ` | artifact: ${r.artifact}`,
     );
   }
   return lines.join("\n");

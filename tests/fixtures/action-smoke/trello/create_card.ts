@@ -35,6 +35,9 @@ export default defineWriteSmokeFixture({
     // create_card echoes the card name; confirm the unique marker round-tripped
     // (Trello has no get_card read action to verify against).
     markerEchoPath: "name",
+    // archive is reversible and Trello has no card-delete action -> best-effort,
+    // leaves a harmless archived card (LIVE_PASS_LEFT_ARTIFACT), never a gate fail.
+    cleanupKind: "archive",
     cleanup: {
       provider: "trello",
       action: "archive_card",

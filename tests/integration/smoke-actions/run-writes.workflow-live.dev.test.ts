@@ -42,6 +42,7 @@ import {
   makeRealWriteHarnessDeps,
   probeWriteConnection,
   discoverTrelloSmokeTarget,
+  discoverNotionSmokeParentPage,
 } from "@/tests/smoke-actions/writeHarnessDeps";
 import { renderWriteSmokeHuman } from "@/tests/smoke-actions/writeHarness";
 import { classifyWriteTarget } from "@/tests/smoke-actions/writeTargets";
@@ -113,6 +114,12 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       if (chosen) {
         overlay.SMOKE_TRELLO_LIST_ID = chosen.listId; // id -> env overlay only
         targetLabel = `board "${chosen.boardLabel}" / list "${chosen.listLabel}"`;
+      }
+    } else if (provider === "notion" && execUsable) {
+      const parent = await discoverNotionSmokeParentPage(account, user);
+      if (parent) {
+        overlay.SMOKE_NOTION_PARENT_PAGE_ID = parent.pageId; // id -> env overlay only
+        targetLabel = `parent page "${parent.title}"`;
       }
     }
     const envLookup = (n: string): string | undefined => overlay[n] ?? process.env[n];

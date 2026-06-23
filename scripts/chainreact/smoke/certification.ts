@@ -44,6 +44,8 @@ import { actionKey, type FixtureDescriptor, type RegisteredAction } from "./core
  */
 export type CertificationStatus =
   | "LIVE_PASS"
+  | "LIVE_PASS_CLEANED" // write pilot: created -> verified -> object DELETED (gone)
+  | "LIVE_PASS_LEFT_ARTIFACT" // write pilot: created -> verified -> a harmless marked object remains (archived / no delete action)
   | "LIVE_NOT_RUN"
   | "MISSING_FIXTURE"
   | "BLOCKED_ENV"
@@ -52,8 +54,17 @@ export type CertificationStatus =
   | "SANDBOX_REQUIRED"
   | "UNSAFE_NO_HARNESS";
 
+/** The three statuses that count as "passed live" (skip-by-default in live runs). */
+export const LIVE_PASS_STATUSES: readonly CertificationStatus[] = [
+  "LIVE_PASS",
+  "LIVE_PASS_CLEANED",
+  "LIVE_PASS_LEFT_ARTIFACT",
+];
+
 export const CERTIFICATION_STATUSES: readonly CertificationStatus[] = [
   "LIVE_PASS",
+  "LIVE_PASS_CLEANED",
+  "LIVE_PASS_LEFT_ARTIFACT",
   "LIVE_NOT_RUN",
   "MISSING_FIXTURE",
   "BLOCKED_ENV",
@@ -194,21 +205,23 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     // first folder. Live-verified — discovers a real file with no manual env.
     ["microsoft-onedrive", "get_file"],
   ]),
-  // SMOKE-WRITE pilots — live write+verify+cleanup verified. Each created one
-  // smoke-owned, marker-stamped resource, confirmed the marker, then removed
-  // exactly that resource. Ledger created 1 / cleaned 1 / leaked 0.
-  //   - airtable:create_record -> delete_record (dedicated smoke base; primary
-  //     field via SMOKE_AIRTABLE_TEXT_FIELD).
-  //   - trello:create_card -> archive_card (reversible); smoke list auto-discovered
-  //     from a board+list both explicitly named for smoke/test use.
-  ...records("LIVE_PASS", "live write+verify+cleanup verified (smoke-owned)", SMOKE_WRITE, [
+  // SMOKE-WRITE pilots — live write+verify+cleanup verified (each created one
+  // marker-stamped smoke-owned object, confirmed the marker, then ran cleanup).
+  //
+  // CLEANED (object DELETED, gone):
+  //   - airtable:create_record -> delete_record (dedicated smoke base).
+  //   - airtable:update_record  -> setup create -> update -> delete (smoke base).
+  ...records("LIVE_PASS_CLEANED", "live write+verify, object deleted", SMOKE_WRITE, [
     ["airtable", "create_record"],
-    ["trello", "create_card"],
+    ["airtable", "update_record"],
   ]),
-  // notion:create_page is CONNECTED + execution-usable (account-class), but has no
-  // confirmed safe smoke parent page -> BLOCKED_ENV (set SMOKE_NOTION_PARENT_PAGE_ID
-  // at a dedicated smoke page). NOT "not connected".
-  ...records("BLOCKED_ENV", "connected; needs confirmed smoke parent (SMOKE_NOTION_PARENT_PAGE_ID)", SMOKE_WRITE, [
+  // LEFT_ARTIFACT (a harmless marked object remains — archived / no hard delete):
+  //   - trello:create_card / update_card -> archive_card (reversible; card persists).
+  //   - notion:create_page -> archive_page (reversible; page persists). Parent page
+  //     auto-discovered (smoke/test-named preferred) on the throwaway account.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live write+verify, object archived (persists)", SMOKE_WRITE, [
+    ["trello", "create_card"],
+    ["trello", "update_card"],
     ["notion", "create_page"],
   ]),
 ];
@@ -237,7 +250,8 @@ export function isCertifiedLivePass(
   action: string,
   certs: readonly CertificationRecord[] = CERTIFICATIONS,
 ): boolean {
-  return getCertification(provider, action, certs)?.status === "LIVE_PASS";
+  const status = getCertification(provider, action, certs)?.status;
+  return status !== undefined && LIVE_PASS_STATUSES.includes(status);
 }
 
 /**
@@ -290,6 +304,7 @@ export interface CertificationMatrixRow {
 export interface CertificationProviderTotals {
   readonly provider: string;
   readonly registered: number;
+  /** Sum of LIVE_PASS + LIVE_PASS_CLEANED + LIVE_PASS_LEFT_ARTIFACT. */
   readonly livePass: number;
   readonly liveNotRun: number;
   readonly missingFixture: number;
@@ -381,7 +396,7 @@ export function buildCertificationMatrix(
     byProvider.set(row.provider, {
       provider: row.provider,
       registered: cur.registered + 1,
-      livePass: cur.livePass + (row.status === "LIVE_PASS" ? 1 : 0),
+      livePass: cur.livePass + (LIVE_PASS_STATUSES.includes(row.status) ? 1 : 0),
       liveNotRun: cur.liveNotRun + (row.status === "LIVE_NOT_RUN" ? 1 : 0),
       missingFixture: cur.missingFixture + (row.status === "MISSING_FIXTURE" ? 1 : 0),
       blockedEnv: cur.blockedEnv + (row.status === "BLOCKED_ENV" ? 1 : 0),
@@ -393,6 +408,7 @@ export function buildCertificationMatrix(
   }
 
   const count = (s: CertificationStatus) => rows.filter((r) => r.status === s).length;
+  const countLivePass = rows.filter((r) => LIVE_PASS_STATUSES.includes(r.status)).length;
   const staleCerts = certs
     .map((c) => actionKey(c.provider, c.action))
     .filter((k) => !registeredKeys.has(k))
@@ -403,7 +419,7 @@ export function buildCertificationMatrix(
     perProvider: [...byProvider.values()].sort((a, b) => a.provider.localeCompare(b.provider)),
     totals: {
       registered: rows.length,
-      livePass: count("LIVE_PASS"),
+      livePass: countLivePass,
       liveNotRun: count("LIVE_NOT_RUN"),
       missingFixture: count("MISSING_FIXTURE"),
       blockedEnv: count("BLOCKED_ENV"),
@@ -436,6 +452,8 @@ export function renderCertificationJson(matrix: CertificationMatrix): string {
 
 const CERT_LABEL: Record<CertificationStatus, string> = {
   LIVE_PASS: "LIVE_PASS",
+  LIVE_PASS_CLEANED: "PASS_CLEAN",
+  LIVE_PASS_LEFT_ARTIFACT: "PASS_ARTIFACT",
   LIVE_NOT_RUN: "NOT_RUN",
   MISSING_FIXTURE: "MISSING",
   BLOCKED_ENV: "BLOCKED",

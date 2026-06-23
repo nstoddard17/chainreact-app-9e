@@ -121,8 +121,10 @@ import notionListComments from "@/tests/fixtures/action-smoke/notion/list_commen
 // SMOKE-WRITE — mutating pilots (separate list; run via the write harness, NOT
 // the read runner, so registering them never changes read/native smoke behavior).
 import airtableCreateRecord from "@/tests/fixtures/action-smoke/airtable/create_record";
+import airtableUpdateRecord from "@/tests/fixtures/action-smoke/airtable/update_record";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import trelloCreateCard from "@/tests/fixtures/action-smoke/trello/create_card";
+import trelloUpdateCard from "@/tests/fixtures/action-smoke/trello/update_card";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -229,8 +231,10 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
  */
 export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   airtableCreateRecord,
+  airtableUpdateRecord,
   notionCreatePage,
   trelloCreateCard,
+  trelloUpdateCard,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

@@ -35,6 +35,9 @@ export default defineWriteSmokeFixture({
       action: "get_page",
       config: { pageId: "{{ledger.page.id}}" },
     },
+    // archive_page is reversible (restore_page exists) -> best-effort, leaves a
+    // harmless archived page (LIVE_PASS_LEFT_ARTIFACT), never a gate fail.
+    cleanupKind: "archive",
     cleanup: {
       provider: "notion",
       action: "archive_page",

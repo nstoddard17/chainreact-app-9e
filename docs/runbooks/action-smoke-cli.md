@@ -1033,17 +1033,36 @@ never leaves provider junk, sends to a real destination, charges a customer, or
 deletes a pre-existing record. Full contract:
 [`../slices/phase-4/readiness/write-smoke-harness-design.md`](../slices/phase-4/readiness/write-smoke-harness-design.md).
 
-**Status (operational; 2 pilots LIVE_PASS).** The contract + pure orchestrator +
-the real account-scoped `runActionStep` wiring + `{{env.*}}` sub-step resolution +
-a batch runner + a quadruple-gated live dev test are all landed. The 3 pilots are
-registered in a SEPARATE `WRITE_SMOKE_FIXTURES` list (kept out of the read runner).
-Live-verified `LIVE_PASS` end to end (each: create one marked resource -> confirm
-the marker -> remove exactly that resource; ledger created 1 / cleaned 1 / leaked 0):
-- **`airtable:create_record`** -> `get_record` -> `delete_record` (dedicated smoke base).
-- **`trello:create_card`** -> `archive_card` (reversible); the smoke list is
-  auto-discovered from a board AND list both explicitly named for smoke/test use.
-- **`notion:create_page`** is `BLOCKED_ENV`: connected + execution-usable, but has
-  no confirmed safe smoke parent (set `SMOKE_NOTION_PARENT_PAGE_ID`).
+**Status (first provider batch — 5 actions LIVE_PASS).** The contract + pure
+orchestrator + real `runActionStep` wiring + `{{env.*}}` sub-step + key resolution
++ a batch runner + a quadruple-gated live dev test are landed. The pilots are in a
+SEPARATE `WRITE_SMOKE_FIXTURES` list (kept out of the read runner). All five are
+live-verified end to end (create one `crsmoke-`marked resource -> confirm the
+marker -> run cleanup):
+
+| Action | Flow | Disposition | Cert |
+|---|---|---|---|
+| `airtable:create_record` | create -> get_record -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
+| `airtable:update_record` | create -> update -> echo -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
+| `trello:create_card` | create -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `trello:update_card` | create -> update -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `notion:create_page` | create -> get_page -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+
+**Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
+whether cleanup is required and how a leftover reads:
+- `"delete"` — REQUIRED. Success -> `artifact: "cleaned"` (object gone) ->
+  `LIVE_PASS_CLEANED`. Failure -> `CLEANUP_FAILED` (gate FAIL).
+- `"archive"` — BEST-EFFORT (provider has no hard delete). Success ->
+  `artifact: "archived"` (object persists, reversible). Failure -> `artifact:
+  "left"`, still PASS. Both -> `LIVE_PASS_LEFT_ARTIFACT`.
+- no cleanup -> `artifact: "left"` (intentional). On a throwaway smoke account a
+  harmless marked leftover is NOT a "leak"; the report says `artifact: left`, and
+  the `remaining` count only flags a cleanup-REQUIRED failure.
+
+Smoke targets auto-discover per provider: Trello picks a list whose board AND list
+are both explicitly smoke/test-named (`pickSmokeSafeTarget`); Notion picks a
+smoke-named parent page (else the first accessible page on the throwaway account);
+Airtable uses the env-pinned smoke base + `SMOKE_AIRTABLE_TEXT_FIELD`.
 
 **Connection diagnosis (4-way, never conflate target with connection).** A provider
 is classified `NOT_CONNECTED` (only when the DB proves it) / `CONNECTED_NOT_EXECUTABLE`
