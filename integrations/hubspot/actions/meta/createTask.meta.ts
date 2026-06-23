@@ -91,8 +91,8 @@ export const hubspotCreateTaskMeta: ActionMeta = {
       name: "hs_timestamp",
       label: "Due timestamp",
       description:
-        "When the task is due. ISO 8601 datetime OR a millisecond-epoch string. Omit to leave HubSpot's task without a due date.",
-      type: "text",
+        "When the task is due, entered in **UTC** (stored as `2026-12-31T17:00:00Z`). Omit to leave HubSpot's task without a due date. A pasted millisecond-epoch string still hydrates as editable text.",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-12-31T17:00:00Z",
     },

@@ -42,8 +42,8 @@ export const hubspotCreateNoteMeta: ActionMeta = {
       name: "hs_timestamp",
       label: "Timestamp",
       description:
-        "When the note happened. ISO 8601 datetime (`2026-12-31T14:30:00Z`) OR a millisecond-epoch string. Omit to default to `Date.now()` at execution time.",
-      type: "text",
+        "When the note happened, entered in **UTC** (stored as `2026-12-31T14:30:00Z`). Omit to default to `Date.now()` at execution time. A pasted millisecond-epoch string still hydrates as editable text.",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-12-31T14:30:00Z",
     },

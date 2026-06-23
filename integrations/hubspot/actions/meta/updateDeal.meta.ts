@@ -88,9 +88,13 @@ export const hubspotUpdateDealMeta: ActionMeta = {
     {
       name: "dealtype",
       label: "Deal type",
-      description: "HubSpot `dealtype` property — portal-configured enum.",
-      type: "text",
+      description:
+        "HubSpot `dealtype` property. Pick from the connected portal's real, customizable deal-type options, or paste a custom internal value. Stores the internal value, shows the label.",
+      type: "combobox",
+      optionsSource: "hubspot:deal_dealtype",
+      allowManualEntry: true,
       required: false,
+      placeholder: "Search deal types or paste a value",
     },
     {
       name: "description",

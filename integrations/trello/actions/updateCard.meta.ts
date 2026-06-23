@@ -74,8 +74,8 @@ export const trelloUpdateCardMeta: ActionMeta = {
     {
       name: "due",
       label: "Due Date",
-      description: "ISO-8601 due date (optional).",
-      type: "text",
+      description: "Optional due date, entered in **UTC** (stored as `2026-06-01T17:00:00Z`).",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-06-01T17:00:00Z",
     },
@@ -89,8 +89,8 @@ export const trelloUpdateCardMeta: ActionMeta = {
     {
       name: "start",
       label: "Start Date",
-      description: "ISO-8601 start date (optional).",
-      type: "text",
+      description: "Optional start date, entered in **UTC** (stored as `2026-05-01T09:00:00Z`).",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-05-01T09:00:00Z",
     },

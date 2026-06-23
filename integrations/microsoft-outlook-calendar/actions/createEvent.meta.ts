@@ -102,8 +102,9 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
     {
       name: "location",
       label: "Location",
-      description: "Free-text location (Graph stores it as the location displayName).",
-      type: "text",
+      description:
+        "Event location. Start typing for address suggestions, or type any free-text place. Graph stores it as the location displayName.",
+      type: "location",
       required: false,
     },
     {

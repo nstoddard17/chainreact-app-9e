@@ -338,6 +338,7 @@ has an explicit reason + recommended action — no vague "future" notes.**
 | **SWEEP-1** | **Outlook Calendar** create/update event: `startDateTime`/`endDateTime` → `datetime`, `startTimeZone`/`endTimeZone` → `timezone` (offset-less local + separate IANA tz — same model the Outlook schema's flat-shim + `resolveTimezone` already expect; format preserved). **Google Analytics** `run_report`: `startDate`/`endDate` → `date` (custom range). **Google Calendar** create/update event: `colorId` text → static `select` of the 11 documented event colors (stores `"1".."11"`). |
 | **SWEEP-1 (slack:users)** | **Built** the `slack:users` option resolver (read-only `users.list`, **already-granted** `users:read` scope, returns id + `@displayName` only — **no email**: V2 omits `users:read.email`). **Wired** the 4 single-value Slack user-id fields → `combobox` + `slack:users` + `allowManualEntry`: `send_direct_message.userId`, `get_user_info.user`, `remove_user_from_channel.user`, and the `new_direct_message.withUserId` sender filter (trigger). Stored value stays the `U…` id; `invite_users_to_channel.users` (multi-value) deliberately untouched (combobox has no multi-select). |
 | **SWEEP-2** | **(A)** `ComboboxField` gained the shared `VariablePickerButton` (shown when `allowManualEntry` + upstream variables exist) — one-click `{{node.field}}` insertion restored on the converted Slack user/channel + Drive pickers; option selection + manual entry unaffected. **(B)** `StringArrayField` gained a per-chip `optionsSource` picker (stores stable id array, shows friendly labels, `allowManualEntry` for raw ids; free-text path unchanged) + contract now allows `optionsSource`/`allowManualEntry` on `string-array`; wired `gmail:add_label.labelIds` → `gmail:labels` (selection only — no auto-create). **(C)** Built `google-drive:files` resolver (reuses `filesList` + already-granted Drive scope; **metadata only** — id + name, folders excluded, no content); wired `get_file_metadata` / `delete_file` / `move_file` `fileId` → `combobox` + `google-drive:files` + `allowManualEntry`. |
+| **SWEEP-3** | **(A) `datetime-utc` (instant) field type** — new temporal kind sharing `TemporalField` (picked wall-clock treated AS UTC, stored `YYYY-MM-DDTHH:MM:SSZ`, labeled "UTC", no local-zone shift; `{{var}}` / offset-bearing / epoch values preserved as text fallback). Adopted on the offset/`Z`-requiring fields: Slack `schedule_message.postAt`; HubSpot `create_meeting` start/end + `hs_timestamp` on call/meeting/note/task; Mailchimp `occurred_at`; Google + Outlook Calendar `list_events` windows; Trello `create_card`/`update_card` `due`/`start`. **(B) Geoapify `location` field type** — server-proxied address autocomplete (`/api/geoapify/autocomplete`, key server-only) + `LocationField` (debounced, skips short / `{{var}}` queries, free-text fallback, stores the formatted address string); wired Google/Outlook Calendar event `location` + HubSpot `hs_meeting_location`. **(D) `hubspot:deal_dealtype`** property-options resolver (reads the portal's real customizable `dealtype` enum via the CRM properties API on the already-granted `crm.schemas.deals.read` scope; stores internal value, shows label, `allowManualEntry`); wired `create_deal`/`update_deal` `dealtype`. |
 
 **Why these were safe:** each provider stores the SAME string the handler/schema already accepts
 (Outlook: naive `dateTime` + separate `timeZone`; GA: `YYYY-MM-DD`; GCal colorId: a `"1".."11"`
@@ -346,66 +347,76 @@ string). No handler/schema/scope/wrapper/route/DB change. Existing offset-bearin
 reinterpreted). `colorId` stays optional (no hidden default); `select` retains an out-of-options
 saved value rather than clobbering it.
 
-### 14.2 Blocked — needs a Marcus decision (do NOT build silently)
+### 14.2 Marcus-approved items — RESOLVED in SWEEP-3
 
-1. **Instant (`...Z` / offset) temporal fields** — Outlook Cal `list_events` start/end window,
-   Google Cal `list_events` `timeMin`/`timeMax`, Trello `create_card`/`update_card` `due`/`start`,
-   Mailchimp `create_custom_event` `occurred_at`.
-   - **Reason:** these store a true UTC **instant** (`2026-06-01T00:00:00Z`), and the providers'
-     query/date APIs require the offset/`Z`. The CS-1 `datetime` renderer stores **offset-less**
-     local wall-clock and (correctly) has no companion timezone field on these actions —
-     converting them would either emit a naive string the API rejects (GCal/Outlook list windows)
-     or silently shift the instant by the local offset (Trello/Mailchimp), violating "no silent
-     timezone conversion."
-   - **Recommended action:** add a `datetime-utc` (instant) renderer that treats the picked
-     wall-clock as **UTC** and emits `…Z`, clearly labeled "UTC". **Decision needed:** is the
-     "enter the time in UTC" model acceptable, or do we want a picked-offset control? Either is a
-     small renderer add once the input model is chosen.
-   - **Marcus decision required: YES.**
+1. **Instant (`...Z`) temporal fields — ✅ DONE (SWEEP-3 A).** Built the `datetime-utc` field type
+   (shares `TemporalField`; picked wall-clock treated AS UTC, stored `YYYY-MM-DDTHH:MM:SSZ`,
+   labeled "UTC"; no local-zone shift). The "enter the time in UTC" model was the Marcus-approved
+   choice. Adopted on Outlook/Google Cal `list_events` windows, Trello `due`/`start`, Mailchimp
+   `occurred_at`. Existing offset-bearing / epoch / `{{var}}` values hydrate via the renderer's safe
+   text fallback — never silently reinterpreted. No handler/schema change (each handler already
+   accepts the `…Z` ISO-8601 form).
 
-2. **Dual-format timestamp fields** — Slack `schedule_message` `postAt` (ISO-with-offset **or**
-   Unix-seconds int), HubSpot `create_meeting`/`create_call`/`create_task` `hs_timestamp` +
-   meeting start/end (ISO **or** epoch-ms).
-   - **Reason:** the handlers accept two value shapes; no single temporal renderer maps cleanly,
-     and these also carry offset/instant semantics (see #1).
-   - **Recommended action:** decide on a single canonical input (datetime-UTC per #1) and have the
-     handler keep accepting the legacy int form for back-compat. Bundle with #1's renderer.
-   - **Marcus decision required: YES** (tied to #1).
+2. **Dual-format timestamp fields — ✅ DONE (SWEEP-3 A).** Slack `schedule_message.postAt` and
+   HubSpot `hs_timestamp` (call/meeting/note/task) + meeting start/end all adopted `datetime-utc`.
+   The picker emits the `…Z` form (accepted by every one of these handlers); the legacy Unix-seconds
+   / epoch-ms forms still hydrate + round-trip as editable text via the fallback path, so back-compat
+   is preserved with no handler change.
 
-3. **HubSpot portal-configurable enums** — `lifecyclestage`, `hs_lead_status`,
-   `hs_ticket_category`, `source_type`, `dealtype` on the create/update contact/company/ticket/deal
-   metas.
-   - **Reason:** these are **per-portal customizable** enums (the "typical values" in the meta
-     descriptions are best-effort, not authoritative). A static `select` would impose a fake
-     constraint and reject valid custom portal values — a regression.
-   - **Recommended action:** build a `hubspot:property_options` resolver (deps: object type +
-     property name) that reads the portal's real enum options via HubSpot's CRM **properties API**.
-     **Blocker:** needs verification that the properties read endpoint is covered by the **already-
-     granted** HubSpot scopes (the manifest has 18 scopes — likely yes, but unverified). If in
-     scope → buildable now as a normal resolver; if not → scope change required.
-   - **Marcus decision required: only if a scope add is needed** (pending the scope check).
+3. **HubSpot portal-configurable enums — PARTIAL (SWEEP-3 D).**
+   - **`dealtype` on `create_deal` / `update_deal` — ✅ DONE.** Built the `hubspot:deal_dealtype`
+     property-options resolver (reads the portal's real `dealtype` enum via the CRM properties API,
+     `GET /crm/v3/properties/deals/dealtype`). **Scope verdict: SUFFICIENT** — covered by the
+     already-granted `crm.schemas.deals.read` scope (manifest line 111). Stores the internal option
+     value, shows the label, `allowManualEntry` keeps custom portal values settable. Generic factory
+     `makeHubspotPropertyOptionsResolver(source, objectType, propertyName)` underneath — adding more
+     properties is one factory call + registration each.
+   - **`lifecyclestage` (contact/company), `hs_lead_status` (contact), `hs_ticket_category` /
+     `source_type` (ticket) — ❌ BLOCKED on a NEW OAuth scope.** Reading these via the properties
+     API needs `crm.schemas.{contacts,companies,tickets}.read`; the manifest grants only
+     `crm.schemas.deals.read` (the object `crm.objects.*.read` scopes do NOT cover schema/property
+     reads). **Marcus decision required: YES (OAuth scope add + re-consent)** before these can be
+     wired. Until then they stay honest free text (no fake static `select`).
 
-### 14.3 Blocked — backend/scope/product (unchanged from the original audit)
+### 14.3 Blocked — backend/scope/product
 
-- **Google Calendar `calendarId` picker** — `google-calendar:calendars` resolver is **scope-blocked**
-  (documented in the GCAL-META plan); needs a broader Calendar scope. **Marcus decision: YES** (OAuth scope).
-- **Location/address fields** (GCal/Outlook Cal `location`, HubSpot `hs_meeting_location`) — **Google
-  Places blocked**: needs API key + billing + server proxy + privacy/PII-egress decision + storage-format
-  choice (§6). Kept as honest free-text; help copy already states "address or place". **Marcus decision: YES.**
+- **Google Calendar `calendarId` picker (`google-calendar:calendars`) — ❌ STOPPED: NEW OAuth scope
+  required.** Verified this sweep against the live manifest
+  ([`integrations/google-calendar/manifest.ts`](../../../integrations/google-calendar/manifest.ts)):
+  the only granted Calendar scope is `https://www.googleapis.com/auth/calendar.events`. Listing the
+  user's calendars (`GET /calendar/v3/users/me/calendarList`, i.e. `calendarList.list`) requires
+  `calendar.readonly` (or full `calendar`) — `calendar.events` does NOT cover it (the manifest's own
+  header comment already documents this). Per the approved decision ("build only if existing scopes
+  already support it; stop if a new OAuth scope is required"), **NOT built.** `calendarId` stays
+  typeable text defaulting to `primary` with paste-another-id support. **Marcus decision required:
+  YES — add `calendar.readonly` to the manifest (forces a one-time re-OAuth for existing Google
+  Calendar connections).** The resolver is ~25 lines on the existing Calendar API helper once the
+  scope exists.
+- **Location/address fields — ✅ DONE via Geoapify (SWEEP-3 B), NOT Google Places.** Marcus added
+  `GEOAPIFY_API_KEY` to Vercel and approved Geoapify. Built a server-proxied `location` field type
+  (`/api/geoapify/autocomplete`, key read server-side only, never bundled/sent to the browser;
+  sanitized suggestions only — formatted address + optional place_id/lat/lon; debounced; skips short
+  / `{{var}}` queries; degrades to free text when the key is missing / route errors / no matches).
+  Stores the formatted address **string** (the format GCal/Outlook/HubSpot location fields already
+  accept — no handler/schema change). Wired Google + Outlook Calendar event `location` and HubSpot
+  `hs_meeting_location`. Google Places was explicitly NOT used; place_id is NOT required for launch.
 
 ### 14.4 Buildable resolver candidates
 
 - **`google-drive:files`** — ✅ **DONE (SWEEP-2).** Built reusing `filesList` + the already-granted Drive
   read scope; bounded 200-file `name contains` search, folders excluded, metadata only (id + name). Wired to
   `get_file_metadata` / `delete_file` / `move_file`.
-- **Slack group-DM (mpim) picker — ❌ BLOCKED on an OAuth scope.** `new_group_direct_message.channelId`
-  (mpim) can't use `slack:channels`. Listing group DMs needs `conversations.list types=mpim`, which requires
-  the **`mpim:read`** scope. The Slack manifest grants **`mpim:history`** (read message history) but **NOT
-  `mpim:read`** (list the conversations). The `conversationsList` wrapper already supports `types: "mpim"`, so
-  the resolver is ~20 lines once the scope exists. **Recommended action:** add `mpim:read` to the Slack
-  manifest required scopes (forces a one-time re-OAuth for existing Slack connections), then ship
-  `slack:group_dms`. **Marcus decision required: YES (OAuth scope add + re-consent).** Until then the field
-  stays honest free-text.
+- **Slack group-DM (mpim) picker — ❌ BLOCKED on an OAuth scope. NOT built (confirmed SWEEP-3 E).**
+  `new_group_direct_message.channelId` (mpim) can't use `slack:channels`.
+  - **Exact blocker:** listing group DMs needs `conversations.list types=mpim`, which requires the
+    **`mpim:read`** scope. The Slack manifest grants **`mpim:history`** (read message history) but
+    **NOT `mpim:read`** (list the conversations).
+  - **Cost:** adding `mpim:read` to the Slack manifest required scopes forces **every existing Slack
+    connection to reconnect / re-consent** (a one-time re-OAuth for all current Slack users).
+  - **Implementation size:** small once the scope exists — the `conversationsList` wrapper already
+    supports `types: "mpim"`, so `slack:group_dms` is ~20 lines.
+  - **Marcus decision required: YES (OAuth scope add + re-consent).** Per the approved decision, the
+    resolver was NOT built this sweep. Until approved, the field stays honest free text.
 
 ### 14.5 Confirmed already-complete (no action — verified this sweep)
 
@@ -429,12 +440,35 @@ saved value rather than clobbering it.
 
 ### 14.6 Sweep coverage summary
 
-Swept all audit categories: **temporal** (Outlook Cal + GA done; instant fields blocked #1), **Slack
-selectors** (channels done CS-2/2b; **single-value users/DM-sender done this sweep via the new `slack:users`
-resolver**; the multi-value `invite_users_to_channel.users` needs a multi-select combobox; **group-DM (mpim)**
-has no resolver — Slack `users.list` doesn't enumerate mpim channels, so `new_group_direct_message.channelId`
-stays text pending a `conversations.list types=mpim` resolver, a buildable follow-up on the existing
-`conversationsList` wrapper), **Google/Microsoft selectors** (already wired; `google-drive:files` recommended),
-**Trello/Airtable/Notion** (already wired; record pickers rejected), **enum polish** (GCal colorId done;
-HubSpot portal enums blocked #3), **location** (Places blocked), **variable insertion** (text/textarea
-done; StringArrayField + ComboboxField-button follow-ups).
+Swept all audit categories: **temporal** (Outlook Cal + GA done CS-2/SWEEP-1; **instant `datetime-utc`
+done SWEEP-3**), **Slack selectors** (channels done CS-2/2b; single-value users/DM-sender done via
+`slack:users`; multi-value `invite_users_to_channel.users` needs a multi-select combobox; **group-DM
+(mpim)** blocked on `mpim:read`), **Google/Microsoft selectors** (already wired; `google-drive:files`
+done SWEEP-2), **Trello/Airtable/Notion** (already wired; record pickers rejected), **enum polish**
+(GCal colorId done; **HubSpot `dealtype` done SWEEP-3**; other HubSpot portal enums scope-blocked),
+**location** (**Geoapify done SWEEP-3**), **variable insertion** (text/textarea/combobox done;
+StringArrayField free-text per-chip picker is the remaining follow-up).
+
+### 14.7 Launch status — complete vs blocked-by-decision
+
+**✅ Launch-complete (shipped, no decision pending):**
+- `date` / `time` / `datetime` / `timezone` field types + Google Calendar / Outlook Calendar / GA adopters.
+- **`datetime-utc` (instant) field type** + all offset/`Z`-requiring adopters (Slack `postAt`; HubSpot
+  call/meeting/note/task timestamps + meeting start/end; Mailchimp `occurred_at`; Google + Outlook
+  Calendar `list_events` windows; Trello `due`/`start`).
+- **`location` field type (Geoapify, server-proxied)** + Google/Outlook Calendar event `location` and
+  HubSpot `hs_meeting_location`.
+- **`hubspot:deal_dealtype`** portal property-options resolver + `create_deal`/`update_deal` wiring.
+- Slack channel + single-value user pickers; Google Drive file pickers; Gmail label per-chip picker;
+  GCal `colorId` static enum; ComboboxField variable insertion. All resource-ID selectors (§14.5).
+
+**⛔ Blocked — needs a Marcus decision before it can ship (all are an OAuth scope add + re-consent):**
+1. **Google Calendar `calendarId` picker** — needs `calendar.readonly` (current `calendar.events`
+   does not cover `calendarList.list`). Stays typeable text + `primary` default until approved.
+2. **HubSpot contact/company/ticket portal enums** (`lifecyclestage`, `hs_lead_status`,
+   `hs_ticket_category`, `source_type`) — need `crm.schemas.{contacts,companies,tickets}.read`. Stay
+   free text until approved. (Deals `dealtype` shipped — its scope was already granted.)
+3. **Slack group-DM (mpim) picker** — needs `mpim:read`. Stays free text until approved.
+
+**Deferred (no decision needed, not blocking):** StringArrayField free-text per-chip variable picker;
+multi-select combobox for `invite_users_to_channel.users`; record pickers (intentionally rejected for v1).

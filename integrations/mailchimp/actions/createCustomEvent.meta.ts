@@ -81,8 +81,8 @@ export const mailchimpCreateCustomEventMeta: ActionMeta = {
     {
       name: "occurred_at",
       label: "Occurred at",
-      description: "Optional ISO-8601 timestamp for when the event happened. Defaults to `now()` when omitted.",
-      type: "text",
+      description: "Optional timestamp for when the event happened, entered in **UTC** (stored as `2026-05-23T14:00:00Z`). Defaults to `now()` when omitted.",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-05-23T14:00:00Z",
     },

@@ -116,6 +116,14 @@ describe("options resolver registry", () => {
       expect(r?.requiresIntegration).toBe(true);
       expect(r?.requiredDeps).toBeUndefined();
     });
+
+    it("getOptionsResolver resolves hubspot:deal_dealtype (portal property-options, deals only)", () => {
+      const r = getOptionsResolver("hubspot:deal_dealtype");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("hubspot");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toBeUndefined();
+    });
   });
 
   describe("Mailchimp resolvers (Slice 3.MAILCHIMP-2)", () => {

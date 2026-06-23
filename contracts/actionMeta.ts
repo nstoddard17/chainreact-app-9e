@@ -87,6 +87,19 @@ export const FieldTypeSchema = z.enum([
   "time",
   "datetime",
   "timezone",
+  // Instant follow-up (config-field UX sweep). `datetime-utc` stores a TRUE
+  // UTC instant "YYYY-MM-DDTHH:MM:SSZ" (trailing `Z`) for fields whose
+  // handler/schema requires an offset/`Z` (list-event query windows, Trello
+  // due/start, Mailchimp occurred_at, Slack postAt, HubSpot timestamps). It
+  // shares TemporalField (picked wall-clock treated AS UTC — no zone shift).
+  // Distinct from `datetime`, which is offset-LESS local wall-clock paired
+  // with a separate `timezone` field.
+  "datetime-utc",
+  // `location` — server-proxied address autocomplete (Geoapify) with a
+  // free-text fallback. Stores the formatted address STRING the provider
+  // location field already accepts (no place_id / lat-lng required at
+  // launch). Renderer: LocationField; proxy route: /api/geoapify/autocomplete.
+  "location",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 

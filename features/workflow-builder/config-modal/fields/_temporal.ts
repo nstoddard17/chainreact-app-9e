@@ -6,30 +6,44 @@
  *
  * Stored-value contract (must match what the handler schemas already accept —
  * see e.g. `integrations/google-calendar/actions/createEvent.schema.ts`):
- *   - date     → "YYYY-MM-DD"            (native <input type="date"> format)
- *   - time     → "HH:MM" or "HH:MM:SS"   (native <input type="time"> format)
- *   - datetime → "YYYY-MM-DDTHH:MM:SS"   (offset-LESS local wall-clock; the
- *                provider pairs it with a separate `timezone` field — we never
- *                attach an offset or convert to UTC, so timezone semantics are
- *                never silently changed).
+ *   - date         → "YYYY-MM-DD"            (native <input type="date"> format)
+ *   - time         → "HH:MM" or "HH:MM:SS"   (native <input type="time"> format)
+ *   - datetime     → "YYYY-MM-DDTHH:MM:SS"   (offset-LESS local wall-clock; the
+ *                    provider pairs it with a separate `timezone` field — we never
+ *                    attach an offset or convert to UTC, so timezone semantics are
+ *                    never silently changed).
+ *   - datetime-utc → "YYYY-MM-DDTHH:MM:SSZ"  (a true UTC INSTANT, trailing `Z`).
+ *                    For fields whose handler/schema requires an exact instant
+ *                    with an offset/`Z` (e.g. list-event query windows, Trello
+ *                    due/start, Mailchimp `occurred_at`, Slack `postAt`). The
+ *                    user picks a wall-clock and we treat it AS UTC — we DO NOT
+ *                    convert from the browser's local zone (that would silently
+ *                    shift the instant). The renderer labels this clearly as UTC.
  *
  * A value that does NOT match its kind's pattern (e.g. a `{{variable}}` token,
- * an offset-bearing instant like "...T09:00:00Z", or garbage) is "incompatible"
- * — the renderer falls back to a raw text input so the value stays visible and
- * editable and is never silently reinterpreted.
+ * an offset-bearing instant like "...T09:00:00-07:00", a Unix-epoch integer, or
+ * garbage) is "incompatible" — the renderer falls back to a raw text input so
+ * the value stays visible and editable and is never silently reinterpreted.
  */
 
-export type TemporalKind = "date" | "time" | "datetime";
+export type TemporalKind = "date" | "time" | "datetime" | "datetime-utc";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
 // Offset-less local datetime, seconds optional. Anything with a trailing `Z`
 // or `±hh:mm` offset deliberately does NOT match (different timezone semantics).
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
+// UTC instant: offset-less wall-clock followed by a literal `Z`, seconds
+// optional. A `±hh:mm` numeric offset deliberately does NOT match — only the
+// `Z` (UTC) form round-trips through this renderer; offset-bearing values fall
+// back to text so the user's explicit offset is never rewritten.
+const DATETIME_UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?Z$/;
 
 /** Native `<input type>` for each temporal kind. */
-export function nativeInputType(kind: TemporalKind): "date" | "time" | "datetime-local" {
-  return kind === "datetime" ? "datetime-local" : kind;
+export function nativeInputType(
+  kind: TemporalKind,
+): "date" | "time" | "datetime-local" {
+  return kind === "datetime" || kind === "datetime-utc" ? "datetime-local" : kind;
 }
 
 /** True when `value` can be shown in the native control for `kind`. Empty is compatible (the control just renders blank). */
@@ -42,7 +56,23 @@ export function isTemporalCompatible(kind: TemporalKind, value: string): boolean
       return TIME_RE.test(value);
     case "datetime":
       return DATETIME_RE.test(value);
+    case "datetime-utc":
+      return DATETIME_UTC_RE.test(value);
   }
+}
+
+/**
+ * Translate a STORED value into the string the native control should display.
+ * Identity for every kind except `datetime-utc`, where the stored value carries
+ * a trailing `Z` the `datetime-local` input cannot render — so we strip it for
+ * display. The wall-clock shown is exactly the UTC wall-clock (no zone shift).
+ * The caller only uses this when `isTemporalCompatible` is true.
+ */
+export function toControlValue(kind: TemporalKind, stored: string): string {
+  if (kind === "datetime-utc" && stored.endsWith("Z")) {
+    return stored.slice(0, -1);
+  }
+  return stored;
 }
 
 /**
@@ -65,11 +95,15 @@ export function normalizeDatetimeSeconds(value: string): string {
  * Translate a native-control change into the value to STORE.
  *   - "" (cleared) → undefined, so optional fields clear cleanly.
  *   - datetime → seconds-normalized string.
+ *   - datetime-utc → seconds-normalized string with a trailing `Z` appended
+ *     (the picked wall-clock is treated AS UTC — no zone conversion).
  *   - date / time → the control value verbatim (already schema-shaped).
  */
 export function fromControlValue(kind: TemporalKind, raw: string): string | undefined {
   if (raw === "") return undefined;
-  return kind === "datetime" ? normalizeDatetimeSeconds(raw) : raw;
+  if (kind === "datetime") return normalizeDatetimeSeconds(raw);
+  if (kind === "datetime-utc") return `${normalizeDatetimeSeconds(raw)}Z`;
+  return raw;
 }
 
 // ─── Timezone helper (for the `timezone` field type) ─────────────────────────

@@ -13,6 +13,7 @@ import { StringArrayField } from "./StringArrayField";
 import { FileRefArrayField } from "./FileRefArrayField";
 import { TemporalField } from "./TemporalField";
 import { TimezoneField } from "./TimezoneField";
+import { LocationField } from "./LocationField";
 import type { FieldComponent } from "./types";
 
 /**
@@ -41,12 +42,15 @@ export const FIELD_RENDERERS: Readonly<Record<FieldType, FieldComponent>> =
     "router-routes": RouterRoutesField,
     "string-array": StringArrayField,
     "file-array": FileRefArrayField,
-    // CS-1 temporal family — date/time/datetime share one renderer (keyed off
-    // `field.type`); timezone is a dedicated IANA selector.
+    // CS-1 temporal family — date/time/datetime/datetime-utc share one renderer
+    // (keyed off `field.type`); timezone is a dedicated IANA selector.
     date: TemporalField,
     time: TemporalField,
     datetime: TemporalField,
+    "datetime-utc": TemporalField,
     timezone: TimezoneField,
+    // Geoapify-backed address autocomplete with free-text fallback.
+    location: LocationField,
   });
 
 export function getFieldRenderer(type: FieldType): FieldComponent {

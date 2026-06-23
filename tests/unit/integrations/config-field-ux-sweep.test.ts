@@ -159,3 +159,72 @@ describe("sweep-2 — Gmail add_label labelIds is a per-chip label picker", () =
     expect(ActionMetaSchema.safeParse(m).success).toBe(true);
   });
 });
+
+// ─── SWEEP-3 — instant (datetime-utc) + location + HubSpot dealtype enum ──────
+
+describe("sweep-3 — instant (datetime-utc) fields for offset/Z-requiring values", () => {
+  it.each([
+    ["slack", "slack:schedule_message", "postAt", true],
+    ["mailchimp", "mailchimp:create_custom_event", "occurred_at", false],
+    ["google-calendar", "google-calendar:list_events", "timeMin", false],
+    ["google-calendar", "google-calendar:list_events", "timeMax", false],
+    ["microsoft-outlook-calendar", "microsoft-outlook-calendar:list_events", "startDateTime", false],
+    ["microsoft-outlook-calendar", "microsoft-outlook-calendar:list_events", "endDateTime", false],
+    ["trello", "trello:create_card", "due", false],
+    ["trello", "trello:create_card", "start", false],
+    ["trello", "trello:update_card", "due", false],
+    ["trello", "trello:update_card", "start", false],
+    ["hubspot", "hubspot:create_meeting", "hs_meeting_start_time", false],
+    ["hubspot", "hubspot:create_meeting", "hs_meeting_end_time", false],
+    ["hubspot", "hubspot:create_meeting", "hs_timestamp", false],
+    ["hubspot", "hubspot:create_call", "hs_timestamp", false],
+    ["hubspot", "hubspot:create_note", "hs_timestamp", false],
+    ["hubspot", "hubspot:create_task", "hs_timestamp", false],
+  ] as const)("%s %s.%s is datetime-utc (key + required unchanged)", (provider, key, name, req) => {
+    const m = meta(provider, key);
+    const f = field(m, name);
+    expect(f.type).toBe("datetime-utc");
+    expect(f.name).toBe(name); // stored config key unchanged → handler/schema intact
+    expect(f.required).toBe(req);
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+
+  it("does NOT convert wall-clock calendar fields (create_event start/end stay plain datetime + separate timezone)", () => {
+    const gc = meta("google-calendar", "google-calendar:create_event");
+    expect(field(gc, "startDateTime").type).toBe("datetime"); // wall-clock, NOT instant
+    expect(field(gc, "endDateTime").type).toBe("datetime");
+    expect(field(gc, "timezone").type).toBe("timezone");
+  });
+});
+
+describe("sweep-3 — location fields use the address autocomplete renderer", () => {
+  it.each([
+    ["google-calendar", "google-calendar:create_event", "location"],
+    ["google-calendar", "google-calendar:update_event", "location"],
+    ["microsoft-outlook-calendar", "microsoft-outlook-calendar:create_event", "location"],
+    ["microsoft-outlook-calendar", "microsoft-outlook-calendar:update_event", "location"],
+    ["hubspot", "hubspot:create_meeting", "hs_meeting_location"],
+  ] as const)("%s %s.%s is a location field (stores a string, key unchanged)", (provider, key, name) => {
+    const m = meta(provider, key);
+    const f = field(m, name);
+    expect(f.type).toBe("location");
+    expect(f.name).toBe(name); // handler still reads the same string key
+    expect(f.required).toBe(false);
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+});
+
+describe("sweep-3 — HubSpot deal `dealtype` uses the portal property-options resolver", () => {
+  it.each(["hubspot:create_deal", "hubspot:update_deal"])(
+    "%s dealtype is a hubspot:deal_dealtype combobox with manual entry (stores internal value)",
+    (key) => {
+      const m = meta("hubspot", key);
+      const f = field(m, "dealtype");
+      expect(f.type).toBe("combobox");
+      expect(f.optionsSource).toBe("hubspot:deal_dealtype");
+      expect(f.allowManualEntry).toBe(true); // custom portal values still settable
+      expect(f.name).toBe("dealtype");
+      expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+    },
+  );
+});

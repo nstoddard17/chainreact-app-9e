@@ -52,8 +52,9 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
     {
       name: "location",
       label: "Location",
-      description: "Free-text location (address or place).",
-      type: "text",
+      description:
+        "Event location. Start typing for address suggestions, or type any free-text place. Stored as the formatted address string.",
+      type: "location",
       required: false,
     },
     {

@@ -44,6 +44,10 @@ import { googleSheetsSheetsResolver } from "@/integrations/google-sheets/options
 // All five core resolvers are read-only against scopes already in the
 // 18-scope HubSpot manifest; no reconnect required.
 import { hubspotOwnersResolver } from "@/integrations/hubspot/options/owners";
+// CONFIG-FIELD-UX-SWEEP-3 — portal-customizable property enum reader. Only the
+// DEALS object is wired (`crm.schemas.deals.read` is granted); contacts /
+// companies / tickets need a manifest scope add + re-consent and stay free text.
+import { hubspotDealTypeOptionsResolver } from "@/integrations/hubspot/options/propertyOptions";
 import { hubspotDealPipelinesResolver } from "@/integrations/hubspot/options/dealPipelines";
 import { hubspotDealStagesResolver } from "@/integrations/hubspot/options/dealStages";
 import { hubspotTicketPipelinesResolver } from "@/integrations/hubspot/options/ticketPipelines";
@@ -464,6 +468,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // metadata batches (HUBSPOT-3..6); 17 of the 26 HubSpot mutation /
   // read metas consume at least one of these resolvers.
   hubspotOwnersResolver,
+  hubspotDealTypeOptionsResolver,
   hubspotDealPipelinesResolver,
   hubspotDealStagesResolver,
   hubspotTicketPipelinesResolver,

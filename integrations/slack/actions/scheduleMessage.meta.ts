@@ -55,10 +55,10 @@ export const slackScheduleMessageMeta: ActionMeta = {
       name: "postAt",
       label: "Post at",
       description:
-        "Absolute scheduled time. Accepts ISO-8601 with an explicit offset (`2026-06-01T09:00:00-07:00`) OR a Unix-seconds integer string (`1748793600`). Naive datetimes (no offset / no `Z`) are rejected at execute time.",
-      type: "text",
+        "Absolute scheduled time, entered in **UTC** (stored as `2026-06-01T09:00:00Z`). The handler also still accepts a pasted ISO-8601 with an explicit `+HH:MM` offset OR a Unix-seconds integer string (`1748793600`) — those hydrate as editable text. Naive datetimes (no offset / no `Z`) are rejected at execute time.",
+      type: "datetime-utc",
       required: true,
-      placeholder: "2026-06-01T09:00:00-07:00",
+      placeholder: "2026-06-01T09:00:00Z",
     },
     {
       name: "threadTs",

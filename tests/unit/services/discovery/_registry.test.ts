@@ -1252,14 +1252,18 @@ describe("per-provider accessors", () => {
         },
       );
 
-      it("schedule_message exposes postAt as a required text field with strict-format helper text", () => {
+      it("schedule_message exposes postAt as a required datetime-utc field with UTC + legacy-format helper text", () => {
+        // CONFIG-FIELD-UX-SWEEP-3: postAt adopted the `datetime-utc` instant
+        // renderer (stores `…Z`). The handler still accepts the pasted
+        // offset/Unix-seconds forms (they hydrate via the text fallback), so
+        // required-ness + the strict-format help text are preserved.
         const postAt = metaByKey("slack:schedule_message").fields.find(
           (f) => f.name === "postAt",
         );
         expect(postAt).toBeDefined();
-        expect(postAt!.type).toBe("text");
+        expect(postAt!.type).toBe("datetime-utc");
         expect(postAt!.required).toBe(true);
-        expect(postAt!.description).toMatch(/ISO-8601|Unix-seconds/i);
+        expect(postAt!.description).toMatch(/UTC|Unix-seconds/i);
       });
 
       it.each(GROUP_A_KEYS)(

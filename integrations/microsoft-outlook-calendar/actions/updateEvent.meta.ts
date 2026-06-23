@@ -109,8 +109,9 @@ export const microsoftOutlookCalendarUpdateEventMeta: ActionMeta = {
     {
       name: "location",
       label: "Location",
-      description: "New free-text location (leave empty to keep current).",
-      type: "text",
+      description:
+        "New event location. Start typing for address suggestions, or type any free-text place. Leave empty to keep current.",
+      type: "location",
       required: false,
     },
     {

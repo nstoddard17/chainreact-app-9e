@@ -60,8 +60,9 @@ export const googleCalendarUpdateEventMeta: ActionMeta = {
     {
       name: "location",
       label: "Location",
-      description: "New free-text location (leave empty to keep the current one).",
-      type: "text",
+      description:
+        "New event location. Start typing for address suggestions, or type any free-text place. Leave empty to keep the current one.",
+      type: "location",
       required: false,
     },
     {

@@ -45,8 +45,8 @@ export const hubspotCreateMeetingMeta: ActionMeta = {
       name: "hs_meeting_start_time",
       label: "Start time",
       description:
-        "ISO 8601 datetime (`2026-12-31T10:00:00Z`) OR a millisecond-epoch string. Handler normalizes to epoch-ms before sending to HubSpot.",
-      type: "text",
+        "Meeting start, entered in **UTC** (stored as `2026-12-31T10:00:00Z`). The handler normalizes to epoch-ms before sending to HubSpot; a pasted millisecond-epoch string still hydrates as editable text.",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-12-31T10:00:00Z",
     },
@@ -54,8 +54,8 @@ export const hubspotCreateMeetingMeta: ActionMeta = {
       name: "hs_meeting_end_time",
       label: "End time",
       description:
-        "ISO 8601 datetime OR millisecond-epoch string. Pair with `Start time` to bracket the meeting on HubSpot's calendar.",
-      type: "text",
+        "Meeting end, entered in **UTC** (stored as `2026-12-31T11:00:00Z`). Pair with `Start time` to bracket the meeting on HubSpot's calendar. A pasted millisecond-epoch string still hydrates as editable text.",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-12-31T11:00:00Z",
     },
@@ -63,8 +63,8 @@ export const hubspotCreateMeetingMeta: ActionMeta = {
       name: "hs_meeting_location",
       label: "Location",
       description:
-        "Free-form meeting location — physical address, room name, or video-conference URL.",
-      type: "text",
+        "Meeting location. Start typing for address suggestions, or type any free-text place — physical address, room name, or video-conference URL. Stored as the formatted address string.",
+      type: "location",
       required: false,
     },
     {
@@ -87,8 +87,8 @@ export const hubspotCreateMeetingMeta: ActionMeta = {
       name: "hs_timestamp",
       label: "Timestamp",
       description:
-        "When the meeting was logged. ISO 8601 datetime OR millisecond-epoch string. Defaults to `Date.now()` if omitted.",
-      type: "text",
+        "When the meeting was logged, entered in **UTC** (stored as `…Z`). Defaults to `Date.now()` if omitted. A pasted millisecond-epoch string still hydrates as editable text.",
+      type: "datetime-utc",
       required: false,
     },
     {

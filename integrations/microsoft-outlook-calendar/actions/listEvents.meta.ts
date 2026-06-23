@@ -32,8 +32,8 @@ export const microsoftOutlookCalendarListEventsMeta: ActionMeta = {
       name: "startDateTime",
       label: "Start Of Window",
       description:
-        "ISO 8601 lower bound. Required if End Of Window is set (both or neither).",
-      type: "text",
+        "Lower bound, entered in **UTC** (stored as `2026-06-01T00:00:00Z`). Required if End Of Window is set (both or neither).",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-06-01T00:00:00Z",
     },
@@ -41,8 +41,8 @@ export const microsoftOutlookCalendarListEventsMeta: ActionMeta = {
       name: "endDateTime",
       label: "End Of Window",
       description:
-        "ISO 8601 upper bound. Required if Start Of Window is set (both or neither).",
-      type: "text",
+        "Upper bound, entered in **UTC** (stored as `2026-06-30T23:59:59Z`). Required if Start Of Window is set (both or neither).",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-06-30T23:59:59Z",
     },

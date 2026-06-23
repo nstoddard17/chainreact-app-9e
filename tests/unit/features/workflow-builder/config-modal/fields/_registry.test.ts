@@ -32,9 +32,9 @@ describe("field-renderer registry", () => {
     expect(Object.keys(FIELD_RENDERERS).sort()).toEqual([...types].sort());
   });
 
-  it("covers all 16 FieldType variants (CS-1 added date/time/datetime/timezone)", () => {
-    expect(FieldTypeSchema.options).toHaveLength(16);
-    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(16);
+  it("covers all 18 FieldType variants (CS-1 date/time/datetime/timezone; SWEEP-3 datetime-utc + location)", () => {
+    expect(FieldTypeSchema.options).toHaveLength(18);
+    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(18);
   });
 
   it("FIELD_RENDERERS['string-array'] resolves to StringArrayField", () => {
@@ -50,6 +50,12 @@ describe("field-renderer registry", () => {
     expect(FIELD_RENDERERS.time).toBe(TemporalField);
     expect(FIELD_RENDERERS.datetime).toBe(TemporalField);
     expect(FIELD_RENDERERS.timezone).toBe(TimezoneField);
+  });
+
+  it("SWEEP-3 — datetime-utc shares TemporalField; location has its own renderer", () => {
+    expect(FIELD_RENDERERS["datetime-utc"]).toBe(TemporalField);
+    expect(typeof FIELD_RENDERERS.location).toBe("function");
+    expect(FIELD_RENDERERS.location).not.toBe(TemporalField);
   });
 
   it("getFieldRenderer returns the same component as FIELD_RENDERERS[type]", () => {

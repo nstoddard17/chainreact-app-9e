@@ -97,8 +97,8 @@ export const hubspotCreateCallMeta: ActionMeta = {
       name: "hs_timestamp",
       label: "Timestamp",
       description:
-        "When the call happened. ISO 8601 datetime OR millisecond-epoch string. Defaults to `Date.now()` if omitted.",
-      type: "text",
+        "When the call happened, entered in **UTC** (stored as `…Z`). Defaults to `Date.now()` if omitted. A pasted millisecond-epoch string still hydrates as editable text.",
+      type: "datetime-utc",
       required: false,
     },
     {
