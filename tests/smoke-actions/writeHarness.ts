@@ -317,6 +317,37 @@ function readPath(output: Readonly<Record<string, unknown>> | null, path: string
   return typeof cur === "string" ? cur : typeof cur === "number" ? String(cur) : null;
 }
 
+/** Raw value at a dot-path (any type: scalar / array / object), or null. */
+function rawValueAtPath(output: Readonly<Record<string, unknown>> | null, path: string): unknown {
+  if (!output) return null;
+  let cur: unknown = output;
+  for (const seg of path.split(".")) {
+    if (cur && typeof cur === "object" && seg in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[seg];
+    } else {
+      return null;
+    }
+  }
+  return cur ?? null;
+}
+
+/**
+ * Is the unique smoke marker present at `path` in a read-back output? Handles a
+ * scalar (a `title` string) AND a collection (a `blocks` / `comments` array) by
+ * checking the JSON-serialized value — the marker (`crsmoke-<runToken>-`) is
+ * unique enough that a substring hit is a true match, never an id collision.
+ */
+export function markerPresentAtPath(
+  output: Readonly<Record<string, unknown>> | null,
+  path: string,
+  marker: string,
+): boolean {
+  const raw = rawValueAtPath(output, path);
+  if (raw === null || raw === undefined) return false;
+  const serialized = typeof raw === "string" ? raw : JSON.stringify(raw);
+  return serialized.includes(marker);
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 const SANITIZE = (r: string | null): string | null => sanitizeFailureReason(r);
@@ -475,8 +506,8 @@ export async function runWriteSmoke(
         actionStatus = "VERIFY_FAILED";
       } else if (spec.verify.markerPath) {
         const echoPath = resolveScalarTokens(spec.verify.markerPath, marker, envLookup);
-        const echo = readPath(v.output, echoPath);
-        const ok = echo !== null && echo.includes(marker);
+        // Handles a scalar title OR a blocks/comments array read-back.
+        const ok = markerPresentAtPath(v.output, echoPath, marker);
         phases.push({
           phase: "verify",
           outcome: ok ? "ok" : "failed",

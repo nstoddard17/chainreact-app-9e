@@ -1047,6 +1047,9 @@ marker -> run cleanup):
 | `trello:create_card` | create -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `trello:update_card` | create -> update -> echo -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 | `notion:create_page` | create -> get_page (marker on title) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `notion:update_page` | create -> update title -> get_page (marker on title) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `notion:append_block_children` | create -> append paragraph -> get_block_children (marker in blocks) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
+| `notion:create_comment` | create -> comment -> list_comments (marker in comments) -> **archive** | archived (persists) | `LIVE_PASS_LEFT_ARTIFACT` |
 
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
@@ -1074,6 +1077,13 @@ Airtable uses the env-pinned smoke base + `SMOKE_AIRTABLE_TEXT_FIELD`.
   output (the value of the title-type property) so this never spreads a raw Notion
   property blob. A verify step's `markerPath` is the general way to confirm a
   marker from a READ response rather than the write response.
+- A verify `markerPath` is **array-aware**: it confirms the marker in a scalar
+  (`get_page.title`) OR a collection (`get_block_children.blocks`,
+  `list_comments.comments`) by checking the JSON-serialized value at the path. The
+  unique `crsmoke-<runToken>-` marker can't collide with a provider id, so a
+  substring hit is a true match. This is how the Notion content batch
+  (`update_page`, `append_block_children`, `create_comment`) proves the marker on
+  the persisted page / block / comment, not just that the id exists.
 
 **Connection diagnosis (4-way, never conflate target with connection).** A provider
 is classified `NOT_CONNECTED` (only when the DB proves it) / `CONNECTED_NOT_EXECUTABLE`

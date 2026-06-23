@@ -227,6 +227,15 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["trello", "update_card"],
     ["notion", "create_page"],
   ]),
+  // SMOKE-WRITE-6 — Notion content batch. Each: setup create_page -> action ->
+  // INDEPENDENT read-back confirms the crsmoke-* marker (update_page via get_page
+  // title; append_block_children via get_block_children blocks; create_comment via
+  // list_comments) -> archive_page. Object archived (persists), reversible.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live write + read-back marker verify, archived", SMOKE_WRITE, [
+    ["notion", "update_page"],
+    ["notion", "append_block_children"],
+    ["notion", "create_comment"],
+  ]),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────

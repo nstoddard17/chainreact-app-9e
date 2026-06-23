@@ -123,6 +123,9 @@ import notionListComments from "@/tests/fixtures/action-smoke/notion/list_commen
 import airtableCreateRecord from "@/tests/fixtures/action-smoke/airtable/create_record";
 import airtableUpdateRecord from "@/tests/fixtures/action-smoke/airtable/update_record";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
+import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
+import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
+import notionCreateComment from "@/tests/fixtures/action-smoke/notion/create_comment";
 import trelloCreateCard from "@/tests/fixtures/action-smoke/trello/create_card";
 import trelloUpdateCard from "@/tests/fixtures/action-smoke/trello/update_card";
 
@@ -233,6 +236,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   airtableCreateRecord,
   airtableUpdateRecord,
   notionCreatePage,
+  notionUpdatePage,
+  notionAppendBlockChildren,
+  notionCreateComment,
   trelloCreateCard,
   trelloUpdateCard,
 ];

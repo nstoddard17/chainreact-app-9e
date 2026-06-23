@@ -420,6 +420,25 @@ describe("env resolution + marker echo (live wiring)", () => {
     expect(res.phases.filter((p) => p.phase === "verify").some((p) => /marker confirmed/.test(p.reason ?? ""))).toBe(true);
   });
 
+  it("verify markerPath confirms the marker inside an ARRAY read-back (blocks/comments)", async () => {
+    const deps = fakeDeps({
+      "acme:create_thing": { ok: true, output: { id: "X" }, reason: null },
+      // read-back returns a collection; the marker is in one element's text
+      "acme:list_things": {
+        ok: true,
+        output: { items: [{ id: "b1", plainText: "intro" }, { id: "b2", plainText: "crsmoke-T1-block" }] },
+        reason: null,
+      },
+    });
+    const spec = destructiveSpec({
+      setup: undefined,
+      captureResource: { resourceKey: "r", idPath: "id", kind: "thing" },
+      verify: { provider: "acme", action: "list_things", config: { id: "{{ledger.r.id}}" }, markerPath: "items" },
+    });
+    const res = await runWriteSmoke(fixture("create_thing", spec), RUN, deps);
+    expect(res.status).toBe("PASS");
+  });
+
   it("verify markerPath fails (VERIFY_FAILED) when the read-back lacks the marker", async () => {
     const deps = fakeDeps({
       "acme:create_thing": { ok: true, output: { id: "X" }, reason: null },
