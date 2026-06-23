@@ -12,8 +12,10 @@
  */
 import {
   classifyWriteTarget,
+  pickSecondSmokeList,
   pickSmokeSafeTarget,
   type TrelloListCandidate,
+  type TrelloMoveListCandidate,
 } from "@/tests/smoke-actions/writeTargets";
 
 describe("classifyWriteTarget — the 4 distinct states", () => {
@@ -58,5 +60,50 @@ describe("pickSmokeSafeTarget — explicitly smoke-named board AND list only", (
   it("is stable regardless of input order", () => {
     const shuffled = [cands[2]!, cands[0]!, cands[3]!, cands[1]!];
     expect(pickSmokeSafeTarget(shuffled)?.boardId).toBe("b4");
+  });
+});
+
+describe("pickSecondSmokeList — a safe move_card DESTINATION on the source board", () => {
+  // Lists on ONE smoke board (the caller only ever passes the source board's lists).
+  const lists: TrelloMoveListCandidate[] = [
+    { listId: "src", listLabel: "Test" }, // the SOURCE list (excluded as a no-op)
+    { listId: "done", listLabel: "Done" }, // ✓ destination-allow-list name
+    { listId: "doing", listLabel: "Doing" }, // not in the allow-list
+    { listId: "tgt", listLabel: "Target Lane" }, // ✓ destination-allow-list name
+  ];
+
+  it("finds a distinct safe destination list (allow-listed name, never the source)", () => {
+    const chosen = pickSecondSmokeList(lists, "src");
+    // Allow-list matches: "Done", "Target Lane" -> sorted by label -> "Done".
+    expect(chosen).toEqual({ listId: "done", listLabel: "Done" });
+  });
+
+  it("blocks (null) when only the source list exists on the board", () => {
+    expect(pickSecondSmokeList([{ listId: "src", listLabel: "Test" }], "src")).toBeNull();
+  });
+
+  it("blocks (null) when no OTHER list has an allow-listed name", () => {
+    const onlyArbitrary: TrelloMoveListCandidate[] = [
+      { listId: "src", listLabel: "Test" },
+      { listId: "x", listLabel: "Backlog" }, // not smoke/test/done/moved/target
+      { listId: "y", listLabel: "In Review" },
+    ];
+    expect(pickSecondSmokeList(onlyArbitrary, "src")).toBeNull(); // -> BLOCKED_ENV
+  });
+
+  it("never returns the source list even when its name matches the allow-list", () => {
+    const chosen = pickSecondSmokeList(
+      [
+        { listId: "src", listLabel: "smoke-source" }, // matches, but IS the source
+        { listId: "moved", listLabel: "Moved" },
+      ],
+      "src",
+    );
+    expect(chosen?.listId).toBe("moved");
+  });
+
+  it("is deterministic regardless of input order", () => {
+    const shuffled = [lists[3]!, lists[1]!, lists[0]!, lists[2]!];
+    expect(pickSecondSmokeList(shuffled, "src")?.listId).toBe("done");
   });
 });

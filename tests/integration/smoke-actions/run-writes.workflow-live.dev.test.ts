@@ -43,6 +43,7 @@ import {
   probeWriteConnection,
   discoverTrelloSmokeTarget,
   discoverTrelloSmokeLabel,
+  discoverTrelloSecondSmokeList,
   discoverNotionSmokeParentPage,
 } from "@/tests/smoke-actions/writeHarnessDeps";
 import { renderWriteSmokeHuman } from "@/tests/smoke-actions/writeHarness";
@@ -120,6 +121,15 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         if (label) {
           overlay.SMOKE_TRELLO_LABEL_ID = label.labelId; // id -> env overlay only
           targetLabel += ` / label "${label.label}"`;
+        }
+        // move_card needs a SECOND safe list on the same smoke board as the
+        // destination. A pinned env wins; else auto-discover a distinct safe list.
+        if (!process.env.SMOKE_TRELLO_TARGET_LIST_ID) {
+          const dest = await discoverTrelloSecondSmokeList(account, user, chosen.boardId, chosen.listId);
+          if (dest) {
+            overlay.SMOKE_TRELLO_TARGET_LIST_ID = dest.listId; // id -> env overlay only
+            targetLabel += ` / target list "${dest.listLabel}"`;
+          }
         }
       }
     } else if (provider === "notion" && execUsable) {

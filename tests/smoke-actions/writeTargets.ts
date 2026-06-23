@@ -56,6 +56,52 @@ export interface ChosenTrelloTarget {
 }
 
 /**
+ * A list on the source smoke board, considered as a MOVE destination. Just the
+ * (id, label) pair the list resolver returns — board membership is established by
+ * the caller (it only passes lists from the source board).
+ */
+export interface TrelloMoveListCandidate {
+  readonly listId: string;
+  readonly listLabel: string;
+}
+
+export interface ChosenTrelloSecondList {
+  readonly listId: string;
+  readonly listLabel: string;
+}
+
+/**
+ * Acceptable NAMES for a `move_card` DESTINATION list. Broader than the source
+ * pattern: a smoke board's second list is commonly "Done" / "Doing" / a
+ * "moved"/"target" lane. Still a strict allow-list — a card is NEVER moved onto an
+ * arbitrarily-named list, even on a smoke board. No match -> BLOCKED_ENV.
+ */
+export const SMOKE_MOVE_TARGET_NAME_RE = /smoke|test|done|moved|target/i;
+
+/**
+ * Pick a safe SECOND smoke list to move a card INTO, from the lists already known
+ * to live on the (explicitly smoke/test-named) SOURCE board. Rules:
+ *   - never the source list itself (a no-op move proves nothing);
+ *   - the list name must match the destination allow-list (`pattern`);
+ *   - deterministic: sorted by listLabel so the same board resolves the same
+ *     destination every run.
+ * Returns null when no distinct safe destination exists -> the caller reports
+ * BLOCKED_ENV and asks for SMOKE_TRELLO_TARGET_LIST_ID. Pure.
+ */
+export function pickSecondSmokeList(
+  candidates: readonly TrelloMoveListCandidate[],
+  sourceListId: string,
+  pattern: RegExp = SMOKE_MOVE_TARGET_NAME_RE,
+): ChosenTrelloSecondList | null {
+  const safe = candidates
+    .filter((c) => c.listId !== sourceListId && pattern.test(c.listLabel))
+    .sort((a, b) => a.listLabel.localeCompare(b.listLabel));
+  const chosen = safe[0];
+  if (!chosen) return null;
+  return { listId: chosen.listId, listLabel: chosen.listLabel };
+}
+
+/**
  * Pick a safe smoke list: a candidate whose BOTH board AND list names match the
  * smoke pattern (the strongest "explicitly marked for smoke use" signal — never
  * an arbitrary first board/list). Deterministic: sorted by (boardLabel, listLabel)

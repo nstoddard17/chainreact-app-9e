@@ -132,6 +132,7 @@ import trelloCreateCard from "@/tests/fixtures/action-smoke/trello/create_card";
 import trelloUpdateCard from "@/tests/fixtures/action-smoke/trello/update_card";
 import trelloAddComment from "@/tests/fixtures/action-smoke/trello/add_comment";
 import trelloAddLabelToCard from "@/tests/fixtures/action-smoke/trello/add_label_to_card";
+import trelloMoveCard from "@/tests/fixtures/action-smoke/trello/move_card";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -249,6 +250,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   trelloUpdateCard,
   trelloAddComment,
   trelloAddLabelToCard,
+  trelloMoveCard,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

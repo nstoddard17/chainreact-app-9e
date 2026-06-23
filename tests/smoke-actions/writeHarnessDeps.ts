@@ -45,9 +45,12 @@ import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import { SMOKE_ACTION_NODE_ID, SMOKE_TRIGGER_NODE_ID } from "./workflowRun";
 import type { StepRunOutcome, WriteHarnessDeps } from "./writeHarness";
 import {
+  pickSecondSmokeList,
   pickSmokeSafeTarget,
+  type ChosenTrelloSecondList,
   type ChosenTrelloTarget,
   type TrelloListCandidate,
+  type TrelloMoveListCandidate,
 } from "./writeTargets";
 
 export interface RealWriteHarnessDepsConfig {
@@ -151,6 +154,35 @@ export async function discoverTrelloSmokeTarget(
     }
   }
   return pickSmokeSafeTarget(candidates);
+}
+
+/**
+ * Discover a safe SECOND Trello list (a MOVE destination for `move_card`) on the
+ * SAME smoke board as the source list, via the read-only `trello:lists` resolver +
+ * the pure `pickSecondSmokeList`. Lists ONLY on the explicitly smoke/test-named
+ * source board are considered (the caller already proved the board is smoke-safe),
+ * the source list is excluded, and the destination name must match the move-target
+ * allow-list. Returns the chosen list (id + safe label) or null -> the caller
+ * reports BLOCKED_ENV and asks for SMOKE_TRELLO_TARGET_LIST_ID. READ-ONLY.
+ */
+export async function discoverTrelloSecondSmokeList(
+  accountId: string,
+  userId: string,
+  sourceBoardId: string,
+  sourceListId: string,
+): Promise<ChosenTrelloSecondList | null> {
+  const integration = await getActiveForExecution(accountId, "trello", null, {
+    connectedByUserId: userId,
+  });
+  if (!integration) return null;
+  const listsR = getOptionsResolver("trello:lists");
+  if (!listsR) return null;
+  const lists = await listsR.resolve({ userId, integration, q: "", deps: { boardId: sourceBoardId } });
+  const candidates: TrelloMoveListCandidate[] = lists.items.map((l) => ({
+    listId: l.value,
+    listLabel: l.label ?? "",
+  }));
+  return pickSecondSmokeList(candidates, sourceListId);
 }
 
 /**

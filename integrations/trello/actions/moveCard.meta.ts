@@ -59,10 +59,12 @@ export const trelloMoveCardMeta: ActionMeta = {
   outputs: [
     { name: "cardId", type: "string", description: "The card id." },
     { name: "name", type: "string", description: "The card title." },
-    { name: "idList", type: "string", description: "The new list id." },
-    { name: "idBoard", type: "string", description: "The board id." },
-    { name: "pos", type: "number", description: "The card's position post-move." },
-    { name: "url", type: "string", description: "Full card URL." },
+    // The handler coerces these to `?? null` from the Trello response (mirrors
+    // create_card / update_card), so the metadata must mark them nullable.
+    { name: "idList", type: "string", description: "The new list id, or null.", nullable: true },
+    { name: "idBoard", type: "string", description: "The board id, or null.", nullable: true },
+    { name: "pos", type: "number", description: "The card's position post-move, or null.", nullable: true },
+    { name: "url", type: "string", description: "Full card URL, or null.", nullable: true },
   ],
   producesFileRef: false,
   consumesFileRef: false,
