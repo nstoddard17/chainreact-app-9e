@@ -120,11 +120,13 @@ const MUTATION_AUTH_ALLOWLIST: ReadonlyArray<{ path: string; reason: string }> =
   // There is no signature token to recognize; this is the accepted provider
   // limitation, not a missing gate.
   { path: "app/api/webhooks/mailchimp/route.ts", reason: "Mailchimp does not sign webhooks; auth = URL secrecy + audienceId match + event-type allow-list + dedup" },
-  // REACT-LIVE-SKELETON-2 — free deterministic skeleton preview for logged-out /start visitors.
-  // Intentionally PUBLIC (no auth): pure, model-free, catalog-only inference over a bounded prompt.
-  // It performs NO mutation, NO DB read/write, NO AI/provider call, touches NO account/session, and
-  // returns only public capability shape. Nothing to authorize; size-bounded + best-effort rate-limited.
-  { path: "app/api/ai/anon-skeleton/route.ts", reason: "Public deterministic skeleton: no mutation, no DB, no AI/provider, no account; catalog-only, size+rate bounded" },
+  // REACT-LIVE-SKELETON-3 — limited anonymous AI planning for logged-out /start visitors.
+  // Intentionally PUBLIC (no auth): planning-ONLY. It performs NO workflow mutation, NO DB read/write,
+  // NO provider call, NO service-role, touches NO account/session/private context, and never
+  // creates/saves/connects/runs anything — it returns advisory text + a non-applied preview from a
+  // VALIDATED plan. Abuse is bounded by a signed HttpOnly per-browser cap + a per-instance IP/day soft
+  // cap (lib/anonAiLimit); input is size-bounded. Nothing to authorize.
+  { path: "app/api/ai/anonymous-workflow-guidance/route.ts", reason: "Public anonymous AI planning: no mutation, no DB, no provider, no account; planning-only, signed-cookie + IP capped, size bounded" },
 ];
 
 /** Routes allowed to use a service-role client WITHOUT being cron-authed. Empty

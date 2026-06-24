@@ -39,9 +39,9 @@ jest.mock("@/lib/api/workflows", () => {
   };
 });
 
-const mockSkeleton = jest.fn();
-jest.mock("@/lib/api/ai/anonSkeleton", () => ({
-  requestAnonSkeleton: (...a: unknown[]) => mockSkeleton(...a),
+const mockGuidance = jest.fn();
+jest.mock("@/lib/api/ai/anonymousGuidance", () => ({
+  requestAnonymousGuidance: (...a: unknown[]) => mockGuidance(...a),
 }));
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -88,7 +88,7 @@ beforeEach(() => {
   window.localStorage.clear();
   mockUpdateWorkflow.mockReset();
   mockCreateWorkflow.mockReset();
-  mockSkeleton.mockReset().mockResolvedValue(null);
+  mockGuidance.mockReset().mockResolvedValue(null);
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
   useRunSlice.getState().reset();
@@ -98,17 +98,23 @@ function renderAnon() {
   return render(<AnonymousBuilder triggerProviders={triggerProviders} actionProviders={actionProviders} />);
 }
 
-describe("anonymous /start — free deterministic live skeleton", () => {
-  it("auto-shows the skeleton overlay on the canvas (no paid AI, no DB) and Apply adds local-only nodes", async () => {
+describe("anonymous /start — limited anonymous AI live skeleton", () => {
+  it("auto-shows the AI skeleton overlay on the canvas (no DB) and Apply adds local-only nodes", async () => {
     const user = userEvent.setup();
-    mockSkeleton.mockResolvedValue({ plan: PLAN, preview: PREVIEW });
+    mockGuidance.mockResolvedValue({
+      guidanceText: "Here's a starter.",
+      workflowPlan: PLAN,
+      previewDraft: PREVIEW,
+      remainingAnonymousAttempts: 2,
+      limitReached: false,
+    });
     seedPrompt("when I run this manually, send a Slack message to a channel");
     renderAnon();
 
     // The skeleton overlay appears automatically — the visitor never clicked "Show on canvas".
     await screen.findByTestId("builder-preview-overlay");
-    // Used the free deterministic endpoint helper; no paid AI / no workflow create/update.
-    expect(mockSkeleton).toHaveBeenCalledWith({ goalText: "when I run this manually, send a Slack message to a channel" });
+    // Used the anonymous AI endpoint helper; no workflow create/update (no DB write).
+    expect(mockGuidance).toHaveBeenCalledWith({ goalText: "when I run this manually, send a Slack message to a channel" });
     expect(mockCreateWorkflow).not.toHaveBeenCalled();
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
     // Showing != applying — nothing in the local draft yet.
@@ -125,11 +131,17 @@ describe("anonymous /start — free deterministic live skeleton", () => {
     expect(mockCreateWorkflow).not.toHaveBeenCalled();
   });
 
-  it("keeps the visitor in the builder with a sign-up CTA when no deterministic shape is inferable", async () => {
-    mockSkeleton.mockResolvedValue({ plan: null, preview: null });
+  it("keeps the visitor in the builder with a sign-up CTA when no plan is returned", async () => {
+    mockGuidance.mockResolvedValue({
+      guidanceText: "I can't plan that one.",
+      workflowPlan: null,
+      previewDraft: null,
+      remainingAnonymousAttempts: 2,
+      limitReached: false,
+    });
     seedPrompt("orchestrate my entire business end to end");
     renderAnon();
-    await screen.findByTestId("anonymous-agent-rail-no-shape");
+    await screen.findByTestId("anonymous-agent-rail-assistant");
     expect(screen.queryByTestId("builder-preview-overlay")).toBeNull();
     expect(screen.getByTestId("anonymous-agent-rail-signup")).toHaveAttribute(
       "href",
@@ -138,5 +150,20 @@ describe("anonymous /start — free deterministic live skeleton", () => {
     // Save still gates to sign-up (no real save controls mount in local-only mode).
     expect(screen.queryByTestId("builder-header-save-button")).toBeNull();
     expect(screen.getByTestId("builder-header-local-save")).toBeInTheDocument();
+  });
+
+  it("shows the sign-up CTA when the anonymous AI limit is reached (server-enforced)", async () => {
+    mockGuidance.mockResolvedValue({
+      guidanceText: "You've used the free previews.",
+      workflowPlan: null,
+      previewDraft: null,
+      remainingAnonymousAttempts: 0,
+      limitReached: true,
+    });
+    seedPrompt("plan a workflow");
+    renderAnon();
+    await screen.findByTestId("anonymous-agent-rail-limit");
+    expect(screen.queryByTestId("builder-preview-overlay")).toBeNull();
+    expect(screen.getByTestId("anonymous-agent-rail-signup")).toBeInTheDocument();
   });
 });

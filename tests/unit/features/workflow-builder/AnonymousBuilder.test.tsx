@@ -47,11 +47,11 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-// REACT-LIVE-SKELETON-2 — the anon rail auto-infers a deterministic skeleton when a prompt is present.
-// Mock the (free, no-auth) endpoint helper so these tests don't hit the network; default = no shape.
-const mockAnonSkeleton = jest.fn();
-jest.mock("@/lib/api/ai/anonSkeleton", () => ({
-  requestAnonSkeleton: (...a: unknown[]) => mockAnonSkeleton(...a),
+// REACT-LIVE-SKELETON-3 — the anon rail auto-plans via the limited anonymous AI endpoint when a
+// prompt is present. Mock the helper so these tests don't hit the network; default = unavailable.
+const mockAnonGuidance = jest.fn();
+jest.mock("@/lib/api/ai/anonymousGuidance", () => ({
+  requestAnonymousGuidance: (...a: unknown[]) => mockAnonGuidance(...a),
 }));
 
 import { AnonymousBuilder } from "@/features/workflow-builder/AnonymousBuilder";
@@ -67,7 +67,7 @@ beforeEach(() => {
   mockRouterRefresh.mockReset();
   mockRouterPush.mockReset();
   window.localStorage.clear();
-  mockAnonSkeleton.mockReset().mockResolvedValue(null);
+  mockAnonGuidance.mockReset().mockResolvedValue(null);
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
   useRunSlice.getState().reset();
@@ -83,7 +83,7 @@ function renderAnon() {
 }
 
 describe("AnonymousBuilder (local-only)", () => {
-  it("seeds the carried-over prompt into the React Agent rail", async () => {
+  it("auto-plans the carried-over prompt in the React Agent rail (prompt becomes the first turn)", async () => {
     window.localStorage.setItem(
       "chainreact:anon-builder-draft",
       JSON.stringify({
@@ -94,10 +94,10 @@ describe("AnonymousBuilder (local-only)", () => {
       }),
     );
     renderAnon();
-    const promptBox = await screen.findByTestId("anonymous-agent-rail-prompt");
-    await waitFor(() =>
-      expect(promptBox).toHaveValue("Notify #wins on a 5-star review"),
-    );
+    // REACT-LIVE-SKELETON-3 — the carried-over prompt is auto-sent as the first chat turn.
+    const userTurn = await screen.findByTestId("anonymous-agent-rail-user");
+    expect(userTurn).toHaveTextContent("Notify #wins on a 5-star review");
+    await waitFor(() => expect(mockAnonGuidance).toHaveBeenCalledWith({ goalText: "Notify #wins on a 5-star review" }));
     // The live, account-scoped guidance rail must NOT mount for an anon visitor.
     expect(screen.queryByTestId("builder-guidance-rail")).not.toBeInTheDocument();
     // AI gate carries returnTo + the ai reason.
