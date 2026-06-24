@@ -133,6 +133,8 @@ import gdriveMoveFile from "@/tests/fixtures/action-smoke/google-drive/move_file
 import dropboxCreateFolder from "@/tests/fixtures/action-smoke/dropbox/create_folder";
 import dropboxDeleteFile from "@/tests/fixtures/action-smoke/dropbox/delete_file";
 import dropboxUploadFile from "@/tests/fixtures/action-smoke/dropbox/upload_file";
+import dropboxCopyFile from "@/tests/fixtures/action-smoke/dropbox/copy_file";
+import dropboxMoveFile from "@/tests/fixtures/action-smoke/dropbox/move_file";
 import onedriveCreateFolder from "@/tests/fixtures/action-smoke/microsoft-onedrive/create_folder";
 import onedriveDeleteItem from "@/tests/fixtures/action-smoke/microsoft-onedrive/delete_item";
 import onedriveUploadFile from "@/tests/fixtures/action-smoke/microsoft-onedrive/upload_file";
@@ -275,6 +277,8 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   dropboxCreateFolder,
   dropboxDeleteFile,
   dropboxUploadFile,
+  dropboxCopyFile,
+  dropboxMoveFile,
   onedriveCreateFolder,
   onedriveDeleteItem,
   onedriveUploadFile,
