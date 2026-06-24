@@ -328,8 +328,8 @@ export default [
   // previewConfig + explicit Apply seeding, HERMES-AGENT-GUIDED-PREVIEW-SETUP-1). Splitting the
   // preview lifecycle out into a hook is a real refactor (intertwined useState + callbacks) that
   // belongs in its own slice, not a feature commit. Capped at 465 to make further drift visible
-  // (raised from 460 for ANON-BUILDER-2: the one-shot restored-prompt consume that seeds the React
-  // Agent composer after an anonymous draft is restored).
+  // (raised from 460 across ANON-BUILDER-2/3: the local-only + restored-draft wiring — banner,
+  // composer seed via useRestoredDraftHandoff, local-only branches).
   {
     files: ["features/workflow-builder/WorkflowBuilder.tsx"],
     rules: {

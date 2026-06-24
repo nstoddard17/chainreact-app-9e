@@ -6,18 +6,23 @@ import { useRouter } from "next/navigation";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import {
   createWorkflow,
+  getWorkflow,
   updateWorkflow,
   WorkflowApiError,
 } from "@/lib/api/workflows";
 import {
   clearAnonDraft,
+  clearRestoreTarget,
   readAnonDraft,
-  setRestoredPrompt,
+  readRestoreTarget,
+  setRestoredContext,
+  setRestoreTarget,
   type AnonDraft,
+  type AnonGateReason,
 } from "@/lib/anonymousBuilder";
 
 /**
- * ANON-BUILDER-2 — controlled post-auth restore of an anonymous draft.
+ * ANON-BUILDER-2/3 — controlled, idempotent post-auth restore of an anonymous draft.
  *
  * Runs ONLY when authenticated (the `/start/continue` route gates that). It reads
  * the sanitized anonymous draft from localStorage and turns it into a REAL,
@@ -25,11 +30,17 @@ import {
  * (`createWorkflow` + `updateWorkflow`) — no new API, no service-role, no
  * RLS/auth bypass, no anonymous DB write.
  *
+ * Idempotency (ANON-BUILDER-3 Scope A): the created workflow id is persisted as a
+ * "restore target" BEFORE the skeleton PATCH. If the PATCH fails, both the draft
+ * and the target are kept; a retry reuses the SAME workflow (no duplicate empty
+ * workflows). If the stored target is gone/inaccessible (404/403), it's cleared
+ * and a new one is created — but a transient error never spawns a duplicate.
+ *
  * Saved as a DRAFT only: it never auto-activates or auto-runs, even if the user
- * clicked Activate/Run before signing up. On success the local draft is cleared
- * (no duplicate re-import) and the prompt is parked for the real builder's React
- * Agent composer. On failure the local draft is RETAINED and a recoverable error
- * + retry is shown.
+ * clicked Activate/Run before signing up. On success the local draft + target are
+ * cleared and the prompt + gate reason are parked for the real builder (composer
+ * seed + next-action banner). On failure the draft + target are RETAINED and a
+ * recoverable error + retry is shown.
  */
 
 /** Derive a workflow name from the prompt's first line (schema max 120). */
@@ -60,7 +71,18 @@ function toDefinition(draft: AnonDraft): WorkflowDefinition {
   };
 }
 
-export function AnonymousDraftRestorer() {
+/** A stored restore target is "unusable" when the server confirms it's gone/forbidden. */
+function isUnusableTargetError(err: unknown): boolean {
+  return (
+    err instanceof WorkflowApiError &&
+    (err.code === "WORKFLOW_NOT_FOUND" ||
+      err.status === 404 ||
+      err.status === 403 ||
+      err.status === 401)
+  );
+}
+
+export function AnonymousDraftRestorer({ reason }: { reason?: AnonGateReason }) {
   const router = useRouter();
   const [status, setStatus] = useState<"working" | "error">("working");
   const [message, setMessage] = useState<string>("");
@@ -77,17 +99,37 @@ export function AnonymousDraftRestorer() {
       return;
     }
     try {
-      const created = await createWorkflow({ name: deriveWorkflowName(draft.prompt) });
-      if (draft.nodes.length > 0) {
-        await updateWorkflow(created.id, { draftDefinition: toDefinition(draft) });
+      // Reuse a pending restore target from a prior failed attempt when it's
+      // still accessible; otherwise create a fresh workflow exactly once.
+      let targetId = readRestoreTarget();
+      if (targetId) {
+        try {
+          await getWorkflow(targetId); // accessible → reuse it
+        } catch (verifyErr) {
+          if (isUnusableTargetError(verifyErr)) {
+            clearRestoreTarget(); // confirmed gone → safe to create a new one
+            targetId = "";
+          } else {
+            throw verifyErr; // transient → bubble to retry; never duplicate
+          }
+        }
       }
-      // Park the prompt so the real builder seeds its React Agent composer once.
-      if (draft.prompt) setRestoredPrompt(created.id, draft.prompt);
-      // Only clear AFTER the workflow + skeleton are persisted — so a failure
-      // above leaves the draft intact for retry.
+      if (!targetId) {
+        const created = await createWorkflow({ name: deriveWorkflowName(draft.prompt) });
+        targetId = created.id;
+        // Persist BEFORE the PATCH so a failed import retries against this id.
+        setRestoreTarget(targetId);
+      }
+      if (draft.nodes.length > 0) {
+        await updateWorkflow(targetId, { draftDefinition: toDefinition(draft) });
+      }
+      // Park prompt + reason for the real builder (composer seed + next-action banner).
+      setRestoredContext(targetId, { prompt: draft.prompt, ...(reason ? { reason } : {}) });
+      // Clear ONLY after the workflow + skeleton are persisted.
       clearAnonDraft();
+      clearRestoreTarget();
       router.refresh();
-      router.replace(`/workflows/${created.id}`);
+      router.replace(`/workflows/${targetId}`);
     } catch (err) {
       runningRef.current = false;
       setStatus("error");
@@ -97,7 +139,7 @@ export function AnonymousDraftRestorer() {
           : "We couldn't save your draft. Your work is still here — try again.",
       );
     }
-  }, [router]);
+  }, [router, reason]);
 
   useEffect(() => {
     void restore();

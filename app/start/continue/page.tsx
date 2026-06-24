@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { AnonymousDraftRestorer } from "@/features/workflow-builder/AnonymousDraftRestorer";
+import { isAnonGateReason } from "@/lib/anonymousBuilder";
 
 /**
  * ANON-BUILDER-2 — controlled post-auth restore route.
@@ -24,8 +25,8 @@ export default async function StartContinuePage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const { reason } = await searchParams;
   if (!user) {
-    const { reason } = await searchParams;
     redirect(
       `/auth/sign-in?returnTo=${encodeURIComponent("/start/continue")}${reason ? `&reason=${encodeURIComponent(reason)}` : ""}`,
     );
@@ -36,7 +37,7 @@ export default async function StartContinuePage({
       data-testid="anonymous-restore-route"
       className="flex min-h-screen items-center justify-center p-8"
     >
-      <AnonymousDraftRestorer />
+      <AnonymousDraftRestorer {...(isAnonGateReason(reason) ? { reason } : {})} />
     </main>
   );
 }

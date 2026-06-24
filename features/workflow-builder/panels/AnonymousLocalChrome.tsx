@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { AnonGateReason } from "@/lib/anonymousBuilder";
 
 /**
  * ANON-BUILDER — presentational chrome for the LOCAL-ONLY builder (`/start`,
@@ -14,8 +15,6 @@ import Link from "next/link";
 
 /** Controlled post-auth restore route. */
 const RESTORE_RETURN_TO = "/start/continue";
-
-export type AnonGateReason = "save" | "activate" | "run" | "connect" | "ai";
 
 /** Build the contextual sign-up href for a gate. */
 export function anonSignupHref(reason: AnonGateReason): string {

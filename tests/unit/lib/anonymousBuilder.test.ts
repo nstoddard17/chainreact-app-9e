@@ -10,12 +10,16 @@ import {
   ANON_DRAFT_VERSION,
   ANON_PROMPT_MAX_LENGTH,
   clearAnonDraft,
-  consumeRestoredPrompt,
+  clearRestoreTarget,
+  consumeRestoredContext,
+  isAnonGateReason,
   readAnonDraft,
   readAnonPrompt,
+  readRestoreTarget,
   saveAnonDraft,
   setAnonPrompt,
-  setRestoredPrompt,
+  setRestoredContext,
+  setRestoreTarget,
 } from "@/lib/anonymousBuilder";
 
 beforeEach(() => {
@@ -130,16 +134,39 @@ describe("anonymousBuilder — draft skeleton", () => {
   });
 });
 
-describe("anonymousBuilder — restored prompt handoff", () => {
-  it("set then consume returns the prompt once, then clears", () => {
-    setRestoredPrompt("wf-123", "build me a thing");
-    expect(consumeRestoredPrompt("wf-123")).toBe("build me a thing");
-    expect(consumeRestoredPrompt("wf-123")).toBe("");
+describe("anonymousBuilder — restore target (idempotency)", () => {
+  it("set / read / clear the pending restore target", () => {
+    expect(readRestoreTarget()).toBe("");
+    setRestoreTarget("wf-created");
+    expect(readRestoreTarget()).toBe("wf-created");
+    clearRestoreTarget();
+    expect(readRestoreTarget()).toBe("");
+  });
+});
+
+describe("anonymousBuilder — restored context handoff", () => {
+  it("set then consume returns { prompt, reason } once, then clears", () => {
+    setRestoredContext("wf-123", { prompt: "build me a thing", reason: "save" });
+    expect(consumeRestoredContext("wf-123")).toEqual({ prompt: "build me a thing", reason: "save" });
+    expect(consumeRestoredContext("wf-123")).toBeNull();
   });
 
   it("is keyed per workflow id", () => {
-    setRestoredPrompt("wf-a", "A");
-    expect(consumeRestoredPrompt("wf-b")).toBe("");
-    expect(consumeRestoredPrompt("wf-a")).toBe("A");
+    setRestoredContext("wf-a", { prompt: "A" });
+    expect(consumeRestoredContext("wf-b")).toBeNull();
+    expect(consumeRestoredContext("wf-a")).toEqual({ prompt: "A" });
+  });
+
+  it("stores a reason even with an empty prompt; ignores an invalid reason", () => {
+    setRestoredContext("wf-r", { prompt: "", reason: "activate" });
+    expect(consumeRestoredContext("wf-r")).toEqual({ prompt: "", reason: "activate" });
+    // @ts-expect-error invalid reason is dropped at the boundary
+    setRestoredContext("wf-bad", { prompt: "p", reason: "bogus" });
+    expect(consumeRestoredContext("wf-bad")).toEqual({ prompt: "p" });
+  });
+
+  it("isAnonGateReason guards the union", () => {
+    expect(isAnonGateReason("connect")).toBe(true);
+    expect(isAnonGateReason("nope")).toBe(false);
   });
 });

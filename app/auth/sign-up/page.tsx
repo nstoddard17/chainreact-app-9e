@@ -28,6 +28,15 @@ export default async function SignUpPage({
             {reasonText}
           </p>
         )}
+        {carry === "/start/continue" && (
+          <p
+            data-testid="auth-same-browser-note"
+            className="rounded border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+          >
+            To keep the draft you just built, finish creating your account in this
+            same browser.
+          </p>
+        )}
         <GoogleSignInButton {...(carry ? { returnTo: carry } : {})} />
         <div className="flex items-center gap-3">
           <span className="h-px flex-1 bg-border" />

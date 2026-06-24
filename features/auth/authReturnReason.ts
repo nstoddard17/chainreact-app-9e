@@ -7,7 +7,10 @@
  * reads as a dead redirect.
  */
 
-export type AuthReturnReason = "save" | "activate" | "run" | "connect" | "ai";
+import { isAnonGateReason, type AnonGateReason } from "@/lib/anonymousBuilder";
+
+/** The gate reason union is the single source of truth in lib/anonymousBuilder. */
+export type AuthReturnReason = AnonGateReason;
 
 const REASON_ACTION: Record<AuthReturnReason, string> = {
   save: "save this workflow",
@@ -18,7 +21,7 @@ const REASON_ACTION: Record<AuthReturnReason, string> = {
 };
 
 export function isAuthReturnReason(value: unknown): value is AuthReturnReason {
-  return typeof value === "string" && Object.prototype.hasOwnProperty.call(REASON_ACTION, value);
+  return isAnonGateReason(value);
 }
 
 /**

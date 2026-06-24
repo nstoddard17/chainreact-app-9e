@@ -7,7 +7,8 @@ import type { WorkflowDetail } from "@/contracts/workflow";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
-import { consumeRestoredPrompt } from "@/lib/anonymousBuilder";
+import { useRestoredDraftHandoff } from "./hooks/useRestoredDraftHandoff";
+import { RestoredDraftBanner } from "./panels/RestoredDraftBanner";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
@@ -189,16 +190,15 @@ export function WorkflowBuilder({
   // from the server prop on workflow switch (in the reset effect below).
   const [workflowName, setWorkflowName] = useState(workflow.name);
 
-  // ANON-BUILDER-2 — when this builder was just opened by the anonymous-draft
-  // restore flow, a one-shot prompt is parked under the new workflow id. Consume
-  // it (client-only, after mount → no SSR mismatch) and seed it into the React
-  // Agent composer. Authenticated path only; never in local-only mode.
-  const [restoredComposerValue, setRestoredComposerValue] = useState("");
-  useEffect(() => {
-    if (localOnly) return;
-    const restored = consumeRestoredPrompt(workflow.id);
-    if (restored) setRestoredComposerValue(restored);
-  }, [localOnly, workflow.id]);
+  // ANON-BUILDER-2/3 — when this builder was just opened by the anonymous-draft
+  // restore flow, a one-shot { prompt, reason } is parked under the new workflow
+  // id. Consume it once (client-only) to seed the React Agent composer + show the
+  // dismissible next-action banner. Authenticated path only; never local-only.
+  const {
+    composerValue: restoredComposerValue,
+    reason: restoredReason,
+    dismissReason: dismissRestoredReason,
+  } = useRestoredDraftHandoff(workflow.id, localOnly);
 
   // Hydrate from the server prop on initial mount AND whenever the prop's
   // definition / revision changes (e.g. an external refresh). The graphSlice
@@ -554,6 +554,9 @@ export function WorkflowBuilder({
       banner={
         <>
           {localOnly ? <LocalBuildBanner /> : null}
+          {!localOnly && restoredReason ? (
+            <RestoredDraftBanner reason={restoredReason} onDismiss={dismissRestoredReason} />
+          ) : null}
           <ActiveAccountMismatchBanner />
           <WorkflowDisabledBanner
             state={workflow.state}

@@ -74,6 +74,7 @@ import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder
 import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
+import { setRestoredContext } from "@/lib/anonymousBuilder";
 
 const baseWorkflow: WorkflowDetail = {
   id: "wf-1",
@@ -1617,6 +1618,55 @@ describe("WorkflowBuilder", () => {
       expect(
         screen.queryByTestId("run-controls-private-credential-status"),
       ).toBeNull();
+    });
+  });
+
+  // ANON-BUILDER-3 Scope C — after an anonymous draft is restored, the builder
+  // consumes the one-shot { prompt, reason } for this workflow id: it seeds the
+  // React Agent composer and shows the dismissible next-action banner. The banner
+  // never auto-saves/activates/runs.
+  describe("restored-draft handoff (ANON-BUILDER-3)", () => {
+    beforeEach(() => {
+      window.localStorage.clear();
+    });
+
+    it("shows the next-action banner + seeds the composer, then dismisses", async () => {
+      const user = userEvent.setup();
+      setRestoredContext(baseWorkflow.id, { prompt: "Notify #wins on a 5-star review", reason: "activate" });
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+        />,
+      );
+      const banner = await screen.findByTestId("restored-draft-banner");
+      expect(banner).toHaveAttribute("data-reason", "activate");
+      expect(banner).toHaveTextContent(/review the required fields, then activate/i);
+      // Composer seeded from the restored prompt.
+      await waitFor(() =>
+        expect(
+          (screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement).value,
+        ).toBe("Notify #wins on a 5-star review"),
+      );
+      // Dismiss hides the banner.
+      await user.click(screen.getByTestId("restored-draft-banner-dismiss"));
+      expect(screen.queryByTestId("restored-draft-banner")).toBeNull();
+    });
+
+    it("shows no banner for a normal (non-restored) builder open", () => {
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+          accountId="acct-1"
+          guidanceEnabled
+        />,
+      );
+      expect(screen.queryByTestId("restored-draft-banner")).toBeNull();
     });
   });
 });

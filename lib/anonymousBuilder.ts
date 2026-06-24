@@ -24,7 +24,21 @@
  */
 
 const DRAFT_KEY = "chainreact:anon-builder-draft";
-const RESTORED_PROMPT_PREFIX = "chainreact:anon-restored-prompt:";
+const RESTORED_CONTEXT_PREFIX = "chainreact:anon-restored:";
+const RESTORE_TARGET_KEY = "chainreact:anon-restore-target";
+
+/**
+ * Why a logged-out visitor hit a sign-up gate. A short, safe enum — the ONLY
+ * thing carried about the gated action (never the action's payload). Drives the
+ * contextual auth copy and the post-restore banner.
+ */
+export type AnonGateReason = "save" | "activate" | "run" | "connect" | "ai";
+
+const ANON_GATE_REASONS: readonly AnonGateReason[] = ["save", "activate", "run", "connect", "ai"];
+
+export function isAnonGateReason(value: unknown): value is AnonGateReason {
+  return typeof value === "string" && (ANON_GATE_REASONS as readonly string[]).includes(value);
+}
 
 /** Bump when the persisted shape changes incompatibly. Older payloads read as null. */
 export const ANON_DRAFT_VERSION = 1;
@@ -263,31 +277,95 @@ export function readAnonPrompt(): string {
   return readAnonDraft()?.prompt ?? "";
 }
 
-// ── restored-prompt handoff (restore → real builder React Agent composer) ─────
+// ── restore target (idempotency across retries) ──────────────────────────────
 
-/** Park the prompt for the freshly-created workflow so the real builder can seed its composer once. */
-export function setRestoredPrompt(workflowId: string, prompt: string): void {
+/**
+ * The workflow id created by an in-flight restore, persisted BEFORE the skeleton
+ * PATCH so a failed import can be retried against the SAME workflow instead of
+ * creating a duplicate empty one (ANON-BUILDER-3 Scope A). Single key — only one
+ * restore is ever in flight.
+ */
+export function setRestoreTarget(workflowId: string): void {
   const storage = getLocalStorage();
-  if (!storage) return;
-  const value = (prompt ?? "").trim().slice(0, ANON_PROMPT_MAX_LENGTH);
-  if (!workflowId || value.length === 0) return;
+  if (!storage || !workflowId) return;
   try {
-    storage.setItem(RESTORED_PROMPT_PREFIX + workflowId, value);
+    storage.setItem(RESTORE_TARGET_KEY, workflowId);
   } catch {
     // ignore
   }
 }
 
-/** Read + clear the restored prompt for a workflow (one-shot). "" when absent. */
-export function consumeRestoredPrompt(workflowId: string): string {
+/** The pending restore-target workflow id ("" when none). */
+export function readRestoreTarget(): string {
   const storage = getLocalStorage();
-  if (!storage || !workflowId) return "";
+  if (!storage) return "";
   try {
-    const key = RESTORED_PROMPT_PREFIX + workflowId;
-    const value = storage.getItem(key) ?? "";
-    if (value) storage.removeItem(key);
-    return value;
+    return storage.getItem(RESTORE_TARGET_KEY) ?? "";
   } catch {
     return "";
+  }
+}
+
+/** Drop the restore target (on success, or when it's confirmed unusable). */
+export function clearRestoreTarget(): void {
+  const storage = getLocalStorage();
+  if (!storage) return;
+  try {
+    storage.removeItem(RESTORE_TARGET_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// ── restored context handoff (restore → real builder: composer seed + banner) ─
+
+/** Safe, non-secret context handed to the real builder after a restore. */
+export interface AnonRestoredContext {
+  prompt: string;
+  reason?: AnonGateReason;
+}
+
+/**
+ * Park the prompt + gate reason for the freshly-created workflow so the real
+ * builder can seed its React Agent composer once and show the next-action banner.
+ * Stores only the safe prompt string + reason enum — never config/secrets.
+ */
+export function setRestoredContext(workflowId: string, ctx: AnonRestoredContext): void {
+  const storage = getLocalStorage();
+  if (!storage || !workflowId) return;
+  const prompt = (ctx.prompt ?? "").trim().slice(0, ANON_PROMPT_MAX_LENGTH);
+  const reason = isAnonGateReason(ctx.reason) ? ctx.reason : undefined;
+  if (prompt.length === 0 && reason === undefined) return;
+  try {
+    storage.setItem(
+      RESTORED_CONTEXT_PREFIX + workflowId,
+      JSON.stringify({ prompt, ...(reason ? { reason } : {}) }),
+    );
+  } catch {
+    // ignore
+  }
+}
+
+/** Read + clear the restored context for a workflow (one-shot). null when absent/invalid. */
+export function consumeRestoredContext(workflowId: string): AnonRestoredContext | null {
+  const storage = getLocalStorage();
+  if (!storage || !workflowId) return null;
+  const key = RESTORED_CONTEXT_PREFIX + workflowId;
+  let raw: string | null;
+  try {
+    raw = storage.getItem(key);
+    if (raw) storage.removeItem(key);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const prompt = typeof parsed.prompt === "string" ? parsed.prompt.slice(0, ANON_PROMPT_MAX_LENGTH) : "";
+    const reason = isAnonGateReason(parsed.reason) ? parsed.reason : undefined;
+    if (prompt.length === 0 && reason === undefined) return null;
+    return { prompt, ...(reason ? { reason } : {}) };
+  } catch {
+    return null;
   }
 }
