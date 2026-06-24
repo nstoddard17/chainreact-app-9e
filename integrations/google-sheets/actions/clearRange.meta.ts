@@ -59,7 +59,8 @@ export const googleSheetsClearRangeMeta: ActionMeta = {
       name: "clearedRange",
       type: "string",
       description:
-        "A1 range Google actually cleared (Sheets may expand bounded ranges to fit the data — surfaces here so workflows know the precise rectangle).",
+        "A1 range Google actually cleared (Sheets may expand bounded ranges to fit the data — surfaces here so workflows know the precise rectangle), or null when Google omits it.",
+      nullable: true,
     },
   ],
   producesFileRef: false,

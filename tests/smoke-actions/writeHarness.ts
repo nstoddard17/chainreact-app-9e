@@ -451,6 +451,39 @@ export function nonEmptyArrayAtPath(
   );
 }
 
+/**
+ * Is the value at `path` PRESENT but EMPTY? Proves a CLEAR / blank side effect that
+ * no marker can show (e.g. `clear_range` -> `get_cell_value` returns `value: null`).
+ *
+ * CONSERVATIVE on absence (distinct from `rawValueAtPath`, which conflates a missing
+ * path with a null value): EVERY path segment must EXIST in the output. A missing
+ * segment returns false — arbitrary object absence can never vacuously pass, so a
+ * typo'd path or a sparse read-back FAILS rather than reading as "cleared". When the
+ * path is present, the terminal value is "empty" iff it is `null` / `undefined` /
+ * `""` (empty string) / `[]` (empty array). Any non-empty scalar / populated array /
+ * object is NOT empty.
+ */
+export function valueEmptyAtPath(
+  output: Readonly<Record<string, unknown>> | null,
+  path: string,
+): boolean {
+  if (!output) return false; // no read-back output at all -> cannot prove emptiness
+  let cur: unknown = output;
+  for (const seg of path.split(".")) {
+    // The segment must be an OWN key of the current object — `seg in cur` is true
+    // even when the value is `null`/`undefined` (presence is what we test here).
+    if (cur && typeof cur === "object" && seg in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[seg];
+    } else {
+      return false; // path segment absent -> NOT proven empty (never a vacuous pass)
+    }
+  }
+  if (cur === null || cur === undefined) return true;
+  if (typeof cur === "string") return cur === "";
+  if (Array.isArray(cur)) return cur.length === 0;
+  return false; // a non-empty scalar / object / number / boolean is NOT empty
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 const SANITIZE = (r: string | null): string | null => sanitizeFailureReason(r);
@@ -525,6 +558,19 @@ function applyVerifyAssertions(
       reason: hit
         ? `read-back ${path} is a non-empty array${keyNote}${label}`
         : `read-back ${path} was empty / not an array${keyNote}${label}`,
+    });
+    if (!hit) ok = false;
+  }
+  if (step.expectEmpty) {
+    // Path is token-resolved (env / marker / ledger) like the other assertions.
+    const path = resolveScalarTokens(step.expectEmpty.path, marker, envLookup, ledger);
+    const hit = valueEmptyAtPath(output, path);
+    phases.push({
+      phase: "verify",
+      outcome: hit ? "ok" : "failed",
+      reason: hit
+        ? `read-back ${path} is present and empty (cleared)${label}`
+        : `read-back ${path} was not present-and-empty (still set / missing path)${label}`,
     });
     if (!hit) ok = false;
   }

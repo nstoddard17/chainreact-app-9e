@@ -147,6 +147,22 @@ export interface ActionStepSpec {
     readonly elementHasKey?: string;
   };
   /**
+   * Assert that the value at `path` in THIS step's (read-back) output is PRESENT
+   * but EMPTY — proving a CLEAR / blank side effect that no marker can show (e.g.
+   * `google-sheets:clear_range` then `get_cell_value` returns `value: null`). The
+   * read-back contract must EXPOSE the path: every path segment must exist in the
+   * output, and the terminal value must be one of `null` / `undefined` / `""`
+   * (empty string) / `[]` (empty array). A MISSING path (any segment absent) is
+   * NOT treated as empty — arbitrary object absence can never vacuously pass, so a
+   * typo'd path or a sparse read-back FAILS rather than false-passing. A non-empty
+   * scalar / populated array / object is NOT empty -> VERIFY_FAILED. (The read-back
+   * STEP failing — a permission/API error — already fails before assertions run, so
+   * an error is never read as "cleared".) `path` is token-resolved like `markerPath`.
+   */
+  readonly expectEmpty?: {
+    readonly path: string;
+  };
+  /**
    * When true, this (verify) step is resolved by the SMOKE-ONLY read-back seam
    * (`WriteHarnessDeps.smokeReadBack`) rather than the registered-action engine
    * path — for providers that have no user-facing read action to verify against

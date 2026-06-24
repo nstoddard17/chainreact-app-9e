@@ -24,6 +24,7 @@ import {
   resolveStepConfig,
   nonEmptyArrayAtPath,
   runWriteSmoke,
+  valueEmptyAtPath,
   valueEqualsAtPath,
   valuePresentInArrayAtPath,
   type StepRunOutcome,
@@ -607,6 +608,28 @@ describe("valueEqualsAtPath / valuePresentInArrayAtPath (pure)", () => {
     expect(nonEmptyArrayAtPath({ files: [{ id: "" }] }, "files", "id")).toBe(false); // falsy id
     // nested path (the attachment-field case)
     expect(nonEmptyArrayAtPath({ fields: { "Draft Image": [{ id: "att1" }] } }, "fields.Draft Image", "id")).toBe(true);
+  });
+
+  it("valueEmptyAtPath: PRESENT-but-empty passes; missing path / non-empty / no-output fail", () => {
+    // present + empty -> true (the cleared-cell cases get_cell_value can return)
+    expect(valueEmptyAtPath({ value: null }, "value")).toBe(true);
+    expect(valueEmptyAtPath({ value: undefined }, "value")).toBe(true); // key present, value undefined
+    expect(valueEmptyAtPath({ value: "" }, "value")).toBe(true);
+    expect(valueEmptyAtPath({ values: [] }, "values")).toBe(true); // empty array (range read-back)
+    // present + NON-empty -> false (a wrong / still-set value must never read as cleared)
+    expect(valueEmptyAtPath({ value: "crsmoke-x" }, "value")).toBe(false);
+    expect(valueEmptyAtPath({ value: 0 }, "value")).toBe(false); // 0 is a real value, not empty
+    expect(valueEmptyAtPath({ value: false }, "value")).toBe(false); // false is a real value
+    expect(valueEmptyAtPath({ values: ["x"] }, "values")).toBe(false);
+    expect(valueEmptyAtPath({ value: {} }, "value")).toBe(false); // object is not "empty"
+    // MISSING path -> false (conservative: arbitrary absence never vacuously passes)
+    expect(valueEmptyAtPath({}, "value")).toBe(false);
+    expect(valueEmptyAtPath({ other: null }, "value")).toBe(false);
+    expect(valueEmptyAtPath({ a: null }, "a.b")).toBe(false); // cannot descend through null
+    // NO read-back output at all -> false (an error/empty step is never "cleared")
+    expect(valueEmptyAtPath(null, "value")).toBe(false);
+    // nested present-and-empty
+    expect(valueEmptyAtPath({ cell: { value: null } }, "cell.value")).toBe(true);
   });
 });
 

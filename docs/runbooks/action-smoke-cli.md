@@ -354,24 +354,22 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
 Point these at a **dedicated smoke spreadsheet** you control — all four fixtures are
 read-only, but they read whatever rows/cells the ids resolve to.
 
-**Google Sheets actions covered / deferred (8 covered of 12 registered):**
+**Google Sheets actions covered / deferred (9 covered of 12 registered):**
 
 - **Read (4):** `get_sheet_metadata`, `read_rows`, `get_cell_value`, `find_row`.
-- **Write certified (4):** `create_spreadsheet` (SMOKE-WRITE-23) + `update_cell` /
-  `append_row` / `update_row` (SMOKE-WRITE-27). The mutators each create a WHOLE
-  smoke-owned spreadsheet (pinned sheet "Data"), mutate ONLY that sheet, verify via an
-  INDEPENDENT `get_cell_value` read-back (marker+suffix on the live cell value), then
-  permanently delete the whole spreadsheet via cross-provider `google-drive:delete_file`.
-  See the Google Sheets write-coverage note below.
-- **Write deferred (4):** `delete_row` (positional — no stable row id to target a
+- **Write certified (5):** `create_spreadsheet` (SMOKE-WRITE-23) + `update_cell` /
+  `append_row` / `update_row` (SMOKE-WRITE-27) + `clear_range` (SMOKE-WRITE-28). The
+  mutators each create a WHOLE smoke-owned spreadsheet (pinned sheet "Data"), mutate ONLY
+  that sheet, verify via an INDEPENDENT `get_cell_value` read-back (marker+suffix on the
+  live cell value; `clear_range` instead seeds A1 then proves the cell is present-and-empty
+  via the new `expectEmpty` assertion), then permanently delete the whole spreadsheet via
+  cross-provider `google-drive:delete_file`. See the Google Sheets write-coverage note below.
+- **Write deferred (3):** `delete_row` (positional — no stable row id to target a
   smoke-owned row deterministically; would need a row-id read-back the API doesn't
-  expose), `clear_range` (verifying emptiness needs a null/empty read-back assertion the
-  write harness doesn't yet support — `get_cell_value` returns `value: null` but
-  `expectEquals` can't assert null), `format_range` (changes only cell FORMAT, not value
-  — no value read-back can prove it; needs a format-metadata read-back), `batch_update`
-  (multi-op raw request; no single deterministic side effect to verify). All are
-  unblockable inside the same smoke-spreadsheet pattern once the matching read-back /
-  assertion exists.
+  expose), `format_range` (changes only cell FORMAT, not value — no value read-back can
+  prove it; needs a format-metadata read-back), `batch_update` (multi-op raw request; no
+  single deterministic side effect to verify). All are unblockable inside the same
+  smoke-spreadsheet pattern once the matching read-back / assertion exists.
 
 **Google Drive-only inventory:** `npm run smoke:actions -- --provider google-drive`.
 
@@ -1134,6 +1132,7 @@ re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
 | `google-sheets:update_cell` | create smoke spreadsheet (pinned 'Data') -> update Data!A1=marker (RAW) -> get_cell_value A1 (marker+suffix on value) -> **google-drive:delete_file (cross-provider, permanent)** | whole sheet hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-sheets:append_row` | create smoke spreadsheet (pinned 'Data') -> append [marker,…] to empty sheet (row 1) -> get_cell_value A1 (marker+suffix on value) -> **google-drive:delete_file (cross-provider, permanent)** | whole sheet hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-sheets:update_row` | create smoke spreadsheet + seed A1=marker-seed -> update A1:B1=marker-updated -> get_cell_value A1 (marker+suffix "updated", seed would fail) -> **google-drive:delete_file (cross-provider, permanent)** | whole sheet hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `google-sheets:clear_range` | create smoke spreadsheet + seed A1=marker-seed -> clear Data!A1 -> get_cell_value A1 (`expectEmpty` value present-and-empty/null) -> **google-drive:delete_file (cross-provider, permanent)** | whole sheet hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `microsoft-outlook-calendar:create_event` | create event (default cal, no attendees, no-RSVP) -> events.get (marker on subject) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `microsoft-outlook-calendar:update_event` | create event -> update subject to marker+"updated" -> events.get (marker+"updated" on subject) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `microsoft-outlook-calendar:delete_event` | create event -> **delete_event (action under test)** -> events.get existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
@@ -1275,16 +1274,18 @@ none is currently certifiable:
   none for Monday) -> the smoke account has no usable Monday connection. Also needs a
   smoke/test board target. Revisit once Monday is connected.
 - **Google Sheets — `create_spreadsheet` (SMOKE-WRITE-23) + `update_cell`/`append_row`/
-  `update_row` (SMOKE-WRITE-27) certified.** The whole-spreadsheet create + cross-provider
-  Drive delete makes the "mutate a SHARED sheet" worry moot: each mutator creates its OWN
-  smoke spreadsheet (pinned sheet "Data"), mutates only that sheet at a FIXED address
-  (`update_row` seeds a distinct prior value to prove the overwrite landed), verifies via an
-  INDEPENDENT `get_cell_value` read-back of the live cell value, then deletes the whole sheet.
-  Still BLOCKED: `delete_row` (positional — no stable row id to target deterministically),
-  `clear_range` (needs a null/empty read-back assertion the harness lacks — `get_cell_value`
-  returns `value: null`, but `expectEquals` can't assert null), `format_range` (changes only
-  cell FORMAT, not value — needs a format-metadata read-back), `batch_update` (multi-op; no
-  single deterministic side effect to verify). See the Google Sheets write-coverage note above.
+  `update_row` (SMOKE-WRITE-27) + `clear_range` (SMOKE-WRITE-28) certified.** The
+  whole-spreadsheet create + cross-provider Drive delete makes the "mutate a SHARED sheet"
+  worry moot: each mutator creates its OWN smoke spreadsheet (pinned sheet "Data"), mutates
+  only that sheet at a FIXED address (`update_row` seeds a distinct prior value to prove the
+  overwrite landed; `clear_range` seeds A1 then proves it is present-and-empty), verifies via
+  an INDEPENDENT `get_cell_value` read-back of the live cell value, then deletes the whole
+  sheet. The `clear_range` slice added the `expectEmpty` verify primitive (present-but-empty:
+  null/undefined/""/[]; a MISSING path never vacuously passes; a read-back error fails the
+  step). Still BLOCKED: `delete_row` (positional — no stable row id to target deterministically),
+  `format_range` (changes only cell FORMAT, not value — needs a format-metadata read-back),
+  `batch_update` (multi-op; no single deterministic side effect to verify). See the Google
+  Sheets write-coverage note above.
 - **Google Docs — RESOLVED in SMOKE-WRITE-23 (`create_document` certified).** The cross-provider
   cleanup policy was adopted (a Doc's `documentId` IS its Drive file id, torn down via the
   certified `google-drive:delete_file`). See the cross-provider cleanup policy + Google Docs

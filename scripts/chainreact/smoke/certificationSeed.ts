@@ -365,4 +365,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["google-sheets", "append_row"],
     ["google-sheets", "update_row"],
   ]),
+  // SMOKE-WRITE-28 — Google Sheets clear_range. Same same-run smoke-spreadsheet
+  // pattern, but proves a CLEAR (blank) side effect that no marker can show. Setup
+  // creates a WHOLE smoke spreadsheet (pinned "Data") and SEEDS Data!A1=<marker>seed
+  // (a certified update_cell write) so the clear is provably a change — empty->empty
+  // would pass vacuously. execute clears Data!A1; the handler's `clearedRange` is a
+  // write echo, never trusted. Verified by an INDEPENDENT get_cell_value read-back
+  // asserting the cell `value` is PRESENT-but-EMPTY (null) via the new `expectEmpty`
+  // primitive: the read-back contract always EXPOSES the `value` key, so a missing
+  // path can never vacuously pass; a still-set value -> VERIFY_FAILED, and a
+  // permission/API error fails the read-back STEP before the assertion runs (never
+  // read as "cleared"). Cleanup is the same CROSS-PROVIDER google-drive:delete_file
+  // (permanent) of the whole spreadsheet -> TRUE erase -> LIVE_PASS_CLEANED. Verified
+  // live end-to-end (0 leaked).
+  ...records("LIVE_PASS_CLEANED", "live create-sheet + seed + clear + independent empty read-back, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS, [
+    ["google-sheets", "clear_range"],
+  ]),
 ];
