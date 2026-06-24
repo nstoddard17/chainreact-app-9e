@@ -381,4 +381,23 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live create-sheet + seed + clear + independent empty read-back, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS, [
     ["google-sheets", "clear_range"],
   ]),
+  // SMOKE-WRITE-29 — Google Sheets format_range. Same same-run smoke-spreadsheet
+  // pattern, but proves a FORMATTING side effect that no value read-back can show.
+  // Setup creates a WHOLE smoke spreadsheet (pinned "Data") and seeds Data!A1 so the
+  // formatted cell is a real populated cell whose fresh state carries no bold. execute
+  // applies a DETERMINISTIC NON-DEFAULT format (bold:true) to Data!A1; the handler's
+  // `appliedFormat` is a CONFIG echo, never trusted. No user-facing Sheets action reads
+  // cell format (get_cell_value/read_rows use values.get), so verification uses a NEW
+  // bounded smoke-only read-back seam `google-sheets:cell_format` (cellFormatGet): a
+  // spreadsheets.get with includeGridData on the SINGLE smoke cell + a tight `fields`
+  // mask that returns ONLY userEnteredFormat sub-fields (textFormat.bold/italic +
+  // horizontalAlignment) — no cell values / payload / PII — sanitized to scalars, run
+  // through refreshAndRetry. The verify asserts bold==true (a fresh cell reads
+  // bold:null, so it can only pass if format_range set it); a permission/API error
+  // fails the read-back STEP, never read as formatted. Cleanup is the same
+  // CROSS-PROVIDER google-drive:delete_file (permanent) of the whole spreadsheet ->
+  // TRUE erase -> LIVE_PASS_CLEANED. Verified live end-to-end (0 leaked).
+  ...records("LIVE_PASS_CLEANED", "live create-sheet + seed + format + independent bounded format read-back, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS, [
+    ["google-sheets", "format_range"],
+  ]),
 ];

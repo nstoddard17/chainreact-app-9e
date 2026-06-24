@@ -43,6 +43,7 @@ const PROVIDER_READ_WRAPPERS = [
   "driveItemsGet",
   "googleEventsGet",
   "outlookEventsGet",
+  "cellFormatGet",
 ] as const;
 
 interface SeamSource {
@@ -70,6 +71,7 @@ describe("write-harness smoke seams use refreshAndRetry (no raw token reads)", (
       "writeHarnessDeps/notion.ts",
       "writeHarnessDeps/fileProviders.ts",
       "writeHarnessDeps/calendars.ts",
+      "writeHarnessDeps/sheets.ts",
     ]) {
       expect(names).toContain(expected);
     }
