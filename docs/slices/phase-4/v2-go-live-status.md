@@ -17,6 +17,15 @@
 | Env switch | ✅ completed — Production `NEXT_PUBLIC_SUPABASE_URL` / `_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` repointed to the V2 project; `TOKEN_ENCRYPTION_KEY` / `OAUTH_STATE_SIGNING_KEY` / `CRON_SECRET` set to match `ChainReactV2/.env.local` |
 | V1 preserved | `origin/main`, `origin/v1-main-archive`, tag `v1-main-archive-2026-06-09`, and the V1 DB `xzwsdwllmrnrgbltibxt` — **all intact, nothing wiped** |
 
+> **Anonymous AI planning signing key (REACT-LIVE-SKELETON-3, hardening 2026-06-23).** The public
+> `/api/ai/anonymous-workflow-guidance` route signs its per-browser limit cookie with
+> `ANON_AI_LIMIT_SIGNING_KEY`, falling back to `OAUTH_STATE_SIGNING_KEY`. **Production must have one of
+> these set** — otherwise the route fails closed (typed `unavailable` + sign-up CTA, no model call)
+> rather than emit an unsigned/forgeable cap. The current prod env already sets
+> `OAUTH_STATE_SIGNING_KEY` (see the Env switch row above), so anonymous AI planning is signed and live
+> via the fallback; set `ANON_AI_LIMIT_SIGNING_KEY` on Vercel if/when the two keys should be rotated
+> independently. No DB/KV is involved (best-effort cookie + per-instance IP backstop).
+
 ## Smoke test result
 
 ### ✅ Verified — automated, read-only (run this session against `https://chainreact.app`)

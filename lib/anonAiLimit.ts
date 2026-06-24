@@ -7,13 +7,21 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * KV available (and no migration this slice), the limit is enforced two ways, both best-effort and
  * honestly weak:
  *
- *   1. PRIMARY — a server-set, HttpOnly, day-bucketed cookie carrying the count, HMAC-SIGNED with the
- *      same key class as OAuth state (`OAUTH_STATE_SIGNING_KEY`). The client cannot forge a higher
- *      allowance (a tampered/invalid cookie reads as 0 → a FRESH allowance, never an inflated one).
- *      Stateless → works across instances. Inherent bypass: clearing cookies grants a fresh window —
- *      acceptable for an anonymous, no-account preview, and bounded by (2).
+ *   1. PRIMARY — a server-set, HttpOnly, day-bucketed cookie carrying the count, HMAC-SIGNED. The
+ *      signing key is `ANON_AI_LIMIT_SIGNING_KEY` if set, else the established `OAUTH_STATE_SIGNING_KEY`
+ *      (same HMAC key class; the cookie carries no secret, only count + day + signature). The client
+ *      cannot forge a count (a tampered/invalid cookie reads as 0 → a FRESH allowance, never an inflated
+ *      one). Stateless → works across instances. Inherent bypass: clearing cookies grants a fresh window
+ *      — acceptable for an anonymous, no-account preview, and bounded by (2).
  *   2. BACKSTOP — a per-instance, in-memory IP/day soft cap. Catches naive cookie-clear loops from one
  *      IP. Per-instance only (resets on deploy; multi-instance dilutes it). Not a hard guarantee.
+ *
+ * PRODUCTION REQUIRES A SIGNING KEY. Without one the cookie would be UNSIGNED and therefore forgeable —
+ * a visitor could pin their count at 0 and get unlimited free model-backed planning. So in production,
+ * with no key configured, anonymous AI planning is unavailable (the route fails closed; see
+ * `isAnonAiPlanningAvailable`) rather than emitting an unsigned cap or running uncapped. In dev/test an
+ * unsigned cookie is acceptable (no real abuse surface, zero-config local setup) — tests assert this is
+ * non-production-only behavior.
  *
  * Honest weakness: neither is durable/cross-instance-perfect without a shared store. This is the safest
  * no-infra mechanism; a durable KV-backed limit is the follow-up. No secrets/PII are stored; the
@@ -47,6 +55,28 @@ function getSigningKey(): Buffer | null {
   }
 }
 
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+/** True when a usable signing key is configured (cap cookies will be HMAC-signed). */
+export function isAnonAiLimitSigned(): boolean {
+  return getSigningKey() !== null;
+}
+
+/**
+ * Whether anonymous AI planning may run in the current environment.
+ *
+ * Production REQUIRES a signing key — an unsigned limit cookie is forgeable (a visitor could pin their
+ * count at 0 forever and get unlimited free model-backed planning), so we refuse to run rather than emit
+ * an unsigned cap or run uncapped. In dev/test an unsigned cookie is acceptable, so planning is always
+ * available there. The route calls this BEFORE reading the cookie / parsing the body / calling the model
+ * and fails closed when it returns false — no model call, no cookie, no attempt consumed.
+ */
+export function isAnonAiPlanningAvailable(): boolean {
+  return isAnonAiLimitSigned() || !isProductionRuntime();
+}
+
 function sign(count: number, day: number, key: Buffer): string {
   return createHmac("sha256", key).update(`${DOMAIN_PREFIX}:${count}:${day}`).digest("base64url");
 }
@@ -64,7 +94,8 @@ function readCookie(cookieHeader: string | null, name: string): string | null {
 /**
  * The consumed-attempt count from the signed cookie for TODAY. Returns 0 for absent / malformed /
  * tampered / stale-day cookies (a fresh allowance — never an inflated one). When no signing key is
- * configured, the count is read unsigned (documented weakness; the IP backstop still applies).
+ * configured the count is read unsigned — a dev/test-only path; in production the route refuses to run
+ * without a key (`isAnonAiPlanningAvailable`), so this is never reached unsigned in prod.
  */
 export function readAnonAiCount(cookieHeader: string | null, now: number): number {
   const value = readCookie(cookieHeader, ANON_AI_COOKIE_NAME);
@@ -93,7 +124,14 @@ export function readAnonAiCount(cookieHeader: string | null, now: number): numbe
 export function serializeAnonAiCookieValue(count: number, now: number): string {
   const day = dayBucket(now);
   const key = getSigningKey();
-  return key ? `${count}.${day}.${sign(count, day, key)}` : `${count}.${day}`;
+  if (key) return `${count}.${day}.${sign(count, day, key)}`;
+  // Defense in depth: the route gates on isAnonAiPlanningAvailable() before reaching here, so an
+  // unsigned (forgeable) cap cookie can never be emitted in production. If that gate were ever
+  // bypassed, fail loudly rather than silently hand out an unsigned allowance.
+  if (isProductionRuntime()) {
+    throw new Error("Refusing to emit an unsigned anonymous-AI limit cookie in production.");
+  }
+  return `${count}.${day}`;
 }
 
 /** Standard cookie options for the anon-AI counter (HttpOnly so browser JS can't read/forge it). */

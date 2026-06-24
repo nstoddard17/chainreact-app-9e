@@ -63,6 +63,28 @@ describe("AnonymousAgentRail — limited anonymous AI planning", () => {
     );
   });
 
+  it("shows a safe 'temporarily unavailable' message (not the used-up copy) when planning is unavailable", async () => {
+    mockGuidance.mockResolvedValue(
+      ok({
+        workflowPlan: null,
+        previewDraft: null,
+        remainingAnonymousAttempts: 0,
+        limitReached: true,
+        unavailable: true,
+        guidanceText: "Free anonymous previews aren't available right now.",
+      }),
+    );
+    render(<AnonymousAgentRail prompt="plan it" onShowPreview={jest.fn()} />);
+    // Composer locks + sign-up CTA shows, exactly like the limit path...
+    expect(await screen.findByTestId("anonymous-agent-rail-limit")).toBeInTheDocument();
+    expect(screen.queryByTestId("anonymous-agent-rail-prompt")).toBeNull();
+    expect(screen.getByTestId("anonymous-agent-rail-signup")).toBeInTheDocument();
+    // ...but the message is the honest "unavailable" one, NOT "you've used your previews".
+    const msg = screen.getByTestId("anonymous-agent-rail-unavailable");
+    expect(msg).toHaveTextContent(/aren't available right now/i);
+    expect(screen.queryByText(/used the free workflow previews/i)).toBeNull();
+  });
+
   it("renders the assistant reply (and warnings) without an overlay when no plan is returned", async () => {
     mockGuidance.mockResolvedValue(ok({ workflowPlan: null, previewDraft: null, warnings: ["Mailchimp has no send-campaign action yet."], guidanceText: "I can tag but not send." }));
     const onShowPreview = jest.fn();

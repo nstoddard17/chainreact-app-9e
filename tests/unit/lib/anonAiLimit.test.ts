@@ -11,6 +11,8 @@ import {
   __resetIpSoftCapForTests,
   anonAiCookieOptions,
   ipSoftCapReached,
+  isAnonAiLimitSigned,
+  isAnonAiPlanningAvailable,
   readAnonAiCount,
   recordIpHit,
   serializeAnonAiCookieValue,
@@ -79,12 +81,69 @@ describe("anonAiLimit — IP soft cap (per-instance backstop)", () => {
   });
 });
 
-describe("anonAiLimit — unsigned fallback when no key", () => {
-  it("still reads the count when no signing key is configured (documented weakness)", () => {
+describe("anonAiLimit — unsigned fallback when no key (dev/test only)", () => {
+  it("still reads the count when no signing key is configured, in non-production (documented weakness)", () => {
+    process.env = { ...ORIGINAL_ENV, NODE_ENV: "test" }; // explicitly NON-production, no signing key
     delete process.env.OAUTH_STATE_SIGNING_KEY;
     delete process.env.ANON_AI_LIMIT_SIGNING_KEY;
+    expect(isAnonAiLimitSigned()).toBe(false);
+    expect(isAnonAiPlanningAvailable()).toBe(true); // dev/test is allowed to run unsigned
     const value = serializeAnonAiCookieValue(2, NOW); // unsigned: "2.<day>"
     expect(value.split(".")).toHaveLength(2);
     expect(readAnonAiCount(`${ANON_AI_COOKIE_NAME}=${value}`, NOW)).toBe(2);
+  });
+});
+
+describe("anonAiLimit — production signing requirement", () => {
+  it("production with NO signing key: planning unavailable + serialize refuses (no unsigned cookie)", () => {
+    process.env = { ...ORIGINAL_ENV, NODE_ENV: "production" };
+    delete process.env.OAUTH_STATE_SIGNING_KEY;
+    delete process.env.ANON_AI_LIMIT_SIGNING_KEY;
+    expect(isAnonAiLimitSigned()).toBe(false);
+    expect(isAnonAiPlanningAvailable()).toBe(false); // fail closed in prod
+    // Defense in depth: even if a caller reached serialize, it must not emit an unsigned cookie in prod.
+    expect(() => serializeAnonAiCookieValue(1, NOW)).toThrow(/unsigned/i);
+  });
+
+  it("production WITH ANON_AI_LIMIT_SIGNING_KEY: available + signs/verifies normally", () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      NODE_ENV: "production",
+      ANON_AI_LIMIT_SIGNING_KEY: Buffer.from("fedcba9876543210fedcba9876543210").toString("base64"),
+    };
+    delete process.env.OAUTH_STATE_SIGNING_KEY;
+    expect(isAnonAiLimitSigned()).toBe(true);
+    expect(isAnonAiPlanningAvailable()).toBe(true);
+    const value = serializeAnonAiCookieValue(2, NOW); // signed: "2.<day>.<sig>"
+    expect(value.split(".")).toHaveLength(3);
+    expect(readAnonAiCount(`${ANON_AI_COOKIE_NAME}=${value}`, NOW)).toBe(2);
+  });
+
+  it("prefers ANON_AI_LIMIT_SIGNING_KEY over OAUTH_STATE_SIGNING_KEY (different keys → cross-verify fails)", () => {
+    // A cookie signed under ANON_AI_LIMIT_SIGNING_KEY must NOT verify once only OAUTH_STATE_SIGNING_KEY
+    // is present — proving the primary key is the one actually used when set.
+    process.env = {
+      ...ORIGINAL_ENV,
+      ANON_AI_LIMIT_SIGNING_KEY: Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").toString("base64"),
+      OAUTH_STATE_SIGNING_KEY: Buffer.from("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").toString("base64"),
+    };
+    const signedUnderPrimary = serializeAnonAiCookieValue(2, NOW);
+    expect(readAnonAiCount(`${ANON_AI_COOKIE_NAME}=${signedUnderPrimary}`, NOW)).toBe(2);
+    delete process.env.ANON_AI_LIMIT_SIGNING_KEY; // now only the fallback key remains
+    expect(readAnonAiCount(`${ANON_AI_COOKIE_NAME}=${signedUnderPrimary}`, NOW)).toBe(0); // bad sig → fresh
+  });
+
+  it("OAUTH_STATE_SIGNING_KEY fallback signs/verifies when the primary key is absent", () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      NODE_ENV: "production",
+      OAUTH_STATE_SIGNING_KEY: Buffer.from("0123456789abcdef0123456789abcdef").toString("base64"),
+    };
+    delete process.env.ANON_AI_LIMIT_SIGNING_KEY;
+    expect(isAnonAiLimitSigned()).toBe(true);
+    expect(isAnonAiPlanningAvailable()).toBe(true);
+    const value = serializeAnonAiCookieValue(1, NOW);
+    expect(value.split(".")).toHaveLength(3);
+    expect(readAnonAiCount(`${ANON_AI_COOKIE_NAME}=${value}`, NOW)).toBe(1);
   });
 });

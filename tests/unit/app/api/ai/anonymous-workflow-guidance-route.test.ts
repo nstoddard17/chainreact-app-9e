@@ -122,6 +122,50 @@ describe("anonymous guidance route — limit enforcement (server-side)", () => {
   });
 });
 
+describe("anonymous guidance route — production signing-key safety", () => {
+  it("production with NO signing key → typed unavailable, NO model call, NO cookie (no unsigned cap)", async () => {
+    process.env = { ...ORIGINAL_ENV, NODE_ENV: "production" };
+    delete process.env.OAUTH_STATE_SIGNING_KEY;
+    delete process.env.ANON_AI_LIMIT_SIGNING_KEY;
+    const res = await call({ goalText: "when a lead comes in, send a slack message" });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.unavailable).toBe(true);
+    expect(body.limitReached).toBe(true);
+    expect(body.remainingAnonymousAttempts).toBe(0);
+    expect(body.workflowPlan).toBeNull();
+    expect(body.previewDraft).toBeNull();
+    expect(body.guidanceText).toMatch(/create a free account/i);
+    // Fail closed: the model is never called and no (unsigned) cap cookie is emitted.
+    expect(mockRun).not.toHaveBeenCalled();
+    expect(res.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("production WITH ANON_AI_LIMIT_SIGNING_KEY → signs/verifies normally (plan + signed cookie)", async () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      NODE_ENV: "production",
+      ANON_AI_LIMIT_SIGNING_KEY: Buffer.from("fedcba9876543210fedcba9876543210").toString("base64"),
+    };
+    delete process.env.OAUTH_STATE_SIGNING_KEY;
+    const res = await call({ goalText: "when a lead comes in, send a slack message" });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.workflowPlan).toEqual(MODEL_PLAN);
+    expect(body.unavailable).toBeUndefined();
+    expect(body.remainingAnonymousAttempts).toBe(2);
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    const setCookie = res.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain(`${ANON_AI_COOKIE_NAME}=`);
+    expect(setCookie.toLowerCase()).toContain("httponly");
+    expect(setCookie.toLowerCase()).toContain("secure"); // prod → Secure cookie
+    // The emitted cookie is SIGNED (count.day.sig — 3 dot-parts in the value).
+    const value = setCookie.split(";")[0]!.split("=")[1]!;
+    expect(value.split(".")).toHaveLength(3);
+  });
+});
+
 describe("anonymous guidance route — availability + bounds", () => {
   it("gateway unavailable → 503 and consumes NO attempt (no cookie advance)", async () => {
     mockRun.mockResolvedValue({ ok: false, code: "PROVIDER_DISABLED", message: "unavailable" });

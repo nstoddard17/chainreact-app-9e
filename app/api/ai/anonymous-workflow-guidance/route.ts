@@ -11,6 +11,7 @@ import {
   ANON_AI_COOKIE_NAME,
   anonAiCookieOptions,
   ipSoftCapReached,
+  isAnonAiPlanningAvailable,
   readAnonAiCount,
   recordIpHit,
   serializeAnonAiCookieValue,
@@ -66,8 +67,29 @@ function clientIp(request: Request): string {
 const LIMIT_MESSAGE =
   "You've used the free workflow previews. Create a free account to keep building with React Agent — your draft is kept.";
 
+const UNAVAILABLE_MESSAGE =
+  "Free anonymous previews aren't available right now. Create a free account to start building with React Agent.";
+
 export async function POST(request: Request): Promise<Response> {
   const now = Date.now();
+
+  // Fail closed when the per-browser limit cookie cannot be SIGNED. In production a missing signing
+  // key would mean an UNSIGNED (forgeable) cap — a visitor could pin their count at 0 and get unlimited
+  // free model-backed planning. Rather than run uncapped, return a typed unavailable response (rendered
+  // as the sign-up CTA): NO model call, NO cookie set, NO attempt consumed. Dev/test without a key still
+  // runs (unsigned cookie, documented non-prod behavior — see lib/anonAiLimit).
+  if (!isAnonAiPlanningAvailable()) {
+    return NextResponse.json({
+      ok: true,
+      unavailable: true,
+      limitReached: true,
+      remainingAnonymousAttempts: 0,
+      guidanceText: UNAVAILABLE_MESSAGE,
+      workflowPlan: null,
+      previewDraft: null,
+    });
+  }
+
   const ip = clientIp(request);
   const used = readAnonAiCount(request.headers.get("cookie"), now);
 

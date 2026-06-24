@@ -16,6 +16,12 @@ export interface AnonymousGuidanceResponse {
   readonly warnings?: readonly string[];
   readonly remainingAnonymousAttempts: number;
   readonly limitReached: boolean;
+  /**
+   * Anonymous AI planning is temporarily unavailable (e.g. production isn't configured with a limit
+   * signing key, so the route fails closed). The rail treats this like `limitReached` — composer locks,
+   * sign-up CTA shows — but with an "unavailable" rather than "you've used your previews" message.
+   */
+  readonly unavailable: boolean;
 }
 
 export async function requestAnonymousGuidance(input: {
@@ -40,6 +46,7 @@ export async function requestAnonymousGuidance(input: {
       warnings?: readonly string[];
       remainingAnonymousAttempts?: number;
       limitReached?: boolean;
+      unavailable?: boolean;
     };
     if (!body || body.ok !== true) return null;
     return {
@@ -50,6 +57,7 @@ export async function requestAnonymousGuidance(input: {
       remainingAnonymousAttempts:
         typeof body.remainingAnonymousAttempts === "number" ? body.remainingAnonymousAttempts : 0,
       limitReached: body.limitReached === true,
+      unavailable: body.unavailable === true,
     };
   } catch {
     return null;

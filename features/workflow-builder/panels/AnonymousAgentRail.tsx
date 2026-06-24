@@ -51,6 +51,7 @@ export function AnonymousAgentRail({ prompt, onShowPreview, onPromptChange }: Pr
   const [loading, setLoading] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limitReached, setLimitReached] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [copied, setCopied] = useState(false);
   const nextId = useRef(0);
   const seededRef = useRef(false);
@@ -74,6 +75,7 @@ export function AnonymousAgentRail({ prompt, onShowPreview, onPromptChange }: Pr
       }
       setRemaining(result.remainingAnonymousAttempts);
       setLimitReached(result.limitReached);
+      setUnavailable(result.unavailable);
       if (result.limitReached && !result.workflowPlan) {
         setTurns((prev) => [...prev, { id: nextId.current++, role: "assistant", text: result.guidanceText }]);
         return;
@@ -223,10 +225,17 @@ export function AnonymousAgentRail({ prompt, onShowPreview, onPromptChange }: Pr
 
       {limitReached && (
         <div data-testid="anonymous-agent-rail-limit" className="flex flex-col gap-2">
-          <p className="text-[12px]" style={{ color: "var(--builder-muted)" }}>
-            You&apos;ve used the free workflow previews. Create a free account to keep building with
-            React Agent — your draft is kept.
-          </p>
+          {unavailable ? (
+            <p data-testid="anonymous-agent-rail-unavailable" className="text-[12px]" style={{ color: "var(--builder-muted)" }}>
+              Free anonymous previews aren&apos;t available right now. Create a free account to start
+              building with React Agent.
+            </p>
+          ) : (
+            <p className="text-[12px]" style={{ color: "var(--builder-muted)" }}>
+              You&apos;ve used the free workflow previews. Create a free account to keep building with
+              React Agent — your draft is kept.
+            </p>
+          )}
         </div>
       )}
 
