@@ -53,13 +53,15 @@ export const googleSheetsCreateSpreadsheetMeta: ActionMeta = {
       name: "spreadsheetId",
       type: "string",
       description:
-        "Google-assigned spreadsheet id (`1aBc…`). Wire to downstream Append Row / Update Row / Read Rows / etc.",
+        "Google-assigned spreadsheet id (`1aBc…`). Wire to downstream Append Row / Update Row / Read Rows / etc. `null` only if Google omits it (defensive against API drift).",
+      nullable: true,
     },
     {
       name: "spreadsheetUrl",
       type: "string",
       description:
-        "Standard Google Docs share URL (`https://docs.google.com/spreadsheets/d/<id>/edit`). Not access-bearing — recipients still need Google sign-in + share permission. Send via email / Slack to share.",
+        "Standard Google Docs share URL (`https://docs.google.com/spreadsheets/d/<id>/edit`). Not access-bearing — recipients still need Google sign-in + share permission. Send via email / Slack to share. `null` if Google omits it.",
+      nullable: true,
     },
     {
       name: "title",
@@ -77,6 +79,7 @@ export const googleSheetsCreateSpreadsheetMeta: ActionMeta = {
       type: "object",
       description:
         "Convenience scalar — `sheets[0]` or `null`. Wire `{{node.firstSheet.title}}` into a follow-up Append Row's range.",
+      nullable: true,
     },
   ],
   producesFileRef: false,

@@ -1215,3 +1215,77 @@ describe("verify assertions resolve {{ledger.*}} in expected values", () => {
     expect(res.ledger.cleaned).toBe(2);
   });
 });
+
+// ─── cross-provider cleanup guard (crossProviderCleanup) ─────────────────────
+
+describe("cross-provider cleanup must be explicitly declared", () => {
+  // A create whose cleanup runs against a DIFFERENT provider (e.g. a Google Doc
+  // deleted via google-drive:delete_file). fixture.provider = "acme".
+  function crossSpec(over: Partial<WriteHarnessSpec> = {}): WriteHarnessSpec {
+    return {
+      liveClass: "destructiveSafe",
+      smokeMarker: "crsmoke-",
+      captureResource: { resourceKey: "doc", idPath: "id", kind: "document" },
+      cleanupKind: "delete",
+      cleanup: { provider: "other", action: "delete_file", config: { fileId: "{{ledger.doc.id}}" } },
+      ...over,
+    };
+  }
+
+  it("REFUSES a cross-provider cleanup when crossProviderCleanup is not set (never runs the delete)", async () => {
+    const deps = fakeDeps({
+      "acme:create_thing": { ok: true, output: { id: "D1" }, reason: null },
+      "other:delete_file": { ok: true, output: null, reason: null },
+    });
+    const res = await runWriteSmoke(fixture("create_thing", crossSpec()), RUN, deps);
+    expect(res.status).toBe("CLEANUP_FAILED");
+    expect(res.phases.find((p) => p.phase === "cleanup")?.reason).toMatch(/cross-provider cleanup not declared/i);
+    expect(deps.calls.some((c) => c.action === "delete_file")).toBe(false); // never dispatched
+    expect(res.ledger.leaked).toBe(1); // honest: nothing was cleaned
+  });
+
+  it("ALLOWS a cross-provider cleanup when crossProviderCleanup is true (PASS, cleaned)", async () => {
+    const deps = fakeDeps({
+      "acme:create_thing": { ok: true, output: { id: "D1" }, reason: null },
+      "other:delete_file": { ok: true, output: null, reason: null },
+    });
+    const res = await runWriteSmoke(
+      fixture("create_thing", crossSpec({ crossProviderCleanup: true })),
+      RUN,
+      deps,
+    );
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("cleaned");
+    expect(deps.calls.find((c) => c.action === "delete_file")?.provider).toBe("other");
+    expect(res.ledger.leaked).toBe(0);
+  });
+
+  it("a SAME-provider cleanup is unaffected by the guard (no flag needed)", async () => {
+    const deps = fakeDeps({
+      "acme:create_thing": { ok: true, output: { id: "D1" }, reason: null },
+      "acme:delete_file": { ok: true, output: null, reason: null },
+    });
+    const res = await runWriteSmoke(
+      fixture("create_thing", crossSpec({ cleanup: { provider: "acme", action: "delete_file", config: { fileId: "{{ledger.doc.id}}" } } })),
+      RUN,
+      deps,
+    );
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("cleaned");
+  });
+
+  it("REFUSES cross-provider cleanupEach when the flag is unset", async () => {
+    const deps = fakeDeps({
+      "acme:create_thing": { ok: true, output: { id: "D1" }, reason: null },
+      "other:delete_file": { ok: true, output: null, reason: null },
+    });
+    const spec = crossSpec({
+      cleanup: undefined,
+      cleanupEach: { provider: "other", action: "delete_file", config: { fileId: "{{each.id}}" } },
+    });
+    const res = await runWriteSmoke(fixture("create_thing", spec), RUN, deps);
+    expect(res.status).toBe("CLEANUP_FAILED");
+    expect(deps.calls.some((c) => c.action === "delete_file")).toBe(false);
+    expect(res.ledger.leaked).toBe(1);
+  });
+});

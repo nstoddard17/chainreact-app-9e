@@ -51,6 +51,7 @@ export const googleDocsGetDocumentMeta: ActionMeta = {
       description:
         "Document title at read time. `null` when Docs omits it (unusual; defensive against API drift).",
       sensitive: true,
+      nullable: true,
     },
     {
       name: "content",
@@ -64,6 +65,7 @@ export const googleDocsGetDocumentMeta: ActionMeta = {
       type: "string",
       description:
         "Docs revision id at read time. `null` when Docs omits it. Wire to a downstream `update_document` (future feature) for optimistic-concurrency writes.",
+      nullable: true,
     },
     {
       name: "documentUrl",

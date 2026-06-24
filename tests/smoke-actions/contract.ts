@@ -222,6 +222,24 @@ export interface WriteHarnessSpec {
   readonly cleanupKind?: "delete" | "archive";
   /** billingSensitive only: env var that confirms a test-mode/sandbox account. */
   readonly requiresSandboxEnv?: string;
+  /**
+   * Allow `cleanup` / `cleanupEach` steps whose `provider` differs from the
+   * provider that CREATED the targeted ledger resource — CROSS-PROVIDER cleanup.
+   * Off by default: the harness REFUSES an un-declared cross-provider cleanup so a
+   * typo'd provider can never silently run a destructive call against the wrong API.
+   *
+   * Use ONLY when the created resource genuinely lives in a sibling provider's
+   * namespace within the SAME account family — e.g. a Google Docs document or a
+   * Google Sheets spreadsheet IS a Google Drive file, so its `documentId` /
+   * `spreadsheetId` is a Drive file id and the certified `google-drive:delete_file`
+   * is the correct teardown (neither Docs nor Sheets has its own delete action).
+   * The smoke-owned guard still applies — cleanup may only target a
+   * `{{ledger.<key>.id}}` this run created — so cross-provider cleanup can never
+   * touch a pre-existing foreign file. The ledger records the CREATING provider per
+   * entry; the cleanup step records the cleanup provider, so the disposition stays
+   * honest. See docs/runbooks/action-smoke-cli.md (cross-provider cleanup policy).
+   */
+  readonly crossProviderCleanup?: boolean;
 }
 
 export interface ActionSmokeFixture {

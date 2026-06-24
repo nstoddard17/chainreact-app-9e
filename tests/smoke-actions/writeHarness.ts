@@ -762,6 +762,18 @@ export async function runWriteSmoke(
     const targets = ledger.entries();
     if (targets.length === 0) {
       phases.push({ phase: "cleanup", outcome: "skipped", reason: "no smoke-owned resource to clean" });
+    } else if (
+      spec.crossProviderCleanup !== true &&
+      targets.some((e) => e.provider !== spec.cleanupEach!.provider)
+    ) {
+      // Cross-provider cleanup (the cleanup provider differs from the provider that
+      // CREATED the resource) must be explicitly declared (see crossProviderCleanup).
+      cleanupFailed = true;
+      phases.push({
+        phase: "cleanup",
+        outcome: "failed",
+        reason: "refused — cross-provider cleanup not declared (set crossProviderCleanup)",
+      });
     } else {
       let anyOk = false;
       for (const entry of targets) {
@@ -789,6 +801,20 @@ export async function runWriteSmoke(
     if (ledger.summary().leaked === 0) {
       // Nothing was created (or all already clean) — no cleanup to do.
       phases.push({ phase: "cleanup", outcome: "skipped", reason: "no smoke-owned resource to clean" });
+    } else if (
+      spec.crossProviderCleanup !== true &&
+      ledgerRefsIn(spec.cleanup.config).some(
+        (k) => ledger.get(k)?.provider !== spec.cleanup!.provider,
+      )
+    ) {
+      // Cross-provider cleanup (the cleanup provider differs from the provider that
+      // CREATED the targeted resource) must be explicitly declared (crossProviderCleanup).
+      cleanupFailed = true;
+      phases.push({
+        phase: "cleanup",
+        outcome: "failed",
+        reason: "refused — cross-provider cleanup not declared (set crossProviderCleanup)",
+      });
     } else if (!cleanupTargetsSmokeOwned(spec.cleanup, ledger)) {
       // The smoke-owned guard: refuse to run a destructive step that does not
       // target a resource THIS run created.

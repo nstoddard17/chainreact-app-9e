@@ -45,19 +45,22 @@ export const googleSheetsGetSheetMetadataMeta: ActionMeta = {
     {
       name: "title",
       type: "string",
-      description: "Top-level spreadsheet title (e.g. \"Q4 Forecast\").",
+      description: "Top-level spreadsheet title (e.g. \"Q4 Forecast\"; `null` if Google omits it).",
+      nullable: true,
     },
     {
       name: "locale",
       type: "string",
       description:
-        "Spreadsheet-level locale (e.g. `en_US`). Drives default number / date formatting in the sheet.",
+        "Spreadsheet-level locale (e.g. `en_US`). Drives default number / date formatting in the sheet. `null` if Google omits it.",
+      nullable: true,
     },
     {
       name: "timeZone",
       type: "string",
       description:
-        "Spreadsheet-level IANA time zone (e.g. `America/Los_Angeles`). Drives time-of-day display + `NOW()` evaluation.",
+        "Spreadsheet-level IANA time zone (e.g. `America/Los_Angeles`). Drives time-of-day display + `NOW()` evaluation. `null` if Google omits it.",
+      nullable: true,
     },
     {
       name: "sheets",

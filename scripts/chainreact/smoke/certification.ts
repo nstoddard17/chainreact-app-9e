@@ -310,6 +310,19 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["google-calendar", "update_event"],
     ["google-calendar", "delete_event"],
   ]),
+  // SMOKE-WRITE-23 — Google Docs + Sheets create batch (FIRST cross-provider
+  // cleanup). A Google Doc / Sheet IS a Drive file, so its documentId /
+  // spreadsheetId is a Drive file id and the created artifact is torn down via the
+  // certified google-drive:delete_file (neither Docs nor Sheets has its own delete).
+  // Each: create a marker-titled smoke-owned artifact -> confirm the marker on the
+  // PERSISTED title via an INDEPENDENT get read-back (the create `title` output falls
+  // back to config, so it is never used for verification) -> permanent Drive delete
+  // (true erase). Cross-provider cleanup is declared via crossProviderCleanup (the
+  // harness refuses it otherwise); the smoke-owned guard still applies.
+  ...records("LIVE_PASS_CLEANED", "live write+verify, hard-deleted via cross-provider Drive delete", SMOKE_WRITE_FILE, [
+    ["google-docs", "create_document"],
+    ["google-sheets", "create_spreadsheet"],
+  ]),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────

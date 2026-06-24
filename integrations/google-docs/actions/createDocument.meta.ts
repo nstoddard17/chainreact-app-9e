@@ -105,6 +105,7 @@ export const googleDocsCreateDocumentMeta: ActionMeta = {
       type: "string",
       description:
         "Echoed folder id when placement was requested, `null` otherwise.",
+      nullable: true,
     },
   ],
   producesFileRef: false,

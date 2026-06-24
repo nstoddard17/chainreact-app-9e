@@ -139,6 +139,8 @@ import onedriveUploadFile from "@/tests/fixtures/action-smoke/microsoft-onedrive
 import gcalCreateEvent from "@/tests/fixtures/action-smoke/google-calendar/create_event";
 import gcalUpdateEvent from "@/tests/fixtures/action-smoke/google-calendar/update_event";
 import gcalDeleteEvent from "@/tests/fixtures/action-smoke/google-calendar/delete_event";
+import gdocsCreateDocument from "@/tests/fixtures/action-smoke/google-docs/create_document";
+import gsheetsCreateSpreadsheet from "@/tests/fixtures/action-smoke/google-sheets/create_spreadsheet";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
@@ -276,6 +278,8 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gcalCreateEvent,
   gcalUpdateEvent,
   gcalDeleteEvent,
+  gdocsCreateDocument,
+  gsheetsCreateSpreadsheet,
   notionCreatePage,
   notionUpdatePage,
   notionAppendBlockChildren,

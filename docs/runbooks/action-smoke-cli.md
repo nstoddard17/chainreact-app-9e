@@ -1079,6 +1079,8 @@ running certification record; rows are added as each provider batch lands.
 | `google-calendar:create_event` | create event (primary, no attendees, no-notify) -> events.get (marker on summary) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-calendar:update_event` | create event -> update summary to marker+"updated" -> events.get (marker+"updated" on summary) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-calendar:delete_event` | create event -> **delete_event (action under test)** -> events.get existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `google-docs:create_document` | create doc (marker title) -> get_document (marker on title) -> **google-drive:delete_file (cross-provider, permanent)** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `google-sheets:create_spreadsheet` | create whole spreadsheet (marker title) -> get_sheet_metadata (marker on title) -> **google-drive:delete_file (cross-provider, permanent)** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 
 **Google Drive write coverage (SMOKE-WRITE-17/18) — COMPLETE (4 of 4 write actions).**
 `create_folder`, `upload_file`, `delete_file`, `move_file` all certified. Smoke-owned
@@ -1124,6 +1126,42 @@ fall back to config, so they are never used for verification. Calendar `events.d
 hard erase (gone, not trash/recycle). **Deferred: `add_attendees`** — it generates guest
 invitations (send-like / invite-generating), so it is out of scope for the no-send smoke harness.
 
+**Cross-provider cleanup policy (SMOKE-WRITE-23).** Some providers create a resource that
+genuinely lives in a SIBLING provider's namespace within the SAME account family and have NO
+own delete action. The canonical case: a Google Doc / Google Sheet IS a Google Drive file, so
+its `documentId` / `spreadsheetId` is a Drive file id and the certified
+`google-drive:delete_file` is the correct teardown. The write harness ALLOWS a `cleanup` /
+`cleanupEach` step whose `provider` differs from the fixture's provider ONLY when the fixture
+declares `crossProviderCleanup: true` in its `writeHarness` spec — otherwise the harness REFUSES
+the cleanup (so a typo'd provider can never silently fire a destructive call at the wrong API).
+The smoke-owned guard is unchanged: cleanup may only target a `{{ledger.<key>.id}}` this run
+created, so cross-provider cleanup can NEVER touch a pre-existing foreign file. The ledger records
+the CREATING provider per entry; the cleanup step records the cleanup provider, keeping the
+disposition honest. Enforced in `runWriteSmoke` (both cleanup branches) and covered by
+`write-harness.test.ts` ("cross-provider cleanup must be explicitly declared"). This is an
+EXPLICIT, opt-in mechanism — not an implicit "it happens to work because the harness doesn't
+check provider" hack.
+
+**Google Docs write coverage (SMOKE-WRITE-23) — `create_document` certified.**
+`create_document` is `LIVE_PASS_CLEANED`: create a marker-titled doc in My Drive root -> verify
+the marker on the PERSISTED `title` via an INDEPENDENT `get_document` read-back (the create
+`title` output falls back to config, so it is never used for verification) -> tear down via
+cross-provider `google-drive:delete_file` (permanent). Smoke-owned, hard-deleted. Google Docs has
+no own delete action; the cross-provider policy above is what makes this safe. Deferred:
+`update_document` (same pattern, follow-up), `export_document` (read-ish, no artifact),
+`share_document` (sharing — out of scope).
+
+**Google Sheets write coverage (SMOKE-WRITE-23) — `create_spreadsheet` certified.**
+`create_spreadsheet` is `LIVE_PASS_CLEANED`: create a WHOLE marker-titled spreadsheet -> verify
+the marker on the PERSISTED spreadsheet `title` via an INDEPENDENT `get_sheet_metadata` read-back
+-> tear down via cross-provider `google-drive:delete_file` (permanent). Creating + deleting a
+whole smoke-owned spreadsheet is what makes this safe — it sidesteps the positional-row problem
+entirely. **Still BLOCKED: `append_row` / `update_row` / `update_cell` / `delete_row` / `clear_range`
+/ `format_range` / `batch_update`** — these mutate a SHARED pre-existing sheet, `append_row`
+returns no stable row id, and `delete_row` is positional (by row number) -> cannot prove
+smoke-ownership of exactly what was written. They need an identity-based row API (or a dedicated
+empty smoke tab created + dropped per run) before they are safe.
+
 **Next-cluster safe-write inventory (SMOKE-WRITE-22 audit — no safe cluster this slice).**
 After the file-provider + Calendar batches, the remaining non-send/non-billing candidates
 were each evaluated for a clean create -> independent read-back -> smoke-owned cleanup loop;
@@ -1137,17 +1175,16 @@ none is currently certifiable:
   `NOT_RUN` (the Tier-1 auto-discovery sweep certified other Tier-2 providers' reads but
   none for Monday) -> the smoke account has no usable Monday connection. Also needs a
   smoke/test board target. Revisit once Monday is connected.
-- **Google Sheets — BLOCKED (unsafe cleanup).** A smoke spreadsheet IS configured
-  (`SMOKE_GSHEETS_SPREADSHEET_ID`, reads `LIVE_PASS`), but `append_row` returns only an
-  `updatedRange` string (no stable row id), and `delete_row` deletes by POSITIONAL 1-indexed
-  `rowNumber` -> a positional delete on a shared sheet cannot be proven smoke-owned (risks a
-  pre-existing row). Needs append to surface the new row number + an identity-based delete (or
-  a dedicated empty smoke tab) before it is safe.
-- **Google Docs — DEFERRED (no own delete).** `create_document` + `get_document` give a clean
-  create + independent read-back, but Docs has NO own delete action; the only cleanup is
-  cross-provider `google-drive:delete_file` (a Doc's `documentId` IS its Drive file id). That
-  cross-provider cleanup pattern is viable but new; defer to a dedicated slice that decides
-  whether to adopt it. `share_document` is out of scope (sharing).
+- **Google Sheets — RESOLVED in SMOKE-WRITE-23 (`create_spreadsheet` certified).** The
+  whole-spreadsheet create + cross-provider Drive delete sidesteps the positional-row problem.
+  The row-level mutators (`append_row` / `update_row` / `update_cell` / `delete_row` /
+  `clear_range` / `format_range` / `batch_update`) remain BLOCKED — they mutate a SHARED sheet,
+  `append_row` returns no stable row id, and `delete_row` is positional. See the Google Sheets
+  write-coverage note above.
+- **Google Docs — RESOLVED in SMOKE-WRITE-23 (`create_document` certified).** The cross-provider
+  cleanup policy was adopted (a Doc's `documentId` IS its Drive file id, torn down via the
+  certified `google-drive:delete_file`). See the cross-provider cleanup policy + Google Docs
+  write-coverage notes above. `share_document` stays out of scope (sharing).
 - **Mailchimp — BLOCKED (contacting/heavy-artifact risk).** `add_subscriber` touches a real
   audience member; `create_audience`/`create_segment` create heavy artifacts with no safe
   registered cleanup. No create -> verify -> delete loop without subscriber-contact or
