@@ -84,6 +84,14 @@ const KNOWN_NODES = new Set([
   "notion/create_page",
   "notion/create_database_entry",
   "shopify/add_order_note",
+  // batch 3 additions
+  "google-sheets/row_changed",
+  "mailchimp/subscriber_added_to_segment",
+  "airtable/record_changed",
+  "monday/create_item",
+  "airtable/create_record",
+  "microsoft-outlook/create_draft_email",
+  "google-analytics/run_report",
 ]);
 
 // Extract every '{...}'::jsonb definition literal across all seed files.
@@ -103,8 +111,8 @@ describe("CS-XT-8A — official template seed (static guards)", () => {
     }
   });
 
-  it("seeds the full official catalog (≥50 templates) with unique ids", () => {
-    expect(definitions.length).toBeGreaterThanOrEqual(50);
+  it("seeds the full official catalog (≥75 templates) with unique ids", () => {
+    expect(definitions.length).toBeGreaterThanOrEqual(75);
     // every row is official / public with a safe attribution + no account/author id.
     const officials = code.match(/'official'/g) ?? [];
     expect(officials.length).toBe(definitions.length);

@@ -115,7 +115,7 @@ describe("createWorkflowFromTemplate (use)", () => {
   });
 
   it("EVERY seeded official template → instantiates a workflow with NO credentials / account values", async () => {
-    expect(SEED_DEFINITIONS.length).toBeGreaterThanOrEqual(50);
+    expect(SEED_DEFINITIONS.length).toBeGreaterThanOrEqual(75);
     for (const def of SEED_DEFINITIONS) {
       jest.clearAllMocks();
       mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
