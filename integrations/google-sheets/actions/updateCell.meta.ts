@@ -119,7 +119,8 @@ export const googleSheetsUpdateCellMeta: ActionMeta = {
     {
       name: "updatedRange",
       type: "string",
-      description: "A1 range Google wrote (e.g. `Sheet1!B5`).",
+      description: "A1 range Google wrote (e.g. `Sheet1!B5`), or null when Google omits it.",
+      nullable: true,
     },
     {
       name: "updatedCells",

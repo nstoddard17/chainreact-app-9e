@@ -33,6 +33,7 @@ const LIVE = "2026-06-20";
 const LIVE_AUTODISCOVERY = "2026-06-21";
 const SMOKE_WRITE = "2026-06-22";
 const SMOKE_WRITE_FILE = "2026-06-23";
+const SMOKE_WRITE_SHEETS = "2026-06-24";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -340,5 +341,28 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // MISSING_FIXTURE; see docs/runbooks/action-smoke-cli.md (OneDrive write coverage).
   ...records("LIVE_PASS_CLEANED", "live setup+move/rename+verify, items deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_FILE, [
     ["microsoft-onedrive", "move_item"],
+  ]),
+  // SMOKE-WRITE-27 — Google Sheets row/range mutators inside a SAME-RUN smoke-owned
+  // spreadsheet. Each fixture's setup creates a WHOLE smoke spreadsheet with a PINNED
+  // first-sheet name ("Data") so cell addresses are deterministic and never depend on
+  // Google's localized default, then mutates ONLY that sheet — never a pre-existing /
+  // shared sheet, no positional ambiguity. Verified by an INDEPENDENT get_cell_value
+  // read-back of the LIVE cell `value` (the handlers' updated/updatedRange are echoes,
+  // never trusted), with a marker suffix proving the SPECIFIC written value:
+  //   - update_cell: write Data!A1=<marker>cell (RAW) -> read A1 == "<marker>cell".
+  //   - append_row: append [<marker>row,...] to the EMPTY sheet (lands at row 1) ->
+  //     read A1 == "<marker>row".
+  //   - update_row: SEED A1=<marker>seed, overwrite A1:B1=<marker>updated -> read
+  //     A1 == "<marker>updated" (the seed would fail the "updated" suffix, proving the
+  //     overwrite actually landed).
+  // Cleanup is a CROSS-PROVIDER google-drive:delete_file (permanent) of the WHOLE
+  // spreadsheet — a spreadsheetId IS a Drive file id, and Sheets has no own delete.
+  // The whole artifact is a TRUE erase (gone, not trash) -> LIVE_PASS_CLEANED.
+  // Verified live end-to-end (0 leaked). The create_spreadsheet + Drive-delete
+  // pattern (SMOKE-WRITE-23) is what unblocks the previously-deferred row mutators.
+  ...records("LIVE_PASS_CLEANED", "live create-sheet + mutate + independent read-back, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS, [
+    ["google-sheets", "update_cell"],
+    ["google-sheets", "append_row"],
+    ["google-sheets", "update_row"],
   ]),
 ];

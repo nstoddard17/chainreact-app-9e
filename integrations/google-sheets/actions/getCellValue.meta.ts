@@ -82,6 +82,7 @@ export const googleSheetsGetCellValueMeta: ActionMeta = {
       description:
         "The cell's value as Google returned it (string / number / boolean), or `null` when the cell is blank. Marked sensitive — workflows frequently store PII / financial data in sheet cells.",
       sensitive: true,
+      nullable: true,
     },
   ],
   producesFileRef: false,

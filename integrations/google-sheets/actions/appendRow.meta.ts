@@ -126,13 +126,15 @@ export const googleSheetsAppendRowMeta: ActionMeta = {
       name: "tableRange",
       type: "string",
       description:
-        "A1 range Google identified as the existing table (the data block Sheets appended below). Useful for debugging append placement.",
+        "A1 range Google identified as the existing table (the data block Sheets appended below), or null when there is no existing table (e.g. an empty sheet). Useful for debugging append placement.",
+      nullable: true,
     },
     {
       name: "updatedRange",
       type: "string",
       description:
-        "A1 range of the cells Google wrote (e.g. `Sheet1!A42:D42`). Wire downstream when you need to know exactly where the new row landed.",
+        "A1 range of the cells Google wrote (e.g. `Sheet1!A42:D42`), or null when Google omits it. Wire downstream when you need to know exactly where the new row landed.",
+      nullable: true,
     },
     {
       name: "updatedRows",
