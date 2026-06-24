@@ -400,4 +400,19 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live create-sheet + seed + format + independent bounded format read-back, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS, [
     ["google-sheets", "format_range"],
   ]),
+  // SMOKE-WRITE-30 — Google Sheets batch_update. NOT a raw/arbitrary requests[]
+  // passthrough (V1's raw mode is rejected at parse time) — it is a TYPED multi-range
+  // VALUE write (spreadsheets.values.batchUpdate, updates: Array<{range, values}>). So
+  // the narrowest deterministic request — ONE entry writing ONE cell — is an
+  // update_cell shaped through the batch path and is verified the same way: setup
+  // creates a WHOLE smoke spreadsheet (pinned "Data", starts EMPTY so A1 is blank),
+  // execute writes "<marker>batch" to the single cell Data!A1 (RAW), then an INDEPENDENT
+  // get_cell_value read-back confirms the marker on the live A1 value (the handler's
+  // responses/totalUpdated counters are echoes, never trusted; only our write could
+  // place the unique marker in a fresh sheet). Cleanup is the same CROSS-PROVIDER
+  // google-drive:delete_file (permanent) of the whole spreadsheet -> TRUE erase ->
+  // LIVE_PASS_CLEANED. Verified live end-to-end (0 leaked).
+  ...records("LIVE_PASS_CLEANED", "live create-sheet + one-cell batch write + independent value read-back, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS, [
+    ["google-sheets", "batch_update"],
+  ]),
 ];

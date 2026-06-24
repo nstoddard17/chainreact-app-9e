@@ -105,7 +105,18 @@ export const googleSheetsBatchUpdateMeta: ActionMeta = {
       name: "responses",
       type: "array",
       description:
-        "Per-update structural counters: `[{updatedRange, updatedRows, updatedColumns, updatedCells}]`. Order matches the input `updates[]` array.",
+        "Per-update structural counters, one entry per input `updates[]` (same order).",
+      fields: [
+        {
+          name: "updatedRange",
+          type: "string",
+          description: "A1 range Google wrote for this entry, or null when Google omits it.",
+          nullable: true,
+        },
+        { name: "updatedRows", type: "number", description: "Rows written for this entry." },
+        { name: "updatedColumns", type: "number", description: "Distinct columns written for this entry." },
+        { name: "updatedCells", type: "number", description: "Cells written for this entry." },
+      ],
     },
   ],
   producesFileRef: false,
