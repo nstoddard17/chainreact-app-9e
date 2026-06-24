@@ -379,17 +379,19 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
 All three Drive fixtures are read-only and metadata-only (no content download, no FileRef,
 no bytes). Point the ids at a **dedicated smoke Drive** you control.
 
-**Google Drive actions still uncovered / deferred (3 covered of 7 registered):**
+**Google Drive coverage — COMPLETE (7 of 7 registered actions live-certified):**
 
-- The 3 covered actions are all read-only (`list_files`, `get_file_metadata`,
-  `search_files`). `get_file_metadata` + `search_files` were added in Slice
-  4.GDRIVE-READ-2 (reuse the existing `filesGet` / `filesList` wrappers; metadata-only,
-  bounded/projected output — no raw provider response, owners, bytes, base64, or signed
-  URLs; `webViewLink` is an auth-gated deeplink, not a signed URL).
-- The remaining 4 registered actions are **writes / destructive** and are out of scope
-  for read-only batches: `upload_file`, `create_folder`, `move_file` (writes) and
-  `delete_file` (destructive — never `liveSafe`). They are deferred for the same
-  no-safe-cleanup reason as the Slack / Airtable / Sheets writes.
+- The 3 read-only actions (`list_files`, `get_file_metadata`, `search_files`) are
+  `LIVE_PASS`. `get_file_metadata` + `search_files` were added in Slice 4.GDRIVE-READ-2
+  (reuse the existing `filesGet` / `filesList` wrappers; metadata-only, bounded/projected
+  output — no raw provider response, owners, bytes, base64, or signed URLs;
+  `webViewLink` is an auth-gated deeplink, not a signed URL).
+- The 4 write/destructive actions (`create_folder`, `upload_file`, `move_file`,
+  `delete_file`) are `LIVE_PASS_CLEANED` via the WRITE harness (SMOKE-WRITE-17/18; durable
+  cert rows reconciled in SMOKE-WRITE-AUDIT). Each is smoke-owned (My Drive root, no target
+  discovery), verified by an INDEPENDENT `get_file_metadata` read-back, and the created
+  object(s) are PERMANENTLY deleted (true erase via `permanent:true`). See the write-cert
+  table below.
 - Not yet built (would need their own provider-action slice): a `list_folder_contents`
   variant beyond `list_files`'s folder filter, and a read-only permissions/sharing list.
 
@@ -1068,6 +1070,12 @@ running certification record; rows are added as each provider batch lands.
 | `google-drive:upload_file` | upload inline file (root) -> get_file_metadata (marker on name) -> **permanent delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `google-drive:delete_file` | create folder -> **delete (trash)** -> get_file_metadata (trashed == true) -> **permanent delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `google-drive:move_file` | create target folder + upload movable file -> move file into target -> get_file_metadata (marker on name + parents contains target) -> **permanent-delete both** | both deleted | `LIVE_PASS_CLEANED` |
+| `dropbox:create_folder` | create folder (root) -> get_file_metadata (marker on name + isFolder) -> **delete** | deleted to trash (recoverable ~30d) | `LIVE_PASS_CLEANED` |
+| `dropbox:delete_file` | create folder -> **delete (action under test)** -> path_metadata existence probe (exists == false) | deleted to trash (recoverable ~30d) | `LIVE_PASS_CLEANED` |
+| `dropbox:upload_file` | upload staged file (v2_storage FileRef) -> get_file_metadata (marker on name + isFolder == false) -> **delete** | deleted to trash (recoverable ~30d) | `LIVE_PASS_CLEANED` |
+| `microsoft-onedrive:create_folder` | create folder (root) -> get_file (marker on name + kind == folder) -> **delete** | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
+| `microsoft-onedrive:delete_item` | create folder -> **delete (action under test)** -> item_metadata existence probe (exists == false) | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
+| `microsoft-onedrive:upload_file` | upload inline file (root) -> get_file (marker on name + kind == file) -> **delete** | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 
 **Google Drive write coverage (SMOKE-WRITE-17/18) — COMPLETE (4 of 4 write actions).**
 `create_folder`, `upload_file`, `delete_file`, `move_file` all certified. Smoke-owned
@@ -1080,15 +1088,25 @@ uses inline `content` (no FileRef/staging). SMOKE-WRITE-18 added `parents` to
 resolution in verify assertions (so an assertion can compare against a captured id,
 e.g. the move target), and used `cleanupEach` to delete both smoke resources.
 
-**Next file-provider cluster — Dropbox + OneDrive (inspected, certifiable, deferred).**
-Both expose registered create/read/delete actions that need NO harness/code changes:
-- Dropbox: `create_folder` (path) -> `get_file_metadata` (marker on `name`) ->
-  `delete_file` (path). Capture the path as the ledger id; delete by path.
-- OneDrive: `create_folder` (name, root) -> `get_file` (marker on `name`,
-  `itemId`) -> `delete_item` (itemId). create_folder's `name` output falls back to
-  config -> verify via independent `get_file`.
-Deferred to the next slice (this slice changed Drive code; per the sweep rule
-Dropbox/OneDrive fixtures wait for a code-change-free slice).
+**Dropbox write coverage (SMOKE-WRITE-19/20) — COMPLETE (3 of 3 currently-safe write actions).**
+`create_folder`, `delete_file`, `upload_file` all `LIVE_PASS_CLEANED`. Smoke-owned at the
+Dropbox root, verified by INDEPENDENT read-back (`get_file_metadata` marker on `name` +
+`isFolder`; for `delete_file` a smoke-only `path_metadata` existence probe asserting
+`exists == false`, mapping a TYPED `NotFoundError` so a permission error never reads as
+deleted). `upload_file` consumes a FileRef, so bytes are staged in OUR `workflow-files`
+bucket as a `v2_storage` FileRef (self-contained — never an invented URL). HONESTY: Dropbox
+`delete` moves to TRASH (recoverable ~30d); the object leaves the active namespace so it is
+reported `cleaned`, with reversibility disclosed. Deferred: `copy_file`, `move_file`,
+`download_file`, `get_temporary_link`, `create_shared_link` (sharing/link actions are out of
+scope; copy/move/download need their own verified batch).
+
+**OneDrive write coverage (SMOKE-WRITE-19/20) — COMPLETE (3 of 3 currently-safe write actions).**
+`create_folder`, `delete_item`, `upload_file` all `LIVE_PASS_CLEANED`. Smoke-owned at the
+drive root, verified by INDEPENDENT read-back (`get_file` marker on `name` + `kind`; for
+`delete_item` a smoke-only `item_metadata` probe asserting `exists == false` via a typed 404
+`NotFoundError`). `upload_file` takes INLINE content (utf8/base64) — no FileRef, no staging.
+HONESTY: OneDrive `delete_item` moves to the RECYCLE BIN (recoverable); reported `cleaned`
+with reversibility disclosed. Deferred: `copy_item`, `move_item` (need their own batch).
 
 **Remaining Trello / Notion write actions — DEFERRED (exact blockers, SMOKE-WRITE-16).**
 Every registered Trello/Notion write action NOT in the matrix above is blocked by a

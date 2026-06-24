@@ -245,6 +245,21 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live write + independent comment read-back, archived", SMOKE_WRITE, [
     ["trello", "add_comment"],
   ]),
+  // SMOKE-WRITE-17/18 — Google Drive write batch. Fixtures + the runbook write-cert
+  // table landed in those slices, but the durable CERTIFICATIONS rows were missed;
+  // the SMOKE-WRITE-AUDIT slice re-ran all 4 LIVE end-to-end and records them here so
+  // the matrix matches reality (was: NOT_RUN). Each creates a marker-named smoke-owned
+  // Drive object, confirms it on an INDEPENDENT get_file_metadata read-back (marker on
+  // `name`; `trashed==true` for delete_file's trash side effect; `parents` contains the
+  // target for move_file), then PERMANENTLY deletes every created object (true erase,
+  // not trash — Drive's delete_file supports permanent:true). Smoke-owned throughout
+  // (My Drive root, no target discovery).
+  ...records("LIVE_PASS_CLEANED", "live write+verify, object permanently deleted", SMOKE_WRITE_FILE, [
+    ["google-drive", "create_folder"],
+    ["google-drive", "upload_file"],
+    ["google-drive", "delete_file"],
+    ["google-drive", "move_file"],
+  ]),
   // SMOKE-WRITE-19 — Dropbox + OneDrive file-provider batch. Each created one
   // marker-named smoke-owned folder at the provider root, confirmed it on an
   // INDEPENDENT read-back, then deleted exactly that folder. Object removed from
@@ -280,6 +295,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ]),
   ...records("LIVE_PASS_CLEANED", "live upload+verify, deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_FILE, [
     ["microsoft-onedrive", "upload_file"],
+  ]),
+  // SMOKE-WRITE-21 — Google Calendar create/update/delete batch. Each creates a
+  // marker-titled smoke-owned event on the PRIMARY calendar with NO attendees +
+  // sendNotifications:"none" (zero invites/notifications leave the account), confirms
+  // it on an INDEPENDENT events.get read-back (marker on the persisted `summary`;
+  // update requires the "updated" suffix so a no-op patch fails; delete asserts
+  // exists==false via a typed 404 OR status=="cancelled"), then HARD-deletes the
+  // event (events.delete is a true erase — gone, NOT trash/recycle). Smoke-owned
+  // throughout (primary calendar, no target discovery). The events.get smoke reader
+  // is bounded (exists + summary + status) + refresh-safe.
+  ...records("LIVE_PASS_CLEANED", "live write+verify, event hard-deleted (true erase)", SMOKE_WRITE_FILE, [
+    ["google-calendar", "create_event"],
+    ["google-calendar", "update_event"],
+    ["google-calendar", "delete_event"],
   ]),
 ];
 

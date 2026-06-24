@@ -48,6 +48,8 @@ import { normalizeDropboxEntry } from "@/integrations/_shared/dropbox/api/_types
 import { NotFoundError as DropboxNotFoundError } from "@/integrations/_shared/dropbox/errors";
 import { driveItemsGet } from "@/integrations/microsoft-onedrive/api/driveItemsGet";
 import { NotFoundError as GraphNotFoundError } from "@/integrations/_shared/microsoft/api/errors";
+import { eventsGet } from "@/integrations/google-calendar/api/eventsGet";
+import { NotFoundError as CalendarNotFoundError } from "@/integrations/google-calendar/api/errors";
 import { WORKFLOW_FILES_BUCKET } from "@/core/files/fetchFileBytes";
 import { search as notionSearch, type SearchHit } from "@/integrations/notion/api/search";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
@@ -672,6 +674,45 @@ export function makeRealWriteHarnessDeps(
             };
           } catch (err) {
             if (err instanceof GraphNotFoundError) {
+              return { ok: true, output: { exists: false }, reason: null };
+            }
+            throw err;
+          }
+        }
+        if (input.provider === "google-calendar" && input.action === "events_get") {
+          const integration = await getActiveForExecution(accountId, "google-calendar", null, {
+            connectedByUserId: userId,
+          });
+          if (!integration) return { ok: false, output: null, reason: "google-calendar not connected" };
+          const eventId = input.config.eventId;
+          const calendarId =
+            typeof input.config.calendarId === "string" && input.config.calendarId
+              ? input.config.calendarId
+              : "primary";
+          if (typeof eventId !== "string" || eventId.length === 0) {
+            return { ok: false, output: null, reason: "events_get read-back: missing eventId" };
+          }
+          // Read-back for BOTH create/update marker verify (summary) AND delete
+          // absence verify. A deleted single event surfaces EITHER as a typed 404
+          // NotFoundError OR (briefly) as a 200 with status "cancelled" — both mean
+          // gone, so `exists` is false for either. Any OTHER error re-throws to the
+          // outer catch -> ok:false -> honest VERIFY_FAILED, never a false state.
+          try {
+            const event = await refreshAndRetry({
+              accountId,
+              provider: "google-calendar",
+              providerAccountId: integration.providerAccountId,
+              apiCall: (accessToken) => eventsGet({ accessToken, calendarId, eventId }),
+            });
+            const cancelled = event.status === "cancelled";
+            // Bounded, sanitized: existence + the summary (for the marker) + status only.
+            return {
+              ok: true,
+              output: { exists: !cancelled, summary: event.summary ?? null, status: event.status ?? null },
+              reason: null,
+            };
+          } catch (err) {
+            if (err instanceof CalendarNotFoundError) {
               return { ok: true, output: { exists: false }, reason: null };
             }
             throw err;

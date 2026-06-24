@@ -136,6 +136,9 @@ import dropboxUploadFile from "@/tests/fixtures/action-smoke/dropbox/upload_file
 import onedriveCreateFolder from "@/tests/fixtures/action-smoke/microsoft-onedrive/create_folder";
 import onedriveDeleteItem from "@/tests/fixtures/action-smoke/microsoft-onedrive/delete_item";
 import onedriveUploadFile from "@/tests/fixtures/action-smoke/microsoft-onedrive/upload_file";
+import gcalCreateEvent from "@/tests/fixtures/action-smoke/google-calendar/create_event";
+import gcalUpdateEvent from "@/tests/fixtures/action-smoke/google-calendar/update_event";
+import gcalDeleteEvent from "@/tests/fixtures/action-smoke/google-calendar/delete_event";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
@@ -270,6 +273,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   onedriveCreateFolder,
   onedriveDeleteItem,
   onedriveUploadFile,
+  gcalCreateEvent,
+  gcalUpdateEvent,
+  gcalDeleteEvent,
   notionCreatePage,
   notionUpdatePage,
   notionAppendBlockChildren,
