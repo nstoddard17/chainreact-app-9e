@@ -32,7 +32,19 @@ jest.mock("@/services/accounts/accountAuthz", () => ({
   requireAccountRole: (...a: unknown[]) => mockRequireRole(...a),
 }));
 
+import { readdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { createWorkflowFromTemplate, forkTemplateToAccount } from "@/services/workflows/templateManagement";
+
+// A REAL official-seed definition (parsed from the seed migrations) — used to prove an official
+// template instantiates a workflow with NO credentials / account-specific values.
+const SEED_MIGRATIONS = resolve(process.cwd(), "supabase/migrations");
+const SEED_DEFINITIONS = readdirSync(SEED_MIGRATIONS)
+  .filter((f) => /_seed_official_templates.*\.sql$/.test(f))
+  .flatMap((f) => [
+    ...readFileSync(join(SEED_MIGRATIONS, f), "utf8").matchAll(/'(\{"nodes".*?\})'::jsonb/g),
+  ])
+  .map((m) => JSON.parse(m[1]!) as { nodes: Array<{ config: unknown }>; edges: unknown[] });
 
 const ACTOR = "user-1";
 const TARGET = "target-acct";
@@ -100,6 +112,34 @@ describe("createWorkflowFromTemplate (use)", () => {
     repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(template({ source: "official", accountId: null, visibility: "public" }));
     const r = await createWorkflowFromTemplate({ templateId: "tpl-1", targetAccountId: TARGET, actorUserId: ACTOR });
     expect(r.ok).toBe(true);
+  });
+
+  it("EVERY seeded official template → instantiates a workflow with NO credentials / account values", async () => {
+    expect(SEED_DEFINITIONS.length).toBeGreaterThanOrEqual(50);
+    for (const def of SEED_DEFINITIONS) {
+      jest.clearAllMocks();
+      mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
+      mockCreateWorkflow.mockResolvedValue({ id: "wf-new", name: "Official" });
+      repo.recordTemplateUsageEventServiceRole.mockResolvedValue({ id: "ev-1" });
+      // a platform-owned official row carrying this seed's sanitized, credential-free graph.
+      repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(
+        template({ source: "official", accountId: null, createdByUserId: null, visibility: "public", definition: def }),
+      );
+
+      const r = await createWorkflowFromTemplate({ templateId: "tpl-1", targetAccountId: TARGET, actorUserId: ACTOR });
+      expect(r.ok).toBe(true); // never invalid_template — the seed graph passes WorkflowDefinitionSchema.
+
+      const createArg = mockCreateWorkflow.mock.calls[0]![0];
+      // the created workflow's draft is the sanitized graph verbatim — every config empty, so no
+      // token / channel id / recipient / account-specific value travels; nothing even needed
+      // redaction (no __REDACTED__ marker), and no secret-shaped string appears.
+      for (const node of createArg.draftDefinition.nodes as Array<{ config: unknown }>) {
+        expect(node.config).toEqual({});
+      }
+      const blob = JSON.stringify(createArg.draftDefinition);
+      expect(blob).not.toContain("__REDACTED__");
+      expect(blob).not.toMatch(/xox[baprs]-|sk_[a-z0-9]{6,}|whsec_|@[a-z0-9.-]+\.[a-z]{2,}/i);
+    }
   });
 
   it("private template → usable by a member of the OWNING account", async () => {

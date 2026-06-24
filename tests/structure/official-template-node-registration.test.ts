@@ -21,17 +21,21 @@
  * Definitions are sourced from the seed SQL the same way the seed test does
  * (readFileSync + jsonb-literal regex) — no DB, no mocks.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
 import { parseReferences } from "@/core/workflows/variableReferences";
 
-const FILE = "20260618000000_seed_official_templates.sql";
-const sql = readFileSync(
-  join(resolve(process.cwd(), "supabase/migrations"), FILE),
-  "utf8",
-);
-const code = sql.replace(/--[^\n]*/g, "");
+// Discover EVERY official-seed migration (batch 1 + 2 + any future batch) rather than
+// hard-coding one file, so this guard validates the whole shipped catalog against the live
+// registry — a renamed/removed provider:type breaks a seeded template's /use for users.
+const MIGRATIONS = resolve(process.cwd(), "supabase/migrations");
+const SEED_FILES = readdirSync(MIGRATIONS)
+  .filter((f) => /_seed_official_templates.*\.sql$/.test(f))
+  .sort();
+const code = SEED_FILES.map((f) =>
+  readFileSync(join(MIGRATIONS, f), "utf8").replace(/--[^\n]*/g, ""),
+).join("\n");
 
 interface TemplateNode {
   id: string;
