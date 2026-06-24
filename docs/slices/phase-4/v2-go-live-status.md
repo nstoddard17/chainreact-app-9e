@@ -24,7 +24,9 @@
 > rather than emit an unsigned/forgeable cap. The current prod env already sets
 > `OAUTH_STATE_SIGNING_KEY` (see the Env switch row above), so anonymous AI planning is signed and live
 > via the fallback; set `ANON_AI_LIMIT_SIGNING_KEY` on Vercel if/when the two keys should be rotated
-> independently. No DB/KV is involved (best-effort cookie + per-instance IP backstop).
+> independently. No DB/KV is involved (best-effort cookie + per-instance IP backstop). Full arc
+> closeout (homepage → anonymous builder → live skeleton, 7 local commits, unpushed):
+> [homepage-anonymous-builder-live-skeleton-closeout.md](./workflows/homepage-anonymous-builder-live-skeleton-closeout.md).
 
 ## Smoke test result
 
