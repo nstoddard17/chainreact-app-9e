@@ -20,7 +20,7 @@ import { readAnonPrompt } from "@/lib/anonymousBuilder";
 
 beforeEach(() => {
   mockPush.mockReset();
-  window.sessionStorage.clear();
+  window.localStorage.clear();
 });
 
 describe("MarketingHero", () => {

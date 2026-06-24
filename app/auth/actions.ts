@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { safeReturnPath } from "@/lib/safeReturnPath";
 
 /**
  * Auth server actions.
@@ -47,15 +48,23 @@ async function resolveOrigin(): Promise<string> {
 export async function signUp(_prev: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
   const creds = readCredentials(formData);
   if ("error" in creds) return { ok: false, error: creds.error };
+  // ANON-BUILDER-2 — same-origin destination after auth (e.g. /start/continue to
+  // restore an anonymous draft). Sanitized; defaults to /workflows.
+  const returnTo = safeReturnPath(
+    typeof formData.get("returnTo") === "string" ? (formData.get("returnTo") as string) : null,
+  );
   const supabase = await createClient();
   const origin = await resolveOrigin();
+  // When email confirmation is ON the user returns via the email link; forward
+  // them to the returnTo (anon-draft restore) when present, else the confirmed
+  // screen. safeReturnPath already guarantees a same-origin path.
+  const emailNext = returnTo === "/workflows" ? "/auth/confirmed" : returnTo;
   const { data, error } = await supabase.auth.signUp({
     email: creds.email,
     password: creds.password,
-    // The confirmation email link routes through /auth/callback (which exchanges
-    // the code for a session) and forwards to a clear "Email confirmed" screen —
-    // not the bare homepage. Mirrors the recovery flow's next= plumbing.
-    options: { emailRedirectTo: `${origin}/auth/callback?next=/auth/confirmed` },
+    options: {
+      emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(emailNext)}`,
+    },
   });
   if (error) return { ok: false, error: error.message };
   // When "Confirm email" is ON in Supabase Auth, signUp returns NO session —
@@ -65,16 +74,19 @@ export async function signUp(_prev: AuthActionResult | null, formData: FormData)
   if (!data?.session) {
     return { ok: true, confirmationRequired: true };
   }
-  redirect("/workflows");
+  redirect(returnTo);
 }
 
 export async function signIn(_prev: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
   const creds = readCredentials(formData);
   if ("error" in creds) return { ok: false, error: creds.error };
+  const returnTo = safeReturnPath(
+    typeof formData.get("returnTo") === "string" ? (formData.get("returnTo") as string) : null,
+  );
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(creds);
   if (error) return { ok: false, error: error.message };
-  redirect("/workflows");
+  redirect(returnTo);
 }
 
 export async function signOut(): Promise<void> {

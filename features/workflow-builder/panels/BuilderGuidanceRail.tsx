@@ -85,6 +85,12 @@ export interface BuilderGuidanceRailProps {
    * draft nodes the Check workflow review found with missing required fields. Forwarded to the panel.
    */
   readonly renderCheckSetup?: (targets: readonly CheckWorkflowSetupTarget[]) => ReactNode;
+  /**
+   * ANON-BUILDER-2 — one-shot composer seed (e.g. the prompt restored from an
+   * anonymous draft after sign-up). Forwarded to the conversational panel, which
+   * fills only an empty, untouched composer and never auto-sends.
+   */
+  readonly initialComposerValue?: string;
 }
 
 export function BuilderGuidanceRail({
@@ -100,6 +106,7 @@ export function BuilderGuidanceRail({
   getCheckReviewContext,
   getCurrentGraphShape,
   renderCheckSetup,
+  initialComposerValue,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -131,6 +138,7 @@ export function BuilderGuidanceRail({
             {...(getCheckReviewContext ? { getCheckReviewContext } : {})}
             {...(getCurrentGraphShape ? { getCurrentGraphShape } : {})}
             {...(renderCheckSetup ? { renderCheckSetup } : {})}
+            {...(initialComposerValue ? { initialComposerValue } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {

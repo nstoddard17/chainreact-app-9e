@@ -7,6 +7,7 @@ import type { WorkflowDetail } from "@/contracts/workflow";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
+import { consumeRestoredPrompt } from "@/lib/anonymousBuilder";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
@@ -187,6 +188,17 @@ export function WorkflowBuilder({
   // rename from the Settings tab updates the header without a reload. Re-synced
   // from the server prop on workflow switch (in the reset effect below).
   const [workflowName, setWorkflowName] = useState(workflow.name);
+
+  // ANON-BUILDER-2 — when this builder was just opened by the anonymous-draft
+  // restore flow, a one-shot prompt is parked under the new workflow id. Consume
+  // it (client-only, after mount → no SSR mismatch) and seed it into the React
+  // Agent composer. Authenticated path only; never in local-only mode.
+  const [restoredComposerValue, setRestoredComposerValue] = useState("");
+  useEffect(() => {
+    if (localOnly) return;
+    const restored = consumeRestoredPrompt(workflow.id);
+    if (restored) setRestoredComposerValue(restored);
+  }, [localOnly, workflow.id]);
 
   // Hydrate from the server prop on initial mount AND whenever the prop's
   // definition / revision changes (e.g. an external refresh). The graphSlice
@@ -582,6 +594,7 @@ export function WorkflowBuilder({
             getCheckReviewContext={getCheckReviewContext}
             getCurrentGraphShape={getCurrentGraphShape}
             renderCheckSetup={renderCheckSetup}
+            {...(restoredComposerValue ? { initialComposerValue: restoredComposerValue } : {})}
           />
           )}
         </BuilderLeftAgentRail>

@@ -119,10 +119,12 @@ describe("auth actions — supabase error surfacing", () => {
   it("signUp sets emailRedirectTo so the confirmation link lands on /auth/confirmed", async () => {
     mockSignUp.mockResolvedValueOnce({ error: { message: "any" } });
     await signUp(null, fd({ email: "user@example.test", password: "password123" }));
+    // ANON-BUILDER-2 — the next param is now URL-encoded (the callback decodes it
+    // via searchParams). With no returnTo the destination is still /auth/confirmed.
     expect(mockSignUp).toHaveBeenCalledWith(
       expect.objectContaining({
         options: {
-          emailRedirectTo: "https://chainreact.app/auth/callback?next=/auth/confirmed",
+          emailRedirectTo: "https://chainreact.app/auth/callback?next=%2Fauth%2Fconfirmed",
         },
       }),
     );

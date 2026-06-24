@@ -10,6 +10,7 @@ export function AuthForm({
   submitLabel,
   passwordAutoComplete = "current-password",
   successMessage,
+  returnTo,
 }: {
   action: Action;
   submitLabel: string;
@@ -17,6 +18,12 @@ export function AuthForm({
   passwordAutoComplete?: "current-password" | "new-password";
   /** Shown when the action resolves ok WITHOUT redirecting (e.g. sign-up email confirmation). */
   successMessage?: string;
+  /**
+   * ANON-BUILDER-2 — same-origin path to return to after auth (e.g.
+   * /start/continue to restore an anonymous draft). Submitted as a hidden field;
+   * the server action sanitizes it.
+   */
+  returnTo?: string;
 }) {
   const [state, formAction, pending] = useActionState<AuthActionResult | null, FormData>(
     action,
@@ -34,6 +41,7 @@ export function AuthForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4 w-full max-w-sm">
+      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">Email</span>
         <input

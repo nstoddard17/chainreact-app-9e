@@ -59,7 +59,7 @@ beforeEach(() => {
   mockUpdateWorkflow.mockReset();
   mockRouterRefresh.mockReset();
   mockRouterPush.mockReset();
-  window.sessionStorage.clear();
+  window.localStorage.clear();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
   useRunSlice.getState().reset();
@@ -76,9 +76,14 @@ function renderAnon() {
 
 describe("AnonymousBuilder (local-only)", () => {
   it("seeds the carried-over prompt into the React Agent rail", async () => {
-    window.sessionStorage.setItem(
-      "chainreact:anon-builder-prompt",
-      "Notify #wins on a 5-star review",
+    window.localStorage.setItem(
+      "chainreact:anon-builder-draft",
+      JSON.stringify({
+        version: 1,
+        prompt: "Notify #wins on a 5-star review",
+        nodes: [],
+        edges: [],
+      }),
     );
     renderAnon();
     const promptBox = await screen.findByTestId("anonymous-agent-rail-prompt");
@@ -87,23 +92,46 @@ describe("AnonymousBuilder (local-only)", () => {
     );
     // The live, account-scoped guidance rail must NOT mount for an anon visitor.
     expect(screen.queryByTestId("builder-guidance-rail")).not.toBeInTheDocument();
+    // AI gate carries returnTo + the ai reason.
     expect(screen.getByTestId("anonymous-agent-rail-signup")).toHaveAttribute(
       "href",
-      "/auth/sign-up",
+      "/auth/sign-up?returnTo=%2Fstart%2Fcontinue&reason=ai",
     );
   });
 
-  it("shows the local-only banner and gates save/run/activate behind sign-up", () => {
+  it("shows the local-only banner and gates save/run/activate behind contextual sign-up", () => {
     renderAnon();
     expect(screen.getByTestId("local-build-banner")).toBeInTheDocument();
-    // Single sign-up CTA replaces the whole action cluster.
-    expect(screen.getByTestId("builder-header-local-signup")).toHaveAttribute(
+    // Distinct gated links carry the correct contextual reason + return path.
+    expect(screen.getByTestId("builder-header-local-save")).toHaveAttribute(
       "href",
-      "/auth/sign-up",
+      "/auth/sign-up?returnTo=%2Fstart%2Fcontinue&reason=save",
+    );
+    expect(screen.getByTestId("builder-header-local-activate")).toHaveAttribute(
+      "href",
+      "/auth/sign-up?returnTo=%2Fstart%2Fcontinue&reason=activate",
+    );
+    expect(screen.getByTestId("builder-header-local-test")).toHaveAttribute(
+      "href",
+      "/auth/sign-up?returnTo=%2Fstart%2Fcontinue&reason=run",
     );
     // None of the server-calling controls mount.
     expect(screen.queryByTestId("builder-header-save-button")).not.toBeInTheDocument();
     expect(screen.queryByTestId("builder-header-templates-button")).not.toBeInTheDocument();
+  });
+
+  it("persists local graph edits to localStorage (skeleton survives auth)", async () => {
+    renderAnon();
+    act(() => {
+      useGraphSlice.getState().addTrigger({ provider: "slack", type: "slack.message.channel" });
+    });
+    await waitFor(() => {
+      const raw = window.localStorage.getItem("chainreact:anon-builder-draft");
+      expect(raw).toBeTruthy();
+      const parsed = JSON.parse(raw as string);
+      expect(parsed.nodes).toHaveLength(1);
+      expect(parsed.nodes[0].provider).toBe("slack");
+    });
   });
 
   it("does NOT call the save/update API on load", () => {
@@ -134,7 +162,7 @@ describe("AnonymousBuilder (local-only)", () => {
     expect(await screen.findByTestId("local-config-note")).toBeInTheDocument();
     expect(screen.getByTestId("local-config-note-signup")).toHaveAttribute(
       "href",
-      "/auth/sign-up",
+      "/auth/sign-up?returnTo=%2Fstart%2Fcontinue&reason=connect",
     );
     // local-config-note occupies the inspector slot in place of the real
     // (credential-fetching) config form, so no `/api/options` / OAuth fetch fires.

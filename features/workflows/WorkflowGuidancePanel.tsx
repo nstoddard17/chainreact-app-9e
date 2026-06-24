@@ -107,6 +107,14 @@ export interface WorkflowGuidancePanelProps {
    * → no inline setup card.
    */
   readonly renderCheckSetup?: (targets: readonly CheckWorkflowSetupTarget[]) => ReactNode;
+  /**
+   * ANON-BUILDER-2 — conversational-only: an initial value to seed the composer
+   * ONCE when it first arrives (e.g. the prompt carried over from an anonymous
+   * draft restored after sign-up). It only fills an empty, untouched composer —
+   * it never overwrites what the user has typed and never auto-sends. Absent →
+   * the composer starts empty as before.
+   */
+  readonly initialComposerValue?: string;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -167,12 +175,24 @@ function SparkleIcon() {
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, renderCheckSetup }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, renderCheckSetup, initialComposerValue }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const nextId = useRef(0);
   const makeId = () => String(nextId.current++);
+
+  // ANON-BUILDER-2 — seed the composer ONCE from a restored anonymous prompt when
+  // it first arrives, only if the user hasn't typed anything yet. Never overwrites
+  // user input, never auto-sends.
+  const seededComposerRef = useRef(false);
+  useEffect(() => {
+    if (seededComposerRef.current) return;
+    const seed = (initialComposerValue ?? "").trim();
+    if (seed.length === 0) return;
+    seededComposerRef.current = true;
+    setInput((current) => (current.length === 0 ? seed : current));
+  }, [initialComposerValue]);
 
   // HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — keep the newest content in view. Scroll the transcript to the
   // bottom when a message is added OR the setup-card footer appears/disappears. Keyed on the message

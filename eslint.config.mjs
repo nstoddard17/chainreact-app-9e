@@ -327,13 +327,15 @@ export default [
   // canvas/rail/drawer composition plus the ephemeral AI-preview lifecycle (overlay + guided-setup
   // previewConfig + explicit Apply seeding, HERMES-AGENT-GUIDED-PREVIEW-SETUP-1). Splitting the
   // preview lifecycle out into a hook is a real refactor (intertwined useState + callbacks) that
-  // belongs in its own slice, not a feature commit. Capped at 460 to make further drift visible.
+  // belongs in its own slice, not a feature commit. Capped at 465 to make further drift visible
+  // (raised from 460 for ANON-BUILDER-2: the one-shot restored-prompt consume that seeds the React
+  // Agent composer after an anonymous draft is restored).
   {
     files: ["features/workflow-builder/WorkflowBuilder.tsx"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 460, skipBlankLines: true, skipComments: true },
+        { max: 465, skipBlankLines: true, skipComments: true },
       ],
     },
   },

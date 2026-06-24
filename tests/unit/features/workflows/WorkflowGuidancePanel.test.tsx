@@ -740,3 +740,42 @@ describe("WorkflowGuidancePanel — 'Show on canvas' eligibility guard", () => {
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
   });
 });
+
+/**
+ * ANON-BUILDER-2 — `initialComposerValue` seeds the composer ONCE (the prompt
+ * restored from an anonymous draft after sign-up) without overwriting user input
+ * and without auto-sending.
+ */
+describe("WorkflowGuidancePanel — conversational initial composer seed", () => {
+  it("seeds the composer from initialComposerValue (no auto-send)", async () => {
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        initialComposerValue="Notify #wins on a 5-star review"
+      />,
+    );
+    const composer = screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement;
+    await waitFor(() => expect(composer.value).toBe("Notify #wins on a 5-star review"));
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+
+  it("does not overwrite what the user has already typed", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />,
+    );
+    const composer = screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement;
+    await user.type(composer, "my own text");
+    rerender(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        initialComposerValue="seeded value"
+      />,
+    );
+    expect(composer.value).toBe("my own text");
+  });
+});
