@@ -174,16 +174,17 @@ export const microsoftOutlookCalendarUpdateEventMeta: ActionMeta = {
   ],
   outputs: [
     { name: "id", type: "string", description: "The updated event id." },
-    { name: "subject", type: "string", description: "The event title (or null)." },
-    { name: "start", type: "object", description: "Event start (dateTime + timeZone) or null." },
-    { name: "end", type: "object", description: "Event end (dateTime + timeZone) or null." },
+    { name: "subject", type: "string", description: "The event title (or null).", nullable: true },
+    { name: "start", type: "object", description: "Event start (dateTime + timeZone) or null.", nullable: true },
+    { name: "end", type: "object", description: "Event end (dateTime + timeZone) or null.", nullable: true },
     { name: "isAllDay", type: "boolean", description: "Whether the event is all-day." },
-    { name: "webLink", type: "string", description: "Outlook UI link to the event (or null)." },
+    { name: "webLink", type: "string", description: "Outlook UI link to the event (or null).", nullable: true },
     {
       name: "organizer",
       type: "object",
-      description: "The event organizer (name + email address).",
+      description: "The event organizer (name + email address; or null).",
       sensitive: true,
+      nullable: true,
     },
     {
       name: "attendees",

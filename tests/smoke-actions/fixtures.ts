@@ -141,6 +141,9 @@ import gcalUpdateEvent from "@/tests/fixtures/action-smoke/google-calendar/updat
 import gcalDeleteEvent from "@/tests/fixtures/action-smoke/google-calendar/delete_event";
 import gdocsCreateDocument from "@/tests/fixtures/action-smoke/google-docs/create_document";
 import gsheetsCreateSpreadsheet from "@/tests/fixtures/action-smoke/google-sheets/create_spreadsheet";
+import outlookCalCreateEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/create_event";
+import outlookCalUpdateEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/update_event";
+import outlookCalDeleteEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/delete_event";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
@@ -280,6 +283,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gcalDeleteEvent,
   gdocsCreateDocument,
   gsheetsCreateSpreadsheet,
+  outlookCalCreateEvent,
+  outlookCalUpdateEvent,
+  outlookCalDeleteEvent,
   notionCreatePage,
   notionUpdatePage,
   notionAppendBlockChildren,

@@ -323,6 +323,50 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["google-docs", "create_document"],
     ["google-sheets", "create_spreadsheet"],
   ]),
+  // SMOKE-WRITE-24 — certification checkpoint DRIFT FIX. These 10 write actions were
+  // live-certified in SMOKE-WRITE-4..16 and recorded in the runbook write-cert table,
+  // but their durable CERTIFICATIONS rows were never added — the matrix reported them
+  // NOT_RUN (same class as the SMOKE-WRITE-AUDIT Google Drive gap). All 10 were RE-RUN
+  // LIVE end-to-end in this checkpoint (airtable / notion / trello fully connected,
+  // targets auto-discovered) and PASSED with 0 leaked, so they are recorded here to
+  // make the durable matrix match reality.
+  //   Airtable: delete_record / create_multiple_records / update_multiple_records /
+  //     add_attachment — object DELETED (gone). create/update_multiple use verifyEach;
+  //     add_attachment verifies a non-empty rehosted attachment array; delete_record
+  //     verifies absence via recordsList. All independent read-backs.
+  ...records("LIVE_PASS_CLEANED", "live re-verified in cert checkpoint, object deleted", SMOKE_WRITE_FILE, [
+    ["airtable", "delete_record"],
+    ["airtable", "create_multiple_records"],
+    ["airtable", "update_multiple_records"],
+    ["airtable", "add_attachment"],
+  ]),
+  //   Notion + Trello: object ARCHIVED / LEFT (reversible, persists on the throwaway
+  //     account). create_database_entry (query_database marker), add_label_to_card
+  //     (idLabels membership), move_card (idList target) verified by INDEPENDENT
+  //     read-back; archive_page / archive_card prove archived==true / closed==true;
+  //     restore_page proves archived==false.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live re-verified in cert checkpoint, archived/left (reversible)", SMOKE_WRITE_FILE, [
+    ["notion", "create_database_entry"],
+    ["notion", "archive_page"],
+    ["notion", "restore_page"],
+    ["trello", "add_label_to_card"],
+    ["trello", "move_card"],
+    ["trello", "archive_card"],
+  ]),
+  // SMOKE-WRITE-24 (Part 2) — Microsoft Outlook Calendar create/update/delete batch.
+  // Mirrors the certified google-calendar set: each creates a marker-subject smoke-owned
+  // event on the user's DEFAULT calendar with NO attendees + responseRequested:false
+  // (zero invitations leave the account), confirms it on an INDEPENDENT events.get smoke
+  // read-back (marker on the persisted `subject`; update requires the "updated" suffix so
+  // a no-op patch fails; delete asserts exists==false via a typed 404 NotFoundError), then
+  // HARD-deletes the event (Graph delete is a true erase). The events.get smoke reader is
+  // bounded (exists + subject) + refresh-safe. Builder-shaped flat start/end fields satisfy
+  // the engine readiness gate. add_attendees deferred (send-like / invite-generating).
+  ...records("LIVE_PASS_CLEANED", "live write+verify, event hard-deleted (true erase)", SMOKE_WRITE_FILE, [
+    ["microsoft-outlook-calendar", "create_event"],
+    ["microsoft-outlook-calendar", "update_event"],
+    ["microsoft-outlook-calendar", "delete_event"],
+  ]),
 ];
 
 // ─── Lookups ─────────────────────────────────────────────────────────────────

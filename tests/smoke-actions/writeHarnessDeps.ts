@@ -50,6 +50,7 @@ import { driveItemsGet } from "@/integrations/microsoft-onedrive/api/driveItemsG
 import { NotFoundError as GraphNotFoundError } from "@/integrations/_shared/microsoft/api/errors";
 import { eventsGet } from "@/integrations/google-calendar/api/eventsGet";
 import { NotFoundError as CalendarNotFoundError } from "@/integrations/google-calendar/api/errors";
+import { eventsGet as outlookEventsGet } from "@/integrations/microsoft-outlook-calendar/api/eventsGet";
 import { WORKFLOW_FILES_BUCKET } from "@/core/files/fetchFileBytes";
 import { search as notionSearch, type SearchHit } from "@/integrations/notion/api/search";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
@@ -713,6 +714,35 @@ export function makeRealWriteHarnessDeps(
             };
           } catch (err) {
             if (err instanceof CalendarNotFoundError) {
+              return { ok: true, output: { exists: false }, reason: null };
+            }
+            throw err;
+          }
+        }
+        if (input.provider === "microsoft-outlook-calendar" && input.action === "events_get") {
+          const integration = await getActiveForExecution(accountId, "microsoft-outlook-calendar", null, {
+            connectedByUserId: userId,
+          });
+          if (!integration) return { ok: false, output: null, reason: "microsoft-outlook-calendar not connected" };
+          const eventId = input.config.eventId;
+          if (typeof eventId !== "string" || eventId.length === 0) {
+            return { ok: false, output: null, reason: "events_get read-back: missing eventId" };
+          }
+          // Read-back for BOTH create/update marker verify (subject) AND delete absence
+          // verify. A deleted Outlook event is a TRUE delete -> Graph 404 -> typed
+          // NotFoundError -> exists:false. Any OTHER error re-throws to the outer catch
+          // -> ok:false -> honest VERIFY_FAILED (a permission/API failure never reads as
+          // deleted). Bounded + sanitized: existence + the subject (for the marker) only.
+          try {
+            const event = await refreshAndRetry({
+              accountId,
+              provider: "microsoft-outlook-calendar",
+              providerAccountId: integration.providerAccountId,
+              apiCall: (accessToken) => outlookEventsGet({ accessToken, eventId }),
+            });
+            return { ok: true, output: { exists: true, subject: event.subject ?? null }, reason: null };
+          } catch (err) {
+            if (err instanceof GraphNotFoundError) {
               return { ok: true, output: { exists: false }, reason: null };
             }
             throw err;

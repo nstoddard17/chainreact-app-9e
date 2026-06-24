@@ -1045,11 +1045,47 @@ live-verified end to end (create one `crsmoke-`marked resource -> confirm the
 marker via an INDEPENDENT read-back -> run cleanup). The matrix below is the
 running certification record; rows are added as each provider batch lands.
 
+### Write-smoke certification checkpoint (SMOKE-WRITE-24, 2026-06-23)
+
+Authoritative source: `npm run chainreact -- smoke actions --cert` (exit 0 = no stale
+certs). At this checkpoint: **298 registered actions, 102 LIVE_PASS, 0 stale, 0 cert
+rows without a fixture** (verified against `--json` + the `certification.test.ts` /
+`registry-parity.test.ts` / `fixtures-valid.test.ts` guards). Drift fixed this checkpoint:
+**10 write actions** (airtable `delete_record` / `create_multiple_records` /
+`update_multiple_records` / `add_attachment`; notion `create_database_entry` /
+`archive_page` / `restore_page`; trello `add_label_to_card` / `move_card` /
+`archive_card`) were live-certified in SMOKE-WRITE-4..16 + listed in the table below, but
+their durable `certification.ts` rows were missing (matrix showed `NOT_RUN`). All 10 were
+re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
+
+- **Write-COMPLETE providers (every registered action certified):** `airtable` (11/11),
+  `google-drive` (7/7).
+- **Partially covered (certified core writes; rest deferred/blocked, see notes below):**
+  `google-calendar` (4/5 — `add_attendees` deferred), `google-docs` (create_document via
+  cross-provider Drive delete), `google-sheets` (create_spreadsheet only; row/range
+  mutators blocked), `dropbox` (create_folder/delete_file/upload_file), `microsoft-onedrive`
+  (create_folder/delete_item/upload_file), `notion` (create/update/archive/restore page,
+  append_block_children, create_comment, create_database_entry), `trello` (create/update
+  card, add_comment, add_label_to_card, move_card, archive_card),
+  `microsoft-outlook-calendar` (4/5 — create/update/delete_event certified, `add_attendees`
+  deferred as send-like).
+- **Intentionally deferred / hard-blocked categories (NOT smoked, by policy or capability):**
+  email/message SENDS (gmail, microsoft-outlook, slack, discord) — no-send policy;
+  billing/customer/order/product (stripe, shopify) — out of scope; SHARING / public-link
+  actions (e.g. dropbox `create_shared_link`, google-docs `share_document`) — out of scope;
+  google-calendar `add_attendees` (generates invites = send-like); google-sheets row/range
+  mutators (`append_row`/`update_row`/`update_cell`/`delete_row`/`clear_range`/`format_range`/
+  `batch_update`) — shared-sheet positional mutation, not provably smoke-owned; HubSpot CRM
+  creates — no delete/archive action for cleanup; Monday — not connected on the smoke
+  account; Mailchimp writes — real subscriber/audience contact risk; trello `create_board` /
+  `create_list`, notion `create_database` — no registered cleanup (would leave heavy
+  artifacts). See the per-provider deferred-inventory notes after the table.
+
 | Action | Flow | Disposition | Cert |
 |---|---|---|---|
 | `airtable:create_record` | create -> get_record -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
 | `airtable:update_record` | create -> update -> echo -> **delete** | object deleted | `LIVE_PASS_CLEANED` |
-| `airtable:delete_record` | create -> **delete (action under test)** -> recordsList read-back (gone) | object deleted | `LIVE_PASS` |
+| `airtable:delete_record` | create -> **delete (action under test)** -> recordsList read-back (gone) | object deleted | `LIVE_PASS_CLEANED` |
 | `airtable:create_multiple_records` | create 2 -> verifyEach (recordsList marker per id) -> delete each | both deleted | `LIVE_PASS_CLEANED` |
 | `airtable:update_multiple_records` | create 2 -> update both -> verifyEach (marker-"updated" per id) -> delete each | both deleted | `LIVE_PASS_CLEANED` |
 | `airtable:add_attachment` | create record -> attach staged PNG (v2_storage) -> read-back attachment field non-empty (each {id}) -> delete record | record deleted | `LIVE_PASS_CLEANED` |
@@ -1081,6 +1117,9 @@ running certification record; rows are added as each provider batch lands.
 | `google-calendar:delete_event` | create event -> **delete_event (action under test)** -> events.get existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-docs:create_document` | create doc (marker title) -> get_document (marker on title) -> **google-drive:delete_file (cross-provider, permanent)** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-sheets:create_spreadsheet` | create whole spreadsheet (marker title) -> get_sheet_metadata (marker on title) -> **google-drive:delete_file (cross-provider, permanent)** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `microsoft-outlook-calendar:create_event` | create event (default cal, no attendees, no-RSVP) -> events.get (marker on subject) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `microsoft-outlook-calendar:update_event` | create event -> update subject to marker+"updated" -> events.get (marker+"updated" on subject) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `microsoft-outlook-calendar:delete_event` | create event -> **delete_event (action under test)** -> events.get existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 
 **Google Drive write coverage (SMOKE-WRITE-17/18) — COMPLETE (4 of 4 write actions).**
 `create_folder`, `upload_file`, `delete_file`, `move_file` all certified. Smoke-owned
@@ -1161,6 +1200,21 @@ entirely. **Still BLOCKED: `append_row` / `update_row` / `update_cell` / `delete
 returns no stable row id, and `delete_row` is positional (by row number) -> cannot prove
 smoke-ownership of exactly what was written. They need an identity-based row API (or a dedicated
 empty smoke tab created + dropped per run) before they are safe.
+
+**Microsoft Outlook Calendar write coverage (SMOKE-WRITE-24) — 3 of 4 write actions certified.**
+`create_event`, `update_event`, `delete_event` all `LIVE_PASS_CLEANED` — a direct mirror of the
+google-calendar set. Each is smoke-owned on the user's DEFAULT calendar with NO attendees and
+`responseRequested: false` (zero invitations leave the account). Verified by INDEPENDENT read-back
+via the bounded, refresh-safe `microsoft-outlook-calendar:events_get` smoke reader (returns only
+`exists`/`subject`): create/update prove the marker on the persisted `subject` (update requires the
+`"updated"` suffix, so a no-op patch fails); `delete_event` asserts `exists == false` via a typed
+404 `NotFoundError` while re-throwing any other error. The handler `subject` outputs fall back to
+config, so they are never used for verification. Graph `delete_event` is a TRUE erase. **Fixtures
+use the FLAT builder field names** (`startDateTime`/`endDateTime`/`startTimeZone`/`endTimeZone`),
+not the nested `{start,end}` API shape — the engine readiness gate checks the meta's required
+field names, so a nested-shape config fails `WORKFLOW_NOT_READY / MISSING_REQUIRED_FIELDS` even
+though the Zod schema would accept it (the schema preprocess normalizes flat→nested for the
+handler). **Deferred: `add_attendees`** — generates guest invitations (send-like).
 
 **Next-cluster safe-write inventory (SMOKE-WRITE-22 audit — no safe cluster this slice).**
 After the file-provider + Calendar batches, the remaining non-send/non-billing candidates

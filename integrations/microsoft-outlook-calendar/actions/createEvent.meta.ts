@@ -171,12 +171,13 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
     { name: "start", type: "object", description: "Event start (dateTime + timeZone)." },
     { name: "end", type: "object", description: "Event end (dateTime + timeZone)." },
     { name: "isAllDay", type: "boolean", description: "Whether the event is all-day." },
-    { name: "webLink", type: "string", description: "Outlook UI link to the event (or null)." },
+    { name: "webLink", type: "string", description: "Outlook UI link to the event (or null).", nullable: true },
     {
       name: "organizer",
       type: "object",
-      description: "The event organizer (name + email address).",
+      description: "The event organizer (name + email address; or null).",
       sensitive: true,
+      nullable: true,
     },
     {
       name: "attendees",
