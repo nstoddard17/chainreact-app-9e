@@ -11,7 +11,7 @@ import { isHermesAgentEnabled, getHermesAgentGatewayConfig } from "@/services/ai
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
-import { inferDeterministicPreviewPlan } from "@/services/ai-guidance/fallback/inferDeterministicPreview";
+import { inferDeterministicPreviewPlan, detectCatalogGap } from "@/services/ai-guidance/fallback/inferDeterministicPreview";
 import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
@@ -207,6 +207,15 @@ export async function POST(
   // mutate/apply/run, no draftDefinition write. Null when there is no valid plan.
   const previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
 
+  // REACT-LIVE-SKELETON — when there's NO buildable plan, surface an exact catalog gap (if any) so the
+  // agent says what's missing instead of going silent (e.g. a Mailchimp win-back EMAIL with no
+  // send-campaign action in the catalog). Registry-driven + no-secret; appended to warnings.
+  const catalogGap = workflowPlan ? null : detectCatalogGap(goalText);
+  const warnings = [
+    ...(result.warnings ?? []),
+    ...(catalogGap ? [catalogGap.message] : []),
+  ];
+
   // Normalized advisory fields ONLY — no raw envelope, no raw usage, no prompt, no ids/secrets.
   return NextResponse.json({
     ok: true,
@@ -214,6 +223,6 @@ export async function POST(
     source: result.source,
     workflowPlan,
     previewDraft,
-    ...(result.warnings ? { warnings: result.warnings } : {}),
+    ...(warnings.length ? { warnings } : {}),
   });
 }

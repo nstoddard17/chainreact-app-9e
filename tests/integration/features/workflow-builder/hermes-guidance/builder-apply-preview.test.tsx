@@ -137,6 +137,22 @@ describe("builder preview canvas state (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FI
     renderBuilder(workflow([], []));
     expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
   });
+
+  // REACT-LIVE-SKELETON — the headline behavior: as soon as a valid plan arrives, the canvas skeleton
+  // appears automatically, WITHOUT the user finding/clicking "Show on canvas". Showing is display-only.
+  it("auto-shows the preview overlay on the canvas with NO 'Show on canvas' click (no apply, no save)", async () => {
+    const user = userEvent.setup();
+    renderBuilder(workflow([], []));
+    await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    // The skeleton overlay appears on its own — the test never clicks "Show on canvas".
+    await screen.findByTestId("builder-preview-overlay");
+    expect(screen.queryByTestId("empty-canvas-state")).not.toBeInTheDocument();
+    // Auto-show is display-only — nothing applied to the draft, nothing saved.
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(0);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
 });
 
 describe("builder apply-preview — blank workflow", () => {

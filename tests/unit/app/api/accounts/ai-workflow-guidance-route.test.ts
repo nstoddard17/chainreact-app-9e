@@ -368,6 +368,45 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(slackNode.missingInputs).toEqual(expect.arrayContaining(["channel", "text"]));
   });
 
+  it("REACT-LIVE-SKELETON — Mailchimp win-back EMAIL with no plan → response surfaces the exact catalog gap in warnings", async () => {
+    // Hermes returns prose, no plan; the catalog has no Mailchimp send-campaign action → report the gap.
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "Here's what I can do with Mailchimp.",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    const res = await call(ACCOUNT, {
+      goalText: "send a win-back email campaign in Mailchimp to customers who canceled",
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.workflowPlan).toBeNull();
+    expect(body.previewDraft).toBeNull();
+    expect(Array.isArray(body.warnings)).toBe(true);
+    expect(body.warnings.join(" ")).toMatch(/send-campaign|send-email/i);
+  });
+
+  it("REACT-LIVE-SKELETON — Mailchimp TAG intent with no Hermes plan → route injects a validated add_tag fallback + preview", async () => {
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "I can tag the subscriber.",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    const res = await call(ACCOUNT, {
+      goalText: "tag canceled customers in Mailchimp with a win-back tag",
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.workflowPlan).not.toBeNull();
+    expect(body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`)).toEqual([
+      "native:manual.run",
+      "mailchimp:add_tag",
+    ]);
+    expect(body.previewDraft).not.toBeNull();
+  });
+
   it("runner provider failure → 503 GUIDANCE_UNAVAILABLE; never leaks raw error", async () => {
     mockRunner.mockResolvedValueOnce({ ok: false, code: "PROVIDER_ERROR", message: "downstream SECRET detail" });
     const res = await call(ACCOUNT, goodBody);

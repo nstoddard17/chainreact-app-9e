@@ -392,7 +392,7 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getAllByTestId("workflow-guidance-message-user")).toHaveLength(2);
   });
 
-  it("a follow-up preview supersedes the prior pending one (only the latest is actionable)", async () => {
+  it("a follow-up preview AUTO-shows on the canvas and supersedes the prior one (REACT-LIVE-SKELETON)", async () => {
     const user = userEvent.setup();
     const onPreviewToCanvas = jest.fn();
     mockRequest
@@ -403,17 +403,19 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await screen.findByTestId("workflow-guidance-preview");
+    // Auto-shown on the canvas — NO extra click required.
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
+    expect(onPreviewToCanvas.mock.calls[0]![0]).toMatchObject({ plan: { title: "First" } });
     expect(screen.getAllByTestId("workflow-guidance-show-on-canvas")).toHaveLength(1);
 
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add delay");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await waitFor(() => expect(screen.getByTestId("workflow-guidance-preview")).toHaveTextContent("Second"));
+    // The newer preview auto-supersedes (one auto-show per turn; latest wins downstream).
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(2));
+    expect(onPreviewToCanvas.mock.calls[1]![0]).toMatchObject({ plan: { title: "Second" }, preview: { title: "Second" } });
     // Still exactly ONE actionable preview — the newest replaces the prior pending one.
     expect(screen.getAllByTestId("workflow-guidance-show-on-canvas")).toHaveLength(1);
-
-    await user.click(screen.getByTestId("workflow-guidance-show-on-canvas"));
-    expect(onPreviewToCanvas).toHaveBeenCalledTimes(1);
-    expect(onPreviewToCanvas.mock.calls[0]![0]).toMatchObject({ plan: { title: "Second" }, preview: { title: "Second" } });
   });
 
   it("an error turn is appended but the prior chat history is preserved", async () => {
@@ -777,5 +779,109 @@ describe("WorkflowGuidancePanel — conversational initial composer seed", () =>
       />,
     );
     expect(composer.value).toBe("my own text");
+  });
+});
+
+/**
+ * REACT-LIVE-SKELETON — the rail behaves like a live builder copilot: when a valid plan arrives, the
+ * canvas updates automatically (no hidden extra click). Auto-show is display-only — it never applies.
+ */
+describe("WorkflowGuidancePanel — auto-show preview on canvas", () => {
+  it("auto-shows the preview as soon as a clear plan arrives (no extra click)", async () => {
+    const user = userEvent.setup();
+    const onPreviewToCanvas = jest.fn();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Here's the shape.",
+      source: "hermes-agent",
+      workflowPlan: planFor("Auto"),
+      previewDraft: previewFor("Auto"),
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "watch new gmail");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByTestId("workflow-guidance-preview");
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
+    expect(onPreviewToCanvas.mock.calls[0]![0]).toMatchObject({ plan: { title: "Auto" }, preview: { title: "Auto" } });
+  });
+
+  it("does NOT auto-show a plan that only restates the current graph shape", async () => {
+    const user = userEvent.setup();
+    const onPreviewToCanvas = jest.fn();
+    // Current graph already has the exact gmail:new_email trigger the plan proposes.
+    const getCurrentGraphShape = () => [{ kind: "trigger", provider: "gmail", type: "new_email" }];
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Same shape.",
+      source: "hermes-agent",
+      workflowPlan: planFor("Same"),
+      previewDraft: previewFor("Same"),
+    });
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        onPreviewToCanvas={onPreviewToCanvas}
+        getCurrentGraphShape={getCurrentGraphShape}
+      />,
+    );
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "watch new gmail");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByTestId("workflow-guidance-result");
+    // No auto-show + no "Show on canvas" control for a same-shape restatement.
+    expect(onPreviewToCanvas).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+  });
+
+  it("a clarifying (no-plan) turn does not auto-show and renders no preview", async () => {
+    const user = userEvent.setup();
+    const onPreviewToCanvas = jest.fn();
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "Which app?", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "automate stuff");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByTestId("workflow-guidance-result");
+    expect(onPreviewToCanvas).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
+  });
+
+  it("missing config values do not block the preview (it still auto-shows)", async () => {
+    const user = userEvent.setup();
+    const onPreviewToCanvas = jest.fn();
+    const preview = previewFor("WithReq");
+    // A node that still needs config — the preview must appear anyway.
+    const previewWithMissing = {
+      ...preview,
+      nodes: [{ ...preview.nodes[0]!, missingInputs: ["channel", "text"] }],
+    };
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Shape is clear; finish the details.",
+      source: "hermes-agent",
+      workflowPlan: planFor("WithReq"),
+      previewDraft: previewWithMissing,
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "send slack");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    expect(await screen.findByTestId("workflow-guidance-preview")).toBeInTheDocument();
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
+  });
+
+  it("surfaces a catalog-gap warning when no plan could be built", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "Here's what I can and can't do.",
+      source: "hermes-agent",
+      workflowPlan: null,
+      previewDraft: null,
+      warnings: ["ChainReact's Mailchimp integration doesn't have a send-campaign action yet."],
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "mailchimp win-back email");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    expect(await screen.findByTestId("workflow-guidance-warnings")).toHaveTextContent(/send-campaign/i);
   });
 });

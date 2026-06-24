@@ -79,6 +79,14 @@ describe("buildGatewayGuidancePrompt — prefer partial preview + guided setup (
     expect(prompt).toContain("ONLY when the SHAPE itself is ambiguous");
     expect(prompt).toContain("Missing config values alone never make the shape ambiguous");
   });
+
+  // REACT-LIVE-SKELETON — multi-step shapes (trigger + 2+ actions) must also be returned as a plan,
+  // not described in prose, so the canvas skeleton updates as the conversation progresses.
+  it("instructs the model to return MULTI-STEP shapes as a plan (not prose)", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "tag the subscriber then notify a channel" });
+    expect(prompt).toContain("MULTI-STEP shapes too");
+    expect(prompt).toContain("do NOT just describe the sequence in prose");
+  });
 });
 
 describe("buildGatewayGuidancePrompt — recent conversation (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE)", () => {

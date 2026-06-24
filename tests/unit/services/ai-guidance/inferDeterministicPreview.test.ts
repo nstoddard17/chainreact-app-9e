@@ -18,7 +18,10 @@ jest.mock("@/services/discovery/_registry", () => ({
   getTriggerMeta: (k: string) => mockGetTriggerMeta(k),
 }));
 
-import { inferDeterministicPreviewPlan } from "@/services/ai-guidance/fallback/inferDeterministicPreview";
+import {
+  inferDeterministicPreviewPlan,
+  detectCatalogGap,
+} from "@/services/ai-guidance/fallback/inferDeterministicPreview";
 import { validateWorkflowPlan } from "@/services/ai-guidance/validateWorkflowPlan";
 
 // Real registry, used to delegate the mock + to compute expected metadata-driven requiredInputs.
@@ -102,5 +105,72 @@ describe("inferDeterministicPreviewPlan — fails closed (null)", () => {
       k === "native:manual.run" ? undefined : realRegistry.getTriggerMeta(k),
     );
     expect(inferDeterministicPreviewPlan(LIVE_PROMPT)).toBeNull();
+  });
+});
+
+// REACT-LIVE-SKELETON — the Mailchimp win-back example from Marcus's screenshots. The TAG part is
+// catalog-backed (mailchimp:add_tag) → a visible skeleton; the SEND-email part is a catalog gap.
+describe("inferDeterministicPreviewPlan — Mailchimp tag flow", () => {
+  it("produces a validated manual.run → mailchimp:add_tag plan for a win-back tag goal", () => {
+    const plan = inferDeterministicPreviewPlan(
+      "tag canceled customers in Mailchimp with a win-back tag for retention",
+    );
+    expect(plan).not.toBeNull();
+    expect(plan!.steps.map((s) => `${s.provider}:${s.type}`)).toEqual([
+      "native:manual.run",
+      "mailchimp:add_tag",
+    ]);
+    expect(validateWorkflowPlan(plan!).ok).toBe(true);
+    // requiredInputs come from REAL add_tag metadata (not hardcoded).
+    const tagStep = plan!.steps.find((s) => s.type === "add_tag")!;
+    const expected = realRegistry
+      .getActionMeta("mailchimp:add_tag")!
+      .fields.filter((f) => f.required)
+      .map((f) => f.name);
+    expect(tagStep.requiredInputs).toEqual(expected);
+  });
+
+  it("declines a remove/untag-only Mailchimp goal (different shape)", () => {
+    expect(
+      inferDeterministicPreviewPlan("remove the canceled tag from a Mailchimp subscriber"),
+    ).toBeNull();
+  });
+
+  it("fails closed when mailchimp:add_tag metadata is unavailable", () => {
+    mockGetActionMeta.mockImplementation((k: string) =>
+      k === "mailchimp:add_tag" ? undefined : realRegistry.getActionMeta(k),
+    );
+    expect(
+      inferDeterministicPreviewPlan("apply a win-back tag in Mailchimp"),
+    ).toBeNull();
+  });
+});
+
+describe("detectCatalogGap — Mailchimp send/email has no catalog action", () => {
+  it("reports the exact gap for a Mailchimp win-back EMAIL/campaign intent", () => {
+    const gap = detectCatalogGap(
+      "send a win-back email campaign in Mailchimp to canceled customers",
+    );
+    expect(gap).not.toBeNull();
+    expect(gap!.provider).toBe("mailchimp");
+    expect(gap!.message).toMatch(/send-campaign|send-email/i);
+  });
+
+  it("returns null for a tag-only Mailchimp goal (no send intent → no gap)", () => {
+    expect(detectCatalogGap("apply a win-back tag in Mailchimp")).toBeNull();
+  });
+
+  it("returns null for non-Mailchimp goals", () => {
+    expect(detectCatalogGap("send a Slack message when I run this manually")).toBeNull();
+    expect(detectCatalogGap("")).toBeNull();
+  });
+
+  it("auto-clears the gap if a Mailchimp send action ever exists in the catalog", () => {
+    mockGetActionMeta.mockImplementation((k: string) =>
+      k === "mailchimp:send_campaign"
+        ? ({ key: k, provider: "mailchimp", type: "send_campaign", fields: [] } as unknown as ReturnType<typeof realRegistry.getActionMeta>)
+        : realRegistry.getActionMeta(k),
+    );
+    expect(detectCatalogGap("send a Mailchimp email campaign")).toBeNull();
   });
 });

@@ -121,13 +121,15 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
     );
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
 
-    expect(onShowPreview).toHaveBeenCalledTimes(1);
+    // REACT-LIVE-SKELETON — the preview is auto-shown on the canvas as soon as the plan arrives, with
+    // NO "Show on canvas" click. The control still renders for an explicit re-show.
+    await waitFor(() => expect(onShowPreview).toHaveBeenCalledTimes(1));
     expect(onShowPreview.mock.calls[0]![0]).toMatchObject({
       plan: { title: "Lead follow-up" },
       preview: { title: "Lead follow-up" },
     });
+    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
   });
 
   it("maps a route failure to safe copy (no internal detail)", async () => {

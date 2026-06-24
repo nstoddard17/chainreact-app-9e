@@ -133,6 +133,9 @@ type ChatMessage =
       readonly text: string;
       readonly plan: WorkflowPlan | null;
       readonly preview: DraftPreview | null;
+      // REACT-LIVE-SKELETON — safe, no-secret notes (e.g. an exact catalog gap when no plan could be
+      // built). Rendered as muted lines under the reply.
+      readonly warnings?: readonly string[];
     }
   // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a LOCAL, deterministic workflow review produced
   // entirely from builder state (no LLM, no network, no AI credits). Rendered like a React turn but
@@ -206,6 +209,28 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, hasFooter]);
 
+  // REACT-LIVE-SKELETON — live builder copilot: the canvas should update as the conversation
+  // progresses, WITHOUT a hidden extra click. When the latest assistant turn carries a valid,
+  // MEANINGFUL preview+plan and the builder wired `onPreviewToCanvas`, auto-show it on the canvas ONCE
+  // per message. A newer preview supersedes the prior one (builder owns the overlay → latest wins).
+  // Same-shape restatements are skipped (eligibility guard), and a no-plan/clarifying turn never
+  // clears the standing preview. Auto-show is display-only — it NEVER applies/saves/activates/runs
+  // (Apply stays an explicit click in the overlay). Dashboard (no builder callback) → no-op.
+  const autoShownPreviewRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!onPreviewToCanvas) return;
+    let latest: Extract<ChatMessage, { role: "assistant" }> | null = null;
+    for (const m of messages) if (m.role === "assistant") latest = m;
+    if (!latest || !latest.preview || !latest.plan) return;
+    if (autoShownPreviewRef.current === latest.id) return; // already auto-shown this turn
+    const meaningful =
+      getCurrentGraphShape == null ||
+      isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: latest.plan });
+    if (!meaningful) return;
+    autoShownPreviewRef.current = latest.id;
+    onPreviewToCanvas({ plan: latest.plan, preview: latest.preview });
+  }, [messages, onPreviewToCanvas, getCurrentGraphShape]);
+
   const trimmed = input.trim();
   const canSend = trimmed.length > 0 && !loading;
 
@@ -263,6 +288,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             text: res.guidanceText,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
+            ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
           },
         ]);
       } else {
@@ -306,6 +332,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             text,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
+            ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
           },
         ]);
       } else {
@@ -404,6 +431,18 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                     {m.text}
                   </span>
                 </div>
+              )}
+              {/* REACT-LIVE-SKELETON — safe, no-secret notes (e.g. an exact catalog gap when no plan
+                  could be built) so the agent says what's missing instead of going silent. */}
+              {m.warnings && m.warnings.length > 0 && (
+                <ul
+                  data-testid="workflow-guidance-warnings"
+                  className="mt-2 space-y-1 text-xs text-amber-700 dark:text-amber-400"
+                >
+                  {m.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
               )}
               {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
               {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
