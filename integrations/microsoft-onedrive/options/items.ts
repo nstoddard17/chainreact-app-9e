@@ -17,9 +17,11 @@ import {
  * `microsoft-onedrive:items` options resolver — Slice 4.ONEDRIVE-META-2.
  *
  * Lists the children (files AND folders) of a chosen folder. Backs the
- * `itemId` field on `get_file` / `delete_item` / `move_item` / `copy_item`
- * (item-targeted actions operate on either a file or a folder, so both are
- * included). Single-parent cascade off `parentItemId`.
+ * `itemId` field on the MUTATION actions `delete_item` / `move_item` /
+ * `copy_item` (item-targeted actions operate on either a file or a folder, so
+ * both are included). Single-parent cascade off `parentItemId`. NOTE: `get_file`
+ * no longer uses this cascade — it uses the flat `microsoft-onedrive:files`
+ * picker (ONEDRIVE-GETFILE-DISCOVERY) so root files are not hidden.
  *
  * **Dep name `parentItemId` is pinned verbatim** to the UI-scope field
  * added to the item-targeted schemas in ONEDRIVE-META-3; the metadata

@@ -86,10 +86,26 @@ describe("GET /api/providers/microsoft-onedrive/actions", () => {
     }
   });
 
-  it("itemId fields are microsoft-onedrive:items dependsOn parentItemId (→ folders, no dep)", async () => {
+  it("get_file.itemId is a FLAT microsoft-onedrive:files picker (no parent cascade)", async () => {
+    // ONEDRIVE-GETFILE-DISCOVERY: get_file finds files DIRECTLY (root files first +
+    // a bounded one-level folder descent), so its `itemId` is a flat picker with NO
+    // `parentItemId` field and NO cascade dep. The old `folders → items` cascade hid
+    // root files and files past the first folder, so get_file deliberately diverges
+    // from the mutation actions' cascade (assert it explicitly so a regression to the
+    // cascade — which would re-hide root files — fails here).
+    const get = (await fetchActions()).find((a) => a.key === "microsoft-onedrive:get_file")!;
+    expect(get.fields.find((f) => f.name === "parentItemId")).toBeUndefined();
+    const itemId = get.fields.find((f) => f.name === "itemId")!;
+    expect(itemId.optionsSource).toBe("microsoft-onedrive:files");
+    expect(itemId.dependsOn).toBeUndefined();
+  });
+
+  it("mutation itemId fields are microsoft-onedrive:items dependsOn parentItemId (→ folders, no dep)", async () => {
+    // The MUTATION actions keep the folder-scoped cascade: pick a source folder
+    // (`parentItemId` → folders, no dep), then an item within it (`itemId` → items,
+    // dependsOn parentItemId). get_file is intentionally excluded (flat picker above).
     const byKey = new Map((await fetchActions()).map((a) => [a.key, a]));
     for (const key of [
-      "microsoft-onedrive:get_file",
       "microsoft-onedrive:move_item",
       "microsoft-onedrive:copy_item",
       "microsoft-onedrive:delete_item",

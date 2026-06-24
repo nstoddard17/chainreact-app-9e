@@ -389,8 +389,10 @@ import { trelloLabelsResolver } from "@/integrations/trello/options/labels";
 //     root-level only (Graph lists one level at a time; recursive cascade
 //     deferred). value = opaque DriveItem id.
 //   - `microsoft-onedrive:items` (dep: parentItemId) — files + folders in a
-//     chosen folder. Backs `itemId` (get/delete/move/copy) via the UI-scope
-//     parentItemId field added in ONEDRIVE-META-3.
+//     chosen folder. Backs `itemId` on the MUTATION actions (delete/move/copy)
+//     via the UI-scope parentItemId field added in ONEDRIVE-META-3. `get_file`
+//     no longer uses this cascade — it uses the flat `:files` picker below
+//     (ONEDRIVE-GETFILE-DISCOVERY) so root files are not hidden.
 // Both REUSE the existing `api/driveItemsList` helper (no new read helper —
 // OneDrive's api/ is not mutation-only). Auth is refreshable → resolvers use
 // `refreshAndRetry` (Excel/OneNote pattern), NOT decrypt-direct.
