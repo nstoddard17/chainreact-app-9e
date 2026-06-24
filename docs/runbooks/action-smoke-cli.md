@@ -1109,9 +1109,12 @@ re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
 | `dropbox:create_folder` | create folder (root) -> get_file_metadata (marker on name + isFolder) -> **delete** | deleted to trash (recoverable ~30d) | `LIVE_PASS_CLEANED` |
 | `dropbox:delete_file` | create folder -> **delete (action under test)** -> path_metadata existence probe (exists == false) | deleted to trash (recoverable ~30d) | `LIVE_PASS_CLEANED` |
 | `dropbox:upload_file` | upload staged file (v2_storage FileRef) -> get_file_metadata (marker on name + isFolder == false) -> **delete** | deleted to trash (recoverable ~30d) | `LIVE_PASS_CLEANED` |
+| `dropbox:copy_file` | upload smoke source -> copy to distinct marker path -> get_file_metadata (marker+suffix "copy" on name + isFolder == false) -> **delete both (source + copy)** | both deleted to trash (recoverable ~30d) | `LIVE_PASS_CLEANED` |
+| `dropbox:move_file` | upload smoke source -> move to distinct marker path (re-capture same ledger key) -> get_file_metadata (marker+suffix "moved" on name + isFolder == false) -> **delete** | deleted to trash (recoverable ~30d) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:create_folder` | create folder (root) -> get_file (marker on name + kind == folder) -> **delete** | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:delete_item` | create folder -> **delete (action under test)** -> item_metadata existence probe (exists == false) | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:upload_file` | upload inline file (root) -> get_file (marker on name + kind == file) -> **delete** | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
+| `microsoft-onedrive:move_item` | upload smoke source + create smoke dest folder (file captured before folder) -> atomic move+rename into folder -> get_file (marker+suffix "moved" on name + kind == file + parentReference.id == smoke folder) -> **delete both (file then folder)** | both deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `google-calendar:create_event` | create event (primary, no attendees, no-notify) -> events.get (marker on summary) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-calendar:update_event` | create event -> update summary to marker+"updated" -> events.get (marker+"updated" on summary) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-calendar:delete_event` | create event -> **delete_event (action under test)** -> events.get existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
@@ -1140,9 +1143,18 @@ Dropbox root, verified by INDEPENDENT read-back (`get_file_metadata` marker on `
 deleted). `upload_file` consumes a FileRef, so bytes are staged in OUR `workflow-files`
 bucket as a `v2_storage` FileRef (self-contained — never an invented URL). HONESTY: Dropbox
 `delete` moves to TRASH (recoverable ~30d); the object leaves the active namespace so it is
-reported `cleaned`, with reversibility disclosed. Deferred: `copy_file`, `move_file`,
-`download_file`, `get_temporary_link`, `create_shared_link` (sharing/link actions are out of
-scope; copy/move/download need their own verified batch).
+reported `cleaned`, with reversibility disclosed.
+
+**Dropbox copy/move (SMOKE-WRITE-25) — `copy_file` + `move_file` certified `LIVE_PASS_CLEANED`.**
+Each SETS UP its own smoke-owned source via `dropbox:upload_file` (staged `v2_storage` FileRef),
+then relocates it. `copy_file` copies to a DISTINCT marker path and verifies the COPY via an
+INDEPENDENT `get_file_metadata` read-back (marker + suffix `"copy"` on the persisted `name`, so it
+cannot pass on the source name; `isFolder == false`), then deletes BOTH files via `cleanupEach`
+(created 2 / cleaned 2). `move_file` moves to a DISTINCT marker path, re-capturing the new path
+into the SAME ledger key (one physical file, current address — never a stale path), verifies via an
+INDEPENDENT read-back (marker + suffix `"moved"`; `isFolder == false`), then deletes the one file.
+Still deferred: `download_file`, `get_temporary_link`, `create_shared_link` (sharing/link/download
+actions are out of scope for the no-send harness).
 
 **OneDrive write coverage (SMOKE-WRITE-19/20) — COMPLETE (3 of 3 currently-safe write actions).**
 `create_folder`, `delete_item`, `upload_file` all `LIVE_PASS_CLEANED`. Smoke-owned at the
@@ -1150,7 +1162,26 @@ drive root, verified by INDEPENDENT read-back (`get_file` marker on `name` + `ki
 `delete_item` a smoke-only `item_metadata` probe asserting `exists == false` via a typed 404
 `NotFoundError`). `upload_file` takes INLINE content (utf8/base64) — no FileRef, no staging.
 HONESTY: OneDrive `delete_item` moves to the RECYCLE BIN (recoverable); reported `cleaned`
-with reversibility disclosed. Deferred: `copy_item`, `move_item` (need their own batch).
+with reversibility disclosed.
+
+**OneDrive move/copy (SMOKE-WRITE-26) — `move_item` certified; `copy_item` BLOCKED (async).**
+`move_item` is `LIVE_PASS_CLEANED`: setup uploads a smoke-owned source file (INLINE content, no
+FileRef) AND creates a smoke-owned destination folder — the FILE is captured BEFORE the FOLDER so
+`cleanupEach` deletes the moved child before its parent (deleting the folder first would recursively
+remove the file inside, and the follow-up delete would 404 -> CLEANUP_FAILED). Execute performs an
+ATOMIC move + rename into the smoke folder in one Graph PATCH (the driveItem id is STABLE across a
+move, so the moved id re-captures into the same key). Verified by an INDEPENDENT `get_file` read-back
+proving THREE things the handler echo cannot: marker + suffix `"moved"` on the persisted `name`
+(rename landed), `kind == "file"`, and `parentReference.id == {{ledger.folder.id}}` (the move landed
+in OUR smoke folder, compared against the captured folder id — never an input echo). Both items are
+deleted (file then folder). **`copy_item` — BLOCKED (async-by-design).** The handler returns
+`{status:"pending", monitorUrl}` with NO copied-item id and deliberately does NOT poll (Slice 8
+V1-rot fix: long waits exceed serverless timeouts). The copy's id is only obtainable by polling the
+monitor URL (non-deterministic timing) AND the write harness has no mechanism to feed a
+read-back-discovered id into the cleanup ledger (ids are captured only from setup/execute outputs),
+so a verified copy would LEAK a visible file every run. Stays `MISSING_FIXTURE`. Unblocks with either
+(a) a synchronous-completion copy variant that returns the new item id, or (b) a harness extension
+that captures a seam-discovered id into the ledger for cleanup.
 
 **Google Calendar write coverage (SMOKE-WRITE-21) — 3 of 4 write actions certified.**
 `create_event`, `update_event`, `delete_event` all `LIVE_PASS_CLEANED`. Each is smoke-owned on

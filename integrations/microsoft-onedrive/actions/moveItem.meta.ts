@@ -62,9 +62,10 @@ export const microsoftOneDriveMoveItemMeta: ActionMeta = {
   outputs: [
     { name: "itemId", type: "string", description: "DriveItem id." },
     { name: "name", type: "string", description: "Item name after the change." },
-    { name: "parentReference", type: "object", description: "Parent drive/folder reference." },
-    { name: "webUrl", type: "string", description: "Item URL." },
-    { name: "lastModifiedDateTime", type: "string", description: "ISO-8601 modified." },
+    // Graph may omit these on the PATCH response -> handler returns null.
+    { name: "parentReference", type: "object", description: "Parent drive/folder reference (or null).", nullable: true },
+    { name: "webUrl", type: "string", description: "Item URL (or null).", nullable: true },
+    { name: "lastModifiedDateTime", type: "string", description: "ISO-8601 modified (or null).", nullable: true },
   ],
   producesFileRef: false,
   consumesFileRef: false,

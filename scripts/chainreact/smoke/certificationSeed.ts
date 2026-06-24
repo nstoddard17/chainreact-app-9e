@@ -318,4 +318,27 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["dropbox", "copy_file"],
     ["dropbox", "move_file"],
   ]),
+  // SMOKE-WRITE-26 — OneDrive move_item (atomic move + rename). Setup uploads a
+  // smoke-owned source file (INLINE content, no FileRef) AND creates a smoke-owned
+  // destination folder — the FILE is captured BEFORE the FOLDER so cleanup deletes
+  // the moved child before its parent (deleting the folder first would recursively
+  // remove the file inside and the follow-up delete would 404 -> CLEANUP_FAILED).
+  // execute relocates + renames the file into the smoke folder in one Graph PATCH
+  // (the driveItem id is stable, so the moved id re-captures into the same key).
+  // Verified by an INDEPENDENT get_file read-back proving THREE things the handler
+  // echo cannot: marker + suffix "moved" on the persisted name (rename landed),
+  // kind=="file", and parentReference.id == the captured smoke folder id (move
+  // landed in OUR folder). Both items deleted via cleanupEach (file then folder).
+  // HONESTY: OneDrive delete moves to the RECYCLE BIN (recoverable); the items leave
+  // the active drive ("cleaned"), disposition disclosed. Verified live (0 leaked).
+  //
+  // copy_item is NOT certified — BLOCKED (async-by-design): the handler returns
+  // {status:"pending", monitorUrl} with NO copied-item id and does not poll (Slice 8
+  // V1-rot fix). The copy's id is only obtainable by polling the monitor URL (non-
+  // deterministic timing) AND the harness has no mechanism to feed a read-back-
+  // discovered id into the cleanup ledger, so a verified copy would LEAK. Stays
+  // MISSING_FIXTURE; see docs/runbooks/action-smoke-cli.md (OneDrive write coverage).
+  ...records("LIVE_PASS_CLEANED", "live setup+move/rename+verify, items deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_FILE, [
+    ["microsoft-onedrive", "move_item"],
+  ]),
 ];

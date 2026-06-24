@@ -60,9 +60,11 @@ export const microsoftOneDriveCopyItemMeta: ActionMeta = {
   outputs: [
     { name: "status", type: "string", description: 'Copy status — "pending".' },
     { name: "monitorUrl", type: "string", description: "Graph monitor URL to poll for completion." },
-    { name: "sourceItemId", type: "string", description: "The copied item's id." },
+    // SOURCE item id (the item being copied) — NOT the copy. The async copy returns
+    // no new item id synchronously; poll monitorUrl for the completed copy's id.
+    { name: "sourceItemId", type: "string", description: "The source item's id (the item being copied)." },
     { name: "targetParentItemId", type: "string", description: "The destination folder id." },
-    { name: "newName", type: "string", description: "The copy's name (or null)." },
+    { name: "newName", type: "string", description: "The copy's name (or null).", nullable: true },
   ],
   producesFileRef: false,
   consumesFileRef: false,
