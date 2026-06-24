@@ -69,3 +69,31 @@ export function isPlanMeaningfulCanvasPreview(input: IsPlanMeaningfulCanvasPrevi
   }
   return false;
 }
+
+/** Minimal structural preview shape for signature comparison — labels/structure only, no config. */
+export interface DraftPreviewSignatureInput {
+  readonly version: number;
+  readonly title: string;
+  readonly nodes: readonly { readonly previewId: string; readonly role: string; readonly provider: string; readonly type: string }[];
+  readonly edges: readonly { readonly fromPreviewId: string; readonly toPreviewId: string }[];
+}
+
+/**
+ * Stable, structural signature of a draft preview (HERMES-AGENT-PREVIEW-SHOWN-DEDUP). Used to answer
+ * "is THIS rail suggestion the preview already shown on the canvas?" so the rail can hide its redundant
+ * "Show on canvas" control for the displayed preview while keeping it as a recovery affordance otherwise.
+ *
+ * The signature is derived ONLY from version + title + the ordered node chain (`previewId|role|
+ * provider:type`) + ordered edges — never config/values/secrets (a preview never carries those). Two
+ * structurally identical previews share a signature (correct: they are the same suggestion for display
+ * purposes). Returns `null` for an empty/absent preview so "nothing displayed" never matches a real
+ * suggestion. Pure + framework-free.
+ */
+export function draftPreviewSignature(preview: DraftPreviewSignatureInput | null | undefined): string | null {
+  if (!preview || !Array.isArray(preview.nodes) || preview.nodes.length === 0) return null;
+  const nodes = preview.nodes
+    .map((n) => `${n.previewId}|${n.role}|${n.provider.trim().toLowerCase()}:${n.type.trim().toLowerCase()}`)
+    .join(">");
+  const edges = (preview.edges ?? []).map((e) => `${e.fromPreviewId}->${e.toPreviewId}`).join(",");
+  return `v${preview.version}|${preview.title.trim()}|${nodes}|${edges}`;
+}

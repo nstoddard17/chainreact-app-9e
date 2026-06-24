@@ -21,6 +21,7 @@ import {
 } from "@/core/workflows/checkWorkflowReview";
 import {
   isPlanMeaningfulCanvasPreview,
+  draftPreviewSignature,
   type CanvasPreviewGraphNode,
 } from "@/core/workflows/canvasPreviewEligibility";
 import {
@@ -115,6 +116,16 @@ export interface WorkflowGuidancePanelProps {
    * the composer starts empty as before.
    */
   readonly initialComposerValue?: string;
+  /**
+   * HERMES-AGENT-PREVIEW-SHOWN-DEDUP — the structural signature
+   * ({@link draftPreviewSignature}) of the preview CURRENTLY displayed on the canvas overlay (owned by
+   * `WorkflowBuilder`; `null` when none is shown). When the latest suggestion's preview matches it, the
+   * rail hides its redundant "Show on canvas" button (the same preview is already on the canvas, with
+   * Apply/Discard in the overlay). When they differ — nothing shown, the user discarded it, or a newer
+   * preview superseded it — the button stays available as a manual re-show/recovery affordance. Absent →
+   * the button always renders (e.g. dashboard with no canvas, or auto-show not wired/available).
+   */
+  readonly displayedPreviewSignature?: string | null;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -178,7 +189,7 @@ function SparkleIcon() {
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, renderCheckSetup, initialComposerValue }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, renderCheckSetup, initialComposerValue, displayedPreviewSignature }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -456,7 +467,13 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   plan={m.plan}
                   {...(onPreviewToCanvas &&
                   (getCurrentGraphShape == null ||
-                    isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: m.plan }))
+                    isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: m.plan })) &&
+                  // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — hide the redundant rail "Show on canvas" button when
+                  // THIS preview is already the one displayed on the canvas (Apply/Discard live in the
+                  // overlay). It returns as a manual re-show/recovery control once the preview is discarded
+                  // or superseded (signatures differ), or when no preview is currently shown.
+                  !(displayedPreviewSignature != null &&
+                    draftPreviewSignature(m.preview) === displayedPreviewSignature)
                     ? { onPreviewToCanvas }
                     : {})}
                 />

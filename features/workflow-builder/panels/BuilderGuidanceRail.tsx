@@ -91,6 +91,13 @@ export interface BuilderGuidanceRailProps {
    * fills only an empty, untouched composer and never auto-sends.
    */
   readonly initialComposerValue?: string;
+  /**
+   * HERMES-AGENT-PREVIEW-SHOWN-DEDUP — structural signature of the preview currently displayed on the
+   * canvas overlay (owned by `WorkflowBuilder`; `null` when none). Forwarded to the panel so the rail
+   * hides its redundant "Show on canvas" button for the preview already on the canvas, and restores it
+   * as a re-show/recovery control once that preview is discarded or superseded.
+   */
+  readonly displayedPreviewSignature?: string | null;
 }
 
 export function BuilderGuidanceRail({
@@ -107,6 +114,7 @@ export function BuilderGuidanceRail({
   getCurrentGraphShape,
   renderCheckSetup,
   initialComposerValue,
+  displayedPreviewSignature,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -140,6 +148,7 @@ export function BuilderGuidanceRail({
             {...(renderCheckSetup ? { renderCheckSetup } : {})}
             {...(initialComposerValue ? { initialComposerValue } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
+            {...(displayedPreviewSignature !== undefined ? { displayedPreviewSignature } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {
                   transcriptFooter: (

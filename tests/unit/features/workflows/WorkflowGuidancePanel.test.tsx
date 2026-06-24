@@ -14,6 +14,7 @@ jest.mock("@/lib/api/ai/guidance", () => ({
 }));
 
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
+import { draftPreviewSignature } from "@/core/workflows/canvasPreviewEligibility";
 
 beforeEach(() => {
   mockRequest.mockReset();
@@ -463,6 +464,58 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
     expect(onPreviewToCanvas.mock.calls[0]![0].plan.title).toContain("Starter");
     expect(screen.getByTestId("workflow-guidance-preview")).toHaveTextContent("Starter");
+  });
+
+  // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — when the LATEST suggestion's preview is the one already shown on
+  // the canvas (its signature is passed back as `displayedPreviewSignature`), the rail hides the
+  // redundant "Show on canvas" button. When the signature differs/absent (not shown, discarded, or
+  // superseded), the button stays as a manual re-show/recovery control.
+  it("hides 'Show on canvas' when the latest preview matches the displayed-canvas signature", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValueOnce({ ok: true, guidanceText: "first", source: "hermes-agent", workflowPlan: planFor("First"), previewDraft: previewFor("First") });
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        onPreviewToCanvas={jest.fn()}
+        displayedPreviewSignature={draftPreviewSignature(previewFor("First"))}
+      />,
+    );
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    // The preview text section still renders (so the user sees the suggestion)...
+    await screen.findByTestId("workflow-guidance-preview");
+    // ...but the redundant "Show on canvas" button is hidden — it's already on the canvas.
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
+  });
+
+  it("keeps 'Show on canvas' visible when nothing is displayed (recovery), and when the signature differs", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "first", source: "hermes-agent", workflowPlan: planFor("First"), previewDraft: previewFor("First") });
+
+    // No displayed signature (e.g. auto-show unavailable / discarded) → button available as recovery.
+    const { unmount } = render(
+      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={jest.fn()} displayedPreviewSignature={null} />,
+    );
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+    unmount();
+
+    // A DIFFERENT preview is on the canvas (signature mismatch) → button still offered for this one.
+    render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        onPreviewToCanvas={jest.fn()}
+        displayedPreviewSignature={draftPreviewSignature(previewFor("Something else"))}
+      />,
+    );
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
   });
 
   it("an error turn is appended but the prior chat history is preserved", async () => {

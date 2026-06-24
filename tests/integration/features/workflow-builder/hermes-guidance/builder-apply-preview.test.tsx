@@ -103,10 +103,11 @@ function renderBuilder(wf: WorkflowDetail) {
 
 async function applyPreview(user: ReturnType<typeof userEvent.setup>) {
   // HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — guidance now lives directly in the left rail (no
-  // floating toggle to open first).
+  // floating toggle to open first). REACT-LIVE-SKELETON — the preview AUTO-shows on the canvas; the
+  // overlay's "Apply preview" is the action (no redundant rail "Show on canvas" click — that button is
+  // hidden while the preview is already displayed, per HERMES-AGENT-PREVIEW-SHOWN-DEDUP).
   await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
   await user.click(screen.getByTestId("workflow-guidance-submit"));
-  await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
   await user.click(await screen.findByTestId("builder-preview-apply"));
 }
 
@@ -117,10 +118,9 @@ describe("builder preview canvas state (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FI
     // Empty draft, no preview yet → the empty-state card is shown.
     expect(screen.getByTestId("empty-canvas-state")).toBeInTheDocument();
 
-    // Submit + Show on canvas → preview overlay active → empty-state hidden.
+    // Submit → preview overlay AUTO-shows → empty-state hidden (no "Show on canvas" click needed).
     await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
     await screen.findByTestId("builder-preview-overlay");
     expect(screen.queryByTestId("empty-canvas-state")).not.toBeInTheDocument();
 
@@ -241,7 +241,7 @@ describe("builder apply-preview — insert between (selected mid-chain node)", (
     renderBuilder(workflow(existingNodes, existingEdges));
     await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
+    await screen.findByTestId("builder-preview-overlay"); // auto-shown
     // Select the mid-chain trigger node (its sole outgoing edge trig → act is the split point).
     act(() => {
       useConfigSlice.getState().openNode({ nodeId: "trig", initialValues: {} });
@@ -436,12 +436,12 @@ describe("builder apply-preview — auto-open first incomplete node (HERMES-AGEN
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });
 
-  it("Show on canvas alone, then Discard, never selects/opens a node (and applies nothing)", async () => {
+  it("auto-show alone, then Discard, never selects/opens a node (and applies nothing)", async () => {
     const user = userEvent.setup();
     renderWith(workflow([], []), slackMeta);
     await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
+    await screen.findByTestId("builder-preview-overlay"); // auto-shown
     // Showing the preview overlay selects nothing.
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
     await user.click(await screen.findByTestId("builder-preview-discard"));
@@ -497,7 +497,7 @@ describe("builder apply-preview — guided setup card in the rail (HERMES-AGENT-
   async function showPreview(user: ReturnType<typeof userEvent.setup>) {
     await user.type(screen.getByPlaceholderText(/Example:/i), "remind the team to review new leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
+    await screen.findByTestId("builder-preview-overlay"); // auto-shown (no redundant rail button click)
   }
 
   it("the canvas node stays visual-only (short badge, no controls); the rail hosts the setup control", async () => {

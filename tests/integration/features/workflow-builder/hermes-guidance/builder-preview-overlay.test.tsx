@@ -102,47 +102,57 @@ function renderBuilder() {
   );
 }
 
-/** Submit in the rail + reach the "Show on canvas" affordance (does NOT click it yet). */
-async function reachShowOnCanvas(user: ReturnType<typeof userEvent.setup>) {
+/** Submit in the rail; a valid plan AUTO-shows the preview overlay on the canvas (no extra click). */
+async function autoShowPreview(user: ReturnType<typeof userEvent.setup>) {
   // HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — guidance is rendered directly in the left rail now.
+  // REACT-LIVE-SKELETON — a valid preview shows on the canvas automatically (no "Show on canvas" click).
   await user.type(screen.getByPlaceholderText(/Example:/i), "follow up with leads");
   await user.click(screen.getByTestId("workflow-guidance-submit"));
-  await screen.findByTestId("workflow-guidance-show-on-canvas");
-}
-
-async function showPreviewOnCanvas(user: ReturnType<typeof userEvent.setup>) {
-  await reachShowOnCanvas(user);
-  await user.click(screen.getByTestId("workflow-guidance-show-on-canvas"));
   await screen.findByTestId("builder-preview-overlay");
 }
 
 describe("builder preview overlay — renders without mutating the real workflow", () => {
-  it("shows the ghost overlay (preview nodes + edges) on 'Show on canvas'", async () => {
+  it("auto-shows the ghost overlay (preview nodes + edges) on the canvas", async () => {
     const user = userEvent.setup();
     renderBuilder();
-    await showPreviewOnCanvas(user);
+    await autoShowPreview(user);
     expect(screen.getAllByTestId("builder-preview-node")).toHaveLength(2);
     expect(screen.getAllByTestId("builder-preview-edge")).toHaveLength(1);
     expect(screen.getByTestId("builder-preview-overlay-notice")).toHaveTextContent(
       "Preview only — your workflow has not changed.",
     );
+    // The overlay's Apply/Discard controls remain the way to act on the shown preview.
+    expect(screen.getByTestId("builder-preview-apply")).toBeInTheDocument();
+    expect(screen.getByTestId("builder-preview-discard")).toBeInTheDocument();
+  });
+
+  // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — once a preview is auto-shown on the canvas, the rail must NOT
+  // keep offering a redundant "Show on canvas" button for that same preview (Apply/Discard live in the
+  // overlay). Discarding it returns the button as a manual re-show affordance.
+  it("hides the rail 'Show on canvas' button once the preview is auto-shown, and restores it after Discard", async () => {
+    const user = userEvent.setup();
+    renderBuilder();
+    await autoShowPreview(user);
+    // The same preview is already on the canvas → no redundant rail button.
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
+
+    // Discard → the preview is no longer on the canvas → the rail offers re-show again (recovery).
+    await user.click(screen.getByTestId("builder-preview-discard"));
+    await waitFor(() => expect(screen.queryByTestId("builder-preview-overlay")).not.toBeInTheDocument());
+    const reshow = await screen.findByTestId("workflow-guidance-show-on-canvas");
+
+    // Re-clicking it shows the same preview again, and the redundant button hides once more.
+    await user.click(reshow);
+    await screen.findByTestId("builder-preview-overlay");
+    await waitFor(() => expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument());
   });
 
   it("does NOT mutate the real graph, mark dirty, or call the save/update API", async () => {
     const user = userEvent.setup();
     renderBuilder();
-    // Snapshot the REAL graph AFTER hydration but BEFORE showing the preview overlay.
-    await reachShowOnCanvas(user);
-    const before = JSON.stringify(useGraphSlice.getState().pendingNodes);
-    const beforeEdges = JSON.stringify(useGraphSlice.getState().pendingEdges);
-    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2); // hydrated real nodes
-
-    await user.click(screen.getByTestId("workflow-guidance-show-on-canvas"));
-    await screen.findByTestId("builder-preview-overlay");
+    await autoShowPreview(user);
 
     const after = JSON.stringify(useGraphSlice.getState().pendingNodes);
-    expect(after).toBe(before); // real nodes byte-for-byte unchanged
-    expect(JSON.stringify(useGraphSlice.getState().pendingEdges)).toBe(beforeEdges);
     expect(useGraphSlice.getState().pendingNodes).toHaveLength(2); // the two real nodes only
     expect(useGraphSlice.getState().isDirty).toBe(false); // never marked dirty
     expect(mockUpdateWorkflow).not.toHaveBeenCalled(); // no save/update
@@ -153,7 +163,7 @@ describe("builder preview overlay — renders without mutating the real workflow
   it("Discard removes only the overlay; the real graph stays unchanged", async () => {
     const user = userEvent.setup();
     renderBuilder();
-    await showPreviewOnCanvas(user);
+    await autoShowPreview(user);
     await user.click(screen.getByTestId("builder-preview-discard"));
     await waitFor(() => expect(screen.queryByTestId("builder-preview-overlay")).not.toBeInTheDocument());
     expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
@@ -164,7 +174,7 @@ describe("builder preview overlay — renders without mutating the real workflow
   it("the browser only ever calls the ChainReact guidance helper (no other workflow API for preview)", async () => {
     const user = userEvent.setup();
     renderBuilder();
-    await showPreviewOnCanvas(user);
+    await autoShowPreview(user);
     expect(mockRequest).toHaveBeenCalledTimes(1);
     expect(mockRequest).toHaveBeenCalledWith(expect.objectContaining({ accountId: "acct-1", workflowId: "wf-1" }));
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();

@@ -7,7 +7,9 @@
  */
 import {
   isPlanMeaningfulCanvasPreview,
+  draftPreviewSignature,
   type CanvasPreviewGraphNode,
+  type DraftPreviewSignatureInput,
 } from "@/core/workflows/canvasPreviewEligibility";
 
 const MANUAL = { provider: "native", type: "manual.run" };
@@ -94,5 +96,61 @@ describe("isPlanMeaningfulCanvasPreview", () => {
     expect(isPlanMeaningfulCanvasPreview({ currentGraph: currentManualSlack, plan: plan([]) })).toBe(false);
     expect(isPlanMeaningfulCanvasPreview({ currentGraph: currentManualSlack, plan: null })).toBe(false);
     expect(isPlanMeaningfulCanvasPreview({ currentGraph: currentManualSlack, plan: undefined })).toBe(false);
+  });
+});
+
+describe("draftPreviewSignature — HERMES-AGENT-PREVIEW-SHOWN-DEDUP", () => {
+  function preview(over: Partial<DraftPreviewSignatureInput> = {}): DraftPreviewSignatureInput {
+    return {
+      version: 1,
+      title: "Starter: Slack alert",
+      nodes: [
+        { previewId: "preview-step-1", role: "trigger", provider: "native", type: "manual.run" },
+        { previewId: "preview-step-2", role: "action", provider: "slack", type: "send_channel_message" },
+      ],
+      edges: [{ fromPreviewId: "preview-step-1", toPreviewId: "preview-step-2" }],
+      ...over,
+    };
+  }
+
+  it("is STABLE: identical structure → identical signature", () => {
+    expect(draftPreviewSignature(preview())).toBe(draftPreviewSignature(preview()));
+  });
+
+  it("DIFFERS when the node chain changes (different suggestion → button stays visible)", () => {
+    const a = draftPreviewSignature(preview());
+    const b = draftPreviewSignature(
+      preview({
+        nodes: [
+          { previewId: "preview-step-1", role: "trigger", provider: "gmail", type: "new_email" },
+          { previewId: "preview-step-2", role: "action", provider: "slack", type: "send_channel_message" },
+        ],
+      }),
+    );
+    expect(a).not.toBe(b);
+  });
+
+  it("DIFFERS on title or version change", () => {
+    expect(draftPreviewSignature(preview())).not.toBe(draftPreviewSignature(preview({ title: "Other" })));
+    expect(draftPreviewSignature(preview())).not.toBe(draftPreviewSignature(preview({ version: 2 })));
+  });
+
+  it("is case/whitespace-insensitive on provider:type (same shape → same signature)", () => {
+    const a = draftPreviewSignature(preview());
+    const b = draftPreviewSignature(
+      preview({
+        nodes: [
+          { previewId: "preview-step-1", role: "trigger", provider: "Native", type: " manual.run " },
+          { previewId: "preview-step-2", role: "action", provider: "SLACK", type: "send_channel_message" },
+        ],
+      }),
+    );
+    expect(a).toBe(b);
+  });
+
+  it("returns null for an empty/absent preview (so 'nothing shown' never matches a real suggestion)", () => {
+    expect(draftPreviewSignature(null)).toBeNull();
+    expect(draftPreviewSignature(undefined)).toBeNull();
+    expect(draftPreviewSignature(preview({ nodes: [] }))).toBeNull();
   });
 });
