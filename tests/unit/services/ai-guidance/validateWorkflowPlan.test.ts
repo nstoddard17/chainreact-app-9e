@@ -6,7 +6,12 @@
  * registry — a hallucinated provider:type is rejected; real ones (pulled from discovery) pass.
  */
 
-import { validateWorkflowPlan, isPlanStepKnown } from "@/services/ai-guidance/validateWorkflowPlan";
+import {
+  validateWorkflowPlan,
+  isPlanStepKnown,
+  summarizeInvalidPlan,
+  GUIDANCE_SOURCE_QUESTION,
+} from "@/services/ai-guidance/validateWorkflowPlan";
 import { listAllActionMetas, listAllTriggerMetas } from "@/services/discovery/_registry";
 import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession";
 
@@ -60,5 +65,45 @@ describe("validateWorkflowPlan — capability validation", () => {
     ]));
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.invalidSteps.map((s) => s.ref)).toEqual(["s0", "s1"]);
+  });
+});
+
+describe("summarizeInvalidPlan — safe, actionable failure reasons (no raw model JSON / secrets)", () => {
+  it("an unknown TRIGGER asks WHERE the data should come from (needsSource) + keeps keys for logs only", () => {
+    const res = validateWorkflowPlan(plan([
+      { ref: "s0", role: "trigger", provider: "usage", type: "drops_below_threshold", purpose: "watch" },
+      { ref: "s1", role: "action", provider: realAction.provider, type: realAction.type, purpose: "alert" },
+    ]));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    const summary = summarizeInvalidPlan(res.invalidSteps);
+    expect(summary.needsSource).toBe(true);
+    expect(summary.message).toContain(GUIDANCE_SOURCE_QUESTION);
+    expect(summary.message).toMatch(/can't watch that automatically/i);
+    // The de-identified capability key is available for LOGS, but never embedded in the user message.
+    expect(summary.invalidCapabilityKeys).toContain("usage:drops_below_threshold");
+    expect(summary.message).not.toContain("usage:drops_below_threshold");
+  });
+
+  it("an unknown ACTION (no unknown trigger) says it isn't in the catalog yet + asks which app", () => {
+    const res = validateWorkflowPlan(plan([
+      { ref: "s0", role: "action", provider: "totallymadeup", type: "do_magic", purpose: "x" },
+    ]));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    const summary = summarizeInvalidPlan(res.invalidSteps);
+    expect(summary.needsSource).toBe(false);
+    expect(summary.message).toMatch(/isn'?t in ChainReact'?s catalog yet/i);
+    expect(summary.message).toMatch(/which app/i);
+  });
+
+  it("a missing trigger takes priority over a missing action (the source question wins)", () => {
+    const res = validateWorkflowPlan(plan([
+      { ref: "s0", role: "trigger", provider: "ghost", type: "x", purpose: "y" },
+      { ref: "s1", role: "action", provider: "nope", type: "z", purpose: "w" },
+    ]));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(summarizeInvalidPlan(res.invalidSteps).needsSource).toBe(true);
   });
 });

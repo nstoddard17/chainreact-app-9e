@@ -147,14 +147,40 @@ describe("normalizeGatewayResponse — embedded plan extraction (HERMES-AGENT-PL
     }
   });
 
-  it("an embedded plan with hallucinated capabilities → workflowPlan null + safe warning, guidance kept", () => {
+  it("an embedded plan with a hallucinated ACTION → null plan + the prose is REPLACED with a safe, specific reason (not the vague legacy warning)", () => {
     const plan = { title: "x", steps: [{ ref: "s0", role: "action", provider: "totallymadeup", type: "do_magic", purpose: "x" }] };
     const n = normalizeGatewayResponse(envelope(fencedPlan(plan)));
     expect(n.ok).toBe(true);
     if (n.ok) {
       expect(n.workflowPlan).toBeNull();
-      expect(n.warnings).toContain(PLAN_NOT_VALIDATED_WARNING);
-      expect(n.guidanceText).toContain("Here is how to approach it.");
+      // The over-confident prose must NOT survive next to a rejected plan; it's replaced with the reason.
+      expect(n.guidanceText).not.toContain("Here is how to approach it.");
+      expect(n.guidanceText).toMatch(/isn'?t in ChainReact'?s catalog yet|which app/i);
+      // The legacy generic warning is no longer emitted.
+      expect(n.warnings ?? []).not.toContain(PLAN_NOT_VALIDATED_WARNING);
+    }
+  });
+
+  it("an embedded plan with a hallucinated TRIGGER (source) → null plan + the reply asks WHERE the data should come from (not 'could not be validated')", () => {
+    // A valid action but an unknown trigger — the real screenshot failure ('watch usage' has no trigger).
+    const plan = {
+      title: "Low usage alert",
+      summary: "Watch usage then alert Slack.",
+      steps: [
+        { ref: "s0", role: "trigger", provider: "usage", type: "drops_below_threshold", purpose: "watch usage" },
+        { ref: "s1", role: "action", provider: realAction.provider, type: realAction.type, purpose: "alert" },
+      ],
+    };
+    const n = normalizeGatewayResponse(envelope(fencedPlan(plan)));
+    expect(n.ok).toBe(true);
+    if (n.ok) {
+      expect(n.workflowPlan).toBeNull();
+      expect(n.guidanceText).not.toContain("Here is how to approach it.");
+      // Actionable source question — names representative real sources; no raw provider:type / JSON.
+      expect(n.guidanceText).toMatch(/where should React read this from/i);
+      expect(n.guidanceText).toMatch(/Stripe|HubSpot|Google Analytics|webhook/);
+      expect(n.guidanceText).not.toContain("drops_below_threshold");
+      expect(n.guidanceText).not.toContain("```");
     }
   });
 

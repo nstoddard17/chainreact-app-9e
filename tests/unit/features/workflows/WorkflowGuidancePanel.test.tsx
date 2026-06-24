@@ -418,6 +418,53 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getAllByTestId("workflow-guidance-show-on-canvas")).toHaveLength(1);
   });
 
+  it("REACT-LIVE-SKELETON — an honest source question + labeled starter skeleton both surface in the rail (no empty canvas)", async () => {
+    // The screenshot fix: the reply is the actionable source question (not a vague warning) AND the
+    // Slack-alert starter preview auto-shows on the canvas.
+    const user = userEvent.setup();
+    const onPreviewToCanvas = jest.fn();
+    const starterPlan = {
+      schemaVersion: 1,
+      title: "Starter: Slack alert (choose your source)",
+      summary: "A starter skeleton, not a finished monitor.",
+      notApplied: true,
+      steps: [
+        { ref: "s0", role: "trigger", provider: "native", type: "manual.run", purpose: "Starter trigger" },
+        { ref: "s1", role: "action", provider: "slack", type: "send_channel_message", purpose: "Send the alert" },
+      ],
+    };
+    const starterPreview = {
+      version: 1,
+      title: "Starter: Slack alert (choose your source)",
+      summary: "A starter skeleton, not a finished monitor.",
+      notice: "Preview only — your workflow has not changed.",
+      notApplied: true as const,
+      nodes: [
+        { previewId: "preview-step-1", role: "trigger" as const, provider: "native", type: "manual.run", label: "native:manual.run", purpose: "Starter trigger", notApplied: true as const },
+        { previewId: "preview-step-2", role: "action" as const, provider: "slack", type: "send_channel_message", label: "slack:send_channel_message", purpose: "Send the alert", missingInputs: ["channel", "text"], notApplied: true as const },
+      ],
+      edges: [{ previewId: "preview-edge-1", fromPreviewId: "preview-step-1", toPreviewId: "preview-step-2", notApplied: true as const }],
+    };
+    mockRequest.mockResolvedValueOnce({
+      ok: true,
+      guidanceText:
+        "I can't watch that automatically yet — ChainReact doesn't have a trigger for that source. Where should React read this from — Stripe, HubSpot, Google Analytics, a webhook, or your app/database?",
+      source: "hermes-agent",
+      workflowPlan: starterPlan,
+      previewDraft: starterPreview,
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />);
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "low usage, alert someone on slack");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+
+    // The honest source question is shown as React's reply (safe reason in the rail).
+    expect(await screen.findByText(/where should React read this from/i)).toBeInTheDocument();
+    // The labeled starter skeleton auto-shows on the canvas — the canvas is no longer empty.
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
+    expect(onPreviewToCanvas.mock.calls[0]![0].plan.title).toContain("Starter");
+    expect(screen.getByTestId("workflow-guidance-preview")).toHaveTextContent("Starter");
+  });
+
   it("an error turn is appended but the prior chat history is preserved", async () => {
     const user = userEvent.setup();
     mockRequest

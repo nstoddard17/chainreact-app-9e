@@ -146,6 +146,76 @@ describe("inferDeterministicPreviewPlan — Mailchimp tag flow", () => {
   });
 });
 
+// REACT-LIVE-SKELETON — the churn / low-usage → Slack alert case from Marcus's screenshot. ChainReact
+// has no "watch usage" trigger, but the Slack alert half is catalog-backed, so we produce a CLEARLY
+// LABELED starter skeleton (manual placeholder trigger + Slack channel message) instead of an empty
+// canvas. The user re-points the trigger to a real source.
+describe("inferDeterministicPreviewPlan — Slack alert starter skeleton (no catalog trigger for the source)", () => {
+  it("builds a validated manual.run → slack:send_channel_message starter for the screenshot prompt", () => {
+    const plan = inferDeterministicPreviewPlan("low usage and it should go to slack. it should just alert someone");
+    expect(plan).not.toBeNull();
+    expect(plan!.steps.map((s) => `${s.provider}:${s.type}`)).toEqual([
+      "native:manual.run",
+      "slack:send_channel_message",
+    ]);
+    expect(validateWorkflowPlan(plan!).ok).toBe(true);
+    expect(plan!.notApplied).toBe(true);
+  });
+
+  it("clearly labels it as a STARTER skeleton (title/summary say it can't watch usage on its own)", () => {
+    const plan = inferDeterministicPreviewPlan("alert our slack channel when usage drops below the threshold")!;
+    expect(plan.title.toLowerCase()).toContain("starter");
+    expect(plan.summary.toLowerCase()).toMatch(/starter skeleton/);
+    expect(plan.summary.toLowerCase()).toMatch(/can'?t watch usage|pick the real source/);
+    // The placeholder trigger explains itself; no guessed provider trigger.
+    expect(plan.steps[0]!.provider).toBe("native");
+    expect(plan.steps[0]!.purpose.toLowerCase()).toContain("replace this with your real source");
+  });
+
+  it("reads the Slack action's REAL requiredInputs (channel, text) — not hardcoded", () => {
+    const plan = inferDeterministicPreviewPlan("notify slack with an alert when churn rises")!;
+    const slackStep = plan.steps.find((s) => s.type === "send_channel_message")!;
+    const expected = realRegistry
+      .getActionMeta("slack:send_channel_message")!
+      .fields.filter((f) => f.required)
+      .map((f) => f.name);
+    expect(slackStep.requiredInputs).toEqual(expected);
+    expect(slackStep.requiredInputs).toEqual(expect.arrayContaining(["channel", "text"]));
+  });
+
+  it("matches other watch-a-metric → Slack alert phrasings", () => {
+    for (const g of [
+      "alert me on slack when revenue drops",
+      "ping our slack channel if active users fall below 100",
+      "send a slack alert when error rate spikes",
+      "notify slack about low engagement",
+    ]) {
+      expect(inferDeterministicPreviewPlan(g)).not.toBeNull();
+    }
+  });
+
+  it("does NOT fire for a plain Slack message with no alert+source intent (stays null)", () => {
+    for (const g of [
+      "send a slack message",
+      "post a slack update to the team channel",
+      "share a slack note with everyone",
+    ]) {
+      expect(inferDeterministicPreviewPlan(g)).toBeNull();
+    }
+  });
+
+  it("declines the Slack DM shape even with an alert+source intent", () => {
+    expect(inferDeterministicPreviewPlan("alert me with a slack DM when usage drops")).toBeNull();
+  });
+
+  it("fails closed when the Slack action metadata is unavailable (no guessed ids)", () => {
+    mockGetActionMeta.mockImplementation((k: string) =>
+      k === "slack:send_channel_message" ? undefined : realRegistry.getActionMeta(k),
+    );
+    expect(inferDeterministicPreviewPlan("alert slack when usage drops")).toBeNull();
+  });
+});
+
 describe("detectCatalogGap — Mailchimp send/email has no catalog action", () => {
   it("reports the exact gap for a Mailchimp win-back EMAIL/campaign intent", () => {
     const gap = detectCatalogGap(

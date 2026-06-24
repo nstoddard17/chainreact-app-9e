@@ -87,6 +87,33 @@ function matchesMailchimpAddTag(goal: string): boolean {
   return applyish;
 }
 
+/**
+ * Match a "watch a metric/condition → alert someone on Slack" intent that has NO catalog trigger for the
+ * source (e.g. "alert me on Slack when usage drops / churn rises / low usage"). ChainReact can't watch
+ * usage/metrics automatically, so the precise trigger is unknowable — but the Slack ALERT half is fully
+ * catalog-backed. This match drives a clearly-labeled STARTER skeleton (manual trigger + Slack message)
+ * so the canvas shows the alert portion instead of staying empty.
+ *
+ * Deliberately NARROW so it never fires for a plain "send a Slack message": it requires a Slack signal
+ * AND an alert/notify intent AND a metric/condition source signal. Declines the DM shape (different
+ * action). The precise "manual run → Slack channel" pattern is matched first, so this only catches the
+ * no-recognized-trigger case.
+ */
+function matchesSlackAlertStarter(goal: string): boolean {
+  const g = goal.toLowerCase();
+  if (!/\bslack\b/.test(g)) return false;
+  // A Slack DM is a different action (send_direct_message) — don't guess the channel action here.
+  if (/\b(dm|direct message|direct-message)\b/.test(g)) return false;
+  const alertIntent = /\b(alert|alarm|notify|notification|warn|flag|ping)\b/.test(g);
+  if (!alertIntent) return false;
+  // A metric/condition "source" the catalog has no trigger for — the reason we fall back to a starter.
+  const monitorSource =
+    /\b(usage|metric|threshold|low|high|drops?|dropping|dropped|fall(?:s|ing|en)?|below|under|above|exceed(?:s|ing)?|spike|churn|inactiv\w*|engagement|traffic|sales|revenue|sign[\s-]?ups?|active users?|error rate|downtime)\b/.test(
+      g,
+    );
+  return monitorSource;
+}
+
 /** A recognized-but-unbuildable shape: the user's intent maps to a capability the catalog lacks. */
 export interface CatalogGap {
   readonly provider: string;
@@ -208,6 +235,47 @@ export function inferDeterministicPreviewPlan(goalText: string | undefined): Wor
 
     // Final gate — the same deterministic capability validator the Hermes plan path uses. Fail closed.
     return validateWorkflowPlan(plan).ok ? plan : null;
+  }
+
+  // --- Pattern 3: "watch a metric → Slack alert" STARTER skeleton (manual run → Slack channel msg) ---
+  // The user described alerting on Slack about a source ChainReact can't watch automatically (usage,
+  // churn, etc.). The trigger is genuinely unknown, but the Slack alert half is catalog-backed — so we
+  // build a CLEARLY-LABELED starter skeleton with a manual placeholder trigger (never a guessed provider
+  // trigger) so the canvas shows the alert portion. The label/summary make it explicit this is a
+  // starting point, not a finished usage monitor; the user picks the real source + threshold + channel.
+  if (matchesSlackAlertStarter(goal)) {
+    const triggerInputs = requiredTriggerInputs(MANUAL_TRIGGER.provider, MANUAL_TRIGGER.type);
+    const actionInputs = requiredActionInputs(SLACK_CHANNEL_MESSAGE.provider, SLACK_CHANNEL_MESSAGE.type);
+    if (triggerInputs !== null && actionInputs !== null) {
+      const steps: WorkflowPlanStep[] = [
+        {
+          ref: "s0",
+          role: "trigger",
+          provider: MANUAL_TRIGGER.provider,
+          type: MANUAL_TRIGGER.type,
+          purpose:
+            "Starter trigger — ChainReact can't watch usage or metrics automatically yet. Replace this with your real source (e.g. Stripe, HubSpot, Google Analytics, a webhook, or your app) once you choose one.",
+          ...(triggerInputs.length > 0 ? { requiredInputs: triggerInputs } : {}),
+        },
+        {
+          ref: "s1",
+          role: "action",
+          provider: SLACK_CHANNEL_MESSAGE.provider,
+          type: SLACK_CHANNEL_MESSAGE.type,
+          purpose: "Send the alert to a Slack channel.",
+          ...(actionInputs.length > 0 ? { requiredInputs: actionInputs } : {}),
+        },
+      ];
+      const plan: WorkflowPlan = {
+        schemaVersion: WORKFLOW_PLAN_SCHEMA_VERSION,
+        title: "Starter: Slack alert (choose your source)",
+        summary:
+          "A starter skeleton, not a finished monitor: it sends a Slack alert, but ChainReact can't watch usage or metrics on its own yet. Pick the real source and threshold (for example Stripe, HubSpot, Google Analytics, a webhook, or your app), then choose the Slack channel and message.",
+        steps,
+        notApplied: true,
+      };
+      if (validateWorkflowPlan(plan).ok) return plan;
+    }
   }
 
   return null;

@@ -87,6 +87,13 @@ describe("buildGatewayGuidancePrompt — prefer partial preview + guided setup (
     expect(prompt).toContain("MULTI-STEP shapes too");
     expect(prompt).toContain("do NOT just describe the sequence in prose");
   });
+
+  it("REACT-LIVE-SKELETON — tells the model not to invent a trigger / claim readiness when the source has no catalog trigger; ask or use manual.run", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "alert me on slack when usage drops" });
+    expect(prompt).toMatch(/do NOT claim the flow is ready\/straightforward and do NOT invent a trigger/i);
+    expect(prompt).toContain("native:manual.run");
+    expect(prompt).toMatch(/ASK which source the data should come from/i);
+  });
 });
 
 describe("buildGatewayGuidancePrompt — recent conversation (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE)", () => {

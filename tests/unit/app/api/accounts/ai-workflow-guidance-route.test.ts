@@ -407,6 +407,38 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(body.previewDraft).not.toBeNull();
   });
 
+  it("REACT-LIVE-SKELETON — churn/low-usage → Slack alert: route injects a labeled starter skeleton + preview (NOT just 'could not be validated')", async () => {
+    // The screenshot case: Hermes' embedded plan failed validation upstream (unknown 'watch usage'
+    // trigger), so the runner returns the honest source question + NO plan. The route must still produce
+    // a clearly-labeled starter skeleton for the Slack alert half — the canvas is no longer empty.
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText:
+        "I can't watch that automatically yet — ChainReact doesn't have a trigger for that source. Where should React read this from — Stripe, HubSpot, Google Analytics, a webhook, or your app/database?",
+      source: "hermes-agent",
+      workflowPlan: null,
+    });
+    const res = await call(ACCOUNT, {
+      goalText: "low usage and it should go to slack. it should just alert someone",
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // The reply is the actionable source question — never the vague legacy warning.
+    expect(body.guidanceText).toMatch(/where should React read this from/i);
+    expect(JSON.stringify(body)).not.toContain("could not be validated");
+    // A validated, clearly-labeled starter skeleton + non-applied preview now show on the canvas.
+    expect(body.workflowPlan).not.toBeNull();
+    expect(body.workflowPlan.title.toLowerCase()).toContain("starter");
+    expect(body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`)).toEqual([
+      "native:manual.run",
+      "slack:send_channel_message",
+    ]);
+    expect(body.previewDraft).not.toBeNull();
+    expect(body.previewDraft.notApplied).toBe(true);
+    const slackNode = body.previewDraft.nodes.find((n: { type: string }) => n.type === "send_channel_message");
+    expect(slackNode.missingInputs).toEqual(expect.arrayContaining(["channel", "text"]));
+  });
+
   it("runner provider failure → 503 GUIDANCE_UNAVAILABLE; never leaks raw error", async () => {
     mockRunner.mockResolvedValueOnce({ ok: false, code: "PROVIDER_ERROR", message: "downstream SECRET detail" });
     const res = await call(ACCOUNT, goodBody);

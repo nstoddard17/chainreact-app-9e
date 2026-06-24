@@ -22,12 +22,14 @@ import { z } from "zod";
 import type { GuidanceUnavailableCode } from "@/contracts/aiGuidance";
 import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession";
 import { WORKFLOW_PLAN_SCHEMA_VERSION } from "@/contracts/guidanceSession";
-import { validateWorkflowPlan } from "../validateWorkflowPlan";
+import { summarizeInvalidPlan, validateWorkflowPlan } from "../validateWorkflowPlan";
 import { extractPlanFromText, stripSourceBlock } from "./extractPlanFromText";
 
 /**
- * Safe warning surfaced when a structured plan was found embedded in the guidance text but failed
- * ChainReact capability validation. The guidance text is still returned; the plan is dropped.
+ * Legacy generic warning. RETAINED for back-compat only — the normalizer no longer emits it. When an
+ * embedded plan fails capability validation we now REPLACE the guidance text with the SPECIFIC,
+ * actionable reason from `summarizeInvalidPlan` (e.g. the "where does the data come from?" source
+ * question) instead of a vague "couldn't be validated" that left the user staring at an empty canvas.
  */
 export const PLAN_NOT_VALIDATED_WARNING = "Suggested plan could not be validated.";
 
@@ -138,10 +140,20 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
   }
 
   // 2. A structured plan object is only usable if ChainReact's capability validator accepts it.
-  //    An invalid plan fails CLOSED (never accept arbitrary JSON as a plan).
+  //    An invalid plan fails CLOSED (never accept arbitrary JSON as a plan). The de-identified
+  //    capability KEYS are folded into the internal `reason` for server logs/dev only (no secrets,
+  //    no model JSON) — the route maps any `ok:false` to a generic user-facing message.
   const planCandidate = extractPlanCandidate(raw);
-  if (planCandidate && !validateWorkflowPlan(planCandidate).ok) {
-    return { ok: false, code: "INVALID_RESPONSE", reason: "plan referenced unknown capabilities" };
+  if (planCandidate) {
+    const validation = validateWorkflowPlan(planCandidate);
+    if (!validation.ok) {
+      const keys = summarizeInvalidPlan(validation.invalidSteps).invalidCapabilityKeys;
+      return {
+        ok: false,
+        code: "INVALID_RESPONSE",
+        reason: `plan referenced unknown capabilities: ${keys.join(", ") || "unknown"}`,
+      };
+    }
   }
 
   // 3. Validate the known success envelope (ok:true + response.choices[0].message.content).
@@ -172,10 +184,17 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
       // to show when the plan was rejected. Fall back to a neutral lead-in if nothing else remains.
       const stripped = stripSourceBlock(guidanceText, extracted.sourceBlock);
       guidanceText = stripped ?? PLAN_ONLY_FALLBACK_TEXT;
-      if (validateWorkflowPlan(extracted.plan).ok) {
+      const validation = validateWorkflowPlan(extracted.plan);
+      if (validation.ok) {
         workflowPlan = extracted.plan; // capability-checked → safe to surface (advisory only)
       } else {
-        warnings.push(PLAN_NOT_VALIDATED_WARNING); // hallucinated capabilities → drop the plan
+        // The model returned a plan it can't actually build (hallucinated capabilities) AND prose that
+        // may over-claim the flow is "straightforward / ready". We must NOT let that over-claim stand
+        // next to an empty canvas. REPLACE the prose with the specific, actionable reason — e.g. the
+        // "where should React read this from?" source question when the missing piece is the TRIGGER —
+        // so React is honest about what's still needed. The deterministic shape fallback (route) may
+        // still add a clearly-labeled starter skeleton alongside this message.
+        guidanceText = summarizeInvalidPlan(validation.invalidSteps).message;
       }
     }
   }
