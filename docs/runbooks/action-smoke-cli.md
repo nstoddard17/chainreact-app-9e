@@ -1076,6 +1076,9 @@ running certification record; rows are added as each provider batch lands.
 | `microsoft-onedrive:create_folder` | create folder (root) -> get_file (marker on name + kind == folder) -> **delete** | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:delete_item` | create folder -> **delete (action under test)** -> item_metadata existence probe (exists == false) | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:upload_file` | upload inline file (root) -> get_file (marker on name + kind == file) -> **delete** | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
+| `google-calendar:create_event` | create event (primary, no attendees, no-notify) -> events.get (marker on summary) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `google-calendar:update_event` | create event -> update summary to marker+"updated" -> events.get (marker+"updated" on summary) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `google-calendar:delete_event` | create event -> **delete_event (action under test)** -> events.get existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 
 **Google Drive write coverage (SMOKE-WRITE-17/18) — COMPLETE (4 of 4 write actions).**
 `create_folder`, `upload_file`, `delete_file`, `move_file` all certified. Smoke-owned
@@ -1107,6 +1110,48 @@ drive root, verified by INDEPENDENT read-back (`get_file` marker on `name` + `ki
 `NotFoundError`). `upload_file` takes INLINE content (utf8/base64) — no FileRef, no staging.
 HONESTY: OneDrive `delete_item` moves to the RECYCLE BIN (recoverable); reported `cleaned`
 with reversibility disclosed. Deferred: `copy_item`, `move_item` (need their own batch).
+
+**Google Calendar write coverage (SMOKE-WRITE-21) — 3 of 4 write actions certified.**
+`create_event`, `update_event`, `delete_event` all `LIVE_PASS_CLEANED`. Each is smoke-owned on
+the user's PRIMARY calendar with NO attendees and `sendNotifications: "none"` (zero
+invites/notifications leave the account) and no Google Meet. Verified by INDEPENDENT read-back
+via the bounded, refresh-safe `google-calendar:events_get` smoke reader (returns only
+`exists`/`summary`/`status`): create/update prove the marker on the persisted `summary` (update
+requires the `"updated"` suffix, so a no-op patch fails); `delete_event` asserts `exists == false`,
+mapping a typed 404 `NotFoundError` OR `status == "cancelled"` to gone while RE-THROWING any
+other error (a permission/API failure can never read as deleted). The handler `summary` outputs
+fall back to config, so they are never used for verification. Calendar `events.delete` is a TRUE
+hard erase (gone, not trash/recycle). **Deferred: `add_attendees`** — it generates guest
+invitations (send-like / invite-generating), so it is out of scope for the no-send smoke harness.
+
+**Next-cluster safe-write inventory (SMOKE-WRITE-22 audit — no safe cluster this slice).**
+After the file-provider + Calendar batches, the remaining non-send/non-billing candidates
+were each evaluated for a clean create -> independent read-back -> smoke-owned cleanup loop;
+none is currently certifiable:
+- **HubSpot — BLOCKED (no cleanup).** `create_contact`/`company`/`deal`/`ticket`/`note`/
+  `task`/`call`/`meeting`/`product`/`line_item` exist, but there is NO registered
+  delete/archive action for any created CRM object (`remove_line_item` / `remove_from_list`
+  are association removals, not object deletion). A created object would persist -> not
+  smoke-safe. Needs a delete/archive action first.
+- **Monday — BLOCKED (not connected).** 24 registered actions, 0 `LIVE_PASS`, all reads
+  `NOT_RUN` (the Tier-1 auto-discovery sweep certified other Tier-2 providers' reads but
+  none for Monday) -> the smoke account has no usable Monday connection. Also needs a
+  smoke/test board target. Revisit once Monday is connected.
+- **Google Sheets — BLOCKED (unsafe cleanup).** A smoke spreadsheet IS configured
+  (`SMOKE_GSHEETS_SPREADSHEET_ID`, reads `LIVE_PASS`), but `append_row` returns only an
+  `updatedRange` string (no stable row id), and `delete_row` deletes by POSITIONAL 1-indexed
+  `rowNumber` -> a positional delete on a shared sheet cannot be proven smoke-owned (risks a
+  pre-existing row). Needs append to surface the new row number + an identity-based delete (or
+  a dedicated empty smoke tab) before it is safe.
+- **Google Docs — DEFERRED (no own delete).** `create_document` + `get_document` give a clean
+  create + independent read-back, but Docs has NO own delete action; the only cleanup is
+  cross-provider `google-drive:delete_file` (a Doc's `documentId` IS its Drive file id). That
+  cross-provider cleanup pattern is viable but new; defer to a dedicated slice that decides
+  whether to adopt it. `share_document` is out of scope (sharing).
+- **Mailchimp — BLOCKED (contacting/heavy-artifact risk).** `add_subscriber` touches a real
+  audience member; `create_audience`/`create_segment` create heavy artifacts with no safe
+  registered cleanup. No create -> verify -> delete loop without subscriber-contact or
+  un-deletable-artifact risk.
 
 **Remaining Trello / Notion write actions — DEFERRED (exact blockers, SMOKE-WRITE-16).**
 Every registered Trello/Notion write action NOT in the matrix above is blocked by a
