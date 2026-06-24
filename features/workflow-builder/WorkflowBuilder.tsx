@@ -99,6 +99,12 @@ interface Props {
    * rail (sessionStorage handoff). Only used when `localOnly` is true.
    */
   initialAgentPrompt?: string;
+  /**
+   * REACT-LIVE-SKELETON-2 — local-only: report composer edits in the anonymous
+   * rail up to the owner so the anonymous draft persists the latest prompt. Only
+   * used when `localOnly` is true.
+   */
+  onAnonPromptChange?: (prompt: string) => void;
 }
 
 /**
@@ -146,6 +152,7 @@ export function WorkflowBuilder({
   guidanceEnabled,
   localOnly,
   initialAgentPrompt,
+  onAnonPromptChange,
 }: Props) {
   const hydrate = useGraphSlice((s) => s.hydrate);
   const reset = useGraphSlice((s) => s.reset);
@@ -575,9 +582,15 @@ export function WorkflowBuilder({
           connected={!localOnly && guidanceEnabled === true && !!accountId}
         >
           {localOnly ? (
-            /* ANON-BUILDER-1 — logged-out visitor: show the carried-over prompt + a sign-up CTA
-               instead of the account-scoped, credit-billed live guidance panel. */
-            <AnonymousAgentRail {...(initialAgentPrompt ? { prompt: initialAgentPrompt } : {})} />
+            /* ANON-BUILDER-1 / REACT-LIVE-SKELETON-2 — logged-out visitor: a FREE deterministic
+               skeleton rail. It calls the no-auth /api/ai/anon-skeleton endpoint (no paid AI / no
+               provider / no DB) and auto-shows the result on the canvas via the SAME overlay path
+               (handleShowPreview). Apply stays explicit + local-draft only. */
+            <AnonymousAgentRail
+              {...(initialAgentPrompt ? { prompt: initialAgentPrompt } : {})}
+              onShowPreview={handleShowPreview}
+              {...(onAnonPromptChange ? { onPromptChange: onAnonPromptChange } : {})}
+            />
           ) : (
           /* HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — the left rail is now the single, primary builder
               AI entry: Hermes workflow guidance (account route), NOT the deprecated plan endpoint.

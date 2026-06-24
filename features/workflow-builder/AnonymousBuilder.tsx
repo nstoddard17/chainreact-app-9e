@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import { EMPTY_WORKFLOW_DEFINITION } from "@/contracts/workflowDefinition";
@@ -107,6 +107,16 @@ export function AnonymousBuilder({
     readyToPersist.current = true;
   }, []);
 
+  // REACT-LIVE-SKELETON-2 — the anonymous rail composer is editable; when the visitor refines their
+  // idea, keep `prompt` in sync AND persist it immediately (alongside the current graph) so the edited
+  // prompt survives a sign-up gate even before the next graph edit.
+  const handlePromptChange = useCallback((next: string) => {
+    setPrompt(next);
+    if (!readyToPersist.current) return;
+    const s = useGraphSlice.getState();
+    saveAnonDraft({ prompt: next, nodes: s.pendingNodes, edges: s.pendingEdges });
+  }, []);
+
   // Persist the (sanitized) skeleton + prompt on every graph edit so the stored
   // draft is current when the user hits a sign-up gate.
   useEffect(() => {
@@ -128,6 +138,7 @@ export function AnonymousBuilder({
       actionProviders={actionProviders}
       localOnly
       initialAgentPrompt={prompt}
+      onAnonPromptChange={handlePromptChange}
       {...(requiredFieldsByType ? { requiredFieldsByType } : {})}
       {...(setupFieldsByType ? { setupFieldsByType } : {})}
     />

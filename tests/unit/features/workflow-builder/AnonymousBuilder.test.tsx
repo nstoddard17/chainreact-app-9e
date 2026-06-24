@@ -47,6 +47,13 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+// REACT-LIVE-SKELETON-2 — the anon rail auto-infers a deterministic skeleton when a prompt is present.
+// Mock the (free, no-auth) endpoint helper so these tests don't hit the network; default = no shape.
+const mockAnonSkeleton = jest.fn();
+jest.mock("@/lib/api/ai/anonSkeleton", () => ({
+  requestAnonSkeleton: (...a: unknown[]) => mockAnonSkeleton(...a),
+}));
+
 import { AnonymousBuilder } from "@/features/workflow-builder/AnonymousBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
 import { useConfigSlice } from "@/features/workflow-builder/state/configSlice";
@@ -60,6 +67,7 @@ beforeEach(() => {
   mockRouterRefresh.mockReset();
   mockRouterPush.mockReset();
   window.localStorage.clear();
+  mockAnonSkeleton.mockReset().mockResolvedValue(null);
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
   useRunSlice.getState().reset();
