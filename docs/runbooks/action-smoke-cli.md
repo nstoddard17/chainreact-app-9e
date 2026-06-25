@@ -1070,12 +1070,12 @@ their durable `certification.ts` rows were missing (matrix showed `NOT_RUN`). Al
 re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
 
 - **Write-COMPLETE providers (every registered action certified):** `airtable` (11/11),
-  `google-drive` (7/7).
+  `google-drive` (7/7), `google-sheets` (12/12 — all 8 write actions certified, SMOKE-WRITE-23/27/28/29/30/31).
 - **Partially covered (certified core writes; rest deferred/blocked, see notes below):**
   `google-calendar` (4/5 — `add_attendees` deferred), `google-docs` (create_document via
-  cross-provider Drive delete), `google-sheets` (create_spreadsheet only; row/range
-  mutators blocked), `dropbox` (create_folder/delete_file/upload_file), `microsoft-onedrive`
-  (create_folder/delete_item/upload_file), `notion` (create/update/archive/restore page,
+  cross-provider Drive delete), `dropbox` (create_folder/delete_file/upload_file +
+  copy_file/move_file; sharing/link/download deferred), `microsoft-onedrive`
+  (create_folder/delete_item/upload_file/move_item; `copy_item` blocked async), `notion` (create/update/archive/restore page,
   append_block_children, create_comment, create_database_entry), `trello` (create/update
   card, add_comment, add_label_to_card, move_card, archive_card),
   `microsoft-outlook-calendar` (4/5 — create/update/delete_event certified, `add_attendees`
@@ -1084,9 +1084,7 @@ re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
   email/message SENDS (gmail, microsoft-outlook, slack, discord) — no-send policy;
   billing/customer/order/product (stripe, shopify) — out of scope; SHARING / public-link
   actions (e.g. dropbox `create_shared_link`, google-docs `share_document`) — out of scope;
-  google-calendar `add_attendees` (generates invites = send-like); google-sheets row/range
-  mutators (`append_row`/`update_row`/`update_cell`/`delete_row`/`clear_range`/`format_range`/
-  `batch_update`) — shared-sheet positional mutation, not provably smoke-owned; HubSpot CRM
+  google-calendar `add_attendees` (generates invites = send-like); HubSpot CRM
   creates — no delete/archive action for cleanup; Monday — not connected on the smoke
   account; Mailchimp writes — real subscriber/audience contact risk; trello `create_board` /
   `create_list`, notion `create_database` — no registered cleanup (would leave heavy
@@ -1153,8 +1151,9 @@ uses inline `content` (no FileRef/staging). SMOKE-WRITE-18 added `parents` to
 resolution in verify assertions (so an assertion can compare against a captured id,
 e.g. the move target), and used `cleanupEach` to delete both smoke resources.
 
-**Dropbox write coverage (SMOKE-WRITE-19/20) — COMPLETE (3 of 3 currently-safe write actions).**
-`create_folder`, `delete_file`, `upload_file` all `LIVE_PASS_CLEANED`. Smoke-owned at the
+**Dropbox write coverage (SMOKE-WRITE-19/20) — folder/upload/delete batch.**
+`create_folder`, `delete_file`, `upload_file` all `LIVE_PASS_CLEANED` (copy/move added later in
+SMOKE-WRITE-25, below; sharing/link/download still deferred). Smoke-owned at the
 Dropbox root, verified by INDEPENDENT read-back (`get_file_metadata` marker on `name` +
 `isFolder`; for `delete_file` a smoke-only `path_metadata` existence probe asserting
 `exists == false`, mapping a TYPED `NotFoundError` so a permission error never reads as
@@ -1174,8 +1173,9 @@ INDEPENDENT read-back (marker + suffix `"moved"`; `isFolder == false`), then del
 Still deferred: `download_file`, `get_temporary_link`, `create_shared_link` (sharing/link/download
 actions are out of scope for the no-send harness).
 
-**OneDrive write coverage (SMOKE-WRITE-19/20) — COMPLETE (3 of 3 currently-safe write actions).**
-`create_folder`, `delete_item`, `upload_file` all `LIVE_PASS_CLEANED`. Smoke-owned at the
+**OneDrive write coverage (SMOKE-WRITE-19/20) — folder/upload/delete batch.**
+`create_folder`, `delete_item`, `upload_file` all `LIVE_PASS_CLEANED` (`move_item` added later in
+SMOKE-WRITE-26, below; `copy_item` blocked async). Smoke-owned at the
 drive root, verified by INDEPENDENT read-back (`get_file` marker on `name` + `kind`; for
 `delete_item` a smoke-only `item_metadata` probe asserting `exists == false` via a typed 404
 `NotFoundError`). `upload_file` takes INLINE content (utf8/base64) — no FileRef, no staging.
@@ -1239,16 +1239,19 @@ no own delete action; the cross-provider policy above is what makes this safe. D
 `update_document` (same pattern, follow-up), `export_document` (read-ish, no artifact),
 `share_document` (sharing — out of scope).
 
-**Google Sheets write coverage (SMOKE-WRITE-23) — `create_spreadsheet` certified.**
+**Google Sheets write coverage — COMPLETE (8 of 8 write actions, SMOKE-WRITE-23/27/28/29/30/31).**
 `create_spreadsheet` is `LIVE_PASS_CLEANED`: create a WHOLE marker-titled spreadsheet -> verify
 the marker on the PERSISTED spreadsheet `title` via an INDEPENDENT `get_sheet_metadata` read-back
 -> tear down via cross-provider `google-drive:delete_file` (permanent). Creating + deleting a
-whole smoke-owned spreadsheet is what makes this safe — it sidesteps the positional-row problem
-entirely. **Still BLOCKED: `append_row` / `update_row` / `update_cell` / `delete_row` / `clear_range`
-/ `format_range` / `batch_update`** — these mutate a SHARED pre-existing sheet, `append_row`
-returns no stable row id, and `delete_row` is positional (by row number) -> cannot prove
-smoke-ownership of exactly what was written. They need an identity-based row API (or a dedicated
-empty smoke tab created + dropped per run) before they are safe.
+whole smoke-owned spreadsheet is the key — it makes the "shared sheet / positional row" worry moot,
+because every mutator now runs inside its OWN freshly-created smoke spreadsheet (pinned sheet
+"Data") and the whole artifact is deleted afterwards. On that foundation the row/range mutators
+were all certified: `update_cell` / `append_row` / `update_row` / `batch_update` (independent
+`get_cell_value` read-back of the live cell, marker+suffix; `batch_update` is a TYPED value write,
+not a raw `requests[]` passthrough), `clear_range` (seed then `expectEmpty`), `format_range` (seed
+then bounded smoke-only `cell_format` read-back proving `bold == true`), and `delete_row` (seed
+A1/A2/A3 then the `verifyAll` row-shift proof: A1 kept, A2 == old A3 shifted up, A3 empty — pins
+exactly which row was deleted). No Google Sheets action is deferred.
 
 **Microsoft Outlook Calendar write coverage (SMOKE-WRITE-24) — 3 of 4 write actions certified.**
 `create_event`, `update_event`, `delete_event` all `LIVE_PASS_CLEANED` — a direct mirror of the
