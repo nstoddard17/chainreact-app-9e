@@ -150,6 +150,7 @@ import gsheetsUpdateRow from "@/tests/fixtures/action-smoke/google-sheets/update
 import gsheetsClearRange from "@/tests/fixtures/action-smoke/google-sheets/clear_range";
 import gsheetsFormatRange from "@/tests/fixtures/action-smoke/google-sheets/format_range";
 import gsheetsBatchUpdate from "@/tests/fixtures/action-smoke/google-sheets/batch_update";
+import gsheetsDeleteRow from "@/tests/fixtures/action-smoke/google-sheets/delete_row";
 import outlookCalCreateEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/create_event";
 import outlookCalUpdateEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/update_event";
 import outlookCalDeleteEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/delete_event";
@@ -301,6 +302,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gsheetsClearRange,
   gsheetsFormatRange,
   gsheetsBatchUpdate,
+  gsheetsDeleteRow,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

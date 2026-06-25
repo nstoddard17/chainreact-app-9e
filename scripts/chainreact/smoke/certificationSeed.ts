@@ -34,6 +34,7 @@ const LIVE_AUTODISCOVERY = "2026-06-21";
 const SMOKE_WRITE = "2026-06-22";
 const SMOKE_WRITE_FILE = "2026-06-23";
 const SMOKE_WRITE_SHEETS = "2026-06-24";
+const SMOKE_WRITE_SHEETS_DELETE = "2026-06-25";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -414,5 +415,22 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // LIVE_PASS_CLEANED. Verified live end-to-end (0 leaked).
   ...records("LIVE_PASS_CLEANED", "live create-sheet + one-cell batch write + independent value read-back, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS, [
     ["google-sheets", "batch_update"],
+  ]),
+  // SMOKE-WRITE-31 — Google Sheets delete_row (closes Sheets writes). delete_row
+  // removes a row by POSITION (sheetName + 1-indexed rowNumber); positional deletion
+  // is only ambiguous on a SHARED sheet — inside a SAME-RUN spreadsheet WE own + seed,
+  // the delete and the row SHIFT it causes are fully deterministic. setup creates a
+  // WHOLE smoke spreadsheet (pinned "Data") and seeds three KNOWN rows
+  // (A1=<marker>keep-before, A2=<marker>delete-me, A3=<marker>keep-after). execute
+  // deletes row 2. Verified by the NEW verifyAll primitive — THREE independent
+  // get_cell_value reads that together pin EXACTLY which row was removed (no single
+  // cell could): A1 == keep-before (row 1 untouched), A2 == keep-after (old row 3
+  // shifted UP into row 2 -> row 2 deleted, delete-me gone), A3 present-and-empty (the
+  // sheet shrank from 3 data rows to 2). The handler's `deleted:true` echo is never
+  // trusted. Cleanup is the same CROSS-PROVIDER google-drive:delete_file (permanent) of
+  // the whole spreadsheet -> TRUE erase -> LIVE_PASS_CLEANED. Verified live (0 leaked).
+  // Google Sheets writes are now COMPLETE: all 8 mutating actions certified.
+  ...records("LIVE_PASS_CLEANED", "live create-sheet + seed 3 rows + delete row 2 + 3 independent shift read-backs, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS_DELETE, [
+    ["google-sheets", "delete_row"],
   ]),
 ];

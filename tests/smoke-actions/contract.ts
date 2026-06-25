@@ -197,6 +197,20 @@ export interface WriteHarnessSpec {
    */
   readonly verifyEach?: ActionStepSpec;
   /**
+   * MULTI-STEP verify: a LIST of INDEPENDENT read-back steps, each its own
+   * registered read (or `smokeRead`) action with its own assertions (`markerPath` /
+   * `markerSuffix` / `expectEquals` / `expectContains` / `expectNonEmptyArray` /
+   * `expectEmpty`). EVERY step must pass or the run is VERIFY_FAILED. Mirrors
+   * `setup: ActionStepSpec[]` on the verify side — for a side effect that needs
+   * MULTIPLE bounded facts proven (e.g. `delete_row` shifts rows up: read A1 still ==
+   * keep-before, A2 == the row that shifted up, A3 now empty — three independent
+   * `get_cell_value` reads that together pin exactly which row was deleted). Runs in
+   * addition to (after) any single `verify` / `verifyEach`. Each step's config is
+   * token-resolved like every other step. Distinct from `verifyEach` (which fans ONE
+   * template over captured ledger ids); these are heterogeneous, explicitly listed.
+   */
+  readonly verifyAll?: readonly ActionStepSpec[];
+  /**
    * Dot-path into the EXECUTE output that should echo the unique smoke marker
    * (e.g. the created card's `name`). When set, the harness confirms the marker
    * round-tripped — a cheap existence+ownership check for pilots with no separate

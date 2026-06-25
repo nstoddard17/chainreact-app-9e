@@ -354,25 +354,24 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
 Point these at a **dedicated smoke spreadsheet** you control — all four fixtures are
 read-only, but they read whatever rows/cells the ids resolve to.
 
-**Google Sheets actions covered / deferred (11 covered of 12 registered):**
+**Google Sheets actions — COMPLETE (12 of 12 registered covered).**
 
 - **Read (4):** `get_sheet_metadata`, `read_rows`, `get_cell_value`, `find_row`.
-- **Write certified (7):** `create_spreadsheet` (SMOKE-WRITE-23) + `update_cell` /
+- **Write certified (8):** `create_spreadsheet` (SMOKE-WRITE-23) + `update_cell` /
   `append_row` / `update_row` (SMOKE-WRITE-27) + `clear_range` (SMOKE-WRITE-28) +
-  `format_range` (SMOKE-WRITE-29) + `batch_update` (SMOKE-WRITE-30). The mutators each
-  create a WHOLE smoke-owned spreadsheet (pinned sheet "Data"), mutate ONLY that sheet,
-  then permanently delete the whole spreadsheet via cross-provider
-  `google-drive:delete_file`. Verification is INDEPENDENT: `update_cell` / `append_row` /
-  `update_row` / `batch_update` read the live cell value via `get_cell_value`
-  (marker+suffix; `batch_update` uses a single one-cell update entry — it is a TYPED
-  value write, not a raw `requests[]` passthrough); `clear_range` seeds A1 then proves
-  present-and-empty via `expectEmpty`; `format_range` seeds A1 then proves `bold == true`
-  via the bounded smoke-only `cell_format` read-back. See the Google Sheets write-coverage
-  note below.
-- **Write deferred (1):** `delete_row` (positional — no stable row id to target a
-  smoke-owned row deterministically; would need a row-id read-back the API doesn't
-  expose). Unblockable inside the same smoke-spreadsheet pattern once a stable
-  row-ownership / read-back proof exists.
+  `format_range` (SMOKE-WRITE-29) + `batch_update` (SMOKE-WRITE-30) + `delete_row`
+  (SMOKE-WRITE-31). The mutators each create a WHOLE smoke-owned spreadsheet (pinned sheet
+  "Data"), mutate ONLY that sheet, then permanently delete the whole spreadsheet via
+  cross-provider `google-drive:delete_file`. Verification is INDEPENDENT: `update_cell` /
+  `append_row` / `update_row` / `batch_update` read the live cell value via
+  `get_cell_value` (marker+suffix; `batch_update` uses a single one-cell update entry — it
+  is a TYPED value write, not a raw `requests[]` passthrough); `clear_range` seeds A1 then
+  proves present-and-empty via `expectEmpty`; `format_range` seeds A1 then proves
+  `bold == true` via the bounded smoke-only `cell_format` read-back; `delete_row` seeds
+  A1/A2/A3 then proves the row shift via the `verifyAll` primitive (three independent
+  `get_cell_value` reads: A1 kept, A2 == the row shifted up, A3 empty — together they pin
+  exactly which row was deleted). See the Google Sheets write-coverage note below. No
+  Sheets action is deferred.
 
 **Google Drive-only inventory:** `npm run smoke:actions -- --provider google-drive`.
 
@@ -1138,6 +1137,7 @@ re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
 | `google-sheets:clear_range` | create smoke spreadsheet + seed A1=marker-seed -> clear Data!A1 -> get_cell_value A1 (`expectEmpty` value present-and-empty/null) -> **google-drive:delete_file (cross-provider, permanent)** | whole sheet hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-sheets:format_range` | create smoke spreadsheet + seed A1 -> format A1 bold:true -> smoke `cell_format` read-back (bounded userEnteredFormat; `bold == true`) -> **google-drive:delete_file (cross-provider, permanent)** | whole sheet hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-sheets:batch_update` | create smoke spreadsheet -> ONE-entry batch write Data!A1=marker (RAW) -> get_cell_value A1 (marker+suffix "batch" on value) -> **google-drive:delete_file (cross-provider, permanent)** | whole sheet hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `google-sheets:delete_row` | create smoke spreadsheet + seed A1/A2/A3 markers -> delete row 2 -> `verifyAll` 3 reads (A1==keep-before, A2==keep-after shifted up, A3 empty -> pins row 2) -> **google-drive:delete_file (cross-provider, permanent)** | whole sheet hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `microsoft-outlook-calendar:create_event` | create event (default cal, no attendees, no-RSVP) -> events.get (marker on subject) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `microsoft-outlook-calendar:update_event` | create event -> update subject to marker+"updated" -> events.get (marker+"updated" on subject) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `microsoft-outlook-calendar:delete_event` | create event -> **delete_event (action under test)** -> events.get existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
@@ -1294,9 +1294,12 @@ none is currently certifiable:
   `batch_update` (SMOKE-WRITE-30) is NOT a raw `requests[]` passthrough (V1's raw mode is
   rejected at parse time) — it is a TYPED multi-range value write, so a single one-cell update
   entry is an `update_cell` through the batch path, proven by the same `get_cell_value`
-  read-back. Still BLOCKED: `delete_row` (positional — no stable row id to target
-  deterministically; would need a row-id read-back the API doesn't expose). See the Google
-  Sheets write-coverage note above.
+  read-back. `delete_row` (SMOKE-WRITE-31) closes Sheets: positional deletion is only
+  ambiguous on a SHARED sheet — inside a same-run spreadsheet we seed (A1/A2/A3 markers),
+  deleting row 2 produces a DETERMINISTIC shift, proven by the new `verifyAll` primitive
+  (three independent `get_cell_value` reads: A1 kept, A2 == old A3 shifted up, A3 empty,
+  which together pin exactly which row was removed). **Google Sheets is now fully covered —
+  no deferred actions.** See the Google Sheets write-coverage note above.
 - **Google Docs — RESOLVED in SMOKE-WRITE-23 (`create_document` certified).** The cross-provider
   cleanup policy was adopted (a Doc's `documentId` IS its Drive file id, torn down via the
   certified `google-drive:delete_file`). See the cross-provider cleanup policy + Google Docs

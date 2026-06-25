@@ -792,6 +792,30 @@ export async function runWriteSmoke(
         }
       }
     }
+
+    // 5d. verifyAll — MULTI-STEP: a LIST of INDEPENDENT read-back steps, each its own
+    // read action + assertions. EVERY step must pass. For a side effect that needs
+    // multiple bounded facts proven (e.g. delete_row's row shift: A1 unchanged, A2 ==
+    // the shifted-up row, A3 now empty). Each step runs through the same
+    // engine/smokeRead routing + the same assertion engine as `verify`.
+    if (actionStatus === "PASS" && spec.verifyAll) {
+      for (const step of spec.verifyAll) {
+        const stepConfig = resolveStepConfig(step.config, marker, ledger, envLookup);
+        const res = step.smokeRead
+          ? deps.smokeReadBack
+            ? await deps.smokeReadBack({ provider: step.provider, action: step.action, config: stepConfig })
+            : { ok: false, output: null, reason: "smoke read-back seam not available" }
+          : await deps.runActionStep({ provider: step.provider, action: step.action, config: stepConfig });
+        if (!res.ok) {
+          phases.push({ phase: "verify", outcome: "failed", reason: SANITIZE(res.reason) });
+          actionStatus = "VERIFY_FAILED";
+          continue;
+        }
+        if (!applyVerifyAssertions(step, res.output, marker, envLookup, phases, "", ledger)) {
+          actionStatus = "VERIFY_FAILED";
+        }
+      }
+    }
   }
 
   // 6. cleanup — ALWAYS attempted when there are smoke-owned resources, even on

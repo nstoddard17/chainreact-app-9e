@@ -1172,6 +1172,95 @@ describe("multi-resource fixtures (idsPath capture, verifyEach, cleanupEach)", (
   });
 });
 
+// ─── verifyAll: multiple independent read-back steps, ALL must pass ───────────
+
+describe("verifyAll (multi-step independent read-backs)", () => {
+  // A spec whose execute mutates a smoke resource and proves it via THREE independent
+  // read steps (mirrors delete_row's A1/A2/A3 shift proof).
+  function multiVerifySpec(): WriteHarnessSpec {
+    return {
+      liveClass: "destructiveSafe",
+      smokeMarker: "crsmoke-",
+      setup: [
+        {
+          provider: "acme",
+          action: "create",
+          config: { name: "{{smokeMarker}}seed" },
+          captureResource: { resourceKey: "r", idPath: "id", kind: "thing" },
+        },
+      ],
+      verifyAll: [
+        { provider: "acme", action: "read", config: { cell: "A1" }, markerPath: "value", markerSuffix: "keep-before" },
+        { provider: "acme", action: "read", config: { cell: "A2" }, markerPath: "value", markerSuffix: "keep-after" },
+        { provider: "acme", action: "read", config: { cell: "A3" }, expectEmpty: { path: "value" } },
+      ],
+      cleanup: { provider: "acme", action: "delete_thing", config: { id: "{{ledger.r.id}}" } },
+      cleanupKind: "delete",
+    };
+  }
+
+  /** Deps whose `read` outcome is scripted per-cell. */
+  function cellDeps(byCell: Record<string, StepRunOutcome>): RecordingDeps {
+    const calls: RecordingDeps["calls"] = [];
+    return {
+      calls,
+      async runActionStep(input) {
+        calls.push({ provider: input.provider, action: input.action, config: { ...input.config } });
+        if (input.action === "read") {
+          return byCell[String(input.config.cell)] ?? { ok: false, output: null, reason: "no read" };
+        }
+        return { ok: true, output: { id: "id-1" }, reason: null };
+      },
+    };
+  }
+
+  const MARKER = "crsmoke-T1-";
+
+  it("PASS: every step's assertion holds (all three reads prove the shift)", async () => {
+    const deps = cellDeps({
+      A1: { ok: true, output: { value: `${MARKER}keep-before` }, reason: null },
+      A2: { ok: true, output: { value: `${MARKER}keep-after` }, reason: null },
+      A3: { ok: true, output: { value: null }, reason: null },
+    });
+    const res = await runWriteSmoke(fixture("mutate", multiVerifySpec()), RUN, deps);
+    expect(res.status).toBe("PASS");
+    expect(res.artifact).toBe("cleaned");
+    // all three independent reads ran.
+    expect(deps.calls.filter((c) => c.action === "read")).toHaveLength(3);
+  });
+
+  it("VERIFY_FAILED: one step fails (A2 still shows the deleted value)", async () => {
+    const deps = cellDeps({
+      A1: { ok: true, output: { value: `${MARKER}keep-before` }, reason: null },
+      A2: { ok: true, output: { value: `${MARKER}delete-me` }, reason: null }, // wrong: no shift
+      A3: { ok: true, output: { value: null }, reason: null },
+    });
+    const res = await runWriteSmoke(fixture("mutate", multiVerifySpec()), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED");
+    expect(deps.calls.some((c) => c.action === "delete_thing")).toBe(true); // cleanup still runs
+  });
+
+  it("VERIFY_FAILED: the empty step fails (A3 not blank -> sheet did not shrink)", async () => {
+    const deps = cellDeps({
+      A1: { ok: true, output: { value: `${MARKER}keep-before` }, reason: null },
+      A2: { ok: true, output: { value: `${MARKER}keep-after` }, reason: null },
+      A3: { ok: true, output: { value: `${MARKER}keep-after` }, reason: null }, // wrong: still populated
+    });
+    const res = await runWriteSmoke(fixture("mutate", multiVerifySpec()), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED");
+  });
+
+  it("VERIFY_FAILED: a read-back STEP errors -> never a vacuous pass", async () => {
+    const deps = cellDeps({
+      A1: { ok: true, output: { value: `${MARKER}keep-before` }, reason: null },
+      A2: { ok: false, output: null, reason: "403 forbidden" },
+      A3: { ok: true, output: { value: null }, reason: null },
+    });
+    const res = await runWriteSmoke(fixture("mutate", multiVerifySpec()), RUN, deps);
+    expect(res.status).toBe("VERIFY_FAILED");
+  });
+});
+
 // ─── verify assertion values resolve {{ledger.*}} (move_file parents check) ───
 
 describe("verify assertions resolve {{ledger.*}} in expected values", () => {
