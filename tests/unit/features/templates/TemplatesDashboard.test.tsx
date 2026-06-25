@@ -40,11 +40,25 @@ const official: MarketplaceTemplateSummary = {
   id: "off-1", name: "Failed payment recovery", description: "Catch declined charges.",
   source: "official", isOfficial: true, visibility: "public", creatorDisplayName: null,
   usageCount: 12400, forkCount: 12, forkedFromTemplateId: null, publishedAt: "2026-06-01T00:00:00Z", schemaVersion: 1, createdAt: "2026-06-01T00:00:00Z",
+  card: {
+    nodeCount: 2, stepCount: 1, triggerKind: "app", providers: ["stripe", "slack"], category: "ecommerce",
+    steps: [
+      { kind: "trigger", provider: "stripe", type: "event_received" },
+      { kind: "action", provider: "slack", type: "send_channel_message" },
+    ],
+  },
 };
 const community: MarketplaceTemplateSummary = {
   id: "com-1", name: "Lead capture to CRM", description: "Route Typeform leads.",
   source: "user", isOfficial: false, visibility: "public", creatorDisplayName: "Priya Kapoor",
   usageCount: 4300, forkCount: 30, forkedFromTemplateId: null, publishedAt: "2026-06-02T00:00:00Z", schemaVersion: 1, createdAt: "2026-06-02T00:00:00Z",
+  card: {
+    nodeCount: 2, stepCount: 1, triggerKind: "manual", providers: ["hubspot"], category: "sales-crm",
+    steps: [
+      { kind: "trigger", provider: "native", type: "manual.run" },
+      { kind: "action", provider: "hubspot", type: "create_contact" },
+    ],
+  },
 };
 const mineItem: MyTemplateItem = {
   id: "mine-1", name: "Acme deal desk", description: "Internal approvals.",
@@ -148,4 +162,80 @@ it("shows a friendly upgrade toast on a tier error", async () => {
   const card = screen.getByText("Failed payment recovery").closest("[data-testid='template-card']")!;
   fireEvent.click(within(card as HTMLElement).getByTestId("template-fork"));
   await waitFor(() => expect(screen.getByTestId("templates-toast")).toHaveTextContent(/Upgrade to Pro/i));
+});
+
+// ── CS-XT-MARKETPLACE-UX: card metadata, category chips, provider filter ──────────
+
+it("renders derived card metadata (category, trigger-kind, step count, providers, preview)", () => {
+  renderDash();
+  const card = screen.getByText("Failed payment recovery").closest("[data-testid='template-card']")!;
+  const el = card as HTMLElement;
+  expect(within(el).getByTestId("template-category")).toHaveTextContent("Ecommerce");
+  expect(within(el).getByTestId("template-trigger-kind")).toHaveTextContent("App-triggered");
+  expect(within(el).getByTestId("template-step-count")).toHaveTextContent("1 step");
+  expect(within(el).getByTestId("template-provider-stripe")).toHaveTextContent("Stripe");
+  expect(within(el).getByTestId("template-provider-slack")).toHaveTextContent("Slack");
+  // static preview chain derived from the definition (no JSON, no config).
+  expect(within(el).getByTestId("template-preview")).toHaveTextContent(/Stripe: Event received/);
+  expect(within(el).getByTestId("template-preview")).toHaveTextContent(/Slack: Send channel message/);
+});
+
+it("category chips appear and filter the marketplace", () => {
+  renderDash();
+  expect(screen.getByTestId("templates-category-chips")).toBeInTheDocument();
+  // both categories present (official=ecommerce, community=sales-crm)
+  expect(screen.getByTestId("templates-category-ecommerce")).toBeInTheDocument();
+  expect(screen.getByTestId("templates-category-sales-crm")).toBeInTheDocument();
+  // filter to Ecommerce → only the Stripe/Slack official remains
+  fireEvent.click(screen.getByTestId("templates-category-ecommerce"));
+  expect(screen.getByText("Failed payment recovery")).toBeInTheDocument();
+  expect(screen.queryByText("Lead capture to CRM")).toBeNull();
+  expect(screen.getByTestId("templates-count")).toHaveTextContent("1");
+  // back to All → both return
+  fireEvent.click(screen.getByTestId("templates-category-all"));
+  expect(screen.getByText("Failed payment recovery")).toBeInTheDocument();
+  expect(screen.getByText("Lead capture to CRM")).toBeInTheDocument();
+});
+
+it("category chips show only buckets present in the current tab and reset on tab change", () => {
+  renderDash();
+  // narrow to a category, then switch tabs — filter resets so the grid isn't mysteriously empty.
+  fireEvent.click(screen.getByTestId("templates-category-sales-crm"));
+  expect(screen.queryByText("Failed payment recovery")).toBeNull();
+  fireEvent.click(screen.getByTestId("templates-tab-official"));
+  // official tab: sales-crm chip is gone (no official is sales-crm), ecommerce present, all shown
+  expect(screen.queryByTestId("templates-category-sales-crm")).toBeNull();
+  expect(screen.getByTestId("templates-category-ecommerce")).toBeInTheDocument();
+  expect(screen.getByText("Failed payment recovery")).toBeInTheDocument();
+});
+
+it("provider filter control shows for the marketplace and is hidden on Your templates", () => {
+  renderDash();
+  expect(screen.getByTestId("templates-provider-filter")).toBeInTheDocument();
+  fireEvent.click(screen.getByTestId("templates-tab-mine"));
+  expect(screen.queryByTestId("templates-provider-filter")).toBeNull();
+  expect(screen.queryByTestId("templates-category-chips")).toBeNull();
+});
+
+it("an official template with empty configs renders its card without leaking config/JSON", () => {
+  const emptyConfigOfficial: MarketplaceTemplateSummary = {
+    ...official,
+    id: "off-empty",
+    name: "Quick note to Notion",
+    card: {
+      nodeCount: 2, stepCount: 1, triggerKind: "manual", providers: ["notion"], category: "files-docs",
+      steps: [
+        { kind: "trigger", provider: "native", type: "manual.run" },
+        { kind: "action", provider: "notion", type: "create_page" },
+      ],
+    },
+  };
+  const { container } = render(
+    <TemplatesDashboard accountId={ACCOUNT} initialMarketplace={[emptyConfigOfficial]} initialMine={[]} />,
+  );
+  const card = screen.getByText("Quick note to Notion").closest("[data-testid='template-card']")!;
+  expect(within(card as HTMLElement).getByTestId("template-preview")).toHaveTextContent(/Notion: Create page/);
+  // nothing resembling raw config / a JSON blob is rendered.
+  expect(container.innerHTML).not.toContain('"config"');
+  expect(container.innerHTML).not.toContain("manual.run"); // raw type id never shown (humanized only)
 });

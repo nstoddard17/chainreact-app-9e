@@ -198,4 +198,28 @@ describe("BuilderTemplatesModal — replace current workflow", () => {
     expect(mockHydrate).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("shows a derived preview line (trigger kind · step count · chain) when card meta is present", async () => {
+    api.listMarketplaceTemplates.mockResolvedValue([
+      tpl({
+        id: "tpl-x",
+        name: "Scheduled Slack digest",
+        card: {
+          nodeCount: 2,
+          stepCount: 1,
+          triggerKind: "scheduled",
+          providers: ["slack"],
+          category: "team-ops",
+          steps: [
+            { kind: "trigger", provider: "native", type: "schedule.fired" },
+            { kind: "action", provider: "slack", type: "send_channel_message" },
+          ],
+        },
+      }),
+    ]);
+    renderModal();
+    const preview = await screen.findByTestId("builder-template-preview-tpl-x");
+    expect(preview).toHaveTextContent(/Scheduled · 1 step/);
+    expect(preview).toHaveTextContent(/Slack: Send channel message/);
+  });
 });

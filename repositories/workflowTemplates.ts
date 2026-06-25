@@ -8,6 +8,7 @@ import type {
   TemplateVisibility,
   TemplateUsageEventType,
 } from "@/contracts/workflowTemplate";
+import { deriveTemplateCardMeta } from "@/core/workflows/templateCardMeta";
 
 /**
  * Repository for `workflow_templates` + `workflow_template_usage_events`
@@ -73,7 +74,14 @@ function rowToRecord(row: WorkflowTemplatesRow): WorkflowTemplateRecord {
   };
 }
 
-/** PUBLIC-safe projection — OMITS account_id + created_by_user_id (no tenant/identity leak). */
+/**
+ * PUBLIC-safe projection — OMITS account_id + created_by_user_id (no tenant/identity leak).
+ *
+ * `card` is DERIVED here from the definition (reads only node provider/type/kind — never config)
+ * so the raw definition NEVER leaves this layer: the client gets the safe browse metadata
+ * (providers, counts, category, trigger kind, preview chain) but not the JSON. See
+ * {@link deriveTemplateCardMeta}.
+ */
 function rowToMarketplaceSummary(row: WorkflowTemplatesRow): MarketplaceTemplateSummary {
   return {
     id: row.id,
@@ -89,12 +97,19 @@ function rowToMarketplaceSummary(row: WorkflowTemplatesRow): MarketplaceTemplate
     publishedAt: row.published_at,
     schemaVersion: row.schema_version,
     createdAt: row.created_at,
+    card: deriveTemplateCardMeta(
+      (row.definition ?? { nodes: [], edges: [] }) as TemplateDefinition,
+    ),
   };
 }
 
-/** Marketplace columns — the public-safe subset (no account_id / created_by_user_id). */
+/**
+ * Marketplace columns — the public-safe subset (no account_id / created_by_user_id). Includes
+ * `definition` so the projection can DERIVE the safe `card` metadata; the raw definition itself
+ * is consumed here and never returned to the client.
+ */
 const MARKETPLACE_COLUMNS =
-  "id, name, description, source, visibility, creator_display_name_snapshot, usage_count, fork_count, forked_from_template_id, published_at, schema_version, created_at";
+  "id, name, description, source, visibility, creator_display_name_snapshot, usage_count, fork_count, forked_from_template_id, published_at, schema_version, created_at, definition";
 
 export interface CreateWorkflowTemplateInput {
   /** Required for `source: 'user'`; MUST be null for `source: 'official'` (DB invariant). */

@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/workflowTemplates";
 import type { MarketplaceTemplateSummary } from "@/contracts/workflowTemplate";
 import type { WorkflowState } from "@/contracts/workflow";
+import { stepLabel, TRIGGER_KIND_LABELS } from "@/core/workflows/templateCardMeta";
 import { useGraphSlice } from "../state/graphSlice";
 
 /**
@@ -198,6 +199,21 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
                   </div>
                   {t.description && (
                     <p className="line-clamp-2 text-xs text-muted-foreground">{t.description}</p>
+                  )}
+                  {t.card && (
+                    <p
+                      data-testid={`builder-template-preview-${t.id}`}
+                      className="line-clamp-1 text-[11px] text-muted-foreground"
+                      title={t.card.steps.map(stepLabel).join(" → ")}
+                    >
+                      <span className="font-medium text-foreground">
+                        {TRIGGER_KIND_LABELS[t.card.triggerKind]} · {t.card.stepCount} step
+                        {t.card.stepCount === 1 ? "" : "s"}
+                      </span>
+                      {t.card.steps.length > 0 && (
+                        <span> · {t.card.steps.map(stepLabel).join(" → ")}</span>
+                      )}
+                    </p>
                   )}
                   <div className="flex flex-wrap gap-2">
                     <Button

@@ -113,6 +113,57 @@ export interface WorkflowTemplateRecord {
 }
 
 /**
+ * Marketplace browse categories (CS-XT-MARKETPLACE-UX). DERIVED for display/filtering only —
+ * NOT a stored column. The category is computed from a template's node providers + trigger kind
+ * by {@link deriveTemplateCardMeta} (core/workflows/templateCardMeta.ts). It is a best-effort UI
+ * bucket, never authoritative metadata, so no schema/migration is needed.
+ */
+export const TEMPLATE_CATEGORY_KEYS = [
+  "sales-crm",
+  "marketing",
+  "ecommerce",
+  "team-ops",
+  "project-management",
+  "dev-engineering",
+  "files-docs",
+  "reporting",
+  "personal-productivity",
+] as const;
+export type TemplateCategoryKey = (typeof TEMPLATE_CATEGORY_KEYS)[number];
+
+/** How a template is started — drives the trigger-type badge on the card. */
+export type TemplateTriggerKind = "manual" | "scheduled" | "app";
+
+/** One node in the at-a-glance preview chain. Carries NO config — only the public node identity. */
+export interface TemplateStepSummary {
+  kind: "trigger" | "action";
+  /** Provider id (public catalog id, e.g. "slack"). Never an account / resource id. */
+  provider: string;
+  /** Action/trigger type (public catalog id, e.g. "send_channel_message"). */
+  type: string;
+}
+
+/**
+ * SAFE, DERIVED card metadata for marketplace browsing (CS-XT-MARKETPLACE-UX). Computed from
+ * the (credential-free) template definition so users can understand a template before clicking
+ * Use — WITHOUT shipping the raw definition/JSON or any config to the client. Contains ONLY
+ * public catalog facts: provider ids, action/trigger types, counts, a derived category, and the
+ * trigger kind. Never a token, email, account/user/credential id, or config VALUE.
+ */
+export interface TemplateCardMeta {
+  /** Total nodes (trigger + actions). */
+  nodeCount: number;
+  /** Action nodes only (nodeCount minus the single trigger). */
+  stepCount: number;
+  triggerKind: TemplateTriggerKind;
+  /** Distinct non-native provider ids, in graph order (the "required apps"). */
+  providers: string[];
+  category: TemplateCategoryKey;
+  /** Ordered preview chain (trigger → action → …), capped for display. */
+  steps: TemplateStepSummary[];
+}
+
+/**
  * PUBLIC-SAFE marketplace summary (CS-XT-4B). Deliberately OMITS `accountId` and
  * `createdByUserId` (which tenant owns it / which raw user authored it) — a marketplace
  * viewer sees only the safe display-name snapshot + the `isOfficial` badge. Never exposes
@@ -134,6 +185,13 @@ export interface MarketplaceTemplateSummary {
   publishedAt: string | null;
   schemaVersion: number;
   createdAt: string;
+  /**
+   * DERIVED, credential-free card metadata for browsing (CS-XT-MARKETPLACE-UX). Optional so
+   * older callers / fixtures that don't compute it still typecheck and the card degrades
+   * gracefully. The server (repository projection) always populates it; it carries only public
+   * catalog facts — never the raw definition, config, or any id. See {@link TemplateCardMeta}.
+   */
+  card?: TemplateCardMeta;
 }
 
 /**

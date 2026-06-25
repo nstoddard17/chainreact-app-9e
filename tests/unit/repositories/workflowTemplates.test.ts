@@ -180,10 +180,21 @@ describe("listMarketplaceTemplatesServiceRole", () => {
       publishedAt: null,
       schemaVersion: 1,
       createdAt: "2026-06-07T00:00:00Z",
+      // DERIVED, credential-free browse metadata (no raw definition / config / ids reach client).
+      card: {
+        nodeCount: 1,
+        stepCount: 1,
+        triggerKind: "app",
+        providers: ["slack"],
+        category: "team-ops",
+        steps: [{ kind: "action", provider: "slack", type: "post" }],
+      },
     });
     // the DTO has NO accountId / createdByUserId keys
     expect(Object.keys(summary)).not.toContain("accountId");
     expect(Object.keys(summary)).not.toContain("createdByUserId");
+    // no-leak: the derived card never carries the node's config (e.g. the "C1" channel value).
+    expect(JSON.stringify(summary.card)).not.toMatch(/C1/);
   });
 });
 

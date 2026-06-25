@@ -1,4 +1,11 @@
-import type { TemplateVisibility } from "@/contracts/workflowTemplate";
+import type { ReactNode } from "react";
+import type { TemplateCardMeta, TemplateVisibility } from "@/contracts/workflowTemplate";
+import {
+  categoryLabel,
+  providerLabel,
+  stepLabel,
+  TRIGGER_KIND_LABELS,
+} from "@/core/workflows/templateCardMeta";
 import { Button } from "@/components/ui/button";
 import { OfficialBadge, CreatorChip, VisibilityChip } from "./TemplateBadges";
 
@@ -24,6 +31,9 @@ export interface TemplateCardProps {
   forkCount: number;
   /** Shown for the viewer's own templates. */
   visibility?: TemplateVisibility;
+  /** DERIVED, credential-free browse metadata (marketplace cards). Optional — cards degrade
+   *  gracefully without it (e.g. "Your templates" rows that don't carry it). */
+  card?: TemplateCardMeta;
   busy: boolean;
   onUse: () => void;
   onFork: () => void;
@@ -54,8 +64,66 @@ function IconDownload() {
   );
 }
 
+/** Small neutral pill used for category / trigger-kind / provider chips. */
+function MetaChip({ children, testid, title }: { children: ReactNode; testid?: string; title?: string }) {
+  return (
+    <span
+      data-testid={testid}
+      title={title}
+      className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground"
+    >
+      {children}
+    </span>
+  );
+}
+
+/** Derived browse metadata: category + trigger kind, required apps, step count, and a static
+ *  "Trigger → Action → Action" preview — all computed from the credential-free definition
+ *  (no config, no ids, no provider calls). */
+function CardMeta({ card }: { card: TemplateCardMeta }) {
+  const preview = card.steps.map(stepLabel);
+  return (
+    <div className="flex flex-col gap-2" data-testid="template-card-meta">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <MetaChip testid="template-category">{categoryLabel(card.category)}</MetaChip>
+        <MetaChip testid="template-trigger-kind" title="How this template starts">
+          {TRIGGER_KIND_LABELS[card.triggerKind]}
+        </MetaChip>
+        <MetaChip testid="template-step-count" title="Steps in this workflow">
+          {card.stepCount} step{card.stepCount === 1 ? "" : "s"}
+        </MetaChip>
+      </div>
+
+      {card.providers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="template-providers">
+          {card.providers.map((p) => (
+            <MetaChip key={p} testid={`template-provider-${p}`}>
+              {providerLabel(p)}
+            </MetaChip>
+          ))}
+        </div>
+      )}
+
+      {preview.length > 0 && (
+        <p
+          data-testid="template-preview"
+          className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground"
+          title={preview.join(" → ")}
+        >
+          {preview.map((label, i) => (
+            <span key={i}>
+              {i > 0 && <span aria-hidden className="px-1 text-sky-500">→</span>}
+              {label}
+            </span>
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function TemplateCard(props: TemplateCardProps) {
-  const { attribution, manage, visibility } = props;
+  const { attribution, manage, visibility, card } = props;
   return (
     <div
       data-testid="template-card"
@@ -77,6 +145,8 @@ export function TemplateCard(props: TemplateCardProps) {
           <span className="text-xs font-medium text-muted-foreground">By you</span>
         )}
       </div>
+
+      {card && <CardMeta card={card} />}
 
       <div className="flex items-center gap-4 border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1" title="Times used">
