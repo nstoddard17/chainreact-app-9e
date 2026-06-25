@@ -393,6 +393,26 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getAllByTestId("workflow-guidance-message-user")).toHaveLength(2);
   });
 
+  it("HERMES-AGENT-MUTATION-PREVIEW — sends the CURRENT graph SHAPE (kind/provider/type only) so change requests preview against the live canvas", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+    const getCurrentGraphShape = () => [
+      { kind: "trigger", provider: "native", type: "manual.run" },
+      { kind: "action", provider: "slack", type: "send_channel_message" },
+    ];
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational getCurrentGraphShape={getCurrentGraphShape} />);
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "change it to an email notification");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
+    const sent = mockRequest.mock.calls[0]![0];
+    expect(sent.currentGraph).toEqual([
+      { kind: "trigger", provider: "native", type: "manual.run" },
+      { kind: "action", provider: "slack", type: "send_channel_message" },
+    ]);
+    // SHAPE ONLY — never config/values/ids/secrets in the request.
+    expect(JSON.stringify(sent)).not.toMatch(/config|value|secret|token|credential/i);
+  });
+
   it("a follow-up preview AUTO-shows on the canvas and supersedes the prior one (REACT-LIVE-SKELETON)", async () => {
     const user = userEvent.setup();
     const onPreviewToCanvas = jest.fn();

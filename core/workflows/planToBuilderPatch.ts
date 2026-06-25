@@ -54,6 +54,28 @@ export function planToBuilderPatch(
 ): BuilderPreviewPatch | null {
   if (!plan || !Array.isArray(plan.steps)) return null;
 
+  // HERMES-AGENT-MUTATION-PREVIEW — a deterministic-mutation plan marks the swapped step with
+  // `replaces` (the existing action's capability). Emit a TARGETED in-place swap instead of an additive
+  // add, so applying replaces the old action rather than appending after it. Only the FIRST such step is
+  // honored (the channel-swap is a single replacement); model-extracted plans never set `replaces`.
+  const replaceStep = plan.steps.find(
+    (s) => s.role === "action" && s.replaces && typeof s.replaces.provider === "string" && typeof s.replaces.type === "string",
+  );
+  if (replaceStep && replaceStep.replaces) {
+    const originalIndex = plan.steps.indexOf(replaceStep);
+    const fields = options.setupFieldsByType?.[`${replaceStep.provider}:${replaceStep.type}`];
+    const config = sanitizeSeedConfig(options.previewConfig?.[previewStepId(originalIndex)], fields);
+    return {
+      kind: "replace_action",
+      from: { provider: replaceStep.replaces.provider, type: replaceStep.replaces.type },
+      to: {
+        provider: replaceStep.provider,
+        type: replaceStep.type,
+        ...(Object.keys(config).length > 0 ? { config } : {}),
+      },
+    };
+  }
+
   // Only trigger/action steps map to real V2 graph nodes (no "logic" kind). Keep order, but remember
   // each step's ORIGINAL index so its preview id (and thus its guided-setup config) aligns.
   const kept = plan.steps

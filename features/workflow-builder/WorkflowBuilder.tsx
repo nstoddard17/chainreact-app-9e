@@ -471,22 +471,24 @@ export function WorkflowBuilder({
       previewConfig,
       ...(setupFieldsByType ? { setupFieldsByType } : {}),
     });
-    // HERMES-AGENT-APPLY-IN-PLACE / -INSERT-BETWEEN — prefer inserting after the user's selected/active
-    // node (splitting its sole unlabeled edge), else appending after it, else the sole tail, else a
-    // detached side chain. Read selection fresh at click time.
-    const outcome = patch
-      ? useGraphSlice.getState().applyAdditivePatch(patch, (() => {
-          const appendAfterNodeId = useConfigSlice.getState().activeNodeId ?? undefined;
-          return appendAfterNodeId ? { appendAfterNodeId } : {};
-        })())
-      : null;
+    // HERMES-AGENT-MUTATION-PREVIEW — a deterministic-mutation plan yields a `replace_action` patch (swap
+    // an action in place, e.g. Slack → email); everything else is the additive path. For additive,
+    // HERMES-AGENT-APPLY-IN-PLACE prefers inserting after the user's selected/active node (read fresh).
+    const activeNodeId = useConfigSlice.getState().activeNodeId ?? undefined;
+    const outcome = !patch
+      ? null
+      : patch.kind === "replace_action"
+        ? useGraphSlice.getState().applyReplaceActionPatch(patch)
+        : useGraphSlice.getState().applyAdditivePatch(patch, activeNodeId ? { appendAfterNodeId: activeNodeId } : {});
     if (outcome?.ok) {
       setApplyNotice(
-        outcome.placement === "inserted_between"
-          ? "Preview inserted into draft — review required fields before saving or activating."
-          : outcome.placement === "side_chain"
-            ? "Preview added as a separate draft chain because ChainReact could not safely determine where to insert it."
-            : "Preview applied to draft — review required fields before saving or activating.",
+        outcome.placement === "replaced"
+          ? "Preview applied — the step was switched in place. Review required fields before saving or activating."
+          : outcome.placement === "inserted_between"
+            ? "Preview inserted into draft — review required fields before saving or activating."
+            : outcome.placement === "side_chain"
+              ? "Preview added as a separate draft chain because ChainReact could not safely determine where to insert it."
+              : "Preview applied to draft — review required fields before saving or activating.",
       );
       // HERMES-AGENT-APPLY-CONFIG-HINTS — remember WHICH nodes this apply added so the cards show
       // the "Added from preview" badge and the notice lists each new node's still-empty required

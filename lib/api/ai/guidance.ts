@@ -46,6 +46,13 @@ export interface RequestWorkflowGuidanceInput {
    * turn so single-shot requests are byte-identical to before.
    */
   readonly recentTurns?: readonly GuidanceConversationTurn[];
+  /**
+   * HERMES-AGENT-MUTATION-PREVIEW — the CURRENT draft graph SHAPE (kind/provider/type only) so a
+   * "change it to email" style request can be previewed against what's on the canvas RIGHT NOW, incl.
+   * locally-applied unsaved edits. SHAPE ONLY — never config/values/ids/labels/secrets. Omitted when the
+   * builder has no graph wiring (e.g. dashboard single-shot) → request is byte-identical to before.
+   */
+  readonly currentGraph?: readonly { readonly kind: string; readonly provider: string; readonly type: string }[];
 }
 
 /**
@@ -62,6 +69,7 @@ export async function requestWorkflowGuidance(
       goalText: input.goalText,
       ...(input.workflowId ? { workflowId: input.workflowId } : {}),
       ...(input.recentTurns && input.recentTurns.length > 0 ? { recentTurns: input.recentTurns } : {}),
+      ...(input.currentGraph && input.currentGraph.length > 0 ? { currentGraph: input.currentGraph } : {}),
     },
   );
 }

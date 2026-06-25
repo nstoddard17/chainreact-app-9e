@@ -25,7 +25,13 @@ import { computeNonOverlappingPosition, findChainTailId } from "./workflowLayout
  *   - anything else (ambiguous multi-tail / no anchor / first node is a trigger) → `side_chain`.
  */
 
-export type AdditivePatchPlacementKind = "blank" | "appended" | "inserted_between" | "side_chain";
+export type AdditivePatchPlacementKind =
+  | "blank"
+  | "appended"
+  | "inserted_between"
+  | "side_chain"
+  // HERMES-AGENT-MUTATION-PREVIEW — an in-place action swap (replace_action patch), not an additive add.
+  | "replaced";
 
 /** A node to add — id already minted. `config` defaults to empty; a seeded config (guided preview
  * setup, HERMES-AGENT-GUIDED-PREVIEW-SETUP-1) is used verbatim when present. */

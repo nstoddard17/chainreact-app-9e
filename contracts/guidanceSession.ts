@@ -79,6 +79,15 @@ export interface WorkflowPlanStep {
   readonly purpose: string;
   /** Field KEY names/labels the user would still need to provide — never values. */
   readonly requiredInputs?: readonly string[];
+  /**
+   * HERMES-AGENT-MUTATION-PREVIEW — set ONLY by the deterministic mutation fallback when this step
+   * REPLACES an existing draft action IN PLACE (e.g. swap `slack:send_channel_message` →
+   * `gmail:send_email` when the user asks to change the notification channel). Carries the capability
+   * (provider/type, NO config/ids) of the node being replaced. Model-extracted plans NEVER set it, so
+   * they stay additive on apply (safe default). `planToBuilderPatch` turns a step with `replaces` into
+   * a targeted `replace_action` patch (in-place swap, edges/other nodes preserved).
+   */
+  readonly replaces?: { readonly provider: string; readonly type: string };
 }
 
 /**

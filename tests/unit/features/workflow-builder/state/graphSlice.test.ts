@@ -1762,6 +1762,59 @@ describe("graphSlice — applyAdditivePatch in-place placement (HERMES-AGENT-APP
   });
 });
 
+// HERMES-AGENT-MUTATION-PREVIEW — applyReplaceActionPatch: in-place action swap (e.g. Slack → email).
+describe("graphSlice — applyReplaceActionPatch (mutation in-place swap)", () => {
+  const TRIGGER_SLACK_DEF: WorkflowDefinition = {
+    nodes: [
+      { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
+      { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: { channel: "C1" }, position: { x: 0, y: 160 } },
+    ],
+    edges: [{ id: "e1", from: "t1", to: "a1" }],
+  };
+  const SWAP_TO_GMAIL = {
+    kind: "replace_action" as const,
+    from: { provider: "slack", type: "send_channel_message" },
+    to: { provider: "gmail", type: "send_email" },
+  };
+
+  it("swaps the matching action IN PLACE: same id, edges preserved, trigger untouched, dirty, no save", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_SLACK_DEF);
+    const outcome = useGraphSlice.getState().applyReplaceActionPatch(SWAP_TO_GMAIL);
+    const s = useGraphSlice.getState();
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      expect(outcome.placement).toBe("replaced");
+      expect(outcome.addedNodeIds).toEqual(["a1"]); // same node id → edges stay connected
+    }
+    // The action node was swapped Slack → email IN PLACE (same id a1), config cleared.
+    const swapped = s.pendingNodes.find((n) => n.id === "a1")!;
+    expect(swapped).toMatchObject({ provider: "gmail", type: "send_email", config: {} });
+    // Slack is GONE — not kept alongside email.
+    expect(s.pendingNodes.some((n) => n.provider === "slack")).toBe(false);
+    // Trigger + the trigger→action edge untouched (only 2 nodes, 1 edge — nothing appended).
+    expect(s.pendingNodes.find((n) => n.id === "t1")).toMatchObject({ provider: "native", type: "manual.run" });
+    expect(s.pendingEdges).toEqual([{ id: "e1", from: "t1", to: "a1" }]);
+    expect(s.pendingNodes).toHaveLength(2);
+    expect(s.isDirty).toBe(true);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("seeds the replacement's config when provided", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_SLACK_DEF);
+    useGraphSlice.getState().applyReplaceActionPatch({ ...SWAP_TO_GMAIL, to: { ...SWAP_TO_GMAIL.to, config: { to: "team@x.com" } } });
+    expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1")!.config).toEqual({ to: "team@x.com" });
+  });
+
+  it("no matching action → ok:false, graph unchanged (never wipes the graph)", () => {
+    useGraphSlice.getState().hydrate("wf-1", TRIGGER_SLACK_DEF);
+    const outcome = useGraphSlice.getState().applyReplaceActionPatch({ kind: "replace_action", from: { provider: "gmail", type: "send_email" }, to: { provider: "slack", type: "send_channel_message" } });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("no_match");
+    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
+    expect(useGraphSlice.getState().isDirty).toBe(false);
+  });
+});
+
 // ─── BUILDER-TOPBAR-UNDO-REDO — bounded draft-edit history ───────────────────
 describe("graphSlice — undo / redo", () => {
   it("add node → undo removes it → redo restores it", () => {

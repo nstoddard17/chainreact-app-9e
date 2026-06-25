@@ -39,14 +39,14 @@ const MAILCHIMP_ADD_TAG = { provider: "mailchimp", type: "add_tag" } as const;
 const MAILCHIMP_SEND_CANDIDATES = ["mailchimp:send_campaign", "mailchimp:send_email", "mailchimp:create_campaign"] as const;
 
 /** Required field KEY names for a `provider:type` action, read from its real metadata (or null). */
-function requiredActionInputs(provider: string, type: string): readonly string[] | null {
+export function requiredActionInputs(provider: string, type: string): readonly string[] | null {
   const meta = getActionMeta(`${provider}:${type}`);
   if (!meta) return null;
   return meta.fields.filter((f) => f.required).map((f) => f.name);
 }
 
 /** Required field KEY names for a `provider:type` trigger, read from its real metadata (or null). */
-function requiredTriggerInputs(provider: string, type: string): readonly string[] | null {
+export function requiredTriggerInputs(provider: string, type: string): readonly string[] | null {
   const meta = getTriggerMeta(`${provider}:${type}`);
   if (!meta) return null;
   return meta.fields.filter((f) => f.required).map((f) => f.name);

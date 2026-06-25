@@ -280,6 +280,9 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     const goalText = trimmed;
     // Prior turns (before appending this one) become the sanitized recent-conversation context.
     const recentTurns = toRecentTurns(messages);
+    // HERMES-AGENT-MUTATION-PREVIEW — send the CURRENT draft graph SHAPE (kind/provider/type only) so a
+    // change request ("make it email") previews against what's on the canvas now, incl. applied edits.
+    const currentGraph = getCurrentGraphShape?.() ?? [];
     setMessages((prev) => [...prev, { id: makeId(), role: "user", text: goalText }]);
     setInput("");
     setLoading(true);
@@ -289,6 +292,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
         goalText,
         ...(workflowId ? { workflowId } : {}),
         ...(recentTurns.length ? { recentTurns } : {}),
+        ...(currentGraph.length ? { currentGraph } : {}),
       });
       if (res.ok) {
         setMessages((prev) => [
@@ -322,11 +326,13 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     const ctx = getCheckReviewContext();
     const requestGoalText = buildAgentReviewGoalText(CHECK_WORKFLOW_PROMPT, ctx);
     const recentTurns = toRecentTurns(messages);
+    const currentGraph = getCurrentGraphShape?.() ?? [];
     setLoading(true);
     try {
       const res = await requestWorkflowGuidance({
         accountId,
         goalText: requestGoalText,
+        ...(currentGraph.length ? { currentGraph } : {}),
         ...(workflowId ? { workflowId } : {}),
         ...(recentTurns.length ? { recentTurns } : {}),
       });

@@ -3,7 +3,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDefinition, WorkflowDetail, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
-import type { BuilderPreviewPatch } from "@/contracts/workflowPlanPreview";
+import type { BuilderAdditivePatch, BuilderReplaceActionPatch } from "@/contracts/workflowPlanPreview";
 import {
   WorkflowApiError,
   updateWorkflow,
@@ -226,9 +226,18 @@ export interface GraphSliceActions {
    * Returns an outcome; never throws. `{ ok: false }` when nothing additive remained to apply.
    */
   applyAdditivePatch(
-    patch: BuilderPreviewPatch,
+    patch: BuilderAdditivePatch,
     options?: { readonly appendAfterNodeId?: string },
   ): ApplyAdditivePatchOutcome;
+  /**
+   * HERMES-AGENT-MUTATION-PREVIEW — apply a TARGETED in-place action swap (replace_action patch). Finds
+   * the FIRST existing ACTION node matching `patch.from` (`provider:type`) and swaps it to `patch.to` IN
+   * PLACE: the node keeps its id (all edges stay connected) and position; its config becomes
+   * `patch.to.config` (seeded, sanitized) or is cleared so required fields resurface as "needs setup".
+   * Everything else — the trigger, other actions + their config, every edge — is untouched. Marks dirty
+   * via the same mechanism as additive apply. NO save/activate/run. `{ ok: false }` when nothing matched.
+   */
+  applyReplaceActionPatch(patch: BuilderReplaceActionPatch): ApplyAdditivePatchOutcome;
   /** Persist the pending graph → updated detail (callers react to server-side lifecycle
    * changes, e.g. a trigger edit that deactivates an active workflow); `undefined` if in-flight. */
   save(): Promise<WorkflowDetail | undefined>;
@@ -260,7 +269,8 @@ export type ApplyAdditivePatchOutcome =
     }
   | {
       readonly ok: false;
-      readonly reason: "empty_patch" | "nothing_added";
+      // HERMES-AGENT-MUTATION-PREVIEW — "no_match": a replace_action patch found no existing action to swap.
+      readonly reason: "empty_patch" | "nothing_added" | "no_match";
       readonly skippedTrigger: boolean;
     };
 
@@ -883,6 +893,37 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
       addedEdgeIds: plan.addedEdges.map((e) => e.id),
       skippedTrigger,
       placement: plan.placement,
+    };
+  },
+
+  applyReplaceActionPatch(patch) {
+    const { pendingNodes } = get();
+    // Find the FIRST existing ACTION node whose capability matches `from`. Trigger nodes are never
+    // swapped here (a channel swap only ever touches an action). No match → nothing to do.
+    const targetIndex = pendingNodes.findIndex(
+      (n) => n.kind === "action" && n.provider === patch.from.provider && n.type === patch.from.type,
+    );
+    if (targetIndex === -1) {
+      return { ok: false, reason: "no_match", skippedTrigger: false };
+    }
+    const target = pendingNodes[targetIndex]!;
+    // Swap IN PLACE: keep the SAME id (so every edge stays valid) + position + kind; change the
+    // capability and reset config to the seeded values (or empty so required fields resurface).
+    const swapped: WorkflowNode = {
+      ...target,
+      provider: patch.to.provider,
+      type: patch.to.type,
+      config: patch.to.config ? { ...patch.to.config } : {},
+    };
+    const nextNodes = pendingNodes.map((n, i) => (i === targetIndex ? swapped : n));
+    // Edges are untouched — the swapped node keeps its id, so trigger→node / node→next stay connected.
+    set({ pendingNodes: nextNodes, isDirty: true, saveError: null });
+    return {
+      ok: true,
+      addedNodeIds: [target.id], // treat the swapped node as "added" → config-hints + auto-open apply
+      addedEdgeIds: [],
+      skippedTrigger: false,
+      placement: "replaced",
     };
   },
 
