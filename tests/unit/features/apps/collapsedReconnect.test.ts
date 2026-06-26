@@ -4,7 +4,10 @@
  * (Slice 4.CS-APPS-RECOVERY-2). No rendering; pure branching only.
  */
 import type { AppAccountSummary } from "@/contracts/apps";
-import { deriveCollapsedReconnect } from "@/features/apps/collapsedReconnect";
+import {
+  deriveCollapsedReconnect,
+  orderAccountsByReconnectNeed,
+} from "@/features/apps/collapsedReconnect";
 
 function acc(over: Partial<AppAccountSummary> = {}): AppAccountSummary {
   return {
@@ -63,5 +66,51 @@ describe("deriveCollapsedReconnect", () => {
         acc({ id: "b2", needsReconnect: true, canReconnect: false }),
       ]),
     ).toEqual({ kind: "review" });
+  });
+});
+
+describe("orderAccountsByReconnectNeed (CS-APPS-RECOVERY-ROW-ORDER)", () => {
+  const ids = (xs: readonly AppAccountSummary[]) => xs.map((a) => a.id);
+
+  it("puts reconnect-needed rows before healthy rows", () => {
+    const out = orderAccountsByReconnectNeed([
+      acc({ id: "h1" }),
+      acc({ id: "b1", needsReconnect: true }),
+      acc({ id: "h2" }),
+      acc({ id: "b2", needsReconnect: true }),
+    ]);
+    expect(ids(out)).toEqual(["b1", "b2", "h1", "h2"]);
+  });
+
+  it("is stable within the reconnect-needed group (preserves original relative order)", () => {
+    const out = orderAccountsByReconnectNeed([
+      acc({ id: "b1", needsReconnect: true }),
+      acc({ id: "h1" }),
+      acc({ id: "b2", needsReconnect: true }),
+      acc({ id: "b3", needsReconnect: true }),
+    ]);
+    expect(ids(out).slice(0, 3)).toEqual(["b1", "b2", "b3"]);
+  });
+
+  it("is stable within the healthy group (preserves original relative order)", () => {
+    const out = orderAccountsByReconnectNeed([
+      acc({ id: "h1" }),
+      acc({ id: "b1", needsReconnect: true }),
+      acc({ id: "h2" }),
+      acc({ id: "h3" }),
+    ]);
+    expect(ids(out).slice(1)).toEqual(["h1", "h2", "h3"]);
+  });
+
+  it("is a no-op for a healthy-only list (original order preserved)", () => {
+    const out = orderAccountsByReconnectNeed([acc({ id: "h1" }), acc({ id: "h2" })]);
+    expect(ids(out)).toEqual(["h1", "h2"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const input = [acc({ id: "h1" }), acc({ id: "b1", needsReconnect: true })];
+    const snapshot = ids(input);
+    orderAccountsByReconnectNeed(input);
+    expect(ids(input)).toEqual(snapshot);
   });
 });

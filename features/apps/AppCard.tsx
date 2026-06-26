@@ -8,7 +8,7 @@ import { AppStatusPill } from "./AppStatusPill";
 import { DisconnectDialog } from "./DisconnectDialog";
 import { ShareConnectionDialog } from "./ShareConnectionDialog";
 import { formatConnectedOn } from "./relativeDate";
-import { deriveCollapsedReconnect } from "./collapsedReconnect";
+import { deriveCollapsedReconnect, orderAccountsByReconnectNeed } from "./collapsedReconnect";
 import { useReviewFocus } from "./useReviewFocus";
 import { OtherAccountsActiveNote, ReconnectRowCopy } from "./ReconnectNeededCopy";
 
@@ -87,8 +87,11 @@ export function AppCard({ app, accountId }: Props) {
   // CS-APPS-RECOVERY-COPY — reassure the user that a single broken account doesn't take
   // the whole provider down: surfaced only when this provider holds multiple accounts and
   // at least one is healthy while another needs reconnecting. Pure derivation over the DTO.
-  const hasMixedAccountHealth =
-    accountCount > 1 && app.accounts.some((a) => a.needsReconnect) && app.accounts.some((a) => !a.needsReconnect);
+  const hasMixedAccountHealth = accountCount > 1 && app.accounts.some((a) => a.needsReconnect) && app.accounts.some((a) => !a.needsReconnect);
+  // CS-APPS-RECOVERY-ROW-ORDER — expanded rows show reconnect-needed accounts first
+  // (stable within each group). Render-only; the first flagged row is unchanged, so the
+  // Review focus target (firstNeedsReconnectId) stays correct.
+  const orderedAccounts = orderAccountsByReconnectNeed(app.accounts);
 
   return (
     <li
@@ -256,7 +259,7 @@ export function AppCard({ app, accountId }: Props) {
               rest keep working so the card doesn't read as a total outage. */}
           {hasMixedAccountHealth && <OtherAccountsActiveNote />}
           <ul className="flex flex-col gap-2">
-            {app.accounts.map((acc) => {
+            {orderedAccounts.map((acc) => {
               const label = acc.displayName ?? "Connected account";
               const isFirstNeedsReconnect = acc.id === firstNeedsReconnectId;
               return (

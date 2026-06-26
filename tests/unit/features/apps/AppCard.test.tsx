@@ -768,4 +768,73 @@ describe("AppCard — collapsed reconnect discoverability (CS-APPS-RECOVERY-2)",
       expect(scrollSpy).not.toHaveBeenCalled();
     });
   });
+
+  // ── CS-APPS-RECOVERY-ROW-ORDER — needs-reconnect rows render first ──────────
+  describe("expanded row ordering", () => {
+    const renderedIds = (): (string | null)[] =>
+      screen
+        .getAllByTestId("app-card-account")
+        .map((el) => el.getAttribute("data-account-id"));
+
+    it("renders reconnect-needed rows before healthy rows", async () => {
+      const user = userEvent.setup();
+      const app = connectedApp([
+        row({ id: "h1", canReconnect: true }),
+        row({ id: "b1", needsReconnect: true, canReconnect: true }),
+        row({ id: "h2", canReconnect: true }),
+        row({ id: "b2", needsReconnect: true, canReconnect: true }),
+      ]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(renderedIds()).toEqual(["b1", "b2", "h1", "h2"]);
+    });
+
+    it("keeps original relative order WITHIN the reconnect-needed group", async () => {
+      const user = userEvent.setup();
+      const app = connectedApp([
+        row({ id: "b1", needsReconnect: true, canReconnect: true }),
+        row({ id: "h1", canReconnect: true }),
+        row({ id: "b2", needsReconnect: true, canReconnect: true }),
+        row({ id: "b3", needsReconnect: true, canReconnect: true }),
+      ]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(renderedIds().slice(0, 3)).toEqual(["b1", "b2", "b3"]);
+    });
+
+    it("preserves original order for a healthy-only card (no reordering)", async () => {
+      const user = userEvent.setup();
+      const app = connectedApp([
+        row({ id: "h1", canReconnect: true }),
+        row({ id: "h2", canReconnect: true }),
+        row({ id: "h3", canReconnect: true }),
+      ]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(renderedIds()).toEqual(["h1", "h2", "h3"]);
+    });
+
+    it("after Review, the first reconnect-needed row is rendered first AND focused", async () => {
+      const user = userEvent.setup();
+      (HTMLElement.prototype as unknown as { scrollIntoView: unknown }).scrollIntoView =
+        jest.fn();
+      const app = connectedApp([
+        row({ id: "healthy", canReconnect: true }),
+        row({ id: "b1", needsReconnect: true, canReconnect: true }),
+        row({ id: "b2", needsReconnect: true, canReconnect: true }),
+      ]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-collapsed-review"));
+      expect(renderedIds()).toEqual(["b1", "b2", "healthy"]);
+      await waitFor(() =>
+        expect(
+          screen
+            .getAllByTestId("app-card-account")
+            .find((el) => el.getAttribute("data-account-id") === "b1"),
+        ).toBe(document.activeElement),
+      );
+      delete (HTMLElement.prototype as unknown as { scrollIntoView?: unknown })
+        .scrollIntoView;
+    });
+  });
 });

@@ -47,3 +47,19 @@ export function deriveCollapsedReconnect(
   // expand rather than pick one for the user.
   return { kind: "review" };
 }
+
+/**
+ * CS-APPS-RECOVERY-ROW-ORDER — stable partition that surfaces reconnect-needed
+ * accounts before healthy ones in the expanded card, so what needs attention is at
+ * the top. Relative order WITHIN each group (needs-reconnect, then healthy) is
+ * preserved (`filter` is stable). Render-only — it touches no reconnect / disconnect /
+ * sharing semantics and is a no-op for a healthy-only card.
+ */
+export function orderAccountsByReconnectNeed(
+  accounts: readonly AppAccountSummary[],
+): readonly AppAccountSummary[] {
+  return [
+    ...accounts.filter((a) => a.needsReconnect),
+    ...accounts.filter((a) => !a.needsReconnect),
+  ];
+}
