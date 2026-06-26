@@ -347,7 +347,33 @@ describe("pagesCopyToSection", () => {
     );
   });
 
-  it("operationLocation null when Graph omits the header", async () => {
+  it("falls back to the Location header (OneNote copyToSection returns the operation URL there, not Operation-Location) — SMOKE-WRITE-35", async () => {
+    // Verified live: OneNote returns 202 with `Location` (no `Operation-Location`).
+    mockFetch(202, {}, { headers: { location: "https://graph/operations/op-loc-1" } });
+    const result = await pagesCopyToSection({
+      accessToken: TOK,
+      pageId: "p-1",
+      targetSectionId: "sec-target",
+    });
+    expect(result.operationLocation).toBe("https://graph/operations/op-loc-1");
+  });
+
+  it("prefers Operation-Location when BOTH headers are present (spec/forward-compat)", async () => {
+    mockFetch(202, {}, {
+      headers: {
+        "operation-location": "https://graph/operations/op-pref",
+        location: "https://graph/operations/op-loc",
+      },
+    });
+    const result = await pagesCopyToSection({
+      accessToken: TOK,
+      pageId: "p-1",
+      targetSectionId: "sec-target",
+    });
+    expect(result.operationLocation).toBe("https://graph/operations/op-pref");
+  });
+
+  it("operationLocation null only when Graph omits BOTH headers", async () => {
     mockFetch(202, {});
     const result = await pagesCopyToSection({
       accessToken: TOK,

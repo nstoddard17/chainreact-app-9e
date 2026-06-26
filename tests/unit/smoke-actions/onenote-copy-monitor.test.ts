@@ -70,7 +70,27 @@ describe("normalizeOneNoteOperation", () => {
     ).toEqual({ status: "completed", resourceId: null, percentageComplete: null });
   });
 
-  it("treats a non-string status as unrecognized (pending)", () => {
+  it("PAGE resource (no status, has id+page fields) is treated as completed with the page id — SMOKE-WRITE-35", () => {
+    // Verified live: OneNote's copy Location URL resolves to the copied PAGE itself
+    // (no status-bearing operation), so a body with `id` + page fields IS the finished copy.
+    expect(
+      normalizeOneNoteOperation({
+        id: "1-copiedPage",
+        title: "crsmoke-page",
+        contentUrl: "https://graph/…/content",
+      } as { id: unknown }),
+    ).toEqual({ status: "completed", resourceId: "1-copiedPage", percentageComplete: 100 });
+  });
+
+  it("an operation resource's own id is NOT mistaken for the page id (status wins)", () => {
+    // The 202 operation body has BOTH an `id` (the OPERATION id) and a `status`. Status is
+    // checked first, so the operation id never leaks in as the page id.
+    expect(
+      normalizeOneNoteOperation({ status: "not started", id: "operationId-not-a-page" }),
+    ).toEqual({ status: "not started", resourceId: null, percentageComplete: null });
+  });
+
+  it("an empty body (no status, no id) is unrecognized (pending)", () => {
     expect(normalizeOneNoteOperation({})).toEqual({ status: null, resourceId: null });
   });
 });

@@ -42,10 +42,16 @@ export interface PagesCopyToSectionInput {
 
 export interface PagesCopyToSectionResult {
   /**
-   * Graph's `Operation-Location` header value — the URL of the
-   * long-running operation resource. Workflow authors who need to
-   * track completion can poll this URL via the future operations
-   * wrapper (deferred).
+   * The URL of the long-running copy operation resource — poll it to track
+   * completion + read the new page id.
+   *
+   * **Header source (verified live, SMOKE-WRITE-35):** OneNote's `copyToSection`
+   * returns 202 with the operation URL in the **`Location`** header, NOT
+   * `Operation-Location` (which Graph's docs name and which most other async Graph
+   * ops use). The 202 body is the operation resource itself
+   * (`{ id, status: "not started", … }`). We therefore read `Operation-Location`
+   * first (spec/forward-compat) and fall back to `Location`. Previously we read only
+   * `Operation-Location`, so this was always `null` and the copy was un-pollable.
    */
   operationLocation: string | null;
 }
@@ -83,6 +89,9 @@ export async function pagesCopyToSection(
   }
 
   return {
-    operationLocation: res.headers.get("operation-location"),
+    // Prefer the spec header (`Operation-Location`); fall back to `Location`, which is
+    // what OneNote's copyToSection actually returns (verified live, SMOKE-WRITE-35).
+    operationLocation:
+      res.headers.get("operation-location") ?? res.headers.get("location"),
   };
 }

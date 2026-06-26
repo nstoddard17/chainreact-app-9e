@@ -62,21 +62,43 @@ export function extractPageIdFromResourceUrl(url: string): string | null {
 }
 
 /**
- * Normalize a OneNote operation resource body into an `AsyncOperationStatus`. The Graph
- * operation shape is `{ status, resourceId?, resourceLocation? }`; on terminal success
- * `resourceId` is the new page id (fall back to parsing `resourceLocation`). Pure.
+ * Normalize a GET of the OneNote copy `Location` URL into an `AsyncOperationStatus`.
+ *
+ * **Verified live (SMOKE-WRITE-35):** OneNote's `copyToSection` 202 puts the copy's
+ * **`Location` header pointing directly at the new PAGE resource**
+ * (`/me/onenote/pages/{id}`), and that URL is readable (200) almost immediately. The
+ * 202 *body* is a separate async-operation resource (`{ id, status:"not started" }`),
+ * but the `Location` URL itself resolves to the finished page — there is no
+ * status-bearing operation endpoint to poll. So this normalizer handles BOTH shapes:
+ *
+ *   - **Operation resource** (`{ status, resourceId?, resourceLocation? }`) — kept for
+ *     spec/forward-compat: pass the status through; `resourceId` (or a `resourceLocation`
+ *     `/pages/{id}` parse) is the new page id.
+ *   - **Page resource** (no `status`, but has `id` + page fields) — the actual OneNote
+ *     behavior: the copy is DONE; treat as `completed` with `resourceId = body.id`.
+ *
+ * `status` is checked first, so an operation resource (whose `id` is the OPERATION id,
+ * not the page id) never mistakes its operation id for the page id. Pure.
  */
 export function normalizeOneNoteOperation(body: {
   status?: unknown;
   resourceId?: unknown;
   resourceLocation?: unknown;
+  id?: unknown;
 }): AsyncOperationStatus {
-  if (typeof body.status !== "string") return { status: null, resourceId: null };
-  let resourceId = typeof body.resourceId === "string" ? body.resourceId : null;
-  if (!resourceId && typeof body.resourceLocation === "string") {
-    resourceId = extractPageIdFromResourceUrl(body.resourceLocation);
+  if (typeof body.status === "string") {
+    let resourceId = typeof body.resourceId === "string" ? body.resourceId : null;
+    if (!resourceId && typeof body.resourceLocation === "string") {
+      resourceId = extractPageIdFromResourceUrl(body.resourceLocation);
+    }
+    return { status: body.status, resourceId, percentageComplete: null };
   }
-  return { status: body.status, resourceId, percentageComplete: null };
+  // No `status` → the Location URL resolved to the copied PAGE itself. The copy is
+  // complete; its `id` is the new page id.
+  if (typeof body.id === "string") {
+    return { status: "completed", resourceId: body.id, percentageComplete: 100 };
+  }
+  return { status: null, resourceId: null };
 }
 
 /**

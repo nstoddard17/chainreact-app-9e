@@ -372,3 +372,55 @@ question); (2) teach the live dev test to discover/create a SECOND smoke section
 copy targets a DIFFERENT section; (3) re-run when the OneNote smoke account is not lagging
 (create_page/update_page/delete_page all green again); then add the
 `LIVE_PASS_CLEANED` row.
+
+## 13. SMOKE-WRITE-35 unblock — ROOT CAUSE FOUND + FIXED, cert still deferred (2026-06-26)
+
+Live-instrumented the OneNote copy (one-off diagnostic
+[scripts/trash/onenote-copy-diagnose-and-sweep.ts](../../../../scripts/trash/onenote-copy-diagnose-and-sweep.ts),
+marker-scoped to the smoke `[TEST]` section). **Root cause of the null `operationLocation`
+— confirmed with evidence:**
+
+- OneNote `copyToSection` returns **202 with the operation URL in the `Location` header,
+  NOT `Operation-Location`** (the spec/most-Graph-ops header — absent here). The 202 BODY
+  is a separate async-operation resource (`{ id, status:"not started" }`). The production
+  wrapper read only `Operation-Location` → always `null` → copy un-pollable. **This was a
+  real production bug** (workflow authors got a null operation URL too).
+- **Further evidence:** GET-ing that `Location` URL returns the **copied PAGE resource
+  itself** (`id, title, contentUrl, parentSection…`, HTTP 200 at +2s) — there is **no
+  status-bearing operation endpoint to poll**. So the copy is effectively done as soon as
+  the `Location` resolves; its page id is right there.
+
+**Fixes (both verified live):**
+1. **Production wrapper** [pagesCopyToSection.ts](../../../../integrations/microsoft-onenote/api/pagesCopyToSection.ts):
+   `operationLocation = Operation-Location ?? Location` (prefer spec header, fall back to
+   the one OneNote actually uses). +3 wrapper unit tests.
+2. **Smoke seam** [onenoteCopyMonitor.ts](../../../../tests/smoke-actions/writeHarnessDeps/onenoteCopyMonitor.ts):
+   `normalizeOneNoteOperation` now treats a **page-resource** body (no `status`, has `id`)
+   as `completed` with `resourceId = body.id` (status checked first, so an operation
+   resource's own id is never mistaken for a page id). +2 unit tests.
+
+**Live verification (scoped `SMOKE_PROVIDER=microsoft-onenote`):** `copy_page` now runs
+`setup ok → execute ok → async operation completed; resource captured → verify ok →
+marker confirmed on read-back`. **The core blocker is solved** — async capture +
+independent verification work end-to-end.
+
+**Remaining blocker (why still NOT certified): OneNote create→delete propagation lag.**
+`copy_page`'s `cleanupEach` deletes source + copy; one delete failed (`CLEANUP_FAILED`,
+1 left) because a just-created page wasn't yet deletable. The pre-existing **certified**
+`delete_page` fixture FAILED the **same** run with the same lag — so this is an
+**environmental OneNote eventual-consistency** issue, not specific to `copy_page` (an
+earlier run had all three of create/update/delete_page green; it is intermittent).
+
+**Sweep:** after each run, swept the smoke section for `crsmoke-` pages —
+**found N / deleted N / remaining 0** (re-confirmed stable at 0; nothing leaked).
+
+**Cert decision:** NOT certified (per "do not certify yet", and cleanup did not reach
+`remaining 0` for `copy_page`). Fixture stays **NOT_RUN**. Matrix unchanged: **125
+LIVE_PASS / 22 not-run / 151 missing**.
+
+**Next slice to certify:** add a **bounded, smoke-only delete retry** (retry-with-backoff
++ treat a 404 as already-cleaned/idempotent) to the write-harness cleanup step — this
+absorbs the OneNote create→delete lag for BOTH `copy_page` and the flaky `delete_page`
+fixture. Then a clean `copy_page` run (all phases ok, remaining 0) earns the
+`LIVE_PASS_CLEANED` row. (The dual-section-copy idea from §12 is NOT needed — same-section
+copy works fine; the only real issues were the `Location` header + delete lag.)
