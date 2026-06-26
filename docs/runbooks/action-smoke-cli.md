@@ -1208,11 +1208,13 @@ unauthenticated status read), and captures the completed copy's Graph `resourceI
 the smoke-owned `copy`. **Trusted-URL gate (live-corrected):** the real OneDrive copy monitor URL is
 NOT on `graph.microsoft.com` but on a Microsoft operation host (consumer OneDrive observed live on
 `*.svc.ms`; OneDrive for Business on `*.sharepoint.com`). The gate accepts the exact Graph base host OR
-an HTTPS Microsoft-owned host (`graph.microsoft.com`, `*.microsoft.com`, `*.onedrive.com`,
-`*.sharepoint.com`, `*.svc.ms`, `*.live.com`) — provenance (the URL came from Graph's own authenticated
-202 `Location` header) is the primary trust; the host allow-list is defense-in-depth so a non-Microsoft
-URL is never fetched. A refused URL surfaces its HOST (a public domain, never path/token) for
-diagnosability. So the copy is identifiable (real id, not marker-discovery), independently VERIFIABLE
+an HTTPS URL on a NARROW, evidence-justified operation host — only `*.svc.ms` (observed live) and
+`*.sharepoint.com` (OneDrive-for-Business copy-monitor contract). Provenance (the URL came from Graph's
+own authenticated 202 `Location` header) is the primary trust; the host allow-list is defense-in-depth
+so a non-Microsoft URL is never fetched. Broad `*.microsoft.com` / `*.onedrive.com` / `*.live.com`
+grants were deliberately NOT included (no concrete evidence they are used — add a suffix only with a
+live observation or a documented contract). A refused URL surfaces its HOST (a public domain, never
+path/token) for diagnosability. So the copy is identifiable (real id, not marker-discovery), independently VERIFIABLE
 (an authenticated `get_file` read-back proving name marker+suffix `"copy"`, `kind == "file"`, and
 `parentReference.id == {{ledger.folder.id}}`), and CLEANABLE: `cleanupEach` deletes folder + source +
 copy. The folder is captured first (it must exist before the source uploads into it / the copy targets

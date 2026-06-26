@@ -155,30 +155,30 @@ export async function pollAsyncCopyCompletion(
 }
 
 /**
- * Microsoft-owned host suffixes a Graph-issued copy monitor URL may legitimately
- * use. The PRIMARY trust property is PROVENANCE — the monitor URL flows from Graph's
- * own authenticated 202 `Location` header on the copy WE issued, never from user
- * input — and Graph returns these operation-status URLs on its operation infra,
- * which (observed live) is NOT `graph.microsoft.com` but a sibling Microsoft host
- * (e.g. `*.svc.ms` for consumer OneDrive, `*.sharepoint.com` for OneDrive for
- * Business). This list is the defense-in-depth allow list so the poller still never
- * fetches a NON-Microsoft URL even in a tampering scenario. HTTPS only.
+ * Operation-host suffixes a Graph-issued `/copy` monitor URL may legitimately use,
+ * BEYOND the exact configured Graph base host. The PRIMARY trust property is
+ * PROVENANCE — the monitor URL flows from Graph's own authenticated 202 `Location`
+ * header on the copy WE issued, never from user input. This narrow allow list is the
+ * defense-in-depth backstop so the poller never fetches an off-Microsoft URL even in
+ * a tampering scenario. HTTPS only. Each entry must be justified by the LIVE response
+ * or Microsoft's copy-monitor contract — NOT a broad `*.microsoft.com` / `*.live.com`
+ * grant (those were removed; add a suffix only with concrete evidence it is used):
+ *   - `.svc.ms`         — OBSERVED LIVE: consumer OneDrive `/copy` monitor host.
+ *   - `.sharepoint.com` — OneDrive for Business: the async copy monitor lives on the
+ *                         tenant's SharePoint host (Microsoft copy-operation contract).
  */
-const TRUSTED_MS_HOST_SUFFIXES: readonly string[] = [
-  "graph.microsoft.com",
-  ".microsoft.com",
-  ".onedrive.com",
-  ".sharepoint.com",
+const TRUSTED_MS_OPERATION_HOST_SUFFIXES: readonly string[] = [
   ".svc.ms",
-  ".live.com",
+  ".sharepoint.com",
 ];
 
 /**
  * Trust gate for a monitor URL: never fetch an arbitrary URL. Accepts EITHER the
- * exact configured Graph base host+scheme (covers the http e2e mock host when
- * `MICROSOFT_GRAPH_API_BASE` overrides it) OR an HTTPS URL on a Microsoft-owned host
- * (`TRUSTED_MS_HOST_SUFFIXES`) — because Graph issues real copy monitor URLs on its
- * operation hosts, not the Graph API host. Pure.
+ * exact configured Graph base host+scheme (production `graph.microsoft.com`, or the
+ * http e2e mock host when `MICROSOFT_GRAPH_API_BASE` overrides it) OR an HTTPS URL on
+ * one of the narrow, evidence-justified operation hosts
+ * (`TRUSTED_MS_OPERATION_HOST_SUFFIXES`) — because Graph issues real `/copy` monitor
+ * URLs on its operation infra, not the Graph API host. Pure.
  */
 export function isTrustedGraphMonitorUrl(rawUrl: string, graphBase: string): boolean {
   let u: URL;
@@ -191,12 +191,10 @@ export function isTrustedGraphMonitorUrl(rawUrl: string, graphBase: string): boo
   }
   // Exact Graph base host+scheme (production graph.microsoft.com OR the e2e mock).
   if (u.protocol === base.protocol && u.host === base.host) return true;
-  // Otherwise: HTTPS + a Microsoft-owned host (real Graph operation monitor hosts).
+  // Otherwise: HTTPS + a narrow, evidence-justified Microsoft operation host.
   if (u.protocol !== "https:") return false;
   const host = u.host.toLowerCase();
-  return TRUSTED_MS_HOST_SUFFIXES.some((s) =>
-    s.startsWith(".") ? host.endsWith(s) : host === s,
-  );
+  return TRUSTED_MS_OPERATION_HOST_SUFFIXES.some((s) => host.endsWith(s));
 }
 
 /** The host of a monitor URL (a public Microsoft domain — safe to surface), or "unparseable". */

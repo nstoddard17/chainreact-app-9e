@@ -92,13 +92,18 @@ describe("isTrustedGraphMonitorUrl", () => {
   it("accepts a URL on the same host + scheme as the Graph base", () => {
     expect(isTrustedGraphMonitorUrl("https://graph.microsoft.com/v1.0/operations/op-1", BASE)).toBe(true);
   });
-  it("accepts the real Graph operation-monitor hosts (HTTPS Microsoft-owned)", () => {
-    // Observed live: copy monitor URLs are NOT on graph.microsoft.com but on Microsoft
-    // operation infra (consumer OneDrive -> *.svc.ms; OneDrive for Business -> *.sharepoint.com).
+  it("accepts ONLY the narrow, evidence-justified operation hosts", () => {
+    // *.svc.ms observed live (consumer OneDrive); *.sharepoint.com per Microsoft's
+    // OneDrive-for-Business copy-monitor contract.
     expect(isTrustedGraphMonitorUrl("https://gateway.api.svc.ms/v1.0/monitor/abc", BASE)).toBe(true);
     expect(isTrustedGraphMonitorUrl("https://contoso-my.sharepoint.com/_api/monitor/abc", BASE)).toBe(true);
-    expect(isTrustedGraphMonitorUrl("https://api.onedrive.com/v1.0/monitor/abc", BASE)).toBe(true);
-    expect(isTrustedGraphMonitorUrl("https://login.live.com/x", BASE)).toBe(true);
+  });
+  it("rejects the previously-broad Microsoft grants now that they lack concrete evidence", () => {
+    // *.microsoft.com, *.onedrive.com, *.live.com were removed — not justified by the
+    // live response or the copy-monitor contract.
+    expect(isTrustedGraphMonitorUrl("https://api.onedrive.com/v1.0/monitor/abc", BASE)).toBe(false);
+    expect(isTrustedGraphMonitorUrl("https://login.live.com/x", BASE)).toBe(false);
+    expect(isTrustedGraphMonitorUrl("https://random.microsoft.com/x", BASE)).toBe(false);
   });
   it("rejects a non-Microsoft host (no off-host fetch)", () => {
     expect(isTrustedGraphMonitorUrl("https://evil.example.com/op-1", BASE)).toBe(false);
@@ -106,8 +111,8 @@ describe("isTrustedGraphMonitorUrl", () => {
     expect(isTrustedGraphMonitorUrl("https://graph.microsoft.com.evil.com/op", BASE)).toBe(false);
     expect(isTrustedGraphMonitorUrl("https://svc.ms.evil.com/op", BASE)).toBe(false);
   });
-  it("rejects a non-HTTPS Microsoft host (only the exact graph base may be non-https, for the mock)", () => {
-    expect(isTrustedGraphMonitorUrl("http://api.onedrive.com/op", BASE)).toBe(false);
+  it("rejects a non-HTTPS operation host (only the exact graph base may be non-https, for the mock)", () => {
+    expect(isTrustedGraphMonitorUrl("http://gateway.api.svc.ms/op", BASE)).toBe(false);
     expect(isTrustedGraphMonitorUrl("http://graph.microsoft.com/op", BASE)).toBe(false);
   });
   it("rejects a non-URL", () => {
