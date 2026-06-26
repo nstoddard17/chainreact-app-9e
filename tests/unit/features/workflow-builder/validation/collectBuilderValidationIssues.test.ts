@@ -514,3 +514,72 @@ describe("collectBuilderValidationIssues — missing_required_field (BUILDER-REA
     expect(issues.some((i) => i.code === "router_routes_invalid")).toBe(true);
   });
 });
+
+describe("collectBuilderValidationIssues — broken_variable_reference (TEMPLATE-SETUP-UX-1)", () => {
+  it("flags a field that references a step that no longer exists (deleted node)", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "t1", kind: "trigger", type: "slack:message" }),
+        makeNode({
+          id: "a1",
+          kind: "action",
+          type: "slack:send_message",
+          config: { text: "{{ghost.value}}" },
+        }),
+      ],
+      pendingEdges: [{ id: "e1", from: "t1", to: "a1" }],
+    });
+    const broken = issues.find((i) => i.code === "broken_variable_reference");
+    expect(broken).toBeDefined();
+    expect(broken?.severity).toBe("warning");
+    expect(broken?.nodeId).toBe("a1");
+    expect(broken?.fieldName).toBe("text");
+    // Plain-English, no raw token / node id leaked into the copy.
+    expect(broken?.message).not.toContain("{{");
+    expect(broken?.message).not.toContain("ghost");
+  });
+
+  it("does NOT flag prewired references to the trigger or an existing upstream step", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "trigger", kind: "trigger", type: "gmail:new_labeled_email" }),
+        makeNode({
+          id: "a1",
+          kind: "action",
+          type: "hubspot:create_ticket",
+          config: { subject: "{{trigger.subject}}" },
+        }),
+        makeNode({
+          id: "a2",
+          kind: "action",
+          type: "slack:send_channel_message",
+          config: { text: "New: {{trigger.subject}} ({{a1.email}})" },
+        }),
+      ],
+      pendingEdges: [
+        { id: "e1", from: "trigger", to: "a1" },
+        { id: "e2", from: "a1", to: "a2" },
+      ],
+    });
+    expect(issues.some((i) => i.code === "broken_variable_reference")).toBe(false);
+  });
+
+  it("emits one broken-ref issue per (node, field), de-duplicated", () => {
+    const issues = collectBuilderValidationIssues({
+      pendingNodes: [
+        makeNode({ id: "t1", kind: "trigger", type: "slack:message" }),
+        makeNode({
+          id: "a1",
+          kind: "action",
+          type: "slack:send_message",
+          // Same field, two broken tokens -> still ONE issue for the field.
+          config: { text: "{{ghost.a}} and {{ghost.b}}" },
+        }),
+      ],
+      pendingEdges: [{ id: "e1", from: "t1", to: "a1" }],
+    });
+    const broken = issues.filter((i) => i.code === "broken_variable_reference");
+    expect(broken).toHaveLength(1);
+    expect(broken[0]!.id).toBe("broken_variable_reference:a1:text");
+  });
+});

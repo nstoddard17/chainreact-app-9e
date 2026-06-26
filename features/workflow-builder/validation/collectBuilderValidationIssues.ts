@@ -8,6 +8,8 @@ import {
   type RequiredFieldsByType,
 } from "@/core/workflows/requiredFields";
 import { findGraphIssues } from "@/core/workflows/executionReadiness";
+import { findInvalidVariableReferences } from "@/core/workflows/invalidVariableReferences";
+import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { validateRoutesValue } from "../config-modal/fields/_routesValidator";
 
 /**
@@ -34,6 +36,9 @@ import { validateRoutesValue } from "../config-modal/fields/_routesValidator";
  *   - `stale_edge` (error) — an edge references a node that no longer exists.
  *   - `self_loop_edge` (error) — an edge connects a step to itself (CS-1; now a shared
  *     runtime/readiness issue, surfaced here too).
+ *   - `broken_variable_reference` (warning) — a field references a step that no longer
+ *     exists (deleted/unknown node). Soft (non-blocking) like the inline field warning,
+ *     but surfaced in the drawer so a prefilled-looking field is never read as complete.
  *
  * Boundary rules: pure; provider-agnostic (only the native router type literal
  * is special-cased, as before). The required-field + connectivity rules live in
@@ -57,7 +62,8 @@ export type BuilderValidationIssueCode =
   | "missing_required_field"
   | "unreachable_node"
   | "stale_edge"
-  | "self_loop_edge";
+  | "self_loop_edge"
+  | "broken_variable_reference";
 
 export interface BuilderValidationIssue {
   /** Stable id for React keys. Built from `code` + node/edge id. */
@@ -175,6 +181,31 @@ export function collectBuilderValidationIssues(
       severity: "error",
       message: g.message,
       ...(g.nodeId !== undefined ? { nodeId: g.nodeId } : {}),
+    });
+  }
+
+  // Broken variable references — a field points at a step that no longer exists
+  // (deleted/unknown source node). Pure graph check (no metadata): the prewired
+  // official templates reference only the trigger + existing steps, so they are
+  // never flagged. Soft (warning) — non-blocking like the inline field warning,
+  // but it keeps the drawer from reading a stale-but-prefilled-looking field as
+  // ready. The message names the step + field, never the raw `{{...}}` token (it
+  // can carry a node id) and never a provider-resource id.
+  const nodeById = new Map(input.pendingNodes.map((n) => [n.id, n]));
+  const seenBrokenRefKeys = new Set<string>();
+  for (const broken of findInvalidVariableReferences(input.pendingNodes)) {
+    const key = `${broken.nodeId}:${broken.fieldKey}`;
+    if (seenBrokenRefKeys.has(key)) continue; // one issue per (node, field)
+    seenBrokenRefKeys.add(key);
+    const node = nodeById.get(broken.nodeId);
+    const displayName = node ? getNodeDisplayName(node) : "A step";
+    issues.push({
+      id: `broken_variable_reference:${key}`,
+      code: "broken_variable_reference",
+      severity: "warning",
+      message: `${displayName} uses data from a step that no longer exists. Re-pick the value or clear it.`,
+      nodeId: broken.nodeId,
+      fieldName: broken.fieldKey,
     });
   }
 

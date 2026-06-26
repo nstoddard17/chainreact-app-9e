@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FieldShell } from "./FieldShell";
+import { FieldSetupHint } from "./FieldSetupHint";
+import { classifyConfigFieldValue } from "@/core/workflows/configFieldClassification";
 import type { FieldRendererProps } from "./types";
 
 /**
@@ -91,6 +93,12 @@ export const SelectField: React.FC<FieldRendererProps> = ({
           ))}
         </SelectContent>
       </Select>
+      {error ? null : (
+        <FieldSetupHint
+          state={classifyConfigFieldValue({ value: stringValue, required: field.required })}
+          fieldLabel={field.label}
+        />
+      )}
     </FieldShell>
   );
 };

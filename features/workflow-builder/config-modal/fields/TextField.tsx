@@ -7,6 +7,9 @@ import { FieldShell } from "./FieldShell";
 import { VariablePickerButton } from "./VariablePickerButton";
 import { insertAtCursor } from "./_insertAtCursor";
 import { validateReferences } from "./_variableValidator";
+import { describePrefillSource } from "./_prefillSource";
+import { FieldSetupHint } from "./FieldSetupHint";
+import { classifyConfigFieldValue } from "@/core/workflows/configFieldClassification";
 import type { FieldRendererProps } from "./types";
 
 /**
@@ -45,6 +48,21 @@ export const TextField: React.FC<FieldRendererProps> = ({
 
   const warnings = React.useMemo(
     () => validateReferences({ value: stringValue, sources }),
+    [stringValue, sources],
+  );
+
+  // Plain-English setup state (pure) + friendly source label for prefilled fields.
+  const setupState = React.useMemo(
+    () =>
+      classifyConfigFieldValue({
+        value: stringValue,
+        required: field.required,
+        hasUnresolvedReference: warnings.length > 0,
+      }),
+    [stringValue, field.required, warnings.length],
+  );
+  const sourceLabel = React.useMemo(
+    () => describePrefillSource({ value: stringValue, sources }),
     [stringValue, sources],
   );
 
@@ -105,6 +123,13 @@ export const TextField: React.FC<FieldRendererProps> = ({
           ))}
         </ul>
       ) : null}
+      {error ? null : (
+        <FieldSetupHint
+          state={setupState}
+          fieldLabel={field.label}
+          sourceLabel={sourceLabel}
+        />
+      )}
     </FieldShell>
   );
 };

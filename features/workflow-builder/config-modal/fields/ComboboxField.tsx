@@ -26,6 +26,9 @@ import { useGraphSlice } from "../../state/graphSlice";
 import { useConfigSlice } from "../../state/configSlice";
 import { useActiveNodeUpstreamVariables } from "../../hooks/useActiveNodeUpstreamVariables";
 import { VariablePickerButton } from "./VariablePickerButton";
+import { FieldSetupHint } from "./FieldSetupHint";
+import { describePrefillSource } from "./_prefillSource";
+import { classifyConfigFieldValue } from "@/core/workflows/configFieldClassification";
 
 /**
  * `combobox` field renderer. Searchable single-select.
@@ -407,6 +410,13 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
         />
       ) : null}
       </div>
+      {error ? null : (
+        <FieldSetupHint
+          state={classifyConfigFieldValue({ value, required: field.required })}
+          fieldLabel={field.label}
+          sourceLabel={describePrefillSource({ value, sources })}
+        />
+      )}
     </FieldShell>
   );
 };
@@ -565,6 +575,12 @@ export const ComboboxField: React.FC<FieldRendererProps> = ({
           </Command>
         </PopoverContent>
       </Popover>
+      {error ? null : (
+        <FieldSetupHint
+          state={classifyConfigFieldValue({ value: stringValue, required: field.required })}
+          fieldLabel={field.label}
+        />
+      )}
     </FieldShell>
   );
 };
