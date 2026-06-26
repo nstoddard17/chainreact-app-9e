@@ -66,6 +66,12 @@ export type NormalizedGatewayGuidance =
        * the model didn't echo one (the route falls back to the snapshot version it built the graph from).
        */
       readonly mutationBaseVersion?: string;
+      /**
+       * HERMES-AGENT-WORKFLOW-EDITOR — a mutation-shaped block was present but could NOT be turned into a
+       * usable patch (and the reply was not a clarification question). The route surfaces a safe
+       * "couldn't preview that change" message instead of silently leaving the canvas unchanged.
+       */
+      readonly mutationMalformed?: boolean;
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
     }
@@ -214,16 +220,29 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
   }
 
   // HERMES-AGENT-WORKFLOW-EDITOR — a reply may carry a `WorkflowPatch` ({ operations: [...] }) for an
-  // EDIT instead of (or alongside) a new-workflow plan. Structure-validate it here; the route does the
-  // catalog/atomic validation against the local draft. Strip the block from the display text if found.
+  // EDIT instead of (or alongside) a new-workflow plan. The machine block is ALWAYS stripped from the
+  // user-facing text (raw operation JSON must NEVER render in the rail), independent of validity.
   let mutationOperations: readonly PatchOperation[] | undefined;
   let mutationBaseVersion: string | undefined;
+  let mutationMalformed = false;
   if (!workflowPlan) {
-    const extractedOps = extractMutationOperationsFromText(guidanceText);
-    if (extractedOps) {
-      mutationOperations = extractedOps.operations;
-      mutationBaseVersion = extractedOps.baseVersion;
-      guidanceText = stripSourceBlock(guidanceText, extractedOps.sourceBlock) ?? guidanceText;
+    const extracted = extractMutationOperationsFromText(guidanceText);
+    if (extracted) {
+      // 1. Strip the machine block from display ALWAYS. If that empties the prose, fall back to a neutral,
+      //    JSON-free lead-in (the route overrides this for an editing turn with a human summary anyway).
+      guidanceText = stripSourceBlock(guidanceText, extracted.sourceBlock) ?? PLAN_ONLY_FALLBACK_TEXT;
+      // 2. A reply that BOTH proposes operations AND asks the user to choose something is contradictory.
+      //    A committed edit never asks a question — so if a question remains in the prose, PREFER the
+      //    clarification: drop the operations entirely and surface only the question (no patch, no preview).
+      const asksClarification = /\?/.test(guidanceText);
+      if (extracted.operations && !asksClarification) {
+        mutationOperations = extracted.operations;
+        mutationBaseVersion = extracted.baseVersion;
+      } else if (!extracted.operations && !asksClarification) {
+        // A mutation-shaped block we couldn't turn into a usable patch → let the route say so safely
+        // instead of silently leaving the canvas unchanged with leaked JSON.
+        mutationMalformed = true;
+      }
     }
   }
 
@@ -235,6 +254,7 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
     workflowPlan,
     ...(mutationOperations ? { mutationOperations } : {}),
     ...(mutationBaseVersion ? { mutationBaseVersion } : {}),
+    ...(mutationMalformed ? { mutationMalformed } : {}),
     ...(rawUsage ? { rawUsage } : {}),
     ...(warnings.length ? { warnings } : {}),
   };

@@ -209,7 +209,9 @@ const EDIT_RESPONSE_INSTRUCTIONS = [
   "- A replacement is removeNode (old reference) + addNode (new reference) + addEdge(s) re-wiring the new node — NOT an append. To insert a step BEFORE another, removeEdge the existing connection (by its edge_ ref) and addEdge through the new step.",
   "- Use ONLY references that appear in the editable workflow above, or new_ references you introduce in the SAME patch. Do not invent or reuse a reference for a step that isn't shown.",
   "- Missing config VALUES are fine — leave them out; ChainReact collects them with a setup form. Provider:type for any added/replaced step MUST come from the capability catalog.",
-  "- If the user's reference is AMBIGUOUS (two steps could match), ASK which one in plain prose and OMIT the json block — never guess. Only claim a change is proposed when you return a valid operations block.",
+  '- Each operation uses this EXACT shape: {"op":"removeNode","nodeId":"node_2"}, {"op":"addNode","node":{"id":"new_email","kind":"action","provider":"gmail","type":"send_email"}}, {"op":"addEdge","edge":{"id":"e1","from":"node_1","to":"new_email"}}, {"op":"removeEdge","edgeId":"edge_1"}. Do NOT invent other shapes.',
+  "- CLARIFICATION RULE (critical): whenever you need the user to CHOOSE something before you can commit — which app/provider to use (e.g. Gmail vs Outlook for email), or which of several similar steps they mean — ask ONLY that question in plain prose and OMIT the json block entirely. NEVER pick one option AND ask which to use in the same reply, and never include operations alongside a question. Only return operations when you are committing to a specific change with no question.",
+  "- Only claim a change is proposed when you return a valid operations block (no question). The rail shows the user a plain summary and a preview — do not paste the json into your prose.",
 ].join("\n");
 
 /**

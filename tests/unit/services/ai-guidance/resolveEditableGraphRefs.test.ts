@@ -52,7 +52,8 @@ describe("resolveEditableGraphRefs", () => {
     const res = resolveEditableGraphRefs([{ op: "removeNode", nodeId: "node_42" }], refMap, edgeRefMap);
     expect(res.ok).toBe(false);
     if (res.ok) return;
-    expect(res.message).toMatch(/isn't in your current workflow/i);
+    expect(res.message).toMatch(/no longer in your current workflow/i);
+    expect(res.message).not.toContain("node_42"); // raw ref must never leak into the message
   });
 
   it("REJECTS a real id the model should never have produced", () => {
@@ -64,7 +65,7 @@ describe("resolveEditableGraphRefs", () => {
     const res = resolveEditableGraphRefs([{ op: "removeEdge", edgeId: "edge_9" }], refMap, edgeRefMap);
     expect(res.ok).toBe(false);
     if (res.ok) return;
-    expect(res.message).toMatch(/connection .* isn't in your current workflow/i);
+    expect(res.message).toMatch(/connection .* no longer in your current workflow/i);
   });
 
   it("REJECTS adding a node that reuses an existing ref", () => {

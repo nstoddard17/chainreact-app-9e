@@ -243,8 +243,10 @@ describe("editor pipeline — rejection + stale safety", () => {
     const { edit } = await pipeline(manualSlackDraft(), (v) => patchReply(v, [{ op: "removeNode", nodeId: "node_99" }]));
     expect(edit.kind).toBe("invalid");
     if (edit.kind !== "invalid") return;
-    expect(edit.message).toMatch(/isn't in your current workflow|re-read the canvas/i);
+    expect(edit.message).toMatch(/no longer in your current workflow/i);
     expect(edit.message).not.toMatch(/secret|token|credential/i);
+    // SAFE: the raw opaque ref ("node_99") must NOT appear in the user-facing message.
+    expect(edit.message).not.toContain("node_99");
   });
 
   it("rejects a STALE patch when the local draft changed since the model read it (snapshot drift)", async () => {
@@ -325,6 +327,57 @@ describe("editor pipeline — explicit Apply replaces the local draft exactly (+
     expect(outcome).toEqual({ ok: false, reason: "stale" });
     expect(useGraphSlice.getState().pendingNodes).toBe(before); // unchanged — the user's edit is preserved
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+});
+
+describe("editor pipeline — the exact screenshot reply travels the full normalization path", () => {
+  it("loose-shaped ops + a Gmail/Outlook question → JSON stripped, NO patch, only the question survives", async () => {
+    const screenshotReply = (version: string) =>
+      "I can switch the notification to email — should I use Gmail or Outlook? Tell me which and I'll update the preview.\n\n" +
+      "```json\n" +
+      JSON.stringify({
+        editVersion: version,
+        operations: [
+          { removeEdge: { edgeId: "edge_1" } },
+          { removeNode: { nodeId: "node_2" } },
+          { addNode: { nodeId: "new_email", providerType: "gmail:send_email" } },
+          { addEdge: { edgeId: "edge_2", from: "node_1", to: "new_email" } },
+        ],
+      }) +
+      "\n```";
+    const { normalized, edit } = await pipeline(manualSlackDraft(), screenshotReply, { goalText: "change the slack notification to an email instead" });
+    expect(normalized.ok).toBe(true);
+    if (!normalized.ok) return;
+    // Raw machine JSON never survives normalization.
+    expect(normalized.guidanceText).not.toContain("```");
+    expect(normalized.guidanceText).not.toMatch(/"operations"|editVersion|providerType|node_2|new_email/);
+    // The contradiction is resolved as clarification: no patch, just the question.
+    expect(normalized.mutationOperations).toBeUndefined();
+    expect(normalized.guidanceText).toMatch(/gmail or outlook/i);
+    expect(edit.kind).toBe("noop");
+  });
+
+  it("the 'Use Gmail' follow-up (prose, NO question, loose-but-valid ops) → a real Gmail proposal", async () => {
+    const useGmailReply = (version: string) =>
+      "Replacing the Slack step with a Gmail email step.\n\n" +
+      "```json\n" +
+      JSON.stringify({
+        editVersion: version,
+        operations: [
+          { removeEdge: { edgeId: "edge_1" } },
+          { removeNode: { nodeId: "node_2" } },
+          { addNode: { nodeId: "new_email", providerType: "gmail:send_email" } },
+          { addEdge: { edgeId: "ne", from: "node_1", to: "new_email" } },
+        ],
+      }) +
+      "\n```";
+    const { normalized, edit } = await pipeline(manualSlackDraft(), useGmailReply, { goalText: "use gmail" });
+    expect(normalized.ok).toBe(true);
+    if (!normalized.ok) return;
+    expect(normalized.guidanceText).not.toContain("```");
+    expect(edit.kind).toBe("proposal");
+    if (edit.kind !== "proposal") return;
+    expect(caps(edit.proposedDefinition)).toEqual(["native:manual.run", "gmail:send_email"]);
   });
 });
 

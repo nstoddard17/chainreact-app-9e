@@ -76,10 +76,11 @@ export function resolveEditableGraphRefs(
     return null;
   };
 
-  const unknownRefMessage = (ref: string): string =>
-    `I referenced a step ("${ref}") that isn't in your current workflow — it may have changed. Let me re-read the canvas and try again.`;
-  const unknownEdgeMessage = (ref: string): string =>
-    `I referenced a connection ("${ref}") that isn't in your current workflow — it may have changed. Let me re-read the canvas and try again.`;
+  // SAFE copy — never expose the raw opaque ref to the user (requirement: no raw refs in the rail).
+  const unknownRefMessage = (_ref: string): string =>
+    "I referenced a step that's no longer in your current workflow — it may have changed. Ask me again and I'll work against the latest version of your canvas.";
+  const unknownEdgeMessage = (_ref: string): string =>
+    "I referenced a connection that's no longer in your current workflow — it may have changed. Ask me again and I'll work against the latest version of your canvas.";
 
   for (const op of operations) {
     switch (op.op) {
@@ -87,7 +88,7 @@ export function resolveEditableGraphRefs(
       case "replaceTrigger": {
         // A new/replacement node MUST be a new_ ref, never an existing ref the model is reusing.
         if (refMap.has(op.node.id)) {
-          return { ok: false, message: `I tried to add a step using an existing step's reference ("${op.node.id}"). Let me re-read the canvas and try again.` };
+          return { ok: false, message: "I couldn't add that step because it collided with an existing one. Ask me again and I'll work against the latest version of your canvas." };
         }
         const node = { ...op.node, config: rewriteTokensDeep(op.node.config, refMap) as Record<string, unknown> };
         out.push(op.op === "addNode" ? { op: "addNode", node } : { op: "replaceTrigger", node });

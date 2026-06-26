@@ -108,6 +108,8 @@ export type WorkflowGuidanceIntakeResult =
       readonly mutationOperations?: readonly PatchOperation[];
       /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the editable-graph version the model echoed back (stale guard). */
       readonly mutationBaseVersion?: string;
+      /** HERMES-AGENT-WORKFLOW-EDITOR — a mutation block was present but unusable (route shows safe copy). */
+      readonly mutationMalformed?: boolean;
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
     }
@@ -196,6 +198,7 @@ export async function runWorkflowGuidanceIntakeCapability(
     workflowPlan: guidance.workflowPlan,
     ...(guidance.mutationOperations ? { mutationOperations: guidance.mutationOperations } : {}),
     ...(guidance.mutationBaseVersion ? { mutationBaseVersion: guidance.mutationBaseVersion } : {}),
+    ...(guidance.mutationMalformed ? { mutationMalformed: guidance.mutationMalformed } : {}),
     ...(guidance.rawUsage ? { rawUsage: guidance.rawUsage } : {}),
     ...(guidance.warnings ? { warnings: guidance.warnings } : {}),
   };

@@ -8,7 +8,6 @@ import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
   MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
   type GuidanceConversationTurn,
-  type GuidanceOfficialTemplateMatch,
 } from "@/contracts/aiGuidance";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,7 +38,6 @@ import {
 } from "./guidancePanelShared";
 import { SingleShotGuidancePanel } from "./SingleShotGuidancePanel";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
-import { GuidanceTemplateMatchSection } from "./GuidanceTemplateMatchSection";
 
 /**
  * "Build with me" — advisory Hermes Agent workflow guidance (HERMES-AGENT-GUIDANCE-UI).
@@ -162,7 +160,6 @@ type ChatMessage =
       // REACT-LIVE-SKELETON — safe, no-secret notes (e.g. an exact catalog gap when no plan could be
       // built). Rendered as muted lines under the reply.
       readonly warnings?: readonly string[];
-      readonly officialTemplateMatches?: readonly GuidanceOfficialTemplateMatch[];
     }
   // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a LOCAL, deterministic workflow review produced
   // entirely from builder state (no LLM, no network, no AI credits). Rendered like a React turn but
@@ -339,9 +336,6 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
             ...(res.baseGraphVersion ? { baseGraphVersion: res.baseGraphVersion } : {}),
             ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
-            ...(res.officialTemplateMatches && res.officialTemplateMatches.length
-              ? { officialTemplateMatches: res.officialTemplateMatches }
-              : {}),
           },
         ]);
       } else {
@@ -503,7 +497,6 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   ))}
                 </ul>
               )}
-              <GuidanceTemplateMatchSection matches={m.officialTemplateMatches ?? []} />
               {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
               {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
               {/* BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — offer "Show on canvas" ONLY when the plan
