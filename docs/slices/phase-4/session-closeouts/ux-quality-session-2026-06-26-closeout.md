@@ -14,9 +14,9 @@ open.
 
 **Arc:** `507a228e8` (audit + plan) → `e7ba8bc33` (CS-1) → `e9bd83c36` (CS-2) →
 `0150fe2bc` (arc closeout) → `056521a00` (manual QA checklist).
-**Detail docs:** [connected-apps-recovery-ux-closeout.md](./workflows/connected-apps-recovery-ux-closeout.md),
-[connected-apps-recovery-ux-plan.md](./workflows/connected-apps-recovery-ux-plan.md),
-[connected-apps-recovery-manual-qa-checklist.md](./workflows/connected-apps-recovery-manual-qa-checklist.md).
+**Detail docs:** [connected-apps-recovery-ux-closeout.md](../workflows/connected-apps-recovery-ux-closeout.md),
+[connected-apps-recovery-ux-plan.md](../workflows/connected-apps-recovery-ux-plan.md),
+[connected-apps-recovery-manual-qa-checklist.md](../workflows/connected-apps-recovery-manual-qa-checklist.md).
 
 ### 1a. Runtime reconnect-needed signal (CS-1, `e7ba8bc33`)
 
@@ -24,7 +24,7 @@ open.
   smoke/real connection revoked provider-side) left the Apps card **green-while-broken**
   — nothing flipped the row until a manual health check or option-load happened to mark
   it.
-- **After:** at the execution seam ([services/oauth/refreshAndRetry.ts](../../../services/oauth/refreshAndRetry.ts)),
+- **After:** at the execution seam ([services/oauth/refreshAndRetry.ts](../../../../services/oauth/refreshAndRetry.ts)),
   the two **durable** auth-required exits (`refresh_not_supported`, `refresh_failed`)
   best-effort mark **exactly that integration row** `needs_reconnect_at` and fire **one**
   connector notification. Transient (5xx / network / config) failures do **not** mark.
@@ -39,7 +39,7 @@ open.
 - **Before:** the per-row Reconnect affordance was only reachable **after** discovering
   the expand chevron — a broken connection on a collapsed card had no visible recovery
   control.
-- **After:** [deriveCollapsedReconnect](../../../features/apps/collapsedReconnect.ts) drives a
+- **After:** [deriveCollapsedReconnect](../../../../features/apps/collapsedReconnect.ts) drives a
   collapsed-card affordance:
   - exactly **one** reconnectable broken row → a direct **Reconnect** button
     (`app-card-collapsed-reconnect`) bound to that row's opaque id;
@@ -55,7 +55,7 @@ open.
 - The arc is fully covered by deterministic unit/component tests. The **one** remaining
   caveat is live: there is no safe automated way to force a *runtime* 401 on a
   smoke-owned connection without real provider mutation.
-- Added [connected-apps-recovery-manual-qa-checklist.md](./workflows/connected-apps-recovery-manual-qa-checklist.md):
+- Added [connected-apps-recovery-manual-qa-checklist.md](../workflows/connected-apps-recovery-manual-qa-checklist.md):
   the explicit procedure for the live loop (break smoke-owned credential → background run
   hits auth failure → exact row flips to reconnect-needed → collapsed single-row
   Reconnect vs multi-row Review reconnects → per-row reconnect targets the exact row →
@@ -68,13 +68,13 @@ open.
 ## 2. Builder drawer close UX (`03c2a46cf`)
 
 **Marker:** `BUILDER-VALIDATION-PANEL-CLOSE-UX`. **File:**
-[features/workflow-builder/layout/BuilderRightDrawer.tsx](../../../features/workflow-builder/layout/BuilderRightDrawer.tsx)
+[features/workflow-builder/layout/BuilderRightDrawer.tsx](../../../../features/workflow-builder/layout/BuilderRightDrawer.tsx)
 + its test.
 
 - **Before:** the far-right builder drawer (Inspector / Run results / **Validation**)
   close `×` was a bare muted glyph with **no chrome until hover** — easy to miss as an
   interactive control. And a header-originated floating callout
-  ([HeaderRunControls](../../../features/workflow-builder/layout/HeaderRunControls.tsx)'
+  ([HeaderRunControls](../../../../features/workflow-builder/layout/HeaderRunControls.tsx)'
   `z-10` private-credential status, hanging `top-full right-0`) could **paint over** the
   drawer's top-right corner where the only dismiss control lives, making the panel feel
   "stuck".
