@@ -48,8 +48,16 @@ export function BuilderRightDrawer({ title, onClose, children }: Props) {
         minHeight: 0,
       }}
     >
+      {/* BUILDER-VALIDATION-PANEL-CLOSE-UX — `relative z-30` establishes a stacking
+          context for the header so its close × always paints ABOVE any header-
+          originated floating callout (e.g. HeaderRunControls' `z-10` private-
+          credential status, which hangs `top-full right-0` over this drawer's top-
+          right corner). Without it, that callout could cover the only dismiss
+          control. The button below also carries always-visible chrome so it reads
+          as a real, reachable close affordance (not a bare muted glyph). */}
       <header
-        className="flex items-center justify-between gap-3 px-3 py-2.5"
+        data-testid="builder-right-drawer-header"
+        className="relative z-30 flex items-center justify-between gap-3 px-3 py-2.5"
         style={{ borderBottom: "1px solid var(--builder-border)" }}
       >
         <h2
@@ -63,15 +71,20 @@ export function BuilderRightDrawer({ title, onClose, children }: Props) {
           type="button"
           onClick={onClose}
           aria-label="Close drawer"
-          className="inline-flex h-[26px] w-[26px] items-center justify-center rounded-[4px] text-[14px] transition-colors"
-          style={{ color: "var(--builder-muted)" }}
+          title="Close (Esc)"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] border text-[15px] leading-none transition-colors"
+          style={{
+            color: "var(--builder-text)",
+            background: "var(--builder-panel-2)",
+            borderColor: "var(--builder-border)",
+          }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = "var(--builder-bg)";
             e.currentTarget.style.color = "var(--builder-text)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "var(--builder-muted)";
+            e.currentTarget.style.background = "var(--builder-panel-2)";
+            e.currentTarget.style.color = "var(--builder-text)";
           }}
         >
           ×

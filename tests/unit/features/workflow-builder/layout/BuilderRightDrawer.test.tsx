@@ -45,6 +45,37 @@ describe("BuilderRightDrawer", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("BUILDER-VALIDATION-PANEL-CLOSE-UX — close control is an always-visible, reachable button (not aria-hidden, has a border affordance, never opacity-0)", () => {
+    render(
+      <BuilderRightDrawer title="Validation" onClose={() => {}}>
+        <span />
+      </BuilderRightDrawer>,
+    );
+    const close = screen.getByRole("button", { name: /close drawer/i });
+    // A bare muted glyph reads as "no close control"; assert it carries a
+    // standing border so it's discoverable at rest, not just on hover.
+    // (jsdom drops `var()` inline styles, so the always-on chrome is carried
+    // by the `border` utility class, which is what we assert.)
+    expect(close.className).toMatch(/\bborder\b/);
+    expect(close.getAttribute("aria-hidden")).not.toBe("true");
+    expect(close.className).not.toMatch(/opacity-0/);
+    // Hover-only reveal is not allowed: the button is visible at rest.
+    expect(close.className).not.toMatch(/\bhidden\b/);
+  });
+
+  it("BUILDER-VALIDATION-PANEL-CLOSE-UX — drawer header establishes a stacking context so a header floating callout can't paint over the close control", () => {
+    render(
+      <BuilderRightDrawer title="Validation" onClose={() => {}}>
+        <span />
+      </BuilderRightDrawer>,
+    );
+    const header = screen.getByTestId("builder-right-drawer-header");
+    // `relative` + positive z-index wins the paint order against the header's
+    // `z-10` private-credential callout that hangs over this drawer's corner.
+    expect(header.className).toMatch(/\brelative\b/);
+    expect(header.className).toMatch(/\bz-30\b/);
+  });
+
   it("Esc closes the drawer", async () => {
     const user = userEvent.setup();
     const onClose = jest.fn();
