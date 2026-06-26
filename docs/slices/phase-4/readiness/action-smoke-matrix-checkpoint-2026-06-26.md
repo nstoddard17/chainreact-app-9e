@@ -191,3 +191,37 @@ cleaned 1 / 0 leaked.)
 2** — only the policy-excluded `share_document` (sharing) + `export_document` (bytes)
 remain. Re-verified: `--cert` shows `PASS_CLEAN google-docs:update_document (2026-06-26)`;
 `tests/unit/smoke-actions` 381 pass; `tsc` exit 0; eslint 0; `lint:structure` OK.
+
+## 9. Update — native logic actions LIVE-CERTIFIED (2026-06-26, same day)
+
+Greened the safest NOT_RUN frontier: the **native** logic actions. They take NO provider
+credentials, so they were the smallest safe batch. Ran the narrowest scoped live READ
+sweep (no write/destructive gates needed — native is read-class):
+
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+SMOKE_PROVIDER=native SMOKE_NATIVE_HTTP_URL=https://example.com \
+npm run smoke:actions:run:workflow:live
+```
+
+**Live result — 5 pass / 0 fail / 0 skip (Gate OK):** `native:delay`,
+`native:format_transformer`, `native:http_request`, `native:if_then_condition`,
+`native:router` each ran as a real TERMINAL workflow run in engine REAL mode. Read-class:
+no external resource created, so created/cleaned/leaked is N/A.
+
+**Cert rows added (4)** — `native:delay`, `native:if_then_condition`, `native:router`,
+`native:http_request` → `LIVE_PASS` (2026-06-26). **`native:format_transformer` is
+deliberately left NOT_RUN** — it is the always-run uncertified baseline that proves the
+live harness path is real every sweep (certification.test guards this).
+
+**Matrix:** Totals now **298 registered / 124 LIVE_PASS / 22 not-run / 152 missing / 0
+fail / 0 bug**; native **5 / 4 / 1 / 0**. Re-verified: `--cert` shows the 4 native
+`LIVE_PASS` rows + `format_transformer` NOT_RUN; `tests/unit/smoke-actions` 381 pass;
+`tsc` exit 0; eslint 0; `lint:structure` OK.
+
+**Remaining 22 NOT_RUN** are all connected-account reads that self-skip without the
+provider connected on the smoke account: `monday` (10), `stripe` reads (4 — read-only
+finds, not the forbidden billing mutations), `google-analytics` (4 — account exposes no
+GA property), `dropbox:search_files` (needs a query), `discord:fetch_messages`, plus
+`slack:delete_message` (destructive, non-liveSafe — inventory/handler-only). Next safe
+batch depends on connecting one of those providers on the smoke account.

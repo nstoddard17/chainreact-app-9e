@@ -38,6 +38,7 @@ const SMOKE_WRITE_SHEETS_DELETE = "2026-06-25";
 const SMOKE_WRITE_COPY = "2026-06-25";
 const SMOKE_WRITE_ONENOTE = "2026-06-25";
 const SMOKE_WRITE_GDOCS = "2026-06-26";
+const LIVE_NATIVE = "2026-06-26";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -477,5 +478,22 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // policy-excluded.
   ...records("LIVE_PASS_CLEANED", "live create doc + append update + independent read-back, whole doc hard-deleted via cross-provider Drive delete", SMOKE_WRITE_GDOCS, [
     ["google-docs", "update_document"],
+  ]),
+  // SMOKE-ACTIONS-NATIVE-CERT — the native logic actions live-verified via the
+  // workflow-live read sweep (SMOKE_PROVIDER=native): each ran as a real TERMINAL
+  // workflow run in engine REAL mode (5 pass / 0 fail / 0 skip). They take NO provider
+  // credentials and create NO external resource, so there is nothing to verify-by-
+  // read-back, clean up, or leak (read-class): `delay` is an in-process sleep,
+  // `if_then_condition` / `router` are pure boolean/route evals (authored to land on
+  // the null branch so a single terminal node is engine-safe), and `http_request`
+  // makes ONE outbound GET to a public https URL (no credential; the egress guard
+  // blocks private/loopback/metadata hosts; URL via SMOKE_NATIVE_HTTP_URL).
+  // `native:format_transformer` is deliberately NOT listed — it stays the always-run
+  // uncertified baseline that proves the live harness path is real every sweep.
+  ...records("LIVE_PASS", "live verified via workflow-live sweep (native action, no provider credential)", LIVE_NATIVE, [
+    ["native", "delay"],
+    ["native", "if_then_condition"],
+    ["native", "router"],
+    ["native", "http_request"],
   ]),
 ];
