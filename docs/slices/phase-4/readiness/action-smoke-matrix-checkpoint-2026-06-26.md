@@ -267,3 +267,39 @@ google-analytics (4) needs a GA account/property on the connected account;
 stays the uncertified baseline. No safe live cert is possible for them until a provider is
 connected — the next lane move would be MISSING_FIXTURE fixture-building (e.g. a safe
 write batch with cleanup) rather than the NOT_RUN frontier.
+
+## 11. Runnable NOT_RUN frontier EXHAUSTED + MISSING_FIXTURE cleanup feasibility (2026-06-26)
+
+Re-probed the live read sweep (fresh): **1 pass** (the `format_transformer` baseline),
+**20 skip**, **73 cert-skip**, Gate OK — i.e. every remaining NOT_RUN read self-skips and
+`dropbox:search_files` now CERT-SKIPs. **There is no connected, runnable read-only NOT_RUN
+action left to certify.** The 21 NOT_RUN break down exactly as: monday 10 + stripe 4 +
+discord 1 (not connected on the smoke account), google-analytics 4 (connected, no usable
+GA account/property), `slack:delete_message` (non-liveSafe), `native:format_transformer`
+(intentional baseline). Unlocking any requires CONNECTING that provider on the smoke
+account (or adding a GA property) — outside what this lane can do alone.
+
+**MISSING_FIXTURE next-batch feasibility (verified this turn, so it isn't re-investigated):**
+
+| Candidate (connected provider) | Cleanup path | Verdict |
+|---|---|---|
+| `trello:create_list` | none — Trello's registered actions have **no list-archive/close action** (only `archive_card`) | **DEFER** — no safe teardown |
+| `trello:create_board` | none — **no board-delete action** registered | **DEFER** — no safe teardown |
+| `microsoft-onenote:create_notebook` | none — Graph has no notebook DELETE | **DEFER** — no teardown |
+| `microsoft-onenote:create_section` | none — Graph has no section DELETE | **DEFER** — no teardown |
+| `microsoft-onenote:copy_page` | `delete_page` (certified hard-delete) + `get_page_content` verify | **FEASIBLE but not small** — async via the **Graph operations** endpoint; the existing `completeAsync` primitive targets OneDrive's `*.svc.ms` copy monitor, so it needs harness plumbing for the OneNote operations poll (its own slice) |
+| `notion:create_database` | none — no archive-database action + no independent read-back | **DEFER** |
+
+Everything else MISSING is forbidden (sends/billing/sharing-link) or policy-excluded
+(bytes/signed-URL/block-content).
+
+**Conclusion / recommended next slices (in order):**
+1. **Connect a NOT_RUN provider on the smoke account** (monday / a Stripe test account /
+   discord, or add a GA property) → unlocks 1–10 read certs each with zero fixture work.
+2. **`microsoft-onenote:copy_page`** as its own slice — extend the smoke `completeAsync`
+   poller to the OneNote Graph-operations endpoint, then author + live-cert (OneNote is
+   connected; cleanup via certified `delete_page`).
+
+No cert row added this turn (nothing safely runnable); no fixture authored (no
+small/safe MISSING candidate). Matrix unchanged at **125 LIVE_PASS / 21 not-run / 152
+missing**.
