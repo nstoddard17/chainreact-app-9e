@@ -250,6 +250,11 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   // clears the standing preview. Auto-show is display-only — it NEVER applies/saves/activates/runs
   // (Apply stays an explicit click in the overlay). Dashboard (no builder callback) → no-op.
   const autoShownPreviewRef = useRef<string | null>(null);
+  // HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — the id of the latest assistant turn we ATTEMPTED to
+  // auto-show. State (not just the ref) so the rail can re-render and tell "attempted but the canvas
+  // still isn't showing it" (a real failure → actionable error line) apart from "not yet attempted"
+  // (transient → render nothing). There is no manual "Show on canvas" fallback.
+  const [autoShowAttemptedId, setAutoShowAttemptedId] = useState<string | null>(null);
   useEffect(() => {
     if (!onPreviewToCanvas) return;
     let latest: Extract<ChatMessage, { role: "assistant" }> | null = null;
@@ -266,6 +271,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
       isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: latest.plan });
     if (!meaningful) return;
     autoShownPreviewRef.current = latest.id;
+    setAutoShowAttemptedId(latest.id);
     onPreviewToCanvas(toCanvasPayload(latest));
   }, [messages, onPreviewToCanvas, getCurrentGraphShape]);
 
@@ -467,13 +473,14 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             );
           }
           const isLatest = m.id === latestAssistantId;
-          // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — is THIS turn's preview the one already displayed on the
-          // canvas overlay? Drives both the edit-hint "conversation only" state and the skeleton card's
-          // redundant-"Show on canvas" suppression, so it's computed once here.
+          // HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — is a preview currently on the canvas? Authoritative
+          // signal is the builder's `isPreviewDisplayed` (`previewOverlay != null`); the derived display
+          // signature is a fallback for when the boolean isn't wired (dashboard/tests).
           const previewOnCanvas =
-            m.preview != null &&
-            displayedPreviewSignature != null &&
-            draftPreviewSignature(m.preview) === displayedPreviewSignature;
+            isPreviewDisplayed === true ||
+            (m.preview != null &&
+              displayedPreviewSignature != null &&
+              draftPreviewSignature(m.preview) === displayedPreviewSignature);
           return (
             <div key={m.id} data-testid="workflow-guidance-message-assistant">
               {m.text.length > 0 && (
@@ -499,46 +506,24 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
               <GuidanceTemplateMatchSection matches={m.officialTemplateMatches ?? []} onPreview={preview.openPreview} />
               {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
               {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
-              {/* HERMES-AGENT-RAIL-EDIT-PREVIEW-NO-CARD — an EDIT proposal (proposedDefinition) renders
-                  on the canvas as a diff graph, with Apply/Discard in the top control bar. The rail does
-                  NOT duplicate it with a "Proposed change" card or a primary "Show on canvas": while the
-                  preview is displayed (signature matches) the rail is conversation-only; once it's gone
-                  (discarded / superseded / auto-show failed) a lightweight setup-hint + a SECONDARY
-                  re-show recovers it. */}
+              {/* HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — an EDIT proposal (proposedDefinition) auto-shows
+                  on the canvas as a diff graph, with Apply/Discard in the top control bar. The rail is
+                  conversation/help only: NO "Show on canvas" button. It shows a lightweight humanized
+                  "Still needs" hint, and — only if auto-show was attempted but the canvas still isn't
+                  showing it — an actionable error line (not a button). */}
               {isLatest && m.preview && m.proposedDefinition != null && (
                 <GuidanceEditPreviewHint
                   preview={m.preview}
-                  plan={m.plan}
-                  // An EDIT auto-shows and supersedes on the canvas, so ANY preview currently on the
-                  // canvas IS this edit. The authoritative signal is `isPreviewDisplayed` (the builder's
-                  // `previewOverlay != null` — the same state that renders the diff + control bar); the
-                  // derived `displayedPreviewSignature` can be null even while an edit diff is shown, so
-                  // it's only a fallback when the boolean isn't wired (dashboard/tests). Recovery
-                  // "Show on canvas" appears ONLY when NOTHING is displayed (HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP).
-                  isDisplayedOnCanvas={isPreviewDisplayed === true || displayedPreviewSignature != null}
-                  {...(onPreviewToCanvas && m.plan
-                    ? { onShowOnCanvas: () => onPreviewToCanvas(toCanvasPayload(m)) }
-                    : {})}
+                  isDisplayedOnCanvas={previewOnCanvas}
+                  autoShowFailed={autoShowAttemptedId === m.id && !previewOnCanvas}
                 />
               )}
-              {/* BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — new-workflow skeleton (not an edit): the full
-                  "Draft preview" card. Offer "Show on canvas" ONLY when the plan meaningfully
-                  adds/changes structure vs the live graph (a same-shape restatement keeps the suggestion
-                  in the rail instead of ghosting duplicate nodes), and hide it once the preview is the one
-                  already displayed on the canvas. No graph-shape getter (dashboard/tests) → prior behavior. */}
+              {/* HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — new-workflow skeleton (not an edit): an
+                  INFORMATIONAL "Draft preview" card. A valid skeleton auto-shows on the canvas; a
+                  same-shape restatement intentionally does not (it would ghost duplicate nodes) and stays
+                  here as text. Either way there is NO manual "Show on canvas" button. */}
               {isLatest && m.preview && m.proposedDefinition == null && (
-                <GuidancePreviewSection
-                  preview={m.preview}
-                  plan={m.plan}
-                  {...(onPreviewToCanvas &&
-                  (getCurrentGraphShape == null ||
-                    isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: m.plan })) &&
-                  // Hide the redundant rail "Show on canvas" when THIS preview is already on the canvas
-                  // (Apply/Discard live in the overlay); it returns as a re-show once discarded/superseded.
-                  !previewOnCanvas
-                    ? { onPreviewToCanvas: () => onPreviewToCanvas(toCanvasPayload(m)) }
-                    : {})}
-                />
+                <GuidancePreviewSection preview={m.preview} plan={m.plan} />
               )}
             </div>
           );

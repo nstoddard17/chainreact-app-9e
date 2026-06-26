@@ -126,25 +126,20 @@ describe("builder preview overlay — renders without mutating the real workflow
     expect(screen.getByTestId("builder-preview-discard")).toBeInTheDocument();
   });
 
-  // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — once a preview is auto-shown on the canvas, the rail must NOT
-  // keep offering a redundant "Show on canvas" button for that same preview (Apply/Discard live in the
-  // overlay). Discarding it returns the button as a manual re-show affordance.
-  it("hides the rail 'Show on canvas' button once the preview is auto-shown, and restores it after Discard", async () => {
+  // HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — a valid preview auto-shows on the canvas; the rail NEVER
+  // offers a manual "Show on canvas" button. Discarding removes the overlay (Apply/Discard live in the
+  // top bar) and still surfaces no manual canvas-push control — the user re-asks React to get a preview.
+  it("never offers a manual 'Show on canvas' button — before or after Discard", async () => {
     const user = userEvent.setup();
     renderBuilder();
     await autoShowPreview(user);
-    // The same preview is already on the canvas → no redundant rail button.
+    // Auto-shown → no manual button.
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
 
-    // Discard → the preview is no longer on the canvas → the rail offers re-show again (recovery).
+    // Discard → overlay gone → still no manual canvas-push button.
     await user.click(screen.getByTestId("builder-preview-discard"));
     await waitFor(() => expect(screen.queryByTestId("builder-preview-overlay")).not.toBeInTheDocument());
-    const reshow = await screen.findByTestId("workflow-guidance-show-on-canvas");
-
-    // Re-clicking it shows the same preview again, and the redundant button hides once more.
-    await user.click(reshow);
-    await screen.findByTestId("builder-preview-overlay");
-    await waitFor(() => expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
   });
 
   it("does NOT mutate the real graph, mark dirty, or call the save/update API", async () => {

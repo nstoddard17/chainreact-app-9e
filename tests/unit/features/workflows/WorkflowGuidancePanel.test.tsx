@@ -32,7 +32,6 @@ jest.mock("@/lib/api/workflowTemplates", () => ({
 }));
 
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
-import { draftPreviewSignature } from "@/core/workflows/canvasPreviewEligibility";
 
 beforeEach(() => {
   mockRequest.mockReset();
@@ -193,7 +192,7 @@ describe("WorkflowGuidancePanel — request + render", () => {
     expect(screen.queryByRole("button", { name: /create|apply|add node|use this|run/i })).not.toBeInTheDocument();
   });
 
-  it("offers 'Show on canvas' only when onPreviewToCanvas is provided, and calls it with {plan, preview}", async () => {
+  it("renders the draft-preview card with NO 'Show on canvas' button (auto-show replaced the manual push)", async () => {
     const user = userEvent.setup();
     const onPreviewToCanvas = jest.fn();
     const previewDraft = {
@@ -207,36 +206,14 @@ describe("WorkflowGuidancePanel — request + render", () => {
     };
     const workflowPlan = { schemaVersion: 1, title: "P", summary: "", notApplied: true, steps: [{ ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" }] };
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "idea", source: "hermes-agent", workflowPlan, previewDraft });
+    // Even when onPreviewToCanvas is provided, the section never renders a manual "Show on canvas".
     render(<WorkflowGuidancePanel accountId="acct-1" onPreviewToCanvas={onPreviewToCanvas} />);
     await user.type(screen.getByPlaceholderText(/Example:/i), "help");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await screen.findByTestId("workflow-guidance-preview");
 
-    const showBtn = screen.getByTestId("workflow-guidance-show-on-canvas");
-    expect(showBtn).toHaveTextContent("Show on canvas");
-    await user.click(showBtn);
-    // Carries BOTH the validated plan (apply source of truth) and the display preview.
-    expect(onPreviewToCanvas).toHaveBeenCalledWith({ plan: workflowPlan, preview: previewDraft });
-  });
-
-  it("does NOT offer 'Show on canvas' when no onPreviewToCanvas prop (e.g. dashboard, no canvas)", async () => {
-    const user = userEvent.setup();
-    mockRequest.mockResolvedValue({
-      ok: true,
-      guidanceText: "idea",
-      source: "hermes-agent",
-      workflowPlan: { schemaVersion: 1, title: "P", summary: "", notApplied: true, steps: [{ ref: "s0", role: "trigger", provider: "gmail", type: "new_email", purpose: "watch" }] },
-      previewDraft: {
-        version: 1, title: "P", summary: "", notice: "Preview only — your workflow has not changed.", notApplied: true,
-        nodes: [{ previewId: "preview-step-1", role: "trigger", provider: "gmail", type: "new_email", label: "gmail:new_email", purpose: "watch", notApplied: true }],
-        edges: [],
-      },
-    });
-    render(<WorkflowGuidancePanel accountId="acct-1" />);
-    await user.type(screen.getByPlaceholderText(/Example:/i), "help");
-    await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await screen.findByTestId("workflow-guidance-preview");
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Show on canvas$/)).not.toBeInTheDocument();
   });
 
   it("does NOT render a 'Suggested plan' section when workflowPlan is null (prose-only)", async () => {
@@ -519,7 +496,8 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     // Auto-shown on the canvas — NO extra click required.
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(1));
     expect(onPreviewToCanvas.mock.calls[0]![0]).toMatchObject({ plan: { title: "First" } });
-    expect(screen.getAllByTestId("workflow-guidance-show-on-canvas")).toHaveLength(1);
+    // No manual "Show on canvas" — the preview auto-showed.
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add delay");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
@@ -527,8 +505,7 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     // The newer preview auto-supersedes (one auto-show per turn; latest wins downstream).
     await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalledTimes(2));
     expect(onPreviewToCanvas.mock.calls[1]![0]).toMatchObject({ plan: { title: "Second" }, preview: { title: "Second" } });
-    // Still exactly ONE actionable preview — the newest replaces the prior pending one.
-    expect(screen.getAllByTestId("workflow-guidance-show-on-canvas")).toHaveLength(1);
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
   });
 
   it("REACT-LIVE-SKELETON — an honest source question + labeled starter skeleton both surface in the rail (no empty canvas)", async () => {
@@ -578,56 +555,23 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getByTestId("workflow-guidance-preview")).toHaveTextContent("Starter");
   });
 
-  // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — when the LATEST suggestion's preview is the one already shown on
-  // the canvas (its signature is passed back as `displayedPreviewSignature`), the rail hides the
-  // redundant "Show on canvas" button. When the signature differs/absent (not shown, discarded, or
-  // superseded), the button stays as a manual re-show/recovery control.
-  it("hides 'Show on canvas' when the latest preview matches the displayed-canvas signature", async () => {
-    const user = userEvent.setup();
-    mockRequest.mockResolvedValueOnce({ ok: true, guidanceText: "first", source: "hermes-agent", workflowPlan: planFor("First"), previewDraft: previewFor("First") });
-    render(
-      <WorkflowGuidancePanel
-        accountId="acct-1"
-        workflowId="wf-9"
-        conversational
-        onPreviewToCanvas={jest.fn()}
-        displayedPreviewSignature={draftPreviewSignature(previewFor("First"))}
-      />,
-    );
-    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
-    await user.click(screen.getByTestId("workflow-guidance-submit"));
-    // The preview text section still renders (so the user sees the suggestion)...
-    await screen.findByTestId("workflow-guidance-preview");
-    // ...but the redundant "Show on canvas" button is hidden — it's already on the canvas.
-    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
-  });
-
-  it("keeps 'Show on canvas' visible when nothing is displayed (recovery), and when the signature differs", async () => {
+  // HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — a valid skeleton preview auto-shows on the canvas, so the
+  // rail NEVER renders a manual "Show on canvas" button (in any signature/displayed state).
+  it("never renders a 'Show on canvas' button for a skeleton preview (it auto-shows)", async () => {
     const user = userEvent.setup();
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "first", source: "hermes-agent", workflowPlan: planFor("First"), previewDraft: previewFor("First") });
-
-    // No displayed signature (e.g. auto-show unavailable / discarded) → button available as recovery.
-    const { unmount } = render(
-      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={jest.fn()} displayedPreviewSignature={null} />,
-    );
-    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
-    await user.click(screen.getByTestId("workflow-guidance-submit"));
-    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
-    unmount();
-
-    // A DIFFERENT preview is on the canvas (signature mismatch) → button still offered for this one.
+    const onPreviewToCanvas = jest.fn();
     render(
-      <WorkflowGuidancePanel
-        accountId="acct-1"
-        workflowId="wf-9"
-        conversational
-        onPreviewToCanvas={jest.fn()}
-        displayedPreviewSignature={draftPreviewSignature(previewFor("Something else"))}
-      />,
+      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} displayedPreviewSignature={null} />,
     );
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+    // The suggestion renders and auto-shows on the canvas…
+    await screen.findByTestId("workflow-guidance-preview");
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalled());
+    // …but there is no manual "Show on canvas" control.
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Show on canvas$/)).not.toBeInTheDocument();
   });
 
   it("an error turn is appended but the prior chat history is preserved", async () => {
@@ -828,12 +772,12 @@ describe("WorkflowGuidancePanel — deterministic 'Check workflow' review", () =
 });
 
 /**
- * BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — "Show on canvas" must not ghost duplicate nodes for a plan
- * that merely restates the current workflow. When a `getCurrentGraphShape` getter is wired, the button
- * is offered only for a plan that meaningfully adds/changes structure; a same-shape plan stays in the
- * rail as text/preview list.
+ * BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — AUTO-SHOW must not ghost duplicate nodes for a plan that
+ * merely restates the current workflow. When a `getCurrentGraphShape` getter is wired, the canvas
+ * auto-shows only a plan that meaningfully adds/changes structure; a same-shape plan stays in the rail
+ * as text. There is no manual "Show on canvas" button in any case.
  */
-describe("WorkflowGuidancePanel — 'Show on canvas' eligibility guard", () => {
+describe("WorkflowGuidancePanel — auto-show eligibility guard", () => {
   const MANUAL = { provider: "native", type: "manual.run" };
   const SLACK = { provider: "slack", type: "send_channel_message" };
 
@@ -893,17 +837,18 @@ describe("WorkflowGuidancePanel — 'Show on canvas' eligibility guard", () => {
       onPreviewToCanvas,
     });
 
-    // No canvas button (would ghost duplicates), but the suggestion stays visible in the rail.
+    // Same-shape restatement → NOT auto-shown (would ghost duplicates), and never a manual button.
+    expect(onPreviewToCanvas).not.toHaveBeenCalled();
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+    // The suggestion still reads in the rail as text.
     expect(screen.getByTestId("workflow-guidance-result")).toHaveTextContent("Here's a thought.");
     expect(screen.getByTestId("workflow-guidance-preview")).toBeInTheDocument();
-    // Nothing applied/mutated — the overlay callback is never auto-invoked.
-    expect(onPreviewToCanvas).not.toHaveBeenCalled();
     // No raw JSON leaked into the rail.
     expect(screen.getByTestId("workflow-guidance-messages").textContent ?? "").not.toContain('"nodes"');
   });
 
-  it("still offers 'Show on canvas' for a genuinely additive plan (new step the graph lacks)", async () => {
+  it("AUTO-SHOWS a genuinely additive plan (new step the graph lacks) — no manual button", async () => {
+    const onPreviewToCanvas = jest.fn();
     await sendFreeform({
       workflowPlan: planFor([
         { ref: "s0", role: "trigger", ...MANUAL },
@@ -915,18 +860,23 @@ describe("WorkflowGuidancePanel — 'Show on canvas' eligibility guard", () => {
       ]),
       // Current graph has only the trigger → the Slack action is genuinely new.
       getCurrentGraphShape: () => [{ kind: "trigger", ...MANUAL }],
+      onPreviewToCanvas,
     });
 
-    expect(screen.getByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalled());
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
   });
 
-  it("keeps prior behavior (offers the button) when no graph-shape getter is wired", async () => {
+  it("AUTO-SHOWS when no graph-shape getter is wired — no manual button", async () => {
+    const onPreviewToCanvas = jest.fn();
     await sendFreeform({
       workflowPlan: planFor([{ ref: "s0", role: "trigger", ...MANUAL }]),
       previewDraft: previewFor([{ previewId: "p1", role: "trigger", ...MANUAL }]),
-      // getCurrentGraphShape omitted → back-compat.
+      // getCurrentGraphShape omitted → always auto-shows.
+      onPreviewToCanvas,
     });
-    expect(screen.getByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalled());
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
   });
 
   it("does not affect the deterministic Check workflow review (which has no canvas preview)", async () => {

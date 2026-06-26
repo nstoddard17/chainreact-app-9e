@@ -663,7 +663,7 @@ describe("builder apply-preview — guided setup card in the rail (HERMES-AGENT-
     expect(useConfigSlice.getState().activeNodeId).toBe(slackNode()!.id);
   });
 
-  it("Discard clears the rail setup card + ephemeral values (a re-shown preview starts empty); nothing applied", async () => {
+  it("Discard clears the rail setup card + ephemeral values (a re-asked preview starts empty); nothing applied", async () => {
     const user = userEvent.setup();
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan, previewDraft: previewMissing(["message"]) });
     renderGuided({ "slack:send_message": { displayName: "Send Message", requiredFields: [{ name: "message", label: "Message" }] } });
@@ -675,8 +675,10 @@ describe("builder apply-preview — guided setup card in the rail (HERMES-AGENT-
     // The rail setup card is gone once the preview is discarded.
     await waitFor(() => expect(screen.queryByTestId("builder-preview-setup-rail")).not.toBeInTheDocument());
 
-    // Re-show the (same-shaped) preview — the control is empty again (previewConfig was cleared).
-    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
+    // There is NO manual "Show on canvas" re-show button — the user re-asks React, which auto-shows a
+    // fresh preview. The setup control is empty again (previewConfig was cleared on the new show).
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
+    await showPreview(user);
     const reshown = await screen.findByTestId("preview-setup-preview-step-2-message");
     expect((reshown as HTMLTextAreaElement).value).toBe("");
   });

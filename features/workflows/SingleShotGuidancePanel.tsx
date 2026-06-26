@@ -38,7 +38,7 @@ export interface SingleShotGuidancePanelProps {
   readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
 }
 
-export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanvas }: SingleShotGuidancePanelProps) {
+export function SingleShotGuidancePanel({ accountId, workflowId }: SingleShotGuidancePanelProps) {
   const [goal, setGoal] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [guidanceText, setGuidanceText] = useState("");
@@ -141,13 +141,7 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
 
       {status === "done" && plan && !preview && <GuidancePlanSection plan={plan} />}
 
-      {status === "done" && preview && (
-        <GuidancePreviewSection
-          preview={preview}
-          plan={plan}
-          {...(onPreviewToCanvas ? { onPreviewToCanvas } : {})}
-        />
-      )}
+      {status === "done" && preview && <GuidancePreviewSection preview={preview} plan={plan} />}
 
       {status === "done" && templateMatches.length > 0 && (
         <GuidanceTemplateMatchSection matches={templateMatches} onPreview={templatePreview.openPreview} />

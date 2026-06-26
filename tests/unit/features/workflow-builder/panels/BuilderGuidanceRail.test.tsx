@@ -89,7 +89,7 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
     );
   });
 
-  it("offers Show on canvas for a previewDraft and forwards the validated plan + preview", async () => {
+  it("auto-shows a previewDraft on the canvas (forwards the validated plan + preview) with NO manual button", async () => {
     const user = userEvent.setup();
     const onShowPreview = jest.fn();
     const workflowPlan = {
@@ -122,14 +122,15 @@ describe("BuilderGuidanceRail — submit goes to the account workflow-guidance r
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "follow up with leads");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
 
-    // REACT-LIVE-SKELETON — the preview is auto-shown on the canvas as soon as the plan arrives, with
-    // NO "Show on canvas" click. The control still renders for an explicit re-show.
+    // HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — the preview auto-shows on the canvas as soon as the plan
+    // arrives, with NO "Show on canvas" click. There is no manual canvas-push button at all.
     await waitFor(() => expect(onShowPreview).toHaveBeenCalledTimes(1));
     expect(onShowPreview.mock.calls[0]![0]).toMatchObject({
       plan: { title: "Lead follow-up" },
       preview: { title: "Lead follow-up" },
     });
-    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+    await screen.findByTestId("workflow-guidance-preview");
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).not.toBeInTheDocument();
   });
 
   it("maps a route failure to safe copy (no internal detail)", async () => {

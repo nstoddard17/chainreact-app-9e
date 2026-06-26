@@ -2,13 +2,16 @@
 
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
-import { Button } from "@/components/ui/button";
 
 /**
  * Presentational, review-only "suggested plan" / non-applied "draft preview" blocks for the Hermes
  * guidance surface (HERMES-AGENT-PLAN-EXTRACTION / -DRAFT-PREVIEW). Extracted from
  * `WorkflowGuidancePanel` so the panel container stays focused on state/flow. Pure render — no fetch,
- * no mutation, no save/activate/run. "Show on canvas" only toggles the builder's non-applied overlay.
+ * no mutation, no save/activate/run.
+ *
+ * There is NO manual "Show on canvas" control (HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH): a valid
+ * proposal auto-shows on the canvas and the top preview bar owns Apply/Discard. The rail is
+ * conversation/help only.
  */
 
 /** Review-only advisory plan block (text). Shared by both guidance modes. No apply/create/run control. */
@@ -54,19 +57,18 @@ export function GuidancePlanSection({ plan }: { plan: WorkflowPlan }) {
 /**
  * Non-applied "Draft preview" block for a NEW-workflow skeleton (not an edit).
  *
- * Reads as the proposed build: a per-step provider:type list + a "Flow:" line, with an optional
- * SECONDARY "Show on canvas" control (it applies/creates nothing). EDIT proposals are handled
- * separately by {@link GuidanceEditPreviewHint} — for an edit the canvas diff graph is the visual home
- * and the rail never duplicates a "Proposed change" card here. So this block has no edit mode.
+ * Reads as the proposed build: a per-step provider:type list + a "Flow:" line. It is INFORMATIONAL
+ * only — a valid skeleton auto-shows on the canvas, so there is NO manual "Show on canvas" button here
+ * (HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH). A same-shape restatement intentionally does not auto-show
+ * (it would ghost duplicate nodes over the existing graph); in that case this block simply describes the
+ * suggestion in the rail with no canvas push. EDIT proposals are handled by {@link GuidanceEditPreviewHint}.
  */
 export function GuidancePreviewSection({
   preview,
-  plan,
-  onPreviewToCanvas,
 }: {
   preview: DraftPreview;
-  plan: WorkflowPlan | null;
-  onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
+  /** Accepted for call-site symmetry; not rendered (no manual canvas-push control). */
+  plan?: WorkflowPlan | null;
 }) {
   return (
     <div
@@ -114,19 +116,6 @@ export function GuidancePreviewSection({
           Flow: {preview.nodes.map((n) => n.label).join(" → ")}
         </p>
       )}
-
-      {onPreviewToCanvas && plan && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onPreviewToCanvas({ plan, preview })}
-          data-testid="workflow-guidance-show-on-canvas"
-          className="mt-3"
-        >
-          Show on canvas
-        </Button>
-      )}
     </div>
   );
 }
@@ -146,45 +135,45 @@ function humanizeFieldName(key: string): string {
     .join(" ");
 }
 
+/** Safe, actionable copy shown when a valid edit preview could not be auto-shown on the canvas. */
+export const PREVIEW_AUTOSHOW_FAILED_MESSAGE =
+  "I couldn't show that preview on the canvas. Ask React to try again.";
+
 /**
- * Lightweight rail treatment for an EDIT preview (HERMES-AGENT-RAIL-EDIT-PREVIEW-NO-CARD).
+ * Lightweight rail treatment for an EDIT preview (HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH).
  *
- * The canvas diff graph is the visual home for an edit preview and the top control bar owns Apply /
- * Discard, so the rail must NOT duplicate the old bordered "Proposed change" card or its primary
- * "Show on canvas" control. Two states:
- *
- *   - Preview already displayed on the canvas (`isDisplayedOnCanvas`): render NOTHING. The rail shows
- *     the conversational summary above ONLY; setup details live in the canvas/top bar and (when wired)
- *     the guided-setup card footer.
- *   - Preview NOT currently shown (auto-show failed, discarded, or superseded): render a lightweight
- *     setup-hint line + a SECONDARY "Show on canvas" recovery affordance — no bordered card, no primary
- *     Apply. Re-show requires a re-show callback + a validated plan; absent (e.g. dashboard) → no button.
+ * The canvas auto-shows a valid edit as a diff graph and the top preview bar owns Apply/Discard, so the
+ * rail is conversation/help only — there is NO manual "Show on canvas" control (auto-show replaced it).
+ * The rail renders, at most:
+ *   - a lightweight, humanized "Still needs:" setup hint when fields are missing (so the user knows what
+ *     to fill before Apply), and
+ *   - an actionable ERROR line (not a button) ONLY when auto-show was attempted and the canvas still
+ *     isn't showing the preview — a real failure, "Ask React to try again."
+ * When the preview is displayed and nothing is missing, it renders nothing (the canvas + top bar own it).
  */
 export function GuidanceEditPreviewHint({
   preview,
-  plan,
-  onShowOnCanvas,
   isDisplayedOnCanvas,
+  autoShowFailed = false,
 }: {
   preview: DraftPreview;
-  plan: WorkflowPlan | null;
-  /** Secondary re-show callback; absent → no canvas (dashboard) or re-show not wired. */
-  onShowOnCanvas?: () => void;
-  /** True when THIS preview is the one currently displayed on the canvas overlay. */
+  /** True when a preview is currently on the canvas (the builder's `previewOverlay != null`). */
   isDisplayedOnCanvas: boolean;
+  /** True when auto-show was attempted for this proposal but the canvas isn't showing it (a failure). */
+  autoShowFailed?: boolean;
 }) {
-  // Active on canvas → conversation summary only. No card, no hint, no primary control in the rail.
-  if (isDisplayedOnCanvas) return null;
-
-  // Recovery: the edit preview isn't on the canvas right now. Aggregate the still-missing field keys
-  // (deduped, order-preserving) for a lightweight hint, humanized so the user sees friendly names
-  // ("to" → "To"), never raw schema keys. Offer a secondary re-show if still possible.
+  // Humanized still-missing field keys ("to" → "To"), deduped + order-preserving. Never raw schema keys.
   const stillNeeds = Array.from(new Set(preview.nodes.flatMap((n) => n.missingInputs ?? []))).map(humanizeFieldName);
-  const canReshow = onShowOnCanvas != null && plan != null;
-  if (stillNeeds.length === 0 && !canReshow) return null;
+  const showError = !isDisplayedOnCanvas && autoShowFailed;
+  if (stillNeeds.length === 0 && !showError) return null;
 
   return (
-    <div data-testid="workflow-guidance-edit-recovery" className="mt-2 space-y-2">
+    <div data-testid="workflow-guidance-edit-hint" className="mt-2 space-y-2">
+      {showError && (
+        <p data-testid="workflow-guidance-preview-error" className="text-xs text-amber-700 dark:text-amber-400">
+          {PREVIEW_AUTOSHOW_FAILED_MESSAGE}
+        </p>
+      )}
       {stillNeeds.length > 0 && (
         <p
           data-testid="workflow-guidance-preview-needs"
@@ -192,17 +181,6 @@ export function GuidanceEditPreviewHint({
         >
           Still needs: {stillNeeds.join(", ")}
         </p>
-      )}
-      {canReshow && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onShowOnCanvas}
-          data-testid="workflow-guidance-show-on-canvas"
-        >
-          Show on canvas
-        </Button>
       )}
     </div>
   );

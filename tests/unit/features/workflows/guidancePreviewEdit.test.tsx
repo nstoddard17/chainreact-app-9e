@@ -1,19 +1,17 @@
 /**
- * Rail treatment for a React Agent EDIT preview (HERMES-AGENT-RAIL-EDIT-PREVIEW-NO-CARD).
+ * Rail treatment for a React Agent EDIT preview (HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH).
  *
- * The canvas now renders an edit preview directly as a diff graph, and the top preview control bar owns
- * Apply preview / Discard preview. So the rail must NOT duplicate the old bordered "Proposed change"
- * card or its primary "Show on canvas" control:
- *   - while the edit preview is displayed on the canvas → the rail shows the conversation summary ONLY;
- *   - once it's gone (auto-show failed / discarded / superseded) → a lightweight setup-hint + a
- *     SECONDARY "Show on canvas" recovery affordance is offered, still with no bordered card.
- *
- * New-workflow skeleton previews (no `proposedDefinition`) keep the full "Draft preview" card — that
- * path is unchanged and covered in `WorkflowGuidancePanel.test.tsx`.
+ * A valid edit auto-shows on the canvas as a diff graph and the top preview bar owns Apply/Discard, so
+ * the rail is conversation/help only:
+ *   - NO "Show on canvas" button in any state (auto-show replaced it).
+ *   - a lightweight, humanized "Still needs" hint when fields are missing.
+ *   - an actionable ERROR line (not a button) only when auto-show was attempted but the canvas still
+ *     isn't showing the preview.
+ *   - never the old bordered "Proposed change" card, and never internal ids/refs/JSON.
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { GuidanceEditPreviewHint } from "@/features/workflows/GuidanceSuggestionSections";
+import { GuidanceEditPreviewHint, PREVIEW_AUTOSHOW_FAILED_MESSAGE } from "@/features/workflows/GuidanceSuggestionSections";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { DRAFT_PREVIEW_NOTICE } from "@/contracts/workflowPlanPreview";
 
@@ -25,7 +23,6 @@ jest.mock("next/navigation", () => ({ useRouter: () => ({ push: jest.fn() }) }))
 jest.mock("@/lib/api/workflowTemplates", () => ({ useTemplate: jest.fn(), TemplateApiError: class extends Error {} }));
 
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
-import { draftPreviewSignature } from "@/core/workflows/canvasPreviewEligibility";
 
 const editPreview: DraftPreview = {
   version: 1,
@@ -33,7 +30,7 @@ const editPreview: DraftPreview = {
   summary: "Replace the Slack Send Channel Message step with a Gmail Send Email step",
   nodes: [
     { previewId: "t1", role: "trigger", provider: "native", type: "manual.run", label: "native:manual.run", purpose: "", notApplied: true },
-    { previewId: "email-1", role: "action", provider: "gmail", type: "send_email", label: "gmail:send_email", purpose: "", missingInputs: ["to", "subject", "body"], notApplied: true },
+    { previewId: "email-1", role: "action", provider: "gmail", type: "send_email", label: "gmail:send_email", purpose: "", missingInputs: ["to"], notApplied: true },
   ],
   edges: [{ previewId: "e1", fromPreviewId: "t1", toPreviewId: "email-1", notApplied: true }],
   notice: DRAFT_PREVIEW_NOTICE,
@@ -58,44 +55,48 @@ const proposedDefinition = {
   edges: [{ id: "e1", from: "t1", to: "email-1" }],
 };
 
-describe("GuidanceEditPreviewHint — lightweight rail treatment (no 'Proposed change' card)", () => {
-  it("renders NOTHING while the edit preview is displayed on the canvas (conversation summary only)", () => {
-    const { container } = render(
-      <GuidanceEditPreviewHint preview={editPreview} plan={editPlan} isDisplayedOnCanvas onShowOnCanvas={() => {}} />,
-    );
-    expect(container).toBeEmptyDOMElement();
-    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
-    expect(screen.queryByTestId("workflow-guidance-preview-needs")).toBeNull();
+describe("GuidanceEditPreviewHint — no manual canvas-push control", () => {
+  it("never renders a 'Show on canvas' button — in any state", () => {
+    for (const props of [
+      { isDisplayedOnCanvas: true },
+      { isDisplayedOnCanvas: false },
+      { isDisplayedOnCanvas: false, autoShowFailed: true },
+    ] as const) {
+      const { unmount } = render(<GuidanceEditPreviewHint preview={editPreview} {...props} />);
+      expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+      expect(screen.queryByText(/^Show on canvas$/)).toBeNull();
+      unmount();
+    }
   });
 
-  it("when NOT displayed, offers a lightweight setup-hint + a SECONDARY 'Show on canvas' (no bordered card, no Apply)", () => {
-    const onShowOnCanvas = jest.fn();
-    render(
-      <GuidanceEditPreviewHint preview={editPreview} plan={editPlan} isDisplayedOnCanvas={false} onShowOnCanvas={onShowOnCanvas} />,
-    );
-    // Field keys are HUMANIZED ("to" → "To"), never raw schema keys.
-    expect(screen.getByTestId("workflow-guidance-preview-needs")).toHaveTextContent("Still needs: To, Subject, Body");
-    expect(screen.getByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
-    // No bordered "Proposed change" card, no per-step provider:type list / Flow line, no primary Apply.
-    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
-    expect(screen.queryByText(/^Proposed change$/)).toBeNull();
-    expect(screen.queryByTestId("workflow-guidance-preview-flow")).toBeNull();
-    expect(screen.queryByText(/^Apply preview$/i)).toBeNull();
-    // No internal ids / edit-version / operation names / provider:type keys / raw JSON.
-    const text = screen.getByTestId("workflow-guidance-edit-recovery").textContent ?? "";
+  it("shows a humanized 'Still needs' hint while displayed (no error, no button, no bordered card)", () => {
+    render(<GuidanceEditPreviewHint preview={editPreview} isDisplayedOnCanvas />);
+    expect(screen.getByTestId("workflow-guidance-preview-needs")).toHaveTextContent("Still needs: To");
+    expect(screen.queryByTestId("workflow-guidance-preview-error")).toBeNull();
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull(); // no bordered "Proposed change" card
+    // No internal ids / op names / provider:type / JSON.
+    const text = screen.getByTestId("workflow-guidance-edit-hint").textContent ?? "";
     for (const forbidden of ["gmail:send_email", "removeNode", "addNode", "editVersion", "{", "and its edges are removed"]) {
       expect(text).not.toContain(forbidden);
     }
   });
 
-  it("renders nothing when not displayed, no missing inputs, and no re-show wired", () => {
-    const cleanPreview: DraftPreview = { ...editPreview, nodes: editPreview.nodes.map((n) => ({ ...n, missingInputs: undefined })) };
-    const { container } = render(<GuidanceEditPreviewHint preview={cleanPreview} plan={null} isDisplayedOnCanvas={false} />);
+  it("renders an actionable error (not a button) when auto-show was attempted but the canvas isn't showing it", () => {
+    render(<GuidanceEditPreviewHint preview={editPreview} isDisplayedOnCanvas={false} autoShowFailed />);
+    expect(screen.getByTestId("workflow-guidance-preview-error")).toHaveTextContent(PREVIEW_AUTOSHOW_FAILED_MESSAGE);
+    expect(screen.getByTestId("workflow-guidance-preview-error").textContent).toMatch(/Ask React to try again/i);
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+  });
+
+  it("renders nothing when displayed with no missing inputs", () => {
+    const clean: DraftPreview = { ...editPreview, nodes: editPreview.nodes.map((n) => ({ ...n, missingInputs: undefined })) };
+    const { container } = render(<GuidanceEditPreviewHint preview={clean} isDisplayedOnCanvas />);
     expect(container).toBeEmptyDOMElement();
   });
 });
 
-describe("WorkflowGuidancePanel — edit preview rail (active vs recovery)", () => {
+describe("WorkflowGuidancePanel — edit preview rail (auto-show, no manual button)", () => {
   beforeEach(() => mockRequest.mockReset());
 
   const editResponse = {
@@ -113,77 +114,36 @@ describe("WorkflowGuidancePanel — edit preview rail (active vs recovery)", () 
     render(
       <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={jest.fn()} {...extraProps} />,
     );
-    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "change it to email");
+    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "change slack message to gmail send email");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     return user;
   }
 
-  it("active edit preview (signature matches) hides the 'Proposed change' card AND 'Show on canvas', keeping the conversation summary", async () => {
-    await sendEdit({ displayedPreviewSignature: draftPreviewSignature(editPreview) });
-    // The conversational assistant summary still renders.
-    expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
-    // No bordered "Proposed change" card and no redundant primary "Show on canvas".
-    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
-    expect(screen.queryByText(/^Proposed change$/)).toBeNull();
-    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
-  });
-
-  it("recovery: when no preview is displayed, offers the secondary 'Show on canvas' with a humanized hint (still no card)", async () => {
-    await sendEdit({ displayedPreviewSignature: null });
-    expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
-    // Secondary re-show + lightweight, HUMANIZED setup hint, but never the bordered "Proposed change" card.
-    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
-    expect(screen.getByTestId("workflow-guidance-preview-needs")).toHaveTextContent("Still needs: To, Subject, Body");
-    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
-  });
-
-  it("does NOT offer 'Show on canvas' when SOME preview is on the canvas (edits auto-show; recovery only when nothing is visible)", async () => {
-    // A non-null displayed signature means a preview IS on the canvas — for an auto-shown edit that is
-    // this edit, so the rail must not offer a redundant re-show even if signatures differ.
-    await sendEdit({ displayedPreviewSignature: "some-other-displayed-preview" });
-    expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
-    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
-    expect(screen.queryByTestId("workflow-guidance-edit-recovery")).toBeNull();
-  });
-
-  // The EXACT reported screenshot state: the edit preview is active on the canvas (the builder's
-  // `previewOverlay != null` → isPreviewDisplayed), but the derived display signature is NULL. The rail
-  // must trust isPreviewDisplayed and NOT offer a redundant "Show on canvas".
-  it("hides 'Show on canvas' for an ACTIVE edit preview even when the display signature is null (isPreviewDisplayed)", async () => {
+  it("EXACT screenshot state: active edit preview shows 'Still needs: To' + summary, NEVER 'Show on canvas'", async () => {
     await sendEdit({ isPreviewDisplayed: true, displayedPreviewSignature: null });
-    // Assistant summary remains…
     expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
-    // …but no redundant re-show, and no bordered "Proposed change" card / internal ids.
+    expect(screen.getByTestId("workflow-guidance-preview-needs")).toHaveTextContent("Still needs: To");
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
-    expect(screen.queryByTestId("workflow-guidance-edit-recovery")).toBeNull();
+    expect(screen.queryByText(/^Show on canvas$/)).toBeNull();
     expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
+    // No internal ids/refs/JSON in the transcript.
     const transcript = screen.getByTestId("workflow-guidance-messages").textContent ?? "";
     expect(transcript).not.toMatch(/proposedDefinition|removeNode|editVersion|provider:|\{/i);
   });
 
-  it("recovery 'Show on canvas' returns only when NOTHING is displayed (isPreviewDisplayed false + null signature)", async () => {
-    await sendEdit({ isPreviewDisplayed: false, displayedPreviewSignature: null });
-    expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
-    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+  it("a valid edit still AUTO-SHOWS on the canvas (onPreviewToCanvas called with plan + preview + proposedDefinition)", async () => {
+    const onPreviewToCanvas = jest.fn();
+    await sendEdit({ onPreviewToCanvas, isPreviewDisplayed: true });
+    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalled());
+    expect(onPreviewToCanvas.mock.calls[0]![0]).toMatchObject({ plan: editPlan, preview: editPreview, proposedDefinition });
+    // …and there is no manual re-show button.
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
   });
 
-  it("recovery 'Show on canvas' hands BOTH the validated plan and the display preview to the canvas overlay", async () => {
-    const user = userEvent.setup();
-    const onPreviewToCanvas = jest.fn();
-    mockRequest.mockResolvedValue(editResponse);
-    render(
-      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} displayedPreviewSignature={null} />,
-    );
-    await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "change it to email");
-    await user.click(screen.getByTestId("workflow-guidance-submit"));
-    // (Auto-show may fire once on arrival; this asserts the MANUAL recovery re-show works.)
-    await user.click(await screen.findByTestId("workflow-guidance-show-on-canvas"));
-    await waitFor(() => expect(onPreviewToCanvas).toHaveBeenCalled());
-    const lastCall = onPreviewToCanvas.mock.calls.at(-1)!;
-    expect(lastCall[0]).toMatchObject({
-      plan: editPlan,
-      preview: editPreview,
-      proposedDefinition,
-    });
+  it("auto-show FAILURE → an actionable error line (not a button) when the canvas still isn't showing it", async () => {
+    // onPreviewToCanvas is wired but does not flip isPreviewDisplayed (canvas didn't open) → failure.
+    await sendEdit({ onPreviewToCanvas: jest.fn(), isPreviewDisplayed: false, displayedPreviewSignature: null });
+    expect(await screen.findByTestId("workflow-guidance-preview-error")).toHaveTextContent(PREVIEW_AUTOSHOW_FAILED_MESSAGE);
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
   });
 });
