@@ -21,8 +21,16 @@ import {
 } from "@/lib/api/workflowTemplates";
 import type { TemplateCategoryKey } from "@/contracts/workflowTemplate";
 import { TEMPLATE_CATEGORIES, providerLabel } from "@/core/workflows/templateCardMeta";
+import {
+  TEMPLATE_SORTS,
+  type TemplateSortMode,
+  filterMarketplaceTemplates,
+  sortMarketplaceTemplates,
+  isMarketplaceFilterActive,
+} from "@/core/workflows/templateBrowse";
 import { TemplateCard } from "./TemplateCard";
 import { TemplateDetailsDialog } from "./TemplateDetailsDialog";
+import { MarketplaceEmptyState } from "./MarketplaceEmptyState";
 import { toMyTemplateItem, type MarketplaceTemplateSummary, type MyTemplateItem } from "./types";
 
 /**
@@ -36,7 +44,7 @@ import { toMyTemplateItem, type MarketplaceTemplateSummary, type MyTemplateItem 
  */
 
 type Tab = "all" | "official" | "community" | "mine";
-type Sort = "popular" | "forks" | "name";
+type Sort = TemplateSortMode;
 
 const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
   { id: "all", label: "All templates" },
@@ -57,15 +65,23 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
   const [mine, setMine] = useState<readonly MyTemplateItem[]>(initialMine);
   const [tab, setTab] = useState<Tab>("all");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<Sort>("popular");
+  const [sort, setSort] = useState<Sort>("recommended");
   // Marketplace browse filters (derived from card metadata; "all" = no filter).
   const [category, setCategory] = useState<TemplateCategoryKey | "all">("all");
   const [provider, setProvider] = useState<string>("all");
 
-  // Switching tabs resets the browse filters so a category/app with 0 items in the new tab
-  // doesn't leave the grid mysteriously empty.
+  // Tab-switch state policy (deliberate): RESET the category + app filters (their available
+  // facets differ per tab, so a stale pick would silently empty the grid), but RETAIN the search
+  // query + sort (both are tab-agnostic — a user searching "slack" or sorting by steps expects
+  // that to carry across All / By ChainReact / Community).
   function selectTab(next: Tab) {
     setTab(next);
+    setCategory("all");
+    setProvider("all");
+  }
+
+  function clearFilters() {
+    setQuery("");
     setCategory("all");
     setProvider("all");
   }
@@ -175,30 +191,40 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
     return [...set].sort((a, b) => providerLabel(a).localeCompare(providerLabel(b)));
   }, [tabSubset]);
 
-  const visibleMarketplace = useMemo(() => {
-    let list = tabSubset.slice();
-    if (category !== "all") list = list.filter((m) => m.card?.category === category);
-    if (provider !== "all") list = list.filter((m) => (m.card?.providers ?? []).includes(provider));
-    const q = query.trim().toLowerCase();
-    if (q) list = list.filter((m) => m.name.toLowerCase().includes(q) || (m.description ?? "").toLowerCase().includes(q));
-    if (sort === "popular") list.sort((a, b) => b.usageCount - a.usageCount);
-    if (sort === "forks") list.sort((a, b) => b.forkCount - a.forkCount);
-    if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
-    return list;
-  }, [tabSubset, category, provider, query, sort]);
+  // Marketplace: AND-combine search + category + app, then apply the deterministic sort.
+  const visibleMarketplace = useMemo(
+    () =>
+      sortMarketplaceTemplates(
+        filterMarketplaceTemplates(tabSubset, { query, category, provider }),
+        sort,
+      ),
+    [tabSubset, category, provider, query, sort],
+  );
 
+  // "Your templates": these carry no derived card metadata, so only the title/description search
+  // applies (category/app filters + the step-based sorts are marketplace-only). Natural order kept.
   const visibleMine = useMemo(() => {
-    let list = mine.slice();
     const q = query.trim().toLowerCase();
-    if (q) list = list.filter((m) => m.name.toLowerCase().includes(q) || (m.description ?? "").toLowerCase().includes(q));
-    if (sort === "popular") list.sort((a, b) => b.usageCount - a.usageCount);
-    if (sort === "forks") list.sort((a, b) => b.forkCount - a.forkCount);
-    if (sort === "name") list.sort((a, b) => a.name.localeCompare(b.name));
-    return list;
-  }, [mine, query, sort]);
+    if (!q) return mine.slice();
+    return mine.filter(
+      (m) => m.name.toLowerCase().includes(q) || (m.description ?? "").toLowerCase().includes(q),
+    );
+  }, [mine, query]);
 
   const showingMine = tab === "mine";
   const shownCount = showingMine ? visibleMine.length : visibleMarketplace.length;
+  const filterActive = isMarketplaceFilterActive({ query, category, provider });
+  // Distinguish the empty states: nothing exists here vs. nothing matches the active filters.
+  const emptyKind: "none-mine" | "none-marketplace" | "no-match" | null =
+    shownCount > 0
+      ? null
+      : showingMine
+        ? mine.length === 0
+          ? "none-mine"
+          : "no-match"
+        : tabSubset.length === 0
+          ? "none-marketplace"
+          : "no-match";
   // The marketplace template whose details/use-confirmation dialog is open (null = closed).
   const detailsTemplate = detailsId ? marketplace.find((m) => m.id === detailsId) ?? null : null;
 
@@ -279,15 +305,16 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Input
           data-testid="templates-search"
+          aria-label="Search templates"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search templates by name or what they do…"
+          placeholder="Search by name, app, category, or step…"
           className="max-w-md"
         />
         <div className="flex items-center gap-2">
           {!showingMine && providerFacets.length > 0 && (
             <Select value={provider} onValueChange={setProvider}>
-              <SelectTrigger className="w-44" data-testid="templates-provider-filter">
+              <SelectTrigger className="w-44" data-testid="templates-provider-filter" aria-label="Filter by app">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -300,37 +327,40 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
               </SelectContent>
             </Select>
           )}
-          <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
-            <SelectTrigger className="w-44" data-testid="templates-sort">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="popular">Most used</SelectItem>
-              <SelectItem value="forks">Most forked</SelectItem>
-              <SelectItem value="name">A–Z</SelectItem>
-            </SelectContent>
-          </Select>
+          {!showingMine && (
+            <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
+              <SelectTrigger className="w-44" data-testid="templates-sort" aria-label="Sort templates">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TEMPLATE_SORTS.map((s) => (
+                  <SelectItem key={s.key} value={s.key} data-testid={`templates-sort-${s.key}`}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {filterActive && (
+            <button
+              type="button"
+              data-testid="templates-clear-filters"
+              onClick={clearFilters}
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
       <p data-testid="templates-count" className="text-xs text-muted-foreground">
         Showing <strong className="font-semibold text-foreground">{shownCount}</strong> template{shownCount === 1 ? "" : "s"}
+        {filterActive && <span className="text-muted-foreground"> matching your {showingMine ? "search" : "filters"}</span>}
       </p>
 
-      {shownCount === 0 ? (
-        <div
-          data-testid="templates-empty"
-          className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center"
-        >
-          <div className="text-sm font-semibold text-foreground">
-            {showingMine ? "You haven't saved any templates yet" : "No templates match that"}
-          </div>
-          <div className="max-w-sm text-sm text-muted-foreground">
-            {showingMine
-              ? "Save a copy of a marketplace template, or turn one of your workflows into a template, to build your library."
-              : "Try a different tab or clear your search."}
-          </div>
-        </div>
+      {shownCount === 0 && emptyKind ? (
+        <MarketplaceEmptyState kind={emptyKind} showingMine={showingMine} onReset={clearFilters} />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {showingMine

@@ -264,3 +264,85 @@ it("an official template with empty configs renders its card without leaking con
   expect(container.innerHTML).not.toContain('"config"');
   expect(container.innerHTML).not.toContain("manual.run"); // raw type id never shown (humanized only)
 });
+
+// ── CS-XT-MARKETPLACE-UX-SEARCH: search, combined filters, empty states, a11y ─────
+
+it("search is case-insensitive and matches title + derived labels (app/category)", () => {
+  renderDash();
+  // title, upper-cased
+  fireEvent.change(screen.getByTestId("templates-search"), { target: { value: "  PAYMENT  " } });
+  expect(screen.getByText("Failed payment recovery")).toBeInTheDocument();
+  expect(screen.queryByText("Lead capture to CRM")).toBeNull();
+  // derived app label (official card has Stripe)
+  fireEvent.change(screen.getByTestId("templates-search"), { target: { value: "stripe" } });
+  expect(screen.getByText("Failed payment recovery")).toBeInTheDocument();
+  expect(screen.queryByText("Lead capture to CRM")).toBeNull();
+  // derived app label for the community one (HubSpot)
+  fireEvent.change(screen.getByTestId("templates-search"), { target: { value: "hubspot" } });
+  expect(screen.getByText("Lead capture to CRM")).toBeInTheDocument();
+  expect(screen.queryByText("Failed payment recovery")).toBeNull();
+});
+
+it("search AND category combine; a contradiction shows the no-match empty state + reset", () => {
+  renderDash();
+  fireEvent.click(screen.getByTestId("templates-category-ecommerce")); // official only
+  fireEvent.change(screen.getByTestId("templates-search"), { target: { value: "hubspot" } }); // community-only term
+  const empty = screen.getByTestId("templates-empty");
+  expect(empty).toHaveAttribute("data-empty-kind", "no-match");
+  expect(empty).toHaveTextContent(/No templates match your filters/i);
+  // copy must not imply templates / connections are missing
+  expect(empty).not.toHaveTextContent(/connect|missing|no apps|install/i);
+  // the empty-state reset restores everything.
+  fireEvent.click(screen.getByTestId("templates-empty-reset"));
+  expect(screen.getByText("Failed payment recovery")).toBeInTheDocument();
+  expect(screen.getByText("Lead capture to CRM")).toBeInTheDocument();
+});
+
+it("Clear filters control appears when active and restores the full list", () => {
+  renderDash();
+  expect(screen.queryByTestId("templates-clear-filters")).toBeNull();
+  fireEvent.change(screen.getByTestId("templates-search"), { target: { value: "payment" } });
+  expect(screen.getByTestId("templates-clear-filters")).toBeInTheDocument();
+  fireEvent.click(screen.getByTestId("templates-clear-filters"));
+  expect(screen.getByText("Failed payment recovery")).toBeInTheDocument();
+  expect(screen.getByText("Lead capture to CRM")).toBeInTheDocument();
+  expect(screen.queryByTestId("templates-clear-filters")).toBeNull();
+});
+
+it("distinguishes empty states: none-exist (marketplace) vs none-mine vs no-match", () => {
+  // none-marketplace: a community tab with no community templates.
+  const { unmount } = render(
+    <TemplatesDashboard accountId={ACCOUNT} initialMarketplace={[official]} initialMine={[]} />,
+  );
+  fireEvent.click(screen.getByTestId("templates-tab-community"));
+  expect(screen.getByTestId("templates-empty")).toHaveAttribute("data-empty-kind", "none-marketplace");
+  expect(screen.queryByTestId("templates-empty-reset")).toBeNull(); // not a filter problem → no reset
+  unmount();
+
+  // none-mine: the "Your templates" tab with no saved templates.
+  render(<TemplatesDashboard accountId={ACCOUNT} initialMarketplace={[official]} initialMine={[]} />);
+  fireEvent.click(screen.getByTestId("templates-tab-mine"));
+  expect(screen.getByTestId("templates-empty")).toHaveAttribute("data-empty-kind", "none-mine");
+});
+
+it("sort control is marketplace-only and labeled; search input + provider filter are labeled", () => {
+  renderDash();
+  expect(screen.getByTestId("templates-search")).toHaveAttribute("aria-label", "Search templates");
+  expect(screen.getByTestId("templates-sort")).toHaveAttribute("aria-label", "Sort templates");
+  expect(screen.getByTestId("templates-provider-filter")).toHaveAttribute("aria-label", "Filter by app");
+  // hidden on "Your templates" (step-based sort + app filter don't apply there).
+  fireEvent.click(screen.getByTestId("templates-tab-mine"));
+  expect(screen.queryByTestId("templates-sort")).toBeNull();
+  expect(screen.queryByTestId("templates-provider-filter")).toBeNull();
+});
+
+it("detail + Use still work after filtering", async () => {
+  api.useTemplate.mockResolvedValue({ workflowId: "wf-z", name: "T" });
+  renderDash();
+  fireEvent.change(screen.getByTestId("templates-search"), { target: { value: "payment" } });
+  const card = screen.getByText("Failed payment recovery").closest("[data-testid='template-card']")!;
+  fireEvent.click(within(card as HTMLElement).getByTestId("template-details"));
+  fireEvent.click(screen.getByTestId("template-details-use"));
+  await waitFor(() => expect(api.useTemplate).toHaveBeenCalledWith("off-1", { targetAccountId: ACCOUNT }));
+  expect(mockPush).toHaveBeenCalledWith("/workflows/wf-z");
+});
