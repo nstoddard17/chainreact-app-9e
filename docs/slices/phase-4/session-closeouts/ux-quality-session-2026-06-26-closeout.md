@@ -93,6 +93,28 @@ open.
 
 ---
 
+## 2b. Blocked go-live accessibility (`d8df4fdb5`)
+
+**Marker:** `BUILDER-READINESS-A11Y`. **File:**
+[features/workflow-builder/panels/LifecycleActions.tsx](../../../../features/workflow-builder/panels/LifecycleActions.tsx)
++ its test. Direct follow-on from §2.
+
+- **Before:** once the obstructive visible callout was removed (above), the **only**
+  explanation for a disabled Activate / Resume was the button's hover `title`. `title` is
+  not reliably announced by screen readers and is invisible to keyboard-only users, so AT
+  users got a greyed go-live button with no reason.
+- **After:** when go-live is blocked by validation, the button gets `aria-describedby`
+  pointing at a new **`sr-only` `role="status"`** element
+  (`lifecycle-blocked-status`) reading e.g. *"Activate is disabled: resolve 2 setup
+  issues first. Open the validation panel to see which nodes need attention."* Mirrors the
+  existing `HeaderRunControls` `run-controls-blocked-status` precedent.
+- **Why `sr-only`:** the reason lives in the accessibility tree only — nothing is
+  painted, so the close-× overlap bug from §2 **cannot** return. Copy deliberately avoids
+  the removed callout's "to fix before" wording (a regression test guards this).
+- **Unchanged:** gating, handlers, the hover `title`, and all existing testids.
+
+---
+
 ## 3. Commits this session (local on `v2-main`)
 
 | Commit | Summary |
@@ -103,7 +125,8 @@ open.
 | `0150fe2bc` | docs(apps): connected-apps recovery UX arc closeout (CS-3) |
 | `03c2a46cf` | fix(builder): right validation/setup panel close control visible + unobstructable |
 | `056521a00` | docs(apps): connected-apps recovery manual QA checklist |
-| _(this doc)_ | docs: UX-quality session closeout (roll-up) |
+| `5a5c1107d` / `79f80d51b` | docs: UX-quality session closeout (roll-up) + relocate under `session-closeouts/` |
+| `d8df4fdb5` | fix(builder): announce blocked go-live reason to assistive tech (BUILDER-READINESS-A11Y) |
 
 ---
 
@@ -140,6 +163,10 @@ open.
 - BuilderRightDrawer: `…/layout/BuilderRightDrawer.test.tsx` → **8/8 pass**; broader
   `…/workflow-builder/layout/` + `…/panels/` → **276 tests pass**. eslint on touched
   files → **0**. `npx tsc --noEmit` → clean.
+- Blocked go-live a11y (`d8df4fdb5`): `…/panels/LifecycleActions.test.tsx` → **32/32 pass**
+  (4 new); `…/layout/BuilderHeader.test.tsx` → **33/33 pass** (mounts LifecycleActions).
+  eslint on touched files → **0**. `npx tsc --noEmit` → **exit 0**. `npm run lint:structure`
+  → **OK**.
 - QA checklist + this doc: docs-only; `npm run lint:structure` → **OK**;
   `npx tsc --noEmit` → **exit 0** (re-confirmed repo builds clean).
 - Connected Apps recovery arc: see its closeout §8 (36 suites / 439 tests + 3 suites /
