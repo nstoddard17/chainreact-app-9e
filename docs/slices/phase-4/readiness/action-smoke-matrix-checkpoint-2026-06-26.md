@@ -159,3 +159,35 @@ operator enabling the gates against a connected Google smoke account, then
 381 tests pass (incl. `fixtures-valid`, `certification`, registry-parity);
 `npm run chainreact -- smoke actions --cert` → matrix delta above; `npx tsc --noEmit` →
 exit 0; eslint on the 2 touched files → 0; `npm run lint:structure` → OK.
+
+## 8. Update — SMOKE-WRITE-34 LIVE-CERTIFIED (2026-06-26, same day)
+
+`google-docs:update_document` is now **`LIVE_PASS_CLEANED`**. Ran the targeted live write
+smoke against the connected Google smoke account (gates set inline for the one command;
+they are safety opt-ins, not secrets):
+
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
+SMOKE_PROVIDER=google-docs SMOKE_GOOGLE_DOCS_CONNECTED=1 npm run smoke:writes:live
+```
+
+(`ALLOW_DESTRUCTIVE_PROVIDER_SMOKE` is also required — the fixture is `destructiveSafe`:
+its cleanup is a smoke-owned delete. `SMOKE_PROVIDER=google-docs` scopes the run to
+google-docs only, so no other provider's writes execute.)
+
+**Live result — PASS, 0 leaked:**
+```
+PASS  google-docs:update_document [destructiveSafe]
+    setup ok · execute ok · verify ok · verify ok — marker confirmed on read-back · cleanup ok
+    created 1 / cleaned 1 / remaining 0 (document) | artifact: cleaned
+```
+(`google-docs:create_document` re-ran in the same scoped sweep and also PASSED, created 1 /
+cleaned 1 / 0 leaked.)
+
+**Cert row added** to `certificationSeed.ts` (`SMOKE-WRITE-34`, `LIVE_PASS_CLEANED`,
+2026-06-26). **Matrix:** `update_document` NOT_RUN → LIVE_PASS. Totals now **298 registered
+/ 120 LIVE_PASS / 26 not-run / 152 missing / 0 fail / 0 bug**; google-docs **5 / 3 / 0 /
+2** — only the policy-excluded `share_document` (sharing) + `export_document` (bytes)
+remain. Re-verified: `--cert` shows `PASS_CLEAN google-docs:update_document (2026-06-26)`;
+`tests/unit/smoke-actions` 381 pass; `tsc` exit 0; eslint 0; `lint:structure` OK.

@@ -37,6 +37,7 @@ const SMOKE_WRITE_SHEETS = "2026-06-24";
 const SMOKE_WRITE_SHEETS_DELETE = "2026-06-25";
 const SMOKE_WRITE_COPY = "2026-06-25";
 const SMOKE_WRITE_ONENOTE = "2026-06-25";
+const SMOKE_WRITE_GDOCS = "2026-06-26";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -462,5 +463,19 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["microsoft-onenote", "create_page"],
     ["microsoft-onenote", "update_page"],
     ["microsoft-onenote", "delete_page"],
+  ]),
+  // SMOKE-WRITE-34 — Google Docs update_document. setup create_document (marker
+  // title+body) -> execute update_document APPENDS "<marker>updated" (insertLocation
+  // "end" — additive, never the body-wiping "replace" mode) -> INDEPENDENT
+  // get_document read-back confirms marker+suffix "updated" on the flattened body
+  // `content` (the seed body "<marker>body" lacks "updated", so a no-op update fails;
+  // the handler's documentId/contentLength echoes are never trusted) -> the WHOLE Doc
+  // is hard-deleted via cross-provider google-drive:delete_file (permanent:true; a
+  // documentId IS a Drive file id, and Docs has no own delete). Live-verified end to
+  // end (created 1 / cleaned 1 / 0 leaked). google-docs writes: create_document +
+  // update_document certified; share_document (sharing) + export_document (bytes) are
+  // policy-excluded.
+  ...records("LIVE_PASS_CLEANED", "live create doc + append update + independent read-back, whole doc hard-deleted via cross-provider Drive delete", SMOKE_WRITE_GDOCS, [
+    ["google-docs", "update_document"],
   ]),
 ];
