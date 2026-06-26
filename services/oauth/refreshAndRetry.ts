@@ -3,9 +3,11 @@ import { isPersonalCredentialProvider } from "@/core/integrations/credentialShar
 import { decryptToken } from "@/core/encryption/tokens";
 import {
   getActiveForExecution,
+  markNeedsReconnect,
   type IntegrationRecord,
 } from "@/repositories/integrations";
 import { refresh as dispatcherRefresh } from "@/services/oauth/dispatcher";
+import { notifyReconnectNeeded } from "@/services/integrations/reconnectNotification";
 import { getCredentialResolutionContext } from "@/services/oauth/credentialResolutionContext";
 
 /**
@@ -173,6 +175,36 @@ export interface RefreshAndRetryInput<T> {
  *   - `Error("No active integration ...")` when the integration row is
  *     missing at lookup time.
  */
+/**
+ * CS-APPS-RECOVERY-1 — best-effort, per-row "reconnect needed" signal at the
+ * execution seam. Mirrors the dispatcher's `RefreshAuthRequiredError` idiom
+ * (`services/oauth/dispatcher.ts`): set `needs_reconnect_at` via the conditional
+ * NULL → now UPDATE inside `markNeedsReconnect` (one-shot), and notify the
+ * connector ONLY on the first transition (so concurrent / repeated failures never
+ * re-notify — the de-dup lives in the conditional UPDATE, not here).
+ *
+ * Targets EXACTLY the integration row the execution used (`row.id`) — never
+ * provider-wide, never account-wide. Any write / notify failure is swallowed: it
+ * must NEVER mask the `IntegrationActionRequiredError` the caller is about to
+ * receive (the run failure is the load-bearing signal; the reconnect mark is an
+ * advisory side effect).
+ *
+ * Called ONLY from the two DURABLE auth-required exits below — a non-refreshable
+ * credential that returned 401 (`refresh_not_supported`) and a refresh that
+ * succeeded but whose retry STILL returned 401 (`refresh_failed`). NOT called for
+ * generic refresh failures (transient provider 5xx / network / timeout / config),
+ * which may be temporary; the durable dead-grant subcase of those is already
+ * marked by the dispatcher before it re-throws.
+ */
+async function markReconnectNeededBestEffort(row: IntegrationRecord): Promise<void> {
+  try {
+    const firstMark = await markNeedsReconnect(row.id);
+    if (firstMark) await notifyReconnectNeeded(row);
+  } catch {
+    // swallow — surfacing the original run failure matters more.
+  }
+}
+
 export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promise<T> {
   if (!input.accountId) throw new Error("refreshAndRetry: accountId is required.");
   if (!input.provider) throw new Error("refreshAndRetry: provider is required.");
@@ -241,6 +273,11 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
     });
   } catch (refreshErr) {
     if (refreshErr instanceof RefreshNotSupportedError) {
+      // DURABLE auth-required: we only reached the refresh path because the
+      // initial apiCall returned 401, and this provider cannot refresh — so the
+      // stored credential is revoked/invalid and only user re-auth fixes it.
+      // Mark THIS row (best-effort) so the Apps page reflects "reconnect needed".
+      await markReconnectNeededBestEffort(initialRow);
       throw new IntegrationActionRequiredError({
         accountId: input.accountId,
         provider: input.provider,
@@ -249,6 +286,11 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
         cause: refreshErr,
       });
     }
+    // Generic refresh failure — may be TRANSIENT (provider 5xx / network / config
+    // during token exchange). NOT marked here: the durable dead-grant subcase
+    // (RefreshAuthRequiredError) is already marked by the dispatcher before it
+    // re-throws, and we must not flip a healthy connection to "reconnect needed"
+    // on a temporary blip (CS-APPS-RECOVERY-1 requirement 3).
     throw new IntegrationActionRequiredError({
       accountId: input.accountId,
       provider: input.provider,
@@ -276,9 +318,11 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
     return await input.apiCall(newToken);
   } catch (retryErr) {
     if (retryErr instanceof Unauthorized401Error) {
-      // Refresh succeeded but the new token is still rejected — the
-      // integration genuinely needs user action (scope shrunk, account
-      // moved, provider-side revoke, etc.).
+      // DURABLE auth-required: refresh succeeded but the FRESH token is still
+      // rejected (scope shrunk, account moved, provider-side revoke, etc.) — only
+      // user re-auth fixes it. Mark THIS row (the refetched same-pin row) so the
+      // Apps page reflects "reconnect needed". Best-effort; never masks the throw.
+      await markReconnectNeededBestEffort(refreshedRow);
       throw new IntegrationActionRequiredError({
         accountId: input.accountId,
         provider: input.provider,

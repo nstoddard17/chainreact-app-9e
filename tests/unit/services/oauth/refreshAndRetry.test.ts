@@ -11,15 +11,22 @@ import { RefreshNotSupportedError } from "@/contracts/integration";
 
 const mockGetActiveForExecution = jest.fn();
 const mockDispatcherRefresh = jest.fn();
+const mockMarkNeedsReconnect = jest.fn();
+const mockNotifyReconnectNeeded = jest.fn();
 
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: mockGetActiveForExecution,
+  markNeedsReconnect: mockMarkNeedsReconnect,
   updateTokens: jest.fn(),
   upsertActive: jest.fn(),
 }));
 
 jest.mock("@/services/oauth/dispatcher", () => ({
   refresh: mockDispatcherRefresh,
+}));
+
+jest.mock("@/services/integrations/reconnectNotification", () => ({
+  notifyReconnectNeeded: mockNotifyReconnectNeeded,
 }));
 
 jest.mock("@/core/encryption/tokens", () => ({
@@ -36,6 +43,11 @@ import {
 beforeEach(() => {
   mockGetActiveForExecution.mockReset();
   mockDispatcherRefresh.mockReset();
+  mockMarkNeedsReconnect.mockReset();
+  mockNotifyReconnectNeeded.mockReset();
+  // Default: a first-mark transition (NULL → now) so the one-shot notify fires.
+  mockMarkNeedsReconnect.mockResolvedValue(true);
+  mockNotifyReconnectNeeded.mockResolvedValue(undefined);
 });
 
 function makeRow(accessEnc: string, overrides: Record<string, unknown> = {}) {
@@ -209,6 +221,116 @@ describe("refreshAndRetry — refresh-not-supported provider (Slack-shaped path)
       name: "IntegrationActionRequiredError",
       reason: "refresh_failed",
     });
+    // CS-APPS-RECOVERY-1 req 3: a generic (possibly transient) refresh failure
+    // does NOT flip the row to reconnect-needed (the durable dead-grant subcase is
+    // marked by the dispatcher, not here).
+    expect(mockMarkNeedsReconnect).not.toHaveBeenCalled();
+    expect(mockNotifyReconnectNeeded).not.toHaveBeenCalled();
+  });
+});
+
+// ─── CS-APPS-RECOVERY-1 — execution-seam reconnect-needed signal ─────────────
+
+describe("refreshAndRetry — reconnect-needed signal (CS-APPS-RECOVERY-1)", () => {
+  it("marks + notifies on the non-refreshable action-required path (refresh_not_supported)", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(
+      makeRow("ENC-tok", { provider: "slack", id: "int-slack" }),
+    );
+    mockDispatcherRefresh.mockRejectedValueOnce(new RefreshNotSupportedError("slack"));
+    const apiCall = jest.fn().mockRejectedValue(new Unauthorized401Error());
+
+    await expect(
+      refreshAndRetry({ accountId: "user-1", provider: "slack", apiCall }),
+    ).rejects.toMatchObject({ name: "IntegrationActionRequiredError", reason: "refresh_not_supported" });
+
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledTimes(1);
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledWith("int-slack"); // the SAME row, by id
+    expect(mockNotifyReconnectNeeded).toHaveBeenCalledTimes(1);
+    expect(mockNotifyReconnectNeeded.mock.calls[0]![0]).toMatchObject({ id: "int-slack" });
+  });
+
+  it("marks + notifies when refresh succeeds but the retry STILL returns 401 (refresh_failed)", async () => {
+    mockGetActiveForExecution
+      .mockResolvedValueOnce(makeRow("ENC-stale", { id: "int-9" })) // initial
+      .mockResolvedValueOnce(makeRow("ENC-fresh", { id: "int-9" })); // post-refresh refetch
+    mockDispatcherRefresh.mockResolvedValueOnce({ integration: makeRow("ENC-fresh", { id: "int-9" }) });
+    const apiCall = jest
+      .fn()
+      .mockRejectedValueOnce(new Unauthorized401Error())
+      .mockRejectedValueOnce(new Unauthorized401Error("still 401"));
+
+    await expect(
+      refreshAndRetry({ accountId: "user-1", provider: "gmail", apiCall }),
+    ).rejects.toMatchObject({ name: "IntegrationActionRequiredError", reason: "refresh_failed" });
+
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledTimes(1);
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledWith("int-9"); // the refetched same-pin row
+    expect(mockNotifyReconnectNeeded).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT mark on a transient (non-401) apiCall error", async () => {
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow("ENC-tok"));
+    const apiCall = jest.fn().mockRejectedValue(new Error("HTTP 503 service unavailable"));
+
+    await expect(
+      refreshAndRetry({ accountId: "user-1", provider: "gmail", apiCall }),
+    ).rejects.toThrow(/HTTP 503/);
+
+    expect(mockDispatcherRefresh).not.toHaveBeenCalled();
+    expect(mockMarkNeedsReconnect).not.toHaveBeenCalled();
+    expect(mockNotifyReconnectNeeded).not.toHaveBeenCalled();
+  });
+
+  it("does NOT notify twice when the row is already marked (no first-mark transition)", async () => {
+    mockMarkNeedsReconnect.mockResolvedValue(false); // already reconnect-needed
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow("ENC-tok", { provider: "slack" }));
+    mockDispatcherRefresh.mockRejectedValueOnce(new RefreshNotSupportedError("slack"));
+    const apiCall = jest.fn().mockRejectedValue(new Unauthorized401Error());
+
+    await expect(
+      refreshAndRetry({ accountId: "user-1", provider: "slack", apiCall }),
+    ).rejects.toMatchObject({ reason: "refresh_not_supported" });
+
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledTimes(1); // mark attempted (idempotent)
+    expect(mockNotifyReconnectNeeded).not.toHaveBeenCalled(); // but no re-notify
+  });
+
+  it("a markNeedsReconnect failure NEVER masks the original IntegrationActionRequiredError", async () => {
+    mockMarkNeedsReconnect.mockRejectedValue(new Error("db write boom"));
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow("ENC-tok", { provider: "slack" }));
+    mockDispatcherRefresh.mockRejectedValueOnce(new RefreshNotSupportedError("slack"));
+    const apiCall = jest.fn().mockRejectedValue(new Unauthorized401Error());
+
+    await expect(
+      refreshAndRetry({ accountId: "user-1", provider: "slack", apiCall }),
+    ).rejects.toMatchObject({ name: "IntegrationActionRequiredError", reason: "refresh_not_supported" });
+  });
+
+  it("a notifyReconnectNeeded failure NEVER masks the original IntegrationActionRequiredError", async () => {
+    mockNotifyReconnectNeeded.mockRejectedValue(new Error("notify boom"));
+    mockGetActiveForExecution.mockResolvedValueOnce(makeRow("ENC-tok", { provider: "slack" }));
+    mockDispatcherRefresh.mockRejectedValueOnce(new RefreshNotSupportedError("slack"));
+    const apiCall = jest.fn().mockRejectedValue(new Unauthorized401Error());
+
+    await expect(
+      refreshAndRetry({ accountId: "user-1", provider: "slack", apiCall }),
+    ).rejects.toMatchObject({ name: "IntegrationActionRequiredError", reason: "refresh_not_supported" });
+  });
+
+  it("targets exactly the integration row from the execution context (per-row, not provider-wide)", async () => {
+    // A distinct row id proves the mark is keyed on the resolved execution row.
+    mockGetActiveForExecution.mockResolvedValueOnce(
+      makeRow("ENC-tok", { provider: "discord", id: "int-discord-42" }),
+    );
+    mockDispatcherRefresh.mockRejectedValueOnce(new RefreshNotSupportedError("discord"));
+    const apiCall = jest.fn().mockRejectedValue(new Unauthorized401Error());
+
+    await expect(
+      refreshAndRetry({ accountId: "acct-1", provider: "discord", apiCall }),
+    ).rejects.toMatchObject({ reason: "refresh_not_supported" });
+
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledTimes(1);
+    expect(mockMarkNeedsReconnect).toHaveBeenCalledWith("int-discord-42");
   });
 });
 
