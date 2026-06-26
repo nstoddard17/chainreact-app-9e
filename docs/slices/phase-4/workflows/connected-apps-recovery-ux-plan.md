@@ -5,6 +5,13 @@ changes in this slice. Nothing pushed.**
 **Date:** 2026-06-26
 **Branch:** `v2-main`
 
+> **STATUS: SHIPPED (arc closed 2026-06-26, local/unpushed).** CS-APPS-RECOVERY-1
+> (execution-seam reconnect-needed signal, `e7ba8bc33`) and CS-APPS-RECOVERY-2
+> (collapsed-card discoverability, `e9bd83c36`) are implemented; CS-APPS-RECOVERY-3
+> verified the arc green and closed it. See
+> [connected-apps-recovery-ux-closeout.md](./connected-apps-recovery-ux-closeout.md).
+> One deferred caveat: live revoke smoke is manual-QA-pending (no safe automated path).
+
 **Source of truth (verified current state — files actually read for this audit):**
 [app/integrations/page.tsx](../../../../app/integrations/page.tsx) (legacy `/integrations` → 308 redirect to `/apps`) ·
 [features/integrations/IntegrationsList.tsx](../../../../features/integrations/IntegrationsList.tsx) (legacy connect-only list, no recovery actions) ·
