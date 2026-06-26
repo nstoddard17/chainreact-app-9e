@@ -23,7 +23,6 @@ import {
 } from "@/core/workflows/checkWorkflowReview";
 import {
   isPlanMeaningfulCanvasPreview,
-  draftPreviewSignature,
   type CanvasPreviewGraphNode,
 } from "@/core/workflows/canvasPreviewEligibility";
 import { stripFencedJsonBlocks } from "@/core/workflows/stripFencedJsonBlocks";
@@ -38,7 +37,7 @@ import {
   submitOnEnter,
 } from "./guidancePanelShared";
 import { SingleShotGuidancePanel } from "./SingleShotGuidancePanel";
-import { GuidancePlanSection, GuidancePreviewSection, GuidanceEditPreviewHint } from "./GuidanceSuggestionSections";
+import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
 import { IntroAssistantMessage, UserMessageBubble, ReactSpeakerLabel } from "./GuidanceMessages";
 import { GuidanceTemplateMatchSection } from "./GuidanceTemplateMatchSection";
 import { GuidanceTemplatePreviewDialog } from "./GuidanceTemplatePreviewDialog";
@@ -131,26 +130,6 @@ export interface WorkflowGuidancePanelProps {
    * the composer starts empty as before.
    */
   readonly initialComposerValue?: string;
-  /**
-   * HERMES-AGENT-PREVIEW-SHOWN-DEDUP — the structural signature
-   * ({@link draftPreviewSignature}) of the preview CURRENTLY displayed on the canvas overlay (owned by
-   * `WorkflowBuilder`; `null` when none is shown). When the latest suggestion's preview matches it, the
-   * rail hides its redundant "Show on canvas" button (the same preview is already on the canvas, with
-   * Apply/Discard in the overlay). When they differ — nothing shown, the user discarded it, or a newer
-   * preview superseded it — the button stays available as a manual re-show/recovery affordance. Absent →
-   * the button always renders (e.g. dashboard with no canvas, or auto-show not wired/available).
-   */
-  readonly displayedPreviewSignature?: string | null;
-  /**
-   * HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP — whether a preview is CURRENTLY displayed on the canvas
-   * (an active overlay / diff + control bar). Owned by `WorkflowBuilder` (`previewOverlay != null`) —
-   * the SAME state that renders the canvas preview, so it can't disagree with what the user sees. This
-   * is the authoritative "is a preview on the canvas" signal for edit proposals; `displayedPreviewSignature`
-   * (derived from the display `previewDraft`) can be `null` even while an edit's diff is shown — the
-   * rail must not treat that as "no preview" and offer a redundant re-show. Absent → not wired (dashboard
-   * / tests fall back to the signature).
-   */
-  readonly isPreviewDisplayed?: boolean;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -210,7 +189,7 @@ function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, initialComposerValue, displayedPreviewSignature, isPreviewDisplayed }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, initialComposerValue }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -250,11 +229,6 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   // clears the standing preview. Auto-show is display-only — it NEVER applies/saves/activates/runs
   // (Apply stays an explicit click in the overlay). Dashboard (no builder callback) → no-op.
   const autoShownPreviewRef = useRef<string | null>(null);
-  // HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — the id of the latest assistant turn we ATTEMPTED to
-  // auto-show. State (not just the ref) so the rail can re-render and tell "attempted but the canvas
-  // still isn't showing it" (a real failure → actionable error line) apart from "not yet attempted"
-  // (transient → render nothing). There is no manual "Show on canvas" fallback.
-  const [autoShowAttemptedId, setAutoShowAttemptedId] = useState<string | null>(null);
   useEffect(() => {
     if (!onPreviewToCanvas) return;
     let latest: Extract<ChatMessage, { role: "assistant" }> | null = null;
@@ -271,7 +245,6 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
       isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: latest.plan });
     if (!meaningful) return;
     autoShownPreviewRef.current = latest.id;
-    setAutoShowAttemptedId(latest.id);
     onPreviewToCanvas(toCanvasPayload(latest));
   }, [messages, onPreviewToCanvas, getCurrentGraphShape]);
 
@@ -473,14 +446,6 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             );
           }
           const isLatest = m.id === latestAssistantId;
-          // HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — is a preview currently on the canvas? Authoritative
-          // signal is the builder's `isPreviewDisplayed` (`previewOverlay != null`); the derived display
-          // signature is a fallback for when the boolean isn't wired (dashboard/tests).
-          const previewOnCanvas =
-            isPreviewDisplayed === true ||
-            (m.preview != null &&
-              displayedPreviewSignature != null &&
-              draftPreviewSignature(m.preview) === displayedPreviewSignature);
           return (
             <div key={m.id} data-testid="workflow-guidance-message-assistant">
               {m.text.length > 0 && (
@@ -506,18 +471,10 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
               <GuidanceTemplateMatchSection matches={m.officialTemplateMatches ?? []} onPreview={preview.openPreview} />
               {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
               {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
-              {/* HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — an EDIT proposal (proposedDefinition) auto-shows
-                  on the canvas as a diff graph, with Apply/Discard in the top control bar. The rail is
-                  conversation/help only: NO "Show on canvas" button. It shows a lightweight humanized
-                  "Still needs" hint, and — only if auto-show was attempted but the canvas still isn't
-                  showing it — an actionable error line (not a button). */}
-              {isLatest && m.preview && m.proposedDefinition != null && (
-                <GuidanceEditPreviewHint
-                  preview={m.preview}
-                  isDisplayedOnCanvas={previewOnCanvas}
-                  autoShowFailed={autoShowAttemptedId === m.id && !previewOnCanvas}
-                />
-              )}
+              {/* HERMES-AGENT-RAIL-CALM — an EDIT proposal (proposedDefinition) auto-shows on the canvas
+                  as a diff graph (Apply/Discard in the top bar; setup surfaces on the canvas node / config
+                  panel / guided-setup card). The rail shows the conversational summary ONLY — no auto-show
+                  error, no orphaned "Still needs", no "Show on canvas". So nothing extra is rendered here. */}
               {/* HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH — new-workflow skeleton (not an edit): an
                   INFORMATIONAL "Draft preview" card. A valid skeleton auto-shows on the canvas; a
                   same-shape restatement intentionally does not (it would ghost duplicate nodes) and stays

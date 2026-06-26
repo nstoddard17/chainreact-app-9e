@@ -8,7 +8,6 @@ import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
-import { draftPreviewSignature } from "@/core/workflows/canvasPreviewEligibility";
 import { useRestoredDraftHandoff } from "./hooks/useRestoredDraftHandoff";
 import { RestoredDraftBanner } from "./panels/RestoredDraftBanner";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
@@ -635,14 +634,6 @@ export function WorkflowBuilder({
             {...(accountId ? { accountId } : {})}
             {...(guidanceEnabled !== undefined ? { guidanceEnabled } : {})}
             onShowPreview={handleShowPreview}
-            // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — tell the rail which preview is ALREADY on the canvas so
-            // it hides its redundant "Show on canvas" button for that one (Apply/Discard live in the
-            // overlay), and restores it as a re-show control after Discard / supersede. null when none.
-            displayedPreviewSignature={draftPreviewSignature(previewOverlay?.preview)}
-            // HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP — authoritative "a preview is on the canvas" signal
-            // (the SAME state that renders the diff + control bar). An edit's display signature can be
-            // null even while shown, so the rail uses THIS to suppress a redundant "Show on canvas".
-            isPreviewDisplayed={previewOverlay != null}
             // HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — guided setup card lives in the rail, tied to
             // the latest shown preview. PreviewConfig stays owned here (ephemeral, never dirty/saved).
             previewForSetup={previewOverlay?.preview ?? null}

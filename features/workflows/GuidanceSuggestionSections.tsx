@@ -120,68 +120,10 @@ export function GuidancePreviewSection({
   );
 }
 
-/**
- * Turn a raw schema field key into a friendly label for a setup hint ("to" → "To",
- * "channel_id" → "Channel Id"). A lightweight humanization used when a metadata label isn't available
- * at this layer (the guided-setup card uses real metadata labels). Never surfaces a raw key as-is.
+/*
+ * NOTE: there is no edit-preview rail "hint" component. A valid EDIT proposal auto-shows on the canvas
+ * (diff graph) and the top preview bar owns Apply/Discard; setup requirements surface on the canvas node
+ * ("Needs setup"), the right config panel, and the guided-setup card/footer. The rail shows ONLY the
+ * conversational assistant summary for an edit turn — no auto-show error, no orphaned "Still needs", no
+ * "Show on canvas" (HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH / -RAIL-CALM).
  */
-function humanizeFieldName(key: string): string {
-  return key
-    .replace(/[_-]+/g, " ")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .trim()
-    .split(/\s+/)
-    .map((w) => (w.length > 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
-    .join(" ");
-}
-
-/** Safe, actionable copy shown when a valid edit preview could not be auto-shown on the canvas. */
-export const PREVIEW_AUTOSHOW_FAILED_MESSAGE =
-  "I couldn't show that preview on the canvas. Ask React to try again.";
-
-/**
- * Lightweight rail treatment for an EDIT preview (HERMES-AGENT-RAIL-NO-MANUAL-CANVAS-PUSH).
- *
- * The canvas auto-shows a valid edit as a diff graph and the top preview bar owns Apply/Discard, so the
- * rail is conversation/help only — there is NO manual "Show on canvas" control (auto-show replaced it).
- * The rail renders, at most:
- *   - a lightweight, humanized "Still needs:" setup hint when fields are missing (so the user knows what
- *     to fill before Apply), and
- *   - an actionable ERROR line (not a button) ONLY when auto-show was attempted and the canvas still
- *     isn't showing the preview — a real failure, "Ask React to try again."
- * When the preview is displayed and nothing is missing, it renders nothing (the canvas + top bar own it).
- */
-export function GuidanceEditPreviewHint({
-  preview,
-  isDisplayedOnCanvas,
-  autoShowFailed = false,
-}: {
-  preview: DraftPreview;
-  /** True when a preview is currently on the canvas (the builder's `previewOverlay != null`). */
-  isDisplayedOnCanvas: boolean;
-  /** True when auto-show was attempted for this proposal but the canvas isn't showing it (a failure). */
-  autoShowFailed?: boolean;
-}) {
-  // Humanized still-missing field keys ("to" → "To"), deduped + order-preserving. Never raw schema keys.
-  const stillNeeds = Array.from(new Set(preview.nodes.flatMap((n) => n.missingInputs ?? []))).map(humanizeFieldName);
-  const showError = !isDisplayedOnCanvas && autoShowFailed;
-  if (stillNeeds.length === 0 && !showError) return null;
-
-  return (
-    <div data-testid="workflow-guidance-edit-hint" className="mt-2 space-y-2">
-      {showError && (
-        <p data-testid="workflow-guidance-preview-error" className="text-xs text-amber-700 dark:text-amber-400">
-          {PREVIEW_AUTOSHOW_FAILED_MESSAGE}
-        </p>
-      )}
-      {stillNeeds.length > 0 && (
-        <p
-          data-testid="workflow-guidance-preview-needs"
-          className="text-xs text-amber-700 dark:text-amber-400"
-        >
-          Still needs: {stillNeeds.join(", ")}
-        </p>
-      )}
-    </div>
-  );
-}

@@ -562,7 +562,7 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "first", source: "hermes-agent", workflowPlan: planFor("First"), previewDraft: previewFor("First") });
     const onPreviewToCanvas = jest.fn();
     render(
-      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} displayedPreviewSignature={null} />,
+      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational onPreviewToCanvas={onPreviewToCanvas} />,
     );
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "add slack");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
