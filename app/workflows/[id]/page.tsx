@@ -8,7 +8,6 @@ import { getActiveAccountId } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
 import { buildPreviewSetupFields } from "@/core/workflows/previewSetupFields";
-import { isHermesAgentEnabled } from "@/services/ai-guidance/gateway/gatewayConfig";
 import {
   listAllActionMetas,
   listAllTriggerMetas,
@@ -146,10 +145,13 @@ export default async function WorkflowDetailPage({ params }: Props) {
         actionProviders={actionProviders}
         requiredFieldsByType={requiredFieldsByType}
         setupFieldsByType={setupFieldsByType}
-        // HERMES-AGENT-GUIDANCE-UI-BUILDER — advisory "Build with me" entry, scoped to this
-        // workflow's owning account. Server-gated (default OFF); accountId is never client-supplied.
+        // HERMES-AGENT-GUIDANCE-UI-BUILDER — the React Agent rail is LIVE BY DEFAULT in the builder
+        // (no feature-flag gate). `accountId` is server-resolved, never client-supplied. The actual
+        // Hermes gateway call stays gated on gateway config server-side (route `getHermesAgentGatewayConfig()`);
+        // when the gateway is unavailable/unconfigured the rail still renders and shows a calm
+        // "temporarily unavailable" error in chat instead of disappearing.
         accountId={record.accountId}
-        guidanceEnabled={isHermesAgentEnabled()}
+        guidanceEnabled={true}
         {...(teamContext ? { teamContext } : {})}
       />
     </main>

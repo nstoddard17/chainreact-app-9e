@@ -163,7 +163,8 @@ Diff-aware preview + rail cleanup:
 
 ## H. Post-deploy manual smoke checklist
 
-Run after deploy (React Agent rail requires `HERMES_AGENT_ENABLED=true` + a resolved account; see §I):
+Run after deploy (the rail is live by default; the Hermes gateway call needs gateway config server-side
+— `HERMES_AGENT_ENABLED` + gateway URL/token — else the rail shows a calm in-chat unavailable error; see §I):
 
 1. Homepage prompt → `/start` hands off into the builder.
 2. Anonymous: a skeleton preview auto-shows on the canvas.
@@ -209,13 +210,19 @@ All commands run now on `v2-main` at the arc HEAD (`be882b0ae`) and observed gre
 **Not run this session:** the full Jest tree, `npm run build`, and `npm run lint` (full) — only the
 targeted arc suites above were run. **No migrations** were added by this arc (nothing to `db:push`).
 
-**Feature flag:** the builder React Agent rail is server-gated by `isHermesAgentEnabled()`
-(`HERMES_AGENT_ENABLED`, **default OFF**); when off (or no account resolved) the rail renders a safe
-"unavailable" note. Enabling it in production is a separate, deliberate step.
+**Feature flag (UPDATED 2026-06-26, REACT-AGENT-LIVE-BY-DEFAULT-1):** the builder React Agent rail is
+now **live by default** — the builder page (`app/workflows/[id]/page.tsx`) passes `guidanceEnabled={true}`
+unconditionally; the `isHermesAgentEnabled()` UI gate was removed. The rail renders whenever an account
+is resolved. The **actual Hermes gateway call remains gated server-side on gateway config**
+(`HERMES_AGENT_ENABLED` + `CHAINREACT_AI_GATEWAY_URL`/`_TOKEN`, via `getHermesAgentGatewayConfig()`):
+when the gateway is unconfigured/disabled the rail still renders and the chat shows a calm
+"temporarily unavailable" error (HTTP 503 → safe copy) rather than hiding behind a flag. There is no
+replacement UI flag.
 
 ## J. Recommended next tracks
 
-- Production enablement of `HERMES_AGENT_ENABLED` + a real post-deploy smoke (§H).
+- Ensure the Hermes gateway is configured in production (`HERMES_AGENT_ENABLED` + gateway URL/token) so
+  the now-live-by-default rail actually reaches the gateway; then a real post-deploy smoke (§H).
 - Durable anonymous-AI rate limiting (KV/Redis) to replace the best-effort signed-cookie limit.
 - Branch/route-label membership validation for edits that touch labeled edges.
 - Before / After / Diff toggle for large multi-node rewrites.

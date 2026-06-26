@@ -33,8 +33,9 @@ or large refactor were encountered.
 > **See also (2026-06-26):** the React Agent conversational edit-preview arc that landed after this
 > sweep is closed out in
 > [`ai/react-agent-workflow-builder-closeout.md`](./ai/react-agent-workflow-builder-closeout.md)
-> (auto-preview on canvas, diff graph, Apply/Discard, rail cleanup; rail gated by
-> `HERMES_AGENT_ENABLED`, default OFF; targeted suites green this session; unpushed).
+> (auto-preview on canvas, diff graph, Apply/Discard, rail cleanup). The builder rail is now **live by
+> default** (the `isHermesAgentEnabled()` UI gate was removed; the Hermes gateway call stays gated on
+> gateway config server-side). Targeted suites green this session.
 
 ---
 

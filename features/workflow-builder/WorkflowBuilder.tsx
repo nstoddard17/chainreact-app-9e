@@ -80,9 +80,11 @@ interface Props {
    */
   accountId?: string;
   /**
-   * HERMES-AGENT-GUIDANCE-UI-BUILDER — server-evaluated `isHermesAgentEnabled()` flag (default OFF).
-   * Gates the builder guidance entry so it never shows a dead box where Hermes is unconfigured.
-   * Optional so isolated builder tests keep passing (undefined → entry hidden).
+   * HERMES-AGENT-GUIDANCE-UI-BUILDER — whether the React Agent rail renders. The builder page now
+   * passes `true` unconditionally (React Agent is LIVE BY DEFAULT — no feature-flag gate); the actual
+   * Hermes gateway call stays gated on gateway config server-side, so an unconfigured environment shows
+   * a calm in-chat "unavailable" error rather than hiding the rail. Optional so isolated builder tests
+   * keep passing (undefined → rail shows its safe "unavailable" note).
    */
   guidanceEnabled?: boolean;
   /**
