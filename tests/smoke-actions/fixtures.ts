@@ -97,6 +97,7 @@ import onenoteListSections from "@/tests/fixtures/action-smoke/microsoft-onenote
 import onenoteCreatePage from "@/tests/fixtures/action-smoke/microsoft-onenote/create_page";
 import onenoteUpdatePage from "@/tests/fixtures/action-smoke/microsoft-onenote/update_page";
 import onenoteDeletePage from "@/tests/fixtures/action-smoke/microsoft-onenote/delete_page";
+import onenoteCopyPage from "@/tests/fixtures/action-smoke/microsoft-onenote/copy_page";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -313,6 +314,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   onenoteCreatePage,
   onenoteUpdatePage,
   onenoteDeletePage,
+  onenoteCopyPage,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

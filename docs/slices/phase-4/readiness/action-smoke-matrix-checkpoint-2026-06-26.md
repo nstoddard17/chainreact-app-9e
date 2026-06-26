@@ -303,3 +303,72 @@ Everything else MISSING is forbidden (sends/billing/sharing-link) or policy-excl
 No cert row added this turn (nothing safely runnable); no fixture authored (no
 small/safe MISSING candidate). Matrix unchanged at **125 LIVE_PASS / 21 not-run / 152
 missing**.
+
+## 12. SMOKE-WRITE-35 — `microsoft-onenote:copy_page` authored, LIVE CERT BLOCKED (2026-06-26)
+
+Built the async OneNote copy infrastructure and attempted a live cert. **Authored +
+offline-validated, but NOT certified** — the live attempt did not produce a clean pass.
+
+**Async monitor support added (host allow-list UNCHANGED):**
+- New smoke-only seam `microsoft-onenote:copy_monitor`
+  ([tests/smoke-actions/writeHarnessDeps/onenoteCopyMonitor.ts](../../../../tests/smoke-actions/writeHarnessDeps/onenoteCopyMonitor.ts)),
+  registered in the reader composer. It polls the OneNote Graph **operations** endpoint
+  (`graph.microsoft.com/v1.0/me/onenote/operations/{id}`) to terminal completion and
+  returns only the copied `{ pageId }`.
+- **No host allow-list widening:** the OneNote operation URL is on the exact Graph base
+  host, which `isTrustedGraphMonitorUrl` already trusts. The OneDrive `*.svc.ms` /
+  `*.sharepoint.com` suffixes are untouched.
+- **Key difference from the OneDrive monitor:** the OneNote operations endpoint is
+  **authenticated**, so the poll sends a bearer token via `refreshAndRetry` (vs
+  OneDrive's unauthenticated pre-signed monitor). Reuses the pure `pollAsyncCopyCompletion`
+  loop + budget unchanged.
+- Fixture [tests/fixtures/action-smoke/microsoft-onenote/copy_page.ts](../../../../tests/fixtures/action-smoke/microsoft-onenote/copy_page.ts):
+  setup `create_page` → execute `copy_page` (into the same smoke section) →
+  `completeAsync` poll → verify `get_page_content` → `cleanupEach delete_page` (source +
+  copy, hard delete). Offline gates green (391 unit smoke tests incl. 10 new poller tests,
+  fixtures-valid, parity; tsc clean on touched files; eslint 0).
+
+**Live command:**
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
+SMOKE_PROVIDER=microsoft-onenote SMOKE_MICROSOFT_ONENOTE_CONNECTED=1 npm run smoke:writes:live
+```
+
+**Live result — BLOCKED, NOT certified:**
+- `copy_page` → **VERIFY_FAILED**: execute SUCCEEDED but `completeAsync` reported *"async
+  execute returned no monitor URL to complete"* — the handler's `operationLocation` came
+  back **empty/null** for this run, so the operation poll had no URL. (The write harness
+  reads the persisted `step.output`, which preserves handler fields — OneDrive's
+  `monitorUrl` reads fine the same way — so this is a genuinely-null `operationLocation`,
+  not a harness-stripping artifact.) **Root cause not yet pinned** (per "don't guess"):
+  candidates are (a) Graph returned 202 without an `Operation-Location` header under the
+  current account state, or (b) copying a page into the **same** section it already lives
+  in behaves differently (the harness discovers only ONE smoke section, so same-section
+  copy is currently the only option).
+- **Concurrent env instability:** the pre-existing certified `microsoft-onenote:update_page`
+  and `delete_page` fixtures ALSO **FAILED** this run with Graph *"onenote page … not
+  found: The specified resource ID does not exist"* immediately after creating the page —
+  classic OneNote **create→read propagation lag**. The OneNote smoke account is currently
+  unreliable for create-then-act flows, which undermines any copy_page cert attempt right
+  now. (`create_page` alone PASSED.)
+
+**Leak disclosure:** `copy_page`'s execute (the Graph copy POST) succeeded, so a copied
+page was likely created server-side, but its id was never captured (null
+`operationLocation`) → it is **untracked** and may remain in the smoke/test section
+(marker-titled `crsmoke-…page`). The source page WAS cleaned (created 1 / cleaned 1). The
+untracked copy should be swept from the smoke section. **Do not re-run `copy_page` live
+until the `operationLocation` behavior is understood** — each failed run can leave one
+untracked copy.
+
+**Classification:** **env/provider blocker** (null `operationLocation` + OneNote
+create→read lag), NOT a harness or fixture-logic bug (offline-validated). **No cert row
+added.** Fixture stays **NOT_RUN**. Matrix: **125 LIVE_PASS / 22 not-run / 151 missing**
+(copy_page MISSING_FIXTURE → NOT_RUN; no LIVE_PASS change).
+
+**Next steps to unblock:** (1) instrument `pagesCopyToSection` to confirm whether Graph
+returns 202 + `Operation-Location` for the smoke copy (synchronous-vs-async + same-section
+question); (2) teach the live dev test to discover/create a SECOND smoke section so the
+copy targets a DIFFERENT section; (3) re-run when the OneNote smoke account is not lagging
+(create_page/update_page/delete_page all green again); then add the
+`LIVE_PASS_CLEANED` row.

@@ -1,0 +1,162 @@
+/**
+ * Write smoke harness deps — Microsoft OneNote async `copyToSection` operation poller.
+ *
+ * The production `copy_page` action wraps Graph
+ * `POST /me/onenote/pages/{id}/copyToSection`, which is **asynchronous**: Graph
+ * returns 202 + an `Operation-Location` header and does NOT include the new page id.
+ * The handler honestly returns `{ operationLocation, success:true }` (success = "Graph
+ * accepted", not "copy complete") and deliberately does NOT poll. The write-smoke
+ * harness, however, needs the COMPLETED copy's page id to verify it landed and to clean
+ * it up, so it polls the operation URL to terminal completion HERE — smoke-only,
+ * READ-ONLY, never through the engine, never in the production handler.
+ *
+ * Owns the (provider, action) pair `("microsoft-onenote", "copy_monitor")` — a
+ * SMOKE-ONLY pseudo-action invoked by the harness's `completeAsync` phase (NOT a
+ * registered, user-facing action). Returns null for anything else so the composer
+ * tries the next reader. (The OneDrive `copy_monitor` seam checks for its own provider
+ * and returns null for OneNote, so the shared action name never collides.)
+ *
+ * DIFFERENCE FROM THE ONEDRIVE COPY MONITOR (`copyMonitor.ts`):
+ *   - OneDrive's `/copy` monitor is a PRE-AUTHENTICATED operation-status URL on a
+ *     `*.svc.ms` / `*.sharepoint.com` host, polled with NO bearer token.
+ *   - OneNote's operation lives on the Graph API host itself
+ *     (`graph.microsoft.com/v1.0/me/onenote/operations/{id}`) and is an AUTHENTICATED
+ *     Graph endpoint, so this poll sends a bearer token via `refreshAndRetry` (the same
+ *     refresh-safe seam every other OneNote read-back uses). No host allow-list change
+ *     is needed: `isTrustedGraphMonitorUrl` already accepts the exact Graph base host.
+ *
+ * SAFETY:
+ *   - URL TRUST: only an operation URL on the configured Graph host is ever fetched
+ *     (`isTrustedGraphMonitorUrl`) — no arbitrary URL, even if the execute output were
+ *     tampered. A redirect that leaves the trusted host is rejected too.
+ *   - BOUNDED: capped attempts + total duration + capped backoff
+ *     (`DEFAULT_COPY_POLL_BUDGET`); the loop can never run unbounded.
+ *   - REFRESH-SAFE AUTH: the GET runs inside a `refreshAndRetry` apiCall lambda (per
+ *     the seam-refresh-guard invariant) so a 401 refreshes + retries once.
+ *   - SANITIZED OUTPUT: only `{ pageId }` (the copied OneNote page id) — never titles,
+ *     URLs, body content, or raw provider payloads.
+ */
+import { getActiveForExecution } from "@/repositories/integrations";
+import { refreshAndRetry, Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
+import { graphApiBase } from "@/integrations/_shared/microsoft/api/_base";
+import {
+  DEFAULT_COPY_POLL_BUDGET,
+  isTrustedGraphMonitorUrl,
+  monitorUrlHost,
+  pollAsyncCopyCompletion,
+  type AsyncOperationStatus,
+} from "../asyncCopyCompletion";
+import type { StepRunOutcome } from "../writeHarness";
+import type { SmokeReaderContext, SmokeReaderInput } from "./context";
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Pull a OneNote page id from an operation `resourceLocation` of the shape
+ * `.../onenote/pages/{id}` (terminal completion may surface the new page via
+ * `resourceLocation` rather than `resourceId`). Returns null when absent. Pure.
+ */
+export function extractPageIdFromResourceUrl(url: string): string | null {
+  const m = url.match(/\/pages\/([^/?#]+)/);
+  return m && m[1] ? decodeURIComponent(m[1]) : null;
+}
+
+/**
+ * Normalize a OneNote operation resource body into an `AsyncOperationStatus`. The Graph
+ * operation shape is `{ status, resourceId?, resourceLocation? }`; on terminal success
+ * `resourceId` is the new page id (fall back to parsing `resourceLocation`). Pure.
+ */
+export function normalizeOneNoteOperation(body: {
+  status?: unknown;
+  resourceId?: unknown;
+  resourceLocation?: unknown;
+}): AsyncOperationStatus {
+  if (typeof body.status !== "string") return { status: null, resourceId: null };
+  let resourceId = typeof body.resourceId === "string" ? body.resourceId : null;
+  if (!resourceId && typeof body.resourceLocation === "string") {
+    resourceId = extractPageIdFromResourceUrl(body.resourceLocation);
+  }
+  return { status: body.status, resourceId, percentageComplete: null };
+}
+
+/**
+ * One bounded, AUTHENTICATED read of the OneNote operation URL, normalized to an
+ * `AsyncOperationStatus`. Re-validates the FINAL response URL stays on the trusted
+ * Graph host (a redirect can never walk us off-host). Throws `Unauthorized401Error` on
+ * 401 (so `refreshAndRetry` refreshes + retries); other non-OK responses throw so the
+ * poller retries them as transient within the budget.
+ */
+async function fetchOneNoteOperation(
+  monitorUrl: string,
+  accessToken: string,
+): Promise<AsyncOperationStatus> {
+  const res = await fetch(monitorUrl, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 401) {
+    throw new Unauthorized401Error("OneNote operation poll returned HTTP 401");
+  }
+  if (!isTrustedGraphMonitorUrl(res.url || monitorUrl, graphApiBase())) {
+    throw new Error("OneNote operation poll redirected off the trusted Graph host");
+  }
+  if (!res.ok) {
+    throw new Error(`OneNote operation poll HTTP ${res.status}`);
+  }
+  const body = (await res.json()) as {
+    status?: unknown;
+    resourceId?: unknown;
+    resourceLocation?: unknown;
+  };
+  return normalizeOneNoteOperation(body);
+}
+
+/**
+ * Smoke read-back: `microsoft-onenote:copy_monitor` — poll the trusted Graph OneNote
+ * operation URL to terminal completion and return the COPIED page id. Returns null for
+ * any other (provider, action).
+ */
+export async function onenoteCopyMonitorSmokeReadBack(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome | null> {
+  if (input.provider !== "microsoft-onenote" || input.action !== "copy_monitor") return null;
+
+  const monitorUrl = input.config.monitorUrl;
+  if (typeof monitorUrl !== "string" || monitorUrl.length === 0) {
+    return { ok: false, output: null, reason: "onenote copy_monitor: missing operation URL" };
+  }
+  // Trust-gate BEFORE any fetch — never touch an arbitrary URL. The refused HOST (a
+  // public Microsoft domain, never a path/token/query) is surfaced for diagnosability.
+  if (!isTrustedGraphMonitorUrl(monitorUrl, graphApiBase())) {
+    return {
+      ok: false,
+      output: null,
+      reason: `onenote copy_monitor: refused untrusted operation URL (host: ${monitorUrlHost(monitorUrl)})`,
+    };
+  }
+
+  const integration = await getActiveForExecution(ctx.accountId, "microsoft-onenote", null, {
+    connectedByUserId: ctx.userId,
+  });
+  if (!integration) {
+    return { ok: false, output: null, reason: "microsoft-onenote not connected" };
+  }
+
+  const outcome = await pollAsyncCopyCompletion(DEFAULT_COPY_POLL_BUDGET, {
+    // Authenticated, refresh-safe per-attempt read (vs OneDrive's unauthenticated poll).
+    fetchStatus: () =>
+      refreshAndRetry({
+        accountId: ctx.accountId,
+        provider: "microsoft-onenote",
+        providerAccountId: integration.providerAccountId,
+        apiCall: (accessToken) => fetchOneNoteOperation(monitorUrl, accessToken),
+      }),
+    sleep,
+    now: () => Date.now(),
+  });
+  if (!outcome.ok) return { ok: false, output: null, reason: outcome.reason };
+
+  // Bounded + sanitized: ONLY the copied page id (for ledger capture + verify).
+  return { ok: true, output: { pageId: outcome.resourceId }, reason: null };
+}
