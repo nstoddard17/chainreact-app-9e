@@ -52,40 +52,28 @@ export function GuidancePlanSection({ plan }: { plan: WorkflowPlan }) {
 }
 
 /**
- * Non-applied "Draft preview" block.
+ * Non-applied "Draft preview" block for a NEW-workflow skeleton (not an edit).
  *
- * HERMES-AGENT-PREVIEW-DIFF-GRAPH — for an EDIT proposal (`isEdit`), the rail EXPLAINS the change in
- * plain language only: a "Proposed change:" line (the human summary) + an aggregated "Still needs:"
- * line. It does NOT repeat the canvas (no per-step provider:type list, no "Flow:" line) and exposes NO
- * internal operation counts / refs. The CANVAS visualizes the diff; the top control bar is the single
- * primary Apply. "Show on canvas" here is a SECONDARY re-show control (it applies/creates nothing). For
- * a new-workflow skeleton (not an edit) the step list still reads as the proposed build.
+ * Reads as the proposed build: a per-step provider:type list + a "Flow:" line, with an optional
+ * SECONDARY "Show on canvas" control (it applies/creates nothing). EDIT proposals are handled
+ * separately by {@link GuidanceEditPreviewHint} — for an edit the canvas diff graph is the visual home
+ * and the rail never duplicates a "Proposed change" card here. So this block has no edit mode.
  */
 export function GuidancePreviewSection({
   preview,
   plan,
   onPreviewToCanvas,
-  isEdit = false,
 }: {
   preview: DraftPreview;
   plan: WorkflowPlan | null;
   onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
-  /** HERMES-AGENT-PREVIEW-DIFF-GRAPH — render the human edit summary instead of the proposed-build step list. */
-  isEdit?: boolean;
 }) {
-  // Aggregate the still-missing field keys across the proposed nodes (deduped, order-preserving).
-  const stillNeeds = Array.from(
-    new Set(preview.nodes.flatMap((n) => n.missingInputs ?? [])),
-  );
-
   return (
     <div
       data-testid="workflow-guidance-preview"
       className="mt-4 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950"
     >
-      <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-        {isEdit ? "Proposed change" : "Draft preview"}
-      </h3>
+      <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Draft preview</h3>
       <p
         data-testid="workflow-guidance-preview-notice"
         className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400"
@@ -93,55 +81,38 @@ export function GuidancePreviewSection({
         {preview.notice}
       </p>
 
-      {isEdit ? (
-        <>
-          {preview.summary.length > 0 && (
-            <p data-testid="workflow-guidance-preview-summary" className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">
-              {preview.summary}
-            </p>
-          )}
-          {stillNeeds.length > 0 && (
-            <p data-testid="workflow-guidance-preview-needs" className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-              Still needs: {stillNeeds.join(", ")}
-            </p>
-          )}
-        </>
-      ) : (
-        <>
-          {preview.title.length > 0 && (
-            <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">{preview.title}</p>
-          )}
-          {preview.summary.length > 0 && (
-            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{preview.summary}</p>
-          )}
-          <ol className="mt-2 space-y-1.5">
-            {preview.nodes.map((node, i) => (
-              <li key={node.previewId} className="text-sm text-neutral-700 dark:text-neutral-300">
-                <span className="font-medium">{i + 1}.</span>{" "}
-                <span className="rounded bg-neutral-200 px-1 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                  {node.role}
-                </span>{" "}
-                <code className="text-xs">{node.label}</code>
-                {node.purpose.length > 0 && (
-                  <span className="text-neutral-600 dark:text-neutral-400"> — {node.purpose}</span>
-                )}
-                {node.missingInputs && node.missingInputs.length > 0 && (
-                  <span className="block pl-5 text-xs text-amber-700 dark:text-amber-400">
-                    Still needs: {node.missingInputs.join(", ")}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ol>
-          {preview.edges.length > 0 && (
-            <p
-              data-testid="workflow-guidance-preview-flow"
-              className="mt-2 text-xs text-neutral-500 dark:text-neutral-400"
-            >
-              Flow: {preview.nodes.map((n) => n.label).join(" → ")}
-            </p>
-          )}
-        </>
+      {preview.title.length > 0 && (
+        <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">{preview.title}</p>
+      )}
+      {preview.summary.length > 0 && (
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{preview.summary}</p>
+      )}
+      <ol className="mt-2 space-y-1.5">
+        {preview.nodes.map((node, i) => (
+          <li key={node.previewId} className="text-sm text-neutral-700 dark:text-neutral-300">
+            <span className="font-medium">{i + 1}.</span>{" "}
+            <span className="rounded bg-neutral-200 px-1 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+              {node.role}
+            </span>{" "}
+            <code className="text-xs">{node.label}</code>
+            {node.purpose.length > 0 && (
+              <span className="text-neutral-600 dark:text-neutral-400"> — {node.purpose}</span>
+            )}
+            {node.missingInputs && node.missingInputs.length > 0 && (
+              <span className="block pl-5 text-xs text-amber-700 dark:text-amber-400">
+                Still needs: {node.missingInputs.join(", ")}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      {preview.edges.length > 0 && (
+        <p
+          data-testid="workflow-guidance-preview-flow"
+          className="mt-2 text-xs text-neutral-500 dark:text-neutral-400"
+        >
+          Flow: {preview.nodes.map((n) => n.label).join(" → ")}
+        </p>
       )}
 
       {onPreviewToCanvas && plan && (
@@ -152,6 +123,67 @@ export function GuidancePreviewSection({
           onClick={() => onPreviewToCanvas({ plan, preview })}
           data-testid="workflow-guidance-show-on-canvas"
           className="mt-3"
+        >
+          Show on canvas
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Lightweight rail treatment for an EDIT preview (HERMES-AGENT-RAIL-EDIT-PREVIEW-NO-CARD).
+ *
+ * The canvas diff graph is the visual home for an edit preview and the top control bar owns Apply /
+ * Discard, so the rail must NOT duplicate the old bordered "Proposed change" card or its primary
+ * "Show on canvas" control. Two states:
+ *
+ *   - Preview already displayed on the canvas (`isDisplayedOnCanvas`): render NOTHING. The rail shows
+ *     the conversational summary above ONLY; setup details live in the canvas/top bar and (when wired)
+ *     the guided-setup card footer.
+ *   - Preview NOT currently shown (auto-show failed, discarded, or superseded): render a lightweight
+ *     setup-hint line + a SECONDARY "Show on canvas" recovery affordance — no bordered card, no primary
+ *     Apply. Re-show requires a re-show callback + a validated plan; absent (e.g. dashboard) → no button.
+ */
+export function GuidanceEditPreviewHint({
+  preview,
+  plan,
+  onShowOnCanvas,
+  isDisplayedOnCanvas,
+}: {
+  preview: DraftPreview;
+  plan: WorkflowPlan | null;
+  /** Secondary re-show callback; absent → no canvas (dashboard) or re-show not wired. */
+  onShowOnCanvas?: () => void;
+  /** True when THIS preview is the one currently displayed on the canvas overlay. */
+  isDisplayedOnCanvas: boolean;
+}) {
+  // Active on canvas → conversation summary only. No card, no hint, no primary control in the rail.
+  if (isDisplayedOnCanvas) return null;
+
+  // Recovery: the edit preview isn't on the canvas right now. Aggregate the still-missing field keys
+  // (deduped, order-preserving) for a lightweight hint, and offer a secondary re-show if still possible.
+  const stillNeeds = Array.from(new Set(preview.nodes.flatMap((n) => n.missingInputs ?? [])));
+  const canReshow = onShowOnCanvas != null && plan != null;
+  if (stillNeeds.length === 0 && !canReshow) return null;
+
+  return (
+    <div data-testid="workflow-guidance-edit-recovery" className="mt-2 space-y-2">
+      {stillNeeds.length > 0 && (
+        <p
+          data-testid="workflow-guidance-preview-needs"
+          className="text-xs text-amber-700 dark:text-amber-400"
+        >
+          Still needs: {stillNeeds.join(", ")}
+        </p>
+      )}
+      {canReshow && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onShowOnCanvas}
+          data-testid="workflow-guidance-show-on-canvas"
         >
           Show on canvas
         </Button>

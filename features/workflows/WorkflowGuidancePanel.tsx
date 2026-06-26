@@ -38,7 +38,7 @@ import {
   submitOnEnter,
 } from "./guidancePanelShared";
 import { SingleShotGuidancePanel } from "./SingleShotGuidancePanel";
-import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
+import { GuidancePlanSection, GuidancePreviewSection, GuidanceEditPreviewHint } from "./GuidanceSuggestionSections";
 import { GuidanceTemplateMatchSection } from "./GuidanceTemplateMatchSection";
 import { GuidanceTemplatePreviewDialog } from "./GuidanceTemplatePreviewDialog";
 import { useTemplatePreviewFlow } from "./useTemplatePreviewFlow";
@@ -466,6 +466,13 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             );
           }
           const isLatest = m.id === latestAssistantId;
+          // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — is THIS turn's preview the one already displayed on the
+          // canvas overlay? Drives both the edit-hint "conversation only" state and the skeleton card's
+          // redundant-"Show on canvas" suppression, so it's computed once here.
+          const previewOnCanvas =
+            m.preview != null &&
+            displayedPreviewSignature != null &&
+            draftPreviewSignature(m.preview) === displayedPreviewSignature;
           return (
             <div key={m.id} data-testid="workflow-guidance-message-assistant">
               {m.text.length > 0 && (
@@ -491,27 +498,37 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
               <GuidanceTemplateMatchSection matches={m.officialTemplateMatches ?? []} onPreview={preview.openPreview} />
               {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
               {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
-              {/* BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — offer "Show on canvas" ONLY when the plan
-                  meaningfully adds/changes structure vs the live graph. A same-shape restatement keeps
-                  the suggestion in the rail instead of ghosting duplicate nodes over existing ones. No
-                  graph-shape getter (dashboard/tests) → prior behavior. */}
-              {isLatest && m.preview && (
+              {/* HERMES-AGENT-RAIL-EDIT-PREVIEW-NO-CARD — an EDIT proposal (proposedDefinition) renders
+                  on the canvas as a diff graph, with Apply/Discard in the top control bar. The rail does
+                  NOT duplicate it with a "Proposed change" card or a primary "Show on canvas": while the
+                  preview is displayed (signature matches) the rail is conversation-only; once it's gone
+                  (discarded / superseded / auto-show failed) a lightweight setup-hint + a SECONDARY
+                  re-show recovers it. */}
+              {isLatest && m.preview && m.proposedDefinition != null && (
+                <GuidanceEditPreviewHint
+                  preview={m.preview}
+                  plan={m.plan}
+                  isDisplayedOnCanvas={previewOnCanvas}
+                  {...(onPreviewToCanvas && m.plan
+                    ? { onShowOnCanvas: () => onPreviewToCanvas(toCanvasPayload(m)) }
+                    : {})}
+                />
+              )}
+              {/* BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — new-workflow skeleton (not an edit): the full
+                  "Draft preview" card. Offer "Show on canvas" ONLY when the plan meaningfully
+                  adds/changes structure vs the live graph (a same-shape restatement keeps the suggestion
+                  in the rail instead of ghosting duplicate nodes), and hide it once the preview is the one
+                  already displayed on the canvas. No graph-shape getter (dashboard/tests) → prior behavior. */}
+              {isLatest && m.preview && m.proposedDefinition == null && (
                 <GuidancePreviewSection
                   preview={m.preview}
                   plan={m.plan}
-                  isEdit={m.proposedDefinition != null}
                   {...(onPreviewToCanvas &&
-                  // HERMES-AGENT-WORKFLOW-EDITOR — an EDIT proposal is always offerable (it may shrink the
-                  // graph); new-workflow skeletons keep the same-shape meaningful guard.
-                  (m.proposedDefinition != null ||
-                    getCurrentGraphShape == null ||
+                  (getCurrentGraphShape == null ||
                     isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: m.plan })) &&
-                  // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — hide the redundant rail "Show on canvas" button when
-                  // THIS preview is already the one displayed on the canvas (Apply/Discard live in the
-                  // overlay). It returns as a manual re-show/recovery control once the preview is discarded
-                  // or superseded (signatures differ), or when no preview is currently shown.
-                  !(displayedPreviewSignature != null &&
-                    draftPreviewSignature(m.preview) === displayedPreviewSignature)
+                  // Hide the redundant rail "Show on canvas" when THIS preview is already on the canvas
+                  // (Apply/Discard live in the overlay); it returns as a re-show once discarded/superseded.
+                  !previewOnCanvas
                     ? { onPreviewToCanvas: () => onPreviewToCanvas(toCanvasPayload(m)) }
                     : {})}
                 />
