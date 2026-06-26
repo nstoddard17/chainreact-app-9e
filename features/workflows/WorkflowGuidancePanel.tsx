@@ -39,6 +39,7 @@ import {
 } from "./guidancePanelShared";
 import { SingleShotGuidancePanel } from "./SingleShotGuidancePanel";
 import { GuidancePlanSection, GuidancePreviewSection, GuidanceEditPreviewHint } from "./GuidanceSuggestionSections";
+import { IntroAssistantMessage, UserMessageBubble, ReactSpeakerLabel } from "./GuidanceMessages";
 import { GuidanceTemplateMatchSection } from "./GuidanceTemplateMatchSection";
 import { GuidanceTemplatePreviewDialog } from "./GuidanceTemplatePreviewDialog";
 import { useTemplatePreviewFlow } from "./useTemplatePreviewFlow";
@@ -395,24 +396,14 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
       aria-label="Build with me"
       className="flex h-full min-h-0 flex-col rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
     >
-      <div>
-        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Build with me</h2>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          Describe what you want to automate. I can suggest steps, show a preview on the canvas, and
-          add them to your draft when you choose Apply. You stay in control before saving or
-          activating.
-        </p>
-      </div>
-
-      <div ref={messagesRef} data-testid="workflow-guidance-messages" className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto">
+      <div ref={messagesRef} data-testid="workflow-guidance-messages" className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+        {/* HERMES-AGENT-RAIL-CHAT-POLISH — the intro/help copy is the first React message INSIDE the
+            scroll container (not a sticky header), so it scrolls away with the conversation. It's
+            display-only: never part of `messages`, so it never enters recentTurns or latest-turn logic. */}
+        <IntroAssistantMessage />
         {messages.map((m) => {
           if (m.role === "user") {
-            return (
-              <div key={m.id} data-testid="workflow-guidance-message-user" className="text-sm">
-                <span className="font-medium text-neutral-900 dark:text-neutral-100">You: </span>
-                <span className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{m.text}</span>
-              </div>
-            );
+            return <UserMessageBubble key={m.id} text={m.text} />;
           }
           if (m.role === "error") {
             return (
@@ -434,8 +425,8 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             return (
               <div key={m.id} data-testid="workflow-guidance-message-review">
                 <div data-testid="workflow-guidance-result">
-                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">React: </span>
-                  <span className="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
+                  <ReactSpeakerLabel />
+                  <span className="whitespace-pre-wrap text-sm text-[var(--builder-text-2)]">
                     {m.text}
                   </span>
                 </div>
@@ -477,8 +468,8 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             <div key={m.id} data-testid="workflow-guidance-message-assistant">
               {m.text.length > 0 && (
                 <div data-testid="workflow-guidance-result">
-                  <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">React: </span>
-                  <span className="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
+                  <ReactSpeakerLabel />
+                  <span className="whitespace-pre-wrap text-sm text-[var(--builder-text-2)]">
                     {m.text}
                   </span>
                 </div>

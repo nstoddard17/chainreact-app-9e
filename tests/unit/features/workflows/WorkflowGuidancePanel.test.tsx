@@ -299,6 +299,77 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getByTestId("workflow-guidance-submit")).toHaveTextContent("Send");
   });
 
+  /**
+   * HERMES-AGENT-RAIL-CHAT-POLISH — the rail reads like a chat: the intro/help copy is the first React
+   * message INSIDE the scrollable transcript (no sticky header), the user speaks in a distinct bubble,
+   * and speaker styling is clear. No new chat framework — small presentational components only.
+   */
+  describe("chat UI polish", () => {
+    it("renders the intro/help copy as the first React message INSIDE the scroll container (not a sticky header)", () => {
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      const intro = screen.getByTestId("workflow-guidance-intro");
+      // The intro reads as a React message…
+      expect(intro).toHaveTextContent(/Describe what you want to automate/i);
+      expect(intro.textContent ?? "").toContain("React:");
+      // …and it lives inside the scrollable transcript with the rest of the messages (not a header block).
+      const transcript = screen.getByTestId("workflow-guidance-messages");
+      expect(transcript).toContainElement(intro);
+      // It is NOT a heading/sticky top block.
+      expect(screen.queryByRole("heading", { name: "Build with me" })).not.toBeInTheDocument();
+      // The intro is display-only — it is not a real assistant turn (no result testid, no preview).
+      expect(screen.queryByTestId("workflow-guidance-result")).not.toBeInTheDocument();
+    });
+
+    it("renders the intro alongside chat messages in the same scroll container as the conversation grows", async () => {
+      const user = userEvent.setup();
+      mockRequest.mockResolvedValue({ ok: true, guidanceText: "Sure — what should it do?", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "automate my leads{Enter}");
+      await screen.findByText("Sure — what should it do?");
+      const transcript = screen.getByTestId("workflow-guidance-messages");
+      // The intro, the user bubble, and the reply all share the one scroll container.
+      expect(transcript).toContainElement(screen.getByTestId("workflow-guidance-intro"));
+      expect(transcript).toContainElement(screen.getByTestId("workflow-guidance-message-user"));
+      expect(transcript).toContainElement(screen.getByTestId("workflow-guidance-result"));
+    });
+
+    it("renders user messages as a distinct bubble (not just a label) and wraps long / multiline text", async () => {
+      const user = userEvent.setup();
+      mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      const multiline = "line one is fairly long and should wrap cleanly at narrow rail widths{Shift>}{Enter}{/Shift}line two";
+      await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), multiline);
+      await user.click(screen.getByTestId("workflow-guidance-submit"));
+
+      const userMsg = await screen.findByTestId("workflow-guidance-message-user");
+      // The bubble carries the message text with wrapping classes (multiline preserved + long text wraps).
+      const bubble = userMsg.querySelector(".rounded-2xl");
+      expect(bubble).not.toBeNull();
+      expect(bubble!.className).toMatch(/whitespace-pre-wrap/);
+      expect(bubble!.className).toMatch(/break-words/);
+      expect(userMsg).toHaveTextContent("line one is fairly long");
+      expect(userMsg).toHaveTextContent("line two");
+      // The bubble uses a tokenized background (theme-driven), not a hardcoded hex.
+      expect(bubble!.className).toContain("bg-[var(--builder-accent-soft)]");
+      expect(bubble!.className).not.toMatch(/#[0-9a-f]{3,6}/i);
+    });
+
+    it("styles the React and You speaker labels with company accent tokens (light/dark via theme)", async () => {
+      const user = userEvent.setup();
+      mockRequest.mockResolvedValue({ ok: true, guidanceText: "On it.", source: "hermes-agent", workflowPlan: null, previewDraft: null });
+      render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
+      await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "do a thing{Enter}");
+      await screen.findByText("On it.");
+      // "React:" label uses the accent-strong token; "You" label uses the accent token — distinct, tokenized.
+      const reactLabel = screen.getAllByText("React:")[0]!;
+      expect(reactLabel.className).toContain("text-[var(--builder-accent-strong)]");
+      const youLabel = screen.getByText("You");
+      expect(youLabel.className).toContain("text-[var(--builder-accent)]");
+      // Distinct styling — the two speaker labels are not the same token.
+      expect(reactLabel.className).not.toBe(youLabel.className);
+    });
+  });
+
   // HERMES-AGENT-RAIL-PRODUCT-LABEL — the assistant speaker is the product name "React:", never the
   // internal runtime/provider name "Hermes". No internal name leaks into the chat transcript.
   it("labels assistant turns 'React:' and never exposes the internal 'Hermes' name", async () => {
@@ -307,7 +378,8 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "remind the team{Enter}");
     await screen.findByText("Which Slack channel should the reminder go to?");
-    expect(screen.getByText("React:")).toBeInTheDocument();
+    // "React:" labels appear (the intro message + the reply turn); never the internal "Hermes:" name.
+    expect(screen.getAllByText("React:").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Hermes:")).not.toBeInTheDocument();
     // Defense in depth: the internal provider name never appears anywhere in the transcript.
     expect(screen.getByTestId("workflow-guidance-messages").textContent ?? "").not.toMatch(/hermes/i);
