@@ -63,6 +63,26 @@ open.
   warning/cascade unchanged), plus safety notes (no real credentials, smoke connection
   only, no send/broadcast actions, ids in local notes only).
 
+### 1d. "Review reconnects" scroll-into-view polish (`9d0bd9f88`)
+
+**Marker:** `CS-APPS-RECOVERY-REVIEW-SCROLL`. **Files:**
+[features/apps/AppCard.tsx](../../../../features/apps/AppCard.tsx) +
+[features/apps/useReviewFocus.ts](../../../../features/apps/useReviewFocus.ts) (new) + tests.
+
+- **Before:** the closeout flagged one polish gap (CS-2 §9): on a card with multiple
+  reconnect-needed rows, **"Review reconnects"** expanded the card but did not guide the
+  user to the flagged rows — on a long account list they could still be below the fold.
+- **After:** after expanding, the **first reconnect-needed row** is scrolled into view
+  and focused. The target is an accessible `tabIndex=-1` row with an `aria-label`
+  (*"<account> needs reconnecting"*) so assistive tech announces why focus moved. Focus
+  lands on the **first flagged** row, skipping healthy rows above it.
+- **Preserved:** the direct one-row **Reconnect** (`reconnect-one`) still targets the
+  exact row and never triggers the scroll/focus; a plain **chevron** expand never steals
+  focus; blocked-only cards still show the warning with no dead action; healthy cards
+  unchanged. The scroll/focus lives in `useReviewFocus` (extraction keeps `AppCard`
+  under the `max-lines` cap). **No** backend / DTO / OAuth / disconnect / cascade /
+  notification change, no feature flag.
+
 ---
 
 ## 2. Builder drawer close UX (`03c2a46cf`)
@@ -127,6 +147,7 @@ open.
 | `056521a00` | docs(apps): connected-apps recovery manual QA checklist |
 | `5a5c1107d` / `79f80d51b` | docs: UX-quality session closeout (roll-up) + relocate under `session-closeouts/` |
 | `d8df4fdb5` | fix(builder): announce blocked go-live reason to assistive tech (BUILDER-READINESS-A11Y) |
+| `9d0bd9f88` | feat(apps): guide user to flagged rows after Review reconnects (CS-APPS-RECOVERY-REVIEW-SCROLL) |
 
 ---
 
@@ -149,6 +170,7 @@ open.
 - **Connected Apps live recovery QA is pending** — the deferred live loop is now
   documented (§1c) but has not been run as a live smoke; it needs a tester with a
   smoke-owned connection.
+- ~~"Review reconnects" scroll-into-view~~ — **resolved** in §1d (`9d0bd9f88`).
 - **Notification recipient = connector** (`connected_by_user_id`); when null, the notify
   is skipped with no owner/admin escalation (inherited limitation, not built here).
 - **Builder close fix verified by unit/component tests**, not a live visual pass.
@@ -167,6 +189,10 @@ open.
   (4 new); `…/layout/BuilderHeader.test.tsx` → **33/33 pass** (mounts LifecycleActions).
   eslint on touched files → **0**. `npx tsc --noEmit` → **exit 0**. `npm run lint:structure`
   → **OK**.
+- Review-scroll polish (`9d0bd9f88`): `…/features/apps/AppCard.test.tsx` → **40/40 pass**
+  (3 new); broader `…/features/apps` + `…/app/apps` → **123 tests / 11 suites pass**.
+  eslint on `AppCard.tsx` + `useReviewFocus.ts` → **0** (cleared the new max-lines warning
+  via the hook extraction). `npx tsc --noEmit` → **exit 0**. `npm run lint:structure` → **OK**.
 - QA checklist + this doc: docs-only; `npm run lint:structure` → **OK**;
   `npx tsc --noEmit` → **exit 0** (re-confirmed repo builds clean).
 - Connected Apps recovery arc: see its closeout §8 (36 suites / 439 tests + 3 suites /
