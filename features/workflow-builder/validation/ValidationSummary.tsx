@@ -8,6 +8,12 @@ import {
   collectBuilderValidationIssues,
   type BuilderValidationIssue,
 } from "./collectBuilderValidationIssues";
+import {
+  categorizeValidationIssue,
+  validationCategoryLabel,
+  VALIDATION_CATEGORY_ORDER,
+  type ValidationIssueCategory,
+} from "./validationIssueCategory";
 
 interface Props {
   /**
@@ -42,8 +48,11 @@ interface Props {
  *
  * Renders the list of `collectBuilderValidationIssues` against the
  * current `useGraphSlice` pending state. Shows a "Ready" state when
- * there are no issues, or a grouped list of error / warning rows when
- * there are. Issue rows that carry a `nodeId` are clickable and open
+ * there are no issues, or the issues grouped by user-meaningful category
+ * ("Needs your input" / "Workflow setup" / "Check your data") when there
+ * are (Slice 4.BUILDER-VALIDATION-CATEGORIES — presentational grouping
+ * only; severity + blocking semantics are unchanged). Issue rows that
+ * carry a `nodeId` are clickable and open
  * the inspector for that node via `configSlice.openNode` — the
  * existing transition-ref machinery in `WorkflowBuilder` then flips
  * the right drawer from `validation` to `inspector`.
@@ -72,8 +81,14 @@ export function ValidationSummary({
     requiredFieldsByType,
   });
 
-  const errors = issues.filter((i) => i.severity === "error");
-  const warnings = issues.filter((i) => i.severity === "warning");
+  // Group by user-meaningful category (Slice 4.BUILDER-VALIDATION-CATEGORIES).
+  // Presentational only — severity/blocking semantics are unchanged; each row
+  // keeps its error/warning styling. "Needs your input" leads so a user who just
+  // created a workflow from a template sees the required setup fields first.
+  const groups = VALIDATION_CATEGORY_ORDER.map((category) => ({
+    category,
+    issues: issues.filter((i) => categorizeValidationIssue(i.code) === category),
+  })).filter((g) => g.issues.length > 0);
 
   if (issues.length === 0) {
     return (
@@ -109,52 +124,45 @@ export function ValidationSummary({
       data-state="has-issues"
       className="flex flex-col gap-3 text-sm"
     >
-      {errors.length > 0 && (
+      {groups.map((group) => (
         <IssueGroup
-          severity="error"
-          label={`${errors.length} issue${errors.length > 1 ? "s" : ""}`}
-          issues={errors}
+          key={group.category}
+          category={group.category}
+          issues={group.issues}
           pendingNodes={pendingNodes}
           onOpen={handleOpen}
           onChooseTrigger={onChooseTrigger}
         />
-      )}
-      {warnings.length > 0 && (
-        <IssueGroup
-          severity="warning"
-          label={`${warnings.length} warning${warnings.length > 1 ? "s" : ""}`}
-          issues={warnings}
-          pendingNodes={pendingNodes}
-          onOpen={handleOpen}
-          onChooseTrigger={onChooseTrigger}
-        />
-      )}
+      ))}
     </div>
   );
 }
 
 function IssueGroup({
-  severity,
-  label,
+  category,
   issues,
   pendingNodes,
   onOpen,
   onChooseTrigger,
 }: {
-  severity: "error" | "warning";
-  label: string;
+  category: ValidationIssueCategory;
   issues: readonly BuilderValidationIssue[];
   pendingNodes: readonly WorkflowNode[];
   onOpen: (issue: BuilderValidationIssue) => void;
   onChooseTrigger?: () => void;
 }) {
-  const headingClass =
-    severity === "error"
-      ? "text-destructive"
-      : "text-amber-700 dark:text-amber-300";
+  // Heading color follows the group's actual severity (all-warning → amber, else
+  // destructive) so styling stays driven by severity, not hard-coded per category.
+  const hasError = issues.some((i) => i.severity === "error");
+  const headingClass = hasError
+    ? "text-destructive"
+    : "text-amber-700 dark:text-amber-300";
+  const label = `${validationCategoryLabel(category)} · ${issues.length}`;
   return (
     <section
-      data-testid={`validation-summary-${severity}-group`}
+      data-testid="validation-summary-group"
+      data-category={category}
+      data-severity={hasError ? "error" : "warning"}
       className="flex flex-col gap-2"
     >
       <h3 className={`text-xs font-semibold uppercase tracking-wide ${headingClass}`}>

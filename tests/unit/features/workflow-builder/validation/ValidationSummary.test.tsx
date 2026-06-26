@@ -48,29 +48,30 @@ describe("ValidationSummary — ready state", () => {
 });
 
 describe("ValidationSummary — has-issues state", () => {
-  it("renders a no_trigger issue when the workflow has no trigger", () => {
+  it("renders a no_trigger issue under the 'Workflow setup' category", () => {
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
     render(<ValidationSummary />);
     const summary = screen.getByTestId("validation-summary");
     expect(summary.getAttribute("data-state")).toBe("has-issues");
     expect(screen.getByText(/add a trigger/i)).toBeInTheDocument();
-    expect(
-      screen.getByTestId("validation-summary-error-group"),
-    ).toBeInTheDocument();
+    // Slice 4.BUILDER-VALIDATION-CATEGORIES — no_trigger is a structural problem.
+    const group = screen.getByTestId("validation-summary-group");
+    expect(group.getAttribute("data-category")).toBe("workflow_setup");
+    expect(screen.getByText(/^Workflow setup · 1$/)).toBeInTheDocument();
   });
 
-  it("groups errors under an 'X issues' header (plural)", () => {
+  it("groups blank/unconfigured nodes under 'Needs your input' with a count", () => {
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
-    // Two unconfigured nodes (trigger + action) → 2 errors.
+    // Two unconfigured nodes (trigger + action) → 2 'needs your input' issues.
     act(() => {
       useGraphSlice.getState().addTrigger({ provider: "slack" });
       useGraphSlice.getState().addAction({ provider: "slack" });
     });
     render(<ValidationSummary />);
-    expect(
-      screen.getByTestId("validation-summary-error-group"),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/^2 issues$/i)).toBeInTheDocument();
+    const group = screen.getByTestId("validation-summary-group");
+    expect(group.getAttribute("data-category")).toBe("needs_input");
+    expect(group.getAttribute("data-severity")).toBe("error");
+    expect(screen.getByText(/^Needs your input · 2$/)).toBeInTheDocument();
   });
 
   it("renders a friendly node label on each row (never the raw provider:type key)", () => {
@@ -221,5 +222,69 @@ describe("ValidationSummary — provider-agnostic", () => {
       screen.getAllByTestId("validation-summary-issue").length,
     ).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/^Trigger$/).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("ValidationSummary — post-template setup readiness (categories)", () => {
+  // Mirrors what a complex official template lands as: a connected trigger →
+  // action chain where a required field is either prewired with a variable
+  // ({{trigger.x}}) or still blank (an account-resource the user must choose).
+  const REQUIRED = {
+    "slack:send_channel_message": {
+      displayName: "Send Channel Message",
+      requiredFields: [{ name: "channel", label: "Channel" }],
+    },
+  } as const;
+
+  function hydrateChain(actionConfig: Record<string, unknown>): void {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "message", config: {}, position: { x: 0, y: 0 } },
+        { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: actionConfig, position: { x: 0, y: 120 } },
+      ],
+      edges: [{ id: "e1", from: "t1", to: "a1" }],
+    });
+  }
+
+  it("treats a variable-prewired required field ({{trigger.x}}) as complete — Ready to run", () => {
+    hydrateChain({ channel: "{{trigger.channel}}" });
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    // A variable-derived value is non-empty → NOT a missing required field, so the
+    // workflow reads as ready (no "Needs your input" group, no setup blocker).
+    expect(screen.getByTestId("validation-summary").getAttribute("data-state")).toBe("ready");
+    expect(screen.queryByTestId("validation-summary-group")).toBeNull();
+  });
+
+  it("keeps a blank account-resource field a setup blocker under 'Needs your input'", () => {
+    hydrateChain({}); // channel left blank — the post-template gap
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    const group = screen.getByTestId("validation-summary-group");
+    expect(group.getAttribute("data-category")).toBe("needs_input");
+    const issue = screen
+      .getAllByTestId("validation-summary-issue")
+      .find((el) => el.getAttribute("data-code") === "missing_required_field");
+    expect(issue).toBeDefined();
+    expect(issue!.getAttribute("data-node-id")).toBe("a1");
+  });
+
+  it("does NOT show a 'ready to run' message while a required field is blank", () => {
+    hydrateChain({});
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    expect(screen.getByTestId("validation-summary").getAttribute("data-state")).toBe("has-issues");
+    expect(screen.queryByText(/ready to run/i)).toBeNull();
+  });
+
+  it("surfaces a broken variable reference as a warning under 'Check your data'", () => {
+    // Required field is filled (with a {{...}}), so it is NOT a missing-field error;
+    // but it points at a step that does not exist → a non-blocking data warning.
+    hydrateChain({ channel: "{{ghost.value}}" });
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    const group = screen.getByTestId("validation-summary-group");
+    expect(group.getAttribute("data-category")).toBe("data_reference");
+    expect(group.getAttribute("data-severity")).toBe("warning");
+    const issue = screen
+      .getAllByTestId("validation-summary-issue")
+      .find((el) => el.getAttribute("data-code") === "broken_variable_reference");
+    expect(issue).toBeDefined();
   });
 });
