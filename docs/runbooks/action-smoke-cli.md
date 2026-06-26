@@ -1056,6 +1056,26 @@ live-verified end to end (create one `crsmoke-`marked resource -> confirm the
 marker via an INDEPENDENT read-back -> run cleanup). The matrix below is the
 running certification record; rows are added as each provider batch lands.
 
+### Write-smoke certification checkpoint (SMOKE-WRITE-33 / arc boundary, 2026-06-25)
+
+Authoritative source: `npm run chainreact -- smoke actions --cert` (exit 0 = no stale
+certs), cross-checked against `--json`. At this checkpoint: **298 registered actions,
+119 LIVE_PASS, 0 stale, 0 FAIL, 0 BUG, 0 SANDBOX_REQUIRED, 0 UNSAFE_NO_HARNESS, and
+every LIVE_PASS row has a fixture** (verified against the `certification.test.ts` /
+`registry-parity.test.ts` / `fixtures-valid.test.ts` guards). The 26 fixtured-but-not-
+yet-run rows are all expected READS / native non-mutating actions (discord
+`fetch_messages`; dropbox `search_files`; google-analytics `run_report` /
+`run_pivot_report` / `get_realtime_data` / `find_conversion`; all Monday reads;
+`native:*`; stripe `find_*` / `get_payments`), PLUS the one intentional mutation
+exception `slack:delete_message` (destructive, non-`liveSafe` by design — inventory /
+handler-only, never runs live). **Write-COMPLETE providers (every registered action
+LIVE_PASS):** `airtable` (11/11), `google-drive` (7/7), `google-sheets` (12/12),
+`microsoft-onedrive` (7/7 — `copy_item` certified this arc via the async monitor-poll
+mechanism, SMOKE-WRITE-33). Remaining uncertified mutations are catalogued by blocker
+in the write-coverage summary + per-provider deferred notes below; NONE is a
+harness-classified hard block (0 sandbox / 0 unsafe) — each is either an unbuilt fixture
+(coverage gap) or a policy / capability deferral with its blocker named below.
+
 ### Write-smoke certification checkpoint (SMOKE-WRITE-24, 2026-06-23)
 
 Authoritative source: `npm run chainreact -- smoke actions --cert` (exit 0 = no stale
@@ -1070,12 +1090,12 @@ their durable `certification.ts` rows were missing (matrix showed `NOT_RUN`). Al
 re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
 
 - **Write-COMPLETE providers (every registered action certified):** `airtable` (11/11),
-  `google-drive` (7/7), `google-sheets` (12/12 — all 8 write actions certified, SMOKE-WRITE-23/27/28/29/30/31).
+  `google-drive` (7/7), `google-sheets` (12/12 — all 8 write actions certified, SMOKE-WRITE-23/27/28/29/30/31),
+  `microsoft-onedrive` (7/7 — `copy_item` certified SMOKE-WRITE-33 via the async monitor-poll mechanism).
 - **Partially covered (certified core writes; rest deferred/blocked, see notes below):**
   `google-calendar` (4/5 — `add_attendees` deferred), `google-docs` (create_document via
   cross-provider Drive delete), `dropbox` (create_folder/delete_file/upload_file +
-  copy_file/move_file; sharing/link/download deferred), `microsoft-onedrive`
-  (create_folder/delete_item/upload_file/move_item; `copy_item` blocked async),
+  copy_file/move_file; sharing/link/download deferred),
   `microsoft-onenote` (create/update/delete_page; create_section/create_notebook blocked — no
   delete; copy_page deferred), `notion` (create/update/archive/restore page,
   append_block_children, create_comment, create_database_entry), `trello` (create/update
@@ -1126,6 +1146,7 @@ re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
 | `microsoft-onedrive:delete_item` | create folder -> **delete (action under test)** -> item_metadata existence probe (exists == false) | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:upload_file` | upload inline file (root) -> get_file (marker on name + kind == file) -> **delete** | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:move_item` | upload smoke source + create smoke dest folder (file captured before folder) -> atomic move+rename into folder -> get_file (marker+suffix "moved" on name + kind == file + parentReference.id == smoke folder) -> **delete both (file then folder)** | both deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
+| `microsoft-onedrive:copy_item` | create smoke folder + upload smoke source into it -> copy into the same folder (async: returns `status:"pending"` + monitorUrl) -> **completeAsync** polls the trusted Graph monitor URL to terminal completion + captures the copied item's real `resourceId` -> get_file (marker+suffix "copy" on name + kind == file + parentReference.id == smoke folder) -> **delete all three (folder cascade + idempotent-404 reconcile)** | all three deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onenote:create_page` | create marker-titled page in a smoke/test-named section -> get_page_content (marker on title) -> **delete_page** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `microsoft-onenote:update_page` | create smoke page -> append `<marker>updated` -> get_page_content (marker+suffix "updated" on content) -> **delete_page** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `microsoft-onenote:delete_page` | create smoke page -> **delete_page (action under test)** -> smoke `page_metadata` existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
