@@ -1762,8 +1762,9 @@ describe("graphSlice — applyAdditivePatch in-place placement (HERMES-AGENT-APP
   });
 });
 
-// HERMES-AGENT-MUTATION-PREVIEW — applyReplaceActionPatch: in-place action swap (e.g. Slack → email).
-describe("graphSlice — applyReplaceActionPatch (mutation in-place swap)", () => {
+// HERMES-AGENT-WORKFLOW-EDITOR — replaceGraphLocal: atomically replace the local draft with a validated
+// candidate end-state (the general mutation apply).
+describe("graphSlice — replaceGraphLocal (general mutation apply)", () => {
   const TRIGGER_SLACK_DEF: WorkflowDefinition = {
     nodes: [
       { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
@@ -1771,47 +1772,42 @@ describe("graphSlice — applyReplaceActionPatch (mutation in-place swap)", () =
     ],
     edges: [{ id: "e1", from: "t1", to: "a1" }],
   };
-  const SWAP_TO_GMAIL = {
-    kind: "replace_action" as const,
-    from: { provider: "slack", type: "send_channel_message" },
-    to: { provider: "gmail", type: "send_email" },
-  };
 
-  it("swaps the matching action IN PLACE: same id, edges preserved, trigger untouched, dirty, no save", () => {
+  it("replaces the whole local graph with the candidate (Slack → email swap), dirty, no save", () => {
     useGraphSlice.getState().hydrate("wf-1", TRIGGER_SLACK_DEF);
-    const outcome = useGraphSlice.getState().applyReplaceActionPatch(SWAP_TO_GMAIL);
+    // Candidate built from the current draft with the Slack action swapped for a new email node id.
+    const candidate: WorkflowDefinition = {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
+        { id: "email-1", kind: "action", provider: "gmail", type: "send_email", config: {}, position: { x: 0, y: 0 } },
+      ],
+      edges: [{ id: "ne1", from: "t1", to: "email-1" }],
+    };
+    const outcome = useGraphSlice.getState().replaceGraphLocal(candidate);
     const s = useGraphSlice.getState();
     expect(outcome.ok).toBe(true);
-    if (outcome.ok) {
-      expect(outcome.placement).toBe("replaced");
-      expect(outcome.addedNodeIds).toEqual(["a1"]); // same node id → edges stay connected
-    }
-    // The action node was swapped Slack → email IN PLACE (same id a1), config cleared.
-    const swapped = s.pendingNodes.find((n) => n.id === "a1")!;
-    expect(swapped).toMatchObject({ provider: "gmail", type: "send_email", config: {} });
-    // Slack is GONE — not kept alongside email.
-    expect(s.pendingNodes.some((n) => n.provider === "slack")).toBe(false);
-    // Trigger + the trigger→action edge untouched (only 2 nodes, 1 edge — nothing appended).
-    expect(s.pendingNodes.find((n) => n.id === "t1")).toMatchObject({ provider: "native", type: "manual.run" });
-    expect(s.pendingEdges).toEqual([{ id: "e1", from: "t1", to: "a1" }]);
-    expect(s.pendingNodes).toHaveLength(2);
+    expect(outcome.addedNodeIds).toEqual(["email-1"]); // NEW node id → drives the post-apply setup UX
+    expect(s.pendingNodes.map((n) => `${n.provider}:${n.type}`)).toEqual(["native:manual.run", "gmail:send_email"]);
+    expect(s.pendingNodes.some((n) => n.provider === "slack")).toBe(false); // Slack gone, not appended
+    expect(s.pendingEdges).toEqual([{ id: "ne1", from: "t1", to: "email-1" }]);
     expect(s.isDirty).toBe(true);
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
-  it("seeds the replacement's config when provided", () => {
+  it("preserves untouched nodes' config (the candidate carries them unchanged)", () => {
     useGraphSlice.getState().hydrate("wf-1", TRIGGER_SLACK_DEF);
-    useGraphSlice.getState().applyReplaceActionPatch({ ...SWAP_TO_GMAIL, to: { ...SWAP_TO_GMAIL.to, config: { to: "team@x.com" } } });
-    expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1")!.config).toEqual({ to: "team@x.com" });
-  });
-
-  it("no matching action → ok:false, graph unchanged (never wipes the graph)", () => {
-    useGraphSlice.getState().hydrate("wf-1", TRIGGER_SLACK_DEF);
-    const outcome = useGraphSlice.getState().applyReplaceActionPatch({ kind: "replace_action", from: { provider: "gmail", type: "send_email" }, to: { provider: "slack", type: "send_channel_message" } });
-    expect(outcome.ok).toBe(false);
-    if (!outcome.ok) expect(outcome.reason).toBe("no_match");
-    expect(useGraphSlice.getState().pendingNodes).toHaveLength(2);
-    expect(useGraphSlice.getState().isDirty).toBe(false);
+    // Candidate keeps the Slack node + config and adds an email node (add second notification).
+    const candidate: WorkflowDefinition = {
+      nodes: [
+        ...TRIGGER_SLACK_DEF.nodes,
+        { id: "email-1", kind: "action", provider: "gmail", type: "send_email", config: {}, position: { x: 0, y: 0 } },
+      ],
+      edges: [...TRIGGER_SLACK_DEF.edges, { id: "ne1", from: "t1", to: "email-1" }],
+    };
+    useGraphSlice.getState().replaceGraphLocal(candidate);
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.find((n) => n.id === "a1")!.config).toEqual({ channel: "C1" }); // preserved
+    expect(s.pendingNodes).toHaveLength(3);
   });
 });
 

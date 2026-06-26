@@ -3,7 +3,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDefinition, WorkflowDetail, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
-import type { BuilderAdditivePatch, BuilderReplaceActionPatch } from "@/contracts/workflowPlanPreview";
+import type { BuilderPreviewPatch } from "@/contracts/workflowPlanPreview";
 import {
   WorkflowApiError,
   updateWorkflow,
@@ -226,18 +226,22 @@ export interface GraphSliceActions {
    * Returns an outcome; never throws. `{ ok: false }` when nothing additive remained to apply.
    */
   applyAdditivePatch(
-    patch: BuilderAdditivePatch,
+    patch: BuilderPreviewPatch,
     options?: { readonly appendAfterNodeId?: string },
   ): ApplyAdditivePatchOutcome;
   /**
-   * HERMES-AGENT-MUTATION-PREVIEW — apply a TARGETED in-place action swap (replace_action patch). Finds
-   * the FIRST existing ACTION node matching `patch.from` (`provider:type`) and swaps it to `patch.to` IN
-   * PLACE: the node keeps its id (all edges stay connected) and position; its config becomes
-   * `patch.to.config` (seeded, sanitized) or is cleared so required fields resurface as "needs setup".
-   * Everything else — the trigger, other actions + their config, every edge — is untouched. Marks dirty
-   * via the same mechanism as additive apply. NO save/activate/run. `{ ok: false }` when nothing matched.
+   * HERMES-AGENT-WORKFLOW-EDITOR — atomically REPLACE the whole local draft graph with a
+   * catalog-validated candidate definition (the exact end-state the React Agent proposed + the user
+   * explicitly Applied). Untouched nodes keep their config/position (the candidate was built FROM the
+   * current draft); new/changed nodes are laid out cleanly. Marks dirty via the normal mechanism. NO
+   * save/activate/run/connect. Returns the ids of nodes that are NEW vs the prior graph (so the existing
+   * post-apply "open the first incomplete node" UX works). This is the GENERAL mutation apply — it
+   * supersedes any per-op local apply.
    */
-  applyReplaceActionPatch(patch: BuilderReplaceActionPatch): ApplyAdditivePatchOutcome;
+  replaceGraphLocal(definition: { nodes: readonly WorkflowNode[]; edges: readonly WorkflowEdge[] }): {
+    readonly ok: true;
+    readonly addedNodeIds: readonly string[];
+  };
   /** Persist the pending graph → updated detail (callers react to server-side lifecycle
    * changes, e.g. a trigger edit that deactivates an active workflow); `undefined` if in-flight. */
   save(): Promise<WorkflowDetail | undefined>;
@@ -269,8 +273,7 @@ export type ApplyAdditivePatchOutcome =
     }
   | {
       readonly ok: false;
-      // HERMES-AGENT-MUTATION-PREVIEW — "no_match": a replace_action patch found no existing action to swap.
-      readonly reason: "empty_patch" | "nothing_added" | "no_match";
+      readonly reason: "empty_patch" | "nothing_added";
       readonly skippedTrigger: boolean;
     };
 
@@ -896,35 +899,28 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     };
   },
 
-  applyReplaceActionPatch(patch) {
+  replaceGraphLocal(definition) {
     const { pendingNodes } = get();
-    // Find the FIRST existing ACTION node whose capability matches `from`. Trigger nodes are never
-    // swapped here (a channel swap only ever touches an action). No match → nothing to do.
-    const targetIndex = pendingNodes.findIndex(
-      (n) => n.kind === "action" && n.provider === patch.from.provider && n.type === patch.from.type,
-    );
-    if (targetIndex === -1) {
-      return { ok: false, reason: "no_match", skippedTrigger: false };
-    }
-    const target = pendingNodes[targetIndex]!;
-    // Swap IN PLACE: keep the SAME id (so every edge stays valid) + position + kind; change the
-    // capability and reset config to the seeded values (or empty so required fields resurface).
-    const swapped: WorkflowNode = {
-      ...target,
-      provider: patch.to.provider,
-      type: patch.to.type,
-      config: patch.to.config ? { ...patch.to.config } : {},
-    };
-    const nextNodes = pendingNodes.map((n, i) => (i === targetIndex ? swapped : n));
-    // Edges are untouched — the swapped node keeps its id, so trigger→node / node→next stay connected.
-    set({ pendingNodes: nextNodes, isDirty: true, saveError: null });
-    return {
-      ok: true,
-      addedNodeIds: [target.id], // treat the swapped node as "added" → config-hints + auto-open apply
-      addedEdgeIds: [],
-      skippedTrigger: false,
-      placement: "replaced",
-    };
+    const priorIds = new Set(pendingNodes.map((n) => n.id));
+    // Nodes that are NEW (or whose capability changed) vs the prior graph → treat as "added" so the
+    // post-apply UX (open the first incomplete node) can guide setup. By node id (stable refs).
+    const priorById = new Map(pendingNodes.map((n) => [n.id, n]));
+    const addedNodeIds = definition.nodes
+      .filter((n) => {
+        const prev = priorById.get(n.id);
+        return !priorIds.has(n.id) || !prev || prev.provider !== n.provider || prev.type !== n.type;
+      })
+      .map((n) => n.id);
+    // Clean layout for the candidate (new nodes otherwise stack at the origin). Existing nodes keep
+    // their relative placement where the layout preserves it.
+    const laidOut = layoutWorkflowGraph([...definition.nodes], [...definition.edges]);
+    set({
+      pendingNodes: laidOut,
+      pendingEdges: [...definition.edges],
+      isDirty: true,
+      saveError: null,
+    });
+    return { ok: true, addedNodeIds };
   },
 
   async save() {

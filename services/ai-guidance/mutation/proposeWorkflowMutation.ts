@@ -1,0 +1,113 @@
+/**
+ * General conversational workflow-mutation proposal (HERMES-AGENT-WORKFLOW-EDITOR).
+ *
+ * The React Agent acts as a conversational editor: given the user's CURRENT LOCAL draft and a set of
+ * proposed `WorkflowPatch` operations (from the model, or a demoted deterministic fallback), this turns
+ * them into a validated, previewable, locally-applicable proposal — reusing the EXISTING general patch
+ * engine (no new operation set, no phrase matching):
+ *
+ *   model/fallback operations (stable node refs)
+ *     → materializeAiPatchNodeIds   (assign system ids to NEW nodes; reject unknown refs — never guess)
+ *     → validateWorkflowPatch       (atomic apply onto the LOCAL draft; catalog-validate every node/
+ *                                    edge/config field; produce the exact candidate end-state)
+ *     → { proposedDefinition, previewDraft, plan }   (the canvas auto-shows it; Apply replaces the
+ *                                                     local draft with the candidate; Discard = nothing)
+ *
+ * Atomic: validateWorkflowPatch applies ALL operations or NONE — a partially-valid proposal never
+ * previews. Missing ORDINARY config becomes "needs setup" in the preview (NON-blocking); only catalog /
+ * structural / unknown-reference failures block, with an exact, actionable, secret-free reason.
+ *
+ * Pure + model-free + no I/O. Secrets never appear (the candidate's config is the user's own draft; the
+ * preview/plan carry labels + field KEY names only).
+ */
+
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
+import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import { materializeAiPatchNodeIds, type MaterializeAiPatchNodeIdsOptions } from "@/services/ai/patch/materializeAiPatchNodeIds";
+import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
+import type { PatchOperation, PatchValidationError } from "@/services/workflows/patch/types";
+import { definitionToDraftPreview, definitionToPlan } from "../preview/definitionToDraftPreview";
+
+/** Codes that are NON-blocking for a PREVIEW — missing ordinary config becomes "needs setup", not a fail. */
+const NON_BLOCKING_CODES: ReadonlySet<PatchValidationError["code"]> = new Set(["MISSING_REQUIRED_FIELD"]);
+
+export interface ProposeWorkflowMutationInput {
+  /** The user's CURRENT local draft (the unsaved canvas) — the diff base + validation target. */
+  readonly currentDraft: WorkflowDefinition;
+  /** Proposed operations with stable refs to current-draft node ids (+ patch-local ids for new nodes). */
+  readonly operations: readonly PatchOperation[];
+  /** Optional human one-liner for the proposal. */
+  readonly summary?: string;
+}
+
+export type ProposeWorkflowMutationResult =
+  | {
+      readonly kind: "proposal";
+      /** The exact validated end-state graph — Apply replaces the local draft with THIS. */
+      readonly proposedDefinition: WorkflowDefinition;
+      readonly previewDraft: DraftPreview;
+      /** Lightweight plan mirroring the candidate — only so the existing auto-show guard works. */
+      readonly workflowPlan: WorkflowPlan;
+      readonly summary: string;
+      /** Safe, non-blocking notes (e.g. cost / deletes-user-work warnings). */
+      readonly warnings: readonly string[];
+    }
+  /** Blocking: an exact, actionable reason (unsupported capability, invalid edge, unknown step, …). */
+  | { readonly kind: "invalid"; readonly message: string }
+  /** Nothing to propose (no operations). */
+  | { readonly kind: "noop" };
+
+/** First blocking error → an exact, actionable, secret-free message (PatchValidationError messages are safe). */
+function firstBlockingMessage(errors: readonly PatchValidationError[]): string | null {
+  const blocking = errors.find((e) => !NON_BLOCKING_CODES.has(e.code));
+  return blocking ? blocking.message : null;
+}
+
+export function proposeWorkflowMutation(
+  input: ProposeWorkflowMutationInput,
+  options: MaterializeAiPatchNodeIdsOptions = {},
+): ProposeWorkflowMutationResult {
+  if (!input.operations || input.operations.length === 0) return { kind: "noop" };
+
+  // Wrap the operations in a local-draft envelope. baseRevision is a non-empty sentinel (no optimistic-
+  // concurrency check for the LOCAL canvas) — the user explicitly Applies, and Apply re-targets the live
+  // local draft. patchId/rationale are non-rendered envelope fields.
+  const envelope = {
+    patchId: "local-mutation",
+    workflowId: null,
+    baseRevision: "local-draft",
+    operations: [...input.operations],
+    summary: input.summary ?? "Proposed workflow change",
+    rationale: "",
+  };
+
+  // Assign system ids to NEW nodes + reject unknown node refs (no silent "the only Slack node" guess).
+  const materialized = materializeAiPatchNodeIds(envelope, input.currentDraft, options);
+  if (!materialized.ok) {
+    return { kind: "invalid", message: materialized.errors[0]?.message ?? "I couldn't make that change as described." };
+  }
+
+  // Atomic apply onto the LOCAL draft + full catalog/structure validation → exact candidate end-state.
+  const result = validateWorkflowPatch(materialized.patch, input.currentDraft);
+  if (!result.candidateDefinition) {
+    // The operations couldn't be applied structurally at all (e.g. references a step that isn't there).
+    return { kind: "invalid", message: firstBlockingMessage(result.errors) ?? "I couldn't make that change as described." };
+  }
+  const blocking = firstBlockingMessage(result.errors);
+  if (blocking) {
+    return { kind: "invalid", message: blocking };
+  }
+
+  const candidate = result.candidateDefinition;
+  const summary = input.summary ?? result.previewSummary;
+  const title = "Proposed change";
+  return {
+    kind: "proposal",
+    proposedDefinition: candidate,
+    previewDraft: definitionToDraftPreview(candidate, title, summary),
+    workflowPlan: definitionToPlan(candidate, title, summary),
+    summary,
+    warnings: result.warnings.map((w) => w.message),
+  };
+}

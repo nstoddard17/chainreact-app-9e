@@ -12,8 +12,10 @@ import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 import { runWorkflowGuidanceIntakeCapability } from "@/services/ai/reactAgent/capabilities/workflowGuidanceIntake";
 import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPreview";
 import { inferDeterministicPreviewPlan, detectCatalogGap } from "@/services/ai-guidance/fallback/inferDeterministicPreview";
-import { inferDeterministicMutationPlan } from "@/services/ai-guidance/fallback/inferDeterministicMutation";
+import { inferDeterministicMutationOps } from "@/services/ai-guidance/fallback/inferDeterministicMutation";
+import { proposeWorkflowMutation } from "@/services/ai-guidance/mutation/proposeWorkflowMutation";
 import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
+import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
   MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
@@ -78,26 +80,19 @@ const ConversationTurnSchema = z.object({
     .max(MAX_GUIDANCE_CONVERSATION_TURN_TEXT),
 });
 
-/**
- * HERMES-AGENT-MUTATION-PREVIEW — the CURRENT draft graph SHAPE (kind/provider/type only) the user is
- * editing, so a "change it to email" style request can be previewed against what's actually on the
- * canvas RIGHT NOW (which may include locally-applied, unsaved edits the server's saved draft lacks).
- * SHAPE ONLY: no config values, ids, labels, secrets, or positions. Bounded so a client can't flood it.
- * Used by the deterministic mutation fallback only (the model still reads the server-loaded definition);
- * a forged shape can at worst yield an advisory preview the user must still explicitly Apply.
- */
-const CurrentGraphNodeSchema = z.object({
-  kind: z.string().trim().min(1).max(32),
-  provider: z.string().trim().min(1).max(64),
-  type: z.string().trim().min(1).max(64),
-});
-
 const BodySchema = z
   .object({
     goalText: z.string().trim().min(1, "A goal description is required.").max(MAX_GOAL_LENGTH, `Goal is too long (max ${MAX_GOAL_LENGTH} characters).`),
     workflowId: z.string().trim().min(1).optional(),
     recentTurns: z.array(ConversationTurnSchema).max(MAX_GUIDANCE_CONVERSATION_TURNS).optional(),
-    currentGraph: z.array(CurrentGraphNodeSchema).max(50).optional(),
+    /**
+     * HERMES-AGENT-WORKFLOW-EDITOR — the user's CURRENT local draft (stable ids + editable config +
+     * edges) so React can propose a catalog-validated EDIT against what's on the canvas RIGHT NOW (incl.
+     * locally-applied unsaved edits). The model never sees raw config (the prompt redacts secrets); the
+     * patch pipeline validates every change. A forged draft can at worst yield an advisory preview the
+     * user must still explicitly Apply.
+     */
+    currentDraft: WorkflowDefinitionSchema.optional(),
   })
   .strict();
 
@@ -147,7 +142,7 @@ export async function POST(
   // 2. Strict body — goalText required; a client-supplied accountId/extra field is rejected.
   const parsed = await parseJsonBody(request, BodySchema);
   if (!parsed.ok) return parsed.response;
-  const { goalText, workflowId, recentTurns, currentGraph } = parsed.data;
+  const { goalText, workflowId, recentTurns, currentDraft } = parsed.data;
   // Belt-and-suspenders bound: keep only the MOST RECENT turns (schema already caps the count).
   const boundedRecentTurns = recentTurns?.slice(-MAX_GUIDANCE_CONVERSATION_TURNS);
 
@@ -211,56 +206,63 @@ export async function POST(
     return guidanceUnavailableResponse();
   }
 
-  // HERMES-AGENT-MUTATION-PREVIEW — when the user is EDITING an existing workflow (a current-graph shape
-  // was sent) and asks for a change (e.g. "change it to an email notification"), try the deterministic
-  // mutation fallback FIRST among the fallbacks. It produces a full updated plan with an in-place swap
-  // marker (Apply replaces the old action), asks Gmail-vs-Outlook when ambiguous, or reports the exact
-  // catalog gap. Model-free; the swapped capability is registry-checked + the plan re-validated.
-  // Only the caller's OWN connected email providers feed the "safe default" choice (no other-member data).
+  // HERMES-AGENT-WORKFLOW-EDITOR — when the user is EDITING an existing draft (a current draft was sent),
+  // run the GENERAL mutation pipeline: prefer the model's proposed `WorkflowPatch` operations; else a
+  // DEMOTED Slack↔email fallback that emits general operations (it asks WHICH step when ambiguous, never
+  // guesses). proposeWorkflowMutation materializes ids, validates every node/edge/config against the
+  // catalog atomically against the LOCAL draft, and returns the exact candidate end-state + preview.
   const connectedEmailProviders = [...sharedCredentialProviders, ...ownConnectionProviders].filter(
     (p) => p === "gmail" || p === "microsoft-outlook",
   );
-  const mutation =
-    !result.workflowPlan && currentGraph && currentGraph.length > 0
-      ? inferDeterministicMutationPlan({ goalText, currentGraph, connectedEmailProviders })
-      : { kind: "none" as const };
+  const editing = currentDraft && currentDraft.nodes.length > 0;
+  const fallback = editing && !result.mutationOperations
+    ? inferDeterministicMutationOps({ goalText, currentDraft, connectedEmailProviders })
+    : { kind: "none" as const };
+  const operations = result.mutationOperations ?? (fallback.kind === "ops" ? fallback.operations : null);
 
-  // HERMES-AGENT-DETERMINISTIC-SHAPE-FALLBACK — when Hermes returned guidance TEXT but NO valid plan,
-  // try a narrow, catalog-validated deterministic shape inferer for obvious supported patterns (e.g.
-  // "run this manually → send a Slack channel message"). It is model-free (no Hermes/network), returns
-  // null for anything ambiguous or unconfirmable in the registry, and only ever yields an advisory plan
-  // (still validated). Hermes' own plan always wins; a deterministic MUTATION plan wins over the
-  // new-workflow shape inferer (the user is editing, not creating).
-  const workflowPlan =
-    result.workflowPlan ?? (mutation.kind === "plan" ? mutation.plan : inferDeterministicPreviewPlan(goalText));
+  let workflowPlan = result.workflowPlan;
+  let previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
+  let proposedDefinition: import("@/contracts/workflowDefinition").WorkflowDefinition | null = null;
+  const editorMessages: string[] = [];
 
-  // Deterministic, ephemeral preview derived ONLY from a capability-validated plan (Hermes' validated
-  // plan, or the fallback's — both pass validateWorkflowPlan). Pure transform — no workflow create/
-  // mutate/apply/run, no draftDefinition write. Null when there is no valid plan.
-  const previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
+  if (editing && operations) {
+    const proposal = proposeWorkflowMutation({ currentDraft, operations });
+    if (proposal.kind === "proposal") {
+      proposedDefinition = proposal.proposedDefinition;
+      previewDraft = proposal.previewDraft;
+      workflowPlan = proposal.workflowPlan;
+      editorMessages.push(...proposal.warnings);
+    } else if (proposal.kind === "invalid") {
+      // The proposed change couldn't be validated against the catalog/draft → an exact, actionable reason.
+      editorMessages.push(proposal.message);
+    }
+  } else if (editing && (fallback.kind === "needs_provider_choice" || fallback.kind === "needs_node_choice" || fallback.kind === "catalog_gap")) {
+    editorMessages.push(fallback.message);
+  }
 
-  // REACT-LIVE-SKELETON — when there's NO buildable plan, surface an exact, actionable reason so the
-  // agent says what's missing instead of going silent: a deterministic mutation's provider-choice
-  // question / catalog gap (the user asked to change something), else a new-workflow catalog gap.
-  // Registry-driven + no-secret; appended to warnings.
-  const mutationMessage =
-    !workflowPlan && (mutation.kind === "needs_provider_choice" || mutation.kind === "catalog_gap")
-      ? mutation.message
-      : null;
-  const catalogGap = workflowPlan || mutationMessage ? null : detectCatalogGap(goalText);
+  // NEW-workflow path (no draft to edit): the deterministic shape inferer + catalog-gap reason (REACT-
+  // LIVE-SKELETON), unchanged. Only runs when we did NOT produce an edit proposal.
+  if (!workflowPlan && !proposedDefinition && !editing) {
+    workflowPlan = inferDeterministicPreviewPlan(goalText);
+    previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
+  }
+  const catalogGap = !workflowPlan && !proposedDefinition && editorMessages.length === 0 ? detectCatalogGap(goalText) : null;
+
   const warnings = [
     ...(result.warnings ?? []),
-    ...(mutationMessage ? [mutationMessage] : []),
+    ...editorMessages,
     ...(catalogGap ? [catalogGap.message] : []),
   ];
 
-  // Normalized advisory fields ONLY — no raw envelope, no raw usage, no prompt, no ids/secrets.
+  // Normalized advisory fields ONLY — no raw envelope, no raw usage, no prompt, no secrets. The
+  // proposedDefinition is the user's OWN draft + the validated change; Apply (client) is still explicit.
   return NextResponse.json({
     ok: true,
     guidanceText: result.guidanceText,
     source: result.source,
     workflowPlan,
     previewDraft,
+    ...(proposedDefinition ? { proposedDefinition } : {}),
     ...(warnings.length ? { warnings } : {}),
   });
 }

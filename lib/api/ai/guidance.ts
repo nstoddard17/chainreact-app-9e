@@ -16,6 +16,7 @@
 
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type { GuidanceConversationTurn } from "@/contracts/aiGuidance";
 import { postStructured } from "./shared";
 
@@ -28,6 +29,13 @@ export type WorkflowGuidanceResponse =
       workflowPlan: WorkflowPlan | null;
       /** Ephemeral, non-applied preview derived from the validated plan, or null. Never persisted. */
       previewDraft: DraftPreview | null;
+      /**
+       * HERMES-AGENT-WORKFLOW-EDITOR — for a general EDIT proposal, the exact catalog-validated end-state
+       * graph (a `WorkflowPatch` validated against the user's current local draft). When present, Apply
+       * REPLACES the local draft with this; the `previewDraft` renders it. Null for new-workflow
+       * skeletons (additive) and prose-only replies. Never persisted by this response.
+       */
+      proposedDefinition?: WorkflowDefinition | null;
       warnings?: readonly string[];
     }
   | { ok: false; code: string; message: string };
@@ -47,12 +55,14 @@ export interface RequestWorkflowGuidanceInput {
    */
   readonly recentTurns?: readonly GuidanceConversationTurn[];
   /**
-   * HERMES-AGENT-MUTATION-PREVIEW — the CURRENT draft graph SHAPE (kind/provider/type only) so a
-   * "change it to email" style request can be previewed against what's on the canvas RIGHT NOW, incl.
-   * locally-applied unsaved edits. SHAPE ONLY — never config/values/ids/labels/secrets. Omitted when the
-   * builder has no graph wiring (e.g. dashboard single-shot) → request is byte-identical to before.
+   * HERMES-AGENT-WORKFLOW-EDITOR — the user's CURRENT local draft (nodes with STABLE ids + editable
+   * config + edges) so React can act as a conversational editor: resolve references ("change it",
+   * "remove that Slack step"), propose a `WorkflowPatch`, and have ChainReact validate + preview it
+   * against what's on the canvas RIGHT NOW (incl. locally-applied unsaved edits). The SERVER redacts
+   * secret-shaped config before the model ever sees it; the raw draft is the user's own data over the
+   * authenticated channel. Omitted when the builder has no graph wiring (dashboard single-shot).
    */
-  readonly currentGraph?: readonly { readonly kind: string; readonly provider: string; readonly type: string }[];
+  readonly currentDraft?: WorkflowDefinition;
 }
 
 /**
@@ -69,7 +79,7 @@ export async function requestWorkflowGuidance(
       goalText: input.goalText,
       ...(input.workflowId ? { workflowId: input.workflowId } : {}),
       ...(input.recentTurns && input.recentTurns.length > 0 ? { recentTurns: input.recentTurns } : {}),
-      ...(input.currentGraph && input.currentGraph.length > 0 ? { currentGraph: input.currentGraph } : {}),
+      ...(input.currentDraft && input.currentDraft.nodes.length > 0 ? { currentDraft: input.currentDraft } : {}),
     },
   );
 }

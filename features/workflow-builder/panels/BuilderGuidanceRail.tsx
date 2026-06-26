@@ -1,6 +1,7 @@
 "use client";
 
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
 import type { ReactNode } from "react";
@@ -53,7 +54,12 @@ export interface BuilderGuidanceRailProps {
    * overlay applies/mutates nothing — an explicit "Apply preview" does the
    * additive local-draft edit.
    */
-  readonly onShowPreview?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
+  readonly onShowPreview?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition }) => void;
+  /**
+   * HERMES-AGENT-WORKFLOW-EDITOR — getter for the user's CURRENT local draft (stable ids + config +
+   * edges), forwarded to the panel so a change request is proposed against the live canvas.
+   */
+  readonly getCurrentDraft?: () => WorkflowDefinition;
   /**
    * HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — the LATEST preview shown on the canvas. When present,
    * the rail renders a compact "Finish these details" setup card below the chat, tied to this preview.
@@ -105,6 +111,7 @@ export function BuilderGuidanceRail({
   workflowId,
   guidanceEnabled,
   onShowPreview,
+  getCurrentDraft,
   previewForSetup,
   setupFieldsByType,
   previewConfig,
@@ -145,6 +152,7 @@ export function BuilderGuidanceRail({
             conversational
             {...(getCheckReviewContext ? { getCheckReviewContext } : {})}
             {...(getCurrentGraphShape ? { getCurrentGraphShape } : {})}
+            {...(getCurrentDraft ? { getCurrentDraft } : {})}
             {...(renderCheckSetup ? { renderCheckSetup } : {})}
             {...(initialComposerValue ? { initialComposerValue } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}

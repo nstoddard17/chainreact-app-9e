@@ -5,6 +5,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
 import { draftPreviewSignature } from "@/core/workflows/canvasPreviewEligibility";
@@ -171,6 +172,12 @@ export function WorkflowBuilder({
   const [previewOverlay, setPreviewOverlay] = useState<{
     plan: WorkflowPlan;
     preview: DraftPreview;
+    /**
+     * HERMES-AGENT-WORKFLOW-EDITOR — for a general EDIT proposal, the exact catalog-validated end-state
+     * graph. When present, Apply REPLACES the local draft with this (atomic, via `replaceGraphLocal`)
+     * instead of running the additive new-workflow patch. Absent → the new-workflow additive path.
+     */
+    proposedDefinition?: WorkflowDefinition;
   } | null>(null);
   // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — per-show counter. Bumped each time a preview is shown so
   // the canvas fits the viewport once per show (and re-fits when a preview supersedes another). The
@@ -259,7 +266,7 @@ export function WorkflowBuilder({
   // BUILDER-AGENT-RAIL-WIRING-EXTRACT — the rail's deterministic Check-workflow / setup / canvas-guard
   // callbacks live in a focused hook (no behavior change). All deterministic/local: no model call, no
   // save/activate/run, no new nodes.
-  const { getCheckReviewContext, getCurrentGraphShape, renderCheckSetup } = useAgentRailWiring({
+  const { getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup } = useAgentRailWiring({
     ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
     providerLabels,
     ...(setupFieldsByType ? { setupFieldsByType } : {}),
@@ -431,7 +438,7 @@ export function WorkflowBuilder({
   // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — open the ghost overlay with the validated plan + display
   // preview (clears any prior apply notice). Showing the overlay mutates nothing.
   const handleShowPreview = useCallback(
-    (payload: { plan: WorkflowPlan; preview: DraftPreview }) => {
+    (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition }) => {
       setApplyNotice(null);
       setAppliedNodeIds([]);
       // A NEW preview supersedes the old one — drop any guided-setup values entered for the prior
@@ -465,28 +472,28 @@ export function WorkflowBuilder({
   // workflow. Then clears the overlay and shows a safe confirmation.
   const handleApplyPreview = useCallback(() => {
     if (!previewOverlay) return;
-    // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — seed the new nodes' config from the ephemeral guided-setup
-    // values, sanitized against the supported metadata (only known, non-sensitive keys are kept).
-    const patch = planToBuilderPatch(previewOverlay.plan, {
-      previewConfig,
-      ...(setupFieldsByType ? { setupFieldsByType } : {}),
-    });
-    // HERMES-AGENT-MUTATION-PREVIEW — a deterministic-mutation plan yields a `replace_action` patch (swap
-    // an action in place, e.g. Slack → email); everything else is the additive path. For additive,
-    // HERMES-AGENT-APPLY-IN-PLACE prefers inserting after the user's selected/active node (read fresh).
-    const activeNodeId = useConfigSlice.getState().activeNodeId ?? undefined;
-    const outcome = !patch
+    // HERMES-AGENT-WORKFLOW-EDITOR — a general EDIT proposal carries the exact catalog-validated end-state
+    // graph. Apply REPLACES the local draft with it atomically (untouched nodes keep config/position;
+    // the candidate was built FROM the current draft). New-workflow skeletons have no proposedDefinition
+    // and take the additive path (insert after the user's selected/active node).
+    // HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — additive path seeds new-node config from sanitized guided-setup values.
+    const additivePatch = previewOverlay.proposedDefinition
       ? null
-      : patch.kind === "replace_action"
-        ? useGraphSlice.getState().applyReplaceActionPatch(patch)
-        : useGraphSlice.getState().applyAdditivePatch(patch, activeNodeId ? { appendAfterNodeId: activeNodeId } : {});
+      : planToBuilderPatch(previewOverlay.plan, { previewConfig, ...(setupFieldsByType ? { setupFieldsByType } : {}) });
+    const activeNodeId = useConfigSlice.getState().activeNodeId ?? undefined;
+    const outcome = previewOverlay.proposedDefinition
+      ? useGraphSlice.getState().replaceGraphLocal(previewOverlay.proposedDefinition)
+      : additivePatch
+        ? useGraphSlice.getState().applyAdditivePatch(additivePatch, activeNodeId ? { appendAfterNodeId: activeNodeId } : {})
+        : null;
     if (outcome?.ok) {
+      const placement = "placement" in outcome ? outcome.placement : "replaced";
       setApplyNotice(
-        outcome.placement === "replaced"
-          ? "Preview applied — the step was switched in place. Review required fields before saving or activating."
-          : outcome.placement === "inserted_between"
+        placement === "replaced"
+          ? "Change applied to your draft — review required fields before saving or activating."
+          : placement === "inserted_between"
             ? "Preview inserted into draft — review required fields before saving or activating."
-            : outcome.placement === "side_chain"
+            : placement === "side_chain"
               ? "Preview added as a separate draft chain because ChainReact could not safely determine where to insert it."
               : "Preview applied to draft — review required fields before saving or activating.",
       );
@@ -616,6 +623,7 @@ export function WorkflowBuilder({
             onApplyPreview={handleApplyPreview}
             getCheckReviewContext={getCheckReviewContext}
             getCurrentGraphShape={getCurrentGraphShape}
+            getCurrentDraft={getCurrentDraft}
             renderCheckSetup={renderCheckSetup}
             {...(restoredComposerValue ? { initialComposerValue: restoredComposerValue } : {})}
           />

@@ -22,8 +22,9 @@ import { z } from "zod";
 import type { GuidanceUnavailableCode } from "@/contracts/aiGuidance";
 import type { WorkflowPlan, WorkflowPlanStep } from "@/contracts/guidanceSession";
 import { WORKFLOW_PLAN_SCHEMA_VERSION } from "@/contracts/guidanceSession";
+import type { PatchOperation } from "@/services/workflows/patch/types";
 import { summarizeInvalidPlan, validateWorkflowPlan } from "../validateWorkflowPlan";
-import { extractPlanFromText, stripSourceBlock } from "./extractPlanFromText";
+import { extractMutationOperationsFromText, extractPlanFromText, stripSourceBlock } from "./extractPlanFromText";
 
 /**
  * Legacy generic warning. RETAINED for back-compat only — the normalizer no longer emits it. When an
@@ -52,6 +53,13 @@ export type NormalizedGatewayGuidance =
       readonly source: "hermes-agent";
       /** A capability-validated advisory plan, or null. Only set when validateWorkflowPlan passed. */
       readonly workflowPlan: WorkflowPlan | null;
+      /**
+       * HERMES-AGENT-WORKFLOW-EDITOR — structurally-valid `WorkflowPatch` operations the model proposed
+       * for an EDIT of the user's current draft (stable node refs). STRUCTURE-validated here (Zod) only;
+       * the route runs the catalog/atomic validation against the local draft (`proposeWorkflowMutation`).
+       * Absent when the reply has no patch block.
+       */
+      readonly mutationOperations?: readonly PatchOperation[];
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
     }
@@ -199,12 +207,25 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
     }
   }
 
+  // HERMES-AGENT-WORKFLOW-EDITOR — a reply may carry a `WorkflowPatch` ({ operations: [...] }) for an
+  // EDIT instead of (or alongside) a new-workflow plan. Structure-validate it here; the route does the
+  // catalog/atomic validation against the local draft. Strip the block from the display text if found.
+  let mutationOperations: readonly PatchOperation[] | undefined;
+  if (!workflowPlan) {
+    const extractedOps = extractMutationOperationsFromText(guidanceText);
+    if (extractedOps) {
+      mutationOperations = extractedOps.operations;
+      guidanceText = stripSourceBlock(guidanceText, extractedOps.sourceBlock) ?? guidanceText;
+    }
+  }
+
   const rawUsage = sanitizeUsage(parsed.data.response.usage);
   return {
     ok: true,
     guidanceText,
     source: "hermes-agent",
     workflowPlan,
+    ...(mutationOperations ? { mutationOperations } : {}),
     ...(rawUsage ? { rawUsage } : {}),
     ...(warnings.length ? { warnings } : {}),
   };

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
@@ -68,7 +69,7 @@ export interface WorkflowGuidancePanelProps {
    * overlay NEVER applies/creates/mutates a workflow; an explicit "Apply preview" in the overlay does
    * the additive local-draft edit.
    */
-  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview }) => void;
+  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition }) => void;
   /**
    * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — render the session-scoped conversational rail (message list
    * + bottom input + recent-conversation context) instead of the single-shot form. Default false keeps
@@ -100,6 +101,13 @@ export interface WorkflowGuidancePanelProps {
    * → previous behavior (offer whenever a builder `onPreviewToCanvas` + validated plan exist).
    */
   readonly getCurrentGraphShape?: () => readonly CanvasPreviewGraphNode[];
+  /**
+   * HERMES-AGENT-WORKFLOW-EDITOR — builder-only: a getter for the user's CURRENT local draft (full nodes
+   * with stable ids + config + edges). Sent with each guidance request so React can propose a
+   * catalog-validated EDIT against the live canvas (incl. unsaved edits). The server redacts secrets
+   * before the model. Absent (dashboard single-shot) → no draft sent (request unchanged).
+   */
+  readonly getCurrentDraft?: () => WorkflowDefinition;
   /**
    * BUILDER-AGENT-RAIL-EXISTING-NODE-SETUP — builder-only render slot. When the deterministic Check
    * workflow review finds existing draft nodes with missing required fields, the panel calls this with
@@ -144,6 +152,8 @@ type ChatMessage =
       readonly text: string;
       readonly plan: WorkflowPlan | null;
       readonly preview: DraftPreview | null;
+      /** HERMES-AGENT-WORKFLOW-EDITOR — for an EDIT proposal, the validated end-state graph Apply replaces with. */
+      readonly proposedDefinition?: WorkflowDefinition | null;
       // REACT-LIVE-SKELETON — safe, no-secret notes (e.g. an exact catalog gap when no plan could be
       // built). Rendered as muted lines under the reply.
       readonly warnings?: readonly string[];
@@ -188,8 +198,13 @@ function SparkleIcon() {
   );
 }
 
+/** Build the canvas-overlay payload from an assistant turn (carries the edit's proposedDefinition when present). */
+function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition } {
+  return { plan: m.plan!, preview: m.preview!, ...(m.proposedDefinition ? { proposedDefinition: m.proposedDefinition } : {}) };
+}
+
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, renderCheckSetup, initialComposerValue, displayedPreviewSignature }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, initialComposerValue, displayedPreviewSignature }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -234,12 +249,17 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     for (const m of messages) if (m.role === "assistant") latest = m;
     if (!latest || !latest.preview || !latest.plan) return;
     if (autoShownPreviewRef.current === latest.id) return; // already auto-shown this turn
+    // HERMES-AGENT-WORKFLOW-EDITOR — an EDIT proposal (proposedDefinition) is a change by construction
+    // (it may even SHRINK the graph, e.g. a removal), so the same-shape "meaningful" guard — which only
+    // fits ADD-shaped previews — does not apply; always auto-show it. New-workflow skeletons still use
+    // the guard so a same-shape restatement doesn't ghost duplicates.
     const meaningful =
+      latest.proposedDefinition != null ||
       getCurrentGraphShape == null ||
       isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: latest.plan });
     if (!meaningful) return;
     autoShownPreviewRef.current = latest.id;
-    onPreviewToCanvas({ plan: latest.plan, preview: latest.preview });
+    onPreviewToCanvas(toCanvasPayload(latest));
   }, [messages, onPreviewToCanvas, getCurrentGraphShape]);
 
   const trimmed = input.trim();
@@ -280,9 +300,10 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     const goalText = trimmed;
     // Prior turns (before appending this one) become the sanitized recent-conversation context.
     const recentTurns = toRecentTurns(messages);
-    // HERMES-AGENT-MUTATION-PREVIEW — send the CURRENT draft graph SHAPE (kind/provider/type only) so a
-    // change request ("make it email") previews against what's on the canvas now, incl. applied edits.
-    const currentGraph = getCurrentGraphShape?.() ?? [];
+    // HERMES-AGENT-WORKFLOW-EDITOR — send the CURRENT local draft (stable ids + config + edges) so a
+    // change request ("change it to email", "remove that step") is proposed against what's on the canvas
+    // now, incl. applied unsaved edits. Omitted when there's nothing on the canvas yet.
+    const currentDraft = getCurrentDraft?.();
     setMessages((prev) => [...prev, { id: makeId(), role: "user", text: goalText }]);
     setInput("");
     setLoading(true);
@@ -292,7 +313,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
         goalText,
         ...(workflowId ? { workflowId } : {}),
         ...(recentTurns.length ? { recentTurns } : {}),
-        ...(currentGraph.length ? { currentGraph } : {}),
+        ...(currentDraft && currentDraft.nodes.length ? { currentDraft } : {}),
       });
       if (res.ok) {
         setMessages((prev) => [
@@ -303,6 +324,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             text: res.guidanceText,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
+            ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
             ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
           },
         ]);
@@ -326,13 +348,13 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     const ctx = getCheckReviewContext();
     const requestGoalText = buildAgentReviewGoalText(CHECK_WORKFLOW_PROMPT, ctx);
     const recentTurns = toRecentTurns(messages);
-    const currentGraph = getCurrentGraphShape?.() ?? [];
+    const currentDraft = getCurrentDraft?.();
     setLoading(true);
     try {
       const res = await requestWorkflowGuidance({
         accountId,
         goalText: requestGoalText,
-        ...(currentGraph.length ? { currentGraph } : {}),
+        ...(currentDraft && currentDraft.nodes.length ? { currentDraft } : {}),
         ...(workflowId ? { workflowId } : {}),
         ...(recentTurns.length ? { recentTurns } : {}),
       });
@@ -349,6 +371,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             text,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
+            ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
             ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
           },
         ]);
@@ -472,7 +495,10 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   preview={m.preview}
                   plan={m.plan}
                   {...(onPreviewToCanvas &&
-                  (getCurrentGraphShape == null ||
+                  // HERMES-AGENT-WORKFLOW-EDITOR — an EDIT proposal is always offerable (it may shrink the
+                  // graph); new-workflow skeletons keep the same-shape meaningful guard.
+                  (m.proposedDefinition != null ||
+                    getCurrentGraphShape == null ||
                     isPlanMeaningfulCanvasPreview({ currentGraph: getCurrentGraphShape(), plan: m.plan })) &&
                   // HERMES-AGENT-PREVIEW-SHOWN-DEDUP — hide the redundant rail "Show on canvas" button when
                   // THIS preview is already the one displayed on the canvas (Apply/Discard live in the
@@ -480,7 +506,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   // or superseded (signatures differ), or when no preview is currently shown.
                   !(displayedPreviewSignature != null &&
                     draftPreviewSignature(m.preview) === displayedPreviewSignature)
-                    ? { onPreviewToCanvas }
+                    ? { onPreviewToCanvas: () => onPreviewToCanvas(toCanvasPayload(m)) }
                     : {})}
                 />
               )}

@@ -439,39 +439,63 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(slackNode.missingInputs).toEqual(expect.arrayContaining(["channel", "text"]));
   });
 
-  it("HERMES-AGENT-MUTATION-PREVIEW — current graph (manual.run → slack) + 'change to email' → updated plan with email + in-place replace marker", async () => {
-    // The model replies prose only (the observed failure). The deterministic mutation fallback must still
-    // produce a real updated plan + preview so the canvas changes instead of React only describing it.
-    // Gmail is the user's only connected email provider → it's the safe default (no need to ask).
-    mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Sure — switching to email is fine.", source: "hermes-agent", workflowPlan: null });
-    mockCredentials.mockResolvedValueOnce({
-      accountSharedProviders: [],
-      currentUserPrivateProviders: [{ providerKey: "gmail", displayName: "Gmail", status: "available" }],
+  it("HERMES-AGENT-WORKFLOW-EDITOR — model returns edit operations vs the current draft → validated proposedDefinition + preview", async () => {
+    // The general path: the model proposes a WorkflowPatch (remove the Slack step, add a Gmail step,
+    // re-wire). The route validates it against the LOCAL draft → exact candidate end-state.
+    mockRunner.mockResolvedValueOnce({
+      ok: true,
+      guidanceText: "Here's the change.",
+      source: "hermes-agent",
+      workflowPlan: null,
+      mutationOperations: [
+        { op: "removeNode", nodeId: "a1" },
+        { op: "addNode", node: { id: "new-email", kind: "action", provider: "gmail", type: "send_email", config: {}, position: { x: 0, y: 0 } } },
+        { op: "addEdge", edge: { id: "ne1", from: "t1", to: "new-email" } },
+      ],
     });
     const res = await call(ACCOUNT, {
-      goalText: "can you actually change it to an email notification",
-      currentGraph: [
-        { kind: "trigger", provider: "native", type: "manual.run" },
-        { kind: "action", provider: "slack", type: "send_channel_message" },
-      ],
+      goalText: "change it to an email notification",
+      currentDraft: {
+        nodes: [
+          { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
+          { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: { channel: "C1", text: "hi" }, position: { x: 0, y: 0 } },
+        ],
+        edges: [{ id: "e1", from: "t1", to: "a1" }],
+      },
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.workflowPlan).not.toBeNull();
-    expect(body.workflowPlan.steps.map((s: { provider: string; type: string }) => `${s.provider}:${s.type}`)).toEqual([
+    // proposedDefinition = the exact validated end-state (manual.run → gmail), Slack REPLACED not appended.
+    expect(body.proposedDefinition).toBeTruthy();
+    expect(body.proposedDefinition.nodes.map((n: { provider: string; type: string }) => `${n.provider}:${n.type}`)).toEqual([
       "native:manual.run",
       "gmail:send_email",
     ]);
-    // Slack is REPLACED, not kept alongside email.
-    expect(JSON.stringify(body.workflowPlan).includes("send_channel_message")).toBe(true); // only inside `replaces`
-    const emailStep = body.workflowPlan.steps.find((s: { type: string }) => s.type === "send_email");
-    expect(emailStep.replaces).toEqual({ provider: "slack", type: "send_channel_message" });
-    // A preview is produced (auto-shows on the canvas); missing email config is requiredInputs, not a failure.
+    expect(body.proposedDefinition.nodes.some((n: { provider: string }) => n.provider === "slack")).toBe(false);
     expect(body.previewDraft).not.toBeNull();
-    expect(emailStep.requiredInputs).toContain("to");
+    // Missing email config surfaces as needs-setup (requiredInputs), not a failure.
+    const emailPreview = body.previewDraft.nodes.find((n: { type: string }) => n.type === "send_email");
+    expect(emailPreview.missingInputs).toContain("to");
   });
 
-  it("HERMES-AGENT-MUTATION-PREVIEW — both Gmail+Outlook connected, no provider named → asks which (no plan, no invented email)", async () => {
+  it("HERMES-AGENT-WORKFLOW-EDITOR — no model patch + demoted fallback: Slack→email with one connected provider → proposedDefinition", async () => {
+    mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Sure.", source: "hermes-agent", workflowPlan: null });
+    mockCredentials.mockResolvedValueOnce({ accountSharedProviders: [], currentUserPrivateProviders: [{ providerKey: "gmail", displayName: "Gmail", status: "available" }] });
+    const res = await call(ACCOUNT, {
+      goalText: "can you actually change it to an email notification",
+      currentDraft: {
+        nodes: [
+          { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
+          { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: {}, position: { x: 0, y: 0 } },
+        ],
+        edges: [{ id: "e1", from: "t1", to: "a1" }],
+      },
+    });
+    const body = await res.json();
+    expect(body.proposedDefinition.nodes.map((n: { provider: string; type: string }) => `${n.provider}:${n.type}`)).toEqual(["native:manual.run", "gmail:send_email"]);
+  });
+
+  it("HERMES-AGENT-WORKFLOW-EDITOR — both Gmail+Outlook connected, no provider named → asks which (no proposal, no invented email)", async () => {
     mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Email works.", source: "hermes-agent", workflowPlan: null });
     mockCredentials.mockResolvedValueOnce({
       accountSharedProviders: [],
@@ -482,14 +506,16 @@ describe("workflow-guidance route — capability call + safe response", () => {
     });
     const res = await call(ACCOUNT, {
       goalText: "change it to an email notification",
-      currentGraph: [
-        { kind: "trigger", provider: "native", type: "manual.run" },
-        { kind: "action", provider: "slack", type: "send_channel_message" },
-      ],
+      currentDraft: {
+        nodes: [
+          { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
+          { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: {}, position: { x: 0, y: 0 } },
+        ],
+        edges: [{ id: "e1", from: "t1", to: "a1" }],
+      },
     });
     const body = await res.json();
-    expect(body.workflowPlan).toBeNull();
-    expect(body.previewDraft).toBeNull();
+    expect(body.proposedDefinition ?? null).toBeNull();
     expect(body.warnings.join(" ")).toMatch(/gmail or outlook/i);
     expect(JSON.stringify(body)).not.toMatch(/"provider"\s*:\s*"email"/i);
   });

@@ -29,6 +29,7 @@ import type {
 import type { AccountType } from "@/contracts/accounts";
 import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import type { PatchOperation } from "@/services/workflows/patch/types";
 import { sanitizeWorkflowForGuidance } from "@/services/ai-guidance/sanitizeWorkflowForGuidance";
 import {
   buildSafeGuidanceContext,
@@ -95,6 +96,8 @@ export type WorkflowGuidanceIntakeResult =
       readonly source: "hermes-agent";
       /** null unless a structured plan passed validateWorkflowPlan upstream (advisory only). */
       readonly workflowPlan: WorkflowPlan | null;
+      /** HERMES-AGENT-WORKFLOW-EDITOR — structurally-valid edit operations the model proposed, or absent. */
+      readonly mutationOperations?: readonly PatchOperation[];
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
     }
@@ -180,6 +183,7 @@ export async function runWorkflowGuidanceIntakeCapability(
     guidanceText: guidance.guidanceText,
     source: guidance.source,
     workflowPlan: guidance.workflowPlan,
+    ...(guidance.mutationOperations ? { mutationOperations: guidance.mutationOperations } : {}),
     ...(guidance.rawUsage ? { rawUsage: guidance.rawUsage } : {}),
     ...(guidance.warnings ? { warnings: guidance.warnings } : {}),
   };

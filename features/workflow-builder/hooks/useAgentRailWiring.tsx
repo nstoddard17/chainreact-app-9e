@@ -6,6 +6,7 @@ import type {
   CheckWorkflowSetupTarget,
 } from "@/core/workflows/checkWorkflowReview";
 import type { CanvasPreviewGraphNode } from "@/core/workflows/canvasPreviewEligibility";
+import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
@@ -41,6 +42,13 @@ export interface UseAgentRailWiringInput {
 export interface AgentRailWiring {
   readonly getCheckReviewContext: () => CheckWorkflowReviewContext;
   readonly getCurrentGraphShape: () => readonly CanvasPreviewGraphNode[];
+  /**
+   * HERMES-AGENT-WORKFLOW-EDITOR — the user's CURRENT local draft (full nodes incl. ids + config, +
+   * edges) sent with each guidance request so React can propose a catalog-validated edit against what's
+   * on the canvas now. Read at call time from the graph store (no subscription). Config is the user's
+   * own data; the SERVER redacts secrets before the model.
+   */
+  readonly getCurrentDraft: () => WorkflowDefinition;
   readonly renderCheckSetup: (targets: readonly CheckWorkflowSetupTarget[]) => ReactNode;
 }
 
@@ -68,6 +76,13 @@ export function useAgentRailWiring({
         .pendingNodes.map((n) => ({ kind: n.kind, provider: n.provider, type: n.type })),
     [],
   );
+
+  // HERMES-AGENT-WORKFLOW-EDITOR — the full current local draft (stable ids + config + edges) for the
+  // conversational-editor request. Read fresh at call time; never subscribes.
+  const getCurrentDraft = useCallback((): WorkflowDefinition => {
+    const s = useGraphSlice.getState();
+    return { nodes: [...s.pendingNodes], edges: [...s.pendingEdges] };
+  }, []);
 
   const handleUpdateStepSetup = useCallback(
     (nodeId: string, values: Record<string, unknown>) => {
@@ -101,5 +116,5 @@ export function useAgentRailWiring({
     [setupFieldsByType, workflowId, handleUpdateStepSetup, handleSetupFieldReveal],
   );
 
-  return { getCheckReviewContext, getCurrentGraphShape, renderCheckSetup };
+  return { getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup };
 }

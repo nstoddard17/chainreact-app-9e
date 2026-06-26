@@ -23,6 +23,8 @@
 import { z } from "zod";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import { WORKFLOW_PLAN_SCHEMA_VERSION } from "@/contracts/guidanceSession";
+import type { PatchOperation } from "@/services/workflows/patch/types";
+import { PatchOperationSchema } from "@/services/workflows/patch/workflowPatchSchema";
 
 /**
  * Shape schema for an embedded plan. `provider`/`type` are CLAIMS (any string) — capability validity
@@ -112,6 +114,42 @@ export function extractPlanFromText(text: string): ExtractedPlanCandidate | null
   if (whole) return { plan: whole, sourceBlock: text };
 
   return null;
+}
+
+/**
+ * HERMES-AGENT-WORKFLOW-EDITOR — extract structurally-valid `WorkflowPatch` operations from a fenced
+ * ```json block of the form `{ "operations": [ ... ] }`. STRUCTURE-only (Zod over the op union) — the
+ * catalog / atomic / local-draft validation is the route's job (`proposeWorkflowMutation`). Returns the
+ * ops + the source block (for display stripping), or null when no valid patch block is present.
+ */
+export function extractMutationOperationsFromText(
+  text: string,
+): { operations: PatchOperation[]; sourceBlock: string } | null {
+  if (!text || typeof text !== "string") return null;
+  FENCED_BLOCK_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = FENCED_BLOCK_RE.exec(text)) !== null) {
+    const ops = tryParseOperations(match[1]!);
+    if (ops) return { operations: ops, sourceBlock: match[0] };
+  }
+  const whole = tryParseOperations(text);
+  return whole ? { operations: whole, sourceBlock: text } : null;
+}
+
+function tryParseOperations(jsonish: string): PatchOperation[] | null {
+  const trimmed = jsonish.trim();
+  if (!trimmed.startsWith("{")) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { operations?: unknown }).operations)) {
+    return null;
+  }
+  const result = z.array(PatchOperationSchema).min(1).safeParse((parsed as { operations: unknown }).operations);
+  return result.success ? (result.data as PatchOperation[]) : null;
 }
 
 /**

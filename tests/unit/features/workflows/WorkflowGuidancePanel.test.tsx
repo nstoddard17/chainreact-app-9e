@@ -393,24 +393,24 @@ describe("WorkflowGuidancePanel — conversational (builder rail chat mode)", ()
     expect(screen.getAllByTestId("workflow-guidance-message-user")).toHaveLength(2);
   });
 
-  it("HERMES-AGENT-MUTATION-PREVIEW — sends the CURRENT graph SHAPE (kind/provider/type only) so change requests preview against the live canvas", async () => {
+  it("HERMES-AGENT-WORKFLOW-EDITOR — sends the CURRENT local draft (stable ids + edges) so change requests are proposed against the live canvas", async () => {
     const user = userEvent.setup();
     mockRequest.mockResolvedValue({ ok: true, guidanceText: "ok", source: "hermes-agent", workflowPlan: null, previewDraft: null });
-    const getCurrentGraphShape = () => [
-      { kind: "trigger", provider: "native", type: "manual.run" },
-      { kind: "action", provider: "slack", type: "send_channel_message" },
-    ];
-    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational getCurrentGraphShape={getCurrentGraphShape} />);
+    const currentDraft = {
+      nodes: [
+        { id: "t1", kind: "trigger" as const, provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
+        { id: "a1", kind: "action" as const, provider: "slack", type: "send_channel_message", config: {}, position: { x: 0, y: 0 } },
+      ],
+      edges: [{ id: "e1", from: "t1", to: "a1" }],
+    };
+    render(<WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational getCurrentDraft={() => currentDraft} />);
     await user.type(screen.getByPlaceholderText(/Describe what to add or change/i), "change it to an email notification");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await waitFor(() => expect(mockRequest).toHaveBeenCalledTimes(1));
     const sent = mockRequest.mock.calls[0]![0];
-    expect(sent.currentGraph).toEqual([
-      { kind: "trigger", provider: "native", type: "manual.run" },
-      { kind: "action", provider: "slack", type: "send_channel_message" },
-    ]);
-    // SHAPE ONLY — never config/values/ids/secrets in the request.
-    expect(JSON.stringify(sent)).not.toMatch(/config|value|secret|token|credential/i);
+    // The draft is sent with STABLE node ids + edges so React can reference "a1" unambiguously.
+    expect(sent.currentDraft.nodes.map((n: { id: string }) => n.id)).toEqual(["t1", "a1"]);
+    expect(sent.currentDraft.edges).toEqual([{ id: "e1", from: "t1", to: "a1" }]);
   });
 
   it("a follow-up preview AUTO-shows on the canvas and supersedes the prior one (REACT-LIVE-SKELETON)", async () => {

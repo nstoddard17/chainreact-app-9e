@@ -158,7 +158,7 @@ describe("builder preview canvas state (HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FI
 // HERMES-AGENT-MUTATION-PREVIEW — the reported scenario: an applied draft (manual.run → Slack) and the
 // user asks to "change it to an email notification". The mutation plan carries a `replaces` marker so
 // Apply SWAPS Slack for email IN PLACE (not append) — the canvas actually changes.
-describe("builder apply-preview — mutation (Slack → email swap, replace not append)", () => {
+describe("builder apply-preview — general EDIT (Slack → email swap, replace not append)", () => {
   const manualSlackWorkflow = workflow(
     [
       { id: "t1", kind: "trigger" as const, provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
@@ -166,36 +166,44 @@ describe("builder apply-preview — mutation (Slack → email swap, replace not 
     ],
     [{ id: "e1", from: "t1", to: "a1" }],
   );
+  // HERMES-AGENT-WORKFLOW-EDITOR — the route returns the exact catalog-validated end-state graph.
+  const proposedDefinition = {
+    nodes: [
+      { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
+      { id: "email-1", kind: "action", provider: "gmail", type: "send_email", config: {}, position: { x: 0, y: 0 } },
+    ],
+    edges: [{ id: "ne1", from: "t1", to: "email-1" }],
+  };
   const mutationPlan = {
     schemaVersion: 1,
-    title: "Switch the notification to email",
-    summary: "Replace the Slack message with an email.",
+    title: "Proposed change",
+    summary: "Switch the notification to email.",
     notApplied: true,
     steps: [
-      { ref: "s0", role: "trigger", provider: "native", type: "manual.run", purpose: "keep" },
-      { ref: "s1", role: "action", provider: "gmail", type: "send_email", purpose: "swap", requiredInputs: ["to"], replaces: { provider: "slack", type: "send_channel_message" } },
+      { ref: "t1", role: "trigger", provider: "native", type: "manual.run", purpose: "" },
+      { ref: "email-1", role: "action", provider: "gmail", type: "send_email", purpose: "" },
     ],
   };
   const mutationPreview = {
     version: 1,
-    title: "Switch the notification to email",
-    summary: "Replace the Slack message with an email.",
+    title: "Proposed change",
+    summary: "Switch the notification to email.",
     notice: "Preview only — your workflow has not changed.",
     notApplied: true,
     nodes: [
-      { previewId: "preview-step-1", role: "trigger", provider: "native", type: "manual.run", label: "native:manual.run", purpose: "keep", notApplied: true },
-      { previewId: "preview-step-2", role: "action", provider: "gmail", type: "send_email", label: "gmail:send_email", purpose: "swap", missingInputs: ["to"], notApplied: true },
+      { previewId: "t1", role: "trigger", provider: "native", type: "manual.run", label: "native:manual.run", purpose: "", notApplied: true },
+      { previewId: "email-1", role: "action", provider: "gmail", type: "send_email", label: "gmail:send_email", purpose: "", missingInputs: ["to"], notApplied: true },
     ],
-    edges: [{ previewId: "preview-edge-1", fromPreviewId: "preview-step-1", toPreviewId: "preview-step-2", notApplied: true }],
+    edges: [{ previewId: "ne1", fromPreviewId: "t1", toPreviewId: "email-1", notApplied: true }],
   };
+  const editResponse = { ok: true, guidanceText: "Here's the change.", source: "hermes-agent", workflowPlan: mutationPlan, previewDraft: mutationPreview, proposedDefinition };
 
-  it("auto-shows the email mutation preview (same-shape guard does not suppress Slack → email)", async () => {
+  it("auto-shows the email edit preview (an edit is always offerable, even when it shrinks/changes the graph)", async () => {
     const user = userEvent.setup();
-    mockRequest.mockResolvedValue({ ok: true, guidanceText: "Switching to email is fine.", source: "hermes-agent", workflowPlan: mutationPlan, previewDraft: mutationPreview });
+    mockRequest.mockResolvedValue(editResponse);
     renderBuilder(manualSlackWorkflow);
     await user.type(screen.getByPlaceholderText(/Example:/i), "change it to an email notification");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    // The mutation preview auto-shows on the canvas (email is a NEW shape vs the current Slack action).
     await screen.findByTestId("builder-preview-overlay");
     expect(screen.getAllByTestId("builder-preview-node").map((n) => n.textContent).join(" ")).toMatch(/send email/i);
     // Auto-show is display-only — nothing applied/saved yet; Slack still in the real draft.
@@ -204,24 +212,36 @@ describe("builder apply-preview — mutation (Slack → email swap, replace not 
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
-  it("Apply REPLACES the Slack action with email in place (same node id, edge preserved); no append, no save", async () => {
+  it("Apply REPLACES the Slack action with email (no append); the local graph becomes the exact proposed graph; no save", async () => {
     const user = userEvent.setup();
-    mockRequest.mockResolvedValue({ ok: true, guidanceText: "Switching to email is fine.", source: "hermes-agent", workflowPlan: mutationPlan, previewDraft: mutationPreview });
+    mockRequest.mockResolvedValue(editResponse);
     renderBuilder(manualSlackWorkflow);
     await user.type(screen.getByPlaceholderText(/Example:/i), "change it to an email notification");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await user.click(await screen.findByTestId("builder-preview-apply"));
 
     const s = useGraphSlice.getState();
-    // Slack is GONE; email took its place — two nodes total, NOT three (no append).
+    // Slack is GONE; email took its place — two nodes total, NOT three (no append). The exact proposed graph.
     expect(s.pendingNodes.map((n) => `${n.provider}:${n.type}`)).toEqual(["native:manual.run", "gmail:send_email"]);
     expect(s.pendingNodes.some((n) => n.provider === "slack")).toBe(false);
-    // Same node id a1 reused → the trigger→action edge stays connected; config cleared for re-setup.
-    expect(s.pendingNodes.find((n) => n.id === "a1")).toMatchObject({ provider: "gmail", type: "send_email", config: {} });
-    expect(s.pendingEdges).toEqual([{ id: "e1", from: "t1", to: "a1" }]);
+    expect(s.pendingEdges.map((e) => `${e.from}->${e.to}`)).toEqual(["t1->email-1"]);
     expect(s.isDirty).toBe(true);
     expect(mockUpdateWorkflow).not.toHaveBeenCalled(); // no auto-save/run/activate
-    expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent("switched in place");
+    expect(screen.getByTestId("builder-apply-notice")).toHaveTextContent("Change applied");
+  });
+
+  it("Discard leaves the graph unchanged (Slack still present, not dirty)", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue(editResponse);
+    renderBuilder(manualSlackWorkflow);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "change it to an email notification");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await user.click(await screen.findByTestId("builder-preview-discard"));
+    await waitFor(() => expect(screen.queryByTestId("builder-preview-overlay")).not.toBeInTheDocument());
+    const s = useGraphSlice.getState();
+    expect(s.pendingNodes.map((n) => `${n.provider}:${n.type}`)).toEqual(["native:manual.run", "slack:send_channel_message"]);
+    expect(s.isDirty).toBe(false);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });
 

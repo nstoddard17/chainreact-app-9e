@@ -102,32 +102,14 @@ export interface BuilderPatchEdge {
   readonly toRef: string;
 }
 
-/** Additive-only patch — appends nodes/edges; never deletes/replaces/updates existing graph pieces. */
-export interface BuilderAdditivePatch {
+/**
+ * Additive-only patch — appends nodes/edges; never deletes/replaces/updates existing graph pieces. Used
+ * by the NEW-workflow skeleton flow (REACT-LIVE-SKELETON). General edits (add/remove/replace/reconfig)
+ * go through the catalog-validated `WorkflowPatch` → candidate-definition pipeline + `replaceGraphLocal`
+ * (HERMES-AGENT-WORKFLOW-EDITOR), NOT this additive patch.
+ */
+export interface BuilderPreviewPatch {
   readonly kind: "additive";
   readonly nodes: readonly BuilderPatchNode[];
   readonly edges: readonly BuilderPatchEdge[];
 }
-
-/**
- * HERMES-AGENT-MUTATION-PREVIEW — a TARGETED in-place action swap (e.g. change the notification channel
- * from Slack to email). The graph slice finds the FIRST existing action node matching `from`
- * (`provider:type`) and swaps it to `to` IN PLACE: the node keeps its id (so all edges stay connected)
- * and position; its config is replaced with `config` (seeded guided-setup values, sanitized) or cleared
- * so required fields resurface as "needs setup". Everything else — the trigger, other actions, their
- * config, and all edges — is untouched. No add/delete of unrelated nodes; never a whole-graph wipe.
- */
-export interface BuilderReplaceActionPatch {
-  readonly kind: "replace_action";
-  /** Capability key of the existing action to replace (provider/type only — no config/ids). */
-  readonly from: { readonly provider: string; readonly type: string };
-  /** Replacement action capability + optional seeded, sanitized config (empty ⇒ cleared config). */
-  readonly to: {
-    readonly provider: string;
-    readonly type: string;
-    readonly config?: Readonly<Record<string, unknown>>;
-  };
-}
-
-/** A builder patch derived from a validated plan. Additive (default) or a targeted in-place swap. */
-export type BuilderPreviewPatch = BuilderAdditivePatch | BuilderReplaceActionPatch;

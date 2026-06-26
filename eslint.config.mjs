@@ -330,13 +330,29 @@ export default [
   // belongs in its own slice, not a feature commit. Capped at 475 to make further drift visible
   // (raised across ANON-BUILDER-2/3 + REACT-LIVE-SKELETON-2: the local-only + restored-draft wiring
   // — banner, composer seed via useRestoredDraftHandoff, local-only branches, and the anonymous
-  // free-skeleton rail wiring onShowPreview/onAnonPromptChange).
+  // free-skeleton rail wiring onShowPreview/onAnonPromptChange). Bumped 475 → 490 for
+  // HERMES-AGENT-WORKFLOW-EDITOR (proposedDefinition overlay state + the general replaceGraphLocal
+  // apply branch). Extracting the preview lifecycle into a hook remains the real long-term fix.
   {
     files: ["features/workflow-builder/WorkflowBuilder.tsx"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 475, skipBlankLines: true, skipComments: true },
+        { max: 490, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+
+  // features/workflows/WorkflowGuidancePanel.tsx — the advisory "Build with me" rail. Already at the
+  // default cap after the conversational chat mode + auto-show + dedup + Check-workflow review wiring;
+  // HERMES-AGENT-WORKFLOW-EDITOR added the currentDraft send + proposedDefinition carry-through. Splitting
+  // the conversational panel out of the dual-mode container is the real long-term fix. Capped at 420.
+  {
+    files: ["features/workflows/WorkflowGuidancePanel.tsx"],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 420, skipBlankLines: true, skipComments: true },
       ],
     },
   },
