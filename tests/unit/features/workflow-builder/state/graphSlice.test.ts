@@ -1786,6 +1786,7 @@ describe("graphSlice — replaceGraphLocal (general mutation apply)", () => {
     const outcome = useGraphSlice.getState().replaceGraphLocal(candidate);
     const s = useGraphSlice.getState();
     expect(outcome.ok).toBe(true);
+    if (!outcome.ok) throw new Error("expected ok");
     expect(outcome.addedNodeIds).toEqual(["email-1"]); // NEW node id → drives the post-apply setup UX
     expect(s.pendingNodes.map((n) => `${n.provider}:${n.type}`)).toEqual(["native:manual.run", "gmail:send_email"]);
     expect(s.pendingNodes.some((n) => n.provider === "slack")).toBe(false); // Slack gone, not appended

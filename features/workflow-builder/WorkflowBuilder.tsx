@@ -178,6 +178,11 @@ export function WorkflowBuilder({
      * instead of running the additive new-workflow patch. Absent → the new-workflow additive path.
      */
     proposedDefinition?: WorkflowDefinition;
+    /**
+     * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the draft version the proposal was validated against. Apply
+     * re-checks the live draft against it and refuses to replace a canvas that changed since.
+     */
+    baseGraphVersion?: string;
   } | null>(null);
   // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — per-show counter. Bumped each time a preview is shown so
   // the canvas fits the viewport once per show (and re-fits when a preview supersedes another). The
@@ -438,7 +443,7 @@ export function WorkflowBuilder({
   // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — open the ghost overlay with the validated plan + display
   // preview (clears any prior apply notice). Showing the overlay mutates nothing.
   const handleShowPreview = useCallback(
-    (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition }) => {
+    (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string }) => {
       setApplyNotice(null);
       setAppliedNodeIds([]);
       // A NEW preview supersedes the old one — drop any guided-setup values entered for the prior
@@ -482,10 +487,23 @@ export function WorkflowBuilder({
       : planToBuilderPatch(previewOverlay.plan, { previewConfig, ...(setupFieldsByType ? { setupFieldsByType } : {}) });
     const activeNodeId = useConfigSlice.getState().activeNodeId ?? undefined;
     const outcome = previewOverlay.proposedDefinition
-      ? useGraphSlice.getState().replaceGraphLocal(previewOverlay.proposedDefinition)
+      ? useGraphSlice.getState().replaceGraphLocal(
+          previewOverlay.proposedDefinition,
+          previewOverlay.baseGraphVersion ? { expectedBaseVersion: previewOverlay.baseGraphVersion } : {},
+        )
       : additivePatch
         ? useGraphSlice.getState().applyAdditivePatch(additivePatch, activeNodeId ? { appendAfterNodeId: activeNodeId } : {})
         : null;
+    // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the candidate was validated against an older canvas version
+    // and the user has edited since: refuse to clobber their changes; ask React to re-propose. The
+    // overlay is cleared so the stale ghost preview is removed.
+    if (outcome && !outcome.ok && "reason" in outcome && outcome.reason === "stale") {
+      setApplyNotice("Your workflow changed since this suggestion. Ask React to update it and try again.");
+      setAppliedNodeIds([]);
+      setPreviewOverlay(null);
+      setPreviewConfig({});
+      return;
+    }
     if (outcome?.ok) {
       const placement = "placement" in outcome ? outcome.placement : "replaced";
       setApplyNotice(

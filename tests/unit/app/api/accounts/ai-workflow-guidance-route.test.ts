@@ -439,18 +439,19 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(slackNode.missingInputs).toEqual(expect.arrayContaining(["channel", "text"]));
   });
 
-  it("HERMES-AGENT-WORKFLOW-EDITOR — model returns edit operations vs the current draft → validated proposedDefinition + preview", async () => {
-    // The general path: the model proposes a WorkflowPatch (remove the Slack step, add a Gmail step,
-    // re-wire). The route validates it against the LOCAL draft → exact candidate end-state.
+  it("HERMES-AGENT-WORKFLOW-EDITOR — model returns edit operations (OPAQUE refs) vs the current draft → validated proposedDefinition + preview", async () => {
+    // The general path: the model proposes a WorkflowPatch using the OPAQUE editable-graph refs it was
+    // given (node_1 = trigger, node_2 = Slack), NOT the real ids. The route resolves the refs back to
+    // real ids via its private refMap, then validates against the LOCAL draft → exact candidate end-state.
     mockRunner.mockResolvedValueOnce({
       ok: true,
       guidanceText: "Here's the change.",
       source: "hermes-agent",
       workflowPlan: null,
       mutationOperations: [
-        { op: "removeNode", nodeId: "a1" },
-        { op: "addNode", node: { id: "new-email", kind: "action", provider: "gmail", type: "send_email", config: {}, position: { x: 0, y: 0 } } },
-        { op: "addEdge", edge: { id: "ne1", from: "t1", to: "new-email" } },
+        { op: "removeNode", nodeId: "node_2" },
+        { op: "addNode", node: { id: "new_email", kind: "action", provider: "gmail", type: "send_email", config: {}, position: { x: 0, y: 0 } } },
+        { op: "addEdge", edge: { id: "ne1", from: "node_1", to: "new_email" } },
       ],
     });
     const res = await call(ACCOUNT, {

@@ -69,7 +69,7 @@ export interface WorkflowGuidancePanelProps {
    * overlay NEVER applies/creates/mutates a workflow; an explicit "Apply preview" in the overlay does
    * the additive local-draft edit.
    */
-  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition }) => void;
+  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string }) => void;
   /**
    * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — render the session-scoped conversational rail (message list
    * + bottom input + recent-conversation context) instead of the single-shot form. Default false keeps
@@ -154,6 +154,8 @@ type ChatMessage =
       readonly preview: DraftPreview | null;
       /** HERMES-AGENT-WORKFLOW-EDITOR — for an EDIT proposal, the validated end-state graph Apply replaces with. */
       readonly proposedDefinition?: WorkflowDefinition | null;
+      /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the draft version the proposal is pinned to (Apply stale guard). */
+      readonly baseGraphVersion?: string | null;
       // REACT-LIVE-SKELETON — safe, no-secret notes (e.g. an exact catalog gap when no plan could be
       // built). Rendered as muted lines under the reply.
       readonly warnings?: readonly string[];
@@ -199,8 +201,13 @@ function SparkleIcon() {
 }
 
 /** Build the canvas-overlay payload from an assistant turn (carries the edit's proposedDefinition when present). */
-function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition } {
-  return { plan: m.plan!, preview: m.preview!, ...(m.proposedDefinition ? { proposedDefinition: m.proposedDefinition } : {}) };
+function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string } {
+  return {
+    plan: m.plan!,
+    preview: m.preview!,
+    ...(m.proposedDefinition ? { proposedDefinition: m.proposedDefinition } : {}),
+    ...(m.baseGraphVersion ? { baseGraphVersion: m.baseGraphVersion } : {}),
+  };
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
@@ -325,6 +332,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
             ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
+            ...(res.baseGraphVersion ? { baseGraphVersion: res.baseGraphVersion } : {}),
             ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
           },
         ]);
@@ -372,6 +380,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
             ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
+            ...(res.baseGraphVersion ? { baseGraphVersion: res.baseGraphVersion } : {}),
             ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
           },
         ]);

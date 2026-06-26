@@ -14,6 +14,9 @@ import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPr
 import { inferDeterministicPreviewPlan, detectCatalogGap } from "@/services/ai-guidance/fallback/inferDeterministicPreview";
 import { inferDeterministicMutationOps } from "@/services/ai-guidance/fallback/inferDeterministicMutation";
 import { proposeWorkflowMutation } from "@/services/ai-guidance/mutation/proposeWorkflowMutation";
+import { runWorkflowEditFromModel } from "@/services/ai-guidance/mutation/runWorkflowEditFromModel";
+import { buildEditableWorkflowGraph } from "@/services/ai-guidance/editableGraph/buildEditableWorkflowGraph";
+import { buildCapabilityCatalogKeys } from "@/services/ai-guidance/capabilityCatalog";
 import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
 import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import {
@@ -183,6 +186,14 @@ export async function POST(
   const sharedCredentialProviders = credentials.accountSharedProviders.map((p) => p.providerKey);
   const ownConnectionProviders = credentials.currentUserPrivateProviders.map((p) => p.providerKey);
 
+  // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — when the user is EDITING a non-empty local draft, build the SAFE
+  // model-facing editable graph (opaque refs + safe editable config + version) via the editor privacy
+  // boundary, and forward it + the public capability catalog to the model so it can propose a
+  // `WorkflowPatch` referencing the canvas by opaque ref. The PRIVATE ref→realId map + version stay here
+  // (server-only) for materialization + the stale guard; they NEVER cross to the model.
+  const editing = !!currentDraft && currentDraft.nodes.length > 0;
+  const builtEditableGraph = editing ? buildEditableWorkflowGraph(currentDraft!) : null;
+
   // 6. Run the advisory capability through the governance seam (audited). Read-only — no mutation.
   const result = await runWorkflowGuidanceIntakeCapability(
     {
@@ -190,6 +201,7 @@ export async function POST(
       goalText,
       ...(boundedRecentTurns && boundedRecentTurns.length ? { recentTurns: boundedRecentTurns } : {}),
       ...(definition ? { definition } : {}),
+      ...(builtEditableGraph ? { editableGraph: builtEditableGraph.graph, capabilityCatalog: buildCapabilityCatalogKeys() } : {}),
       contextInputs: {
         account: { type: accountType },
         ...(workflowCreatedByUserId ? { workflowCreatedByUserId } : {}),
@@ -214,26 +226,45 @@ export async function POST(
   const connectedEmailProviders = [...sharedCredentialProviders, ...ownConnectionProviders].filter(
     (p) => p === "gmail" || p === "microsoft-outlook",
   );
-  const editing = currentDraft && currentDraft.nodes.length > 0;
+  // DEMOTED, degraded-recovery fallback ONLY (never the primary mechanism): runs when the MODEL proposed
+  // no patch. It emits real-id ops (it has the real draft), so it bypasses ref-resolution.
   const fallback = editing && !result.mutationOperations
-    ? inferDeterministicMutationOps({ goalText, currentDraft, connectedEmailProviders })
+    ? inferDeterministicMutationOps({ goalText, currentDraft: currentDraft!, connectedEmailProviders })
     : { kind: "none" as const };
-  const operations = result.mutationOperations ?? (fallback.kind === "ops" ? fallback.operations : null);
 
   let workflowPlan = result.workflowPlan;
   let previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
   let proposedDefinition: import("@/contracts/workflowDefinition").WorkflowDefinition | null = null;
+  let baseGraphVersion: string | null = null;
   const editorMessages: string[] = [];
 
-  if (editing && operations) {
-    const proposal = proposeWorkflowMutation({ currentDraft, operations });
+  if (editing && result.mutationOperations && builtEditableGraph) {
+    // PRIMARY model-driven path: opaque refs → stale guard → real ids → atomic catalog validation.
+    const edit = runWorkflowEditFromModel({
+      currentDraft: currentDraft!,
+      editableGraph: builtEditableGraph,
+      operations: result.mutationOperations,
+      ...(result.mutationBaseVersion ? { modelBaseVersion: result.mutationBaseVersion } : {}),
+    });
+    if (edit.kind === "proposal") {
+      proposedDefinition = edit.proposedDefinition;
+      previewDraft = edit.previewDraft;
+      workflowPlan = edit.workflowPlan;
+      baseGraphVersion = edit.baseGraphVersion;
+      editorMessages.push(...edit.warnings);
+    } else if (edit.kind === "invalid" || edit.kind === "stale") {
+      // Exact, actionable, secret-free reason (unknown/stale ref, unsupported capability, changed draft).
+      editorMessages.push(edit.message);
+    }
+  } else if (editing && fallback.kind === "ops") {
+    const proposal = proposeWorkflowMutation({ currentDraft: currentDraft!, operations: fallback.operations });
     if (proposal.kind === "proposal") {
       proposedDefinition = proposal.proposedDefinition;
       previewDraft = proposal.previewDraft;
       workflowPlan = proposal.workflowPlan;
+      baseGraphVersion = builtEditableGraph?.version ?? null;
       editorMessages.push(...proposal.warnings);
     } else if (proposal.kind === "invalid") {
-      // The proposed change couldn't be validated against the catalog/draft → an exact, actionable reason.
       editorMessages.push(proposal.message);
     }
   } else if (editing && (fallback.kind === "needs_provider_choice" || fallback.kind === "needs_node_choice" || fallback.kind === "catalog_gap")) {
@@ -263,6 +294,9 @@ export async function POST(
     workflowPlan,
     previewDraft,
     ...(proposedDefinition ? { proposedDefinition } : {}),
+    // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the draft version this proposal is pinned to, so the client can
+    // refuse to Apply onto a canvas that changed since (one more stale guard at the explicit Apply click).
+    ...(proposedDefinition && baseGraphVersion ? { baseGraphVersion } : {}),
     ...(warnings.length ? { warnings } : {}),
   });
 }

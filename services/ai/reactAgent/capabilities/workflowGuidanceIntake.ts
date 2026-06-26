@@ -30,6 +30,7 @@ import type { AccountType } from "@/contracts/accounts";
 import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { PatchOperation } from "@/services/workflows/patch/types";
+import type { EditableWorkflowGraph } from "@/contracts/editableWorkflowGraph";
 import { sanitizeWorkflowForGuidance } from "@/services/ai-guidance/sanitizeWorkflowForGuidance";
 import {
   buildSafeGuidanceContext,
@@ -66,6 +67,13 @@ export interface WorkflowGuidanceIntakeInput {
   /** Optional public capability catalog (provider:type keys) — safe, not user data. */
   readonly capabilityCatalog?: readonly string[];
   /**
+   * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the SAFE, model-facing editable graph of the user's CURRENT local
+   * draft (opaque refs + safe editable config + version), built by the route via the editor privacy
+   * boundary. Present ONLY for an EDIT request. It carries NO real ids/credentials/secrets; the route
+   * keeps the private ref→realId map. Forwarded to the prompt so the model proposes ops against it.
+   */
+  readonly editableGraph?: EditableWorkflowGraph;
+  /**
    * HERMES-AGENT-MEMORY-SCOPE-GUARD — server-resolved raw inputs for the scope-guarded context. The
    * route gathers these under existing authorization; the client never supplies them. Optional fields
    * are simply omitted from the context when not safely available. Identity (userId) comes from
@@ -98,6 +106,8 @@ export type WorkflowGuidanceIntakeResult =
       readonly workflowPlan: WorkflowPlan | null;
       /** HERMES-AGENT-WORKFLOW-EDITOR — structurally-valid edit operations the model proposed, or absent. */
       readonly mutationOperations?: readonly PatchOperation[];
+      /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the editable-graph version the model echoed back (stale guard). */
+      readonly mutationBaseVersion?: string;
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
     }
@@ -168,6 +178,7 @@ export async function runWorkflowGuidanceIntakeCapability(
         ...(input.recentTurns && input.recentTurns.length ? { recentTurns: input.recentTurns } : {}),
         ...(input.capabilityCatalog ? { capabilityCatalog: input.capabilityCatalog } : {}),
         ...(context ? { context } : {}),
+        ...(input.editableGraph ? { editableGraph: input.editableGraph } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
       }),
   });
@@ -184,6 +195,7 @@ export async function runWorkflowGuidanceIntakeCapability(
     source: guidance.source,
     workflowPlan: guidance.workflowPlan,
     ...(guidance.mutationOperations ? { mutationOperations: guidance.mutationOperations } : {}),
+    ...(guidance.mutationBaseVersion ? { mutationBaseVersion: guidance.mutationBaseVersion } : {}),
     ...(guidance.rawUsage ? { rawUsage: guidance.rawUsage } : {}),
     ...(guidance.warnings ? { warnings: guidance.warnings } : {}),
   };

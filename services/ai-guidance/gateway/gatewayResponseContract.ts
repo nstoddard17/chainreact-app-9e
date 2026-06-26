@@ -60,6 +60,12 @@ export type NormalizedGatewayGuidance =
        * Absent when the reply has no patch block.
        */
       readonly mutationOperations?: readonly PatchOperation[];
+      /**
+       * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the editable-graph `version` the model echoed in its patch
+       * block. The route compares it to the live draft version and rejects a STALE proposal. Absent when
+       * the model didn't echo one (the route falls back to the snapshot version it built the graph from).
+       */
+      readonly mutationBaseVersion?: string;
       readonly rawUsage?: SanitizedUsage;
       readonly warnings?: readonly string[];
     }
@@ -211,10 +217,12 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
   // EDIT instead of (or alongside) a new-workflow plan. Structure-validate it here; the route does the
   // catalog/atomic validation against the local draft. Strip the block from the display text if found.
   let mutationOperations: readonly PatchOperation[] | undefined;
+  let mutationBaseVersion: string | undefined;
   if (!workflowPlan) {
     const extractedOps = extractMutationOperationsFromText(guidanceText);
     if (extractedOps) {
       mutationOperations = extractedOps.operations;
+      mutationBaseVersion = extractedOps.baseVersion;
       guidanceText = stripSourceBlock(guidanceText, extractedOps.sourceBlock) ?? guidanceText;
     }
   }
@@ -226,6 +234,7 @@ export function normalizeGatewayResponse(raw: unknown): NormalizedGatewayGuidanc
     source: "hermes-agent",
     workflowPlan,
     ...(mutationOperations ? { mutationOperations } : {}),
+    ...(mutationBaseVersion ? { mutationBaseVersion } : {}),
     ...(rawUsage ? { rawUsage } : {}),
     ...(warnings.length ? { warnings } : {}),
   };

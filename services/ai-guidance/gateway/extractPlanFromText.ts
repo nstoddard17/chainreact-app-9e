@@ -124,19 +124,24 @@ export function extractPlanFromText(text: string): ExtractedPlanCandidate | null
  */
 export function extractMutationOperationsFromText(
   text: string,
-): { operations: PatchOperation[]; sourceBlock: string } | null {
+): { operations: PatchOperation[]; baseVersion?: string; sourceBlock: string } | null {
   if (!text || typeof text !== "string") return null;
   FENCED_BLOCK_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = FENCED_BLOCK_RE.exec(text)) !== null) {
     const ops = tryParseOperations(match[1]!);
-    if (ops) return { operations: ops, sourceBlock: match[0] };
+    if (ops) return { ...ops, sourceBlock: match[0] };
   }
   const whole = tryParseOperations(text);
-  return whole ? { operations: whole, sourceBlock: text } : null;
+  return whole ? { ...whole, sourceBlock: text } : null;
 }
 
-function tryParseOperations(jsonish: string): PatchOperation[] | null {
+/**
+ * Parse a `{ "operations": [...], "editVersion"?: "..." }` block. HERMES-AGENT-WORKFLOW-EDITOR-LIVE: the
+ * model echoes `editVersion` (the editable-graph version it edited against) so the server can reject a
+ * STALE proposal. `editVersion`/`baseVersion` are both accepted; only a short opaque token is kept.
+ */
+function tryParseOperations(jsonish: string): { operations: PatchOperation[]; baseVersion?: string } | null {
   const trimmed = jsonish.trim();
   if (!trimmed.startsWith("{")) return null;
   let parsed: unknown;
@@ -149,7 +154,12 @@ function tryParseOperations(jsonish: string): PatchOperation[] | null {
     return null;
   }
   const result = z.array(PatchOperationSchema).min(1).safeParse((parsed as { operations: unknown }).operations);
-  return result.success ? (result.data as PatchOperation[]) : null;
+  if (!result.success) return null;
+  const obj = parsed as { editVersion?: unknown; baseVersion?: unknown };
+  const rawVersion = typeof obj.editVersion === "string" ? obj.editVersion : typeof obj.baseVersion === "string" ? obj.baseVersion : undefined;
+  // Bound + shape-guard the echoed token (opaque hex-ish string); ignore anything implausible.
+  const baseVersion = rawVersion && /^[A-Za-z0-9._:-]{1,64}$/.test(rawVersion) ? rawVersion : undefined;
+  return { operations: result.data as PatchOperation[], ...(baseVersion ? { baseVersion } : {}) };
 }
 
 /**

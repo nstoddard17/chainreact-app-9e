@@ -36,6 +36,7 @@ import {
 import { buildGatewayGuidancePrompt } from "./buildGatewayGuidancePrompt";
 import type { SafeGuidanceContext } from "../guidanceContextPolicy";
 import type { GuidanceConversationTurn } from "@/contracts/aiGuidance";
+import type { EditableWorkflowGraph } from "@/contracts/editableWorkflowGraph";
 import { normalizeGatewayResponse, type NormalizedGatewayGuidance } from "./gatewayResponseContract";
 
 /** Minimal injectable HTTP seam — decoupled from DOM fetch typing so tests mock it trivially. */
@@ -92,6 +93,8 @@ export async function requestHermesAgentGuidanceNormalized(params: {
   capabilityCatalog?: readonly string[];
   /** Scope-guarded context (HERMES-AGENT-MEMORY-SCOPE-GUARD). */
   context?: SafeGuidanceContext;
+  /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the safe editable graph for an EDIT request. */
+  editableGraph?: EditableWorkflowGraph;
   fetchImpl?: GatewayFetch;
 }): Promise<NormalizedGatewayGuidance> {
   const prompt = buildGatewayGuidancePrompt({
@@ -100,6 +103,7 @@ export async function requestHermesAgentGuidanceNormalized(params: {
     ...(params.recentTurns && params.recentTurns.length ? { recentTurns: params.recentTurns } : {}),
     ...(params.capabilityCatalog ? { capabilityCatalog: params.capabilityCatalog } : {}),
     ...(params.context ? { context: params.context } : {}),
+    ...(params.editableGraph ? { editableGraph: params.editableGraph } : {}),
   });
 
   const body = JSON.stringify({ prompt });

@@ -15,6 +15,8 @@
 
 import type { GuidanceConversationTurn, WorkflowGuidanceRequest } from "@/contracts/aiGuidance";
 import { MAX_GUIDANCE_CONVERSATION_TURNS, MAX_GUIDANCE_CONVERSATION_TURN_TEXT } from "@/contracts/aiGuidance";
+import type { EditableWorkflowGraph } from "@/contracts/editableWorkflowGraph";
+import { EXISTING_EDGE_REF_PREFIX, EXISTING_NODE_REF_PREFIX, NEW_NODE_REF_PREFIX } from "@/contracts/editableWorkflowGraph";
 import type { SafeGuidanceContext } from "../guidanceContextPolicy";
 
 export interface BuildGatewayPromptInput {
@@ -30,6 +32,14 @@ export interface BuildGatewayPromptInput {
   readonly recentTurns?: readonly GuidanceConversationTurn[];
   /** Public capability catalog the brain may propose from (provider:type keys). Safe — not user data. */
   readonly capabilityCatalog?: readonly string[];
+  /**
+   * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the SAFE, model-facing editable view of the user's CURRENT local
+   * draft (opaque node refs + safe editable config + edges + a version token). Present ONLY for an EDIT
+   * request. Built by `buildEditableWorkflowGraph` (the editor privacy boundary) — it carries NO real
+   * ids / credentials / secrets. When present, the prompt shows THIS instead of the de-identified shape
+   * line so the model has one consistent, referenceable view to propose `WorkflowPatch` ops against.
+   */
+  readonly editableGraph?: EditableWorkflowGraph;
   /**
    * Scope-guarded context (HERMES-AGENT-MEMORY-SCOPE-GUARD) — account summary, account-shared /
    * own-connection availability, and a private-connection notice. Built by `buildSafeGuidanceContext`,
@@ -91,11 +101,18 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     ? `Recent conversation (most recent last, for context — the latest user goal above is the request to answer now):\n${recent.join("\n")}`
     : "";
 
-  const shapeLine =
-    wf.nodeCount > 0
+  // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — when an editable graph is present (an EDIT request), show IT and
+  // suppress the de-identified shape line, so the model references nodes by ONE consistent opaque scheme.
+  const editing = !!input.editableGraph && input.editableGraph.nodes.length > 0;
+  const shapeLine = editing
+    ? ""
+    : wf.nodeCount > 0
       ? `Current workflow shape: ${wf.nodeCount} step(s), ${wf.edgeCount} connection(s).\n` +
         wf.nodes.map((n) => `  - ${n.ref}: ${n.kind} ${n.provider}:${n.type}`).join("\n")
       : "There is no workflow yet.";
+
+  const editableGraphBlock = editing ? buildEditableGraphBlock(input.editableGraph!) : "";
+  const editInstructions = editing ? EDIT_RESPONSE_INSTRUCTIONS : "";
 
   const catalogLine = input.capabilityCatalog?.length
     ? "Available ChainReact capabilities (provider:type) to propose from:\n" +
@@ -124,6 +141,7 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     goalLine,
     conversationLine,
     shapeLine,
+    editableGraphBlock,
     findingsLine,
     catalogLine,
     accountLine,
@@ -131,6 +149,7 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     ownConnLine,
     privateConnLine,
     RESPONSE_FORMAT_INSTRUCTIONS,
+    editInstructions,
     CONTEXT_SCOPE_INSTRUCTION,
     CREDENTIAL_AVAILABILITY_INSTRUCTION,
     "This is advice only. ChainReact validates any proposed plan and is the only thing that can build, change, or run a workflow.",
@@ -138,6 +157,60 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     .filter((l) => l.length > 0)
     .join("\n\n");
 }
+
+/**
+ * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — render the SAFE editable graph the model edits against. Lists each
+ * node by its OPAQUE ref (never a real id), its capability id (`provider:type`), a safe description, and
+ * its safe editable config fields (key/label/type + value only when low-risk). Edges are by ref. The
+ * `version` token is echoed back by the model so the server can reject a stale proposal.
+ */
+function buildEditableGraphBlock(graph: EditableWorkflowGraph): string {
+  const lines: string[] = [];
+  lines.push(
+    `Editable workflow (the canvas you can change — version "${graph.version}"): ${graph.nodeCount} step(s), ${graph.edgeCount} connection(s).`,
+  );
+  lines.push(
+    `Each step has an opaque REFERENCE (e.g. "${EXISTING_NODE_REF_PREFIX}1") that names WHICH step, and a capability id "provider:type" that names WHAT it is. Use the reference to target a step; use "provider:type" only to say which capability.`,
+  );
+  for (const n of graph.nodes) {
+    const desc = n.description ? ` — ${n.description}` : "";
+    lines.push(`  - ${n.ref} [${n.role}] ${n.capabilityKey}${desc}`);
+    for (const f of n.config) {
+      const valuePart =
+        f.value !== undefined
+          ? `, current=${JSON.stringify(f.value)}`
+          : f.isSet
+            ? ", currently set"
+            : ", not set yet";
+      lines.push(`      • ${f.key} (${f.label}, ${f.type}${f.required ? ", required" : ""}${valuePart})`);
+    }
+  }
+  if (graph.edges.length > 0) {
+    lines.push(`  Connections (target one by its "${EXISTING_EDGE_REF_PREFIX}" ref for removeEdge / replaceEdge):`);
+    for (const e of graph.edges) {
+      lines.push(`    ${e.ref}: ${e.fromRef} → ${e.toRef}${e.label ? ` [${e.label}]` : ""}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — how to propose an EDIT against the editable graph above. The model
+ * MUST reference existing steps ONLY by the opaque refs shown (never by position, provider, or a guessed
+ * id), declare NEW nodes with `new_`-prefixed refs, and echo the graph `version` so a stale proposal is
+ * rejected rather than applied to a changed canvas.
+ */
+const EDIT_RESPONSE_INSTRUCTIONS = [
+  "Editing this workflow:",
+  `- To change the workflow, return ONE fenced \`\`\`json block: {"editVersion": "<the version string shown in the editable workflow above>", "operations": [ ... ]}. Operations are WorkflowPatch ops: addNode, removeNode, updateNodeConfig, addEdge, removeEdge, replaceEdge, moveNode, replaceTrigger.`,
+  `- Reference an EXISTING step ONLY by its opaque reference shown above (e.g. "${EXISTING_NODE_REF_PREFIX}2") — for updateNodeConfig.nodeId, removeNode.nodeId, moveNode.nodeId, removeEdge/replaceEdge targets, and edge from/to endpoints. NEVER use a step's position ("the first Slack step") or its provider as the reference.`,
+  `- For a step you ADD, give it a NEW reference beginning with "${NEW_NODE_REF_PREFIX}" (e.g. "${NEW_NODE_REF_PREFIX}email"). Use that same new reference in the edges that wire it in. The server assigns the real id.`,
+  `- Target an EXISTING connection for removeEdge / replaceEdge ONLY by its "${EXISTING_EDGE_REF_PREFIX}" reference shown under Connections. For a NEW connection, addEdge with from/to node references (give the edge any id).`,
+  "- A replacement is removeNode (old reference) + addNode (new reference) + addEdge(s) re-wiring the new node — NOT an append. To insert a step BEFORE another, removeEdge the existing connection (by its edge_ ref) and addEdge through the new step.",
+  "- Use ONLY references that appear in the editable workflow above, or new_ references you introduce in the SAME patch. Do not invent or reuse a reference for a step that isn't shown.",
+  "- Missing config VALUES are fine — leave them out; ChainReact collects them with a setup form. Provider:type for any added/replaced step MUST come from the capability catalog.",
+  "- If the user's reference is AMBIGUOUS (two steps could match), ASK which one in plain prose and OMIT the json block — never guess. Only claim a change is proposed when you return a valid operations block.",
+].join("\n");
 
 /**
  * Response-format guidance for the Hermes Agent (HERMES-AGENT-PLAN-EXTRACTION +

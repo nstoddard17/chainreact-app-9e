@@ -36,6 +36,12 @@ export type WorkflowGuidanceResponse =
        * skeletons (additive) and prose-only replies. Never persisted by this response.
        */
       proposedDefinition?: WorkflowDefinition | null;
+      /**
+       * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the local-draft version the `proposedDefinition` was validated
+       * against. Apply re-checks the LIVE draft against this and refuses to replace a canvas that drifted
+       * since (the user kept editing). Present only alongside a `proposedDefinition`.
+       */
+      baseGraphVersion?: string;
       warnings?: readonly string[];
     }
   | { ok: false; code: string; message: string };

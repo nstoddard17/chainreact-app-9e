@@ -4,6 +4,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDefinition, WorkflowDetail, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
 import type { BuilderPreviewPatch } from "@/contracts/workflowPlanPreview";
+import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
 import {
   WorkflowApiError,
   updateWorkflow,
@@ -238,10 +239,16 @@ export interface GraphSliceActions {
    * post-apply "open the first incomplete node" UX works). This is the GENERAL mutation apply — it
    * supersedes any per-op local apply.
    */
-  replaceGraphLocal(definition: { nodes: readonly WorkflowNode[]; edges: readonly WorkflowEdge[] }): {
-    readonly ok: true;
-    readonly addedNodeIds: readonly string[];
-  };
+  replaceGraphLocal(
+    definition: { nodes: readonly WorkflowNode[]; edges: readonly WorkflowEdge[] },
+    // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — `expectedBaseVersion`: the draft version the candidate was
+    // validated against. When provided, Apply re-checks the live pending graph and REFUSES (returns
+    // `{ok:false, reason:"stale"}`) if it drifted since (the user kept editing) — never apply a patch to a
+    // different graph version. Omitted (legacy callers / fallback) → no check, always applies.
+    options?: { readonly expectedBaseVersion?: string },
+  ):
+    | { readonly ok: true; readonly addedNodeIds: readonly string[] }
+    | { readonly ok: false; readonly reason: "stale" };
   /** Persist the pending graph → updated detail (callers react to server-side lifecycle
    * changes, e.g. a trigger edit that deactivates an active workflow); `undefined` if in-flight. */
   save(): Promise<WorkflowDetail | undefined>;
@@ -899,8 +906,16 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     };
   },
 
-  replaceGraphLocal(definition) {
-    const { pendingNodes } = get();
+  replaceGraphLocal(definition, options) {
+    const { pendingNodes, pendingEdges } = get();
+    // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — stale guard: refuse to replace a draft whose version drifted
+    // from the one the proposal was pinned to. Never clobber edits the user made after the proposal.
+    if (options?.expectedBaseVersion !== undefined) {
+      const liveVersion = computeEditableGraphVersion({ nodes: pendingNodes, edges: pendingEdges });
+      if (liveVersion !== options.expectedBaseVersion) {
+        return { ok: false, reason: "stale" };
+      }
+    }
     const priorIds = new Set(pendingNodes.map((n) => n.id));
     // Nodes that are NEW (or whose capability changed) vs the prior graph → treat as "added" so the
     // post-apply UX (open the first incomplete node) can guide setup. By node id (stable refs).
