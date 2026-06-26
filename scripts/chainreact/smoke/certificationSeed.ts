@@ -39,6 +39,7 @@ const SMOKE_WRITE_COPY = "2026-06-25";
 const SMOKE_WRITE_ONENOTE = "2026-06-25";
 const SMOKE_WRITE_GDOCS = "2026-06-26";
 const LIVE_NATIVE = "2026-06-26";
+const LIVE_DROPBOX_SEARCH = "2026-06-26";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -495,5 +496,19 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["native", "if_then_condition"],
     ["native", "router"],
     ["native", "http_request"],
+  ]),
+  // SMOKE-ACTIONS-DROPBOX-SEARCH — dropbox:search_files live-verified via the
+  // workflow-live read sweep (SMOKE_PROVIDER=dropbox) against the connected smoke
+  // Dropbox. Its free-text query is the one Dropbox selector with no safe
+  // auto-discovery, so it ran with a benign SMOKE_DROPBOX_QUERY ("test") — a
+  // name-search returning one bounded page of file METADATA (no bytes, no signed URLs,
+  // no file content). Read-only; nothing created/cleaned/leaked. This was the only
+  // connected, runnable read on the remaining NOT_RUN frontier — discord / monday /
+  // stripe report "not connected" on the smoke account, and google-analytics is
+  // connected but exposes no usable GA account/property (selector auto-discovery finds
+  // nothing). Completes Dropbox's read surface: list_folder + get_file_metadata +
+  // search_files all LIVE_PASS.
+  ...records("LIVE_PASS", "live read verified (search via SMOKE_DROPBOX_QUERY)", LIVE_DROPBOX_SEARCH, [
+    ["dropbox", "search_files"],
   ]),
 ];

@@ -225,3 +225,45 @@ finds, not the forbidden billing mutations), `google-analytics` (4 — account e
 GA property), `dropbox:search_files` (needs a query), `discord:fetch_messages`, plus
 `slack:delete_message` (destructive, non-liveSafe — inventory/handler-only). Next safe
 batch depends on connecting one of those providers on the smoke account.
+
+## 10. Update — dropbox:search_files LIVE-CERTIFIED + connection probe (2026-06-26, same day)
+
+Probed the remaining NOT_RUN frontier with the live read sweep (CERT-SKIPs the 124 already
+passed → no re-calls; self-skips unconnected providers). **Connection status on the smoke
+account:**
+
+| Provider | NOT_RUN reads | Status this run |
+|---|---|---|
+| **dropbox** | `search_files` | **CONNECTED → PASS** (ran with `SMOKE_DROPBOX_QUERY=test`) |
+| discord | `fetch_messages` | not connected → SKIP |
+| monday | 10 reads | not connected → SKIP |
+| stripe | 4 reads | not connected → SKIP (scoped `SMOKE_PROVIDER=stripe`: 0/0/4) |
+| google-analytics | 4 reads | connected, but **no usable GA account/property** (selector `accountId` auto-discovery finds nothing) → SKIP |
+
+**Selected batch: `dropbox:search_files`** — the only connected, runnable read left.
+
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+SMOKE_DROPBOX_QUERY=test npm run smoke:actions:run:workflow:live
+```
+
+**Live result:** `dropbox:search_files` → **PASS** (read-only name-search, one bounded page
+of file metadata — no bytes/signed-URLs/content; nothing created/cleaned/leaked). The
+free-text query is Dropbox's one non-auto-discoverable selector, so it ran with a benign
+`SMOKE_DROPBOX_QUERY`.
+
+**Cert row added (1):** `dropbox:search_files` → `LIVE_PASS` (2026-06-26). Dropbox reads
+now complete (`list_folder` + `get_file_metadata` + `search_files`).
+
+**Matrix:** Totals now **298 registered / 125 LIVE_PASS / 21 not-run / 152 missing / 0
+fail / 0 bug**; dropbox **11 / 8 / 0 / 3** (the 3 missing are `upload`/`download` + the
+sharing-link write — write/policy-excluded). Re-verified: `--cert`, `tests/unit/smoke-actions`
+381 pass, `tsc` 0, eslint 0, `lint:structure` OK.
+
+**Remaining 21 NOT_RUN are all blocked on connection/data, not on this lane:** monday (10)
++ stripe (4) + discord (1) need the provider connected on the smoke account;
+google-analytics (4) needs a GA account/property on the connected account;
+`slack:delete_message` stays non-liveSafe (inventory-only); `native:format_transformer`
+stays the uncertified baseline. No safe live cert is possible for them until a provider is
+connected — the next lane move would be MISSING_FIXTURE fixture-building (e.g. a safe
+write batch with cleanup) rather than the NOT_RUN frontier.
