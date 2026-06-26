@@ -110,6 +110,24 @@ open.
   error / identity / token / scope). No backend field, route, semantics, or feature flag.
   Copy extracted to `ReconnectNeededCopy` to keep `AppCard` under its line cap.
 
+### 1f. Reconnect-needed row ordering (`0623400e2`)
+
+**Marker:** `CS-APPS-RECOVERY-ROW-ORDER`. **Files:**
+[features/apps/AppCard.tsx](../../../../features/apps/AppCard.tsx) +
+[features/apps/collapsedReconnect.ts](../../../../features/apps/collapsedReconnect.ts) + tests.
+
+- **Before:** on an expanded multi-account card, reconnect-needed rows stayed in their
+  original DTO position — mixed among healthy rows, so what needs attention could be
+  anywhere in the list.
+- **After:** `orderAccountsByReconnectNeed` (pure, **stable** partition) renders
+  reconnect-needed rows **first**, healthy rows after, preserving original relative order
+  *within* each group. Render-only.
+- **Preserved:** the first flagged row is unchanged, so the Review focus target
+  (`firstNeedsReconnectId`) still lands correctly; direct one-row Reconnect, Review,
+  blocked-only (no dead action), and the mixed-health note all behave as before;
+  healthy-only cards are untouched. No backend / DTO / OAuth / disconnect / notification
+  / workflow change, no feature flag.
+
 ---
 
 ## 2. Builder drawer close UX (`03c2a46cf`)
@@ -176,6 +194,7 @@ open.
 | `d8df4fdb5` | fix(builder): announce blocked go-live reason to assistive tech (BUILDER-READINESS-A11Y) |
 | `9d0bd9f88` | feat(apps): guide user to flagged rows after Review reconnects (CS-APPS-RECOVERY-REVIEW-SCROLL) |
 | `8c3df8154` | feat(apps): clearer reconnect-needed copy — who/what/scope (CS-APPS-RECOVERY-COPY) |
+| `0623400e2` | feat(apps): surface reconnect-needed accounts first in expanded card (CS-APPS-RECOVERY-ROW-ORDER) |
 
 ---
 
@@ -225,6 +244,11 @@ open.
   broader `…/features/apps` + `…/app/apps` → **128 tests / 11 suites pass**. eslint on
   `AppCard.tsx` + `ReconnectNeededCopy.tsx` + the test → **0** (copy extracted to keep
   `AppCard` under the cap). `npx tsc --noEmit` → **exit 0**. `npm run lint:structure` → **OK**.
+- Row ordering (`0623400e2`): `…/features/apps/AppCard.test.tsx` → **49/49 pass** (4 new) +
+  `…/collapsedReconnect.test.ts` → **11/11 pass** (5 new helper tests); broader
+  `…/features/apps` + `…/app/apps` → **137 tests / 11 suites pass**. eslint on the 4 touched
+  files → **0** (`AppCard` kept under the cap). `npx tsc --noEmit` → **exit 0**.
+  `npm run lint:structure` → **OK**.
 - QA checklist + this doc: docs-only; `npm run lint:structure` → **OK**;
   `npx tsc --noEmit` → **exit 0** (re-confirmed repo builds clean).
 - Connected Apps recovery arc: see its closeout §8 (36 suites / 439 tests + 3 suites /
