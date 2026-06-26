@@ -129,3 +129,33 @@ Author the `google-docs:update_document` WRITE fixture (mirroring the Sheets
 create→mutate→independent-read-back→Drive-delete fixtures) and live-cert it via
 `npm run smoke:writes:live` with the three live gates + a connected Google smoke account.
 On a green run (0 leaked), add its `LIVE_PASS_CLEANED` row to `certificationSeed.ts`.
+
+## 7. Update — SMOKE-WRITE-34 fixture authored (2026-06-26, same day)
+
+The `google-docs:update_document` WRITE fixture is now **authored + registered**
+([tests/fixtures/action-smoke/google-docs/update_document.ts](../../../../tests/fixtures/action-smoke/google-docs/update_document.ts),
+registered in [tests/smoke-actions/fixtures.ts](../../../../tests/smoke-actions/fixtures.ts)).
+Phase plan: setup `create_document` (marker title+body, capture `documentId`) → execute
+`update_document` append `<marker>updated` (`insertLocation:"end"`, never the body-wiping
+`replace`) → verify independent `get_document` read-back (marker on flattened `content`,
+`markerSuffix:"updated"`) → cleanup cross-provider `google-drive:delete_file`
+(`permanent:true`, true erase). `destructiveSafe`, smoke-owned throughout.
+
+**Matrix delta:** `google-docs:update_document` moved **MISSING_FIXTURE → NOT_RUN**.
+Totals now **298 registered / 119 LIVE_PASS / 27 not-run / 152 missing / 0 fail / 0 bug**;
+google-docs **5 / 2 / 1 / 2**.
+
+**Live run status: LIVE_NOT_RUN_READY.** The three live gates
+(`ALLOW_DB_INTEGRATION_TESTS`, `ALLOW_LIVE_PROVIDER_SMOKE`,
+`ALLOW_LIVE_PROVIDER_WRITE_SMOKE`) are **unset** in this environment (they are explicit
+per-run operator opt-ins, not in `.env.local`), so the gated live write run was **not**
+performed and **no `LIVE_PASS` cert row was added** (charter: no cert without a real live
+pass). `SMOKE_ACCOUNT_ID` / `SMOKE_USER_ID` are present; the remaining precondition is the
+operator enabling the gates against a connected Google smoke account, then
+`npm run smoke:writes:live`. On a green run (0 leaked) add the `LIVE_PASS_CLEANED` row to
+`certificationSeed.ts`.
+
+**Offline verification (this turn):** `npx jest tests/unit/smoke-actions` → 33 suites /
+381 tests pass (incl. `fixtures-valid`, `certification`, registry-parity);
+`npm run chainreact -- smoke actions --cert` → matrix delta above; `npx tsc --noEmit` →
+exit 0; eslint on the 2 touched files → 0; `npm run lint:structure` → OK.

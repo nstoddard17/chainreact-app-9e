@@ -147,6 +147,7 @@ import gcalCreateEvent from "@/tests/fixtures/action-smoke/google-calendar/creat
 import gcalUpdateEvent from "@/tests/fixtures/action-smoke/google-calendar/update_event";
 import gcalDeleteEvent from "@/tests/fixtures/action-smoke/google-calendar/delete_event";
 import gdocsCreateDocument from "@/tests/fixtures/action-smoke/google-docs/create_document";
+import gdocsUpdateDocument from "@/tests/fixtures/action-smoke/google-docs/update_document";
 import gsheetsCreateSpreadsheet from "@/tests/fixtures/action-smoke/google-sheets/create_spreadsheet";
 import gsheetsUpdateCell from "@/tests/fixtures/action-smoke/google-sheets/update_cell";
 import gsheetsAppendRow from "@/tests/fixtures/action-smoke/google-sheets/append_row";
@@ -300,6 +301,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gcalUpdateEvent,
   gcalDeleteEvent,
   gdocsCreateDocument,
+  gdocsUpdateDocument,
   gsheetsCreateSpreadsheet,
   gsheetsUpdateCell,
   gsheetsAppendRow,
