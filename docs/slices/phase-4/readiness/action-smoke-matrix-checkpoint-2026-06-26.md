@@ -424,3 +424,85 @@ absorbs the OneNote create→delete lag for BOTH `copy_page` and the flaky `dele
 fixture. Then a clean `copy_page` run (all phases ok, remaining 0) earns the
 `LIVE_PASS_CLEANED` row. (The dual-section-copy idea from §12 is NOT needed — same-section
 copy works fine; the only real issues were the `Location` header + delete lag.)
+
+## 14. SMOKE-WRITE-35 — bounded cleanup retry SHIPPED; copy_page still NOT certified, true root cause found (2026-06-26)
+
+Built the bounded smoke-only cleanup retry from §13's recommendation AND ran it live.
+**The retry is correct, bounded, and tested — but it does NOT certify `copy_page`, because
+a live diagnostic proved the real blocker is NOT propagation lag.** `copy_page` stays
+**NOT_RUN**; **no cert row added**.
+
+**What shipped (harness-only, no production change):**
+- New pure helper [tests/smoke-actions/cleanupRetry.ts](../../../../tests/smoke-actions/cleanupRetry.ts):
+  `runCleanupStepWithRetry` + `cleanupRetryPolicyFor` (eligible for `microsoft-onenote:delete_page`
+  ONLY — every other cleanup keeps exact single-attempt behavior) + `isNotFoundReason`.
+  Budget `ONENOTE_PAGE_DELETE_RETRY` = **4 attempts / 750ms backoff / 3000ms total cap**
+  (no infinite polling). A transient (non-404) failure retries within the cap; a `404 /
+  not found` on a SMOKE-OWNED current-run ledger id short-circuits to `already_cleaned`;
+  an exhausted non-404 returns `failed` (CLEANUP_FAILED — never masked).
+- Wired into BOTH the `cleanupEach` and single-`cleanup` branches of
+  [writeHarness.ts](../../../../tests/smoke-actions/writeHarness.ts) (cleanup phase only;
+  the `executeIsCleanup` delete path — `delete_page` — is untouched). `sleep` is injected
+  (default real `setTimeout`) so units run instantly + assert the wait budget.
+- Tests: [tests/unit/smoke-actions/cleanup-retry.test.ts](../../../../tests/unit/smoke-actions/cleanup-retry.test.ts)
+  — 23 tests: retry-then-succeed, 404-already-cleaned (smoke-owned only), non-404 fails
+  after bounded retries, non-OneNote unchanged (policy null), bounds (attempts ≤ max,
+  cumulative wait ≤ cap), + orchestrator wiring through `copy_page`'s `cleanupEach`.
+
+**Live runs (scoped `SMOKE_PROVIDER=microsoft-onenote`, all 4 live gates):** two runs.
+Run 1 hit a broad lag window (`create_page` VERIFY_FAILED on create→read lag, `delete_page`
+FAIL at its **execute** delete — outside cleanup-retry scope). Run 2 was calm:
+`create_page` / `update_page` / `delete_page` all **PASS**, but `copy_page` still
+**CLEANUP_FAILED** (created 2 / cleaned 1 / remaining 1).
+
+**Root cause — proven by a live diagnostic, not guessed**
+([scripts/trash/onenote-copy-delete-lag-probe.ts](../../../../scripts/trash/onenote-copy-delete-lag-probe.ts)):
+**Graph `copyToSection` into the SAME section a page already lives in does not yield a
+distinct, capturable copy.** The 202 `Location` resource resolves to the **source page's
+own id** (`copied id === source id`, confirmed across 3 probe runs). So the harness:
+1. captures the source id a SECOND time under ledger key `copy` (duplicate entry, same
+   external id);
+2. `verify` "passes" by reading that id — but it is reading the **source**, never a real
+   copy;
+3. `cleanupEach` deletes the id once (ok), then the second delete of the **same id** 404s
+   — which the engine humanizes to the generic *"Workflow step failed"* (the typed
+   `NotFoundError` is masked before it reaches the harness), so the `already_cleaned`
+   path can't fire → false **"leaked 1"** + CLEANUP_FAILED.
+   (A section listing 2s post-copy showed only the **1** source page; a later sweep also
+   surfaced same-title/different-id residue — i.e. when a distinct copy *is* created its
+   id is the one the `Location` header never returns, so it is orphaned. Either way the
+   captured id is wrong.)
+
+This **corrects §13**, which wrongly dismissed the dual-section idea ("same-section copy
+works fine"). It does not. **§12's dual-section requirement was right.**
+
+**Why this is NOT certified (honest call):** making the duplicate-id second delete read as
+`already_cleaned` would turn `copy_page` green, but it would be certifying a test that
+never copies to a distinct location and never verifies a real copy — a green check on a
+no-op. Per the charter (and rules: do not mask a cleanup failure; certify only at an honest
+remaining 0) **no cert row was added.** The cleanup-retry primitive is still correct and
+valuable — it absorbs genuine transient delete lag and is the right idempotency primitive —
+it simply is not what `copy_page` needs.
+
+**Exact remaining blocker to certify `copy_page`:** copy into a **DIFFERENT** smoke section
+so the `Location`-resolved/captured id is genuinely the distinct copy. That needs a SECOND
+pre-existing smoke/test-named section on the smoke account (the dev test would discover it,
+like the first) — `create_section` has no Graph delete, so the harness can't self-provision
+one without leaking. This is a separate slice (fixture targets a second `targetSectionId` +
+dev-test discovers two sections); it depends on the operator adding a second `[TEST]`
+section. A secondary hardening (independent, optional): surface the typed `NotFoundError`
+through the harness `runActionStep` reason so the `already_cleaned` path can fire in the
+live engine path for genuine idempotent re-deletes.
+
+**Leak status:** swept the smoke section after every run/probe — **remaining 0** `crsmoke-`
+pages (re-confirmed; the 5 pages left are pre-existing user content).
+
+**Created / copied / cleaned / leaked (final state):** across the diagnostic the source was
+created + deleted each time; no distinct copy was ever captured/verifiable; after sweep
+**0 leaked**.
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **35 suites / 416 tests
+pass** (incl. the 23 new cleanup-retry tests); `npx tsc --noEmit` → exit 0; eslint on the 3
+touched files → 0; `npm run lint:structure` → OK; `npm run chainreact -- smoke actions
+--cert` → matrix **unchanged** (`copy_page` NOT_RUN; **125 LIVE_PASS / 22 not-run / 151
+missing / 0 fail / 0 bug**). **Nothing pushed.**

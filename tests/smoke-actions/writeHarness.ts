@@ -42,6 +42,7 @@ import type {
   WriteLiveClass,
 } from "./contract";
 import { effectiveLiveRisk, resolveFixtureConfig } from "./contract";
+import { cleanupRetryPolicyFor, runCleanupStepWithRetry } from "./cleanupRetry";
 
 /** Rich runtime status for a mutation smoke. Folds down to a SmokeResult gate. */
 export type WriteSmokeStatus =
@@ -193,6 +194,12 @@ export interface RunWriteSmokeOptions {
   /** Per-run unique token used to build the marker. Passed in (pure), not generated. */
   readonly runToken: string;
   readonly envLookup?: (name: string) => string | undefined;
+  /**
+   * Backoff sleep used ONLY by the bounded cleanup retry (OneNote create→delete
+   * propagation lag). Injected so unit tests run instantly + assert the wait budget;
+   * defaults to a real `setTimeout` sleep in the live harness. Pure otherwise.
+   */
+  readonly sleep?: (ms: number) => Promise<void>;
 }
 
 // ─── Gate ────────────────────────────────────────────────────────────────────
@@ -589,6 +596,7 @@ export async function runWriteSmoke(
 ): Promise<WriteSmokeResult> {
   const spec = fixture.writeHarness;
   const envLookup = options.envLookup ?? ((n) => process.env[n]);
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const ledger = new ResourceLedger();
   const phases: PhaseResult[] = [];
   const base = {
@@ -889,18 +897,31 @@ export async function runWriteSmoke(
       });
     } else {
       let anyOk = false;
+      // Eligible cleanup steps (OneNote page delete) get a bounded retry / 404-already-
+      // cleaned path to absorb create→delete propagation lag; every other step keeps its
+      // single-attempt behavior (policy === null). Each `entry` is a ledger resource, so
+      // the cleanup target is smoke-owned by construction.
+      const eachPolicy = cleanupRetryPolicyFor(spec.cleanupEach.provider, spec.cleanupEach.action);
       for (const entry of targets) {
         if (entry.cleaned) continue;
         const config = resolveStepConfig(spec.cleanupEach.config, marker, ledger, envLookup, entry.externalId);
-        const res = await deps.runActionStep({
+        const res = await runCleanupStepWithRetry({
           provider: spec.cleanupEach.provider,
           action: spec.cleanupEach.action,
           config,
+          targetIsSmokeOwned: true,
+          runActionStep: deps.runActionStep,
+          sleep,
+          policy: eachPolicy,
         });
         if (res.ok) {
           anyOk = true;
           ledger.markCleaned(entry.resourceKey);
-          phases.push({ phase: "cleanup", outcome: "ok", reason: null });
+          phases.push({
+            phase: "cleanup",
+            outcome: "ok",
+            reason: res.disposition === "already_cleaned" ? "already cleaned (404 on smoke-owned page)" : null,
+          });
         } else {
           cleanupFailed = true;
           phases.push({ phase: "cleanup", outcome: "failed", reason: SANITIZE(res.reason) });
@@ -939,15 +960,26 @@ export async function runWriteSmoke(
       });
     } else {
       const config = resolveStepConfig(spec.cleanup.config, marker, ledger, envLookup);
-      const res = await deps.runActionStep({
+      // Smoke-ownership was just asserted (cleanupTargetsSmokeOwned), so the bounded
+      // retry / 404-already-cleaned path is safe to enable for eligible steps; every
+      // other step keeps single-attempt behavior (policy === null).
+      const res = await runCleanupStepWithRetry({
         provider: spec.cleanup.provider,
         action: spec.cleanup.action,
         config,
+        targetIsSmokeOwned: true,
+        runActionStep: deps.runActionStep,
+        sleep,
+        policy: cleanupRetryPolicyFor(spec.cleanup.provider, spec.cleanup.action),
       });
       if (res.ok) {
         cleanupRan = true;
         for (const key of ledgerRefsIn(spec.cleanup.config)) ledger.markCleaned(key);
-        phases.push({ phase: "cleanup", outcome: "ok", reason: null });
+        phases.push({
+          phase: "cleanup",
+          outcome: "ok",
+          reason: res.disposition === "already_cleaned" ? "already cleaned (404 on smoke-owned page)" : null,
+        });
       } else {
         cleanupFailed = true;
         phases.push({ phase: "cleanup", outcome: "failed", reason: SANITIZE(res.reason) });
