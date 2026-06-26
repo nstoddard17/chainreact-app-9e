@@ -83,6 +83,33 @@ open.
   under the `max-lines` cap). **No** backend / DTO / OAuth / disconnect / cascade /
   notification change, no feature flag.
 
+### 1e. Reconnect-needed copy/status clarity (`8c3df8154`)
+
+**Marker:** `CS-APPS-RECOVERY-COPY`. **Files:**
+[features/apps/AppCard.tsx](../../../../features/apps/AppCard.tsx) +
+[features/apps/ReconnectNeededCopy.tsx](../../../../features/apps/ReconnectNeededCopy.tsx) (new) + tests.
+
+- **Before:** every flagged row showed the same vague line — *"This connection needs to
+  be reconnected."* — with no indication of **who** must act, and (for a non-connector)
+  no Reconnect button and no explanation. A multi-account card with one broken row could
+  read as a total outage.
+- **After (copy only, semantics unchanged):**
+  - Row the **viewer can** reconnect → *"This account needs reconnecting. Use Reconnect
+    to restore it."*
+  - Row the **viewer cannot** reconnect → *"This account needs reconnecting. The person
+    who connected it must reconnect it."* (explains the permission rule + why there's no
+    button — not an error).
+  - **Mixed-health multi-account** card → a compact note: *"Only the flagged account
+    needs reconnecting — your other connected accounts are still active."* (shown only
+    when >1 account and at least one healthy + one broken; never on single-account or
+    all-broken cards).
+  - **"Review reconnects"** tooltip clarified: *"Review which accounts need reconnecting
+    and reconnect each one."*
+- **Preserved:** direct one-row Reconnect, Review for multiple/mixed, blocked-only
+  warning with no dead action, expanded per-row Reconnect. Safe copy only (no provider
+  error / identity / token / scope). No backend field, route, semantics, or feature flag.
+  Copy extracted to `ReconnectNeededCopy` to keep `AppCard` under its line cap.
+
 ---
 
 ## 2. Builder drawer close UX (`03c2a46cf`)
@@ -148,6 +175,7 @@ open.
 | `5a5c1107d` / `79f80d51b` | docs: UX-quality session closeout (roll-up) + relocate under `session-closeouts/` |
 | `d8df4fdb5` | fix(builder): announce blocked go-live reason to assistive tech (BUILDER-READINESS-A11Y) |
 | `9d0bd9f88` | feat(apps): guide user to flagged rows after Review reconnects (CS-APPS-RECOVERY-REVIEW-SCROLL) |
+| `8c3df8154` | feat(apps): clearer reconnect-needed copy — who/what/scope (CS-APPS-RECOVERY-COPY) |
 
 ---
 
@@ -193,6 +221,10 @@ open.
   (3 new); broader `…/features/apps` + `…/app/apps` → **123 tests / 11 suites pass**.
   eslint on `AppCard.tsx` + `useReviewFocus.ts` → **0** (cleared the new max-lines warning
   via the hook extraction). `npx tsc --noEmit` → **exit 0**. `npm run lint:structure` → **OK**.
+- Copy clarity (`8c3df8154`): `…/features/apps/AppCard.test.tsx` → **45/45 pass** (5 new);
+  broader `…/features/apps` + `…/app/apps` → **128 tests / 11 suites pass**. eslint on
+  `AppCard.tsx` + `ReconnectNeededCopy.tsx` + the test → **0** (copy extracted to keep
+  `AppCard` under the cap). `npx tsc --noEmit` → **exit 0**. `npm run lint:structure` → **OK**.
 - QA checklist + this doc: docs-only; `npm run lint:structure` → **OK**;
   `npx tsc --noEmit` → **exit 0** (re-confirmed repo builds clean).
 - Connected Apps recovery arc: see its closeout §8 (36 suites / 439 tests + 3 suites /
