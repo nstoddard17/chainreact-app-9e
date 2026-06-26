@@ -10,6 +10,7 @@ import { ShareConnectionDialog } from "./ShareConnectionDialog";
 import { formatConnectedOn } from "./relativeDate";
 import { deriveCollapsedReconnect } from "./collapsedReconnect";
 import { useReviewFocus } from "./useReviewFocus";
+import { OtherAccountsActiveNote, ReconnectRowCopy } from "./ReconnectNeededCopy";
 
 /**
  * Provider card for the Apps dashboard (Slice 4.APPS-PAGE-1).
@@ -83,6 +84,11 @@ export function AppCard({ app, accountId }: Props) {
     useReviewFocus(expanded);
   const firstNeedsReconnectId =
     app.accounts.find((a) => a.needsReconnect)?.id ?? null;
+  // CS-APPS-RECOVERY-COPY — reassure the user that a single broken account doesn't take
+  // the whole provider down: surfaced only when this provider holds multiple accounts and
+  // at least one is healthy while another needs reconnecting. Pure derivation over the DTO.
+  const hasMixedAccountHealth =
+    accountCount > 1 && app.accounts.some((a) => a.needsReconnect) && app.accounts.some((a) => !a.needsReconnect);
 
   return (
     <li
@@ -154,7 +160,7 @@ export function AppCard({ app, accountId }: Props) {
             <button
               type="button"
               data-testid="app-card-collapsed-review"
-              title="Review the accounts that need reconnecting"
+              title="Review which accounts need reconnecting and reconnect each one"
               onClick={() => {
                 setExpanded(true);
                 requestReviewFocus();
@@ -246,6 +252,9 @@ export function AppCard({ app, accountId }: Props) {
               {disconnectedNotice}
             </p>
           )}
+          {/* CS-APPS-RECOVERY-COPY — when only some accounts are broken, reassure that the
+              rest keep working so the card doesn't read as a total outage. */}
+          {hasMixedAccountHealth && <OtherAccountsActiveNote />}
           <ul className="flex flex-col gap-2">
             {app.accounts.map((acc) => {
               const label = acc.displayName ?? "Connected account";
@@ -302,12 +311,7 @@ export function AppCard({ app, accountId }: Props) {
                       Connected on {formatConnectedOn(acc.connectedAt)}
                     </span>
                     {acc.needsReconnect && (
-                      <span
-                        data-testid="app-card-reconnect-needed-copy"
-                        className="text-[11px] text-amber-700 dark:text-amber-400"
-                      >
-                        This connection needs to be reconnected.
-                      </span>
+                      <ReconnectRowCopy canReconnect={acc.canReconnect} />
                     )}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">

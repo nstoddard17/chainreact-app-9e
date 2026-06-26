@@ -529,8 +529,10 @@ describe("AppCard — reconnect-needed signal (V2-READY-28)", () => {
 
     const row = screen.getByTestId("app-card-account");
     expect(within(row).getByTestId("app-card-reconnect-needed")).toHaveTextContent(/reconnect needed/i);
+    // CS-APPS-RECOVERY-COPY — this row is reconnectable by the viewer, so the copy
+    // points them at the Reconnect action.
     expect(within(row).getByTestId("app-card-reconnect-needed-copy")).toHaveTextContent(
-      /this connection needs to be reconnected/i,
+      /this account needs reconnecting\. use reconnect to restore it\./i,
     );
     // The existing per-account Reconnect control still renders (canReconnect).
     expect(within(row).getByTestId("app-card-reconnect")).toBeInTheDocument();
@@ -634,6 +636,64 @@ describe("AppCard — collapsed reconnect discoverability (CS-APPS-RECOVERY-2)",
     expect(screen.queryByTestId("app-card-collapsed-reconnect")).toBeNull();
     expect(screen.queryByTestId("app-card-collapsed-review")).toBeNull();
     expect(screen.getByTestId("app-status-pill")).toHaveAttribute("data-state", "connected");
+  });
+
+  // ── CS-APPS-RECOVERY-COPY — clearer who/what/scope copy ─────────────────────
+  describe("reconnect-needed copy clarity", () => {
+    it("a row the viewer can reconnect points them at the Reconnect action", async () => {
+      const user = userEvent.setup();
+      const app = connectedApp([row({ id: "broken", needsReconnect: true, canReconnect: true })]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(screen.getByTestId("app-card-reconnect-needed-copy")).toHaveTextContent(
+        /use reconnect to restore it/i,
+      );
+    });
+
+    it("a row the viewer CANNOT reconnect says the original connector must do it (no dead button)", async () => {
+      const user = userEvent.setup();
+      const app = connectedApp([row({ id: "broken", needsReconnect: true, canReconnect: false })]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(screen.getByTestId("app-card-reconnect-needed-copy")).toHaveTextContent(
+        /the person who connected it must reconnect it/i,
+      );
+      // No actionable Reconnect control for this viewer (canReconnect false).
+      expect(screen.queryByTestId("app-card-reconnect")).toBeNull();
+    });
+
+    it("shows the 'other accounts still active' note only on a mixed-health multi-account card", async () => {
+      const user = userEvent.setup();
+      const mixed = connectedApp([
+        row({ id: "ok", canReconnect: true }),
+        row({ id: "broken", needsReconnect: true, canReconnect: true }),
+      ]);
+      render(<AppCard app={mixed} accountId="acc-1" />);
+      // Mixed cards surface the collapsed Reconnect (one flagged row); expand to read the note.
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(screen.getByTestId("app-card-others-active-note")).toHaveTextContent(
+        /your other connected accounts are still active/i,
+      );
+    });
+
+    it("does NOT show the 'others active' note when every account needs reconnecting", async () => {
+      const user = userEvent.setup();
+      const allBroken = connectedApp([
+        row({ id: "b1", needsReconnect: true, canReconnect: true }),
+        row({ id: "b2", needsReconnect: true, canReconnect: true }),
+      ]);
+      render(<AppCard app={allBroken} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(screen.queryByTestId("app-card-others-active-note")).toBeNull();
+    });
+
+    it("does NOT show the 'others active' note for a single-account card", async () => {
+      const user = userEvent.setup();
+      const single = connectedApp([row({ id: "broken", needsReconnect: true, canReconnect: true })]);
+      render(<AppCard app={single} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(screen.queryByTestId("app-card-others-active-note")).toBeNull();
+    });
   });
 
   // ── CS-APPS-RECOVERY-REVIEW-SCROLL — guide the user to the flagged rows ──────
