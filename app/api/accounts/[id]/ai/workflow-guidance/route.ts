@@ -19,6 +19,12 @@ import { summarizeProposedEdit } from "@/services/ai-guidance/mutation/summarize
 import { buildEditableWorkflowGraph } from "@/services/ai-guidance/editableGraph/buildEditableWorkflowGraph";
 import { buildCapabilityCatalogKeys } from "@/services/ai-guidance/capabilityCatalog";
 import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
+import {
+  suggestOfficialTemplatesForRequest,
+  toGuidanceTemplateMatches,
+  buildOfficialTemplateMatchGuidanceText,
+} from "@/services/workflows/officialTemplateMatching";
+import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
@@ -161,6 +167,37 @@ export async function POST(
     // Creator id is used ONLY for the scope guard's own-vs-foreign private-connection comparison;
     // it is never sent to Hermes (the guard converts it to a generic notice, no owner identity).
     workflowCreatedByUserId = wf.record.createdByUserId;
+  }
+
+  // 3b. REACT-AGENT-TEMPLATE-MATCH-2 — deterministic official-template recommendation, BEFORE the
+  // model path. Only for a NEW-workflow "build this" request (no non-empty draft to edit). No LLM, no
+  // provider call, no mutation. Degrades to "no matches" on any read error (never blocks guidance).
+  //
+  //   - HIGH confidence → short-circuit with a deterministic, model-free recommendation. This returns
+  //     BEFORE the Hermes-availability check AND the credit gate, so it skips the model call and
+  //     consumes NO AI credits (the gate is where credits are deducted).
+  //   - MEDIUM / LOW → do NOT suppress normal guidance; the matches ride along the final response as
+  //     suggestions.
+  //   - NONE → behavior unchanged (no field added).
+  const isNewWorkflowRequest = !(currentDraft && currentDraft.nodes.length > 0);
+  let officialTemplateMatches: GuidanceOfficialTemplateMatch[] = [];
+  if (isNewWorkflowRequest) {
+    try {
+      const matchResult = await suggestOfficialTemplatesForRequest({ requestText: goalText });
+      officialTemplateMatches = toGuidanceTemplateMatches(matchResult.matches);
+      if (matchResult.confidence === "high" && officialTemplateMatches.length > 0) {
+        return NextResponse.json({
+          ok: true,
+          guidanceText: buildOfficialTemplateMatchGuidanceText(officialTemplateMatches),
+          source: "official_template_match",
+          workflowPlan: null,
+          previewDraft: null,
+          officialTemplateMatches,
+        });
+      }
+    } catch {
+      officialTemplateMatches = []; // never let template matching break guidance
+    }
   }
 
   // 4. Hermes availability BEFORE any charge — disabled/unconfigured → 503, no charge, no network.
@@ -317,5 +354,8 @@ export async function POST(
     // refuse to Apply onto a canvas that changed since (one more stale guard at the explicit Apply click).
     ...(proposedDefinition && baseGraphVersion ? { baseGraphVersion } : {}),
     ...(warnings.length ? { warnings } : {}),
+    // REACT-AGENT-TEMPLATE-MATCH-2 — medium/low official-template suggestions ride ALONGSIDE normal
+    // guidance (high-confidence already short-circuited above). Omitted when there are none.
+    ...(officialTemplateMatches.length ? { officialTemplateMatches } : {}),
   });
 }

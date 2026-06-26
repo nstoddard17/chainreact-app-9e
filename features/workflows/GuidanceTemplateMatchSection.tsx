@@ -7,11 +7,15 @@ import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
  * (REACT-AGENT-TEMPLATE-MATCH-2). Shown when the deterministic matcher recommends official templates
  * for a "build this workflow" request.
  *
- * RECOMMENDATION ONLY — pure render, no fetch, no model, no mutation. It does NOT create / fork / use
- * a template (the "Use template" CTA that routes through the existing confirmation flow is a
- * follow-up slice). It renders ONLY the safe {@link GuidanceOfficialTemplateMatch} fields (title,
- * description, app labels, step count, confidence, reasons, humanized preview chain) — the shape
- * cannot carry a raw definition, config value, `{{...}}` expression, or any resource/account/user id.
+ * Pure render — no fetch, no model, no mutation, and it NEVER creates/forks/uses a template itself.
+ * It renders ONLY the safe {@link GuidanceOfficialTemplateMatch} fields (title, description, app
+ * labels, step count, confidence, reasons, humanized preview chain) — the shape cannot carry a raw
+ * definition, config value, `{{...}}` expression, or any resource/account/user id.
+ *
+ * REACT-AGENT-TEMPLATE-MATCH-3 — when an `onPreview` handler is provided, each match gets a
+ * "Preview template" CTA. The action is OWNED by the panel/container (this stays presentational): it
+ * opens a preview/confirmation dialog. Clicking "Preview" creates nothing. Without `onPreview` the
+ * card is recommendation-only (unchanged prior behavior).
  */
 
 const CONFIDENCE_LABEL: Readonly<Record<GuidanceOfficialTemplateMatch["confidence"], string>> = {
@@ -22,8 +26,11 @@ const CONFIDENCE_LABEL: Readonly<Record<GuidanceOfficialTemplateMatch["confidenc
 
 export function GuidanceTemplateMatchSection({
   matches,
+  onPreview,
 }: {
   readonly matches: readonly GuidanceOfficialTemplateMatch[];
+  /** When provided, renders a "Preview template" CTA per match. Opening a preview creates nothing. */
+  readonly onPreview?: (match: GuidanceOfficialTemplateMatch) => void;
 }) {
   if (matches.length === 0) return null;
   return (
@@ -75,6 +82,17 @@ export function GuidanceTemplateMatchSection({
                   </li>
                 ))}
               </ul>
+            ) : null}
+            {onPreview ? (
+              <button
+                type="button"
+                data-testid="guidance-template-preview-cta"
+                data-template-id={m.templateId}
+                onClick={() => onPreview(m)}
+                className="mt-2 inline-flex items-center rounded-md bg-sky-600 px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-sky-700"
+              >
+                Preview template
+              </button>
             ) : null}
           </li>
         ))}

@@ -8,6 +8,7 @@ import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
   MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
   type GuidanceConversationTurn,
+  type GuidanceOfficialTemplateMatch,
 } from "@/contracts/aiGuidance";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,6 +39,10 @@ import {
 } from "./guidancePanelShared";
 import { SingleShotGuidancePanel } from "./SingleShotGuidancePanel";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
+import { GuidanceTemplateMatchSection } from "./GuidanceTemplateMatchSection";
+import { GuidanceTemplatePreviewDialog } from "./GuidanceTemplatePreviewDialog";
+import { useTemplatePreviewFlow } from "./useTemplatePreviewFlow";
+import { SparkleIcon } from "./guidanceRailIcons";
 
 /**
  * "Build with me" — advisory Hermes Agent workflow guidance (HERMES-AGENT-GUIDANCE-UI).
@@ -160,6 +165,7 @@ type ChatMessage =
       // REACT-LIVE-SKELETON — safe, no-secret notes (e.g. an exact catalog gap when no plan could be
       // built). Rendered as muted lines under the reply.
       readonly warnings?: readonly string[];
+      readonly officialTemplateMatches?: readonly GuidanceOfficialTemplateMatch[];
     }
   // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a LOCAL, deterministic workflow review produced
   // entirely from builder state (no LLM, no network, no AI credits). Rendered like a React turn but
@@ -182,25 +188,6 @@ function toRecentTurns(messages: readonly ChatMessage[]): GuidanceConversationTu
     .slice(-MAX_GUIDANCE_CONVERSATION_TURNS);
 }
 
-/** Small sparkle glyph for the "Check workflow" suggested-action pill. Inherits currentColor. */
-function SparkleIcon() {
-  return (
-    <svg
-      width="11"
-      height="11"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z" />
-    </svg>
-  );
-}
-
 /** Build the canvas-overlay payload from an assistant turn (carries the edit's proposedDefinition when present). */
 function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string } {
   return {
@@ -216,6 +203,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const preview = useTemplatePreviewFlow(accountId);
   const nextId = useRef(0);
   const makeId = () => String(nextId.current++);
 
@@ -336,6 +324,9 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
             ...(res.baseGraphVersion ? { baseGraphVersion: res.baseGraphVersion } : {}),
             ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
+            ...(res.officialTemplateMatches && res.officialTemplateMatches.length
+              ? { officialTemplateMatches: res.officialTemplateMatches }
+              : {}),
           },
         ]);
       } else {
@@ -497,6 +488,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   ))}
                 </ul>
               )}
+              <GuidanceTemplateMatchSection matches={m.officialTemplateMatches ?? []} onPreview={preview.openPreview} />
               {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
               {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
               {/* BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — offer "Show on canvas" ONLY when the plan
@@ -575,6 +567,9 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
           <span className="text-[11px] text-neutral-500 dark:text-neutral-400">Enter to send · Shift+Enter for a new line</span>
         </div>
       </div>
+      {preview.previewMatch && (
+        <GuidanceTemplatePreviewDialog match={preview.previewMatch} busy={preview.busy} error={preview.error} onConfirmUse={preview.confirmUse} onClose={preview.closePreview} />
+      )}
     </section>
   );
 }

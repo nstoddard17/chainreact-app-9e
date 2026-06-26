@@ -18,6 +18,8 @@ import {
 } from "./guidancePanelShared";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
 import { GuidanceTemplateMatchSection } from "./GuidanceTemplateMatchSection";
+import { GuidanceTemplatePreviewDialog } from "./GuidanceTemplatePreviewDialog";
+import { useTemplatePreviewFlow } from "./useTemplatePreviewFlow";
 
 /**
  * The original single-shot "Build with me" form (dashboard). Extracted verbatim from
@@ -44,6 +46,7 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
   const [preview, setPreview] = useState<DraftPreview | null>(null);
   const [templateMatches, setTemplateMatches] = useState<readonly GuidanceOfficialTemplateMatch[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const preview = useTemplatePreviewFlow(accountId);
 
   const trimmed = goal.trim();
   const canSubmit = trimmed.length > 0 && status !== "loading";
@@ -147,7 +150,17 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
       )}
 
       {status === "done" && templateMatches.length > 0 && (
-        <GuidanceTemplateMatchSection matches={templateMatches} />
+        <GuidanceTemplateMatchSection matches={templateMatches} onPreview={preview.openPreview} />
+      )}
+
+      {preview.previewMatch && (
+        <GuidanceTemplatePreviewDialog
+          match={preview.previewMatch}
+          busy={preview.busy}
+          error={preview.error}
+          onConfirmUse={preview.confirmUse}
+          onClose={preview.closePreview}
+        />
       )}
     </section>
   );

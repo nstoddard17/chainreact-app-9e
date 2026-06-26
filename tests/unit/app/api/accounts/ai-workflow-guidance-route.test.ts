@@ -63,6 +63,14 @@ jest.mock("@/services/integrations/guidanceCredentialAvailability", () => ({
   getGuidanceCredentialAvailability: (...a: unknown[]) => mockCredentials(...a),
 }));
 
+// REACT-AGENT-TEMPLATE-MATCH-2 — mock ONLY the catalog-loading matcher entry point; the pure mapper +
+// guidance-text helpers run for REAL (so the route's response no-leak assertions reflect production).
+const mockSuggest = jest.fn();
+jest.mock("@/services/workflows/officialTemplateMatching", () => ({
+  ...jest.requireActual("@/services/workflows/officialTemplateMatching"),
+  suggestOfficialTemplatesForRequest: (...a: unknown[]) => mockSuggest(...a),
+}));
+
 import { POST } from "@/app/api/accounts/[id]/ai/workflow-guidance/route";
 import { reactAgentAuditRecorder } from "@/services/ai/reactAgent/audit";
 
@@ -92,7 +100,39 @@ beforeEach(() => {
   mockRunner.mockReset().mockResolvedValue(guidanceOk);
   mockGetAccount.mockReset().mockResolvedValue({ id: ACCOUNT, type: "team" });
   mockCredentials.mockReset().mockResolvedValue({ accountSharedProviders: [], currentUserPrivateProviders: [] });
+  // Default: no template match → existing behavior unchanged.
+  mockSuggest.mockReset().mockResolvedValue({ confidence: "none", matches: [] });
 });
+
+/** A matcher result with one match at the given confidence (matcher shape, with nested `summary`). */
+function matchResult(confidence: "high" | "medium" | "low") {
+  return {
+    confidence,
+    matches: [
+      {
+        templateId: "c0ffee00-0000-4000-8000-00000000004e",
+        name: "Support escalation from email",
+        description: "Open a HubSpot ticket, Trello card, Slack alert, and draft a reply.",
+        score: confidence === "high" ? 20 : 6,
+        confidence,
+        reasons: ["Matches the Gmail new labeled email trigger", "Includes the HubSpot create ticket step"],
+        summary: {
+          providers: ["gmail", "hubspot", "trello", "slack"],
+          providerLabels: ["Gmail", "HubSpot", "Trello", "Slack"],
+          triggerKind: "app" as const,
+          category: "sales-crm",
+          categoryLabel: "Sales & CRM",
+          nodeCount: 5,
+          stepCount: 4,
+          steps: [
+            { kind: "trigger" as const, provider: "gmail", type: "new_labeled_email", label: "Gmail: New labeled email" },
+            { kind: "action" as const, provider: "hubspot", type: "create_ticket", label: "HubSpot: Create ticket" },
+          ],
+        },
+      },
+    ],
+  };
+}
 
 describe("workflow-guidance route — auth + membership", () => {
   it("401 unauthenticated; never gates/runs", async () => {
@@ -631,5 +671,79 @@ describe("workflow-guidance route — server-only / no forbidden surface (static
       /^\s*["']use client["']/m, // route handlers are server-only
     ];
     for (const pat of forbidden) expect({ pat: String(pat), matched: pat.test(src) }).toEqual({ pat: String(pat), matched: false });
+  });
+});
+
+describe("workflow-guidance route — official-template matching (REACT-AGENT-TEMPLATE-MATCH-2)", () => {
+  it("high-confidence match short-circuits: returns matches, skips the model AND the credit gate", async () => {
+    mockSuggest.mockResolvedValueOnce(matchResult("high"));
+    const res = await call(ACCOUNT, { goalText: "When a labeled support email arrives, open a HubSpot ticket, a Trello card, alert Slack, and draft a reply." });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.source).toBe("official_template_match");
+    expect(body.officialTemplateMatches).toHaveLength(1);
+    expect(body.officialTemplateMatches[0]).toMatchObject({
+      templateId: "c0ffee00-0000-4000-8000-00000000004e",
+      name: "Support escalation from email",
+      confidence: "high",
+      isOfficial: true,
+    });
+    expect(body.guidanceText).toContain("official template");
+    // No model call, and (critically) NO credit gate → no AI credits consumed.
+    expect(mockGate).not.toHaveBeenCalled();
+    expect(mockRunner).not.toHaveBeenCalled();
+    expect(mockEnabled).not.toHaveBeenCalled(); // skips the Hermes-availability check too
+  });
+
+  it("high-confidence response carries no raw definition/config/{{...}}/account-id/resource-id", async () => {
+    mockSuggest.mockResolvedValueOnce(matchResult("high"));
+    const res = await call(ACCOUNT, { goalText: "Open a HubSpot ticket and Slack alert from a support email." });
+    const json = JSON.stringify(await res.json());
+    expect(json).not.toContain("{{");
+    expect(json).not.toMatch(/"config"|"definition"|"edges"|"nodes"/);
+    expect(json).not.toContain(ACCOUNT);
+    expect(json).not.toMatch(/xox[baprs]-|sk_live_|whsec_/);
+  });
+
+  it("medium-confidence does NOT suppress guidance: model runs and matches ride along", async () => {
+    mockSuggest.mockResolvedValueOnce(matchResult("medium"));
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.source).toBe("hermes-agent"); // normal guidance preserved
+    expect(body.officialTemplateMatches).toHaveLength(1);
+    expect(body.officialTemplateMatches[0].confidence).toBe("medium");
+    expect(mockRunner).toHaveBeenCalledTimes(1); // model path still ran
+    expect(mockGate).toHaveBeenCalledTimes(1); // credits gated normally for the model call
+  });
+
+  it("no confident match preserves existing behavior (no officialTemplateMatches field, model runs)", async () => {
+    mockSuggest.mockResolvedValueOnce({ confidence: "none", matches: [] });
+    const res = await call(ACCOUNT, goodBody);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body).not.toHaveProperty("officialTemplateMatches");
+    expect(mockRunner).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT run template matching for an editing turn (a non-empty currentDraft)", async () => {
+    const res = await call(ACCOUNT, {
+      goalText: "change the Slack step to email",
+      currentDraft: { nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual.run", position: { x: 0, y: 0 }, config: {} }], edges: [] },
+    });
+    expect(res.status).toBe(200);
+    expect(mockSuggest).not.toHaveBeenCalled();
+  });
+
+  it("a matcher read error never breaks guidance (falls through to the normal model path)", async () => {
+    mockSuggest.mockRejectedValueOnce(new Error("db down"));
+    const res = await call(ACCOUNT, goodBody);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body).not.toHaveProperty("officialTemplateMatches");
+    expect(mockRunner).toHaveBeenCalledTimes(1);
   });
 });
