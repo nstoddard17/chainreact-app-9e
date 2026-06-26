@@ -44,7 +44,7 @@ const SEED_DEFINITIONS = readdirSync(SEED_MIGRATIONS)
   .flatMap((f) => [
     ...readFileSync(join(SEED_MIGRATIONS, f), "utf8").matchAll(/'(\{"nodes".*?\})'::jsonb/g),
   ])
-  .map((m) => JSON.parse(m[1]!) as { nodes: Array<{ config: unknown }>; edges: unknown[] });
+  .map((m) => JSON.parse(m[1]!) as { nodes: Array<{ id: string; config: unknown }>; edges: unknown[] });
 
 const ACTOR = "user-1";
 const TARGET = "target-acct";
@@ -115,7 +115,7 @@ describe("createWorkflowFromTemplate (use)", () => {
   });
 
   it("EVERY seeded official template → instantiates a workflow with NO credentials / account values", async () => {
-    expect(SEED_DEFINITIONS.length).toBeGreaterThanOrEqual(75);
+    expect(SEED_DEFINITIONS.length).toBeGreaterThanOrEqual(90);
     for (const def of SEED_DEFINITIONS) {
       jest.clearAllMocks();
       mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
@@ -139,6 +139,33 @@ describe("createWorkflowFromTemplate (use)", () => {
       const blob = JSON.stringify(createArg.draftDefinition);
       expect(blob).not.toContain("__REDACTED__");
       expect(blob).not.toMatch(/xox[baprs]-|sk_[a-z0-9]{6,}|whsec_|@[a-z0-9.-]+\.[a-z]{2,}/i);
+    }
+  });
+
+  it("a 5-node, a 6-node, and a 7+-node official template each instantiate with all node ids preserved", async () => {
+    const pick = (predicate: (n: number) => boolean) =>
+      SEED_DEFINITIONS.find((d) => predicate(d.nodes.length));
+    const five = pick((n) => n === 5);
+    const six = pick((n) => n === 6);
+    const sevenPlus = pick((n) => n >= 7);
+    expect(five && six && sevenPlus).toBeTruthy(); // batch 4 added complex multi-step processes
+
+    for (const def of [five!, six!, sevenPlus!]) {
+      jest.clearAllMocks();
+      mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
+      mockCreateWorkflow.mockResolvedValue({ id: "wf-new", name: "Official" });
+      repo.recordTemplateUsageEventServiceRole.mockResolvedValue({ id: "ev-1" });
+      repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(
+        template({ source: "official", accountId: null, createdByUserId: null, visibility: "public", definition: def }),
+      );
+      const r = await createWorkflowFromTemplate({ templateId: "tpl-1", targetAccountId: TARGET, actorUserId: ACTOR });
+      expect(r.ok).toBe(true);
+      const createArg = mockCreateWorkflow.mock.calls[0]![0];
+      // the full multi-step chain survives instantiation: every node id is preserved, configs empty.
+      const created = createArg.draftDefinition.nodes as Array<{ id: string; config: unknown }>;
+      expect(created).toHaveLength(def.nodes.length);
+      expect(created.map((n) => n.id).sort()).toEqual(def.nodes.map((n) => n.id).sort());
+      for (const n of created) expect(n.config).toEqual({});
     }
   });
 

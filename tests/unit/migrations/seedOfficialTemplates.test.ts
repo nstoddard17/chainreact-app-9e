@@ -92,6 +92,22 @@ const KNOWN_NODES = new Set([
   "airtable/create_record",
   "microsoft-outlook/create_draft_email",
   "google-analytics/run_report",
+  // batch 4 additions (complex multi-step business processes)
+  "mailchimp/link_clicked",
+  "slack/reaction_added",
+  "hubspot/add_contact_to_list",
+  "hubspot/create_note",
+  "hubspot/create_ticket",
+  "hubspot/create_meeting",
+  "slack/get_thread_messages",
+  "monday/create_subitem",
+  "gmail/create_draft_reply",
+  "stripe/find_customer",
+  "stripe/get_payments",
+  "mailchimp/get_subscriber",
+  "google-drive/get_file_metadata",
+  "google-drive/create_folder",
+  "google-calendar/create_event",
 ]);
 
 // Extract every '{...}'::jsonb definition literal across all seed files.
@@ -111,8 +127,8 @@ describe("CS-XT-8A — official template seed (static guards)", () => {
     }
   });
 
-  it("seeds the full official catalog (≥75 templates) with unique ids", () => {
-    expect(definitions.length).toBeGreaterThanOrEqual(75);
+  it("seeds the full official catalog (≥90 templates) with unique ids", () => {
+    expect(definitions.length).toBeGreaterThanOrEqual(90);
     // every row is official / public with a safe attribution + no account/author id.
     const officials = code.match(/'official'/g) ?? [];
     expect(officials.length).toBe(definitions.length);
@@ -146,6 +162,17 @@ describe("CS-XT-8A — official template seed (static guards)", () => {
         expect(node.config).toEqual({});
         expect(KNOWN_NODES.has(`${node.provider}/${node.type}`)).toBe(true);
       }
+    }
+  });
+
+  it("includes complex multi-step business processes (≥1 each of 5, 6, and 7+ node templates)", () => {
+    const counts = definitions.map((d) => d.nodes.length);
+    expect(counts.filter((n) => n === 5).length).toBeGreaterThanOrEqual(1);
+    expect(counts.filter((n) => n === 6).length).toBeGreaterThanOrEqual(1);
+    expect(counts.filter((n) => n >= 7).length).toBeGreaterThanOrEqual(1);
+    // every multi-step template is still exactly one trigger + linear/connected actions.
+    for (const def of definitions) {
+      expect(def.nodes.filter((n: { kind: string }) => n.kind === "trigger")).toHaveLength(1);
     }
   });
 });
