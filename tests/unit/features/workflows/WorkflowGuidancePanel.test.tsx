@@ -1005,3 +1005,55 @@ describe("WorkflowGuidancePanel — auto-show preview on canvas", () => {
     expect(await screen.findByTestId("workflow-guidance-warnings")).toHaveTextContent(/send-campaign/i);
   });
 });
+
+describe("WorkflowGuidancePanel — official template match (REACT-AGENT-TEMPLATE-MATCH-2)", () => {
+  const HIGH_MATCH = {
+    templateId: "c0ffee00-0000-4000-8000-00000000004e",
+    name: "Support escalation from email",
+    description: "Open a HubSpot ticket, Trello card, and Slack alert.",
+    score: 20,
+    confidence: "high" as const,
+    reasons: ["Matches the Gmail new labeled email trigger"],
+    isOfficial: true as const,
+    providers: ["gmail", "hubspot", "slack"],
+    providerLabels: ["Gmail", "HubSpot", "Slack"],
+    triggerKind: "app" as const,
+    category: "sales-crm",
+    categoryLabel: "Sales & CRM",
+    nodeCount: 5,
+    stepCount: 4,
+    steps: [{ kind: "action" as const, provider: "hubspot", type: "create_ticket", label: "HubSpot: Create ticket" }],
+  };
+
+  it("renders the match card when the response includes officialTemplateMatches", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "I found an official template that already matches this workflow.",
+      source: "official_template_match",
+      workflowPlan: null,
+      previewDraft: null,
+      officialTemplateMatches: [HIGH_MATCH],
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "support email to HubSpot ticket and Slack");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+
+    await waitFor(() => expect(screen.getByTestId("guidance-template-match")).toBeInTheDocument());
+    expect(screen.getByText("Support escalation from email")).toBeInTheDocument();
+    // recommendation-only: no auto-create control
+    expect(screen.queryByText(/use template|create workflow|apply/i)).not.toBeInTheDocument();
+    // no raw variable syntax leaks into the UI
+    expect(document.body.textContent ?? "").not.toContain("{{");
+  });
+
+  it("renders no match card when the response omits officialTemplateMatches (unchanged behavior)", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({ ok: true, guidanceText: "What app do your leads live in?", source: "hermes-agent", workflowPlan: null });
+    render(<WorkflowGuidancePanel accountId="acct-1" />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "help me follow up with leads");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await waitFor(() => expect(screen.getByTestId("workflow-guidance-result")).toBeInTheDocument());
+    expect(screen.queryByTestId("guidance-template-match")).not.toBeInTheDocument();
+  });
+});

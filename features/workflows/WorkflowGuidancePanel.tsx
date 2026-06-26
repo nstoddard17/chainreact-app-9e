@@ -8,6 +8,7 @@ import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
   MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
   type GuidanceConversationTurn,
+  type GuidanceOfficialTemplateMatch,
 } from "@/contracts/aiGuidance";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +26,7 @@ import {
   draftPreviewSignature,
   type CanvasPreviewGraphNode,
 } from "@/core/workflows/canvasPreviewEligibility";
+import { stripFencedJsonBlocks } from "@/core/workflows/stripFencedJsonBlocks";
 import {
   CHAT_PLACEHOLDER,
   CHECK_WORKFLOW_PROMPT,
@@ -37,6 +39,7 @@ import {
 } from "./guidancePanelShared";
 import { SingleShotGuidancePanel } from "./SingleShotGuidancePanel";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
+import { GuidanceTemplateMatchSection } from "./GuidanceTemplateMatchSection";
 
 /**
  * "Build with me" — advisory Hermes Agent workflow guidance (HERMES-AGENT-GUIDANCE-UI).
@@ -159,6 +162,7 @@ type ChatMessage =
       // REACT-LIVE-SKELETON — safe, no-secret notes (e.g. an exact catalog gap when no plan could be
       // built). Rendered as muted lines under the reply.
       readonly warnings?: readonly string[];
+      readonly officialTemplateMatches?: readonly GuidanceOfficialTemplateMatch[];
     }
   // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a LOCAL, deterministic workflow review produced
   // entirely from builder state (no LLM, no network, no AI credits). Rendered like a React turn but
@@ -328,12 +332,16 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
           {
             id: makeId(),
             role: "assistant",
-            text: res.guidanceText,
+            // Defensive: strip any fenced JSON/operation block so raw model JSON never renders in the rail.
+            text: stripFencedJsonBlocks(res.guidanceText) || res.guidanceText,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
             ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
             ...(res.baseGraphVersion ? { baseGraphVersion: res.baseGraphVersion } : {}),
             ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
+            ...(res.officialTemplateMatches && res.officialTemplateMatches.length
+              ? { officialTemplateMatches: res.officialTemplateMatches }
+              : {}),
           },
         ]);
       } else {
@@ -367,10 +375,12 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
         ...(recentTurns.length ? { recentTurns } : {}),
       });
       if (res.ok) {
-        // Never surface a raw-JSON dump as the response body, even on the AI path.
-        const text = looksLikeRawJson(res.guidanceText)
+        // Never surface a raw-JSON dump as the response body, even on the AI path. Strip any fenced
+        // operation/JSON block first, then fall back to neutral copy if a whole-text dump remains.
+        const cleaned = stripFencedJsonBlocks(res.guidanceText) || res.guidanceText;
+        const text = looksLikeRawJson(cleaned)
           ? "Here are some suggestions based on your current workflow."
-          : res.guidanceText;
+          : cleaned;
         setMessages((prev) => [
           ...prev,
           {
@@ -493,6 +503,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   ))}
                 </ul>
               )}
+              <GuidanceTemplateMatchSection matches={m.officialTemplateMatches ?? []} />
               {/* Only the latest assistant turn's preview/plan is actionable (supersedes prior). */}
               {isLatest && m.plan && !m.preview && <GuidancePlanSection plan={m.plan} />}
               {/* BUILDER-AGENT-RAIL-CANVAS-PREVIEW-GUARD — offer "Show on canvas" ONLY when the plan

@@ -110,3 +110,47 @@ export interface GuidanceConversationTurn {
 /** Bounds for the optional recent-conversation context (enforced server-side at the trust boundary). */
 export const MAX_GUIDANCE_CONVERSATION_TURNS = 8 as const;
 export const MAX_GUIDANCE_CONVERSATION_TURN_TEXT = 1_000 as const;
+
+/**
+ * REACT-AGENT-TEMPLATE-MATCH-2 — a SAFE official-template recommendation surfaced by the
+ * workflow-guidance route's deterministic matcher (no LLM). It carries ONLY public-catalog facts +
+ * the deterministic score/confidence/reasons — the SAME no-leak surface as the marketplace card.
+ *
+ * HARD INVARIANT: this shape is intentionally incapable of carrying a raw template definition, a
+ * node `config` value, a `{{...}}` variable expression, or any account / user / credential /
+ * integration / provider-RESOURCE id. `templateId` is the PUBLIC marketplace template id (already
+ * client-reachable via the use/preview routes); `provider`/`type` are public catalog ids (e.g.
+ * `slack` / `send_channel_message`), never a channel/board/list/resource id.
+ */
+export type GuidanceTemplateMatchConfidence = "high" | "medium" | "low";
+
+/** One safe preview-chain step (public catalog ids + a humanized display label). */
+export interface GuidanceTemplateStep {
+  readonly kind: "trigger" | "action";
+  readonly provider: string;
+  readonly type: string;
+  readonly label: string;
+}
+
+export interface GuidanceOfficialTemplateMatch {
+  readonly templateId: string;
+  readonly name: string;
+  readonly description: string | null;
+  /** Deterministic integer relevance score (higher = stronger). */
+  readonly score: number;
+  readonly confidence: GuidanceTemplateMatchConfidence;
+  /** Human-readable, safe reasons (provider + humanized step labels only — never a token/id). */
+  readonly reasons: readonly string[];
+  /** Always true on this route — the matcher reads only the official catalog. */
+  readonly isOfficial: true;
+  /** Required-app provider ids (public catalog ids; `native` excluded). */
+  readonly providers: readonly string[];
+  readonly providerLabels: readonly string[];
+  readonly triggerKind: "manual" | "scheduled" | "app";
+  readonly category: string;
+  readonly categoryLabel: string;
+  readonly nodeCount: number;
+  readonly stepCount: number;
+  /** Ordered preview chain (trigger → actions), capped for display. */
+  readonly steps: readonly GuidanceTemplateStep[];
+}

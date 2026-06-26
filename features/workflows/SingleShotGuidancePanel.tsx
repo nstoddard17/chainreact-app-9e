@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import {
   submitOnEnter,
 } from "./guidancePanelShared";
 import { GuidancePlanSection, GuidancePreviewSection } from "./GuidanceSuggestionSections";
+import { GuidanceTemplateMatchSection } from "./GuidanceTemplateMatchSection";
 
 /**
  * The original single-shot "Build with me" form (dashboard). Extracted verbatim from
@@ -40,6 +42,7 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
   const [guidanceText, setGuidanceText] = useState("");
   const [plan, setPlan] = useState<WorkflowPlan | null>(null);
   const [preview, setPreview] = useState<DraftPreview | null>(null);
+  const [templateMatches, setTemplateMatches] = useState<readonly GuidanceOfficialTemplateMatch[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
 
   const trimmed = goal.trim();
@@ -52,6 +55,7 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
     setGuidanceText("");
     setPlan(null);
     setPreview(null);
+    setTemplateMatches([]);
     try {
       const res = await requestWorkflowGuidance({
         accountId,
@@ -62,6 +66,7 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
         setGuidanceText(res.guidanceText);
         setPlan(asRenderablePlan(res.workflowPlan));
         setPreview(asRenderablePreview(res.previewDraft));
+        setTemplateMatches(res.officialTemplateMatches ?? []);
         setStatus("done");
       } else {
         setErrorMessage(safeErrorMessage(res));
@@ -139,6 +144,10 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
           plan={plan}
           {...(onPreviewToCanvas ? { onPreviewToCanvas } : {})}
         />
+      )}
+
+      {status === "done" && templateMatches.length > 0 && (
+        <GuidanceTemplateMatchSection matches={templateMatches} />
       )}
     </section>
   );

@@ -17,7 +17,7 @@
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
-import type { GuidanceConversationTurn } from "@/contracts/aiGuidance";
+import type { GuidanceConversationTurn, GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 import { postStructured } from "./shared";
 
 export type WorkflowGuidanceResponse =
@@ -43,6 +43,14 @@ export type WorkflowGuidanceResponse =
        */
       baseGraphVersion?: string;
       warnings?: readonly string[];
+      /**
+       * REACT-AGENT-TEMPLATE-MATCH-2 — deterministic, SAFE official-template recommendations for a
+       * "build this workflow" request. Present when the route's matcher found useful matches: either
+       * the high-confidence short-circuit (`source === "official_template_match"`, no model call /
+       * no AI credit) or medium/low suggestions riding alongside normal guidance. Recommendation-only
+       * — rendering it never creates/forks/uses a template; it carries no raw definition/config/{{...}}.
+       */
+      officialTemplateMatches?: readonly GuidanceOfficialTemplateMatch[];
     }
   | { ok: false; code: string; message: string };
 

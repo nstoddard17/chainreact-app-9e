@@ -15,9 +15,16 @@ import { inferDeterministicPreviewPlan, detectCatalogGap } from "@/services/ai-g
 import { inferDeterministicMutationOps } from "@/services/ai-guidance/fallback/inferDeterministicMutation";
 import { proposeWorkflowMutation } from "@/services/ai-guidance/mutation/proposeWorkflowMutation";
 import { runWorkflowEditFromModel } from "@/services/ai-guidance/mutation/runWorkflowEditFromModel";
+import { summarizeProposedEdit } from "@/services/ai-guidance/mutation/summarizeProposedEdit";
 import { buildEditableWorkflowGraph } from "@/services/ai-guidance/editableGraph/buildEditableWorkflowGraph";
 import { buildCapabilityCatalogKeys } from "@/services/ai-guidance/capabilityCatalog";
 import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
+import {
+  suggestOfficialTemplatesForRequest,
+  toGuidanceTemplateMatches,
+  buildOfficialTemplateMatchGuidanceText,
+} from "@/services/workflows/officialTemplateMatching";
+import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
@@ -162,6 +169,37 @@ export async function POST(
     workflowCreatedByUserId = wf.record.createdByUserId;
   }
 
+  // 3b. REACT-AGENT-TEMPLATE-MATCH-2 — deterministic official-template recommendation, BEFORE the
+  // model path. Only for a NEW-workflow "build this" request (no non-empty draft to edit). No LLM, no
+  // provider call, no mutation. Degrades to "no matches" on any read error (never blocks guidance).
+  //
+  //   - HIGH confidence → short-circuit with a deterministic, model-free recommendation. This returns
+  //     BEFORE the Hermes-availability check AND the credit gate, so it skips the model call and
+  //     consumes NO AI credits (the gate is where credits are deducted).
+  //   - MEDIUM / LOW → do NOT suppress normal guidance; the matches ride along the final response as
+  //     suggestions.
+  //   - NONE → behavior unchanged (no field added).
+  const isNewWorkflowRequest = !(currentDraft && currentDraft.nodes.length > 0);
+  let officialTemplateMatches: GuidanceOfficialTemplateMatch[] = [];
+  if (isNewWorkflowRequest) {
+    try {
+      const matchResult = await suggestOfficialTemplatesForRequest({ requestText: goalText });
+      officialTemplateMatches = toGuidanceTemplateMatches(matchResult.matches);
+      if (matchResult.confidence === "high" && officialTemplateMatches.length > 0) {
+        return NextResponse.json({
+          ok: true,
+          guidanceText: buildOfficialTemplateMatchGuidanceText(officialTemplateMatches),
+          source: "official_template_match",
+          workflowPlan: null,
+          previewDraft: null,
+          officialTemplateMatches,
+        });
+      }
+    } catch {
+      officialTemplateMatches = []; // never let template matching break guidance
+    }
+  }
+
   // 4. Hermes availability BEFORE any charge — disabled/unconfigured → 503, no charge, no network.
   if (!isHermesAgentEnabled() || !getHermesAgentGatewayConfig()) {
     return guidanceUnavailableResponse();
@@ -236,7 +274,14 @@ export async function POST(
   let previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
   let proposedDefinition: import("@/contracts/workflowDefinition").WorkflowDefinition | null = null;
   let baseGraphVersion: string | null = null;
-  const editorMessages: string[] = [];
+  // HERMES-AGENT-WORKFLOW-EDITOR — for an editing turn, the rail message is OWNED by the route (a human
+  // summary on success, a safe reason otherwise) so it can NEVER contradict the proposal state or leak
+  // raw model JSON. `proposalWarnings` carries only non-blocking notes (cost / deletes-user-work).
+  let editorGuidanceText: string | null = null;
+  const proposalWarnings: string[] = [];
+  // Safe copy when a mutation-shaped reply couldn't be turned into a usable, catalog-valid patch.
+  const MALFORMED_EDIT_MESSAGE =
+    "I couldn't preview that change. Tell me a bit more about what you'd like to change and I'll try again.";
 
   if (editing && result.mutationOperations && builtEditableGraph) {
     // PRIMARY model-driven path: opaque refs → stale guard → real ids → atomic catalog validation.
@@ -251,24 +296,32 @@ export async function POST(
       previewDraft = edit.previewDraft;
       workflowPlan = edit.workflowPlan;
       baseGraphVersion = edit.baseGraphVersion;
-      editorMessages.push(...edit.warnings);
+      editorGuidanceText = summarizeProposedEdit(currentDraft!, edit.proposedDefinition);
+      proposalWarnings.push(...edit.warnings);
     } else if (edit.kind === "invalid" || edit.kind === "stale") {
-      // Exact, actionable, secret-free reason (unknown/stale ref, unsupported capability, changed draft).
-      editorMessages.push(edit.message);
+      // Safe, actionable reason (changed/unknown step, unsupported capability) — never raw refs/JSON.
+      editorGuidanceText = edit.message;
     }
   } else if (editing && fallback.kind === "ops") {
+    // DEGRADED RECOVERY only: the model proposed no usable patch but the deterministic Slack↔email
+    // fallback can. This also recovers a MALFORMED model edit when it maps to a supported shape.
     const proposal = proposeWorkflowMutation({ currentDraft: currentDraft!, operations: fallback.operations });
     if (proposal.kind === "proposal") {
       proposedDefinition = proposal.proposedDefinition;
       previewDraft = proposal.previewDraft;
       workflowPlan = proposal.workflowPlan;
       baseGraphVersion = builtEditableGraph?.version ?? null;
-      editorMessages.push(...proposal.warnings);
+      editorGuidanceText = summarizeProposedEdit(currentDraft!, proposal.proposedDefinition);
+      proposalWarnings.push(...proposal.warnings);
     } else if (proposal.kind === "invalid") {
-      editorMessages.push(proposal.message);
+      editorGuidanceText = proposal.message;
     }
+  } else if (editing && result.mutationMalformed) {
+    // A mutation-shaped reply we couldn't make usable AND the fallback couldn't recover → say so safely.
+    editorGuidanceText = MALFORMED_EDIT_MESSAGE;
   } else if (editing && (fallback.kind === "needs_provider_choice" || fallback.kind === "needs_node_choice" || fallback.kind === "catalog_gap")) {
-    editorMessages.push(fallback.message);
+    // Clarification needed (e.g. Gmail vs Outlook) — ask ONLY the question; no patch, no preview.
+    editorGuidanceText = fallback.message;
   }
 
   // NEW-workflow path (no draft to edit): the deterministic shape inferer + catalog-gap reason (REACT-
@@ -277,11 +330,14 @@ export async function POST(
     workflowPlan = inferDeterministicPreviewPlan(goalText);
     previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
   }
-  const catalogGap = !workflowPlan && !proposedDefinition && editorMessages.length === 0 ? detectCatalogGap(goalText) : null;
+  const catalogGap = !editing && !workflowPlan && !proposedDefinition ? detectCatalogGap(goalText) : null;
 
+  // The rail message: editing turns use the route-owned text; everything else uses the (already
+  // JSON-stripped) model prose. Warnings carry only safe non-blocking notes.
+  const guidanceText = editorGuidanceText ?? result.guidanceText;
   const warnings = [
     ...(result.warnings ?? []),
-    ...editorMessages,
+    ...proposalWarnings,
     ...(catalogGap ? [catalogGap.message] : []),
   ];
 
@@ -289,7 +345,7 @@ export async function POST(
   // proposedDefinition is the user's OWN draft + the validated change; Apply (client) is still explicit.
   return NextResponse.json({
     ok: true,
-    guidanceText: result.guidanceText,
+    guidanceText,
     source: result.source,
     workflowPlan,
     previewDraft,
@@ -298,5 +354,8 @@ export async function POST(
     // refuse to Apply onto a canvas that changed since (one more stale guard at the explicit Apply click).
     ...(proposedDefinition && baseGraphVersion ? { baseGraphVersion } : {}),
     ...(warnings.length ? { warnings } : {}),
+    // REACT-AGENT-TEMPLATE-MATCH-2 — medium/low official-template suggestions ride ALONGSIDE normal
+    // guidance (high-confidence already short-circuited above). Omitted when there are none.
+    ...(officialTemplateMatches.length ? { officialTemplateMatches } : {}),
   });
 }

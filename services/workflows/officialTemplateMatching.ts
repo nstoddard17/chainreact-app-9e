@@ -5,7 +5,9 @@ import {
   type MatchOfficialTemplatesOptions,
   type MatchOfficialTemplatesResult,
   type OfficialTemplateCatalogEntry,
+  type OfficialTemplateMatch,
 } from "@/core/workflows/officialTemplateMatcher";
+import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 
 /**
  * Service seam for deterministic official-template matching (4.REACT-AGENT-TEMPLATE-MATCH-1).
@@ -57,4 +59,43 @@ export async function suggestOfficialTemplatesForRequest(
   const load = input.loadCatalog ?? loadOfficialCatalogEntries;
   const catalog = await load();
   return matchOfficialTemplates(input.requestText, catalog, input.options);
+}
+
+/**
+ * Project matcher results into the SAFE guidance-route DTO (flatten the safe `summary` + stamp
+ * `isOfficial`). Pure — carries only public-catalog facts; no definition / config / token / id
+ * beyond the public template id can flow through (the input already excludes them).
+ */
+export function toGuidanceTemplateMatches(
+  matches: readonly OfficialTemplateMatch[],
+): GuidanceOfficialTemplateMatch[] {
+  return matches.map((m) => ({
+    templateId: m.templateId,
+    name: m.name,
+    description: m.description,
+    score: m.score,
+    confidence: m.confidence,
+    reasons: m.reasons,
+    isOfficial: true,
+    providers: m.summary.providers,
+    providerLabels: m.summary.providerLabels,
+    triggerKind: m.summary.triggerKind,
+    category: m.summary.category,
+    categoryLabel: m.summary.categoryLabel,
+    nodeCount: m.summary.nodeCount,
+    stepCount: m.summary.stepCount,
+    steps: m.summary.steps,
+  }));
+}
+
+/** Deterministic, model-free rail copy for a high-confidence official-template match. */
+export function buildOfficialTemplateMatchGuidanceText(
+  matches: readonly GuidanceOfficialTemplateMatch[],
+): string {
+  const top = matches[0];
+  if (!top) return "";
+  return (
+    `I found an official template that already matches this workflow: “${top.name}”. ` +
+    `You can preview it before creating anything — nothing has been created or changed.`
+  );
 }
