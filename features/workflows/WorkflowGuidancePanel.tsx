@@ -141,6 +141,16 @@ export interface WorkflowGuidancePanelProps {
    * the button always renders (e.g. dashboard with no canvas, or auto-show not wired/available).
    */
   readonly displayedPreviewSignature?: string | null;
+  /**
+   * HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP — whether a preview is CURRENTLY displayed on the canvas
+   * (an active overlay / diff + control bar). Owned by `WorkflowBuilder` (`previewOverlay != null`) —
+   * the SAME state that renders the canvas preview, so it can't disagree with what the user sees. This
+   * is the authoritative "is a preview on the canvas" signal for edit proposals; `displayedPreviewSignature`
+   * (derived from the display `previewDraft`) can be `null` even while an edit's diff is shown — the
+   * rail must not treat that as "no preview" and offer a redundant re-show. Absent → not wired (dashboard
+   * / tests fall back to the signature).
+   */
+  readonly isPreviewDisplayed?: boolean;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -200,7 +210,7 @@ function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, initialComposerValue, displayedPreviewSignature }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, initialComposerValue, displayedPreviewSignature, isPreviewDisplayed }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -500,10 +510,12 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                   preview={m.preview}
                   plan={m.plan}
                   // An EDIT auto-shows and supersedes on the canvas, so ANY preview currently on the
-                  // canvas IS this edit. Treat "something displayed" as displayed → no redundant re-show.
-                  // The recovery "Show on canvas" appears ONLY when nothing is visible (null) — e.g. the
-                  // user discarded it or auto-show failed (HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP).
-                  isDisplayedOnCanvas={displayedPreviewSignature != null}
+                  // canvas IS this edit. The authoritative signal is `isPreviewDisplayed` (the builder's
+                  // `previewOverlay != null` — the same state that renders the diff + control bar); the
+                  // derived `displayedPreviewSignature` can be null even while an edit diff is shown, so
+                  // it's only a fallback when the boolean isn't wired (dashboard/tests). Recovery
+                  // "Show on canvas" appears ONLY when NOTHING is displayed (HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP).
+                  isDisplayedOnCanvas={isPreviewDisplayed === true || displayedPreviewSignature != null}
                   {...(onPreviewToCanvas && m.plan
                     ? { onShowOnCanvas: () => onPreviewToCanvas(toCanvasPayload(m)) }
                     : {})}

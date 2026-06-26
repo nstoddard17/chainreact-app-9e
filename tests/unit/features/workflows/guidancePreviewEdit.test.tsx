@@ -146,6 +146,27 @@ describe("WorkflowGuidancePanel — edit preview rail (active vs recovery)", () 
     expect(screen.queryByTestId("workflow-guidance-edit-recovery")).toBeNull();
   });
 
+  // The EXACT reported screenshot state: the edit preview is active on the canvas (the builder's
+  // `previewOverlay != null` → isPreviewDisplayed), but the derived display signature is NULL. The rail
+  // must trust isPreviewDisplayed and NOT offer a redundant "Show on canvas".
+  it("hides 'Show on canvas' for an ACTIVE edit preview even when the display signature is null (isPreviewDisplayed)", async () => {
+    await sendEdit({ isPreviewDisplayed: true, displayedPreviewSignature: null });
+    // Assistant summary remains…
+    expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
+    // …but no redundant re-show, and no bordered "Proposed change" card / internal ids.
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+    expect(screen.queryByTestId("workflow-guidance-edit-recovery")).toBeNull();
+    expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
+    const transcript = screen.getByTestId("workflow-guidance-messages").textContent ?? "";
+    expect(transcript).not.toMatch(/proposedDefinition|removeNode|editVersion|provider:|\{/i);
+  });
+
+  it("recovery 'Show on canvas' returns only when NOTHING is displayed (isPreviewDisplayed false + null signature)", async () => {
+    await sendEdit({ isPreviewDisplayed: false, displayedPreviewSignature: null });
+    expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
+    expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
+  });
+
   it("recovery 'Show on canvas' hands BOTH the validated plan and the display preview to the canvas overlay", async () => {
     const user = userEvent.setup();
     const onPreviewToCanvas = jest.fn();

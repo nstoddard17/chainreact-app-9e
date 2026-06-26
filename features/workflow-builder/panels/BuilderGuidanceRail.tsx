@@ -104,6 +104,13 @@ export interface BuilderGuidanceRailProps {
    * as a re-show/recovery control once that preview is discarded or superseded.
    */
   readonly displayedPreviewSignature?: string | null;
+  /**
+   * HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP — whether a preview is currently displayed on the canvas
+   * (`previewOverlay != null` in `WorkflowBuilder`). Forwarded verbatim so the rail can hide the
+   * redundant "Show on canvas" for an active edit preview without relying on the (sometimes-null)
+   * display signature. `null` when none is shown.
+   */
+  readonly isPreviewDisplayed?: boolean;
 }
 
 export function BuilderGuidanceRail({
@@ -122,6 +129,7 @@ export function BuilderGuidanceRail({
   renderCheckSetup,
   initialComposerValue,
   displayedPreviewSignature,
+  isPreviewDisplayed,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -157,6 +165,7 @@ export function BuilderGuidanceRail({
             {...(initialComposerValue ? { initialComposerValue } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(displayedPreviewSignature !== undefined ? { displayedPreviewSignature } : {})}
+            {...(isPreviewDisplayed !== undefined ? { isPreviewDisplayed } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {
                   transcriptFooter: (
