@@ -30,6 +30,12 @@ picker (with manual `owner/repo` entry preserved). No other unwired-picker gaps 
 No blockers requiring a migration, new OAuth scope, provider-portal change, paid-service decision,
 or large refactor were encountered.
 
+> **See also (2026-06-26):** the React Agent conversational edit-preview arc that landed after this
+> sweep is closed out in
+> [`ai/react-agent-workflow-builder-closeout.md`](./ai/react-agent-workflow-builder-closeout.md)
+> (auto-preview on canvas, diff graph, Apply/Discard, rail cleanup; rail gated by
+> `HERMES_AGENT_ENABLED`, default OFF; targeted suites green this session; unpushed).
+
 ---
 
 ## 2. Invariant verification (code-traced)
