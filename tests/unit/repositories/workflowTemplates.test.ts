@@ -19,7 +19,8 @@ const state: {
   countOpts?: unknown;
   orArg?: string;
   eqs: Array<[string, unknown]>;
-} = { result: { data: null, error: null }, eqs: [] };
+  iss: Array<[string, unknown]>;
+} = { result: { data: null, error: null }, eqs: [], iss: [] };
 
 function qb(): Record<string, unknown> {
   const builder: Record<string, unknown> = {
@@ -36,6 +37,10 @@ function qb(): Record<string, unknown> {
     update: () => builder,
     eq: (col: string, val: unknown) => {
       state.eqs.push([col, val]);
+      return builder;
+    },
+    is: (col: string, val: unknown) => {
+      state.iss.push([col, val]);
       return builder;
     },
     or: (expr: string) => {
@@ -59,6 +64,7 @@ import {
   createTemplateServiceRole,
   listTemplatesByAccountServiceRole,
   listMarketplaceTemplatesServiceRole,
+  listOfficialTemplatesServiceRole,
   getMarketplaceTemplateByIdServiceRole,
   countTemplatesByAccountServiceRole,
   deleteTemplateServiceRole,
@@ -99,6 +105,7 @@ beforeEach(() => {
   state.countOpts = undefined;
   state.orArg = undefined;
   state.eqs = [];
+  state.iss = [];
 });
 
 describe("createTemplateServiceRole", () => {
@@ -151,6 +158,25 @@ describe("listTemplatesByAccountServiceRole", () => {
     const recs = await listTemplatesByAccountServiceRole("acct-1");
     expect(state.eqs).toContainEqual(["account_id", "acct-1"]);
     expect(recs.map((r) => r.id)).toEqual(["tpl-1", "tpl-2"]);
+  });
+});
+
+describe("listOfficialTemplatesServiceRole", () => {
+  it("filters to source='official' + account_id IS NULL and returns the safe summary", async () => {
+    state.result = {
+      data: [row({ source: "official", account_id: null, visibility: "public", creator_display_name_snapshot: "ChainReact" })],
+      error: null,
+    };
+    const recs = await listOfficialTemplatesServiceRole();
+    expect(state.eqs).toContainEqual(["source", "official"]);
+    expect(state.iss).toContainEqual(["account_id", null]);
+    // never selects account_id / created_by_user_id
+    expect(state.selectCols).not.toMatch(/account_id/);
+    expect(state.selectCols).not.toMatch(/created_by_user_id/);
+    const summary = recs[0]!;
+    expect(summary.isOfficial).toBe(true);
+    expect(summary).not.toHaveProperty("accountId");
+    expect(summary.card?.providers).toEqual(["slack"]);
   });
 });
 

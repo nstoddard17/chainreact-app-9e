@@ -201,6 +201,29 @@ export async function listMarketplaceTemplatesServiceRole(): Promise<
 }
 
 /**
+ * List ONLY the OFFICIAL (platform-owned) catalog as the public-safe summary — the input to the
+ * deterministic official-template matcher (4.REACT-AGENT-TEMPLATE-MATCH-1). Filters
+ * `source = 'official'` (which the DB invariant ties to `account_id IS NULL`), so NO user-created
+ * or account-private template can ever enter the global matcher. Newest first. The raw definition
+ * is consumed here only to derive the safe `card`; it never leaves this layer.
+ */
+export async function listOfficialTemplatesServiceRole(): Promise<
+  readonly MarketplaceTemplateSummary[]
+> {
+  const supabase = getServiceRoleClient("workflow_templates: listOfficial");
+  const { data, error } = await supabase
+    .from("workflow_templates")
+    .select(MARKETPLACE_COLUMNS)
+    .eq("source", "official")
+    .is("account_id", null)
+    .order("created_at", { ascending: false });
+  if (error) {
+    throw new Error(`workflow_templates.listOfficialTemplatesServiceRole failed: ${error.message}`);
+  }
+  return (data ?? []).map((r) => rowToMarketplaceSummary(r as WorkflowTemplatesRow));
+}
+
+/**
  * Fetch a single template scoped to its account (no cross-account existence leak). Internal
  * record (includes the definition for the owner's edit/use path).
  */
