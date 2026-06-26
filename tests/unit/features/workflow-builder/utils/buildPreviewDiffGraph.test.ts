@@ -92,3 +92,51 @@ describe("buildPreviewDiffGraph — other diff classes", () => {
     expect(buildPreviewDiffGraph(current, candidate).nodes[0]!.diffStatus).toBe("unchanged");
   });
 });
+
+/**
+ * Capability-swap rule (product rule): a provider:type change is a REPLACEMENT — old `removed` + new
+ * `added`, NEVER a single orange `changed` card — even when a proposal REUSES the old node's id for the
+ * new capability. Same provider:type with only config edits stays `changed`.
+ */
+describe("buildPreviewDiffGraph — capability swap that reuses the node id", () => {
+  const current = manualSlack();
+  // Candidate REUSES Slack's id `a1` but with a different provider:type (gmail:send_email) — and keeps
+  // the trigger edge pointing at `a1`. Without normalization this would collapse to one orange "changed".
+  const candidate: WorkflowDefinition = {
+    nodes: [node("t1", "trigger", "native", "manual.run", {}, { x: 400, y: 100 }), node("a1", "action", "gmail", "send_email", {}, { x: 400, y: 300 })],
+    edges: [{ id: "e1", from: "t1", to: "a1" }],
+  };
+  const diff = buildPreviewDiffGraph(current, candidate);
+
+  it("splits the reused id into the old Slack node removed and the new Gmail node added (not 'changed')", () => {
+    // The original id stays on the REMOVED Slack node (still labeled slack:send_channel_message)…
+    const oldNode = diff.nodes.find((n) => n.provider === "slack" && n.type === "send_channel_message")!;
+    expect(oldNode.id).toBe("a1");
+    expect(oldNode.diffStatus).toBe("removed");
+    // …and the new Gmail node is ADDED under a distinct (synthetic) display id.
+    const newNode = diff.nodes.find((n) => n.provider === "gmail" && n.type === "send_email")!;
+    expect(newNode.diffStatus).toBe("added");
+    expect(newNode.id).not.toBe("a1");
+    // Never a single 'changed' card for the swap.
+    expect(diff.nodes.some((n) => n.diffStatus === "changed")).toBe(false);
+  });
+
+  it("marks the old edge removed and the new (re-keyed) edge added", () => {
+    const newNode = diff.nodes.find((n) => n.provider === "gmail")!;
+    expect(diff.edges.find((e) => e.from === "t1" && e.to === "a1")!.diffStatus).toBe("removed");
+    expect(diff.edges.find((e) => e.from === "t1" && e.to === newNode.id)!.diffStatus).toBe("added");
+  });
+
+  it("gives the removed and added replacement nodes distinct, non-overlapping positions", () => {
+    const slots = diff.nodes.map((n) => posKey(n.position));
+    expect(new Set(slots).size).toBe(diff.nodes.length);
+    const oldNode = diff.nodes.find((n) => n.provider === "slack")!;
+    const newNode = diff.nodes.find((n) => n.provider === "gmail")!;
+    expect(posKey(oldNode.position)).not.toBe(posKey(newNode.position));
+    expect(oldNode.position.x).toBeGreaterThan(newNode.position.x); // removed sits beside its replacement
+  });
+
+  it("leaves Manual Run unchanged", () => {
+    expect(diff.nodes.find((n) => n.id === "t1")!.diffStatus).toBe("unchanged");
+  });
+});

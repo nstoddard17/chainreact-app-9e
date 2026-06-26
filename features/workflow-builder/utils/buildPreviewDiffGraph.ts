@@ -13,10 +13,20 @@ import { layoutWorkflowGraph } from "./workflowLayout";
  * Diff rules (keyed on stable node ids; the patch engine preserves untouched ids and mints fresh ids
  * for added/replacement nodes, so a Slack→Gmail replacement reads as Slack `removed` + Gmail `added`):
  *   - node in BOTH, same provider:type + config → `unchanged`
- *   - node in BOTH, different provider:type or config → `changed`
+ *   - node in BOTH, same provider:type, different config → `changed`
+ *   - node in BOTH, DIFFERENT provider:type (a capability swap) → REPLACEMENT: old `removed` + new `added`
  *   - node only in the candidate → `added`
  *   - node only in the current draft → `removed`
  *   - edge matched by (from,to,label) in both → `unchanged`; candidate-only → `added`; current-only → `removed`
+ *
+ * Capability-swap rule (product rule): a provider:type change is a REPLACEMENT, not an in-place change —
+ * the old node must read as `removed` and the new one as `added`, never a single orange `changed` card.
+ * Genuine remove+add proposals already do this because the patch engine mints a fresh id for the new
+ * node. To stay correct even if a proposal REUSES the old node's id for a different provider:type, the
+ * builder re-keys such a candidate node to a synthetic display id first (see `splitReplacedCandidateIds`)
+ * so the same id never carries two capabilities. The re-key is presentational only — Apply replaces the
+ * draft with `proposedDefinition` verbatim and never sees these synthetic ids. Same provider:type with
+ * only config edits keeps the original id and reads as `changed`.
  *
  * Layout: the CANDIDATE graph (unchanged + changed + added) is laid out cleanly via the shared
  * `layoutWorkflowGraph`; REMOVED nodes are placed in a side lane next to the candidate node that took
@@ -75,9 +85,42 @@ function edgeKey(e: WorkflowEdge): string {
 
 function nodeDiffStatus(current: WorkflowNode | undefined, candidate: WorkflowNode): PreviewNodeDiffStatus {
   if (!current) return "added";
-  if (current.provider !== candidate.provider || current.type !== candidate.type) return "changed";
+  // A provider:type (capability) swap is a REPLACEMENT, never an in-place change. By the time we get
+  // here `splitReplacedCandidateIds` has already re-keyed such candidates so this id pair shares a
+  // capability; the guard stays as defense in depth (a stray same-id swap reads as added, then the old
+  // node is emitted as removed) rather than collapsing to a misleading orange `changed`.
+  if (current.provider !== candidate.provider || current.type !== candidate.type) return "added";
   if (canonicalConfig(current.config) !== canonicalConfig(candidate.config)) return "changed";
   return "unchanged";
+}
+
+/**
+ * Capability-swap normalization: if the candidate REUSES a current node's id but with a different
+ * provider:type, re-key that candidate node (and its incident edges) to a synthetic DISPLAY id so the
+ * old id is left only on the current draft. The downstream diff then reads it as the old node `removed`
+ * + the new node `added` (two distinct cards/slots) instead of a single `changed` card. Genuine
+ * remove+add proposals (fresh candidate id) and same-capability config edits (same id, same
+ * provider:type) are returned unchanged. Presentational only — `proposedDefinition` is unaffected.
+ */
+function splitReplacedCandidateIds(current: GraphLike, candidate: GraphLike): GraphLike {
+  const currentById = new Map((current.nodes ?? []).map((n) => [n.id, n]));
+  const remap = new Map<string, string>();
+  let counter = 0;
+  for (const c of candidate.nodes ?? []) {
+    const cur = currentById.get(c.id);
+    if (cur && (cur.provider !== c.provider || cur.type !== c.type)) {
+      remap.set(c.id, `${c.id}::replacement-${counter++}`);
+    }
+  }
+  if (remap.size === 0) return candidate;
+  return {
+    nodes: (candidate.nodes ?? []).map((n) => (remap.has(n.id) ? { ...n, id: remap.get(n.id)! } : n)),
+    edges: (candidate.edges ?? []).map((e) => ({
+      ...e,
+      from: remap.get(e.from) ?? e.from,
+      to: remap.get(e.to) ?? e.to,
+    })),
+  };
 }
 
 /**
@@ -85,10 +128,12 @@ function nodeDiffStatus(current: WorkflowNode | undefined, candidate: WorkflowNo
  * `current` is the live local draft; `candidate` is the proposed end-state (e.g. `proposedDefinition`).
  */
 export function buildPreviewDiffGraph(current: GraphLike, candidate: GraphLike): PreviewDiffGraph {
+  // Normalize capability swaps that reuse an id so they read as removed+added (not a single `changed`).
+  const effectiveCandidate = splitReplacedCandidateIds(current, candidate);
   const currentNodes = current.nodes ?? [];
   const currentEdges = current.edges ?? [];
-  const candidateNodes = candidate.nodes ?? [];
-  const candidateEdges = candidate.edges ?? [];
+  const candidateNodes = effectiveCandidate.nodes ?? [];
+  const candidateEdges = effectiveCandidate.edges ?? [];
 
   const currentById = new Map(currentNodes.map((n) => [n.id, n]));
   const candidateById = new Map(candidateNodes.map((n) => [n.id, n]));
