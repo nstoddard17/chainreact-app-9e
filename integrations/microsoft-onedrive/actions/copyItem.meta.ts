@@ -58,8 +58,10 @@ export const microsoftOneDriveCopyItemMeta: ActionMeta = {
     },
   ],
   outputs: [
-    { name: "status", type: "string", description: 'Copy status — "pending".' },
-    { name: "monitorUrl", type: "string", description: "Graph monitor URL to poll for completion." },
+    // Always "pending": the copy was INITIATED, not confirmed complete. The action
+    // does not poll — completion is observed by polling `monitorUrl` downstream.
+    { name: "status", type: "string", description: 'Copy status — always "pending" (the copy was initiated, not confirmed complete).' },
+    { name: "monitorUrl", type: "string", description: "Graph operation-status URL to poll for completion (the action itself does not wait)." },
     // SOURCE item id (the item being copied) — NOT the copy. The async copy returns
     // no new item id synchronously; poll monitorUrl for the completed copy's id.
     { name: "sourceItemId", type: "string", description: "The source item's id (the item being copied)." },

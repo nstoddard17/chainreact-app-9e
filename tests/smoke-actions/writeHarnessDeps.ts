@@ -54,6 +54,7 @@ import { fileProvidersSmokeReadBack } from "./writeHarnessDeps/fileProviders";
 import { calendarsSmokeReadBack } from "./writeHarnessDeps/calendars";
 import { sheetsSmokeReadBack } from "./writeHarnessDeps/sheets";
 import { onenoteSmokeReadBack } from "./writeHarnessDeps/onenote";
+import { copyMonitorSmokeReadBack } from "./writeHarnessDeps/copyMonitor";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
 export { probeWriteConnection, isProviderConnectedForWrite } from "./writeHarnessDeps/connection";
@@ -125,6 +126,8 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   calendarsSmokeReadBack,
   sheetsSmokeReadBack,
   onenoteSmokeReadBack,
+  // OneDrive async /copy monitor poller — completes copy_item's pending operation.
+  copyMonitorSmokeReadBack,
 ];
 
 export function makeRealWriteHarnessDeps(

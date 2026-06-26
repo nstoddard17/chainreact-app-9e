@@ -142,6 +142,7 @@ import onedriveCreateFolder from "@/tests/fixtures/action-smoke/microsoft-onedri
 import onedriveDeleteItem from "@/tests/fixtures/action-smoke/microsoft-onedrive/delete_item";
 import onedriveUploadFile from "@/tests/fixtures/action-smoke/microsoft-onedrive/upload_file";
 import onedriveMoveItem from "@/tests/fixtures/action-smoke/microsoft-onedrive/move_item";
+import onedriveCopyItem from "@/tests/fixtures/action-smoke/microsoft-onedrive/copy_item";
 import gcalCreateEvent from "@/tests/fixtures/action-smoke/google-calendar/create_event";
 import gcalUpdateEvent from "@/tests/fixtures/action-smoke/google-calendar/update_event";
 import gcalDeleteEvent from "@/tests/fixtures/action-smoke/google-calendar/delete_event";
@@ -294,6 +295,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   onedriveDeleteItem,
   onedriveUploadFile,
   onedriveMoveItem,
+  onedriveCopyItem,
   gcalCreateEvent,
   gcalUpdateEvent,
   gcalDeleteEvent,

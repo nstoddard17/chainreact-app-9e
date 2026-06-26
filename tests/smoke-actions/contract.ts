@@ -174,6 +174,31 @@ export interface ActionStepSpec {
 }
 
 /**
+ * Async-completion spec for an EXECUTE action that returns a PENDING long-running
+ * operation (e.g. Microsoft Graph `/copy` -> `202 Accepted` + a monitor URL)
+ * INSTEAD of the created resource's id. The harness reads the trusted monitor URL
+ * out of the execute output at `monitorUrlPath`, polls it to TERMINAL completion via
+ * the smoke-only read-back seam (`provider`/`action` select the poller), then
+ * captures the completed resource id from the poll output into the ledger via
+ * `captureResource` — so the subsequent verify + cleanup can target the REAL
+ * created object. A missing monitor URL, a poll failure/timeout, or a completion
+ * that yields no id is VERIFY_FAILED (the run never proceeds with an uncaptured
+ * resource, so a verified-but-unowned object can never leak).
+ *
+ * This is SMOKE-ONLY: the production action stays honest (it returns "pending" and
+ * does not poll). Nothing here changes runtime behavior.
+ */
+export interface AsyncCompletionSpec {
+  /** Dot-path in the EXECUTE output holding the trusted provider monitor URL. */
+  readonly monitorUrlPath: string;
+  /** Smoke-only read-back seam (provider, action) that polls the monitor URL. */
+  readonly provider: string;
+  readonly action: string;
+  /** How to record the COMPLETED resource id (from the poll output) into the ledger. */
+  readonly captureResource: CaptureSpec;
+}
+
+/**
  * Mutation-smoke spec layered onto a fixture. Present only on write/destructive
  * fixtures; absent on read fixtures (the read path ignores it entirely).
  */
@@ -185,6 +210,12 @@ export interface WriteHarnessSpec {
   readonly setup?: readonly ActionStepSpec[];
   /** How to capture the execute action's created resource id into the ledger. */
   readonly captureResource?: CaptureSpec;
+  /**
+   * Async-completion: when the EXECUTE action returns a PENDING operation + a
+   * monitor URL (not the created id), poll the monitor URL to terminal completion
+   * and capture the completed resource id into the ledger. See `AsyncCompletionSpec`.
+   */
+  readonly completeAsync?: AsyncCompletionSpec;
   /** A registered READ action keyed on a captured id (confirms the side effect). */
   readonly verify?: ActionStepSpec;
   /**

@@ -16,8 +16,8 @@
  *   - any one of those failing on the read-back is VERIFY_FAILED (no vacuous pass);
  *   - both smoke items are deleted -> leaked 0, cleaned == created (2).
  *
- * copy_item is intentionally NOT fixtured (async-by-design: status:pending, no
- * copied-item id, no poll) — a guard test asserts it stays uncertified here.
+ * copy_item is now fixtured via the harness `completeAsync` phase (SMOKE-WRITE-33,
+ * see onedrive-copy-item.test.ts) — a guard test below asserts it is registered.
  */
 import type { ActionSmokeFixture } from "@/tests/smoke-actions/contract";
 import { WRITE_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
@@ -174,10 +174,15 @@ describe("microsoft-onedrive:move_item orchestration", () => {
   });
 });
 
-// ─── copy_item stays uncertified (async blocker) ──────────────────────────────
+// ─── copy_item is now fixtured via completeAsync (SMOKE-WRITE-33) ──────────────
 
-describe("microsoft-onedrive:copy_item is intentionally NOT fixtured (async blocker)", () => {
-  it("has no write fixture (async-by-design: status:pending, no copied-item id, no poll)", () => {
-    expect(WRITE_SMOKE_FIXTURES.find((f) => `${f.provider}:${f.action}` === "microsoft-onedrive:copy_item")).toBeUndefined();
+describe("microsoft-onedrive:copy_item is now fixtured (async blocker resolved)", () => {
+  it("has a write fixture with a completeAsync monitor-poll phase", () => {
+    const f = WRITE_SMOKE_FIXTURES.find((x) => `${x.provider}:${x.action}` === "microsoft-onedrive:copy_item");
+    expect(f).toBeDefined();
+    // The async copy is completed by polling the trusted Graph monitor URL; the
+    // copied item id is captured into the ledger so it can be verified + cleaned.
+    expect(f!.writeHarness?.completeAsync?.action).toBe("copy_monitor");
+    expect(f!.writeHarness?.completeAsync?.captureResource.resourceKey).toBe("copy");
   });
 });

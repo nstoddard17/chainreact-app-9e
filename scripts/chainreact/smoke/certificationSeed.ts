@@ -335,12 +335,16 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // HONESTY: OneDrive delete moves to the RECYCLE BIN (recoverable); the items leave
   // the active drive ("cleaned"), disposition disclosed. Verified live (0 leaked).
   //
-  // copy_item is NOT certified — BLOCKED (async-by-design): the handler returns
-  // {status:"pending", monitorUrl} with NO copied-item id and does not poll (Slice 8
-  // V1-rot fix). The copy's id is only obtainable by polling the monitor URL (non-
-  // deterministic timing) AND the harness has no mechanism to feed a read-back-
-  // discovered id into the cleanup ledger, so a verified copy would LEAK. Stays
-  // MISSING_FIXTURE; see docs/runbooks/action-smoke-cli.md (OneDrive write coverage).
+  // copy_item — async blocker RESOLVED (SMOKE-WRITE-33). The handler still returns
+  // {status:"pending", monitorUrl} and does NOT poll (production unchanged). The write
+  // harness gained a `completeAsync` phase: it polls the TRUSTED Graph monitor URL to
+  // terminal completion (bounded, smoke-only) and captures the copied item's real
+  // `resourceId` into the cleanup ledger — so the copy is identifiable, independently
+  // verifiable (get_file), and cleanable (delete all three: folder, source, copy). The
+  // fixture + mechanism ship here, so the matrix now derives copy_item as LIVE_NOT_RUN
+  // (was MISSING_FIXTURE). It flips to LIVE_PASS_CLEANED only after a gated live
+  // `--cert` run; NOT recorded LIVE_PASS yet (no fabricated pass). See the runbook
+  // OneDrive write-coverage section.
   ...records("LIVE_PASS_CLEANED", "live setup+move/rename+verify, items deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_FILE, [
     ["microsoft-onedrive", "move_item"],
   ]),

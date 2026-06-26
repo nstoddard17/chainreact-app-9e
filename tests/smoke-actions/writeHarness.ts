@@ -748,6 +748,49 @@ export async function runWriteSmoke(
       if (!ok) actionStatus = "VERIFY_FAILED";
     }
 
+    // 5a-bis. completeAsync — the execute action returned a PENDING long-running
+    // operation (e.g. Graph /copy 202 + monitor URL) instead of the created id.
+    // Poll the TRUSTED monitor URL (read from the execute output) to terminal
+    // completion via the smoke-only read-back seam, then capture the completed
+    // resource id into the ledger so verify + cleanup can target the REAL created
+    // object. A missing monitor URL / poll failure / no resulting id -> VERIFY_FAILED:
+    // the run never proceeds with an uncaptured resource, so a created-but-unowned
+    // object can never escape cleanup (no silent leak).
+    if (actionStatus === "PASS" && spec.completeAsync) {
+      const ca = spec.completeAsync;
+      const monitorUrl = readPath(exec.output, ca.monitorUrlPath);
+      if (!monitorUrl) {
+        phases.push({ phase: "execute", outcome: "failed", reason: "async execute returned no monitor URL to complete" });
+        actionStatus = "VERIFY_FAILED";
+      } else {
+        // The monitor URL is passed to the smoke read-back seam (a bounded, READ-ONLY
+        // provider poll); the seam itself trust-gates the URL before any fetch.
+        const res = deps.smokeReadBack
+          ? await deps.smokeReadBack({ provider: ca.provider, action: ca.action, config: { monitorUrl } })
+          : { ok: false, output: null, reason: "async completion seam not available" };
+        if (!res.ok) {
+          phases.push({ phase: "execute", outcome: "failed", reason: SANITIZE(res.reason) });
+          actionStatus = "VERIFY_FAILED";
+        } else {
+          const cap = ca.captureResource;
+          const id = cap.idPath ? readPath(res.output, cap.idPath) : null;
+          if (id) {
+            ledger.record({
+              resourceKey: cap.resourceKey,
+              provider: fixture.provider,
+              kind: cap.kind,
+              externalId: id,
+              marker,
+            });
+            phases.push({ phase: "execute", outcome: "ok", reason: "async operation completed; resource captured" });
+          } else {
+            phases.push({ phase: "execute", outcome: "failed", reason: "async completion did not yield a resource id" });
+            actionStatus = "VERIFY_FAILED";
+          }
+        }
+      }
+    }
+
     // 5b. verify (a registered read action keyed on the captured id). When the
     // verify step declares a `markerPath`, the harness reads that field from the
     // READ-BACK response and confirms the unique marker — proving the marker on
