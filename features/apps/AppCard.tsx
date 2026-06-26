@@ -8,6 +8,7 @@ import { AppStatusPill } from "./AppStatusPill";
 import { DisconnectDialog } from "./DisconnectDialog";
 import { ShareConnectionDialog } from "./ShareConnectionDialog";
 import { formatConnectedOn } from "./relativeDate";
+import { deriveCollapsedReconnect } from "./collapsedReconnect";
 
 /**
  * Provider card for the Apps dashboard (Slice 4.APPS-PAGE-1).
@@ -69,6 +70,10 @@ export function AppCard({ app, accountId }: Props) {
   >(null);
   const canExpand = app.isConnected;
   const accountCount = app.accounts.length;
+  // CS-APPS-RECOVERY-2 — collapsed-card reconnect discoverability. Pure derivation
+  // over the per-row signals already in the DTO (needsReconnect + canReconnect); no
+  // new reconnect semantics. Only meaningful on a connected, collapsed card.
+  const collapsedReconnect = deriveCollapsedReconnect(app.accounts);
 
   return (
     <li
@@ -118,12 +123,41 @@ export function AppCard({ app, accountId }: Props) {
               connectInput={app.connectInput}
             />
           )}
+          {/* CS-APPS-RECOVERY-2 — collapsed-card reconnect discoverability. The
+              expanded list still owns per-row Reconnect; this only surfaces a
+              recovery affordance on the COLLAPSED card so a broken connection is
+              actionable without first finding the chevron. Never a provider-wide
+              "reconnect all": a direct action targets the SINGLE flagged row's
+              opaque id (reusing the per-row reconnect flow); when several rows
+              need it we expand instead of guessing. Hidden once expanded (the
+              per-row controls take over) and on healthy cards. */}
+          {canExpand && !expanded && collapsedReconnect.kind === "reconnect-one" && app.canConnect && (
+            <ConnectButton
+              provider={app.providerId}
+              label="Reconnect"
+              variant="reconnect"
+              title="Reconnect this account"
+              testId="app-card-collapsed-reconnect"
+              reconnect={{ integrationId: collapsedReconnect.integrationId, accountId }}
+            />
+          )}
+          {canExpand && !expanded && collapsedReconnect.kind === "review" && (
+            <button
+              type="button"
+              data-testid="app-card-collapsed-review"
+              title="Review the accounts that need reconnecting"
+              onClick={() => setExpanded(true)}
+              className="inline-flex items-center gap-1.5 rounded border border-amber-300 bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-ring dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25"
+            >
+              Review reconnects
+            </button>
+          )}
           {/* Reconnect is NOT a provider-level action (Slice 4.APPS-RECONNECT).
               A provider can hold several connected accounts, and reconnect must
               target ONE specific row — so it lives per-account in the expanded
               Accounts list, next to that row's Disconnect. The collapsed card
               only ever exposes provider-level/additive actions (Connect /
-              Connect another). */}
+              Connect another) plus the per-row-targeted recovery affordance above. */}
           {canExpand && (
             <button
               type="button"

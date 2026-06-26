@@ -557,3 +557,82 @@ describe("AppCard — reconnect-needed signal (V2-READY-28)", () => {
     expect(screen.queryByTestId("app-card-reconnect-needed")).toBeNull();
   });
 });
+
+// ── CS-APPS-RECOVERY-2 — collapsed-card reconnect discoverability ────────────
+
+describe("AppCard — collapsed reconnect discoverability (CS-APPS-RECOVERY-2)", () => {
+  type Acc = AppCatalogItem["accounts"][number];
+  function row(over: Partial<Acc>): Acc {
+    return {
+      id: "int-1",
+      displayName: "Acme · ops@example.com",
+      connectedAt: "2026-04-15T12:00:00Z",
+      canDisconnect: false,
+      canReconnect: false,
+      sharingStatus: "not_applicable",
+      sharedWithAccount: false,
+      canShare: false,
+      canUnshare: false,
+      needsReconnect: false,
+      ...over,
+    };
+  }
+  function connectedApp(accounts: Acc[]): AppCatalogItem {
+    return mkApp({
+      providerId: "gmail",
+      name: "Gmail",
+      isConnected: true,
+      canConnect: true,
+      needsReconnect: accounts.some((a) => a.needsReconnect),
+      accounts,
+      firstConnectedAt: accounts[0]?.connectedAt ?? null,
+    });
+  }
+
+  it("shows a collapsed Reconnect targeting the flagged row when exactly one reconnectable row needs reconnect", () => {
+    const app = connectedApp([
+      row({ id: "healthy", canReconnect: true }),
+      row({ id: "broken", needsReconnect: true, canReconnect: true }),
+    ]);
+    render(<AppCard app={app} accountId="acc-9" />);
+    const btn = screen.getByTestId("app-card-collapsed-reconnect");
+    // Reuses the existing per-row reconnect flow with the EXACT row + account ids.
+    expect(btn).toHaveAttribute("data-reconnect-integration-id", "broken");
+    expect(btn).toHaveAttribute("data-reconnect-account-id", "acc-9");
+    expect(btn).toHaveAttribute("data-variant", "reconnect");
+    expect(screen.queryByTestId("app-card-collapsed-review")).toBeNull();
+  });
+
+  it("shows a Review action (expands the card) when multiple reconnectable rows need reconnect — never guesses", async () => {
+    const user = userEvent.setup();
+    const app = connectedApp([
+      row({ id: "b1", needsReconnect: true, canReconnect: true }),
+      row({ id: "b2", needsReconnect: true, canReconnect: true }),
+    ]);
+    render(<AppCard app={app} accountId="acc-1" />);
+    expect(screen.queryByTestId("app-card-collapsed-reconnect")).toBeNull();
+    const review = screen.getByTestId("app-card-collapsed-review");
+    expect(screen.queryByTestId("app-card-body")).toBeNull(); // collapsed until clicked
+    await user.click(review);
+    expect(screen.getByTestId("app-card-body")).toBeInTheDocument(); // expanded
+    // Once expanded, the collapsed affordance hands off to per-row controls.
+    expect(screen.queryByTestId("app-card-collapsed-review")).toBeNull();
+  });
+
+  it("does NOT show an actionable collapsed Reconnect when the flagged row is not reconnectable (blocked)", () => {
+    const app = connectedApp([row({ id: "broken", needsReconnect: true, canReconnect: false })]);
+    render(<AppCard app={app} accountId="acc-1" />);
+    expect(screen.queryByTestId("app-card-collapsed-reconnect")).toBeNull();
+    expect(screen.queryByTestId("app-card-collapsed-review")).toBeNull();
+    // The status pill still warns (non-action), so the card isn't silently broken.
+    expect(screen.getByTestId("app-status-pill")).toHaveAttribute("data-state", "needs-reconnect");
+  });
+
+  it("healthy connected card shows neither collapsed Reconnect nor Review", () => {
+    const app = connectedApp([row({ id: "ok", canReconnect: true })]);
+    render(<AppCard app={app} accountId="acc-1" />);
+    expect(screen.queryByTestId("app-card-collapsed-reconnect")).toBeNull();
+    expect(screen.queryByTestId("app-card-collapsed-review")).toBeNull();
+    expect(screen.getByTestId("app-status-pill")).toHaveAttribute("data-state", "connected");
+  });
+});
