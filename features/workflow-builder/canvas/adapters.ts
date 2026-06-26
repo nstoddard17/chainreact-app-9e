@@ -12,6 +12,11 @@ import {
   missingRequiredFields,
   type RequiredFieldsByType,
 } from "../validation/collectBuilderValidationIssues";
+import type {
+  PreviewDiffGraph,
+  PreviewEdgeDiffStatus,
+  PreviewNodeDiffStatus,
+} from "../utils/buildPreviewDiffGraph";
 
 /**
  * Pure converters between the workflow-definition shape (the
@@ -82,6 +87,12 @@ export interface WorkflowNodeData extends Record<string, unknown> {
    * per-provider branches anywhere.
    */
   providerIcon?: string;
+  /**
+   * HERMES-AGENT-PREVIEW-DIFF-GRAPH — when this node is part of an AI PREVIEW (one composed diff graph,
+   * not a floating overlay), its diff status drives the card's diff treatment (added/removed/changed
+   * styling + pill) and read-only behavior. Absent for the normal live graph.
+   */
+  diffStatus?: PreviewNodeDiffStatus;
 }
 
 export interface NodeConversionContext {
@@ -162,6 +173,58 @@ export function workflowEdgesToFlowEdges(
     data: ctx.onEdgePlusClick
       ? { onPlusClick: ctx.onEdgePlusClick }
       : undefined,
+  }));
+}
+
+/** Edge `data` carries the optional diff status so {@link WorkflowEdge} can style a preview edge. */
+export interface WorkflowEdgeDataWithDiff {
+  diffStatus?: PreviewEdgeDiffStatus;
+}
+
+/**
+ * HERMES-AGENT-PREVIEW-DIFF-GRAPH — convert the composed diff graph into ReactFlow nodes/edges for the
+ * SINGLE preview graph the canvas renders (replacing the live graph + floating overlay). Every node
+ * carries its `diffStatus` in `data` and is READ-ONLY (not draggable / connectable / selectable) so the
+ * preview is a clean visualization, not an editable graph. Pure; no store/network.
+ */
+export function previewDiffToFlowNodes(
+  graph: PreviewDiffGraph,
+  ctx: NodeConversionContext = {},
+): FlowNode<WorkflowNodeData>[] {
+  return graph.nodes.map((node) => ({
+    id: node.id,
+    type: WORKFLOW_NODE_TYPE,
+    position: { x: node.position.x, y: node.position.y } satisfies XYPosition,
+    draggable: false,
+    connectable: false,
+    selectable: false,
+    data: {
+      kind: node.kind,
+      provider: node.provider,
+      type: node.type,
+      displayName: getNodeDisplayName(node),
+      ...(node.displayName !== undefined ? { customName: node.displayName } : {}),
+      providerLabel: ctx.providerLabels?.[node.provider],
+      providerIcon: ctx.providerIcons?.[node.provider],
+      // Removed nodes are leaving — don't nag about their config; others show real readiness.
+      missingRequiredConfig:
+        node.diffStatus !== "removed" && missingRequiredFields(node, ctx.requiredFieldsByType).length > 0,
+      diffStatus: node.diffStatus,
+    },
+  }));
+}
+
+/** Convert the diff graph's edges into ReactFlow edges carrying `diffStatus` (read-only; no plus-button). */
+export function previewDiffToFlowEdges(graph: PreviewDiffGraph): FlowEdge[] {
+  return graph.edges.map((edge, i) => ({
+    // The candidate + removed edges may share endpoints across diff states; suffix keeps RF ids unique.
+    id: `${edge.id}__diff-${i}`,
+    type: WORKFLOW_EDGE_TYPE,
+    source: edge.from,
+    target: edge.to,
+    selectable: false,
+    ...(edge.label ? { label: edge.label } : {}),
+    data: { diffStatus: edge.diffStatus } satisfies WorkflowEdgeDataWithDiff,
   }));
 }
 

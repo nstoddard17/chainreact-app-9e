@@ -40,6 +40,16 @@ function joinList(items: readonly string[]): string {
  * One safe sentence describing the proposed change + the Apply hint. Deterministic; no model text.
  */
 export function summarizeProposedEdit(prior: WorkflowDefinition, proposed: WorkflowDefinition): string {
+  return `I'll ${describeProposedEditChange(prior, proposed)}. ${APPLY_HINT}`;
+}
+
+/**
+ * The bare CHANGE CLAUSE only (no "I'll", no Apply hint, no trailing period) — e.g.
+ * "replace the Slack Send Channel Message step with a Gmail Send Email step". Used for the rail's
+ * human "Proposed change:" line and the preview/plan summary so neither ever shows machine op counts.
+ * Deterministic; catalog display names only.
+ */
+export function describeProposedEditChange(prior: WorkflowDefinition, proposed: WorkflowDefinition): string {
   const priorById = new Map(prior.nodes.map((n) => [n.id, n]));
   const proposedById = new Map(proposed.nodes.map((n) => [n.id, n]));
 
@@ -75,6 +85,5 @@ export function summarizeProposedEdit(prior: WorkflowDefinition, proposed: Workf
     parts.push(`update the ${joinList(reconfigured.map(friendlyNode))} settings`);
   }
 
-  const change = parts.length ? joinList(parts) : "update your workflow";
-  return `I'll ${change}. ${APPLY_HINT}`;
+  return parts.length ? joinList(parts) : "update your workflow";
 }

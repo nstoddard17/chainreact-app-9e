@@ -499,6 +499,7 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                 <GuidancePreviewSection
                   preview={m.preview}
                   plan={m.plan}
+                  isEdit={m.proposedDefinition != null}
                   {...(onPreviewToCanvas &&
                   // HERMES-AGENT-WORKFLOW-EDITOR — an EDIT proposal is always offerable (it may shrink the
                   // graph); new-workflow skeletons keep the same-shape meaningful guard.

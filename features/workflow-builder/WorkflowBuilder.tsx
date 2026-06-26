@@ -13,6 +13,8 @@ import { useRestoredDraftHandoff } from "./hooks/useRestoredDraftHandoff";
 import { RestoredDraftBanner } from "./panels/RestoredDraftBanner";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
+import { BuilderPreviewControlBar } from "./canvas/BuilderPreviewControlBar";
+import { buildPreviewDiffGraph } from "./utils/buildPreviewDiffGraph";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
 import { buildAppliedConfigHints, firstIncompleteAppliedNodeId } from "./utils/appliedConfigHints";
 import {
@@ -409,6 +411,16 @@ export function WorkflowBuilder({
     const withOutgoing = new Set(pendingEdges.map((e) => e.from));
     return pendingNodes.filter((n) => !withOutgoing.has(n.id)).length;
   }, [pendingNodes, pendingEdges]);
+  // HERMES-AGENT-PREVIEW-DIFF-GRAPH — for an EDIT proposal, compose the SINGLE read-only diff graph
+  // (current + candidate) the canvas renders instead of the live graph. Null for additive/no preview.
+  const previewDiffGraph = useMemo(
+    () =>
+      previewOverlay?.proposedDefinition
+        ? buildPreviewDiffGraph({ nodes: pendingNodes, edges: pendingEdges }, previewOverlay.proposedDefinition)
+        : null,
+    [previewOverlay, pendingNodes, pendingEdges],
+  );
+
   const canAddAction = hasTrigger && tailCount <= 1;
   const addActionBlockedReason: "no-trigger" | "multiple-tails" | undefined = !hasTrigger
     ? "no-trigger"
@@ -494,9 +506,7 @@ export function WorkflowBuilder({
       : additivePatch
         ? useGraphSlice.getState().applyAdditivePatch(additivePatch, activeNodeId ? { appendAfterNodeId: activeNodeId } : {})
         : null;
-    // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the candidate was validated against an older canvas version
-    // and the user has edited since: refuse to clobber their changes; ask React to re-propose. The
-    // overlay is cleared so the stale ghost preview is removed.
+    // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — stale candidate (user edited since): refuse + ask to re-propose.
     if (outcome && !outcome.ok && "reason" in outcome && outcome.reason === "stale") {
       setApplyNotice("Your workflow changed since this suggestion. Ask React to update it and try again.");
       setAppliedNodeIds([]);
@@ -519,11 +529,8 @@ export function WorkflowBuilder({
       // the "Added from preview" badge and the notice lists each new node's still-empty required
       // fields (names only, from metadata). Nothing inferred / saved / run.
       setAppliedNodeIds(outcome.addedNodeIds);
-      // HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY — UX only: select + open the config rail
-      // for the FIRST newly-added node that metadata confirms still needs a required field, so the user
-      // can finish configuration immediately. Reads the post-apply graph fresh; `openNode` is
-      // navigation only (sets the active node → inspector drawer opens) and never saves / activates /
-      // runs / mutates the graph. When no added node is metadata-confirmed incomplete, nothing opens.
+      // HERMES-AGENT-AUTO-OPEN-FIRST-INCOMPLETE-AFTER-APPLY — UX only: open the first newly-added node
+      // metadata confirms is incomplete. `openNode` is navigation only (never saves/activates/runs).
       const postApplyNodes = useGraphSlice.getState().pendingNodes;
       const incompleteId = firstIncompleteAppliedNodeId(
         buildAppliedConfigHints(outcome.addedNodeIds, postApplyNodes, requiredFieldsByType),
@@ -693,6 +700,7 @@ export function WorkflowBuilder({
           // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — non-null while a preview is active (a fresh
           // value per show) so the canvas fits the viewport once + hides the empty-state card.
           previewToken={previewOverlay ? previewShowCount : null}
+          previewDiff={previewDiffGraph}
           // BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the Settings tab.
           workflowSettings={{
             name: workflowName,
@@ -719,14 +727,21 @@ export function WorkflowBuilder({
             onClose={closeAddPanel}
           />
         ) : null}
-        {/* HERMES-AGENT-REPLACE-BUILDER-AI-PLAN — the separate floating "Build with me" pill
-            (BuilderGuidanceEntry) was removed: the left rail (BuilderGuidanceRail) is now the single
-            primary builder AI entry, so the builder no longer shows two competing AI surfaces. */}
-        {/* HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — ephemeral, non-applied ghost overlay of an AI draft
-            preview. UI state only (above): showing it never merges into the real graph, writes
-            draftDefinition, or saves. Discard clears the state; "Apply preview" runs the explicit,
-            additive local-draft edit (HERMES-AGENT-APPLY-PREVIEW-PATCH). */}
-        {previewOverlay ? (
+        {/* AI preview controls (UI state only — never merges into the real graph / writes / saves).
+            Discard clears state; Apply runs the explicit local-draft edit (HERMES-AGENT-APPLY-PREVIEW-PATCH). */}
+        {previewOverlay && previewDiffGraph ? (
+          // EDIT proposal: the canvas shows the single diff graph; this is just the slim, non-overlay
+          // Apply/Discard control bar (the SINGLE primary control). HERMES-AGENT-PREVIEW-DIFF-GRAPH.
+          <BuilderPreviewControlBar
+            notice={previewOverlay.preview.notice}
+            onApply={handleApplyPreview}
+            onDiscard={() => {
+              setPreviewOverlay(null);
+              setPreviewConfig({});
+            }}
+          />
+        ) : previewOverlay ? (
+          // Additive new-workflow skeleton (no candidate definition): keep the ghost overlay (empty canvas).
           <BuilderPreviewOverlay
             preview={previewOverlay.preview}
             onApply={handleApplyPreview}

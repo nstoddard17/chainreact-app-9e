@@ -29,6 +29,19 @@ import { shouldShowPlusButton } from "../utils/shouldShowPlusButton";
  */
 export interface WorkflowEdgeData extends Record<string, unknown> {
   onPlusClick?: (edgeId: string) => void;
+  /**
+   * HERMES-AGENT-PREVIEW-DIFF-GRAPH — when this edge is part of an AI preview diff graph, its status
+   * drives a diff treatment: `added` (dashed accent), `removed` (dashed/faded red). `unchanged` / absent
+   * render the normal edge. Read-only previews never show the plus-button.
+   */
+  diffStatus?: "unchanged" | "added" | "removed";
+}
+
+/** Diff stroke treatment for a preview edge. Returns null for a normal (non-preview / unchanged) edge. */
+function diffEdgeStyle(status: WorkflowEdgeData["diffStatus"]): { stroke: string; strokeDasharray: string; opacity?: number } | null {
+  if (status === "added") return { stroke: "var(--builder-success)", strokeDasharray: "6 4" };
+  if (status === "removed") return { stroke: "var(--builder-danger)", strokeDasharray: "6 4", opacity: 0.55 };
+  return null;
 }
 
 export function WorkflowEdge(props: EdgeProps) {
@@ -61,7 +74,10 @@ export function WorkflowEdge(props: EdgeProps) {
     borderRadius: 8,
   });
 
+  const diff = diffEdgeStyle(edgeData.diffStatus);
   const showPlus =
+    !diff &&
+    edgeData.diffStatus === undefined &&
     typeof edgeData.onPlusClick === "function" &&
     shouldShowPlusButton({
       hasResolvedEndpoints: Boolean(source && target),
@@ -79,6 +95,7 @@ export function WorkflowEdge(props: EdgeProps) {
             ? "var(--builder-accent)"
             : "var(--builder-border-strong)",
           ...style,
+          ...(diff ? { stroke: diff.stroke, strokeDasharray: diff.strokeDasharray, ...(diff.opacity !== undefined ? { opacity: diff.opacity } : {}) } : {}),
         }}
       />
       {showPlus ? (

@@ -6,6 +6,7 @@ import type { WorkflowNodeData } from "./adapters";
 import { classifyNodeStatus, type NodeStatus } from "../utils/classifyNodeStatus";
 import { useBuilderNodeActions } from "./nodeActionsContext";
 import { NodeQuickActions } from "./NodeCardQuickActions";
+import { DIFF_VISUAL, DiffPill } from "./nodeCardDiff";
 
 /**
  * Builder node card (Slice 4.BUILDER-CANVAS-1, restyled in
@@ -46,10 +47,18 @@ export function WorkflowNodeCard({
   const isTrigger = data.kind === "trigger";
   const providerLabel = data.providerLabel ?? data.provider;
 
+  // HERMES-AGENT-PREVIEW-DIFF-GRAPH — when this card is part of an AI preview diff graph, its
+  // `diffStatus` drives a diff treatment (added/removed/changed) and READ-ONLY behavior (no rename /
+  // delete / tail-add affordances). `unchanged` renders normally (just non-interactive).
+  const diffStatus = data.diffStatus;
+  const isPreview = diffStatus !== undefined;
+  const diff = diffStatus && diffStatus !== "unchanged" ? DIFF_VISUAL[diffStatus] : null;
+  const isRemoved = diffStatus === "removed";
+
   // Slice 4.BUILDER-NODE-QUICK-ACTIONS-1 — ambient rename/delete handlers from
   // the canvas. Each affordance renders only when its handler is wired.
   const { onRenameNode, onRequestDeleteNode, onAppendAfter } = useBuilderNodeActions();
-  const showTailAdd = !!data.isTail && !!onAppendAfter;
+  const showTailAdd = !isPreview && !!data.isTail && !!onAppendAfter;
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   // True while an Escape/Enter is handling exit, so the input's trailing onBlur
@@ -93,12 +102,15 @@ export function WorkflowNodeCard({
   const isUnconfigured = status === "unconfigured";
   const needsSetup = status === "needs_setup";
   // Amber rail for both "not configured" (no type) and "needs setup" (required
-  // field empty); accent for ready actions, success for triggers.
-  const railColor = isTrigger
-    ? "var(--builder-success)"
-    : isUnconfigured || needsSetup
-      ? "var(--builder-warn)"
-      : "var(--builder-accent)";
+  // field empty); accent for ready actions, success for triggers. A diff card's
+  // status (added/removed/changed) overrides the rail color.
+  const railColor = diff
+    ? diff.rail
+    : isTrigger
+      ? "var(--builder-success)"
+      : isUnconfigured || needsSetup
+        ? "var(--builder-warn)"
+        : "var(--builder-accent)";
 
   return (
     <div
@@ -106,13 +118,18 @@ export function WorkflowNodeCard({
       data-kind={data.kind}
       data-selected={selected ? "true" : undefined}
       data-status={status}
-      className="relative w-[280px] overflow-hidden rounded-[6px] transition-colors"
+      {...(diffStatus ? { "data-diff-status": diffStatus } : {})}
+      className={`relative w-[280px] overflow-hidden rounded-[6px] transition-colors${isRemoved ? " opacity-60" : ""}`}
       style={{
         background: "var(--builder-panel)",
-        border: `1px solid ${selected ? "var(--builder-accent)" : "var(--builder-border)"}`,
-        boxShadow: selected
-          ? "0 0 0 2px var(--builder-accent-soft), var(--builder-shadow-md)"
-          : "var(--builder-shadow-sm)",
+        border: diff
+          ? `1px ${diff.borderStyle} ${diff.border}`
+          : `1px solid ${selected ? "var(--builder-accent)" : "var(--builder-border)"}`,
+        boxShadow: diff
+          ? diff.shadow
+          : selected
+            ? "0 0 0 2px var(--builder-accent-soft), var(--builder-shadow-md)"
+            : "var(--builder-shadow-sm)",
       }}
     >
       <span
@@ -131,8 +148,8 @@ export function WorkflowNodeCard({
       ) : null}
 
       <NodeQuickActions
-        canRename={!!onRenameNode && !editingName}
-        canDelete={!!onRequestDeleteNode && data.kind === "action"}
+        canRename={!isPreview && !!onRenameNode && !editingName}
+        canDelete={!isPreview && !!onRequestDeleteNode && data.kind === "action"}
         onRename={startRename}
         onDelete={() => onRequestDeleteNode?.(id)}
       />
@@ -152,6 +169,7 @@ export function WorkflowNodeCard({
             >
               #{data.kind === "trigger" ? "trigger" : "action"}
             </code>
+            {diff ? <DiffPill diff={diff} /> : null}
           </div>
           {editingName ? (
             <input
@@ -177,17 +195,17 @@ export function WorkflowNodeCard({
             />
           ) : (
             <div
-              className="mt-0.5 truncate text-[12.5px] font-semibold leading-tight"
+              className={`mt-0.5 truncate text-[12.5px] font-semibold leading-tight${isRemoved ? " line-through" : ""}`}
               title={data.displayName}
               onDoubleClick={
-                onRenameNode
+                !isPreview && onRenameNode
                   ? (event) => {
                       event.stopPropagation();
                       startRename();
                     }
                   : undefined
               }
-              style={{ color: "var(--builder-text)" }}
+              style={{ color: isRemoved ? "var(--builder-muted)" : "var(--builder-text)" }}
             >
               {data.displayName}
             </div>
@@ -377,6 +395,7 @@ function ReadyBadge() {
     </span>
   );
 }
+
 
 /**
  * Up to two leading initials, uppercase. Falls back to "?" if the input

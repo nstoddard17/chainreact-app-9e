@@ -28,6 +28,12 @@ import { materializeAiPatchNodeIds, type MaterializeAiPatchNodeIdsOptions } from
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
 import type { PatchOperation, PatchValidationError } from "@/services/workflows/patch/types";
 import { definitionToDraftPreview, definitionToPlan } from "../preview/definitionToDraftPreview";
+import { describeProposedEditChange } from "./summarizeProposedEdit";
+
+/** Capitalize the first letter so a clause reads as a sentence ("replace ..." → "Replace ..."). */
+function capitalizeFirst(s: string): string {
+  return s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
 
 /** Codes that are NON-blocking for a PREVIEW — missing ordinary config becomes "needs setup", not a fail. */
 const NON_BLOCKING_CODES: ReadonlySet<PatchValidationError["code"]> = new Set(["MISSING_REQUIRED_FIELD"]);
@@ -100,7 +106,10 @@ export function proposeWorkflowMutation(
   }
 
   const candidate = result.candidateDefinition;
-  const summary = input.summary ?? result.previewSummary;
+  // HUMAN summary for the rail/preview — never the machine op counts ("removeNode×1, addNode×1").
+  // `describeProposedEditChange` diffs the draft vs the candidate into a plain clause; the validator's
+  // `previewSummary` (op counts) is kept only as a last-resort fallback (e.g. no diff describable).
+  const summary = input.summary ?? capitalizeFirst(describeProposedEditChange(input.currentDraft, candidate));
   const title = "Proposed change";
   return {
     kind: "proposal",

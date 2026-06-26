@@ -198,14 +198,18 @@ describe("builder apply-preview — general EDIT (Slack → email swap, replace 
   };
   const editResponse = { ok: true, guidanceText: "Here's the change.", source: "hermes-agent", workflowPlan: mutationPlan, previewDraft: mutationPreview, proposedDefinition };
 
-  it("auto-shows the email edit preview (an edit is always offerable, even when it shrinks/changes the graph)", async () => {
+  it("auto-shows the email edit as ONE in-canvas diff graph (no floating ghost overlay; display-only)", async () => {
     const user = userEvent.setup();
     mockRequest.mockResolvedValue(editResponse);
     renderBuilder(manualSlackWorkflow);
     await user.type(screen.getByPlaceholderText(/Example:/i), "change it to an email notification");
     await user.click(screen.getByTestId("workflow-guidance-submit"));
-    await screen.findByTestId("builder-preview-overlay");
-    expect(screen.getAllByTestId("builder-preview-node").map((n) => n.textContent).join(" ")).toMatch(/send email/i);
+    // HERMES-AGENT-PREVIEW-DIFF-GRAPH — the edit shows a slim control bar + ONE composed diff graph in
+    // the canvas (data-preview-diff), NOT the old floating ghost-node overlay stacked over the live graph.
+    await screen.findByTestId("builder-preview-control-bar");
+    expect(screen.queryByTestId("builder-preview-overlay")).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("builder-preview-node")).toHaveLength(0); // no floating ghost nodes
+    expect(screen.getByTestId("workflow-canvas").getAttribute("data-preview-diff")).toBe("true");
     // Auto-show is display-only — nothing applied/saved yet; Slack still in the real draft.
     expect(useGraphSlice.getState().pendingNodes.map((n) => `${n.provider}:${n.type}`)).toEqual(["native:manual.run", "slack:send_channel_message"]);
     expect(useGraphSlice.getState().isDirty).toBe(false);

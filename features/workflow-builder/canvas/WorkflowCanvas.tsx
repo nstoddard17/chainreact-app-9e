@@ -31,10 +31,13 @@ import {
   WORKFLOW_EDGE_TYPE,
   WORKFLOW_NODE_TYPE,
   flowNodePositionPatch,
+  previewDiffToFlowEdges,
+  previewDiffToFlowNodes,
   workflowEdgesToFlowEdges,
   workflowNodesToFlowNodes,
   type WorkflowNodeData,
 } from "./adapters";
+import type { PreviewDiffGraph } from "../utils/buildPreviewDiffGraph";
 import { EmptyCanvasState } from "./EmptyCanvasState";
 import { NoTriggerRecoveryBanner } from "./NoTriggerRecoveryBanner";
 import { ConnectionHintBanner } from "./ConnectionHintBanner";
@@ -156,6 +159,13 @@ interface Props {
    */
   previewToken?: number | null;
   /**
+   * HERMES-AGENT-PREVIEW-DIFF-GRAPH — when set, the canvas renders this SINGLE composed diff graph
+   * (current draft + candidate, tagged added/removed/changed/unchanged) READ-ONLY, INSTEAD of the live
+   * editable graph — never a translucent overlay stacked on top. Cleared on Discard. Apply/Discard live
+   * in the preview control bar (`WorkflowBuilder`). Visual only; no draft mutation while it's shown.
+   */
+  previewDiff?: PreviewDiffGraph | null;
+  /**
    * WF-RUNPERM — true when the viewer may NOT run/edit this workflow (private
    * credential). Threaded into the Runs tab so its "Run again" affordance hides,
    * matching the header's run controls. The run-now route enforces the same
@@ -195,8 +205,10 @@ function WorkflowCanvasInner({
   workflowSettings,
   onWorkflowNameSaved,
   previewToken,
+  previewDiff,
   runEditBlocked,
 }: Props) {
+  const previewDiffActive = previewDiff != null;
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const updateNodePosition = useGraphSlice((s) => s.updateNodePosition);
@@ -263,6 +275,11 @@ function WorkflowCanvasInner({
       : undefined;
 
   const flowNodes = useMemo<FlowNode<WorkflowNodeData>[]>(() => {
+    // HERMES-AGENT-PREVIEW-DIFF-GRAPH — in preview mode the canvas shows ONE composed diff graph
+    // (read-only) instead of the live editable graph; no overlay, no selection highlight.
+    if (previewDiff) {
+      return previewDiffToFlowNodes(previewDiff, { providerLabels, providerIcons, requiredFieldsByType });
+    }
     const base = workflowNodesToFlowNodes(pendingNodes, {
       providerLabels,
       providerIcons,
@@ -273,11 +290,14 @@ function WorkflowCanvasInner({
     return base.map((n) =>
       n.id === activeNodeId ? { ...n, selected: true } : n,
     );
-  }, [pendingNodes, providerLabels, providerIcons, requiredFieldsByType, tailNodeIds, activeNodeId]);
+  }, [previewDiff, pendingNodes, providerLabels, providerIcons, requiredFieldsByType, tailNodeIds, activeNodeId]);
 
   const flowEdges = useMemo<FlowEdge[]>(
-    () => workflowEdgesToFlowEdges(pendingEdges, { onEdgePlusClick }),
-    [pendingEdges, onEdgePlusClick],
+    () =>
+      previewDiff
+        ? previewDiffToFlowEdges(previewDiff)
+        : workflowEdgesToFlowEdges(pendingEdges, { onEdgePlusClick }),
+    [previewDiff, pendingEdges, onEdgePlusClick],
   );
 
   // BUILDER-CANVAS-NODE-DRAG-UX-AUDIT-1 — React Flow must be a CONTROLLED flow with an
@@ -389,6 +409,7 @@ function WorkflowCanvasInner({
       <div
         aria-label="Workflow canvas"
         data-testid="workflow-canvas"
+        data-preview-diff={previewDiffActive ? "true" : undefined}
         className="relative min-h-[560px] flex-1 overflow-hidden"
         style={{ width: "100%", background: "var(--builder-bg)" }}
       >
@@ -403,12 +424,17 @@ function WorkflowCanvasInner({
           edges={flowEdges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
-          onNodeClick={handleNodeClick}
+          // HERMES-AGENT-PREVIEW-DIFF-GRAPH — the diff preview is a READ-ONLY visualization: no select /
+          // drag / connect / delete / node-open while it's shown (Apply/Discard live in the control bar).
+          nodesDraggable={!previewDiffActive}
+          nodesConnectable={!previewDiffActive}
+          elementsSelectable={!previewDiffActive}
+          onNodeClick={previewDiffActive ? undefined : handleNodeClick}
           onNodesChange={onNodesChange}
-          onNodeDragStop={handleNodeDragStop}
-          onConnect={handleConnect}
-          onBeforeDelete={handleBeforeDelete}
-          onEdgesDelete={handleEdgesDelete}
+          onNodeDragStop={previewDiffActive ? undefined : handleNodeDragStop}
+          onConnect={previewDiffActive ? undefined : handleConnect}
+          onBeforeDelete={previewDiffActive ? undefined : handleBeforeDelete}
+          onEdgesDelete={previewDiffActive ? undefined : handleEdgesDelete}
           fitView
           proOptions={{ hideAttribution: true }}
           style={{ background: "transparent" }}
@@ -457,7 +483,7 @@ function WorkflowCanvasInner({
         {/* HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — while an AI preview overlay is active, hide the
             empty-state card so the holographic proposed nodes read clearly (the card returns on
             Discard if the graph is still empty). Normal empty draft mode is unaffected. */}
-        {isEmpty && !previewActive ? <EmptyCanvasState onAddTrigger={onAddTrigger} /> : null}
+        {isEmpty && !previewActive && !previewDiffActive ? <EmptyCanvasState onAddTrigger={onAddTrigger} /> : null}
         {showRecoveryBanner ? (
           <NoTriggerRecoveryBanner onChooseTrigger={onAddTrigger} />
         ) : null}
