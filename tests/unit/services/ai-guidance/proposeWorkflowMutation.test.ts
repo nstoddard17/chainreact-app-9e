@@ -170,4 +170,22 @@ describe("proposeWorkflowMutation — validation + safety", () => {
   it("no operations → noop", () => {
     expect(propose(manualSlackDraft(), []).kind).toBe("noop");
   });
+
+  // HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP — the user-facing `warnings` must never leak internal patch
+  // wording / raw ids. The structural risk warnings (DELETES_USER_WORK / ORPHANS_DOWNSTREAM) that the
+  // validator emits for a removeNode embed the raw node id and are already conveyed by the human summary,
+  // so they are filtered OUT of the surfaced warnings.
+  it("does not surface id-bearing structural warnings (no 'Node <id> and its edges are removed.')", () => {
+    const res = propose(manualSlackDraft(), [
+      { op: "removeNode", nodeId: "a1" },
+      { op: "addNode", node: node("em", "action", "gmail", "send_email") },
+      { op: "addEdge", edge: { id: "ne", from: "t1", to: "em" } },
+    ]);
+    expect(res.kind).toBe("proposal");
+    if (res.kind !== "proposal") return;
+    const joined = res.warnings.join(" | ");
+    expect(joined).not.toMatch(/and its edges are removed/i);
+    expect(joined).not.toMatch(/\ba1\b/); // no raw node id
+    expect(joined).not.toMatch(/inbound path|disconnects|removes node/i); // no internal structural wording
+  });
 });

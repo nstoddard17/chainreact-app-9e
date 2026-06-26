@@ -132,6 +132,21 @@ export function GuidancePreviewSection({
 }
 
 /**
+ * Turn a raw schema field key into a friendly label for a setup hint ("to" → "To",
+ * "channel_id" → "Channel Id"). A lightweight humanization used when a metadata label isn't available
+ * at this layer (the guided-setup card uses real metadata labels). Never surfaces a raw key as-is.
+ */
+function humanizeFieldName(key: string): string {
+  return key
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w.length > 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
+/**
  * Lightweight rail treatment for an EDIT preview (HERMES-AGENT-RAIL-EDIT-PREVIEW-NO-CARD).
  *
  * The canvas diff graph is the visual home for an edit preview and the top control bar owns Apply /
@@ -162,8 +177,9 @@ export function GuidanceEditPreviewHint({
   if (isDisplayedOnCanvas) return null;
 
   // Recovery: the edit preview isn't on the canvas right now. Aggregate the still-missing field keys
-  // (deduped, order-preserving) for a lightweight hint, and offer a secondary re-show if still possible.
-  const stillNeeds = Array.from(new Set(preview.nodes.flatMap((n) => n.missingInputs ?? [])));
+  // (deduped, order-preserving) for a lightweight hint, humanized so the user sees friendly names
+  // ("to" → "To"), never raw schema keys. Offer a secondary re-show if still possible.
+  const stillNeeds = Array.from(new Set(preview.nodes.flatMap((n) => n.missingInputs ?? []))).map(humanizeFieldName);
   const canReshow = onShowOnCanvas != null && plan != null;
   if (stillNeeds.length === 0 && !canReshow) return null;
 

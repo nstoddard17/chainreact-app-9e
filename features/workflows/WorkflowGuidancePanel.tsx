@@ -499,7 +499,11 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
                 <GuidanceEditPreviewHint
                   preview={m.preview}
                   plan={m.plan}
-                  isDisplayedOnCanvas={previewOnCanvas}
+                  // An EDIT auto-shows and supersedes on the canvas, so ANY preview currently on the
+                  // canvas IS this edit. Treat "something displayed" as displayed → no redundant re-show.
+                  // The recovery "Show on canvas" appears ONLY when nothing is visible (null) — e.g. the
+                  // user discarded it or auto-show failed (HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP).
+                  isDisplayedOnCanvas={displayedPreviewSignature != null}
                   {...(onPreviewToCanvas && m.plan
                     ? { onShowOnCanvas: () => onPreviewToCanvas(toCanvasPayload(m)) }
                     : {})}

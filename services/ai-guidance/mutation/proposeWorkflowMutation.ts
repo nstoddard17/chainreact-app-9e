@@ -26,7 +26,7 @@ import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import { materializeAiPatchNodeIds, type MaterializeAiPatchNodeIdsOptions } from "@/services/ai/patch/materializeAiPatchNodeIds";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
-import type { PatchOperation, PatchValidationError } from "@/services/workflows/patch/types";
+import type { PatchOperation, PatchValidationError, PatchWarningCode } from "@/services/workflows/patch/types";
 import { definitionToDraftPreview, definitionToPlan } from "../preview/definitionToDraftPreview";
 import { describeProposedEditChange } from "./summarizeProposedEdit";
 
@@ -37,6 +37,15 @@ function capitalizeFirst(s: string): string {
 
 /** Codes that are NON-blocking for a PREVIEW — missing ordinary config becomes "needs setup", not a fail. */
 const NON_BLOCKING_CODES: ReadonlySet<PatchValidationError["code"]> = new Set(["MISSING_REQUIRED_FIELD"]);
+
+/**
+ * Warning codes safe to surface to the USER. The structural patch warnings
+ * (DELETES_USER_WORK / ORPHANS_DOWNSTREAM / UNKNOWN_CONFIG_FIELD / SUSPICIOUS_BRANCH_LABEL) embed raw
+ * node/edge ids and internal patch wording ("Node '<uuid>' and its edges are removed."), and a removal
+ * is already explained by the human `summary` — so they NEVER reach the rail. Only human-safe, id-free
+ * notes (cost) pass through. Risk classification itself is unchanged; this only filters DISPLAY copy.
+ */
+const USER_SAFE_WARNING_CODES: ReadonlySet<PatchWarningCode> = new Set(["COST_WARNING"]);
 
 export interface ProposeWorkflowMutationInput {
   /** The user's CURRENT local draft (the unsaved canvas) — the diff base + validation target. */
@@ -117,6 +126,7 @@ export function proposeWorkflowMutation(
     previewDraft: definitionToDraftPreview(candidate, title, summary),
     workflowPlan: definitionToPlan(candidate, title, summary),
     summary,
-    warnings: result.warnings.map((w) => w.message),
+    // Only human-safe, id-free warnings reach the UI (the removal is already conveyed by `summary`).
+    warnings: result.warnings.filter((w) => USER_SAFE_WARNING_CODES.has(w.code)).map((w) => w.message),
   };
 }

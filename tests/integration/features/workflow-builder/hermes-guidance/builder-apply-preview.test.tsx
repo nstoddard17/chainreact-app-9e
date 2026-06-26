@@ -247,6 +247,20 @@ describe("builder apply-preview — general EDIT (Slack → email swap, replace 
     expect(s.isDirty).toBe(false);
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
+
+  // HERMES-AGENT-RAIL-EDIT-PREVIEW-CLEANUP — once the edit auto-shows on the canvas, the rail must NOT
+  // offer a redundant "Show on canvas" (the canvas already shows it; Apply/Discard live in the top bar),
+  // and must never leak internal patch wording (node ids / "and its edges are removed").
+  it("rail offers no redundant 'Show on canvas' once the edit auto-shows on the canvas", async () => {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue(editResponse);
+    renderBuilder(manualSlackWorkflow);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "change the slack action to a gmail send email");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await screen.findByTestId("builder-preview-control-bar"); // auto-shown on the canvas
+    await waitFor(() => expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull());
+    expect(screen.getByText("Here's the change.")).toBeInTheDocument();
+  });
 });
 
 describe("builder apply-preview — blank workflow", () => {

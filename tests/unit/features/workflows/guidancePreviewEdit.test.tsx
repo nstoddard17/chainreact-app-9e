@@ -73,15 +73,17 @@ describe("GuidanceEditPreviewHint — lightweight rail treatment (no 'Proposed c
     render(
       <GuidanceEditPreviewHint preview={editPreview} plan={editPlan} isDisplayedOnCanvas={false} onShowOnCanvas={onShowOnCanvas} />,
     );
-    expect(screen.getByTestId("workflow-guidance-preview-needs").textContent).toMatch(/Still needs:\s*to, subject, body/i);
+    // Field keys are HUMANIZED ("to" → "To"), never raw schema keys.
+    expect(screen.getByTestId("workflow-guidance-preview-needs")).toHaveTextContent("Still needs: To, Subject, Body");
     expect(screen.getByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
     // No bordered "Proposed change" card, no per-step provider:type list / Flow line, no primary Apply.
     expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
     expect(screen.queryByText(/^Proposed change$/)).toBeNull();
     expect(screen.queryByTestId("workflow-guidance-preview-flow")).toBeNull();
     expect(screen.queryByText(/^Apply preview$/i)).toBeNull();
+    // No internal ids / edit-version / operation names / provider:type keys / raw JSON.
     const text = screen.getByTestId("workflow-guidance-edit-recovery").textContent ?? "";
-    for (const forbidden of ["gmail:send_email", "removeNode", "addNode", "editVersion", "{"]) {
+    for (const forbidden of ["gmail:send_email", "removeNode", "addNode", "editVersion", "{", "and its edges are removed"]) {
       expect(text).not.toContain(forbidden);
     }
   });
@@ -126,13 +128,22 @@ describe("WorkflowGuidancePanel — edit preview rail (active vs recovery)", () 
     expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
   });
 
-  it("recovery: when no preview is displayed, offers the secondary 'Show on canvas' with a lightweight hint (still no card)", async () => {
+  it("recovery: when no preview is displayed, offers the secondary 'Show on canvas' with a humanized hint (still no card)", async () => {
     await sendEdit({ displayedPreviewSignature: null });
     expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
-    // Secondary re-show + lightweight setup hint, but never the bordered "Proposed change" card.
+    // Secondary re-show + lightweight, HUMANIZED setup hint, but never the bordered "Proposed change" card.
     expect(await screen.findByTestId("workflow-guidance-show-on-canvas")).toBeInTheDocument();
-    expect(screen.getByTestId("workflow-guidance-preview-needs")).toHaveTextContent("Still needs: to, subject, body");
+    expect(screen.getByTestId("workflow-guidance-preview-needs")).toHaveTextContent("Still needs: To, Subject, Body");
     expect(screen.queryByTestId("workflow-guidance-preview")).toBeNull();
+  });
+
+  it("does NOT offer 'Show on canvas' when SOME preview is on the canvas (edits auto-show; recovery only when nothing is visible)", async () => {
+    // A non-null displayed signature means a preview IS on the canvas — for an auto-shown edit that is
+    // this edit, so the rail must not offer a redundant re-show even if signatures differ.
+    await sendEdit({ displayedPreviewSignature: "some-other-displayed-preview" });
+    expect(await screen.findByText(/I'll replace the Slack step with a Gmail Send Email step/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("workflow-guidance-show-on-canvas")).toBeNull();
+    expect(screen.queryByTestId("workflow-guidance-edit-recovery")).toBeNull();
   });
 
   it("recovery 'Show on canvas' hands BOTH the validated plan and the display preview to the canvas overlay", async () => {
