@@ -14,6 +14,7 @@ import {
   DEFAULT_COPY_POLL_BUDGET,
   extractItemIdFromResourceUrl,
   isTrustedGraphMonitorUrl,
+  monitorUrlHost,
   pollAsyncCopyCompletion,
   type AsyncOperationStatus,
   type PollBudget,
@@ -91,11 +92,22 @@ describe("isTrustedGraphMonitorUrl", () => {
   it("accepts a URL on the same host + scheme as the Graph base", () => {
     expect(isTrustedGraphMonitorUrl("https://graph.microsoft.com/v1.0/operations/op-1", BASE)).toBe(true);
   });
-  it("rejects a different host (no off-host fetch)", () => {
-    expect(isTrustedGraphMonitorUrl("https://evil.example.com/op-1", BASE)).toBe(false);
-    expect(isTrustedGraphMonitorUrl("https://graph.microsoft.com.evil.com/op", BASE)).toBe(false);
+  it("accepts the real Graph operation-monitor hosts (HTTPS Microsoft-owned)", () => {
+    // Observed live: copy monitor URLs are NOT on graph.microsoft.com but on Microsoft
+    // operation infra (consumer OneDrive -> *.svc.ms; OneDrive for Business -> *.sharepoint.com).
+    expect(isTrustedGraphMonitorUrl("https://gateway.api.svc.ms/v1.0/monitor/abc", BASE)).toBe(true);
+    expect(isTrustedGraphMonitorUrl("https://contoso-my.sharepoint.com/_api/monitor/abc", BASE)).toBe(true);
+    expect(isTrustedGraphMonitorUrl("https://api.onedrive.com/v1.0/monitor/abc", BASE)).toBe(true);
+    expect(isTrustedGraphMonitorUrl("https://login.live.com/x", BASE)).toBe(true);
   });
-  it("rejects a scheme mismatch", () => {
+  it("rejects a non-Microsoft host (no off-host fetch)", () => {
+    expect(isTrustedGraphMonitorUrl("https://evil.example.com/op-1", BASE)).toBe(false);
+    // A look-alike that only SUFFIXES a Microsoft brand in a foreign domain is rejected.
+    expect(isTrustedGraphMonitorUrl("https://graph.microsoft.com.evil.com/op", BASE)).toBe(false);
+    expect(isTrustedGraphMonitorUrl("https://svc.ms.evil.com/op", BASE)).toBe(false);
+  });
+  it("rejects a non-HTTPS Microsoft host (only the exact graph base may be non-https, for the mock)", () => {
+    expect(isTrustedGraphMonitorUrl("http://api.onedrive.com/op", BASE)).toBe(false);
     expect(isTrustedGraphMonitorUrl("http://graph.microsoft.com/op", BASE)).toBe(false);
   });
   it("rejects a non-URL", () => {
@@ -105,6 +117,15 @@ describe("isTrustedGraphMonitorUrl", () => {
   it("honors an e2e mock Graph base host", () => {
     expect(isTrustedGraphMonitorUrl("http://localhost:4000/v1.0/op", "http://localhost:4000")).toBe(true);
     expect(isTrustedGraphMonitorUrl("http://localhost:9999/v1.0/op", "http://localhost:4000")).toBe(false);
+  });
+});
+
+describe("monitorUrlHost", () => {
+  it("returns the host of a parseable URL", () => {
+    expect(monitorUrlHost("https://gateway.api.svc.ms/v1.0/monitor/abc?x=1")).toBe("gateway.api.svc.ms");
+  });
+  it("returns 'unparseable' for a non-URL", () => {
+    expect(monitorUrlHost("not a url")).toBe("unparseable");
   });
 });
 

@@ -1187,8 +1187,7 @@ drive root, verified by INDEPENDENT read-back (`get_file` marker on `name` + `ki
 HONESTY: OneDrive `delete_item` moves to the RECYCLE BIN (recoverable); reported `cleaned`
 with reversibility disclosed.
 
-**OneDrive move/copy (SMOKE-WRITE-26/33) — `move_item` certified; `copy_item` async blocker RESOLVED
-(mechanism shipped, `LIVE_NOT_RUN` pending a gated live run).**
+**OneDrive move/copy (SMOKE-WRITE-26/33) — `move_item` AND `copy_item` both `LIVE_PASS_CLEANED`.**
 `move_item` is `LIVE_PASS_CLEANED`: setup uploads a smoke-owned source file (INLINE content, no
 FileRef) AND creates a smoke-owned destination folder — the FILE is captured BEFORE the FOLDER so
 `cleanupEach` deletes the moved child before its parent (deleting the folder first would recursively
@@ -1198,27 +1197,35 @@ move, so the moved id re-captures into the same key). Verified by an INDEPENDENT
 proving THREE things the handler echo cannot: marker + suffix `"moved"` on the persisted `name`
 (rename landed), `kind == "file"`, and `parentReference.id == {{ledger.folder.id}}` (the move landed
 in OUR smoke folder, compared against the captured folder id — never an input echo). Both items are
-deleted (file then folder). **`copy_item` — async blocker RESOLVED (SMOKE-WRITE-33) via unblock
-option (b): a harness extension that captures a seam-discovered id into the cleanup ledger.** The
-production handler is UNCHANGED — it still returns `{status:"pending", monitorUrl}` and does NOT poll
-(Slice 8 V1-rot fix; `status:"pending"` is the honest "copy initiated" contract). The write harness
-gained a `completeAsync` phase: after execute it reads the TRUSTED Graph monitor URL from the execute
-output (`monitorUrlPath`), polls it to TERMINAL completion via a bounded, smoke-only read-back seam
-(`microsoft-onedrive:copy_monitor` — capped attempts + total duration + capped backoff; URL
-trust-gated to the configured Graph host, no off-host fetch, unauthenticated status read), and
-captures the completed copy's Graph `resourceId` into the ledger as the smoke-owned `copy`. So the
-copy is now identifiable (real id, not marker-discovery), independently VERIFIABLE (an authenticated
-`get_file` read-back proving name marker+suffix `"copy"`, `kind == "file"`, and `parentReference.id ==
-{{ledger.folder.id}}`), and CLEANABLE: `cleanupEach` deletes folder + source + copy. The folder is
-captured first (it must exist before the source uploads into it / the copy targets it), so it is
-deleted first and cascades its children to the recycle bin; the per-child deletes then hit 404 and
-OneDrive `delete_item` is IDEMPOTENT on 404 (`alreadyMissing:true`), so all three reconcile as
-cleaned (0 leaked). A missing monitor URL / poll failure / timeout / no resulting id is `VERIFY_FAILED`
-— the run never proceeds with an uncaptured resource, so a verified-but-unowned copy can never leak.
-The fixture + mechanism ship now, so the matrix derives `copy_item` as `LIVE_NOT_RUN` (was
-`MISSING_FIXTURE`); it flips to `LIVE_PASS_CLEANED` after a gated live `--cert` run (not recorded
-LIVE_PASS until then — no fabricated pass). Tests: `tests/unit/smoke-actions/async-copy-poll.test.ts`
-(pure poller) + `tests/unit/smoke-actions/onedrive-copy-item.test.ts` (orchestration).
+deleted (file then folder). **`copy_item` — async blocker RESOLVED + LIVE-VERIFIED (SMOKE-WRITE-33)
+via unblock option (b): a harness extension that captures a seam-discovered id into the cleanup
+ledger.** The production handler is UNCHANGED — it still returns `{status:"pending", monitorUrl}` and
+does NOT poll (Slice 8 V1-rot fix; `status:"pending"` is the honest "copy initiated" contract). The
+write harness gained a `completeAsync` phase: after execute it reads the TRUSTED monitor URL from the
+execute output (`monitorUrlPath`), polls it to TERMINAL completion via a bounded, smoke-only read-back
+seam (`microsoft-onedrive:copy_monitor` — capped attempts + total duration + capped backoff;
+unauthenticated status read), and captures the completed copy's Graph `resourceId` into the ledger as
+the smoke-owned `copy`. **Trusted-URL gate (live-corrected):** the real OneDrive copy monitor URL is
+NOT on `graph.microsoft.com` but on a Microsoft operation host (consumer OneDrive observed live on
+`*.svc.ms`; OneDrive for Business on `*.sharepoint.com`). The gate accepts the exact Graph base host OR
+an HTTPS Microsoft-owned host (`graph.microsoft.com`, `*.microsoft.com`, `*.onedrive.com`,
+`*.sharepoint.com`, `*.svc.ms`, `*.live.com`) — provenance (the URL came from Graph's own authenticated
+202 `Location` header) is the primary trust; the host allow-list is defense-in-depth so a non-Microsoft
+URL is never fetched. A refused URL surfaces its HOST (a public domain, never path/token) for
+diagnosability. So the copy is identifiable (real id, not marker-discovery), independently VERIFIABLE
+(an authenticated `get_file` read-back proving name marker+suffix `"copy"`, `kind == "file"`, and
+`parentReference.id == {{ledger.folder.id}}`), and CLEANABLE: `cleanupEach` deletes folder + source +
+copy. The folder is captured first (it must exist before the source uploads into it / the copy targets
+it), so it is deleted first and cascades its children to the recycle bin; the per-child deletes then
+hit 404 and OneDrive `delete_item` is IDEMPOTENT on 404 (`alreadyMissing:true`), so all three reconcile
+as cleaned (0 leaked). A missing monitor URL / poll failure / timeout / no resulting id is
+`VERIFY_FAILED` — the run never proceeds with an uncaptured resource, and because any copy that DID land
+sits inside the smoke folder, the folder-delete cascade still removes it (no leak). **Live results:**
+the success run was `created 3 / cleaned 3 / 0 leaked`; an earlier run with the too-strict gate
+exercised the failure path live (`copy_monitor: refused untrusted monitor URL` -> VERIFY_FAILED) and
+still cleaned folder+source with `0 leaked`. Now `LIVE_PASS_CLEANED`. Tests:
+`tests/unit/smoke-actions/async-copy-poll.test.ts` (pure poller + URL gate) +
+`tests/unit/smoke-actions/onedrive-copy-item.test.ts` (orchestration, all failure paths assert 0 leaked).
 
 **OneNote write coverage (SMOKE-WRITE-32) — page lifecycle (`create_page` / `update_page` /
 `delete_page` certified).** The smoke-owned resource is the PAGE (created + HARD-deleted; Graph

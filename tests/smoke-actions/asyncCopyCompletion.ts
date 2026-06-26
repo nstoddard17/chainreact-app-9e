@@ -155,11 +155,30 @@ export async function pollAsyncCopyCompletion(
 }
 
 /**
- * Trust gate for a monitor URL: it must parse, be on the SAME host (and scheme) as
- * the configured Graph base, so the smoke poller never fetches an arbitrary URL —
- * even one that somehow appeared in the execute output. The Graph base host is the
- * single source of truth (graph.microsoft.com in prod; the e2e mock host when
- * `MICROSOFT_GRAPH_API_BASE` overrides it). Pure.
+ * Microsoft-owned host suffixes a Graph-issued copy monitor URL may legitimately
+ * use. The PRIMARY trust property is PROVENANCE — the monitor URL flows from Graph's
+ * own authenticated 202 `Location` header on the copy WE issued, never from user
+ * input — and Graph returns these operation-status URLs on its operation infra,
+ * which (observed live) is NOT `graph.microsoft.com` but a sibling Microsoft host
+ * (e.g. `*.svc.ms` for consumer OneDrive, `*.sharepoint.com` for OneDrive for
+ * Business). This list is the defense-in-depth allow list so the poller still never
+ * fetches a NON-Microsoft URL even in a tampering scenario. HTTPS only.
+ */
+const TRUSTED_MS_HOST_SUFFIXES: readonly string[] = [
+  "graph.microsoft.com",
+  ".microsoft.com",
+  ".onedrive.com",
+  ".sharepoint.com",
+  ".svc.ms",
+  ".live.com",
+];
+
+/**
+ * Trust gate for a monitor URL: never fetch an arbitrary URL. Accepts EITHER the
+ * exact configured Graph base host+scheme (covers the http e2e mock host when
+ * `MICROSOFT_GRAPH_API_BASE` overrides it) OR an HTTPS URL on a Microsoft-owned host
+ * (`TRUSTED_MS_HOST_SUFFIXES`) — because Graph issues real copy monitor URLs on its
+ * operation hosts, not the Graph API host. Pure.
  */
 export function isTrustedGraphMonitorUrl(rawUrl: string, graphBase: string): boolean {
   let u: URL;
@@ -170,5 +189,21 @@ export function isTrustedGraphMonitorUrl(rawUrl: string, graphBase: string): boo
   } catch {
     return false;
   }
-  return u.protocol === base.protocol && u.host === base.host;
+  // Exact Graph base host+scheme (production graph.microsoft.com OR the e2e mock).
+  if (u.protocol === base.protocol && u.host === base.host) return true;
+  // Otherwise: HTTPS + a Microsoft-owned host (real Graph operation monitor hosts).
+  if (u.protocol !== "https:") return false;
+  const host = u.host.toLowerCase();
+  return TRUSTED_MS_HOST_SUFFIXES.some((s) =>
+    s.startsWith(".") ? host.endsWith(s) : host === s,
+  );
+}
+
+/** The host of a monitor URL (a public Microsoft domain — safe to surface), or "unparseable". */
+export function monitorUrlHost(rawUrl: string): string {
+  try {
+    return new URL(rawUrl).host;
+  } catch {
+    return "unparseable";
+  }
 }

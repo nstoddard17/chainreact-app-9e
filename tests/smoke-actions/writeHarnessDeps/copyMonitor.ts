@@ -30,6 +30,7 @@ import {
   DEFAULT_COPY_POLL_BUDGET,
   extractItemIdFromResourceUrl,
   isTrustedGraphMonitorUrl,
+  monitorUrlHost,
   pollAsyncCopyCompletion,
   type AsyncOperationStatus,
 } from "../asyncCopyCompletion";
@@ -102,9 +103,15 @@ export async function copyMonitorSmokeReadBack(
   if (typeof monitorUrl !== "string" || monitorUrl.length === 0) {
     return { ok: false, output: null, reason: "copy_monitor: missing monitor URL" };
   }
-  // Trust-gate BEFORE any fetch — never touch an arbitrary URL.
+  // Trust-gate BEFORE any fetch — never touch an arbitrary URL. The refused HOST
+  // (a public Microsoft domain, never a path/token/query) is surfaced for
+  // diagnosability if a future Graph operation host is not yet allow-listed.
   if (!isTrustedGraphMonitorUrl(monitorUrl, graphApiBase())) {
-    return { ok: false, output: null, reason: "copy_monitor: refused untrusted monitor URL" };
+    return {
+      ok: false,
+      output: null,
+      reason: `copy_monitor: refused untrusted monitor URL (host: ${monitorUrlHost(monitorUrl)})`,
+    };
   }
 
   const outcome = await pollAsyncCopyCompletion(DEFAULT_COPY_POLL_BUDGET, {

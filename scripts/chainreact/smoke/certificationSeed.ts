@@ -35,6 +35,7 @@ const SMOKE_WRITE = "2026-06-22";
 const SMOKE_WRITE_FILE = "2026-06-23";
 const SMOKE_WRITE_SHEETS = "2026-06-24";
 const SMOKE_WRITE_SHEETS_DELETE = "2026-06-25";
+const SMOKE_WRITE_COPY = "2026-06-25";
 const SMOKE_WRITE_ONENOTE = "2026-06-25";
 
 /**
@@ -335,18 +336,23 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // HONESTY: OneDrive delete moves to the RECYCLE BIN (recoverable); the items leave
   // the active drive ("cleaned"), disposition disclosed. Verified live (0 leaked).
   //
-  // copy_item — async blocker RESOLVED (SMOKE-WRITE-33). The handler still returns
-  // {status:"pending", monitorUrl} and does NOT poll (production unchanged). The write
-  // harness gained a `completeAsync` phase: it polls the TRUSTED Graph monitor URL to
-  // terminal completion (bounded, smoke-only) and captures the copied item's real
-  // `resourceId` into the cleanup ledger — so the copy is identifiable, independently
-  // verifiable (get_file), and cleanable (delete all three: folder, source, copy). The
-  // fixture + mechanism ship here, so the matrix now derives copy_item as LIVE_NOT_RUN
-  // (was MISSING_FIXTURE). It flips to LIVE_PASS_CLEANED only after a gated live
-  // `--cert` run; NOT recorded LIVE_PASS yet (no fabricated pass). See the runbook
-  // OneDrive write-coverage section.
   ...records("LIVE_PASS_CLEANED", "live setup+move/rename+verify, items deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_FILE, [
     ["microsoft-onedrive", "move_item"],
+  ]),
+  // copy_item — async blocker RESOLVED + LIVE-VERIFIED (SMOKE-WRITE-33). The handler
+  // still returns {status:"pending", monitorUrl} and does NOT poll (production
+  // unchanged). The write harness `completeAsync` phase polls the TRUSTED Graph copy
+  // monitor URL to terminal completion (bounded, smoke-only; the real monitor host is
+  // a Microsoft operation host, e.g. *.svc.ms, not graph.microsoft.com) and captures
+  // the copied item's real `resourceId` into the cleanup ledger. Live run created the
+  // smoke folder + source, copied into the folder, polled to completion, verified the
+  // copy by INDEPENDENT get_file (name marker+suffix "copy", kind==file,
+  // parentReference.id==smoke folder), then deleted all three -> created 3 / cleaned 3
+  // / 0 leaked. (An earlier live run with a too-strict URL gate exercised the FAILURE
+  // path live: copy uncaptured -> VERIFY_FAILED, folder+source still cleaned, 0 leaked
+  // — the copy lands inside the smoke folder, so the folder-delete cascade covers it.)
+  ...records("LIVE_PASS_CLEANED", "live setup+copy+monitor-poll+verify, all three deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_COPY, [
+    ["microsoft-onedrive", "copy_item"],
   ]),
   // SMOKE-WRITE-27 — Google Sheets row/range mutators inside a SAME-RUN smoke-owned
   // spreadsheet. Each fixture's setup creates a WHOLE smoke spreadsheet with a PINNED
