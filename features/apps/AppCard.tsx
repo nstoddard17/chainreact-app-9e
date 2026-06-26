@@ -9,6 +9,7 @@ import { DisconnectDialog } from "./DisconnectDialog";
 import { ShareConnectionDialog } from "./ShareConnectionDialog";
 import { formatConnectedOn } from "./relativeDate";
 import { deriveCollapsedReconnect } from "./collapsedReconnect";
+import { useReviewFocus } from "./useReviewFocus";
 
 /**
  * Provider card for the Apps dashboard (Slice 4.APPS-PAGE-1).
@@ -74,6 +75,14 @@ export function AppCard({ app, accountId }: Props) {
   // over the per-row signals already in the DTO (needsReconnect + canReconnect); no
   // new reconnect semantics. Only meaningful on a connected, collapsed card.
   const collapsedReconnect = deriveCollapsedReconnect(app.accounts);
+
+  // CS-APPS-RECOVERY-REVIEW-SCROLL — "Review reconnects" expands the card, then scrolls
+  // + focuses the FIRST reconnect-needed row (see useReviewFocus). Only the Review
+  // action requests focus; the direct one-row Reconnect and a chevron expand never do.
+  const { ref: firstNeedsReconnectRef, requestFocus: requestReviewFocus } =
+    useReviewFocus(expanded);
+  const firstNeedsReconnectId =
+    app.accounts.find((a) => a.needsReconnect)?.id ?? null;
 
   return (
     <li
@@ -146,7 +155,10 @@ export function AppCard({ app, accountId }: Props) {
               type="button"
               data-testid="app-card-collapsed-review"
               title="Review the accounts that need reconnecting"
-              onClick={() => setExpanded(true)}
+              onClick={() => {
+                setExpanded(true);
+                requestReviewFocus();
+              }}
               className="inline-flex items-center gap-1.5 rounded border border-amber-300 bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-ring dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25"
             >
               Review reconnects
@@ -237,12 +249,20 @@ export function AppCard({ app, accountId }: Props) {
           <ul className="flex flex-col gap-2">
             {app.accounts.map((acc) => {
               const label = acc.displayName ?? "Connected account";
+              const isFirstNeedsReconnect = acc.id === firstNeedsReconnectId;
               return (
                 <li
                   key={acc.id}
+                  // CS-APPS-RECOVERY-REVIEW-SCROLL — accessible focus target for the first
+                  // flagged row after Review: tabIndex -1 (focusable, not in tab order) +
+                  // aria-label announcing why focus moved here.
+                  ref={isFirstNeedsReconnect ? firstNeedsReconnectRef : undefined}
+                  {...(isFirstNeedsReconnect
+                    ? { tabIndex: -1, "aria-label": `${label} needs reconnecting` }
+                    : {})}
                   data-testid="app-card-account"
                   data-account-id={acc.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="flex items-center gap-2">

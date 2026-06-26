@@ -635,4 +635,77 @@ describe("AppCard — collapsed reconnect discoverability (CS-APPS-RECOVERY-2)",
     expect(screen.queryByTestId("app-card-collapsed-review")).toBeNull();
     expect(screen.getByTestId("app-status-pill")).toHaveAttribute("data-state", "connected");
   });
+
+  // ── CS-APPS-RECOVERY-REVIEW-SCROLL — guide the user to the flagged rows ──────
+  describe("Review reconnects scroll/focus polish", () => {
+    let scrollSpy: jest.Mock;
+    beforeEach(() => {
+      // jsdom's scrollIntoView is a no-op; replace with a spy so we can assert it
+      // ran. Restored in afterEach.
+      scrollSpy = jest.fn();
+      (HTMLElement.prototype as unknown as { scrollIntoView: unknown }).scrollIntoView =
+        scrollSpy;
+    });
+    afterEach(() => {
+      delete (HTMLElement.prototype as unknown as { scrollIntoView?: unknown })
+        .scrollIntoView;
+    });
+
+    function rowById(id: string): HTMLElement | undefined {
+      return screen
+        .getAllByTestId("app-card-account")
+        .find((el) => el.getAttribute("data-account-id") === id);
+    }
+
+    it("expands the card AND scrolls + focuses the FIRST reconnect-needed row (skips healthy rows above it)", async () => {
+      const user = userEvent.setup();
+      const app = connectedApp([
+        row({ id: "healthy", canReconnect: true }),
+        row({ id: "b1", needsReconnect: true, canReconnect: true }),
+        row({ id: "b2", needsReconnect: true, canReconnect: true }),
+      ]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-collapsed-review"));
+      // Card expanded.
+      expect(screen.getByTestId("app-card-body")).toBeInTheDocument();
+      // Focus + scroll land on the first FLAGGED row (b1), not the healthy row 0.
+      await waitFor(() => expect(rowById("b1")).toBe(document.activeElement));
+      expect(scrollSpy).toHaveBeenCalled();
+      // Accessible target: programmatically focusable + announces why focus moved.
+      expect(rowById("b1")).toHaveAttribute("tabindex", "-1");
+      expect(rowById("b1")).toHaveAttribute(
+        "aria-label",
+        "Acme · ops@example.com needs reconnecting",
+      );
+      // The healthy row is NOT made a focus target.
+      expect(rowById("healthy")).not.toHaveAttribute("tabindex");
+    });
+
+    it("does NOT scroll/focus when the card is expanded via the chevron (not Review)", async () => {
+      const user = userEvent.setup();
+      const app = connectedApp([
+        row({ id: "b1", needsReconnect: true, canReconnect: true }),
+        row({ id: "b2", needsReconnect: true, canReconnect: true }),
+      ]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      expect(screen.getByTestId("app-card-body")).toBeInTheDocument();
+      expect(scrollSpy).not.toHaveBeenCalled();
+      expect(rowById("b1")).not.toBe(document.activeElement);
+    });
+
+    it("direct one-row Reconnect path uses no review scroll/focus (stays collapsed, no scroll)", () => {
+      // Exactly one reconnectable flagged row → collapsed Reconnect (ConnectButton),
+      // never the Review action. The scroll/focus effect must not fire on this path.
+      const app = connectedApp([
+        row({ id: "healthy", canReconnect: true }),
+        row({ id: "broken", needsReconnect: true, canReconnect: true }),
+      ]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      expect(screen.getByTestId("app-card-collapsed-reconnect")).toBeInTheDocument();
+      expect(screen.queryByTestId("app-card-collapsed-review")).toBeNull();
+      expect(screen.queryByTestId("app-card-body")).toBeNull(); // not auto-expanded
+      expect(scrollSpy).not.toHaveBeenCalled();
+    });
+  });
 });
