@@ -46,6 +46,7 @@ import {
   discoverTrelloSecondSmokeList,
   discoverNotionSmokeParentPage,
   discoverNotionSmokeDatabase,
+  discoverOneNoteSmokeSection,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -194,6 +195,17 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_DROPBOX_UPLOAD_STORAGE_PATH = staged.storagePath;
         cleanupStagedFile = staged.remove;
         targetLabel = "staged upload file in workflow-files bucket";
+      }
+    } else if (provider === "microsoft-onenote" && execUsable) {
+      // OneNote pages are created INSIDE a section. Discover a SAFE section — one
+      // whose section OR notebook name is smoke/test-named — so the harness never
+      // writes into the user's REAL notebook. Absent one -> no overlay -> BLOCKED_ENV.
+      const section = await discoverOneNoteSmokeSection(account, user);
+      if (section) {
+        overlay.SMOKE_ONENOTE_SECTION_ID = section.sectionId; // id -> env overlay only
+        // The create_page meta requires `notebookId` (cascade parent) for readiness.
+        overlay.SMOKE_ONENOTE_NOTEBOOK_ID = section.notebookId; // id -> env overlay only
+        targetLabel = `notebook "${section.notebookLabel}" / section "${section.sectionLabel}"`;
       }
     }
     const envLookup = (n: string): string | undefined => overlay[n] ?? process.env[n];

@@ -1075,7 +1075,9 @@ re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
   `google-calendar` (4/5 — `add_attendees` deferred), `google-docs` (create_document via
   cross-provider Drive delete), `dropbox` (create_folder/delete_file/upload_file +
   copy_file/move_file; sharing/link/download deferred), `microsoft-onedrive`
-  (create_folder/delete_item/upload_file/move_item; `copy_item` blocked async), `notion` (create/update/archive/restore page,
+  (create_folder/delete_item/upload_file/move_item; `copy_item` blocked async),
+  `microsoft-onenote` (create/update/delete_page; create_section/create_notebook blocked — no
+  delete; copy_page deferred), `notion` (create/update/archive/restore page,
   append_block_children, create_comment, create_database_entry), `trello` (create/update
   card, add_comment, add_label_to_card, move_card, archive_card),
   `microsoft-outlook-calendar` (4/5 — create/update/delete_event certified, `add_attendees`
@@ -1124,6 +1126,9 @@ re-run LIVE and recorded — same drift class as the earlier Google Drive audit.
 | `microsoft-onedrive:delete_item` | create folder -> **delete (action under test)** -> item_metadata existence probe (exists == false) | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:upload_file` | upload inline file (root) -> get_file (marker on name + kind == file) -> **delete** | deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
 | `microsoft-onedrive:move_item` | upload smoke source + create smoke dest folder (file captured before folder) -> atomic move+rename into folder -> get_file (marker+suffix "moved" on name + kind == file + parentReference.id == smoke folder) -> **delete both (file then folder)** | both deleted to recycle bin (recoverable) | `LIVE_PASS_CLEANED` |
+| `microsoft-onenote:create_page` | create marker-titled page in a smoke/test-named section -> get_page_content (marker on title) -> **delete_page** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `microsoft-onenote:update_page` | create smoke page -> append `<marker>updated` -> get_page_content (marker+suffix "updated" on content) -> **delete_page** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
+| `microsoft-onenote:delete_page` | create smoke page -> **delete_page (action under test)** -> smoke `page_metadata` existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-calendar:create_event` | create event (primary, no attendees, no-notify) -> events.get (marker on summary) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-calendar:update_event` | create event -> update summary to marker+"updated" -> events.get (marker+"updated" on summary) -> **delete_event** | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
 | `google-calendar:delete_event` | create event -> **delete_event (action under test)** -> events.get existence probe (exists == false) | hard-deleted (true erase) | `LIVE_PASS_CLEANED` |
@@ -1200,6 +1205,22 @@ read-back-discovered id into the cleanup ledger (ids are captured only from setu
 so a verified copy would LEAK a visible file every run. Stays `MISSING_FIXTURE`. Unblocks with either
 (a) a synchronous-completion copy variant that returns the new item id, or (b) a harness extension
 that captures a seam-discovered id into the ledger for cleanup.
+
+**OneNote write coverage (SMOKE-WRITE-32) — page lifecycle (`create_page` / `update_page` /
+`delete_page` certified).** The smoke-owned resource is the PAGE (created + HARD-deleted; Graph
+DELETE is a true erase); the SECTION is a borrowed container. The live test's
+`discoverOneNoteSmokeSection` returns a section ONLY when its section OR notebook name is
+smoke/test-named (`/smoke|test/i`), so the harness never writes into the user's real notebook —
+absent one, the fixtures are BLOCKED_ENV. `create_page` verifies the marker on the persisted
+`title` via INDEPENDENT `get_page_content`; `update_page` appends `<marker>updated` and verifies it
+on the rendered `content` (the seeded body lacks "updated", so a no-op fails); `delete_page` is
+`executeIsCleanup` with absence proven by the bounded smoke-only `page_metadata` probe
+(`exists == false` via a typed 404 NotFoundError; any other error re-throws). Every engine step
+threads the required `notebookId` + `sectionId` cascade parents (the metas mark them required for
+readiness even though the handlers ignore them). **Still BLOCKED:** `create_section` /
+`create_notebook` (no registered delete-section/delete-notebook action -> a created section/notebook
+would persist as a heavy visible artifact); `copy_page` (creates a second page — certifiable later
+via the same delete_page cleanup, deferred from this batch).
 
 **Google Calendar write coverage (SMOKE-WRITE-21) — 3 of 4 write actions certified.**
 `create_event`, `update_event`, `delete_event` all `LIVE_PASS_CLEANED`. Each is smoke-owned on

@@ -35,6 +35,7 @@ const SMOKE_WRITE = "2026-06-22";
 const SMOKE_WRITE_FILE = "2026-06-23";
 const SMOKE_WRITE_SHEETS = "2026-06-24";
 const SMOKE_WRITE_SHEETS_DELETE = "2026-06-25";
+const SMOKE_WRITE_ONENOTE = "2026-06-25";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -432,5 +433,24 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // Google Sheets writes are now COMPLETE: all 8 mutating actions certified.
   ...records("LIVE_PASS_CLEANED", "live create-sheet + seed 3 rows + delete row 2 + 3 independent shift read-backs, whole spreadsheet hard-deleted via cross-provider Drive delete", SMOKE_WRITE_SHEETS_DELETE, [
     ["google-sheets", "delete_row"],
+  ]),
+  // SMOKE-WRITE-32 — Microsoft OneNote page lifecycle. The smoke-owned resource is the
+  // PAGE (created + HARD-deleted by the run; Graph DELETE is a true erase). The SECTION
+  // is a borrowed container — the live test discovers a SAFE one whose section OR
+  // notebook name is smoke/test-named (never the user's real notebook; absent one ->
+  // BLOCKED_ENV). create_page creates a marker-TITLED page -> INDEPENDENT
+  // get_page_content read-back confirms the marker on the persisted `title` -> delete_page
+  // hard-deletes. update_page appends "<marker>updated" to the body -> get_page_content
+  // read-back confirms marker+suffix on the rendered `content` (the seeded body lacks
+  // "updated", so a no-op fails). delete_page is executeIsCleanup -> absence proven by the
+  // bounded smoke-only `page_metadata` probe (`exists == false` via a typed 404
+  // NotFoundError; any other error re-throws -> VERIFY_FAILED). The handlers' `success`
+  // echoes are never trusted. Every engine step threads the required `notebookId` +
+  // `sectionId` cascade parents (the meta marks them required for readiness even though
+  // the handlers ignore them). Verified live (0 leaked).
+  ...records("LIVE_PASS_CLEANED", "live create page in a smoke-named section + independent read-back + hard delete", SMOKE_WRITE_ONENOTE, [
+    ["microsoft-onenote", "create_page"],
+    ["microsoft-onenote", "update_page"],
+    ["microsoft-onenote", "delete_page"],
   ]),
 ];

@@ -53,6 +53,7 @@ import { trelloSmokeReadBack } from "./writeHarnessDeps/trello";
 import { fileProvidersSmokeReadBack } from "./writeHarnessDeps/fileProviders";
 import { calendarsSmokeReadBack } from "./writeHarnessDeps/calendars";
 import { sheetsSmokeReadBack } from "./writeHarnessDeps/sheets";
+import { onenoteSmokeReadBack } from "./writeHarnessDeps/onenote";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
 export { probeWriteConnection, isProviderConnectedForWrite } from "./writeHarnessDeps/connection";
@@ -70,6 +71,7 @@ export {
   discoverNotionSmokeParentPage,
   discoverNotionSmokeDatabase,
 } from "./writeHarnessDeps/notion";
+export { discoverOneNoteSmokeSection } from "./writeHarnessDeps/onenote";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */
@@ -122,6 +124,7 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   fileProvidersSmokeReadBack,
   calendarsSmokeReadBack,
   sheetsSmokeReadBack,
+  onenoteSmokeReadBack,
 ];
 
 export function makeRealWriteHarnessDeps(
