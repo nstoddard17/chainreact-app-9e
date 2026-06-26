@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { WorkflowState } from "@/contracts/workflow";
 import {
   WorkflowApiError,
@@ -240,24 +240,47 @@ export function LifecycleActions({
             action.variant === "primary"
               ? "bg-primary text-primary-foreground"
               : "border border-input";
+          // BUILDER-READINESS-A11Y — the disabled go-live reason used to be hover-`title`
+          // only (the visible callout was removed in -CLOSE-AND-CALLOUT-CLEANUP because it
+          // overlapped the validation drawer's close ×). `title` is not reliably announced
+          // by screen readers and is invisible to keyboard-only users. Add an `sr-only`
+          // `role="status"` reason wired via `aria-describedby` so AT users hear WHY the
+          // button is disabled — without re-introducing any painted overlay. Mirrors
+          // HeaderRunControls' existing `run-controls-blocked-status` precedent. Copy
+          // deliberately avoids the "to fix before" phrasing of the removed callout.
+          const blockedStatusId = `lifecycle-blocked-${action.kind}`;
           return (
-            <button
-              key={action.kind}
-              type="button"
-              onClick={() => run(action.kind)}
-              disabled={disabled}
-              data-blocked-by-validation={blockedByValidation ? "true" : undefined}
-              title={
-                blockedByValidation
-                  ? `Resolve ${blockingIssueCount} setup ${blockingIssueCount === 1 ? "issue" : "issues"} before ${action.label.toLowerCase()} — open the validation panel.`
-                  : hasUnsavedChanges
-                    ? "Save your changes before changing lifecycle state."
-                    : undefined
-              }
-              className={`${baseClasses} ${variantClasses}`}
-            >
-              {pending === action.kind ? `${action.label}…` : action.label}
-            </button>
+            <Fragment key={action.kind}>
+              <button
+                type="button"
+                onClick={() => run(action.kind)}
+                disabled={disabled}
+                data-blocked-by-validation={blockedByValidation ? "true" : undefined}
+                {...(blockedByValidation ? { "aria-describedby": blockedStatusId } : {})}
+                title={
+                  blockedByValidation
+                    ? `Resolve ${blockingIssueCount} setup ${blockingIssueCount === 1 ? "issue" : "issues"} before ${action.label.toLowerCase()} — open the validation panel.`
+                    : hasUnsavedChanges
+                      ? "Save your changes before changing lifecycle state."
+                      : undefined
+                }
+                className={`${baseClasses} ${variantClasses}`}
+              >
+                {pending === action.kind ? `${action.label}…` : action.label}
+              </button>
+              {blockedByValidation ? (
+                <span
+                  id={blockedStatusId}
+                  role="status"
+                  data-testid="lifecycle-blocked-status"
+                  className="sr-only"
+                >
+                  {action.label} is disabled: resolve {blockingIssueCount} setup{" "}
+                  {blockingIssueCount === 1 ? "issue" : "issues"} first. Open the
+                  validation panel to see which nodes need attention.
+                </span>
+              ) : null}
+            </Fragment>
           );
         })}
       </div>

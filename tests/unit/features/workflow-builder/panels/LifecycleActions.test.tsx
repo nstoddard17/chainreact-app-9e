@@ -390,3 +390,38 @@ describe("LifecycleActions — blocked go-live (BUILDER-VALIDATION-DRAWER-CLOSE-
     expect(screen.getByRole("button", { name: /activate/i })).not.toBeDisabled();
   });
 });
+
+describe("LifecycleActions — blocked go-live accessibility (BUILDER-READINESS-A11Y)", () => {
+  it("renders an sr-only role=status reason and wires it via aria-describedby when Activate is blocked", () => {
+    render(<LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={2} />);
+    const activate = screen.getByRole("button", { name: /activate/i });
+    const status = screen.getByTestId("lifecycle-blocked-status");
+    // Reason is in the accessibility tree (role=status) and tied to the button.
+    expect(status).toHaveTextContent(/activate is disabled: resolve 2 setup issues first/i);
+    expect(status).toHaveClass("sr-only"); // present for AT, not painted (no overlay regression)
+    expect(activate.getAttribute("aria-describedby")).toBe(status.getAttribute("id"));
+  });
+
+  it("pluralizes the sr-only reason for a single issue (Resume)", () => {
+    render(<LifecycleActions workflowId="wf-1" state="paused" blockingIssueCount={1} />);
+    const status = screen.getByTestId("lifecycle-blocked-status");
+    expect(status).toHaveTextContent(/resume is disabled: resolve 1 setup issue first/i);
+    // Singular: "issue", not "issues".
+    expect(status).not.toHaveTextContent(/1 setup issues/i);
+  });
+
+  it("does NOT render the sr-only reason (or aria-describedby) when there are no blocking issues", () => {
+    render(<LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={0} />);
+    expect(screen.queryByTestId("lifecycle-blocked-status")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /activate/i }).getAttribute("aria-describedby"),
+    ).toBeNull();
+  });
+
+  it("does NOT introduce the removed 'to fix before' callout phrasing even via sr-only text", () => {
+    render(<LifecycleActions workflowId="wf-1" state="draft" blockingIssueCount={2} />);
+    // Regression guard for BUILDER-VALIDATION-DRAWER-CLOSE-AND-CALLOUT-CLEANUP: the
+    // a11y status must not resurrect the obstructive callout's wording.
+    expect(screen.queryByText(/setup issues? to fix before/i)).not.toBeInTheDocument();
+  });
+});
