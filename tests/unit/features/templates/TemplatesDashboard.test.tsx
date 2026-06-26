@@ -217,6 +217,31 @@ it("provider filter control shows for the marketplace and is hidden on Your temp
   expect(screen.queryByTestId("templates-category-chips")).toBeNull();
 });
 
+it("opens the details dialog from the Details button and uses the template from there", async () => {
+  api.useTemplate.mockResolvedValue({ workflowId: "wf-x", name: "T" });
+  renderDash();
+  const card = screen.getByText("Failed payment recovery").closest("[data-testid='template-card']")!;
+  fireEvent.click(within(card as HTMLElement).getByTestId("template-details"));
+  // the details dialog shows the safe summary + what-happens-next copy BEFORE any create.
+  expect(screen.getByTestId("template-details-dialog")).toBeInTheDocument();
+  expect(screen.getByTestId("summary-what-happens-next")).toHaveTextContent(/connect apps and fill in required fields/i);
+  expect(screen.getByTestId("summary-what-happens-next")).toHaveTextContent(/does not copy credentials/i);
+  // confirming Use from the dialog creates + navigates.
+  fireEvent.click(screen.getByTestId("template-details-use"));
+  await waitFor(() => expect(api.useTemplate).toHaveBeenCalledWith("off-1", { targetAccountId: ACCOUNT }));
+  expect(mockPush).toHaveBeenCalledWith("/workflows/wf-x");
+});
+
+it("clicking a card title opens the details dialog", () => {
+  renderDash();
+  const card = screen.getByText("Lead capture to CRM").closest("[data-testid='template-card']")!;
+  fireEvent.click(within(card as HTMLElement).getByTestId("template-title"));
+  expect(screen.getByTestId("template-details-dialog")).toBeInTheDocument();
+  // closing returns to the grid.
+  fireEvent.click(screen.getByTestId("template-details-close"));
+  expect(screen.queryByTestId("template-details-dialog")).toBeNull();
+});
+
 it("an official template with empty configs renders its card without leaking config/JSON", () => {
   const emptyConfigOfficial: MarketplaceTemplateSummary = {
     ...official,

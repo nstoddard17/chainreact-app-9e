@@ -12,6 +12,7 @@ import {
 import type { MarketplaceTemplateSummary } from "@/contracts/workflowTemplate";
 import type { WorkflowState } from "@/contracts/workflow";
 import { stepLabel, TRIGGER_KIND_LABELS } from "@/core/workflows/templateCardMeta";
+import { TemplateUseSummary } from "@/components/templates/TemplateUseSummary";
 import { useGraphSlice } from "../state/graphSlice";
 
 /**
@@ -56,6 +57,7 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
   const router = useRouter();
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmCreate, setConfirmCreate] = useState<MarketplaceTemplateSummary | null>(null);
   const [confirmReplace, setConfirmReplace] = useState<MarketplaceTemplateSummary | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -221,7 +223,10 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
                       size="sm"
                       data-testid={`builder-template-create-${t.id}`}
                       disabled={busyId !== null}
-                      onClick={() => void handleCreate(t)}
+                      onClick={() => {
+                        setActionError(null);
+                        setConfirmCreate(t);
+                      }}
                     >
                       Create new workflow
                     </Button>
@@ -253,6 +258,55 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
         </div>
       </div>
 
+      {confirmCreate && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          data-testid="builder-templates-create-overlay"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm create from template"
+            data-testid="builder-templates-create-confirm"
+            className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
+          >
+            <h3 className="px-5 pt-5 text-sm font-semibold text-foreground">
+              Create a new workflow from “{confirmCreate.name}”?
+            </h3>
+            <div className="flex-1 overflow-y-auto px-5 py-3">
+              <TemplateUseSummary description={confirmCreate.description} card={confirmCreate.card} variant="create" />
+              {actionError && (
+                <p role="alert" data-testid="builder-templates-create-error" className="mt-2 text-xs text-destructive">
+                  {actionError}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-testid="builder-templates-create-cancel"
+                disabled={busyId !== null}
+                onClick={() => setConfirmCreate(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                data-testid="builder-templates-create-confirm-button"
+                disabled={busyId !== null}
+                onClick={() => void handleCreate(confirmCreate)}
+              >
+                {busyId === confirmCreate.id ? "Creating…" : "Create new workflow"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmReplace && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -264,7 +318,7 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
             aria-modal="true"
             aria-label="Confirm replace workflow"
             data-testid="builder-templates-replace-confirm"
-            className="w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-xl"
+            className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-xl"
           >
             <h3 className="text-sm font-semibold text-foreground">
               Replace this workflow with “{confirmReplace.name}”?
@@ -274,6 +328,13 @@ export function BuilderTemplatesModal({ workflowId, isDirty, workflowState, onCl
               need to reconnect any accounts and test it before relying on it — this
               can&apos;t be undone.
             </p>
+            <div className="mt-3">
+              <TemplateUseSummary
+                description={confirmReplace.description}
+                card={confirmReplace.card}
+                variant="replace"
+              />
+            </div>
             {isActiveWorkflow && (
               <p
                 data-testid="builder-templates-replace-active-warning"

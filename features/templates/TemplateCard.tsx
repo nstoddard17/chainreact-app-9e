@@ -37,6 +37,9 @@ export interface TemplateCardProps {
   busy: boolean;
   onUse: () => void;
   onFork: () => void;
+  /** Opens the details / use-confirmation dialog before creating. When provided, the title
+   *  becomes clickable and a "Details" action is shown (marketplace cards). */
+  onDetails?: () => void;
   /** Present only for templates the viewer authored (creator-only management). */
   manage?: { visibility: TemplateVisibility; onTogglePublish: () => void; onDelete: () => void };
 }
@@ -123,14 +126,25 @@ function CardMeta({ card }: { card: TemplateCardMeta }) {
 }
 
 export function TemplateCard(props: TemplateCardProps) {
-  const { attribution, manage, visibility, card } = props;
+  const { attribution, manage, visibility, card, onDetails } = props;
   return (
     <div
       data-testid="template-card"
       className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-sky-500/60"
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-base font-semibold leading-tight text-foreground">{props.name}</h3>
+        {onDetails ? (
+          <button
+            type="button"
+            data-testid="template-title"
+            onClick={onDetails}
+            className="text-left text-base font-semibold leading-tight text-foreground hover:text-sky-700 hover:underline dark:hover:text-sky-300"
+          >
+            {props.name}
+          </button>
+        ) : (
+          <h3 className="text-base font-semibold leading-tight text-foreground">{props.name}</h3>
+        )}
         {visibility && <VisibilityChip visibility={visibility} />}
       </div>
 
@@ -158,6 +172,11 @@ export function TemplateCard(props: TemplateCardProps) {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        {onDetails && (
+          <Button size="sm" variant="outline" data-testid="template-details" disabled={props.busy} onClick={onDetails}>
+            Details
+          </Button>
+        )}
         <Button size="sm" data-testid="template-use" disabled={props.busy} onClick={props.onUse} className="gap-1.5">
           <IconBolt /> Use
         </Button>

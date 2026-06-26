@@ -22,6 +22,7 @@ import {
 import type { TemplateCategoryKey } from "@/contracts/workflowTemplate";
 import { TEMPLATE_CATEGORIES, providerLabel } from "@/core/workflows/templateCardMeta";
 import { TemplateCard } from "./TemplateCard";
+import { TemplateDetailsDialog } from "./TemplateDetailsDialog";
 import { toMyTemplateItem, type MarketplaceTemplateSummary, type MyTemplateItem } from "./types";
 
 /**
@@ -69,6 +70,7 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
     setProvider("all");
   }
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; tone: "ok" | "error" } | null>(null);
 
   function flash(message: string, tone: "ok" | "error" = "ok") {
@@ -197,6 +199,8 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
 
   const showingMine = tab === "mine";
   const shownCount = showingMine ? visibleMine.length : visibleMarketplace.length;
+  // The marketplace template whose details/use-confirmation dialog is open (null = closed).
+  const detailsTemplate = detailsId ? marketplace.find((m) => m.id === detailsId) ?? null : null;
 
   return (
     <section data-testid="templates-dashboard" aria-label="Templates" className="flex flex-col gap-6">
@@ -367,9 +371,23 @@ export function TemplatesDashboard({ accountId, initialMarketplace, initialMine 
                   busy={busyId === m.id}
                   onUse={() => handleUse(m.id)}
                   onFork={() => handleFork(m.id)}
+                  onDetails={() => setDetailsId(m.id)}
                 />
               ))}
         </div>
+      )}
+
+      {detailsTemplate && (
+        <TemplateDetailsDialog
+          template={detailsTemplate}
+          busy={busyId === detailsTemplate.id}
+          onUse={() => handleUse(detailsTemplate.id)}
+          onFork={async () => {
+            await handleFork(detailsTemplate.id);
+            setDetailsId(null);
+          }}
+          onClose={() => setDetailsId(null)}
+        />
       )}
 
       {toast && (

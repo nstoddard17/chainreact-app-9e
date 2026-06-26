@@ -8,7 +8,7 @@
  * (re-hydrates the canvas) + closes; canceling leaves the workflow untouched (no replace
  * call); and action errors surface visibly. Replacement never touches a template-write API.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const api = {
@@ -104,16 +104,53 @@ describe("BuilderTemplatesModal — list states", () => {
 });
 
 describe("BuilderTemplatesModal — create new workflow", () => {
-  it("reuses the use-template path and navigates to the new workflow", async () => {
+  it("confirms first (no immediate create), then reuses the use-template path and navigates", async () => {
     api.createWorkflowFromTemplateForCurrent.mockResolvedValue({ workflowId: "wf-new", name: "New" });
     const user = userEvent.setup();
     renderModal();
     await screen.findByText("Failed payment recovery");
+    // Clicking "Create new workflow" opens a confirmation/preview — it does NOT create yet.
     await user.click(screen.getByTestId("builder-template-create-tpl-1"));
+    expect(screen.getByTestId("builder-templates-create-confirm")).toBeInTheDocument();
+    expect(api.createWorkflowFromTemplateForCurrent).not.toHaveBeenCalled();
+    // Confirming creates + navigates.
+    await user.click(screen.getByTestId("builder-templates-create-confirm-button"));
     await waitFor(() => expect(api.createWorkflowFromTemplateForCurrent).toHaveBeenCalledWith(WF, "tpl-1"));
     expect(mockPush).toHaveBeenCalledWith("/workflows/wf-new");
     // Create must not have replaced the current workflow.
     expect(api.replaceCurrentWorkflowFromTemplate).not.toHaveBeenCalled();
+  });
+
+  it("the create confirmation shows the use summary + what-happens-next copy", async () => {
+    api.listMarketplaceTemplates.mockResolvedValue([
+      tpl({
+        id: "tpl-1",
+        card: {
+          nodeCount: 2, stepCount: 1, triggerKind: "manual", providers: ["hubspot"], category: "sales-crm",
+          steps: [
+            { kind: "trigger", provider: "native", type: "manual.run" },
+            { kind: "action", provider: "hubspot", type: "create_contact" },
+          ],
+        },
+      }),
+    ]);
+    const user = userEvent.setup();
+    renderModal();
+    await screen.findByText("Failed payment recovery");
+    await user.click(screen.getByTestId("builder-template-create-tpl-1"));
+    expect(screen.getByTestId("summary-required-apps")).toHaveTextContent("HubSpot");
+    expect(screen.getByTestId("summary-what-happens-next")).toHaveTextContent(/creates a new workflow from this template and opens it/i);
+    expect(screen.getByTestId("summary-what-happens-next")).toHaveTextContent(/does not copy credentials/i);
+  });
+
+  it("canceling the create confirmation creates nothing", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await screen.findByText("Failed payment recovery");
+    await user.click(screen.getByTestId("builder-template-create-tpl-1"));
+    await user.click(screen.getByTestId("builder-templates-create-cancel"));
+    expect(screen.queryByTestId("builder-templates-create-confirm")).toBeNull();
+    expect(api.createWorkflowFromTemplateForCurrent).not.toHaveBeenCalled();
   });
 });
 
@@ -126,6 +163,19 @@ describe("BuilderTemplatesModal — replace current workflow", () => {
     // Confirmation dialog appears; NO replace call yet.
     expect(screen.getByTestId("builder-templates-replace-confirm")).toBeInTheDocument();
     expect(api.replaceCurrentWorkflowFromTemplate).not.toHaveBeenCalled();
+  });
+
+  it("the replace confirmation states clearly that the current draft will be replaced", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await screen.findByText("Failed payment recovery");
+    await user.click(screen.getByTestId("builder-template-replace-tpl-1"));
+    const confirm = screen.getByTestId("builder-templates-replace-confirm");
+    // the shared summary's replace copy + the pre-existing reconnect/discard safety copy.
+    expect(within(confirm).getByTestId("summary-what-happens-next")).toHaveTextContent(
+      /replace the current workflow draft with the selected template/i,
+    );
+    expect(confirm).toHaveTextContent(/reconnect any accounts and test/i);
   });
 
   it("canceling the confirmation leaves the workflow untouched (no replace, no hydrate, no close)", async () => {
