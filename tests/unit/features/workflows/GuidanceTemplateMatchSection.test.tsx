@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { GuidanceTemplateMatchSection } from "@/features/workflows/GuidanceTemplateMatchSection";
 import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 
@@ -52,5 +53,25 @@ describe("GuidanceTemplateMatchSection", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(screen.queryByText(/use template|create workflow|apply/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("GuidanceTemplateMatchSection — Preview CTA (REACT-AGENT-TEMPLATE-MATCH-3)", () => {
+  it("renders a 'Preview template' CTA when onPreview is provided and calls it with the match", async () => {
+    const user = userEvent.setup();
+    const onPreview = jest.fn();
+    render(<GuidanceTemplateMatchSection matches={[MATCH]} onPreview={onPreview} />);
+    const cta = screen.getByTestId("guidance-template-preview-cta");
+    expect(cta).toHaveTextContent("Preview template");
+    // Label must not say Create/Use/Apply before the user sees confirmation.
+    expect(cta.textContent ?? "").not.toMatch(/create|use|apply/i);
+    await user.click(cta);
+    expect(onPreview).toHaveBeenCalledTimes(1);
+    expect(onPreview).toHaveBeenCalledWith(MATCH);
+  });
+
+  it("stays recommendation-only (no CTA) when onPreview is omitted", () => {
+    render(<GuidanceTemplateMatchSection matches={[MATCH]} />);
+    expect(screen.queryByTestId("guidance-template-preview-cta")).not.toBeInTheDocument();
   });
 });

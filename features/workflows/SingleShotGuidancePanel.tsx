@@ -46,7 +46,7 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
   const [preview, setPreview] = useState<DraftPreview | null>(null);
   const [templateMatches, setTemplateMatches] = useState<readonly GuidanceOfficialTemplateMatch[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
-  const preview = useTemplatePreviewFlow(accountId);
+  const templatePreview = useTemplatePreviewFlow(accountId);
 
   const trimmed = goal.trim();
   const canSubmit = trimmed.length > 0 && status !== "loading";
@@ -150,16 +150,16 @@ export function SingleShotGuidancePanel({ accountId, workflowId, onPreviewToCanv
       )}
 
       {status === "done" && templateMatches.length > 0 && (
-        <GuidanceTemplateMatchSection matches={templateMatches} onPreview={preview.openPreview} />
+        <GuidanceTemplateMatchSection matches={templateMatches} onPreview={templatePreview.openPreview} />
       )}
 
-      {preview.previewMatch && (
+      {templatePreview.previewMatch && (
         <GuidanceTemplatePreviewDialog
-          match={preview.previewMatch}
-          busy={preview.busy}
-          error={preview.error}
-          onConfirmUse={preview.confirmUse}
-          onClose={preview.closePreview}
+          match={templatePreview.previewMatch}
+          busy={templatePreview.busy}
+          error={templatePreview.error}
+          onConfirmUse={templatePreview.confirmUse}
+          onClose={templatePreview.closePreview}
         />
       )}
     </section>

@@ -13,11 +13,31 @@ jest.mock("@/lib/api/ai/guidance", () => ({
   requestWorkflowGuidance: (...a: unknown[]) => mockRequest(...a),
 }));
 
+// REACT-AGENT-TEMPLATE-MATCH-3 — local overrides so the Preview→Use flow can be asserted.
+const mockPush = jest.fn();
+jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
+const mockUseTemplate = jest.fn();
+class TemplateApiError extends Error {
+  code: string;
+  status: number;
+  constructor(message: string, code: string, status: number) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+}
+jest.mock("@/lib/api/workflowTemplates", () => ({
+  useTemplate: (...a: unknown[]) => mockUseTemplate(...a),
+  TemplateApiError,
+}));
+
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
 import { draftPreviewSignature } from "@/core/workflows/canvasPreviewEligibility";
 
 beforeEach(() => {
   mockRequest.mockReset();
+  mockPush.mockReset();
+  mockUseTemplate.mockReset();
 });
 
 describe("WorkflowGuidancePanel — entry point", () => {
@@ -1055,5 +1075,77 @@ describe("WorkflowGuidancePanel — official template match (REACT-AGENT-TEMPLAT
     await user.click(screen.getByTestId("workflow-guidance-submit"));
     await waitFor(() => expect(screen.getByTestId("workflow-guidance-result")).toBeInTheDocument());
     expect(screen.queryByTestId("guidance-template-match")).not.toBeInTheDocument();
+  });
+});
+
+describe("WorkflowGuidancePanel — Preview → Use flow (REACT-AGENT-TEMPLATE-MATCH-3)", () => {
+  const MATCH = {
+    templateId: "c0ffee00-0000-4000-8000-00000000004e",
+    name: "Support escalation from email",
+    description: "Open a HubSpot ticket and Slack alert.",
+    score: 20,
+    confidence: "high" as const,
+    reasons: ["Matches the Gmail new labeled email trigger"],
+    isOfficial: true as const,
+    providers: ["gmail", "hubspot", "slack"],
+    providerLabels: ["Gmail", "HubSpot", "Slack"],
+    triggerKind: "app" as const,
+    category: "sales-crm",
+    categoryLabel: "Sales & CRM",
+    nodeCount: 5,
+    stepCount: 4,
+    steps: [{ kind: "action" as const, provider: "hubspot", type: "create_ticket", label: "HubSpot: Create ticket" }],
+  };
+
+  async function openCardAndPreview() {
+    const user = userEvent.setup();
+    mockRequest.mockResolvedValue({
+      ok: true,
+      guidanceText: "I found an official template that already matches this workflow.",
+      source: "official_template_match",
+      workflowPlan: null,
+      previewDraft: null,
+      officialTemplateMatches: [MATCH],
+    });
+    render(<WorkflowGuidancePanel accountId="acct-1" />);
+    await user.type(screen.getByPlaceholderText(/Example:/i), "support email to HubSpot ticket and Slack");
+    await user.click(screen.getByTestId("workflow-guidance-submit"));
+    await waitFor(() => expect(screen.getByTestId("guidance-template-preview-cta")).toBeInTheDocument());
+    return user;
+  }
+
+  it("clicking Preview opens the confirmation dialog and creates NOTHING", async () => {
+    const user = await openCardAndPreview();
+    await user.click(screen.getByTestId("guidance-template-preview-cta"));
+    expect(screen.getByTestId("guidance-template-preview-dialog")).toBeInTheDocument();
+    expect(mockUseTemplate).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("final 'Use this template' calls the existing use route once and navigates", async () => {
+    const user = await openCardAndPreview();
+    mockUseTemplate.mockResolvedValue({ workflowId: "wf-77", name: "Support escalation from email" });
+    await user.click(screen.getByTestId("guidance-template-preview-cta"));
+    await user.click(screen.getByTestId("guidance-template-preview-use"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/workflows/wf-77"));
+    expect(mockUseTemplate).toHaveBeenCalledTimes(1);
+    expect(mockUseTemplate).toHaveBeenCalledWith("c0ffee00-0000-4000-8000-00000000004e", { targetAccountId: "acct-1" });
+  });
+
+  it("Cancel closes the dialog and creates nothing", async () => {
+    const user = await openCardAndPreview();
+    await user.click(screen.getByTestId("guidance-template-preview-cta"));
+    await user.click(screen.getByTestId("guidance-template-preview-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("guidance-template-preview-dialog")).not.toBeInTheDocument());
+    expect(mockUseTemplate).not.toHaveBeenCalled();
+  });
+
+  it("error path shows safe copy and creates/navigates nothing", async () => {
+    const user = await openCardAndPreview();
+    mockUseTemplate.mockRejectedValue(new TemplateApiError("Template no longer exists.", "TEMPLATE_NOT_FOUND", 404));
+    await user.click(screen.getByTestId("guidance-template-preview-cta"));
+    await user.click(screen.getByTestId("guidance-template-preview-use"));
+    await waitFor(() => expect(screen.getByTestId("guidance-template-preview-error")).toHaveTextContent("Template no longer exists."));
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
