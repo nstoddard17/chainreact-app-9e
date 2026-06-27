@@ -570,3 +570,48 @@ semantics disclosed). **Matrix:** `create_worksheet` MISSING_FIXTURE → LIVE_PA
 `delete_worksheet` (verify via `get_worksheets`), `add_row` / `update_row` / `delete_row` /
 `add_table_row` (verify via `read_range` / `read_table_rows`). `export_sheet` stays
 policy-excluded (raw bytes).
+
+## 16. SMOKE-WRITE-37 — `microsoft-excel:rename_worksheet` LIVE-CERTIFIED (2026-06-26)
+
+Second Excel write, reusing the SMOKE-WRITE-36 bootstrap unchanged. **`microsoft-excel:rename_worksheet`
+is now `LIVE_PASS_CLEANED`.** No new harness code — the `minimalXlsx` upload + whole-file
+OneDrive cleanup (with the bounded OneDrive delete retry) carried over directly.
+
+**Action under test (smallest safe rename):** the frozen minimal `.xlsx` seeds exactly one
+worksheet `Sheet1`, so the fixture renames `Sheet1` → `"{{marker}}renamed"` and proves the
+rename by an INDEPENDENT `get_worksheets` read-back (marker + suffix `renamed`). Because
+`Sheet1` carries no marker, only a real rename can produce a marker-named worksheet — a silent
+no-op leaves `Sheet1` and fails. Smoke-owned throughout; no user/customer file, no sharing, no
+send/billing.
+- Fixture: [tests/fixtures/action-smoke/microsoft-excel/rename_worksheet.ts](../../../../tests/fixtures/action-smoke/microsoft-excel/rename_worksheet.ts).
+
+**Live command:**
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
+SMOKE_PROVIDER=microsoft-excel SMOKE_MICROSOFT_EXCEL_CONNECTED=1 \
+SMOKE_MICROSOFT_ONEDRIVE_CONNECTED=1 npm run smoke:writes:live
+```
+
+**Live result — PASS, 0 leaked:**
+```
+PASS  microsoft-excel:rename_worksheet [destructiveSafe]
+    setup ok · execute ok · verify ok · verify ok — marker confirmed on read-back · cleanup ok
+    created 1 / cleaned 1 / remaining 0 (workbook) | artifact: cleaned
+```
+(`create_worksheet` re-ran in the same scoped sweep and also PASSED, created 1 / cleaned 1 / 0
+leaked.) **Created 1 / cleaned 1 / leaked 0.**
+
+**Cert row added** (`SMOKE-WRITE-37`, `LIVE_PASS_CLEANED`, 2026-06-26; recycle-bin recoverable
+semantics disclosed). **Matrix:** `rename_worksheet` MISSING_FIXTURE → LIVE_PASS. Totals now
+**298 registered / 127 LIVE_PASS / 22 not-run / 149 missing / 0 fail / 0 bug**; microsoft-excel
+**13 / 7 / 0 / 6**.
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **37 suites / 429 tests pass**
+(incl. the new `excel-rename-worksheet` suite); `npx tsc --noEmit` → exit 0; eslint on touched
+files → 0; `npm run lint:structure` → OK; `--cert` → `PASS_CLEAN microsoft-excel:rename_worksheet`.
+**Nothing pushed.**
+
+**Remaining Excel writes** (same bootstrap, each its own slice): `delete_worksheet` (verify via
+`get_worksheets`), `add_row` / `update_row` / `delete_row` / `add_table_row` (verify via
+`read_range` / `read_table_rows`). `export_sheet` stays policy-excluded (raw bytes).

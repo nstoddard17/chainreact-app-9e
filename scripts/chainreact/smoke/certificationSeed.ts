@@ -498,6 +498,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live upload smoke workbook + add worksheet + independent get_worksheets read-back, whole workbook deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_EXCEL, [
     ["microsoft-excel", "create_worksheet"],
   ]),
+  // SMOKE-WRITE-37 — Microsoft Excel rename_worksheet. Same smoke-owned-workbook
+  // bootstrap as SMOKE-WRITE-36: setup uploads the frozen minimal .xlsx (seeded
+  // "Sheet1") via microsoft-onedrive:upload_file (capture itemId). execute
+  // rename_worksheet renames "Sheet1" -> "<marker>renamed" -> INDEPENDENT
+  // excel:get_worksheets read-back confirms the marker(+suffix "renamed") on a persisted
+  // worksheet name (the pre-rename "Sheet1" lacks the marker, so a no-op fails; the
+  // handler's renamed echo is never trusted) -> the WHOLE workbook file is removed via
+  // microsoft-onedrive:delete_item (same provider that created it). Live-verified end to
+  // end (created 1 / cleaned 1 / 0 leaked). HONESTY: delete_item moves the file to the
+  // OneDrive recycle bin (recoverable), not a hard erase; the bounded OneDrive delete
+  // retry (smoke-harness only) absorbs a workbook-session delete lock.
+  ...records("LIVE_PASS_CLEANED", "live upload smoke workbook + rename worksheet + independent get_worksheets read-back, whole workbook deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_EXCEL, [
+    ["microsoft-excel", "rename_worksheet"],
+  ]),
   // SMOKE-ACTIONS-NATIVE-CERT — the native logic actions live-verified via the
   // workflow-live read sweep (SMOKE_PROVIDER=native): each ran as a real TERMINAL
   // workflow run in engine REAL mode (5 pass / 0 fail / 0 skip). They take NO provider
