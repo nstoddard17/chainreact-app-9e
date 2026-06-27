@@ -163,6 +163,22 @@ export interface ActionStepSpec {
     readonly path: string;
   };
   /**
+   * Assert that the JSON-serialized value at `path` in THIS step's (read-back) output
+   * does NOT contain `value` — proving a REMOVAL the marker cannot (e.g. after
+   * `delete_worksheet`, the deleted sheet's name is GONE from `get_worksheets`'
+   * `worksheets`). The inverse of `markerPath`'s serialized-substring check, so it
+   * works for a scalar OR a collection at `path`. `value` is token-resolved
+   * (`{{smokeMarker}}` / `{{env.*}}` / `{{ledger.*}}`) first, so a marker-named target
+   * resolves. When `value` is STILL present -> VERIFY_FAILED. (The read-back STEP
+   * failing — a permission/API error — already fails before assertions run, so an error
+   * is never read as "absent".) Pair with a presence assertion (e.g. `expectEquals`
+   * on `count`) when a delete must ALSO prove the survivors are intact.
+   */
+  readonly expectAbsent?: {
+    readonly path: string;
+    readonly value: string;
+  };
+  /**
    * When true, this (verify) step is resolved by the SMOKE-ONLY read-back seam
    * (`WriteHarnessDeps.smokeReadBack`) rather than the registered-action engine
    * path — for providers that have no user-facing read action to verify against

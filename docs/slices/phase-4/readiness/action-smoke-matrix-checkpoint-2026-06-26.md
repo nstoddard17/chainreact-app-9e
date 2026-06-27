@@ -615,3 +615,72 @@ files → 0; `npm run lint:structure` → OK; `--cert` → `PASS_CLEAN microsoft
 **Remaining Excel writes** (same bootstrap, each its own slice): `delete_worksheet` (verify via
 `get_worksheets`), `add_row` / `update_row` / `delete_row` / `add_table_row` (verify via
 `read_range` / `read_table_rows`). `export_sheet` stays policy-excluded (raw bytes).
+
+## 17. SMOKE-WRITE-38 — `microsoft-excel:delete_worksheet` AUTHORED + offline-validated, LIVE CERT BLOCKED by an unrelated engine WIP (2026-06-26)
+
+Authored the `delete_worksheet` fixture + a small reusable harness assertion, but the live
+attempt **could not run** because of a parallel session's in-flight execution-engine refactor.
+**No cert row added — `delete_worksheet` stays NOT_RUN.**
+
+**What shipped (offline-validated, committed):**
+- Fixture [tests/fixtures/action-smoke/microsoft-excel/delete_worksheet.ts](../../../../tests/fixtures/action-smoke/microsoft-excel/delete_worksheet.ts):
+  same SMOKE-WRITE-36 bootstrap, with a 2nd setup step. setup#1 uploads the minimal workbook
+  (seeded `Sheet1`); setup#2 `create_worksheet` adds a throwaway `"{{marker}}victim"` (so the
+  delete is not the last-sheet HTTP 400); execute `delete_worksheet` removes the victim; verify
+  independent `get_worksheets` proves the victim **ABSENT** + `count == 1` (the seeded `Sheet1`
+  survived, workbook still valid); cleanup whole-file `microsoft-onedrive:delete_item`. `destructiveSafe`.
+- New reusable verify assertion `expectAbsent: { path, value }`
+  ([contract.ts](../../../../tests/smoke-actions/contract.ts) + [writeHarness.ts](../../../../tests/smoke-actions/writeHarness.ts)):
+  the inverse of `markerPath`'s serialized-substring check — the (token-resolved) value must NOT
+  appear in the read-back at `path`. Proves a REMOVAL; generally useful for any delete verify.
+- Tests: new `excel-delete-worksheet` suite (shape + orchestration + both `expectAbsent`
+  directions + the survivor/`count` check + lock-retry). `tests/unit/smoke-actions` → **38 suites
+  / 434 tests pass**.
+
+**Live command (attempted):**
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
+SMOKE_PROVIDER=microsoft-excel SMOKE_MICROSOFT_EXCEL_CONNECTED=1 \
+SMOKE_MICROSOFT_ONEDRIVE_CONNECTED=1 npm run smoke:writes:live
+```
+
+**Live result — BLOCKED (engine, not the fixture):** all three Excel write fixtures FAILED at
+**setup**, before any provider call:
+```
+workflow_runs.createQueuedWorkflowRun failed: invalid input value for enum
+workflow_run_status: "queued"
+created 0 / cleaned 0 / remaining 0  (for create_worksheet, rename_worksheet, delete_worksheet)
+```
+The shared worktree currently holds another session's **uncommitted** "durable run queue"
+refactor (`services/execution/enqueue.ts`, `engine.ts`, `repositories/workflowRuns*`,
+`services/triggers/dispatch.ts`, new `services/execution/runQueueProcessor.ts`, migration
+`20260713000000_workflow_runs_durable_queue.sql`). The new `enqueue` inserts a `workflow_runs`
+row with `status = "queued"`, but that enum value **does not exist in the DB** because the
+migration is **unapplied** (and out of this lane — no `db:push`). So every run-row insert fails
+→ the engine never executes → no Excel/OneDrive call happens. This hit the **already-certified**
+`create_worksheet` + `rename_worksheet` identically, which proves it is a global engine blocker,
+NOT a `delete_worksheet` fixture defect.
+
+**Leak check:** the run-row insert fails *before* any handler runs, so nothing was uploaded
+(`created 0` ×3). Swept the OneDrive root for `crsmoke-` items anyway — found only **2 stragglers
+from last turn's bootstrap probe** (`crsmoke-probe-*.xlsx`, not this turn's `…workbook.xlsx`
+pattern), deleted them; re-swept → **0 remaining**. No leak from this run.
+
+**Created / cleaned / leaked:** 0 / 0 / 0 (no execution reached the provider).
+
+**Cert decision:** **NOT certified** (charter: no `LIVE_PASS` without a real passing live run with
+cleanup). **No cert row added.** Matrix: `delete_worksheet` MISSING_FIXTURE → **NOT_RUN** (fixture
+authored + registered). Totals now **298 registered / 127 LIVE_PASS / 23 not-run / 148 missing /
+0 fail / 0 bug**; microsoft-excel **13 / 7 / 1 / 5**.
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → 38 suites / 434 pass;
+`npx tsc --noEmit` → **my files clean** (the only tsc errors are in the parallel session's
+`tests/unit/services/execution/enqueue.test.ts`, the same `keepAlive`/`queued` WIP — not mine);
+eslint on touched files → 0; `npm run lint:structure` → OK; `--cert` → `delete_worksheet` NOT_RUN.
+**Nothing pushed.**
+
+**To certify (once the engine WIP lands):** when the durable-queue migration is applied and the
+`"queued"` enum exists (the other session's work, or a clean tree), re-run the scoped command
+above. The fixture + `expectAbsent` are ready; a green run (victim absent, count==1, 0 leaked)
+earns the `LIVE_PASS_CLEANED` row.

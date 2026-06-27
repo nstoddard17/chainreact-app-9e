@@ -581,6 +581,22 @@ function applyVerifyAssertions(
     });
     if (!hit) ok = false;
   }
+  if (step.expectAbsent) {
+    // Inverse of markerPath's serialized-substring check: the (token-resolved) value
+    // must NOT appear in the read-back at `path` — proves a REMOVAL (e.g. a deleted
+    // worksheet name is gone). path + value are token-resolved (env / marker / ledger).
+    const path = resolveScalarTokens(step.expectAbsent.path, marker, envLookup, ledger);
+    const value = resolveScalarTokens(step.expectAbsent.value, marker, envLookup, ledger);
+    const stillPresent = markerPresentAtPath(output, path, value);
+    phases.push({
+      phase: "verify",
+      outcome: stillPresent ? "failed" : "ok",
+      reason: stillPresent
+        ? `read-back ${path} still contains the value expected to be removed${label}`
+        : `read-back ${path} no longer contains the removed value${label}`,
+    });
+    if (stillPresent) ok = false;
+  }
   return ok;
 }
 
