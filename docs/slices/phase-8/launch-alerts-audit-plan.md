@@ -346,10 +346,18 @@ is **not** taken over or committed by this arc.
 
 ## 8. Blocked / follow-up items (honest)
 
-- **Queue backlog (B)** is **blocked-by-future-infra**: a true depth metric needs
-  the uncommitted durable-queue WIP (§0) to land. Interim alert = stuck-`running`
-  proxy. Follow-up: switch the reader to `status='queued'` depth + oldest age once
-  `20260713000000` is applied.
+- **Queue backlog (B) — NEXT launch-readiness step (no proxy, ever).** The real
+  queued-depth alert (`readQueueBacklog` → `status='queued'` depth + oldest age) is
+  **already built and wired**, just gated. DURABLE-QUEUE-1 (`b01341a72`, migration
+  `20260713000000`) now exists in the tree, so this is no longer "future infra" — it
+  is the immediate activation step:
+  1. Apply the durable-queue migration (`db:push`) so the `'queued'` enum exists.
+  2. Set `QUEUE_BACKLOG_MONITORING_ENABLED=true`.
+  3. (Done in this arc) `process-run-queue` cron is monitored for explicit-failure +
+     missing-run via its heartbeat.
+  Until step 1+2, the evaluator reports B `unmonitored:awaiting_durable_queue` —
+  **never green**, and a queue *reader failure* also degrades to unmonitored (not a
+  depth:0 false-healthy). No stuck-`running` proxy is or will be shipped.
 - **Billing reconciliation drift** (roadmap wording, broader than webhook failures)
   needs a parity-style reconciliation reader over `task_billing_events` /
   reservations; **out of scope for this slice** — flagged as a separate follow-up.

@@ -108,10 +108,15 @@ candidateCount, readerErrors, retention }`.
 
 ## Known limitations / follow-ups
 
+- **Queue backlog** is the **next** activation step, not a long-term deferral:
+  apply the DURABLE-QUEUE-1 migration + set `QUEUE_BACKLOG_MONITORING_ENABLED=true`
+  (see the section above). The reader, rule, and `process-run-queue` cron monitoring
+  are already built.
 - **Billing reconciliation drift** (ledger vs counters) is broader than webhook
   failures and is a separate follow-up — not covered here.
-- **process-run-queue** (the durable-queue cron) is not yet in the monitored-cron
-  list; add it once stable.
+- **Reader outages** (a signal reader throwing) degrade that category to "no signal"
+  and are surfaced in the per-tick `ops.alert.evaluated` log's `readerErrors` — they
+  are logged, not paged. A future evaluator-self-health meta-alert could page on them.
 - Provider failure attribution uses the workflow's current node map (approximation
   across edits; node ids/providers are stable).
 - A read-only ops dashboard is intentionally out of scope; alerts live in
