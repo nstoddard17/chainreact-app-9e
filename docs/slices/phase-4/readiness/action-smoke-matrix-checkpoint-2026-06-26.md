@@ -803,3 +803,54 @@ Nothing pushed.**
 `add_table_row` (needs a real Excel TABLE in the workbook — verify via `read_table_rows`);
 `export_sheet` stays policy-excluded (raw bytes). Once the `"queued"` enum exists, one scoped
 Excel write run live-certs the whole batch.
+
+## 21. SMOKE-WRITE-42 — `microsoft-excel:add_table_row` AUTHORED (NOT_RUN_READY); completes the offline Excel-write batch (2026-06-26)
+
+The LAST offline Excel write. `add_table_row` is now NOT_RUN_READY. **No live workflow smoke
+run; no cert row added** (the `"queued"` enum blocker persists — durable-queue migration
+committed upstream but unapplied to the DB).
+
+**`add_table_row` schema/setup semantics (inspected):** config is
+`{ workbookId, tableName, values (positional array | header-keyed record) }` — it appends one
+row to a NAMED Excel table (`POST /tables/{name}/rows`). There is **no `create_table` action or
+API wrapper**, so the table cannot be built by a harness setup step (and we don't add
+production actions just for smoke). **Resolution:** ship a dedicated **table-bearing** bootstrap
+workbook — a second frozen asset `MINIMAL_XLSX_WITH_TABLE_BASE64`
+([tests/smoke-actions/minimalXlsx.ts](../../../../tests/smoke-actions/minimalXlsx.ts)) with a
+`Sheet1` carrying a defined table `SmokeTable` (one column `Col`, header row + one benign
+NON-marker `seed` data row).
+
+**Table asset validated by a DIRECT-API probe** (not the blocked engine path):
+`scripts/trash/excel-table-bootstrap-probe.ts` uploaded the asset and confirmed Graph
+`tables` → `["SmokeTable"]`, `tables/SmokeTable/columns` → `["Col"]`, `tables/SmokeTable/rows`
+append (`index=1`) + list (`[["seed"],["crsmoke-probe-trow"]]`), then cleaned up (0 leaked). A
+first attempt with a header-ONLY table (`ref="A1:A1"`) was rejected by Graph ("something went
+wrong with this file"); a header + one seed data row (`ref="A1:A2"`) opens cleanly — that's the
+frozen asset. (Direct-API = the `refreshAndRetry` + API-wrapper path, NOT `enqueueRun`/the
+engine, so the durable-queue `"queued"` blocker doesn't apply; this is not the live workflow
+write smoke.)
+
+**Fixture plan** ([tests/fixtures/action-smoke/microsoft-excel/add_table_row.ts](../../../../tests/fixtures/action-smoke/microsoft-excel/add_table_row.ts)):
+- **setup** `onedrive:upload_file` — upload the table-bearing workbook, capture `itemId` → ledger `workbook`.
+- **execute** `excel:add_table_row` — `tableName: "SmokeTable"`, `values: ["{{marker}}trow"]`.
+- **verify** `excel:read_table_rows` (certified) — confirm the marker(+suffix `trow`) is present among the table rows; the seed row has no marker, so a no-op append fails.
+- **cleanup** `onedrive:delete_item` — whole-workbook delete (same provider; recycle-bin recoverable; bounded delete retry). `destructiveSafe`, target zero leaked. No harness change (reuses `markerPath`/`markerSuffix`).
+
+**Matrix:** `add_table_row` MISSING_FIXTURE → **NOT_RUN**. Totals now **298 registered / 127
+LIVE_PASS / 27 not-run / 144 missing / 0 fail / 0 bug**; microsoft-excel **13 / 7 / 5 / 1** (the
+5 NOT_RUN = `delete_worksheet` + `add_row` + `update_row` + `delete_row` + `add_table_row`; the
+last MISSING is `export_sheet`, policy-excluded raw bytes).
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **41 suites / 452 tests pass**
+(incl. the new `excel-add-table-row` suite + the table-asset validity check); `npx tsc --noEmit`
+→ **exit 0**; eslint on touched files → 0; `npm run lint:structure` → OK (removed my own temp
+probe byproducts to keep `scripts/trash` ≤ 50 — did not touch the historical arc trash);
+`--cert` → `add_table_row` NOT_RUN. **No live smoke run. Nothing pushed.**
+
+**Excel write surface — offline COMPLETE.** All 6 non-export Excel writes are authored:
+2 LIVE_PASS_CLEANED (`create_worksheet`, `rename_worksheet`) + 5 NOT_RUN_READY
+(`delete_worksheet`, `add_row`, `update_row`, `delete_row`, `add_table_row`). `export_sheet` is
+the only remaining MISSING (policy-excluded: raw bytes). Once the durable-queue migration is
+applied and the `"queued"` enum exists, ONE scoped Excel write run live-certs the five
+NOT_RUN_READY fixtures (re-confirming the two already-certified) and adds their
+`LIVE_PASS_CLEANED` rows — bringing microsoft-excel to 12/13 (export-excluded).
