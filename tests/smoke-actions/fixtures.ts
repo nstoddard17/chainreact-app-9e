@@ -108,6 +108,8 @@ import excelDeleteWorksheet from "@/tests/fixtures/action-smoke/microsoft-excel/
 import excelAddRow from "@/tests/fixtures/action-smoke/microsoft-excel/add_row";
 // SMOKE-WRITE-40 — Microsoft Excel update_row (same bootstrap; seeds header + data row).
 import excelUpdateRow from "@/tests/fixtures/action-smoke/microsoft-excel/update_row";
+// SMOKE-WRITE-41 — Microsoft Excel delete_row (same bootstrap; seeds 3 rows, proves shift).
+import excelDeleteRow from "@/tests/fixtures/action-smoke/microsoft-excel/delete_row";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -330,6 +332,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   excelDeleteWorksheet,
   excelAddRow,
   excelUpdateRow,
+  excelDeleteRow,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

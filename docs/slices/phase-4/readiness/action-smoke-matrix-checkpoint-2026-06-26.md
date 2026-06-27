@@ -764,3 +764,42 @@ exists, re-run the scoped Excel write smoke once to live-cert all three (plus re
 `create_worksheet` + `rename_worksheet`) and add their `LIVE_PASS_CLEANED` rows. Still
 authorable offline next: `delete_row` (verify via `read_range`), `add_table_row` (needs a table
 — verify via `read_table_rows`).
+
+## 20. SMOKE-WRITE-41 — `microsoft-excel:delete_row` AUTHORED (NOT_RUN_READY), live cert deferred (2026-06-26)
+
+Offline-only progress; the `"queued"` enum blocker still holds (durable-queue migration
+committed upstream but unapplied to the DB), so live write smokes still fail before provider
+execution. **No live run attempted; no cert row added.**
+
+**`delete_row` addressing semantics (inspected):** POSITION-based. Config is
+`{ workbookId, worksheetName, rowNumber (1-based) }`. The handler issues a single Graph DELETE
+against the full-row range `"{N}:{N}"` with `shift: "Up"` — it deletes the entire row at
+`rowNumber` and shifts subsequent rows up. **No header / usedRange read, no range mode, no
+search-then-delete** (V1's `deleteBy` / `startRow`-`endRow` / `matchColumn` are all dropped) —
+explicit single row number only.
+
+**Fixture plan** ([tests/fixtures/action-smoke/microsoft-excel/delete_row.ts](../../../../tests/fixtures/action-smoke/microsoft-excel/delete_row.ts)) —
+mirrors the certified `google-sheets:delete_row` 3-read shift proof, adapted to `read_range`'s
+matrix shape:
+- **setup#1** `onedrive:upload_file` — upload the minimal workbook (empty `Sheet1`), capture `itemId` → ledger `workbook`.
+- **setup#2-4** `excel:add_row` ×3 — seed A1 `"{{marker}}keep-before"`, A2 `"{{marker}}delete-me"`, A3 `"{{marker}}keep-after"`.
+- **execute** `excel:delete_row` `rowNumber: 2` — deletes row 2, shifts A3 up into A2.
+- **verify** `verifyAll` — three INDEPENDENT `read_range` reads that together pin exactly row 2: A1 marker(+suffix `keep-before`) (top unchanged); A2 marker(+suffix `keep-after`) (row 3 shifted up → row 2 removed); A1:A3 `expectAbsent "{{marker}}delete-me"` (the deleted value is gone from the whole column, not merely moved). A no-op leaves A2 == `delete-me` (fails the `keep-after` suffix + `expectAbsent`); deleting the wrong row fails A1 or A2.
+- **cleanup** `onedrive:delete_item` — delete the WHOLE workbook (same provider; recycle-bin recoverable; bounded delete retry absorbs a workbook-session lock).
+- `destructiveSafe`, smoke-owned throughout, target zero leaked. No harness change (reuses `verifyAll` + `markerSuffix` + the `expectAbsent` assertion added in §17).
+
+**Matrix:** `delete_row` MISSING_FIXTURE → **NOT_RUN**. Totals now **298 registered / 127
+LIVE_PASS / 26 not-run / 145 missing / 0 fail / 0 bug**; microsoft-excel **13 / 7 / 4 / 2** (the
+4 NOT_RUN = `delete_worksheet` + `add_row` + `update_row` + `delete_row`, all authored, all
+awaiting the engine unblock).
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **40 suites / 447 tests pass**
+(incl. the new `excel-delete-row` suite); `npx tsc --noEmit` → **exit 0**; eslint on touched
+files → 0; `npm run lint:structure` → OK; `--cert` → `delete_row` NOT_RUN. **No live smoke run.
+Nothing pushed.**
+
+**Cert-batch readiness:** FOUR NOT_RUN_READY Excel writes now queued (`delete_worksheet`,
+`add_row`, `update_row`, `delete_row`). The only Excel write left to author offline is
+`add_table_row` (needs a real Excel TABLE in the workbook — verify via `read_table_rows`);
+`export_sheet` stays policy-excluded (raw bytes). Once the `"queued"` enum exists, one scoped
+Excel write run live-certs the whole batch.
