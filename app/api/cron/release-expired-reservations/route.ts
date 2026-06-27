@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/services/cron/auth";
+import { withCronHeartbeat } from "@/services/observability/signalRecorders";
 import { releaseExpiredBillingReservations } from "@/services/billing/reserveReconcileBilling";
 
 /**
@@ -82,10 +83,12 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
+const wrapped = withCronHeartbeat("release-expired-reservations", handle);
+
 export async function GET(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }
 
 export async function POST(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }

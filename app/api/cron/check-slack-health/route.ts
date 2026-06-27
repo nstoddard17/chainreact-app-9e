@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/services/cron/auth";
+import { withCronHeartbeat } from "@/services/observability/signalRecorders";
 import { runSlackHealthCheck } from "@/services/integrations/slackHealthCheck";
 import { DEFAULT_BATCH_LIMIT } from "./constants";
 
@@ -83,10 +84,12 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
+const wrapped = withCronHeartbeat("check-slack-health", handle);
+
 export async function GET(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }
 
 export async function POST(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }

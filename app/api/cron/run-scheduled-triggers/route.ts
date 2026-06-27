@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/services/cron/auth";
+import { withCronHeartbeat } from "@/services/observability/signalRecorders";
 import { runScheduledTriggers } from "@/services/cron/runScheduledTriggers";
 // Side-effect import: forces all provider + native registrations at
 // module load. The native scheduledTrigger registration is included
@@ -55,10 +56,12 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
+const wrapped = withCronHeartbeat("run-scheduled-triggers", handle);
+
 export async function GET(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }
 
 export async function POST(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }

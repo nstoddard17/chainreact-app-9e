@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/services/cron/auth";
+import { withCronHeartbeat } from "@/services/observability/signalRecorders";
 import { cleanupExpiredFiles } from "@/services/files/cleanupExpiredFiles";
 
 /**
@@ -59,10 +60,12 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
+const wrapped = withCronHeartbeat("cleanup-workflow-files", handle);
+
 export async function GET(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }
 
 export async function POST(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }

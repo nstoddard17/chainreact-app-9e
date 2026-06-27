@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { handleStripeBillingWebhook } from "@/services/billing/stripeBillingWebhook";
+import { recordBillingWebhookFailure } from "@/services/observability/signalRecorders";
 
 /**
  * POST /api/webhooks/stripe-billing (Slice 4.BILLING-PLAN-METADATA-5 / CS-4).
@@ -32,12 +33,18 @@ export async function POST(request: Request): Promise<Response> {
     result = await handleStripeBillingWebhook(rawBody, signature);
   } catch {
     // Processing failure (DB/sync). 500 → Stripe retries; the event was NOT recorded.
+    // Record a safe ops signal (no payload/secret) so the ops-alert evaluator can
+    // surface a billing-webhook failure spike.
+    await recordBillingWebhookFailure("processing_error");
     return NextResponse.json({ error: "Webhook processing failed." }, { status: 500 });
   }
 
   if (result.ok) {
     return NextResponse.json({ received: true, outcome: result.outcome }, { status: 200 });
   }
+
+  // Record the safe failure reason (no payload/secret) for ops alerting.
+  await recordBillingWebhookFailure(result.reason);
 
   switch (result.reason) {
     case "not_configured":

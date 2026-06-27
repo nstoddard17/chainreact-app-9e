@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/services/cron/auth";
+import { withCronHeartbeat } from "@/services/observability/signalRecorders";
 import { runPollingTriggers } from "@/services/cron/runPollingTriggers";
 // Side-effect import: forces handler/activation registrations at module
 // load. The registry pattern (services/triggers/pollingRegistry.ts) is
@@ -56,10 +57,12 @@ async function handle(request: Request): Promise<Response> {
   }
 }
 
+const wrapped = withCronHeartbeat("poll-triggers", handle);
+
 export async function GET(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }
 
 export async function POST(request: Request): Promise<Response> {
-  return handle(request);
+  return wrapped(request);
 }
