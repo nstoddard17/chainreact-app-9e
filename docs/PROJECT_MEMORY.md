@@ -35,6 +35,20 @@
 
 ## Durable decisions
 
+- [2026-06-26] **Analytics is a user/business-value surface, not an ops console.**
+  NOT building the customer-facing "Workflow Health" / observability metrics slice
+  (`runs_by_status`, `p95_duration`, `failures_by_workflow`, reconnect/disconnected
+  counts) and NOT standing up a separate customer observability dashboard. Reasons:
+  duplicates existing Analytics metrics, or already visible on Apps (reconnect) /
+  Runs / builder run results, or operator-only. App health belongs on Apps, run
+  failures on Runs / builder. Platform observability (queue depth, cron failures,
+  dedup outages, OAuth refresh spikes, billing reconciliation drift, provider-wide
+  failure rates) stays internal/deferred until V2 has a real platform-owner authz
+  tier AND durable event ledgers (roadmap 8a/8b → external logs/Grafana, not
+  customer Analytics). Feasible ≠ worth building; the prior technical feasibility
+  audit is superseded. Do not re-propose unless Marcus reopens it. Docs-only; no
+  code/migration/flag/behavior change. Decision:
+  [analytics-observability-product-decision.md](./slices/phase-4/analytics/analytics-observability-product-decision.md).
 - [2026-06-21] **Internal billing entitlement is ACCOUNT-level, never user-level.**
   `account_billing.billing_mode` (`standard` default | `internal_free`) explicitly marks
   internal/test/employee/demo accounts. `internal_free` → the execution billing gate skips

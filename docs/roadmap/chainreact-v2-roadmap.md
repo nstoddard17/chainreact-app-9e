@@ -364,6 +364,8 @@ The denormalized cache `workspace_balances.task_pack_balance` must equal `sum(pa
 
 **8b — Alerting.** Pages on: cron job failures, queue depth growing, OAuth refresh failure rate spike per provider, billing reconciliation drift, dedup outage, error rate spike per workflow.
 
+> **Scope note [2026-06-26]:** 8a/8b observability + alerting are **internal/platform** concerns and stay external (structured logs → Grafana / equivalent, plus paging). They are **explicitly NOT customer-facing Analytics widgets.** Marcus decided we are not adding `runs_by_status`, `p95_duration`, `failures_by_workflow`, reconnect/disconnected counts, queue depth, cron failures, OAuth refresh failures, or provider-wide failure rates to the customer Analytics page, and not standing up a separate customer observability dashboard right now. Platform observability stays internal/deferred until V2 has a real platform-owner authorization tier AND durable event ledgers. Customer Analytics stays a user/business-value surface; app health belongs on Apps, run failures on Runs / builder run results. See [analytics-observability-product-decision.md](../slices/phase-4/analytics/analytics-observability-product-decision.md).
+
 **8c — Runbooks.** Per-provider OAuth re-issuance steps. Per-cron-job pause/resume. Database migration rollback procedure. "User's workflows aren't firing" triage guide.
 
 **8d — Cron wiring.** Currently only Gmail polling cron is wired in `vercel.json`. Wire every polling provider + renewal cron + report-overage cron + usage-alerts cron + clean-session-side-effects cron + reset-task-usage cron.

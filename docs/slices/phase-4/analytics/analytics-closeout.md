@@ -7,6 +7,17 @@ dark-dashboard tokens and wired to real account data.
 Commits: `c76f5499e` (backend data engine), `9505eb2ee` (UI), plus the closeout
 fixes commit (this pass). Local only — not pushed.
 
+## Observability / ops widgets — product decision (do not build)
+
+> [2026-06-26] Marcus decided Analytics will **not** add a customer-facing
+> "Workflow Health" / observability metrics slice (`runs_by_status`,
+> `p95_duration`, `failures_by_workflow`, reconnect/disconnected counts) and will
+> **not** stand up a separate observability dashboard right now. Customer Analytics
+> stays a user/business-value surface, not an ops console; app health lives on Apps,
+> run failures live on Runs / builder run results, and platform observability stays
+> internal/deferred. Do not re-propose these unless Marcus reopens it. Full rationale:
+> [analytics-observability-product-decision.md](./analytics-observability-product-decision.md).
+
 ## What is real
 
 All rendered values are real, account-scoped aggregates computed at read time from
