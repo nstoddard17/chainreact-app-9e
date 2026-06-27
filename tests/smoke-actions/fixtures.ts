@@ -98,6 +98,8 @@ import onenoteCreatePage from "@/tests/fixtures/action-smoke/microsoft-onenote/c
 import onenoteUpdatePage from "@/tests/fixtures/action-smoke/microsoft-onenote/update_page";
 import onenoteDeletePage from "@/tests/fixtures/action-smoke/microsoft-onenote/delete_page";
 import onenoteCopyPage from "@/tests/fixtures/action-smoke/microsoft-onenote/copy_page";
+// SMOKE-WRITE-36 — Microsoft Excel write (smoke-owned workbook via OneDrive upload).
+import excelCreateWorksheet from "@/tests/fixtures/action-smoke/microsoft-excel/create_worksheet";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -315,6 +317,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   onenoteUpdatePage,
   onenoteDeletePage,
   onenoteCopyPage,
+  excelCreateWorksheet,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

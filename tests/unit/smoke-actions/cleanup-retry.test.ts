@@ -20,6 +20,7 @@
 import type { ActionSmokeFixture } from "@/tests/smoke-actions/contract";
 import { WRITE_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
 import {
+  ONEDRIVE_ITEM_DELETE_RETRY,
   ONENOTE_PAGE_DELETE_RETRY,
   cleanupRetryPolicyFor,
   isNotFoundReason,
@@ -55,8 +56,12 @@ function scriptedStep(outcomes: readonly StepRunOutcome[]): {
 // ─── A. policy selection + reason classification ──────────────────────────────
 
 describe("cleanupRetryPolicyFor", () => {
-  it("returns the OneNote budget ONLY for microsoft-onenote:delete_page", () => {
+  it("returns the OneNote budget for microsoft-onenote:delete_page", () => {
     expect(cleanupRetryPolicyFor("microsoft-onenote", "delete_page")).toBe(ONENOTE_PAGE_DELETE_RETRY);
+  });
+
+  it("returns the OneDrive budget for microsoft-onedrive:delete_item", () => {
+    expect(cleanupRetryPolicyFor("microsoft-onedrive", "delete_item")).toBe(ONEDRIVE_ITEM_DELETE_RETRY);
   });
 
   it("returns null for every other provider/action (non-eligible -> single attempt)", () => {
@@ -64,12 +69,15 @@ describe("cleanupRetryPolicyFor", () => {
     expect(cleanupRetryPolicyFor("airtable", "delete_record")).toBeNull();
     expect(cleanupRetryPolicyFor("google-drive", "delete_file")).toBeNull();
     expect(cleanupRetryPolicyFor("trello", "delete_page")).toBeNull();
+    expect(cleanupRetryPolicyFor("microsoft-onedrive", "move_item")).toBeNull();
   });
 
-  it("the OneNote budget is small + bounded (sanity on the constant)", () => {
-    expect(ONENOTE_PAGE_DELETE_RETRY.maxAttempts).toBeGreaterThanOrEqual(2);
-    expect(ONENOTE_PAGE_DELETE_RETRY.maxAttempts).toBeLessThanOrEqual(5);
-    expect(ONENOTE_PAGE_DELETE_RETRY.totalWaitCapMs).toBeLessThanOrEqual(5000);
+  it("both budgets are small + bounded (sanity on the constants)", () => {
+    for (const p of [ONENOTE_PAGE_DELETE_RETRY, ONEDRIVE_ITEM_DELETE_RETRY]) {
+      expect(p.maxAttempts).toBeGreaterThanOrEqual(2);
+      expect(p.maxAttempts).toBeLessThanOrEqual(5);
+      expect(p.totalWaitCapMs).toBeLessThanOrEqual(6000);
+    }
   });
 });
 

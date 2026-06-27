@@ -38,6 +38,7 @@ const SMOKE_WRITE_SHEETS_DELETE = "2026-06-25";
 const SMOKE_WRITE_COPY = "2026-06-25";
 const SMOKE_WRITE_ONENOTE = "2026-06-25";
 const SMOKE_WRITE_GDOCS = "2026-06-26";
+const SMOKE_WRITE_EXCEL = "2026-06-26";
 const LIVE_NATIVE = "2026-06-26";
 const LIVE_DROPBOX_SEARCH = "2026-06-26";
 
@@ -479,6 +480,23 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // policy-excluded.
   ...records("LIVE_PASS_CLEANED", "live create doc + append update + independent read-back, whole doc hard-deleted via cross-provider Drive delete", SMOKE_WRITE_GDOCS, [
     ["google-docs", "update_document"],
+  ]),
+  // SMOKE-WRITE-36 — Microsoft Excel create_worksheet. Excel has no create_workbook
+  // action, so the smoke brings its OWN smoke-owned workbook: setup uploads a frozen
+  // minimal .xlsx (one "Sheet1", 1898 bytes, hand-built OOXML — verified live as
+  // openable by Graph's workbook API) via the certified microsoft-onedrive:upload_file
+  // (inline base64), capturing the drive-item id as the workbookId. execute
+  // create_worksheet adds a "<marker>ws" sheet -> INDEPENDENT excel:get_worksheets
+  // read-back confirms the marker(+suffix "ws") on a persisted worksheet name (the
+  // seeded "Sheet1" lacks the marker, so a no-op fails; the handler echo is never
+  // trusted) -> the WHOLE workbook file is removed via microsoft-onedrive:delete_item
+  // (SAME provider that created it — not cross-provider). Live-verified end to end
+  // (created 1 / cleaned 1 / 0 leaked). HONESTY: delete_item moves the file to the
+  // OneDrive recycle bin (recoverable), not a hard erase — it is gone from the active
+  // drive (get/list 404s). A workbook-session delete lock is absorbed by the bounded
+  // OneDrive delete retry (smoke-harness only).
+  ...records("LIVE_PASS_CLEANED", "live upload smoke workbook + add worksheet + independent get_worksheets read-back, whole workbook deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_EXCEL, [
+    ["microsoft-excel", "create_worksheet"],
   ]),
   // SMOKE-ACTIONS-NATIVE-CERT — the native logic actions live-verified via the
   // workflow-live read sweep (SMOKE_PROVIDER=native): each ran as a real TERMINAL

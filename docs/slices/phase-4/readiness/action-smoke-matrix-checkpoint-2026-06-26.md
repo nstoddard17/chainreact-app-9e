@@ -506,3 +506,67 @@ pass** (incl. the 23 new cleanup-retry tests); `npx tsc --noEmit` → exit 0; es
 touched files → 0; `npm run lint:structure` → OK; `npm run chainreact -- smoke actions
 --cert` → matrix **unchanged** (`copy_page` NOT_RUN; **125 LIVE_PASS / 22 not-run / 151
 missing / 0 fail / 0 bug**). **Nothing pushed.**
+
+## 15. SMOKE-WRITE-36 — `microsoft-excel:create_worksheet` LIVE-CERTIFIED (2026-06-26)
+
+Next safe MISSING_FIXTURE batch after parking `copy_page`. **`microsoft-excel:create_worksheet`
+is now `LIVE_PASS_CLEANED`.** This is the first Excel WRITE cert and unlocks the Excel-write
+bootstrap pattern (a hand-built minimal workbook) for the remaining Excel writes.
+
+**Why this action (smallest safe Excel write):**
+- Excel has **no `create_workbook` action**, so an Excel write must bring its own smoke-owned
+  workbook. `create_worksheet` is the smallest action with a clean **independent** verify
+  (`get_worksheets`, already `LIVE_PASS`) and a fully smoke-owned **whole-file** cleanup. It
+  mutates only a throwaway workbook, never user/customer data; no send/broadcast/billing/sharing.
+
+**Bootstrap pattern (new, reusable):**
+- Setup uploads a **frozen minimal `.xlsx`** ([tests/smoke-actions/minimalXlsx.ts](../../../../tests/smoke-actions/minimalXlsx.ts)
+  — 1898-byte hand-built OOXML, one `Sheet1`, no deps) via the certified
+  `microsoft-onedrive:upload_file` (inline base64), capturing the drive-item id as the
+  `workbookId`. A live probe confirmed Graph's workbook API **opens** it (`worksheets` →
+  `["Sheet1"]`, `worksheets/add` succeeds).
+- Execute `create_worksheet` adds `"{{marker}}ws"`; verify reads `get_worksheets` and confirms
+  the marker(+suffix `ws`) on a persisted worksheet name; cleanup deletes the **whole workbook**
+  via `microsoft-onedrive:delete_item` (SAME provider that created it — **not** cross-provider).
+- Fixture: [tests/fixtures/action-smoke/microsoft-excel/create_worksheet.ts](../../../../tests/fixtures/action-smoke/microsoft-excel/create_worksheet.ts).
+
+**Harness change (small, justified by the probe):** extended the bounded cleanup retry
+([cleanupRetry.ts](../../../../tests/smoke-actions/cleanupRetry.ts)) to also cover
+`microsoft-onedrive:delete_item` (`ONEDRIVE_ITEM_DELETE_RETRY` = 5 attempts / 1500ms / 6s cap).
+The probe showed Graph briefly **locks** a file with a just-closed workbook session
+(`DELETE … resource is locked`); the bounded retry absorbs it. A clean delete still succeeds on
+attempt 1, so no existing OneDrive delete cert regresses. (404-on-smoke-owned → already_cleaned
+applies to OneDrive too.)
+
+**Live command:**
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
+SMOKE_PROVIDER=microsoft-excel SMOKE_MICROSOFT_EXCEL_CONNECTED=1 \
+SMOKE_MICROSOFT_ONEDRIVE_CONNECTED=1 npm run smoke:writes:live
+```
+
+**Live result — PASS, 0 leaked:**
+```
+PASS  microsoft-excel:create_worksheet [destructiveSafe]
+    setup ok · execute ok · verify ok · verify ok — marker confirmed on read-back · cleanup ok
+    created 1 / cleaned 1 / remaining 0 (workbook) | artifact: cleaned
+```
+(The read-after-write lag the probe saw on an immediate re-list did not materialize through the
+harness — each phase is its own workflow run, so the inter-step latency covers it. The delete
+needed no retry this run.) **Created 1 / cleaned 1 / leaked 0.**
+
+**Cert row added** (`SMOKE-WRITE-36`, `LIVE_PASS_CLEANED`, 2026-06-26; recycle-bin recoverable
+semantics disclosed). **Matrix:** `create_worksheet` MISSING_FIXTURE → LIVE_PASS. Totals now
+**298 registered / 126 LIVE_PASS / 22 not-run / 150 missing / 0 fail / 0 bug**; microsoft-excel
+**13 / 6 / 0 / 7**.
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **36 suites / 425 tests pass**
+(incl. the new `excel-create-worksheet` suite + extended cleanup-retry tests); `npx tsc --noEmit`
+→ exit 0; eslint on touched files → 0; `npm run lint:structure` → OK; `--cert` →
+`PASS_CLEAN microsoft-excel:create_worksheet`. **Nothing pushed.**
+
+**Next Excel writes unblocked by this pattern** (each its own slice): `rename_worksheet`,
+`delete_worksheet` (verify via `get_worksheets`), `add_row` / `update_row` / `delete_row` /
+`add_table_row` (verify via `read_range` / `read_table_rows`). `export_sheet` stays
+policy-excluded (raw bytes).

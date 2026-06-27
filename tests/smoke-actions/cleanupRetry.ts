@@ -51,10 +51,25 @@ export const ONENOTE_PAGE_DELETE_RETRY: CleanupRetryPolicy = {
 };
 
 /**
+ * OneDrive item-delete cleanup budget: 5 attempts, 1500ms backoff, 6s total cap.
+ * Absorbs the workbook-session LOCK window after an Excel edit — Graph briefly refuses
+ * `DELETE /me/drive/items/{id}` ("resource is locked") for a file with a just-closed
+ * workbook session (verified live in the Excel-bootstrap probe). A plain file delete
+ * succeeds first try (no retry burned); only the locked/lagging case waits, bounded.
+ */
+export const ONEDRIVE_ITEM_DELETE_RETRY: CleanupRetryPolicy = {
+  maxAttempts: 5,
+  backoffMs: 1500,
+  totalWaitCapMs: 6000,
+};
+
+/**
  * The retry policy for a cleanup step, or null when the step is NOT eligible (its
- * cleanup keeps the exact single-attempt, no-404-special-casing behavior). Only
- * `microsoft-onenote:delete_page` is eligible — the one provider/action with a
- * known create→delete propagation-lag window in the smoke environment.
+ * cleanup keeps the exact single-attempt, no-404-special-casing behavior). Eligible:
+ *   - `microsoft-onenote:delete_page` — create→delete propagation-lag window.
+ *   - `microsoft-onedrive:delete_item` — workbook-session lock after an Excel edit
+ *     (and a benign hedge for the general upload→delete lag; a clean delete still
+ *     succeeds on attempt 1, so no existing OneDrive delete cert regresses).
  */
 export function cleanupRetryPolicyFor(
   provider: string,
@@ -62,6 +77,9 @@ export function cleanupRetryPolicyFor(
 ): CleanupRetryPolicy | null {
   if (provider === "microsoft-onenote" && action === "delete_page") {
     return ONENOTE_PAGE_DELETE_RETRY;
+  }
+  if (provider === "microsoft-onedrive" && action === "delete_item") {
+    return ONEDRIVE_ITEM_DELETE_RETRY;
   }
   return null;
 }
