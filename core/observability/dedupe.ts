@@ -60,3 +60,46 @@ export function selectResolvedAlerts(
   const activeKeys = new Set(currentCandidates.map((c) => c.dedupeKey));
   return openAlerts.filter((a) => !activeKeys.has(a.dedupeKey));
 }
+
+/**
+ * Pure reconciliation plan: given the current breaching candidates and the open
+ * alert rows, bucket each candidate into fire / deliver / suppress and collect
+ * the open alerts to resolve. No DB, no clock — the evaluator service executes
+ * the plan. This is the unit-testable heart of "no duplicate alert spam".
+ */
+export interface AlertReconciliationPlan {
+  toFire: OpsAlertCandidate[];
+  toDeliver: { existing: OpsAlertEventRecord; candidate: OpsAlertCandidate; escalated: boolean }[];
+  toSuppress: { existing: OpsAlertEventRecord; candidate: OpsAlertCandidate }[];
+  toResolve: OpsAlertEventRecord[];
+}
+
+export function planAlertReconciliation(params: {
+  candidates: readonly OpsAlertCandidate[];
+  openAlerts: readonly OpsAlertEventRecord[];
+  nowMs: number;
+  cooldownMinutes: number;
+}): AlertReconciliationPlan {
+  const { candidates, openAlerts, nowMs, cooldownMinutes } = params;
+  const openByKey = new Map(openAlerts.map((a) => [a.dedupeKey, a]));
+
+  const plan: AlertReconciliationPlan = {
+    toFire: [],
+    toDeliver: [],
+    toSuppress: [],
+    toResolve: selectResolvedAlerts(openAlerts, candidates),
+  };
+
+  for (const candidate of candidates) {
+    const existing = openByKey.get(candidate.dedupeKey) ?? null;
+    const decision = decideDedupe({ candidate, existingOpen: existing, nowMs, cooldownMinutes });
+    if (decision.action === "fire") {
+      plan.toFire.push(candidate);
+    } else if (decision.action === "deliver") {
+      plan.toDeliver.push({ existing: existing!, candidate, escalated: decision.escalated });
+    } else {
+      plan.toSuppress.push({ existing: existing!, candidate });
+    }
+  }
+  return plan;
+}

@@ -5,7 +5,11 @@
  * once per cooldown window, but a severity escalation re-delivers immediately, and
  * a cleared condition resolves its open alert.
  */
-import { decideDedupe, selectResolvedAlerts } from "@/core/observability/dedupe";
+import {
+  decideDedupe,
+  planAlertReconciliation,
+  selectResolvedAlerts,
+} from "@/core/observability/dedupe";
 import type { OpsAlertCandidate, OpsAlertEventRecord } from "@/contracts/opsAlert";
 
 const COOLDOWN = 60; // minutes
@@ -98,5 +102,33 @@ describe("selectResolvedAlerts", () => {
     const open = [openRecord({ dedupeKey: "provider_failure_rate:slack" })];
     const stillBreaching = [candidate({ dedupeKey: "provider_failure_rate:slack" })];
     expect(selectResolvedAlerts(open, stillBreaching)).toEqual([]);
+  });
+});
+
+describe("planAlertReconciliation", () => {
+  it("buckets fire (new), suppress (within cooldown), and resolve (cleared) in one pass", () => {
+    const candidates = [
+      candidate({ dedupeKey: "cron_failures:poll-triggers", category: "cron_failures" }), // new → fire
+      candidate({ dedupeKey: "provider_failure_rate:slack" }), // existing, within cooldown → suppress
+    ];
+    const openAlerts = [
+      openRecord({ id: "open-slack", dedupeKey: "provider_failure_rate:slack", lastDeliveredAt: "2026-06-26T11:55:00.000Z" }),
+      openRecord({ id: "open-stale", dedupeKey: "oauth_refresh_failures:google" }), // not breaching now → resolve
+    ];
+    const plan = planAlertReconciliation({ candidates, openAlerts, nowMs: NOW, cooldownMinutes: COOLDOWN });
+    expect(plan.toFire.map((c) => c.dedupeKey)).toEqual(["cron_failures:poll-triggers"]);
+    expect(plan.toSuppress.map((s) => s.existing.id)).toEqual(["open-slack"]);
+    expect(plan.toDeliver).toEqual([]);
+    expect(plan.toResolve.map((r) => r.id)).toEqual(["open-stale"]);
+  });
+
+  it("re-delivers an existing alert when its cooldown has elapsed", () => {
+    const candidates = [candidate({ dedupeKey: "provider_failure_rate:slack" })];
+    const openAlerts = [
+      openRecord({ id: "open-slack", dedupeKey: "provider_failure_rate:slack", lastDeliveredAt: "2026-06-26T10:30:00.000Z" }),
+    ];
+    const plan = planAlertReconciliation({ candidates, openAlerts, nowMs: NOW, cooldownMinutes: COOLDOWN });
+    expect(plan.toDeliver.map((d) => d.existing.id)).toEqual(["open-slack"]);
+    expect(plan.toSuppress).toEqual([]);
   });
 });
