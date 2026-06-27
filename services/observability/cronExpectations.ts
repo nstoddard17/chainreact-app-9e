@@ -19,6 +19,7 @@ export const MONITORED_CRONS: readonly MonitoredCron[] = [
   { name: "run-scheduled-triggers", expectedIntervalMinutes: 1 },
   { name: "renew-watch-subscriptions", expectedIntervalMinutes: 10 },
   { name: "sweep-stale-runs", expectedIntervalMinutes: 10 },
+  { name: "process-run-queue", expectedIntervalMinutes: 1 },
   { name: "release-expired-reservations", expectedIntervalMinutes: 10 },
   { name: "check-slack-health", expectedIntervalMinutes: 360 },
   { name: "cleanup-workflow-files", expectedIntervalMinutes: 1440 },

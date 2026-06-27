@@ -119,7 +119,10 @@ async function buildSnapshot(
   const queue = await safe(
     "queueBacklog",
     () => deps.readers.queueBacklog(deps.queueMonitoringEnabled, deps.nowIso),
-    { monitored: deps.queueMonitoringEnabled, depth: 0, oldestAgeMinutes: null },
+    // On a reader failure report UNMONITORED (never green): a depth:0 fallback with
+    // monitored:true would read as a healthy-empty queue while the signal is actually
+    // missing. Unmonitored + a readerErrors entry is the honest degradation.
+    { monitored: false, depth: 0, oldestAgeMinutes: null },
   );
   const billingWebhookFailures = await safe(
     "billingWebhookFailures",
