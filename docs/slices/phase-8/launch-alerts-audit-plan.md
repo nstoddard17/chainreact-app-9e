@@ -1,6 +1,12 @@
 # Launch Alerts — Audit + Implementation Plan (Phase 8b)
 
-> **Status:** Audit only (Slice A). No code written yet. This doc is the source of
+> **Status (updated):** Slices A–F IMPLEMENTED locally (commits OPS-ALERTS-AB / C /
+> D / E + this closeout; not pushed). Runbook: [`../../runbooks/ops-alerts.md`](../../runbooks/ops-alerts.md).
+> All six categories are live except queue backlog (B), which is the real
+> queued-depth alert gated behind `QUEUE_BACKLOG_MONITORING_ENABLED` until the
+> durable-queue migration is applied (reported `unmonitored`, never green). Ops
+> steps for Marcus: apply the two ops migrations (`db:push`), optionally set
+> `OPS_ALERT_WEBHOOK_URL`, deploy (adds the every-5-min cron). This doc is the source of
 > truth for the pre-launch internal/owner alerting work and maps directly to
 > roadmap [Phase 8b — Alerting](../../roadmap/chainreact-v2-roadmap.md#phase-8--ops-docs-testing-launch-readiness):
 > _"Pages on: cron job failures, queue depth growing, OAuth refresh failure rate
