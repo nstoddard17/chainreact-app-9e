@@ -721,3 +721,46 @@ smoke run. Nothing pushed.**
 lands): `delete_worksheet` (§17) + `add_row` (this section). Still MISSING and authorable
 offline next: `update_row` / `delete_row` (verify via `read_range`), `add_table_row` (needs a
 table — verify via `read_table_rows`). `export_sheet` stays policy-excluded (raw bytes).
+
+## 19. SMOKE-WRITE-40 — `microsoft-excel:update_row` AUTHORED (NOT_RUN_READY), live cert deferred (2026-06-26)
+
+Offline-only progress; the durable-queue work has since **committed** (`b01341a72`
+DURABLE-QUEUE-1) but its migration `20260713000000_workflow_runs_durable_queue.sql` is **not
+applied to the DB** (no `db:push` in this lane), so the runtime `"queued"` enum blocker
+persists and live write smokes still fail before provider execution. **No live run attempted;
+no cert row added.**
+
+**`update_row` addressing semantics (inspected):** HEADER-based. Config is
+`{ workbookId, worksheetName, rowNumber (1-based), values: Record<columnHeader, cellValue> }`.
+The handler reads **row 1 as headers**, maps each `values` key (a column header NAME) to a
+column letter, merges over the existing row, and PATCHes `rowNumber`. Unknown column keys throw
+(no silent skip/create). It does **not** support V1's search-then-update (`matchColumn`/`matchValue`)
+— explicit row number only. So a header row + a data row must exist before the update.
+
+**Fixture plan** ([tests/fixtures/action-smoke/microsoft-excel/update_row.ts](../../../../tests/fixtures/action-smoke/microsoft-excel/update_row.ts)):
+- **setup#1** `onedrive:upload_file` — upload the minimal workbook (empty `Sheet1`), capture `itemId` → ledger `workbook`.
+- **setup#2** `excel:add_row` — write the header row `["Col"]` at A1 (empty sheet → A1).
+- **setup#3** `excel:add_row` — append the SEED data row `["{{marker}}seed"]` at A2 (used range now has the header → row 2).
+- **execute** `excel:update_row` — `rowNumber: 2`, `values: { Col: "{{marker}}updated" }`.
+- **verify** `excel:read_range` (certified) — read `A2`, confirm marker(+suffix `updated`) on the cell `values`. The SEED (`{{marker}}seed`) carries the run marker but NOT `updated`, so a no-op update FAILS — the `markerSuffix` distinguishes the update from the seed.
+- **cleanup** `onedrive:delete_item` — delete the WHOLE workbook (same provider; recycle-bin recoverable; bounded delete retry absorbs a workbook-session lock).
+- `destructiveSafe`, smoke-owned throughout, target zero leaked. No harness change (reuses `markerPath`/`markerSuffix`).
+
+**Matrix:** `update_row` MISSING_FIXTURE → **NOT_RUN**. Totals now **298 registered / 127
+LIVE_PASS / 25 not-run / 146 missing / 0 fail / 0 bug**; microsoft-excel **13 / 7 / 3 / 3** (the
+3 NOT_RUN = `delete_worksheet` + `add_row` + `update_row`, all authored, all awaiting the engine
+unblock).
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **39 suites / 442 tests pass**
+(incl. the new `excel-update-row` suite); `npx tsc --noEmit` → **exit 0** (the parallel
+durable-queue WIP committed + its `enqueue.test.ts` type mismatch is resolved, so the tree
+type-checks clean again — but the migration is still unapplied, so the runtime blocker remains);
+eslint on touched files → 0; `npm run lint:structure` → OK; `--cert` → `update_row` NOT_RUN.
+**No live smoke run. Nothing pushed.**
+
+**Cert-batch readiness:** three NOT_RUN_READY Excel writes now queued (`delete_worksheet`,
+`add_row`, `update_row`). Once the durable-queue migration is applied and the `"queued"` enum
+exists, re-run the scoped Excel write smoke once to live-cert all three (plus re-confirm
+`create_worksheet` + `rename_worksheet`) and add their `LIVE_PASS_CLEANED` rows. Still
+authorable offline next: `delete_row` (verify via `read_range`), `add_table_row` (needs a table
+— verify via `read_table_rows`).
