@@ -684,3 +684,40 @@ eslint on touched files → 0; `npm run lint:structure` → OK; `--cert` → `de
 `"queued"` enum exists (the other session's work, or a clean tree), re-run the scoped command
 above. The fixture + `expectAbsent` are ready; a green run (victim absent, count==1, 0 leaked)
 earns the `LIVE_PASS_CLEANED` row.
+
+## 18. SMOKE-WRITE-39 — `microsoft-excel:add_row` AUTHORED (NOT_RUN_READY), live cert intentionally deferred (2026-06-26)
+
+Offline-only progress while the durable-queue enum blocker (§17) persists. Authored the
+`add_row` fixture and moved it MISSING_FIXTURE → NOT_RUN. **No live run attempted; no cert row
+added** (per the standing instruction: do not run live workflow smokes while the `"queued"`
+enum blocker exists).
+
+**Why `add_row` (the recommended next, and independently verifiable WITHOUT a table):** the
+single-row positional mode (`values: [...]`) appends at A1 when the worksheet's used range is
+empty — and the frozen minimal `.xlsx` seeds an empty `Sheet1`. So no table / header setup is
+needed and the appended row lands deterministically at A1:B1, provable by the **certified**
+`read_range` (A1) read-back. (The batch `rows:` mode needs headers; the single `values:` mode
+does not — so `add_row` is the smallest safe row write, no `add_table_row` table scaffolding
+required.)
+
+**Fixture plan** ([tests/fixtures/action-smoke/microsoft-excel/add_row.ts](../../../../tests/fixtures/action-smoke/microsoft-excel/add_row.ts)):
+- **setup** `onedrive:upload_file` — upload the minimal workbook (empty `Sheet1`), capture `itemId` → ledger `workbook`.
+- **execute** `excel:add_row` — append `["{{marker}}row", "x"]` to `Sheet1` (empty used range → lands at A1:B1).
+- **verify** `excel:read_range` (certified `LIVE_PASS`) — read `A1`, confirm the marker(+suffix `row`) on the persisted cell `values` (an un-appended sheet has no marker → a no-op fails).
+- **cleanup** `onedrive:delete_item` — delete the WHOLE workbook file (same provider; recycle-bin recoverable; bounded delete retry absorbs a workbook-session lock).
+- `destructiveSafe`, smoke-owned throughout, target zero leaked.
+
+**Matrix:** `add_row` MISSING_FIXTURE → **NOT_RUN**. Totals now **298 registered / 127 LIVE_PASS
+/ 24 not-run / 147 missing / 0 fail / 0 bug**; microsoft-excel **13 / 7 / 2 / 4** (the 2 NOT_RUN
+= `delete_worksheet` + `add_row`, both authored, both awaiting the engine unblock).
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **38 suites / 438 tests pass**
+(incl. the new `excel-add-row` suite); `npx tsc --noEmit` → **my files clean** (the only tsc
+errors remain in the parallel session's `enqueue.test.ts` durable-queue WIP — not mine); eslint
+on touched files → 0; `npm run lint:structure` → OK; `--cert` → `add_row` NOT_RUN. **No live
+smoke run. Nothing pushed.**
+
+**Queued NOT_RUN_READY Excel writes** (author offline now, cert as a batch once the engine WIP
+lands): `delete_worksheet` (§17) + `add_row` (this section). Still MISSING and authorable
+offline next: `update_row` / `delete_row` (verify via `read_range`), `add_table_row` (needs a
+table — verify via `read_table_rows`). `export_sheet` stays policy-excluded (raw bytes).

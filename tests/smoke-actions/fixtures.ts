@@ -104,6 +104,8 @@ import excelCreateWorksheet from "@/tests/fixtures/action-smoke/microsoft-excel/
 import excelRenameWorksheet from "@/tests/fixtures/action-smoke/microsoft-excel/rename_worksheet";
 // SMOKE-WRITE-38 — Microsoft Excel delete_worksheet (same bootstrap; seeds a 2nd sheet).
 import excelDeleteWorksheet from "@/tests/fixtures/action-smoke/microsoft-excel/delete_worksheet";
+// SMOKE-WRITE-39 — Microsoft Excel add_row (same bootstrap; appends to empty Sheet1).
+import excelAddRow from "@/tests/fixtures/action-smoke/microsoft-excel/add_row";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -324,6 +326,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   excelCreateWorksheet,
   excelRenameWorksheet,
   excelDeleteWorksheet,
+  excelAddRow,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,
