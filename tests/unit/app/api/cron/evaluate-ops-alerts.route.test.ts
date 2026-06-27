@@ -13,7 +13,7 @@ const mockEvaluate = jest.fn();
 const mockBuildDeps = jest.fn(() => ({ __deps: true }));
 jest.mock("@/services/observability/opsAlertEvaluator", () => ({
   evaluateOpsAlerts: (...args: unknown[]) => mockEvaluate(...args),
-  buildDefaultDeps: (...args: unknown[]) => mockBuildDeps(...args),
+  buildDefaultDeps: () => mockBuildDeps(),
 }));
 
 const mockRecord = jest.fn();

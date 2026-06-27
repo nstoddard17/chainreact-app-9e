@@ -44,7 +44,7 @@ describe("deliverOpsAlert", () => {
   });
 
   it("POSTs to the configured webhook and reports success on 2xx", async () => {
-    const fetchMock = jest.fn(async (_url: string, _init: RequestInit) => ({ ok: true, status: 200 }));
+    const fetchMock = jest.fn(async (_url: string, _init: { body?: string }) => ({ ok: true, status: 200 }));
     global.fetch = fetchMock as unknown as typeof fetch;
     const result = await deliverOpsAlert(candidate(), { OPS_ALERT_WEBHOOK_URL: "https://hook.example/x" });
     expect(result).toEqual({ logged: true, webhookDelivered: true });
