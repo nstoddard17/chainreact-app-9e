@@ -12,9 +12,9 @@
  *                            and the established dev-DB test pattern
  *                            (reserveReconcileEngine.dev.test.ts) seeds the same
  *                            way.
- *   - runManualAndAwait    → `enqueueRun` (the exact service the run-now route
- *                            calls) + await the engine promise via the keepAlive
- *                            seam, so the run is terminal before we read it.
+ *   - runManualAndAwait    → `enqueueRun` + `processQueuedRun` (the exact durable
+ *                            path the run-now route uses) awaited inline, so the
+ *                            run is terminal before we read it.
  *   - readRun              → `workflowRuns.getById` (existing service-role,
  *                            terminal-only repo read), projected to SAFE fields.
  *   - cleanupSmokeWorkflow → service-role soft-delete (state='deleted'). Lifecycle-
@@ -32,6 +32,7 @@ import {
   MANUAL_TRIGGER_PROVIDER,
 } from "@/integrations/native/triggers/manualTrigger";
 import { enqueueRun } from "@/services/execution/enqueue";
+import { processQueuedRun } from "@/services/execution/runQueueProcessor";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { getActiveForExecution } from "@/repositories/integrations";
 import { getActionMeta } from "@/services/discovery/_registry";
@@ -160,9 +161,10 @@ export function makeRealWorkflowRunDeps(config: RealWorkflowRunDepsConfig): Work
         payload: { inputs: {} },
       };
 
-      // Capture + await the background engine promise via the same keepAlive
-      // seam the run-now route uses, so the run is terminal before we read it.
-      let enginePromise: Promise<void> = Promise.resolve();
+      // Slice 6 durable queue — enqueue persists a 'queued' row, then drain it
+      // synchronously so the run is terminal before we read it. SAME durable path
+      // the run-now route uses (enqueueRun + processQueuedRun); the engine derives
+      // the definition mode from testMode (test → draft, real → live).
       const { runId } = await enqueueRun({
         workflowId: input.workflowId,
         triggerNodeId: input.triggerNodeId,
@@ -170,12 +172,8 @@ export function makeRealWorkflowRunDeps(config: RealWorkflowRunDepsConfig): Work
         testMode,
         triggeredBy: testMode ? "test" : "manual",
         triggeredByUserId: userId,
-        executionDefinitionMode: testMode ? "draft" : "live",
-        keepAlive: (p) => {
-          enginePromise = p;
-        },
       });
-      await enginePromise;
+      await processQueuedRun(runId);
       return { runId };
     },
 

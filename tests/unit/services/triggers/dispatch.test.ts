@@ -113,6 +113,10 @@ describe("dispatchTriggerEvent — happy path", () => {
       workflowId: "wf-1",
       triggerNodeId: "n1",
       event,
+      // Slice 6 durable queue — the dispatcher forwards the account from the
+      // listForDispatch join so enqueueRun persists the durable 'queued' row
+      // without re-loading the workflow.
+      accountId: "acct-1",
     });
     expect(result).toEqual({
       matched: 1,
@@ -238,6 +242,7 @@ describe("dispatchTriggerEvent — frozen-account drop (V2-READY-34)", () => {
       workflowId: "wf-ok",
       triggerNodeId: "nok",
       event,
+      accountId: "acct-ok",
     });
     expect(result).toEqual({ matched: 2, enqueued: 1, duplicate: false, dedupOutage: false });
   });

@@ -195,46 +195,78 @@ export class WorkflowEngine {
     // finalize falls back to an INSERT so the record is never lost (no
     // reservation depends on the row in flat mode).
     let preRunRowCreated = false;
+
+    // Slice 6 durable queue — claim the durable 'queued' row first.
+    //
+    // enqueueRun now persists a 'queued' workflow_runs row BEFORE returning, then
+    // the processor (cron + best-effort run-now drain) reaches the engine here.
+    // `claimQueuedWorkflowRun` atomically transitions queued -> running via a
+    // status-guarded UPDATE: the SINGLE winner proceeds; a concurrent drainer
+    // loses (claimed:false) and refuses below. When we win, the row already
+    // carries every provenance column from enqueue, so we only stamp the resolved
+    // revision + the actual execution start (the claim's UPDATE).
+    //
+    // When NO queued row exists (legacy/direct engine callers + unit tests, and
+    // the fail-open path where durable enqueue persistence failed), the claim
+    // matches 0 rows and we fall through to the original create-at-start INSERT —
+    // whose PK guard still distinguishes a fresh row (created) from a 23505
+    // conflict (duplicate dispatch — another drainer already owns the row).
+    let claimedFromQueue = false;
     try {
-      const startOutcome = await workflowRunsRepo.createWorkflowRunStart({
+      const claim = await workflowRunsRepo.claimQueuedWorkflowRun({
         runId,
-        workflowId: input.workflowId,
-        // 4.ACCOUNT-MODEL-8: ownership is the workflow's account; the actor is
-        // the human caller (manual/retry) or NULL (webhook/polling/cron/scheduled).
-        accountId: workflow.accountId,
-        triggeredByUserId: input.triggeredByUserId ?? null,
-        triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
-        triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
-        triggerNodeId: input.triggerNodeId,
-        triggerEvent: input.triggerEvent,
         startedAt,
-        isTest,
-        triggeredBy,
-        // V2-READY-41I — single attribution point: stamp the executed revision on
-        // the pre-run row before any step runs (null for draft/test/fallback).
-        // Preserved through finalize (UPDATE never rewrites it).
         revisionId: resolved.revisionId,
       });
-      if (!startOutcome.created) {
-        log("execution.run.duplicate_dispatch", {});
-        return {
+      claimedFromQueue = claim.claimed;
+    } catch (err) {
+      log("execution.run.claim_failed", { error: (err as Error).message });
+    }
+
+    if (claimedFromQueue) {
+      preRunRowCreated = true;
+    } else {
+      try {
+        const startOutcome = await workflowRunsRepo.createWorkflowRunStart({
           runId,
           workflowId: input.workflowId,
-          status: "failed",
-          steps: [],
+          // 4.ACCOUNT-MODEL-8: ownership is the workflow's account; the actor is
+          // the human caller (manual/retry) or NULL (webhook/polling/cron/scheduled).
+          accountId: workflow.accountId,
+          triggeredByUserId: input.triggeredByUserId ?? null,
+          triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
+          triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
+          triggerNodeId: input.triggerNodeId,
+          triggerEvent: input.triggerEvent,
           startedAt,
-          finishedAt: new Date().toISOString(),
-          fatalError: {
-            code: "DUPLICATE_DISPATCH",
-            message: `A run row already exists for ${runId}; skipping duplicate execution.`,
-          },
           isTest,
           triggeredBy,
-        };
+          // V2-READY-41I — single attribution point: stamp the executed revision on
+          // the pre-run row before any step runs (null for draft/test/fallback).
+          // Preserved through finalize (UPDATE never rewrites it).
+          revisionId: resolved.revisionId,
+        });
+        if (!startOutcome.created) {
+          log("execution.run.duplicate_dispatch", {});
+          return {
+            runId,
+            workflowId: input.workflowId,
+            status: "failed",
+            steps: [],
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            fatalError: {
+              code: "DUPLICATE_DISPATCH",
+              message: `A run row already exists for ${runId}; skipping duplicate execution.`,
+            },
+            isTest,
+            triggeredBy,
+          };
+        }
+        preRunRowCreated = true;
+      } catch (err) {
+        log("execution.run.pre_run_row_failed", { error: (err as Error).message });
       }
-      preRunRowCreated = true;
-    } catch (err) {
-      log("execution.run.pre_run_row_failed", { error: (err as Error).message });
     }
 
     // COST-15C/15H — pre-execution failure helper. Marks the (already-created)

@@ -40,6 +40,14 @@ jest.mock("@/services/execution/enqueue", () => ({
   enqueueRun: (...args: unknown[]) => mockEnqueueRun(...args),
 }));
 
+// Slice 6 durable queue — the route best-effort drains its own queued run via
+// after(processQueuedRun(runId)). Mocked so the route's drain wiring is asserted
+// without the real processor touching the DB.
+const mockProcessQueuedRun = jest.fn();
+jest.mock("@/services/execution/runQueueProcessor", () => ({
+  processQueuedRun: (...args: unknown[]) => mockProcessQueuedRun(...args),
+}));
+
 // V2-READY-35 — up-front account-freeze gate. Default non-frozen so existing
 // tests are unaffected; the frozen test overrides to true.
 const mockIsAccountFrozen = jest.fn();
@@ -1194,69 +1202,67 @@ describe("POST /run-now — high-risk audit event emission (Slice 3.POSTSEC-8)",
   });
 });
 
-// ── manual-run async reliability — keepAlive → after() wiring ───────────────
+// ── manual-run durability — durable enqueue + after(processQueuedRun) ─────────
 //
-// run-now is fire-and-forget at the engine boundary; on serverless the
-// instance can freeze the instant the 202 is sent, leaving the run stuck
-// `running` and invisible on the Runs page. The route now hands the engine
-// promise to `after()` so the platform keeps the instance alive until the run
-// finalizes. enqueueRun is mocked here, so it does NOT invoke keepAlive during
-// the request — we invoke the supplied extender ourselves to prove it routes
-// to after(), exactly as enqueueRun does in production.
-describe("POST /run-now — keepAlive serverless lifecycle wiring", () => {
+// Slice 6 durable queue: enqueueRun persists a durable 'queued' run row and the
+// route best-effort drains THAT run via after(processQueuedRun(runId)) for
+// responsiveness. The run is never lost: it is a committed row, so if the
+// serverless instance is reclaimed before the drain claims it, the
+// /api/cron/process-run-queue tick drains it. This replaces the prior
+// fire-and-forget keepAlive wiring (the engine no longer runs inside enqueueRun).
+describe("POST /run-now — durable enqueue + inline drain wiring", () => {
   beforeEach(() => {
     signedInAs("user-1");
     mockGetById.mockResolvedValue(baseWorkflow);
     mockAfter.mockReset();
+    mockProcessQueuedRun.mockReset();
   });
 
-  it("supplies a keepAlive extender to enqueueRun", async () => {
+  it("does NOT pass a keepAlive extender to enqueueRun (the engine no longer runs inline)", async () => {
     const res = await POST(buildRequest({ body: "{}" }), {
       params: Promise.resolve({ id: "wf-1" }),
     });
     expect(res.status).toBe(202);
-    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
-      keepAlive?: (p: Promise<void>) => void;
-    };
-    expect(typeof enqueueCall.keepAlive).toBe("function");
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as Record<string, unknown>;
+    expect(enqueueCall.keepAlive).toBeUndefined();
+    // The owning account is forwarded so enqueueRun skips a redundant lookup.
+    expect(enqueueCall.accountId).toBe("acct-user-1");
   });
 
-  it("the supplied keepAlive routes the engine promise to after() (Vercel waitUntil)", async () => {
+  it("drains the enqueued run via after(processQueuedRun(runId)) (durable + responsive)", async () => {
+    mockEnqueueRun.mockResolvedValueOnce({
+      runId: "run-xyz",
+      enqueuedAt: "2026-06-26T00:00:00Z",
+    });
     await POST(buildRequest({ body: "{}" }), {
       params: Promise.resolve({ id: "wf-1" }),
     });
-    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
-      keepAlive: (p: Promise<void>) => void;
-    };
-    // Mocked enqueueRun never calls keepAlive itself → after() not yet hit.
-    expect(mockAfter).not.toHaveBeenCalled();
-    const executionPromise = Promise.resolve();
-    enqueueCall.keepAlive(executionPromise);
+    // The route kicks the drain for THIS run and hands the promise to after().
+    expect(mockProcessQueuedRun).toHaveBeenCalledTimes(1);
+    expect(mockProcessQueuedRun).toHaveBeenCalledWith("run-xyz");
     expect(mockAfter).toHaveBeenCalledTimes(1);
-    expect(mockAfter).toHaveBeenCalledWith(executionPromise);
   });
 
-  it("test-mode runs also get the keepAlive extender (test runs must finalize too)", async () => {
+  it("test-mode runs are also drained (test runs must finalize too)", async () => {
     const res = await POST(
       buildRequest({ body: JSON.stringify({ testMode: true, inputs: {} }) }),
       { params: Promise.resolve({ id: "wf-1" }) },
     );
     expect(res.status).toBe(202);
-    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as {
-      testMode: boolean;
-      keepAlive?: (p: Promise<void>) => void;
-    };
+    const enqueueCall = mockEnqueueRun.mock.calls[0]![0] as { testMode: boolean };
     expect(enqueueCall.testMode).toBe(true);
-    expect(typeof enqueueCall.keepAlive).toBe("function");
+    expect(mockProcessQueuedRun).toHaveBeenCalledTimes(1);
+    expect(mockAfter).toHaveBeenCalledTimes(1);
   });
 
-  it("a readiness-blocked run (422) never enqueues, so no keepAlive/after path runs", async () => {
+  it("a readiness-blocked run (422) never enqueues, so no drain path runs", async () => {
     mockGetById.mockResolvedValueOnce(workflowWithHttpAction({})); // no method/url
     const res = await POST(buildRequest({ body: "{}" }), {
       params: Promise.resolve({ id: "wf-1" }),
     });
     expect(res.status).toBe(422);
     expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(mockProcessQueuedRun).not.toHaveBeenCalled();
     expect(mockAfter).not.toHaveBeenCalled();
   });
 });
@@ -1306,10 +1312,13 @@ describe("POST /run-now — execution definition mode (V2-READY-41E)", () => {
     expect(mockGetRevisionByIdServiceRole).toHaveBeenCalledWith("rev-1");
     const call = mockEnqueueRun.mock.calls[0]![0] as {
       triggerNodeId: string;
-      executionDefinitionMode: string;
+      testMode?: boolean;
     };
-    expect(call.triggerNodeId).toBe("rev-trigger"); // revision's node, not the draft's
-    expect(call.executionDefinitionMode).toBe("live");
+    // The route validated + enqueued against the ACTIVE REVISION (its trigger
+    // node id, not the draft's). Slice 6: the route no longer forwards an
+    // executionDefinitionMode — the engine derives "live" from testMode:false.
+    expect(call.triggerNodeId).toBe("rev-trigger");
+    expect(call.testMode ?? false).toBe(false);
   });
 
   it("test run: executes the DRAFT (mode 'draft', no revision read)", async () => {
@@ -1325,11 +1334,11 @@ describe("POST /run-now — execution definition mode (V2-READY-41E)", () => {
     expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
     const call = mockEnqueueRun.mock.calls[0]![0] as {
       triggerNodeId: string;
-      executionDefinitionMode: string;
       testMode: boolean;
     };
+    // The route validated + enqueued against the DRAFT. Slice 6: the engine
+    // derives "draft" from testMode:true (no forwarded mode).
     expect(call.triggerNodeId).toBe("trigger-node"); // the draft's node
-    expect(call.executionDefinitionMode).toBe("draft");
     expect(call.testMode).toBe(true);
   });
 
@@ -1347,9 +1356,9 @@ describe("POST /run-now — execution definition mode (V2-READY-41E)", () => {
     expect(mockGetRevisionByIdServiceRole).not.toHaveBeenCalled();
     const call = mockEnqueueRun.mock.calls[0]![0] as {
       triggerNodeId: string;
-      executionDefinitionMode: string;
+      testMode?: boolean;
     };
     expect(call.triggerNodeId).toBe("trigger-node");
-    expect(call.executionDefinitionMode).toBe("live");
+    expect(call.testMode ?? false).toBe(false);
   });
 });

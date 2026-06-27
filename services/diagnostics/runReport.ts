@@ -43,7 +43,7 @@ export interface RunReportDTO {
   readonly runId: string;
   readonly visibility: RunVisibilityStatus;
   // ── Present ONLY when the subject is an authorized member, in `failure` mode. ──
-  readonly status?: "succeeded" | "failed" | "running";
+  readonly status?: "succeeded" | "failed" | "running" | "queued";
   readonly isTest?: boolean;
   readonly triggeredBy?: string;
   readonly firstFailedNodeId?: string | null;

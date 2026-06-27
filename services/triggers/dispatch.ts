@@ -184,6 +184,13 @@ export async function dispatchTriggerEvent(
       workflowId: resource.workflowId,
       triggerNodeId: resource.nodeId,
       event,
+      // Slice 6 durable queue — pass the account from the listForDispatch join so
+      // enqueueRun persists the durable 'queued' row without re-loading the
+      // workflow. Provenance labeling is unchanged (triggeredBy stays default);
+      // the cron processor executes the queued run out of band.
+      ...(resource.workflowAccountId
+        ? { accountId: resource.workflowAccountId }
+        : {}),
     });
     enqueued += 1;
   }

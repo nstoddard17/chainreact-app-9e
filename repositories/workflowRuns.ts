@@ -270,6 +270,11 @@ export async function getById(runId: string): Promise<WorkflowRunRecord | null> 
     // (succeeded/failed); a 'running' row would fail response validation. An
     // in-progress run reads as "not yet available" (null) until it finalizes.
     .neq("status", "running")
+    // Slice 6 durable queue — also hide pre-execution 'queued' rows. The
+    // display contract is terminal-only (succeeded/failed); a queued row exists
+    // only briefly (until the processor claims it) and would fail the UI's
+    // terminal-only response schema, exactly like 'running'.
+    .neq("status", "queued")
     .eq("id", runId)
     .maybeSingle();
   if (error) {
@@ -303,6 +308,11 @@ export async function listByWorkflow(
     // list. The display contract is terminal-only (succeeded/failed); the UI
     // surfaces a run only once it finalizes, preserving pre-COST-15C UX.
     .neq("status", "running")
+    // Slice 6 durable queue — also hide pre-execution 'queued' rows. The
+    // display contract is terminal-only (succeeded/failed); a queued row exists
+    // only briefly (until the processor claims it) and would fail the UI's
+    // terminal-only response schema, exactly like 'running'.
+    .neq("status", "queued")
     .order("started_at", { ascending: false })
     .limit(limit);
   if (error) {
@@ -393,6 +403,11 @@ export async function listByAccountForDisplay(
     .select(DISPLAY_RUN_COLUMNS)
     .eq("account_id", accountId)
     .neq("status", "running")
+    // Slice 6 durable queue — also hide pre-execution 'queued' rows. The
+    // display contract is terminal-only (succeeded/failed); a queued row exists
+    // only briefly (until the processor claims it) and would fail the UI's
+    // terminal-only response schema, exactly like 'running'.
+    .neq("status", "queued")
     .order("started_at", { ascending: false })
     .limit(limit);
   if (error) {
@@ -457,6 +472,11 @@ export async function listForAnalytics(
     .select("id,workflow_id,status,started_at,finished_at,is_test")
     .eq("account_id", accountId)
     .neq("status", "running")
+    // Slice 6 durable queue — also hide pre-execution 'queued' rows. The
+    // display contract is terminal-only (succeeded/failed); a queued row exists
+    // only briefly (until the processor claims it) and would fail the UI's
+    // terminal-only response schema, exactly like 'running'.
+    .neq("status", "queued")
     .gte("started_at", opts.since)
     .order("started_at", { ascending: false })
     .limit(limit);
@@ -491,6 +511,13 @@ export async function listForAnalytics(
 // every consumer (engine, sweep service, route handlers, tests) — no caller
 // needs to change its import.
 export * from "./workflowRunsLifecycle";
+
+// ── Durable run queue (Slice 6.DURABLE-QUEUE-1) ──────────────────────────────
+//
+// Extracted to `workflowRunsQueue.ts` for file-size hygiene (mirrors the
+// lifecycle/diagnostics split). enqueue/claim/dispatch-read/stuck-queued-fail
+// helpers for the durable run queue. Same `@/repositories/workflowRuns` surface.
+export * from "./workflowRunsQueue";
 
 // ── Diagnostics readers (service-role, sessionless, INCLUDE running) ──────────
 //

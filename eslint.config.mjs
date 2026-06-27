@@ -292,13 +292,15 @@ export default [
   // consolidation plan (see CLAUDE.md → "v2 canonical execution engine
   // plan"); doing it as part of a lint sweep risks subtle regressions in
   // billing reservation / test-mode gating / failure classification.
-  // Capped at 550 to make further drift visible.
+  // Capped (with headroom) to make further drift visible. Raised 550→580 for
+  // the Slice 6 durable-queue claim-or-create block (claimQueuedWorkflowRun
+  // before the create-at-start fallback); the phase split remains future work.
   {
     files: ["services/execution/engine.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 550, skipBlankLines: true, skipComments: true },
+        { max: 580, skipBlankLines: true, skipComments: true },
       ],
     },
   },

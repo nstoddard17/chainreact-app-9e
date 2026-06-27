@@ -1,24 +1,30 @@
 import { randomUUID } from "node:crypto";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
-import { resolveStrict } from "@/workflow-engine/variables/resolveValue";
-import { WorkflowEngine, type RunTriggerSource } from "./engine";
-import type { ExecutionDefinitionMode } from "@/services/workflows/activeRevision";
+import * as workflowsRepo from "@/repositories/workflows";
+import * as workflowRunsRepo from "@/repositories/workflowRuns";
+import type { RunTriggerSource } from "./engine";
 
 /**
- * Webhook → execution handoff.
+ * Webhook / run-now / cron → execution handoff (the durable-queue boundary).
  *
  * Per docs/rules/webhook-receipt-routes.md §"Async dispatch only":
- *   - Webhook routes enqueue and return; execution runs asynchronously.
- *   - The route MUST return 200 once events are durably enqueued (here:
- *     once we've assigned a runId and kicked off the engine). The engine's
- *     own failures are logged out-of-band and never propagate back to the
- *     provider's webhook delivery.
+ *   - Dispatchers enqueue and return; execution runs asynchronously.
+ *   - The route MUST return 200/202 once the run is DURABLY enqueued.
  *
- * For Slice 1 the "queue" is in-process: we fire-and-forget the engine
- * promise. This trades durability for simplicity — a node restart between
- * enqueue and engine completion drops the run. Real durability lands when
- * the queue (BullMQ / Inngest / equivalent) ships, with no API change to
- * the dispatcher (it still calls enqueueRun and gets back { runId }).
+ * Slice 6 durable run queue: `enqueueRun` persists a `workflow_runs` row in the
+ * non-terminal 'queued' state and returns — it does NOT execute the engine
+ * inline. A queued run is a committed row, so it survives a serverless/request
+ * termination (the prior in-process "fire-and-forget + after()" interim could
+ * drop an in-flight run on a node restart). Execution happens when the processor
+ * (`services/execution/runQueueProcessor`) claims the row queued -> running:
+ *   - the run-now route best-effort drains its own run immediately via `after()`
+ *     for responsiveness;
+ *   - the `/api/cron/process-run-queue` cron drains anything that survived a
+ *     crash before it was claimed.
+ *
+ * The boundary is unchanged for callers: still `enqueueRun(input)` -> `{ runId,
+ * enqueuedAt }`. The trigger_event lives on the run row (its designed home); no
+ * separate queue table copies the raw provider payload.
  */
 
 export interface EnqueueRunInput {
@@ -26,59 +32,34 @@ export interface EnqueueRunInput {
   triggerNodeId: string;
   event: TriggerEvent;
   /**
-   * Slice 3.SEC-2 — Forward to the engine's testMode flag. When true,
-   * the engine consults `decideTestModeBlock` before invoking each
-   * handler and short-circuits high-risk / external actions. Default
-   * `false` (real execution).
+   * Owning account for the durable run row. Optional: callers that already
+   * loaded the workflow (run-now, webhook dispatch) pass it to avoid a redundant
+   * lookup; otherwise `enqueueRun` resolves it from the workflow.
+   */
+  accountId?: string;
+  /**
+   * Slice 3.SEC-2 — forwarded to the engine's testMode flag (persisted to
+   * `workflow_runs.is_test`). Default `false` (real execution).
    */
   testMode?: boolean;
   /**
-   * Slice 3.SEC-2 — Caller-supplied source label. Engine writes this to
-   * `workflow_runs.triggered_by`. Webhook dispatchers should pass
-   * `"webhook"`, cron should pass `"scheduled"`, run-now should pass
-   * `"manual"` (or `"test"` when the same route is used for a test run).
+   * Slice 3.SEC-2 — caller-supplied source label, written to
+   * `workflow_runs.triggered_by`. Webhook → `"webhook"`, cron → `"scheduled"`,
+   * run-now → `"manual"` / `"test"`.
    */
   triggeredBy?: RunTriggerSource;
   /**
-   * 4.ACCOUNT-MODEL-8 — the human ACTOR's userId, forwarded to
-   * `workflow_runs.triggered_by_user_id`. Manual run-now + retry pass the
-   * caller's id; webhook dispatchers + cron omit it (→ NULL: no human actor).
+   * 4.ACCOUNT-MODEL-8 — the human ACTOR's userId. Manual run-now + retry pass
+   * the caller; webhook / cron omit it (→ NULL: no human actor).
    */
   triggeredByUserId?: string | null;
   /**
-   * RH-2 — public API-key provenance, forwarded to
-   * `workflow_runs.triggered_by_api_key_id` / `_prefix`. Set ONLY by the public
-   * API-key trigger route; every other dispatcher omits them (→ NULL). The prefix
-   * is a non-secret snapshot; the raw key/hash never reach the run path.
+   * RH-2 — public API-key provenance. Set ONLY by the public API-key trigger
+   * route; every other dispatcher omits them (→ NULL). The prefix is a
+   * non-secret snapshot; the raw key/hash never reach the run path.
    */
   triggeredByApiKeyId?: string | null;
   triggeredByApiKeyPrefix?: string | null;
-  /**
-   * V2-READY-41E — which definition the engine executes. Live trigger
-   * dispatchers (webhook/cron/poll/public API) omit it → the engine derives
-   * "live" from their non-test runs. The run-now route passes "draft" for test
-   * preview, "live" for a real manual run. Forwarded verbatim to the engine.
-   */
-  executionDefinitionMode?: ExecutionDefinitionMode;
-  /**
-   * Serverless lifecycle extender. The background engine promise is
-   * fire-and-forget by default, which on a serverless platform can be
-   * frozen/recycled the instant the caller's HTTP response is sent — the
-   * run then never finalizes and its `workflow_runs` row is left stuck in
-   * `status='running'` (hidden by the Runs-page `neq('status','running')`
-   * read). Request-scoped callers (the run-now route) pass an extender —
-   * Next's `after` (backed by Vercel `waitUntil`) — so the platform keeps
-   * the instance alive until the engine reaches a terminal status.
-   *
-   * Layering: this service stays framework-agnostic; the route owns the
-   * `next/server` primitive and hands it in here. Omitted by non-request
-   * callers (webhook/cron dispatchers — out of scope for this slice) and
-   * unit tests → best-effort fire-and-forget, exactly as before.
-   *
-   * `runWorkflowInBackground` swallows engine errors, so the promise NEVER
-   * rejects — the extender never sees an unhandled rejection.
-   */
-  keepAlive?: (executionPromise: Promise<void>) => void;
 }
 
 export interface EnqueueRunResult {
@@ -86,69 +67,76 @@ export interface EnqueueRunResult {
   enqueuedAt: string;
 }
 
+/**
+ * Persist a durable 'queued' run row and return its id. Does NOT run the engine
+ * — the processor claims and executes the row out of band.
+ *
+ * Fail-open: if the durable INSERT fails unexpectedly (or the workflow vanished
+ * between the caller's check and here), the run is logged and a `{runId}` is
+ * still returned so the caller's 200/202 contract holds. The cron processor only
+ * acts on committed 'queued' rows, so a failed persist simply means no run — it
+ * never silently double-executes.
+ */
 export async function enqueueRun(input: EnqueueRunInput): Promise<EnqueueRunResult> {
   const runId = randomUUID();
   const enqueuedAt = new Date().toISOString();
 
-  console.info(
-    JSON.stringify({
-      event: "execution.run.enqueued",
-      runId,
-      workflowId: input.workflowId,
-      triggerNodeId: input.triggerNodeId,
-      provider: input.event.provider,
-      eventType: input.event.eventType,
-      eventId: input.event.eventId,
-      isTest: input.testMode === true,
-      triggeredBy: input.triggeredBy ?? "unknown",
-    }),
-  );
-
-  // Kick off execution immediately. The promise never rejects
-  // (runWorkflowInBackground catches + logs engine errors). When a
-  // request-scoped caller supplies `keepAlive`, hand the promise to the
-  // platform lifecycle (Next `after` → Vercel `waitUntil`) so the instance
-  // is kept alive until the run finalizes; otherwise fall back to the
-  // legacy best-effort fire-and-forget.
-  const executionPromise = runWorkflowInBackground(input, runId);
-  if (input.keepAlive) {
-    input.keepAlive(executionPromise);
-  } else {
-    void executionPromise;
+  // Resolve the owning account if the caller didn't supply it. The durable run
+  // row requires account_id (NOT NULL).
+  let accountId = input.accountId;
+  if (!accountId) {
+    const workflow = await workflowsRepo.getByIdServiceRole(input.workflowId);
+    accountId = workflow?.accountId;
   }
 
-  return { runId, enqueuedAt };
-}
-
-async function runWorkflowInBackground(
-  input: EnqueueRunInput,
-  runId: string,
-): Promise<void> {
-  try {
-    const engine = new WorkflowEngine({ resolveStrict });
-    await engine.runWorkflow({
-      workflowId: input.workflowId,
-      triggerNodeId: input.triggerNodeId,
-      triggerEvent: input.event,
-      runId,
-      testMode: input.testMode === true,
-      triggeredBy: input.triggeredBy ?? "unknown",
-      triggeredByUserId: input.triggeredByUserId ?? null,
-      triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
-      triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
-      // V2-READY-41E — undefined here lets the engine derive from testMode.
-      ...(input.executionDefinitionMode !== undefined
-        ? { executionDefinitionMode: input.executionDefinitionMode }
-        : {}),
-    });
-  } catch (err) {
-    console.error(
-      JSON.stringify({
-        event: "execution.run.crashed",
+  if (accountId) {
+    try {
+      await workflowRunsRepo.createQueuedWorkflowRun({
         runId,
         workflowId: input.workflowId,
-        error: (err as Error).message,
+        accountId,
+        triggeredByUserId: input.triggeredByUserId ?? null,
+        triggerNodeId: input.triggerNodeId,
+        triggerEvent: input.event,
+        enqueuedAt,
+        isTest: input.testMode === true,
+        triggeredBy: input.triggeredBy ?? "unknown",
+        triggeredByApiKeyId: input.triggeredByApiKeyId ?? null,
+        triggeredByApiKeyPrefix: input.triggeredByApiKeyPrefix ?? null,
+      });
+      console.info(
+        JSON.stringify({
+          event: "execution.run.enqueued",
+          runId,
+          workflowId: input.workflowId,
+          triggerNodeId: input.triggerNodeId,
+          provider: input.event.provider,
+          eventType: input.event.eventType,
+          eventId: input.event.eventId,
+          isTest: input.testMode === true,
+          triggeredBy: input.triggeredBy ?? "unknown",
+        }),
+      );
+    } catch (err) {
+      // Fail-open: log loudly, do not throw into the caller's 200/202 path.
+      console.error(
+        JSON.stringify({
+          event: "execution.run.enqueue_persist_failed",
+          runId,
+          workflowId: input.workflowId,
+          error: (err as Error).message,
+        }),
+      );
+    }
+  } else {
+    console.error(
+      JSON.stringify({
+        event: "execution.run.enqueue_workflow_missing",
+        runId,
+        workflowId: input.workflowId,
       }),
     );
   }
+
+  return { runId, enqueuedAt };
 }

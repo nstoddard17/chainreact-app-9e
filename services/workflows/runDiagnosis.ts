@@ -38,7 +38,7 @@ export interface RunErrorClassificationInput {
 
 /** Narrow run projection for failure summary — no output/triggerEvent/fatalError text. */
 export interface RunFailureInput {
-  readonly status: "succeeded" | "failed" | "running";
+  readonly status: "succeeded" | "failed" | "running" | "queued";
   readonly isTest: boolean;
   /** Trigger category enum (manual/test/webhook/scheduled/retry/api_key/unknown) — all safe. */
   readonly triggeredBy: string;
@@ -54,7 +54,7 @@ export interface RunStepSummary {
 }
 
 export interface RunFailureSummary {
-  readonly status: "succeeded" | "failed" | "running";
+  readonly status: "succeeded" | "failed" | "running" | "queued";
   readonly isTest: boolean;
   readonly triggeredBy: string;
   /** First step with `status === "failed"`, else null. */
@@ -120,7 +120,7 @@ export type RunVisibilityStatus =
 
 /** Narrow run projection for visibility — status/isTest/accountId only. */
 export interface RunVisibilityInput {
-  readonly status: "succeeded" | "failed" | "running";
+  readonly status: "succeeded" | "failed" | "running" | "queued";
   readonly isTest: boolean;
   /** The run's owning account. */
   readonly accountId: string;
@@ -147,7 +147,10 @@ export function classifyRunVisibility(
 ): RunVisibilityStatus {
   if (run === null) return "NOT_FOUND";
   if (run.accountId !== ctx.authorizedAccountId) return "WRONG_ACCOUNT";
-  if (run.status === "running") return "RUNNING";
+  // Slice 6 durable queue — a 'queued' run is non-terminal and hidden from /runs
+  // (the UI readers exclude it), exactly like 'running'; classify it the same so
+  // diagnostics explains it as "not yet finalized" rather than a terminal state.
+  if (run.status === "running" || run.status === "queued") return "RUNNING";
   if (run.isTest && ctx.includeTestRuns !== true) return "TEST_RUN";
   if (run.status === "failed") return "FAILED_VISIBLE";
   return "COMPLETED_VISIBLE";

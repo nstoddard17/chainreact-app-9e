@@ -37,8 +37,16 @@ import type {
 // (the COST-12 RPCs key on workflow_runs.id and return 'run_not_found' without a
 // row). See docs/slices/phase-4/pre-run-workflow-run-lifecycle-design.md.
 
-/** Run lifecycle state, including the non-terminal pre-run state. */
-export type WorkflowRunLifecycleStatus = "running" | "succeeded" | "failed";
+/**
+ * Run lifecycle state, including the non-terminal pre-run states.
+ * `queued` (Slice 6 durable queue) is written by `enqueueRun` before the engine
+ * runs; the processor claims it `queued` -> `running`; finalize writes terminal.
+ */
+export type WorkflowRunLifecycleStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed";
 
 /** billing_status values the COST-12 reserve/reconcile RPCs set on the row. */
 export type WorkflowRunBillingStatus =

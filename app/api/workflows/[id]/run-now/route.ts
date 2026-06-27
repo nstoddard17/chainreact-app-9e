@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import * as workflowsRepo from "@/repositories/workflows";
 import { enqueueRun } from "@/services/execution/enqueue";
+import { processQueuedRun } from "@/services/execution/runQueueProcessor";
 import {
   MANUAL_TRIGGER_EVENT_TYPE,
   MANUAL_TRIGGER_PROVIDER,
@@ -307,25 +308,35 @@ export async function POST(
   // is_test = false to filter.
   const triggeredBy = testMode ? "test" : "manual";
 
+  // Slice 6 durable queue — `enqueueRun` persists a durable 'queued' run row and
+  // returns; it does NOT execute inline. The run survives a serverless/request
+  // termination because it is a committed row, not an in-flight promise.
+  //
+  // NOTE: `executionDefinitionMode` is intentionally NOT forwarded — the engine
+  // derives it from `testMode` (test → draft, real → live), which reproduces the
+  // exact value we computed above for every current caller, and avoids
+  // persisting a redundant column on the queued row.
   const enqueued = await enqueueRun({
     workflowId: workflow.id,
+    // Avoid a redundant workflow lookup inside enqueueRun — we already loaded it.
+    accountId: workflow.accountId,
     triggerNodeId: triggerNode.id,
     event,
     testMode,
     triggeredBy,
-    // V2-READY-41E — execute the same definition we validated against above.
-    executionDefinitionMode,
     // 4.ACCOUNT-MODEL-8: manual + test runs are human-initiated — record the
     // caller as the actor (workflow_runs.triggered_by_user_id). Webhook/cron
     // paths omit this → NULL.
     triggeredByUserId: auth.userId,
-    // Keep the serverless instance alive until the fire-and-forget engine
-    // promise finalizes the run, instead of letting it freeze when the 202
-    // is sent (which left runs stuck `running` / invisible on /runs).
-    keepAlive: (executionPromise) => {
-      after(executionPromise);
-    },
   });
+
+  // Responsiveness without sacrificing durability: best-effort drain THIS run
+  // immediately, kept alive by `after()` (Next → Vercel `waitUntil`) so the
+  // serverless instance stays up until it finalizes. `processQueuedRun` claims
+  // the row (single winner vs the cron) and never throws. If the instance is
+  // reclaimed before the drain claims the row, the run stays 'queued' and the
+  // `/api/cron/process-run-queue` tick drains it — so the run is never lost.
+  after(processQueuedRun(enqueued.runId));
 
   // Slice 3.POSTSEC-8 — emit a high-risk audit event when the run is
   // real-mode AND the workflow contained destructive / requires-

@@ -36,8 +36,8 @@ import type {
  * import it from client code or wire it to an unauthenticated path.
  */
 
-/** Live run status incl. the non-terminal `running` the UI readers hide. */
-export type DiagnosticsRunStatus = WorkflowRunStatus | "running";
+/** Live run status incl. the non-terminal `queued`/`running` the UI readers hide. */
+export type DiagnosticsRunStatus = WorkflowRunStatus | "running" | "queued";
 
 /**
  * `WorkflowRunRecord` widened so `status` can be `running`. Identical otherwise —
@@ -143,7 +143,9 @@ export async function listByWorkflowServiceRole(
     .select("*")
     .eq("workflow_id", workflowId);
   if (!opts.includeRunning) {
-    query = query.neq("status", "running");
+    // Terminal-only unless opted in — hide both non-terminal states (Slice 6
+    // adds 'queued' alongside the pre-existing 'running').
+    query = query.neq("status", "running").neq("status", "queued");
   }
   const { data, error } = await query
     .order("started_at", { ascending: false })

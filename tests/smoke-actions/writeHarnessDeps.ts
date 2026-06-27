@@ -43,6 +43,7 @@ import {
   MANUAL_TRIGGER_PROVIDER,
 } from "@/integrations/native/triggers/manualTrigger";
 import { enqueueRun } from "@/services/execution/enqueue";
+import { processQueuedRun } from "@/services/execution/runQueueProcessor";
 import * as workflowRunsRepo from "@/repositories/workflowRuns";
 import { sanitizeFailureReason } from "@/scripts/chainreact/smoke/core";
 import { SMOKE_ACTION_NODE_ID, SMOKE_TRIGGER_NODE_ID } from "./workflowRun";
@@ -180,7 +181,10 @@ export function makeRealWriteHarnessDeps(
           providerAccountId: "system",
           payload: { inputs: {} },
         };
-        let enginePromise: Promise<void> = Promise.resolve();
+        // Slice 6 durable queue — enqueue persists a 'queued' row, then drain it
+        // synchronously so the run is terminal before we read it. SAME durable path
+        // production uses (enqueueRun + processQueuedRun); the engine derives the
+        // live definition mode from testMode:false.
         const { runId } = await enqueueRun({
           workflowId,
           triggerNodeId: SMOKE_TRIGGER_NODE_ID,
@@ -188,12 +192,8 @@ export function makeRealWriteHarnessDeps(
           testMode: false,
           triggeredBy: "manual",
           triggeredByUserId: userId,
-          executionDefinitionMode: "live",
-          keepAlive: (p) => {
-            enginePromise = p;
-          },
         });
-        await enginePromise;
+        await processQueuedRun(runId);
 
         // 3. Read the persisted run + the action node's output.
         const rec = await workflowRunsRepo.getById(runId);

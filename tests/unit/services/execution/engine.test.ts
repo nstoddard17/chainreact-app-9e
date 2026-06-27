@@ -26,9 +26,16 @@ const mockRecordRun = jest.fn();
 const mockCreateWorkflowRunStart = jest.fn();
 const mockFinalizeWorkflowRun = jest.fn();
 const mockMarkWorkflowRunFailedBeforeExecution = jest.fn();
+// Slice 6 durable queue — the engine tries to claim a pre-existing 'queued' row
+// first, then falls back to createWorkflowRunStart. Default {claimed:false}
+// (set in beforeEach) so every pre-Slice-6 engine test exercises the unchanged
+// INSERT path.
+const mockClaimQueuedWorkflowRun = jest.fn();
 jest.mock("@/repositories/workflowRuns", () => ({
   recordRun: (...args: unknown[]) => mockRecordRun(...args),
   createWorkflowRunStart: (...args: unknown[]) => mockCreateWorkflowRunStart(...args),
+  claimQueuedWorkflowRun: (...args: unknown[]) =>
+    mockClaimQueuedWorkflowRun(...args),
   finalizeWorkflowRun: (...args: unknown[]) => mockFinalizeWorkflowRun(...args),
   markWorkflowRunFailedBeforeExecution: (...args: unknown[]) =>
     mockMarkWorkflowRunFailedBeforeExecution(...args),
@@ -227,6 +234,9 @@ beforeEach(() => {
   // COST-15C — pre-run create + finalize-update defaults (happy path).
   mockCreateWorkflowRunStart.mockReset();
   mockCreateWorkflowRunStart.mockResolvedValue({ created: true });
+  // Default: no durable 'queued' row → engine falls through to the INSERT path.
+  mockClaimQueuedWorkflowRun.mockReset();
+  mockClaimQueuedWorkflowRun.mockResolvedValue({ claimed: false });
   mockFinalizeWorkflowRun.mockReset();
   mockFinalizeWorkflowRun.mockResolvedValue({ finalized: true });
   mockMarkWorkflowRunFailedBeforeExecution.mockReset();
@@ -3210,5 +3220,109 @@ describe("CS-4b — execution resolves to the shared plan owner (ENABLE_CONNECTI
     const owner = await runWithPlanOwner("creator-1");
     expect(owner).toBe("creator-1");
     expect(mockCapturedOwners).not.toContain("connector-bob");
+  });
+});
+
+// ─────────────── Slice 6 durable run queue — claim-or-create ───────────────
+//
+// enqueueRun now persists a 'queued' workflow_runs row; the processor reaches
+// the engine, which atomically claims that row (queued -> running) via the
+// status-guarded claimQueuedWorkflowRun. When no queued row exists (legacy /
+// direct callers / fail-open), the engine falls back to the create-at-start
+// INSERT, whose PK guard still distinguishes a fresh row from a duplicate.
+describe("WorkflowEngine — durable-queue claim (Slice 6)", () => {
+  function singleActionWorkflow() {
+    const t = trigger("t1");
+    const a1 = action("a1", "step_one");
+    return {
+      ...baseWorkflow,
+      draftDefinition: { nodes: [t, a1], edges: [edge("e1", "t1", "a1")] },
+    };
+  }
+
+  it("claims a pre-existing 'queued' row and executes WITHOUT inserting a new row", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(singleActionWorkflow());
+    mockClaimQueuedWorkflowRun.mockResolvedValueOnce({ claimed: true });
+    const handler = jest.fn(async () => ({ output: { ok: true } }));
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      runId: "run-claim-1",
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(handler).toHaveBeenCalledTimes(1);
+    // Won the claim → the INSERT path is skipped entirely.
+    expect(mockClaimQueuedWorkflowRun).toHaveBeenCalledWith(
+      expect.objectContaining({ runId: "run-claim-1", revisionId: null }),
+    );
+    expect(mockCreateWorkflowRunStart).not.toHaveBeenCalled();
+  });
+
+  it("falls back to create-at-start when there is no queued row to claim", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(singleActionWorkflow());
+    // default claimed:false (set in beforeEach)
+    const handler = jest.fn(async () => ({ output: { ok: true } }));
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      runId: "run-legacy-1",
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(mockCreateWorkflowRunStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses as DUPLICATE_DISPATCH (no handler call) when the row was already claimed and the INSERT conflicts", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(singleActionWorkflow());
+    // Lost the claim race (row already running) AND the fallback INSERT hits the
+    // existing row → created:false.
+    mockClaimQueuedWorkflowRun.mockResolvedValueOnce({ claimed: false });
+    mockCreateWorkflowRunStart.mockResolvedValueOnce({ created: false });
+    const handler = jest.fn(async () => ({ output: { ok: true } }));
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      runId: "run-dupe-1",
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.fatalError?.code).toBe("DUPLICATE_DISPATCH");
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("only ONE of two concurrent dispatches for the same run executes the handler (single-winner)", async () => {
+    mockGetByIdServiceRole.mockResolvedValue(singleActionWorkflow());
+    const handler = jest.fn(async () => ({ output: { ok: true } }));
+    mockGetActionHandler.mockReturnValue(handler);
+
+    // Winner: claims the queued row.
+    mockClaimQueuedWorkflowRun.mockResolvedValueOnce({ claimed: true });
+    // Loser: claim misses AND the fallback INSERT conflicts → duplicate.
+    mockClaimQueuedWorkflowRun.mockResolvedValueOnce({ claimed: false });
+    mockCreateWorkflowRunStart.mockResolvedValueOnce({ created: false });
+
+    const engine = new WorkflowEngine({ resolveStrict: (v) => v });
+    const winner = await engine.runWorkflow({
+      workflowId: "wf-1", triggerNodeId: "t1", triggerEvent, runId: "run-race-1",
+    });
+    const loser = await engine.runWorkflow({
+      workflowId: "wf-1", triggerNodeId: "t1", triggerEvent, runId: "run-race-1",
+    });
+
+    expect(winner.status).toBe("succeeded");
+    expect(loser.status).toBe("failed");
+    expect(loser.fatalError?.code).toBe("DUPLICATE_DISPATCH");
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 });
