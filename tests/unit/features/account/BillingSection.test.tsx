@@ -504,6 +504,96 @@ describe("BillingSection — Business → Team downgrade gating (CS-BD-3)", () =
   });
 });
 
+describe("BillingSection — usage percentage + near-limit (BILLING-USAGE-VISIBILITY-1)", () => {
+  it("shows percent used on the task remaining line", () => {
+    renderBilling(active("personal")); // 12 / 100
+    expect(screen.getByTestId("billing-usage-remaining")).toHaveTextContent(
+      /88 remaining \(12% used\)/i,
+    );
+  });
+
+  it("shows percent used on the AI-credit remaining line", () => {
+    renderBilling(active("personal"), {
+      aiCredits: { used: 2, limit: 20, periodStartedAt: "2026-06-01T00:00:00Z" },
+    });
+    expect(screen.getByTestId("billing-ai-credits-remaining")).toHaveTextContent(
+      /18 remaining \(10% used\)/i,
+    );
+  });
+
+  it("surfaces a near-limit warning for tasks at/over the threshold (not exhausted)", () => {
+    renderBilling(active("personal"), {
+      usage: { tasksUsed: 90, tasksLimit: 100, periodStartedAt: "2026-06-01T00:00:00Z" },
+    });
+    const remaining = screen.getByTestId("billing-usage-remaining");
+    expect(remaining).toHaveTextContent(/Running low/i);
+    expect(remaining).toHaveTextContent(/10 left \(90% used\)/i);
+    expect(remaining).not.toHaveTextContent(/No tasks left/i);
+  });
+
+  it("surfaces a near-limit warning for AI credits at/over the threshold", () => {
+    renderBilling(active("personal"), {
+      aiCredits: { used: 18, limit: 20, periodStartedAt: "2026-06-01T00:00:00Z" },
+    });
+    const remaining = screen.getByTestId("billing-ai-credits-remaining");
+    expect(remaining).toHaveTextContent(/Running low/i);
+    expect(remaining).toHaveTextContent(/2 left \(90% used\)/i);
+  });
+
+  it("does NOT show a near-limit warning well below the threshold (normal remaining copy)", () => {
+    renderBilling(active("personal")); // 12%
+    expect(screen.getByTestId("billing-usage-remaining")).not.toHaveTextContent(/Running low/i);
+  });
+});
+
+describe("BillingSection — account-scope clarity (BILLING-USAGE-VISIBILITY-1)", () => {
+  it("states that usage is account-level and shared, not per member", () => {
+    renderBilling(active("team"), { memberLimit: 5, memberCount: 2, folderLimit: 100 });
+    expect(screen.getByTestId("billing-usage-scope-note")).toHaveTextContent(
+      /counted at the account level and shared by everyone in this account/i,
+    );
+  });
+
+  it("shows the scope note for a personal account too (usage is the account's, not the user's)", () => {
+    renderBilling(active("personal"));
+    expect(screen.getByTestId("billing-usage-scope-note")).toBeInTheDocument();
+  });
+
+  it("omits the scope note when usage is unavailable (nothing to contextualize)", () => {
+    renderBilling(active("personal"), { usage: null });
+    expect(screen.queryByTestId("billing-usage-scope-note")).toBeNull();
+  });
+});
+
+describe("BillingSection — internal_free account (BILLING-USAGE-VISIBILITY-1)", () => {
+  it("shows an honest internal-account note (tracked but not billed)", () => {
+    renderBilling(active("personal"), { billingMode: "internal_free" });
+    const note = screen.getByTestId("billing-internal-free");
+    expect(note).toHaveTextContent(/Internal account/i);
+    expect(note).toHaveTextContent(/tracked but not billed/i);
+    // Usage is still shown for internal accounts — the numbers are real.
+    expect(screen.getByTestId("billing-usage")).toHaveTextContent("12 / 100 tasks");
+  });
+
+  it("does NOT show the internal note for a standard account (default)", () => {
+    renderBilling(active("personal")); // billingMode defaults to standard
+    expect(screen.queryByTestId("billing-internal-free")).toBeNull();
+  });
+
+  it("does NOT leak the raw billing_mode enum, Stripe ids, or a fake subscription", () => {
+    const { container } = render(
+      <BillingSection
+        active={active("personal")}
+        billing={{ ...baseBilling, billingMode: "internal_free" }}
+        now={NOW}
+      />,
+    );
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/cus_|sub_/); // no Stripe customer / subscription ids
+    expect(html).not.toMatch(/internal_free|billing_mode|internal_reason/); // no raw fields
+  });
+});
+
 describe("BillingSection — frozen account", () => {
   it("renders a read-only pending-deletion warning and no upgrade affordance", () => {
     renderBilling(active("team"), { memberLimit: 5, memberCount: 2, frozen: true });

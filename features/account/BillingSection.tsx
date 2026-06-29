@@ -3,7 +3,7 @@ import { SettingRow } from "@/features/team/SettingRow";
 import type { AccountSummary } from "@/lib/api/accounts";
 import { planTierLabel, type PlanTier, type PlanStatus } from "@/core/billing/planPolicy";
 import { deriveBillingLifecycle } from "@/core/billing/billingLifecycle";
-import { computeTaskUsageView } from "@/core/billing/taskUsagePeriod";
+import { computeAccountUsageSummary, type BillingDisplayMode } from "@/core/billing/accountUsageSummary";
 import { PersonalPlanPanel } from "./PersonalPlanPanel";
 import { PersonalUpgradePanel } from "./PersonalUpgradePanel";
 import { BusinessUpgradePanel } from "./BusinessUpgradePanel";
@@ -58,6 +58,14 @@ export interface AccountBillingView {
   /** The viewer's personal account id (BU-4) — lets the Business upgrade run the
    *  Personal-Pro choice dialog. Null when unavailable. */
   personalAccountId?: string | null;
+  /**
+   * Display-only billing status (BILLING-USAGE-VISIBILITY-1). `internal_free` →
+   * the active account is internal and tracked-but-not-billed (no Stripe state).
+   * Read service-side from `account_billing.billing_mode` for the membership-scoped
+   * active account. Defaults to "standard" when absent so existing callers/tests are
+   * unaffected. NOT a subscription state and carries no Stripe ids / audit reason.
+   */
+  billingMode?: BillingDisplayMode;
 }
 
 /**
@@ -138,31 +146,35 @@ export function BillingSection({
       day: "numeric",
       timeZone: "UTC",
     });
-  // Effective CURRENT-period usage — mirrors the lazy-rollover SQL anchor so a
-  // stored row whose period already elapsed shows the reset (0 used) the next
-  // run will apply, never stale lifetime-looking usage. Reset date is derived
-  // from period_started_at (no DB/API change needed).
-  const usageView = billing.usage
-    ? computeTaskUsageView({
-        tasksUsed: billing.usage.tasksUsed,
-        tasksLimit: billing.usage.tasksLimit,
-        periodStartedAt: billing.usage.periodStartedAt,
-        now: now ?? new Date(),
-      })
-    : null;
-  const resetsOn = usageView?.resetsAt != null ? formatDate(usageView.resetsAt) : null;
-  // AI credits are a separate billing dimension that resets the SAME monthly way on its
-  // own anchor (`ai_credits_period_started_at`), so the task-usage period math is reused.
-  const aiCreditsView = billing.aiCredits
-    ? computeTaskUsageView({
-        tasksUsed: billing.aiCredits.used,
-        tasksLimit: billing.aiCredits.limit,
-        periodStartedAt: billing.aiCredits.periodStartedAt,
-        now: now ?? new Date(),
-      })
-    : null;
+  // Effective CURRENT-period usage for BOTH billing dimensions — one display-safe
+  // summary (BILLING-USAGE-VISIBILITY-1). It mirrors the lazy-rollover SQL anchor so a
+  // stored row whose period already elapsed shows the reset (0 used) the next run will
+  // apply, never stale lifetime-looking usage, and adds percent + near/over-limit flags.
+  // AI credits reset the SAME monthly way on their own anchor, so the shared period math
+  // covers both. `available` is true exactly when the dimension's facts were provided.
+  const usageSummary = computeAccountUsageSummary({
+    billingMode: billing.billingMode ?? "standard",
+    tasks: billing.usage
+      ? {
+          used: billing.usage.tasksUsed,
+          limit: billing.usage.tasksLimit,
+          periodStartedAt: billing.usage.periodStartedAt,
+        }
+      : null,
+    aiCredits: billing.aiCredits
+      ? {
+          used: billing.aiCredits.used,
+          limit: billing.aiCredits.limit,
+          periodStartedAt: billing.aiCredits.periodStartedAt,
+        }
+      : null,
+    now: now ?? new Date(),
+  });
+  const taskUsage = usageSummary.tasks;
+  const aiCreditsUsage = usageSummary.aiCredits;
+  const resetsOn = taskUsage.resetsAt != null ? formatDate(taskUsage.resetsAt) : null;
   const aiCreditsResetsOn =
-    aiCreditsView?.resetsAt != null ? formatDate(aiCreditsView.resetsAt) : null;
+    aiCreditsUsage.resetsAt != null ? formatDate(aiCreditsUsage.resetsAt) : null;
 
   // CS-5: derive the warning-first lifecycle state from the synced billing facts. Only
   // shown when we have an explicit plan + status (paid accounts); free/active stays
@@ -212,6 +224,19 @@ export function BillingSection({
         </div>
       )}
 
+      {usageSummary.internalFree && (
+        <div
+          data-testid="billing-internal-free"
+          className="rounded-xl border border-blue-500/40 bg-blue-500/10 p-4 dark:border-blue-400/30 dark:bg-blue-400/10"
+        >
+          <p className="text-sm font-semibold text-foreground">Internal account</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Usage is tracked but not billed. No subscription or payment applies to this
+            account.
+          </p>
+        </div>
+      )}
+
       <Panel
         title="Plan & billing"
         desc="Manage your plan, usage, and billing."
@@ -228,7 +253,7 @@ export function BillingSection({
           </span>
         </SettingRow>
 
-        {billing.usage && usageView ? (
+        {billing.usage && taskUsage.available ? (
           <SettingRow
             label="Task usage"
             desc={
@@ -239,21 +264,23 @@ export function BillingSection({
           >
             <span className="flex flex-col items-end gap-0.5 text-sm">
               <span data-testid="billing-usage" className="font-medium text-foreground">
-                {usageView.tasksUsed} / {usageView.tasksLimit} tasks
+                {taskUsage.used} / {taskUsage.limit} tasks
               </span>
               <span
                 data-testid="billing-usage-remaining"
                 className={
-                  usageView.exhausted
+                  taskUsage.overLimit || taskUsage.nearLimit
                     ? "text-xs font-medium text-amber-600 dark:text-amber-400"
                     : "text-xs text-muted-foreground"
                 }
               >
-                {usageView.exhausted
+                {taskUsage.overLimit
                   ? resetsOn
-                    ? `No tasks left — resets ${resetsOn}`
+                    ? `No tasks left. Resets ${resetsOn}`
                     : "No tasks left this period"
-                  : `${usageView.tasksRemaining} remaining`}
+                  : taskUsage.nearLimit
+                    ? `Running low: ${taskUsage.remaining} left (${taskUsage.percentUsed}% used)`
+                    : `${taskUsage.remaining} remaining (${taskUsage.percentUsed}% used)`}
               </span>
             </span>
           </SettingRow>
@@ -268,7 +295,7 @@ export function BillingSection({
           />
         )}
 
-        {billing.aiCredits && aiCreditsView ? (
+        {billing.aiCredits && aiCreditsUsage.available ? (
           <SettingRow
             label="AI credits"
             desc={
@@ -279,21 +306,23 @@ export function BillingSection({
           >
             <span className="flex flex-col items-end gap-0.5 text-sm">
               <span data-testid="billing-ai-credits" className="font-medium text-foreground">
-                {aiCreditsView.tasksUsed} / {aiCreditsView.tasksLimit} credits
+                {aiCreditsUsage.used} / {aiCreditsUsage.limit} credits
               </span>
               <span
                 data-testid="billing-ai-credits-remaining"
                 className={
-                  aiCreditsView.exhausted
+                  aiCreditsUsage.overLimit || aiCreditsUsage.nearLimit
                     ? "text-xs font-medium text-amber-600 dark:text-amber-400"
                     : "text-xs text-muted-foreground"
                 }
               >
-                {aiCreditsView.exhausted
+                {aiCreditsUsage.overLimit
                   ? aiCreditsResetsOn
-                    ? `No AI credits left — resets ${aiCreditsResetsOn}`
+                    ? `No AI credits left. Resets ${aiCreditsResetsOn}`
                     : "No AI credits left this period"
-                  : `${aiCreditsView.tasksRemaining} remaining`}
+                  : aiCreditsUsage.nearLimit
+                    ? `Running low: ${aiCreditsUsage.remaining} left (${aiCreditsUsage.percentUsed}% used)`
+                    : `${aiCreditsUsage.remaining} remaining (${aiCreditsUsage.percentUsed}% used)`}
               </span>
             </span>
           </SettingRow>
@@ -311,6 +340,16 @@ export function BillingSection({
               }
             />
           )
+        )}
+
+        {/* BILLING-USAGE-VISIBILITY-1 — make it explicit that the counts above are the
+            ACCOUNT's shared usage, not the current user's personal usage. True for
+            personal (one member) and shared (team/business) accounts alike. */}
+        {taskUsage.available && (
+          <p data-testid="billing-usage-scope-note" className="text-[11px] text-muted-foreground">
+            Usage is counted at the account level and shared by everyone in this account,
+            not tracked per member.
+          </p>
         )}
 
         {billing.memberLimit !== null && (

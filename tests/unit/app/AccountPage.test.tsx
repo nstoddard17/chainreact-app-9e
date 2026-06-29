@@ -37,8 +37,10 @@ jest.mock("@/repositories/userProfiles", () => ({
 }));
 
 const mockGetUsage = jest.fn();
+const mockGetBillingMode = jest.fn();
 jest.mock("@/repositories/accountBilling", () => ({
   getUsage: (...a: unknown[]) => mockGetUsage(...a),
+  getBillingModeServiceRole: (...a: unknown[]) => mockGetBillingMode(...a),
 }));
 
 const mockListMembers = jest.fn();
@@ -69,6 +71,7 @@ beforeEach(() => {
   mockListNotifications.mockReset().mockResolvedValue([]);
   mockGetDisplayName.mockReset().mockResolvedValue(null);
   mockGetUsage.mockReset().mockResolvedValue(null);
+  mockGetBillingMode.mockReset().mockResolvedValue("standard");
   mockListMembers.mockReset().mockResolvedValue([]);
 });
 
@@ -119,6 +122,7 @@ interface SettingsProps {
     memberCount: number | null;
     folderLimit: number;
     frozen: boolean;
+    billingMode?: "standard" | "internal_free";
   };
   initialSection?: string;
 }
@@ -276,6 +280,27 @@ describe("AccountPage — billing summary", () => {
     expect(props.billing.usage).toBeNull();
     expect(props.billing.memberLimit).toBe(1); // personal
     expect(props.billing.folderLimit).toBe(10); // personal
+  });
+
+  it("threads the active account's billing mode through (internal_free) for the honest internal note", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1", email: "u1@x.io" } } });
+    mockListSummaries.mockResolvedValue({ activeAccountId: "p1", accounts: [personal] });
+    mockEnsurePersonal.mockResolvedValue(personalRecord());
+    mockGetBillingMode.mockResolvedValue("internal_free");
+
+    const props = await getSettingsProps();
+    expect(mockGetBillingMode).toHaveBeenCalledWith("p1");
+    expect(props.billing.billingMode).toBe("internal_free");
+  });
+
+  it("fails safe to standard billing mode when the read throws (never crashes the page)", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "u1", email: "u1@x.io" } } });
+    mockListSummaries.mockResolvedValue({ activeAccountId: "p1", accounts: [personal] });
+    mockEnsurePersonal.mockResolvedValue(personalRecord());
+    mockGetBillingMode.mockRejectedValue(new Error("read failed"));
+
+    const props = await getSettingsProps();
+    expect(props.billing.billingMode).toBe("standard");
   });
 });
 

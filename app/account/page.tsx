@@ -4,7 +4,7 @@ import * as notificationsRepo from "@/repositories/notifications";
 import { listUserAccountSummaries } from "@/services/accounts/accountList";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { getDisplayName } from "@/repositories/userProfiles";
-import { getUsage } from "@/repositories/accountBilling";
+import { getUsage, getBillingModeServiceRole } from "@/repositories/accountBilling";
 import { getAiCreditUsage } from "@/repositories/accountBillingAiCredits";
 import { isBusinessDowngradeEnabled } from "@/services/billing/billingFeatureFlags";
 import { listMembers } from "@/services/accounts/membership";
@@ -111,7 +111,7 @@ export default async function AccountPage({ searchParams }: Props) {
     frozen,
   };
   if (active) {
-    const [usage, memberCount, aiCreditUsage] = await Promise.all([
+    const [usage, memberCount, aiCreditUsage, billingMode] = await Promise.all([
       getUsage(active.id).catch(() => null),
       active.type !== "personal"
         ? listMembers(active.id)
@@ -120,6 +120,11 @@ export default async function AccountPage({ searchParams }: Props) {
         : Promise.resolve<number | null>(null),
       // AI credits are a separate, account-owned billing dimension (same RLS-scoped read).
       getAiCreditUsage(active.id).catch(() => null),
+      // BILLING-USAGE-VISIBILITY-1: display-only billing status so an internal_free
+      // account is shown honestly ("tracked but not billed"). `active` is one of the
+      // caller's own accounts (listUserAccountSummaries), so this read is membership-
+      // scoped; it carries no Stripe ids / audit reason. Fail-safe to "standard".
+      getBillingModeServiceRole(active.id).catch(() => "standard" as const),
     ]);
     billing = {
       usage,
@@ -148,6 +153,8 @@ export default async function AccountPage({ searchParams }: Props) {
       // BU-4: the viewer's personal account id, so a Team→Business upgrade can run the
       // Personal-Pro choice dialog. Always available via ensurePersonalAccount.
       personalAccountId: personal.id,
+      // BILLING-USAGE-VISIBILITY-1: drives the honest internal-account note.
+      billingMode,
     };
   }
 
