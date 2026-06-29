@@ -2,11 +2,14 @@
 
 > **Status (updated):** Slices A–F IMPLEMENTED locally (commits OPS-ALERTS-AB / C /
 > D / E + this closeout; not pushed). Runbook: [`../../runbooks/ops-alerts.md`](../../runbooks/ops-alerts.md).
-> All six categories are live except queue backlog (B), which is the real
-> queued-depth alert gated behind `QUEUE_BACKLOG_MONITORING_ENABLED` until the
-> durable-queue migration is applied (reported `unmonitored`, never green). Ops
-> steps for Marcus: apply the two ops migrations (`db:push`), optionally set
-> `OPS_ALERT_WEBHOOK_URL`, deploy (adds the every-5-min cron). This doc is the source of
+> All six categories are live. Queue backlog (B) is the real queued-depth alert and
+> is **on by default — no feature flag** (flag removed per Marcus, 2026-06-29); it
+> reads `status='queued'` depth and reports `unmonitored:read_failed` (never green) if
+> the read fails because the durable-queue migration isn't applied yet. DURABLE-QUEUE-1
+> is itself complete + tested (`b01341a72`); a queued-age finalizer was added so wedged
+> queued runs reach a terminal state. Ops steps for Marcus: apply the durable-queue
+> migration + the two ops migrations (`db:push`), optionally set `OPS_ALERT_WEBHOOK_URL`,
+> deploy (adds the every-5-min cron). This doc is the source of
 > truth for the pre-launch internal/owner alerting work and maps directly to
 > roadmap [Phase 8b — Alerting](../../roadmap/chainreact-v2-roadmap.md#phase-8--ops-docs-testing-launch-readiness):
 > _"Pages on: cron job failures, queue depth growing, OAuth refresh failure rate
@@ -328,36 +331,31 @@ approval.
   evaluator tests on a real test schema; runbook (`docs/runbooks/ops-alerts.md`);
   update roadmap Phase 8b + `docs/PROJECT_MEMORY.md`.
 
-### Category B decision (locked by Marcus)
+### Category B decision (updated 2026-06-29 — no flag)
 
-**No interim proxy.** Queue backlog is implemented as the **real queue-depth alert**
-against `workflow_runs.status='queued'` (depth + oldest-queued age). Because the
-durable-queue substrate is uncommitted WIP (§0) and the `'queued'` enum is not yet
-applied, the queue reader is **gated** behind `QUEUE_BACKLOG_MONITORING_ENABLED`
-(default `false`) — a narrow, operationally-justified flag (querying a non-existent
-enum value errors). While gated, the evaluator reports category B as
-**`unmonitored:awaiting_durable_queue`** in its structured log — **never green / OK**,
-and it does **not** fire a stuck-`running` proxy alert. When the durable-queue
-prerequisite lands and the migration is applied, flip the flag and the real
-queue-depth alert activates with zero rule changes. The parallel session's queue WIP
-is **not** taken over or committed by this arc.
+**No interim proxy, and no feature flag.** Queue backlog is the **real queue-depth
+alert** against `workflow_runs.status='queued'` (depth + oldest-queued age) and runs
+**by default**. Marcus removed `QUEUE_BACKLOG_MONITORING_ENABLED` (2026-06-29): for
+required launch infrastructure we don't ship "finished but disabled" features. The
+reader reads the real depth unconditionally; if the read fails (e.g. the durable-queue
+migration isn't applied, so `status='queued'` is invalid) the evaluator's per-reader
+catch reports category B `unmonitored:read_failed` — **never green / OK**. The only
+prerequisite is the DURABLE-QUEUE-1 migration (`20260713000000`), which is required for
+durable execution anyway. A queued-age finalizer (`sweepStaleQueuedWorkflowRuns` in the
+`sweep-stale-runs` reaper, 30-min default) fails runs stuck `queued` so a wedged worker
+never leaves them hanging.
 
 ---
 
 ## 8. Blocked / follow-up items (honest)
 
-- **Queue backlog (B) — NEXT launch-readiness step (no proxy, ever).** The real
-  queued-depth alert (`readQueueBacklog` → `status='queued'` depth + oldest age) is
-  **already built and wired**, just gated. DURABLE-QUEUE-1 (`b01341a72`, migration
-  `20260713000000`) now exists in the tree, so this is no longer "future infra" — it
-  is the immediate activation step:
-  1. Apply the durable-queue migration (`db:push`) so the `'queued'` enum exists.
-  2. Set `QUEUE_BACKLOG_MONITORING_ENABLED=true`.
-  3. (Done in this arc) `process-run-queue` cron is monitored for explicit-failure +
-     missing-run via its heartbeat.
-  Until step 1+2, the evaluator reports B `unmonitored:awaiting_durable_queue` —
-  **never green**, and a queue *reader failure* also degrades to unmonitored (not a
-  depth:0 false-healthy). No stuck-`running` proxy is or will be shipped.
+- **Queue backlog (B) — DONE, on by default (no flag, no proxy).** `readQueueBacklog`
+  reads real `status='queued'` depth + oldest age every tick; the rule fires on
+  threshold and cooldown suppresses; `process-run-queue` is monitored; a queued-age
+  finalizer fails wedged queued runs. The only prerequisite is the DURABLE-QUEUE-1
+  migration (`20260713000000`) — required for durable execution itself. Until it's
+  applied the depth read throws → evaluator reports `unmonitored:read_failed`
+  (never green). No flag to flip.
 - **Billing reconciliation drift** (roadmap wording, broader than webhook failures)
   needs a parity-style reconciliation reader over `task_billing_events` /
   reservations; **out of scope for this slice** — flagged as a separate follow-up.
@@ -386,6 +384,8 @@ is **not** taken over or committed by this arc.
 - Threshold env overrides (§4) — only if defaults need tuning.
 - `vercel.json` cron entry for `/api/cron/evaluate-ops-alerts` (every 5 min) — added
   in slice E; deploy is push-gated and **requires explicit approval**.
-- Apply the two new migrations via `db:push` — **requires explicit approval** (the
-  shared in-flight durable-queue migration `20260713000000` is untracked; do not
-  apply it as a side effect of applying the alert migrations).
+- Apply via `db:push` (**requires explicit approval**): the durable-queue migration
+  `20260713000000_workflow_runs_durable_queue.sql` (now committed — `b01341a72`;
+  required for durable execution + queue-backlog monitoring) and the two ops
+  migrations `20260714000000` / `20260714000001`. No queue feature flag — queue
+  monitoring activates automatically once the durable-queue migration is applied.

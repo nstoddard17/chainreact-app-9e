@@ -53,7 +53,7 @@ All thresholds are env-overridable (see Config). Defaults below.
 | Category | Trips when | First response |
 |---|---|---|
 | **stuck_runs** | ≥ 3 `running` rows older than 15m (critical ≥ 30m) | Check the execution engine / run-queue processor. The stale-run sweep finalizes at 60m; a rising count means dispatch is stuck. |
-| **queue_backlog** | depth > 100 **or** oldest queued > 10m | Check `/api/cron/process-run-queue` + inline drain. **Gated** (see below) — reported `unmonitored:awaiting_durable_queue` until enabled. |
+| **queue_backlog** | depth > 100 **or** oldest queued > 10m | Check `/api/cron/process-run-queue` + inline drain. Reads real `status='queued'` depth; if the read fails (e.g. durable-queue migration not applied) it reports `unmonitored:read_failed`, never healthy. |
 | **provider_failure_rate** | per provider: ≥ 20 attempts in 15m **and** > 50% failed (critical ≥ 80%) | Check that provider's status / scopes / rate limits. Attribution is by the failed step's node provider. |
 | **oauth_refresh_failures** | ≥ 5 integrations of one provider newly need reconnect in 60m | Likely a provider-wide token/scope issue. Review `/apps`; check the provider's OAuth status / app config. |
 | **billing_webhook_failures** | ≥ 3 processing failures in 60m; ≥ 5 signature failures in 10m (critical) | Verify `STRIPE_BILLING_WEBHOOK_SECRET` + endpoint config. A signature spike can mean misconfig or spoofing. |
@@ -63,25 +63,28 @@ Monitored crons + cadence live in
 [`services/observability/cronExpectations.ts`](../../services/observability/cronExpectations.ts)
 (source of truth = `vercel.json`). Keep them in sync when crons change.
 
-## Enabling queue-backlog monitoring (category B)
+## Queue-backlog monitoring (category B) — on by default
 
-Queue backlog is the **real** queued-depth alert, but it is gated because querying
-`workflow_runs.status='queued'` errors until the durable-queue migration
-(`20260713000000_workflow_runs_durable_queue.sql`, DURABLE-QUEUE-1) is applied.
+Queue backlog is the **real** queued-depth alert and is **always on — no feature
+flag**. The evaluator reads `workflow_runs.status='queued'` depth + oldest-queued
+age every tick. It just works once the durable-queue migration
+(`20260713000000_workflow_runs_durable_queue.sql`, DURABLE-QUEUE-1) is applied (that
+migration makes the `'queued'` enum valid). If the depth read fails — e.g. the
+migration is not yet applied, so `status='queued'` is invalid, or any DB error — the
+evaluator reports the category `unmonitored:read_failed` and fires nothing. It
+**never** reports the queue healthy on a failed read. So the only prerequisite is the
+migration; there is nothing to "enable".
 
-To enable, after that migration is applied to the DB:
-1. Set `QUEUE_BACKLOG_MONITORING_ENABLED=true`.
-2. The evaluator then reads depth + oldest-queued age and alerts per the thresholds.
-
-While disabled, the evaluator reports the category as `unmonitored:awaiting_durable_queue`
-in its summary log — it never claims the queue is healthy.
+A separate **queued-age finalizer** (in the `sweep-stale-runs` reaper cron) fails any
+run stuck `queued` past 30 minutes (`STALE_QUEUED_RUN_DEFAULT_AGE_MS`) so a wedged
+worker never leaves runs hanging — the alert surfaces the condition, the finalizer
+gives each run a real terminal state.
 
 ## Config (env)
 
 | Env | Default | Meaning |
 |---|---|---|
 | `OPS_ALERT_WEBHOOK_URL` | (unset) | Slack/Discord incoming webhook for owner alerts. Unset → table + logs only. |
-| `QUEUE_BACKLOG_MONITORING_ENABLED` | `false` | Enable queued-depth alerting (needs the durable-queue migration applied). |
 | `OPS_ALERT_COOLDOWN_MIN` | `60` | Min minutes between re-deliveries of the same open alert. |
 | `OPS_SIGNAL_RETENTION_DAYS` | `30` | Retention for `ops_signal_events`. |
 | `OPS_ALERT_RETENTION_DAYS` | `90` | Retention for resolved `ops_alert_events`. |
@@ -103,15 +106,14 @@ candidateCount, readerErrors, retention }`.
 - [ ] Apply migrations `20260714000000_ops_signal_events.sql` + `20260714000001_ops_alert_events.sql` (`db:push`).
 - [ ] Set `OPS_ALERT_WEBHOOK_URL` (optional but recommended for push delivery).
 - [ ] Confirm `/api/cron/evaluate-ops-alerts` is in `vercel.json` (every 5 min) and deployed.
-- [ ] (When durable queue is live) apply DURABLE-QUEUE-1 migration + set `QUEUE_BACKLOG_MONITORING_ENABLED=true`.
+- [ ] Apply the DURABLE-QUEUE-1 migration `20260713000000_workflow_runs_durable_queue.sql` (`db:push`) — this is REQUIRED for durable execution itself (enqueue writes `status='queued'`), and queue-backlog monitoring then works automatically. No flag to set.
 - [ ] Tune thresholds after observing real traffic for a few days.
 
 ## Known limitations / follow-ups
 
-- **Queue backlog** is the **next** activation step, not a long-term deferral:
-  apply the DURABLE-QUEUE-1 migration + set `QUEUE_BACKLOG_MONITORING_ENABLED=true`
-  (see the section above). The reader, rule, and `process-run-queue` cron monitoring
-  are already built.
+- **Queue backlog** works by default once the DURABLE-QUEUE-1 migration is applied
+  (no flag). Reader, rule, queued-age finalizer, and `process-run-queue` cron
+  monitoring are all live.
 - **Billing reconciliation drift** (ledger vs counters) is broader than webhook
   failures and is a separate follow-up — not covered here.
 - **Reader outages** (a signal reader throwing) degrade that category to "no signal"

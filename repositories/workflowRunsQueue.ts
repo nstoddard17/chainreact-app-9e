@@ -225,6 +225,84 @@ export async function listQueuedWorkflowRunsForDispatch(
   return (data ?? []).map((r) => dispatchRowToEnvelope(r as QueuedDispatchRow));
 }
 
+export interface SweepStaleQueuedWorkflowRunsInput {
+  /** ISO timestamp; queued rows with `started_at` (the enqueue placeholder) strictly before this are stale. */
+  cutoff: string;
+  fatalError: WorkflowRunFatalError;
+  errorClassification: WorkflowRunErrorClassification;
+  finishedAt: string;
+  /** Optional batch cap. Omitted ⇒ sweep all matching rows in one UPDATE. */
+  limit?: number;
+}
+
+export interface SweepStaleQueuedWorkflowRunsResult {
+  sweptCount: number;
+  runIds: string[];
+  cutoff: string;
+}
+
+/**
+ * Finalize runs stuck in 'queued' past the cutoff as 'failed' — the queue
+ * counterpart to the stale-'running' sweep. A queued run normally drains within
+ * ~a minute (run-now inline `after()` drain + the every-minute process-run-queue
+ * cron); a row still queued long after `started_at` (the enqueue placeholder)
+ * means the processor never claimed it (wedged worker / cron outage). Without this
+ * the run would sit queued forever — the backlog ALERT surfaces the condition to
+ * ops, and this finalizer gives each affected run a real terminal state + a
+ * humanized error instead of an indefinite hang.
+ *
+ * Race-safe + idempotent: the predicate `status='queued' AND started_at < cutoff`
+ * stops matching once a row is claimed (→ 'running') or swept (→ 'failed'), so it
+ * never fights the processor's claim (whichever wins, the other matches 0 rows)
+ * and never double-finalizes. Mirrors `sweepStaleRunningWorkflowRuns`.
+ */
+export async function sweepStaleQueuedWorkflowRuns(
+  input: SweepStaleQueuedWorkflowRunsInput,
+): Promise<SweepStaleQueuedWorkflowRunsResult> {
+  const supabase = getServiceRoleClient(
+    `cron: sweepStaleQueuedWorkflowRuns (cutoff ${input.cutoff})`,
+  );
+
+  let limitIds: string[] | null = null;
+  if (input.limit !== undefined) {
+    const sel = await supabase
+      .from("workflow_runs")
+      .select("id")
+      .eq("status", "queued")
+      .lt("started_at", input.cutoff)
+      .order("started_at", { ascending: true })
+      .limit(input.limit);
+    if (sel.error) {
+      throw new Error(
+        `workflow_runs.sweepStaleQueuedWorkflowRuns (select) failed: ${sel.error.message}`,
+      );
+    }
+    limitIds = (sel.data ?? []).map((r) => (r as { id: string }).id);
+    if (limitIds.length === 0) {
+      return { sweptCount: 0, runIds: [], cutoff: input.cutoff };
+    }
+  }
+
+  let query = supabase
+    .from("workflow_runs")
+    .update({
+      status: "failed",
+      finished_at: input.finishedAt,
+      fatal_error: input.fatalError,
+      error_classification: input.errorClassification,
+    })
+    .eq("status", "queued")
+    .lt("started_at", input.cutoff);
+  if (limitIds !== null) query = query.in("id", limitIds);
+
+  const { data, error } = await query.select("id");
+  if (error) {
+    throw new Error(`workflow_runs.sweepStaleQueuedWorkflowRuns failed: ${error.message}`);
+  }
+  const runIds = (data ?? []).map((r) => (r as { id: string }).id);
+  return { sweptCount: runIds.length, runIds, cutoff: input.cutoff };
+}
+
 export interface FailQueuedRunIfStillQueuedInput {
   runId: string;
   fatalError: WorkflowRunFatalError;

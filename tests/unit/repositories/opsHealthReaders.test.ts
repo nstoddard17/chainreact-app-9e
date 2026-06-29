@@ -130,23 +130,30 @@ describe("readOAuthRefreshFailuresByProvider", () => {
 });
 
 describe("readQueueBacklog", () => {
-  it("reports unmonitored (never green) when the durable-queue gate is off", async () => {
-    client = makeClient({});
-    expect(await readQueueBacklog(false, NOW)).toEqual({
-      monitored: false,
-      depth: 0,
-      oldestAgeMinutes: null,
-    });
-  });
-
-  it("reads queued depth + oldest age when monitoring is enabled", async () => {
+  it("reads real queued depth + oldest age by default (no flag)", async () => {
     client = makeClient({
       workflow_runs: [
         { count: 7 }, // head count
         { data: [{ created_at: "2026-06-26T11:50:00.000Z" }] }, // oldest
       ],
     });
-    const result = await readQueueBacklog(true, NOW);
+    const result = await readQueueBacklog(NOW);
     expect(result).toEqual({ monitored: true, depth: 7, oldestAgeMinutes: 10 });
+  });
+
+  it("reports an empty queue as monitored depth 0 (read succeeded, genuinely healthy)", async () => {
+    client = makeClient({ workflow_runs: [{ count: 0 }, { data: [] }] });
+    expect(await readQueueBacklog(NOW)).toEqual({
+      monitored: true,
+      depth: 0,
+      oldestAgeMinutes: null,
+    });
+  });
+
+  it("THROWS when the depth read fails (e.g. migration not applied) so the evaluator reports unmonitored, never green", async () => {
+    client = makeClient({
+      workflow_runs: [{ error: { message: "invalid input value for enum workflow_run_status: queued" } }],
+    });
+    await expect(readQueueBacklog(NOW)).rejects.toThrow(/readQueueBacklog/);
   });
 });

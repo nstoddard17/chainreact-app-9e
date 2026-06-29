@@ -10,9 +10,13 @@
  */
 
 const mockSweep = jest.fn();
+const mockQueuedSweep = jest.fn();
 
 jest.mock("@/services/execution/staleWorkflowRunSweep", () => ({
   sweepStaleRunningWorkflowRuns: (...args: unknown[]) => mockSweep(...args),
+}));
+jest.mock("@/services/execution/staleQueuedRunSweep", () => ({
+  sweepStaleQueuedWorkflowRuns: (...args: unknown[]) => mockQueuedSweep(...args),
 }));
 
 import { readFileSync } from "node:fs";
@@ -24,6 +28,14 @@ const SECRET = "cost15k-test-secret";
 
 beforeEach(() => {
   mockSweep.mockReset();
+  mockQueuedSweep.mockReset();
+  // Default: the queued-age finalizer sweeps nothing (most ticks).
+  mockQueuedSweep.mockResolvedValue({
+    sweptCount: 0,
+    runIds: [],
+    cutoff: "2026-05-25T00:00:00.000Z",
+    olderThanMs: 1_800_000,
+  });
   process.env.CRON_SECRET = SECRET;
 });
 
@@ -73,9 +85,12 @@ describe("/api/cron/sweep-stale-runs route", () => {
     const res = await POST(req({ auth: `Bearer ${SECRET}` }));
     expect(res.status).toBe(200);
     expect(mockSweep).toHaveBeenCalledWith({ limit: DEFAULT_BATCH_LIMIT });
+    // The reaper also runs the queued-age finalizer in the same tick.
+    expect(mockQueuedSweep).toHaveBeenCalledWith({ limit: DEFAULT_BATCH_LIMIT });
     expect(await res.json()).toEqual({
       ok: true,
       sweptCount: 2,
+      queuedSweptCount: 0,
       cutoff: "2026-05-25T00:00:00.000Z",
       olderThanMs: 3_600_000,
     });
@@ -124,7 +139,7 @@ describe("/api/cron/sweep-stale-runs route", () => {
     const res = await POST(req({ auth: `Bearer ${SECRET}` }));
     const body = (await res.json()) as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual(
-      ["cutoff", "ok", "olderThanMs", "sweptCount"].sort(),
+      ["cutoff", "ok", "olderThanMs", "queuedSweptCount", "sweptCount"].sort(),
     );
     expect(JSON.stringify(body)).not.toContain("r1");
   });

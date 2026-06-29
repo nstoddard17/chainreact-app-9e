@@ -169,18 +169,14 @@ interface QueuedRunRow {
 }
 
 /**
- * Durable-queue backlog. Gated: when `monitoringEnabled` is false (the `'queued'`
- * enum is not applied — querying it would error), returns `monitored:false` and
- * the evaluator reports the category unmonitored (never green). When enabled,
- * reads `status='queued'` depth + oldest-queued age.
+ * Durable-queue backlog — reads the REAL queue depth (`status='queued'` count +
+ * oldest-queued age) by default. No feature flag: once the durable-queue migration
+ * exists the `'queued'` enum is valid and this just works. If the migration is NOT
+ * applied (or the DB read otherwise fails) the query THROWS — the evaluator's
+ * per-reader catch then reports the category `unmonitored` (never a depth:0 green).
+ * `monitored:true` here means "the queue depth was read successfully".
  */
-export async function readQueueBacklog(
-  monitoringEnabled: boolean,
-  nowIso: string,
-): Promise<QueueBacklogSignal> {
-  if (!monitoringEnabled) {
-    return { monitored: false, depth: 0, oldestAgeMinutes: null };
-  }
+export async function readQueueBacklog(nowIso: string): Promise<QueueBacklogSignal> {
   const supabase = getServiceRoleClient("ops health: read queue backlog");
   const countRes = await supabase
     .from("workflow_runs")

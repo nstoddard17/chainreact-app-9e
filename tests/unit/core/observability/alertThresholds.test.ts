@@ -8,7 +8,6 @@
  */
 import {
   DEFAULT_OPS_ALERT_THRESHOLDS,
-  isQueueBacklogMonitoringEnabled,
   resolveOpsAlertThresholds,
 } from "@/core/observability/alertThresholds";
 
@@ -33,17 +32,5 @@ describe("resolveOpsAlertThresholds", () => {
     expect(t.stuckRunMinCount).toBe(DEFAULT_OPS_ALERT_THRESHOLDS.stuckRunMinCount);
     expect(t.providerFailRatePct).toBe(DEFAULT_OPS_ALERT_THRESHOLDS.providerFailRatePct);
     expect(t.alertCooldownMinutes).toBe(DEFAULT_OPS_ALERT_THRESHOLDS.alertCooldownMinutes);
-  });
-});
-
-describe("isQueueBacklogMonitoringEnabled", () => {
-  it("is OFF by default (durable-queue substrate not live)", () => {
-    expect(isQueueBacklogMonitoringEnabled({})).toBe(false);
-    expect(isQueueBacklogMonitoringEnabled({ QUEUE_BACKLOG_MONITORING_ENABLED: "false" })).toBe(false);
-    expect(isQueueBacklogMonitoringEnabled({ QUEUE_BACKLOG_MONITORING_ENABLED: "1" })).toBe(false);
-  });
-
-  it("is ON only when explicitly 'true'", () => {
-    expect(isQueueBacklogMonitoringEnabled({ QUEUE_BACKLOG_MONITORING_ENABLED: "true" })).toBe(true);
   });
 });

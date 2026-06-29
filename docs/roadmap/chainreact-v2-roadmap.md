@@ -373,9 +373,11 @@ The denormalized cache `workspace_balances.task_pack_balance` must equal `sum(pa
 > `ops_alert_events`, both system-table / service-role-only). Cron-driven
 > (`/api/cron/evaluate-ops-alerts`, 5 min), dedupe/cooldown, 6 categories (stuck runs,
 > queue backlog, provider failure rate, OAuth refresh failures, billing webhook failures,
-> cron failures). Queue backlog is the real queued-depth alert gated behind
-> `QUEUE_BACKLOG_MONITORING_ENABLED` until the DURABLE-QUEUE-1 migration is applied
-> (reported unmonitored, never green). No platform-owner UI tier was added (out of scope);
+> cron failures). Queue backlog is the real queued-depth alert, **on by default — no
+> feature flag** (2026-06-29): it reads `status='queued'` depth and activates
+> automatically once the DURABLE-QUEUE-1 migration is applied; if the read fails it
+> reports `unmonitored:read_failed`, never green. A queued-age finalizer fails wedged
+> queued runs. No platform-owner UI tier was added (out of scope);
 > alerts live in the ledger + logs + optional webhook. Billing **reconciliation drift**
 > (ledger vs counters) + dedup-outage alerting remain follow-ups. Design + ops:
 > [`launch-alerts-audit-plan.md`](../slices/phase-8/launch-alerts-audit-plan.md),

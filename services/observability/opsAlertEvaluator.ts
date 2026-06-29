@@ -6,7 +6,6 @@ import {
 import { evaluateOpsAlertRules } from "@/core/observability/evaluateRules";
 import { planAlertReconciliation } from "@/core/observability/dedupe";
 import {
-  isQueueBacklogMonitoringEnabled,
   resolveOpsAlertThresholds,
   type OpsAlertThresholds,
 } from "@/core/observability/alertThresholds";
@@ -29,7 +28,6 @@ import { deliverOpsAlert } from "./delivery";
 export interface OpsAlertEvaluatorDeps {
   nowIso: string;
   thresholds: OpsAlertThresholds;
-  queueMonitoringEnabled: boolean;
   monitoredCrons: readonly MonitoredCron[];
   retentionSignalDays: number;
   retentionAlertDays: number;
@@ -118,10 +116,11 @@ async function buildSnapshot(
   );
   const queue = await safe(
     "queueBacklog",
-    () => deps.readers.queueBacklog(deps.queueMonitoringEnabled, deps.nowIso),
+    () => deps.readers.queueBacklog(deps.nowIso),
     // On a reader failure report UNMONITORED (never green): a depth:0 fallback with
-    // monitored:true would read as a healthy-empty queue while the signal is actually
-    // missing. Unmonitored + a readerErrors entry is the honest degradation.
+    // monitored:true would read as a healthy-empty queue while the read actually
+    // failed (e.g. the durable-queue migration isn't applied yet). Unmonitored + a
+    // readerErrors entry is the honest degradation.
     { monitored: false, depth: 0, oldestAgeMinutes: null },
   );
   const billingWebhookFailures = await safe(
@@ -260,8 +259,9 @@ export async function evaluateOpsAlerts(
     JSON.stringify({
       event: "ops.alert.evaluated",
       ...summary,
-      // Honest queue state: when unmonitored, report it — never imply OK.
-      queue: snapshot.queue.monitored ? "monitored" : "unmonitored:awaiting_durable_queue",
+      // Honest queue state: when the depth read failed, report unmonitored —
+      // never imply OK.
+      queue: snapshot.queue.monitored ? "monitored" : "unmonitored:read_failed",
     }),
   );
 
@@ -276,7 +276,6 @@ export function buildDefaultDeps(
   return {
     nowIso,
     thresholds: resolveOpsAlertThresholds(env),
-    queueMonitoringEnabled: isQueueBacklogMonitoringEnabled(env),
     monitoredCrons: MONITORED_CRONS,
     retentionSignalDays: parsePositiveDays(env.OPS_SIGNAL_RETENTION_DAYS, 30),
     retentionAlertDays: parsePositiveDays(env.OPS_ALERT_RETENTION_DAYS, 90),

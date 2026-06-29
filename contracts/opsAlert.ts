@@ -104,9 +104,11 @@ export interface StuckRunsSignal {
 
 export interface QueueBacklogSignal {
   /**
-   * False while the durable-queue substrate is not live (the `'queued'` enum is
-   * not applied). When false the evaluator reports the category as
-   * `unmonitored:awaiting_durable_queue` and fires NOTHING — never green.
+   * True when the durable-queue depth was read successfully. The evaluator sets
+   * this false ONLY when the reader threw (e.g. the durable-queue migration is not
+   * yet applied, so `status='queued'` is invalid, or any DB error) — in which case
+   * the category is reported `unmonitored` and fires NOTHING. Never a depth:0
+   * "green" stand-in for a failed read.
    */
   monitored: boolean;
   depth: number;

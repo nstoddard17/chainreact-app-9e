@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireCronAuth } from "@/services/cron/auth";
 import { withCronHeartbeat } from "@/services/observability/signalRecorders";
 import { sweepStaleRunningWorkflowRuns } from "@/services/execution/staleWorkflowRunSweep";
+import { sweepStaleQueuedWorkflowRuns } from "@/services/execution/staleQueuedRunSweep";
 import { DEFAULT_BATCH_LIMIT } from "./constants";
 
 /**
@@ -52,20 +53,29 @@ async function handle(request: Request): Promise<Response> {
   const limit = parseLimit(request) ?? DEFAULT_BATCH_LIMIT;
 
   try {
+    // The reaper finalizes BOTH stale lifecycle states: 'running' rows whose
+    // engine restarted mid-execution (60-min default) and 'queued' rows the
+    // processor never claimed (30-min default) — so a wedged worker never leaves
+    // runs hanging 'queued' forever.
     const result = await sweepStaleRunningWorkflowRuns({ limit });
+    const queued = await sweepStaleQueuedWorkflowRuns({ limit });
     // Summary log — counts + cutoff window only (no run ids).
     console.info(
       JSON.stringify({
         event: "cron.sweep_stale_runs.done",
         sweptCount: result.sweptCount,
+        queuedSweptCount: queued.sweptCount,
         cutoff: result.cutoff,
+        queuedCutoff: queued.cutoff,
         olderThanMs: result.olderThanMs,
+        queuedOlderThanMs: queued.olderThanMs,
         limit,
       }),
     );
     return NextResponse.json({
       ok: true,
       sweptCount: result.sweptCount,
+      queuedSweptCount: queued.sweptCount,
       cutoff: result.cutoff,
       olderThanMs: result.olderThanMs,
     });

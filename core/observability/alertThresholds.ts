@@ -105,14 +105,3 @@ export function resolveOpsAlertThresholds(
   }
   return out;
 }
-
-/**
- * Whether durable-queue backlog monitoring is live. Default OFF: while the
- * durable-queue substrate is uncommitted WIP and the `'queued'` enum is not
- * applied, querying `status='queued'` would error — so the queue reader stays
- * dormant and the evaluator reports category B as unmonitored (never green).
- * Flip `QUEUE_BACKLOG_MONITORING_ENABLED=true` once the queue migration is applied.
- */
-export function isQueueBacklogMonitoringEnabled(env: EnvBag = process.env): boolean {
-  return env.QUEUE_BACKLOG_MONITORING_ENABLED === "true";
-}

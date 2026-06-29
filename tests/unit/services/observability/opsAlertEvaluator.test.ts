@@ -42,7 +42,6 @@ function openRecord(over: Partial<OpsAlertEventRecord> = {}): OpsAlertEventRecor
 function makeDeps(over: {
   providerFailures?: { provider: string; attempts: number; failures: number }[];
   stuckRunsThrows?: boolean;
-  queueEnabled?: boolean;
   queueThrows?: boolean;
   listOpen?: OpsAlertEventRecord[];
   deliverResult?: { logged: true; webhookDelivered: boolean | null };
@@ -65,7 +64,6 @@ function makeDeps(over: {
   const deps = {
     nowIso: NOW,
     thresholds: DEFAULT_OPS_ALERT_THRESHOLDS,
-    queueMonitoringEnabled: over.queueEnabled ?? false,
     monitoredCrons: [{ name: "poll-triggers", expectedIntervalMinutes: 1 }],
     retentionSignalDays: 30,
     retentionAlertDays: 90,
@@ -78,7 +76,7 @@ function makeDeps(over: {
       oauthRefreshFailures: jest.fn(async () => []),
       queueBacklog: jest.fn(async () => {
         if (over.queueThrows) throw new Error("queued enum not applied");
-        return { monitored: over.queueEnabled ?? false, depth: 0, oldestAgeMinutes: null };
+        return { monitored: true, depth: 0, oldestAgeMinutes: null };
       }),
       cronRunStatuses: jest.fn(async () => [
         { source: "poll-triggers", lastOutcome: "ok" as const, lastSuccessAgeMinutes: 1, consecutiveFailures: 0 },
@@ -177,15 +175,15 @@ describe("evaluateOpsAlerts", () => {
     expect(spies.touch).toHaveBeenCalledWith(expect.objectContaining({ delivered: false }));
   });
 
-  it("queue backlog reports unmonitored (never green) while the durable-queue gate is off", async () => {
-    const { deps } = makeDeps(); // queue gate off
+  it("queue backlog reads real depth by default (monitored, no flag)", async () => {
+    const { deps } = makeDeps(); // reader succeeds
     const summary = await evaluateOpsAlerts(deps);
-    expect(summary.queueMonitored).toBe(false);
-    expect(summary.readerErrors).not.toContain("queueBacklog"); // gated, not errored
+    expect(summary.queueMonitored).toBe(true);
+    expect(summary.readerErrors).not.toContain("queueBacklog");
   });
 
   it("never reports queue green when the queue reader fails (unmonitored + readerError)", async () => {
-    const { deps } = makeDeps({ queueEnabled: true, queueThrows: true });
+    const { deps } = makeDeps({ queueThrows: true }); // e.g. migration not applied → read throws
     const summary = await evaluateOpsAlerts(deps);
     expect(summary.queueMonitored).toBe(false); // honest degradation, not depth:0 green
     expect(summary.readerErrors).toContain("queueBacklog");
