@@ -900,3 +900,57 @@ smoke connection to carry `Mail.ReadWrite` (create/delete draft scope). Other sa
 offline candidates to consider next: `gmail:create_draft` (cleanup path needs confirming — Gmail
 `drafts.delete` vs `deleteEmail`) and `microsoft-outlook:create_draft_email`'s Gmail analogue,
 plus revisiting connected-provider creates only where a real delete action exists.
+
+## 23. SMOKE-WRITE-44 — `gmail:create_draft` DEFERRED (no safe registered cleanup) (2026-06-29)
+
+Inspected `gmail:create_draft` as the next non-Excel offline candidate and **deferred it** —
+**no fixture authored** — because there is no safe, registered cleanup for a Gmail draft. Per the
+selection rule "if no safe cleanup exists, stop and classify as deferred." Matrix unchanged
+(`gmail:create_draft` stays MISSING_FIXTURE).
+
+**Inspection:**
+- `create_draft` exists; output is `{ draftId, messageId, threadId }` (the draft id + its
+  underlying message id) — ids are available for cleanup/verify.
+- **No drafts-delete action or API wrapper.** Gmail API wrappers present:
+  `usersDraftsCreate`, `usersMessagesDelete`, `usersMessagesTrash` (no `usersDraftsDelete`,
+  no `usersDraftsList`). The only registered cleanup action is `delete_email`
+  (`{ messageId, deleteMode: "trash" | "permanent" }` → `messages.trash` / `messages.delete`).
+- A Gmail draft is a SEPARATE resource (`drafts.*`) wrapping a message — unlike Outlook/Graph
+  where a draft IS a message and `DELETE /messages/{id}` discards it (that's why SMOKE-WRITE-43
+  Outlook was safe). So `messages.delete`/`messages.trash` on the draft's underlying message is
+  not the documented draft-discard path.
+
+**Direct-API probe** (`scripts/trash/gmail-draft-cleanup-probe.ts`; no engine, so independent
+of the `"queued"` blocker — creates + cleans real smoke drafts, always raw-`drafts.delete`
+fallback so it never leaks):
+- **VERIFY works:** `users.messages.list q="subject:<marker>"` (the engine certified
+  `search_emails` uses) found the freshly-created draft on attempt 1. ✓
+- **`delete_email` "permanent" (`messages.delete`) FAILS:** `Request had insufficient
+  authentication scopes` — the smoke Gmail connection lacks the `https://mail.google.com/`
+  scope that permanent message delete requires. ✗
+- **`delete_email` "trash" (`messages.trash`) LEAKS:** the call succeeds (HTTP OK) but the
+  draft **is still present afterward** (`drafts.get` → HTTP 200). Trashing the underlying
+  message does NOT remove the draft. ✗
+- The correct discard (raw `drafts.delete`) returned HTTP 204 with the existing scopes — so the
+  proper cleanup is technically available, but **has no registered action/wrapper to build a
+  fixture's cleanup on**, and adding a production drafts-delete handler is outside the
+  action-smoke lane.
+
+**Verdict — DEFER.** Both `delete_email` modes are unsafe for a Gmail draft (permanent → scope
+failure; trash → leaves the draft). Authoring a fixture whose cleanup either fails or leaks
+would violate the zero-leak rule. This is a **durable** deferral (not just queue-blocked): it
+clears only when a registered `gmail:discard_draft` / drafts-delete action exists (a production
+addition, out of this lane), at which point `create_draft` becomes authorable (VERIFY via
+`search_emails` already confirmed, cleanup via the new discard action).
+
+**Matrix:** unchanged — **298 registered / 127 LIVE_PASS / 28 not-run / 143 missing / 0 fail /
+0 bug**. `gmail:create_draft` stays MISSING_FIXTURE (deferred).
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → 42 suites / 456 pass
+(unchanged — no fixture added); `npx tsc --noEmit` → exit 0; `npm run lint:structure` → OK;
+`--cert` → `gmail:create_draft` still MISSING. **No live workflow smoke. Nothing pushed.**
+
+**Next safe non-Excel offline candidates:** revisit connected-provider creates ONLY where a real
+registered delete/discard action exists. Gmail `create_label` is similarly blocked (no
+`delete_label`). The Outlook/draft pattern worked because Graph drafts ARE messages; the
+equivalent only generalizes to providers whose create has a matching registered delete.
