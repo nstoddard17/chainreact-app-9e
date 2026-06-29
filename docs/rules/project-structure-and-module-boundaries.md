@@ -240,7 +240,7 @@ Each row below names the canonical owner of one concern. New code with overlappi
 | Execution behavior | `workflow-engine/` |
 | Run history / lineage | `workflow-engine/runs/` |
 | Idempotency (session side effects) | `workflow-engine/idempotency/` |
-| Error humanization | `core/errors/humanizeActionError.ts` |
+| Error humanization + failed-run CTA | `core/errors/humanizeActionError.ts` + `core/errors/failedRunCta.ts` (rule: [`failed-run-recovery.md`](./failed-run-recovery.md)) |
 | Health transition engine | `core/integrations/healthTransitionEngine.ts` |
 | Notification fan-out | `services/notifications/` |
 | Auth header / token cache | `core/auth/getAuthHeader.ts` + `stores/authStore.ts` |

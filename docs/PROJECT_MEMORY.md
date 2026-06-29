@@ -39,6 +39,19 @@
 
 ## Durable decisions
 
+- [2026-06-29] **Failed runs show a clear reason + one primary next action
+  (CR-FAILREASON).** Rule: [`docs/rules/failed-run-recovery.md`](./rules/failed-run-recovery.md).
+  Classification is owned by the shared humanizer
+  (`core/errors/humanizeActionError.ts`), persisted to
+  `workflow_runs.error_classification`, and is the CTA source of truth (mapped by
+  `core/errors/failedRunCta.ts`) on Runs page / builder latest-run drawer /
+  builder Runs-tab detail. Five actions: reconnect→/apps, upgrade_plan→/account,
+  open_node→builder/failed step, retry_later + contact_support = guidance only
+  (no retry API / support route invented), missing action = no CTA. Unknown/unsafe
+  ⇒ contact_support with safe copy; no raw provider text/tokens/ids ever persisted
+  or rendered. Do NOT build parallel humanizers or per-surface action maps; future
+  provider errors extend the shared classifier with safe typed codes, never UI
+  string parsing. Shipped: CR-FAILREASON-1 (`668005efa`) + CR-FAILREASON-2 (`cacb40a71`).
 - [2026-06-26] **Analytics is a user/business-value surface, not an ops console.**
   NOT building the customer-facing "Workflow Health" / observability metrics slice
   (`runs_by_status`, `p95_duration`, `failures_by_workflow`, reconnect/disconnected
