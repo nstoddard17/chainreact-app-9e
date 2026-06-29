@@ -1011,3 +1011,50 @@ pushed.**
 **Next safe non-Excel offline candidate:** `microsoft-outlook-calendar:add_attendees` (same
 chain off certified create/delete_event) — pending confirming a certified Outlook-calendar read
 that exposes event attendees for the independent verify.
+
+## 25. SMOKE-WRITE-46 — `microsoft-outlook-calendar:add_attendees` AUTHORED (NOT_RUN_READY) — verify confirmed available (2026-06-29)
+
+The §24 follow-up. **Outlook Calendar attendee verification IS available**, so `add_attendees`
+was authored (mirrors the gcal SMOKE-WRITE-45 pattern). **NOT_RUN_READY** — no live smoke, no
+cert row.
+
+**Verify availability (the unblocker question):** The certified `microsoft-outlook-calendar:list_events`
+(LIVE_PASS) output PROJECTS per-event `attendees: [{ name, address, type, status }]` — so the
+added attendee's email is independently readable at `events[].attendees[].address`. (The bounded
+`events_get` smoke reader exposes only `exists`/`subject` — no attendees — so verify uses
+`list_events`, exactly like gcal.) **Decision: SELECTED / authored.**
+
+**No-notify caveat (documented):** Outlook's `add_attendees` config is `{ eventId, attendees,
+attendeeType }` — there is **NO notification toggle** (it PATCHes `/me/events/{id}` with the
+merged attendee list). So the sole safeguard against an invite is the attendee address: a
+reserved, RFC-6761 non-deliverable `.invalid` address. Any invite Exchange might attempt cannot
+resolve and bounces at the sending server — no real party is ever contacted. This is the
+defense-in-depth the charter mandates when an action lacks a no-notify option, and matches the
+task's explicit "no-notify if the action supports it; attendee must be a reserved `.invalid`
+address." No production action behavior was changed.
+
+**Fixture plan** ([tests/fixtures/action-smoke/microsoft-outlook-calendar/add_attendees.ts](../../../../tests/fixtures/action-smoke/microsoft-outlook-calendar/add_attendees.ts)):
+- **setup** `create_event` (certified) — marker-subjected event on the default calendar at a
+  FIXED 2030-01-01 time, NO attendees, `responseRequested:false`. Capture `id` → ledger `event`.
+- **execute** `add_attendees` — `["{{marker}}attendee@example.invalid"]`, `attendeeType:"required"`.
+- **verify** `list_events` (certified) — fixed 2030 window (`startDateTime`/`endDateTime`, `top:50`);
+  `markerPath:"events"` + `markerSuffix:"attendee@example.invalid"` proves the unique attendee in
+  `events[].attendees[].address`. A no-op leaves the event without it → VERIFY_FAILED (the subject
+  marker is `<marker>event`, not the attendee suffix).
+- **cleanup** `delete_event` (certified, hard erase) — removes the event + its attendee. Same
+  provider, smoke-owned, zero leaked, no real invite. No harness change.
+
+**Matrix:** `add_attendees` MISSING_FIXTURE → **NOT_RUN**. Totals now **298 registered / 127
+LIVE_PASS / 30 not-run / 141 missing / 0 fail / 0 bug**; microsoft-outlook-calendar **5 / 4 / 1 / 0**
+(now write-complete modulo live cert — both calendar providers' add_attendees are NOT_RUN_READY).
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **44 suites / 464 tests pass**
+(incl. the new `outlook-cal-add-attendees` suite); `npx tsc --noEmit` → **exit 0** (fully clean);
+eslint on touched files → 0; `npm run lint:structure` → OK; `--cert` → `add_attendees` NOT_RUN.
+**No live smoke run. Nothing pushed.**
+
+**Calendar attendee family complete.** Both `google-calendar:add_attendees` (§24) and
+`microsoft-outlook-calendar:add_attendees` (this section) are authored NOT_RUN_READY. Next safe
+non-Excel offline candidate would require a connected provider whose create has a registered
+delete AND a certified read exposing the mutated property — the readily-available ones are now
+exhausted (the remaining MISSING are sends / bytes / sharing / no-cleanup / no-verify, see §24).

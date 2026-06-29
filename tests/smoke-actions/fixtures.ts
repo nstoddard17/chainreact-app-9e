@@ -178,6 +178,8 @@ import gsheetsDeleteRow from "@/tests/fixtures/action-smoke/google-sheets/delete
 import outlookCalCreateEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/create_event";
 import outlookCalUpdateEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/update_event";
 import outlookCalDeleteEvent from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/delete_event";
+// SMOKE-WRITE-46 — Outlook Calendar add_attendees (chains off certified create/delete_event).
+import outlookCalAddAttendees from "@/tests/fixtures/action-smoke/microsoft-outlook-calendar/add_attendees";
 import notionCreatePage from "@/tests/fixtures/action-smoke/notion/create_page";
 import notionUpdatePage from "@/tests/fixtures/action-smoke/notion/update_page";
 import notionAppendBlockChildren from "@/tests/fixtures/action-smoke/notion/append_block_children";
@@ -345,6 +347,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,
+  outlookCalAddAttendees,
   notionCreatePage,
   notionUpdatePage,
   notionAppendBlockChildren,
