@@ -8,19 +8,36 @@
 
 /**
  * Per-row explanation shown under a reconnect-needed account. Branches on whether the
- * VIEWER may reconnect this row: if they can, they fix it directly; if not, the person
- * who originally connected it must (a permission rule on personal credentials, not an
- * error). Keeps the existing `app-card-reconnect-needed-copy` testid.
+ * VIEWER may reconnect this row:
+ *   - Reconnectable → lead with WHY it's worth doing ("keep workflows running") and
+ *     reassure that it's a low-stakes refresh of THIS account only (not a destructive
+ *     disconnect, not a provider-wide change) — CS-APPS-RECOVERY-FINAL-1.
+ *   - Not reconnectable → the person who originally connected it must (a permission
+ *     rule on personal credentials, not an error); no actionable copy / no dead button.
+ * Keeps the existing `app-card-reconnect-needed-copy` testid.
  */
 export function ReconnectRowCopy({ canReconnect }: { canReconnect: boolean }) {
+  if (!canReconnect) {
+    return (
+      <span
+        data-testid="app-card-reconnect-needed-copy"
+        className="text-[11px] text-amber-700 dark:text-amber-400"
+      >
+        This account needs reconnecting. The person who connected it must reconnect it.
+      </span>
+    );
+  }
   return (
     <span
       data-testid="app-card-reconnect-needed-copy"
-      className="text-[11px] text-amber-700 dark:text-amber-400"
+      className="flex flex-col gap-0.5 text-[11px]"
     >
-      {canReconnect
-        ? "This account needs reconnecting. Use Reconnect to restore it."
-        : "This account needs reconnecting. The person who connected it must reconnect it."}
+      <span className="text-amber-700 dark:text-amber-400">
+        Reconnect this app to keep workflows running.
+      </span>
+      <span className="text-muted-foreground">
+        {"Reconnect only refreshes this account's connection."}
+      </span>
     </span>
   );
 }

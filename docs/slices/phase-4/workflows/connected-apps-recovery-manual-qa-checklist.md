@@ -75,6 +75,15 @@ provider connection only. Not for production / customer environments.
 - [ ] Expanding the card shows the per-row reconnect-needed chip
       (`app-card-reconnect-needed`) + its copy (`app-card-reconnect-needed-copy`) on
       **exactly the row you broke**.
+- [ ] On a row **you can reconnect**, the copy reassures (CS-APPS-RECOVERY-FINAL-1):
+      **"Reconnect this app to keep workflows running."** and **"Reconnect only
+      refreshes this account's connection."** It does NOT claim a state the backend
+      doesn't know (no "expired"/"revoked" labels — only "Reconnect needed").
+- [ ] On a row **you cannot reconnect** (personal credential, you're not the
+      connector), the copy instead reads **"The person who connected it must reconnect
+      it."** and **no** Reconnect control renders (no dead button, no actionable CTA).
+- [ ] A **healthy** connected row shows **no** reconnect chip and **no** reassurance
+      copy (the copy is gated on `needsReconnect` — no noise on working rows).
 - [ ] **No other row** on that app (or any other app) flipped. Per-row only.
 
 ### D. Collapsed-card recovery is discoverable — single row

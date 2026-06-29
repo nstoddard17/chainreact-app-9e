@@ -529,11 +529,11 @@ describe("AppCard — reconnect-needed signal (V2-READY-28)", () => {
 
     const row = screen.getByTestId("app-card-account");
     expect(within(row).getByTestId("app-card-reconnect-needed")).toHaveTextContent(/reconnect needed/i);
-    // CS-APPS-RECOVERY-COPY — this row is reconnectable by the viewer, so the copy
-    // points them at the Reconnect action.
-    expect(within(row).getByTestId("app-card-reconnect-needed-copy")).toHaveTextContent(
-      /this account needs reconnecting\. use reconnect to restore it\./i,
-    );
+    // CS-APPS-RECOVERY-FINAL-1 — a reconnectable row reassures the viewer why to act
+    // (keep workflows running) and that reconnect is a low-stakes per-account refresh.
+    const copy = within(row).getByTestId("app-card-reconnect-needed-copy");
+    expect(copy).toHaveTextContent(/reconnect this app to keep workflows running\./i);
+    expect(copy).toHaveTextContent(/reconnect only refreshes this account's connection\./i);
     // The existing per-account Reconnect control still renders (canReconnect).
     expect(within(row).getByTestId("app-card-reconnect")).toBeInTheDocument();
   });
@@ -640,24 +640,37 @@ describe("AppCard — collapsed reconnect discoverability (CS-APPS-RECOVERY-2)",
 
   // ── CS-APPS-RECOVERY-COPY — clearer who/what/scope copy ─────────────────────
   describe("reconnect-needed copy clarity", () => {
-    it("a row the viewer can reconnect points them at the Reconnect action", async () => {
+    it("a reconnectable row shows the workflow-continuity + scope reassurance copy", async () => {
       const user = userEvent.setup();
       const app = connectedApp([row({ id: "broken", needsReconnect: true, canReconnect: true })]);
       render(<AppCard app={app} accountId="acc-1" />);
       await user.click(screen.getByTestId("app-card-expand"));
-      expect(screen.getByTestId("app-card-reconnect-needed-copy")).toHaveTextContent(
-        /use reconnect to restore it/i,
-      );
+      const copy = screen.getByTestId("app-card-reconnect-needed-copy");
+      // (2) reconnect keeps workflows running, (3) reconnect only refreshes THIS account.
+      expect(copy).toHaveTextContent(/reconnect this app to keep workflows running\./i);
+      expect(copy).toHaveTextContent(/reconnect only refreshes this account's connection\./i);
     });
 
-    it("a row the viewer CANNOT reconnect says the original connector must do it (no dead button)", async () => {
+    it("does NOT show reassurance copy on a healthy connected row (no needsReconnect)", async () => {
+      const user = userEvent.setup();
+      const app = connectedApp([row({ id: "ok", canReconnect: true })]);
+      render(<AppCard app={app} accountId="acc-1" />);
+      await user.click(screen.getByTestId("app-card-expand"));
+      // The whole copy block is gated on needsReconnect — no noise on a working row.
+      expect(screen.queryByTestId("app-card-reconnect-needed-copy")).toBeNull();
+      expect(screen.queryByText(/keep workflows running/i)).toBeNull();
+      expect(screen.queryByText(/only refreshes this account's connection/i)).toBeNull();
+    });
+
+    it("a row the viewer CANNOT reconnect says the original connector must do it (no dead button, no actionable reassurance)", async () => {
       const user = userEvent.setup();
       const app = connectedApp([row({ id: "broken", needsReconnect: true, canReconnect: false })]);
       render(<AppCard app={app} accountId="acc-1" />);
       await user.click(screen.getByTestId("app-card-expand"));
-      expect(screen.getByTestId("app-card-reconnect-needed-copy")).toHaveTextContent(
-        /the person who connected it must reconnect it/i,
-      );
+      const copy = screen.getByTestId("app-card-reconnect-needed-copy");
+      expect(copy).toHaveTextContent(/the person who connected it must reconnect it/i);
+      // The "keep workflows running" CTA only appears where the viewer can actually act.
+      expect(copy).not.toHaveTextContent(/keep workflows running/i);
       // No actionable Reconnect control for this viewer (canReconnect false).
       expect(screen.queryByTestId("app-card-reconnect")).toBeNull();
     });
