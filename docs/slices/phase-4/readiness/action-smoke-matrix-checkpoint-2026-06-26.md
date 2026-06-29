@@ -954,3 +954,60 @@ addition, out of this lane), at which point `create_draft` becomes authorable (V
 registered delete/discard action exists. Gmail `create_label` is similarly blocked (no
 `delete_label`). The Outlook/draft pattern worked because Graph drafts ARE messages; the
 equivalent only generalizes to providers whose create has a matching registered delete.
+
+## 24. SMOKE-WRITE-45 — `google-calendar:add_attendees` AUTHORED (NOT_RUN_READY) + non-Excel safe-candidate sweep (2026-06-29)
+
+Swept the remaining MISSING_FIXTURE list for connected/proven providers and authored exactly
+one safe fixture. **`google-calendar:add_attendees` is now NOT_RUN_READY.** No live workflow
+smoke run; no cert row added (`"queued"` enum blocker persists).
+
+**Selected — `google-calendar:add_attendees` (all four paths real, no broadcast):**
+- **setup** `create_event` (certified `LIVE_PASS`) — marker-titled event on PRIMARY at a FIXED
+  far-future time (2030-01-01), no attendees, `sendNotifications:"none"`. Capture `eventId`.
+- **execute** `add_attendees` — add `"{{marker}}attendee@example.invalid"` (reserved
+  non-deliverable TLD) with **`sendNotifications:"none"` → ZERO invitation emails**. Mutates only
+  the smoke-owned event.
+- **verify** `list_events` (certified `LIVE_PASS`) — read the FIXED 2030 window (immediate
+  consistency, no search-index lag); `list_events.events` is the raw Google item array incl.
+  `attendees`, so `markerPath:"events"` + `markerSuffix:"attendee@example.invalid"` confirms the
+  unique attendee email. A no-op add leaves the event without it → VERIFY_FAILED.
+- **cleanup** `delete_event` (certified `LIVE_PASS`, `sendNotifications:"none"`) — hard-erase the
+  event (events.delete is a TRUE erase), removing the attendee with it. Same provider.
+- Smoke-owned throughout, zero leaked, zero invites. No harness change. The bounded `events_get`
+  smoke reader exposes only `exists`/`summary`/`status` (no attendees by design), so verify uses
+  the certified `list_events` read instead — which exposes raw attendees.
+
+**Candidates inspected + rejected this sweep:**
+- `microsoft-outlook:add_categories` — could mutate a smoke-owned draft, BUT **no certified read
+  exposes `categories`** (`fetch_emails` returns subject/from/to/importance/isRead, not
+  categories) → no independent verify. DEFER.
+- `dropbox:create_shared_link` / `download_file` / `get_temporary_link` — sharing / bytes /
+  signed URL (excluded).
+- `google-docs:export_document` (bytes) / `share_document` (sharing) — excluded.
+- `microsoft-onenote:create_notebook` / `create_section` — no Graph delete → no teardown (§11).
+- `notion:create_database` (no archive-database + no independent read-back), `get_block(_children)`
+  (block content) — deferred / excluded.
+- `trello:create_board` / `create_list` — no board-delete / list-archive action → no safe
+  teardown (§11).
+- `mailchimp:create_audience` / `create_segment` — no registered delete action → no cleanup;
+  `add_subscriber` / `update_subscriber` / `add_tag` / `*_subscriber` / `create_custom_event` —
+  mutate subscriber (contact PII) or have no delete; welcome-email risk. DEFER.
+- `microsoft-outlook-calendar:add_attendees` — the Outlook-calendar analogue; SAME pattern is
+  feasible (create_event/delete_event are certified there too), but its `events_get` reader is
+  likewise bounded (subject only) — would need a certified Outlook-calendar list/read that
+  exposes attendees. Left for a follow-up (one fixture per turn). Likely the next candidate.
+- `microsoft-teams:*`, `gmail`/`outlook` `send_*`/`reply_*`/`forward_*` — send/broadcast (excluded).
+
+**Matrix:** `add_attendees` MISSING_FIXTURE → **NOT_RUN**. Totals now **298 registered / 127
+LIVE_PASS / 29 not-run / 142 missing / 0 fail / 0 bug**; google-calendar **5 / 4 / 1 / 0** (now
+write-complete modulo the live cert).
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **43 suites / 460 tests pass**
+(incl. the new `gcal-add-attendees` suite); `npx tsc --noEmit` → **exit 0** (my files clean; a
+transient parallel-WIP ops test error cleared on re-run); eslint on touched files → 0;
+`npm run lint:structure` → OK; `--cert` → `add_attendees` NOT_RUN. **No live smoke run. Nothing
+pushed.**
+
+**Next safe non-Excel offline candidate:** `microsoft-outlook-calendar:add_attendees` (same
+chain off certified create/delete_event) — pending confirming a certified Outlook-calendar read
+that exposes event attendees for the independent verify.

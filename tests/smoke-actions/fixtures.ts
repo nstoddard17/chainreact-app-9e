@@ -163,6 +163,8 @@ import onedriveCopyItem from "@/tests/fixtures/action-smoke/microsoft-onedrive/c
 import gcalCreateEvent from "@/tests/fixtures/action-smoke/google-calendar/create_event";
 import gcalUpdateEvent from "@/tests/fixtures/action-smoke/google-calendar/update_event";
 import gcalDeleteEvent from "@/tests/fixtures/action-smoke/google-calendar/delete_event";
+// SMOKE-WRITE-45 — Google Calendar add_attendees (chains off certified create/delete_event).
+import gcalAddAttendees from "@/tests/fixtures/action-smoke/google-calendar/add_attendees";
 import gdocsCreateDocument from "@/tests/fixtures/action-smoke/google-docs/create_document";
 import gdocsUpdateDocument from "@/tests/fixtures/action-smoke/google-docs/update_document";
 import gsheetsCreateSpreadsheet from "@/tests/fixtures/action-smoke/google-sheets/create_spreadsheet";
@@ -317,6 +319,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gcalCreateEvent,
   gcalUpdateEvent,
   gcalDeleteEvent,
+  gcalAddAttendees,
   gdocsCreateDocument,
   gdocsUpdateDocument,
   gsheetsCreateSpreadsheet,
