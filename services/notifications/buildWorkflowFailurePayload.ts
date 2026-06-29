@@ -64,7 +64,9 @@ function ctaUrlFor(
     case "reconnect":
       return "/apps";
     case "upgrade_plan":
-      return "/subscription";
+      // CR-FAILREASON-2 — the billing/plan surface is /account (there is no
+      // /subscription route). Matches the in-app failedRunCta destination.
+      return "/account";
     // CR-FAILREASON-1 — retry_later + contact_support have no dedicated
     // destination yet (no retry endpoint / support route to link safely), so
     // they deep-link to the run like open_node / no-action. No invented CTA.

@@ -145,6 +145,63 @@ describe("RunResultsPanel", () => {
   });
 });
 
+describe("RunResultsPanel — failed-run CTA (CR-FAILREASON-2)", () => {
+  function failedWith(
+    action: NonNullable<WorkflowRunDetail["errorClassification"]>["action"],
+    description = "A step in this workflow failed.",
+  ): WorkflowRunDetail {
+    return {
+      ...succeededDetail,
+      status: "failed",
+      errorClassification: { title: "Run failed", description, action, severity: "error" },
+      steps: [
+        { nodeId: "a1", status: "failed", error: { code: "HANDLER_FAILED", message: "x" } },
+      ],
+    };
+  }
+  function mount(detail: WorkflowRunDetail) {
+    useRunSlice
+      .getState()
+      .startTracking({ workflowId: detail.workflowId, runId: detail.id });
+    useRunSlice.setState({ status: "failed", detail });
+    return render(<RunResultsPanel />);
+  }
+
+  it("renders ONE reconnect CTA linking to /apps", () => {
+    mount(failedWith("reconnect"));
+    const cta = screen.getByTestId("run-error-cta") as HTMLAnchorElement;
+    expect(cta).toHaveAttribute("href", "/apps");
+    expect(cta).toHaveTextContent("Reconnect app");
+    expect(screen.getAllByTestId("run-error-cta")).toHaveLength(1);
+  });
+
+  it("renders upgrade_plan CTA linking to /account", () => {
+    mount(failedWith("upgrade_plan"));
+    expect(screen.getByTestId("run-error-cta")).toHaveAttribute("href", "/account");
+  });
+
+  it("renders retry_later as guidance text (no link, no retry route)", () => {
+    mount(failedWith("retry_later"));
+    const cta = screen.getByTestId("run-error-cta");
+    expect(cta).toHaveTextContent("Try again later");
+    expect(cta.tagName).not.toBe("A");
+  });
+
+  it("renders NO CTA for a missing/legacy action — reason still renders, no crash", () => {
+    mount(failedWith(undefined));
+    expect(screen.queryByTestId("run-error-cta")).toBeNull();
+    expect(screen.getByTestId("run-error-classification")).toBeInTheDocument();
+  });
+
+  it("no-leak: the reconnect CTA href/label exclude raw provider text seeded in the description", () => {
+    const SECRET = "xoxb-LEAK jane@example.com team_T0ABCDEF99";
+    mount(failedWith("reconnect", `Provider said: ${SECRET}`));
+    const cta = screen.getByTestId("run-error-cta") as HTMLAnchorElement;
+    expect(cta.getAttribute("href")).toBe("/apps");
+    expect(cta.textContent ?? "").not.toMatch(/xoxb|jane@example\.com|T0ABCDEF99/);
+  });
+});
+
 describe("RepairBlock (AI-13)", () => {
   const failedDetail: WorkflowRunDetail = {
     id: "44444444-4444-4444-4444-444444444444",

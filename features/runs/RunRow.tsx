@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { RunListItem } from "@/contracts/workflow";
+import { failedRunCta } from "@/core/errors/failedRunCta";
 import { RunStatusBadge } from "./RunStatusBadge";
 import { RunSourceBadge } from "./RunSourceBadge";
 import { formatRunDuration, formatRunStartedAt } from "./formatRunDuration";
@@ -18,11 +19,14 @@ import { isStaleQueued, runStatusHelperCopy } from "./runStatusCopy";
  * "View details" affordance — page-guide §4 forbids fake CTAs.
  *
  * The error block renders the humanized
- * `errorClassification.{title,description,hint}` only; the
- * `action` field is NOT used to render a CTA here, since the action
- * targets (`reconnect` → /apps; `open_node` → builder w/ ?focusNode;
- * `upgrade_plan` → /subscription) span surfaces that aren't all
- * confirmed working from a standalone run-history surface yet.
+ * `errorClassification.{title,description,hint}` plus ONE primary
+ * next-action CTA derived from `errorClassification.action` via the
+ * shared `failedRunCta` helper (CR-FAILREASON-2): reconnect → /apps,
+ * upgrade_plan → /account, open_node → /workflows/{id} ("Fix workflow
+ * setup", since a specific node isn't addressable from this list).
+ * `retry_later` / `contact_support` have no safe destination yet, so
+ * they render as guidance text (not a link). A missing/legacy action
+ * renders no CTA.
  */
 interface Props {
   run: RunListItem;
@@ -112,8 +116,54 @@ export function RunRow({ run }: Props) {
               {run.errorClassification.hint}
             </p>
           )}
+          <RunErrorCta
+            runId={run.id}
+            action={run.errorClassification.action}
+            workflowId={run.workflowId}
+          />
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * One primary next-action CTA for a failed run, from the shared `failedRunCta`
+ * mapping. Renders an internal-route link for actionable destinations
+ * (reconnect / upgrade_plan / open_node) and plain guidance text for actions
+ * with no safe destination yet (retry_later / contact_support). Renders nothing
+ * for a missing/legacy action — never a misleading CTA.
+ */
+function RunErrorCta({
+  runId,
+  action,
+  workflowId,
+}: {
+  runId: string;
+  action: NonNullable<RunListItem["errorClassification"]>["action"];
+  workflowId: string;
+}) {
+  const cta = failedRunCta(action, { workflowId });
+  if (!cta) return null;
+  if (cta.href) {
+    return (
+      <Link
+        href={cta.href}
+        data-testid={`runs-row-${runId}-cta`}
+        data-cta-action={action}
+        className="mt-1.5 inline-flex w-fit items-center text-xs font-medium text-foreground underline underline-offset-2 hover:no-underline"
+      >
+        {cta.label}
+      </Link>
+    );
+  }
+  return (
+    <p
+      data-testid={`runs-row-${runId}-cta`}
+      data-cta-action={action}
+      className="mt-1.5 text-xs font-medium text-muted-foreground"
+    >
+      {cta.label}
+    </p>
   );
 }

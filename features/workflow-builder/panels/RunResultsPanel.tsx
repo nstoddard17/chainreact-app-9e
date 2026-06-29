@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { WorkflowRunStep } from "@/contracts/workflow";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import { failedRunCta } from "@/core/errors/failedRunCta";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
 import { RunResultsRepairBlock } from "./RunResultsRepairBlock";
@@ -139,7 +141,15 @@ function Body({
       {/* V2-READY-51 — the raw `fatalError` is no longer on the wire; the
           humanized `errorClassification` is the user-facing failure surface. */}
       {detail.errorClassification ? (
-        <ClassifiedErrorBlock classification={detail.errorClassification} />
+        <>
+          <ClassifiedErrorBlock classification={detail.errorClassification} />
+          {/* CR-FAILREASON-2 — one primary next-action CTA from the classified
+              action. Complements (does not replace) the AI repair block below. */}
+          <RunErrorCta
+            action={detail.errorClassification.action}
+            workflowId={detail.workflowId}
+          />
+        </>
       ) : null}
       <Steps steps={detail.steps} labelForNodeId={labelForNodeId} />
       {detail.status === "failed" ? (
@@ -287,6 +297,44 @@ function ClassifiedErrorBlock({
         </span>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * CR-FAILREASON-2 — one primary next-action CTA for the latest failed run, from
+ * the shared `failedRunCta` mapping. Link for actionable destinations; plain
+ * guidance text for retry_later / contact_support (no safe destination yet);
+ * nothing for a missing/legacy action.
+ */
+function RunErrorCta({
+  action,
+  workflowId,
+}: {
+  action: Parameters<typeof failedRunCta>[0];
+  workflowId: string;
+}) {
+  const cta = failedRunCta(action, { workflowId });
+  if (!cta) return null;
+  if (cta.href) {
+    return (
+      <Link
+        href={cta.href}
+        data-testid="run-error-cta"
+        data-cta-action={action}
+        className="inline-flex w-fit items-center text-xs font-medium underline underline-offset-2 hover:no-underline"
+      >
+        {cta.label}
+      </Link>
+    );
+  }
+  return (
+    <p
+      data-testid="run-error-cta"
+      data-cta-action={action}
+      className="text-xs font-medium text-muted-foreground"
+    >
+      {cta.label}
+    </p>
   );
 }
 

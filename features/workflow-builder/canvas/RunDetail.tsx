@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type { WorkflowRunDetail } from "@/contracts/workflow";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import { failedRunCta } from "@/core/errors/failedRunCta";
 import { getWorkflowRun } from "@/lib/api/workflows";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
@@ -142,6 +144,15 @@ function RunDetailBody({
 
   const canRunAgain = triggerKind === "manual" && !runEditBlocked;
 
+  // CR-FAILREASON-2 — a link-out CTA for the classified action. The existing
+  // "Open failed step" already serves open_node (with the real node) and "Run
+  // again" serves retry, so only render the link for actions those buttons don't
+  // cover (reconnect → /apps, upgrade_plan → /account). retry_later /
+  // contact_support have no href; open_node is excluded to avoid a duplicate.
+  const failedCta = detail.errorClassification
+    ? failedRunCta(detail.errorClassification.action, { workflowId: detail.workflowId })
+    : null;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
@@ -218,6 +229,21 @@ function RunDetailBody({
           >
             {anyRunning ? "Running…" : "Run again"}
           </button>
+        ) : null}
+        {failedCta?.href && detail.errorClassification?.action !== "open_node" ? (
+          <Link
+            href={failedCta.href}
+            data-testid="run-detail-cta"
+            data-cta-action={detail.errorClassification?.action}
+            className="rounded-[6px] border px-2.5 py-1 text-[12px]"
+            style={{
+              borderColor: "var(--builder-border)",
+              color: "var(--builder-text)",
+              background: "var(--builder-panel)",
+            }}
+          >
+            {failedCta.label}
+          </Link>
         ) : null}
       </div>
       {runError ? (

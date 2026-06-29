@@ -27,7 +27,15 @@ export interface AiRepairFailureSummary {
     readonly title: string;
     readonly description: string;
     readonly hint?: string;
-    readonly action?: "reconnect" | "open_node" | "upgrade_plan";
+    // CR-FAILREASON-2 — lockstep with the shared action taxonomy (HumanizedError
+    // / HumanizedErrorSchema / WorkflowRunErrorClassification). Extended from the
+    // original 3 with `retry_later` and `contact_support`.
+    readonly action?:
+      | "reconnect"
+      | "open_node"
+      | "retry_later"
+      | "upgrade_plan"
+      | "contact_support";
     readonly severity: "warning" | "error";
   } | null;
 }

@@ -87,7 +87,7 @@ describe("RunRow", () => {
     expect(screen.getByTestId(`runs-row-${test.id}-test-marker`)).toBeInTheDocument();
   });
 
-  it("renders the humanized error block when errorClassification is present (no fake action button)", () => {
+  it("renders the humanized error block + one reconnect CTA when action=reconnect (CR-FAILREASON-2)", () => {
     const run = fixtureRun({
       id: "err-1",
       status: "failed",
@@ -108,10 +108,11 @@ describe("RunRow", () => {
     expect(errorBlock).toHaveTextContent("Gmail token expired");
     expect(errorBlock).toHaveTextContent(/reconnect gmail/i);
     expect(errorBlock).toHaveTextContent(/account settings/i);
-    // The `action` field is provided on the DTO but the row does NOT
-    // render a CTA — page guide §4 forbids fake action affordances.
-    expect(within(errorBlock).queryByRole("button")).toBeNull();
-    expect(within(errorBlock).queryByRole("link")).toBeNull();
+    // CR-FAILREASON-2 — exactly ONE primary CTA, linking to the Apps page.
+    const cta = screen.getByTestId(`runs-row-${run.id}-cta`) as HTMLAnchorElement;
+    expect(cta).toHaveAttribute("href", "/apps");
+    expect(cta).toHaveTextContent("Reconnect app");
+    expect(within(errorBlock).getAllByRole("link")).toHaveLength(1);
   });
 
   it("omits the error block when errorClassification is null (no fake error)", () => {
@@ -210,5 +211,119 @@ describe("RunRow", () => {
       </ul>,
     );
     expect(screen.queryByTestId(`runs-row-${ok.id}-pending`)).toBeNull();
+  });
+});
+
+describe("RunRow — failed-run CTA (CR-FAILREASON-2)", () => {
+  function failedRun(
+    action: NonNullable<RunListItem["errorClassification"]>["action"],
+    overrides: Partial<RunListItem> = {},
+  ): RunListItem {
+    return fixtureRun({
+      id: "cta-1",
+      status: "failed",
+      errorClassification: {
+        title: "Something went wrong",
+        description: "A step in this workflow failed.",
+        action,
+        severity: "error",
+      },
+      ...overrides,
+    });
+  }
+
+  it.each([
+    ["reconnect", "/apps", "Reconnect app"],
+    ["upgrade_plan", "/account", "Upgrade plan"],
+  ] as const)(
+    "%s renders one link CTA → %s",
+    (action, href, label) => {
+      const run = failedRun(action);
+      render(
+        <ul>
+          <RunRow run={run} />
+        </ul>,
+      );
+      const cta = screen.getByTestId(`runs-row-${run.id}-cta`) as HTMLAnchorElement;
+      expect(cta).toHaveAttribute("href", href);
+      expect(cta).toHaveTextContent(label);
+      expect(cta.getAttribute("data-cta-action")).toBe(action);
+      // exactly one CTA in the error block
+      const errorBlock = screen.getByTestId(`runs-row-${run.id}-error`);
+      expect(within(errorBlock).getAllByRole("link")).toHaveLength(1);
+    },
+  );
+
+  it("open_node links to the builder ('Fix workflow setup') since no node is addressable here", () => {
+    const run = failedRun("open_node", {
+      workflowId: "abcdef00-0000-0000-0000-000000000099",
+    });
+    render(
+      <ul>
+        <RunRow run={run} />
+      </ul>,
+    );
+    const cta = screen.getByTestId(`runs-row-${run.id}-cta`) as HTMLAnchorElement;
+    expect(cta).toHaveAttribute(
+      "href",
+      `/workflows/${encodeURIComponent(run.workflowId)}`,
+    );
+    expect(cta).toHaveTextContent("Fix workflow setup");
+  });
+
+  it.each([
+    ["retry_later", "Try again later"],
+    ["contact_support", "Contact support"],
+  ] as const)(
+    "%s renders guidance TEXT (no link, no retry/support route invented)",
+    (action, label) => {
+      const run = failedRun(action);
+      render(
+        <ul>
+          <RunRow run={run} />
+        </ul>,
+      );
+      const cta = screen.getByTestId(`runs-row-${run.id}-cta`);
+      expect(cta).toHaveTextContent(label);
+      // guidance only — NOT a link/button
+      const errorBlock = screen.getByTestId(`runs-row-${run.id}-error`);
+      expect(within(errorBlock).queryByRole("link")).toBeNull();
+      expect(within(errorBlock).queryByRole("button")).toBeNull();
+    },
+  );
+
+  it("renders NO CTA for a legacy/missing action (no misleading affordance, no crash)", () => {
+    const run = failedRun(undefined);
+    render(
+      <ul>
+        <RunRow run={run} />
+      </ul>,
+    );
+    expect(screen.queryByTestId(`runs-row-${run.id}-cta`)).toBeNull();
+    // reason still renders
+    expect(screen.getByTestId(`runs-row-${run.id}-error`)).toHaveTextContent(
+      "Something went wrong",
+    );
+  });
+
+  it("no-leak: a CTA's href/label never carries raw provider text seeded into the classification", () => {
+    const SECRET = "xoxb-99-LEAKED-token jane@example.com team_T0ABCDEF99";
+    const run = failedRun("reconnect", {
+      errorClassification: {
+        title: "Auth failed",
+        description: `Provider said: ${SECRET}`,
+        action: "reconnect",
+        severity: "error",
+      },
+    });
+    render(
+      <ul>
+        <RunRow run={run} />
+      </ul>,
+    );
+    const cta = screen.getByTestId(`runs-row-${run.id}-cta`) as HTMLAnchorElement;
+    expect(cta.getAttribute("href")).toBe("/apps");
+    expect(cta.getAttribute("href") ?? "").not.toMatch(/xoxb|jane@example\.com|T0ABCDEF99/);
+    expect(cta.textContent ?? "").not.toMatch(/xoxb|jane@example\.com|T0ABCDEF99/);
   });
 });
