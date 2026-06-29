@@ -179,7 +179,15 @@ export const HumanizedErrorSchema = z.object({
   title: z.string(),
   description: z.string(),
   hint: z.string().optional(),
-  action: z.enum(["reconnect", "open_node", "upgrade_plan"]).optional(),
+  // CR-FAILREASON-1 — the primary next-action the failed-run UI routes to.
+  // Extended from the original 3 (reconnect | open_node | upgrade_plan) with
+  // `retry_later` (transient/rate-limit/timeout failures) and `contact_support`
+  // (the safe default for unknown/unclassified errors). Back-compat: every
+  // previously-persisted row uses one of the original 3 (or none), all of which
+  // remain valid here, so old `error_classification` JSONB still parses.
+  action: z
+    .enum(["reconnect", "open_node", "retry_later", "upgrade_plan", "contact_support"])
+    .optional(),
   severity: z.enum(["warning", "error"]),
 });
 export type HumanizedErrorSummary = z.infer<typeof HumanizedErrorSchema>;

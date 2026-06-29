@@ -113,7 +113,7 @@ describe("humanizeActionError — engine codes", () => {
     expect(result.severity).toBe("error");
   });
 
-  it("EXECUTION_INTERRUPTED (COST-15F stale-run sweep) → 'Run interrupted', error, no CTA", () => {
+  it("EXECUTION_INTERRUPTED (COST-15F stale-run sweep) → 'Run interrupted', error, retry_later (CR-FAILREASON-1)", () => {
     const result = humanizeActionError({
       code: "EXECUTION_INTERRUPTED",
       message: "Run interrupted: still 'running' 60+ minutes after start.",
@@ -122,7 +122,7 @@ describe("humanizeActionError — engine codes", () => {
     expect(result.description).toContain("interrupted");
     expect(result.hint).toMatch(/re-run|engine|deploy/i);
     expect(result.severity).toBe("error");
-    expect(result.action).toBeUndefined();
+    expect(result.action).toBe("retry_later");
   });
 
   it("EXECUTION_INTERRUPTED falls back to a generic description when message is empty", () => {
@@ -183,31 +183,107 @@ describe("humanizeActionError — Slack handler errors (HANDLER_FAILED routing)"
     expect(r.hint).toMatch(/status page/i);
   });
 
-  it("unknown Slack code falls back to a generic 'Slack reported: <code>' description", () => {
+  it("unknown Slack code falls back to a generic 'Slack reported: <code>' description + contact_support", () => {
     const r = slack("some_new_code");
     expect(r.description).toMatch(/some_new_code/);
+    expect(r.action).toBe("contact_support");
+  });
+
+  it("rate_limited / http_429 / http_500 route to retry_later (CR-FAILREASON-1)", () => {
+    expect(slack("rate_limited").action).toBe("retry_later");
+    expect(slack("http_429").action).toBe("retry_later");
+    expect(slack("http_500").action).toBe("retry_later");
   });
 });
 
-describe("humanizeActionError — fallback", () => {
-  it("returns a generic shape for unknown codes", () => {
+describe("humanizeActionError — fallback (CR-FAILREASON-1: safe + contact_support)", () => {
+  it("unknown code → contact_support, error, and does NOT echo the raw message", () => {
     const r = humanizeActionError({ code: "MYSTERY", message: "boom" });
     expect(r.title).toBe("Workflow step failed");
-    expect(r.description).toBe("boom");
+    expect(r.action).toBe("contact_support");
     expect(r.severity).toBe("error");
-  });
-
-  it("uses a default description when message is empty", () => {
-    const r = humanizeActionError({ code: "MYSTERY", message: "" });
+    // The raw thrown message must not leak into the user-facing description.
+    expect(r.description).not.toContain("boom");
     expect(r.description).toMatch(/unexpected/i);
   });
 
-  it("HANDLER_FAILED with a non-Slack message falls through to the generic shape", () => {
+  it("uses a safe fixed description when message is empty", () => {
+    const r = humanizeActionError({ code: "MYSTERY", message: "" });
+    expect(r.description).toMatch(/unexpected/i);
+    expect(r.action).toBe("contact_support");
+  });
+
+  it("HANDLER_FAILED with a non-Slack message → contact_support, raw message NOT echoed", () => {
     const r = humanizeActionError({
       code: "HANDLER_FAILED",
       message: "Some other handler exploded.",
     });
     expect(r.title).toBe("Workflow step failed");
-    expect(r.description).toBe("Some other handler exploded.");
+    expect(r.action).toBe("contact_support");
+    expect(r.description).not.toContain("exploded");
+  });
+});
+
+describe("humanizeActionError — CR-FAILREASON-1 provider-agnostic codes", () => {
+  it("WORKFLOW_NOT_READY → open_node (fix setup), error", () => {
+    const r = humanizeActionError({
+      code: "WORKFLOW_NOT_READY",
+      message: "Workflow not ready: step 'send' is missing required config.",
+    });
+    expect(r.action).toBe("open_node");
+    expect(r.severity).toBe("error");
+    expect(r.title).toMatch(/setup/i);
+    // Code-derived copy — does not echo the raw readiness message.
+    expect(r.description).not.toContain("send");
+  });
+
+  it("INTEGRATION_REAUTH_REQUIRED → reconnect, error, code-derived copy", () => {
+    const r = humanizeActionError({
+      code: "INTEGRATION_REAUTH_REQUIRED",
+      message:
+        "Integration action required: refresh_failed (account=acc_123, provider=gmail, provider-account=mailbox_999).",
+    });
+    expect(r.action).toBe("reconnect");
+    expect(r.severity).toBe("error");
+    // No account / provider-account ids from the underlying message.
+    expect(r.description).not.toContain("acc_123");
+    expect(r.description).not.toContain("mailbox_999");
+    expect(r.hint).toMatch(/reconnect/i);
+  });
+
+  it("INTEGRATION_SCOPE_REQUIRED → reconnect, error", () => {
+    const r = humanizeActionError({
+      code: "INTEGRATION_SCOPE_REQUIRED",
+      message: "Provider returned HTTP 403 (insufficient scope).",
+    });
+    expect(r.action).toBe("reconnect");
+    expect(r.severity).toBe("error");
+    expect(r.title).toMatch(/permission/i);
+  });
+
+  it("TRANSIENT_PROVIDER_ERROR → retry_later, warning", () => {
+    const r = humanizeActionError({
+      code: "TRANSIENT_PROVIDER_ERROR",
+      message: "The operation was aborted due to timeout.",
+    });
+    expect(r.action).toBe("retry_later");
+    expect(r.severity).toBe("warning");
+  });
+});
+
+describe("humanizeActionError — no-leak (generic branch never echoes raw text)", () => {
+  it.each([
+    ["fake token", "Bearer sk-live-AbCd1234SECRETtoken"],
+    ["fake email", "failed for user jane.doe@example.com"],
+    ["fake provider account id", "team_T0ABCDEF99 rejected the call"],
+    [
+      "fake webhook/provider JSON body",
+      '{"ok":false,"error":"invalid_payload","access_token":"xoxb-99-SECRET"}',
+    ],
+  ])("HANDLER_FAILED carrying a %s → safe generic description", (_label, raw) => {
+    const r = humanizeActionError({ code: "HANDLER_FAILED", message: raw });
+    expect(r.action).toBe("contact_support");
+    expect(r.description).not.toContain(raw);
+    expect(r.description).not.toMatch(/sk-live|xoxb|jane\.doe@example\.com|T0ABCDEF99/);
   });
 });

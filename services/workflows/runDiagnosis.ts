@@ -32,7 +32,13 @@ export interface RunErrorClassificationInput {
   readonly title: string;
   readonly description: string;
   readonly hint?: string;
-  readonly action?: "reconnect" | "open_node" | "upgrade_plan";
+  // CR-FAILREASON-1 — lockstep with HumanizedError / WorkflowRunErrorClassification.
+  readonly action?:
+    | "reconnect"
+    | "open_node"
+    | "retry_later"
+    | "upgrade_plan"
+    | "contact_support";
   readonly severity: "warning" | "error";
 }
 

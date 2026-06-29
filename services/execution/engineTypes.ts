@@ -42,7 +42,27 @@ export type RunFailureCode =
    * traversal); Commit 1 only adds the code + humanizer support. See
    * docs/slices/parity/engine-branching-plan.md §3.3 + §6.1.
    */
-  | "INVALID_BRANCH";
+  | "INVALID_BRANCH"
+  /**
+   * CR-FAILREASON-1 — provider-agnostic auth/refresh failure, normalized at the
+   * engine's handler-error boundary from `Unauthorized401Error` /
+   * `IntegrationActionRequiredError`. The humanizer maps it to the `reconnect`
+   * action. The raw error message is kept in `steps[].error.message` for
+   * server-side diagnostics only; the user-facing classification is code-derived.
+   */
+  | "INTEGRATION_REAUTH_REQUIRED"
+  /**
+   * CR-FAILREASON-1 — provider returned 403 for a missing scope, normalized from
+   * `InsufficientScopeError`. A token refresh keeps the same scopes, so only
+   * re-consent (reconnect) fixes it. Humanizer maps it to `reconnect`.
+   */
+  | "INTEGRATION_SCOPE_REQUIRED"
+  /**
+   * CR-FAILREASON-1 — a transient provider failure (timeout / aborted request),
+   * normalized from `AbortError` / `TimeoutError` at the handler boundary.
+   * Humanizer maps it to `retry_later`.
+   */
+  | "TRANSIENT_PROVIDER_ERROR";
 
 export interface RunStepResult {
   nodeId: string;

@@ -666,17 +666,35 @@ export class WorkflowEngine {
           type: node.type,
         });
       } catch (err) {
+        // CR-FAILREASON-1 — normalize provider auth / transient throws to typed
+        // codes the humanizer maps to `reconnect` / `retry_later`. We read
+        // `err.name` (the error classes in services/oauth/refreshAndRetry set a
+        // stable `name`) rather than importing those classes, to avoid a
+        // services/oauth → services/execution import cycle. The raw message is
+        // kept on the step for SERVER-SIDE diagnostics only; the user-facing
+        // classification for these codes is code-derived (no raw text echoed),
+        // and the run-detail route re-sanitizes step errors before the client.
+        const errName = err instanceof Error ? err.name : "";
+        const code: RunFailureCode =
+          errName === "Unauthorized401Error" ||
+          errName === "IntegrationActionRequiredError"
+            ? "INTEGRATION_REAUTH_REQUIRED"
+            : errName === "InsufficientScopeError"
+              ? "INTEGRATION_SCOPE_REQUIRED"
+              : errName === "AbortError" || errName === "TimeoutError"
+                ? "TRANSIENT_PROVIDER_ERROR"
+                : "HANDLER_FAILED";
         steps.push({
           nodeId: node.id,
           status: "failed",
           error: {
-            code: "HANDLER_FAILED",
+            code,
             message: (err as Error).message,
           },
         });
         log("execution.step.failed", {
           nodeId: node.id,
-          code: "HANDLER_FAILED",
+          code,
           error: (err as Error).message,
         });
         runFailed = true;

@@ -65,7 +65,12 @@ function ctaUrlFor(
       return "/apps";
     case "upgrade_plan":
       return "/subscription";
+    // CR-FAILREASON-1 — retry_later + contact_support have no dedicated
+    // destination yet (no retry endpoint / support route to link safely), so
+    // they deep-link to the run like open_node / no-action. No invented CTA.
     case "open_node":
+    case "retry_later":
+    case "contact_support":
     case undefined:
       return `/workflows/${workflowId}?historyRun=${runId}`;
   }
@@ -79,6 +84,9 @@ function ctaLabelFor(action: HumanizedError["action"]): string {
       return "Upgrade plan";
     case "open_node":
       return "View workflow";
+    // CR-FAILREASON-1 — no dedicated retry/support CTA yet; link to the run.
+    case "retry_later":
+    case "contact_support":
     case undefined:
       return "View run";
   }

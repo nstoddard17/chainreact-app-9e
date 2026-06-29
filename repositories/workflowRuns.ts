@@ -44,7 +44,12 @@ export interface WorkflowRunErrorClassification {
   title: string;
   description: string;
   hint?: string;
-  action?: "reconnect" | "open_node" | "upgrade_plan";
+  // CR-FAILREASON-1 — kept in lockstep with `HumanizedError`
+  // (core/errors/humanizeActionError.ts) and `HumanizedErrorSchema`
+  // (contracts/workflow.ts). Extended from the original 3 with `retry_later`
+  // and `contact_support`. Persisted as JSONB, so existing rows (old 3 values /
+  // none) still satisfy this widened type — no migration needed.
+  action?: "reconnect" | "open_node" | "retry_later" | "upgrade_plan" | "contact_support";
   severity: "warning" | "error";
 }
 

@@ -12,17 +12,28 @@
  * UI (renders run history). Per project-structure §"Error humanization":
  * core/errors/humanizeActionError.ts.
  *
- * Action codes route the UI's CTA button:
- *   - reconnect    → /integrations
- *   - open_node    → builder with the failed node focused
- *   - upgrade_plan → /subscription (Slice 1N billing)
+ * Action codes route the UI's CTA button (CR-FAILREASON-1 — one primary action
+ * per failed run):
+ *   - reconnect       → reconnect the app (Apps page)
+ *   - open_node       → builder with the failed node focused (fix config)
+ *   - retry_later     → transient failure; re-run / wait (no destructive CTA)
+ *   - upgrade_plan    → /subscription (billing / quota)
+ *   - contact_support → safe default for unknown / unclassifiable failures
+ *
+ * RULE: when classification is uncertain, default to `contact_support` — NEVER
+ * tell the user to reconnect / fix / retry when we can't safely justify it.
  */
 
 export interface HumanizedError {
   title: string;
   description: string;
   hint?: string;
-  action?: "reconnect" | "open_node" | "upgrade_plan";
+  action?:
+    | "reconnect"
+    | "open_node"
+    | "retry_later"
+    | "upgrade_plan"
+    | "contact_support";
   severity: "warning" | "error";
 }
 
@@ -40,11 +51,13 @@ export interface ErrorInput {
 }
 
 /**
- * Title used by the generic fallback branch below — the ONLY branch whose
- * `description` echoes the raw thrown `input.message`. Exported so callers that
- * sanitize raw text for the client (e.g. run-detail step diagnostics) can detect
- * this branch and avoid surfacing the raw message. Every other branch's
- * description is code/details-derived and safe.
+ * Title used by the generic fallback branch below — the sentinel marking an
+ * unclassified failure. CR-FAILREASON-1: this branch NO LONGER echoes the raw
+ * thrown `input.message` (it previously did, which leaked raw provider text into
+ * the persisted classification + notifications). Its description is now a fixed,
+ * identifier-free string, so EVERY branch is safe by construction. The title
+ * stays exported as a sentinel for callers that branch on the generic case
+ * (run-detail step diagnostics, notification body builder).
  */
 export const GENERIC_ACTION_ERROR_TITLE = "Workflow step failed";
 
@@ -55,9 +68,15 @@ export function humanizeActionError(input: ErrorInput): HumanizedError {
   const slackHumanized = humanizeSlackHandlerError(input);
   if (slackHumanized) return slackHumanized;
 
+  // CR-FAILREASON-1 — unknown / unclassified failure. Default to contact_support
+  // and a fixed, identifier-free description. The raw `input.message` is NEVER
+  // echoed here: it can carry tokens, emails, provider account ids, or raw
+  // provider bodies. "Uncertain ⇒ contact support", never a misleading action.
   return {
     title: GENERIC_ACTION_ERROR_TITLE,
-    description: input.message || "An unexpected error occurred.",
+    description: "This step failed for an unexpected reason.",
+    hint: "Try running the workflow again; if it keeps failing, contact support.",
+    action: "contact_support",
     severity: "error",
   };
 }
@@ -132,13 +151,65 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
     case "EXECUTION_INTERRUPTED":
       // COST-15F — a run left in 'running' past the staleness cutoff and swept
       // to failed (the engine process restarted between create + finalize).
+      // CR-FAILREASON-1 — re-running is the right next step → retry_later.
       return {
         title: "Run interrupted",
         description:
           input.message ||
           "This run was interrupted before it finished — the engine likely restarted mid-execution.",
         hint: "Re-run the workflow; if this keeps happening, check engine/deploy health.",
+        action: "retry_later",
         severity: "error",
+      };
+    case "WORKFLOW_NOT_READY":
+      // Pre-dispatch readiness backstop (engine `checkWorkflowReadiness`): a step
+      // is missing required config or the graph is structurally invalid. This is a
+      // user-fixable setup problem → open_node. Code-derived copy only — the raw
+      // readiness message is not echoed here.
+      return {
+        title: "Workflow needs setup",
+        description:
+          "This workflow has a step with missing required configuration, or its steps aren't fully connected.",
+        hint: "Open the workflow and finish setting up the flagged step, then run it again.",
+        action: "open_node",
+        severity: "error",
+      };
+    case "INTEGRATION_REAUTH_REQUIRED":
+      // CR-FAILREASON-1 — provider-agnostic auth/refresh failure normalized at the
+      // engine boundary (Unauthorized401Error / IntegrationActionRequiredError).
+      // Code-derived copy ONLY: the underlying error message can carry account /
+      // provider-account ids, so it is NEVER echoed here.
+      return {
+        title: "An app needs to be reconnected",
+        description:
+          "A connected app rejected the request because its access expired or was revoked.",
+        hint: "Reconnect the app on the Apps page; the workflow stays paused until that's done.",
+        action: "reconnect",
+        severity: "error",
+      };
+    case "INTEGRATION_SCOPE_REQUIRED":
+      // CR-FAILREASON-1 — provider returned 403 because the stored token lacks a
+      // required scope (InsufficientScopeError). A refresh keeps the same scopes,
+      // so only re-consent (reconnect) fixes it. Code-derived copy only.
+      return {
+        title: "An app needs additional permission",
+        description:
+          "A connected app is missing a permission this step needs.",
+        hint: "Reconnect the app to grant the new permission, then run it again.",
+        action: "reconnect",
+        severity: "error",
+      };
+    case "TRANSIENT_PROVIDER_ERROR":
+      // CR-FAILREASON-1 — a transient provider failure normalized at the engine
+      // boundary (timeout / aborted request). Retrying usually succeeds. Code-
+      // derived copy only — no raw provider text echoed.
+      return {
+        title: "A connected app didn't respond in time",
+        description:
+          "The request to a connected app timed out or was interrupted.",
+        hint: "Try running the workflow again in a few minutes.",
+        action: "retry_later",
+        severity: "warning",
       };
     case "HANDLER_FAILED":
       // Slack-ish messages get further refinement below.
@@ -200,25 +271,32 @@ function humanizeSlackHandlerError(input: ErrorInput): HumanizedError | null {
     return {
       title: "Slack rate limit hit",
       description:
-        "Slack has temporarily throttled this app. The workflow will retry shortly.",
+        "Slack has temporarily throttled this app. This usually clears on its own.",
+      hint: "Try running the workflow again in a few minutes.",
+      action: "retry_later",
       severity: "warning",
     };
   }
 
   if (slackCode.startsWith("http_")) {
+    // CR-FAILREASON-1 — provider 5xx / other HTTP error: transient → retry_later.
     return {
       title: "Slack API error",
       description: `Slack returned ${slackCode.replace("http_", "HTTP ")}.`,
       hint: "Try again in a moment; if it persists, check Slack's status page.",
+      action: "retry_later",
       severity: "warning",
     };
   }
 
   // Unknown Slack code — fall back to a generic Slack message rather than the
-  // raw "Slack chat.postMessage failed: <code>" string.
+  // raw "Slack chat.postMessage failed: <code>" string. CR-FAILREASON-1: an
+  // unclassifiable provider code is uncertain → contact_support (the safe
+  // default), never a misleading reconnect/fix/retry.
   return {
     title: "Slack action failed",
     description: `Slack reported: ${slackCode}`,
+    action: "contact_support",
     severity: "error",
   };
 }
