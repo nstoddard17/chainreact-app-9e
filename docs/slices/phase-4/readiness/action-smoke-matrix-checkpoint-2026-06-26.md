@@ -1058,3 +1058,84 @@ eslint on touched files → 0; `npm run lint:structure` → OK; `--cert` → `ad
 non-Excel offline candidate would require a connected provider whose create has a registered
 delete AND a certified read exposing the mutated property — the readily-available ones are now
 exhausted (the remaining MISSING are sends / bytes / sharing / no-cleanup / no-verify, see §24).
+
+## 26. NOT_RUN_READY batch LIVE-CERTIFIED (5 of 8) + `add_row` handler bug found (2026-06-29)
+
+The durable-queue `"queued"` enum blocker (§17–§21) is **resolved** — migration
+`20260713000000` is applied to the target project (`qcepijemjlkssfkvzlio`;
+`workflow_run_status = {succeeded,failed,running,queued}`, confirmed by a read-only enum probe),
+so the accumulated NOT_RUN_READY batch was re-attempted live. **5 of 8 actions CERTIFIED
+(`LIVE_PASS_CLEANED`); 3 BLOCKED by a real production `add_row` handler bug — NOT certified.**
+
+**Live commands run (each provider scoped + isolated; all four gates set inline for the one
+command — safety opt-ins, not secrets):**
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
+SMOKE_PROVIDER=microsoft-excel SMOKE_MICROSOFT_EXCEL_CONNECTED=1 SMOKE_MICROSOFT_ONEDRIVE_CONNECTED=1 npm run smoke:writes:live
+… SMOKE_PROVIDER=google-calendar SMOKE_GOOGLE_CALENDAR_CONNECTED=1 npm run smoke:writes:live
+… SMOKE_PROVIDER=microsoft-outlook-calendar SMOKE_MICROSOFT_OUTLOOK_CALENDAR_CONNECTED=1 npm run smoke:writes:live
+… SMOKE_PROVIDER=microsoft-outlook SMOKE_MICROSOFT_OUTLOOK_CONNECTED=1 npm run smoke:writes:live
+```
+
+**Per-action result (created / cleaned / leaked):**
+
+| Action | Result | c/c/l | Cert |
+|---|---|---|---|
+| `microsoft-excel:delete_worksheet` | **PASS** | 1 / 1 / 0 | ✅ LIVE_PASS_CLEANED |
+| `microsoft-excel:add_table_row` | **PASS** | 1 / 1 / 0 | ✅ LIVE_PASS_CLEANED |
+| `microsoft-excel:add_row` | **VERIFY_FAILED** | 1 / 1 / 0 | ❌ (handler bug) |
+| `microsoft-excel:update_row` | **FAIL (execute)** | 1 / 1 / 0 | ❌ (add_row cascade) |
+| `microsoft-excel:delete_row` | **VERIFY_FAILED** | 1 / 1 / 0 | ❌ (add_row cascade) |
+| `google-calendar:add_attendees` | **PASS** | 1 / 1 / 0, 0 invites | ✅ LIVE_PASS_CLEANED |
+| `microsoft-outlook-calendar:add_attendees` | **PASS** | 1 / 1 / 0, 0 invites | ✅ LIVE_PASS_CLEANED |
+| `microsoft-outlook:create_draft_email` | **PASS** | 1 / 1 / 0 | ✅ LIVE_PASS_CLEANED |
+
+(The already-certified `create_worksheet` / `rename_worksheet`, and the calendar
+`create_event` / `update_event` / `delete_event`, re-ran in the same scoped sweeps and PASSED.)
+
+**ROOT CAUSE of the 3 Excel failures — a real `microsoft-excel:add_row` handler bug (evidence,
+not a guess):** the frozen minimal `.xlsx` `Sheet1` is genuinely empty (`<sheetData/>`, decoded).
+On an empty sheet, Graph's `usedRange(valuesOnly=true)` returns the lone cell as an empty
+**STRING**, not `null`. `add_row`'s `isEmpty` guard
+([integrations/microsoft-excel/actions/addRow.ts](../../../../integrations/microsoft-excel/actions/addRow.ts) lines 93–97)
+only treats `null`/`undefined` as empty, so `isEmpty` is **false** → it appends at
+`rowCount+1 = 2`. Confirmed via the persisted run step-output: `add_row` of `["crsmoke-…row"]`
+wrote **`address: "A2:A2", rowIndex: 2`** (read-only DB probe of `workflow_runs.steps`). Worse, it
+anchors on the usedRange row **COUNT** rather than the absolute last row, so repeated appends all
+recompute `rowIndex: 2` and **overwrite each other** (`update_row` setup wrote `"Col"`→A2 then
+`"seed"`→A2, clobbering the header; `delete_row` setup wrote all three markers→A2). Downstream:
+- `add_row` verify reads A1 → empty → VERIFY_FAILED.
+- `update_row` execute reads row 1 for headers → A1 empty → "column Col not found" → FAIL.
+- `delete_row` verify finds A1/A2 markers absent → VERIFY_FAILED.
+
+This is a **production bug** affecting real append-to-empty-sheet and repeated-append workflows —
+**out of the action-smoke lane to fix** (a `microsoft-excel` integration handler change). It is
+NOT the `"queued"` enum (that is resolved), NOT a fixture typo, and NOT present in `add_table_row`
+/ `delete_worksheet` (which don't use `add_row` — the table append is index-based, so they passed).
+**Recommended follow-up slice (separate, for Marcus):** fix `add_row`'s empty-sheet detection
+(treat an empty-string lone cell as empty) and its append anchor (use the absolute last used row,
+not the row count), then the 3 fixtures certify unchanged.
+
+**Leak / sweep:** every run (including the 3 failures) reported `created 1 / cleaned 1 /
+remaining 0` — the harness's cleanup independently re-reads, so each smoke-owned workbook / event
+/ draft was removed (Excel workbooks → OneDrive recycle bin, recoverable; calendar events → true
+erase; Outlook draft → permanent delete). No leak; no separate sweep needed.
+
+**Cert rows added (5):** `microsoft-excel:delete_worksheet`, `microsoft-excel:add_table_row`,
+`google-calendar:add_attendees`, `microsoft-outlook-calendar:add_attendees`,
+`microsoft-outlook:create_draft_email` → `LIVE_PASS_CLEANED` (2026-06-29) in
+[certificationSeed.ts](../../../../scripts/chainreact/smoke/certificationSeed.ts). The 3
+`add_row`-family fixtures stay **NOT_RUN** (a documented NOT_RUN with the bug recorded, not a
+silent skip).
+
+**Matrix:** Totals now **298 registered / 132 LIVE_PASS / 25 not-run / 141 missing / 0 fail /
+0 bug** (+5 LIVE_PASS, −5 not-run). Per-provider: microsoft-excel **13 / 9 / 3 / 1** (3 NOT_RUN =
+add_row/update_row/delete_row pending the handler fix; 1 MISSING = `export_sheet`, policy-excluded
+raw bytes); google-calendar **5 / 5 / 0 / 0** (write-complete); microsoft-outlook-calendar
+**5 / 5 / 0 / 0** (write-complete); microsoft-outlook **11 / 4 / 0 / 7**.
+
+**Offline verification (this turn):** `npm run chainreact -- smoke actions --cert` → totals above;
+`npx jest tests/unit/smoke-actions` → **45 suites / 464 tests pass**; `npx tsc --noEmit` → exit 0;
+eslint on the touched `certificationSeed.ts` → 0; `npm run lint:structure` → OK. **No db:push, no
+deploy, nothing pushed.**

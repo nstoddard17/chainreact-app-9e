@@ -41,6 +41,7 @@ const SMOKE_WRITE_GDOCS = "2026-06-26";
 const SMOKE_WRITE_EXCEL = "2026-06-26";
 const LIVE_NATIVE = "2026-06-26";
 const LIVE_DROPBOX_SEARCH = "2026-06-26";
+const SMOKE_WRITE_BATCH_0629 = "2026-06-29";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -543,4 +544,62 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS", "live read verified (search via SMOKE_DROPBOX_QUERY)", LIVE_DROPBOX_SEARCH, [
     ["dropbox", "search_files"],
   ]),
+  // SMOKE-WRITE-38/42 — Microsoft Excel delete_worksheet + add_table_row. Both reuse the
+  // SMOKE-WRITE-36 smoke-owned-workbook bootstrap (a frozen minimal .xlsx uploaded via the
+  // certified microsoft-onedrive:upload_file, then the whole file removed via
+  // microsoft-onedrive:delete_item — SAME provider). delete_worksheet: setup uploads the
+  // workbook + adds a throwaway "<marker>victim" sheet (so the delete is not the last-sheet
+  // 400) -> execute delete_worksheet removes the victim -> INDEPENDENT get_worksheets proves
+  // the victim ABSENT and count == 1 (seeded "Sheet1" survived, workbook still valid).
+  // add_table_row: setup uploads a frozen table-bearing .xlsx (one defined table "SmokeTable",
+  // header + one non-marker seed row) -> execute add_table_row appends "<marker>trow" ->
+  // INDEPENDENT read_table_rows confirms the marker(+suffix "trow") among the table rows (the
+  // seed row lacks the marker, so a no-op append fails; the handler echo is never trusted).
+  // Both live-verified end to end (created 1 / cleaned 1 / 0 leaked). HONESTY: delete_item
+  // moves the file to the OneDrive recycle bin (recoverable), not a hard erase — gone from
+  // the active drive (get/list 404s); the bounded OneDrive delete retry absorbs a
+  // workbook-session delete lock.
+  ...records("LIVE_PASS_CLEANED", "live upload smoke workbook + worksheet/table-row mutation + independent read-back, whole workbook deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_BATCH_0629, [
+    ["microsoft-excel", "delete_worksheet"],
+    ["microsoft-excel", "add_table_row"],
+  ]),
+  // SMOKE-WRITE-45/46 — Calendar add_attendees (Google Calendar + Outlook Calendar). setup
+  // create_event (certified) makes a marker-titled event at a FIXED far-future time (2030)
+  // with NO attendees and notifications suppressed (gcal sendNotifications:"none";
+  // outlook-calendar has no notify toggle, so the attendee address is the safeguard) ->
+  // execute add_attendees adds a single reserved RFC-6761 non-deliverable
+  // "<marker>attendee@example.invalid" (zero real invitations — gcal suppressed, .invalid
+  // bounces at the sending server) -> INDEPENDENT list_events read-back over the fixed 2030
+  // window confirms the unique attendee email at events[].attendees[].address (a no-op add
+  // leaves the event without it; the handler echo is never trusted) -> cleanup delete_event
+  // (certified) hard-erases the event (TRUE erase) removing the attendee with it. Both
+  // live-verified end to end (created 1 / cleaned 1 / 0 leaked / 0 invites). Same provider
+  // throughout, smoke-owned.
+  ...records("LIVE_PASS_CLEANED", "live create event + add reserved-.invalid attendee (no invites) + independent list_events read-back, event hard-deleted (true erase)", SMOKE_WRITE_BATCH_0629, [
+    ["google-calendar", "add_attendees"],
+    ["microsoft-outlook-calendar", "add_attendees"],
+  ]),
+  // SMOKE-WRITE-43 — Microsoft Outlook create_draft_email. A DRAFT is NOT a send: execute
+  // create_draft_email POSTs /me/messages (201, isDraft) into the Drafts folder and never
+  // delivers (the "to" is a reserved non-deliverable .invalid address as defense in depth) ->
+  // INDEPENDENT fetch_emails (certified) lists Drafts and confirms the marker(+suffix "draft")
+  // subject among the messages (the run token makes the subject unique; the handler echo is
+  // never trusted) -> cleanup delete_email (deleteMode "permanent", smoke-owned guard restricts
+  // it to the captured draft id) discards it. Live-verified end to end (created 1 / cleaned 1 /
+  // 0 leaked). Same provider throughout.
+  ...records("LIVE_PASS_CLEANED", "live create Drafts-folder draft (never sent, .invalid recipient) + independent fetch_emails read-back, draft permanently deleted", SMOKE_WRITE_BATCH_0629, [
+    ["microsoft-outlook", "create_draft_email"],
+  ]),
+  // SMOKE-WRITE-39/40/41 — Microsoft Excel add_row / update_row / delete_row are AUTHORED but
+  // NOT certified: the live batch run (2026-06-29) surfaced a real microsoft-excel:add_row
+  // handler bug. On a genuinely EMPTY worksheet, Graph's usedRange(valuesOnly=true) returns the
+  // lone cell as an empty STRING (not null), so add_row's isEmpty guard (addRow.ts) is false and
+  // the row appends at A2 (rowIndex 2), not A1 — and because it anchors on the usedRange ROW
+  // COUNT rather than the absolute last row, repeated appends collide at row 2. add_row's verify
+  // (reads A1) failed; update_row's setup left A1 empty so its header lookup threw at execute;
+  // delete_row's seed rows all collided. Confirmed via run step-output (address "A2:A2"). This is
+  // a production handler bug (affects real append-to-empty-sheet + repeated-append workflows),
+  // out of the action-smoke lane to fix; NOT certified here. add_table_row / delete_worksheet do
+  // NOT use add_row and passed. All three failed runs cleaned up (created 1 / cleaned 1 / 0
+  // leaked).
 ];
