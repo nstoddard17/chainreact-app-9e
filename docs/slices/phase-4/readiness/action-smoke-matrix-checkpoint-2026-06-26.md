@@ -1139,3 +1139,72 @@ raw bytes); google-calendar **5 / 5 / 0 / 0** (write-complete); microsoft-outloo
 `npx jest tests/unit/smoke-actions` → **45 suites / 464 tests pass**; `npx tsc --noEmit` → exit 0;
 eslint on the touched `certificationSeed.ts` → 0; `npm run lint:structure` → OK. **No db:push, no
 deploy, nothing pushed.**
+
+## 27. `microsoft-excel:add_row` empty-sheet bugfix + 3 parked fixtures LIVE-CERTIFIED (2026-06-29)
+
+The §26 follow-up. Fixed the production `add_row` handler bug, then live-certified the three
+parked fixtures. **Excel writes are now COMPLETE** (only the policy-excluded `export_sheet`
+remains MISSING).
+
+**Root cause (confirmed §26, evidence):** on a genuinely empty worksheet (`<sheetData/>`),
+Graph's `usedRange(valuesOnly=true)` returns the lone cell as an empty **STRING** `""`, not
+`null`. `add_row`'s `isEmpty` guard only treated `null`/`undefined` as empty → `false` → appended
+at A2 (`rowIndex 2`), not A1. It also anchored on the usedRange row **COUNT** instead of the
+absolute last row, so repeated appends recomputed the same target and overwrote row 2. Proven via
+the persisted run step-output (`address: "A2:A2"`).
+
+**Production fix** ([integrations/microsoft-excel/actions/addRow.ts](../../../../integrations/microsoft-excel/actions/addRow.ts)):
+- `isBlankCell(v)` — treats `null` / `undefined` / `""` as blank, but deliberately NOT `0` /
+  `false` (real values a workflow may write) nor non-empty strings. `isUsedRangeEmpty(used)` is
+  true when every cell is blank (or there are none) → first append starts at A1.
+- `lastUsedRow(used)` — parses the ABSOLUTE last row from the range address (`"Sheet1!A2:C5"` →
+  5, `"Sheet1!A2"` → 2), not `rowCount`. Single-row append targets `lastUsedRow + 1`; batch mode
+  uses the same anchor. Falls back to `rowCount` only if the address is unparseable.
+- Doc fix in [api/types.ts](../../../../integrations/microsoft-excel/api/types.ts): the
+  `ExcelRange.values` comment now records the verified empty-sheet `""` caveat.
+- **Backward-compatible:** all pre-existing handler tests use ranges starting at A1, where
+  `lastUsedRow == rowCount`, so behavior is unchanged for non-empty sheets.
+
+**Tests added (5, in [addRow.test.ts](../../../../tests/unit/integrations/microsoft-excel/actions/addRow.test.ts)):**
+empty-STRING lone cell → A1; blank-only multi-cell `[["",""]]` → A1; second append advances to
+row 2 (no overwrite); content starting below row 1 (`"Sheet1!A3"`) anchors at the absolute row →
+A4; `0`/`false` are NOT blank (sheet non-empty → append advances). The fixtures were NOT changed —
+they already encoded the correct A1 expectation; the bug, not the fixtures, was wrong (task: do
+not weaken verification).
+
+**Live command:**
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
+SMOKE_PROVIDER=microsoft-excel SMOKE_MICROSOFT_EXCEL_CONNECTED=1 \
+SMOKE_MICROSOFT_ONEDRIVE_CONNECTED=1 npm run smoke:writes:live
+```
+
+**Live result — all 7 Excel write fixtures PASS, 0 leaked:**
+
+| Action | Result | created / cleaned / leaked |
+|---|---|---|
+| `microsoft-excel:add_row` | **PASS** | 1 / 1 / 0 |
+| `microsoft-excel:update_row` | **PASS** | 1 / 1 / 0 |
+| `microsoft-excel:delete_row` | **PASS** | 1 / 1 / 0 |
+
+(`create_worksheet` / `rename_worksheet` / `delete_worksheet` / `add_table_row` re-ran in the
+same scoped sweep and all PASSED, 0 leaked.) Excel workbooks deleted to the OneDrive recycle bin
+(recoverable); no leak; the harness cleanup independently re-reads (remaining 0 each), so no
+separate sweep was needed.
+
+**Cert rows added (3):** `microsoft-excel:add_row`, `microsoft-excel:update_row`,
+`microsoft-excel:delete_row` → `LIVE_PASS_CLEANED` (2026-06-29) in
+[certificationSeed.ts](../../../../scripts/chainreact/smoke/certificationSeed.ts) (the §26
+"NOT certified" note was replaced with the certified entry).
+
+**Matrix:** Totals now **298 registered / 135 LIVE_PASS / 22 not-run / 141 missing / 0 fail /
+0 bug** (+3 LIVE_PASS, −3 not-run). microsoft-excel **13 / 12 / 0 / 1** — all writes certified;
+only `export_sheet` (policy-excluded raw bytes) remains MISSING.
+
+**Offline verification (this turn):** focused
+`tests/unit/integrations/microsoft-excel/actions/{addRow,updateRow,deleteRow}.test.ts` → 37 pass
+(incl. 5 new); full `tests/unit/integrations/microsoft-excel` + `tests/unit/smoke-actions` → 83 +
+45 suites / 775 + 464 tests pass; `npm run chainreact -- smoke actions --cert` → totals above;
+`npx tsc --noEmit` → exit 0; eslint on the 4 touched files → 0; `npm run lint:structure` → OK.
+**No db:push, no deploy, nothing pushed.**

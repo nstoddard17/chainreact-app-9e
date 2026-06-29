@@ -87,14 +87,17 @@ async function executeSingle(
 ): Promise<ReturnType<ActionHandler>> {
   const { input, config, used, providerAccountId, values } = ctx;
 
-  // Graph's usedRange against an empty worksheet returns rowCount/
-  // columnCount both 1 with a single null cell. Detect that to avoid
-  // mistakenly "appending" at row 2.
-  const isEmpty =
-    (used.values?.length ?? 0) === 0 ||
-    (used.values.length === 1 &&
-      (used.values[0]?.length ?? 0) === 1 &&
-      (used.values[0]![0] === null || used.values[0]![0] === undefined));
+  // Anchor the append. An empty worksheet starts at A1; a non-empty one appends
+  // just past its ABSOLUTE last used row. Two bugs are fixed here:
+  //   1. Empty detection: Graph's usedRange against a genuinely empty worksheet
+  //      returns its lone cell as the empty STRING "" (not null), so the old
+  //      null-only guard saw it as non-empty and wrongly appended at row 2.
+  //   2. Anchoring: the old code used `rowCount` (the COUNT of rows in the used
+  //      range) as if it were the absolute last row. Those diverge whenever the
+  //      used range doesn't start at row 1 (e.g. content only at A2), so
+  //      repeated appends recomputed the same target and overwrote each other.
+  //      `lastUsedRow` parses the absolute last row from the range address.
+  const isEmpty = isUsedRangeEmpty(used);
 
   let targetRow: number;
   let columnCount: number;
@@ -103,7 +106,7 @@ async function executeSingle(
     targetRow = 1;
     columnCount = values.length;
   } else {
-    targetRow = (used.rowCount ?? used.values.length) + 1;
+    targetRow = lastUsedRow(used) + 1;
     columnCount = used.columnCount ?? (used.values[0]?.length ?? values.length);
   }
 
@@ -192,10 +195,12 @@ async function executeBatch(
   }
 
   const columnCount = headerRow.length;
-  // Used-range tail row (1-based). For a worksheet with only the
-  // header row, `rowCount === 1` and the first batch row lands at
-  // row 2 (mirrors single-row append semantics).
-  const tail = used.rowCount ?? sheetRows.length;
+  // Absolute last used row (parsed from the address), NOT rowCount — see
+  // lastUsedRow. Batch mode requires headers in row 1, so in the normal case
+  // this equals rowCount (header-only sheet → 1 → first batch row at 2);
+  // parsing the address keeps the anchor correct if the range starts below
+  // row 1, mirroring the single-row append fix.
+  const tail = lastUsedRow(used);
   const firstRowNumber = tail + 1;
   const lastRowNumber = firstRowNumber + rows.length - 1;
 
@@ -241,6 +246,51 @@ async function executeBatch(
       columnCount,
     },
   };
+}
+
+/**
+ * A cell is "blank" for append purposes when it carries no author-meaningful
+ * content: `null`, `undefined`, or the empty string `""`. Graph's usedRange
+ * against a genuinely empty worksheet returns its lone cell as `""` (NOT null,
+ * despite the Range type's general claim), so empty-string MUST count as blank
+ * or the first append wrongly lands at row 2. `0` and `false` are real values
+ * a workflow may legitimately write and are deliberately NOT blank; a
+ * whitespace or any non-empty string is content too.
+ */
+function isBlankCell(v: unknown): boolean {
+  return v === null || v === undefined || v === "";
+}
+
+/**
+ * True when the used range has no real content yet — no cells, or every cell is
+ * blank (`isBlankCell`). Such a worksheet's first append starts at A1.
+ */
+function isUsedRangeEmpty(used: ExcelRange): boolean {
+  const rows = used.values ?? [];
+  for (const row of rows) {
+    for (const cell of row) {
+      if (!isBlankCell(cell)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Absolute last (1-based) sheet row of a used range, parsed from its A1
+ * address — e.g. `"Sheet1!A2:C5"` → 5, `"Sheet1!A2"` → 2. This is the absolute
+ * row, unlike `rowCount`, which is only the COUNT of rows inside the range;
+ * the two diverge whenever the used range does not start at row 1 (content only
+ * at A2 → address `"Sheet1!A2"`, rowCount 1). Anchoring an append on rowCount
+ * therefore collides repeated appends at the same row. Falls back to `rowCount`
+ * (assuming the range starts at row 1) only if the address is unparseable.
+ */
+function lastUsedRow(used: ExcelRange): number {
+  const addr = used.address ?? "";
+  const local = addr.includes("!") ? addr.slice(addr.lastIndexOf("!") + 1) : addr;
+  const end = local.includes(":") ? local.slice(local.indexOf(":") + 1) : local;
+  const match = end.match(/(\d+)\s*$/);
+  if (match) return parseInt(match[1]!, 10);
+  return used.rowCount ?? used.values.length;
 }
 
 /**

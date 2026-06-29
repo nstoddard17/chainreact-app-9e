@@ -169,6 +169,151 @@ describe("add_row action", () => {
     expect(mockPatch.mock.calls[0]![0].values).toEqual([["hello", "world"]]);
   });
 
+  // --- empty-string detection + append anchoring (SMOKE-WRITE-39 bugfix) ---
+  // Graph's usedRange on a GENUINELY empty worksheet returns the lone cell as
+  // the empty STRING "", not null. The old guard saw "" as non-empty and
+  // appended at A2; these pin the corrected behavior.
+  it("writes to A1 when an empty worksheet's usedRange returns a single empty-STRING cell", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1",
+      rowCount: 1,
+      columnCount: 1,
+      values: [[""]],
+    });
+
+    const result = await addRow({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        values: ["crsmoke-row", "x"],
+      },
+      triggerEvent: trigger(),
+    });
+
+    expect(result.output.rowIndex).toBe(1);
+    expect(result.output.address).toBe("A1:B1");
+    expect(mockPatch.mock.calls[0]![0].address).toBe("A1:B1");
+    expect(mockPatch.mock.calls[0]![0].values).toEqual([["crsmoke-row", "x"]]);
+  });
+
+  it("treats a blank-only multi-cell usedRange ([[\"\", \"\"]]) as empty → A1", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1:B1",
+      rowCount: 1,
+      columnCount: 2,
+      values: [["", ""]],
+    });
+
+    const result = await addRow({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        values: ["a", "b"],
+      },
+      triggerEvent: trigger(),
+    });
+
+    expect(result.output.rowIndex).toBe(1);
+    expect(result.output.address).toBe("A1:B1");
+  });
+
+  it("second append lands on row 2 (does NOT overwrite row 1) — anchors on the absolute last used row", async () => {
+    // After the first append, the only content is at A1 → Graph's usedRange is
+    // the single cell "Sheet1!A1" with rowCount 1. The old code did rowCount+1
+    // = 2 (correct here) but the bug surfaced when content started BELOW row 1
+    // (see next test). This guards the common A1 case advances to A2.
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1",
+      rowCount: 1,
+      columnCount: 1,
+      values: [["crsmoke-first"]],
+    });
+
+    const result = await addRow({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        values: ["crsmoke-second"],
+      },
+      triggerEvent: trigger(),
+    });
+
+    expect(result.output.rowIndex).toBe(2);
+    expect(result.output.address).toBe("A2:A2");
+    expect(mockPatch.mock.calls[0]![0].values).toEqual([["crsmoke-second"]]);
+  });
+
+  it("anchors on the ABSOLUTE last row from the address, not rowCount, when the range starts below row 1", async () => {
+    // Content only at A3 → Graph address "Sheet1!A3", rowCount 1. The OLD code
+    // (rowCount+1 = 2) would have collided into row 2; the fix parses the
+    // address end-row (3) and appends at row 4.
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A3",
+      rowCount: 1,
+      columnCount: 1,
+      values: [["lonely"]],
+    });
+
+    const result = await addRow({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        values: ["next"],
+      },
+      triggerEvent: trigger(),
+    });
+
+    expect(result.output.rowIndex).toBe(4);
+    expect(result.output.address).toBe("A4:A4");
+  });
+
+  it("does NOT treat 0 or false as blank — a sheet whose only cell is 0 is non-empty (append advances)", async () => {
+    mockUsed.mockResolvedValueOnce({
+      address: "Sheet1!A1:B1",
+      rowCount: 1,
+      columnCount: 2,
+      values: [[0, false]],
+    });
+
+    const result = await addRow({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        workbookId: "wb-1",
+        worksheetName: "Sheet1",
+        values: ["x", "y"],
+      },
+      triggerEvent: trigger(),
+    });
+
+    // Non-empty → appends past row 1 (absolute last row 1 → row 2), never A1.
+    expect(result.output.rowIndex).toBe(2);
+    expect(result.output.address).toBe("A2:B2");
+  });
+
   it("handles column counts past Z (e.g. 27 columns → AA)", async () => {
     const headers = Array.from({ length: 27 }, (_, i) => `c${i + 1}`);
     const dataRow = Array.from({ length: 27 }, (_, i) => i + 1);

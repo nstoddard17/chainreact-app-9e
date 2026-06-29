@@ -32,8 +32,11 @@ export interface ExcelWorksheet {
  * `/worksheets/{name}/range(address='...')`.
  *
  * `values` is the 2D array of cell values; outer = rows, inner = columns.
- * Graph returns `null` for empty cells (NOT empty string), so handlers
- * preserve that distinction.
+ * Graph returns `null` for empty cells WITHIN a populated range, so handlers
+ * preserve that distinction. CAVEAT (verified live): the usedRange of a
+ * genuinely EMPTY worksheet comes back as a single cell whose value is the
+ * empty STRING `""`, not `null` — so an emptiness check must treat `""` as
+ * blank too (see `addRow.ts:isBlankCell`).
  */
 export interface ExcelRange {
   /**

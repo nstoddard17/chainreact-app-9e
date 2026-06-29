@@ -590,16 +590,26 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live create Drafts-folder draft (never sent, .invalid recipient) + independent fetch_emails read-back, draft permanently deleted", SMOKE_WRITE_BATCH_0629, [
     ["microsoft-outlook", "create_draft_email"],
   ]),
-  // SMOKE-WRITE-39/40/41 — Microsoft Excel add_row / update_row / delete_row are AUTHORED but
-  // NOT certified: the live batch run (2026-06-29) surfaced a real microsoft-excel:add_row
-  // handler bug. On a genuinely EMPTY worksheet, Graph's usedRange(valuesOnly=true) returns the
-  // lone cell as an empty STRING (not null), so add_row's isEmpty guard (addRow.ts) is false and
-  // the row appends at A2 (rowIndex 2), not A1 — and because it anchors on the usedRange ROW
-  // COUNT rather than the absolute last row, repeated appends collide at row 2. add_row's verify
-  // (reads A1) failed; update_row's setup left A1 empty so its header lookup threw at execute;
-  // delete_row's seed rows all collided. Confirmed via run step-output (address "A2:A2"). This is
-  // a production handler bug (affects real append-to-empty-sheet + repeated-append workflows),
-  // out of the action-smoke lane to fix; NOT certified here. add_table_row / delete_worksheet do
-  // NOT use add_row and passed. All three failed runs cleaned up (created 1 / cleaned 1 / 0
-  // leaked).
+  // SMOKE-WRITE-39/40/41 — Microsoft Excel add_row / update_row / delete_row, LIVE-CERTIFIED
+  // after the add_row empty-sheet handler bugfix (2026-06-29). The 2026-06-29 batch first
+  // surfaced a real production bug: on a genuinely EMPTY worksheet Graph's usedRange returns
+  // the lone cell as an empty STRING (not null), so add_row's null-only isEmpty guard appended
+  // at A2 (not A1), and anchoring on the usedRange ROW COUNT (not the absolute last row) made
+  // repeated appends collide at row 2 — breaking add_row (verify reads A1), update_row (header
+  // lookup at empty A1 threw), and delete_row (seed rows collided). Fixed in
+  // integrations/microsoft-excel/actions/addRow.ts (isBlankCell treats ""/null/undefined as
+  // blank but NOT 0/false; lastUsedRow parses the absolute last row from the range address).
+  // All three then passed live, same smoke-owned-workbook bootstrap as create_worksheet
+  // (upload frozen minimal .xlsx via microsoft-onedrive:upload_file -> Excel row mutation ->
+  // INDEPENDENT read_range read-back (marker+suffix; delete_row uses a 3-read shift proof +
+  // expectAbsent) -> whole workbook removed via microsoft-onedrive:delete_item). Live-verified
+  // end to end (created 1 / cleaned 1 / 0 leaked each). HONESTY: delete_item moves the file to
+  // the OneDrive recycle bin (recoverable), not a hard erase. This completes Excel writes:
+  // create/rename/delete_worksheet + add_row/update_row/delete_row + add_table_row all
+  // LIVE_PASS_CLEANED; only export_sheet remains MISSING (policy-excluded raw bytes).
+  ...records("LIVE_PASS_CLEANED", "live upload smoke workbook + row add/update/delete + independent read_range read-back, whole workbook deleted to OneDrive recycle bin (recoverable)", SMOKE_WRITE_BATCH_0629, [
+    ["microsoft-excel", "add_row"],
+    ["microsoft-excel", "update_row"],
+    ["microsoft-excel", "delete_row"],
+  ]),
 ];
