@@ -854,3 +854,49 @@ the only remaining MISSING (policy-excluded: raw bytes). Once the durable-queue 
 applied and the `"queued"` enum exists, ONE scoped Excel write run live-certs the five
 NOT_RUN_READY fixtures (re-confirming the two already-certified) and adds their
 `LIVE_PASS_CLEANED` rows — bringing microsoft-excel to 12/13 (export-excluded).
+
+## 22. SMOKE-WRITE-43 — `microsoft-outlook:create_draft_email` AUTHORED (NOT_RUN_READY), first non-Excel offline write (2026-06-26)
+
+Excel offline authoring is complete, so this moves to the next safe non-Excel MISSING_FIXTURE.
+**`microsoft-outlook:create_draft_email` is now NOT_RUN_READY.** No live workflow smoke run; no
+cert row added (the `"queued"` enum blocker persists).
+
+**Why this action (safe, connected, proven, cleanable):** Outlook is connected + proven (3
+certified reads: `list_folders`, `get_profile`, `fetch_emails`). A DRAFT is **not a send** —
+`POST /me/messages` creates a draft in the Drafts folder (201, `isDraft`) and never delivers it,
+so there's no broadcast/external side effect. It's a fully smoke-owned resource with an
+independent certified-read verify (`fetch_emails`) and a same-provider delete cleanup
+(`delete_email`). The `to` recipient is a reserved non-deliverable `.invalid` address as defense
+in depth (the draft is never sent regardless).
+
+**Fixture plan** ([tests/fixtures/action-smoke/microsoft-outlook/create_draft_email.ts](../../../../tests/fixtures/action-smoke/microsoft-outlook/create_draft_email.ts)) —
+execute-creates-resource shape (no setup, like OneDrive `upload_file`):
+- **execute** `create_draft_email` — marker-subjected draft (`subject: "{{marker}}draft"`), capture `draftId` → ledger `draft`.
+- **verify** `fetch_emails` (certified) — list the Drafts folder (`folderId: "drafts"`, `maxResults: 50`) and confirm the marker(+suffix `draft`) subject among `messages`. The run token makes the subject unique, so only THIS draft matches; the handler echo is never trusted.
+- **cleanup** `delete_email` — `deleteMode: "permanent"`, `emailId: "{{ledger.draft.id}}"` (same provider; the smoke-owned guard restricts the delete to the captured draft).
+- `destructiveSafe`, smoke-owned throughout, target zero leaked. No harness change (reuses `markerPath`/`markerSuffix`).
+
+**Rejected candidates (why):**
+- `gmail:create_label` — no `delete_label` action (only `removeLabel` = remove-from-message) → no cleanup.
+- `hubspot:create_contact` / `create_*` — no contact/CRM delete action registered → no cleanup (and CRM-record semantics).
+- `notion:create_database` — no archive-database action + no independent read-back (deferred since §11).
+- `trello:create_board` / `create_list` — no board-delete / list-archive action → no safe teardown (deferred since §11).
+- `microsoft-onenote:create_notebook` / `create_section` — Graph has no notebook/section delete → no teardown (§11).
+- `microsoft-teams:*`, `gmail:send_email` / `reply_*`, `outlook:send_email` / `forward_*` — send/broadcast (excluded).
+- `google-docs:share_document` (sharing link), `gmail`/`outlook` `get_attachment`, `dropbox:create_shared_link` / `get_temporary_link` / `download_file`, `google-docs:export_document`, `notion:get_block(_children)` — sharing / raw bytes / signed URL / block content (policy-excluded).
+- `gmail`/`outlook` `add_label` / `mark_as_read` / `add_categories` / `move_email` / `delete_email` — mutate or destroy an EXISTING user email (no smoke-owned email to act on without sending one).
+- `github:*`, `monday:*`, `stripe:*`, `shopify:*`, `discord:*` — not connected on the smoke account (and stripe/shopify are billing/commerce); deferred until connected.
+
+**Matrix:** `create_draft_email` MISSING_FIXTURE → **NOT_RUN**. Totals now **298 registered / 127
+LIVE_PASS / 28 not-run / 143 missing / 0 fail / 0 bug**; microsoft-outlook **11 / 3 / 1 / 7**.
+
+**Offline verification (this turn):** `tests/unit/smoke-actions` → **42 suites / 456 tests pass**
+(incl. the new `outlook-create-draft-email` suite); `npx tsc --noEmit` → **exit 0**; eslint on
+touched files → 0; `npm run lint:structure` → OK; `--cert` → `create_draft_email` NOT_RUN. **No
+live smoke run. Nothing pushed.**
+
+**Live cert note:** beyond the `"queued"` enum unblock, the live cert also needs the Outlook
+smoke connection to carry `Mail.ReadWrite` (create/delete draft scope). Other safe non-Excel
+offline candidates to consider next: `gmail:create_draft` (cleanup path needs confirming — Gmail
+`drafts.delete` vs `deleteEmail`) and `microsoft-outlook:create_draft_email`'s Gmail analogue,
+plus revisiting connected-provider creates only where a real delete action exists.

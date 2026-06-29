@@ -112,6 +112,8 @@ import excelUpdateRow from "@/tests/fixtures/action-smoke/microsoft-excel/update
 import excelDeleteRow from "@/tests/fixtures/action-smoke/microsoft-excel/delete_row";
 // SMOKE-WRITE-42 — Microsoft Excel add_table_row (table-bearing bootstrap workbook).
 import excelAddTableRow from "@/tests/fixtures/action-smoke/microsoft-excel/add_table_row";
+// SMOKE-WRITE-43 — Microsoft Outlook create_draft_email (smoke-owned draft, never sent).
+import outlookCreateDraftEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/create_draft_email";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -336,6 +338,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   excelUpdateRow,
   excelDeleteRow,
   excelAddTableRow,
+  outlookCreateDraftEmail,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,
