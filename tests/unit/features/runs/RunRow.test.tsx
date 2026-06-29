@@ -135,4 +135,80 @@ describe("RunRow", () => {
       screen.getByTestId(`runs-row-${noDuration.id}-duration`),
     ).toHaveTextContent("—");
   });
+
+  // RUN-VISIBILITY-1 — non-terminal runs are now visible with a clear status
+  // badge + helper copy, so a just-started run isn't invisible on /runs.
+  it("renders a queued run with the Queued badge + 'Waiting to start…' copy", () => {
+    const run = fixtureRun({
+      id: "q-1",
+      status: "queued",
+      startedAt: new Date(Date.now() - 3_000).toISOString(),
+      finishedAt: null,
+      durationMs: null,
+    });
+    render(
+      <ul>
+        <RunRow run={run} />
+      </ul>,
+    );
+    expect(screen.getByTestId(`runs-row-${run.id}`)).toHaveAttribute(
+      "data-status",
+      "queued",
+    );
+    expect(screen.getByTestId("run-status-badge-queued")).toHaveTextContent(
+      /queued/i,
+    );
+    expect(screen.getByTestId(`runs-row-${run.id}-pending`)).toHaveTextContent(
+      "Waiting to start…",
+    );
+  });
+
+  it("renders a running run with the Running badge + 'Workflow is running…' copy", () => {
+    const run = fixtureRun({
+      id: "r-1",
+      status: "running",
+      finishedAt: null,
+      durationMs: null,
+    });
+    render(
+      <ul>
+        <RunRow run={run} />
+      </ul>,
+    );
+    expect(screen.getByTestId("run-status-badge-running")).toHaveTextContent(
+      /running/i,
+    );
+    expect(screen.getByTestId(`runs-row-${run.id}-pending`)).toHaveTextContent(
+      "Workflow is running…",
+    );
+  });
+
+  it("shows the stale-queued note for a run queued well past the threshold", () => {
+    const run = fixtureRun({
+      id: "stale-1",
+      status: "queued",
+      // 10 minutes ago — past the 5-minute stale threshold.
+      startedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+      finishedAt: null,
+      durationMs: null,
+    });
+    render(
+      <ul>
+        <RunRow run={run} />
+      </ul>,
+    );
+    expect(screen.getByTestId(`runs-row-${run.id}-pending`)).toHaveTextContent(
+      /taking longer than usual/i,
+    );
+  });
+
+  it("renders NO pending copy for terminal runs (succeeded/failed unchanged)", () => {
+    const ok = fixtureRun({ id: "term-1", status: "succeeded" });
+    render(
+      <ul>
+        <RunRow run={ok} />
+      </ul>,
+    );
+    expect(screen.queryByTestId(`runs-row-${ok.id}-pending`)).toBeNull();
+  });
 });

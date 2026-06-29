@@ -1,16 +1,15 @@
-import type { WorkflowRunStatus } from "@/contracts/workflow";
+import type { WorkflowRunDisplayStatus } from "@/contracts/workflow";
 
 /**
  * Status pill for a single run row (Slice 4.RUNS-PAGE-1).
  *
- * Two terminal values only — `succeeded` / `failed` — matching the
- * display contract (`workflow_runs.status != 'running'` filter in the
- * repository). A future running/canceled state would land here as a
- * new entry once the schema supports terminal-canceled rows; for now
- * the badge is closed-set.
+ * RUN-VISIBILITY-1 — closed-set over the 4 display statuses: the durable-queue
+ * non-terminal states `queued` / `running` plus the terminal `succeeded` /
+ * `failed`. The helper copy for the non-terminal states lives in
+ * `runStatusCopy.ts` and renders below the badge in `RunRow`.
  */
 interface Props {
-  status: WorkflowRunStatus;
+  status: WorkflowRunDisplayStatus;
 }
 
 export function RunStatusBadge({ status }: Props) {
@@ -29,7 +28,19 @@ export function RunStatusBadge({ status }: Props) {
   );
 }
 
-const STATUS_STYLES: Readonly<Record<WorkflowRunStatus, { label: string; className: string }>> = {
+const STATUS_STYLES: Readonly<
+  Record<WorkflowRunDisplayStatus, { label: string; className: string }>
+> = {
+  queued: {
+    label: "Queued",
+    className:
+      "bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300",
+  },
+  running: {
+    label: "Running",
+    className:
+      "bg-sky-500/10 text-sky-700 dark:bg-sky-400/10 dark:text-sky-300",
+  },
   succeeded: {
     label: "Succeeded",
     className:

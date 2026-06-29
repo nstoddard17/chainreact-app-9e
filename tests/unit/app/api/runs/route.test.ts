@@ -107,6 +107,60 @@ describe("GET /api/runs", () => {
     }
   });
 
+  it("returns non-terminal (queued/running) runs with a null finishedAt, no raw leakage (RUN-VISIBILITY-1)", async () => {
+    authedUser();
+    mockListByAccountForDisplay.mockResolvedValueOnce([
+      {
+        id: "22222222-2222-2222-2222-222222222222",
+        workflowId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        status: "queued",
+        isTest: false,
+        triggeredBy: "manual",
+        triggeredByApiKeyPrefix: null,
+        startedAt: "2026-06-29T12:00:00Z",
+        finishedAt: null,
+        errorClassification: null,
+      },
+      {
+        id: "33333333-3333-3333-3333-333333333333",
+        workflowId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        status: "running",
+        isTest: false,
+        triggeredBy: "webhook",
+        triggeredByApiKeyPrefix: null,
+        startedAt: "2026-06-29T12:00:01Z",
+        finishedAt: null,
+        errorClassification: null,
+      },
+    ]);
+    mockListNamesByIds.mockResolvedValueOnce([
+      { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "Daily digest" },
+    ]);
+    const res = await GET(new Request("http://x/api/runs"));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { runs: Record<string, unknown>[] };
+    const [queued, running] = body.runs;
+    expect(queued?.status).toBe("queued");
+    expect(running?.status).toBe("running");
+    // Non-terminal → null finishedAt + null durationMs (not computed yet).
+    expect(queued?.finishedAt).toBeNull();
+    expect(queued?.durationMs).toBeNull();
+    // Redaction holds for non-terminal rows too.
+    for (const run of body.runs) {
+      for (const banned of [
+        "trigger_event",
+        "triggerEvent",
+        "steps",
+        "fatal_error",
+        "fatalError",
+        "user_id",
+        "userId",
+      ]) {
+        expect(banned in run).toBe(false);
+      }
+    }
+  });
+
   it("falls back to 'Untitled workflow' when the joined name is missing", async () => {
     authedUser();
     mockListByAccountForDisplay.mockResolvedValueOnce([

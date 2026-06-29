@@ -1,5 +1,9 @@
 import { getServiceRoleClient } from "./supabase/serviceRoleClient";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
+// RUN-VISIBILITY-1 — the display readers now return non-terminal rows, so the
+// read record/row types carry the 4-value lifecycle status (queued/running/
+// succeeded/failed). Terminal-only write/input types keep `WorkflowRunStatus`.
+import type { WorkflowRunLifecycleStatus } from "./workflowRunsLifecycle";
 
 /**
  * Repository for workflow_runs.
@@ -274,11 +278,11 @@ export async function getById(runId: string): Promise<WorkflowRunRecord | null> 
     // surface. The display contract (WorkflowRunSummarySchema) is terminal-only
     // (succeeded/failed); a 'running' row would fail response validation. An
     // in-progress run reads as "not yet available" (null) until it finalizes.
+    // Terminal-only: the run-detail surface (builder Runs tab + poll) consumes
+    // the terminal WorkflowRunSummary/Detail contract. A non-terminal run reads
+    // as "not yet available" (the poll's 404-while-pending path); RUN-VISIBILITY-1
+    // surfaces in-flight runs on the account /runs page instead.
     .neq("status", "running")
-    // Slice 6 durable queue — also hide pre-execution 'queued' rows. The
-    // display contract is terminal-only (succeeded/failed); a queued row exists
-    // only briefly (until the processor claims it) and would fail the UI's
-    // terminal-only response schema, exactly like 'running'.
     .neq("status", "queued")
     .eq("id", runId)
     .maybeSingle();
@@ -309,14 +313,10 @@ export async function listByWorkflow(
     .from("workflow_runs")
     .select("*")
     .eq("workflow_id", workflowId)
-    // COST-15C — exclude in-progress (pre-run/crashed) rows from the run-history
-    // list. The display contract is terminal-only (succeeded/failed); the UI
-    // surfaces a run only once it finalizes, preserving pre-COST-15C UX.
+    // Terminal-only — the builder Runs tab shows finalized history; the live
+    // in-flight run is covered by the synthetic runSlice poll row. (RUN-VISIBILITY-1
+    // surfaces non-terminal runs on the account /runs page, not here.)
     .neq("status", "running")
-    // Slice 6 durable queue — also hide pre-execution 'queued' rows. The
-    // display contract is terminal-only (succeeded/failed); a queued row exists
-    // only briefly (until the processor claims it) and would fail the UI's
-    // terminal-only response schema, exactly like 'running'.
     .neq("status", "queued")
     .order("started_at", { ascending: false })
     .limit(limit);
@@ -362,7 +362,7 @@ export async function listByWorkflow(
 export interface WorkflowRunDisplayRecord {
   id: string;
   workflowId: string;
-  status: WorkflowRunStatus;
+  status: WorkflowRunLifecycleStatus;
   isTest: boolean;
   triggeredBy: WorkflowRunTriggeredBy;
   /**
@@ -378,7 +378,7 @@ export interface WorkflowRunDisplayRecord {
 interface WorkflowRunDisplayRow {
   id: string;
   workflow_id: string;
-  status: WorkflowRunStatus;
+  status: WorkflowRunLifecycleStatus;
   is_test: boolean;
   triggered_by: WorkflowRunTriggeredBy;
   triggered_by_api_key_prefix: string | null;
@@ -407,12 +407,10 @@ export async function listByAccountForDisplay(
     .from("workflow_runs")
     .select(DISPLAY_RUN_COLUMNS)
     .eq("account_id", accountId)
-    .neq("status", "running")
-    // Slice 6 durable queue — also hide pre-execution 'queued' rows. The
-    // display contract is terminal-only (succeeded/failed); a queued row exists
-    // only briefly (until the processor claims it) and would fail the UI's
-    // terminal-only response schema, exactly like 'running'.
-    .neq("status", "queued")
+    // RUN-VISIBILITY-1 — include queued/running rows so a just-started run is
+    // visible on the /runs page instead of appearing only once it finalizes.
+    // DISPLAY_RUN_COLUMNS already excludes trigger_event/steps/fatal_error; the
+    // RunListItem schema accepts the 4-value display status + null finishedAt.
     .order("started_at", { ascending: false })
     .limit(limit);
   if (error) {

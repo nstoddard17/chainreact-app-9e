@@ -3,6 +3,7 @@ import type { RunListItem } from "@/contracts/workflow";
 import { RunStatusBadge } from "./RunStatusBadge";
 import { RunSourceBadge } from "./RunSourceBadge";
 import { formatRunDuration, formatRunStartedAt } from "./formatRunDuration";
+import { isStaleQueued, runStatusHelperCopy } from "./runStatusCopy";
 
 /**
  * Single row in the Runs list (Slice 4.RUNS-PAGE-1).
@@ -28,6 +29,14 @@ interface Props {
 }
 
 export function RunRow({ run }: Props) {
+  // RUN-VISIBILITY-1 — non-terminal helper copy ("Waiting to start…" /
+  // "Workflow is running…", with a gentle stale note for long-queued runs).
+  // Computed against render-time `now`; the /runs page is statically rendered, so
+  // this evaluates once per load (refreshing the page re-evaluates). Terminal
+  // runs return null and render no extra line.
+  const nowMs = Date.now();
+  const helperCopy = runStatusHelperCopy(run.status, run.startedAt, nowMs);
+  const staleQueued = isStaleQueued(run.status, run.startedAt, nowMs);
   return (
     <li
       data-testid={`runs-row-${run.id}`}
@@ -69,6 +78,20 @@ export function RunRow({ run }: Props) {
           </span>
         </span>
       </div>
+      {helperCopy && (
+        <p
+          role="status"
+          data-testid={`runs-row-${run.id}-pending`}
+          className={
+            "text-xs " +
+            (staleQueued
+              ? "text-amber-700 dark:text-amber-300"
+              : "text-muted-foreground")
+          }
+        >
+          {helperCopy}
+        </p>
+      )}
       {run.errorClassification && (
         <div
           role={run.errorClassification.severity === "error" ? "alert" : "status"}

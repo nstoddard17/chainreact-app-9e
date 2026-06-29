@@ -2,6 +2,11 @@ import type { AccountRecord } from "@/contracts/accounts";
 import type { MembershipRole } from "@/contracts/accounts";
 import type { WorkflowRecord } from "@/repositories/workflows";
 import type { WorkflowRunRecord } from "@/repositories/workflowRuns";
+// RUN-VISIBILITY-1 — the account run-list MCP tool reads the display projection,
+// which now includes non-terminal (queued/running) rows; the summary DTO status
+// carries the 4-value lifecycle status. Run detail stays terminal (getById is
+// terminal-only) but is a subset of this type.
+import type { WorkflowRunLifecycleStatus } from "@/repositories/workflowRuns";
 import type { IntegrationRecord } from "@/repositories/integrations";
 import { decideIntegrationUsage } from "@/core/integrations/integrationUsagePolicy";
 
@@ -127,7 +132,7 @@ export interface McpRunErrorDto {
 export interface McpRunSummaryDto {
   id: string;
   workflowId: string;
-  status: WorkflowRunRecord["status"];
+  status: WorkflowRunLifecycleStatus;
   isTest: boolean;
   triggeredBy: WorkflowRunRecord["triggeredBy"];
   startedAt: string;
@@ -150,7 +155,7 @@ function toRunErrorDto(
 export function toMcpRunSummaryDto(run: {
   id: string;
   workflowId: string;
-  status: WorkflowRunRecord["status"];
+  status: WorkflowRunLifecycleStatus;
   isTest: boolean;
   triggeredBy: WorkflowRunRecord["triggeredBy"];
   startedAt: string;

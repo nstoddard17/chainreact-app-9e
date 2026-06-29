@@ -13,4 +13,17 @@ describe("RunStatusBadge", () => {
     const badge = screen.getByTestId("run-status-badge-failed");
     expect(badge).toHaveTextContent(/failed/i);
   });
+
+  // RUN-VISIBILITY-1 — the durable-queue non-terminal states are now visible.
+  it("renders the Queued label for status='queued'", () => {
+    render(<RunStatusBadge status="queued" />);
+    const badge = screen.getByTestId("run-status-badge-queued");
+    expect(badge).toHaveTextContent(/queued/i);
+  });
+
+  it("renders the Running label for status='running'", () => {
+    render(<RunStatusBadge status="running" />);
+    const badge = screen.getByTestId("run-status-badge-running");
+    expect(badge).toHaveTextContent(/running/i);
+  });
 });

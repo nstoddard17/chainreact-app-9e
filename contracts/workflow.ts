@@ -120,6 +120,24 @@ export type WorkflowDetail = z.infer<typeof WorkflowDetailSchema>;
 export const WorkflowRunStatusSchema = z.enum(["succeeded", "failed"]);
 export type WorkflowRunStatus = z.infer<typeof WorkflowRunStatusSchema>;
 
+/**
+ * Display status for run-history surfaces (RUN-VISIBILITY-1). Superset of the
+ * terminal `WorkflowRunStatus` with the durable-queue non-terminal states
+ * (`queued`, `running`) so the /runs page + builder Runs tab can show a run as
+ * pending/in-progress instead of hiding it until it finalizes. Lifetime
+ * aggregates (`WorkflowRunStats.lastRunStatus`) stay on the terminal enum — the
+ * stats view never counts non-terminal rows.
+ */
+export const WorkflowRunDisplayStatusSchema = z.enum([
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+]);
+export type WorkflowRunDisplayStatus = z.infer<
+  typeof WorkflowRunDisplayStatusSchema
+>;
+
 // ── Workflows list-page enriched item (Slice 4.WORKFLOWS-PAGE-1) ─────────────
 
 /**
@@ -301,15 +319,15 @@ export type WorkflowRunDetail = z.infer<typeof WorkflowRunDetailSchema>;
  *     terminal finishedAt (pre-COST-15B rows or sweep-failed rows
  *     where finished_at was never set).
  *
- * The status enum stays terminal-only (succeeded / failed) — matches
- * the existing display contract and the
- * `workflow_runs.status != 'running'` filter the repository applies.
+ * RUN-VISIBILITY-1 — the status enum now includes the durable-queue
+ * non-terminal states (queued / running) so a just-started run is visible
+ * on the /runs page instead of appearing only once it finalizes.
  */
 export const RunListItemSchema = z.object({
   id: z.string().uuid(),
   workflowId: z.string().uuid(),
   workflowName: z.string(),
-  status: WorkflowRunStatusSchema,
+  status: WorkflowRunDisplayStatusSchema,
   isTest: z.boolean(),
   triggeredBy: WorkflowRunTriggeredBySchema,
   /**
