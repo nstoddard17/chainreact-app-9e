@@ -37,6 +37,8 @@ export interface AgentChangeHistoryRecord {
   failureReason: string | null;
   diff: Record<string, unknown> | null;
   aiCostEventId: string | null;
+  /** Aggregate-safe metadata object (e.g. { applyMode }). Never config values/secrets. */
+  metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,6 +65,7 @@ interface AgentChangeHistoryRow {
   failure_reason: string | null;
   diff: Record<string, unknown> | null;
   ai_cost_event_id: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -70,7 +73,7 @@ interface AgentChangeHistoryRow {
 // Single string LITERAL (not a `+` concatenation) so supabase-js can parse the
 // column list into the row type — a widened `string` falls back to its error type.
 const COLUMNS =
-  "id, agent_change_id, workflow_id, account_id, created_by_user_id, source, status, prompt, title, summary, changed_node_count, added_node_count, removed_node_count, changed_config_count, setup_issue_count, preview_patch_ref, checkpoint_id, run_id, failure_reason, diff, ai_cost_event_id, created_at, updated_at";
+  "id, agent_change_id, workflow_id, account_id, created_by_user_id, source, status, prompt, title, summary, changed_node_count, added_node_count, removed_node_count, changed_config_count, setup_issue_count, preview_patch_ref, checkpoint_id, run_id, failure_reason, diff, ai_cost_event_id, metadata, created_at, updated_at";
 
 function rowToRecord(row: AgentChangeHistoryRow): AgentChangeHistoryRecord {
   return {
@@ -95,6 +98,10 @@ function rowToRecord(row: AgentChangeHistoryRow): AgentChangeHistoryRecord {
     failureReason: row.failure_reason,
     diff: row.diff,
     aiCostEventId: row.ai_cost_event_id,
+    metadata:
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? row.metadata
+        : {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -120,6 +127,8 @@ export interface CreateAgentChangeInput {
   failureReason: string | null;
   diff: Record<string, unknown> | null;
   aiCostEventId: string | null;
+  /** Aggregate-safe metadata object (e.g. { applyMode }); omit/empty for none. */
+  metadata?: Record<string, unknown>;
 }
 
 /** Insert a new history row (preview_created / restored_checkpoint, or a transition with no prior row). */
@@ -150,6 +159,7 @@ export async function create(
       failure_reason: input.failureReason,
       diff: input.diff,
       ai_cost_event_id: input.aiCostEventId,
+      ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
     })
     .select(COLUMNS)
     .single<AgentChangeHistoryRow>();
@@ -171,6 +181,8 @@ export interface TransitionAgentChangeInput {
   failureReason?: string | null;
   diff?: Record<string, unknown> | null;
   aiCostEventId?: string | null;
+  /** Merged-in metadata (e.g. { applyMode }) — only written when provided. */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -192,6 +204,7 @@ export async function updateStatusByAgentChangeId(
   if (input.failureReason !== undefined) patch.failure_reason = input.failureReason;
   if (input.diff !== undefined) patch.diff = input.diff;
   if (input.aiCostEventId !== undefined) patch.ai_cost_event_id = input.aiCostEventId;
+  if (input.metadata !== undefined) patch.metadata = input.metadata;
 
   const { data, error } = await supabase
     .from("agent_change_history")

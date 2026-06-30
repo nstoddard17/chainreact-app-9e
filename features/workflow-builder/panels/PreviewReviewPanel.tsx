@@ -11,6 +11,11 @@ import type {
   AgentPreviewFieldReason,
   AgentPreviewRationale,
 } from "@/core/workflows/buildPreviewRationale";
+import type {
+  AgentApplyMode,
+  AgentApplyModeAvailability,
+} from "@/core/workflows/agentApplyModes";
+import { AgentApplyModeActions } from "./AgentApplyModeActions";
 
 /**
  * React Agent preview — right-rail "Review changes" panel (HERMES-AGENT-CONFIG-DIFF-REVIEW).
@@ -45,6 +50,13 @@ export interface PreviewReviewPanelProps {
   readonly onApply?: () => void;
   /** Existing explicit "Discard preview" action (graph unchanged). Omit in read-only mode. */
   readonly onDiscard?: () => void;
+  /**
+   * REACT-AGENT-APPLY-MODES-1 — when provided (with `onSelectApplyMode`), the rail renders the
+   * explicit apply-mode picker (Apply to draft / Apply and test / Keep as preview) + Discard
+   * instead of the single Apply/Discard pair. Omit (read-only / legacy) → the Apply/Discard pair.
+   */
+  readonly applyModes?: readonly AgentApplyModeAvailability[];
+  readonly onSelectApplyMode?: (mode: AgentApplyMode) => void;
   /**
    * AGENT-CHANGE-HISTORY-1 — read-only mode for the historical "View diff" drawer: render the same
    * value-level diff WITHOUT the Apply/Discard actions (a past change can't be re-applied from here).
@@ -94,14 +106,25 @@ export function PreviewReviewPanel({
   rationale,
   onApply,
   onDiscard,
+  applyModes,
+  onSelectApplyMode,
   hideActions,
 }: PreviewReviewPanelProps) {
   const whyBullets = rationale?.bullets ?? [];
   const fieldReasonGroups = groupFieldReasonsByNode(rationale?.fieldReasons ?? []);
-  const actions =
-    !hideActions && onApply && onDiscard ? (
-      <ReviewActions onApply={onApply} onDiscard={onDiscard} />
-    ) : null;
+  const actions = hideActions
+    ? null
+    : applyModes && onSelectApplyMode && onDiscard ? (
+        // REACT-AGENT-APPLY-MODES-1 — the explicit apply-mode picker (preferred surface).
+        <AgentApplyModeActions
+          modes={applyModes}
+          onSelectMode={onSelectApplyMode}
+          onDiscard={onDiscard}
+        />
+      ) : onApply && onDiscard ? (
+        // Legacy / fallback: the single Apply/Discard pair.
+        <ReviewActions onApply={onApply} onDiscard={onDiscard} />
+      ) : null;
   if (configDiff === null) {
     return (
       <div data-testid="preview-review-panel" className="flex flex-col gap-3 p-3">

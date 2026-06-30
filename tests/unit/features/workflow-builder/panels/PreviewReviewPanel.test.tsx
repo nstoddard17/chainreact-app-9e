@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { PreviewReviewPanel } from "@/features/workflow-builder/panels/PreviewReviewPanel";
 import type { ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import type { AgentPreviewRationale } from "@/core/workflows/buildPreviewRationale";
+import type { AgentApplyModeAvailability } from "@/core/workflows/agentApplyModes";
 
 const diff: ConfigDiff = {
   nodes: [
@@ -196,6 +197,95 @@ describe("PreviewReviewPanel", () => {
     fireEvent.click(screen.getByTestId("preview-review-discard"));
     expect(onApply).toHaveBeenCalledTimes(1);
     expect(onDiscard).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the apply-mode picker (not the legacy Apply/Discard) when applyModes is provided", () => {
+    const onSelectApplyMode = jest.fn();
+    const onDiscard = jest.fn();
+    const modes: readonly AgentApplyModeAvailability[] = [
+      { mode: "apply_to_draft", enabled: true, label: "Apply to draft", description: "x" },
+      {
+        mode: "apply_and_test",
+        enabled: false,
+        label: "Apply and test",
+        description: "x",
+        disabledReason: "Gmail needs a To.",
+      },
+      { mode: "preview_only", enabled: true, label: "Keep as preview", description: "x" },
+    ];
+    render(
+      <PreviewReviewPanel
+        configDiff={diff}
+        applyModes={modes}
+        onSelectApplyMode={onSelectApplyMode}
+        onDiscard={onDiscard}
+      />,
+    );
+    // The picker is shown; the legacy single-apply button is not.
+    expect(screen.getByTestId("agent-apply-mode-actions")).toBeInTheDocument();
+    expect(screen.queryByTestId("preview-review-apply")).not.toBeInTheDocument();
+
+    // Enabled mode dispatches its mode; the disabled mode shows its reason and does not dispatch.
+    fireEvent.click(screen.getByTestId("agent-apply-mode-apply_to_draft"));
+    expect(onSelectApplyMode).toHaveBeenCalledWith("apply_to_draft");
+    expect(screen.getByTestId("agent-apply-mode-apply_and_test")).toBeDisabled();
+    expect(screen.getByTestId("agent-apply-mode-apply_and_test-reason")).toHaveTextContent(
+      "Gmail needs a To.",
+    );
+    fireEvent.click(screen.getByTestId("agent-apply-mode-apply_and_test"));
+    expect(onSelectApplyMode).toHaveBeenCalledTimes(1); // disabled click ignored
+  });
+
+  it("gates a confirmation-required mode behind an explicit confirm step", () => {
+    const onSelectApplyMode = jest.fn();
+    const modes: readonly AgentApplyModeAvailability[] = [
+      {
+        mode: "apply_to_draft",
+        enabled: true,
+        label: "Apply to draft",
+        description: "x",
+        confirmationRequired: true,
+        warning: "This change alters where the workflow sends.",
+      },
+      { mode: "apply_and_test", enabled: false, label: "Apply and test", description: "x", disabledReason: "r" },
+      { mode: "preview_only", enabled: true, label: "Keep as preview", description: "x" },
+    ];
+    render(
+      <PreviewReviewPanel
+        configDiff={diff}
+        applyModes={modes}
+        onSelectApplyMode={onSelectApplyMode}
+        onDiscard={jest.fn()}
+      />,
+    );
+    // First click does NOT apply — it opens the confirm step (with the warning text).
+    fireEvent.click(screen.getByTestId("agent-apply-mode-apply_to_draft"));
+    expect(onSelectApplyMode).not.toHaveBeenCalled();
+    expect(screen.getByTestId("agent-apply-mode-confirm")).toHaveTextContent(
+      "alters where the workflow sends",
+    );
+    // Confirming dispatches the mode.
+    fireEvent.click(screen.getByTestId("agent-apply-mode-confirm-accept"));
+    expect(onSelectApplyMode).toHaveBeenCalledWith("apply_to_draft");
+  });
+
+  it("keep-as-preview dispatches preview_only without a confirm step", () => {
+    const onSelectApplyMode = jest.fn();
+    const modes: readonly AgentApplyModeAvailability[] = [
+      { mode: "apply_to_draft", enabled: true, label: "Apply to draft", description: "x" },
+      { mode: "apply_and_test", enabled: false, label: "Apply and test", description: "x", disabledReason: "r" },
+      { mode: "preview_only", enabled: true, label: "Keep as preview", description: "x" },
+    ];
+    render(
+      <PreviewReviewPanel
+        configDiff={diff}
+        applyModes={modes}
+        onSelectApplyMode={onSelectApplyMode}
+        onDiscard={jest.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("agent-apply-mode-preview_only"));
+    expect(onSelectApplyMode).toHaveBeenCalledWith("preview_only");
   });
 
   it("imports no store / service / repository / fetch (presentational boundary)", () => {

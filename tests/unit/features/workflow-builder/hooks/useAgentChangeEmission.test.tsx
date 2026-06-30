@@ -118,6 +118,40 @@ describe("undo detection", () => {
   });
 });
 
+describe("apply mode (REACT-AGENT-APPLY-MODES-1)", () => {
+  it("emitApplied carries the chosen apply mode in the recorded event", async () => {
+    const { result } = renderHook(() => useAgentChangeEmission("wf-1", { enabled: true }));
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      result.current.emitApplied({ agentChangeId: "ch-5", applyMode: "apply_and_test" });
+    });
+
+    const body = recordedWithStatus("preview_applied");
+    expect(body).toMatchObject({
+      agentChangeId: "ch-5",
+      status: "preview_applied",
+      applyMode: "apply_and_test",
+    });
+  });
+
+  it("emitKeptAsPreview records a kept_as_preview event with applyMode preview_only", async () => {
+    const { result } = renderHook(() => useAgentChangeEmission("wf-1", { enabled: true }));
+    await waitFor(() => expect(mockList).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      result.current.emitKeptAsPreview("ch-6");
+    });
+
+    const body = recordedWithStatus("kept_as_preview");
+    expect(body).toMatchObject({
+      agentChangeId: "ch-6",
+      status: "kept_as_preview",
+      applyMode: "preview_only",
+    });
+  });
+});
+
 describe("disabled (logged-out builder)", () => {
   it("makes every emit inert — no client API calls", async () => {
     const { result } = renderHook(() => useAgentChangeEmission("wf-1", { enabled: false }));

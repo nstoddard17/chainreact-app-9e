@@ -9,6 +9,10 @@ import {
   type AgentChangeStatus,
   type RecordAgentChangeRequest,
 } from "@/contracts/agentChangeHistory";
+import {
+  AgentApplyModeSchema,
+  type AgentApplyMode,
+} from "@/contracts/agentApplyModes";
 import * as historyRepo from "@/repositories/agentChangeHistory";
 import type { AgentChangeHistoryRecord } from "@/repositories/agentChangeHistory";
 
@@ -76,6 +80,24 @@ function isNewStatus(status: AgentChangeStatus): boolean {
   return (AGENT_CHANGE_NEW_STATUSES as readonly string[]).includes(status);
 }
 
+/**
+ * REACT-AGENT-APPLY-MODES-1 — the value-free metadata object persisted for a
+ * change. Currently just the chosen apply mode (a fixed enum, never a value).
+ * Returns undefined when there is nothing to store, so an existing row's metadata
+ * is left untouched on a transition that doesn't carry a mode.
+ */
+function applyModeMetadata(
+  applyMode: AgentApplyMode | undefined,
+): Record<string, unknown> | undefined {
+  return applyMode ? { applyMode } : undefined;
+}
+
+/** Read the persisted apply mode back out of a row's metadata (safe-parse → null). */
+function readApplyMode(metadata: Record<string, unknown>): AgentApplyMode | null {
+  const parsed = AgentApplyModeSchema.safeParse(metadata.applyMode);
+  return parsed.success ? parsed.data : null;
+}
+
 function clampText(value: string | undefined, max: number): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -109,6 +131,7 @@ function toDto(record: AgentChangeHistoryRecord): AgentChangeHistoryItem {
     failureReason: record.failureReason,
     diff: record.diff,
     aiCostEventId: record.aiCostEventId,
+    applyMode: readApplyMode(record.metadata),
     createdByUserId: record.createdByUserId,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
@@ -131,6 +154,7 @@ export async function recordAgentChange(
   const failureReason = clampText(request.failureReason, AGENT_CHANGE_REASON_MAX);
   const diff = sanitizeStoredDiff(request.diff);
   const aiCostEventId = request.aiCostEventId ?? null;
+  const metadata = applyModeMetadata(request.applyMode);
 
   // Transition path: update the row that shares this agent_change_id in place,
   // preserving the prompt/title/summary/counts captured at preview_created. Only
@@ -146,6 +170,7 @@ export async function recordAgentChange(
       failureReason,
       ...(request.diff !== undefined ? { diff } : {}),
       ...(request.aiCostEventId !== undefined ? { aiCostEventId } : {}),
+      ...(metadata !== undefined ? { metadata } : {}),
     });
     if (updated) {
       // A transition should never grow the table, but prune defensively (cheap, best-effort).
@@ -176,6 +201,7 @@ export async function recordAgentChange(
     failureReason,
     diff,
     aiCostEventId,
+    ...(metadata !== undefined ? { metadata } : {}),
   });
   await pruneQuietly(input.workflowId);
   return toDto(created);

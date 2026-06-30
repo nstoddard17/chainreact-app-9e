@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AgentApplyModeSchema, type AgentApplyMode } from "./agentApplyModes";
 
 /**
  * Contract for agent change history (AGENT-CHANGE-HISTORY-1) — a user-visible,
@@ -30,6 +31,9 @@ export const AGENT_CHANGE_TRANSITION_STATUSES = [
   "undone",
   "tested",
   "test_failed",
+  // REACT-AGENT-APPLY-MODES-1 — the user explicitly chose to keep the preview
+  // (no apply). Transitions the existing preview row; carries applyMode preview_only.
+  "kept_as_preview",
 ] as const;
 
 export const AGENT_CHANGE_STATUSES = [
@@ -81,6 +85,13 @@ export interface AgentChangeHistoryItem {
   readonly diff: Record<string, unknown> | null;
   /** Link to the ai_cost_events row for this change, where one exists (server apply / repair path). */
   readonly aiCostEventId: string | null;
+  /**
+   * REACT-AGENT-APPLY-MODES-1 — which apply mode the user chose for this change
+   * (preview_only / apply_to_draft / apply_and_test), or null when not yet decided
+   * (e.g. a row still at preview_created). Stored in the row's metadata; surfaced
+   * here so the audit knows the choice independent of any rail/history UI.
+   */
+  readonly applyMode: AgentApplyMode | null;
   /** Provenance — the actor; null when the user was deleted. */
   readonly createdByUserId: string | null;
   readonly createdAt: string;
@@ -118,6 +129,12 @@ export const RecordAgentChangeRequestSchema = z.object({
    */
   diff: z.record(z.string(), z.unknown()).optional(),
   aiCostEventId: z.string().uuid().optional(),
+  /**
+   * REACT-AGENT-APPLY-MODES-1 — the apply mode the user chose. Persisted into the
+   * row metadata by the service so the audit timeline records the decision. Safe
+   * (a fixed enum, never free text / a value).
+   */
+  applyMode: AgentApplyModeSchema.optional(),
 });
 export type RecordAgentChangeRequest = z.infer<typeof RecordAgentChangeRequestSchema>;
 

@@ -64,6 +64,7 @@ function recordFixture(
     failureReason: null,
     diff: null,
     aiCostEventId: null,
+    metadata: {},
     createdAt: "2026-07-16T01:00:00Z",
     updatedAt: "2026-07-16T01:00:00Z",
     ...overrides,
@@ -285,6 +286,63 @@ describe("recordAgentChange — stored diff (View diff) + eval link", () => {
     const call = mockUpdate.mock.calls[0]?.[0];
     expect(call.aiCostEventId).toBe("44444444-4444-4444-8444-444444444444");
     expect(call.diff.nodes[0].changedFields[0].after).toEqual({ kind: "redacted" });
+  });
+});
+
+describe("recordAgentChange — apply mode (REACT-AGENT-APPLY-MODES-1)", () => {
+  it("stores the chosen apply mode in metadata on a preview_applied transition", async () => {
+    mockUpdate.mockResolvedValue(
+      recordFixture({ status: "preview_applied", metadata: { applyMode: "apply_and_test" } }),
+    );
+    const dto = await recordAgentChange({
+      workflowId: "wf-1",
+      accountId: "acct-1",
+      createdByUserId: "user-1",
+      request: req({ status: "preview_applied", applyMode: "apply_and_test" }),
+    });
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "preview_applied", metadata: { applyMode: "apply_and_test" } }),
+    );
+    // The DTO surfaces the mode so the audit record carries the user's choice.
+    expect(dto.applyMode).toBe("apply_and_test");
+  });
+
+  it("records keep-as-preview as a transition carrying applyMode preview_only", async () => {
+    mockUpdate.mockResolvedValue(
+      recordFixture({ status: "kept_as_preview", metadata: { applyMode: "preview_only" } }),
+    );
+    const dto = await recordAgentChange({
+      workflowId: "wf-1",
+      accountId: "acct-1",
+      createdByUserId: "user-1",
+      request: req({ status: "kept_as_preview", applyMode: "preview_only" }),
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "kept_as_preview", metadata: { applyMode: "preview_only" } }),
+    );
+    expect(dto.applyMode).toBe("preview_only");
+  });
+
+  it("does not write metadata when no apply mode is supplied (existing metadata untouched)", async () => {
+    mockUpdate.mockResolvedValue(recordFixture({ status: "preview_discarded" }));
+    await recordAgentChange({
+      workflowId: "wf-1",
+      accountId: "acct-1",
+      createdByUserId: "user-1",
+      request: req({ status: "preview_discarded" }),
+    });
+    expect(mockUpdate.mock.calls[0]?.[0]).not.toHaveProperty("metadata");
+  });
+
+  it("surfaces applyMode null when the row metadata has no (or an invalid) applyMode", async () => {
+    mockListRecent.mockResolvedValue([
+      recordFixture({ metadata: {} }),
+      recordFixture({ id: "row-bad", metadata: { applyMode: "nope" } }),
+    ]);
+    const list = await listAgentChanges("wf-1");
+    expect(list[0]?.applyMode).toBeNull();
+    expect(list[1]?.applyMode).toBeNull();
   });
 });
 

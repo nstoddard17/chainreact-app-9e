@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { ConfigDiff } from "@/core/workflows/buildConfigDiff";
+import type { AgentApplyMode } from "@/contracts/agentApplyModes";
 import type { AgentChangeCounts } from "./agentChangeSummary";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRepairVerificationStore } from "../state/repairVerificationStore";
@@ -68,6 +69,12 @@ export interface EmitAppliedInput {
   diff?: ConfigDiff;
   /** ai_cost_events link, when the apply went through a server path that wrote one. */
   aiCostEventId?: string;
+  /**
+   * REACT-AGENT-APPLY-MODES-1 — which apply variant produced this applied row
+   * (apply_to_draft / apply_and_test). Persisted in the audit metadata so the
+   * record distinguishes the two (both share the `preview_applied` status).
+   */
+  applyMode?: AgentApplyMode;
 }
 
 export interface UseAgentChangeEmission {
@@ -78,6 +85,8 @@ export interface UseAgentChangeEmission {
   emitPreviewCreated(input: EmitPreviewCreatedInput): void;
   emitApplied(input: EmitAppliedInput): void;
   emitDiscarded(agentChangeId: string): void;
+  /** Records the user choosing to keep the change as a preview (no apply). */
+  emitKeptAsPreview(agentChangeId: string): void;
   emitApplyFailed(input: { agentChangeId: string; reason: string }): void;
   /** Records a `restored_checkpoint` row (mints its own change id). */
   emitRestored(checkpointId: string): void;
@@ -163,6 +172,7 @@ export function useAgentChangeEmission(
         ...(input.checkpointId ? { checkpointId: input.checkpointId } : {}),
         ...(input.diff ? { diff: diffToJson(input.diff) } : {}),
         ...(input.aiCostEventId ? { aiCostEventId: input.aiCostEventId } : {}),
+        ...(input.applyMode ? { applyMode: input.applyMode } : {}),
       });
     },
     [enabled, record],
@@ -172,6 +182,17 @@ export function useAgentChangeEmission(
     (agentChangeId: string): void => {
       if (!enabled) return;
       void record({ agentChangeId, status: "preview_discarded" });
+    },
+    [enabled, record],
+  );
+
+  const emitKeptAsPreview = useCallback(
+    (agentChangeId: string): void => {
+      if (!enabled) return;
+      // REACT-AGENT-APPLY-MODES-1 — the user explicitly chose keep-as-preview. The
+      // change row stays an un-applied preview; record the decision in the audit
+      // metadata (applyMode: preview_only) so it's known even without the rail UI.
+      void record({ agentChangeId, status: "kept_as_preview", applyMode: "preview_only" });
     },
     [enabled, record],
   );
@@ -208,6 +229,7 @@ export function useAgentChangeEmission(
     emitPreviewCreated,
     emitApplied,
     emitDiscarded,
+    emitKeptAsPreview,
     emitApplyFailed,
     emitRestored,
   };

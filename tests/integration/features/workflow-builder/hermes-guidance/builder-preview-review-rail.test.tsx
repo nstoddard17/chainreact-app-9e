@@ -193,13 +193,16 @@ describe("builder review rail (HERMES-AGENT-CONFIG-DIFF-REVIEW)", () => {
     expect(screen.queryByTestId("preview-review-field-reason-a1-message")).not.toBeInTheDocument();
   });
 
-  it("Apply from the review rail replaces the local draft with the candidate (dirty, nothing saved)", async () => {
+  it("Apply to draft from the review rail replaces the local draft with the candidate (dirty, nothing saved)", async () => {
     const user = userEvent.setup();
     renderBuilder();
     await proposeEdit(user);
     await screen.findByTestId("preview-review-panel");
 
-    await user.click(screen.getByTestId("preview-review-apply"));
+    // REACT-AGENT-APPLY-MODES-1 — the rail now exposes the apply-mode picker. The candidate
+    // retargets a recipient (Slack channel), so "Apply to draft" requires an explicit confirm.
+    await user.click(screen.getByTestId("agent-apply-mode-apply_to_draft"));
+    await user.click(await screen.findByTestId("agent-apply-mode-confirm-accept"));
 
     await waitFor(() => {
       const slack = useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1");
@@ -217,7 +220,7 @@ describe("builder review rail (HERMES-AGENT-CONFIG-DIFF-REVIEW)", () => {
     await proposeEdit(user);
     await screen.findByTestId("preview-review-panel");
 
-    await user.click(screen.getByTestId("preview-review-discard"));
+    await user.click(screen.getByTestId("agent-apply-mode-discard"));
 
     await waitFor(() => expect(screen.queryByTestId("preview-review-panel")).not.toBeInTheDocument());
     const slack = useGraphSlice.getState().pendingNodes.find((n) => n.id === "a1");
@@ -232,7 +235,7 @@ describe("builder review rail (HERMES-AGENT-CONFIG-DIFF-REVIEW)", () => {
     await proposeEdit(user);
     await screen.findByTestId("preview-review-panel");
 
-    await user.click(screen.getByTestId("preview-review-discard"));
+    await user.click(screen.getByTestId("agent-apply-mode-discard"));
 
     await waitFor(() => expect(screen.queryByTestId("preview-review-panel")).not.toBeInTheDocument());
     expect(mockCreateCheckpoint).not.toHaveBeenCalled();

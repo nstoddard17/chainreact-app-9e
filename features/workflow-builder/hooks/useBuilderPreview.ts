@@ -8,6 +8,7 @@ import type {
   WorkflowNode,
 } from "@/contracts/workflow";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { AgentApplyMode } from "@/contracts/agentApplyModes";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
 import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
 import { buildConfigDiff, type ConfigDiff } from "@/core/workflows/buildConfigDiff";
@@ -80,6 +81,12 @@ export interface UseBuilderPreviewInput {
   fieldMetaByType?: ConfigDiffFieldMetaByType;
   pendingNodes: readonly WorkflowNode[];
   pendingEdges: readonly WorkflowEdge[];
+  /**
+   * REACT-AGENT-APPLY-MODES-1 — dispatch a safe TEST run of the (just-saved) draft.
+   * Injected by WorkflowBuilder (it owns the run controls). `handleApplyAndTest`
+   * calls it AFTER the apply is persisted; absent → apply-and-test is unavailable.
+   */
+  runTestAfterApply?: () => Promise<void>;
 }
 
 export function useBuilderPreview({
@@ -90,6 +97,7 @@ export function useBuilderPreview({
   fieldMetaByType,
   pendingNodes,
   pendingEdges,
+  runTestAfterApply,
 }: UseBuilderPreviewInput) {
   // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — ephemeral, UI-ONLY non-applied AI draft preview shown as a
   // ghost overlay over the canvas. It is deliberately plain React state (NOT the graph store): showing
@@ -279,8 +287,8 @@ export function useBuilderPreview({
   // patch from the VALIDATED plan (not the display preview) and applies it to the LOCAL draft via the
   // graph slice — the same dirty-making path as manual edits. No save/activate/run; no separate
   // workflow. Then clears the overlay and shows a safe confirmation.
-  const handleApplyPreview = useCallback(() => {
-    if (!previewOverlay) return;
+  const applyPreview = useCallback((applyMode: AgentApplyMode): boolean => {
+    if (!previewOverlay) return false;
     // AGENT-CHANGE-HISTORY-1 — the correlation id minted when this preview was shown; transitions the
     // SAME timeline row from preview_created → applied / apply_failed.
     const agentChangeId = previewOverlay.agentChangeId;
@@ -321,7 +329,7 @@ export function useBuilderPreview({
       }
       setPreviewOverlay(null);
       setPreviewConfig({});
-      return;
+      return false;
     }
     if (outcome?.ok) {
       // AGENT-CHANGE-HISTORY-1 (View diff) — capture the FAITHFUL before→after value diff for this
@@ -352,12 +360,13 @@ export function useBuilderPreview({
           .then((cp) => {
             // AGENT-CHANGE-HISTORY-1 — record the apply, LINKED to the restore point just captured so
             // the timeline item offers "Restore". The checkpoint id is only known here (client-created).
-            if (agentChangeId) agentChanges.emitApplied({ agentChangeId, checkpointId: cp.id, ...appliedDiffArg });
+            // REACT-AGENT-APPLY-MODES-1 — applyMode records which variant the user chose.
+            if (agentChangeId) agentChanges.emitApplied({ agentChangeId, checkpointId: cp.id, applyMode, ...appliedDiffArg });
           })
           .catch(() => {
             setCheckpointWarning("Couldn't save a restore point for this change.");
             // The change DID apply — record it even though the restore point couldn't be saved.
-            if (agentChangeId) agentChanges.emitApplied({ agentChangeId, ...appliedDiffArg });
+            if (agentChangeId) agentChanges.emitApplied({ agentChangeId, applyMode, ...appliedDiffArg });
           });
       }
       const placement = "placement" in outcome ? outcome.placement : "replaced";
@@ -398,7 +407,54 @@ export function useBuilderPreview({
     }
     setPreviewOverlay(null);
     setPreviewConfig({});
+    return outcome?.ok === true;
   }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, fieldMetaByType, localOnly, createReactAgentCheckpoint, agentChanges]);
+
+  // REACT-AGENT-APPLY-MODES-1 — the three explicit apply-mode handlers wired to the rail picker.
+  // Availability (enabled / disabled-reason / confirmation) is decided deterministically in
+  // WorkflowBuilder via `computeAgentApplyModes`; these handlers carry out the chosen action and
+  // record the choice in the audit timeline. None of them activate the workflow.
+
+  // "Apply to draft" — the existing local-draft apply (no save / run / activate). Kept as the
+  // default handler so every existing call site (control bar, additive overlay, guidance rail)
+  // behaves exactly as before.
+  const handleApplyPreview = useCallback(() => {
+    applyPreview("apply_to_draft");
+  }, [applyPreview]);
+
+  // "Apply and test" — apply to the draft, PERSIST it (run-now executes the saved draft, not the
+  // in-memory pending graph), then dispatch a safe test run. Sequenced so the test validates the
+  // change the user just applied. Never activates. The rail only enables this when the candidate is
+  // ready + testable + not an active-trigger change, but we still guard each step here.
+  const handleApplyAndTest = useCallback(async () => {
+    if (!runTestAfterApply) return;
+    const applied = applyPreview("apply_and_test");
+    if (!applied) return;
+    try {
+      // Persist the just-applied draft so the test runs against it (not the stale saved copy).
+      await useGraphSlice.getState().save();
+    } catch {
+      setApplyNotice(
+        "Applied to your draft, but it couldn't be saved to test. Try Save, then Test from the header.",
+      );
+      return;
+    }
+    try {
+      await runTestAfterApply();
+    } catch {
+      setApplyNotice(
+        "Applied and saved your draft, but the test couldn't start. Try Test from the header.",
+      );
+    }
+  }, [runTestAfterApply, applyPreview]);
+
+  // "Keep as preview" — the explicit non-destructive choice when a change is dangerous/incomplete.
+  // Records the decision in the audit timeline and LEAVES the preview active so the user keeps
+  // reviewing; nothing is mutated, saved, or run.
+  const handleKeepAsPreview = useCallback(() => {
+    const agentChangeId = previewOverlayRef.current?.agentChangeId;
+    if (agentChangeId) agentChanges.emitKeptAsPreview(agentChangeId);
+  }, [agentChanges]);
 
   // CHECKPOINTS-1 — restore a checkpoint server-side, then re-hydrate the builder graph with the
   // returned (restored) draft. The restore advances updatedAt to a strictly-newer revision, so the
@@ -470,6 +526,8 @@ export function useBuilderPreview({
     handleShowPreview,
     handlePreviewConfigChange,
     handleApplyPreview,
+    handleApplyAndTest,
+    handleKeepAsPreview,
     handleRestoreCheckpoint,
     handleDiscardPreview,
     dismissApplyNotice,
