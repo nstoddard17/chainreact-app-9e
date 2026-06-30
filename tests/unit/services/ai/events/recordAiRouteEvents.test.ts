@@ -70,6 +70,23 @@ describe("recordAiApplyOutcome — mapping", () => {
     );
   });
 
+  it("returns the applied cost-event id (eval linkage) on success, null otherwise", async () => {
+    recordAiPatchOutcome.mockResolvedValueOnce("evt-applied");
+    await expect(
+      recordAiApplyOutcome(
+        { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
+        { ok: true, appliedPatchId: "p1", appliedOperationCount: 1, riskLevel: "low" } as never,
+      ),
+    ).resolves.toBe("evt-applied");
+    // A non-applied outcome links no event.
+    await expect(
+      recordAiApplyOutcome(
+        { accountId: "acct-u1", userId: "u1", workflowId: "wf1", patchId: "p1" },
+        { ok: false, code: "STALE_PATCH", message: "x" } as never,
+      ),
+    ).resolves.toBeNull();
+  });
+
   it("maps CONFIRMATION_REQUIRED to a safety block", async () => {
     await recordAiApplyOutcome(
       { accountId: "acct-u1", userId: "u1", workflowId: "wf1", patchId: "p1" },
@@ -92,14 +109,14 @@ describe("recordAiApplyOutcome — mapping", () => {
 });
 
 describe("fail-open", () => {
-  it("recordAiApplyOutcome resolves even when the recorder throws", async () => {
+  it("recordAiApplyOutcome resolves to null (never throws) when the recorder throws", async () => {
     recordAiPatchOutcome.mockRejectedValueOnce(new Error("ledger down"));
     await expect(
       recordAiApplyOutcome(
         { accountId: "acct-u1", userId: "u1", workflowId: "wf1" },
         { ok: true, appliedPatchId: "p1", appliedOperationCount: 1, riskLevel: "low" } as never,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toBeNull();
   });
 });
 

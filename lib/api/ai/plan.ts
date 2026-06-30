@@ -74,6 +74,12 @@ export interface AiApplySuccess {
   readonly requiresConfirmation: boolean;
   readonly updatedAt: string;
   readonly summaryText: string;
+  /**
+   * AGENT-CHANGE-HISTORY-1 (eval linkage) — the ai_cost_events row id recorded for this apply,
+   * when the route managed to write one. Used to link a repair's change-history item to its
+   * observability event. Optional / best-effort (analytics is fail-open).
+   */
+  readonly aiCostEventId?: string;
 }
 
 export interface AiApplyFailure {

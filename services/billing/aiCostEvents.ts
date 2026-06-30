@@ -108,9 +108,9 @@ export function sanitizeAiEventMetadata(
 
 // ─── Recording ───────────────────────────────────────────────────────────────
 
-/** Record any AI cost/observability event (metadata sanitized here). */
-export async function recordAiCostEvent(event: AiCostEventInsert): Promise<void> {
-  await aiCostEventsRepo.insertEvent({
+/** Record any AI cost/observability event (metadata sanitized here); returns the event id. */
+export async function recordAiCostEvent(event: AiCostEventInsert): Promise<string> {
+  return aiCostEventsRepo.insertEvent({
     ...event,
     metadata: sanitizeAiEventMetadata(event.metadata),
   });
@@ -214,13 +214,13 @@ const PATCH_OUTCOME_EVENT: Record<PatchOutcome, AiCostEventType> = {
   rejected: "ai_patch_rejected",
 };
 
-/** A patch lifecycle outcome (proposed / validation_failed / previewed / applied / rejected). */
+/** A patch lifecycle outcome (proposed / validation_failed / previewed / applied / rejected); returns the event id. */
 export async function recordAiPatchOutcome(
   scope: AiEventScope,
   outcome: PatchOutcome,
   extra?: { validationErrorCode?: string; metadata?: Record<string, unknown> },
-): Promise<void> {
-  await recordAiCostEvent({
+): Promise<string> {
+  return recordAiCostEvent({
     ...scope,
     eventType: PATCH_OUTCOME_EVENT[outcome],
     validationErrorCode: extra?.validationErrorCode ?? null,

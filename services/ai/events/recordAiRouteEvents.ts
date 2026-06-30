@@ -57,7 +57,7 @@ export interface AiRepairRouteEventScope {
 export async function recordAiApplyOutcome(
   input: AiRouteEventScope,
   result: ApplyWorkflowPatchResult,
-): Promise<void> {
+): Promise<string | null> {
   try {
     const patchId = result.ok ? result.appliedPatchId : input.patchId ?? null;
     const scope: AiEventScope = {
@@ -79,20 +79,23 @@ export async function recordAiApplyOutcome(
     });
 
     if (result.ok) {
-      await recordAiPatchOutcome(scope, "applied", {
+      // AGENT-CHANGE-HISTORY-1 (eval linkage) — return the applied event id so the route can hand it
+      // back; a repair's change-history item links to it. Best-effort (fail-open below).
+      return await recordAiPatchOutcome(scope, "applied", {
         metadata: { opCount: result.appliedOperationCount, riskLevel: result.riskLevel },
       });
-      return;
     }
     if (result.code === "CONFIRMATION_REQUIRED") {
       await recordAiSafetyBlock(scope, "confirmation_required");
-      return;
+      return null;
     }
     await recordAiPatchOutcome(scope, "validation_failed", {
       validationErrorCode: result.code,
     });
+    return null;
   } catch {
     // Fail-open: analytics never breaks the AI flow.
+    return null;
   }
 }
 

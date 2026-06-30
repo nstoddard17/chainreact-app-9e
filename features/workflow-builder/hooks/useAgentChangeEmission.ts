@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import type { AgentChangeCounts } from "./agentChangeSummary";
 import { useGraphSlice } from "../state/graphSlice";
+import { useRepairVerificationStore } from "../state/repairVerificationStore";
 import { useAgentChangeHistory } from "./useAgentChangeHistory";
 
 /** ConfigDiff has no index signature, so cast (not assign) it to the jsonb request shape. */
@@ -115,6 +116,17 @@ export function useAgentChangeEmission(
     });
     return unsub;
   }, [enabled, record]);
+
+  // The repair test-fix flow (RunResultsRepairBlock + useRepairTestVerification) writes timeline rows
+  // through the typed client directly (it's outside this hook). It bumps the repair-verification
+  // store's `version` on each write; refresh the list so those rows appear without a reload.
+  useEffect(() => {
+    if (!enabled) return;
+    const unsub = useRepairVerificationStore.subscribe((state, prev) => {
+      if (state.version !== prev.version) void refresh();
+    });
+    return unsub;
+  }, [enabled, refresh]);
 
   const emitPreviewCreated = useCallback(
     (input: EmitPreviewCreatedInput): void => {

@@ -100,12 +100,15 @@ export async function POST(
 
   // Fire-and-forget AI observability (AI-10). Fail-open — never affects the
   // response. No raw patch config is recorded (only ids / codes / counts).
+  // AGENT-CHANGE-HISTORY-1 (eval linkage): capture the applied cost-event id so the
+  // client can link a repair's change-history item to its observability event.
   const requestPatchId =
     typeof body.data.patch.patchId === "string" ? body.data.patch.patchId : null;
+  let aiCostEventId: string | null = null;
   try {
     // 4.ACCOUNT-MODEL-9d: AI cost is owned by the account; userId is the actor.
     const account = await ensurePersonalAccount(auth.userId);
-    await recordAiApplyOutcome(
+    aiCostEventId = await recordAiApplyOutcome(
       { accountId: account.id, userId: auth.userId, workflowId: id, patchId: requestPatchId },
       result,
     );
@@ -114,5 +117,9 @@ export async function POST(
   }
 
   const status = result.ok ? 200 : applyFailureStatus(result.code);
-  return NextResponse.json(result, { status });
+  // Only augment the success body (the failure union is matched exactly by clients).
+  return NextResponse.json(
+    result.ok && aiCostEventId ? { ...result, aiCostEventId } : result,
+    { status },
+  );
 }

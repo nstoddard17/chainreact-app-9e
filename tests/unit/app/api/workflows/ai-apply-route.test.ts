@@ -153,6 +153,22 @@ describe("status mapping", () => {
     expect(body).toMatchObject({ ok: true, appliedPatchId: "p1", updatedAt: "2026-05-25T01:00:00Z" });
   });
 
+  it("includes the eval-link aiCostEventId in the success body when the recorder returns one (AGENT-CHANGE-HISTORY-1)", async () => {
+    mockApply.mockResolvedValueOnce(successResult);
+    mockRecordApply.mockResolvedValueOnce("evt-applied");
+    const res = await call("wf-1", { patch: samplePatch });
+    const body = await res.json();
+    expect(body.aiCostEventId).toBe("evt-applied");
+  });
+
+  it("omits aiCostEventId when no observability event was recorded", async () => {
+    mockApply.mockResolvedValueOnce(successResult);
+    mockRecordApply.mockResolvedValueOnce(null);
+    const res = await call("wf-1", { patch: samplePatch });
+    const body = await res.json();
+    expect(body.aiCostEventId).toBeUndefined();
+  });
+
   it("maps NOT_FOUND to 404", async () => {
     mockApply.mockResolvedValueOnce(fail("NOT_FOUND", "No workflow 'wf-1'."));
     const res = await call("wf-1", { patch: samplePatch });

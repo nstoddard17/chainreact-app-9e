@@ -4,11 +4,15 @@ import { useState } from "react";
 import {
   AiApiError,
   applyWorkflowPatch,
+  type AiApplySuccess,
   type AiOpaquePatch,
   type AiRepairResult,
   type AiRepairSuccess,
 } from "@/lib/api/ai";
 import { requestAccountWorkflowRepair } from "@/lib/api/ai/workflowRepair";
+import { recordAgentChange } from "@/lib/api/agentChangeHistory";
+import { mintAgentChangeId } from "../hooks/useAgentChangeEmission";
+import { useRepairVerificationStore } from "../state/repairVerificationStore";
 import { AiBulletList, AiRequiredInputList } from "../ai";
 
 /**
@@ -98,6 +102,10 @@ export function RunResultsRepairBlock({
       });
       if (applyResult.ok) {
         setState("applied");
+        // AGENT-CHANGE-HISTORY-1 (test-fix) — record this repair as an applied change in the
+        // Agent-changes timeline and ARM verification so the next run that the user kicks off
+        // to verify the fix transitions it to tested / test_failed. Fail-open.
+        void recordRepairApplied(applyResult);
         // The repair changed the workflow draft definition, not this run's
         // outcome. The user re-runs to verify the fix; no run-state refresh
         // here. (Re-polling the same failed run id would still show "failed".)
@@ -110,6 +118,31 @@ export function RunResultsRepairBlock({
         err instanceof AiApiError ? err.message : "Couldn't apply the repair.",
       );
       setState("ready");
+    }
+  }
+
+  /**
+   * AGENT-CHANGE-HISTORY-1 (test-fix) — persist the repair as an applied change (prompt + value-free
+   * summary + the failed run it addresses + the eval-event link when present) and arm verification.
+   * Fail-open: never disrupts the apply flow.
+   */
+  async function recordRepairApplied(applyResult: AiApplySuccess): Promise<void> {
+    const agentChangeId = mintAgentChangeId();
+    try {
+      await recordAgentChange(workflowId, {
+        agentChangeId,
+        status: "preview_applied",
+        prompt: "Fix the failed run",
+        title: "Repair applied",
+        ...(applyResult.summaryText ? { summary: applyResult.summaryText } : {}),
+        runId,
+        ...(applyResult.aiCostEventId ? { aiCostEventId: applyResult.aiCostEventId } : {}),
+      });
+      useRepairVerificationStore
+        .getState()
+        .arm({ workflowId, agentChangeId, repairedRunId: runId });
+    } catch {
+      /* fail-open: timeline recording never blocks the repair flow */
     }
   }
 

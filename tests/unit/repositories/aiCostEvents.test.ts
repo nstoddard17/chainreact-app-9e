@@ -12,9 +12,17 @@ interface InsertState {
 function makeInsertClient(state: InsertState) {
   return {
     from: jest.fn(() => ({
-      insert: jest.fn(async (row: unknown) => {
+      // insert(...).select("id").single() — returns the inserted row id (or the error).
+      insert: jest.fn((row: unknown) => {
         state.inserted = row;
-        return { error: state.error };
+        return {
+          select: jest.fn(() => ({
+            single: jest.fn(async () => ({
+              data: state.error ? null : { id: "evt-new" },
+              error: state.error,
+            })),
+          })),
+        };
       }),
     })),
   };
@@ -96,10 +104,10 @@ const sample: AiCostEventInsert = {
 };
 
 describe("aiCostEvents.insertEvent", () => {
-  it("maps camelCase → snake_case and inserts", async () => {
+  it("maps camelCase → snake_case and inserts, returning the new row id", async () => {
     const state: InsertState = { inserted: null, error: null };
     mockServiceRole.current = makeInsertClient(state);
-    await insertEvent(sample);
+    await expect(insertEvent(sample)).resolves.toBe("evt-new");
     const row = state.inserted as Record<string, unknown>;
     expect(row).toMatchObject({
       account_id: "acct-1",

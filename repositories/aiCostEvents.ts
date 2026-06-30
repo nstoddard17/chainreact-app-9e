@@ -173,17 +173,22 @@ function rowToRecord(row: AiCostEventRow): AiCostEventRecord {
   };
 }
 
-/** Append one AI cost/observability event. */
-export async function insertEvent(event: AiCostEventInsert): Promise<void> {
+/** Append one AI cost/observability event; returns the inserted row id. */
+export async function insertEvent(event: AiCostEventInsert): Promise<string> {
   const supabase = getServiceRoleClient(
     `ai: ai_cost_events insert (${event.eventType})`,
   );
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("ai_cost_events")
-    .insert(toInsertRow(event));
-  if (error) {
-    throw new Error(`ai_cost_events.insertEvent failed: ${error.message}`);
+    .insert(toInsertRow(event))
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !data) {
+    throw new Error(
+      `ai_cost_events.insertEvent failed: ${error?.message ?? "no row returned"}`,
+    );
   }
+  return data.id;
 }
 
 /** List a workflow's AI events (RLS-gated to the caller's own rows). */

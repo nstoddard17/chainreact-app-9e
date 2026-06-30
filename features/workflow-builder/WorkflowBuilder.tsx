@@ -5,7 +5,6 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import type { AgentChangeHistoryItem } from "@/contracts/agentChangeHistory";
-import type { ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import { useRestoredDraftHandoff } from "./hooks/useRestoredDraftHandoff";
 import { RestoredDraftBanner } from "./panels/RestoredDraftBanner";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
@@ -32,6 +31,7 @@ import {
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
 import { CheckpointsPanel } from "./panels/CheckpointsPanel";
 import { AgentChangesPanel } from "./panels/AgentChangesPanel";
+import { AgentChangeDiffDrawer } from "./panels/AgentChangeDiffDrawer";
 import { AnonymousAgentRail } from "./panels/AnonymousAgentRail";
 import { LocalBuildBanner, LocalConfigNote } from "./panels/AnonymousLocalChrome";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
@@ -45,6 +45,7 @@ import { useLeftAgentRail } from "./hooks/useLeftAgentRail";
 import { useRightDrawer } from "./hooks/useRightDrawer";
 import { useAgentRailWiring } from "./hooks/useAgentRailWiring";
 import { useBuilderPreview } from "./hooks/useBuilderPreview";
+import { useRepairTestVerification } from "./hooks/useRepairTestVerification";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
 
@@ -427,6 +428,10 @@ export function WorkflowBuilder({
   // in the right drawer. Set from the Agent changes timeline; cleared on drawer close.
   const [viewDiffItem, setViewDiffItem] = useState<AgentChangeHistoryItem | null>(null);
 
+  // AGENT-CHANGE-HISTORY-1 (test-fix) — verify a just-applied failed-run repair against the next run,
+  // recording tested / test_failed. Mounted here (stable) because the repair UI unmounts mid-verify.
+  useRepairTestVerification(workflow.id, { enabled: !localOnly });
+
   const canAddAction = hasTrigger && tailCount <= 1;
   const addActionBlockedReason: "no-trigger" | "multiple-tails" | undefined = !hasTrigger
     ? "no-trigger"
@@ -574,15 +579,8 @@ export function WorkflowBuilder({
         viewDiffItem ? (
           // AGENT-CHANGE-HISTORY-1 (View diff) — read-only render of a PAST change's stored, redacted
           // diff. Highest drawer precedence (user-initiated from the Agent changes timeline); closing
-          // (× / Esc) returns to whatever drawer was underneath. No Apply/Discard — a past change can't
-          // be re-applied from here.
-          <BuilderRightDrawer title="Change details" onClose={() => setViewDiffItem(null)}>
-            <PreviewReviewPanel
-              hideActions
-              {...(viewDiffItem.summary ? { summary: viewDiffItem.summary } : {})}
-              configDiff={(viewDiffItem.diff as unknown as ConfigDiff | null) ?? null}
-            />
-          </BuilderRightDrawer>
+          // (× / Esc) returns to whatever drawer was underneath.
+          <AgentChangeDiffDrawer item={viewDiffItem} onClose={() => setViewDiffItem(null)} />
         ) : previewReviewActive ? (
           // HERMES-AGENT-CONFIG-DIFF-REVIEW — while an EDIT preview is active the right drawer takes over
           // with the value-level "Review changes" rail (precedence over inspector/results/validation). The
