@@ -40,7 +40,7 @@ describe("calendarListList", () => {
 
   it("sends the access token as a bearer (and never returns it)", async () => {
     let sentAuth: string | undefined;
-    global.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
+    global.fetch = jest.fn(async (_url: string, init?: { headers?: Record<string, string> }) => {
       sentAuth = (init?.headers as Record<string, string>)?.Authorization;
       return { ok: true, status: 200, json: async () => ({ items: [] }), text: async () => "{}" } as unknown as Response;
     }) as unknown as typeof fetch;

@@ -32,6 +32,13 @@ export default [
       "playwright-report/**",
       "test-results/**",
       "next-env.d.ts",
+      // scripts/trash/ is the repo's disposable, never-shipped one-off zone
+      // (migration sweeps, provider probes). Linting it gates CI on throwaway
+      // scripts (restricted-import / unused-var noise) for no value. Real
+      // production scripts live in scripts/ root and stay linted. A physical
+      // purge of scripts/trash is a separate cleanup; ignoring keeps lint green
+      // without touching another session's in-progress untracked probes.
+      "scripts/trash/**",
     ],
   },
   js.configs.recommended,
