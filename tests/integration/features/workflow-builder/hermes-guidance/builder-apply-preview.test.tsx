@@ -46,7 +46,7 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...a: unknown[]) => mockFetchOptionsSource(...a),
 }));
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";
@@ -430,11 +430,12 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     renderWithMeta(workflow([], []));
     await applyPreview(user);
 
-    const hints = await screen.findByTestId("builder-apply-config-hints");
-    // Field LABELS from metadata, names only.
-    expect(hints).toHaveTextContent("Needs configuration: Channel, Message");
+    const card = await screen.findByTestId("builder-setup-needed");
+    // One actionable row per missing required field — field LABELS from metadata, names only.
+    expect(card).toHaveTextContent("Send Message needs a Channel.");
+    expect(card).toHaveTextContent("Send Message needs a Message.");
     // No values / secrets / tokens / credential ids ever rendered.
-    expect(hints.textContent ?? "").not.toMatch(/token|secret|xox|Bearer|account[_-]?id|password/i);
+    expect(card.textContent ?? "").not.toMatch(/token|secret|xox|Bearer|account[_-]?id|password/i);
   });
 
   it("HERMES-AGENT-REMOVE-ADDED-FROM-PREVIEW-BADGE — accepted nodes do NOT render an 'Added from preview' badge (they look like normal draft nodes)", async () => {
@@ -448,8 +449,8 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     // ...but the noisy on-card badge is gone.
     expect(screen.queryByTestId("added-from-preview-badge")).not.toBeInTheDocument();
     expect(screen.queryByText(/added from preview/i)).not.toBeInTheDocument();
-    // The post-apply config-hints notice still renders (still useful) — and nothing was saved.
-    expect(screen.getByTestId("builder-apply-config-hints")).toBeInTheDocument();
+    // The post-apply "Setup needed" card still renders (still useful) — and nothing was saved.
+    expect(screen.getByTestId("builder-setup-needed")).toBeInTheDocument();
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
@@ -459,15 +460,38 @@ describe("builder apply-preview — post-apply config hints (HERMES-AGENT-APPLY-
     renderBuilder(workflow([], []));
     await applyPreview(user);
 
-    const hints = await screen.findByTestId("builder-apply-config-hints");
-    expect(hints).toHaveTextContent("Review this step");
-    expect(hints).not.toHaveTextContent("Needs configuration:");
+    const card = await screen.findByTestId("builder-setup-needed");
+    // Unknown-type nodes get a conservative, non-blocking review prompt — never a field-specific row.
+    expect(card).toHaveTextContent("Review its required fields");
+    expect(card).not.toHaveTextContent("needs a");
   });
 
   it("does not auto-save / update the workflow when surfacing hints", async () => {
     const user = userEvent.setup();
     renderWithMeta(workflow([], []));
     await applyPreview(user);
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("CHECKLIST-ITEM-10 — clicking a setup issue opens the node and highlights the missing field (no save/run)", async () => {
+    const user = userEvent.setup();
+    renderWithMeta(workflow([], []));
+    await applyPreview(user);
+
+    const card = await screen.findByTestId("builder-setup-needed");
+    const channelRow = within(card)
+      .getAllByTestId("builder-setup-needed-issue")
+      .find((el) => el.getAttribute("data-field-path") === "channel");
+    expect(channelRow).toBeDefined();
+
+    const slack = useGraphSlice.getState().pendingNodes.find(
+      (n) => n.provider === "slack" && n.type === "send_message",
+    )!;
+    await user.click(channelRow!);
+
+    // Opens the node AND highlights the field (revealNode), with no save / run.
+    expect(useConfigSlice.getState().activeNodeId).toBe(slack.id);
+    expect(useConfigSlice.getState().focusFieldKey).toBe("channel");
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });
@@ -510,8 +534,8 @@ describe("builder apply-preview — auto-open first incomplete node (HERMES-AGEN
     // The no-metadata gmail trigger is NOT auto-opened (we can't confirm it's incomplete).
     const gmail = useGraphSlice.getState().pendingNodes.find((n) => n.provider === "gmail");
     expect(useConfigSlice.getState().activeNodeId).not.toBe(gmail!.id);
-    // Existing post-apply hints still render; nothing was saved.
-    expect(screen.getByTestId("builder-apply-config-hints")).toBeInTheDocument();
+    // Existing post-apply "Setup needed" card still renders; nothing was saved.
+    expect(screen.getByTestId("builder-setup-needed")).toBeInTheDocument();
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 

@@ -1,39 +1,49 @@
 "use client";
 
-import {
-  appliedConfigHintNeedsAttention,
-  type AppliedConfigHint,
-} from "../utils/appliedConfigHints";
+import type { AgentSetupIssue } from "@/core/workflows/agentSetupIssues";
+import type { AgentReadinessVerdict } from "@/core/workflows/agentReadiness";
+import { BuilderSetupNeededCard } from "../panels/BuilderSetupNeededCard";
+import { AgentReadinessSummary } from "../panels/AgentReadinessSummary";
 
 /**
- * Transient post-apply confirmation + config-hint panel
- * (HERMES-AGENT-APPLY-CONFIG-HINTS).
+ * Transient post-apply confirmation + "Setup needed" panel
+ * (HERMES-AGENT-APPLY-PREVIEW-PATCH / CHECKLIST-ITEM-10).
  *
  * Renders after an explicit "Apply preview". Two parts:
- *   1. The placement-derived headline (`notice`) telling the user the preview
- *      was applied to the LOCAL draft and they still review + save normally.
- *   2. A per-node list of the required fields each newly-added node still needs,
- *      so the user knows the workflow is incomplete before saving / activating.
+ *   1. The placement-derived headline (`notice`) telling the user the preview was
+ *      applied to the LOCAL draft and they still review + save normally.
+ *   2. A "Setup needed" list of the required fields each newly-added node still
+ *      needs (the `AgentSetupIssue` read-model). Each row names the node + field,
+ *      explains it safely, gives the next step, and — when it carries a focus
+ *      target — is clickable to open the config panel and highlight the field via
+ *      `onOpenIssue` (the parent wires `configSlice.revealNode`).
  *
- * The hint rows are field NAMES only — sourced from action/trigger metadata (the
- * same `missingRequiredFields` rule as the canvas "Needs setup" chip). When a
- * node's type has no metadata, it shows a conservative generic review notice. No
- * values, secrets, tokens, or credential ids ever appear here.
+ * The issue rows are field NAMES / LABELS only — sourced from action/trigger
+ * metadata (the same readiness rule as the canvas "Needs setup" chip). No values,
+ * secrets, tokens, or credential ids ever appear here.
  *
- * Presentational only: no store reads, no side effects. The parent owns the
- * lifetime (it clears on dismiss / workflow switch / a new preview).
+ * Presentational only: no store reads, no side effects beyond `onOpenIssue` /
+ * `onDismiss`. The parent owns the lifetime (clears on dismiss / workflow switch /
+ * a new preview) and owns the open-and-highlight navigation.
  */
 export function BuilderApplyNotice({
   notice,
-  hints,
+  setupIssues,
+  readiness,
+  onOpenIssue,
   onDismiss,
 }: {
   readonly notice: string;
-  readonly hints: readonly AppliedConfigHint[];
+  readonly setupIssues: readonly AgentSetupIssue[];
+  /**
+   * REACT-AGENT-READINESS-1 — the post-apply readiness verdict (compact). Shows the
+   * status pill + one-line summary so "what is left before this can run?" stays
+   * answered after the preview rail closes. Omit → no readiness line.
+   */
+  readonly readiness?: AgentReadinessVerdict | null;
+  readonly onOpenIssue: (issue: AgentSetupIssue) => void;
   readonly onDismiss: () => void;
 }) {
-  const attention = hints.filter(appliedConfigHintNeedsAttention);
-
   return (
     <div
       data-testid="builder-apply-notice"
@@ -59,30 +69,9 @@ export function BuilderApplyNotice({
         </button>
       </div>
 
-      {attention.length > 0 ? (
-        <ul
-          data-testid="builder-apply-config-hints"
-          className="m-0 flex list-none flex-col gap-1 p-0"
-        >
-          {attention.map((hint) => (
-            <li
-              key={hint.nodeId}
-              data-testid="builder-apply-config-hint"
-              data-node-id={hint.nodeId}
-              className="text-[11px] leading-snug"
-              style={{ color: "var(--builder-muted)" }}
-            >
-              <span style={{ color: "var(--builder-text)" }}>{hint.label}</span>
-              {": "}
-              {hint.hasMetadata && hint.missingFieldLabels.length > 0 ? (
-                <span>Needs configuration: {hint.missingFieldLabels.join(", ")}</span>
-              ) : (
-                <span>Review this step&rsquo;s required fields.</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {readiness ? <AgentReadinessSummary verdict={readiness} compact /> : null}
+
+      <BuilderSetupNeededCard issues={setupIssues} onOpenIssue={onOpenIssue} />
     </div>
   );
 }

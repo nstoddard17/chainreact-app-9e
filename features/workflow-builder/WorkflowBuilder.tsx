@@ -13,6 +13,7 @@ import { BuilderPreviewControlBar } from "./canvas/BuilderPreviewControlBar";
 import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
 import { PreviewReviewPanel } from "./panels/PreviewReviewPanel";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
+import type { AgentSetupIssue } from "@/core/workflows/agentSetupIssues";
 import {
   BuilderTeamProvider,
   type BuilderTeamContextValue,
@@ -49,6 +50,7 @@ import { useAgentRepairLoop } from "./hooks/useAgentRepairLoop";
 import { useRepairLoopStore } from "./state/repairLoopStore";
 import { useRunControls } from "./hooks/useRunControls";
 import { useAgentApplyModeAvailability } from "./hooks/useAgentApplyModeAvailability";
+import { useBuilderReadiness } from "./hooks/useBuilderReadiness";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
@@ -185,6 +187,7 @@ export function WorkflowBuilder({
   const resetRepairLoop = useRepairLoopStore((s) => s.reset);
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
   const closeNode = useConfigSlice((s) => s.closeNode);
+  const revealNode = useConfigSlice((s) => s.revealNode);
   const runId = useRunSlice((s) => s.runId);
 
   // Slice 4.BUILDER-SETTINGS-2 — the workflow name lives in local state so a
@@ -406,7 +409,7 @@ export function WorkflowBuilder({
     previewOverlay,
     previewShowCount,
     applyNotice,
-    appliedConfigHints,
+    agentSetupIssues,
     previewConfig,
     previewDiffGraph,
     configDiff,
@@ -451,6 +454,22 @@ export function WorkflowBuilder({
     ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
   });
 
+  // REACT-AGENT-READINESS-1 — the readiness verdict ("what is left before this can run?").
+  // Evaluates the proposed end-state while previewing, else the live draft just after
+  // an apply; folds in the server-resolved connection signal. All logic lives in the hook.
+  const agentReadiness = useBuilderReadiness({
+    workflowId: workflow.id,
+    previewReviewActive,
+    proposedDefinition: previewOverlay?.proposedDefinition ?? null,
+    applyNoticeActive: !!applyNotice,
+    pendingNodes,
+    pendingEdges,
+    ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
+    workflowState: workflow.state,
+    ...(localOnly ? { localOnly } : {}),
+    ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
+  });
+
   const handleSelectApplyMode = useCallback(
     (mode: AgentApplyMode) => {
       if (mode === "apply_to_draft") handleApplyPreview();
@@ -458,6 +477,26 @@ export function WorkflowBuilder({
       else handleKeepAsPreview();
     },
     [handleApplyPreview, handleApplyAndTest, handleKeepAsPreview],
+  );
+
+  // CHECKLIST-ITEM-10 — open the node's config panel and highlight the missing
+  // field for a clicked post-apply "Setup needed" issue. NAVIGATION ONLY:
+  // `revealNode` never writes a value, saves, runs, or activates. The drawer flips
+  // to inspector via the existing `activeNodeId` transition effect (same path the
+  // validation drawer + repair loop use).
+  const handleOpenSetupIssue = useCallback(
+    (issue: AgentSetupIssue) => {
+      const target = issue.focusTarget;
+      if (!target) return;
+      const node = pendingNodes.find((n) => n.id === target.nodeId);
+      if (!node) return;
+      revealNode({
+        nodeId: target.nodeId,
+        initialValues: node.config ?? {},
+        ...(target.fieldPath ? { fieldKey: target.fieldPath } : {}),
+      });
+    },
+    [pendingNodes, revealNode],
   );
 
   // AGENT-CHANGE-HISTORY-1 (View diff) — the past change whose stored, redacted diff is shown read-only
@@ -611,6 +650,7 @@ export function WorkflowBuilder({
               {...(previewOverlay?.preview.summary ? { summary: previewOverlay.preview.summary } : {})}
               configDiff={configDiff}
               rationale={previewRationale}
+              readiness={agentReadiness}
               applyModes={applyModeAvailability}
               onSelectApplyMode={handleSelectApplyMode}
               onDiscard={handleDiscardPreview}
@@ -729,7 +769,9 @@ export function WorkflowBuilder({
         {applyNotice ? (
           <BuilderApplyNotice
             notice={applyNotice}
-            hints={appliedConfigHints}
+            setupIssues={agentSetupIssues}
+            readiness={agentReadiness}
+            onOpenIssue={handleOpenSetupIssue}
             onDismiss={dismissApplyNotice}
           />
         ) : null}
