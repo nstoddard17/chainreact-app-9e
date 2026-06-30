@@ -7,6 +7,7 @@ import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
 import { failedRunCta } from "@/core/errors/failedRunCta";
 import { useGraphSlice } from "../state/graphSlice";
 import { useRunSlice } from "../state/runSlice";
+import { AgentRepairLoopPanel } from "./AgentRepairLoopPanel";
 import { RunResultsRepairBlock } from "./RunResultsRepairBlock";
 
 /** Friendly stand-in when a run step references a node no longer on the canvas. */
@@ -137,6 +138,14 @@ function Body({
   }
   return (
     <>
+      {/* REACT-AGENT-TEST-FIX-LOOP — guided "test → fix → retest" thread at the
+          top of the failed-run section. Renders only when the root watcher
+          (`useAgentRepairLoop`) has an active thread for this workflow; the
+          classified error block, step list, and AI repair block below stay
+          available. */}
+      {detail.status === "failed" ? (
+        <AgentRepairLoopPanel workflowId={detail.workflowId} />
+      ) : null}
       <RunStatusLine detail={detail} />
       {/* V2-READY-51 — the raw `fatalError` is no longer on the wire; the
           humanized `errorClassification` is the user-facing failure surface. */}

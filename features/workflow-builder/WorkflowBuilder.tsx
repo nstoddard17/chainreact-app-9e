@@ -45,8 +45,13 @@ import { useRightDrawer } from "./hooks/useRightDrawer";
 import { useAgentRailWiring } from "./hooks/useAgentRailWiring";
 import { useBuilderPreview } from "./hooks/useBuilderPreview";
 import { useRepairTestVerification } from "./hooks/useRepairTestVerification";
+import { useAgentRepairLoop } from "./hooks/useAgentRepairLoop";
+import { useRepairLoopStore } from "./state/repairLoopStore";
+import { useRunControls } from "./hooks/useRunControls";
+import { useAgentApplyModeAvailability } from "./hooks/useAgentApplyModeAvailability";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
+import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
 
 interface Props {
   workflow: WorkflowDetail;
@@ -177,6 +182,7 @@ export function WorkflowBuilder({
   const reset = useGraphSlice((s) => s.reset);
   const resetConfigSlice = useConfigSlice((s) => s.reset);
   const resetRunSlice = useRunSlice((s) => s.reset);
+  const resetRepairLoop = useRepairLoopStore((s) => s.reset);
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
   const closeNode = useConfigSlice((s) => s.closeNode);
   const runId = useRunSlice((s) => s.runId);
@@ -214,12 +220,14 @@ export function WorkflowBuilder({
   useEffect(() => {
     resetConfigSlice();
     resetRunSlice();
+    resetRepairLoop();
     return () => {
       reset();
       resetConfigSlice();
       resetRunSlice();
+      resetRepairLoop();
     };
-  }, [workflow.id, reset, resetConfigSlice, resetRunSlice]);
+  }, [workflow.id, reset, resetConfigSlice, resetRunSlice, resetRepairLoop]);
 
   // Slice 4.BUILDER-SETTINGS-2 — keep the local workflow name in sync with the
   // server prop (initial mount + workflow switch). A Settings rename updates the
@@ -388,6 +396,12 @@ export function WorkflowBuilder({
   // Owns the ephemeral overlay / guided-setup / apply / restore / discard logic and
   // the checkpoint create-before-apply + restore. Returns the state + handlers the
   // canvas, rails, and drawer wire up below.
+  // REACT-AGENT-APPLY-MODES-1 — a builder-level run-controls instance so "Apply and test" can
+  // dispatch a safe test after the apply is saved. The header mounts its own instance for its
+  // Test/Run buttons; both share the run slice, so run results surface the same way regardless of
+  // which path started the run.
+  const builderRunControls = useRunControls();
+
   const {
     previewOverlay,
     previewShowCount,
@@ -406,6 +420,8 @@ export function WorkflowBuilder({
     handleShowPreview,
     handlePreviewConfigChange,
     handleApplyPreview,
+    handleApplyAndTest,
+    handleKeepAsPreview,
     handleRestoreCheckpoint,
     handleDiscardPreview,
     dismissApplyNotice,
@@ -417,7 +433,32 @@ export function WorkflowBuilder({
     ...(fieldMetaByType ? { fieldMetaByType } : {}),
     pendingNodes,
     pendingEdges,
+    runTestAfterApply: builderRunControls.handleTestWorkflow,
   });
+
+  // REACT-AGENT-APPLY-MODES-1 — deterministic availability of the three apply modes for the active
+  // edit preview (readiness vs the proposed end-state, risk from the rationale, trigger/active
+  // gating). All decision logic lives in the hook + the pure core helper; this stays wiring.
+  const applyModeAvailability = useAgentApplyModeAvailability({
+    active: previewReviewActive,
+    candidateDefinition: previewOverlay?.proposedDefinition ?? null,
+    pendingNodes,
+    configDiff,
+    rationale: previewRationale,
+    ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
+    workflowState: workflow.state,
+    ...(localOnly ? { localOnly } : {}),
+    ...(workflow.viewerCanRunEdit !== undefined ? { viewerCanRunEdit: workflow.viewerCanRunEdit } : {}),
+  });
+
+  const handleSelectApplyMode = useCallback(
+    (mode: AgentApplyMode) => {
+      if (mode === "apply_to_draft") handleApplyPreview();
+      else if (mode === "apply_and_test") void handleApplyAndTest();
+      else handleKeepAsPreview();
+    },
+    [handleApplyPreview, handleApplyAndTest, handleKeepAsPreview],
+  );
 
   // AGENT-CHANGE-HISTORY-1 (View diff) — the past change whose stored, redacted diff is shown read-only
   // in the right drawer. Set from the Agent changes timeline; cleared on drawer close.
@@ -426,6 +467,12 @@ export function WorkflowBuilder({
   // AGENT-CHANGE-HISTORY-1 (test-fix) — verify a just-applied failed-run repair against the next run,
   // recording tested / test_failed. Mounted here (stable) because the repair UI unmounts mid-verify.
   useRepairTestVerification(workflow.id, { enabled: !localOnly });
+
+  // REACT-AGENT-TEST-FIX-LOOP — advance the user-visible guided repair thread
+  // (test_failed → field_opened → retesting → test_passed / still_failing) from
+  // the latest run slice. Mounted here (stable) because the guided panel unmounts
+  // when the drawer switches away from run results.
+  useAgentRepairLoop(workflow.id, { enabled: !localOnly });
 
   const canAddAction = hasTrigger && tailCount <= 1;
   const addActionBlockedReason: "no-trigger" | "multiple-tails" | undefined = !hasTrigger
@@ -564,7 +611,8 @@ export function WorkflowBuilder({
               {...(previewOverlay?.preview.summary ? { summary: previewOverlay.preview.summary } : {})}
               configDiff={configDiff}
               rationale={previewRationale}
-              onApply={handleApplyPreview}
+              applyModes={applyModeAvailability}
+              onSelectApplyMode={handleSelectApplyMode}
               onDiscard={handleDiscardPreview}
             />
           </BuilderRightDrawer>

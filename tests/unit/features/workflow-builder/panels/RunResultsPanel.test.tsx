@@ -23,6 +23,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RunResultsPanel } from "@/features/workflow-builder/panels/RunResultsPanel";
 import { useRunSlice } from "@/features/workflow-builder/state/runSlice";
+import { useRepairLoopStore } from "@/features/workflow-builder/state/repairLoopStore";
 import type { WorkflowRunDetail } from "@/contracts/workflow";
 
 // V2-READY-51: WorkflowRunDetail no longer carries raw triggerEvent / fatalError;
@@ -48,6 +49,7 @@ const succeededDetail: WorkflowRunDetail = {
 
 beforeEach(() => {
   useRunSlice.getState().reset();
+  useRepairLoopStore.getState().reset();
   mockRequestRepair.mockReset();
   mockApplyPatch.mockReset();
 });
@@ -524,5 +526,51 @@ describe("RepairBlock (AI-13)", () => {
     // A surfaced, valid proposal does NOT apply anything until the user clicks Apply.
     await waitFor(() => expect(screen.getByTestId("repair-apply")).toBeInTheDocument());
     expect(mockApplyPatch).not.toHaveBeenCalled();
+  });
+});
+
+describe("RunResultsPanel — guided repair loop (REACT-AGENT-TEST-FIX-LOOP)", () => {
+  const failedDetail: WorkflowRunDetail = {
+    id: "44444444-4444-4444-4444-444444444444",
+    workflowId: "33333333-3333-3333-3333-333333333333",
+    status: "failed",
+    triggerNodeId: "t1",
+    startedAt: "2026-06-01T00:00:00Z",
+    finishedAt: "2026-06-01T00:00:01Z",
+    errorClassification: { title: "A field is missing", description: "userId is required.", severity: "error" },
+    steps: [{ nodeId: "a1", status: "failed", error: { code: "MISSING_REQUIRED_FIELD", message: "userId required" } }],
+  };
+
+  function mountFailedWithThread() {
+    useRunSlice.getState().startTracking({ workflowId: failedDetail.workflowId, runId: failedDetail.id });
+    useRunSlice.setState({ status: "failed", detail: failedDetail });
+    useRepairLoopStore.getState().recordFailure({
+      workflowId: failedDetail.workflowId,
+      runId: failedDetail.id,
+      diagnosis: { failingNodeId: "a1", safeReason: "userId is required.", nextStep: "Open the failing step." },
+    });
+    return render(<RunResultsPanel accountId="acct-1" />);
+  }
+
+  it("mounts the guided repair panel on a failed run with an active thread", () => {
+    mountFailedWithThread();
+    expect(screen.getByTestId("agent-repair-loop")).toBeInTheDocument();
+  });
+
+  it("keeps the existing classified error block + step list + repair block available", () => {
+    mountFailedWithThread();
+    // The guided panel does NOT replace the existing surfaces.
+    expect(screen.getByTestId("run-error-classification")).toHaveTextContent("A field is missing");
+    expect(screen.getByTestId("step-a1")).toHaveAttribute("data-status", "failed");
+    expect(screen.getByTestId("repair-block")).toBeInTheDocument();
+  });
+
+  it("does not render the guided panel when there is no active thread", () => {
+    useRunSlice.getState().startTracking({ workflowId: failedDetail.workflowId, runId: failedDetail.id });
+    useRunSlice.setState({ status: "failed", detail: failedDetail });
+    render(<RunResultsPanel accountId="acct-1" />);
+    expect(screen.queryByTestId("agent-repair-loop")).not.toBeInTheDocument();
+    // …but the existing error surfaces still render.
+    expect(screen.getByTestId("run-error-classification")).toBeInTheDocument();
   });
 });
