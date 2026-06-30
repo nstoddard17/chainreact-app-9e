@@ -1,4 +1,4 @@
-import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
+import type { ActionMeta, FieldMeta, FieldSensitivity } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import { isSecretLikeKey } from "@/core/security/secretKeys";
 
@@ -41,6 +41,12 @@ export interface ConfigDiffFieldMeta {
   readonly hasDefault: boolean;
   /** True when the value must be redacted (never shown) in the diff. */
   readonly secret: boolean;
+  /**
+   * Declarative apply-safety class from the metadata (`recipient` / `connection` / `secret`), when
+   * set. Carried so the deterministic preview rationale can flag a high-risk recipient/account change
+   * from registry metadata rather than only key-name heuristics. Absent ⇒ not declared sensitive.
+   */
+  readonly sensitivity?: FieldSensitivity;
 }
 
 /** Per-node-type config-diff metadata, keyed by `provider:type` (== meta.key). */
@@ -70,6 +76,7 @@ function toConfigDiffFieldMeta(field: FieldMeta): ConfigDiffFieldMeta {
     required: field.required,
     hasDefault: field.defaultValue !== undefined,
     secret: isSecretField(field),
+    ...(field.sensitivity ? { sensitivity: field.sensitivity } : {}),
   };
 }
 

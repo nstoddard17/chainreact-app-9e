@@ -73,6 +73,23 @@ describe("buildConfigDiffFieldMeta", () => {
     expect(fieldMetaOf(map, "acme:call", "plain").secret).toBe(false);
   });
 
+  it("carries declarative sensitivity through for the preview field-risk classifier", () => {
+    const map = buildConfigDiffFieldMeta(
+      [
+        action("acme:call", "Acme", [
+          field({ name: "recipientField", label: "To", type: "text", required: true, sensitivity: "recipient" }),
+          field({ name: "connField", label: "Conn", type: "text", required: true, sensitivity: "connection" }),
+          field({ name: "plain", label: "Plain", type: "text", required: false }),
+        ]),
+      ],
+      [],
+    );
+    expect(fieldMetaOf(map, "acme:call", "recipientField").sensitivity).toBe("recipient");
+    expect(fieldMetaOf(map, "acme:call", "connField").sensitivity).toBe("connection");
+    // A field with no declared sensitivity carries none (heuristics handle it downstream).
+    expect(fieldMetaOf(map, "acme:call", "plain").sensitivity).toBeUndefined();
+  });
+
   it("marks a field secret when its KEY name looks secret-shaped even without declared sensitivity", () => {
     const map = buildConfigDiffFieldMeta(
       [

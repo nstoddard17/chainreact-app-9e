@@ -224,3 +224,167 @@ describe("buildPreviewRationale (REACT-AGENT-PREVIEW-WHY)", () => {
     expect(request?.text.length).toBeLessThan(longPrompt.length);
   });
 });
+
+/** A changed-node diff whose Slack step retargets `channel` (recipient) and edits `message` (cosmetic). */
+const slackAction = node({ id: "slack-1", kind: "action", provider: "slack", type: "send_message" });
+const channelAndMessageDiff: ConfigDiff = {
+  nodes: [
+    {
+      nodeId: "slack-1",
+      provider: "slack",
+      type: "send_message",
+      label: "Slack / Send Channel Message",
+      status: "changed",
+      addedFields: [],
+      changedFields: [
+        { name: "channel", label: "Channel", secret: false, before: { kind: "text", preview: "#support", truncated: false }, after: { kind: "text", preview: "#sales", truncated: false } },
+        { name: "message", label: "Message", secret: false, before: { kind: "text", preview: "Old body", truncated: false }, after: { kind: "text", preview: "New body", truncated: false } },
+      ],
+      removedFields: [],
+      missingRequiredFields: [],
+      variablesUsed: [],
+    },
+  ],
+};
+
+describe("buildPreviewRationale — field-level reasons (REACT-AGENT-PREVIEW-FIELD-REASONS)", () => {
+  it("produces a field reason for a high-risk recipient field and NOT for a cosmetic field", () => {
+    const r = buildPreviewRationale({
+      configDiff: channelAndMessageDiff,
+      current: { nodes: [trigger, slackAction] },
+      candidate: { nodes: [trigger, slackAction] },
+    });
+    const channel = r.fieldReasons.find((f) => f.fieldPath === "channel");
+    expect(channel).toMatchObject({ nodeId: "slack-1", category: "recipient", status: "changed", fieldLabel: "Channel" });
+    expect(channel?.text).toBe("Channel changed: controls where this sends.");
+    // The message body is cosmetic — no field reason (avoids noisy output).
+    expect(r.fieldReasons.some((f) => f.fieldPath === "message")).toBe(false);
+  });
+
+  it("uses declarative metadata sensitivity to flag a recipient + a connection field", () => {
+    const diff: ConfigDiff = {
+      nodes: [
+        {
+          nodeId: "acme-1",
+          provider: "acme",
+          type: "call",
+          label: "Acme / Call",
+          status: "changed",
+          addedFields: [],
+          changedFields: [
+            { name: "dest", label: "Destination", secret: false, before: { kind: "empty" }, after: { kind: "text", preview: "x", truncated: false } },
+            { name: "acct", label: "Account", secret: false, before: { kind: "empty" }, after: { kind: "text", preview: "y", truncated: false } },
+          ],
+          removedFields: [],
+          missingRequiredFields: [],
+          variablesUsed: [],
+        },
+      ],
+    };
+    const node1 = node({ id: "acme-1", kind: "action", provider: "acme", type: "call" });
+    const r = buildPreviewRationale({
+      configDiff: diff,
+      current: { nodes: [trigger, node1] },
+      candidate: { nodes: [trigger, node1] },
+      fieldMetaByType: {
+        "acme:call": {
+          displayName: "Acme / Call",
+          fields: {
+            dest: { name: "dest", label: "Destination", required: true, hasDefault: false, secret: false, sensitivity: "recipient" },
+            acct: { name: "acct", label: "Account", required: true, hasDefault: false, secret: true, sensitivity: "connection" },
+          },
+        },
+      },
+    });
+    expect(r.fieldReasons.find((f) => f.fieldPath === "dest")?.category).toBe("recipient");
+    expect(r.fieldReasons.find((f) => f.fieldPath === "acct")?.category).toBe("connection");
+  });
+
+  it("flags any changed field on a TRIGGER as trigger_config (affects when it fires)", () => {
+    const triggerNode = node({ id: "trg-1", kind: "trigger", provider: "gmail", type: "new_email" });
+    const diff: ConfigDiff = {
+      nodes: [
+        {
+          nodeId: "trg-1",
+          provider: "gmail",
+          type: "new_email",
+          label: "Gmail / New Email",
+          status: "changed",
+          addedFields: [],
+          changedFields: [
+            { name: "labelFilter", label: "Label filter", secret: false, before: { kind: "text", preview: "Inbox", truncated: false }, after: { kind: "text", preview: "Support", truncated: false } },
+          ],
+          removedFields: [],
+          missingRequiredFields: [],
+          variablesUsed: [],
+        },
+      ],
+    };
+    const r = buildPreviewRationale({ configDiff: diff, current: { nodes: [triggerNode] }, candidate: { nodes: [triggerNode] } });
+    const reason = r.fieldReasons.find((f) => f.fieldPath === "labelFilter");
+    expect(reason?.category).toBe("trigger_config");
+    expect(reason?.text).toBe("Label filter changed: affects when this runs.");
+  });
+
+  it("flags a secret field as the 'secret' category without leaking any value", () => {
+    const diff: ConfigDiff = {
+      nodes: [
+        {
+          nodeId: "hook-1",
+          provider: "webhook",
+          type: "call",
+          label: "Webhook",
+          status: "changed",
+          addedFields: [],
+          changedFields: [
+            { name: "apiKey", label: "API Key", secret: true, before: { kind: "redacted" }, after: { kind: "redacted" } },
+          ],
+          removedFields: [],
+          missingRequiredFields: [],
+          variablesUsed: [],
+        },
+      ],
+    };
+    const node1 = node({ id: "hook-1", kind: "action", provider: "webhook", type: "call" });
+    const r = buildPreviewRationale({ configDiff: diff, current: { nodes: [trigger, node1] }, candidate: { nodes: [trigger, node1] } });
+    const reason = r.fieldReasons.find((f) => f.fieldPath === "apiKey");
+    expect(reason?.category).toBe("secret");
+    expect(reason?.text).toBe("API Key changed: credential or auth material.");
+  });
+
+  it("never leaks a raw before/after value or secret into any field-reason text (no-leak)", () => {
+    const r = buildPreviewRationale({
+      configDiff: channelAndMessageDiff,
+      current: { nodes: [trigger, slackAction] },
+      candidate: { nodes: [trigger, slackAction] },
+    });
+    const text = r.fieldReasons.map((f) => f.text).join("\n");
+    expect(text).not.toContain("#support");
+    expect(text).not.toContain("#sales");
+    expect(text).not.toContain("Old body");
+    expect(text).not.toContain("New body");
+  });
+
+  it("returns empty fieldReasons when no high-risk field changed", () => {
+    const diff: ConfigDiff = {
+      nodes: [
+        {
+          nodeId: "slack-1",
+          provider: "slack",
+          type: "send_message",
+          label: "Slack / Send Channel Message",
+          status: "changed",
+          addedFields: [],
+          changedFields: [
+            { name: "message", label: "Message", secret: false, before: { kind: "text", preview: "a", truncated: false }, after: { kind: "text", preview: "b", truncated: false } },
+          ],
+          removedFields: [],
+          missingRequiredFields: [],
+          variablesUsed: [],
+        },
+      ],
+    };
+    const r = buildPreviewRationale({ configDiff: diff, current: { nodes: [trigger, slackAction] }, candidate: { nodes: [trigger, slackAction] } });
+    expect(r.fieldReasons).toEqual([]);
+  });
+});

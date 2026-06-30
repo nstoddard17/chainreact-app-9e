@@ -176,6 +176,23 @@ describe("builder review rail (HERMES-AGENT-CONFIG-DIFF-REVIEW)", () => {
     expect(why).toHaveTextContent("Kept the native:manual.run trigger.");
   });
 
+  it("surfaces a high-risk field reason for the retargeted channel (label-only, no value leak)", async () => {
+    const user = userEvent.setup();
+    renderBuilder();
+    await proposeEdit(user);
+
+    const reasons = await screen.findByTestId("preview-review-field-reasons");
+    // The Slack `channel` field is a recipient/destination — high-risk — so it gets a field reason.
+    expect(screen.getByTestId("preview-review-field-reason-a1-channel")).toHaveTextContent(
+      "controls where this sends",
+    );
+    // The reason is label-only: the raw channel values never appear in the field-reasons section.
+    expect(reasons).not.toHaveTextContent("#support");
+    expect(reasons).not.toHaveTextContent("#sales");
+    // The cosmetic `message` body produces no field reason (no noise).
+    expect(screen.queryByTestId("preview-review-field-reason-a1-message")).not.toBeInTheDocument();
+  });
+
   it("Apply from the review rail replaces the local draft with the candidate (dirty, nothing saved)", async () => {
     const user = userEvent.setup();
     renderBuilder();

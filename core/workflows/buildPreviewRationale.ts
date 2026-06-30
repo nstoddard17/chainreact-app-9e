@@ -1,6 +1,16 @@
-import type { WorkflowNode } from "@/contracts/workflow";
+import type { WorkflowNode, WorkflowNodeKind } from "@/contracts/workflow";
 import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
-import { resolveNodeLabel, type ConfigDiff } from "@/core/workflows/buildConfigDiff";
+import {
+  resolveNodeLabel,
+  type ConfigDiff,
+  type ConfigFieldChange,
+  type NodeConfigDiff,
+} from "@/core/workflows/buildConfigDiff";
+import {
+  classifyFieldRisk,
+  fieldRiskPhrase,
+  type FieldRiskCategory,
+} from "@/core/workflows/fieldRiskClassifier";
 
 /**
  * Deterministic "Why this change?" rationale for the React Agent preview review rail
@@ -45,11 +55,34 @@ export interface AgentPreviewRationaleBullet {
   readonly fieldPath?: string;
 }
 
+/** The status of a high-risk field within the diff. */
+export type FieldReasonStatus = "added" | "changed" | "removed";
+
+/**
+ * REACT-AGENT-PREVIEW-FIELD-REASONS — one field-level reason for a MAJOR / high-risk config change.
+ * Only emitted for fields the deterministic classifier flags as high-risk (recipient / connection /
+ * secret / trigger-config / action-effect); cosmetic fields never produce one. `text` is built from
+ * the field LABEL + a fixed category phrase + the safe status, never a config value or secret.
+ */
+export interface AgentPreviewFieldReason {
+  readonly nodeId: string;
+  readonly nodeLabel: string;
+  /** The field KEY (path) — never a value. */
+  readonly fieldPath: string;
+  readonly fieldLabel: string;
+  readonly status: FieldReasonStatus;
+  readonly category: FieldRiskCategory;
+  /** Label-only sentence, e.g. "To changed: controls where this sends." */
+  readonly text: string;
+}
+
 export interface AgentPreviewRationale {
   readonly title: string;
   /** The agent's one-line summary — display only; never the basis of a bullet claim. */
   readonly summary?: string;
   readonly bullets: readonly AgentPreviewRationaleBullet[];
+  /** High-risk/major field-level reasons, grouped by node in the UI. Empty when none qualify. */
+  readonly fieldReasons: readonly AgentPreviewFieldReason[];
 }
 
 interface GraphLike {
@@ -84,6 +117,58 @@ function truncatePrompt(prompt: string): string {
 
 function sameNodeType(a: WorkflowNode, b: WorkflowNode): boolean {
   return a.provider === b.provider && a.type === b.type;
+}
+
+const STATUS_WORD: Record<FieldReasonStatus, string> = {
+  added: "added",
+  changed: "changed",
+  removed: "removed",
+};
+
+/** Lookup key into `fieldMetaByType` — mirrors `requirementLookupKey` (handles combined `native:router`). */
+function metaKey(provider: string, type: string): string {
+  return type.includes(":") ? type : `${provider}:${type}`;
+}
+
+/**
+ * Deterministic high-risk field reasons. For each added/changed/removed field on a diffed node,
+ * classify its risk from declarative metadata `sensitivity` (when known) + the field's secret flag +
+ * conservative key-name heuristics + node kind. Low-risk/cosmetic fields are skipped (no noise). Each
+ * reason text uses only the field LABEL + a fixed category phrase + the status — never a value.
+ */
+function buildFieldReasons(
+  diffNodes: readonly NodeConfigDiff[],
+  nodeKindById: ReadonlyMap<string, WorkflowNodeKind>,
+  fieldMetaByType: ConfigDiffFieldMetaByType | undefined,
+): AgentPreviewFieldReason[] {
+  const reasons: AgentPreviewFieldReason[] = [];
+  for (const node of diffNodes) {
+    const nodeKind = nodeKindById.get(node.nodeId);
+    const typeFields = fieldMetaByType?.[metaKey(node.provider, node.type)]?.fields;
+    const consider = (change: ConfigFieldChange, status: FieldReasonStatus): void => {
+      const sensitivity = typeFields?.[change.name]?.sensitivity;
+      const category = classifyFieldRisk({
+        name: change.name,
+        secret: change.secret,
+        ...(sensitivity ? { sensitivity } : {}),
+        ...(nodeKind ? { nodeKind } : {}),
+      });
+      if (!category) return;
+      reasons.push({
+        nodeId: node.nodeId,
+        nodeLabel: node.label,
+        fieldPath: change.name,
+        fieldLabel: change.label,
+        status,
+        category,
+        text: `${change.label} ${STATUS_WORD[status]}: ${fieldRiskPhrase(category)}.`,
+      });
+    };
+    for (const f of node.addedFields) consider(f, "added");
+    for (const f of node.changedFields) consider(f, "changed");
+    for (const f of node.removedFields) consider(f, "removed");
+  }
+  return reasons;
 }
 
 /**
@@ -143,9 +228,18 @@ export function buildPreviewRationale(
     }
   }
 
+  // 5. Field-level reasons for MAJOR / high-risk config changes (recipient / connection / secret /
+  //    trigger-config / action-effect). Node kind comes from the candidate (added/changed) or current
+  //    (removed) node lists — value-free; cosmetic fields are skipped by the classifier.
+  const nodeKindById = new Map<string, WorkflowNodeKind>();
+  for (const n of input.current.nodes) nodeKindById.set(n.id, n.kind);
+  for (const n of input.candidate.nodes) nodeKindById.set(n.id, n.kind);
+  const fieldReasons = buildFieldReasons(diffNodes, nodeKindById, input.fieldMetaByType);
+
   return {
     title: TITLE,
     ...(input.summary ? { summary: input.summary } : {}),
     bullets,
+    fieldReasons,
   };
 }

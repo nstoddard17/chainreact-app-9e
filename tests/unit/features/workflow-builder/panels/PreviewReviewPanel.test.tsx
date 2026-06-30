@@ -123,7 +123,7 @@ describe("PreviewReviewPanel", () => {
           fieldLabel: "Channel",
           status: "changed",
           category: "recipient",
-          text: "Channel changed — controls where this sends.",
+          text: "Channel changed: controls where this sends.",
         },
       ],
     };
@@ -133,7 +133,7 @@ describe("PreviewReviewPanel", () => {
     const section = screen.getByTestId("preview-review-field-reasons");
     expect(section).toHaveTextContent("Slack / Send Channel Message");
     expect(screen.getByTestId("preview-review-field-reason-slack-1-channel")).toHaveTextContent(
-      "Channel changed — controls where this sends.",
+      "Channel changed: controls where this sends.",
     );
     // No raw before/after value leaks into the field-reasons section.
     expect(section).not.toHaveTextContent("#support");
