@@ -293,6 +293,25 @@ describe("WorkflowNodeCard — provider icon rendering (Slice 4.BUILDER-INSPECTO
     expect(screen.getByTestId("provider-initials-avatar")).toBeInTheDocument();
   });
 
+  it("renders the ChainReact brand mark (svg) for built-in (native) nodes instead of initials", () => {
+    renderCard({
+      data: {
+        kind: "action",
+        provider: "native",
+        type: "loop",
+        displayName: "Loop",
+        providerLabel: "Built-in",
+      },
+    });
+    const iconWrap = screen.getByTestId("provider-icon");
+    expect(iconWrap.getAttribute("data-provider")).toBe("native");
+    // The brand mark is an inline SVG (square + spark dot), not an <img> asset.
+    expect(iconWrap.querySelector("svg")).not.toBeNull();
+    expect(iconWrap.querySelector("img")).toBeNull();
+    // No "BU"/"NA" initials avatar for native nodes.
+    expect(screen.queryByTestId("provider-initials-avatar")).toBeNull();
+  });
+
   it("has no per-provider string branches in the rendered output (icon URL drives everything)", () => {
     // Sanity check: passing an icon URL for a totally fictional provider
     // still renders the <img> with that URL — the card does NOT switch

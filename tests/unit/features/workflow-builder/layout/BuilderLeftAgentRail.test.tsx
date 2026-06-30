@@ -13,7 +13,7 @@ import { BuilderLeftAgentRail } from "@/features/workflow-builder/layout/Builder
 describe("BuilderLeftAgentRail — expanded state", () => {
   it("renders the rail landmark with the 'React Agent' label", () => {
     render(
-      <BuilderLeftAgentRail isCollapsed={false} onCollapse={() => undefined}>
+      <BuilderLeftAgentRail isCollapsed={false} onToggle={() => undefined}>
         <div>panel body</div>
       </BuilderLeftAgentRail>,
     );
@@ -25,7 +25,7 @@ describe("BuilderLeftAgentRail — expanded state", () => {
 
   it("renders the children inside the rail", () => {
     render(
-      <BuilderLeftAgentRail isCollapsed={false} onCollapse={() => undefined}>
+      <BuilderLeftAgentRail isCollapsed={false} onToggle={() => undefined}>
         <div data-testid="payload">payload body</div>
       </BuilderLeftAgentRail>,
     );
@@ -36,22 +36,22 @@ describe("BuilderLeftAgentRail — expanded state", () => {
     );
   });
 
-  it("renders a collapse button labelled 'Collapse React Agent' that fires onCollapse on click", async () => {
+  it("renders a collapse button labelled 'Collapse React Agent' that fires onToggle on click", async () => {
     const user = userEvent.setup();
-    const onCollapse = jest.fn();
+    const onToggle = jest.fn();
     render(
-      <BuilderLeftAgentRail isCollapsed={false} onCollapse={onCollapse}>
+      <BuilderLeftAgentRail isCollapsed={false} onToggle={onToggle}>
         <span>x</span>
       </BuilderLeftAgentRail>,
     );
     const btn = screen.getByRole("button", { name: /collapse react agent/i });
     await user.click(btn);
-    expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
   it("does not mention a general / app-level assistant (scope guardrail)", () => {
     render(
-      <BuilderLeftAgentRail isCollapsed={false} onCollapse={() => undefined}>
+      <BuilderLeftAgentRail isCollapsed={false} onToggle={() => undefined}>
         <span>x</span>
       </BuilderLeftAgentRail>,
     );
@@ -70,7 +70,7 @@ describe("BuilderLeftAgentRail — collapsed state", () => {
     // collapsed mode so BuilderAiPanel doesn't fire its state effects
     // / network calls — is preserved.
     render(
-      <BuilderLeftAgentRail isCollapsed onCollapse={() => undefined}>
+      <BuilderLeftAgentRail isCollapsed onToggle={() => undefined}>
         <div data-testid="payload">payload body</div>
       </BuilderLeftAgentRail>,
     );
@@ -85,17 +85,17 @@ describe("BuilderLeftAgentRail — collapsed state", () => {
     ).toBeInTheDocument();
   });
 
-  it("clicking the spine expand button fires onCollapse exactly once", async () => {
+  it("clicking the spine expand button fires onToggle exactly once", async () => {
     const user = userEvent.setup();
-    const onCollapse = jest.fn();
+    const onToggle = jest.fn();
     render(
-      <BuilderLeftAgentRail isCollapsed onCollapse={onCollapse}>
+      <BuilderLeftAgentRail isCollapsed onToggle={onToggle}>
         <span>x</span>
       </BuilderLeftAgentRail>,
     );
     await user.click(
       screen.getByRole("button", { name: /expand react agent/i }),
     );
-    expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledTimes(1);
   });
 });

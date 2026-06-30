@@ -1198,6 +1198,32 @@ describe("WorkflowBuilder", () => {
       expect(screen.getByTestId("builder-guidance-rail")).toBeInTheDocument();
     });
 
+    it("the in-rail spine expand button re-opens a collapsed rail (regression: spine button was wired to collapse, not toggle)", async () => {
+      const user = userEvent.setup();
+      render(
+        <WorkflowBuilder
+          workflow={baseWorkflow}
+          triggerProviders={triggerProviders}
+          actionProviders={actionProviders}
+        />,
+      );
+      // Collapse to the spine first.
+      await user.click(screen.getByTestId("builder-header-left-rail-toggle"));
+      expect(
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("true");
+      // The in-rail spine affordance must bring the rail back out.
+      await user.click(screen.getByTestId("builder-left-agent-rail-expand"));
+      expect(
+        screen
+          .getByTestId("builder-left-agent-rail")
+          .getAttribute("data-collapsed"),
+      ).toBe("false");
+      expect(screen.getByTestId("builder-guidance-rail")).toBeInTheDocument();
+    });
+
     it("collapsed state persists to localStorage so a refreshed page stays collapsed", async () => {
       const user = userEvent.setup();
       const first = render(

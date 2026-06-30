@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { DraftPreview, DraftPreviewNode } from "@/contracts/workflowPlanPreview";
+import { ChainReactMark } from "@/components/brand/ChainReactMark";
 
 /**
  * Non-applied AI draft preview overlay (HERMES-AGENT-BUILDER-PREVIEW-OVERLAY +
@@ -323,6 +324,26 @@ function PreviewProviderAvatar({
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = !!iconUrl && !imageFailed;
+
+  // Built-in ("native") nodes have no registry icon — show the ChainReact brand
+  // mark instead of the generic initials avatar. Mirrors WorkflowNodeCard.
+  if (provider === "native" && !iconUrl) {
+    return (
+      <span
+        aria-hidden="true"
+        data-testid="preview-provider-icon"
+        data-provider="native"
+        className="flex h-[22px] w-[22px] shrink-0 items-center justify-center overflow-hidden rounded-[4px]"
+        style={{
+          background: "var(--builder-panel-2)",
+          border: "1px solid var(--builder-border)",
+          marginTop: 1,
+        }}
+      >
+        <ChainReactMark size={16} />
+      </span>
+    );
+  }
 
   if (showImage) {
     return (

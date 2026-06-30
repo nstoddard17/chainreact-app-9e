@@ -7,6 +7,7 @@ import { classifyNodeStatus, type NodeStatus } from "../utils/classifyNodeStatus
 import { useBuilderNodeActions } from "./nodeActionsContext";
 import { NodeQuickActions } from "./NodeCardQuickActions";
 import { DIFF_VISUAL, DiffPill } from "./nodeCardDiff";
+import { ChainReactMark } from "@/components/brand/ChainReactMark";
 
 /**
  * Builder node card (Slice 4.BUILDER-CANVAS-1, restyled in
@@ -308,6 +309,28 @@ function ProviderAvatar({
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = !!iconUrl && !imageFailed;
+
+  // Built-in ("native") nodes — loop, filter, delay, router, manual/schedule
+  // triggers — carry `provider: "native"` and have no integrations-registry
+  // icon. Show the ChainReact brand mark instead of the generic initials
+  // avatar. One branch for the built-in group, not per-provider iconography.
+  if (provider === "native" && !iconUrl) {
+    return (
+      <span
+        aria-hidden="true"
+        data-testid="provider-icon"
+        data-provider="native"
+        className="flex h-[22px] w-[22px] shrink-0 items-center justify-center overflow-hidden rounded-[4px]"
+        style={{
+          background: "var(--builder-panel-2)",
+          border: "1px solid var(--builder-border)",
+          marginTop: 1,
+        }}
+      >
+        <ChainReactMark size={16} />
+      </span>
+    );
+  }
 
   if (showImage) {
     return (

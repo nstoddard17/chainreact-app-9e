@@ -511,7 +511,7 @@ export function WorkflowBuilder({
       leftRail={
         <BuilderLeftAgentRail
           isCollapsed={leftRail.isCollapsed}
-          onCollapse={leftRail.collapse}
+          onToggle={leftRail.toggle}
           // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — drive the header status from the SAME availability
           // rule the rail body uses, so the header can't claim "connected · Hermes" while the body shows
           // the "unavailable" note. Local-only (logged-out) is never "connected".

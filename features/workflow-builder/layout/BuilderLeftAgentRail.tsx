@@ -13,12 +13,14 @@ interface Props {
    */
   isCollapsed: boolean;
   /**
-   * Called when the user dismisses the rail via the in-rail × button
-   * (expanded mode) or the spine button (collapsed mode). The parent
-   * (`WorkflowBuilder`) owns the actual collapse state via
-   * `useLeftAgentRail`; this is a pure callback for the rail header.
+   * Toggles the rail's collapsed state. Fired by the in-rail collapse
+   * button (expanded mode) AND the spine expand button (collapsed mode) —
+   * the two buttons request opposite outcomes, so the parent must pass a
+   * TOGGLE here, not a one-way `collapse`. (Wiring it to `collapse` is what
+   * made a collapsed rail impossible to re-open.) The parent
+   * (`WorkflowBuilder`) owns the actual state via `useLeftAgentRail`.
    */
-  onCollapse: () => void;
+  onToggle: () => void;
   /**
    * HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — whether builder AI guidance is actually available
    * (Hermes enabled AND an account is resolved — the SAME signal the rail body uses to render the chat
@@ -55,7 +57,7 @@ interface Props {
  */
 export function BuilderLeftAgentRail({
   isCollapsed,
-  onCollapse,
+  onToggle,
   connected = false,
   children,
 }: Props) {
@@ -75,7 +77,7 @@ export function BuilderLeftAgentRail({
       >
         <button
           type="button"
-          onClick={onCollapse}
+          onClick={onToggle}
           aria-label="Expand React Agent"
           data-testid="builder-left-agent-rail-expand"
           className="inline-flex h-6 w-6 items-center justify-center rounded-[4px]"
@@ -158,7 +160,7 @@ export function BuilderLeftAgentRail({
         </div>
         <button
           type="button"
-          onClick={onCollapse}
+          onClick={onToggle}
           aria-label="Collapse React Agent"
           data-testid="builder-left-agent-rail-collapse"
           className="rounded p-1"
