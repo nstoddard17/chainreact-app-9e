@@ -373,3 +373,72 @@ eslint on the 5 touched files → 0; `npm run lint:structure` → OK. **No db:pu
   the shared DB (a real multi-account side effect we must not cause). The only thing not exercised is
   the selection/interval/state gating shell — not the trigger behavior under test. Revisit only if/when
   there's an isolated single-account test DB.
+
+## 11. Slice 4 — Lane B: `updated_row` + `updated_table_row` LIVE-CERTIFIED; EXCEL POLLING DONE (2026-06-29)
+
+The value-change pair. **`microsoft-excel:updated_row` and `microsoft-excel:updated_table_row` are
+LIVE_PASS** — completing the entire Excel polling family (all 5 of 5 triggers certified).
+
+**Both feasible.** There is NO `update_table_row` action, but `updated_table_row` keys on Graph's
+stable table-row INDEX, and a table overlays worksheet cells — so the certified header-based
+`update_row` (column "Col", the table's header) mutates the table's data cell in place, flipping its
+row hash while keeping the stable key "0". `updated_row` mutates a seeded worksheet data row in place
+via the same `update_row`. No new production action needed; no unsafe path.
+
+**Spec changes (same `runExcelPollingSmoke` pattern).** Added `UPDATED_ROW_SPEC` +
+`UPDATED_TABLE_ROW_SPEC` and two deps primitives: `seedRowsForUpdate` (header row + data row, each
+confirmed read-back visible) and `updateRowMarked` (certified `update_row` of column "Col" at a given
+row → returns the unique marker). `listRuns` already carries the payload, so identity = the mutated
+marker present in `trigger_event.payload.values`. The live test runs all 5 specs.
+
+**Baseline-first proof (each fired 0 on the first poll).**
+- `updated_row`: seeded header(row1)+data(row2); activation snapshots `rowHashes {"1":…,"2":…}` → first poll 0.
+- `updated_table_row`: the table workbook's shipped data row = baseline `rowHashes {"0":…}` → first poll 0.
+
+**Value-change proof.** The change MUTATES the existing row in place (no insert/delete), so the
+position/stable KEY is unchanged and only its HASH flips → `findChangedKeys` fires exactly one event
+on the SAME key, payload values carry the mutated marker (`crsmoke-…-upd`).
+
+**Live result (`… npm run smoke:triggers:excel`, all 5 write gates + Excel/OneDrive connected):**
+```
+new_worksheet → pass · new_row → pass · new_table_row → pass
+updated_row   → pass · baseline 0 · after 1 · identity "crsmoke-…-upd" matched · succeeded · cleaned
+updated_table_row → pass · baseline 0 · after 1 · identity "crsmoke-…-upd" matched · succeeded · cleaned
+```
+Each: created 1 workbook / cleaned 1 (OneDrive recycle bin) / **0 leaked**. **Cert rows: `updated_row`
++ `updated_table_row` → `LIVE_PASS` (2026-06-29).**
+
+**HONEST disclosure — the one transient failure was a HARNESS limitation, not a product bug.** The
+first `updated_row` live attempt FAILED at seed setup: its two sequential `add_row`s (header then data)
+hit Graph's create→read lag — the second `add_row`'s usedRange read didn't see the first, so the
+baseline never reached 2 visible rows. Fixed by confirming the header row is read-back visible BETWEEN
+the two seed appends (so the data row appends at row 2, not colliding back at row 1). This is purely
+smoke setup robustness; the `updated_row` TRIGGER fired correctly once the baseline was seeded. **The
+position-key shift caveat did NOT manifest** — I mutate in place (no insert/delete), so no row
+re-numbering. That caveat would only bite a workflow that INSERTS/DELETES mid-sheet rows (then shifted
+rows re-hash and surface as "updated"); that is documented V1-parity behavior, not exercised here.
+
+**Trigger-smoke matrix now:** 62 registered · **6 LIVE_PASS** (`native:schedule.fired` +
+`microsoft-excel:` `new_worksheet`/`new_row`/`new_table_row`/`updated_row`/`updated_table_row`) · 1
+RUN_NOW_PROVEN (`native:manual.run`) · 55 un-harnessed.
+
+**Verification (this slice):** `tests/unit/trigger-smoke` (24) + `tests/unit/integrations/microsoft-excel/triggers`
+→ 86 pass; live `smoke:triggers:excel` → 5/5 PASS (above, 0 leaked each); `npx tsc --noEmit` → exit 0;
+eslint on the 5 touched files → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Is Excel polling Lane B complete after the update pair?** YES. All 5 Excel polling triggers are
+  LIVE_PASS, covering every distinct diff path: worksheet-name set (new_worksheet), worksheet
+  position-key create + change (new_row / updated_row), and table stable-id create + change
+  (new_table_row / updated_table_row). The remaining 17 polling triggers are: `microsoft-onenote`
+  new_note / updated_note (CONNECTED — the only remaining connected polling lane), `gmail` ×3 +
+  `mailchimp` ×6 (Lane D — inbound-email / subscriber-PID / send-risk, excluded), and
+  `discord:new_message` (not connected). So after Excel, **OneNote polling is the only remaining
+  currently-connected polling lane.**
+- **Is the update-trigger instability a harness limitation or a product bug?** HARNESS limitation
+  only. The single failure was smoke seed-propagation (two consecutive add_rows under Graph lag),
+  fixed by an intermediate visibility confirm. The trigger's value-change detection
+  (snapshot → `findChangedKeys` → enqueue) worked correctly and fired exactly once. The position-key
+  shift caveat is real but is documented V1-parity behavior for mid-sheet insert/delete — NOT something
+  this in-place-mutation cert hit, and NOT a regression. No product bug found.

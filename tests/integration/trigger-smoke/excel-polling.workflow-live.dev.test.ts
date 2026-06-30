@@ -36,6 +36,8 @@ import {
   NEW_WORKSHEET_SPEC,
   NEW_ROW_SPEC,
   NEW_TABLE_ROW_SPEC,
+  UPDATED_ROW_SPEC,
+  UPDATED_TABLE_ROW_SPEC,
   type ExcelPollingTriggerSpec,
 } from "@/tests/trigger-smoke/excelPollingSmoke";
 import { makeRealExcelPollingSmokeDeps } from "@/tests/trigger-smoke/excelPollingSmokeDeps";
@@ -93,7 +95,13 @@ describeLive("trigger smoke: microsoft-excel create-polling family (real dev DB 
     userId: USER_ID as string,
   });
 
-  const specs: ExcelPollingTriggerSpec[] = [NEW_WORKSHEET_SPEC, NEW_ROW_SPEC, NEW_TABLE_ROW_SPEC];
+  const specs: ExcelPollingTriggerSpec[] = [
+    NEW_WORKSHEET_SPEC,
+    NEW_ROW_SPEC,
+    NEW_TABLE_ROW_SPEC,
+    UPDATED_ROW_SPEC,
+    UPDATED_TABLE_ROW_SPEC,
+  ];
 
   for (const spec of specs) {
     it(`${spec.label}: baseline poll 0, post-baseline add fires 1, terminal succeeded, 0 leaked`, async () => {

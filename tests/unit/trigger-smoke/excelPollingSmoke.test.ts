@@ -15,6 +15,8 @@ import {
   NEW_WORKSHEET_SPEC,
   NEW_ROW_SPEC,
   NEW_TABLE_ROW_SPEC,
+  UPDATED_ROW_SPEC,
+  UPDATED_TABLE_ROW_SPEC,
   EXCEL_POLLING_SMOKE_TRIGGER_NODE_ID,
   type ExcelPollingSmokeDeps,
   type ExcelPollingRun,
@@ -78,6 +80,13 @@ function makeFakeDeps(
       added = "crsmoke-abcd1234-trow";
       return { marker: added };
     },
+    async seedRowsForUpdate() {
+      calls.seeded += 1;
+    },
+    async updateRowMarked() {
+      added = "crsmoke-abcd1234-upd";
+      return { marker: added };
+    },
     async listRuns() {
       return runs;
     },
@@ -117,7 +126,8 @@ describe("build functions", () => {
 });
 
 describe("runExcelPollingSmoke — happy path per spec", () => {
-  for (const spec of [NEW_WORKSHEET_SPEC, NEW_ROW_SPEC, NEW_TABLE_ROW_SPEC]) {
+  const SEEDING_SPECS = new Set([NEW_ROW_SPEC, UPDATED_ROW_SPEC]);
+  for (const spec of [NEW_WORKSHEET_SPEC, NEW_ROW_SPEC, NEW_TABLE_ROW_SPEC, UPDATED_ROW_SPEC, UPDATED_TABLE_ROW_SPEC]) {
     it(`passes for ${spec.label}: baseline 0, after 1, identity matched, succeeded, cleaned`, async () => {
       const { deps, calls } = makeFakeDeps();
       const r = await runExcelPollingSmoke(deps, spec);
@@ -130,8 +140,8 @@ describe("runExcelPollingSmoke — happy path per spec", () => {
       expect(r.cleaned).toBe(true);
       expect(calls.drained).toEqual(["run-x"]);
       expect(calls.cleaned).toEqual(["wf-smoke"]);
-      // new_row seeds a baseline row; the others do not.
-      expect(calls.seeded).toBe(spec === NEW_ROW_SPEC ? 1 : 0);
+      // new_row + updated_row seed a baseline row/rows; the others do not.
+      expect(calls.seeded).toBe(SEEDING_SPECS.has(spec) ? 1 : 0);
     });
   }
 
@@ -236,7 +246,7 @@ describe("real spec identityMatches", () => {
 
 describe("trigger certification seed — excel polling family", () => {
   it("has rows for new_worksheet, new_row, new_table_row (all polling)", () => {
-    for (const t of ["new_worksheet", "new_row", "new_table_row"]) {
+    for (const t of ["new_worksheet", "new_row", "new_table_row", "updated_row", "updated_table_row"]) {
       const row = TRIGGER_CERTIFICATIONS.find((c) => c.provider === "microsoft-excel" && c.type === t);
       expect(row?.activation).toBe("polling");
     }

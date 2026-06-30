@@ -39,6 +39,7 @@ import { deleteItem } from "@/integrations/microsoft-onedrive/actions/deleteItem
 import { createWorksheet } from "@/integrations/microsoft-excel/actions/createWorksheet";
 import { addRow } from "@/integrations/microsoft-excel/actions/addRow";
 import { addTableRow } from "@/integrations/microsoft-excel/actions/addTableRow";
+import { updateRow } from "@/integrations/microsoft-excel/actions/updateRow";
 import { microsoftExcelPollingHandler } from "@/integrations/microsoft-excel/triggers/_shared/pollingHandler";
 import { worksheetUsedRange } from "@/integrations/microsoft-excel/api/worksheetUsedRange";
 import {
@@ -150,6 +151,18 @@ export function makeRealExcelPollingSmokeDeps(
     return rows.filter((row) => row.some((c) => !isBlankCell(c))).length;
   }
 
+  // Bounded wait until at least `minRows` non-empty rows are read-back visible —
+  // absorbs Graph's create→read propagation lag between consecutive add_row writes.
+  async function confirmRows(workbookId: string, worksheetName: string, minRows: number): Promise<void> {
+    for (let i = 0; i < ROW_VISIBLE_ATTEMPTS; i += 1) {
+      if ((await nonEmptyRowCount(workbookId, worksheetName)) >= minRows) return;
+      await sleep(ROW_VISIBLE_SLEEP_MS);
+    }
+    throw new Error(
+      `excel-polling-smoke: ${minRows} row(s) never became visible (propagation lag)`,
+    );
+  }
+
   return {
     async createSmokeWorkbook(variant: ExcelWorkbookVariant) {
       const content =
@@ -218,11 +231,7 @@ export function makeRealExcelPollingSmokeDeps(
       await addRow(actionInput({ workbookId, worksheetName, values: ["crsmoke-seed"] }));
       // Confirm the seed row is read-back visible BEFORE activation, so the change
       // row appends at a NEW position key (not colliding with the empty-sheet baseline).
-      for (let i = 0; i < ROW_VISIBLE_ATTEMPTS; i += 1) {
-        if ((await nonEmptyRowCount(workbookId, worksheetName)) >= 1) return;
-        await sleep(ROW_VISIBLE_SLEEP_MS);
-      }
-      throw new Error("excel-polling-smoke: seed row never became visible (propagation lag)");
+      await confirmRows(workbookId, worksheetName, 1);
     },
 
     async addMarkedRow({ workbookId, worksheetName }) {
@@ -234,6 +243,24 @@ export function makeRealExcelPollingSmokeDeps(
     async addMarkedTableRow({ workbookId, tableName }) {
       const marker = `crsmoke-${shortId()}-trow`;
       await addTableRow(actionInput({ workbookId, tableName, values: [marker] }));
+      return { marker };
+    },
+
+    async seedRowsForUpdate({ workbookId, worksheetName }) {
+      // Header row first (update_row is header-based). CONFIRM it is visible before
+      // the second append, so add_row's usedRange read sees row 1 and appends the data
+      // row at row 2 (rather than colliding back at row 1 under create→read lag).
+      await addRow(actionInput({ workbookId, worksheetName, values: ["Col"] }));
+      await confirmRows(workbookId, worksheetName, 1);
+      await addRow(actionInput({ workbookId, worksheetName, values: ["crsmoke-seed"] }));
+      await confirmRows(workbookId, worksheetName, 2);
+    },
+
+    async updateRowMarked({ workbookId, worksheetName, rowNumber }) {
+      const marker = `crsmoke-${shortId()}-upd`;
+      // Header-based update of column "Col" at the given row. The table (when present)
+      // overlays this worksheet cell, so this is also the updated_table_row mutation.
+      await updateRow(actionInput({ workbookId, worksheetName, rowNumber, values: { Col: marker } }));
       return { marker };
     },
 

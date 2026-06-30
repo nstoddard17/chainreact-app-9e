@@ -110,6 +110,20 @@ export const buildExcelNewTableRowSmokeWorkflow = (workbookId: string) =>
     "trigger-smoke:microsoft-excel:new_table_row",
   );
 
+export const buildExcelUpdatedRowSmokeWorkflow = (workbookId: string) =>
+  buildPollingWorkflow(
+    "updated_row",
+    { workbookId, worksheetName: "Sheet1" },
+    "trigger-smoke:microsoft-excel:updated_row",
+  );
+
+export const buildExcelUpdatedTableRowSmokeWorkflow = (workbookId: string) =>
+  buildPollingWorkflow(
+    "updated_table_row",
+    { workbookId, tableName: "SmokeTable" },
+    "trigger-smoke:microsoft-excel:updated_table_row",
+  );
+
 /** A persisted run + its trigger_event payload (verifiable dispatch identity). */
 export interface ExcelPollingRun {
   readonly runId: string;
@@ -143,6 +157,20 @@ export interface ExcelPollingSmokeDeps {
   addMarkedRow(input: { workbookId: string; worksheetName: string }): Promise<{ marker: string }>;
   /** Append ONE marker table row (certified add_table_row). Returns the marker. */
   addMarkedTableRow(input: { workbookId: string; tableName: string }): Promise<{ marker: string }>;
+  /**
+   * Seed a header row ("Col") + one data row ("crsmoke-seed") via certified add_row,
+   * confirmed read-back visible. For updated_row: the header lets the certified
+   * header-based update_row target the data row, and the data row is the baseline
+   * whose value the change MUTATES IN PLACE (no position shift).
+   */
+  seedRowsForUpdate(input: { workbookId: string; worksheetName: string }): Promise<void>;
+  /**
+   * MUTATE an existing row's value in place via the certified header-based
+   * update_row (column "Col", given rowNumber). The table overlays the same
+   * worksheet cell, so this is also the updated_table_row mutation. Returns the
+   * unique marker written.
+   */
+  updateRowMarked(input: { workbookId: string; worksheetName: string; rowNumber: number }): Promise<{ marker: string }>;
   /** All runs for the workflow (incl. non-terminal), newest first. */
   listRuns(workflowId: string): Promise<readonly ExcelPollingRun[]>;
   drainRun(runId: string): Promise<void>;
@@ -210,6 +238,41 @@ export const NEW_TABLE_ROW_SPEC: ExcelPollingTriggerSpec = {
   buildWorkflow: buildExcelNewTableRowSmokeWorkflow,
   async applyChange(deps, workbookId) {
     const { marker } = await deps.addMarkedTableRow({ workbookId, tableName: "SmokeTable" });
+    return { identity: marker };
+  },
+  identityMatches(run, identity) {
+    return payloadValuesInclude(run.triggerPayload, identity);
+  },
+};
+
+export const UPDATED_ROW_SPEC: ExcelPollingTriggerSpec = {
+  label: "microsoft-excel:updated_row",
+  workbookVariant: "plain",
+  buildWorkflow: buildExcelUpdatedRowSmokeWorkflow,
+  // Seed header (row 1) + data (row 2). The data row is the baseline whose value the
+  // change mutates IN PLACE — so the position key "2" stays and only its hash flips
+  // (the position-key shift caveat does NOT apply: no insert/delete, no re-numbering).
+  async seed(deps, workbookId) {
+    await deps.seedRowsForUpdate({ workbookId, worksheetName: "Sheet1" });
+  },
+  async applyChange(deps, workbookId) {
+    const { marker } = await deps.updateRowMarked({ workbookId, worksheetName: "Sheet1", rowNumber: 2 });
+    return { identity: marker };
+  },
+  identityMatches(run, identity) {
+    return payloadValuesInclude(run.triggerPayload, identity);
+  },
+};
+
+export const UPDATED_TABLE_ROW_SPEC: ExcelPollingTriggerSpec = {
+  label: "microsoft-excel:updated_table_row",
+  // The table workbook ships with header "Col" + one data row (table row index 0) =
+  // baseline. Mutating that data cell in place keeps the STABLE table-row key "0" and
+  // flips only its hash — the stable-id identity the trigger is designed around.
+  workbookVariant: "withTable",
+  buildWorkflow: buildExcelUpdatedTableRowSmokeWorkflow,
+  async applyChange(deps, workbookId) {
+    const { marker } = await deps.updateRowMarked({ workbookId, worksheetName: "Sheet1", rowNumber: 2 });
     return { identity: marker };
   },
   identityMatches(run, identity) {

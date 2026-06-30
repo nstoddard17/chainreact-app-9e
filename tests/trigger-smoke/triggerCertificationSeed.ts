@@ -95,6 +95,30 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "real polling dispatch: table-bearing workbook seed row = baseline, activation snapshots it, first poll fires 0 (baseline-first), certified add_table_row appends a row, the per-trigger poll fires exactly 1 run whose payload values carry the marker, durable run terminal 'succeeded', whole workbook deleted (0 leaked)",
   },
+  // microsoft-excel:updated_row + updated_table_row — Lane B value-change pair (same
+  // spec-driven harness). The change MUTATES an existing baseline row in place via the
+  // certified header-based update_row (column "Col"); the snapshot's row hash flips
+  // while its key stays, so the poll fires via findChangedKeys. updated_row keeps the
+  // worksheet position key "2" (no insert/delete → no position-shift); updated_table_row
+  // keeps the stable Graph table-row key "0" (the table overlays the same worksheet cell
+  // update_row writes). Both verify the mutated marker on the fired payload. (Flip to
+  // LIVE_PASS only after the gated live run.)
+  {
+    provider: "microsoft-excel",
+    type: "updated_row",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "real value-change dispatch: seed header(row1)+data(row2), activation snapshots both, first poll fires 0 (baseline-first), certified update_row mutates row 2 IN PLACE (no position shift), the per-trigger poll fires exactly 1 via findChangedKeys whose payload values carry the mutated marker, durable run terminal 'succeeded', whole workbook deleted (0 leaked)",
+  },
+  {
+    provider: "microsoft-excel",
+    type: "updated_table_row",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "real value-change dispatch: table workbook seed row = baseline (stable index 0), activation snapshots it, first poll fires 0 (baseline-first), certified update_row mutates the overlaid worksheet cell, the per-trigger poll fires exactly 1 via findChangedKeys on the SAME stable key whose payload values carry the mutated marker, durable run terminal 'succeeded', whole workbook deleted (0 leaked)",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.
