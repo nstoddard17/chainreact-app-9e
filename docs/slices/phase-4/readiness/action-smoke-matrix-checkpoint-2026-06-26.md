@@ -1436,3 +1436,89 @@ tests/unit/smoke-actions` → 45 suites / 464 tests pass; `npx tsc --noEmit` →
   cleanup. Never mutate existing user boards. `addFile` / `downloadFile` are bytes-handling (stage with the
   bytes group). Each write fixture must register its cleanup before certification, mirroring the existing
   write-harness providers (Airtable / Trello / Sheets / OneNote).
+
+## 31. Monday write foundation — `create_board` BLOCKED on a missing board-delete action (no cert) (2026-06-30)
+
+Attempted the Monday write-smoke foundation starting with `monday:create_board` (the intended parent
+resource for follow-on Monday writes). **STOPPED without certifying: there is no reliable, convention-safe
+cleanup for a smoke-created board.** No fixture authored, no cert, matrix unchanged. This is the
+"stop and document the exact cleanup gap" outcome the slice charter calls for.
+
+**Monday write actions inspected (14 MISSING_FIXTURE).** add_column, add_file, archive_item, create_board,
+create_group, create_item, create_subitem, create_update, delete_item, download_file, duplicate_board,
+duplicate_item, move_item, update_item. (`add_file` / `download_file` are bytes-handling — out of scope per
+the slice rules.)
+
+**Chosen root-resource strategy.** `create_board` → create a clearly smoke-named board
+(`{{smokeMarker}}board`, `boardKind: private` so it is NOT workspace-public), capture `boardId` into the
+ledger, verify via the certified `monday:get_board` read-back (marker on the persisted board name), then
+delete the board in cleanup. Create is fine; **cleanup is the blocker.**
+
+**Cleanup gap (the blocker, proven).** The write-smoke harness design is explicit
+([write-smoke-harness-design.md](./write-smoke-harness-design.md) §1): "Reuse the action registry. No
+bespoke provider transport. setup / verify / **cleanup are themselves registered actions**." Cleanup runs
+through `deps.runActionStep({ provider, action, config })` against the action registry, guarded by
+`cleanupTargetsSmokeOwned` (a destructive/cleanup step may only target a smoke-owned ledger id). For
+`create_board` that requires a **registered Monday action that deletes or archives a board**. There is none:
+- Registered Monday actions include `delete_item` + `archive_item` (item-level) but **no `delete_board` and
+  no `archive_board`** (confirmed by enumerating `integrations/monday/**/*.meta.ts` keys).
+- The shared API layer has `boardsCreate` / `boardsDuplicate` / `boardsGet` / `boardsList` but **no
+  `boardsDelete` / `boardsArchive`** helper (`integrations/_shared/monday/api/`).
+- The harness has NO non-action (deps-level) mutation-cleanup seam — `deps.smokeReadBack` is read-only
+  (verify), and the design forbids bespoke transport. So a test-harness-only board delete would VIOLATE the
+  established convention, not extend it.
+
+So the only ways to give `create_board` a real cleanup are (a) add a production `monday:delete_board` /
+`archive_board` action, or (b) add a bespoke harness-only board-delete. (b) is disallowed by the harness
+design; (a) is forbidden by this slice's rule "do not add production actions only for smoke." A
+no-cleanup `create_board` (cleanupKind absent → `LIVE_PASS_LEFT_ARTIFACT`) is also not acceptable here — the
+slice requires cleanup registered before execution, and a left smoke board would accumulate one orphan board
+per run. **Therefore `create_board` is not certifiable in this slice.**
+
+**Action certified:** NO. **Fixture authored:** NO. **Cleanup/leak count:** N/A (nothing created — no live
+write was run; the harness was inspected, not executed). **certificationSeed update:** NO.
+
+**Matrix unchanged:** Monday **24 / 10 LIVE_PASS / 0 NOT_RUN / 14 MISSING / 0 / 0 / 0**; totals **298 / 145
+LIVE_PASS / 12 not-run / 141 missing / 0 fail / 0 bug**.
+
+**Verification (docs-only):** `npm run lint:structure` → OK; `npx tsc --noEmit` → exit 0 (no code changed).
+No db:push, no deploy, nothing pushed.
+
+### Recommended unblock paths (owner decision)
+
+1. **Add `monday:delete_board` as a real product action** (meta + schema + handler + a `boardsDelete` API
+   helper wrapping Monday's `delete_board` mutation; parity with the existing `delete_item`). This is a
+   genuine product gap, not "only for smoke" — Monday's API supports it and a workflow author could
+   legitimately want it. Once it exists, `create_board` cleanup uses it as a registered action and the
+   smoke-owned guard is satisfied → `create_board` certifies as `LIVE_PASS_CLEANED`. **Cleanest enabler for
+   the create_board-rooted write tree.** (Board delete is destructive, so the action needs an explicit
+   `boardId` and the usual no-hidden-default treatment; the smoke only ever targets its own ledger board.)
+   A gentler variant is `monday:archive_board` (recoverable; `cleanupKind: "archive"` →
+   `LIVE_PASS_LEFT_ARTIFACT`).
+2. **Reorder: certify item-tree writes first against an operator-pre-created smoke board, using the EXISTING
+   `delete_item` cleanup** (the Trello/Airtable model — discover a `smoke`/`test`/`chainreact`-named board,
+   write a smoke-owned child, delete the child). This unblocks `create_item` (→ `delete_item` cleanup),
+   `create_subitem`, `update_item`, `move_item`, `archive_item`, `create_group`, `add_column`, and
+   `create_update` NOW with ZERO new actions — deferring only `create_board` / `duplicate_board` until
+   path #1 lands. Needs the operator to create one clearly-named smoke board (or set `SMOKE_MONDAY_BOARD_ID`)
+   so the harness discovers a safe write target without creating the root itself.
+
+**Recommendation:** if the priority is the `create_board` parent specifically, take path #1 (add
+`delete_board` as a real action in its own small product slice, then certify `create_board`). If the
+priority is breadth of Monday write coverage soonest, take path #2 (operator smoke board + `delete_item`
+cleanup) and leave `create_board` / `duplicate_board` parked behind path #1. Both keep every write
+smoke-owned with reliable cleanup; neither weakens the harness convention.
+
+### Owner review answers
+
+- **Is `monday:create_board` now safe as the parent fixture for follow-on Monday writes?** NOT YET. The
+  create itself is safe (smoke-named, private board), but it has no convention-safe cleanup because Monday
+  exposes no registered board-delete/archive action and the harness forbids bespoke cleanup transport.
+  Certifying it would require unblock path #1 (a real `delete_board` / `archive_board` action). Until then,
+  `create_board` must NOT be certified (a left board is an accumulating orphan, not an acceptable artifact
+  for a parent fixture).
+- **Next Monday write batch?** Only after the smoke-owned board cleanup path is proven. Two ordered options
+  above: (#1) add `delete_board` then certify the `create_board`-rooted tree; or (#2) certify the item-tree
+  writes against an operator smoke board with the existing `delete_item` cleanup now, and park
+  `create_board` / `duplicate_board` behind #1. Do not author any Monday write fixture whose cleanup is not a
+  registered action targeting a smoke-owned ledger resource.
