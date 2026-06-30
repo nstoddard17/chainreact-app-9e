@@ -1522,3 +1522,79 @@ smoke-owned with reliable cleanup; neither weakens the harness convention.
   writes against an operator smoke board with the existing `delete_item` cleanup now, and park
   `create_board` / `duplicate_board` behind #1. Do not author any Monday write fixture whose cleanup is not a
   registered action targeting a smoke-owned ledger resource.
+
+## 32. Monday item-tree writes — BLOCKED on operator smoke board env (no cert) (2026-06-30)
+
+Reordered per §31 path #2 to certify the Monday item-tree writes against an operator-provided smoke board
+(cleanup via the existing `delete_item` action, no new product action). **STOPPED before running any write:
+the required operator env `SMOKE_MONDAY_BOARD_ID` is not provided.** Per the charter ("if no board id is
+provided, stop and document the exact env unlock; do not create a board in the harness") no write was run,
+no fixture authored, no cert. Matrix unchanged. The unblock here is a one-line operator env (much smaller
+than §31's missing-action blocker).
+
+**`SMOKE_MONDAY_BOARD_ID` present?** NO. Re-checked `.env.local` this turn: `SMOKE_MONDAY_BOARD_ID`,
+`SMOKE_MONDAY_GROUP_ID`, `SMOKE_MONDAY_ITEM_ID` all MISSING (`SMOKE_MONDAY_CONNECTED` is the command-line
+assertion flag, also not in the file). Writes MUST target an explicitly smoke-named board; the read
+auto-discovery used for the read certs (any board) is NOT acceptable for choosing a write target, so there
+is no safe write target without the operator env.
+
+**Board suitability check:** DEFERRED (cannot run without the board id, and must not auto-pick a write
+target). The check is fully specified for the next slice and uses ONLY certified reads (no private board
+data is exposed — only existence/shape booleans): given `SMOKE_MONDAY_BOARD_ID`, (a) `monday:get_board`
+confirms the board exists + its name matches the smoke pattern (`/smoke|test|chainreact/i`); (b)
+`monday:list_groups` confirms at least one group exists (needed for `create_item`'s required `groupId`);
+(c) `monday:list_items` confirms it is a low-stakes board. None of these mutate anything.
+
+**Exact env unlock required:** `SMOKE_MONDAY_BOARD_ID=<id of an existing Monday board explicitly named for
+smoke/test use>` (a throwaway board safe for smoke-created groups/items/updates; NOT a real user board). That
+single env is sufficient: the required `groupId` for `create_item` is DERIVED from the board via a certified
+`list_groups` read (see the ready design below), so no `SMOKE_MONDAY_GROUP_ID` is needed. `SMOKE_MONDAY_CONNECTED=1`
+is still passed on the command line as the connection assertion.
+
+**Ready fixture design (author + run + certify in one pass once the env lands).** Verified feasible against
+the schemas + the write-harness contract this turn; the write-harness model is the same `defineWriteSmokeFixture`
+shape used by `google-sheets:create_spreadsheet` (setup -> execute -> verify read-back -> registered cleanup):
+- `monday:create_item`, `liveClass: destructiveSafe` (cleanup is a destructive `delete_item`),
+  `smokeMarker: "crsmoke-"`, `configFromEnv: { boardId: "SMOKE_MONDAY_BOARD_ID" }`,
+  `requiredEnv: ["SMOKE_MONDAY_CONNECTED", "SMOKE_MONDAY_BOARD_ID"]`.
+  - `setup`: `monday:list_groups { boardId }` -> `captureResource` the first group id into ledger key
+    `group` (the contract allows `captureResource` on setup steps). Supplies `create_item`'s required
+    `groupId` without a second operator env. (Group is a pre-existing board group used only as a create
+    target, never a cleanup target.)
+  - `execute`: `monday:create_item { boardId, groupId: "{{ledger.group.id}}", itemName: "{{smokeMarker}}item" }`
+    -> `captureResource { resourceKey: "item", idPath: "itemId", kind: "item" }`.
+  - `verify`: `monday:get_item { boardId, itemId: "{{ledger.item.id}}" }`, `markerPath: "itemName"` (certified
+    read-back confirms the marker on the PERSISTED item).
+  - `cleanup` (`cleanupKind: "delete"`): `monday:delete_item { boardId, itemId: "{{ledger.item.id}}" }` — an
+    EXISTING registered Monday action; `monday:delete_item` is `isDestructive` (Monday delete is a
+    UI-recoverable soft delete). The smoke-owned guard is satisfied (cleanup targets the smoke-created item in
+    the ledger). -> `LIVE_PASS_CLEANED`.
+  - Gates to run: write + `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE` + the connection assertion.
+- Follow-on small batch (only AFTER `create_item` + cleanup is green), each reusing the same setup-created
+  item then deleting it: `update_item` (marker suffix on a text column), `create_update` (post an update on
+  the item), `create_subitem` (child item; cleaned by deleting the parent or the subitem). `delete_item`
+  itself can be certified directly as the destructive teardown. `move_item` / `archive_item` /
+  `create_group` / `add_column` / `duplicate_item` come later; `create_board` / `duplicate_board` /
+  `add_file` / `download_file` stay out of scope.
+
+**Actions authored:** NONE (blocked on the env; no unverifiable write infrastructure committed).
+**Actions certified:** NONE. **Cleanup/leak count:** N/A — no write executed, nothing created, 0 leaked.
+**certificationSeed update:** NO. **Matrix unchanged:** Monday **24 / 10 LIVE_PASS / 0 NOT_RUN / 14 MISSING /
+0 / 0 / 0**; totals **298 / 145 LIVE_PASS / 12 not-run / 141 missing / 0 fail / 0 bug**.
+
+**Verification (docs-only):** `npm run lint:structure` → OK; `npx tsc --noEmit` → exit 0 (no code changed).
+No db:push, no deploy, nothing pushed.
+
+### Owner review answers
+
+- **Is the Monday item-tree write foundation now proven?** NOT YET — it is fully designed and one operator
+  env away. Provide `SMOKE_MONDAY_BOARD_ID` (an existing smoke/test-named throwaway board) and the next slice
+  authors the `create_item` fixture exactly as specced above, runs the scoped destructive smoke, and certifies
+  `LIVE_PASS_CLEANED` with `delete_item` cleanup (0 leaked). No board is ever created by the harness.
+- **Next Monday write batch?** Only after `create_item` + `delete_item` cleanup is green. Then the small
+  reuse batch (`update_item`, `create_update`, `create_subitem`, certify `delete_item` directly), then
+  `create_group` / `add_column` / `move_item` / `archive_item` / `duplicate_item`. Each write stays
+  smoke-owned with registered cleanup.
+- **Keep `create_board` / `duplicate_board` parked?** YES — still blocked until a real product
+  `monday:delete_board` (or `archive_board`) action exists (§31). The item-tree path deliberately avoids them
+  by writing into an operator-pinned board it never has to delete.
