@@ -29,8 +29,7 @@ import {
   type ProviderOption,
 } from "./panels/AddNodePanel";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
-import { CheckpointsPanel } from "./panels/CheckpointsPanel";
-import { AgentChangesPanel } from "./panels/AgentChangesPanel";
+import { HistoryPanel } from "./panels/HistoryPanel";
 import { AgentChangeDiffDrawer } from "./panels/AgentChangeDiffDrawer";
 import { AnonymousAgentRail } from "./panels/AnonymousAgentRail";
 import { LocalBuildBanner, LocalConfigNote } from "./panels/AnonymousLocalChrome";
@@ -399,10 +398,6 @@ export function WorkflowBuilder({
     configDiff,
     previewRationale,
     previewReviewActive,
-    checkpoints,
-    checkpointsLoading,
-    checkpointsError,
-    checkpointWarning,
     checkpointRestoringId,
     checkpointRestoreError,
     agentChanges,
@@ -548,29 +543,6 @@ export function WorkflowBuilder({
             getCurrentDraft={getCurrentDraft}
             renderCheckSetup={renderCheckSetup}
             {...(restoredComposerValue ? { initialComposerValue: restoredComposerValue } : {})}
-            agentChangesPanel={
-              <AgentChangesPanel
-                items={agentChanges}
-                loading={agentChangesLoading}
-                error={agentChangesError}
-                restoringCheckpointId={checkpointRestoringId}
-                restoreError={checkpointRestoreError}
-                onRestore={handleRestoreCheckpoint}
-                onViewDiff={setViewDiffItem}
-              />
-            }
-            checkpointsPanel={
-              <CheckpointsPanel
-                checkpoints={checkpoints}
-                loading={checkpointsLoading}
-                error={checkpointsError}
-                warning={checkpointWarning}
-                isDirty={isDirty}
-                restoringId={checkpointRestoringId}
-                restoreError={checkpointRestoreError}
-                onRestore={handleRestoreCheckpoint}
-              />
-            }
           />
           )}
         </BuilderLeftAgentRail>
@@ -655,6 +627,21 @@ export function WorkflowBuilder({
           // BUILDER-RUNS-TAB-1 — hide the Runs tab "Run again" when the viewer
           // can't run/edit (private-credential workflow). Mirrors HeaderRunControls.
           runEditBlocked={workflow.viewerCanRunEdit === false}
+          // AGENT-CHANGE-HISTORY-1 — the History tab body: the full agent-change /
+          // checkpoint timeline. Restore reuses the builder's checkpoint-restore path
+          // (re-hydrates the graph); View diff opens the read-only right drawer.
+          historyPanel={
+            <HistoryPanel
+              items={agentChanges}
+              loading={agentChangesLoading}
+              error={agentChangesError}
+              isDirty={isDirty}
+              restoringCheckpointId={checkpointRestoringId}
+              restoreError={checkpointRestoreError}
+              onRestore={handleRestoreCheckpoint}
+              onViewDiff={setViewDiffItem}
+            />
+          }
         />
         {addPanelMode !== null ? (
           <AddNodePanel

@@ -97,19 +97,6 @@ export interface BuilderGuidanceRailProps {
    * fills only an empty, untouched composer and never auto-sends.
    */
   readonly initialComposerValue?: string;
-  /**
-   * CHECKPOINTS-1 — the recent-checkpoints surface, rendered as a fixed footer
-   * region below the scrollable chat (owned by `WorkflowBuilder`, which holds the
-   * useWorkflowCheckpoints hook + graph re-hydration). Absent → no footer.
-   */
-  readonly checkpointsPanel?: ReactNode;
-  /**
-   * AGENT-CHANGE-HISTORY-1 — the "Agent changes" activity timeline, rendered as a
-   * fixed footer region above the checkpoints panel (owned by `WorkflowBuilder`).
-   * Distinct from checkpoints: it lists what the agent DID, not restore points.
-   * Absent → no footer.
-   */
-  readonly agentChangesPanel?: ReactNode;
 }
 
 export function BuilderGuidanceRail({
@@ -127,8 +114,6 @@ export function BuilderGuidanceRail({
   getCurrentGraphShape,
   renderCheckSetup,
   initialComposerValue,
-  checkpointsPanel,
-  agentChangesPanel,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -182,13 +167,8 @@ export function BuilderGuidanceRail({
       ) : (
         <></>
       )}
-      {/* AGENT-CHANGE-HISTORY-1 — "Agent changes" activity timeline, above the checkpoints footer.
-          Independent of guidance availability — the history is readable even if the agent is off. */}
-      {agentChangesPanel ? <div className="shrink-0">{agentChangesPanel}</div> : null}
-      {/* CHECKPOINTS-1 — recent-checkpoints footer. Shown whenever the builder supplies it
-          (independent of guidance availability — checkpoints can be restored even if the
-          agent is off). Fixed region below the scrollable chat. */}
-      {checkpointsPanel ? <div className="shrink-0">{checkpointsPanel}</div> : null}
+      {/* AGENT-CHANGE-HISTORY-1 — the agent-change / checkpoint timeline moved OUT of the rail into
+          the top-level "History" tab. The rail is now chat-only (plus the unavailable note). */}
       {!available ? (
         <div
           data-testid="builder-guidance-rail-unavailable"

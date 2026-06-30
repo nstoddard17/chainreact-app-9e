@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   applyNodeChanges,
   Background,
@@ -172,6 +172,13 @@ interface Props {
    * policy server-side regardless.
    */
   runEditBlocked?: boolean;
+  /**
+   * AGENT-CHANGE-HISTORY-1 — the live "History" tab body (the full agent-change /
+   * checkpoint timeline), built + wired by `WorkflowBuilder` (which owns the data
+   * hooks + graph re-hydration on restore). Rendered when the History tab is
+   * active; absent (isolated canvas tests) → the History placeholder shows.
+   */
+  historyPanel?: ReactNode;
 }
 
 const NODE_TYPES = {
@@ -207,6 +214,7 @@ function WorkflowCanvasInner({
   previewToken,
   previewDiff,
   runEditBlocked,
+  historyPanel,
 }: Props) {
   const previewDiffActive = previewDiff != null;
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
@@ -507,6 +515,11 @@ function WorkflowCanvasInner({
           // workflow data outline once actions exist; it falls back to the
           // shared empty-state panel (via BuilderTabPlaceholder) otherwise.
           <DataMapPanel providerLabels={providerLabels} />
+        ) : activeTab === "history" ? (
+          // AGENT-CHANGE-HISTORY-1 — the History tab: the full agent-change /
+          // checkpoint timeline (View diff + restore). Built by WorkflowBuilder;
+          // falls back to the placeholder in isolated canvas tests.
+          (historyPanel ?? <BuilderTabPlaceholder tab="history" />)
         ) : activeTab === "settings" ? (
           // Slice 4.BUILDER-SETTINGS-MVP-1 — the Settings tab shows real
           // workflow-level metadata + behavior (read-only this slice).

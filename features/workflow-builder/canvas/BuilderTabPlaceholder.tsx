@@ -11,7 +11,7 @@
  * panels describe them honestly so the tabs are useful today.
  */
 
-export type BuilderTab = "builder" | "runs" | "data-map" | "settings";
+export type BuilderTab = "builder" | "runs" | "data-map" | "history" | "settings";
 
 interface TabContent {
   readonly title: string;
@@ -44,6 +44,20 @@ const CONTENT: Record<Exclude<BuilderTab, "builder">, TabContent> = {
       "Copy a variable's path with one click to paste into a field",
     ],
     note: "Run a test to capture sample data, or configure your trigger to see its fields.",
+  },
+  // The History tab renders the live timeline (HistoryPanel) when the builder
+  // supplies it; this placeholder is the fallback for isolated canvas tests.
+  history: {
+    title: "History",
+    lead: "Everything the React Agent did to this workflow will appear here.",
+    bullets: [
+      "Previews shown, applied, discarded, and undone",
+      "Failed applies, with a user-safe reason",
+      "Checkpoint-backed entries you can restore from",
+      "Test-fix entries (tested / test failed)",
+      "View the diff for a change, or restore to before it",
+    ],
+    note: "Ask the React Agent to change this workflow to record its first entry.",
   },
   settings: {
     title: "Settings",

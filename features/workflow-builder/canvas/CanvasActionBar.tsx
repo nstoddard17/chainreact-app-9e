@@ -14,6 +14,7 @@ const BUILDER_TABS: readonly { readonly id: BuilderTab; readonly label: string }
   { id: "builder", label: "Builder" },
   { id: "runs", label: "Runs" },
   { id: "data-map", label: "Data Map" },
+  { id: "history", label: "History" },
   { id: "settings", label: "Settings" },
 ];
 
