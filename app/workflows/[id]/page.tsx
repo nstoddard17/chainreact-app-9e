@@ -8,6 +8,7 @@ import { getActiveAccountId } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
 import { buildPreviewSetupFields } from "@/core/workflows/previewSetupFields";
+import { buildConfigDiffFieldMeta } from "@/core/workflows/configDiffFieldMeta";
 import {
   listAllActionMetas,
   listAllTriggerMetas,
@@ -117,10 +118,11 @@ export default async function WorkflowDetailPage({ params }: Props) {
   // HERMES-AGENT-HOLOGRAPHIC-PREVIEW-NODE-UX; setup controls re-home to the rail). Static; same registry.
   const setupFieldsByType = buildPreviewSetupFields(listAllActionMetas(), listAllTriggerMetas());
 
-  // HERMES-AGENT-CONFIG-DIFF-REVIEW — the builder accepts an optional `fieldMetaByType` prop that gives
-  // the "Review changes" config diff display-safe per-field labels (via buildConfigDiffFieldMeta). It is
-  // intentionally NOT wired here yet: the diff renders correctly with the key-name fallback, and turning
-  // on field labels is a deliberate UI change owned by the config-diff slice, not this tidy pass.
+  // HERMES-AGENT-CONFIG-DIFF-REVIEW — display-safe per-field metadata (label / required / hasDefault /
+  // secret) per node type, from the same registry. Drives the right-rail "Review changes" value-level
+  // config diff: field changes show author-facing labels (not raw keys), the still-missing-required list
+  // populates, and secret redaction uses declared sensitivity. Static, so computed once here.
+  const fieldMetaByType = buildConfigDiffFieldMeta(listAllActionMetas(), listAllTriggerMetas());
 
   const providers = listProviders();
   const triggerProviders = providers
@@ -150,6 +152,7 @@ export default async function WorkflowDetailPage({ params }: Props) {
         actionProviders={actionProviders}
         requiredFieldsByType={requiredFieldsByType}
         setupFieldsByType={setupFieldsByType}
+        fieldMetaByType={fieldMetaByType}
         // HERMES-AGENT-GUIDANCE-UI-BUILDER — the React Agent rail is LIVE BY DEFAULT in the builder
         // (no feature-flag gate). `accountId` is server-resolved, never client-supplied. The actual
         // Hermes gateway call stays gated on gateway config server-side (route `getHermesAgentGatewayConfig()`);
