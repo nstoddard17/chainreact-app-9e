@@ -442,3 +442,70 @@ eslint on the 5 touched files → 0; `npm run lint:structure` → OK. **No db:pu
   (snapshot → `findChangedKeys` → enqueue) worked correctly and fired exactly once. The position-key
   shift caveat is real but is documented V1-parity behavior for mid-sheet insert/delete — NOT something
   this in-place-mutation cert hit, and NOT a regression. No product bug found.
+
+## 12. Slice 5 — Lane B: OneNote `new_note` LIVE-CERTIFIED; `updated_note` BLOCKED (provider behavior) (2026-06-29)
+
+The last currently-connected polling lane. **`microsoft-onenote:new_note` is LIVE_PASS.**
+**`microsoft-onenote:updated_note` is NOT certified — blocked by a Microsoft Graph behavior, proven
+by a live probe (not a harness bug).**
+
+**Harness (mirrors the Excel spec-driven pattern; OneNote-specific deps).** New
+[onenotePollingSmoke.ts](../../../../tests/trigger-smoke/onenotePollingSmoke.ts) (orchestrator +
+`NEW_NOTE_SPEC` / `UPDATED_NOTE_SPEC`) +
+[onenotePollingSmokeDeps.ts](../../../../tests/trigger-smoke/onenotePollingSmokeDeps.ts). OneNote
+triggers are SECTION-SCOPED with a timestamp-cursor snapshot, and OneNote has no section DELETE — so
+the smoke borrows an operator-provisioned smoke/test-named section (via the existing
+`discoverOneNoteSmokeSection` guard; null ⇒ SKIP, never a real notebook) and the smoke-owned resource
+is the PAGE (certified `create_page` / `update_page` / `delete_page`). Per-trigger `poll()` is driven
+scoped (not global). Payload is metadata only — no body/bytes. 12 unit tests (fakes) +
+gated live test + `smoke:triggers:onenote` script.
+
+**`new_note` — LIVE_PASS.** Baseline-first: activation seeds the createdDateTime cursor from the
+section's newest page → first poll fires 0. Then `create_page` (marker title) → the per-trigger poll
+fires exactly 1 whose payload identifies the page (`pageId` + `changeKind:"created"` + title marker)
+→ durable run `succeeded` → the smoke page is hard-deleted (0 leaked; the borrowed section is never
+deleted). One transient `create_page` HTTP 503 (OneNote Graph outage) cleared on retry — disclosed,
+not hidden. Result: `baseline 0 · after 1 · identity matched · succeeded · cleaned`.
+
+**`updated_note` — BLOCKED, NOT certified (root cause PROVEN by a live probe).** It consistently
+fired 0 even with a 60s bounded re-poll. A throwaway diagnostic (created a page, `update_page` append,
+then polled `pagesGet` + `pagesList(orderBy lastModifiedDateTime desc)` for 90s) showed the page's
+`lastModifiedDateTime` **never changed** — it stayed at the creation timestamp (`bumped=false` at
++5/+15/+30/+60/+90s, on BOTH the direct get AND the ordered list). Microsoft Graph's
+`PATCH /pages/{id}/content` (what `update_page` calls) does **not** bump `lastModifiedDateTime`, and
+`updated_note` fires ONLY on `lastModifiedDateTime > cursor` — so an API content edit can never fire
+it. No certified action mutates a page in a way that bumps `lastModifiedDateTime`, and adding one
+would be a production change (out of lane + "do not add production actions just to enable smoke").
+So `updated_note` stays NOT_RUN with this blocker recorded; its spec + unit tests remain authored
+(the harness logic is correct — `new_note` proves the dispatch path) and it is deliberately excluded
+from the live cert list.
+
+**Trigger-smoke matrix now:** 62 registered · **7 LIVE_PASS** (`native:schedule.fired` +
+`microsoft-excel` ×5 + `microsoft-onenote:new_note`) · 1 RUN_NOW_PROVEN (`native:manual.run`) · 1
+BLOCKED-documented (`microsoft-onenote:updated_note`) · 53 un-harnessed.
+
+**Verification (this slice):** `tests/unit/trigger-smoke` (34) + `tests/unit/integrations/microsoft-onenote/triggers`
+→ 95 pass; live `smoke:triggers:onenote` → `new_note` PASS (0 leaked); `npx tsc --noEmit` → **the only
+error is in a parallel session's UNTRACKED `repositories/agentChangeHistory.ts` WIP, not in any
+trigger-smoke file** (my files type-check clean; tsc was exit 0 before that WIP appeared); eslint on
+the 5 touched files → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Does OneNote complete the currently-connected polling lane?** YES, for what is safely certifiable.
+  `new_note` is the last connected polling trigger that can be driven by a certified, cleanable
+  mutation; it is LIVE_PASS. `updated_note` is connected but NOT certifiable without a production
+  change, because the only certified page-mutation primitive (`update_page` = Graph content PATCH)
+  doesn't bump the `lastModifiedDateTime` the trigger keys on. So the connected polling lane is
+  **complete modulo the documented `updated_note` provider blocker.** All other polling triggers stay
+  excluded (Gmail ×3 / Mailchimp ×6 — Lane D inbound-email / subscriber-PII / send-risk) or
+  not-connected (`discord:new_message`).
+- **Is the `updated_note` instability a harness limitation or a product bug?** NEITHER a harness bug
+  nor strictly a product bug — it's a **Microsoft Graph OneNote behavior** with a real product
+  implication. Evidence: `update_page` (PATCH content) does not change `lastModifiedDateTime` (proven,
+  90s, two endpoints). The harness is correct (`new_note` certifies; the orchestrator unit tests pass).
+  Product implication worth flagging: `updated_note` will NOT fire for page-content edits made via the
+  Graph API; it likely DOES fire for edits made in the OneNote app (those bump `lastModifiedDateTime`
+  through a different path) — but that app-edit path is unverified here and cannot be exercised by an
+  automated smoke. Recommend a product note that `updated_note` detects app/structural edits, not
+  API-content edits, and (optionally) a follow-up to confirm app-edit behavior manually.

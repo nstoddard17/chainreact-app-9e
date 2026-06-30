@@ -35,6 +35,7 @@
     "smoke:writes:live": "jest tests/integration/smoke-actions/run-writes.workflow-live.dev.test.ts",
     "smoke:triggers:scheduled": "jest tests/integration/trigger-smoke/scheduled.workflow.dev.test.ts",
     "smoke:triggers:excel": "jest tests/integration/trigger-smoke/excel-polling.workflow-live.dev.test.ts",
+    "smoke:triggers:onenote": "jest tests/integration/trigger-smoke/onenote-polling.workflow-live.dev.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

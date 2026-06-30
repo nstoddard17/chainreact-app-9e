@@ -119,6 +119,29 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "real value-change dispatch: table workbook seed row = baseline (stable index 0), activation snapshots it, first poll fires 0 (baseline-first), certified update_row mutates the overlaid worksheet cell, the per-trigger poll fires exactly 1 via findChangedKeys on the SAME stable key whose payload values carry the mutated marker, durable run terminal 'succeeded', whole workbook deleted (0 leaked)",
   },
+  // microsoft-onenote:new_note + updated_note — Lane B OneNote polling (section-scoped,
+  // timestamp-cursor snapshot). OneNote has no section DELETE, so the smoke watches an
+  // operator-provisioned smoke/test-named section (borrowed) and the smoke-owned resource
+  // is the PAGE (certified create_page / update_page / delete_page). new_note: create_page
+  // after the baseline fires "created"; updated_note: seed a baseline page (scoped via
+  // config.pageId), then update_page bumps lastModifiedDateTime and fires "updated" (brand-new
+  // pages are excluded by the handler). Payload metadata only — no body/bytes. (Flip to
+  // LIVE_PASS only after the gated live run.)
+  {
+    provider: "microsoft-onenote",
+    type: "new_note",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "real polling dispatch: operator smoke section, activation seeds the createdDateTime cursor, first poll fires 0 (baseline-first), certified create_page after baseline fires exactly 1 run whose payload identifies the page (pageId + changeKind 'created' + title marker), durable run terminal 'succeeded', smoke page hard-deleted (0 leaked); borrowed section never deleted",
+  },
+  {
+    provider: "microsoft-onenote",
+    type: "updated_note",
+    activation: "polling",
+    status: "NOT_RUN",
+    note: "harness authored + unit-tested, but BLOCKED for live cert by a Microsoft Graph behavior (probe-proven): update_page (the PATCH /pages/{id}/content endpoint) does NOT change the page's lastModifiedDateTime (stayed at creation time across 90s on pagesGet AND pagesList orderBy). updated_note fires only on lastModifiedDateTime > cursor, so an API content edit never fires it. No certified action mutates a page in a way that bumps lastModifiedDateTime; certifying would need a production change (out of lane). NOT a harness bug (new_note proves the path).",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.
