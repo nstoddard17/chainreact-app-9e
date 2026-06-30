@@ -68,36 +68,56 @@ export function BuilderLeftAgentRail({
         data-collapsed="true"
         role="complementary"
         aria-label="React Agent (collapsed)"
-        className="hidden shrink-0 flex-col items-center gap-2 py-2 md:flex"
+        className="hidden shrink-0 md:flex"
         style={{
           width: 40,
           background: "var(--builder-panel)",
           borderRight: "1px solid var(--builder-border)",
         }}
       >
+        {/*
+          The ENTIRE spine is the expand affordance — a tiny icon-only target
+          (the old 12px sparkle with no background) was easy to miss and the
+          "REACT AGENT" label wasn't clickable. Clicking anywhere on the spine
+          now re-opens the rail, with a hover highlight so it reads as a button.
+        */}
         <button
           type="button"
           onClick={onToggle}
           aria-label="Expand React Agent"
           data-testid="builder-left-agent-rail-expand"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-[4px]"
-          style={{ color: "var(--builder-text-2)" }}
           title="Open React Agent"
+          className="builder-rail-spine group flex h-full w-full flex-col items-center gap-2 py-2.5"
+          style={{ color: "var(--builder-muted)" }}
         >
-          <SparkleIcon />
-        </button>
-        <div className="flex flex-1 items-center justify-center">
           <span
-            className="builder-mono text-[10px] tracking-[0.18em]"
+            aria-hidden
+            className="inline-flex h-6 w-6 items-center justify-center rounded-[4px]"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--builder-accent), color-mix(in oklab, var(--builder-accent) 50%, #a855f7))",
+              color: "#fff",
+            }}
+          >
+            <SparkleIcon />
+          </span>
+          <span
+            className="builder-mono flex flex-1 items-center justify-center text-[10px] tracking-[0.18em]"
             style={{
               writingMode: "vertical-rl",
               transform: "rotate(180deg)",
-              color: "var(--builder-muted)",
             }}
           >
             REACT&nbsp;AGENT
           </span>
-        </div>
+          <span aria-hidden className="mt-auto opacity-60 transition group-hover:opacity-100">
+            <ChevronRightIcon />
+          </span>
+        </button>
+        <style>{`
+          .builder-rail-spine { transition: background 0.12s ease; }
+          .builder-rail-spine:hover { background: var(--builder-panel-2); }
+        `}</style>
       </aside>
     );
   }
@@ -197,5 +217,10 @@ const SparkleIcon = () => (
 const ChevronLeftIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+const ChevronRightIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="9 18 15 12 9 6" />
   </svg>
 );
