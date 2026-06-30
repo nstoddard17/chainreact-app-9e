@@ -34,6 +34,44 @@ import type { AgentChangeHistoryRecord } from "@/repositories/agentChangeHistory
 /** Keep at most this many history rows per workflow (prune older on create). */
 const MAX_HISTORY_PER_WORKFLOW = 20;
 
+/** Drop an oversized stored diff rather than bloat the row (View diff is then unavailable for it). */
+const DIFF_MAX_SERIALIZED = 24_000;
+
+/**
+ * Defensively re-scrub + size-cap a client-supplied `ConfigDiff` before persisting.
+ * The client builds it via `buildConfigDiff` (already redacts secrets), but the
+ * server NEVER trusts that: any field flagged `secret` has its before/after forced
+ * to `{ kind: "redacted" }` so a raw value can never be stored even if the client
+ * misbehaves. Returns null for absent / non-object / oversized diffs.
+ */
+function sanitizeStoredDiff(
+  diff: Record<string, unknown> | undefined,
+): Record<string, unknown> | null {
+  if (!diff || typeof diff !== "object" || Array.isArray(diff)) return null;
+  const nodes = (diff as { nodes?: unknown }).nodes;
+  if (Array.isArray(nodes)) {
+    for (const node of nodes) {
+      if (!node || typeof node !== "object") continue;
+      for (const groupKey of ["addedFields", "changedFields", "removedFields"]) {
+        const group = (node as Record<string, unknown>)[groupKey];
+        if (!Array.isArray(group)) continue;
+        for (const field of group) {
+          if (field && typeof field === "object" && (field as { secret?: unknown }).secret === true) {
+            (field as Record<string, unknown>).before = { kind: "redacted" };
+            (field as Record<string, unknown>).after = { kind: "redacted" };
+          }
+        }
+      }
+    }
+  }
+  try {
+    if (JSON.stringify(diff).length > DIFF_MAX_SERIALIZED) return null;
+  } catch {
+    return null;
+  }
+  return diff;
+}
+
 function isNewStatus(status: AgentChangeStatus): boolean {
   return (AGENT_CHANGE_NEW_STATUSES as readonly string[]).includes(status);
 }
@@ -69,6 +107,8 @@ function toDto(record: AgentChangeHistoryRecord): AgentChangeHistoryItem {
     checkpointId: record.checkpointId,
     runId: record.runId,
     failureReason: record.failureReason,
+    diff: record.diff,
+    aiCostEventId: record.aiCostEventId,
     createdByUserId: record.createdByUserId,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
@@ -89,10 +129,13 @@ export async function recordAgentChange(
   const checkpointId = request.checkpointId ?? null;
   const runId = request.runId ?? null;
   const failureReason = clampText(request.failureReason, AGENT_CHANGE_REASON_MAX);
+  const diff = sanitizeStoredDiff(request.diff);
+  const aiCostEventId = request.aiCostEventId ?? null;
 
   // Transition path: update the row that shares this agent_change_id in place,
   // preserving the prompt/title/summary/counts captured at preview_created. Only
-  // the new status + explicitly-supplied refs are written.
+  // the new status + explicitly-supplied refs are written. A diff / cost-event
+  // link supplied at apply time (not present at preview_created) is set here.
   if (!isNewStatus(request.status)) {
     const updated = await historyRepo.updateStatusByAgentChangeId({
       agentChangeId: request.agentChangeId,
@@ -101,6 +144,8 @@ export async function recordAgentChange(
       checkpointId,
       runId,
       failureReason,
+      ...(request.diff !== undefined ? { diff } : {}),
+      ...(request.aiCostEventId !== undefined ? { aiCostEventId } : {}),
     });
     if (updated) {
       // A transition should never grow the table, but prune defensively (cheap, best-effort).
@@ -129,6 +174,8 @@ export async function recordAgentChange(
     checkpointId,
     runId,
     failureReason,
+    diff,
+    aiCostEventId,
   });
   await pruneQuietly(input.workflowId);
   return toDto(created);

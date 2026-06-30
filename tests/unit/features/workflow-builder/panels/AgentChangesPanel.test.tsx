@@ -35,6 +35,8 @@ function item(overrides: Partial<AgentChangeHistoryItem> = {}): AgentChangeHisto
     checkpointId: "cp-1",
     runId: null,
     failureReason: null,
+    diff: null,
+    aiCostEventId: null,
     createdByUserId: "user-1",
     createdAt: "2026-07-16T01:00:00Z",
     updatedAt: "2026-07-16T01:00:00Z",
@@ -44,6 +46,7 @@ function item(overrides: Partial<AgentChangeHistoryItem> = {}): AgentChangeHisto
 
 function renderPanel(overrides: Partial<ComponentProps<typeof AgentChangesPanel>> = {}) {
   const onRestore = jest.fn();
+  const onViewDiff = jest.fn();
   render(
     <AgentChangesPanel
       items={[item()]}
@@ -52,10 +55,11 @@ function renderPanel(overrides: Partial<ComponentProps<typeof AgentChangesPanel>
       restoringCheckpointId={null}
       restoreError={null}
       onRestore={onRestore}
+      onViewDiff={onViewDiff}
       {...overrides}
     />,
   );
-  return { onRestore };
+  return { onRestore, onViewDiff };
 }
 
 describe("AgentChangesPanel", () => {
@@ -88,6 +92,19 @@ describe("AgentChangesPanel", () => {
   it("hides Restore for an item with no linked checkpoint", () => {
     renderPanel({ items: [item({ status: "preview_discarded", checkpointId: null })] });
     expect(screen.queryByTestId("builder-agent-change-restore")).not.toBeInTheDocument();
+  });
+
+  it("offers 'View diff' only for an item with a stored diff and calls onViewDiff with it", async () => {
+    const user = userEvent.setup();
+    const withDiff = item({ diff: { nodes: [] } });
+    const { onViewDiff } = renderPanel({ items: [withDiff] });
+    await user.click(screen.getByTestId("builder-agent-change-view-diff"));
+    expect(onViewDiff).toHaveBeenCalledWith(withDiff);
+  });
+
+  it("hides 'View diff' for an item with no stored diff", () => {
+    renderPanel({ items: [item({ diff: null })] });
+    expect(screen.queryByTestId("builder-agent-change-view-diff")).not.toBeInTheDocument();
   });
 
   it("reveals the failure reason for a failed apply via View details", async () => {

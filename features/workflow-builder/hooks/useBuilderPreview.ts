@@ -227,17 +227,21 @@ export function useBuilderPreview({
       // proposedDefinition → zero counts. The user's prompt + the preview summary carry the meaning.
       const agentChangeId = payload.agentChangeId ?? mintAgentChangeId();
       const withId: BuilderPreviewOverlayState = { ...payload, agentChangeId };
+      // Compute the (already-secret-redacted) value diff ONCE: counts are derived from it, and the
+      // diff itself is stored for the per-item "View diff" (edit path; additive new-workflow path has
+      // no proposedDefinition → no diff/zero counts). The server re-scrubs + size-caps before persisting.
       let counts = EMPTY_AGENT_CHANGE_COUNTS;
+      let showDiff: ConfigDiff | undefined;
       if (payload.proposedDefinition) {
         try {
-          counts = summarizeConfigDiff(
-            buildConfigDiff({
-              current: { nodes: useGraphSlice.getState().pendingNodes },
-              candidate: { nodes: payload.proposedDefinition.nodes },
-              ...(fieldMetaByType ? { fieldMetaByType } : {}),
-            }),
-          );
+          showDiff = buildConfigDiff({
+            current: { nodes: useGraphSlice.getState().pendingNodes },
+            candidate: { nodes: payload.proposedDefinition.nodes },
+            ...(fieldMetaByType ? { fieldMetaByType } : {}),
+          });
+          counts = summarizeConfigDiff(showDiff);
         } catch {
+          showDiff = undefined;
           counts = EMPTY_AGENT_CHANGE_COUNTS;
         }
       }
@@ -247,6 +251,7 @@ export function useBuilderPreview({
         title: buildAgentChangeTitle(counts),
         ...(payload.preview.summary ? { summary: payload.preview.summary } : {}),
         counts,
+        ...(showDiff ? { diff: showDiff } : {}),
       });
       setPreviewOverlay(withId);
       // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — bump the per-show token so the canvas fits once for
@@ -319,6 +324,21 @@ export function useBuilderPreview({
       return;
     }
     if (outcome?.ok) {
+      // AGENT-CHANGE-HISTORY-1 (View diff) — capture the FAITHFUL before→after value diff for this
+      // applied change (the actual draft delta, for BOTH the edit and additive paths), already
+      // secret-redacted by the core helper. Stored on the timeline row so a past item can render
+      // "View diff" read-only. Wrapped so a diff failure never blocks the apply.
+      let appliedDiff: ConfigDiff | undefined;
+      try {
+        appliedDiff = buildConfigDiff({
+          current: { nodes: beforeDefinition.nodes },
+          candidate: { nodes: useGraphSlice.getState().pendingNodes },
+          ...(fieldMetaByType ? { fieldMetaByType } : {}),
+        });
+      } catch {
+        appliedDiff = undefined;
+      }
+      const appliedDiffArg = appliedDiff ? { diff: appliedDiff } : {};
       // CHECKPOINTS-1 — a real change landed: durably record a "Before React Agent change" restore
       // point with the captured pre-apply draft + the user's prompt + the change summary. Fire-and-
       // forget so apply stays instant; on failure surface a non-blocking warning (the local undo/redo
@@ -332,12 +352,12 @@ export function useBuilderPreview({
           .then((cp) => {
             // AGENT-CHANGE-HISTORY-1 — record the apply, LINKED to the restore point just captured so
             // the timeline item offers "Restore". The checkpoint id is only known here (client-created).
-            if (agentChangeId) agentChanges.emitApplied({ agentChangeId, checkpointId: cp.id });
+            if (agentChangeId) agentChanges.emitApplied({ agentChangeId, checkpointId: cp.id, ...appliedDiffArg });
           })
           .catch(() => {
             setCheckpointWarning("Couldn't save a restore point for this change.");
             // The change DID apply — record it even though the restore point couldn't be saved.
-            if (agentChangeId) agentChanges.emitApplied({ agentChangeId });
+            if (agentChangeId) agentChanges.emitApplied({ agentChangeId, ...appliedDiffArg });
           });
       }
       const placement = "placement" in outcome ? outcome.placement : "replaced";
@@ -378,7 +398,7 @@ export function useBuilderPreview({
     }
     setPreviewOverlay(null);
     setPreviewConfig({});
-  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, localOnly, createReactAgentCheckpoint, agentChanges]);
+  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, fieldMetaByType, localOnly, createReactAgentCheckpoint, agentChanges]);
 
   // CHECKPOINTS-1 — restore a checkpoint server-side, then re-hydrate the builder graph with the
   // returned (restored) draft. The restore advances updatedAt to a strictly-newer revision, so the

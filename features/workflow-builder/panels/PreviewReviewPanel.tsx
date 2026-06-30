@@ -7,7 +7,10 @@ import type {
   ConfigFieldChange,
   NodeConfigDiff,
 } from "@/core/workflows/buildConfigDiff";
-import type { AgentPreviewRationale } from "@/core/workflows/buildPreviewRationale";
+import type {
+  AgentPreviewFieldReason,
+  AgentPreviewRationale,
+} from "@/core/workflows/buildPreviewRationale";
 
 /**
  * React Agent preview — right-rail "Review changes" panel (HERMES-AGENT-CONFIG-DIFF-REVIEW).
@@ -38,10 +41,15 @@ export interface PreviewReviewPanelProps {
    * never config values). Rendered near the top ONLY when it has bullets; null/empty → no section.
    */
   readonly rationale?: AgentPreviewRationale | null;
-  /** Existing explicit "Apply preview" action (replaces the local draft). */
-  readonly onApply: () => void;
-  /** Existing explicit "Discard preview" action (graph unchanged). */
-  readonly onDiscard: () => void;
+  /** Existing explicit "Apply preview" action (replaces the local draft). Omit in read-only mode. */
+  readonly onApply?: () => void;
+  /** Existing explicit "Discard preview" action (graph unchanged). Omit in read-only mode. */
+  readonly onDiscard?: () => void;
+  /**
+   * AGENT-CHANGE-HISTORY-1 — read-only mode for the historical "View diff" drawer: render the same
+   * value-level diff WITHOUT the Apply/Discard actions (a past change can't be re-applied from here).
+   */
+  readonly hideActions?: boolean;
 }
 
 const WHY_BULLET_DOT: Record<string, string> = {
@@ -56,14 +64,44 @@ const STATUS_VERB: Record<NodeConfigDiff["status"], string> = {
   removed: "Removing",
 };
 
+interface FieldReasonGroup {
+  readonly nodeId: string;
+  readonly nodeLabel: string;
+  readonly reasons: readonly AgentPreviewFieldReason[];
+}
+
+/** Group the flat high-risk field reasons by node, preserving first-seen order. */
+function groupFieldReasonsByNode(
+  reasons: readonly AgentPreviewFieldReason[],
+): readonly FieldReasonGroup[] {
+  const groups: FieldReasonGroup[] = [];
+  const byNode = new Map<string, AgentPreviewFieldReason[]>();
+  for (const reason of reasons) {
+    let bucket = byNode.get(reason.nodeId);
+    if (!bucket) {
+      bucket = [];
+      byNode.set(reason.nodeId, bucket);
+      groups.push({ nodeId: reason.nodeId, nodeLabel: reason.nodeLabel, reasons: bucket });
+    }
+    bucket.push(reason);
+  }
+  return groups;
+}
+
 export function PreviewReviewPanel({
   summary,
   configDiff,
   rationale,
   onApply,
   onDiscard,
+  hideActions,
 }: PreviewReviewPanelProps) {
   const whyBullets = rationale?.bullets ?? [];
+  const fieldReasonGroups = groupFieldReasonsByNode(rationale?.fieldReasons ?? []);
+  const actions =
+    !hideActions && onApply && onDiscard ? (
+      <ReviewActions onApply={onApply} onDiscard={onDiscard} />
+    ) : null;
   if (configDiff === null) {
     return (
       <div data-testid="preview-review-panel" className="flex flex-col gap-3 p-3">
@@ -72,9 +110,11 @@ export function PreviewReviewPanel({
           className="text-[12px]"
           style={{ color: "var(--builder-muted)" }}
         >
-          Couldn&apos;t build the change preview. You can still apply or discard the suggested change.
+          {hideActions
+            ? "Couldn't build the change preview for this item."
+            : "Couldn't build the change preview. You can still apply or discard the suggested change."}
         </p>
-        <ReviewActions onApply={onApply} onDiscard={onDiscard} />
+        {actions}
       </div>
     );
   }
@@ -116,6 +156,36 @@ export function PreviewReviewPanel({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {fieldReasonGroups.length > 0 ? (
+        <section data-testid="preview-review-field-reasons">
+          <SectionHeading>High-risk fields</SectionHeading>
+          <div className="mt-1 space-y-1.5">
+            {fieldReasonGroups.map((group) => (
+              <div
+                key={`field-reasons-${group.nodeId}`}
+                data-testid={`preview-review-field-reasons-${group.nodeId}`}
+              >
+                <div className="text-[11px] font-semibold" style={{ color: "var(--builder-muted)" }}>
+                  {group.nodeLabel}
+                </div>
+                <ul className="ml-3 list-disc">
+                  {group.reasons.map((reason) => (
+                    <li
+                      key={`${reason.fieldPath}-${reason.status}`}
+                      data-testid={`preview-review-field-reason-${group.nodeId}-${reason.fieldPath}`}
+                      className="text-[11.5px]"
+                      style={{ color: "var(--builder-text)" }}
+                    >
+                      {reason.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </section>
       ) : null}
 
@@ -178,7 +248,7 @@ export function PreviewReviewPanel({
         </section>
       ) : null}
 
-      <ReviewActions onApply={onApply} onDiscard={onDiscard} />
+      {actions}
     </div>
   );
 }

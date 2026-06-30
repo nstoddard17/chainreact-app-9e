@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
+import type { AgentChangeHistoryItem } from "@/contracts/agentChangeHistory";
+import type { ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import { useRestoredDraftHandoff } from "./hooks/useRestoredDraftHandoff";
 import { RestoredDraftBanner } from "./panels/RestoredDraftBanner";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
@@ -421,6 +423,10 @@ export function WorkflowBuilder({
     pendingEdges,
   });
 
+  // AGENT-CHANGE-HISTORY-1 (View diff) — the past change whose stored, redacted diff is shown read-only
+  // in the right drawer. Set from the Agent changes timeline; cleared on drawer close.
+  const [viewDiffItem, setViewDiffItem] = useState<AgentChangeHistoryItem | null>(null);
+
   const canAddAction = hasTrigger && tailCount <= 1;
   const addActionBlockedReason: "no-trigger" | "multiple-tails" | undefined = !hasTrigger
     ? "no-trigger"
@@ -545,6 +551,7 @@ export function WorkflowBuilder({
                 restoringCheckpointId={checkpointRestoringId}
                 restoreError={checkpointRestoreError}
                 onRestore={handleRestoreCheckpoint}
+                onViewDiff={setViewDiffItem}
               />
             }
             checkpointsPanel={
@@ -564,7 +571,19 @@ export function WorkflowBuilder({
         </BuilderLeftAgentRail>
       }
       rightDrawer={
-        previewReviewActive ? (
+        viewDiffItem ? (
+          // AGENT-CHANGE-HISTORY-1 (View diff) — read-only render of a PAST change's stored, redacted
+          // diff. Highest drawer precedence (user-initiated from the Agent changes timeline); closing
+          // (× / Esc) returns to whatever drawer was underneath. No Apply/Discard — a past change can't
+          // be re-applied from here.
+          <BuilderRightDrawer title="Change details" onClose={() => setViewDiffItem(null)}>
+            <PreviewReviewPanel
+              hideActions
+              {...(viewDiffItem.summary ? { summary: viewDiffItem.summary } : {})}
+              configDiff={(viewDiffItem.diff as unknown as ConfigDiff | null) ?? null}
+            />
+          </BuilderRightDrawer>
+        ) : previewReviewActive ? (
           // HERMES-AGENT-CONFIG-DIFF-REVIEW — while an EDIT preview is active the right drawer takes over
           // with the value-level "Review changes" rail (precedence over inspector/results/validation). The
           // canvas keeps the structural diff; this rail owns the field-level detail. Closing the drawer

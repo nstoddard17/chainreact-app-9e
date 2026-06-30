@@ -62,6 +62,8 @@ function recordFixture(
     checkpointId: null,
     runId: null,
     failureReason: null,
+    diff: null,
+    aiCostEventId: null,
     createdAt: "2026-07-16T01:00:00Z",
     updatedAt: "2026-07-16T01:00:00Z",
     ...overrides,
@@ -214,6 +216,75 @@ describe("recordAgentChange — restored_checkpoint (new)", () => {
         checkpointId: "33333333-3333-4333-8333-333333333333",
       }),
     );
+  });
+});
+
+describe("recordAgentChange — stored diff (View diff) + eval link", () => {
+  const SECRET = "xoxb-super-secret-token";
+  // A ConfigDiff-shaped payload with a SECRET field carrying a raw value (a misbehaving client).
+  const diffWithSecret = {
+    nodes: [
+      {
+        nodeId: "a1",
+        provider: "slack",
+        type: "send_channel_message",
+        label: "Slack",
+        status: "changed",
+        addedFields: [],
+        changedFields: [
+          { name: "token", label: "Token", secret: true, after: { kind: "summary", summary: SECRET } },
+          { name: "text", label: "Text", secret: false, after: { kind: "text", preview: "hi", truncated: false } },
+        ],
+        removedFields: [],
+        missingRequiredFields: [],
+        variablesUsed: [],
+      },
+    ],
+  };
+
+  it("re-scrubs a secret field's value to redacted before persisting (defense in depth)", async () => {
+    mockCreate.mockResolvedValue(recordFixture({ diff: diffWithSecret }));
+    await recordAgentChange({
+      workflowId: "wf-1",
+      accountId: "acct-1",
+      createdByUserId: "user-1",
+      request: req({ status: "preview_created", diff: diffWithSecret }),
+    });
+    const storedDiff = mockCreate.mock.calls[0]?.[0]?.diff;
+    // The secret-flagged field's value is forced to { kind: 'redacted' } — the raw token never persists.
+    const secretField = storedDiff.nodes[0].changedFields[0];
+    expect(secretField.after).toEqual({ kind: "redacted" });
+    expect(JSON.stringify(storedDiff)).not.toContain(SECRET);
+    // A non-secret field keeps its (already-redacted-by-the-helper) value preview.
+    expect(storedDiff.nodes[0].changedFields[1].after).toEqual({ kind: "text", preview: "hi", truncated: false });
+  });
+
+  it("drops an oversized diff (stores null) so the row never bloats", async () => {
+    const huge = { nodes: Array.from({ length: 5000 }, (_v, i) => ({
+      nodeId: `n${i}`, provider: "slack", type: "x", label: "L".repeat(20), status: "changed",
+      addedFields: [], changedFields: [], removedFields: [], missingRequiredFields: [], variablesUsed: [],
+    })) };
+    mockCreate.mockResolvedValue(recordFixture());
+    await recordAgentChange({
+      workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      request: req({ status: "preview_created", diff: huge }),
+    });
+    expect(mockCreate.mock.calls[0]?.[0]?.diff).toBeNull();
+  });
+
+  it("stores the diff + ai_cost_event_id on a preview_applied transition", async () => {
+    mockUpdate.mockResolvedValue(recordFixture({ status: "preview_applied", diff: diffWithSecret, aiCostEventId: "ce-1" }));
+    await recordAgentChange({
+      workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      request: req({
+        status: "preview_applied",
+        diff: diffWithSecret,
+        aiCostEventId: "44444444-4444-4444-8444-444444444444",
+      }),
+    });
+    const call = mockUpdate.mock.calls[0]?.[0];
+    expect(call.aiCostEventId).toBe("44444444-4444-4444-8444-444444444444");
+    expect(call.diff.nodes[0].changedFields[0].after).toEqual({ kind: "redacted" });
   });
 });
 

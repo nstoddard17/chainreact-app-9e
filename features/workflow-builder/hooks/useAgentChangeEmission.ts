@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import type { ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import type { AgentChangeCounts } from "./agentChangeSummary";
 import { useGraphSlice } from "../state/graphSlice";
 import { useAgentChangeHistory } from "./useAgentChangeHistory";
+
+/** ConfigDiff has no index signature, so cast (not assign) it to the jsonb request shape. */
+function diffToJson(diff: ConfigDiff): Record<string, unknown> {
+  return diff as unknown as Record<string, unknown>;
+}
 
 /**
  * AGENT-CHANGE-HISTORY-1 — emission orchestration for the React Agent change
@@ -50,6 +56,17 @@ export interface EmitPreviewCreatedInput {
   summary?: string;
   counts: AgentChangeCounts;
   previewPatchRef?: string;
+  /** Redacted ConfigDiff for "View diff" (edit path only; the server re-scrubs + caps it). */
+  diff?: ConfigDiff;
+}
+
+export interface EmitAppliedInput {
+  agentChangeId: string;
+  checkpointId?: string;
+  /** Redacted before→after ConfigDiff captured at apply time (drives "View diff"). */
+  diff?: ConfigDiff;
+  /** ai_cost_events link, when the apply went through a server path that wrote one. */
+  aiCostEventId?: string;
 }
 
 export interface UseAgentChangeEmission {
@@ -58,7 +75,7 @@ export interface UseAgentChangeEmission {
   readonly error: string | null;
   refresh(): Promise<void>;
   emitPreviewCreated(input: EmitPreviewCreatedInput): void;
-  emitApplied(input: { agentChangeId: string; checkpointId?: string }): void;
+  emitApplied(input: EmitAppliedInput): void;
   emitDiscarded(agentChangeId: string): void;
   emitApplyFailed(input: { agentChangeId: string; reason: string }): void;
   /** Records a `restored_checkpoint` row (mints its own change id). */
@@ -114,13 +131,14 @@ export function useAgentChangeEmission(
         changedConfigCount: input.counts.changedConfigCount,
         setupIssueCount: input.counts.setupIssueCount,
         ...(input.previewPatchRef ? { previewPatchRef: input.previewPatchRef } : {}),
+        ...(input.diff ? { diff: diffToJson(input.diff) } : {}),
       });
     },
     [enabled, record],
   );
 
   const emitApplied = useCallback(
-    (input: { agentChangeId: string; checkpointId?: string }): void => {
+    (input: EmitAppliedInput): void => {
       if (!enabled) return;
       // Mark this apply as the next-undoable, capturing the post-apply history depth.
       undoableRef.current = {
@@ -131,6 +149,8 @@ export function useAgentChangeEmission(
         agentChangeId: input.agentChangeId,
         status: "preview_applied",
         ...(input.checkpointId ? { checkpointId: input.checkpointId } : {}),
+        ...(input.diff ? { diff: diffToJson(input.diff) } : {}),
+        ...(input.aiCostEventId ? { aiCostEventId: input.aiCostEventId } : {}),
       });
     },
     [enabled, record],

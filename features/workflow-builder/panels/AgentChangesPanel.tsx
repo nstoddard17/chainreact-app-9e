@@ -28,6 +28,8 @@ export interface AgentChangesPanelProps {
   readonly restoreError: string | null;
   /** Restore the checkpoint linked to a history item (reuses the checkpoint restore path). */
   readonly onRestore: (checkpointId: string) => void;
+  /** Open the read-only "View diff" drawer for an item that captured a diff (owned by the builder). */
+  readonly onViewDiff?: (item: AgentChangeHistoryItem) => void;
 }
 
 interface StatusDisplay {
@@ -82,6 +84,7 @@ export function AgentChangesPanel({
   restoringCheckpointId,
   restoreError,
   onRestore,
+  onViewDiff,
 }: AgentChangesPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Stable per-render clock so every row formats against the same instant.
@@ -126,6 +129,7 @@ export function AgentChangesPanel({
             const counts = countsLine(item);
             const expanded = expandedId === item.id;
             const canRestore = item.checkpointId !== null;
+            const canViewDiff = item.diff !== null && onViewDiff !== undefined;
             const restoring =
               item.checkpointId !== null && restoringCheckpointId === item.checkpointId;
             return (
@@ -206,6 +210,17 @@ export function AgentChangesPanel({
                   >
                     {expanded ? "Hide details" : "View details"}
                   </button>
+                  {canViewDiff ? (
+                    <button
+                      type="button"
+                      data-testid="builder-agent-change-view-diff"
+                      onClick={() => onViewDiff!(item)}
+                      className="rounded px-2 py-1 text-[12px]"
+                      style={{ border: "1px solid var(--builder-border)" }}
+                    >
+                      View diff
+                    </button>
+                  ) : null}
                   {canRestore ? (
                     <button
                       type="button"

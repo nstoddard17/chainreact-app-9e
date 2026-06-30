@@ -92,6 +92,20 @@ CREATE TABLE public.agent_change_history (
   -- provider/DB error (the service passes only humanized, identifier-free text).
   failure_reason text,
 
+  -- AGENT-CHANGE-HISTORY-1 (View diff) — the REDACTED value-level config diff for
+  -- this change (the exact secret-scrubbed shape the live "Review changes" rail
+  -- renders: ConfigDiff). Secret-shaped fields are stored as { kind: 'redacted' }
+  -- with NO value (the service re-scrubs defensively + size-caps before write).
+  -- Null when no diff was computed (e.g. the additive new-workflow path before
+  -- apply) or it exceeded the size cap. Must be a JSON object when present.
+  diff jsonb,
+
+  -- AGENT-CHANGE-HISTORY-1 (eval linkage) — link to the ai_cost_events row written
+  -- for this change, WHERE ONE EXISTS (the server apply / failed-run repair path).
+  -- Null for the local builder overlay apply (no cost event is written there).
+  -- SET NULL if the cost event is purged so the history row survives.
+  ai_cost_event_id uuid REFERENCES public.ai_cost_events(id) ON DELETE SET NULL,
+
   -- Aggregate-safe metadata only (sanitized by the service). Must be an object.
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
 
@@ -104,6 +118,9 @@ CREATE TABLE public.agent_change_history (
   -- Metadata must be a JSON object (never a scalar/array that could smuggle a blob).
   CONSTRAINT agent_change_history_metadata_object_chk
     CHECK (jsonb_typeof(metadata) = 'object'),
+  -- The stored diff, when present, must be a JSON object (the ConfigDiff shape).
+  CONSTRAINT agent_change_history_diff_object_chk
+    CHECK (diff IS NULL OR jsonb_typeof(diff) = 'object'),
   -- Counts can never be negative.
   CONSTRAINT agent_change_history_counts_nonneg_chk CHECK (
     changed_node_count >= 0

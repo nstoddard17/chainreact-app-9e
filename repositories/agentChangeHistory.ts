@@ -35,6 +35,8 @@ export interface AgentChangeHistoryRecord {
   checkpointId: string | null;
   runId: string | null;
   failureReason: string | null;
+  diff: Record<string, unknown> | null;
+  aiCostEventId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +61,8 @@ interface AgentChangeHistoryRow {
   checkpoint_id: string | null;
   run_id: string | null;
   failure_reason: string | null;
+  diff: Record<string, unknown> | null;
+  ai_cost_event_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -66,7 +70,7 @@ interface AgentChangeHistoryRow {
 // Single string LITERAL (not a `+` concatenation) so supabase-js can parse the
 // column list into the row type — a widened `string` falls back to its error type.
 const COLUMNS =
-  "id, agent_change_id, workflow_id, account_id, created_by_user_id, source, status, prompt, title, summary, changed_node_count, added_node_count, removed_node_count, changed_config_count, setup_issue_count, preview_patch_ref, checkpoint_id, run_id, failure_reason, created_at, updated_at";
+  "id, agent_change_id, workflow_id, account_id, created_by_user_id, source, status, prompt, title, summary, changed_node_count, added_node_count, removed_node_count, changed_config_count, setup_issue_count, preview_patch_ref, checkpoint_id, run_id, failure_reason, diff, ai_cost_event_id, created_at, updated_at";
 
 function rowToRecord(row: AgentChangeHistoryRow): AgentChangeHistoryRecord {
   return {
@@ -89,6 +93,8 @@ function rowToRecord(row: AgentChangeHistoryRow): AgentChangeHistoryRecord {
     checkpointId: row.checkpoint_id,
     runId: row.run_id,
     failureReason: row.failure_reason,
+    diff: row.diff,
+    aiCostEventId: row.ai_cost_event_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -112,6 +118,8 @@ export interface CreateAgentChangeInput {
   checkpointId: string | null;
   runId: string | null;
   failureReason: string | null;
+  diff: Record<string, unknown> | null;
+  aiCostEventId: string | null;
 }
 
 /** Insert a new history row (preview_created / restored_checkpoint, or a transition with no prior row). */
@@ -140,6 +148,8 @@ export async function create(
       checkpoint_id: input.checkpointId,
       run_id: input.runId,
       failure_reason: input.failureReason,
+      diff: input.diff,
+      ai_cost_event_id: input.aiCostEventId,
     })
     .select(COLUMNS)
     .single<AgentChangeHistoryRow>();
@@ -159,6 +169,8 @@ export interface TransitionAgentChangeInput {
   checkpointId?: string | null;
   runId?: string | null;
   failureReason?: string | null;
+  diff?: Record<string, unknown> | null;
+  aiCostEventId?: string | null;
 }
 
 /**
@@ -178,6 +190,8 @@ export async function updateStatusByAgentChangeId(
   if (input.checkpointId !== undefined) patch.checkpoint_id = input.checkpointId;
   if (input.runId !== undefined) patch.run_id = input.runId;
   if (input.failureReason !== undefined) patch.failure_reason = input.failureReason;
+  if (input.diff !== undefined) patch.diff = input.diff;
+  if (input.aiCostEventId !== undefined) patch.ai_cost_event_id = input.aiCostEventId;
 
   const { data, error } = await supabase
     .from("agent_change_history")

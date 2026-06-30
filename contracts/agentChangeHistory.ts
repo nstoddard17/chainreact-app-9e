@@ -72,6 +72,15 @@ export interface AgentChangeHistoryItem {
   readonly runId: string | null;
   /** User-safe humanized failure reason (apply_failed / test_failed). */
   readonly failureReason: string | null;
+  /**
+   * The REDACTED value-level config diff for this change (the same secret-scrubbed
+   * `ConfigDiff` shape the live "Review changes" rail renders), or null when none
+   * was captured / it exceeded the size cap. Consumers cast to `ConfigDiff`.
+   * Drives the per-item "View diff" action. NEVER carries secret values.
+   */
+  readonly diff: Record<string, unknown> | null;
+  /** Link to the ai_cost_events row for this change, where one exists (server apply / repair path). */
+  readonly aiCostEventId: string | null;
   /** Provenance — the actor; null when the user was deleted. */
   readonly createdByUserId: string | null;
   readonly createdAt: string;
@@ -102,6 +111,13 @@ export const RecordAgentChangeRequestSchema = z.object({
   checkpointId: z.string().uuid().optional(),
   runId: z.string().uuid().optional(),
   failureReason: z.string().trim().max(AGENT_CHANGE_REASON_MAX).optional(),
+  /**
+   * The redacted `ConfigDiff` for "View diff". Validated only as a JSON object here;
+   * the service defensively re-scrubs secret field values and enforces a size cap
+   * before persisting (so a malformed/oversized client payload can never leak or bloat).
+   */
+  diff: z.record(z.string(), z.unknown()).optional(),
+  aiCostEventId: z.string().uuid().optional(),
 });
 export type RecordAgentChangeRequest = z.infer<typeof RecordAgentChangeRequestSchema>;
 

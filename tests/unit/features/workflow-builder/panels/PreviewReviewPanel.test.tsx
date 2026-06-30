@@ -54,6 +54,16 @@ const diff: ConfigDiff = {
 };
 
 describe("PreviewReviewPanel", () => {
+  it("renders the diff WITHOUT Apply/Discard in read-only mode (hideActions) for the historical View diff", () => {
+    render(<PreviewReviewPanel configDiff={diff} hideActions />);
+    // The value-level diff still renders…
+    expect(screen.getByTestId("preview-review-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("preview-review-overview-gmail-1")).toBeInTheDocument();
+    // …but the mutating actions are gone (a past change can't be re-applied from here).
+    expect(screen.queryByTestId("preview-review-apply")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("preview-review-discard")).not.toBeInTheDocument();
+  });
+
   it("renders summary, node changes, config changes, and setup-needed sections", () => {
     render(
       <PreviewReviewPanel summary="Add a Gmail step and retarget the Slack channel." configDiff={diff} onApply={jest.fn()} onDiscard={jest.fn()} />,
@@ -82,6 +92,7 @@ describe("PreviewReviewPanel", () => {
         { kind: "preserved", text: "Kept the native:manual.run trigger.", nodeId: "t1" },
         { kind: "needs_user_input", text: "Gmail / Send Email still needs To.", nodeId: "gmail-1", fieldPath: "to" },
       ],
+      fieldReasons: [],
     };
     render(<PreviewReviewPanel summary="x" configDiff={diff} rationale={rationale} onApply={jest.fn()} onDiscard={jest.fn()} />);
     const why = screen.getByTestId("preview-review-why");
@@ -95,9 +106,49 @@ describe("PreviewReviewPanel", () => {
     const { rerender } = render(<PreviewReviewPanel configDiff={diff} rationale={null} onApply={jest.fn()} onDiscard={jest.fn()} />);
     expect(screen.queryByTestId("preview-review-why")).not.toBeInTheDocument();
     rerender(
-      <PreviewReviewPanel configDiff={diff} rationale={{ title: "Why this change?", bullets: [] }} onApply={jest.fn()} onDiscard={jest.fn()} />,
+      <PreviewReviewPanel configDiff={diff} rationale={{ title: "Why this change?", bullets: [], fieldReasons: [] }} onApply={jest.fn()} onDiscard={jest.fn()} />,
     );
     expect(screen.queryByTestId("preview-review-why")).not.toBeInTheDocument();
+  });
+
+  it("renders high-risk field reasons grouped by node, and omits the section when there are none", () => {
+    const rationale: AgentPreviewRationale = {
+      title: "Why this change?",
+      bullets: [{ kind: "node_changed", text: "Updated Slack / Send Channel Message.", nodeId: "slack-1" }],
+      fieldReasons: [
+        {
+          nodeId: "slack-1",
+          nodeLabel: "Slack / Send Channel Message",
+          fieldPath: "channel",
+          fieldLabel: "Channel",
+          status: "changed",
+          category: "recipient",
+          text: "Channel changed — controls where this sends.",
+        },
+      ],
+    };
+    const { rerender } = render(
+      <PreviewReviewPanel configDiff={diff} rationale={rationale} onApply={jest.fn()} onDiscard={jest.fn()} />,
+    );
+    const section = screen.getByTestId("preview-review-field-reasons");
+    expect(section).toHaveTextContent("Slack / Send Channel Message");
+    expect(screen.getByTestId("preview-review-field-reason-slack-1-channel")).toHaveTextContent(
+      "Channel changed — controls where this sends.",
+    );
+    // No raw before/after value leaks into the field-reasons section.
+    expect(section).not.toHaveTextContent("#support");
+    expect(section).not.toHaveTextContent("#sales");
+
+    // Empty fieldReasons → the whole section is omitted.
+    rerender(
+      <PreviewReviewPanel
+        configDiff={diff}
+        rationale={{ title: "Why this change?", bullets: [], fieldReasons: [] }}
+        onApply={jest.fn()}
+        onDiscard={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("preview-review-field-reasons")).not.toBeInTheDocument();
   });
 
   it("renders a redacted field as hidden and never shows a raw secret value", () => {
