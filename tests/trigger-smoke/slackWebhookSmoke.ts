@@ -1,35 +1,39 @@
 /**
- * Trigger-smoke harness — Slack WEBHOOK trigger dispatch path (Lane C beachhead).
+ * Trigger-smoke harness — Slack WEBHOOK trigger dispatch path (Lane C).
  *
- * The first synthetic-webhook-receipt smoke. Certifies the full real receipt path
- * for ONE low-risk, non-message, non-PII Slack lifecycle webhook:
+ * Spec-driven synthetic-webhook-receipt smoke. Certifies the full real receipt
+ * path for low-risk, non-message, non-PII Slack lifecycle/metadata webhooks:
  *
  *   slack:channel_created  (canonical eventType `slack.channel_created`)
+ *   slack:file_shared      (canonical eventType `slack.file_shared`)
  *
- * WHY this trigger (Lane C candidate selection, see the readiness checkpoint §13):
- *   - already registered (ALL_TRIGGER_META) + has a real receive/normalize/dispatch
+ * WHY these triggers (Lane C candidate selection, see the readiness checkpoint
+ * §13/§14):
+ *   - already registered (ALL_TRIGGER_META) + a real receive/normalize/dispatch
  *     path (app/api/webhooks/slack → integrations/slack/webhooks/{receive,normalize}
  *     → services/triggers/dispatch),
- *   - drivable with a fully synthetic provider-shaped event_callback payload
- *     (the event IS the channel creation; no follow-up provider fetch in normalize),
- *   - requires NO real provider mutation (no channel is actually created),
- *   - does NOT send / broadcast / publish (the wired action is a native no-op),
- *   - exposes NO raw bytes / message body — channel METADATA only, and every value
- *     in the synthetic payload is minted by the smoke (no user content, no PII),
- *   - routes to a smoke-owned workflow + trigger_resources row,
- *   - carries a deterministic Slack `event_id` → dedup is provable.
+ *   - drivable with a fully synthetic provider-shaped event_callback payload (the
+ *     event IS the lifecycle fact; `normalize.ts` passes the inner event through
+ *     verbatim — NO follow-up provider fetch),
+ *   - require NO real provider mutation (no channel created, no file shared),
+ *   - do NOT send / broadcast / publish (the wired action is a native no-op),
+ *   - expose NO raw bytes / message body — `channel_created` is channel METADATA,
+ *     `file_shared` carries ONLY id stubs (file_id / user_id / channel_id, no name /
+ *     mimeType / size / url / bytes / FileRef). Every value is smoke-minted (no user
+ *     content, no PII, no real channel / file / user),
+ *   - route to a smoke-owned workflow + trigger_resources row,
+ *   - carry a deterministic Slack `event_id` → dedup is provable.
  *
- * The REAL receipt path is exercised end-to-end:
- *   create active smoke workflow (slack:channel_created trigger → native no-op) →
- *   ARM via the real `registerWorkflowTriggers` (Slack needs no provider-side
- *   subscription — registration is a pure trigger_resources upsert; no integration
- *   required) → assert the row's event_type is the canonical dispatch key
- *   `slack.channel_created` → BASELINE: no event delivered yet ⇒ 0 runs →
- *   build a synthetic signed `event_callback` and POST it to the REAL route
- *   `POST /api/webhooks/slack` (real HMAC verify → real normalize → real
- *   `dispatchTriggerEvent` → dedup → enqueue) → exactly ONE durable 'queued' run
- *   whose `trigger_event` identifies the synthetic event (eventId + channel id +
- *   channel-name marker) → drain via the real durable-queue processor → terminal
+ * The REAL receipt path is exercised end-to-end per spec:
+ *   create active smoke workflow (slack trigger → native no-op) → ARM via the real
+ *   `registerWorkflowTriggers` (Slack needs no provider-side subscription —
+ *   registration is a pure trigger_resources upsert; no integration required) →
+ *   assert the row's event_type is the canonical dispatch key → BASELINE: no event
+ *   delivered yet ⇒ 0 runs → build a synthetic signed `event_callback` (the spec
+ *   supplies the inner event) and POST it to the REAL route `POST /api/webhooks/slack`
+ *   (real HMAC verify → real normalize → real `dispatchTriggerEvent` → dedup →
+ *   enqueue) → exactly ONE durable 'queued' run whose `trigger_event` identifies the
+ *   synthetic event → drain via the real durable-queue processor → terminal
  *   'succeeded' → RE-SEND the SAME event_id → dedup keeps it at exactly ONE run →
  *   soft-delete the workflow + trigger_resources + the synthetic dedup row → 0 leaked.
  *
@@ -38,9 +42,13 @@
  * documented `v0:${ts}:${rawBody}` HMAC-SHA256 contract, so production verification
  * runs UNCHANGED and UNWEAKENED — only the payload contents are synthetic.
  *
- * Every DB / route / dispatch touchpoint is behind injected `SlackWebhookSmokeDeps`
- * so this orchestrator is fully unit-testable with fakes; real wiring lives in
- * slackWebhookSmokeDeps.ts and only runs in the gated dev integration test.
+ * Single pattern: `runSlackWebhookSmoke(deps, spec, opts)` runs the shared flow; a
+ * `SlackWebhookTriggerSpec` plugs in the canonical eventType, the workflow builder,
+ * the synthetic inner-event shape, and the identity matcher. The deps own the
+ * envelope + signing + real-route POST (shared); the spec owns the inner-event shape
+ * (per trigger). Every DB / route / dispatch touchpoint is behind injected
+ * `SlackWebhookSmokeDeps` so this orchestrator is fully unit-testable with fakes;
+ * real wiring lives in slackWebhookSmokeDeps.ts and only runs in the gated test.
  */
 import {
   WorkflowDefinitionSchema,
@@ -51,13 +59,14 @@ export const SLACK_WEBHOOK_SMOKE_TRIGGER_NODE_ID = "smoke-slack-webhook-trigger"
 export const SLACK_WEBHOOK_SMOKE_ACTION_NODE_ID = "smoke-noop-action";
 
 /**
- * Canonical dispatch event type for slack:channel_created. The workflow trigger
- * node carries the FULL canonical eventType (what `normalize.ts` emits and what
- * `lifecycle.ts` stores in trigger_resources.event_type and the dispatcher queries
- * on lookup) — mirrors the committed Slack e2e walkthrough which builds its trigger
- * node with `type: "slack.message.channel"`.
+ * Canonical dispatch event types. The workflow trigger node carries the FULL
+ * canonical eventType (what `normalize.ts` emits and what `lifecycle.ts` stores in
+ * trigger_resources.event_type and the dispatcher queries on lookup) — mirrors the
+ * committed Slack e2e walkthrough which builds its trigger node with
+ * `type: "slack.message.channel"`.
  */
 export const SLACK_CHANNEL_CREATED_EVENT_TYPE = "slack.channel_created";
+export const SLACK_FILE_SHARED_EVENT_TYPE = "slack.file_shared";
 
 export interface SlackWebhookSmokeWorkflow {
   readonly definition: WorkflowDefinition;
@@ -66,17 +75,20 @@ export interface SlackWebhookSmokeWorkflow {
   readonly name: string;
 }
 
-/** Build the smoke workflow: slack:channel_created webhook trigger → native no-op. */
-export function buildSlackChannelCreatedSmokeWorkflow(): SlackWebhookSmokeWorkflow {
+/** Build a smoke workflow: one Slack webhook trigger (canonical type) → native no-op. */
+export function buildSlackWebhookSmokeWorkflow(
+  canonicalEventType: string,
+  label: string,
+): SlackWebhookSmokeWorkflow {
   const definition = WorkflowDefinitionSchema.parse({
     nodes: [
       {
         id: SLACK_WEBHOOK_SMOKE_TRIGGER_NODE_ID,
         kind: "trigger",
         provider: "slack",
-        type: SLACK_CHANNEL_CREATED_EVENT_TYPE,
-        // channel_created filter takes an empty config (match-all); narrowing by
-        // name/privacy is a downstream guard concern, not part of this trigger.
+        type: canonicalEventType,
+        // Slack lifecycle filters take an empty / optional config (match-all);
+        // narrowing by channel/name is a downstream guard concern.
         config: {},
         position: { x: 0, y: 0 },
       },
@@ -104,20 +116,28 @@ export function buildSlackChannelCreatedSmokeWorkflow(): SlackWebhookSmokeWorkfl
     definition,
     triggerNodeId: SLACK_WEBHOOK_SMOKE_TRIGGER_NODE_ID,
     actionNodeId: SLACK_WEBHOOK_SMOKE_ACTION_NODE_ID,
-    name: "trigger-smoke:slack:channel_created",
+    name: `trigger-smoke:${label}`,
   };
 }
 
-/** Synthetic Slack event identity — fully smoke-minted, no user content / PII. */
+/**
+ * Synthetic Slack event identity — fully smoke-minted, no user content / PII. Carries
+ * the superset of fields the registered specs reference; each spec reads only what
+ * its inner-event shape needs.
+ */
 export interface SlackWebhookSmokeIdentity {
   /** Slack Events API `event_id` — deterministic dedup key. */
   readonly eventId: string;
-  /** Synthetic public-channel id (C-prefixed). */
-  readonly channelId: string;
-  /** Synthetic channel name — carries the unique run marker. */
-  readonly channelName: string;
   /** Synthetic Slack workspace (team) id. */
   readonly teamId: string;
+  /** Synthetic channel id (C-prefixed). */
+  readonly channelId: string;
+  /** Synthetic channel name — carries the run marker (channel_created). */
+  readonly channelName: string;
+  /** Synthetic file id — carries the run marker (file_shared). */
+  readonly fileId: string;
+  /** Synthetic user id (the would-be sharer; never a real Slack user). */
+  readonly userId: string;
 }
 
 export interface SlackWebhookSmokeRun {
@@ -130,6 +150,87 @@ export interface SlackWebhookSmokeRun {
   /** The run's persisted TriggerEvent.eventType. */
   readonly eventType: string | null;
 }
+
+/**
+ * Per-trigger plug-in: canonical eventType + workflow builder + synthetic inner-event
+ * shape + identity matcher. Pure — no I/O. The deps wrap the inner event in the
+ * event_callback envelope, sign it, and POST it through the real route.
+ */
+export interface SlackWebhookTriggerSpec {
+  readonly label: string;
+  readonly eventType: string;
+  buildWorkflow(): SlackWebhookSmokeWorkflow;
+  /** The Slack inner `event` object for this trigger (smoke-minted, metadata only). */
+  buildSyntheticInnerEvent(identity: SlackWebhookSmokeIdentity): Record<string, unknown>;
+  /** Does the fired run's persisted trigger event identify the synthetic event? */
+  identityMatches(run: SlackWebhookSmokeRun, identity: SlackWebhookSmokeIdentity): boolean;
+}
+
+const SYNTHETIC_EVENT_TS = "1700000000.000000";
+
+export const CHANNEL_CREATED_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:channel_created",
+  eventType: SLACK_CHANNEL_CREATED_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_CHANNEL_CREATED_EVENT_TYPE, "slack:channel_created"),
+  buildSyntheticInnerEvent: (identity) => ({
+    type: "channel_created",
+    channel: {
+      id: identity.channelId,
+      name: identity.channelName,
+      created: 1700000000,
+      // Synthetic creator — not a real Slack user; no PII.
+      creator: identity.userId,
+      is_channel: true,
+      is_private: false,
+    },
+    event_ts: SYNTHETIC_EVENT_TS,
+  }),
+  identityMatches: (run, identity) => {
+    if (run.eventId !== identity.eventId) return false;
+    if (run.eventType !== SLACK_CHANNEL_CREATED_EVENT_TYPE) return false;
+    const payload = run.triggerPayload;
+    if (!payload || payload.type !== "channel_created") return false;
+    const channel = payload.channel as Record<string, unknown> | undefined;
+    if (!channel || typeof channel !== "object") return false;
+    return (
+      channel.id === identity.channelId &&
+      typeof channel.name === "string" &&
+      channel.name.includes(identity.channelName)
+    );
+  },
+};
+
+export const FILE_SHARED_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:file_shared",
+  eventType: SLACK_FILE_SHARED_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_FILE_SHARED_EVENT_TYPE, "slack:file_shared"),
+  // Slack's file_shared payload carries ONLY id stubs (snake_case `_id` fields +
+  // a partial `file: { id }` stub) — no name / mimeType / size / url / bytes.
+  buildSyntheticInnerEvent: (identity) => ({
+    type: "file_shared",
+    file_id: identity.fileId,
+    user_id: identity.userId,
+    channel_id: identity.channelId,
+    file: { id: identity.fileId },
+    event_ts: SYNTHETIC_EVENT_TS,
+  }),
+  identityMatches: (run, identity) => {
+    if (run.eventId !== identity.eventId) return false;
+    if (run.eventType !== SLACK_FILE_SHARED_EVENT_TYPE) return false;
+    const payload = run.triggerPayload;
+    if (!payload || payload.type !== "file_shared") return false;
+    // Identity = the synthetic file id (carries the marker) + channel id, verbatim
+    // from the inner event the normalizer passes through. No name / bytes asserted.
+    return payload.file_id === identity.fileId && payload.channel_id === identity.channelId;
+  },
+};
+
+export const ALL_SLACK_WEBHOOK_SPECS: readonly SlackWebhookTriggerSpec[] = [
+  CHANNEL_CREATED_SPEC,
+  FILE_SHARED_SPEC,
+];
 
 export interface SlackWebhookSmokeDeps {
   /** Mint a fresh, unique synthetic identity (unique event_id per run for dedup). */
@@ -144,44 +245,28 @@ export interface SlackWebhookSmokeDeps {
    * canonical dispatch key.
    */
   armWebhookTrigger(input: {
+    workflow: SlackWebhookSmokeWorkflow;
     workflowId: string;
     triggerNodeId: string;
   }): Promise<{ registeredEventType: string | null }>;
   /**
-   * Build a synthetic signed `event_callback` for this identity and POST it through
-   * the REAL `POST /api/webhooks/slack` route (real HMAC verify → normalize →
-   * dispatch). Returns the route's HTTP status.
+   * Wrap the spec's inner event in a synthetic `event_callback`, sign it with the
+   * REAL `SLACK_SIGNING_SECRET` (Slack's `v0:${ts}:${rawBody}` HMAC contract), and
+   * POST it through the REAL `POST /api/webhooks/slack` route (real HMAC verify →
+   * normalize → dispatch). Returns the route's HTTP status.
    */
   deliverSyntheticEvent(input: {
     identity: SlackWebhookSmokeIdentity;
+    innerEvent: Record<string, unknown>;
   }): Promise<{ httpStatus: number }>;
   listRuns(workflowId: string): Promise<readonly SlackWebhookSmokeRun[]>;
   drainRun(runId: string): Promise<void>;
   readRun(runId: string): Promise<SlackWebhookSmokeRun | null>;
   /** Soft-delete the smoke workflow + unregister its trigger_resources row. */
-  cleanupWorkflow(workflowId: string): Promise<void>;
+  cleanupWorkflow(workflow: SlackWebhookSmokeWorkflow, workflowId: string): Promise<void>;
   /** Delete the synthetic dedup row (provider=slack, event_id) — hygiene. */
   cleanupDedup(eventId: string): Promise<void>;
   sleep(ms: number): Promise<void>;
-}
-
-/** Does the fired run's persisted trigger event identify the synthetic event? */
-function identityMatches(
-  run: SlackWebhookSmokeRun,
-  identity: SlackWebhookSmokeIdentity,
-): boolean {
-  if (run.eventId !== identity.eventId) return false;
-  if (run.eventType !== SLACK_CHANNEL_CREATED_EVENT_TYPE) return false;
-  const payload = run.triggerPayload;
-  if (!payload) return false;
-  if (payload.type !== "channel_created") return false;
-  const channel = payload.channel as Record<string, unknown> | undefined;
-  if (!channel || typeof channel !== "object") return false;
-  return (
-    channel.id === identity.channelId &&
-    typeof channel.name === "string" &&
-    channel.name.includes(identity.channelName)
-  );
 }
 
 export interface SlackWebhookSmokeOptions {
@@ -211,30 +296,32 @@ export interface SlackWebhookSmokeResult {
   readonly cleaned: boolean;
 }
 
-const LABEL = "slack:channel_created";
-
 export async function runSlackWebhookSmoke(
   deps: SlackWebhookSmokeDeps,
+  spec: SlackWebhookTriggerSpec,
   opts: SlackWebhookSmokeOptions = {},
 ): Promise<SlackWebhookSmokeResult> {
-  const ref: { workflowId: string | null; eventId: string | null } = {
-    workflowId: null,
-    eventId: null,
-  };
+  const ref: {
+    workflow: SlackWebhookSmokeWorkflow | null;
+    workflowId: string | null;
+    eventId: string | null;
+  } = { workflow: null, workflowId: null, eventId: null };
   let result: SlackWebhookSmokeResult;
   try {
-    result = await runCore(deps, opts, ref);
+    result = await runCore(deps, spec, opts, ref);
   } catch (err) {
-    result = base(ref, { outcome: "fail", reason: (err as Error).message });
+    result = base(spec, ref, { outcome: "fail", reason: (err as Error).message });
   } finally {
     // Cleanup ALWAYS runs and is NOT masked. A cleanup failure flips `cleaned`
     // to false but never the verdict. No provider-side resource exists — only
     // smoke-owned DB rows (workflow, trigger_resources, runs, dedup row).
     let cleaned = true;
-    if (ref.workflowId) {
+    if (ref.workflow && ref.workflowId) {
       cleaned =
-        (await deps.cleanupWorkflow(ref.workflowId).then(() => true).catch(() => false)) &&
-        cleaned;
+        (await deps
+          .cleanupWorkflow(ref.workflow, ref.workflowId)
+          .then(() => true)
+          .catch(() => false)) && cleaned;
     }
     if (ref.eventId) {
       cleaned =
@@ -247,12 +334,13 @@ export async function runSlackWebhookSmoke(
 }
 
 function base(
+  spec: SlackWebhookTriggerSpec,
   ref: { workflowId: string | null; eventId: string | null },
   over: Partial<SlackWebhookSmokeResult> & { outcome: SlackWebhookSmokeResult["outcome"] },
 ): SlackWebhookSmokeResult {
   return {
     reason: null,
-    triggerLabel: LABEL,
+    triggerLabel: spec.label,
     registeredEventType: null,
     baselineRunCount: 0,
     deliverHttpStatus: null,
@@ -270,27 +358,34 @@ function base(
 
 async function runCore(
   deps: SlackWebhookSmokeDeps,
+  spec: SlackWebhookTriggerSpec,
   opts: SlackWebhookSmokeOptions,
-  ref: { workflowId: string | null; eventId: string | null },
+  ref: {
+    workflow: SlackWebhookSmokeWorkflow | null;
+    workflowId: string | null;
+    eventId: string | null;
+  },
 ): Promise<SlackWebhookSmokeResult> {
   const identity = deps.mintIdentity();
   ref.eventId = identity.eventId;
 
-  // 1. Active smoke workflow watching slack:channel_created.
-  const workflow = buildSlackChannelCreatedSmokeWorkflow();
+  // 1. Active smoke workflow watching this Slack trigger.
+  const workflow = spec.buildWorkflow();
+  ref.workflow = workflow;
   const { workflowId } = await deps.createActiveSmokeWorkflow(workflow);
   ref.workflowId = workflowId;
 
   // 2. Arm via the real lifecycle → trigger_resources upsert. Prove the stored
   //    event_type is the canonical dispatch key (else dispatch could never match).
   const { registeredEventType } = await deps.armWebhookTrigger({
+    workflow,
     workflowId,
     triggerNodeId: workflow.triggerNodeId,
   });
-  if (registeredEventType !== SLACK_CHANNEL_CREATED_EVENT_TYPE) {
-    return base(ref, {
+  if (registeredEventType !== spec.eventType) {
+    return base(spec, ref, {
       outcome: "fail",
-      reason: `trigger_resources stored event_type '${registeredEventType ?? "null"}', expected '${SLACK_CHANNEL_CREATED_EVENT_TYPE}'`,
+      reason: `trigger_resources stored event_type '${registeredEventType ?? "null"}', expected '${spec.eventType}'`,
       registeredEventType,
     });
   }
@@ -298,7 +393,7 @@ async function runCore(
   // 3. BASELINE — no event delivered yet ⇒ no runs.
   const baselineRuns = await deps.listRuns(workflowId);
   if (baselineRuns.length !== 0) {
-    return base(ref, {
+    return base(spec, ref, {
       outcome: "fail",
       reason: `baseline violation: ${baselineRuns.length} run(s) before any event delivery`,
       registeredEventType,
@@ -307,9 +402,10 @@ async function runCore(
   }
 
   // 4. Deliver the synthetic signed event through the REAL receive route.
-  const { httpStatus } = await deps.deliverSyntheticEvent({ identity });
+  const innerEvent = spec.buildSyntheticInnerEvent(identity);
+  const { httpStatus } = await deps.deliverSyntheticEvent({ identity, innerEvent });
   if (httpStatus !== 200) {
-    return base(ref, {
+    return base(spec, ref, {
       outcome: "fail",
       reason: `webhook route returned HTTP ${httpStatus}, expected 200`,
       registeredEventType,
@@ -327,7 +423,7 @@ async function runCore(
     if (i < attempts - 1 && sleepMs > 0) await deps.sleep(sleepMs);
   }
   if (afterRuns.length !== 1) {
-    return base(ref, {
+    return base(spec, ref, {
       outcome: "fail",
       reason: `expected exactly 1 run after delivery, got ${afterRuns.length}`,
       registeredEventType,
@@ -336,10 +432,10 @@ async function runCore(
     });
   }
 
-  // 6. The fired run must identify the synthetic event (eventId + channel + marker).
+  // 6. The fired run must identify the synthetic event (eventId + spec fields).
   const fired = afterRuns[0]!;
-  if (!identityMatches(fired, identity)) {
-    return base(ref, {
+  if (!spec.identityMatches(fired, identity)) {
+    return base(spec, ref, {
       outcome: "fail",
       reason: `fired run did not identify the synthetic event (eventId=${fired.eventId ?? "null"}, eventType=${fired.eventType ?? "null"})`,
       registeredEventType,
@@ -353,7 +449,7 @@ async function runCore(
   const terminal = await deps.readRun(fired.runId);
   const terminalStatus = terminal?.status ?? null;
   if (terminalStatus !== "succeeded") {
-    return base(ref, {
+    return base(spec, ref, {
       outcome: "fail",
       reason: `fired run did not reach terminal 'succeeded' (got ${terminalStatus ?? "null"})`,
       registeredEventType,
@@ -365,9 +461,9 @@ async function runCore(
   }
 
   // 8. DEDUP — re-send the SAME event_id; dispatcher must drop it (stays 1 run).
-  const redeliver = await deps.deliverSyntheticEvent({ identity });
+  const redeliver = await deps.deliverSyntheticEvent({ identity, innerEvent });
   if (redeliver.httpStatus !== 200) {
-    return base(ref, {
+    return base(spec, ref, {
       outcome: "fail",
       reason: `redeliver returned HTTP ${redeliver.httpStatus}, expected 200`,
       registeredEventType,
@@ -382,7 +478,7 @@ async function runCore(
   const afterRedeliver = await deps.listRuns(workflowId);
   const dedupProven = afterRedeliver.length === 1;
   if (!dedupProven) {
-    return base(ref, {
+    return base(spec, ref, {
       outcome: "fail",
       reason: `dedup failed: ${afterRedeliver.length} run(s) after re-sending the same event_id (expected 1)`,
       registeredEventType,
@@ -394,7 +490,7 @@ async function runCore(
     });
   }
 
-  return base(ref, {
+  return base(spec, ref, {
     outcome: "pass",
     registeredEventType,
     deliverHttpStatus: httpStatus,

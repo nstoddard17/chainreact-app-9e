@@ -602,3 +602,89 @@ lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
   user-visible side effect. They stay excluded until a product-safe synthetic semantics is explicitly
   defined per trigger (e.g. a documented "this payload is synthetic and produces no user-visible state"
   contract), not opened by default just because the receipt route exists.
+
+## 14. Slice 7 — Lane C: `slack:file_shared` LIVE-CERTIFIED; Slack safe-synthetic webhook lane DONE (2026-06-29)
+
+The Slack webhook batch. **`slack:file_shared` is LIVE_PASS**, certified on the SAME synthetic
+signed-route seam as `channel_created`, now generalized into one spec-driven pattern. This completes the
+safe-synthetic Slack webhook lane (the only two Slack webhook triggers whose synthetic payload is
+self-contained, metadata-only, and not user-content/user-visible).
+
+**Slack triggers inspected (10 webhook, from §1).** message.channel / .im / .group / .mpim,
+reaction_added, reaction_removed, channel_created, member_joined_channel, member_left_channel,
+file_shared.
+
+**Selected + why.** `slack:file_shared` (canonical `slack.file_shared`). It is a file/content LIFECYCLE
+event, not a message/reaction/member trigger. Its filter takes an optional `channelId` (empty config =
+match-all), `normalize.ts` passes the inner event through verbatim (no provider fetch), and — decisively —
+[its meta is explicit](../../../../integrations/slack/triggers/fileUploaded/fileUploaded.meta.ts) that the
+payload carries ONLY id stubs (`file_id` / `user_id` / `channel_id` + a partial `file:{id}` stub) with NO
+name / mimeType / size / url / bytes and NO FileRef (workflows that want metadata or bytes compose
+`slack:get_file_info` / `slack:download_file` DOWNSTREAM — out of the trigger path). Every value is
+smoke-minted: no real file, user, or channel; no raw bytes; no provider fetch; no send.
+
+**Rejected (stay Lane D, firm).** `message.channel/.im/.group/.mpim` (message bodies = user content),
+`reaction_added` / `reaction_removed` (reaction on a real user message), `member_joined_channel` /
+`member_left_channel` (real user membership). A synthetic receipt for any of these would fabricate user
+content or model a user-visible membership/activity fact — excluded until a product-safe synthetic
+semantics is explicitly defined per trigger.
+
+**Harness changes (generalized, NOT a second pattern).** `slackWebhookSmoke.ts` is now spec-driven:
+`runSlackWebhookSmoke(deps, spec, opts)` runs the shared flow; a `SlackWebhookTriggerSpec` plugs in the
+canonical eventType, the workflow builder, the synthetic inner-event shape, and the identity matcher.
+Two specs exported (`CHANNEL_CREATED_SPEC`, `FILE_SHARED_SPEC`) + `ALL_SLACK_WEBHOOK_SPECS`. The DEPS own
+the shared envelope + signing + real-route POST (`deliverSyntheticEvent({ identity, innerEvent })`); the
+SPEC owns the per-trigger inner event. `channel_created` is unchanged behaviorally (re-certified green
+this run). Unit tests parametrize the happy path over both specs + add a file_shared "id-stubs-only"
+payload assertion (11 tests); the gated live test loops both specs.
+
+**Receipt path exercised (identical to §13, per spec).** synthetic signed `Request` → real
+`POST /api/webhooks/slack` → `receiveSlackWebhook` (real HMAC verify + replay window + JSON parse) →
+`normalizeSlackEvent` (canonical `slack.file_shared` TriggerEvent) → `dispatchTriggerEvent` (dedup →
+`listForDispatch` → state gate → `enqueueRun`) → `processQueuedRun` → terminal. Production signature
+verification UNWEAKENED (genuine HMAC under the real secret; no test-only signer in production code; no
+production route behavior added).
+
+**Live result (`ALLOW_DB_INTEGRATION_TESTS=true ALLOW_TRIGGER_SMOKE=true npm run smoke:triggers:webhook`):**
+```
+slack:channel_created → pass · baseline 0 · after 1 · identity matched · succeeded · redeliver 1 · dedup proven · cleaned
+slack:file_shared     → pass · baseline 0 · after 1 · identity matched · succeeded · redeliver 1 · dedup proven · cleaned
+```
+Each fired exactly 1 run via `dispatchTriggerEvent` whose `trigger_event` identified the synthetic event
+(channel_created: `event_id` + channel id + name marker; file_shared: `event_id` + `file_id` marker +
+`channel_id`), reached terminal `succeeded`, and the re-sent same `event_id` was **dropped by dedup** (the
+dispatcher logged `webhook.dedup.duplicate`; run count stayed 1). **created 1 workflow each / cleaned all /
+0 leaked.** **Cert row: `slack:file_shared` → `LIVE_PASS` (2026-06-29).**
+
+**Dedup proof:** YES (both). Synthetic identity proof: YES (both). Per-trigger result: PASS (both).
+Cleanup/leak: 0 leaked (both). certificationSeed update: YES (`slack:file_shared` LIVE_PASS).
+
+**Trigger-smoke matrix now:** 62 registered · **9 LIVE_PASS** (`native:schedule.fired` +
+`microsoft-excel` ×5 + `microsoft-onenote:new_note` + `slack:channel_created` + `slack:file_shared`) · 1
+RUN_NOW_PROVEN (`native:manual.run`) · 1 BLOCKED-documented (`microsoft-onenote:updated_note`) · 51
+un-harnessed.
+
+**Verification (this slice):** `tests/unit/trigger-smoke/slackWebhookSmoke.test.ts` → 11 pass; live
+`smoke:triggers:webhook` → 2/2 PASS (above, 0 leaked each); `npx tsc --noEmit` → **the only errors are in
+a parallel session's agent-change-history WIP (`features/workflow-builder/hooks/useBuilderPreview.ts` +
+its two test files) — NOT in any trigger-smoke file (my files type-check clean)**; eslint on the 4 touched
+smoke files → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Is the Slack webhook lane complete after this batch?** YES, for what is safely synthetic-certifiable.
+  The two Slack webhook triggers whose payload is self-contained, metadata-only, and not user-content/
+  user-visible — `channel_created` and `file_shared` — are both LIVE_PASS. The remaining 8 Slack webhook
+  triggers are all Lane D (message ×4 = bodies/content, reaction ×2 = on real user messages, member ×2 =
+  real user membership). So the Slack webhook lane is **complete modulo the Lane D exclusions** — there is
+  no additional Slack webhook trigger that can be driven by a safe synthetic receipt without fabricating
+  user content or a user-visible fact.
+- **Should remaining Slack triggers stay excluded unless product-safe synthetic semantics are explicitly
+  defined?** YES. Keep the Lane D Slack exclusions firm (message/reaction/member). Each fires on a real
+  user-content or user-membership fact; a synthetic receipt would either invent message text / a reaction
+  on a fabricated message, or assert a fabricated user joined/left — none of which is safe to certify
+  without an explicit per-trigger "this payload is synthetic and produces no user-visible state" contract.
+  Open them only if/when such a contract is defined, not by default because the receive route exists. The
+  next webhook batches should move to OTHER providers (HMAC-signed self-contained payloads like
+  GitHub/Shopify/Stripe once connected; then subscription/resource-fetch webhooks which need a synthetic
+  resource-state seam) rather than reaching into Slack's excluded set.

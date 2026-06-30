@@ -165,6 +165,24 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "real synthetic-webhook dispatch: arm stores canonical event_type slack.channel_created, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic channel_created event_callback POSTed to the real /api/webhooks/slack route (verify→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the synthetic eventId + channel marker, durable run terminal 'succeeded', re-send of the same event_id deduped (still 1 run), workflow+trigger_resources+dedup row cleaned (0 leaked); no real channel, no send, metadata only",
   },
+  // slack:file_shared — Lane C Slack webhook batch (same spec-driven harness as
+  // channel_created via runSlackWebhookSmoke + FILE_SHARED_SPEC). A SYNTHETIC
+  // file_shared event_callback is signed with the REAL SLACK_SIGNING_SECRET and
+  // POSTed to the real /api/webhooks/slack route. The payload carries ONLY id stubs
+  // (file_id / user_id / channel_id + a partial file:{id} stub — NO name / mimeType /
+  // size / url / bytes / FileRef; the trigger payload never emits file content), all
+  // smoke-minted (no real file / user / channel). normalize passes the inner event
+  // through verbatim (no provider fetch). Identity = the synthetic file_id (marker) +
+  // channel_id on the fired run; dedup proven on re-send; workflow + trigger_resources
+  // + dedup row cleaned (0 leaked). No Slack API call, no send, metadata only.
+  {
+    provider: "slack",
+    type: "file_shared",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "real synthetic-webhook dispatch: arm stores canonical event_type slack.file_shared, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic file_shared event_callback (id stubs only — no name/bytes/FileRef) POSTed to the real /api/webhooks/slack route (verify→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the synthetic file_id + channel_id, durable run terminal 'succeeded', re-send of the same event_id deduped (still 1 run), workflow+trigger_resources+dedup row cleaned (0 leaked); no real file, no provider fetch, no send",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.

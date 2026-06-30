@@ -3,7 +3,8 @@
  *
  * Unit tests for the Slack webhook trigger-smoke orchestrator
  * (tests/trigger-smoke/slackWebhookSmoke.ts) with injected fakes. No DB, no
- * route, no provider — proves the orchestration contract:
+ * route, no provider — proves the spec-driven orchestration contract for BOTH
+ * registered Slack webhook specs:
  *   - registration must store the canonical dispatch key
  *   - baseline-first (no runs before delivery)
  *   - delivery non-200 fails
@@ -11,10 +12,14 @@
  *   - terminal must be 'succeeded'
  *   - dedup: re-sending the same event_id keeps it at one run
  *   - cleanup ALWAYS runs (even when the body throws)
+ *   - the file_shared spec's identity rides on file_id + channel_id (snake_case)
  */
 import {
   runSlackWebhookSmoke,
-  SLACK_CHANNEL_CREATED_EVENT_TYPE,
+  CHANNEL_CREATED_SPEC,
+  FILE_SHARED_SPEC,
+  ALL_SLACK_WEBHOOK_SPECS,
+  type SlackWebhookTriggerSpec,
   type SlackWebhookSmokeDeps,
   type SlackWebhookSmokeIdentity,
   type SlackWebhookSmokeRun,
@@ -24,9 +29,11 @@ const FAST = { afterDeliverAttempts: 1, afterDeliverSleepMs: 0, dedupSettleMs: 0
 
 const IDENTITY: SlackWebhookSmokeIdentity = {
   eventId: "Ev-test-1",
+  teamId: "T-TEST-1",
   channelId: "C-TEST-1",
   channelName: "crsmoke-chan-test",
-  teamId: "T-TEST-1",
+  fileId: "F-TEST-1",
+  userId: "U-TEST-1",
 };
 
 interface FakeOpts {
@@ -46,12 +53,13 @@ interface FakeState {
   cleanedWorkflow: boolean;
   cleanedDedup: boolean;
   deliveries: number;
+  lastInnerEvent: Record<string, unknown> | null;
 }
 
-function makeFakeDeps(opts: FakeOpts = {}): {
-  deps: SlackWebhookSmokeDeps;
-  state: FakeState;
-} {
+function makeFakeDeps(
+  spec: SlackWebhookTriggerSpec,
+  opts: FakeOpts = {},
+): { deps: SlackWebhookSmokeDeps; state: FakeState } {
   const runs: SlackWebhookSmokeRun[] = [];
   for (let i = 0; i < (opts.preexistingRuns ?? 0); i += 1) {
     runs.push({ runId: `pre-${i}`, status: "queued", triggerPayload: null, eventId: null, eventType: null });
@@ -63,18 +71,23 @@ function makeFakeDeps(opts: FakeOpts = {}): {
     cleanedWorkflow: false,
     cleanedDedup: false,
     deliveries: 0,
+    lastInnerEvent: null,
   };
 
-  function pushRun(identity: SlackWebhookSmokeIdentity): void {
-    const channel = opts.corruptPayload
-      ? { id: "C-WRONG", name: "not-the-marker" }
-      : { id: identity.channelId, name: identity.channelName };
+  function pushRun(
+    identity: SlackWebhookSmokeIdentity,
+    innerEvent: Record<string, unknown>,
+  ): void {
+    // Echo what the route would persist: the normalized inner event becomes the
+    // run's trigger payload; eventType is the spec's canonical type. Corruption
+    // mangles the payload so identityMatches fails.
+    const payload = opts.corruptPayload ? { type: "wrong", bad: true } : innerEvent;
     runs.push({
       runId: `run-${runs.length + 1}`,
       status: "queued",
-      triggerPayload: { type: "channel_created", channel },
+      triggerPayload: payload,
       eventId: identity.eventId,
-      eventType: SLACK_CHANNEL_CREATED_EVENT_TYPE,
+      eventType: spec.eventType,
     });
   }
 
@@ -89,22 +102,20 @@ function makeFakeDeps(opts: FakeOpts = {}): {
       if (opts.throwOnArm) throw new Error("arm boom");
       return {
         registeredEventType:
-          opts.registeredEventType === undefined
-            ? SLACK_CHANNEL_CREATED_EVENT_TYPE
-            : opts.registeredEventType,
+          opts.registeredEventType === undefined ? spec.eventType : opts.registeredEventType,
       };
     },
-    async deliverSyntheticEvent({ identity }) {
+    async deliverSyntheticEvent({ identity, innerEvent }) {
       state.deliveries += 1;
+      state.lastInnerEvent = innerEvent;
       const status = opts.deliverStatus ?? 200;
       if (status !== 200) return { httpStatus: status };
       const isRedeliver = seen.has(identity.eventId);
       if (!isRedeliver) {
         seen.add(identity.eventId);
-        if (opts.deliverPushesRun ?? true) pushRun(identity);
+        if (opts.deliverPushesRun ?? true) pushRun(identity, innerEvent);
       } else if (opts.dedupBroken) {
-        // Simulate a dedup failure: a second run appears on re-send.
-        pushRun(identity);
+        pushRun(identity, innerEvent);
       }
       return { httpStatus: 200 };
     },
@@ -135,33 +146,50 @@ function makeFakeDeps(opts: FakeOpts = {}): {
   return { deps, state };
 }
 
-describe("runSlackWebhookSmoke — happy path", () => {
-  it("passes: baseline 0 → deliver → 1 run identified → succeeded → dedup holds → cleaned", async () => {
-    const { deps, state } = makeFakeDeps();
-    const r = await runSlackWebhookSmoke(deps, FAST);
+describe("runSlackWebhookSmoke — happy path (both specs)", () => {
+  it.each(ALL_SLACK_WEBHOOK_SPECS.map((s) => [s.label, s] as const))(
+    "%s passes: baseline 0 → deliver → 1 run identified → succeeded → dedup holds → cleaned",
+    async (_label, spec) => {
+      const { deps, state } = makeFakeDeps(spec);
+      const r = await runSlackWebhookSmoke(deps, spec, FAST);
 
-    expect(r.outcome).toBe("pass");
-    expect(r.registeredEventType).toBe(SLACK_CHANNEL_CREATED_EVENT_TYPE);
-    expect(r.baselineRunCount).toBe(0);
-    expect(r.deliverHttpStatus).toBe(200);
-    expect(r.afterRunCount).toBe(1);
-    expect(r.identityMatched).toBe(true);
-    expect(r.terminalStatus).toBe("succeeded");
-    expect(r.afterRedeliverRunCount).toBe(1);
-    expect(r.dedupProven).toBe(true);
-    expect(r.cleaned).toBe(true);
-    expect(r.eventId).toBe(IDENTITY.eventId);
-    // Delivered twice (initial + dedup re-send), both cleanups ran.
-    expect(state.deliveries).toBe(2);
-    expect(state.cleanedWorkflow).toBe(true);
-    expect(state.cleanedDedup).toBe(true);
+      expect(r.outcome).toBe("pass");
+      expect(r.triggerLabel).toBe(spec.label);
+      expect(r.registeredEventType).toBe(spec.eventType);
+      expect(r.baselineRunCount).toBe(0);
+      expect(r.deliverHttpStatus).toBe(200);
+      expect(r.afterRunCount).toBe(1);
+      expect(r.identityMatched).toBe(true);
+      expect(r.terminalStatus).toBe("succeeded");
+      expect(r.afterRedeliverRunCount).toBe(1);
+      expect(r.dedupProven).toBe(true);
+      expect(r.cleaned).toBe(true);
+      expect(state.deliveries).toBe(2);
+      expect(state.cleanedWorkflow).toBe(true);
+      expect(state.cleanedDedup).toBe(true);
+    },
+  );
+
+  it("file_shared synthetic inner event carries snake_case id stubs only (no name/bytes)", () => {
+    const inner = FILE_SHARED_SPEC.buildSyntheticInnerEvent(IDENTITY);
+    expect(inner.type).toBe("file_shared");
+    expect(inner.file_id).toBe(IDENTITY.fileId);
+    expect(inner.channel_id).toBe(IDENTITY.channelId);
+    expect(inner.user_id).toBe(IDENTITY.userId);
+    expect(inner.file).toEqual({ id: IDENTITY.fileId });
+    // Metadata only — no name, mimeType, size, url, or bytes leak into the payload.
+    expect(inner).not.toHaveProperty("name");
+    expect(inner).not.toHaveProperty("url_private");
+    expect(inner).not.toHaveProperty("content");
   });
 });
 
-describe("runSlackWebhookSmoke — failure branches", () => {
+describe("runSlackWebhookSmoke — failure branches (channel_created)", () => {
+  const spec = CHANNEL_CREATED_SPEC;
+
   it("fails when registration stored a non-canonical event_type", async () => {
-    const { deps } = makeFakeDeps({ registeredEventType: "channel_created" });
-    const r = await runSlackWebhookSmoke(deps, FAST);
+    const { deps } = makeFakeDeps(spec, { registeredEventType: "channel_created" });
+    const r = await runSlackWebhookSmoke(deps, spec, FAST);
     expect(r.outcome).toBe("fail");
     expect(r.reason).toMatch(/event_type/);
     expect(r.registeredEventType).toBe("channel_created");
@@ -169,27 +197,26 @@ describe("runSlackWebhookSmoke — failure branches", () => {
   });
 
   it("fails on baseline violation (runs exist before delivery)", async () => {
-    const { deps, state } = makeFakeDeps({ preexistingRuns: 1 });
-    const r = await runSlackWebhookSmoke(deps, FAST);
+    const { deps, state } = makeFakeDeps(spec, { preexistingRuns: 1 });
+    const r = await runSlackWebhookSmoke(deps, spec, FAST);
     expect(r.outcome).toBe("fail");
     expect(r.reason).toMatch(/baseline/);
     expect(r.baselineRunCount).toBe(1);
-    // Never delivered an event (baseline guard short-circuits first).
     expect(state.deliveries).toBe(0);
     expect(r.cleaned).toBe(true);
   });
 
   it("fails when the webhook route returns non-200", async () => {
-    const { deps } = makeFakeDeps({ deliverStatus: 401 });
-    const r = await runSlackWebhookSmoke(deps, FAST);
+    const { deps } = makeFakeDeps(spec, { deliverStatus: 401 });
+    const r = await runSlackWebhookSmoke(deps, spec, FAST);
     expect(r.outcome).toBe("fail");
     expect(r.deliverHttpStatus).toBe(401);
     expect(r.cleaned).toBe(true);
   });
 
   it("fails when no run appears after delivery", async () => {
-    const { deps } = makeFakeDeps({ deliverPushesRun: false });
-    const r = await runSlackWebhookSmoke(deps, FAST);
+    const { deps } = makeFakeDeps(spec, { deliverPushesRun: false });
+    const r = await runSlackWebhookSmoke(deps, spec, FAST);
     expect(r.outcome).toBe("fail");
     expect(r.reason).toMatch(/exactly 1 run/);
     expect(r.afterRunCount).toBe(0);
@@ -197,8 +224,8 @@ describe("runSlackWebhookSmoke — failure branches", () => {
   });
 
   it("fails when the fired run does not identify the synthetic event", async () => {
-    const { deps } = makeFakeDeps({ corruptPayload: true });
-    const r = await runSlackWebhookSmoke(deps, FAST);
+    const { deps } = makeFakeDeps(spec, { corruptPayload: true });
+    const r = await runSlackWebhookSmoke(deps, spec, FAST);
     expect(r.outcome).toBe("fail");
     expect(r.reason).toMatch(/did not identify/);
     expect(r.identityMatched).toBe(false);
@@ -206,8 +233,8 @@ describe("runSlackWebhookSmoke — failure branches", () => {
   });
 
   it("fails when the drained run is not terminal 'succeeded'", async () => {
-    const { deps } = makeFakeDeps({ drainStatus: "failed" });
-    const r = await runSlackWebhookSmoke(deps, FAST);
+    const { deps } = makeFakeDeps(spec, { drainStatus: "failed" });
+    const r = await runSlackWebhookSmoke(deps, spec, FAST);
     expect(r.outcome).toBe("fail");
     expect(r.terminalStatus).toBe("failed");
     expect(r.identityMatched).toBe(true);
@@ -215,8 +242,8 @@ describe("runSlackWebhookSmoke — failure branches", () => {
   });
 
   it("fails when dedup does not hold (a second run appears on re-send)", async () => {
-    const { deps } = makeFakeDeps({ dedupBroken: true });
-    const r = await runSlackWebhookSmoke(deps, FAST);
+    const { deps } = makeFakeDeps(spec, { dedupBroken: true });
+    const r = await runSlackWebhookSmoke(deps, spec, FAST);
     expect(r.outcome).toBe("fail");
     expect(r.reason).toMatch(/dedup/);
     expect(r.afterRedeliverRunCount).toBe(2);
@@ -225,11 +252,10 @@ describe("runSlackWebhookSmoke — failure branches", () => {
   });
 
   it("still cleans up when the body throws", async () => {
-    const { deps, state } = makeFakeDeps({ throwOnArm: true });
-    const r = await runSlackWebhookSmoke(deps, FAST);
+    const { deps, state } = makeFakeDeps(spec, { throwOnArm: true });
+    const r = await runSlackWebhookSmoke(deps, spec, FAST);
     expect(r.outcome).toBe("fail");
     expect(r.reason).toMatch(/arm boom/);
-    // Workflow was created before the throw → cleanup must still run.
     expect(state.workflowCreated).toBe(true);
     expect(state.cleanedWorkflow).toBe(true);
     expect(state.cleanedDedup).toBe(true);

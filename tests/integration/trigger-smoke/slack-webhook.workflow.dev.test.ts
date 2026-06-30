@@ -1,17 +1,18 @@
 /**
  * @jest-environment node
  *
- * Trigger-smoke — slack:channel_created LIVE webhook dispatch proof (real dev DB).
+ * Trigger-smoke — Slack webhook LIVE dispatch proof (real dev DB), spec-driven.
  *
- * Drives the REAL Slack webhook receipt path end-to-end with a fully synthetic,
- * signed payload (no real Slack channel, no provider call):
- *   create active {slack:channel_created → native no-op} workflow
+ * One `it` per registered safe Slack webhook spec (slack:channel_created,
+ * slack:file_shared), each driving the REAL receipt path with a fully synthetic,
+ * signed payload (no real channel/file, no provider call):
+ *   create active {slack trigger → native no-op} workflow
  *     → arm via the real registerWorkflowTriggers (pure trigger_resources upsert;
  *       Slack needs no provider-side subscription / no integration)
  *     → assert the stored event_type is the canonical dispatch key
  *     → BASELINE: 0 runs before any delivery
- *     → sign a synthetic channel_created event_callback with the REAL
- *       SLACK_SIGNING_SECRET and POST it to the REAL POST /api/webhooks/slack
+ *     → sign a synthetic event_callback (the spec supplies the inner event) with the
+ *       REAL SLACK_SIGNING_SECRET and POST it to the REAL POST /api/webhooks/slack
  *       (real HMAC verify → normalize → dispatchTriggerEvent → dedup → enqueue)
  *     → assert exactly 1 run whose trigger_event identifies the synthetic event
  *     → drain the durable-queue run → assert terminal 'succeeded'
@@ -32,7 +33,10 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
-import { runSlackWebhookSmoke } from "@/tests/trigger-smoke/slackWebhookSmoke";
+import {
+  runSlackWebhookSmoke,
+  ALL_SLACK_WEBHOOK_SPECS,
+} from "@/tests/trigger-smoke/slackWebhookSmoke";
 import { makeRealSlackWebhookSmokeDeps } from "@/tests/trigger-smoke/slackWebhookSmokeDeps";
 
 function loadEnvLocal(): void {
@@ -78,7 +82,7 @@ if (!RUN) {
   );
 }
 
-describeLive("trigger smoke: slack:channel_created (real dev DB, synthetic webhook receipt)", () => {
+describeLive("trigger smoke: Slack webhook family (real dev DB, synthetic webhook receipt)", () => {
   const supabase = createClient(URL as string, SERVICE_KEY as string, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -88,23 +92,25 @@ describeLive("trigger smoke: slack:channel_created (real dev DB, synthetic webho
     userId: USER_ID as string,
   });
 
-  it("arms, receives a synthetic signed event, fires once, terminal succeeded, dedup holds, cleans up", async () => {
-    const r = await runSlackWebhookSmoke(deps, {
-      afterDeliverAttempts: 8,
-      afterDeliverSleepMs: 500,
-      dedupSettleMs: 1000,
-    });
-    console.log(JSON.stringify({ event: "trigger-smoke.slack-webhook.result", ...r }));
+  for (const spec of ALL_SLACK_WEBHOOK_SPECS) {
+    it(`${spec.label}: arm → synthetic signed event fires 1, terminal succeeded, dedup holds, 0 leaked`, async () => {
+      const r = await runSlackWebhookSmoke(deps, spec, {
+        afterDeliverAttempts: 8,
+        afterDeliverSleepMs: 500,
+        dedupSettleMs: 1000,
+      });
+      console.log(JSON.stringify({ event: "trigger-smoke.slack-webhook.result", ...r }));
 
-    expect(r.outcome).toBe("pass");
-    expect(r.cleaned).toBe(true);
-    expect(r.registeredEventType).toBe("slack.channel_created");
-    expect(r.baselineRunCount).toBe(0);
-    expect(r.deliverHttpStatus).toBe(200);
-    expect(r.afterRunCount).toBe(1);
-    expect(r.identityMatched).toBe(true);
-    expect(r.terminalStatus).toBe("succeeded");
-    expect(r.afterRedeliverRunCount).toBe(1);
-    expect(r.dedupProven).toBe(true);
-  }, 120_000);
+      expect(r.outcome).toBe("pass");
+      expect(r.cleaned).toBe(true);
+      expect(r.registeredEventType).toBe(spec.eventType);
+      expect(r.baselineRunCount).toBe(0);
+      expect(r.deliverHttpStatus).toBe(200);
+      expect(r.afterRunCount).toBe(1);
+      expect(r.identityMatched).toBe(true);
+      expect(r.terminalStatus).toBe("succeeded");
+      expect(r.afterRedeliverRunCount).toBe(1);
+      expect(r.dedupProven).toBe(true);
+    }, 120_000);
+  }
 });

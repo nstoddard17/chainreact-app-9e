@@ -14,11 +14,11 @@
  *     URL per app, so there is NO provider-side subscription and NO integration is
  *     required (no activation hook is registered for slack). We then read the row
  *     back and return its stored event_type so the smoke proves it equals the
- *     canonical dispatch key `slack.channel_created`.
- *   - deliverSyntheticEvent → builds a synthetic Slack `event_callback`, signs it
- *     with the REAL `SLACK_SIGNING_SECRET` using Slack's documented
- *     `v0:${ts}:${rawBody}` HMAC-SHA256 contract (production verification runs
- *     UNCHANGED), and POSTs it to the REAL `POST /api/webhooks/slack` route
+ *     canonical dispatch key.
+ *   - deliverSyntheticEvent → wraps the spec's inner event in a synthetic
+ *     `event_callback`, signs it with the REAL `SLACK_SIGNING_SECRET` using Slack's
+ *     documented `v0:${ts}:${rawBody}` HMAC-SHA256 contract (production verification
+ *     runs UNCHANGED), and POSTs it to the REAL `POST /api/webhooks/slack` route
  *     (receive → normalize → dispatchTriggerEvent → dedup → enqueue).
  *   - listRuns/readRun → service-role diagnostics readers (incl. non-terminal),
  *     surfacing the persisted `trigger_event` so identity is verifiable.
@@ -44,7 +44,6 @@ import {
 import { processQueuedRun } from "@/services/execution/runQueueProcessor";
 import { POST as slackWebhookRoute } from "@/app/api/webhooks/slack/route";
 import {
-  buildSlackChannelCreatedSmokeWorkflow,
   type SlackWebhookSmokeDeps,
   type SlackWebhookSmokeIdentity,
   type SlackWebhookSmokeRun,
@@ -87,26 +86,16 @@ function toSmokeRun(rec: DiagnosticsRunRecord): SlackWebhookSmokeRun {
   };
 }
 
-function buildSyntheticEventBody(identity: SlackWebhookSmokeIdentity): string {
-  const nowSeconds = Math.floor(Date.now() / 1000);
+function buildEnvelope(
+  identity: SlackWebhookSmokeIdentity,
+  innerEvent: Record<string, unknown>,
+): string {
   return JSON.stringify({
     type: "event_callback",
     team_id: identity.teamId,
     event_id: identity.eventId,
-    event_time: nowSeconds,
-    event: {
-      type: "channel_created",
-      channel: {
-        id: identity.channelId,
-        name: identity.channelName,
-        created: nowSeconds,
-        // Synthetic creator — not a real Slack user; no PII.
-        creator: "U-CRSMOKE-SYNTHETIC",
-        is_channel: true,
-        is_private: false,
-      },
-      event_ts: `${nowSeconds}.000000`,
-    },
+    event_time: Math.floor(Date.now() / 1000),
+    event: innerEvent,
   });
 }
 
@@ -128,9 +117,12 @@ export function makeRealSlackWebhookSmokeDeps(
       const stamp = Date.now();
       return {
         eventId: `Ev-crsmoke-${stamp}-${rand}`,
+        teamId: `T-CRSMOKE-${rand.toUpperCase()}`,
         channelId: `C-CRSMOKE-${rand.toUpperCase()}`,
         channelName: `crsmoke-chan-${rand}`,
-        teamId: `T-CRSMOKE-${rand.toUpperCase()}`,
+        fileId: `F-CRSMOKE-${rand.toUpperCase()}`,
+        // Synthetic user — not a real Slack user; no PII.
+        userId: "U-CRSMOKE-SYNTHETIC",
       };
     },
 
@@ -154,8 +146,7 @@ export function makeRealSlackWebhookSmokeDeps(
       return { workflowId: data.id };
     },
 
-    async armWebhookTrigger({ workflowId, triggerNodeId }) {
-      const workflow = buildSlackChannelCreatedSmokeWorkflow();
+    async armWebhookTrigger({ workflow, workflowId, triggerNodeId }) {
       const record = minimalWorkflowRecord(workflowId, accountId, userId, workflow);
       // REAL lifecycle: Slack has no activation hook, so this is a pure
       // trigger_resources upsert (no integration lookup, no provider call).
@@ -165,12 +156,12 @@ export function makeRealSlackWebhookSmokeDeps(
       return { registeredEventType: row?.eventType ?? null };
     },
 
-    async deliverSyntheticEvent({ identity }) {
+    async deliverSyntheticEvent({ identity, innerEvent }) {
       const signingSecret = process.env.SLACK_SIGNING_SECRET;
       if (!signingSecret) {
         throw new Error("slack-webhook-smoke: SLACK_SIGNING_SECRET is not set.");
       }
-      const rawBody = buildSyntheticEventBody(identity);
+      const rawBody = buildEnvelope(identity, innerEvent);
       const ts = Math.floor(Date.now() / 1000).toString();
       const signature = signSlackBody(ts, rawBody, signingSecret);
       const request = new Request("http://localhost/api/webhooks/slack", {
@@ -203,8 +194,7 @@ export function makeRealSlackWebhookSmokeDeps(
       return rec ? toSmokeRun(rec) : null;
     },
 
-    async cleanupWorkflow(workflowId) {
-      const workflow = buildSlackChannelCreatedSmokeWorkflow();
+    async cleanupWorkflow(workflow, workflowId) {
       const record = minimalWorkflowRecord(workflowId, accountId, userId, workflow);
       // Real lifecycle teardown: deletes the trigger_resources row (Slack has no
       // provider-side subscription to cancel).
