@@ -43,6 +43,7 @@ jest.mock("@/services/workflows/checkpoints", () => ({
 
 import { GET, POST } from "@/app/api/workflows/[id]/checkpoints/route";
 import { POST as RESTORE } from "@/app/api/workflows/[id]/checkpoints/[checkpointId]/restore/route";
+import { LifecycleError } from "@/core/workflows/lifecycle";
 
 const PRE_CHANGE = {
   nodes: [
@@ -197,5 +198,33 @@ describe("POST /api/workflows/[id]/checkpoints/[checkpointId]/restore", () => {
       workflow: baseWorkflow,
       checkpointId: "cp-1",
     });
+  });
+
+  // Restoring an older draft over an ACTIVE workflow can change the activatable trigger set; the
+  // shared save path then tears down the registration via the lifecycle orchestrator, which can
+  // throw a typed LifecycleError. The route must MAP it (typed 4xx), never let it escape as a 500.
+  it("maps a thrown LifecycleError to its typed lifecycle response (not an uncaught 500)", async () => {
+    mockRestoreCheckpoint.mockRejectedValue(
+      new LifecycleError("LIFECYCLE_CONFLICT", "another lifecycle op is in progress"),
+    );
+    const res = await RESTORE(new Request("http://localhost/r", { method: "POST" }), { params: restoreParams });
+    expect(res.status).toBe(409); // LIFECYCLE_CONFLICT → 409
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("LIFECYCLE_CONFLICT");
+  });
+
+  // Any OTHER throw (DB error, credential-plan read, etc.) must surface as a stable, safe body —
+  // NEVER a raw 500 echoing the internal message/stack.
+  it("returns a safe CHECKPOINT_RESTORE_FAILED body for an unexpected throw, without leaking the internal message", async () => {
+    const rawSecret = "workflows.updateDraftDefinition failed: relation account_secrets violated constraint xyz";
+    mockRestoreCheckpoint.mockRejectedValue(new Error(rawSecret));
+    const res = await RESTORE(new Request("http://localhost/r", { method: "POST" }), { params: restoreParams });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { code: string; error: string };
+    expect(body.code).toBe("CHECKPOINT_RESTORE_FAILED");
+    expect(body.error).toBe("Couldn't restore this checkpoint. Refresh and try again.");
+    // The raw internal message never reaches the client.
+    expect(JSON.stringify(body)).not.toContain("updateDraftDefinition");
+    expect(JSON.stringify(body)).not.toContain("account_secrets");
   });
 });

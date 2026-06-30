@@ -105,7 +105,19 @@ export function useWorkflowCheckpoints(
       try {
         return await restoreWorkflowCheckpoint(workflowId, checkpointId);
       } catch (err) {
-        setRestoreError(messageFor(err, "Couldn't restore this checkpoint."));
+        // A 404 means the checkpoint is gone (deleted / pruned / never persisted). The server body
+        // carries CHECKPOINT_NOT_FOUND, but the typed client maps ANY 404 to WORKFLOW_NOT_FOUND, so
+        // branch on the status (authoritative) + that code. Drop the stale row so the broken restore
+        // control disappears, and say why. Other failures keep the row + show the friendly message.
+        const gone =
+          err instanceof WorkflowApiError &&
+          (err.status === 404 || err.code === "WORKFLOW_NOT_FOUND");
+        if (gone) {
+          setCheckpoints((prev) => prev.filter((c) => c.id !== checkpointId));
+          setRestoreError("This checkpoint is no longer available.");
+        } else {
+          setRestoreError(messageFor(err, "Couldn't restore this checkpoint."));
+        }
         throw err;
       } finally {
         setRestoringId(null);

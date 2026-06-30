@@ -45,6 +45,18 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...a: unknown[]) => mockFetchOptionsSource(...a),
 }));
 
+// CHECKPOINTS-1 — the builder mounts the checkpoints hook; mock its typed client so the rail is
+// deterministic AND so we can assert that DISCARD never creates a "before agent change" checkpoint.
+const mockListCheckpoints = jest.fn();
+const mockCreateCheckpoint = jest.fn();
+const mockRestoreCheckpoint = jest.fn();
+jest.mock("@/lib/api/workflowCheckpoints", () => ({
+  __esModule: true,
+  listWorkflowCheckpoints: (...a: unknown[]) => mockListCheckpoints(...a),
+  createWorkflowCheckpoint: (...a: unknown[]) => mockCreateCheckpoint(...a),
+  restoreWorkflowCheckpoint: (...a: unknown[]) => mockRestoreCheckpoint(...a),
+}));
+
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -113,6 +125,12 @@ beforeEach(() => {
   mockUpdateWorkflow.mockReset();
   mockFetchOptionsSource.mockReset();
   mockRequest.mockReset().mockResolvedValue(editResponse);
+  mockListCheckpoints.mockReset().mockResolvedValue([]);
+  mockCreateCheckpoint.mockReset().mockResolvedValue({
+    id: "cp-new", workflowId: "wf-1", source: "react_agent", name: "Before React Agent change",
+    prompt: null, summary: null, createdByUserId: "acct-1", createdAt: "2026-05-17T00:00:00Z",
+  });
+  mockRestoreCheckpoint.mockReset();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
 });
@@ -175,5 +193,17 @@ describe("builder review rail (HERMES-AGENT-CONFIG-DIFF-REVIEW)", () => {
     expect(slack?.config.channel).toBe("#support"); // unchanged
     expect(useGraphSlice.getState().isDirty).toBe(false);
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("Discard does NOT create a checkpoint (checkpoints are only for applied changes)", async () => {
+    const user = userEvent.setup();
+    renderBuilder();
+    await proposeEdit(user);
+    await screen.findByTestId("preview-review-panel");
+
+    await user.click(screen.getByTestId("preview-review-discard"));
+
+    await waitFor(() => expect(screen.queryByTestId("preview-review-panel")).not.toBeInTheDocument());
+    expect(mockCreateCheckpoint).not.toHaveBeenCalled();
   });
 });

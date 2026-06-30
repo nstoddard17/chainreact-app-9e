@@ -85,14 +85,34 @@ describe("useWorkflowCheckpoints", () => {
     expect(result.current.checkpoints[1]?.id).toBe("cp-0");
   });
 
-  it("resolves a restore failure into restoreError and rethrows", async () => {
+  it("on a 404 (checkpoint gone) removes the stale row and shows a friendly 'no longer available' message", async () => {
+    // The server returns 404 CHECKPOINT_NOT_FOUND; the typed client maps any 404 to WORKFLOW_NOT_FOUND.
     mockRestore.mockRejectedValue(new WorkflowApiError("Checkpoint not found.", "WORKFLOW_NOT_FOUND", 404));
     const { result } = renderHook(() => useWorkflowCheckpoints("wf-1", { enabled: true }));
     await waitFor(() => expect(result.current.checkpoints).toHaveLength(1));
 
     await act(async () => {
-      await expect(result.current.restore("cp-9")).rejects.toBeInstanceOf(WorkflowApiError);
+      // Restore the row that IS in the list so we can prove it gets removed.
+      await expect(result.current.restore(EXISTING.id)).rejects.toBeInstanceOf(WorkflowApiError);
     });
-    expect(result.current.restoreError).toBe("Checkpoint not found.");
+    // Stale control disappears, and the reason is explained — no raw 404 wording.
+    expect(result.current.checkpoints).toHaveLength(0);
+    expect(result.current.restoreError).toBe("This checkpoint is no longer available.");
+  });
+
+  it("on a non-404 failure keeps the row and surfaces the server-provided friendly message", async () => {
+    mockRestore.mockRejectedValue(
+      new WorkflowApiError("Couldn't restore this checkpoint. Refresh and try again.", "SERVER_ERROR", 500),
+    );
+    const { result } = renderHook(() => useWorkflowCheckpoints("wf-1", { enabled: true }));
+    await waitFor(() => expect(result.current.checkpoints).toHaveLength(1));
+
+    await act(async () => {
+      await expect(result.current.restore(EXISTING.id)).rejects.toBeInstanceOf(WorkflowApiError);
+    });
+    // The row stays (restore might succeed on retry); the friendly server message is shown.
+    expect(result.current.checkpoints).toHaveLength(1);
+    expect(result.current.checkpoints[0]?.id).toBe(EXISTING.id);
+    expect(result.current.restoreError).toBe("Couldn't restore this checkpoint. Refresh and try again.");
   });
 });

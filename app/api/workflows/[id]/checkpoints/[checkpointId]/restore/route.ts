@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { restoreCheckpoint } from "@/services/workflows/checkpoints";
 import { workflowUsesPrivateCredential } from "@/core/integrations/workflowCredentialScope";
+import { LifecycleError } from "@/core/workflows/lifecycle";
 import {
+  lifecycleErrorResponse,
   loadWorkflowForMember,
   requireUser,
   toWorkflowDetail,
@@ -40,15 +42,41 @@ export async function POST(
     return workflowUsesPrivateCredentialResponse();
   }
 
-  const result = await restoreCheckpoint({
-    workflow: loaded.record,
-    checkpointId,
-  });
-  if (!result.ok) {
+  try {
+    const result = await restoreCheckpoint({
+      workflow: loaded.record,
+      checkpointId,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: "Checkpoint not found.", code: "CHECKPOINT_NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+    return NextResponse.json(await toWorkflowDetail(result.record, auth.userId));
+  } catch (err) {
+    // Restoring an OLDER draft over an ACTIVE workflow can change the activatable trigger set, so
+    // the shared save path tears down the stale registration via the lifecycle orchestrator — which
+    // throws a typed LifecycleError on a teardown/registration problem. Map it through the SAME
+    // helper the lifecycle routes use (typed 4xx/502 + stable code, no provider/identifier leak).
+    if (err instanceof LifecycleError) {
+      return lifecycleErrorResponse(err);
+    }
+    // Any other throw (DB error, credential-plan read, etc.) must NEVER reach the client as a raw
+    // 500 carrying an internal message/stack. Log the raw error server-side ONLY, and return a
+    // stable, identifier-free body the UI can show verbatim (mirrors the runLifecycle boundary).
+    console.error(
+      JSON.stringify({
+        event: "workflow.checkpoint.restore_failed",
+        message: err instanceof Error ? err.message : String(err),
+      }),
+    );
     return NextResponse.json(
-      { error: "Checkpoint not found.", code: "CHECKPOINT_NOT_FOUND" },
-      { status: 404 },
+      {
+        error: "Couldn't restore this checkpoint. Refresh and try again.",
+        code: "CHECKPOINT_RESTORE_FAILED",
+      },
+      { status: 500 },
     );
   }
-  return NextResponse.json(await toWorkflowDetail(result.record, auth.userId));
 }
