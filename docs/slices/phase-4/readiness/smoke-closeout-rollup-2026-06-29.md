@@ -12,18 +12,19 @@ replacement: the authoritative detail lives in the two checkpoints.
 
 ```
 298 registered
-144 LIVE_PASS
- 13 NOT_RUN
+145 LIVE_PASS
+ 12 NOT_RUN
 141 MISSING_FIXTURE
   0 fail / 0 bug
 ```
 `npm run chainreact -- smoke actions --cert`. **Updated 2026-06-30:** Marcus connected Monday.com, which
-reopened action-smoke for that provider — **9 of 10 Monday read actions are now LIVE_PASS** (was 135 LIVE_PASS
-/ 22 NOT_RUN on 2026-06-29; +9 LIVE_PASS / −9 NOT_RUN). See action-smoke checkpoint §29. Action-smoke is again
-**exhausted on the currently-connected providers**: the remaining 13 NOT_RUN self-skip without an operator
-input/connection (incl. `monday:search_items`, which needs `SMOKE_MONDAY_QUERY`), and every MISSING_FIXTURE is
-a send / raw-bytes / sharing / no-cleanup / no-verify action (incl. the 14 Monday write actions, deferred to a
-write slice with smoke-owned create + cleanup). No failures and no product bugs surfaced.
+reopened action-smoke for that provider — **all 10 Monday read actions are now LIVE_PASS** (was 135 LIVE_PASS
+/ 22 NOT_RUN on 2026-06-29; +10 LIVE_PASS / −10 NOT_RUN across §29 + §30; `search_items` certified with a
+synthetic no-match query). See action-smoke checkpoint §29 + §30. Action-smoke is again **exhausted on the
+currently-connected providers**: the remaining 12 NOT_RUN self-skip without an operator input/connection, and
+every MISSING_FIXTURE is a send / raw-bytes / sharing / no-cleanup / no-verify action (incl. the 14 Monday
+write actions, deferred to a write slice with smoke-owned create + cleanup). No failures and no product bugs
+surfaced.
 
 ## 2. Final trigger-smoke matrix
 

@@ -58,8 +58,10 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // (provider was previously not-connected, so these were NOT_RUN). All read-only
   // (no mutation, no cleanup); resource-scoped reads ran via the harness's safe
   // selector auto-discovery (board/item/user ids resolved from the connected
-  // account). `search_items` stays NOT_RUN — its `columnValue` selector has no safe
-  // auto-discovery; needs an operator-provided SMOKE_MONDAY_QUERY.
+  // account). `search_items` (board id auto-discovered) ran with a synthetic
+  // no-match `SMOKE_MONDAY_QUERY` so it returns zero items but still proves the
+  // handler + Monday API call execute (the fixture asserts terminal status only).
+  // ALL 10 Monday read actions are now certified.
   ...records("LIVE_PASS", "live read verified", LIVE_MONDAY_READS, [
     ["monday", "list_boards"],
     ["monday", "list_users"],
@@ -70,6 +72,7 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["monday", "list_items"],
     ["monday", "list_subitems"],
     ["monday", "list_updates"],
+    ["monday", "search_items"],
   ]),
   ...records("LIVE_PASS", "live read verified", LIVE, [
     ["slack", "list_channels"],

@@ -1388,3 +1388,51 @@ deploy, nothing pushed.**
 - **Is `MONDAY_SIGNING_SECRET` for the trigger lane, not action certs?** Correct. Monday action smoke uses the
   connected integration token (DB), not the signing secret. `MONDAY_SIGNING_SECRET` unlocks the Monday
   webhook TRIGGER-smoke lane (§ trigger-smoke checkpoint), which is a separate effort and out of scope here.
+
+## 30. Monday `search_items` LIVE-CERTIFIED — Monday read surface complete (2026-06-30)
+
+§29 left one Monday read NOT_RUN: `search_items` needed an operator-provided search value
+(`SMOKE_MONDAY_QUERY`) because its `columnValue` field has no safe selector auto-discovery (the board id IS
+auto-discovered). Provided a SYNTHETIC NO-MATCH query (`crsmoke-no-match-9f3a`) and certified it. **All 10
+Monday read actions are now LIVE_PASS.**
+
+**Why a no-match query is safe + sufficient.** The fixture has no `columnId`, so `search_items` takes the
+name-search path: it makes the real Monday `itemsList` API call for the (auto-discovered) board, then
+client-side substring-filters item names by the query. A query that matches nothing returns
+`{ items: [], count: 0 }` and the handler still returns output successfully → terminal `succeeded`. The
+fixture asserts ONLY terminal status (never item content), so the synthetic no-match query proves the
+handler + provider API execute without reading or exposing any real item data, and without any mutation.
+The query value carries no private data (it is a made-up smoke string).
+
+**Run (read-only, scoped):**
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_PROVIDER=monday SMOKE_MONDAY_CONNECTED=1 SMOKE_MONDAY_QUERY=<synthetic-no-match> \
+  npm run smoke:actions:run:workflow:live
+→ monday: 1 pass / 0 fail / 0 skip / 9 cert-skip (the other 9 reads CERT-SKIP as already LIVE_PASS). Gate: OK.
+```
+`search_items` ran live (testMode=false, real Monday API), board id auto-discovered, terminal `succeeded`,
+0 leaked (read creates nothing).
+
+**Matrix:** Monday **24 / 10 LIVE_PASS / 0 NOT_RUN / 14 MISSING / 0 / 0 / 0** — read surface fully green.
+Totals now **298 registered / 145 LIVE_PASS / 12 not-run / 141 missing / 0 fail / 0 bug** (+1 LIVE_PASS,
+−1 not-run from §29). Cert seed: `monday:search_items` added to the Monday read LIVE_PASS batch.
+
+**Verification (this slice):** scoped live `smoke:actions:run:workflow:live` (SMOKE_PROVIDER=monday,
+SMOKE_MONDAY_QUERY synthetic) → 1 pass / 0 fail / 0 skip, 0 leaked; `npm run chainreact -- smoke actions
+--cert` → **298 / 145 LIVE_PASS / 12 not-run / 141 missing / 0 fail / 0 bug**; `npx jest
+tests/unit/smoke-actions` → 45 suites / 464 tests pass; `npx tsc --noEmit` → exit 0; eslint on
+`certificationSeed.ts` → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Are Monday read actions fully complete?** YES. All 10 Monday read actions are LIVE_PASS
+  (`list_boards`, `list_users`, `get_board`, `get_item`, `get_user`, `list_groups`, `list_items`,
+  `list_subitems`, `list_updates`, `search_items`). No Monday read remains NOT_RUN or blocked.
+- **Next Monday slice = write fixtures?** Yes, with smoke-owned create + registered cleanup ONLY. The 14
+  Monday MISSING_FIXTURE actions are all writes. Recommended safe order on a smoke-owned board:
+  `createBoard` → `createGroup` / `createItem` / `createSubitem` / `addColumn` / `createUpdate` /
+  `updateItem` / `moveItem` / `archiveItem` / `duplicateItem` / `duplicateBoard` → `deleteItem` + board
+  cleanup. Never mutate existing user boards. `addFile` / `downloadFile` are bytes-handling (stage with the
+  bytes group). Each write fixture must register its cleanup before certification, mirroring the existing
+  write-harness providers (Airtable / Trello / Sheets / OneNote).
