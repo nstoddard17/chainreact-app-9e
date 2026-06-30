@@ -75,7 +75,7 @@ export interface WorkflowGuidancePanelProps {
    * overlay NEVER applies/creates/mutates a workflow; an explicit "Apply preview" in the overlay does
    * the additive local-draft edit.
    */
-  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string }) => void;
+  readonly onPreviewToCanvas?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string }) => void;
   /**
    * HERMES-AGENT-BUILDER-RAIL-CHAT-MODE — render the session-scoped conversational rail (message list
    * + bottom input + recent-conversation context) instead of the single-shot form. Default false keeps
@@ -148,6 +148,8 @@ type ChatMessage =
       readonly text: string;
       readonly plan: WorkflowPlan | null;
       readonly preview: DraftPreview | null;
+      /** CHECKPOINTS-1 — the user goal/prompt that produced this turn, carried so an Apply can name the checkpoint. */
+      readonly prompt?: string;
       /** HERMES-AGENT-WORKFLOW-EDITOR — for an EDIT proposal, the validated end-state graph Apply replaces with. */
       readonly proposedDefinition?: WorkflowDefinition | null;
       /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the draft version the proposal is pinned to (Apply stale guard). */
@@ -179,12 +181,14 @@ function toRecentTurns(messages: readonly ChatMessage[]): GuidanceConversationTu
 }
 
 /** Build the canvas-overlay payload from an assistant turn (carries the edit's proposedDefinition when present). */
-function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string } {
+function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string } {
   return {
     plan: m.plan!,
     preview: m.preview!,
     ...(m.proposedDefinition ? { proposedDefinition: m.proposedDefinition } : {}),
     ...(m.baseGraphVersion ? { baseGraphVersion: m.baseGraphVersion } : {}),
+    // CHECKPOINTS-1 — carry the user prompt so the builder can name the pre-apply checkpoint.
+    ...(m.prompt ? { prompt: m.prompt } : {}),
   };
 }
 
@@ -311,6 +315,8 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
             text: stripFencedJsonBlocks(res.guidanceText) || res.guidanceText,
             plan: asRenderablePlan(res.workflowPlan),
             preview: asRenderablePreview(res.previewDraft),
+            // CHECKPOINTS-1 — remember the user goal for this turn so an Apply records it on the checkpoint.
+            prompt: goalText,
             ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
             ...(res.baseGraphVersion ? { baseGraphVersion: res.baseGraphVersion } : {}),
             ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),

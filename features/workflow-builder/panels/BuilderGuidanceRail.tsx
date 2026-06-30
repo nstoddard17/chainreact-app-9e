@@ -54,7 +54,7 @@ export interface BuilderGuidanceRailProps {
    * overlay applies/mutates nothing — an explicit "Apply preview" does the
    * additive local-draft edit.
    */
-  readonly onShowPreview?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition }) => void;
+  readonly onShowPreview?: (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; prompt?: string }) => void;
   /**
    * HERMES-AGENT-WORKFLOW-EDITOR — getter for the user's CURRENT local draft (stable ids + config +
    * edges), forwarded to the panel so a change request is proposed against the live canvas.
@@ -97,6 +97,12 @@ export interface BuilderGuidanceRailProps {
    * fills only an empty, untouched composer and never auto-sends.
    */
   readonly initialComposerValue?: string;
+  /**
+   * CHECKPOINTS-1 — the recent-checkpoints surface, rendered as a fixed footer
+   * region below the scrollable chat (owned by `WorkflowBuilder`, which holds the
+   * useWorkflowCheckpoints hook + graph re-hydration). Absent → no footer.
+   */
+  readonly checkpointsPanel?: ReactNode;
 }
 
 export function BuilderGuidanceRail({
@@ -114,6 +120,7 @@ export function BuilderGuidanceRail({
   getCurrentGraphShape,
   renderCheckSetup,
   initialComposerValue,
+  checkpointsPanel,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -165,6 +172,13 @@ export function BuilderGuidanceRail({
           />
         </div>
       ) : (
+        <></>
+      )}
+      {/* CHECKPOINTS-1 — recent-checkpoints footer. Shown whenever the builder supplies it
+          (independent of guidance availability — checkpoints can be restored even if the
+          agent is off). Fixed region below the scrollable chat. */}
+      {checkpointsPanel ? <div className="shrink-0">{checkpointsPanel}</div> : null}
+      {!available ? (
         <div
           data-testid="builder-guidance-rail-unavailable"
           data-reason={unavailableReason ?? undefined}
@@ -177,7 +191,7 @@ export function BuilderGuidanceRail({
         >
           AI guidance is currently unavailable. You can keep building your workflow manually.
         </div>
-      )}
+      ) : null}
     </section>
   );
 }
