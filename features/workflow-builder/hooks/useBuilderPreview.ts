@@ -28,6 +28,7 @@ import {
   buildAppliedConfigHints,
   firstIncompleteAppliedNodeId,
 } from "../utils/appliedConfigHints";
+import { buildAgentSetupIssues } from "@/core/workflows/agentSetupIssues";
 import { useGraphSlice } from "../state/graphSlice";
 import { useConfigSlice } from "../state/configSlice";
 import { useWorkflowCheckpoints } from "./useWorkflowCheckpoints";
@@ -218,6 +219,24 @@ export function useBuilderPreview({
         ? buildAppliedConfigHints(appliedNodeIds, pendingNodes, requiredFieldsByType)
         : [],
     [appliedNodeIds, pendingNodes, requiredFieldsByType],
+  );
+
+  // CHECKLIST-ITEM-10 — the actionable "Setup needed" read-model for the post-apply
+  // notice: which node + field each just-added node still needs, an honest safe
+  // explanation, the next step, and whether it blocks test/activation. Derived from
+  // the SAME readiness rule as the hints (recomputes from live pending nodes, so a
+  // row clears as soon as the user fills the field) — names/labels only, no values.
+  const agentSetupIssues = useMemo(
+    () =>
+      appliedNodeIds.length > 0
+        ? buildAgentSetupIssues({
+            workflowId,
+            nodeIds: appliedNodeIds,
+            nodes: pendingNodes,
+            ...(requiredFieldsByType ? { requiredFieldsByType } : {}),
+          })
+        : [],
+    [appliedNodeIds, pendingNodes, requiredFieldsByType, workflowId],
   );
 
   // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — open the ghost overlay with the validated plan + display
@@ -505,6 +524,7 @@ export function useBuilderPreview({
     previewShowCount,
     applyNotice,
     appliedConfigHints,
+    agentSetupIssues,
     previewConfig,
     previewDiffGraph,
     configDiff,

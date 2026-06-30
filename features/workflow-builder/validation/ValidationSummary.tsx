@@ -74,6 +74,7 @@ export function ValidationSummary({
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
   const openNode = useConfigSlice((s) => s.openNode);
+  const revealNode = useConfigSlice((s) => s.revealNode);
 
   const issues = collectBuilderValidationIssues({
     pendingNodes,
@@ -114,7 +115,19 @@ export function ValidationSummary({
     if (!issue.nodeId) return;
     const node = pendingNodes.find((n) => n.id === issue.nodeId);
     if (!node) return;
-    openNode({ nodeId: issue.nodeId, initialValues: node.config });
+    // CHECKLIST-ITEM-10 — when the issue points at a specific field, open the
+    // node AND highlight/scroll to that field (reuses the repair-loop reveal path,
+    // configSlice.revealNode). Navigation only — never writes a value or saves.
+    // Node-level issues without a field keep the plain open-inspector behavior.
+    if (issue.fieldName) {
+      revealNode({
+        nodeId: issue.nodeId,
+        initialValues: node.config,
+        fieldKey: issue.fieldName,
+      });
+    } else {
+      openNode({ nodeId: issue.nodeId, initialValues: node.config });
+    }
     onOpenNode?.(issue.nodeId);
   }
 

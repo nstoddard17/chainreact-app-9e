@@ -207,6 +207,58 @@ describe("ValidationSummary — no_trigger 'Choose trigger' action (Slice 4.BUIL
   });
 });
 
+describe("ValidationSummary — missing-field click focuses the field (CHECKLIST-ITEM-10)", () => {
+  const REQUIRED = {
+    "slack:send_channel_message": {
+      displayName: "Send Channel Message",
+      requiredFields: [{ name: "channel", label: "Channel" }],
+    },
+  } as const;
+
+  function hydrateChain(actionConfig: Record<string, unknown>): void {
+    useGraphSlice.getState().hydrate("wf-1", {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "slack", type: "message", config: {}, position: { x: 0, y: 0 } },
+        { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: actionConfig, position: { x: 0, y: 120 } },
+      ],
+      edges: [{ id: "e1", from: "t1", to: "a1" }],
+    });
+  }
+
+  it("clicking a missing_required_field row opens the node AND highlights the field", async () => {
+    const user = userEvent.setup();
+    hydrateChain({}); // channel blank → missing_required_field with fieldName "channel"
+    render(<ValidationSummary requiredFieldsByType={REQUIRED} />);
+    expect(useConfigSlice.getState().focusFieldKey).toBeNull();
+
+    const issueBtn = screen
+      .getAllByTestId("validation-summary-issue")
+      .find((el) => el.getAttribute("data-code") === "missing_required_field");
+    await user.click(issueBtn!);
+
+    expect(useConfigSlice.getState().activeNodeId).toBe("a1");
+    // The field highlight is the new behavior — revealNode, not bare openNode.
+    expect(useConfigSlice.getState().focusFieldKey).toBe("channel");
+  });
+
+  it("a node-level issue without a field still opens the node without a field highlight", async () => {
+    const user = userEvent.setup();
+    useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
+    act(() => {
+      useGraphSlice.getState().addTrigger({ provider: "slack" });
+      useGraphSlice.getState().addAction({ provider: "slack" });
+    });
+    const actionId = useGraphSlice.getState().pendingNodes.find((n) => n.kind === "action")!.id;
+    render(<ValidationSummary />);
+    const issueBtn = screen
+      .getAllByTestId("validation-summary-issue")
+      .find((el) => el.getAttribute("data-node-id") === actionId);
+    await user.click(issueBtn!);
+    expect(useConfigSlice.getState().activeNodeId).toBe(actionId);
+    expect(useConfigSlice.getState().focusFieldKey).toBeNull();
+  });
+});
+
 describe("ValidationSummary — provider-agnostic", () => {
   it("renders the same UI shape for a fictional provider as for a known one", () => {
     useGraphSlice.getState().hydrate("wf-1", { nodes: [], edges: [] });
