@@ -42,6 +42,7 @@ const SMOKE_WRITE_EXCEL = "2026-06-26";
 const LIVE_NATIVE = "2026-06-26";
 const LIVE_DROPBOX_SEARCH = "2026-06-26";
 const SMOKE_WRITE_BATCH_0629 = "2026-06-29";
+const LIVE_MONDAY_READS = "2026-06-30";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -53,6 +54,23 @@ const SMOKE_WRITE_BATCH_0629 = "2026-06-29";
  * always-run baseline that proves the live harness path is real every sweep.
  */
 export const CERTIFICATIONS: readonly CertificationRecord[] = [
+  // Monday.com read-only batch — LIVE-certified after Marcus connected Monday
+  // (provider was previously not-connected, so these were NOT_RUN). All read-only
+  // (no mutation, no cleanup); resource-scoped reads ran via the harness's safe
+  // selector auto-discovery (board/item/user ids resolved from the connected
+  // account). `search_items` stays NOT_RUN — its `columnValue` selector has no safe
+  // auto-discovery; needs an operator-provided SMOKE_MONDAY_QUERY.
+  ...records("LIVE_PASS", "live read verified", LIVE_MONDAY_READS, [
+    ["monday", "list_boards"],
+    ["monday", "list_users"],
+    ["monday", "get_board"],
+    ["monday", "get_item"],
+    ["monday", "get_user"],
+    ["monday", "list_groups"],
+    ["monday", "list_items"],
+    ["monday", "list_subitems"],
+    ["monday", "list_updates"],
+  ]),
   ...records("LIVE_PASS", "live read verified", LIVE, [
     ["slack", "list_channels"],
     ["slack", "list_users"],

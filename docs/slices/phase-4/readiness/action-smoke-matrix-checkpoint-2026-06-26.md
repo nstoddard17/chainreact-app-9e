@@ -1326,3 +1326,65 @@ in this lane):**
 LIVE_PASS / 22 not-run / 141 missing / 0 fail / 0 bug** (unchanged); `npx jest tests/unit/smoke-actions`
 → 45 suites / 464 tests pass; `npx tsc --noEmit` → exit 0; `npm run lint:structure` → OK. No code
 or fixture changed (docs-only), so no eslint targets. **No db:push, no deploy, nothing pushed.**
+
+## 29. Monday.com connected — read-only batch LIVE-CERTIFIED (9 of 10) (2026-06-30)
+
+§28 declared action-smoke exhausted **on the then-connected providers**; Monday was excluded as
+not-connected. Marcus has now connected Monday.com on the smoke account, so the previously-NOT_RUN Monday
+read fixtures (authored long ago, blocked only by the missing connection) became runnable. **9 of the 10
+Monday read actions are now LIVE_PASS.**
+
+**Connection / env.** Monday integration is live on `SMOKE_ACCOUNT_ID` (the handler resolves the token from
+the DB integration row — no token in env). The action smoke needs only the operator assertion flag
+`SMOKE_MONDAY_CONNECTED=1`; `MONDAY_SIGNING_SECRET` (now in `.env.local`) is for the LATER Monday
+trigger-smoke webhook lane, NOT for action certification. No `SMOKE_MONDAY_BOARD_ID` / `ITEM_ID` /
+`USER_ID` / `QUERY` were provisioned, and none were created by hand.
+
+**Run (read-only, scoped):**
+```
+ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
+  SMOKE_PROVIDER=monday SMOKE_MONDAY_CONNECTED=1 npm run smoke:actions:run:workflow:live
+→ monday: 9 pass / 0 fail / 1 skip / 0 cert-skip. Gate: OK.
+```
+
+**Certified (9, all read-only, no mutation, no cleanup, 0 leaked):** `list_boards`, `list_users` (account-level,
+no resource needed) + `get_board`, `get_item`, `get_user`, `list_groups`, `list_items`, `list_subitems`,
+`list_updates` (resource-scoped — ran via the harness's safe **selector auto-discovery**, which resolved a
+board / item / user id from the connected account; the report asserts only terminal run status, never board
+content). Each ran live (testMode=false, real Monday API), reached terminal `succeeded`, leaked nothing
+(reads create no resources).
+
+**Still blocked (1 read):** `search_items` — SKIP: its `columnValue` selector has no safe auto-discovery.
+Needs an operator-provided `SMOKE_MONDAY_QUERY` (a search term) to run. Not a bug; just an un-provisioned
+read input. Stays NOT_RUN.
+
+**Not yet attempted (14 writes, MISSING_FIXTURE):** addColumn, createBoard, createGroup, duplicateBoard,
+addFile, downloadFile, archiveItem, createItem, createSubitem, deleteItem, duplicateItem, moveItem,
+updateItem, createUpdate. Per the slice charter, write fixtures are NOT authored until the read surface is
+understood; each needs a registered smoke-owned create + cleanup path before certification (downloadFile is
+also raw-bytes). Deferred to a follow-up write slice.
+
+**Matrix:** Monday **24 / 9 LIVE_PASS / 1 NOT_RUN / 14 MISSING / 0 / 0 / 0**. Totals now **298 registered /
+144 LIVE_PASS / 13 not-run / 141 missing / 0 fail / 0 bug** (+9 LIVE_PASS, −9 not-run from §28's
+298/135/22/141). Cert seed: 9 `LIVE_PASS` rows added (`scripts/chainreact/smoke/certificationSeed.ts`).
+
+**Verification (this slice):** scoped live `smoke:actions:run:workflow:live` (SMOKE_PROVIDER=monday) → 9 pass /
+0 fail / 1 skip, 0 leaked; `npm run chainreact -- smoke actions --cert` → **298 / 144 LIVE_PASS / 13 not-run /
+141 missing / 0 fail / 0 bug**; `npx jest tests/unit/smoke-actions` → 45 suites / 464 tests pass; `npx tsc
+--noEmit` → exit 0; eslint on `certificationSeed.ts` → 0; `npm run lint:structure` → OK. **No db:push, no
+deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Are Monday read actions complete?** Effectively yes — 9 of 10 reads are LIVE_PASS. The 10th
+  (`search_items`) is one operator env away (`SMOKE_MONDAY_QUERY`); set a search term and re-run the scoped
+  smoke to close it. No read action is blocked by a harness or product gap.
+- **Proceed to Monday write actions?** Only with a smoke-owned create + registered cleanup, per the standing
+  rule. The natural safe order: `createBoard` (smoke-owned board) → `createGroup` / `createItem` /
+  `createSubitem` / `addColumn` / `createUpdate` / `updateItem` / `moveItem` / `archiveItem` /
+  `duplicateBoard` / `duplicateItem` against that board → `deleteItem` + board cleanup. Author the write
+  fixtures + cleanup in a separate write slice; do NOT mutate existing user boards. `downloadFile` is
+  raw-bytes (defer with the other bytes actions).
+- **Is `MONDAY_SIGNING_SECRET` for the trigger lane, not action certs?** Correct. Monday action smoke uses the
+  connected integration token (DB), not the signing secret. `MONDAY_SIGNING_SECRET` unlocks the Monday
+  webhook TRIGGER-smoke lane (§ trigger-smoke checkpoint), which is a separate effort and out of scope here.
