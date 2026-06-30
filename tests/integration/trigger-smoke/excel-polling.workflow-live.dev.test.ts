@@ -1,22 +1,21 @@
 /**
  * @jest-environment node
  *
- * Trigger-smoke — microsoft-excel:new_worksheet LIVE polling-dispatch proof.
+ * Trigger-smoke — Microsoft Excel CREATE-polling family LIVE dispatch proof.
  *
- * Real dev DB + real Microsoft Graph (OneDrive + Excel). Creates a SMOKE-OWNED
- * workbook, arms the polling trigger via the real lifecycle (activation seeds the
- * worksheet snapshot), polls once (baseline-first: 0 fired), adds ONE worksheet
- * (certified create_worksheet), polls again through the REAL per-trigger Excel
- * poll handler (read → diff → enqueueRun) → exactly one run with the new worksheet
- * on its payload → drains it to terminal 'succeeded' → deletes the whole workbook
- * (OneDrive recycle bin) → 0 leaked.
+ * Real dev DB + real Microsoft Graph (OneDrive + Excel). One `it` per trigger,
+ * each driving the spec-driven `runExcelPollingSmoke`:
+ *   - new_worksheet  : create workbook → activate → poll(0) → create_worksheet → poll(1)
+ *   - new_row        : create workbook → seed baseline row → activate → poll(0) → add_row → poll(1)
+ *   - new_table_row  : create table workbook (seed row = baseline) → activate → poll(0) → add_table_row → poll(1)
+ * then drain → terminal 'succeeded' → delete whole workbook (OneDrive recycle bin) → 0 leaked.
  *
- * The smoke drives the per-trigger poll handler (the exact fn the cron
- * orchestrator's runOne calls), NOT the global runPollingTriggers() — that global
- * shell would poll + fire EVERY due polling workflow across all accounts on the
- * shared dev DB. Dispatch is 100% real; only the global selection shell is scoped.
+ * Drives the per-trigger Excel poll handler (the fn the cron orchestrator's runOne
+ * calls), NOT the global runPollingTriggers() — that global shell would poll + fire
+ * every due polling workflow across all accounts on the shared dev DB. Dispatch is
+ * 100% real; only the global selection shell is scoped.
  *
- * Gates (this DOES mutate OneDrive → real provider write):
+ * Gates (mutates OneDrive → real provider write):
  *   ALLOW_DB_INTEGRATION_TESTS + ALLOW_TRIGGER_SMOKE + ALLOW_LIVE_PROVIDER_SMOKE +
  *   ALLOW_LIVE_PROVIDER_WRITE_SMOKE + ALLOW_DESTRUCTIVE_PROVIDER_SMOKE +
  *   Supabase env + SMOKE_ACCOUNT_ID + SMOKE_USER_ID +
@@ -32,7 +31,13 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
-import { runExcelNewWorksheetSmoke } from "@/tests/trigger-smoke/excelPollingSmoke";
+import {
+  runExcelPollingSmoke,
+  NEW_WORKSHEET_SPEC,
+  NEW_ROW_SPEC,
+  NEW_TABLE_ROW_SPEC,
+  type ExcelPollingTriggerSpec,
+} from "@/tests/trigger-smoke/excelPollingSmoke";
 import { makeRealExcelPollingSmokeDeps } from "@/tests/trigger-smoke/excelPollingSmokeDeps";
 
 function loadEnvLocal(): void {
@@ -72,13 +77,13 @@ const describeLive = RUN ? describe : describe.skip;
 
 if (!RUN) {
   console.log(
-    "SKIP trigger smoke (excel new_worksheet) — needs ALLOW_DB_INTEGRATION_TESTS + ALLOW_TRIGGER_SMOKE + " +
+    "SKIP trigger smoke (excel polling) — needs ALLOW_DB_INTEGRATION_TESTS + ALLOW_TRIGGER_SMOKE + " +
       "ALLOW_LIVE_PROVIDER_SMOKE + ALLOW_LIVE_PROVIDER_WRITE_SMOKE + ALLOW_DESTRUCTIVE_PROVIDER_SMOKE + " +
       "Supabase env + SMOKE_ACCOUNT_ID + SMOKE_USER_ID + SMOKE_MICROSOFT_EXCEL_CONNECTED + SMOKE_MICROSOFT_ONEDRIVE_CONNECTED.",
   );
 }
 
-describeLive("trigger smoke: microsoft-excel:new_worksheet (real dev DB + Graph, polling dispatch)", () => {
+describeLive("trigger smoke: microsoft-excel create-polling family (real dev DB + Graph)", () => {
   const supabase = createClient(URL as string, SERVICE_KEY as string, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -88,16 +93,20 @@ describeLive("trigger smoke: microsoft-excel:new_worksheet (real dev DB + Graph,
     userId: USER_ID as string,
   });
 
-  it("baseline-first poll fires 0, post-baseline worksheet fires exactly 1, terminal succeeded, 0 leaked", async () => {
-    // Bounded re-poll to absorb Graph's create→read propagation lag (~up to 9s).
-    const r = await runExcelNewWorksheetSmoke(deps, { afterPollAttempts: 6, afterPollSleepMs: 1500 });
-    console.log(JSON.stringify({ event: "trigger-smoke.excel-new-worksheet.result", ...r }));
+  const specs: ExcelPollingTriggerSpec[] = [NEW_WORKSHEET_SPEC, NEW_ROW_SPEC, NEW_TABLE_ROW_SPEC];
 
-    expect(r.outcome).toBe("pass");
-    expect(r.baselineRunCount).toBe(0);
-    expect(r.afterRunCount).toBe(1);
-    expect(r.firedWorksheetName).toBe(r.addedWorksheetName);
-    expect(r.terminalStatus).toBe("succeeded");
-    expect(r.cleaned).toBe(true);
-  }, 120_000);
+  for (const spec of specs) {
+    it(`${spec.label}: baseline poll 0, post-baseline add fires 1, terminal succeeded, 0 leaked`, async () => {
+      // Bounded re-poll absorbs Graph's create→read propagation lag (~up to 9s).
+      const r = await runExcelPollingSmoke(deps, spec, { afterPollAttempts: 6, afterPollSleepMs: 1500 });
+      console.log(JSON.stringify({ event: "trigger-smoke.excel-polling.result", ...r }));
+
+      expect(r.outcome).toBe("pass");
+      expect(r.baselineRunCount).toBe(0);
+      expect(r.afterRunCount).toBe(1);
+      expect(r.identityMatched).toBe(true);
+      expect(r.terminalStatus).toBe("succeeded");
+      expect(r.cleaned).toBe(true);
+    }, 180_000);
+  }
 });

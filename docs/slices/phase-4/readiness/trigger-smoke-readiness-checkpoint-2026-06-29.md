@@ -307,3 +307,69 @@ the 5 touched files → 0; `npm run lint:structure` → OK. **No db:push, no dep
 **Next Lane B candidates (same harness shape):** `new_row` / `new_table_row` (seed via certified
 `add_row` / `add_table_row`, verify the row payload), then `updated_row` / `updated_table_row`. Lane C
 (webhook synthetic-receipt) remains the larger follow-on.
+
+## 10. Slice 3 — Lane B: `new_row` + `new_table_row` LIVE-CERTIFIED; harness generalized (2026-06-29)
+
+Extended the Excel polling harness into ONE spec-driven pattern and certified the rest of the Excel
+CREATE-polling family. **`microsoft-excel:new_row` and `microsoft-excel:new_table_row` are LIVE_PASS.**
+
+**Selected triggers + why.** The two create-detection triggers — same provider, same workbook
+bootstrap + cleanup as `new_worksheet`, and their post-baseline change is a CERTIFIED safe write
+(`add_row` / `add_table_row`). They only detect post-baseline ADDITIONS (a new position/row key), so
+they're simpler than the `updated_*` value-change triggers (deferred).
+
+**Harness generalization (one pattern, not a second).** `excelPollingSmoke.ts` is now spec-driven:
+`runExcelPollingSmoke(deps, spec, opts)` runs the shared 9-step flow; an `ExcelPollingTriggerSpec`
+plugs in the workbook variant, the workflow builder, an optional pre-activation `seed`, the
+post-baseline `applyChange`, and `identityMatches`. Three specs exported (`NEW_WORKSHEET_SPEC`,
+`NEW_ROW_SPEC`, `NEW_TABLE_ROW_SPEC`); `runExcelNewWorksheetSmoke` stays as a thin wrapper. The deps
+gained `createSmokeWorkbook(variant)` (plain vs the table-bearing `MINIMAL_XLSX_WITH_TABLE_BASE64`),
+`seedRow` (add_row + confirm-visible), `addMarkedRow`, `addMarkedTableRow`, and `listRuns` now carries
+the full `trigger_event.payload` so each spec verifies its own identity. The single live integration
+test runs all three specs (`smoke:triggers:excel`); the old new_worksheet-only test was replaced.
+
+**Baseline-first proof (per trigger).** All fired **0** runs on the first poll:
+- `new_worksheet`: pre-existing `Sheet1` (snapshot names `["Sheet1"]`) → 0.
+- `new_row`: a seeded baseline row at position 1 (snapshot `rowHashes {"1":…}`) → 0. (An empty sheet's
+  `add_row` lands at A1/position 1, which would collide with the empty-sheet phantom key and never
+  register as new — so the harness seeds a confirmed-visible baseline row first, and the change then
+  appends at position 2, a NEW key.)
+- `new_table_row`: the table workbook ships with one seed row = baseline (snapshot `rowHashes {"0":…}`) → 0.
+
+**Live result (`… npm run smoke:triggers:excel`, all 5 write gates + Excel/OneDrive connected):**
+```
+new_worksheet  → pass · baseline 0 · after 1 · identity "crsmoke…ws"   matched · succeeded · cleaned
+new_row        → pass · baseline 0 · after 1 · identity "crsmoke-…-row" matched · succeeded · cleaned
+new_table_row  → pass · baseline 0 · after 1 · identity "crsmoke-…-trow" matched · succeeded · cleaned
+```
+Each: created 1 workbook / cleaned 1 (OneDrive recycle bin) / **0 leaked**; the fired run's
+`trigger_event.payload` carried the added worksheet name / row marker (verifiable dispatch). Same
+bounded re-poll (6×1.5s) absorbs Graph's create→read lag. **Cert rows: `new_row` + `new_table_row` →
+`LIVE_PASS` (2026-06-29).**
+
+**Trigger-smoke matrix now:** 62 registered · **4 LIVE_PASS** (`native:schedule.fired`,
+`microsoft-excel:new_worksheet`, `:new_row`, `:new_table_row`) · 1 RUN_NOW_PROVEN
+(`native:manual.run`) · 57 un-harnessed.
+
+**Verification (this slice):** `tests/unit/trigger-smoke` (22) + `tests/unit/integrations/microsoft-excel/triggers`
+→ 84 pass; live `smoke:triggers:excel` → 3/3 PASS (above, 0 leaked each); `npx tsc --noEmit` → exit 0;
+eslint on the 5 touched files → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Is `new_row` + `new_table_row` enough to prove the Excel create-polling family before `updated_*`?**
+  Yes. The create family (`new_worksheet`, `new_row`, `new_table_row`) is now fully certified and
+  exercises every distinct create-diff path: worksheet-name set, worksheet row-position keys, and table
+  stable-id keys — through the real per-trigger poll → snapshot-diff → enqueue → run. `updated_row` /
+  `updated_table_row` are a genuinely DIFFERENT proof (value-change via `findChangedKeys`, needing an
+  `update_row` / `update_table_row`-style mutation + a re-hash assertion, with the documented
+  position-key shift caveat for `updated_row`). Recommend treating the create family as DONE and
+  scheduling `updated_*` as its own small follow-up slice (reuses this exact harness + a "mutate an
+  existing row, assert the changed key fires" spec).
+- **Scoped-handler polling vs global cron on a shared dev DB?** Keep the scoped per-trigger
+  `handler.poll(...)` approach. It runs the identical dispatch code path the cron's `runOne` invokes
+  (read → diff → enqueue), so dispatch fidelity is full, while avoiding the global
+  `runPollingTriggers()` shell that would poll + fire every due polling workflow across ALL accounts on
+  the shared DB (a real multi-account side effect we must not cause). The only thing not exercised is
+  the selection/interval/state gating shell — not the trigger behavior under test. Revisit only if/when
+  there's an isolated single-account test DB.

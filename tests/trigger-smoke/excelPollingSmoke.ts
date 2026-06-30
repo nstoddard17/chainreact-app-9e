@@ -1,25 +1,26 @@
 /**
  * Trigger-smoke harness — Microsoft Excel POLLING trigger dispatch path (Lane B).
  *
- * Proves a `microsoft-excel:new_worksheet` polling trigger fires through the REAL
- * polling dispatch machinery with the baseline-first invariant intact:
- *   create smoke workbook (1 sheet) → activate (the real activation hook seeds the
- *   worksheet-list snapshot) → FIRST poll: pre-existing sheet fires NOTHING
- *   (baseline-first) → add ONE worksheet (certified create_worksheet) → SECOND
- *   poll: the new sheet fires exactly ONE run via the handler's enqueueRun →
- *   drain the durable run → terminal 'succeeded' with a verifiable payload (the
- *   new worksheet name) → whole-workbook cleanup (OneDrive delete_item) → 0 leaked.
+ * One spec-driven orchestrator covering the Excel CREATE-polling family:
+ *   - microsoft-excel:new_worksheet  (change: add_worksheet; identity: worksheetName)
+ *   - microsoft-excel:new_row        (change: add_row;        identity: row marker value)
+ *   - microsoft-excel:new_table_row  (change: add_table_row;  identity: table-row marker)
  *
- * WHY the per-trigger poll handler, not the global `runPollingTriggers()`:
- * `new_worksheet` is selected because it reuses the certified Excel/OneDrive
- * smoke-workbook bootstrap + a certified safe write (create_worksheet) for the
- * post-baseline change, and its diff is a simple worksheet-name set. The handler's
- * `poll()` (read → diff vs snapshot → enqueueRun) IS the real polling dispatch
- * path — the same function the cron orchestrator's `runOne` invokes. We drive it
- * SCOPED to this smoke trigger rather than the global `runPollingTriggers()`,
- * because that global shell polls + can fire EVERY due polling workflow across all
- * accounts on the shared dev DB (a real multi-account side effect). Selection /
- * interval / state gating is the only thing bypassed — not the dispatch.
+ * Each proves the real polling dispatch path with baseline-first intact:
+ *   create smoke workbook → (optional) seed a baseline row → activate (the real
+ *   activation hook seeds the snapshot) → FIRST poll: pre-existing state fires
+ *   NOTHING (baseline-first) → apply ONE certified safe add → re-poll (bounded, for
+ *   Graph create→read lag) → exactly ONE run via the handler's enqueueRun whose
+ *   trigger payload identifies the add → drain the durable run → terminal
+ *   'succeeded' → whole-workbook cleanup (OneDrive delete_item) → 0 leaked.
+ *
+ * WHY the per-trigger poll handler, not the global `runPollingTriggers()`: the
+ * handler's `poll()` (read → diff vs snapshot → enqueueRun) IS the real polling
+ * dispatch path — the same function the cron orchestrator's `runOne` invokes. We
+ * drive it SCOPED to this smoke trigger rather than the global shell, because that
+ * shell polls + can fire EVERY due polling workflow across all accounts on the
+ * shared dev DB (a real multi-account side effect). Only selection/interval/state
+ * gating is bypassed — not the dispatch.
  *
  * Every DB / engine / provider touchpoint is behind injected `ExcelPollingSmokeDeps`
  * so this orchestrator is fully unit-testable with fakes; real wiring lives in
@@ -30,8 +31,10 @@ import {
   type WorkflowDefinition,
 } from "@/contracts/workflowDefinition";
 
-export const EXCEL_POLLING_SMOKE_TRIGGER_NODE_ID = "smoke-excel-newworksheet-trigger";
+export const EXCEL_POLLING_SMOKE_TRIGGER_NODE_ID = "smoke-excel-poll-trigger";
 export const EXCEL_POLLING_SMOKE_ACTION_NODE_ID = "smoke-noop-action";
+
+export type ExcelWorkbookVariant = "plain" | "withTable";
 
 export interface ExcelPollingSmokeWorkflow {
   readonly definition: WorkflowDefinition;
@@ -41,14 +44,15 @@ export interface ExcelPollingSmokeWorkflow {
 }
 
 /**
- * Build the smoke workflow: a `microsoft-excel:new_worksheet` polling trigger
- * (watching the smoke workbook) → a single safe terminal `native:if_then_condition`
- * no-op (unary is_falsy on a truthy literal + onFalse:"skip" → null branch →
- * terminal 'succeeded', zero external effect). The trigger config carries the
- * runtime `workbookId` (only known after the workbook is uploaded).
+ * Build a polling smoke workflow: an Excel polling trigger (config carries the
+ * runtime workbookId + any selector) → a single safe terminal
+ * `native:if_then_condition` no-op (unary is_falsy on a truthy literal +
+ * onFalse:"skip" → null branch → terminal 'succeeded', zero external effect).
  */
-export function buildExcelNewWorksheetSmokeWorkflow(
-  workbookId: string,
+function buildPollingWorkflow(
+  triggerType: string,
+  triggerConfig: Record<string, unknown>,
+  name: string,
 ): ExcelPollingSmokeWorkflow {
   const definition = WorkflowDefinitionSchema.parse({
     nodes: [
@@ -56,8 +60,8 @@ export function buildExcelNewWorksheetSmokeWorkflow(
         id: EXCEL_POLLING_SMOKE_TRIGGER_NODE_ID,
         kind: "trigger",
         provider: "microsoft-excel",
-        type: "new_worksheet",
-        config: { workbookId },
+        type: triggerType,
+        config: triggerConfig,
         position: { x: 0, y: 0 },
       },
       {
@@ -81,86 +85,169 @@ export function buildExcelNewWorksheetSmokeWorkflow(
     definition,
     triggerNodeId: EXCEL_POLLING_SMOKE_TRIGGER_NODE_ID,
     actionNodeId: EXCEL_POLLING_SMOKE_ACTION_NODE_ID,
-    name: "trigger-smoke:microsoft-excel:new_worksheet",
+    name,
   };
 }
 
-/** A persisted run, plus the new-worksheet name carried on its trigger event. */
+export const buildExcelNewWorksheetSmokeWorkflow = (workbookId: string) =>
+  buildPollingWorkflow(
+    "new_worksheet",
+    { workbookId },
+    "trigger-smoke:microsoft-excel:new_worksheet",
+  );
+
+export const buildExcelNewRowSmokeWorkflow = (workbookId: string) =>
+  buildPollingWorkflow(
+    "new_row",
+    { workbookId, worksheetName: "Sheet1" },
+    "trigger-smoke:microsoft-excel:new_row",
+  );
+
+export const buildExcelNewTableRowSmokeWorkflow = (workbookId: string) =>
+  buildPollingWorkflow(
+    "new_table_row",
+    { workbookId, tableName: "SmokeTable" },
+    "trigger-smoke:microsoft-excel:new_table_row",
+  );
+
+/** A persisted run + its trigger_event payload (verifiable dispatch identity). */
 export interface ExcelPollingRun {
   readonly runId: string;
   readonly status: "succeeded" | "failed" | "running" | "queued" | null;
-  /** trigger_event.payload.worksheetName — the verifiable dispatch payload. */
-  readonly triggerWorksheetName: string | null;
+  readonly triggerPayload: Readonly<Record<string, unknown>> | null;
 }
 
 /** Injected seams. Defaults wired in excelPollingSmokeDeps.ts; fakes in tests. */
 export interface ExcelPollingSmokeDeps {
-  /** Upload the frozen minimal .xlsx (smoke-owned). Returns the drive-item id. */
-  createSmokeWorkbook(): Promise<{ workbookId: string }>;
-  /** Persist an ACTIVE smoke workflow (draft fallback for live runs). */
+  /** Upload the frozen minimal .xlsx (plain = empty Sheet1; withTable = SmokeTable + seed row). */
+  createSmokeWorkbook(variant: ExcelWorkbookVariant): Promise<{ workbookId: string }>;
   createActiveSmokeWorkflow(
     workflow: ExcelPollingSmokeWorkflow,
   ): Promise<{ workflowId: string }>;
   /**
-   * Arm the polling trigger via the REAL lifecycle (registerWorkflowTriggers →
-   * the new_worksheet activation hook seeds the worksheet-name snapshot). Returns
-   * the seeded snapshot names (to prove baseline was captured, not the change).
+   * Arm via the REAL lifecycle (registerWorkflowTriggers → the trigger's
+   * activation hook seeds its snapshot). Returns the seeded snapshot key count
+   * (worksheet names, or row hashes) to prove the baseline was captured.
    */
   armPollingTrigger(input: {
     workflowId: string;
     triggerNodeId: string;
-  }): Promise<{ snapshotNames: readonly string[] }>;
-  /**
-   * Run the REAL per-trigger Excel poll handler scoped to this smoke trigger
-   * (read worksheets → diff vs snapshot → enqueueRun on new). Not the global
-   * orchestrator — see module header.
-   */
+  }): Promise<{ snapshotKeyCount: number }>;
+  /** REAL per-trigger Excel poll handler scoped to this trigger (see header). */
   poll(input: { workflowId: string; triggerNodeId: string }): Promise<void>;
-  /** Add ONE worksheet to the smoke workbook (certified create_worksheet). */
+  /** Add ONE worksheet (certified create_worksheet). Returns the new name. */
   addWorksheet(workbookId: string): Promise<{ worksheetName: string }>;
+  /** Seed a baseline row (certified add_row) + confirm it is read-back visible. */
+  seedRow(input: { workbookId: string; worksheetName: string }): Promise<void>;
+  /** Append ONE marker row (certified add_row). Returns the unique marker written. */
+  addMarkedRow(input: { workbookId: string; worksheetName: string }): Promise<{ marker: string }>;
+  /** Append ONE marker table row (certified add_table_row). Returns the marker. */
+  addMarkedTableRow(input: { workbookId: string; tableName: string }): Promise<{ marker: string }>;
   /** All runs for the workflow (incl. non-terminal), newest first. */
   listRuns(workflowId: string): Promise<readonly ExcelPollingRun[]>;
-  /** Drain a queued run via the real durable-queue processor. */
   drainRun(runId: string): Promise<void>;
-  /** Re-read one run's terminal projection. */
   readRun(runId: string): Promise<ExcelPollingRun | null>;
-  /** Best-effort: unregister triggers + delete workbook + soft-delete workflow. */
   cleanup(input: { workflowId: string; workbookId: string }): Promise<void>;
   /** Sleep between bounded after-poll retries. Real setTimeout live; instant in tests. */
   sleep(ms: number): Promise<void>;
 }
 
+/** Per-trigger plug describing workbook variant, change, and payload identity. */
+export interface ExcelPollingTriggerSpec {
+  /** Canonical `${provider}:${type}` label (for messages + the result). */
+  readonly label: string;
+  readonly workbookVariant: ExcelWorkbookVariant;
+  buildWorkflow(workbookId: string): ExcelPollingSmokeWorkflow;
+  /** Optional baseline seed BEFORE activation (e.g. new_row needs a row at pos 1). */
+  seed?(deps: ExcelPollingSmokeDeps, workbookId: string): Promise<void>;
+  /** Apply the ONE post-baseline add. Returns the identity to match in the payload. */
+  applyChange(deps: ExcelPollingSmokeDeps, workbookId: string): Promise<{ identity: string }>;
+  /** Does the fired run's payload identify the add we made? */
+  identityMatches(run: ExcelPollingRun, identity: string): boolean;
+}
+
+function payloadValuesInclude(payload: ExcelPollingRun["triggerPayload"], marker: string): boolean {
+  const values = payload?.values;
+  return Array.isArray(values) && values.some((v) => v === marker);
+}
+
+export const NEW_WORKSHEET_SPEC: ExcelPollingTriggerSpec = {
+  label: "microsoft-excel:new_worksheet",
+  workbookVariant: "plain",
+  buildWorkflow: buildExcelNewWorksheetSmokeWorkflow,
+  async applyChange(deps, workbookId) {
+    const { worksheetName } = await deps.addWorksheet(workbookId);
+    return { identity: worksheetName };
+  },
+  identityMatches(run, identity) {
+    return run.triggerPayload?.worksheetName === identity;
+  },
+};
+
+export const NEW_ROW_SPEC: ExcelPollingTriggerSpec = {
+  label: "microsoft-excel:new_row",
+  workbookVariant: "plain",
+  buildWorkflow: buildExcelNewRowSmokeWorkflow,
+  // The minimal .xlsx Sheet1 is empty; add_row to an empty sheet lands at A1
+  // (position key "1"), which collides with the empty-sheet baseline phantom key
+  // and would NOT register as a new key. So seed a baseline row at position 1
+  // first (confirmed visible), then the change appends at position 2 — a new key.
+  async seed(deps, workbookId) {
+    await deps.seedRow({ workbookId, worksheetName: "Sheet1" });
+  },
+  async applyChange(deps, workbookId) {
+    const { marker } = await deps.addMarkedRow({ workbookId, worksheetName: "Sheet1" });
+    return { identity: marker };
+  },
+  identityMatches(run, identity) {
+    return payloadValuesInclude(run.triggerPayload, identity);
+  },
+};
+
+export const NEW_TABLE_ROW_SPEC: ExcelPollingTriggerSpec = {
+  label: "microsoft-excel:new_table_row",
+  workbookVariant: "withTable", // ships with SmokeTable + one seed row = baseline
+  buildWorkflow: buildExcelNewTableRowSmokeWorkflow,
+  async applyChange(deps, workbookId) {
+    const { marker } = await deps.addMarkedTableRow({ workbookId, tableName: "SmokeTable" });
+    return { identity: marker };
+  },
+  identityMatches(run, identity) {
+    return payloadValuesInclude(run.triggerPayload, identity);
+  },
+};
+
 export interface ExcelPollingSmokeOptions {
   /**
-   * Bounded re-poll attempts for the post-baseline change. Microsoft Graph's
-   * workbook API has a brief create→read propagation lag, so the new worksheet
-   * may not be visible to the first poll after create_worksheet. Each poll only
-   * advances the snapshot to what it actually read, so re-polling is idempotent
-   * (it fires exactly once, on the poll that first observes the new sheet).
-   * Default 1 (unit tests with no lag); the live run passes a higher value.
+   * Bounded re-poll attempts for the post-baseline change. Graph's workbook API
+   * has a brief create→read propagation lag, so the add may not be visible to the
+   * first poll. Each poll only advances the snapshot to what it actually read, so
+   * re-polling is idempotent (fires exactly once, on the poll that first observes
+   * the add). Default 1 (unit, no lag); the live run passes a higher value.
    */
   readonly afterPollAttempts?: number;
-  /** Delay between after-poll attempts. Default 0. */
   readonly afterPollSleepMs?: number;
 }
 
 export interface ExcelPollingSmokeResult {
   readonly outcome: "pass" | "fail";
   readonly reason: string | null;
+  readonly triggerLabel: string;
   readonly baselineRunCount: number;
   readonly afterRunCount: number;
   readonly terminalStatus: ExcelPollingRun["status"] | null;
-  /** The new worksheet name observed on the fired run's payload (verifiable). */
-  readonly firedWorksheetName: string | null;
-  /** The worksheet name we actually added (must equal firedWorksheetName). */
-  readonly addedWorksheetName: string | null;
+  /** The identity we added (worksheet name / row marker). */
+  readonly addedIdentity: string | null;
+  /** Whether the fired run's payload matched the added identity. */
+  readonly identityMatched: boolean;
   readonly workflowId: string | null;
   readonly workbookId: string | null;
   readonly cleaned: boolean;
 }
 
-export async function runExcelNewWorksheetSmoke(
+export async function runExcelPollingSmoke(
   deps: ExcelPollingSmokeDeps,
+  spec: ExcelPollingTriggerSpec,
   opts: ExcelPollingSmokeOptions = {},
 ): Promise<ExcelPollingSmokeResult> {
   const ref: { workflowId: string | null; workbookId: string | null } = {
@@ -169,16 +256,17 @@ export async function runExcelNewWorksheetSmoke(
   };
   let result: ExcelPollingSmokeResult;
   try {
-    result = await runExcelPollingCore(deps, ref, opts);
+    result = await runCore(deps, spec, opts, ref);
   } catch (err) {
     result = {
       outcome: "fail",
       reason: (err as Error).message,
+      triggerLabel: spec.label,
       baselineRunCount: 0,
       afterRunCount: 0,
       terminalStatus: null,
-      firedWorksheetName: null,
-      addedWorksheetName: null,
+      addedIdentity: null,
+      identityMatched: false,
       workflowId: ref.workflowId,
       workbookId: ref.workbookId,
       cleaned: false,
@@ -195,10 +283,19 @@ export async function runExcelNewWorksheetSmoke(
   return result!;
 }
 
-async function runExcelPollingCore(
+/** Backward-compatible wrapper for the new_worksheet beachhead. */
+export async function runExcelNewWorksheetSmoke(
   deps: ExcelPollingSmokeDeps,
-  ref: { workflowId: string | null; workbookId: string | null },
+  opts: ExcelPollingSmokeOptions = {},
+): Promise<ExcelPollingSmokeResult> {
+  return runExcelPollingSmoke(deps, NEW_WORKSHEET_SPEC, opts);
+}
+
+async function runCore(
+  deps: ExcelPollingSmokeDeps,
+  spec: ExcelPollingTriggerSpec,
   opts: ExcelPollingSmokeOptions,
+  ref: { workflowId: string | null; workbookId: string | null },
 ): Promise<ExcelPollingSmokeResult> {
   const fail = (
     reason: string,
@@ -206,36 +303,40 @@ async function runExcelPollingCore(
   ): ExcelPollingSmokeResult => ({
     outcome: "fail",
     reason,
+    triggerLabel: spec.label,
     baselineRunCount: 0,
     afterRunCount: 0,
     terminalStatus: null,
-    firedWorksheetName: null,
-    addedWorksheetName: null,
+    addedIdentity: null,
+    identityMatched: false,
     workflowId: ref.workflowId,
     workbookId: ref.workbookId,
     cleaned: false,
     ...extra,
   });
 
-  // 1. Smoke-owned workbook (one seeded sheet).
-  const { workbookId } = await deps.createSmokeWorkbook();
+  // 1. Smoke-owned workbook.
+  const { workbookId } = await deps.createSmokeWorkbook(spec.workbookVariant);
   ref.workbookId = workbookId;
 
   // 2. Active workflow watching that workbook.
-  const workflow = buildExcelNewWorksheetSmokeWorkflow(workbookId);
+  const workflow = spec.buildWorkflow(workbookId);
   const { workflowId } = await deps.createActiveSmokeWorkflow(workflow);
   ref.workflowId = workflowId;
 
-  // 3. Arm via the real lifecycle → activation seeds the baseline snapshot.
-  const { snapshotNames } = await deps.armPollingTrigger({
+  // 3. Seed any required baseline state BEFORE activation.
+  if (spec.seed) await spec.seed(deps, workbookId);
+
+  // 4. Arm via the real lifecycle → activation seeds the baseline snapshot.
+  const { snapshotKeyCount } = await deps.armPollingTrigger({
     workflowId,
     triggerNodeId: workflow.triggerNodeId,
   });
-  if (snapshotNames.length === 0) {
-    return fail("activation seeded an empty worksheet snapshot (expected ≥1 baseline sheet)");
+  if (snapshotKeyCount < 1) {
+    return fail("activation seeded an empty snapshot (expected ≥1 baseline entry)");
   }
 
-  // 4. FIRST poll — baseline-first: pre-existing sheets must NOT fire.
+  // 5. FIRST poll — baseline-first: pre-existing state must NOT fire.
   await deps.poll({ workflowId, triggerNodeId: workflow.triggerNodeId });
   const baselineRuns = await deps.listRuns(workflowId);
   if (baselineRuns.length !== 0) {
@@ -245,13 +346,10 @@ async function runExcelPollingCore(
     );
   }
 
-  // 5. Apply ONE post-baseline smoke-owned change.
-  const { worksheetName } = await deps.addWorksheet(workbookId);
+  // 6. Apply ONE post-baseline smoke-owned add.
+  const { identity } = await spec.applyChange(deps, workbookId);
 
-  // 6. SECOND poll — the new worksheet must fire exactly one run. Bounded re-poll
-  // to absorb Graph's create→read propagation lag (idempotent: a poll that doesn't
-  // yet see the new sheet only re-persists the same snapshot; the poll that first
-  // observes it fires exactly once).
+  // 7. SECOND poll — exactly one run, with bounded re-poll for propagation lag.
   const attempts = Math.max(1, opts.afterPollAttempts ?? 1);
   const sleepMs = Math.max(0, opts.afterPollSleepMs ?? 0);
   let afterRuns: readonly ExcelPollingRun[] = [];
@@ -262,22 +360,23 @@ async function runExcelPollingCore(
     if (i < attempts - 1 && sleepMs > 0) await deps.sleep(sleepMs);
   }
   if (afterRuns.length !== 1) {
-    return fail(`expected exactly 1 run after the new worksheet, got ${afterRuns.length}`, {
+    return fail(`expected exactly 1 run after the add, got ${afterRuns.length}`, {
       afterRunCount: afterRuns.length,
-      addedWorksheetName: worksheetName,
+      addedIdentity: identity,
     });
   }
 
-  // 7. Verifiable payload — the fired run must carry the worksheet we added.
+  // 8. Verifiable payload — the fired run must identify the add we made.
   const fired = afterRuns[0]!;
-  if (fired.triggerWorksheetName !== worksheetName) {
-    return fail(
-      `fired run payload worksheet "${fired.triggerWorksheetName ?? "null"}" != added "${worksheetName}"`,
-      { afterRunCount: 1, firedWorksheetName: fired.triggerWorksheetName, addedWorksheetName: worksheetName },
-    );
+  if (!spec.identityMatches(fired, identity)) {
+    return fail(`fired run payload did not identify the add "${identity}"`, {
+      afterRunCount: 1,
+      addedIdentity: identity,
+      identityMatched: false,
+    });
   }
 
-  // 8. Drain → terminal succeeded.
+  // 9. Drain → terminal succeeded.
   await deps.drainRun(fired.runId);
   const terminal = await deps.readRun(fired.runId);
   const status = terminal?.status ?? null;
@@ -285,19 +384,20 @@ async function runExcelPollingCore(
     return fail(`fired run did not reach terminal 'succeeded' (got ${status ?? "null"})`, {
       afterRunCount: 1,
       terminalStatus: status,
-      firedWorksheetName: fired.triggerWorksheetName,
-      addedWorksheetName: worksheetName,
+      addedIdentity: identity,
+      identityMatched: true,
     });
   }
 
   return {
     outcome: "pass",
     reason: null,
+    triggerLabel: spec.label,
     baselineRunCount: 0,
     afterRunCount: 1,
     terminalStatus: "succeeded",
-    firedWorksheetName: fired.triggerWorksheetName,
-    addedWorksheetName: worksheetName,
+    addedIdentity: identity,
+    identityMatched: true,
     workflowId,
     workbookId,
     cleaned: false,

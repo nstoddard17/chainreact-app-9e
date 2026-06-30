@@ -1,24 +1,22 @@
 /**
  * Trigger-smoke harness — REAL Microsoft Excel polling deps (server-only helper).
  *
- * Wires the injected `ExcelPollingSmokeDeps` to the real V2 internals:
+ * Wires the injected `ExcelPollingSmokeDeps` to the real V2 internals for the
+ * Excel CREATE-polling family (new_worksheet / new_row / new_table_row):
  *   - createSmokeWorkbook → the certified microsoft-onedrive:upload_file handler
- *     with the frozen MINIMAL_XLSX_BASE64 asset (smoke-owned, one "Sheet1").
+ *     with a frozen asset (plain = empty Sheet1; withTable = SmokeTable + seed row).
  *   - createActiveSmokeWorkflow → service-role INSERT (state="active",
  *     draft_definition, null active_revision_id → live runs fall back to draft).
- *   - armPollingTrigger → the REAL registerWorkflowTriggers (runs the
- *     new_worksheet activation hook → fetches worksheets → seeds the snapshot),
- *     then reads the seeded snapshot names back from trigger_resources.
- *   - poll → the REAL microsoftExcelPollingHandler.poll(...) scoped to this smoke
- *     trigger — the exact per-trigger dispatch the cron orchestrator's runOne
- *     calls (read worksheets → diff vs snapshot → enqueueRun). The global
- *     runPollingTriggers() shell is intentionally NOT used (it would poll + fire
- *     other accounts' due workflows on the shared dev DB).
- *   - addWorksheet → the certified microsoft-excel:create_worksheet handler.
- *   - listRuns/readRun → service-role reads (incl. trigger_event payload).
+ *   - armPollingTrigger → the REAL registerWorkflowTriggers (runs the trigger's
+ *     activation hook → seeds its snapshot), then counts the seeded snapshot keys.
+ *   - poll → the REAL microsoftExcelPollingHandler.poll(...) scoped to this trigger
+ *     (the exact per-trigger dispatch runOne calls). Global runPollingTriggers() is
+ *     intentionally NOT used (it would poll + fire other accounts on the shared DB).
+ *   - addWorksheet / seedRow / addMarkedRow / addMarkedTableRow → the certified
+ *     create_worksheet / add_row / add_table_row handlers.
+ *   - listRuns/readRun → service-role reads (carrying trigger_event payload).
  *   - drainRun → the REAL durable-queue processQueuedRun.
- *   - cleanup → unregisterWorkflowTriggers + microsoft-onedrive:delete_item
- *     (whole workbook → recycle bin) + service-role soft-delete of the workflow.
+ *   - cleanup → unregisterWorkflowTriggers + onedrive:delete_item + soft-delete.
  *
  * Imported ONLY by the gated dev integration test. Never by app/server routes.
  */
@@ -27,6 +25,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 import type { ActionHandlerInput } from "@/services/execution/handlers/types";
 import type { WorkflowRecord } from "@/repositories/workflows";
+import type { WorkflowDefinition } from "@/contracts/workflow";
 import * as triggerResourcesRepo from "@/repositories/triggerResources";
 import { getByIdServiceRole } from "@/repositories/workflowRunsDiagnostics";
 import {
@@ -34,21 +33,29 @@ import {
   unregisterWorkflowTriggers,
 } from "@/services/triggers/lifecycle";
 import { processQueuedRun } from "@/services/execution/runQueueProcessor";
+import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { uploadFile } from "@/integrations/microsoft-onedrive/actions/uploadFile";
 import { deleteItem } from "@/integrations/microsoft-onedrive/actions/deleteItem";
 import { createWorksheet } from "@/integrations/microsoft-excel/actions/createWorksheet";
+import { addRow } from "@/integrations/microsoft-excel/actions/addRow";
+import { addTableRow } from "@/integrations/microsoft-excel/actions/addTableRow";
 import { microsoftExcelPollingHandler } from "@/integrations/microsoft-excel/triggers/_shared/pollingHandler";
-import { ExcelNewWorksheetConfigSchema } from "@/integrations/microsoft-excel/triggers/newWorksheet/schema";
-import { MINIMAL_XLSX_BASE64 } from "@/tests/smoke-actions/minimalXlsx";
+import { worksheetUsedRange } from "@/integrations/microsoft-excel/api/worksheetUsedRange";
 import {
-  buildExcelNewWorksheetSmokeWorkflow,
-  type ExcelPollingSmokeDeps,
-  type ExcelPollingRun,
-  type ExcelPollingSmokeWorkflow,
+  MINIMAL_XLSX_BASE64,
+  MINIMAL_XLSX_WITH_TABLE_BASE64,
+} from "@/tests/smoke-actions/minimalXlsx";
+import type {
+  ExcelPollingSmokeDeps,
+  ExcelPollingRun,
+  ExcelWorkbookVariant,
 } from "./excelPollingSmoke";
 
 const XLSX_MIME =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+const ROW_VISIBLE_ATTEMPTS = 6;
+const ROW_VISIBLE_SLEEP_MS = 1500;
 
 export interface RealExcelPollingSmokeDepsConfig {
   readonly supabase: SupabaseClient;
@@ -64,13 +71,13 @@ function minimalWorkflowRecord(
   workflowId: string,
   accountId: string,
   userId: string,
-  workflow: ExcelPollingSmokeWorkflow,
+  definition: WorkflowDefinition,
 ): WorkflowRecord {
   return {
     id: workflowId,
     accountId,
     createdByUserId: userId,
-    draftDefinition: workflow.definition,
+    draftDefinition: definition,
   } as unknown as WorkflowRecord;
 }
 
@@ -79,14 +86,27 @@ function mapStatus(s: string | null | undefined): ExcelPollingRun["status"] {
   return null;
 }
 
+function snapshotKeyCount(snapshot: unknown): number {
+  if (!snapshot || typeof snapshot !== "object") return 0;
+  const s = snapshot as { names?: unknown; rowHashes?: unknown };
+  if (Array.isArray(s.names)) return s.names.length;
+  if (s.rowHashes && typeof s.rowHashes === "object") return Object.keys(s.rowHashes).length;
+  return 0;
+}
+
+function isBlankCell(v: unknown): boolean {
+  return v === null || v === undefined || v === "";
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 export function makeRealExcelPollingSmokeDeps(
   config: RealExcelPollingSmokeDepsConfig,
 ): ExcelPollingSmokeDeps {
   const { supabase, accountId, userId } = config;
 
-  // A setup event whose provider is "native" (NOT the action's provider) so each
-  // reused action handler falls back to null providerAccountId → resolves the
-  // account's ACTIVE integration (rather than a bogus literal account scope).
+  // Setup event with provider "native" (NOT the action's provider) → each reused
+  // handler falls back to null providerAccountId → resolves the ACTIVE integration.
   const setupEvent = (): TriggerEvent => ({
     provider: "native",
     eventType: "trigger-smoke.setup",
@@ -106,13 +126,39 @@ export function makeRealExcelPollingSmokeDeps(
     triggerEvent: setupEvent(),
   });
 
+  async function loadDefinition(workflowId: string): Promise<WorkflowDefinition> {
+    const { data, error } = await supabase
+      .from("workflows")
+      .select("draft_definition")
+      .eq("id", workflowId)
+      .single<{ draft_definition: WorkflowDefinition }>();
+    if (error || !data) {
+      throw new Error(`excel-polling-smoke loadDefinition failed: ${error?.message ?? "no row"}`);
+    }
+    return data.draft_definition;
+  }
+
+  async function nonEmptyRowCount(workbookId: string, worksheetName: string): Promise<number> {
+    const range = await refreshAndRetry({
+      accountId,
+      provider: "microsoft-excel",
+      providerAccountId: null,
+      apiCall: (accessToken) =>
+        worksheetUsedRange({ accessToken, workbookId, worksheetName, valuesOnly: true }),
+    });
+    const rows = range.values ?? [];
+    return rows.filter((row) => row.some((c) => !isBlankCell(c))).length;
+  }
+
   return {
-    async createSmokeWorkbook() {
+    async createSmokeWorkbook(variant: ExcelWorkbookVariant) {
+      const content =
+        variant === "withTable" ? MINIMAL_XLSX_WITH_TABLE_BASE64 : MINIMAL_XLSX_BASE64;
       const res = await uploadFile(
         actionInput({
           filename: `crsmoke-trigger-${shortId()}.xlsx`,
           mimeType: XLSX_MIME,
-          content: MINIMAL_XLSX_BASE64,
+          content,
           contentEncoding: "base64",
         }),
       );
@@ -142,28 +188,18 @@ export function makeRealExcelPollingSmokeDeps(
     },
 
     async armPollingTrigger({ workflowId, triggerNodeId }) {
-      const workbookId = await readTriggerWorkbookId(workflowId, triggerNodeId);
-      const workflow = buildExcelNewWorksheetSmokeWorkflow(workbookId);
-      const record = minimalWorkflowRecord(workflowId, accountId, userId, workflow);
-      // REAL lifecycle: provider-tier activation looks up the account's
-      // microsoft-excel integration and runs the new_worksheet activation hook
-      // (fetch worksheets → seed snapshot).
-      await registerWorkflowTriggers(record, workflow.definition);
+      const definition = await loadDefinition(workflowId);
+      const record = minimalWorkflowRecord(workflowId, accountId, userId, definition);
+      await registerWorkflowTriggers(record, definition);
 
       const row = await triggerResourcesRepo.findByWorkflowAndNode(workflowId, triggerNodeId);
       if (!row) throw new Error("excel-polling-smoke: trigger_resources row not found after arming");
-      const parsed = ExcelNewWorksheetConfigSchema.safeParse(row.config);
-      if (!parsed.success || !parsed.data.snapshot) {
-        throw new Error("excel-polling-smoke: activation did not seed a worksheet snapshot");
-      }
-      return { snapshotNames: parsed.data.snapshot.names };
+      return { snapshotKeyCount: snapshotKeyCount((row.config as { snapshot?: unknown }).snapshot) };
     },
 
     async poll({ workflowId, triggerNodeId }) {
       const row = await triggerResourcesRepo.findByWorkflowAndNode(workflowId, triggerNodeId);
       if (!row) throw new Error("excel-polling-smoke: trigger_resources row not found for poll");
-      // The REAL per-trigger poll handler (the same fn runPollingTriggers.runOne
-      // calls). workflowAccountId is populated by findByWorkflowAndNode's join.
       await microsoftExcelPollingHandler.poll({
         trigger: row,
         accountId: row.workflowAccountId ?? accountId,
@@ -173,9 +209,32 @@ export function makeRealExcelPollingSmokeDeps(
     },
 
     async addWorksheet(workbookId) {
-      const name = `crsmoke${shortId()}ws`; // ≤31 chars, no reserved sheet chars
+      const name = `crsmoke${shortId()}ws`;
       await createWorksheet(actionInput({ workbookId, name }));
       return { worksheetName: name };
+    },
+
+    async seedRow({ workbookId, worksheetName }) {
+      await addRow(actionInput({ workbookId, worksheetName, values: ["crsmoke-seed"] }));
+      // Confirm the seed row is read-back visible BEFORE activation, so the change
+      // row appends at a NEW position key (not colliding with the empty-sheet baseline).
+      for (let i = 0; i < ROW_VISIBLE_ATTEMPTS; i += 1) {
+        if ((await nonEmptyRowCount(workbookId, worksheetName)) >= 1) return;
+        await sleep(ROW_VISIBLE_SLEEP_MS);
+      }
+      throw new Error("excel-polling-smoke: seed row never became visible (propagation lag)");
+    },
+
+    async addMarkedRow({ workbookId, worksheetName }) {
+      const marker = `crsmoke-${shortId()}-row`;
+      await addRow(actionInput({ workbookId, worksheetName, values: [marker] }));
+      return { marker };
+    },
+
+    async addMarkedTableRow({ workbookId, tableName }) {
+      const marker = `crsmoke-${shortId()}-trow`;
+      await addTableRow(actionInput({ workbookId, tableName, values: [marker] }));
+      return { marker };
     },
 
     async listRuns(workflowId) {
@@ -187,12 +246,11 @@ export function makeRealExcelPollingSmokeDeps(
         .limit(50);
       if (error) throw new Error(`excel-polling-smoke listRuns failed: ${error.message}`);
       return (data ?? []).map((r) => {
-        const row = r as { id: string; status: string; trigger_event: { payload?: { worksheetName?: unknown } } | null };
-        const ws = row.trigger_event?.payload?.worksheetName;
+        const row = r as { id: string; status: string; trigger_event: { payload?: Record<string, unknown> } | null };
         return {
           runId: row.id,
           status: mapStatus(row.status),
-          triggerWorksheetName: typeof ws === "string" ? ws : null,
+          triggerPayload: row.trigger_event?.payload ?? null,
         } satisfies ExcelPollingRun;
       });
     },
@@ -201,21 +259,21 @@ export function makeRealExcelPollingSmokeDeps(
       await processQueuedRun(runId);
     },
 
-    async sleep(ms) {
-      await new Promise<void>((r) => setTimeout(r, ms));
-    },
-
     async readRun(runId) {
       const rec = await getByIdServiceRole(runId);
       if (!rec) return null;
-      return { runId, status: mapStatus(rec.status), triggerWorksheetName: null };
+      return { runId, status: mapStatus(rec.status), triggerPayload: null };
     },
 
     async cleanup({ workflowId, workbookId }) {
       if (workflowId) {
-        const workflow = buildExcelNewWorksheetSmokeWorkflow(workbookId || "x");
-        const record = minimalWorkflowRecord(workflowId, accountId, userId, workflow);
-        await unregisterWorkflowTriggers(record).catch(() => {});
+        try {
+          const definition = await loadDefinition(workflowId);
+          const record = minimalWorkflowRecord(workflowId, accountId, userId, definition);
+          await unregisterWorkflowTriggers(record);
+        } catch {
+          /* best-effort */
+        }
       }
       if (workbookId) {
         await deleteItem(actionInput({ itemId: workbookId })).catch(() => {});
@@ -232,22 +290,9 @@ export function makeRealExcelPollingSmokeDeps(
         }
       }
     },
-  };
 
-  // Read the workbookId off the persisted draft trigger node (the workflow row
-  // was inserted with the trigger config carrying it).
-  async function readTriggerWorkbookId(workflowId: string, triggerNodeId: string): Promise<string> {
-    const { data, error } = await supabase
-      .from("workflows")
-      .select("draft_definition")
-      .eq("id", workflowId)
-      .single<{ draft_definition: { nodes?: Array<{ id: string; config?: { workbookId?: string } }> } }>();
-    if (error || !data) {
-      throw new Error(`excel-polling-smoke readTriggerWorkbookId failed: ${error?.message ?? "no row"}`);
-    }
-    const node = (data.draft_definition.nodes ?? []).find((n) => n.id === triggerNodeId);
-    const workbookId = node?.config?.workbookId;
-    if (!workbookId) throw new Error("excel-polling-smoke: trigger node has no workbookId");
-    return workbookId;
-  }
+    async sleep(ms) {
+      await sleep(ms);
+    },
+  };
 }

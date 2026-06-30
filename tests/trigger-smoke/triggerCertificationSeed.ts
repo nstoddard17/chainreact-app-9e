@@ -73,6 +73,28 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "real polling dispatch: activation seeds worksheet snapshot, first poll fires 0 (baseline-first), a certified create_worksheet adds 1 sheet, the per-trigger poll fires exactly 1 run whose payload carries the new sheet name, durable run terminal 'succeeded', whole workbook deleted to OneDrive recycle bin (0 leaked)",
   },
+  // microsoft-excel:new_row + new_table_row — Lane B create-polling family (same
+  // harness as new_worksheet via the spec-driven runExcelPollingSmoke). new_row seeds
+  // a baseline row (so the add appends at a NEW position key, not the empty-sheet
+  // phantom), then add_row fires; new_table_row uses the table-bearing workbook whose
+  // seed row is the baseline, then add_table_row fires. Both verify the marker value on
+  // the fired run's trigger payload. (Flip to LIVE_PASS only after the gated live run.)
+  {
+    provider: "microsoft-excel",
+    type: "new_row",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "real polling dispatch: seed baseline row at pos 1, activation snapshots it, first poll fires 0 (baseline-first), certified add_row appends pos 2, the per-trigger poll fires exactly 1 run whose payload values carry the row marker, durable run terminal 'succeeded', whole workbook deleted (0 leaked)",
+  },
+  {
+    provider: "microsoft-excel",
+    type: "new_table_row",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "real polling dispatch: table-bearing workbook seed row = baseline, activation snapshots it, first poll fires 0 (baseline-first), certified add_table_row appends a row, the per-trigger poll fires exactly 1 run whose payload values carry the marker, durable run terminal 'succeeded', whole workbook deleted (0 leaked)",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.
