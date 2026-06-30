@@ -56,6 +56,23 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "real dispatch: arm→nextFireAt, before-tick fires 0 (baseline-first), at-tick fires exactly 1 via dispatchTriggerEvent, durable run terminal 'succeeded', resources cleaned (0 leaked); no provider/send",
   },
+  // microsoft-excel:new_worksheet — Lane B polling beachhead. LIVE-certified via the
+  // Excel polling smoke harness (tests/trigger-smoke/excelPollingSmoke.ts): a smoke
+  // workbook is created, the real activation hook seeds the worksheet-name snapshot,
+  // the FIRST per-trigger poll fires NOTHING from the pre-existing sheet
+  // (baseline-first), a certified create_worksheet adds one sheet, the SECOND poll
+  // fires exactly one run via the handler's enqueueRun whose trigger payload carries
+  // the new worksheet name, the durable run reaches 'succeeded', then the whole
+  // workbook is deleted (OneDrive recycle bin) — 0 leaked. (Flip to LIVE_PASS only
+  // after the gated live run reports pass.)
+  {
+    provider: "microsoft-excel",
+    type: "new_worksheet",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "real polling dispatch: activation seeds worksheet snapshot, first poll fires 0 (baseline-first), a certified create_worksheet adds 1 sheet, the per-trigger poll fires exactly 1 run whose payload carries the new sheet name, durable run terminal 'succeeded', whole workbook deleted to OneDrive recycle bin (0 leaked)",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.

@@ -247,3 +247,63 @@ RUN_NOW_PROVEN (`native:manual.run`) · 60 un-harnessed (Lanes B/C/D/E unchanged
 **Verification (this slice):** `tests/unit/trigger-smoke` (8) + `tests/unit/services/cron/runScheduledTriggers.test.ts`
 → 19 pass; live `smoke:triggers:scheduled` → PASS (above); `npx tsc --noEmit` → exit 0; eslint on the 5
 touched files → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+## 9. Slice 2 — Lane B: `microsoft-excel:new_worksheet` polling trigger LIVE-CERTIFIED (2026-06-29)
+
+The first polling-trigger cert. **`microsoft-excel:new_worksheet` is LIVE_PASS** through its real
+polling dispatch path, with baseline-first proven on a real provider.
+
+**Selected trigger + why.** Of the 5 Excel polling triggers, `new_worksheet` is the safest/smallest:
+its post-baseline change is a CERTIFIED safe write (`create_worksheet`), its diff is a simple
+worksheet-name set (no table/row scaffolding), and cleanup is the certified whole-workbook
+`onedrive:delete_item`. (`new_row`/`new_table_row` need row/table seeding; same harness shape, deferred.)
+
+**Polling harness seam (extends `tests/trigger-smoke/`):**
+- [excelPollingSmoke.ts](../../../../tests/trigger-smoke/excelPollingSmoke.ts) — pure injectable
+  orchestrator (create workbook → active workflow → arm → baseline poll → change → re-poll → drain →
+  verify payload → cleanup) + `buildExcelNewWorksheetSmokeWorkflow(workbookId)`.
+- [excelPollingSmokeDeps.ts](../../../../tests/trigger-smoke/excelPollingSmokeDeps.ts) — real deps:
+  workbook via the certified `onedrive:upload_file` (frozen `MINIMAL_XLSX_BASE64`), arm via the real
+  `registerWorkflowTriggers` (runs the `new_worksheet` activation hook → fetch worksheets → seed
+  snapshot), change via the certified `excel:create_worksheet`, **poll via the REAL
+  `microsoftExcelPollingHandler.poll(...)`**, drain via `processQueuedRun`, cleanup via
+  `unregisterWorkflowTriggers` + `onedrive:delete_item` + soft-delete.
+- Unit tests ([excelPollingSmoke.test.ts](../../../../tests/unit/trigger-smoke/excelPollingSmoke.test.ts),
+  7, fakes) + gated live integration test + `smoke:triggers:excel` script.
+
+**Real dispatch, scoped (documented design).** The harness drives the **per-trigger poll handler**
+(`microsoftExcelPollingHandler.poll`) — the exact function the cron orchestrator's `runOne` calls
+(read worksheets → diff vs snapshot → `enqueueRun`). It does NOT drive the global
+`runPollingTriggers()` shell, because that polls + can fire EVERY due polling workflow across all
+accounts on the shared dev DB (a real multi-account side effect). Only the selection/interval/state
+gating shell is bypassed; the polling DISPATCH path is 100% real. This is the safe-driving decision
+the readiness doc anticipated for Lane B.
+
+**Create→read lag.** The first attempt fired 0 after the worksheet add — Graph's workbook API has a
+brief create→read propagation lag, so the new sheet wasn't visible to the immediate poll. Fixed with
+a bounded re-poll (6 attempts × 1.5s, ~9s cap); the diff is idempotent (a poll that doesn't yet see
+the sheet only re-persists the same snapshot; the poll that first observes it fires exactly once).
+This is a harness-only concern — the dispatch path is unchanged.
+
+**Live result (`ALLOW_DB_INTEGRATION_TESTS=true ALLOW_TRIGGER_SMOKE=true ALLOW_LIVE_PROVIDER_SMOKE=true ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true SMOKE_MICROSOFT_EXCEL_CONNECTED=1 SMOKE_MICROSOFT_ONEDRIVE_CONNECTED=1 npm run smoke:triggers:excel`):**
+```
+{"event":"trigger-smoke.excel-new-worksheet.result","outcome":"pass","baselineRunCount":0,
+ "afterRunCount":1,"terminalStatus":"succeeded","firedWorksheetName":"crsmoke…ws",
+ "addedWorksheetName":"crsmoke…ws","cleaned":true}
+```
+Baseline-first held (first poll fired 0 from the pre-existing `Sheet1`), the post-baseline worksheet
+fired exactly 1 run via the handler's `enqueueRun`, the run's trigger payload carried the new sheet
+name (`firedWorksheetName === addedWorksheetName`), the durable run reached `succeeded`, and the whole
+workbook was deleted (OneDrive recycle bin). **created 1 / cleaned 1 / 0 leaked.** **Cert row:
+`microsoft-excel:new_worksheet` → `LIVE_PASS` (2026-06-29).**
+
+**Trigger-smoke matrix now:** 62 registered · **2 LIVE_PASS** (`native:schedule.fired`,
+`microsoft-excel:new_worksheet`) · 1 RUN_NOW_PROVEN (`native:manual.run`) · 59 un-harnessed.
+
+**Verification (this slice):** `tests/unit/trigger-smoke` (15) + `tests/unit/integrations/microsoft-excel/triggers`
+→ 77 pass; live `smoke:triggers:excel` → PASS (above, 0 leaked); `npx tsc --noEmit` → exit 0; eslint on
+the 5 touched files → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+**Next Lane B candidates (same harness shape):** `new_row` / `new_table_row` (seed via certified
+`add_row` / `add_table_row`, verify the row payload), then `updated_row` / `updated_table_row`. Lane C
+(webhook synthetic-receipt) remains the larger follow-on.
