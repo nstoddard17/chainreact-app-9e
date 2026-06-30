@@ -205,6 +205,32 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "route/dispatch cert via DIRECT-SEED (NOT provider activation): seed trigger_resources event_type new_commit, baseline 0, a GITHUB_WEBHOOK_SECRET-signed synthetic push (sha256=<hex> over raw body; smoke-minted owner/repo/sha) POSTed to the real /api/webhooks/github?workflowId&nodeId route (verify→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the X-GitHub-Delivery UUID + repo + head commit sha, durable run terminal 'succeeded', re-send of the same delivery id deduped (still 1 run), seeded row+workflow+dedup row cleaned (0 leaked); no GitHub API call, no real webhook/repo, no send. Provider-side webhook activation NOT certified.",
   },
+  // trello:new_card — Lane C second DIRECT-SEEDED HMAC webhook cert (after github).
+  // LIVE-certified via the Trello webhook smoke (tests/trigger-smoke/trelloWebhookSmoke.ts).
+  // HONEST SCOPE: route/dispatch only (receive → X-Trello-Webhook HMAC-SHA1 verify
+  // over rawBody+callbackURL → classify → event-type filter → normalize →
+  // dispatchTriggerEvent → dedup → enqueue → drain → terminal). DOES NOT certify
+  // Trello provider-side subscription activation (POST /1/webhooks create/delete via
+  // the Trello API). Trello's real activation hook needs a connected integration + a
+  // real board, so the smoke DIRECT-SEEDS the minimum trigger_resources row (provider
+  // trello / eventType new_card / config { callbackURL, eventType, boardId }) and
+  // makes NO Trello API call, creates NO real webhook. Trello's HMAC binds the
+  // callbackURL: the smoke seeds a known callbackURL on the row AND signs with that
+  // same string, so verification passes without a real Trello-registered URL and
+  // production verification is UNWEAKENED. A fully synthetic createCard payload
+  // (smoke-minted board/card/list ids + card name) is signed with the real
+  // TRELLO_CLIENT_SECRET and POSTed to the real /api/webhooks/trello route. Identity =
+  // the Trello action id + card id + board id on the fired run; dedup proven on
+  // re-send; seeded row + workflow + dedup row cleaned (0 leaked). Lifecycle card
+  // created — no comment text, no member data, no commerce, no send.
+  {
+    provider: "trello",
+    type: "new_card",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "route/dispatch cert via DIRECT-SEED (NOT provider activation): seed trigger_resources event_type new_card + config{callbackURL,eventType,boardId}, baseline 0, a TRELLO_CLIENT_SECRET-signed synthetic createCard (X-Trello-Webhook base64 HMAC-SHA1 over rawBody+the SEEDED callbackURL; smoke-minted board/card ids) POSTed to the real /api/webhooks/trello?workflowId&nodeId route (verify→classify→filter→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the Trello action id + card id + board id, durable run terminal 'succeeded', re-send of the same action id deduped (still 1 run), seeded row+workflow+dedup row cleaned (0 leaked); no Trello API call, no real webhook/board, no send. Provider-side webhook activation NOT certified.",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.
