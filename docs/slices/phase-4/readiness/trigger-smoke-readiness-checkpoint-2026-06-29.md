@@ -192,3 +192,58 @@ setup/cleanup yet — per the task's rule). No production trigger behavior chang
   docs-only and cannot affect tsc regardless.
 - eslint: docs-only change, no lint targets.
 - **No db:push, no deploy, nothing pushed.**
+
+## 8. Slice 1 — native scheduled-trigger harness seam + `native:schedule.fired` LIVE-CERTIFIED (2026-06-29)
+
+The beachhead from §4/§6 is built and **`native:schedule.fired` is LIVE-CERTIFIED** through its real
+dispatch path. First entry in the trigger-cert matrix.
+
+**Harness seam (new `tests/trigger-smoke/` namespace — separate from action-smoke):**
+- [scheduledSmoke.ts](../../../../tests/trigger-smoke/scheduledSmoke.ts) — pure, injectable
+  orchestrator + `buildScheduledSmokeDefinition()` (a `native:schedule.fired` [1-min cron] → single
+  `native:if_then_condition` no-op wired workflow). The no-op is a unary `is_falsy` on a truthy
+  literal with `onFalse:"skip"` → evaluates false → engine takes the NULL branch (no downstream edge
+  needed) → terminal `succeeded`, zero external effect. (An `is_truthy`/`onFalse:"branch"` config was
+  tried first and correctly produced `INVALID_BRANCH` — the live run caught it; fixed, not worked
+  around.)
+- [scheduledSmokeDeps.ts](../../../../tests/trigger-smoke/scheduledSmokeDeps.ts) — REAL deps: arms
+  via the real `registerWorkflowTriggers` (runs the native scheduled activation hook → first
+  `nextFireAt`), drives the real `runScheduledTriggers(nowOverride)` cron orchestrator, drains via the
+  real durable-queue `processQueuedRun`, reads runs via service-role diagnostics, tears down via
+  `unregisterWorkflowTriggers` + soft-delete. Workflow is inserted `state="active"` with a null
+  `active_revision_id` (live runs fall back to the draft per `activeRevision.ts`); the activation
+  API's preconditions/billing/revision-snapshot are NOT part of the scheduled-DISPATCH surface under
+  test, so only the state flip is set directly — the trigger ARMING uses the real lifecycle.
+- [triggerCertificationSeed.ts](../../../../tests/trigger-smoke/triggerCertificationSeed.ts) — minimal
+  typed cert seed (reusable shape for later polling/webhook triggers; no CLI built yet).
+- Tests: [unit](../../../../tests/unit/trigger-smoke/scheduledSmoke.test.ts) (8, fakes — baseline-first,
+  fire-once, terminal, cleanup-always, blast-radius skip, throw-still-cleans) +
+  [gated dev integration](../../../../tests/integration/trigger-smoke/scheduled.workflow.dev.test.ts)
+  (`npm run smoke:triggers:scheduled`).
+
+**Safety — global-orchestrator blast radius = 0.** `runScheduledTriggers` is global (fires every due
+scheduled workflow across accounts). The harness refuses to drive it (returns SKIP, never fakes) when
+any OTHER active scheduled row would be due at the injected instant (`countOtherDueScheduled`). The
+live cert run found 0 others due, so only this smoke's row fired. No provider, no send, no external
+resource; the run is logic-only (0 task cost).
+
+**Live result (`ALLOW_DB_INTEGRATION_TESTS=true ALLOW_TRIGGER_SMOKE=true npm run smoke:triggers:scheduled`):**
+```
+{"event":"trigger-smoke.scheduled.result","outcome":"pass","baselineRunCount":0,
+ "afterRunCount":1,"terminalStatus":"succeeded","cleaned":true}
+```
+Baseline-first held (before-tick fired 0), the at-tick fired exactly 1 via `dispatchTriggerEvent`, the
+durable run reached `succeeded`, and trigger_resources + workflow were cleaned (0 leaked). **Cert row:
+`native:schedule.fired` → `LIVE_PASS` (2026-06-29).**
+
+**`native:manual.run` — NOT certified by this slice (honest classification).** It is exercised on every
+action workflow-live smoke but via the manual run-now path (`enqueueRun`), which bypasses
+`dispatchTriggerEvent`. Recorded as `RUN_NOW_PROVEN` (a weaker, accurate status), NOT `LIVE_PASS` — this
+scheduled harness does not exercise manual.run's own semantics.
+
+**Trigger-smoke matrix now:** 62 registered · **1 LIVE_PASS** (`native:schedule.fired`) · 1
+RUN_NOW_PROVEN (`native:manual.run`) · 60 un-harnessed (Lanes B/C/D/E unchanged).
+
+**Verification (this slice):** `tests/unit/trigger-smoke` (8) + `tests/unit/services/cron/runScheduledTriggers.test.ts`
+→ 19 pass; live `smoke:triggers:scheduled` → PASS (above); `npx tsc --noEmit` → exit 0; eslint on the 5
+touched files → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**

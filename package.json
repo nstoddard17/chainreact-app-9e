@@ -33,6 +33,7 @@
     "smoke:actions:run:workflow": "jest tests/integration/smoke-actions/run-all.workflow.dev.test.ts",
     "smoke:actions:run:workflow:live": "jest tests/integration/smoke-actions/run-all.workflow-live.dev.test.ts",
     "smoke:writes:live": "jest tests/integration/smoke-actions/run-writes.workflow-live.dev.test.ts",
+    "smoke:triggers:scheduled": "jest tests/integration/trigger-smoke/scheduled.workflow.dev.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
