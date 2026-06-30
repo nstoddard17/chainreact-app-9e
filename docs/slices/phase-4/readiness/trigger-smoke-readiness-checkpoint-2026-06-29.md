@@ -688,3 +688,123 @@ smoke files → 0; `npm run lint:structure` → OK. **No db:push, no deploy, not
   next webhook batches should move to OTHER providers (HMAC-signed self-contained payloads like
   GitHub/Shopify/Stripe once connected; then subscription/resource-fetch webhooks which need a synthetic
   resource-state seam) rather than reaching into Slack's excluded set.
+
+## 15. Slice 8 — Lane C frontier: non-Slack webhook classification (DOCS-ONLY, no candidate certifiable) (2026-06-29)
+
+A classification pass over the 33 non-Slack webhook triggers to find the next safe synthetic-route
+candidate. **Result: NO clearly-safe connected metadata-only candidate exists this pass — no smoke
+authored, no seed change, no production touch.** The recommended unlocks are below.
+
+**Why Slack worked and is (so far) unique.** The Slack synthetic-webhook seam succeeded because Slack
+combined FIVE properties at once: (a) a synthesizable GLOBAL signing secret (`SLACK_SIGNING_SECRET`),
+(b) a self-contained body (the event IS the data), (c) NO provider fetch in receive/normalize,
+(d) registration is a PURE `trigger_resources` upsert — Slack has NO activation hook, so arming creates
+NO provider-side subscription and needs NO connected integration, and (e) genuinely metadata-only,
+non-user-content lifecycle events (`channel_created`, `file_shared`). No other provider replicates (d)+(e):
+**every** non-Slack webhook provider's `registerWorkflowTriggers` runs an activation hook that calls the
+provider API to CREATE a subscription/webhook (a real provider-side resource), and **every** non-Slack
+webhook event is either user-content / PII / commerce / billing OR requires a provider resource-state FETCH.
+
+**Inspected (33 non-Slack webhook triggers across 19 providers), classified by ACTUAL receipt/normalize path:**
+
+| Provider (triggers) | Verify | Self-contained? | Resource lookup | Activation creates provider sub? | Content | Bucket / blocker |
+|---|---|---|---|---|---|---|
+| airtable (record_changed) | per-subscription HMAC (macSecret in config, provider-created) | NO — `webhooksListPayloads()` FETCH | yes (by webhook id) | yes (`webhooksCreate`) | metadata-in-ping, data fetched | B subscription+FETCH |
+| dropbox (new_file) | global `DROPBOX_CLIENT_SECRET` HMAC | NO — `list_folder/continue` FETCH | by account id in body | yes | file paths fetched | B subscription+FETCH |
+| facebook (new_post, new_comment) | global `FACEBOOK_CLIENT_SECRET` HMAC | yes | filter by pageId | yes | post/comment = user content | C/excluded |
+| github (new_commit) | global `GITHUB_WEBHOOK_SECRET` HMAC | yes | `?workflowId&nodeId` strict | yes (`hooks` create) | commit msg/author = user content | A-mechanics, but E not-connected + user-content |
+| google-calendar (event_changed) | per-channel token (provider-created) | NO — `events.list` FETCH | by channelId header | yes | calendar data fetched | B subscription+FETCH |
+| google-docs (new_document, document_updated) | per-channel token | NO — Docs API FETCH | by channelId | yes | doc content | B subscription+FETCH + C content |
+| google-drive (file_changed) | per-channel token | NO — `changes.list` FETCH | by channelId | yes | file data fetched | B subscription+FETCH |
+| google-sheets (new_worksheet, row_changed) | per-channel token | NO — Sheets API FETCH | by channelId | yes | sheet data fetched | B subscription+FETCH |
+| hubspot (webhook_received) | global `HUBSPOT_CLIENT_SECRET` v3 HMAC | yes | `hubspot_app_subscriptions` + refs by portalId | app-level | CRM contact/deal = PII | A-mechanics, but PII + portal-routing model |
+| mailchimp (audience_event) | NONE (URL secrecy only) | yes (form body) | `?workflowId&nodeId` + audienceId | yes | subscriber email/merge = PII | excluded (PII) + no signer |
+| microsoft-onedrive (file_changed) | per-subscription clientState | NO — Graph FETCH | by subscriptionId | yes | file data fetched | B subscription+FETCH |
+| microsoft-outlook (new_email, email_sent, email_flagged) | per-subscription clientState | NO — `/me/messages/{id}` FETCH | by subscriptionId | yes | email body = user content | B+C (inbound email) |
+| microsoft-outlook-calendar (event_changed) | per-subscription clientState | NO — Graph FETCH | by subscriptionId | yes | calendar data fetched | B subscription+FETCH |
+| microsoft-teams (new_channel_message) | per-subscription clientState | NO — Graph FETCH | by subscriptionId | yes | message text = user content | B+C (message) |
+| monday (new_item, column_changed, item_moved, new_subitem, new_update) | global `MONDAY_SIGNING_SECRET` HMAC | yes | `?workflowId&nodeId` strict | yes | board/item/column values = user content | A-mechanics, but E not-connected + F signer MISSING + user-content |
+| shopify (webhook_received) | global `SHOPIFY_CLIENT_SECRET` HMAC | yes | `?workflowId&nodeId` strict | yes | order/customer = commerce | A-mechanics, but D commerce + E not-connected |
+| stripe (event_received) | global `STRIPE_CLIENT_SECRET` HMAC | yes | `?workflowId&nodeId` strict | yes | payment/customer = billing | A-mechanics, but D billing + E not-connected |
+| trello (new_card, card_updated, card_moved, comment_added, member_changed, card_archived) | global `TRELLO_CLIENT_SECRET` HMAC over `body+callbackURL` | yes | `?workflowId&nodeId` strict | yes (`webhooksCreate` on a real board) | board/card/comment = user content | A-mechanics (CONNECTED), but user-content + sig binds callbackURL |
+| discord (slash_command) | global Ed25519 (`DISCORD_INTERACTIONS_PUBLIC_KEY`) | yes | by commandName | app-level | interactive command args | excluded (interactive) + E not-connected + F key MISSING |
+
+**Env signer presence (names only, this turn):** present — `GITHUB_WEBHOOK_SECRET`, `TRELLO_CLIENT_SECRET`,
+`SHOPIFY_CLIENT_SECRET`, `STRIPE_CLIENT_SECRET`, `DROPBOX_CLIENT_SECRET`, `FACEBOOK_CLIENT_SECRET`,
+`HUBSPOT_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`. MISSING — `MONDAY_SIGNING_SECRET`,
+`DISCORD_INTERACTIONS_PUBLIC_KEY`.
+
+**Bucket roll-up (task taxonomy):**
+- **HMAC self-contained synthetic payload (good mechanics):** github, monday, shopify, stripe, trello,
+  (+ facebook, hubspot mechanically but content-excluded). These reuse the Slack orchestrator shape with a
+  per-provider signer + `?workflowId&nodeId` routing.
+- **Provider subscription / resource-FETCH webhook (need a synthetic resource-state seam):** airtable,
+  dropbox, all Google (calendar/docs/drive/sheets), all Microsoft Graph (onedrive/outlook/
+  outlook-calendar/teams). These deliver a thin notification and FETCH the change — a synthetic receipt
+  would have to stub/short-circuit the provider fetch, a genuinely larger harness investment.
+- **Inbound / user-content:** microsoft-outlook (email), microsoft-teams (message), facebook
+  (post/comment), google-docs (doc).
+- **Billing / commerce:** shopify, stripe.
+- **Provider not connected on the smoke account:** discord, github, monday, shopify, stripe.
+- **Missing safe synthetic signer (env):** monday, discord.
+- **Missing trigger-resource / operator setup:** the Google/Microsoft channel/clientState subscriptions +
+  airtable macSecret are provider-created at activation; a smoke would need them seeded.
+
+**Selected candidate: NO.** Every non-Slack webhook trigger fails at least one HARD gate for a "clearly
+safe, connected, route-level synthetic" smoke: provider-fetch/resource-state (all Google/MS + airtable +
+dropbox), user-content/PII (facebook, outlook, teams, hubspot, mailchimp, trello, github, monday),
+commerce/billing (shopify, stripe), not-connected (discord, github, monday, shopify, stripe), or
+missing-signer (monday, discord). The closest mechanics (signed + self-contained + no fetch) are
+github/monday/shopify/stripe/trello, but each additionally needs a content-safety decision and/or a
+connection/signer unlock — none clears the "clearly safe" bar this pass.
+
+**Exact unlocks required (so a future slice can proceed deterministically):**
+1. **A per-trigger "synthetic-content contract"** — an explicit, documented statement that a given
+   trigger's payload may be fully smoke-minted and produces no user-visible state (the same bar Slack
+   `channel_created`/`file_shared` implicitly met). Without it, github/monday/shopify/stripe/trello stay
+   excluded because their real payloads are user-content/commerce.
+2. **A "direct-seed arm" decision** — allow the smoke to seed the `trigger_resources` row directly
+   (provider + eventType + `?workflowId&nodeId` config + any signer-bound field like Trello's
+   `callbackURL`) INSTEAD of running the real activation hook, so NO real provider webhook/subscription is
+   created. (The Slack smoke used the real hook only because Slack has none; for these providers the real
+   hook would create a real provider-side resource.) This keeps the DISPATCH surface 100% real while
+   avoiding a provider mutation, mirroring how the smoke already sets `state="active"` directly.
+3. **Provider connection** for github / monday / shopify / stripe IF a future slice insists on the real
+   activation hook rather than direct-seed.
+4. **`MONDAY_SIGNING_SECRET`** (and `DISCORD_INTERACTIONS_PUBLIC_KEY` if discord is ever in scope) in the
+   smoke env.
+5. **A synthetic resource-state seam** for the Google/Microsoft Graph family: a way to register a synthetic
+   subscription (channelId / subscriptionId + token/clientState) AND stub the post-receipt provider FETCH,
+   so the dispatch fires without a live provider read. This is the larger investment and is its own project.
+
+**certificationSeed update:** NO. **Trigger-smoke matrix unchanged:** 62 registered · 9 LIVE_PASS · 1
+RUN_NOW_PROVEN · 1 BLOCKED-documented · 51 un-harnessed.
+
+**Verification (this pass, docs-only):** `npm run lint:structure` → OK. `npx tsc --noEmit` → **exit 0
+(clean)**. EARLIER in this pass tsc was blocked by the unrelated parallel agent-change-history WIP
+(`features/workflow-builder/hooks/useBuilderPreview.ts` lines 248/355/360 `ConfigDiff` not assignable to
+`Record<string,unknown>`, plus `AgentChangesPanel.test.tsx` and `agentChangeHistory.test.ts`
+`diff` optional-vs-nullable); that parallel session has since fixed it and tsc is now exit 0. This pass is
+docs-only and could not affect tsc regardless. eslint: docs-only, no code targets. **No db:push, no
+deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Should the next real coding slice be HMAC-self-contained providers OR the Google/Microsoft
+  resource-state webhook seam?** Recommend **HMAC-self-contained first** — it reuses the proven Slack
+  orchestrator shape almost verbatim (swap the signer + use `?workflowId&nodeId` routing + direct-seed the
+  `trigger_resources` row to avoid creating a real provider webhook), so it is the cheaper, lower-risk next
+  step. But it is NOT free: it is gated on unlock #1 (a per-trigger synthetic-content contract — because
+  every one of these payloads is user-content/commerce) and unlock #2 (the direct-seed-vs-real-activation
+  decision). The Google/Microsoft resource-state seam (unlock #5) is a genuinely larger harness investment
+  (synthetic subscription + clientState + a stubbed provider fetch) AND still terminates at user-content
+  (calendar events / files / messages), so it should come later. Concrete first target once unlocks #1+#2
+  land: **GitHub `new_commit`** via direct-seed (no real GitHub webhook, `GITHUB_WEBHOOK_SECRET` already in
+  env, fully smoke-minted synthetic push), as the cleanest mechanics; defer commerce/billing entirely.
+- **Should commerce/billing webhooks stay out of trigger-smoke unless explicitly separated?** YES. Keep
+  `shopify:webhook_received` and `stripe:event_received` OUT of the general workflow-trigger matrix. Their
+  events model orders / payments, and certifying them in the trigger lane risks conflating workflow-trigger
+  DISPATCH proof with commerce/billing side-effect semantics (and Stripe already has a separate
+  billing-webhook surface at `/api/webhooks/stripe-billing`). If trigger-dispatch for these is ever needed,
+  do it as a SEPARATE, clearly-labeled commerce-webhook smoke with fully synthetic order/payment ids and an
+  explicit no-real-charge/no-real-order contract — never mixed into the general trigger certification.
