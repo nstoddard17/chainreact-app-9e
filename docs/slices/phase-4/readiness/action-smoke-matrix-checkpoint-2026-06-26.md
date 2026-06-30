@@ -1598,3 +1598,74 @@ No db:push, no deploy, nothing pushed.
 - **Keep `create_board` / `duplicate_board` parked?** YES — still blocked until a real product
   `monday:delete_board` (or `archive_board`) action exists (§31). The item-tree path deliberately avoids them
   by writing into an operator-pinned board it never has to delete.
+
+## 33. Monday `create_item` — first item-tree write CERTIFIED (2026-06-30)
+
+`monday:create_item` is now **LIVE_PASS_CLEANED** — the first certified Monday mutation and the proven
+foundation for Monday item-tree writes. Ran the scoped destructive live smoke
+(`SMOKE_PROVIDER=monday npm run smoke:writes:live`, all four write/destructive gates set): one real item
+created on the throwaway smoke board, marker-echo + independent `get_item` read-back confirmed, then removed
+via the registered `monday:delete_item`. **created 1 / cleaned 1 / remaining 0, artifact: cleaned.**
+
+**Approach correction vs §32.** §32 required an operator-pinned `SMOKE_MONDAY_BOARD_ID` and a `setup`
+`list_groups` capture. Marcus then clarified the connected Monday account is a dedicated throwaway smoke
+connection, so the slice was corrected to **not require `SMOKE_MONDAY_CONNECTED` or `SMOKE_MONDAY_BOARD_ID`**:
+
+- **Connection is proven from the DB**, not an env flag — the dev test's `probeWriteConnection` reads the
+  active Monday integration row (and, since Monday is a personal-credential provider, confirms it is
+  execution-usable under the smoke user). No `SMOKE_MONDAY_CONNECTED`.
+- **Board + group are auto-discovered** by a new write-discovery seam
+  `discoverMondaySmokeBoardGroup` (`tests/smoke-actions/writeHarnessDeps/monday.ts`) that runs ONLY the
+  read-only `monday:boards` / `monday:groups` option resolvers (same resolvers the builder dropdowns use,
+  already `refreshAndRetry`-wrapped). The pure picker policy
+  (`pickMondaySmokeBoard` / `pickMondaySmokeGroup` in `writeTargets.ts`, unit-tested) is **pinned
+  `SMOKE_MONDAY_BOARD_ID` -> smoke/test/chainreact-named board -> first board on the throwaway account**,
+  then the first usable group. The discovered ids are overlaid into the run env (never printed). This is a
+  deliberate, simpler design than §32's `setup`-capture: one discovery seam, mirroring the Trello/Notion
+  write-target discovery precedent.
+- `SMOKE_MONDAY_BOARD_ID` / `SMOKE_MONDAY_GROUP_ID` remain in the fixture's `requiredEnv` ONLY so the
+  orchestrator's target gate emits a clean `BLOCKED_ENV` when discovery finds no safe board / no usable group
+  — never a fake write. A pinned `SMOKE_MONDAY_BOARD_ID` still wins if an operator sets one.
+
+**Board suitability (no private board data exposed):** the dev test's diagnosis line reported
+`dbConnected=true execUsable=true hasTarget=true -> READY` with a safe `board "<label>" / group "<label>"`
+target label. Existence + a usable group are proven by the read resolvers themselves (board list non-empty,
+group list non-empty); the board name feeds the smoke-name preference. Only the smoke-marked item this run
+created was mutated, and it was deleted.
+
+**Files:**
+- `tests/fixtures/action-smoke/monday/create_item.ts` (new write fixture, `defineWriteSmokeFixture`,
+  `destructiveSafe`, `liveRisk: "write"`, cleanup `delete_item` / `cleanupKind: "delete"`).
+- `tests/smoke-actions/writeTargets.ts` (+`pickMondaySmokeBoard` / `pickMondaySmokeGroup` + types).
+- `tests/smoke-actions/writeHarnessDeps/monday.ts` (new discovery seam) + barrel export in
+  `tests/smoke-actions/writeHarnessDeps.ts`.
+- `tests/integration/smoke-actions/run-writes.workflow-live.dev.test.ts` (Monday discovery branch).
+- `tests/smoke-actions/fixtures.ts` (registered `mondayCreateItem` in `WRITE_SMOKE_FIXTURES`).
+- `tests/unit/smoke-actions/monday-create-item.test.ts` (new) + `write-targets.test.ts` (picker tests).
+- `scripts/chainreact/smoke/certificationSeed.ts` (+`monday:create_item` -> `LIVE_PASS_CLEANED`).
+
+**Cleanup strategy:** registered `monday:delete_item` only, keyed on the smoke-owned ledger item id (the
+smoke-owned guard forbids deleting anything else). Monday's delete is a UI-recoverable soft delete; the item
+is gone from the board -> artifact "cleaned". **Cleanup/leak count: 1 created / 1 cleaned / 0 leaked.**
+
+**Actions authored:** `monday:create_item`. **Actions certified:** `monday:create_item` -> `LIVE_PASS_CLEANED`.
+**certificationSeed update:** YES. **Matrix now:** Monday **24 / 11 LIVE_PASS / 0 NOT_RUN / 13 MISSING /
+0 / 0 / 0**; totals **298 / 146 LIVE_PASS / 12 not-run / 140 missing / 0 fail / 0 bug**.
+
+**Verification:** `npx jest tests/unit/smoke-actions` -> 46 suites / 476 tests pass (incl. the new Monday +
+picker tests); scoped live write smoke -> 1/1 pass (real create/verify/delete, 0 leaked);
+`npm run chainreact -- smoke actions --cert` -> matrix above, 0 fail / 0 bug; `npx tsc --noEmit` -> exit 0;
+eslint on touched files -> clean; `npm run lint:structure` -> OK. No db:push, no deploy, nothing pushed.
+
+### Owner review answers
+
+- **Is `monday:create_item` now proven as the item-tree write foundation?** YES. create + registered
+  `delete_item` cleanup is green live (0 leaked), via DB-derived connection + safe auto-discovered
+  board/group on the throwaway account. This is the reusable foundation for the rest of the item tree.
+- **Next Monday write batch?** Now unblocked. Small reuse batch next, each reusing a freshly created item
+  then deleting it: `update_item` (marker-suffix on a text column), `create_update`, `create_subitem`, and
+  certify `delete_item` directly as the destructive teardown. Then `create_group` / `add_column` /
+  `move_item` / `archive_item` / `duplicate_item`. Do `create_item`-rooted reuse first; keep each write
+  smoke-owned with registered cleanup.
+- **Keep `create_board` / `duplicate_board` parked?** YES — unchanged. Still blocked until a real product
+  `monday:delete_board` (or `archive_board`) action exists (§31). The item-tree path never creates a board.

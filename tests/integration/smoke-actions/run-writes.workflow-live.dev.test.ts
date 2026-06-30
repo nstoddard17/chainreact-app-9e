@@ -46,6 +46,7 @@ import {
   discoverTrelloSecondSmokeList,
   discoverNotionSmokeParentPage,
   discoverNotionSmokeDatabase,
+  discoverMondaySmokeBoardGroup,
   discoverOneNoteSmokeSection,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
@@ -153,6 +154,22 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_NOTION_DATABASE_ID = db.databaseId; // id -> env overlay only
         overlay.SMOKE_NOTION_DB_TITLE_FIELD = db.titleFieldName;
         targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}database "${db.title}"`;
+      }
+    } else if (provider === "monday" && execUsable) {
+      // create_item needs a board + a usable group. Connection is proven from the
+      // DB (probeWriteConnection) — NO SMOKE_MONDAY_CONNECTED. A pinned
+      // SMOKE_MONDAY_BOARD_ID wins; otherwise a smoke/test-named board is preferred,
+      // falling back to the first board on the throwaway account. The first usable
+      // group is taken. Both ids -> env overlay only (never printed).
+      const chosen = await discoverMondaySmokeBoardGroup(
+        account,
+        user,
+        process.env.SMOKE_MONDAY_BOARD_ID || null,
+      );
+      if (chosen) {
+        overlay.SMOKE_MONDAY_BOARD_ID = chosen.boardId; // id -> env overlay only
+        overlay.SMOKE_MONDAY_GROUP_ID = chosen.groupId; // id -> env overlay only
+        targetLabel = `board "${chosen.boardLabel}" / group "${chosen.groupLabel}"`;
       }
     } else if (provider === "airtable" && execUsable) {
       // Record writes need the smoke table's primary text field NAME. baseId /

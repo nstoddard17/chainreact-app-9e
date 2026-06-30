@@ -74,6 +74,7 @@ export {
   discoverNotionSmokeParentPage,
   discoverNotionSmokeDatabase,
 } from "./writeHarnessDeps/notion";
+export { discoverMondaySmokeBoardGroup } from "./writeHarnessDeps/monday";
 export { discoverOneNoteSmokeSection } from "./writeHarnessDeps/onenote";
 
 export interface RealWriteHarnessDepsConfig {

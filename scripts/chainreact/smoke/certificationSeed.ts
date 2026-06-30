@@ -43,6 +43,7 @@ const LIVE_NATIVE = "2026-06-26";
 const LIVE_DROPBOX_SEARCH = "2026-06-26";
 const SMOKE_WRITE_BATCH_0629 = "2026-06-29";
 const LIVE_MONDAY_READS = "2026-06-30";
+const SMOKE_WRITE_MONDAY = "2026-06-30";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -73,6 +74,16 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["monday", "list_subitems"],
     ["monday", "list_updates"],
     ["monday", "search_items"],
+  ]),
+  // Monday.com item-tree WRITE — first certified Monday mutation. create_item
+  // creates a smoke-marked item on a board/group AUTO-DISCOVERED from the throwaway
+  // smoke account (connection proven from the DB row, not a SMOKE_MONDAY_CONNECTED
+  // env; a pinned SMOKE_MONDAY_BOARD_ID still wins). Verified by an INDEPENDENT
+  // get_item read-back (marker on the item name), then removed via the registered
+  // delete_item. Monday's delete is a soft delete (UI-recoverable from the recycle
+  // bin) but the smoke object is gone from the board -> artifact "cleaned", 0 leaked.
+  ...records("LIVE_PASS_CLEANED", "live write+verify, item deleted (soft delete, recycle-bin recoverable)", SMOKE_WRITE_MONDAY, [
+    ["monday", "create_item"],
   ]),
   ...records("LIVE_PASS", "live read verified", LIVE, [
     ["slack", "list_channels"],

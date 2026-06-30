@@ -14,10 +14,14 @@ import {
   classifyWriteTarget,
   pickAirtableAttachmentField,
   pickAirtablePrimaryTextField,
+  pickMondaySmokeBoard,
+  pickMondaySmokeGroup,
   pickNotionSmokeDatabase,
   pickSecondSmokeList,
   pickSmokeSafeTarget,
   type AirtableTableLite,
+  type MondayBoardLite,
+  type MondayGroupLite,
   type NotionDatabaseHitLite,
   type TrelloListCandidate,
   type TrelloMoveListCandidate,
@@ -211,5 +215,52 @@ describe("pickNotionSmokeDatabase — usable DB + its title-property name", () =
 
   it("returns null when there are no usable databases", () => {
     expect(pickNotionSmokeDatabase([{ id: "d3", title: "x", titleFieldName: null }])).toBeNull();
+  });
+});
+
+describe("pickMondaySmokeBoard — pinned -> smoke-named -> first (throwaway account)", () => {
+  const boards: MondayBoardLite[] = [
+    { id: "b1", label: "Sprint Planning" },
+    { id: "b2", label: "Smoke Test Board" },
+    { id: "b3", label: "Roadmap" },
+  ];
+
+  it("uses the pinned board id exactly when provided", () => {
+    expect(pickMondaySmokeBoard(boards, "b3")).toEqual({ id: "b3", label: "Roadmap" });
+  });
+
+  it("returns null when the pinned board id is not in the list", () => {
+    expect(pickMondaySmokeBoard(boards, "nope")).toBeNull(); // -> BLOCKED_ENV
+  });
+
+  it("prefers a smoke/test/chainreact-named board when no pin is given", () => {
+    expect(pickMondaySmokeBoard(boards)?.id).toBe("b2");
+  });
+
+  it("falls back to the first board on the throwaway account when none is smoke-named", () => {
+    const noNamed: MondayBoardLite[] = [
+      { id: "b1", label: "Sprint Planning" },
+      { id: "b3", label: "Roadmap" },
+    ];
+    expect(pickMondaySmokeBoard(noNamed)?.id).toBe("b1");
+  });
+
+  it("returns null when the account has no boards", () => {
+    expect(pickMondaySmokeBoard([])).toBeNull(); // -> BLOCKED_ENV
+  });
+});
+
+describe("pickMondaySmokeGroup — a usable group, deterministically", () => {
+  it("picks the alphabetically-first group regardless of input order", () => {
+    const groups: MondayGroupLite[] = [
+      { id: "g2", label: "To Do" },
+      { id: "g1", label: "Done" },
+      { id: "g3", label: "In Progress" },
+    ];
+    expect(pickMondaySmokeGroup(groups)).toEqual({ id: "g1", label: "Done" });
+  });
+
+  it("returns null when the board has no group (lacks a usable group)", () => {
+    expect(pickMondaySmokeGroup([])).toBeNull(); // -> BLOCKED_ENV
   });
 });

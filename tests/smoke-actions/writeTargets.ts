@@ -215,3 +215,61 @@ export function pickNotionSmokeDatabase(
   if (!chosen || chosen.titleFieldName === null) return null;
   return { databaseId: chosen.id, title: chosen.title, titleFieldName: chosen.titleFieldName };
 }
+
+// ─── Monday: smoke board + group discovery (for item-tree writes) ─────────────
+
+/** A board candidate from the `monday:boards` resolver (value/label pair). */
+export interface MondayBoardLite {
+  readonly id: string;
+  readonly label: string;
+}
+
+/** A group candidate from the `monday:groups` resolver (value/label pair). */
+export interface MondayGroupLite {
+  readonly id: string;
+  readonly label: string;
+}
+
+export interface ChosenMondayTarget {
+  readonly boardId: string;
+  readonly boardLabel: string;
+  readonly groupId: string;
+  readonly groupLabel: string;
+}
+
+/**
+ * Pick a safe smoke BOARD to write an item into, from the `monday:boards`
+ * resolver candidates. When `pinnedId` (SMOKE_MONDAY_BOARD_ID) is set, that exact
+ * board is used; otherwise prefer a smoke/test/chainreact-named board, else fall
+ * back to the first board on the THROWAWAY smoke account (Marcus confirmed the
+ * connected Monday account is a dedicated throwaway, so an item create+delete on
+ * any of its boards is harmless — and `create_item` only ever creates a
+ * smoke-marked item it then deletes via the registered `delete_item`; it never
+ * mutates a pre-existing item or the board structure). Returns the board, or null
+ * when no board exists / the pinned id is not found -> caller reports BLOCKED_ENV.
+ * Mirrors `pickNotionSmokeDatabase`'s pinned -> smoke-named -> first policy. Pure.
+ */
+export function pickMondaySmokeBoard(
+  boards: readonly MondayBoardLite[],
+  pinnedId?: string | null,
+  pattern: RegExp = SMOKE_TARGET_NAME_RE,
+): MondayBoardLite | null {
+  if (boards.length === 0) return null;
+  if (pinnedId) return boards.find((b) => b.id === pinnedId) ?? null;
+  return boards.find((b) => pattern.test(b.label)) ?? boards[0] ?? null;
+}
+
+/**
+ * Pick a usable GROUP to create the smoke item in, from the `monday:groups`
+ * resolver candidates for the chosen board. Deterministic: sorted by label so the
+ * same board resolves the same group every run (the resolver already sorts, but we
+ * sort defensively so the pure helper is order-independent). A board with NO group
+ * cannot hold an item -> null (caller reports BLOCKED_ENV: "lacks a usable group").
+ * Pure.
+ */
+export function pickMondaySmokeGroup(
+  groups: readonly MondayGroupLite[],
+): MondayGroupLite | null {
+  if (groups.length === 0) return null;
+  return [...groups].sort((a, b) => a.label.localeCompare(b.label))[0] ?? null;
+}
