@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PreviewReviewPanel } from "@/features/workflow-builder/panels/PreviewReviewPanel";
 import type { ConfigDiff } from "@/core/workflows/buildConfigDiff";
+import type { AgentPreviewRationale } from "@/core/workflows/buildPreviewRationale";
 
 const diff: ConfigDiff = {
   nodes: [
@@ -69,6 +70,34 @@ describe("PreviewReviewPanel", () => {
     expect(screen.getByTestId("preview-review-missing-gmail-1-to")).toHaveTextContent("To: required");
     // Variables used are listed for the Gmail node.
     expect(screen.getByTestId("preview-review-variables-gmail-1")).toHaveTextContent("{{trigger.email}}");
+  });
+
+  it("renders the 'Why this change?' bullets near the top when a rationale is provided", () => {
+    const rationale: AgentPreviewRationale = {
+      title: "Why this change?",
+      summary: "Add a Gmail step and retarget the Slack channel.",
+      bullets: [
+        { kind: "request_match", text: 'You asked: "send an email instead"' },
+        { kind: "node_added", text: "Added Gmail / Send Email.", nodeId: "gmail-1" },
+        { kind: "preserved", text: "Kept the native:manual.run trigger.", nodeId: "t1" },
+        { kind: "needs_user_input", text: "Gmail / Send Email still needs To.", nodeId: "gmail-1", fieldPath: "to" },
+      ],
+    };
+    render(<PreviewReviewPanel summary="x" configDiff={diff} rationale={rationale} onApply={jest.fn()} onDiscard={jest.fn()} />);
+    const why = screen.getByTestId("preview-review-why");
+    expect(why).toHaveTextContent('You asked: "send an email instead"');
+    expect(why).toHaveTextContent("Added Gmail / Send Email.");
+    expect(why).toHaveTextContent("Kept the native:manual.run trigger.");
+    expect(screen.getByTestId("preview-review-why-needs_user_input")).toHaveTextContent("still needs To.");
+  });
+
+  it("omits the 'Why this change?' section when the rationale is null or has no bullets", () => {
+    const { rerender } = render(<PreviewReviewPanel configDiff={diff} rationale={null} onApply={jest.fn()} onDiscard={jest.fn()} />);
+    expect(screen.queryByTestId("preview-review-why")).not.toBeInTheDocument();
+    rerender(
+      <PreviewReviewPanel configDiff={diff} rationale={{ title: "Why this change?", bullets: [] }} onApply={jest.fn()} onDiscard={jest.fn()} />,
+    );
+    expect(screen.queryByTestId("preview-review-why")).not.toBeInTheDocument();
   });
 
   it("renders a redacted field as hidden and never shows a raw secret value", () => {

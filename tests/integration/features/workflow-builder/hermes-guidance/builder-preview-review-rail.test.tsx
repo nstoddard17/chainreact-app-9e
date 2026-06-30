@@ -162,6 +162,20 @@ describe("builder review rail (HERMES-AGENT-CONFIG-DIFF-REVIEW)", () => {
     expect(slackCard).toHaveTextContent("#sales");
   });
 
+  it("shows the deterministic 'Why this change?' rationale in the rail (request echo, changed node, preserved trigger)", async () => {
+    const user = userEvent.setup();
+    renderBuilder();
+    await proposeEdit(user);
+
+    const why = await screen.findByTestId("preview-review-why");
+    // 1. What the user asked — echoed verbatim from their prompt.
+    expect(why).toHaveTextContent('You asked: "send to #sales instead"');
+    // 2. What changed — the Slack step (labels only; the value lives in the config-diff section).
+    expect(why).toHaveTextContent("Updated slack:send_message.");
+    // 3. What was preserved — the manual trigger the request did not touch.
+    expect(why).toHaveTextContent("Kept the native:manual.run trigger.");
+  });
+
   it("Apply from the review rail replaces the local draft with the candidate (dirty, nothing saved)", async () => {
     const user = userEvent.setup();
     renderBuilder();

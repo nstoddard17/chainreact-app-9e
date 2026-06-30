@@ -394,6 +394,7 @@ export function WorkflowBuilder({
     previewConfig,
     previewDiffGraph,
     configDiff,
+    previewRationale,
     previewReviewActive,
     checkpoints,
     checkpointsLoading,
@@ -573,6 +574,7 @@ export function WorkflowBuilder({
             <PreviewReviewPanel
               {...(previewOverlay?.preview.summary ? { summary: previewOverlay.preview.summary } : {})}
               configDiff={configDiff}
+              rationale={previewRationale}
               onApply={handleApplyPreview}
               onDiscard={handleDiscardPreview}
             />

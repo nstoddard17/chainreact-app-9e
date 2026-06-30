@@ -11,6 +11,10 @@ import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
 import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
 import { buildConfigDiff, type ConfigDiff } from "@/core/workflows/buildConfigDiff";
+import {
+  buildPreviewRationale,
+  type AgentPreviewRationale,
+} from "@/core/workflows/buildPreviewRationale";
 import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
 import {
   EMPTY_AGENT_CHANGE_COUNTS,
@@ -174,6 +178,27 @@ export function useBuilderPreview({
   }, [previewOverlay, pendingNodes, fieldMetaByType]);
   // True while an EDIT preview is active — the right drawer takes over with the review panel.
   const previewReviewActive = !!previewOverlay?.proposedDefinition;
+
+  // REACT-AGENT-PREVIEW-WHY — deterministic "Why this change?" rationale shown at the top of the
+  // review rail. Derived ONLY from the user's prompt, the (already redacted) config diff, and the
+  // current/candidate node lists — no model call, no invented reasoning, no config values. The
+  // agent's summary is carried through for display only. Wrapped so a builder failure degrades to
+  // no rationale (the rail simply omits the section). Null when no EDIT preview is active.
+  const previewRationale: AgentPreviewRationale | null = useMemo(() => {
+    if (!previewOverlay?.proposedDefinition) return null;
+    try {
+      return buildPreviewRationale({
+        ...(previewOverlay.prompt ? { prompt: previewOverlay.prompt } : {}),
+        ...(previewOverlay.preview.summary ? { summary: previewOverlay.preview.summary } : {}),
+        configDiff,
+        current: { nodes: pendingNodes },
+        candidate: { nodes: previewOverlay.proposedDefinition.nodes },
+        ...(fieldMetaByType ? { fieldMetaByType } : {}),
+      });
+    } catch {
+      return null;
+    }
+  }, [previewOverlay, pendingNodes, configDiff, fieldMetaByType]);
 
   // HERMES-AGENT-APPLY-CONFIG-HINTS — the per-node required-field hint list for the post-apply notice
   // (and the source for auto-opening the first incomplete node). Recomputes from the LIVE pending
@@ -407,6 +432,7 @@ export function useBuilderPreview({
     previewConfig,
     previewDiffGraph,
     configDiff,
+    previewRationale,
     previewReviewActive,
     // checkpoint surface (for CheckpointsPanel)
     checkpoints,

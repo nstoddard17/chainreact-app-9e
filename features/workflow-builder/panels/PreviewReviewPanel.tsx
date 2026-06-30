@@ -7,6 +7,7 @@ import type {
   ConfigFieldChange,
   NodeConfigDiff,
 } from "@/core/workflows/buildConfigDiff";
+import type { AgentPreviewRationale } from "@/core/workflows/buildPreviewRationale";
 
 /**
  * React Agent preview — right-rail "Review changes" panel (HERMES-AGENT-CONFIG-DIFF-REVIEW).
@@ -32,11 +33,22 @@ export interface PreviewReviewPanelProps {
   readonly summary?: string;
   /** The value-level diff, or null when computation failed (renders the fallback). */
   readonly configDiff: ConfigDiff | null;
+  /**
+   * REACT-AGENT-PREVIEW-WHY — deterministic "Why this change?" rationale (labels + prompt only,
+   * never config values). Rendered near the top ONLY when it has bullets; null/empty → no section.
+   */
+  readonly rationale?: AgentPreviewRationale | null;
   /** Existing explicit "Apply preview" action (replaces the local draft). */
   readonly onApply: () => void;
   /** Existing explicit "Discard preview" action (graph unchanged). */
   readonly onDiscard: () => void;
 }
+
+const WHY_BULLET_DOT: Record<string, string> = {
+  node_added: "var(--builder-success, #15803d)",
+  node_removed: "var(--builder-danger, #b91c1c)",
+  needs_user_input: "var(--builder-warning, #b45309)",
+};
 
 const STATUS_VERB: Record<NodeConfigDiff["status"], string> = {
   added: "Added",
@@ -47,9 +59,11 @@ const STATUS_VERB: Record<NodeConfigDiff["status"], string> = {
 export function PreviewReviewPanel({
   summary,
   configDiff,
+  rationale,
   onApply,
   onDiscard,
 }: PreviewReviewPanelProps) {
+  const whyBullets = rationale?.bullets ?? [];
   if (configDiff === null) {
     return (
       <div data-testid="preview-review-panel" className="flex flex-col gap-3 p-3">
@@ -76,6 +90,32 @@ export function PreviewReviewPanel({
           <p className="mt-1 text-[12px]" style={{ color: "var(--builder-text)" }}>
             {summary}
           </p>
+        </section>
+      ) : null}
+
+      {whyBullets.length > 0 ? (
+        <section data-testid="preview-review-why">
+          <SectionHeading>{rationale?.title ?? "Why this change?"}</SectionHeading>
+          <ul className="mt-1 space-y-1">
+            {whyBullets.map((bullet, index) => (
+              <li
+                key={`why-${bullet.kind}-${bullet.nodeId ?? ""}-${bullet.fieldPath ?? ""}-${index}`}
+                data-testid={`preview-review-why-${bullet.kind}`}
+                className="flex gap-1.5 text-[12px]"
+                style={{
+                  color:
+                    bullet.kind === "needs_user_input"
+                      ? "var(--builder-warning, #b45309)"
+                      : "var(--builder-text)",
+                }}
+              >
+                <span aria-hidden style={{ color: WHY_BULLET_DOT[bullet.kind] ?? "var(--builder-muted)" }}>
+                  •
+                </span>
+                <span>{bullet.text}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

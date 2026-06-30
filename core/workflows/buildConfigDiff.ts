@@ -140,6 +140,19 @@ function labelFor(node: WorkflowNode, typeMeta: ConfigDiffNodeTypeMeta | undefin
   return node.displayName ?? typeMeta?.displayName ?? `${node.provider}:${node.type}`;
 }
 
+/**
+ * Author-facing label for a node using the SAME rule the diff uses (node displayName →
+ * metadata displayName → `provider:type`). Exported so the preview rationale builder can
+ * label nodes that the diff omits (e.g. an unchanged/preserved trigger) without disagreeing
+ * with the rail's node labels. Pure; never reads config VALUES.
+ */
+export function resolveNodeLabel(
+  node: WorkflowNode,
+  fieldMetaByType?: ConfigDiffFieldMetaByType,
+): string {
+  return labelFor(node, typeMetaFor(node, fieldMetaByType));
+}
+
 /** A field is secret per metadata OR a secret-shaped key name (keys outside metadata). */
 function isSecretKey(meta: ConfigDiffFieldMeta | undefined, key: string): boolean {
   return meta?.secret ?? isSecretLikeKey(key);
