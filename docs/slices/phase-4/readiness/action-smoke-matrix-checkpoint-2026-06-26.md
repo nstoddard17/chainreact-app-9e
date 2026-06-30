@@ -1208,3 +1208,121 @@ only `export_sheet` (policy-excluded raw bytes) remains MISSING.
 45 suites / 775 + 464 tests pass; `npm run chainreact -- smoke actions --cert` → totals above;
 `npx tsc --noEmit` → exit 0; eslint on the 4 touched files → 0; `npm run lint:structure` → OK.
 **No db:push, no deploy, nothing pushed.**
+
+## 28. FINAL action-smoke frontier classification + handoff to triggers (2026-06-29)
+
+Closure pass for the action-smoke lane. Full matrix re-read; every remaining NOT_RUN and
+MISSING action classified; the "possibly safe" group re-checked against the real registries.
+**No safe candidate exists — no fixture authored.** Recommendation: **action-smoke is exhausted
+on the currently-connected providers; move to triggers.** Matrix unchanged at **298 / 135
+LIVE_PASS / 22 not-run / 141 missing / 0 fail / 0 bug**.
+
+### 28.1 Remaining NOT_RUN (22) — classified
+
+| Bucket | Actions | Count |
+|---|---|---|
+| Provider not connected | `monday:*` reads (get_board, get_item, get_user, list_boards, list_groups, list_items, list_subitems, list_updates, list_users, search_items), `stripe:*` reads (find_customer, find_payment_intent, find_subscription, get_payments), `discord:fetch_messages` | 15 |
+| Connected, missing operator test resource | `google-analytics:*` (run_report, run_pivot_report, get_realtime_data, find_conversion) — connected, but the account exposes no usable GA4 property | 4 |
+| Authored fixture, blocked | `microsoft-onenote:copy_page` — same-section copy resolves to the source page id; needs a SECOND operator-provisioned `[TEST]` section to capture a distinct copy (§14) | 1 |
+| Authored, non-liveSafe (inventory only) | `slack:delete_message` — destructive with no smoke-owned target message + flagged non-liveSafe | 1 |
+| Intentional uncertified baseline | `native:format_transformer` — the always-run baseline that proves the live harness path is real every sweep (certification.test guards this) | 1 |
+| Genuine bug needing a production slice | none | 0 |
+
+### 28.2 Remaining MISSING_FIXTURE (141) — grouped
+
+**A. Provider not connected on the smoke account (47):** `monday` (14), `stripe` (12),
+`shopify` (11), `github` (6), `discord` (4). Binding blocker is the connection; many are also
+commerce/billing mutations. Connecting any unlocks its reads immediately + safe creates-with-delete
+where they exist (e.g. `github:create_issue`).
+
+**B. Send / broadcast / reply / forward / publish — excluded by lane (19, connected):**
+`gmail` send_email/reply_to_email; `microsoft-outlook` send_email/reply_to_email/forward_email;
+`microsoft-teams` send_channel_message/reply_to_channel_message/send_chat_message; `facebook`
+comment_on_post/create_post/delete_post/send_message/update_post/upload_photo/upload_video (publish
+to a real Page); `slack` send_direct_message/schedule_message/post_interactive_blocks;
+`google-analytics:send_event`.
+
+**C. Raw bytes / signed URL / export / download / block content — policy-excluded (9):**
+`dropbox` download_file/get_temporary_link; `google-docs:export_document`;
+`microsoft-excel:export_sheet`; `gmail:get_attachment`; `microsoft-outlook:get_attachment`;
+`notion` get_block/get_block_children; `slack:download_file`.
+
+**D. Sharing-link mutation — excluded (2):** `dropbox:create_shared_link`,
+`google-docs:share_document`.
+
+**E. No registered cleanup path (create-without-delete, or update with no smoke-owned teardown) (37):**
+`hubspot` (19: all create_* / update_* / add_contact_to_list / remove_from_list / remove_line_item —
+there is NO record-delete action of any kind registered; the only reverse action `removeFromList`
+needs an operator contact+list AND no certified read exposes list membership for an independent
+verify); `mailchimp` (10: create_audience/create_segment have no delete; subscriber/tag/note ops
+mutate contact PII and risk welcome emails); `gmail` create_draft/create_draft_reply (no
+drafts-delete action — proven §23) + create_label (no delete_label); `notion:create_database`
+(no archive-database action + no independent read-back); `microsoft-onenote`
+create_notebook/create_section (Graph exposes no notebook/section DELETE); `trello`
+create_board/create_list (no board-delete / list-archive action).
+
+**F. Mutate / destroy an EXISTING user resource — no smoke-owned target (9):** `gmail`
+add_label/remove_label/mark_as_read/mark_as_unread/archive_email/delete_email; `microsoft-outlook`
+add_categories/move_email/delete_email. (Acting requires a real inbound user email; creating one
+means sending. `outlook:add_categories` additionally has no certified read exposing `categories`
+for verify.)
+
+**G. Reverse-cleanup exists but no clean cert path — re-checked, still deferred (18):** the
+remaining `slack` channel/message surface (add_reaction/remove_reaction, pin_message/unpin_message,
+create_channel/archive_channel/unarchive_channel/rename_channel/set_channel_purpose/set_channel_topic,
+join_channel/leave_channel, invite_users_to_channel/remove_user_from_channel, update_message,
+cancel_scheduled_message) plus `google-analytics:create_conversion_event`. See §28.3 for why none
+is "clearly safe."
+
+### 28.3 "Possibly safe" group re-checked (the only step-4 work) — verdict: NONE clearly safe
+
+Two connected-provider candidate families looked plausible and were inspected against the real
+registries this turn:
+
+- **Slack reaction / pin pairs** (`add_reaction`→`remove_reaction`, `pin_message`→`unpin_message`):
+  a registered reverse-cleanup DOES exist, and `get_messages` passes the raw Slack message objects
+  through (so a `reactions` array IS present on read-back). **But it is not cleanly certifiable:**
+  (1) a reaction emoji name / pin flag cannot carry the unique run-token marker, so confirming THIS
+  run's side effect needs a compound "the marker-identified message has reaction/pin Y" assertion
+  the harness's `markerPath`/`markerSuffix` cannot express — adding it is a harness verify-primitive
+  slice, not a fixture, and authoring around it would weaken verification; and (2) the setup message
+  has no liveSafe cleanup (`slack:delete_message` is non-liveSafe), so each run would leave a message.
+  Slack `create_channel` is separately uncertifiable because Slack has no channel DELETE — `archive`
+  is not a true erase (the channel persists in archived listings, so "remaining 0" cannot be claimed,
+  unlike OneDrive's recycle-bin where get/list 404s).
+- **HubSpot list / line-item pairs** (`add_contact_to_list`/`remove_from_list`,
+  `create_line_item`/`remove_line_item`): the only registered "remove" is `removeFromList`; there is
+  no record delete. Both pairs require operator-provisioned parent resources (a contact + a list; a
+  deal) AND no certified HubSpot read exposes list membership for an independent verify. Deferred.
+
+No other connected-provider MISSING action clears all four bars (smoke-owned setup · independent
+verify · registered cleanup · no send/broadcast/billing/sharing/raw-bytes). **Therefore no fixture
+was authored** (per the rule: author only a clearly-safe candidate; do not add production actions
+just to enable cleanup; do not weaken verification).
+
+### 28.4 Recommendation — move to triggers
+
+**Action-smoke is exhausted on the currently-connected providers.** Every remaining action is
+excluded by lane (send/billing/sharing/bytes), lacks a registered cleanup, lacks an independent
+verify, or needs a provider connection / operator resource the smoke account doesn't have. The
+live-certifiable action surface for the connected set is fully greened: **135 LIVE_PASS**, with
+airtable / google-drive / google-sheets / google-docs / google-calendar / microsoft-excel /
+microsoft-onedrive / microsoft-outlook-calendar all write-complete, plus the read + safe-write
+frontier on gmail / outlook / notion / onenote / teams / dropbox / trello / mailchimp / facebook /
+hubspot. **Recommended next lane: triggers.**
+
+**If more ACTION certs are wanted instead (each is an operator/connection unlock, not a code task
+in this lane):**
+- Connect on the smoke account: **monday**, **discord**, a **Stripe TEST-mode** account,
+  **shopify**, **github** → unlocks 15 NOT_RUN reads immediately + safe creates-with-delete where a
+  real delete exists (e.g. `github:create_issue` → close/delete).
+- Provision a **GA4 property** on the connected Google account → unlocks the 4 GA reads.
+- Provision a **second OneNote `[TEST]` section** → unlocks `copy_page` (§14).
+- (Optional, harness slice) add a compound Slack verify primitive (marker-identified message AND
+  reactions[]/pin contains the value) + a liveSafe smoke-owned message cleanup → would unlock the
+  Slack reaction/pin pairs.
+
+**Offline verification (this turn):** `npm run chainreact -- smoke actions --cert` → **298 / 135
+LIVE_PASS / 22 not-run / 141 missing / 0 fail / 0 bug** (unchanged); `npx jest tests/unit/smoke-actions`
+→ 45 suites / 464 tests pass; `npx tsc --noEmit` → exit 0; `npm run lint:structure` → OK. No code
+or fixture changed (docs-only), so no eslint targets. **No db:push, no deploy, nothing pushed.**
