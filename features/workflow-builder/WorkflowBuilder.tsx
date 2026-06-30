@@ -35,6 +35,8 @@ import {
   type ProviderOption,
 } from "./panels/AddNodePanel";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
+import { CheckpointsPanel } from "./panels/CheckpointsPanel";
+import { useWorkflowCheckpoints } from "./hooks/useWorkflowCheckpoints";
 import { AnonymousAgentRail } from "./panels/AnonymousAgentRail";
 import { LocalBuildBanner, LocalConfigNote } from "./panels/AnonymousLocalChrome";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
@@ -197,6 +199,8 @@ export function WorkflowBuilder({
      * re-checks the live draft against it and refuses to replace a canvas that changed since.
      */
     baseGraphVersion?: string;
+    /** CHECKPOINTS-1 — the user prompt that drove this change, recorded on the pre-apply checkpoint. */
+    prompt?: string;
   } | null>(null);
   // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — per-show counter. Bumped each time a preview is shown so
   // the canvas fits the viewport once per show (and re-fits when a preview supersedes another). The
@@ -218,6 +222,22 @@ export function WorkflowBuilder({
   // BuilderPreviewSetupCard via BuilderGuidanceRail). This map is populated by that card and seeded into
   // the new draft nodes on explicit Apply — never sent to Hermes/a model/a prompt.
   const [previewConfig, setPreviewConfig] = useState<Record<string, Record<string, unknown>>>({});
+
+  // CHECKPOINTS-1 — durable "before agent changes" restore points. The hook owns load/create/restore
+  // (typed client API only); the builder owns the graph re-hydration on restore. Disabled for the
+  // logged-out local-only builder (no account / no server draft). `checkpointWarning` surfaces a
+  // non-blocking notice if creating a restore point fails on apply.
+  const checkpointsEnabled = !localOnly;
+  const {
+    checkpoints,
+    loading: checkpointsLoading,
+    error: checkpointsError,
+    restoringId: checkpointRestoringId,
+    restoreError: checkpointRestoreError,
+    createReactAgentCheckpoint,
+    restore: restoreCheckpoint,
+  } = useWorkflowCheckpoints(workflow.id, { enabled: checkpointsEnabled });
+  const [checkpointWarning, setCheckpointWarning] = useState<string | null>(null);
 
   // Slice 4.BUILDER-SETTINGS-2 — the workflow name lives in local state so a
   // rename from the Settings tab updates the header without a reload. Re-synced
@@ -412,6 +432,8 @@ export function WorkflowBuilder({
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
+  // CHECKPOINTS-1 — drives the "this will discard unsaved changes" warning on restore.
+  const isDirty = useGraphSlice((s) => s.isDirty);
   const hasTrigger = useGraphSlice((s) =>
     s.pendingNodes.some((n) => n.kind === "trigger"),
   );
@@ -487,7 +509,7 @@ export function WorkflowBuilder({
   // HERMES-AGENT-BUILDER-PREVIEW-OVERLAY — open the ghost overlay with the validated plan + display
   // preview (clears any prior apply notice). Showing the overlay mutates nothing.
   const handleShowPreview = useCallback(
-    (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string }) => {
+    (payload: { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string }) => {
       setApplyNotice(null);
       setAppliedNodeIds([]);
       // A NEW preview supersedes the old one — drop any guided-setup values entered for the prior
@@ -521,6 +543,14 @@ export function WorkflowBuilder({
   // workflow. Then clears the overlay and shows a safe confirmation.
   const handleApplyPreview = useCallback(() => {
     if (!previewOverlay) return;
+    // CHECKPOINTS-1 — capture the EXACT pre-apply local draft (including any unsaved edits) BEFORE the
+    // mutation, so a checkpoint can restore "what it looked like before this agent change". Read from
+    // the store directly to avoid a stale closure.
+    const preApply = useGraphSlice.getState();
+    const beforeDefinition = {
+      nodes: [...preApply.pendingNodes],
+      edges: [...preApply.pendingEdges],
+    };
     // HERMES-AGENT-WORKFLOW-EDITOR — a general EDIT proposal carries the exact catalog-validated end-state
     // graph. Apply REPLACES the local draft with it atomically (untouched nodes keep config/position;
     // the candidate was built FROM the current draft). New-workflow skeletons have no proposedDefinition
@@ -547,6 +577,19 @@ export function WorkflowBuilder({
       return;
     }
     if (outcome?.ok) {
+      // CHECKPOINTS-1 — a real change landed: durably record a "Before React Agent change" restore
+      // point with the captured pre-apply draft + the user's prompt + the change summary. Fire-and-
+      // forget so apply stays instant; on failure surface a non-blocking warning (the local undo/redo
+      // stack remains as the in-session fallback). Skipped for the logged-out local-only builder.
+      if (!localOnly) {
+        void createReactAgentCheckpoint({
+          definition: beforeDefinition,
+          ...(previewOverlay.prompt ? { prompt: previewOverlay.prompt } : {}),
+          ...(previewOverlay.preview.summary ? { summary: previewOverlay.preview.summary } : {}),
+        }).catch(() => {
+          setCheckpointWarning("Couldn't save a restore point for this change.");
+        });
+      }
       const placement = "placement" in outcome ? outcome.placement : "replaced";
       setApplyNotice(
         placement === "replaced"
@@ -579,7 +622,29 @@ export function WorkflowBuilder({
     }
     setPreviewOverlay(null);
     setPreviewConfig({});
-  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType]);
+  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, localOnly, createReactAgentCheckpoint]);
+
+  // CHECKPOINTS-1 — restore a checkpoint server-side, then re-hydrate the builder graph with the
+  // returned (restored) draft. The restore advances updatedAt to a strictly-newer revision, so the
+  // graphSlice hydrate guard accepts it even when the live draft is dirty (the confirmation in the
+  // CheckpointsPanel already warned the user that unsaved changes are discarded). Pure UI navigation
+  // after that (close any open inspector). Errors surface via the hook's restoreError in the panel.
+  const handleRestoreCheckpoint = useCallback(
+    (checkpointId: string) => {
+      void restoreCheckpoint(checkpointId)
+        .then((detail) => {
+          useGraphSlice.getState().hydrate(workflow.id, detail.draftDefinition, detail.updatedAt);
+          useConfigSlice.getState().closeNode();
+          setAppliedNodeIds([]);
+          setApplyNotice("Checkpoint restored — your draft was returned to that earlier state.");
+          setCheckpointWarning(null);
+        })
+        .catch(() => {
+          // restoreError is set by the hook and rendered in the CheckpointsPanel.
+        });
+    },
+    [restoreCheckpoint, workflow.id],
+  );
 
   // HERMES-AGENT-CONFIG-DIFF-REVIEW — shared "Discard preview" used by the canvas control bar / overlay
   // AND the right-rail review panel (incl. its drawer close ×/Esc). Drops the preview; the real draft was
@@ -687,6 +752,18 @@ export function WorkflowBuilder({
             getCurrentDraft={getCurrentDraft}
             renderCheckSetup={renderCheckSetup}
             {...(restoredComposerValue ? { initialComposerValue: restoredComposerValue } : {})}
+            checkpointsPanel={
+              <CheckpointsPanel
+                checkpoints={checkpoints}
+                loading={checkpointsLoading}
+                error={checkpointsError}
+                warning={checkpointWarning}
+                isDirty={isDirty}
+                restoringId={checkpointRestoringId}
+                restoreError={checkpointRestoreError}
+                onRestore={handleRestoreCheckpoint}
+              />
+            }
           />
           )}
         </BuilderLeftAgentRail>
