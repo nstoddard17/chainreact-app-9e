@@ -278,7 +278,7 @@ function FieldGroup({
   );
 }
 
-function SectionHeading({ children }: { readonly children: React.ReactNode }) {
+function SectionHeading({ children }: { readonly children: ReactNode }) {
   return (
     <h3
       className="text-[11px] font-semibold uppercase tracking-wide"
