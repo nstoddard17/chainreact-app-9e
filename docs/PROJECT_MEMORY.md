@@ -174,6 +174,7 @@
 
 ## Recently completed arcs
 
+- **INTERNAL-FEEDBACK-1 — internal React Agent feedback dashboard, Phase 1 — LOCAL/UNPUSHED (`15c1bcda1`)** — DB-backed ChainReact internal-admin gate (`internal_admins` table, RLS select-own, service-role-managed; distinct from customer account/team/org roles) plus `/admin/react-agent` empty dashboard shell + gated `GET /api/internal/react-agent/overview`. Access foundation only — no metrics. NOT usable yet: migration `20260718000000` is unapplied (db:push pending) and the first `internal_admins` seed is pending; both gate fail-closed until done. Not in production.
 - **DURABLE-QUEUE-1 — durable run queue — LOCAL/UNPUSHED (`b01341a72`)** — replaced the interim
   in-process `after()` dispatch with a DB-backed durable queue on `workflow_runs`. `enqueueRun`
   persists a `queued` row (no inline engine run); the processor claims `queued → running`
