@@ -142,6 +142,29 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     status: "NOT_RUN",
     note: "harness authored + unit-tested, but BLOCKED for live cert by a Microsoft Graph behavior (probe-proven): update_page (the PATCH /pages/{id}/content endpoint) does NOT change the page's lastModifiedDateTime (stayed at creation time across 90s on pagesGet AND pagesList orderBy). updated_note fires only on lastModifiedDateTime > cursor, so an API content edit never fires it. No certified action mutates a page in a way that bumps lastModifiedDateTime; certifying would need a production change (out of lane). NOT a harness bug (new_note proves the path).",
   },
+  // slack:channel_created — Lane C webhook beachhead. LIVE-certified via the Slack
+  // webhook smoke harness (tests/trigger-smoke/slackWebhookSmoke.ts): a smoke-owned
+  // {slack:channel_created → native no-op} workflow is armed via the real
+  // registerWorkflowTriggers (Slack needs no provider-side subscription / no
+  // integration — pure trigger_resources upsert; the stored event_type is the
+  // canonical dispatch key slack.channel_created), the baseline has 0 runs, a fully
+  // SYNTHETIC channel_created event_callback is signed with the REAL
+  // SLACK_SIGNING_SECRET (Slack's v0:ts:body HMAC contract — production verification
+  // UNWEAKENED) and POSTed to the REAL POST /api/webhooks/slack (real verify →
+  // normalize → dispatchTriggerEvent → dedup → enqueue), exactly 1 durable run fires
+  // whose trigger_event identifies the synthetic event (eventId + channel id +
+  // channel-name marker), the run reaches terminal 'succeeded', re-sending the SAME
+  // event_id is dropped by dedup (still 1 run), then the workflow + trigger_resources
+  // + the synthetic dedup row are deleted. No real channel created, no send, metadata
+  // only (no body/bytes/PII), 0 leaked.
+  {
+    provider: "slack",
+    type: "channel_created",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "real synthetic-webhook dispatch: arm stores canonical event_type slack.channel_created, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic channel_created event_callback POSTed to the real /api/webhooks/slack route (verify→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the synthetic eventId + channel marker, durable run terminal 'succeeded', re-send of the same event_id deduped (still 1 run), workflow+trigger_resources+dedup row cleaned (0 leaked); no real channel, no send, metadata only",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.

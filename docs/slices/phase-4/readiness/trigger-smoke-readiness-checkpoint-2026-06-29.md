@@ -509,3 +509,96 @@ the 5 touched files → 0; `npm run lint:structure` → OK. **No db:push, no dep
   through a different path) — but that app-edit path is unverified here and cannot be exercised by an
   automated smoke. Recommend a product note that `updated_note` detects app/structural edits, not
   API-content edits, and (optionally) a follow-up to confirm app-edit behavior manually.
+
+## 13. Slice 6 — Lane C beachhead: `slack:channel_created` webhook trigger LIVE-CERTIFIED (2026-06-29)
+
+The first SYNTHETIC-WEBHOOK-RECEIPT cert and the Lane C pattern-prover. **`slack:channel_created`
+is LIVE_PASS** through the full real receipt → normalize → dispatch → queued run → terminal path,
+with dedup proven and zero provider mutation.
+
+**Selected trigger + why (Lane C candidate selection).** Of the 43 webhook triggers, `slack:channel_created`
+is the safest synthetic-drivable one: it is a non-message workspace LIFECYCLE event (excluded from the
+Lane D message/reaction/member set), the event payload IS self-contained CHANNEL METADATA (no follow-up
+provider fetch in `normalize.ts`, no message body / raw bytes / PII — every value is smoke-minted), its
+filter takes an empty match-all config, it has a real receive/normalize/dispatch path
+(`app/api/webhooks/slack` → `integrations/slack/webhooks/{receive,normalize}` → `services/triggers/dispatch`),
+and the Slack Events API carries a deterministic `event_id` → dedup is provable. Decisively, Slack
+registration is a PURE `trigger_resources` upsert (one global app webhook URL, **no per-workflow
+subscription and no activation hook** → no connected Slack account required to register), and the wired
+action is a native no-op → **no Slack API call anywhere in the smoke**.
+
+**Harness seam (extends `tests/trigger-smoke/`):**
+- [slackWebhookSmoke.ts](../../../../tests/trigger-smoke/slackWebhookSmoke.ts) — pure injectable
+  orchestrator (mint synthetic identity → active workflow → arm → assert canonical event_type →
+  baseline 0 → deliver synthetic signed event → exactly-1-run → identity match → drain → terminal →
+  re-send same event_id → dedup holds → cleanup) + `buildSlackChannelCreatedSmokeWorkflow()`.
+- [slackWebhookSmokeDeps.ts](../../../../tests/trigger-smoke/slackWebhookSmokeDeps.ts) — real deps:
+  service-role active-workflow insert, arm via the real `registerWorkflowTriggers`, **deliver via a
+  synthetic `event_callback` signed with the REAL `SLACK_SIGNING_SECRET` (Slack's `v0:ts:body`
+  HMAC-SHA256 contract) POSTed to the REAL `POST /api/webhooks/slack` route**, runs via service-role
+  diagnostics readers, drain via `processQueuedRun`, cleanup via `unregisterWorkflowTriggers` +
+  soft-delete + synthetic-dedup-row delete.
+- Unit tests ([slackWebhookSmoke.test.ts](../../../../tests/unit/trigger-smoke/slackWebhookSmoke.test.ts),
+  9, fakes — happy path + 8 failure branches incl. non-canonical event_type, baseline violation,
+  non-200, no-run, identity mismatch, non-terminal, dedup-broken, throw-still-cleans) + gated live
+  integration test + `smoke:triggers:webhook` script.
+
+**Receipt path exercised (real, not faked).** The synthetic request flows through the production
+route → `receiveSlackWebhook` (real HMAC verify + replay window + JSON parse) → `normalizeSlackEvent`
+(canonical `slack.channel_created` TriggerEvent) → `dispatchTriggerEvent` (dedup → `listForDispatch` →
+state gate → `enqueueRun`). **Production signature verification is UNWEAKENED** — only the payload
+contents are synthetic; the signature is a genuine HMAC under the real secret. No test-only signer was
+added to production code (the smoke signs in its own deps file, mirroring the documented contract). The
+canonical-node-type convention (`type: "slack.channel_created"`, matching what `normalize` emits and what
+`lifecycle` stores) follows the committed Slack e2e walkthrough (which builds its trigger node with
+`type: "slack.message.channel"`).
+
+**Live result (`ALLOW_DB_INTEGRATION_TESTS=true ALLOW_TRIGGER_SMOKE=true npm run smoke:triggers:webhook`):**
+```
+{"event":"trigger-smoke.slack-webhook.result","triggerLabel":"slack:channel_created",
+ "registeredEventType":"slack.channel_created","baselineRunCount":0,"deliverHttpStatus":200,
+ "afterRunCount":1,"identityMatched":true,"terminalStatus":"succeeded","afterRedeliverRunCount":1,
+ "dedupProven":true,"cleaned":true,"outcome":"pass"}
+```
+Baseline-first held (0 before delivery), the synthetic signed event fired exactly 1 run via
+`dispatchTriggerEvent` whose `trigger_event` carried the synthetic `event_id` + channel id + name
+marker, the durable run reached `succeeded`, the re-sent same `event_id` was **dropped by dedup** (the
+dispatcher logged `webhook.dedup.duplicate`; run count stayed 1), and the workflow + trigger_resources +
+synthetic dedup row were all cleaned. **created 1 workflow / cleaned all / 0 leaked.** **Cert row:
+`slack:channel_created` → `LIVE_PASS` (2026-06-29).**
+
+**Dedup proof: YES.** Synthetic event identity proof: YES (eventId + channel id + name marker on the
+fired run's `trigger_event`). Per-trigger result: PASS. Cleanup/leak count: 0 leaked. certificationSeed
+update: YES (new LIVE_PASS row).
+
+**Trigger-smoke matrix now:** 62 registered · **8 LIVE_PASS** (`native:schedule.fired` +
+`microsoft-excel` ×5 + `microsoft-onenote:new_note` + `slack:channel_created`) · 1 RUN_NOW_PROVEN
+(`native:manual.run`) · 1 BLOCKED-documented (`microsoft-onenote:updated_note`) · 52 un-harnessed.
+
+**Verification (this slice):** `tests/unit/trigger-smoke/slackWebhookSmoke.test.ts` → 9 pass; live
+`smoke:triggers:webhook` → PASS (above, 0 leaked); `npx tsc --noEmit` → **exit 0 (clean — the parallel
+agent-change-history WIP no longer blocks tsc)**; eslint on the 4 touched smoke files → 0; `npm run
+lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Does this first webhook smoke prove the Lane C pattern enough to batch similar webhook providers?**
+  YES — it proves the reusable seam: a pure orchestrator + a real-deps file that drives the actual
+  webhook route with a provider-signed synthetic payload, asserting the full receive→normalize→dispatch→
+  enqueue→drain→terminal chain plus dedup and synthetic identity. The next batch is the OTHER signed,
+  self-contained-payload webhook providers whose receipt route + normalize are already in place and whose
+  event needs no real provider mutation: the remaining **Slack non-content lifecycle** triggers
+  (`file_shared` — metadata only) come essentially free on this exact harness (swap the synthetic inner
+  event + identity matcher); then per-provider HMAC/secret variants (GitHub `X-Hub-Signature-256`,
+  Shopify HMAC, Stripe signed events) once those providers are connected, each reusing this orchestrator
+  shape with a provider-specific signer + normalize assertion. Recommend treating webhook providers in
+  tiers: (1) Slack lifecycle (no new signer), (2) HMAC-signed self-contained payloads, (3) subscription/
+  resource-fetch webhooks (Graph/Drive/Calendar) which need a synthetic resource-state seam and are a
+  genuinely larger step.
+- **Should excluded webhook triggers remain excluded unless product-safe synthetic semantics are
+  explicitly defined?** YES. Keep Lane D exclusions firm: Slack message/reaction/member, Gmail/Outlook
+  inbound email, Mailchimp subscriber/campaign, Facebook post/comment all imply user-visible activity,
+  message bodies, or PII — a synthetic receipt for them would either fabricate user content or risk a
+  user-visible side effect. They stay excluded until a product-safe synthetic semantics is explicitly
+  defined per trigger (e.g. a documented "this payload is synthetic and produces no user-visible state"
+  contract), not opened by default just because the receipt route exists.
