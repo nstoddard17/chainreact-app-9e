@@ -15,7 +15,9 @@ import type {
   AgentApplyMode,
   AgentApplyModeAvailability,
 } from "@/core/workflows/agentApplyModes";
+import type { AgentReadinessVerdict } from "@/core/workflows/agentReadiness";
 import { AgentApplyModeActions } from "./AgentApplyModeActions";
+import { AgentReadinessSummary } from "./AgentReadinessSummary";
 
 /**
  * React Agent preview — right-rail "Review changes" panel (HERMES-AGENT-CONFIG-DIFF-REVIEW).
@@ -46,6 +48,7 @@ export interface PreviewReviewPanelProps {
    * never config values). Rendered near the top ONLY when it has bullets; null/empty → no section.
    */
   readonly rationale?: AgentPreviewRationale | null;
+  readonly readiness?: AgentReadinessVerdict | null; // REACT-AGENT-READINESS-1 — rendered at the rail top.
   /** Existing explicit "Apply preview" action (replaces the local draft). Omit in read-only mode. */
   readonly onApply?: () => void;
   /** Existing explicit "Discard preview" action (graph unchanged). Omit in read-only mode. */
@@ -104,6 +107,7 @@ export function PreviewReviewPanel({
   summary,
   configDiff,
   rationale,
+  readiness,
   onApply,
   onDiscard,
   applyModes,
@@ -147,6 +151,7 @@ export function PreviewReviewPanel({
 
   return (
     <div data-testid="preview-review-panel" className="flex flex-col gap-3 p-3">
+      {readiness ? <AgentReadinessSummary verdict={readiness} /> : null}
       {summary ? (
         <section data-testid="preview-review-summary">
           <SectionHeading>Summary</SectionHeading>
