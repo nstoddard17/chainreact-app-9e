@@ -29,11 +29,14 @@ import { encryptToken } from "@/core/encryption/tokens";
  *       `refreshRequiresClientAuth: true`.
  *     - Content-Type: `application/x-www-form-urlencoded`.
  *     - Body: `grant_type=authorization_code&client_id=…&client_secret=…&redirect_uri=…&code=…`.
- *     Response: `{ access_token, refresh_token, expires_in?, token_type:
- *       "bearer", scope? }`. Monday access tokens carry a long expiry
- *       (currently ~30d per Monday docs); `expires_in` is forwarded into
- *       `accessTokenExpiresAt` when present so the health engine can
- *       proactively refresh.
+ *     Response: `{ access_token, refresh_token?, expires_in?, token_type:
+ *       "bearer", scope? }`. `refresh_token` + `expires_in` are present ONLY
+ *       when the Monday app has "token expiration" enabled; with it disabled
+ *       (the default) the access token never expires and BOTH are omitted. When
+ *       a refresh_token is present, `expires_in` is forwarded into
+ *       `accessTokenExpiresAt` so the health engine can proactively refresh;
+ *       when absent we persist null/null (non-refreshable, non-expiring — same
+ *       shape as Slack's v2 bot tokens).
  *   - Refresh: POST `${tokenBase}/oauth2/token`
  *     - Same body-auth + form body shape.
  *     - Body: `grant_type=refresh_token&client_id=…&client_secret=…&redirect_uri=…&refresh_token=…`
@@ -179,15 +182,12 @@ export const mondayOAuth: ProviderOAuth = {
     if (!json.access_token) {
       throw new Error("Monday token response missing access_token.");
     }
-    if (!json.refresh_token) {
-      // Monday's authorization_code flow always issues a refresh_token
-      // when the app is configured for it. Missing one means the app's
-      // OAuth configuration is wrong; fail loud rather than silently
-      // breaking the refresh path.
-      throw new Error(
-        "Monday token response missing refresh_token — Monday's authorization_code flow issues one when refresh is enabled.",
-      );
-    }
+    // refresh_token is OPTIONAL. Monday only issues one when the app has
+    // "token expiration" enabled; with expiration disabled (the default) the
+    // access token never expires and the response carries neither expires_in
+    // nor refresh_token. We persist null in that case (same shape as Slack's
+    // non-refreshable v2 tokens) rather than failing the connection — a missing
+    // refresh_token means "non-expiring token", not "broken OAuth config".
 
     // Resolve the connected account via GraphQL { me { id name email } }.
     // Uses the freshly-issued access token; the `Bearer` prefix matches
@@ -225,8 +225,11 @@ export const mondayOAuth: ProviderOAuth = {
     // fall back to the numeric id when email is absent.
     const providerAccountId = email ?? meId;
 
+    // No refresh_token ⇒ non-refreshable connection: force a null expiry so the
+    // health engine never schedules a proactive refresh it can't perform. With a
+    // refresh_token present, forward Monday's expires_in so refresh can run.
     const expiresAt =
-      typeof json.expires_in === "number"
+      json.refresh_token && typeof json.expires_in === "number"
         ? Math.floor(Date.now() / 1000) + json.expires_in
         : null;
     // Monday returns scope as space-separated string (per Monday OAuth
@@ -236,7 +239,9 @@ export const mondayOAuth: ProviderOAuth = {
     return {
       tokens: {
         accessTokenEncrypted: encryptToken(json.access_token),
-        refreshTokenEncrypted: encryptToken(json.refresh_token),
+        refreshTokenEncrypted: json.refresh_token
+          ? encryptToken(json.refresh_token)
+          : null,
         accessTokenExpiresAt: expiresAt,
         scopes: scopesGranted,
       },

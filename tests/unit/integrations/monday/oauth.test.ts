@@ -175,16 +175,46 @@ describe("mondayOAuth.handleCallback", () => {
     ).rejects.toThrow(/Monday token exchange failed: Bad code/);
   });
 
-  it("throws when token response is missing refresh_token", async () => {
+  it("persists null refresh token + null expiry when response omits refresh_token (token expiration disabled)", async () => {
+    // Monday with "token expiration" disabled (the default) returns an
+    // access_token but NO refresh_token and NO expires_in — a non-expiring,
+    // non-refreshable connection. The callback must succeed (not throw) and
+    // store null/null, mirroring Slack's v2 bot-token shape.
+    mockFetchSequence([
+      {
+        ok: true,
+        json: { access_token: "AT", scope: "me:read boards:read" },
+      },
+      {
+        ok: true,
+        json: {
+          data: { me: { id: "999", name: "Nora", email: "nora@example.com" } },
+        },
+      },
+    ]);
+    const result = await mondayOAuth.handleCallback("c", "s", null);
+    expect(decryptToken(result.tokens.accessTokenEncrypted)).toBe("AT");
+    expect(result.tokens.refreshTokenEncrypted).toBeNull();
+    expect(result.tokens.accessTokenExpiresAt).toBeNull();
+    expect(result.account.providerAccountId).toBe("nora@example.com");
+  });
+
+  it("forces null expiry when expires_in is present but refresh_token is absent", async () => {
+    // Defensive: a degenerate response with expires_in but no refresh_token must
+    // NOT advertise an expiry (the health engine can't refresh without a token).
     mockFetchSequence([
       {
         ok: true,
         json: { access_token: "AT", expires_in: 86400 },
       },
+      {
+        ok: true,
+        json: { data: { me: { id: "1000", name: "Sam", email: null } } },
+      },
     ]);
-    await expect(
-      mondayOAuth.handleCallback("c", "s", null),
-    ).rejects.toThrow(/missing refresh_token/);
+    const result = await mondayOAuth.handleCallback("c", "s", null);
+    expect(result.tokens.refreshTokenEncrypted).toBeNull();
+    expect(result.tokens.accessTokenExpiresAt).toBeNull();
   });
 
   it("throws when { me } returns GraphQL errors", async () => {
