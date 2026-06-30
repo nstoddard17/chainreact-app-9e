@@ -808,3 +808,106 @@ deploy, nothing pushed.**
   billing-webhook surface at `/api/webhooks/stripe-billing`). If trigger-dispatch for these is ever needed,
   do it as a SEPARATE, clearly-labeled commerce-webhook smoke with fully synthetic order/payment ids and an
   explicit no-real-charge/no-real-order contract — never mixed into the general trigger certification.
+
+## 16. Slice 9 — Lane C: first DIRECT-SEEDED HMAC webhook cert, `github:new_commit` LIVE_PASS (2026-06-29)
+
+The first non-Slack webhook cert and the proof of the **direct-seed** contract the §15 frontier pass
+recommended. **`github:new_commit` is LIVE_PASS for the route/dispatch path** — receive → HMAC verify →
+normalize → dispatchTriggerEvent → dedup → enqueue → drain → terminal — driven by a fully synthetic,
+HMAC-signed GitHub push with NO GitHub API call and NO real webhook.
+
+**Selected trigger + why.** `github:new_commit` (eventType `new_commit`): HMAC-signed
+(`X-Hub-Signature-256` over the raw body, keyed with the global `GITHUB_WEBHOOK_SECRET` — already in env),
+self-contained push payload that `normalize.ts` passes through with NO provider fetch, fully smoke-mintable
+(synthetic owner / repo / sha / message), no commerce/billing, no send, no raw bytes, and a deterministic
+`X-GitHub-Delivery` UUID for dedup. The cleanest mechanics among the HMAC self-contained providers.
+
+**DIRECT-SEED contract (honest scope — what is and is NOT certified).** GitHub's real
+`registerWorkflowTriggers` runs an activation hook that calls the GitHub API to CREATE a repo webhook
+(needs a connected integration + a real repo). That is out of scope and unsafe for a smoke. So the harness
+**direct-seeds** the minimum `trigger_resources` row the receive route + dispatcher look up
+(`triggerResourcesRepo.upsert`: provider `github`, eventType `new_commit`, keyed by workflowId+nodeId,
+empty config) and cleans it up with `deleteByWorkflow` — NEVER running the activation/deactivation hooks,
+so ZERO GitHub API calls and NO real webhook created.
+- **CERTIFIED:** receive → `X-Hub-Signature-256` HMAC verify → normalize → `dispatchTriggerEvent` → dedup →
+  durable enqueue → drain → terminal run.
+- **NOT certified:** GitHub provider-side subscription activation (webhook create/delete via the GitHub
+  API). Recorded as a route/dispatch synthetic-webhook cert, not an activation cert.
+
+**Harness (parallel-shaped to the Slack seam, GitHub-specific contract):**
+- [githubWebhookSmoke.ts](../../../../tests/trigger-smoke/githubWebhookSmoke.ts) — pure injectable
+  orchestrator (mint synthetic identity → active workflow → DIRECT-SEED row → assert canonical event_type →
+  baseline 0 → deliver synthetic signed push → exactly-1-run → identity match → drain → terminal → re-send
+  same delivery id → dedup holds → cleanup) + `buildGitHubNewCommitSmokeWorkflow()`.
+- [githubWebhookSmokeDeps.ts](../../../../tests/trigger-smoke/githubWebhookSmokeDeps.ts) — real deps:
+  service-role active-workflow insert, `triggerResourcesRepo.upsert` direct-seed, **deliver via a synthetic
+  push signed with the REAL `GITHUB_WEBHOOK_SECRET` POSTed to the REAL
+  `POST /api/webhooks/github?workflowId&nodeId`**, runs via service-role diagnostics readers, drain via
+  `processQueuedRun`, cleanup via `deleteByWorkflow` (no deactivation hook) + soft-delete + dedup-row delete.
+- Unit tests ([githubWebhookSmoke.test.ts](../../../../tests/unit/trigger-smoke/githubWebhookSmoke.test.ts),
+  9, fakes — happy path + 8 failure branches) + gated live integration test; `smoke:triggers:webhook`
+  extended to run slack + github.
+
+**Receipt path exercised (real).** synthetic signed `Request` with `?workflowId&nodeId` → real
+`POST /api/webhooks/github` → `receiveGitHubWebhook` (real `verifyGitHubSignature` HMAC over raw body +
+`findByWorkflowAndNode` row lookup + push-event routing) → `normalizeGitHubEvent` (eventId = the
+`X-GitHub-Delivery` UUID, eventType `new_commit`) → `dispatchTriggerEvent` (dedup → `listForDispatch` →
+state gate → `enqueueRun`) → `processQueuedRun` → terminal. Production verification UNWEAKENED (genuine
+HMAC under the real secret; no test-only signer in production code; no production route behavior added).
+
+**One real finding, fixed honestly.** The first live attempt fired exactly 1 run with the correct synthetic
+identity (dispatch proven) but the run drained to `failed` with `WORKFLOW_NOT_READY /
+MISSING_REQUIRED_FIELDS`: `github:new_commit` has a REQUIRED `repository` builder field, and the smoke's
+empty trigger config tripped the pre-execution readiness gate (Slack's certified triggers have no required
+fields, so they never hit this). Fixed by setting a fixed synthetic `repository: "crsmoke-owner/crsmoke-repo"`
+in the trigger node config — a readiness placeholder only; the receive route never reads it (it reads only
+the optional `branch` filter), and the per-run synthetic repo identity rides in the push payload. This was a
+real readiness-gate behavior the smoke surfaced and accommodated, not a product bug.
+
+**Live result (`ALLOW_DB_INTEGRATION_TESTS=true ALLOW_TRIGGER_SMOKE=true npm run smoke:triggers:webhook`):**
+```
+github:new_commit     → pass · seed new_commit · baseline 0 · after 1 · identity matched · succeeded · redeliver 1 · dedup proven · cleaned
+slack:channel_created → pass (re-cert)
+slack:file_shared     → pass (re-cert)
+```
+The push fired exactly 1 run via `dispatchTriggerEvent` whose `trigger_event` identified the synthetic
+delivery (`X-GitHub-Delivery` UUID + `repository` + `head_commit.id` sha), reached terminal `succeeded`, and
+the re-sent same delivery id was **dropped by dedup** (the dispatcher logged `webhook.dedup.duplicate`; run
+count stayed 1). **created 1 workflow / cleaned seeded row + workflow + dedup row / 0 leaked.** **Cert row:
+`github:new_commit` → `LIVE_PASS` (2026-06-29).**
+
+**Dedup proof:** YES. Synthetic identity proof: YES. Per-trigger result: PASS. Cleanup/leak: 0 leaked.
+certificationSeed update: YES (`github:new_commit` LIVE_PASS, scoped as route/dispatch not activation).
+
+**Trigger-smoke matrix now:** 62 registered · **10 LIVE_PASS** (`native:schedule.fired` +
+`microsoft-excel` ×5 + `microsoft-onenote:new_note` + `slack:channel_created` + `slack:file_shared` +
+`github:new_commit`) · 1 RUN_NOW_PROVEN (`native:manual.run`) · 1 BLOCKED-documented
+(`microsoft-onenote:updated_note`) · 50 un-harnessed.
+
+**Verification (this slice):** `tests/unit/trigger-smoke/githubWebhookSmoke.test.ts` → 9 pass; live
+`smoke:triggers:webhook` → 3/3 PASS (above, 0 leaked each); `npx tsc --noEmit` → exit 0; eslint on the 4
+touched smoke files + seed → 0; `npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Is the direct-seeded webhook smoke acceptable as dispatch-path certification?** YES, with the scope
+  recorded honestly. The direct-seed certifies exactly the surface it claims — receive/verify/normalize/
+  dispatch/dedup/enqueue/drain/terminal — which is the workflow-trigger DISPATCH path. It deliberately does
+  NOT certify provider-side subscription activation (the GitHub-API webhook create/delete), and the cert
+  note + harness header + this section all state that boundary explicitly. This is the same honesty bar as
+  `native:manual.run` (RUN_NOW_PROVEN, not a dispatch cert) and `microsoft-onenote:updated_note` (BLOCKED).
+  The direct-seed is also strictly SAFER than running the real activation (no provider mutation, no real
+  webhook to leak). Recommend keeping a per-provider "activation certified? yes/no" column in mind: for
+  webhook providers with API-created subscriptions, the activation surface is a separate future smoke
+  (would need a connected integration + a real, cleanable provider resource).
+- **Does `github:new_commit` open the door to other HMAC self-contained providers (keeping commerce/billing
+  separate)?** YES. The direct-seed + provider-signer + synthetic-payload + identity-matcher shape now
+  generalizes to the other HMAC self-contained, non-commerce providers — next candidates: **Monday** (5
+  triggers; needs `MONDAY_SIGNING_SECRET` in env first) and **Trello** (6 triggers; connected, secret in
+  env, but its HMAC binds the stored `callbackURL`, so the seeded config must carry a known callbackURL and
+  the signer must include it). Each still needs the per-trigger synthetic-content contract (their payloads
+  carry board/item names). **Keep commerce/billing (`shopify:webhook_received`, `stripe:event_received`)
+  OUT** of this lane — even though their mechanics fit, certifying them here would conflate trigger-dispatch
+  proof with order/payment semantics; do them (if ever) as a separate commerce-webhook smoke with an
+  explicit no-real-charge contract. The Google/Microsoft resource-state webhooks remain the larger,
+  separate seam (synthetic subscription + clientState + stubbed provider fetch).

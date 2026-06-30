@@ -183,6 +183,28 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "real synthetic-webhook dispatch: arm stores canonical event_type slack.file_shared, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic file_shared event_callback (id stubs only — no name/bytes/FileRef) POSTed to the real /api/webhooks/slack route (verify→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the synthetic file_id + channel_id, durable run terminal 'succeeded', re-send of the same event_id deduped (still 1 run), workflow+trigger_resources+dedup row cleaned (0 leaked); no real file, no provider fetch, no send",
   },
+  // github:new_commit — Lane C first DIRECT-SEEDED HMAC webhook cert. LIVE-certified
+  // via the GitHub webhook smoke (tests/trigger-smoke/githubWebhookSmoke.ts). HONEST
+  // SCOPE: this certifies the route/dispatch path only (receive → X-Hub-Signature-256
+  // HMAC verify → normalize → dispatchTriggerEvent → dedup → enqueue → drain →
+  // terminal). It DOES NOT certify GitHub provider-side subscription activation
+  // (webhook create/delete via the GitHub API) — GitHub's real activation hook would
+  // need a connected integration + a real repo, so the smoke DIRECT-SEEDS the minimum
+  // trigger_resources row (provider github / eventType new_commit / keyed by
+  // workflowId+nodeId) instead and makes NO GitHub API call, creates NO real webhook.
+  // A fully synthetic push (smoke-minted owner/repo/sha/message) is signed with the
+  // real GITHUB_WEBHOOK_SECRET and POSTed to the real /api/webhooks/github route;
+  // production verification is UNWEAKENED. Identity = the X-GitHub-Delivery UUID +
+  // repo + head commit sha on the fired run; dedup proven on re-send; seeded row +
+  // workflow + dedup row cleaned (0 leaked). No commerce/billing, no send, no real repo.
+  {
+    provider: "github",
+    type: "new_commit",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "route/dispatch cert via DIRECT-SEED (NOT provider activation): seed trigger_resources event_type new_commit, baseline 0, a GITHUB_WEBHOOK_SECRET-signed synthetic push (sha256=<hex> over raw body; smoke-minted owner/repo/sha) POSTed to the real /api/webhooks/github?workflowId&nodeId route (verify→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the X-GitHub-Delivery UUID + repo + head commit sha, durable run terminal 'succeeded', re-send of the same delivery id deduped (still 1 run), seeded row+workflow+dedup row cleaned (0 leaked); no GitHub API call, no real webhook/repo, no send. Provider-side webhook activation NOT certified.",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.
