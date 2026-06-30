@@ -1126,3 +1126,138 @@ any trigger-smoke file and NOT touched by this slice); eslint on the 4 touched s
   with commerce/billing semantics (and Stripe has a separate `/api/webhooks/stripe-billing` surface). If ever
   approved, do them as a SEPARATE, clearly-labeled commerce-webhook smoke with fully synthetic order/payment
   ids and an explicit no-real-charge/no-real-order contract — never mixed into the general trigger matrix.
+
+## 19. Slice 12 — FRONTIER CLOSURE: trigger-smoke exhausted for the current safe/connected surface (DOCS-ONLY) (2026-06-29)
+
+Closure pass, mirroring the action-smoke frontier close. **The trigger-smoke frontier is CLOSED for the
+current safe/connected surface: every one of the 46 remaining un-harnessed triggers requires at least one
+explicit unlock (a content/PII safety decision, a missing secret, a provider connection, a commerce-webhook
+approval, a Google/Microsoft resource-state seam, or a different subscription-seeding seam). No safe
+candidate fits the existing harnesses without a new product/safety decision, so NO smoke was authored.**
+
+**Registry re-confirmed this turn.** Enumerated trigger metas under `integrations/*/triggers/**/*.meta.ts`
+→ **62 registered** triggers, per-provider breakdown unchanged from §1 (airtable 1, discord 2, dropbox 1,
+facebook 2, github 1, gmail 3, google-calendar 1, google-docs 2, google-drive 1, google-sheets 2, hubspot 1,
+mailchimp 7, microsoft-excel 5, microsoft-onedrive 1, microsoft-onenote 2, microsoft-outlook 3,
+microsoft-outlook-calendar 1, microsoft-teams 1, monday 5, native 2, shopify 1, slack 10, stripe 1,
+trello 6). Cert seed re-counted: **14 LIVE_PASS + 1 NOT_RUN (BLOCKED) + 1 RUN_NOW_PROVEN = 16 covered**,
+46 un-harnessed.
+
+**Certified surface (16):**
+- LIVE_PASS (14): `native:schedule.fired`; `microsoft-excel` ×5 (new_worksheet / new_row / new_table_row /
+  updated_row / updated_table_row); `microsoft-onenote:new_note`; `slack:channel_created` + `slack:file_shared`;
+  `github:new_commit`; `trello` ×4 (new_card / card_moved / card_archived / card_updated).
+- RUN_NOW_PROVEN (1): `native:manual.run` (manual run-now path, NOT a dispatch cert).
+- BLOCKED-documented (1): `microsoft-onenote:updated_note` (Graph `PATCH /pages/{id}/content` does not bump
+  `lastModifiedDateTime`; provider behavior, not a harness bug).
+
+**Lanes proven by the certified surface:** native internal dispatch (scheduled), polling baseline-first
+(Excel + OneNote), synthetic signed webhook with no-activation registration (Slack), and synthetic signed
+**direct-seed** webhook with provider-API activation held out of scope (GitHub HMAC + Trello callbackURL-bound
+HMAC). The direct-seed contract is the reusable key the remaining HMAC providers would use.
+
+### Remaining 46 un-harnessed — classification by bucket
+
+**Bucket A — Excluded user-content / member / user-visible semantics (12).** Firing safely would require
+fabricating user content or user-identity facts; needs an explicit per-trigger synthetic-content contract.
+- `slack` ×8: message.channel / message.im / message.group / message.mpim (message bodies), reaction_added /
+  reaction_removed (reaction on a real user message), member_joined_channel / member_left_channel (membership).
+- `trello` ×2: comment_added (comment text), member_changed (member identity).
+- `facebook` ×2: new_post, new_comment (page post / comment content). NOTE: signed (`FACEBOOK_CLIENT_SECRET`
+  present) + self-contained + no fetch, so mechanically harness-ready — blocked ONLY by the user-content
+  semantics decision.
+
+**Bucket B — Inbound email / message / subscriber / campaign (16).** Inherently PII / user content.
+- `gmail` ×3: new_email, new_labeled_email, new_attachment (inbound mail; polling).
+- `microsoft-outlook` ×3: new_email, email_sent, email_flagged (inbound/sent mail; webhook + Graph fetch).
+- `microsoft-teams` ×1: new_channel_message (message text; webhook + Graph fetch).
+- `mailchimp` ×7: audience_event (webhook) + campaign_created / email_opened / link_clicked / new_audience /
+  segment_updated / subscriber_added_to_segment (subscriber + campaign PII; webhook + polling; `audience_event`
+  route has NO signature — URL-secrecy only).
+- `google-docs` ×2: new_document, document_updated (document content; ALSO needs the Bucket-F resource-state
+  seam — listed here as the dominant content blocker).
+
+**Bucket C — Commerce / billing (2).** Out of the general trigger matrix unless Marcus explicitly approves a
+separate commerce-webhook smoke (synthetic order/payment ids + no-real-charge contract).
+- `shopify` ×1: webhook_received (orders/customers). `stripe` ×1: event_received (payments; separate
+  `/api/webhooks/stripe-billing` surface). Both also not connected on the smoke account.
+
+**Bucket D — Provider not connected on the smoke account (2).**
+- `discord` ×2: slash_command (also missing signer + interactive/HITL), new_message (polling). Not connected.
+
+**Bucket E — Missing signing secret in env (5).** Cannot pass real verification without it; weakening
+production verification is forbidden.
+- `monday` ×5: new_item / column_changed / item_moved / new_subitem / new_update. `MONDAY_SIGNING_SECRET`
+  re-confirmed MISSING this turn (also not connected). Per the standing rule, NOT touched.
+
+**Bucket F — Needs a Google/Microsoft (and similar) resource-state synthetic seam (8).** Thin notification +
+clientState/channel-token + a post-receipt provider FETCH; a synthetic receipt must stub/short-circuit that
+fetch and seed a synthetic subscription. Larger, separate harness investment (explicitly out of scope here).
+- `google-calendar` ×1 (event_changed), `google-drive` ×1 (file_changed), `google-sheets` ×2 (new_worksheet,
+  row_changed), `microsoft-onedrive` ×1 (file_changed), `microsoft-outlook-calendar` ×1 (event_changed),
+  `airtable` ×1 (record_changed; per-subscription macSecret + `webhooksListPayloads` fetch), `dropbox` ×1
+  (new_file; `list_folder/continue` fetch).
+
+**Bucket G — Different subscription-seeding seam, not the current direct-seed contract (1).**
+- `hubspot` ×1: webhook_received. Signed (`HUBSPOT_CLIENT_SECRET` present) + self-contained + no fetch, BUT it
+  routes by `portalId` via `hubspot_app_subscriptions` + `hubspot_subscription_refs` and enqueues INLINE
+  (it does NOT go through `?workflowId&nodeId` / `trigger_resources` / `dispatchTriggerEvent`). A smoke would
+  need a NEW two-table seeding seam, not the existing `trigger_resources` direct-seed. ALSO CRM object/property
+  content (PII-adjacent). Two new decisions → excluded.
+
+**Bucket H — Possible safe candidate that fits an existing harness with no new decision: NONE.** The only
+mechanically-ready remaining triggers are `facebook:new_post`/`new_comment` (Bucket A — needs a user-content
+decision) and `hubspot:webhook_received` (Bucket G — needs a new seeding seam AND a PII decision). Neither
+clears the "no new product/safety decision" bar, so this pass authored no code.
+
+### Safe candidates found: NO. Smoke authored: NO.
+
+### Recommendation: MOVE ON from trigger-smoke for now.
+
+Trigger-smoke is **exhausted for the current safe/connected surface.** The 16 covered triggers prove all four
+dispatch lanes (native internal, polling baseline-first, no-activation signed webhook, and direct-seed signed
+webhook incl. callbackURL-bound HMAC). Every remaining trigger is gated behind an explicit unlock, so further
+certs require Marcus to provision something, not more harness work. Recommend the next launch-readiness effort
+move to a DIFFERENT area unless one of the unlocks below is provisioned.
+
+### Exact unlocks (ranked by yield / lowest-friction first)
+
+1. **`MONDAY_SIGNING_SECRET` in `.env.local`** → unlocks `monday` ×5 on the EXISTING spec-driven direct-seed
+   harness (same shape as Trello), pending a per-trigger synthetic-content contract for board/item-name
+   payloads. Highest yield for the least new machinery (no new seam, no provider connection needed for
+   direct-seed). **Best next unlock.**
+2. **A per-trigger "synthetic-content contract"** (a documented "this payload may be fully smoke-minted and
+   produces no user-visible state") → unlocks `facebook` ×2 immediately (already signed + self-contained), and
+   is a prerequisite for `monday` ×5 and any content-bearing trigger.
+3. **Explicit commerce-webhook approval** → unlocks `shopify` ×1 + `stripe` ×1 as a SEPARATE, clearly-labeled
+   commerce smoke (synthetic order/payment ids, no-real-charge contract). Mechanically ready (secrets present)
+   but intentionally walled off from the general matrix.
+4. **A Google/Microsoft resource-state synthetic seam** (synthetic subscription + clientState/channel-token +
+   a stubbed provider fetch) → unlocks Bucket F's 8 triggers (plus `google-docs` ×2 and the `microsoft-outlook`
+   ×3 / `microsoft-teams` ×1 once their content decisions are made). The largest investment; its own project.
+5. **A hubspot portalId-subscription seeding seam** (seed `hubspot_app_subscriptions` + `hubspot_subscription_refs`)
+   + a CRM-content decision → unlocks `hubspot` ×1.
+6. **Provider connections + the `DISCORD_INTERACTIONS_PUBLIC_KEY`** → unlocks `discord` (still interactive/HITL,
+   lowest priority).
+
+**Verification (this pass, docs-only):** `npm run lint:structure` → OK. `npx tsc --noEmit` → all trigger-smoke
+files type-check CLEAN; the only error is in the unrelated parallel agent-change-history WIP (a moving target
+this turn it was `tests/unit/services/workflows/agentChangeHistory.test.ts`; earlier in the day it was
+`features/workflow-builder/panels/historyDisplay.ts` / `services/workflows/agentChangeHistory.ts`), NOT in any
+trigger-smoke file and NOT touched by this pass; a docs-only change cannot affect tsc regardless. eslint:
+docs-only, no code targets. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Is trigger-smoke exhausted for the current safe/connected surface?** YES. All four dispatch lanes are
+  proven and the 16 covered triggers represent every trigger that can be safely certified with the providers
+  connected today, the secrets present today, and the harnesses that exist today — without fabricating user
+  content / PII or building a new seam. The remaining 46 are each blocked by a concrete, named unlock (Buckets
+  A through G). There is no further trigger that can be certified by re-using an existing harness without a new
+  product/safety decision.
+- **Should the next launch-readiness area move away from smokes unless Marcus provisions new provider/secrets/
+  resources?** YES. Continuing trigger-smoke now yields nothing without an unlock. Recommend moving to a
+  different launch-readiness area, and revisiting trigger-smoke only when Marcus provisions one of the ranked
+  unlocks — `MONDAY_SIGNING_SECRET` (unlock #1) is the single highest-yield, lowest-friction provision (5
+  triggers on the existing harness), so it is the natural trigger to resume this lane. The action-smoke and
+  trigger-smoke frontiers are now both closed for the current surface.
