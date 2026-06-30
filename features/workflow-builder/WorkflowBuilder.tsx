@@ -14,6 +14,9 @@ import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderPreviewControlBar } from "./canvas/BuilderPreviewControlBar";
 import { buildPreviewDiffGraph } from "./utils/buildPreviewDiffGraph";
+import { buildConfigDiff, type ConfigDiff } from "@/core/workflows/buildConfigDiff";
+import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
+import { PreviewReviewPanel } from "./panels/PreviewReviewPanel";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
 import { buildAppliedConfigHints, firstIncompleteAppliedNodeId } from "./utils/appliedConfigHints";
 import {
@@ -73,6 +76,13 @@ interface Props {
    * isolated builder tests keep passing.
    */
   setupFieldsByType?: import("@/core/workflows/previewSetupFields").PreviewSetupFieldsByType;
+  /**
+   * HERMES-AGENT-CONFIG-DIFF-REVIEW — display-safe per-field metadata (label / required / hasDefault /
+   * secret) per `provider:type`, computed server-side from the discovery registry. Drives the right-rail
+   * "Review changes" value-level config diff while an EDIT preview is active. Optional so isolated builder
+   * tests keep passing (absent → the diff still computes; field labels fall back to key names).
+   */
+  fieldMetaByType?: ConfigDiffFieldMetaByType;
   /**
    * HERMES-AGENT-GUIDANCE-UI-BUILDER — owning account for the advisory "Build with me" guidance
    * entry. Resolved server-side from the workflow record; never client-supplied. The entry renders
@@ -153,6 +163,7 @@ export function WorkflowBuilder({
   teamContext,
   requiredFieldsByType,
   setupFieldsByType,
+  fieldMetaByType,
   accountId,
   guidanceEnabled,
   localOnly,
@@ -422,6 +433,26 @@ export function WorkflowBuilder({
     [previewOverlay, pendingNodes, pendingEdges],
   );
 
+  // HERMES-AGENT-CONFIG-DIFF-REVIEW — value-level config diff for the right-rail "Review changes" panel
+  // (the canvas keeps the structural node diff). Computed client-side from the same two inputs the canvas
+  // diff uses; values are the user's own draft, redacted/summarized by the pure core helper. Wrapped so a
+  // compute failure renders the panel's calm fallback instead of breaking the builder. Null when no EDIT
+  // preview is active.
+  const configDiff: ConfigDiff | null = useMemo(() => {
+    if (!previewOverlay?.proposedDefinition) return null;
+    try {
+      return buildConfigDiff({
+        current: { nodes: pendingNodes },
+        candidate: { nodes: previewOverlay.proposedDefinition.nodes },
+        ...(fieldMetaByType ? { fieldMetaByType } : {}),
+      });
+    } catch {
+      return null;
+    }
+  }, [previewOverlay, pendingNodes, fieldMetaByType]);
+  // True while an EDIT preview is active — the right drawer takes over with the review panel.
+  const previewReviewActive = !!previewOverlay?.proposedDefinition;
+
   const canAddAction = hasTrigger && tailCount <= 1;
   const addActionBlockedReason: "no-trigger" | "multiple-tails" | undefined = !hasTrigger
     ? "no-trigger"
@@ -550,6 +581,14 @@ export function WorkflowBuilder({
     setPreviewConfig({});
   }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType]);
 
+  // HERMES-AGENT-CONFIG-DIFF-REVIEW — shared "Discard preview" used by the canvas control bar / overlay
+  // AND the right-rail review panel (incl. its drawer close ×/Esc). Drops the preview; the real draft was
+  // never mutated, so there is nothing to roll back. Behavior is identical to the prior inline handlers.
+  const handleDiscardPreview = useCallback(() => {
+    setPreviewOverlay(null);
+    setPreviewConfig({});
+  }, []);
+
   // Drawer rendering — one of three modes is active at a time.
   // Inspector only renders when activeNodeId is set so the drawer
   // doesn't show an empty form during a flicker. Results renders
@@ -653,7 +692,21 @@ export function WorkflowBuilder({
         </BuilderLeftAgentRail>
       }
       rightDrawer={
-        drawerVisible ? (
+        previewReviewActive ? (
+          // HERMES-AGENT-CONFIG-DIFF-REVIEW — while an EDIT preview is active the right drawer takes over
+          // with the value-level "Review changes" rail (precedence over inspector/results/validation). The
+          // canvas keeps the structural diff; this rail owns the field-level detail. Closing the drawer
+          // (× / Esc) discards the preview — same as the canvas "Discard preview". The locked useRightDrawer
+          // union is untouched (this is a local branch, not a 4th mode).
+          <BuilderRightDrawer title="Review changes" onClose={handleDiscardPreview}>
+            <PreviewReviewPanel
+              {...(previewOverlay?.preview.summary ? { summary: previewOverlay.preview.summary } : {})}
+              configDiff={configDiff}
+              onApply={handleApplyPreview}
+              onDiscard={handleDiscardPreview}
+            />
+          </BuilderRightDrawer>
+        ) : drawerVisible ? (
           <BuilderRightDrawer
             title={drawerTitle}
             onClose={handleDrawerClose}
@@ -732,20 +785,14 @@ export function WorkflowBuilder({
           <BuilderPreviewControlBar
             notice={previewOverlay.preview.notice}
             onApply={handleApplyPreview}
-            onDiscard={() => {
-              setPreviewOverlay(null);
-              setPreviewConfig({});
-            }}
+            onDiscard={handleDiscardPreview}
           />
         ) : previewOverlay ? (
           // Additive new-workflow skeleton (no candidate definition): keep the ghost overlay (empty canvas).
           <BuilderPreviewOverlay
             preview={previewOverlay.preview}
             onApply={handleApplyPreview}
-            onDiscard={() => {
-              setPreviewOverlay(null);
-              setPreviewConfig({});
-            }}
+            onDiscard={handleDiscardPreview}
             providerLabels={providerLabels}
             providerIcons={providerIcons}
           />
