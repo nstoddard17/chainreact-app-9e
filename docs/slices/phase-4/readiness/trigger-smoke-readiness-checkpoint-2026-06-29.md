@@ -1028,3 +1028,101 @@ any trigger-smoke file and NOT touched by this slice); eslint on the 4 touched s
   If ever approved, do them as a SEPARATE, clearly-labeled commerce-webhook smoke with fully synthetic
   order/payment ids and an explicit no-real-charge/no-real-order contract — never mixed into the general
   trigger certification matrix.
+
+## 18. Slice 11 — Lane C: Trello lifecycle batch, `card_moved` + `card_archived` + `card_updated` LIVE_PASS (2026-06-29)
+
+The Trello lifecycle follow-on. **`trello:card_moved`, `trello:card_archived`, and `trello:card_updated`
+are all LIVE_PASS** on the same spec-driven direct-seed harness as `new_card`, completing the
+safe-synthetic Trello webhook lane (4 of 6 Trello triggers certified; the other 2 are firmly excluded).
+
+**Selected + why.** All three are `updateCard`-family lifecycle events that the Trello classifier
+disambiguates by `data` shape, and each is fully smoke-mintable with no real board/card/user data and no
+user-content text beyond a smoke marker:
+- `card_moved` → `updateCard` with differing `listBefore`/`listAfter` ids (and NO `data.old.closed`, so the
+  archive-priority branch does not steal it) → `trello.card.moved`.
+- `card_archived` → `updateCard` with `data.old.closed` present (`card.closed: true`) → the archive-priority
+  branch → `trello.card.archived`.
+- `card_updated` → `updateCard` with a generic `data.old` change (a smoke-minted `name` change) and NO
+  `closed` / NO list move → `trello.card.updated`.
+
+**Rejected (stay Lane D, firm).** `comment_added` (the payload carries `data.text` = real user comment
+text) and `member_changed` (carries member identity semantics). Fabricating either synthetically is not
+product-safe; they stay un-certified.
+
+**Harness generalization (one pattern, not a second).** `trelloWebhookSmoke.ts` is now spec-driven:
+`runTrelloWebhookSmoke(deps, spec, opts)` runs the shared flow; a `TrelloWebhookTriggerSpec` plugs in the
+V2 eventType, the workflow builder, the synthetic Trello `action` shape, and the identity matcher. Four
+specs exported (`NEW_CARD_SPEC`, `CARD_MOVED_SPEC`, `CARD_ARCHIVED_SPEC`, `CARD_UPDATED_SPEC`) +
+`ALL_TRELLO_WEBHOOK_SPECS`. The deps own the shared `{ action, model }` envelope + callbackURL-bound
+signing + real-route POST (`deliverSyntheticEvent({ identity, action, … })`); each spec owns the per-trigger
+action shape. `seedTriggerResource` now takes the spec eventType. `new_card` is unchanged behaviorally
+(re-certified green). Unit tests parametrize the happy path over all 4 specs + assert each spec's
+distinguishing action marker (13 tests); the gated live test loops all 4 specs.
+
+**DIRECT-SEED contract (unchanged from §17, honest scope).** Trello's real activation hook calls
+`POST /1/webhooks` (needs a connected integration + a real board). The harness DIRECT-SEEDS the minimum
+`trigger_resources` row (provider `trello`, eventType `<spec>`, config `{ callbackURL, eventType, boardId }`)
+via `upsert` and cleans it with `deleteByWorkflow` — NEVER running the activation/deactivation hooks, so
+ZERO Trello API calls and NO real webhook. **CERTIFIED:** receive/verify/classify/filter/normalize/dispatch/
+dedup/enqueue/drain/terminal. **NOT certified:** Trello provider-side subscription activation. The
+callbackURL-bound HMAC is satisfied by seeding a known callbackURL and signing with that same string
+(production verification UNWEAKENED).
+
+**Receipt path exercised (real, per spec).** synthetic signed `Request` with `?workflowId&nodeId` → real
+`POST /api/webhooks/trello` → `receiveTrelloWebhook` (`findByWorkflowAndNode` → `verifyTrelloSignature` over
+rawBody + seeded callbackURL → `classifyTrelloAction` (the per-spec `updateCard` shape resolves to its
+`trello.card.*` type) → event-type filter vs `TRIGGER_EVENT_TO_NORMALIZED[<spec>]` → board-match) →
+`normalizeTrelloEvent` (eventId = Trello `action.id`, eventType `<spec>`) → `dispatchTriggerEvent` (dedup →
+`listForDispatch` → state gate → `enqueueRun`) → `processQueuedRun` → terminal. No provider fetch, no
+production behavior added.
+
+**Live result (`ALLOW_DB_INTEGRATION_TESTS=true ALLOW_TRIGGER_SMOKE=true npm run smoke:triggers:webhook`):**
+```
+trello:new_card       → pass (re-cert)
+trello:card_moved     → pass · seed card_moved    · baseline 0 · after 1 · identity matched (from/to list ids) · succeeded · redeliver 1 · dedup proven · cleaned
+trello:card_archived  → pass · seed card_archived · baseline 0 · after 1 · identity matched (closed=true)      · succeeded · redeliver 1 · dedup proven · cleaned
+trello:card_updated   → pass · seed card_updated  · baseline 0 · after 1 · identity matched (changedFields=[name]) · succeeded · redeliver 1 · dedup proven · cleaned
+github:new_commit / slack:channel_created / slack:file_shared → pass (re-cert)
+```
+Each fired exactly 1 run via `dispatchTriggerEvent` whose `trigger_event` identified the synthetic action
+(Trello `action.id` + card id + board id + the per-trigger marker), reached terminal `succeeded`, and the
+re-sent same action id was **dropped by dedup** (run count stayed 1). **created 1 workflow each / cleaned
+seeded row + workflow + dedup row / 0 leaked.** **Cert rows: `card_moved` + `card_archived` + `card_updated`
+→ `LIVE_PASS` (2026-06-29).**
+
+**Dedup proof:** YES (all 3). Synthetic identity proof: YES (all 3, with distinct per-trigger markers).
+Per-trigger result: PASS (all 3). Cleanup/leak: 0 leaked (all 3). certificationSeed update: YES (3 rows,
+scoped route/dispatch not activation).
+
+**Trigger-smoke matrix now:** 62 registered · **14 LIVE_PASS** (`native:schedule.fired` +
+`microsoft-excel` ×5 + `microsoft-onenote:new_note` + `slack:channel_created` + `slack:file_shared` +
+`github:new_commit` + `trello:` `new_card`/`card_moved`/`card_archived`/`card_updated`) · 1 RUN_NOW_PROVEN
+(`native:manual.run`) · 1 BLOCKED-documented (`microsoft-onenote:updated_note`) · 46 un-harnessed.
+
+**Verification (this slice):** `tests/unit/trigger-smoke/trelloWebhookSmoke.test.ts` → 13 pass; live
+`smoke:triggers:webhook` → 7/7 PASS (above, 0 leaked each); `npx tsc --noEmit` → all trigger-smoke files
+type-check CLEAN (the only errors are the unrelated parallel agent-change-history WIP in
+`features/workflow-builder/panels/historyDisplay.ts` + `services/workflows/agentChangeHistory.ts`, NOT in
+any trigger-smoke file and NOT touched by this slice); eslint on the 4 touched smoke files + seed → 0;
+`npm run lint:structure` → OK. **No db:push, no deploy, nothing pushed.**
+
+### Owner review answers
+
+- **Is the Trello webhook lane complete after this lifecycle batch?** YES, for what is safely
+  synthetic-certifiable. 4 of the 6 Trello webhook triggers are LIVE_PASS (`new_card` + the three
+  `updateCard`-family lifecycle events). The remaining 2 — `comment_added` (real comment text) and
+  `member_changed` (member identity) — are firmly Lane-D excluded. So the Trello webhook lane is **complete
+  modulo those two content/identity exclusions**; there is no further Trello webhook trigger that can be
+  driven by a safe synthetic receipt without fabricating user content or member-identity semantics.
+- **Is Monday the next non-commerce HMAC lane only after `MONDAY_SIGNING_SECRET` is provisioned?** YES.
+  Monday's receive route verifies `MONDAY_SIGNING_SECRET` (HMAC over body), which is MISSING from the smoke
+  env (§15). Without it a synthetic signed Monday request cannot pass real verification, and weakening
+  production verification is forbidden. Do NOT author a Monday smoke until the secret is in `.env.local`;
+  once provisioned, Monday reuses this exact spec-driven direct-seed pattern (5 triggers, board/item-name
+  payloads → needs the per-trigger synthetic-content contract, same bar as Trello/GitHub).
+- **Do Shopify/Stripe stay separate from general trigger-smoke?** YES, unless Marcus explicitly approves a
+  commerce-webhook smoke. Their mechanics fit (global-secret HMAC, self-contained, secrets in env) but their
+  events model orders/payments; certifying them in the general matrix would conflate trigger-dispatch proof
+  with commerce/billing semantics (and Stripe has a separate `/api/webhooks/stripe-billing` surface). If ever
+  approved, do them as a SEPARATE, clearly-labeled commerce-webhook smoke with fully synthetic order/payment
+  ids and an explicit no-real-charge/no-real-order contract — never mixed into the general trigger matrix.

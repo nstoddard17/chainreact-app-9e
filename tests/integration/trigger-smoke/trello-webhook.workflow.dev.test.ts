@@ -44,7 +44,10 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
-import { runTrelloWebhookSmoke } from "@/tests/trigger-smoke/trelloWebhookSmoke";
+import {
+  runTrelloWebhookSmoke,
+  ALL_TRELLO_WEBHOOK_SPECS,
+} from "@/tests/trigger-smoke/trelloWebhookSmoke";
 import { makeRealTrelloWebhookSmokeDeps } from "@/tests/trigger-smoke/trelloWebhookSmokeDeps";
 
 function loadEnvLocal(): void {
@@ -100,23 +103,25 @@ describeLive("trigger smoke: trello:new_card (real dev DB, direct-seeded synthet
     userId: USER_ID as string,
   });
 
-  it("seed → synthetic signed createCard fires 1, terminal succeeded, dedup holds, 0 leaked", async () => {
-    const r = await runTrelloWebhookSmoke(deps, {
-      afterDeliverAttempts: 8,
-      afterDeliverSleepMs: 500,
-      dedupSettleMs: 1000,
-    });
-    console.log(JSON.stringify({ event: "trigger-smoke.trello-webhook.result", ...r }));
+  for (const spec of ALL_TRELLO_WEBHOOK_SPECS) {
+    it(`${spec.label}: seed → synthetic signed action fires 1, terminal succeeded, dedup holds, 0 leaked`, async () => {
+      const r = await runTrelloWebhookSmoke(deps, spec, {
+        afterDeliverAttempts: 8,
+        afterDeliverSleepMs: 500,
+        dedupSettleMs: 1000,
+      });
+      console.log(JSON.stringify({ event: "trigger-smoke.trello-webhook.result", ...r }));
 
-    expect(r.outcome).toBe("pass");
-    expect(r.cleaned).toBe(true);
-    expect(r.seededEventType).toBe("new_card");
-    expect(r.baselineRunCount).toBe(0);
-    expect(r.deliverHttpStatus).toBe(200);
-    expect(r.afterRunCount).toBe(1);
-    expect(r.identityMatched).toBe(true);
-    expect(r.terminalStatus).toBe("succeeded");
-    expect(r.afterRedeliverRunCount).toBe(1);
-    expect(r.dedupProven).toBe(true);
-  }, 120_000);
+      expect(r.outcome).toBe("pass");
+      expect(r.cleaned).toBe(true);
+      expect(r.seededEventType).toBe(spec.eventType);
+      expect(r.baselineRunCount).toBe(0);
+      expect(r.deliverHttpStatus).toBe(200);
+      expect(r.afterRunCount).toBe(1);
+      expect(r.identityMatched).toBe(true);
+      expect(r.terminalStatus).toBe("succeeded");
+      expect(r.afterRedeliverRunCount).toBe(1);
+      expect(r.dedupProven).toBe(true);
+    }, 120_000);
+  }
 });

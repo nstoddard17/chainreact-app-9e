@@ -5,18 +5,18 @@
  *   - createActiveSmokeWorkflow → service-role INSERT into `workflows`
  *     (state="active" + draft_definition). Same pattern as the other webhook smokes.
  *   - seedTriggerResource → DIRECT `triggerResourcesRepo.upsert` of the minimum row
- *     the receive route + dispatcher look up (provider `trello`, eventType
- *     `new_card`, keyed by workflowId+nodeId, config `{ callbackURL, eventType,
- *     boardId }`). The callbackURL is the KEY detail: Trello's HMAC is over
- *     `rawBody + callbackURL` and the route verifies against `config.callbackURL`,
- *     so we seed a known callbackURL and sign with that SAME string. This
- *     DELIBERATELY does NOT run `registerWorkflowTriggers`, whose Trello activation
- *     hook would call `POST /1/webhooks` to CREATE a real board webhook. NO Trello
- *     API is touched.
- *   - deliverSyntheticEvent → builds a synthetic `createCard` board-webhook body,
- *     signs it with the REAL `TRELLO_CLIENT_SECRET` (`X-Trello-Webhook` = base64
- *     HMAC-SHA1 over `rawBody + callbackURL`, production verification UNCHANGED), and
- *     POSTs it to the REAL `POST /api/webhooks/trello?workflowId=&nodeId=` route.
+ *     the receive route + dispatcher look up (provider `trello`, eventType `<spec>`,
+ *     keyed by workflowId+nodeId, config `{ callbackURL, eventType, boardId }`). The
+ *     callbackURL is the KEY detail: Trello's HMAC is over `rawBody + callbackURL` and
+ *     the route verifies against `config.callbackURL`, so we seed a known callbackURL
+ *     and sign with that SAME string. This DELIBERATELY does NOT run
+ *     `registerWorkflowTriggers`, whose Trello activation hook would call
+ *     `POST /1/webhooks` to CREATE a real board webhook. NO Trello API is touched.
+ *   - deliverSyntheticEvent → wraps the spec's Trello `action` in a `{ action, model }`
+ *     board-webhook body, signs it with the REAL `TRELLO_CLIENT_SECRET`
+ *     (`X-Trello-Webhook` = base64 HMAC-SHA1 over `rawBody + callbackURL`, production
+ *     verification UNCHANGED), and POSTs it to the REAL
+ *     `POST /api/webhooks/trello?workflowId=&nodeId=` route.
  *   - listRuns/readRun → service-role diagnostics readers (incl. non-terminal).
  *   - drainRun → the REAL durable-queue processQueuedRun.
  *   - cleanupWorkflow → DIRECT `triggerResourcesRepo.deleteByWorkflow` (NO
@@ -36,7 +36,6 @@ import {
 import { processQueuedRun } from "@/services/execution/runQueueProcessor";
 import { POST as trelloWebhookRoute } from "@/app/api/webhooks/trello/route";
 import {
-  TRELLO_NEW_CARD_EVENT_TYPE,
   type TrelloWebhookSmokeDeps,
   type TrelloWebhookSmokeIdentity,
   type TrelloWebhookSmokeRun,
@@ -76,26 +75,6 @@ function toSmokeRun(rec: DiagnosticsRunRecord): TrelloWebhookSmokeRun {
   };
 }
 
-function buildSyntheticCreateCardBody(identity: TrelloWebhookSmokeIdentity): string {
-  // A minimal but realistic Trello `createCard` action payload. Every value is
-  // smoke-minted — synthetic board / card / list ids + a smoke card name; no real
-  // board, card, or user data.
-  return JSON.stringify({
-    action: {
-      id: identity.actionId,
-      type: "createCard",
-      date: "2026-06-29T00:00:00.000Z",
-      data: {
-        card: { id: identity.cardId, name: identity.cardName, shortLink: "crsmoke0" },
-        list: { id: identity.listId, name: "crsmoke-list" },
-        board: { id: identity.boardId, name: "crsmoke-board" },
-      },
-      memberCreator: { id: "crsmoke-member", username: "crsmoke", fullName: "CR Smoke" },
-    },
-    model: { id: identity.boardId, name: "crsmoke-board" },
-  });
-}
-
 function signTrelloBody(rawBody: string, callbackURL: string, secret: string): string {
   // base64( HMAC-SHA1( secret, rawBody + callbackURL ) ). Body first, URL second.
   return createHmac("sha1", secret)
@@ -118,6 +97,8 @@ export function makeRealTrelloWebhookSmokeDeps(
         cardId: `crsmoke-card-${rand}`,
         cardName: `crsmoke card ${rand}`,
         listId: `crsmoke-list-${rand}`,
+        listFromId: `crsmoke-from-${rand}`,
+        listToId: `crsmoke-to-${rand}`,
       };
     },
 
@@ -141,7 +122,7 @@ export function makeRealTrelloWebhookSmokeDeps(
       return { workflowId: data.id };
     },
 
-    async seedTriggerResource({ workflowId, triggerNodeId, boardId }) {
+    async seedTriggerResource({ workflowId, triggerNodeId, boardId, eventType }) {
       // DIRECT-SEED only — no activation hook, no Trello API, no real webhook. The
       // config carries the callbackURL the receive route verifies the HMAC against,
       // the eventType the receive route filters on, and the boardId for the route's
@@ -150,11 +131,11 @@ export function makeRealTrelloWebhookSmokeDeps(
         workflowId,
         userId,
         provider: "trello",
-        eventType: TRELLO_NEW_CARD_EVENT_TYPE,
+        eventType,
         nodeId: triggerNodeId,
         config: {
           callbackURL: buildCallbackURL(workflowId, triggerNodeId),
-          eventType: TRELLO_NEW_CARD_EVENT_TYPE,
+          eventType,
           boardId,
         },
       });
@@ -162,12 +143,15 @@ export function makeRealTrelloWebhookSmokeDeps(
       return { seededEventType: row?.eventType ?? null };
     },
 
-    async deliverSyntheticEvent({ identity, workflowId, triggerNodeId }) {
+    async deliverSyntheticEvent({ identity, action, workflowId, triggerNodeId }) {
       const secret = process.env.TRELLO_CLIENT_SECRET;
       if (!secret) {
         throw new Error("trello-webhook-smoke: TRELLO_CLIENT_SECRET is not set.");
       }
-      const rawBody = buildSyntheticCreateCardBody(identity);
+      const rawBody = JSON.stringify({
+        action,
+        model: { id: identity.boardId, name: "crsmoke-board" },
+      });
       const callbackURL = buildCallbackURL(workflowId, triggerNodeId);
       const signature = signTrelloBody(rawBody, callbackURL, secret);
       const params = new URLSearchParams({ workflowId, nodeId: triggerNodeId });

@@ -231,6 +231,41 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "route/dispatch cert via DIRECT-SEED (NOT provider activation): seed trigger_resources event_type new_card + config{callbackURL,eventType,boardId}, baseline 0, a TRELLO_CLIENT_SECRET-signed synthetic createCard (X-Trello-Webhook base64 HMAC-SHA1 over rawBody+the SEEDED callbackURL; smoke-minted board/card ids) POSTed to the real /api/webhooks/trello?workflowId&nodeId route (verify→classify→filter→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the Trello action id + card id + board id, durable run terminal 'succeeded', re-send of the same action id deduped (still 1 run), seeded row+workflow+dedup row cleaned (0 leaked); no Trello API call, no real webhook/board, no send. Provider-side webhook activation NOT certified.",
   },
+  // trello:card_moved / card_archived / card_updated — Lane C Trello lifecycle batch
+  // on the SAME spec-driven direct-seed harness as new_card (runTrelloWebhookSmoke +
+  // CARD_MOVED_SPEC / CARD_ARCHIVED_SPEC / CARD_UPDATED_SPEC). Each is a fully
+  // smoke-minted `updateCard` action whose data shape drives the real classifier:
+  // card_moved = differing listBefore/listAfter (NO old.closed); card_archived =
+  // data.old.closed present (archive-priority branch); card_updated = a generic
+  // data.old change (a smoke name change) with no closed and no list move. Same honest
+  // scope as new_card: route/dispatch cert via DIRECT-SEED (TRELLO_CLIENT_SECRET-signed
+  // synthetic webhook to the real /api/webhooks/trello route, callbackURL-bound HMAC
+  // verified against the seeded config.callbackURL), NOT provider-side activation. No
+  // Trello API, no real webhook/board, no comment text, no member identity, no send.
+  {
+    provider: "trello",
+    type: "card_moved",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "route/dispatch cert via DIRECT-SEED (NOT activation): seed event_type card_moved, baseline 0, a TRELLO_CLIENT_SECRET-signed synthetic updateCard (differing listBefore/listAfter, no old.closed) POSTed to the real /api/webhooks/trello route classifies to trello.card.moved, fires exactly 1 run whose trigger_event carries the action id + card id + board id + from/to list ids, durable run terminal 'succeeded', same action id deduped (still 1), seeded row+workflow+dedup row cleaned (0 leaked); no Trello API, no real webhook/board.",
+  },
+  {
+    provider: "trello",
+    type: "card_archived",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "route/dispatch cert via DIRECT-SEED (NOT activation): seed event_type card_archived, baseline 0, a TRELLO_CLIENT_SECRET-signed synthetic updateCard (data.old.closed present, card.closed=true) POSTed to the real /api/webhooks/trello route classifies to trello.card.archived (archive-priority branch), fires exactly 1 run whose trigger_event carries the action id + card id + board id + closed=true, durable run terminal 'succeeded', same action id deduped (still 1), seeded row+workflow+dedup row cleaned (0 leaked); no Trello API, no real webhook/board.",
+  },
+  {
+    provider: "trello",
+    type: "card_updated",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-29",
+    note: "route/dispatch cert via DIRECT-SEED (NOT activation): seed event_type card_updated, baseline 0, a TRELLO_CLIENT_SECRET-signed synthetic updateCard (generic data.old name change, no closed, no list move) POSTed to the real /api/webhooks/trello route classifies to trello.card.updated, fires exactly 1 run whose trigger_event carries the action id + card id + board id + changedFields including 'name', durable run terminal 'succeeded', same action id deduped (still 1), seeded row+workflow+dedup row cleaned (0 leaked); no Trello API, no real webhook/board.",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.
