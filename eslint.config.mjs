@@ -332,22 +332,18 @@ export default [
     },
   },
 
-  // features/workflow-builder/WorkflowBuilder.tsx — the central builder orchestrator. It owns the
-  // canvas/rail/drawer composition plus the ephemeral AI-preview lifecycle (overlay + guided-setup
-  // previewConfig + explicit Apply seeding, HERMES-AGENT-GUIDED-PREVIEW-SETUP-1). Splitting the
-  // preview lifecycle out into a hook is a real refactor (intertwined useState + callbacks) that
-  // belongs in its own slice, not a feature commit. Capped at 475 to make further drift visible
-  // (raised across ANON-BUILDER-2/3 + REACT-LIVE-SKELETON-2: the local-only + restored-draft wiring
-  // — banner, composer seed via useRestoredDraftHandoff, local-only branches, and the anonymous
-  // free-skeleton rail wiring onShowPreview/onAnonPromptChange). Bumped 475 → 490 for
-  // HERMES-AGENT-WORKFLOW-EDITOR (proposedDefinition overlay state + the general replaceGraphLocal
-  // apply branch). Extracting the preview lifecycle into a hook remains the real long-term fix.
+  // features/workflow-builder/WorkflowBuilder.tsx — the central builder orchestrator (canvas/rail/drawer
+  // composition + the add-node and right-drawer state machines). The AI-preview lifecycle + checkpoint
+  // orchestration + "Review changes" config diff were extracted into the useBuilderPreview hook, which
+  // dropped this file from 585 → 452 counted lines. Capped at 460 (snug, modest headroom) to keep
+  // further drift visible; still over the 400 default because of the canvas/rail/drawer wiring. Next
+  // extraction candidates if it grows again: the right-drawer and add-node state machines.
   {
     files: ["features/workflow-builder/WorkflowBuilder.tsx"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 490, skipBlankLines: true, skipComments: true },
+        { max: 460, skipBlankLines: true, skipComments: true },
       ],
     },
   },

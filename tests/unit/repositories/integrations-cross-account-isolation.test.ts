@@ -60,7 +60,6 @@ function fakeRow(over: Partial<Record<string, unknown>> = {}) {
  */
 function buildQueryMock(match: (filters: Record<string, unknown>) => unknown) {
   const filters: Record<string, unknown> = {};
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const builder: any = {};
   builder.select = jest.fn(() => builder);
   builder.eq = jest.fn((col: string, val: unknown) => {
