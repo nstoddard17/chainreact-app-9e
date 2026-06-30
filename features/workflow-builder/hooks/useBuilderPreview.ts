@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type {
   WorkflowDefinition,
@@ -12,6 +12,12 @@ import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFiel
 import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
 import { buildConfigDiff, type ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
+import {
+  EMPTY_AGENT_CHANGE_COUNTS,
+  buildAgentChangeTitle,
+  summarizeConfigDiff,
+} from "./agentChangeSummary";
+import { mintAgentChangeId, useAgentChangeEmission } from "./useAgentChangeEmission";
 import { buildPreviewDiffGraph } from "../utils/buildPreviewDiffGraph";
 import {
   buildAppliedConfigHints,
@@ -55,6 +61,11 @@ export interface BuilderPreviewOverlayState {
   baseGraphVersion?: string;
   /** CHECKPOINTS-1 — the user prompt that drove this change, recorded on the pre-apply checkpoint. */
   prompt?: string;
+  /**
+   * AGENT-CHANGE-HISTORY-1 — the change-history correlation id minted when this preview is shown.
+   * Threaded so apply/discard transition the SAME timeline row. Set by `handleShowPreview`.
+   */
+  agentChangeId?: string;
 }
 
 export interface UseBuilderPreviewInput {
@@ -114,6 +125,15 @@ export function useBuilderPreview({
     restore: restoreCheckpoint,
   } = useWorkflowCheckpoints(workflowId, { enabled: checkpointsEnabled });
   const [checkpointWarning, setCheckpointWarning] = useState<string | null>(null);
+
+  // AGENT-CHANGE-HISTORY-1 — durable, account-scoped activity timeline of what the React Agent did.
+  // Shares the enablement of checkpoints (disabled for the logged-out local-only builder). Emits at the
+  // preview lifecycle seams below (shown / applied / discarded / failed / restored) + undo detection.
+  // Fail-open: a failed record never breaks the preview flow.
+  const agentChanges = useAgentChangeEmission(workflowId, { enabled: checkpointsEnabled });
+  // Stable read of the current overlay for the stable (deps-free) discard handler.
+  const previewOverlayRef = useRef<BuilderPreviewOverlayState | null>(null);
+  previewOverlayRef.current = previewOverlay;
 
   // Drop any AI preview overlay / apply notice when switching workflows (setters are stable). This is
   // the preview-state half of WorkflowBuilder's per-workflow reset effect; the slice resets stay there.
@@ -176,12 +196,39 @@ export function useBuilderPreview({
       // A NEW preview supersedes the old one — drop any guided-setup values entered for the prior
       // preview (previewIds are positional and would otherwise collide across previews).
       setPreviewConfig({});
-      setPreviewOverlay(payload);
+      // AGENT-CHANGE-HISTORY-1 — mint a correlation id so apply/discard transition the SAME timeline
+      // row, and record a `preview_created` event. Counts come from a VALUE-FREE structural diff of the
+      // current draft vs the proposed end-state (edit path); the additive new-workflow path has no
+      // proposedDefinition → zero counts. The user's prompt + the preview summary carry the meaning.
+      const agentChangeId = payload.agentChangeId ?? mintAgentChangeId();
+      const withId: BuilderPreviewOverlayState = { ...payload, agentChangeId };
+      let counts = EMPTY_AGENT_CHANGE_COUNTS;
+      if (payload.proposedDefinition) {
+        try {
+          counts = summarizeConfigDiff(
+            buildConfigDiff({
+              current: { nodes: useGraphSlice.getState().pendingNodes },
+              candidate: { nodes: payload.proposedDefinition.nodes },
+              ...(fieldMetaByType ? { fieldMetaByType } : {}),
+            }),
+          );
+        } catch {
+          counts = EMPTY_AGENT_CHANGE_COUNTS;
+        }
+      }
+      agentChanges.emitPreviewCreated({
+        agentChangeId,
+        ...(payload.prompt ? { prompt: payload.prompt } : {}),
+        title: buildAgentChangeTitle(counts),
+        ...(payload.preview.summary ? { summary: payload.preview.summary } : {}),
+        counts,
+      });
+      setPreviewOverlay(withId);
       // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — bump the per-show token so the canvas fits once for
       // this (possibly superseding) preview.
       setPreviewShowCount((c) => c + 1);
     },
-    [],
+    [agentChanges, fieldMetaByType],
   );
 
   // HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — record one guided-setup value for the current preview,
@@ -204,6 +251,9 @@ export function useBuilderPreview({
   // workflow. Then clears the overlay and shows a safe confirmation.
   const handleApplyPreview = useCallback(() => {
     if (!previewOverlay) return;
+    // AGENT-CHANGE-HISTORY-1 — the correlation id minted when this preview was shown; transitions the
+    // SAME timeline row from preview_created → applied / apply_failed.
+    const agentChangeId = previewOverlay.agentChangeId;
     // CHECKPOINTS-1 — capture the EXACT pre-apply local draft (including any unsaved edits) BEFORE the
     // mutation, so a checkpoint can restore "what it looked like before this agent change". Read from
     // the store directly to avoid a stale closure.
@@ -233,6 +283,12 @@ export function useBuilderPreview({
     if (outcome && !outcome.ok && "reason" in outcome && outcome.reason === "stale") {
       setApplyNotice("Your workflow changed since this suggestion. Ask React to update it and try again.");
       setAppliedNodeIds([]);
+      if (agentChangeId) {
+        agentChanges.emitApplyFailed({
+          agentChangeId,
+          reason: "Your workflow changed since this suggestion, so it wasn't applied.",
+        });
+      }
       setPreviewOverlay(null);
       setPreviewConfig({});
       return;
@@ -247,9 +303,17 @@ export function useBuilderPreview({
           definition: beforeDefinition,
           ...(previewOverlay.prompt ? { prompt: previewOverlay.prompt } : {}),
           ...(previewOverlay.preview.summary ? { summary: previewOverlay.preview.summary } : {}),
-        }).catch(() => {
-          setCheckpointWarning("Couldn't save a restore point for this change.");
-        });
+        })
+          .then((cp) => {
+            // AGENT-CHANGE-HISTORY-1 — record the apply, LINKED to the restore point just captured so
+            // the timeline item offers "Restore". The checkpoint id is only known here (client-created).
+            if (agentChangeId) agentChanges.emitApplied({ agentChangeId, checkpointId: cp.id });
+          })
+          .catch(() => {
+            setCheckpointWarning("Couldn't save a restore point for this change.");
+            // The change DID apply — record it even though the restore point couldn't be saved.
+            if (agentChangeId) agentChanges.emitApplied({ agentChangeId });
+          });
       }
       const placement = "placement" in outcome ? outcome.placement : "replaced";
       setApplyNotice(
@@ -280,10 +344,16 @@ export function useBuilderPreview({
       // already has a trigger). Surface a safe, non-scary notice.
       setApplyNotice("ChainReact could not safely apply this preview.");
       setAppliedNodeIds([]);
+      if (agentChangeId) {
+        agentChanges.emitApplyFailed({
+          agentChangeId,
+          reason: "ChainReact could not safely apply this preview.",
+        });
+      }
     }
     setPreviewOverlay(null);
     setPreviewConfig({});
-  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, localOnly, createReactAgentCheckpoint]);
+  }, [previewOverlay, requiredFieldsByType, previewConfig, setupFieldsByType, localOnly, createReactAgentCheckpoint, agentChanges]);
 
   // CHECKPOINTS-1 — restore a checkpoint server-side, then re-hydrate the builder graph with the
   // returned (restored) draft. The restore advances updatedAt to a strictly-newer revision, so the
@@ -299,21 +369,29 @@ export function useBuilderPreview({
           setAppliedNodeIds([]);
           setApplyNotice("Checkpoint restored — your draft was returned to that earlier state.");
           setCheckpointWarning(null);
+          // AGENT-CHANGE-HISTORY-1 — a restore is its own timeline event, linked to the checkpoint.
+          agentChanges.emitRestored(checkpointId);
         })
         .catch(() => {
           // restoreError is set by the hook and rendered in the CheckpointsPanel.
         });
     },
-    [restoreCheckpoint, workflowId],
+    [restoreCheckpoint, workflowId, agentChanges],
   );
 
   // HERMES-AGENT-CONFIG-DIFF-REVIEW — shared "Discard preview" used by the canvas control bar / overlay
   // AND the right-rail review panel (incl. its drawer close ×/Esc). Drops the preview; the real draft was
   // never mutated, so there is nothing to roll back. Behavior is identical to the prior inline handlers.
   const handleDiscardPreview = useCallback(() => {
+    // AGENT-CHANGE-HISTORY-1 — an explicit discard (canvas control, drawer ×/Esc) transitions the
+    // timeline row. Read the current overlay via ref so this handler stays stable (deps-free). The
+    // per-workflow reset clears the overlay directly (not through here), so this only fires on a real
+    // user discard.
+    const agentChangeId = previewOverlayRef.current?.agentChangeId;
+    if (agentChangeId) agentChanges.emitDiscarded(agentChangeId);
     setPreviewOverlay(null);
     setPreviewConfig({});
-  }, []);
+  }, [agentChanges]);
 
   // The BuilderApplyNotice dismiss — clears the notice + applied-node hints.
   const dismissApplyNotice = useCallback(() => {
@@ -337,6 +415,11 @@ export function useBuilderPreview({
     checkpointWarning,
     checkpointRestoringId,
     checkpointRestoreError,
+    // AGENT-CHANGE-HISTORY-1 — change-timeline surface (for AgentChangesPanel). Restore reuses the
+    // checkpoint restore path above (checkpointRestoringId / checkpointRestoreError / handleRestoreCheckpoint).
+    agentChanges: agentChanges.items,
+    agentChangesLoading: agentChanges.loading,
+    agentChangesError: agentChanges.error,
     // handlers
     handleShowPreview,
     handlePreviewConfigChange,

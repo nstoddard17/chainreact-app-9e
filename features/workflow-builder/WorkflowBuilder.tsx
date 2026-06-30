@@ -29,6 +29,7 @@ import {
 } from "./panels/AddNodePanel";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
 import { CheckpointsPanel } from "./panels/CheckpointsPanel";
+import { AgentChangesPanel } from "./panels/AgentChangesPanel";
 import { AnonymousAgentRail } from "./panels/AnonymousAgentRail";
 import { LocalBuildBanner, LocalConfigNote } from "./panels/AnonymousLocalChrome";
 import { NodeInspectorPanel } from "./panels/NodeInspectorPanel";
@@ -400,6 +401,9 @@ export function WorkflowBuilder({
     checkpointWarning,
     checkpointRestoringId,
     checkpointRestoreError,
+    agentChanges,
+    agentChangesLoading,
+    agentChangesError,
     handleShowPreview,
     handlePreviewConfigChange,
     handleApplyPreview,
@@ -532,6 +536,16 @@ export function WorkflowBuilder({
             getCurrentDraft={getCurrentDraft}
             renderCheckSetup={renderCheckSetup}
             {...(restoredComposerValue ? { initialComposerValue: restoredComposerValue } : {})}
+            agentChangesPanel={
+              <AgentChangesPanel
+                items={agentChanges}
+                loading={agentChangesLoading}
+                error={agentChangesError}
+                restoringCheckpointId={checkpointRestoringId}
+                restoreError={checkpointRestoreError}
+                onRestore={handleRestoreCheckpoint}
+              />
+            }
             checkpointsPanel={
               <CheckpointsPanel
                 checkpoints={checkpoints}
