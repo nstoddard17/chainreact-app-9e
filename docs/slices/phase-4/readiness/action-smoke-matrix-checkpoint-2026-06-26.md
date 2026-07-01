@@ -1792,3 +1792,42 @@ lint:structure` -> OK. No db:push, no deploy, nothing pushed.
 - **Keep `create_board` / `duplicate_board` parked?** YES — unchanged. Still blocked until a real product
   `monday:delete_board` (or `archive_board`) action exists (§31). `add_file` / `download_file` also remain out
   of scope (file lifecycle needs its own cleanup-safe design).
+
+## 36. Notion block reads CERTIFIED — get_block + get_block_children (2026-07-01)
+
+Highest-yield safe pick from the remaining surface: two pure READS on an already-connected provider (Notion,
+13 LIVE_PASS reads), authored + LIVE-certified. Both take a `blockId`, and in Notion a page id is a valid
+block id, so both reuse the existing `SMOKE_NOTION_PAGE_ID`:
+- **notion:get_block** (`LIVE_PASS`): `GET /v1/blocks/{block_id}` on a page id returns the page's block object.
+- **notion:get_block_children** (`LIVE_PASS`): `GET /v1/blocks/{block_id}/children`; `blockId` is dual-meaning,
+  so a page id lists the page's top-level child blocks.
+
+Both are read-only (terminal-status assertion only, never block content — block bodies are user-typed and
+marked sensitive in the metas). No mutation, no cleanup, 0 created / 0 leaked. Ran via the scoped read live
+smoke `SMOKE_PROVIDER=notion ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true npm run
+smoke:actions:run:workflow:live` → 2 pass / 0 fail / 6 cert-skip, gate OK.
+
+**Selection rationale (why these, over the rest of the NOT_RUN/MISSING surface):** every NOT_RUN read is
+operator-blocked — discord / github / shopify / stripe are not connected on the smoke account, and
+google-analytics is connected but exposes no usable GA4 property (§18 / §19). Among connected-provider
+MISSING_FIXTURE actions, the rest are excluded by the standing safety rules: dropbox `create_shared_link` /
+`get_temporary_link` (sharing) + `download_file`, google-docs `export_document` (bytes) / `share_document`,
+microsoft-excel `export_sheet` (bytes), microsoft-teams `send_*` / `reply_*` (send), microsoft-onenote
+`create_notebook` / `create_section` and trello `create_board` (no registered API delete -> orphan, no
+cleanup), notion `create_database` and trello `create_list` (write, needs an authored create->archive
+fixture). `get_block` / `get_block_children` were the only safe reads left with a resolvable input.
+
+**Matrix now:** Notion **16 / 15 LIVE_PASS / 0 NOT_RUN / 1 MISSING / 0 / 0 / 0** (was 13/3); totals **298 /
+155 LIVE_PASS / 12 not-run / 131 missing / 0 fail / 0 bug** (was 153/133).
+
+**Verification:** scoped Notion read live smoke -> 2 pass / 0 fail; `npm run chainreact -- smoke actions
+--cert` -> matrix above, 0 fail / 0 bug; `npx jest tests/unit/smoke-actions` -> 48 suites / 509 tests pass;
+`npx tsc --noEmit` -> clean; eslint touched -> clean; `npm run lint:structure` -> OK. No db:push, no deploy,
+nothing pushed.
+
+**Next unlock (recommended):** Notion's last MISSING is `notion:create_database` — a write that needs a
+create -> verify -> archive fixture (a database is an archivable block; mirrors the certified
+`create_page`/`create_database_entry` archive-cleanup pattern). That is the next safe Notion candidate. Beyond
+it, the remaining connected-provider MISSING are all send / bytes / sharing / no-cleanup; the NOT_RUN reads
+stay blocked until Marcus connects discord / github / shopify / a Stripe test account, or adds a usable GA4
+property.

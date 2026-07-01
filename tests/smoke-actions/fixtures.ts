@@ -54,6 +54,8 @@ import notionSearch from "@/tests/fixtures/action-smoke/notion/search";
 import notionListUsers from "@/tests/fixtures/action-smoke/notion/list_users";
 import notionQueryDatabase from "@/tests/fixtures/action-smoke/notion/query_database";
 import notionGetPage from "@/tests/fixtures/action-smoke/notion/get_page";
+import notionGetBlock from "@/tests/fixtures/action-smoke/notion/get_block";
+import notionGetBlockChildren from "@/tests/fixtures/action-smoke/notion/get_block_children";
 // SMOKE-ACTIONS-13 — Microsoft Excel read-only batch (fixture-only; existing read actions).
 import excelGetWorkbooks from "@/tests/fixtures/action-smoke/microsoft-excel/get_workbooks";
 import excelGetWorksheets from "@/tests/fixtures/action-smoke/microsoft-excel/get_worksheets";
@@ -240,6 +242,8 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   notionListUsers,
   notionQueryDatabase,
   notionGetPage,
+  notionGetBlock,
+  notionGetBlockChildren,
   excelGetWorkbooks,
   excelGetWorksheets,
   excelReadRange,

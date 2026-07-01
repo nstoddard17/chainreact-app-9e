@@ -44,6 +44,7 @@ const LIVE_DROPBOX_SEARCH = "2026-06-26";
 const SMOKE_WRITE_BATCH_0629 = "2026-06-29";
 const LIVE_MONDAY_READS = "2026-06-30";
 const SMOKE_WRITE_MONDAY = "2026-06-30";
+const LIVE_NOTION_BLOCKS = "2026-07-01";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -166,6 +167,14 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ]),
   ...records("LIVE_PASS", "live write verified (dedicated smoke channel)", LIVE, [
     ["slack", "send_channel_message"],
+  ]),
+  // Notion block reads — newly fixtured + LIVE-certified. Both take a blockId; in
+  // Notion a page id is a valid block id (get_block returns the page's block object;
+  // get_block_children's blockId is dual-meaning and lists the page's child blocks),
+  // so both reuse SMOKE_NOTION_PAGE_ID. Read-only, terminal-status only (no content).
+  ...records("LIVE_PASS", "live read verified (page id as block id)", LIVE_NOTION_BLOCKS, [
+    ["notion", "get_block"],
+    ["notion", "get_block_children"],
   ]),
   // Tier-1 selector auto-discovery slice — these read live-verified after the
   // harness gained real connection checks + selector auto-discovery (no manual
