@@ -16,6 +16,12 @@ jest.mock("next/navigation", () => ({
   usePathname: () => mockPathname(),
 }));
 
+// Internal-admin nav gate — controllable per test; default false.
+const mockIsInternalAdmin = jest.fn<boolean, []>();
+jest.mock("@/components/app-shell/useIsInternalAdmin", () => ({
+  useIsInternalAdmin: () => mockIsInternalAdmin(),
+}));
+
 // The drawer now mounts the mobile workspace switcher (4.ACCOUNT-SWITCHER-MOBILE-1),
 // which self-fetches accounts. Mock the API so the drawer renders deterministically.
 const mockList = jest.fn();
@@ -34,6 +40,7 @@ import { AppMobileNav } from "@/components/app-shell/AppMobileNav";
 beforeEach(() => {
   mockPathname.mockReset();
   mockPathname.mockReturnValue("/workflows");
+  mockIsInternalAdmin.mockReset().mockReturnValue(false);
   mockList.mockReset();
   mockList.mockResolvedValue({
     activeAccountId: "personal-1",
@@ -114,6 +121,26 @@ describe("AppMobileNav", () => {
         "app-shell-mobile-account-item-personal-1",
       ),
     ).toHaveTextContent("Personal");
+  });
+
+  it("shows the internal React Agent Feedback link ONLY for an internal admin (→ /admin/react-agent)", async () => {
+    mockIsInternalAdmin.mockReturnValue(true);
+    const user = userEvent.setup();
+    render(<AppMobileNav />);
+    await user.click(screen.getByTestId("app-shell-mobile-trigger"));
+    expect(
+      screen.getByTestId("app-shell-mobile-nav-react-agent-feedback"),
+    ).toHaveAttribute("href", "/admin/react-agent");
+  });
+
+  it("hides the internal link for a non-internal user (incl. customer account owner/admin)", async () => {
+    mockIsInternalAdmin.mockReturnValue(false);
+    const user = userEvent.setup();
+    render(<AppMobileNav />);
+    await user.click(screen.getByTestId("app-shell-mobile-trigger"));
+    expect(
+      screen.queryByTestId("app-shell-mobile-nav-react-agent-feedback"),
+    ).toBeNull();
   });
 
   it("clicking an item closes the popover", async () => {

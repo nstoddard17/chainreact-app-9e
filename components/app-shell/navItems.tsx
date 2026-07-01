@@ -185,6 +185,42 @@ export const APP_SHELL_NAV_ITEMS: ReadonlyArray<AppShellNavItem> = [
   { id: "team", label: "Team", href: "/team", icon: <NavIconTeam /> },
 ];
 
+// Activity/pulse glyph for the internal React Agent Feedback item, sized to
+// match the other rail icons (18×18, 1.8 stroke).
+function NavIconInternalFeedback() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M3 12h4l2.5-7 5 14 2.5-7H21" />
+    </svg>
+  );
+}
+
+/**
+ * INTERNAL-ADMIN-ONLY nav items (ChainReact company admins seeded in
+ * `internal_admins`, NOT customer account/team/org roles). Kept separate from
+ * `APP_SHELL_NAV_ITEMS` so the base nav is unaffected. Rendered ONLY when the
+ * caller-only internal-admin check (`useIsInternalAdmin`) returns true; the
+ * `/admin/react-agent` route enforces its own server-side gate regardless.
+ */
+export const APP_SHELL_ADMIN_NAV_ITEMS: ReadonlyArray<AppShellNavItem> = [
+  {
+    id: "react-agent-feedback",
+    label: "React Agent Feedback",
+    href: "/admin/react-agent",
+    icon: <NavIconInternalFeedback />,
+  },
+];
+
 /**
  * Pathname → active-item resolution. Exact match wins; otherwise a
  * sub-route (with a `/` segment boundary) highlights the parent.

@@ -16,10 +16,18 @@ jest.mock("next/navigation", () => ({
   usePathname: () => mockPathname(),
 }));
 
+// Internal-admin nav gate — controllable per test. Base tests keep it false so
+// the admin item is absent and the existing assertions are unaffected.
+const mockIsInternalAdmin = jest.fn<boolean, []>();
+jest.mock("@/components/app-shell/useIsInternalAdmin", () => ({
+  useIsInternalAdmin: () => mockIsInternalAdmin(),
+}));
+
 import { AppNav } from "@/components/app-shell/AppNav";
 
 beforeEach(() => {
   mockPathname.mockReset();
+  mockIsInternalAdmin.mockReset().mockReturnValue(false);
 });
 
 describe("AppNav — registered items + real routes", () => {
@@ -98,6 +106,26 @@ describe("AppNav — active state", () => {
     render(<AppNav />);
     expect(
       screen.queryByRole("link", { current: "page" }),
+    ).toBeNull();
+  });
+});
+
+describe("AppNav — internal-admin React Agent Feedback link", () => {
+  it("shows the link ONLY for an internal admin, pointing at /admin/react-agent", () => {
+    mockPathname.mockReturnValue("/workflows");
+    mockIsInternalAdmin.mockReturnValue(true);
+    render(<AppNav />);
+    const link = screen.getByTestId("app-shell-nav-react-agent-feedback");
+    expect(link).toHaveAttribute("href", "/admin/react-agent");
+    expect(link).toHaveAttribute("aria-label", "React Agent Feedback");
+  });
+
+  it("hides the link for a non-internal user (normal user / customer account owner/admin/org admin)", () => {
+    mockPathname.mockReturnValue("/workflows");
+    mockIsInternalAdmin.mockReturnValue(false);
+    render(<AppNav />);
+    expect(
+      screen.queryByTestId("app-shell-nav-react-agent-feedback"),
     ).toBeNull();
   });
 });

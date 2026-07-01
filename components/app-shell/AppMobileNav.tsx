@@ -9,7 +9,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { AppMobileAccountSwitcher } from "./AppMobileAccountSwitcher";
-import { APP_SHELL_NAV_ITEMS, isNavItemActive } from "./navItems";
+import {
+  APP_SHELL_ADMIN_NAV_ITEMS,
+  APP_SHELL_NAV_ITEMS,
+  isNavItemActive,
+  type AppShellNavItem,
+} from "./navItems";
+import { useIsInternalAdmin } from "./useIsInternalAdmin";
 
 /**
  * Mobile primary-nav popover (Slice 4.APP-SHELL-1; workspace switcher
@@ -29,6 +35,30 @@ import { APP_SHELL_NAV_ITEMS, isNavItemActive } from "./navItems";
 export function AppMobileNav() {
   const pathname = usePathname() ?? "";
   const [open, setOpen] = useState(false);
+  const isInternalAdmin = useIsInternalAdmin();
+
+  const renderItem = (item: AppShellNavItem) => {
+    const active = isNavItemActive(item.href, pathname);
+    return (
+      <li key={item.id} role="none">
+        <Link
+          href={item.href}
+          role="menuitem"
+          onClick={() => setOpen(false)}
+          aria-current={active ? "page" : undefined}
+          data-testid={`app-shell-mobile-nav-${item.id}`}
+          className={
+            "block rounded-sm px-2.5 py-1.5 text-sm " +
+            (active
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-foreground hover:bg-muted")
+          }
+        >
+          {item.label}
+        </Link>
+      </li>
+    );
+  };
   return (
     <div className="md:hidden">
       <Popover open={open} onOpenChange={setOpen}>
@@ -54,28 +84,13 @@ export function AppMobileNav() {
           <AppMobileAccountSwitcher />
           <div className="my-1 h-px bg-border" aria-hidden />
           <ul className="flex flex-col gap-0.5" role="menu">
-            {APP_SHELL_NAV_ITEMS.map((item) => {
-              const active = isNavItemActive(item.href, pathname);
-              return (
-                <li key={item.id} role="none">
-                  <Link
-                    href={item.href}
-                    role="menuitem"
-                    onClick={() => setOpen(false)}
-                    aria-current={active ? "page" : undefined}
-                    data-testid={`app-shell-mobile-nav-${item.id}`}
-                    className={
-                      "block rounded-sm px-2.5 py-1.5 text-sm " +
-                      (active
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-foreground hover:bg-muted")
-                    }
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
+            {APP_SHELL_NAV_ITEMS.map(renderItem)}
+            {isInternalAdmin && (
+              <>
+                <li role="none" aria-hidden className="my-1 h-px bg-border" />
+                {APP_SHELL_ADMIN_NAV_ITEMS.map(renderItem)}
+              </>
+            )}
           </ul>
         </PopoverContent>
       </Popover>
