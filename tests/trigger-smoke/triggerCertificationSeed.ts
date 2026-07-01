@@ -266,6 +266,41 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "route/dispatch cert via DIRECT-SEED (NOT activation): seed event_type card_updated, baseline 0, a TRELLO_CLIENT_SECRET-signed synthetic updateCard (generic data.old name change, no closed, no list move) POSTed to the real /api/webhooks/trello route classifies to trello.card.updated, fires exactly 1 run whose trigger_event carries the action id + card id + board id + changedFields including 'name', durable run terminal 'succeeded', same action id deduped (still 1), seeded row+workflow+dedup row cleaned (0 leaked); no Trello API, no real webhook/board.",
   },
+  // monday:new_item / item_moved / new_subitem — Lane C Monday lifecycle batch on the
+  // spec-driven direct-seed harness (runMondayWebhookSmoke + makeRealMondayWebhookSmokeDeps,
+  // tests/trigger-smoke/mondayWebhookSmoke.ts). LIVE-certified via the Monday webhook
+  // smoke. Monday signs the RAW BODY only (x-monday-signature = lowercase-hex
+  // HMAC-SHA256 over the raw body, keyed MONDAY_SIGNING_SECRET) — simpler than Trello's
+  // callbackURL-bound HMAC. Same scope as trello: route/dispatch cert via DIRECT-SEED
+  // (a MONDAY_SIGNING_SECRET-signed synthetic { event } POSTed to the real
+  // /api/webhooks/monday route; smoke-minted board/item/group ids; no Monday API, no
+  // real webhook/board/item). EXCLUDED (un-certified, user-content semantics): new_update
+  // (user-authored update body text) + column_changed (column value content) — the
+  // Monday analog of Trello's excluded comment_added / member_changed.
+  {
+    provider: "monday",
+    type: "new_item",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-30",
+    note: "route/dispatch cert via DIRECT-SEED (NOT provider activation): seed trigger_resources event_type new_item + config{eventType,boardId}, baseline 0, a MONDAY_SIGNING_SECRET-signed synthetic { event:{type:create_item} } (x-monday-signature lowercase-hex HMAC-SHA256 over the raw body; smoke-minted board/item/group ids) POSTed to the real /api/webhooks/monday?workflowId&nodeId route (verify->classify->event-type filter->normalize->dispatchTriggerEvent->enqueue) fires exactly 1 run whose trigger_event carries the deterministic dedup key new_item:board:item:createdAt + itemId + boardId + groupId + changeKind, durable run terminal 'succeeded', re-send of the same event deduped (still 1 run), seeded row+workflow+dedup row cleaned (0 leaked); no Monday API call, no real webhook/board/item, no send. Provider-side webhook activation NOT certified.",
+  },
+  {
+    provider: "monday",
+    type: "item_moved",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-30",
+    note: "route/dispatch cert via DIRECT-SEED (NOT activation): seed event_type item_moved, baseline 0, a MONDAY_SIGNING_SECRET-signed synthetic { event:{type:item_moved_to_any_group} } (smoke-minted board/item + source/dest group ids) POSTed to the real /api/webhooks/monday route classifies to item_moved, fires exactly 1 run whose trigger_event carries the dedup key item_moved:board:item:movedAt + itemId + boardId + previousGroupId + currentGroupId + changeKind, durable run terminal 'succeeded', same event deduped (still 1), seeded row+workflow+dedup row cleaned (0 leaked); no Monday API, no real webhook/board/item.",
+  },
+  {
+    provider: "monday",
+    type: "new_subitem",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-06-30",
+    note: "route/dispatch cert via DIRECT-SEED (NOT activation): seed event_type new_subitem, baseline 0, a MONDAY_SIGNING_SECRET-signed synthetic { event:{type:create_subitem} } (smoke-minted board + subitem pulseId + parentItemId; itemId intentionally omitted so subitem vs parent never conflate) POSTed to the real /api/webhooks/monday route classifies to new_subitem, fires exactly 1 run whose trigger_event carries the dedup key new_subitem:board:subitem:createdAt + subitemId + parentItemId + boardId + changeKind, durable run terminal 'succeeded', same event deduped (still 1), seeded row+workflow+dedup row cleaned (0 leaked); no Monday API, no real webhook/board/item.",
+  },
   // native:manual.run — honestly classified, NOT a dispatch cert. It is exercised
   // end-to-end on every action workflow-live smoke, but via the run-now path
   // (enqueueRun), which deliberately bypasses dispatchTriggerEvent + trigger_resources.

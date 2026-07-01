@@ -1261,3 +1261,63 @@ docs-only, no code targets. **No db:push, no deploy, nothing pushed.**
   unlocks — `MONDAY_SIGNING_SECRET` (unlock #1) is the single highest-yield, lowest-friction provision (5
   triggers on the existing harness), so it is the natural trigger to resume this lane. The action-smoke and
   trigger-smoke frontiers are now both closed for the current surface.
+
+## 20. Monday webhook lane CERTIFIED — new_item / item_moved / new_subitem (2026-06-30)
+
+`MONDAY_SIGNING_SECRET` was provisioned (unlock #1 from §18/§19), so the Monday webhook lane resumed on the
+existing spec-driven direct-seed harness. New harness: `tests/trigger-smoke/mondayWebhookSmoke.ts` +
+`mondayWebhookSmokeDeps.ts` + the gated `tests/integration/trigger-smoke/monday-webhook.workflow.dev.test.ts`,
+mirroring the Trello lane. `smoke:triggers:webhook` now runs slack + github + trello + monday.
+
+**Certified (LIVE_PASS, 2026-06-30) — 3 of 5 Monday triggers:**
+
+```
+monday:new_item     → pass · seed new_item    · baseline 0 · after 1 · identity matched (dedup key new_item:board:item:createdAt + itemId/boardId/groupId) · succeeded · redeliver 1 · dedup proven · cleaned
+monday:item_moved   → pass · seed item_moved  · baseline 0 · after 1 · identity matched (prev/current group ids)                                          · succeeded · redeliver 1 · dedup proven · cleaned
+monday:new_subitem  → pass · seed new_subitem · baseline 0 · after 1 · identity matched (subitemId + parentItemId)                                        · succeeded · redeliver 1 · dedup proven · cleaned
+```
+
+Each: create active `{monday:<trigger> -> native no-op}` workflow -> DIRECT-SEED the `trigger_resources` row
+(provider monday / eventType `<trigger>` / config `{eventType, boardId}`) with NO activation hook and NO
+Monday API -> baseline 0 -> a `MONDAY_SIGNING_SECRET`-signed synthetic `{ event }` (x-monday-signature =
+lowercase-hex HMAC-SHA256 over the raw body; smoke-minted board/item/group ids) POSTed to the real
+`/api/webhooks/monday?workflowId&nodeId` route (real verify -> classify -> event-type filter -> normalize ->
+`dispatchTriggerEvent` -> dedup -> enqueue) fires exactly 1 run whose `trigger_event` carries the deterministic
+dedup key + board/item ids + changeKind -> durable run terminal `succeeded` -> re-send the same event is
+deduped (still 1 run) -> seeded row + workflow + dedup row cleaned (**0 leaked**).
+
+**Monday signature vs Trello.** Monday signs the RAW BODY ONLY (no callbackURL binding), so the deps are
+simpler than Trello's `rawBody + callbackURL` HMAC: the harness signs the exact bytes it POSTs. Production
+verification is UNWEAKENED. The challenge handshake and 401/503 paths are unchanged.
+
+**EXCLUDED (Lane D, NOT certified — user-content semantics, mirrors Trello's comment_added / member_changed):**
+- `monday:new_update` — carries the user-authored update BODY text (marked sensitive in the normalizer).
+- `monday:column_changed` — carries column VALUE content (`previousValue` / `newValue`, marked sensitive).
+Fabricating either is fabricating user-content-shaped data; left un-certified by design.
+
+**DIRECT-SEED CONTRACT reminder:** this certifies receive/verify/classify/filter/normalize/dispatch/dedup/
+enqueue/drain/terminal. It does NOT certify Monday provider-side subscription activation (`create_webhook` /
+`delete_webhook` via the Monday API) — that path needs a connected integration + a real board and is out of
+scope for a smoke.
+
+**Trigger-smoke matrix now:** 62 registered · **17 LIVE_PASS** (prior 14 + `monday:` `new_item` / `item_moved`
+/ `new_subitem`) · 1 RUN_NOW_PROVEN (`native:manual.run`) · 1 BLOCKED-documented
+(`microsoft-onenote:updated_note`) · **43 un-harnessed** (prior 46 minus the 3 certified; `monday:new_update`
++ `monday:column_changed` remain in the un-harnessed set as content-excluded).
+
+**Verification (this slice):** `tests/unit/trigger-smoke/mondayWebhookSmoke.test.ts` -> 12 pass; full
+`tests/unit/trigger-smoke` -> 79 pass; live gated smoke (`ALLOW_DB_INTEGRATION_TESTS=true
+ALLOW_TRIGGER_SMOKE=true`) -> 3/3 pass (0 leaked); `npx tsc --noEmit` -> exit 0; eslint touched -> clean;
+`npm run lint:structure` -> OK. No db:push, no deploy, nothing pushed.
+
+### Owner review answers
+
+- **Is Monday trigger-smoke complete after this slice?** For what is safely synthetic-certifiable, YES. 3 of
+  the 5 Monday webhook triggers are LIVE_PASS; the remaining 2 (`new_update`, `column_changed`) are firmly
+  content-excluded (Lane D) for the same reason Trello's `comment_added` / `member_changed` are. So the Monday
+  webhook lane is **complete modulo those two content exclusions** — no further Monday webhook trigger can be
+  certified without fabricating user content.
+- **Should the smoke closeout rollup be refreshed after the Monday action + trigger unlocks?** YES — refreshed
+  in `smoke-closeout-rollup-2026-06-29.md` this slice (trigger LIVE_PASS 14 -> 17; the Monday action side moved
+  10 -> 18 LIVE_PASS across the earlier action slices). Both frontiers are re-closed for the current surface;
+  the next resume trigger would be a new provider/secret/resource unlock (Bucket A-G).

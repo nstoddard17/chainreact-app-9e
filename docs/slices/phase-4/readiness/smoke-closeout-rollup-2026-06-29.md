@@ -22,24 +22,36 @@ reopened action-smoke for that provider — **all 10 Monday read actions are now
 / 22 NOT_RUN on 2026-06-29; +10 LIVE_PASS / −10 NOT_RUN across §29 + §30; `search_items` certified with a
 synthetic no-match query). See action-smoke checkpoint §29 + §30. Action-smoke is again **exhausted on the
 currently-connected providers**: the remaining 12 NOT_RUN self-skip without an operator input/connection, and
-every MISSING_FIXTURE is a send / raw-bytes / sharing / no-cleanup / no-verify action (incl. the 14 Monday
-write actions, deferred to a write slice with smoke-owned create + cleanup). No failures and no product bugs
-surfaced.
+every MISSING_FIXTURE is a send / raw-bytes / sharing / no-cleanup / no-verify action. No failures and no
+product bugs surfaced.
+
+**Updated 2026-06-30 (Monday writes certified):** the Monday write actions have since been certified with
+smoke-owned create + registered cleanup (0 leaked) across the item-tree + lifecycle slices — action-smoke is
+now **298 registered / 153 LIVE_PASS / 12 NOT_RUN / 133 MISSING_FIXTURE / 0 fail / 0 bug**, with **Monday
+18 LIVE_PASS / 6 MISSING_FIXTURE** (the 6 remaining are parked for cleanup/file reasons: create_group,
+add_column, create_board, duplicate_board, add_file, download_file). See action-smoke checkpoint §33–§35.
 
 ## 2. Final trigger-smoke matrix
 
 ```
 62 registered
-14 LIVE_PASS
+17 LIVE_PASS
  1 RUN_NOW_PROVEN   (native:manual.run — manual run-now path, not a dispatch cert)
  1 BLOCKED          (microsoft-onenote:updated_note — Graph PATCH /pages/{id}/content
                      does not bump lastModifiedDateTime; provider behavior, not a harness bug)
-46 un-harnessed     (each blocked by a named unlock — see §5 and checkpoint §19)
+43 un-harnessed     (each blocked by a named unlock — see §5 and checkpoint §19)
 ```
 
-**LIVE_PASS (14):** `native:schedule.fired`; `microsoft-excel` ×5 (new_worksheet / new_row / new_table_row /
+**LIVE_PASS (17):** `native:schedule.fired`; `microsoft-excel` ×5 (new_worksheet / new_row / new_table_row /
 updated_row / updated_table_row); `microsoft-onenote:new_note`; `slack:channel_created` + `slack:file_shared`;
-`github:new_commit`; `trello` ×4 (new_card / card_moved / card_archived / card_updated).
+`github:new_commit`; `trello` ×4 (new_card / card_moved / card_archived / card_updated); `monday` ×3
+(new_item / item_moved / new_subitem).
+
+**Updated 2026-06-30 (Monday webhook lane):** `MONDAY_SIGNING_SECRET` was provisioned (unlock #1), so the
+Monday webhook lane was certified on the existing spec-driven direct-seed harness — `monday` ×3 added above
+(14 -> 17 LIVE_PASS, 46 -> 43 un-harnessed). `monday:new_update` (user update body text) + `monday:column_changed`
+(column value content) stay un-harnessed / content-excluded (Lane D), mirroring Trello's comment_added /
+member_changed. Monday signs the raw body only (no callbackURL binding). See checkpoint §20.
 
 ## 3. What was proven
 
