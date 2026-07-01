@@ -1669,3 +1669,72 @@ eslint on touched files -> clean; `npm run lint:structure` -> OK. No db:push, no
   smoke-owned with registered cleanup.
 - **Keep `create_board` / `duplicate_board` parked?** YES — unchanged. Still blocked until a real product
   `monday:delete_board` (or `archive_board`) action exists (§31). The item-tree path never creates a board.
+
+## 34. Monday item-tree reuse batch CERTIFIED — update_item / create_update / create_subitem / delete_item (2026-06-30)
+
+The four remaining item-tree writes are now **LIVE_PASS_CLEANED**, all in one scoped destructive live run
+(`SMOKE_PROVIDER=monday npm run smoke:writes:live`, all four write/destructive gates). Every fixture reuses
+the proven create_item foundation (§33): DB-derived connection, board/group auto-discovered on the throwaway
+account (this run resolved `board "New workflow" / group "Group Title"` -> READY), no `SMOKE_MONDAY_CONNECTED`.
+All five Monday write fixtures passed together, **created 1 / cleaned 1 / remaining 0 each, 0 leaked**.
+
+Per-action setup / verify / cleanup:
+- **update_item** (`LIVE_PASS_CLEANED`): setup create_item -> execute renames the item via `columnId: "name"`
+  (the universal `change_multiple_column_values` path; board-schema-agnostic, every item has a name) ->
+  verify `get_item` `markerPath: "itemName"` + `markerSuffix: "updated"` (the seed name lacks "updated", so a
+  no-op fails) -> cleanup `delete_item`. 0 leaked.
+- **create_update** (`LIVE_PASS_CLEANED`): setup create_item -> execute posts a `{{marker}}update` -> verify
+  `list_updates` `markerPath: "updates"` (independent read-back) -> cleanup `delete_item` on the parent. There
+  is NO `delete_update` action, so the update is disposed of transitively by deleting its parent item; the
+  ledger holds only the parent, so it is the single cleaned resource. 0 leaked.
+- **create_subitem** (`LIVE_PASS_CLEANED`): setup create_item -> execute adds a `{{marker}}subitem` -> verify
+  `list_subitems` `markerPath: "subitems"` -> cleanup `delete_item` on the parent (cascade removes the
+  subitem). Same transitive-cleanup rationale as create_update; ledger holds only the parent. 0 leaked.
+- **delete_item** (`LIVE_PASS_CLEANED`): setup create_item -> execute delete_item is the disposition
+  (`executeIsCleanup: true`) -> verify `list_items` `expectAbsent { path: "items", value: "{{smokeMarker}}" }`
+  proves the deleted item's marker is gone from the board's active items (Monday excludes deleted items from
+  item queries; the delete handler's own echo is never trusted). 0 leaked.
+
+**Readiness-gate fix during the slice.** The first live attempt failed create_update + create_subitem at
+execute with "Workflow needs setup": both action metas (and the `list_updates` / `list_subitems` read metas)
+mark `boardId` **required** as the UI-scope cascade parent for the item/parent picker, even though the
+handlers ignore it. Fixed by threading `boardId: "{{env.SMOKE_MONDAY_BOARD_ID}}"` into those execute + verify
+configs (mirrors the onenote `notebookId` handler-ignored-but-readiness-required pattern). Re-run: all five
+green.
+
+**Cleanup semantics (honest).** create_update / create_subitem intentionally do NOT capture the
+update/subitem into the ledger — Monday has no per-child delete action, and the child lives inside its parent,
+so deleting the parent removes it. Capturing it would report a false leak. Verification independently proves
+the child was really created before the parent is removed.
+
+**Files:** `tests/fixtures/action-smoke/monday/{update_item,create_update,create_subitem,delete_item}.ts`
+(new), `tests/smoke-actions/fixtures.ts` (registered the four in `WRITE_SMOKE_FIXTURES`),
+`tests/unit/smoke-actions/monday-item-tree-batch.test.ts` (new, 17 tests),
+`scripts/chainreact/smoke/certificationSeed.ts` (+4 `LIVE_PASS_CLEANED`). No change to the discovery seam or
+the dev test — the create_item foundation was reused unchanged.
+
+**Actions inspected:** update_item, create_update, create_subitem, delete_item (+ the get_item / list_updates
+/ list_subitems / list_items read-backs). **Actions authored:** all four. **Actions certified:** all four ->
+`LIVE_PASS_CLEANED`. **Left blocked:** none in this batch. **Cleanup/leak count:** 0 leaked per action (1
+created / 1 cleaned each). **certificationSeed update:** YES. **Matrix now:** Monday **24 / 15 LIVE_PASS / 0
+NOT_RUN / 9 MISSING / 0 / 0 / 0**; totals **298 / 150 LIVE_PASS / 12 not-run / 136 missing / 0 fail / 0 bug**.
+
+**Verification:** `npx jest tests/unit/smoke-actions` -> 47 suites / 493 tests pass; scoped live write smoke
+-> 1/1 pass (all five Monday write fixtures green, 0 leaked); `npm run chainreact -- smoke actions --cert` ->
+matrix above, 0 fail / 0 bug; `npx tsc --noEmit` -> exit 0; eslint touched files -> clean; `npm run
+lint:structure` -> OK. No db:push, no deploy, nothing pushed.
+
+### Owner review answers
+
+- **Is the Monday item-tree reuse batch complete?** YES. create_item + update_item + create_update +
+  create_subitem + delete_item are all certified `LIVE_PASS_CLEANED` with 0 leaked, on the throwaway account
+  via DB-derived connection + auto-discovery. The full create/read/update/delete item-tree loop is proven.
+- **Next Monday write batch?** The remaining board-structure / item-movement writes, in cleanup-safe order:
+  `create_group` (cleanup via a group-delete action if one is registered; else document), `add_column`
+  (columns generally cannot be deleted via API - likely leave MISSING_FIXTURE with a documented reason unless
+  a safe teardown exists), `move_item` (create item, move between two smoke groups, delete item),
+  `archive_item` (create -> archive; archive is reversible, best-effort cleanup), `duplicate_item` (create ->
+  duplicate -> delete both, capturing the duplicate). Each must have a registered smoke-owned cleanup or be
+  left MISSING_FIXTURE with the reason.
+- **Keep `create_board` / `duplicate_board` parked?** YES — unchanged. Still blocked until a real product
+  `monday:delete_board` (or `archive_board`) action exists (§31). The item-tree path never creates a board.

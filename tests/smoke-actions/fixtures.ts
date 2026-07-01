@@ -194,6 +194,10 @@ import trelloAddLabelToCard from "@/tests/fixtures/action-smoke/trello/add_label
 import trelloMoveCard from "@/tests/fixtures/action-smoke/trello/move_card";
 import trelloArchiveCard from "@/tests/fixtures/action-smoke/trello/archive_card";
 import mondayCreateItem from "@/tests/fixtures/action-smoke/monday/create_item";
+import mondayUpdateItem from "@/tests/fixtures/action-smoke/monday/update_item";
+import mondayCreateUpdate from "@/tests/fixtures/action-smoke/monday/create_update";
+import mondayCreateSubitem from "@/tests/fixtures/action-smoke/monday/create_subitem";
+import mondayDeleteItem from "@/tests/fixtures/action-smoke/monday/delete_item";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -363,6 +367,10 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   trelloMoveCard,
   trelloArchiveCard,
   mondayCreateItem,
+  mondayUpdateItem,
+  mondayCreateUpdate,
+  mondayCreateSubitem,
+  mondayDeleteItem,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

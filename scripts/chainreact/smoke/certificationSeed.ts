@@ -85,6 +85,23 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live write+verify, item deleted (soft delete, recycle-bin recoverable)", SMOKE_WRITE_MONDAY, [
     ["monday", "create_item"],
   ]),
+  // Monday item-tree reuse batch — each reuses a fresh smoke create_item parent and
+  // cleans via the registered delete_item (0 leaked each). update_item renames the
+  // item (columnId "name") verified by get_item marker+"updated". create_update /
+  // create_subitem post an update / add a subitem verified by list_updates /
+  // list_subitems; neither has a dedicated delete action, so the child is removed
+  // transitively when the parent item is deleted. delete_item is the disposition
+  // itself (executeIsCleanup), verified by list_items proving the marker is absent.
+  ...records("LIVE_PASS_CLEANED", "live write+verify, item renamed then deleted (soft delete)", SMOKE_WRITE_MONDAY, [
+    ["monday", "update_item"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live write+verify, child removed via parent-item delete (soft delete)", SMOKE_WRITE_MONDAY, [
+    ["monday", "create_update"],
+    ["monday", "create_subitem"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live delete+verify, item removed and absent from list (soft delete)", SMOKE_WRITE_MONDAY, [
+    ["monday", "delete_item"],
+  ]),
   ...records("LIVE_PASS", "live read verified", LIVE, [
     ["slack", "list_channels"],
     ["slack", "list_users"],
