@@ -102,6 +102,23 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live delete+verify, item removed and absent from list (soft delete)", SMOKE_WRITE_MONDAY, [
     ["monday", "delete_item"],
   ]),
+  // Monday item lifecycle batch — move / archive / duplicate, each on a fresh smoke
+  // item and cleaned via registered delete_item (0 leaked each). move_item moves the
+  // item into a SECOND auto-discovered group, verified by get_item groupId==target.
+  // archive_item archives, verified by get_item state=="archived", then delete_item
+  // disposes of the archived item (recycle bin). duplicate_item clones the item
+  // (captured as a distinct ledger resource) and deletes BOTH the original and the
+  // duplicate. create_group / add_column stay MISSING_FIXTURE (no registered
+  // group/column delete for a guaranteed 0-leak teardown).
+  ...records("LIVE_PASS_CLEANED", "live move+verify (groupId==target), item deleted (soft delete)", SMOKE_WRITE_MONDAY, [
+    ["monday", "move_item"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live archive+verify (state==archived), then deleted (soft delete)", SMOKE_WRITE_MONDAY, [
+    ["monday", "archive_item"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live duplicate+verify, original and clone both deleted (soft delete)", SMOKE_WRITE_MONDAY, [
+    ["monday", "duplicate_item"],
+  ]),
   ...records("LIVE_PASS", "live read verified", LIVE, [
     ["slack", "list_channels"],
     ["slack", "list_users"],

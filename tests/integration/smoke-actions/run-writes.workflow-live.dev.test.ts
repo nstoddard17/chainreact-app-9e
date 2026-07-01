@@ -170,6 +170,12 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_MONDAY_BOARD_ID = chosen.boardId; // id -> env overlay only
         overlay.SMOKE_MONDAY_GROUP_ID = chosen.groupId; // id -> env overlay only
         targetLabel = `board "${chosen.boardLabel}" / group "${chosen.groupLabel}"`;
+        // A second distinct group is the move_item destination (when the board has
+        // one). Absent -> move_item reports BLOCKED_ENV (group creation is out of scope).
+        if (chosen.targetGroupId) {
+          overlay.SMOKE_MONDAY_TARGET_GROUP_ID = chosen.targetGroupId; // id -> env overlay only
+          targetLabel += ` / target group "${chosen.targetGroupLabel}"`;
+        }
       }
     } else if (provider === "airtable" && execUsable) {
       // Record writes need the smoke table's primary text field NAME. baseId /

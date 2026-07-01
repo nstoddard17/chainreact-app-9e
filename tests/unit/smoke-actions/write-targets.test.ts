@@ -14,6 +14,7 @@ import {
   classifyWriteTarget,
   pickAirtableAttachmentField,
   pickAirtablePrimaryTextField,
+  pickMondaySecondGroup,
   pickMondaySmokeBoard,
   pickMondaySmokeGroup,
   pickNotionSmokeDatabase,
@@ -262,5 +263,27 @@ describe("pickMondaySmokeGroup — a usable group, deterministically", () => {
 
   it("returns null when the board has no group (lacks a usable group)", () => {
     expect(pickMondaySmokeGroup([])).toBeNull(); // -> BLOCKED_ENV
+  });
+});
+
+describe("pickMondaySecondGroup — a distinct move_item destination group", () => {
+  const groups: MondayGroupLite[] = [
+    { id: "g2", label: "To Do" },
+    { id: "g1", label: "Done" },
+    { id: "g3", label: "In Progress" },
+  ];
+
+  it("picks the alphabetically-first group that is NOT the source", () => {
+    // Source is "Done" (g1, alphabetically first) -> second is "In Progress" (g3).
+    expect(pickMondaySecondGroup(groups, "g1")).toEqual({ id: "g3", label: "In Progress" });
+  });
+
+  it("is deterministic regardless of input order", () => {
+    const shuffled = [groups[2]!, groups[0]!, groups[1]!];
+    expect(pickMondaySecondGroup(shuffled, "g1")?.id).toBe("g3");
+  });
+
+  it("returns null when the only group IS the source (board has one group)", () => {
+    expect(pickMondaySecondGroup([{ id: "g1", label: "Done" }], "g1")).toBeNull(); // -> BLOCKED_ENV
   });
 });

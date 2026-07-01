@@ -198,6 +198,9 @@ import mondayUpdateItem from "@/tests/fixtures/action-smoke/monday/update_item";
 import mondayCreateUpdate from "@/tests/fixtures/action-smoke/monday/create_update";
 import mondayCreateSubitem from "@/tests/fixtures/action-smoke/monday/create_subitem";
 import mondayDeleteItem from "@/tests/fixtures/action-smoke/monday/delete_item";
+import mondayMoveItem from "@/tests/fixtures/action-smoke/monday/move_item";
+import mondayArchiveItem from "@/tests/fixtures/action-smoke/monday/archive_item";
+import mondayDuplicateItem from "@/tests/fixtures/action-smoke/monday/duplicate_item";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -371,6 +374,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   mondayCreateUpdate,
   mondayCreateSubitem,
   mondayDeleteItem,
+  mondayMoveItem,
+  mondayArchiveItem,
+  mondayDuplicateItem,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

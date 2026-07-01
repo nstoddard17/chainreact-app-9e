@@ -235,6 +235,13 @@ export interface ChosenMondayTarget {
   readonly boardLabel: string;
   readonly groupId: string;
   readonly groupLabel: string;
+  /**
+   * A SECOND distinct group on the same board, when one exists — the move_item
+   * destination. Absent when the board has only one group (move_item then reports
+   * BLOCKED_ENV; group creation is deliberately out of scope). env-overlay only.
+   */
+  readonly targetGroupId?: string;
+  readonly targetGroupLabel?: string;
 }
 
 /**
@@ -272,4 +279,19 @@ export function pickMondaySmokeGroup(
 ): MondayGroupLite | null {
   if (groups.length === 0) return null;
   return [...groups].sort((a, b) => a.label.localeCompare(b.label))[0] ?? null;
+}
+
+/**
+ * Pick a SECOND, distinct group to move a smoke item INTO (the move_item
+ * destination), given the source group already chosen by `pickMondaySmokeGroup`.
+ * Deterministic: alphabetical by label, first group whose id differs from
+ * `sourceGroupId`. Returns null when the board has only one group -> move_item is
+ * BLOCKED_ENV (creating a group is out of scope for this slice). Pure.
+ */
+export function pickMondaySecondGroup(
+  groups: readonly MondayGroupLite[],
+  sourceGroupId: string,
+): MondayGroupLite | null {
+  const sorted = [...groups].sort((a, b) => a.label.localeCompare(b.label));
+  return sorted.find((g) => g.id !== sourceGroupId) ?? null;
 }

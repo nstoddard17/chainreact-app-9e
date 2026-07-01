@@ -18,6 +18,7 @@
 import { getActiveForExecution } from "@/repositories/integrations";
 import { getOptionsResolver } from "@/services/options/_registry";
 import {
+  pickMondaySecondGroup,
   pickMondaySmokeBoard,
   pickMondaySmokeGroup,
   type ChosenMondayTarget,
@@ -68,10 +69,16 @@ export async function discoverMondaySmokeBoardGroup(
   const group = pickMondaySmokeGroup(groupCandidates);
   if (!group) return null;
 
+  // A second distinct group (the move_item destination) when the board has one.
+  const secondGroup = pickMondaySecondGroup(groupCandidates, group.id);
+
   return {
     boardId: board.id,
     boardLabel: board.label,
     groupId: group.id,
     groupLabel: group.label,
+    ...(secondGroup
+      ? { targetGroupId: secondGroup.id, targetGroupLabel: secondGroup.label }
+      : {}),
   };
 }

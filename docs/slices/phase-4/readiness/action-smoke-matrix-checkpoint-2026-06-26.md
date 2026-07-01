@@ -1738,3 +1738,57 @@ lint:structure` -> OK. No db:push, no deploy, nothing pushed.
   left MISSING_FIXTURE with the reason.
 - **Keep `create_board` / `duplicate_board` parked?** YES — unchanged. Still blocked until a real product
   `monday:delete_board` (or `archive_board`) action exists (§31). The item-tree path never creates a board.
+
+## 35. Monday item lifecycle batch CERTIFIED — move_item / archive_item / duplicate_item (2026-06-30)
+
+The three item-lifecycle writes are now **LIVE_PASS_CLEANED**, in one scoped destructive live run alongside
+the earlier five (all 8 Monday write fixtures passed together, 0 leaked each). Each reuses the create_item
+foundation: DB-derived connection, board/group auto-discovered on the throwaway account, no
+`SMOKE_MONDAY_CONNECTED`. This run resolved `board "New workflow" / group "Group Title" / target group
+"Group Title"` -> READY (the source and target groups share a label but are distinct group ids).
+
+Per-action setup / verify / cleanup:
+- **move_item** (`LIVE_PASS_CLEANED`): setup create_item in the SOURCE group -> execute move to a SECOND
+  distinct group (`SMOKE_MONDAY_TARGET_GROUP_ID`, auto-discovered) -> verify `get_item` markerPath "itemName"
+  + `expectEquals { groupId == target }` (independent read-back proves the move) -> cleanup `delete_item`. 0
+  leaked. BLOCKED_ENV when the board has only one group (group creation is out of scope).
+- **archive_item** (`LIVE_PASS_CLEANED`): setup create_item -> execute archive_item -> verify `get_item`
+  `expectEquals { state == "archived" }` (Monday's `items(ids:)` returns the archived item with its state) ->
+  cleanup `delete_item` disposes of the archived item (recycle bin). 0 leaked. Confirmed live: an archived
+  item is both retrievable by id AND deletable, so archive does not need a "left artifact" disposition.
+- **duplicate_item** (`LIVE_PASS_CLEANED`): setup create_item (original) -> execute duplicate_item, capturing
+  the clone `newItemId` as a SECOND ledger resource -> verify `get_item` on the clone markerPath "itemName"
+  (the marker survives any copy prefix) -> cleanupEach `delete_item` deletes BOTH the original and the clone
+  (independent top-level items). created 2 / cleaned 2 / remaining 0.
+
+**Discovery seam extension.** `discoverMondaySmokeBoardGroup` now also returns an optional SECOND group (pure
+`pickMondaySecondGroup`: alphabetical, first group whose id differs from the source), overlaid as
+`SMOKE_MONDAY_TARGET_GROUP_ID`. The create_item foundation and every prior fixture are unaffected (the field
+is optional). No new discovery IO shape beyond the existing `monday:groups` resolver.
+
+**Actions inspected:** move_item, archive_item, duplicate_item (+ get_item read-backs, itemsGet/itemsMove/
+itemsArchive/itemsDuplicate wrappers). **Actions authored:** all three. **Actions certified:** all three ->
+`LIVE_PASS_CLEANED`. **Left blocked:** none in this batch. **Cleanup/leak count:** 0 leaked per action (move
+/archive 1 created / 1 cleaned; duplicate 2 created / 2 cleaned). **certificationSeed update:** YES. **Matrix
+now:** Monday **24 / 18 LIVE_PASS / 0 NOT_RUN / 6 MISSING / 0 / 0 / 0**; totals **298 / 153 LIVE_PASS / 12
+not-run / 133 missing / 0 fail / 0 bug**.
+
+**Verification:** `npx jest tests/unit/smoke-actions` -> 48 suites / 509 tests pass; scoped live write smoke
+-> 1/1 pass (all 8 Monday write fixtures green, 0 leaked); `npm run chainreact -- smoke actions --cert` ->
+matrix above, 0 fail / 0 bug; `npx tsc --noEmit` -> exit 0; eslint touched files -> clean; `npm run
+lint:structure` -> OK. No db:push, no deploy, nothing pushed.
+
+### Owner review answers
+
+- **Is the Monday item lifecycle batch complete?** YES. move_item + archive_item + duplicate_item are all
+  certified `LIVE_PASS_CLEANED`, 0 leaked. Combined with the item-tree loop, ALL 18 non-blocked Monday write
+  actions are now certified. The 6 remaining Monday MISSING_FIXTURE are the intentionally-parked ones below.
+- **Should `create_group` be attempted next?** ONLY if a registered group cleanup exists. There is no
+  `monday:delete_group` action registered today, so a created group would be an accumulating orphan (same
+  class as `create_board`). Leave `create_group` MISSING_FIXTURE until a `delete_group` product action lands.
+- **Should `add_column` stay MISSING_FIXTURE?** YES. Monday has no safe per-column delete via a registered
+  action (and columns are board-schema changes, not disposable rows), so a created column cannot be cleaned
+  up to 0 leaked. Keep `add_column` MISSING_FIXTURE with this reason until a column-delete action exists.
+- **Keep `create_board` / `duplicate_board` parked?** YES — unchanged. Still blocked until a real product
+  `monday:delete_board` (or `archive_board`) action exists (§31). `add_file` / `download_file` also remain out
+  of scope (file lifecycle needs its own cleanup-safe design).
