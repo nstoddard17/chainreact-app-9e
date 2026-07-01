@@ -40,3 +40,65 @@ export const REACT_AGENT_SECTIONS: readonly ReactAgentSectionMeta[] = [
   { id: "test-outcomes", title: "Test outcomes" },
   { id: "recent-attempts", title: "Recent agent attempts" },
 ];
+
+/**
+ * Phase 2 — internal React Agent metrics (INTERNAL-FEEDBACK-2).
+ *
+ * AGGREGATE COUNTS ONLY. This DTO deliberately carries no prompt/summary/
+ * failure_reason/diff/metadata, and no account_id/user_id/workflow_id — the
+ * repository never even SELECTs those columns. Every field is a non-negative
+ * integer. Empty data yields zeros, never placeholders. `from`/`to` echo the
+ * normalized (ISO) date range that was applied to `created_at`, or null.
+ */
+export interface ReactAgentMetricsRange {
+  readonly from: string | null;
+  readonly to: string | null;
+}
+
+export interface ReactAgentPreviewFunnel {
+  readonly created: number;
+  readonly applied: number;
+  readonly keptAsPreview: number;
+  readonly discarded: number;
+  readonly applyFailed: number;
+  readonly undone: number;
+}
+
+export interface ReactAgentTestOutcomes {
+  readonly tested: number;
+  readonly testFailed: number;
+}
+
+export interface ReactAgentSetupIssues {
+  readonly changesWithIssues: number;
+  readonly totalIssues: number;
+  readonly workflowsNeedingSetup: number;
+}
+
+export interface ReactAgentGovernanceOutcomes {
+  readonly success: number;
+  readonly denied: number;
+  readonly failed: number;
+}
+
+export interface ReactAgentMetrics {
+  readonly range: ReactAgentMetricsRange;
+  readonly totals: {
+    readonly agentChanges: number;
+    readonly governanceEvents: number;
+  };
+  readonly previewFunnel: ReactAgentPreviewFunnel;
+  readonly testOutcomes: ReactAgentTestOutcomes;
+  readonly setupIssues: ReactAgentSetupIssues;
+  readonly governance: { readonly byOutcome: ReactAgentGovernanceOutcomes };
+}
+
+/** Zero-valued metrics — the honest shape for empty tables / a fresh install. */
+export const EMPTY_REACT_AGENT_METRICS: ReactAgentMetrics = {
+  range: { from: null, to: null },
+  totals: { agentChanges: 0, governanceEvents: 0 },
+  previewFunnel: { created: 0, applied: 0, keptAsPreview: 0, discarded: 0, applyFailed: 0, undone: 0 },
+  testOutcomes: { tested: 0, testFailed: 0 },
+  setupIssues: { changesWithIssues: 0, totalIssues: 0, workflowsNeedingSetup: 0 },
+  governance: { byOutcome: { success: 0, denied: 0, failed: 0 } },
+};
