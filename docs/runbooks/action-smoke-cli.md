@@ -1465,6 +1465,54 @@ dev store (not a live storefront), and get Marcus's explicit approval for commer
 unless a sandbox dev store is confirmed, since they mutate commerce state with no clean
 reversal. Stripe stays out of scope for this slice by the same commerce framing.
 
+**Action-smoke frontier status (re-scanned 2026-07-03) — currently connected SAFE surface is
+EXHAUSTED.** After OneNote `copy_page` certified (matrix: 298 registered / 156 LIVE_PASS / 11
+NOT_RUN / 131 MISSING_FIXTURE / 0 fail / 0 bug), a full re-scan of all 11 NOT_RUN and every
+connected provider's MISSING_FIXTURE actions found NO action that is safe to certify now. Every
+remaining action falls into one of these blocker categories:
+- **Provider not connected** (blocks its whole surface): `discord` (0 LIVE_PASS; `fetch_messages`
+  NOT_RUN needs `SMOKE_DISCORD_CONNECTED` + guild/channel ids), `github` (0 LIVE_PASS, and the
+  registered set is write-only anyway), `stripe` (0 LIVE_PASS + commerce).
+- **Connected but no usable resource:** `google-analytics` (4 NOT_RUN: `run_report`,
+  `run_pivot_report`, `get_realtime_data`, `find_conversion`) — connected but no usable GA4
+  property, so selector auto-discovery finds nothing. Unlock: connect/select a GA4 property.
+- **Write-only registered set, no read + no cleanup action:** `shopify` (11, commerce),
+  `github` (6). Nothing read-only to run; no `delete_*` for a smoke-owned create -> cleanup.
+- **Create action with NO registered cleanup (would leave a heavy artifact):** `notion`
+  `create_database` (no db read/archive/delete), `microsoft-onenote` `create_section` /
+  `create_notebook` (no delete-section/notebook), `trello` `create_board` / `create_list` (no
+  board/list archive/delete), `monday` `create_board` / `duplicate_board` / `create_group` /
+  `add_column` (Monday has only `delete_item` / `archive_item` for ITEMS; no board/group/column
+  delete), plus the many `hubspot` (19) and `mailchimp` (10) CRM/audience creates/updates with no
+  entity-delete action.
+- **Send / post / reply / broadcast / schedule (no-send policy):** `gmail` (send/reply/draft),
+  `microsoft-outlook` (send/forward/reply), `microsoft-teams` (3 sends), `facebook` (posts/messages),
+  `slack` (`send_direct_message`, `post_interactive_blocks`, `schedule_message` + `update_message`).
+- **Raw bytes / download / export / share-link:** `dropbox` `download_file` / `get_temporary_link` /
+  `create_shared_link`, `gmail` / `microsoft-outlook` `get_attachment`, `microsoft-excel`
+  `export_sheet`, `google-docs` `export_document` / `share_document`, `monday` `add_file` /
+  `download_file`, `slack` `upload_file` / `download_file`, `facebook` `upload_photo` / `upload_video`.
+- **Mutation of a PRE-EXISTING user resource (not smoke-owned):** `slack` reactions / pins /
+  channel-lifecycle / membership, `gmail` / `microsoft-outlook` label / read-state / move / category
+  changes, `monday` `add_column`.
+- **Deliberately uncertified baseline:** `native:format_transformer` (always-run live-harness proof;
+  never gets a durable cert row by design).
+- **Destructive, needs a smoke-owned target it cannot self-create under this slice's rules:**
+  `slack:delete_message` (NOT_RUN) — destructive so never `liveSafe`, and it has no write-harness
+  setup; certifying it needs a re-author as a destructiveSafe flow (setup POSTS a throwaway message
+  to the smoke channel -> capture ts -> `delete_message` as executeIsCleanup -> verify gone). That
+  setup POST is a send, which this slice's safety framing forbids. It is the single closest
+  candidate: unblock it only with explicit approval to post a throwaway smoke message in setup
+  (the same dedicated smoke channel `slack:send_channel_message` is already certified against).
+
+**Next unlock (highest yield first):** (1) approve a smoke-message post-in-setup so `slack:delete_message`
+can certify as a create -> delete -> verify flow; (2) connect a usable GA4 property to unblock the 4 GA
+reads; (3) register `delete_*` / archive actions for boards/lists/groups/sections/notebooks/databases to
+unblock the create-without-cleanup batches (Trello, Monday, Notion, OneNote); (4) explicit owner approval
+(plus a dedicated dev store) for commerce smoke on Shopify/Stripe, or register their read surfaces. None of
+these are code changes an action-smoke slice can make alone; each needs a connection, an owner decision, or
+provider-implementation work outside action-smoke scope.
+
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
 - `"delete"` — REQUIRED. Success -> `artifact: "cleaned"` (object gone) ->
