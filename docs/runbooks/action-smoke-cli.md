@@ -1263,8 +1263,30 @@ on the rendered `content` (the seeded body lacks "updated", so a no-op fails); `
 threads the required `notebookId` + `sectionId` cascade parents (the metas mark them required for
 readiness even though the handlers ignore them). **Still BLOCKED:** `create_section` /
 `create_notebook` (no registered delete-section/delete-notebook action -> a created section/notebook
-would persist as a heavy visible artifact); `copy_page` (creates a second page — certifiable later
-via the same delete_page cleanup, deferred from this batch).
+would persist as a heavy visible artifact).
+
+**`microsoft-onenote:copy_page` — attempted live 2026-07-03, NOT certified (copy_monitor id is
+unreliable).** The `copy_monitor` smoke seam captures the copied page id from the async
+`copyToSection` operation's `Location`/`resourceLocation`, but OneNote returns an ephemeral/staging
+page id that Graph intermittently reports as `not found: The specified resource has been deleted` on
+read-back and on delete. The result is non-deterministic across runs on the same fixture: `verify`
+(get_page_content on the captured id) sometimes confirms the marker and sometimes fails with
+`read-back did not contain the smoke marker`, and cleanup of the captured id fails while the REAL
+durable copy is intermittently left orphaned (one run leaked a real `crsmoke-` page, removed via
+`scripts/trash/cleanup-leaked-onenote-pages.ts`; a second run leaked nothing). The existing bounded
+`microsoft-onenote:delete_page` cleanup retry does not rescue it: the humanized failure reason
+(`Workflow step failed`) never matches the 404-already-cleaned path, and the captured id is wrong
+regardless of retries. Recommended unlock: after the copy completes, stop trusting the operation's
+`resourceLocation` page id and instead re-list the target section's pages, select the newly-created
+page whose title equals the source marker AND whose id differs from `sourcePageId`, and use THAT
+durable id for verify + cleanup (with a small bounded wait for it to appear). Production `copy_page`
+is unaffected: it returns `{operationLocation, success:true}` and never captures or uses a copy id.
+In the same session `update_page` failed its execute once (transient OneNote Graph lag) and PASSED
+on immediate re-run, so its existing LIVE_PASS cert stands. With `copy_page` blocked, `native`
+baseline uncertified-by-design, google-analytics blocked (no usable property), and discord/stripe
+not connected, the current safe action-smoke certification surface is exhausted; the next real yield
+needs either the copy_monitor durable-id fix above, a connected GA property, or new provider
+connections.
 
 **Google Calendar write coverage (SMOKE-WRITE-21) — 3 of 4 write actions certified.**
 `create_event`, `update_event`, `delete_event` all `LIVE_PASS_CLEANED`. Each is smoke-owned on
