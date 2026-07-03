@@ -11,7 +11,7 @@
  */
 
 import { SLACK_TOKEN_PLACEHOLDER } from "@/tests/helpers/syntheticSecrets";
-import { slackApiRequest } from "@/integrations/slack/api/_request";
+import { slackApiRequest, slackApiRequestForm } from "@/integrations/slack/api/_request";
 import { SlackApiError } from "@/integrations/slack/api/errors";
 
 function mockFetchOnce(body: string | null, status: number): void {
@@ -34,9 +34,52 @@ describe("slackApiRequest — success", () => {
     await expect(call()).resolves.toEqual({ ok: true, channels: [] });
   });
 
+  it("sends a JSON body with the application/json content-type", async () => {
+    const spy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    await slackApiRequest("conversations.list", SLACK_TOKEN_PLACEHOLDER, { types: "public_channel" });
+    const init = spy.mock.calls[0]![1]!;
+    expect((init.headers as Record<string, string>)["content-type"]).toBe("application/json; charset=utf-8");
+    expect(JSON.parse(init.body as string)).toEqual({ types: "public_channel" });
+  });
+
   it("throws the logical code on HTTP 200 + ok:false (unchanged)", async () => {
     mockFetchOnce(JSON.stringify({ ok: false, error: "missing_scope" }), 200);
     await expect(call()).rejects.toMatchObject({ slackErrorCode: "missing_scope" });
+  });
+});
+
+describe("slackApiRequestForm — form-encoded transport (for methods that reject JSON)", () => {
+  it("sends application/x-www-form-urlencoded params and returns the parsed body", async () => {
+    const spy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, channel: { id: "C1" } }), { status: 200 }));
+    const out = await slackApiRequestForm("conversations.info", SLACK_TOKEN_PLACEHOLDER, { channel: "C1" });
+    const init = spy.mock.calls[0]![1]!;
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["content-type"]).toBe("application/x-www-form-urlencoded");
+    expect(init.body).toBe("channel=C1");
+    expect(out).toEqual({ ok: true, channel: { id: "C1" } });
+  });
+
+  it("omits undefined params and stringifies scalars", async () => {
+    const spy = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    await slackApiRequestForm("conversations.info", SLACK_TOKEN_PLACEHOLDER, {
+      channel: "C1",
+      limit: 5,
+      skip: undefined,
+    });
+    expect(spy.mock.calls[0]![1]!.body).toBe("channel=C1&limit=5");
+  });
+
+  it("throws the logical code on ok:false (same handling as JSON)", async () => {
+    mockFetchOnce(JSON.stringify({ ok: false, error: "channel_not_found" }), 200);
+    await expect(
+      slackApiRequestForm("conversations.info", SLACK_TOKEN_PLACEHOLDER, { channel: "C1" }),
+    ).rejects.toMatchObject({ slackErrorCode: "channel_not_found" });
   });
 });
 

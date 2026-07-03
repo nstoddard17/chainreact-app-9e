@@ -1,4 +1,4 @@
-import { slackApiRequest, type SlackOkResponse } from "./_request";
+import { slackApiRequestForm, type SlackOkResponse } from "./_request";
 import { SlackApiError } from "./errors";
 
 /**
@@ -10,6 +10,10 @@ import { SlackApiError } from "./errors";
  * the full raw object available.
  *
  * Slack docs: https://api.slack.com/methods/conversations.info
+ *
+ * TRANSPORT: form-encoded (`slackApiRequestForm`), NOT JSON. conversations.info rejects
+ * the `application/json` body with `invalid_arguments` (verified live); its flat `channel`
+ * param must be form-encoded. Response shape is unchanged.
  *
  * Scopes required vary by channel kind:
  *   - public channel (C…) → `channels:read`
@@ -38,7 +42,7 @@ interface SlackResponseBody extends SlackOkResponse {
 export async function conversationsInfo(
   input: ConversationsInfoInput,
 ): Promise<ConversationsInfoResult> {
-  const response = await slackApiRequest<SlackResponseBody>(
+  const response = await slackApiRequestForm<SlackResponseBody>(
     "conversations.info",
     input.botToken,
     { channel: input.channel },

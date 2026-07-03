@@ -126,7 +126,9 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["slack", "list_channels"],
     ["slack", "list_users"],
     ["slack", "list_scheduled_messages"],
-    ["slack", "get_channel_info"],
+    // NOTE: slack:get_channel_info moved to its own 2026-07-03 entry below — its
+    // 2026-06-20 "pass" was STALE (conversations.info was actually broken; fixed +
+    // re-verified after the JSON->form transport fix).
     ["slack", "get_messages"],
     ["slack", "get_user_info"],
     ["slack", "get_thread_messages"],
@@ -618,6 +620,16 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["slack", "set_channel_topic"],
     ["slack", "set_channel_purpose"],
     ["slack", "archive_channel"],
+  ]),
+  // SLACK-GET-CHANNEL-INFO transport fix (2026-07-03). The 2026-06-20 LIVE_PASS was STALE:
+  // conversations.info returns invalid_arguments for its application/json body (re-verified
+  // live: get_channel_info FAILed through the engine; JSON -> invalid_arguments, form/GET ->
+  // ok on the same channel). Fixed by routing conversations.info through a new form-encoded
+  // transport (slackApiRequestForm); every other Slack method keeps JSON. Output shape
+  // unchanged; get_channel_info re-verified LIVE_PASS. (SUSPECTED same-class, NOT fixed here:
+  // slack:get_user_info / users.info also uses JSON and FAILed the sweep — next investigation.)
+  ...records("LIVE_PASS", "live read re-verified after conversations.info JSON->form transport fix", SMOKE_WRITE_SLACK, [
+    ["slack", "get_channel_info"],
   ]),
   // SMOKE-WRITE-34 — Google Docs update_document. setup create_document (marker
   // title+body) -> execute update_document APPENDS "<marker>updated" (insertLocation

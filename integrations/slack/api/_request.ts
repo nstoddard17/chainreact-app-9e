@@ -39,13 +39,55 @@ export async function slackApiRequest<TResponse extends SlackOkResponse>(
   botToken: string,
   body: Record<string, unknown>,
 ): Promise<TResponse> {
+  return sendSlackRequest<TResponse>(
+    endpoint,
+    botToken,
+    "application/json; charset=utf-8",
+    JSON.stringify(body),
+  );
+}
+
+/**
+ * Form-encoded (`application/x-www-form-urlencoded`) variant of `slackApiRequest`.
+ *
+ * A handful of Slack read methods reject the `application/json` transport with
+ * `invalid_arguments` even though the JSON body is well-formed — `conversations.info`
+ * is the confirmed case (verified live: JSON -> `invalid_arguments`, form -> ok). Those
+ * methods must send their (flat, scalar) params form-encoded. Use this ONLY for such a
+ * method; everything with nested args (e.g. Block Kit `blocks`) stays on JSON via
+ * `slackApiRequest`. Undefined param values are omitted; all others are stringified.
+ * Response handling (ok/error/http_<status>) is identical to `slackApiRequest`.
+ */
+export async function slackApiRequestForm<TResponse extends SlackOkResponse>(
+  endpoint: string,
+  botToken: string,
+  params: Record<string, string | number | boolean | undefined>,
+): Promise<TResponse> {
+  const form = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) form.set(key, String(value));
+  }
+  return sendSlackRequest<TResponse>(
+    endpoint,
+    botToken,
+    "application/x-www-form-urlencoded",
+    form.toString(),
+  );
+}
+
+async function sendSlackRequest<TResponse extends SlackOkResponse>(
+  endpoint: string,
+  botToken: string,
+  contentType: string,
+  body: string,
+): Promise<TResponse> {
   const response = await fetch(`${slackApiBase()}/api/${endpoint}`, {
     method: "POST",
     headers: {
       authorization: `Bearer ${botToken}`,
-      "content-type": "application/json; charset=utf-8",
+      "content-type": contentType,
     },
-    body: JSON.stringify(body),
+    body,
   });
 
   // Non-2xx is typically a token / scope / rate-limit problem. Slack OFTEN

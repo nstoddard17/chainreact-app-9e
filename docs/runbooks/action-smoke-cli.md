@@ -1574,14 +1574,27 @@ channel by id, archived included) and `pickSlackSmokeChannel` now excludes archi
 (`excludeArchived` is unreliable, and `crsmoke` matches `/smoke/`, so an archived smoke channel could
 otherwise be picked as a post target).
 
-**IMPORTANT follow-up (likely production bug, NOT fixed here):** `conversations.info` returns
-`invalid_arguments` for every channel via its JSON-body transport (confirmed live on both an existing
-and a freshly-created channel, wrapper and raw). Since `slack:get_channel_info` wraps
-`conversations.info`, that certified READ action is very likely broken in production. Out of scope for
-this channel write slice; a follow-up should re-verify `get_channel_info` live and, if it fails, fix
-the `conversations.info` transport (e.g. form-encoded params) and re-cert. **Rate-limit caveat:** Slack
-rate-limits `conversations.create`; running this batch repeatedly in rapid succession can transiently
-fail a create (a single run at normal cadence passes).
+**`slack:get_channel_info` bug — CONFIRMED then FIXED 2026-07-03 (production transport fix).** The
+suspected bug was real: `conversations.info` returned `invalid_arguments` for EVERY channel via its
+`application/json` body transport (re-verified live through the engine: `slack:get_channel_info`
+FAILed in the read sweep; and directly JSON -> `invalid_arguments`, form-encoded / GET -> ok on the
+same channel). So the prior `get_channel_info` LIVE_PASS cert was STALE (the action was actually broken
+in production). **Fix:** added a form-encoded transport `slackApiRequestForm` to
+[`integrations/slack/api/_request.ts`](../../integrations/slack/api/_request.ts) (same response /
+error handling as `slackApiRequest`; `application/x-www-form-urlencoded` instead of JSON) and switched
+ONLY `conversations.info` ([`conversationsInfo.ts`](../../integrations/slack/api/conversationsInfo.ts))
+to it. Every other Slack method keeps JSON (methods with nested args like Block Kit `blocks` need it).
+Output shape unchanged. Re-verified live: `slack:get_channel_info` now PASSES. Cert stays LIVE_PASS
+(now genuine). Unit coverage: `conversationsInfo.test.ts` asserts the form body; `_request.test.ts`
+covers `slackApiRequestForm` (form content-type, undefined-param omission, ok:false handling).
+**SUSPECTED same-class (NOT verified, NOT fixed this slice):** `slack:get_user_info` also FAILed in the
+read sweep and `users.info` uses the same JSON `slackApiRequest`; it is a likely same-transport bug but
+was not confirmed live (needs a valid user id) — recommended as the immediate next investigation, fixed
+the same way (`slackApiRequestForm`) if it reproduces. `slack:get_messages` FAILing in that sweep is a
+DIFFERENT cause (membership: `conversations.history` needs the bot IN the channel, and the sweep used a
+non-member channel) — not a transport bug. **Rate-limit caveat:** Slack rate-limits
+`conversations.create`; running the channel-lifecycle batch repeatedly in rapid succession can
+transiently fail a create (a single run at normal cadence passes).
 
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
