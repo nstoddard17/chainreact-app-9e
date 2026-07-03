@@ -180,6 +180,12 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_SLACK_INVITE_USER_ID = smokeUser.userId; // id -> env overlay only
         targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}invite user "${smokeUser.userName}"`;
       }
+      // schedule_message / cancel_scheduled_message need a FUTURE post_at within Slack's
+      // 120-day window. Compute it live (~7 days out) so it never delivers mid-test and
+      // never goes stale (a hardcoded fixture timestamp would eventually be time_in_past).
+      // A pinned SMOKE_SLACK_POST_AT wins for a deterministic re-run.
+      overlay.SMOKE_SLACK_POST_AT =
+        process.env.SMOKE_SLACK_POST_AT || String(Math.floor(Date.now() / 1000) + 7 * 24 * 3600);
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the
       // DB (probeWriteConnection) — NO SMOKE_MONDAY_CONNECTED. A pinned

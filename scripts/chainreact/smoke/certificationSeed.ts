@@ -48,6 +48,7 @@ const LIVE_NOTION_BLOCKS = "2026-07-01";
 const SMOKE_WRITE_ONENOTE_COPY = "2026-07-03";
 const SMOKE_WRITE_SLACK = "2026-07-03";
 const SMOKE_WRITE_SLACK_MEMBERSHIP = "2026-07-03";
+const SMOKE_WRITE_SLACK_SCHEDULED = "2026-07-03";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -660,6 +661,23 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["slack", "leave_channel"],
     ["slack", "invite_users_to_channel"],
     ["slack", "remove_user_from_channel"],
+  ]),
+  // SLACK-SCHEDULED-MESSAGE-BATCH (2026-07-03) — schedule + cancel a future message on
+  // the smoke channel (SMOKE_SLACK_CHANNEL_ID; the bot self-joins via join_channel).
+  // post_at is a LIVE-COMPUTED future Unix-second timestamp (~7 days out, inside Slack's
+  // 120-day window) overlaid as SMOKE_SLACK_POST_AT, so the message never delivers
+  // mid-test and the fixture never goes stale (a hardcoded timestamp would eventually be
+  // time_in_past). Each verified by an INDEPENDENT chat.scheduledMessages.list read-back
+  // (the action echo is never trusted). Verified live (created 1 / cleaned 1 / 0 leaked
+  // each):
+  //   - schedule_message -> list_scheduled_messages proves the run marker is QUEUED;
+  //     cancel_scheduled_message cleanup removes it (cleanupKind delete -> gone).
+  //   - cancel_scheduled_message -> setup schedules, execute cancels (executeIsCleanup);
+  //     list_scheduled_messages proves the marker is ABSENT.
+  // No scheduled message is left to ever deliver (0 scheduled-message leaks).
+  ...records("LIVE_PASS_CLEANED", "live schedule/cancel + independent scheduledMessages.list read-back (scheduled message cancelled, none left to deliver)", SMOKE_WRITE_SLACK_SCHEDULED, [
+    ["slack", "schedule_message"],
+    ["slack", "cancel_scheduled_message"],
   ]),
   // BLOCKED (not certified): slack:unarchive_channel. conversations.archive REMOVES the
   // bot from the channel, and conversations.unarchive then returns `not_in_channel` for a
