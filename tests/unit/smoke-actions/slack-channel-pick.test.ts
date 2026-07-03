@@ -7,6 +7,7 @@
  */
 import {
   pickSlackSmokeChannel,
+  pickSlackSmokeUserIds,
   extractSlackMessageState,
   extractSlackChannelState,
 } from "@/tests/smoke-actions/writeHarnessDeps/slack";
@@ -94,29 +95,32 @@ describe("extractSlackChannelState", () => {
       id: "C_A",
       name: "crsmoke-x-after",
       is_archived: true,
+      is_member: true,
       topic: { value: "crsmoke-x-topicset here" },
       purpose: { value: "crsmoke-x-purposeset here" },
     }),
     ch({ id: "C_B", name: "general" }),
   ];
 
-  it("flattens the target channel's name/topic/purpose/is_archived by id", () => {
+  it("flattens the target channel's name/topic/purpose/is_archived/is_member by id", () => {
     expect(extractSlackChannelState(channels, "C_A")).toEqual({
       found: true,
       name: "crsmoke-x-after",
       topic: "crsmoke-x-topicset here",
       purpose: "crsmoke-x-purposeset here",
       is_archived: true,
+      is_member: true,
     });
   });
 
-  it("defaults missing topic/purpose to empty strings and is_archived to false", () => {
+  it("defaults missing topic/purpose to empty strings and is_archived/is_member to false", () => {
     expect(extractSlackChannelState(channels, "C_B")).toEqual({
       found: true,
       name: "general",
       topic: "",
       purpose: "",
       is_archived: false,
+      is_member: false,
     });
   });
 
@@ -127,6 +131,28 @@ describe("extractSlackChannelState", () => {
       topic: "",
       purpose: "",
       is_archived: false,
+      is_member: false,
     });
+  });
+});
+
+describe("pickSlackSmokeUserIds", () => {
+  it("keeps real human members and drops bots, Slackbot, and deleted users", () => {
+    const members = [
+      { id: "USLACKBOT", name: "slackbot" },
+      { id: "UBOT1", name: "app", is_bot: true },
+      { id: "UDEL", name: "gone", deleted: true },
+      { id: "UHUMAN1", name: "alice" },
+      { id: "UHUMAN2", name: "bob" },
+    ];
+    expect(pickSlackSmokeUserIds(members)).toEqual(["UHUMAN1", "UHUMAN2"]);
+  });
+
+  it("returns an empty list when no eligible human exists", () => {
+    const members = [
+      { id: "USLACKBOT", name: "slackbot" },
+      { id: "UBOT1", name: "app", is_bot: true },
+    ];
+    expect(pickSlackSmokeUserIds(members)).toEqual([]);
   });
 });

@@ -21,6 +21,8 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { conversationsList } from "@/integrations/slack/api/conversationsList";
 import { conversationsHistory } from "@/integrations/slack/api/conversationsHistory";
+import { conversationsMembers } from "@/integrations/slack/api/conversationsMembers";
+import { usersList } from "@/integrations/slack/api/usersList";
 import type { StepRunOutcome } from "../writeHarness";
 import type { SmokeReaderContext, SmokeReaderInput } from "./context";
 
@@ -102,6 +104,48 @@ export async function discoverSlackSmokeChannel(
   return pickSlackSmokeChannel(channels, pinnedId);
 }
 
+export interface ChosenSlackUser {
+  readonly userId: string;
+  readonly userName: string;
+}
+
+/**
+ * Discover a SAFE second user for invite_users_to_channel / remove_user_from_channel
+ * smoke. Reads a bounded window of `users.list` and picks a REAL human member of the
+ * throwaway workspace (never a bot, never Slackbot, never deleted). When `pinnedId`
+ * (SMOKE_SLACK_INVITE_USER_ID) is set, that exact user is used if it is eligible.
+ * READ-ONLY (`users.list`). Returns the user id + display name (id -> env-overlay only)
+ * or null -> caller reports BLOCKED_ENV (Marcus must add a real second user to the
+ * throwaway Slack workspace). NEVER invents a user id.
+ */
+export async function discoverSlackSmokeUser(
+  accountId: string,
+  _userId: string,
+  pinnedId?: string | null,
+): Promise<ChosenSlackUser | null> {
+  const integration = await getActiveForExecution(accountId, "slack", null);
+  if (!integration) return null;
+  let members: readonly Readonly<Record<string, unknown>>[];
+  try {
+    const res = await refreshAndRetry({
+      accountId,
+      provider: "slack",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) => usersList({ botToken: accessToken, limit: 200 }),
+    });
+    members = res.users;
+  } catch {
+    return null;
+  }
+  const eligible = pickSlackSmokeUserIds(members);
+  const chosenId = pinnedId && eligible.includes(pinnedId) ? pinnedId : eligible[0];
+  if (!chosenId) return null;
+  const chosen = members.find((m) => m.id === chosenId);
+  const profile = chosen?.profile as Record<string, unknown> | undefined;
+  const name = String(chosen?.name ?? profile?.display_name ?? profile?.real_name ?? chosenId);
+  return { userId: chosenId, userName: name };
+}
+
 /**
  * Extract the sanitized state of ONE message from a `conversations.history` window.
  * Finds the message by its `ts` and returns only what a smoke verify reads: whether it
@@ -130,9 +174,16 @@ export function extractSlackMessageState(
 export function extractSlackChannelState(
   channels: readonly Readonly<Record<string, unknown>>[],
   channelId: string,
-): { found: boolean; name: string; topic: string; purpose: string; is_archived: boolean } {
+): {
+  found: boolean;
+  name: string;
+  topic: string;
+  purpose: string;
+  is_archived: boolean;
+  is_member: boolean;
+} {
   const ch = channels.find((c) => c.id === channelId);
-  if (!ch) return { found: false, name: "", topic: "", purpose: "", is_archived: false };
+  if (!ch) return { found: false, name: "", topic: "", purpose: "", is_archived: false, is_member: false };
   const nested = (v: unknown): string =>
     v && typeof v === "object" && "value" in v ? String((v as { value?: unknown }).value ?? "") : "";
   return {
@@ -141,7 +192,32 @@ export function extractSlackChannelState(
     topic: nested(ch.topic),
     purpose: nested(ch.purpose),
     is_archived: ch.is_archived === true,
+    // Bot's own membership — conversations.list reports `is_member` per channel for
+    // every public channel visible with channels:read, regardless of membership. This
+    // is what join_channel (true) / leave_channel (false) verify against.
+    is_member: ch.is_member === true,
   };
+}
+
+/**
+ * Pick the eligible member ids from a `users.list` window for smoke invite/remove.
+ * A candidate must be a REAL human of the throwaway workspace: not a bot (`is_bot`),
+ * not the special Slackbot (`USLACKBOT`), not deleted. Returns ids in Slack's list
+ * order (deterministic). Pure over the members array.
+ */
+export function pickSlackSmokeUserIds(
+  members: readonly Readonly<Record<string, unknown>>[],
+): string[] {
+  return members
+    .filter(
+      (m) =>
+        typeof m.id === "string" &&
+        (m.id as string).length > 0 &&
+        m.id !== "USLACKBOT" &&
+        m.is_bot !== true &&
+        m.deleted !== true,
+    )
+    .map((m) => m.id as string);
 }
 
 /** Read a smoke-owned message's precise text + reactions via `conversations.history`. */
@@ -199,15 +275,53 @@ async function readSlackChannelState(
     cursor = res.nextCursor;
   }
   // Not found in the bounded page budget -> report a found:false state (honest; a verify
-  // asserting on name/is_archived then fails rather than falsely passing).
-  return { ok: true, output: { found: false, name: "", topic: "", purpose: "", is_archived: false }, reason: null };
+  // asserting on name/is_archived/is_member then fails rather than falsely passing).
+  return {
+    ok: true,
+    output: { found: false, name: "", topic: "", purpose: "", is_archived: false, is_member: false },
+    reason: null,
+  };
 }
 
 /**
- * Slack smoke read-back seam. Owns two smoke-only read actions:
- *   - `message_state` — ONE message's text + reactions (`conversations.history`).
- *   - `channel_state`  — ONE channel's name/topic/purpose/is_archived (`conversations.list`;
- *     `conversations.info` is unusable, its JSON transport returns `invalid_arguments`).
+ * Read a channel's member user-id list via `conversations.members` (bounded cursor
+ * paging). Sanitized: `{ members: string[] }` — only the user ids a membership verify
+ * reads (never the raw user objects / profiles / PII). Proves a SPECIFIC user's
+ * membership for invite_users_to_channel (expectContains) and its removal for
+ * remove_user_from_channel (expectAbsent).
+ */
+async function readSlackChannelMembers(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const channel = typeof input.config.channel === "string" ? input.config.channel : "";
+  if (!channel) return { ok: false, output: null, reason: "slack channel_members: missing channel" };
+  const integration = await getActiveForExecution(ctx.accountId, "slack", null);
+  if (!integration) return { ok: false, output: null, reason: "slack not connected" };
+  const members: string[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 5; page++) {
+    const res = await refreshAndRetry({
+      accountId: ctx.accountId,
+      provider: "slack",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) => conversationsMembers({ botToken: accessToken, channel, limit: 200, cursor }),
+    });
+    members.push(...res.members);
+    if (!res.nextCursor) break;
+    cursor = res.nextCursor;
+  }
+  return { ok: true, output: { members }, reason: null };
+}
+
+/**
+ * Slack smoke read-back seam. Owns three smoke-only read actions:
+ *   - `message_state`   — ONE message's text + reactions (`conversations.history`).
+ *   - `channel_state`   — ONE channel's name/topic/purpose/is_archived/is_member
+ *     (`conversations.list`; `conversations.info` is unusable — its JSON transport
+ *     returns `invalid_arguments`).
+ *   - `channel_members` — a channel's member user-id list (`conversations.members`,
+ *     form transport) for invite/remove membership verifies.
  * Returns null for any other (provider, action). Bounded + sanitized.
  */
 export async function slackSmokeReadBack(
@@ -217,5 +331,6 @@ export async function slackSmokeReadBack(
   if (input.provider !== "slack") return null;
   if (input.action === "message_state") return readSlackMessageState(ctx, input);
   if (input.action === "channel_state") return readSlackChannelState(ctx, input);
+  if (input.action === "channel_members") return readSlackChannelMembers(ctx, input);
   return null;
 }

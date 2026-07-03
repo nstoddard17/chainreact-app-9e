@@ -20,6 +20,12 @@ import {
 
 export interface RunWriteSmokeBatchOptions {
   readonly providerFilter?: string | null;
+  /**
+   * Optional allow-list of action names (within the provider) to run — scopes a live
+   * sweep to a specific batch so it never bursts every write fixture of a provider
+   * (e.g. Slack rate-limits conversations.create). Empty / null / undefined runs all.
+   */
+  readonly actionFilter?: readonly string[] | null;
   /** ALLOW_LIVE_PROVIDER_WRITE_SMOKE — required by every mutating class. */
   readonly allowWrite?: boolean;
   /** ALLOW_DESTRUCTIVE_PROVIDER_SMOKE — required by destructiveSafe. */
@@ -43,9 +49,12 @@ export async function runActionSmokeWriteMode(
   options: RunWriteSmokeBatchOptions,
   deps: WriteHarnessDeps,
 ): Promise<WriteSmokeBatchResult> {
-  const selected = options.providerFilter
+  const byProvider = options.providerFilter
     ? fixtures.filter((f) => f.provider === options.providerFilter)
     : fixtures;
+  const actionAllow =
+    options.actionFilter && options.actionFilter.length > 0 ? new Set(options.actionFilter) : null;
+  const selected = actionAllow ? byProvider.filter((f) => actionAllow.has(f.action)) : byProvider;
 
   const writeResults: WriteSmokeResult[] = [];
   const smokeResults = [];

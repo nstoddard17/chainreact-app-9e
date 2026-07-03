@@ -297,6 +297,18 @@ export interface WriteHarnessSpec {
    */
   readonly cleanupEach?: ActionStepSpec;
   /**
+   * MULTI-STEP cleanup: an ORDERED list of registered actions that TOGETHER dispose
+   * of the smoke resource, for a teardown a single action cannot do. Runs after
+   * `verify`; each step is token-resolved and MUST target a smoke-owned ledger
+   * resource (same guard as `cleanup`). Steps run in order and stop at the first
+   * failure. ALL steps must succeed for the resource to count cleaned — e.g. Slack
+   * `leave_channel`: the bot left the channel, so archiving now returns
+   * `not_in_channel`; the disposition is `[join_channel (rejoin), archive_channel]`.
+   * `cleanupKind` applies to the final disposition (archive -> artifact "archived").
+   * Mutually exclusive with `cleanup` / `cleanupEach`.
+   */
+  readonly cleanupAll?: readonly ActionStepSpec[];
+  /**
    * What the cleanup action does to the smoke object — decides both whether
    * cleanup is REQUIRED for safety and how a leftover is reported:
    *   - "delete" (default when `cleanup` is set) — REQUIRED: a delete flow's

@@ -49,6 +49,7 @@ import {
   discoverMondaySmokeBoardGroup,
   discoverOneNoteSmokeSection,
   discoverSlackSmokeChannel,
+  discoverSlackSmokeUser,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -166,6 +167,19 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_SLACK_CHANNEL_ID = chosen.channelId; // id -> env overlay only
         targetLabel = `channel "${chosen.channelName}"`;
       }
+      // invite_users_to_channel / remove_user_from_channel need a REAL second user of
+      // the throwaway workspace. A pinned SMOKE_SLACK_INVITE_USER_ID wins; else discover
+      // a real human member from users.list (never a bot, never Slackbot, never
+      // invented). Absent one -> no overlay -> those two fixtures report BLOCKED_ENV.
+      const smokeUser = await discoverSlackSmokeUser(
+        account,
+        user,
+        process.env.SMOKE_SLACK_INVITE_USER_ID || null,
+      );
+      if (smokeUser) {
+        overlay.SMOKE_SLACK_INVITE_USER_ID = smokeUser.userId; // id -> env overlay only
+        targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}invite user "${smokeUser.userName}"`;
+      }
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the
       // DB (probeWriteConnection) — NO SMOKE_MONDAY_CONNECTED. A pinned
@@ -268,10 +282,19 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     }
 
     try {
+      // Optional SMOKE_ACTIONS=comma,list scopes the sweep to specific actions of the
+      // provider (e.g. a single Slack membership batch) so a live run never bursts every
+      // write fixture (Slack rate-limits conversations.create). Unset -> all run.
+      const actionFilter = (process.env.SMOKE_ACTIONS || "")
+        .split(",")
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0);
+
       const { report, writeResults } = await runActionSmokeWriteMode(
         WRITE_SMOKE_FIXTURES,
         {
           providerFilter: provider,
+          actionFilter: actionFilter.length > 0 ? actionFilter : null,
           allowWrite: true,
           allowDestructive: true,
           runToken: randomUUID().slice(0, 8),

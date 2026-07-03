@@ -45,6 +45,8 @@ drift.
 | `SMOKE_SLACK_USER_ID=<U…>` | Slack `get_user_info` | A Slack user id to look up. Unset → SKIP. |
 | `SMOKE_SLACK_THREAD_TS=<ts>` | Slack `get_thread_messages` | A parent thread ts in the smoke channel. Unset → SKIP. |
 | `SMOKE_SLACK_FILE_ID=<F…>` | Slack `get_file_info` | A Slack file id to look up. Unset → SKIP. |
+| `SMOKE_SLACK_INVITE_USER_ID=<U…>` | Slack `invite_users_to_channel`, `remove_user_from_channel` (write) | A REAL second workspace user to invite/remove. Auto-discovered live via `discoverSlackSmokeUser` (first eligible human from `users.list` — never a bot, never Slackbot); a pinned value wins. Unset / no eligible human → those two fixtures report BLOCKED_ENV. |
+| `SMOKE_ACTIONS=<a,b,c>` | write-live runner (optional) | Comma-separated action allow-list within `SMOKE_PROVIDER` — scopes a live sweep to a specific batch so it never bursts every write fixture (Slack rate-limits `conversations.create`). Unset → all of the provider's write fixtures run. |
 | `SMOKE_AIRTABLE_CONNECTED=1` | Airtable fixtures | Signals the smoke account has Airtable connected. Unset → Airtable fixtures SKIP. |
 | `SMOKE_AIRTABLE_BASE_ID=<app…>` | Airtable fixtures | The base id. Unset → SKIP. |
 | `SMOKE_AIRTABLE_TABLE_ID=<tbl… or name>` | Airtable `get_table_schema`, `list_records`, `find_record`, `get_record` | The table id or name (`tableIdOrName`). Unset → SKIP. |

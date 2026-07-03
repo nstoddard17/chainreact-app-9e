@@ -47,6 +47,7 @@ const SMOKE_WRITE_MONDAY = "2026-06-30";
 const LIVE_NOTION_BLOCKS = "2026-07-01";
 const SMOKE_WRITE_ONENOTE_COPY = "2026-07-03";
 const SMOKE_WRITE_SLACK = "2026-07-03";
+const SMOKE_WRITE_SLACK_MEMBERSHIP = "2026-07-03";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -633,6 +634,43 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["slack", "get_channel_info"],
     ["slack", "get_user_info"],
   ]),
+  // SLACK-MEMBERSHIP-BATCH (2026-07-03) — self-contained membership / channel-state
+  // write actions on smoke-CREATED public channels (never a pre-existing user channel).
+  // Each creates its own crsmoke-<run>-<suffix> channel, mutates membership, verifies via
+  // an INDEPENDENT read-back seam, then archives (Slack has no hard channel delete ->
+  // archived-channel artifact). Verified live (created 1 / archived 1 / 0 ACTIVE leaked
+  // each):
+  //   - join_channel   -> setup create + LEAVE (a genuine non-member), then join; the new
+  //     slack:channel_state seam (conversations.list) proves is_member==true.
+  //   - leave_channel  -> setup create (bot auto-member), leave; channel_state proves
+  //     is_member==false. Disposition is the new multi-step cleanupAll [join, archive]:
+  //     conversations.archive returns not_in_channel once the bot has left (verified
+  //     live), so the bot REJOINS before archiving.
+  //   - invite_users_to_channel  -> invite a REAL throwaway-workspace human discovered
+  //     from users.list (never invented, never a bot, never Slackbot); the new
+  //     slack:channel_members seam (conversations.members, form transport) proves the
+  //     members array CONTAINS the invited id.
+  //   - remove_user_from_channel -> setup create + invite, then kick; channel_members
+  //     proves the members array no longer contains the id.
+  // Seams added: channel_state now also returns is_member; channel_members is a new
+  // form-encoded conversations.members read-back. Second user discovered live:
+  // discoverSlackSmokeUser (users.list, first eligible human).
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live membership write + independent read-back on a smoke channel, archived (no hard delete)", SMOKE_WRITE_SLACK_MEMBERSHIP, [
+    ["slack", "join_channel"],
+    ["slack", "leave_channel"],
+    ["slack", "invite_users_to_channel"],
+    ["slack", "remove_user_from_channel"],
+  ]),
+  // BLOCKED (not certified): slack:unarchive_channel. conversations.archive REMOVES the
+  // bot from the channel, and conversations.unarchive then returns `not_in_channel` for a
+  // bot token (xoxb) — verified live: create -> archive OK, unarchive -> not_in_channel,
+  // and the archived channel cannot be re-joined (it is archived) so the bot is stuck.
+  // This is a documented Slack platform limitation: unarchiving requires a USER token
+  // (xoxp), which V2's bot-token-only Slack model (manifest scopes are all bot scopes)
+  // does not use. The handler + wrapper are correct; the action simply cannot succeed on
+  // a bot token. A valid fixture exists (stays NOT_RUN). Unblock: a Slack user-token model
+  // (out of scope for the current bot-only integration). Marcus product note: the
+  // user-facing unarchive_channel action will always fail on the current bot-token setup.
   // SMOKE-WRITE-34 — Google Docs update_document. setup create_document (marker
   // title+body) -> execute update_document APPENDS "<marker>updated" (insertLocation
   // "end" — additive, never the body-wiping "replace" mode) -> INDEPENDENT

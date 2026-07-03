@@ -893,10 +893,51 @@ export async function runWriteSmoke(
   // execute/verify failure. `cleanupKind` decides whether it is REQUIRED (delete)
   // or BEST-EFFORT (archive), and how a leftover reads.
   const cleanupKind: "delete" | "archive" | "none" =
-    spec.cleanup || spec.cleanupEach ? (spec.cleanupKind ?? "delete") : "none";
+    spec.cleanup || spec.cleanupEach || spec.cleanupAll ? (spec.cleanupKind ?? "delete") : "none";
   let cleanupFailed = false;
   let cleanupRan = false;
-  if (spec.cleanupEach) {
+  if (spec.cleanupAll) {
+    // MULTI-STEP cleanup: an ordered chain that TOGETHER disposes of the resource
+    // (e.g. Slack leave_channel -> rejoin + archive). Every step must target a
+    // smoke-owned ledger resource; the chain stops at the first failure; ALL steps
+    // must succeed for the resource to count cleaned.
+    if (ledger.summary().leaked === 0) {
+      phases.push({ phase: "cleanup", outcome: "skipped", reason: "no smoke-owned resource to clean" });
+    } else if (!spec.cleanupAll.every((s) => cleanupTargetsSmokeOwned(s, ledger))) {
+      cleanupFailed = true;
+      phases.push({
+        phase: "cleanup",
+        outcome: "failed",
+        reason: "refused — a cleanupAll step targets a non-smoke-owned resource",
+      });
+    } else if (
+      spec.crossProviderCleanup !== true &&
+      spec.cleanupAll.some((s) => ledgerRefsIn(s.config).some((k) => ledger.get(k)?.provider !== s.provider))
+    ) {
+      cleanupFailed = true;
+      phases.push({
+        phase: "cleanup",
+        outcome: "failed",
+        reason: "refused — cross-provider cleanup not declared (set crossProviderCleanup)",
+      });
+    } else {
+      let allOk = true;
+      for (const step of spec.cleanupAll) {
+        const config = resolveStepConfig(step.config, marker, ledger, envLookup);
+        const res = await deps.runActionStep({ provider: step.provider, action: step.action, config });
+        phases.push({ phase: "cleanup", outcome: res.ok ? "ok" : "failed", reason: SANITIZE(res.reason) });
+        if (!res.ok) {
+          allOk = false;
+          cleanupFailed = true;
+          break; // a broken link (e.g. failed rejoin) makes the rest pointless
+        }
+      }
+      if (allOk) {
+        cleanupRan = true;
+        for (const step of spec.cleanupAll) for (const key of ledgerRefsIn(step.config)) ledger.markCleaned(key);
+      }
+    }
+  } else if (spec.cleanupEach) {
     // MULTI-resource cleanup: run the cleanup template once per captured resource.
     // EVERY captured resource must clean for a PASS_CLEANED; ANY failure leaves a
     // leaked record -> not a clean pass (delete-kind -> CLEANUP_FAILED below).
