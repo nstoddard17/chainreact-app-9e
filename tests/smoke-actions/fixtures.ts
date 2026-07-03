@@ -20,6 +20,11 @@ import slackDeleteMessage from "@/tests/fixtures/action-smoke/slack/delete_messa
 import slackUpdateMessage from "@/tests/fixtures/action-smoke/slack/update_message";
 import slackAddReaction from "@/tests/fixtures/action-smoke/slack/add_reaction";
 import slackRemoveReaction from "@/tests/fixtures/action-smoke/slack/remove_reaction";
+import slackCreateChannel from "@/tests/fixtures/action-smoke/slack/create_channel";
+import slackRenameChannel from "@/tests/fixtures/action-smoke/slack/rename_channel";
+import slackSetChannelTopic from "@/tests/fixtures/action-smoke/slack/set_channel_topic";
+import slackSetChannelPurpose from "@/tests/fixtures/action-smoke/slack/set_channel_purpose";
+import slackArchiveChannel from "@/tests/fixtures/action-smoke/slack/archive_channel";
 // SMOKE-ACTIONS-5 — read-only coverage batch (4 providers).
 import slackListUsers from "@/tests/fixtures/action-smoke/slack/list_users";
 import slackGetChannelInfo from "@/tests/fixtures/action-smoke/slack/get_channel_info";
@@ -387,6 +392,11 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   slackUpdateMessage,
   slackAddReaction,
   slackRemoveReaction,
+  slackCreateChannel,
+  slackRenameChannel,
+  slackSetChannelTopic,
+  slackSetChannelPurpose,
+  slackArchiveChannel,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

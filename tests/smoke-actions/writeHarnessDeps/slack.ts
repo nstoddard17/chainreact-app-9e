@@ -52,6 +52,7 @@ export function pickSlackSmokeChannel(
     (c) =>
       typeof c.id === "string" &&
       (c.id as string).length > 0 &&
+      c.is_archived !== true && // never a smoke-created archived channel (can't post there)
       (c.is_member === true || c.is_private === false),
   );
   let chosen: Readonly<Record<string, unknown>> | undefined;
@@ -120,18 +121,34 @@ export function extractSlackMessageState(
 }
 
 /**
- * Smoke read-back seam: `slack:message_state` — reads ONE smoke-owned message's precise
- * current state (text + reactions) via `conversations.history`, so a verify can assert on
- * THAT message (not a whole-window substring that a common reaction like `white_check_mark`
- * would false-positive). Requires the bot to be a channel member (the fixture join_channel
- * setup guarantees it). Returns null for any other (provider, action). Bounded + sanitized:
- * only `{ found, text, reactions }`.
+ * Extract the sanitized state of ONE channel from `conversations.list` hits. Finds the
+ * channel by id and returns only what a channel-lifecycle verify reads: found, name,
+ * topic, purpose, is_archived. `conversations.info` is NOT usable here (Slack rejects its
+ * JSON-body transport with `invalid_arguments`), so lifecycle read-back goes through
+ * `conversations.list`, which DOES return name/topic/purpose/is_archived per channel. Pure.
  */
-export async function slackSmokeReadBack(
+export function extractSlackChannelState(
+  channels: readonly Readonly<Record<string, unknown>>[],
+  channelId: string,
+): { found: boolean; name: string; topic: string; purpose: string; is_archived: boolean } {
+  const ch = channels.find((c) => c.id === channelId);
+  if (!ch) return { found: false, name: "", topic: "", purpose: "", is_archived: false };
+  const nested = (v: unknown): string =>
+    v && typeof v === "object" && "value" in v ? String((v as { value?: unknown }).value ?? "") : "";
+  return {
+    found: true,
+    name: String(ch.name ?? ""),
+    topic: nested(ch.topic),
+    purpose: nested(ch.purpose),
+    is_archived: ch.is_archived === true,
+  };
+}
+
+/** Read a smoke-owned message's precise text + reactions via `conversations.history`. */
+async function readSlackMessageState(
   ctx: SmokeReaderContext,
   input: SmokeReaderInput,
-): Promise<StepRunOutcome | null> {
-  if (input.provider !== "slack" || input.action !== "message_state") return null;
+): Promise<StepRunOutcome> {
   const channel = typeof input.config.channel === "string" ? input.config.channel : "";
   const ts = typeof input.config.ts === "string" ? input.config.ts : "";
   if (!channel || !ts) {
@@ -146,4 +163,59 @@ export async function slackSmokeReadBack(
     apiCall: (accessToken) => conversationsHistory({ botToken: accessToken, channel, limit: 30 }),
   });
   return { ok: true, output: extractSlackMessageState(res.messages, ts), reason: null };
+}
+
+/**
+ * Read a smoke-owned channel's precise state via `conversations.list` (bounded cursor
+ * paging), locating it by id (archived channels included). Sanitized: found / name /
+ * topic / purpose / is_archived.
+ */
+async function readSlackChannelState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const channelId = typeof input.config.channel === "string" ? input.config.channel : "";
+  if (!channelId) return { ok: false, output: null, reason: "slack channel_state: missing channel" };
+  const integration = await getActiveForExecution(ctx.accountId, "slack", null);
+  if (!integration) return { ok: false, output: null, reason: "slack not connected" };
+  let cursor: string | undefined;
+  for (let page = 0; page < 5; page++) {
+    const res = await refreshAndRetry({
+      accountId: ctx.accountId,
+      provider: "slack",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) =>
+        conversationsList({
+          botToken: accessToken,
+          types: "public_channel,private_channel",
+          excludeArchived: false,
+          limit: 200,
+          cursor,
+        }),
+    });
+    const state = extractSlackChannelState(res.channels, channelId);
+    if (state.found) return { ok: true, output: state, reason: null };
+    if (!res.nextCursor) break;
+    cursor = res.nextCursor;
+  }
+  // Not found in the bounded page budget -> report a found:false state (honest; a verify
+  // asserting on name/is_archived then fails rather than falsely passing).
+  return { ok: true, output: { found: false, name: "", topic: "", purpose: "", is_archived: false }, reason: null };
+}
+
+/**
+ * Slack smoke read-back seam. Owns two smoke-only read actions:
+ *   - `message_state` — ONE message's text + reactions (`conversations.history`).
+ *   - `channel_state`  — ONE channel's name/topic/purpose/is_archived (`conversations.list`;
+ *     `conversations.info` is unusable, its JSON transport returns `invalid_arguments`).
+ * Returns null for any other (provider, action). Bounded + sanitized.
+ */
+export async function slackSmokeReadBack(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome | null> {
+  if (input.provider !== "slack") return null;
+  if (input.action === "message_state") return readSlackMessageState(ctx, input);
+  if (input.action === "channel_state") return readSlackChannelState(ctx, input);
+  return null;
 }

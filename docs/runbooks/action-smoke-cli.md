@@ -1561,6 +1561,28 @@ authored this slice (a fixture that fails on `missing_scope` would fail the batc
 message). `conversations.replies` is NOT usable to read a single non-threaded message (returns
 `invalid_arguments`) -> the seam uses `conversations.history`.
 
+**Slack channel-lifecycle batch — CERTIFIED 2026-07-03 (`create_channel`, `rename_channel`,
+`set_channel_topic`, `set_channel_purpose`, `archive_channel` = `LIVE_PASS_LEFT_ARTIFACT`).** Each
+fixture creates its OWN smoke public channel `crsmoke-<run>-<suffix>` (never a pre-existing user
+channel), mutates it, verifies via a new `slack:channel_state` smoke seam, and archives it. Verified
+live, 0 ACTIVE leaked (all created channels archived): create -> `name` marker; rename -> `name`
+marker+"after" AND not "before"; set_topic -> `topic` marker+"topicset"; set_purpose -> `purpose`
+marker+"purposeset"; archive (executeIsCleanup) -> `is_archived == true`. Slack has NO hard channel
+delete, so archive is the terminal disposition and each run leaves archived-channel artifacts
+(deterministically named). The `slack:channel_state` seam reads via `conversations.list` (finds the
+channel by id, archived included) and `pickSlackSmokeChannel` now excludes archived channels
+(`excludeArchived` is unreliable, and `crsmoke` matches `/smoke/`, so an archived smoke channel could
+otherwise be picked as a post target).
+
+**IMPORTANT follow-up (likely production bug, NOT fixed here):** `conversations.info` returns
+`invalid_arguments` for every channel via its JSON-body transport (confirmed live on both an existing
+and a freshly-created channel, wrapper and raw). Since `slack:get_channel_info` wraps
+`conversations.info`, that certified READ action is very likely broken in production. Out of scope for
+this channel write slice; a follow-up should re-verify `get_channel_info` live and, if it fails, fix
+the `conversations.info` transport (e.g. form-encoded params) and re-cert. **Rate-limit caveat:** Slack
+rate-limits `conversations.create`; running this batch repeatedly in rapid succession can transiently
+fail a create (a single run at normal cadence passes).
+
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
 - `"delete"` — REQUIRED. Success -> `artifact: "cleaned"` (object gone) ->

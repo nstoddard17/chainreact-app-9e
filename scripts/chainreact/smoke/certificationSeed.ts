@@ -595,6 +595,30 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["slack", "add_reaction"],
     ["slack", "remove_reaction"],
   ]),
+  // SLACK-CHANNEL-LIFECYCLE (2026-07-03) — full channel lifecycle on smoke-CREATED public
+  // channels (never a pre-existing user channel). Each fixture creates its own
+  // crsmoke-<run>-<suffix> channel, mutates it, verifies via the slack:channel_state smoke
+  // seam, then archives it (Slack has no hard channel delete -> archive is the terminal
+  // disposition; each run leaves archived-channel artifacts, deterministically named).
+  // Verified live (0 ACTIVE leaked; all created channels archived):
+  //   - create_channel      -> channel_state proves the marker `name`.
+  //   - rename_channel       -> name carries marker+"after" AND not "before".
+  //   - set_channel_topic    -> `topic` carries marker+"topicset".
+  //   - set_channel_purpose  -> `purpose` carries marker+"purposeset".
+  //   - archive_channel (executeIsCleanup) -> is_archived == true.
+  // READ-BACK uses conversations.list (finds the channel by id, archived included) because
+  // conversations.info is UNUSABLE: Slack rejects its JSON-body transport with
+  // invalid_arguments (this likely also breaks the certified slack:get_channel_info action
+  // in production -> flagged as a follow-up bug; not fixed in this write slice). CAVEAT:
+  // Slack rate-limits conversations.create, so running the batch repeatedly in rapid
+  // succession can transiently fail a create; a single run at normal cadence passes.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live create smoke channel + rename/topic/purpose/archive + channel_state read-back (archived-channel artifact; no hard delete)", SMOKE_WRITE_SLACK, [
+    ["slack", "create_channel"],
+    ["slack", "rename_channel"],
+    ["slack", "set_channel_topic"],
+    ["slack", "set_channel_purpose"],
+    ["slack", "archive_channel"],
+  ]),
   // SMOKE-WRITE-34 — Google Docs update_document. setup create_document (marker
   // title+body) -> execute update_document APPENDS "<marker>updated" (insertLocation
   // "end" — additive, never the body-wiping "replace" mode) -> INDEPENDENT

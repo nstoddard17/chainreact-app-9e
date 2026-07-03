@@ -8,6 +8,7 @@
 import {
   pickSlackSmokeChannel,
   extractSlackMessageState,
+  extractSlackChannelState,
 } from "@/tests/smoke-actions/writeHarnessDeps/slack";
 
 const ch = (o: Record<string, unknown>) => o;
@@ -34,6 +35,14 @@ describe("pickSlackSmokeChannel", () => {
   it("never picks a non-smoke-named channel", () => {
     const channels = [ch({ id: "C_RAND", name: "general", is_member: true, is_private: false })];
     expect(pickSlackSmokeChannel(channels)).toBeNull();
+  });
+
+  it("never picks an ARCHIVED channel (a smoke-created crsmoke channel cannot be posted to)", () => {
+    const channels = [
+      ch({ id: "C_ARCH", name: "crsmoke-x-cc", is_member: true, is_private: false, is_archived: true }),
+      ch({ id: "C_LIVE", name: "smoke-live", is_member: true, is_private: false }),
+    ];
+    expect(pickSlackSmokeChannel(channels)).toEqual({ channelId: "C_LIVE", channelName: "smoke-live" });
   });
 
   it("honors a pinned id when that channel is usable", () => {
@@ -76,5 +85,48 @@ describe("extractSlackMessageState", () => {
   it("treats a message with no reactions field as an empty reaction list", () => {
     const m = [ch({ ts: "3.3", text: "crsmoke-x-react" })];
     expect(extractSlackMessageState(m, "3.3")).toEqual({ found: true, text: "crsmoke-x-react", reactions: [] });
+  });
+});
+
+describe("extractSlackChannelState", () => {
+  const channels = [
+    ch({
+      id: "C_A",
+      name: "crsmoke-x-after",
+      is_archived: true,
+      topic: { value: "crsmoke-x-topicset here" },
+      purpose: { value: "crsmoke-x-purposeset here" },
+    }),
+    ch({ id: "C_B", name: "general" }),
+  ];
+
+  it("flattens the target channel's name/topic/purpose/is_archived by id", () => {
+    expect(extractSlackChannelState(channels, "C_A")).toEqual({
+      found: true,
+      name: "crsmoke-x-after",
+      topic: "crsmoke-x-topicset here",
+      purpose: "crsmoke-x-purposeset here",
+      is_archived: true,
+    });
+  });
+
+  it("defaults missing topic/purpose to empty strings and is_archived to false", () => {
+    expect(extractSlackChannelState(channels, "C_B")).toEqual({
+      found: true,
+      name: "general",
+      topic: "",
+      purpose: "",
+      is_archived: false,
+    });
+  });
+
+  it("reports not found when the id is absent", () => {
+    expect(extractSlackChannelState(channels, "C_ZZZ")).toEqual({
+      found: false,
+      name: "",
+      topic: "",
+      purpose: "",
+      is_archived: false,
+    });
   });
 });
