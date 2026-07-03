@@ -149,19 +149,25 @@ export async function discoverSlackSmokeUser(
 /**
  * Extract the sanitized state of ONE message from a `conversations.history` window.
  * Finds the message by its `ts` and returns only what a smoke verify reads: whether it
- * was found, its current text (proves an update), and its reaction names (proves an
- * add/remove reaction). NEVER the raw provider payload. Pure over the messages array.
+ * was found, its current text (proves an update), its reaction names (proves an
+ * add/remove reaction), and whether it is pinned (proves a pin/unpin). NEVER the raw
+ * provider payload. Pure over the messages array.
+ *
+ * `pinned` is derived from Slack's `pinned_to` array (the channel ids a message is pinned
+ * to), which conversations.history returns under the granted `channels:history` scope --
+ * so pin/unpin verify needs NO `pins:read` (pins.list is unavailable without it).
  */
 export function extractSlackMessageState(
   messages: readonly Readonly<Record<string, unknown>>[],
   ts: string,
-): { found: boolean; text: string; reactions: string[] } {
+): { found: boolean; text: string; reactions: string[]; pinned: boolean } {
   const msg = messages.find((m) => m.ts === ts);
-  if (!msg) return { found: false, text: "", reactions: [] };
+  if (!msg) return { found: false, text: "", reactions: [], pinned: false };
   const reactions = Array.isArray(msg.reactions)
     ? (msg.reactions as Readonly<Record<string, unknown>>[]).map((r) => String(r.name ?? ""))
     : [];
-  return { found: true, text: String(msg.text ?? ""), reactions };
+  const pinned = Array.isArray(msg.pinned_to) && (msg.pinned_to as unknown[]).length > 0;
+  return { found: true, text: String(msg.text ?? ""), reactions, pinned };
 }
 
 /**

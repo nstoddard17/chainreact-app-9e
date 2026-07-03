@@ -52,6 +52,7 @@ const SMOKE_WRITE_SLACK_SCHEDULED = "2026-07-03";
 const SMOKE_WRITE_SLACK_DM = "2026-07-03";
 const SMOKE_WRITE_SLACK_BLOCKS = "2026-07-03";
 const SMOKE_WRITE_SLACK_FILES = "2026-07-03";
+const SMOKE_WRITE_SLACK_PINS = "2026-07-03";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -593,9 +594,10 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   //     white_check_mark.
   //   - remove_reaction  -> setup also add_reaction; execute removes it; message_state
   //     proves `reactions` no longer contains white_check_mark.
-  // BLOCKED (not certified): pin_message / unpin_message — the Slack app lacks the
-  // `pins:write` scope (pins.add returns missing_scope). Unblock: grant pins:write on the
-  // Slack app + reconnect, then a create->pin->verify(pins.list)->unpin->delete fixture.
+  // NOTE (2026-07-03): pin_message / unpin_message are NOW certified below — `pins:write`
+  // was granted on reconnect (confirmed via the token's x-oauth-scopes). `pins:read` is
+  // still NOT granted, so verification reads the message's `pinned_to` from
+  // conversations.history (channels:history) instead of pins.list.
   ...records("LIVE_PASS_CLEANED", "live smoke message + update/reaction + per-message message_state read-back + delete cleanup", SMOKE_WRITE_SLACK, [
     ["slack", "update_message"],
     ["slack", "add_reaction"],
@@ -740,6 +742,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ]),
   ...records("LIVE_PASS", "live read re-verified after files.info JSON->form transport fix (2026-06-20 pass was stale)", SMOKE_WRITE_SLACK_FILES, [
     ["slack", "get_file_info"],
+  ]),
+  // SLACK-PIN-BATCH (2026-07-03) — pin_message + unpin_message on a smoke-owned message.
+  // `pins:write` is granted (verified via the token's x-oauth-scopes); `pins:read` is NOT,
+  // so pins.list is unavailable. Verification instead reads the message's `pinned_to` array
+  // from conversations.history (granted `channels:history`) via the slack:message_state
+  // seam, which now exposes a `pinned` boolean. Verified live (created 1 / cleaned 1 / 0
+  // leaked each):
+  //   - pin_message   -> post -> pin -> message_state proves pinned==true -> delete_message
+  //     (deleting the message also removes the pin, so no pinned artifact survives).
+  //   - unpin_message -> post -> pin (setup) -> unpin -> message_state proves pinned==false
+  //     -> delete_message.
+  ...records("LIVE_PASS_CLEANED", "live pin/unpin + independent conversations.history pinned_to read-back (no pins:read needed), message deleted", SMOKE_WRITE_SLACK_PINS, [
+    ["slack", "pin_message"],
+    ["slack", "unpin_message"],
   ]),
   // BLOCKED (not certified): slack:unarchive_channel. conversations.archive REMOVES the
   // bot from the channel, and conversations.unarchive then returns `not_in_channel` for a

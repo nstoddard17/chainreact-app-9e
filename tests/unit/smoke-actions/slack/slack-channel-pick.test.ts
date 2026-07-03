@@ -62,15 +62,16 @@ describe("pickSlackSmokeChannel", () => {
 
 describe("extractSlackMessageState", () => {
   const msgs = [
-    ch({ ts: "1.1", text: "crsmoke-x-updated", reactions: [{ name: "white_check_mark", count: 1 }] }),
+    ch({ ts: "1.1", text: "crsmoke-x-updated", reactions: [{ name: "white_check_mark", count: 1 }], pinned_to: ["C1"] }),
     ch({ ts: "2.2", text: "someone else", reactions: [{ name: "eyes" }] }),
   ];
 
-  it("returns the target message's current text + reaction names", () => {
+  it("returns the target message's current text + reaction names + pinned state", () => {
     expect(extractSlackMessageState(msgs, "1.1")).toEqual({
       found: true,
       text: "crsmoke-x-updated",
       reactions: ["white_check_mark"],
+      pinned: true, // pinned_to is a non-empty array
     });
   });
 
@@ -79,13 +80,17 @@ describe("extractSlackMessageState", () => {
     expect(extractSlackMessageState(msgs, "2.2").reactions).toEqual(["eyes"]);
   });
 
+  it("reports pinned=false when pinned_to is absent (an unpinned message)", () => {
+    expect(extractSlackMessageState(msgs, "2.2").pinned).toBe(false);
+  });
+
   it("reports not found (empty state) when the ts is absent", () => {
-    expect(extractSlackMessageState(msgs, "9.9")).toEqual({ found: false, text: "", reactions: [] });
+    expect(extractSlackMessageState(msgs, "9.9")).toEqual({ found: false, text: "", reactions: [], pinned: false });
   });
 
   it("treats a message with no reactions field as an empty reaction list", () => {
     const m = [ch({ ts: "3.3", text: "crsmoke-x-react" })];
-    expect(extractSlackMessageState(m, "3.3")).toEqual({ found: true, text: "crsmoke-x-react", reactions: [] });
+    expect(extractSlackMessageState(m, "3.3")).toEqual({ found: true, text: "crsmoke-x-react", reactions: [], pinned: false });
   });
 });
 

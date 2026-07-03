@@ -36,6 +36,8 @@ import slackSendDirectMessage from "@/tests/fixtures/action-smoke/slack/send_dir
 import slackPostInteractiveBlocks from "@/tests/fixtures/action-smoke/slack/post_interactive_blocks";
 import slackUploadFile from "@/tests/fixtures/action-smoke/slack/upload_file";
 import slackDownloadFile from "@/tests/fixtures/action-smoke/slack/download_file";
+import slackPinMessage from "@/tests/fixtures/action-smoke/slack/pin_message";
+import slackUnpinMessage from "@/tests/fixtures/action-smoke/slack/unpin_message";
 // SMOKE-ACTIONS-5 — read-only coverage batch (4 providers).
 import slackListUsers from "@/tests/fixtures/action-smoke/slack/list_users";
 import slackGetChannelInfo from "@/tests/fixtures/action-smoke/slack/get_channel_info";
@@ -419,6 +421,8 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   slackPostInteractiveBlocks,
   slackUploadFile,
   slackDownloadFile,
+  slackPinMessage,
+  slackUnpinMessage,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */
