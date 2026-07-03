@@ -305,6 +305,18 @@ V1 also ships an "AI assistant" — chat surface that the user can talk to about
 
 ## Phase 7 — Billing, usage limits, entitlements
 
+> **SUPERSEDED 2026-07-03 — current V2 behavior differs from this V1-port plan.** V2 did
+> **not** port V1's plans + packs + overage + auto-buy + metered-subscription model. It
+> shipped a **reserve/reconcile + `account_billing` + AI-credits** model, account-scoped
+> (not per-user). There are **no** overage/pack/auto-buy/report-overage/usage-alerts/
+> reset-task-usage/clean-session-side-effects crons in V2; the only billing-adjacent cron is
+> `release-expired-reservations` (see `services/observability/cronExpectations.ts`). Billing
+> is account-scoped, Stripe-signature-verified, idempotent, and fails closed. Treat the
+> subphases below as **historical V1-reference intent, not the shipped design.** Authoritative
+> current state: `docs/slices/phase-5/billing-production-readiness-closeout.md`,
+> `docs/slices/phase-4/reserve-reconcile-billing-design.md`, and
+> `docs/slices/phase-5/mvp-launch-status-reconciliation.md`.
+
 **Status:** Billing gate exists (per-user task quota). Plans / packs / overage / entitlements do not.
 **Entry condition:** Phase 4 (workspaces) done — billing scopes to a workspace, not a user. Phase 6 (engine) done — billing decisions hinge on deterministic execution.
 **Goal:** Production-ready billing matching V1's surface.

@@ -39,6 +39,17 @@
 
 ## Durable decisions
 
+- [2026-07-03] **MVP launch status reconciled (docs-only).** Owner decisions locked:
+  React Agent ships **visible**; **Hermes + the deterministic "Check workflow" checker
+  are expected launch features** (enabling Hermes in prod is env config, not code — the
+  `HERMES_AGENT_ENABLED` OFF default is only a safe default); **staging is an accepted
+  production-first risk, intentionally deferred** (plan exists, not an active task);
+  live-provider validation is owned by a **separate chat**. Fixed locally: webhook dedup
+  now **fails closed** before enqueue (`19c00455f`); platform billing **code-ready pending
+  Marcus dashboard verification** (`141fd5789`). V1 billing/cron model (packs/overage/
+  auto-buy crons) does **not** apply to V2 (reserve/reconcile + account_billing + AI
+  credits). Detail →
+  [`docs/slices/phase-5/mvp-launch-status-reconciliation.md`](./slices/phase-5/mvp-launch-status-reconciliation.md).
 - [2026-06-29] **Failed runs show a clear reason + one primary next action
   (CR-FAILREASON).** Rule: [`docs/rules/failed-run-recovery.md`](./rules/failed-run-recovery.md).
   Classification is owned by the shared humanizer
