@@ -1434,6 +1434,40 @@ Inventory (action · blocker):
 These are coverage limits of the registered action set, not smoke gaps: forcing them
 would require echo-only verification and/or leave heavy visible artifacts.
 
+**Shopify action surface — ALL DEFERRED (write-only registered set, no cleanup path).**
+Reviewed live 2026-07-03 after Marcus connected Shopify (confirmed: an active integration
+row on the smoke account, `providerAccountId` = a `*.myshopify` shop domain; read-only DB
+check, no Shopify API call). All 11 registered Shopify actions are commerce MUTATIONS with
+NO read-only action and NO delete/archive action in the set:
+`create_order`, `update_order_status`, `add_order_note`, `create_fulfillment`,
+`create_product`, `update_product`, `create_product_variant`, `update_product_variant`,
+`create_customer`, `update_customer`, `update_inventory`. Consequences for smoke:
+- **No read surface to certify.** There is no `list_*` / `get_*` / `search_*` Shopify
+  action, so there is nothing read-only to run live. The `read_orders` / `read_products` /
+  `read_customers` / `read_inventory` scopes in the manifest belong to the `webhook_received`
+  TRIGGER, not to any read action, so they do not give the action-smoke harness anything to
+  run.
+- **No write is smoke-certifiable.** Every write is a real commerce mutation against the
+  connected store (a real order / product / customer / fulfillment / inventory change), and
+  the set has no `delete_*` / `cancel_*` / `archive_*` action, so there is no registered
+  cleanup path for a smoke-owned create -> verify -> cleanup flow. `create_fulfillment`,
+  `update_order_status`, and `update_inventory` additionally change irreversible commerce
+  state. Running any of these would leave permanent artifacts, which the slice's safety
+  framing forbids.
+- **Result:** 0 Shopify actions certified this slice; all 11 stay `MISSING_FIXTURE`. Matrix
+  unchanged.
+
+Recommended unlock (owner review): (1) to certify a READ surface, register read actions
+(`list_products` / `get_product` / `list_orders` / `get_order` / `list_customers` /
+`get_customer` / inventory reads) using the read scopes that already exist, after which
+read-only smoke certifies safely with list-then-get auto-discovery (no operator ids
+invented); (2) to certify WRITES safely, register `delete_*` actions so a smoke-owned
+create -> verify -> cleanup is possible, confirm the connected store is a DEDICATED throwaway
+dev store (not a live storefront), and get Marcus's explicit approval for commerce smoke;
+(3) keep `create_fulfillment` / `update_order_status` / `update_inventory` deferred even then
+unless a sandbox dev store is confirmed, since they mutate commerce state with no clean
+reversal. Stripe stays out of scope for this slice by the same commerce framing.
+
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
 - `"delete"` — REQUIRED. Success -> `artifact: "cleaned"` (object gone) ->
