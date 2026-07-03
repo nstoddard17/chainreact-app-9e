@@ -1397,7 +1397,17 @@ Inventory (action · blocker):
   a freshly-created database is NOT returned immediately), and there is no
   `get_database` read action, so the only available proof would be the handler echo
   (disallowed). Deferred until both a database-archive action and an independent
-  database read exist.
+  database read exist. Live re-verified on the smoke account (2026-07-01): a
+  create then archive-via-`archive_page` probe returned `NotFoundError` and the
+  database's `archived` flag stayed `false`, confirming the pages endpoint cannot
+  archive a database. The working teardown is `DELETE /v1/blocks/{databaseId}` (a
+  child_database block delete), and `GET /v1/databases/{id}` returns the `archived`
+  flag with no search lag. Both work at the API layer today but neither is a
+  registered action, so the concrete unlock is to register a database-archive
+  (block-delete) action plus a `get_database` read, after which create_database
+  certifies via the same create, verify, archive flow as `create_database_entry`.
+  Not added here (do not add production behavior only for smoke). The probe was a
+  throwaway with a guaranteed block-delete teardown, so no database leaked.
 
 These are coverage limits of the registered action set, not smoke gaps: forcing them
 would require echo-only verification and/or leave heavy visible artifacts.
