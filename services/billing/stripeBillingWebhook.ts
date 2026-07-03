@@ -103,6 +103,40 @@ function unixSecondsToIso(value: unknown): string | null {
   return new Date(value * 1000).toISOString();
 }
 
+/**
+ * Resolve a subscription's current-period-end (unix seconds) from EITHER the pre-Basil
+ * top-level `current_period_end` OR the Basil+ per-item location
+ * (`items.data[].current_period_end`).
+ *
+ * Stripe's Basil API (2025-03-31.basil onward — the version this integration pins in
+ * `_shared/stripe/api/_base.ts`) REMOVED the subscription-level `current_period_end` and
+ * moved it onto each subscription item. The shape of an INBOUND webhook event follows the
+ * API version configured on the Stripe Dashboard webhook endpoint (not the `Stripe-Version`
+ * header the platform REST client sends), which may be Basil. Reading both locations keeps
+ * the period-end sync correct regardless of which version delivers the event — top-level
+ * wins when present (pre-Basil), else the furthest-out item period (mixed-interval subs
+ * carry a period per item; the latest end is the correct "access ends / renews on" boundary).
+ *
+ * Downstream this matters beyond display: `account_billing.current_period_end` is the ONLY
+ * signal `features/account/BillingSection.tsx` uses to show the "Manage billing" portal
+ * button (`showManageBilling`). If it never syncs, an owner/admin cannot reach the Stripe
+ * portal to update payment or cancel.
+ */
+function resolveCurrentPeriodEnd(obj: Record<string, unknown>): number | null {
+  const topLevel = obj.current_period_end;
+  if (typeof topLevel === "number" && Number.isFinite(topLevel)) return topLevel;
+  const items = asRecord(obj.items).data;
+  if (!Array.isArray(items)) return null;
+  let latest: number | null = null;
+  for (const item of items) {
+    const end = asRecord(item).current_period_end;
+    if (typeof end === "number" && Number.isFinite(end)) {
+      latest = latest === null ? end : Math.max(latest, end);
+    }
+  }
+  return latest;
+}
+
 type EventResolution =
   | { kind: "sync"; accountId: string; fields: BillingSubscriptionSync }
   | { kind: "upgrade"; input: ApplyBusinessUpgradeInput }
@@ -209,7 +243,7 @@ async function resolveEvent(
   if (typeof obj.cancel_at_period_end === "boolean") {
     fields.cancelAtPeriodEnd = obj.cancel_at_period_end;
   }
-  const periodEnd = unixSecondsToIso(obj.current_period_end);
+  const periodEnd = unixSecondsToIso(resolveCurrentPeriodEnd(obj));
   if (periodEnd) fields.currentPeriodEnd = periodEnd;
 
   if (eventType === "customer.subscription.deleted") {

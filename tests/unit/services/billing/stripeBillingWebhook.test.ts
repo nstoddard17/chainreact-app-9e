@@ -185,6 +185,47 @@ describe("event processing", () => {
     });
   });
 
+  it("customer.subscription.updated reads current_period_end from the Basil item-level shape", async () => {
+    // Stripe Basil (2025-03-31.basil+, the pinned version) moved current_period_end OFF the
+    // subscription and ONTO each item. An inbound Basil webhook has no top-level field — the
+    // handler must read items.data[].current_period_end so the portal button still lights up.
+    mockGetAccount.mockResolvedValueOnce({ id: "a1", type: "organization", deletionStatus: "active" });
+    const obj = {
+      id: "sub_basil",
+      customer: "cus_basil",
+      status: "active",
+      cancel_at_period_end: false,
+      // NO top-level current_period_end (Basil) — only per-item periods.
+      items: { data: [{ id: "si_1", current_period_end: 1_701_000_000 }] },
+      metadata: { accountId: "a1", plan: "business" },
+    };
+    const body = event("customer.subscription.updated", obj);
+    const r = await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    expect(r.ok && r.outcome).toBe("processed");
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.currentPeriodEnd).toBe(new Date(1_701_000_000 * 1000).toISOString());
+  });
+
+  it("prefers the top-level current_period_end, and uses the LATEST item period on a mixed-interval sub", async () => {
+    mockGetAccount.mockResolvedValueOnce({ id: "a1", type: "organization", deletionStatus: "active" });
+    // Multiple item periods (mixed-interval) and no top-level → the furthest-out end wins.
+    const obj = {
+      id: "sub_mix",
+      status: "active",
+      items: {
+        data: [
+          { current_period_end: 1_701_000_000 },
+          { current_period_end: 1_702_000_000 },
+        ],
+      },
+      metadata: { accountId: "a1", plan: "business" },
+    };
+    const body = event("customer.subscription.updated", obj);
+    await handleStripeBillingWebhook(body, sign(body), { nowSeconds: NOW });
+    const [, fields] = mockApplySync.mock.calls[0]!;
+    expect(fields.currentPeriodEnd).toBe(new Date(1_702_000_000 * 1000).toISOString());
+  });
+
   it("customer.subscription.deleted reverts a PERSONAL account to free (D2)", async () => {
     mockGetAccount.mockResolvedValueOnce({ id: "a1", type: "personal", deletionStatus: "active" });
     const obj = { id: "sub_3", customer: "cus_3", metadata: { accountId: "a1", plan: "pro" } };
