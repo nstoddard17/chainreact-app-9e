@@ -34,6 +34,8 @@ import slackScheduleMessage from "@/tests/fixtures/action-smoke/slack/schedule_m
 import slackCancelScheduledMessage from "@/tests/fixtures/action-smoke/slack/cancel_scheduled_message";
 import slackSendDirectMessage from "@/tests/fixtures/action-smoke/slack/send_direct_message";
 import slackPostInteractiveBlocks from "@/tests/fixtures/action-smoke/slack/post_interactive_blocks";
+import slackUploadFile from "@/tests/fixtures/action-smoke/slack/upload_file";
+import slackDownloadFile from "@/tests/fixtures/action-smoke/slack/download_file";
 // SMOKE-ACTIONS-5 — read-only coverage batch (4 providers).
 import slackListUsers from "@/tests/fixtures/action-smoke/slack/list_users";
 import slackGetChannelInfo from "@/tests/fixtures/action-smoke/slack/get_channel_info";
@@ -415,6 +417,8 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   slackCancelScheduledMessage,
   slackSendDirectMessage,
   slackPostInteractiveBlocks,
+  slackUploadFile,
+  slackDownloadFile,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

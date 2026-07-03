@@ -1,4 +1,4 @@
-import { slackApiRequest, type SlackOkResponse } from "./_request";
+import { slackApiRequestForm, type SlackOkResponse } from "./_request";
 import { SlackApiError } from "./errors";
 
 /**
@@ -12,14 +12,12 @@ import { SlackApiError } from "./errors";
  *
  * Slack docs: https://api.slack.com/methods/files.getUploadURLExternal
  *
- * Implementation note — content type: Slack's reference docs list
- * `application/x-www-form-urlencoded` as the documented content type
- * for this endpoint, but JSON POST is accepted in practice by all
- * other V2 Slack wrappers (`chat.postMessage`, `conversations.*`,
- * etc.) and is what the official Bolt SDK uses. We use the shared
- * `slackApiRequest` helper for consistency with every other V2 Slack
- * wrapper. If Slack ever rejects JSON for this endpoint we add a
- * `slackApiFormRequest` sibling and migrate — not before.
+ * TRANSPORT: form-encoded (`slackApiRequestForm`), NOT JSON. Verified live —
+ * `files.getUploadURLExternal` rejects the `application/json` body with
+ * `invalid_arguments` (same class as `conversations.info` / `users.info`); its
+ * documented content type is `application/x-www-form-urlencoded` and its params are
+ * flat scalars (`filename` / `length` / `snippet_type`), so it uses the form transport.
+ * (chat.postMessage / Block Kit keep JSON because they carry nested payloads.)
  *
  * Scope required: `files:write` (added in Slack 2.4 Commit 2).
  *
@@ -61,16 +59,16 @@ interface SlackResponseBody extends SlackOkResponse {
 export async function filesGetUploadURLExternal(
   input: FilesGetUploadURLExternalInput,
 ): Promise<FilesGetUploadURLExternalResult> {
-  const body: Record<string, unknown> = {
+  const params: Record<string, string | number | boolean | undefined> = {
     filename: input.filename,
     length: String(input.length),
   };
-  if (input.snippetType !== undefined) body.snippet_type = input.snippetType;
+  if (input.snippetType !== undefined) params.snippet_type = input.snippetType;
 
-  const response = await slackApiRequest<SlackResponseBody>(
+  const response = await slackApiRequestForm<SlackResponseBody>(
     "files.getUploadURLExternal",
     input.botToken,
-    body,
+    params,
   );
 
   // Defense-in-depth: Slack guarantees both fields on `ok: true`. A

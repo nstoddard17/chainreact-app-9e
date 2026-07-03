@@ -51,6 +51,7 @@ const SMOKE_WRITE_SLACK_MEMBERSHIP = "2026-07-03";
 const SMOKE_WRITE_SLACK_SCHEDULED = "2026-07-03";
 const SMOKE_WRITE_SLACK_DM = "2026-07-03";
 const SMOKE_WRITE_SLACK_BLOCKS = "2026-07-03";
+const SMOKE_WRITE_SLACK_FILES = "2026-07-03";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -130,12 +131,12 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["slack", "list_channels"],
     ["slack", "list_users"],
     ["slack", "list_scheduled_messages"],
-    // NOTE: slack:get_channel_info + get_user_info moved to their own 2026-07-03 entry
-    // below — their 2026-06-20 "pass" was STALE (conversations.info / users.info were
-    // actually broken; fixed + re-verified after the JSON->form transport fix).
+    // NOTE: slack:get_channel_info + get_user_info + get_file_info moved to their own
+    // 2026-07-03 entries below — their 2026-06-20 "pass" was STALE (conversations.info /
+    // users.info / files.info were actually broken; fixed + re-verified after the
+    // JSON->form transport fix).
     ["slack", "get_messages"],
     ["slack", "get_thread_messages"],
-    ["slack", "get_file_info"],
     ["airtable", "get_base_schema"],
     ["airtable", "get_table_schema"],
     ["airtable", "list_records"],
@@ -705,6 +706,40 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // 1 / cleaned 1 / 0 leaked).
   ...records("LIVE_PASS_CLEANED", "live Block Kit post + independent get_messages read-back of the block marker, message deleted", SMOKE_WRITE_SLACK_BLOCKS, [
     ["slack", "post_interactive_blocks"],
+  ]),
+  // SLACK-FILE-BATCH (2026-07-03) — upload_file + download_file, plus a JSON->form
+  // transport fix that also re-certifies get_file_info.
+  //
+  // TRANSPORT BUG FOUND + FIXED: `files.getUploadURLExternal` AND `files.info` both reject
+  // the application/json body with `invalid_arguments` (same class as conversations.info /
+  // users.info). Both wrappers were migrated to the form-encoded transport
+  // (slackApiRequestForm). This silently broke upload_file (getUploadURLExternal) and made
+  // get_file_info / download_file FAIL through the engine; all three PASS after the fix.
+  // get_file_info's 2026-06-20 "pass" was STALE (files.info was never actually reachable
+  // via JSON) -> re-certified here.
+  //
+  //   - upload_file (sendSafe): stage a tiny PNG in OUR workflow-files bucket -> a
+  //     v2_storage FileRef source -> Slack 3-step external upload -> capture fileId ->
+  //     INDEPENDENT get_file_info (files.info) proves the marker on the persisted
+  //     fileName. Output is FileRef(provider_url), NO bytes. Slack has no registered
+  //     delete-file action -> the uploaded file is a throwaway artifact (left).
+  //   - download_file (writeSafe): setup upload (get a real fileId) -> files.info + byte
+  //     fetch (bot bearer) + stageFileToStorage -> FileRef(v2_storage), NO bytes.
+  //     markerEchoPath proves the returned fileName + the staged_file smoke seam reads
+  //     OUR bucket back and proves the object EXISTS (only { exists, sizeBytes }, never
+  //     bytes). No registered delete for a v2_storage object -> staged object left.
+  //   - get_file_info: re-verified live via the upload_file read-back after the files.info
+  //     transport fix.
+  // Artifacts (throwaway, documented): each run leaves ~2 Slack files + 1 staged object;
+  // no registered Slack/v2_storage delete action exists to clean them.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live upload + independent files.info read-back (uploaded-file artifact; no registered Slack delete)", SMOKE_WRITE_SLACK_FILES, [
+    ["slack", "upload_file"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live download + FileRef(v2_storage) staging + independent staged-object read-back (no bytes in output)", SMOKE_WRITE_SLACK_FILES, [
+    ["slack", "download_file"],
+  ]),
+  ...records("LIVE_PASS", "live read re-verified after files.info JSON->form transport fix (2026-06-20 pass was stale)", SMOKE_WRITE_SLACK_FILES, [
+    ["slack", "get_file_info"],
   ]),
   // BLOCKED (not certified): slack:unarchive_channel. conversations.archive REMOVES the
   // bot from the channel, and conversations.unarchive then returns `not_in_channel` for a

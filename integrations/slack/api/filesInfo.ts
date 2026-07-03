@@ -1,4 +1,4 @@
-import { slackApiRequest, type SlackOkResponse } from "./_request";
+import { slackApiRequestForm, type SlackOkResponse } from "./_request";
 import { SlackApiError } from "./errors";
 
 /**
@@ -13,6 +13,12 @@ import { SlackApiError } from "./errors";
  *     returns the file object directly.
  *
  * Slack docs: https://api.slack.com/methods/files.info
+ *
+ * TRANSPORT: form-encoded (`slackApiRequestForm`), NOT JSON. Verified live —
+ * `files.info` rejects the `application/json` body with `invalid_arguments` (same class
+ * as `conversations.info` / `users.info` / `files.getUploadURLExternal`); its params are
+ * flat scalars (`file` / `count`), so it uses the form transport. (This bug silently
+ * broke `get_file_info` + `download_file` until it was caught by the file-action smoke.)
  *
  * Scope required: `files:read` (added in Slack 2.4 Commit 2).
  *
@@ -52,13 +58,15 @@ interface SlackResponseBody extends SlackOkResponse {
 export async function filesInfo(
   input: FilesInfoInput,
 ): Promise<FilesInfoResult> {
-  const body: Record<string, unknown> = { file: input.fileId };
-  if (input.count !== undefined) body.count = input.count;
+  const params: Record<string, string | number | boolean | undefined> = {
+    file: input.fileId,
+  };
+  if (input.count !== undefined) params.count = input.count;
 
-  const response = await slackApiRequest<SlackResponseBody>(
+  const response = await slackApiRequestForm<SlackResponseBody>(
     "files.info",
     input.botToken,
-    body,
+    params,
   );
 
   if (!response.file) {

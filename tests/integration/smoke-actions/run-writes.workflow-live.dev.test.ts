@@ -186,6 +186,17 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       // A pinned SMOKE_SLACK_POST_AT wins for a deterministic re-run.
       overlay.SMOKE_SLACK_POST_AT =
         process.env.SMOKE_SLACK_POST_AT || String(Math.floor(Date.now() / 1000) + 7 * 24 * 3600);
+      // upload_file / download_file consume a FileRef, so stage a throwaway PNG in OUR
+      // workflow-files bucket and pass it as a v2_storage FileRef source (self-contained
+      // bytes, never an invented external URL). download_file's setup re-uploads from the
+      // same staged source. Absent it -> those two fixtures report BLOCKED_ENV.
+      const slackUploadPath = `smoke/slack-upload/${randomUUID()}.png`;
+      const slackStaged = await stageSmokeFile(supabase, slackUploadPath);
+      if (slackStaged) {
+        overlay.SMOKE_SLACK_UPLOAD_STORAGE_PATH = slackStaged.storagePath;
+        cleanupStagedFile = slackStaged.remove;
+        targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}staged upload file in workflow-files bucket`;
+      }
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the
       // DB (probeWriteConnection) — NO SMOKE_MONDAY_CONNECTED. A pinned

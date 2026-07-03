@@ -33,7 +33,7 @@ const fileRecord = {
 };
 
 describe("filesInfo — request shape", () => {
-  it("POSTs to /api/files.info with the file id in the body", async () => {
+  it("POSTs form-encoded file id — Slack rejects a JSON body here with invalid_arguments", async () => {
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
         JSON.stringify({ ok: true, file: fileRecord }),
@@ -48,12 +48,12 @@ describe("filesInfo — request shape", () => {
     expect(init?.method).toBe("POST");
     const headers = init?.headers as Record<string, string>;
     expect(headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
-    expect(JSON.parse((init as { body: string }).body)).toEqual({
-      file: "F0001",
-    });
+    // form-encoded transport: files.info rejects application/json.
+    expect(headers["content-type"]).toBe("application/x-www-form-urlencoded");
+    expect((init as { body: string }).body).toBe("file=F0001");
   });
 
-  it("forwards count when supplied (used by get_file_info's includeComments)", async () => {
+  it("forwards count when supplied (used by get_file_info's includeComments) — form-encoded", async () => {
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
         JSON.stringify({ ok: true, file: fileRecord, comments: [] }),
@@ -62,10 +62,7 @@ describe("filesInfo — request shape", () => {
     );
     await filesInfo({ botToken: "x", fileId: "F0001", count: 100 });
     const [, init] = fetchSpy.mock.calls[0]!;
-    expect(JSON.parse((init as { body: string }).body)).toEqual({
-      file: "F0001",
-      count: 100,
-    });
+    expect((init as { body: string }).body).toBe("file=F0001&count=100");
   });
 
   it("respects SLACK_API_BASE override for e2e mocks", async () => {
