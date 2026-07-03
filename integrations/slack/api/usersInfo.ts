@@ -1,4 +1,4 @@
-import { slackApiRequest, type SlackOkResponse } from "./_request";
+import { slackApiRequestForm, type SlackOkResponse } from "./_request";
 import { SlackApiError } from "./errors";
 
 /**
@@ -8,6 +8,11 @@ import { SlackApiError } from "./errors";
  * verbatim (snake_case keys); the action handler projects useful
  * flat fields onto the output for convenient downstream access while
  * keeping the full raw object available.
+ *
+ * TRANSPORT: form-encoded (`slackApiRequestForm`), NOT JSON. With an
+ * `application/json` body, users.info does not parse the `user` param and
+ * returns `user_not_found` (verified live); its flat `user` param must be
+ * form-encoded. Response shape is unchanged. (Same class as conversations.info.)
  *
  * Slack docs: https://api.slack.com/methods/users.info
  *
@@ -33,7 +38,7 @@ interface SlackResponseBody extends SlackOkResponse {
 export async function usersInfo(
   input: UsersInfoInput,
 ): Promise<UsersInfoResult> {
-  const response = await slackApiRequest<SlackResponseBody>(
+  const response = await slackApiRequestForm<SlackResponseBody>(
     "users.info",
     input.botToken,
     { user: input.user },

@@ -1587,10 +1587,17 @@ to it. Every other Slack method keeps JSON (methods with nested args like Block 
 Output shape unchanged. Re-verified live: `slack:get_channel_info` now PASSES. Cert stays LIVE_PASS
 (now genuine). Unit coverage: `conversationsInfo.test.ts` asserts the form body; `_request.test.ts`
 covers `slackApiRequestForm` (form content-type, undefined-param omission, ok:false handling).
-**SUSPECTED same-class (NOT verified, NOT fixed this slice):** `slack:get_user_info` also FAILed in the
-read sweep and `users.info` uses the same JSON `slackApiRequest`; it is a likely same-transport bug but
-was not confirmed live (needs a valid user id) — recommended as the immediate next investigation, fixed
-the same way (`slackApiRequestForm`) if it reproduces. `slack:get_messages` FAILing in that sweep is a
+
+**`slack:get_user_info` bug — CONFIRMED then FIXED 2026-07-03 (same class as get_channel_info).** The
+suspected same-class bug was real: `users.info` returns `ok:false error=user_not_found` for an
+`application/json` body (Slack does not parse the `user` param from JSON, so it looks up an empty id),
+and returns the user with a form-encoded body (verified live with a real user id discovered via the
+certified `usersList`). Its prior 2026-06-20 LIVE_PASS was STALE. **Fix:** switched ONLY
+[`usersInfo.ts`](../../integrations/slack/api/usersInfo.ts) to `slackApiRequestForm` (same one-line
+change as `conversations.info`; output shape unchanged; `usersInfo.test.ts` now asserts the form body).
+Re-verified live: `slack:get_user_info` FAILed before the fix and now PASSES; the user id is
+auto-discovered by the read runner (or set via `SMOKE_SLACK_USER_ID`). Cert moved to the shared
+2026-07-03 JSON->form entry alongside `get_channel_info`. `slack:get_messages` FAILing that sweep is a
 DIFFERENT cause (membership: `conversations.history` needs the bot IN the channel, and the sweep used a
 non-member channel) — not a transport bug. **Rate-limit caveat:** Slack rate-limits
 `conversations.create`; running the channel-lifecycle batch repeatedly in rapid succession can

@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe("usersInfo — request shape", () => {
-  it("POSTs to /api/users.info with the user id in the body", async () => {
+  it("POSTs to /api/users.info with the user id FORM-ENCODED (Slack returns user_not_found for JSON)", async () => {
     const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -34,7 +34,9 @@ describe("usersInfo — request shape", () => {
     expect(init?.method).toBe("POST");
     const headers = init?.headers as Record<string, string>;
     expect(headers.authorization).toBe(`Bearer ${SLACK_TOKEN_PLACEHOLDER}`);
-    expect(JSON.parse((init as { body: string }).body)).toEqual({ user: "U1" });
+    // users.info does not parse a JSON body (returns user_not_found) -> form-encoded transport.
+    expect(headers["content-type"]).toBe("application/x-www-form-urlencoded");
+    expect((init as { body: string }).body).toBe("user=U1");
   });
 
   it("respects SLACK_API_BASE override for e2e mocks", async () => {
