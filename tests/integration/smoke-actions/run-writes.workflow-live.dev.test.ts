@@ -48,6 +48,7 @@ import {
   discoverNotionSmokeDatabase,
   discoverMondaySmokeBoardGroup,
   discoverOneNoteSmokeSection,
+  discoverSlackSmokeChannel,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -154,6 +155,16 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_NOTION_DATABASE_ID = db.databaseId; // id -> env overlay only
         overlay.SMOKE_NOTION_DB_TITLE_FIELD = db.titleFieldName;
         targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}database "${db.title}"`;
+      }
+    } else if (provider === "slack" && execUsable) {
+      // Slack write fixtures (send_channel_message, delete_message) post to a channel the
+      // bot is a member of. A pinned SMOKE_SLACK_CHANNEL_ID wins; else discover a
+      // smoke/test/chainreact-named MEMBER channel (never an arbitrary channel). Absent
+      // one -> no overlay -> BLOCKED_ENV (set SMOKE_SLACK_CHANNEL_ID).
+      const chosen = await discoverSlackSmokeChannel(account, user, process.env.SMOKE_SLACK_CHANNEL_ID || null);
+      if (chosen) {
+        overlay.SMOKE_SLACK_CHANNEL_ID = chosen.channelId; // id -> env overlay only
+        targetLabel = `channel "${chosen.channelName}"`;
       }
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the

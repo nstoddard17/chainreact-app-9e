@@ -212,7 +212,6 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeHttpRequest,
   slackListChannels,
   slackSendChannelMessage,
-  slackDeleteMessage,
   slackListUsers,
   slackGetChannelInfo,
   airtableGetBaseSchema,
@@ -381,6 +380,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   mondayMoveItem,
   mondayArchiveItem,
   mondayDuplicateItem,
+  slackDeleteMessage,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

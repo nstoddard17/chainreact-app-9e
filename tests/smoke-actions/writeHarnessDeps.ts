@@ -76,6 +76,7 @@ export {
 } from "./writeHarnessDeps/notion";
 export { discoverMondaySmokeBoardGroup } from "./writeHarnessDeps/monday";
 export { discoverOneNoteSmokeSection } from "./writeHarnessDeps/onenote";
+export { discoverSlackSmokeChannel } from "./writeHarnessDeps/slack";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */
