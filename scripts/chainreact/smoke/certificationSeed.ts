@@ -46,6 +46,7 @@ const LIVE_MONDAY_READS = "2026-06-30";
 const SMOKE_WRITE_MONDAY = "2026-06-30";
 const LIVE_NOTION_BLOCKS = "2026-07-01";
 const SMOKE_WRITE_ONENOTE_COPY = "2026-07-03";
+const SMOKE_WRITE_SLACK = "2026-07-03";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -559,6 +560,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // success:true}; polling + discovery are smoke-only).
   ...records("LIVE_PASS_CLEANED", "live copy in a smoke-named section, durable-copy discovery + independent read-back + hard delete of source and copy", SMOKE_WRITE_ONENOTE_COPY, [
     ["microsoft-onenote", "copy_page"],
+  ]),
+  // SLACK-DELETE-MESSAGE (2026-07-03) — first destructive Slack write, certified after
+  // Marcus reconnected Slack (throwaway smoke workspace; destructive actions allowed).
+  // Flow: setup join_channel (bot self-joins the public smoke channel via channels:join
+  // so conversations.history works; idempotent) -> send_channel_message posts one
+  // crsmoke- message (bot-posted, capture ts) -> execute delete_message (chat.delete,
+  // executeIsCleanup) -> INDEPENDENT get_messages read-back proves the run marker is
+  // ABSENT from conversations.history (the delete echo is never trusted). The smoke
+  // channel is auto-discovered (smoke/test/chainreact-named public/member channel; never
+  // an arbitrary channel). Verified live: created 1 / cleaned 1 / 0 leaked (artifact
+  // cleaned). NOTE: chat:write.public lets the bot post without membership, but history
+  // needs membership -> hence the join_channel setup step.
+  ...records("LIVE_PASS_CLEANED", "live post smoke message + delete it + independent get_messages marker-absent read-back", SMOKE_WRITE_SLACK, [
+    ["slack", "delete_message"],
   ]),
   // SMOKE-WRITE-34 — Google Docs update_document. setup create_document (marker
   // title+body) -> execute update_document APPENDS "<marker>updated" (insertLocation

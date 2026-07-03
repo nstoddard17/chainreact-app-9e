@@ -4,6 +4,10 @@ import { defineWriteSmokeFixture } from "@/tests/smoke-actions/contract";
  * slack:delete_message (destructiveSafe, execute IS the cleanup) — the bot deletes
  * exactly the throwaway message it just posted.
  *
+ *   setup    join_channel         -> the bot self-joins the (public) smoke channel so
+ *            conversations.history works for the verify (chat:write.public lets it post
+ *            without membership, but history needs membership). Idempotent — an
+ *            already-joined channel returns ok.
  *   setup    send_channel_message -> POST one crsmoke-marked message to the smoke
  *            channel (bot-posted, so the bot can delete it). Capture { ts } into
  *            ledger key "msg" (Slack's message id).
@@ -41,6 +45,14 @@ export default defineWriteSmokeFixture({
     liveClass: "destructiveSafe",
     smokeMarker: "crsmoke-",
     setup: [
+      {
+        // The bot self-joins the public smoke channel (channels:join). Idempotent, so an
+        // already-joined channel is a no-op. Required so the verify's conversations.history
+        // read is not `not_in_channel`.
+        provider: "slack",
+        action: "join_channel",
+        config: { channel: "{{env.SMOKE_SLACK_CHANNEL_ID}}" },
+      },
       {
         provider: "slack",
         action: "send_channel_message",

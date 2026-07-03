@@ -2,9 +2,12 @@
  * Write smoke harness deps — Slack smoke-channel discovery.
  *
  * Slack write fixtures (send_channel_message, delete_message) need a channel the bot
- * can post to. Rather than require a hardcoded SMOKE_SLACK_CHANNEL_ID, the live dev
- * test discovers a SAFE one: a smoke/test/chainreact-named channel the bot is a MEMBER
- * of (membership is required to post + delete). It NEVER falls back to an arbitrary
+ * can post to AND read history from. Rather than require a hardcoded
+ * SMOKE_SLACK_CHANNEL_ID, the live dev test discovers a SAFE one: a
+ * smoke/test/chainreact-named channel that is either one the bot is already a MEMBER of,
+ * or a PUBLIC channel the bot can self-join (`channels:join`) in the fixture's
+ * join_channel setup step (conversations.history needs membership even though
+ * chat:write.public allows posting without it). It NEVER falls back to an arbitrary
  * channel — posting to a real channel is not smoke-safe — so absent a safe match the
  * caller reports BLOCKED_ENV (set SMOKE_SLACK_CHANNEL_ID at a dedicated smoke channel).
  *
@@ -28,25 +31,33 @@ export interface ChosenSlackChannel {
 
 /**
  * Pick a SAFE smoke channel from `conversations.list` hits. Rules:
- *   - the bot must be a MEMBER (`is_member === true`) — required to post + delete;
- *   - when `pinnedId` is set (SMOKE_SLACK_CHANNEL_ID), that exact channel is used
- *     (still membership-gated);
- *   - otherwise the FIRST smoke/test/chainreact-named member channel, deterministic by
- *     the list order Slack returns;
+ *   - USABLE = the bot is already a MEMBER (`is_member === true`, post + history work),
+ *     OR the channel is PUBLIC (`is_private === false`) so the bot can self-join it in
+ *     the fixture's join_channel setup step (conversations.history needs membership even
+ *     though chat:write.public allows posting without it). A PRIVATE channel the bot is
+ *     not in is unusable (cannot self-join) and is excluded;
+ *   - when `pinnedId` is set (SMOKE_SLACK_CHANNEL_ID), that exact channel is used if usable;
+ *   - otherwise prefer a smoke-named channel the bot is ALREADY in (no join needed), else
+ *     the first smoke-named public channel — deterministic by Slack's list order;
  *   - NEVER an arbitrary channel -> null when no safe match (caller: BLOCKED_ENV). Pure.
  */
 export function pickSlackSmokeChannel(
   channels: readonly Readonly<Record<string, unknown>>[],
   pinnedId?: string | null,
 ): ChosenSlackChannel | null {
-  const member = channels.filter(
-    (c) => c.is_member === true && typeof c.id === "string" && (c.id as string).length > 0,
+  const usable = channels.filter(
+    (c) =>
+      typeof c.id === "string" &&
+      (c.id as string).length > 0 &&
+      (c.is_member === true || c.is_private === false),
   );
   let chosen: Readonly<Record<string, unknown>> | undefined;
   if (pinnedId) {
-    chosen = member.find((c) => c.id === pinnedId);
+    chosen = usable.find((c) => c.id === pinnedId);
   } else {
-    chosen = member.find((c) => SMOKE_NAME.test(String(c.name ?? "")));
+    chosen =
+      usable.find((c) => c.is_member === true && SMOKE_NAME.test(String(c.name ?? ""))) ??
+      usable.find((c) => SMOKE_NAME.test(String(c.name ?? "")));
   }
   if (!chosen) return null;
   return { channelId: chosen.id as string, channelName: String(chosen.name ?? chosen.id) };
@@ -54,9 +65,10 @@ export function pickSlackSmokeChannel(
 
 /**
  * Discover a safe smoke Slack CHANNEL for write fixtures. When `pinnedId`
- * (SMOKE_SLACK_CHANNEL_ID) is set, that exact channel is used if the bot is a member;
- * else a smoke/test-named member channel is chosen. READ-ONLY (conversations.list).
- * Returns the channel id + name (env-overlay only) or null -> caller reports BLOCKED_ENV.
+ * (SMOKE_SLACK_CHANNEL_ID) is set, that exact channel is used if usable; else a
+ * smoke/test-named member-or-public channel is chosen (the fixture join_channel step
+ * makes the bot a member of a public pick). READ-ONLY (conversations.list). Returns the
+ * channel id + name (env-overlay only) or null -> caller reports BLOCKED_ENV.
  */
 export async function discoverSlackSmokeChannel(
   accountId: string,

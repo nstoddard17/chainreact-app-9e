@@ -1524,24 +1524,22 @@ categories above become candidates; only the TRUE technical blockers (not connec
 usable API path, missing scope, verification impossible, real commerce state, raw-bytes
 file-output contract) still stop a test.
 
-**`slack:delete_message` — authored + fully wired 2026-07-03, NOT yet certified (BLOCKED: Slack
-token expired).** Built the destructiveSafe write flow: setup `send_channel_message` posts one
-`crsmoke-` message to the smoke channel (bot-posted, capture `ts`) -> execute `delete_message`
-(chat.delete, `executeIsCleanup`) -> verify `get_messages` proves the run marker is ABSENT from
-`conversations.history`. Added a smoke-channel auto-discovery seam
-(`tests/smoke-actions/writeHarnessDeps/slack.ts` -> `discoverSlackSmokeChannel`, routed through
-`refreshAndRetry` like every seam) that picks a smoke/test/chainreact-named channel the bot is a
-MEMBER of (never an arbitrary channel; absent one -> BLOCKED_ENV), plus a `slack` branch in the
-run-writes dev test that overlays `SMOKE_SLACK_CHANNEL_ID`. Fixture moved from the read list into
-`WRITE_SMOKE_FIXTURES`. Unit tests green (514). BUT the live run cannot execute: a real
-`conversations.list` returns **`token_expired`**. Slack is a NON-refreshable, token-rotating app,
-so `refreshAndRetry` cannot self-heal it, and this dev environment runs no token-refresh cron, so
-the stored Slack access token (last minted for the 2026-06-20/21 read certs) has expired. ALL Slack
-live smoke is down for the same reason, not just this action. **Exact unlock (Marcus):** reconnect
-Slack on the smoke account (re-run the Slack OAuth so a fresh access + refresh token is stored), or
-run the token-refresh path against the smoke Slack integration. No env var or code change is needed
-after that: `SMOKE_PROVIDER=slack SMOKE_SLACK_CONNECTED=true npm run smoke:writes:live` will
-auto-discover the channel and certify `delete_message`. Stays NOT_RUN until then.
+**`slack:delete_message` — CERTIFIED 2026-07-03 (`LIVE_PASS_CLEANED`), first destructive Slack
+write.** Certified after Marcus reconnected Slack (the earlier `token_expired` blocker is resolved).
+Flow: setup `join_channel` (the bot self-joins the public smoke channel via `channels:join` so the
+verify's `conversations.history` is not `not_in_channel`; idempotent) -> `send_channel_message`
+posts one `crsmoke-` message (bot-posted, capture `ts`) -> execute `delete_message` (chat.delete,
+`executeIsCleanup`) -> `get_messages` INDEPENDENT read-back proves the run marker is ABSENT from
+`conversations.history` (the delete echo is never trusted). Live result: `created 1 / cleaned 1 /
+remaining 0` (artifact cleaned). The smoke channel auto-discovers via
+`tests/smoke-actions/writeHarnessDeps/slack.ts` -> `discoverSlackSmokeChannel` (routed through
+`refreshAndRetry`): picks a smoke/test/chainreact-named channel the bot is a member of OR a PUBLIC
+one it can self-join (never an arbitrary channel; absent one -> BLOCKED_ENV). A `slack` branch in
+the run-writes dev test overlays `SMOKE_SLACK_CHANNEL_ID`; the fixture lives in
+`WRITE_SMOKE_FIXTURES`. **Capability notes for the next Slack actions:** the bot has
+`chat:write.public` (can post to a public channel without joining), `channels:join`, and
+`channels:history`/`groups:history` only once a member. Re-run:
+`SMOKE_PROVIDER=slack SMOKE_SLACK_CONNECTED=true npm run smoke:writes:live`.
 
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
