@@ -50,6 +50,7 @@ const SMOKE_WRITE_SLACK = "2026-07-03";
 const SMOKE_WRITE_SLACK_MEMBERSHIP = "2026-07-03";
 const SMOKE_WRITE_SLACK_SCHEDULED = "2026-07-03";
 const SMOKE_WRITE_SLACK_DM = "2026-07-03";
+const SMOKE_WRITE_SLACK_BLOCKS = "2026-07-03";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -692,6 +693,18 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // (created 1 / delivered-DM artifact left).
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live DM send + independent get_messages read-back of the opened DM (delivered-DM artifact; sendSafe, no cleanup)", SMOKE_WRITE_SLACK_DM, [
     ["slack", "send_direct_message"],
+  ]),
+  // SLACK-INTERACTIVE-BLOCKS (2026-07-03) — post_interactive_blocks posts a minimal valid
+  // Block Kit message (one `section` block) to the smoke channel (SMOKE_SLACK_CHANNEL_ID;
+  // the bot self-joins via join_channel). The crsmoke- marker lives ONLY inside the block
+  // text (NO top-level fallback `text`), so an INDEPENDENT get_messages (conversations.
+  // history) read-back hit proves the Block Kit payload actually rendered + is readable,
+  // not merely a notification string (the chat.postMessage echo is never trusted). blocks
+  // ride the JSON transport (chat.postMessage sends application/json), so Block Kit needs
+  // no form-encoding. Cleanup deletes the message (delete_message). Verified live (created
+  // 1 / cleaned 1 / 0 leaked).
+  ...records("LIVE_PASS_CLEANED", "live Block Kit post + independent get_messages read-back of the block marker, message deleted", SMOKE_WRITE_SLACK_BLOCKS, [
+    ["slack", "post_interactive_blocks"],
   ]),
   // BLOCKED (not certified): slack:unarchive_channel. conversations.archive REMOVES the
   // bot from the channel, and conversations.unarchive then returns `not_in_channel` for a
