@@ -57,6 +57,7 @@ import { sheetsSmokeReadBack } from "./writeHarnessDeps/sheets";
 import { onenoteSmokeReadBack } from "./writeHarnessDeps/onenote";
 import { copyMonitorSmokeReadBack } from "./writeHarnessDeps/copyMonitor";
 import { onenoteCopyMonitorSmokeReadBack } from "./writeHarnessDeps/onenoteCopyMonitor";
+import { slackSmokeReadBack } from "./writeHarnessDeps/slack";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
 export { probeWriteConnection, isProviderConnectedForWrite } from "./writeHarnessDeps/connection";
@@ -136,6 +137,8 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   // operation (authenticated Graph operations endpoint; shares the "copy_monitor"
   // action name but is provider-scoped to microsoft-onenote, so no collision).
   onenoteCopyMonitorSmokeReadBack,
+  // Slack per-message state (text + reactions) read-back for update/reaction verifies.
+  slackSmokeReadBack,
 ];
 
 export function makeRealWriteHarnessDeps(

@@ -575,6 +575,26 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live post smoke message + delete it + independent get_messages marker-absent read-back", SMOKE_WRITE_SLACK, [
     ["slack", "delete_message"],
   ]),
+  // SLACK-MESSAGE-LIFECYCLE (2026-07-03) — update + reaction actions on a smoke-owned
+  // message, each verified against THAT message via the slack:message_state smoke seam
+  // (conversations.history filtered to the captured ts -> sanitized { found, text,
+  // reactions }; a whole-window substring would false-positive on a common reaction).
+  // Each: setup join_channel + send_channel_message (capture ts) -> execute -> read-back
+  // -> delete_message cleanup. Verified live (created 1 / cleaned 1 / 0 leaked each):
+  //   - update_message   -> message_state proves text now carries marker+"updated" AND no
+  //     longer "orig" (a no-op edit fails).
+  //   - add_reaction     -> message_state proves the message's `reactions` CONTAINS
+  //     white_check_mark.
+  //   - remove_reaction  -> setup also add_reaction; execute removes it; message_state
+  //     proves `reactions` no longer contains white_check_mark.
+  // BLOCKED (not certified): pin_message / unpin_message — the Slack app lacks the
+  // `pins:write` scope (pins.add returns missing_scope). Unblock: grant pins:write on the
+  // Slack app + reconnect, then a create->pin->verify(pins.list)->unpin->delete fixture.
+  ...records("LIVE_PASS_CLEANED", "live smoke message + update/reaction + per-message message_state read-back + delete cleanup", SMOKE_WRITE_SLACK, [
+    ["slack", "update_message"],
+    ["slack", "add_reaction"],
+    ["slack", "remove_reaction"],
+  ]),
   // SMOKE-WRITE-34 — Google Docs update_document. setup create_document (marker
   // title+body) -> execute update_document APPENDS "<marker>updated" (insertLocation
   // "end" — additive, never the body-wiping "replace" mode) -> INDEPENDENT

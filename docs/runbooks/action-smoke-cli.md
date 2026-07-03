@@ -1541,6 +1541,26 @@ the run-writes dev test overlays `SMOKE_SLACK_CHANNEL_ID`; the fixture lives in
 `channels:history`/`groups:history` only once a member. Re-run:
 `SMOKE_PROVIDER=slack SMOKE_SLACK_CONNECTED=true npm run smoke:writes:live`.
 
+**Slack message-lifecycle batch — CERTIFIED 2026-07-03 (`update_message`, `add_reaction`,
+`remove_reaction` = `LIVE_PASS_CLEANED`; `pin_message` / `unpin_message` BLOCKED on scope).** All
+three certified actions run the same shape on a smoke-owned message: setup `join_channel` +
+`send_channel_message` (capture `ts`) -> execute -> verify via the new `slack:message_state` SMOKE
+read seam -> `delete_message` cleanup (created 1 / cleaned 1 / 0 leaked each). The seam
+(`tests/smoke-actions/writeHarnessDeps/slack.ts` -> `slackSmokeReadBack`) reads THAT message by its
+captured `ts` from `conversations.history` and returns a sanitized `{ found, text, reactions }`, so a
+verify asserts on the specific message rather than a whole-window substring (a common reaction like
+`white_check_mark` would otherwise false-positive). Assertions: `update_message` -> `text` carries
+marker+"updated" AND not "orig"; `add_reaction` -> `reactions` contains `white_check_mark`;
+`remove_reaction` -> setup also adds the reaction, execute removes it, `reactions` no longer contains
+it. **`pin_message` / `unpin_message` are BLOCKED:** the Slack app lacks the `pins:write` scope
+(`pins.add` returns `missing_scope`; empirically confirmed). Everything else works
+(`chat:write.public`, `channels:join`, reactions, chat.update/delete all confirmed live). **Exact
+unlock (Marcus):** add the `pins:write` bot scope to the Slack app and reconnect; then a
+create -> pin -> verify(`pins.list` seam) -> unpin -> verify -> delete fixture certifies both. Not
+authored this slice (a fixture that fails on `missing_scope` would fail the batch + leak the setup
+message). `conversations.replies` is NOT usable to read a single non-threaded message (returns
+`invalid_arguments`) -> the seam uses `conversations.history`.
+
 **Cleaned vs artifact (cleanup posture).** A fixture's `cleanupKind` decides both
 whether cleanup is required and how a leftover reads:
 - `"delete"` — REQUIRED. Success -> `artifact: "cleaned"` (object gone) ->

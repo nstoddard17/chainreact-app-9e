@@ -17,6 +17,9 @@ import nativeHttpRequest from "@/tests/fixtures/action-smoke/native/http_request
 import slackListChannels from "@/tests/fixtures/action-smoke/slack/list_channels";
 import slackSendChannelMessage from "@/tests/fixtures/action-smoke/slack/send_channel_message";
 import slackDeleteMessage from "@/tests/fixtures/action-smoke/slack/delete_message";
+import slackUpdateMessage from "@/tests/fixtures/action-smoke/slack/update_message";
+import slackAddReaction from "@/tests/fixtures/action-smoke/slack/add_reaction";
+import slackRemoveReaction from "@/tests/fixtures/action-smoke/slack/remove_reaction";
 // SMOKE-ACTIONS-5 — read-only coverage batch (4 providers).
 import slackListUsers from "@/tests/fixtures/action-smoke/slack/list_users";
 import slackGetChannelInfo from "@/tests/fixtures/action-smoke/slack/get_channel_info";
@@ -381,6 +384,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   mondayArchiveItem,
   mondayDuplicateItem,
   slackDeleteMessage,
+  slackUpdateMessage,
+  slackAddReaction,
+  slackRemoveReaction,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

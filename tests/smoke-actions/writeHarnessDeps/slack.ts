@@ -20,6 +20,9 @@
 import { getActiveForExecution } from "@/repositories/integrations";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { conversationsList } from "@/integrations/slack/api/conversationsList";
+import { conversationsHistory } from "@/integrations/slack/api/conversationsHistory";
+import type { StepRunOutcome } from "../writeHarness";
+import type { SmokeReaderContext, SmokeReaderInput } from "./context";
 
 /** A channel is smoke-safe when its name is explicitly smoke/test/chainreact-named. */
 const SMOKE_NAME = /smoke|test|chainreact/i;
@@ -96,4 +99,51 @@ export async function discoverSlackSmokeChannel(
     return null;
   }
   return pickSlackSmokeChannel(channels, pinnedId);
+}
+
+/**
+ * Extract the sanitized state of ONE message from a `conversations.history` window.
+ * Finds the message by its `ts` and returns only what a smoke verify reads: whether it
+ * was found, its current text (proves an update), and its reaction names (proves an
+ * add/remove reaction). NEVER the raw provider payload. Pure over the messages array.
+ */
+export function extractSlackMessageState(
+  messages: readonly Readonly<Record<string, unknown>>[],
+  ts: string,
+): { found: boolean; text: string; reactions: string[] } {
+  const msg = messages.find((m) => m.ts === ts);
+  if (!msg) return { found: false, text: "", reactions: [] };
+  const reactions = Array.isArray(msg.reactions)
+    ? (msg.reactions as Readonly<Record<string, unknown>>[]).map((r) => String(r.name ?? ""))
+    : [];
+  return { found: true, text: String(msg.text ?? ""), reactions };
+}
+
+/**
+ * Smoke read-back seam: `slack:message_state` — reads ONE smoke-owned message's precise
+ * current state (text + reactions) via `conversations.history`, so a verify can assert on
+ * THAT message (not a whole-window substring that a common reaction like `white_check_mark`
+ * would false-positive). Requires the bot to be a channel member (the fixture join_channel
+ * setup guarantees it). Returns null for any other (provider, action). Bounded + sanitized:
+ * only `{ found, text, reactions }`.
+ */
+export async function slackSmokeReadBack(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome | null> {
+  if (input.provider !== "slack" || input.action !== "message_state") return null;
+  const channel = typeof input.config.channel === "string" ? input.config.channel : "";
+  const ts = typeof input.config.ts === "string" ? input.config.ts : "";
+  if (!channel || !ts) {
+    return { ok: false, output: null, reason: "slack message_state: missing channel/ts" };
+  }
+  const integration = await getActiveForExecution(ctx.accountId, "slack", null);
+  if (!integration) return { ok: false, output: null, reason: "slack not connected" };
+  const res = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "slack",
+    providerAccountId: integration.providerAccountId,
+    apiCall: (accessToken) => conversationsHistory({ botToken: accessToken, channel, limit: 30 }),
+  });
+  return { ok: true, output: extractSlackMessageState(res.messages, ts), reason: null };
 }
