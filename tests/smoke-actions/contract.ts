@@ -212,6 +212,17 @@ export interface AsyncCompletionSpec {
   readonly action: string;
   /** How to record the COMPLETED resource id (from the poll output) into the ledger. */
   readonly captureResource: CaptureSpec;
+  /**
+   * Optional extra config merged into the completion seam call ALONGSIDE the trusted
+   * `monitorUrl` (the seam always receives `monitorUrl`; these keys are added, never
+   * override it). Token-resolved like every other step config (`{{env.*}}` /
+   * `{{smokeMarker}}` / `{{ledger.<key>.id}}`). Used when a monitor's terminal id is
+   * unreliable and the seam must instead discover the DURABLE created resource by a
+   * deterministic marker — e.g. OneNote `copyToSection` returns an ephemeral page id,
+   * so the seam re-lists the target section and picks the page whose title carries the
+   * run marker AND whose id differs from the source page id.
+   */
+  readonly config?: Readonly<Record<string, unknown>>;
 }
 
 /**

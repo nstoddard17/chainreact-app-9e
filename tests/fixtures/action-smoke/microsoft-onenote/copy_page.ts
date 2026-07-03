@@ -71,12 +71,21 @@ export default defineWriteSmokeFixture({
       },
     ],
     // copy_page returns {operationLocation, success:true} with NO page id — poll the
-    // TRUSTED Graph operation URL to terminal completion and capture the COPIED page id.
+    // TRUSTED Graph operation URL to terminal completion, THEN discover the DURABLE
+    // copied page. OneNote copyToSection's terminal id is ephemeral (Graph may report it
+    // as deleted), so the seam re-lists the target section and picks the page carrying
+    // the run marker whose id != the source page id — that durable id is captured for
+    // verify + cleanup. (Absent these config keys the seam falls back to the poll id.)
     completeAsync: {
       monitorUrlPath: "operationLocation",
       provider: "microsoft-onenote",
       action: "copy_monitor",
       captureResource: { resourceKey: "copy", idPath: "pageId", kind: "page" },
+      config: {
+        sectionId: "{{env.SMOKE_ONENOTE_SECTION_ID}}",
+        marker: "{{smokeMarker}}",
+        sourcePageId: "{{ledger.source.id}}",
+      },
     },
     verify: {
       provider: "microsoft-onenote",

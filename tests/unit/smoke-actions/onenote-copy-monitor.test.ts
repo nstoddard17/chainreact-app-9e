@@ -9,6 +9,7 @@
 import {
   extractPageIdFromResourceUrl,
   normalizeOneNoteOperation,
+  pickDurableCopiedPage,
 } from "@/tests/smoke-actions/writeHarnessDeps/onenoteCopyMonitor";
 import {
   classifyStatus,
@@ -92,6 +93,49 @@ describe("normalizeOneNoteOperation", () => {
 
   it("an empty body (no status, no id) is unrecognized (pending)", () => {
     expect(normalizeOneNoteOperation({})).toEqual({ status: null, resourceId: null });
+  });
+});
+
+describe("pickDurableCopiedPage — durable copy discovery (fixes the ephemeral-id blocker)", () => {
+  const marker = "crsmoke-abcd1234-";
+  const source = { id: "1-source!42", title: `${marker}page` };
+
+  it("picks the marker page whose id differs from the source (the durable copy)", () => {
+    const copy = { id: "1-copy!99", title: `${marker}page` };
+    expect(pickDurableCopiedPage([source, copy], marker, source.id)).toEqual({
+      ok: true,
+      pageId: "1-copy!99",
+    });
+  });
+
+  it("ignores foreign pages and other-run markers, matching only this run's copy", () => {
+    const copy = { id: "1-copy!99", title: `${marker}page` };
+    const foreign = { id: "1-other!7", title: "Meeting notes" };
+    const priorRun = { id: "1-prior!3", title: "crsmoke-ZZZZ9999-page" };
+    expect(pickDurableCopiedPage([foreign, source, priorRun, copy], marker, source.id)).toEqual({
+      ok: true,
+      pageId: "1-copy!99",
+    });
+  });
+
+  it("returns a non-ambiguous not-found when only the source is present (caller retries)", () => {
+    const r = pickDurableCopiedPage([source], marker, source.id);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.ambiguous).toBe(false);
+  });
+
+  it("flags ambiguity when more than one marker page != source (never guesses)", () => {
+    const c1 = { id: "1-copyA", title: `${marker}page` };
+    const c2 = { id: "1-copyB", title: `${marker}page` };
+    const r = pickDurableCopiedPage([source, c1, c2], marker, source.id);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.ambiguous).toBe(true);
+  });
+
+  it("excludes a page with no title (never matches the marker)", () => {
+    const untitled = { id: "1-untitled" };
+    const r = pickDurableCopiedPage([source, untitled], marker, source.id);
+    expect(r.ok).toBe(false);
   });
 });
 

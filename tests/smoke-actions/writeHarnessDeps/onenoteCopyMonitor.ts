@@ -39,6 +39,7 @@
 import { getActiveForExecution } from "@/repositories/integrations";
 import { refreshAndRetry, Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
 import { graphApiBase } from "@/integrations/_shared/microsoft/api/_base";
+import { pagesList } from "@/integrations/microsoft-onenote/api/pagesList";
 import {
   DEFAULT_COPY_POLL_BUDGET,
   isTrustedGraphMonitorUrl,
@@ -50,6 +51,42 @@ import type { StepRunOutcome } from "../writeHarness";
 import type { SmokeReaderContext, SmokeReaderInput } from "./context";
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/** Bounded budget for the durable-copy list-retry (absorbs OneNote list lag). */
+const DURABLE_LIST_BUDGET = { maxAttempts: 8, backoffMs: 750, capMs: 6000 } as const;
+
+/** A durable-discovery pick outcome. Pure, so it unit-tests without a network. */
+export type DurablePickOutcome =
+  | { readonly ok: true; readonly pageId: string }
+  | { readonly ok: false; readonly ambiguous: boolean; readonly reason: string };
+
+/**
+ * Pick the DURABLE copied OneNote page from a section listing.
+ *
+ * OneNote's async `copyToSection` returns an ephemeral/staging page id that Graph may
+ * later report as deleted, so the ledger id must instead be the page that actually
+ * landed in the target section. The source page + its copy share the run-marked title
+ * (`{{smokeMarker}}page`), so the copy is the marker page whose id differs from the
+ * source. The run marker carries the unique run token, so ONLY this run's two pages can
+ * match — a foreign / prior-run page never collides. Deterministic + pure:
+ *   - exactly one marker page != source  -> that is the copy.
+ *   - zero                                -> not landed yet (caller retries within budget).
+ *   - more than one                       -> ambiguous; never guess (caller fails).
+ */
+export function pickDurableCopiedPage(
+  pages: readonly { readonly id: string; readonly title?: string }[],
+  marker: string,
+  sourcePageId: string,
+): DurablePickOutcome {
+  const matches = pages.filter(
+    (p) => typeof p.title === "string" && p.title.startsWith(marker) && p.id !== sourcePageId,
+  );
+  if (matches.length === 1) return { ok: true, pageId: matches[0]!.id };
+  if (matches.length === 0) {
+    return { ok: false, ambiguous: false, reason: "durable copied page not found (marker page != source absent)" };
+  }
+  return { ok: false, ambiguous: true, reason: `ambiguous durable copy discovery: ${matches.length} marker pages != source` };
+}
 
 /**
  * Pull a OneNote page id from an operation `resourceLocation` of the shape
@@ -179,6 +216,51 @@ export async function onenoteCopyMonitorSmokeReadBack(
   });
   if (!outcome.ok) return { ok: false, output: null, reason: outcome.reason };
 
-  // Bounded + sanitized: ONLY the copied page id (for ledger capture + verify).
-  return { ok: true, output: { pageId: outcome.resourceId }, reason: null };
+  // DURABLE-ID PATH: when the fixture supplies the target section + run marker + source
+  // page id, IGNORE the poll's ephemeral resourceId (OneNote copyToSection returns a
+  // staging id Graph may later report as deleted) and instead discover the page that
+  // actually landed in the section. Absent those inputs -> legacy behavior (the poll id).
+  const sectionId = typeof input.config.sectionId === "string" ? input.config.sectionId : null;
+  const marker = typeof input.config.marker === "string" ? input.config.marker : null;
+  const sourcePageId = typeof input.config.sourcePageId === "string" ? input.config.sourcePageId : null;
+  if (sectionId === null || marker === null || sourcePageId === null) {
+    // Bounded + sanitized: ONLY the copied page id (for ledger capture + verify).
+    return { ok: true, output: { pageId: outcome.resourceId }, reason: null };
+  }
+
+  // Bounded list-retry: the copy is complete (poll said so) but may take a moment to
+  // surface in the section listing. Each list runs inside refreshAndRetry (seam invariant).
+  let waited = 0;
+  let lastReason = "durable copied page not found in the smoke section";
+  for (let attempt = 0; attempt < DURABLE_LIST_BUDGET.maxAttempts; attempt++) {
+    let pages: { id: string; title?: string }[] | null = null;
+    try {
+      const listed = await refreshAndRetry({
+        accountId: ctx.accountId,
+        provider: "microsoft-onenote",
+        providerAccountId: integration.providerAccountId,
+        apiCall: (accessToken) => pagesList({ accessToken, sectionId, top: 100 }),
+      });
+      pages = listed.pages;
+    } catch (err) {
+      lastReason = `durable copy discovery list failed: ${(err as Error).message}`;
+    }
+    if (pages) {
+      const pick = pickDurableCopiedPage(pages, marker, sourcePageId);
+      if (pick.ok) {
+        // Sanitized: ONLY the DURABLE copied page id (for ledger capture + verify + cleanup).
+        return { ok: true, output: { pageId: pick.pageId }, reason: null };
+      }
+      lastReason = pick.reason;
+      // Ambiguity never resolves by waiting -> fail fast (never guess which page).
+      if (pick.ambiguous) return { ok: false, output: null, reason: pick.reason };
+    }
+    if (attempt < DURABLE_LIST_BUDGET.maxAttempts - 1 && waited < DURABLE_LIST_BUDGET.capMs) {
+      const backoff = Math.min(DURABLE_LIST_BUDGET.backoffMs, DURABLE_LIST_BUDGET.capMs - waited);
+      if (backoff <= 0) break;
+      await sleep(backoff);
+      waited += backoff;
+    }
+  }
+  return { ok: false, output: null, reason: lastReason };
 }

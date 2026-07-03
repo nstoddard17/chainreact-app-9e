@@ -788,9 +788,13 @@ export async function runWriteSmoke(
         actionStatus = "VERIFY_FAILED";
       } else {
         // The monitor URL is passed to the smoke read-back seam (a bounded, READ-ONLY
-        // provider poll); the seam itself trust-gates the URL before any fetch.
+        // provider poll); the seam itself trust-gates the URL before any fetch. Any
+        // `ca.config` (token-resolved: env / marker / ledger) is merged in FIRST so
+        // `monitorUrl` can never be overridden — it lets a seam whose monitor id is
+        // unreliable discover the DURABLE resource by marker (e.g. OneNote copy).
+        const extraConfig = ca.config ? resolveStepConfig(ca.config, marker, ledger, envLookup) : {};
         const res = deps.smokeReadBack
-          ? await deps.smokeReadBack({ provider: ca.provider, action: ca.action, config: { monitorUrl } })
+          ? await deps.smokeReadBack({ provider: ca.provider, action: ca.action, config: { ...extraConfig, monitorUrl } })
           : { ok: false, output: null, reason: "async completion seam not available" };
         if (!res.ok) {
           phases.push({ phase: "execute", outcome: "failed", reason: SANITIZE(res.reason) });

@@ -45,6 +45,7 @@ const SMOKE_WRITE_BATCH_0629 = "2026-06-29";
 const LIVE_MONDAY_READS = "2026-06-30";
 const SMOKE_WRITE_MONDAY = "2026-06-30";
 const LIVE_NOTION_BLOCKS = "2026-07-01";
+const SMOKE_WRITE_ONENOTE_COPY = "2026-07-03";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -542,6 +543,22 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["microsoft-onenote", "create_page"],
     ["microsoft-onenote", "update_page"],
     ["microsoft-onenote", "delete_page"],
+  ]),
+  // SMOKE-WRITE-35 UNBLOCKED (2026-07-03) — copy_page now certifies after the durable-copy
+  // discovery fix. Root cause of the prior blocker: OneNote copyToSection's async operation
+  // Location surfaces an EPHEMERAL/staging page id Graph later reports as deleted, so the old
+  // seam's captured id made verify + cleanup non-deterministic (one run orphaned a real
+  // crsmoke- copy). Fix is SMOKE-ONLY: after the poll confirms completion, the copy_monitor
+  // seam re-lists the target smoke section and captures the DURABLE page carrying the run
+  // marker whose id != sourcePageId (bounded list-retry; ambiguity fails fast, never guesses).
+  // Flow: setup create_page (source) -> copy_page (async) -> completeAsync polls + durable-
+  // discovers the copy id -> get_page_content read-back confirms the marker on the copy's
+  // persisted title -> delete_page hard-deletes BOTH source + copy (cleanupEach). Verified
+  // live TWICE consecutively (created 2 / cleaned 2 / 0 leaked each run); the durable id is
+  // deterministic. Production copy_page is UNCHANGED (still returns {operationLocation,
+  // success:true}; polling + discovery are smoke-only).
+  ...records("LIVE_PASS_CLEANED", "live copy in a smoke-named section, durable-copy discovery + independent read-back + hard delete of source and copy", SMOKE_WRITE_ONENOTE_COPY, [
+    ["microsoft-onenote", "copy_page"],
   ]),
   // SMOKE-WRITE-34 — Google Docs update_document. setup create_document (marker
   // title+body) -> execute update_document APPENDS "<marker>updated" (insertLocation
