@@ -49,6 +49,7 @@ const SMOKE_WRITE_ONENOTE_COPY = "2026-07-03";
 const SMOKE_WRITE_SLACK = "2026-07-03";
 const SMOKE_WRITE_SLACK_MEMBERSHIP = "2026-07-03";
 const SMOKE_WRITE_SLACK_SCHEDULED = "2026-07-03";
+const SMOKE_WRITE_SLACK_DM = "2026-07-03";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -678,6 +679,19 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live schedule/cancel + independent scheduledMessages.list read-back (scheduled message cancelled, none left to deliver)", SMOKE_WRITE_SLACK_SCHEDULED, [
     ["slack", "schedule_message"],
     ["slack", "cancel_scheduled_message"],
+  ]),
+  // SLACK-DIRECT-MESSAGE (2026-07-03) — send_direct_message to a REAL throwaway-workspace
+  // user discovered from users.list (discoverSlackSmokeUser; never invented, never a bot,
+  // never Slackbot). The handler opens the 1:1 DM (conversations.open, idempotent) then
+  // chat.postMessage. Verified by an INDEPENDENT get_messages (conversations.history) read
+  // of the opened DM channel proving the run marker delivered (im:history scope; the send
+  // echo is never trusted). sendSafe: a sent DM is DELIVERED, so there is no provider
+  // cleanup - each run leaves ONE clearly-marked crsmoke- DM to the throwaway user (an
+  // accepted artifact, not a leak). chat.delete is not attempted because the write harness
+  // captures only one id per step (channel OR ts) and a DM delete needs both. Verified live
+  // (created 1 / delivered-DM artifact left).
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live DM send + independent get_messages read-back of the opened DM (delivered-DM artifact; sendSafe, no cleanup)", SMOKE_WRITE_SLACK_DM, [
+    ["slack", "send_direct_message"],
   ]),
   // BLOCKED (not certified): slack:unarchive_channel. conversations.archive REMOVES the
   // bot from the channel, and conversations.unarchive then returns `not_in_channel` for a
