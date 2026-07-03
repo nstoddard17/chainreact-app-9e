@@ -163,7 +163,7 @@ Every feature that can fail must test:
 Examples:
 - OAuth callback fails → integration row not created; user sees a humanized message; log records the failure category but not the token.
 - Trigger registration fails → workflow remains `draft`; user sees the registration error; trigger_resources stays clean.
-- Webhook dedup store fails → fail-open policy applies; `event-dedup-outage` metric emits; downstream Q4 catches duplicates.
+- Webhook dedup store fails → fail-**closed** policy applies (LAUNCH-DEDUP-FAILSAFE): enqueue is skipped, a `webhook_dedup_unavailable_skip_enqueue` metric emits, no duplicate run is created. (The Q4 within-session side-effect backstop that fail-open assumed is not implemented, so the dispatcher never proceeds past an unconfirmed dedup check.)
 - Slack action returns 401 → non-refreshable provider emits `action_required`; no refresh attempt; health engine updates.
 - Missing variable in handler config → standardized config-failure shape; handler is not invoked; user sees the missing-reference path in the run history.
 

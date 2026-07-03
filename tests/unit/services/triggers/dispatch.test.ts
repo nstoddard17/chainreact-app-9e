@@ -159,15 +159,41 @@ describe("dispatchTriggerEvent — dedup", () => {
     });
   });
 
-  it("fail-open on dedup outage: dispatch proceeds and dedupOutage=true is set", async () => {
+  it("fails closed on dedup outage: skips enqueue rather than risk a duplicate side effect", async () => {
+    // Business rule (LAUNCH-DEDUP-FAILSAFE, docs/rules/webhook-receipt-routes.md):
+    // the dedup store cannot confirm the event is new, and there is NO downstream
+    // Q4 side-effect idempotency backstop (core/workflows/idempotency.ts ships
+    // only pure key/hash helpers). Proceeding would risk a doubled provider
+    // delivery enqueuing two runs → duplicate email/message/charge. So we skip.
     mockMarkSeen.mockRejectedValueOnce(new Error("connection lost"));
-    mockListForDispatch.mockResolvedValueOnce([baseResource]);
-    mockGetStateForDispatch.mockResolvedValueOnce("active");
-    mockEnqueueRun.mockResolvedValueOnce({ runId: null, enqueuedAt: "" });
 
     const result = await dispatchTriggerEvent(event);
-    expect(result.dedupOutage).toBe(true);
-    expect(result.enqueued).toBe(1);
+
+    // No lookup, no enqueue: the event is shed, not dispatched.
+    expect(mockListForDispatch).not.toHaveBeenCalled();
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      matched: 0,
+      enqueued: 0,
+      duplicate: false,
+      dedupOutage: true,
+    });
+  });
+
+  it("emits an alertable webhook_dedup_unavailable_skip_enqueue marker on outage (without leaking the payload)", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockMarkSeen.mockRejectedValueOnce(new Error("connection lost"));
+
+    await dispatchTriggerEvent(event);
+
+    const logged = errorSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    // The outage is loud enough to alert on, and identifies the event by its
+    // dedup key (provider + eventId) but never logs the raw provider payload.
+    expect(logged).toContain("webhook_dedup_unavailable_skip_enqueue");
+    expect(logged).toContain("slack");
+    expect(logged).toContain("Ev123");
+    expect(logged).not.toContain("hi"); // event payload text never logged
+    errorSpy.mockRestore();
   });
 });
 

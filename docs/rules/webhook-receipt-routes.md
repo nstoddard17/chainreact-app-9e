@@ -15,7 +15,7 @@ Define how V2 receives, verifies, normalizes, and dispatches incoming webhook ev
   - The route → receive → normalize **pattern** is shared. The downstream **contract** and **dispatcher target** differ when the event is not a workflow trigger.
 - Trigger dispatcher in `services/triggers/dispatch.ts` is provider-agnostic and reads canonical `triggerEvent.ts` events. Provider-specific quirks end at `normalize.ts`.
 - Idempotency dedup via Postgres table `webhook_event_dedup` keyed by `(provider, event_id)`, daily cleanup cron. Defer Redis migration.
-- Dedup outage policy: **fail-open** — dispatch and rely on Q4 session-side-effects idempotency further down the chain to prevent duplicate side effects.
+- Dedup outage policy: **fail-CLOSED** (updated 2026-07-03, LAUNCH-DEDUP-FAILSAFE). If the dedup store cannot confirm the event is new (`markSeen` throws), the dispatcher **skips enqueue** for that event and emits an alertable `webhook_dedup_unavailable_skip_enqueue` marker. The route still returns 200, so the provider does not retry-storm the already-degraded shared DB. **Why not fail-open:** the original decision assumed a downstream Q4 within-session side-effect idempotency backstop (`checkReplay`/`recordFired`) would catch duplicates that slipped past a degraded dedup store — but that storage was **never implemented** (`core/workflows/idempotency.ts` ships only the pure key/hash helpers, and there is no engine-boundary replay guard). With no backstop, fail-open would enqueue two runs on a doubled delivery during an outage → duplicate external side effects (email / message / CRM write / charge). Dropping the event during a rare outage window is the safer MVP trade. **Reconsider fail-open only after** durable Q4 side-effect storage lands at the engine boundary (see `docs/slices/phase-5/webhook-dedup-idempotency-closeout.md` and audit must-fix #7 / recommended slice `DEDUP-BACKSTOP-1`).
 - Provider event-id field declared in the manifest. Where no stable id exists, manifest declares a deterministic-hash strategy.
 - Async dispatch only: webhook routes enqueue and return; execution runs asynchronously.
 - **Disabled / paused workflows:** dispatcher MUST guard and silently drop events even when provider-side registration lags. (Shared invariant with workflow-lifecycle rule.)
@@ -82,7 +82,7 @@ The dispatcher in `services/triggers/dispatch.ts` is provider-agnostic. It recei
 - **Standard event POST:** Provider → route → `receive.verify(req)` → `receive.parse(req)` returns one or more raw events → for each: `normalize(rawEvent)` → dispatcher → execution queue. Route returns `200 OK` once all events are dispatched (or queued for dispatch).
 - **Verification handshake (URL challenge):** Slack URL verification, Microsoft Graph validation token, Notion verification token. Route handles `GET` or `POST` with `type: 'url_verification'` → `receive.handleChallenge(req)` returns the challenge response. No dispatch.
 - **Batch events:** A single POST contains an array (Slack batch, Microsoft Graph notification array). `receive.parse(req)` returns an array; each is normalized + dispatched independently.
-- **Idempotency dedup:** Before dispatch, the dispatcher checks `webhook_event_dedup` for `(provider, eventId)`. Hit → drop silently with debug log. Miss → record and continue.
+- **Idempotency dedup:** Before dispatch, the dispatcher checks `webhook_event_dedup` for `(provider, eventId)`. Hit → drop silently with debug log. Miss → record and continue. **Store outage (`markSeen` throws) → fail closed:** skip enqueue, emit `webhook_dedup_unavailable_skip_enqueue`, return 200 (no dispatch). See the dedup outage policy above.
 - **Replay (debug):** A debug-only admin endpoint can re-dispatch a stored normalized event by id. Production routes never replay.
 
 ## Disallowed behavior
@@ -134,7 +134,7 @@ Unit tests in `tests/unit/services/triggers/dispatch.test.ts`:
 10. Dispatcher matches event to active workflow with matching trigger config.
 11. Dispatcher does not match disabled / paused / draft workflows.
 12. Dispatcher dedups by `(provider, eventId)`.
-13. Dispatcher handles dedup-table outage with the locked **fail-open** policy: dispatch proceeds, an `event-dedup-outage` log/metric is emitted, and Q4 session-side-effects idempotency is relied on downstream.
+13. Dispatcher handles a dedup-table outage with the locked **fail-closed** policy: enqueue is **skipped** (no run), a `webhook_dedup_unavailable_skip_enqueue` log/metric is emitted, and the dedup key (provider + eventId) is logged without the raw payload. (Fail-closed because the Q4 session-side-effects backstop that fail-open assumed was never implemented — see the dedup outage policy in Resolved Decisions.)
 14. Dispatcher enqueues run via execution service; does not run synchronously.
 
 Integration tests in `tests/integration/webhooks/<p>.test.ts`:

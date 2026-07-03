@@ -19,10 +19,28 @@ import { isAccountFrozen } from "@/services/accounts/accountFreeze";
  *   - Async dispatch only — calls enqueueRun and returns; never executes
  *     synchronously inside the route.
  *
- * Dedup outage policy is fail-open per the rule (Q4 session-side-effects
- * idempotency catches duplicate side effects further down the chain). When
- * markSeen throws, we log a structured outage marker and proceed with
- * dispatch.
+ * Dedup outage policy is fail-CLOSED (changed 2026-07-03, LAUNCH-DEDUP-FAILSAFE).
+ * The webhook-receipt rule originally specified fail-open, on the premise that a
+ * downstream Q4 within-session side-effect idempotency backstop
+ * (`checkReplay`/`recordFired`) would catch any duplicate side effects that a
+ * doubled delivery slipped past a degraded dedup store. That storage was never
+ * implemented — `core/workflows/idempotency.ts` ships only the pure key/hash
+ * helpers, with no `checkReplay`/`recordFired` and no engine-boundary replay
+ * guard — so fail-open has NO backstop: during a dedup-store outage a doubled
+ * provider delivery would enqueue two distinct runs and cause duplicate
+ * external side effects (duplicate email / Slack message / CRM write / charge).
+ *
+ * Preventing a duplicate, often irreversible, external side effect outweighs
+ * the cost of dropping an event during a rare dedup-store outage, so when
+ * `markSeen` throws we SKIP enqueue for that event and emit a loud, alertable
+ * `webhook_dedup_unavailable_skip_enqueue` marker. The route still returns 200
+ * (no 5xx), so the provider does NOT retry: on this single shared Supabase
+ * project a dedup-store outage means the DB is already degraded, and answering
+ * every webhook with 5xx would amplify load on the struggling DB via a provider
+ * retry storm. Shedding the event is the deliberate MVP trade — bounded to the
+ * outage window and loudly logged — rather than either duplicating side effects
+ * (old fail-open) or retry-storming a degraded DB. When durable Q4 side-effect
+ * storage lands at the engine boundary, fail-open can be reconsidered.
  *
  * Per-trigger filter (P-S2, docs/slices/slack-2-1-messaging-reactions-plan.md):
  *   - After lookup, before enqueue, the dispatcher checks the filter
@@ -43,14 +61,19 @@ export interface DispatchResult {
   enqueued: number;
   /** True iff this event was already in the dedup table. */
   duplicate: boolean;
-  /** True iff dedup encountered an error and we proceeded anyway. */
+  /**
+   * True iff the dedup store errored. Fail-closed: when this is true the event
+   * was SKIPPED (matched=0, enqueued=0), not dispatched — see the module header.
+   */
   dedupOutage: boolean;
 }
 
 export async function dispatchTriggerEvent(
   event: TriggerEvent,
 ): Promise<DispatchResult> {
-  // 1. Idempotency dedup.
+  // 1. Idempotency dedup. Fail CLOSED on outage — see the module header:
+  // without a Q4 side-effect backstop, proceeding past an unconfirmed dedup
+  // check risks duplicate external side effects, so we skip enqueue instead.
   let dedupOutage = false;
   let fresh = true;
   try {
@@ -58,14 +81,19 @@ export async function dispatchTriggerEvent(
     fresh = result.fresh;
   } catch (err) {
     dedupOutage = true;
-    console.warn(
+    console.error(
       JSON.stringify({
-        event: "webhook.dedup.outage",
+        event: "webhook_dedup_unavailable_skip_enqueue",
         provider: event.provider,
         eventId: event.eventId,
         error: (err as Error).message,
       }),
     );
+    // Skip enqueue: we cannot confirm this event is new, and there is no
+    // downstream idempotency to catch a duplicate run. Return without matching
+    // or enqueueing anything. dedupOutage=true + enqueued=0 is the caller's
+    // signal that the event was shed due to the outage.
+    return { matched: 0, enqueued: 0, duplicate: false, dedupOutage };
   }
 
   if (!fresh) {
