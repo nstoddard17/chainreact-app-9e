@@ -54,6 +54,7 @@ const SMOKE_WRITE_SLACK_BLOCKS = "2026-07-03";
 const SMOKE_WRITE_SLACK_FILES = "2026-07-03";
 const SMOKE_WRITE_SLACK_PINS = "2026-07-03";
 const SMOKE_WRITE_GMAIL_DRAFT_LABEL = "2026-07-04";
+const SMOKE_WRITE_GMAIL_STATE = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -806,6 +807,26 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ]),
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live create label + independent list_labels read-back (label artifact; no registered Gmail delete-label action)", SMOKE_WRITE_GMAIL_DRAFT_LABEL, [
     ["gmail", "create_label"],
+  ]),
+  // GMAIL-STATE-BATCH (2026-07-04) — flag/state + delete lifecycle on smoke-owned drafts,
+  // no email sent. All are users.messages.modify system-label toggles verified via the
+  // gmail:message_labels read-back; drafts are trashed each run (recoverable ~30d, gone
+  // from active). Verified live that a draft accepts INBOX add/remove and that trashing a
+  // draft yields labelIds ["DRAFT","TRASH"] (so each transition is real, not vacuous).
+  //   - mark_as_unread (writeSafe): create_draft -> add UNREAD -> labelIds contains UNREAD.
+  //   - mark_as_read (writeSafe): create_draft + add UNREAD (setup) -> remove UNREAD ->
+  //     labelIds no longer contains UNREAD.
+  //   - archive_email (writeSafe): create_draft + add INBOX (setup) -> remove INBOX ->
+  //     labelIds no longer contains INBOX.
+  //   - delete_email (destructiveSafe, executeIsCleanup): create_draft -> trash ->
+  //     labelIds contains TRASH. `deleteMode: "trash"` (recoverable) so the read-back can
+  //     positively prove state; "permanent" shares the handler + delete wrapper and is not
+  //     separately smoke-certified (it 404s on read-back).
+  ...records("LIVE_PASS_CLEANED", "live message state toggle + independent message_labels read-back, draft trashed (no email sent)", SMOKE_WRITE_GMAIL_STATE, [
+    ["gmail", "mark_as_unread"],
+    ["gmail", "mark_as_read"],
+    ["gmail", "archive_email"],
+    ["gmail", "delete_email"],
   ]),
   // SMOKE-WRITE-36 — Microsoft Excel create_worksheet. Excel has no create_workbook
   // action, so the smoke brings its OWN smoke-owned workbook: setup uploads a frozen

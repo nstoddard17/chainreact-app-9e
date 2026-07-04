@@ -70,6 +70,10 @@ import gmailCreateDraft from "@/tests/fixtures/action-smoke/gmail/create_draft";
 import gmailCreateLabel from "@/tests/fixtures/action-smoke/gmail/create_label";
 import gmailAddLabel from "@/tests/fixtures/action-smoke/gmail/add_label";
 import gmailRemoveLabel from "@/tests/fixtures/action-smoke/gmail/remove_label";
+import gmailMarkAsUnread from "@/tests/fixtures/action-smoke/gmail/mark_as_unread";
+import gmailMarkAsRead from "@/tests/fixtures/action-smoke/gmail/mark_as_read";
+import gmailArchiveEmail from "@/tests/fixtures/action-smoke/gmail/archive_email";
+import gmailDeleteEmail from "@/tests/fixtures/action-smoke/gmail/delete_email";
 // SMOKE-ACTIONS-11 — Microsoft Outlook mail read-only batch (fetch + 2 new read actions).
 import outlookListFolders from "@/tests/fixtures/action-smoke/microsoft-outlook/list_folders";
 import outlookGetProfile from "@/tests/fixtures/action-smoke/microsoft-outlook/get_profile";
@@ -431,6 +435,10 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gmailCreateLabel,
   gmailAddLabel,
   gmailRemoveLabel,
+  gmailMarkAsUnread,
+  gmailMarkAsRead,
+  gmailArchiveEmail,
+  gmailDeleteEmail,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */
