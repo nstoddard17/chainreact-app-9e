@@ -19,12 +19,20 @@ import type { AsanaEventObject } from "../_shared/eventMap";
  * project in `parent`.
  *
  * Dedup key (no provider-issued event id on Asana webhook bodies):
- * `new_task_in_project:${projectGid}:${taskGid}:${created_at}`.
- * Deterministic, so the per-workflow webhook fan-out (N workflows
- * watching the same project → N deliveries of the same logical event)
- * collapses to a single dispatch round; `dispatchTriggerEvent` then fans
- * out to all rows on `(asana, new_task_in_project)` and the per-trigger
- * projectId filter re-narrows to the right project's workflows.
+ * `new_task_in_project:${projectGid}:${taskGid}` — deliberately WITHOUT the
+ * event timestamp. Live verification (2026-07-04) proved one task creation
+ * delivers TWO `task+added` membership events (Asana emits one per parent —
+ * project and section) milliseconds apart; a timestamp-bearing key made them
+ * two distinct runs for one user action. A task is only "new in a project"
+ * once, so the task-scoped key collapses the multi-parent delivery, provider
+ * redeliveries, AND the per-workflow webhook fan-out (N workflows watching
+ * the same project → N deliveries) into a single dispatch round;
+ * `dispatchTriggerEvent` then fans out to all rows on
+ * `(asana, new_task_in_project)` and the per-trigger projectId filter
+ * re-narrows to the right project's workflows. Documented limitation: a task
+ * removed from the project and re-added within the 7-day dedup TTL does not
+ * re-fire. Events missing a task gid keep the timestamp as the discriminator
+ * so unrelated malformed events never share a key.
  */
 export function normalizeNewTaskInProject(
   ev: AsanaEventObject,
@@ -35,9 +43,9 @@ export function normalizeNewTaskInProject(
   const occurredAt = createdAt ?? new Date().toISOString();
   const projectGid = ctx.projectId;
 
-  const eventId = `new_task_in_project:${projectGid ?? "no-project"}:${
-    taskGid ?? "no-task"
-  }:${createdAt ?? occurredAt}`;
+  const eventId = taskGid
+    ? `new_task_in_project:${projectGid ?? "no-project"}:${taskGid}`
+    : `new_task_in_project:${projectGid ?? "no-project"}:no-task:${createdAt ?? occurredAt}`;
 
   return {
     provider: "asana",

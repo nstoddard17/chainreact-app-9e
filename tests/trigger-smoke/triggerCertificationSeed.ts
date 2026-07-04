@@ -312,4 +312,35 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "proven via the manual run-now path on every action workflow-live smoke; not a dispatch trigger",
   },
+  // asana:new_task_in_project / task_updated_in_project — the FIRST full
+  // provider-boundary live certs in this seed (stronger scope than the
+  // direct-seed entries above): REAL registerWorkflowTriggers -> POST /webhooks
+  // -> X-Hook-Secret handshake against the DEPLOYED production receive route
+  // (shared dev Supabase) -> REAL task events -> production signature-verify ->
+  // dispatch -> cron drain -> terminal run -> REAL unregisterWorkflowTriggers ->
+  // DELETE /webhooks proven gone by a second delete reading 404. The live run
+  // SURFACED a real bug: one task creation delivers task+added twice (one
+  // membership event per parent — project + section, created_at ms apart), so
+  // the timestamp-bearing dedup key fired 2 runs; fixed to a task-scoped key
+  // (new_task_in_project:<project>:<task>) and re-proven on the direct-seed
+  // harness. The fix is LOCAL until v2-main deploys — re-run the live script
+  // (scripts/trash/asana-live-trigger-smoke.ts) post-deploy for the
+  // exactly-one-run proof. Redelivery dedup + wrong-project drop remain
+  // direct-seed/unit-proven (cannot be forced live; single-project workspace).
+  {
+    provider: "asana",
+    type: "new_task_in_project",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-04",
+    note: "FULL live provider-boundary cert: real activation handshake vs production, real task creation fired a terminal 'succeeded' run via production dispatch+drain, real DELETE /webhooks 404-proven; surfaced+fixed the multi-parent task+added double-fire (dedup key now task-scoped, timestamp-free); fix local until deploy — post-deploy live rerun expected to show exactly 1 run",
+  },
+  {
+    provider: "asana",
+    type: "task_updated_in_project",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-04",
+    note: "FULL live provider-boundary cert: real activation handshake vs production, real task rename fired EXACTLY ONE terminal 'succeeded' run via production dispatch+drain (identity matched: task/project/changeKind), real DELETE /webhooks 404-proven, trigger rows cleaned",
+  },
 ];

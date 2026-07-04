@@ -44,9 +44,7 @@ describe("normalizeNewTaskInProject", () => {
     const event = normalizeNewTaskInProject(ev, { projectId: "p-1" });
     expect(event.provider).toBe("asana");
     expect(event.eventType).toBe("new_task_in_project");
-    expect(event.eventId).toBe(
-      "new_task_in_project:p-1:t-1:2026-07-04T05:00:00.000Z",
-    );
+    expect(event.eventId).toBe("new_task_in_project:p-1:t-1");
     expect(event.occurredAt).toBe("2026-07-04T05:00:00.000Z");
     expect(event.providerAccountId).toBe("p-1");
     expect(event.payload).toEqual({
@@ -64,6 +62,35 @@ describe("normalizeNewTaskInProject", () => {
     const a = normalizeNewTaskInProject(ev, { projectId: "p-1" });
     const b = normalizeNewTaskInProject(ev, { projectId: "p-1" });
     expect(a.eventId).toBe(b.eventId);
+  });
+
+  it("collapses Asana's multi-parent creation delivery: two task+added events for the same task with different created_at share one dedup key (live double-fire, 2026-07-04)", () => {
+    // Live repro: creating ONE task delivered task+added twice (one membership
+    // event per parent — project and section), created_at 138ms apart. The
+    // timestamp must NOT be part of the key or one creation fires two runs.
+    const first = normalizeNewTaskInProject(
+      { ...ev, created_at: "2026-07-04T15:26:33.839Z" },
+      { projectId: "p-1" },
+    );
+    const second = normalizeNewTaskInProject(
+      { ...ev, created_at: "2026-07-04T15:26:33.977Z" },
+      { projectId: "p-1" },
+    );
+    expect(first.eventId).toBe(second.eventId);
+    expect(first.eventId).toBe("new_task_in_project:p-1:t-1");
+  });
+
+  it("keeps the timestamp discriminator when the task gid is missing (malformed events never share a key)", () => {
+    const a = normalizeNewTaskInProject(
+      { created_at: "2026-07-04T05:00:00.000Z" },
+      { projectId: "p-1" },
+    );
+    const b = normalizeNewTaskInProject(
+      { created_at: "2026-07-04T06:00:00.000Z" },
+      { projectId: "p-1" },
+    );
+    expect(a.eventId).not.toBe(b.eventId);
+    expect(a.eventId).toContain("no-task");
   });
 
   it("degrades safely on a minimal event (nulls, no throw)", () => {

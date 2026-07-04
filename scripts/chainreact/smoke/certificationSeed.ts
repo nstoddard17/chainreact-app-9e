@@ -65,6 +65,7 @@ const SMOKE_WRITE_HUBSPOT_CALLMEET = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_LIST = "2026-07-04";
 const SMOKE_WRITE_MAILCHIMP_SUB = "2026-07-04";
 const SMOKE_WRITE_MAILCHIMP_FINISH = "2026-07-04";
+const SMOKE_ASANA_LIVE = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1114,6 +1115,25 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["mailchimp", "add_tag"],
     ["mailchimp", "remove_tag"],
     ["mailchimp", "remove_subscriber"],
+  ]),
+  // ASANA-LIVE (2026-07-04) — first live certification after Marcus created the
+  // Asana developer app + connected on production. get_task ran via the read
+  // live runner AND doubles as the independent read-back seam inside the write
+  // fixtures (marker on taskName). Writes ran on the throwaway workspace's
+  // default project pinned via SMOKE_ASANA_PROJECT_ID. HONESTY: Asana ships NO
+  // delete-task action in this slice, so every write's disposition is
+  // archive-kind — the crsmoke-marked task stays in the smoke project
+  // completed (create/update/complete), and add_comment leaves one crsmoke-
+  // comment on the pinned smoke task (execute-echo verify only; no
+  // comment-read action ships).
+  ...records("LIVE_PASS", "live read verified (also the write fixtures' independent read-back seam)", SMOKE_ASANA_LIVE, [
+    ["asana", "get_task"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live write + independent get_task read-back (marker on taskName); no delete-task action, so the completed crsmoke task / comment stays in the smoke project", SMOKE_ASANA_LIVE, [
+    ["asana", "create_task"],
+    ["asana", "update_task"],
+    ["asana", "complete_task"],
+    ["asana", "add_comment_to_task"],
   ]),
   // MAILCHIMP-FINISH (2026-07-04) — notes + custom events prove on the seeded
   // member via Mailchimp's dedicated READ endpoints (GET .../notes and

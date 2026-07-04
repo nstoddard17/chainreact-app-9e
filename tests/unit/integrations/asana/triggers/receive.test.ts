@@ -285,7 +285,7 @@ describe("receiveAsanaWebhook — routing + normalization", () => {
     expect(result.events[0]).toEqual({
       provider: "asana",
       eventType: "new_task_in_project",
-      eventId: "new_task_in_project:p-1:t-1:2026-07-04T05:00:00.000Z",
+      eventId: "new_task_in_project:p-1:t-1",
       occurredAt: "2026-07-04T05:00:00.000Z",
       providerAccountId: "p-1",
       payload: {

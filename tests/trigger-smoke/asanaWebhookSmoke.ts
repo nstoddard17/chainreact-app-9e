@@ -181,8 +181,9 @@ export const NEW_TASK_IN_PROJECT_SPEC: AsanaWebhookTriggerSpec = {
   buildWorkflow: (projectId) =>
     buildAsanaSmokeWorkflow("new_task_in_project", "asana:new_task_in_project", projectId),
   buildSyntheticEvent: (id) => buildSyntheticTaskEvent(id, "added"),
-  expectedEventId: (id) =>
-    `new_task_in_project:${id.projectId}:${id.taskGid}:${id.createdAt}`,
+  // Task-scoped key (NO timestamp) — one creation delivers task+added once per
+  // parent (project + section); the key collapses them (live fix, 2026-07-04).
+  expectedEventId: (id) => `new_task_in_project:${id.projectId}:${id.taskGid}`,
   identityMatches: (run, id) => baseMatch(run, id, NEW_TASK_IN_PROJECT_SPEC),
 };
 
