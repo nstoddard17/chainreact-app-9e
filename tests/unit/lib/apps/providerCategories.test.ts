@@ -42,4 +42,9 @@ describe("providerCategories coverage", () => {
     expect(categoryFor("asana")).toBe("Productivity");
     expect(descriptionFor("asana")).toMatch(/task/i);
   });
+
+  it("typeform maps to Forms with a response-centric description", () => {
+    expect(categoryFor("typeform")).toBe("Forms");
+    expect(descriptionFor("typeform")).toMatch(/response/i);
+  });
 });

@@ -23,6 +23,9 @@ const SAMPLE_PERSONAL = [
   "google-drive",
   "discord",
   "dropbox",
+  // net-new providers, explicitly personal:
+  "asana",
+  "typeform",
   // "needs decision" providers default personal for launch safety:
   "github",
   "facebook",

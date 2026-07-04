@@ -72,6 +72,10 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   // their task assignments, their comment authorship. Same posture as
   // Trello / Monday.
   asana: "personal",
+  // Typeform (Slice 5.TYPEFORM-1): the OAuth token acts AS the connecting
+  // human — their forms, their workspaces. Same posture as Trello /
+  // Monday / Asana, and the launch-safe default.
+  typeform: "personal",
 
   // ── Needs product decision → default personal for launch safety. ──
   github: "personal",

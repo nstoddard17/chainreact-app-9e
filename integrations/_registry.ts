@@ -6,6 +6,7 @@ import {
 import { airtableManifest } from "./airtable/manifest";
 import { asanaManifest } from "./asana/manifest";
 import { discordManifest } from "./discord/manifest";
+import { typeformManifest } from "./typeform/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
 import { githubManifest } from "./github/manifest";
@@ -139,6 +140,14 @@ import "./facebook/triggers/newComment";
 // marker (Asana deletes them itself after 24h of failed deliveries).
 import "./asana/triggers/newTaskInProject";
 import "./asana/triggers/taskUpdatedInProject";
+// Slice 5.TYPEFORM-1 — 1 Typeform form-webhook trigger. Registers its
+// activation (PUT /forms/{id}/webhooks/{tag} with a V2-minted secret —
+// no creation handshake), deactivation (DELETE …/webhooks/{tag}), and
+// P-S2 formId dispatcher filter at module load. Strict-direct-lookup via
+// ?workflowId=&nodeId= on the notification URL; events arrive at
+// /api/webhooks/typeform. Typeform webhooks don't expire on a schedule —
+// no renewal/subscription-watch marker.
+import "./typeform/triggers/newResponseInForm";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.
@@ -210,6 +219,13 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // actions/webhookTrigger are true from day one. Personal credential
   // class; refreshable PKCE OAuth.
   asanaManifest,
+  // Slice 5.TYPEFORM-1 — Typeform, the second net-new (no-V1) provider.
+  // 1 form-webhook trigger + the typeform:forms option source; ZERO
+  // actions this slice (the form_response payload is self-contained), so
+  // capabilities.actions is honestly false. Personal credential class;
+  // refreshable non-PKCE OAuth with ROTATING refresh tokens (offline
+  // scope).
+  typeformManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

@@ -25,6 +25,7 @@ export type AppsCategory =
   | "Storage"
   | "CRM"
   | "Marketing"
+  | "Forms"
   | "E-commerce"
   | "Payments"
   | "Social"
@@ -43,6 +44,7 @@ export const APPS_CATEGORY_ORDER: readonly AppsCategory[] = [
   "Storage",
   "CRM",
   "Marketing",
+  "Forms",
   "E-commerce",
   "Payments",
   "Social",
@@ -78,6 +80,8 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   hubspot: "CRM",
   // Marketing
   mailchimp: "Marketing",
+  // Forms
+  typeform: "Forms",
   // E-commerce
   shopify: "E-commerce",
   // Payments
@@ -116,6 +120,7 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
   dropbox: "Watch and upload files.",
   hubspot: "Sync contacts, deals, and tickets.",
   mailchimp: "Add subscribers and send campaigns.",
+  typeform: "Watch form responses as they arrive.",
   shopify: "Watch orders, customers, and products.",
   stripe: "Watch charges and update customers.",
   facebook: "Watch posts and comments.",

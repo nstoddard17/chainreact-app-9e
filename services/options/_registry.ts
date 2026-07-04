@@ -380,6 +380,9 @@ import { asanaWorkspacesResolver } from "@/integrations/asana/options/workspaces
 import { asanaProjectsResolver } from "@/integrations/asana/options/projects";
 import { asanaUsersResolver } from "@/integrations/asana/options/users";
 import { asanaTasksResolver } from "@/integrations/asana/options/tasks";
+// Typeform (Slice 5.TYPEFORM-1) — single top-level forms resolver for the
+// new_response_in_form trigger. Refreshable via refreshAndRetry.
+import { typeformFormsResolver } from "@/integrations/typeform/options/forms";
 import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
 import { trelloListsResolver } from "@/integrations/trello/options/lists";
 import { trelloCardsResolver } from "@/integrations/trello/options/cards";
@@ -651,6 +654,12 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   asanaProjectsResolver,
   asanaUsersResolver,
   asanaTasksResolver,
+  // Slice 5.TYPEFORM-1 — 1 Typeform resolver (second net-new provider;
+  // meta + resolver land in the same slice). forms (root, no deps);
+  // ctx.q doubles as Typeform's server-side `search` param. Auth
+  // refreshable (refreshAndRetry — weekly-expiring tokens). Labels are
+  // form titles only.
+  typeformFormsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

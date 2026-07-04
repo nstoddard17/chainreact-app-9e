@@ -35,6 +35,7 @@ import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
 import { stripeOAuth } from "@/integrations/stripe/oauth";
 import { trelloAuth } from "@/integrations/trello/auth";
+import { typeformOAuth } from "@/integrations/typeform/oauth";
 import {
   getActiveForExecution,
   getByIdForAccountServiceRole,
@@ -107,6 +108,12 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   // PKCE S256. Identity from the token response's embedded `data` object
   // (GET /users/me fallback). See integrations/asana/oauth.ts.
   asana: asanaOAuth,
+  // Slice 5.TYPEFORM-1 — Typeform OAuth. Refreshable (~weekly access
+  // tokens + ROTATING refresh tokens via the `offline` scope — the
+  // rotated token is persisted on every refresh), body-auth, NO PKCE
+  // (undocumented by Typeform). Identity from GET /me (accounts:read).
+  // See integrations/typeform/oauth.ts.
+  typeform: typeformOAuth,
 });
 
 /**

@@ -371,6 +371,10 @@ import {
   ASANA_ACTION_METAS,
   ASANA_TRIGGER_METAS,
 } from "./providers/asana";
+// Typeform (Slice 5.TYPEFORM-1 — second net-new provider, no V1 code) —
+// 1 form-scoped webhook trigger with a caller-minted-secret lifecycle;
+// ZERO actions this slice (no TYPEFORM_ACTION_METAS export exists).
+import { TYPEFORM_TRIGGER_METAS } from "./providers/typeform";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -807,4 +811,9 @@ export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // so the trigger-meta-activation-invariant test passes without an
   // exemption.
   ...ASANA_TRIGGER_METAS,
+  // Typeform (TYPEFORM-1) — 1 form-scoped webhook trigger. Activation +
+  // deactivation registered in
+  // integrations/typeform/triggers/newResponseInForm/index.ts, so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...TYPEFORM_TRIGGER_METAS,
 ];
