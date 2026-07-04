@@ -29,6 +29,9 @@ import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { contactsGet } from "@/integrations/_shared/hubspot/api/contacts";
 import { companiesGet } from "@/integrations/_shared/hubspot/api/companies";
 import { dealsGet } from "@/integrations/_shared/hubspot/api/deals";
+import { notesGet, tasksGet } from "@/integrations/_shared/hubspot/api/engagements";
+import { ticketsGet } from "@/integrations/_shared/hubspot/api/tickets";
+import { productsGet } from "@/integrations/_shared/hubspot/api/products";
 import { pipelinesList } from "@/integrations/_shared/hubspot/api/pipelines";
 import type { StepRunOutcome } from "../writeHarness";
 import type { SmokeReaderContext, SmokeReaderInput } from "./context";
@@ -113,13 +116,118 @@ async function readHubSpotDealState(
   };
 }
 
+async function readHubSpotNoteState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const noteId = typeof input.config.noteId === "string" ? input.config.noteId : "";
+  if (!noteId) return { ok: false, output: null, reason: "hubspot note_state: missing noteId" };
+  const integration = await getActiveForExecution(ctx.accountId, "hubspot", null);
+  if (!integration) return { ok: false, output: null, reason: "hubspot not connected" };
+  const note = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "hubspot",
+    providerAccountId: integration.providerAccountId,
+    apiCall: (accessToken) =>
+      notesGet({ accessToken, engagementId: noteId, properties: ["hs_note_body"] }),
+  });
+  return {
+    ok: true,
+    output: { found: true, body: note.properties.hs_note_body ?? null },
+    reason: null,
+  };
+}
+
+async function readHubSpotTaskState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const taskId = typeof input.config.taskId === "string" ? input.config.taskId : "";
+  if (!taskId) return { ok: false, output: null, reason: "hubspot task_state: missing taskId" };
+  const integration = await getActiveForExecution(ctx.accountId, "hubspot", null);
+  if (!integration) return { ok: false, output: null, reason: "hubspot not connected" };
+  const task = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "hubspot",
+    providerAccountId: integration.providerAccountId,
+    apiCall: (accessToken) =>
+      tasksGet({ accessToken, engagementId: taskId, properties: ["hs_task_subject", "hs_task_status"] }),
+  });
+  return {
+    ok: true,
+    output: {
+      found: true,
+      subject: task.properties.hs_task_subject ?? null,
+      status: task.properties.hs_task_status ?? null,
+    },
+    reason: null,
+  };
+}
+
+async function readHubSpotTicketState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const ticketId = typeof input.config.ticketId === "string" ? input.config.ticketId : "";
+  if (!ticketId) return { ok: false, output: null, reason: "hubspot ticket_state: missing ticketId" };
+  const integration = await getActiveForExecution(ctx.accountId, "hubspot", null);
+  if (!integration) return { ok: false, output: null, reason: "hubspot not connected" };
+  const ticket = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "hubspot",
+    providerAccountId: integration.providerAccountId,
+    apiCall: (accessToken) =>
+      ticketsGet({ accessToken, ticketId, properties: ["subject", "hs_pipeline", "hs_pipeline_stage"] }),
+  });
+  return {
+    ok: true,
+    output: {
+      found: true,
+      subject: ticket.properties.subject ?? null,
+      pipeline: ticket.properties.hs_pipeline ?? null,
+      stage: ticket.properties.hs_pipeline_stage ?? null,
+    },
+    reason: null,
+  };
+}
+
+async function readHubSpotProductState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const productId = typeof input.config.productId === "string" ? input.config.productId : "";
+  if (!productId) return { ok: false, output: null, reason: "hubspot product_state: missing productId" };
+  const integration = await getActiveForExecution(ctx.accountId, "hubspot", null);
+  if (!integration) return { ok: false, output: null, reason: "hubspot not connected" };
+  const product = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "hubspot",
+    providerAccountId: integration.providerAccountId,
+    apiCall: (accessToken) =>
+      productsGet({ accessToken, productId, properties: ["name", "description"] }),
+  });
+  return {
+    ok: true,
+    output: {
+      found: true,
+      name: product.properties.name ?? null,
+      description: product.properties.description ?? null,
+    },
+    reason: null,
+  };
+}
+
 /**
- * HubSpot smoke read-back seam. Owns three smoke-only read actions, each ONE
+ * HubSpot smoke read-back seam. Owns seven smoke-only read actions, each ONE
  * object's sanitized marker-bearing properties via the strongly-consistent
  * GET-by-id wrappers (never the eventually-consistent /search):
  *   - `contact_state` — { found, email, firstname, lastname }
  *   - `company_state` — { found, name, domain }
  *   - `deal_state`    — { found, dealname, dealstage, pipeline }
+ *   - `note_state`    — { found, body }
+ *   - `task_state`    — { found, subject, status }
+ *   - `ticket_state`  — { found, subject, pipeline, stage }
+ *   - `product_state` — { found, name, description }
  * Returns null for any other (provider, action). Bounded + sanitized.
  */
 export async function hubspotSmokeReadBack(
@@ -130,6 +238,10 @@ export async function hubspotSmokeReadBack(
   if (input.action === "contact_state") return readHubSpotContactState(ctx, input);
   if (input.action === "company_state") return readHubSpotCompanyState(ctx, input);
   if (input.action === "deal_state") return readHubSpotDealState(ctx, input);
+  if (input.action === "note_state") return readHubSpotNoteState(ctx, input);
+  if (input.action === "task_state") return readHubSpotTaskState(ctx, input);
+  if (input.action === "ticket_state") return readHubSpotTicketState(ctx, input);
+  if (input.action === "product_state") return readHubSpotProductState(ctx, input);
   return null;
 }
 
@@ -141,17 +253,16 @@ export interface HubSpotDealStageTarget {
 }
 
 /**
- * Discover a usable DEAL pipeline + stage on the connected throwaway portal so
- * `create_deal` fixtures get REAL ids (HubSpot rejects invented stage ids). A
- * pinned pipeline id wins when it names an existing non-archived pipeline with
- * stages; otherwise the first non-archived pipeline with at least one
- * non-archived stage is taken, and its first stage (HubSpot returns stages in
- * displayOrder). READ-ONLY. Returns null when HubSpot is not connected or no
- * pipeline/stage exists -> caller reports BLOCKED_ENV.
+ * Shared pipeline+stage discovery core for deals AND tickets. A pinned pipeline
+ * id wins when it names an existing non-archived pipeline with stages;
+ * otherwise the first non-archived pipeline with at least one non-archived
+ * stage is taken, and its first stage (HubSpot returns stages in displayOrder).
+ * READ-ONLY. Returns null when HubSpot is not connected or no pipeline/stage
+ * exists -> caller reports BLOCKED_ENV.
  */
-export async function discoverHubSpotDealStage(
+async function discoverHubSpotPipelineStage(
   accountId: string,
-  _userId: string,
+  objectType: "deals" | "tickets",
   pinnedPipelineId: string | null,
 ): Promise<HubSpotDealStageTarget | null> {
   const integration = await getActiveForExecution(accountId, "hubspot", null);
@@ -161,7 +272,7 @@ export async function discoverHubSpotDealStage(
       accountId,
       provider: "hubspot",
       providerAccountId: integration.providerAccountId,
-      apiCall: (accessToken) => pipelinesList({ accessToken, objectType: "deals" }),
+      apiCall: (accessToken) => pipelinesList({ accessToken, objectType }),
     });
     const usable = (response.results ?? []).filter(
       (p) => p.archived !== true && (p.stages ?? []).some((s) => s.archived !== true),
@@ -180,4 +291,29 @@ export async function discoverHubSpotDealStage(
   } catch {
     return null;
   }
+}
+
+/**
+ * Discover a usable DEAL pipeline + stage on the connected throwaway portal so
+ * `create_deal` fixtures get REAL ids (HubSpot rejects invented stage ids).
+ */
+export async function discoverHubSpotDealStage(
+  accountId: string,
+  _userId: string,
+  pinnedPipelineId: string | null,
+): Promise<HubSpotDealStageTarget | null> {
+  return discoverHubSpotPipelineStage(accountId, "deals", pinnedPipelineId);
+}
+
+/**
+ * Discover a usable TICKET pipeline + stage on the connected throwaway portal
+ * so `create_ticket` fixtures get REAL ids (same rule as deals: never invent a
+ * stage id; a pinned SMOKE_HUBSPOT_TICKET_PIPELINE_ID wins).
+ */
+export async function discoverHubSpotTicketStage(
+  accountId: string,
+  _userId: string,
+  pinnedPipelineId: string | null,
+): Promise<HubSpotDealStageTarget | null> {
+  return discoverHubSpotPipelineStage(accountId, "tickets", pinnedPipelineId);
 }

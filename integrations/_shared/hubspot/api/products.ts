@@ -62,6 +62,34 @@ export async function productsUpdate(
   });
 }
 
+// ─── productsGet ────────────────────────────────────────────────────────────
+
+export interface ProductsGetInput {
+  accessToken: string;
+  productId: string;
+  properties?: readonly string[];
+}
+
+/**
+ * GET one product by id. Mirrors `tickets.ts:ticketsGet` — optional
+ * `properties` projection as a comma-separated query param.
+ */
+export async function productsGet(
+  input: ProductsGetInput,
+): Promise<HubSpotProduct> {
+  const query =
+    input.properties && input.properties.length > 0
+      ? new URLSearchParams({ properties: input.properties.join(",") })
+      : undefined;
+  return hubspotRequest<HubSpotProduct>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: crmPath(`objects/products/${encodeURIComponent(input.productId)}`),
+    ...(query ? { query } : {}),
+    resourceForNotFound: `product ${input.productId}`,
+  });
+}
+
 // ─── productsSearch (HubSpot 2.1) ───────────────────────────────────────────
 
 export interface ProductsSearchFilter {

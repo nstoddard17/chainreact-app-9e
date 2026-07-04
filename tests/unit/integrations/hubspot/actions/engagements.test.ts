@@ -171,6 +171,45 @@ describe("create_task", () => {
     expect(props.hs_task_type).toBe("TODO");
   });
 
+  it("defaults hs_timestamp to Date.now() when omitted (REQUIRED by the tasks API)", async () => {
+    mockTasksCreate.mockResolvedValueOnce({ id: "t-1", properties: {} });
+    const before = Date.now();
+    await createTask({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: { hs_task_subject: "Follow up" },
+      triggerEvent: trigger,
+    });
+    const after = Date.now();
+    const ts = Number(
+      mockTasksCreate.mock.calls[0]![0]!.properties.hs_timestamp,
+    );
+    expect(ts).toBeGreaterThanOrEqual(before);
+    expect(ts).toBeLessThanOrEqual(after);
+  });
+
+  it("converts ISO 8601 hs_timestamp to epoch-ms-string", async () => {
+    mockTasksCreate.mockResolvedValueOnce({ id: "t-1", properties: {} });
+    await createTask({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct-u",
+      runId: "r",
+      nodeId: "n",
+      config: {
+        hs_task_subject: "Follow up",
+        hs_timestamp: "2026-05-10T12:00:00.000Z",
+      },
+      triggerEvent: trigger,
+    });
+    expect(mockTasksCreate.mock.calls[0]![0]!.properties.hs_timestamp).toBe(
+      Date.parse("2026-05-10T12:00:00.000Z").toString(),
+    );
+  });
+
   it("allows explicit overrides of defaults", async () => {
     mockTasksCreate.mockResolvedValueOnce({ id: "t-1", properties: {} });
     await createTask({

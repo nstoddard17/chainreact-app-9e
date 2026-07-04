@@ -12,6 +12,7 @@ jest.mock("@/integrations/_shared/hubspot/api/_request", () => ({
 
 import {
   productsCreate,
+  productsGet,
   productsSearch,
   productsUpdate,
 } from "@/integrations/_shared/hubspot/api/products";
@@ -49,6 +50,21 @@ describe("productsUpdate", () => {
     expect(mockHubspotRequest.mock.calls[0]![0]!.path).toBe(
       "/crm/v3/objects/products/p-1",
     );
+  });
+});
+
+describe("productsGet", () => {
+  it("GETs /objects/products/{id} with properties projection", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ id: "p-1", properties: {} });
+    await productsGet({
+      accessToken: "tok",
+      productId: "p-1",
+      properties: ["name", "price"],
+    });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("GET");
+    expect(call.path).toBe("/crm/v3/objects/products/p-1");
+    expect((call.query as URLSearchParams).get("properties")).toBe("name,price");
   });
 });
 

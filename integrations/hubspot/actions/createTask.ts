@@ -11,6 +11,12 @@ import { CreateTaskConfigSchema } from "./createTask.schema";
  * POSTs `/crm/v3/objects/tasks` with required `hs_task_subject` +
  * explicit Zod-defaulted status/priority/type. Optional associations
  * to contact / company / deal / ticket via v4 default-typed PUTs.
+ *
+ * `hs_timestamp` (the task due date) is REQUIRED by HubSpot's tasks
+ * API — omitting it fails the POST with "Some required properties
+ * were not set" (verified live, 2026-07-04 action smoke). Like
+ * `create_note`, the handler defaults it to `Date.now()` when the
+ * workflow author omits it (same UX-safe fall-through V1 shipped).
  */
 export const createTask: ActionHandler = async (input) => {
   const config = CreateTaskConfigSchema.parse(input.config);
@@ -27,8 +33,10 @@ export const createTask: ActionHandler = async (input) => {
     hs_task_type: config.hs_task_type,
   };
   if (config.hs_task_body) properties.hs_task_body = config.hs_task_body;
-  const ts = resolveTimestampMs(config.hs_timestamp);
-  if (ts) properties.hs_timestamp = ts;
+  // hs_timestamp is REQUIRED by the tasks API (unlike most engagement
+  // properties) — default to now() exactly like create_note does.
+  properties.hs_timestamp =
+    resolveTimestampMs(config.hs_timestamp) ?? Date.now().toString();
   if (config.hs_task_reminders) {
     properties.hs_task_reminders = config.hs_task_reminders;
   }

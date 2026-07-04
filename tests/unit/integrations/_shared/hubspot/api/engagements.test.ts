@@ -15,7 +15,9 @@ import {
   callsCreate,
   meetingsCreate,
   notesCreate,
+  notesGet,
   tasksCreate,
+  tasksGet,
 } from "@/integrations/_shared/hubspot/api/engagements";
 
 beforeEach(() => {
@@ -37,6 +39,21 @@ describe("notesCreate", () => {
   });
 });
 
+describe("notesGet", () => {
+  it("GETs /objects/notes/{id} with properties projection", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ id: "n-1", properties: {} });
+    await notesGet({
+      accessToken: "tok",
+      engagementId: "n-1",
+      properties: ["hs_note_body"],
+    });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("GET");
+    expect(call.path).toBe("/crm/v3/objects/notes/n-1");
+    expect((call.query as URLSearchParams).get("properties")).toBe("hs_note_body");
+  });
+});
+
 describe("tasksCreate", () => {
   it("POSTs /objects/tasks", async () => {
     mockHubspotRequest.mockResolvedValueOnce({ id: "ta-1", properties: {} });
@@ -49,6 +66,23 @@ describe("tasksCreate", () => {
     });
     expect(mockHubspotRequest.mock.calls[0]![0]!.path).toBe(
       "/crm/v3/objects/tasks",
+    );
+  });
+});
+
+describe("tasksGet", () => {
+  it("GETs /objects/tasks/{id} with properties projection", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ id: "ta-1", properties: {} });
+    await tasksGet({
+      accessToken: "tok",
+      engagementId: "ta-1",
+      properties: ["hs_task_subject", "hs_task_status"],
+    });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("GET");
+    expect(call.path).toBe("/crm/v3/objects/tasks/ta-1");
+    expect((call.query as URLSearchParams).get("properties")).toBe(
+      "hs_task_subject,hs_task_status",
     );
   });
 });

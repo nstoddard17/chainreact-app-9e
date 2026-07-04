@@ -244,6 +244,14 @@ import hubspotCreateCompany from "@/tests/fixtures/action-smoke/hubspot/create_c
 import hubspotUpdateCompany from "@/tests/fixtures/action-smoke/hubspot/update_company";
 import hubspotCreateDeal from "@/tests/fixtures/action-smoke/hubspot/create_deal";
 import hubspotUpdateDeal from "@/tests/fixtures/action-smoke/hubspot/update_deal";
+// SMOKE-WRITE-HUBSPOT-ENGAGE — HubSpot engagement/object batch (note/task/ticket/
+// product; verify via the GET-by-id smoke seam, no delete action exists).
+import hubspotCreateNote from "@/tests/fixtures/action-smoke/hubspot/create_note";
+import hubspotCreateTask from "@/tests/fixtures/action-smoke/hubspot/create_task";
+import hubspotCreateTicket from "@/tests/fixtures/action-smoke/hubspot/create_ticket";
+import hubspotUpdateTicket from "@/tests/fixtures/action-smoke/hubspot/update_ticket";
+import hubspotCreateProduct from "@/tests/fixtures/action-smoke/hubspot/create_product";
+import hubspotUpdateProduct from "@/tests/fixtures/action-smoke/hubspot/update_product";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -461,6 +469,12 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   hubspotUpdateCompany,
   hubspotCreateDeal,
   hubspotUpdateDeal,
+  hubspotCreateNote,
+  hubspotCreateTask,
+  hubspotCreateTicket,
+  hubspotUpdateTicket,
+  hubspotCreateProduct,
+  hubspotUpdateProduct,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

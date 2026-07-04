@@ -59,6 +59,7 @@ const SMOKE_WRITE_GMAIL_SEND = "2026-07-04";
 const SMOKE_WRITE_GMAIL_REPLY = "2026-07-04";
 const SMOKE_WRITE_GMAIL_ATTACHMENT = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_CRM = "2026-07-04";
+const SMOKE_WRITE_HUBSPOT_ENGAGE = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1026,5 +1027,25 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["hubspot", "update_company"],
     ["hubspot", "create_deal"],
     ["hubspot", "update_deal"],
+  ]),
+  // HUBSPOT-ENGAGE (2026-07-04) — engagement/object batch: note, task, ticket,
+  // product (create+update for tickets/products). Same recipe as HUBSPOT-CRM:
+  // marker-carrying create -> INDEPENDENT GET-by-id seam read-back (note_state /
+  // task_state / ticket_state / product_state; never /search), updates pin the
+  // suffixed value. Ticket pipeline/stage auto-discovered from
+  // /crm/v3/pipelines/tickets (never invented). Surfaced + fixed a REAL
+  // production bug: create_task omitted hs_timestamp when the author left it
+  // blank, but HubSpot's tasks API REQUIRES it (live 400 "Some required
+  // properties were not set") — the handler now defaults it to now() exactly
+  // like create_note always did; re-certified live after the fix. HONESTY: no
+  // registered delete/archive action for any of these objects, so each run
+  // leaves ONE crsmoke-marked object per fixture on the throwaway portal.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live engagement/object create+update + independent GET-by-id seam read-back; create_task hs_timestamp default bug fixed then re-certified; no delete action", SMOKE_WRITE_HUBSPOT_ENGAGE, [
+    ["hubspot", "create_note"],
+    ["hubspot", "create_task"],
+    ["hubspot", "create_ticket"],
+    ["hubspot", "update_ticket"],
+    ["hubspot", "create_product"],
+    ["hubspot", "update_product"],
   ]),
 ];

@@ -50,6 +50,10 @@ const PROVIDER_READ_WRAPPERS = [
   "contactsGet",
   "companiesGet",
   "dealsGet",
+  "notesGet",
+  "tasksGet",
+  "ticketsGet",
+  "productsGet",
   "pipelinesList",
 ] as const;
 

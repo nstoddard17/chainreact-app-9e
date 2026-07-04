@@ -70,6 +70,33 @@ export async function notesCreate(
   });
 }
 
+export interface EngagementGetInput {
+  accessToken: string;
+  /** Engagement object id (note / task id). */
+  engagementId: string;
+  properties?: readonly string[];
+}
+
+/**
+ * GET one note engagement by id. Mirrors `tickets.ts:ticketsGet` —
+ * optional `properties` projection as a comma-separated query param.
+ */
+export async function notesGet(
+  input: EngagementGetInput,
+): Promise<HubSpotEngagement> {
+  const query =
+    input.properties && input.properties.length > 0
+      ? new URLSearchParams({ properties: input.properties.join(",") })
+      : undefined;
+  return hubspotRequest<HubSpotEngagement>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: crmPath(`objects/notes/${encodeURIComponent(input.engagementId)}`),
+    ...(query ? { query } : {}),
+    resourceForNotFound: `note ${input.engagementId}`,
+  });
+}
+
 // ─── tasks ──────────────────────────────────────────────────────────────────
 
 /**
@@ -87,6 +114,26 @@ export async function tasksCreate(
     path: crmPath("objects/tasks"),
     body: { properties: input.properties },
     resourceForNotFound: "task (create)",
+  });
+}
+
+/**
+ * GET one task engagement by id. Mirrors `tickets.ts:ticketsGet` —
+ * optional `properties` projection as a comma-separated query param.
+ */
+export async function tasksGet(
+  input: EngagementGetInput,
+): Promise<HubSpotEngagement> {
+  const query =
+    input.properties && input.properties.length > 0
+      ? new URLSearchParams({ properties: input.properties.join(",") })
+      : undefined;
+  return hubspotRequest<HubSpotEngagement>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: crmPath(`objects/tasks/${encodeURIComponent(input.engagementId)}`),
+    ...(query ? { query } : {}),
+    resourceForNotFound: `task ${input.engagementId}`,
   });
 }
 

@@ -53,6 +53,7 @@ import {
   discoverGmailSelfAddress,
   stageGmailAttachmentMessage,
   discoverHubSpotDealStage,
+  discoverHubSpotTicketStage,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -243,6 +244,21 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_HUBSPOT_DEAL_PIPELINE_ID = chosen.pipelineId; // id -> env overlay only
         overlay.SMOKE_HUBSPOT_DEAL_STAGE_ID = chosen.stageId; // id -> env overlay only
         targetLabel = `deal pipeline "${chosen.pipelineLabel}" / stage "${chosen.stageLabel}"`;
+      }
+      // create_ticket / update_ticket need a REAL ticket pipeline + stage id (same
+      // never-invent rule). A pinned SMOKE_HUBSPOT_TICKET_PIPELINE_ID wins; else the
+      // portal's first non-archived ticket pipeline + its first stage is discovered.
+      const ticketChosen = await discoverHubSpotTicketStage(
+        account,
+        user,
+        process.env.SMOKE_HUBSPOT_TICKET_PIPELINE_ID || null,
+      );
+      if (ticketChosen) {
+        overlay.SMOKE_HUBSPOT_TICKET_PIPELINE_ID = ticketChosen.pipelineId; // id -> env overlay only
+        overlay.SMOKE_HUBSPOT_TICKET_STAGE_ID = ticketChosen.stageId; // id -> env overlay only
+        targetLabel =
+          `${targetLabel ? `${targetLabel} / ` : ""}` +
+          `ticket pipeline "${ticketChosen.pipelineLabel}" / stage "${ticketChosen.stageLabel}"`;
       }
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the
