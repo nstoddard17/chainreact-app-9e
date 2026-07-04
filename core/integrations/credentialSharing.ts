@@ -68,6 +68,10 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   "microsoft-teams": "personal",
   dropbox: "personal",
   discord: "personal",
+  // Asana (Slice 5.ASANA-1): the OAuth token acts AS the connecting human —
+  // their task assignments, their comment authorship. Same posture as
+  // Trello / Monday.
+  asana: "personal",
 
   // ── Needs product decision → default personal for launch safety. ──
   github: "personal",

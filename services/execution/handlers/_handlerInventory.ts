@@ -322,6 +322,14 @@ import { delay as nativeDelay } from "@/integrations/native/actions/delay";
 // emission). Pure handlers; no OAuth; no integration row.
 import { ifThenCondition as nativeIfThenCondition } from "@/integrations/native/actions/ifThenCondition";
 import { router as nativeRouter } from "@/integrations/native/actions/router";
+// Slice 5.ASANA-1 — 5 Asana task/comment actions (first net-new provider,
+// no V1 code). REST via _shared/asana/api; all writes wrapped in
+// refreshAndRetry (hourly-expiring tokens).
+import { createTask as asanaCreateTask } from "@/integrations/asana/actions/tasks/createTask";
+import { updateTask as asanaUpdateTask } from "@/integrations/asana/actions/tasks/updateTask";
+import { completeTask as asanaCompleteTask } from "@/integrations/asana/actions/tasks/completeTask";
+import { getTask as asanaGetTask } from "@/integrations/asana/actions/tasks/getTask";
+import { addCommentToTask as asanaAddCommentToTask } from "@/integrations/asana/actions/comments/addCommentToTask";
 import type { ActionHandler } from "./types";
 
 /**
@@ -779,5 +787,11 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // route label, else configured defaultRoute, else null. See
   // docs/slices/parity/native-nodes-3-tier-c-control-flow-plan.md §6.
   { provider: "native", type: "router", handler: nativeRouter },
+  // Slice 5.ASANA-1 — Asana first slice (5 actions).
+  { provider: "asana", type: "create_task", handler: asanaCreateTask },
+  { provider: "asana", type: "update_task", handler: asanaUpdateTask },
+  { provider: "asana", type: "complete_task", handler: asanaCompleteTask },
+  { provider: "asana", type: "add_comment_to_task", handler: asanaAddCommentToTask },
+  { provider: "asana", type: "get_task", handler: asanaGetTask },
 ];
 

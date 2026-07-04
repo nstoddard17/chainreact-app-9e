@@ -252,6 +252,13 @@ import hubspotCreateTicket from "@/tests/fixtures/action-smoke/hubspot/create_ti
 import hubspotUpdateTicket from "@/tests/fixtures/action-smoke/hubspot/update_ticket";
 import hubspotCreateProduct from "@/tests/fixtures/action-smoke/hubspot/create_product";
 import hubspotUpdateProduct from "@/tests/fixtures/action-smoke/hubspot/update_product";
+// Slice 5.ASANA-1 — Asana first slice: 1 read + 4 writes (create/update/complete
+// dispose via complete_task — no Asana delete action ships in this slice).
+import asanaGetTask from "@/tests/fixtures/action-smoke/asana/get_task";
+import asanaCreateTask from "@/tests/fixtures/action-smoke/asana/create_task";
+import asanaUpdateTask from "@/tests/fixtures/action-smoke/asana/update_task";
+import asanaCompleteTask from "@/tests/fixtures/action-smoke/asana/complete_task";
+import asanaAddCommentToTask from "@/tests/fixtures/action-smoke/asana/add_comment_to_task";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -350,6 +357,7 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   outlookCalListEvents,
   notionGetUser,
   notionListComments,
+  asanaGetTask,
 ];
 
 /**
@@ -475,6 +483,10 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   hubspotUpdateTicket,
   hubspotCreateProduct,
   hubspotUpdateProduct,
+  asanaCreateTask,
+  asanaUpdateTask,
+  asanaCompleteTask,
+  asanaAddCommentToTask,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

@@ -298,6 +298,11 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // Facebook triggers, GCal-calendars-resolver, GDrive-files/share/export,
   // OneDrive-FileRef, Teams-chats, Outlook-meetings — all backlog).**
   "microsoft-outlook-calendar",
+  // Asana added in Slice 5.ASANA-1 — the FIRST net-new provider (no V1
+  // code). Unlike the staged V1-port arcs above, actions + metas +
+  // triggers + resolvers all land in one slice, so 1:1 handler↔meta
+  // drift is enforced from day one (5 actions, 2 webhook triggers).
+  "asana",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

@@ -9,6 +9,7 @@ import {
 } from "@/contracts/integration";
 import { decryptToken } from "@/core/encryption/tokens";
 import { airtableOAuth } from "@/integrations/airtable/oauth";
+import { asanaOAuth } from "@/integrations/asana/oauth";
 import { discordOAuth } from "@/integrations/discord/oauth";
 import { dropboxOAuth } from "@/integrations/dropbox/oauth";
 import { facebookOAuth } from "@/integrations/facebook/oauth";
@@ -101,6 +102,11 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   // user token via fb_exchange_token, no refresh token); page tokens
   // derived at runtime. See integrations/facebook/oauth.ts.
   facebook: facebookOAuth,
+  // Slice 5.ASANA-1 — Asana OAuth. Refreshable (hourly access tokens +
+  // long-lived refresh token, preserve-old rotation policy), body-auth,
+  // PKCE S256. Identity from the token response's embedded `data` object
+  // (GET /users/me fallback). See integrations/asana/oauth.ts.
+  asana: asanaOAuth,
 });
 
 /**

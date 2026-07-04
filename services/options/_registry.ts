@@ -374,6 +374,12 @@ import { airtableAttachmentFieldsResolver } from "@/integrations/airtable/option
 // `refreshAndRetry`. `trello:checklists` / `trello:check_items` are
 // intentionally NOT registered — no V2 runtime consumes checklist /
 // check-item data (V1's checklist actions were not ported).
+// Asana (Slice 5.ASANA-1) — workspace-rooted cascade for the 5 task
+// actions + 2 project triggers. All refreshable via refreshAndRetry.
+import { asanaWorkspacesResolver } from "@/integrations/asana/options/workspaces";
+import { asanaProjectsResolver } from "@/integrations/asana/options/projects";
+import { asanaUsersResolver } from "@/integrations/asana/options/users";
+import { asanaTasksResolver } from "@/integrations/asana/options/tasks";
 import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
 import { trelloListsResolver } from "@/integrations/trello/options/lists";
 import { trelloCardsResolver } from "@/integrations/trello/options/cards";
@@ -634,6 +640,17 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   gmailLabelsResolver,
   outlookFoldersResolver,
   outlookCalendarsResolver,
+  // Slice 5.ASANA-1 — 4 Asana resolvers (first net-new provider; metas +
+  // resolvers land in the same slice). workspaces (root) → projects /
+  // users (dep: workspaceId) → tasks (dep: projectId). Auth refreshable
+  // (refreshAndRetry — hourly-expiring tokens). Sections resolver
+  // intentionally absent (sections deferred — scope ambiguity, see
+  // docs/providers/asana/implementation-plan.md). User labels are display
+  // names only — emails never requested.
+  asanaWorkspacesResolver,
+  asanaProjectsResolver,
+  asanaUsersResolver,
+  asanaTasksResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

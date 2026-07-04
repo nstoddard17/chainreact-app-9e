@@ -4,6 +4,7 @@ import {
   ProviderManifestSchema,
 } from "@/contracts/integration";
 import { airtableManifest } from "./airtable/manifest";
+import { asanaManifest } from "./asana/manifest";
 import { discordManifest } from "./discord/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
@@ -129,6 +130,15 @@ import "./dropbox/triggers/newFile";
 // URL in the Meta App Dashboard). Both subscribe the same Page `feed` field.
 import "./facebook/triggers/newPost";
 import "./facebook/triggers/newComment";
+// Slice 5.ASANA-1 — 2 Asana project-webhook triggers. Each registers its
+// activation (POST /webhooks + X-Hook-Secret handshake persistence),
+// deactivation (DELETE /webhooks/{gid}), and P-S2 projectId dispatcher
+// filter at module load. Strict-direct-lookup via ?workflowId=&nodeId= on
+// the notification URL; events arrive at /api/webhooks/asana. Asana
+// webhooks don't expire on a schedule — no renewal/subscription-watch
+// marker (Asana deletes them itself after 24h of failed deliveries).
+import "./asana/triggers/newTaskInProject";
+import "./asana/triggers/taskUpdatedInProject";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.
@@ -195,6 +205,11 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // deferred — D-GA3). analytics.edit is a sensitive Google scope gated by
   // OAuth app verification (internal launch-readiness, not user-facing).
   googleAnalyticsManifest,
+  // Slice 5.ASANA-1 — Asana, the first net-new (no-V1) provider. 5 task
+  // actions + 2 project-webhook triggers ship in the same slice, so
+  // actions/webhookTrigger are true from day one. Personal credential
+  // class; refreshable PKCE OAuth.
+  asanaManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

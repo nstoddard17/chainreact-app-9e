@@ -364,6 +364,13 @@ import {
   MICROSOFT_OUTLOOK_CALENDAR_ACTION_METAS,
   MICROSOFT_OUTLOOK_CALENDAR_TRIGGER_METAS,
 } from "./providers/microsoft-outlook-calendar";
+// Asana (Slice 5.ASANA-1 — first net-new provider, no V1 code) — 5 task/
+// comment actions + 2 project-scoped webhook triggers with the
+// X-Hook-Secret handshake lifecycle.
+import {
+  ASANA_ACTION_METAS,
+  ASANA_TRIGGER_METAS,
+} from "./providers/asana";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -631,6 +638,7 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...GOOGLE_CALENDAR_ACTION_METAS, // Google Calendar (GCAL-META-2) — 5 actions, displayOrder 10..50.
   ...GOOGLE_DRIVE_ACTION_METAS, // Google Drive (GDRIVE-META-2) — 5 actions, displayOrder 10..50.
   ...MICROSOFT_OUTLOOK_CALENDAR_ACTION_METAS, // Microsoft Outlook Calendar (OUTLOOK-CAL-META-2) — 5 actions, displayOrder 10..50.
+  ...ASANA_ACTION_METAS, // Asana (ASANA-1) — 5 actions, displayOrder 10..50.
 ];
 
 export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -794,4 +802,9 @@ export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // registerActivation("stripe","event_received",...), so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...STRIPE_TRIGGER_METAS,
+  // Asana (ASANA-1) — 2 project-scoped webhook triggers. Activation +
+  // deactivation registered in integrations/asana/triggers/<event>/index.ts,
+  // so the trigger-meta-activation-invariant test passes without an
+  // exemption.
+  ...ASANA_TRIGGER_METAS,
 ];

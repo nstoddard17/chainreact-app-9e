@@ -43,6 +43,36 @@
       ]
     },
     {
+      "source": "asana:projects",
+      "provider": "asana",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "workspaceId"
+      ]
+    },
+    {
+      "source": "asana:tasks",
+      "provider": "asana",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "projectId"
+      ]
+    },
+    {
+      "source": "asana:users",
+      "provider": "asana",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "workspaceId"
+      ]
+    },
+    {
+      "source": "asana:workspaces",
+      "provider": "asana",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "discord:bot_messages",
       "provider": "discord",
       "requiresIntegration": true,
@@ -181,8 +211,20 @@
       "requiredDeps": null
     },
     {
+      "source": "google-calendar:calendars",
+      "provider": "google-calendar",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "google-docs:documents",
       "provider": "google-docs",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "google-drive:files",
+      "provider": "google-drive",
       "requiresIntegration": true,
       "requiredDeps": null
     },
@@ -203,6 +245,30 @@
     {
       "source": "google-sheets:spreadsheets",
       "provider": "google-sheets",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:company_lifecyclestage",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:contact_lead_status",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:contact_lifecyclestage",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:deal_dealtype",
+      "provider": "hubspot",
       "requiresIntegration": true,
       "requiredDeps": null
     },
@@ -233,7 +299,19 @@
       "requiredDeps": null
     },
     {
+      "source": "hubspot:ticket_category",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "hubspot:ticket_pipelines",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:ticket_source_type",
       "provider": "hubspot",
       "requiresIntegration": true,
       "requiredDeps": null
@@ -439,6 +517,18 @@
     },
     {
       "source": "slack:channels",
+      "provider": "slack",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "slack:group_dms",
+      "provider": "slack",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "slack:users",
       "provider": "slack",
       "requiresIntegration": true,
       "requiredDeps": null
