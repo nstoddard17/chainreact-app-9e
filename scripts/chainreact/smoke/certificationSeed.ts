@@ -55,6 +55,7 @@ const SMOKE_WRITE_SLACK_FILES = "2026-07-03";
 const SMOKE_WRITE_SLACK_PINS = "2026-07-03";
 const SMOKE_WRITE_GMAIL_DRAFT_LABEL = "2026-07-04";
 const SMOKE_WRITE_GMAIL_STATE = "2026-07-04";
+const SMOKE_WRITE_GMAIL_SEND = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -827,6 +828,16 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["gmail", "mark_as_read"],
     ["gmail", "archive_email"],
     ["gmail", "delete_email"],
+  ]),
+  // GMAIL-SEND (2026-07-04) — send_email to the smoke account ITSELF (SMOKE_GMAIL_SELF,
+  // discovered live via users.getProfile). Gmail collapses a self-send into a SINGLE
+  // message carrying ["UNREAD","SENT","INBOX"] (verified live) returned synchronously, so
+  // delivery is immediate (no polling) and there is exactly ONE copy to clean. Verified via
+  // the gmail:message_labels read-back: labelIds contains SENT + the marker on subject (the
+  // send echo is never trusted). delete_email(trash) removes the single self-message (both
+  // sent + inbox view), so 0 active copies remain (cleaned, to Trash, recoverable ~30d).
+  ...records("LIVE_PASS_CLEANED", "live self-send + independent message_labels read-back (SENT + subject marker), single message trashed", SMOKE_WRITE_GMAIL_SEND, [
+    ["gmail", "send_email"],
   ]),
   // SMOKE-WRITE-36 — Microsoft Excel create_worksheet. Excel has no create_workbook
   // action, so the smoke brings its OWN smoke-owned workbook: setup uploads a frozen
