@@ -265,6 +265,15 @@ import hubspotCreateMeeting from "@/tests/fixtures/action-smoke/hubspot/create_m
 // list + staged marker contact (membership added, verified, removed).
 import hubspotAddContactToList from "@/tests/fixtures/action-smoke/hubspot/add_contact_to_list";
 import hubspotRemoveFromList from "@/tests/fixtures/action-smoke/hubspot/remove_from_list";
+// SMOKE-WRITE-MAILCHIMP-SUB — subscriber lifecycle on a discovered audience with
+// plus-addressed owner-mailbox emails; every member torn down by
+// remove_subscriber delete_permanent (unique per-run addresses).
+import mailchimpAddSubscriber from "@/tests/fixtures/action-smoke/mailchimp/add_subscriber";
+import mailchimpUpdateSubscriber from "@/tests/fixtures/action-smoke/mailchimp/update_subscriber";
+import mailchimpUnsubscribeSubscriber from "@/tests/fixtures/action-smoke/mailchimp/unsubscribe_subscriber";
+import mailchimpAddTag from "@/tests/fixtures/action-smoke/mailchimp/add_tag";
+import mailchimpRemoveTag from "@/tests/fixtures/action-smoke/mailchimp/remove_tag";
+import mailchimpRemoveSubscriber from "@/tests/fixtures/action-smoke/mailchimp/remove_subscriber";
 // Slice 5.ASANA-1 — Asana first slice: 1 read + 4 writes (create/update/complete
 // dispose via complete_task — no Asana delete action ships in this slice).
 import asanaGetTask from "@/tests/fixtures/action-smoke/asana/get_task";
@@ -503,6 +512,12 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   hubspotCreateMeeting,
   hubspotAddContactToList,
   hubspotRemoveFromList,
+  mailchimpAddSubscriber,
+  mailchimpUpdateSubscriber,
+  mailchimpUnsubscribeSubscriber,
+  mailchimpAddTag,
+  mailchimpRemoveTag,
+  mailchimpRemoveSubscriber,
   asanaCreateTask,
   asanaUpdateTask,
   asanaCompleteTask,

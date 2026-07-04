@@ -56,6 +56,7 @@ import {
   discoverHubSpotTicketStage,
   stageHubSpotLineItemDeal,
   stageHubSpotListMembershipTarget,
+  discoverMailchimpSmokeAudience,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -300,6 +301,32 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         targetLabel =
           `${targetLabel ? `${targetLabel} / ` : ""}` +
           `ticket pipeline "${ticketChosen.pipelineLabel}" / stage "${ticketChosen.stageLabel}"`;
+      }
+    } else if (provider === "mailchimp" && execUsable) {
+      // Subscriber-lifecycle fixtures need an audience + per-fixture smoke
+      // subscriber emails. The audience is discovered (pinned env wins ->
+      // smoke/test-named -> first audience on the throwaway account). Emails
+      // PLUS-ADDRESS the connected account's own mailbox (Mailchimp rejects
+      // fake domains like example.com) with the run marker + a role suffix —
+      // real operator-owned destinations; adding a member sends NO mail. Each
+      // fixture gets a DISTINCT address so parallel lifecycles never collide,
+      // and every member is torn down by its own remove_subscriber cleanup.
+      const chosen = await discoverMailchimpSmokeAudience(
+        account,
+        user,
+        process.env.SMOKE_MAILCHIMP_AUDIENCE_ID || null,
+      );
+      if (chosen) {
+        overlay.SMOKE_MAILCHIMP_AUDIENCE_ID = chosen.audienceId; // id -> env overlay only
+        const addr = (role: string): string =>
+          `${chosen.ownerLocal}+crsmoke-${runToken}-${role}@${chosen.ownerDomain}`;
+        overlay.SMOKE_MAILCHIMP_SUB_EMAIL_ADD = addr("add");
+        overlay.SMOKE_MAILCHIMP_SUB_EMAIL_UPDATE = addr("upd");
+        overlay.SMOKE_MAILCHIMP_SUB_EMAIL_UNSUB = addr("uns");
+        overlay.SMOKE_MAILCHIMP_SUB_EMAIL_TAGADD = addr("tga");
+        overlay.SMOKE_MAILCHIMP_SUB_EMAIL_TAGREMOVE = addr("tgr");
+        overlay.SMOKE_MAILCHIMP_SUB_EMAIL_REMOVE = addr("rem");
+        targetLabel = `audience "${chosen.audienceLabel}" / plus-addressed owner mailbox`;
       }
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the

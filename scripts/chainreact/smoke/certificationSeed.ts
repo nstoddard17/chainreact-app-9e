@@ -63,6 +63,7 @@ const SMOKE_WRITE_HUBSPOT_ENGAGE = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_LINEITEM = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_CALLMEET = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_LIST = "2026-07-04";
+const SMOKE_WRITE_MAILCHIMP_SUB = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1092,5 +1093,25 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live membership add/remove on a staged MANUAL smoke list + independent memberships read-back; fixed v1-body/405 bug (v3 is PUT + record ids)", SMOKE_WRITE_HUBSPOT_LIST, [
     ["hubspot", "add_contact_to_list"],
     ["hubspot", "remove_from_list"],
+  ]),
+  // MAILCHIMP-SUB (2026-07-04) — full subscriber lifecycle on the discovered
+  // throwaway audience. Smoke addresses PLUS-ADDRESS the connected account's
+  // own mailbox (Mailchimp rejects fake domains; adding a member sends no
+  // mail) and are unique per run, so remove_subscriber's delete_permanent
+  // cleanup is safe (the cannot-re-add rule never bites). Verifies run through
+  // the REGISTERED get_subscriber read (GET by hash — strongly consistent):
+  // status pinning (subscribed / unsubscribed), suffix-pinned merge-field
+  // update, tag membership via expectContains and absence via expectAbsent.
+  // remove_subscriber itself is executeIsCleanup, proven by the member_state
+  // seam exists==false (typed 404 only). Q11 gates ride explicit values
+  // (consent status, delete mode). Every run ends with zero members left; the
+  // only residue is the unused crsmoke tag LABEL on the audience.
+  ...records("LIVE_PASS_CLEANED", "live subscriber lifecycle (add/update/unsubscribe/tags/delete) via registered get_subscriber read-back; plus-addressed owner mailbox; all members deleted", SMOKE_WRITE_MAILCHIMP_SUB, [
+    ["mailchimp", "add_subscriber"],
+    ["mailchimp", "update_subscriber"],
+    ["mailchimp", "unsubscribe_subscriber"],
+    ["mailchimp", "add_tag"],
+    ["mailchimp", "remove_tag"],
+    ["mailchimp", "remove_subscriber"],
   ]),
 ];

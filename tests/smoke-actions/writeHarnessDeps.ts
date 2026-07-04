@@ -60,6 +60,7 @@ import { onenoteCopyMonitorSmokeReadBack } from "./writeHarnessDeps/onenoteCopyM
 import { slackSmokeReadBack } from "./writeHarnessDeps/slack";
 import { gmailSmokeReadBack } from "./writeHarnessDeps/gmail";
 import { hubspotSmokeReadBack } from "./writeHarnessDeps/hubspot";
+import { mailchimpSmokeReadBack } from "./writeHarnessDeps/mailchimp";
 import { stagedFileSmokeReadBack } from "./writeHarnessDeps/stagedFile";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
@@ -88,6 +89,7 @@ export {
   stageHubSpotLineItemDeal,
   stageHubSpotListMembershipTarget,
 } from "./writeHarnessDeps/hubspot";
+export { discoverMailchimpSmokeAudience } from "./writeHarnessDeps/mailchimp";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */
@@ -154,6 +156,9 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   // HubSpot CRM per-object state read-back (GET by id — never the eventually-
   // consistent /search) for contact/company/deal create+update verifies.
   hubspotSmokeReadBack,
+  // Mailchimp member existence probe (GET by subscriber hash; typed 404 ->
+  // exists:false) for remove_subscriber's deletion proof.
+  mailchimpSmokeReadBack,
   // Provider-agnostic v2_storage staged-file existence read-back (slack:download_file).
   stagedFileSmokeReadBack,
 ];
