@@ -3,21 +3,21 @@
 ## ✅ PRIMARY / ACTIVE APP — LIVE IN PRODUCTION
 
 ChainReactV2 is the primary ChainReact app/codebase — build all new work here.
-V1 (`chainreact-app-9e`) is archived reference only.
+The old `chainreact-app-9e` repo is decommissioned and non-operative.
 
 ### Active-repo guardrail (read before running anything)
 
 - **ChainReactV2 is the ONLY active repo.** All editing, running, testing,
   committing, migrations, and verification happen here:
   `c:\Users\marcu\source\repos\ChainReactV2`.
-- **V1 (`chainreact-app-9e`) is archived / reference-only.** You may *read* it to
-  consult proven provider behavior (see Project Purpose), but do **NOT** edit, run
-  tasks/tests/scripts, commit, stash, `db:push`, or deploy in V1 — unless Marcus
-  **explicitly** asks for V1 work.
-- **Verify the repo before shell commands.** A shell can start in the V1 repo by
-  accident (the V1 path is the machine's default working directory). Before any
-  `git` / `npm` / `db` command, confirm the working tree is ChainReactV2 — e.g.
-  `git rev-parse --show-toplevel` should end in `ChainReactV2`.
+- **The old `chainreact-app-9e` repo is decommissioned / non-operative.** Do NOT
+  inspect, port, audit, compare against, or preserve its behavior for V2 work, and do
+  **NOT** edit, run tasks/tests/scripts, commit, stash, `db:push`, or deploy in it —
+  unless Marcus **explicitly** asks for work in that repo.
+- **Verify the repo before shell commands.** A shell can start in the old
+  `chainreact-app-9e` repo by accident (its path is the machine's default working
+  directory). Before any `git` / `npm` / `db` command, confirm the working tree is
+  ChainReactV2 — e.g. `git rev-parse --show-toplevel` should end in `ChainReactV2`.
 
 **V2 is live in production** at `https://chainreact.app`, deploying from the
 `v2-main` branch. Authoritative status, including current verification state:
@@ -35,17 +35,14 @@ default" does not mean "V2 isn't live" — both facts can be true at once.
 
 ## Project Purpose
 
-ChainReactV2 is the cleaner rebuild of the original ChainReact app.
+ChainReactV2 is the primary ChainReact app — a clean, V2-native workflow automation
+platform. It is live in production and under active development.
 
-The original V1 reference repo is:
-
-`c:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e`
-
-**Use `chainreact-app-9e` as the V1 source/reference before implementing provider behavior.**
-
-The goal is not to recreate everything from scratch. The goal is to selectively port proven V1 behavior into V2's cleaner architecture while fixing known V1 bugs and avoiding legacy mess.
-
-Claude should consult V1 for provider behavior, workflows, OAuth flows, triggers, schemas, and edge cases — then adapt them into V2's boundaries.
+Use current ChainReactV2 code, docs, provider patterns, official provider API docs, and
+live-provider certification evidence as the source of truth. Do not inspect or port from
+the old `chainreact-app-9e` repo. If a provider pattern is unclear, derive it from
+current V2 provider implementations and rule docs, then verify against the provider's
+official docs and live behavior where possible.
 
 ---
 
@@ -58,8 +55,8 @@ Claude should consult V1 for provider behavior, workflows, OAuth flows, triggers
   verified batch, pushing to `v2-main` is allowed and deploys to prod (intended).
 - Do not open PRs unless Marcus explicitly says to.
 - Before major/shared-infrastructure work, write a short plan first.
-- For provider work, audit V1 before coding.
-- Prefer porting and adapting V1 behavior over inventing new behavior.
+- For provider work, audit existing V2 provider patterns before coding.
+- Prefer reusing existing V2 provider patterns over inventing new behavior.
 
 ## Current Branch Strategy
 
@@ -73,26 +70,23 @@ to production — that is the intended ship path until a dev/staging env exists.
 
 ---
 
-## V1 Porting Rules
+## Provider Authoring — start from V2 patterns
 
-Before implementing a provider, inspect V1 for:
+Before implementing a provider, audit existing V2 providers for the patterns you'll
+reuse:
 
-- OAuth/auth implementation
-- action handlers
-- trigger/webhook/polling lifecycle
-- schemas/node definitions
+- OAuth / token-ingest auth flow
+- action handlers + `.strict()` schemas + `.meta.ts`
+- trigger / webhook / polling lifecycle
 - API wrappers
-- tests
-- known bugs or deprecated files
+- option sources
+- Apps / Builder / AI visibility metadata
+- tests + smoke fixtures + live-certification path
 
-Classify V1 code as:
-
-- **copy mostly as-is**
-- **port with V2 adaptation**
-- **rewrite** because V1 is too coupled/messy
-- **skip** because out of scope
-
-Do not copy deprecated V1 files unless explicitly approved.
+Match a same-family V2 provider where one exists, then verify behavior against the
+provider's official API docs and live behavior. Document the patterns reused and any
+intentional divergences in the provider's `v2-pattern-audit.md`. Do not inspect or port
+from the old `chainreact-app-9e` repo.
 
 ---
 
@@ -215,7 +209,7 @@ and a roadmap entry (roadmap §Phase 2). Local work is not pushed without Marcus
 ## V2 Provider Authoring Rules
 
 Universal rules every provider action / trigger / handler MUST follow. Per-provider
-specifics and the full V1-rot rationale live in the outcome docs indexed under
+specifics and the full skip/port rationale live in the outcome docs indexed under
 **Deep Gotchas** below; where a rule has a dedicated reference it is linked here.
 
 **Actions & schemas**
@@ -240,7 +234,7 @@ specifics and the full V1-rot rationale live in the outcome docs indexed under
 13. **DB-backed dedup with stable provider IDs; fail-closed.** Key `webhook_event_dedup` on stable provider ids (hashes, not raw PII); on dedup outage skip-enqueue this tick. Prefix the eventId per-trigger when one entity fans out to multiple triggers.
 
 **Porting & structure**
-14. **Don't port V1 orphans on file-presence alone.** Registry presence — not `.ts` presence — defines the action set; orphan backfill is product-signal-gated.
+14. **Don't treat orphan files as shipped.** Registry presence — not `.ts` presence — defines the action set; orphan backfill is product-signal-gated.
 15. **Manifest honesty.** Don't set `actions:true` / `webhookTrigger:true` until handlers/triggers are registered. (Also in *Important Defaults*.)
 16. **50-file leaf-folder cap.** Split a provider's `actions/` into domain subfolders (`actions/channels/`, `actions/line_items/`) as it approaches the cap; update registry import paths to match.
 
@@ -250,7 +244,7 @@ specifics and the full V1-rot rationale live in the outcome docs indexed under
 
 ## Provider & Contract Notes (index)
 
-Durable per-provider and per-contract specifics — failure modes, V1-rot skip tables,
+Durable per-provider and per-contract specifics — failure modes, skip/port tables,
 wire-format details — live in the outcome and rules docs below. The universal rules are
 in **V2 Provider Authoring Rules** above; consult these only when working that provider
 or contract.
@@ -261,7 +255,7 @@ or contract.
 - Folder / module boundaries (50-file cap): [`docs/rules/project-structure-and-module-boundaries.md`](./docs/rules/project-structure-and-module-boundaries.md)
 - Shared-mock e2e execution: [`docs/rules/testing-strategy.md`](./docs/rules/testing-strategy.md)
 
-**Per-provider** (outcome docs carry the per-action/trigger detail + V1-rot skip tables)
+**Per-provider** (outcome docs carry the per-action/trigger detail + skip/port tables)
 
 - **Slack** — [`2.2 channels/lifecycle`](./docs/slices/phase-2/slack-2-2-private-channels-and-lifecycle.md) · [`2.3 channels+users`](./docs/slices/phase-2/slack-2-3-outcomes.md) · [`2.4 files (P-S3)`](./docs/slices/phase-2/slack-2-4-outcomes.md) · [`2.5 file_shared trigger`](./docs/slices/phase-2/slack-2-5-outcomes.md)
 - **Gmail** — [`2.3 triggers + attachments`](./docs/slices/phase-2/gmail-2-3-outcomes.md)
@@ -285,7 +279,7 @@ or contract.
 Before any future push/PR, Claude should review the diff and ask:
 
 - Did this change introduce or modify an architectural pattern?
-- Did this change alter how providers should be ported from V1?
+- Did this change alter how providers should be built in V2?
 - Did this change add a new shared helper, registry, service, repo pattern, or testing convention?
 - Did this change alter branch/process rules?
 - Did this change add a provider pattern future providers should follow?
@@ -337,4 +331,4 @@ specific home.
 
 - **Do not push unless Marcus explicitly says to push.** His approval of a verified
   batch authorizes a `v2-main` push, which deploys to prod (no staging env yet).
-- **Use `chainreact-app-9e` as the V1 source/reference before implementing provider behavior.**
+- **Build providers from current V2 patterns + official provider docs + live evidence — never from the old `chainreact-app-9e` repo.**

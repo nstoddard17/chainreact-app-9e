@@ -34,7 +34,7 @@ pruned, curated state index that lets a fresh chat get oriented in ~2 minutes. I
   or long content — point to it.
 - **No secrets / privacy.** Never store env values, tokens, API keys, credentials,
   production data, or private customer/user data. Run a self-check before committing.
-- **Docs-only. Local commit. No push.** No source/test/config/V1 changes.
+- **Docs-only. Local commit. No push.** No source/test/config changes.
 
 ## What to read
 

@@ -55,7 +55,7 @@ Reasoning: the per-trigger interval gate inside
 default 5 minutes from `services/cron/pollingIntervals.ts`) does the
 actual rate-limiting per Gmail trigger. A 1-minute cron tick with the
 5-minute per-trigger interval means each trigger fires once every 5
-minutes (V1 parity). Ticks that find no eligible triggers cost one
+minutes. Ticks that find no eligible triggers cost one
 indexed JSONB query plus a per-row state lookup — negligible.
 
 **Fall back to `*/5 * * * *` if the plan supports it.** Same average

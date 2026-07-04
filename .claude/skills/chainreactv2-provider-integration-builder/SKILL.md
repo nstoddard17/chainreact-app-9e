@@ -1,13 +1,13 @@
 ---
 name: chainreactv2-provider-integration-builder
-description: Use to add or audit a NEW app/provider integration in ChainReactV2 end-to-end, or to run the post-owner-setup live certification (Phase 13) once credentials exist. This skill must research the real provider API, audit V1 behavior, install the provider completely into V2, expose it in Apps + Builder + AI surfaces (including the Apps catalog metadata gate), implement OAuth/API-key/token-ingest auth, actions, triggers, webhooks/polling, option sources, credential-sharing classification, tests, smoke fixtures, and owner setup documentation. "Done" at implementation time means code-complete owner setup required; a provider is live-complete only after Phase 13 verifies the real provider boundary (live OAuth, every action, every trigger lifecycle, event-shape review, cleanup accounting, deploy-gated retest when a live bug was fixed).
+description: Use to add or audit a NEW app/provider integration in ChainReactV2 end-to-end, or to run the post-owner-setup live certification (Phase 13) once credentials exist. This skill must research the real provider API, audit existing V2 provider patterns, install the provider completely into V2, expose it in Apps + Builder + AI surfaces (including the Apps catalog metadata gate), implement OAuth/API-key/token-ingest auth, actions, triggers, webhooks/polling, option sources, credential-sharing classification, tests, smoke fixtures, and owner setup documentation. "Done" at implementation time means code-complete owner setup required; a provider is live-complete only after Phase 13 verifies the real provider boundary (live OAuth, every action, every trigger lifecycle, event-shape review, cleanup accounting, deploy-gated retest when a live bug was fixed).
 ---
 
 # ChainReactV2 Provider / App Integration Builder
 
 Use this skill when adding a **new app/provider** to ChainReactV2 or auditing whether an attempted provider install is actually complete.
 
-The goal is a **complete, real, V2-native provider integration** — not a partial runtime stub, not a V1 transplant, not a "coming soon" shell, not an untested manifest entry.
+The goal is a **complete, real, V2-native provider integration** — not a partial runtime stub, not a "coming soon" shell, not an untested manifest entry.
 
 When this skill says the provider is done, Marcus should only need to:
 
@@ -26,11 +26,11 @@ Before changing code:
 
 1. Follow the [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill.
 2. Read current project memory and rule docs through MCP.
-3. Inspect actual V2 code before editing.
-4. Inspect V1 `chainreact-app-9e` before deciding behavior.
-5. Research the provider's current public docs when scopes, endpoints, auth, rate limits, webhook support, or payloads are unclear.
+3. Inspect current V2 provider code before editing — it is the implementation reference.
+4. Research the provider's current public docs when scopes, endpoints, auth, rate limits, webhook support, or payloads are unclear.
+5. Verify against live provider behavior / smoke evidence where possible.
 
-Use V1 as a reference for proven product behavior, but do **not** blindly copy V1. V2 architecture and current provider rules win.
+Use current ChainReactV2 code, docs, provider patterns, official provider API docs, and live-provider certification evidence as the source of truth. Do not inspect or port from the old `chainreact-app-9e` repo. If a provider pattern is unclear, derive it from current V2 provider implementations and rule docs, then verify against the provider's official docs and live behavior where possible.
 
 ---
 
@@ -39,7 +39,7 @@ Use V1 as a reference for proven product behavior, but do **not** blindly copy V
 A provider is **not done** until all applicable items below are complete or explicitly listed as blocked with proof:
 
 * Provider research completed and documented.
-* V1 audit completed and documented.
+* Existing V2 pattern audit completed and documented.
 * Credential class chosen and added to `core/integrations/credentialSharing.ts`.
 * Auth flow implemented through the correct V2 dispatcher path.
 * Manifest registered and capabilities are honest.
@@ -87,31 +87,25 @@ Include:
 
 Do not invent unsupported API behavior. If docs are unclear, say so.
 
-### 2. V1 audit doc
+### 2. Existing V2 pattern audit
 
 Create or update:
 
-`docs/providers/<provider>/v1-audit.md`
+`docs/providers/<provider>/v2-pattern-audit.md`
 
 Include:
 
-* V1 files inspected.
-* V1 OAuth/auth behavior.
-* V1 actions found.
-* V1 triggers/webhooks/polling found.
-* V1 option/data fetchers found.
-* V1 scopes found.
-* V1 bugs, deprecated code, duplicate handlers, or orphan files.
-* Decision per V1 action/trigger:
+- current V2 providers inspected as implementation examples,
+- matching provider-family patterns, if any,
+- auth pattern selected and why,
+- action/trigger/schema patterns reused,
+- webhook/polling lifecycle patterns reused,
+- option-source patterns reused,
+- Apps/Builder/AI visibility patterns reused,
+- smoke/live-certification pattern reused,
+- divergences from existing V2 patterns and why.
 
-  * `port`
-  * `rewrite`
-  * `skip`
-  * `defer`
-* Reason for every skip/defer.
-* V2 divergences and why they are safer/better.
-
-Registry presence, not file presence, defines what V1 actually shipped. Do not port V1 orphans on file-presence alone.
+Registry presence, not file presence, defines what a V2 provider actually ships. Do not treat orphan files as shipped.
 
 ### 3. Implementation plan doc
 
@@ -193,14 +187,25 @@ Do not add provider definitions outside the provider folder except for required 
 * Do not overwrite other sessions' work.
 * Do not push.
 
-### Phase 1 — Research + V1 audit
+### Phase 1 — Research + existing V2 pattern audit
+
+Follow this order:
+
+1. MCP / project context.
+2. Current V2 provider code inspection.
+3. Official provider docs research.
+4. Existing V2 pattern audit.
+5. Implementation plan.
+6. Build / test / smoke / live certification (later phases).
+
+Concretely:
 
 * Read official provider docs.
-* Audit V1.
+* Audit existing V2 providers for the patterns to reuse.
 * Decide auth flow.
 * Decide credential class.
 * Decide action/trigger scope.
-* Write research + V1 audit + plan docs before major coding.
+* Write research + v2-pattern-audit + plan docs before major coding.
 
 ### Phase 2 — Manifest + registry + UI visibility
 
@@ -700,18 +705,18 @@ The final response must use this format:
 - Webhook signature/dedup checked:
 - File output checked:
 
-### V1 audit / divergences
-- V1 files inspected:
-- Behavior preserved:
-- Behavior changed:
-- Behavior skipped/deferred:
+### V2 pattern audit / divergences
+- V2 providers/patterns inspected:
+- Behavior/patterns reused:
+- Intentional divergences:
+- New reusable pattern introduced:
 
 ### Blockers / limitations
 - None, or list exact remaining owner/action.
 
 ### Docs created/updated
 - Research:
-- V1 audit:
+- V2 pattern audit:
 - Implementation plan:
 - Owner setup report:
 - Other:

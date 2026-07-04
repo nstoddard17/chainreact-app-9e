@@ -47,9 +47,9 @@
   production-first risk, intentionally deferred** (plan exists, not an active task);
   live-provider validation is owned by a **separate chat**. Fixed locally: webhook dedup
   now **fails closed** before enqueue (`19c00455f`); platform billing **code-ready pending
-  Marcus dashboard verification** (`141fd5789`). V1 billing/cron model (packs/overage/
-  auto-buy crons) does **not** apply to V2 (reserve/reconcile + account_billing + AI
-  credits). Detail →
+  Marcus dashboard verification** (`141fd5789`). The legacy app's billing/cron model
+  (packs/overage/auto-buy crons) does **not** apply to V2 (reserve/reconcile +
+  account_billing + AI credits). Detail →
   [`docs/slices/phase-5/mvp-launch-status-reconciliation.md`](./slices/phase-5/mvp-launch-status-reconciliation.md).
 - [2026-06-29] **Failed runs show a clear reason + one primary next action
   (CR-FAILREASON).** Rule: [`docs/rules/failed-run-recovery.md`](./rules/failed-run-recovery.md).
@@ -174,8 +174,9 @@
   non-launch-blocking →
   [`provider-metadata-launch-gap-tracker.md`](./slices/phase-4/provider-metadata-launch-gap-tracker.md) §8–§9.
 - [Claude] `chainreactv2-parity-auditor` skill **deferred** until recurring demand.
-- [Marcus] V1 (`chainreact-app-9e`) CLAUDE.md trim **shelved** (`git stash@{0}` on
-  `marcus_dev`) — leave V1 untouched unless asked.
+- [Marcus] The old `chainreact-app-9e` repo is **decommissioned / non-operative** — do
+  not inspect, port, audit, or compare against it for V2 work unless Marcus explicitly
+  asks. (An old CLAUDE.md-trim task there was shelved and is now moot.)
 - [Claude] Connected-app recovery **core UX is shipped** (`4.APPS-RECONNECT` / `V2-READY-28` /
   `CS-APPS-RECOVERY-1/2/3`; reverified 2026-06-26, 87/87 focused apps tests green). One polish
   item remains: AppCard reassurance copy ("Reconnect this app to keep workflows running." and

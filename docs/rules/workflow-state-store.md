@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define how Zustand state is organized for the workflow builder in V2. Replace V1's monolithic builder hook and store with a small set of independent slices, each owning a single concern.
+Define how Zustand state is organized for the workflow builder in V2. Replace the legacy app's monolithic builder hook and store with a small set of independent slices, each owning a single concern.
 
 ## Resolved Decisions
 
@@ -29,16 +29,16 @@ Define how Zustand state is organized for the workflow builder in V2. Replace V1
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Current V1 problem being solved
+## Problem being solved (historical context)
 
-V1 concentrates builder state in two oversized files:
+The legacy app concentrated builder state in two oversized files:
 
 - `hooks/workflows/useWorkflowBuilder.ts` — **3,640 lines**. One hook owns: graph state, node configuration, action plumbing, UI mode (edit / preview / execute), selection, in-progress edits, dirty-tracking, save coordination.
 - `stores/workflowStore.ts` — **1,338 lines**. Mixes workflow CRUD (server-synced), builder runtime (client-only), and a workflow-list cache.
 
-Coupling between concerns means a small change (renaming a field, adding a tab to a config modal) ripples across thousands of lines. State changes have non-obvious ordering dependencies. Tests are hard to write because there is no isolated unit.
+Coupling between concerns meant a small change (renaming a field, adding a tab to a config modal) rippled across thousands of lines. State changes had non-obvious ordering dependencies. Tests were hard to write because there was no isolated unit.
 
-V1 also has stores well over 400 lines elsewhere (`integrationStore.ts` 1,454, `authStore.ts` 786, `billingStore.ts` 442) that the same rule applies to.
+The legacy app also had stores well over 400 lines elsewhere (`integrationStore.ts` 1,454, `authStore.ts` 786, `billingStore.ts` 442) that the same rule applies to.
 
 ## V2 intended behavior
 
@@ -133,14 +133,14 @@ Cross-slice tests in `tests/integration/builder-orchestration/`:
 12. Execution starts → service subscribes to executionSlice → updates ExecutionStatusPanel without coupling slices.
 13. Workflow close → orchestrator tears down subscriptions → no memory leaks (verified via test memory profiler if available, or by counting active subscriptions).
 
-## V1 behavior to preserve
+## Behavior to preserve
 
-- Optimistic UI on save (V1 mostly does this well).
+- Optimistic UI on save (the legacy app mostly did this well).
 - Server reconciliation on save success.
 - Cross-tab session broadcast for auth state (PR-AUTH-1 pattern, in `authStore` only).
 - The conceptual separation of "saved server state" vs "in-progress edits."
 
-## V1 behavior to drop
+## Behavior to drop
 
 - Monolithic stores mixing concerns.
 - Hook-level ownership of complex state (move to slices; hooks become thin adapters).

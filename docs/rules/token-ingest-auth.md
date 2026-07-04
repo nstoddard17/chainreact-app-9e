@@ -127,12 +127,12 @@ The repository (`repositories/integrations.upsertActive`) never decrypts; downst
 
 ## No Dispatcher Bypass
 
-Every persistence path for token-ingest providers flows through `dispatcher.handleTokenIngest` → `repositories/integrations.upsertActive`. The route handler does NOT write to the `integrations` table directly. Adding a one-off "ingest endpoint" outside the dispatcher (as V1's `/api/integrations/trello/process-token` did) is a contract violation:
+Every persistence path for token-ingest providers flows through `dispatcher.handleTokenIngest` → `repositories/integrations.upsertActive`. The route handler does NOT write to the `integrations` table directly. Adding a one-off "ingest endpoint" outside the dispatcher (as the legacy app's `/api/integrations/trello/process-token` did) is a contract violation:
 
 - Bypasses the signed-state JWT integrity check.
 - Bypasses the atomic `oauth_states` consume (replay protection).
 - Bypasses the session-user / state-user cross-check.
-- Re-introduces V1's "dispatcher is a suggestion" problem.
+- Re-introduces the legacy app's "dispatcher is a suggestion" problem.
 
 If a provider's auth flow legitimately doesn't fit through `dispatcher.handleTokenIngest`, that's a contract extension that needs its own design slice — not a per-provider shortcut.
 

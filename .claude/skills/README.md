@@ -47,9 +47,10 @@ mutation, shell, or git/deploy. Full contract:
 
 - **Local only.** Never `git push`, open a PR, or trigger remote work unless Marcus
   explicitly says so. Local commits with clear reports are the unit of progress.
-- **V2 is the cleaner rebuild of V1** (`chainreact-app-9e`). Consult V1 for provider
-  behavior, but **port/adapt into V2's boundaries — never blindly copy V1**, and
-  challenge V1 behavior that is wrong or obsolete.
+- **ChainReactV2 is the source of truth.** Build from current V2 code, docs, provider
+  patterns, official provider API docs, and live-provider certification evidence. **Do
+  not inspect or port from the old `chainreact-app-9e` repo** — it is decommissioned and
+  non-operative.
 - **No fake UI, no invented backend.** Don't add controls a backend doesn't support,
   and don't claim behavior that isn't wired. If it isn't real, say so.
 - **Account-scoped model** is the spine — see the slice executor skill for the rules.

@@ -400,7 +400,7 @@ shipping another batch.
 - **Do not add UI** unless Marcus asks (the official badge already keys off `source`).
 - **Do not edit an already-applied migration.** Roll forward with a new guarded file (§7).
 - **Do not `git push`, deploy, or run `db:push`** unless Marcus explicitly asks.
-- **Do not touch V1** (`chainreact-app-9e`); this skill is ChainReactV2-only.
+- **Do not touch the old `chainreact-app-9e` repo** (decommissioned); this skill is ChainReactV2-only.
 
 See [checklist.md](../chainreactv2-official-template-builder/checklist.md) (in the builder skill)
 for the shared pre-commit no-leak gate.

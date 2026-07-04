@@ -1227,7 +1227,7 @@ in OUR smoke folder, compared against the captured folder id — never an input 
 deleted (file then folder). **`copy_item` — async blocker RESOLVED + LIVE-VERIFIED (SMOKE-WRITE-33)
 via unblock option (b): a harness extension that captures a seam-discovered id into the cleanup
 ledger.** The production handler is UNCHANGED — it still returns `{status:"pending", monitorUrl}` and
-does NOT poll (Slice 8 V1-rot fix; `status:"pending"` is the honest "copy initiated" contract). The
+does NOT poll (Slice 8 legacy-rot fix; `status:"pending"` is the honest "copy initiated" contract). The
 write harness gained a `completeAsync` phase: after execute it reads the TRUSTED monitor URL from the
 execute output (`monitorUrlPath`), polls it to TERMINAL completion via a bounded, smoke-only read-back
 seam (`microsoft-onedrive:copy_monitor` — capped attempts + total duration + capped backoff;
@@ -1384,7 +1384,7 @@ none is currently certifiable:
   `includeGridData` on the SINGLE smoke cell + a tight `fields` mask returning ONLY
   `userEnteredFormat` sub-fields — no cell values/payload/PII — sanitized to scalars, run
   through `refreshAndRetry`; a fresh cell reads `bold:null`, so only a real format passes).
-  `batch_update` (SMOKE-WRITE-30) is NOT a raw `requests[]` passthrough (V1's raw mode is
+  `batch_update` (SMOKE-WRITE-30) is NOT a raw `requests[]` passthrough (raw mode is
   rejected at parse time) — it is a TYPED multi-range value write, so a single one-cell update
   entry is an `update_cell` through the batch path, proven by the same `get_cell_value`
   read-back. `delete_row` (SMOKE-WRITE-31) closes Sheets: positional deletion is only

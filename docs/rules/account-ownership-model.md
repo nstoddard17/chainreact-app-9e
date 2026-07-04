@@ -10,20 +10,20 @@ Workflows can only use integrations from their own account. Billing always charg
 
 This is the canonical ownership model. Every Phase 4+ implementation slice cites this document.
 
-## Why V1 is not the blueprint
+## Ownership model design rationale (historical context)
 
-V1 attempted a personal/team/org/workspace model but shipped it inconsistently. V2 does not port V1's data model. Specifically:
+The legacy app attempted a personal/team/org/workspace model but shipped it inconsistently. V2 does not carry over the previous architecture's data model. Specifically:
 
-- **V1's workspace context was localStorage-only.** Active-workspace selection lived in the browser, so the server could not authoritatively answer "which workspace is this request scoped to?" → V2: account selection is server-state, durable per user, gates every API call.
-- **V1's signup did not create a workspace row.** New users had a UI selector for workspaces that didn't exist in the database. → V2: signup atomically creates one personal account + one owner membership before the session is issued.
-- **V1's workflows had `user_id` plus workspace/billing-scope fields applied unevenly.** Ownership was ambiguous; different code paths checked different columns. → V2: a single `account_id` foreign key is the only ownership column. `user_id` survives only as `created_by_user_id` (provenance, not authority).
-- **V1's team/org billing collapsed back to a single `user_profile`.** Plans, packs, overage, and Stripe customer IDs all lived on the user, not the team. → V2: every billing artifact lives on `account_billing(account_id)`.
-- **V1's workflow ownership transfer did not exist.** Once a user owned a workflow, the only way to "transfer" it was to copy-paste. → V2: ownership is account-scoped from day one; intra-account author handoff is implicit (any account member with role permits it); inter-account transfer is a deliberate future capability.
-- **V1's integrations were sometimes personal and sometimes workspace-shared with no clear rule.** Two users in the same workspace might unknowingly use the same Stripe key, or might each connect their own duplicate. → V2: integrations are always account-owned; the same external identity connected to two different accounts is two separate records.
-- **V1's run history was per-user.** A team member could not see runs of workflows authored by a teammate even though both used the same integrations. → V2: runs belong to the workflow's account; any member with sufficient role sees them.
-- **V1's authorization checks were asymmetric.** Some endpoints checked `user_id`, some checked workspace membership, some checked both, some checked neither. → V2: every access check resolves through `account_memberships`. RLS enforces it at the database. There is exactly one shape of authorization across the codebase.
+- **The legacy app's workspace context was localStorage-only.** Active-workspace selection lived in the browser, so the server could not authoritatively answer "which workspace is this request scoped to?" → V2: account selection is server-state, durable per user, gates every API call.
+- **The legacy app's signup did not create a workspace row.** New users had a UI selector for workspaces that didn't exist in the database. → V2: signup atomically creates one personal account + one owner membership before the session is issued.
+- **The legacy app's workflows had `user_id` plus workspace/billing-scope fields applied unevenly.** Ownership was ambiguous; different code paths checked different columns. → V2: a single `account_id` foreign key is the only ownership column. `user_id` survives only as `created_by_user_id` (provenance, not authority).
+- **The legacy app's team/org billing collapsed back to a single `user_profile`.** Plans, packs, overage, and Stripe customer IDs all lived on the user, not the team. → V2: every billing artifact lives on `account_billing(account_id)`.
+- **The legacy app's workflow ownership transfer did not exist.** Once a user owned a workflow, the only way to "transfer" it was to copy-paste. → V2: ownership is account-scoped from day one; intra-account author handoff is implicit (any account member with role permits it); inter-account transfer is a deliberate future capability.
+- **The legacy app's integrations were sometimes personal and sometimes workspace-shared with no clear rule.** Two users in the same workspace might unknowingly use the same Stripe key, or might each connect their own duplicate. → V2: integrations are always account-owned; the same external identity connected to two different accounts is two separate records.
+- **The legacy app's run history was per-user.** A team member could not see runs of workflows authored by a teammate even though both used the same integrations. → V2: runs belong to the workflow's account; any member with sufficient role sees them.
+- **The legacy app's authorization checks were asymmetric.** Some endpoints checked `user_id`, some checked workspace membership, some checked both, some checked neither. → V2: every access check resolves through `account_memberships`. RLS enforces it at the database. There is exactly one shape of authorization across the codebase.
 
-V1 is the source of truth for *what users actually use*; V1 is not the source of truth for *how to model ownership*.
+The legacy app records *what users actually used*; it is not the source of truth for *how to model ownership*.
 
 ## Final V2 ownership decision
 
@@ -45,7 +45,7 @@ The minimum entity set required for the model to function. Column types are illu
 
 - **`workflow_runs`** — `account_id uuid FK accounts` (denormalized from `workflows.account_id` for query speed and for survivorship if a workflow is ever moved between accounts), `workflow_id`, `triggered_by_user_id uuid?` (nullable — null for webhook/polling/cron-triggered runs, populated for manual runs and retries), plus existing run columns.
 
-- **`account_billing`** — `account_id uuid PK FK accounts`, `plan_id`, `task_pack_balance`, `overage_enabled`, `overage_cap_multiplier`, Stripe customer ID, plus the parity-invariant counters per the V1 billing model. Replaces V1's `user_billing(user_id)`.
+- **`account_billing`** — `account_id uuid PK FK accounts`, `plan_id`, `task_pack_balance`, `overage_enabled`, `overage_cap_multiplier`, Stripe customer ID, plus the parity-invariant counters per the legacy app's billing model. Replaces the legacy app's `user_billing(user_id)`.
 
 - **`templates`**, **`custom_providers`**, **`custom_nodes`** — same pattern: `account_id` for account-owned; nullable `account_id` (or a separate `is_platform` boolean) for platform-published / public-read rows.
 
@@ -81,7 +81,7 @@ A user can be a member of N accounts. The active account is exactly one of them 
 
 ## Personal vs team/org account creation behavior
 
-This is the most important rule to internalize because it inverts V1's mental model:
+This is the most important rule to internalize because it inverts the legacy app's mental model:
 
 - **Signup** → exactly one personal account is created atomically with the user. The user is the owner. No other accounts exist for them yet.
 - **"Create Team"** → a **new** `accounts` row with `type = 'team'` is created. The creating user is added as `role = 'owner'` via a new `account_memberships` row. The user's personal account is **untouched**: it still exists, still owns whatever workflows/integrations/runs/billing it had before, and the user can still switch back to it.
@@ -159,7 +159,7 @@ The minimum role set for launch:
 - **`admin`** — can add and remove non-owner members, change non-owner roles, manage all integrations, manage all workflows, view all runs, view billing. Cannot transfer ownership. Cannot delete the account. Cannot change another admin's or the owner's role.
 - **`member`** — can build, edit, and run workflows; can connect integrations they have permission to connect; can view runs of workflows on the account. Cannot manage other members. Cannot manage billing. Cannot delete the account.
 
-Step-up authentication is required for destructive role-managed actions (delete account, change role on another owner, remove an owner) — same pattern as V1's admin step-up.
+Step-up authentication is required for destructive role-managed actions (delete account, change role on another owner, remove an owner) — same pattern as the legacy app's admin step-up.
 
 A personal account has exactly one `account_memberships` row, with `role = 'owner'`. The `accounts.owner_user_id` and the lone membership's `user_id` are the same value. The redundancy is intentional — `owner_user_id` answers "who owns this account?" in a single column without a join.
 
@@ -243,7 +243,7 @@ High-level only. Each phase lands as its own slice with its own plan doc. No SQL
 
 - **Phase B — Re-scope.** Add `account_id` to `workflows`, `integrations`, `workflow_runs`. Backfill from each row's existing `user_id` via the user's personal account from Phase A. Flip RLS on each table from `auth.uid() = user_id` to the membership-join template. Drop the old `user_id` ownership column once every consumer has been migrated to read `account_id`. Add `created_by_user_id` / `connected_by_user_id` / `triggered_by_user_id` provenance columns.
 
-- **Phase C — Billing.** Introduce `account_billing(account_id)` mirroring V1's `user_billing` shape. Backfill from `user_billing(user_id)` via personal accounts. Re-point the billing gate, cost preview, task deduction RPC, and Stripe customer attachment from user-scoped to account-scoped. Update parity invariant queries.
+- **Phase C — Billing.** Introduce `account_billing(account_id)` mirroring the legacy app's `user_billing` shape. Backfill from `user_billing(user_id)` via personal accounts. Re-point the billing gate, cost preview, task deduction RPC, and Stripe customer attachment from user-scoped to account-scoped. Update parity invariant queries.
 
 - **Phase D — Team and organization accounts.** Allow `accounts.type` other than `'personal'`. Introduce roles beyond `owner`. Build the invitation + accept flow. Build the account creation, switching, and member-management UI. No data migration — purely additive.
 
@@ -271,7 +271,7 @@ These are deliberately out of scope for the launch slice (Phase A + B + C). Each
 
 Flagged for resolution in the phase that addresses each — not resolved here.
 
-- **Backfill ordering when V1 data is asymmetric.** Some users in V1 have workflows that reference integrations connected by a different user (this exists because V1's workspace model was inconsistent). The Phase B backfill must canonicalize these rows before enforcing `account_id NOT NULL`. Open question: do we attribute orphan-referenced workflows to the workflow's `user_id`'s personal account and accept that they may break at run time (integration not on the same account), or do we copy / re-connect the integration into the workflow owner's personal account? **Resolve in the Phase B slice plan.**
+- **Backfill ordering when legacy data is asymmetric.** Some users in the legacy app have workflows that reference integrations connected by a different user (this exists because the legacy app's workspace model was inconsistent). The Phase B backfill must canonicalize these rows before enforcing `account_id NOT NULL`. Open question: do we attribute orphan-referenced workflows to the workflow's `user_id`'s personal account and accept that they may break at run time (integration not on the same account), or do we copy / re-connect the integration into the workflow owner's personal account? **Resolve in the Phase B slice plan.**
 
 - **Personal-account billing migration to Stripe.** Existing `user_billing` rows map 1:1 to personal accounts, but Stripe customer IDs are user-bound today. Open question: do we preserve the existing Stripe customer record and re-attach it to the personal account, or create a new Stripe customer per personal account and migrate subscriptions? **Resolve in the Phase C slice plan.** Implication: a one-time Stripe-side migration may be required.
 

@@ -137,6 +137,6 @@ internals.
 
 - Not a roadmap. The unbuilt stages (graph / doctors / reports) live in the roadmap doc; this
   skill governs *how* any of them must be built, not *when*.
-- Not a V1-parity frame. Build the V2 diagnostic on V2's boundaries; don't anchor it to V1.
+- Not a legacy-parity frame. Build the diagnostic on current V2 boundaries and patterns; don't anchor it to the old app.
 - Not a license to add mutation. The suite is read-only end to end — no rerun/reconnect/refresh/
   edit/apply tool unless a new, separately-approved contract introduces one.

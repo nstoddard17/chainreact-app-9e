@@ -412,7 +412,7 @@ These were NOT shipped as of POSTSEC-3. Production Stripe high-risk write exposu
 **This runbook MUST be reviewed by product + security before production exposure of Stripe high-risk write actions.**
 
 Production rollout further requires:
-- Builder confirmation modal shipped (POSTSEC-5) OR product-owner explicit acceptance of "API-only confirmation as the V1 contract."
+- Builder confirmation modal shipped (POSTSEC-5) OR product-owner explicit acceptance of "API-only confirmation as the initial contract."
 - Product-owner explicit acceptance of the §9.2 deferred risks (run output retention, config secret vault, fail-open redaction, SEC-3.x socket-level pinning, richer risk UI).
 - On-call rotation includes someone capable of executing §3 + §4 within 15 minutes.
 - Stripe Dashboard access is provisioned for the on-call rotation.

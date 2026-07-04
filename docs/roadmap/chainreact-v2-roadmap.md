@@ -8,6 +8,8 @@ This roadmap defines eight phases. Phase 1 (provider foundation) is the only pha
 
 The intent is: stop adding providers on top of an unaudited foundation, lock down a roadmap, then execute it in order.
 
+> **⚠️ Historical / non-operative framing (added 2026-07-04).** This roadmap was written when the old `chainreact-app-9e` app was still an active reference. That phase is over — the old repo is decommissioned and is **not** a source of truth. The phase narratives below that frame future work as "close the gap vs V1", "port V1's X", "V1 has more actions", or "audit V1" are **historical context only, not current guidance**. Current basis for choosing and building providers/features: **product value, official provider API support, implementation fit, and live-provider certification** — never V1 parity. Build from current V2 patterns + official docs + live evidence (see Operating principles #1 and #3). V2 is the primary app, live in production; the existing V2 provider base is the reference for new work.
+>
 > **⚠️ Status correction — added 2026-05-25 (Slice 4.PROVIDER-DOCS-1; accepted by Marcus).** This roadmap's 2026-05-10 snapshot is stale on the provider front. Verified-against-live-code current state: **provider runtime is essentially complete across 26 providers** (286 real, non-stubbed handlers; full Jest suite green — 12,382 passed / 7 skipped / 0 failures). The Phase-2 examples below (e.g. "Slack V1 has 14+ actions; V2 has 1") are **obsolete** — Slack now has 31 registered actions; runtime/parity is done. The real remaining provider gap is **builder metadata**: **17/26 providers** are Builder-visible; **9 launch-scope providers are runtime-present but builder-invisible** (`hasMetadata:false` → "coming soon"): `microsoft-excel, airtable, shopify, trello, microsoft-onedrive, microsoft-teams, google-calendar, google-drive, microsoft-outlook-calendar`. Corrected one-liner: *provider runtime is essentially complete, but provider metadata/builder launch readiness still has a 9-provider gap.* Live tracker: [`../slices/phase-4/provider-metadata-launch-gap-tracker.md`](../slices/phase-4/provider-metadata-launch-gap-tracker.md). Treat the Phase-1/Phase-2 narrative below as historical context, not current status.
 
 ---
@@ -16,9 +18,9 @@ The intent is: stop adding providers on top of an unaudited foundation, lock dow
 
 These hold across every phase. They're the lens for prioritization within a phase.
 
-1. **Port proven V1 behavior over inventing new behavior.** Marcus's V1 repo (`c:\Users\marcu\source\repos\nstoddard17\chainreact-app-9e`) is the source of truth for what real users have used. Adapt to V2's cleaner boundaries; don't re-derive product decisions.
+1. **Build from current V2 patterns + official provider docs + live evidence.** Use current ChainReactV2 code, rule docs, provider patterns, official provider API docs, and live-provider certification evidence as the source of truth. Do not inspect or port from the old `chainreact-app-9e` repo.
 2. **Honest-state capabilities.** A manifest capability flips true only when a real handler / trigger is registered. The provider registry is the single source of truth.
-3. **Prefer porting and adapting V1 behavior over inventing new behavior** — including for UX, ops, and billing. V1 has been live; V2 hasn't.
+3. **Prefer reusing existing V2 patterns over inventing new behavior** — including for UX, ops, and billing. Match a same-family V2 provider/subsystem where one exists, then verify against official docs and live behavior.
 4. **One source of truth per concern.** Provider registry. Manifest. Action handler registry. Polling registry. No parallel structures.
 5. **Tests cite contracts.** Unit tests reference the slice's plan / contract Q-numbers; e2e tests exercise real V2 internals and mock only the external provider boundary.
 6. **Living documentation rule** (per `CLAUDE.md` §"Living Documentation"). When a phase introduces an architectural pattern, the docs update in the same batch. This roadmap itself is living — append phase outcomes and decisions back into it as phases complete.
@@ -75,49 +77,49 @@ These hold across every phase. They're the lens for prioritization within a phas
 
 ---
 
-## Phase 2 — Provider parity / missing V1 actions and triggers
+## Phase 2 — Provider parity / expanded per-provider surface (historical plan)
 
 **Status:** Not started.
 **Entry condition:** Phase 1 exited.
-**Goal:** Close the gap between V1's per-provider action/trigger surface and V2's, *for the 16 providers already in V2*. No new providers in this phase.
+**Goal:** Expand each provider's per-provider action/trigger surface, *for the 16 providers already in V2*. No new providers in this phase. (The original framing measured this as a gap vs the legacy app's surface; that comparison is historical — current scoping is product value + official API support.)
 
 ### What this is
 
-Phase 1 ported the **most-used** actions and triggers per provider. V1 has many more. Phase 2 audits each ported provider against V1 and decides — per action and per trigger — whether to:
+Phase 1 ported the **most-used** actions and triggers per provider. The plan was to expand each provider's surface beyond that. Phase 2 audits each ported provider's surface and decides — per action and per trigger — whether to:
 
 - **Port** (high-value, low-rot).
-- **Skip permanently** (V1 rot; out of scope).
+- **Skip permanently** (deprecated/dead code; out of scope).
 - **Defer to a later phase** (depends on UI / teams / billing scaffolding).
 
 ### Scope per provider
 
 For each provider, the deliverable is an audit doc at `docs/roadmap/provider-parity/<provider>.md`:
 
-1. List V1's actions + triggers.
+1. List the candidate actions + triggers for the provider (from its official API).
 2. Mark each port / skip / defer with one-sentence reasoning.
-3. Identify V1 rot (deprecated handlers, dual implementations, missing scope-validation entries).
+3. Identify deprecated/dead code (deprecated handlers, dual implementations, missing scope-validation entries).
 4. Estimate effort + risk per ported item.
 
 The audit doc is the input to a per-provider parity slice that lands the agreed ports. Each parity slice follows the same 5-commit shape: plan doc → manifest/OAuth refinements → actions → triggers → e2e additions.
 
 ### Priority order within Phase 2
 
-Driven by V1 usage data + product reach. Default ordering (revisit when usage data is in):
+Driven by usage data + product reach. Default ordering (revisit when usage data is in). The per-provider notes below reflect the historical surface comparison at the time this was written:
 
-1. **Slack** — V1 has 14+ actions; V2 has 1.
-2. **Gmail** — V1 has compose/draft, label management, attachment handling; V2 has send_email only.
-3. **Notion** — webhook triggers (V1 has them, V2 deferred).
+1. **Slack** — the legacy app had 14+ actions; V2 had 1 at the time.
+2. **Gmail** — the legacy app had compose/draft, label management, attachment handling; V2 had send_email only.
+3. **Notion** — webhook triggers (the legacy app had them, V2 deferred).
 4. **Microsoft Excel** — 5 deferred actions (`update_row`, `delete_row`, `add_multiple_rows`, `rename_worksheet`, `delete_worksheet`) + 3 deferred triggers (`updated_row`, `updated_table_row`, `new_worksheet`).
-5. **Google Sheets** — V1 surface 2× V2's. Higher-priority surfaces: read_rows variants, find/update by column, batchUpdate.
-6. **Stripe** — V1 has subscription items, invoices, products + prices, charges (refunds covered), checkout sessions; V2 has 10.
+5. **Google Sheets** — the legacy app's surface was 2× V2's at the time. Higher-priority surfaces: read_rows variants, find/update by column, batchUpdate.
+6. **Stripe** — the legacy app had subscription items, invoices, products + prices, charges (refunds covered), checkout sessions; V2 had 10.
 7. **Airtable / Shopify / HubSpot / Mailchimp / GitHub** — incremental ports as audit identifies gaps.
-8. **Microsoft Outlook (mail)** — V1 has reply, forward, draft management; V2 has send_email only.
+8. **Microsoft Outlook (mail)** — the legacy app had reply, forward, draft management; V2 had send_email only.
 
 ### Exit condition for Phase 2
 
 - Every Phase 1 provider has a parity audit doc.
 - Either every "port" decision in those audits has shipped, or the deferred items are tracked with a follow-up phase label.
-- V1 rot identified in each audit (deprecated scopes, unused handlers, dual implementations) is either removed in V2 or explicitly skipped.
+- Deprecated/dead code identified in each audit (deprecated scopes, unused handlers, dual implementations) is either removed in V2 or explicitly skipped.
 
 ### Non-goals for Phase 2
 
@@ -130,39 +132,39 @@ Driven by V1 usage data + product reach. Default ordering (revisit when usage da
 
 ## Phase 3 — UI and page transfer
 
-**Status:** Not started. V2's UI is minimal (workflows list, builder shell, integrations list, login). V1 has the full product UX.
+**Status:** Not started. V2's UI is minimal (workflows list, builder shell, integrations list, login). The legacy app had the full product UX.
 **Entry condition:** Phase 2 substantively complete — provider surface is stable.
-**Goal:** Port V1's UI pages into V2's cleaner architecture.
+**Goal:** The plan was to bring the legacy app's UI capabilities into V2's cleaner architecture.
 
 ### What this is
 
-V1 ships a Next.js App Router UI with: workflow builder (React Flow), per-node configuration modals, dynamic dropdowns, run history, integration management, admin panel, billing/subscription pages, AI assistant chat, dashboard.
+The legacy app shipped a Next.js App Router UI with: workflow builder (React Flow), per-node configuration modals, dynamic dropdowns, run history, integration management, admin panel, billing/subscription pages, AI assistant chat, dashboard.
 
 V2 today has the bare minimum to drive the e2e walkthroughs: integrations list, workflow CRUD, basic builder shell. Per-node configuration is patched via API in the walkthroughs because the UI for it doesn't exist.
 
 ### Subphases
 
-**3a — Workflow builder per-node configuration UI.** This is the largest gap. Required: configuration modals per provider/action with cascading fields, validation against the action's Zod schema, "Use ConfigurationContainer not ScrollArea" rule (per V1 CLAUDE.md §"Modal Overflow"). Output: replace every walkthrough's `PATCH /api/workflows/:id { draftDefinition }` step with a UI interaction.
+**3a — Workflow builder per-node configuration UI.** This is the largest gap. Required: configuration modals per provider/action with cascading fields, validation against the action's Zod schema, "Use ConfigurationContainer not ScrollArea" rule (derive from current V2 modal patterns). Output: replace every walkthrough's `PATCH /api/workflows/:id { draftDefinition }` step with a UI interaction.
 
-**3b — Run history UI.** V2 persists run history; the surfaced UI today is a basic list. Port V1's error humanizer presentation + classified error card (`ClassifiedErrorCard` in V1) + one-click retry.
+**3b — Run history UI.** V2 persists run history; the surfaced UI today is a basic list. Deliver an error humanizer presentation + classified error card (`ClassifiedErrorCard`) + one-click retry.
 
 **3c — Integration management UX.** Connected status (NULL-invariant honored — `health_check_status = NULL` never renders as healthy), disconnect flow, reconnect deep-link surfaced from notifications.
 
-**3d — Dashboard / activity feed.** Port V1's main dashboard cards (recent runs, integration health, quick-create workflow).
+**3d — Dashboard / activity feed.** Deliver the main dashboard cards (recent runs, integration health, quick-create workflow).
 
-**3e — AI assistant chat surface.** Bare entry point — full AI behavior lands in Phase 5. This subphase just ports the chat shell so Phase 5 has a place to render output.
+**3e — AI assistant chat surface.** Bare entry point — full AI behavior lands in Phase 5. This subphase just delivers the chat shell so Phase 5 has a place to render output.
 
-**3f — Polish: light/dark mode parity.** V1's CLAUDE.md §"Light & Dark Mode — MANDATORY" rule applies. Every component must support both modes simultaneously with WCAG AA contrast.
+**3f — Polish: light/dark mode parity.** The "Light & Dark Mode — MANDATORY" rule applies (per current V2 CLAUDE.md). Every component must support both modes simultaneously with WCAG AA contrast.
 
 ### Exit condition for Phase 3
 
 - Every walkthrough that today uses `PATCH /api/workflows/:id { draftDefinition }` to bypass the UI can be rewritten to drive via UI (whether or not we *do* rewrite them).
-- Each subphase has a UI/UX doc at `docs/architecture/ui-<subphase>.md` capturing the V1 → V2 port decisions.
+- Each subphase has a UI/UX doc at `docs/architecture/ui-<subphase>.md` capturing the design decisions.
 - ConfigurationContainer pattern documented; no `ScrollArea` in modals.
 
 ### Non-goals for Phase 3
 
-- Net-new UX V1 doesn't have.
+- Net-new UX beyond the planned surface.
 - AI generation of workflows (Phase 5).
 - Multi-org permissions UI (Phase 4).
 - Mobile-specific surfaces.
@@ -175,7 +177,7 @@ V2 today has the bare minimum to drive the e2e walkthroughs: integrations list, 
 **Entry condition:** Phase 3 substantially shipped — UI is stable enough that the teams UX has a place to live.
 **Goal:** Add the ownership model that lets ChainReact be a team product.
 
-> **⚠️ Canonical model now lives in [`docs/rules/account-ownership-model.md`](../rules/account-ownership-model.md).** That rule doc supersedes the V1-style `workspaces` + `team_members` + per-resource `workspace_id` framing used in the narrative below. Before Phase 4 work begins, the subphases and exit conditions in this section should be re-derived from the rule doc (Account is the permanent owner; personal vs team/org are account *types*, not separate ownership systems; integrations and workflows are account-scoped from launch). Treat the narrative below as historical scoping; the rule doc is authoritative for ownership semantics.
+> **⚠️ Canonical model now lives in [`docs/rules/account-ownership-model.md`](../rules/account-ownership-model.md).** That rule doc supersedes the legacy-style `workspaces` + `team_members` + per-resource `workspace_id` framing used in the narrative below. Before Phase 4 work begins, the subphases and exit conditions in this section should be re-derived from the rule doc (Account is the permanent owner; personal vs team/org are account *types*, not separate ownership systems; integrations and workflows are account-scoped from launch). Treat the narrative below as historical scoping; the rule doc is authoritative for ownership semantics.
 
 ### What this is
 
@@ -187,17 +189,17 @@ Today every workflow + integration + run is owned by exactly one user via `user_
 4. **Invitations** — invite-by-email + accept flow. Token-based, expiring.
 5. **Billing scope shift** — task quotas + pack purchases scope to the workspace, not the user (paired with Phase 7).
 
-### V1 reference
+### Reference (historical context)
 
-V1 has a working admin authorization architecture (per the V1 `CLAUDE.md` §"Admin Authorization Architecture"): three-layer enforcement (middleware → API route → action-scoped helpers), capability JSONB on `user_profiles`, JWT claim sync, step-up auth for destructive actions, audit logs. V2's equivalent is a single `requireAdmin()` placeholder in `lib/utils/admin-auth.ts`.
+The legacy app had a working admin authorization architecture: three-layer enforcement (middleware → API route → action-scoped helpers), capability JSONB on `user_profiles`, JWT claim sync, step-up auth for destructive actions, audit logs. V2's equivalent is a single `requireAdmin()` placeholder in `lib/utils/admin-auth.ts`.
 
-Port V1's pattern faithfully — middleware checks JWT claims, route handlers call `requireAdmin({ capabilities, stepUp })`, scoped helpers in `lib/admin/` own writes + audit-log entries.
+The planned pattern (design predates V2; derive from current V2 patterns): middleware checks JWT claims, route handlers call `requireAdmin({ capabilities, stepUp })`, scoped helpers in `lib/admin/` own writes + audit-log entries.
 
 ### Subphases
 
 **4a — Workspace table + membership table + migrations.** Backwards-compatible: every existing user gets a "personal" workspace they own.
 **4b — Repository layer rewrite.** Every `user_id`-scoped query gains a workspace scope. RLS policies updated.
-**4c — Roles + capabilities.** Port V1's admin-capability model. Step-up auth for destructive actions (delete workspace, remove member, change role).
+**4c — Roles + capabilities.** Deliver the admin-capability model. Step-up auth for destructive actions (delete workspace, remove member, change role).
 **4d — Invitations + members UI.** Email invites, accept flow, member list.
 **4e — Switcher UI.** Top-bar workspace switcher; persists selection per session.
 **4f — Audit log.** `workspace_audit_events` table + admin viewer.
@@ -221,27 +223,27 @@ Port V1's pattern faithfully — middleware checks JWT claims, route handlers ca
 
 **Status:** Not started.
 **Entry condition:** Phase 3 (UI) + Phase 4 (workspaces) substantially complete. AI assistant lives inside a workspace and needs the chat shell from Phase 3e.
-**Goal:** Bring V1's AI workflow planner + AI assistant into V2 in a re-architected form.
+**Goal:** Deliver an AI workflow planner + AI assistant in V2 in a re-architected form. (The original plan derived this from the legacy app's AI system; the description below is historical context for what that system did.)
 
-### What V1 has
+### What the legacy app had
 
-V1 ships an AI workflow planner that takes natural-language prompts and generates workflow definitions. Multi-stage: node selection → configuration → edge/layout. Pattern fallbacks (fast-path → DB template → lightweight LLM → clarifications). Self-growing template pool (published templates auto-available to the planner). SSE streaming. Cost preview before run.
+The legacy app shipped an AI workflow planner that takes natural-language prompts and generates workflow definitions. Multi-stage: node selection → configuration → edge/layout. Pattern fallbacks (fast-path → DB template → lightweight LLM → clarifications). Self-growing template pool (published templates auto-available to the planner). SSE streaming. Cost preview before run.
 
-V1 also ships an "AI assistant" — chat surface that the user can talk to about workflows, integrations, runs.
+The legacy app also shipped an "AI assistant" — chat surface that the user can talk to about workflows, integrations, runs.
 
 ### What this phase delivers
 
-**5a — Shared AI utilities.** Single OpenAI/Anthropic clients (lazy-initialized — never module-level). Retry / timeout / model fallback. Token-aware history truncation. Plan cache. Template catalog loader. Per V1's `lib/ai/` shape.
+**5a — Shared AI utilities.** Single OpenAI/Anthropic clients (lazy-initialized — never module-level). Retry / timeout / model fallback. Token-aware history truncation. Plan cache. Template catalog loader. Following a `lib/ai/` shape (derive from current V2 patterns).
 
 **5b — Workflow planner.** Multi-stage planner. Pattern-fallback ladder. Stream over SSE. Cost preview before commit. Variable mapping uses upstream data, never hallucinates fields. Generative fields use `{{AI_FIELD:fieldName}}` for runtime values, not for IDs/enums/structural config.
 
-**5c — React (workflow) agent.** Per V1's "React agent" pattern — an agent that operates *on* workflows (analyzes them, suggests improvements, debugs failures) rather than *running inside* them.
+**5c — React (workflow) agent.** A "React agent" pattern — an agent that operates *on* workflows (analyzes them, suggests improvements, debugs failures) rather than *running inside* them.
 
 **5d — AI assistant chat.** Connect chat surface (Phase 3e shell) to the planner + react agent. Conversation persistence. Tool-use to query the user's workflows, runs, integrations.
 
 **5e — Self-growing template pool.** Published templates → catalog → planner Tier 2 (keyword match, $0) and Tier 3 (LLM context).
 
-**5f — Eval harness.** Port V1's agent evaluation framework. Single table `agent_eval_events` with funnel / quality / drafting / trust event categories. Dashboard at `/admin → Agent Eval`. Required: bump `AGENT_VERSION` on every agent change.
+**5f — Eval harness.** Deliver an agent evaluation framework. Single table `agent_eval_events` with funnel / quality / drafting / trust event categories. Dashboard at `/admin → Agent Eval`. Required: bump `AGENT_VERSION` on every agent change.
 
 ### Architecture decisions to lock down
 
@@ -274,15 +276,15 @@ V1 also ships an "AI assistant" — chat surface that the user can talk to about
 
 **6a — Durable queue.** V2's current "queue" is in-process fire-and-forget (`services/execution/enqueue.ts`). A node restart drops in-flight runs. Land a durable queue (BullMQ / Inngest / equivalent) without API changes to `enqueueRun`.
 
-**6b — Resume-from-failed-node.** V1 has paused this work pending a v2-engine consolidation. V2 starts fresh — resume-from-failed-node lands here, with cross-session side-effect dedup, lineage threading (`root_execution_id` + `workflow_definition_hash`), and migration safety. Reference: V1's `learning/docs/safe-resume-from-failed-node-project.md`.
+**6b — Resume-from-failed-node.** V2 starts fresh — resume-from-failed-node lands here, with cross-session side-effect dedup, lineage threading (`root_execution_id` + `workflow_definition_hash`), and migration safety. (Design predates V2; derive from current V2 patterns.)
 
-**6c — HITL (human-in-the-loop) pause/resume.** Action handlers that need user approval pause the run; resume API completes it. Required for several V1 actions (Slack interactive, Gmail labels, etc.).
+**6c — HITL (human-in-the-loop) pause/resume.** Action handlers that need user approval pause the run; resume API completes it. Required for several actions (Slack interactive, Gmail labels, etc.).
 
-**6d — Test-mode interception.** Engine-level gate that refuses external-action handlers during test runs (per V1's testMode safety audit). Read-only operations still execute.
+**6d — Test-mode interception.** Engine-level gate that refuses external-action handlers during test runs (testMode safety). Read-only operations still execute.
 
 **6e — Strict pre-resolution at the engine layer.** Already partially in place — extend to every dispatch path so handlers never see unresolved `{{...}}` templates. Missing variables surface as standardized config-failure shape `{success:false, category:'config', error:{code:'MISSING_VARIABLE', path}, message}`.
 
-**6f — Within-session idempotency (Q4 contract).** V2 already has `lib/workflows/actions/core/sessionSideEffects.ts` ported from V1. Wire `checkReplay` / `recordFired` at the **engine boundary** rather than per-handler so every action is covered uniformly.
+**6f — Within-session idempotency (Q4 contract).** V2 already has `lib/workflows/actions/core/sessionSideEffects.ts`. Wire `checkReplay` / `recordFired` at the **engine boundary** rather than per-handler so every action is covered uniformly.
 
 **6g — Parallel execution.** Today the engine executes nodes sequentially. Branch nodes need parallel children; loop nodes need iteration. Defer if Phase 6a–f take longer than expected — sequential execution is correct, just slow for fan-out workflows.
 
@@ -305,29 +307,29 @@ V1 also ships an "AI assistant" — chat surface that the user can talk to about
 
 ## Phase 7 — Billing, usage limits, entitlements
 
-> **SUPERSEDED 2026-07-03 — current V2 behavior differs from this V1-port plan.** V2 did
-> **not** port V1's plans + packs + overage + auto-buy + metered-subscription model. It
+> **SUPERSEDED 2026-07-03 — current V2 behavior differs from this legacy-port plan.** V2 did
+> **not** port the legacy app's plans + packs + overage + auto-buy + metered-subscription model. It
 > shipped a **reserve/reconcile + `account_billing` + AI-credits** model, account-scoped
 > (not per-user). There are **no** overage/pack/auto-buy/report-overage/usage-alerts/
 > reset-task-usage/clean-session-side-effects crons in V2; the only billing-adjacent cron is
 > `release-expired-reservations` (see `services/observability/cronExpectations.ts`). Billing
 > is account-scoped, Stripe-signature-verified, idempotent, and fails closed. Treat the
-> subphases below as **historical V1-reference intent, not the shipped design.** Authoritative
+> subphases below as **historical legacy-reference intent, not the shipped design.** Authoritative
 > current state: `docs/slices/phase-5/billing-production-readiness-closeout.md`,
 > `docs/slices/phase-4/reserve-reconcile-billing-design.md`, and
 > `docs/slices/phase-5/mvp-launch-status-reconciliation.md`.
 
 **Status:** Billing gate exists (per-user task quota). Plans / packs / overage / entitlements do not.
 **Entry condition:** Phase 4 (workspaces) done — billing scopes to a workspace, not a user. Phase 6 (engine) done — billing decisions hinge on deterministic execution.
-**Goal:** Production-ready billing matching V1's surface.
+**Goal:** Production-ready billing. (See the SUPERSEDED note above — the shipped design differs from this historical plan.)
 
-### V1 reference
+### Reference (historical context)
 
-V1's `CLAUDE.md` §"Task Cost Visibility & Billing" describes a tested, working billing system: plans + packs + overage + auto-buy, atomic deduction RPC (`deduct_tasks_if_available`), Stripe metered subscription items, idempotency event ledger, daily report-overage cron, usage alerts at 80% / 100% / overage-activated / pack-depleted, parity invariants between ledger and counter columns. Port faithfully.
+The legacy app had a tested, working billing system: plans + packs + overage + auto-buy, atomic deduction RPC (`deduct_tasks_if_available`), Stripe metered subscription items, idempotency event ledger, daily report-overage cron, usage alerts at 80% / 100% / overage-activated / pack-depleted, parity invariants between ledger and counter columns.
 
 ### Subphases
 
-**7a — Plans table + Stripe price IDs.** Plan setup scripts (mirror V1's `scripts/setup-stripe-{prices,metered-prices,pack-prices}.ts`).
+**7a — Plans table + Stripe price IDs.** Plan setup scripts (`setup-stripe-{prices,metered-prices,pack-prices}.ts` style).
 **7b — Task deduction RPC.** Atomic FOR-UPDATE inside the RPC. Decision tree: plan → pack → overage → 402. TypeScript callers are pass-through.
 **7c — Pack purchases.** One-time Stripe Checkout `mode: 'payment'`. FIFO consumption ordered by `paid_at`. Packs never expire.
 **7d — Overage subscription items.** Stripe metered subscription_item. Daily cron drains `task_overage_events` to Stripe usage records (deterministic idempotency key).
@@ -444,13 +446,13 @@ Interrupts are NOT allowed for:
 - Optimization work without measured-load data.
 - Refactor opportunities that don't unblock the current phase.
 
-### V1-feature gate
+### Feature-selection gate
 
-Before porting a V1 feature into V2 — at any phase — apply the V1 audit gate:
+Before adding a feature or provider to V2 — at any phase — apply this gate:
 
-1. **Used?** Is the feature observably used by real V1 traffic? (If unknown, default to "skip until needed.")
-2. **Rot?** Is the V1 implementation healthy? (If rotten, the port is a rewrite, not a copy.)
-3. **Coupled?** Does the feature require infrastructure V2 doesn't have? (If so, defer to the phase that adds that infrastructure.)
+1. **Valued?** Does the feature deliver real product value to users? (If unknown, default to "skip until needed.")
+2. **Supported?** Does the provider's official API support it safely, with the scopes and endpoints available? (If not, it's blocked, not deferred silently.)
+3. **Coupled?** Does the feature require infrastructure V2 doesn't have yet? (If so, defer to the phase that adds that infrastructure.)
 4. **In phase scope?** Does this feature belong in the current phase's exit condition? (If not, defer or reject.)
 
 ### Doc updates per phase
@@ -483,6 +485,6 @@ The living-documentation rule (per `CLAUDE.md` §"Living Documentation Rule") ap
 ## How to use this doc
 
 - **Before starting a new slice**, check which phase it belongs to. If it's not the current phase, defer (or argue for an interrupt under the rules above).
-- **Before adding a provider**, check Phase 2's audit doc for that provider. No new providers in Phase 1; new providers in Phase 2 only via the parity audit.
-- **Before adding a feature**, run the V1-feature gate. If it survives, identify the phase. If it's not in the current phase, defer.
+- **Before adding a provider**, select it by product value + official API support + implementation fit, follow the provider-integration-builder skill, and certify it live. Provider selection is no longer gated on V1 parity.
+- **Before adding a feature**, run the feature-selection gate. If it survives, identify the phase. If it's not in the current phase, defer.
 - **At every phase exit**, update this doc. The status table is the operational truth.

@@ -20,7 +20,7 @@ Define every state a workflow can be in, every allowed transition between states
 - **Manual-trigger workflows** carry a native `manual.run` trigger node (meta `activation: "manual"`). It needs no integration and is **not activatable**: it fires only via `POST /api/workflows/[id]/run-now`, which reads `draftDefinition` and bypasses trigger registration + dispatch entirely. Activation/resume register **no** `trigger_resources` row for it; action-only workflows (zero trigger nodes) likewise register nothing. Precondition checks still run. See "Manual vs activatable triggers" below.
 - `disabled_reason` is a typed enum (`integration_revoked`, `billing_exhausted`, `repeated_failure`, `manual_admin`) plus optional context string.
 - Failed trigger registration during activation: retry once with short backoff inside the orchestrator; longer retries belong to a separate cron path.
-- In-flight runs during pause/disable: V2 follows V1 — let the run finish; pause/disable means "no new runs."
+- In-flight runs during pause/disable: V2 follows the legacy app's behavior — let the run finish; pause/disable means "no new runs."
 - **Multi-integration disable cascade (locked):** if an `active` workflow depends on multiple integrations and **any required** integration becomes disconnected, revoked, expired, or otherwise unhealthy in a way that prevents execution, the workflow transitions to `disabled`. Rules:
   - Disable only workflows that depend on the affected integration. Never disable unrelated workflows.
   - A workflow remains `active` only when **all** required dependencies are healthy.
@@ -38,19 +38,19 @@ Define every state a workflow can be in, every allowed transition between states
 **Decisions requiring product-owner input:**
 - None for Slice 1. (Multi-integration disable cascade is now locked above.)
 
-## Current V1 problem being solved
+## Problem being solved (historical context)
 
-V1 has lifecycle-relevant state spread across:
+The legacy app had lifecycle-relevant state spread across:
 - `workflows.status` (text column, values not strictly enumerated)
 - `workflows.is_active` (boolean — overlaps with status)
 - `workflows.eligible_to_resume` (boolean)
 - The `workflowStore.ts` Zustand store (1,338 lines, contains UI-side state interpretation)
-- Per-route handler logic that re-derives state from columns inconsistently
+- Per-route handler logic that re-derived state from columns inconsistently
 - Trigger registration state (`trigger_resources` table) maintained separately
 
-There is no single state diagram. Different parts of the codebase decide differently whether a workflow can run, can be edited, can be billed, or shows as "active" in the UI.
+There was no single state diagram. Different parts of the codebase decided differently whether a workflow could run, could be edited, could be billed, or showed as "active" in the UI.
 
-V1 has also accumulated lifecycle-adjacent flags (`paused_by_billing`, `disabled_at`, `last_activated_at`) that interact in non-obvious ways. The result is bugs where, e.g., a workflow is "active" in the UI but its trigger webhook was never re-registered after a disconnect.
+The legacy app also accumulated lifecycle-adjacent flags (`paused_by_billing`, `disabled_at`, `last_activated_at`) that interacted in non-obvious ways. The result was bugs where, e.g., a workflow was "active" in the UI but its trigger webhook was never re-registered after a disconnect.
 
 ## V2 intended behavior
 
@@ -214,16 +214,16 @@ Integration tests in `tests/integration/lifecycle/`:
 
 Parity test in `tests/parity/`:
 
-16. A workflow that V1 silently auto-resumed after integration reconnect (known regression) does NOT auto-resume in V2.
+16. A workflow that the legacy app silently auto-resumed after integration reconnect (known regression) does NOT auto-resume in V2.
 
-## V1 behavior to preserve
+## Behavior to preserve
 
 - The `eligible_to_resume` concept — users explicitly resume disabled workflows after reconnection.
 - Per-integration disable cascade (don't disable unrelated workflows).
 - Run history retention through deletion.
 - Manual-trigger workflow activation (the `manual.run` trigger needs no integration and registers nothing).
 
-## V1 behavior to drop
+## Behavior to drop
 
 - State spread across multiple columns and stores.
 - Implicit lifecycle transitions buried in route handlers.

@@ -22,23 +22,23 @@ Every place in V2 that resolves variables — engine pre-resolution, design-time
 
 **Deferred decisions:**
 - Whether soft-mode `AI_FIELD` previews ever call the AI client to render real values. Slice 1: placeholder only.
-- V1 production-workflow JSONB audit for undocumented template syntax (custom delimiters, helpers).
+- Confirm against current V2 production workflows whether any use undocumented template syntax (custom delimiters, helpers).
 - Optional `getReferencedNodeIds(value)` helper for planner / dependency-graph builder. Likely yes; small follow-up.
 
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Current V1 problem being solved
+## Problem being solved (historical context)
 
-V1 has resolver drift across at least three independent code paths:
+The legacy app had resolver drift across at least three independent code paths:
 
 1. The action-layer `resolveValue` used by some handlers directly.
-2. The engine-layer `DataFlowManager.resolveObjectStrict` used by the V2 execution engine.
+2. The engine-layer `DataFlowManager.resolveObjectStrict` used by the execution engine.
 3. Integration-layer ad-hoc resolution (per-provider quirks scattered across `lib/workflows/actions/core/` and `lib/execution/variableResolver.ts`).
 
-Each path has slightly different semantics for: missing values, type coercion, AI_FIELD substitution, and nested-path resolution. This produces bugs that look like "the same workflow runs differently depending on which path it goes through."
+Each path had slightly different semantics for: missing values, type coercion, AI_FIELD substitution, and nested-path resolution. This produced bugs that looked like "the same workflow runs differently depending on which path it goes through."
 
-V1's `resolveValueWithTracking` and the `unresolvedCollector` pattern compound the problem because callers can opt into tracking but the rules for what counts as "unresolved" differ.
+The legacy `resolveValueWithTracking` and the `unresolvedCollector` pattern compounded the problem because callers could opt into tracking but the rules for what counts as "unresolved" differed.
 
 ## V2 intended behavior
 
@@ -86,7 +86,7 @@ The Q2 contract document (`docs/handler-contracts.md`) is the canonical specific
 - **Optional vs required fields:** Resolver does not know which fields are required; that's the schema's job. Resolver always strict-throws on missing in strict mode; engine wraps required-vs-optional logic outside.
 - **Empty-string and zero preservation (Q5):** `{ retries: 0 }` and `{ enabled: false }` are valid explicit values, not "missing." Distinguish `undefined` (missing) from `null`/`0`/`false`/`""` (explicit).
 - **Whitespace inside references:** `{{ node1.field }}` (with spaces) is the same as `{{node1.field}}` — whitespace inside `{{...}}` trimmed.
-- **Escaped delimiters:** No escape syntax in V1. V2 declares `\{{...}}` reserved for escape in case a workflow ever needs to ship literal `{{` text — but until that need is real, escape is unimplemented and using `\{{` produces an explicit error message, not silent passthrough.
+- **Escaped delimiters:** The legacy app had no escape syntax. V2 declares `\{{...}}` reserved for escape in case a workflow ever needs to ship literal `{{` text — but until that need is real, escape is unimplemented and using `\{{` produces an explicit error message, not silent passthrough.
 
 ## Required tests
 
@@ -109,9 +109,9 @@ Unit tests in `tests/unit/workflow-engine/variables/resolveValue.test.ts`:
 
 Parity tests in `tests/parity/resolver-drift.test.ts`:
 
-15. A workflow that V1 resolved differently across paths (specific known case to be identified during V1 audit) resolves identically through V2's strict path.
+15. A workflow with a specific known multi-path case that could resolve differently across paths resolves identically through V2's strict path.
 
-## V1 behavior to preserve
+## Behavior to preserve
 
 - Q2 strict-runtime contract: handlers never see unresolved templates.
 - Q5 explicit-zero / explicit-false preservation.
@@ -119,7 +119,7 @@ Parity tests in `tests/parity/resolver-drift.test.ts`:
 - Soft mode availability for design-time UX.
 - Mixed-template interpolation semantics (string → string with substituted segments).
 
-## V1 behavior to drop
+## Behavior to drop
 
 - Multiple resolver implementations.
 - Provider-specific resolver paths.
@@ -131,5 +131,5 @@ Parity tests in `tests/parity/resolver-drift.test.ts`:
 
 (AI_FIELD soft-mode previews, soft-mode-for-handlers, and where `MissingVariableError` gets caught are now resolved — see "Resolved Decisions" above.)
 
-1. Are there V1 production workflows using template syntax not yet documented (custom delimiters, helpers, conditional expressions)? An audit of V1 workflow JSONB before V2 cutover should catch this.
+1. Are there current V2 production workflows using template syntax not yet documented (custom delimiters, helpers, conditional expressions)? Confirm against current V2 workflow JSONB if this becomes a real concern.
 2. Should the resolver expose a `getReferencedNodeIds(value)` helper for the planner / dependency-graph builder? Likely yes; cheap and useful. Final answer at the time the planner needs it.

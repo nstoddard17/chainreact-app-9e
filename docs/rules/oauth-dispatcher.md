@@ -4,17 +4,17 @@
 
 Define a generic OAuth dispatcher for ChainReactV2 that routes per-provider OAuth concerns (auth-URL building, callback handling, token refresh, revocation) to per-provider modules. The dispatcher itself contains zero provider-specific logic.
 
-## Current V1 problem being solved
+## Problem being solved (historical context)
 
-V1's `app/api/integrations/auth/generate-url/route.ts` is 1,316 lines and inlines OAuth URL construction for 20+ providers. Adding a provider requires editing this central file and risks breaking unrelated providers.
+In the legacy app, `app/api/integrations/auth/generate-url/route.ts` was 1,316 lines and inlined OAuth URL construction for 20+ providers. Adding a provider required editing this central file and risked breaking unrelated providers.
 
-OAuth scopes are split across two sources of truth:
+OAuth scopes were split across two sources of truth:
 - `lib/integrations/integrationScopes.ts` (`INTEGRATION_SCOPES` object)
 - `lib/integrations/scope-validator.ts` (`PROVIDER_SCOPES` hardcoded inside the validator class)
 
-Both define overlapping scope sets independently. They drift.
+Both defined overlapping scope sets independently. They drifted.
 
-V1's token refresh service (`lib/integrations/tokenRefreshService.ts`, 636 lines) also embeds per-provider quirks. Q3 (refresh-and-retry) is well-conformed by handlers but the underlying implementation has provider-specific logic in the wrong layer.
+The legacy app's token refresh service (`lib/integrations/tokenRefreshService.ts`, 636 lines) also embedded per-provider quirks. Q3 (refresh-and-retry) was well-conformed by handlers but the underlying implementation had provider-specific logic in the wrong layer.
 
 ## V2 intended behavior
 
@@ -23,7 +23,7 @@ V1's token refresh service (`lib/integrations/tokenRefreshService.ts`, 636 lines
 **Locked for Slice 1 (shipped):**
 - Generic dispatcher at `services/oauth/dispatcher.ts` with four operations: `connect`, `handleCallback`, `refresh`, `revoke`.
 - Per-provider modules at `integrations/<provider>/oauth.ts` implement the `ProviderOAuth` interface.
-- Scopes live in `integrations/<provider>/manifest.ts` — single source of truth. The dual-source-of-truth in V1 (`integrationScopes.ts` + `scope-validator.ts`) collapses into manifests.
+- Scopes live in `integrations/<provider>/manifest.ts` — single source of truth. The dual-source-of-truth in the legacy app (`integrationScopes.ts` + `scope-validator.ts`) collapses into manifests.
 - **State storage — two layers, two purposes:**
   - **Signed short-lived state token (custom HMAC-SHA256 compact token, not a JWT library).** Format: `<base64url(JSON(payload))>.<base64url(hmac)>`. Payload carries `userId`, `provider`, `nonce`, `expiresAt`, `requestedScopes`. Returned to the provider as the `state` query param. Verified via timing-safe comparison. **Purpose:** proves a state value originated server-side, carries the dispatcher's callback-time inputs, can't be forged.
   - **Server-side DB row keyed by `nonce` in the `oauth_states` system table.** Holds `user_id`, `provider`, `expires_at`, optional `pkce_code_verifier` + `pkce_code_challenge_method` (NULL for Slack default v2). **Purpose:** atomic one-time-use semantics. The signed JWT alone proves origin but cannot prevent replay; the DB row makes replay impossible because the consume path is `DELETE … WHERE nonce=$1 AND expires_at > now() RETURNING` — race-safe by primary-key lock.
@@ -43,7 +43,7 @@ V1's token refresh service (`lib/integrations/tokenRefreshService.ts`, 636 lines
 - Multi-account discriminator format for providers without a stable account ID (rare).
 
 **Decisions requiring product-owner input:**
-- Token re-encryption strategy at V1→V2 migration cutover (master plan §12.C — runbook, not blocking Slice 1 dev).
+- Token re-encryption strategy at the legacy-app→V2 migration cutover (master plan §12.C — runbook, not blocking Slice 1 dev).
 
 A small generic dispatcher at `services/oauth/dispatcher.ts` exposes four operations: `connect`, `handleCallback`, `refresh`, `revoke`. Each operation looks up the provider in `integrations/_registry.ts` and delegates to `integrations/<provider>/oauth.ts`.
 
@@ -133,7 +133,7 @@ Integration tests in `tests/integration/oauth-flows/<provider>.test.ts`:
 16. Scope upgrade flow: existing integration, reconnect with broader scopes, single row updated.
 17. Multi-account: two Slack workspaces, two integration rows distinguished by `team_id`.
 
-## V1 behavior to preserve
+## Behavior to preserve
 
 - Q3 refresh-and-retry contract on action handlers.
 - Per-provider auth-scheme classification (refreshable vs non-refreshable) — the right idea, just relocated to manifest.
@@ -141,7 +141,7 @@ Integration tests in `tests/integration/oauth-flows/<provider>.test.ts`:
 - Encrypted token storage at rest.
 - PKCE for providers that require it.
 
-## V1 behavior to drop
+## Behavior to drop
 
 - Inline per-provider blocks inside the generate-url route.
 - The dual scope-source-of-truth (`integrationScopes.ts` and `scope-validator.ts`).

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the official ChainReactV2 folder structure, what each top-level folder owns, what each may import, what is forbidden, and how to keep the new repo from re-creating V1's monolithic architecture. This rule applies **globally across the entire app**, not just the workflow builder.
+Define the official ChainReactV2 folder structure, what each top-level folder owns, what each may import, what is forbidden, and how to keep the new repo from re-creating the legacy app's monolithic architecture. This rule applies **globally across the entire app**, not just the workflow builder.
 
 The other rule docs each define one subsystem. This doc is the *whole-codebase* rule that all the others sit inside. When in doubt about where new code belongs, this is the source of truth.
 
@@ -24,9 +24,9 @@ The other rule docs each define one subsystem. This doc is the *whole-codebase* 
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Current V1 problem being solved
+## Problem being solved (historical context)
 
-V1's structure is the root cause of most of the issues the other rule docs address:
+The legacy app's structure was the root cause of most of the issues the other rule docs address:
 
 - **Monolithic files** — `WorkflowBuilderV2.tsx` (8,032 lines), `useWorkflowBuilder.ts` (3,640 lines), `provider-registry.ts` (1,595 lines), `webhooks/microsoft/route.ts` (2,475 lines).
 - **Unclear ownership boundaries** — no rule for what goes in `lib/` vs `services/` vs `hooks/` vs `stores/`. The same logic appears in three places.
@@ -141,7 +141,7 @@ chainreact-v2/
 ### `docs/` — rules, architecture, runbooks, handler contracts
 
 - `docs/rules/` — per-subsystem rule docs (this doc and the seven peers).
-- `docs/handler-contracts.md` — Q1-Q12 carried forward from V1.
+- `docs/handler-contracts.md` — Q1-Q12 handler contracts.
 - `docs/architecture/` — design notes that don't fit a single rule.
 - `docs/runbooks/` — operational procedures (cutover, incident response).
 
@@ -152,7 +152,7 @@ chainreact-v2/
 
 ### `supabase/migrations/` — clean V2 migration sequence
 
-- No blind replay of V1's incremental migration history. V2 starts with a consolidated initial migration plus forward-only additions.
+- No blind replay of the legacy app's incremental migration history. V2 starts with a consolidated initial migration plus forward-only additions.
 - **Every migration that creates a user-data or tenant-data table MUST enable RLS and define at least one policy in the same migration.** CI lints for this. See [database-security.md](./database-security.md) for the migration template, encryption rules, service-role boundaries, and per-table policy tests.
 
 ## Import boundary rules
@@ -254,7 +254,7 @@ Each row below names the canonical owner of one concern. New code with overlappi
 
 ## Naming conventions
 
-- **Provider folders** use stable provider IDs from V1: `slack`, `gmail`, `discord`, `notion`, `airtable`, `stripe`, etc. Backward compat for token rows during migration depends on these names.
+- **Provider folders** use stable provider IDs (`slack`, `gmail`, `discord`, `notion`, `airtable`, `stripe`, etc.). Backward compat for token rows during migration off the legacy app depends on these names.
 - **Action files** use kebab-case: `send-channel-message.ts`, `create-record.ts`.
 - **Trigger files** use kebab-case: `new-message-in-channel.ts`, `record-created.ts`.
 - **Schema files** sit next to their handler with `.schema.ts`: `send-channel-message.schema.ts`.
@@ -286,7 +286,7 @@ Implemented as part of the repo skeleton:
 - **No `fetch(` in `components/`** (custom ESLint rule or grep-based CI check).
 - **No `repositories/` imports from `features/`, `components/`, `stores/`, `lib/api/`** (ESLint `no-restricted-imports` per source folder).
 - **No server `services/` imports from client-side code** (ESLint `no-restricted-imports` per source folder, mirroring the workflow-state-store boundary lint guard).
-- **No zero-arg `getSession()` / `getUser()`** outside the auth allowlist (PR-AUTH-7 ESLint rule, ported forward).
+- **No zero-arg `getSession()` / `getUser()`** outside the auth allowlist (PR-AUTH-7 ESLint rule).
 - **File-size warning** at 400 lines, **error** at 500 lines (custom ESLint rule or CI check; exception via PR comment).
 - **Leaf-folder file-count check** — no leaf > 50 files (CI bash check on `find <leaf> -maxdepth 1 -type f | wc -l`).
 - **No `console.log` in `components/`, `hooks/`, `stores/`** (ESLint `no-console` with allow-list for server-side logger).

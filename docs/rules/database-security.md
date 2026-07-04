@@ -27,16 +27,16 @@ Security is part of the schema, not a layer above it.
 **Decisions requiring product-owner input:**
 - Public-read tables (e.g., predefined templates): final list confirmed when templates land in V2.
 
-## Current V1 problem being solved
+## Problem being solved (historical context)
 
-V1 has RLS enabled on most tables but with inconsistencies:
-- Some tables added during rapid iteration shipped without policies and were patched later.
-- Service-role usage is scattered across many service files, not concentrated in one helper. The service-role boundary is enforced by convention, not by structure.
-- Token encryption exists but the encryption helpers are mixed with business logic. Decrypt failures aren't handled with the discipline they deserve.
-- Migrations don't have a CI lint that fails when a new table lacks RLS.
-- Tests for RLS exist (`__tests__/infra/rls.test.ts` and similar) but coverage is uneven — newer tables can ship without policy tests.
+The failure modes this rule structurally prevents (observed historically in the legacy app):
+- Tables added during rapid iteration shipping without policies and being patched later.
+- Service-role usage scattered across many service files instead of concentrated in one helper — the service-role boundary enforced by convention, not by structure.
+- Token encryption helpers mixed with business logic; decrypt failures not handled with the discipline they deserve.
+- No CI lint failing when a new table lacks RLS.
+- Uneven RLS test coverage — newer tables shipping without policy tests.
 
-The result: RLS is the intent but not always the reality. V2 makes RLS structural, not aspirational.
+V2 makes RLS structural, not aspirational.
 
 ## V2 intended behavior
 
@@ -142,7 +142,7 @@ Repositories that need it call `getServiceRoleClient("renew-microsoft-graph-subs
 - **Cron / system write that legitimately bypasses user scope:** server-side service calls a repository that explicitly invokes `getServiceRoleClient("<reason>")`. Reason logged.
 - **Webhook receipt insertions:** thin route hands off to `services/webhooks/`; the service uses `getServiceRoleClient("webhook-event-dedup")` to write to `webhook_event_dedup`.
 - **OAuth callback after out-of-band identity proof:** the dispatcher (`services/oauth/dispatcher.ts:handleCallback`) verifies user identity via signed state token + atomic `oauth_states` nonce consume. The `integrations` row insert (`repositories/integrations.ts:upsertActive`) then uses `getServiceRoleClient("oauth callback: upsertActive <provider> for user <id>")` because the SSR-cookie path is unreliable (cookies don't cross hosts in tunnel/proxy/multi-tenant scenarios) AND redundant (identity is already proven). State-token persistence (`oauth_states`) is system-table — service-role only end to end.
-- **Admin tooling:** route uses `requireAdmin({ capabilities: [...] })` plus a service that uses `getServiceRoleClient("admin-action-<name>")` for the writes that need it. Step-up auth as documented in the V1 admin pattern.
+- **Admin tooling:** route uses `requireAdmin({ capabilities: [...] })` plus a service that uses `getServiceRoleClient("admin-action-<name>")` for the writes that need it. Step-up auth as documented in the admin-auth architecture.
 - **Token storage:** repository encrypts before insert; reads decrypt on the way out, only for the immediate caller, never logged.
 
 ## Disallowed behavior
@@ -168,7 +168,6 @@ Repositories that need it call `getServiceRoleClient("renew-microsoft-graph-subs
 - **Multi-tenant user in multiple workspaces:** the membership-join policy handles this cleanly because `team_members` has one row per (user, workspace) pair.
 - **User account deletion (`auth.users` cascade):** `ON DELETE CASCADE` on user-scoped tables removes orphans automatically. Tenant-scoped tables retain rows with the workspace.
 - **Webhooks for unauthenticated events** (Slack URL verification, Stripe webhook): the route uses service-role to insert / dedup; no user session exists at that point.
-- **Encrypted-token migration during V1 → V2 cutover:** decrypt with V1 key, re-encrypt with V2 key, in an isolated environment. Master plan §12.C is the runbook.
 - **Key rotation:** if `TOKEN_ENCRYPTION_KEY` rotates, a one-shot script reads, decrypts with old key, re-encrypts with new key, in batches. Document in `docs/runbooks/`.
 - **Decryption failure:** treated as a fatal integration error — the integration row's health flips to `disconnected`, user is forced to reconnect, the cleartext is never reconstructed. Never silently retry decryption.
 
@@ -188,14 +187,14 @@ CI checks (lint-style):
 7. **Migration RLS + GRANT lint.** A linter scans every migration file for `CREATE TABLE` and verifies the same migration contains (a) `ENABLE ROW LEVEL SECURITY`, (b) at least one `CREATE POLICY`, and (c) at least one `GRANT ... ON public.<table> TO ...` for the table — unless the migration declares the table as a system table with a header comment that justifies it (in which case the GRANT must go to `service_role` only).
 8. **Service-role import guard.** ESLint rule restricts `createClient` calls with `SERVICE_ROLE_KEY` to `repositories/supabase/serviceRoleClient.ts`.
 
-## V1 behavior to preserve
+## Behaviors this rule preserves
 
-- Existing RLS policies that work — port them as-is into the V2 initial migration where they apply.
-- Token encryption pattern (AES-256, encryption key from env) — port the helper and tests, relocate to `core/encryption/tokens.ts`.
-- Three-layer admin auth (middleware → `requireAdmin` → scoped helpers) — port from V1's [admin auth architecture](../../../../nstoddard17/chainreact-app-9e/lib/utils/admin-auth.ts).
+- RLS policies on every user-data / tenant-data table.
+- Token encryption pattern (AES-256, encryption key from env) — the helper and tests live at `core/encryption/tokens.ts`.
+- Three-layer admin auth (middleware → `requireAdmin` → scoped helpers).
 - `set_updated_at` trigger pattern.
 
-## V1 behavior to drop
+## Anti-patterns this rule forbids
 
 - Any table with RLS disabled or with no policies (the "open" tables).
 - Service-role client construction scattered across files.

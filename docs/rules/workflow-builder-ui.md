@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Define how the V2 workflow builder is composed of small, focused components — not a single mega-file — while preserving V1's exact visual layout, terminology, and interaction model.
+Define how the V2 workflow builder is composed of small, focused components — not a single mega-file — while preserving the legacy app's exact visual layout, terminology, and interaction model.
 
 ## Resolved Decisions
 
 **Locked for Slice 1:**
 - Builder lives at `features/workflow-builder/`, decomposed into `canvas/`, `panels/`, `config-modal/`, `state/`, `hooks/`.
-- V1's visual layout (three-pane: library / canvas / config) and interaction model preserved exactly.
+- The legacy app's visual layout (three-pane: library / canvas / config) and interaction model preserved exactly.
 - Provider config files cap at < 500 lines; split by tab/section if they grow.
 - Field-renderer registry hand-maintained: explicit `field-type → component` map, type-safe.
 - **Data access pattern (resolves "no fetch in components"):**
@@ -16,8 +16,8 @@ Define how the V2 workflow builder is composed of small, focused components — 
   - **Feature hooks:** may call **typed client API functions** (e.g. `apiClient.workflows.save()`) or feature services. Hooks are orchestration adapters, NOT places for business rules.
   - **Typed client API functions** live in `lib/api/<domain>.ts` — thin wrappers over `fetch` against V2 server routes.
   - **Server mutations and provider data calls** are always behind services and routes. Repositories are server-side only (see workflow-state-store rule).
-- Real-time collaboration deferred. Undo/redo deferred (audit V1 to confirm parity scope). AI panel deferred.
-- FlowEdges alignment algorithm preserved verbatim from V1 (DO NOT TOUCH zone — `DEFAULT_COLUMN_X = 400` invariant). Lives behind the canvas/edges interface; does not force the rest of the builder to mirror V1's structure.
+- Real-time collaboration deferred. Undo/redo deferred (confirm against current V2 behavior and product scope). AI panel deferred.
+- FlowEdges alignment algorithm preserved verbatim from the legacy builder (DO NOT TOUCH zone — `DEFAULT_COLUMN_X = 400` invariant). Lives behind the canvas/edges interface; does not force the rest of the builder to mirror the legacy structure.
 
 **Deferred decisions:**
 - Real-time collaboration architecture (when un-deferred).
@@ -27,15 +27,15 @@ Define how the V2 workflow builder is composed of small, focused components — 
 **Decisions requiring product-owner input:**
 - AI panel placement in the layout when un-deferred.
 
-## Current V1 problem being solved
+## Problem being solved (historical context)
 
-V1's workflow builder is concentrated in:
+The legacy app's workflow builder was concentrated in:
 - `components/workflows/builder/WorkflowBuilderV2.tsx` — **8,032 lines**, 7 inline `fetch()` calls, 37 `useEffect`s, business logic mixed with rendering.
 - `hooks/workflows/useWorkflowBuilder.ts` — **3,640 lines** in one hook. Owns builder state, node configuration, action plumbing, UI mode state.
 - `components/workflows/configuration/providers/AirtableConfiguration.tsx` — 4,428 lines, plus 58 `console.log` calls.
 - `components/workflows/configuration/fields/FieldRenderer.tsx` — 3,398 lines.
 
-Every change to one concern (a node-config field, a canvas behavior, an execution status indicator) risks breaking unrelated concerns. Onboarding to the builder code requires reading thousands of lines.
+Every change to one concern (a node-config field, a canvas behavior, an execution status indicator) risked breaking unrelated concerns. Onboarding to the builder code required reading thousands of lines.
 
 ## V2 intended behavior
 
@@ -46,7 +46,7 @@ features/workflow-builder/
 ├── canvas/                 # ReactFlow surface + custom node renderers
 │   ├── WorkflowCanvas.tsx          # the surface
 │   ├── nodes/                      # one file per node type (action, trigger, logic)
-│   ├── edges/                      # FlowEdges algorithm (preserved verbatim from V1)
+│   ├── edges/                      # FlowEdges algorithm (preserved verbatim from the legacy builder)
 │   └── controls/                   # zoom, fit-to-view, mini-map
 ├── panels/
 │   ├── NodeLibraryPanel.tsx        # left panel: searchable list of triggers + actions
@@ -72,7 +72,7 @@ features/workflow-builder/
 
 Every component is presentational by default. Components read state through hooks and dispatch actions through hook-returned callbacks. No component performs `fetch()` or `supabase.from()`.
 
-The visual layout — three-pane (library / canvas / config), bottom execution strip, modal-based field editing — is unchanged from V1. Only the internal decomposition is new.
+The visual layout — three-pane (library / canvas / config), bottom execution strip, modal-based field editing — is unchanged from the legacy app. Only the internal decomposition is new.
 
 ## Single source of truth
 
@@ -126,7 +126,7 @@ The boundary in every flow above: components only know about hooks; hooks only k
 - **Unsaved changes navigation:** `state.config` exposes `isDirty`; the page navigation guard prompts before leaving.
 - **Large workflows (50+ nodes):** the canvas should remain responsive. Virtualized rendering of nodes off-screen is a future concern; for slice 1 a small workflow is fine, but design the slices so virtualization can be added without restructuring.
 - **Disabled fields:** when the workflow lifecycle state is `disabled` or `eligible_to_resume`, fields render disabled. The UI consumes the lifecycle projection helpers, not raw columns.
-- **Real-time collaboration (multi-user editing):** deferred. V1 has `collaborationStore`; V2 ports it later. Slice 1 ships single-user editing only.
+- **Real-time collaboration (multi-user editing):** deferred to a later slice. Slice 1 ships single-user editing only.
 - **AI assistant panel:** deferred. Slice 1 ships without AI affordances. The builder's left panel surface should accommodate the future AI panel without restructuring.
 - **Provider config that shares fields with another provider:** field-renderer components are generic by `type`. A new provider that uses only existing field types needs zero new field code.
 - **Provider config with a unique widget (e.g. a calendar picker):** the provider's config component renders the widget directly; the field-type renderer registry stays minimal.
@@ -156,17 +156,17 @@ E2E test in `tests/e2e/playwright/builder-slack.spec.ts`:
 
 12. Sign in → create workflow → drag Slack trigger → configure → drag Slack action → configure → activate → see "Active" status.
 
-## V1 behavior to preserve
+## Behavior to preserve
 
 - Visual layout: three-pane (library / canvas / config), bottom execution strip.
 - Interaction model: drag nodes from palette, click to configure, modal-based field editing.
 - Terminology: "trigger," "action," "step," "configuration," "test run."
 - ReactFlow controls and behaviors (zoom, pan, mini-map, fit-to-view).
 - FlowEdges alignment algorithm — preserved verbatim. Do not let it force the old builder structure into V2; it lives behind the canvas/edges interface.
-- Optimistic UI patterns for save / activation (V1 mostly does this well).
+- Optimistic UI patterns for save / activation (the legacy app mostly did this well).
 - Error display in the bottom strip when a run fails.
 
-## V1 behavior to drop
+## Behavior to drop
 
 - 8,032-line monolith component.
 - Inline `fetch()` calls.
@@ -180,4 +180,4 @@ E2E test in `tests/e2e/playwright/builder-slack.spec.ts`:
 
 (Real-time collaboration, AI panel placement, field-renderer registry, configuration validation split, and builder performance budget are now resolved or deferred — see "Resolved Decisions" above.)
 
-1. **Undo / redo:** audit V1 to confirm whether it exists for the builder and whether it is parity-critical. If not parity-critical, defer until after Slice 1. The state-slice design should accommodate an undo-stack slice without restructuring graph or selection slices.
+1. **Undo / redo:** confirm against current V2 behavior and product scope whether it is required for the builder and whether it is parity-critical. If not parity-critical, defer until after Slice 1. The state-slice design should accommodate an undo-stack slice without restructuring graph or selection slices.

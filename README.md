@@ -1,8 +1,8 @@
 # ChainReact V2
 
-> **✅ Primary / active app (since 2026-06-09).** This is the ChainReact codebase under active development. V1 ([chainreact-app-9e](../nstoddard17/chainreact-app-9e)) is now **archived reference only**. Local-only, in-place switch — no files moved; V1 and V2 are separate clones of the same remote and this branch is unpushed. GitHub `main` promotion + live-provider validation are separate, later (push-gated) steps. See V1's `LEGACY.md`.
+> **✅ Primary / active app (since 2026-06-09).** This is the ChainReact codebase under active development. The old `chainreact-app-9e` repo is **decommissioned and non-operative** — do not inspect, port, audit, or compare against it for V2 work. Build from current V2 code, docs, provider patterns, official provider API docs, and live-provider evidence.
 
-Workflow automation platform — architecture reset of [chainreact-app-9e](../nstoddard17/chainreact-app-9e). Same product and UI; rebuilt internal architecture per the [V2 architecture baseline](../../../.claude/plans/you-are-helping-me-happy-nebula.md).
+Workflow automation platform. Same product and UI as the earlier ChainReact app, with a rebuilt internal architecture per the [V2 architecture baseline](../../../.claude/plans/you-are-helping-me-happy-nebula.md).
 
 ## Status
 
@@ -48,7 +48,7 @@ This reads `POSTGRES_URL_NON_POOLING` from `.env.local` and applies any pending 
 
 **Connection-string note:** `POSTGRES_URL_NON_POOLING` should be the **Session pooler** URL from Supabase Dashboard → Project Settings → Database → "Connect" panel. New projects sit behind `aws-1-<region>.pooler.supabase.com:5432` (Supavisor v2); the direct `db.<ref>.supabase.co` hostname is IPv6-only and won't resolve from most networks.
 
-**Target safety:** `db:push` is guarded by `npm run check:db-target` (`scripts/lib/db-target.mjs`). It **fails closed** unless `POSTGRES_URL_NON_POOLING` targets the same project ref as `NEXT_PUBLIC_SUPABASE_URL` — so V2 migrations can never land on the V1 project (`xzwsdwllmrnrgbltibxt`) or any other database. Run `npm run check:db-target` anytime to print the per-var project refs (secret-safe — refs only).
+**Target safety:** `db:push` is guarded by `npm run check:db-target` (`scripts/lib/db-target.mjs`). It **fails closed** unless `POSTGRES_URL_NON_POOLING` targets the same project ref as `NEXT_PUBLIC_SUPABASE_URL` — so V2 migrations can never land on the old/decommissioned Supabase project (`xzwsdwllmrnrgbltibxt`) or any other database. Run `npm run check:db-target` anytime to print the per-var project refs (secret-safe — refs only).
 
 ## Scripts
 

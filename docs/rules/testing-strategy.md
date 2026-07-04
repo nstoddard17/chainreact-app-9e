@@ -2,7 +2,9 @@
 
 ## Purpose
 
-Define how ChainReactV2 tests are designed so they catch real issues, validate expected behavior, cover both good and bad paths, verify error handling, and protect known V1 regressions.
+Define how ChainReactV2 tests are designed so they catch real issues, validate expected behavior, cover both good and bad paths, verify error handling, and protect against known historical regressions.
+
+Known production or historical regressions that shaped V2 behavior should have regression tests. Each test should describe the V2 business rule it protects, not depend on the legacy app as an implementation reference.
 
 This doc is the **central testing philosophy** for V2. The other rule docs each list specific required tests for their subsystem; this doc defines what makes any test acceptable. Every test in V2 must justify its existence against the principles below — both at PR-review time and during periodic test-suite audits.
 
@@ -14,7 +16,7 @@ Tests in V2 must validate **business behavior and expected system outcomes**, no
 - Tests prove business behavior, not implementation. Every test answers: *"What real failure would this catch?"*
 - The good-path / bad-path / error-handling matrix (§5) is required for every important feature.
 - Mocks are restricted to external boundaries only (§7). Mocking the function under test or the rule being tested is forbidden.
-- Parity tests for known V1 regressions are mandatory (§8). The list seeds with: resolver drift, auth refresh deadlock, auto-resume after reconnect, duplicate webhook delivery, billing RPC parity, session-side-effects idempotency.
+- Parity tests for known historical regressions are mandatory (§8). The list seeds with: resolver drift, auth refresh deadlock, auto-resume after reconnect, duplicate webhook delivery, billing RPC parity, session-side-effects idempotency.
 - Test naming follows the convention in §9 — names describe business behavior, not surface action.
 - Every PR answers the test-acceptance checklist (§10) before merge.
 - Slice 1's minimum test set (§11) is the floor; no slice-1 work merges without it.
@@ -27,18 +29,18 @@ Tests in V2 must validate **business behavior and expected system outcomes**, no
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Current V1 problem being solved
+## Anti-patterns this strategy prevents (historical context)
 
-V1's test suite has accumulated patterns that pass without proving anything useful:
+Test-suite patterns that pass without proving anything useful, observed historically:
 
-- Generated tests often prove only that a mocked function returns what the mock told it to return.
-- Some tests are happy-path only and silently miss error and edge-case behavior.
-- Some tests are tautological — flipping the assertion still produces a passing test, or removing the function under test still produces a passing test.
-- Some tests validate file structure or implementation details (`expect(file).toContain('useState')`) instead of product behavior.
-- Error handling, bad inputs, disconnected integrations, billing failures, missing variables, webhook replay, and lifecycle edge cases are systematically under-covered. Most production incidents in V1 came from these paths.
-- Test names like "works", "handles error", "renders" don't tell you what business rule is at risk if the test fails.
+- Generated tests that prove only that a mocked function returns what the mock told it to return.
+- Happy-path-only tests that silently miss error and edge-case behavior.
+- Tautological tests — flipping the assertion still passes, or removing the function under test still passes.
+- Tests that validate file structure or implementation details (`expect(file).toContain('useState')`) instead of product behavior.
+- Systematically under-covered error handling, bad inputs, disconnected integrations, billing failures, missing variables, webhook replay, and lifecycle edge cases. Historically, most production incidents came from these paths.
+- Test names like "works", "handles error", "renders" that don't tell you what business rule is at risk if the test fails.
 
-The result: a suite that is green most of the time but doesn't prevent the bugs that matter.
+The result to avoid: a suite that is green most of the time but doesn't prevent the bugs that matter.
 
 ## V2 testing principles
 
@@ -46,7 +48,7 @@ The result: a suite that is green most of the time but doesn't prevent the bugs 
 2. **Test the business rule first, implementation second.** The rule lives in the rule doc; the test cites it.
 3. **Every major feature needs good-path, bad-path, and error-handling coverage.** Not "we'll add bad-path tests later." All three at the same PR.
 4. **Tests prove the system behaves correctly when dependencies fail.** Disconnected integrations, expired tokens, 5xx responses, missing variables, billing exhaustion — these are first-class test targets, not afterthoughts.
-5. **Tests protect known V1 regressions.** Each named in `tests/parity/` with a comment naming the V1 incident.
+5. **Tests protect known historical regressions.** Each named in `tests/parity/` with a comment naming the incident and the V2 business rule it protects.
 6. **Prefer testing through public boundaries:** service APIs, route handlers, engine entrypoints, provider adapters, UI flows. Avoid testing private implementation details.
 7. **Do not mock the function under test.** Ever.
 8. **Do not write tests that only assert "truthy" or "called once"** unless that is part of a meaningful behavior. "called once" is meaningful when "called twice" would be a duplicate side effect; otherwise it is noise.
@@ -125,7 +127,7 @@ E2E is not for edge cases. Edge cases live in unit / integration layers.
 
 ### H. Parity / regression tests
 
-Lives in `tests/parity/`. Tests created from known V1 bugs. Each named after the V1 incident. Initial seed list:
+Lives in `tests/parity/`. Regression tests created from known historical bugs. Each named after the incident and documents the V2 business rule it protects. Initial seed list:
 - `auth-refresh-deadlock` — `getSession()` lock contention scenario from PR-AUTH-1.
 - `scope-drift` — dual-scope-source-of-truth bug.
 - `resolver-drift-missing-value` — multi-path resolver returning different values for the same template.
@@ -186,15 +188,15 @@ When in doubt, mock at the **HTTP boundary** or the **provider SDK call**. Mock 
 
 ## Regression / parity test process
 
-Any known V1 bug that influenced V2 architecture should get a parity test before the related subsystem is considered done.
+Any known historical bug that influenced V2 architecture should get a parity test before the related subsystem is considered done.
 
 Each parity test must include:
-- **Short name** of the V1 bug (matches the file name, e.g. `auto-resume-after-reconnect.test.ts`).
+- **Short name** of the bug (matches the file name, e.g. `auto-resume-after-reconnect.test.ts`).
 - **Expected V2 behavior** stated up front in the test description.
-- **Why the test exists** — a one-paragraph comment at the top of the file naming the V1 incident.
+- **Why the test exists** — a one-paragraph comment at the top of the file naming the incident.
 - **The business rule it protects** — link or reference to the rule doc.
 
-When a new V1 incident is discovered after V2 work begins, it gets a parity test before the bug fix lands.
+When a new incident is discovered during V2 work, it gets a parity test before the bug fix lands.
 
 ## Test naming convention
 

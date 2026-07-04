@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define how V2 receives, verifies, normalizes, and dispatches incoming webhook events from integration providers. Replace V1's monolithic per-provider routes with a thin route → integration receive → normalize → trigger manager pattern.
+Define how V2 receives, verifies, normalizes, and dispatches incoming webhook events from integration providers. Replace the legacy app's monolithic per-provider routes with a thin route → integration receive → normalize → trigger manager pattern.
 
 ## Resolved Decisions
 
@@ -31,9 +31,9 @@ Define how V2 receives, verifies, normalizes, and dispatches incoming webhook ev
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Current V1 problem being solved
+## Problem being solved (historical context)
 
-V1's webhook routes are large, mixed-concern monoliths:
+The legacy app's webhook routes were large, mixed-concern monoliths:
 
 - `app/api/webhooks/microsoft/route.ts` — **2,475 lines**.
 - `lib/webhooks/google-processor.ts` — **3,101 lines**.
@@ -41,9 +41,9 @@ V1's webhook routes are large, mixed-concern monoliths:
 - `app/api/webhooks/stripe-billing/route.ts` — 947 lines.
 - `app/api/webhooks/discord/hitl/route.ts` — 793 lines.
 
-Each route file mixes: signature verification, payload parsing, event normalization, trigger lookup, idempotency dedup, and execution dispatch. Adding a new provider, or changing one provider's verification scheme, requires reading thousands of lines and risks unrelated providers.
+Each route file mixed: signature verification, payload parsing, event normalization, trigger lookup, idempotency dedup, and execution dispatch. Adding a new provider, or changing one provider's verification scheme, required reading thousands of lines and risked unrelated providers.
 
-V1 also has webhook receipt fragmented across both `app/api/webhooks/` and `lib/webhooks/`. The split is functional but unclear — the route file usually does its own work plus delegating to a processor in `lib/webhooks/`, with no consistent boundary.
+The legacy app also had webhook receipt fragmented across both `app/api/webhooks/` and `lib/webhooks/`. The split was functional but unclear — the route file usually did its own work plus delegating to a processor in `lib/webhooks/`, with no consistent boundary.
 
 ## V2 intended behavior
 
@@ -103,7 +103,7 @@ The dispatcher in `services/triggers/dispatch.ts` is provider-agnostic. It recei
 - **Microsoft Graph subscription validation:** Microsoft sends a `GET` (or sometimes `POST` with a validation token) when creating a subscription; the route echoes the token back as `text/plain`. `receive.ts` handles this.
 - **Signature verification failure:** `receive.ts` throws `InvalidSignatureError`. Route returns `401`. Do not log the signature itself.
 - **Batch events with mixed validity:** if one event in a batch fails normalization, the dispatcher logs the failure and continues with the others. The route still returns `200` (the provider considers the delivery successful; bad events are our problem to log and resolve).
-- **Out-of-order delivery / retries:** providers retry on 5xx. Idempotency dedup catches retries. Out-of-order events: each event normalizes independently; ordering across events is not guaranteed by webhooks (V1 already accepts this).
+- **Out-of-order delivery / retries:** providers retry on 5xx. Idempotency dedup catches retries. Out-of-order events: each event normalizes independently; ordering across events is not guaranteed by webhooks (the legacy app already accepted this).
 - **Webhook for unregistered or deleted workflow:** dispatcher silently drops with a debug log. This is normal — webhooks may take time to deregister after workflow deletion.
 - **Webhook for a workflow in `paused` or `disabled` state:** dispatcher drops without execution. The trigger registration may still exist on the provider side; pausing/disabling does not always immediately deregister webhooks (per the lifecycle rule).
 - **Provider quotas / queue saturation:** if the internal execution queue is saturated, the route returns `429` so the provider retries with backoff. Engine concerns about queue capacity surface here.
@@ -145,15 +145,15 @@ Integration tests in `tests/integration/webhooks/<p>.test.ts`:
 18. Workflow not found: silent drop, route returns 200, no run created.
 19. Verification handshake: route returns the challenge token without enqueueing anything.
 
-## V1 behavior to preserve
+## Behavior to preserve
 
-- Provider-specific signature verification logic (V1 has the right verifications; they're just buried).
+- Provider-specific signature verification logic (the legacy app had the right verifications; they were just buried).
 - Idempotency-key strategies per provider.
-- Normalization shapes that downstream workflow trigger configs depend on. **Don't break workflow expectations.** Audit V1 normalized events before V2 cutover.
+- Normalization shapes that downstream workflow trigger configs depend on. **Don't break workflow expectations.**
 - Verification handshakes for every provider that requires them.
 - Async dispatch (route returns 200 quickly; execution runs asynchronously).
 
-## V1 behavior to drop
+## Behavior to drop
 
 - Monolithic 2,000+ line route files.
 - Verification + parsing + normalization + dispatch in a single function.
