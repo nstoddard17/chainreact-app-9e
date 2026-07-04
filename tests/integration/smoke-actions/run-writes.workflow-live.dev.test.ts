@@ -50,6 +50,7 @@ import {
   discoverOneNoteSmokeSection,
   discoverSlackSmokeChannel,
   discoverSlackSmokeUser,
+  discoverGmailSelfAddress,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -196,6 +197,17 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_SLACK_UPLOAD_STORAGE_PATH = slackStaged.storagePath;
         cleanupStagedFile = slackStaged.remove;
         targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}staged upload file in workflow-files bucket`;
+      }
+    } else if (provider === "gmail" && execUsable) {
+      // create_draft / add_label / remove_label address a smoke draft to the connected
+      // account's OWN inbox (never sent). Discover the self address via users.getProfile;
+      // a pinned SMOKE_GMAIL_SELF wins. Absent -> no overlay -> those fixtures BLOCKED_ENV.
+      const self = process.env.SMOKE_GMAIL_SELF
+        ? { email: process.env.SMOKE_GMAIL_SELF }
+        : await discoverGmailSelfAddress(account, user);
+      if (self) {
+        overlay.SMOKE_GMAIL_SELF = self.email; // own address -> env overlay only
+        targetLabel = "draft to self (own inbox)";
       }
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the

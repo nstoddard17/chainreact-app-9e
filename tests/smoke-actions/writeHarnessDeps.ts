@@ -58,6 +58,7 @@ import { onenoteSmokeReadBack } from "./writeHarnessDeps/onenote";
 import { copyMonitorSmokeReadBack } from "./writeHarnessDeps/copyMonitor";
 import { onenoteCopyMonitorSmokeReadBack } from "./writeHarnessDeps/onenoteCopyMonitor";
 import { slackSmokeReadBack } from "./writeHarnessDeps/slack";
+import { gmailSmokeReadBack } from "./writeHarnessDeps/gmail";
 import { stagedFileSmokeReadBack } from "./writeHarnessDeps/stagedFile";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
@@ -79,6 +80,7 @@ export {
 export { discoverMondaySmokeBoardGroup } from "./writeHarnessDeps/monday";
 export { discoverOneNoteSmokeSection } from "./writeHarnessDeps/onenote";
 export { discoverSlackSmokeChannel, discoverSlackSmokeUser } from "./writeHarnessDeps/slack";
+export { discoverGmailSelfAddress } from "./writeHarnessDeps/gmail";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */
@@ -140,6 +142,8 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   onenoteCopyMonitorSmokeReadBack,
   // Slack per-message state (text + reactions) read-back for update/reaction verifies.
   slackSmokeReadBack,
+  // Gmail per-message label state read-back for draft / add_label / remove_label verifies.
+  gmailSmokeReadBack,
   // Provider-agnostic v2_storage staged-file existence read-back (slack:download_file).
   stagedFileSmokeReadBack,
 ];

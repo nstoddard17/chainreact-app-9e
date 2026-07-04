@@ -65,6 +65,7 @@ drift.
 | `SMOKE_GDRIVE_FOLDER_ID=<id>` | Google Drive `search_files` (optional) | Optional folder to scope the search (overlaid onto `folderId`). Unset → searches across My Drive. |
 | `SMOKE_GMAIL_CONNECTED=1` | Gmail fixtures | Signals the smoke account has Gmail connected. Unset → Gmail fixtures SKIP. |
 | `SMOKE_GMAIL_QUERY=<q-syntax>` | Gmail `search_emails` | Gmail q-syntax search string (overlaid onto `query`). Unset → SKIP. |
+| `SMOKE_GMAIL_SELF=<email>` | Gmail `create_draft`, `add_label`, `remove_label` (write) | The connected account's OWN email; smoke drafts are addressed to self and never sent. Auto-discovered live via `discoverGmailSelfAddress` (users.getProfile); a pinned value wins. Unset → those fixtures report BLOCKED_ENV. |
 | `SMOKE_MICROSOFT_OUTLOOK_CONNECTED=1` | Outlook fixtures | Signals the smoke account has Microsoft Outlook connected. Unset → Outlook fixtures SKIP. |
 | `SMOKE_OUTLOOK_QUERY=<$search>` | Outlook `fetch_emails` (optional) | Optional Graph `$search` string (overlaid onto `query`). Unset → fetches recent messages. |
 | `SMOKE_NOTION_CONNECTED=1` | Notion fixtures | Signals the smoke account has Notion connected. Unset → Notion fixtures SKIP. |

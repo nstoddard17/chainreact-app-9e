@@ -66,6 +66,10 @@ import driveSearchFiles from "@/tests/fixtures/action-smoke/google-drive/search_
 import gmailListLabels from "@/tests/fixtures/action-smoke/gmail/list_labels";
 import gmailGetProfile from "@/tests/fixtures/action-smoke/gmail/get_profile";
 import gmailSearchEmails from "@/tests/fixtures/action-smoke/gmail/search_emails";
+import gmailCreateDraft from "@/tests/fixtures/action-smoke/gmail/create_draft";
+import gmailCreateLabel from "@/tests/fixtures/action-smoke/gmail/create_label";
+import gmailAddLabel from "@/tests/fixtures/action-smoke/gmail/add_label";
+import gmailRemoveLabel from "@/tests/fixtures/action-smoke/gmail/remove_label";
 // SMOKE-ACTIONS-11 — Microsoft Outlook mail read-only batch (fetch + 2 new read actions).
 import outlookListFolders from "@/tests/fixtures/action-smoke/microsoft-outlook/list_folders";
 import outlookGetProfile from "@/tests/fixtures/action-smoke/microsoft-outlook/get_profile";
@@ -423,6 +427,10 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   slackDownloadFile,
   slackPinMessage,
   slackUnpinMessage,
+  gmailCreateDraft,
+  gmailCreateLabel,
+  gmailAddLabel,
+  gmailRemoveLabel,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

@@ -53,6 +53,7 @@ const SMOKE_WRITE_SLACK_DM = "2026-07-03";
 const SMOKE_WRITE_SLACK_BLOCKS = "2026-07-03";
 const SMOKE_WRITE_SLACK_FILES = "2026-07-03";
 const SMOKE_WRITE_SLACK_PINS = "2026-07-03";
+const SMOKE_WRITE_GMAIL_DRAFT_LABEL = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -780,6 +781,31 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // policy-excluded.
   ...records("LIVE_PASS_CLEANED", "live create doc + append update + independent read-back, whole doc hard-deleted via cross-provider Drive delete", SMOKE_WRITE_GDOCS, [
     ["google-docs", "update_document"],
+  ]),
+  // GMAIL-DRAFT-LABEL-BATCH (2026-07-04) — reversible draft + label lifecycle, no email
+  // ever sent. Drafts are addressed to the connected account's OWN inbox
+  // (SMOKE_GMAIL_SELF, discovered live via users.getProfile) and are never delivered.
+  // Verified live via the new gmail:message_labels smoke seam (users.messages.get ->
+  // sanitized { found, labelIds, subject }; the action echo is never trusted). Verified
+  // live that draft messages accept messages.modify labels and that trashing a draft's
+  // message removes it from in:drafts.
+  //   - create_draft (writeSafe): message_labels proves labelIds contains DRAFT + the
+  //     marker on subject -> delete_email(trash) removes the draft (cleaned, to Trash).
+  //   - add_label (writeSafe): setup create_draft (a labelable smoke message) -> add the
+  //     reversible SYSTEM label STARRED -> message_labels proves labelIds contains STARRED
+  //     -> delete_email(trash). STARRED avoids leaking a user label per run.
+  //   - remove_label (writeSafe): setup create_draft + add STARRED -> remove STARRED ->
+  //     message_labels proves labelIds no longer contains STARRED -> delete_email(trash).
+  //   - create_label (writeSafe): list_labels read-back proves the marker name. NO
+  //     registered Gmail delete-label action (no users.labels.delete wrapper) -> each run
+  //     leaves one crsmoke- label (throwaway artifact, documented).
+  ...records("LIVE_PASS_CLEANED", "live draft/label modify + independent message_labels read-back, draft trashed (no email sent)", SMOKE_WRITE_GMAIL_DRAFT_LABEL, [
+    ["gmail", "create_draft"],
+    ["gmail", "add_label"],
+    ["gmail", "remove_label"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live create label + independent list_labels read-back (label artifact; no registered Gmail delete-label action)", SMOKE_WRITE_GMAIL_DRAFT_LABEL, [
+    ["gmail", "create_label"],
   ]),
   // SMOKE-WRITE-36 — Microsoft Excel create_worksheet. Excel has no create_workbook
   // action, so the smoke brings its OWN smoke-owned workbook: setup uploads a frozen
