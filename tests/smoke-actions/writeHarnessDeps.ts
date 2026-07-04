@@ -82,7 +82,11 @@ export { discoverMondaySmokeBoardGroup } from "./writeHarnessDeps/monday";
 export { discoverOneNoteSmokeSection } from "./writeHarnessDeps/onenote";
 export { discoverSlackSmokeChannel, discoverSlackSmokeUser } from "./writeHarnessDeps/slack";
 export { discoverGmailSelfAddress, stageGmailAttachmentMessage } from "./writeHarnessDeps/gmail";
-export { discoverHubSpotDealStage, discoverHubSpotTicketStage } from "./writeHarnessDeps/hubspot";
+export {
+  discoverHubSpotDealStage,
+  discoverHubSpotTicketStage,
+  stageHubSpotLineItemDeal,
+} from "./writeHarnessDeps/hubspot";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */

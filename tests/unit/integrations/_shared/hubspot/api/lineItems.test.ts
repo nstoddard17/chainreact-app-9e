@@ -13,6 +13,7 @@ jest.mock("@/integrations/_shared/hubspot/api/_request", () => ({
 import {
   lineItemsCreate,
   lineItemsDelete,
+  lineItemsGet,
   lineItemsSearch,
   lineItemsUpdate,
 } from "@/integrations/_shared/hubspot/api/lineItems";
@@ -93,6 +94,27 @@ describe("lineItemsDelete (HubSpot 2.1)", () => {
       lineItemId: "li-1",
     });
     expect(result).toBeUndefined();
+  });
+});
+
+describe("lineItemsGet", () => {
+  it("GETs /objects/line_items/{id} with properties projection", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ id: "li-1", properties: {} });
+    await lineItemsGet({
+      accessToken: "tok",
+      lineItemId: "li-1",
+      properties: ["name", "quantity"],
+    });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("GET");
+    expect(call.path).toBe("/crm/v3/objects/line_items/li-1");
+    expect((call.query as URLSearchParams).get("properties")).toBe("name,quantity");
+  });
+
+  it("GETs without query when properties omitted", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ id: "li-1", properties: {} });
+    await lineItemsGet({ accessToken: "tok", lineItemId: "li-1" });
+    expect(mockHubspotRequest.mock.calls[0]![0]!.query).toBeUndefined();
   });
 });
 

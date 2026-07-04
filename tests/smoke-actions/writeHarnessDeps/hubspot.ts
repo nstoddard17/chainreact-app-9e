@@ -29,10 +29,13 @@ import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { contactsGet } from "@/integrations/_shared/hubspot/api/contacts";
 import { companiesGet } from "@/integrations/_shared/hubspot/api/companies";
 import { dealsGet } from "@/integrations/_shared/hubspot/api/deals";
+import { dealsCreate, dealsArchive } from "@/integrations/_shared/hubspot/api/deals";
 import { notesGet, tasksGet } from "@/integrations/_shared/hubspot/api/engagements";
 import { ticketsGet } from "@/integrations/_shared/hubspot/api/tickets";
 import { productsGet } from "@/integrations/_shared/hubspot/api/products";
+import { lineItemsGet } from "@/integrations/_shared/hubspot/api/lineItems";
 import { pipelinesList } from "@/integrations/_shared/hubspot/api/pipelines";
+import { NotFoundError } from "@/integrations/_shared/hubspot/errors";
 import type { StepRunOutcome } from "../writeHarness";
 import type { SmokeReaderContext, SmokeReaderInput } from "./context";
 
@@ -217,8 +220,44 @@ async function readHubSpotProductState(
   };
 }
 
+async function readHubSpotLineItemState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const lineItemId = typeof input.config.lineItemId === "string" ? input.config.lineItemId : "";
+  if (!lineItemId) return { ok: false, output: null, reason: "hubspot line_item_state: missing lineItemId" };
+  const integration = await getActiveForExecution(ctx.accountId, "hubspot", null);
+  if (!integration) return { ok: false, output: null, reason: "hubspot not connected" };
+  try {
+    const lineItem = await refreshAndRetry({
+      accountId: ctx.accountId,
+      provider: "hubspot",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) =>
+        lineItemsGet({ accessToken, lineItemId, properties: ["name", "quantity"] }),
+    });
+    return {
+      ok: true,
+      output: {
+        exists: true,
+        name: lineItem.properties.name ?? null,
+        quantity: lineItem.properties.quantity ?? null,
+      },
+      reason: null,
+    };
+  } catch (err) {
+    // ONLY the typed NotFoundError maps to exists:false (a deleted/archived line
+    // item GETs 404). Any other error RE-THROWS so a permission/API failure can
+    // never read as "deleted" — the composer's outer catch sanitizes it.
+    if (err instanceof NotFoundError) {
+      return { ok: true, output: { exists: false, name: null, quantity: null }, reason: null };
+    }
+    throw err;
+  }
+}
+
 /**
- * HubSpot smoke read-back seam. Owns seven smoke-only read actions, each ONE
+ * HubSpot smoke read-back seam. Owns eight smoke-only read actions, each ONE
  * object's sanitized marker-bearing properties via the strongly-consistent
  * GET-by-id wrappers (never the eventually-consistent /search):
  *   - `contact_state` — { found, email, firstname, lastname }
@@ -228,6 +267,9 @@ async function readHubSpotProductState(
  *   - `task_state`    — { found, subject, status }
  *   - `ticket_state`  — { found, subject, pipeline, stage }
  *   - `product_state` — { found, name, description }
+ *   - `line_item_state` — { exists, name, quantity }; the typed 404 maps to
+ *     exists:false (deletion proof for remove_line_item), any other error
+ *     rethrows so a failure can never read as "deleted".
  * Returns null for any other (provider, action). Bounded + sanitized.
  */
 export async function hubspotSmokeReadBack(
@@ -242,7 +284,67 @@ export async function hubspotSmokeReadBack(
   if (input.action === "task_state") return readHubSpotTaskState(ctx, input);
   if (input.action === "ticket_state") return readHubSpotTicketState(ctx, input);
   if (input.action === "product_state") return readHubSpotProductState(ctx, input);
+  if (input.action === "line_item_state") return readHubSpotLineItemState(ctx, input);
   return null;
+}
+
+export interface StagedHubSpotLineItemDeal {
+  readonly dealId: string;
+  /** Archive the staged parent deal (recycle bin, restorable). */
+  readonly remove: () => Promise<void>;
+}
+
+/**
+ * Stage ONE smoke parent deal for the line-item fixtures. `create_line_item`
+ * requires a dealId, but a fixture-created deal would enter the run ledger with
+ * no cleanup action and break the cleaned==created PASS gate — so the dev test
+ * stages the deal OUTSIDE the harness (Gmail attachment-seed precedent), passes
+ * its id via env overlay, and archives it in the finally via `remove`
+ * (dealsArchive -> recycle bin; the only deal-disposal path, no registered
+ * action exists). The dealname carries `markerPrefix` so even an archive
+ * failure leaves a recognizable crsmoke artifact. No amount is set. Returns
+ * null when HubSpot is not connected or the create fails -> the line-item
+ * fixtures report BLOCKED_ENV.
+ */
+export async function stageHubSpotLineItemDeal(
+  accountId: string,
+  _userId: string,
+  markerPrefix: string,
+  pipelineId: string,
+  stageId: string,
+): Promise<StagedHubSpotLineItemDeal | null> {
+  const integration = await getActiveForExecution(accountId, "hubspot", null);
+  if (!integration) return null;
+  const call = <T>(fn: (t: string) => Promise<T>): Promise<T> =>
+    refreshAndRetry({ accountId, provider: "hubspot", providerAccountId: integration.providerAccountId, apiCall: fn });
+  try {
+    const deal = await call((t) =>
+      dealsCreate({
+        accessToken: t,
+        properties: {
+          dealname: `${markerPrefix}lineitem-deal`,
+          pipeline: pipelineId,
+          dealstage: stageId,
+        },
+      }),
+    );
+    return {
+      dealId: deal.id,
+      remove: async () => {
+        try {
+          await call((t) => dealsArchive({ accessToken: t, dealId: deal.id }));
+        } catch (err) {
+          // Best-effort teardown: an already-archived deal (404) or transient
+          // failure never flips a verdict; the marked deal is a harmless artifact.
+          console.warn(
+            JSON.stringify({ event: "smoke.hubspot.staged_deal_cleanup_failed", error: (err as Error).name }),
+          );
+        }
+      },
+    };
+  } catch {
+    return null;
+  }
 }
 
 export interface HubSpotDealStageTarget {

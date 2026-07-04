@@ -54,6 +54,11 @@ const PROVIDER_READ_WRAPPERS = [
   "tasksGet",
   "ticketsGet",
   "productsGet",
+  // NOTE: staging MUTATORS (gmail usersMessagesSend/Trash, hubspot dealsCreate/
+  // dealsArchive) are deliberately NOT listed — they run through a local
+  // refreshAndRetry `call` helper the apiCall-line heuristic can't see; the
+  // decryptToken ban above still covers them.
+  "lineItemsGet",
   "pipelinesList",
 ] as const;
 

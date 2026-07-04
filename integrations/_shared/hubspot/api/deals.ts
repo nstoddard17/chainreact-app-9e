@@ -91,6 +91,32 @@ export async function dealsGet(input: DealsGetInput): Promise<HubSpotDeal> {
   });
 }
 
+// ─── dealsArchive ───────────────────────────────────────────────────────────
+
+export interface DealsArchiveInput {
+  accessToken: string;
+  dealId: string;
+}
+
+/**
+ * Archive (soft-delete) a deal: `DELETE /crm/v3/objects/deals/{id}`.
+ * HubSpot moves the deal to the recycle bin (restorable in-app for 90
+ * days) and returns 204 No Content. Replaying against an already-
+ * archived deal returns 404 -> canonical `NotFoundError`.
+ *
+ * No registered workflow action exposes this today — it backs the
+ * action-smoke staging teardown (the seeded line-item parent deal), so
+ * smoke runs stop accumulating marked deals on the throwaway portal.
+ */
+export async function dealsArchive(input: DealsArchiveInput): Promise<void> {
+  await hubspotRequest<void>({
+    accessToken: input.accessToken,
+    method: "DELETE",
+    path: crmPath(`objects/deals/${encodeURIComponent(input.dealId)}`),
+    resourceForNotFound: `deal ${input.dealId}`,
+  });
+}
+
 // ─── dealsSearch ────────────────────────────────────────────────────────────
 
 export interface DealsSearchInput {

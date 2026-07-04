@@ -54,6 +54,7 @@ import {
   stageGmailAttachmentMessage,
   discoverHubSpotDealStage,
   discoverHubSpotTicketStage,
+  stageHubSpotLineItemDeal,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -132,6 +133,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     let cleanupStagedFile: (() => Promise<void>) | null = null;
     // Trashes the Gmail attachment seed message (get_attachment). Run in the finally.
     let cleanupGmailAttachment: (() => Promise<void>) | null = null;
+    // Archives the staged HubSpot line-item parent deal. Run in the finally.
+    let cleanupHubSpotDeal: (() => Promise<void>) | null = null;
     if (provider === "trello" && execUsable) {
       const chosen = await discoverTrelloSmokeTarget(account, user);
       if (chosen) {
@@ -244,6 +247,22 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_HUBSPOT_DEAL_PIPELINE_ID = chosen.pipelineId; // id -> env overlay only
         overlay.SMOKE_HUBSPOT_DEAL_STAGE_ID = chosen.stageId; // id -> env overlay only
         targetLabel = `deal pipeline "${chosen.pipelineLabel}" / stage "${chosen.stageLabel}"`;
+        // Line-item fixtures need a PARENT deal. A fixture-created deal would enter
+        // the run ledger with no cleanup action and break the cleaned==created PASS
+        // gate, so stage ONE smoke deal here (Gmail attachment-seed precedent), pass
+        // its id via env overlay, and archive it in the finally.
+        const stagedDeal = await stageHubSpotLineItemDeal(
+          account,
+          user,
+          `crsmoke-${runToken}-`,
+          chosen.pipelineId,
+          chosen.stageId,
+        );
+        if (stagedDeal) {
+          overlay.SMOKE_HUBSPOT_LINEITEM_DEAL_ID = stagedDeal.dealId; // id -> env overlay only
+          cleanupHubSpotDeal = stagedDeal.remove;
+          targetLabel += " / staged line-item parent deal";
+        }
       }
       // create_ticket / update_ticket need a REAL ticket pipeline + stage id (same
       // never-invent rule). A pinned SMOKE_HUBSPOT_TICKET_PIPELINE_ID wins; else the
@@ -419,6 +438,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       // Always trash the Gmail attachment seed message (get_attachment reads it; the
       // staged v2_storage object it produced is a harmless artifact left in our bucket).
       if (cleanupGmailAttachment) await cleanupGmailAttachment();
+      // Always archive the staged HubSpot line-item parent deal (recycle bin).
+      if (cleanupHubSpotDeal) await cleanupHubSpotDeal();
     }
   }, 600_000);
 });

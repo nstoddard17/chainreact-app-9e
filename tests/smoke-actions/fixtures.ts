@@ -252,6 +252,11 @@ import hubspotCreateTicket from "@/tests/fixtures/action-smoke/hubspot/create_ti
 import hubspotUpdateTicket from "@/tests/fixtures/action-smoke/hubspot/update_ticket";
 import hubspotCreateProduct from "@/tests/fixtures/action-smoke/hubspot/create_product";
 import hubspotUpdateProduct from "@/tests/fixtures/action-smoke/hubspot/update_product";
+// SMOKE-WRITE-HUBSPOT-LINEITEM — line-item lifecycle on a STAGED parent deal;
+// first HubSpot flows with REAL delete cleanup (remove_line_item).
+import hubspotCreateLineItem from "@/tests/fixtures/action-smoke/hubspot/create_line_item";
+import hubspotUpdateLineItem from "@/tests/fixtures/action-smoke/hubspot/update_line_item";
+import hubspotRemoveLineItem from "@/tests/fixtures/action-smoke/hubspot/remove_line_item";
 // Slice 5.ASANA-1 — Asana first slice: 1 read + 4 writes (create/update/complete
 // dispose via complete_task — no Asana delete action ships in this slice).
 import asanaGetTask from "@/tests/fixtures/action-smoke/asana/get_task";
@@ -483,6 +488,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   hubspotUpdateTicket,
   hubspotCreateProduct,
   hubspotUpdateProduct,
+  hubspotCreateLineItem,
+  hubspotUpdateLineItem,
+  hubspotRemoveLineItem,
   asanaCreateTask,
   asanaUpdateTask,
   asanaCompleteTask,

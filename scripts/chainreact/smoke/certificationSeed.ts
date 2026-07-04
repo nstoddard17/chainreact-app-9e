@@ -60,6 +60,7 @@ const SMOKE_WRITE_GMAIL_REPLY = "2026-07-04";
 const SMOKE_WRITE_GMAIL_ATTACHMENT = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_CRM = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_ENGAGE = "2026-07-04";
+const SMOKE_WRITE_HUBSPOT_LINEITEM = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1047,5 +1048,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["hubspot", "update_ticket"],
     ["hubspot", "create_product"],
     ["hubspot", "update_product"],
+  ]),
+  // HUBSPOT-LINEITEM (2026-07-04) — line-item lifecycle, the FIRST HubSpot flows
+  // with REAL delete cleanup (remove_line_item is HubSpot's only registered
+  // delete-shaped action). Free-form line items (no product link, no price ->
+  // zero revenue weight) on a STAGED parent deal: the dev test creates ONE
+  // crsmoke deal outside the harness (Gmail attachment-seed precedent), overlays
+  // its id via SMOKE_HUBSPOT_LINEITEM_DEAL_ID, and archives it in the finally
+  // (dealsArchive -> recycle bin, restorable) — keeping the deal out of the run
+  // ledger so cleaned==created holds. Verifies via the line_item_state seam
+  // GET-by-id; remove_line_item proves deletion by an independent exists==false
+  // read-back (typed 404 only; other errors fail honestly), never {deleted:true}.
+  ...records("LIVE_PASS_CLEANED", "live line-item lifecycle on a staged parent deal; independent GET-by-id read-back, remove proves exists==false via typed 404; staged deal archived", SMOKE_WRITE_HUBSPOT_LINEITEM, [
+    ["hubspot", "create_line_item"],
+    ["hubspot", "update_line_item"],
+    ["hubspot", "remove_line_item"],
   ]),
 ];

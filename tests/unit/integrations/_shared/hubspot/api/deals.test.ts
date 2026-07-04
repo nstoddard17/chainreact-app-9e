@@ -11,6 +11,7 @@ jest.mock("@/integrations/_shared/hubspot/api/_request", () => ({
 }));
 
 import {
+  dealsArchive,
   dealsCreate,
   dealsGet,
   dealsSearch,
@@ -54,6 +55,19 @@ describe("dealsGet", () => {
     mockHubspotRequest.mockResolvedValueOnce({ id: "d1", properties: {} });
     await dealsGet({ accessToken: "tok", dealId: "d1" });
     expect(mockHubspotRequest.mock.calls[0]![0]!.query).toBeUndefined();
+  });
+});
+
+describe("dealsArchive", () => {
+  it("DELETEs /objects/deals/{id} with no body and returns void", async () => {
+    mockHubspotRequest.mockResolvedValueOnce(undefined);
+    const result = await dealsArchive({ accessToken: "tok", dealId: "d-9" });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("DELETE");
+    expect(call.path).toBe("/crm/v3/objects/deals/d-9");
+    expect(call.body).toBeUndefined();
+    expect(call.resourceForNotFound).toBe("deal d-9");
+    expect(result).toBeUndefined();
   });
 });
 

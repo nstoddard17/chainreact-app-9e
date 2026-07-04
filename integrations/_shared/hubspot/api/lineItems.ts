@@ -90,6 +90,35 @@ export async function lineItemsDelete(
   });
 }
 
+// ─── lineItemsGet ───────────────────────────────────────────────────────────
+
+export interface LineItemsGetInput {
+  accessToken: string;
+  lineItemId: string;
+  properties?: readonly string[];
+}
+
+/**
+ * GET one line item by id. Mirrors `tickets.ts:ticketsGet` — optional
+ * `properties` projection as a comma-separated query param. A deleted
+ * (archived) line item returns 404 -> canonical `NotFoundError`.
+ */
+export async function lineItemsGet(
+  input: LineItemsGetInput,
+): Promise<HubSpotLineItem> {
+  const query =
+    input.properties && input.properties.length > 0
+      ? new URLSearchParams({ properties: input.properties.join(",") })
+      : undefined;
+  return hubspotRequest<HubSpotLineItem>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: crmPath(`objects/line_items/${encodeURIComponent(input.lineItemId)}`),
+    ...(query ? { query } : {}),
+    resourceForNotFound: `line item ${input.lineItemId}`,
+  });
+}
+
 // ─── lineItemsSearch (HubSpot 2.1) ─────────────────────────────────────────
 
 export interface LineItemsSearchFilter {
