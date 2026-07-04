@@ -315,6 +315,50 @@ export async function memberAddNote(
   });
 }
 
+// ─── memberNotesList (GET .../notes) ────────────────────────────────────────
+
+interface MailchimpMemberNotesResponse {
+  notes?: MailchimpMemberNote[];
+  total_items?: number;
+}
+
+export interface MemberNotesListResult {
+  notes: readonly MailchimpMemberNote[];
+  totalItems: number;
+}
+
+export interface MemberNotesListInput {
+  accessToken: string;
+  dc: string;
+  audienceId: string;
+  email: string;
+  /** Page size — Mailchimp caps at 1000; clamp to a bounded 100. */
+  count?: number;
+}
+
+/**
+ * GET /lists/{audienceId}/members/{hash}/notes — the read side of
+ * `memberAddNote`. Backs the action-smoke `member_notes_state` seam
+ * (proves an added note landed on the persisted member).
+ */
+export async function memberNotesList(
+  input: MemberNotesListInput,
+): Promise<MemberNotesListResult> {
+  const hash = subscriberHash(input.email);
+  const count = Math.min(input.count ?? 100, 100);
+  const response = await mailchimpRequest<MailchimpMemberNotesResponse>({
+    accessToken: input.accessToken,
+    dc: input.dc,
+    method: "GET",
+    path: `/lists/${encodeURIComponent(input.audienceId)}/members/${hash}/notes?count=${count}`,
+    resourceForNotFound: `subscriber notes ${input.email}`,
+  });
+  return {
+    notes: response.notes ?? [],
+    totalItems: response.total_items ?? (response.notes ?? []).length,
+  };
+}
+
 // ─── memberAddEvent (POST .../events) ───────────────────────────────────────
 
 export interface MemberAddEventInput {
@@ -364,6 +408,57 @@ export async function memberAddEvent(
     body,
     resourceForNotFound: `subscriber event ${input.email}`,
   });
+}
+
+// ─── memberEventsList (GET .../events) ──────────────────────────────────────
+
+export interface MailchimpMemberEvent {
+  name: string;
+  properties?: Record<string, string>;
+  occurred_at?: string;
+}
+
+interface MailchimpMemberEventsResponse {
+  events?: MailchimpMemberEvent[];
+  total_items?: number;
+}
+
+export interface MemberEventsListResult {
+  events: readonly MailchimpMemberEvent[];
+  totalItems: number;
+}
+
+export interface MemberEventsListInput {
+  accessToken: string;
+  dc: string;
+  audienceId: string;
+  email: string;
+  /** Page size — clamp to a bounded 100. */
+  count?: number;
+}
+
+/**
+ * GET /lists/{audienceId}/members/{hash}/events — the read side of
+ * `memberAddEvent` (Mailchimp exposes a dedicated contact-events read
+ * endpoint). Backs the action-smoke `custom_event_state` seam (proves
+ * a fired custom event landed on the persisted member timeline).
+ */
+export async function memberEventsList(
+  input: MemberEventsListInput,
+): Promise<MemberEventsListResult> {
+  const hash = subscriberHash(input.email);
+  const count = Math.min(input.count ?? 100, 100);
+  const response = await mailchimpRequest<MailchimpMemberEventsResponse>({
+    accessToken: input.accessToken,
+    dc: input.dc,
+    method: "GET",
+    path: `/lists/${encodeURIComponent(input.audienceId)}/members/${hash}/events?count=${count}`,
+    resourceForNotFound: `subscriber events ${input.email}`,
+  });
+  return {
+    events: response.events ?? [],
+    totalItems: response.total_items ?? (response.events ?? []).length,
+  };
 }
 
 // ─── membersList (GET /lists/{id}/members) ──────────────────────────────────

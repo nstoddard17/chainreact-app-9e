@@ -64,6 +64,7 @@ const SMOKE_WRITE_HUBSPOT_LINEITEM = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_CALLMEET = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_LIST = "2026-07-04";
 const SMOKE_WRITE_MAILCHIMP_SUB = "2026-07-04";
+const SMOKE_WRITE_MAILCHIMP_FINISH = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1113,5 +1114,27 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["mailchimp", "add_tag"],
     ["mailchimp", "remove_tag"],
     ["mailchimp", "remove_subscriber"],
+  ]),
+  // MAILCHIMP-FINISH (2026-07-04) — notes + custom events prove on the seeded
+  // member via Mailchimp's dedicated READ endpoints (GET .../notes and
+  // GET .../events) and clean via remove_subscriber delete_permanent. The
+  // custom event name is the underscore run-token form (Mailchimp's
+  // ^[a-z][a-z0-9_]{0,29}$ rejects the dashed marker).
+  ...records("LIVE_PASS_CLEANED", "live note/event on a seeded member + independent notes/contact-events read-back; member permanently deleted (note and event go with it)", SMOKE_WRITE_MAILCHIMP_FINISH, [
+    ["mailchimp", "add_note"],
+    ["mailchimp", "create_custom_event"],
+  ]),
+  // create_segment: empty STATIC segment on the discovered audience; no
+  // registered segment delete -> one empty crsmoke segment left per run.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live empty static segment create + independent segment GET-by-id read-back; no registered delete so the empty crsmoke segment stays", SMOKE_WRITE_MAILCHIMP_FINISH, [
+    ["mailchimp", "create_segment"],
+  ]),
+  // create_audience: fixture + independent lists read-back are READY, but the
+  // live create was REFUSED by Mailchimp plan entitlement ("User does not have
+  // access to the requested operation" on POST /lists — the smoke account's
+  // plan caps audiences and one already exists). Not a handler bug. Re-runs
+  // every sweep; certifies once the smoke account has an audience slot.
+  ...records("BLOCKED_ENV", "live create refused by Mailchimp plan entitlement (audience cap on the smoke account); fixture + lists read-back ready, re-run when a slot exists", SMOKE_WRITE_MAILCHIMP_FINISH, [
+    ["mailchimp", "create_audience"],
   ]),
 ];

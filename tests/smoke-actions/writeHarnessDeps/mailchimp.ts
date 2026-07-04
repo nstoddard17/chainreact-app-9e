@@ -25,8 +25,13 @@
  */
 import { getActiveForExecution } from "@/repositories/integrations";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
-import { memberGet } from "@/integrations/_shared/mailchimp/api/members";
+import {
+  memberEventsList,
+  memberGet,
+  memberNotesList,
+} from "@/integrations/_shared/mailchimp/api/members";
 import { listsList } from "@/integrations/_shared/mailchimp/api/lists";
+import { segmentGet } from "@/integrations/_shared/mailchimp/api/segments";
 import { resolveMailchimpAccount } from "@/integrations/_shared/mailchimp/api/me";
 import { NotFoundError } from "@/integrations/_shared/mailchimp/errors";
 import type { StepRunOutcome } from "../writeHarness";
@@ -66,10 +71,130 @@ async function readMailchimpMemberState(
   }
 }
 
+interface MailchimpSeamTarget {
+  readonly integration: NonNullable<Awaited<ReturnType<typeof getActiveForExecution>>>;
+  readonly dc: string;
+}
+
+/** Shared integration+dc resolution for the readers below. */
+async function resolveSeamTarget(
+  ctx: SmokeReaderContext,
+): Promise<MailchimpSeamTarget | { error: string }> {
+  const integration = await getActiveForExecution(ctx.accountId, "mailchimp", null);
+  if (!integration) return { error: "mailchimp not connected" };
+  const dc = integration.accountMetadata.dc;
+  if (typeof dc !== "string" || dc.length === 0) {
+    return { error: "mailchimp integration has no datacenter" };
+  }
+  return { integration, dc };
+}
+
+async function readMailchimpMemberNotesState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const audienceId = typeof input.config.audienceId === "string" ? input.config.audienceId : "";
+  const email = typeof input.config.email === "string" ? input.config.email : "";
+  if (!audienceId || !email) {
+    return { ok: false, output: null, reason: "mailchimp member_notes_state: missing audienceId/email" };
+  }
+  const target = await resolveSeamTarget(ctx);
+  if ("error" in target) return { ok: false, output: null, reason: target.error };
+  const { notes } = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "mailchimp",
+    providerAccountId: target.integration.providerAccountId,
+    apiCall: (accessToken) =>
+      memberNotesList({ accessToken, dc: target.dc, audienceId, email }),
+  });
+  // ONLY the note bodies of OUR smoke member — the marker assertion runs on them.
+  return { ok: true, output: { found: true, notes: notes.map((n) => n.note) }, reason: null };
+}
+
+async function readMailchimpCustomEventState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const audienceId = typeof input.config.audienceId === "string" ? input.config.audienceId : "";
+  const email = typeof input.config.email === "string" ? input.config.email : "";
+  if (!audienceId || !email) {
+    return { ok: false, output: null, reason: "mailchimp custom_event_state: missing audienceId/email" };
+  }
+  const target = await resolveSeamTarget(ctx);
+  if ("error" in target) return { ok: false, output: null, reason: target.error };
+  const { events } = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "mailchimp",
+    providerAccountId: target.integration.providerAccountId,
+    apiCall: (accessToken) =>
+      memberEventsList({ accessToken, dc: target.dc, audienceId, email }),
+  });
+  // ONLY the event names on OUR smoke member's timeline.
+  return { ok: true, output: { found: true, eventNames: events.map((e) => e.name) }, reason: null };
+}
+
+async function readMailchimpAudienceState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const audienceId = typeof input.config.audienceId === "string" ? input.config.audienceId : "";
+  if (!audienceId) {
+    return { ok: false, output: null, reason: "mailchimp audience_state: missing audienceId" };
+  }
+  const target = await resolveSeamTarget(ctx);
+  if ("error" in target) return { ok: false, output: null, reason: target.error };
+  // Presence is decided from a SUCCESSFUL account-wide lists read (bounded one
+  // page of 100 — throwaway accounts have a handful of audiences at most).
+  const { lists } = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "mailchimp",
+    providerAccountId: target.integration.providerAccountId,
+    apiCall: (accessToken) => listsList({ accessToken, dc: target.dc, count: 100 }),
+  });
+  const hit = lists.find((l) => l.id === audienceId);
+  return {
+    ok: true,
+    output: { exists: hit !== undefined, name: hit?.name ?? null },
+    reason: null,
+  };
+}
+
+async function readMailchimpSegmentState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const audienceId = typeof input.config.audienceId === "string" ? input.config.audienceId : "";
+  const segmentId = typeof input.config.segmentId === "string" ? input.config.segmentId : "";
+  if (!audienceId || !segmentId) {
+    return { ok: false, output: null, reason: "mailchimp segment_state: missing audienceId/segmentId" };
+  }
+  const target = await resolveSeamTarget(ctx);
+  if ("error" in target) return { ok: false, output: null, reason: target.error };
+  const segment = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "mailchimp",
+    providerAccountId: target.integration.providerAccountId,
+    apiCall: (accessToken) =>
+      segmentGet({ accessToken, dc: target.dc, audienceId, segmentId }),
+  });
+  return {
+    ok: true,
+    output: { found: true, name: segment.name ?? null },
+    reason: null,
+  };
+}
+
 /**
- * Mailchimp smoke read-back seam. Owns one smoke-only read action:
+ * Mailchimp smoke read-back seam. Owns five smoke-only read actions:
  *   - `member_state` — { exists, status } via GET-by-hash; typed 404 ->
  *     exists:false (deletion proof), other errors rethrow.
+ *   - `member_notes_state` — { found, notes[] } (note bodies) via the notes
+ *     read endpoint — proves add_note landed.
+ *   - `custom_event_state` — { found, eventNames[] } via the contact-events
+ *     read endpoint — proves create_custom_event landed on the timeline.
+ *   - `audience_state` — { exists, name } from a SUCCESSFUL bounded lists
+ *     read (absence is never inferred from an error).
+ *   - `segment_state` — { found, name } via segment GET-by-id.
  * Returns null for any other (provider, action). Bounded + sanitized.
  */
 export async function mailchimpSmokeReadBack(
@@ -78,6 +203,10 @@ export async function mailchimpSmokeReadBack(
 ): Promise<StepRunOutcome | null> {
   if (input.provider !== "mailchimp") return null;
   if (input.action === "member_state") return readMailchimpMemberState(ctx, input);
+  if (input.action === "member_notes_state") return readMailchimpMemberNotesState(ctx, input);
+  if (input.action === "custom_event_state") return readMailchimpCustomEventState(ctx, input);
+  if (input.action === "audience_state") return readMailchimpAudienceState(ctx, input);
+  if (input.action === "segment_state") return readMailchimpSegmentState(ctx, input);
   return null;
 }
 

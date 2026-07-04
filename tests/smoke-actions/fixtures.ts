@@ -274,6 +274,12 @@ import mailchimpUnsubscribeSubscriber from "@/tests/fixtures/action-smoke/mailch
 import mailchimpAddTag from "@/tests/fixtures/action-smoke/mailchimp/add_tag";
 import mailchimpRemoveTag from "@/tests/fixtures/action-smoke/mailchimp/remove_tag";
 import mailchimpRemoveSubscriber from "@/tests/fixtures/action-smoke/mailchimp/remove_subscriber";
+// SMOKE-WRITE-MAILCHIMP-FINISH — notes/events clean via member deletion;
+// audience/segment have no registered delete (artifact left, marker-named).
+import mailchimpAddNote from "@/tests/fixtures/action-smoke/mailchimp/add_note";
+import mailchimpCreateCustomEvent from "@/tests/fixtures/action-smoke/mailchimp/create_custom_event";
+import mailchimpCreateAudience from "@/tests/fixtures/action-smoke/mailchimp/create_audience";
+import mailchimpCreateSegment from "@/tests/fixtures/action-smoke/mailchimp/create_segment";
 // Slice 5.ASANA-1 — Asana first slice: 1 read + 4 writes (create/update/complete
 // dispose via complete_task — no Asana delete action ships in this slice).
 import asanaGetTask from "@/tests/fixtures/action-smoke/asana/get_task";
@@ -518,6 +524,10 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   mailchimpAddTag,
   mailchimpRemoveTag,
   mailchimpRemoveSubscriber,
+  mailchimpAddNote,
+  mailchimpCreateCustomEvent,
+  mailchimpCreateAudience,
+  mailchimpCreateSegment,
   asanaCreateTask,
   asanaUpdateTask,
   asanaCompleteTask,

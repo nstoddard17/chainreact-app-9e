@@ -326,6 +326,15 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_MAILCHIMP_SUB_EMAIL_TAGADD = addr("tga");
         overlay.SMOKE_MAILCHIMP_SUB_EMAIL_TAGREMOVE = addr("tgr");
         overlay.SMOKE_MAILCHIMP_SUB_EMAIL_REMOVE = addr("rem");
+        // Finisher batch: add_note / create_custom_event seed their own members;
+        // create_audience needs the owner email for CAN-SPAM campaign_defaults;
+        // the custom event NAME must satisfy Mailchimp's ^[a-z][a-z0-9_]{0,29}$
+        // (the dashed crsmoke- marker is invalid there, so build an underscore
+        // variant from the same run token).
+        overlay.SMOKE_MAILCHIMP_SUB_EMAIL_NOTE = addr("note");
+        overlay.SMOKE_MAILCHIMP_SUB_EMAIL_EVENT = addr("evt");
+        overlay.SMOKE_MAILCHIMP_OWNER_EMAIL = `${chosen.ownerLocal}@${chosen.ownerDomain}`;
+        overlay.SMOKE_MAILCHIMP_EVENT_NAME = `crsmoke_${runToken.replace(/[^a-z0-9]/gi, "").toLowerCase()}_ev`;
         targetLabel = `audience "${chosen.audienceLabel}" / plus-addressed owner mailbox`;
       }
     } else if (provider === "monday" && execUsable) {

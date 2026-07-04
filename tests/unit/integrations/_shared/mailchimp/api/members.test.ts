@@ -19,7 +19,9 @@ import {
   memberAddNote,
   memberArchive,
   memberDeletePermanent,
+  memberEventsList,
   memberGet,
+  memberNotesList,
   memberPatch,
   memberPut,
   memberSetTags,
@@ -350,6 +352,47 @@ describe("memberAddNote", () => {
 });
 
 // ─── memberAddEvent ─────────────────────────────────────────────────────────
+
+describe("memberNotesList", () => {
+  it("GETs /lists/{audienceId}/members/{hash}/notes with a bounded count", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { notes: [{ id: 1, note: "hi" }], total_items: 1 },
+    });
+    const result = await memberNotesList({
+      accessToken: "tok",
+      dc: "us1",
+      audienceId: AUDIENCE_ID,
+      email: "urist@mcvankab.com",
+      count: 999,
+    });
+    const url = String(fetchSpy.mock.calls[0]![0]);
+    expect(url).toContain(`/lists/${AUDIENCE_ID}/members/${HASH_URIST}/notes`);
+    expect(url).toContain("count=100");
+    expect(result.notes).toEqual([{ id: 1, note: "hi" }]);
+    expect(result.totalItems).toBe(1);
+  });
+});
+
+describe("memberEventsList", () => {
+  it("GETs /lists/{audienceId}/members/{hash}/events with a bounded count", async () => {
+    const fetchSpy = mockFetchOnce({
+      ok: true,
+      json: { events: [{ name: "crsmoke_ev" }], total_items: 1 },
+    });
+    const result = await memberEventsList({
+      accessToken: "tok",
+      dc: "us1",
+      audienceId: AUDIENCE_ID,
+      email: "urist@mcvankab.com",
+    });
+    const url = String(fetchSpy.mock.calls[0]![0]);
+    expect(url).toContain(`/lists/${AUDIENCE_ID}/members/${HASH_URIST}/events`);
+    expect(url).toContain("count=100");
+    expect(result.events).toEqual([{ name: "crsmoke_ev" }]);
+    expect(result.totalItems).toBe(1);
+  });
+});
 
 describe("memberAddEvent", () => {
   it("POSTs /events with name + is_syncing: false by default", async () => {

@@ -64,6 +64,9 @@ const PROVIDER_READ_WRAPPERS = [
   "listMembershipsGet",
   "pipelinesList",
   "memberGet",
+  "memberNotesList",
+  "memberEventsList",
+  "segmentGet",
   "listsList",
 ] as const;
 
