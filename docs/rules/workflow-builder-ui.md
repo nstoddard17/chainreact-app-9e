@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Define how the V2 workflow builder is composed of small, focused components — not a single mega-file — while preserving the legacy app's exact visual layout, terminology, and interaction model.
+Define how the ChainReactV2 workflow builder is composed of small, focused components — not a single mega-file. The builder has a fixed three-pane visual layout, terminology, and interaction model.
 
 ## Resolved Decisions
 
 **Locked for Slice 1:**
 - Builder lives at `features/workflow-builder/`, decomposed into `canvas/`, `panels/`, `config-modal/`, `state/`, `hooks/`.
-- The legacy app's visual layout (three-pane: library / canvas / config) and interaction model preserved exactly.
+- The visual layout (three-pane: library / canvas / config) and interaction model are fixed.
 - Provider config files cap at < 500 lines; split by tab/section if they grow.
 - Field-renderer registry hand-maintained: explicit `field-type → component` map, type-safe.
 - **Data access pattern (resolves "no fetch in components"):**
@@ -17,7 +17,7 @@ Define how the V2 workflow builder is composed of small, focused components — 
   - **Typed client API functions** live in `lib/api/<domain>.ts` — thin wrappers over `fetch` against V2 server routes.
   - **Server mutations and provider data calls** are always behind services and routes. Repositories are server-side only (see workflow-state-store rule).
 - Real-time collaboration deferred. Undo/redo deferred (confirm against current V2 behavior and product scope). AI panel deferred.
-- FlowEdges alignment algorithm preserved verbatim from the legacy builder (DO NOT TOUCH zone — `DEFAULT_COLUMN_X = 400` invariant). Lives behind the canvas/edges interface; does not force the rest of the builder to mirror the legacy structure.
+- FlowEdges alignment algorithm is a DO NOT TOUCH zone — the `DEFAULT_COLUMN_X = 400` invariant must hold. It lives behind the canvas/edges interface and does not dictate the structure of the rest of the builder.
 
 **Deferred decisions:**
 - Real-time collaboration architecture (when un-deferred).
@@ -27,17 +27,16 @@ Define how the V2 workflow builder is composed of small, focused components — 
 **Decisions requiring product-owner input:**
 - AI panel placement in the layout when un-deferred.
 
-## Problem being solved (historical context)
+## ChainReactV2 standard
 
-The legacy app's workflow builder was concentrated in:
-- `components/workflows/builder/WorkflowBuilderV2.tsx` — **8,032 lines**, 7 inline `fetch()` calls, 37 `useEffect`s, business logic mixed with rendering.
-- `hooks/workflows/useWorkflowBuilder.ts` — **3,640 lines** in one hook. Owns builder state, node configuration, action plumbing, UI mode state.
-- `components/workflows/configuration/providers/AirtableConfiguration.tsx` — 4,428 lines, plus 58 `console.log` calls.
-- `components/workflows/configuration/fields/FieldRenderer.tsx` — 3,398 lines.
+The builder is decomposed so that each concern is independently changeable:
 
-Every change to one concern (a node-config field, a canvas behavior, an execution status indicator) risked breaking unrelated concerns. Onboarding to the builder code required reading thousands of lines.
+- No mega-file. The builder is split into `canvas/`, `panels/`, `config-modal/`, `state/`, and `hooks/`, each with a single responsibility.
+- Components are presentational. No component performs `fetch()` or `supabase.from()`, mixes business logic with rendering, or crams unrelated concerns into a shared `useEffect`.
+- Provider config files cap at < 500 lines and split by tab/section as they grow.
+- Changing one concern (a node-config field, a canvas behavior, an execution status indicator) never risks breaking an unrelated concern.
 
-## V2 intended behavior
+## ChainReactV2 intended behavior
 
 The builder is a feature module at `features/workflow-builder/` decomposed into independent areas, each with a clear responsibility:
 
@@ -46,7 +45,7 @@ features/workflow-builder/
 ├── canvas/                 # ReactFlow surface + custom node renderers
 │   ├── WorkflowCanvas.tsx          # the surface
 │   ├── nodes/                      # one file per node type (action, trigger, logic)
-│   ├── edges/                      # FlowEdges algorithm (preserved verbatim from the legacy builder)
+│   ├── edges/                      # FlowEdges algorithm (DO NOT TOUCH; DEFAULT_COLUMN_X = 400 invariant)
 │   └── controls/                   # zoom, fit-to-view, mini-map
 ├── panels/
 │   ├── NodeLibraryPanel.tsx        # left panel: searchable list of triggers + actions
@@ -72,7 +71,7 @@ features/workflow-builder/
 
 Every component is presentational by default. Components read state through hooks and dispatch actions through hook-returned callbacks. No component performs `fetch()` or `supabase.from()`.
 
-The visual layout — three-pane (library / canvas / config), bottom execution strip, modal-based field editing — is unchanged from the legacy app. Only the internal decomposition is new.
+The visual layout is fixed: three-pane (library / canvas / config), bottom execution strip, modal-based field editing. Components decompose internally without changing this layout.
 
 ## Single source of truth
 
@@ -131,7 +130,7 @@ The boundary in every flow above: components only know about hooks; hooks only k
 - **Provider config that shares fields with another provider:** field-renderer components are generic by `type`. A new provider that uses only existing field types needs zero new field code.
 - **Provider config with a unique widget (e.g. a calendar picker):** the provider's config component renders the widget directly; the field-type renderer registry stays minimal.
 - **Field with an external data source (e.g. Slack channel list):** field component calls a hook (`useChannelList(integrationId)`); the hook calls a typed client API function (`apiClient.integrations.listChannels(integrationId)`), which hits a server route, which calls a service, which calls the repository. Components never fetch directly. Hooks never call repositories — repositories are server-side only.
-- **FlowEdges alignment:** the algorithm is preserved verbatim. Custom-node sizing must not break the `DEFAULT_COLUMN_X = 400` invariant.
+- **FlowEdges alignment:** the algorithm is a DO NOT TOUCH zone. Custom-node sizing must not break the `DEFAULT_COLUMN_X = 400` invariant.
 
 ## Required tests
 
@@ -156,21 +155,21 @@ E2E test in `tests/e2e/playwright/builder-slack.spec.ts`:
 
 12. Sign in → create workflow → drag Slack trigger → configure → drag Slack action → configure → activate → see "Active" status.
 
-## Behavior to preserve
+## Allowed behavior
 
 - Visual layout: three-pane (library / canvas / config), bottom execution strip.
 - Interaction model: drag nodes from palette, click to configure, modal-based field editing.
 - Terminology: "trigger," "action," "step," "configuration," "test run."
 - ReactFlow controls and behaviors (zoom, pan, mini-map, fit-to-view).
-- FlowEdges alignment algorithm — preserved verbatim. Do not let it force the old builder structure into V2; it lives behind the canvas/edges interface.
-- Optimistic UI patterns for save / activation (the legacy app mostly did this well).
+- FlowEdges alignment algorithm — a DO NOT TOUCH zone. It lives behind the canvas/edges interface and does not dictate the builder's structure.
+- Optimistic UI patterns for save / activation.
 - Error display in the bottom strip when a run fails.
 
-## Behavior to drop
+## Disallowed behavior
 
-- 8,032-line monolith component.
+- Monolith components. Split by concern; hard cap < 500 lines.
 - Inline `fetch()` calls.
-- 37 `useEffect`s in one file.
+- Many `useEffect`s in one file; cross-cutting effect chains.
 - Business logic interleaved with rendering.
 - Provider config files > 500 lines (split by tab or by sub-section).
 - Direct Zustand store mutation from components (use slice actions).
@@ -180,4 +179,4 @@ E2E test in `tests/e2e/playwright/builder-slack.spec.ts`:
 
 (Real-time collaboration, AI panel placement, field-renderer registry, configuration validation split, and builder performance budget are now resolved or deferred — see "Resolved Decisions" above.)
 
-1. **Undo / redo:** confirm against current V2 behavior and product scope whether it is required for the builder and whether it is parity-critical. If not parity-critical, defer until after Slice 1. The state-slice design should accommodate an undo-stack slice without restructuring graph or selection slices.
+1. **Undo / redo:** confirm against product scope whether it is required for the builder. If not required, defer until after Slice 1. The state-slice design should accommodate an undo-stack slice without restructuring graph or selection slices.

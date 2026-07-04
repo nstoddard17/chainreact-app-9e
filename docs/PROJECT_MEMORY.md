@@ -47,9 +47,8 @@
   production-first risk, intentionally deferred** (plan exists, not an active task);
   live-provider validation is owned by a **separate chat**. Fixed locally: webhook dedup
   now **fails closed** before enqueue (`19c00455f`); platform billing **code-ready pending
-  Marcus dashboard verification** (`141fd5789`). The legacy app's billing/cron model
-  (packs/overage/auto-buy crons) does **not** apply to V2 (reserve/reconcile +
-  account_billing + AI credits). Detail →
+  Marcus dashboard verification** (`141fd5789`). V2 billing uses a reserve/reconcile
+  model on `account_billing` + AI credits (not packs/overage/auto-buy crons). Detail →
   [`docs/slices/phase-5/mvp-launch-status-reconciliation.md`](./slices/phase-5/mvp-launch-status-reconciliation.md).
 - [2026-06-29] **Failed runs show a clear reason + one primary next action
   (CR-FAILREASON).** Rule: [`docs/rules/failed-run-recovery.md`](./rules/failed-run-recovery.md).
@@ -90,8 +89,8 @@
   NOT a customer/team account `owner`/`admin` role. Neither a platform operator nor any customer
   account role globally bypasses billing; a non-internal account is always billed regardless of
   who runs its workflows. Internal runs are still recorded in
-  `task_usage_events` (observability) but never touch `account_billing` counters, so parity
-  invariants hold. Migration `20260707000000_account_billing_internal_entitlement.sql`
+  `task_usage_events` (observability) but never touch `account_billing` counters, so the
+  reconciliation invariants (ledger sums equal counters) hold. Migration `20260707000000_account_billing_internal_entitlement.sql`
   (forward-only, applied to dev); Slice `BILLING-INTERNAL-ENTITLEMENT-1`.
 - [2026-07-13] **Durable run execution = a `queued` state on `workflow_runs`, not a new table**
   (DURABLE-QUEUE-1; supersedes the 2026-06-11 interim `after()`/`waitUntil` keep-alive). Lifecycle
@@ -173,10 +172,8 @@
   `COVERED_PROVIDERS` / `tests/structure/discovery-meta-coverage.test.ts`; residual backlog
   non-launch-blocking →
   [`provider-metadata-launch-gap-tracker.md`](./slices/phase-4/provider-metadata-launch-gap-tracker.md) §8–§9.
-- [Claude] `chainreactv2-parity-auditor` skill **deferred** until recurring demand.
-- [Marcus] The old `chainreact-app-9e` repo is **decommissioned / non-operative** — do
-  not inspect, port, audit, or compare against it for V2 work unless Marcus explicitly
-  asks. (An old CLAUDE.md-trim task there was shelved and is now moot.)
+- [Claude] New providers are selected by product value, official API support, V2
+  architecture fit, and live-certification readiness.
 - [Claude] Connected-app recovery **core UX is shipped** (`4.APPS-RECONNECT` / `V2-READY-28` /
   `CS-APPS-RECOVERY-1/2/3`; reverified 2026-06-26, 87/87 focused apps tests green). One polish
   item remains: AppCard reassurance copy ("Reconnect this app to keep workflows running." and

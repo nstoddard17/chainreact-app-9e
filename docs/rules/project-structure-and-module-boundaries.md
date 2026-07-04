@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the official ChainReactV2 folder structure, what each top-level folder owns, what each may import, what is forbidden, and how to keep the new repo from re-creating the legacy app's monolithic architecture. This rule applies **globally across the entire app**, not just the workflow builder.
+Define the official ChainReactV2 folder structure, what each top-level folder owns, what each may import, and what is forbidden. Every concern has a single named owner, and no file grows into a monolith. This rule applies **globally across the entire app**, not just the workflow builder.
 
 The other rule docs each define one subsystem. This doc is the *whole-codebase* rule that all the others sit inside. When in doubt about where new code belongs, this is the source of truth.
 
@@ -24,22 +24,20 @@ The other rule docs each define one subsystem. This doc is the *whole-codebase* 
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Problem being solved (historical context)
+## ChainReactV2 standard
 
-The legacy app's structure was the root cause of most of the issues the other rule docs address:
+Every concern has a single, named owner. The structure enforces these rules directly:
 
-- **Monolithic files** — `WorkflowBuilderV2.tsx` (8,032 lines), `useWorkflowBuilder.ts` (3,640 lines), `provider-registry.ts` (1,595 lines), `webhooks/microsoft/route.ts` (2,475 lines).
-- **Unclear ownership boundaries** — no rule for what goes in `lib/` vs `services/` vs `hooks/` vs `stores/`. The same logic appears in three places.
-- **React components import backend concerns** — components calling `fetch()` directly, components reading database state, components implementing business rules in `useEffect`.
-- **Duplicated logic across `lib/`, `app/api/`, `hooks/`, `stores/`** — variable resolution exists in three independent paths; OAuth scopes are defined in two files.
-- **Provider logic spread across multiple trees** — Slack handlers in `lib/workflows/actions/`, Slack schemas in `lib/workflows/nodes/providers/slack/`, Slack OAuth in `lib/integrations/`, Slack webhooks in `app/api/webhooks/slack/`. No single Slack folder.
-- **Service / repository / domain logic mixed together** — route handlers do business logic, services touch DB directly, "core" logic lives in stores.
-- **Dead scripts / docs / trash** — `scripts/trash/` is a self-acknowledged dumping ground.
-- **No clear answer to "where do I put this?"** — onboarding takes weeks.
+- **No monolithic files.** File-size caps (§6) are enforced by lint/CI: target < 300 lines, hard cap < 500.
+- **Clear ownership boundaries.** Every concern maps to exactly one folder; the single-source-of-truth table (§7) names the owner. The same logic never appears in more than one place.
+- **React components never import backend concerns.** Components do not call `fetch()`, do not read database state, and do not implement business rules in `useEffect`.
+- **No duplicated logic across layers.** Variable resolution has one path; OAuth scopes live in one file per provider.
+- **Provider logic is colocated.** Each provider owns a single `integrations/<provider>/` folder holding its manifest, OAuth, client, actions, triggers, and webhooks.
+- **Service / repository / domain logic stays separated.** Routes are thin; services orchestrate; repositories touch the DB; core holds pure rules.
+- **No trash folder.** Disposable scripts are deleted, not retained.
+- **"Where do I put this?" always has an answer** — the placement checklist (§9) resolves it.
 
-V2 fixes this by giving every concern a single, named owner.
-
-## V2 top-level folder structure
+## Top-level folder structure
 
 ```
 chainreact-v2/
@@ -152,7 +150,7 @@ chainreact-v2/
 
 ### `supabase/migrations/` — clean V2 migration sequence
 
-- No blind replay of the legacy app's incremental migration history. V2 starts with a consolidated initial migration plus forward-only additions.
+- A consolidated initial migration plus forward-only additions. Migrations are never modified after they are applied.
 - **Every migration that creates a user-data or tenant-data table MUST enable RLS and define at least one policy in the same migration.** CI lints for this. See [database-security.md](./database-security.md) for the migration template, encryption rules, service-role boundaries, and per-table policy tests.
 
 ## Import boundary rules
@@ -254,7 +252,7 @@ Each row below names the canonical owner of one concern. New code with overlappi
 
 ## Naming conventions
 
-- **Provider folders** use stable provider IDs (`slack`, `gmail`, `discord`, `notion`, `airtable`, `stripe`, etc.). Backward compat for token rows during migration off the legacy app depends on these names.
+- **Provider folders** use stable provider IDs (`slack`, `gmail`, `discord`, `notion`, `airtable`, `stripe`, etc.). Provider IDs are stable public identifiers; integration token rows, webhook registrations, and workflow definitions depend on them, so they are never renamed.
 - **Action files** use kebab-case: `send-channel-message.ts`, `create-record.ts`.
 - **Trigger files** use kebab-case: `new-message-in-channel.ts`, `record-created.ts`.
 - **Schema files** sit next to their handler with `.schema.ts`: `send-channel-message.schema.ts`.

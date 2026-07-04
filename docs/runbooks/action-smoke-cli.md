@@ -20,7 +20,7 @@ short-circuited the external handler), `mocked` (a fake boundary, unit tests), o
 
 The split is deliberate: the offline CLI can't import the handler registry
 (server-only + every provider client), so it reads the inventory as text; the
-Jest harness imports the real registry and executes. A parity test
+Jest harness imports the real registry and executes. A consistency test
 (`tests/unit/smoke-actions/registry-parity.test.ts`) guarantees the two never
 drift.
 
@@ -1227,7 +1227,7 @@ in OUR smoke folder, compared against the captured folder id — never an input 
 deleted (file then folder). **`copy_item` — async blocker RESOLVED + LIVE-VERIFIED (SMOKE-WRITE-33)
 via unblock option (b): a harness extension that captures a seam-discovered id into the cleanup
 ledger.** The production handler is UNCHANGED — it still returns `{status:"pending", monitorUrl}` and
-does NOT poll (Slice 8 legacy-rot fix; `status:"pending"` is the honest "copy initiated" contract). The
+does NOT poll (Slice 8 cleanup; `status:"pending"` is the honest "copy initiated" contract). The
 write harness gained a `completeAsync` phase: after execute it reads the TRUSTED monitor URL from the
 execute output (`monitorUrlPath`), polls it to TERMINAL completion via a bounded, smoke-only read-back
 seam (`microsoft-onedrive:copy_monitor` — capped attempts + total duration + capped backoff;

@@ -27,18 +27,16 @@ Security is part of the schema, not a layer above it.
 **Decisions requiring product-owner input:**
 - Public-read tables (e.g., predefined templates): final list confirmed when templates land in V2.
 
-## Problem being solved (historical context)
+## ChainReactV2 standard
 
-The failure modes this rule structurally prevents (observed historically in the legacy app):
-- Tables added during rapid iteration shipping without policies and being patched later.
-- Service-role usage scattered across many service files instead of concentrated in one helper — the service-role boundary enforced by convention, not by structure.
-- Token encryption helpers mixed with business logic; decrypt failures not handled with the discipline they deserve.
-- No CI lint failing when a new table lacks RLS.
-- Uneven RLS test coverage — newer tables shipping without policy tests.
+RLS is structural, not aspirational. This rule structurally prevents these failure modes:
+- Every table ships with policies in the same migration; no table is patched with policies later.
+- Service-role usage is concentrated in one helper — the service-role boundary is enforced by structure, not by convention.
+- Token encryption helpers stay out of business logic; decrypt failures are handled with the discipline they deserve.
+- CI lint fails when a new table lacks RLS.
+- Every table with RLS ships with policy tests in the same PR.
 
-V2 makes RLS structural, not aspirational.
-
-## V2 intended behavior
+## ChainReactV2 intended behavior
 
 Every migration that creates a user-data or tenant-data table follows a strict template:
 
@@ -187,7 +185,7 @@ CI checks (lint-style):
 7. **Migration RLS + GRANT lint.** A linter scans every migration file for `CREATE TABLE` and verifies the same migration contains (a) `ENABLE ROW LEVEL SECURITY`, (b) at least one `CREATE POLICY`, and (c) at least one `GRANT ... ON public.<table> TO ...` for the table — unless the migration declares the table as a system table with a header comment that justifies it (in which case the GRANT must go to `service_role` only).
 8. **Service-role import guard.** ESLint rule restricts `createClient` calls with `SERVICE_ROLE_KEY` to `repositories/supabase/serviceRoleClient.ts`.
 
-## Behaviors this rule preserves
+## Required behaviors
 
 - RLS policies on every user-data / tenant-data table.
 - Token encryption pattern (AES-256, encryption key from env) — the helper and tests live at `core/encryption/tokens.ts`.

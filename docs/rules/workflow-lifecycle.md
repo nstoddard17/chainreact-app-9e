@@ -20,7 +20,7 @@ Define every state a workflow can be in, every allowed transition between states
 - **Manual-trigger workflows** carry a native `manual.run` trigger node (meta `activation: "manual"`). It needs no integration and is **not activatable**: it fires only via `POST /api/workflows/[id]/run-now`, which reads `draftDefinition` and bypasses trigger registration + dispatch entirely. Activation/resume register **no** `trigger_resources` row for it; action-only workflows (zero trigger nodes) likewise register nothing. Precondition checks still run. See "Manual vs activatable triggers" below.
 - `disabled_reason` is a typed enum (`integration_revoked`, `billing_exhausted`, `repeated_failure`, `manual_admin`) plus optional context string.
 - Failed trigger registration during activation: retry once with short backoff inside the orchestrator; longer retries belong to a separate cron path.
-- In-flight runs during pause/disable: V2 follows the legacy app's behavior — let the run finish; pause/disable means "no new runs."
+- In-flight runs during pause/disable: let the run finish; pause/disable means "no new runs."
 - **Multi-integration disable cascade (locked):** if an `active` workflow depends on multiple integrations and **any required** integration becomes disconnected, revoked, expired, or otherwise unhealthy in a way that prevents execution, the workflow transitions to `disabled`. Rules:
   - Disable only workflows that depend on the affected integration. Never disable unrelated workflows.
   - A workflow remains `active` only when **all** required dependencies are healthy.
@@ -38,21 +38,16 @@ Define every state a workflow can be in, every allowed transition between states
 **Decisions requiring product-owner input:**
 - None for Slice 1. (Multi-integration disable cascade is now locked above.)
 
-## Problem being solved (historical context)
+## ChainReactV2 standard
 
-The legacy app had lifecycle-relevant state spread across:
-- `workflows.status` (text column, values not strictly enumerated)
-- `workflows.is_active` (boolean — overlaps with status)
-- `workflows.eligible_to_resume` (boolean)
-- The `workflowStore.ts` Zustand store (1,338 lines, contains UI-side state interpretation)
-- Per-route handler logic that re-derived state from columns inconsistently
-- Trigger registration state (`trigger_resources` table) maintained separately
+Lifecycle state has exactly one representation and one owner:
 
-There was no single state diagram. Different parts of the codebase decided differently whether a workflow could run, could be edited, could be billed, or showed as "active" in the UI.
+- A single typed `state` enum column on `workflows` is the sole persisted lifecycle state. There is no `is_active` boolean, no separate `eligible_to_resume` flag, and no ad-hoc `paused_by_billing` / `disabled_at` flag interacting with it.
+- Derived flags (executable, billable, displayStatus) are pure projections, never stored columns.
+- One state machine in `core/workflows/lifecycle.ts` is the single state diagram. Every part of the codebase decides identically whether a workflow can run, be edited, be billed, or show as "active."
+- Trigger registration state is reconciled through the orchestrator so a workflow never shows "active" in the UI while its trigger webhook is unregistered.
 
-The legacy app also accumulated lifecycle-adjacent flags (`paused_by_billing`, `disabled_at`, `last_activated_at`) that interacted in non-obvious ways. The result was bugs where, e.g., a workflow was "active" in the UI but its trigger webhook was never re-registered after a disconnect.
-
-## V2 intended behavior
+## ChainReactV2 intended behavior
 
 A single state machine in `core/workflows/lifecycle.ts` defines the canonical states and transitions. Persistence lives in `repositories/workflows.ts` as a single `state` column with a typed enum. Derived flags (UI status, billable, executable) are computed projections, not stored alongside state.
 
@@ -157,7 +152,7 @@ Recovery is the standard two-step model: **Reactivate** moves `disabled → elig
 **Resume** re-runs activation preconditions and re-registers the activatable triggers off the current
 draft — never silently re-activating if a precondition still fails.
 
-Historical arc detail:
+Arc detail:
 [manual-trigger-lifecycle-closeout.md](../slices/phase-4/workflows/manual-trigger-lifecycle-closeout.md).
 
 ## Disallowed behavior
@@ -165,7 +160,7 @@ Historical arc detail:
 - Auto-transition from `disabled` directly to `active`. `eligible_to_resume` is mandatory; user must explicitly resume.
 - Activation when the trigger registration call fails. Activation is transactional: if registration fails, the state stays `draft` and the failure is reported.
 - Two concurrent transitions on the same workflow. Use a row-level lock (advisory lock or SELECT FOR UPDATE).
-- UI reading `is_active` or other legacy columns. UI consumes only the projection helpers.
+- UI reading `is_active` or any raw state column. UI consumes only the projection helpers.
 - Skipping the `eligible_to_resume` step and resuming silently when an integration reconnects.
 - Disabling an entire user's workflows because one integration disconnected. Disable cascade is per-integration: only workflows that depend on the revoked integration are disabled.
 - Deletion of a workflow that has in-flight runs without first allowing them to complete or be killed.
@@ -212,23 +207,23 @@ Integration tests in `tests/integration/lifecycle/`:
     c. Disabled workflow (because Gmail disconnected). Gmail reconnects → workflow transitions to `eligible_to_resume` (not auto-resumed).
     d. Disabled workflow (because Gmail disconnected). Gmail reconnects, but Slack disconnects in the meantime. User attempts resume → resume **fails** with a typed error citing the still-broken dependency; workflow remains `disabled` (or `eligible_to_resume`); never silently `active`.
 
-Parity test in `tests/parity/`:
+Regression test in `tests/parity/`:
 
-16. A workflow that the legacy app silently auto-resumed after integration reconnect (known regression) does NOT auto-resume in V2.
+16. A workflow whose integration reconnects after a disable does NOT silently auto-resume; it lands in `eligible_to_resume` and requires explicit user resume.
 
-## Behavior to preserve
+## Allowed behavior
 
 - The `eligible_to_resume` concept — users explicitly resume disabled workflows after reconnection.
 - Per-integration disable cascade (don't disable unrelated workflows).
 - Run history retention through deletion.
 - Manual-trigger workflow activation (the `manual.run` trigger needs no integration and registers nothing).
 
-## Behavior to drop
+## Disallowed behavior
 
 - State spread across multiple columns and stores.
 - Implicit lifecycle transitions buried in route handlers.
 - UI reading raw columns rather than projections.
-- Auto-resume edge cases that bypass user consent.
+- Auto-resume that bypasses user consent.
 
 ## Open questions
 

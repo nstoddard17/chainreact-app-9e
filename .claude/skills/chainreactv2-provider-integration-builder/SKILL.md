@@ -22,15 +22,18 @@ No hidden follow-up work. No fake completion.
 
 ## Context first
 
-Before changing code:
+The flow is:
 
-1. Follow the [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill.
-2. Read current project memory and rule docs through MCP.
-3. Inspect current V2 provider code before editing — it is the implementation reference.
-4. Research the provider's current public docs when scopes, endpoints, auth, rate limits, webhook support, or payloads are unclear.
-5. Verify against live provider behavior / smoke evidence where possible.
+1. MCP / project context — follow the [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill; read current project memory and rule docs.
+2. Current ChainReactV2 code inspection — inspect existing provider implementations; they are the reference.
+3. Official provider docs research — scopes, endpoints, auth, rate limits, webhook support, payloads.
+4. Existing V2 pattern audit — pick the same-family provider patterns to reuse.
+5. Implementation plan.
+6. Build / test / smoke.
+7. Owner setup report.
+8. Live completion certification after owner setup (Phase 13).
 
-Use current ChainReactV2 code, docs, provider patterns, official provider API docs, and live-provider certification evidence as the source of truth. Do not inspect or port from the old `chainreact-app-9e` repo. If a provider pattern is unclear, derive it from current V2 provider implementations and rule docs, then verify against the provider's official docs and live behavior where possible.
+Use current ChainReactV2 code, docs, tests, provider patterns, official provider API docs, and live provider evidence as the only implementation references. If a provider pattern is unclear, derive it from current V2 provider implementations and rule docs, then verify against the provider's official docs and live behavior.
 
 ---
 

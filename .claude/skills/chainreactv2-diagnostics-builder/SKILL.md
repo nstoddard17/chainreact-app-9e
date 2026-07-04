@@ -137,6 +137,6 @@ internals.
 
 - Not a roadmap. The unbuilt stages (graph / doctors / reports) live in the roadmap doc; this
   skill governs *how* any of them must be built, not *when*.
-- Not a legacy-parity frame. Build the diagnostic on current V2 boundaries and patterns; don't anchor it to the old app.
+- Build the diagnostic on current ChainReactV2 boundaries and patterns.
 - Not a license to add mutation. The suite is read-only end to end — no rerun/reconnect/refresh/
   edit/apply tool unless a new, separately-approved contract introduces one.

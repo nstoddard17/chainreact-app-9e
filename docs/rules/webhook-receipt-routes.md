@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define how V2 receives, verifies, normalizes, and dispatches incoming webhook events from integration providers. Replace the legacy app's monolithic per-provider routes with a thin route → integration receive → normalize → trigger manager pattern.
+Define how ChainReactV2 receives, verifies, normalizes, and dispatches incoming webhook events from integration providers. Each provider uses a thin route → integration receive → normalize → trigger manager pattern.
 
 ## Resolved Decisions
 
@@ -31,21 +31,13 @@ Define how V2 receives, verifies, normalizes, and dispatches incoming webhook ev
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Problem being solved (historical context)
+## ChainReactV2 standard
 
-The legacy app's webhook routes were large, mixed-concern monoliths:
+- Webhook routes are thin (~30 lines). A route never mixes signature verification, payload parsing, event normalization, trigger lookup, idempotency dedup, and execution dispatch — each concern has its own module.
+- Adding a provider, or changing one provider's verification scheme, touches only that provider's `integrations/<provider>/webhooks/` modules and never risks another provider.
+- Webhook logic lives in exactly one place: `integrations/<provider>/webhooks/`. Pure logic never lives in the route, and the route never delegates to a separate processor tree.
 
-- `app/api/webhooks/microsoft/route.ts` — **2,475 lines**.
-- `lib/webhooks/google-processor.ts` — **3,101 lines**.
-- `lib/webhooks/triggerWebhookManager.ts` — **2,847 lines** for registration / renewal / lifecycle.
-- `app/api/webhooks/stripe-billing/route.ts` — 947 lines.
-- `app/api/webhooks/discord/hitl/route.ts` — 793 lines.
-
-Each route file mixed: signature verification, payload parsing, event normalization, trigger lookup, idempotency dedup, and execution dispatch. Adding a new provider, or changing one provider's verification scheme, required reading thousands of lines and risked unrelated providers.
-
-The legacy app also had webhook receipt fragmented across both `app/api/webhooks/` and `lib/webhooks/`. The split was functional but unclear — the route file usually did its own work plus delegating to a processor in `lib/webhooks/`, with no consistent boundary.
-
-## V2 intended behavior
+## ChainReactV2 intended behavior
 
 Each provider has two thin, single-purpose modules under its integration folder:
 
@@ -103,7 +95,7 @@ The dispatcher in `services/triggers/dispatch.ts` is provider-agnostic. It recei
 - **Microsoft Graph subscription validation:** Microsoft sends a `GET` (or sometimes `POST` with a validation token) when creating a subscription; the route echoes the token back as `text/plain`. `receive.ts` handles this.
 - **Signature verification failure:** `receive.ts` throws `InvalidSignatureError`. Route returns `401`. Do not log the signature itself.
 - **Batch events with mixed validity:** if one event in a batch fails normalization, the dispatcher logs the failure and continues with the others. The route still returns `200` (the provider considers the delivery successful; bad events are our problem to log and resolve).
-- **Out-of-order delivery / retries:** providers retry on 5xx. Idempotency dedup catches retries. Out-of-order events: each event normalizes independently; ordering across events is not guaranteed by webhooks (the legacy app already accepted this).
+- **Out-of-order delivery / retries:** providers retry on 5xx. Idempotency dedup catches retries. Out-of-order events: each event normalizes independently; ordering across events is not guaranteed by webhooks.
 - **Webhook for unregistered or deleted workflow:** dispatcher silently drops with a debug log. This is normal — webhooks may take time to deregister after workflow deletion.
 - **Webhook for a workflow in `paused` or `disabled` state:** dispatcher drops without execution. The trigger registration may still exist on the provider side; pausing/disabling does not always immediately deregister webhooks (per the lifecycle rule).
 - **Provider quotas / queue saturation:** if the internal execution queue is saturated, the route returns `429` so the provider retries with backoff. Engine concerns about queue capacity surface here.
@@ -145,22 +137,22 @@ Integration tests in `tests/integration/webhooks/<p>.test.ts`:
 18. Workflow not found: silent drop, route returns 200, no run created.
 19. Verification handshake: route returns the challenge token without enqueueing anything.
 
-## Behavior to preserve
+## Allowed behavior
 
-- Provider-specific signature verification logic (the legacy app had the right verifications; they were just buried).
+- Provider-specific signature verification logic, colocated in `receive.ts`.
 - Idempotency-key strategies per provider.
 - Normalization shapes that downstream workflow trigger configs depend on. **Don't break workflow expectations.**
 - Verification handshakes for every provider that requires them.
 - Async dispatch (route returns 200 quickly; execution runs asynchronously).
 
-## Behavior to drop
+## Disallowed behavior
 
-- Monolithic 2,000+ line route files.
+- Monolithic route files.
 - Verification + parsing + normalization + dispatch in a single function.
 - Inline trigger lookup in webhook routes.
 - Per-provider quirks leaking past the normalize boundary.
 - `console.log` in webhook routes (use the structured logger).
-- Inconsistent split between `app/api/webhooks/` and `lib/webhooks/` — V2 puts pure logic in `integrations/<p>/webhooks/`, the route is a 30-line shell.
+- Pure webhook logic outside `integrations/<p>/webhooks/`. The route is a 30-line shell.
 
 ## Open questions
 

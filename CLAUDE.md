@@ -2,22 +2,17 @@
 
 ## ✅ PRIMARY / ACTIVE APP — LIVE IN PRODUCTION
 
-ChainReactV2 is the primary ChainReact app/codebase — build all new work here.
-The old `chainreact-app-9e` repo is decommissioned and non-operative.
+ChainReactV2 is the ChainReact app/codebase — build all work here.
 
 ### Active-repo guardrail (read before running anything)
 
-- **ChainReactV2 is the ONLY active repo.** All editing, running, testing,
+- **ChainReactV2 is the only repo you work in.** All editing, running, testing,
   committing, migrations, and verification happen here:
   `c:\Users\marcu\source\repos\ChainReactV2`.
-- **The old `chainreact-app-9e` repo is decommissioned / non-operative.** Do NOT
-  inspect, port, audit, compare against, or preserve its behavior for V2 work, and do
-  **NOT** edit, run tasks/tests/scripts, commit, stash, `db:push`, or deploy in it —
-  unless Marcus **explicitly** asks for work in that repo.
-- **Verify the repo before shell commands.** A shell can start in the old
-  `chainreact-app-9e` repo by accident (its path is the machine's default working
-  directory). Before any `git` / `npm` / `db` command, confirm the working tree is
-  ChainReactV2 — e.g. `git rev-parse --show-toplevel` should end in `ChainReactV2`.
+- **Verify the repo before shell commands.** A shell can start in a different
+  directory by accident (the machine's default working directory is not this repo).
+  Before any `git` / `npm` / `db` command, confirm the working tree is ChainReactV2 —
+  e.g. `git rev-parse --show-toplevel` should end in `ChainReactV2`.
 
 **V2 is live in production** at `https://chainreact.app`, deploying from the
 `v2-main` branch. Authoritative status, including current verification state:
@@ -35,14 +30,13 @@ default" does not mean "V2 isn't live" — both facts can be true at once.
 
 ## Project Purpose
 
-ChainReactV2 is the primary ChainReact app — a clean, V2-native workflow automation
-platform. It is live in production and under active development.
+ChainReactV2 is a workflow automation platform, live in production and under active
+development.
 
-Use current ChainReactV2 code, docs, provider patterns, official provider API docs, and
-live-provider certification evidence as the source of truth. Do not inspect or port from
-the old `chainreact-app-9e` repo. If a provider pattern is unclear, derive it from
-current V2 provider implementations and rule docs, then verify against the provider's
-official docs and live behavior where possible.
+Use current ChainReactV2 code, docs, tests, provider patterns, official provider API
+docs, and live provider evidence as the only implementation references. If a provider
+pattern is unclear, derive it from current V2 provider implementations and rule docs,
+then verify against the provider's official docs and live behavior.
 
 ---
 
@@ -85,8 +79,7 @@ reuse:
 
 Match a same-family V2 provider where one exists, then verify behavior against the
 provider's official API docs and live behavior. Document the patterns reused and any
-intentional divergences in the provider's `v2-pattern-audit.md`. Do not inspect or port
-from the old `chainreact-app-9e` repo.
+intentional divergences in the provider's `v2-pattern-audit.md`.
 
 ---
 
@@ -199,22 +192,23 @@ Source of truth:
 * **Production go-live status:** [`docs/slices/phase-4/v2-go-live-status.md`](./docs/slices/phase-4/v2-go-live-status.md)
 * **Builder-metadata launch gap (9 providers):** [`docs/slices/phase-4/provider-metadata-launch-gap-tracker.md`](./docs/slices/phase-4/provider-metadata-launch-gap-tracker.md)
 * **Revived/deferred providers:** [`docs/slices/phase-3/missing-providers-status.md`](./docs/slices/phase-3/missing-providers-status.md) → [`provider-completion-closeout.md`](./docs/slices/phase-3/provider-completion-closeout.md)
-* **Per-slice plans & outcomes:** [`docs/slices/phase-1/`](./docs/slices/phase-1/), [`phase-2/`](./docs/slices/phase-2/), [`phase-3/`](./docs/slices/phase-3/) and [`parity/`](./docs/slices/parity/)
+* **Per-slice plans & outcomes:** [`docs/slices/`](./docs/slices/)
 
-**Provider-addition gate (durable):** no net-new provider without a parity/audit doc
-and a roadmap entry (roadmap §Phase 2). Local work is not pushed without Marcus.
+**Provider-addition gate (durable):** no net-new provider without a `v2-pattern-audit.md`
+and a roadmap entry. Local work is not pushed without Marcus.
 
 ---
 
 ## V2 Provider Authoring Rules
 
 Universal rules every provider action / trigger / handler MUST follow. Per-provider
-specifics and the full skip/port rationale live in the outcome docs indexed under
-**Deep Gotchas** below; where a rule has a dedicated reference it is linked here.
+specifics live in the provider's own `integrations/<provider>/` implementation and its
+`research.md` / `v2-pattern-audit.md`; where a rule has a dedicated reference it is
+linked here.
 
 **Actions & schemas**
 1. **Typed-and-narrow.** One provider endpoint per action. No generic `operation` / `deleteBy` / `searchColumn` router fields and no multi-purpose dispatchers — ship separate typed actions instead.
-2. **No `make_api_call` escape hatch.** No generic method/path/body passthrough; fill gaps with targeted typed ports.
+2. **No `make_api_call` escape hatch.** No generic method/path/body passthrough; fill gaps with targeted typed actions.
 3. **`.strict()` schemas; reject raw provider wire-format.** The wrapper synthesizes provider wire-format from V2-shaped inputs — workflow authors never hand-author raw provider payloads.
 4. **Q11 — explicit required fields, no hidden defaults.** High-risk / recipient-visible / behaviour-switching fields are required with no silent default (e.g. Sheets `valueInputOption`, Outlook `replyAll` / `isHtml` / `importance`).
 
@@ -233,7 +227,7 @@ specifics and the full skip/port rationale live in the outcome docs indexed unde
 12. **Trigger filters are pure.** No enrichment I/O (`*.info`), no `FileRef` construction, no Promises — the trigger emits a thin handle, the action does the I/O. Compose downstream for bytes/metadata.
 13. **DB-backed dedup with stable provider IDs; fail-closed.** Key `webhook_event_dedup` on stable provider ids (hashes, not raw PII); on dedup outage skip-enqueue this tick. Prefix the eventId per-trigger when one entity fans out to multiple triggers.
 
-**Porting & structure**
+**Structure**
 14. **Don't treat orphan files as shipped.** Registry presence — not `.ts` presence — defines the action set; orphan backfill is product-signal-gated.
 15. **Manifest honesty.** Don't set `actions:true` / `webhookTrigger:true` until handlers/triggers are registered. (Also in *Important Defaults*.)
 16. **50-file leaf-folder cap.** Split a provider's `actions/` into domain subfolders (`actions/channels/`, `actions/line_items/`) as it approaches the cap; update registry import paths to match.
@@ -244,31 +238,15 @@ specifics and the full skip/port rationale live in the outcome docs indexed unde
 
 ## Provider & Contract Notes (index)
 
-Durable per-provider and per-contract specifics — failure modes, skip/port tables,
-wire-format details — live in the outcome and rules docs below. The universal rules are
-in **V2 Provider Authoring Rules** above; consult these only when working that provider
-or contract.
+The universal rules are in **V2 Provider Authoring Rules** above. Per-provider specifics
+— actions, triggers, wire-format, failure modes — are read from the provider's own
+`integrations/<provider>/` implementation, its registry entries, and its
+`research.md` / `v2-pattern-audit.md`. The cross-cutting contracts live in the rule docs:
 
-**Cross-cutting contracts & rules**
-- File output (FileRef / P-S3): [`docs/rules/file-output-contract.md`](./docs/rules/file-output-contract.md)
-- Token-ingest auth (Trello pattern): [`docs/rules/token-ingest-auth.md`](./docs/rules/token-ingest-auth.md)
+- File output (FileRef): [`docs/rules/file-output-contract.md`](./docs/rules/file-output-contract.md)
+- Token-ingest auth: [`docs/rules/token-ingest-auth.md`](./docs/rules/token-ingest-auth.md)
 - Folder / module boundaries (50-file cap): [`docs/rules/project-structure-and-module-boundaries.md`](./docs/rules/project-structure-and-module-boundaries.md)
-- Shared-mock e2e execution: [`docs/rules/testing-strategy.md`](./docs/rules/testing-strategy.md)
-
-**Per-provider** (outcome docs carry the per-action/trigger detail + skip/port tables)
-
-- **Slack** — [`2.2 channels/lifecycle`](./docs/slices/phase-2/slack-2-2-private-channels-and-lifecycle.md) · [`2.3 channels+users`](./docs/slices/phase-2/slack-2-3-outcomes.md) · [`2.4 files (P-S3)`](./docs/slices/phase-2/slack-2-4-outcomes.md) · [`2.5 file_shared trigger`](./docs/slices/phase-2/slack-2-5-outcomes.md)
-- **Gmail** — [`2.3 triggers + attachments`](./docs/slices/phase-2/gmail-2-3-outcomes.md)
-- **Notion** — [`2.1 typed-and-narrow`](./docs/slices/phase-2/notion-2-1-outcomes.md)
-- **Google Sheets** — [`2.1`](./docs/slices/phase-2/google-sheets-2-1-outcomes.md) · [`2.2 batch/format`](./docs/slices/phase-2/google-sheets-2-2-outcomes.md) · [`2.3 triggers/snapshots`](./docs/slices/phase-2/google-sheets-2-3-triggers-outcomes.md)
-- **Microsoft Excel** — [`parity`](./docs/slices/parity/microsoft-excel-parity-outcomes.md)
-- **Stripe** — [`2.1`](./docs/slices/phase-2/stripe-2-1-outcomes.md)
-- **Airtable** — [`2.1`](./docs/slices/phase-2/airtable-2-1-outcomes.md)
-- **Shopify** — [`2.1`](./docs/slices/parity/shopify-2-1-outcomes.md)
-- **HubSpot** — [`2.1`](./docs/slices/parity/hubspot-2-1-outcomes.md)
-- **Mailchimp** — [`2.1`](./docs/slices/parity/mailchimp-2-1-outcomes.md)
-- **Outlook Mail** — [`2.1 compose/drafts`](./docs/slices/parity/outlook-mail-2-1-outcomes.md)
-- **Native control-flow** — [`Tier C (if/router)`](./docs/slices/parity/native-nodes-3-tier-c-control-flow-outcomes.md)
+- Testing strategy + shared-mock e2e execution: [`docs/rules/testing-strategy.md`](./docs/rules/testing-strategy.md)
 
 ---
 
@@ -331,4 +309,4 @@ specific home.
 
 - **Do not push unless Marcus explicitly says to push.** His approval of a verified
   batch authorizes a `v2-main` push, which deploys to prod (no staging env yet).
-- **Build providers from current V2 patterns + official provider docs + live evidence — never from the old `chainreact-app-9e` repo.**
+- **Build providers from current V2 patterns, official provider docs, and live provider evidence.**

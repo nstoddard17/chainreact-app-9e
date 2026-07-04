@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define how Zustand state is organized for the workflow builder in V2. Replace the legacy app's monolithic builder hook and store with a small set of independent slices, each owning a single concern.
+Define how Zustand state is organized for the workflow builder in ChainReactV2. Builder state is a small set of independent slices, each owning a single concern.
 
 ## Resolved Decisions
 
@@ -29,18 +29,16 @@ Define how Zustand state is organized for the workflow builder in V2. Replace th
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Problem being solved (historical context)
+## ChainReactV2 standard
 
-The legacy app concentrated builder state in two oversized files:
+Builder state is decomposed so that each concern is an isolated, testable unit:
 
-- `hooks/workflows/useWorkflowBuilder.ts` — **3,640 lines**. One hook owns: graph state, node configuration, action plumbing, UI mode (edit / preview / execute), selection, in-progress edits, dirty-tracking, save coordination.
-- `stores/workflowStore.ts` — **1,338 lines**. Mixes workflow CRUD (server-synced), builder runtime (client-only), and a workflow-list cache.
+- No oversized state file. Graph state, node configuration, UI mode, selection, in-progress edits, dirty-tracking, and save coordination live in separate slices.
+- No store mixes server-synced CRUD, client-only runtime, and list caches together — each is owned separately.
+- A small change (renaming a field, adding a tab to a config modal) is contained to one slice, with no non-obvious ordering dependencies across concerns.
+- Every store targets ≤ 300 lines, hard cap < 500 lines. The same rule applies to every store (`authStore`, `billingStore`, integration caches).
 
-Coupling between concerns meant a small change (renaming a field, adding a tab to a config modal) rippled across thousands of lines. State changes had non-obvious ordering dependencies. Tests were hard to write because there was no isolated unit.
-
-The legacy app also had stores well over 400 lines elsewhere (`integrationStore.ts` 1,454, `authStore.ts` 786, `billingStore.ts` 442) that the same rule applies to.
-
-## V2 intended behavior
+## ChainReactV2 intended behavior
 
 State is split into small Zustand slices, each owning one concern. Builder slices live under `features/workflow-builder/state/`:
 
@@ -133,17 +131,17 @@ Cross-slice tests in `tests/integration/builder-orchestration/`:
 12. Execution starts → service subscribes to executionSlice → updates ExecutionStatusPanel without coupling slices.
 13. Workflow close → orchestrator tears down subscriptions → no memory leaks (verified via test memory profiler if available, or by counting active subscriptions).
 
-## Behavior to preserve
+## Allowed behavior
 
-- Optimistic UI on save (the legacy app mostly did this well).
+- Optimistic UI on save.
 - Server reconciliation on save success.
 - Cross-tab session broadcast for auth state (PR-AUTH-1 pattern, in `authStore` only).
-- The conceptual separation of "saved server state" vs "in-progress edits."
+- The separation of "saved server state" vs "in-progress edits."
 
-## Behavior to drop
+## Disallowed behavior
 
 - Monolithic stores mixing concerns.
-- Hook-level ownership of complex state (move to slices; hooks become thin adapters).
+- Hook-level ownership of complex state (state lives in slices; hooks are thin adapters).
 - Business logic in selectors.
 - Cross-store implicit dependencies (one store reads another).
 - `useState`-stored complex objects that should be slice state (and vice versa).

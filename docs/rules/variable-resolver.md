@@ -28,19 +28,15 @@ Every place in V2 that resolves variables — engine pre-resolution, design-time
 **Decisions requiring product-owner input:**
 - None for Slice 1.
 
-## Problem being solved (historical context)
+## ChainReactV2 standard
 
-The legacy app had resolver drift across at least three independent code paths:
+ChainReactV2 uses one canonical resolver for both runtime and design-time variable resolution. There is exactly one code path, so a workflow resolves identically no matter where resolution happens.
 
-1. The action-layer `resolveValue` used by some handlers directly.
-2. The engine-layer `DataFlowManager.resolveObjectStrict` used by the execution engine.
-3. Integration-layer ad-hoc resolution (per-provider quirks scattered across `lib/workflows/actions/core/` and `lib/execution/variableResolver.ts`).
+- One module owns resolution: `workflow-engine/variables/resolveValue.ts`. No action-layer, engine-layer, or integration-layer resolver exists alongside it.
+- Missing values, type coercion, AI_FIELD substitution, and nested-path resolution have exactly one set of semantics.
+- Tracking is one function with an optional `unresolvedCollector` parameter. The rules for what counts as "unresolved" are the same for every caller.
 
-Each path had slightly different semantics for: missing values, type coercion, AI_FIELD substitution, and nested-path resolution. This produced bugs that looked like "the same workflow runs differently depending on which path it goes through."
-
-The legacy `resolveValueWithTracking` and the `unresolvedCollector` pattern compounded the problem because callers could opt into tracking but the rules for what counts as "unresolved" differed.
-
-## V2 intended behavior
+## ChainReactV2 intended behavior
 
 One resolver module at `workflow-engine/variables/resolveValue.ts` exports two functions:
 
@@ -86,7 +82,7 @@ The Q2 contract document (`docs/handler-contracts.md`) is the canonical specific
 - **Optional vs required fields:** Resolver does not know which fields are required; that's the schema's job. Resolver always strict-throws on missing in strict mode; engine wraps required-vs-optional logic outside.
 - **Empty-string and zero preservation (Q5):** `{ retries: 0 }` and `{ enabled: false }` are valid explicit values, not "missing." Distinguish `undefined` (missing) from `null`/`0`/`false`/`""` (explicit).
 - **Whitespace inside references:** `{{ node1.field }}` (with spaces) is the same as `{{node1.field}}` — whitespace inside `{{...}}` trimmed.
-- **Escaped delimiters:** The legacy app had no escape syntax. V2 declares `\{{...}}` reserved for escape in case a workflow ever needs to ship literal `{{` text — but until that need is real, escape is unimplemented and using `\{{` produces an explicit error message, not silent passthrough.
+- **Escaped delimiters:** ChainReactV2 reserves `\{{...}}` for escape in case a workflow ever needs to ship literal `{{` text — but until that need is real, escape is unimplemented and using `\{{` produces an explicit error message, not silent passthrough.
 
 ## Required tests
 
@@ -107,25 +103,25 @@ Unit tests in `tests/unit/workflow-engine/variables/resolveValue.test.ts`:
 13. Identical input + context produces identical output (deterministic).
 14. AI_FIELD nested with inner reference: the inner reference resolves first; the resolver emits an `AIFieldRef` sentinel carrying the resolved inner value; no AI client call occurs inside the resolver.
 
-Parity tests in `tests/parity/resolver-drift.test.ts`:
+Regression tests in `tests/parity/resolver-drift.test.ts`:
 
 15. A workflow with a specific known multi-path case that could resolve differently across paths resolves identically through V2's strict path.
 
-## Behavior to preserve
+## Allowed behavior
 
 - Q2 strict-runtime contract: handlers never see unresolved templates.
 - Q5 explicit-zero / explicit-false preservation.
 - Pre-resolution at engine layer, not handler layer.
-- Soft mode availability for design-time UX.
+- Soft mode for design-time UX.
 - Mixed-template interpolation semantics (string → string with substituted segments).
 
-## Behavior to drop
+## Disallowed behavior
 
 - Multiple resolver implementations.
 - Provider-specific resolver paths.
 - Handler-level template resolution.
-- Silent missing-variable fallbacks in strict-mode-equivalent contexts.
-- The split between `resolveValue` and `resolveValueWithTracking` — V2 has one function with an optional collector parameter.
+- Silent missing-variable fallbacks in strict-mode contexts.
+- Splitting tracking into a separate function. Resolution is one function with an optional collector parameter.
 
 ## Open questions
 

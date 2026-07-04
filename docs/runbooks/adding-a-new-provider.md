@@ -357,7 +357,7 @@ Create:
 ```
 integrations/<provider-id>/
 ├── manifest.ts
-├── oauth.ts                   (or auth.ts — see §3.3 legacy note)
+├── oauth.ts                   (or auth.ts — see §3.3 grandfathered note)
 ├── actions/
 │   ├── <action1>.ts
 │   ├── <action1>.schema.ts
@@ -384,10 +384,10 @@ integrations/<provider-id>/
     └── <picker>.ts            (dynamic dropdown resolvers)
 ```
 
-Folder presence rules (going‑forward standard, with legacy noted):
+Folder presence rules (going‑forward standard, with grandfathered exceptions noted):
 
-- `webhooks/` directory should exist whenever the provider has any webhook trigger — even app‑level webhooks. *Legacy: Shopify and Trello inline webhook handling in the route; do not refactor them in this slice but new providers must use `webhooks/receive.ts`.*
-- `oauth.ts` is the filename for all auth modules going forward, regardless of whether the export implements `ProviderOAuth` or `ProviderTokenIngestAuth`. *Legacy: Trello's file is `auth.ts` — grandfathered, do not rename.*
+- `webhooks/` directory should exist whenever the provider has any webhook trigger — even app‑level webhooks. *Grandfathered: Shopify and Trello inline webhook handling in the route; do not refactor them in this slice but new providers must use `webhooks/receive.ts`.*
+- `oauth.ts` is the filename for all auth modules going forward, regardless of whether the export implements `ProviderOAuth` or `ProviderTokenIngestAuth`. *Grandfathered: Trello's file is `auth.ts` — do not rename.*
 - `api/` is optional but recommended even for tiny providers; it keeps handlers readable. Use `_shared/<provider-family>/` for cross‑provider helpers (Microsoft Graph, Google APIs).
 
 ### 3.2 `manifest.ts` — the registry entry
@@ -821,7 +821,7 @@ the same `fields[]` array ([`contracts/triggerMeta.ts:87`](../../contracts/trigg
 Children are gated until every parent has a value.
 
 **Going‑forward rule:** resolvers always go through `refreshAndRetry` even for
-non‑refreshable providers. *Legacy: Trello resolvers `decryptToken` and call
+non‑refreshable providers. *Grandfathered: Trello resolvers `decryptToken` and call
 directly — do not refactor in this slice but don't copy the pattern.*
 
 ### 3.8 Webhook receive — thin route + provider receive
@@ -1151,7 +1151,7 @@ risk profile; there is no fixed count target.
 ### 6.2 Risk‑based depth (add when applicable)
 
 - **Destructive actions** (`isDestructive: true`) — add a confirmation test ensuring the builder modal surfaces. Add an idempotency/safety test if the provider supports idempotency keys (Stripe).
-- **Financial actions** (Stripe writes, payment moves) — preflight policy tests (livemode guard), parity tests against the engine's test‑mode short‑circuit.
+- **Financial actions** (Stripe writes, payment moves) — preflight policy tests (livemode guard), equivalence tests against the engine's test‑mode short‑circuit.
 - **OAuth‑heavy** (multiple OAuth flows, tenant‑specific consent) — add per‑flow tests.
 - **Multi‑tenant** (Shopify shop domain, providerHint) — add `validateProviderHint` tests, JWT‑binding test, host‑injection rejection test.
 - **Webhook‑heavy** — add tests for every webhook topic/event type; dedup test; signature‑mismatch test per topic.
@@ -1331,7 +1331,7 @@ Things only Marcus can do, per provider:
 - ❌ Declaring both `options[]` (static) and `optionsSource` (dynamic) on the same field. Mutually exclusive.
 - ❌ Renaming a provider id. It breaks integration row foreign keys and webhook subscription lookup.
 - ❌ Implementing a polling trigger without seeding the snapshot at activation. Events between activation and first poll will be silently dropped.
-- ❌ Refactoring legacy provider drift (Trello's `auth.ts`, Shopify's inline webhook, etc.) inside a new‑provider slice. New providers follow the going‑forward standard; legacy gets cleaned up in a dedicated slice.
+- ❌ Refactoring grandfathered provider drift (Trello's `auth.ts`, Shopify's inline webhook, etc.) inside a new‑provider slice. New providers follow the going‑forward standard; grandfathered drift gets cleaned up in a dedicated slice.
 
 ---
 
@@ -1461,8 +1461,8 @@ Single‑source‑of‑truth file paths the playbook references:
 ## Appendix C — Known repo drift (do not refactor in a new‑provider slice)
 
 These deviations exist in the repo today. Document the going‑forward standard
-(this playbook does), but do not refactor legacy providers as part of a
-new‑provider slice. Legacy cleanup is its own dedicated slice.
+(this playbook does), but do not refactor grandfathered providers as part of a
+new‑provider slice. Grandfathered-drift cleanup is its own dedicated slice.
 
 | Drift | Where | Going‑forward standard |
 |---|---|---|

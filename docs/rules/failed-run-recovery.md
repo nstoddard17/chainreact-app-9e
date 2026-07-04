@@ -69,7 +69,7 @@ diagnosis mirrors:
 | `open_node` | `/workflows/{id}` | "Fix workflow setup" fallback. The builder Runs-tab detail instead opens the actual failed node when it is still on the canvas. |
 | `retry_later` | none (guidance text) | No retry API. |
 | `contact_support` | none (guidance text) | No support route. |
-| missing / legacy action | no CTA | No misleading affordance; the reason still renders. |
+| missing / unrecognized action | no CTA | No misleading affordance; the reason still renders. |
 
 ## Surfaces that render the CTA
 
