@@ -60,6 +60,9 @@ import {
   discoverOutlookSelfAddress,
   stageOutlookSeedMessage,
   discoverTeamsSmokeChat,
+  discoverShopifyLocation,
+  stageShopifyOrderProduct,
+  stageShopifyInventoryTarget,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -140,6 +143,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     let cleanupGmailAttachment: (() => Promise<void>) | null = null;
     // Permanently deletes the Outlook mail seeds (reply/forward/attachment). Finally.
     const cleanupOutlookSeeds: Array<() => Promise<void>> = [];
+    // Deletes the staged Shopify products (order target + tracked inventory). Finally.
+    const cleanupShopifyStaged: Array<() => Promise<void>> = [];
     // Archives the staged HubSpot line-item parent deal. Run in the finally.
     let cleanupHubSpotDeal: (() => Promise<void>) | null = null;
     // Deletes the staged HubSpot smoke list + archives its contact. Run in the finally.
@@ -433,6 +438,35 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_TEAMS_CHAT_ID = chat.chatId; // id -> env overlay only
         targetLabel = `chat "${chat.label}"`;
       }
+    } else if (provider === "shopify" && execUsable) {
+      // Order fixtures need a REAL numeric variant id (create_order's line_items
+      // variant_id is z.number) — stage a marker 0.00-price product outside the
+      // harness and pass its default variant via env overlay (fixtures use the
+      // {{env.*:number}} token). remove() deletes the product in the finally.
+      const orderProduct = await stageShopifyOrderProduct(account, user, `crsmoke-${runToken}-`);
+      if (orderProduct) {
+        overlay.SMOKE_SHOPIFY_ORDER_VARIANT_ID = orderProduct.variantId; // id -> env overlay only
+        cleanupShopifyStaged.push(orderProduct.remove);
+        targetLabel = "staged order product";
+      }
+      // update_inventory needs a TRACKED inventory item connected at a location.
+      // V2 registers no tracking-enable action, so staging owns the switch; the
+      // staged product is deleted in the finally.
+      const location = await discoverShopifyLocation(account, user);
+      if (location) {
+        overlay.SMOKE_SHOPIFY_LOCATION_ID = location.locationId; // id -> env overlay only
+        const invTarget = await stageShopifyInventoryTarget(
+          account,
+          user,
+          `crsmoke-${runToken}-`,
+          location.locationId,
+        );
+        if (invTarget) {
+          overlay.SMOKE_SHOPIFY_INVENTORY_ITEM_ID = invTarget.inventoryItemId; // id -> env overlay only
+          cleanupShopifyStaged.push(invTarget.remove);
+          targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}staged tracked inventory item`;
+        }
+      }
     } else if (provider === "airtable" && execUsable) {
       // Record writes need the smoke table's primary text field NAME. baseId /
       // tableId come from env; discover the field unless explicitly pinned.
@@ -557,7 +591,10 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
             // "left" -> best-effort/no-cleanup (e.g. archive_page: the page is
             // archived by the execute step and Notion forbids re-editing it). A
             // harmless marked smoke object remains on the throwaway account.
-            expect(r.artifact).toBe("left");
+            // "none" -> the action mutated STATE on a dev-test-STAGED resource and
+            // created nothing of its own (e.g. shopify:update_inventory sets a
+            // level on the staged tracked item; staging's finally owns teardown).
+            expect(["left", "none"]).toContain(r.artifact);
           }
         }
         // BLOCKED_ENV must read as a target problem, never "not connected".
@@ -572,6 +609,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       if (cleanupGmailAttachment) await cleanupGmailAttachment();
       // Always permanently delete the Outlook mail seeds (inbox + Sent Items copies).
       for (const removeSeed of cleanupOutlookSeeds) await removeSeed();
+      // Always delete the staged Shopify products (order target + inventory item).
+      for (const removeStaged of cleanupShopifyStaged) await removeStaged();
       // Always archive the staged HubSpot line-item parent deal (recycle bin).
       if (cleanupHubSpotDeal) await cleanupHubSpotDeal();
       // Always tear down the staged HubSpot smoke list + contact.

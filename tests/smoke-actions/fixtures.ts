@@ -175,6 +175,21 @@ import onenoteCreateSection from "@/tests/fixtures/action-smoke/microsoft-onenot
 import notionCreateDatabase from "@/tests/fixtures/action-smoke/notion/create_database";
 import trelloCreateBoard from "@/tests/fixtures/action-smoke/trello/create_board";
 import trelloCreateList from "@/tests/fixtures/action-smoke/trello/create_list";
+// SMOKE-WRITE-SHOPIFY — Shopify write lifecycle batch on the partner_test store
+// (products/variants/customers left as marked artifacts — no registered deletes;
+// orders cancelled where Shopify permits; inventory on a dev-test-staged tracked
+// item). All verifies via the shopify per-resource state seams (no read actions).
+import shopifyCreateProduct from "@/tests/fixtures/action-smoke/shopify/create_product";
+import shopifyUpdateProduct from "@/tests/fixtures/action-smoke/shopify/update_product";
+import shopifyCreateProductVariant from "@/tests/fixtures/action-smoke/shopify/create_product_variant";
+import shopifyUpdateProductVariant from "@/tests/fixtures/action-smoke/shopify/update_product_variant";
+import shopifyCreateCustomer from "@/tests/fixtures/action-smoke/shopify/create_customer";
+import shopifyUpdateCustomer from "@/tests/fixtures/action-smoke/shopify/update_customer";
+import shopifyCreateOrder from "@/tests/fixtures/action-smoke/shopify/create_order";
+import shopifyUpdateOrderStatus from "@/tests/fixtures/action-smoke/shopify/update_order_status";
+import shopifyAddOrderNote from "@/tests/fixtures/action-smoke/shopify/add_order_note";
+import shopifyCreateFulfillment from "@/tests/fixtures/action-smoke/shopify/create_fulfillment";
+import shopifyUpdateInventory from "@/tests/fixtures/action-smoke/shopify/update_inventory";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -493,6 +508,17 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   notionCreateDatabase,
   trelloCreateBoard,
   trelloCreateList,
+  shopifyCreateProduct,
+  shopifyUpdateProduct,
+  shopifyCreateProductVariant,
+  shopifyUpdateProductVariant,
+  shopifyCreateCustomer,
+  shopifyUpdateCustomer,
+  shopifyCreateOrder,
+  shopifyUpdateOrderStatus,
+  shopifyAddOrderNote,
+  shopifyCreateFulfillment,
+  shopifyUpdateInventory,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

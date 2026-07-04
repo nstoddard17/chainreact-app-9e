@@ -267,6 +267,20 @@ export function ledgerRefsIn(config: Readonly<Record<string, unknown>>): string[
  * literal too (the setup/execute step then fails loudly rather than silently
  * targeting the wrong resource).
  */
+/**
+ * Whole-string NUMERIC token: `{{ledger.<key>.id:number}}` / `{{env.<NAME>:number}}`.
+ * Some provider schemas require a strictly-numeric field (e.g. Shopify
+ * `create_order.line_items[].variant_id` is `z.number()`), but string
+ * substitution can only ever produce strings. When a config string is EXACTLY
+ * one `:number`-suffixed token and the resolved value is all digits, the value
+ * is substituted as a NUMBER. A non-numeric / unresolvable value leaves the
+ * literal token in place so the step fails loudly (same stance as the plain
+ * tokens). Opt-in per field — plain tokens keep their string semantics
+ * everywhere (a numeric-looking Monday board id must STAY a string for its
+ * z.string() schema).
+ */
+const NUMERIC_TOKEN = /^\{\{(?:ledger\.([A-Za-z0-9_-]+)\.id|env\.([A-Z0-9_]+)):number\}\}$/;
+
 export function resolveStepConfig(
   config: Readonly<Record<string, unknown>>,
   marker: string,
@@ -274,6 +288,14 @@ export function resolveStepConfig(
   envLookup: (name: string) => string | undefined = () => undefined,
   eachId?: string,
 ): Readonly<Record<string, unknown>> {
+  // Whole-string numeric token — resolved before string substitution so the
+  // number survives (see NUMERIC_TOKEN).
+  const resolveNumeric = (s: string): number | null => {
+    const m = NUMERIC_TOKEN.exec(s);
+    if (!m) return null;
+    const raw = m[1] ? ledger.get(m[1])?.externalId : envLookup(m[2]!);
+    return raw !== undefined && raw !== null && /^\d+$/.test(raw) ? Number(raw) : null;
+  };
   // Tokens resolve in both string VALUES and object KEYS (a provider field name
   // can itself be operator config, e.g. an Airtable primary-field name).
   const resolveStr = (s: string): string => {
@@ -287,7 +309,11 @@ export function resolveStepConfig(
     return out;
   };
   const walk = (v: unknown): unknown => {
-    if (typeof v === "string") return resolveStr(v);
+    if (typeof v === "string") {
+      const numeric = resolveNumeric(v);
+      if (numeric !== null) return numeric;
+      return resolveStr(v);
+    }
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === "object") {
       const out: Record<string, unknown> = {};

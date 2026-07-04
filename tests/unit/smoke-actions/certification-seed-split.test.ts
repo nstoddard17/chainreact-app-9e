@@ -28,6 +28,7 @@ import { NOTION_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationS
 import { MAILCHIMP_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/mailchimp";
 import { MICROSOFT_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/microsoft";
 import { GOOGLE_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/google";
+import { SHOPIFY_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/shopify";
 import { OTHER_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/other";
 import { listRegisteredActions } from "@/tests/smoke-actions/discovery";
 import { ALL_FIXTURES_FOR_INVENTORY } from "@/tests/smoke-actions/fixtures";
@@ -66,6 +67,7 @@ const MODULE_PROVIDERS: ReadonlyArray<readonly [string, readonly { provider: str
     GOOGLE_CERTIFICATIONS,
     ["google-sheets", "google-drive", "google-calendar", "google-docs", "google-analytics"],
   ],
+  ["shopify", SHOPIFY_CERTIFICATIONS, ["shopify"]],
   [
     "other",
     OTHER_CERTIFICATIONS,
@@ -79,7 +81,8 @@ describe("certification seed split — data invariance", () => {
     expect(CERTIFICATIONS.length).toBe(sum);
     // Pinned at split time (2026-07-04). Bump ONLY when a batch adds records.
     // +1: facebook:send_message BLOCKED_ENV (readiness probe, same day).
-    expect(CERTIFICATIONS.length).toBe(258);
+    // +11: shopify write lifecycle batch (same day).
+    expect(CERTIFICATIONS.length).toBe(269);
   });
 
   it("no duplicate (provider, action) keys — later-wins shadowing is impossible", () => {
@@ -97,14 +100,15 @@ describe("certification seed split — data invariance", () => {
 
   it("the REAL-registry matrix totals match the pre-split matrix exactly", () => {
     const m = buildCertificationMatrix(listRegisteredActions(), realDescriptors());
-    // Split-time snapshot (2026-07-04) + the same-day readiness probe that moved
-    // facebook:send_message MISSING -> BLOCKED_ENV (zero page conversations):
-    // 303 registered / 246 LIVE_PASS / 1 NOT_RUN / 44 MISSING / 12 BLOCKED_ENV /
-    // 0 fail / 0 bug. Certification batches update these pins deliberately.
+    // Split-time snapshot (2026-07-04), same-day updated by: the readiness probe
+    // (facebook:send_message MISSING -> BLOCKED_ENV) and the shopify write batch
+    // (11 MISSING -> LIVE_PASS): 303 registered / 257 LIVE_PASS / 1 NOT_RUN /
+    // 33 MISSING / 12 BLOCKED_ENV / 0 fail / 0 bug. Certification batches update
+    // these pins deliberately.
     expect(m.totals.registered).toBe(303);
-    expect(m.totals.livePass).toBe(246);
+    expect(m.totals.livePass).toBe(257);
     expect(m.totals.liveNotRun).toBe(1);
-    expect(m.totals.missingFixture).toBe(44);
+    expect(m.totals.missingFixture).toBe(33);
     expect(m.totals.blockedEnv).toBe(12);
     expect(m.totals.fail).toBe(0);
     expect(m.totals.bug).toBe(0);
