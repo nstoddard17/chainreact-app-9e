@@ -343,4 +343,24 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-04",
     note: "FULL live provider-boundary cert: real activation handshake vs production, real task rename fired EXACTLY ONE terminal 'succeeded' run via production dispatch+drain (identity matched: task/project/changeKind), real DELETE /webhooks 404-proven, trigger rows cleaned",
   },
+  // typeform:new_response_in_form — full provider-boundary live cert (Phase 13,
+  // scripts/trash/typeform-live-cert.ts): REAL registerWorkflowTriggers ->
+  // PUT /forms/{id}/webhooks/{tag} against live Typeform with the V2-minted
+  // secret and NO event_types in the body (ambiguity resolved live: optional,
+  // defaults to form_response) -> a REAL response submitted through the public
+  // form UI -> production signature-verify (sha256= + base64 HMAC) -> dispatch
+  // -> cron drain -> terminal run -> REAL unregisterWorkflowTriggers ->
+  // DELETE proven gone by a second delete reading 404. Live refresh+ROTATION
+  // also proven via dispatcher.refresh (rotated refresh token persisted, new
+  // pair live-usable). Redelivery dedup + wrong-form drop remain
+  // direct-seed/unit-proven (Typeform retries only on failure; single-form
+  // account) — same honesty boundary as the Asana entries.
+  {
+    provider: "typeform",
+    type: "new_response_in_form",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-04",
+    note: "FULL live provider-boundary cert: real PUT webhook (no event_types — proven optional), real public-form response fired EXACTLY ONE terminal 'succeeded' run via production signature-verify+dispatch+drain (identity matched: formId/responseToken/changeKind; token-scoped eventId; bounded answers projection; response_url absent), real DELETE 404-proven, rows cleaned; live refresh-token ROTATION persisted and new pair live-usable",
+  },
 ];

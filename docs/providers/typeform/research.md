@@ -188,6 +188,50 @@ Supported (created at `admin.typeform.com/user/tokens`, per-token scope
 selection, `Authorization: Bearer`). Not used by the product flow; useful
 for owner-side live certification later.
 
+## Live-observed behavior (Phase 13 certification, 2026-07-04)
+
+Observed against the real provider boundary (production receive route,
+live Typeform account, real form `KRVNz1KP` — script
+`scripts/trash/typeform-live-cert.ts`):
+
+1. **`event_types` ambiguity RESOLVED: optional.** A live
+   `PUT /forms/{form_id}/webhooks/{tag}` with body
+   `{ url, enabled, secret, verify_ssl }` and NO `event_types` returned
+   200 and the webhook delivered a standard `form_response` event
+   end-to-end. The reference page's "required" reading is wrong in
+   practice; the walkthrough's minimal body is correct.
+2. **Webhook PUT succeeds on an UNPUBLISHED (draft) form.** The webhook
+   arms fine before the form is published; it simply cannot receive
+   events until the owner publishes (the public URL shows "you can't
+   access this typeform until its creator says so").
+3. **`GET /forms` lists draft forms too** (`settings.is_public: false`,
+   no `published_at`). Consequence: the `typeform:forms` picker can show
+   forms that cannot yet receive responses. Acceptable for now; a title
+   suffix or filter is a possible future UX refinement.
+4. **No publish API on `api.typeform.com`:** `POST /forms/{id}/publish`
+   returned 404 `Endpoint not found` (probe made with our token, which
+   also lacks `forms:write` by design). Publishing appears to be an
+   admin-UI action; live certification requires the owner to publish the
+   form manually.
+5. **Signature verification confirmed live:** production accepted the
+   real delivery (sha256= + base64 HMAC over raw bytes, keyed with the
+   V2-minted per-webhook secret) and the run fired; the receive path
+   dispatches only verified events.
+6. **Delivery latency was seconds** from form submission to the run
+   appearing (well within the first 5s poll).
+7. **Refresh-token rotation confirmed live** via the persisting
+   dispatcher path: the refresh response carried a NEW refresh token,
+   both ciphertexts changed in storage, and the rotated pair was
+   immediately live-usable. (That the OLD token is invalidated is per
+   docs; not separately probed to avoid burning a live credential.)
+8. **Answer shape observed:** a `long_text` question delivered
+   `answers[0] = { type: "text", text: ... }` with `field.type:
+   "long_text"` — matches the documented discriminated union and the
+   normalizer's projection (fieldTitle resolved from `definition.fields`).
+9. **DELETE gone-proof works:** after deactivation, a second
+   `DELETE /forms/{id}/webhooks/{tag}` returned 404 — usable as the
+   provider-side removal proof (we deliberately hold no `webhooks:read`).
+
 ## Known limitations recap
 
 1. EU data center accounts unsupported this slice (see above).

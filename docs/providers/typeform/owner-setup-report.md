@@ -1,11 +1,48 @@
 # Typeform Owner Setup Report
 
 ## Status
-- Code status: **code-complete owner setup required** (Slice 5.TYPEFORM-1)
-- Commit: see git log for `feat(typeform): net-new provider slice 1` on this branch (local only)
-- Push status: **Nothing pushed**
-- Smoke status: direct-seed trigger smoke **PASS** against the real dev DB (2026-07-04); provider-boundary live certification (Phase 13) pending owner setup
-- Remaining owner action: create the Typeform developer app, add env vars, then request Phase 13 live certification
+- Code status: **live-complete** (Slice 5.TYPEFORM-1 + Phase 13 live certification, 2026-07-04)
+- Commit: `84921bc35` (provider, pushed to v2-main + deployed); live-cert evidence commit follows
+- Push status: provider pushed/deployed (Marcus-approved 2026-07-04); cert-evidence commit local until approved
+- Smoke status: direct-seed trigger smoke PASS (real dev DB) AND full provider-boundary live certification PASS (production) — see "Live verification" below
+- Remaining owner action: none
+
+## Live verification (Phase 13, 2026-07-04)
+
+Environment: production (`https://chainreact.app`, deployed v2-main), live
+Typeform account, real form `KRVNz1KP` ("New form"). Orchestration ran from
+the local repo with production `NEXT_PUBLIC_APP_URL` + shared Supabase
+(the Asana-proven pattern). Script: `scripts/trash/typeform-live-cert.ts`.
+
+| Check | Result | Evidence |
+|---|---|---|
+| OAuth connect | PASS | Integration row created by Marcus's production connect (2026-07-04 17:54Z), email account id, alias display name, ~1-week expiry matching `expires_in` |
+| Refresh + rotation | PASS | `dispatcher.refresh()` live: new expiry persisted, access + refresh ciphertexts BOTH changed (rotation persisted), new pair immediately live-usable (`GET /forms` OK) |
+| `typeform:forms` option source | PASS | Real resolver returned the live form (safe title label); `q` passed through as server-side `search` and filtered correctly; no tokens/emails in output |
+| Trigger activation | PASS | Real `registerWorkflowTriggers` -> live `PUT /forms/KRVNz1KP/webhooks/chainreact-b895432bdefa9f5ef9fa1219` in 422ms; webhookId `01KWQ4XYAQGT2CFKEARPPAN8PY`; secret stored encrypted; notification URL = production |
+| `event_types` ambiguity | RESOLVED: optional | PUT body omitted it; PUT 200; the webhook later delivered a standard `form_response` end-to-end |
+| Real response -> run | PASS | Real response submitted through the public form UI; production verified `Typeform-Signature`, dispatched, cron drained; run `da58bb81-…` terminal `succeeded`; EXACTLY 1 run |
+| Payload identity/shape | PASS | eventId `new_response_in_form:KRVNz1KP:<responseToken>` (token-scoped, timestamp-free); formId/changeKind/responseToken matched; bounded `answers` projection carried the submitted text with fieldTitle/fieldType; `hidden`/`score` null; `response_url` ABSENT |
+| Deactivation | PASS | Real `unregisterWorkflowTriggers` -> DELETE; `trigger_resources` rows left = 0 |
+| Provider-side removal proof | PASS | Second `DELETE /forms/{id}/webhooks/{tag}` -> 404 (we hold no `webhooks:read` by design, so 404-on-redelete is the gone-proof) |
+| Redelivery dedup (live) | NOT LIVE-FORCEABLE | Typeform retries only on delivery failure; dedup is proven by the direct-seed dev smoke + unit tests (same honesty boundary as Asana) |
+| Wrong-form drop (live) | NOT LIVE-FORCEABLE | Single form in the account; P-S2 filter proven by unit tests + direct-seed smoke |
+
+Cleanup accounting:
+- Test workflow `cd7e0f9d-…`: soft-deleted. Trigger rows: deleted (0 left).
+- Typeform webhook: deleted, 404-proven gone.
+- `webhook_event_dedup` row for the cert event: deleted.
+- One real response ("crsmoke live cert response 2026-07-04") REMAINS on
+  form `KRVNz1KP` — deleting it needs `responses:write` (not granted by
+  design); harmless, documented artifact.
+- The form itself is Marcus's and is now PUBLISHED (his action during the
+  cert; it was a draft, which blocked submission until published).
+- One-off cert scripts live in `scripts/trash/` (probe, cert, submit,
+  refresh-check); transient state file + failure screenshot deleted.
+
+Certification recorded in `tests/trigger-smoke/triggerCertificationSeed.ts`
+(`typeform:new_response_in_form` = LIVE_PASS 2026-07-04). Live quirks
+recorded in `research.md` ("Live-observed behavior").
 
 ## Provider developer portal setup
 
@@ -85,16 +122,18 @@ Redeploy after adding env vars.
 Option sources: `typeform:forms` (7 resolver tests).
 
 ## Manual verification checklist for Marcus
-- [ ] Register the Typeform developer app (admin panel -> Organization settings -> Developer apps).
-- [ ] Add the redirect URI(s) above.
-- [ ] (No webhook URL to add — app-managed at activation.)
-- [ ] Add `TYPEFORM_CLIENT_ID` / `TYPEFORM_CLIENT_SECRET` to Vercel (all envs) and `.env.local`.
-- [ ] Redeploy after env changes; restart the local dev server after editing `.env.local`.
-- [ ] Connect Typeform from the Apps page (card is under the new "Forms" category).
-- [ ] Then ask for **Phase 13 live certification**: live OAuth + refresh, live trigger lifecycle (PUT webhook on a real form, real submission -> one run, DELETE on deactivate with provider-side 404 proof), live `typeform:forms` option source, `event_types` PUT-body ambiguity check, and live event-shape review.
+- [x] Register the Typeform developer app (admin panel -> Organization settings -> Developer apps). (Done 2026-07-04)
+- [x] Add the redirect URI(s) above. (Done — production connect succeeded)
+- [x] (No webhook URL to add — app-managed at activation.)
+- [x] Add `TYPEFORM_CLIENT_ID` / `TYPEFORM_CLIENT_SECRET` to Vercel and `.env.local`. (Done)
+- [x] Redeploy after env changes. (Done — v2-main deployed)
+- [x] Connect Typeform from the Apps page. (Done — integration row 2026-07-04 17:54Z)
+- [x] Phase 13 live certification. (PASSED 2026-07-04 — see "Live verification")
 
 ## Known blockers / limitations
 - EU data-center Typeform accounts are unsupported this slice (single-host `api.typeform.com`).
-- `event_types` in the webhook PUT body is ambiguous in the docs (reference says required, walkthrough omits it). V2 omits it; verify at live certification and add explicitly if a live PUT rejects.
+- ~~`event_types` PUT-body ambiguity~~ RESOLVED live 2026-07-04: optional; omitting it creates a standard `form_response` webhook (proven end-to-end).
 - Partial-response webhooks (`form_response_partial`) are out of scope; such deliveries are quiet-acked.
-- The direct-seed smoke does not exercise the provider-side PUT/DELETE lifecycle (unit-tested; live proof is Phase 13).
+- Redelivery dedup + wrong-form drop are direct-seed/unit-proven, not live-forceable (Typeform retries only on failure; single-form account).
+- The `typeform:forms` picker also lists DRAFT (unpublished) forms, which cannot receive responses until published (live-observed). Possible future UX refinement.
+- Live-cert artifact: one test response remains on form `KRVNz1KP` (no `responses:write` scope by design).
