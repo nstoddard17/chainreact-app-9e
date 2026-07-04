@@ -5,7 +5,7 @@
 - Commit: see git log for `feat(asana)` on v2-main (local, 2026-07-04); live verification + double-fire dedup fix committed 2026-07-04
 - Push status: NOTHING pushed
 - Smoke status: mocked-boundary suites green (14 suites / ~123 Asana tests); LIVE action smoke PASSED 5/5 (real provider mutations, certified in certificationSeed); LIVE trigger verification PASSED for both triggers end-to-end against production (real POST /webhooks + handshake against https://chainreact.app, real task events, production dispatch + drain, real DELETE /webhooks). One REAL bug found and fixed locally: new_task_in_project fired twice per task creation (Asana sends one task+added membership event per parent - project AND section; the timestamp-bearing dedup key kept them distinct). Dedup key is now task-scoped.
-- Remaining owner action: push + deploy v2-main so production picks up the new_task_in_project dedup fix; optionally re-run the live trigger smoke afterward to confirm exactly-one-run on production.
+- Remaining owner action: NONE. v2-main pushed to `64795582a` and deployed 2026-07-04 (Vercel deployment dpl_AnKnzUfXmMDjyjHWZBSwmKFDsGio, aliased to chainreact.app); the deploy-gated live retest PASSED - new_task_in_project fired EXACTLY ONE run per created task and its eventId came back in the new timestamp-free format from the production receive route, proving the fix is live.
 
 ## Provider developer portal setup
 
@@ -110,11 +110,11 @@ Smoke-only env (dev, optional, for live action smoke after connecting):
 - [x] Task created in the watched project fires a run that reaches terminal succeeded via production drain
 - [x] Live action smoke run (5/5 PASS, certified)
 - [x] Deactivation deletes the webhook (second DELETE reads 404; no webhooks remain)
-- [ ] Push + deploy v2-main, then re-run `npx tsx scripts/trash/asana-live-trigger-smoke.ts` to confirm the new_task_in_project double-fire fix live (expects exactly 1 run)
+- [x] Push + deploy v2-main, then re-run `npx tsx scripts/trash/asana-live-trigger-smoke.ts` to confirm the new_task_in_project double-fire fix live - DONE 2026-07-04, ALL LIVE TRIGGER CHECKS PASSED (exactly 1 run per trigger, webhooks 404-proven deleted, rows cleaned)
 
 ## Known blockers / limitations
 - ~~Owner setup required (developer app + env vars)~~ DONE 2026-07-04 (developer app created, env vars on Vercel Preview+Production, connected on production).
-- The new_task_in_project double-fire fix (task-scoped dedup key) is LOCAL ONLY - production fires twice per created task until v2-main is pushed + deployed.
+- ~~The new_task_in_project double-fire fix (task-scoped dedup key) is LOCAL ONLY~~ DEPLOYED + LIVE-RETESTED 2026-07-04: exactly one run per created task on production; run f0e6d936 carried the timestamp-free eventId, proving the deployed normalize is the fixed version.
 - Local OAuth/webhooks likely need an https tunnel (Asana https redirect requirement + reachable handshake target). Live verification instead activated from the local repo WITH the production notification URL (shared Supabase), which works and is the documented pattern for local live-trigger testing.
 - Asana deletes webhooks after 24h of failed deliveries/heartbeats (platform behavior, no renewal API). Recovery = deactivate/reactivate the workflow. Consider a health surface in a later slice.
 - Sections deferred (create_task cannot target a section) - Asana's scope for GET sections is ambiguous in current docs.
@@ -171,5 +171,13 @@ Exercised live via the real resolvers with the connected integration (refreshAnd
 - Remaining artifacts: completed crsmoke tasks + 1 crsmoke comment (above); smoke workflow rows soft-deleted; webhook_event_dedup rows for the live test events deleted.
 
 ### Remaining limitations
-- Production runs the pre-fix dedup key until v2-main is pushed + deployed - new_task_in_project fires twice per created task in production until then. Re-run `npx tsx scripts/trash/asana-live-trigger-smoke.ts` after deploy to confirm exactly-one-run.
-- Live re-verification of the fix, wrong-project live drop, and live forced redelivery are the only unproven-live behaviors; each is covered by unit tests + the direct-seed dev smoke.
+- ~~Production runs the pre-fix dedup key~~ RESOLVED 2026-07-04: v2-main pushed to 64795582a, deployed, and the live retest showed exactly one run per trigger with the timestamp-free eventId format produced by the production route.
+- Wrong-project live drop and live forced redelivery remain the only unproven-live behaviors (cannot be produced with a single-project workspace / on-demand); each is covered by unit tests + the direct-seed dev smoke.
+
+### Deploy-gated retest (2026-07-04, post-deploy)
+| Trigger | Runs | Terminal | eventId format | Webhook cleanup |
+|---|---|---|---|---|
+| new_task_in_project | exactly 1 | succeeded | timestamp-free (fix live) | deleted, second delete 404 |
+| task_updated_in_project | exactly 1 | succeeded | timestamped (by design) | deleted, second delete 404 |
+
+Retest artifact: one crsmoke task created in the smoke project, completed at the end (archive disposition); its dedup rows removed; both smoke workflows soft-deleted; no Asana webhooks remain.
