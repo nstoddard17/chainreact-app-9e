@@ -66,6 +66,7 @@ const SMOKE_WRITE_HUBSPOT_LIST = "2026-07-04";
 const SMOKE_WRITE_MAILCHIMP_SUB = "2026-07-04";
 const SMOKE_WRITE_MAILCHIMP_FINISH = "2026-07-04";
 const SMOKE_ASANA_LIVE = "2026-07-04";
+const NOT_RUN_BURNDOWN = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1156,5 +1157,37 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // every sweep; certifies once the smoke account has an audience slot.
   ...records("BLOCKED_ENV", "live create refused by Mailchimp plan entitlement (audience cap on the smoke account); fixture + lists read-back ready, re-run when a slot exists", SMOKE_WRITE_MAILCHIMP_FINISH, [
     ["mailchimp", "create_audience"],
+  ]),
+  // NOT-RUN BURN-DOWN (2026-07-04) — every remaining fixtured-but-never-run row
+  // was attempted live and converted to its honest durable status. native:
+  // format_transformer stays deliberately UNcertified (the always-run baseline).
+  // GA: integration row is ACTIVE, but Admin API accountSummaries.list returns
+  // ZERO accounts for the connected Google login (probed live) — every GA
+  // selector cascade roots there, so nothing can auto-discover. Fix: grant the
+  // connected login access to a GA4 property (or reconnect a login that has one).
+  ...records("BLOCKED_ENV", "connected, but the Google login sees zero GA accounts/properties (accountSummaries.list empty, probed live); grant GA4 property access, re-run", NOT_RUN_BURNDOWN, [
+    ["google-analytics", "find_conversion"],
+    ["google-analytics", "get_realtime_data"],
+    ["google-analytics", "run_pivot_report"],
+    ["google-analytics", "run_report"],
+  ]),
+  // Stripe / Discord: provider simply not connected on the smoke account.
+  ...records("BLOCKED_ENV", "provider not connected on the smoke account; connect a Stripe TEST-MODE account, then re-run", NOT_RUN_BURNDOWN, [
+    ["stripe", "find_customer"],
+    ["stripe", "find_payment_intent"],
+    ["stripe", "find_subscription"],
+    ["stripe", "get_payments"],
+  ]),
+  ...records("BLOCKED_ENV", "provider not connected on the smoke account; connect the smoke Discord server, then re-run", NOT_RUN_BURNDOWN, [
+    ["discord", "fetch_messages"],
+  ]),
+  // Slack: the live attempt surfaced that the smoke Slack app now has token
+  // rotation enabled (irreversible app-level setting) while V2's Slack OAuth by
+  // DESIGN stores no refresh token — every Slack call fails token_expired ~12h
+  // after connect. ALL existing slack LIVE_PASS rows reflect the 2026-07-03
+  // certification; the CONNECTION itself is broken until Slack is reconnected
+  // (fresh 12h window) or rotation support ships in an OAuth slice.
+  ...records("BLOCKED_ENV", "slack token expired (rotation enabled on the app; V2 slack oauth stores no refresh token by design); reconnect slack or ship rotation support", NOT_RUN_BURNDOWN, [
+    ["slack", "unarchive_channel"],
   ]),
 ];
