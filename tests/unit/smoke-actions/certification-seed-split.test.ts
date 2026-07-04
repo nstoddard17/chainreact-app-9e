@@ -78,7 +78,8 @@ describe("certification seed split — data invariance", () => {
     const sum = MODULE_PROVIDERS.reduce((n, [, mod]) => n + mod.length, 0);
     expect(CERTIFICATIONS.length).toBe(sum);
     // Pinned at split time (2026-07-04). Bump ONLY when a batch adds records.
-    expect(CERTIFICATIONS.length).toBe(257);
+    // +1: facebook:send_message BLOCKED_ENV (readiness probe, same day).
+    expect(CERTIFICATIONS.length).toBe(258);
   });
 
   it("no duplicate (provider, action) keys — later-wins shadowing is impossible", () => {
@@ -96,14 +97,15 @@ describe("certification seed split — data invariance", () => {
 
   it("the REAL-registry matrix totals match the pre-split matrix exactly", () => {
     const m = buildCertificationMatrix(listRegisteredActions(), realDescriptors());
-    // Snapshot of the matrix the split promised to preserve (2026-07-04):
-    // 303 registered / 246 LIVE_PASS / 1 NOT_RUN / 45 MISSING / 11 BLOCKED_ENV /
+    // Split-time snapshot (2026-07-04) + the same-day readiness probe that moved
+    // facebook:send_message MISSING -> BLOCKED_ENV (zero page conversations):
+    // 303 registered / 246 LIVE_PASS / 1 NOT_RUN / 44 MISSING / 12 BLOCKED_ENV /
     // 0 fail / 0 bug. Certification batches update these pins deliberately.
     expect(m.totals.registered).toBe(303);
     expect(m.totals.livePass).toBe(246);
     expect(m.totals.liveNotRun).toBe(1);
-    expect(m.totals.missingFixture).toBe(45);
-    expect(m.totals.blockedEnv).toBe(11);
+    expect(m.totals.missingFixture).toBe(44);
+    expect(m.totals.blockedEnv).toBe(12);
     expect(m.totals.fail).toBe(0);
     expect(m.totals.bug).toBe(0);
     expect(m.staleCerts).toEqual([]);

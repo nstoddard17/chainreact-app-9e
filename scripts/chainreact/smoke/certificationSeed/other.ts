@@ -92,4 +92,12 @@ export const OTHER_CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live list on a smoke private board + board_lists read-back proves the marker; board + list stay (no registered delete)", "2026-07-04", [
     ["trello", "create_list"],
   ]),
+  // Readiness probe 2026-07-04: facebook IS connected (12 granted permissions,
+  // one usable page with a page token), but the page has ZERO messenger
+  // conversations and Facebook pages can only REPLY to user-initiated threads —
+  // send_message has no possible live target until someone messages the page.
+  // The other 6 facebook rows stay MISSING (runnable; fixtures not yet authored).
+  ...records("BLOCKED_ENV", "connected, but the page has zero messenger conversations (probed live); pages can only reply to user-initiated threads; message the page, then re-run", "2026-07-04", [
+    ["facebook", "send_message"],
+  ]),
 ];
