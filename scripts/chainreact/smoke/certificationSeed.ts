@@ -56,6 +56,7 @@ const SMOKE_WRITE_SLACK_PINS = "2026-07-03";
 const SMOKE_WRITE_GMAIL_DRAFT_LABEL = "2026-07-04";
 const SMOKE_WRITE_GMAIL_STATE = "2026-07-04";
 const SMOKE_WRITE_GMAIL_SEND = "2026-07-04";
+const SMOKE_WRITE_GMAIL_REPLY = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -838,6 +839,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // sent + inbox view), so 0 active copies remain (cleaned, to Trash, recoverable ~30d).
   ...records("LIVE_PASS_CLEANED", "live self-send + independent message_labels read-back (SENT + subject marker), single message trashed", SMOKE_WRITE_GMAIL_SEND, [
     ["gmail", "send_email"],
+  ]),
+  // GMAIL-REPLY-BATCH (2026-07-04) — reply_to_email + create_draft_reply, each seeded by a
+  // certified self-send (send_email to SMOKE_GMAIL_SELF). A first message's id equals its
+  // threadId, so the captured seed id IS the thread id; the gmail:message_labels seam now
+  // also returns threadId so the read-back can prove the reply/draft joined the SAME thread.
+  //   - reply_to_email (writeSafe): reply in the seed thread -> message_labels proves
+  //     labelIds contains SENT, threadId == seed id, and the "Re: {{marker}}" subject.
+  //   - create_draft_reply (writeSafe): draft-reply in the seed thread -> message_labels
+  //     proves labelIds contains DRAFT (not sent), threadId == seed id, and the Re: marker.
+  // cleanupAll trashes BOTH the seed and the reply/draft (each self-message is one copy).
+  // Verified live (created 2 / cleaned 2 / 0 leaked each). Threading correct (no bug found).
+  ...records("LIVE_PASS_CLEANED", "live threaded reply/draft-reply + independent message_labels read-back (SENT/DRAFT + threadId==seed + Re: marker), seed + reply trashed", SMOKE_WRITE_GMAIL_REPLY, [
+    ["gmail", "reply_to_email"],
+    ["gmail", "create_draft_reply"],
   ]),
   // SMOKE-WRITE-36 — Microsoft Excel create_worksheet. Excel has no create_workbook
   // action, so the smoke brings its OWN smoke-owned workbook: setup uploads a frozen

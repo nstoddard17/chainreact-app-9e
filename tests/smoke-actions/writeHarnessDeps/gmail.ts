@@ -27,20 +27,23 @@ export interface GmailSelfAddress {
 
 /**
  * Extract the sanitized label state of ONE Gmail message. Returns whether it was found,
- * its `labelIds` (proves add/remove label + DRAFT membership), and its `Subject` header
- * (carries the smoke marker). NEVER the body / snippet / other headers. Pure.
+ * its `threadId` (proves a reply / draft-reply joined the seed's thread), its `labelIds`
+ * (proves add/remove label + DRAFT / SENT membership), and its `Subject` header (carries
+ * the smoke marker). NEVER the body / snippet / other headers. Pure.
  */
 export function extractGmailMessageLabels(
   result: {
+    threadId?: string;
     labelIds?: readonly string[];
     payload?: { headers?: readonly { name: string; value: string }[] };
   } | null,
-): { found: boolean; labelIds: string[]; subject: string } {
-  if (!result) return { found: false, labelIds: [], subject: "" };
+): { found: boolean; threadId: string; labelIds: string[]; subject: string } {
+  if (!result) return { found: false, threadId: "", labelIds: [], subject: "" };
   const headers = result.payload?.headers ?? [];
   const subjectHeader = headers.find((h) => h.name.toLowerCase() === "subject");
   return {
     found: true,
+    threadId: String(result.threadId ?? ""),
     labelIds: [...(result.labelIds ?? [])],
     subject: String(subjectHeader?.value ?? ""),
   };
