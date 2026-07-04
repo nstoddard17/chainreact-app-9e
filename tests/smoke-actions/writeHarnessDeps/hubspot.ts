@@ -26,10 +26,21 @@
  */
 import { getActiveForExecution } from "@/repositories/integrations";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
-import { contactsGet } from "@/integrations/_shared/hubspot/api/contacts";
 import { companiesGet } from "@/integrations/_shared/hubspot/api/companies";
 import { dealsGet } from "@/integrations/_shared/hubspot/api/deals";
 import { dealsCreate, dealsArchive } from "@/integrations/_shared/hubspot/api/deals";
+import {
+  contactsArchive,
+  contactsCreate,
+  contactsGet,
+  findContactByEmail,
+} from "@/integrations/_shared/hubspot/api/contacts";
+import {
+  listMembershipsGet,
+  listsCreate,
+  listsDelete,
+  searchLists,
+} from "@/integrations/_shared/hubspot/api/lists";
 import {
   callsGet,
   meetingsGet,
@@ -317,8 +328,41 @@ async function readHubSpotLineItemState(
   }
 }
 
+async function readHubSpotListMembershipState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const listId = typeof input.config.listId === "string" ? input.config.listId : "";
+  const contactId = typeof input.config.contactId === "string" ? input.config.contactId : "";
+  if (!listId || !contactId) {
+    return { ok: false, output: null, reason: "hubspot list_membership_state: missing listId/contactId" };
+  }
+  const integration = await getActiveForExecution(ctx.accountId, "hubspot", null);
+  if (!integration) return { ok: false, output: null, reason: "hubspot not connected" };
+  // ONE bounded page (250 records) — the smoke list is tiny (staged empty, or a
+  // smoke-named list), so the target contact is always on page 1. `member` is
+  // decided ONLY from a SUCCESSFUL memberships read: an API/permission failure
+  // (including a 404 on the list itself) throws -> the composer sanitizes it to
+  // VERIFY_FAILED — absence is never inferred from an error.
+  const page = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "hubspot",
+    providerAccountId: integration.providerAccountId,
+    apiCall: (accessToken) => listMembershipsGet({ accessToken, listId, limit: 250 }),
+  });
+  const records = page.results ?? [];
+  return {
+    ok: true,
+    output: {
+      member: records.some((r) => r.recordId === contactId),
+      memberCount: records.length,
+    },
+    reason: null,
+  };
+}
+
 /**
- * HubSpot smoke read-back seam. Owns ten smoke-only read actions, each ONE
+ * HubSpot smoke read-back seam. Owns eleven smoke-only read actions, each ONE
  * object's sanitized marker-bearing properties via the strongly-consistent
  * GET-by-id wrappers (never the eventually-consistent /search):
  *   - `contact_state` — { found, email, firstname, lastname }
@@ -333,6 +377,9 @@ async function readHubSpotLineItemState(
  *   - `line_item_state` — { exists, name, quantity }; the typed 404 maps to
  *     exists:false (deletion proof for remove_line_item), any other error
  *     rethrows so a failure can never read as "deleted".
+ *   - `list_membership_state` — { member, memberCount } from ONE bounded
+ *     memberships page; `member:false` requires a SUCCESSFUL read (an error,
+ *     including a missing list, throws -> VERIFY_FAILED, never "absent").
  * Returns null for any other (provider, action). Bounded + sanitized.
  */
 export async function hubspotSmokeReadBack(
@@ -350,6 +397,7 @@ export async function hubspotSmokeReadBack(
   if (input.action === "ticket_state") return readHubSpotTicketState(ctx, input);
   if (input.action === "product_state") return readHubSpotProductState(ctx, input);
   if (input.action === "line_item_state") return readHubSpotLineItemState(ctx, input);
+  if (input.action === "list_membership_state") return readHubSpotListMembershipState(ctx, input);
   return null;
 }
 
@@ -371,6 +419,138 @@ export interface StagedHubSpotLineItemDeal {
  * null when HubSpot is not connected or the create fails -> the line-item
  * fixtures report BLOCKED_ENV.
  */
+export interface StagedHubSpotListTarget {
+  readonly listId: string;
+  readonly listLabel: string;
+  readonly contactId: string;
+  readonly email: string;
+  /** Tear down the staged objects (delete staged list, archive contact). */
+  readonly remove: () => Promise<void>;
+}
+
+/**
+ * Stage the list-membership smoke target: a MANUAL contacts list + ONE marker
+ * contact. List resolution order: a pinned SMOKE_HUBSPOT_LIST_ID wins when it
+ * names an existing non-archived MANUAL contacts list; else a
+ * smoke/test/crsmoke-NAMED MANUAL contacts list is discovered via searchLists;
+ * else a fresh `${markerPrefix}list` MANUAL list is CREATED (crm.lists.write is
+ * in the manifest) — never an arbitrary real list, and never a DYNAMIC list
+ * (HubSpot rejects manual membership writes on those with a 400).
+ *
+ * The contact is created fresh every run (marker email on the reserved
+ * example.com domain). `remove` deletes the staged list (only when THIS run
+ * created it; a discovered/pinned list is left as-is) and archives the contact
+ * (recycle bin) — best-effort, never flips a verdict.
+ *
+ * Both staged ids ride the env overlay, NOT the fixture ledger — same
+ * rationale as the staged line-item deal (no registered list/contact delete
+ * action exists, so a ledgered parent would break the cleaned==created gate).
+ */
+export async function stageHubSpotListMembershipTarget(
+  accountId: string,
+  _userId: string,
+  markerPrefix: string,
+  pinnedListId: string | null,
+): Promise<StagedHubSpotListTarget | null> {
+  const integration = await getActiveForExecution(accountId, "hubspot", null);
+  if (!integration) return null;
+  const call = <T>(fn: (t: string) => Promise<T>): Promise<T> =>
+    refreshAndRetry({ accountId, provider: "hubspot", providerAccountId: integration.providerAccountId, apiCall: fn });
+  try {
+    // 1. Resolve a safe MANUAL contacts list: pinned -> smoke-named -> create.
+    const found = await call((t) => searchLists({ accessToken: t, count: 200 }));
+    const manualContactLists = (found.lists ?? []).filter(
+      (l) =>
+        l.archived !== true &&
+        l.processingType === "MANUAL" &&
+        (l.objectTypeId ?? "0-1") === "0-1",
+    );
+    const pinned = pinnedListId
+      ? manualContactLists.find((l) => l.listId === pinnedListId)
+      : undefined;
+    const smokeNamed = manualContactLists.find((l) =>
+      /crsmoke|smoke|test/i.test(l.name ?? ""),
+    );
+    let listId: string;
+    let listLabel: string;
+    let listStaged = false;
+    const chosen = pinned ?? smokeNamed;
+    if (chosen) {
+      listId = chosen.listId;
+      listLabel = chosen.name ?? chosen.listId;
+    } else {
+      const created = await call((t) =>
+        listsCreate({
+          accessToken: t,
+          name: `${markerPrefix}list`,
+          objectTypeId: "0-1",
+          processingType: "MANUAL",
+        }),
+      );
+      if (!created.list?.listId) return null;
+      listId = created.list.listId;
+      listLabel = created.list.name ?? `${markerPrefix}list`;
+      listStaged = true;
+    }
+
+    // 2. Create the marker contact the membership fixtures add/remove.
+    const email = `${markerPrefix}list-contact@example.com`;
+    const contact = await call((t) =>
+      contactsCreate({
+        accessToken: t,
+        properties: {
+          email,
+          firstname: `${markerPrefix}list-contact`,
+          lastname: "smoke",
+        },
+      }),
+    );
+
+    // 3. Warm the search index (bounded): the membership handlers resolve the
+    // email via findContactByEmail, and HubSpot's /search is EVENTUALLY
+    // consistent — a seconds-old contact is routinely unindexed. Poll the SAME
+    // lookup the handlers use (read-only) until it resolves, so the fixtures
+    // never flake on index lag. Never found -> return null (BLOCKED_ENV,
+    // honest) and tear down the staged contact.
+    let indexed = false;
+    for (let attempt = 0; attempt < 8 && !indexed; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 2500));
+      const hit = await call((t) => findContactByEmail({ accessToken: t, email }));
+      indexed = hit !== null && hit.id === contact.id;
+    }
+    if (!indexed) {
+      try {
+        if (listStaged) await call((t) => listsDelete({ accessToken: t, listId }));
+        await call((t) => contactsArchive({ accessToken: t, contactId: contact.id }));
+      } catch {
+        // best-effort teardown of the unusable staging; crsmoke-marked if left
+      }
+      return null;
+    }
+
+    return {
+      listId,
+      listLabel,
+      contactId: contact.id,
+      email,
+      remove: async () => {
+        try {
+          if (listStaged) await call((t) => listsDelete({ accessToken: t, listId }));
+          await call((t) => contactsArchive({ accessToken: t, contactId: contact.id }));
+        } catch (err) {
+          // Best-effort teardown: a 404 (already gone) or transient failure never
+          // flips a verdict; anything left is crsmoke-marked and recognizable.
+          console.warn(
+            JSON.stringify({ event: "smoke.hubspot.staged_list_cleanup_failed", error: (err as Error).name }),
+          );
+        }
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function stageHubSpotLineItemDeal(
   accountId: string,
   _userId: string,

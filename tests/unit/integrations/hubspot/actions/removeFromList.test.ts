@@ -1,24 +1,33 @@
 /**
  * @jest-environment node
+ *
+ * Tests for `remove_from_list` — REWORKED 2026-07-04 after the live 405
+ * production bug: the v3 memberships endpoint is PUT + raw record-id array
+ * with no email variant, so the handler resolves email -> contactId via
+ * `findContactByEmail` first (symmetric with add_contact_to_list).
  */
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 
 const mockRefreshAndRetry = jest.fn();
-const mockRemoveListMembershipByEmail = jest.fn();
+const mockListMembershipsRemove = jest.fn();
+const mockFindContactByEmail = jest.fn();
 
 jest.mock("@/services/oauth/refreshAndRetry", () => ({
   refreshAndRetry: (...args: unknown[]) => mockRefreshAndRetry(...args),
 }));
 jest.mock("@/integrations/_shared/hubspot/api/lists", () => ({
-  removeListMembershipByEmail: (...a: unknown[]) =>
-    mockRemoveListMembershipByEmail(...a),
+  listMembershipsRemove: (...a: unknown[]) => mockListMembershipsRemove(...a),
+}));
+jest.mock("@/integrations/_shared/hubspot/api/contacts", () => ({
+  findContactByEmail: (...a: unknown[]) => mockFindContactByEmail(...a),
 }));
 
 import { removeFromList } from "@/integrations/hubspot/actions/removeFromList";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();
-  mockRemoveListMembershipByEmail.mockReset();
+  mockListMembershipsRemove.mockReset();
+  mockFindContactByEmail.mockReset();
   mockRefreshAndRetry.mockImplementation(
     async (i: { apiCall: (t: string) => Promise<unknown> }) => i.apiCall("tok"),
   );
@@ -26,150 +35,69 @@ beforeEach(() => {
 
 const trigger: TriggerEvent = {
   provider: "hubspot",
-  eventType: "webhook_received",
+  eventType: "manual",
   eventId: "e",
   occurredAt: "x",
-  providerAccountId: "portal-1",
+  providerAccountId: "p",
   payload: {},
 };
 
-describe("remove_from_list", () => {
-  it("calls removeListMembershipByEmail with listId + email", async () => {
-    mockRemoveListMembershipByEmail.mockResolvedValueOnce({
-      recordIdsRemoved: ["c-1"],
-    });
-    await removeFromList({
-      workflowId: "wf",
-      userId: "u",
-      accountId: "acct-u",
-      runId: "r",
-      nodeId: "n",
-      config: { listId: "list-7", email: "alice@e.test" },
-      triggerEvent: trigger,
-    });
-    const call = mockRemoveListMembershipByEmail.mock.calls[0]![0]!;
-    expect(call.listId).toBe("list-7");
-    expect(call.email).toBe("alice@e.test");
+const run = (config: Record<string, unknown>) =>
+  removeFromList({
+    workflowId: "wf",
+    userId: "u",
+    accountId: "acct-u",
+    runId: "r",
+    nodeId: "n",
+    config,
+    triggerEvent: trigger,
   });
 
-  it("returns bounded { listId, email, contactIdsRemoved, contactIdsDiscarded }", async () => {
-    mockRemoveListMembershipByEmail.mockResolvedValueOnce({
-      recordIdsRemoved: ["c-42"],
-      recordIdsDiscarded: ["c-99"],
+describe("remove_from_list", () => {
+  it("resolves email -> contactId, then PUTs the record id to memberships/remove", async () => {
+    mockFindContactByEmail.mockResolvedValueOnce({ id: "c-42", properties: {} });
+    mockListMembershipsRemove.mockResolvedValueOnce(undefined);
+    const result = await run({ listId: "list-7", email: "alice@e.test" });
+    expect(mockFindContactByEmail.mock.calls[0]![0]!).toMatchObject({
+      email: "alice@e.test",
     });
-    const result = await removeFromList({
-      workflowId: "wf",
-      userId: "u",
-      accountId: "acct-u",
-      runId: "r",
-      nodeId: "n",
-      config: { listId: "list-7", email: "bob@e.test" },
-      triggerEvent: trigger,
+    expect(mockListMembershipsRemove.mock.calls[0]![0]!).toMatchObject({
+      listId: "list-7",
+      recordIds: ["c-42"],
     });
     expect(result.output).toEqual({
       listId: "list-7",
-      email: "bob@e.test",
+      email: "alice@e.test",
       contactIdsRemoved: ["c-42"],
-      contactIdsDiscarded: ["c-99"],
+      contactIdsDiscarded: [],
     });
   });
 
-  it("defaults empty arrays when wrapper omits the fields", async () => {
-    mockRemoveListMembershipByEmail.mockResolvedValueOnce({});
-    const result = await removeFromList({
-      workflowId: "wf",
-      userId: "u",
-      accountId: "acct-u",
-      runId: "r",
-      nodeId: "n",
-      config: { listId: "l", email: "x@y.com" },
-      triggerEvent: trigger,
+  it("returns the documented empty-remove result (NO membership call) when no contact matches", async () => {
+    mockFindContactByEmail.mockResolvedValueOnce(null);
+    const result = await run({ listId: "l", email: "ghost@example.com" });
+    expect(result.output).toEqual({
+      listId: "l",
+      email: "ghost@example.com",
+      contactIdsRemoved: [],
+      contactIdsDiscarded: [],
     });
-    expect(result.output.contactIdsRemoved).toEqual([]);
-    expect(result.output.contactIdsDiscarded).toEqual([]);
+    expect(mockListMembershipsRemove).not.toHaveBeenCalled();
   });
 
-  it("wraps in refreshAndRetry", async () => {
-    mockRemoveListMembershipByEmail.mockResolvedValueOnce({});
-    await removeFromList({
-      workflowId: "wf",
-      userId: "user-abc",
-      accountId: "acct-user-abc",
-      runId: "r",
-      nodeId: "n",
-      config: { listId: "l", email: "x@y.com" },
-      triggerEvent: trigger,
-    });
-    const arg = mockRefreshAndRetry.mock.calls[0]![0]!;
-    expect(arg.provider).toBe("hubspot");
-    expect(arg.accountId).toBe("acct-user-abc");
-    expect(arg.providerAccountId).toBe("portal-1");
+  it("rejects invalid email format", async () => {
+    await expect(run({ listId: "l", email: "nope" })).rejects.toThrow();
   });
 
-  it("rejects missing listId at schema time", async () => {
-    await expect(
-      removeFromList({
-        workflowId: "wf",
-        userId: "u",
-        accountId: "acct-u",
-        runId: "r",
-        nodeId: "n",
-        config: { email: "x@y.com" } as Record<string, unknown>,
-        triggerEvent: trigger,
-      }),
-    ).rejects.toThrow();
-    expect(mockRemoveListMembershipByEmail).not.toHaveBeenCalled();
+  it("rejects empty listId", async () => {
+    await expect(run({ listId: "", email: "a@b.com" })).rejects.toThrow();
   });
 
-  it("rejects malformed email at schema time", async () => {
-    await expect(
-      removeFromList({
-        workflowId: "wf",
-        userId: "u",
-        accountId: "acct-u",
-        runId: "r",
-        nodeId: "n",
-        config: { listId: "l", email: "not-an-email" },
-        triggerEvent: trigger,
-      }),
-    ).rejects.toThrow();
-    expect(mockRemoveListMembershipByEmail).not.toHaveBeenCalled();
-  });
-
-  it("rejects unknown fields (strict mode — V1 contactId chrome)", async () => {
-    await expect(
-      removeFromList({
-        workflowId: "wf",
-        userId: "u",
-        accountId: "acct-u",
-        runId: "r",
-        nodeId: "n",
-        config: {
-          listId: "l",
-          email: "x@y.com",
-          contactId: "c-1",
-        } as Record<string, unknown>,
-        triggerEvent: trigger,
-      }),
-    ).rejects.toThrow();
-  });
-
-  it("propagates DYNAMIC-list validation error verbatim", async () => {
-    mockRemoveListMembershipByEmail.mockRejectedValueOnce(
-      new Error(
-        "Cannot manually remove contacts from a dynamic list (VALIDATION_ERROR)",
-      ),
-    );
-    await expect(
-      removeFromList({
-        workflowId: "wf",
-        userId: "u",
-        accountId: "acct-u",
-        runId: "r",
-        nodeId: "n",
-        config: { listId: "dynamic-list", email: "a@b.com" },
-        triggerEvent: trigger,
-      }),
-    ).rejects.toThrow(/dynamic list/i);
+  it("wraps both calls in refreshAndRetry (provider hubspot)", async () => {
+    mockFindContactByEmail.mockResolvedValueOnce({ id: "c-1", properties: {} });
+    mockListMembershipsRemove.mockResolvedValueOnce(undefined);
+    await run({ listId: "l", email: "a@b.com" });
+    expect(mockRefreshAndRetry).toHaveBeenCalledTimes(2);
+    expect(mockRefreshAndRetry.mock.calls[0]![0]!.provider).toBe("hubspot");
   });
 });

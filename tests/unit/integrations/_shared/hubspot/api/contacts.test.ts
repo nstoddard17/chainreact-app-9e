@@ -13,6 +13,7 @@ jest.mock("@/integrations/_shared/hubspot/api/_request", () => ({
 }));
 
 import {
+  contactsArchive,
   contactsCreate,
   contactsGet,
   contactsSearch,
@@ -85,6 +86,19 @@ describe("contactsGet", () => {
     expect((call.query as URLSearchParams).get("properties")).toBe(
       "email,firstname",
     );
+  });
+});
+
+describe("contactsArchive (smoke staging)", () => {
+  it("DELETEs /objects/contacts/{id} with no body and returns void", async () => {
+    mockHubspotRequest.mockResolvedValueOnce(undefined);
+    const result = await contactsArchive({ accessToken: "tok", contactId: "301" });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("DELETE");
+    expect(call.path).toBe("/crm/v3/objects/contacts/301");
+    expect(call.body).toBeUndefined();
+    expect(call.resourceForNotFound).toBe("contact 301");
+    expect(result).toBeUndefined();
   });
 });
 

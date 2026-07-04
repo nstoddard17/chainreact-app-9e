@@ -11,8 +11,11 @@ jest.mock("@/integrations/_shared/hubspot/api/_request", () => ({
 }));
 
 import {
-  addListMembershipByEmail,
-  removeListMembershipByEmail,
+  listMembershipsAdd,
+  listMembershipsGet,
+  listMembershipsRemove,
+  listsCreate,
+  listsDelete,
   searchLists,
 } from "@/integrations/_shared/hubspot/api/lists";
 
@@ -20,106 +23,69 @@ beforeEach(() => {
   mockHubspotRequest.mockReset();
 });
 
-describe("addListMembershipByEmail", () => {
-  it("POSTs /lists/{listId}/memberships/add with recordIdOrEmails containing the email", async () => {
-    mockHubspotRequest.mockResolvedValueOnce({
-      recordIdsAdded: ["contact-42"],
-    });
-    await addListMembershipByEmail({
+describe("listMembershipsAdd (v3 PUT contract — 405 bug fix)", () => {
+  it("PUTs /lists/{listId}/memberships/add with a RAW record-id array body", async () => {
+    mockHubspotRequest.mockResolvedValueOnce(undefined);
+    await listMembershipsAdd({
       accessToken: "tok",
       listId: "list-1",
-      email: "alice@example.com",
+      recordIds: ["contact-42"],
     });
     const call = mockHubspotRequest.mock.calls[0]![0]!;
-    expect(call.method).toBe("POST");
+    // The v3 endpoint 405s on POST and takes NO email/object body — the
+    // legacy { recordIdOrEmails } shape was the production bug.
+    expect(call.method).toBe("PUT");
     expect(call.path).toBe("/crm/v3/lists/list-1/memberships/add");
-    // Single-call (HubSpot resolves email->contactId server-side) —
-    // V2 collapses V1's two-step search-then-add flow.
-    expect(call.body).toEqual({
-      recordIdOrEmails: ["alice@example.com"],
-    });
+    expect(call.body).toEqual(["contact-42"]);
   });
 
   it("URL-encodes listId (defensive against weird ids)", async () => {
-    mockHubspotRequest.mockResolvedValueOnce({});
-    await addListMembershipByEmail({
+    mockHubspotRequest.mockResolvedValueOnce(undefined);
+    await listMembershipsAdd({
       accessToken: "tok",
       listId: "list/with/slashes",
-      email: "a@b.com",
+      recordIds: ["c-1"],
     });
     expect(mockHubspotRequest.mock.calls[0]![0]!.path).toBe(
       "/crm/v3/lists/list%2Fwith%2Fslashes/memberships/add",
     );
   });
 
-  it("returns the response verbatim", async () => {
-    mockHubspotRequest.mockResolvedValueOnce({
-      recordIdsAdded: ["c-1"],
-      recordIdsDiscarded: [],
-    });
-    const result = await addListMembershipByEmail({
+  it("returns void on 204", async () => {
+    mockHubspotRequest.mockResolvedValueOnce(undefined);
+    const result = await listMembershipsAdd({
       accessToken: "tok",
       listId: "l",
-      email: "x@y.com",
+      recordIds: ["c-1"],
     });
-    expect(result.recordIdsAdded).toEqual(["c-1"]);
+    expect(result).toBeUndefined();
   });
 });
 
-describe("removeListMembershipByEmail (HubSpot 2.1)", () => {
-  it("POSTs /lists/{listId}/memberships/remove with recordIdOrEmails containing the email", async () => {
-    mockHubspotRequest.mockResolvedValueOnce({
-      recordIdsRemoved: ["contact-42"],
-    });
-    await removeListMembershipByEmail({
+describe("listMembershipsRemove (v3 PUT contract — 405 bug fix)", () => {
+  it("PUTs /lists/{listId}/memberships/remove with a RAW record-id array body", async () => {
+    mockHubspotRequest.mockResolvedValueOnce(undefined);
+    await listMembershipsRemove({
       accessToken: "tok",
       listId: "list-1",
-      email: "alice@example.com",
+      recordIds: ["contact-42"],
     });
     const call = mockHubspotRequest.mock.calls[0]![0]!;
-    expect(call.method).toBe("POST");
+    expect(call.method).toBe("PUT");
     expect(call.path).toBe("/crm/v3/lists/list-1/memberships/remove");
-    expect(call.body).toEqual({
-      recordIdOrEmails: ["alice@example.com"],
-    });
-  });
-
-  it("URL-encodes listId (defensive against weird ids)", async () => {
-    mockHubspotRequest.mockResolvedValueOnce({});
-    await removeListMembershipByEmail({
-      accessToken: "tok",
-      listId: "list/with/slashes",
-      email: "a@b.com",
-    });
-    expect(mockHubspotRequest.mock.calls[0]![0]!.path).toBe(
-      "/crm/v3/lists/list%2Fwith%2Fslashes/memberships/remove",
-    );
+    expect(call.body).toEqual(["contact-42"]);
   });
 
   it("threads the resourceForNotFound tag", async () => {
-    mockHubspotRequest.mockResolvedValueOnce({});
-    await removeListMembershipByEmail({
+    mockHubspotRequest.mockResolvedValueOnce(undefined);
+    await listMembershipsRemove({
       accessToken: "tok",
       listId: "list-99",
-      email: "x@y.com",
+      recordIds: ["c-1"],
     });
     expect(mockHubspotRequest.mock.calls[0]![0]!.resourceForNotFound).toBe(
       "list list-99",
     );
-  });
-
-  it("returns recordIdsRemoved + recordIdsDiscarded verbatim", async () => {
-    mockHubspotRequest.mockResolvedValueOnce({
-      recordIdsRemoved: ["c-1"],
-      recordIdsDiscarded: ["c-2"],
-    });
-    const result = await removeListMembershipByEmail({
-      accessToken: "tok",
-      listId: "l",
-      email: "x@y.com",
-    });
-    expect(result.recordIdsRemoved).toEqual(["c-1"]);
-    expect(result.recordIdsDiscarded).toEqual(["c-2"]);
   });
 
   it("propagates DYNAMIC-list validation error verbatim", async () => {
@@ -129,12 +95,58 @@ describe("removeListMembershipByEmail (HubSpot 2.1)", () => {
       ),
     );
     await expect(
-      removeListMembershipByEmail({
+      listMembershipsRemove({
         accessToken: "tok",
         listId: "dynamic-list",
-        email: "a@b.com",
+        recordIds: ["c-1"],
       }),
     ).rejects.toThrow(/dynamic list/i);
+  });
+});
+
+describe("listMembershipsGet", () => {
+  it("GETs /lists/{listId}/memberships with a clamped limit", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ results: [] });
+    await listMembershipsGet({ accessToken: "tok", listId: "9", limit: 999 });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("GET");
+    expect(call.path).toBe("/crm/v3/lists/9/memberships");
+    expect((call.query as URLSearchParams).get("limit")).toBe("250");
+  });
+
+  it("threads the after cursor when supplied", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ results: [] });
+    await listMembershipsGet({ accessToken: "tok", listId: "9", after: "abc" });
+    expect((mockHubspotRequest.mock.calls[0]![0]!.query as URLSearchParams).get("after")).toBe("abc");
+  });
+});
+
+describe("listsCreate / listsDelete (smoke staging)", () => {
+  it("POSTs /lists/ with name + objectTypeId + processingType", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ list: { listId: "77" } });
+    await listsCreate({
+      accessToken: "tok",
+      name: "crsmoke-list",
+      objectTypeId: "0-1",
+      processingType: "MANUAL",
+    });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("POST");
+    expect(call.path).toBe("/crm/v3/lists/");
+    expect(call.body).toEqual({
+      name: "crsmoke-list",
+      objectTypeId: "0-1",
+      processingType: "MANUAL",
+    });
+  });
+
+  it("DELETEs /lists/{listId} with no body and returns void", async () => {
+    mockHubspotRequest.mockResolvedValueOnce(undefined);
+    const result = await listsDelete({ accessToken: "tok", listId: "77" });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("DELETE");
+    expect(call.path).toBe("/crm/v3/lists/77");
+    expect(result).toBeUndefined();
   });
 });
 

@@ -62,6 +62,7 @@ const SMOKE_WRITE_HUBSPOT_CRM = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_ENGAGE = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_LINEITEM = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_CALLMEET = "2026-07-04";
+const SMOKE_WRITE_HUBSPOT_LIST = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1076,5 +1077,20 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live engagement record create + independent GET-by-id seam read-back (marker on title); no telephony/invites; no delete action so the marked record stays", SMOKE_WRITE_HUBSPOT_CALLMEET, [
     ["hubspot", "create_call"],
     ["hubspot", "create_meeting"],
+  ]),
+  // HUBSPOT-LIST (2026-07-04) — list-membership finisher; closes HubSpot at
+  // 26/26. Surfaced + fixed a REAL production bug: both handlers POSTed the
+  // LEGACY v1 body ({ recordIdOrEmails }) at the v3 memberships endpoint,
+  // which answers HTTP 405 (v3 is PUT + a raw record-id array with NO email
+  // variant). Handlers now resolve email -> contactId via findContactByEmail
+  // then PUT the id; re-certified live after the fix. Membership add/remove
+  // runs on a STAGED MANUAL smoke list + STAGED marker contact (created
+  // outside the harness; search index warmed by a bounded poll; list deleted
+  // + contact archived in the dev test finally). Presence AND absence are
+  // proven by an INDEPENDENT memberships-page read-back (member true/false);
+  // absence requires a SUCCESSFUL read — an error never reads as removed.
+  ...records("LIVE_PASS_CLEANED", "live membership add/remove on a staged MANUAL smoke list + independent memberships read-back; fixed v1-body/405 bug (v3 is PUT + record ids)", SMOKE_WRITE_HUBSPOT_LIST, [
+    ["hubspot", "add_contact_to_list"],
+    ["hubspot", "remove_from_list"],
   ]),
 ];

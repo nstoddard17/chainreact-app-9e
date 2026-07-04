@@ -55,6 +55,7 @@ import {
   discoverHubSpotDealStage,
   discoverHubSpotTicketStage,
   stageHubSpotLineItemDeal,
+  stageHubSpotListMembershipTarget,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -135,6 +136,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     let cleanupGmailAttachment: (() => Promise<void>) | null = null;
     // Archives the staged HubSpot line-item parent deal. Run in the finally.
     let cleanupHubSpotDeal: (() => Promise<void>) | null = null;
+    // Deletes the staged HubSpot smoke list + archives its contact. Run in the finally.
+    let cleanupHubSpotList: (() => Promise<void>) | null = null;
     if (provider === "trello" && execUsable) {
       const chosen = await discoverTrelloSmokeTarget(account, user);
       if (chosen) {
@@ -263,6 +266,25 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
           cleanupHubSpotDeal = stagedDeal.remove;
           targetLabel += " / staged line-item parent deal";
         }
+      }
+      // add_contact_to_list / remove_from_list need a MANUAL contacts list + a
+      // marker contact. Staged outside the harness (pinned/smoke-named list
+      // reused, else a crsmoke list is created); ids ride the env overlay and the
+      // staged objects are torn down in the finally (list deleted when staged,
+      // contact archived).
+      const stagedList = await stageHubSpotListMembershipTarget(
+        account,
+        user,
+        `crsmoke-${runToken}-`,
+        process.env.SMOKE_HUBSPOT_LIST_ID || null,
+      );
+      if (stagedList) {
+        overlay.SMOKE_HUBSPOT_LIST_ID = stagedList.listId; // id -> env overlay only
+        overlay.SMOKE_HUBSPOT_LIST_CONTACT_ID = stagedList.contactId; // id -> env overlay only
+        overlay.SMOKE_HUBSPOT_LIST_CONTACT_EMAIL = stagedList.email;
+        cleanupHubSpotList = stagedList.remove;
+        targetLabel =
+          `${targetLabel ? `${targetLabel} / ` : ""}list "${stagedList.listLabel}" + staged contact`;
       }
       // create_ticket / update_ticket need a REAL ticket pipeline + stage id (same
       // never-invent rule). A pinned SMOKE_HUBSPOT_TICKET_PIPELINE_ID wins; else the
@@ -440,6 +462,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       if (cleanupGmailAttachment) await cleanupGmailAttachment();
       // Always archive the staged HubSpot line-item parent deal (recycle bin).
       if (cleanupHubSpotDeal) await cleanupHubSpotDeal();
+      // Always tear down the staged HubSpot smoke list + contact.
+      if (cleanupHubSpotList) await cleanupHubSpotList();
     }
   }, 600_000);
 });

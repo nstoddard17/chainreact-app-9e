@@ -86,6 +86,7 @@ export {
   discoverHubSpotDealStage,
   discoverHubSpotTicketStage,
   stageHubSpotLineItemDeal,
+  stageHubSpotListMembershipTarget,
 } from "./writeHarnessDeps/hubspot";
 
 export interface RealWriteHarnessDepsConfig {

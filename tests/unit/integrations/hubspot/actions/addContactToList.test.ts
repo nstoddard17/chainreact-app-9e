@@ -1,27 +1,33 @@
 /**
  * @jest-environment node
  *
- * Tests for `add_contact_to_list`. Verifies V2's single-call collapse
- * of V1's two-step search-then-add flow.
+ * Tests for `add_contact_to_list` — REWORKED 2026-07-04 after the live 405
+ * production bug: the v3 memberships endpoint is PUT + raw record-id array
+ * with no email variant, so the handler resolves email -> contactId via
+ * `findContactByEmail` first (V1's two-step shape, V2's wrappers).
  */
 import type { TriggerEvent } from "@/contracts/triggerEvent";
 
 const mockRefreshAndRetry = jest.fn();
-const mockAddListMembershipByEmail = jest.fn();
+const mockListMembershipsAdd = jest.fn();
+const mockFindContactByEmail = jest.fn();
 
 jest.mock("@/services/oauth/refreshAndRetry", () => ({
   refreshAndRetry: (...args: unknown[]) => mockRefreshAndRetry(...args),
 }));
 jest.mock("@/integrations/_shared/hubspot/api/lists", () => ({
-  addListMembershipByEmail: (...a: unknown[]) =>
-    mockAddListMembershipByEmail(...a),
+  listMembershipsAdd: (...a: unknown[]) => mockListMembershipsAdd(...a),
+}));
+jest.mock("@/integrations/_shared/hubspot/api/contacts", () => ({
+  findContactByEmail: (...a: unknown[]) => mockFindContactByEmail(...a),
 }));
 
 import { addContactToList } from "@/integrations/hubspot/actions/addContactToList";
 
 beforeEach(() => {
   mockRefreshAndRetry.mockReset();
-  mockAddListMembershipByEmail.mockReset();
+  mockListMembershipsAdd.mockReset();
+  mockFindContactByEmail.mockReset();
   mockRefreshAndRetry.mockImplementation(
     async (i: { apiCall: (t: string) => Promise<unknown> }) => i.apiCall("tok"),
   );
@@ -36,102 +42,63 @@ const trigger: TriggerEvent = {
   payload: {},
 };
 
+const run = (config: Record<string, unknown>) =>
+  addContactToList({
+    workflowId: "wf",
+    userId: "u",
+    accountId: "acct-u",
+    runId: "r",
+    nodeId: "n",
+    config,
+    triggerEvent: trigger,
+  });
+
 describe("add_contact_to_list", () => {
-  it("calls addListMembershipByEmail with the email + listId (V2 single-call)", async () => {
-    mockAddListMembershipByEmail.mockResolvedValueOnce({
-      recordIdsAdded: ["c-42"],
-    });
-    await addContactToList({
-      workflowId: "wf",
-      userId: "u",
-      accountId: "acct-u",
-      runId: "r",
-      nodeId: "n",
-      config: { listId: "list-1", email: "alice@example.com" },
-      triggerEvent: trigger,
-    });
-    expect(mockAddListMembershipByEmail.mock.calls[0]![0]!).toMatchObject({
-      listId: "list-1",
+  it("resolves email -> contactId, then PUTs the record id to the list", async () => {
+    mockFindContactByEmail.mockResolvedValueOnce({ id: "c-42", properties: {} });
+    mockListMembershipsAdd.mockResolvedValueOnce(undefined);
+    const result = await run({ listId: "list-1", email: "alice@example.com" });
+    expect(mockFindContactByEmail.mock.calls[0]![0]!).toMatchObject({
       email: "alice@example.com",
     });
-  });
-
-  it("returns canonical output with contactIdsAdded", async () => {
-    mockAddListMembershipByEmail.mockResolvedValueOnce({
-      recordIdsAdded: ["c-1", "c-2"],
-      recordIdsDiscarded: ["c-3"],
-    });
-    const result = await addContactToList({
-      workflowId: "wf",
-      userId: "u",
-      accountId: "acct-u",
-      runId: "r",
-      nodeId: "n",
-      config: { listId: "l-1", email: "a@b.com" },
-      triggerEvent: trigger,
+    expect(mockListMembershipsAdd.mock.calls[0]![0]!).toMatchObject({
+      listId: "list-1",
+      recordIds: ["c-42"],
     });
     expect(result.output).toEqual({
-      listId: "l-1",
-      email: "a@b.com",
-      contactIdsAdded: ["c-1", "c-2"],
-      contactIdsDiscarded: ["c-3"],
+      listId: "list-1",
+      email: "alice@example.com",
+      contactIdsAdded: ["c-42"],
+      contactIdsDiscarded: [],
     });
   });
 
-  it("defaults missing recordIdsAdded/Discarded to empty arrays", async () => {
-    mockAddListMembershipByEmail.mockResolvedValueOnce({});
-    const result = await addContactToList({
-      workflowId: "wf",
-      userId: "u",
-      accountId: "acct-u",
-      runId: "r",
-      nodeId: "n",
-      config: { listId: "l", email: "a@b.com" },
-      triggerEvent: trigger,
+  it("returns the documented empty-add result (NO membership call) when no contact matches", async () => {
+    mockFindContactByEmail.mockResolvedValueOnce(null);
+    const result = await run({ listId: "l-1", email: "ghost@example.com" });
+    expect(result.output).toEqual({
+      listId: "l-1",
+      email: "ghost@example.com",
+      contactIdsAdded: [],
+      contactIdsDiscarded: [],
     });
-    expect(result.output.contactIdsAdded).toEqual([]);
-    expect(result.output.contactIdsDiscarded).toEqual([]);
+    expect(mockListMembershipsAdd).not.toHaveBeenCalled();
   });
 
   it("rejects invalid email format", async () => {
-    await expect(
-      addContactToList({
-        workflowId: "wf",
-        userId: "u",
-        accountId: "acct-u",
-        runId: "r",
-        nodeId: "n",
-        config: { listId: "l", email: "not-an-email" },
-        triggerEvent: trigger,
-      }),
-    ).rejects.toThrow();
+    await expect(run({ listId: "l", email: "not-an-email" })).rejects.toThrow();
   });
 
   it("rejects empty listId", async () => {
-    await expect(
-      addContactToList({
-        workflowId: "wf",
-        userId: "u",
-        accountId: "acct-u",
-        runId: "r",
-        nodeId: "n",
-        config: { listId: "", email: "a@b.com" },
-        triggerEvent: trigger,
-      }),
-    ).rejects.toThrow();
+    await expect(run({ listId: "", email: "a@b.com" })).rejects.toThrow();
   });
 
-  it("wraps in refreshAndRetry", async () => {
-    mockAddListMembershipByEmail.mockResolvedValueOnce({});
-    await addContactToList({
-      workflowId: "wf",
-      userId: "u-1",
-      accountId: "acct-u-1",
-      runId: "r",
-      nodeId: "n",
-      config: { listId: "l", email: "a@b.com" },
-      triggerEvent: trigger,
-    });
+  it("wraps both calls in refreshAndRetry (provider hubspot)", async () => {
+    mockFindContactByEmail.mockResolvedValueOnce({ id: "c-1", properties: {} });
+    mockListMembershipsAdd.mockResolvedValueOnce(undefined);
+    await run({ listId: "l", email: "a@b.com" });
+    expect(mockRefreshAndRetry).toHaveBeenCalledTimes(2);
     expect(mockRefreshAndRetry.mock.calls[0]![0]!.provider).toBe("hubspot");
+    expect(mockRefreshAndRetry.mock.calls[1]![0]!.provider).toBe("hubspot");
   });
 });

@@ -1,23 +1,27 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
-import { removeListMembershipByEmail } from "../../_shared/hubspot/api/lists";
+import { findContactByEmail } from "../../_shared/hubspot/api/contacts";
+import { listMembershipsRemove } from "../../_shared/hubspot/api/lists";
 import { RemoveFromListConfigSchema } from "./removeFromList.schema";
 
 /**
- * HubSpot `remove_from_list` action handler — HubSpot 2.1.
+ * HubSpot `remove_from_list` action handler — HubSpot 2.1, REWORKED
+ * 2026-07-04 (production bug found by live action smoke).
  *
- * POSTs `/crm/v3/lists/{listId}/memberships/remove` with
- * `recordIdOrEmails: [email]`. Symmetric with `add_contact_to_list`
- * (Slice 13).
+ * The original wrapper POSTed `recordIdOrEmails` — the LEGACY v1 lists
+ * body; HubSpot's v3 memberships endpoint answers HTTP 405 to POST and
+ * takes PUT + a raw record-id array with NO email variant. Symmetric
+ * with `add_contact_to_list`'s rework:
+ *   1. `findContactByEmail` resolves email -> contactId.
+ *   2. `listMembershipsRemove` PUTs `[contactId]` (204; removing a
+ *      non-member is a no-op on HubSpot's side).
  *
- * Output is bounded:
+ * Output (shape unchanged):
  *   { listId, email, contactIdsRemoved, contactIdsDiscarded }
  *
- *   `contactIdsRemoved` is empty when HubSpot couldn't resolve the
- *   email to any list member (no error — just an empty remove result).
- *   The workflow author can branch on
- *   `contactIdsRemoved.length === 0` to detect missing-membership
- *   situations.
+ *   `contactIdsRemoved` is empty when NO contact exists with the email
+ *   (no error — the documented empty-remove result; branch on
+ *   `contactIdsRemoved.length === 0` to detect missing contacts).
  *
  * DYNAMIC-list errors surface as the standard HubSpot validation
  * message via the wrapper.
@@ -30,15 +34,35 @@ export const removeFromList: ActionHandler = async (input) => {
       ? input.triggerEvent.providerAccountId
       : null;
 
-  const response = await refreshAndRetry({
+  const contact = await refreshAndRetry({
     accountId: input.accountId,
     provider: "hubspot",
     providerAccountId,
     apiCall: (accessToken) =>
-      removeListMembershipByEmail({
-        accessToken,
+      findContactByEmail({ accessToken, email: config.email }),
+  });
+
+  if (!contact) {
+    // Documented no-error path: no contact with that email -> empty remove.
+    return {
+      output: {
         listId: config.listId,
         email: config.email,
+        contactIdsRemoved: [],
+        contactIdsDiscarded: [],
+      },
+    };
+  }
+
+  await refreshAndRetry({
+    accountId: input.accountId,
+    provider: "hubspot",
+    providerAccountId,
+    apiCall: (accessToken) =>
+      listMembershipsRemove({
+        accessToken,
+        listId: config.listId,
+        recordIds: [contact.id],
       }),
   });
 
@@ -46,8 +70,8 @@ export const removeFromList: ActionHandler = async (input) => {
     output: {
       listId: config.listId,
       email: config.email,
-      contactIdsRemoved: response.recordIdsRemoved ?? [],
-      contactIdsDiscarded: response.recordIdsDiscarded ?? [],
+      contactIdsRemoved: [contact.id],
+      contactIdsDiscarded: [],
     },
   };
 };

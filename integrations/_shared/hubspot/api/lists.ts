@@ -10,92 +10,168 @@ import { crmPath, hubspotRequest } from "./_request";
  * V1 ([`hubspot.ts:566-679`](c:/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/lib/workflows/actions/hubspot.ts#L566))
  * implements `add_contact_to_list` as a two-step flow:
  *   1. Search contact by email → resolve contactId.
- *   2. POST `/crm/v3/lists/{listId}/memberships/add` with `[contactId]`.
+ *   2. Add `[contactId]` to the list's memberships.
  *
- * V2 collapses to a single call using HubSpot's
- * `POST /crm/v3/lists/{listId}/memberships/add` which accepts either
- * `vidOrIds` (contact ids) OR `recordIdOrEmails` (mixed array). Slice
- * 13 uses the `recordIdOrEmails` variant with the email directly — no
- * separate contact-search round trip required (HubSpot resolves
- * email->contactId server-side).
- *
- * Returns the `recordIdsAdded` array so the action handler can include
- * the resolved contact id in its output.
+ * V2 originally tried to collapse this to a single POST with
+ * `recordIdOrEmails` — that body/method belongs to the LEGACY v1 lists
+ * API and the v3 endpoint answers HTTP 405 (found live, 2026-07-04
+ * action smoke). The v3 memberships contract is PUT + a raw record-id
+ * array with NO email variant, so V1's two-step flow is the correct
+ * shape after all: handlers resolve email -> contactId via
+ * `findContactByEmail`, then call `listMembershipsAdd` /
+ * `listMembershipsRemove`.
  */
 
-export interface ListMembershipAddResponse {
-  recordIdsAdded?: string[];
-  recordIdsDiscarded?: string[];
-}
-
-export interface AddListMembershipByEmailInput {
+export interface ListMembershipsMutateInput {
   accessToken: string;
   listId: string;
-  email: string;
+  /** CRM record ids (contact ids for contact lists). NEVER emails. */
+  recordIds: readonly string[];
 }
 
 /**
- * Add a contact to a manual list by email.
+ * Add records to a MANUAL list: `PUT /crm/v3/lists/{listId}/memberships/add`.
  *
- * HubSpot returns 200 with `recordIdsAdded` on success. For DYNAMIC
- * lists (membership controlled by HubSpot's rule engine), the API
- * returns a 400 with `category: "VALIDATION_ERROR"` — the shared
- * `hubspotRequest` surfaces the `message` field which V1 special-cases
- * for `"DYNAMIC"`. V2 surfaces the error verbatim; workflow authors
- * see the original HubSpot validation message.
+ * PRODUCTION BUG FIX (found live, 2026-07-04 action smoke): the original
+ * wrapper POSTed `{ recordIdOrEmails: [email] }` — that body shape belongs to
+ * the LEGACY v1 lists API. HubSpot's v3 memberships endpoints are PUT (POST
+ * returns a plain HTTP 405) and take a RAW JSON ARRAY of record ids; v3 has
+ * no email variant at all, so callers resolve email -> contactId first (the
+ * handlers use the same deterministic `findContactByEmail` lookup the
+ * create_contact 409 path uses). Success returns 204 No Content — idempotent
+ * (re-adding an existing member is a no-op).
+ *
+ * DYNAMIC-list constraint: HubSpot rejects manual membership writes on
+ * dynamic lists with a 400 `VALIDATION_ERROR`; the wrapper surfaces the
+ * message verbatim via `hubspotRequest`.
  */
-export async function addListMembershipByEmail(
-  input: AddListMembershipByEmailInput,
-): Promise<ListMembershipAddResponse> {
-  return hubspotRequest<ListMembershipAddResponse>({
+export async function listMembershipsAdd(
+  input: ListMembershipsMutateInput,
+): Promise<void> {
+  await hubspotRequest<void>({
     accessToken: input.accessToken,
-    method: "POST",
+    method: "PUT",
     path: crmPath(`lists/${encodeURIComponent(input.listId)}/memberships/add`),
-    body: { recordIdOrEmails: [input.email] },
+    body: [...input.recordIds],
     resourceForNotFound: `list ${input.listId}`,
   });
 }
 
-// ─── removeListMembershipByEmail (HubSpot 2.1) ─────────────────────────────
-
-export interface RemoveListMembershipByEmailInput {
-  accessToken: string;
-  listId: string;
-  email: string;
-}
-
-export interface ListMembershipRemoveResponse {
-  recordIdsRemoved?: string[];
-  /** HubSpot returns this when the email is not on the list (silent skip,
-   *  no error). Workflow authors that want strict-presence semantics
-   *  branch on `recordIdsRemoved.length === 0`. */
-  recordIdsDiscarded?: string[];
-}
-
 /**
- * Remove a contact from a manual list by email — HubSpot 2.1.
- *
- * Symmetric with `addListMembershipByEmail` — uses the same v3
- * lists API (`POST /crm/v3/lists/{listId}/memberships/remove`). V1's
- * legacy `/contacts/v1/lists/{listId}/remove` endpoint is NOT used;
- * the v3 path keeps the wrapper consistent with the add path V2
- * already ships and avoids reintroducing the V1 two-step
- * contact-search-then-remove flow.
- *
- * DYNAMIC-list constraint: HubSpot rejects manual-remove attempts
- * against dynamic lists with a 400 `VALIDATION_ERROR`. The wrapper
- * surfaces the error verbatim via `hubspotRequest`.
+ * Remove records from a MANUAL list:
+ * `PUT /crm/v3/lists/{listId}/memberships/remove`. Same v3 contract as
+ * `listMembershipsAdd` (PUT + raw record-id array; 204 on success;
+ * removing a non-member is a no-op). See the add wrapper for the
+ * production-bug history and the dynamic-list constraint.
  */
-export async function removeListMembershipByEmail(
-  input: RemoveListMembershipByEmailInput,
-): Promise<ListMembershipRemoveResponse> {
-  return hubspotRequest<ListMembershipRemoveResponse>({
+export async function listMembershipsRemove(
+  input: ListMembershipsMutateInput,
+): Promise<void> {
+  await hubspotRequest<void>({
     accessToken: input.accessToken,
-    method: "POST",
+    method: "PUT",
     path: crmPath(
       `lists/${encodeURIComponent(input.listId)}/memberships/remove`,
     ),
-    body: { recordIdOrEmails: [input.email] },
+    body: [...input.recordIds],
+    resourceForNotFound: `list ${input.listId}`,
+  });
+}
+
+// ─── listMembershipsGet ─────────────────────────────────────────────────────
+
+export interface ListMembershipRecord {
+  recordId: string;
+  membershipTimestamp?: string;
+}
+
+export interface ListMembershipsGetResponse {
+  results?: ListMembershipRecord[];
+  paging?: { next?: { after?: string } };
+}
+
+export interface ListMembershipsGetInput {
+  accessToken: string;
+  listId: string;
+  /** Page size; HubSpot caps at 250 for the memberships endpoint. */
+  limit?: number;
+  after?: string;
+}
+
+/**
+ * GET one page of a list's memberships:
+ * `GET /crm/v3/lists/{listId}/memberships`. Returns the member record
+ * ids (contact ids for contact lists). Read-only; a missing list 404s
+ * as the canonical `NotFoundError`.
+ */
+export async function listMembershipsGet(
+  input: ListMembershipsGetInput,
+): Promise<ListMembershipsGetResponse> {
+  const query = new URLSearchParams({
+    limit: String(Math.min(input.limit ?? 250, 250)),
+  });
+  if (input.after) query.set("after", input.after);
+  return hubspotRequest<ListMembershipsGetResponse>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: crmPath(`lists/${encodeURIComponent(input.listId)}/memberships`),
+    query,
+    resourceForNotFound: `list ${input.listId}`,
+  });
+}
+
+// ─── listsCreate / listsDelete ──────────────────────────────────────────────
+
+export interface ListsCreateInput {
+  accessToken: string;
+  name: string;
+  /** Object type the list is over — `"0-1"` = contacts. */
+  objectTypeId: string;
+  /** `MANUAL` (static) or `DYNAMIC`. Smoke staging always uses MANUAL. */
+  processingType: "MANUAL" | "DYNAMIC";
+}
+
+export interface ListsCreateResponse {
+  list?: { listId: string; name?: string | null };
+}
+
+/**
+ * Create a v3 list: `POST /crm/v3/lists`. Scope: `crm.lists.write`
+ * (already in the manifest). No registered workflow action exposes
+ * list creation today — this backs the action-smoke staging path
+ * (a throwaway MANUAL smoke list), torn down via `listsDelete`.
+ */
+export async function listsCreate(
+  input: ListsCreateInput,
+): Promise<ListsCreateResponse> {
+  return hubspotRequest<ListsCreateResponse>({
+    accessToken: input.accessToken,
+    method: "POST",
+    path: crmPath("lists/"),
+    body: {
+      name: input.name,
+      objectTypeId: input.objectTypeId,
+      processingType: input.processingType,
+    },
+    resourceForNotFound: "list (create)",
+  });
+}
+
+export interface ListsDeleteInput {
+  accessToken: string;
+  listId: string;
+}
+
+/**
+ * Delete a v3 list: `DELETE /crm/v3/lists/{listId}` (204 No Content;
+ * HubSpot keeps deleted lists restorable in-app for 90 days). Backs
+ * the smoke staging teardown only.
+ */
+export async function listsDelete(input: ListsDeleteInput): Promise<void> {
+  await hubspotRequest<void>({
+    accessToken: input.accessToken,
+    method: "DELETE",
+    path: crmPath(`lists/${encodeURIComponent(input.listId)}`),
     resourceForNotFound: `list ${input.listId}`,
   });
 }

@@ -261,6 +261,10 @@ import hubspotRemoveLineItem from "@/tests/fixtures/action-smoke/hubspot/remove_
 // seam verify; no delete action exists -> artifact left).
 import hubspotCreateCall from "@/tests/fixtures/action-smoke/hubspot/create_call";
 import hubspotCreateMeeting from "@/tests/fixtures/action-smoke/hubspot/create_meeting";
+// SMOKE-WRITE-HUBSPOT-LIST — list-membership finisher on a staged MANUAL smoke
+// list + staged marker contact (membership added, verified, removed).
+import hubspotAddContactToList from "@/tests/fixtures/action-smoke/hubspot/add_contact_to_list";
+import hubspotRemoveFromList from "@/tests/fixtures/action-smoke/hubspot/remove_from_list";
 // Slice 5.ASANA-1 — Asana first slice: 1 read + 4 writes (create/update/complete
 // dispose via complete_task — no Asana delete action ships in this slice).
 import asanaGetTask from "@/tests/fixtures/action-smoke/asana/get_task";
@@ -497,6 +501,8 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   hubspotRemoveLineItem,
   hubspotCreateCall,
   hubspotCreateMeeting,
+  hubspotAddContactToList,
+  hubspotRemoveFromList,
   asanaCreateTask,
   asanaUpdateTask,
   asanaCompleteTask,

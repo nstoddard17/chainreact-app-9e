@@ -61,6 +61,7 @@ const PROVIDER_READ_WRAPPERS = [
   // refreshAndRetry `call` helper the apiCall-line heuristic can't see; the
   // decryptToken ban above still covers them.
   "lineItemsGet",
+  "listMembershipsGet",
   "pipelinesList",
 ] as const;
 

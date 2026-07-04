@@ -99,6 +99,34 @@ export async function contactsGet(
   });
 }
 
+// ─── contactsArchive ────────────────────────────────────────────────────────
+
+export interface ContactsArchiveInput {
+  accessToken: string;
+  contactId: string;
+}
+
+/**
+ * Archive (soft-delete) a contact: `DELETE /crm/v3/objects/contacts/{id}`.
+ * HubSpot moves the contact to the recycle bin (restorable in-app for 90
+ * days) and returns 204 No Content. Replaying against an already-archived
+ * contact returns 404 -> canonical `NotFoundError`.
+ *
+ * No registered workflow action exposes this today — it backs the
+ * action-smoke staging teardown (the seeded list-membership contact), so
+ * smoke runs stop accumulating marked contacts on the throwaway portal.
+ */
+export async function contactsArchive(
+  input: ContactsArchiveInput,
+): Promise<void> {
+  await hubspotRequest<void>({
+    accessToken: input.accessToken,
+    method: "DELETE",
+    path: crmPath(`objects/contacts/${encodeURIComponent(input.contactId)}`),
+    resourceForNotFound: `contact ${input.contactId}`,
+  });
+}
+
 // ─── contactsSearch ─────────────────────────────────────────────────────────
 
 export interface ContactsSearchFilter {
