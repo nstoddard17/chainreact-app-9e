@@ -9,6 +9,8 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { getOptionsResolver } from "@/services/options/_registry";
 import { cardsGet, cardsListComments } from "@/integrations/trello/api/cards";
+import { boardsList } from "@/integrations/trello/api/boardsList";
+import { listsList } from "@/integrations/trello/api/listsList";
 import {
   pickSecondSmokeList,
   pickSmokeSafeTarget,
@@ -167,6 +169,56 @@ export async function trelloSmokeReadBack(
         idLabels: card.idLabels ?? [],
         idMembers: card.idMembers ?? [],
         closed: card.closed ?? false,
+      },
+      reason: null,
+    };
+  }
+
+  if (input.action === "member_boards") {
+    // create_board's independent read-back: the member's board list (id/name/closed
+    // only — the same fields the boardsList wrapper masks to). markerPath "boards"
+    // proves the marker-named smoke board is PERSISTED, never the create echo.
+    const integration = await getActiveForExecution(ctx.accountId, "trello", null, {
+      connectedByUserId: ctx.userId,
+    });
+    if (!integration) return { ok: false, output: null, reason: "trello not connected" };
+    const boards = await refreshAndRetry({
+      accountId: ctx.accountId,
+      provider: "trello",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) => boardsList({ accessToken }),
+    });
+    return {
+      ok: true,
+      output: {
+        boards: boards.map((b) => ({ name: b.name, closed: b.closed ?? false })),
+        count: boards.length,
+      },
+      reason: null,
+    };
+  }
+
+  if (input.action === "board_lists") {
+    // create_list's independent read-back: one board's lists (name/closed only).
+    const integration = await getActiveForExecution(ctx.accountId, "trello", null, {
+      connectedByUserId: ctx.userId,
+    });
+    if (!integration) return { ok: false, output: null, reason: "trello not connected" };
+    const boardId = input.config.boardId;
+    if (typeof boardId !== "string" || boardId.length === 0) {
+      return { ok: false, output: null, reason: "board_lists read-back: missing boardId" };
+    }
+    const lists = await refreshAndRetry({
+      accountId: ctx.accountId,
+      provider: "trello",
+      providerAccountId: integration.providerAccountId,
+      apiCall: (accessToken) => listsList({ accessToken, boardId }),
+    });
+    return {
+      ok: true,
+      output: {
+        lists: lists.map((l) => ({ name: l.name, closed: l.closed ?? false })),
+        count: lists.length,
       },
       reason: null,
     };

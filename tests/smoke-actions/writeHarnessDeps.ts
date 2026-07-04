@@ -63,6 +63,7 @@ import { hubspotSmokeReadBack } from "./writeHarnessDeps/hubspot";
 import { mailchimpSmokeReadBack } from "./writeHarnessDeps/mailchimp";
 import { outlookSmokeReadBack } from "./writeHarnessDeps/outlook";
 import { teamsSmokeReadBack } from "./writeHarnessDeps/teams";
+import { gdriveSmokeReadBack } from "./writeHarnessDeps/gdrive";
 import { stagedFileSmokeReadBack } from "./writeHarnessDeps/stagedFile";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
@@ -173,6 +174,9 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   // Teams per-message body read-backs (channel_message_state / chat_message_state)
   // — the registered list read is header-only by design, so it can't prove markers.
   teamsSmokeReadBack,
+  // Drive permission-shape read (file_permissions — share_document's anyone-link
+  // proof; types/roles only, never principals).
+  gdriveSmokeReadBack,
   // Provider-agnostic v2_storage staged-file existence read-back (slack:download_file).
   stagedFileSmokeReadBack,
 ];

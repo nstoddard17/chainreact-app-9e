@@ -70,6 +70,7 @@ const NOT_RUN_BURNDOWN = "2026-07-04";
 const SMOKE_WRITE_MONDAY_BOARDS = "2026-07-04";
 const SMOKE_WRITE_OUTLOOK_MAIL = "2026-07-04";
 const SMOKE_WRITE_TEAMS = "2026-07-04";
+const SMOKE_FINISHER_SWEEP = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1260,5 +1261,34 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ]),
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live text send to a discovered existing chat + per-message body read-back proves the marker; marked chat message stays (no registered delete)", SMOKE_WRITE_TEAMS, [
     ["microsoft-teams", "send_chat_message"],
+  ]),
+  // Small connected-provider finisher sweep — gdocs export/share, excel export
+  // (a pure used-range read despite the name), onenote notebook/section, notion
+  // database, trello board/list. Where no delete path exists (Graph has NO
+  // OneNote notebook/section delete; V2 registers no notion database or trello
+  // board/list delete) the marked artifact honestly stays.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live export of a smoke doc staged to a v2_storage FileRef (no bytes) + staged_file read-back; marked doc + staged object stay", SMOKE_FINISHER_SWEEP, [
+    ["google-docs", "export_document"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live anyone-link share on a smoke doc (notify false) + permission-shape read-back proves type anyone; doc hard-deleted (cross-provider drive delete)", SMOKE_FINISHER_SWEEP, [
+    ["google-docs", "share_document"],
+  ]),
+  ...records("LIVE_PASS", "live read verified (used-range parse of the standing smoke worksheet; no file output)", SMOKE_FINISHER_SWEEP, [
+    ["microsoft-excel", "export_sheet"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live create + list_notebooks read-back proves the marker; notebook stays (Graph exposes no notebook delete)", SMOKE_FINISHER_SWEEP, [
+    ["microsoft-onenote", "create_notebook"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live section on a smoke notebook + list_sections read-back proves the marker; notebook + section stay (Graph exposes no delete)", SMOKE_FINISHER_SWEEP, [
+    ["microsoft-onenote", "create_section"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live create under the discovered smoke parent + query_database read-back proves existence (results present-and-empty); empty marked database stays", SMOKE_FINISHER_SWEEP, [
+    ["notion", "create_database"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live create (explicit private visibility) + member_boards read-back proves the marker; marked private board stays (no registered delete)", SMOKE_FINISHER_SWEEP, [
+    ["trello", "create_board"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live list on a smoke private board + board_lists read-back proves the marker; board + list stay (no registered delete)", SMOKE_FINISHER_SWEEP, [
+    ["trello", "create_list"],
   ]),
 ];

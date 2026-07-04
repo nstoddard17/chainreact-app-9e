@@ -69,6 +69,9 @@ const PROVIDER_READ_WRAPPERS = [
   // exemption as the Gmail staging helpers; the decryptToken ban still covers them.
   "listMessages",
   "getMessage",
+  // Trello board/list finisher read-backs (member_boards / board_lists).
+  "boardsList",
+  "listsList",
   "memberGet",
   "memberNotesList",
   "memberEventsList",

@@ -94,6 +94,7 @@ import excelGetWorkbooks from "@/tests/fixtures/action-smoke/microsoft-excel/get
 import excelGetWorksheets from "@/tests/fixtures/action-smoke/microsoft-excel/get_worksheets";
 // SMOKE-ACTIONS-14 — Microsoft Excel read-only batch (new range/table read actions).
 import excelReadRange from "@/tests/fixtures/action-smoke/microsoft-excel/read_range";
+import excelExportSheet from "@/tests/fixtures/action-smoke/microsoft-excel/export_sheet";
 import excelReadTableRows from "@/tests/fixtures/action-smoke/microsoft-excel/read_table_rows";
 import excelFindRow from "@/tests/fixtures/action-smoke/microsoft-excel/find_row";
 // SMOKE-ACTIONS-15 — Microsoft Teams read-only batch (fixture-only; existing read actions).
@@ -165,6 +166,15 @@ import outlookGetAttachment from "@/tests/fixtures/action-smoke/microsoft-outloo
 import teamsSendChannelMessage from "@/tests/fixtures/action-smoke/microsoft-teams/send_channel_message";
 import teamsReplyToChannelMessage from "@/tests/fixtures/action-smoke/microsoft-teams/reply_to_channel_message";
 import teamsSendChatMessage from "@/tests/fixtures/action-smoke/microsoft-teams/send_chat_message";
+// SMOKE-WRITE-FINISHERS — small connected-provider finisher sweep (gdocs export/
+// share, onenote notebook/section, notion database, trello board/list).
+import gdocsExportDocument from "@/tests/fixtures/action-smoke/google-docs/export_document";
+import gdocsShareDocument from "@/tests/fixtures/action-smoke/google-docs/share_document";
+import onenoteCreateNotebook from "@/tests/fixtures/action-smoke/microsoft-onenote/create_notebook";
+import onenoteCreateSection from "@/tests/fixtures/action-smoke/microsoft-onenote/create_section";
+import notionCreateDatabase from "@/tests/fixtures/action-smoke/notion/create_database";
+import trelloCreateBoard from "@/tests/fixtures/action-smoke/trello/create_board";
+import trelloCreateList from "@/tests/fixtures/action-smoke/trello/create_list";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -355,6 +365,7 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   excelGetWorkbooks,
   excelGetWorksheets,
   excelReadRange,
+  excelExportSheet,
   excelReadTableRows,
   excelFindRow,
   teamsGetChannelDetails,
@@ -475,6 +486,13 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   teamsSendChannelMessage,
   teamsReplyToChannelMessage,
   teamsSendChatMessage,
+  gdocsExportDocument,
+  gdocsShareDocument,
+  onenoteCreateNotebook,
+  onenoteCreateSection,
+  notionCreateDatabase,
+  trelloCreateBoard,
+  trelloCreateList,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,
