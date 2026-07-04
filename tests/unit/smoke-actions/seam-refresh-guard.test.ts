@@ -52,6 +52,8 @@ const PROVIDER_READ_WRAPPERS = [
   "dealsGet",
   "notesGet",
   "tasksGet",
+  "callsGet",
+  "meetingsGet",
   "ticketsGet",
   "productsGet",
   // NOTE: staging MUTATORS (gmail usersMessagesSend/Trash, hubspot dealsCreate/

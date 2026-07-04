@@ -30,7 +30,12 @@ import { contactsGet } from "@/integrations/_shared/hubspot/api/contacts";
 import { companiesGet } from "@/integrations/_shared/hubspot/api/companies";
 import { dealsGet } from "@/integrations/_shared/hubspot/api/deals";
 import { dealsCreate, dealsArchive } from "@/integrations/_shared/hubspot/api/deals";
-import { notesGet, tasksGet } from "@/integrations/_shared/hubspot/api/engagements";
+import {
+  callsGet,
+  meetingsGet,
+  notesGet,
+  tasksGet,
+} from "@/integrations/_shared/hubspot/api/engagements";
 import { ticketsGet } from "@/integrations/_shared/hubspot/api/tickets";
 import { productsGet } from "@/integrations/_shared/hubspot/api/products";
 import { lineItemsGet } from "@/integrations/_shared/hubspot/api/lineItems";
@@ -167,6 +172,62 @@ async function readHubSpotTaskState(
   };
 }
 
+async function readHubSpotCallState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const callId = typeof input.config.callId === "string" ? input.config.callId : "";
+  if (!callId) return { ok: false, output: null, reason: "hubspot call_state: missing callId" };
+  const integration = await getActiveForExecution(ctx.accountId, "hubspot", null);
+  if (!integration) return { ok: false, output: null, reason: "hubspot not connected" };
+  const call = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "hubspot",
+    providerAccountId: integration.providerAccountId,
+    apiCall: (accessToken) =>
+      callsGet({ accessToken, engagementId: callId, properties: ["hs_call_title", "hs_call_status"] }),
+  });
+  return {
+    ok: true,
+    output: {
+      found: true,
+      title: call.properties.hs_call_title ?? null,
+      status: call.properties.hs_call_status ?? null,
+    },
+    reason: null,
+  };
+}
+
+async function readHubSpotMeetingState(
+  ctx: SmokeReaderContext,
+  input: SmokeReaderInput,
+): Promise<StepRunOutcome> {
+  const meetingId = typeof input.config.meetingId === "string" ? input.config.meetingId : "";
+  if (!meetingId) return { ok: false, output: null, reason: "hubspot meeting_state: missing meetingId" };
+  const integration = await getActiveForExecution(ctx.accountId, "hubspot", null);
+  if (!integration) return { ok: false, output: null, reason: "hubspot not connected" };
+  const meeting = await refreshAndRetry({
+    accountId: ctx.accountId,
+    provider: "hubspot",
+    providerAccountId: integration.providerAccountId,
+    apiCall: (accessToken) =>
+      meetingsGet({
+        accessToken,
+        engagementId: meetingId,
+        properties: ["hs_meeting_title", "hs_meeting_outcome"],
+      }),
+  });
+  return {
+    ok: true,
+    output: {
+      found: true,
+      title: meeting.properties.hs_meeting_title ?? null,
+      outcome: meeting.properties.hs_meeting_outcome ?? null,
+    },
+    reason: null,
+  };
+}
+
 async function readHubSpotTicketState(
   ctx: SmokeReaderContext,
   input: SmokeReaderInput,
@@ -257,7 +318,7 @@ async function readHubSpotLineItemState(
 }
 
 /**
- * HubSpot smoke read-back seam. Owns eight smoke-only read actions, each ONE
+ * HubSpot smoke read-back seam. Owns ten smoke-only read actions, each ONE
  * object's sanitized marker-bearing properties via the strongly-consistent
  * GET-by-id wrappers (never the eventually-consistent /search):
  *   - `contact_state` — { found, email, firstname, lastname }
@@ -265,6 +326,8 @@ async function readHubSpotLineItemState(
  *   - `deal_state`    — { found, dealname, dealstage, pipeline }
  *   - `note_state`    — { found, body }
  *   - `task_state`    — { found, subject, status }
+ *   - `call_state`    — { found, title, status }
+ *   - `meeting_state` — { found, title, outcome }
  *   - `ticket_state`  — { found, subject, pipeline, stage }
  *   - `product_state` — { found, name, description }
  *   - `line_item_state` — { exists, name, quantity }; the typed 404 maps to
@@ -282,6 +345,8 @@ export async function hubspotSmokeReadBack(
   if (input.action === "deal_state") return readHubSpotDealState(ctx, input);
   if (input.action === "note_state") return readHubSpotNoteState(ctx, input);
   if (input.action === "task_state") return readHubSpotTaskState(ctx, input);
+  if (input.action === "call_state") return readHubSpotCallState(ctx, input);
+  if (input.action === "meeting_state") return readHubSpotMeetingState(ctx, input);
   if (input.action === "ticket_state") return readHubSpotTicketState(ctx, input);
   if (input.action === "product_state") return readHubSpotProductState(ctx, input);
   if (input.action === "line_item_state") return readHubSpotLineItemState(ctx, input);

@@ -13,7 +13,9 @@ jest.mock("@/integrations/_shared/hubspot/api/_request", () => ({
 
 import {
   callsCreate,
+  callsGet,
   meetingsCreate,
+  meetingsGet,
   notesCreate,
   notesGet,
   tasksCreate,
@@ -66,6 +68,40 @@ describe("tasksCreate", () => {
     });
     expect(mockHubspotRequest.mock.calls[0]![0]!.path).toBe(
       "/crm/v3/objects/tasks",
+    );
+  });
+});
+
+describe("callsGet", () => {
+  it("GETs /objects/calls/{id} with properties projection", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ id: "c-1", properties: {} });
+    await callsGet({
+      accessToken: "tok",
+      engagementId: "c-1",
+      properties: ["hs_call_title", "hs_call_status"],
+    });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("GET");
+    expect(call.path).toBe("/crm/v3/objects/calls/c-1");
+    expect((call.query as URLSearchParams).get("properties")).toBe(
+      "hs_call_title,hs_call_status",
+    );
+  });
+});
+
+describe("meetingsGet", () => {
+  it("GETs /objects/meetings/{id} with properties projection", async () => {
+    mockHubspotRequest.mockResolvedValueOnce({ id: "m-1", properties: {} });
+    await meetingsGet({
+      accessToken: "tok",
+      engagementId: "m-1",
+      properties: ["hs_meeting_title", "hs_meeting_outcome"],
+    });
+    const call = mockHubspotRequest.mock.calls[0]![0]!;
+    expect(call.method).toBe("GET");
+    expect(call.path).toBe("/crm/v3/objects/meetings/m-1");
+    expect((call.query as URLSearchParams).get("properties")).toBe(
+      "hs_meeting_title,hs_meeting_outcome",
     );
   });
 });

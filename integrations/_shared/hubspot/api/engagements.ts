@@ -140,6 +140,26 @@ export async function tasksGet(
 // ─── calls ──────────────────────────────────────────────────────────────────
 
 /**
+ * GET one call engagement by id. Mirrors `notesGet` / `tasksGet` —
+ * optional `properties` projection as a comma-separated query param.
+ */
+export async function callsGet(
+  input: EngagementGetInput,
+): Promise<HubSpotEngagement> {
+  const query =
+    input.properties && input.properties.length > 0
+      ? new URLSearchParams({ properties: input.properties.join(",") })
+      : undefined;
+  return hubspotRequest<HubSpotEngagement>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: crmPath(`objects/calls/${encodeURIComponent(input.engagementId)}`),
+    ...(query ? { query } : {}),
+    resourceForNotFound: `call ${input.engagementId}`,
+  });
+}
+
+/**
  * Create a HubSpot call engagement.
  *
  * No required property — HubSpot accepts an empty call as a "logged
@@ -175,5 +195,25 @@ export async function meetingsCreate(
     path: crmPath("objects/meetings"),
     body: { properties: input.properties },
     resourceForNotFound: "meeting (create)",
+  });
+}
+
+/**
+ * GET one meeting engagement by id. Mirrors `notesGet` / `tasksGet` —
+ * optional `properties` projection as a comma-separated query param.
+ */
+export async function meetingsGet(
+  input: EngagementGetInput,
+): Promise<HubSpotEngagement> {
+  const query =
+    input.properties && input.properties.length > 0
+      ? new URLSearchParams({ properties: input.properties.join(",") })
+      : undefined;
+  return hubspotRequest<HubSpotEngagement>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: crmPath(`objects/meetings/${encodeURIComponent(input.engagementId)}`),
+    ...(query ? { query } : {}),
+    resourceForNotFound: `meeting ${input.engagementId}`,
   });
 }

@@ -61,6 +61,7 @@ const SMOKE_WRITE_GMAIL_ATTACHMENT = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_CRM = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_ENGAGE = "2026-07-04";
 const SMOKE_WRITE_HUBSPOT_LINEITEM = "2026-07-04";
+const SMOKE_WRITE_HUBSPOT_CALLMEET = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1063,5 +1064,17 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["hubspot", "create_line_item"],
     ["hubspot", "update_line_item"],
     ["hubspot", "remove_line_item"],
+  ]),
+  // HUBSPOT-CALLMEET (2026-07-04) — call + meeting engagement RECORDS (CRM
+  // entries, not telephony / calendar invites; no owner, no associations, no
+  // attendees -> nobody pinged). Marker on hs_call_title / hs_meeting_title;
+  // INDEPENDENT GET-by-id verify via the call_state / meeting_state seam
+  // readers. Both handlers already default the REQUIRED hs_timestamp to now()
+  // (the create_task bug pattern was checked and does NOT apply here). HONESTY:
+  // no registered delete/archive action for calls/meetings, so each run leaves
+  // ONE crsmoke-marked record per fixture on the throwaway portal.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live engagement record create + independent GET-by-id seam read-back (marker on title); no telephony/invites; no delete action so the marked record stays", SMOKE_WRITE_HUBSPOT_CALLMEET, [
+    ["hubspot", "create_call"],
+    ["hubspot", "create_meeting"],
   ]),
 ];

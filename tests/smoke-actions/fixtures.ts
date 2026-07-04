@@ -257,6 +257,10 @@ import hubspotUpdateProduct from "@/tests/fixtures/action-smoke/hubspot/update_p
 import hubspotCreateLineItem from "@/tests/fixtures/action-smoke/hubspot/create_line_item";
 import hubspotUpdateLineItem from "@/tests/fixtures/action-smoke/hubspot/update_line_item";
 import hubspotRemoveLineItem from "@/tests/fixtures/action-smoke/hubspot/remove_line_item";
+// SMOKE-WRITE-HUBSPOT-CALLMEET — call + meeting engagement records (GET-by-id
+// seam verify; no delete action exists -> artifact left).
+import hubspotCreateCall from "@/tests/fixtures/action-smoke/hubspot/create_call";
+import hubspotCreateMeeting from "@/tests/fixtures/action-smoke/hubspot/create_meeting";
 // Slice 5.ASANA-1 — Asana first slice: 1 read + 4 writes (create/update/complete
 // dispose via complete_task — no Asana delete action ships in this slice).
 import asanaGetTask from "@/tests/fixtures/action-smoke/asana/get_task";
@@ -491,6 +495,8 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   hubspotCreateLineItem,
   hubspotUpdateLineItem,
   hubspotRemoveLineItem,
+  hubspotCreateCall,
+  hubspotCreateMeeting,
   asanaCreateTask,
   asanaUpdateTask,
   asanaCompleteTask,
