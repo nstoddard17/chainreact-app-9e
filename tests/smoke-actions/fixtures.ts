@@ -190,6 +190,17 @@ import shopifyUpdateOrderStatus from "@/tests/fixtures/action-smoke/shopify/upda
 import shopifyAddOrderNote from "@/tests/fixtures/action-smoke/shopify/add_order_note";
 import shopifyCreateFulfillment from "@/tests/fixtures/action-smoke/shopify/create_fulfillment";
 import shopifyUpdateInventory from "@/tests/fixtures/action-smoke/shopify/update_inventory";
+// SMOKE-WRITE-GITHUB — GitHub write batch on self-owned crsmoke resources only
+// (repo/issue/comment/branch/PR/gist). create_repository + create_gist stand alone;
+// issue/comment/branch/PR target ONE dev-test-staged shared crsmoke repo. No
+// registered deletes -> every artifact is honestly left (no delete_repo scope). All
+// verifies via the github per-resource state seams (GitHub registers no read actions).
+import githubCreateRepository from "@/tests/fixtures/action-smoke/github/create_repository";
+import githubCreateIssue from "@/tests/fixtures/action-smoke/github/create_issue";
+import githubAddComment from "@/tests/fixtures/action-smoke/github/add_comment";
+import githubCreateBranch from "@/tests/fixtures/action-smoke/github/create_branch";
+import githubCreatePullRequest from "@/tests/fixtures/action-smoke/github/create_pull_request";
+import githubCreateGist from "@/tests/fixtures/action-smoke/github/create_gist";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -519,6 +530,12 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   shopifyAddOrderNote,
   shopifyCreateFulfillment,
   shopifyUpdateInventory,
+  githubCreateRepository,
+  githubCreateIssue,
+  githubAddComment,
+  githubCreateBranch,
+  githubCreatePullRequest,
+  githubCreateGist,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

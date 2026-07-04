@@ -63,6 +63,7 @@ import {
   discoverShopifyLocation,
   stageShopifyOrderProduct,
   stageShopifyInventoryTarget,
+  stageGithubSmokeRepo,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -149,6 +150,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     let cleanupHubSpotDeal: (() => Promise<void>) | null = null;
     // Deletes the staged HubSpot smoke list + archives its contact. Run in the finally.
     let cleanupHubSpotList: (() => Promise<void>) | null = null;
+    // GitHub staged shared repo teardown (no-op: no delete_repo scope). Run in the finally.
+    let cleanupGithubStaged: (() => Promise<void>) | null = null;
     if (provider === "trello" && execUsable) {
       const chosen = await discoverTrelloSmokeTarget(account, user);
       if (chosen) {
@@ -467,6 +470,22 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
           targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}staged tracked inventory item`;
         }
       }
+    } else if (provider === "github" && execUsable) {
+      // Every repo-scoped fixture (issue / comment / branch / PR) targets ONE fresh
+      // dev-test-staged crsmoke repo (containment: never a discovered repo). Staging
+      // creates it with auto_init (a default branch to cut from) + a marker head
+      // branch carrying a REAL diff commit (create_pull_request 422s without a diff;
+      // no registered action commits file contents). create_repository + create_gist
+      // stand alone (no repo target). remove() is a no-op — no delete_repo scope, so
+      // the repo is an honest left artifact. Absent staging -> repo-scoped fixtures
+      // report BLOCKED_ENV; create_repository/create_gist still run.
+      const staged = await stageGithubSmokeRepo(account, user, `crsmoke-${runToken}-`);
+      if (staged) {
+        overlay.SMOKE_GITHUB_REPO = staged.repository; // owner/repo -> env overlay only
+        overlay.SMOKE_GITHUB_PR_HEAD = staged.prHeadBranch; // marker head branch
+        cleanupGithubStaged = staged.remove;
+        targetLabel = `staged shared repo + PR head branch`;
+      }
     } else if (provider === "airtable" && execUsable) {
       // Record writes need the smoke table's primary text field NAME. baseId /
       // tableId come from env; discover the field unless explicitly pinned.
@@ -615,6 +634,9 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       if (cleanupHubSpotDeal) await cleanupHubSpotDeal();
       // Always tear down the staged HubSpot smoke list + contact.
       if (cleanupHubSpotList) await cleanupHubSpotList();
+      // GitHub staged shared repo: remove() is a no-op (no delete_repo scope); the
+      // repo is an honest left artifact. Called for staging-pattern symmetry.
+      if (cleanupGithubStaged) await cleanupGithubStaged();
     }
   }, 600_000);
 });

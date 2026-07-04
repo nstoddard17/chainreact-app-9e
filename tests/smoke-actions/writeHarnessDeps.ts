@@ -65,6 +65,7 @@ import { outlookSmokeReadBack } from "./writeHarnessDeps/outlook";
 import { teamsSmokeReadBack } from "./writeHarnessDeps/teams";
 import { gdriveSmokeReadBack } from "./writeHarnessDeps/gdrive";
 import { shopifySmokeReadBack } from "./writeHarnessDeps/shopify";
+import { githubSmokeReadBack } from "./writeHarnessDeps/github";
 import { stagedFileSmokeReadBack } from "./writeHarnessDeps/stagedFile";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
@@ -104,6 +105,7 @@ export {
   stageShopifyOrderProduct,
   stageShopifyInventoryTarget,
 } from "./writeHarnessDeps/shopify";
+export { stageGithubSmokeRepo } from "./writeHarnessDeps/github";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */
@@ -186,6 +188,9 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   // Shopify per-resource state reads (product/variant/customer/order/inventory)
   // — Shopify registers no read actions, so every write verifies through these.
   shopifySmokeReadBack,
+  // GitHub per-resource state reads (repo/issue/comments/branch/PR/gist) — GitHub
+  // registers no read actions, so every write verifies through these bounded GETs.
+  githubSmokeReadBack,
   // Provider-agnostic v2_storage staged-file existence read-back (slack:download_file).
   stagedFileSmokeReadBack,
 ];

@@ -26,6 +26,7 @@ import { MAILCHIMP_CERTIFICATIONS } from "./mailchimp";
 import { MICROSOFT_CERTIFICATIONS } from "./microsoft";
 import { GOOGLE_CERTIFICATIONS } from "./google";
 import { SHOPIFY_CERTIFICATIONS } from "./shopify";
+import { GITHUB_CERTIFICATIONS } from "./github";
 import { OTHER_CERTIFICATIONS } from "./other";
 
 export const CERTIFICATIONS: readonly CertificationRecord[] = [
@@ -38,5 +39,6 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...MICROSOFT_CERTIFICATIONS,
   ...GOOGLE_CERTIFICATIONS,
   ...SHOPIFY_CERTIFICATIONS,
+  ...GITHUB_CERTIFICATIONS,
   ...OTHER_CERTIFICATIONS,
 ];
