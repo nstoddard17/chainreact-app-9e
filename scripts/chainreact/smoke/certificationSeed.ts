@@ -67,6 +67,7 @@ const SMOKE_WRITE_MAILCHIMP_SUB = "2026-07-04";
 const SMOKE_WRITE_MAILCHIMP_FINISH = "2026-07-04";
 const SMOKE_ASANA_LIVE = "2026-07-04";
 const NOT_RUN_BURNDOWN = "2026-07-04";
+const SMOKE_WRITE_MONDAY_BOARDS = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1189,5 +1190,33 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   // (fresh 12h window) or rotation support ships in an OAuth slice.
   ...records("BLOCKED_ENV", "slack token expired (rotation enabled on the app; V2 slack oauth stores no refresh token by design); reconnect slack or ship rotation support", NOT_RUN_BURNDOWN, [
     ["slack", "unarchive_channel"],
+  ]),
+  // Monday board/file finisher batch — every fixture is fully self-contained on a
+  // per-run smoke-created crsmoke- board, so nothing ever touches a real board.
+  // Monday exposes NO registered board/group/column delete in V2, so each marked
+  // board honestly stays (mailchimp create_segment precedent). All verifies are
+  // INDEPENDENT read-backs (get_board / list_groups / get_item / the staged_file
+  // bucket seam), never the write echo. The file pair surfaced two fixes during
+  // certification: Monday's image processor 422-rejects the harness 1x1 PNG
+  // ("Could not identify image size") -> the Monday staging uses a 5x5 PNG; and
+  // assetsGet declared its ids variable nullable [ID!] where Monday's assets(ids:)
+  // requires [ID!]! -> GRAPHQL_VALIDATION_FAILED, fixed + re-certified live.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live create (explicit public boardKind) + independent get_board read-back; marked board stays (no registered board delete)", SMOKE_WRITE_MONDAY_BOARDS, [
+    ["monday", "create_board"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live structure-only clone of a smoke-created source + get_board read-back on the NEW board; both marked boards stay (no board delete)", SMOKE_WRITE_MONDAY_BOARDS, [
+    ["monday", "duplicate_board"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live group on a smoke-created board + independent list_groups read-back; marked board stays (no group/board delete)", SMOKE_WRITE_MONDAY_BOARDS, [
+    ["monday", "create_group"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live text column on a smoke-created board + independent get_board columns read-back; marked board stays (no column/board delete)", SMOKE_WRITE_MONDAY_BOARDS, [
+    ["monday", "add_column"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live multipart upload into a file column on a fully smoke-owned board/item + get_item column-value read-back (marker filename); marked board stays", SMOKE_WRITE_MONDAY_BOARDS, [
+    ["monday", "add_file"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live download of a smoke-uploaded asset staged to a v2_storage FileRef (no bytes) + staged_file read-back; marked board + staged object stay", SMOKE_WRITE_MONDAY_BOARDS, [
+    ["monday", "download_file"],
   ]),
 ];

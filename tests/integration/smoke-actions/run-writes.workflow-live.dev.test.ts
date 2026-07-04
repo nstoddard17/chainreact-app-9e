@@ -359,6 +359,19 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
           targetLabel += ` / target group "${chosen.targetGroupLabel}"`;
         }
       }
+      // add_file / download_file consume a FileRef, so stage a throwaway PNG in OUR
+      // workflow-files bucket and pass it as a v2_storage FileRef source (Slack files
+      // precedent — self-contained bytes, never an invented external URL).
+      // download_file's setup re-uploads from the same staged source. Absent it ->
+      // those two fixtures report BLOCKED_ENV. Monday's image processor 422-rejects
+      // the 1x1 PNG ("Could not identify image size"), so stage the 5x5 variant.
+      const mondayUploadPath = `smoke/monday-upload/${randomUUID()}.png`;
+      const mondayStaged = await stageSmokeFile(supabase, mondayUploadPath, "png5x5");
+      if (mondayStaged) {
+        overlay.SMOKE_MONDAY_UPLOAD_STORAGE_PATH = mondayStaged.storagePath;
+        cleanupStagedFile = mondayStaged.remove;
+        targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}staged upload file in workflow-files bucket`;
+      }
     } else if (provider === "airtable" && execUsable) {
       // Record writes need the smoke table's primary text field NAME. baseId /
       // tableId come from env; discover the field unless explicitly pinned.

@@ -18,8 +18,11 @@ export interface AssetsGetInput {
   assetIds: string[];
 }
 
+// Monday's `assets(ids:)` argument is typed `[ID!]!` (non-null list) — declaring
+// the variable as nullable `[ID!]` fails GraphQL validation with
+// GRAPHQL_VALIDATION_FAILED (caught live in the download_file smoke, 2026-07-04).
 const QUERY = `
-  query($assetIds: [ID!]) {
+  query($assetIds: [ID!]!) {
     assets(ids: $assetIds) {
       id
       name

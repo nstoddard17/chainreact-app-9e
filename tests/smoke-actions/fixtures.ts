@@ -236,6 +236,15 @@ import mondayDeleteItem from "@/tests/fixtures/action-smoke/monday/delete_item";
 import mondayMoveItem from "@/tests/fixtures/action-smoke/monday/move_item";
 import mondayArchiveItem from "@/tests/fixtures/action-smoke/monday/archive_item";
 import mondayDuplicateItem from "@/tests/fixtures/action-smoke/monday/duplicate_item";
+// SMOKE-WRITE-MONDAY-BOARDS — Monday board/file finisher batch (create_board /
+// duplicate_board / create_group / add_column / add_file / download_file), all on
+// per-run smoke-owned crsmoke- boards; no registered board delete -> artifacts left.
+import mondayCreateBoard from "@/tests/fixtures/action-smoke/monday/create_board";
+import mondayDuplicateBoard from "@/tests/fixtures/action-smoke/monday/duplicate_board";
+import mondayCreateGroup from "@/tests/fixtures/action-smoke/monday/create_group";
+import mondayAddColumn from "@/tests/fixtures/action-smoke/monday/add_column";
+import mondayAddFile from "@/tests/fixtures/action-smoke/monday/add_file";
+import mondayDownloadFile from "@/tests/fixtures/action-smoke/monday/download_file";
 // SMOKE-WRITE-HUBSPOT-CRM — HubSpot CRM lifecycle batch (contact/company/deal
 // create+update; verify via the GET-by-id smoke seam, no delete action exists).
 import hubspotCreateContact from "@/tests/fixtures/action-smoke/hubspot/create_contact";
@@ -465,6 +474,12 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   mondayMoveItem,
   mondayArchiveItem,
   mondayDuplicateItem,
+  mondayCreateBoard,
+  mondayDuplicateBoard,
+  mondayCreateGroup,
+  mondayAddColumn,
+  mondayAddFile,
+  mondayDownloadFile,
   slackDeleteMessage,
   slackUpdateMessage,
   slackAddReaction,
