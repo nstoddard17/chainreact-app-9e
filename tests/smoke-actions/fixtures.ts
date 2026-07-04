@@ -159,6 +159,12 @@ import outlookAddCategories from "@/tests/fixtures/action-smoke/microsoft-outloo
 import outlookMoveEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/move_email";
 import outlookDeleteEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/delete_email";
 import outlookGetAttachment from "@/tests/fixtures/action-smoke/microsoft-outlook/get_attachment";
+// SMOKE-WRITE-TEAMS — Teams message finisher batch (channel send/reply + chat send;
+// verified by the per-message body seam since the registered list read is header-only;
+// no registered Teams message delete -> marked message artifacts left).
+import teamsSendChannelMessage from "@/tests/fixtures/action-smoke/microsoft-teams/send_channel_message";
+import teamsReplyToChannelMessage from "@/tests/fixtures/action-smoke/microsoft-teams/reply_to_channel_message";
+import teamsSendChatMessage from "@/tests/fixtures/action-smoke/microsoft-teams/send_chat_message";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -466,6 +472,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   outlookMoveEmail,
   outlookDeleteEmail,
   outlookGetAttachment,
+  teamsSendChannelMessage,
+  teamsReplyToChannelMessage,
+  teamsSendChatMessage,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

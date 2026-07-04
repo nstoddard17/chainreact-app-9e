@@ -59,6 +59,7 @@ import {
   discoverMailchimpSmokeAudience,
   discoverOutlookSelfAddress,
   stageOutlookSeedMessage,
+  discoverTeamsSmokeChat,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -415,6 +416,22 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_OUTLOOK_ATTACHMENT_MESSAGE_ID = seedAttach.messageId; // id -> env overlay only
         cleanupOutlookSeeds.push(seedAttach.remove);
         targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}attachment seed`;
+      }
+    } else if (provider === "microsoft-teams" && execUsable) {
+      // Channel sends target the PINNED smoke team/channel (SMOKE_TEAMS_TEAM_ID /
+      // SMOKE_TEAMS_CHANNEL_ID — same envs the certified reads use; already in
+      // .env.local, no overlay needed). send_chat_message needs an EXISTING chat
+      // (Batch 1 has no Chat.Create): pinned SMOKE_TEAMS_CHAT_ID wins, else
+      // discover a smoke/test-topic chat, else the first chat on the throwaway
+      // tenant. Absent any chat -> that one fixture reports BLOCKED_ENV.
+      const chat = await discoverTeamsSmokeChat(
+        account,
+        user,
+        process.env.SMOKE_TEAMS_CHAT_ID || null,
+      );
+      if (chat) {
+        overlay.SMOKE_TEAMS_CHAT_ID = chat.chatId; // id -> env overlay only
+        targetLabel = `chat "${chat.label}"`;
       }
     } else if (provider === "airtable" && execUsable) {
       // Record writes need the smoke table's primary text field NAME. baseId /

@@ -69,6 +69,7 @@ const SMOKE_ASANA_LIVE = "2026-07-04";
 const NOT_RUN_BURNDOWN = "2026-07-04";
 const SMOKE_WRITE_MONDAY_BOARDS = "2026-07-04";
 const SMOKE_WRITE_OUTLOOK_MAIL = "2026-07-04";
+const SMOKE_WRITE_TEAMS = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1246,5 +1247,18 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ]),
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live fetch of a seed attachment staged to a v2_storage FileRef (no bytes) + staged_file read-back; tiny staged object stays; seed removed by dev test", SMOKE_WRITE_OUTLOOK_MAIL, [
     ["microsoft-outlook", "get_attachment"],
+  ]),
+  // Teams message finisher batch — sends verified by the per-message BODY seams
+  // (channel_message_state / chat_message_state; the registered list read is
+  // header-only by design and cannot prove content). No registered Teams message
+  // delete exists, so each marked message honestly stays on the throwaway tenant.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live text send to the pinned smoke channel + per-message body read-back proves the marker; marked message stays (no registered delete)", SMOKE_WRITE_TEAMS, [
+    ["microsoft-teams", "send_channel_message"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live reply under a smoke parent; reply read via the parent /replies subpath proves marker body AND replyToId==parent; both messages stay", SMOKE_WRITE_TEAMS, [
+    ["microsoft-teams", "reply_to_channel_message"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live text send to a discovered existing chat + per-message body read-back proves the marker; marked chat message stays (no registered delete)", SMOKE_WRITE_TEAMS, [
+    ["microsoft-teams", "send_chat_message"],
   ]),
 ];
