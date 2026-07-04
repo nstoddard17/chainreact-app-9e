@@ -149,6 +149,16 @@ import excelDeleteRow from "@/tests/fixtures/action-smoke/microsoft-excel/delete
 import excelAddTableRow from "@/tests/fixtures/action-smoke/microsoft-excel/add_table_row";
 // SMOKE-WRITE-43 — Microsoft Outlook create_draft_email (smoke-owned draft, never sent).
 import outlookCreateDraftEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/create_draft_email";
+// SMOKE-WRITE-OUTLOOK-MAIL — Outlook mail finisher batch (send/reply/forward via the
+// find_messages marker-poll seam since Graph mail mutations return no id; categories/
+// move/trash on smoke-owned drafts; get_attachment stages a dev-test-staged seed).
+import outlookSendEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/send_email";
+import outlookReplyToEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/reply_to_email";
+import outlookForwardEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/forward_email";
+import outlookAddCategories from "@/tests/fixtures/action-smoke/microsoft-outlook/add_categories";
+import outlookMoveEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/move_email";
+import outlookDeleteEmail from "@/tests/fixtures/action-smoke/microsoft-outlook/delete_email";
+import outlookGetAttachment from "@/tests/fixtures/action-smoke/microsoft-outlook/get_attachment";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -449,6 +459,13 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   excelDeleteRow,
   excelAddTableRow,
   outlookCreateDraftEmail,
+  outlookSendEmail,
+  outlookReplyToEmail,
+  outlookForwardEmail,
+  outlookAddCategories,
+  outlookMoveEmail,
+  outlookDeleteEmail,
+  outlookGetAttachment,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

@@ -61,6 +61,7 @@ import { slackSmokeReadBack } from "./writeHarnessDeps/slack";
 import { gmailSmokeReadBack } from "./writeHarnessDeps/gmail";
 import { hubspotSmokeReadBack } from "./writeHarnessDeps/hubspot";
 import { mailchimpSmokeReadBack } from "./writeHarnessDeps/mailchimp";
+import { outlookSmokeReadBack } from "./writeHarnessDeps/outlook";
 import { stagedFileSmokeReadBack } from "./writeHarnessDeps/stagedFile";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
@@ -90,6 +91,10 @@ export {
   stageHubSpotListMembershipTarget,
 } from "./writeHarnessDeps/hubspot";
 export { discoverMailchimpSmokeAudience } from "./writeHarnessDeps/mailchimp";
+export {
+  discoverOutlookSelfAddress,
+  stageOutlookSeedMessage,
+} from "./writeHarnessDeps/outlook";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */
@@ -159,6 +164,10 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   // Mailchimp member existence probe (GET by subscriber hash; typed 404 ->
   // exists:false) for remove_subscriber's deletion proof.
   mailchimpSmokeReadBack,
+  // Outlook marker-subject folder poll (find_messages — send/reply/forward/move/
+  // delete proofs; Graph mail mutations return no id) + per-message state read
+  // (message_state — add_categories proof).
+  outlookSmokeReadBack,
   // Provider-agnostic v2_storage staged-file existence read-back (slack:download_file).
   stagedFileSmokeReadBack,
 ];

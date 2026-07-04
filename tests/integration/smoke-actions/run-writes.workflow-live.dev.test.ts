@@ -57,6 +57,8 @@ import {
   stageHubSpotLineItemDeal,
   stageHubSpotListMembershipTarget,
   discoverMailchimpSmokeAudience,
+  discoverOutlookSelfAddress,
+  stageOutlookSeedMessage,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -135,6 +137,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     let cleanupStagedFile: (() => Promise<void>) | null = null;
     // Trashes the Gmail attachment seed message (get_attachment). Run in the finally.
     let cleanupGmailAttachment: (() => Promise<void>) | null = null;
+    // Permanently deletes the Outlook mail seeds (reply/forward/attachment). Finally.
+    const cleanupOutlookSeeds: Array<() => Promise<void>> = [];
     // Archives the staged HubSpot line-item parent deal. Run in the finally.
     let cleanupHubSpotDeal: (() => Promise<void>) | null = null;
     // Deletes the staged HubSpot smoke list + archives its contact. Run in the finally.
@@ -372,6 +376,46 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         cleanupStagedFile = mondayStaged.remove;
         targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}staged upload file in workflow-files bucket`;
       }
+    } else if (provider === "microsoft-outlook" && execUsable) {
+      // send_email / forward_email self-address the connected throwaway mailbox —
+      // mail never leaves the smoke account. A pinned SMOKE_OUTLOOK_SELF wins; else
+      // discover via Graph /me. Absent -> those fixtures report BLOCKED_ENV.
+      const self = process.env.SMOKE_OUTLOOK_SELF
+        ? { email: process.env.SMOKE_OUTLOOK_SELF }
+        : await discoverOutlookSelfAddress(account, user);
+      if (self) {
+        overlay.SMOKE_OUTLOOK_SELF = self.email; // own address -> env overlay only
+        targetLabel = "self mailbox";
+      }
+      // reply_to_email / forward_email need a REAL received message (Graph cannot
+      // reply to a draft), and get_attachment needs a message carrying a real
+      // fileAttachment. Self-send marker-subjected seeds (Gmail attachment-seed
+      // precedent); each remove() permanently deletes both the inbox and Sent
+      // Items copies in the finally. Absent -> those fixtures report BLOCKED_ENV.
+      const seedReply = await stageOutlookSeedMessage(account, user, `crsmoke-${runToken}-`, "seedreply");
+      if (seedReply) {
+        overlay.SMOKE_OUTLOOK_SEED_REPLY_ID = seedReply.messageId; // id -> env overlay only
+        cleanupOutlookSeeds.push(seedReply.remove);
+        targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}reply seed`;
+      }
+      const seedFwd = await stageOutlookSeedMessage(account, user, `crsmoke-${runToken}-`, "seedfwd");
+      if (seedFwd) {
+        overlay.SMOKE_OUTLOOK_SEED_FWD_ID = seedFwd.messageId; // id -> env overlay only
+        cleanupOutlookSeeds.push(seedFwd.remove);
+        targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}forward seed`;
+      }
+      const seedAttach = await stageOutlookSeedMessage(
+        account,
+        user,
+        `crsmoke-${runToken}-`,
+        "attachseed",
+        { withAttachment: true },
+      );
+      if (seedAttach) {
+        overlay.SMOKE_OUTLOOK_ATTACHMENT_MESSAGE_ID = seedAttach.messageId; // id -> env overlay only
+        cleanupOutlookSeeds.push(seedAttach.remove);
+        targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}attachment seed`;
+      }
     } else if (provider === "airtable" && execUsable) {
       // Record writes need the smoke table's primary text field NAME. baseId /
       // tableId come from env; discover the field unless explicitly pinned.
@@ -509,6 +553,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       // Always trash the Gmail attachment seed message (get_attachment reads it; the
       // staged v2_storage object it produced is a harmless artifact left in our bucket).
       if (cleanupGmailAttachment) await cleanupGmailAttachment();
+      // Always permanently delete the Outlook mail seeds (inbox + Sent Items copies).
+      for (const removeSeed of cleanupOutlookSeeds) await removeSeed();
       // Always archive the staged HubSpot line-item parent deal (recycle bin).
       if (cleanupHubSpotDeal) await cleanupHubSpotDeal();
       // Always tear down the staged HubSpot smoke list + contact.

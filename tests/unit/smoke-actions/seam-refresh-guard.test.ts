@@ -63,6 +63,12 @@ const PROVIDER_READ_WRAPPERS = [
   "lineItemsGet",
   "listMembershipsGet",
   "pipelinesList",
+  // Outlook mail seam reads (find_messages / message_state). NOTE: the staging
+  // calls (sendMail / deleteMessage / getMailboxProfile) run through the local
+  // refreshAndRetry `call` helper the apiCall-line heuristic can't see — same
+  // exemption as the Gmail staging helpers; the decryptToken ban still covers them.
+  "listMessages",
+  "getMessage",
   "memberGet",
   "memberNotesList",
   "memberEventsList",

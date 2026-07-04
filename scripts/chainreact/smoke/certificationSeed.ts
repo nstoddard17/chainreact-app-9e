@@ -68,6 +68,7 @@ const SMOKE_WRITE_MAILCHIMP_FINISH = "2026-07-04";
 const SMOKE_ASANA_LIVE = "2026-07-04";
 const NOT_RUN_BURNDOWN = "2026-07-04";
 const SMOKE_WRITE_MONDAY_BOARDS = "2026-07-04";
+const SMOKE_WRITE_OUTLOOK_MAIL = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1218,5 +1219,32 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ]),
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live download of a smoke-uploaded asset staged to a v2_storage FileRef (no bytes) + staged_file read-back; marked board + staged object stay", SMOKE_WRITE_MONDAY_BOARDS, [
     ["monday", "download_file"],
+  ]),
+  // Outlook mail finisher batch — Graph send/reply/forward return 202 with NO id,
+  // so those three verify AND capture through the find_messages seam (bounded
+  // marker-subject poll of inbox+sentitems), then cleanupEach hard-deletes exactly
+  // the captured copies. categories/move/trash run on smoke-owned DRAFTS (never
+  // sent, .invalid recipient). reply/forward/get_attachment seeds are staged by the
+  // dev test (self-sent; Graph cannot reply to a draft) and removed in its finally.
+  ...records("LIVE_PASS_CLEANED", "live self-send + find_messages marker poll proves inbox+sentitems copies; both hard-deleted", SMOKE_WRITE_OUTLOOK_MAIL, [
+    ["microsoft-outlook", "send_email"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live reply to a staged self-sent seed; RE-prefixed marker copies proven in inbox+sentitems, both hard-deleted; seed removed by dev test", SMOKE_WRITE_OUTLOOK_MAIL, [
+    ["microsoft-outlook", "reply_to_email"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live forward of a staged seed to self; FW-prefixed marker copies proven, both hard-deleted; seed removed by dev test", SMOKE_WRITE_OUTLOOK_MAIL, [
+    ["microsoft-outlook", "forward_email"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live categories PATCH on a smoke draft + message_state read-back proves the marker category; draft hard-deleted", SMOKE_WRITE_OUTLOOK_MAIL, [
+    ["microsoft-outlook", "add_categories"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live move of a smoke draft to archive (Graph re-keys; newId tracked) + folder read-back proves placement; hard-deleted", SMOKE_WRITE_OUTLOOK_MAIL, [
+    ["microsoft-outlook", "move_email"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live trash of a smoke draft + deleteditems read-back proves placement (recoverable); permanent mode exercised as the other outlook cleanups", SMOKE_WRITE_OUTLOOK_MAIL, [
+    ["microsoft-outlook", "delete_email"],
+  ]),
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live fetch of a seed attachment staged to a v2_storage FileRef (no bytes) + staged_file read-back; tiny staged object stays; seed removed by dev test", SMOKE_WRITE_OUTLOOK_MAIL, [
+    ["microsoft-outlook", "get_attachment"],
   ]),
 ];
