@@ -47,6 +47,10 @@ const PROVIDER_READ_WRAPPERS = [
   "pagesGet",
   "notebooksList",
   "sectionsList",
+  "contactsGet",
+  "companiesGet",
+  "dealsGet",
+  "pipelinesList",
 ] as const;
 
 interface SeamSource {

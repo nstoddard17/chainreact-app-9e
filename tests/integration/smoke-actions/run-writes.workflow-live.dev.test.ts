@@ -52,6 +52,7 @@ import {
   discoverSlackSmokeUser,
   discoverGmailSelfAddress,
   stageGmailAttachmentMessage,
+  discoverHubSpotDealStage,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -226,6 +227,22 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
         overlay.SMOKE_GMAIL_ATTACHMENT_ID = attach.attachmentId; // id -> env overlay only
         cleanupGmailAttachment = attach.remove;
         targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}attachment seed message`;
+      }
+    } else if (provider === "hubspot" && execUsable) {
+      // create_deal / update_deal need a REAL deal pipeline + stage id (HubSpot
+      // rejects invented stage ids). A pinned SMOKE_HUBSPOT_DEAL_PIPELINE_ID wins;
+      // else the portal's first non-archived deal pipeline + its first stage is
+      // discovered. Both ids -> env overlay only (never printed). Absent -> the
+      // deal fixtures report BLOCKED_ENV; contact/company fixtures need no target.
+      const chosen = await discoverHubSpotDealStage(
+        account,
+        user,
+        process.env.SMOKE_HUBSPOT_DEAL_PIPELINE_ID || null,
+      );
+      if (chosen) {
+        overlay.SMOKE_HUBSPOT_DEAL_PIPELINE_ID = chosen.pipelineId; // id -> env overlay only
+        overlay.SMOKE_HUBSPOT_DEAL_STAGE_ID = chosen.stageId; // id -> env overlay only
+        targetLabel = `deal pipeline "${chosen.pipelineLabel}" / stage "${chosen.stageLabel}"`;
       }
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the

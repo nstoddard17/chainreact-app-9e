@@ -58,6 +58,7 @@ const SMOKE_WRITE_GMAIL_STATE = "2026-07-04";
 const SMOKE_WRITE_GMAIL_SEND = "2026-07-04";
 const SMOKE_WRITE_GMAIL_REPLY = "2026-07-04";
 const SMOKE_WRITE_GMAIL_ATTACHMENT = "2026-07-04";
+const SMOKE_WRITE_HUBSPOT_CRM = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -1006,5 +1007,24 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
     ["microsoft-excel", "add_row"],
     ["microsoft-excel", "update_row"],
     ["microsoft-excel", "delete_row"],
+  ]),
+  // HUBSPOT-CRM (2026-07-04) — first HubSpot writes: contact/company/deal create+update.
+  // Each create captures the object id + echoes the marker; each update seeds via the
+  // create action then PATCHes a marker property (verify pins the suffixed value, so a
+  // no-op update fails). Every verify is an INDEPENDENT GET-by-id via the smoke-only
+  // seam (contact_state / company_state / deal_state) — never the registered /search
+  // reads, which are eventually consistent and would flake on a seconds-old object.
+  // Deal pipeline/stage ids are auto-discovered from the portal's deal pipelines
+  // (never invented). HONESTY: HubSpot has NO registered delete/archive action for
+  // contacts/companies/deals and the smoke seam is read-only by invariant, so each
+  // run leaves ONE crsmoke-marked object per fixture on the throwaway portal
+  // (artifact "left" — harmless, recognizable).
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live CRM create/update + independent GET-by-id seam read-back; no delete action exists so the marked object stays on the throwaway portal", SMOKE_WRITE_HUBSPOT_CRM, [
+    ["hubspot", "create_contact"],
+    ["hubspot", "update_contact"],
+    ["hubspot", "create_company"],
+    ["hubspot", "update_company"],
+    ["hubspot", "create_deal"],
+    ["hubspot", "update_deal"],
   ]),
 ];

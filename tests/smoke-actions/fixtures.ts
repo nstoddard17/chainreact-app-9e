@@ -236,6 +236,14 @@ import mondayDeleteItem from "@/tests/fixtures/action-smoke/monday/delete_item";
 import mondayMoveItem from "@/tests/fixtures/action-smoke/monday/move_item";
 import mondayArchiveItem from "@/tests/fixtures/action-smoke/monday/archive_item";
 import mondayDuplicateItem from "@/tests/fixtures/action-smoke/monday/duplicate_item";
+// SMOKE-WRITE-HUBSPOT-CRM — HubSpot CRM lifecycle batch (contact/company/deal
+// create+update; verify via the GET-by-id smoke seam, no delete action exists).
+import hubspotCreateContact from "@/tests/fixtures/action-smoke/hubspot/create_contact";
+import hubspotUpdateContact from "@/tests/fixtures/action-smoke/hubspot/update_contact";
+import hubspotCreateCompany from "@/tests/fixtures/action-smoke/hubspot/create_company";
+import hubspotUpdateCompany from "@/tests/fixtures/action-smoke/hubspot/update_company";
+import hubspotCreateDeal from "@/tests/fixtures/action-smoke/hubspot/create_deal";
+import hubspotUpdateDeal from "@/tests/fixtures/action-smoke/hubspot/update_deal";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -447,6 +455,12 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   gmailReplyToEmail,
   gmailCreateDraftReply,
   gmailGetAttachment,
+  hubspotCreateContact,
+  hubspotUpdateContact,
+  hubspotCreateCompany,
+  hubspotUpdateCompany,
+  hubspotCreateDeal,
+  hubspotUpdateDeal,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */
