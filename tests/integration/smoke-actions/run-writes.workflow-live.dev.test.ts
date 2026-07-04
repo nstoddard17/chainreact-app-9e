@@ -51,6 +51,7 @@ import {
   discoverSlackSmokeChannel,
   discoverSlackSmokeUser,
   discoverGmailSelfAddress,
+  stageGmailAttachmentMessage,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -120,9 +121,15 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     //    board/list; other providers read their target from env (.env.local).
     const overlay: Record<string, string> = {};
     let targetLabel: string | null = null;
+    // Per-run marker token, hoisted so a provider staging branch (e.g. the Gmail
+    // attachment seed) can name its throwaway resource with the SAME marker the write
+    // harness builds (`crsmoke-<runToken>-`). Passed verbatim to the runner below.
+    const runToken = randomUUID().slice(0, 8);
     // Removes the throwaway file staged for airtable:add_attachment (if any). Run
     // in a finally so a staged file is never left behind even on assertion failure.
     let cleanupStagedFile: (() => Promise<void>) | null = null;
+    // Trashes the Gmail attachment seed message (get_attachment). Run in the finally.
+    let cleanupGmailAttachment: (() => Promise<void>) | null = null;
     if (provider === "trello" && execUsable) {
       const chosen = await discoverTrelloSmokeTarget(account, user);
       if (chosen) {
@@ -208,6 +215,17 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       if (self) {
         overlay.SMOKE_GMAIL_SELF = self.email; // own address -> env overlay only
         targetLabel = "draft to self (own inbox)";
+      }
+      // get_attachment needs a real message carrying an attachment. send_email has no
+      // attachments field, so self-send a smoke seed with one tiny text attachment
+      // (marker filename) and resolve the Gmail-assigned attachmentId. The seed message
+      // is trashed in the finally. Absent -> those envs unset -> get_attachment BLOCKED_ENV.
+      const attach = await stageGmailAttachmentMessage(account, user, `crsmoke-${runToken}-`);
+      if (attach) {
+        overlay.SMOKE_GMAIL_ATTACHMENT_MESSAGE_ID = attach.messageId; // id -> env overlay only
+        overlay.SMOKE_GMAIL_ATTACHMENT_ID = attach.attachmentId; // id -> env overlay only
+        cleanupGmailAttachment = attach.remove;
+        targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}attachment seed message`;
       }
     } else if (provider === "monday" && execUsable) {
       // create_item needs a board + a usable group. Connection is proven from the
@@ -326,7 +344,7 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
           actionFilter: actionFilter.length > 0 ? actionFilter : null,
           allowWrite: true,
           allowDestructive: true,
-          runToken: randomUUID().slice(0, 8),
+          runToken,
           envLookup,
         },
         deps,
@@ -365,6 +383,9 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       // Always remove the throwaway staged attachment file (the smoke record it was
       // attached to is deleted by the fixture's own cleanup).
       if (cleanupStagedFile) await cleanupStagedFile();
+      // Always trash the Gmail attachment seed message (get_attachment reads it; the
+      // staged v2_storage object it produced is a harmless artifact left in our bucket).
+      if (cleanupGmailAttachment) await cleanupGmailAttachment();
     }
   }, 600_000);
 });

@@ -73,16 +73,26 @@ export const getAttachment: ActionHandler = async (input) => {
   });
 
   const attachments = extractAttachmentMetadata(message);
-  const target = attachments.find(
-    (a) => a.attachmentId === config.attachmentId,
-  );
+  // Gmail attachment ids are NOT stable across `users.messages.get` calls (verified live:
+  // two back-to-back gets of the same message return DIFFERENT attachmentIds for the same
+  // part). So a valid id obtained from an EARLIER get -- e.g. the `new_attachment` trigger's
+  // own metadata fetch, or an upstream search step -- will not match the id in THIS fresh
+  // get. Match by id when it happens to line up, but fall back to the SOLE attachment when
+  // the message has exactly one (unambiguous). Only a genuinely ambiguous case (id not found
+  // AND multiple attachments) is unresolvable and still throws.
+  const target =
+    attachments.find((a) => a.attachmentId === config.attachmentId) ??
+    (attachments.length === 1 ? attachments[0] : undefined);
   if (!target) {
     throw new Error(
       `Gmail attachment not found: messageId=${config.messageId}, attachmentId=${config.attachmentId}.`,
     );
   }
 
-  // 2) Fetch attachment bytes (wire shape: base64url + optional size).
+  // 2) Fetch attachment bytes (wire shape: base64url + optional size). Use the attachment
+  //    id from THIS get (`target.attachmentId`) -- guaranteed valid within this request --
+  //    rather than the caller-supplied `config.attachmentId`, which may be a stale id from
+  //    an earlier get.
   const wire = await refreshAndRetry({
     accountId: input.accountId,
     provider: "gmail",
@@ -91,7 +101,7 @@ export const getAttachment: ActionHandler = async (input) => {
       usersMessagesAttachmentsGet({
         accessToken,
         messageId: config.messageId,
-        attachmentId: config.attachmentId,
+        attachmentId: target.attachmentId,
       }),
   });
 

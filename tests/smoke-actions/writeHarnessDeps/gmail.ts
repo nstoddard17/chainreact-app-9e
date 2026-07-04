@@ -18,6 +18,10 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
 import { usersMessagesGet } from "@/integrations/gmail/api/usersMessagesGet";
 import { usersGetProfile } from "@/integrations/gmail/api/usersGetProfile";
+import { usersMessagesSend } from "@/integrations/gmail/api/usersMessagesSend";
+import { usersMessagesTrash } from "@/integrations/gmail/api/usersMessagesTrash";
+import { encodeBase64Url } from "@/integrations/gmail/utils/rfc5322";
+import { extractAttachmentMetadata } from "@/integrations/gmail/triggers/newAttachment/extractAttachmentMetadata";
 import type { StepRunOutcome } from "../writeHarness";
 import type { SmokeReaderContext, SmokeReaderInput } from "./context";
 
@@ -69,6 +73,80 @@ export async function discoverGmailSelfAddress(
     });
     const email = String((profile as { emailAddress?: string }).emailAddress ?? "");
     return email.length > 0 ? { email } : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface StagedGmailAttachment {
+  readonly messageId: string;
+  readonly attachmentId: string;
+  readonly fileName: string;
+  /** Trash the smoke seed message (the attachment goes with it). */
+  readonly remove: () => Promise<void>;
+}
+
+/**
+ * Self-send a SMOKE seed email that carries ONE tiny text attachment, then read it back
+ * (format=full) to resolve the Gmail-assigned attachmentId. `send_email` has no
+ * attachments field, so this smoke-only helper hand-builds a `multipart/mixed` RFC 5322
+ * message (a text part + one attachment part) and sends it via users.messages.send. The
+ * attachment filename carries `markerPrefix` (`crsmoke-<runToken>-`) so a get_attachment
+ * fixture can prove it fetched OUR attachment. Returns the message id + attachmentId +
+ * filename + a `remove` that trashes the seed. READ-only after the send. Returns null on
+ * failure (caller reports BLOCKED_ENV).
+ */
+export async function stageGmailAttachmentMessage(
+  accountId: string,
+  _userId: string,
+  markerPrefix: string,
+): Promise<StagedGmailAttachment | null> {
+  const integration = await getActiveForExecution(accountId, "gmail", null);
+  if (!integration) return null;
+  const call = <T>(fn: (t: string) => Promise<T>): Promise<T> =>
+    refreshAndRetry({ accountId, provider: "gmail", providerAccountId: integration.providerAccountId, apiCall: fn });
+  try {
+    const profile = await call((t) => usersGetProfile({ accessToken: t }));
+    const self = String((profile as { emailAddress?: string }).emailAddress ?? "");
+    if (!self) return null;
+
+    const fileName = `${markerPrefix}attach.txt`;
+    const boundary = `crsmoke_b_${markerPrefix.replace(/[^A-Za-z0-9]/g, "")}`;
+    // A minimal multipart/mixed message: a plain text body + one text attachment. The
+    // attachment content is a fixed marker string (its bytes are what get_attachment stages).
+    const attachmentB64 = Buffer.from(`${markerPrefix}attachment content - safe to ignore`, "utf8").toString("base64");
+    const mime = [
+      `To: ${self}`,
+      `Subject: ${markerPrefix}attachseed ChainReact action-smoke - safe to ignore`,
+      "MIME-Version: 1.0",
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      "",
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      "",
+      `${markerPrefix}attachseed body - safe to ignore`,
+      `--${boundary}`,
+      `Content-Type: text/plain; charset="UTF-8"; name="${fileName}"`,
+      `Content-Disposition: attachment; filename="${fileName}"`,
+      "Content-Transfer-Encoding: base64",
+      "",
+      attachmentB64,
+      `--${boundary}--`,
+      "",
+    ].join("\r\n");
+
+    const sent = await call((t) => usersMessagesSend({ accessToken: t, rawMessage: encodeBase64Url(mime) }));
+    const full = await call((t) => usersMessagesGet({ accessToken: t, messageId: sent.id, format: "full" }));
+    const att = extractAttachmentMetadata(full).find((a) => a.filename === fileName);
+    if (!att) return null;
+    return {
+      messageId: sent.id,
+      attachmentId: att.attachmentId,
+      fileName,
+      remove: async () => {
+        await call((t) => usersMessagesTrash({ accessToken: t, messageId: sent.id })).catch(() => {});
+      },
+    };
   } catch {
     return null;
   }

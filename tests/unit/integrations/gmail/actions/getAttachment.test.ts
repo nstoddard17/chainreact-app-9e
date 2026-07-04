@@ -291,10 +291,26 @@ describe("get_attachment — happy path", () => {
 });
 
 describe("get_attachment — error surface", () => {
-  it("throws (before byte fetch) when the attachmentId is not found in metadata", async () => {
-    mockUsersMessagesGet.mockResolvedValueOnce(
-      makeMessageWithAttachment({ attachmentId: "different-att" }),
-    );
+  it("throws (before byte fetch) when the id is not found AND the message has multiple attachments (ambiguous)", async () => {
+    // Two attachments + a non-matching id -> genuinely unresolvable (the single-attachment
+    // fallback can't disambiguate). Gmail attachment ids are unstable across gets, so the
+    // fallback only applies when there is exactly one attachment.
+    mockUsersMessagesGet.mockResolvedValueOnce({
+      id: "msg-1",
+      threadId: "thr-1",
+      labelIds: ["INBOX"],
+      snippet: "",
+      internalDate: "0",
+      sizeEstimate: 4096,
+      payload: {
+        mimeType: "multipart/mixed",
+        headers: [{ name: "From", value: "alice@example.com" }],
+        parts: [
+          { mimeType: "application/pdf", filename: "a.pdf", body: { attachmentId: "att-a", size: 3 } },
+          { mimeType: "application/pdf", filename: "b.pdf", body: { attachmentId: "att-b", size: 4 } },
+        ],
+      },
+    });
 
     await expect(
       getAttachment(
@@ -305,6 +321,29 @@ describe("get_attachment — error surface", () => {
     // Did NOT proceed to the byte fetch or stage.
     expect(mockUsersMessagesAttachmentsGet).not.toHaveBeenCalled();
     expect(mockStageFileToStorage).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the SOLE attachment (using this get's id) when the caller's id is stale (unstable Gmail ids)", async () => {
+    // Gmail returns a DIFFERENT attachmentId per get; the single attachment here has
+    // "fresh-att" while the caller passes a stale "stale-att". With exactly one attachment
+    // the target is unambiguous -> fetch it using the FRESH id from this get.
+    mockUsersMessagesGet.mockResolvedValueOnce(
+      makeMessageWithAttachment({ attachmentId: "fresh-att" }),
+    );
+
+    const result = await getAttachment(
+      makeInput({ messageId: "msg-1", attachmentId: "stale-att" }),
+    );
+
+    // Bytes fetched with the FRESH id from this get, not the caller's stale id.
+    expect(mockUsersMessagesAttachmentsGet).toHaveBeenCalledTimes(1);
+    expect(mockUsersMessagesAttachmentsGet.mock.calls[0]![0]).toMatchObject({
+      messageId: "msg-1",
+      attachmentId: "fresh-att",
+    });
+    expect(mockStageFileToStorage).toHaveBeenCalledTimes(1);
+    // Output echoes the caller-supplied id for correlation.
+    expect(result.output).toMatchObject({ messageId: "msg-1", attachmentId: "stale-att", fileName: "report.pdf" });
   });
 
   it("throws when the message has no parts at all (attachment can't exist)", async () => {

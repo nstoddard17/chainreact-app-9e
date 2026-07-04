@@ -57,6 +57,7 @@ const SMOKE_WRITE_GMAIL_DRAFT_LABEL = "2026-07-04";
 const SMOKE_WRITE_GMAIL_STATE = "2026-07-04";
 const SMOKE_WRITE_GMAIL_SEND = "2026-07-04";
 const SMOKE_WRITE_GMAIL_REPLY = "2026-07-04";
+const SMOKE_WRITE_GMAIL_ATTACHMENT = "2026-07-04";
 
 /**
  * The certification matrix seed. Actions NOT listed here are derived at read
@@ -853,6 +854,28 @@ export const CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS_CLEANED", "live threaded reply/draft-reply + independent message_labels read-back (SENT/DRAFT + threadId==seed + Re: marker), seed + reply trashed", SMOKE_WRITE_GMAIL_REPLY, [
     ["gmail", "reply_to_email"],
     ["gmail", "create_draft_reply"],
+  ]),
+  // GMAIL-ATTACHMENT (2026-07-04) — get_attachment, plus a real production bug fix that
+  // the smoke uncovered. send_email has no attachments field, so a smoke-only multipart
+  // helper self-sends a seed email with one tiny text attachment (marker filename) and
+  // resolves the attachmentId; get_attachment fetches the bytes, stages to v2_storage, and
+  // returns FileRef(v2_storage) + metadata (NO data/base64/content/bytes key -- contract
+  // enforced by the handler unit tests). Verified via markerEchoPath (fileName carries the
+  // run marker -> OUR attachment) + the staged_file seam (the object EXISTS in our bucket).
+  //
+  // BUG FOUND + FIXED: Gmail attachment ids are NOT stable across users.messages.get calls
+  // (verified live: two back-to-back gets return different attachmentIds for the same part).
+  // get_attachment re-gets the message and hard-required the caller's id to be in THAT fresh
+  // response, so a valid id from an earlier get (e.g. the new_attachment trigger's own get)
+  // failed with "attachment not found" -- breaking the trigger->action composition. Fix:
+  // match by id, else fall back to the SOLE attachment when unambiguous, and fetch bytes
+  // with the fresh id from the current get. Ambiguous (id-miss + multiple attachments) still
+  // throws.
+  //
+  // DISPOSITION: the staged v2_storage object has no registered delete action -> harmless
+  // artifact (like slack:download_file). The Gmail seed message is trashed by the dev test.
+  ...records("LIVE_PASS_LEFT_ARTIFACT", "live attachment fetch + FileRef(v2_storage) staging + staged-object read-back (no bytes in output); fixed unstable-attachment-id bug", SMOKE_WRITE_GMAIL_ATTACHMENT, [
+    ["gmail", "get_attachment"],
   ]),
   // SMOKE-WRITE-36 — Microsoft Excel create_worksheet. Excel has no create_workbook
   // action, so the smoke brings its OWN smoke-owned workbook: setup uploads a frozen
