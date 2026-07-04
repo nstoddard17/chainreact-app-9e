@@ -383,6 +383,10 @@ import { asanaTasksResolver } from "@/integrations/asana/options/tasks";
 // Typeform (Slice 5.TYPEFORM-1) — single top-level forms resolver for the
 // new_response_in_form trigger. Refreshable via refreshAndRetry.
 import { typeformFormsResolver } from "@/integrations/typeform/options/forms";
+// Calendly (Slice 5.CALENDLY-1) — single top-level event-types resolver
+// backing the optional eventTypeId filter on both triggers. Refreshable
+// via refreshAndRetry.
+import { calendlyEventTypesResolver } from "@/integrations/calendly/options/eventTypes";
 import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
 import { trelloListsResolver } from "@/integrations/trello/options/lists";
 import { trelloCardsResolver } from "@/integrations/trello/options/cards";
@@ -660,6 +664,12 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // refreshable (refreshAndRetry — weekly-expiring tokens). Labels are
   // form titles only.
   typeformFormsResolver,
+  // Slice 5.CALENDLY-1 — 1 Calendly resolver (third net-new provider;
+  // meta + resolver land in the same slice). event_types (root, no
+  // deps); values are event-type UUIDs, labels are names only; local
+  // q-filter (no documented server-side search). Auth refreshable
+  // (refreshAndRetry — 2-hour tokens).
+  calendlyEventTypesResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

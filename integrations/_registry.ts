@@ -6,6 +6,7 @@ import {
 import { airtableManifest } from "./airtable/manifest";
 import { asanaManifest } from "./asana/manifest";
 import { discordManifest } from "./discord/manifest";
+import { calendlyManifest } from "./calendly/manifest";
 import { typeformManifest } from "./typeform/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
@@ -148,6 +149,16 @@ import "./asana/triggers/taskUpdatedInProject";
 // /api/webhooks/typeform. Typeform webhooks don't expire on a schedule —
 // no renewal/subscription-watch marker.
 import "./typeform/triggers/newResponseInForm";
+// Slice 5.CALENDLY-1 — 2 Calendly webhook-subscription triggers. Each
+// registers its activation (POST /webhook_subscriptions with a V2-minted
+// signing_key — no creation handshake), shared deactivation
+// (DELETE /webhook_subscriptions/{uuid}), and P-S2 subscriber/event-type
+// dispatcher filter at module load. Strict-direct-lookup via
+// ?workflowId=&nodeId= on the notification URL; events arrive at
+// /api/webhooks/calendly. Calendly subscriptions don't expire on a
+// schedule — no renewal/subscription-watch marker.
+import "./calendly/triggers/eventScheduled";
+import "./calendly/triggers/eventCanceled";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.
@@ -226,6 +237,14 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // refreshable non-PKCE OAuth with ROTATING refresh tokens (offline
   // scope).
   typeformManifest,
+  // Slice 5.CALENDLY-1 — Calendly, the third net-new (no-V1) provider.
+  // 2 webhook-subscription triggers + the calendly:event_types option
+  // source; ZERO actions this slice (the invitee payload embeds the
+  // scheduled_event, so it is self-contained), so capabilities.actions is
+  // honestly false. Personal credential class; refreshable PKCE OAuth
+  // with Basic-auth token exchange and SINGLE-USE ROTATING refresh
+  // tokens.
+  calendlyManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

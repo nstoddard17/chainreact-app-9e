@@ -35,6 +35,7 @@ import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
 import { stripeOAuth } from "@/integrations/stripe/oauth";
 import { trelloAuth } from "@/integrations/trello/auth";
+import { calendlyOAuth } from "@/integrations/calendly/oauth";
 import { typeformOAuth } from "@/integrations/typeform/oauth";
 import {
   getActiveForExecution,
@@ -114,6 +115,15 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   // (undocumented by Typeform). Identity from GET /me (accounts:read).
   // See integrations/typeform/oauth.ts.
   typeform: typeformOAuth,
+  // Slice 5.CALENDLY-1 — Calendly OAuth. Refreshable (2-hour access
+  // tokens + SINGLE-USE ROTATING refresh tokens — the rotated token is
+  // persisted on every refresh), PKCE S256 (directed for all Calendly
+  // app types) + Basic-auth token exchange (documented web-client
+  // shape). Identity from GET /users/me (users:read); the token
+  // response's owner/organization URIs are persisted into account
+  // metadata for webhook-subscription creation.
+  // See integrations/calendly/oauth.ts.
+  calendly: calendlyOAuth,
 });
 
 /**

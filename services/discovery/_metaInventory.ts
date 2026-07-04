@@ -375,6 +375,11 @@ import {
 // 1 form-scoped webhook trigger with a caller-minted-secret lifecycle;
 // ZERO actions this slice (no TYPEFORM_ACTION_METAS export exists).
 import { TYPEFORM_TRIGGER_METAS } from "./providers/typeform";
+// Calendly (Slice 5.CALENDLY-1 — third net-new provider, no V1 code) —
+// 2 user-scoped webhook-subscription triggers with a caller-minted
+// signing-key lifecycle; ZERO actions this slice (no
+// CALENDLY_ACTION_METAS export exists).
+import { CALENDLY_TRIGGER_METAS } from "./providers/calendly";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -816,4 +821,9 @@ export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // integrations/typeform/triggers/newResponseInForm/index.ts, so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...TYPEFORM_TRIGGER_METAS,
+  // Calendly (CALENDLY-1) — 2 user-scoped webhook triggers. Activation +
+  // deactivation registered in
+  // integrations/calendly/triggers/<event>/index.ts, so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...CALENDLY_TRIGGER_METAS,
 ];

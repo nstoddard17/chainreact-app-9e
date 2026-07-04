@@ -76,6 +76,11 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   // human — their forms, their workspaces. Same posture as Trello /
   // Monday / Asana, and the launch-safe default.
   typeform: "personal",
+  // Calendly (Slice 5.CALENDLY-1): the OAuth token acts AS the connecting
+  // human — their bookings, their event types; webhook subscriptions are
+  // created user-scoped. Same posture as Trello / Monday / Asana /
+  // Typeform, and the launch-safe default.
+  calendly: "personal",
 
   // ── Needs product decision → default personal for launch safety. ──
   github: "personal",

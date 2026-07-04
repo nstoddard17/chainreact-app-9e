@@ -47,4 +47,9 @@ describe("providerCategories coverage", () => {
     expect(categoryFor("typeform")).toBe("Forms");
     expect(descriptionFor("typeform")).toMatch(/response/i);
   });
+
+  it("calendly maps to Productivity with a meeting-centric description", () => {
+    expect(categoryFor("calendly")).toBe("Productivity");
+    expect(descriptionFor("calendly")).toMatch(/meeting/i);
+  });
 });

@@ -26,6 +26,7 @@ const SAMPLE_PERSONAL = [
   // net-new providers, explicitly personal:
   "asana",
   "typeform",
+  "calendly",
   // "needs decision" providers default personal for launch safety:
   "github",
   "facebook",

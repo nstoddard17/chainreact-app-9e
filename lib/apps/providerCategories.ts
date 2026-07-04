@@ -72,6 +72,7 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   "microsoft-excel": "Productivity",
   "microsoft-onenote": "Productivity",
   "microsoft-outlook-calendar": "Productivity",
+  calendly: "Productivity",
   // Storage
   "google-drive": "Storage",
   "microsoft-onedrive": "Storage",
@@ -121,6 +122,7 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
   hubspot: "Sync contacts, deals, and tickets.",
   mailchimp: "Add subscribers and send campaigns.",
   typeform: "Watch form responses as they arrive.",
+  calendly: "Watch meetings get booked and canceled.",
   shopify: "Watch orders, customers, and products.",
   stripe: "Watch charges and update customers.",
   facebook: "Watch posts and comments.",
