@@ -1,0 +1,111 @@
+/**
+ * @jest-environment node
+ *
+ * Certification seed — provider-scoped SPLIT invariance.
+ *
+ * The monolithic certificationSeed.ts outgrew the max-lines cap and was split
+ * into provider-scoped modules under certificationSeed/ (barrel index preserves
+ * the import surface). This suite pins the DATA so the refactor (and any future
+ * module reshuffling) can never silently change certification state:
+ *   - exact record count at split time (updates only when a batch legitimately
+ *     adds records),
+ *   - no duplicate (provider, action) keys (the matrix Map is later-wins, so an
+ *     accidental duplicate would silently shadow a record),
+ *   - each provider module contains ONLY its own providers' records,
+ *   - the REAL-registry matrix totals at split time (the exact matrix the
+ *     refactor promised to preserve).
+ */
+import type { FixtureDescriptor } from "@/scripts/chainreact/smoke/core";
+import {
+  CERTIFICATIONS,
+  buildCertificationMatrix,
+} from "@/scripts/chainreact/smoke/certification";
+import { SLACK_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/slack";
+import { GMAIL_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/gmail";
+import { HUBSPOT_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/hubspot";
+import { MONDAY_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/monday";
+import { NOTION_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/notion";
+import { MAILCHIMP_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/mailchimp";
+import { MICROSOFT_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/microsoft";
+import { GOOGLE_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/google";
+import { OTHER_CERTIFICATIONS } from "@/scripts/chainreact/smoke/certificationSeed/other";
+import { listRegisteredActions } from "@/tests/smoke-actions/discovery";
+import { ALL_FIXTURES_FOR_INVENTORY } from "@/tests/smoke-actions/fixtures";
+
+const realDescriptors = (): FixtureDescriptor[] =>
+  ALL_FIXTURES_FOR_INVENTORY.map((f) => ({
+    provider: f.provider,
+    action: f.action,
+    risk: f.risk,
+    requiredEnv: f.requiredEnv ?? [],
+    liveSafe: f.liveSafe,
+  }));
+
+/** Provider ownership per module — a record in the wrong module is a merge hazard. */
+const MODULE_PROVIDERS: ReadonlyArray<readonly [string, readonly { provider: string }[], readonly string[]]> = [
+  ["slack", SLACK_CERTIFICATIONS, ["slack"]],
+  ["gmail", GMAIL_CERTIFICATIONS, ["gmail"]],
+  ["hubspot", HUBSPOT_CERTIFICATIONS, ["hubspot"]],
+  ["monday", MONDAY_CERTIFICATIONS, ["monday"]],
+  ["notion", NOTION_CERTIFICATIONS, ["notion"]],
+  ["mailchimp", MAILCHIMP_CERTIFICATIONS, ["mailchimp"]],
+  [
+    "microsoft",
+    MICROSOFT_CERTIFICATIONS,
+    [
+      "microsoft-outlook",
+      "microsoft-outlook-calendar",
+      "microsoft-teams",
+      "microsoft-excel",
+      "microsoft-onedrive",
+      "microsoft-onenote",
+    ],
+  ],
+  [
+    "google",
+    GOOGLE_CERTIFICATIONS,
+    ["google-sheets", "google-drive", "google-calendar", "google-docs", "google-analytics"],
+  ],
+  [
+    "other",
+    OTHER_CERTIFICATIONS,
+    ["airtable", "dropbox", "trello", "native", "asana", "facebook", "stripe", "discord"],
+  ],
+];
+
+describe("certification seed split — data invariance", () => {
+  it("the barrel concatenates every module with no records lost or invented", () => {
+    const sum = MODULE_PROVIDERS.reduce((n, [, mod]) => n + mod.length, 0);
+    expect(CERTIFICATIONS.length).toBe(sum);
+    // Pinned at split time (2026-07-04). Bump ONLY when a batch adds records.
+    expect(CERTIFICATIONS.length).toBe(257);
+  });
+
+  it("no duplicate (provider, action) keys — later-wins shadowing is impossible", () => {
+    const keys = CERTIFICATIONS.map((c) => `${c.provider}:${c.action}`);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("every module holds ONLY its own providers' records", () => {
+    for (const [name, mod, providers] of MODULE_PROVIDERS) {
+      const allowed = new Set(providers);
+      const foreign = mod.filter((r) => !allowed.has(r.provider));
+      expect({ module: name, foreign }).toEqual({ module: name, foreign: [] });
+    }
+  });
+
+  it("the REAL-registry matrix totals match the pre-split matrix exactly", () => {
+    const m = buildCertificationMatrix(listRegisteredActions(), realDescriptors());
+    // Snapshot of the matrix the split promised to preserve (2026-07-04):
+    // 303 registered / 246 LIVE_PASS / 1 NOT_RUN / 45 MISSING / 11 BLOCKED_ENV /
+    // 0 fail / 0 bug. Certification batches update these pins deliberately.
+    expect(m.totals.registered).toBe(303);
+    expect(m.totals.livePass).toBe(246);
+    expect(m.totals.liveNotRun).toBe(1);
+    expect(m.totals.missingFixture).toBe(45);
+    expect(m.totals.blockedEnv).toBe(11);
+    expect(m.totals.fail).toBe(0);
+    expect(m.totals.bug).toBe(0);
+    expect(m.staleCerts).toEqual([]);
+  });
+});
