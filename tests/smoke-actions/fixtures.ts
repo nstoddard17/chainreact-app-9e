@@ -201,6 +201,17 @@ import githubAddComment from "@/tests/fixtures/action-smoke/github/add_comment";
 import githubCreateBranch from "@/tests/fixtures/action-smoke/github/create_branch";
 import githubCreatePullRequest from "@/tests/fixtures/action-smoke/github/create_pull_request";
 import githubCreateGist from "@/tests/fixtures/action-smoke/github/create_gist";
+// SMOKE-WRITE-FACEBOOK — Facebook post/page lifecycle batch on the connected smoke
+// Page only (never a personal timeline; messenger out of scope). Text posts +
+// comment + photo are created, read back via the facebook per-object state seams,
+// and deleted via the registered delete_post (DELETE /{id}); delete_post proves its
+// own deletion. upload_video is a best-effort attempt (synthetic MP4 may be rejected).
+import facebookCreatePost from "@/tests/fixtures/action-smoke/facebook/create_post";
+import facebookUpdatePost from "@/tests/fixtures/action-smoke/facebook/update_post";
+import facebookDeletePost from "@/tests/fixtures/action-smoke/facebook/delete_post";
+import facebookCommentOnPost from "@/tests/fixtures/action-smoke/facebook/comment_on_post";
+import facebookUploadPhoto from "@/tests/fixtures/action-smoke/facebook/upload_photo";
+import facebookUploadVideo from "@/tests/fixtures/action-smoke/facebook/upload_video";
 import gaFindConversion from "@/tests/fixtures/action-smoke/google-analytics/find_conversion";
 import gaGetRealtimeData from "@/tests/fixtures/action-smoke/google-analytics/get_realtime_data";
 import gaRunPivotReport from "@/tests/fixtures/action-smoke/google-analytics/run_pivot_report";
@@ -536,6 +547,12 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   githubCreateBranch,
   githubCreatePullRequest,
   githubCreateGist,
+  facebookCreatePost,
+  facebookUpdatePost,
+  facebookDeletePost,
+  facebookCommentOnPost,
+  facebookUploadPhoto,
+  facebookUploadVideo,
   outlookCalCreateEvent,
   outlookCalUpdateEvent,
   outlookCalDeleteEvent,

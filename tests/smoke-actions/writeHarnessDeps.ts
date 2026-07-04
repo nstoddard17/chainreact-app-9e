@@ -66,6 +66,7 @@ import { teamsSmokeReadBack } from "./writeHarnessDeps/teams";
 import { gdriveSmokeReadBack } from "./writeHarnessDeps/gdrive";
 import { shopifySmokeReadBack } from "./writeHarnessDeps/shopify";
 import { githubSmokeReadBack } from "./writeHarnessDeps/github";
+import { facebookSmokeReadBack } from "./writeHarnessDeps/facebook";
 import { stagedFileSmokeReadBack } from "./writeHarnessDeps/stagedFile";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
@@ -106,6 +107,7 @@ export {
   stageShopifyInventoryTarget,
 } from "./writeHarnessDeps/shopify";
 export { stageGithubSmokeRepo } from "./writeHarnessDeps/github";
+export { discoverFacebookSmokePage } from "./writeHarnessDeps/facebook";
 
 export interface RealWriteHarnessDepsConfig {
   /** A service-role Supabase client (the dev test constructs it). */
@@ -191,6 +193,10 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   // GitHub per-resource state reads (repo/issue/comments/branch/PR/gist) — GitHub
   // registers no read actions, so every write verifies through these bounded GETs.
   githubSmokeReadBack,
+  // Facebook per-object state reads (post/comments/photo/video) — the only
+  // registered read is aggregate page insights, so every post/media write verifies
+  // through these bounded Graph GETs (code=100 -> found:false for the delete proof).
+  facebookSmokeReadBack,
   // Provider-agnostic v2_storage staged-file existence read-back (slack:download_file).
   stagedFileSmokeReadBack,
 ];

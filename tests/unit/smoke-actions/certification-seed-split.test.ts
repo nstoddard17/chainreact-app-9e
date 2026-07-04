@@ -85,7 +85,8 @@ describe("certification seed split — data invariance", () => {
     // +1: facebook:send_message BLOCKED_ENV (readiness probe, same day).
     // +11: shopify write lifecycle batch (same day).
     // +6: github write batch — self-owned crsmoke resources (same day).
-    expect(CERTIFICATIONS.length).toBe(275);
+    // +6: facebook post/page batch — 5 LIVE_PASS_CLEANED + 1 BLOCKED_ENV video (same day).
+    expect(CERTIFICATIONS.length).toBe(281);
   });
 
   it("no duplicate (provider, action) keys — later-wins shadowing is impossible", () => {
@@ -105,15 +106,16 @@ describe("certification seed split — data invariance", () => {
     const m = buildCertificationMatrix(listRegisteredActions(), realDescriptors());
     // Split-time snapshot (2026-07-04), same-day updated by: the readiness probe
     // (facebook:send_message MISSING -> BLOCKED_ENV), the shopify write batch
-    // (11 MISSING -> LIVE_PASS), and the github write batch (6 MISSING -> LIVE_PASS,
-    // self-owned crsmoke resources): 303 registered / 263 LIVE_PASS / 1 NOT_RUN /
-    // 27 MISSING / 12 BLOCKED_ENV / 0 fail / 0 bug. Certification batches update
+    // (11 MISSING -> LIVE_PASS), the github write batch (6 MISSING -> LIVE_PASS,
+    // self-owned crsmoke resources), and the facebook post/page batch (6 MISSING ->
+    // 5 LIVE_PASS + 1 BLOCKED_ENV video): 303 registered / 268 LIVE_PASS / 1 NOT_RUN /
+    // 21 MISSING / 13 BLOCKED_ENV / 0 fail / 0 bug. Certification batches update
     // these pins deliberately.
     expect(m.totals.registered).toBe(303);
-    expect(m.totals.livePass).toBe(263);
+    expect(m.totals.livePass).toBe(268);
     expect(m.totals.liveNotRun).toBe(1);
-    expect(m.totals.missingFixture).toBe(27);
-    expect(m.totals.blockedEnv).toBe(12);
+    expect(m.totals.missingFixture).toBe(21);
+    expect(m.totals.blockedEnv).toBe(13);
     expect(m.totals.fail).toBe(0);
     expect(m.totals.bug).toBe(0);
     expect(m.staleCerts).toEqual([]);

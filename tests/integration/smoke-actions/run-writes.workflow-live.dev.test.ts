@@ -64,6 +64,7 @@ import {
   stageShopifyOrderProduct,
   stageShopifyInventoryTarget,
   stageGithubSmokeRepo,
+  discoverFacebookSmokePage,
   discoverAirtableSmokeTextField,
   discoverAirtableSmokeAttachmentField,
   stageSmokeFile,
@@ -152,6 +153,8 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
     let cleanupHubSpotList: (() => Promise<void>) | null = null;
     // GitHub staged shared repo teardown (no-op: no delete_repo scope). Run in the finally.
     let cleanupGithubStaged: (() => Promise<void>) | null = null;
+    // Removes the throwaway staged Facebook video file. Run in the finally.
+    let cleanupStagedVideo: (() => Promise<void>) | null = null;
     if (provider === "trello" && execUsable) {
       const chosen = await discoverTrelloSmokeTarget(account, user);
       if (chosen) {
@@ -470,6 +473,52 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
           targetLabel = `${targetLabel ? `${targetLabel} / ` : ""}staged tracked inventory item`;
         }
       }
+    } else if (provider === "facebook" && execUsable) {
+      // Post/page writes target ONLY the connected smoke Page (never a personal
+      // timeline; messenger out of scope). Discover the page id (pinned
+      // SMOKE_FACEBOOK_PAGE_ID wins; else a smoke/test/chainreact-named managed page,
+      // else the first managed page with a token). Absent -> post fixtures BLOCKED_ENV.
+      const page = await discoverFacebookSmokePage(
+        account,
+        user,
+        process.env.SMOKE_FACEBOOK_PAGE_ID || null,
+      );
+      if (page) {
+        overlay.SMOKE_FACEBOOK_PAGE_ID = page.pageId; // id -> env overlay only
+        targetLabel = `page "${page.pageName}"`;
+      }
+      // upload_photo consumes a FileRef, so stage a tiny PNG in OUR workflow-files
+      // bucket (self-contained bytes, never an invented external URL). Facebook's
+      // photo ingest processes images server-side, so stage the 5x5 variant (the 1x1
+      // trips "could not identify image size"). Absent -> upload_photo BLOCKED_ENV.
+      const photoPath = `smoke/facebook-photo/${randomUUID()}.png`;
+      const photoStaged = await stageSmokeFile(supabase, photoPath, "png5x5");
+      if (photoStaged) {
+        overlay.SMOKE_FACEBOOK_PHOTO_STORAGE_PATH = photoStaged.storagePath;
+        cleanupStagedFile = photoStaged.remove;
+        targetLabel = `${targetLabel ?? "page"} / staged photo`;
+      }
+      // upload_video consumes a FileRef too, but Facebook's video ingest REJECTS the
+      // synthetic minimal MP4 with OAuthException/code=382/subcode=1363022
+      // ("unsupported/corrupt video format" — probed live 2026-07-04): the container
+      // is valid but not a real encoded H.264 stream, and this environment has no
+      // ffmpeg / bundled video asset to produce one. So the synthetic upload is
+      // gated OFF by default -> upload_video reports BLOCKED_ENV (never a mutation),
+      // documented in the certification seed. A pinned SMOKE_FACEBOOK_VIDEO_STORAGE_PATH
+      // (a REAL small MP4 in our bucket) wins; else set SMOKE_FACEBOOK_TRY_SYNTHETIC_VIDEO
+      // to re-observe the blocker.
+      if (process.env.SMOKE_FACEBOOK_VIDEO_STORAGE_PATH) {
+        overlay.SMOKE_FACEBOOK_VIDEO_STORAGE_PATH = process.env.SMOKE_FACEBOOK_VIDEO_STORAGE_PATH;
+        targetLabel = `${targetLabel ?? "page"} / pinned video`;
+      } else if (process.env.SMOKE_FACEBOOK_TRY_SYNTHETIC_VIDEO === "true") {
+        const videoPath = `smoke/facebook-video/${randomUUID()}.mp4`;
+        const videoStaged = await stageSmokeFile(supabase, videoPath, "mp4");
+        if (videoStaged) {
+          overlay.SMOKE_FACEBOOK_VIDEO_STORAGE_PATH = videoStaged.storagePath;
+          cleanupStagedVideo = videoStaged.remove;
+          targetLabel = `${targetLabel ?? "page"} / staged synthetic video`;
+        }
+      }
     } else if (provider === "github" && execUsable) {
       // Every repo-scoped fixture (issue / comment / branch / PR) targets ONE fresh
       // dev-test-staged crsmoke repo (containment: never a discovered repo). Staging
@@ -637,6 +686,9 @@ describeLive("write smoke: LIVE pilot (real dev DB + real provider mutation)", (
       // GitHub staged shared repo: remove() is a no-op (no delete_repo scope); the
       // repo is an honest left artifact. Called for staging-pattern symmetry.
       if (cleanupGithubStaged) await cleanupGithubStaged();
+      // Always remove the throwaway staged Facebook video file (the uploaded video,
+      // if any, is deleted by the fixture's own delete_post cleanup).
+      if (cleanupStagedVideo) await cleanupStagedVideo();
     }
   }, 600_000);
 });

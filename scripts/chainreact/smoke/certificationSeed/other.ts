@@ -96,8 +96,35 @@ export const OTHER_CERTIFICATIONS: readonly CertificationRecord[] = [
   // one usable page with a page token), but the page has ZERO messenger
   // conversations and Facebook pages can only REPLY to user-initiated threads —
   // send_message has no possible live target until someone messages the page.
-  // The other 6 facebook rows stay MISSING (runnable; fixtures not yet authored).
   ...records("BLOCKED_ENV", "connected, but the page has zero messenger conversations (probed live); pages can only reply to user-initiated threads; message the page, then re-run", "2026-07-04", [
     ["facebook", "send_message"],
+  ]),
+  // Post/page write batch certified 2026-07-04 live on the connected smoke Page
+  // ("Chain React"), self-owned content only (never a personal timeline; messenger
+  // out of scope). Every verify runs through the facebook per-object state seams
+  // (the only registered read is aggregate page insights); all created content is
+  // deleted via the registered delete_post (DELETE /{id}).
+  ...records("LIVE_PASS_CLEANED", "live create (marker message) + post_state read-back proves the persisted message; smoke post deleted via delete_post (cleaned)", "2026-07-04", [
+    ["facebook", "create_post"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live suffix-pinned edit + post_state read-back proves the persisted updated message; smoke post deleted via delete_post (cleaned)", "2026-07-04", [
+    ["facebook", "update_post"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live delete + page_posts read-back proves keeper PRESENT and target ABSENT (a deleted-node GET returns code=10, not 100); both posts gone (cleaned)", "2026-07-04", [
+    ["facebook", "delete_post"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live comment + post_comments read-back proves the marker in the persisted comments; post + comment deleted via delete_post (cleaned)", "2026-07-04", [
+    ["facebook", "comment_on_post"],
+  ]),
+  ...records("LIVE_PASS_CLEANED", "live photo upload (staged PNG) + photo_state read-back proves the caption marker; photo node deleted via delete_post (cleaned)", "2026-07-04", [
+    ["facebook", "upload_photo"],
+  ]),
+  // upload_video: harness + fixture authored, but BLOCKED for live cert — Facebook's
+  // video ingest rejects the synthetic minimal MP4 and this environment has no
+  // ffmpeg / bundled video asset to produce a real encoded clip. Certify by pinning
+  // SMOKE_FACEBOOK_VIDEO_STORAGE_PATH to a real small MP4 (the video_state read-back
+  // seam + delete_post cleanup are already wired).
+  ...records("BLOCKED_ENV", "connected; Facebook video ingest rejects the synthetic MP4 (OAuthException/code=382/subcode=1363022); needs a real encoded MP4 fixture (no ffmpeg here)", "2026-07-04", [
+    ["facebook", "upload_video"],
   ]),
 ];

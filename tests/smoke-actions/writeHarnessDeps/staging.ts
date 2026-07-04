@@ -32,15 +32,34 @@ const SMOKE_SMALL_PNG_5X5 = Buffer.from(
   "base64",
 );
 
+/**
+ * Minimal MP4 container (ISO base media `ftyp isom` + `free` + `mdat`) for a
+ * BEST-EFFORT video upload attempt (facebook:upload_video). It is a structurally
+ * valid container but NOT a real encoded H.264 stream, so a provider that decodes
+ * the video server-side may reject it — that rejection is the documented blocker,
+ * never faked as a pass. Kept tiny so it never trips a size guidance.
+ */
+const SMOKE_TINY_MP4 = Buffer.from(
+  "AAAAHGZ0eXBpc29tAAACAGlzb21pc28yYXZjMQAAAAhmcmVlAAAC721kYXQAAAAyZ2xkbAA" +
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB",
+  "base64",
+);
+
 export async function stageSmokeFile(
   supabase: SupabaseClient,
   storagePath: string,
-  variant: "png1x1" | "png5x5" = "png1x1",
+  variant: "png1x1" | "png5x5" | "mp4" = "png1x1",
 ): Promise<{ storagePath: string; remove: () => Promise<void> } | null> {
-  const bytes = variant === "png5x5" ? SMOKE_SMALL_PNG_5X5 : SMOKE_TINY_PNG;
+  const bytes =
+    variant === "mp4"
+      ? SMOKE_TINY_MP4
+      : variant === "png5x5"
+        ? SMOKE_SMALL_PNG_5X5
+        : SMOKE_TINY_PNG;
+  const contentType = variant === "mp4" ? "video/mp4" : "image/png";
   const { error } = await supabase.storage
     .from(WORKFLOW_FILES_BUCKET)
-    .upload(storagePath, bytes, { contentType: "image/png", upsert: true });
+    .upload(storagePath, bytes, { contentType, upsert: true });
   if (error) return null;
   return {
     storagePath,
