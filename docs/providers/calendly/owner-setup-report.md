@@ -1,18 +1,48 @@
 # Calendly Owner Setup Report
 
-Slice 5.CALENDLY-1, 2026-07-04.
+Slice 5.CALENDLY-1, 2026-07-04. Phase 13 live certification 2026-07-05.
 
 ## Status
-- Code status: **code-complete; owner setup required**
-- Commit: see git log (`feat(calendly): net-new provider slice 1`) — local, not pushed
-- Push status: **Nothing pushed**
-- Smoke status: direct-seed trigger smoke **PASSED against the real dev DB**
-  (both triggers: 1 run each, terminal `succeeded`, dedup held, cleaned).
-  Provider-side lifecycle (POST/DELETE /webhook_subscriptions) is
-  unit-tested; live proof is Phase 13.
-- Remaining owner action: create the Calendly developer app, set env vars,
-  connect, and run Phase 13 live certification **with a paid or trial
-  Calendly account** (webhooks are plan-gated).
+- Code status: **live-complete** (Phase 13 PASSED 2026-07-05 — see "Live
+  verification" below)
+- Commit: `e10d3dcbd` (slice, pushed 2026-07-04) + the Phase 13 evidence
+  commit (local)
+- Push status: slice pushed 2026-07-04 (Marcus-approved); Phase 13
+  evidence commit **local, not pushed**
+- Smoke status: direct-seed trigger smoke PASSED against the real dev DB
+  (2026-07-04), AND full provider-boundary live certification PASSED in
+  production (2026-07-05).
+- Remaining owner action: **none** (push/deploy of the Phase 13 evidence
+  commit is Marcus's call; the corrected meta wording ships with it).
+
+## Live verification (Phase 13, 2026-07-05 — production)
+
+Environment: production (`https://chainreact.app`), deployed slice commit,
+live Calendly account (webhook-capable plan), activation driven from the
+local repo with `NEXT_PUBLIC_APP_URL=https://chainreact.app` (shared
+Supabase — Asana/Typeform pattern). Drivers:
+`scripts/trash/calendly-live-cert.ts` (phases: list-event-types → activate
+→ await-scheduled/await-canceled → status → deactivate) and
+`scripts/trash/calendly-live-book.ts` (Playwright, headed Chrome — the
+public booking page rejects headless Chromium).
+
+| Check | Result |
+|---|---|
+| OAuth | PASS — 1 active production row, exactly the 4 requested scopes echoed, user/org URIs persisted in account metadata; no tokens logged/browser-visible |
+| Token refresh + rotation | PASS — stored token was expired; first call refreshed via the dispatcher, rotated pair persisted and live-usable for every subsequent call |
+| `calendly:event_types` option source | PASS — real event type listed (UUID value, name label), q-filter works, no URIs/tokens/emails in items |
+| Trigger activation | PASS — 3 real `POST /webhook_subscriptions` (scope `user`, per-node production URLs); `subscriptionUri` persisted; signing key stored ENCRYPTED (plaintext-shape check) |
+| Real booking → `event_scheduled` | PASS ×3 — each booking fired EXACTLY ONE run, terminal `succeeded` via production cron; payload bounded, embedded scheduled_event populated, no raw API URIs; dedup key subscriber-scoped + timestamp-free |
+| Real cancellation → `event_canceled` | PASS ×3 — each cancellation fired EXACTLY ONE run, terminal `succeeded`; `cancellation {canceledBy, reason, cancelerType}` populated; true cancel carried `rescheduled: false` |
+| Reschedule | OBSERVED live — canceled half: `rescheduled: true` + `newInviteeId` set; NEW-booking half: `rescheduled: false` + `oldInviteeId` set. Trigger design is honest and branchable; no synthetic rescheduled trigger needed. Meta wording corrected (the new half is identified by `oldInviteeId`, not the flag) |
+| Event-type filter (P-S2) | PASS both directions — matching filter fired on every booking; a mismatch-filter workflow (own real subscription) stayed at 0 runs across all 3 bookings |
+| Dedup / retry / replay | Not live-forceable (no delivery failed; no duplicate arrived). Redelivery dedup remains certified by the direct-seed smoke + unit tests. Retry re-signing UNVERIFIED → the 24h replay tolerance stays, dedup is the effective replay guard |
+| Deactivation | PASS — all 3 subscriptions DELETEd; second DELETE returned 404 for each (provider-side gone-proof); 0 trigger rows left |
+| Cleanup | All 3 test bookings canceled (calendar clean); 3 cert workflows soft-deleted; 6 dedup rows removed; no provider-side artifacts remain except Calendly's own booking/cancellation history + notification emails for the crsmoke meetings (inert) |
+
+Certification recorded as LIVE_PASS for both triggers in
+`tests/trigger-smoke/triggerCertificationSeed.ts`. Live quirks appended to
+`research.md` ("Live-observed behavior").
 
 ## Provider developer portal setup
 
@@ -144,12 +174,15 @@ names; personal-credential gated centrally).
 
 ## Known blockers / limitations
 1. **Paid-plan webhook gate** — free-plan Calendly accounts cannot
-   activate the triggers (humanized error ships). Live certification
-   requires a paid/trial account. Owner: Marcus.
-2. **Replay window is generous (24h)** pending Phase 13 observation of
-   whether Calendly re-signs retried deliveries; dedup is the effective
-   replay guard (same posture as Asana/Typeform).
-3. Reschedules fire BOTH triggers by design (documented in the trigger
-   descriptions; `rescheduled` flag lets workflows branch).
+   activate the triggers (humanized error ships). This gates END USERS;
+   the Phase 13 certification itself is DONE (2026-07-05, webhook-capable
+   account).
+2. **Replay window stays generous (24h)** — Phase 13 could not observe
+   retry re-signing (no delivery failed during the window); dedup is the
+   effective replay guard (same posture as Asana/Typeform). Tighten only
+   with provider evidence that retries are re-signed.
+3. Reschedules fire BOTH triggers by design. Live-observed: branch on
+   `rescheduled` for the canceled half, on `oldInviteeId` for the new
+   booking half (the new half carries `rescheduled: false`).
 4. Organization-scoped subscriptions (all-member events) are out of
    scope this slice (personal credential class).

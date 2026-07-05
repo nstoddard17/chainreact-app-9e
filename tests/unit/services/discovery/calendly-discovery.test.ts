@@ -109,4 +109,12 @@ describe("calendly trigger discovery", () => {
     expect(getTriggerMeta(SCHEDULED_KEY)!.description).toMatch(/reschedul/i);
     expect(getTriggerMeta(CANCELED_KEY)!.description).toMatch(/reschedul/i);
   });
+
+  it("the scheduled meta identifies reschedules via oldInviteeId, NOT the rescheduled flag (Phase 13 live-observed: the new booking carries rescheduled=false)", () => {
+    const meta = getTriggerMeta(SCHEDULED_KEY)!;
+    expect(meta.description).toMatch(/oldInviteeId/);
+    const byName = new Map(meta.payloadShape.map((p) => [p.name, p]));
+    expect(byName.get("rescheduled")?.description).toMatch(/oldInviteeId/);
+    expect(byName.get("oldInviteeId")?.description).toMatch(/new half of a reschedule/i);
+  });
 });

@@ -17,7 +17,10 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  *
  * RESCHEDULES: Calendly emits invitee.canceled (rescheduled: true) +
  * invitee.created for one reschedule, so this trigger fires for the new
- * booking; `rescheduled`/`oldInviteeId` identify it.
+ * booking. LIVE-OBSERVED (Phase 13, 2026-07-05): the NEW booking carries
+ * `rescheduled: false` — `oldInviteeId` being set is what identifies the
+ * new half of a reschedule (`rescheduled: true` appears only on the
+ * canceled half).
  */
 export const calendlyEventScheduledTriggerMeta: TriggerMeta = {
   key: "calendly:event_scheduled",
@@ -25,7 +28,7 @@ export const calendlyEventScheduledTriggerMeta: TriggerMeta = {
   type: "event_scheduled",
   displayName: "Meeting Scheduled",
   description:
-    "Fires when someone books a meeting through Calendly. The event carries the invitee, meeting time, location, and event type. Also fires for the new booking of a reschedule (the rescheduled flag identifies those).",
+    "Fires when someone books a meeting through Calendly. The event carries the invitee, meeting time, location, and event type. Also fires for the new booking of a reschedule — identified by oldInviteeId being set.",
   category: "scheduling",
   activation: "webhook",
   requiresIntegration: true,
@@ -139,12 +142,13 @@ export const calendlyEventScheduledTriggerMeta: TriggerMeta = {
       name: "rescheduled",
       type: "boolean",
       description:
-        "True when this booking is the new half of a reschedule.",
+        "Calendly's rescheduled flag for this invitee. Live-observed: the new booking of a reschedule carries false — use oldInviteeId to identify it.",
     },
     {
       name: "oldInviteeId",
       type: "string",
-      description: "Previous invitee id when this booking is a reschedule.",
+      description:
+        "Previous invitee id — set exactly when this booking is the new half of a reschedule.",
       nullable: true,
     },
     {

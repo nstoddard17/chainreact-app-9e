@@ -315,6 +315,67 @@ the product flow; useful for owner-side live certification probes.
 Calendly API v1 (and v1 webhooks) was discontinued starting May 2025 —
 everything here is v2 (`api.calendly.com` / `auth.calendly.com`) only.
 
+## Live-observed behavior (Phase 13 certification, 2026-07-05)
+
+Observed against the real provider boundary (production receive route at
+`https://chainreact.app/api/webhooks/calendly`, live Calendly account on a
+trial/paid plan, real bookings on the public scheduling page — scripts
+`scripts/trash/calendly-live-cert.ts` + `calendly-live-book.ts`):
+
+1. **Payload envelope confirmed live.** Deliveries carried the full
+   documented invitee payload INCLUDING the embedded `scheduled_event`
+   (uri, name, status, start_time, end_time, event_type URI,
+   location `{type: "google_conference", join_url}`, event_memberships).
+   The normalizer's projection populated every field; no follow-up API
+   call was needed — the actions-less design holds live.
+2. **Signature verification confirmed live:** production accepted real
+   `Calendly-Webhook-Signature: t=<unix>,v1=<hex>` deliveries keyed with
+   the V2-minted per-subscription signing keys; every verified event
+   fired exactly one run.
+3. **RESCHEDULE nuance (corrects an assumption):** the canceled half
+   carries `rescheduled: true` + `new_invitee` set, as documented. The
+   NEW-booking half carries **`rescheduled: false`** with `old_invitee`
+   set — i.e. on `invitee.created`, the reschedule marker is
+   `old_invitee != null`, NOT the `rescheduled` flag. The
+   `event_scheduled` trigger meta was corrected to say so (fix in this
+   commit); workflows branch on `oldInviteeId` for the new half and
+   `rescheduled` for the canceled half.
+4. **One real action = exactly one run**, across 3 bookings and 3
+   cancellations (booking, true cancel, second booking, reschedule pair,
+   cleanup cancel). No duplicate deliveries were observed during the
+   certification window, so redelivery dedup remains certified by the
+   direct-seed smoke (same key, same route) rather than live.
+5. **Retry re-signing NOT observed** — no delivery failed during the
+   window (production stayed up), so whether Calendly re-signs retries
+   with a fresh timestamp remains UNVERIFIED. The generous 24h replay
+   tolerance therefore STAYS (recommendation unchanged: dedup is the
+   effective replay guard; tighten only with provider evidence that
+   retries are re-signed).
+6. **Subscription lifecycle proven:** 3 real `POST /webhook_subscriptions`
+   (scope `user`, per-node URLs) succeeded; after deactivation each
+   subscription's second DELETE returned 404 (gone-proof; no
+   `webhooks:read` needed).
+7. **Live refresh + rotation proven:** the stored access token had
+   expired before certification; the first API call triggered
+   `refreshAndRetry` → dispatcher refresh → rotated token pair persisted
+   (`oauth refresh: updateTokens`) and immediately live-usable across
+   all subsequent calls.
+8. **P-S2 eventTypeId filter proven live in both directions:** the
+   scheduled workflow filtered on the real event type fired on every
+   booking; a mismatch-filter workflow (same trigger, non-matching
+   eventTypeId, its own real subscription) received the same dispatch
+   rounds and stayed at exactly 0 runs.
+9. **Paid-plan gate not re-probed:** the connected account has webhook
+   access, so the free-plan 403 path was not observable live; it remains
+   covered by the humanized-error unit test.
+10. **Bot-detection note (test tooling, not product):** Calendly's public
+    booking page rejects vanilla headless Chromium ("This booking cannot
+    be completed... for security reasons"); headed real Chrome with
+    masked automation flags books fine. Relevant only to future
+    automated certifications.
+11. **Delivery latency** was seconds from booking/cancel to the run
+    appearing (well within the 5s poll).
+
 ## Known limitations recap
 
 1. **Paid-plan gate on webhooks** — free-plan Calendly users can connect

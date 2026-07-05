@@ -139,7 +139,12 @@ describe("calendly:event_types resolver", () => {
 
   it("maps a dead credential to INTEGRATION_DISCONNECTED (sanitized)", async () => {
     mockEventTypesList.mockRejectedValueOnce(
-      new IntegrationActionRequiredError("dead"),
+      new IntegrationActionRequiredError({
+        accountId: "acct-1",
+        provider: "calendly",
+        providerAccountId: null,
+        reason: "refresh_failed",
+      }),
     );
     await expect(
       calendlyEventTypesResolver.resolve(ctx()),

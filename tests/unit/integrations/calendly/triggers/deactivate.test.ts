@@ -86,7 +86,12 @@ describe("calendlyDeactivate", () => {
 
   it("swallows IntegrationActionRequiredError (dead credential; cleanup is best-effort)", async () => {
     mockSubscriptionDelete.mockRejectedValueOnce(
-      new IntegrationActionRequiredError("dead"),
+      new IntegrationActionRequiredError({
+        accountId: "acct-1",
+        provider: "calendly",
+        providerAccountId: null,
+        reason: "refresh_failed",
+      }),
     );
     await expect(
       calendlyDeactivate(ctx({ subscriptionUri: SUB_URI })),

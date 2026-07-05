@@ -363,4 +363,29 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-04",
     note: "FULL live provider-boundary cert: real PUT webhook (no event_types — proven optional), real public-form response fired EXACTLY ONE terminal 'succeeded' run via production signature-verify+dispatch+drain (identity matched: formId/responseToken/changeKind; token-scoped eventId; bounded answers projection; response_url absent), real DELETE 404-proven, rows cleaned; live refresh-token ROTATION persisted and new pair live-usable",
   },
+  // calendly:event_scheduled + event_canceled — full provider-boundary live cert
+  // (Phase 13, scripts/trash/calendly-live-cert.ts + calendly-live-book.ts,
+  // 2026-07-05): REAL registerWorkflowTriggers -> POST /webhook_subscriptions
+  // (scope user, V2-minted signing_key) -> real bookings/cancellations/reschedule
+  // on the live scheduling page -> production t=,v1= signature verify -> dispatch
+  // -> cron drain -> terminal runs -> DELETE 404-proven. Reschedule live-observed:
+  // canceled half rescheduled=true + new_invitee set; NEW-booking half
+  // rescheduled=false + old_invitee set. P-S2 eventTypeId no-match proven live
+  // (mismatch-filter workflow stayed at 0 runs across 3 bookings).
+  {
+    provider: "calendly",
+    type: "event_scheduled",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-05",
+    note: "FULL live provider-boundary cert: real POST /webhook_subscriptions (scope user), 3 real bookings (incl. the reschedule's new half, oldInviteeId set) each fired EXACTLY ONE terminal 'succeeded' run via production t=,v1= signature-verify+dispatch+drain; subscriber-scoped timestamp-free eventId; embedded scheduled_event present live; eventTypeId filter match AND no-match (0 runs on mismatch workflow) proven live; real DELETE 404-proven, rows+dedup cleaned; live refresh ROTATION persisted",
+  },
+  {
+    provider: "calendly",
+    type: "event_canceled",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-05",
+    note: "FULL live provider-boundary cert: 3 real cancellations (true cancel with cancellation{canceledBy,reason,cancelerType}; reschedule's canceled half rescheduled=true + newInviteeId set; cleanup cancel) each fired EXACTLY ONE terminal 'succeeded' run via production signature-verify+dispatch+drain; real DELETE 404-proven, rows+dedup cleaned",
+  },
 ];
