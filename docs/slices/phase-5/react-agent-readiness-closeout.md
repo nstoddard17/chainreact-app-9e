@@ -19,14 +19,17 @@ and the apply-modes work (`REACT-AGENT-APPLY-MODES-1`).
 1. **Commit `cca248e5d` contains the self-contained readiness foundation** — the verdict engine,
    the connection-readiness route, the typed client + hooks, the render panel, and the tests. It is
    complete and green on its own.
-2. **The final builder render wiring is present and verified in the shared working tree but
-   intentionally UNCOMMITTED.** It overlaps a parallel, unfinished **CHECKLIST-ITEM-10** session that
-   is mid-edit in the same files (`WorkflowBuilder.tsx`, `BuilderApplyNotice.tsx`, and the
-   `useBuilderPreview.ts` `agentSetupIssues` change my wiring depends on). Committing those files
-   from this slice would have captured another arc's unfinished work, so they were left untouched.
-3. **The item is therefore NOT fully user-visible from committed code yet.** The verdict renders only
-   once the parallel CHECKLIST-ITEM-10 builder wiring lands (it carries my `useBuilderReadiness` call
-   + the two `readiness` props in the same working-tree files).
+2. **The builder render wiring was intentionally left out of `cca248e5d`** because at commit time it
+   overlapped a parallel, unfinished **CHECKLIST-ITEM-10** session mid-edit in the same files
+   (`WorkflowBuilder.tsx`, `BuilderApplyNotice.tsx`, and the `useBuilderPreview.ts` `agentSetupIssues`
+   change my wiring depends on). Committing those files from this slice would have captured another
+   arc's unfinished work, so they were left in the shared working tree (present + verified green).
+3. **The parallel session has since committed that wiring in `7537f32c2`**
+   (`feat(builder): render setup-needed card + readiness in post-apply notice — REACT-AGENT-SETUP-ISSUES,
+   REACT-AGENT-READINESS-1`). HEAD's `WorkflowBuilder.tsx` now calls `useBuilderReadiness` and passes
+   `readiness` to both the review rail (`PreviewReviewPanel`) and the post-apply notice
+   (`BuilderApplyNotice`). **The item is therefore now fully wired and user-visible from committed
+   code** (`cca248e5d` foundation + `7537f32c2` builder wiring).
 4. **Nothing pushed.** No `git push`, no PR, no deploy. No migration, no feature flag.
 
 ---
@@ -86,21 +89,20 @@ and the apply-modes work (`REACT-AGENT-APPLY-MODES-1`).
   5/5, `PreviewReviewPanel` 12/12 — all green.
 - No migration (none added). No feature flag (route is read-only + sanitized).
 
-## 5. Remaining work to make it user-visible
+## 5. Builder wiring — landed via the parallel session (`7537f32c2`)
 
-The verdict renders once the parallel **CHECKLIST-ITEM-10** session commits the builder files it is
-mid-editing. My three wiring edits live in those same working-tree files and ride along when that
-cluster lands:
+The render wiring is committed (by the CHECKLIST-ITEM-10 session, not this slice), so the verdict is
+live end-to-end:
 
 - `features/workflow-builder/WorkflowBuilder.tsx` — the `useBuilderReadiness(...)` call + the two
   `readiness={agentReadiness}` props (on `PreviewReviewPanel` and `BuilderApplyNotice`).
 - `features/workflow-builder/canvas/BuilderApplyNotice.tsx` — the optional `readiness` prop + the
   compact post-apply `AgentReadinessSummary`.
-- `features/workflow-builder/hooks/useBuilderPreview.ts` — **not mine**; its `agentSetupIssues`
-  change is owned by CHECKLIST-ITEM-10 and my WorkflowBuilder wiring depends on it.
+- `features/workflow-builder/hooks/useBuilderPreview.ts` — CHECKLIST-ITEM-10's `agentSetupIssues`
+  change (not mine), which my WorkflowBuilder wiring consumes.
 
-Do NOT stage/commit those three files from the readiness slice — they contain concurrent unfinished
-work. They were deliberately left in the working tree for the CHECKLIST-ITEM-10 session.
+These files were correctly NOT staged/committed by this slice (they carried concurrent unfinished
+work at the time); they landed under `7537f32c2`. No further wiring action is needed.
 
 ## 6. Deferred / non-goals
 
