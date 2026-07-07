@@ -14,6 +14,8 @@ import { FileRefArrayField } from "./FileRefArrayField";
 import { TemporalField } from "./TemporalField";
 import { TimezoneField } from "./TimezoneField";
 import { LocationField } from "./LocationField";
+import { ObjectListField } from "./ObjectListField";
+import { KeyValueListField } from "./KeyValueListField";
 import type { FieldComponent } from "./types";
 
 /**
@@ -51,6 +53,9 @@ export const FIELD_RENDERERS: Readonly<Record<FieldType, FieldComponent>> =
     timezone: TimezoneField,
     // Geoapify-backed address autocomplete with free-text fallback.
     location: LocationField,
+    // CONFIG-UX-AUDIT-1 structured editors (replace paste-JSON textareas).
+    "object-list": ObjectListField,
+    "keyvalue-list": KeyValueListField,
   });
 
 export function getFieldRenderer(type: FieldType): FieldComponent {

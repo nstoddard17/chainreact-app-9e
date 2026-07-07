@@ -24,7 +24,7 @@ export const notionAppendBlockChildrenMeta: ActionMeta = {
   type: "append_block_children",
   displayName: "Append Block Children",
   description:
-    "Append a typed list of block specs as children of an existing block or page. Accepts a block id OR a page id (pages are blocks in Notion's data model). Children is a JSON array of BlockSpec entries; runtime caps the array at 100 (Notion's hard ceiling). Paste a literal OR wire `{{...}}` from upstream.",
+    "Append a typed list of block specs as children of an existing block or page. Accepts a block id OR a page id (pages are blocks in Notion's data model). Children is a JSON array of BlockSpec entries; runtime caps the array at 100 (Notion's hard ceiling). Enter a literal or wire `{{...}}` from upstream.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -41,9 +41,10 @@ export const notionAppendBlockChildrenMeta: ActionMeta = {
       name: "children",
       label: "Children blocks",
       description:
-        "Typed `BlockSpec[]` JSON array (1..100). Supported types: `paragraph`, `heading_1`, `heading_2`, `heading_3`, `bulleted_list_item`, `numbered_list_item`, `quote`, `to_do`, `divider`. Each entry is `{\"type\":\"<one of the above>\",\"text\":\"…\"}` (to_do additionally accepts `\"checked\":boolean`). Paste JSON or wire `{{...}}` from upstream array outputs.",
+        "Typed `BlockSpec[]` JSON array (1..100). Supported types: `paragraph`, `heading_1`, `heading_2`, `heading_3`, `bulleted_list_item`, `numbered_list_item`, `quote`, `to_do`, `divider`. Each entry is `{\"type\":\"<one of the above>\",\"text\":\"…\"}` (to_do additionally accepts `\"checked\":boolean`). Enter JSON or wire `{{...}}` from upstream array outputs.",
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder: '[{"type":"paragraph","text":"Hello"}]',
     },
   ],

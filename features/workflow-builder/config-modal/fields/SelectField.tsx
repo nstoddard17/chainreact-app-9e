@@ -11,6 +11,7 @@ import {
 import { FieldShell } from "./FieldShell";
 import { FieldSetupHint } from "./FieldSetupHint";
 import { classifyConfigFieldValue } from "@/core/workflows/configFieldClassification";
+import { MultiOptionsField } from "./MultiOptionsField";
 import type { FieldRendererProps } from "./types";
 
 /**
@@ -19,13 +20,20 @@ import type { FieldRendererProps } from "./types";
  * wrappers (where channel / repo / table lists arrive from server
  * endpoints).
  *
- * Multi-select is NOT supported by this renderer; FieldMeta.multiple
- * on a `select` would need a different shape. We surface a clear error
- * for that case at render time so a meta drift never silently downgrades
- * to single-select.
+ * Multi-select (`FieldMeta.multiple`) delegates to MultiOptionsField
+ * (CONFIG-UX-AUDIT-1) — value is `string[]`. Meta drift (e.g. missing
+ * options) renders friendly copy only; internal diagnostics live in
+ * tests, never in the author-facing panel.
  */
 
-export const SelectField: React.FC<FieldRendererProps> = ({
+export const SelectField: React.FC<FieldRendererProps> = (props) => {
+  if (props.field.multiple) {
+    return <MultiOptionsField {...props} />;
+  }
+  return <SingleSelectBody {...props} />;
+};
+
+const SingleSelectBody: React.FC<FieldRendererProps> = ({
   field,
   value,
   error,
@@ -35,22 +43,6 @@ export const SelectField: React.FC<FieldRendererProps> = ({
   const stringValue = typeof value === "string" ? value : "";
   const controlId = `field-${field.name}`;
 
-  if (field.multiple) {
-    return (
-      <FieldShell
-        controlId={controlId}
-        label={field.label}
-        required={field.required}
-        description={field.description}
-        error={`Multi-select on type 'select' is not supported by this renderer. Mark the field as 'combobox' + multiple, or drop multiple.`}
-      >
-        <Select value={stringValue} disabled>
-          <SelectTrigger id={controlId} aria-invalid />
-        </Select>
-      </FieldShell>
-    );
-  }
-
   if (!field.options || field.options.length === 0) {
     return (
       <FieldShell
@@ -58,7 +50,7 @@ export const SelectField: React.FC<FieldRendererProps> = ({
         label={field.label}
         required={field.required}
         description={field.description}
-        error="No options available. Select fields require static `options` or an option source provider config wrapper."
+        error="The choices for this field aren't available right now. Try reopening this step, or contact support if it keeps happening."
       >
         <Select value={stringValue} disabled>
           <SelectTrigger id={controlId} aria-invalid />

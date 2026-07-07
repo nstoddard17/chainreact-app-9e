@@ -1,26 +1,26 @@
 /**
- * Slice 3.HUBSPOT-6 integration test — HubSpot `webhook_received`
- * trigger config end-to-end through the live WorkflowBuilder shell.
+ * HubSpot `webhook_received` trigger config end-to-end through the live
+ * WorkflowBuilder shell — Slice 3.HUBSPOT-6, reshaped by CONFIG-UX-AUDIT-1.
  *
- * Closes the HubSpot provider arc (26 actions + 1 trigger, hubspot
- * now in COVERED_PROVIDERS). Pins:
- *   - meta-shape guard: single required `subscriptions` textarea +
- *     12-field payloadShape mirroring `normalize.ts` + sensitive
- *     flags on `propertyValue` + `event`.
- *   - end-to-end: pick HubSpot Webhook Received trigger → paste a
- *     subscriptions JSON literal that parseSubscriptions would
- *     accept → Modal Save flushes draft → Toolbar Save persists once.
- *   - subscriptions persists as the LITERAL STRING the textarea
- *     stored (matches the Notion / Stripe paste-JSON pattern — the
- *     UI does NOT parse, the runtime engine + activate.ts do).
- *   - exact runtime config field name `subscriptions` round-trips
- *     (NOT `subscriptionList`, NOT camelCased).
+ * The `subscriptions` field is an OBJECT-LIST (visual add/remove rows:
+ * event-type picker + conditional property-name input), replacing the
+ * paste-JSON textarea. Pins:
+ *   - meta-shape guard: single required `subscriptions` object-list whose
+ *     eventType options mirror HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES 1:1 +
+ *     propertyName gated to `*.propertyChange` rows + 12-field
+ *     payloadShape with sensitive flags on `propertyValue` / `event`.
+ *   - end-to-end: build three subscriptions VISUALLY (no JSON anywhere)
+ *     → Modal Save flushes draft → Toolbar Save persists once.
+ *   - subscriptions persists as the REAL `[{eventType, propertyName?}]`
+ *     ARRAY that activate.ts:parseSubscriptions expects. The paste-JSON
+ *     era stored a literal string, which parseSubscriptions REJECTED
+ *     (`Array.isArray` guard) — the visual editor is the UX fix and the
+ *     activation-correctness fix at once.
+ *   - propertyName appears ONLY for `*.propertyChange` rows and is
+ *     omitted from serialized creation/deletion rows (activate.ts
+ *     rejects stray propertyName).
  *   - server-managed activation state (`webhookEnabled`, `appId`,
- *     `hubId`, the post-activate `subscriptions[]` rewrite with
- *     appSubscriptionId / hubspotSubscriptionId fields) is NOT
- *     manufactured by Save — the activate hook writes those into
- *     `trigger_resources.config` at activation time, NOT into the
- *     workflow's node config.
+ *     `hubId`) is NOT manufactured by Save.
  */
 
 const mockUpdateWorkflow = jest.fn();
@@ -66,6 +66,7 @@ import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
 import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import { hubspotWebhookReceivedTriggerMeta } from "@/integrations/hubspot/triggers/webhookReceived/webhookReceived.meta";
+import { HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES } from "@/integrations/hubspot/triggers/webhookReceived/allowedSubscriptionTypes";
 import type { WorkflowDetail } from "@/contracts/workflow";
 
 const baseWorkflow: WorkflowDetail = {
@@ -84,12 +85,13 @@ const baseWorkflow: WorkflowDetail = {
 const triggerProviders = [{ id: "hubspot", displayName: "HubSpot" }];
 const actionProviders = [{ id: "hubspot", displayName: "HubSpot" }];
 
-// Subscriptions JSON literal — shape that activate.ts/parseSubscriptions
-// accepts: mix of *.creation (no propertyName) + *.propertyChange (with
-// propertyName). The textarea stores this verbatim as a string; the
-// runtime engine + Zod parser shred it at activation time.
-const SUBSCRIPTIONS_JSON =
-  '[{"eventType":"contact.creation"},{"eventType":"deal.propertyChange","propertyName":"amount"},{"eventType":"ticket.deletion"}]';
+// The shape activate.ts:parseSubscriptions accepts: a REAL array mixing
+// *.creation (no propertyName) + *.propertyChange (with propertyName).
+const EXPECTED_SUBSCRIPTIONS = [
+  { eventType: "contact.creation" },
+  { eventType: "deal.propertyChange", propertyName: "amount" },
+  { eventType: "ticket.deletion" },
+];
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
@@ -104,7 +106,8 @@ beforeEach(() => {
     p === "hubspot" ? [hubspotWebhookReceivedTriggerMeta] : [],
   );
   mockFetchOptionsSource.mockReset();
-  // Defensive: this trigger meta has ZERO optionsSource fields. Any
+  // Defensive: this trigger meta has ZERO optionsSource fields (the
+  // eventType picker is STATIC options inside the object-list). Any
   // fetch invocation indicates a meta-shape regression.
   mockFetchOptionsSource.mockImplementation(async (source: string) => ({
     ok: false,
@@ -121,29 +124,43 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("HubSpot webhook_received trigger meta — single required subscriptions textarea + 12-field payload + propertyValue/event sensitive — Slice 3.HUBSPOT-6 meta guard", () => {
+it("HubSpot webhook_received trigger meta — required subscriptions object-list mirroring the activation allowlist + 12-field payload + propertyValue/event sensitive — CONFIG-UX-AUDIT-1 meta guard", () => {
   // Trigger-level guards.
   expect(hubspotWebhookReceivedTriggerMeta.activation).toBe("webhook");
   expect(hubspotWebhookReceivedTriggerMeta.requiresIntegration).toBe(true);
   expect(hubspotWebhookReceivedTriggerMeta.category).toBe("crm");
 
-  // Field surface — single required subscriptions textarea. No
-  // optionsSource fields.
+  // Field surface — single required subscriptions object-list. No
+  // optionsSource fields; no JSON language in the label or description.
   expect(hubspotWebhookReceivedTriggerMeta.fields.map((f) => f.name)).toEqual([
     "subscriptions",
   ]);
   const subscriptionsField = hubspotWebhookReceivedTriggerMeta.fields[0]!;
-  expect(subscriptionsField.type).toBe("textarea");
+  expect(subscriptionsField.type).toBe("object-list");
   expect(subscriptionsField.required).toBe(true);
   expect(subscriptionsField.optionsSource).toBeUndefined();
-  // Description must call out the propertyChange rule so workflow
-  // authors don't have to read activate.ts.
-  expect(subscriptionsField.description!.toLowerCase()).toContain(
-    "propertychange",
-  );
-  expect(subscriptionsField.description!.toLowerCase()).toContain(
-    "propertyname",
-  );
+  expect(subscriptionsField.label.toLowerCase()).not.toContain("json");
+  expect(subscriptionsField.description!.toLowerCase()).not.toContain("json");
+
+  // Row shape: eventType select (static options == activation allowlist,
+  // 1:1 and in order) + propertyName gated to *.propertyChange rows.
+  expect(subscriptionsField.itemFields!.map((s) => s.name)).toEqual([
+    "eventType",
+    "propertyName",
+  ]);
+  const eventType = subscriptionsField.itemFields![0]!;
+  expect(eventType.type).toBe("select");
+  expect(eventType.required).toBe(true);
+  expect(eventType.options!.map((o) => o.value)).toEqual([
+    ...HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES,
+  ]);
+  const propertyName = subscriptionsField.itemFields![1]!;
+  expect(propertyName.type).toBe("text");
+  expect(propertyName.required).toBe(true); // required WHEN VISIBLE
+  expect(propertyName.visibleWhen).toEqual({
+    field: "eventType",
+    valueEndsWith: ".propertyChange",
+  });
 
   // Payload shape mirrors normalize.ts:normalizeHubSpotEvent exactly.
   expect(
@@ -185,108 +202,142 @@ it("HubSpot webhook_received trigger meta — single required subscriptions text
   }
 });
 
-it("end-to-end: pick HubSpot Webhook Received → paste subscriptions JSON → Modal Save → Toolbar Save persists ONCE with the literal string + EXACT runtime field name `subscriptions`", async () => {
-  mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
-    ...baseWorkflow,
-    draftDefinition: body.draftDefinition,
-  }));
-  const user = userEvent.setup();
-  render(
-    <WorkflowBuilder
-      workflow={baseWorkflow}
-      triggerProviders={triggerProviders}
-      actionProviders={actionProviders}
-    />,
-  );
+it(
+  "end-to-end: pick HubSpot Webhook Received → build subscriptions visually (conditional propertyName, no JSON) → Modal Save → Toolbar Save persists the REAL array under the EXACT runtime field name `subscriptions`",
+  async () => {
+    mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
+      ...baseWorkflow,
+      draftDefinition: body.draftDefinition,
+    }));
+    const user = userEvent.setup();
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
+    );
 
-  // 1. Open the trigger picker.
-  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
+    // 1. Open the trigger picker.
+    await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
 
-  // 2. Drill into HubSpot → Webhook Received.
-  await user.click(
-    screen.getByRole("button", { name: /browse hubspot triggers/i }),
-  );
-  await waitFor(() => {
-    expect(screen.getByText("Webhook Received")).toBeInTheDocument();
-  });
-  await user.click(screen.getByText("Webhook Received"));
+    // 2. Drill into HubSpot → Webhook Received.
+    await user.click(
+      screen.getByRole("button", { name: /browse hubspot triggers/i }),
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Webhook Received")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Webhook Received"));
 
-  const trigger = useGraphSlice
-    .getState()
-    .pendingNodes.find((n) => n.kind === "trigger")!;
-  expect(trigger.provider).toBe("hubspot");
-  expect(trigger.type).toBe("webhook_received");
+    const trigger = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.kind === "trigger")!;
+    expect(trigger.provider).toBe("hubspot");
+    expect(trigger.type).toBe("webhook_received");
 
-  // 3. Open the trigger config rail.
-  await openLastNodeOfKind("trigger");
-  await waitFor(() => {
+    // 3. Open the trigger config rail — the object-list editor renders,
+    //    and there is NO JSON-paste affordance anywhere on the panel.
+    await openLastNodeOfKind("trigger");
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("object-list-subscriptions"),
+      ).toBeInTheDocument();
+    });
+    expect(document.body.textContent).not.toMatch(/paste json|json array/i);
+
+    // 4. Row 1 — "Contact created" (no propertyName input for creation).
+    await user.click(screen.getByTestId("object-list-subscriptions-add"));
+    await user.click(
+      screen.getByRole("combobox", { name: /event \(entry 1\)/i }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: "Contact created" }),
+    );
     expect(
-      screen.getByRole("textbox", { name: /^subscriptions/i }),
-    ).toBeInTheDocument();
-  });
+      screen.queryByRole("textbox", { name: /property to watch \(entry 1\)/i }),
+    ).not.toBeInTheDocument();
 
-  // 4. Paste subscriptions JSON. Textarea stores the literal string
-  //    verbatim — no parsing in the renderer (Notion / Stripe paste-
-  //    JSON pattern).
-  await user.click(
-    screen.getByRole("textbox", { name: /^subscriptions/i }),
-  );
-  await user.paste(SUBSCRIPTIONS_JSON);
-  expect(
-    useConfigSlice.getState().drafts[trigger.id]!.values.subscriptions,
-  ).toBe(SUBSCRIPTIONS_JSON);
+    // 5. Row 2 — "Deal property changed" reveals the property-name input.
+    await user.click(screen.getByTestId("object-list-subscriptions-add"));
+    await user.click(
+      screen.getByRole("combobox", { name: /event \(entry 2\)/i }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: "Deal property changed" }),
+    );
+    const propertyInput = await screen.findByRole("textbox", {
+      name: /property to watch \(entry 2\)/i,
+    });
+    await user.type(propertyInput, "amount");
 
-  // 5. Modal Save flushes the draft.
-  const modal = screen.getByRole("complementary", {
-    name: /node configuration/i,
-  });
-  await user.click(within(modal).getByRole("button", { name: /^save$/i }));
-  const pendingConfig = useGraphSlice
-    .getState()
-    .pendingNodes.find((n) => n.id === trigger.id)!.config;
-  // CRITICAL: exact HubSpot runtime config field name round-trips —
-  // `subscriptions` (NOT `subscriptionList`, NOT `subscription_list`).
-  expect(pendingConfig.subscriptions).toBe(SUBSCRIPTIONS_JSON);
-  // Stored as a literal string — the textarea does NOT parse JSON.
-  // The runtime engine + activate.ts:parseSubscriptions do the parse.
-  expect(typeof pendingConfig.subscriptions).toBe("string");
+    // 6. Row 3 — "Ticket deleted".
+    await user.click(screen.getByTestId("object-list-subscriptions-add"));
+    await user.click(
+      screen.getByRole("combobox", { name: /event \(entry 3\)/i }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: "Ticket deleted" }),
+    );
 
-  // Modal Save MUST NOT call updateWorkflow yet.
-  expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+    // Draft holds the REAL array (not a JSON-encoded string). Hidden
+    // propertyName keys are omitted from creation/deletion rows.
+    expect(
+      useConfigSlice.getState().drafts[trigger.id]!.values.subscriptions,
+    ).toEqual(EXPECTED_SUBSCRIPTIONS);
 
-  // 6. Toolbar Save persists once.
-  const allSaveButtons = screen.getAllByRole("button", { name: /^save$/i });
-  const toolbarSave = allSaveButtons.find((btn) => !modal.contains(btn))!;
-  await user.click(toolbarSave);
-  await waitFor(() => {
+    // 7. Modal Save flushes the draft.
+    const modal = screen.getByRole("complementary", {
+      name: /node configuration/i,
+    });
+    await user.click(within(modal).getByRole("button", { name: /^save$/i }));
+    const pendingConfig = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === trigger.id)!.config;
+    // CRITICAL: exact HubSpot runtime config field name round-trips —
+    // `subscriptions` — and the value is the ARRAY activate.ts's
+    // parseSubscriptions requires (Array.isArray guard).
+    expect(Array.isArray(pendingConfig.subscriptions)).toBe(true);
+    expect(pendingConfig.subscriptions).toEqual(EXPECTED_SUBSCRIPTIONS);
+
+    // Modal Save MUST NOT call updateWorkflow yet.
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+
+    // 8. Toolbar Save persists once.
+    const allSaveButtons = screen.getAllByRole("button", { name: /^save$/i });
+    const toolbarSave = allSaveButtons.find((btn) => !modal.contains(btn))!;
+    await user.click(toolbarSave);
+    await waitFor(() => {
+      expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
+    });
+    const persistedNodes = mockUpdateWorkflow.mock.calls[0]![1].draftDefinition
+      .nodes as Array<{
+      kind: string;
+      provider: string;
+      type: string;
+      config: Record<string, unknown>;
+    }>;
+    const persistedTrigger = persistedNodes.find((n) => n.kind === "trigger")!;
+    expect(persistedTrigger.provider).toBe("hubspot");
+    expect(persistedTrigger.type).toBe("webhook_received");
+    expect(persistedTrigger.config.subscriptions).toEqual(
+      EXPECTED_SUBSCRIPTIONS,
+    );
+
+    // Server-managed activation state MUST NOT leak into the workflow's
+    // node config — activate.ts writes webhookEnabled / appId / hubId into
+    // `trigger_resources.config`, NOT into the node's persisted config.
+    expect(persistedTrigger.config.webhookEnabled).toBeUndefined();
+    expect(persistedTrigger.config.appId).toBeUndefined();
+    expect(persistedTrigger.config.hubId).toBeUndefined();
+
+    // Resolver was never hit — the eventType picker is static options.
+    expect(mockFetchOptionsSource).not.toHaveBeenCalled();
+
+    // Single updateWorkflow call.
     expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
-  });
-  const persistedNodes = mockUpdateWorkflow.mock.calls[0]![1].draftDefinition
-    .nodes as Array<{
-    kind: string;
-    provider: string;
-    type: string;
-    config: Record<string, unknown>;
-  }>;
-  const persistedTrigger = persistedNodes.find((n) => n.kind === "trigger")!;
-  expect(persistedTrigger.provider).toBe("hubspot");
-  expect(persistedTrigger.type).toBe("webhook_received");
-  expect(persistedTrigger.config.subscriptions).toBe(SUBSCRIPTIONS_JSON);
-
-  // Server-managed activation state MUST NOT leak into the workflow's
-  // node config — activate.ts writes webhookEnabled / appId / hubId /
-  // the post-activate subscriptions[] rewrite (with appSubscriptionId /
-  // hubspotSubscriptionId) into `trigger_resources.config`, NOT into
-  // the node's persisted config. Catches a future Save handler bug
-  // that copies activation state back onto the node.
-  expect(persistedTrigger.config.webhookEnabled).toBeUndefined();
-  expect(persistedTrigger.config.appId).toBeUndefined();
-  expect(persistedTrigger.config.hubId).toBeUndefined();
-
-  // Resolver was never hit — this trigger meta has no optionsSource
-  // fields. Any non-zero count would indicate a meta-shape regression.
-  expect(mockFetchOptionsSource).not.toHaveBeenCalled();
-
-  // Single updateWorkflow call.
-  expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
-});
+  },
+  // Builds three object-list rows through Radix selects — comfortably
+  // above the 5s default under parallel-worker contention.
+  15_000,
+);

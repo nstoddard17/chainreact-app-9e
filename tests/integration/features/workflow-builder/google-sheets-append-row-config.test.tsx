@@ -2,11 +2,14 @@
  * Slice 3.GSHEETS-3 integration test — Google Sheets `append_row` config
  * end-to-end through the live WorkflowBuilder shell.
  *
- * Pins the first paste-JSON write path through the live builder for
- * Google Sheets. Covers:
+ * Pins the visual row-values write path through the live builder for
+ * Google Sheets (CONFIG-UX-AUDIT-1 — the values field is a string-array
+ * chip editor writing a REAL string[], replacing the paste-JSON
+ * textarea whose literal string the runtime z.array schema rejected).
+ * Covers:
  *   - spreadsheetId combobox sourced from `google-sheets:spreadsheets`,
  *   - range text (A1 notation),
- *   - values textarea — paste-JSON stored verbatim, NO UI-side parsing,
+ *   - values string-array — one chip per cell, committed as string[],
  *   - valueInputOption required select with Q11 NO-default semantics
  *     (author picks RAW vs USER_ENTERED explicitly),
  *   - insertDataOption select pre-filled with the schema's
@@ -102,7 +105,7 @@ const actionProviders = [{ id: "google-sheets", displayName: "Google Sheets" }];
 
 const SPREADSHEET_ID = "1aBcDeFgHiJkLmNoPqRsTuVwXyZ";
 const RANGE = "Sheet1!A:Z";
-const VALUES_JSON = '["alice@example.com","Premium",42,true]';
+const VALUES = ["alice@example.com", "Premium", "42", "true"];
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
@@ -165,7 +168,7 @@ it("Google Sheets append_row meta exposes spreadsheetId / range / values / value
     "google-sheets:spreadsheets",
   );
   expect(byName.get("range")!.type).toBe("text");
-  expect(byName.get("values")!.type).toBe("textarea");
+  expect(byName.get("values")!.type).toBe("string-array");
 
   // Q11 — valueInputOption is required with NO defaultValue.
   const vio = byName.get("valueInputOption")!;
@@ -189,7 +192,7 @@ it("Google Sheets append_row meta exposes spreadsheetId / range / values / value
   expect(googleSheetsAppendRowMeta.riskDescription!.length).toBeGreaterThan(0);
 });
 
-it("end-to-end: pick spreadsheet → type range → paste values JSON → pick valueInputOption → Modal Save (draft only) → Toolbar Save (updateWorkflow once; values persisted as literal JSON string)", async () => {
+it("end-to-end: pick spreadsheet → type range → add row values as chips → pick valueInputOption → Modal Save (draft only) → Toolbar Save (updateWorkflow once; values persisted as a REAL string[])", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -226,7 +229,7 @@ it("end-to-end: pick spreadsheet → type range → paste values JSON → pick v
   expect(action.type).toBe("append_row");
 
   // 3. Open config rail. Expected controls: spreadsheet combobox +
-  //    range text + values textarea + 2 selects.
+  //    range text + values chip editor + 2 selects.
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
@@ -234,7 +237,11 @@ it("end-to-end: pick spreadsheet → type range → paste values JSON → pick v
     ).toBeInTheDocument();
   });
   expect(screen.getByRole("textbox", { name: /^range$/i })).toBeInTheDocument();
-  expect(screen.getByRole("textbox", { name: /^values$/i })).toBeInTheDocument();
+  expect(
+    screen.getByRole("textbox", { name: /^row values$/i }),
+  ).toBeInTheDocument();
+  // The paste-JSON era is over — no JSON language on the panel.
+  expect(document.body.textContent).not.toMatch(/paste json|json array/i);
   expect(
     screen.getByRole("combobox", { name: /^value input option$/i }),
   ).toBeInTheDocument();
@@ -254,12 +261,15 @@ it("end-to-end: pick spreadsheet → type range → paste values JSON → pick v
   await user.type(screen.getByRole("textbox", { name: /^range$/i }), RANGE);
   expect(useConfigSlice.getState().drafts[action.id]!.values.range).toBe(RANGE);
 
-  // 6. Paste values JSON. The textarea stores the literal string — no
-  //    UI-side JSON parsing.
-  await user.click(screen.getByRole("textbox", { name: /^values$/i }));
-  await user.paste(VALUES_JSON);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.values).toBe(
-    VALUES_JSON,
+  // 6. Add the row values as chips — one per column, in order. The
+  //    renderer commits a REAL string[] (never a JSON-encoded string).
+  const valuesInput = screen.getByRole("textbox", { name: /^row values$/i });
+  for (const cell of VALUES) {
+    await user.type(valuesInput, cell);
+    await user.keyboard("{Enter}");
+  }
+  expect(useConfigSlice.getState().drafts[action.id]!.values.values).toEqual(
+    VALUES,
   );
 
   // 7. Pick valueInputOption (Q11 — no default; author MUST choose).
@@ -278,9 +288,8 @@ it("end-to-end: pick spreadsheet → type range → paste values JSON → pick v
     .pendingNodes.find((n) => n.id === action.id)!.config;
   expect(pendingConfig.spreadsheetId).toBe(SPREADSHEET_ID);
   expect(pendingConfig.range).toBe(RANGE);
-  // CRITICAL: persisted as literal JSON STRING — runtime parses it.
-  expect(pendingConfig.values).toBe(VALUES_JSON);
-  expect(typeof pendingConfig.values).toBe("string");
+  // CRITICAL: persisted as the REAL array the runtime schema expects.
+  expect(pendingConfig.values).toEqual(VALUES);
   expect(pendingConfig.valueInputOption).toBe("USER_ENTERED");
 
   expect(mockUpdateWorkflow).not.toHaveBeenCalled();
@@ -304,8 +313,7 @@ it("end-to-end: pick spreadsheet → type range → paste values JSON → pick v
   expect(persistedAction.type).toBe("append_row");
   expect(persistedAction.config.spreadsheetId).toBe(SPREADSHEET_ID);
   expect(persistedAction.config.range).toBe(RANGE);
-  expect(persistedAction.config.values).toBe(VALUES_JSON);
-  expect(typeof persistedAction.config.values).toBe("string");
+  expect(persistedAction.config.values).toEqual(VALUES);
   expect(persistedAction.config.valueInputOption).toBe("USER_ENTERED");
 
   expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);

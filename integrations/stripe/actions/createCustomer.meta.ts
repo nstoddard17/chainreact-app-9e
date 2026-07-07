@@ -62,6 +62,7 @@ export const stripeCreateCustomerMeta: ActionMeta = {
         "Optional key/value pairs persisted on the Stripe customer object. Stripe coerces non-string values to strings server-side; the meta layer stays strict (Record<string,string>) to surface conversion at design time. Stripe caps metadata at 50 keys per object.",
       type: "keyvalue",
       required: false,
+      keyValueShape: "record",
       keyValueMaxRows: 50,
     },
   ],

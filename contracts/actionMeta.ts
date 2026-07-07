@@ -100,6 +100,20 @@ export const FieldTypeSchema = z.enum([
   // location field already accepts (no place_id / lat-lng required at
   // launch). Renderer: LocationField; proxy route: /api/geoapify/autocomplete.
   "location",
+  // CONFIG-UX-AUDIT-1 — structured editors that replace paste-JSON textareas.
+  //
+  // `object-list` — repeating rows of a small fixed-shape object, declared
+  // via `itemFields` (e.g. HubSpot webhook subscriptions
+  // `[{eventType, propertyName?}]`, Stripe line items `[{priceId, quantity}]`).
+  // The renderer writes a REAL `Array<Record<string, string|number|boolean>>`
+  // — never a JSON-encoded string — matching what runtime Zod schemas and
+  // activation hooks already expect.
+  "object-list",
+  // `keyvalue-list` — repeating rows where EACH row is a free-key
+  // column→value map (e.g. Excel batch rows `[{Name: "Ada", Email: "…"}]`).
+  // Distinct from `keyvalue` (a single `Array<{key, value}>` list) — this
+  // writes `Array<Record<string, string>>` natively.
+  "keyvalue-list",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 
@@ -153,6 +167,74 @@ export type FieldNumericBounds = z.infer<typeof FieldNumericBoundsSchema>;
  */
 export const FieldSensitivitySchema = z.enum(["secret", "connection", "recipient"]);
 export type FieldSensitivity = z.infer<typeof FieldSensitivitySchema>;
+
+/**
+ * CONFIG-UX-AUDIT-1 — sub-field of an `object-list` row.
+ *
+ * Deliberately a REDUCED shape (no optionsSource, no dependsOn, no nesting):
+ * object-list rows are small fixed-shape objects; anything richer belongs in
+ * a dedicated field type. `visibleWhen` gates a sub-field on a sibling
+ * sub-field's value in the SAME row (e.g. HubSpot `propertyName` only when
+ * `eventType` ends with `.propertyChange`). A sub-field hidden by
+ * `visibleWhen` is omitted from the serialized row object entirely.
+ */
+export const ObjectListItemFieldSchema = z
+  .object({
+    name: z.string().min(1).max(128),
+    label: z.string().min(1).max(128),
+    description: z.string().max(1024).optional(),
+    type: z.enum(["text", "number", "select", "boolean"]),
+    /**
+     * Required WHEN VISIBLE. The renderer marks the input; the runtime
+     * schema / activation hook stays authoritative.
+     */
+    required: z.boolean(),
+    placeholder: z.string().max(256).optional(),
+    /** Static options; only valid (and required) when `type: "select"`. */
+    options: z.array(FieldOptionSchema).max(256).optional(),
+    /**
+     * Row-local visibility condition. At least one of `valueEndsWith` /
+     * `valueIn` must be set. The referenced field must be a sibling
+     * sub-field in the same `itemFields` list.
+     */
+    visibleWhen: z
+      .object({
+        field: z.string().min(1).max(128),
+        valueEndsWith: z.string().min(1).max(128).optional(),
+        valueIn: z.array(z.string().min(1).max(256)).min(1).max(64).optional(),
+      })
+      .strict()
+      .refine(
+        (w) => w.valueEndsWith !== undefined || w.valueIn !== undefined,
+        "visibleWhen needs `valueEndsWith` or `valueIn`.",
+      )
+      .optional(),
+  })
+  .strict()
+  .superRefine((f, ctx) => {
+    if (f.type === "select" && (!f.options || f.options.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["options"],
+        message: "object-list `select` sub-fields require static `options`.",
+      });
+    }
+    if (f.type !== "select" && f.options) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["options"],
+        message: "`options` is only valid on `select` sub-fields.",
+      });
+    }
+    if (f.visibleWhen?.field === f.name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["visibleWhen"],
+        message: `Sub-field '${f.name}' cannot gate its own visibility.`,
+      });
+    }
+  });
+export type ObjectListItemField = z.infer<typeof ObjectListItemFieldSchema>;
 
 /**
  * Normalize a `dependsOn` value into a stable `string[]`.
@@ -268,6 +350,20 @@ export const FieldMetaSchema = z
      */
     keyValueMaxRows: z.number().int().positive().max(256).optional(),
     /**
+     * CONFIG-UX-AUDIT-1 — serialized shape of a `keyvalue` field.
+     *
+     *   - `"pairs"` (default): `Array<{key, value}>` — the native-handler
+     *     shape (HTTP headers / query params; duplicates allowed).
+     *   - `"record"`: `Record<string, string>` — the wire-format shape
+     *     Stripe `metadata`, Mailchimp event `properties`, and Excel
+     *     `update_row.values` schemas expect (`z.record`). Before this
+     *     switch those fields silently saved the pairs shape, which the
+     *     runtime schema rejected.
+     *
+     * UI is identical in both modes; only the committed value differs.
+     */
+    keyValueShape: z.enum(["pairs", "record"]).optional(),
+    /**
      * For `string-array` fields, the maximum number of items the chip
      * renderer accepts. When reached, the Add affordance is disabled.
      * The underlying handler schema enforces the authoritative cap;
@@ -287,6 +383,28 @@ export const FieldMetaSchema = z
      * almost certainly wrong).
      */
     fileArrayMaxItems: z.number().int().positive().max(64).optional(),
+    /**
+     * CONFIG-UX-AUDIT-1 — row shape for `object-list` fields. Required for
+     * (and only valid on) `object-list`. Each entry declares one sub-field
+     * of every row; the renderer serializes rows as plain objects keyed by
+     * these names.
+     */
+    itemFields: z.array(ObjectListItemFieldSchema).min(1).max(16).optional(),
+    /**
+     * For `object-list` / `keyvalue-list`, the maximum number of rows the
+     * renderer accepts. UI hint only — the runtime schema stays
+     * authoritative (mirrors `keyValueMaxRows`).
+     */
+    listMaxItems: z.number().int().positive().max(1000).optional(),
+    /**
+     * CONFIG-UX-AUDIT-1 — marks a developer-grade escape hatch (e.g. a raw
+     * Notion filter, Slack Block Kit JSON). SchemaForm renders advanced
+     * fields inside a collapsed "Advanced" disclosure so they never sit in
+     * the normal setup path. Product rule: JSON-flavored help text is
+     * allowed ONLY on advanced fields, and never in a field's label —
+     * enforced by tests/unit/features/workflow-builder/config-copy-guard.
+     */
+    advanced: z.boolean().optional(),
   })
   .strict()
   .superRefine((field, ctx) => {
@@ -353,6 +471,13 @@ export const FieldMetaSchema = z
         message: "`keyValueMaxRows` is only valid on `keyvalue` fields.",
       });
     }
+    if (field.keyValueShape && field.type !== "keyvalue") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["keyValueShape"],
+        message: "`keyValueShape` is only valid on `keyvalue` fields.",
+      });
+    }
     if (field.stringArrayMaxItems && field.type !== "string-array") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -365,6 +490,52 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["fileArrayMaxItems"],
         message: "`fileArrayMaxItems` is only valid on `file-array` fields.",
+      });
+    }
+    if (field.type === "object-list" && !field.itemFields) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["itemFields"],
+        message: "`object-list` fields must declare `itemFields`.",
+      });
+    }
+    if (field.itemFields && field.type !== "object-list") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["itemFields"],
+        message: "`itemFields` is only valid on `object-list` fields.",
+      });
+    }
+    if (field.itemFields) {
+      const subNames = new Set(field.itemFields.map((f) => f.name));
+      if (subNames.size !== field.itemFields.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["itemFields"],
+          message: "Duplicate sub-field name in `itemFields`.",
+        });
+      }
+      for (let i = 0; i < field.itemFields.length; i++) {
+        const w = field.itemFields[i]!.visibleWhen;
+        if (w && !subNames.has(w.field)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["itemFields", i, "visibleWhen"],
+            message: `visibleWhen references unknown sub-field '${w.field}'.`,
+          });
+        }
+      }
+    }
+    if (
+      field.listMaxItems &&
+      field.type !== "object-list" &&
+      field.type !== "keyvalue-list"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["listMaxItems"],
+        message:
+          "`listMaxItems` is only valid on `object-list` or `keyvalue-list` fields.",
       });
     }
 

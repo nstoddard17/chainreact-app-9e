@@ -43,6 +43,9 @@ import type { FieldRendererProps } from "./types";
  *   - Always writes `string[]`. Never JSON-encoded, never CSV.
  *   - Non-array initial values coerce to `[]`; non-string entries dropped.
  *   - Initial mount with a non-empty value does NOT fire `onChange`.
+ *   - Removing the LAST item writes `undefined` (not `[]`) so optional
+ *     fields drop out of the saved config instead of tripping runtime
+ *     `.min(1)` / either-or refinements (CONFIG-UX-AUDIT-1).
  *
  * Cap (`stringArrayMaxItems`) + required (FieldShell asterisk only) are
  * honored in both modes; the handler Zod schema stays authoritative.
@@ -95,7 +98,8 @@ const FreeTextArrayBody: React.FC<FieldRendererProps> = ({
 
   function removeAt(index: number): void {
     if (disabled) return;
-    onChange(items.filter((_, i) => i !== index));
+    const next = items.filter((_, i) => i !== index);
+    onChange(next.length === 0 ? undefined : next);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
@@ -149,7 +153,13 @@ const FreeTextArrayBody: React.FC<FieldRendererProps> = ({
 
 // ─── Option-picker mode (Scope B) ────────────────────────────────────────────
 
-const OptionsArrayBody: React.FC<FieldRendererProps> = ({
+/**
+ * Exported for reuse by MultiOptionsField (CONFIG-UX-AUDIT-1): a
+ * `select`/`combobox` field with `multiple: true` + `optionsSource` is the
+ * same interaction as an option-picking string-array — multi-pick from a
+ * resolver, chips below, `string[]` value.
+ */
+export const OptionsArrayBody: React.FC<FieldRendererProps> = ({
   field,
   value,
   error,
@@ -207,7 +217,8 @@ const OptionsArrayBody: React.FC<FieldRendererProps> = ({
   }
   function removeAt(index: number): void {
     if (disabled) return;
-    onChange(items.filter((_, i) => i !== index));
+    const next = items.filter((_, i) => i !== index);
+    onChange(next.length === 0 ? undefined : next);
   }
 
   const trimmed = search.trim();

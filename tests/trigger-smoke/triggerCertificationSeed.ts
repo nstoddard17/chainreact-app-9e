@@ -550,6 +550,44 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-06",
     note: "ingestion-path cert via DIRECT-SEED (NOT activation): seed trigger_resources event_type audience_event + config{audienceId,eventTypes:[subscribe]} + smoke providerAccountId, baseline 0, an UNSIGNED (Mailchimp has NO signature scheme — the production authenticity model IS URL secrecy + audience gate + allowlist + sha256(rawBody) dedup) synthetic form-encoded subscribe event (crsmoke audience id + crsmoke-…@example.invalid email, reserved TLD, no real subscriber) POSTed to the real /api/webhooks/mailchimp?workflowId&nodeId route (parse->audience gate->event-type allowlist->normalize->dispatchTriggerEvent->content-hash dedup->enqueue) fires exactly 1 run whose trigger_event keys on sha256(rawBody) + preserves the email/subscriber-hash markers, durable run terminal 'succeeded', re-send of the IDENTICAL bytes deduped (still 1), rows cleaned (0 leaked); no Mailchimp API, no real webhook/audience. Provider-side webhook activation NOT certified.",
   },
+  // Gmail polling batch (2026-07-06) — the 3 registered Gmail history-cursor
+  // polling triggers on the spec-driven Gmail polling harness
+  // (tests/trigger-smoke/gmailPollingSmoke.ts). These are FULL Lane B
+  // live-provider certs against the action-certified smoke Gmail account:
+  // real activation (usersGetProfile seeds snapshot.historyId — the V1
+  // "first poll miss" rule), real users.history.list walks, real
+  // messages.get hydration, and run-unique crsmoke marker seeds via the
+  // CERTIFIED send_email / create_label / add_label handlers + the proven
+  // smoke multipart attachment helper. No reliance on arbitrary mailbox
+  // history. Each cert proves BOTH freshness layers separately: WATERMARK
+  // (an advanced-cursor re-poll fires 0 more) and DEDUP (the cursor is
+  // REWOUND to pre-change, history re-surfaces the same message id, and the
+  // per-trigger-prefixed webhook_event_dedup row drops it). Seed messages
+  // trashed, smoke labels deleted, dedup rows removed — 0 leaked.
+  {
+    provider: "gmail",
+    type: "new_email",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real polling dispatch vs live Gmail: activation seeds snapshot.historyId, baseline poll fires 0, a certified send_email self-send with a run-unique crsmoke subject (trigger config pins subject exact-match + no label constraint = deterministic vs concurrent mail) fires exactly 1 run whose trigger_event carries the bare-message-id eventId + marker subject, durable run terminal 'succeeded', advanced-cursor re-poll fires 0 (watermark), REWOUND-cursor re-poll re-surfaces the message and webhook_event_dedup drops it (still 1), seed trashed + rows cleaned (0 leaked)",
+  },
+  {
+    provider: "gmail",
+    type: "new_labeled_email",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real polling dispatch vs live Gmail: certified create_label mints a run-unique smoke label (trigger config labelId), activation seeds the cursor, baseline poll fires 0, certified send_email + add_label produce the labelsAdded history event that fires exactly 1 run whose trigger_event carries eventId labeled:<messageId> + labelAppliedId + our label in labelsAdded + marker subject (the send alone does NOT fire it — messagesAdded is ignored by this trigger), terminal 'succeeded', watermark + rewound-cursor dedup (labeled: prefixed key) hold at 1, seed trashed + smoke label deleted + rows cleaned (0 leaked)",
+  },
+  {
+    provider: "gmail",
+    type: "new_attachment",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real polling dispatch vs live Gmail: activation seeds the cursor, baseline poll fires 0, the proven smoke multipart self-send (send_email has no attachments field) delivers ONE message with a crsmoke-named text attachment; the poll's format=full hydration + extractAttachmentMetadata fire exactly 1 run whose trigger_event carries eventId attachment:<messageId> + the marker filename in payload.attachments, terminal 'succeeded', watermark + rewound-cursor dedup (attachment: prefixed key) hold at 1, seed trashed + rows cleaned (0 leaked)",
+  },
   // airtable:record_changed — BLOCKED for direct-seed certification, probe-read
   // 2026-07-06 (integrations/airtable/webhooks/receive.ts + triggers/
   // recordChanged/pull.ts). Airtable's webhook ping carries NO record data

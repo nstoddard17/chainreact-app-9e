@@ -137,9 +137,10 @@ export const googleSheetsFormatRangeMeta: ActionMeta = {
       name: "numberFormat",
       label: "Number format",
       description:
-        "Optional Sheets number-format object: `{\"type\":\"NUMBER|PERCENT|CURRENCY|DATE|TIME|DATE_TIME|SCIENTIFIC|TEXT\",\"pattern\":\"<optional Sheets format pattern>\"}`. Pattern follows Sheets' [number format token grammar](https://developers.google.com/sheets/api/guides/formats). Paste a JSON object literal or wire `{{...}}` from upstream.",
+        "Optional Sheets number-format object: `{\"type\":\"NUMBER|PERCENT|CURRENCY|DATE|TIME|DATE_TIME|SCIENTIFIC|TEXT\",\"pattern\":\"<optional Sheets format pattern>\"}`. Pattern follows Sheets' [number format token grammar](https://developers.google.com/sheets/api/guides/formats). Enter a JSON object or wire `{{...}}` from upstream.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"type":"CURRENCY","pattern":"$#,##0.00"}',
     },
   ],

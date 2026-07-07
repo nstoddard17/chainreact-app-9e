@@ -7,10 +7,13 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * the runtime Zod schema property names — the builder writes config keyed
  * by these names and the handler's `.strict()` schema rejects drift).
  *
- * `line_items` and the two address objects ship as paste-JSON `textarea`
- * fields for v1 (no structured array/object FieldType yet — same bridge as
- * Notion/HubSpot/Stripe). Outputs mirror `createOrder.ts:return` exactly;
- * `email` is marked sensitive (customer PII).
+ * `line_items` is an `object-list` (variant id + quantity rows) that writes
+ * the REAL array the runtime schema expects (CONFIG-UX-AUDIT-1 — the old
+ * paste-JSON textarea stored a string the `.strict()` schema rejected).
+ * The two address objects stay JSON textareas behind the Advanced
+ * disclosure (fixed-key single objects; a structured address editor is a
+ * follow-up). Outputs mirror `createOrder.ts:return` exactly; `email` is
+ * marked sensitive (customer PII).
  */
 export const shopifyCreateOrderMeta: ActionMeta = {
   key: "shopify:create_order",
@@ -33,12 +36,27 @@ export const shopifyCreateOrderMeta: ActionMeta = {
     },
     {
       name: "line_items",
-      label: "Line Items (paste JSON)",
+      label: "Line items",
       description:
-        'Required. JSON array of line items, each `{ "variant_id": <number>, "quantity": <number> }`. At least one item; Shopify rejects empty orders. Example: `[{"variant_id":123456789,"quantity":2}]`.',
-      type: "textarea",
+        "What the order contains. Add at least one line — Shopify rejects empty orders. The variant id is the numeric id of the product variant being ordered.",
+      type: "object-list",
       required: true,
-      placeholder: '[{"variant_id":123456789,"quantity":1}]',
+      itemFields: [
+        {
+          name: "variant_id",
+          label: "Product variant ID",
+          type: "number",
+          required: true,
+          placeholder: "123456789",
+        },
+        {
+          name: "quantity",
+          label: "Quantity",
+          type: "number",
+          required: true,
+          placeholder: "1",
+        },
+      ],
     },
     {
       name: "send_receipt",
@@ -81,22 +99,24 @@ export const shopifyCreateOrderMeta: ActionMeta = {
     {
       name: "shipping_address",
       sensitivity: "recipient",
-      label: "Shipping Address (paste JSON)",
+      label: "Shipping address",
       description:
-        'Optional. JSON object: `{ "address1", "address2", "city", "province", "country_code" (ISO 3166-1 alpha-2 e.g. "US"), "zip" }`.',
+        'Developer option. The shipping address as a JSON object with any of `address1`, `address2`, `city`, `province`, `country_code` (two-letter code like "US"), `zip`. Enter the JSON value or insert a value from a previous step.',
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder:
         '{"address1":"1 Main St","city":"Denver","province":"CO","country_code":"US","zip":"80202"}',
     },
     {
       name: "billing_address",
       sensitivity: "recipient",
-      label: "Billing Address (paste JSON)",
+      label: "Billing address",
       description:
-        'Optional. Same shape as Shipping Address: `{ "address1", "address2", "city", "province", "country_code", "zip" }`.',
+        "Developer option. Same shape as Shipping address, as a JSON object. Enter the JSON value or insert a value from a previous step.",
       type: "textarea",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

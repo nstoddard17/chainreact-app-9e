@@ -158,11 +158,12 @@ it("Stripe create_payment_intent meta declares dollars-anchored amount + plain-t
   expect(customerId.required).toBe(false);
   expect(customerId.optionsSource).toBeUndefined();
 
-  // metadata: keyvalue with keyValueMaxRows: 50
+  // metadata: keyvalue with keyValueMaxRows: 50, record wire shape
   const metadata = stripeCreatePaymentIntentMeta.fields.find(
     (f) => f.name === "metadata",
   )!;
   expect(metadata.type).toBe("keyvalue");
+  expect(metadata.keyValueShape).toBe("record");
   expect(metadata.required).toBe(false);
   expect(metadata.keyValueMaxRows).toBe(50);
 
@@ -179,7 +180,7 @@ it("Stripe create_payment_intent meta declares dollars-anchored amount + plain-t
   expect(outAmount.description?.toLowerCase()).toContain("cent");
 });
 
-it("end-to-end: type dollars amount + currency + customerId + add metadata row → Modal Save (draft only) → Toolbar Save (updateWorkflow once with typed array metadata, not JSON string)", async () => {
+it("end-to-end: type dollars amount + currency + customerId + add metadata row → Modal Save (draft only) → Toolbar Save (updateWorkflow once with record metadata, not JSON string)", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -272,10 +273,10 @@ it("end-to-end: type dollars amount + currency + customerId + add metadata row �
   );
   const draftMetadata = useConfigSlice.getState().drafts[action.id]!.values
     .metadata;
-  expect(Array.isArray(draftMetadata)).toBe(true);
-  expect(draftMetadata).toEqual([{ key: "order_id", value: "ord_42" }]);
-  // CRITICAL: NOT a JSON-encoded string.
-  expect(typeof draftMetadata).not.toBe("string");
+  // Record wire shape (keyValueShape: "record", CONFIG-UX-AUDIT-1) —
+  // what Stripe's z.record schema expects. Never a pairs array, never a
+  // JSON-encoded string.
+  expect(draftMetadata).toEqual({ order_id: "ord_42" });
 
   // 8. Modal Save flushes the draft.
   const modal = screen.getByRole("complementary", {
@@ -288,9 +289,7 @@ it("end-to-end: type dollars amount + currency + customerId + add metadata row �
   expect(pendingConfig.amount).toBe(20.99);
   expect(pendingConfig.currency).toBe("usd");
   expect(pendingConfig.customerId).toBe(CUSTOMER_ID);
-  expect(pendingConfig.metadata).toEqual([
-    { key: "order_id", value: "ord_42" },
-  ]);
+  expect(pendingConfig.metadata).toEqual({ order_id: "ord_42" });
 
   expect(mockUpdateWorkflow).not.toHaveBeenCalled();
 
@@ -320,10 +319,7 @@ it("end-to-end: type dollars amount + currency + customerId + add metadata row �
   // Metadata persists as a typed array of {key, value} rows — NOT a
   // JSON string. The runtime converts array→Record<string,string>
   // before the Stripe handler sees it.
-  expect(persistedAction.config.metadata).toEqual([
-    { key: "order_id", value: "ord_42" },
-  ]);
-  expect(typeof persistedAction.config.metadata).not.toBe("string");
+  expect(persistedAction.config.metadata).toEqual({ order_id: "ord_42" });
   // No hidden defaults snuck into the persisted config (Q11).
   expect(persistedAction.config.description).toBeUndefined();
 

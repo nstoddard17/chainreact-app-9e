@@ -7,8 +7,15 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * schema 1:1). `values` (single positional row) XOR `rows` (batch,
  * header-keyed, 1..1000) — exactly one is required; the runtime `.refine`
  * is authoritative, so both are `required: false` here and the rule is
- * documented in the field descriptions. Array/object shapes ship as
- * paste-JSON textareas (no structured array editor exists).
+ * documented in the field descriptions.
+ *
+ * CONFIG-UX-AUDIT-1: `values` is a `string-array` (one chip per cell, in
+ * column order) and `rows` is a `keyvalue-list` (visual row builder with
+ * column/value pairs). Both write REAL arrays/objects — the previous
+ * paste-JSON textareas stored literal STRINGS, which the runtime
+ * `z.array(...)` schema rejected. Cell values entered visually are
+ * strings; workflow authors who need typed cells (numbers/booleans) wire
+ * a `{{...}}` variable from an upstream output.
  *
  * `workbookId` → workbooks picker; `worksheetName` → worksheets picker
  * (dependsOn workbookId). Cell-data outputs (`valuesWritten`, `rowsAdded`)
@@ -45,21 +52,21 @@ export const microsoftExcelAddRowMeta: ActionMeta = {
     },
     {
       name: "values",
-      label: "Values — single row (paste JSON)",
+      label: "Row values (single row)",
       description:
-        'Single-row mode. JSON array of cell values in column order, e.g. `["Ada","ada@x.com",42]`. Provide EITHER this OR Rows, not both.',
-      type: "textarea",
+        "Add one value per column, in the worksheet's column order. Use this to append a single row — or use Rows below to add several at once, not both.",
+      type: "string-array",
       required: false,
-      placeholder: '["Ada","ada@example.com",42]',
+      placeholder: "Type a cell value and press Enter",
     },
     {
       name: "rows",
-      label: "Rows — batch (paste JSON)",
+      label: "Rows (add several at once)",
       description:
-        'Batch mode (max 1000). JSON array of header-keyed row objects, e.g. `[{"Name":"Ada","Email":"ada@x.com"}]`. Provide EITHER this OR Values, not both.',
-      type: "textarea",
+        "Add up to 1000 rows. For each row, enter the column name (matching the worksheet's header row) and the value. Use either this or Row values above, not both.",
+      type: "keyvalue-list",
       required: false,
-      placeholder: '[{"Name":"Ada","Email":"ada@example.com"}]',
+      listMaxItems: 1000,
     },
   ],
   outputs: [

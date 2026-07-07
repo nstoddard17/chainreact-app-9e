@@ -42,7 +42,7 @@ export const googleSheetsAppendRowMeta: ActionMeta = {
   type: "append_row",
   displayName: "Append Row",
   description:
-    "Append a single row to a Google Sheet via `spreadsheets.values.append`. Sheets detects the existing table from the supplied range and appends below the bottom row. Pass the cell values as a JSON array of primitives in column order. **Q11 required:** choose RAW (literal — `=SUM(...)` stays a string) vs USER_ENTERED (parses formulas, dates, numbers as a human would).",
+    "Append a single row to a Google Sheet via `spreadsheets.values.append`. Sheets detects the existing table from the supplied range and appends below the bottom row. Add one cell value per column, in column order. **Q11 required:** choose RAW (literal — `=SUM(...)` stays a string) vs USER_ENTERED (parses formulas, dates, numbers as a human would).",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -67,12 +67,12 @@ export const googleSheetsAppendRowMeta: ActionMeta = {
     },
     {
       name: "values",
-      label: "Values",
+      label: "Row values",
       description:
-        "JSON array of primitive cell values for the new row — one entry per column, in the column order the sheet expects. Allowed: strings, numbers, booleans, `null`. The textarea stores the literal JSON string; runtime parses + validates. Min 1 entry.",
-      type: "textarea",
+        "Add one value per column, in the column order the sheet expects. With USER_ENTERED below, Sheets parses numbers, dates, and formulas as if you typed them into the sheet.",
+      type: "string-array",
       required: true,
-      placeholder: '["alice@example.com","Premium",42,true]',
+      placeholder: "Type a cell value and press Enter",
     },
     {
       name: "valueInputOption",

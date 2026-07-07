@@ -30,6 +30,7 @@ import {
   listProvidersWithMetadata,
   listTriggerMetasForProvider,
 } from "@/services/discovery/_registry";
+import { HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES } from "@/integrations/hubspot/triggers/webhookReceived/allowedSubscriptionTypes";
 
 describe("listAllActionMetas", () => {
   it("returns the native action metas registered in Slice 3.0", () => {
@@ -2900,17 +2901,26 @@ describe("per-provider accessors", () => {
       expect(foundCount).toBe(9);
     });
 
-    it("nested-object fields (lineItems, automaticTax, afterCompletion) use textarea paste-JSON (no new FieldType introduced in this slice)", () => {
-      const nestedFieldNames = new Set([
-        "lineItems",
-        "automaticTax",
-        "afterCompletion",
-      ]);
+    it("nested fields: lineItems is a structured object-list; automaticTax/afterCompletion stay JSON textareas behind the Advanced disclosure (CONFIG-UX-AUDIT-1)", () => {
       let foundCount = 0;
       for (const meta of stripeActionMetas()) {
         for (const f of meta.fields) {
-          if (nestedFieldNames.has(f.name)) {
+          if (f.name === "lineItems") {
+            // Visual repeater writing the REAL [{priceId, quantity}] array
+            // the runtime schema expects — never a JSON-encoded string.
+            expect(f.type).toBe("object-list");
+            expect(f.itemFields?.map((s) => s.name)).toEqual([
+              "priceId",
+              "quantity",
+            ]);
+            expect(f.advanced).toBeUndefined();
+            foundCount += 1;
+          }
+          if (f.name === "automaticTax" || f.name === "afterCompletion") {
+            // Developer escape hatches — JSON copy allowed ONLY because the
+            // field is marked advanced (collapsed out of the normal path).
             expect(f.type).toBe("textarea");
+            expect(f.advanced).toBe(true);
             foundCount += 1;
           }
         }
@@ -3515,10 +3525,12 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("lineItems is textarea paste-JSON (optional at field level; XOR with mode enforced at runtime)", () => {
+      it("lineItems is a structured object-list (optional at field level; XOR with mode enforced at runtime)", () => {
         const li = meta().fields.find((f) => f.name === "lineItems")!;
-        expect(li.type).toBe("textarea");
+        expect(li.type).toBe("object-list");
         expect(li.required).toBe(false);
+        expect(li.itemFields?.map((s) => s.name)).toEqual(["priceId", "quantity"]);
+        expect(li.listMaxItems).toBe(99);
         expect(li.description?.toLowerCase()).toContain("setup");
         expect(li.description?.toLowerCase()).toContain("required");
       });
@@ -3581,16 +3593,19 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("lineItems is REQUIRED textarea paste-JSON", () => {
+      it("lineItems is a REQUIRED structured object-list", () => {
         const li = meta().fields.find((f) => f.name === "lineItems")!;
-        expect(li.type).toBe("textarea");
+        expect(li.type).toBe("object-list");
         expect(li.required).toBe(true);
+        expect(li.itemFields?.map((s) => s.name)).toEqual(["priceId", "quantity"]);
+        expect(li.listMaxItems).toBe(20);
       });
 
-      it("afterCompletion is OPTIONAL textarea paste-JSON (discriminated union)", () => {
+      it("afterCompletion is an OPTIONAL advanced JSON textarea (discriminated union)", () => {
         const ac = meta().fields.find((f) => f.name === "afterCompletion")!;
         expect(ac.type).toBe("textarea");
         expect(ac.required).toBe(false);
+        expect(ac.advanced).toBe(true);
         expect(ac.description?.toLowerCase()).toContain("redirect");
         expect(ac.description?.toLowerCase()).toContain("hosted_confirmation");
       });
@@ -4054,14 +4069,14 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("values is a required textarea on both write actions (paste-JSON UX)", () => {
+      it("values is a required string-array chip editor on both write actions (CONFIG-UX-AUDIT-1 — writes a REAL array, never a JSON string)", () => {
         for (const key of [
           "google-sheets:append_row",
           "google-sheets:update_row",
         ]) {
           const meta = gsheetsActionMetas().find((m) => m.key === key)!;
           const f = meta.fields.find((x) => x.name === "values")!;
-          expect(f.type).toBe("textarea");
+          expect(f.type).toBe("string-array");
           expect(f.required).toBe(true);
         }
       });
@@ -5777,18 +5792,28 @@ describe("per-provider accessors", () => {
       expect(meta.requiresIntegration).toBe(true);
     });
 
-    it("exposes a single required `subscriptions` textarea field (matches the parseSubscriptions paste-JSON contract)", () => {
+    it("exposes a single required `subscriptions` object-list matching the parseSubscriptions shape (CONFIG-UX-AUDIT-1)", () => {
       const meta = hubspotTriggerMetas()[0]!;
       expect(meta.fields.map((f) => f.name)).toEqual(["subscriptions"]);
       const f = meta.fields[0]!;
-      expect(f.type).toBe("textarea");
+      expect(f.type).toBe("object-list");
       expect(f.required).toBe(true);
-      // Description must call out the allowed event types so workflow
-      // authors don't have to read activate.ts. propertyChange wiring
-      // requirement also lives in the description.
-      expect(f.description!.toLowerCase()).toContain("contact.creation");
-      expect(f.description!.toLowerCase()).toContain("propertychange");
-      expect(f.description!.toLowerCase()).toContain("propertyname");
+      // Row shape: eventType select over the activation allowlist +
+      // propertyName gated to *.propertyChange rows.
+      expect(f.itemFields!.map((s) => s.name)).toEqual([
+        "eventType",
+        "propertyName",
+      ]);
+      const eventType = f.itemFields![0]!;
+      expect(eventType.type).toBe("select");
+      expect(eventType.options!.map((o) => o.value)).toEqual([
+        ...HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES,
+      ]);
+      const propertyName = f.itemFields![1]!;
+      expect(propertyName.visibleWhen).toEqual({
+        field: "eventType",
+        valueEndsWith: ".propertyChange",
+      });
     });
 
     it("payloadShape mirrors normalize.ts:normalizeHubSpotEvent — exact field set in declared order", () => {
@@ -6044,7 +6069,7 @@ describe("per-provider accessors", () => {
       expect(properties.required).toBe(false);
     });
 
-    it("mailchimp:create_segment pins the discriminated-union shape — mode required with NO default + both options + paste-JSON conditions textarea", () => {
+    it("mailchimp:create_segment pins the discriminated-union shape — mode required with NO default + both options + structured conditions/emails editors (CONFIG-UX-AUDIT-1)", () => {
       const m = mailchimp().find((x) => x.key === "mailchimp:create_segment")!;
       const mode = m.fields.find((f) => f.name === "mode")!;
       expect(mode.type).toBe("select");
@@ -6055,14 +6080,19 @@ describe("per-provider accessors", () => {
         "static",
       ]);
       const conditions = m.fields.find((f) => f.name === "conditions")!;
-      expect(conditions.type).toBe("textarea");
+      expect(conditions.type).toBe("object-list");
+      expect(conditions.itemFields!.map((s) => s.name)).toEqual([
+        "field",
+        "op",
+        "value",
+      ]);
       expect(conditions.required).toBe(false); // cross-field required at runtime
       const staticEmails = m.fields.find((f) => f.name === "static_emails")!;
-      expect(staticEmails.type).toBe("textarea");
+      expect(staticEmails.type).toBe("string-array");
       expect(staticEmails.required).toBe(false);
     });
 
-    it("mailchimp:create_audience pins the compliance fields as required + nested objects as paste-JSON textarea", () => {
+    it("mailchimp:create_audience pins the compliance fields as required + nested objects as advanced JSON textareas", () => {
       const m = mailchimp().find((x) => x.key === "mailchimp:create_audience")!;
       const byName = new Map(m.fields.map((f) => [f.name, f]));
       expect(byName.get("name")!.required).toBe(true);
@@ -6071,11 +6101,15 @@ describe("per-provider accessors", () => {
       const emailTypeOption = byName.get("email_type_option")!;
       expect(emailTypeOption.type).toBe("boolean");
       expect(emailTypeOption.required).toBe(true);
-      // Nested objects are paste-JSON until a dedicated nested-form UI lands.
+      // Nested objects stay JSON textareas until a dedicated nested-form UI
+      // lands — marked advanced so the disclosure (auto-open for required
+      // fields) hosts them and JSON copy stays off the normal path.
       expect(byName.get("contact")!.type).toBe("textarea");
       expect(byName.get("contact")!.required).toBe(true);
+      expect(byName.get("contact")!.advanced).toBe(true);
       expect(byName.get("campaign_defaults")!.type).toBe("textarea");
       expect(byName.get("campaign_defaults")!.required).toBe(true);
+      expect(byName.get("campaign_defaults")!.advanced).toBe(true);
     });
 
     it("PII-bearing Mailchimp outputs are marked sensitive", () => {

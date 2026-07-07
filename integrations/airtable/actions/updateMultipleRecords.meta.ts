@@ -44,6 +44,7 @@ export const airtableUpdateMultipleRecordsMeta: ActionMeta = {
         'Up to 10 records as a JSON array, each {"recordId":"rec…","fields":{<name>:{type,value}}} — e.g. [{"recordId":"rec123","fields":{"Status":{"type":"singleSelect","value":"Done"}}}]. Only the included fields per record are changed.',
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder:
         '[{ "recordId": "rec…", "fields": { "Status": { "type": "singleSelect", "value": "Done" } } }]',
     },

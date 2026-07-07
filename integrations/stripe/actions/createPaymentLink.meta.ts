@@ -37,10 +37,27 @@ export const stripeCreatePaymentLinkMeta: ActionMeta = {
       name: "lineItems",
       label: "Line items",
       description:
-        "JSON array of `[{priceId, quantity}]`. Min 1, max 20 (Stripe's hard cap for payment_links). `priceId` is a Stripe price id (`price_xxx`); `quantity` is a positive integer. Paste a JSON literal or wire `{{...}}` from upstream array outputs.",
-      type: "textarea",
+        "What the customer is paying for. Add one line per Stripe price (max 20 — Stripe's cap for payment links).",
+      type: "object-list",
       required: true,
-      placeholder: '[{"priceId":"price_xxx","quantity":1}]',
+      listMaxItems: 20,
+      itemFields: [
+        {
+          name: "priceId",
+          label: "Price ID",
+          description: "The Stripe price to charge (starts with `price_`).",
+          type: "text",
+          required: true,
+          placeholder: "price_xxx",
+        },
+        {
+          name: "quantity",
+          label: "Quantity",
+          type: "number",
+          required: true,
+          placeholder: "1",
+        },
+      ],
     },
     {
       name: "metadata",
@@ -49,6 +66,7 @@ export const stripeCreatePaymentLinkMeta: ActionMeta = {
         "Optional key/value pairs persisted on the Payment Link. Stripe caps at 50 keys per object.",
       type: "keyvalue",
       required: false,
+      keyValueShape: "record",
       keyValueMaxRows: 50,
     },
     {
@@ -63,9 +81,10 @@ export const stripeCreatePaymentLinkMeta: ActionMeta = {
       name: "afterCompletion",
       label: "After completion",
       description:
-        "Optional discriminated-union JSON for post-payment behavior. Two variants: `{\"type\":\"redirect\",\"redirectUrl\":\"https://example.com/...\"}` to redirect the customer after payment, OR `{\"type\":\"hosted_confirmation\"}` to show Stripe's own confirmation page (Stripe's default when omitted). Paste a JSON literal or wire `{{...}}` from upstream.",
+        "Developer option. What happens after the customer pays, as a JSON object: `{\"type\":\"redirect\",\"redirectUrl\":\"https://example.com/...\"}` to redirect, or `{\"type\":\"hosted_confirmation\"}` for Stripe's confirmation page (Stripe's default when omitted). Enter the JSON value or insert a value from a previous step.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder:
         '{"type":"redirect","redirectUrl":"https://example.com/thanks"}',
     },

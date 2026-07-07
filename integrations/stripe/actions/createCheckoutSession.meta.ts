@@ -102,10 +102,27 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
       name: "lineItems",
       label: "Line items",
       description:
-        "JSON array of `[{priceId, quantity}]`. Min 1, max 99. **Required when `mode` is `payment` or `subscription`; MUST be omitted when `mode` is `setup`.** `priceId` is a Stripe price id (`price_xxx`); `quantity` is a positive integer. Paste a JSON literal or wire `{{...}}` from upstream array outputs.",
-      type: "textarea",
+        "What the customer is paying for. Add one line per Stripe price (max 99). **Required when Mode is `payment` or `subscription`; leave empty when Mode is `setup`.**",
+      type: "object-list",
       required: false,
-      placeholder: '[{"priceId":"price_xxx","quantity":1}]',
+      listMaxItems: 99,
+      itemFields: [
+        {
+          name: "priceId",
+          label: "Price ID",
+          description: "The Stripe price to charge (starts with `price_`).",
+          type: "text",
+          required: true,
+          placeholder: "price_xxx",
+        },
+        {
+          name: "quantity",
+          label: "Quantity",
+          type: "number",
+          required: true,
+          placeholder: "1",
+        },
+      ],
     },
     {
       name: "customer",
@@ -142,6 +159,7 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
         "Optional key/value pairs persisted on the Checkout Session and propagated to the resulting PaymentIntent / Subscription. Stripe caps at 50 keys per object.",
       type: "keyvalue",
       required: false,
+      keyValueShape: "record",
       keyValueMaxRows: 50,
     },
     {
@@ -156,9 +174,10 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
       name: "automaticTax",
       label: "Automatic tax",
       description:
-        "Optional JSON object `{\"enabled\": boolean}`. When `enabled: true`, Stripe calculates and collects tax automatically based on customer address. Requires Stripe Tax to be configured on the account. Paste a literal JSON object or wire `{{...}}` from upstream.",
+        "Developer option. Stripe's automatic-tax setting as a JSON object, e.g. `{\"enabled\": true}` to calculate and collect tax from the customer's address (requires Stripe Tax on the account). Enter the JSON value or insert a value from a previous step.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"enabled": true}',
     },
   ],

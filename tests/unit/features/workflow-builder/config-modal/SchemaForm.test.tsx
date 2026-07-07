@@ -96,7 +96,7 @@ describe("SchemaForm", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders a developer-error message for an unknown FieldType", () => {
+  it("renders FRIENDLY copy for an unknown FieldType — internals ride in data attributes, never visible text (CONFIG-UX-AUDIT-1)", () => {
     const bogus = [
       {
         name: "x",
@@ -108,7 +108,79 @@ describe("SchemaForm", () => {
     render(
       <SchemaForm fields={bogus} values={{}} onChange={jest.fn()} />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(/Unknown field type/);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/can’t be edited here right now/i);
+    // The internal type string must NOT be user-visible…
+    expect(alert.textContent).not.toContain("telepathy");
+    expect(alert.textContent).not.toMatch(/field type|registry|renderer/i);
+    // …but developers can still see it in the data attribute.
+    expect(alert).toHaveAttribute("data-field-type", "telepathy");
+  });
+});
+
+// ─── CONFIG-UX-AUDIT-1 — Advanced disclosure ─────────────────────────────────
+
+describe("SchemaForm advanced disclosure (CONFIG-UX-AUDIT-1)", () => {
+  const normalField: FieldMeta = {
+    name: "subject",
+    label: "Subject",
+    type: "text",
+    required: true,
+  } as FieldMeta;
+  const advancedField: FieldMeta = {
+    name: "rawFilter",
+    label: "Filter",
+    type: "textarea",
+    required: false,
+    advanced: true,
+  } as FieldMeta;
+
+  it("advanced fields render inside a collapsed <details> after the normal fields", () => {
+    render(
+      <SchemaForm
+        fields={[normalField, advancedField]}
+        values={{}}
+        onChange={jest.fn()}
+      />,
+    );
+    const details = screen.getByTestId("schema-form-advanced");
+    expect(details).not.toHaveAttribute("open");
+    expect(details).toHaveTextContent("Advanced");
+    // The advanced field lives inside the disclosure; the normal field
+    // does not.
+    expect(
+      details.querySelector('[data-field-name="rawFilter"]'),
+    ).not.toBeNull();
+    expect(details.querySelector('[data-field-name="subject"]')).toBeNull();
+  });
+
+  it("the disclosure defaults OPEN when an advanced field already has a value (nothing filled is ever hidden)", () => {
+    render(
+      <SchemaForm
+        fields={[normalField, advancedField]}
+        values={{ rawFilter: '{"x":1}' }}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId("schema-form-advanced")).toHaveAttribute("open");
+  });
+
+  it("the disclosure defaults OPEN when an advanced field is required", () => {
+    render(
+      <SchemaForm
+        fields={[normalField, { ...advancedField, required: true } as FieldMeta]}
+        values={{}}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId("schema-form-advanced")).toHaveAttribute("open");
+  });
+
+  it("no disclosure renders when no field is advanced", () => {
+    render(
+      <SchemaForm fields={[normalField]} values={{}} onChange={jest.fn()} />,
+    );
+    expect(screen.queryByTestId("schema-form-advanced")).not.toBeInTheDocument();
   });
 });
 

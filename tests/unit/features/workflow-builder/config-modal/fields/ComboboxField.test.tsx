@@ -86,20 +86,25 @@ describe("ComboboxField — static options (Slice 3.1 behavior preserved)", () =
     ).toHaveTextContent("Pick a channel");
   });
 
-  it("surfaces 'multi-select not yet implemented' when meta declares multiple", () => {
+  it("multiple: true renders a real multi-select with chips (no internal renderer error) — CONFIG-UX-AUDIT-1", () => {
     render(
       <ComboboxField
         field={field({ multiple: true })}
-        value=""
+        value={["C1", "C2"]}
         onChange={jest.fn()}
       />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      /Multi-select combobox not yet implemented/i,
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/not yet implemented/i);
+    expect(screen.getByTestId("multi-select-channelId")).toHaveTextContent(
+      "2 selected",
     );
+    const chips = screen.getByTestId("field-channelId-chips");
+    expect(chips).toHaveTextContent("#general");
+    expect(chips).toHaveTextContent("#random");
   });
 
-  it("surfaces 'No options available' when neither options nor optionsSource is set", () => {
+  it("surfaces friendly copy (no renderer internals) when neither options nor optionsSource is set", () => {
     render(
       <ComboboxField
         field={field({ options: undefined })}
@@ -107,9 +112,9 @@ describe("ComboboxField — static options (Slice 3.1 behavior preserved)", () =
         onChange={jest.fn()}
       />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      /No options available/,
-    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/aren't available right now/i);
+    expect(alert.textContent).not.toMatch(/optionsSource|renderer|`options`/);
   });
 
   it("does NOT invoke the async hook when static options are declared", () => {

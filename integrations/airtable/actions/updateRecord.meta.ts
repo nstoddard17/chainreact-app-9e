@@ -53,6 +53,7 @@ export const airtableUpdateRecordMeta: ActionMeta = {
         'Fields to update as JSON keyed by field name, each {type, value} — e.g. {"Status":{"type":"singleSelect","value":"Done"}}. Only the fields you include are changed. Supported types: singleLineText, longText, number, currency, percent, singleSelect, multipleSelects, checkbox, date, dateTime, email, url, phoneNumber, multipleRecordLinks, attachment.',
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder: '{ "Status": { "type": "singleSelect", "value": "Done" } }',
     },
     {

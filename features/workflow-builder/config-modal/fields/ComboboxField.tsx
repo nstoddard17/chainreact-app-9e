@@ -29,6 +29,7 @@ import { VariablePickerButton } from "./VariablePickerButton";
 import { FieldSetupHint } from "./FieldSetupHint";
 import { describePrefillSource } from "./_prefillSource";
 import { classifyConfigFieldValue } from "@/core/workflows/configFieldClassification";
+import { MultiOptionsField } from "./MultiOptionsField";
 
 /**
  * `combobox` field renderer. Searchable single-select.
@@ -38,9 +39,8 @@ import { classifyConfigFieldValue } from "@/core/workflows/configFieldClassifica
  * via `useOptionsSource` against `lib/api/options.ts`. The two are
  * mutually exclusive per `FieldMetaSchema`'s `superRefine`.
  *
- * Multi-select (FieldMeta.multiple) is recognized but not yet
- * implemented — the renderer surfaces a clear "not supported" message
- * so meta authors aren't silently downgraded.
+ * Multi-select (FieldMeta.multiple) delegates to MultiOptionsField
+ * (CONFIG-UX-AUDIT-1) — static and async paths both write `string[]`.
  *
  * Async UX per docs/slices/phase-3/options-source-plan.md §7.1:
  *   - loading: spinner row
@@ -436,20 +436,10 @@ export const ComboboxField: React.FC<FieldRendererProps> = ({
   const [open, setOpen] = React.useState(false);
 
   if (field.multiple) {
-    return (
-      <FieldShell
-        controlId={controlId}
-        label={field.label}
-        required={field.required}
-        description={field.description}
-        error="Multi-select combobox not yet implemented (Slice 3.7)."
-      >
-        <Button variant="outline" disabled className="w-full justify-between">
-          —
-          <ChevronDown className="h-4 w-4 opacity-50" />
-        </Button>
-      </FieldShell>
-    );
+    // CONFIG-UX-AUDIT-1 — multi-select is real now. MultiOptionsField
+    // handles both static `options` and async `optionsSource` paths and
+    // writes `string[]`.
+    return <MultiOptionsField {...{ field, value, error, onChange, disabled, deps, enabled, parentLabel }} />;
   }
 
   // Async path — meta declared `optionsSource`. The static-options
@@ -509,7 +499,7 @@ export const ComboboxField: React.FC<FieldRendererProps> = ({
         label={field.label}
         required={field.required}
         description={field.description}
-        error="No options available. Combobox fields require static `options` or a dynamic `optionsSource`."
+        error="The choices for this field aren't available right now. Try reopening this step, or contact support if it keeps happening."
       >
         <Button variant="outline" disabled className="w-full justify-between">
           —

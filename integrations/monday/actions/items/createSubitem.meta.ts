@@ -44,11 +44,12 @@ export const mondayCreateSubitemMeta: ActionMeta = {
     },
     {
       name: "columnValues",
-      label: "Column values (JSON)",
+      label: "Column values",
       description:
         'JSON-encoded column-values map for the subitems board. Example: {"status":{"label":"Working on it"}}.',
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"status":{"label":"Working on it"}}',
     },
   ],

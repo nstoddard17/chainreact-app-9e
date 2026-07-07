@@ -59,6 +59,7 @@ export const stripeCreateInvoiceMeta: ActionMeta = {
         "Optional key/value pairs persisted on the invoice. Stripe caps at 50 keys per object.",
       type: "keyvalue",
       required: false,
+      keyValueShape: "record",
       keyValueMaxRows: 50,
     },
     {

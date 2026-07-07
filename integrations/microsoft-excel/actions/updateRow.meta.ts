@@ -52,6 +52,7 @@ export const microsoftExcelUpdateRowMeta: ActionMeta = {
         "Column-header → cell-value pairs. At least one entry. Header names must match the worksheet's header row.",
       type: "keyvalue",
       required: true,
+      keyValueShape: "record",
     },
   ],
   outputs: [

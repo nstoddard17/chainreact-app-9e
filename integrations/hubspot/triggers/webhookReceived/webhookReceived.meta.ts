@@ -1,4 +1,5 @@
 import type { TriggerMeta } from "@/contracts/triggerMeta";
+import { HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES } from "./allowedSubscriptionTypes";
 
 /**
  * Builder-facing metadata for `hubspot:webhook_received` — Slice 3.HUBSPOT-6.
@@ -38,14 +39,15 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  *     property-name to prevent silently-scoped subscriptions that
  *     HubSpot would create but never narrow events for.
  *
- * Field surface — single `subscriptions` textarea (paste-JSON).
- * Rationale: each subscription is a 1- or 2-field object, the count
- * varies per workflow (typical: 1–4), and there's no dedicated
- * "array-of-object" field type in the builder yet. Paste-JSON mirrors
- * the Notion / Stripe paste-JSON pattern already established for
- * variable-shape config. Activation's `parseSubscriptions` enforces the
- * exact shape — design-time validation lands when a dedicated array-of-
- * struct field type ships.
+ * Field surface — single `subscriptions` object-list (CONFIG-UX-AUDIT-1).
+ * Each row is one subscription: an event-type picker plus a property-name
+ * input that appears only for `*.propertyChange` events. The renderer
+ * writes the REAL `[{ eventType, propertyName? }]` array that
+ * `parseSubscriptions` expects — the previous paste-JSON textarea stored
+ * a STRING, which activation rejected outright (`Array.isArray` guard),
+ * so the visual editor is both the UX fix and the correctness fix.
+ * Activation stays authoritative for validation (allowlist, propertyName
+ * rules, duplicates).
  *
  * Payload — mirrors `normalize.ts:normalizeHubSpotEvent` exactly.
  * `propertyValue` and `event` (raw payload) MUST stay sensitive — they
@@ -67,17 +69,47 @@ export const hubspotWebhookReceivedTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "subscriptions",
-      label: "Subscriptions (paste JSON)",
+      label: "Events to watch",
       description:
-        "Required. Paste a JSON array of subscription items, each shaped `{ \"eventType\": \"<type>\", \"propertyName\": \"<property>\"? }`. " +
-        "Allowed `eventType` values: `contact.creation`, `contact.propertyChange`, `contact.deletion`, `company.creation`, `company.propertyChange`, `company.deletion`, `deal.creation`, `deal.propertyChange`, `deal.deletion`, `ticket.creation`, `ticket.propertyChange`, `ticket.deletion`. " +
-        "`propertyName` is REQUIRED for `*.propertyChange` types (HubSpot scopes those subscriptions per-property) and MUST be omitted on `*.creation` / `*.deletion`. " +
-        "Activation rejects unknown event types, missing `propertyName` on propertyChange, stray `propertyName` on creation/deletion, and duplicates within the array. " +
-        "Example: `[{\"eventType\":\"contact.creation\"},{\"eventType\":\"deal.propertyChange\",\"propertyName\":\"amount\"}]`.",
-      type: "textarea",
+        "Add the HubSpot events this workflow should watch. For property-change events, also name the property to watch (e.g. `amount` on a deal) — HubSpot tracks property changes per property.",
+      type: "object-list",
       required: true,
-      placeholder:
-        '[{"eventType":"contact.creation"},{"eventType":"deal.propertyChange","propertyName":"amount"}]',
+      itemFields: [
+        {
+          name: "eventType",
+          label: "Event",
+          type: "select",
+          required: true,
+          placeholder: "Choose a HubSpot event…",
+          // Static by design: this mirrors HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES
+          // (V2's own activation allowlist) 1:1 — the count guard below
+          // keeps them in sync.
+          options: [
+            { value: "contact.creation", label: "Contact created" },
+            { value: "contact.propertyChange", label: "Contact property changed" },
+            { value: "contact.deletion", label: "Contact deleted" },
+            { value: "company.creation", label: "Company created" },
+            { value: "company.propertyChange", label: "Company property changed" },
+            { value: "company.deletion", label: "Company deleted" },
+            { value: "deal.creation", label: "Deal created" },
+            { value: "deal.propertyChange", label: "Deal property changed" },
+            { value: "deal.deletion", label: "Deal deleted" },
+            { value: "ticket.creation", label: "Ticket created" },
+            { value: "ticket.propertyChange", label: "Ticket property changed" },
+            { value: "ticket.deletion", label: "Ticket deleted" },
+          ],
+        },
+        {
+          name: "propertyName",
+          label: "Property to watch",
+          description:
+            "The property whose changes should fire this workflow (e.g. `amount`, `dealstage`, `email`).",
+          type: "text",
+          required: true,
+          placeholder: "amount",
+          visibleWhen: { field: "eventType", valueEndsWith: ".propertyChange" },
+        },
+      ],
     },
   ],
   payloadShape: [
@@ -158,3 +190,11 @@ export const hubspotWebhookReceivedTriggerMeta: TriggerMeta = {
   ],
   displayOrder: 10,
 };
+
+// Compile-time guard: the 12 static event options above must stay in sync
+// with the runtime allowlist (a readonly tuple, so `.length` is the literal
+// `12`). Adding/removing an allowlisted type stops this type-checking and
+// forces the options[] to be updated too. The trigger-config test also
+// asserts set equality between option values and the allowlist.
+const _SUBSCRIPTION_TYPE_COUNT_GUARD: 12 = HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES.length;
+void _SUBSCRIPTION_TYPE_COUNT_GUARD;

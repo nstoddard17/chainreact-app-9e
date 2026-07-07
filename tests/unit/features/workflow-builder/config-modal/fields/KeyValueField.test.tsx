@@ -110,3 +110,48 @@ describe("KeyValueField", () => {
     expect(onChange).toHaveBeenLastCalledWith([{ key: "aZ", value: "1" }]);
   });
 });
+
+describe("KeyValueField — record mode (keyValueShape: 'record', CONFIG-UX-AUDIT-1)", () => {
+  function recordField(overrides: Partial<FieldMeta> = {}): FieldMeta {
+    return field({ name: "metadata", label: "Metadata", keyValueShape: "record", ...overrides });
+  }
+
+  it("commits a Record<string, string> — the wire shape z.record schemas expect (Stripe metadata et al.)", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <KeyValueField field={recordField()} value={undefined} onChange={onChange} />,
+    );
+    await user.click(screen.getByRole("button", { name: /add row/i }));
+    await user.type(screen.getByLabelText("Metadata key 1"), "order_id");
+    await user.type(screen.getByLabelText("Metadata value 1"), "ord_1");
+    expect(onChange).toHaveBeenLastCalledWith({ order_id: "ord_1" });
+  });
+
+  it("hydrates rows from a saved record value", () => {
+    render(
+      <KeyValueField
+        field={recordField()}
+        value={{ plan: "pro" }}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByDisplayValue("plan")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("pro")).toBeInTheDocument();
+  });
+
+  it("rows with empty keys stay editable but are omitted; an all-empty editor commits undefined", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <KeyValueField field={recordField()} value={undefined} onChange={onChange} />,
+    );
+    await user.click(screen.getByRole("button", { name: /add row/i }));
+    // Key still empty → nothing to serialize.
+    expect(onChange).toHaveBeenLastCalledWith(undefined);
+    await user.type(screen.getByLabelText("Metadata value 1"), "v");
+    expect(onChange).toHaveBeenLastCalledWith(undefined);
+    await user.type(screen.getByLabelText("Metadata key 1"), "k");
+    expect(onChange).toHaveBeenLastCalledWith({ k: "v" });
+  });
+});

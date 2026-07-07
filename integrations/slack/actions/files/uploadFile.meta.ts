@@ -54,7 +54,7 @@ export const slackUploadFileMeta: ActionMeta = {
   type: "upload_file",
   displayName: "Upload File",
   description:
-    "Upload a file to a Slack channel from an upstream FileRef output. Insert the FileRef via the variable picker (e.g. slack:download_file, gmail:get_attachment) or paste a FileRef JSON literal. The Slack handler rejects FileRef(kind=provider_url) at runtime — stage bytes through an upstream get_*/download_* action first. Requires the Slack files:write scope.",
+    "Upload a file to a Slack channel from an upstream FileRef output. Insert the FileRef via the variable picker (e.g. slack:download_file, gmail:get_attachment). The Slack handler rejects FileRef(kind=provider_url) at runtime — stage bytes through an upstream get_*/download_* action first. Requires the Slack files:write scope.",
   category: "files",
   requiresIntegration: true,
   fields: [
@@ -74,10 +74,10 @@ export const slackUploadFileMeta: ActionMeta = {
       name: "file",
       label: "File",
       description:
-        "Source FileRef. Use the variable picker to insert an upstream FileRef output (slack:download_file, gmail:get_attachment, microsoft-outlook:get_attachment, …) or paste a FileRef JSON literal. The Slack handler rejects FileRef(kind=provider_url) — prefer v2_storage refs from upstream get_*/download_* actions.",
+        "The file to upload. Use the variable picker to insert a file from a previous step (slack:download_file, gmail:get_attachment, microsoft-outlook:get_attachment, and other get/download actions). Link-only files are rejected — stage the bytes through an upstream get/download step first.",
       type: "file",
       required: true,
-      placeholder: "Paste a {{...}} token or FileRef JSON",
+      placeholder: "Insert a {{...}} file from a previous step",
     },
     {
       name: "title",

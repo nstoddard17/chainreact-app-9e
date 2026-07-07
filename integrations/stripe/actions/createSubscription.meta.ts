@@ -120,6 +120,7 @@ export const stripeCreateSubscriptionMeta: ActionMeta = {
         "Optional key/value pairs persisted on the Stripe subscription object. Stripe caps at 50 keys per object.",
       type: "keyvalue",
       required: false,
+      keyValueShape: "record",
       keyValueMaxRows: 50,
     },
   ],

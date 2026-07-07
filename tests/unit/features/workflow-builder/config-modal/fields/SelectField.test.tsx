@@ -55,18 +55,26 @@ describe("SelectField", () => {
     );
   });
 
-  it("surfaces a clear error when meta declares multiple", () => {
+  it("multiple: true renders a real multi-select (no internal renderer error) — CONFIG-UX-AUDIT-1", () => {
     render(
       <SelectField
         field={field({ multiple: true })}
-        value=""
+        value={["GET"]}
         onChange={jest.fn()}
       />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(/Multi-select on type 'select'/);
+    // The multi-pick trigger renders with the current selection count and
+    // NO internal "not supported by this renderer" developer message.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/not supported by this renderer/i);
+    expect(
+      screen.getByTestId("multi-select-method"),
+    ).toHaveTextContent("1 selected");
+    // Selected chip shows the option label.
+    expect(screen.getByTestId("field-method-chips")).toHaveTextContent("GET");
   });
 
-  it("surfaces a clear error when options are missing", () => {
+  it("surfaces friendly copy (no renderer internals) when options are missing", () => {
     render(
       <SelectField
         field={field({ options: undefined })}
@@ -74,7 +82,10 @@ describe("SelectField", () => {
         onChange={jest.fn()}
       />,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(/No options available/);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/aren't available right now/i);
+    // Never leak implementation language to workflow authors.
+    expect(alert.textContent).not.toMatch(/optionsSource|renderer|`options`/);
   });
 
   it("renders required marker", () => {

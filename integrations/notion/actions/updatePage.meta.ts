@@ -46,6 +46,7 @@ export const notionUpdatePageMeta: ActionMeta = {
         "Optional typed property-input map. PATCH semantics — only keys you set are updated; omitted keys keep their value. Same shape as Create Page.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"Status":{"type":"select","value":"Done"}}',
     },
     {
@@ -63,6 +64,7 @@ export const notionUpdatePageMeta: ActionMeta = {
         "Optional. Same shape as Create Page. Pass `null` to clear the existing icon.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"type":"emoji","emoji":"🎯"}',
     },
     {
@@ -72,6 +74,7 @@ export const notionUpdatePageMeta: ActionMeta = {
         "Optional. Same shape as Create Page. Pass `null` to clear the existing cover.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"type":"external","external":{"url":"https://..."}}',
     },
   ],

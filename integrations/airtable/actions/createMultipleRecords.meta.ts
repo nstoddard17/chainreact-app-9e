@@ -45,6 +45,7 @@ export const airtableCreateMultipleRecordsMeta: ActionMeta = {
         'Up to 10 records as a JSON array, each {"fields": {<name>: {type, value}}} — e.g. [{"fields":{"Name":{"type":"singleLineText","value":"A"}}},{"fields":{"Name":{"type":"singleLineText","value":"B"}}}]. Supported field types match Create Record.',
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder:
         '[{ "fields": { "Name": { "type": "singleLineText", "value": "A" } } }]',
     },

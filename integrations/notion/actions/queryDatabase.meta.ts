@@ -25,7 +25,7 @@ export const notionQueryDatabaseMeta: ActionMeta = {
   type: "query_database",
   displayName: "Query Database",
   description:
-    "Query rows from a Notion database. `filter` and `sorts` are passed verbatim to Notion's API — see Notion's docs for the grammar. Paste a JSON literal or wire `{{...}}` from upstream. Returns one page of rows; iterate via the returned `nextCursor` for additional pages.",
+    "Query rows from a Notion database. `filter` and `sorts` are passed verbatim to Notion's API — see Notion's docs for the grammar. Enter a JSON literal or wire `{{...}}` from upstream. Returns one page of rows; iterate via the returned `nextCursor` for additional pages.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -42,18 +42,20 @@ export const notionQueryDatabaseMeta: ActionMeta = {
       name: "filter",
       label: "Filter",
       description:
-        "Optional raw Notion filter object — passed verbatim to `databases.query`. See Notion's filter docs for the grammar (compound `and`/`or` plus per-property filters). Paste JSON or wire `{{...}}`.",
+        "Optional raw Notion filter object — passed verbatim to `databases.query`. See Notion's filter docs for the grammar (compound `and`/`or` plus per-property filters). Enter JSON or wire `{{...}}`.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"property":"Status","select":{"equals":"Done"}}',
     },
     {
       name: "sorts",
       label: "Sorts",
       description:
-        "Optional raw Notion sort array — passed verbatim. Each entry is `{property, direction}` or `{timestamp, direction}`. Paste JSON or wire `{{...}}`.",
+        "Optional raw Notion sort array — passed verbatim. Each entry is `{property, direction}` or `{timestamp, direction}`. Enter JSON or wire `{{...}}`.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '[{"property":"Name","direction":"ascending"}]',
     },
     {

@@ -17,8 +17,9 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *                          target rectangle. If `values` is shorter than
  *                          the range width, Google leaves the extra
  *                          cells unchanged — V2 does not pad / truncate.
- *   - `values`            (required) — textarea paste-JSON. Same shape
- *                          as append_row's values.
+ *   - `values`            (required) — string-array (one chip per cell,
+ *                          in column order). Same value shape as
+ *                          append_row (CONFIG-UX-AUDIT-1).
  *   - `valueInputOption`  (required, Q11) — RAW vs USER_ENTERED.
  *                          Authors choose explicitly.
  *
@@ -61,12 +62,12 @@ export const googleSheetsUpdateRowMeta: ActionMeta = {
     },
     {
       name: "values",
-      label: "Values",
+      label: "Row values",
       description:
-        "JSON array of primitive cell values for the row — one entry per column, in column order. Allowed: strings, numbers, booleans, `null`. The textarea stores the literal JSON string; runtime parses + validates. Min 1 entry. If shorter than the range width, extra cells stay unchanged.",
-      type: "textarea",
+        "Add one value per column, in column order. If you add fewer values than the range covers, the extra cells stay unchanged. With USER_ENTERED below, Sheets parses numbers, dates, and formulas as if you typed them.",
+      type: "string-array",
       required: true,
-      placeholder: '["alice@example.com","Updated",43,false]',
+      placeholder: "Type a cell value and press Enter",
     },
     {
       name: "valueInputOption",

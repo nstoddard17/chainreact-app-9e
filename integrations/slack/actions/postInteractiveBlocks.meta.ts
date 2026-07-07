@@ -53,9 +53,10 @@ export const slackPostInteractiveBlocksMeta: ActionMeta = {
       name: "blocks",
       label: "Blocks",
       description:
-        "Block Kit JSON array. Paste from Slack's Block Kit Builder (https://app.slack.com/block-kit-builder) or wire a `{{...}}` reference to an upstream array output. Each entry must be an object with a non-empty `type`.",
+        "Developer option. Block Kit JSON array. Build it in Slack's Block Kit Builder (https://app.slack.com/block-kit-builder) or wire a `{{...}}` reference to an upstream array output. Each entry must be an object with a non-empty `type`.",
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder: '[{"type":"section","text":{"type":"mrkdwn","text":"Hello"}}]',
     },
     {

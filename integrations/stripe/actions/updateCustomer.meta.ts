@@ -65,6 +65,7 @@ export const stripeUpdateCustomerMeta: ActionMeta = {
         "Optional key/value pairs. When supplied, **REPLACES** the customer's existing metadata (Stripe's PATCH semantic for `metadata` — not a merge). Omit to keep existing metadata intact. Stripe caps at 50 keys per object.",
       type: "keyvalue",
       required: false,
+      keyValueShape: "record",
       keyValueMaxRows: 50,
     },
   ],

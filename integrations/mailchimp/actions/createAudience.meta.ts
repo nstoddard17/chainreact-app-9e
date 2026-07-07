@@ -66,18 +66,20 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
       name: "contact",
       label: "Contact (physical address)",
       description:
-        "Required by CAN-SPAM § 5. Paste a JSON object with `company`, `address1`, `city`, `state`, `zip`, `country` (all required) + optional `address2` and `phone`. Example: `{\"company\":\"Acme\",\"address1\":\"123 Main St\",\"city\":\"SF\",\"state\":\"CA\",\"zip\":\"94102\",\"country\":\"US\"}`",
+        "Your organization's mailing address, required by anti-spam law (CAN-SPAM). Enter as a JSON object with `company`, `address1`, `city`, `state`, `zip`, `country` (all required) plus optional `address2` and `phone` — or insert a value from a previous step. A structured address form is coming; this is currently a developer-style field.",
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder: '{"company":"Acme","address1":"123 Main St","city":"SF","state":"CA","zip":"94102","country":"US"}',
     },
     {
       name: "campaign_defaults",
       label: "Campaign defaults",
       description:
-        "Required by Mailchimp. Paste a JSON object with `from_name` + `from_email` (both required) + optional `subject` and `language`. Example: `{\"from_name\":\"Acme Team\",\"from_email\":\"newsletter@acme.com\"}`",
+        "Default sender details for campaigns to this audience, required by Mailchimp. Enter as a JSON object with `from_name` and `from_email` (both required) plus optional `subject` and `language` — or insert a value from a previous step. A structured form is coming; this is currently a developer-style field.",
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder: '{"from_name":"Acme Team","from_email":"newsletter@acme.com"}',
     },
     {

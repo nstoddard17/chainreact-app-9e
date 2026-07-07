@@ -11,7 +11,7 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *
  *   - `audience_id` + `name` + `mode`: always required.
  *   - `static_emails`: required when `mode = static`.
- *   - `conditions`: required when `mode = saved` (paste-JSON).
+ *   - `conditions`: required when `mode = saved` (object-list rows).
  *   - `match`: optional, only meaningful when `mode = saved`.
  *
  * `mode` carries NO defaultValue (Q11 — workflow authors must pick
@@ -19,10 +19,13 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * runtime schema enforces the cross-field requirements; the builder UI
  * surfaces them up front via the descriptions.
  *
- * `conditions` is a paste-JSON array of `{ field, op, value }` rule
- * objects per Mailchimp's segment DSL — `keyvalue` doesn't handle
- * arrays of objects, and a dedicated condition-builder UI is a future
- * slice.
+ * `conditions` is an `object-list` of `{ field, op, value }` rule rows
+ * per Mailchimp's segment DSL, and `static_emails` is a `string-array`
+ * chip list (CONFIG-UX-AUDIT-1 — both previously paste-JSON textareas
+ * whose literal strings the runtime schema rejected). Field/op stay
+ * free-text because Mailchimp's valid field/op combinations vary per
+ * audience (merge fields); the runtime schema + Mailchimp's API stay
+ * authoritative.
  *
  * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver.
  *
@@ -76,19 +79,41 @@ export const mailchimpCreateSegmentMeta: ActionMeta = {
       name: "static_emails",
       label: "Static segment emails",
       description:
-        "Required when `Mode = static`. Paste a JSON array of email addresses to seed the segment with. Example: `[\"a@example.com\",\"b@example.com\"]`. Leave empty for an empty static segment.",
-      type: "textarea",
+        "Used when Mode is `static`. Add the email addresses to seed the segment with — one at a time. Leave empty for an empty static segment.",
+      type: "string-array",
       required: false,
-      placeholder: '["a@example.com","b@example.com"]',
+      placeholder: "member@example.com",
     },
     {
       name: "conditions",
       label: "Conditions (saved segments only)",
       description:
-        "Required when `Mode = saved`. Paste a JSON array of Mailchimp condition objects: `{ field, op, value }`. Example: `[{\"field\":\"EMAIL\",\"op\":\"contains\",\"value\":\"@acme.com\"}]`. See Mailchimp's segment-conditions DSL for valid field/op combinations.",
-      type: "textarea",
+        "Used when Mode is `saved`. Add one rule per row — the member field to test (e.g. `EMAIL`), how to compare it (e.g. `contains`), and the value to match. See Mailchimp's segment-conditions reference for valid field/comparison combinations.",
+      type: "object-list",
       required: false,
-      placeholder: '[{"field":"EMAIL","op":"contains","value":"@acme.com"}]',
+      itemFields: [
+        {
+          name: "field",
+          label: "Field",
+          type: "text",
+          required: true,
+          placeholder: "EMAIL",
+        },
+        {
+          name: "op",
+          label: "Comparison",
+          type: "text",
+          required: true,
+          placeholder: "contains",
+        },
+        {
+          name: "value",
+          label: "Value",
+          type: "text",
+          required: true,
+          placeholder: "@acme.com",
+        },
+      ],
     },
     {
       name: "match",

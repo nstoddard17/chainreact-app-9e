@@ -45,6 +45,7 @@ export const notionCreateDatabaseEntryMeta: ActionMeta = {
         "Typed property-input map (same shape as Create Page). MUST include the database's title property. Unsupported types (relation, people, files, rollup, formula, multi_select, status) throw at runtime.",
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder: '{"Name":{"type":"title","value":"New row"}}',
     },
     {
@@ -54,6 +55,7 @@ export const notionCreateDatabaseEntryMeta: ActionMeta = {
         "Optional typed block array (≤100). Same 9 supported types as Create Page.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '[{"type":"paragraph","text":"Notes."}]',
     },
     {
@@ -62,6 +64,7 @@ export const notionCreateDatabaseEntryMeta: ActionMeta = {
       description: "Optional. Same shape as Create Page.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"type":"emoji","emoji":"🎯"}',
     },
     {
@@ -70,6 +73,7 @@ export const notionCreateDatabaseEntryMeta: ActionMeta = {
       description: "Optional. Same shape as Create Page (external URL only).",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"type":"external","external":{"url":"https://..."}}',
     },
   ],

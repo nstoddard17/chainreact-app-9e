@@ -10,9 +10,19 @@ import type { FieldRendererProps } from "./types";
 /**
  * `keyvalue` field renderer. Repeating list of {key, value} rows.
  *
- * Value shape: `Array<{key: string; value: string}>` — matches the
- * keyvalue Zod schema used by native handlers (HTTP headers / query
- * params / etc.). Non-array values are normalized to an empty array.
+ * Value shape is driven by `FieldMeta.keyValueShape` (CONFIG-UX-AUDIT-1):
+ *
+ *   - `"pairs"` (default): `Array<{key: string; value: string}>` — the
+ *     keyvalue Zod schema used by native handlers (HTTP headers / query
+ *     params; duplicates allowed). Unchanged from Slice 3.1.
+ *   - `"record"`: `Record<string, string>` — the wire-format shape
+ *     Stripe `metadata` / Mailchimp event `properties` / Excel
+ *     `update_row.values` schemas expect. Rows live in LOCAL edit state
+ *     (so typing a key doesn't collapse/reorder entries mid-keystroke);
+ *     each edit commits the serialized record upward. Rows with an
+ *     empty key are kept in edit state but omitted from the record; an
+ *     all-empty editor commits `undefined` so optional fields drop out
+ *     of the saved config.
  *
  * Per FieldMeta.keyValueMaxRows: when the cap is reached, the "Add row"
  * button is disabled. The schema enforces the same cap at save time.
@@ -20,7 +30,8 @@ import type { FieldRendererProps } from "./types";
  * Slice 3.1 scope:
  *   - No duplicate-key enforcement at the renderer level. Some
  *     keyvalue surfaces (HTTP headers) intentionally allow duplicates;
- *     the handler schema validates per-call.
+ *     the handler schema validates per-call. (Record mode last-write-wins
+ *     on duplicate keys by construction.)
  *   - No drag-reorder. Rows are kept in insertion order.
  */
 
@@ -42,20 +53,90 @@ function asRows(value: unknown): Row[] {
   return rows;
 }
 
-export const KeyValueField: React.FC<FieldRendererProps> = ({
+function rowsFromRecord(value: unknown): Row[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const rows: Row[] = [];
+  for (const [k, v] of Object.entries(value)) {
+    rows.push({ key: k, value: typeof v === "string" ? v : String(v ?? "") });
+  }
+  return rows;
+}
+
+function serializeRecord(rows: Row[]): Record<string, string> | undefined {
+  const record: Record<string, string> = {};
+  let count = 0;
+  for (const row of rows) {
+    const key = row.key.trim();
+    if (key.length === 0) continue;
+    record[key] = row.value;
+    count += 1;
+  }
+  return count === 0 ? undefined : record;
+}
+
+export const KeyValueField: React.FC<FieldRendererProps> = (props) => {
+  if (props.field.keyValueShape === "record") {
+    return <RecordModeBody {...props} />;
+  }
+  return <PairsModeBody {...props} />;
+};
+
+/** `"record"` mode — local edit state, commits `Record<string, string>`. */
+const RecordModeBody: React.FC<FieldRendererProps> = ({
   field,
   value,
   error,
   onChange,
   disabled,
 }) => {
-  const rows = asRows(value);
+  const [rows, setRows] = React.useState<Row[]>(() => rowsFromRecord(value));
+  const handleRowsChange = (next: Row[]): void => {
+    setRows(next);
+    onChange(serializeRecord(next));
+  };
+  return (
+    <KeyValueRowsEditor
+      field={field}
+      rows={rows}
+      error={error}
+      disabled={disabled}
+      onRowsChange={handleRowsChange}
+    />
+  );
+};
+
+/** `"pairs"` mode (default) — fully controlled, commits `Array<{key, value}>`. */
+const PairsModeBody: React.FC<FieldRendererProps> = ({
+  field,
+  value,
+  error,
+  onChange,
+  disabled,
+}) => {
+  return (
+    <KeyValueRowsEditor
+      field={field}
+      rows={asRows(value)}
+      error={error}
+      disabled={disabled}
+      onRowsChange={(next) => onChange(next)}
+    />
+  );
+};
+
+const KeyValueRowsEditor: React.FC<{
+  field: FieldRendererProps["field"];
+  rows: Row[];
+  error: string | undefined;
+  disabled: boolean | undefined;
+  onRowsChange: (rows: Row[]) => void;
+}> = ({ field, rows, error, disabled, onRowsChange }) => {
   const controlId = `field-${field.name}`;
   const maxRows = field.keyValueMaxRows;
   const atCap = maxRows !== undefined && rows.length >= maxRows;
 
   function commit(next: Row[]): void {
-    onChange(next);
+    onRowsChange(next);
   }
 
   function updateRow(index: number, patch: Partial<Row>): void {

@@ -95,6 +95,7 @@ export const stripeCreateRefundMeta: ActionMeta = {
         "Optional key/value pairs persisted on the refund object. Use for workflow correlation IDs or free-text reasons that don't fit the structured Reason enum. Stripe caps at 50 keys.",
       type: "keyvalue",
       required: false,
+      keyValueShape: "record",
       keyValueMaxRows: 50,
     },
   ],

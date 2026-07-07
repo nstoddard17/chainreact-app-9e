@@ -7,14 +7,16 @@
  *   - `mode` renders as a `<Select>` with payment/subscription/setup
  *     options (NOT a hidden default),
  *   - `successUrl` / `cancelUrl` render as text URL inputs,
- *   - `lineItems` renders as a `<Textarea>` paste-JSON field — the
- *     renderer stores the literal string the author typed (NOT a parsed
- *     object), and the runtime schema parses on submit,
+ *   - `lineItems` renders as the object-list repeater (CONFIG-UX-AUDIT-1)
+ *     — add-a-line UI storing the REAL `[{priceId, quantity}]` array the
+ *     runtime schema expects (never a JSON-encoded string),
  *   - `customer` / `customerEmail` render as plain text (XOR enforced at
  *     runtime; not expressible in FieldMeta),
- *   - `metadata` renders as the `keyvalue` chip UI — stored as typed
- *     `Array<{key, value}>`,
- *   - `automaticTax` renders as a `<Textarea>` paste-JSON field,
+ *   - `metadata` renders as the `keyvalue` chip UI — stored as the
+ *     `Record<string, string>` wire shape Stripe's schema expects
+ *     (`keyValueShape: "record"`, CONFIG-UX-AUDIT-1),
+ *   - `automaticTax` is an advanced JSON textarea behind the Advanced
+ *     disclosure,
  *   - Modal Save flushes the draft into pendingNodes,
  *   - Toolbar Save persists once with every field intact (no hidden
  *     destructive defaults).
@@ -96,7 +98,7 @@ const baseWorkflow: WorkflowDetail = {
 const triggerProviders = [{ id: "native", displayName: "Native" }];
 const actionProviders = [{ id: "stripe", displayName: "Stripe" }];
 
-const LINE_ITEMS_JSON = '[{"priceId":"price_TestPrice","quantity":2}]';
+const LINE_ITEMS = [{ priceId: "price_TestPrice", quantity: 2 }];
 const SUCCESS_URL = "https://example.com/checkout/success";
 const CANCEL_URL = "https://example.com/checkout/cancel";
 const CUSTOMER_ID = "cus_TestCustomer";
@@ -129,7 +131,7 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Stripe create_checkout_session meta declares mode select + paste-JSON lineItems + plain-text URLs + keyvalue metadata + customer-facing url output — Slice 3.46 meta guard", () => {
+it("Stripe create_checkout_session meta declares mode select + object-list lineItems + plain-text URLs + record keyvalue metadata + customer-facing url output — Slice 3.46 meta guard + CONFIG-UX-AUDIT-1", () => {
   // mode: required select with 3 enum values, NO defaultValue (Q11)
   const mode = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "mode",
@@ -156,11 +158,15 @@ it("Stripe create_checkout_session meta declares mode select + paste-JSON lineIt
   expect(cancelUrl.type).toBe("text");
   expect(cancelUrl.required).toBe(true);
 
-  // lineItems: textarea paste-JSON (optional at field level; XOR with mode enforced at runtime)
+  // lineItems: object-list repeater (optional at field level; XOR with mode enforced at runtime)
   const lineItems = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "lineItems",
   )!;
-  expect(lineItems.type).toBe("textarea");
+  expect(lineItems.type).toBe("object-list");
+  expect(lineItems.itemFields?.map((s) => s.name)).toEqual([
+    "priceId",
+    "quantity",
+  ]);
   expect(lineItems.required).toBe(false);
 
   // customer + customerEmail: text, both optional, MUTEX documented in descriptions
@@ -177,19 +183,21 @@ it("Stripe create_checkout_session meta declares mode select + paste-JSON lineIt
   expect(customerEmail.required).toBe(false);
   expect(customerEmail.description?.toLowerCase()).toContain("mutex");
 
-  // metadata: keyvalue with keyValueMaxRows: 50
+  // metadata: keyvalue with keyValueMaxRows: 50, record wire shape
   const metadata = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "metadata",
   )!;
   expect(metadata.type).toBe("keyvalue");
+  expect(metadata.keyValueShape).toBe("record");
   expect(metadata.required).toBe(false);
   expect(metadata.keyValueMaxRows).toBe(50);
 
-  // automaticTax: textarea paste-JSON
+  // automaticTax: advanced JSON textarea (developer escape hatch)
   const automaticTax = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "automaticTax",
   )!;
   expect(automaticTax.type).toBe("textarea");
+  expect(automaticTax.advanced).toBe(true);
   expect(automaticTax.required).toBe(false);
 
   // url output: customer-facing Stripe-hosted checkout URL (intentional + safe)
@@ -210,7 +218,7 @@ it("Stripe create_checkout_session meta declares mode select + paste-JSON lineIt
 });
 
 it(
-  "end-to-end: choose Stripe Create Checkout Session → fill lineItems paste-JSON + mode + URLs + customerId + metadata → Modal Save (draft only) → Toolbar Save (persists once, lineItems stays string, metadata stays typed array, no hidden defaults)",
+  "end-to-end: choose Stripe Create Checkout Session → build lineItems visually + mode + URLs + customerId + metadata → Modal Save (draft only) → Toolbar Save (persists once, lineItems is a REAL array, metadata is a record, no hidden defaults)",
   async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
@@ -277,17 +285,23 @@ it(
     CANCEL_URL,
   );
 
-  // 6. Paste a literal JSON string into the lineItems textarea. The
-  //    TextareaField renderer stores the string VERBATIM (no parse) —
-  //    the runtime schema parses it on submit/execute, not on input.
-  //    user.paste() avoids userEvent.type's key-descriptor interpretation
-  //    of `{` / `[`.
-  const lineItemsField = screen.getByRole("textbox", { name: /^line items$/i });
-  await user.click(lineItemsField);
-  await user.paste(LINE_ITEMS_JSON);
+  // 6. Build the line items visually — no JSON anywhere. Add one row,
+  //    fill Price ID + Quantity; the object-list renderer commits the
+  //    REAL [{priceId, quantity}] array the runtime schema expects.
+  await user.click(screen.getByTestId("object-list-lineItems-add"));
+  await user.type(
+    screen.getByRole("textbox", { name: /price id \(entry 1\)/i }),
+    "price_TestPrice",
+  );
+  await user.type(
+    screen.getByRole("spinbutton", { name: /quantity \(entry 1\)/i }),
+    "2",
+  );
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.lineItems,
-  ).toBe(LINE_ITEMS_JSON);
+  ).toEqual(LINE_ITEMS);
+  // The paste-JSON path is gone from the normal setup surface.
+  expect(document.body.textContent).not.toMatch(/paste json/i);
 
   // 7. Fill customerId (the `customer` field).
   await user.type(
@@ -307,9 +321,9 @@ it(
   );
   const draftMetadata = useConfigSlice.getState().drafts[action.id]!.values
     .metadata;
-  expect(Array.isArray(draftMetadata)).toBe(true);
-  expect(draftMetadata).toEqual([{ key: "order_id", value: "ord_99" }]);
-  expect(typeof draftMetadata).not.toBe("string");
+  // Record wire shape (keyValueShape: "record") — what Stripe's
+  // z.record schema expects. Never an array of pairs, never a string.
+  expect(draftMetadata).toEqual({ order_id: "ord_99" });
 
   // 9. Modal Save flushes the draft.
   const modal = screen.getByRole("complementary", {
@@ -322,14 +336,10 @@ it(
   expect(pendingConfig.mode).toBe("payment");
   expect(pendingConfig.successUrl).toBe(SUCCESS_URL);
   expect(pendingConfig.cancelUrl).toBe(CANCEL_URL);
-  // lineItems persists as the literal JSON string the author typed —
-  // NOT a pre-parsed array. The runtime schema parses on submit/execute.
-  expect(pendingConfig.lineItems).toBe(LINE_ITEMS_JSON);
-  expect(typeof pendingConfig.lineItems).toBe("string");
+  // lineItems persists as the REAL array the runtime schema expects.
+  expect(pendingConfig.lineItems).toEqual(LINE_ITEMS);
   expect(pendingConfig.customer).toBe(CUSTOMER_ID);
-  expect(pendingConfig.metadata).toEqual([
-    { key: "order_id", value: "ord_99" },
-  ]);
+  expect(pendingConfig.metadata).toEqual({ order_id: "ord_99" });
   // No hidden defaults — allowPromotionCodes / automaticTax / customerEmail /
   // clientReferenceId stay absent.
   expect(pendingConfig.allowPromotionCodes).toBeUndefined();
@@ -359,13 +369,9 @@ it(
   expect(persistedAction.config.mode).toBe("payment");
   expect(persistedAction.config.successUrl).toBe(SUCCESS_URL);
   expect(persistedAction.config.cancelUrl).toBe(CANCEL_URL);
-  expect(persistedAction.config.lineItems).toBe(LINE_ITEMS_JSON);
-  expect(typeof persistedAction.config.lineItems).toBe("string");
+  expect(persistedAction.config.lineItems).toEqual(LINE_ITEMS);
   expect(persistedAction.config.customer).toBe(CUSTOMER_ID);
-  expect(persistedAction.config.metadata).toEqual([
-    { key: "order_id", value: "ord_99" },
-  ]);
-  expect(typeof persistedAction.config.metadata).not.toBe("string");
+  expect(persistedAction.config.metadata).toEqual({ order_id: "ord_99" });
   // No hidden risky defaults snuck in (Q11).
   expect(persistedAction.config.allowPromotionCodes).toBeUndefined();
   expect(persistedAction.config.automaticTax).toBeUndefined();

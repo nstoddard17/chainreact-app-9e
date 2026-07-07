@@ -149,19 +149,22 @@ export function SchemaForm({
     [childrenByParent, onChange],
   );
 
-  return (
-    <div
-      className={
-        className ?? "flex flex-col gap-4"
-      }
-      data-testid="schema-form"
-    >
-      {fields.length === 0 ? (
-        <p className="text-xs italic text-muted-foreground">
-          This action has no configurable fields.
-        </p>
-      ) : null}
-      {fields.map((field) => {
+  // CONFIG-UX-AUDIT-1 — developer-grade escape hatches (`advanced: true`)
+  // render inside a collapsed "Advanced" disclosure, out of the normal
+  // setup path. The disclosure defaults open when any advanced field is
+  // required or already carries a value (so nothing required/filled is
+  // ever hidden).
+  const normalFields = fields.filter((f) => f.advanced !== true);
+  const advancedFields = fields.filter((f) => f.advanced === true);
+  const advancedOpenByDefault = advancedFields.some(
+    (f) =>
+      f.required ||
+      (values[f.name] !== undefined &&
+        values[f.name] !== null &&
+        values[f.name] !== ""),
+  );
+
+  const renderField = (field: FieldMeta): React.ReactNode => {
         const isHighlighted = highlightFieldName === field.name;
         // Wrap every field in a stable, queryable container so a "Go to field"
         // navigation can highlight + scroll to it. The visual ring is presentation
@@ -187,17 +190,20 @@ export function SchemaForm({
         if (!Renderer) {
           // Defense-in-depth: registry covers every FieldType variant
           // by construction, but a meta-drift / stale build could
-          // sneak an unknown type through. Render a visible error
-          // rather than throwing so the rest of the form is still
-          // usable.
+          // sneak an unknown type through. Render friendly copy so the
+          // rest of the form is still usable — internal detail rides in
+          // data attributes for developers, never in visible text
+          // (CONFIG-UX-AUDIT-1).
           return wrap(
             <div
               role="alert"
+              data-testid="schema-form-unrenderable-field"
+              data-field-type={field.type}
               className="rounded-md border border-destructive bg-destructive/10 p-3 text-xs text-destructive"
             >
-              Unknown field type &lsquo;{field.type}&rsquo; for &lsquo;
-              {field.name}&rsquo;. Update the field-renderer registry to add
-              support.
+              The &ldquo;{field.label}&rdquo; setting can&rsquo;t be edited
+              here right now. Try reloading, or contact support if it keeps
+              happening.
             </div>,
           );
         }
@@ -235,19 +241,47 @@ export function SchemaForm({
             .join(", ");
         }
 
-        return wrap(
-          <Renderer
-            field={field}
-            value={value}
-            error={error}
-            disabled={disabled}
-            deps={deps}
-            enabled={enabled}
-            parentLabel={parentLabel}
-            onChange={(next) => handleChange(field.name, next)}
-          />,
-        );
-      })}
+    return wrap(
+      <Renderer
+        field={field}
+        value={value}
+        error={error}
+        disabled={disabled}
+        deps={deps}
+        enabled={enabled}
+        parentLabel={parentLabel}
+        onChange={(next) => handleChange(field.name, next)}
+      />,
+    );
+  };
+
+  return (
+    <div
+      className={
+        className ?? "flex flex-col gap-4"
+      }
+      data-testid="schema-form"
+    >
+      {fields.length === 0 ? (
+        <p className="text-xs italic text-muted-foreground">
+          This action has no configurable fields.
+        </p>
+      ) : null}
+      {normalFields.map(renderField)}
+      {advancedFields.length > 0 ? (
+        <details
+          data-testid="schema-form-advanced"
+          className="rounded-md border p-3"
+          open={advancedOpenByDefault}
+        >
+          <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+            Advanced
+          </summary>
+          <div className="flex flex-col gap-4 pt-3">
+            {advancedFields.map(renderField)}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

@@ -43,11 +43,12 @@ export const mondayAddColumnMeta: ActionMeta = {
     },
     {
       name: "defaults",
-      label: "Defaults (JSON)",
+      label: "Defaults",
       description:
         'Optional type-specific config as JSON. Example for status: {"labels":{"1":"Low","2":"High"}}.',
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"labels":{"1":"Low","2":"High"}}',
     },
   ],

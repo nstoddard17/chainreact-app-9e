@@ -53,6 +53,7 @@ export const notionSearchMeta: ActionMeta = {
         "Optional. Narrow to pages OR databases — `{\"value\":\"page\",\"property\":\"object\"}` or `{\"value\":\"database\",\"property\":\"object\"}`. Notion's API rejects any other shape.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: '{"value":"page","property":"object"}',
     },
     {

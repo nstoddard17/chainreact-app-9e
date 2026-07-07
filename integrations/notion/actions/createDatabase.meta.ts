@@ -77,6 +77,7 @@ export const notionCreateDatabaseMeta: ActionMeta = {
         "Column-schema map — `{\"<name>\":{\"type\":\"<supported type>\"}, ...}`. Runtime requires EXACTLY ONE entry of type 'title'. Supported types: `title`, `rich_text`, `number`, `select`, `checkbox`, `date`, `url`, `email`, `phone_number`. Option-set configuration (select options) is not supported in this batch — configure manually in Notion's UI after creation.",
       type: "textarea",
       required: true,
+      advanced: true,
       placeholder: '{"Name":{"type":"title"},"Status":{"type":"select"}}',
     },
   ],

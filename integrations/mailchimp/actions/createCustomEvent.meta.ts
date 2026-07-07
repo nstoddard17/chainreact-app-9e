@@ -77,6 +77,7 @@ export const mailchimpCreateCustomEventMeta: ActionMeta = {
         "Optional key/value map of event metadata (e.g. `{\"plan\":\"pro\",\"amount\":\"99\"}`). All values must be strings.",
       type: "keyvalue",
       required: false,
+      keyValueShape: "record",
     },
     {
       name: "occurred_at",
