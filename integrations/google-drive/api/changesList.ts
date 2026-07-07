@@ -110,8 +110,11 @@ export async function changesList(
   if (input.spaces) url.searchParams.set("spaces", input.spaces);
   url.searchParams.set(
     "fields",
+    // createdTime must ride along: fileChanged's classifyChangeKind detects
+    // "created" via createdTime === modifiedTime; omitting it made the
+    // created branch unreachable (every insert classified as "updated").
     input.fields ??
-      "kind,nextPageToken,newStartPageToken,changes(kind,changeType,time,removed,fileId,file(id,name,mimeType,parents,modifiedTime,trashed,webViewLink))",
+      "kind,nextPageToken,newStartPageToken,changes(kind,changeType,time,removed,fileId,file(id,name,mimeType,parents,createdTime,modifiedTime,trashed,webViewLink))",
   );
 
   const res = await fetch(url.toString(), {

@@ -113,7 +113,17 @@ async function reconcileTriggerRow(
   row: TriggerResourceRecord,
   config: DropboxNewFileConfig,
 ): Promise<number> {
-  const integration = await getActiveForExecution(row.userId, PROVIDER, null);
+  // Integrations are ACCOUNT-owned (V2 account-model cutover): the lookup
+  // must use the workflow's account id, not the connecting user's id — every
+  // other pull (Gmail / Sheets / Drive / Calendar / Docs) and the
+  // refreshAndRetry calls below already do. Passing row.userId here made the
+  // lookup always miss (user id ≠ account id) and reconciliation silently
+  // dispatched nothing.
+  const integration = await getActiveForExecution(
+    row.workflowAccountId!,
+    PROVIDER,
+    null,
+  );
   if (!integration) {
     console.warn(
       JSON.stringify({

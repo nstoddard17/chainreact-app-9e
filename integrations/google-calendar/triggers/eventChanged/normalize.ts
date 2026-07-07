@@ -34,7 +34,23 @@ export function classifyChangeKind(event: CalendarEventResource): ChangeKind {
   if (event.status === "cancelled") return "cancelled";
   const created = (event as { created?: string }).created;
   const updated = event.updated;
-  if (created && updated && created === updated) return "created";
+  // Compare at SECOND granularity: live Google stamps `created` without
+  // milliseconds ("…:08.000Z") but `updated` WITH them ("…:08.740Z"), so a
+  // strict string compare never matches on real data and "created" was
+  // unreachable (live-proven by the trigger smoke, 2026-07-07). An event
+  // edited within the same second as its insert still classifies "created" —
+  // an accepted sub-second edge far smaller than never detecting creates.
+  if (created && updated) {
+    const createdSec = Math.floor(Date.parse(created) / 1000);
+    const updatedSec = Math.floor(Date.parse(updated) / 1000);
+    if (
+      Number.isFinite(createdSec) &&
+      Number.isFinite(updatedSec) &&
+      createdSec === updatedSec
+    ) {
+      return "created";
+    }
+  }
   return "updated";
 }
 

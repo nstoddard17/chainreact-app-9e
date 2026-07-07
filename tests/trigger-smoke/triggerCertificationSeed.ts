@@ -702,6 +702,80 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-06",
     note: "ingestion-path cert via DIRECT-SEED + REAL Graph fetch: certified send_channel_message posts a REAL marker message into the smoke channel (SMOKE_TEAMS_TEAM_ID/CHANNEL_ID), synthetic created-notification (chatMessage @odata.type) through the real /api/webhooks/microsoft-teams route (clientState verify -> REAL channel-message fetch via row teamId/channelId -> normalize) fires exactly 1 run carrying sub:msg:created + the marker bodyContent, terminal 'succeeded', identical re-send deduped, rows cleaned; the channel message itself has NO registered delete action -> one crsmoke-marked artifact stays (same disposition as the certified action-smoke); subscription activation NOT certified",
   },
+  // Google watch-channel batch (2026-07-07) — all 6 registered Google watch
+  // triggers on the generic direct-seed orchestrator + the Google specs
+  // (tests/trigger-smoke/googleWatchWebhookSmoke.ts + deps). HYBRID HONESTY
+  // SCOPE (Microsoft Graph pattern): the notification is SYNTHETIC
+  // (direct-seeded row with smoke-minted channelId; NO files.watch /
+  // events.watch created; Google did NOT deliver), but the CURSOR BASELINE is
+  // captured live exactly the way each activate hook does and the CHANGED
+  // RESOURCE is REAL — seeded via certified actions (create_spreadsheet /
+  // append_row / create_document / update_document / upload_file+move_file /
+  // create_event; Sheets addSheet via the production batchUpdate wrapper) and
+  // re-fetched from LIVE Google by the production receive pulls. Channel-token
+  // HMAC verify runs UNWEAKENED via the real buildChannelToken; the local env
+  // lacks the deploy-time WATCH_CHANNEL_SECRET so a smoke-local secret is
+  // minted in-process (the deployed secret itself is NOT claimed exercised).
+  // Watch registration/renewal (files.watch / events.watch / channels.stop)
+  // NOT certified. Freshness proven in TWO layers per cert: WATERMARK
+  // (identical re-POST vs the ADVANCED cursor pulls nothing) and DEDUP (the
+  // exact pre-change cursor/snapshot JSON is RESTORED, the pull RE-DETECTS
+  // the same change, and the (provider,eventId) dedup row drops it). The live
+  // runs SURFACED + FIXED two production classification bugs: (1)
+  // google-drive changes.list's default fields mask omitted createdTime, so
+  // fileChanged's created-vs-updated heuristic could never classify
+  // "created"; (2) google-calendar's classifyChangeKind compared created ===
+  // updated as strings, but live Google stamps created WITHOUT milliseconds
+  // and updated WITH them, so "created" was unreachable — now compared at
+  // second granularity. Both fixes unit-pinned.
+  {
+    provider: "google-sheets",
+    type: "new_worksheet",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Sheets fetch: certified create_spreadsheet mints the smoke workbook, REAL spreadsheets.get seeds the worksheet-name snapshot (activation parity), baseline 0, a smoke-only addSheet via the production batchUpdate wrapper adds the marker-named sheet, the channel-token-verified synthetic X-Goog notification to the real /api/webhooks/google-sheets route (verify->REAL spreadsheets.get pull->snapshot diff->normalize->dispatch) fires exactly 1 run carrying eventId <ss>:new_worksheet:<sheetId>:<nameHash> + the marker worksheetName, terminal 'succeeded', watermark re-POST fires 0, RESTORED-snapshot re-POST re-detects and dedup drops it (still 1), spreadsheet Drive-trashed + rows cleaned (0 leaked); watch activation NOT certified, Google did not deliver",
+  },
+  {
+    provider: "google-sheets",
+    type: "row_changed",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Sheets fetch: smoke workbook + certified append_row baseline row, row config {sheetName, changeKinds:[added], lastRowCount} seeded at activation parity, baseline 0, a certified append_row adds the marker row, the synthetic X-Goog notification to the real route (verify->REAL values.get pull->count delta->normalize) fires exactly 1 run whose payload rowValues carry the marker (legacy added-only eventId <ss>:<sheet>:<row>:<hash>), terminal 'succeeded', watermark re-POST fires 0, RESTORED lastRowCount re-POST re-detects and dedup drops it (still 1), spreadsheet Drive-trashed + rows cleaned (0 leaked); watch activation NOT certified",
+  },
+  {
+    provider: "google-docs",
+    type: "new_document",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Drive changes fetch: REAL changes.getStartPageToken baseline (activation parity), baseline 0, certified create_document (empty content — the Docs-create stamps createdTime===modifiedTime) mints the marker-titled doc, a bounded feed-stability probe absorbs Drive's eventual consistency, the synthetic X-Goog notification to the real /api/webhooks/google-docs route (verify->REAL changes.list pull->Docs-mime + created-kind filters->normalize) fires exactly 1 run carrying eventId <docId>:<createdTime> + changeKind 'created' + the marker title, terminal 'succeeded', watermark re-POST fires 0, RESTORED pageToken re-POST re-detects and dedup drops it (still 1), doc Drive-trashed + rows cleaned (0 leaked); watch activation NOT certified",
+  },
+  {
+    provider: "google-docs",
+    type: "document_updated",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Drive changes fetch: certified create_document seeds the doc FIRST, then the baseline pageToken (so only the update lands in the delta), row config pins documentId (receive-time narrowing filter), baseline 0, certified update_document inserts marker content (modifiedTime > createdTime), the synthetic notification to the real route fires exactly 1 run carrying eventId <docId>:<modifiedTime> + changeKind 'updated' + the marker title, terminal 'succeeded', watermark re-POST fires 0, RESTORED pageToken re-POST re-detects and dedup drops it (still 1), doc Drive-trashed + rows cleaned (0 leaked); watch activation NOT certified",
+  },
+  {
+    provider: "google-drive",
+    type: "file_changed",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Drive changes fetch: certified create_folder mints a run-unique smoke folder and config.folderId scopes the trigger to it (changes.list is WHOLE-drive — live-observed: without the folder scope, the suite's own cleanup trash events legitimately fired it; the parents filter is production normalize behavior), baseline startPageToken, baseline 0, certified upload_file + move_file place the marker file under the watched folder (move changes parents only, so createdTime===modifiedTime -> 'created' — reachable only after the createdTime fields-mask fix this batch landed), feed-stability probe, the synthetic notification to the real /api/webhooks/google-drive route fires exactly 1 run carrying eventId <fileId>:<changeTime> + changeKind 'created' + objectKind 'file' + the marker filename, terminal 'succeeded', watermark re-POST fires 0, RESTORED pageToken re-POST re-detects and dedup drops it (still 1), file+folder Drive-trashed + rows cleaned (0 leaked); watch activation NOT certified",
+  },
+  {
+    provider: "google-calendar",
+    type: "event_changed",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Calendar fetch: baseline nextSyncToken captured via the SAME full events.list walk the activate hook does, row config {calendarId primary, syncToken}, baseline 0, certified create_event mints a 2031-dated no-attendee marker event (sendNotifications none), the synthetic X-Goog notification to the real /api/webhooks/google-calendar route (verify->REAL events.list?syncToken delta->normalize) fires exactly 1 run carrying eventId <eventId>:<updated> + changeKind 'created' (reachable only after the second-granularity classification fix this batch landed — live Google stamps created without ms, updated with ms) + the marker summary, terminal 'succeeded', watermark re-POST fires 0, RESTORED syncToken re-POST re-detects and dedup drops it (still 1), event deleted via certified delete_event + rows cleaned (0 leaked); watch activation NOT certified",
+  },
   // facebook:new_post / new_comment — Lane C pure direct-seed batch (2026-07-07)
   // on the generic orchestrator (tests/trigger-smoke/facebookWebhookSmoke.ts +
   // facebookWebhookSmokeDeps.ts). The Slack-message-batch policy applies:

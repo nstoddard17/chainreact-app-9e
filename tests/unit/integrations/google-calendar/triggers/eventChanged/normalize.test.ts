@@ -29,6 +29,20 @@ describe("classifyChangeKind", () => {
     ).toBe("created");
   });
 
+  it("classifies the live Google ms-quirk (created second-truncated, updated with ms) as 'created'", () => {
+    // Live Google stamps created "…:08.000Z" but updated "…:08.740Z" at
+    // insert — second-granularity compare must still detect the create
+    // (live-proven by the trigger smoke, 2026-07-07).
+    expect(
+      classifyChangeKind({
+        id: "e1",
+        status: "confirmed",
+        created: "2026-07-07T12:24:08.000Z",
+        updated: "2026-07-07T12:24:08.740Z",
+      } as unknown as Parameters<typeof classifyChangeKind>[0]),
+    ).toBe("created");
+  });
+
   it("classifies created<updated as 'updated'", () => {
     expect(
       classifyChangeKind({

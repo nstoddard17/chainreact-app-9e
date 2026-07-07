@@ -142,6 +142,9 @@ describe("reconcileDropboxAccounts — fan-out + happy path", () => {
   it("reconciles a row whose stored account is in the changed set + continues from the stored cursor", async () => {
     const r = await reconcileDropboxAccounts(["dbid:abc"]);
     expect(mockListForDispatch).toHaveBeenCalledWith("dropbox", "new_file");
+    // Integration lookup is ACCOUNT-scoped (workflowAccountId), never the
+    // connecting user's id — integrations are account-owned post-cutover.
+    expect(mockGetActive).toHaveBeenCalledWith("acct-1", "dropbox", null);
     expect(mockListFolder.mock.calls[0]![0]).toMatchObject({ cursor: "C0" });
     expect(mockEnqueue).toHaveBeenCalledTimes(1);
     expect(mockEnqueue.mock.calls[0]![0]).toMatchObject({
