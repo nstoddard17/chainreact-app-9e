@@ -54,8 +54,22 @@ export async function GET(
     );
   }
 
+  // QUICKBOOKS-1 — pass the provider-redirect's OWN extra query params
+  // through the dispatcher (minus code/state, already consumed above). Some
+  // providers deliver tenancy only here (QuickBooks `realmId`). Generic:
+  // no per-provider logic; providers that don't need them ignore them.
+  const callbackParams: Record<string, string> = {};
+  url.searchParams.forEach((value, key) => {
+    if (key !== "code" && key !== "state") callbackParams[key] = value;
+  });
+
   try {
-    const { integration } = await handleCallback({ provider, code, state });
+    const { integration } = await handleCallback({
+      provider,
+      code,
+      state,
+      callbackParams,
+    });
     return NextResponse.redirect(
       new URL(
         `/apps?integration=connected&provider=${encodeURIComponent(integration.provider)}`,

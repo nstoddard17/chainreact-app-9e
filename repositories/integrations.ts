@@ -380,6 +380,47 @@ export async function listActiveByProviderServiceRole(
   return (data ?? []).map((row) => rowToRecord(row as IntegrationsRow));
 }
 
+/**
+ * Service-role: resolve ONE active integration row for a
+ * (provider, providerAccountId) pair across ALL accounts —
+ * earliest-connected wins deterministically (QUICKBOOKS-1).
+ *
+ * Consumer: app-level webhook enrichment. Intuit posts compact events
+ * for every company connected to the app to ONE deployment-wide URL;
+ * the receive path must fetch the named entity BEFORE dispatch, and the
+ * only credential that can read it is an integration row whose
+ * provider_account_id equals the event's realmId. Service-role on
+ * purpose: webhook receipt has no user session, and the row may belong
+ * to any account (multiple accounts legitimately connect the same
+ * company — they are all authorized for the same books; enrichment
+ * happens once per event, then `dispatchTriggerEvent`'s realm filter
+ * scopes fan-out). Returns null when no active row exists — the caller
+ * drops the event with a count-only log.
+ */
+export async function getAnyActiveByProviderAccountServiceRole(
+  provider: string,
+  providerAccountId: string,
+): Promise<IntegrationRecord | null> {
+  const supabase = getServiceRoleClient(
+    `webhook enrichment: any active ${provider} row for provider account`,
+  );
+  const { data, error } = await supabase
+    .from("integrations")
+    .select("*")
+    .eq("provider", provider)
+    .eq("provider_account_id", providerAccountId)
+    .is("disconnected_at", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle<IntegrationsRow>();
+  if (error) {
+    throw new Error(
+      `integrations.getAnyActiveByProviderAccountServiceRole failed: ${error.message}`,
+    );
+  }
+  return data ? rowToRecord(data) : null;
+}
+
 export interface UpdateTokensInput {
   /** Integration row id (from getActiveForExecution / upsertActive). */
   id: string;

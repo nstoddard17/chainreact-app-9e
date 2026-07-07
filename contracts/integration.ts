@@ -308,6 +308,17 @@ export interface ProviderOAuth {
     state: string,
     pkce: PkceInputs | null,
     providerHint?: ProviderHint | null,
+    /**
+     * QUICKBOOKS-1 — the provider-redirect's OWN query params (minus `code` /
+     * `state`), collected by the callback route and passed through the
+     * dispatcher verbatim. Some providers deliver tenancy ONLY here
+     * (QuickBooks `realmId` — not in the token response, not discoverable
+     * from the token). Distinct from `providerHint`, which is a CONNECT-time
+     * user-supplied hint recovered from the signed state. Optional so
+     * existing 3-/4-arg implementations satisfy the interface structurally;
+     * providers that don't need callback params ignore it.
+     */
+    callbackParams?: Readonly<Record<string, string>> | null,
   ): Promise<{ tokens: EncryptedTokens; account: ProviderAccountInfo }>;
   /** Returns fresh tokens, or throws RefreshNotSupportedError on non-refreshable providers. */
   refreshToken(refreshToken: string): Promise<EncryptedTokens>;

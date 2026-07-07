@@ -367,6 +367,15 @@ import asanaCreateSubtask from "@/tests/fixtures/action-smoke/asana/create_subta
 // live smoke needs a post-owner-setup reconnect on the smoke account).
 import typeformListResponses from "@/tests/fixtures/action-smoke/typeform/list_responses";
 import typeformGetResponse from "@/tests/fixtures/action-smoke/typeform/get_response";
+// QUICKBOOKS-1 — 4 reads + 3 writes (sandbox-company artifacts; no
+// registered delete/void, so write disposition is marked-artifact-left).
+import quickbooksFindCustomer from "@/tests/fixtures/action-smoke/quickbooks/find_customer";
+import quickbooksGetCustomer from "@/tests/fixtures/action-smoke/quickbooks/get_customer";
+import quickbooksGetInvoice from "@/tests/fixtures/action-smoke/quickbooks/get_invoice";
+import quickbooksListInvoices from "@/tests/fixtures/action-smoke/quickbooks/list_invoices";
+import quickbooksCreateCustomer from "@/tests/fixtures/action-smoke/quickbooks/create_customer";
+import quickbooksCreateInvoice from "@/tests/fixtures/action-smoke/quickbooks/create_invoice";
+import quickbooksSendInvoice from "@/tests/fixtures/action-smoke/quickbooks/send_invoice";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -470,6 +479,10 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   asanaListTasksInProject,
   typeformListResponses,
   typeformGetResponse,
+  quickbooksFindCustomer,
+  quickbooksGetCustomer,
+  quickbooksGetInvoice,
+  quickbooksListInvoices,
 ];
 
 /**
@@ -663,6 +676,9 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   asanaCompleteTask,
   asanaAddCommentToTask,
   asanaCreateSubtask,
+  quickbooksCreateCustomer,
+  quickbooksCreateInvoice,
+  quickbooksSendInvoice,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

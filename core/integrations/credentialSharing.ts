@@ -52,6 +52,11 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   shopify: "account", // store
   hubspot: "account", // portal
   mailchimp: "account", // account
+  // QuickBooks Online (QUICKBOOKS-1): the OAuth token represents a
+  // COMPANY's accounting file (realm) — the shared books the whole team
+  // jointly operates, not one person's private data. Same posture as
+  // Stripe / Shopify / HubSpot.
+  quickbooks: "account",
 
   // ── Personal: acts AS the connecting human; must not auto-share in a Team. ──
   gmail: "personal",

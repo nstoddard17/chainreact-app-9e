@@ -702,6 +702,55 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-06",
     note: "ingestion-path cert via DIRECT-SEED + REAL Graph fetch: certified send_channel_message posts a REAL marker message into the smoke channel (SMOKE_TEAMS_TEAM_ID/CHANNEL_ID), synthetic created-notification (chatMessage @odata.type) through the real /api/webhooks/microsoft-teams route (clientState verify -> REAL channel-message fetch via row teamId/channelId -> normalize) fires exactly 1 run carrying sub:msg:created + the marker bodyContent, terminal 'succeeded', identical re-send deduped, rows cleaned; the channel message itself has NO registered delete action -> one crsmoke-marked artifact stays (same disposition as the certified action-smoke); subscription activation NOT certified",
   },
+  // facebook:new_post / new_comment — Lane C pure direct-seed batch (2026-07-07)
+  // on the generic orchestrator (tests/trigger-smoke/facebookWebhookSmoke.ts +
+  // facebookWebhookSmokeDeps.ts). The Slack-message-batch policy applies:
+  // Facebook PUSHES the change inline and the production path does NO provider
+  // fetch, so a fully synthetic FACEBOOK_CLIENT_SECRET-signed feed change
+  // exercises the whole ingestion path unweakened — real Page posts would add
+  // zero coverage while creating public artifacts. All ids + message text are
+  // smoke-minted crsmoke markers. The seeded row's config.pageId matches the
+  // synthetic entry, so the registered pageId filter's Zod parse + POSITIVE
+  // match ran inside real dispatch. GET hub.challenge probed on its
+  // fail-closed branch (wrong token -> 403, challenge never echoed); the
+  // positive echo needs FACEBOOK_WEBHOOK_VERIFY_TOKEN, absent from the local
+  // env (env-name drift observed: .env.local carries FACEBOOK_PAGES_VERIFY_TOKEN
+  // / FACEBOOK_USER_VERIFY_TOKEN instead — deploy-time config to reconcile).
+  {
+    provider: "facebook",
+    type: "new_post",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED (NOT activation): seed trigger_resources event_type new_post + config{pageId} (smoke-minted), baseline 0, a FACEBOOK_CLIENT_SECRET-signed (sha256= HMAC over raw body) synthetic page feed change (item status, verb add, crsmoke page/post ids + marker message, no real Page/PII) POSTed to the real /api/webhooks/facebook route (verify->classify->normalize->dispatch->pageId filter POSITIVE match->dedup->enqueue) fires exactly 1 run whose trigger_event carries eventId new_post:<page>:<post> + the marker message, durable run terminal 'succeeded', identical re-send deduped (still 1), rows cleaned (0 leaked); no Facebook API, no real Page. Provider-side Page subscription activation NOT certified; Facebook did not deliver.",
+  },
+  {
+    provider: "facebook",
+    type: "new_comment",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED (NOT activation): seed event_type new_comment + config{pageId}, baseline 0, a FACEBOOK_CLIENT_SECRET-signed synthetic feed change (item comment, verb add, crsmoke page/post/comment ids + parent_id + marker message) POSTed to the real /api/webhooks/facebook route classifies to new_comment, fires exactly 1 run whose trigger_event carries eventId new_comment:<page>:<comment> + parentId + the marker message, terminal 'succeeded', identical re-send deduped (still 1), rows cleaned (0 leaked); no Facebook API, no real Page/comment. Provider-side activation NOT certified.",
+  },
+  // dropbox:new_file — Lane C direct-seed + REAL cursor reconcile (2026-07-07),
+  // tests/trigger-smoke/dropboxWebhookSmoke.ts + deps. HYBRID scope: the
+  // notification is synthetic (Dropbox did NOT deliver) but the changed-account
+  // id is the REAL connected dbid, the seeded cursor comes from the live
+  // get_latest_cursor (exactly what activation does — Dropbox webhooks are
+  // app-level, activation creates NO provider resource), the smoke file is a
+  // REAL upload, and the route's reconcile walked the REAL list_folder/continue
+  // delta. The live run also EXERCISED the account-scoped integration-lookup
+  // fix in reconcile.ts (was row.userId — user id is not an account id, so
+  // production reconciliation always found no integration and silently
+  // dispatched nothing; fixed to row.workflowAccountId, unit-pinned).
+  {
+    provider: "dropbox",
+    type: "new_file",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-07",
+    note: "ingestion-path cert via DIRECT-SEED + REAL cursor reconcile: certified create_folder mints a run-unique smoke folder, REAL get_latest_cursor seeds snapshot{cursor, accountId=real dbid}, baseline 0, REAL marker-file upload + a DROPBOX_CLIENT_SECRET-signed (hex HMAC over raw body) synthetic {list_folder:{accounts:[dbid]}} POSTed to the real /api/webhooks/dropbox route (verify->account fan-out->REAL list_folder/continue->path scope->state gate->row-scoped dedup->enqueue) fires exactly 1 run whose trigger_event carries eventId new_file:<dbid>:<fileId>:<rev> + the marker filename, terminal 'succeeded', re-send vs ADVANCED cursor fires 0 (watermark), RESTORED pre-change cursor re-send re-surfaces the entry and the rowId:file:rev dedup drops it (still 1), GET ?challenge echo probed live, folder+file trashed + rows cleaned (0 leaked); surfaced+fixed the reconcile account-lookup bug (row.userId -> workflowAccountId). Provider-side App Console webhook registration NOT certified; Dropbox did not deliver.",
+  },
   // mailchimp:new_audience / email_opened / link_clicked — BLOCKED for smoke
   // certification (probe-read 2026-07-06):
   //   - new_audience fires on a NEW audience (list) created after baseline;
@@ -753,5 +802,49 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     activation: "webhook",
     status: "MISSING_HARNESS",
     note: "BLOCKED for direct-seed: Airtable pings are notification-only (no record data); receive->pull requires a live connected Airtable integration + real webhooksListPayloads fetch + cursor state that cannot be honestly seeded. Needs a Phase-13-style live cert (real OAuth, real webhook, real record change). MAC verify layer itself is unit-tested in the receive-path suites.",
+  },
+  // QUICKBOOKS-1 (2026-07-07) — 4 app-level webhook triggers, seeded at
+  // implementation time. QuickBooks webhooks are APP-LEVEL (Intuit portal
+  // endpoint + verifier token per environment; NO per-workflow provider
+  // webhook), payloads are compact (entity name/id/operation only), and the
+  // receive path MUST post-fetch each entity through refreshAndRetry — which
+  // requires an ACTIVE connected QuickBooks integration whose
+  // provider_account_id matches the event's realmId. Without owner setup
+  // (Intuit app + sandbox company + QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN), a
+  // synthetic signed POST yields zero dispatches by design (no integration ->
+  // enrichment drop) — nothing to certify without faking the provider fetch,
+  // which would NOT be the real path (airtable:record_changed precedent).
+  // The signature-verify / parse / enrich-mapping / invoice_paid-derivation /
+  // realm-filter / dedup layers are unit-tested in
+  // tests/unit/integrations/quickbooks/webhooks/*. Certification needs the
+  // Phase-13 live cert (real OAuth, real portal webhook, real sandbox
+  // customer/invoice/payment events).
+  {
+    provider: "quickbooks",
+    type: "customer_created",
+    activation: "webhook",
+    status: "MISSING_HARNESS",
+    note: "BLOCKED for direct-seed: compact Intuit payloads force a post-fetch enrichment that needs a live connected realm-matched integration; not honestly seedable pre-owner-setup. Signature/parse/mapping/realm-filter layers unit-tested; needs Phase-13 live cert (real portal webhook + sandbox events).",
+  },
+  {
+    provider: "quickbooks",
+    type: "invoice_created",
+    activation: "webhook",
+    status: "MISSING_HARNESS",
+    note: "BLOCKED for direct-seed: same enrichment requirement as customer_created. Needs Phase-13 live cert (real sandbox invoice creation through the portal webhook).",
+  },
+  {
+    provider: "quickbooks",
+    type: "payment_received",
+    activation: "webhook",
+    status: "MISSING_HARNESS",
+    note: "BLOCKED for direct-seed: same enrichment requirement. Needs Phase-13 live cert (real sandbox payment through the portal webhook).",
+  },
+  {
+    provider: "quickbooks",
+    type: "invoice_paid",
+    activation: "webhook",
+    status: "MISSING_HARNESS",
+    note: "BLOCKED for direct-seed: DERIVED trigger (payment -> linked invoices -> verified zero balance) doubles the enrichment requirement. Derivation incl. partial-payment no-fire + invoice-identity dedup is unit-tested; needs Phase-13 live cert (real sandbox payment fully paying an invoice, partial-payment no-fire, Create+Update single-fire).",
   },
 ];

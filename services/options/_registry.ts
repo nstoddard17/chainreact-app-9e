@@ -393,6 +393,16 @@ import { typeformFormsResolver } from "@/integrations/typeform/options/forms";
 // backing the optional eventTypeId filter on both triggers. Refreshable
 // via refreshAndRetry.
 import { calendlyEventTypesResolver } from "@/integrations/calendly/options/eventTypes";
+// QuickBooks (QUICKBOOKS-1) — 5 root resolvers (customers, items, terms,
+// tax codes, invoices) backing the action pickers. Account-shared
+// (account credential class). Refreshable via refreshAndRetry.
+import { quickbooksCustomersResolver } from "@/integrations/quickbooks/options/customers";
+import {
+  quickbooksItemsResolver,
+  quickbooksTaxCodesResolver,
+  quickbooksTermsResolver,
+} from "@/integrations/quickbooks/options/catalog";
+import { quickbooksInvoicesResolver } from "@/integrations/quickbooks/options/invoices";
 import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
 import { trelloListsResolver } from "@/integrations/trello/options/lists";
 import { trelloCardsResolver } from "@/integrations/trello/options/cards";
@@ -678,6 +688,16 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // q-filter (no documented server-side search). Auth refreshable
   // (refreshAndRetry — 2-hour tokens).
   calendlyEventTypesResolver,
+  // QUICKBOOKS-1 — 5 QuickBooks resolvers (fourth net-new provider; all
+  // root, no deps). Values are QBO ids; labels are names-only (invoices:
+  // `#DocNumber · CustomerName` — never amounts/emails). Local q-filter
+  // (bounded ≤100-row catalogs). Auth refreshable (refreshAndRetry —
+  // 60-minute tokens). Account-shared per the account credential class.
+  quickbooksCustomersResolver,
+  quickbooksItemsResolver,
+  quickbooksTermsResolver,
+  quickbooksTaxCodesResolver,
+  quickbooksInvoicesResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

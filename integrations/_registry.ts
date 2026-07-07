@@ -8,6 +8,7 @@ import { asanaManifest } from "./asana/manifest";
 import { discordManifest } from "./discord/manifest";
 import { calendlyManifest } from "./calendly/manifest";
 import { typeformManifest } from "./typeform/manifest";
+import { quickbooksManifest } from "./quickbooks/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
 import { githubManifest } from "./github/manifest";
@@ -164,6 +165,20 @@ import "./typeform/triggers/newResponseInForm";
 // schedule — no renewal/subscription-watch marker.
 import "./calendly/triggers/eventScheduled";
 import "./calendly/triggers/eventCanceled";
+// QUICKBOOKS-1 — 4 QuickBooks triggers on Intuit's APP-LEVEL webhook (one
+// endpoint + entity checklist configured once per app in the Intuit
+// portal; NO per-workflow provider webhooks). Each registers its
+// activation (validates the integration and stores an internal
+// trigger-interest row config patch { appLevelWebhook, realmId } — no
+// provider call), a no-op deactivation (removing the trigger_resources
+// row IS the interest removal), and a fail-closed P-S2 realmId filter at
+// module load. Events arrive at /api/webhooks/quickbooks and fan out by
+// (realmId, entity, operation) with post-fetch enrichment. Intuit
+// webhooks don't expire — no renewal/subscription-watch marker.
+import "./quickbooks/triggers/customerCreated";
+import "./quickbooks/triggers/invoiceCreated";
+import "./quickbooks/triggers/paymentReceived";
+import "./quickbooks/triggers/invoicePaid";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.
@@ -250,6 +265,15 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // with Basic-auth token exchange and SINGLE-USE ROTATING refresh
   // tokens.
   calendlyManifest,
+  // QUICKBOOKS-1 — QuickBooks Online, the fourth net-new (no-V1)
+  // provider. 7 bounded actions + 4 app-level-webhook triggers + 5 option
+  // sources ship in the same slice, so actions/webhookTrigger are true
+  // from day one. ACCOUNT credential class (a company's books — the
+  // Stripe/Shopify posture); refreshable non-PKCE OAuth with Basic-auth
+  // token exchange and ~daily-ROTATING refresh tokens on a rolling
+  // 100-day window; realmId (company id) arrives only on the OAuth
+  // callback redirect and is the providerAccountId.
+  quickbooksManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

@@ -73,7 +73,7 @@ const MODULE_PROVIDERS: ReadonlyArray<readonly [string, readonly { provider: str
   [
     "other",
     OTHER_CERTIFICATIONS,
-    ["airtable", "dropbox", "trello", "native", "asana", "typeform", "facebook", "stripe", "discord"],
+    ["airtable", "dropbox", "trello", "native", "asana", "typeform", "facebook", "stripe", "discord", "quickbooks"],
   ],
 ];
 
@@ -91,7 +91,9 @@ describe("certification seed split — data invariance", () => {
     // +1: asana:create_subtask ASANA-2 live write, post-owner-setup (2026-07-06).
     // +2: typeform TYPEFORM-2 records (seeded FAIL/BLOCKED_ENV pre-owner-setup
     //     2026-07-06; flipped to LIVE_PASS at Phase 13, 2026-07-07).
-    expect(CERTIFICATIONS.length).toBe(286);
+    // +7: QUICKBOOKS-1 records (seeded BLOCKED_ENV pre-owner-setup 2026-07-07;
+    //     flip at Phase 13 live certification).
+    expect(CERTIFICATIONS.length).toBe(293);
   });
 
   it("no duplicate (provider, action) keys — later-wins shadowing is impossible", () => {
@@ -130,11 +132,16 @@ describe("certification seed split — data invariance", () => {
     // live-certified through the workflow-live sweep (real token found:true +
     // fake token found:false), records flipped to LIVE_PASS.
     // 307 registered / 273 LIVE_PASS / 0 FAIL / 13 BLOCKED_ENV.
-    expect(m.totals.registered).toBe(307);
+    // QUICKBOOKS-1 (2026-07-07): +7 registered (3 customer + 4 invoice
+    // actions), all fixtures authored (4 read + 3 write), all seeded
+    // BLOCKED_ENV pre-owner-setup (no Intuit app / sandbox company /
+    // SMOKE_QUICKBOOKS_* env yet). Phase 13 flips them after owner setup.
+    // 314 registered / 273 LIVE_PASS / 20 BLOCKED_ENV.
+    expect(m.totals.registered).toBe(314);
     expect(m.totals.livePass).toBe(273);
     expect(m.totals.liveNotRun).toBe(0);
     expect(m.totals.missingFixture).toBe(21);
-    expect(m.totals.blockedEnv).toBe(13);
+    expect(m.totals.blockedEnv).toBe(20);
     expect(m.totals.fail).toBe(0);
     expect(m.totals.bug).toBe(0);
     expect(m.staleCerts).toEqual([]);

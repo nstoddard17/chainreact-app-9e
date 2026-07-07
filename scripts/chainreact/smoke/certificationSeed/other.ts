@@ -1,5 +1,5 @@
 /**
- * Certification seed — airtable / dropbox / trello / native / asana / typeform / facebook / stripe / discord.
+ * Certification seed — airtable / dropbox / trello / native / asana / typeform / facebook / stripe / discord / quickbooks.
  *
  * Split from the monolithic certificationSeed.ts (provider-scoped modules;
  * DATA UNCHANGED — every record's provider/action/status/date/note is
@@ -149,5 +149,19 @@ export const OTHER_CERTIFICATIONS: readonly CertificationRecord[] = [
   // seam + delete_post cleanup are already wired).
   ...records("BLOCKED_ENV", "connected; Facebook video ingest rejects the synthetic MP4 (OAuthException/code=382/subcode=1363022); needs a real encoded MP4 fixture (no ffmpeg here)", "2026-07-04", [
     ["facebook", "upload_video"],
+  ]),
+  // QUICKBOOKS-1 (seeded 2026-07-07, pre-owner-setup): fourth net-new
+  // provider. Intuit app + sandbox company + env vars don't exist yet, so
+  // every action is BLOCKED_ENV until Marcus completes owner setup
+  // (docs/providers/quickbooks/owner-setup-report.md); Phase 13 then
+  // live-certifies against the sandbox company and flips these.
+  ...records("BLOCKED_ENV", "provider not connected on the smoke account; complete Intuit owner setup (app keys + sandbox company + SMOKE_QUICKBOOKS_* env), connect QuickBooks, then re-run", "2026-07-07", [
+    ["quickbooks", "create_customer"],
+    ["quickbooks", "find_customer"],
+    ["quickbooks", "get_customer"],
+    ["quickbooks", "create_invoice"],
+    ["quickbooks", "send_invoice"],
+    ["quickbooks", "get_invoice"],
+    ["quickbooks", "list_invoices"],
   ]),
 ];

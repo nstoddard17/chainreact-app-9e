@@ -308,6 +308,11 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // when the first action family landed (2 read actions behind the new
   // responses:read scope). 1:1 handler↔meta drift enforced from here on.
   "typeform",
+  // QuickBooks added in QUICKBOOKS-1 — fourth net-new provider (no V1
+  // code). Actions + metas + triggers + resolvers all land in one slice
+  // (Asana posture), so 1:1 handler↔meta drift is enforced from day one
+  // (7 actions, 4 app-level-webhook triggers).
+  "quickbooks",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

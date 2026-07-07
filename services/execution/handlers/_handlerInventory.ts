@@ -337,6 +337,17 @@ import { listTasksInProject as asanaListTasksInProject } from "@/integrations/as
 // new responses:read scope). TYPEFORM-1 deliberately shipped zero actions.
 import { listResponses as typeformListResponses } from "@/integrations/typeform/actions/listResponses";
 import { getResponse as typeformGetResponse } from "@/integrations/typeform/actions/getResponse";
+// QUICKBOOKS-1 — 7 bounded QuickBooks Online actions (3 customer, 4
+// invoice). All realm-scoped via actions/_resolveRealm; create_invoice
+// drafts only (send_invoice is the separate, explicitly customer-facing
+// email send).
+import { createCustomer as quickbooksCreateCustomer } from "@/integrations/quickbooks/actions/createCustomer";
+import { findCustomer as quickbooksFindCustomer } from "@/integrations/quickbooks/actions/findCustomer";
+import { getCustomer as quickbooksGetCustomer } from "@/integrations/quickbooks/actions/getCustomer";
+import { createInvoice as quickbooksCreateInvoice } from "@/integrations/quickbooks/actions/createInvoice";
+import { sendInvoice as quickbooksSendInvoice } from "@/integrations/quickbooks/actions/sendInvoice";
+import { getInvoice as quickbooksGetInvoice } from "@/integrations/quickbooks/actions/getInvoice";
+import { listInvoices as quickbooksListInvoices } from "@/integrations/quickbooks/actions/listInvoices";
 import type { ActionHandler } from "./types";
 
 /**
@@ -807,5 +818,14 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // found:false lookup semantics on get_response).
   { provider: "typeform", type: "list_responses", handler: typeformListResponses },
   { provider: "typeform", type: "get_response", handler: typeformGetResponse },
+  // QUICKBOOKS-1 — 3 customer + 4 invoice actions (bounded outputs,
+  // found:false lookup semantics on find/get; draft-only invoice create).
+  { provider: "quickbooks", type: "create_customer", handler: quickbooksCreateCustomer },
+  { provider: "quickbooks", type: "find_customer", handler: quickbooksFindCustomer },
+  { provider: "quickbooks", type: "get_customer", handler: quickbooksGetCustomer },
+  { provider: "quickbooks", type: "create_invoice", handler: quickbooksCreateInvoice },
+  { provider: "quickbooks", type: "send_invoice", handler: quickbooksSendInvoice },
+  { provider: "quickbooks", type: "get_invoice", handler: quickbooksGetInvoice },
+  { provider: "quickbooks", type: "list_invoices", handler: quickbooksListInvoices },
 ];
 

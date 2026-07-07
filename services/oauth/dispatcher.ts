@@ -37,6 +37,7 @@ import { stripeOAuth } from "@/integrations/stripe/oauth";
 import { trelloAuth } from "@/integrations/trello/auth";
 import { calendlyOAuth } from "@/integrations/calendly/oauth";
 import { typeformOAuth } from "@/integrations/typeform/oauth";
+import { quickbooksOAuth } from "@/integrations/quickbooks/oauth";
 import {
   getActiveForExecution,
   getByIdForAccountServiceRole,
@@ -124,6 +125,14 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   // metadata for webhook-subscription creation.
   // See integrations/calendly/oauth.ts.
   calendly: calendlyOAuth,
+  // QUICKBOOKS-1 — QuickBooks Online OAuth. Refreshable (60-min access
+  // tokens + ~daily-rotating refresh tokens on a rolling 100-day window —
+  // the returned refresh token is persisted on every refresh), Basic-auth
+  // token exchange, NO PKCE (undocumented by Intuit). Company identity
+  // (`realmId`) arrives ONLY as a callback query param — read from the
+  // dispatcher's generic `callbackParams` passthrough; connect FAILS
+  // without it. See integrations/quickbooks/oauth.ts.
+  quickbooks: quickbooksOAuth,
 });
 
 /**
@@ -435,6 +444,15 @@ export interface HandleCallbackInput {
   provider: string;
   code: string;
   state: string;
+  /**
+   * QUICKBOOKS-1 — the provider-redirect's extra query params (minus
+   * `code`/`state`), collected generically by the callback route. Forwarded
+   * verbatim to the provider module's `handleCallback` 5th argument; the
+   * dispatcher never inspects individual keys (zero provider-specific
+   * logic). QuickBooks reads `realmId` from here — Intuit delivers the
+   * company id ONLY as a callback query param.
+   */
+  callbackParams?: Readonly<Record<string, string>> | null;
 }
 
 export interface HandleCallbackOutput {
@@ -496,6 +514,7 @@ export async function handleCallback(
     input.state,
     pkce,
     providerHint,
+    input.callbackParams ?? null,
   );
 
   // Slice 4.APPS-RECONNECT — when this flow was a per-account reconnect, refuse

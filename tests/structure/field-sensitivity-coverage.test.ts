@@ -87,6 +87,15 @@ const HEURISTIC_FALSE_POSITIVES: Record<string, readonly string[]> = {
   "shopify:create_fulfillment": ["tracking_url"], // shipment tracking link (data, not a destination)
   "mailchimp:link_clicked": ["url"], // trigger filter: which clicked link to match
   "microsoft-onenote:update_page": ["target"], // CSS selector / data-id (insert target in HTML), not a destination
+  // QUICKBOOKS-1 — stored contact/billing details on the customer RECORD, not send
+  // destinations: V2 never sends anything to the phone or postal address (the only
+  // outward-facing QuickBooks surface is send_invoice, which emails BillEmail — and
+  // THAT field, plus create_customer.email / create_invoice.customerEmail /
+  // send_invoice.sendTo, IS annotated `recipient`). Mislabeling stored record data
+  // as a destination would be inventing metadata.
+  "quickbooks:create_customer": ["phone", "addressLine1", "addressLine2"],
+  // `dateTo` — an invoice-date range bound; the "to" token matches incidentally.
+  "quickbooks:list_invoices": ["dateTo"],
 };
 
 /** Every sensitivity category the apply-safety heuristics would assign to this key. */

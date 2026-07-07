@@ -28,6 +28,7 @@ export type AppsCategory =
   | "Forms"
   | "E-commerce"
   | "Payments"
+  | "Accounting"
   | "Social"
   | "Analytics"
   | "Developer"
@@ -47,6 +48,7 @@ export const APPS_CATEGORY_ORDER: readonly AppsCategory[] = [
   "Forms",
   "E-commerce",
   "Payments",
+  "Accounting",
   "Social",
   "Analytics",
   "Developer",
@@ -87,6 +89,8 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   shopify: "E-commerce",
   // Payments
   stripe: "Payments",
+  // Accounting
+  quickbooks: "Accounting",
   // Social
   facebook: "Social",
   // Analytics
@@ -125,6 +129,7 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
   calendly: "Watch meetings get booked and canceled.",
   shopify: "Watch orders, customers, and products.",
   stripe: "Watch charges and update customers.",
+  quickbooks: "Create customers and invoices, watch payments.",
   facebook: "Watch posts and comments.",
   "google-analytics": "Pull reports and traffic metrics.",
   github: "Watch issues, PRs, and commits.",

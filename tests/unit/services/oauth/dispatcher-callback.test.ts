@@ -139,10 +139,12 @@ describe("dispatcher.handleCallback", () => {
 
     expect(mockOAuthStatesConsume).toHaveBeenCalledTimes(1);
     // Slice 12: dispatcher passes a 4th arg `providerHint` — null for
-    // non-tenant providers (Slack default v2).
+    // non-tenant providers (Slack default v2). QUICKBOOKS-1: a 5th arg
+    // `callbackParams` — null when the route supplied none.
     expect(mockSlackHandleCallback).toHaveBeenCalledWith(
       "auth-code",
       state,
+      null,
       null,
       null,
     );
@@ -283,7 +285,7 @@ describe("dispatcher.handleCallback — PKCE plumbing (Slice 2a)", () => {
 
     await handleCallback({ provider: "slack", code: "c", state });
 
-    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", state, null, null);
+    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", state, null, null, null);
   });
 
   it("treats a half-populated PKCE row as null (defensive AND in consumeState)", async () => {
@@ -309,7 +311,7 @@ describe("dispatcher.handleCallback — PKCE plumbing (Slice 2a)", () => {
 
     await handleCallback({ provider: "slack", code: "c", state: token });
 
-    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", token, null, null);
+    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", token, null, null, null);
   });
 });
 
@@ -379,6 +381,7 @@ describe("dispatcher.handleCallback — providerHint plumbing (Slice 12)", () =>
       token,
       null, // pkce
       { shop: "mystore.myshopify.com" }, // providerHint round-tripped from JWT
+      null, // callbackParams (QUICKBOOKS-1) — none supplied by this caller
     );
   });
 
@@ -402,6 +405,6 @@ describe("dispatcher.handleCallback — providerHint plumbing (Slice 12)", () =>
 
     await handleCallback({ provider: "slack", code: "c", state: token });
 
-    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", token, null, null);
+    expect(mockSlackHandleCallback).toHaveBeenCalledWith("c", token, null, null, null);
   });
 });

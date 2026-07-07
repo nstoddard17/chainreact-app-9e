@@ -383,6 +383,13 @@ import {
 // signing-key lifecycle; ZERO actions this slice (no
 // CALENDLY_ACTION_METAS export exists).
 import { CALENDLY_TRIGGER_METAS } from "./providers/calendly";
+// QuickBooks (QUICKBOOKS-1 — fourth net-new provider, no V1 code) —
+// 7 bounded actions + 4 app-level-webhook triggers ship in the same
+// slice (contrast Typeform/Calendly's actions-later posture).
+import {
+  QUICKBOOKS_ACTION_METAS,
+  QUICKBOOKS_TRIGGER_METAS,
+} from "./providers/quickbooks";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -652,6 +659,7 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...MICROSOFT_OUTLOOK_CALENDAR_ACTION_METAS, // Microsoft Outlook Calendar (OUTLOOK-CAL-META-2) — 5 actions, displayOrder 10..50.
   ...ASANA_ACTION_METAS, // Asana (ASANA-1) — 5 actions, displayOrder 10..50.
   ...TYPEFORM_ACTION_METAS, // Typeform (TYPEFORM-2) — 2 read actions, displayOrder 10..20.
+  ...QUICKBOOKS_ACTION_METAS, // QuickBooks (QUICKBOOKS-1) — 7 actions, displayOrder 10..70.
 ];
 
 export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -830,4 +838,9 @@ export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // integrations/calendly/triggers/<event>/index.ts, so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...CALENDLY_TRIGGER_METAS,
+  // QuickBooks (QUICKBOOKS-1) — 4 app-level-webhook triggers. Activation +
+  // deactivation registered in
+  // integrations/quickbooks/triggers/<event>/index.ts, so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...QUICKBOOKS_TRIGGER_METAS,
 ];
