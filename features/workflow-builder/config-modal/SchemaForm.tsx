@@ -149,13 +149,31 @@ export function SchemaForm({
     [childrenByParent, onChange],
   );
 
+  // SPREADSHEET-CONFIG-REDESIGN-1 — a field whose `renderedBy` names a
+  // KNOWN sibling is committed by that sibling's composite editor (e.g.
+  // Excel add_row `rows` is written by the `values` spreadsheet editor),
+  // so it never renders a duplicate standalone editor. An unknown
+  // `renderedBy` target falls back to standalone rendering (mis-authored
+  // meta stays visible rather than silently hiding a field). The field
+  // stays in `childrenByParent`, so parent changes still clear it.
+  const knownFieldNames = React.useMemo(
+    () => new Set(fields.map((f) => f.name)),
+    [fields],
+  );
+  const isCompositeManaged = (f: FieldMeta): boolean =>
+    f.renderedBy !== undefined && knownFieldNames.has(f.renderedBy);
+
   // CONFIG-UX-AUDIT-1 — developer-grade escape hatches (`advanced: true`)
   // render inside a collapsed "Advanced" disclosure, out of the normal
   // setup path. The disclosure defaults open when any advanced field is
   // required or already carries a value (so nothing required/filled is
   // ever hidden).
-  const normalFields = fields.filter((f) => f.advanced !== true);
-  const advancedFields = fields.filter((f) => f.advanced === true);
+  const normalFields = fields.filter(
+    (f) => f.advanced !== true && !isCompositeManaged(f),
+  );
+  const advancedFields = fields.filter(
+    (f) => f.advanced === true && !isCompositeManaged(f),
+  );
   const advancedOpenByDefault = advancedFields.some(
     (f) =>
       f.required ||
@@ -251,6 +269,13 @@ export function SchemaForm({
         enabled={enabled}
         parentLabel={parentLabel}
         onChange={(next) => handleChange(field.name, next)}
+        // SPREADSHEET-CONFIG-REDESIGN-1 — composite editors (declared via
+        // `batchRowsField` + the sibling's `renderedBy`) read sibling
+        // values and write the sibling through the same cascade-clearing
+        // handler a direct edit would use. Single-field renderers ignore
+        // both props.
+        formValues={values}
+        onChangeField={handleChange}
       />,
     );
   };

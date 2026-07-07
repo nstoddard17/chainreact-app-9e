@@ -1,19 +1,20 @@
 /**
- * CONFIG-UX-AUDIT-1 integration test — Microsoft Excel `add_row` config
- * end-to-end through the live WorkflowBuilder shell.
+ * SPREADSHEET-CONFIG-REDESIGN-1 integration test — Microsoft Excel
+ * `add_row` config end-to-end through the live WorkflowBuilder shell
+ * (supersedes the CONFIG-UX-AUDIT-1 pin of the chip/pair editors).
  *
- * Pins the visual row editor that replaced the two paste-JSON textareas
- * ("Values — single row (paste JSON)" / "Rows — batch (paste JSON)"):
- *   - workbook combobox (microsoft-excel:workbooks) → worksheet combobox
- *     (dependsOn workbook),
- *   - `values` renders as the string-array chip editor (one chip per
- *     cell, in column order),
- *   - `rows` renders as the keyvalue-list row builder (Add row / Remove
- *     row, column/value pairs) — NO JSON anywhere in the setup panel,
- *   - Modal Save + Toolbar Save persist a REAL string[] / real
- *     Array<Record<string, string>> — the shapes AddRowConfigSchema
- *     (`z.array`) actually accepts. The paste-JSON era stored literal
- *     strings the schema rejected at run time.
+ * Pins the redesigned spreadsheet config experience:
+ *   - readiness banner at the top of Setup: "2 things left to fill in"
+ *     → "One thing left to fill in" (destination picked) → "Ready to
+ *     run" (at least one row value),
+ *   - workbook combobox → worksheet combobox (dependsOn cascade),
+ *   - the `spreadsheet-rows` editor renders ONE INPUT PER REAL COLUMN
+ *     (from the worksheet_columns resolver response) with a One row /
+ *     Several rows toggle and a row preview — NO standalone `rows`
+ *     editor, NO JSON language anywhere in the setup panel,
+ *   - Modal Save + Toolbar Save persist the UNCHANGED runtime shapes:
+ *     positional string[] (`values`) XOR header-keyed records (`rows`),
+ *     exactly one present, accepted by AddRowConfigSchema.
  */
 
 const mockUpdateWorkflow = jest.fn();
@@ -129,6 +130,19 @@ beforeEach(() => {
         hasMore: false,
       };
     }
+    if (source === "microsoft-excel:worksheet_columns") {
+      // Shaped exactly like the worksheet_columns resolver output — the
+      // sheet's REAL first-row headers, in order, with column letters.
+      return {
+        ok: true,
+        source,
+        items: [
+          { value: "Name", label: "Name", description: "Column A" },
+          { value: "Email", label: "Email", description: "Column B" },
+        ],
+        hasMore: false,
+      };
+    }
     return {
       ok: false,
       source,
@@ -145,19 +159,62 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Excel add_row meta — values is a string-array chip editor, rows is a keyvalue-list row builder, and no field copy mentions JSON — CONFIG-UX-AUDIT-1 meta guard", () => {
+it("Excel add_row meta — composite spreadsheet editor wiring (values owns rows via batchRowsField/renderedBy) and no JSON/shape copy anywhere", () => {
   const byName = new Map(microsoftExcelAddRowMeta.fields.map((f) => [f.name, f]));
-  expect(byName.get("values")!.type).toBe("string-array");
+  expect(byName.get("values")!.type).toBe("spreadsheet-rows");
+  expect(byName.get("values")!.batchRowsField).toBe("rows");
+  expect(byName.get("values")!.optionsSource).toBe(
+    "microsoft-excel:worksheet_columns",
+  );
+  expect(byName.get("values")!.dependsOn).toEqual(["workbookId", "worksheetName"]);
+  expect(byName.get("rows")!.renderedBy).toBe("values");
   expect(byName.get("rows")!.type).toBe("keyvalue-list");
   expect(byName.get("rows")!.listMaxItems).toBe(1000);
   for (const f of microsoftExcelAddRowMeta.fields) {
-    expect(f.label.toLowerCase()).not.toContain("json");
-    expect((f.description ?? "").toLowerCase()).not.toContain("json");
+    for (const text of [f.label, f.description ?? "", microsoftExcelAddRowMeta.description]) {
+      expect(text.toLowerCase()).not.toContain("json");
+      expect(text.toLowerCase()).not.toContain("positional");
+      expect(text.toLowerCase()).not.toContain("keyed");
+    }
   }
 });
 
+async function buildToOpenConfig(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
+  await waitFor(() => {
+    expect(screen.getByText("Manual")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Manual"));
+
+  await user.click(screen.getByRole("button", { name: /add action/i }));
+  await user.click(
+    screen.getByRole("button", { name: /browse microsoft excel actions/i }),
+  );
+  await waitFor(() => {
+    expect(screen.getByText("Add Row")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Add Row"));
+  const action = useGraphSlice
+    .getState()
+    .pendingNodes.find((n) => n.kind === "action")!;
+  expect(action.provider).toBe("microsoft-excel");
+  expect(action.type).toBe("add_row");
+
+  await openLastNodeOfKind("action");
+  await waitFor(() => {
+    expect(
+      screen.getByRole("combobox", { name: /^workbook$/i }),
+    ).toBeInTheDocument();
+  });
+  return action;
+}
+
+function bannerText(): string {
+  return screen.getByTestId("config-readiness-banner").textContent ?? "";
+}
+
 it(
-  "end-to-end: pick workbook + worksheet → build a batch row visually (Add row, column/value pairs) → Modal Save → Toolbar Save persists a REAL Array<Record> that AddRowConfigSchema accepts",
+  "end-to-end one-row: readiness banner walks 2 left → 1 left → Ready to run; column inputs come from the resolver; Save persists positional values AddRowConfigSchema accepts",
   async () => {
     mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
       ...baseWorkflow,
@@ -171,77 +228,114 @@ it(
         actionProviders={actionProviders}
       />,
     );
+    const action = await buildToOpenConfig(user);
 
-    // 1. Trigger.
-    await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
-    await waitFor(() => {
-      expect(screen.getByText("Manual")).toBeInTheDocument();
-    });
-    await user.click(screen.getByText("Manual"));
+    // Readiness banner: nothing picked yet.
+    expect(bannerText()).toContain("2 things left to fill in");
+    expect(bannerText()).toContain("Pick a workbook and worksheet");
+    expect(bannerText()).toContain("Fill in at least one row value");
 
-    // 2. Drill into Microsoft Excel → Add Row.
-    await user.click(screen.getByRole("button", { name: /add action/i }));
-    await user.click(
-      screen.getByRole("button", { name: /browse microsoft excel actions/i }),
-    );
-    await waitFor(() => {
-      expect(screen.getByText("Add Row")).toBeInTheDocument();
-    });
-    await user.click(screen.getByText("Add Row"));
-    const action = useGraphSlice
-      .getState()
-      .pendingNodes.find((n) => n.kind === "action")!;
-    expect(action.provider).toBe("microsoft-excel");
-    expect(action.type).toBe("add_row");
-
-    // 3. Open config rail — the visual editors render; NO paste-JSON
-    //    affordance or JSON language anywhere in the setup panel.
-    await openLastNodeOfKind("action");
-    await waitFor(() => {
-      expect(
-        screen.getByRole("combobox", { name: /^workbook$/i }),
-      ).toBeInTheDocument();
-    });
-    expect(screen.getByTestId("keyvalue-list-rows")).toBeInTheDocument();
+    // The rows sibling never renders a duplicate standalone editor, and
+    // the row editor asks for the destination first.
+    expect(screen.queryByTestId("keyvalue-list-rows")).toBeNull();
     expect(
-      screen.getByRole("textbox", { name: /^row values/i }),
+      screen.getByTestId("spreadsheet-rows-values-parent-missing"),
     ).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/paste json|json array|json object/i);
 
-    // 4. Pick workbook, then worksheet (dependsOn cascade).
+    // Pick destination → banner drops to one thing left.
     await pickComboboxOption(user, /^workbook$/i, "Sales.xlsx");
-    expect(
-      useConfigSlice.getState().drafts[action.id]!.values.workbookId,
-    ).toBe(WORKBOOK_ID);
     await pickComboboxOption(user, /^worksheet$/i, WORKSHEET);
-    expect(
-      useConfigSlice.getState().drafts[action.id]!.values.worksheetName,
-    ).toBe(WORKSHEET);
+    await waitFor(() => {
+      expect(bannerText()).toContain("One thing left to fill in");
+    });
 
-    // 5. Build one batch row visually: Add row → column name + value.
-    await user.click(screen.getByTestId("keyvalue-list-rows-add-row"));
-    await user.type(
-      screen.getByRole("textbox", { name: /row 1 column 1 name/i }),
-      "Name",
+    // Column inputs from the REAL resolver response render.
+    await waitFor(() => {
+      expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByText("Column B")).toBeInTheDocument();
+
+    // Fill one column → Ready to run + preview.
+    await user.type(screen.getByLabelText("Name"), "Ada");
+    await waitFor(() => {
+      expect(bannerText()).toContain("Ready to run");
+    });
+    expect(
+      screen.getByTestId("spreadsheet-preview-values").textContent,
+    ).toContain("Ada");
+
+    // No JSON or implementation language anywhere in the panel.
+    expect(document.body.textContent).not.toMatch(
+      /paste json|json array|json object|raw json|positional|header-keyed/i,
     );
-    await user.type(
-      screen.getByRole("textbox", { name: /row 1 column 1 value/i }),
-      "Ada",
+
+    // Modal Save → the pending config is the runtime shape.
+    const modal = screen.getByRole("complementary", {
+      name: /node configuration/i,
+    });
+    await user.click(within(modal).getByRole("button", { name: /^save$/i }));
+    const pendingConfig = useGraphSlice
+      .getState()
+      .pendingNodes.find((n) => n.id === action.id)!.config;
+    expect(pendingConfig.values).toEqual(["Ada"]);
+    expect(pendingConfig.rows).toBeUndefined();
+    expect(() => AddRowConfigSchema.parse(pendingConfig)).not.toThrow();
+
+    // Toolbar Save persists once.
+    const allSaveButtons = screen.getAllByRole("button", { name: /^save$/i });
+    const toolbarSave = allSaveButtons.find((btn) => !modal.contains(btn))!;
+    await user.click(toolbarSave);
+    await waitFor(() => {
+      expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
+    });
+    const persistedNodes = mockUpdateWorkflow.mock.calls[0]![1].draftDefinition
+      .nodes as Array<{ kind: string; config: Record<string, unknown> }>;
+    const persistedAction = persistedNodes.find((n) => n.kind === "action")!;
+    expect(persistedAction.config.values).toEqual(["Ada"]);
+    expect(persistedAction.config.rows).toBeUndefined();
+  },
+  20_000,
+);
+
+it(
+  "end-to-end several rows: toggle → row cards with column inputs → Save persists header-keyed records AddRowConfigSchema accepts (values cleared)",
+  async () => {
+    mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
+      ...baseWorkflow,
+      draftDefinition: body.draftDefinition,
+    }));
+    const user = userEvent.setup();
+    render(
+      <WorkflowBuilder
+        workflow={baseWorkflow}
+        triggerProviders={triggerProviders}
+        actionProviders={actionProviders}
+      />,
     );
-    await user.click(screen.getByRole("button", { name: /add column to row 1/i }));
-    await user.type(
-      screen.getByRole("textbox", { name: /row 1 column 2 name/i }),
-      "Email",
+    const action = await buildToOpenConfig(user);
+
+    await pickComboboxOption(user, /^workbook$/i, "Sales.xlsx");
+    await pickComboboxOption(user, /^worksheet$/i, WORKSHEET);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Name")).toBeInTheDocument();
+    });
+
+    // Switch to several rows and build one row visually.
+    await user.click(screen.getByRole("radio", { name: /several rows/i }));
+    await user.click(
+      screen.getByTestId("spreadsheet-batch-rows-values-add-row"),
     );
-    await user.type(
-      screen.getByRole("textbox", { name: /row 1 column 2 value/i }),
-      "ada@example.com",
-    );
+    await user.type(screen.getByLabelText("Row 1 Name"), "Ada");
+    await user.type(screen.getByLabelText("Row 1 Email"), "ada@example.com");
+
     expect(useConfigSlice.getState().drafts[action.id]!.values.rows).toEqual([
       { Name: "Ada", Email: "ada@example.com" },
     ]);
+    await waitFor(() => {
+      expect(bannerText()).toContain("Ready to run");
+    });
 
-    // 6. Modal Save flushes the draft.
     const modal = screen.getByRole("complementary", {
       name: /node configuration/i,
     });
@@ -252,99 +346,8 @@ it(
     expect(pendingConfig.rows).toEqual([
       { Name: "Ada", Email: "ada@example.com" },
     ]);
-    // `values` untouched → absent, so the schema's XOR refine passes.
     expect(pendingConfig.values).toBeUndefined();
-
-    // The persisted config is EXACTLY what the runtime schema accepts —
-    // this is the correctness half of the fix (paste-JSON strings were
-    // rejected by z.array at execution time).
-    expect(() => AddRowConfigSchema.parse(pendingConfig)).not.toThrow();
-
-    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
-
-    // 7. Toolbar Save persists once.
-    const allSaveButtons = screen.getAllByRole("button", { name: /^save$/i });
-    const toolbarSave = allSaveButtons.find((btn) => !modal.contains(btn))!;
-    await user.click(toolbarSave);
-    await waitFor(() => {
-      expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
-    });
-    const persistedNodes = mockUpdateWorkflow.mock.calls[0]![1].draftDefinition
-      .nodes as Array<{
-      kind: string;
-      config: Record<string, unknown>;
-    }>;
-    const persistedAction = persistedNodes.find((n) => n.kind === "action")!;
-    expect(persistedAction.config.rows).toEqual([
-      { Name: "Ada", Email: "ada@example.com" },
-    ]);
-    expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
-  },
-  15_000,
-);
-
-it(
-  "single-row mode: add Row values chips → saved config is a REAL string[] that AddRowConfigSchema accepts",
-  async () => {
-    mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
-      ...baseWorkflow,
-      draftDefinition: body.draftDefinition,
-    }));
-    const user = userEvent.setup();
-    render(
-      <WorkflowBuilder
-        workflow={baseWorkflow}
-        triggerProviders={triggerProviders}
-        actionProviders={actionProviders}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
-    await waitFor(() => {
-      expect(screen.getByText("Manual")).toBeInTheDocument();
-    });
-    await user.click(screen.getByText("Manual"));
-    await user.click(screen.getByRole("button", { name: /add action/i }));
-    await user.click(
-      screen.getByRole("button", { name: /browse microsoft excel actions/i }),
-    );
-    await waitFor(() => {
-      expect(screen.getByText("Add Row")).toBeInTheDocument();
-    });
-    await user.click(screen.getByText("Add Row"));
-    const action = useGraphSlice
-      .getState()
-      .pendingNodes.find((n) => n.kind === "action")!;
-
-    await openLastNodeOfKind("action");
-    await waitFor(() => {
-      expect(
-        screen.getByRole("combobox", { name: /^workbook$/i }),
-      ).toBeInTheDocument();
-    });
-    await pickComboboxOption(user, /^workbook$/i, "Sales.xlsx");
-    await pickComboboxOption(user, /^worksheet$/i, WORKSHEET);
-
-    const valuesInput = screen.getByRole("textbox", { name: /^row values/i });
-    for (const cell of ["Ada", "ada@example.com"]) {
-      await user.type(valuesInput, cell);
-      await user.keyboard("{Enter}");
-    }
-    expect(useConfigSlice.getState().drafts[action.id]!.values.values).toEqual([
-      "Ada",
-      "ada@example.com",
-    ]);
-
-    const modal = screen.getByRole("complementary", {
-      name: /node configuration/i,
-    });
-    await user.click(within(modal).getByRole("button", { name: /^save$/i }));
-    const pendingConfig = useGraphSlice
-      .getState()
-      .pendingNodes.find((n) => n.id === action.id)!.config;
-    expect(pendingConfig.values).toEqual(["Ada", "ada@example.com"]);
-    expect(pendingConfig.rows).toBeUndefined();
     expect(() => AddRowConfigSchema.parse(pendingConfig)).not.toThrow();
   },
-  15_000,
+  20_000,
 );

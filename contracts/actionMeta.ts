@@ -123,6 +123,20 @@ export const FieldTypeSchema = z.enum([
   // user typed is lost, and the config modal's Save gate blocks until
   // it is fixed (friendly copy only; no parser/renderer internals).
   "json",
+  // SPREADSHEET-CONFIG-REDESIGN-1 — `spreadsheet-rows`: the column-aware
+  // row editor for spreadsheet append/update actions (first consumer:
+  // `microsoft-excel:add_row`). One composite editor owns BOTH save
+  // shapes of the action's either-or contract:
+  //   - "One row" mode commits THIS field's value as a positional
+  //     `unknown[]` (cells in worksheet column order; in-between blanks
+  //     preserved as "" so columns stay aligned),
+  //   - "Several rows" mode commits the sibling field named by
+  //     `batchRowsField` as `Array<Record<columnHeader, cellValue>>`
+  //     and clears this field — exactly one shape is ever present.
+  // Column names come from the field's `optionsSource` resolver (REAL
+  // provider headers — never invented); when none can be detected the
+  // renderer says so honestly and falls back to manual entry.
+  "spreadsheet-rows",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 
@@ -415,6 +429,25 @@ export const FieldMetaSchema = z
      */
     advanced: z.boolean().optional(),
     /**
+     * SPREADSHEET-CONFIG-REDESIGN-1 — for `spreadsheet-rows` fields, the
+     * NAME of the sibling field that stores the batch ("Several rows")
+     * shape (`Array<Record<columnHeader, cellValue>>`). The composite
+     * editor commits exactly one of {this field, the batch field} at a
+     * time, matching either-or runtime refinements (Excel `values` XOR
+     * `rows`). The referenced sibling declares `renderedBy` pointing back
+     * at this field so it never renders a duplicate standalone editor.
+     */
+    batchRowsField: z.string().min(1).max(128).optional(),
+    /**
+     * SPREADSHEET-CONFIG-REDESIGN-1 — marks a field whose value is
+     * committed by ANOTHER field's composite editor (named here). The
+     * SchemaForm skips this field's standalone renderer; the field stays
+     * a full citizen everywhere else (AI catalog, dependsOn clearing,
+     * runtime schema). The referenced field must be a sibling in the same
+     * meta and must not itself declare `renderedBy`.
+     */
+    renderedBy: z.string().min(1).max(128).optional(),
+    /**
      * CONFIG-UX-AUDIT-2 — expected top-level shape for a `json` field,
      * mirroring the runtime schema's contract:
      *
@@ -450,18 +483,21 @@ export const FieldMetaSchema = z
     }
     // `optionsSource` (dynamic) is valid on select / combobox AND on `string-array`
     // (CONFIG-FIELD-UX-SWEEP-2 Scope B — per-chip option picking that stores stable
-    // ids while showing friendly labels).
+    // ids while showing friendly labels) AND on `spreadsheet-rows`
+    // (SPREADSHEET-CONFIG-REDESIGN-1 — the columns resolver that supplies REAL
+    // worksheet/table column names to the row editor).
     if (
       field.optionsSource &&
       field.type !== "select" &&
       field.type !== "combobox" &&
-      field.type !== "string-array"
+      field.type !== "string-array" &&
+      field.type !== "spreadsheet-rows"
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["type"],
         message:
-          "`optionsSource` is only valid on `select`, `combobox`, or `string-array` fields.",
+          "`optionsSource` is only valid on `select`, `combobox`, `string-array`, or `spreadsheet-rows` fields.",
       });
     }
     if (field.numeric && field.type !== "number") {
@@ -508,6 +544,30 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["jsonShape"],
         message: "`jsonShape` is only valid on `json` fields.",
+      });
+    }
+    // SPREADSHEET-CONFIG-REDESIGN-1 — field-local invariants for the
+    // composite spreadsheet row editor. Cross-field "must reference a
+    // known sibling" checks live in the meta-level superRefine.
+    if (field.batchRowsField && field.type !== "spreadsheet-rows") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["batchRowsField"],
+        message: "`batchRowsField` is only valid on `spreadsheet-rows` fields.",
+      });
+    }
+    if (field.batchRowsField === field.name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["batchRowsField"],
+        message: `Field '${field.name}' cannot name itself as its batch field.`,
+      });
+    }
+    if (field.renderedBy === field.name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["renderedBy"],
+        message: `Field '${field.name}' cannot be rendered by itself.`,
       });
     }
     if (field.type === "json" && field.advanced !== true) {
@@ -837,6 +897,37 @@ export const ActionMetaSchema = z
             code: z.ZodIssueCode.custom,
             path: ["fields", i, "dependsOn"],
             message: `Field '${meta.fields[i]!.name}' depends on unknown field '${dep}'.`,
+          });
+        }
+      }
+    }
+
+    // SPREADSHEET-CONFIG-REDESIGN-1 — composite-editor references must
+    // resolve to known siblings, and a `renderedBy` target must be a
+    // real standalone editor (never itself rendered by someone else).
+    const fieldByName = new Map(meta.fields.map((f) => [f.name, f]));
+    for (let i = 0; i < meta.fields.length; i++) {
+      const f = meta.fields[i]!;
+      if (f.batchRowsField && !fieldNames.has(f.batchRowsField)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["fields", i, "batchRowsField"],
+          message: `Field '${f.name}' names unknown batch field '${f.batchRowsField}'.`,
+        });
+      }
+      if (f.renderedBy) {
+        const target = fieldByName.get(f.renderedBy);
+        if (!target) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["fields", i, "renderedBy"],
+            message: `Field '${f.name}' is rendered by unknown field '${f.renderedBy}'.`,
+          });
+        } else if (target.renderedBy) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["fields", i, "renderedBy"],
+            message: `Field '${f.name}' is rendered by '${f.renderedBy}', which is itself rendered by another field.`,
           });
         }
       }

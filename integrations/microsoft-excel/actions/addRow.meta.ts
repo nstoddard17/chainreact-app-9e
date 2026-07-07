@@ -6,20 +6,27 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Mirrors `addRow.schema.ts` (camelCase field names match the runtime Zod
  * schema 1:1). `values` (single positional row) XOR `rows` (batch,
  * header-keyed, 1..1000) — exactly one is required; the runtime `.refine`
- * is authoritative, so both are `required: false` here and the rule is
- * documented in the field descriptions.
+ * is authoritative, so both are `required: false` here.
  *
- * CONFIG-UX-AUDIT-1: `values` is a `string-array` (one chip per cell, in
- * column order) and `rows` is a `keyvalue-list` (visual row builder with
- * column/value pairs). Both write REAL arrays/objects — the previous
- * paste-JSON textareas stored literal STRINGS, which the runtime
- * `z.array(...)` schema rejected. Cell values entered visually are
- * strings; workflow authors who need typed cells (numbers/booleans) wire
- * a `{{...}}` variable from an upstream output.
+ * SPREADSHEET-CONFIG-REDESIGN-1: `values` renders as the composite
+ * `spreadsheet-rows` editor — a column-aware row editor whose column
+ * names come from the sheet's REAL first-row headers
+ * (`microsoft-excel:worksheet_columns` resolver). Its "One row" mode
+ * commits `values` (positional, blanks preserved for alignment); its
+ * "Several rows" mode commits the `rows` sibling (header-keyed records)
+ * via `batchRowsField` — exactly one shape at a time. `rows` declares
+ * `renderedBy: "values"` so it never renders a duplicate standalone
+ * editor but stays a full citizen for the AI catalog + runtime schema.
+ * Both save shapes are UNCHANGED from CONFIG-UX-AUDIT-1 (real
+ * arrays/records, never JSON strings). Cell values entered visually are
+ * strings; authors who need typed cells wire a `{{...}}` variable from
+ * an upstream output.
  *
  * `workbookId` → workbooks picker; `worksheetName` → worksheets picker
- * (dependsOn workbookId). Cell-data outputs (`valuesWritten`, `rowsAdded`)
- * are flagged sensitive.
+ * (dependsOn workbookId); the row editor depends on BOTH (changing the
+ * destination clears the row data — different sheets have different
+ * columns). Cell-data outputs (`valuesWritten`, `rowsAdded`) are
+ * flagged sensitive.
  */
 export const microsoftExcelAddRowMeta: ActionMeta = {
   key: "microsoft-excel:add_row",
@@ -27,14 +34,14 @@ export const microsoftExcelAddRowMeta: ActionMeta = {
   type: "add_row",
   displayName: "Add Row",
   description:
-    "Append a row (or batch of rows) to a worksheet. Provide EITHER `values` (a single positional row aligned to the worksheet's column order) OR `rows` (a batch of header-keyed row objects, up to 1000) — exactly one.",
+    "Add one or more rows to the bottom of an Excel worksheet, filling in each column by name.",
   category: "data",
   requiresIntegration: true,
   fields: [
     {
       name: "workbookId",
       label: "Workbook",
-      description: "The Excel workbook (file) from your OneDrive.",
+      description: "The Excel file from your OneDrive.",
       type: "combobox",
       required: true,
       optionsSource: "microsoft-excel:workbooks",
@@ -43,7 +50,7 @@ export const microsoftExcelAddRowMeta: ActionMeta = {
     {
       name: "worksheetName",
       label: "Worksheet",
-      description: "The worksheet (tab) to append to. Pick a workbook first.",
+      description: "The sheet (tab) the row should go to.",
       type: "combobox",
       required: true,
       optionsSource: "microsoft-excel:worksheets",
@@ -52,21 +59,25 @@ export const microsoftExcelAddRowMeta: ActionMeta = {
     },
     {
       name: "values",
-      label: "Row values (single row)",
+      label: "Row values",
       description:
-        "Add one value per column, in the worksheet's column order. Use this to append a single row — or use Rows below to add several at once, not both.",
-      type: "string-array",
+        "Add one value per column. Columns come from your selected worksheet; leave a field blank to keep that cell empty.",
+      type: "spreadsheet-rows",
       required: false,
-      placeholder: "Type a cell value and press Enter",
+      optionsSource: "microsoft-excel:worksheet_columns",
+      dependsOn: ["workbookId", "worksheetName"],
+      batchRowsField: "rows",
     },
     {
       name: "rows",
       label: "Rows (add several at once)",
       description:
-        "Add up to 1000 rows. For each row, enter the column name (matching the worksheet's header row) and the value. Use either this or Row values above, not both.",
+        "Add up to 1000 rows at once. Each row lists its values by column name.",
       type: "keyvalue-list",
       required: false,
       listMaxItems: 1000,
+      dependsOn: ["workbookId", "worksheetName"],
+      renderedBy: "values",
     },
   ],
   outputs: [

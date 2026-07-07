@@ -32,6 +32,8 @@ import {
 } from "./ConfigNodeTabs";
 import { validateRoutesValue } from "./fields/_routesValidator";
 import { collectJsonFieldBlockingError } from "./fields/_jsonFieldValue";
+import { NodeConfigReadinessBanner } from "./NodeConfigReadinessBanner";
+import { computeConfigReadiness } from "./readiness/computeConfigReadiness";
 
 /**
  * Config rail / modal shell for the currently-active node.
@@ -242,6 +244,24 @@ export function ConfigModalShell() {
   const hasBlockingValidationError =
     routerBlockingError || jsonBlockingError !== null;
 
+  // SPREADSHEET-CONFIG-REDESIGN-1 — readiness banner shown at the top of
+  // the Setup tab for EVERY node. Pure derivation from the metadata's
+  // required flags (+ optional per-action checklist adapters) and the
+  // already-computed Save blockers — no new validation rules in the UI.
+  // "Ready" describes config completeness; the footer keeps owning the
+  // dirty/saved state.
+  const readiness = activeMeta
+    ? computeConfigReadiness({
+        metaKey: activeMeta.key,
+        nodeKind: activeNode.kind === "trigger" ? "trigger" : "action",
+        fields: activeMeta.fields,
+        values: values as Readonly<Record<string, unknown>>,
+        errors,
+        blockedFieldCount:
+          (routerBlockingError ? 1 : 0) + (jsonBlockingError ? 1 : 0),
+      })
+    : null;
+
   // BUILDER-CONFIG-TABS-1 — Advanced is shown ONLY when the node actually has
   // advanced options. There is no advanced-field concept in the metadata yet, so
   // it is omitted (never a dead tab); add it here once such options exist.
@@ -297,6 +317,7 @@ export function ConfigModalShell() {
         <ConfigTabEmptyState tab="data" />
       ) : (
       <section aria-label="Setup fields" className="flex flex-col gap-3">
+        {readiness ? <NodeConfigReadinessBanner readiness={readiness} /> : null}
         <div className="flex flex-col gap-1">
           <label
             htmlFor="node-name-input"

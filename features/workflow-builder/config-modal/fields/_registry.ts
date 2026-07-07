@@ -17,6 +17,7 @@ import { LocationField } from "./LocationField";
 import { ObjectListField } from "./ObjectListField";
 import { KeyValueListField } from "./KeyValueListField";
 import { JsonField } from "./JsonField";
+import { SpreadsheetRowsField } from "./spreadsheet/SpreadsheetRowsField";
 import type { FieldComponent } from "./types";
 
 /**
@@ -60,6 +61,9 @@ export const FIELD_RENDERERS: Readonly<Record<FieldType, FieldComponent>> =
     // CONFIG-UX-AUDIT-2 — the advanced JSON escape hatch (commits parsed
     // values / whole-value variables; never raw JSON strings as final).
     json: JsonField,
+    // SPREADSHEET-CONFIG-REDESIGN-1 — column-aware composite row editor
+    // (one-row positional XOR batch header-keyed via `batchRowsField`).
+    "spreadsheet-rows": SpreadsheetRowsField,
   });
 
 export function getFieldRenderer(type: FieldType): FieldComponent {

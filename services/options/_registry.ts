@@ -317,11 +317,17 @@ import { googleAnalyticsPropertiesFlatResolver } from "@/integrations/google-ana
 //     the worksheet NAME (handlers address worksheets by name).
 //   - `microsoft-excel:tables` (depends on `workbookId`) — value is the
 //     table NAME. Uses the new `tablesList` Graph helper.
-// Dep name `workbookId` preserved verbatim from the Excel Zod schemas
-// (camelCase). `columns` resolver deferred (hand-typed headers OK).
+//   - `microsoft-excel:worksheet_columns` (deps: workbookId +
+//     worksheetName; SPREADSHEET-CONFIG-REDESIGN-1) — REAL first-row
+//     headers via `worksheetUsedRange` for the column-aware row editor
+//     (`spreadsheet-rows` field on add_row). Empty items = "no columns
+//     detected" (honest UI fallback); columns are never invented.
+// Dep names `workbookId` / `worksheetName` preserved verbatim from the
+// Excel Zod schemas (camelCase).
 import { microsoftExcelWorkbooksResolver } from "@/integrations/microsoft-excel/options/workbooks";
 import { microsoftExcelWorksheetsResolver } from "@/integrations/microsoft-excel/options/worksheets";
 import { microsoftExcelTablesResolver } from "@/integrations/microsoft-excel/options/tables";
+import { microsoftExcelWorksheetColumnsResolver } from "@/integrations/microsoft-excel/options/worksheetColumns";
 
 // Airtable resolvers — Slice 4.AIRTABLE-META-2 (resolver-first ahead of
 // AIRTABLE-META-3 action/trigger metas; Airtable stays OUT of
@@ -587,13 +593,15 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   googleAnalyticsConversionEventsResolver,
   // Slice ANALYTICS-SOURCES-GA-1 — flat GA4 property picker (analytics widget).
   googleAnalyticsPropertiesFlatResolver,
-  // Slice 4.EXCEL-META-2 — 3 Microsoft Excel resolvers (resolver-first
-  // ahead of EXCEL-META-3 metas). workbooks (root) → worksheets / tables
-  // (dep: workbookId). columns deferred. Excel stays OUT of
-  // COVERED_PROVIDERS until EXCEL-META-3.
+  // Slice 4.EXCEL-META-2 — Microsoft Excel resolvers. workbooks (root) →
+  // worksheets / tables (dep: workbookId); worksheet_columns (deps:
+  // workbookId + worksheetName, SPREADSHEET-CONFIG-REDESIGN-1).
   microsoftExcelWorkbooksResolver,
   microsoftExcelWorksheetsResolver,
   microsoftExcelTablesResolver,
+  // SPREADSHEET-CONFIG-REDESIGN-1 — worksheet_columns (deps: workbookId +
+  // worksheetName) backs the column-aware add_row editor.
+  microsoftExcelWorksheetColumnsResolver,
   // Slice 4.AIRTABLE-META-2 — 5 Airtable resolvers (resolver-first ahead
   // of AIRTABLE-META-3 metas). bases (root) → tables (dep: baseId) →
   // fields / views / attachment_fields (deps: baseId + tableIdOrName,

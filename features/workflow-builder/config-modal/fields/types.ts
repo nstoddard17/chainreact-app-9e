@@ -55,6 +55,23 @@ export interface FieldRendererProps {
    * Slice 3.33 → Slice 4.BUILDER-OPTIONS-1.
    */
   parentLabel?: string;
+  /**
+   * SPREADSHEET-CONFIG-REDESIGN-1 — the current values of ALL fields in
+   * the same form, keyed by field name. Composite editors (e.g.
+   * `spreadsheet-rows`, which owns its own field AND the sibling named by
+   * `field.batchRowsField`) read a sibling's committed value from here.
+   * Ordinary single-field renderers ignore it.
+   */
+  formValues?: Readonly<Record<string, unknown>>;
+  /**
+   * SPREADSHEET-CONFIG-REDESIGN-1 — write ANOTHER field's value (same
+   * cascade-clearing semantics as a direct edit of that field; wired to
+   * SchemaForm's internal change handler). Only composite editors that
+   * legitimately own a sibling field (declared via `batchRowsField` +
+   * the sibling's `renderedBy`) may use this; everything else keeps the
+   * single-field `onChange` contract.
+   */
+  onChangeField?: (name: string, value: unknown) => void;
 }
 
 export type FieldComponent = React.FC<FieldRendererProps>;
