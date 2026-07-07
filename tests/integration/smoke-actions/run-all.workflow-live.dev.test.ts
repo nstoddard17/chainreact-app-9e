@@ -169,12 +169,15 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
       expect(report.results.every((r) => r.provider === PROVIDER_FILTER)).toBe(true);
     }
 
-    // The native baseline always runs live + passes (when in scope).
+    // native:format_transformer is now certified LIVE_PASS (was the always-run
+    // baseline). Like every certified fixture it CERT-SKIPs by default and only
+    // runs the real end-to-end path under SMOKE_RERUN_PASSED=1 (the canary re-run
+    // path). Under rerun it must PASS.
     if (inScope("native")) {
       const native = report.results.find(
         (r) => r.provider === "native" && r.action === "format_transformer",
       );
-      expect(native?.outcome).toBe("pass");
+      expect(native?.outcome).toBe(RERUN_PASSED ? "pass" : "certified-skip");
     }
 
     // The Slack WRITE fixture: when already certified LIVE_PASS it is

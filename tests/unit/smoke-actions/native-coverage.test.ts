@@ -9,14 +9,15 @@
  *   - the registry (the engine's dispatch source of truth) holds exactly the known
  *     native actions;
  *   - every native action has a fixture (never a MISSING_FIXTURE gap);
- *   - every native action is certified LIVE_PASS EXCEPT the single documented
- *     always-run baseline (native:format_transformer, LIVE_NOT_RUN by design — the
- *     one action left uncertified so a default sweep still executes a real
- *     end-to-end run with zero credentials; see the fixture's note);
- *   - no native action is FAIL / BUG / BLOCKED_ENV.
+ *   - EVERY native action is certified LIVE_PASS — zero NOT_RUN. format_transformer
+ *     was the always-run baseline canary; it is now certified like the rest (Marcus,
+ *     2026-07-06: no real registered action stays uncertified for baseline purposes).
+ *     The canary role is preserved via SMOKE_RERUN_PASSED=1 (force-run any certified
+ *     native fixture through the real engine), NOT by leaving a row NOT_RUN;
+ *   - no native action is NOT_RUN / MISSING_FIXTURE / BLOCKED_ENV / FAIL / BUG.
  *
- * A new native action added to the registry without a fixture (or without either
- * LIVE_PASS certification or an added-to-this-pin baseline entry) fails CI here.
+ * A new native action added to the registry without a fixture + LIVE_PASS
+ * certification fails CI here.
  */
 import { buildCertificationMatrix, type CertificationMatrixRow } from "@/scripts/chainreact/smoke/certification";
 import { listRegisteredActions } from "@/tests/smoke-actions/discovery";
@@ -30,13 +31,6 @@ const NATIVE_ACTIONS = [
   "if_then_condition",
   "router",
 ] as const;
-
-/**
- * The single intentional always-run baseline — LIVE_NOT_RUN by design (see
- * tests/fixtures/action-smoke/native/format_transformer.ts). Every OTHER native
- * action must be certified LIVE_PASS.
- */
-const BASELINE_ACTION = "format_transformer";
 
 const descriptors = () =>
   ALL_FIXTURES_FOR_INVENTORY.map((f) => ({
@@ -71,33 +65,25 @@ describe("native action smoke coverage — launch-ready pin", () => {
     expect(nativeRows().some((r) => r.status === "MISSING_FIXTURE")).toBe(false);
   });
 
-  it("every native action is LIVE_PASS except the single documented baseline", () => {
+  it("every native action is certified LIVE_PASS (zero NOT_RUN)", () => {
     for (const r of nativeRows()) {
-      if (r.action === BASELINE_ACTION) {
-        // Intentional always-run canary — uncertified on purpose.
-        expect({ action: r.action, status: r.status }).toEqual({
-          action: r.action,
-          status: "LIVE_NOT_RUN",
-        });
-      } else {
-        expect({ action: r.action, status: r.status }).toEqual({
-          action: r.action,
-          status: "LIVE_PASS",
-        });
-      }
+      expect({ action: r.action, status: r.status }).toEqual({
+        action: r.action,
+        status: "LIVE_PASS",
+      });
     }
   });
 
-  it("no native action is FAIL / BUG / BLOCKED_ENV", () => {
+  it("no native action is NOT_RUN / FAIL / BUG / BLOCKED_ENV", () => {
     for (const r of nativeRows()) {
-      expect(["FAIL", "BUG", "BLOCKED_ENV"]).not.toContain(r.status);
+      expect(["LIVE_NOT_RUN", "FAIL", "BUG", "BLOCKED_ENV"]).not.toContain(r.status);
     }
   });
 
-  it("pins the native action count + certified/baseline split", () => {
+  it("pins the native action count — all 5 LIVE_PASS", () => {
     const rows = nativeRows();
     expect(rows).toHaveLength(5);
-    expect(rows.filter((r) => r.status === "LIVE_PASS")).toHaveLength(4);
-    expect(rows.filter((r) => r.status === "LIVE_NOT_RUN")).toHaveLength(1);
+    expect(rows.filter((r) => r.status === "LIVE_PASS")).toHaveLength(5);
+    expect(rows.filter((r) => r.status === "LIVE_NOT_RUN")).toHaveLength(0);
   });
 });

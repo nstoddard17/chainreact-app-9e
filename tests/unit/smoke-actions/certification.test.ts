@@ -88,7 +88,7 @@ describe("certification lookups + planner predicate", () => {
   it("isCertifiedLivePass is true for a seeded LIVE_PASS, false otherwise", () => {
     expect(isCertifiedLivePass("airtable", "get_record")).toBe(true);
     expect(isCertifiedLivePass("microsoft-excel", "get_workbooks")).toBe(true); // verified after the workbooksList fix
-    expect(isCertifiedLivePass("native", "format_transformer")).toBe(false); // baseline, always runs
+    expect(isCertifiedLivePass("native", "format_transformer")).toBe(true); // certified 2026-07-06 (was the baseline)
     expect(isCertifiedLivePass("acme", "unknown")).toBe(false);
   });
 
@@ -96,11 +96,14 @@ describe("certification lookups + planner predicate", () => {
     expect(shouldCertifiedSkip("airtable", "get_record", false)).toBe(true);
     expect(shouldCertifiedSkip("airtable", "get_record", true)).toBe(false); // rerun sweep
     expect(shouldCertifiedSkip("microsoft-excel", "get_workbooks", false)).toBe(true); // now LIVE_PASS → skipped
-    expect(shouldCertifiedSkip("native", "format_transformer", false)).toBe(false); // baseline runs
+    expect(shouldCertifiedSkip("native", "format_transformer", false)).toBe(true); // now certified → cert-skip by default
   });
 
-  it("native baseline is intentionally NOT certified (always re-runs)", () => {
-    expect(getCertification("native", "format_transformer")).toBeUndefined();
+  it("native format_transformer is certified; its canary re-run is the SMOKE_RERUN_PASSED path", () => {
+    // Certified per Marcus 2026-07-06 — no real registered action stays uncertified
+    // for baseline purposes. It cert-skips by default and re-runs only under rerun.
+    expect(getCertification("native", "format_transformer")?.status).toBe("LIVE_PASS");
+    expect(shouldCertifiedSkip("native", "format_transformer", true)).toBe(false); // baseline canary re-run path
   });
 
   it("LIVE_PASS_CLEANED and LIVE_PASS_LEFT_ARTIFACT both count as passed (skip-by-default)", () => {

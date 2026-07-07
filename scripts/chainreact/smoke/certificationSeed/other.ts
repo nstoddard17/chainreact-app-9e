@@ -65,6 +65,13 @@ export const OTHER_CERTIFICATIONS: readonly CertificationRecord[] = [
     ["native", "router"],
     ["native", "http_request"],
   ]),
+  // native:format_transformer — was the intentional always-run baseline; certified
+  // per Marcus's 2026-07-06 decision (no real registered action stays uncertified
+  // just to serve as a canary). The baseline re-run path is now SMOKE_RERUN_PASSED=1,
+  // which force-runs any certified native fixture through the real engine.
+  ...records("LIVE_PASS", "live deterministic transform verified end-to-end via workflow-live sweep (strict resolver -> handler; markdown->html); no provider/network/credential", "2026-07-06", [
+    ["native", "format_transformer"],
+  ]),
   ...records("LIVE_PASS", "live read verified (search via SMOKE_DROPBOX_QUERY)", "2026-06-26", [
     ["dropbox", "search_files"],
   ]),

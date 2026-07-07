@@ -18,19 +18,16 @@ export default defineActionSmokeFixture({
     targetFormat: "html",
   },
   // Pure local transform — no external boundary at all, so it is trivially
-  // liveSafe and serves as the live-mode baseline (always PASSes).
+  // liveSafe and always PASSes.
   liveSafe: true,
   liveRisk: "read",
   expect: { outcome: "success" },
-  // INTENTIONALLY UNCERTIFIED (LIVE_NOT_RUN) — confirmed 2026-07-06. This is the
-  // one always-run action-smoke canary: it stays uncertified so a default `smoke
-  // actions` sweep still EXECUTES at least one real end-to-end run (strict resolver
-  // -> registered handler) with zero credentials, proving the harness + execution
-  // path itself works every sweep. Certifying it would make it skippable
-  // (shouldCertifiedSkip), removing that signal, and a replacement would mean a
-  // fake registry-only baseline action. So the design REMAINS: 4 native actions
-  // certified LIVE_PASS + this one documented always-run baseline. The
-  // native-coverage pin test allow-lists exactly this key as the baseline, so the
-  // NOT_RUN is an explicit intentional status, never a silent coverage gap.
-  notes: "Pure deterministic transform; runs anywhere with no connected provider. Intentional always-run baseline (LIVE_NOT_RUN by design; see native-coverage.test.ts).",
+  // CERTIFIED LIVE_PASS (2026-07-06). Previously the intentional always-run baseline
+  // canary, now certified per Marcus's decision: no real registered native action
+  // stays uncertified just to serve as a harness baseline. It is certified like the
+  // other 4 native actions, so a default sweep CERT-SKIPs it. The always-run canary
+  // role is preserved WITHOUT leaving it NOT_RUN: SMOKE_RERUN_PASSED=1 force-runs any
+  // certified native fixture through the real engine (strict resolver -> registered
+  // handler, zero credentials) whenever the operator wants an execution-path proof.
+  notes: "Pure deterministic transform; runs anywhere with no connected provider. Certified LIVE_PASS; re-run the real end-to-end path any time with SMOKE_RERUN_PASSED=1 (the baseline canary path).",
 });
