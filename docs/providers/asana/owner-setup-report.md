@@ -1,12 +1,12 @@
 # Asana Owner Setup Report
 
-> **ASANA-2 (2026-07-06): owner action required again.** The follow-up slice adds a NEW
-> scope (`stories:read`) + 3 triggers + 2 actions. See "ASANA-2 owner setup" at the bottom
-> for the exact console change, re-consent requirement, and deploy gate. The sections above
-> it describe the live-complete ASANA-1 state.
+> **ASANA-2 (2026-07-06): LIVE-COMPLETE.** The follow-up slice (stories:read + 3 triggers +
+> 2 actions) shipped, deployed, and passed full Phase 13 live certification the same day
+> after Marcus added the scope and reconnected. See "ASANA-2 owner setup" at the bottom for
+> the certification evidence. No owner actions remain.
 
 ## Status
-- Code status: code-complete (Slice 5.ASANA-1, first net-new V2 provider) + LIVE-verified 2026-07-04 (see "Live provider verification" below). ASANA-2 follow-up (2026-07-06): code-complete, owner setup required (see "ASANA-2 owner setup").
+- Code status: code-complete (Slice 5.ASANA-1, first net-new V2 provider) + LIVE-verified 2026-07-04 (see "Live provider verification" below). ASANA-2 follow-up (2026-07-06): LIVE-COMPLETE (see "ASANA-2 owner setup").
 - Commit: see git log for `feat(asana)` on v2-main (local, 2026-07-04); live verification + double-fire dedup fix committed 2026-07-04
 - Push status: NOTHING pushed
 - Smoke status: mocked-boundary suites green (14 suites / ~123 Asana tests); LIVE action smoke PASSED 5/5 (real provider mutations, certified in certificationSeed); LIVE trigger verification PASSED for both triggers end-to-end against production (real POST /webhooks + handshake against https://chainreact.app, real task events, production dispatch + drain, real DELETE /webhooks). One REAL bug found and fixed locally: new_task_in_project fired twice per task creation (Asana sends one task+added membership event per parent - project AND section; the timestamp-bearing dedup key kept them distinct). Dedup key is now task-scoped.
@@ -193,45 +193,35 @@ Retest artifact: one crsmoke task created in the smoke project, completed at the
 # ASANA-2 owner setup (2026-07-06)
 
 ## Status
-- Code status: code-complete owner setup required
-- Commit: local only on v2-main (see git log for `feat(asana)` ASANA-2, 2026-07-06)
-- Push status: NOTHING pushed
-- Smoke status: mocked-boundary suites green (155 Asana unit tests across 14 suites; 802 smoke-seed tests). LIVE: `list_tasks_in_project` PASSED the workflow-live sweep same-day (held tasks:read — no re-consent needed for it). `create_subtask` write smoke + all 3 new triggers await owner setup + deploy.
-- Remaining owner action: 3 steps below.
+- Code status: LIVE-COMPLETE (2026-07-06)
+- Commits: `a9c6ee55a` (slice) + `03930dfb2` (discovery-test fix) pushed to v2-main and deployed to production (chainreact.app) 2026-07-06
+- Push status: pushed with Marcus's approval (pinned pushes)
+- Smoke status: mocked-boundary suites green (155 Asana unit tests across 14 suites). LIVE (all 2026-07-06): `list_tasks_in_project` PASSED the workflow-live sweep; `create_subtask` PASSED the gated write batch (independent get_task read-back, archive cleanup); all 3 new triggers PASSED full provider-boundary live certs incl. negative cases (see below).
+- Remaining owner action: NONE.
 
 ## What ASANA-2 adds
 - Triggers: `task_completed`, `task_assigned` (both ride on already-granted scopes), `comment_added_to_task` (needs the NEW `stories:read` scope for its story post-fetch).
 - Actions: `create_subtask` (held tasks:write), `list_tasks_in_project` (held tasks:read).
 - No new env vars. No new webhook URLs (same `/api/webhooks/asana` route). No DB migrations.
 
-## Owner steps (in order)
+## Owner steps — ALL DONE 2026-07-06
 
-1. **Asana developer console** (https://app.asana.com/0/my-apps → the ChainReact app →
-   OAuth → Permission Scopes): add **`stories:read`** to the granted scope set.
-   That is the ONLY console change. (If the app is on the "Full permissions" fallback
-   toggle instead of granular scopes, nothing to change.)
-2. **Deploy**: push/deploy v2-main containing the ASANA-2 commit. The new trigger receive
-   paths and actions must exist on the deployment that receives webhook events — activating
-   a new trigger before deploy will register a webhook whose deliveries hit a route that
-   drops the events (unknown eventType quiet-ack). Scope order does not matter; deploy
-   before reconnect is the safe sequence.
-3. **Re-consent**: RECONNECT Asana from the Apps page for every connected user
-   (practically: the smoke account). Asana only attaches newly-granted scopes on a fresh
-   consent. Until re-consent, `comment_added_to_task` activates (webhooks:write is held)
-   but its story post-fetch 403s and events are dropped with a warn — the trigger will
-   look armed but never fire. `task_completed` / `task_assigned` / both new actions work
-   WITHOUT re-consent.
+1. ~~Add `stories:read` in the Asana console~~ DONE (proven live: pre-flight GET /stories/{gid} probe returned the story under the reconnected token).
+2. ~~Deploy v2-main with the ASANA-2 commit~~ DONE (`03930dfb2` deployed, aliased to chainreact.app).
+3. ~~Reconnect/re-consent Asana~~ DONE (Marcus reconnected; stories:read grant confirmed live).
 
-## Post-setup live certification (Phase 13) checklist
-- [ ] `stories:read` added in the console
-- [ ] v2-main ASANA-2 commit deployed
-- [ ] Asana reconnected on the smoke account (consent screen shows the stories read grant)
-- [ ] Live trigger cert: `task_completed` — activate, complete a task in the smoke project, exactly ONE run, plain edit fires nothing, DELETE /webhooks 404-proven
-- [ ] Live trigger cert: `task_assigned` — assign fires with the new assignee gid/name; unassign fires NOTHING; optional assignee filter narrows; cleanup proven
-- [ ] Live trigger cert: `comment_added_to_task` — comment fires with truncated text + author display name; a non-comment story (e.g. completion story) fires nothing; cleanup proven
-- [ ] Live write smoke: `create_subtask` (`npm run smoke:writes:live` scope-filtered, or the write batch) — needs `SMOKE_ASANA_TASK_ID` as the parent
-- [x] Live read smoke: `list_tasks_in_project` — PASSED 2026-07-06 via the workflow-live sweep (recorded in certificationSeed)
-- [ ] Flip the 3 trigger seed rows from NOT_RUN to LIVE_PASS and `create_subtask` to its LIVE_PASS_* status; update the matrix pins in `tests/unit/smoke-actions/certification-seed-split.test.ts`
+## Phase 13 live certification — PASSED 2026-07-06 (scripts/trash/asana2-live-trigger-smoke.ts)
+- [x] `stories:read` added in the console — proven by the live pre-flight probe
+- [x] v2-main ASANA-2 commit deployed (production receive route served all 3 new trigger paths)
+- [x] Asana reconnected on the smoke account
+- [x] `task_completed` — plain rename fired NOTHING (negative held); real completion fired EXACTLY ONE run (eventId `task_completed:<project>:<task>`, timestamp-free) to terminal 'succeeded'; DELETE /webhooks 404-proven; rows cleaned (run e22ae11b)
+- [x] `task_assigned` — real assignment fired EXACTLY ONE run carrying the post-fetched `newAssigneeGid`; UNassignment fired NOTHING (negative held); DELETE /webhooks 404-proven; rows cleaned (run 1b09268e)
+- [x] `comment_added_to_task` — real comment fired EXACTLY ONE run with `commentText` + `authorName` from the production stories:read post-fetch; completing the task (marked_complete system story) fired NOTHING (negative held); DELETE /webhooks 404-proven; rows cleaned (run 3f2cba03)
+- [x] `create_subtask` — gated write batch PASSED: execute -> independent get_task read-back (marker on taskName) -> complete_task cleanup; created 1 / cleaned 1 / remaining 0, artifact archived
+- [x] `list_tasks_in_project` — PASSED 2026-07-06 via the workflow-live sweep (recorded in certificationSeed)
+- [x] Seed rows flipped to LIVE_PASS / LIVE_PASS_LEFT_ARTIFACT; matrix pins updated (305 registered / 271 LIVE_PASS / 0 LIVE_NOT_RUN)
+
+**Cleanup accounting:** every crsmoke task created during the certs (scope probe, 3 phase tasks, write-smoke parent + subtask) was COMPLETED (archive disposition — no Asana delete action ships); all live in the designated smoke project and are harmless. All 3 webhooks deleted (each proven by a second delete reading 404). All trigger_resources rows removed. Dedup rows for the captured event ids cleaned. Smoke workflows soft-deleted.
 
 ## ASANA-2 known limitations (by design, documented)
 - `task_completed` does not re-fire if a task is un-completed and re-completed within the 7-day dedup TTL (timestamp-free task-scoped key).

@@ -244,3 +244,27 @@ any other error → propagate so the route 5xxes and Asana redelivers.
 - https://developers.asana.com/reference/createsubtask
 - https://developers.asana.com/reference/getstory
 - https://forum.asana.com/t/setting-up-get-sections-in-a-project-but-getting-an-error-for-endpoint-default/1077797
+
+### ASANA-2 live-provider event-shape review (Phase 13, 2026-07-06)
+
+Full live certs passed same day via `scripts/trash/asana2-live-trigger-smoke.ts`
+(driver pattern: local orchestration, production `NEXT_PUBLIC_APP_URL` so handshakes +
+events land on the deployed receive route; shared Supabase). Observations:
+
+- **Server-side `fields` filters honored live:** a plain rename delivered NOTHING to the
+  `fields:["completed"]` webhook (0 runs across a 75s window). No over-delivery observed.
+- **`resource_subtype` filter honored live:** completing a task (which emits a
+  `marked_complete` system story) produced NO run on the comment webhook — either Asana
+  withheld it server-side or the matcher/post-fetch dropped it; both are the designed
+  outcome and indistinguishable from outside.
+- **Unassignment gate held live:** `assignee -> null` (PUT with `assignee: null`; the API
+  rejects the typed wrapper's "" form, so unassign needs an explicit null) produced no run.
+- **`assignee: "me"` is accepted** by PUT /tasks as an assignee value; the production
+  post-fetch resolved it to the concrete user gid in `newAssigneeGid`.
+- **Dedup keys observed in production runs** (all timestamp-free as designed):
+  `task_completed:{project}:{task}`, `task_assigned:{project}:{task}:{assignee}`,
+  `comment_added_to_task:{project}:{story}`. Exactly one run per positive event; no
+  multi-parent double-fire recurrence.
+- **Handshake latency:** 1.1–2.1s per activation (3 activations), consistent with ASANA-1.
+- **stories:read** proven twice: a pre-flight `GET /stories/{gid}` probe and the comment
+  run's production post-fetch returning text + author display name.

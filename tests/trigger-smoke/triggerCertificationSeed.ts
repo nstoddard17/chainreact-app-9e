@@ -438,31 +438,39 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     note: "FULL live provider-boundary cert: real activation handshake vs production, real task rename fired EXACTLY ONE terminal 'succeeded' run via production dispatch+drain (identity matched: task/project/changeKind), real DELETE /webhooks 404-proven, trigger rows cleaned",
   },
   // ASANA-2 (2026-07-06): 3 additional project-webhook triggers sharing the
-  // ASANA-1 lifecycle (same handshake/signature/dispatch path; unit +
-  // receive-path proven). NOT_RUN until owner setup lands: the app needs the
-  // new stories:read scope added in the Asana console + user re-consent, and
-  // the deployed receive route must contain the ASANA-2 commit before a live
-  // cert can run (comment_added_to_task post-fetches GET /stories/{gid}).
+  // ASANA-1 lifecycle. FULL provider-boundary live certs same day
+  // (scripts/trash/asana2-live-trigger-smoke.ts) after owner setup landed
+  // (stories:read added in the Asana console, v2-main deployed, Asana
+  // reconnected/re-consented): real POST /webhooks + X-Hook-Secret handshake
+  // vs the deployed chainreact.app receive route, real provider events,
+  // production dispatch + drain to terminal 'succeeded', per-phase NEGATIVE
+  // cases held at 0 extra runs, real DELETE /webhooks proven gone by a
+  // second delete reading 404, trigger rows cleaned. stories:read proven
+  // live twice: a pre-flight GET /stories/{gid} probe + the comment run's
+  // production post-fetch.
   {
     provider: "asana",
     type: "task_completed",
     activation: "webhook",
-    status: "NOT_RUN",
-    note: "ASANA-2: unit + receive-path proven (post-fetch completed===true gate, task-scoped timestamp-free dedup key); live cert pending owner setup (re-consent for stories:read batch) + deploy",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "FULL live cert: plain rename fired NOTHING (fields filter + post-fetch gate), real completion fired EXACTLY ONE terminal 'succeeded' run with the timestamp-free task-scoped eventId, DELETE /webhooks 404-proven, rows cleaned",
   },
   {
     provider: "asana",
     type: "task_assigned",
     activation: "webhook",
-    status: "NOT_RUN",
-    note: "ASANA-2: unit + receive-path proven (post-fetch assignee gate, (task,assignee)-scoped timestamp-free dedup key, optional assignee filter); live cert pending owner setup + deploy",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "FULL live cert: real assignment fired EXACTLY ONE terminal 'succeeded' run carrying the post-fetched newAssigneeGid, UNassignment fired NOTHING (post-fetch gate), (task,assignee)-scoped timestamp-free eventId, DELETE /webhooks 404-proven, rows cleaned",
   },
   {
     provider: "asana",
     type: "comment_added_to_task",
     activation: "webhook",
-    status: "NOT_RUN",
-    note: "ASANA-2: unit + receive-path proven (story post-fetch via NEW stories:read scope, story-gid dedup key, comment text truncated + sensitive-marked); live cert pending owner setup (stories:read in Asana console + re-consent) + deploy",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "FULL live cert: real comment fired EXACTLY ONE terminal 'succeeded' run with commentText+authorName from the production stories:read post-fetch, completing the task (marked_complete system story) fired NOTHING, story-gid eventId, DELETE /webhooks 404-proven, rows cleaned",
   },
   // typeform:new_response_in_form — full provider-boundary live cert (Phase 13,
   // scripts/trash/typeform-live-cert.ts): REAL registerWorkflowTriggers ->
