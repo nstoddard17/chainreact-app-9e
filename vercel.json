@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/evaluate-ops-alerts",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-oauth-tokens",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

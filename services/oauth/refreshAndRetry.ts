@@ -6,7 +6,7 @@ import {
   markNeedsReconnect,
   type IntegrationRecord,
 } from "@/repositories/integrations";
-import { refresh as dispatcherRefresh } from "@/services/oauth/dispatcher";
+import { refreshWithClaim } from "@/services/oauth/refreshWithClaim";
 import { notifyReconnectNeeded } from "@/services/integrations/reconnectNotification";
 import { getCredentialResolutionContext } from "@/services/oauth/credentialResolutionContext";
 
@@ -263,9 +263,16 @@ export async function refreshAndRetry<T>(input: RefreshAndRetryInput<T>): Promis
   }
 
   // Refresh — pinned to the same connector so we refresh the SAME row the
-  // apiCall used (not a co-member's row that shares the provider).
+  // apiCall used (not a co-member's row that shares the provider). Routed
+  // through the cross-instance claim wrapper (Phase 8) so concurrent 401s on
+  // DIFFERENT serverless instances still collapse to one provider refresh —
+  // the loser reuses the winner's persisted token instead of double-refreshing
+  // (fatal for single-use rotating refresh tokens). Error classification below
+  // is unchanged: the wrapper delegates to the dispatcher and preserves its
+  // error shapes; its own claim-lost timeout surfaces as a generic (transient)
+  // refresh failure, which correctly does NOT mark reconnect-needed.
   try {
-    await dispatcherRefresh({
+    await refreshWithClaim({
       accountId: input.accountId,
       provider: input.provider,
       providerAccountId,

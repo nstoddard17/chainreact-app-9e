@@ -24,4 +24,5 @@ export const MONITORED_CRONS: readonly MonitoredCron[] = [
   { name: "check-slack-health", expectedIntervalMinutes: 360 },
   { name: "cleanup-workflow-files", expectedIntervalMinutes: 1440 },
   { name: "evaluate-ops-alerts", expectedIntervalMinutes: 5 },
+  { name: "refresh-oauth-tokens", expectedIntervalMinutes: 10 },
 ];

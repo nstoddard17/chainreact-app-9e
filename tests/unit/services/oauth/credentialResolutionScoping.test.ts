@@ -16,11 +16,19 @@ const mockDispatcherRefresh = jest.fn();
 
 jest.mock("@/repositories/integrations", () => ({
   getActiveForExecution: (...a: unknown[]) => mockGetActiveForExecution(...a),
+  getByIdForAccountServiceRole: jest.fn(),
   updateTokens: jest.fn(),
   upsertActive: jest.fn(),
 }));
 jest.mock("@/services/oauth/dispatcher", () => ({
   refresh: (...a: unknown[]) => mockDispatcherRefresh(...a),
+}));
+// Phase 8: the REAL refreshWithClaim now sits between refreshAndRetry and the
+// dispatcher — mock its claim repo so the wrapper always wins the claim and
+// the pin-scoping assertions below still exercise the real pass-through.
+jest.mock("@/repositories/integrationsRefresh", () => ({
+  claimRefresh: jest.fn().mockResolvedValue(true),
+  releaseRefreshClaim: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock("@/core/encryption/tokens", () => ({
   decryptToken: jest.fn((enc: string) => enc.replace(/^ENC-/, "")),
