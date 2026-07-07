@@ -78,6 +78,9 @@ export const OTHER_CERTIFICATIONS: readonly CertificationRecord[] = [
   ...records("LIVE_PASS", "live read verified (also the write fixtures' independent read-back seam)", "2026-07-04", [
     ["asana", "get_task"],
   ]),
+  ...records("LIVE_PASS", "ASANA-2 live read verified: one-page task list via the workflow-live sweep, terminal 'succeeded' (held tasks:read, no re-consent needed)", "2026-07-06", [
+    ["asana", "list_tasks_in_project"],
+  ]),
   ...records("LIVE_PASS_LEFT_ARTIFACT", "live write + independent get_task read-back (marker on taskName); no delete-task action, so the completed crsmoke task / comment stays in the smoke project", "2026-07-04", [
     ["asana", "create_task"],
     ["asana", "update_task"],

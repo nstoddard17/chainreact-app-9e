@@ -121,3 +121,102 @@ Asana developer app (my-apps console), redirect URIs per environment, the 8 scop
 3. Webhook 24 h failure deletion (platform behavior) - documented limitation, no renewal API exists.
 4. localhost https redirect ambiguity - local OAuth may need a tunnel.
 5. Live smoke blocked until owner provisions the developer app + a smoke workspace/project/task.
+
+---
+
+# ASANA-2 follow-up slice (2026-07-06)
+
+Additive slice per the approved scope in
+`docs/slices/phase-5/asana-typeform-catalog-audit.md`. The ASANA-1 provider is live-complete
+and unchanged in behavior; ASANA-2 adds 3 triggers + 2 actions + 1 scope.
+
+## V2 pattern audit (ASANA-2)
+
+- **Reused verbatim:** the ASANA-1 shared webhook lifecycle (`triggers/_shared/activate.ts`
+  `buildAsanaActivate`, `_shared/deactivate.ts`, X-Hook-Secret handshake persistence, the
+  single `/api/webhooks/asana` route, per-(workflow,node) strict-direct-lookup URLs, P-S2
+  per-trigger project filters, `refreshAndRetry` on every provider call, trigger folder
+  layout `triggers/<name>/{index,schema,filter,normalize,<name>.meta}.ts`).
+- **Reused from Outlook:** the receive-time post-fetch pattern
+  (`integrations/microsoft-outlook/webhooks/receive.ts` — `getActiveForExecution` on the
+  row's workflow account + `refreshAndRetry` around the enrichment read).
+- **Reused from Airtable:** the one-page-plus-cursor list action shape
+  (`listRecords` — `pageSize` capped at the provider ceiling, opaque `offset` in,
+  `nextOffset` out).
+- **Divergence (documented):** `eventMap.ts` replaced the global `classifyAsanaEvent`
+  (event → single type) with the per-row matcher `eventMatchesTriggerType(ev, rowType)` —
+  required because the three `task+changed` signatures overlap and each row's own webhook
+  defines intent. Slugs follow the audit's names (`task_completed`, `task_assigned`,
+  `comment_added_to_task`) — consistent with V2 snake_case trigger naming; no slug
+  divergence was needed.
+
+## Scope change
+
+`stories:read` added to the manifest (batched as the slice's ONLY scope addition per the
+audit's "batch scope additions into one re-consent"). Owner setup: add the scope in the
+Asana developer console, redeploy is NOT needed for the scope itself (the authorize URL
+reads manifest scopes at runtime) but IS needed to ship this commit; existing users must
+reconnect/re-consent before `comment_added_to_task` can post-fetch stories.
+
+## Triggers (3, webhook, shared lifecycle)
+
+| Trigger | Server filter | Post-fetch gate | Dedup key |
+|---|---|---|---|
+| `task_completed` | task+changed, fields:["completed"] | `GET /tasks/{gid}` → `completed === true` | `task_completed:{project}:{task}` |
+| `task_assigned` | task+changed, fields:["assignee"] | `GET /tasks/{gid}` → assignee non-null | `task_assigned:{project}:{task}:{assignee}` |
+| `comment_added_to_task` | story+added, resource_subtype:"comment_added" | `GET /stories/{gid}` (stories:read) → subtype confirmed | `comment_added_to_task:{project}:{story}` |
+
+- All keys timestamp-free (ASANA-1 live double-fire lesson). Documented re-fire
+  limitations in research.md.
+- `task_assigned` supports an optional `assigneeId` config filter (existing `asana:users`
+  option source), evaluated in its P-S2 dispatch filter against the post-fetched
+  authoritative assignee; "" = builder-cleared = no filter.
+- Payload sensitivity: `taskName`, `newAssigneeName`, `commentText`, `authorName` are
+  `sensitive: true` in the trigger metas. Comment text truncated to 4,000 chars. Author is
+  gid + display name only — never email. No raw provider payloads are spread.
+- Post-fetch failure posture: 404 / dead-credential → quiet drop (warn log, no PII);
+  unexpected errors propagate → route 5xx → Asana redelivery.
+
+## Actions (2)
+
+| Action | Endpoint | Scope | Output |
+|---|---|---|---|
+| `create_subtask` | `POST /tasks/{parent}/subtasks` | tasks:write (held) | bounded task shape + `parentTaskGid` |
+| `list_tasks_in_project` | `GET /tasks?project=` | tasks:read (held) | `{ tasks[], count, hasMore, nextOffset }` |
+
+- `create_subtask` reuses the workspace → project → task cascade for the parent picker and
+  the users picker for assignee; strict schema; "" optionals omitted from the API call.
+- `list_tasks_in_project`: one page per run, `pageSize` 1..100 (default 50), opaque Asana
+  `next_page.offset` cursor exposed as `nextOffset`; per-task fields bounded to
+  gid/name/completed/due_on/assignee gid/permalink; `taskName` + `permalinkUrl` sensitive.
+- `AsanaPage` extended with `nextOffset` (additive; pickers ignore it).
+
+## Sections decision — BLOCKED (do not build)
+
+Verified 2026-07-06 (research.md "Sections scope verification"): the sections LIST endpoint
+is not covered by ANY granular scope and no sections:read scope exists; live forum evidence
+confirms the endpoint demands the legacy `default` full-access scope. `asana:sections` +
+`add_task_to_section` stay out of the catalog until Asana ships a granular scope for it.
+The `addTask` write endpoint itself is already covered by held `tasks:write`, so when the
+list endpoint becomes scoped this unlocks with a small slice (option source + one action).
+
+## Explicitly NOT in ASANA-2 (per approved scope)
+
+delete_task, search_tasks (Premium 402), custom fields (Premium + new scopes),
+due-soon/overdue polling, portfolios/goals/status updates, attachments, create_project,
+project templates, tags, teams, standalone assign_task/set_due_date (covered by
+update_task), polling infrastructure.
+
+## Test/verification surface
+
+- `tests/unit/integrations/asana/**` — 155 tests (14 suites) covering the new matcher,
+  normalizers (payloads + dedup keys), filters (incl. assignee filter + fail-closed
+  configs), activation server-filters, receive post-fetch gates (completed=false drop,
+  unassignment drop, subtype mismatch drop, 404/dead-credential quiet drops, 5xx
+  propagation, no-integration drops), both new action handlers + strict schemas, manifest
+  scope set.
+- Fixtures: `asana/create_subtask` (write harness, get_task read-back, complete_task
+  archive cleanup), `asana/list_tasks_in_project` (read).
+- Trigger cert seed: 3 NOT_RUN rows (live cert pending owner setup + deploy).
+- Action cert seed: `list_tasks_in_project` LIVE_PASS (2026-07-06 workflow-live sweep,
+  held scope); `create_subtask` LIVE_NOT_RUN until the gated write batch runs.

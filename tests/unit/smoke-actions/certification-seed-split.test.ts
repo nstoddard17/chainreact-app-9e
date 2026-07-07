@@ -87,7 +87,8 @@ describe("certification seed split — data invariance", () => {
     // +6: github write batch — self-owned crsmoke resources (same day).
     // +6: facebook post/page batch — 5 LIVE_PASS_CLEANED + 1 BLOCKED_ENV video (same day).
     // +1: native:format_transformer certified (2026-07-06; was the always-run baseline).
-    expect(CERTIFICATIONS.length).toBe(282);
+    // +1: asana:list_tasks_in_project ASANA-2 live read (2026-07-06).
+    expect(CERTIFICATIONS.length).toBe(283);
   });
 
   it("no duplicate (provider, action) keys — later-wins shadowing is impossible", () => {
@@ -113,9 +114,15 @@ describe("certification seed split — data invariance", () => {
     // NOT_RUN baseline, now certified): 303 registered / 269 LIVE_PASS / 0 NOT_RUN /
     // 21 MISSING / 13 BLOCKED_ENV / 0 fail / 0 bug. Certification batches update
     // these pins deliberately.
-    expect(m.totals.registered).toBe(303);
-    expect(m.totals.livePass).toBe(269);
-    expect(m.totals.liveNotRun).toBe(0);
+    // ASANA-2 (2026-07-06): +2 registered (asana:create_subtask,
+    // asana:list_tasks_in_project). list_tasks_in_project passed the
+    // workflow-live sweep same-day (held tasks:read, no re-consent) ->
+    // LIVE_PASS; create_subtask (write) stays LIVE_NOT_RUN until the
+    // gated write batch runs post-owner-setup. 305 registered / 270
+    // LIVE_PASS / 1 LIVE_NOT_RUN.
+    expect(m.totals.registered).toBe(305);
+    expect(m.totals.livePass).toBe(270);
+    expect(m.totals.liveNotRun).toBe(1);
     expect(m.totals.missingFixture).toBe(21);
     expect(m.totals.blockedEnv).toBe(13);
     expect(m.totals.fail).toBe(0);

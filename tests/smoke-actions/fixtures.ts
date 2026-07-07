@@ -359,6 +359,10 @@ import asanaCreateTask from "@/tests/fixtures/action-smoke/asana/create_task";
 import asanaUpdateTask from "@/tests/fixtures/action-smoke/asana/update_task";
 import asanaCompleteTask from "@/tests/fixtures/action-smoke/asana/complete_task";
 import asanaAddCommentToTask from "@/tests/fixtures/action-smoke/asana/add_comment_to_task";
+// ASANA-2 — 1 read (list page) + 1 write (create_subtask, disposes via
+// complete_task like the ASANA-1 writes).
+import asanaListTasksInProject from "@/tests/fixtures/action-smoke/asana/list_tasks_in_project";
+import asanaCreateSubtask from "@/tests/fixtures/action-smoke/asana/create_subtask";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -459,6 +463,7 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   notionGetUser,
   notionListComments,
   asanaGetTask,
+  asanaListTasksInProject,
 ];
 
 /**
@@ -651,6 +656,7 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   asanaUpdateTask,
   asanaCompleteTask,
   asanaAddCommentToTask,
+  asanaCreateSubtask,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */

@@ -130,6 +130,13 @@ export interface AsanaPage<T> {
   items: T[];
   /** True when Asana returned a `next_page` cursor (more results exist). */
   hasMore: boolean;
+  /**
+   * Asana's opaque `next_page.offset` cursor for the following page, or
+   * null on the last page. Callers that expose pagination (ASANA-2
+   * `list_tasks_in_project`) thread it back in as the `offset` query
+   * param; pickers ignore it.
+   */
+  nextOffset: string | null;
 }
 
 /**
@@ -183,8 +190,13 @@ export async function asanaListRequest<T>(
     data?: T[];
     next_page?: { offset?: string } | null;
   };
+  const nextOffset =
+    json.next_page != null && typeof json.next_page.offset === "string"
+      ? json.next_page.offset
+      : null;
   return {
     items: Array.isArray(json.data) ? json.data : [],
     hasMore: json.next_page != null,
+    nextOffset,
   };
 }

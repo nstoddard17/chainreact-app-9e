@@ -19,6 +19,18 @@ import { asanaRequest } from "./_request";
 export interface AsanaWebhookFilter {
   resource_type: string;
   action: string;
+  /**
+   * Narrows to a resource subtype (ASANA-2: `comment_added` on story
+   * events). Part of Asana's documented WebhookFilter schema.
+   */
+  resource_subtype?: string;
+  /**
+   * For `action: "changed"` — only deliver when one of these fields
+   * changed (ASANA-2: `["completed"]` / `["assignee"]`). Part of Asana's
+   * documented WebhookFilter schema (guide example:
+   * `["due_at","due_on","dependencies"]`).
+   */
+  fields?: readonly string[];
 }
 
 export interface AsanaWebhook {

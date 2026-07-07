@@ -148,3 +148,99 @@ All under `https://app.asana.com/api/1.0`; success envelope is `{ "data": ... }`
 - https://developers.asana.com/reference/deletewebhook
 - https://forum.asana.com/t/new-oauth-permission-scopes/1048556
 - https://forum.asana.com/t/lifetime-of-refresh-token/123429
+
+---
+
+## ASANA-2 follow-up research (2026-07-06)
+
+Date researched: 2026-07-06 (chainreactv2-provider-integration-builder, ASANA-2 slice).
+Scope source: `docs/slices/phase-5/asana-typeform-catalog-audit.md`.
+
+### Sections scope verification (the audit's gating question) — BLOCKED
+
+The audit deferred sections on "does `projects:read` cover `GET /projects/{gid}/sections`?".
+Verified 2026-07-06 against https://developers.asana.com/docs/oauth-scopes:
+
+- `projects:read` endpoint list (verbatim): `GET /projects/{project_gid}/custom_field_settings`,
+  `GET /projects`, `GET /projects/{project_gid}`, `GET /tasks/{task_gid}/projects`,
+  `GET /teams/{team_gid}/projects`, `GET /workspaces/{workspace_gid}/projects`,
+  `GET /workspaces/{workspace_gid}/projects/search`, `GET /projects/{project_gid}/task_counts`.
+  **No sections endpoint.**
+- `GET /projects/{project_gid}/sections` appears in **NO** granular scope's endpoint list
+  anywhere on the page, and **no `sections:read` / `sections:write` scope exists** (full scope
+  name inventory checked).
+- The only `/sections` endpoints under any scope: `POST /sections/{section_gid}/addTask`
+  (under `tasks:write`) and `GET /sections/{section_gid}/tasks` (under `tasks:read`).
+- Live corroboration: forum thread "Setting up get sections in a project but getting an error
+  for endpoint: default" (https://forum.asana.com/t/setting-up-get-sections-in-a-project-but-getting-an-error-for-endpoint-default/1077797,
+  resolved July 2025) — calling the endpoint under granular scopes returns
+  `One of the following scopes must be present to use this endpoint: default`; the working
+  resolution was switching the app to Full permissions and removing the `scope` param.
+
+**Decision:** the sections OPTION SOURCE cannot be built under this app's granular-scope model
+(the write endpoint `addTask` is covered by held `tasks:write`, but a section picker requires
+the list endpoint, which needs the legacy `default` full-access scope). `add_task_to_section` +
+`asana:sections` are BLOCKED until Asana adds a granular scope for the sections list endpoint
+(or ChainReact deliberately switches the app to Full permissions, which is against the
+least-privilege posture). Not ambiguous anymore — verified blocked.
+
+### ASANA-2 scope changes
+
+- **`stories:read` added** (NEW). Covers `GET /stories/{story_gid}` and
+  `GET /tasks/{task_gid}/stories` (verbatim from the oauth-scopes page; also
+  `GET /goals/{goal_gid}/stories`, unused). Needed by the `comment_added_to_task`
+  receive-time post-fetch. Existing users must RE-CONSENT before the trigger can activate
+  reads (403 InsufficientScopeError until then).
+- `create_subtask` needs no new scope: `POST /tasks/{task_gid}/subtasks` is in the
+  `tasks:write` endpoint list (verified verbatim).
+- `list_tasks_in_project` needs no new scope: `GET /projects/{project_gid}/tasks` is in the
+  `tasks:read` endpoint list (verified verbatim).
+- `task_completed` / `task_assigned` post-fetch (`GET /tasks/{task_gid}`) rides on held
+  `tasks:read`.
+
+### Webhook filters (ASANA-2 trigger signatures)
+
+The WebhookFilter object supports `resource_type`, `resource_subtype`, `action`, and `fields`
+(webhooks guide example: `{"resource_type": "task", "resource_subtype": "milestone",
+"action": "changed", "fields": ["due_at", "due_on", "dependencies"]}`). ASANA-2 uses:
+
+- `task_completed`: `{resource_type: "task", action: "changed", fields: ["completed"]}`
+- `task_assigned`: `{resource_type: "task", action: "changed", fields: ["assignee"]}`
+- `comment_added_to_task`: `{resource_type: "story", action: "added", resource_subtype: "comment_added"}`
+
+### Compact events + the `change` object
+
+Webhook events remain compact (gid + action + timestamp; no field values). Field-change events
+carry a `change` object (`field`, `action`, and `new_value` / `added_value` / `removed_value`
+depending on scalar vs collection). V2 uses `change.field` only as a defense-in-depth matcher
+mirror of the server-side `fields` filter and NEVER trusts `change.new_value` for dispatch —
+the authoritative state comes from a bounded post-fetch:
+
+- `task_completed`: `GET /tasks/{gid}` must read `completed === true` or the event is dropped
+  (a merely-updated task never fires).
+- `task_assigned`: `GET /tasks/{gid}` must show a non-null assignee (unassignment never fires);
+  the post-fetched assignee is the payload's `newAssigneeGid`/`newAssigneeName`.
+- `comment_added_to_task`: `GET /stories/{story_gid}` (scope `stories:read`) supplies text
+  (truncated to 4,000 chars), author gid + display name (never email), and the target task.
+
+Post-fetch failure posture: 404 → drop quietly (resource gone between event and fetch);
+dead credential after refresh → drop with a warn (never dispatch what we can't verify);
+any other error → propagate so the route 5xxes and Asana redelivers.
+
+### ASANA-2 dedup keys (timestamp-free, per the ASANA-1 live double-fire lesson)
+
+- `task_completed:{projectGid}:{taskGid}` — one fire per task completion; documented
+  limitation: un-complete → re-complete within the 7-day dedup TTL does not re-fire.
+- `task_assigned:{projectGid}:{taskGid}:{assigneeGid}` — one fire per (task, assignee) pair;
+  a different assignee is a new key; documented limitation: A → B → A within the TTL does
+  not re-fire the second A.
+- `comment_added_to_task:{projectGid}:{storyGid}` — the story gid is a durable per-comment
+  entity id; no re-fire limitation.
+
+### Additional sources (ASANA-2)
+
+- https://developers.asana.com/docs/oauth-scopes (re-verified endpoint lists, 2026-07-06)
+- https://developers.asana.com/reference/getsectionsforproject (no scope note on page)
+- https://developers.asana.com/reference/createsubtask
+- https://developers.asana.com/reference/getstory
+- https://forum.asana.com/t/setting-up-get-sections-in-a-project-but-getting-an-error-for-endpoint-default/1077797

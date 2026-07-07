@@ -154,3 +154,94 @@ export async function tasksListForProject(
     resourceForNotFound: `project ${input.projectId} (list tasks)`,
   });
 }
+
+export interface TasksCreateSubtaskInput {
+  accessToken: string;
+  /** The parent task the subtask is created under. */
+  parentTaskGid: string;
+  name: string;
+  notes?: string;
+  /** Asana user gid to assign. Omitted → unassigned. */
+  assigneeGid?: string;
+  /** Due date `YYYY-MM-DD` (date-only per Asana's due_on). */
+  dueOn?: string;
+}
+
+/**
+ * `POST /tasks/{parent_gid}/subtasks` — ASANA-2. Covered by the held
+ * `tasks:write` scope (verified against the oauth-scopes endpoint list,
+ * 2026-07-06). Same bounded `AsanaTask` response shape as tasksCreate.
+ */
+export async function tasksCreateSubtask(
+  input: TasksCreateSubtaskInput,
+): Promise<AsanaTask> {
+  const data: Record<string, unknown> = { name: input.name };
+  if (input.notes !== undefined) data.notes = input.notes;
+  if (input.assigneeGid !== undefined) data.assignee = input.assigneeGid;
+  if (input.dueOn !== undefined) data.due_on = input.dueOn;
+
+  const query = new URLSearchParams({ opt_fields: TASK_OPT_FIELDS });
+  return asanaRequest<AsanaTask>({
+    accessToken: input.accessToken,
+    method: "POST",
+    path: `/tasks/${encodeURIComponent(input.parentTaskGid)}/subtasks`,
+    query,
+    data,
+    resourceForNotFound: `task ${input.parentTaskGid} (create subtask)`,
+  });
+}
+
+/** Bounded per-task shape for the `list_tasks_in_project` action. */
+export interface AsanaTaskListItem {
+  gid: string;
+  name: string | null;
+  completed: boolean | null;
+  due_on: string | null;
+  assignee: { gid: string; name?: string | null } | null;
+  permalink_url: string | null;
+}
+
+/** The exact opt_fields set backing `AsanaTaskListItem`. */
+const TASK_LIST_OPT_FIELDS = [
+  "name",
+  "completed",
+  "due_on",
+  "assignee.name",
+  "permalink_url",
+].join(",");
+
+export interface TasksListPageForProjectInput {
+  accessToken: string;
+  projectId: string;
+  /** Page size 1..100 (Asana's limit ceiling). */
+  limit: number;
+  /** Opaque Asana `next_page.offset` cursor from a previous page. */
+  offset?: string;
+}
+
+/**
+ * `GET /tasks?project={gid}` with cursor pagination — ASANA-2
+ * `list_tasks_in_project`. One page per call; the returned
+ * `nextOffset` feeds the next call's `offset`. Covered by the held
+ * `tasks:read` scope. Richer (but still bounded) opt_fields than the
+ * picker wrapper above.
+ */
+export async function tasksListPageForProject(
+  input: TasksListPageForProjectInput,
+): Promise<AsanaPage<AsanaTaskListItem>> {
+  const query = new URLSearchParams({
+    project: input.projectId,
+    limit: String(input.limit),
+    opt_fields: TASK_LIST_OPT_FIELDS,
+  });
+  if (input.offset !== undefined && input.offset.length > 0) {
+    query.set("offset", input.offset);
+  }
+  return asanaListRequest<AsanaTaskListItem>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: "/tasks",
+    query,
+    resourceForNotFound: `project ${input.projectId} (list tasks)`,
+  });
+}

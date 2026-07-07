@@ -22,13 +22,23 @@ import {
  *   - PKCE is OPTIONAL per Asana docs; V2 sends S256 (free hardening,
  *     mirrors Airtable's standalone PKCE shape).
  *
- * Scopes — the minimum set for the first slice (5 task actions, 2
- * project-webhook triggers, 4 option sources). Asana's granular scopes
+ * Scopes — the minimum set for ASANA-1 (5 task actions, 2 project-webhook
+ * triggers, 4 option sources) + ASANA-2 (create_subtask,
+ * list_tasks_in_project, 3 more webhook triggers). Asana's granular scopes
  * launched Apr 2025; exact names verified against
- * https://developers.asana.com/docs/oauth-scopes:
- *   - `tasks:read`      — get_task + `asana:tasks` option source.
- *   - `tasks:write`     — create_task / update_task / complete_task.
+ * https://developers.asana.com/docs/oauth-scopes (re-verified 2026-07-06):
+ *   - `tasks:read`      — get_task + list_tasks_in_project +
+ *                         `asana:tasks` option source + the ASANA-2
+ *                         task_completed / task_assigned post-fetch.
+ *   - `tasks:write`     — create_task / update_task / complete_task +
+ *                         ASANA-2 create_subtask (POST
+ *                         /tasks/{gid}/subtasks is in the tasks:write
+ *                         endpoint list).
  *   - `stories:write`   — add_comment_to_task (POST /tasks/{gid}/stories).
+ *   - `stories:read`    — ASANA-2 comment_added_to_task post-fetch
+ *                         (GET /stories/{story_gid}). NEW in ASANA-2 —
+ *                         existing users must re-consent before the
+ *                         trigger can activate.
  *   - `projects:read`   — `asana:projects` option source.
  *   - `users:read`      — `asana:users` option source + GET /users/me
  *                         identity fallback at OAuth-callback time.
@@ -38,11 +48,13 @@ import {
  *                         NOT covered by `webhooks:write` per the
  *                         reference pages.
  *
- * Deliberately EXCLUDED (no-scope-bloat): `stories:read` (no comment
- * listing shipped), `webhooks:read` (we never list webhooks),
- * `tasks:delete` (no delete action), sections scopes (sections DEFERRED —
- * the scope gating GET /projects/{gid}/sections is ambiguous in current
- * docs; see research.md "Known limitations").
+ * Deliberately EXCLUDED (no-scope-bloat): `webhooks:read` (we never list
+ * webhooks), `tasks:delete` (no delete action), sections (BLOCKED, not
+ * ambiguous — verified 2026-07-06: GET /projects/{gid}/sections appears
+ * in NO granular scope's endpoint list and no sections:read scope
+ * exists; the endpoint requires the legacy `default` full-access model,
+ * which this app does not use. See research.md "Sections scope
+ * verification").
  *
  * tokenScope: "user" — one Asana integration per user, mirrors every
  * other refreshable-OAuth personal provider (Airtable / Monday / Google).
@@ -61,8 +73,8 @@ import {
  *
  * Capabilities (honest — all real handlers land in this same slice):
  *   - `oauth: true` — code flow + refresh implemented.
- *   - `actions: true` — 5 action handlers registered.
- *   - `webhookTrigger: true` — 2 project-scoped webhook triggers with a
+ *   - `actions: true` — 7 action handlers registered.
+ *   - `webhookTrigger: true` — 5 project-scoped webhook triggers with a
  *     full activate (POST /webhooks + X-Hook-Secret handshake persistence)
  *     / deactivate (DELETE /webhooks/{gid}) lifecycle.
  *   - `pollingTrigger: false` — webhook-only; Asana webhooks are reliable
@@ -81,6 +93,7 @@ export const asanaManifest: ProviderManifest = ProviderManifestSchema.parse({
       "tasks:read",
       "tasks:write",
       "stories:write",
+      "stories:read",
       "projects:read",
       "users:read",
       "workspaces:read",

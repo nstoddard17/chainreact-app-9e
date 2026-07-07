@@ -17,10 +17,11 @@ describe("asana manifest", () => {
     expect(() => ProviderManifestSchema.parse(asanaManifest)).not.toThrow();
   });
 
-  it("declares the exact minimum scope set for the first slice", () => {
+  it("declares the exact minimum scope set (ASANA-1 + ASANA-2's stories:read)", () => {
     expect([...asanaManifest.scopes.required].sort()).toEqual(
       [
         "projects:read",
+        "stories:read",
         "stories:write",
         "tasks:read",
         "tasks:write",

@@ -330,6 +330,9 @@ import { updateTask as asanaUpdateTask } from "@/integrations/asana/actions/task
 import { completeTask as asanaCompleteTask } from "@/integrations/asana/actions/tasks/completeTask";
 import { getTask as asanaGetTask } from "@/integrations/asana/actions/tasks/getTask";
 import { addCommentToTask as asanaAddCommentToTask } from "@/integrations/asana/actions/comments/addCommentToTask";
+// ASANA-2 — subtask create + paginated project task list (held scopes).
+import { createSubtask as asanaCreateSubtask } from "@/integrations/asana/actions/tasks/createSubtask";
+import { listTasksInProject as asanaListTasksInProject } from "@/integrations/asana/actions/tasks/listTasksInProject";
 import type { ActionHandler } from "./types";
 
 /**
@@ -793,5 +796,8 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "asana", type: "complete_task", handler: asanaCompleteTask },
   { provider: "asana", type: "add_comment_to_task", handler: asanaAddCommentToTask },
   { provider: "asana", type: "get_task", handler: asanaGetTask },
+  // ASANA-2 — follow-up slice (2 actions).
+  { provider: "asana", type: "create_subtask", handler: asanaCreateSubtask },
+  { provider: "asana", type: "list_tasks_in_project", handler: asanaListTasksInProject },
 ];
 

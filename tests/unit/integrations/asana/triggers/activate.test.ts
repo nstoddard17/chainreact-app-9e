@@ -153,6 +153,49 @@ describe("buildAsanaActivate — happy path", () => {
     ]);
   });
 
+  it("ASANA-2: uses the field-scoped and subtype-scoped server filters per trigger type", async () => {
+    const cases = [
+      {
+        type: "task_completed" as const,
+        filters: [{ resource_type: "task", action: "changed", fields: ["completed"] }],
+      },
+      {
+        type: "task_assigned" as const,
+        filters: [{ resource_type: "task", action: "changed", fields: ["assignee"] }],
+      },
+      {
+        type: "comment_added_to_task" as const,
+        filters: [
+          {
+            resource_type: "story",
+            action: "added",
+            resource_subtype: "comment_added",
+          },
+        ],
+      },
+    ];
+    for (const c of cases) {
+      mockWebhooksCreate.mockResolvedValueOnce({ gid: `wh-${c.type}`, active: true });
+      mockFind.mockResolvedValueOnce({
+        id: "tr-1",
+        config: { hookSecretEncrypted: "enc(s)" },
+      });
+      await buildAsanaActivate(c.type)({
+        node: node({ projectId: "p-1" }),
+        integration: integration(),
+        workflowId: "wf-1",
+      });
+      const lastCall =
+        mockWebhooksCreate.mock.calls[mockWebhooksCreate.mock.calls.length - 1]!;
+      expect(lastCall[0].filters).toEqual(c.filters);
+      // Same per-(workflow,node) strict-direct-lookup URL and pending
+      // pre-upsert as the ASANA-1 triggers (shared lifecycle).
+      const upsertArg = mockUpsert.mock.calls[mockUpsert.mock.calls.length - 1]![0];
+      expect(upsertArg.eventType).toBe(c.type);
+      expect(upsertArg.config).toMatchObject({ handshakePending: true });
+    }
+  });
+
   it("routes the provider call through refreshAndRetry (hourly tokens)", async () => {
     mockWebhooksCreate.mockResolvedValueOnce({ gid: "wh-1", active: true });
     mockFind.mockResolvedValueOnce({

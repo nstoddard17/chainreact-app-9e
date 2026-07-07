@@ -132,15 +132,20 @@ import "./dropbox/triggers/newFile";
 // URL in the Meta App Dashboard). Both subscribe the same Page `feed` field.
 import "./facebook/triggers/newPost";
 import "./facebook/triggers/newComment";
-// Slice 5.ASANA-1 — 2 Asana project-webhook triggers. Each registers its
-// activation (POST /webhooks + X-Hook-Secret handshake persistence),
-// deactivation (DELETE /webhooks/{gid}), and P-S2 projectId dispatcher
-// filter at module load. Strict-direct-lookup via ?workflowId=&nodeId= on
-// the notification URL; events arrive at /api/webhooks/asana. Asana
-// webhooks don't expire on a schedule — no renewal/subscription-watch
-// marker (Asana deletes them itself after 24h of failed deliveries).
+// Slice 5.ASANA-1 + ASANA-2 — 5 Asana project-webhook triggers. Each
+// registers its activation (POST /webhooks + X-Hook-Secret handshake
+// persistence), deactivation (DELETE /webhooks/{gid}), and P-S2 projectId
+// dispatcher filter at module load. Strict-direct-lookup via
+// ?workflowId=&nodeId= on the notification URL; events arrive at
+// /api/webhooks/asana. Asana webhooks don't expire on a schedule — no
+// renewal/subscription-watch marker (Asana deletes them itself after 24h
+// of failed deliveries). The 3 ASANA-2 triggers add server-side field/
+// subtype filters + receive-time post-fetch gates.
 import "./asana/triggers/newTaskInProject";
 import "./asana/triggers/taskUpdatedInProject";
+import "./asana/triggers/taskCompleted";
+import "./asana/triggers/taskAssigned";
+import "./asana/triggers/commentAddedToTask";
 // Slice 5.TYPEFORM-1 — 1 Typeform form-webhook trigger. Registers its
 // activation (PUT /forms/{id}/webhooks/{tag} with a V2-minted secret —
 // no creation handshake), deactivation (DELETE …/webhooks/{tag}), and
