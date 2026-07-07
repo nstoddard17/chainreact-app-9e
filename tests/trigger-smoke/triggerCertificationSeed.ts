@@ -226,6 +226,57 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-06",
     note: "real synthetic-webhook dispatch: arm stores slack.reaction_removed, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic reaction_removed event_callback (standard emoji name + item{channel,ts}, NO message body) POSTed to the real /api/webhooks/slack route fires exactly 1 run whose trigger_event carries the eventId + reaction + item channel, durable run terminal 'succeeded', same event_id deduped (still 1), workflow+trigger_resources+dedup row cleaned (0 leaked); no real message/user, no send, metadata only",
   },
+  // slack:message.channel / message.group / message.im / message.mpim — Lane C Slack
+  // MESSAGE webhook batch (2026-07-06), same spec-driven synthetic-webhook harness
+  // (runSlackWebhookSmoke + the MESSAGE_* specs). Policy decision: synthetic signed
+  // Slack message events are acceptable for trigger-smoke when they pass through the
+  // real route — this certifies the V2 webhook ingestion path for the Slack event
+  // shape (HMAC verify → route parse → normalize → dispatch → filter → dedup →
+  // enqueue → terminal run); it does NOT claim Slack delivered the event. Unlike the
+  // metadata batch, the message events DO carry a `text` body because the trigger
+  // contract requires it (meta payloadShape lists `text`) — the text is a fully
+  // smoke-minted deterministic `crsmoke` marker string (the synthetic event_id), NO
+  // user content / PII / real message, and the fired run's identity check proves the
+  // normalizer preserved the marker verbatim. The four kinds exercise the
+  // normalizer's channel_type-authoritative kind derivation (channel/group/im/mpim →
+  // slack.message.<kind>; group = modern private channel with C-prefixed id; im/mpim
+  // use shape-faithful D…/G… ids). message.channel additionally ran a FILTERED
+  // variant live: config.channelId pinned to a regex-valid id → real filter Zod
+  // config parse + positive channel match inside real dispatch (the no-match drop
+  // stays unit-proven at the filter layer). No Slack API call, no OAuth token, no
+  // send; normalize passes the inner event through verbatim (no provider fetch).
+  {
+    provider: "slack",
+    type: "message.channel",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real synthetic-webhook dispatch: arm stores slack.message.channel, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic message event_callback (channel_type 'channel', smoke-minted crsmoke marker text — no user content) POSTed to the real /api/webhooks/slack route fires exactly 1 run whose trigger_event preserves the eventId + channel + marker text verbatim, durable run terminal 'succeeded', same event_id deduped (still 1), rows cleaned (0 leaked); ALSO live-proven with config.channelId set (real filter Zod parse + positive match in dispatch); ingestion-path cert — does not claim Slack delivered",
+  },
+  {
+    provider: "slack",
+    type: "message.group",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real synthetic-webhook dispatch: arm stores slack.message.group, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic message event_callback (channel_type 'group' — modern private channel with C-prefixed id, the Slack 2.2 authoritative branch; smoke-minted crsmoke marker text) POSTed to the real /api/webhooks/slack route fires exactly 1 run preserving eventId + channel + marker verbatim, terminal 'succeeded', same event_id deduped (still 1), rows cleaned (0 leaked); ingestion-path cert — does not claim Slack delivered",
+  },
+  {
+    provider: "slack",
+    type: "message.im",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real synthetic-webhook dispatch: arm stores slack.message.im, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic message event_callback (channel_type 'im', shape-faithful D-prefixed channel id, smoke-minted crsmoke marker text) POSTed to the real /api/webhooks/slack route fires exactly 1 run preserving eventId + channel + marker verbatim, terminal 'succeeded', same event_id deduped (still 1), rows cleaned (0 leaked); match-all default config (withUserId unset); ingestion-path cert — does not claim Slack delivered",
+  },
+  {
+    provider: "slack",
+    type: "message.mpim",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real synthetic-webhook dispatch: arm stores slack.message.mpim, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic message event_callback (channel_type 'mpim', shape-faithful G-prefixed channel id, smoke-minted crsmoke marker text) POSTed to the real /api/webhooks/slack route fires exactly 1 run preserving eventId + channel + marker verbatim, terminal 'succeeded', same event_id deduped (still 1), rows cleaned (0 leaked); ingestion-path cert — does not claim Slack delivered",
+  },
   // github:new_commit — Lane C first DIRECT-SEEDED HMAC webhook cert. LIVE-certified
   // via the GitHub webhook smoke (tests/trigger-smoke/githubWebhookSmoke.ts). HONEST
   // SCOPE: this certifies the route/dispatch path only (receive → X-Hub-Signature-256

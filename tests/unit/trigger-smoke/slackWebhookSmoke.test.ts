@@ -22,12 +22,26 @@ import {
   MEMBER_LEFT_CHANNEL_SPEC,
   REACTION_ADDED_SPEC,
   REACTION_REMOVED_SPEC,
+  MESSAGE_CHANNEL_SPEC,
+  MESSAGE_CHANNEL_FILTERED_SPEC,
+  MESSAGE_CHANNEL_FILTER_CHANNEL_ID,
+  MESSAGE_GROUP_SPEC,
+  MESSAGE_IM_SPEC,
+  MESSAGE_MPIM_SPEC,
   ALL_SLACK_WEBHOOK_SPECS,
   type SlackWebhookTriggerSpec,
   type SlackWebhookSmokeDeps,
   type SlackWebhookSmokeIdentity,
   type SlackWebhookSmokeRun,
 } from "@/tests/trigger-smoke/slackWebhookSmoke";
+import {
+  normalizeSlackEvent,
+  type SlackEventCallbackPayload,
+} from "@/integrations/slack/webhooks/normalize";
+import { newMessageChannelFilter } from "@/integrations/slack/triggers/newMessageChannel/filter";
+import { newMessagePrivateChannelFilter } from "@/integrations/slack/triggers/newMessagePrivateChannel/filter";
+import { newDirectMessageFilter } from "@/integrations/slack/triggers/newDirectMessage/filter";
+import { newGroupDirectMessageFilter } from "@/integrations/slack/triggers/newGroupDirectMessage/filter";
 
 const FAST = { afterDeliverAttempts: 1, afterDeliverSleepMs: 0, dedupSettleMs: 0 } as const;
 
@@ -226,6 +240,124 @@ describe("runSlackWebhookSmoke — happy path (both specs)", () => {
     };
     // A member_left payload must NOT satisfy the member_joined spec.
     expect(MEMBER_JOINED_CHANNEL_SPEC.identityMatches(wrong, IDENTITY)).toBe(false);
+  });
+});
+
+const MESSAGE_SPECS = [
+  MESSAGE_CHANNEL_SPEC,
+  MESSAGE_CHANNEL_FILTERED_SPEC,
+  MESSAGE_GROUP_SPEC,
+  MESSAGE_IM_SPEC,
+  MESSAGE_MPIM_SPEC,
+] as const;
+
+/** Wrap a spec's inner event in the event_callback envelope and run the REAL normalizer. */
+function normalizeSpecEvent(spec: SlackWebhookTriggerSpec, identity: SlackWebhookSmokeIdentity) {
+  const inner = spec.buildSyntheticInnerEvent(identity);
+  return normalizeSlackEvent({
+    type: "event_callback",
+    team_id: identity.teamId,
+    event_id: identity.eventId,
+    event_time: 1700000000,
+    event: inner as SlackEventCallbackPayload["event"],
+  });
+}
+
+describe("Slack message.* specs — shape, real normalizer, real filters", () => {
+  it.each(MESSAGE_SPECS.map((s) => [s.label, s] as const))(
+    "%s: the REAL normalizer derives the spec's canonical eventType and preserves the crsmoke marker text",
+    (_label, spec) => {
+      const event = normalizeSpecEvent(spec, IDENTITY);
+      expect(event.eventType).toBe(spec.eventType);
+      expect(event.eventId).toBe(IDENTITY.eventId);
+      const text = (event.payload as Record<string, unknown>).text;
+      expect(typeof text).toBe("string");
+      expect(text).toContain("crsmoke");
+      expect(text).toContain(IDENTITY.eventId);
+      // The run the route would persist satisfies the spec's identity matcher.
+      const run: SlackWebhookSmokeRun = {
+        runId: "r",
+        status: "queued",
+        triggerPayload: event.payload as Record<string, unknown>,
+        eventId: event.eventId,
+        eventType: event.eventType,
+      };
+      expect(spec.identityMatches(run, IDENTITY)).toBe(true);
+    },
+  );
+
+  it("channel kinds are shape-faithful: channel/group C…, im D…, mpim G…, channel_type authoritative", () => {
+    const chan = MESSAGE_CHANNEL_SPEC.buildSyntheticInnerEvent(IDENTITY);
+    expect(chan.channel_type).toBe("channel");
+    expect(String(chan.channel).startsWith("C")).toBe(true);
+    const group = MESSAGE_GROUP_SPEC.buildSyntheticInnerEvent(IDENTITY);
+    expect(group.channel_type).toBe("group");
+    expect(String(group.channel).startsWith("C")).toBe(true); // modern private channel
+    const im = MESSAGE_IM_SPEC.buildSyntheticInnerEvent(IDENTITY);
+    expect(im.channel_type).toBe("im");
+    expect(String(im.channel).startsWith("D")).toBe(true);
+    const mpim = MESSAGE_MPIM_SPEC.buildSyntheticInnerEvent(IDENTITY);
+    expect(mpim.channel_type).toBe("mpim");
+    expect(String(mpim.channel).startsWith("G")).toBe(true);
+  });
+
+  it("message text is smoke-minted marker only — no user content fields beyond the contract shape", () => {
+    for (const spec of MESSAGE_SPECS) {
+      const inner = spec.buildSyntheticInnerEvent(IDENTITY);
+      expect(inner.type).toBe("message");
+      expect(inner.text).toBe(`crsmoke synthetic message marker ${IDENTITY.eventId}`);
+      expect(inner.user).toBe(IDENTITY.userId);
+      // No attachments / files / blocks with real content ride along.
+      expect(inner).not.toHaveProperty("attachments");
+      expect(inner).not.toHaveProperty("files");
+    }
+  });
+
+  it("filtered spec arms a regex-valid pinned channelId and the REAL filter parses + matches it", () => {
+    const wf = MESSAGE_CHANNEL_FILTERED_SPEC.buildWorkflow();
+    const trigger = wf.definition.nodes.find((n) => n.id === wf.triggerNodeId)!;
+    expect(trigger.config).toEqual({ channelId: MESSAGE_CHANNEL_FILTER_CHANNEL_ID });
+    expect(MESSAGE_CHANNEL_FILTER_CHANNEL_ID).toMatch(/^C[A-Z0-9]+$/);
+
+    const event = normalizeSpecEvent(MESSAGE_CHANNEL_FILTERED_SPEC, IDENTITY);
+    const config = newMessageChannelFilter.parseConfig(trigger.config);
+    expect(newMessageChannelFilter.evaluate(event, config)).toEqual({ kind: "match" });
+  });
+
+  it("REAL filter drops a filtered-config event from a different channel (negative stays unit-proven)", () => {
+    const config = newMessageChannelFilter.parseConfig({
+      channelId: MESSAGE_CHANNEL_FILTER_CHANNEL_ID,
+    });
+    const event = normalizeSpecEvent(MESSAGE_CHANNEL_SPEC, IDENTITY); // channel = minted C-CRSMOKE-… id
+    const result = newMessageChannelFilter.evaluate(event, config);
+    expect(result.kind).toBe("no-match");
+  });
+
+  it("each message kind's REAL filter returns match on the empty (match-all) config", () => {
+    const pairs = [
+      [MESSAGE_CHANNEL_SPEC, newMessageChannelFilter],
+      [MESSAGE_GROUP_SPEC, newMessagePrivateChannelFilter],
+      [MESSAGE_IM_SPEC, newDirectMessageFilter],
+      [MESSAGE_MPIM_SPEC, newGroupDirectMessageFilter],
+    ] as const;
+    for (const [spec, filter] of pairs) {
+      const event = normalizeSpecEvent(spec, IDENTITY);
+      expect(filter.eventType).toBe(spec.eventType);
+      const config = filter.parseConfig({});
+      expect(filter.evaluate(event, config)).toEqual({ kind: "match" });
+    }
+  });
+
+  it("message identity fails when the persisted text lost the marker", () => {
+    const inner = MESSAGE_CHANNEL_SPEC.buildSyntheticInnerEvent(IDENTITY);
+    const run: SlackWebhookSmokeRun = {
+      runId: "r",
+      status: "queued",
+      triggerPayload: { ...inner, text: "some other text" },
+      eventId: IDENTITY.eventId,
+      eventType: MESSAGE_CHANNEL_SPEC.eventType,
+    };
+    expect(MESSAGE_CHANNEL_SPEC.identityMatches(run, IDENTITY)).toBe(false);
   });
 });
 

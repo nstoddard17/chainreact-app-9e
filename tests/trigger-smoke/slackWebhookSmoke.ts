@@ -2,7 +2,7 @@
  * Trigger-smoke harness — Slack WEBHOOK trigger dispatch path (Lane C).
  *
  * Spec-driven synthetic-webhook-receipt smoke. Certifies the full real receipt
- * path for low-risk, non-message, non-PII Slack lifecycle/metadata webhooks:
+ * path for low-risk, non-PII Slack webhooks:
  *
  *   slack:channel_created       (canonical eventType `slack.channel_created`)
  *   slack:file_shared           (canonical eventType `slack.file_shared`)
@@ -10,12 +10,27 @@
  *   slack:member_left_channel   (canonical eventType `slack.member_left_channel`)
  *   slack:reaction_added        (canonical eventType `slack.reaction_added`)
  *   slack:reaction_removed      (canonical eventType `slack.reaction_removed`)
+ *   slack:message.channel       (canonical eventType `slack.message.channel`)
+ *   slack:message.group         (canonical eventType `slack.message.group`)
+ *   slack:message.im            (canonical eventType `slack.message.im`)
+ *   slack:message.mpim          (canonical eventType `slack.message.mpim`)
  *
  * The member_* events carry ONLY channel + user id stubs; the reaction_* events
  * carry a standard emoji NAME + a message-item reference (channel + ts) with NO
  * message body/text. Every value is smoke-minted (no user content, no PII, no real
- * channel / user / message). Slack's `message.*` triggers carry message TEXT and are
- * deliberately OUT of this metadata scope (see the readiness checkpoint).
+ * channel / user / message).
+ *
+ * MESSAGE BATCH (policy decision, 2026-07-06): the `message.*` specs DO carry a
+ * message `text` field because the trigger contract requires it (the meta's
+ * payloadShape lists `text`, sensitive). The text is a fully smoke-minted
+ * deterministic `crsmoke` marker string (the synthetic event_id) — NO user
+ * content, NO PII, NO real message. The four message kinds exercise the
+ * normalizer's channel-kind derivation (`channel_type` authoritative:
+ * channel/group/im/mpim → slack.message.<kind>). One extra filtered variant of
+ * message.channel arms a config with a pinned regex-valid channelId, proving the
+ * real filter's Zod config parse + positive channel match inside real dispatch.
+ * These certify the V2 webhook ingestion path for the Slack event shape — they
+ * do NOT claim Slack delivered the event.
  *
  * WHY these triggers (Lane C candidate selection, see the readiness checkpoint
  * §13/§14):
@@ -81,6 +96,10 @@ export const SLACK_MEMBER_JOINED_CHANNEL_EVENT_TYPE = "slack.member_joined_chann
 export const SLACK_MEMBER_LEFT_CHANNEL_EVENT_TYPE = "slack.member_left_channel";
 export const SLACK_REACTION_ADDED_EVENT_TYPE = "slack.reaction_added";
 export const SLACK_REACTION_REMOVED_EVENT_TYPE = "slack.reaction_removed";
+export const SLACK_MESSAGE_CHANNEL_EVENT_TYPE = "slack.message.channel";
+export const SLACK_MESSAGE_GROUP_EVENT_TYPE = "slack.message.group";
+export const SLACK_MESSAGE_IM_EVENT_TYPE = "slack.message.im";
+export const SLACK_MESSAGE_MPIM_EVENT_TYPE = "slack.message.mpim";
 
 export interface SlackWebhookSmokeWorkflow {
   readonly definition: WorkflowDefinition;
@@ -89,10 +108,15 @@ export interface SlackWebhookSmokeWorkflow {
   readonly name: string;
 }
 
-/** Build a smoke workflow: one Slack webhook trigger (canonical type) → native no-op. */
+/**
+ * Build a smoke workflow: one Slack webhook trigger (canonical type) → native no-op.
+ * `triggerConfig` defaults to `{}` — every Slack filter treats an unset config as
+ * match-all; the filtered message.channel spec passes a pinned channelId instead.
+ */
 export function buildSlackWebhookSmokeWorkflow(
   canonicalEventType: string,
   label: string,
+  triggerConfig: Record<string, unknown> = {},
 ): SlackWebhookSmokeWorkflow {
   const definition = WorkflowDefinitionSchema.parse({
     nodes: [
@@ -101,9 +125,7 @@ export function buildSlackWebhookSmokeWorkflow(
         kind: "trigger",
         provider: "slack",
         type: canonicalEventType,
-        // Slack lifecycle filters take an empty / optional config (match-all);
-        // narrowing by channel/name is a downstream guard concern.
-        config: {},
+        config: triggerConfig,
         position: { x: 0, y: 0 },
       },
       {
@@ -342,6 +364,141 @@ export const REACTION_REMOVED_SPEC: SlackWebhookTriggerSpec = {
   },
 };
 
+/**
+ * Deterministic smoke-minted message text. Carries the `crsmoke` marker (the
+ * event_id is `Ev-crsmoke-…`) so the fired run's persisted payload proves the
+ * normalizer passed the message body through verbatim. NO user content / PII.
+ */
+function syntheticMessageText(identity: SlackWebhookSmokeIdentity): string {
+  return `crsmoke synthetic message marker ${identity.eventId}`;
+}
+
+/**
+ * The minted channelId is C-prefixed; DM / group-DM message events carry D… /
+ * G…-prefixed channel ids in real Slack payloads. Derive them deterministically
+ * so each spec's inner event is shape-faithful to its kind. `channel_type`
+ * remains the authoritative signal for the normalizer either way.
+ */
+function toImChannelId(identity: SlackWebhookSmokeIdentity): string {
+  return `D${identity.channelId.slice(1)}`;
+}
+function toMpimChannelId(identity: SlackWebhookSmokeIdentity): string {
+  return `G${identity.channelId.slice(1)}`;
+}
+
+/** Slack message ts for the synthetic message events (distinct from event_ts is not required). */
+const SYNTHETIC_MESSAGE_TS = "1700000000.000200";
+
+function buildSyntheticMessageEvent(
+  identity: SlackWebhookSmokeIdentity,
+  channelType: "channel" | "group" | "im" | "mpim",
+  channelId: string,
+): Record<string, unknown> {
+  return {
+    type: "message",
+    channel: channelId,
+    channel_type: channelType,
+    user: identity.userId,
+    text: syntheticMessageText(identity),
+    ts: SYNTHETIC_MESSAGE_TS,
+    team: identity.teamId,
+    event_ts: SYNTHETIC_EVENT_TS,
+  };
+}
+
+function messageIdentityMatches(
+  run: SlackWebhookSmokeRun,
+  identity: SlackWebhookSmokeIdentity,
+  eventType: string,
+  expectedChannelId: string,
+): boolean {
+  if (run.eventId !== identity.eventId) return false;
+  if (run.eventType !== eventType) return false;
+  const payload = run.triggerPayload;
+  if (!payload || payload.type !== "message") return false;
+  if (payload.channel !== expectedChannelId) return false;
+  // Marker proof: the trigger contract exposes `text` (meta payloadShape), so
+  // the normalized payload must preserve the smoke-minted marker verbatim.
+  return typeof payload.text === "string" && payload.text.includes(identity.eventId);
+}
+
+export const MESSAGE_CHANNEL_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:message.channel",
+  eventType: SLACK_MESSAGE_CHANNEL_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_MESSAGE_CHANNEL_EVENT_TYPE, "slack:message.channel"),
+  buildSyntheticInnerEvent: (identity) =>
+    buildSyntheticMessageEvent(identity, "channel", identity.channelId),
+  identityMatches: (run, identity) =>
+    messageIdentityMatches(run, identity, SLACK_MESSAGE_CHANNEL_EVENT_TYPE, identity.channelId),
+};
+
+/**
+ * Filtered variant: arms message.channel with `config.channelId` set to a pinned
+ * id that satisfies the filter's Zod regex (`^C[A-Z0-9]+$` — the minted
+ * `C-CRSMOKE-…` id contains hyphens, so a constant is used for BOTH the config
+ * and the inner event's channel). Proves the real filter's config parse + a
+ * positive channel match inside real dispatch. The negative (no-match drops the
+ * event) stays unit-proven at the filter layer — a live no-fire assertion would
+ * need a second parked workflow and adds no dispatch-path coverage.
+ */
+export const MESSAGE_CHANNEL_FILTER_CHANNEL_ID = "CCRSMOKEFILTER1";
+
+export const MESSAGE_CHANNEL_FILTERED_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:message.channel (channelId filter)",
+  eventType: SLACK_MESSAGE_CHANNEL_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(
+      SLACK_MESSAGE_CHANNEL_EVENT_TYPE,
+      "slack:message.channel-filtered",
+      { channelId: MESSAGE_CHANNEL_FILTER_CHANNEL_ID },
+    ),
+  buildSyntheticInnerEvent: (identity) =>
+    buildSyntheticMessageEvent(identity, "channel", MESSAGE_CHANNEL_FILTER_CHANNEL_ID),
+  identityMatches: (run, identity) =>
+    messageIdentityMatches(
+      run,
+      identity,
+      SLACK_MESSAGE_CHANNEL_EVENT_TYPE,
+      MESSAGE_CHANNEL_FILTER_CHANNEL_ID,
+    ),
+};
+
+export const MESSAGE_GROUP_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:message.group",
+  eventType: SLACK_MESSAGE_GROUP_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_MESSAGE_GROUP_EVENT_TYPE, "slack:message.group"),
+  // Modern private channel: channel_type "group" (authoritative) with a C… id —
+  // the exact shape the Slack 2.2 tightening resolves via the authoritative branch.
+  buildSyntheticInnerEvent: (identity) =>
+    buildSyntheticMessageEvent(identity, "group", identity.channelId),
+  identityMatches: (run, identity) =>
+    messageIdentityMatches(run, identity, SLACK_MESSAGE_GROUP_EVENT_TYPE, identity.channelId),
+};
+
+export const MESSAGE_IM_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:message.im",
+  eventType: SLACK_MESSAGE_IM_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_MESSAGE_IM_EVENT_TYPE, "slack:message.im"),
+  buildSyntheticInnerEvent: (identity) =>
+    buildSyntheticMessageEvent(identity, "im", toImChannelId(identity)),
+  identityMatches: (run, identity) =>
+    messageIdentityMatches(run, identity, SLACK_MESSAGE_IM_EVENT_TYPE, toImChannelId(identity)),
+};
+
+export const MESSAGE_MPIM_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:message.mpim",
+  eventType: SLACK_MESSAGE_MPIM_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_MESSAGE_MPIM_EVENT_TYPE, "slack:message.mpim"),
+  buildSyntheticInnerEvent: (identity) =>
+    buildSyntheticMessageEvent(identity, "mpim", toMpimChannelId(identity)),
+  identityMatches: (run, identity) =>
+    messageIdentityMatches(run, identity, SLACK_MESSAGE_MPIM_EVENT_TYPE, toMpimChannelId(identity)),
+};
+
 export const ALL_SLACK_WEBHOOK_SPECS: readonly SlackWebhookTriggerSpec[] = [
   CHANNEL_CREATED_SPEC,
   FILE_SHARED_SPEC,
@@ -349,6 +506,11 @@ export const ALL_SLACK_WEBHOOK_SPECS: readonly SlackWebhookTriggerSpec[] = [
   MEMBER_LEFT_CHANNEL_SPEC,
   REACTION_ADDED_SPEC,
   REACTION_REMOVED_SPEC,
+  MESSAGE_CHANNEL_SPEC,
+  MESSAGE_CHANNEL_FILTERED_SPEC,
+  MESSAGE_GROUP_SPEC,
+  MESSAGE_IM_SPEC,
+  MESSAGE_MPIM_SPEC,
 ];
 
 export interface SlackWebhookSmokeDeps {

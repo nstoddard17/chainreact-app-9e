@@ -3,9 +3,10 @@
  *
  * Trigger-smoke — Slack webhook LIVE dispatch proof (real dev DB), spec-driven.
  *
- * One `it` per registered safe Slack webhook spec (slack:channel_created,
- * slack:file_shared), each driving the REAL receipt path with a fully synthetic,
- * signed payload (no real channel/file, no provider call):
+ * One `it` per registered Slack webhook spec (ALL_SLACK_WEBHOOK_SPECS: the
+ * lifecycle/metadata batch + the message.* batch incl. one filtered variant),
+ * each driving the REAL receipt path with a fully synthetic, signed payload
+ * (no real channel/file/message, no provider call):
  *   create active {slack trigger → native no-op} workflow
  *     → arm via the real registerWorkflowTriggers (pure trigger_resources upsert;
  *       Slack needs no provider-side subscription / no integration)
