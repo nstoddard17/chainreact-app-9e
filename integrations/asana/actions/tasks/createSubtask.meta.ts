@@ -126,5 +126,5 @@ export const asanaCreateSubtaskMeta: ActionMeta = {
   displayOrder: 60,
   isDestructive: false,
   requiresConfirmation: false,
-  riskLevel: "low",
+  riskLevel: "medium",
 };

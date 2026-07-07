@@ -1,10 +1,10 @@
 /**
  * @jest-environment node
  *
- * Discovery-surface tests for Asana — Slice 5.ASANA-1.
+ * Discovery-surface tests for Asana — Slice 5.ASANA-1 + ASANA-2.
  *
  * Asserts the builder/AI-visible catalog is complete + consistent:
- * 5 action metas, 2 trigger metas, key format, options-source wiring
+ * 7 action metas, 5 trigger metas, key format, options-source wiring
  * against the real resolver registry, activation/deactivation hook
  * registration, and the sensitive/risk posture of the outputs.
  */
@@ -30,15 +30,33 @@ const ACTION_KEYS = [
   "asana:complete_task",
   "asana:add_comment_to_task",
   "asana:get_task",
+  // ASANA-2
+  "asana:create_subtask",
+  "asana:list_tasks_in_project",
 ] as const;
 
+const READ_ACTION_KEYS: readonly string[] = [
+  "asana:get_task",
+  "asana:list_tasks_in_project",
+];
+
 const TRIGGER_KEYS = [
+  "asana:new_task_in_project",
+  "asana:task_updated_in_project",
+  // ASANA-2
+  "asana:task_completed",
+  "asana:task_assigned",
+  "asana:comment_added_to_task",
+] as const;
+
+/** The 2 ASANA-1 triggers whose payloads are compact gid-only contracts. */
+const COMPACT_TRIGGER_KEYS = [
   "asana:new_task_in_project",
   "asana:task_updated_in_project",
 ] as const;
 
 describe("asana action discovery", () => {
-  it("registers exactly the 5 first-slice action metas", () => {
+  it("registers exactly the 7 ASANA-1 + ASANA-2 action metas", () => {
     const metas = listActionMetasForProvider("asana");
     expect(metas.map((m) => m.key).sort()).toEqual([...ACTION_KEYS].sort());
   });
@@ -72,19 +90,34 @@ describe("asana action discovery", () => {
     expect(byName.get("taskGid")?.sensitive).toBeUndefined();
   });
 
-  it("write actions are medium-risk, get_task is low, nothing destructive", () => {
+  it("ASANA-2 metas keep the sensitive posture (subtask name/link; per-task list fields)", () => {
+    const subtask = getActionMeta("asana:create_subtask")!;
+    const subByName = new Map(subtask.outputs.map((o) => [o.name, o]));
+    expect(subByName.get("taskName")?.sensitive).toBe(true);
+    expect(subByName.get("permalinkUrl")?.sensitive).toBe(true);
+    expect(subByName.get("parentTaskGid")?.sensitive).toBeUndefined();
+
+    const list = getActionMeta("asana:list_tasks_in_project")!;
+    const tasksOut = list.outputs.find((o) => o.name === "tasks")!;
+    const itemByName = new Map((tasksOut.fields ?? []).map((o) => [o.name, o]));
+    expect(itemByName.get("taskName")?.sensitive).toBe(true);
+    expect(itemByName.get("permalinkUrl")?.sensitive).toBe(true);
+    expect(itemByName.get("taskGid")?.sensitive).toBeUndefined();
+  });
+
+  it("write actions are medium-risk, reads are low, nothing destructive", () => {
     for (const key of ACTION_KEYS) {
       const meta = getActionMeta(key)!;
       expect(meta.isDestructive).toBe(false);
       expect(meta.requiresConfirmation).toBe(false);
-      expect(meta.riskLevel).toBe(key === "asana:get_task" ? "low" : "medium");
+      expect(meta.riskLevel).toBe(READ_ACTION_KEYS.includes(key) ? "low" : "medium");
       expect(meta.requiresIntegration).toBe(true);
     }
   });
 });
 
 describe("asana trigger discovery", () => {
-  it("registers exactly the 2 project-webhook trigger metas", () => {
+  it("registers exactly the 5 project-webhook trigger metas", () => {
     const metas = listTriggerMetasForProvider("asana");
     expect(metas.map((m) => m.key).sort()).toEqual([...TRIGGER_KEYS].sort());
     for (const meta of metas) {
@@ -93,7 +126,7 @@ describe("asana trigger discovery", () => {
     }
   });
 
-  it("both triggers have activation + deactivation hooks + a P-S2 project filter registered", () => {
+  it("all 5 triggers have activation + deactivation hooks + a P-S2 project filter registered", () => {
     for (const key of TRIGGER_KEYS) {
       const [provider, type] = key.split(":") as [string, string];
       expect(findActivation(provider, type)).not.toBeNull();
@@ -102,8 +135,8 @@ describe("asana trigger discovery", () => {
     }
   });
 
-  it("payload shapes are compact gid-only contracts (no free-form content fields)", () => {
-    for (const key of TRIGGER_KEYS) {
+  it("ASANA-1 payload shapes are compact gid-only contracts (no free-form content fields)", () => {
+    for (const key of COMPACT_TRIGGER_KEYS) {
       const meta = getTriggerMeta(key)!;
       const names = meta.payloadShape.map((p) => p.name).sort();
       expect(names).toEqual(
@@ -122,6 +155,25 @@ describe("asana trigger discovery", () => {
     }
   });
 
+  it("ASANA-2 enriched payloads mark user content + person names sensitive", () => {
+    const completed = getTriggerMeta("asana:task_completed")!;
+    const completedByName = new Map(completed.payloadShape.map((p) => [p.name, p]));
+    expect(completedByName.get("taskName")?.sensitive).toBe(true);
+    expect(completedByName.get("taskGid")?.sensitive).toBeUndefined();
+
+    const assigned = getTriggerMeta("asana:task_assigned")!;
+    const assignedByName = new Map(assigned.payloadShape.map((p) => [p.name, p]));
+    expect(assignedByName.get("taskName")?.sensitive).toBe(true);
+    expect(assignedByName.get("newAssigneeName")?.sensitive).toBe(true);
+    expect(assignedByName.get("newAssigneeGid")?.sensitive).toBeUndefined();
+
+    const comment = getTriggerMeta("asana:comment_added_to_task")!;
+    const commentByName = new Map(comment.payloadShape.map((p) => [p.name, p]));
+    expect(commentByName.get("commentText")?.sensitive).toBe(true);
+    expect(commentByName.get("authorName")?.sensitive).toBe(true);
+    expect(commentByName.get("storyGid")?.sensitive).toBeUndefined();
+  });
+
   it("trigger config fields cascade workspace → project via real resolvers", () => {
     for (const key of TRIGGER_KEYS) {
       const meta = getTriggerMeta(key)!;
@@ -130,5 +182,13 @@ describe("asana trigger discovery", () => {
       expect(project.optionsSource).toBe("asana:projects");
       expect(getOptionsResolver("asana:projects")).toBeDefined();
     }
+  });
+
+  it("task_assigned's optional assignee filter uses the real users resolver", () => {
+    const meta = getTriggerMeta("asana:task_assigned")!;
+    const assignee = meta.fields.find((f) => f.name === "assigneeId")!;
+    expect(assignee.required).toBe(false);
+    expect(assignee.optionsSource).toBe("asana:users");
+    expect(getOptionsResolver("asana:users")).toBeDefined();
   });
 });
