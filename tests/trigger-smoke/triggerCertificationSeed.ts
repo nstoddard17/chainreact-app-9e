@@ -509,4 +509,65 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-05",
     note: "FULL live provider-boundary cert: 3 real cancellations (true cancel with cancellation{canceledBy,reason,cancelerType}; reschedule's canceled half rescheduled=true + newInviteeId set; cleanup cancel) each fired EXACTLY ONE terminal 'succeeded' run via production signature-verify+dispatch+drain; real DELETE 404-proven, rows+dedup cleaned",
   },
+  // Consolidated-webhook batch (2026-07-06) — stripe / shopify / hubspot /
+  // mailchimp on the NEW generic direct-seed orchestrator
+  // (tests/trigger-smoke/directSeedWebhookSmoke.ts + per-provider specs/deps).
+  // Same honest scope as github:new_commit: V2 INGESTION-PATH certs via
+  // DIRECT-SEED (no provider API call, no real subscription, NOT provider
+  // activation, no claim the provider delivered). All payloads fully
+  // smoke-minted crsmoke markers; unit tests additionally cross-check every
+  // synthetic body against the provider's REAL signature verifier, REAL
+  // normalizer, and REAL allowlist.
+  {
+    provider: "stripe",
+    type: "event_received",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED (NOT activation): seed trigger_resources event_type event_received + config{endpointSecret} (SMOKE-MINTED whsec — Stripe's per-row secret model, no env secret), baseline 0, a t=,v1= signed synthetic allowlisted checkout.session.completed (smoke-minted evt_crsmoke/cs_crsmoke ids, no PII/amounts) POSTed to the real /api/webhooks/stripe?workflowId&nodeId route (verify vs seeded secret->allowlist->normalize->dispatchTriggerEvent->enqueue) fires exactly 1 run whose trigger_event carries the evt id + stripeEventType + session-id marker, durable run terminal 'succeeded', same evt id deduped (still 1), rows cleaned (0 leaked); no Stripe API, no real endpoint. Provider-side endpoint activation NOT certified.",
+  },
+  {
+    provider: "shopify",
+    type: "webhook_received",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED (NOT activation): seed trigger_resources event_type webhook_received + config{topics:[orders/create]}, baseline 0, a SHOPIFY_CLIENT_SECRET-signed (X-Shopify-Hmac-SHA256 base64 over raw body) synthetic orders/create snapshot (smoke-minted shop domain/order id/crsmoke order name, test:true, no customer PII/line items) POSTed to the real /api/webhooks/shopify?workflowId&nodeId route (verify->per-row topic allowlist->normalize->dispatchTriggerEvent->enqueue) fires exactly 1 run whose trigger_event keys on the X-Shopify-Webhook-Id + topic + verbatim body markers, durable run terminal 'succeeded', same webhook id deduped (still 1), rows cleaned (0 leaked); no Shopify API, no real webhook/shop. Provider-side webhook activation NOT certified.",
+  },
+  {
+    provider: "hubspot",
+    type: "webhook_received",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED (NOT activation): seed hubspot_app_subscriptions (REAL env HUBSPOT_APP_ID + contact.creation, smoke-minted hubspotSubscriptionId; reused-not-deleted if pre-existing) + hubspot_subscription_refs (smoke-minted portal id -> workflow node), baseline 0, a HUBSPOT_CLIENT_SECRET-signed (V3 canonical string method+uri+body+timestamp, base64 HMAC, canonical URI mirrors the route's env resolution) synthetic one-event array (crsmoke event/portal/object ids, no contact properties/PII) POSTed to the real /api/webhooks/hubspot route (verify->app-sub+ref routing->ROUTE-LEVEL dedup markSeen->per-ref enqueueRun; NOTE: HubSpot's shared-subscription model bypasses dispatchTriggerEvent by design) fires exactly 1 run whose trigger_event carries the eventId + subscriptionType + portal + object-id marker, durable run terminal 'succeeded', same eventId deduped (still 1), ref row + created app-sub row + workflow + dedup row cleaned (0 leaked); no HubSpot API. Provider-side subscription activation NOT certified.",
+  },
+  {
+    provider: "mailchimp",
+    type: "audience_event",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED (NOT activation): seed trigger_resources event_type audience_event + config{audienceId,eventTypes:[subscribe]} + smoke providerAccountId, baseline 0, an UNSIGNED (Mailchimp has NO signature scheme — the production authenticity model IS URL secrecy + audience gate + allowlist + sha256(rawBody) dedup) synthetic form-encoded subscribe event (crsmoke audience id + crsmoke-…@example.invalid email, reserved TLD, no real subscriber) POSTed to the real /api/webhooks/mailchimp?workflowId&nodeId route (parse->audience gate->event-type allowlist->normalize->dispatchTriggerEvent->content-hash dedup->enqueue) fires exactly 1 run whose trigger_event keys on sha256(rawBody) + preserves the email/subscriber-hash markers, durable run terminal 'succeeded', re-send of the IDENTICAL bytes deduped (still 1), rows cleaned (0 leaked); no Mailchimp API, no real webhook/audience. Provider-side webhook activation NOT certified.",
+  },
+  // airtable:record_changed — BLOCKED for direct-seed certification, probe-read
+  // 2026-07-06 (integrations/airtable/webhooks/receive.ts + triggers/
+  // recordChanged/pull.ts). Airtable's webhook ping carries NO record data
+  // ({base:{id},webhook:{id},timestamp} only); after MAC verification the
+  // receive path MUST pull actual changes from the Airtable API
+  // (webhooksListPayloads via refreshAndRetry), which requires an ACTIVE
+  // connected Airtable integration (getActiveForExecution) + a real Airtable
+  // webhook payload feed + cursor state. Without those, a synthetic signed
+  // ping yields zero events by design (no integration -> empty pull) — there
+  // is nothing to certify without faking the provider fetch, which would NOT
+  // be the real path. Certification requires a Phase-13-style live cert with
+  // a connected Airtable account (real webhook, real record change, real
+  // payload pull).
+  {
+    provider: "airtable",
+    type: "record_changed",
+    activation: "webhook",
+    status: "MISSING_HARNESS",
+    note: "BLOCKED for direct-seed: Airtable pings are notification-only (no record data); receive->pull requires a live connected Airtable integration + real webhooksListPayloads fetch + cursor state that cannot be honestly seeded. Needs a Phase-13-style live cert (real OAuth, real webhook, real record change). MAC verify layer itself is unit-tested in the receive-path suites.",
+  },
 ];
