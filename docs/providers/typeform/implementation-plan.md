@@ -114,3 +114,61 @@ shapes are invented beyond the documented envelope.
 None for code-complete. Live certification (Phase 13) blocked on owner
 setup: developer app + env vars + a Typeform account with at least one
 form. The `event_types` PUT-body ambiguity is verified at that point.
+
+---
+
+# TYPEFORM-2 addendum (2026-07-06) — approved follow-up slice
+
+Product scope source: `docs/slices/phase-5/asana-typeform-catalog-audit.md`
+(approved by Marcus). Additive only; the shipped TYPEFORM-1 trigger and
+option source are unchanged.
+
+## Scope
+
+- **Actions:** `typeform:list_responses`, `typeform:get_response`
+  (`GET /forms/{form_id}/responses`; the get is honestly
+  `included_response_ids` + `page_size=1` — Typeform has no dedicated
+  GET-one endpoint).
+- **Triggers:** none (explicitly excluded: partial-response trigger,
+  polling response trigger).
+- **Option sources:** none new (`typeform:forms` reused for both
+  formId pickers; a response-token picker was deliberately skipped —
+  it would list PII-bearing tokens for little value; the token is
+  mapped from `{{trigger.responseToken}}` or a prior list run).
+- **New scope:** `responses:read` (re-consent required for existing
+  connections). NOT added: `responses:write`, `forms:write`,
+  `webhooks:read`, `workspaces:read`.
+- **UX polish:** static draft-form hint appended to the `formId` field
+  descriptions (trigger + both actions): "Draft or unpublished forms may
+  appear here but will not receive responses until published in
+  Typeform." No data-driven filtering — the API exposes no reliable
+  draft/published flag.
+
+## Behavior decisions
+
+- Completed responses only (API `response_type` default; never sent).
+- One bounded page per run, `pageSize` 1..100 (default 25), newest
+  first; `nextBefore` cursor (last item's token when the page is full,
+  else null; an exact-multiple collection may yield one final empty
+  page — documented, harmless).
+- Filters: `since` / `until` (datetime-utc), `query` (server-side
+  search). `sort` never sent (cursor incompatibility).
+- Bounded projection per response: `responseToken, submittedAt,
+  landedAt, answers[{fieldId, fieldRef, fieldType, answerType, value}],
+  hidden, score`. `metadata` (respondent fingerprint), `variables`,
+  `response_url`, and unknown provider keys are dropped at the wrapper.
+  `answers` + `hidden` marked sensitive in the metas (same posture as
+  the trigger payloadShape).
+- `get_response` not-found -> `{found: false, ...nulls}` (Stripe find_*
+  precedent); a bad formId still surfaces as a provider error.
+
+## Owner setup (blocking Phase 13)
+
+No Typeform developer-app setting changes: registered apps carry no
+per-app scope allowlist (research.md, Applications section) — scopes are
+requested at authorize time from V2's manifest. The manifest ships in
+this commit, so production must be REDEPLOYED with it before a reconnect
+will request `responses:read`. Then reconnect the smoke/production
+Typeform connections (re-consent) and set
+`SMOKE_TYPEFORM_RESPONSE_TOKEN` for the get_response live cert. Details
+in owner-setup-report.md.

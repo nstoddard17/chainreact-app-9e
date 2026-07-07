@@ -37,26 +37,16 @@ import type { TriggerEvent } from "@/contracts/triggerEvent";
  * `sensitive: true` in the trigger meta's payloadShape.
  */
 
-interface TypeformAnswerField {
-  id?: string;
-  ref?: string;
-  type?: string;
-}
+// Answer union + value extraction moved to the shared module in TYPEFORM-2
+// so the Responses API wrapper (list_responses / get_response) flattens
+// answers identically. Re-exported to preserve this module's public type
+// surface for existing consumers/tests.
+import {
+  extractAnswerValue,
+  type TypeformAnswer,
+} from "@/integrations/_shared/typeform/answers";
 
-export interface TypeformAnswer {
-  type?: string;
-  field?: TypeformAnswerField;
-  text?: string;
-  email?: string;
-  url?: string;
-  date?: string;
-  file_url?: string;
-  phone_number?: string;
-  number?: number;
-  boolean?: boolean;
-  choice?: { id?: string; label?: string; other?: string; ref?: string };
-  choices?: { ids?: string[]; labels?: string[]; refs?: string[]; other?: string };
-}
+export type { TypeformAnswer } from "@/integrations/_shared/typeform/answers";
 
 export interface TypeformFormResponsePayload {
   form_id?: string;
@@ -86,42 +76,6 @@ export interface NormalizedTypeformAnswer {
   fieldType: string | null;
   answerType: string | null;
   value: string | number | boolean | null;
-}
-
-/** Extract the documented primitive value for one answer entry. */
-function extractAnswerValue(answer: TypeformAnswer): string | number | boolean | null {
-  switch (answer.type) {
-    case "text":
-      return answer.text ?? null;
-    case "email":
-      return answer.email ?? null;
-    case "url":
-      return answer.url ?? null;
-    case "date":
-      return answer.date ?? null;
-    case "file_url":
-      return answer.file_url ?? null;
-    case "phone_number":
-      return answer.phone_number ?? null;
-    case "number":
-      return typeof answer.number === "number" ? answer.number : null;
-    case "boolean":
-      return typeof answer.boolean === "boolean" ? answer.boolean : null;
-    case "choice":
-      return answer.choice?.label ?? answer.choice?.other ?? null;
-    case "choices": {
-      const labels = Array.isArray(answer.choices?.labels)
-        ? answer.choices.labels.filter((l): l is string => typeof l === "string")
-        : [];
-      const other = answer.choices?.other;
-      const all = typeof other === "string" && other.length > 0 ? [...labels, other] : labels;
-      return all.length > 0 ? all.join(", ") : null;
-    }
-    default:
-      // Unknown/complex types (payment, …) — keep the answerType, never
-      // spread raw provider structure.
-      return null;
-  }
 }
 
 export function normalizeNewResponseInForm(

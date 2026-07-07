@@ -196,10 +196,13 @@ describeLive("action smoke: LIVE-connected workflow mode (real dev DB + provider
         expect(send?.outcome).toBe("skip");
       }
 
-      // The destructive fixture is never liveSafe (and never LIVE_PASS) → always
-      // skipped here, regardless of the planner.
+      // The destructive fixture lives in WRITE_SMOKE_FIXTURES (write-harness
+      // only) — it is never part of ALL_SMOKE_FIXTURES, so this read runner
+      // must not surface it at all. (Assertion updated 2026-07-06: the fixture
+      // moved to the write list; the old `outcome === "skip"` expectation was
+      // stale and only unexercised because recent sweeps ran provider-filtered.)
       const del = report.results.find((r) => r.action === "delete_message");
-      expect(del?.outcome).toBe("skip");
+      expect(del).toBeUndefined();
     }
   }, 600_000);
 });

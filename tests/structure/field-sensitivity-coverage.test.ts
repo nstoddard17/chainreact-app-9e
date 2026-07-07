@@ -64,6 +64,10 @@ const HEURISTIC_FALSE_POSITIVES: Record<string, readonly string[]> = {
   "google-calendar:list_events": ["pageToken"],
   "google-drive:list_files": ["pageToken"],
   "google-drive:search_files": ["pageToken"],
+  // `responseToken` — Typeform's RESPONSE ID (the trigger's dedup token, mapped from
+  // `{{trigger.responseToken}}`); matches the `token` secret substring but holds no
+  // credential material (TYPEFORM-2).
+  "typeform:get_response": ["responseToken"],
   // `address` — an Excel A1 cell range ("A1:C10"), not an email/destination address. The
   // "address" token incidentally matches the recipient heuristic.
   "microsoft-excel:read_range": ["address"],

@@ -363,6 +363,10 @@ import asanaAddCommentToTask from "@/tests/fixtures/action-smoke/asana/add_comme
 // complete_task like the ASANA-1 writes).
 import asanaListTasksInProject from "@/tests/fixtures/action-smoke/asana/list_tasks_in_project";
 import asanaCreateSubtask from "@/tests/fixtures/action-smoke/asana/create_subtask";
+// TYPEFORM-2 — 2 reads (first Typeform actions; responses:read scope, so
+// live smoke needs a post-owner-setup reconnect on the smoke account).
+import typeformListResponses from "@/tests/fixtures/action-smoke/typeform/list_responses";
+import typeformGetResponse from "@/tests/fixtures/action-smoke/typeform/get_response";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -464,6 +468,8 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   notionListComments,
   asanaGetTask,
   asanaListTasksInProject,
+  typeformListResponses,
+  typeformGetResponse,
 ];
 
 /**

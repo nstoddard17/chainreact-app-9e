@@ -21,22 +21,27 @@ import {
  *     refresh (documented — the old refresh token is invalidated), so
  *     oauth.ts persists the rotated token each time.
  *
- * Scopes — minimum set for this slice (1 webhook trigger + 1 option
- * source; ZERO actions). Names verified against
+ * Scopes — minimum set for the shipped surface (1 webhook trigger,
+ * 1 option source, 2 read actions). Names verified against
  * https://www.typeform.com/developers/get-started/scopes/:
- *   - `accounts:read`  — GET /me connect-time identity (Typeform's token
- *                        response embeds no identity object).
- *   - `forms:read`     — `typeform:forms` option source (GET /forms).
- *   - `webhooks:write` — trigger activation (PUT /forms/{id}/webhooks/{tag})
- *                        AND deactivation (DELETE …) — the scopes page
- *                        lists create/update/delete under webhooks:write.
- *   - `offline`        — refresh-token issuance; without it the 1-week
- *                        access token strands the connection.
+ *   - `accounts:read`   — GET /me connect-time identity (Typeform's token
+ *                         response embeds no identity object).
+ *   - `forms:read`      — `typeform:forms` option source (GET /forms).
+ *   - `webhooks:write`  — trigger activation (PUT /forms/{id}/webhooks/{tag})
+ *                         AND deactivation (DELETE …) — the scopes page
+ *                         lists create/update/delete under webhooks:write.
+ *   - `responses:read`  — TYPEFORM-2: `list_responses` / `get_response`
+ *                         read actions (GET /forms/{id}/responses).
+ *                         Existing connections lack this grant — a 403 on
+ *                         the new actions maps to InsufficientScopeError
+ *                         (re-consent), so users reconnect once.
+ *   - `offline`         — refresh-token issuance; without it the 1-week
+ *                         access token strands the connection.
  *
  * Deliberately EXCLUDED (no-scope-bloat): `webhooks:read` (we never list
- * webhooks), `responses:read` (the webhook payload carries the full
- * response; no Responses API call ships), `forms:write` / `themes:*` /
- * `images:*` / `workspaces:*` / `responses:write` (out of slice scope).
+ * webhooks), `forms:write` / `themes:*` / `images:*` / `workspaces:*` /
+ * `responses:write` (out of scope; response delete is destructive and
+ * rejected by the catalog audit).
  *
  * tokenScope: "user" — one Typeform integration per user; credential
  * class is PERSONAL (core/integrations/credentialSharing.ts): the token
@@ -53,11 +58,11 @@ import {
  *
  * Capabilities (honest — nothing "coming soon"):
  *   - `oauth: true` — code flow + rotating refresh implemented.
- *   - `actions: false` — ZERO action handlers ship in this slice; the
- *     `form_response` webhook payload is self-contained so no read
- *     action is needed. First V2 provider with an actions-less first
- *     slice; `typeform` joins COVERED_PROVIDERS (discovery-meta-coverage)
- *     only when the first action ships.
+ *   - `actions: true` — TYPEFORM-2 ships the 2 read actions
+ *     (`list_responses`, `get_response`); `typeform` joined
+ *     COVERED_PROVIDERS (discovery-meta-coverage) in the same slice.
+ *     TYPEFORM-1 deliberately shipped zero actions (the `form_response`
+ *     webhook payload is self-contained).
  *   - `webhookTrigger: true` — 1 per-form webhook trigger with a full
  *     activate (PUT with caller-minted secret) / deactivate (DELETE)
  *     lifecycle.
@@ -73,7 +78,13 @@ export const typeformManifest: ProviderManifest = ProviderManifestSchema.parse({
   oauthFlows: ["v2"],
   accountIdField: "email",
   scopes: {
-    required: ["accounts:read", "forms:read", "webhooks:write", "offline"],
+    required: [
+      "accounts:read",
+      "forms:read",
+      "responses:read",
+      "webhooks:write",
+      "offline",
+    ],
     optional: [],
     deprecated: [],
   },
@@ -81,7 +92,7 @@ export const typeformManifest: ProviderManifest = ProviderManifestSchema.parse({
     oauth: true,
     webhookTrigger: true,
     pollingTrigger: false,
-    actions: false,
+    actions: true,
   },
   healthCheckIntervalMs: 12 * 60 * 60 * 1000,
   refreshable: true,

@@ -333,6 +333,10 @@ import { addCommentToTask as asanaAddCommentToTask } from "@/integrations/asana/
 // ASANA-2 — subtask create + paginated project task list (held scopes).
 import { createSubtask as asanaCreateSubtask } from "@/integrations/asana/actions/tasks/createSubtask";
 import { listTasksInProject as asanaListTasksInProject } from "@/integrations/asana/actions/tasks/listTasksInProject";
+// TYPEFORM-2 — first Typeform actions (2 reads via GET /forms/{id}/responses;
+// new responses:read scope). TYPEFORM-1 deliberately shipped zero actions.
+import { listResponses as typeformListResponses } from "@/integrations/typeform/actions/listResponses";
+import { getResponse as typeformGetResponse } from "@/integrations/typeform/actions/getResponse";
 import type { ActionHandler } from "./types";
 
 /**
@@ -799,5 +803,9 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // ASANA-2 — follow-up slice (2 actions).
   { provider: "asana", type: "create_subtask", handler: asanaCreateSubtask },
   { provider: "asana", type: "list_tasks_in_project", handler: asanaListTasksInProject },
+  // TYPEFORM-2 — follow-up slice (2 read actions; completed responses only,
+  // found:false lookup semantics on get_response).
+  { provider: "typeform", type: "list_responses", handler: typeformListResponses },
+  { provider: "typeform", type: "get_response", handler: typeformGetResponse },
 ];
 

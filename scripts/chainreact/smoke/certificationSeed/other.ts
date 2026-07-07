@@ -1,5 +1,5 @@
 /**
- * Certification seed — airtable / dropbox / trello / native / asana / facebook / stripe / discord.
+ * Certification seed — airtable / dropbox / trello / native / asana / typeform / facebook / stripe / discord.
  *
  * Split from the monolithic certificationSeed.ts (provider-scoped modules;
  * DATA UNCHANGED — every record's provider/action/status/date/note is
@@ -89,6 +89,16 @@ export const OTHER_CERTIFICATIONS: readonly CertificationRecord[] = [
     ["asana", "update_task"],
     ["asana", "complete_task"],
     ["asana", "add_comment_to_task"],
+  ]),
+  // TYPEFORM-2 (2026-07-06): first Typeform actions ship behind the NEW
+  // responses:read scope. The smoke account's TYPEFORM-1 connection predates
+  // that scope, so live runs 403 until Marcus adds the scope in the Typeform
+  // dev app AND the smoke account reconnects (owner setup + Phase 13).
+  ...records("FAIL", "TYPEFORM-2: connected, but token predates responses:read (live 403). Add scope in the Typeform dev app + reconnect the smoke account, then re-verify", "2026-07-06", [
+    ["typeform", "list_responses"],
+  ]),
+  ...records("BLOCKED_ENV", "TYPEFORM-2: needs responses:read owner setup + reconnect AND a completed-response token in SMOKE_TYPEFORM_RESPONSE_TOKEN, then re-run", "2026-07-06", [
+    ["typeform", "get_response"],
   ]),
   ...records("BLOCKED_ENV", "provider not connected on the smoke account; connect a Stripe TEST-MODE account, then re-run", "2026-07-04", [
     ["stripe", "find_customer"],

@@ -5,6 +5,11 @@ Slice 5.TYPEFORM-1. Researched 2026-07-04 against the live official docs at
 developer.typeform.com content). Anything the docs do not state is flagged
 `NOT DOCUMENTED`; nothing below is invented.
 
+**TYPEFORM-2 update (2026-07-06):** the Responses API section below was
+expanded (re-verified against the retrieve-responses reference) and the
+scope set gained `responses:read` for the `list_responses` /
+`get_response` read actions.
+
 ## Auth type
 
 OAuth 2.0 authorization code flow, confidential client. **No PKCE** (not
@@ -41,21 +46,27 @@ Full documented list: `accounts:read`, `forms:read`, `forms:write`,
 `responses:read`, `responses:write`, `webhooks:read`, `webhooks:write`,
 `workspaces:read`, `workspaces:write`, `offline`.
 
-Required for this slice (minimum set):
+Required (minimum set for the shipped surface):
 
-| Scope | Used by |
-|---|---|
-| `accounts:read` | `GET /me` connect-time identity resolution |
-| `forms:read` | `typeform:forms` option source (`GET /forms`) |
-| `webhooks:write` | trigger activation (`PUT /forms/{id}/webhooks/{tag}`) and deactivation (`DELETE`), per the scopes page webhooks:write covers create/update/delete |
-| `offline` | refresh-token issuance (without it the 1-week access token strands the connection) |
+| Scope | Used by | Since |
+|---|---|---|
+| `accounts:read` | `GET /me` connect-time identity resolution | TYPEFORM-1 |
+| `forms:read` | `typeform:forms` option source (`GET /forms`) | TYPEFORM-1 |
+| `webhooks:write` | trigger activation (`PUT /forms/{id}/webhooks/{tag}`) and deactivation (`DELETE`), per the scopes page webhooks:write covers create/update/delete | TYPEFORM-1 |
+| `responses:read` | `list_responses` / `get_response` read actions (`GET /forms/{id}/responses`) | TYPEFORM-2 |
+| `offline` | refresh-token issuance (without it the 1-week access token strands the connection) | TYPEFORM-1 |
 
 Considered and REJECTED (no scope bloat):
 - `webhooks:read`: V2 never lists or reads webhooks back.
-- `responses:read`: the webhook payload carries the full response content,
-  so no Responses API call ships in this slice.
 - `forms:write`, `themes:*`, `images:*`, `workspaces:*`, `responses:write`:
-  out of slice scope by design.
+  out of scope by design (`responses:write` backs only the destructive
+  delete-responses endpoint, rejected by the 2026-07-06 catalog audit).
+
+**Re-consent note (TYPEFORM-2):** tokens granted before `responses:read`
+was added do NOT gain the scope on refresh — a refresh keeps the original
+grant. Existing connections get HTTP 403 on the new read actions
+(mapped to `InsufficientScopeError` → re-consent UX) until the user
+reconnects.
 
 Source: https://www.typeform.com/developers/get-started/scopes/
 
@@ -144,11 +155,32 @@ Source: https://www.typeform.com/developers/webhooks/secure-your-webhooks/
 
 Source: https://www.typeform.com/developers/webhooks/
 
-## Responses API (not shipped; recorded for later slices)
+## Responses API (shipped in TYPEFORM-2; re-verified 2026-07-06)
 
-`GET /forms/{form_id}/responses` (scope `responses:read`), `page_size` max
-1000, cursor pagination via `before`/`after`, single-response fetch via
-`included_response_ids` (comma-separated response tokens).
+`GET /forms/{form_id}/responses` (scope `responses:read`) backs
+`typeform:list_responses` and `typeform:get_response`.
+
+Query parameters (documented):
+
+| Param | Notes |
+|---|---|
+| `page_size` | default 25, max 1000. V2 bounds it to ≤100 per run. |
+| `since` / `until` | Unix seconds or ISO 8601 UTC; submitted-at window. |
+| `after` / `before` | cursor tokens, exclusive, traversal in processing order; documented as the safe way to walk the full set without repeats. **Incompatible with `sort`** — V2 never sends `sort` and paginates with `before` (newest-first default ordering, older pages via the last item's token). |
+| `included_response_ids` / `excluded_response_ids` | comma-separated response tokens. There is NO dedicated GET-one-response endpoint — `get_response` honestly filters the list with `included_response_ids` + `page_size=1`. |
+| `response_type` | `started` / `partial` / `completed`; **defaults to completed**. V2 never sends it — partial responses are plan-gated and rejected by the catalog audit, so only completed responses are exposed. (`completed` boolean param is deprecated.) |
+| `sort` | `{field},{asc|desc}`, default `submitted_at,desc`. Never sent (cursor incompatibility). |
+| `query` | server-side search across answers / hidden fields / variables. Exposed as the `query` filter. |
+| `fields` / `answered_fields` | answer-field projection/filtering; not exposed (no clear workflow value yet). |
+
+Response body: `{ total_items, page_count, items: [...] }`. Each item:
+`response_id`, `token` (the stable unique id — same value the webhook
+delivers), `landed_at`, `submitted_at`, `landing_id`, `metadata`
+(user_agent / platform / referer / network_id / browser — respondent
+fingerprint data, deliberately DROPPED at V2's wrapper boundary),
+`hidden`, `calculated.score`, `variables[]`, `answers[]` (same
+discriminated union as the webhook payload, but with NO `definition`
+block — so no question titles are available on this endpoint).
 
 Source: https://www.typeform.com/developers/responses/reference/retrieve-responses/
 

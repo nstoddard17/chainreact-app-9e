@@ -155,3 +155,63 @@ receive -> per-row HMAC verify -> normalize -> dispatch -> P-S2 filter ->
 dedup -> enqueue -> drain -> terminal run, with the provider-side lifecycle
 (PUT/DELETE webhook) covered by unit tests and deferred to Phase 13 live
 certification. Identical honesty boundary to the Asana smoke.
+
+---
+
+# TYPEFORM-2 addendum (2026-07-06) — read-action family
+
+## V2 providers/patterns inspected
+
+- `integrations/asana/actions/tasks/listTasksInProject.{ts,schema.ts,meta.ts}`
+  (ASANA-2) — the paginated one-page-per-run read-list precedent: strict
+  Zod config, `refreshAndRetry` wrap, bounded per-item projection,
+  cursor output (`nextOffset` there, `nextBefore` here).
+- `integrations/asana/actions/tasks/getTask.ts` (ASANA-1) — the bounded
+  single-item read precedent.
+- `integrations/stripe/actions/findSubscription.ts` — the
+  `{found: false}` friendly not-found convention for lookup actions
+  (Typeform has no GET-one endpoint, so `get_response` is a filtered
+  list that can legitimately come back empty).
+- `services/discovery/providers/asana.ts` + COVERED_PROVIDERS flip
+  mechanics (discovery-meta-coverage).
+
+## Patterns reused
+
+- Handler/schema/meta triple per action; handler inventory + discovery
+  sub-registry + `_metaInventory` spread; COVERED_PROVIDERS flip in the
+  same slice that ships the first action (1:1 handler-meta drift from
+  day one).
+- Shared `_request.ts` error mapping unchanged: 401 -> refresh+retry,
+  403 -> InsufficientScopeError (the re-consent path new-scope actions
+  depend on), 404 -> NotFoundError, 429 -> RateLimitedError.
+- Trigger answer flattening EXTRACTED to
+  `integrations/_shared/typeform/answers.ts` (import-only refactor of
+  the live-certified normalize.ts; behavior identical, proven by the
+  untouched normalize test suite) so the Responses API wrapper projects
+  answers identically to the webhook payload.
+- Smoke fixtures follow the asana read-fixture shape
+  (`configFromEnv` + `SMOKE_TYPEFORM_*` envs).
+
+## Intentional divergences
+
+- `get_response` returns `{found: false}` instead of throwing on a
+  missing token (Stripe find_* semantics, not Asana getTask's 404-throw)
+  because the provider gives 200 + empty list, not 404, for an unknown
+  token — a thrown "not found" would have to be invented.
+- Action answers carry NO `fieldTitle` (the Responses API has no
+  `definition` block, unlike the webhook payload). Omitted rather than
+  shipping a permanently-null field.
+- `response_type` and `sort` are never sent: completed-only responses
+  (partials plan-gated + rejected by the catalog audit) and cursor
+  pagination is documented as incompatible with `sort`.
+
+## Pre-owner-setup certification encoding (new precedent)
+
+First follow-up slice to ADD a scope to a live provider: the smoke
+account's existing token predates `responses:read`, so the live sweep
+403s. Encoded as certification records instead of an env gate (the live
+runner's discovery path ignores requiredEnv for connected providers):
+`typeform:list_responses` = known-FAIL (ran live, 403, re-verify after
+owner setup + reconnect); `typeform:get_response` = BLOCKED_ENV (needs
+the scope AND a pinned response token). Both flip to LIVE_PASS at
+Phase 13.

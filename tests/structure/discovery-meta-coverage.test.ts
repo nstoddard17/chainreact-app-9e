@@ -303,6 +303,11 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // triggers + resolvers all land in one slice, so 1:1 handler↔meta
   // drift is enforced from day one (5 actions, 2 webhook triggers).
   "asana",
+  // Typeform added in TYPEFORM-2 — TYPEFORM-1 deliberately shipped zero
+  // actions (self-contained webhook payload), so `typeform` joined only
+  // when the first action family landed (2 read actions behind the new
+  // responses:read scope). 1:1 handler↔meta drift enforced from here on.
+  "typeform",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

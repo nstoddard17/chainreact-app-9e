@@ -73,7 +73,7 @@ const MODULE_PROVIDERS: ReadonlyArray<readonly [string, readonly { provider: str
   [
     "other",
     OTHER_CERTIFICATIONS,
-    ["airtable", "dropbox", "trello", "native", "asana", "facebook", "stripe", "discord"],
+    ["airtable", "dropbox", "trello", "native", "asana", "typeform", "facebook", "stripe", "discord"],
   ],
 ];
 
@@ -89,7 +89,9 @@ describe("certification seed split — data invariance", () => {
     // +1: native:format_transformer certified (2026-07-06; was the always-run baseline).
     // +1: asana:list_tasks_in_project ASANA-2 live read (2026-07-06).
     // +1: asana:create_subtask ASANA-2 live write, post-owner-setup (2026-07-06).
-    expect(CERTIFICATIONS.length).toBe(284);
+    // +2: typeform TYPEFORM-2 pre-owner-setup records (list_responses FAIL —
+    //     live 403, token predates responses:read; get_response BLOCKED_ENV).
+    expect(CERTIFICATIONS.length).toBe(286);
   });
 
   it("no duplicate (provider, action) keys — later-wins shadowing is impossible", () => {
@@ -121,12 +123,19 @@ describe("certification seed split — data invariance", () => {
     // create_subtask via the gated write batch post-owner-setup
     // (LIVE_PASS_LEFT_ARTIFACT — completed crsmoke parent+subtask stay).
     // 305 registered / 271 LIVE_PASS / 0 LIVE_NOT_RUN.
-    expect(m.totals.registered).toBe(305);
+    // TYPEFORM-2 (2026-07-06): +2 registered (typeform:list_responses,
+    // typeform:get_response) behind the NEW responses:read scope — owner
+    // setup (Typeform dev-app scope + smoke-account reconnect) is pending,
+    // so list_responses is a certified known-FAIL (live 403, token predates
+    // the scope) and get_response is BLOCKED_ENV (also needs a response
+    // token env). Both flip to LIVE_PASS at Phase 13.
+    // 307 registered / +1 FAIL / +1 BLOCKED_ENV.
+    expect(m.totals.registered).toBe(307);
     expect(m.totals.livePass).toBe(271);
     expect(m.totals.liveNotRun).toBe(0);
     expect(m.totals.missingFixture).toBe(21);
-    expect(m.totals.blockedEnv).toBe(13);
-    expect(m.totals.fail).toBe(0);
+    expect(m.totals.blockedEnv).toBe(14);
+    expect(m.totals.fail).toBe(1);
     expect(m.totals.bug).toBe(0);
     expect(m.staleCerts).toEqual([]);
   });

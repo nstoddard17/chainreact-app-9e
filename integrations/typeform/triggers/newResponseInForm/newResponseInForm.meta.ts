@@ -28,7 +28,8 @@ export const typeformNewResponseInFormTriggerMeta: TriggerMeta = {
     {
       name: "formId",
       label: "Form",
-      description: "Form to watch for new responses.",
+      description:
+        "Form to watch for new responses. Draft or unpublished forms may appear here but will not receive responses until published in Typeform.",
       type: "combobox",
       optionsSource: "typeform:forms",
       required: true,

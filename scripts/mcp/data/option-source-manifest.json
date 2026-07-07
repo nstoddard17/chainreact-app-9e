@@ -73,6 +73,12 @@
       "requiredDeps": null
     },
     {
+      "source": "calendly:event_types",
+      "provider": "calendly",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "discord:bot_messages",
       "provider": "discord",
       "requiresIntegration": true,
@@ -570,6 +576,12 @@
       "requiredDeps": [
         "boardId"
       ]
+    },
+    {
+      "source": "typeform:forms",
+      "provider": "typeform",
+      "requiresIntegration": true,
+      "requiredDeps": null
     }
   ]
 }

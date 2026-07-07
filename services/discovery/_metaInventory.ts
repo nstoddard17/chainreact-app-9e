@@ -371,10 +371,13 @@ import {
   ASANA_ACTION_METAS,
   ASANA_TRIGGER_METAS,
 } from "./providers/asana";
-// Typeform (Slice 5.TYPEFORM-1 — second net-new provider, no V1 code) —
-// 1 form-scoped webhook trigger with a caller-minted-secret lifecycle;
-// ZERO actions this slice (no TYPEFORM_ACTION_METAS export exists).
-import { TYPEFORM_TRIGGER_METAS } from "./providers/typeform";
+// Typeform (Slice 5.TYPEFORM-1 + TYPEFORM-2 — second net-new provider,
+// no V1 code) — 1 form-scoped webhook trigger with a caller-minted-secret
+// lifecycle + 2 read actions (TYPEFORM-2, new responses:read scope).
+import {
+  TYPEFORM_ACTION_METAS,
+  TYPEFORM_TRIGGER_METAS,
+} from "./providers/typeform";
 // Calendly (Slice 5.CALENDLY-1 — third net-new provider, no V1 code) —
 // 2 user-scoped webhook-subscription triggers with a caller-minted
 // signing-key lifecycle; ZERO actions this slice (no
@@ -648,6 +651,7 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...GOOGLE_DRIVE_ACTION_METAS, // Google Drive (GDRIVE-META-2) — 5 actions, displayOrder 10..50.
   ...MICROSOFT_OUTLOOK_CALENDAR_ACTION_METAS, // Microsoft Outlook Calendar (OUTLOOK-CAL-META-2) — 5 actions, displayOrder 10..50.
   ...ASANA_ACTION_METAS, // Asana (ASANA-1) — 5 actions, displayOrder 10..50.
+  ...TYPEFORM_ACTION_METAS, // Typeform (TYPEFORM-2) — 2 read actions, displayOrder 10..20.
 ];
 
 export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
