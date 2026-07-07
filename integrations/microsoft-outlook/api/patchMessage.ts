@@ -35,7 +35,9 @@ export interface PatchMessageInput {
    */
   patch: {
     categories?: string[];
-    // Future: isRead?: boolean; flag?: { flagStatus: string }; etc.
+    /** followupFlag — used by the email_flagged trigger smoke; a future set_flag action reuses this. */
+    flag?: { flagStatus: "notFlagged" | "flagged" | "complete" };
+    // Future: isRead?: boolean; etc.
   };
 }
 

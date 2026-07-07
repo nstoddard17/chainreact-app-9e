@@ -637,6 +637,71 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-06",
     note: "real polling dispatch vs live Mailchimp: activation snapshots known campaign ids (config.audienceId narrows to the smoke audience), baseline poll fires 0, a smoke-only inline DRAFT campaign create (type regular, marker title, NEVER sent — creation sends no mail) fires exactly 1 run whose trigger_event carries eventId campaign_created:<id> + the marker title + audienceId, terminal 'succeeded', watermark re-poll fires 0, RESTORED-snapshot re-poll re-detects and dedup (campaign-id-keyed) drops it (still 1), draft campaign deleted + rows cleaned (0 leaked)",
   },
+  // Microsoft Graph webhook batch (2026-07-06) — all 6 registered Microsoft
+  // change-notification triggers on the generic direct-seed orchestrator +
+  // the Graph specs (tests/trigger-smoke/microsoftGraphWebhookSmoke.ts).
+  // HYBRID HONESTY SCOPE: the notification is SYNTHETIC (direct-seeded
+  // trigger_resources row with smoke-minted subscriptionId + clientState; NO
+  // Graph subscription created; Microsoft did NOT deliver), but the RESOURCE
+  // is REAL — seeded via the certified action-smoke patterns and re-fetched
+  // from LIVE Graph by the production receive path (validation handshake +
+  // clientState verify + hydration fetch + receive-time filters + normalize
+  // + dispatchTriggerEvent + dedup all UNCHANGED). Certifies the V2 ingestion
+  // path per event shape; Graph subscription activation/renewal NOT
+  // certified. Every route's validation-handshake branch also live-probed
+  // (?validationToken echoed text/plain 200). Dedup proven by re-POSTing the
+  // IDENTICAL envelope (unchanged resource re-fetch → same dedup key →
+  // dropped). Dedup rows LIKE-cleaned on the smoke-minted subscriptionId
+  // prefix. patchMessage's patch type gained the documented optional `flag`
+  // field (additive; the wrapper comment already anticipated set_flag reuse).
+  {
+    provider: "microsoft-outlook",
+    type: "new_email",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Graph fetch: seed row {subscriptionId, clientState, subject-marker substring filter}, baseline 0, proven stageOutlookSeedMessage self-send resolves the REAL inbox copy, synthetic created-notification to the real /api/webhooks/microsoft-outlook route (clientState verify -> REAL getMessage -> receive-time filters -> normalize -> dispatch) fires exactly 1 run whose trigger_event carries sub:msg:created + the marker subject, terminal 'succeeded', identical re-send deduped (still 1), seed messages deleted + rows cleaned (0 leaked); subscription activation NOT certified, Microsoft did not deliver",
+  },
+  {
+    provider: "microsoft-outlook",
+    type: "email_sent",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Graph fetch: self-send seed, the REAL Sent Items copy resolved by bounded marker scan, synthetic created-notification through the real route fires exactly 1 run (receive-time subject-marker filter passed on the fetched sent copy; sub:msg:created + marker subject), terminal 'succeeded', identical re-send deduped, both message copies deleted + rows cleaned (0 leaked); subscription activation NOT certified",
+  },
+  {
+    provider: "microsoft-outlook",
+    type: "email_flagged",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Graph fetch: self-send seed then REAL flag PATCH via the production patchMessage wrapper (flagStatus 'flagged'), synthetic updated-notification through the real route fires exactly 1 run (the receive-time flagStatus==='flagged' gate passed on the REAL fetched message; sub:msg:updated + marker subject), terminal 'succeeded', identical re-send deduped (message still flagged -> same key), seed deleted + rows cleaned (0 leaked); subscription activation NOT certified",
+  },
+  {
+    provider: "microsoft-outlook-calendar",
+    type: "event_changed",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Graph fetch: certified create_event seeds a REAL 2030-dated marker event (no attendees -> no invites), synthetic updated-notification through the real /api/webhooks/microsoft-outlook-calendar route (clientState verify -> REAL eventsGet -> normalize) fires exactly 1 run carrying sub:event:updated + changeType 'updated' + the marker subject, terminal 'succeeded', identical re-send deduped, event deleted via certified delete_event + rows cleaned (0 leaked); subscription activation NOT certified",
+  },
+  {
+    provider: "microsoft-onedrive",
+    type: "file_changed",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Graph fetch: certified upload_file seeds a REAL marker-named text file, synthetic updated-notification (resourceData.id -> the route's id-fetch branch) through the real /api/webhooks/microsoft-onedrive route fires exactly 1 run carrying sub:item:<lastModified> + the marker filename, terminal 'succeeded', identical re-send deduped (unchanged item -> same lastModified discriminator), file deleted via certified delete_item + rows cleaned (0 leaked); subscription activation + delta-fallback branch NOT certified",
+  },
+  {
+    provider: "microsoft-teams",
+    type: "new_channel_message",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "ingestion-path cert via DIRECT-SEED + REAL Graph fetch: certified send_channel_message posts a REAL marker message into the smoke channel (SMOKE_TEAMS_TEAM_ID/CHANNEL_ID), synthetic created-notification (chatMessage @odata.type) through the real /api/webhooks/microsoft-teams route (clientState verify -> REAL channel-message fetch via row teamId/channelId -> normalize) fires exactly 1 run carrying sub:msg:created + the marker bodyContent, terminal 'succeeded', identical re-send deduped, rows cleaned; the channel message itself has NO registered delete action -> one crsmoke-marked artifact stays (same disposition as the certified action-smoke); subscription activation NOT certified",
+  },
   // mailchimp:new_audience / email_opened / link_clicked — BLOCKED for smoke
   // certification (probe-read 2026-07-06):
   //   - new_audience fires on a NEW audience (list) created after baseline;
