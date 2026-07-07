@@ -18,6 +18,10 @@ import {
   runSlackWebhookSmoke,
   CHANNEL_CREATED_SPEC,
   FILE_SHARED_SPEC,
+  MEMBER_JOINED_CHANNEL_SPEC,
+  MEMBER_LEFT_CHANNEL_SPEC,
+  REACTION_ADDED_SPEC,
+  REACTION_REMOVED_SPEC,
   ALL_SLACK_WEBHOOK_SPECS,
   type SlackWebhookTriggerSpec,
   type SlackWebhookSmokeDeps,
@@ -181,6 +185,47 @@ describe("runSlackWebhookSmoke — happy path (both specs)", () => {
     expect(inner).not.toHaveProperty("name");
     expect(inner).not.toHaveProperty("url_private");
     expect(inner).not.toHaveProperty("content");
+  });
+
+  it("member_joined/left synthetic events carry channel + user id stubs only", () => {
+    for (const spec of [MEMBER_JOINED_CHANNEL_SPEC, MEMBER_LEFT_CHANNEL_SPEC] as const) {
+      const inner = spec.buildSyntheticInnerEvent(IDENTITY);
+      expect(inner.channel).toBe(IDENTITY.channelId);
+      expect(inner.user).toBe(IDENTITY.userId);
+      // No message body / text / name anywhere in a membership event.
+      expect(inner).not.toHaveProperty("text");
+      expect(inner).not.toHaveProperty("name");
+      // The fired run's identity keys on channel + user.
+      const run: SlackWebhookSmokeRun = {
+        runId: "r", status: "queued", triggerPayload: inner, eventId: IDENTITY.eventId, eventType: spec.eventType,
+      };
+      expect(spec.identityMatches(run, IDENTITY)).toBe(true);
+    }
+  });
+
+  it("reaction_added/removed carry a standard emoji + item reference, NO message body", () => {
+    for (const spec of [REACTION_ADDED_SPEC, REACTION_REMOVED_SPEC] as const) {
+      const inner = spec.buildSyntheticInnerEvent(IDENTITY);
+      expect(inner.reaction).toBe("white_check_mark");
+      expect(inner.item).toEqual({ type: "message", channel: IDENTITY.channelId, ts: "1700000000.000100" });
+      // Only a ts reference — NO message text/body is carried.
+      expect(inner).not.toHaveProperty("text");
+      expect((inner.item as Record<string, unknown>)).not.toHaveProperty("text");
+      const run: SlackWebhookSmokeRun = {
+        runId: "r", status: "queued", triggerPayload: inner, eventId: IDENTITY.eventId, eventType: spec.eventType,
+      };
+      expect(spec.identityMatches(run, IDENTITY)).toBe(true);
+    }
+  });
+
+  it("identity fails when the payload type is a different Slack event (no cross-spec match)", () => {
+    const wrong: SlackWebhookSmokeRun = {
+      runId: "r", status: "queued",
+      triggerPayload: { type: "member_left_channel", channel: IDENTITY.channelId, user: IDENTITY.userId },
+      eventId: IDENTITY.eventId, eventType: MEMBER_JOINED_CHANNEL_SPEC.eventType,
+    };
+    // A member_left payload must NOT satisfy the member_joined spec.
+    expect(MEMBER_JOINED_CHANNEL_SPEC.identityMatches(wrong, IDENTITY)).toBe(false);
   });
 });
 

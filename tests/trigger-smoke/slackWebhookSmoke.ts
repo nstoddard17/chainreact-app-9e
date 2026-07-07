@@ -4,8 +4,18 @@
  * Spec-driven synthetic-webhook-receipt smoke. Certifies the full real receipt
  * path for low-risk, non-message, non-PII Slack lifecycle/metadata webhooks:
  *
- *   slack:channel_created  (canonical eventType `slack.channel_created`)
- *   slack:file_shared      (canonical eventType `slack.file_shared`)
+ *   slack:channel_created       (canonical eventType `slack.channel_created`)
+ *   slack:file_shared           (canonical eventType `slack.file_shared`)
+ *   slack:member_joined_channel (canonical eventType `slack.member_joined_channel`)
+ *   slack:member_left_channel   (canonical eventType `slack.member_left_channel`)
+ *   slack:reaction_added        (canonical eventType `slack.reaction_added`)
+ *   slack:reaction_removed      (canonical eventType `slack.reaction_removed`)
+ *
+ * The member_* events carry ONLY channel + user id stubs; the reaction_* events
+ * carry a standard emoji NAME + a message-item reference (channel + ts) with NO
+ * message body/text. Every value is smoke-minted (no user content, no PII, no real
+ * channel / user / message). Slack's `message.*` triggers carry message TEXT and are
+ * deliberately OUT of this metadata scope (see the readiness checkpoint).
  *
  * WHY these triggers (Lane C candidate selection, see the readiness checkpoint
  * §13/§14):
@@ -67,6 +77,10 @@ export const SLACK_WEBHOOK_SMOKE_ACTION_NODE_ID = "smoke-noop-action";
  */
 export const SLACK_CHANNEL_CREATED_EVENT_TYPE = "slack.channel_created";
 export const SLACK_FILE_SHARED_EVENT_TYPE = "slack.file_shared";
+export const SLACK_MEMBER_JOINED_CHANNEL_EVENT_TYPE = "slack.member_joined_channel";
+export const SLACK_MEMBER_LEFT_CHANNEL_EVENT_TYPE = "slack.member_left_channel";
+export const SLACK_REACTION_ADDED_EVENT_TYPE = "slack.reaction_added";
+export const SLACK_REACTION_REMOVED_EVENT_TYPE = "slack.reaction_removed";
 
 export interface SlackWebhookSmokeWorkflow {
   readonly definition: WorkflowDefinition;
@@ -227,9 +241,114 @@ export const FILE_SHARED_SPEC: SlackWebhookTriggerSpec = {
   },
 };
 
+/** Standard, safe emoji name for the synthetic reaction events (metadata only). */
+const SYNTHETIC_REACTION = "white_check_mark";
+/** Synthetic reacted-to message reference — a ts only, NO message body/text. */
+const SYNTHETIC_ITEM_TS = "1700000000.000100";
+
+export const MEMBER_JOINED_CHANNEL_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:member_joined_channel",
+  eventType: SLACK_MEMBER_JOINED_CHANNEL_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_MEMBER_JOINED_CHANNEL_EVENT_TYPE, "slack:member_joined_channel"),
+  // Membership metadata only — channel + user id stubs (+ the would-be inviter).
+  buildSyntheticInnerEvent: (identity) => ({
+    type: "member_joined_channel",
+    user: identity.userId,
+    channel: identity.channelId,
+    channel_type: "C",
+    team: identity.teamId,
+    inviter: identity.userId,
+    event_ts: SYNTHETIC_EVENT_TS,
+  }),
+  identityMatches: (run, identity) => {
+    if (run.eventId !== identity.eventId) return false;
+    if (run.eventType !== SLACK_MEMBER_JOINED_CHANNEL_EVENT_TYPE) return false;
+    const payload = run.triggerPayload;
+    if (!payload || payload.type !== "member_joined_channel") return false;
+    return payload.channel === identity.channelId && payload.user === identity.userId;
+  },
+};
+
+export const MEMBER_LEFT_CHANNEL_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:member_left_channel",
+  eventType: SLACK_MEMBER_LEFT_CHANNEL_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_MEMBER_LEFT_CHANNEL_EVENT_TYPE, "slack:member_left_channel"),
+  buildSyntheticInnerEvent: (identity) => ({
+    type: "member_left_channel",
+    user: identity.userId,
+    channel: identity.channelId,
+    channel_type: "C",
+    team: identity.teamId,
+    event_ts: SYNTHETIC_EVENT_TS,
+  }),
+  identityMatches: (run, identity) => {
+    if (run.eventId !== identity.eventId) return false;
+    if (run.eventType !== SLACK_MEMBER_LEFT_CHANNEL_EVENT_TYPE) return false;
+    const payload = run.triggerPayload;
+    if (!payload || payload.type !== "member_left_channel") return false;
+    return payload.channel === identity.channelId && payload.user === identity.userId;
+  },
+};
+
+export const REACTION_ADDED_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:reaction_added",
+  eventType: SLACK_REACTION_ADDED_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_REACTION_ADDED_EVENT_TYPE, "slack:reaction_added"),
+  // Reaction metadata only — a standard emoji NAME + a message-item reference
+  // (channel + ts). NO message body/text is carried.
+  buildSyntheticInnerEvent: (identity) => ({
+    type: "reaction_added",
+    user: identity.userId,
+    reaction: SYNTHETIC_REACTION,
+    item_user: identity.userId,
+    item: { type: "message", channel: identity.channelId, ts: SYNTHETIC_ITEM_TS },
+    event_ts: SYNTHETIC_EVENT_TS,
+  }),
+  identityMatches: (run, identity) => {
+    if (run.eventId !== identity.eventId) return false;
+    if (run.eventType !== SLACK_REACTION_ADDED_EVENT_TYPE) return false;
+    const payload = run.triggerPayload;
+    if (!payload || payload.type !== "reaction_added") return false;
+    if (payload.reaction !== SYNTHETIC_REACTION) return false;
+    const item = payload.item as Record<string, unknown> | undefined;
+    return Boolean(item) && item!.channel === identity.channelId;
+  },
+};
+
+export const REACTION_REMOVED_SPEC: SlackWebhookTriggerSpec = {
+  label: "slack:reaction_removed",
+  eventType: SLACK_REACTION_REMOVED_EVENT_TYPE,
+  buildWorkflow: () =>
+    buildSlackWebhookSmokeWorkflow(SLACK_REACTION_REMOVED_EVENT_TYPE, "slack:reaction_removed"),
+  buildSyntheticInnerEvent: (identity) => ({
+    type: "reaction_removed",
+    user: identity.userId,
+    reaction: SYNTHETIC_REACTION,
+    item_user: identity.userId,
+    item: { type: "message", channel: identity.channelId, ts: SYNTHETIC_ITEM_TS },
+    event_ts: SYNTHETIC_EVENT_TS,
+  }),
+  identityMatches: (run, identity) => {
+    if (run.eventId !== identity.eventId) return false;
+    if (run.eventType !== SLACK_REACTION_REMOVED_EVENT_TYPE) return false;
+    const payload = run.triggerPayload;
+    if (!payload || payload.type !== "reaction_removed") return false;
+    if (payload.reaction !== SYNTHETIC_REACTION) return false;
+    const item = payload.item as Record<string, unknown> | undefined;
+    return Boolean(item) && item!.channel === identity.channelId;
+  },
+};
+
 export const ALL_SLACK_WEBHOOK_SPECS: readonly SlackWebhookTriggerSpec[] = [
   CHANNEL_CREATED_SPEC,
   FILE_SHARED_SPEC,
+  MEMBER_JOINED_CHANNEL_SPEC,
+  MEMBER_LEFT_CHANNEL_SPEC,
+  REACTION_ADDED_SPEC,
+  REACTION_REMOVED_SPEC,
 ];
 
 export interface SlackWebhookSmokeDeps {

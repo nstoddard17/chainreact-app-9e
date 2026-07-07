@@ -183,6 +183,49 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-06-29",
     note: "real synthetic-webhook dispatch: arm stores canonical event_type slack.file_shared, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic file_shared event_callback (id stubs only — no name/bytes/FileRef) POSTed to the real /api/webhooks/slack route (verify→normalize→dispatchTriggerEvent→enqueue) fires exactly 1 run whose trigger_event carries the synthetic file_id + channel_id, durable run terminal 'succeeded', re-send of the same event_id deduped (still 1 run), workflow+trigger_resources+dedup row cleaned (0 leaked); no real file, no provider fetch, no send",
   },
+  // slack:member_joined_channel / member_left_channel / reaction_added /
+  // reaction_removed — Lane C Slack metadata webhook batch (2026-07-06), same
+  // spec-driven synthetic-webhook harness as channel_created (runSlackWebhookSmoke +
+  // the new specs). Each SLACK_SIGNING_SECRET-signed synthetic event_callback is
+  // POSTed to the real /api/webhooks/slack route (verify→normalize→
+  // dispatchTriggerEvent→dedup→enqueue). member_* carry ONLY channel + user id stubs;
+  // reaction_* carry a standard emoji NAME + a message-item reference (channel + ts)
+  // with NO message body/text. All ids smoke-minted (no real channel/user/message, no
+  // PII). Empty trigger config = match-all (each filter returns match on unset
+  // config). Same honest scope as channel_created: route/dispatch cert, no provider
+  // fetch, no send. message.* (message body) stays OUT of this metadata scope.
+  {
+    provider: "slack",
+    type: "member_joined_channel",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real synthetic-webhook dispatch: arm stores slack.member_joined_channel, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic member_joined_channel event_callback (channel+user id stubs only) POSTed to the real /api/webhooks/slack route fires exactly 1 run whose trigger_event carries the eventId + channel + user, durable run terminal 'succeeded', same event_id deduped (still 1), workflow+trigger_resources+dedup row cleaned (0 leaked); no real channel/user, no send, metadata only",
+  },
+  {
+    provider: "slack",
+    type: "member_left_channel",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real synthetic-webhook dispatch: arm stores slack.member_left_channel, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic member_left_channel event_callback (channel+user id stubs only) POSTed to the real /api/webhooks/slack route fires exactly 1 run whose trigger_event carries the eventId + channel + user, durable run terminal 'succeeded', same event_id deduped (still 1), workflow+trigger_resources+dedup row cleaned (0 leaked); no real channel/user, no send, metadata only",
+  },
+  {
+    provider: "slack",
+    type: "reaction_added",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real synthetic-webhook dispatch: arm stores slack.reaction_added, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic reaction_added event_callback (standard emoji name + item{channel,ts}, NO message body) POSTed to the real /api/webhooks/slack route fires exactly 1 run whose trigger_event carries the eventId + reaction + item channel, durable run terminal 'succeeded', same event_id deduped (still 1), workflow+trigger_resources+dedup row cleaned (0 leaked); no real message/user, no send, metadata only",
+  },
+  {
+    provider: "slack",
+    type: "reaction_removed",
+    activation: "webhook",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real synthetic-webhook dispatch: arm stores slack.reaction_removed, baseline 0, a SLACK_SIGNING_SECRET-signed synthetic reaction_removed event_callback (standard emoji name + item{channel,ts}, NO message body) POSTed to the real /api/webhooks/slack route fires exactly 1 run whose trigger_event carries the eventId + reaction + item channel, durable run terminal 'succeeded', same event_id deduped (still 1), workflow+trigger_resources+dedup row cleaned (0 leaked); no real message/user, no send, metadata only",
+  },
   // github:new_commit — Lane C first DIRECT-SEEDED HMAC webhook cert. LIVE-certified
   // via the GitHub webhook smoke (tests/trigger-smoke/githubWebhookSmoke.ts). HONEST
   // SCOPE: this certifies the route/dispatch path only (receive → X-Hub-Signature-256
@@ -342,6 +385,33 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     status: "LIVE_PASS",
     date: "2026-07-04",
     note: "FULL live provider-boundary cert: real activation handshake vs production, real task rename fired EXACTLY ONE terminal 'succeeded' run via production dispatch+drain (identity matched: task/project/changeKind), real DELETE /webhooks 404-proven, trigger rows cleaned",
+  },
+  // ASANA-2 (2026-07-06): 3 additional project-webhook triggers sharing the
+  // ASANA-1 lifecycle (same handshake/signature/dispatch path; unit +
+  // receive-path proven). NOT_RUN until owner setup lands: the app needs the
+  // new stories:read scope added in the Asana console + user re-consent, and
+  // the deployed receive route must contain the ASANA-2 commit before a live
+  // cert can run (comment_added_to_task post-fetches GET /stories/{gid}).
+  {
+    provider: "asana",
+    type: "task_completed",
+    activation: "webhook",
+    status: "NOT_RUN",
+    note: "ASANA-2: unit + receive-path proven (post-fetch completed===true gate, task-scoped timestamp-free dedup key); live cert pending owner setup (re-consent for stories:read batch) + deploy",
+  },
+  {
+    provider: "asana",
+    type: "task_assigned",
+    activation: "webhook",
+    status: "NOT_RUN",
+    note: "ASANA-2: unit + receive-path proven (post-fetch assignee gate, (task,assignee)-scoped timestamp-free dedup key, optional assignee filter); live cert pending owner setup + deploy",
+  },
+  {
+    provider: "asana",
+    type: "comment_added_to_task",
+    activation: "webhook",
+    status: "NOT_RUN",
+    note: "ASANA-2: unit + receive-path proven (story post-fetch via NEW stories:read scope, story-gid dedup key, comment text truncated + sensitive-marked); live cert pending owner setup (stories:read in Asana console + re-consent) + deploy",
   },
   // typeform:new_response_in_form — full provider-boundary live cert (Phase 13,
   // scripts/trash/typeform-live-cert.ts): REAL registerWorkflowTriggers ->
