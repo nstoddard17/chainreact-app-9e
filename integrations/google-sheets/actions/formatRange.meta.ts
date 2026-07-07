@@ -138,9 +138,10 @@ export const googleSheetsFormatRangeMeta: ActionMeta = {
       label: "Number format",
       description:
         "Optional Sheets number-format object: `{\"type\":\"NUMBER|PERCENT|CURRENCY|DATE|TIME|DATE_TIME|SCIENTIFIC|TEXT\",\"pattern\":\"<optional Sheets format pattern>\"}`. Pattern follows Sheets' [number format token grammar](https://developers.google.com/sheets/api/guides/formats). Enter a JSON object or wire `{{...}}` from upstream.",
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "object",
       placeholder: '{"type":"CURRENCY","pattern":"$#,##0.00"}',
     },
   ],

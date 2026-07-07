@@ -102,9 +102,10 @@ export const shopifyCreateOrderMeta: ActionMeta = {
       label: "Shipping address",
       description:
         'Developer option. The shipping address as a JSON object with any of `address1`, `address2`, `city`, `province`, `country_code` (two-letter code like "US"), `zip`. Enter the JSON value or insert a value from a previous step.',
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "object",
       placeholder:
         '{"address1":"1 Main St","city":"Denver","province":"CO","country_code":"US","zip":"80202"}',
     },
@@ -114,9 +115,10 @@ export const shopifyCreateOrderMeta: ActionMeta = {
       label: "Billing address",
       description:
         "Developer option. Same shape as Shipping address, as a JSON object. Enter the JSON value or insert a value from a previous step.",
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "object",
     },
   ],
   outputs: [

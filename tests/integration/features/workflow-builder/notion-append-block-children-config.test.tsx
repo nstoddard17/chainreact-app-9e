@@ -136,7 +136,8 @@ it("Notion append_block_children meta declares blockId (text required) + childre
   );
   expect(byName.get("blockId")!.type).toBe("text");
   expect(byName.get("blockId")!.required).toBe(true);
-  expect(byName.get("children")!.type).toBe("textarea");
+  expect(byName.get("children")!.type).toBe("json");
+  expect(byName.get("children")!.jsonShape).toBe("array");
   expect(byName.get("children")!.required).toBe(true);
 });
 
@@ -201,9 +202,7 @@ it("end-to-end: type blockId + paste children JSON â†’ Modal Save (draft only) â
   //    no UI-side JSON parsing.
   await user.click(screen.getByRole("textbox", { name: /^children blocks$/i }));
   await user.paste(CHILDREN_JSON);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.children).toBe(
-    CHILDREN_JSON,
-  );
+  expect(useConfigSlice.getState().drafts[action.id]!.values.children).toEqual(JSON.parse(CHILDREN_JSON));
 
   // 6. Modal Save flushes the draft.
   const modal = screen.getByRole("complementary", {
@@ -214,7 +213,7 @@ it("end-to-end: type blockId + paste children JSON â†’ Modal Save (draft only) â
     .getState()
     .pendingNodes.find((n) => n.id === action.id)!.config;
   expect(pendingConfig.blockId).toBe(BLOCK_ID);
-  expect(pendingConfig.children).toBe(CHILDREN_JSON);
+  expect(pendingConfig.children).toEqual(JSON.parse(CHILDREN_JSON));
 
   expect(mockUpdateWorkflow).not.toHaveBeenCalled();
 
@@ -238,7 +237,7 @@ it("end-to-end: type blockId + paste children JSON â†’ Modal Save (draft only) â
   expect(persistedAction.config.blockId).toBe(BLOCK_ID);
   // The persisted children stays as the literal JSON string the author
   // pasted â€” the renderer does NOT parse it, the runtime does.
-  expect(persistedAction.config.children).toBe(CHILDREN_JSON);
+  expect(persistedAction.config.children).toEqual(JSON.parse(CHILDREN_JSON));
 
   expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
 });

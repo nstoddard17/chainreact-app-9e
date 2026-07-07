@@ -44,9 +44,10 @@ export const airtableCreateRecordMeta: ActionMeta = {
       label: "Fields",
       description:
         'Field values as JSON keyed by field name, each {type, value} — e.g. {"Name":{"type":"singleLineText","value":"Acme"},"Done":{"type":"checkbox","value":true}}. Supported types: singleLineText, longText, number, currency, percent, singleSelect, multipleSelects, checkbox, date, dateTime, email, url, phoneNumber, multipleRecordLinks, attachment.',
-      type: "textarea",
+      type: "json",
       required: true,
       advanced: true,
+      jsonShape: "object",
       placeholder: '{ "Name": { "type": "singleLineText", "value": "…" } }',
     },
     {

@@ -43,9 +43,10 @@ export const notionQueryDatabaseMeta: ActionMeta = {
       label: "Filter",
       description:
         "Optional raw Notion filter object — passed verbatim to `databases.query`. See Notion's filter docs for the grammar (compound `and`/`or` plus per-property filters). Enter JSON or wire `{{...}}`.",
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "object",
       placeholder: '{"property":"Status","select":{"equals":"Done"}}',
     },
     {
@@ -53,9 +54,10 @@ export const notionQueryDatabaseMeta: ActionMeta = {
       label: "Sorts",
       description:
         "Optional raw Notion sort array — passed verbatim. Each entry is `{property, direction}` or `{timestamp, direction}`. Enter JSON or wire `{{...}}`.",
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "array",
       placeholder: '[{"property":"Name","direction":"ascending"}]',
     },
     {

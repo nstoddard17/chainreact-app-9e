@@ -135,19 +135,21 @@ describe("airtable discovery — field hygiene + resolver wiring", () => {
     }
   });
 
-  it("typed field maps + batch records are textarea paste-JSON (no typed-field-map renderer)", () => {
+  it("typed field maps + batch records are advanced json fields (no typed-field-map renderer yet — CONFIG-UX-AUDIT-2 parses to the schema shape)", () => {
     for (const key of ["airtable:create_record", "airtable:update_record"]) {
-      expect(
-        getActionMeta(key)!.fields.find((f) => f.name === "fields")!.type,
-      ).toBe("textarea");
+      const f = getActionMeta(key)!.fields.find((x) => x.name === "fields")!;
+      expect(f.type).toBe("json");
+      expect(f.jsonShape).toBe("object");
+      expect(f.advanced).toBe(true);
     }
     for (const key of [
       "airtable:create_multiple_records",
       "airtable:update_multiple_records",
     ]) {
-      expect(
-        getActionMeta(key)!.fields.find((f) => f.name === "records")!.type,
-      ).toBe("textarea");
+      const f = getActionMeta(key)!.fields.find((x) => x.name === "records")!;
+      expect(f.type).toBe("json");
+      expect(f.jsonShape).toBe("array");
+      expect(f.advanced).toBe(true);
     }
   });
 

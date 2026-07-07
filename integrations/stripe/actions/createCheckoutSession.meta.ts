@@ -175,9 +175,10 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
       label: "Automatic tax",
       description:
         "Developer option. Stripe's automatic-tax setting as a JSON object, e.g. `{\"enabled\": true}` to calculate and collect tax from the customer's address (requires Stripe Tax on the account). Enter the JSON value or insert a value from a previous step.",
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "object",
       placeholder: '{"enabled": true}',
     },
   ],

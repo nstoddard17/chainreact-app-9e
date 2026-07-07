@@ -2004,12 +2004,14 @@ describe("per-provider accessors", () => {
         expect(channel!.optionsSource).toBe("slack:channels");
       });
 
-      it("post_interactive_blocks `blocks` is a required textarea (Block Kit JSON paste — no keyvalue / no structured editor in v1)", () => {
+      it("post_interactive_blocks `blocks` is a required advanced json field (Block Kit — parses to the real array, CONFIG-UX-AUDIT-2)", () => {
         const blocks = metaByKey(
           "slack:post_interactive_blocks",
         ).fields.find((f) => f.name === "blocks");
         expect(blocks).toBeDefined();
-        expect(blocks!.type).toBe("textarea");
+        expect(blocks!.type).toBe("json");
+        expect(blocks!.jsonShape).toBe("array");
+        expect(blocks!.advanced).toBe(true);
         expect(blocks!.required).toBe(true);
       });
 
@@ -2239,7 +2241,11 @@ describe("per-provider accessors", () => {
       for (const meta of notionActionMetas()) {
         for (const f of meta.fields) {
           if (jsonFieldNames.has(f.name)) {
-            expect(f.type).toBe("textarea");
+            // CONFIG-UX-AUDIT-2: forward-passed Notion grammars are
+            // advanced json fields that parse to the schema shape.
+            expect(f.type).toBe("json");
+            expect(f.advanced).toBe(true);
+            expect(["array", "object"]).toContain(f.jsonShape);
             expect(f.placeholder).toBeDefined();
           }
         }
@@ -2288,12 +2294,12 @@ describe("per-provider accessors", () => {
         const byName = new Map(
           createPageMeta().fields.map((f) => [f.name, f]),
         );
-        expect(byName.get("parent")!.type).toBe("textarea");
+        expect(byName.get("parent")!.type).toBe("json");
         expect(byName.get("parent")!.required).toBe(true);
-        expect(byName.get("properties")!.type).toBe("textarea");
+        expect(byName.get("properties")!.type).toBe("json");
         expect(byName.get("properties")!.required).toBe(true);
         for (const optional of ["children", "icon", "cover"]) {
-          expect(byName.get(optional)!.type).toBe("textarea");
+          expect(byName.get(optional)!.type).toBe("json");
           expect(byName.get(optional)!.required).toBe(false);
         }
       });
@@ -2322,11 +2328,11 @@ describe("per-provider accessors", () => {
         );
         expect(byName.get("pageId")!.type).toBe("text");
         expect(byName.get("pageId")!.required).toBe(true);
-        expect(byName.get("properties")!.type).toBe("textarea");
+        expect(byName.get("properties")!.type).toBe("json");
         expect(byName.get("properties")!.required).toBe(false);
-        expect(byName.get("icon")!.type).toBe("textarea");
+        expect(byName.get("icon")!.type).toBe("json");
         expect(byName.get("icon")!.required).toBe(false);
-        expect(byName.get("cover")!.type).toBe("textarea");
+        expect(byName.get("cover")!.type).toBe("json");
         expect(byName.get("cover")!.required).toBe(false);
         expect(byName.get("archived")!.type).toBe("boolean");
         expect(byName.get("archived")!.required).toBe(false);
@@ -2414,7 +2420,7 @@ describe("per-provider accessors", () => {
         expect(byName.get("isInline")!.required).toBe(false);
         expect(byName.get("isInline")!.type).toBe("boolean");
         expect(byName.get("properties")!.required).toBe(true);
-        expect(byName.get("properties")!.type).toBe("textarea");
+        expect(byName.get("properties")!.type).toBe("json");
       });
 
       it("description mentions the 'exactly one title property' runtime invariant", () => {
@@ -2468,10 +2474,10 @@ describe("per-provider accessors", () => {
         );
         expect(byName.get("databaseId")!.type).toBe("text");
         expect(byName.get("databaseId")!.required).toBe(true);
-        expect(byName.get("properties")!.type).toBe("textarea");
+        expect(byName.get("properties")!.type).toBe("json");
         expect(byName.get("properties")!.required).toBe(true);
         for (const optional of ["children", "icon", "cover"]) {
-          expect(byName.get(optional)!.type).toBe("textarea");
+          expect(byName.get(optional)!.type).toBe("json");
           expect(byName.get(optional)!.required).toBe(false);
         }
       });
@@ -2504,9 +2510,9 @@ describe("per-provider accessors", () => {
         const byName = new Map(queryMeta().fields.map((f) => [f.name, f]));
         expect(byName.get("databaseId")!.type).toBe("text");
         expect(byName.get("databaseId")!.required).toBe(true);
-        expect(byName.get("filter")!.type).toBe("textarea");
+        expect(byName.get("filter")!.type).toBe("json");
         expect(byName.get("filter")!.required).toBe(false);
-        expect(byName.get("sorts")!.type).toBe("textarea");
+        expect(byName.get("sorts")!.type).toBe("json");
         expect(byName.get("sorts")!.required).toBe(false);
         const pageSize = byName.get("pageSize")!;
         expect(pageSize.type).toBe("number");
@@ -2540,7 +2546,7 @@ describe("per-provider accessors", () => {
         const byName = new Map(searchMeta().fields.map((f) => [f.name, f]));
         expect(byName.get("query")!.type).toBe("text");
         expect(byName.get("query")!.required).toBe(true);
-        expect(byName.get("filter")!.type).toBe("textarea");
+        expect(byName.get("filter")!.type).toBe("json");
         expect(byName.get("filter")!.required).toBe(false);
         expect(byName.get("pageSize")!.type).toBe("number");
         expect(byName.get("pageSize")!.required).toBe(false);
@@ -2585,7 +2591,7 @@ describe("per-provider accessors", () => {
           const byName = new Map(fields.map((f) => [f.name, f]));
           expect(byName.get("blockId")!.type).toBe("text");
           expect(byName.get("blockId")!.required).toBe(true);
-          expect(byName.get("children")!.type).toBe("textarea");
+          expect(byName.get("children")!.type).toBe("json");
           expect(byName.get("children")!.required).toBe(true);
         });
 
@@ -2917,9 +2923,10 @@ describe("per-provider accessors", () => {
             foundCount += 1;
           }
           if (f.name === "automaticTax" || f.name === "afterCompletion") {
-            // Developer escape hatches — JSON copy allowed ONLY because the
-            // field is marked advanced (collapsed out of the normal path).
-            expect(f.type).toBe("textarea");
+            // Developer escape hatches — advanced json fields that parse
+            // to the object shape the schema expects (CONFIG-UX-AUDIT-2).
+            expect(f.type).toBe("json");
+            expect(f.jsonShape).toBe("object");
             expect(f.advanced).toBe(true);
             foundCount += 1;
           }
@@ -3548,9 +3555,10 @@ describe("per-provider accessors", () => {
         expect(meta().description.toLowerCase()).toContain("exactly one");
       });
 
-      it("automaticTax is textarea paste-JSON (object shape)", () => {
+      it("automaticTax is an advanced json field (object shape)", () => {
         const at = meta().fields.find((f) => f.name === "automaticTax")!;
-        expect(at.type).toBe("textarea");
+        expect(at.type).toBe("json");
+        expect(at.jsonShape).toBe("object");
         expect(at.required).toBe(false);
       });
 
@@ -3601,9 +3609,10 @@ describe("per-provider accessors", () => {
         expect(li.listMaxItems).toBe(20);
       });
 
-      it("afterCompletion is an OPTIONAL advanced JSON textarea (discriminated union)", () => {
+      it("afterCompletion is an OPTIONAL advanced json field (discriminated union)", () => {
         const ac = meta().fields.find((f) => f.name === "afterCompletion")!;
-        expect(ac.type).toBe("textarea");
+        expect(ac.type).toBe("json");
+        expect(ac.jsonShape).toBe("object");
         expect(ac.required).toBe(false);
         expect(ac.advanced).toBe(true);
         expect(ac.description?.toLowerCase()).toContain("redirect");
@@ -3871,7 +3880,8 @@ describe("per-provider accessors", () => {
       )!;
       expect(batch.fields.find((f) => f.name === "range")).toBeUndefined();
       const updates = batch.fields.find((f) => f.name === "updates")!;
-      expect(updates.type).toBe("textarea");
+      expect(updates.type).toBe("json");
+      expect(updates.jsonShape).toBe("array");
       expect(updates.required).toBe(true);
     });
 
@@ -4277,9 +4287,11 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("updates is a required textarea (paste-JSON; UI stores literal string)", () => {
+      it("updates is a required advanced json field (parses to the real array, CONFIG-UX-AUDIT-2)", () => {
         const f = meta().fields.find((x) => x.name === "updates")!;
-        expect(f.type).toBe("textarea");
+        expect(f.type).toBe("json");
+        expect(f.jsonShape).toBe("array");
+        expect(f.advanced).toBe(true);
         expect(f.required).toBe(true);
       });
 
@@ -4345,9 +4357,10 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("numberFormat is an optional textarea (paste-JSON matches schema's nested object shape)", () => {
+      it("numberFormat is an optional advanced json field (object shape, CONFIG-UX-AUDIT-2)", () => {
         const f = meta().fields.find((x) => x.name === "numberFormat")!;
-        expect(f.type).toBe("textarea");
+        expect(f.type).toBe("json");
+        expect(f.jsonShape).toBe("object");
         expect(f.required).toBe(false);
       });
 
@@ -6104,10 +6117,12 @@ describe("per-provider accessors", () => {
       // Nested objects stay JSON textareas until a dedicated nested-form UI
       // lands — marked advanced so the disclosure (auto-open for required
       // fields) hosts them and JSON copy stays off the normal path.
-      expect(byName.get("contact")!.type).toBe("textarea");
+      expect(byName.get("contact")!.type).toBe("json");
+      expect(byName.get("contact")!.jsonShape).toBe("object");
       expect(byName.get("contact")!.required).toBe(true);
       expect(byName.get("contact")!.advanced).toBe(true);
-      expect(byName.get("campaign_defaults")!.type).toBe("textarea");
+      expect(byName.get("campaign_defaults")!.type).toBe("json");
+      expect(byName.get("campaign_defaults")!.jsonShape).toBe("object");
       expect(byName.get("campaign_defaults")!.required).toBe(true);
       expect(byName.get("campaign_defaults")!.advanced).toBe(true);
     });

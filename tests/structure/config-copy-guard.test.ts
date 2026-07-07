@@ -96,18 +96,28 @@ describe("builder config copy guard (CONFIG-UX-AUDIT-1)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("advanced JSON escape hatches are textarea-only and never required-by-stealth outside the disclosure", () => {
-    // Every advanced field must be a textarea (the JSON escape-hatch
-    // shape); the SchemaForm disclosure auto-opens when an advanced
-    // field is required, so required+advanced is allowed but pinned
-    // here so additions are deliberate.
+  it("advanced JSON escape hatches use the `json` field type with a declared shape (CONFIG-UX-AUDIT-2)", () => {
+    // Every advanced field must be a `json` field — the ONLY renderer
+    // that parses/validates to the runtime schema's shape instead of
+    // saving a raw string. `jsonShape` must be explicit (array/object)
+    // so the renderer + Save gate validate against the real contract.
     const advanced = all.filter(({ field }) => field.advanced === true);
     expect(advanced.length).toBeGreaterThan(0);
     for (const { metaKey, field } of advanced) {
       expect(`${metaKey}.${field.name}:${field.type}`).toBe(
-        `${metaKey}.${field.name}:textarea`,
+        `${metaKey}.${field.name}:json`,
       );
+      expect(["array", "object"]).toContain(field.jsonShape);
     }
+  });
+
+  it("`json` fields never exist OUTSIDE the advanced disclosure (raw JSON is escape-hatch-only)", () => {
+    // Contract superRefine enforces this at meta load; pinned here too
+    // so the product rule reads in one place with the copy rules.
+    const offenders = all
+      .filter(({ field }) => field.type === "json" && field.advanced !== true)
+      .map(({ metaKey, field }) => `${metaKey}.${field.name}`);
+    expect(offenders).toEqual([]);
   });
 
   it("multiple: true fields always carry options or an optionsSource (multi-select never hits the drift fallback)", () => {

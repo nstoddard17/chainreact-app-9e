@@ -32,9 +32,9 @@ describe("field-renderer registry", () => {
     expect(Object.keys(FIELD_RENDERERS).sort()).toEqual([...types].sort());
   });
 
-  it("covers all 20 FieldType variants (CS-1 temporal family; SWEEP-3 datetime-utc + location; CONFIG-UX-AUDIT-1 object-list + keyvalue-list)", () => {
-    expect(FieldTypeSchema.options).toHaveLength(20);
-    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(20);
+  it("covers all 21 FieldType variants (CS-1 temporal family; SWEEP-3 datetime-utc + location; AUDIT-1 object-list + keyvalue-list; AUDIT-2 json)", () => {
+    expect(FieldTypeSchema.options).toHaveLength(21);
+    expect(Object.keys(FIELD_RENDERERS)).toHaveLength(21);
   });
 
   it("FIELD_RENDERERS['string-array'] resolves to StringArrayField", () => {

@@ -35,9 +35,11 @@ describe("monday create_item meta — Builder shape", () => {
     expect(f.required).toBe(true);
   });
 
-  it("columnValues is a paste-JSON textarea (column-aware editor deferred — D-MON7)", () => {
+  it("columnValues is an advanced json field (column-aware editor deferred — D-MON7; parses to the record shape, CONFIG-UX-AUDIT-2)", () => {
     const f = mondayCreateItemMeta.fields.find((x) => x.name === "columnValues")!;
-    expect(f.type).toBe("textarea");
+    expect(f.type).toBe("json");
+    expect(f.jsonShape).toBe("object");
+    expect(f.advanced).toBe(true);
     expect(f.required).toBe(false);
   });
 

@@ -82,9 +82,10 @@ export const airtableListRecordsMeta: ActionMeta = {
       label: "Sort",
       description:
         'Optional sort order as a JSON array, e.g. [{"field":"Name","direction":"asc"}]. direction is "asc" or "desc".',
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "array",
       placeholder: '[{ "field": "Name", "direction": "asc" }]',
     },
     {

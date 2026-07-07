@@ -103,6 +103,10 @@ const actionProviders = [{ id: "slack", displayName: "Slack" }];
 // Minimal Block Kit literal — `[{"type":"section",...}]`. The textarea
 // stores this verbatim as a string; the runtime Zod schema parses it
 // on save. The integration test only asserts the round-trip.
+// What the json renderer commits after parsing BLOCKS_JSON.
+const BLOCKS_PARSED = [
+  { type: "section", text: { type: "mrkdwn", text: "Build is green" } },
+];
 const BLOCKS_JSON =
   '[{"type":"section","text":{"type":"mrkdwn","text":"Build is green"}}]';
 
@@ -147,7 +151,7 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Slack post_interactive_blocks meta declares channel (combobox), blocks (textarea), text (optional text), threadTs (optional text) — Slice 3.38 meta guard", () => {
+it("Slack post_interactive_blocks meta declares channel (combobox), blocks (advanced json array), text (optional text), threadTs (optional text) — Slice 3.38 meta guard + CONFIG-UX-AUDIT-2", () => {
   const channel = slackPostInteractiveBlocksMeta.fields.find(
     (f) => f.name === "channel",
   );
@@ -160,7 +164,9 @@ it("Slack post_interactive_blocks meta declares channel (combobox), blocks (text
     (f) => f.name === "blocks",
   );
   expect(blocks).toBeDefined();
-  expect(blocks!.type).toBe("textarea");
+  expect(blocks!.type).toBe("json");
+  expect(blocks!.jsonShape).toBe("array");
+  expect(blocks!.advanced).toBe(true);
   expect(blocks!.required).toBe(true);
 
   const text = slackPostInteractiveBlocksMeta.fields.find(
@@ -180,7 +186,7 @@ it("Slack post_interactive_blocks meta declares channel (combobox), blocks (text
   expect(threadTs!.required).toBe(false);
 });
 
-it("end-to-end: pick channel + paste Block Kit JSON + type notification text → Modal Save (draft only) → Toolbar Save (updateWorkflow once with blocks JSON string)", async () => {
+it("end-to-end: pick channel + paste Block Kit JSON + type notification text → Modal Save (draft only) → Toolbar Save (updateWorkflow once with blocks as a REAL parsed array — CONFIG-UX-AUDIT-2)", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -232,13 +238,13 @@ it("end-to-end: pick channel + paste Block Kit JSON + type notification text →
     "C01ABC23DEF",
   );
 
-  // 5. Paste Block Kit JSON into the textarea. The meta is type:textarea;
-  //    the draft stores the literal JSON string (no parsing in the
-  //    renderer — the runtime Zod schema validates on save).
+  // 5. Paste Block Kit JSON into the advanced json field. The renderer
+  //    PARSES it and commits the REAL array the runtime z.array schema
+  //    expects (the paste-JSON era saved a string it rejected).
   await user.click(screen.getByRole("textbox", { name: /^blocks$/i }));
   await user.paste(BLOCKS_JSON);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.blocks).toBe(
-    BLOCKS_JSON,
+  expect(useConfigSlice.getState().drafts[action.id]!.values.blocks).toEqual(
+    BLOCKS_PARSED,
   );
 
   // 6. Type the optional notification-preview text.
@@ -259,7 +265,7 @@ it("end-to-end: pick channel + paste Block Kit JSON + type notification text →
     .getState()
     .pendingNodes.find((n) => n.id === action.id)!.config;
   expect(pendingConfig.channel).toBe("C01ABC23DEF");
-  expect(pendingConfig.blocks).toBe(BLOCKS_JSON);
+  expect(pendingConfig.blocks).toEqual(BLOCKS_PARSED);
   expect(pendingConfig.text).toBe("Build is green");
   expect(pendingConfig.threadTs).toBeUndefined();
 
@@ -283,9 +289,114 @@ it("end-to-end: pick channel + paste Block Kit JSON + type notification text →
   expect(persistedAction.provider).toBe("slack");
   expect(persistedAction.type).toBe("post_interactive_blocks");
   expect(persistedAction.config.channel).toBe("C01ABC23DEF");
-  expect(persistedAction.config.blocks).toBe(BLOCKS_JSON);
+  expect(persistedAction.config.blocks).toEqual(BLOCKS_PARSED);
   expect(persistedAction.config.text).toBe("Build is green");
   expect(persistedAction.config.threadTs).toBeUndefined();
 
   expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
+});
+
+it("invalid Block Kit JSON shows friendly copy, blocks Modal Save, and never leaks internals — CONFIG-UX-AUDIT-2", async () => {
+  const user = userEvent.setup();
+  render(
+    <WorkflowBuilder
+      workflow={baseWorkflow}
+      triggerProviders={triggerProviders}
+      actionProviders={actionProviders}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
+  await waitFor(() => {
+    expect(screen.getByText("Manual")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Manual"));
+  await user.click(screen.getByRole("button", { name: /add action/i }));
+  await user.click(screen.getByRole("button", { name: /browse slack actions/i }));
+  await waitFor(() => {
+    expect(screen.getByText("Post Interactive Blocks")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Post Interactive Blocks"));
+  await openLastNodeOfKind("action");
+  await waitFor(() => {
+    expect(screen.getByRole("textbox", { name: /^blocks$/i })).toBeInTheDocument();
+  });
+
+  const modal = screen.getByRole("complementary", { name: /node configuration/i });
+
+  // Broken JSON → friendly inline error + Save disabled + footer hint.
+  await user.click(screen.getByRole("textbox", { name: /^blocks$/i }));
+  await user.paste('[{"type": "section"');
+  expect(await screen.findByText(/this needs valid json/i)).toBeInTheDocument();
+  expect(
+    within(modal).getByRole("button", { name: /^save$/i }),
+  ).toBeDisabled();
+  expect(screen.getByTestId("config-modal-json-blocking")).toHaveTextContent(
+    /fix .blocks. before saving/i,
+  );
+  // Never leak internals to the author.
+  expect(document.body.textContent).not.toMatch(
+    /SyntaxError|JSON\.parse|zod|renderer|unexpected token/i,
+  );
+
+  // Valid JSON but WRONG SHAPE (object where the schema wants a list).
+  await user.clear(screen.getByRole("textbox", { name: /^blocks$/i }));
+  await user.click(screen.getByRole("textbox", { name: /^blocks$/i }));
+  await user.paste('{"type":"section"}');
+  expect(
+    await screen.findByText(/needs a list/i),
+  ).toBeInTheDocument();
+  expect(
+    within(modal).getByRole("button", { name: /^save$/i }),
+  ).toBeDisabled();
+});
+
+it("a whole-value {{...}} variable stays a string (runtime resolver supplies the array); mixed JSON+variable is rejected with clear copy — CONFIG-UX-AUDIT-2", async () => {
+  const user = userEvent.setup();
+  render(
+    <WorkflowBuilder
+      workflow={baseWorkflow}
+      triggerProviders={triggerProviders}
+      actionProviders={actionProviders}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: /choose a trigger/i }));
+  await waitFor(() => {
+    expect(screen.getByText("Manual")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Manual"));
+  await user.click(screen.getByRole("button", { name: /add action/i }));
+  await user.click(screen.getByRole("button", { name: /browse slack actions/i }));
+  await waitFor(() => {
+    expect(screen.getByText("Post Interactive Blocks")).toBeInTheDocument();
+  });
+  await user.click(screen.getByText("Post Interactive Blocks"));
+  const action = useGraphSlice
+    .getState()
+    .pendingNodes.find((n) => n.kind === "action")!;
+  await openLastNodeOfKind("action");
+  await waitFor(() => {
+    expect(screen.getByRole("textbox", { name: /^blocks$/i })).toBeInTheDocument();
+  });
+  const modal = screen.getByRole("complementary", { name: /node configuration/i });
+
+  // Whole-value variable → committed as the string token; Save enabled.
+  await user.click(screen.getByRole("textbox", { name: /^blocks$/i }));
+  await user.paste("{{trigger.payload.blocks}}");
+  expect(useConfigSlice.getState().drafts[action.id]!.values.blocks).toBe(
+    "{{trigger.payload.blocks}}",
+  );
+  expect(
+    within(modal).getByRole("button", { name: /^save$/i }),
+  ).toBeEnabled();
+
+  // Mixed variable + JSON text → rejected with whole-value copy.
+  await user.clear(screen.getByRole("textbox", { name: /^blocks$/i }));
+  await user.click(screen.getByRole("textbox", { name: /^blocks$/i }));
+  await user.paste('[{"text": "{{trigger.payload.title}}"}]');
+  expect(
+    await screen.findByText(/variable must be the whole value/i),
+  ).toBeInTheDocument();
+  expect(
+    within(modal).getByRole("button", { name: /^save$/i }),
+  ).toBeDisabled();
 });

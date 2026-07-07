@@ -67,9 +67,10 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
       label: "Contact (physical address)",
       description:
         "Your organization's mailing address, required by anti-spam law (CAN-SPAM). Enter as a JSON object with `company`, `address1`, `city`, `state`, `zip`, `country` (all required) plus optional `address2` and `phone` — or insert a value from a previous step. A structured address form is coming; this is currently a developer-style field.",
-      type: "textarea",
+      type: "json",
       required: true,
       advanced: true,
+      jsonShape: "object",
       placeholder: '{"company":"Acme","address1":"123 Main St","city":"SF","state":"CA","zip":"94102","country":"US"}',
     },
     {
@@ -77,9 +78,10 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
       label: "Campaign defaults",
       description:
         "Default sender details for campaigns to this audience, required by Mailchimp. Enter as a JSON object with `from_name` and `from_email` (both required) plus optional `subject` and `language` — or insert a value from a previous step. A structured form is coming; this is currently a developer-style field.",
-      type: "textarea",
+      type: "json",
       required: true,
       advanced: true,
+      jsonShape: "object",
       placeholder: '{"from_name":"Acme Team","from_email":"newsletter@acme.com"}',
     },
     {

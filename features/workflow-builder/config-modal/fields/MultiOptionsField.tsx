@@ -65,7 +65,7 @@ const StaticMultiPickBody: React.FC<FieldRendererProps> = ({
   const controlId = `field-${field.name}`;
   const [open, setOpen] = React.useState(false);
 
-  const options = field.options ?? [];
+  const options = React.useMemo(() => field.options ?? [], [field.options]);
   const labelByValue = React.useMemo(() => {
     const map: Record<string, string> = {};
     for (const o of options) map[o.value] = o.label;

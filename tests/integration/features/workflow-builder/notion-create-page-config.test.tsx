@@ -156,12 +156,12 @@ it("Notion create_page meta declares parent / properties / children / icon / cov
   const byName = new Map(
     notionCreatePageMeta.fields.map((f) => [f.name, f]),
   );
-  expect(byName.get("parent")!.type).toBe("textarea");
+  expect(byName.get("parent")!.type).toBe("json");
   expect(byName.get("parent")!.required).toBe(true);
-  expect(byName.get("properties")!.type).toBe("textarea");
+  expect(byName.get("properties")!.type).toBe("json");
   expect(byName.get("properties")!.required).toBe(true);
   for (const optional of ["children", "icon", "cover"]) {
-    expect(byName.get(optional)!.type).toBe("textarea");
+    expect(byName.get(optional)!.type).toBe("json");
     expect(byName.get(optional)!.required).toBe(false);
   }
 
@@ -226,23 +226,17 @@ it("end-to-end: paste parent + properties JSON + optional icon → Modal Save (d
   //    convention).
   await user.click(screen.getByRole("textbox", { name: /^parent$/i }));
   await user.paste(PARENT_JSON);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.parent).toBe(
-    PARENT_JSON,
-  );
+  expect(useConfigSlice.getState().drafts[action.id]!.values.parent).toEqual(JSON.parse(PARENT_JSON));
 
   // 5. Paste properties JSON.
   await user.click(screen.getByRole("textbox", { name: /^properties$/i }));
   await user.paste(PROPERTIES_JSON);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.properties).toBe(
-    PROPERTIES_JSON,
-  );
+  expect(useConfigSlice.getState().drafts[action.id]!.values.properties).toEqual(JSON.parse(PROPERTIES_JSON));
 
   // 6. Paste an optional icon JSON.
   await user.click(screen.getByRole("textbox", { name: /^icon$/i }));
   await user.paste(ICON_JSON);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.icon).toBe(
-    ICON_JSON,
-  );
+  expect(useConfigSlice.getState().drafts[action.id]!.values.icon).toEqual(JSON.parse(ICON_JSON));
 
   // 7. Leave children + cover untouched — they should be absent from
   //    the persisted config.
@@ -261,9 +255,9 @@ it("end-to-end: paste parent + properties JSON + optional icon → Modal Save (d
   const pendingConfig = useGraphSlice
     .getState()
     .pendingNodes.find((n) => n.id === action.id)!.config;
-  expect(pendingConfig.parent).toBe(PARENT_JSON);
-  expect(pendingConfig.properties).toBe(PROPERTIES_JSON);
-  expect(pendingConfig.icon).toBe(ICON_JSON);
+  expect(pendingConfig.parent).toEqual(JSON.parse(PARENT_JSON));
+  expect(pendingConfig.properties).toEqual(JSON.parse(PROPERTIES_JSON));
+  expect(pendingConfig.icon).toEqual(JSON.parse(ICON_JSON));
   expect(pendingConfig.children).toBeUndefined();
   expect(pendingConfig.cover).toBeUndefined();
 
@@ -289,9 +283,9 @@ it("end-to-end: paste parent + properties JSON + optional icon → Modal Save (d
   // The persisted values stay as the literal JSON strings the author
   // pasted — the renderer does NOT parse them, the runtime does (or
   // {{...}} references are resolved by the engine).
-  expect(persistedAction.config.parent).toBe(PARENT_JSON);
-  expect(persistedAction.config.properties).toBe(PROPERTIES_JSON);
-  expect(persistedAction.config.icon).toBe(ICON_JSON);
+  expect(persistedAction.config.parent).toEqual(JSON.parse(PARENT_JSON));
+  expect(persistedAction.config.properties).toEqual(JSON.parse(PROPERTIES_JSON));
+  expect(persistedAction.config.icon).toEqual(JSON.parse(ICON_JSON));
   expect(persistedAction.config.children).toBeUndefined();
   expect(persistedAction.config.cover).toBeUndefined();
 

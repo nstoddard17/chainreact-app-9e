@@ -82,9 +82,10 @@ export const stripeCreatePaymentLinkMeta: ActionMeta = {
       label: "After completion",
       description:
         "Developer option. What happens after the customer pays, as a JSON object: `{\"type\":\"redirect\",\"redirectUrl\":\"https://example.com/...\"}` to redirect, or `{\"type\":\"hosted_confirmation\"}` for Stripe's confirmation page (Stripe's default when omitted). Enter the JSON value or insert a value from a previous step.",
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "object",
       placeholder:
         '{"type":"redirect","redirectUrl":"https://example.com/thanks"}',
     },

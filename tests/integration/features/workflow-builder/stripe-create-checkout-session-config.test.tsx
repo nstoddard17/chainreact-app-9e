@@ -192,11 +192,12 @@ it("Stripe create_checkout_session meta declares mode select + object-list lineI
   expect(metadata.required).toBe(false);
   expect(metadata.keyValueMaxRows).toBe(50);
 
-  // automaticTax: advanced JSON textarea (developer escape hatch)
+  // automaticTax: advanced json field (developer escape hatch)
   const automaticTax = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "automaticTax",
   )!;
-  expect(automaticTax.type).toBe("textarea");
+  expect(automaticTax.type).toBe("json");
+  expect(automaticTax.jsonShape).toBe("object");
   expect(automaticTax.advanced).toBe(true);
   expect(automaticTax.required).toBe(false);
 

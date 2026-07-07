@@ -135,9 +135,9 @@ it("Notion query_database meta exposes databaseId / filter / sorts / pageSize an
   );
   expect(byName.get("databaseId")!.type).toBe("text");
   expect(byName.get("databaseId")!.required).toBe(true);
-  expect(byName.get("filter")!.type).toBe("textarea");
+  expect(byName.get("filter")!.type).toBe("json");
   expect(byName.get("filter")!.required).toBe(false);
-  expect(byName.get("sorts")!.type).toBe("textarea");
+  expect(byName.get("sorts")!.type).toBe("json");
   expect(byName.get("sorts")!.required).toBe(false);
   const pageSize = byName.get("pageSize")!;
   expect(pageSize.type).toBe("number");
@@ -211,16 +211,12 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
   // 5. Paste filter JSON. Textarea stores the literal string.
   await user.click(screen.getByRole("textbox", { name: /^filter$/i }));
   await user.paste(FILTER_JSON);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.filter).toBe(
-    FILTER_JSON,
-  );
+  expect(useConfigSlice.getState().drafts[action.id]!.values.filter).toEqual(JSON.parse(FILTER_JSON));
 
   // 6. Paste sorts JSON.
   await user.click(screen.getByRole("textbox", { name: /^sorts$/i }));
   await user.paste(SORTS_JSON);
-  expect(useConfigSlice.getState().drafts[action.id]!.values.sorts).toBe(
-    SORTS_JSON,
-  );
+  expect(useConfigSlice.getState().drafts[action.id]!.values.sorts).toEqual(JSON.parse(SORTS_JSON));
 
   // 7. Set pageSize. NumberField parses integer-typed bounds.
   await user.type(
@@ -238,8 +234,8 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
     .getState()
     .pendingNodes.find((n) => n.id === action.id)!.config;
   expect(pendingConfig.databaseId).toBe(DATABASE_ID);
-  expect(pendingConfig.filter).toBe(FILTER_JSON);
-  expect(pendingConfig.sorts).toBe(SORTS_JSON);
+  expect(pendingConfig.filter).toEqual(JSON.parse(FILTER_JSON));
+  expect(pendingConfig.sorts).toEqual(JSON.parse(SORTS_JSON));
   expect(pendingConfig.pageSize).toBe(50);
   expect(pendingConfig.startCursor).toBeUndefined();
 
@@ -263,8 +259,8 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
   expect(persistedAction.provider).toBe("notion");
   expect(persistedAction.type).toBe("query_database");
   expect(persistedAction.config.databaseId).toBe(DATABASE_ID);
-  expect(persistedAction.config.filter).toBe(FILTER_JSON);
-  expect(persistedAction.config.sorts).toBe(SORTS_JSON);
+  expect(persistedAction.config.filter).toEqual(JSON.parse(FILTER_JSON));
+  expect(persistedAction.config.sorts).toEqual(JSON.parse(SORTS_JSON));
   expect(persistedAction.config.pageSize).toBe(50);
   expect(persistedAction.config.startCursor).toBeUndefined();
 

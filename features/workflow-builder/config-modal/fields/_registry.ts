@@ -16,6 +16,7 @@ import { TimezoneField } from "./TimezoneField";
 import { LocationField } from "./LocationField";
 import { ObjectListField } from "./ObjectListField";
 import { KeyValueListField } from "./KeyValueListField";
+import { JsonField } from "./JsonField";
 import type { FieldComponent } from "./types";
 
 /**
@@ -56,6 +57,9 @@ export const FIELD_RENDERERS: Readonly<Record<FieldType, FieldComponent>> =
     // CONFIG-UX-AUDIT-1 structured editors (replace paste-JSON textareas).
     "object-list": ObjectListField,
     "keyvalue-list": KeyValueListField,
+    // CONFIG-UX-AUDIT-2 — the advanced JSON escape hatch (commits parsed
+    // values / whole-value variables; never raw JSON strings as final).
+    json: JsonField,
   });
 
 export function getFieldRenderer(type: FieldType): FieldComponent {

@@ -31,6 +31,7 @@ import {
   type ConfigNodeTab,
 } from "./ConfigNodeTabs";
 import { validateRoutesValue } from "./fields/_routesValidator";
+import { collectJsonFieldBlockingError } from "./fields/_jsonFieldValue";
 
 /**
  * Config rail / modal shell for the currently-active node.
@@ -223,16 +224,23 @@ export function ConfigModalShell() {
   // time (config is opaque until handler dispatch), so the client-side
   // routes validator is the only pre-run guard.
   //
-  // Field-level Save gating uses the same pattern Slice 3.2's Save
-  // already does: a single boolean computed at render time. When more
-  // field types need pre-save validation later, this becomes a
-  // per-field-type validator map called against the draft values.
-  const hasBlockingValidationError =
+  // CONFIG-UX-AUDIT-2 extends the same pattern to `json` fields (the
+  // advanced developer escape hatch): invalid / shape-mismatched JSON
+  // text lives in the draft as a raw string, JsonField shows the
+  // friendly error inline, and Save stays blocked until it parses to
+  // the schema-expected shape (or is a whole-value {{...}} variable, or
+  // is cleared). Copy is product language only.
+  const routerBlockingError =
     activeMeta?.key === ROUTER_KEY
       ? validateRoutesValue(
           (values as Record<string, unknown>)["routes"],
         ).error !== null
       : false;
+  const jsonBlockingError = activeMeta
+    ? collectJsonFieldBlockingError(activeMeta.fields, values)
+    : null;
+  const hasBlockingValidationError =
+    routerBlockingError || jsonBlockingError !== null;
 
   // BUILDER-CONFIG-TABS-1 — Advanced is shown ONLY when the node actually has
   // advanced options. There is no advanced-field concept in the metadata yet, so
@@ -387,7 +395,19 @@ export function ConfigModalShell() {
       ) : (
         <footer className="flex items-center justify-between gap-3 border-t pt-3">
           <span className="text-xs text-muted-foreground">
-            {isDirty ? "Unsaved changes" : "No changes"}
+            {jsonBlockingError ? (
+              <span
+                role="status"
+                data-testid="config-modal-json-blocking"
+                className="text-destructive"
+              >
+                Fix &ldquo;{jsonBlockingError.fieldLabel}&rdquo; before saving.
+              </span>
+            ) : isDirty ? (
+              "Unsaved changes"
+            ) : (
+              "No changes"
+            )}
           </span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={requestClose}>

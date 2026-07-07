@@ -45,9 +45,10 @@ export const mondayCreateItemMeta: ActionMeta = {
       label: "Column values",
       description:
         'JSON-encoded column-values map. Example: {"status":{"label":"Done"},"text_col":"hello"}. Leave empty to create with no column values.',
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "object",
       placeholder: '{"status":{"label":"Done"}}',
     },
   ],

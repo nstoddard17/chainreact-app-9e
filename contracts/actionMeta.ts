@@ -114,6 +114,15 @@ export const FieldTypeSchema = z.enum([
   // Distinct from `keyvalue` (a single `Array<{key, value}>` list) — this
   // writes `Array<Record<string, string>>` natively.
   "keyvalue-list",
+  // CONFIG-UX-AUDIT-2 — `json`: the ONLY sanctioned advanced/developer
+  // JSON escape hatch. Renders a textarea whose committed value is the
+  // PARSED JS value (array/object per `jsonShape`), a pure `{{...}}`
+  // variable string, or `undefined` — never a raw JSON string, which
+  // runtime `z.array`/`z.object`/`z.record` schemas reject. Invalid or
+  // shape-mismatched text stays in the draft as a string so nothing the
+  // user typed is lost, and the config modal's Save gate blocks until
+  // it is fixed (friendly copy only; no parser/renderer internals).
+  "json",
 ]);
 export type FieldType = z.infer<typeof FieldTypeSchema>;
 
@@ -405,6 +414,22 @@ export const FieldMetaSchema = z
      * enforced by tests/unit/features/workflow-builder/config-copy-guard.
      */
     advanced: z.boolean().optional(),
+    /**
+     * CONFIG-UX-AUDIT-2 — expected top-level shape for a `json` field,
+     * mirroring the runtime schema's contract:
+     *
+     *   - `"array"`  → runtime expects `z.array(...)` (Slack blocks,
+     *     Sheets batch updates, Airtable records, Notion children/sorts).
+     *   - `"object"` → runtime expects `z.object`/`z.record`/a union of
+     *     objects (Notion parent/properties/filter, addresses, Stripe
+     *     automaticTax/afterCompletion, Monday column values).
+     *   - `"any"`    → any JSON value accepted (no current consumer;
+     *     escape valve for future forward-passed grammars).
+     *
+     * The JsonField renderer + the config modal's Save gate validate the
+     * draft against this before commit. Defaults to `"any"` when absent.
+     */
+    jsonShape: z.enum(["array", "object", "any"]).optional(),
   })
   .strict()
   .superRefine((field, ctx) => {
@@ -476,6 +501,23 @@ export const FieldMetaSchema = z
         code: z.ZodIssueCode.custom,
         path: ["keyValueShape"],
         message: "`keyValueShape` is only valid on `keyvalue` fields.",
+      });
+    }
+    if (field.jsonShape && field.type !== "json") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["jsonShape"],
+        message: "`jsonShape` is only valid on `json` fields.",
+      });
+    }
+    if (field.type === "json" && field.advanced !== true) {
+      // CONFIG-UX-AUDIT-2 product rule: raw-JSON entry exists ONLY as an
+      // advanced/developer escape hatch — a json field in the normal
+      // setup path would reintroduce the paste-JSON UX AUDIT-1 removed.
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["advanced"],
+        message: "`json` fields must be marked `advanced: true` (developer escape hatch only).",
       });
     }
     if (field.stringArrayMaxItems && field.type !== "string-array") {

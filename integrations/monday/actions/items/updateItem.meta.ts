@@ -56,9 +56,10 @@ export const mondayUpdateItemMeta: ActionMeta = {
       label: "Additional columns",
       description:
         'Optional JSON map of further columns to set in the same call. Example: {"priority":{"label":"High"}}.',
-      type: "textarea",
+      type: "json",
       required: false,
       advanced: true,
+      jsonShape: "object",
       placeholder: '{"priority":{"label":"High"}}',
     },
   ],

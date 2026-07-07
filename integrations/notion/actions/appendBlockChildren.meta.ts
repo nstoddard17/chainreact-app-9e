@@ -42,9 +42,10 @@ export const notionAppendBlockChildrenMeta: ActionMeta = {
       label: "Children blocks",
       description:
         "Typed `BlockSpec[]` JSON array (1..100). Supported types: `paragraph`, `heading_1`, `heading_2`, `heading_3`, `bulleted_list_item`, `numbered_list_item`, `quote`, `to_do`, `divider`. Each entry is `{\"type\":\"<one of the above>\",\"text\":\"…\"}` (to_do additionally accepts `\"checked\":boolean`). Enter JSON or wire `{{...}}` from upstream array outputs.",
-      type: "textarea",
+      type: "json",
       required: true,
       advanced: true,
+      jsonShape: "array",
       placeholder: '[{"type":"paragraph","text":"Hello"}]',
     },
   ],

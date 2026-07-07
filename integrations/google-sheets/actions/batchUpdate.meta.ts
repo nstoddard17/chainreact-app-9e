@@ -69,9 +69,10 @@ export const googleSheetsBatchUpdateMeta: ActionMeta = {
       label: "Updates",
       description:
         "JSON array of `[{range, values}]` entries (1..100). Each `range` MUST include the sheet-name prefix (e.g. `\"Sheet1!A1:B2\"`); ranges without a sheet prefix are rejected at parse time. `values` is a 2D array — each inner array is a row, cells are strings / numbers / booleans / `null`. Enter a JSON array or wire `{{...}}` from upstream.",
-      type: "textarea",
+      type: "json",
       required: true,
       advanced: true,
+      jsonShape: "array",
       placeholder:
         '[{"range":"Sheet1!A1:B2","values":[["a","b"],["c","d"]]}]',
     },
