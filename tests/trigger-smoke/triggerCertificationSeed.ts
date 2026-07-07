@@ -596,6 +596,79 @@ export const TRIGGER_CERTIFICATIONS: readonly TriggerCertRecord[] = [
     date: "2026-07-06",
     note: "real polling dispatch vs live Gmail: activation seeds the cursor, baseline poll fires 0, the proven smoke multipart self-send (send_email has no attachments field) delivers ONE message with a crsmoke-named text attachment; the poll's format=full hydration + extractAttachmentMetadata fire exactly 1 run whose trigger_event carries eventId attachment:<messageId> + the marker filename in payload.attachments, terminal 'succeeded', watermark + rewound-cursor dedup (attachment: prefixed key) hold at 1, seed trashed + rows cleaned (0 leaked)",
   },
+  // Mailchimp polling batch (2026-07-06) — 3 of the 6 registered Mailchimp
+  // polling triggers on the spec-driven Mailchimp polling harness
+  // (tests/trigger-smoke/mailchimpPollingSmoke.ts). FULL Lane B live-provider
+  // certs against the action-certified smoke account's audience: real
+  // activation baselines, real segments/campaigns API reads, and run-unique
+  // crsmoke seeds via the CERTIFIED add_subscriber / add_tag /
+  // remove_subscriber(delete_permanent) handlers (Mailchimp TAGS are static
+  // segments, so add_tag both mints the smoke segment and adds the member).
+  // Smoke-only inline calls (via the shared mailchimpRequest helper) exist
+  // only where no wrapper/action does: campaign create+delete (a DRAFT that
+  // is NEVER sent), segment rename (the deterministic observable), segment
+  // delete (cleanup). Freshness proven in two isolated layers per cert:
+  // WATERMARK (absorbed-snapshot re-poll fires 0) and DEDUP (the exact
+  // pre-change snapshot JSON is RESTORED, the poller re-detects the change,
+  // and the per-trigger webhook_event_dedup key drops it). NO mail sent at
+  // any point; members permanently deleted, tag segment + draft campaign
+  // deleted, dedup rows removed — 0 leaked.
+  {
+    provider: "mailchimp",
+    type: "subscriber_added_to_segment",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real polling dispatch vs live Mailchimp: prepare seeds member A + marker tag (=static segment) settle-confirmed, activation snapshots the member-hash set, baseline poll fires 0, certified add_subscriber+add_tag on plus-addressed member B fires exactly 1 run whose trigger_event carries eventId subscriber_added_to_segment:<seg>:<hash> + B's crsmoke email, terminal 'succeeded', absorbed-snapshot re-poll fires 0 (watermark), RESTORED pre-change snapshot re-poll re-detects B and dedup drops it (still 1), members delete_permanent + segment deleted + rows cleaned (0 leaked)",
+  },
+  {
+    provider: "mailchimp",
+    type: "segment_updated",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real polling dispatch vs live Mailchimp: activation snapshots the segment's observed state, baseline poll fires 0, a smoke-only RENAME of the marker tag segment (the record's primary field; live probe showed the member-count aggregate lags minutes behind segmentMembersList, so the count is NOT the smoke observable) fires exactly 1 run whose trigger_event carries the renamed marker name + eventId segment_updated:<seg>:<updatedAt>, terminal 'succeeded', watermark re-poll fires 0, RESTORED-snapshot re-poll re-detects and dedup (updatedAt-keyed) drops it (still 1), member delete_permanent + segment deleted + rows cleaned (0 leaked)",
+  },
+  {
+    provider: "mailchimp",
+    type: "campaign_created",
+    activation: "polling",
+    status: "LIVE_PASS",
+    date: "2026-07-06",
+    note: "real polling dispatch vs live Mailchimp: activation snapshots known campaign ids (config.audienceId narrows to the smoke audience), baseline poll fires 0, a smoke-only inline DRAFT campaign create (type regular, marker title, NEVER sent — creation sends no mail) fires exactly 1 run whose trigger_event carries eventId campaign_created:<id> + the marker title + audienceId, terminal 'succeeded', watermark re-poll fires 0, RESTORED-snapshot re-poll re-detects and dedup (campaign-id-keyed) drops it (still 1), draft campaign deleted + rows cleaned (0 leaked)",
+  },
+  // mailchimp:new_audience / email_opened / link_clicked — BLOCKED for smoke
+  // certification (probe-read 2026-07-06):
+  //   - new_audience fires on a NEW audience (list) created after baseline;
+  //     the smoke account has NO free audience slot (create_audience is
+  //     BLOCKED_ENV on the same account — Mailchimp plan audience limit), so
+  //     the observable cannot be seeded.
+  //   - email_opened / link_clicked watch SENT campaigns' report aggregates
+  //     (reportSummary opens/clicks); certifying would require actually
+  //     SENDING a campaign (a real broadcast — out of smoke policy) AND real
+  //     recipient open/click engagement plus Mailchimp report latency, none
+  //     of which can be honestly seeded.
+  {
+    provider: "mailchimp",
+    type: "new_audience",
+    activation: "polling",
+    status: "MISSING_HARNESS",
+    note: "BLOCKED: needs a NEW audience created post-baseline; smoke account has no audience slot (plan limit — create_audience is BLOCKED_ENV on the same account). Certify when a slot exists or on a paid test account.",
+  },
+  {
+    provider: "mailchimp",
+    type: "email_opened",
+    activation: "polling",
+    status: "MISSING_HARNESS",
+    note: "BLOCKED: watches SENT campaigns' report open totals; seeding requires a real campaign SEND (broadcast — out of smoke policy) + real recipient opens + report latency. Not honestly seedable; needs a Phase-13-style live cert with a controlled recipient.",
+  },
+  {
+    provider: "mailchimp",
+    type: "link_clicked",
+    activation: "polling",
+    status: "MISSING_HARNESS",
+    note: "BLOCKED: watches SENT campaigns' report click totals; same send+engagement requirements as email_opened. Not honestly seedable; needs a Phase-13-style live cert with a controlled recipient.",
+  },
   // airtable:record_changed — BLOCKED for direct-seed certification, probe-read
   // 2026-07-06 (integrations/airtable/webhooks/receive.ts + triggers/
   // recordChanged/pull.ts). Airtable's webhook ping carries NO record data

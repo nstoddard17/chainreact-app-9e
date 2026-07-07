@@ -37,6 +37,7 @@
     "smoke:triggers:excel": "jest tests/integration/trigger-smoke/excel-polling.workflow-live.dev.test.ts",
     "smoke:triggers:onenote": "jest tests/integration/trigger-smoke/onenote-polling.workflow-live.dev.test.ts",
     "smoke:triggers:gmail": "jest tests/integration/trigger-smoke/gmail-polling.workflow-live.dev.test.ts",
+    "smoke:triggers:mailchimp": "jest tests/integration/trigger-smoke/mailchimp-polling.workflow-live.dev.test.ts",
     "smoke:triggers:webhook": "jest tests/integration/trigger-smoke/slack-webhook.workflow.dev.test.ts tests/integration/trigger-smoke/github-webhook.workflow.dev.test.ts tests/integration/trigger-smoke/trello-webhook.workflow.dev.test.ts tests/integration/trigger-smoke/monday-webhook.workflow.dev.test.ts tests/integration/trigger-smoke/asana-webhook.workflow.dev.test.ts tests/integration/trigger-smoke/typeform-webhook.workflow.dev.test.ts tests/integration/trigger-smoke/calendly-webhook.workflow.dev.test.ts tests/integration/trigger-smoke/consolidated-webhook.workflow.dev.test.ts",
     "smoke:ops-alerts": "jest tests/integration/observability/ops-alerts.evaluator.dev.test.ts",
     "typecheck": "tsc --noEmit"
