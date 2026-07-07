@@ -34,6 +34,9 @@ import { validateRoutesValue } from "./fields/_routesValidator";
 import { collectJsonFieldBlockingError } from "./fields/_jsonFieldValue";
 import { NodeConfigReadinessBanner } from "./NodeConfigReadinessBanner";
 import { computeConfigReadiness } from "./readiness/computeConfigReadiness";
+import { connectionInputForProvider } from "./readiness/connectionInput";
+import { useConnectionReadiness } from "../hooks/useConnectionReadiness";
+import type { WorkflowDefinition } from "@/contracts/workflow";
 
 /**
  * Config rail / modal shell for the currently-active node.
@@ -74,6 +77,13 @@ interface ConfigurableMeta {
   displayName: string;
   description: string;
   fields: readonly FieldMeta[];
+  /**
+   * CONNECTION-AWARE-READINESS-1 — separates provider-backed nodes (true:
+   * readiness includes the app-connection check) from native/logic nodes
+   * (false: field-only readiness, no connection fetch). Carried by both
+   * ActionMeta and TriggerMeta.
+   */
+  requiresIntegration: boolean;
 }
 
 export function ConfigModalShell() {
@@ -155,6 +165,31 @@ export function ConfigModalShell() {
     providerActions.actions,
     providerTriggers.triggers,
   ]);
+
+  // CONNECTION-AWARE-READINESS-1 — server-resolved app-connection signal
+  // for the pending graph (same hook + route the React Agent readiness
+  // panel uses: account-scoped, credential-provenance-aware, 404 no-leak).
+  // Only fetched for provider-backed nodes; native/logic nodes and
+  // workflows without an id (local-only) skip the round-trip entirely.
+  // Refetches only when the graph's provider usage changes, not per edit.
+  const pendingEdges = useGraphSlice((s) => s.pendingEdges);
+  const connectionDefinition = useMemo<WorkflowDefinition | null>(
+    () => ({ nodes: [...pendingNodes], edges: [...pendingEdges] }),
+    [pendingNodes, pendingEdges],
+  );
+  const nodeRequiresConnection =
+    activeNode !== undefined &&
+    activeNode.provider !== NATIVE_PROVIDER &&
+    activeMeta?.requiresIntegration === true;
+  // Without a workflow id there is no account to resolve against — the
+  // hook stays disabled and the mapper renders an honest "unknown"
+  // (never "Ready to run") instead of skipping the requirement.
+  const connectionCheckEnabled = nodeRequiresConnection && Boolean(workflowId);
+  const connectionSignal = useConnectionReadiness({
+    workflowId: workflowId ?? "",
+    definition: connectionCheckEnabled ? connectionDefinition : null,
+    enabled: connectionCheckEnabled,
+  });
 
   // No active node → shell is hidden.
   if (!activeNodeId || !activeNode) return null;
@@ -250,6 +285,11 @@ export function ConfigModalShell() {
   // already-computed Save blockers — no new validation rules in the UI.
   // "Ready" describes config completeness; the footer keeps owning the
   // dirty/saved state.
+  //
+  // CONNECTION-AWARE-READINESS-1 — provider-backed nodes also fold in the
+  // server-resolved app-connection state. Saving a draft stays possible
+  // either way; the banner just never claims "Ready to run" while the
+  // required connection is missing, unusable, or not yet verified.
   const readiness = activeMeta
     ? computeConfigReadiness({
         metaKey: activeMeta.key,
@@ -259,6 +299,11 @@ export function ConfigModalShell() {
         errors,
         blockedFieldCount:
           (routerBlockingError ? 1 : 0) + (jsonBlockingError ? 1 : 0),
+        connection: connectionInputForProvider({
+          requiresConnection: nodeRequiresConnection,
+          provider: activeNode.provider,
+          signal: connectionSignal,
+        }),
       })
     : null;
 

@@ -37,7 +37,7 @@ const STATUS_STYLES: Record<ConfigReadiness["status"], string> = {
 export function NodeConfigReadinessBanner({
   readiness,
 }: NodeConfigReadinessBannerProps) {
-  const { status, headline, items } = readiness;
+  const { status, headline, items, cta } = readiness;
 
   return (
     <div
@@ -73,6 +73,19 @@ export function NodeConfigReadinessBanner({
             </li>
           ))}
         </ul>
+      ) : null}
+      {cta ? (
+        <p>
+          {/* CONNECTION-AWARE-READINESS-1 — the Apps page is the canonical
+              connect/reconnect surface; the OAuth callback returns there. */}
+          <a
+            href={cta.href}
+            data-testid="config-readiness-banner-cta"
+            className="inline-flex items-center rounded-md border border-current/40 px-2 py-1 text-xs font-medium underline-offset-2 hover:underline"
+          >
+            {cta.label}
+          </a>
+        </p>
       ) : null}
     </div>
   );

@@ -1,6 +1,7 @@
 import type { FieldMeta } from "@/contracts/actionMeta";
 import { isRequiredValueMissing } from "@/core/workflows/requiredFields";
 import { getReadinessAdapter } from "./adapters";
+import type { ConfigConnectionInput } from "./connectionInput";
 
 /**
  * Pure per-node config readiness (SPREADSHEET-CONFIG-REDESIGN-1) — the
@@ -39,6 +40,12 @@ export interface ConfigReadiness {
   /** Banner headline, e.g. "One thing left to fill in" / "Ready to run". */
   readonly headline: string;
   readonly items: readonly ReadinessChecklistItem[];
+  /**
+   * CONNECTION-AWARE-READINESS-1 — optional call-to-action for a missing /
+   * unusable app connection. The Apps page is the canonical connect and
+   * reconnect surface (the OAuth callback lands back there too).
+   */
+  readonly cta?: { readonly label: string; readonly href: string };
 }
 
 export interface ComputeConfigReadinessInput {
@@ -55,17 +62,33 @@ export interface ComputeConfigReadinessInput {
    * computes these to gate Save; the banner reuses the outcome.
    */
   readonly blockedFieldCount?: number;
+  /**
+   * CONNECTION-AWARE-READINESS-1 — the node's app-connection state, mapped
+   * from the SERVER-resolved signal by `connectionInputForProvider`.
+   * Omitted or `not-required` (native/logic nodes) keeps field-only
+   * readiness. Any other non-`connected` value blocks "Ready to run":
+   * priority is blocking errors > connection > missing fields > ready.
+   * Saving a draft is NOT gated here — the footer/Save flow is untouched.
+   */
+  readonly connection?: ConfigConnectionInput;
 }
 
 export function computeConfigReadiness(
   input: ComputeConfigReadinessInput,
 ): ConfigReadiness {
-  const { metaKey, nodeKind, fields, values, errors, blockedFieldCount } = input;
+  const { metaKey, nodeKind, fields, values, errors, blockedFieldCount, connection } =
+    input;
 
-  const adapter = getReadinessAdapter(metaKey);
-  const items = adapter
-    ? adapter({ fields, values })
-    : genericChecklist(fields, values);
+  const conn =
+    connection !== undefined && connection.status !== "not-required"
+      ? connection
+      : null;
+
+  const fieldItems = (() => {
+    const adapter = getReadinessAdapter(metaKey);
+    return adapter ? adapter({ fields, values }) : genericChecklist(fields, values);
+  })();
+  const items = [...connectionChecklist(conn), ...fieldItems];
 
   const inlineErrorCount = Object.values(errors ?? {}).filter(
     (message) => typeof message === "string" && message.length > 0,
@@ -80,6 +103,17 @@ export function computeConfigReadiness(
           ? "Fix one field before saving"
           : `Fix ${invalidCount} fields before saving`,
       items,
+    };
+  }
+
+  // Connection outranks missing fields: a node is never "Ready to run"
+  // while its app connection is missing, unusable, or not yet verified.
+  if (conn && conn.status !== "connected") {
+    return {
+      status: "incomplete",
+      headline: connectionHeadline(conn, nodeKind),
+      items,
+      ...connectionCta(conn),
     };
   }
 
@@ -100,6 +134,62 @@ export function computeConfigReadiness(
     headline: nodeKind === "trigger" ? "Ready to activate" : "Ready to run",
     items,
   };
+}
+
+/**
+ * Connection checklist row. Only definitive states get a row — while the
+ * check is still running (or failed) the headline carries the honesty and
+ * a guessed "Connect X" row would overstate what we know.
+ */
+function connectionChecklist(
+  conn: ConfigConnectionInput | null,
+): ReadinessChecklistItem[] {
+  if (!conn) return [];
+  const name = conn.providerDisplayName;
+  switch (conn.status) {
+    case "connected":
+      return [{ label: `${name} is connected`, done: true }];
+    case "missing":
+      return [{ label: `Connect ${name}`, done: false }];
+    case "reconnect-required":
+    case "attention":
+      return [{ label: `Reconnect ${name}`, done: false }];
+    default:
+      return [];
+  }
+}
+
+function connectionHeadline(
+  conn: ConfigConnectionInput,
+  nodeKind: "action" | "trigger",
+): string {
+  const name = conn.providerDisplayName;
+  const goal = nodeKind === "trigger" ? "to activate this trigger" : "to run this step";
+  switch (conn.status) {
+    case "missing":
+      return `Connect ${name} ${goal}`;
+    case "reconnect-required":
+      return `Reconnect ${name} ${goal}`;
+    case "attention":
+      return "Connection needs attention";
+    case "checking":
+      return "Checking connection…";
+    default:
+      return "Couldn't check the app connection";
+  }
+}
+
+function connectionCta(
+  conn: ConfigConnectionInput,
+): { cta: NonNullable<ConfigReadiness["cta"]> } | Record<string, never> {
+  const name = conn.providerDisplayName;
+  if (conn.status === "missing") {
+    return { cta: { label: `Connect ${name}`, href: "/apps" } };
+  }
+  if (conn.status === "reconnect-required" || conn.status === "attention") {
+    return { cta: { label: `Reconnect ${name}`, href: "/apps" } };
+  }
+  return {};
 }
 
 /**

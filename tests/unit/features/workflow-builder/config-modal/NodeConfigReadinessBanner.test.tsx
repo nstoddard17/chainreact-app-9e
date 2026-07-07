@@ -6,6 +6,13 @@
  * states, with product copy only.
  */
 
+const mockGetConnectionReadiness = jest.fn();
+jest.mock("@/lib/api/workflowConnectionReadiness", () => ({
+  __esModule: true,
+  getWorkflowConnectionReadiness: (...args: unknown[]) =>
+    mockGetConnectionReadiness(...args),
+}));
+
 const mockListNativeActions = jest.fn();
 const mockListNativeTriggers = jest.fn();
 const mockListProviderActions = jest.fn();
@@ -93,6 +100,7 @@ beforeEach(() => {
   mockListProviderActions.mockResolvedValue([]);
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
+  mockGetConnectionReadiness.mockReset();
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -175,5 +183,21 @@ describe("NodeConfigReadinessBanner — shared across ALL node config menus", ()
     expect(el.textContent).not.toMatch(
       /timeoutSeconds|bodyBlocks|json|zod|schema|renderer|string-array|keyvalue|combobox/i,
     );
+  });
+
+  it("native nodes are connectionless: no connection check is made and no connect copy renders (CONNECTION-AWARE-READINESS-1)", async () => {
+    const { nodeId } = bootWithNativeAction();
+    render(<ConfigModalShell />);
+    const el = await banner();
+    expect(el.textContent).not.toMatch(/connect|connection/i);
+    useConfigSlice.getState().updateField({ nodeId, name: "url", value: "https://x.dev" });
+    useConfigSlice.getState().updateField({ nodeId, name: "method", value: "GET" });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("config-readiness-banner").textContent,
+      ).toContain("Ready to run");
+    });
+    // Field-only readiness: the server connection check is never called.
+    expect(mockGetConnectionReadiness).not.toHaveBeenCalled();
   });
 });

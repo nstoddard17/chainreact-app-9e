@@ -48,6 +48,16 @@ jest.mock("@/lib/api/options", () => ({
   fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
 }));
 
+// CONNECTION-AWARE-READINESS-1 — the banner now folds in the server-resolved
+// connection state; this suite pins the CONNECTED path (Excel is usable), so
+// the spreadsheet readiness walk below stays about fields.
+const mockGetConnectionReadiness = jest.fn();
+jest.mock("@/lib/api/workflowConnectionReadiness", () => ({
+  __esModule: true,
+  getWorkflowConnectionReadiness: (...args: unknown[]) =>
+    mockGetConnectionReadiness(...args),
+}));
+
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -150,6 +160,30 @@ beforeEach(() => {
       message: `Unknown source '${source}' (test mock).`,
     };
   });
+  mockGetConnectionReadiness.mockReset();
+  mockGetConnectionReadiness.mockResolvedValue({
+    workflowId: "wf-1",
+    access: "OK",
+    allRequiredConnected: true,
+    providers: [
+      {
+        provider: "microsoft-excel",
+        name: "Microsoft Excel",
+        credentialClass: "personal",
+        nodeIds: [],
+        nodeCount: 1,
+        status: "CONNECTED",
+        ready: true,
+        providerEnabled: true,
+        refreshable: true,
+        tokenExpired: false,
+        scopesSatisfied: true,
+        missingScopeCount: 0,
+        reconnectNeeded: false,
+        canReconnect: true,
+      },
+    ],
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -230,10 +264,15 @@ it(
     );
     const action = await buildToOpenConfig(user);
 
-    // Readiness banner: nothing picked yet.
-    expect(bannerText()).toContain("2 things left to fill in");
+    // Readiness banner: nothing picked yet (waitFor lets the mocked
+    // connection check resolve past its brief "Checking connection" state).
+    await waitFor(() => {
+      expect(bannerText()).toContain("2 things left to fill in");
+    });
     expect(bannerText()).toContain("Pick a workbook and worksheet");
     expect(bannerText()).toContain("Fill in at least one row value");
+    // Connection-aware readiness: the connected app shows as a checked row.
+    expect(bannerText()).toContain("Microsoft Excel is connected");
 
     // The rows sibling never renders a duplicate standalone editor, and
     // the row editor asks for the destination first.
