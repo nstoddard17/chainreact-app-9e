@@ -90,14 +90,14 @@ export const OTHER_CERTIFICATIONS: readonly CertificationRecord[] = [
     ["asana", "complete_task"],
     ["asana", "add_comment_to_task"],
   ]),
-  // TYPEFORM-2 (2026-07-06): first Typeform actions ship behind the NEW
-  // responses:read scope. The smoke account's TYPEFORM-1 connection predates
-  // that scope, so live runs 403 until Marcus adds the scope in the Typeform
-  // dev app AND the smoke account reconnects (owner setup + Phase 13).
-  ...records("FAIL", "TYPEFORM-2: connected, but token predates responses:read (live 403). Add scope in the Typeform dev app + reconnect the smoke account, then re-verify", "2026-07-06", [
+  // TYPEFORM-2 (Phase 13 PASSED 2026-07-07): first Typeform actions, behind
+  // the NEW responses:read scope. Pre-setup the smoke token 403'd (recorded
+  // FAIL/BLOCKED_ENV 2026-07-06); after deploy + reconnect both live-passed
+  // through the real engine, incl. the fake-token found:false run.
+  ...records("LIVE_PASS", "TYPEFORM-2 live read post-reconnect: one-page list via workflow-live sweep, terminal succeeded; bounded output verified in the persisted run", "2026-07-07", [
     ["typeform", "list_responses"],
   ]),
-  ...records("BLOCKED_ENV", "TYPEFORM-2: needs responses:read owner setup + reconnect AND a completed-response token in SMOKE_TYPEFORM_RESPONSE_TOKEN, then re-run", "2026-07-06", [
+  ...records("LIVE_PASS", "TYPEFORM-2 live read post-reconnect: real token found:true (match) AND fake token found:false, both runs terminal succeeded; bounded output verified", "2026-07-07", [
     ["typeform", "get_response"],
   ]),
   ...records("BLOCKED_ENV", "provider not connected on the smoke account; connect a Stripe TEST-MODE account, then re-run", "2026-07-04", [

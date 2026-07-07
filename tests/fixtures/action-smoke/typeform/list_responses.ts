@@ -10,11 +10,10 @@ import { defineActionSmokeFixture } from "@/tests/smoke-actions/contract";
  * at least one submitted response. The smoke report asserts only the
  * terminal run status — never respondent content.
  *
- * Until owner setup lands (dev-app scope update + smoke-account
- * reconnect) the live run fails with INTEGRATION_SCOPE_REQUIRED — the
- * smoke connection predates responses:read (verified live 2026-07-06).
- * That known-FAIL is recorded in the certification seed so the live
- * gate treats it as expected until the Phase 13 re-verify.
+ * Pre-owner-setup the live run failed with INTEGRATION_SCOPE_REQUIRED
+ * (the smoke connection predated responses:read, verified live
+ * 2026-07-06). Phase 13 PASSED 2026-07-07 after deploy + reconnect —
+ * certified LIVE_PASS in the certification seed.
  */
 export default defineActionSmokeFixture({
   provider: "typeform",

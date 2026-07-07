@@ -264,6 +264,38 @@ live Typeform account, real form `KRVNz1KP` — script
    `DELETE /forms/{id}/webhooks/{tag}` returned 404 — usable as the
    provider-side removal proof (we deliberately hold no `webhooks:read`).
 
+## Live-observed behavior — Responses API (TYPEFORM-2 Phase 13, 2026-07-07)
+
+Observed against the real Responses API with the reconnected production
+credential (form `KRVNz1KP`; probe `scripts/trash/typeform2-live-probe.ts`):
+
+1. **Scope grant mechanics confirmed:** refresh does NOT widen a grant —
+   the pre-TYPEFORM-2 token 403'd on `GET /forms/{id}/responses`
+   (2026-07-06); after deploy + reconnect the new grant included
+   `responses:read` with NO Typeform portal change (apps have no per-app
+   scope allowlist; the authorize URL's manifest-driven `scope` param is
+   authoritative).
+2. **Post-refresh scope retention:** after a live `dispatcher.refresh()`
+   (rotation persisted), the rotated access token still read responses —
+   refresh keeps the widened grant once re-consented.
+3. **`before` cursor is exclusive** and returns only older items; the
+   cursor token itself is never repeated (0 items when the cursor is the
+   oldest/only response).
+4. **`included_response_ids` with an unknown token returns HTTP 200 with
+   `items: []`**, not 404 — confirming the `found: false` design for
+   `get_response` (no thrown not-found exists to map).
+5. **`since`/`until` accept ISO 8601 UTC** and filter as documented;
+   `query` searches server-side (nonsense string → 0 items).
+6. **Surface difference on `calculated.score`:** the Responses API
+   returned `calculated: { score: 0 }` for the same response whose
+   webhook delivery carried NO calculated score (TYPEFORM-1 cert
+   observed `score: null` in the trigger payload). So `score: 0` from
+   the read actions vs `score: null` from the trigger can describe the
+   SAME unscored response — downstream consumers should not treat `0`
+   as "scored".
+7. **`total_items` reflects the filtered query**, and a short page
+   (items < page_size) reliably means last page — `nextBefore: null`.
+
 ## Known limitations recap
 
 1. EU data center accounts unsupported this slice (see above).

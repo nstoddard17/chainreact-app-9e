@@ -1,42 +1,82 @@
 # Typeform Owner Setup Report
 
 ## Status
-- Code status: TYPEFORM-1 **live-complete** (Phase 13 certified 2026-07-04); TYPEFORM-2 read actions **code-complete owner setup required** (2026-07-06 — see "TYPEFORM-2 owner setup" below)
-- Commit: `84921bc35` (TYPEFORM-1, pushed to v2-main + deployed); TYPEFORM-2 commit is local only, not pushed
-- Push status: TYPEFORM-1 pushed/deployed (Marcus-approved 2026-07-04); TYPEFORM-2 local until approved
-- Smoke status: TYPEFORM-1 trigger fully live-certified; TYPEFORM-2 actions unit-tested + mocked-smoke green; live probe confirmed the dispatch path end-to-end but 403'd on the missing `responses:read` grant (expected — see below)
-- Remaining owner action: **TYPEFORM-2** — deploy the TYPEFORM-2 commit, reconnect Typeform (re-consent grants `responses:read`), set `SMOKE_TYPEFORM_RESPONSE_TOKEN`, then run Phase 13 for the 2 read actions
+- Code status: TYPEFORM-1 **live-complete** (Phase 13 certified 2026-07-04); TYPEFORM-2 read actions **live-complete** (Phase 13 certified 2026-07-07 — see "TYPEFORM-2 live verification" below)
+- Commit: `84921bc35` (TYPEFORM-1); `1a3df91f0` (TYPEFORM-2) — both pushed to v2-main + deployed; Phase 13 evidence commit is local until approved
+- Push status: TYPEFORM-1 + TYPEFORM-2 pushed/deployed (Marcus-approved); TYPEFORM-2 cert-evidence commit local until approved
+- Smoke status: trigger + both read actions fully live-certified against production credentials and the real Responses API
+- Remaining owner action: none
 
-## TYPEFORM-2 owner setup (2026-07-06) — new `responses:read` scope
+## TYPEFORM-2 owner setup (2026-07-06) — new `responses:read` scope — DONE
 
 TYPEFORM-2 ships the first Typeform actions (`typeform:list_responses`,
 `typeform:get_response`) behind ONE new OAuth scope: `responses:read`.
 
-What Marcus must do, in order:
+Setup as executed (all steps complete 2026-07-07):
 
 1. **Typeform developer app: NOTHING to change.** Typeform apps carry no
    per-app scope allowlist (registration = name, website, redirect URIs
    only) — scopes are requested at authorize time from V2's manifest.
-2. **Deploy the TYPEFORM-2 commit** to production (Marcus pushes; nothing
-   pushed by this slice). Until the deployed manifest includes
-   `responses:read`, a reconnect will NOT request the new scope.
-3. **Reconnect Typeform** on the smoke account (and any live users, when
-   they want the new actions): existing tokens predate the scope and
-   refresh does NOT widen a grant, so the new actions return 403 →
-   ChainReact surfaces the re-consent/reconnect CTA. Verified live
-   2026-07-06: the pre-TYPEFORM-2 smoke token got
-   `INTEGRATION_SCOPE_REQUIRED` on `GET /forms/{id}/responses` — the
-   full dispatch path worked end-to-end up to the expected 403.
-4. **Set `SMOKE_TYPEFORM_RESPONSE_TOKEN`** in `.env.local` to a real
-   completed response's token on the smoke form (`SMOKE_TYPEFORM_FORM_ID`
-   is already set) — needed for the `get_response` live cert; there is
-   no safe auto-discovery for a response token.
-5. **Phase 13 live certification** for the 2 read actions (read-only, no
-   cleanup expected beyond documenting the response used). Certification
-   seed currently records `list_responses` = known-FAIL (pre-setup 403)
-   and `get_response` = BLOCKED_ENV; both flip to LIVE_PASS after this.
+   (Confirmed in practice: no portal change was made and the new scope
+   was granted at reconnect.)
+2. **Deploy:** TYPEFORM-2 commit `1a3df91f0` pushed to v2-main + deployed
+   (Marcus-approved push 2026-07-07).
+3. **Reconnect:** Marcus reconnected Typeform post-deploy; the re-consent
+   granted `responses:read`. (Refresh does NOT widen a grant — verified
+   2026-07-06 when the pre-TYPEFORM-2 token got
+   `INTEGRATION_SCOPE_REQUIRED` on `GET /forms/{id}/responses`.)
+4. **Smoke env:** `SMOKE_TYPEFORM_CONNECTED=1`,
+   `SMOKE_TYPEFORM_FORM_ID=KRVNz1KP`, and `SMOKE_TYPEFORM_RESPONSE_TOKEN`
+   (the real completed response's token, harvested live) set in
+   `.env.local`.
+5. **Phase 13 live certification: PASSED 2026-07-07** — see below. Both
+   certification records flipped to LIVE_PASS.
 
-No new env vars. No new webhook URLs. No DB migrations.
+No new env vars beyond the SMOKE_* test pins. No new webhook URLs. No DB
+migrations.
+
+## TYPEFORM-2 live verification (Phase 13, 2026-07-07)
+
+Environment: production credential (reconnected post-deploy at
+`https://chainreact.app`), live Typeform Responses API, real form
+`KRVNz1KP`. Action runs executed through the REAL workflow execution
+path (workflow-live sweep, `testMode=false`, real dev DB) — the
+Asana/Typeform-proven orchestration pattern. Probe/readback scripts:
+`scripts/trash/typeform2-live-probe.ts`,
+`scripts/trash/typeform2-run-output-readback.ts`.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Deploy + scope grant | PASS | Reconnected credential lists responses (403 pre-reconnect → 200 post) — proves the deployed manifest requested `responses:read` and the grant landed. Token expiry ~1 week from reconnect. |
+| `list_responses` via real engine | PASS | Run `5bdf1e52-…` terminal `succeeded`; 1 completed response returned (`totalItems: 1`, `hasMore: false`, `nextBefore: null` — page not full, correct) |
+| `get_response` real token | PASS | Run `fcf076b1-…` terminal `succeeded`; `found: true`; `responseToken` matched the pinned token exactly (defensive token-match exercised) |
+| `get_response` fake token | PASS | Run `ba10ae80-…` terminal `succeeded` (did NOT fail); `found: false`, all data fields null |
+| Bounded output (persisted runs) | PASS | list keys exactly `{responses,count,totalItems,hasMore,nextBefore}`; per-response `{responseToken,submittedAt,landedAt,answers,hidden,score}`; answer `{fieldId,fieldRef,fieldType,answerType,value}`. NO `metadata`/`response_url`/`variables`/`landing_id`/`response_id`/raw `token`/`calculated` keys in any persisted output (scripted forbidden-key scan) |
+| pageSize bound | PASS | live `page_size=1` returned exactly 1 |
+| `before` cursor | PASS | `before=<newest token>` returned 0 older items and did NOT include the cursor token (exclusive, as documented) |
+| `since` filter | PASS | `since=2030…` → 0; `since=2020…` → 1 |
+| `query` filter | PASS | nonsense query → 0 (server-side search confirmed) |
+| `included_response_ids` | PASS | real token → 1 item with matching token; fake token → 0 items (HTTP 200, not 404 — confirms the found:false design) |
+| Refresh + rotation (post-reconnect credential) | PASS | `dispatcher.refresh()` live: new expiry persisted, BOTH ciphertexts changed (rotation persisted), rotated pair immediately live-usable AND still carries `responses:read` (responses list succeeded post-refresh) |
+| No token/secret leakage | PASS | bearer token sent in Authorization header only (unit-asserted); probe/readback prints ids/counts only; run outputs contain no credential material |
+
+Sensitive handling: `answers` + `hidden` are marked `sensitive: true` in
+both action metas (run-details redaction + variable-picker warning are
+meta-driven and unit-tested; the live cert verified the persisted shape
+carries only the bounded fields those metas describe).
+
+Pagination note (documented + live-confirmed): one page per run, newest
+first; `nextBefore` = last item's token only when the page is FULL, else
+null. With 1 response and default pageSize 25 the first page is the last
+page (`hasMore: false`). Cursor traversal is exclusive and never repeats
+the cursor token.
+
+Cleanup accounting: read-only certification — NOTHING created provider-side.
+The response used is the harmless TYPEFORM-1 cert artifact
+("crsmoke live cert response 2026-07-04", the only response on form
+`KRVNz1KP`); it remains, as already documented. Smoke workflows/runs are
+harness-managed rows in the dev DB (same disposition as every prior
+action cert). Probe scripts live in `scripts/trash/` (deletable).
 
 ## Live verification (Phase 13, 2026-07-04)
 
@@ -144,8 +184,8 @@ Redeploy after adding env vars.
 ## Actions shipped
 | Action | Handler | Schema | Metadata | Options | Unit tests | Smoke |
 |---|---|---|---|---|---|---|
-| `typeform:list_responses` (TYPEFORM-2) | `integrations/typeform/actions/listResponses.ts` | strict Zod (`formId`, `pageSize` 1..100, `since`/`until`/`query`/`before`) | `.meta.ts` (data, low risk; answers/hidden sensitive) | `typeform:forms` for formId | 10 (schema/handler/cursor/filters/no-leak) + 10 wrapper | fixture `tests/fixtures/action-smoke/typeform/list_responses.ts`; mocked smoke green; live = Phase 13 after reconnect |
-| `typeform:get_response` (TYPEFORM-2) | `integrations/typeform/actions/getResponse.ts` | strict Zod (`formId`, `responseToken`) | `.meta.ts` (data, low risk; `found` flag; answers/hidden sensitive) | `typeform:forms` for formId; token mapped from trigger | 9 (schema/handler/found-false/token-mismatch/no-leak) | fixture `tests/fixtures/action-smoke/typeform/get_response.ts`; needs `SMOKE_TYPEFORM_RESPONSE_TOKEN`; live = Phase 13 |
+| `typeform:list_responses` (TYPEFORM-2) | `integrations/typeform/actions/listResponses.ts` | strict Zod (`formId`, `pageSize` 1..100, `since`/`until`/`query`/`before`) | `.meta.ts` (data, low risk; answers/hidden sensitive) | `typeform:forms` for formId | 10 (schema/handler/cursor/filters/no-leak) + 10 wrapper | LIVE_PASS 2026-07-07 (workflow-live sweep, real Responses API) |
+| `typeform:get_response` (TYPEFORM-2) | `integrations/typeform/actions/getResponse.ts` | strict Zod (`formId`, `responseToken`) | `.meta.ts` (data, low risk; `found` flag; answers/hidden sensitive) | `typeform:forms` for formId; token mapped from trigger | 9 (schema/handler/found-false/token-mismatch/no-leak) | LIVE_PASS 2026-07-07 (real token found:true + fake token found:false) |
 
 TYPEFORM-1 shipped zero actions deliberately (self-contained webhook
 payload); `capabilities.actions` flipped to `true` and `typeform` joined
@@ -166,10 +206,10 @@ Option sources: `typeform:forms` (7 resolver tests).
 - [x] Redeploy after env changes. (Done — v2-main deployed)
 - [x] Connect Typeform from the Apps page. (Done — integration row 2026-07-04 17:54Z)
 - [x] Phase 13 live certification (TYPEFORM-1 trigger). (PASSED 2026-07-04 — see "Live verification")
-- [ ] **TYPEFORM-2:** deploy the TYPEFORM-2 commit to production.
-- [ ] **TYPEFORM-2:** reconnect Typeform on the smoke account (re-consent grants `responses:read`).
-- [ ] **TYPEFORM-2:** set `SMOKE_TYPEFORM_RESPONSE_TOKEN` (a real completed response token on the smoke form).
-- [ ] **TYPEFORM-2:** Phase 13 live certification for `list_responses` + `get_response` (read-only).
+- [x] **TYPEFORM-2:** deploy the TYPEFORM-2 commit to production. (Done — v2-main pushed through `69666b142` incl. `1a3df91f0`, 2026-07-07)
+- [x] **TYPEFORM-2:** reconnect Typeform on the smoke account (re-consent grants `responses:read`). (Done 2026-07-07 — verified live)
+- [x] **TYPEFORM-2:** set `SMOKE_TYPEFORM_RESPONSE_TOKEN` (a real completed response token on the smoke form). (Done — harvested live from form `KRVNz1KP`)
+- [x] **TYPEFORM-2:** Phase 13 live certification for `list_responses` + `get_response` (read-only). (PASSED 2026-07-07 — see "TYPEFORM-2 live verification")
 
 ## Known blockers / limitations
 - EU data-center Typeform accounts are unsupported this slice (single-host `api.typeform.com`).
