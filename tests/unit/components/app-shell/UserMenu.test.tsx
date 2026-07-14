@@ -49,6 +49,9 @@ describe("UserMenu", () => {
     // Account settings links to the real /account route.
     const account = screen.getByTestId("app-shell-account");
     expect(account).toHaveAttribute("href", "/account");
+    // Contact support is a real mailto to the staffed support mailbox.
+    const support = screen.getByTestId("app-shell-contact-support");
+    expect(support).toHaveAttribute("href", "mailto:support@chainreact.app");
     // Still no fake settings-hub / billing items (no backing route yet).
     expect(
       content.querySelector("[data-testid='app-shell-settings']"),

@@ -39,7 +39,9 @@ const NAV_COLS: ReadonlyArray<{
     links: [
       { label: "Try it free", href: "/auth/sign-up", internal: true },
       { label: "Sign in", href: "/auth/sign-in", internal: true },
-      { label: "Help center", href: "#help" },
+      // Was a dead "#help" anchor; now the real staffed support mailbox
+      // (external mailto → plain <a>). Parity with the static footer.
+      { label: "Contact support", href: "mailto:support@chainreact.app" },
     ],
   },
   {

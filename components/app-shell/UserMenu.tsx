@@ -27,6 +27,11 @@ import { signOut } from "@/app/auth/actions";
  *     the sign-out itself doesn't need client state.
  *   - Initials are derived locally from the email — no extra fetch.
  */
+/** Staffed support mailbox surfaced to signed-in users (mirrors the
+ * marketing footers). Kept as a named constant so the address lives in
+ * one place per surface. */
+const SUPPORT_EMAIL = "support@chainreact.app";
+
 interface Props {
   userEmail: string;
 }
@@ -79,6 +84,21 @@ export function UserMenu({ userEmail }: Props) {
         >
           Account settings
         </Link>
+        {/*
+         * Contact support: a real mailto to the staffed support@chainreact.app
+         * mailbox, so a signed-in user hitting a problem has an in-product way
+         * to reach a human from every authenticated surface (the user menu is
+         * rendered on every app-shell page). External link → plain <a>, not
+         * next/link.
+         */}
+        <a
+          href={`mailto:${SUPPORT_EMAIL}`}
+          data-testid="app-shell-contact-support"
+          onClick={() => setOpen(false)}
+          className="block w-full rounded-sm px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+        >
+          Contact support
+        </a>
         <form action={signOut}>
           <button
             type="submit"

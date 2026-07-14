@@ -31,6 +31,8 @@ const NAV_COLS: ReadonlyArray<{
     links: [
       { label: "Try it free", href: "/auth/sign-up", internal: true },
       { label: "Sign in", href: "/auth/sign-in", internal: true },
+      // Real staffed mailbox — external mailto renders as a plain <a>.
+      { label: "Contact support", href: "mailto:support@chainreact.app" },
     ],
   },
   {

@@ -76,9 +76,13 @@ describe("SecurityPage — honesty (no unproven claims)", () => {
 describe("SecurityPage — CTA wiring", () => {
   it("disclosure + contact use the security@chainreact.app mailbox", () => {
     render(<SecurityPage />);
+    // Scope to the page body — the shared marketing footer legitimately
+    // carries its own support@ mailbox, which isn't a security contact.
+    const footer = screen.getByTestId("marketing-footer");
     const mailtos = screen
       .getAllByRole("link")
-      .filter((a) => a.getAttribute("href")?.startsWith("mailto:"));
+      .filter((a) => a.getAttribute("href")?.startsWith("mailto:"))
+      .filter((a) => !footer.contains(a));
     expect(mailtos.length).toBeGreaterThan(0);
     for (const a of mailtos) {
       expect(a).toHaveAttribute("href", "mailto:security@chainreact.app");

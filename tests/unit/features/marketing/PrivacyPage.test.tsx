@@ -96,11 +96,15 @@ describe("PrivacyPage — CTA wiring", () => {
     );
   });
 
-  it("every mailto on the page uses the privacy@chainreact.app mailbox", () => {
+  it("every mailto in the page body uses the privacy@chainreact.app mailbox", () => {
     render(<PrivacyPage />);
+    // Scope to the page body — the shared marketing footer legitimately
+    // carries its own support@ mailbox, which isn't a privacy contact.
+    const footer = screen.getByTestId("marketing-footer");
     const mailtos = screen
       .getAllByRole("link")
-      .filter((a) => a.getAttribute("href")?.startsWith("mailto:"));
+      .filter((a) => a.getAttribute("href")?.startsWith("mailto:"))
+      .filter((a) => !footer.contains(a));
     expect(mailtos.length).toBeGreaterThan(0);
     for (const a of mailtos) {
       expect(a).toHaveAttribute("href", "mailto:privacy@chainreact.app");
