@@ -1321,3 +1321,98 @@ ALLOW_TRIGGER_SMOKE=true`) -> 3/3 pass (0 leaked); `npx tsc --noEmit` -> exit 0;
   in `smoke-closeout-rollup-2026-06-29.md` this slice (trigger LIVE_PASS 14 -> 17; the Monday action side moved
   10 -> 18 LIVE_PASS across the earlier action slices). Both frontiers are re-closed for the current surface;
   the next resume trigger would be a new provider/secret/resource unlock (Bucket A-G).
+
+## 21. Monday + Trello CONTENT triggers CERTIFIED — content-exclusion revised for the direct-seed path (2026-07-13)
+
+Between §20 and this section the running trigger-smoke matrix grew (Google/Dropbox/Facebook batch, commit
+`e4931b683`) to a **74-registered** surface; the per-slice matrix lines above (which stop at the old
+62-registered count) were not retrofitted — the authoritative running matrix lives in the certified-batch
+commit chain. **Matrix at the START of this slice (from `e4931b683`): 74 registered · 58 LIVE_PASS · 1
+RUN_NOW_PROVEN (`native:manual.run`) · 1 NOT_RUN/BLOCKED (`microsoft-onenote:updated_note`) · 6 UN_HARNESSED
+(`discord` ×2, `monday` ×2, `trello` ×2) · 5 MISSING_HARNESS.** This slice closes the Monday + Trello ×2
+each; only Discord (still connection-gated) remains UN_HARNESSED after it.
+
+**Exact UN_HARNESSED rows found at start (recomputed from the registry / `TRIGGER_EVENT_TO_NORMALIZED` +
+`MONDAY_TRIGGER_TYPES`):**
+- `trello:comment_added` (classifies from `commentCard`), `trello:member_changed` (from `addMemberToCard` /
+  `removeMemberFromCard`).
+- `monday:new_update` (inbound `create_update`), `monday:column_changed` (inbound `change_column_value` /
+  `change_specific_column_value` / `update_column_value`).
+- (`discord` ×2 deliberately NOT worked — connection-gated, out of this slice.)
+
+**Certification strategy — DIRECT-SEED synthetic marker (revises the §18/§20 "content-excluded" call).**
+§18/§20 deferred these 4 as "Lane D content-excluded" out of caution (they carry comment text / member
+identity / update body / column values). That call is **revised for the direct-seed path**: every value in a
+direct-seed payload is smoke-minted, so a comment body / update body / column value / added-member id is NOT
+real user content — it is a deterministic `crsmoke-` marker, the same kind of synthesis already certified for
+card/board/item names. No real provider delivery, no real user, native no-op action → zero side effect. Each
+of the 4 reuses the EXISTING spec-driven harness (`trelloWebhookSmoke.ts` / `mondayWebhookSmoke.ts`) with a
+new spec that mints the content field as a `crsmoke-` marker and an identity matcher that asserts the marker
+survives classification + normalization into the run's trigger payload.
+
+**Honest scope (unchanged from the sibling triggers).** CERTIFIES: receive → HMAC verify → classify →
+event-type filter → normalize (incl. content-field preservation of the synthetic marker) → dispatch → dedup →
+durable enqueue → drain → terminal run. DOES NOT CERTIFY provider-side subscription activation/delivery
+(Trello `POST /1/webhooks`, Monday `create_webhook`) — those need a connected integration + real board and are
+out of scope, exactly as for `new_card` / `new_item`.
+
+**Fixtures/specs authored (no new files — extended the existing harnesses + their tests):**
+- Trello: `COMMENT_ADDED_SPEC` + `MEMBER_CHANGED_SPEC` added to `ALL_TRELLO_WEBHOOK_SPECS`
+  ([trelloWebhookSmoke.ts](../../../../tests/trigger-smoke/trelloWebhookSmoke.ts)); unit `fakeNormalize`
+  extended (`commentText` / `memberId` / `memberAction`) + a content-marker assertion
+  ([trelloWebhookSmoke.test.ts](../../../../tests/unit/trigger-smoke/trelloWebhookSmoke.test.ts)).
+- Monday: `NEW_UPDATE_SPEC` + `COLUMN_CHANGED_SPEC` added to `ALL_MONDAY_WEBHOOK_SPECS`
+  ([mondayWebhookSmoke.ts](../../../../tests/trigger-smoke/mondayWebhookSmoke.ts)); unit `fakeNormalize`
+  extended (new_update / column_changed shapes) + a content-marker assertion
+  ([mondayWebhookSmoke.test.ts](../../../../tests/unit/trigger-smoke/mondayWebhookSmoke.test.ts)).
+- The existing gated live tests loop `ALL_*_WEBHOOK_SPECS`, so they picked up the 4 new specs with no test-file
+  change; the deps (`deliverSyntheticEvent`) are payload-generic and needed no change.
+
+**Live result (`ALLOW_DB_INTEGRATION_TESTS=true ALLOW_TRIGGER_SMOKE=true npx jest trello-webhook +
+monday-webhook`, 11/11 pass — 6 Trello + 5 Monday, re-certifying the prior 7 plus the 4 new):**
+```
+trello:comment_added  → pass · seed comment_added  · baseline 0 · after 1 · identity matched (commentText = crsmoke-comment-<actionId>)          · succeeded · redeliver 1 · dedup proven · cleaned
+trello:member_changed → pass · seed member_changed · baseline 0 · after 1 · identity matched (memberId = crsmoke-added-member-<actionId>, memberAction=added) · succeeded · redeliver 1 · dedup proven · cleaned
+monday:new_update     → pass · seed new_update     · baseline 0 · after 1 · identity matched (updateId + body = crsmoke-body-<itemId>)            · succeeded · redeliver 1 · dedup proven · cleaned
+monday:column_changed → pass · seed column_changed · baseline 0 · after 1 · identity matched (columnId=crsmoke_col, prev/new value markers)        · succeeded · redeliver 1 · dedup proven · cleaned
+```
+
+**Per-trigger proof.** Normalized payload/marker: YES — each fired run's `trigger_event.payload` carried the
+minted `crsmoke-` content marker (Trello `commentText` / `memberId`+`memberAction`; Monday `body` /
+`previousValue`+`newValue`) plus the structural ids and the canonical short `eventType`. Dedup/watermark: YES
+— re-sending the SAME action id (Trello) / same deterministic dedup key (Monday `new_update:…:<updateId>` /
+`column_changed:…:<columnId>:<changedAt>`) was dropped by the dispatcher (`afterRedeliverRunCount` stayed 1).
+Cleanup/leak count: **0 leaked** for all 4 (workflow soft-deleted, direct-seeded `trigger_resources` row +
+synthetic `webhook_event_dedup` row deleted; no provider-side resource exists to leak).
+
+**Blockers for anything NOT certified this slice:** `discord` ×2 (`slash_command`, `new_message`) remain
+UN_HARNESSED — Discord is still connection-gated from action-smoke and was explicitly out of this slice. No
+Monday/Trello trigger remains uncertified: all 6 Monday + all 6 Trello webhook triggers are now LIVE_PASS.
+
+**Production bug fixes:** NONE — the real receive/classify/filter/normalize/dispatch/dedup path handled all 4
+synthetic content events correctly on the first live run; the exclusion was a policy call, not a code gap.
+
+**Trigger-smoke matrix now:** 74 registered · **62 LIVE_PASS** (prior 58 + `trello:comment_added` /
+`trello:member_changed` + `monday:new_update` / `monday:column_changed`) · 1 RUN_NOW_PROVEN
+(`native:manual.run`) · 1 NOT_RUN/BLOCKED (`microsoft-onenote:updated_note`) · **2 UN_HARNESSED** (`discord`
+×2) · 5 MISSING_HARNESS.
+
+**Verification (this slice):** `tests/unit/trigger-smoke/trelloWebhookSmoke.test.ts` +
+`mondayWebhookSmoke.test.ts` → 31 pass; full `tests/unit/trigger-smoke` → 224 pass; live scoped Trello +
+Monday smoke → 11/11 pass (0 leaked each); `npx tsc --noEmit` → exit 0; eslint on the 4 touched files → 0;
+`npm run lint:structure` → OK. **No action-smoke frontier work, no Discord work, no db:push, no deploy,
+nothing pushed.**
+
+### Owner review answers
+
+- **Is fabricating a `crsmoke-` content field honest certification?** Yes, for the direct-seed path. The smoke
+  never claims provider delivery — it POSTs a provider-signed synthetic payload to the real route and certifies
+  V2 ingestion end-to-end. The content field is a marker we mint, identical in kind to the card/item names
+  already certified; it is not real user content, carries no PII, and produces no side effect (native no-op
+  action). The one thing this does NOT prove — that a REAL user comment/update/column-value flows through — is
+  the same thing every direct-seed cert already excludes (real provider subscription delivery). So the added
+  content field does not widen the honesty gap.
+- **Does this complete the Monday + Trello trigger lanes?** YES. All 6 Monday and all 6 Trello webhook triggers
+  are LIVE_PASS. The only remaining trigger-smoke UN_HARNESSED rows are `discord` ×2, blocked purely on the
+  provider not being connected on the smoke account (unblocks with a Discord connection, same gate as
+  action-smoke).

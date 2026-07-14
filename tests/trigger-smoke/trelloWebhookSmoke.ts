@@ -1,16 +1,24 @@
 /**
  * Trigger-smoke harness — Trello WEBHOOK trigger dispatch path (Lane C, direct-seed).
  *
- * Spec-driven DIRECT-SEEDED HMAC webhook smoke for the safe Trello lifecycle triggers:
+ * Spec-driven DIRECT-SEEDED HMAC webhook smoke for the Trello board triggers:
  *
- *   trello:new_card       (eventType `new_card`,      action createCard)
- *   trello:card_moved     (eventType `card_moved`,    action updateCard + listBefore!=listAfter)
- *   trello:card_archived  (eventType `card_archived`, action updateCard + data.old.closed)
- *   trello:card_updated   (eventType `card_updated`,  action updateCard + generic data.old change)
+ *   trello:new_card       (eventType `new_card`,       action createCard)
+ *   trello:card_moved     (eventType `card_moved`,     action updateCard + listBefore!=listAfter)
+ *   trello:card_archived  (eventType `card_archived`,  action updateCard + data.old.closed)
+ *   trello:card_updated   (eventType `card_updated`,   action updateCard + generic data.old change)
+ *   trello:comment_added  (eventType `comment_added`,  action commentCard + synthetic text marker)
+ *   trello:member_changed (eventType `member_changed`, action addMemberToCard + synthetic member)
  *
- * EXCLUDED (Lane D, NOT certified): `comment_added` (carries user comment text) and
- * `member_changed` (carries member identity) — fabricating those synthetically is not
- * product-safe.
+ * CONTENT-TRIGGER NOTE (comment_added / member_changed). Earlier passes deferred these
+ * two as "content-excluded" out of caution. That is REVISED for the direct-seed path:
+ * every value in a direct-seed payload is smoke-minted, so a comment body / member id
+ * is NOT real user content — it is a deterministic `crsmoke-` marker, the same kind of
+ * synthesis already used for card/board names. No real Trello delivery, no real user,
+ * native no-op action → zero side effect. The smoke verifies the minted marker survives
+ * classification + normalization into the run's trigger payload (`commentText` /
+ * `memberId`+`memberAction`). Honest scope is unchanged (below): V2 ingestion, NOT
+ * provider subscription delivery.
  *
  * DIRECT-SEED CONTRACT (honest scope — same boundary as the GitHub smoke):
  *   Trello's real `registerWorkflowTriggers` runs an activation hook that calls the
@@ -273,11 +281,75 @@ export const CARD_UPDATED_SPEC: TrelloWebhookTriggerSpec = {
   },
 };
 
+/** Deterministic synthetic comment body marker (comment_added) — no real content. */
+function commentMarker(id: TrelloWebhookSmokeIdentity): string {
+  return `crsmoke-comment-${id.actionId}`;
+}
+
+/** Deterministic synthetic added-member id marker (member_changed) — no real PII. */
+function addedMemberMarker(id: TrelloWebhookSmokeIdentity): string {
+  return `crsmoke-added-member-${id.actionId}`;
+}
+
+export const COMMENT_ADDED_SPEC: TrelloWebhookTriggerSpec = {
+  label: "trello:comment_added",
+  eventType: "comment_added",
+  classifiedType: "trello.comment.added",
+  buildWorkflow: (boardId) => buildTrelloSmokeWorkflow("comment_added", "trello:comment_added", boardId),
+  // commentCard → classifies to trello.comment.added. `data.text` is the comment body;
+  // we mint a deterministic `crsmoke-` marker (NOT real user content) and assert it
+  // survives normalization into payload.commentText.
+  buildSyntheticAction: (id) => ({
+    id: id.actionId,
+    type: "commentCard",
+    date: SYNTHETIC_DATE,
+    data: {
+      card: { id: id.cardId, name: id.cardName },
+      list: { id: id.listId, name: "crsmoke-list" },
+      board: { id: id.boardId, name: "crsmoke-board" },
+      text: commentMarker(id),
+    },
+    memberCreator: memberCreator(),
+  }),
+  identityMatches: (run, id) =>
+    baseMatch(run, id, { eventType: "comment_added", classifiedType: "trello.comment.added", actionType: "commentCard" }) &&
+    run.triggerPayload?.commentText === commentMarker(id),
+};
+
+export const MEMBER_CHANGED_SPEC: TrelloWebhookTriggerSpec = {
+  label: "trello:member_changed",
+  eventType: "member_changed",
+  classifiedType: "trello.member.changed",
+  buildWorkflow: (boardId) => buildTrelloSmokeWorkflow("member_changed", "trello:member_changed", boardId),
+  // addMemberToCard → classifies to trello.member.changed with memberAction "added".
+  // The added member is a smoke-minted synthetic id (NOT a real Trello user); the
+  // normalizer reads data.idMember → payload.memberId.
+  buildSyntheticAction: (id) => ({
+    id: id.actionId,
+    type: "addMemberToCard",
+    date: SYNTHETIC_DATE,
+    data: {
+      card: { id: id.cardId, name: id.cardName },
+      list: { id: id.listId, name: "crsmoke-list" },
+      board: { id: id.boardId, name: "crsmoke-board" },
+      idMember: addedMemberMarker(id),
+      member: { id: addedMemberMarker(id), username: "crsmoke-added", fullName: "CR Smoke Added" },
+    },
+    memberCreator: memberCreator(),
+  }),
+  identityMatches: (run, id) =>
+    baseMatch(run, id, { eventType: "member_changed", classifiedType: "trello.member.changed", actionType: "addMemberToCard" }) &&
+    run.triggerPayload?.memberId === addedMemberMarker(id) &&
+    run.triggerPayload?.memberAction === "added",
+};
+
 export const ALL_TRELLO_WEBHOOK_SPECS: readonly TrelloWebhookTriggerSpec[] = [
   NEW_CARD_SPEC,
   CARD_MOVED_SPEC,
   CARD_ARCHIVED_SPEC,
   CARD_UPDATED_SPEC,
+  COMMENT_ADDED_SPEC,
+  MEMBER_CHANGED_SPEC,
 ];
 
 export interface TrelloWebhookSmokeDeps {

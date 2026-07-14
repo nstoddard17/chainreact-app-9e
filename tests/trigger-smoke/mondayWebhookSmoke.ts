@@ -1,19 +1,24 @@
 /**
  * Trigger-smoke harness — Monday WEBHOOK trigger dispatch path (Lane C, direct-seed).
  *
- * Spec-driven DIRECT-SEEDED HMAC webhook smoke for the safe Monday lifecycle triggers:
+ * Spec-driven DIRECT-SEEDED HMAC webhook smoke for the Monday board triggers:
  *
- *   monday:new_item     (inbound `create_item`,             normalize new_item)
- *   monday:item_moved   (inbound `item_moved_to_any_group`, normalize item_moved)
- *   monday:new_subitem  (inbound `create_subitem`,          normalize new_subitem)
+ *   monday:new_item        (inbound `create_item`,             normalize new_item)
+ *   monday:item_moved      (inbound `item_moved_to_any_group`, normalize item_moved)
+ *   monday:new_subitem     (inbound `create_subitem`,          normalize new_subitem)
+ *   monday:new_update      (inbound `create_update`,           normalize new_update)
+ *   monday:column_changed  (inbound `change_column_value`,     normalize column_changed)
  *
- * EXCLUDED (NOT certified, user-content semantics — mirrors the Trello harness
- * excluding comment_added / member_changed):
- *   - `new_update`     — carries the user-authored update BODY text (marked sensitive
- *                        in the normalizer; the Monday analog of Trello comment_added).
- *   - `column_changed` — carries column VALUE content (`previousValue` / `newValue`,
- *                        marked sensitive). Fabricating a value change is fabricating
- *                        user-content-shaped data; left un-certified by design.
+ * CONTENT-TRIGGER NOTE (new_update / column_changed). Earlier passes deferred these two
+ * as "content-excluded" out of caution (the Monday analogs of Trello comment_added /
+ * member_changed). That is REVISED for the direct-seed path: every value in a
+ * direct-seed payload is smoke-minted, so an update body / column value is NOT real
+ * user content — it is a deterministic `crsmoke-` marker, the same kind of synthesis
+ * already used for item/board names. No real Monday delivery, no real user, native
+ * no-op action → zero side effect. The smoke verifies the minted marker survives
+ * classification + normalization into the run's trigger payload (`body` /
+ * `previousValue`+`newValue`). Honest scope is unchanged (below): V2 ingestion, NOT
+ * provider subscription delivery.
  *
  * DIRECT-SEED CONTRACT (honest scope — same boundary as the GitHub / Trello smokes):
  *   Monday's real activation hook calls the `create_webhook` GraphQL mutation to
@@ -247,10 +252,96 @@ export const NEW_SUBITEM_SPEC: MondayWebhookTriggerSpec = {
   },
 };
 
+/** Deterministic synthetic update id (new_update) — stable per identity for dedup. */
+function updateIdMarker(id: MondayWebhookSmokeIdentity): string {
+  return `crsmoke-update-${id.itemId}`;
+}
+
+/** Deterministic synthetic update body marker (new_update) — no real content. */
+function updateBodyMarker(id: MondayWebhookSmokeIdentity): string {
+  return `crsmoke-body-${id.itemId}`;
+}
+
+/** Fixed synthetic column id (column_changed) — part of the dedup key. */
+const SMOKE_COLUMN_ID = "crsmoke_col";
+
+/** Deterministic synthetic previous/new column value markers (column_changed). */
+function prevValueMarker(id: MondayWebhookSmokeIdentity): string {
+  return `crsmoke-prev-${id.itemId}`;
+}
+function newValueMarker(id: MondayWebhookSmokeIdentity): string {
+  return `crsmoke-new-${id.itemId}`;
+}
+
+export const NEW_UPDATE_SPEC: MondayWebhookTriggerSpec = {
+  label: "monday:new_update",
+  eventType: "new_update",
+  inboundEventType: "create_update",
+  buildWorkflow: (boardId) => buildMondaySmokeWorkflow("new_update", "monday:new_update", boardId),
+  // create_update → normalize new_update. `body` carries the user-authored update text;
+  // we mint a deterministic `crsmoke-` marker (NOT real content) and assert it survives
+  // into payload.body. updateId is a stable synthetic id (drives the dedup key).
+  buildSyntheticEvent: (id) => ({
+    type: "create_update",
+    boardId: id.boardId,
+    pulseId: id.itemId,
+    updateId: updateIdMarker(id),
+    body: updateBodyMarker(id),
+    createdAt: id.createdAt,
+    userId: "crsmoke-user",
+  }),
+  expectedEventId: (id) => `new_update:${id.boardId}:${updateIdMarker(id)}`,
+  identityMatches: (run, id) => {
+    if (!baseMatch(run, id, NEW_UPDATE_SPEC, "new_update")) return false;
+    const p = run.triggerPayload!;
+    return (
+      p.updateId === updateIdMarker(id) &&
+      p.itemId === id.itemId &&
+      p.body === updateBodyMarker(id)
+    );
+  },
+};
+
+export const COLUMN_CHANGED_SPEC: MondayWebhookTriggerSpec = {
+  label: "monday:column_changed",
+  eventType: "column_changed",
+  inboundEventType: "change_column_value",
+  buildWorkflow: (boardId) => buildMondaySmokeWorkflow("column_changed", "monday:column_changed", boardId),
+  // change_column_value → normalize column_changed. previousValue/newValue carry the
+  // column content; we mint deterministic `crsmoke-` markers (NOT real values) and
+  // assert both survive into the payload. The dedup key includes columnId + changedAt.
+  buildSyntheticEvent: (id) => ({
+    type: "change_column_value",
+    boardId: id.boardId,
+    pulseId: id.itemId,
+    pulseName: id.itemName,
+    columnId: SMOKE_COLUMN_ID,
+    columnTitle: "crsmoke-column",
+    previousValue: prevValueMarker(id),
+    value: newValueMarker(id),
+    changedAt: id.createdAt,
+    userId: "crsmoke-user",
+  }),
+  expectedEventId: (id) =>
+    `column_changed:${id.boardId}:${id.itemId}:${SMOKE_COLUMN_ID}:${id.createdAt}`,
+  identityMatches: (run, id) => {
+    if (!baseMatch(run, id, COLUMN_CHANGED_SPEC, "column_changed")) return false;
+    const p = run.triggerPayload!;
+    return (
+      p.itemId === id.itemId &&
+      p.columnId === SMOKE_COLUMN_ID &&
+      p.previousValue === prevValueMarker(id) &&
+      p.newValue === newValueMarker(id)
+    );
+  },
+};
+
 export const ALL_MONDAY_WEBHOOK_SPECS: readonly MondayWebhookTriggerSpec[] = [
   NEW_ITEM_SPEC,
   ITEM_MOVED_SPEC,
   NEW_SUBITEM_SPEC,
+  NEW_UPDATE_SPEC,
+  COLUMN_CHANGED_SPEC,
 ];
 
 export interface MondayWebhookSmokeDeps {

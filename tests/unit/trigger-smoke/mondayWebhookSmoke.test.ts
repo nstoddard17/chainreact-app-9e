@@ -16,6 +16,8 @@ import {
   NEW_ITEM_SPEC,
   ITEM_MOVED_SPEC,
   NEW_SUBITEM_SPEC,
+  NEW_UPDATE_SPEC,
+  COLUMN_CHANGED_SPEC,
   type MondayWebhookTriggerSpec,
   type MondayWebhookSmokeDeps,
   type MondayWebhookSmokeIdentity,
@@ -53,6 +55,25 @@ function fakeNormalize(
       itemId: pulseId,
       previousGroupId: event.previousGroupId ?? null,
       currentGroupId: event.groupId ?? null,
+    };
+  }
+  if (spec.eventType === "new_update") {
+    return {
+      changeKind: "new_update",
+      boardId,
+      updateId: event.updateId ?? null,
+      itemId: pulseId,
+      body: event.body ?? null,
+    };
+  }
+  if (spec.eventType === "column_changed") {
+    return {
+      changeKind: "column_changed",
+      boardId,
+      itemId: pulseId,
+      columnId: event.columnId ?? null,
+      previousValue: event.previousValue ?? null,
+      newValue: event.value ?? null,
     };
   }
   return {
@@ -216,6 +237,41 @@ describe("runMondayWebhookSmoke — happy path (all 3 lifecycle specs)", () => {
     expect(NEW_SUBITEM_SPEC.expectedEventId(IDENTITY)).toBe(
       `new_subitem:${IDENTITY.boardId}:${IDENTITY.subitemId}:${IDENTITY.createdAt}`,
     );
+  });
+
+  it("content specs mint a deterministic crsmoke marker that the identity matcher verifies", () => {
+    // new_update → create_update carrying a crsmoke- body marker (no real content).
+    const update = NEW_UPDATE_SPEC.buildSyntheticEvent(IDENTITY);
+    expect(update.type).toBe("create_update");
+    expect(update.body).toBe(`crsmoke-body-${IDENTITY.itemId}`);
+    expect(NEW_UPDATE_SPEC.expectedEventId(IDENTITY)).toBe(
+      `new_update:${IDENTITY.boardId}:crsmoke-update-${IDENTITY.itemId}`,
+    );
+    const updateRun: MondayWebhookSmokeRun = {
+      runId: "u1",
+      status: "queued",
+      eventId: NEW_UPDATE_SPEC.expectedEventId(IDENTITY),
+      eventType: "new_update",
+      triggerPayload: fakeNormalize(update, NEW_UPDATE_SPEC),
+    };
+    expect(NEW_UPDATE_SPEC.identityMatches(updateRun, IDENTITY)).toBe(true);
+
+    // column_changed → change_column_value carrying crsmoke- previous/new value markers.
+    const column = COLUMN_CHANGED_SPEC.buildSyntheticEvent(IDENTITY);
+    expect(column.type).toBe("change_column_value");
+    expect(column.previousValue).toBe(`crsmoke-prev-${IDENTITY.itemId}`);
+    expect(column.value).toBe(`crsmoke-new-${IDENTITY.itemId}`);
+    expect(COLUMN_CHANGED_SPEC.expectedEventId(IDENTITY)).toBe(
+      `column_changed:${IDENTITY.boardId}:${IDENTITY.itemId}:crsmoke_col:${IDENTITY.createdAt}`,
+    );
+    const columnRun: MondayWebhookSmokeRun = {
+      runId: "c1",
+      status: "queued",
+      eventId: COLUMN_CHANGED_SPEC.expectedEventId(IDENTITY),
+      eventType: "column_changed",
+      triggerPayload: fakeNormalize(column, COLUMN_CHANGED_SPEC),
+    };
+    expect(COLUMN_CHANGED_SPEC.identityMatches(columnRun, IDENTITY)).toBe(true);
   });
 });
 

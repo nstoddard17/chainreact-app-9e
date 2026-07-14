@@ -16,6 +16,8 @@ import {
   CARD_MOVED_SPEC,
   CARD_ARCHIVED_SPEC,
   CARD_UPDATED_SPEC,
+  COMMENT_ADDED_SPEC,
+  MEMBER_CHANGED_SPEC,
   type TrelloWebhookTriggerSpec,
   type TrelloWebhookSmokeDeps,
   type TrelloWebhookSmokeIdentity,
@@ -45,6 +47,13 @@ function fakeNormalize(
   const listBefore = data.listBefore as Record<string, unknown> | undefined;
   const listAfter = data.listAfter as Record<string, unknown> | undefined;
   const old = data.old as Record<string, unknown> | undefined;
+  const member = data.member as Record<string, unknown> | undefined;
+  const memberAction =
+    action.type === "addMemberToCard"
+      ? "added"
+      : action.type === "removeMemberFromCard"
+        ? "removed"
+        : null;
   return {
     actionId: action.id ?? null,
     actionType: action.type ?? null,
@@ -56,6 +65,9 @@ function fakeNormalize(
     toListId: listAfter?.id ?? null,
     closed: card.closed ?? null,
     changedFields: old ? Object.keys(old) : null,
+    commentText: data.text ?? null,
+    memberId: data.idMember ?? member?.id ?? null,
+    memberAction,
   };
 }
 
@@ -204,6 +216,36 @@ describe("runTrelloWebhookSmoke — happy path (all 4 lifecycle specs)", () => {
     expect(updated.data.old).not.toHaveProperty("closed");
     expect(updated.data).not.toHaveProperty("listBefore");
     expect(Object.keys(updated.data.old as Record<string, unknown>)).toContain("name");
+  });
+
+  it("content specs mint a deterministic crsmoke marker that the identity matcher verifies", () => {
+    // comment_added → commentCard with a crsmoke- text marker (no real user content).
+    const comment = COMMENT_ADDED_SPEC.buildSyntheticAction(IDENTITY) as { type: string; data: Record<string, unknown> };
+    expect(comment.type).toBe("commentCard");
+    expect(comment.data.text).toBe(`crsmoke-comment-${IDENTITY.actionId}`);
+    // The matcher requires payload.commentText to equal that minted marker.
+    const commentRun: TrelloWebhookSmokeRun = {
+      runId: "r1",
+      status: "queued",
+      eventId: IDENTITY.actionId,
+      eventType: "comment_added",
+      triggerPayload: fakeNormalize(comment as unknown as Record<string, unknown>, COMMENT_ADDED_SPEC),
+    };
+    expect(COMMENT_ADDED_SPEC.identityMatches(commentRun, IDENTITY)).toBe(true);
+
+    // member_changed → addMemberToCard with a crsmoke- member id (no real PII).
+    const member = MEMBER_CHANGED_SPEC.buildSyntheticAction(IDENTITY) as { type: string; data: Record<string, unknown> };
+    expect(member.type).toBe("addMemberToCard");
+    expect(member.data.idMember).toBe(`crsmoke-added-member-${IDENTITY.actionId}`);
+    const memberRun: TrelloWebhookSmokeRun = {
+      runId: "r2",
+      status: "queued",
+      eventId: IDENTITY.actionId,
+      eventType: "member_changed",
+      triggerPayload: fakeNormalize(member as unknown as Record<string, unknown>, MEMBER_CHANGED_SPEC),
+    };
+    expect(MEMBER_CHANGED_SPEC.identityMatches(memberRun, IDENTITY)).toBe(true);
+    expect((memberRun.triggerPayload as Record<string, unknown>).memberAction).toBe("added");
   });
 });
 
