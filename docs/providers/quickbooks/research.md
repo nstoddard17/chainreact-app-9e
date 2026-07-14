@@ -20,6 +20,14 @@ docs do not document PKCE parameters. `response_types_supported: ["code"]` only.
 | Revocation endpoint | `https://developer.api.intuit.com/v2/oauth2/tokens/revoke` |
 | Token endpoint auth | `client_secret_basic` or `client_secret_post` (V2 uses Basic) |
 
+Revocation request: `POST /v2/oauth2/tokens/revoke`, `Authorization: Basic
+base64(client_id:client_secret)`, `Content-Type: application/json`, body
+`{ "token": "<access OR refresh token>" }`. Intuit invalidates the ENTIRE
+authorization (both tokens) regardless of which is presented; 200 on success.
+Implemented in `quickbooksOAuth.revoke` (host override: `QUICKBOOKS_REVOKE_BASE`);
+called by the disconnect + account-purge flows so a disconnect releases the grant
+on Intuit's side (App Store security-review requirement).
+
 Authorization request params: `client_id`, `response_type=code`, `scope`
 (space-separated), `redirect_uri`, `state` (required — CSRF).
 

@@ -44,9 +44,17 @@ import { encryptToken } from "@/core/encryption/tokens";
  *     a dead token returns `invalid_grant` → `RefreshAuthRequiredError`
  *     so the dispatcher marks the row needs-reconnect exactly once.
  *
- * `revoke()` is a stub deferred to the uniform disconnect-UX slice —
- * matches every other V2 provider. (Intuit's revoke endpoint is
- * documented in research.md for that future slice.)
+ * `revoke()` POSTs the token to Intuit's revocation endpoint
+ * (`${revokeBase}/v2/oauth2/tokens/revoke`, Basic auth, JSON `{ token }`).
+ * Intuit invalidates the ENTIRE authorization — both the access token and
+ * its paired refresh token — regardless of which of the two is presented,
+ * so revoking the access token the disconnect/purge flow hands us tears
+ * down the whole grant on Intuit's side (not just our local row). Throws
+ * on a non-2xx response so the caller's best-effort + bounded-retry policy
+ * (`accountPurge` retry loop / `disconnect` provider_revoked flag) can act
+ * on a genuine failure. Required for the QuickBooks App Store security
+ * review, which expects a disconnect to release the grant. The token value
+ * is never logged (only the OAuth2 error code surfaces on failure).
  *
  * Env vars read:
  *   - NEXT_PUBLIC_APP_URL — base for the OAuth callback URL.
@@ -57,6 +65,9 @@ import { encryptToken } from "@/core/encryption/tokens";
  *     (production never sets these; defaults point at
  *     `appcenter.intuit.com` / `oauth.platform.intuit.com` — identical
  *     for sandbox and production per Intuit).
+ *   - QUICKBOOKS_REVOKE_BASE — e2e override for the revocation host
+ *     (default `https://developer.api.intuit.com`; identical for sandbox
+ *     and production per Intuit).
  *   - QUICKBOOKS_API_BASE — `https://quickbooks.api.intuit.com` default;
  *     set to `https://sandbox-quickbooks.api.intuit.com` when running
  *     with Development keys.
@@ -77,6 +88,12 @@ function quickbooksTokenBase(): string {
 /** Shared with the API wrappers (integrations/_shared/quickbooks). */
 export function quickbooksApiBase(): string {
   return process.env.QUICKBOOKS_API_BASE ?? "https://quickbooks.api.intuit.com";
+}
+
+function quickbooksRevokeBase(): string {
+  return (
+    process.env.QUICKBOOKS_REVOKE_BASE ?? "https://developer.api.intuit.com"
+  );
 }
 
 function getRedirectUrl(): string {
@@ -312,8 +329,27 @@ export const quickbooksOAuth: ProviderOAuth = {
     };
   },
 
-  async revoke(_token: string): Promise<void> {
-    // Deferred to the uniform disconnect-UX slice — matches every other
-    // V2 provider. Endpoint documented in research.md.
+  async revoke(token: string): Promise<void> {
+    const res = await fetch(
+      `${quickbooksRevokeBase()}/v2/oauth2/tokens/revoke`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: basicAuthHeader(),
+        },
+        body: JSON.stringify({ token }),
+      },
+    );
+    // 2xx → the grant is gone on Intuit's side. Any non-2xx is a genuine
+    // failure (bad client creds, transient 5xx, network): throw so the
+    // caller's best-effort retry/audit policy owns it. The token itself is
+    // never surfaced — only the OAuth2 error code.
+    if (!res.ok) {
+      throw new Error(
+        `QuickBooks token revocation failed: ${await readQuickbooksErrorCode(res)}`,
+      );
+    }
   },
 };

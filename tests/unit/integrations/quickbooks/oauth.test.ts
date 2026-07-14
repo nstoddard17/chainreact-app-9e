@@ -244,3 +244,58 @@ describe("refreshToken", () => {
     expect(headers.Authorization).toBe(EXPECTED_BASIC);
   });
 });
+
+describe("revoke", () => {
+  it("POSTs the token to Intuit's revoke endpoint with Basic auth and JSON body", async () => {
+    const spy = mockFetchSequence([{ status: 200, text: "" }]);
+    await expect(quickbooksOAuth.revoke("qbo-access-token")).resolves.toBeUndefined();
+
+    const [url, init] = spy.mock.calls[0]!;
+    expect(String(url)).toBe(
+      "https://developer.api.intuit.com/v2/oauth2/tokens/revoke",
+    );
+    const typedInit = init as {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: unknown;
+    };
+    expect(typedInit.method).toBe("POST");
+    expect(typedInit.headers!.Authorization).toBe(EXPECTED_BASIC);
+    expect(typedInit.headers!["Content-Type"]).toBe("application/json");
+    expect(JSON.parse(String(typedInit.body))).toEqual({
+      token: "qbo-access-token",
+    });
+  });
+
+  it("honours the QUICKBOOKS_REVOKE_BASE override", async () => {
+    process.env.QUICKBOOKS_REVOKE_BASE = "https://revoke.example.test";
+    const spy = mockFetchSequence([{ status: 200, text: "" }]);
+    await quickbooksOAuth.revoke("t");
+    expect(String(spy.mock.calls[0]![0])).toBe(
+      "https://revoke.example.test/v2/oauth2/tokens/revoke",
+    );
+    delete process.env.QUICKBOOKS_REVOKE_BASE;
+  });
+
+  it("throws on a non-2xx response so the caller's retry/audit policy owns it", async () => {
+    mockFetchSequence([{ status: 400, json: { error: "invalid_token" } }]);
+    await expect(quickbooksOAuth.revoke("dead")).rejects.toThrow(
+      /invalid_token/,
+    );
+  });
+
+  it("never surfaces the token value in the failure message", async () => {
+    // Non-JSON 500 body → readQuickbooksErrorCode maps to `HTTP 500`, never
+    // echoing the body. The token is never interpolated into the message.
+    mockFetchSequence([{ status: 500, text: "boom" }]);
+    let message = "";
+    try {
+      await quickbooksOAuth.revoke("the-secret-token");
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/revocation failed: HTTP 500/);
+    expect(message).not.toContain("the-secret-token");
+    expect(message).not.toContain("boom");
+  });
+});
