@@ -349,7 +349,11 @@ export function readStructuredError(result: McpCallToolResult): { status?: numbe
     if (!obj || typeof obj !== "object") return {};
     const o = obj as Record<string, unknown>;
     const out: { status?: number; message?: string } = {};
-    if (typeof o.status === "number") out.status = o.status;
+    // Eden's structured error is `{ ok:false, status:"not-found", httpStatus:404, message }`
+    // — `status` is a STRING label, `httpStatus` is the numeric code. Prefer httpStatus;
+    // fall back to a numeric `status` (other MCP servers may use that shape).
+    if (typeof o.httpStatus === "number") out.status = o.httpStatus;
+    else if (typeof o.status === "number") out.status = o.status;
     if (typeof o.message === "string") out.message = o.message;
     return out;
   };

@@ -16,11 +16,11 @@ describe("edenManifest", () => {
     expect(edenManifest.tokenScope).toBe("user");
   });
 
-  it("is connect-capable but ships no actions/triggers yet (honest capabilities)", () => {
+  it("ships registered actions but no triggers (honest capabilities)", () => {
     expect(edenManifest.capabilities.oauth).toBe(true); // the paste flow IS the connect path
-    expect(edenManifest.capabilities.actions).toBe(false);
+    expect(edenManifest.capabilities.actions).toBe(true); // EDEN-4 batch 1
     expect(edenManifest.capabilities.webhookTrigger).toBe(false);
-    expect(edenManifest.capabilities.pollingTrigger).toBe(false);
+    expect(edenManifest.capabilities.pollingTrigger).toBe(false); // no Eden event API
   });
 
   it("is experimental until live-certified (kept out of the default Apps catalog)", () => {

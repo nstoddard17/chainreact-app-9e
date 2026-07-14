@@ -328,6 +328,7 @@ import {
   TRELLO_ACTION_METAS,
   TRELLO_TRIGGER_METAS,
 } from "./providers/trello";
+import { EDEN_ACTION_METAS } from "./providers/eden";
 // Microsoft OneDrive (Slice 4.ONEDRIVE-META-3) — 7 actions + 1 whole-drive
 // webhook trigger.
 import {
@@ -652,6 +653,7 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...MICROSOFT_EXCEL_ACTION_METAS, // Microsoft Excel (EXCEL-META-3) — 10 actions, displayOrder 10..100.
   ...AIRTABLE_ACTION_METAS, // Airtable (AIRTABLE-META-3) — 11 actions, displayOrder 10..110.
   ...TRELLO_ACTION_METAS, // Trello (TRELLO-META-3) — 8 actions, displayOrder 10..80.
+  ...EDEN_ACTION_METAS, // Eden (EDEN-4) — 7 MCP actions (batch 1), displayOrder 10..33.
   ...MICROSOFT_ONEDRIVE_ACTION_METAS, // Microsoft OneDrive (ONEDRIVE-META-3) — 7 actions, displayOrder 10..70.
   ...MICROSOFT_TEAMS_ACTION_METAS, // Microsoft Teams (TEAMS-META-3) — 5 actions, displayOrder 10..50.
   ...GOOGLE_CALENDAR_ACTION_METAS, // Google Calendar (GCAL-META-2) — 5 actions, displayOrder 10..50.

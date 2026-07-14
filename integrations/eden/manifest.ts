@@ -52,7 +52,9 @@ export const edenManifest: ProviderManifest = ProviderManifestSchema.parse({
     oauth: true,
     webhookTrigger: false,
     pollingTrigger: false,
-    actions: false,
+    // EDEN-4: 7 MCP-backed actions registered (4 reads + 3 board/note writes),
+    // all live-certified against mcp.eden.so. Triggers remain false (no Eden event API).
+    actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000,
   refreshable: false,

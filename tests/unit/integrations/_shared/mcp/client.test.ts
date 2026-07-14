@@ -168,6 +168,16 @@ describe("McpClient — error mapping", () => {
     expect(err).toBeInstanceOf(McpToolNotFoundError);
   });
 
+  it("maps Eden's real error contract {status:'not-found', httpStatus:404} (text block) → McpToolNotFoundError", async () => {
+    // Live Eden shape: isError result with a JSON text block; `status` is a STRING label,
+    // `httpStatus` carries the numeric code.
+    const edenErr = JSON.stringify({ ok: false, status: "not-found", message: "Board not found.", httpStatus: 404, tool: "eden_read_board" });
+    const err = await callWith((id) =>
+      jsonResponse({ jsonrpc: "2.0", id, result: { isError: true, content: [{ type: "text", text: edenErr }] } }),
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(McpToolNotFoundError);
+  });
+
   it("JSON-RPC invalid-params error → McpProtocolError", async () => {
     const err = await callWith((id) => jsonResponse({ jsonrpc: "2.0", id, error: { code: -32602, message: "Invalid params" } })).catch((e) => e);
     expect(err).toBeInstanceOf(McpProtocolError);

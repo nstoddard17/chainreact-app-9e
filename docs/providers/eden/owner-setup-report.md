@@ -1,14 +1,21 @@
 # Eden Owner Setup Report
 
 ## Status
-- **Code status:** code-complete for **auth + transport infrastructure only**; connect-only. NOT live-certified. No actions/triggers shipped (blocked on live MCP catalog capture).
-- **Commits (local, not pushed):**
-  - `c407bc1b7` — research + V2 pattern audit + implementation plan (docs)
-  - `7b7e0d1a2` — shared MCP client transport (`integrations/_shared/mcp/`) + 23 tests
-  - `64b94e597` — `token_paste` auth flow + Eden manifest/registry/Apps wiring + tests
+- **Code status:** auth + transport + **Batch-1 actions (7) LIVE-CERTIFIED** against `mcp.eden.so`
+  (2026-07-14). Eden stays `isExperimental: true` (hidden from the default Apps catalog) until the
+  full useful catalog is shipped/certified. The remaining useful tools are pinned in
+  [`catalog-audit.md`](./catalog-audit.md) as follow-up certified batches (NOT hidden, NOT complete).
 - **Push status:** Nothing pushed. Nothing deployed. No DB migration (none needed).
-- **Smoke status:** unit-tested with the Eden MCP boundary mocked. No live smoke (no credential).
-- **Remaining owner action:** create an Eden PAT (below) so live catalog capture, action implementation, and certification can proceed. Optionally flip `isExperimental → false` after Phase 13.
+- **Smoke status:** 53 unit tests (mocked boundary) + a gated live-cert suite
+  (`tests/integration/eden/live-cert.test.ts`, `EDEN_LIVE_CERT=1`) that exercises the real wrappers
+  end-to-end (create → read → note → list → trash cleanup).
+- **Remaining owner action:** none required to use Batch 1. To surface Eden in the Apps catalog,
+  flip `isExperimental → false` after enough of the catalog is certified. Future batches (see
+  `catalog-audit.md`) need scheduling-write certification against a throwaway connected social account.
+
+> Not "complete": only the 7 Batch-1 actions have passed live certification. The broader useful
+> catalog (content reads, creator research, note/board writes, scheduling writes) is specified and
+> pinned but not yet implemented/certified.
 
 ## What Eden is
 An AI content-research / boards / creator-analysis / social-scheduling platform (`eden.so`).
@@ -59,10 +66,24 @@ rest — never an env var.
 - RLS/GRANT: unchanged. This slice adds no tables/policies (RLS/GRANT review: **N/A** — no
   migration).
 
-## Actions shipped
-**None yet.** Every action's `.strict()` schema depends on the live MCP `tools/list` capture,
-which is blocked until a PAT is supplied. The documented catalog + mapping is in
-[`implementation-plan.md`](./implementation-plan.md).
+## Actions shipped (Batch 1) — live-certification matrix
+
+All 7 verified against the real Eden MCP server on 2026-07-14 (create→read→note→list→trash cycle,
+disposable board trashed as cleanup):
+
+| Action | Tool | Read/Write | Live result | Cleanup |
+|---|---|---|---|---|
+| List Workspaces | `eden_list_workspaces` | read | ✅ bounded (no email) | n/a |
+| List Schedules | `eden_list_schedules` | read | ✅ | n/a |
+| List Scheduled Posts | `eden_list_scheduled_posts` | read | ✅ | n/a |
+| Create Board | `eden_create_board` | write | ✅ board created | trashed |
+| Read Board | `eden_read_board` | read | ✅ summary read back | n/a |
+| Create Note | `eden_create_note` | write | ✅ note created on board | (board trashed) |
+| Trash Board | `eden_trash_board` | write (reversible) | ✅ cleanup verified | — |
+
+Option sources: `eden:workspaces`, `eden:boards` (boards = `canvas` items — live-cert finding).
+The remaining useful catalog is pinned in [`catalog-audit.md`](./catalog-audit.md).
+Live evidence: [`live-capture-evidence.md`](./live-capture-evidence.md).
 
 ## Triggers shipped
 **None.** No Eden webhook/event API exists. Native (polling) triggers ship only if the live read

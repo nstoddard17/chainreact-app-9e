@@ -1,0 +1,60 @@
+import type { ActionMeta } from "@/contracts/actionMeta";
+
+/** Builder metadata for `eden:create_note` (EDEN-4). Write action. */
+export const edenCreateNoteMeta: ActionMeta = {
+  key: "eden:create_note",
+  provider: "eden",
+  type: "create_note",
+  displayName: "Create Note",
+  description: "Create a note on an Eden board.",
+  category: "data",
+  requiresIntegration: true,
+  fields: [
+    {
+      name: "workspaceId",
+      label: "Workspace",
+      description: "The workspace that owns the board. Leave empty to use your default workspace.",
+      type: "combobox",
+      required: false,
+      optionsSource: "eden:workspaces",
+      placeholder: "Default workspace",
+    },
+    {
+      name: "boardId",
+      label: "Board",
+      description: "The board to add the note to. Pick a workspace first, or paste a board id.",
+      type: "combobox",
+      required: true,
+      optionsSource: "eden:boards",
+      dependsOn: "workspaceId",
+      placeholder: "Select a board, or paste a board id",
+    },
+    {
+      name: "title",
+      label: "Title",
+      description: "Optional note title.",
+      type: "text",
+      required: false,
+      placeholder: "Note title",
+    },
+    {
+      name: "content",
+      label: "Content",
+      description: "Optional note body (Markdown).",
+      type: "textarea",
+      required: false,
+      placeholder: "Write the note…",
+    },
+  ],
+  outputs: [
+    { name: "noteId", type: "string", description: "The new note's item id." },
+    { name: "boardId", type: "string", description: "The board the note was created on, or null.", nullable: true },
+    { name: "title", type: "string", description: "Provider-confirmed note title, or null.", nullable: true },
+  ],
+  producesFileRef: false,
+  consumesFileRef: false,
+  isDestructive: false,
+  requiresConfirmation: false,
+  displayOrder: 31,
+  riskLevel: "low",
+};

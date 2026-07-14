@@ -404,6 +404,8 @@ import {
 } from "@/integrations/quickbooks/options/catalog";
 import { quickbooksInvoicesResolver } from "@/integrations/quickbooks/options/invoices";
 import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
+import { edenWorkspacesResolver } from "@/integrations/eden/options/workspaces";
+import { edenBoardsResolver } from "@/integrations/eden/options/boards";
 import { trelloListsResolver } from "@/integrations/trello/options/lists";
 import { trelloCardsResolver } from "@/integrations/trello/options/cards";
 import { trelloMembersResolver } from "@/integrations/trello/options/members";
@@ -634,6 +636,9 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // runtime consumer). Trello stays OUT of COVERED_PROVIDERS until
   // TRELLO-META-3.
   trelloBoardsResolver,
+  // Eden (EDEN-4) — workspace + board pickers for the MCP-backed actions.
+  edenWorkspacesResolver,
+  edenBoardsResolver,
   trelloListsResolver,
   trelloCardsResolver,
   trelloMembersResolver,

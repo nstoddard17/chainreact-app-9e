@@ -18,6 +18,14 @@ import { createCard as trelloCreateCard } from "@/integrations/trello/actions/cr
 import { createList as trelloCreateList } from "@/integrations/trello/actions/createList";
 import { moveCard as trelloMoveCard } from "@/integrations/trello/actions/moveCard";
 import { updateCard as trelloUpdateCard } from "@/integrations/trello/actions/updateCard";
+// Eden (EDEN-4) — MCP-backed actions (batch 1: 4 reads + 3 board/note writes).
+import { edenListWorkspaces } from "@/integrations/eden/actions/listWorkspaces";
+import { edenListSchedules } from "@/integrations/eden/actions/listSchedules";
+import { edenListScheduledPosts } from "@/integrations/eden/actions/listScheduledPosts";
+import { edenCreateBoard } from "@/integrations/eden/actions/createBoard";
+import { edenCreateNote } from "@/integrations/eden/actions/createNote";
+import { edenReadBoard } from "@/integrations/eden/actions/readBoard";
+import { edenTrashBoard } from "@/integrations/eden/actions/trashBoard";
 // Slice 3.DISCORD-2 — Discord runtime port (5 actions). Bot-token
 // auth via env (DISCORD_BOT_TOKEN); no user-OAuth token used at
 // action time. Per Slice 3.DISCORD-1 decisions: actions only, no
@@ -764,6 +772,14 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "trello", type: "add_label_to_card", handler: trelloAddLabelToCard },
   { provider: "trello", type: "create_list", handler: trelloCreateList },
   { provider: "trello", type: "create_board", handler: trelloCreateBoard },
+  // Eden (EDEN-4) — batch 1, all live-certified against mcp.eden.so.
+  { provider: "eden", type: "list_workspaces", handler: edenListWorkspaces },
+  { provider: "eden", type: "list_schedules", handler: edenListSchedules },
+  { provider: "eden", type: "list_scheduled_posts", handler: edenListScheduledPosts },
+  { provider: "eden", type: "create_board", handler: edenCreateBoard },
+  { provider: "eden", type: "create_note", handler: edenCreateNote },
+  { provider: "eden", type: "read_board", handler: edenReadBoard },
+  { provider: "eden", type: "trash_board", handler: edenTrashBoard },
   // Slice 3.DISCORD-2 — 5 V1-manifest-declared action handlers.
   // delete_message is destructive (bulk + filter modes — see handler
   // docstring). Triggers + the 18 unsurfaced V1 handlers are NOT
