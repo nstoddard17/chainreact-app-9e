@@ -42,8 +42,22 @@ export type TokenScope = z.infer<typeof TokenScopeSchema>;
  *     endpoint, which calls the dispatcher's `handleTokenIngest`. The
  *     token never transits a provider-controlled server callback.
  */
-export const AuthFlowSchema = z.enum(["code_callback", "token_ingest"]);
+/*
+ *   - `token_paste`: like `token_ingest` in that the user supplies a
+ *     long-lived per-user token directly (no code exchange), but the token
+ *     arrives by the user PASTING it into a V2-hosted form rather than via a
+ *     provider redirect + URL fragment. There is no provider authorize page:
+ *     the connect dance redirects to a V2 paste page whose form POSTs
+ *     { state, token } to the SAME ingest endpoint. Server contract is
+ *     identical to `token_ingest` (state consume → verify → encrypt →
+ *     upsert); only the client transport differs. Inaugural consumer: Eden
+ *     (a pasted `eden_pat_` bearer token — docs/providers/eden/).
+ */
+export const AuthFlowSchema = z.enum(["code_callback", "token_ingest", "token_paste"]);
 export type AuthFlow = z.infer<typeof AuthFlowSchema>;
+
+/** Auth flows that supply a non-refreshable per-user token directly (no code exchange). */
+export const DIRECT_TOKEN_AUTH_FLOWS = ["token_ingest", "token_paste"] as const;
 
 export const ProviderManifestSchema = z
   .object({
@@ -129,11 +143,11 @@ export const ProviderManifestSchema = z
         message: "OAuth providers must declare at least one required scope.",
       });
     }
-    if (m.authFlow === "token_ingest" && m.refreshable) {
+    if ((DIRECT_TOKEN_AUTH_FLOWS as readonly string[]).includes(m.authFlow) && m.refreshable) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["refreshable"],
-        message: "authFlow='token_ingest' providers cannot be refreshable.",
+        message: `authFlow='${m.authFlow}' providers cannot be refreshable.`,
       });
     }
   });

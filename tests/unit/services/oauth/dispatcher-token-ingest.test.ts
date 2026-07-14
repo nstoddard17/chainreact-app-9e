@@ -163,7 +163,7 @@ describe("dispatcher.handleTokenIngest (rejection paths — no impl required)", 
         state: "x",
         token: "y",
       }),
-    ).rejects.toThrow(/does not use token_ingest auth/);
+    ).rejects.toThrow(/does not use a direct-token \(token_ingest\/token_paste\) auth flow/);
   });
 
   it("rejects unknown providers", async () => {
@@ -258,5 +258,32 @@ describe("dispatcher.connect (existing OAuth providers unaffected)", () => {
     await expect(
       connect({ userId: "user-1", accountId: "acct-1", provider: "fake-ingest-provider" }),
     ).rejects.toThrow(/No OAuth implementation registered/);
+  });
+});
+
+describe("dispatcher.connect (token_paste branch — Eden, EDEN-3)", () => {
+  // Eden uses the real `edenAuth` (registered in TOKEN_INGEST_BY_PROVIDER); its
+  // buildAuthUrl is pure (no network), so no MCP mock is needed for connect.
+  const PASTE_MANIFEST = { ...TOKEN_INGEST_MANIFEST, id: "eden", authFlow: "token_paste" } as const;
+
+  it("returns the V2-hosted paste-page URL as the redirect (no provider authorize page)", async () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://app.example.test";
+    mockGetProvider.mockReturnValue(PASTE_MANIFEST);
+    const { connect } = await import("@/services/oauth/dispatcher");
+    const out = await connect({ userId: "user-1", accountId: "acct-1", provider: "eden" });
+    const u = new URL(out.redirectUrl);
+    expect(u.origin + u.pathname).toBe("https://app.example.test/integrations/token-paste/eden");
+    expect(u.searchParams.get("state")).toBeTruthy();
+    expect(mockOAuthStatesCreate).toHaveBeenCalledTimes(1); // state minted for the paste form
+    delete process.env.NEXT_PUBLIC_APP_URL;
+  });
+
+  it("rejects providerHint for a token_paste provider", async () => {
+    mockGetProvider.mockReturnValue(PASTE_MANIFEST);
+    const { connect } = await import("@/services/oauth/dispatcher");
+    await expect(
+      connect({ userId: "user-1", accountId: "acct-1", provider: "eden", providerHint: { shop: "x" } as never }),
+    ).rejects.toThrow(/does not accept providerHint/);
+    expect(mockOAuthStatesCreate).not.toHaveBeenCalled();
   });
 });

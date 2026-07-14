@@ -86,6 +86,11 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   // created user-scoped. Same posture as Trello / Monday / Asana /
   // Typeform, and the launch-safe default.
   calendly: "personal",
+  // Eden (EDEN-1): the `eden_pat_` token acts AS the connecting human — their
+  // boards, notes, creator research, and connected social accounts ("read and
+  // post on your behalf"). Personal, like Trello / Monday / Asana / Notion-as-
+  // personal-workspace; must not auto-share in a Team.
+  eden: "personal",
 
   // ── Needs product decision → default personal for launch safety. ──
   github: "personal",

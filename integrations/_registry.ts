@@ -9,6 +9,7 @@ import { discordManifest } from "./discord/manifest";
 import { calendlyManifest } from "./calendly/manifest";
 import { typeformManifest } from "./typeform/manifest";
 import { quickbooksManifest } from "./quickbooks/manifest";
+import { edenManifest } from "./eden/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
 import { githubManifest } from "./github/manifest";
@@ -274,6 +275,14 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // 100-day window; realmId (company id) arrives only on the OAuth
   // callback redirect and is the providerAccountId.
   quickbooksManifest,
+  // EDEN-3 — Eden (eden.so), a content-research / boards / creator-analysis /
+  // social-scheduling platform whose ONLY automation surface is a remote MCP
+  // server (https://mcp.eden.so/mcp). NEW `token_paste` auth (pasted `eden_pat_`).
+  // Connect-only for now: capabilities.oauth true, actions/triggers honestly
+  // false — every action's schema depends on the LIVE MCP tools/list capture,
+  // blocked until an authorized eden_pat_ credential is supplied. isExperimental
+  // true (hidden from the default Apps catalog) until Phase 13 live certification.
+  edenManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

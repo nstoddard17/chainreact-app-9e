@@ -1,5 +1,6 @@
 import {
   type AccountSteer,
+  DIRECT_TOKEN_AUTH_FLOWS,
   type EncryptedTokens,
   type ProviderHint,
   type ProviderOAuth,
@@ -35,6 +36,7 @@ import { getProvider } from "@/integrations/_registry";
 import { slackOAuth } from "@/integrations/slack/oauth";
 import { stripeOAuth } from "@/integrations/stripe/oauth";
 import { trelloAuth } from "@/integrations/trello/auth";
+import { edenAuth } from "@/integrations/eden/auth";
 import { calendlyOAuth } from "@/integrations/calendly/oauth";
 import { typeformOAuth } from "@/integrations/typeform/oauth";
 import { quickbooksOAuth } from "@/integrations/quickbooks/oauth";
@@ -145,6 +147,9 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
 const TOKEN_INGEST_BY_PROVIDER: Readonly<Record<string, ProviderTokenIngestAuth>> =
   Object.freeze({
     trello: trelloAuth,
+    // Eden uses the `token_paste` variant (pasted `eden_pat_`), but shares the
+    // same ProviderTokenIngestAuth server contract, so it lives in this registry.
+    eden: edenAuth,
   });
 
 export interface ConnectInput {
@@ -322,13 +327,17 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
   // the token from the browser via URL fragment + client POST, not via a
   // server callback with `code` + `state`. The dispatcher still owns
   // state issuance — only the wire transport differs.
-  if (manifest.authFlow === "token_ingest") {
+  if ((DIRECT_TOKEN_AUTH_FLOWS as readonly string[]).includes(manifest.authFlow)) {
+    // `token_ingest` (fragment redirect) and `token_paste` (V2 paste form) share
+    // this path: the dispatcher owns state issuance; `buildAuthUrl` returns the
+    // URL the browser is sent to (the provider's authorize page for token_ingest,
+    // or a V2-hosted paste page for token_paste). Neither accepts a providerHint.
     // Input validation (providerHint) FIRST — fails fast on bad input
     // regardless of server-side registry config. A misconfigured server
     // shouldn't mask a malformed client request.
     if (input.providerHint !== undefined) {
       throw new Error(
-        `Provider '${input.provider}' (token_ingest) does not accept providerHint.`,
+        `Provider '${input.provider}' (${manifest.authFlow}) does not accept providerHint.`,
       );
     }
     const ingestAuth = TOKEN_INGEST_BY_PROVIDER[input.provider];
@@ -575,9 +584,9 @@ export async function handleTokenIngest(
 
   const manifest = getProvider(input.provider);
   if (!manifest) throw new Error(`Unknown provider: ${input.provider}`);
-  if (manifest.authFlow !== "token_ingest") {
+  if (!(DIRECT_TOKEN_AUTH_FLOWS as readonly string[]).includes(manifest.authFlow)) {
     throw new Error(
-      `Provider '${input.provider}' does not use token_ingest auth.`,
+      `Provider '${input.provider}' does not use a direct-token (token_ingest/token_paste) auth flow.`,
     );
   }
 

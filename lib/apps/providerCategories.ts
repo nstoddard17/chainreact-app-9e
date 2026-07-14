@@ -93,6 +93,7 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   quickbooks: "Accounting",
   // Social
   facebook: "Social",
+  eden: "Social",
   // Analytics
   "google-analytics": "Analytics",
   // Developer
@@ -131,6 +132,7 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
   stripe: "Watch charges and update customers.",
   quickbooks: "Create customers and invoices, watch payments.",
   facebook: "Watch posts and comments.",
+  eden: "Research creators, save to boards, and schedule social posts.",
   "google-analytics": "Pull reports and traffic metrics.",
   github: "Watch issues, PRs, and commits.",
 };
