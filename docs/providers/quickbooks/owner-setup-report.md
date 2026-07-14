@@ -39,7 +39,13 @@ run was performed. Findings:
   fail-closed HMAC-SHA256 signature verify, count-only no-leak logging) is
   **code-verified and unit-tested**, live-pending.
 - Disposition: remains **code-complete, live certification owner-gated**. The
-  owner checklist below is unchanged and is the path to `live-complete`.
+  path to `live-complete` is the owner-runnable harness
+  (`scripts/trash/quickbooks-live-cert.ts`, added 2026-07-13) — see
+  "Owner-runnable Phase 13 sandbox certification" below. Correction: the
+  `SMOKE_QUICKBOOKS_*` object ids named above are NOT owner inputs — the
+  runner auto-discovers/creates the customer, item, and invoice. Marcus only
+  supplies `QUICKBOOKS_API_BASE` + `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN` (and
+  optional `SMOKE_QUICKBOOKS_SEND_TO` for send_invoice).
 
 ## Provider developer portal setup
 
@@ -134,11 +140,16 @@ accounting Payment entity) or OpenID scopes (identity comes from CompanyInfo).
 Redeploy after env changes.
 
 ### Smoke/live-certification env (gitignored `.env.local` on the smoke setup)
-`SMOKE_QUICKBOOKS_CONNECTED=1` · `SMOKE_QUICKBOOKS_CUSTOMER_ID` ·
-`SMOKE_QUICKBOOKS_CUSTOMER_NAME` · `SMOKE_QUICKBOOKS_ITEM_ID` ·
-`SMOKE_QUICKBOOKS_INVOICE_ID` · `SMOKE_QUICKBOOKS_SEND_TO` (an
-owner-controlled mailbox — the ONLY address send_invoice smoke ever emails).
-Pin ids from the sandbox company (Sales → Customers / Products & services).
+Owner provides ONLY the two Intuit values (`QUICKBOOKS_API_BASE` = sandbox
+base + `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN`) plus the optional
+`SMOKE_QUICKBOOKS_SEND_TO` (an owner-controlled mailbox — the ONLY address
+send_invoice smoke ever emails; absent → send_invoice is skipped
+blocked-for-safety). **The object ids — `SMOKE_QUICKBOOKS_CUSTOMER_ID` /
+`_CUSTOMER_NAME` / `_ITEM_ID` / `_INVOICE_ID` — are AUTO-DISCOVERED/CREATED by
+the runner and are NOT owner-provided** (they remain accepted only as optional
+debug overrides). The runner sets `SMOKE_QUICKBOOKS_CONNECTED` and the object
+ids itself when it invokes the action harness. See "Owner-runnable Phase 13
+sandbox certification" below.
 
 ## Supabase / database setup
 - Migrations added: none (trigger_resources / webhook_event_dedup /
@@ -176,9 +187,8 @@ Pin ids from the sandbox company (Sales → Customers / Products & services).
 - [ ] Configure the Development webhook endpoint + Customer/Invoice/Payment entities; copy the verifier token.
 - [ ] Add env vars (Dev keys + sandbox `QUICKBOOKS_API_BASE` + verifier token) to the environment under test; redeploy/restart.
 - [ ] Connect QuickBooks from the Apps page (owner/admin — account-class provider); confirm the integration row shows the company name and the realmId persisted.
-- [ ] Pin SMOKE_QUICKBOOKS_* env values from the sandbox company.
-- [ ] Run `npm run chainreact -- smoke actions` live for quickbooks (reads first, then the gated write batch).
-- [ ] Live-certify triggers: create a customer / invoice / payment in the sandbox UI; confirm exactly-one runs, partial-payment no-fire, Create+Update single invoice_paid fire.
+- [ ] Run the owner-runnable harness (see "Owner-runnable Phase 13 sandbox certification" below) — it AUTO-discovers the item and AUTO-creates the smoke customer + invoice, then certifies option sources + the 7 actions through the real engine, then guides the 4 triggers. No object-id pins to set.
+- [ ] Live-certify triggers via the harness's guided `triggers:*` phases (create a customer / invoice / payment in the sandbox UI); confirm exactly-one runs, partial-payment no-fire, Create+Update single invoice_paid fire.
 - [ ] For production later: complete the App Assessment Questionnaire, unlock Production keys, add production redirect/webhook/envs, redeploy, re-certify.
 
 ## Live certification checklist (Phase 13, sandbox first)
@@ -214,3 +224,127 @@ Pin ids from the sandbox company (Sales → Customers / Products & services).
   after the dedup TTL (documented in research.md — semantically correct).
 - Multicurrency: V2 never sets CurrencyRef (QBO derives it from the
   customer).
+
+## Owner-runnable Phase 13 sandbox certification
+
+The guided runner is `scripts/trash/quickbooks-live-cert.ts`. Run it from an
+environment that HAS the connected QuickBooks sandbox realm (dev-DB access)
+plus the two Intuit env values below. It reuses real V2 internals only
+(option resolvers, typed API wrappers, the trigger lifecycle, the deployed
+webhook route, and the canonical action-smoke live harness) and mocks
+nothing. It NEVER marks QuickBooks live-complete — it prints an evidence
+draft for a human to judge.
+
+### Required env
+Marcus provides ONLY these two:
+```text
+QUICKBOOKS_API_BASE=https://sandbox-quickbooks.api.intuit.com
+QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN=<Intuit portal Webhooks-section verifier token>
+```
+Optional:
+```text
+SMOKE_QUICKBOOKS_SEND_TO=<safe test email>   # OPTIONAL — required ONLY to
+                                             # certify send_invoice. Absent →
+                                             # send_invoice is SKIPPED
+                                             # (blocked-for-safety); every
+                                             # other action still runs.
+```
+The dev-DB access already in `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SMOKE_ACCOUNT_ID`, `SMOKE_USER_ID`) plus
+`QUICKBOOKS_CLIENT_ID` / `QUICKBOOKS_CLIENT_SECRET` are also needed to reach
+the connected realm.
+
+**Customer, item, and invoice ids are AUTO-DISCOVERED / AUTO-CREATED by the
+runner — never owner-provided.** `SMOKE_QUICKBOOKS_CUSTOMER_ID` / `_ITEM_ID` /
+`_INVOICE_ID` / `_CUSTOMER_NAME` are accepted only as optional debug
+overrides. **If no usable sandbox item exists**, the runner stops and tells
+you to create one Product/Service item in the sandbox company (Sales →
+Products and services → New → Service) — that is the only object you might
+have to create by hand, and only if the sandbox is empty of items.
+
+### Command
+```bash
+# Automated, no-wait phases in one line: env → realm → options → prepare → security → actions
+npx tsx scripts/trash/quickbooks-live-cert.ts run
+
+# Then the guided trigger phases (run around REAL sandbox changes):
+npx tsx scripts/trash/quickbooks-live-cert.ts triggers:activate
+npx tsx scripts/trash/quickbooks-live-cert.ts triggers:drive-created   # API-creates a customer + $1 invoice
+npx tsx scripts/trash/quickbooks-live-cert.ts triggers:await-customer
+npx tsx scripts/trash/quickbooks-live-cert.ts triggers:await-invoice
+#   → in the QuickBooks sandbox UI: Receive payment (PARTIAL first)
+npx tsx scripts/trash/quickbooks-live-cert.ts triggers:await-payment
+#   → in the sandbox UI: pay the REMAINING balance in full
+npx tsx scripts/trash/quickbooks-live-cert.ts triggers:await-invoice-paid
+npx tsx scripts/trash/quickbooks-live-cert.ts triggers:status
+npx tsx scripts/trash/quickbooks-live-cert.ts triggers:deactivate
+npx tsx scripts/trash/quickbooks-live-cert.ts evidence   # closeout draft
+# `... guide` prints the whole runbook.
+```
+
+### What the command verifies
+- **Phase 0 env / Phase 1 realm:** required env present; sandbox base flagged;
+  active integration row with persisted `realmId`; one harmless read via
+  `refreshAndRetry` (exercises the refresh-on-401 path). No tokens printed.
+- **Phase 2 options:** all 5 resolvers (`customers` / `items` / `terms` /
+  `tax_codes` / `invoices`) resolve live, bounded, names-only labels.
+- **Phase 2.5 prepare:** auto-selects an invoice-able item; auto-creates a
+  marked `crsmoke-` customer (email = `SMOKE_QUICKBOOKS_SEND_TO` if provided)
+  and a $1 draft invoice; both proven by independent read-back.
+- **Phase 3 actions:** the 7 actions through the SAME manual run-now engine
+  path as the app (`testMode=false`), reusing the shipped fixtures, with the
+  auto-prepared ids fed in. `send_invoice` runs to the safe mailbox when
+  `SMOKE_QUICKBOOKS_SEND_TO` is set, otherwise SKIPs.
+- **Phase 5 security:** GET service-info 200; bad `intuit-signature` → 401;
+  validly-signed UNKNOWN-realm delivery → 200 quiet ack, `droppedNoIntegration≥1`,
+  `dispatched=0` (proves realm-scoped credential resolution / no cross-company
+  fan-out). Missing-verifier → 503 is unit-covered only (can't unset prod env).
+- **Phase 4 triggers:** each of the 4 through the REAL portal webhook —
+  exactly-one run, realm-matched (`providerAccountId`), realm-scoped +
+  timestamp-free dedup eventId, terminal `succeeded`; `invoice_paid` fires
+  once only after the FULL payment and never on the partial (Payment
+  Create+Update collapse via invoice-identity dedup).
+
+### Manual QuickBooks UI steps, if any
+Only the payment steps (QuickBooks ships no API payment-create wrapper in
+QUICKBOOKS-1): in the sandbox company, **Receive payment** against the driven
+invoice — a PARTIAL amount first (assert `invoice_paid` does NOT fire via
+`triggers:await-invoice-paid` timing out or `triggers:status`), then pay the
+REMAINING balance in full (assert exactly one `invoice_paid`). Everything else
+(customer + invoice creation) the runner does over the API.
+
+### Expected PASS criteria
+Every phase prints `PASS`; the action harness table shows no FAIL (an env
+SKIP — e.g. `send_invoice` without `SMOKE_QUICKBOOKS_SEND_TO` — is not a
+fail); all 4 triggers show exactly one realm-matched terminal-`succeeded`
+run; `invoice_paid` count is exactly 1 and only after the full payment.
+
+### Read-only self-verification — 2026-07-13
+The runner's non-destructive phases were executed against the live connected
+sandbox to prove the harness functions (NOT a certification — no artifacts
+created, no writes, no engine runs):
+- **Phase 1 realm PASS** — active integration row resolved; `realmId`
+  9341457412489636 persisted as providerAccountId; company "Sandbox Company US
+  bc85" (country US) in `accountMetadata`; one harmless `customerList` read
+  succeeded via `refreshAndRetry` (refresh path wired).
+- **Phase 2 options PASS** — all 5 resolvers returned live, bounded,
+  names-only data: customers 29, items 18, terms 5, tax codes 2, invoices 31.
+  (18 items → `prepare` will auto-select one; the "create a sandbox item"
+  blocker does not apply to this company.)
+
+The write phases (`prepare` → `actions` → `security` → `triggers:*`) were left
+for Marcus to run deliberately — they create marked sandbox artifacts, run the
+engine (task-budget spend), and the trigger phases need real sandbox payment
+actions. Everything up to that point is proven live.
+
+### Troubleshooting
+- "Blocked because this environment cannot access the connected QuickBooks
+  integration/realm" → run it where the connected realm's dev DB is reachable
+  (not a bare coding shell); the runner then auto-discovers/creates its data.
+- "No usable sandbox item found" → create one Product/Service item in the
+  sandbox company, then re-run `prepare`.
+- `QUICKBOOKS_API_BASE` not the sandbox base → calls hit production; set it to
+  `https://sandbox-quickbooks.api.intuit.com` for sandbox cert.
+- Trigger `await-*` times out → confirm the Intuit portal Development webhook
+  points at `${NEXT_PUBLIC_APP_URL}/api/webhooks/quickbooks` with
+  Customer/Invoice/Payment entities and the verifier token matches.
