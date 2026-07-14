@@ -9,6 +9,8 @@ import {
   type OfficialTemplateMatch,
   type TemplateMatchOutcome,
 } from "@/core/workflows/officialTemplateMatcher";
+import type { ActionEffectFacts, ActionEffectFactsLookup } from "@/core/workflows/actionEffect";
+import { getActionMeta } from "@/services/discovery/_registry";
 import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 
 /**
@@ -77,12 +79,33 @@ export interface SelectOfficialTemplateRecommendationResult {
   readonly recommendation: GuidanceOfficialTemplateMatch | null;
 }
 
+/**
+ * Inject the AUTHORITATIVE `ActionMeta` side-effect facts into the pure classifier's semantic
+ * action-contribution check (REACT-AGENT-TEMPLATE-MATCH-4 multi-provider hardening). Reads only the
+ * SAFE subset (`category` / `isDestructive` / `requiresConfirmation` / `riskLevel`) from the discovery
+ * registry — never a config value, token, or resource id. Unknown `provider:type` → `undefined`, and
+ * the pure classifier falls back to its conservative action-type-verb heuristic.
+ */
+const actionEffectFactsLookup: ActionEffectFactsLookup = (provider, type) => {
+  const meta = getActionMeta(`${provider}:${type}`);
+  if (!meta) return undefined;
+  const facts: ActionEffectFacts = {
+    category: meta.category,
+    isDestructive: meta.isDestructive,
+    requiresConfirmation: meta.requiresConfirmation,
+    riskLevel: meta.riskLevel,
+  };
+  return facts;
+};
+
 export async function selectOfficialTemplateRecommendationForRequest(
   input: SuggestOfficialTemplatesInput,
 ): Promise<SelectOfficialTemplateRecommendationResult> {
   const load = input.loadCatalog ?? loadOfficialCatalogEntries;
   const catalog = await load();
-  const result = selectOfficialTemplateRecommendation(input.requestText, catalog);
+  const result = selectOfficialTemplateRecommendation(input.requestText, catalog, {
+    effectFactsFor: actionEffectFactsLookup,
+  });
   return {
     outcome: result.outcome,
     recommendation: result.recommendation

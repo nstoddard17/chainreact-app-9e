@@ -5,6 +5,13 @@ import type {
   TemplateTriggerKind,
 } from "@/contracts/workflowTemplate";
 import { categoryLabel, humanizeType, providerLabel } from "./templateCardMeta";
+import {
+  actionContributesToRequest,
+  analyzeRequestedOutcomes,
+  classifyActionEffect,
+  isMeaningfulAction,
+  type ActionEffectFactsLookup,
+} from "./actionEffect";
 
 /**
  * Deterministic official-template matcher (4.REACT-AGENT-TEMPLATE-MATCH-1).
@@ -151,6 +158,7 @@ const EXPLICIT_PROVIDER_TERMS: Readonly<Record<string, string>> = {
   dropbox: "dropbox",
   onenote: "microsoft-onenote",
   onedrive: "microsoft-onedrive",
+  typeform: "typeform",
 };
 
 /** AMBIGUOUS aliases — generic concept → candidate providers. These only ADD weak positive signal
@@ -531,10 +539,19 @@ function stepTypeTokens(
  *         mismatched primary action AND unrelated recipient-visible/destructive side-effects).
  *     S3  at least one action satisfies the described outcome.
  *
- *   Multi-provider requests (≥2 named apps) are governed by provider-exactness (C2/C3) + C4–C6: every
- *   named provider must be present and no extra provider may appear (per-action type scrutiny would
- *   false-reject mechanism-named actions like "append row" for "log it to a sheet"). A same-provider
- *   extra step is not deterministically detectable here and is out of scope for this gate.
+ *   Multi-provider requests (≥2 named apps) are governed by provider-exactness (C2/C3) + C4–C6 AND a
+ *   SEMANTIC action check in both directions (via `core/workflows/actionEffect`):
+ *     M1 — every MEANINGFUL template action (state-changing / recipient-visible / external — not a
+ *          pure read or native step) must CONTRIBUTE to a requested outcome. Mechanism wording never
+ *          false-rejects ("log to Sheets" ≈ `append_row`, "notify Slack" ≈ `send_channel_message`),
+ *          while an unrequested destructive / recipient-visible / external side effect (`delete_row`,
+ *          an unasked `send_email`, a public share) DOES disqualify — even from a requested provider.
+ *     M2 — every requested outcome must be DELIVERED: each named provider must be the trigger or carry
+ *          a meaningful action (a named app that only reads means the asked-for outcome is missing).
+ *   Conservative: an action that can't be shown to contribute → weak (build manually).
+ *
+ * `effectFactsFor` (optional) injects the authoritative `ActionMeta` side-effect facts
+ * (destructive / category); absent → the action-type-verb fallback is used.
  *
  * Returns the boolean plus SAFE reasons any condition failed (public catalog labels only — never a
  * config value, `{{...}}`, or a resource id).
@@ -542,6 +559,8 @@ function stepTypeTokens(
 function evaluateStrongMatch(
   scored: ScoredEntry,
   req: RequestAnalysis,
+  requestText: string,
+  effectFactsFor?: ActionEffectFactsLookup,
 ): { readonly strong: boolean; readonly reasons: string[] } {
   const entry = scored.entry;
   const explicit = req.explicitProviders;
@@ -632,6 +651,43 @@ function evaluateStrongMatch(
     }
   }
 
+  // Multi-provider requests: semantic action scrutiny. Provider-exactness gives no per-action
+  // discrimination when several apps are named, so compare normalized EFFECT concepts in both
+  // directions (via `core/workflows/actionEffect`).
+  if (explicit.size >= 2) {
+    const requestedOutcomes = analyzeRequestedOutcomes(requestText);
+
+    // M1 — every MEANINGFUL template action (state-changing / recipient-visible / external) must
+    // contribute to a requested outcome. Mechanism wording is tolerated ("log to Sheets" ≈
+    // `append_row`); an unrequested destructive / recipient-visible / external side effect rejects.
+    const unjustified: string[] = [];
+    const meaningfulProviders = new Set<string>();
+    for (const s of actionSteps) {
+      const effect = classifyActionEffect(s.provider, s.type, effectFactsFor?.(s.provider, s.type));
+      if (!isMeaningfulAction(effect)) continue;
+      meaningfulProviders.add(s.provider);
+      if (!actionContributesToRequest(effect, requestedOutcomes)) {
+        unjustified.push(humanizeType(s.type).toLowerCase());
+      }
+    }
+    if (unjustified.length > 0) {
+      reasons.push(`Includes actions you didn't ask for (${dedupe(unjustified).join(", ")})`);
+    }
+
+    // M2 — every requested outcome must be delivered: a named provider must be the trigger OR carry a
+    // meaningful action. A named app that only appears as a read/no-op means the outcome the user
+    // asked that app for is missing (prefer building manually over a template that drops it).
+    const triggerProvider = triggerNative ? null : triggerStep!.provider;
+    const missingOutcome = [...explicit].filter(
+      (p) => p !== triggerProvider && !meaningfulProviders.has(p),
+    );
+    if (missingOutcome.length > 0) {
+      reasons.push(
+        `Doesn't act on ${dedupe(missingOutcome.map(providerLabel)).join(", ")} the way you asked`,
+      );
+    }
+  }
+
   return { strong: reasons.length === 0, reasons: dedupe(reasons) };
 }
 
@@ -647,10 +703,15 @@ function evaluateStrongMatch(
  *
  * Pure and side-effect-free; carries only the safe public-catalog match surface. This is the single
  * entry point the agent/route uses to keep template matching SEPARATE from workflow construction.
+ *
+ * `options.effectFactsFor` injects the authoritative `ActionMeta` side-effect facts for the semantic
+ * multi-provider action-contribution check (the service layer backs it with `getActionMeta`). Omitted
+ * → the conservative action-type-verb fallback is used.
  */
 export function selectOfficialTemplateRecommendation(
   requestText: string,
   catalog: readonly OfficialTemplateCatalogEntry[],
+  options?: { readonly effectFactsFor?: ActionEffectFactsLookup },
 ): TemplateRecommendationResult {
   if (!requestText || requestText.trim().length === 0) {
     return { outcome: "no_match", recommendation: null, rejectedReasons: [] };
@@ -667,7 +728,7 @@ export function selectOfficialTemplateRecommendation(
   }
 
   const top = scored[0]!;
-  const { strong, reasons } = evaluateStrongMatch(top, req);
+  const { strong, reasons } = evaluateStrongMatch(top, req, requestText, options?.effectFactsFor);
   if (strong) {
     return { outcome: "strong_match", recommendation: toMatch(top), rejectedReasons: [] };
   }

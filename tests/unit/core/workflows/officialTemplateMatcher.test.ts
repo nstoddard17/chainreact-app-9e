@@ -458,6 +458,195 @@ describe("selectOfficialTemplateRecommendation — strong / weak / no-match clas
   });
 });
 
+describe("selectOfficialTemplateRecommendation — multi-provider semantic action contribution (M1/M2)", () => {
+  const trig = (): TemplateStepSummary => step("trigger", "typeform", "new_response");
+
+  const SHEETS_OK: OfficialTemplateCatalogEntry = {
+    id: "t-sheets-ok",
+    name: "Typeform response to Google Sheets",
+    description: "When a Typeform response is submitted, append it as a new row in Google Sheets.",
+    category: "personal-productivity",
+    triggerKind: "app",
+    providers: ["typeform", "google-sheets"],
+    steps: [trig(), step("action", "google-sheets", "append_row")],
+    nodeCount: 2,
+    stepCount: 1,
+  };
+  const SHEETS_DELETE: OfficialTemplateCatalogEntry = {
+    ...SHEETS_OK,
+    id: "t-sheets-delete",
+    name: "Typeform response to Sheets with cleanup",
+    description: "When a Typeform response is submitted, append a row in Google Sheets, then delete an old row.",
+    steps: [trig(), step("action", "google-sheets", "append_row"), step("action", "google-sheets", "delete_row")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const SHEETS_SLACK: OfficialTemplateCatalogEntry = {
+    id: "t-sheets-slack",
+    name: "Typeform response to Sheets and Slack",
+    description: "When a Typeform response is submitted, append a row in Google Sheets and notify the team in Slack.",
+    category: "team-ops",
+    triggerKind: "app",
+    providers: ["typeform", "google-sheets", "slack"],
+    steps: [trig(), step("action", "google-sheets", "append_row"), step("action", "slack", "send_channel_message")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const SLACK_CREATE_PLUS_SEND: OfficialTemplateCatalogEntry = {
+    id: "t-slack-create-send",
+    name: "Typeform response to Slack channel",
+    description: "When a Typeform response is submitted, create a Slack channel and post a message.",
+    category: "team-ops",
+    triggerKind: "app",
+    providers: ["typeform", "slack"],
+    steps: [trig(), step("action", "slack", "create_channel"), step("action", "slack", "send_channel_message")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const HUBSPOT_EMAIL: OfficialTemplateCatalogEntry = {
+    id: "t-hubspot-email",
+    name: "Typeform lead to HubSpot with email",
+    description: "When a Typeform response is submitted, create a HubSpot contact and email the customer.",
+    category: "sales-crm",
+    triggerKind: "app",
+    providers: ["typeform", "hubspot"],
+    steps: [trig(), step("action", "hubspot", "create_contact"), step("action", "hubspot", "send_email")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const DRIVE_SHARE: OfficialTemplateCatalogEntry = {
+    id: "t-drive-share",
+    name: "Typeform upload to Drive with public link",
+    description: "When a Typeform response is submitted, upload the file to Google Drive and share the file publicly.",
+    category: "files-docs",
+    triggerKind: "app",
+    providers: ["typeform", "google-drive"],
+    steps: [trig(), step("action", "google-drive", "upload_file"), step("action", "google-drive", "share_file")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const SHEETS_GMAIL_READ: OfficialTemplateCatalogEntry = {
+    id: "t-sheets-gmail-read",
+    name: "Typeform response to Sheets",
+    description: "When a Typeform response is submitted, append a row in Google Sheets and look up a Gmail message.",
+    category: "personal-productivity",
+    triggerKind: "app",
+    providers: ["typeform", "google-sheets", "gmail"],
+    steps: [trig(), step("action", "google-sheets", "append_row"), step("action", "gmail", "get_message")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const SHEETS_MYSTERY: OfficialTemplateCatalogEntry = {
+    ...SHEETS_OK,
+    id: "t-sheets-mystery",
+    name: "Typeform response to Sheets (plus)",
+    description: "When a Typeform response is submitted, append a row in Google Sheets and process the data.",
+    steps: [trig(), step("action", "google-sheets", "append_row"), step("action", "google-sheets", "frobnicate_data")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+
+  const R_APPEND = "When a Typeform response is submitted, add a row to Google Sheets.";
+
+  it("(#1/#4) a valid multi-provider template with ONLY requested actions (append + notify) → strong_match", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a Typeform response is submitted, add a row to Google Sheets and notify Slack.",
+      [SHEETS_SLACK],
+    );
+    expect(res.outcome).toBe("strong_match");
+    expect(res.recommendation!.templateId).toBe("t-sheets-slack");
+  });
+
+  it("(#2/#9) Typeform response → append Google Sheets row is a strong_match (mechanism wording ok)", () => {
+    expect(selectOfficialTemplateRecommendation(R_APPEND, [SHEETS_OK]).outcome).toBe("strong_match");
+    // "log it in" is a mechanism synonym for append — still strong.
+    expect(
+      selectOfficialTemplateRecommendation(
+        "When a Typeform response is submitted, log it in Google Sheets.",
+        [SHEETS_OK],
+      ).outcome,
+    ).toBe("strong_match");
+  });
+
+  it("(#3/#7) Typeform response → append row → DELETE row is NOT strong (unrequested destructive)", () => {
+    const res = selectOfficialTemplateRecommendation(R_APPEND, [SHEETS_DELETE]);
+    expect(res.outcome).toBe("weak_match");
+    expect(res.recommendation).toBeNull();
+    expect(res.rejectedReasons.join(" ").toLowerCase()).toMatch(/delete row/);
+  });
+
+  it("(#5) an unrequested notification action disqualifies the template", () => {
+    // User asked to create a Slack channel; the template also posts an unrequested message.
+    const res = selectOfficialTemplateRecommendation(
+      "When a Typeform response is submitted, create a Slack channel.",
+      [SLACK_CREATE_PLUS_SEND],
+    );
+    expect(res.outcome).toBe("weak_match");
+    expect(res.rejectedReasons.join(" ").toLowerCase()).toMatch(/didn't ask for/);
+  });
+
+  it("(#6) an unrequested email action disqualifies the template", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a Typeform response is submitted, create a HubSpot contact.",
+      [HUBSPOT_EMAIL],
+    );
+    expect(res.outcome).toBe("weak_match");
+    expect(res.rejectedReasons.join(" ").toLowerCase()).toMatch(/send email/);
+  });
+
+  it("(#8) an unrequested externally-visible (non-destructive) action disqualifies the template", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a Typeform response is submitted, save the file to Google Drive.",
+      [DRIVE_SHARE],
+    );
+    expect(res.outcome).toBe("weak_match");
+    expect(res.rejectedReasons.join(" ").toLowerCase()).toMatch(/share file/);
+  });
+
+  it("(#10) missing a requested outcome prevents strong_match (Gmail named but only read)", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a Typeform response is submitted, add a row to Google Sheets and email the customer via Gmail.",
+      [SHEETS_GMAIL_READ],
+    );
+    expect(res.outcome).toBe("weak_match");
+    expect(res.rejectedReasons.join(" ")).toMatch(/Gmail/);
+  });
+
+  it("(#11) an uncertain action purpose produces weak_match, not strong_match (conservative)", () => {
+    const res = selectOfficialTemplateRecommendation(R_APPEND, [SHEETS_MYSTERY]);
+    expect(res.outcome).toBe("weak_match");
+    expect(res.recommendation).toBeNull();
+  });
+
+  it("(#13) a strong multi-provider match still returns exactly ONE recommendation", () => {
+    expect(MAX_TEMPLATE_RECOMMENDATIONS).toBe(1);
+    const res = selectOfficialTemplateRecommendation(
+      "When a Typeform response is submitted, add a row to Google Sheets and notify Slack.",
+      [SHEETS_SLACK],
+    );
+    expect(res.outcome).toBe("strong_match");
+    expect(Array.isArray(res.recommendation)).toBe(false);
+    expect(res.recommendation).not.toBeNull();
+  });
+
+  it("injected ActionMeta facts are AUTHORITATIVE — a facts-marked destructive action flips strong→weak", () => {
+    // Without facts, `sync_rows` is an unknown verb (→ weak anyway); prove the facts path is consulted
+    // by marking an otherwise-appending action destructive so it no longer contributes to an append.
+    const FACTS_TEMPLATE: OfficialTemplateCatalogEntry = {
+      ...SHEETS_OK,
+      id: "t-facts",
+      steps: [trig(), step("action", "google-sheets", "append_row")],
+    };
+    const strong = selectOfficialTemplateRecommendation(R_APPEND, [FACTS_TEMPLATE]);
+    expect(strong.outcome).toBe("strong_match");
+    const weak = selectOfficialTemplateRecommendation(R_APPEND, [FACTS_TEMPLATE], {
+      effectFactsFor: (p, t) => (p === "google-sheets" && t === "append_row" ? { isDestructive: true } : undefined),
+    });
+    expect(weak.outcome).toBe("weak_match");
+    expect(weak.rejectedReasons.join(" ").toLowerCase()).toMatch(/didn't ask for/);
+  });
+});
+
 describe("selectOfficialCatalogEntries — excludes user / private / unlisted", () => {
   function summary(over: Partial<MarketplaceTemplateSummary>): MarketplaceTemplateSummary {
     return {

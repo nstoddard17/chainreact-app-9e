@@ -110,6 +110,55 @@ describe("suggestOfficialTemplatesForRequest — default loader uses the officia
   });
 });
 
+describe("selectOfficialTemplateRecommendationForRequest — multi-provider action scrutiny (M1, real ActionMeta facts)", () => {
+  function multiEntry(steps: TemplateStepSummary[], providers: string[]): OfficialTemplateCatalogEntry {
+    return {
+      id: "t-multi",
+      name: "Typeform response to Google Sheets",
+      description: "When a Typeform response is submitted, append it as a new row in Google Sheets.",
+      category: "personal-productivity",
+      triggerKind: "app",
+      providers,
+      steps,
+      nodeCount: steps.length,
+      stepCount: steps.length - 1,
+    };
+  }
+  const REQUEST = "When a Typeform response is submitted, add a row to Google Sheets.";
+
+  it("a multi-provider template with only the requested action is strong (facts lookup runs, no throw)", async () => {
+    const res = await selectOfficialTemplateRecommendationForRequest({
+      requestText: REQUEST,
+      loadCatalog: async () => [
+        multiEntry(
+          [step("trigger", "typeform", "new_response"), step("action", "google-sheets", "append_row")],
+          ["typeform", "google-sheets"],
+        ),
+      ],
+    });
+    expect(res.outcome).toBe("strong_match");
+    expect(res.recommendation!.templateId).toBe("t-multi");
+  });
+
+  it("a multi-provider template with an unrequested destructive action is weak (build manually)", async () => {
+    const res = await selectOfficialTemplateRecommendationForRequest({
+      requestText: REQUEST,
+      loadCatalog: async () => [
+        multiEntry(
+          [
+            step("trigger", "typeform", "new_response"),
+            step("action", "google-sheets", "append_row"),
+            step("action", "google-sheets", "delete_row"),
+          ],
+          ["typeform", "google-sheets"],
+        ),
+      ],
+    });
+    expect(res.outcome).toBe("weak_match");
+    expect(res.recommendation).toBeNull();
+  });
+});
+
 describe("selectOfficialTemplateRecommendationForRequest — three-way decision (MATCH-4)", () => {
   it("strong_match → maps a SINGLE safe recommendation DTO (isOfficial, no summary/config)", async () => {
     const res = await selectOfficialTemplateRecommendationForRequest({
