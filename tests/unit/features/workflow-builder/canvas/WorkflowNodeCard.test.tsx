@@ -348,6 +348,91 @@ describe("computeInitials (pure helper)", () => {
   });
 });
 
+describe("WorkflowNodeCard — bottom connector orientation (BUILDER-NODE-BOTTOM-CONNECTOR)", () => {
+  const action: WorkflowNodeData = {
+    kind: "action",
+    provider: "slack",
+    type: "slack.message.channel",
+    displayName: "Send Message",
+    providerLabel: "Slack",
+  };
+
+  it("renders exactly one bottom source connector using the shared source-handle class", () => {
+    const { container } = renderCard({ data: action });
+    const bottom = container.querySelectorAll(".react-flow__handle-bottom");
+    // 1 bottom handle only — no duplicate/legacy handle sneaks in.
+    expect(bottom).toHaveLength(1);
+    expect(bottom[0]).toHaveClass("builder-handle--source");
+  });
+
+  it("uses the bottom-facing orientation (React Flow anchors it on the node's bottom edge)", () => {
+    const { container } = renderCard({ data: action });
+    const bottom = container.querySelector(".react-flow__handle-bottom")!;
+    // The `-bottom` position class is what drives RF's centered bottom-edge placement
+    // (left:50%, bottom:0). data-handlepos mirrors it.
+    expect(bottom).toHaveClass("react-flow__handle-bottom");
+    expect(bottom).toHaveAttribute("data-handlepos", "bottom");
+    // Not the top orientation — the connector faces down, not up/into the node.
+    expect(bottom).not.toHaveClass("react-flow__handle-top");
+  });
+
+  it("keeps the bottom connector a source handle that can start an edge (edge-creation contract)", () => {
+    const { container } = renderCard({ data: action });
+    const bottom = container.querySelector(".react-flow__handle-bottom")!;
+    expect(bottom).toHaveClass("source");
+    expect(bottom).not.toHaveClass("target");
+    // `connectablestart` = you can drag FROM it to create an edge (unchanged behavior).
+    expect(bottom).toHaveClass("connectablestart");
+  });
+
+  it("preserves the top target handle topology (present on actions, omitted on triggers, never a source)", () => {
+    const { container: actionC } = renderCard({ data: action });
+    const top = actionC.querySelector(".react-flow__handle-top")!;
+    expect(top).toBeInTheDocument();
+    expect(top).toHaveClass("target");
+    // Target must not be draggable as a connection START.
+    expect(top).not.toHaveClass("connectablestart");
+
+    const { container: triggerC } = renderCard({
+      data: { kind: "trigger", provider: "native", type: "manual", displayName: "Manual Run" },
+    });
+    // Trigger nodes have no incoming edge, so no top target handle...
+    expect(triggerC.querySelector(".react-flow__handle-top")).toBeNull();
+    // ...but they DO expose the same bottom source connector.
+    expect(triggerC.querySelectorAll(".react-flow__handle-bottom.builder-handle--source")).toHaveLength(1);
+  });
+
+  it("applies the same bottom connector to every node type sharing this card (trigger, action, native/logic)", () => {
+    const cases: WorkflowNodeData[] = [
+      { kind: "trigger", provider: "native", type: "manual", displayName: "Manual Run" },
+      { kind: "action", provider: "slack", type: "slack.message.channel", displayName: "Send Message" },
+      { kind: "action", provider: "native", type: "loop", displayName: "Loop" },
+    ];
+    for (const data of cases) {
+      const { container, unmount } = renderCard({ data });
+      expect(
+        container.querySelectorAll(".react-flow__handle-bottom.builder-handle--source"),
+      ).toHaveLength(1);
+      unmount();
+    }
+  });
+
+  it("does not clip the connector at the node wrapper: the testid wrapper allows overflow, the inner card clips its own corners", () => {
+    const { container } = renderCard({ data: action });
+    const wrapper = screen.getByTestId("workflow-node-view");
+    // The wrapper that hosts the handles must NOT be overflow-hidden, or the semicircle
+    // would be clipped back inside the node (the original bug).
+    expect(wrapper).not.toHaveClass("overflow-hidden");
+    // The rounded visual card is a separate inner element that keeps overflow-hidden.
+    const clipped = container.querySelector(".overflow-hidden");
+    expect(clipped).not.toBeNull();
+    expect(clipped).not.toBe(wrapper);
+    // And the handle is a sibling of that clipped card (not a descendant of it), so it
+    // can protrude below the node.
+    expect(clipped!.querySelector(".react-flow__handle-bottom")).toBeNull();
+  });
+});
+
 describe("WorkflowNodeCard — Needs setup (BUILDER-READINESS)", () => {
   const base = {
     kind: "action" as const,

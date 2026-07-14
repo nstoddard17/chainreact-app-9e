@@ -114,30 +114,19 @@ export function WorkflowNodeCard({
         : "var(--builder-accent)";
 
   return (
+    // Outer wrapper: positioned + NOT clipped. It hosts the connection handles so the
+    // bottom source connector can protrude below the card (BUILDER-NODE-BOTTOM-CONNECTOR).
+    // The inner card keeps its own `overflow-hidden` to clip its rounded corners, the
+    // left status rail, and the footer background — moving overflow here is what left the
+    // old bottom handle clipped to a half-circle INSIDE the node.
     <div
       data-testid="workflow-node-view"
       data-kind={data.kind}
       data-selected={selected ? "true" : undefined}
       data-status={status}
       {...(diffStatus ? { "data-diff-status": diffStatus } : {})}
-      className={`relative w-[280px] overflow-hidden rounded-[6px] transition-colors${isRemoved ? " opacity-60" : ""}`}
-      style={{
-        background: "var(--builder-panel)",
-        border: diff
-          ? `1px ${diff.borderStyle} ${diff.border}`
-          : `1px solid ${selected ? "var(--builder-accent)" : "var(--builder-border)"}`,
-        boxShadow: diff
-          ? diff.shadow
-          : selected
-            ? "0 0 0 2px var(--builder-accent-soft), var(--builder-shadow-md)"
-            : "var(--builder-shadow-sm)",
-      }}
+      className="relative w-[280px]"
     >
-      <span
-        aria-hidden
-        className="absolute left-0 top-0 h-full w-[3px]"
-        style={{ background: railColor }}
-      />
       {!isTrigger ? (
         <Handle
           type="target"
@@ -147,6 +136,26 @@ export function WorkflowNodeCard({
           className="builder-handle"
         />
       ) : null}
+
+      <div
+        className={`relative overflow-hidden rounded-[6px] transition-colors${isRemoved ? " opacity-60" : ""}`}
+        style={{
+          background: "var(--builder-panel)",
+          border: diff
+            ? `1px ${diff.borderStyle} ${diff.border}`
+            : `1px solid ${selected ? "var(--builder-accent)" : "var(--builder-border)"}`,
+          boxShadow: diff
+            ? diff.shadow
+            : selected
+              ? "0 0 0 2px var(--builder-accent-soft), var(--builder-shadow-md)"
+              : "var(--builder-shadow-sm)",
+        }}
+      >
+      <span
+        aria-hidden
+        className="absolute left-0 top-0 h-full w-[3px]"
+        style={{ background: railColor }}
+      />
 
       <NodeQuickActions
         canRename={!isPreview && !!onRenameNode && !editingName}
@@ -259,12 +268,13 @@ export function WorkflowNodeCard({
           <ReadyBadge />
         )}
       </div>
+      </div>
 
       <Handle
         type="source"
         position={Position.Bottom}
         aria-label="Outgoing edge source"
-        className="builder-handle"
+        className="builder-handle--source"
       />
     </div>
   );

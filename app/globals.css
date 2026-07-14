@@ -370,4 +370,51 @@
     background: var(--builder-accent);
     border-color: var(--builder-accent);
   }
+
+  /* BUILDER-NODE-BOTTOM-CONNECTOR — outgoing (source) handle. The RF handle element is a
+     larger, transparent hit target kept centered on the node's bottom edge, so React Flow
+     anchors edges at the bottom-center exactly as before. The VISIBLE connector is drawn
+     with ::after as a downward semicircle: flat side on the node's bottom border, curve
+     protruding just below the card (the node's handle wrapper allows overflow; the card
+     body still clips its own rounded corners). Same tokens as `.builder-handle` so colors,
+     border thickness, hover/selected ring, and light/dark theming stay consistent. */
+  .react-flow__handle.builder-handle--source {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    cursor: crosshair;
+  }
+  .react-flow__handle.builder-handle--source::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    /* The hit box is centered on the bottom border, so its vertical midline IS the
+       border; the semicircle's flat top starts there and the curve falls below. */
+    top: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 6px;
+    box-sizing: border-box;
+    background: var(--builder-panel);
+    border: 1.5px solid var(--builder-border-strong);
+    border-top: none;
+    border-radius: 0 0 9999px 9999px;
+    transition:
+      box-shadow 0.12s ease,
+      border-color 0.12s ease,
+      background-color 0.12s ease;
+  }
+  .react-flow__node:hover .react-flow__handle.builder-handle--source::after,
+  .react-flow__node.selected .react-flow__handle.builder-handle--source::after {
+    border-color: var(--builder-accent);
+    box-shadow: 0 0 0 4px var(--builder-accent-soft);
+  }
+  .react-flow__handle.builder-handle--source.connectingfrom::after {
+    background: var(--builder-accent);
+    border-color: var(--builder-accent);
+  }
 }
