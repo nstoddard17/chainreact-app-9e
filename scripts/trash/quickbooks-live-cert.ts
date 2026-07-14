@@ -512,6 +512,37 @@ function phaseActions(): void {
   );
 }
 
+// ── Diagnostic — map internal invoice Id(s) → DocNumber + details ───────────
+//   QBO webhooks/actions use the internal `Id`; the UI shows `DocNumber`. This
+//   prints both so an owner can find the right visible invoice row to pay.
+async function phaseShowInvoice(ids: string[]): Promise<void> {
+  console.log("=== DIAGNOSTIC — invoice details (internal Id → DocNumber) ===");
+  const { integration, call } = await bootstrap();
+  const { invoiceGet, invoiceList } = await import("@/integrations/_shared/quickbooks/api/invoices");
+  const realmId = integration.providerAccountId;
+  const wanted = ids.length ? ids : ["150", "145"];
+  for (const id of wanted) {
+    const inv = await call((t) => invoiceGet({ accessToken: t, realmId, invoiceId: id }));
+    if (!inv) {
+      console.log(`Id ${id}: NOT FOUND`);
+      continue;
+    }
+    console.log(
+      `Id ${inv.invoiceId} | DocNumber #${inv.docNumber ?? "(none)"} | customer "${inv.customerName ?? "?"}" ` +
+        `(custId ${inv.customerId}) | total ${inv.totalAmount} | balance ${inv.balance} | paid ${inv.paid} | ` +
+        `created ${inv.createdAt ?? "?"} | emailStatus ${inv.emailStatus ?? "?"}`,
+    );
+  }
+  console.log("\n=== recent invoices (newest first) — Id ↔ DocNumber map ===");
+  const page = await call((t) => invoiceList({ accessToken: t, realmId, maxResults: 15 }));
+  for (const inv of page.items) {
+    console.log(
+      `Id ${inv.invoiceId} | #${inv.docNumber ?? "?"} | "${inv.customerName ?? "?"}" | ` +
+        `total ${inv.totalAmount} | balance ${inv.balance} | created ${inv.createdAt ?? "?"}`,
+    );
+  }
+}
+
 // ── Phase 5 — webhook security / routing (safe live probes) ─────────────────
 async function phaseSecurity(): Promise<void> {
   console.log("=== PHASE 5 — webhook security / routing ===");
@@ -694,7 +725,10 @@ async function awaitTrigger(kind: TriggerKind, timeoutMs = 300_000): Promise<voi
   const s = readState();
   const wf = s.workflows.find((w) => w.kind === kind);
   if (!wf) throw new Error(`no activated workflow for ${kind} — run triggers:activate first`);
-  const { integration } = await bootstrap();
+  const realmId = s.realmId;
+  if (!realmId) throw new Error("state has no realmId — run the `realm` or `prepare` phase first");
+  // DB-only (no refreshAndRetry import) — the realm is read from state, so this
+  // phase never loads the OAuth dispatcher chain and never needs a live token.
   const { listByWorkflowServiceRole, getByIdServiceRole } = await import("@/repositories/workflowRunsDiagnostics");
 
   const deadline = Date.now() + timeoutMs;
@@ -724,9 +758,9 @@ async function awaitTrigger(kind: TriggerKind, timeoutMs = 300_000): Promise<voi
   console.log(`run ${run.id} appeared (status=${run.status}) eventId=${ev?.eventId}`);
 
   if (ev?.eventType !== kind) fail(`eventType=${ev?.eventType}, expected ${kind}`);
-  if (ev?.providerAccountId !== integration.providerAccountId) fail(`realm mismatch: providerAccountId=${ev?.providerAccountId}`);
-  if (payload.realmId !== integration.providerAccountId) fail(`payload.realmId mismatch`);
-  const expectedPrefix = `${kind}:${integration.providerAccountId}:`;
+  if (ev?.providerAccountId !== realmId) fail(`realm mismatch: providerAccountId=${ev?.providerAccountId}`);
+  if (payload.realmId !== realmId) fail(`payload.realmId mismatch`);
+  const expectedPrefix = `${kind}:${realmId}:`;
   if (typeof ev?.eventId === "string" && !ev.eventId.startsWith(expectedPrefix)) {
     fail(`dedup eventId not realm-scoped as ${expectedPrefix}<entityId> (got ${ev.eventId})`);
   }
@@ -778,21 +812,28 @@ async function phaseTriggersStatus(): Promise<void> {
 
 async function phaseTriggersDeactivate(): Promise<void> {
   console.log("=== PHASE 4 — deactivate + cleanup ===");
-  const { supabase } = await bootstrap();
-  const { unregisterWorkflowTriggers } = await import("@/services/triggers/lifecycle");
-  const workflowsRepo = await import("@/repositories/workflows");
-  const triggerResourcesRepo = await import("@/repositories/triggerResources");
+  // DB-ONLY cleanup (no lifecycle/oauth import). QuickBooks triggers are
+  // app-level webhooks: activation only wrote trigger_resources interest rows
+  // and deactivation has NO provider-side webhook to delete, so removing the
+  // interest rows directly is equivalent to unregisterWorkflowTriggers here.
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
 
   const s = readState();
   let allClean = true;
   for (const wf of s.workflows) {
-    const record = await workflowsRepo.getByIdServiceRole(wf.workflowId);
-    if (record) {
-      await unregisterWorkflowTriggers(record);
-      const left = await triggerResourcesRepo.listByWorkflow(wf.workflowId);
-      if (left.length !== 0) allClean = false;
-      console.log(`${wf.kind}: deactivated; trigger_resources rows left=${left.length}`);
-    }
+    // Remove the interest rows, then confirm none remain.
+    await supabase.from("trigger_resources").delete().eq("workflow_id", wf.workflowId);
+    const { data: left } = await supabase
+      .from("trigger_resources")
+      .select("id")
+      .eq("workflow_id", wf.workflowId);
+    if ((left?.length ?? 0) !== 0) allClean = false;
+    console.log(`${wf.kind}: deactivated; trigger_resources rows left=${left?.length ?? 0}`);
     await supabase
       .from("workflows")
       .update({ state: "deleted", deleted_at: new Date().toISOString() })
@@ -921,6 +962,9 @@ Guided trigger phases (run around REAL sandbox changes — a webhook needs a rea
       return;
     case "security":
       await phaseSecurity();
+      return;
+    case "invoice":
+      await phaseShowInvoice(process.argv.slice(3));
       return;
     case "run": {
       // Everything that can be certified without waiting on a real webhook.
