@@ -1,7 +1,12 @@
 # QuickBooks Online Owner Setup Report
 
 ## Status
-- Code status: **code-complete owner setup required** (QUICKBOOKS-1)
+- Code status: **SANDBOX LIVE-COMPLETE** (QUICKBOOKS-1) — Phase 13 sandbox
+  certification PASSED 2026-07-13 (all option sources, all 7 actions, all 4
+  triggers, invoice_paid derivation, and webhook security/routing verified live
+  against the connected sandbox company). Production leg remains owner-gated
+  (Intuit App Assessment → production keys). See "Phase 13 SANDBOX LIVE
+  CERTIFICATION — PASSED 2026-07-13" below.
 - Commit: see git log (local only, `v2-main`)
 - Push status: Nothing pushed.
 - Smoke status: unit + registration + fixture suites green (mocked provider
@@ -46,6 +51,59 @@ run was performed. Findings:
   runner auto-discovers/creates the customer, item, and invoice. Marcus only
   supplies `QUICKBOOKS_API_BASE` + `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN` (and
   optional `SMOKE_QUICKBOOKS_SEND_TO` for send_invoice).
+
+### Phase 13 SANDBOX LIVE CERTIFICATION — PASSED 2026-07-13
+Executed end-to-end with the owner-runnable harness against the connected
+sandbox company **"Sandbox Company US bc85"** (realmId `9341457412489636`,
+country US). Env: `QUICKBOOKS_API_BASE=sandbox`, verifier token set,
+`SMOKE_QUICKBOOKS_SEND_TO` = owner mailbox. All sanitized (ids/DocNumbers/counts
+only; no tokens/PII printed).
+
+- **OAuth / realm:** active integration row resolved; `realmId` persisted as
+  providerAccountId; `accountMetadata` = { companyName "Sandbox Company US
+  bc85", country US, realmId }; refresh path exercised (a read succeeded via
+  `refreshAndRetry`).
+- **Option sources (5/5 PASS, live, bounded, names-only):** customers 29,
+  items 18, terms 5, tax_codes 2, invoices 31.
+- **Actions (7/7 PASS through the real workflow engine, testMode=false):**
+  reads `find_customer` / `get_customer` / `get_invoice` / `list_invoices`;
+  writes `create_customer` / `create_invoice` / `send_invoice` — each verified
+  by an independent read-back (marker confirmed on the persisted record), and
+  `send_invoice` confirmed `EmailStatus=EmailSent` to the owner mailbox
+  (never a customer address).
+- **Triggers (4/4 PASS via REAL Intuit portal webhook → https://chainreact.app
+  → dispatch → terminal `succeeded`):** each exactly one realm-matched run with
+  a realm-scoped, timestamp-free dedup eventId:
+  - `customer_created` — `customer_created:9341457412489636:<customerId>`
+  - `invoice_created` — `invoice_created:9341457412489636:<invoiceId>`
+  - `payment_received` — `payment_received:9341457412489636:<paymentId>`
+    (2 distinct payments in the paid-in-two-parts flow → 2 runs, each fired once
+    on its own payment id — correct, not a double-fire)
+  - `invoice_paid` — `invoice_paid:9341457412489636:<invoiceId>`
+- **invoice_paid derivation (PROVEN LIVE):** a **partial** payment ($0.50 of
+  $1.00) fired `payment_received` but **did NOT** fire `invoice_paid` (balance
+  still > 0). The **full** payment (remaining $0.50 → balance $0) fired
+  `invoice_paid` **exactly once**; the two payments + Payment Create/Update did
+  **not** double-fire it (dedup key is the invoice's durable identity). Zero
+  balance with a positive total verified before dispatch.
+- **Webhook security / routing (PASS):** GET service-info 200; a bad
+  `intuit-signature` → **401**; a **validly-signed UNKNOWN-realm** delivery →
+  200 quiet ack, `droppedNoIntegration=1`, `dispatched=0` (realm-scoped
+  credential resolution — no cross-company fan-out). Missing-verifier → 503 is
+  unit-covered only (cannot unset the deployed env).
+- **Cleanup:** interest rows unregistered (0 left), cert workflows soft-deleted,
+  dedup rows removed. Marked `crsmoke-` sandbox artifacts LEFT by design (no
+  delete/void action shipped; sandbox company is disposable): customers 58 & 61,
+  invoices 145 & 150 (#1043) + the two recorded payments.
+- **Two runner/harness bugs found + fixed during the run** (product code
+  unchanged): (1) the harness built the smoke customer DisplayName from a
+  `:`-bearing ISO timestamp, which QBO rejects (error 2040) — sanitized;
+  (2) the write-smoke harness had no QuickBooks read-back seam, so writes could
+  not verify-certify — added `tests/smoke-actions/writeHarnessDeps/quickbooks.ts`.
+- **Remaining owner action:** the PRODUCTION leg only — complete the Intuit App
+  Assessment Questionnaire → unlock production keys → add production
+  redirect/webhook/env → redeploy → re-run this harness against a LIVE company
+  (deploy-gated retest). Sandbox certification itself is COMPLETE.
 
 ## Provider developer portal setup
 
@@ -175,10 +233,10 @@ sandbox certification" below.
 ## Triggers shipped
 | Trigger | Webhook/Polling | Lifecycle | Config | Unit tests | Smoke |
 |---|---|---|---|---|---|
-| customer_created | app-level webhook | interest-row activate / no-op deactivate | realmId (stamped at activation) | ✅ | Phase-13 live only (see seed note) |
-| invoice_created | app-level webhook | same | same | ✅ | Phase-13 live only |
-| payment_received | app-level webhook | same | same | ✅ | Phase-13 live only |
-| invoice_paid | app-level webhook (DERIVED from Payment Create/Update + verified zero balance) | same | same | ✅ incl. partial-payment no-fire + Create/Update dedup | Phase-13 live only |
+| customer_created | app-level webhook | interest-row activate / no-op deactivate | realmId (stamped at activation) | ✅ | **live-certified 2026-07-13** (exactly-one, realm-matched) |
+| invoice_created | app-level webhook | same | same | ✅ | **live-certified 2026-07-13** |
+| payment_received | app-level webhook | same | same | ✅ | **live-certified 2026-07-13** (fires once per distinct payment) |
+| invoice_paid | app-level webhook (DERIVED from Payment Create/Update + verified zero balance) | same | same | ✅ incl. partial-payment no-fire + Create/Update dedup | **live-certified 2026-07-13** (partial no-fire + full single-fire + no double-fire, all proven live) |
 
 ## Manual verification checklist for Marcus
 - [ ] Create the Intuit developer app (Accounting scope only); grab Development keys.

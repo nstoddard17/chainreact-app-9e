@@ -258,15 +258,33 @@ delete operations are deliberately NOT shipped, so smoke cleanup is manual and
 documented in the owner report. Production certification only after the
 Intuit app assessment unlocks production keys.
 
-**Live-cert attempt 2026-07-13:** BLOCKED (owner-interactive / env-gated) — no
-live run performed. The local environment lacks the sandbox live gate
-(`QUICKBOOKS_API_BASE`, `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN`,
-`SMOKE_QUICKBOOKS_*`) and cannot receive real Intuit webhook deliveries, so
-neither the action live smoke nor trigger certification could run. Mocked
-suites re-verified green (113 tests), typecheck clean. Full attempt log in
-[`owner-setup-report.md`](./owner-setup-report.md) → "Phase 13
-live-certification attempt — 2026-07-13". Observed live webhook event shapes
-remain TO-BE-CAPTURED at owner-run time.
+**Live-cert 2026-07-13: PASSED (sandbox).** Full Phase 13 sandbox certification
+ran end-to-end against realmId `9341457412489636` — all option sources, all 7
+actions (real engine), all 4 triggers (real Intuit webhooks), the invoice_paid
+partial-no-fire / full-single-fire / no-double-fire derivation, and webhook
+security/routing (bad-sig 401, unknown-realm dropped). Full log:
+[`owner-setup-report.md`](./owner-setup-report.md) → "Phase 13 SANDBOX LIVE
+CERTIFICATION — PASSED 2026-07-13". Production leg (App Assessment → prod keys)
+still owner-gated.
+
+**Observed live webhook event shapes (sanitized — payload KEY SETS only, no
+values):**
+- `customer_created` — dedup `customer_created:<realm>:<customerId>`; payload
+  keys: changeKind, realmId, customerId, displayName, companyName, givenName,
+  familyName, email, phone, active, balance, currency, billingAddress, notes,
+  createdAt, updatedAt.
+- `invoice_created` — dedup `invoice_created:<realm>:<invoiceId>`; payload keys:
+  changeKind, realmId, invoiceId, customerId, customerName, docNumber, lines
+  (array), totalAmount, balance, paid, currency, txnDate, dueDate, billEmail,
+  emailStatus, privateNote, customerMemo, createdAt, updatedAt.
+- `payment_received` — dedup `payment_received:<realm>:<paymentId>`; payload
+  keys: changeKind, realmId, paymentId, customerId, customerName, totalAmount,
+  unappliedAmount, linkedInvoiceIds (array), currency, referenceNumber, txnDate,
+  createdAt, updatedAt.
+- `invoice_paid` — dedup `invoice_paid:<realm>:<invoiceId>` (INVOICE identity,
+  not payment — this is what collapses Payment Create+Update to one fire);
+  payload keys: same as invoice_created PLUS `paymentId` (the triggering
+  payment), with `paid=true` and `balance=0` at dispatch.
 
 ## Known API limitations (summary)
 
