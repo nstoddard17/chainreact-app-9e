@@ -366,14 +366,15 @@ export default [
   // strong/weak/no-match classifier (REACT-AGENT-TEMPLATE-MATCH). It is intentionally ONE cohesive,
   // side-effect-free module: the provider/alias/stopword tables, the request analyzer, the scorer, and
   // the strong-match structural gate all share the same private primitives (splitting them would force
-  // exporting those internals and break encapsulation). MATCH-4 added the classifier (~40 counted
-  // lines). Capped at 440 (snug headroom) to keep further drift visible.
+  // exporting those internals and break encapsulation). MATCH-4 added the classifier; the follow-up
+  // correction bifurcated it into single- vs multi-provider specificity checks (~55 more counted
+  // lines). Capped at 490 (snug headroom) to keep further drift visible.
   {
     files: ["core/workflows/officialTemplateMatcher.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 440, skipBlankLines: true, skipComments: true },
+        { max: 490, skipBlankLines: true, skipComments: true },
       ],
     },
   },

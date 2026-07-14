@@ -82,8 +82,9 @@ export interface MatchOfficialTemplatesOptions {
  * REACT-AGENT-TEMPLATE-MATCH-4 — the EXPLICIT, three-way decision the React Agent acts on. Kept
  * separate from raw matcher scoring so the agent never has to interpret a fuzzy confidence band:
  *
- *   - `strong_match` — a template SUBSTANTIALLY matches the request (right trigger, the named apps
- *     are all present, no unrelated apps/side-effects, ≥2 named apps overlap). ONLY this outcome may
+ *   - `strong_match` — a template SUBSTANTIALLY matches the request (right trigger, every named app
+ *     present, requested outcome produced, purpose overlaps, no unrelated apps/side-effects). An exact
+ *     SINGLE-provider template can qualify; a shared provider alone never does. ONLY this outcome may
  *     lead to a template recommendation.
  *   - `weak_match`   — a template scored, but only partially (a shared app or a few keywords). The
  *     agent must NOT recommend/force it; it proceeds to build the workflow manually.
@@ -294,9 +295,15 @@ const HIGH_SCORE_WITH_TWO_APPS = 8;
 const MEDIUM_SCORE = 5;
 const DEFAULT_MAX_MATCHES = 5;
 
-/** A `strong_match` requires at least this many EXPLICITLY-named apps to overlap the template — one
- *  shared app (or alias/keyword-only signal) is never enough. */
-const STRONG_MIN_EXPLICIT_PROVIDERS = 2;
+/** A `strong_match` requires at least this many DISTINCTIVE, non-provider content tokens shared
+ *  between the request and the template (name / description / step types) — so a shared provider or a
+ *  few generic keywords is never, on its own, a strong match. */
+const MIN_STRONG_INTENT_OVERLAP = 1;
+
+/** Trigger/action TYPE tokens that describe the delivery MECHANISM rather than the user-facing event
+ *  or outcome (users say "when an order is created", not "webhook received"). Excluded from the
+ *  type-level specificity checks so a legitimate match isn't rejected for mechanism vocabulary. */
+const MECHANISM_TOKENS: ReadonlySet<string> = new Set(["webhook"]);
 
 interface ScoredEntry {
   readonly entry: OfficialTemplateCatalogEntry;
@@ -484,21 +491,52 @@ export function matchOfficialTemplates(
 
 // ── Strong-match classification (REACT-AGENT-TEMPLATE-MATCH-4) ────────────────
 
+/** DISTINCTIVE (non-provider, non-mechanism) content tokens of a step's humanized type. Empty for a
+ *  GENERIC action/trigger (e.g. "send channel message" → all structural stopwords) — which we treat
+ *  as un-scrutinizable at the type level (the provider match carries it), not as a side-effect. */
+function stepTypeTokens(
+  step: TemplateStepSummary,
+  providerTokens: ReadonlySet<string>,
+): Set<string> {
+  const out = new Set<string>();
+  for (const t of contentTokens(humanizeType(step.type))) {
+    if (providerTokens.has(t) || MECHANISM_TOKENS.has(t)) continue;
+    out.add(t);
+  }
+  return out;
+}
+
 /**
- * Structural gate that promotes the top-ranked candidate to a `strong_match`. Deterministic and
- * pure. ALL of the following must hold — otherwise the candidate is a `weak_match` (and the agent
- * builds manually instead of recommending it):
+ * Structural gate that promotes the top-ranked candidate to a `strong_match`. Deterministic and pure.
+ * A template is `strong_match` only when it SUBSTANTIALLY matches — every named app present, right
+ * trigger, requested outcome produced, purpose overlaps, and no unrequested provider/side-effect. A
+ * shared provider or keyword similarity alone is never enough.
  *
- *   1. ≥ `STRONG_MIN_EXPLICIT_PROVIDERS` explicitly-named apps overlap the template (a single shared
- *      app / alias-or-keyword-only signal is never a strong match).
- *   2. Every explicitly-named app is present in the template (the requested outcome is covered — the
- *      template doesn't silently drop an app the user named).
- *   3. The template introduces NO app the user didn't ask for (no unrelated providers/side-effects).
- *   4. The trigger is aligned to the requested start event: a manual/scheduled (native-trigger)
- *      template is always fine; an app-trigger template's trigger provider must be one the user
- *      named/implied (rejects a template that starts from the wrong event).
+ * The number of EXPLICITLY-named apps is NO LONGER a hard floor — an exact SINGLE-provider template
+ * (e.g. Slack reaction → Slack channel message) can be strong. Instead the specificity bar adapts:
  *
- * Returns the boolean plus the SAFE reasons any condition failed (provider labels only — never a
+ *   Common (every request):
+ *     C1  ≥1 explicitly-named app (a keyword / category alone is never strong).
+ *     C2  every named app is present (the template doesn't drop a requested app).
+ *     C3  the template introduces NO unrequested provider (no unrelated app / side-effect).
+ *     C4  the trigger is aligned to the requested start event (native trigger, or requested provider).
+ *     C5  the requested outcome is produced by a requested app (some action uses a requested app).
+ *     C6  the purpose substantially overlaps — ≥`MIN_STRONG_INTENT_OVERLAP` distinctive, NON-provider
+ *         tokens shared (name/description/step types), so a shared provider alone can't clear it.
+ *
+ *   Single-provider requests (exactly one named app → provider-exactness gives no discrimination, so
+ *   scrutinize the step TYPES):
+ *     S1  the app trigger's TYPE reflects the described start event (rejects a mismatched trigger).
+ *     S2  no action introduces a DISTINCTIVE operation the request didn't ask for (rejects a
+ *         mismatched primary action AND unrelated recipient-visible/destructive side-effects).
+ *     S3  at least one action satisfies the described outcome.
+ *
+ *   Multi-provider requests (≥2 named apps) are governed by provider-exactness (C2/C3) + C4–C6: every
+ *   named provider must be present and no extra provider may appear (per-action type scrutiny would
+ *   false-reject mechanism-named actions like "append row" for "log it to a sheet"). A same-provider
+ *   extra step is not deterministically detectable here and is out of scope for this gate.
+ *
+ * Returns the boolean plus SAFE reasons any condition failed (public catalog labels only — never a
  * config value, `{{...}}`, or a resource id).
  */
 function evaluateStrongMatch(
@@ -506,38 +544,95 @@ function evaluateStrongMatch(
   req: RequestAnalysis,
 ): { readonly strong: boolean; readonly reasons: string[] } {
   const entry = scored.entry;
-  const requested = new Set<string>([...req.explicitProviders, ...req.aliasProviders]);
+  const explicit = req.explicitProviders;
+  const requested = new Set<string>([...explicit, ...req.aliasProviders]);
   const templateProviders = new Set(entry.providers);
   const reasons: string[] = [];
 
-  // 1. Enough explicitly-named apps overlap.
-  if (scored.explicitMatches < STRONG_MIN_EXPLICIT_PROVIDERS) {
-    reasons.push("Fewer than two of the apps you named overlap this template");
+  // Provider-name tokens — excluded from the "purpose" overlap so a SHARED PROVIDER is never, by
+  // itself, enough to look like an intent match.
+  const providerTokens = new Set<string>();
+  for (const p of [...requested, ...entry.providers]) {
+    for (const t of contentTokens(providerLabel(p))) providerTokens.add(t);
   }
 
-  // 2. Every named app is present (no dropped requested outcome).
-  const missingExplicit = [...req.explicitProviders].filter((p) => !templateProviders.has(p));
+  // C1 — a specific app must be named (keyword / category alone is never strong).
+  if (explicit.size === 0) {
+    reasons.push("No specific app was named (a keyword or category alone isn't a strong match)");
+  }
+
+  // C2 — every named app is present.
+  const missingExplicit = [...explicit].filter((p) => !templateProviders.has(p));
   if (missingExplicit.length > 0) {
     reasons.push(`Doesn't include ${dedupe(missingExplicit.map(providerLabel)).join(", ")}`);
   }
 
-  // 3. No unrequested app / side-effect.
+  // C3 — no unrequested provider.
   const extraProviders = entry.providers.filter((p) => !requested.has(p));
   if (extraProviders.length > 0) {
     reasons.push(`Adds apps you didn't ask for (${dedupe(extraProviders.map(providerLabel)).join(", ")})`);
   }
 
-  // 4. Trigger aligned to the requested start event.
+  // C4 — trigger aligned to the requested start event.
   const triggerStep = entry.steps.find((s) => s.kind === "trigger");
-  const triggerAligned =
-    triggerStep === undefined || triggerStep.provider === "native"
-      ? true
-      : requested.has(triggerStep.provider);
+  const triggerNative = triggerStep === undefined || triggerStep.provider === "native";
+  const triggerAligned = triggerNative || requested.has(triggerStep!.provider);
   if (!triggerAligned) {
     reasons.push(`Starts from ${providerLabel(triggerStep!.provider)}, not the event you described`);
   }
 
-  return { strong: reasons.length === 0, reasons };
+  // C5 — the requested outcome is produced by a requested app.
+  const actionSteps = entry.steps.filter((s) => s.kind === "action");
+  if (actionSteps.length > 0 && !actionSteps.some((s) => requested.has(s.provider))) {
+    reasons.push("Its actions don't use the app you asked for");
+  }
+
+  // C6 — purpose overlap beyond the provider (distinctive, non-provider tokens shared).
+  const intentTokens = new Set<string>();
+  const parts = [entry.name, entry.description ?? "", categoryLabel(entry.category)];
+  for (const s of entry.steps) parts.push(humanizeType(s.type));
+  for (const t of contentTokens(parts.join(" "))) {
+    if (!providerTokens.has(t) && !MECHANISM_TOKENS.has(t)) intentTokens.add(t);
+  }
+  let intentOverlap = 0;
+  for (const t of req.content) if (intentTokens.has(t)) intentOverlap += 1;
+  if (intentOverlap < MIN_STRONG_INTENT_OVERLAP) {
+    reasons.push("The workflow's purpose doesn't clearly match your request");
+  }
+
+  // Single-provider requests: scrutinize step TYPES (provider exactness gives no discrimination when
+  // every step is the same app).
+  if (explicit.size === 1) {
+    // S1 — the app trigger's TYPE must reflect the described start event.
+    if (!triggerNative && triggerAligned) {
+      const tt = stepTypeTokens(triggerStep!, providerTokens);
+      const triggerTypeAligned =
+        tt.size === 0 ? intentOverlap >= MIN_STRONG_INTENT_OVERLAP : [...tt].some((t) => req.content.has(t));
+      if (!triggerTypeAligned) {
+        reasons.push(`Its "${humanizeType(triggerStep!.type).toLowerCase()}" start event doesn't match what you described`);
+      }
+    }
+    // S2 — no action introduces a DISTINCTIVE operation the request didn't ask for.
+    const unrelated = actionSteps.filter((s) => {
+      const at = stepTypeTokens(s, providerTokens);
+      return at.size > 0 && ![...at].some((t) => req.content.has(t));
+    });
+    if (unrelated.length > 0) {
+      reasons.push(
+        `Includes steps you didn't ask for (${dedupe(unrelated.map((s) => humanizeType(s.type).toLowerCase())).join(", ")})`,
+      );
+    }
+    // S3 — at least one action satisfies the described outcome.
+    const someActionSupported = actionSteps.some((s) => {
+      const at = stepTypeTokens(s, providerTokens);
+      return at.size === 0 ? requested.has(s.provider) : [...at].some((t) => req.content.has(t));
+    });
+    if (actionSteps.length > 0 && !someActionSupported) {
+      reasons.push("None of its actions match the outcome you described");
+    }
+  }
+
+  return { strong: reasons.length === 0, reasons: dedupe(reasons) };
 }
 
 /**

@@ -173,8 +173,9 @@ export async function POST(
   // call, no mutation. Degrades to "no match" on any read error (never blocks guidance).
   //
   // A template is only ever an OPTIONAL accelerator — never a requirement:
-  //   - `strong_match` (right trigger, all named apps present, no unrelated apps, ≥2 apps overlap) →
-  //     short-circuit with a SINGLE deterministic recommendation (capped, no menu of alternatives to
+  //   - `strong_match` (right trigger, every named app present, requested outcome produced, no
+  //     unrelated apps/side-effects — an exact single-provider template can qualify) → short-circuit
+  //     with a SINGLE deterministic recommendation (capped, no menu of alternatives to
   //     reject). This returns BEFORE the Hermes-availability check AND the credit gate, so it skips the
   //     model call and consumes NO AI credits (the gate is where credits are deducted).
   //   - `weak_match` (only a partial/shared-app overlap) → do NOT recommend/force it. Note the manual

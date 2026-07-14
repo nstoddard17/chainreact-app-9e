@@ -127,6 +127,27 @@ describe("selectOfficialTemplateRecommendationForRequest — three-way decision 
     expect(json).not.toMatch(/"config"|"definition"|"edges"/);
   });
 
+  it("strong_match for an EXACT SINGLE-provider template (one named app) → maps a recommendation", async () => {
+    const SLACK_REPOST: OfficialTemplateCatalogEntry = {
+      id: "t-slack-repost",
+      name: "Slack reaction repost",
+      description: "When a reaction is added to a Slack message, repost it into another channel.",
+      category: "team-ops",
+      triggerKind: "app",
+      providers: ["slack"],
+      steps: [step("trigger", "slack", "reaction_added"), step("action", "slack", "send_channel_message")],
+      nodeCount: 2,
+      stepCount: 1,
+    };
+    const res = await selectOfficialTemplateRecommendationForRequest({
+      requestText: "When a Slack reaction is added, post a message in another Slack channel.",
+      loadCatalog: async () => [SLACK_REPOST],
+    });
+    expect(res.outcome).toBe("strong_match");
+    expect(res.recommendation!.templateId).toBe("t-slack-repost");
+    expect(res.recommendation!.providers).toEqual(["slack"]);
+  });
+
   it("weak_match (partial / unrelated side-effects) → no recommendation (build manually)", async () => {
     const res = await selectOfficialTemplateRecommendationForRequest({
       requestText: "When a Shopify order is created, notify Slack.", // template also adds Sheets + HubSpot
