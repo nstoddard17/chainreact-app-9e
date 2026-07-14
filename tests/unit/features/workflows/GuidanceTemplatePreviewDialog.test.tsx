@@ -87,4 +87,48 @@ describe("GuidanceTemplatePreviewDialog", () => {
     expect(screen.getByTestId("guidance-template-preview-error")).toHaveTextContent("Template no longer exists.");
     expect(screen.getByTestId("guidance-template-preview-use")).toBeDisabled();
   });
+
+  // AI-TEMPLATE-APPLY-CURRENT — the two-option choice when editing inside a builder.
+  describe("in-builder choice (canApplyToCurrent)", () => {
+    it("offers Apply-to-current (primary) and Create-as-new (secondary) — not two identical Use buttons", () => {
+      renderDialog({ canApplyToCurrent: true, onApplyToCurrent: jest.fn() });
+      expect(screen.getByTestId("guidance-template-choice-intro")).toBeInTheDocument();
+      expect(screen.getByTestId("guidance-template-apply-current")).toHaveTextContent(/apply to current workflow/i);
+      expect(screen.getByTestId("guidance-template-create-new")).toHaveTextContent(/create as new workflow/i);
+      // The single-action button is NOT rendered in choice mode.
+      expect(screen.queryByTestId("guidance-template-preview-use")).not.toBeInTheDocument();
+    });
+
+    it("explains replacement semantics + that a checkpoint/History restore is available", () => {
+      renderDialog({ canApplyToCurrent: true, onApplyToCurrent: jest.fn() });
+      expect(screen.getByText(/replaces the current draft with this template/i)).toBeInTheDocument();
+      expect(screen.getByText(/restored from History/i)).toBeInTheDocument();
+      expect(screen.getByText(/leaves the current workflow unchanged/i)).toBeInTheDocument();
+    });
+
+    it("primary calls onApplyToCurrent; secondary calls onConfirmUse; cancel calls onClose", async () => {
+      const user = userEvent.setup();
+      const onApplyToCurrent = jest.fn();
+      const { onConfirmUse, onClose } = renderDialog({ canApplyToCurrent: true, onApplyToCurrent });
+      await user.click(screen.getByTestId("guidance-template-apply-current"));
+      expect(onApplyToCurrent).toHaveBeenCalledTimes(1);
+      expect(onConfirmUse).not.toHaveBeenCalled();
+      await user.click(screen.getByTestId("guidance-template-create-new"));
+      expect(onConfirmUse).toHaveBeenCalledTimes(1);
+      await user.click(screen.getByTestId("guidance-template-preview-cancel"));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("busy disables both choice actions (no double-submit)", () => {
+      renderDialog({ canApplyToCurrent: true, onApplyToCurrent: jest.fn(), busy: true });
+      expect(screen.getByTestId("guidance-template-apply-current")).toBeDisabled();
+      expect(screen.getByTestId("guidance-template-create-new")).toBeDisabled();
+    });
+
+    it("without an onApplyToCurrent handler it stays single-action (dashboard-safe)", () => {
+      renderDialog({ canApplyToCurrent: true });
+      expect(screen.queryByTestId("guidance-template-apply-current")).not.toBeInTheDocument();
+      expect(screen.getByTestId("guidance-template-preview-use")).toBeInTheDocument();
+    });
+  });
 });

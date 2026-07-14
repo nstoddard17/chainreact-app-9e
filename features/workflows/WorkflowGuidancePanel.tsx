@@ -130,6 +130,16 @@ export interface WorkflowGuidancePanelProps {
    * the composer starts empty as before.
    */
   readonly initialComposerValue?: string;
+  /**
+   * AI-TEMPLATE-APPLY-CURRENT — builder-only: apply a React-Agent-suggested official template to the
+   * CURRENTLY-OPEN workflow (in place) instead of creating a new one. When provided (with a
+   * `workflowId`), the template match's confirmation dialog offers "Apply to current workflow" as the
+   * primary choice; the handler overwrites the current draft via the existing replace-from-template
+   * path (pre-replace checkpoint + History), re-hydrates the canvas, and keeps the user on this URL. It
+   * must THROW on failure so the dialog can stay open with a safe error. Absent (dashboard) → the
+   * dialog only offers create-new, unchanged.
+   */
+  readonly onTemplateApplyToCurrent?: (input: { templateId: string; templateName: string }) => Promise<void>;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -193,11 +203,17 @@ function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, initialComposerValue }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, initialComposerValue, onTemplateApplyToCurrent }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const preview = useTemplatePreviewFlow(accountId);
+  // AI-TEMPLATE-APPLY-CURRENT — inside the builder (a workflowId + an apply handler), the template
+  // match dialog offers "Apply to current workflow" (in place) as the primary choice. On the dashboard
+  // (neither present) the hook falls back to create-new only.
+  const preview = useTemplatePreviewFlow(accountId, {
+    ...(workflowId ? { currentWorkflowId: workflowId } : {}),
+    ...(onTemplateApplyToCurrent ? { onApplyToCurrent: onTemplateApplyToCurrent } : {}),
+  });
   const nextId = useRef(0);
   const makeId = () => String(nextId.current++);
 
@@ -541,7 +557,15 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
         </div>
       </div>
       {preview.previewMatch && (
-        <GuidanceTemplatePreviewDialog match={preview.previewMatch} busy={preview.busy} error={preview.error} onConfirmUse={preview.confirmUse} onClose={preview.closePreview} />
+        <GuidanceTemplatePreviewDialog
+          match={preview.previewMatch}
+          busy={preview.busy}
+          error={preview.error}
+          onConfirmUse={preview.confirmUse}
+          canApplyToCurrent={preview.canApplyToCurrent}
+          onApplyToCurrent={preview.confirmApplyToCurrent}
+          onClose={preview.closePreview}
+        />
       )}
     </section>
   );

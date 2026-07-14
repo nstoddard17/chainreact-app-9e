@@ -167,6 +167,32 @@ describe("POST /api/workflows/[id]/replace-from-template", () => {
     );
   });
 
+  it("origin 'react_agent' → recordHistory:true forwarded to the service (AI apply-to-current)", async () => {
+    signedIn();
+    mockReplaceWithTemplate.mockResolvedValueOnce({ ok: true, workflow: workflowRecord() });
+    const res = await replacePost(req({ templateId: TPL, origin: "react_agent" }), params());
+    expect(res.status).toBe(200);
+    expect(mockReplaceWithTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowId: WF, templateId: TPL, actorUserId: CALLER, recordHistory: true }),
+    );
+  });
+
+  it("no origin (in-builder modal) → recordHistory is NOT set (keeps the modal's no-checkpoint behavior)", async () => {
+    signedIn();
+    mockReplaceWithTemplate.mockResolvedValueOnce({ ok: true, workflow: workflowRecord() });
+    const res = await replacePost(req({ templateId: TPL }), params());
+    expect(res.status).toBe(200);
+    expect(mockReplaceWithTemplate).toHaveBeenCalledTimes(1);
+    expect(mockReplaceWithTemplate.mock.calls[0]![0]).not.toHaveProperty("recordHistory");
+  });
+
+  it("rejects an unknown origin value (strict body)", async () => {
+    signedIn();
+    const res = await replacePost(req({ templateId: TPL, origin: "hacker" }), params());
+    expect(res.status).toBe(400);
+    expect(mockReplaceWithTemplate).not.toHaveBeenCalled();
+  });
+
   it("surfaces the disabled state when replacing an active workflow (service deactivated it)", async () => {
     signedIn();
     mockReplaceWithTemplate.mockResolvedValueOnce({

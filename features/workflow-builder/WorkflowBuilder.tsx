@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { replaceCurrentWorkflowFromTemplate } from "@/lib/api/workflowTemplates";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
@@ -180,6 +182,7 @@ export function WorkflowBuilder({
   initialAgentPrompt,
   onAnonPromptChange,
 }: Props) {
+  const router = useRouter();
   const hydrate = useGraphSlice((s) => s.hydrate);
   const reset = useGraphSlice((s) => s.reset);
   const resetConfigSlice = useConfigSlice((s) => s.reset);
@@ -428,6 +431,8 @@ export function WorkflowBuilder({
     handleRestoreCheckpoint,
     handleDiscardPreview,
     dismissApplyNotice,
+    showApplyNotice,
+    refreshAgentChanges,
   } = useBuilderPreview({
     workflowId: workflow.id,
     localOnly,
@@ -477,6 +482,35 @@ export function WorkflowBuilder({
       else handleKeepAsPreview();
     },
     [handleApplyPreview, handleApplyAndTest, handleKeepAsPreview],
+  );
+
+  // AI-TEMPLATE-APPLY-CURRENT — apply a React-Agent-suggested official template to the CURRENTLY-OPEN
+  // workflow IN PLACE (the primary choice in the template match dialog). It overwrites the current
+  // draft via the EXISTING replace-from-template route (origin `react_agent`, so the server captures a
+  // pre-replace checkpoint + records a History row), then re-hydrates the canvas from the returned
+  // detail, refreshes the History timeline, and re-reads the server-rendered lifecycle state. It keeps
+  // the SAME workflow id + name + URL — no new workflow, no navigation. On failure it THROWS so the
+  // dialog stays open with a safe error; nothing is re-hydrated and the previous draft is intact.
+  // Not wired for the logged-out local-only builder (no server workflow → the anonymous rail is used).
+  const handleTemplateApplyToCurrent = useCallback(
+    async ({ templateId, templateName }: { templateId: string; templateName: string }): Promise<void> => {
+      const detail = await replaceCurrentWorkflowFromTemplate(workflow.id, templateId, {
+        origin: "react_agent",
+      });
+      // Reconcile client state from the server-confirmed baseline (not an authoritative write — the
+      // server already persisted). The fresh updatedAt clears the revision guard so it isn't stale.
+      hydrate(workflow.id, detail.draftDefinition, detail.updatedAt);
+      closeNode();
+      // Pull the server-recorded History row (checkpoint-linked → "Restore" available).
+      await refreshAgentChanges();
+      // Re-read the server-rendered lifecycle state (an ACTIVE workflow whose trigger changed was
+      // deactivated server-side; workflow.state is a server prop, not graph-slice state).
+      router.refresh();
+      showApplyNotice(
+        `Applied the “${templateName}” template to this workflow — review required fields, then reconnect and reactivate if needed. You can restore the previous version from History.`,
+      );
+    },
+    [workflow.id, hydrate, closeNode, refreshAgentChanges, router, showApplyNotice],
   );
 
   // CHECKLIST-ITEM-10 — open the node's config panel and highlight the missing
@@ -629,6 +663,7 @@ export function WorkflowBuilder({
             getCurrentDraft={getCurrentDraft}
             renderCheckSetup={renderCheckSetup}
             {...(restoredComposerValue ? { initialComposerValue: restoredComposerValue } : {})}
+            onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
           />
           )}
         </BuilderLeftAgentRail>

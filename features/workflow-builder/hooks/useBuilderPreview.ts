@@ -519,6 +519,16 @@ export function useBuilderPreview({
     setAppliedNodeIds([]);
   }, []);
 
+  // AI-TEMPLATE-APPLY-CURRENT — surface a transient confirmation through the SAME BuilderApplyNotice
+  // channel used by the apply-preview flow. Used by the "apply template to current workflow" handler
+  // after the server replace + canvas re-hydration succeed. Clears any stale applied-node hints (the
+  // replace is a full re-hydrate, not an additive insert, so per-node "added from preview" badges
+  // don't apply).
+  const showApplyNotice = useCallback((message: string) => {
+    setAppliedNodeIds([]);
+    setApplyNotice(message);
+  }, []);
+
   return {
     previewOverlay,
     previewShowCount,
@@ -542,6 +552,9 @@ export function useBuilderPreview({
     agentChanges: agentChanges.items,
     agentChangesLoading: agentChanges.loading,
     agentChangesError: agentChanges.error,
+    // AI-TEMPLATE-APPLY-CURRENT — re-pull the History timeline after a server-recorded change (the
+    // template-apply-to-current path records its checkpoint + History row server-side).
+    refreshAgentChanges: agentChanges.refresh,
     // handlers
     handleShowPreview,
     handlePreviewConfigChange,
@@ -551,5 +564,6 @@ export function useBuilderPreview({
     handleRestoreCheckpoint,
     handleDiscardPreview,
     dismissApplyNotice,
+    showApplyNotice,
   };
 }

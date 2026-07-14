@@ -13,10 +13,13 @@ import type { WorkflowRecord } from "@/repositories/workflows";
 import * as userProfilesRepo from "@/repositories/userProfiles";
 import { isMember } from "@/repositories/accountMemberships";
 import { createTemplateFromWorkflow } from "@/services/workflows/createTemplateFromWorkflow";
-import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
+import { saveDraftDefinition } from "@/services/workflows/saveDraftDefinition";
+import { createCheckpoint } from "@/services/workflows/checkpoints";
+import { recordAgentChange } from "@/services/workflows/agentChangeHistory";
 import { resolveAccountCapabilities } from "@/services/billing/planCapabilities";
 import { requireAccountRole } from "@/services/accounts/accountAuthz";
 import { templateLimitFor } from "@/core/billing/planPolicy";
+import { randomUUID } from "node:crypto";
 
 /**
  * Workflow-template management service (Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-3 / CS-XT-5A).
@@ -385,6 +388,13 @@ export interface ReplaceWorkflowWithTemplateInput {
   /** The template to apply. */
   templateId: string;
   actorUserId: string;
+  /**
+   * AI-TEMPLATE-APPLY-CURRENT — when true, capture a restorable pre-replace CHECKPOINT (of the
+   * current draft) BEFORE the mutation and record a React-Agent HISTORY row linked to it, so the
+   * change is undoable from the builder's History tab. Set by the React Agent "apply to current
+   * workflow" path. The in-builder Templates MODAL omits it (keeps its "can't be undone" contract).
+   */
+  recordHistory?: boolean;
 }
 
 /**
@@ -421,26 +431,76 @@ export async function replaceWorkflowWithTemplate(
   const parsed = WorkflowDefinitionSchema.safeParse(tpl.definition);
   if (!parsed.success) return { ok: false, reason: "invalid_template" };
 
-  // 4. Overwrite ONLY the draft definition — account ownership / id / name are unchanged.
-  const updated = await workflowsRepo.updateDraftDefinition(input.workflowId, parsed.data);
+  // 4. AI-TEMPLATE-APPLY-CURRENT — capture the PRE-replace draft as a restorable checkpoint
+  //    BEFORE mutating, so the user can undo this from the builder's History tab. Reuses the
+  //    SAME checkpoint system the React Agent apply uses (source `react_agent`). Only the AI
+  //    "apply to current workflow" path opts in; the in-builder Templates modal does not.
+  let checkpointId: string | null = null;
+  if (input.recordHistory) {
+    try {
+      const checkpoint = await createCheckpoint({
+        workflowId: input.workflowId,
+        accountId: workflow.accountId,
+        createdByUserId: input.actorUserId,
+        source: "react_agent",
+        name: "Before template applied",
+        summary: `Replaced this workflow with the “${tpl.name}” template.`,
+        definition: workflow.draftDefinition,
+      });
+      checkpointId = checkpoint.id;
+    } catch {
+      // Fail-open: a missing restore point must never block the apply (mirrors the client
+      // apply pipeline, which surfaces a non-blocking "couldn't save a restore point" warning).
+      checkpointId = null;
+    }
+  }
 
-  // 5. Lifecycle honesty for an ACTIVE workflow. The runtime executes draftDefinition
-  //    directly (no published snapshot), and trigger_resources / provider subscriptions are
-  //    keyed to the OLD graph's node ids. After the replace those rows are stale (their node
-  //    ids no longer exist → dispatched runs fail with TRIGGER_NODE_NOT_FOUND) AND the new
-  //    template triggers are unregistered until (re)activation. Leaving the workflow "active"
-  //    is therefore a silently-broken state. Deactivate it through the EXISTING disable path,
-  //    which tears down the stale registrations + provider subscriptions; the user reconnects
-  //    and reactivates, and activation re-registers triggers off the new draft. Only ACTIVE
-  //    workflows are touched — draft / paused / disabled / eligible_to_resume have nothing
-  //    actively dispatching against the replaced graph. No new state, no auto re-register.
-  if (workflow.state === "active") {
-    const disabled = await createLifecycleOrchestrator().disable({
-      workflowId: input.workflowId,
-      reason: "manual_admin",
-      context: "Definition replaced from a template — reconnect and reactivate.",
-    });
-    return { ok: true, workflow: disabled };
+  // 5. Overwrite ONLY the draft definition through the CANONICAL save path. `saveDraftDefinition`
+  //    is the one shared rule (manual builder save, AI-apply, checkpoint restore all use it): it
+  //    writes the draft and, ONLY when the workflow was `active` AND an ACTIVATABLE trigger's
+  //    registration is now stale, deactivates via the lifecycle orchestrator (tearing down stale
+  //    trigger_resources / provider subscriptions). Action/layout-only or manual-trigger replaces
+  //    leave the workflow active. Account ownership / id / name are never changed.
+  const saved = await saveDraftDefinition({
+    previousState: workflow.state,
+    previousDefinition: workflow.draftDefinition,
+    nextDefinition: parsed.data,
+    write: () => workflowsRepo.updateDraftDefinition(input.workflowId, parsed.data),
+  });
+  // The unguarded write never returns null; fall back to the loaded record defensively.
+  const updated = saved ?? workflow;
+
+  // 6. AI-TEMPLATE-APPLY-CURRENT — record the change on the React Agent History timeline, linked to
+  //    the pre-replace checkpoint so the row offers "Restore". Reuses the SAME history service the
+  //    client apply pipeline uses (preview_created → preview_applied transitions one row). Best-
+  //    effort: a failed history write never fails the apply.
+  if (input.recordHistory) {
+    try {
+      const agentChangeId = randomUUID();
+      await recordAgentChange({
+        workflowId: input.workflowId,
+        accountId: workflow.accountId,
+        createdByUserId: input.actorUserId,
+        request: {
+          agentChangeId,
+          status: "preview_created",
+          title: `Applied template “${tpl.name}”`,
+          summary: `Replaced this workflow with the “${tpl.name}” template.`,
+        },
+      });
+      await recordAgentChange({
+        workflowId: input.workflowId,
+        accountId: workflow.accountId,
+        createdByUserId: input.actorUserId,
+        request: {
+          agentChangeId,
+          status: "preview_applied",
+          ...(checkpointId ? { checkpointId } : {}),
+        },
+      });
+    } catch {
+      // swallow — the change applied; the audit row is best-effort.
+    }
   }
 
   return { ok: true, workflow: updated };

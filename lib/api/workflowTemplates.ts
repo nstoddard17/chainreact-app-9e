@@ -134,14 +134,24 @@ export async function createWorkflowFromTemplateForCurrent(
  * POST /api/workflows/[currentWorkflowId]/replace-from-template — overwrite the current
  * workflow's draft definition with the template's sanitized graph (explicit + confirmed by
  * the caller). Returns the updated WorkflowDetail so the builder can re-hydrate the canvas.
+ *
+ * `opts.origin: "react_agent"` (the "apply to current workflow" choice on a React-Agent
+ * template suggestion) asks the server to capture a pre-replace checkpoint + record a History
+ * row, so the change is undoable from the builder's History tab. The in-builder Templates
+ * modal omits it (keeps its "can't be undone" behavior).
  */
 export async function replaceCurrentWorkflowFromTemplate(
   currentWorkflowId: string,
   templateId: string,
+  opts: { origin?: "react_agent" } = {},
 ): Promise<WorkflowDetail> {
   const res = await fetch(
     `/api/workflows/${encodeURIComponent(currentWorkflowId)}/replace-from-template`,
-    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ templateId }) },
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ templateId, ...(opts.origin ? { origin: opts.origin } : {}) }),
+    },
   );
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as WorkflowDetail;

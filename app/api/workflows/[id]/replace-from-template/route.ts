@@ -16,7 +16,18 @@ import { parseJsonBody, requireUser, toWorkflowDetail } from "../../_shared";
  * builder can re-hydrate the canvas to the template at a clean, saved baseline.
  */
 
-const BodySchema = z.object({ templateId: z.string().uuid("templateId is required.") }).strict();
+const BodySchema = z
+  .object({
+    templateId: z.string().uuid("templateId is required."),
+    /**
+     * AI-TEMPLATE-APPLY-CURRENT — origin of the replace. `react_agent` (the "apply to current
+     * workflow" choice on a React-Agent template suggestion) opts into a pre-replace checkpoint +
+     * a History row so the change is undoable. Omitted by the in-builder Templates modal, which
+     * keeps its existing "can't be undone" contract.
+     */
+    origin: z.literal("react_agent").optional(),
+  })
+  .strict();
 
 export async function POST(
   request: Request,
@@ -33,6 +44,7 @@ export async function POST(
     workflowId: id,
     templateId: body.data.templateId,
     actorUserId: auth.userId,
+    ...(body.data.origin === "react_agent" ? { recordHistory: true } : {}),
   });
 
   if (!result.ok) {

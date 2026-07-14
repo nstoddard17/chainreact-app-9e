@@ -97,6 +97,13 @@ export interface BuilderGuidanceRailProps {
    * fills only an empty, untouched composer and never auto-sends.
    */
   readonly initialComposerValue?: string;
+  /**
+   * AI-TEMPLATE-APPLY-CURRENT — apply a React-Agent-suggested official template to the CURRENTLY-OPEN
+   * workflow in place (overwrites the current draft via replace-from-template, with a pre-replace
+   * checkpoint + History, then re-hydrates the canvas). Forwarded to the panel so the template match
+   * dialog can offer "Apply to current workflow" as the primary choice. Owned by `WorkflowBuilder`.
+   */
+  readonly onTemplateApplyToCurrent?: (input: { templateId: string; templateName: string }) => Promise<void>;
 }
 
 export function BuilderGuidanceRail({
@@ -114,6 +121,7 @@ export function BuilderGuidanceRail({
   getCurrentGraphShape,
   renderCheckSetup,
   initialComposerValue,
+  onTemplateApplyToCurrent,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -147,6 +155,7 @@ export function BuilderGuidanceRail({
             {...(getCurrentDraft ? { getCurrentDraft } : {})}
             {...(renderCheckSetup ? { renderCheckSetup } : {})}
             {...(initialComposerValue ? { initialComposerValue } : {})}
+            {...(onTemplateApplyToCurrent ? { onTemplateApplyToCurrent } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {
