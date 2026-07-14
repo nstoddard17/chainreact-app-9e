@@ -372,7 +372,8 @@ async function phasePrepare(): Promise<void> {
   // 2. Create the smoke customer (marker display name; email = safe SEND_TO if provided).
   const sendTo = process.env.SMOKE_QUICKBOOKS_SEND_TO ?? null;
   s.sendToPresent = !!sendTo;
-  const marker = `crsmoke quickbooks ${new Date().toISOString()}`;
+  // QBO DisplayName rejects ':' (error 2040) — keep the marker colon/period-free.
+  const marker = `crsmoke quickbooks ${new Date().toISOString().replace(/[:.]/g, "-")}`;
   const custOverride = process.env.SMOKE_QUICKBOOKS_CUSTOMER_ID;
   if (custOverride) {
     const existing = await call((t) => customerGet({ accessToken: t, realmId, customerId: custOverride }));
@@ -439,35 +440,30 @@ async function phasePrepare(): Promise<void> {
 }
 
 // ── Phase 3 — 7 actions through the REAL workflow engine (existing harness) ──
-//   Reuses the canonical live action-smoke harness, but AUTO-POPULATES the
-//   object env it consumes from the `prepare` phase's discovered/created ids —
+//   Reuses the canonical live action-smoke harnesses, but AUTO-POPULATES the
+//   object env they consume from the `prepare` phase's discovered/created ids —
 //   Marcus never supplies a customer/item/invoice id.
+//
+//   The 4 READ actions (find/get_customer, get/list_invoice) live in
+//   ALL_SMOKE_FIXTURES → run-all.workflow-live.dev.test.ts.
+//   The 3 WRITE actions (create_customer, create_invoice, send_invoice) live in
+//   WRITE_SMOKE_FIXTURES → run-writes.workflow-live.dev.test.ts, which is scoped
+//   by SMOKE_PROVIDER and reads its target ids from env (no quickbooks discovery
+//   branch is needed — the ids come from our prepared state).
 function phaseActions(): void {
   console.log("=== PHASE 3 — action smoke through the real workflow engine ===");
   const s = readState();
   if (!s.preparedCustomerId || !s.itemId || !s.preparedInvoiceId || !s.preparedCustomerName) {
     throw new Error("run the `prepare` phase first — it auto-discovers the item and auto-creates the smoke customer + invoice.");
   }
-  console.log("Delegating to the canonical live action-smoke harness scoped to quickbooks.");
-  console.log("Runs create_customer / find_customer / get_customer / create_invoice /");
-  console.log("send_invoice / get_invoice / list_invoices through the SAME manual run-now");
-  console.log("engine path as the app (testMode=false), reusing the shipped fixtures.");
   console.log(`Using auto-prepared: customer=${s.preparedCustomerId} item=${s.itemId} invoice=${s.preparedInvoiceId}`);
-
   const sendTo = process.env.SMOKE_QUICKBOOKS_SEND_TO;
   if (!sendTo) {
-    console.log("send_invoice: SKIP (blocked-for-safety) — no SMOKE_QUICKBOOKS_SEND_TO. Every other action still runs.");
+    console.log("send_invoice: will SKIP (blocked-for-safety) — no SMOKE_QUICKBOOKS_SEND_TO. Every other action still runs.");
   }
 
-  const testPath = "tests/integration/smoke-actions/run-all.workflow-live.dev.test.ts";
-  // Auto-feed the fixture harness's object env from the prepared state.
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    ALLOW_DB_INTEGRATION_TESTS: "true",
-    ALLOW_LIVE_PROVIDER_SMOKE: "true",
-    ALLOW_LIVE_PROVIDER_WRITE_SMOKE: "true",
-    SMOKE_PROVIDER: "quickbooks",
-    SMOKE_RERUN_PASSED: "1",
+  // Object env the fixtures consume, auto-derived from prepared state.
+  const objectEnv: Record<string, string> = {
     SMOKE_QUICKBOOKS_CONNECTED: "true",
     SMOKE_QUICKBOOKS_CUSTOMER_ID: s.preparedCustomerId,
     SMOKE_QUICKBOOKS_CUSTOMER_NAME: s.preparedCustomerName,
@@ -475,13 +471,44 @@ function phaseActions(): void {
     SMOKE_QUICKBOOKS_INVOICE_ID: s.preparedInvoiceId,
   };
 
-  const res = spawnSync("npx", ["jest", testPath], { env, stdio: "inherit", shell: true });
-  const ok = res.status === 0;
-  recordResult("phase3_actions", ok ? "PASS" : `FAIL(exit=${res.status})`);
+  const runHarness = (label: string, testPath: string, extraEnv: Record<string, string>): boolean => {
+    console.log(`\n--- ${label} (${testPath}) ---`);
+    const res = spawnSync("npx", ["jest", testPath], {
+      env: { ...process.env, ...objectEnv, ...extraEnv },
+      stdio: "inherit",
+      shell: true,
+    });
+    return res.status === 0;
+  };
+
+  // 4 READ actions.
+  const readsOk = runHarness("READ actions (find/get_customer, get/list_invoice)", "tests/integration/smoke-actions/run-all.workflow-live.dev.test.ts", {
+    ALLOW_DB_INTEGRATION_TESTS: "true",
+    ALLOW_LIVE_PROVIDER_SMOKE: "true",
+    ALLOW_LIVE_PROVIDER_WRITE_SMOKE: "true",
+    SMOKE_PROVIDER: "quickbooks",
+    SMOKE_RERUN_PASSED: "1",
+  });
+
+  // 3 WRITE actions (create_customer, create_invoice, send_invoice). The write
+  // harness is 4-gated and single-provider; send_invoice self-SKIPs (BLOCKED_ENV,
+  // folds to ok) when SMOKE_QUICKBOOKS_SEND_TO is absent.
+  const writesOk = runHarness("WRITE actions (create_customer, create_invoice, send_invoice)", "tests/integration/smoke-actions/run-writes.workflow-live.dev.test.ts", {
+    ALLOW_DB_INTEGRATION_TESTS: "true",
+    ALLOW_LIVE_PROVIDER_SMOKE: "true",
+    ALLOW_LIVE_PROVIDER_WRITE_SMOKE: "true",
+    ALLOW_DESTRUCTIVE_PROVIDER_SMOKE: "true",
+    SMOKE_PROVIDER: "quickbooks",
+  });
+
+  const ok = readsOk && writesOk;
+  recordResult("phase3_actions_reads", readsOk ? "PASS" : "FAIL");
+  recordResult("phase3_actions_writes", writesOk ? "PASS" : "FAIL");
+  recordResult("phase3_actions", ok ? "PASS" : "FAIL");
   console.log(
     ok
-      ? "\nPhase 3 PASS — see the harness PASS/FAIL/SKIP table above (send_invoice SKIPs without SEND_TO)."
-      : `\nPhase 3 reported non-zero (exit ${res.status}). Read the table above: an env SKIP is not a bug, a FAIL is.`,
+      ? "\nPhase 3 PASS — reads + writes green (send_invoice SKIPs without SEND_TO; that is not a fail)."
+      : `\nPhase 3 FAIL — reads=${readsOk ? "PASS" : "FAIL"} writes=${writesOk ? "PASS" : "FAIL"}. Read the harness tables above.`,
   );
 }
 

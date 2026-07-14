@@ -67,6 +67,7 @@ import { gdriveSmokeReadBack } from "./writeHarnessDeps/gdrive";
 import { shopifySmokeReadBack } from "./writeHarnessDeps/shopify";
 import { githubSmokeReadBack } from "./writeHarnessDeps/github";
 import { facebookSmokeReadBack } from "./writeHarnessDeps/facebook";
+import { quickbooksSmokeReadBack } from "./writeHarnessDeps/quickbooks";
 import { stagedFileSmokeReadBack } from "./writeHarnessDeps/stagedFile";
 
 // ─── Barrel: seam helpers the gated dev test imports from this module ──────────
@@ -197,6 +198,10 @@ const SMOKE_READERS: readonly SmokeReader[] = [
   // registered read is aggregate page insights, so every post/media write verifies
   // through these bounded Graph GETs (code=100 -> found:false for the delete proof).
   facebookSmokeReadBack,
+  // QuickBooks per-record read-back (get_customer / get_invoice by id) — the write
+  // fixtures verify create_customer / create_invoice / send_invoice through these
+  // bounded GETs (typed 404 -> found:false), matching the actions' output shape.
+  quickbooksSmokeReadBack,
   // Provider-agnostic v2_storage staged-file existence read-back (slack:download_file).
   stagedFileSmokeReadBack,
 ];

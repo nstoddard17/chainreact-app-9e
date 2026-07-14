@@ -77,6 +77,9 @@ const PROVIDER_READ_WRAPPERS = [
   "memberEventsList",
   "segmentGet",
   "listsList",
+  // QuickBooks per-record read-backs (get_customer / get_invoice by id).
+  "customerGet",
+  "invoiceGet",
 ] as const;
 
 interface SeamSource {
