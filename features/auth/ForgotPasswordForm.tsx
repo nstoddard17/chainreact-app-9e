@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { requestPasswordReset, type AuthActionResult } from "@/app/auth/actions";
+import { TurnstileWidget } from "./TurnstileWidget";
 
 /**
  * Forgot-password form. On success shows a NEUTRAL confirmation (no user
@@ -34,6 +35,8 @@ export function ForgotPasswordForm() {
           className="rounded border border-input bg-background px-3 py-2"
         />
       </label>
+      {/* Bot protection — renders only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. */}
+      <TurnstileWidget />
       {state && !state.ok && (
         <p role="alert" className="text-sm text-destructive">
           {state.error}

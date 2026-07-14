@@ -237,6 +237,75 @@ export async function changePassword(input: {
   if (!res.ok) throw await parseError(res);
 }
 
+// ── Two-factor authentication (TOTP) (SEC-3) ───────────────────────────────────
+// Thin wrappers over the self-scoped /api/account/mfa + /api/auth/mfa routes.
+// The enrollment `secret`/`qrCode`/`uri` are returned by beginMfaEnrollment ONCE
+// for a one-time render; the caller must never persist, log, or refetch them.
+
+/** The caller's own two-factor status — non-secret metadata only. */
+export interface MfaStatusView {
+  enabled: boolean;
+  factor: { id: string; friendlyName: string | null; createdAt: string } | null;
+}
+
+/** One-time enrollment material — shown once, never persisted or logged. */
+export interface MfaEnrollmentView {
+  factorId: string;
+  /** SVG QR as a `data:` URI (render in an <img>). */
+  qrCode: string;
+  /** Base32 shared secret for manual entry. Sensitive. */
+  secret: string;
+  /** otpauth:// URI. Sensitive. */
+  uri: string;
+}
+
+/** GET /api/account/mfa — the caller's own two-factor status. */
+export async function getMfaStatus(): Promise<MfaStatusView> {
+  const res = await fetch("/api/account/mfa");
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as MfaStatusView;
+}
+
+/** POST /api/account/mfa/enroll — start TOTP enrollment (returns one-time material). */
+export async function beginMfaEnrollment(): Promise<MfaEnrollmentView> {
+  const res = await fetch("/api/account/mfa/enroll", { method: "POST" });
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as MfaEnrollmentView;
+}
+
+/** POST /api/account/mfa/verify — confirm enrollment with the first code (enables MFA). */
+export async function confirmMfaEnrollment(input: {
+  factorId: string;
+  code: string;
+}): Promise<void> {
+  const res = await fetch("/api/account/mfa/verify", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw await parseError(res);
+}
+
+/** POST /api/account/mfa/disable — turn MFA off (password step-up). */
+export async function disableMfa(password: string): Promise<void> {
+  const res = await fetch("/api/account/mfa/disable", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) throw await parseError(res);
+}
+
+/** POST /api/auth/mfa/verify — satisfy the login-time MFA challenge (elevates session). */
+export async function verifyMfaChallenge(code: string): Promise<void> {
+  const res = await fetch("/api/auth/mfa/verify", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) throw await parseError(res);
+}
+
 // ── Notification preferences (4.ACCOUNT-SETTINGS-4) ────────────────────────────
 
 /** GET /api/account/notification-preferences — the caller's own toggles. */

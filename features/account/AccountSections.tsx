@@ -5,6 +5,7 @@ import { SettingRow } from "@/features/team/SettingRow";
 import { RoleBadge } from "@/features/team/RoleBadge";
 import { accountTypeLabel } from "@/features/team/accountTypeLabel";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { TwoFactorPanel } from "./TwoFactorPanel";
 import { ApiKeysPanel } from "./ApiKeysPanel";
 import { ApiDocsPanel } from "./ApiDocsPanel";
 import {
@@ -144,10 +145,14 @@ export function SecuritySection({
           </div>
         </SettingRow>
 
-        <ComingSoonRow
+        <SettingRow
           label="Two-factor authentication"
-          desc="Add an authenticator-app code — coming soon."
-        />
+          desc="Require a one-time code from an authenticator app at sign-in."
+          stacked
+        >
+          <TwoFactorPanel />
+        </SettingRow>
+
         <ComingSoonRow label="Sessions & devices" desc="Review and revoke sessions — coming soon." />
         <ComingSoonRow
           label="Connected accounts"

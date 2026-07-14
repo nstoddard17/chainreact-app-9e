@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import type { AuthActionResult } from "@/app/auth/actions";
+import { TurnstileWidget } from "./TurnstileWidget";
 
 type Action = (prev: AuthActionResult | null, formData: FormData) => Promise<AuthActionResult>;
 
@@ -63,6 +64,8 @@ export function AuthForm({
           className="rounded border border-input bg-background px-3 py-2"
         />
       </label>
+      {/* Bot protection — renders only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. */}
+      <TurnstileWidget />
       {state && !state.ok && (
         <p role="alert" className="text-sm text-destructive">
           {state.error}

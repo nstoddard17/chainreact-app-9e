@@ -203,6 +203,33 @@ export const ChangePasswordBodySchema = z
   });
 export type ChangePasswordBody = z.infer<typeof ChangePasswordBodySchema>;
 
+/**
+ * MFA (TOTP) route bodies (SEC-3). A TOTP code is 6 digits; we trim incidental
+ * spaces the authenticator UIs sometimes insert before validating. The factor id
+ * is a Supabase factor uuid. The disable body carries the current password for the
+ * step-up re-auth (never logged).
+ */
+const TotpCodeSchema = z
+  .string()
+  .transform((v) => v.replace(/\s+/g, ""))
+  .refine((v) => /^\d{6}$/.test(v), "Enter the 6-digit code from your authenticator app.");
+
+export const MfaVerifyBodySchema = z.object({
+  factorId: z.string().uuid("A valid factor id is required."),
+  code: TotpCodeSchema,
+});
+export type MfaVerifyBody = z.infer<typeof MfaVerifyBodySchema>;
+
+export const MfaDisableBodySchema = z.object({
+  password: z.string().min(1, "Your password is required to turn off two-factor authentication."),
+});
+export type MfaDisableBody = z.infer<typeof MfaDisableBodySchema>;
+
+export const MfaChallengeBodySchema = z.object({
+  code: TotpCodeSchema,
+});
+export type MfaChallengeBody = z.infer<typeof MfaChallengeBodySchema>;
+
 /** Shape returned by both routes — lifecycle state only, no account graph. */
 export function toDeletionStatusResponse(state: {
   deletionStatus: string;

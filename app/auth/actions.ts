@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { safeReturnPath } from "@/lib/safeReturnPath";
+import { verifyTurnstileToken, TURNSTILE_FIELD_NAME } from "@/services/security/turnstile";
 
 /**
  * Auth server actions.
@@ -45,9 +46,32 @@ async function resolveOrigin(): Promise<string> {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
+/**
+ * Bot-protection gate for the public auth surfaces (SEC-3). Reads the Turnstile
+ * token from the submitted form and verifies it server-side. When Turnstile is
+ * not configured (no secret) this is a no-op that returns ok, so dev/test are
+ * untouched; when configured it is fail-closed. The client remote IP (best-effort
+ * from `x-forwarded-for`) is passed to Cloudflare for extra signal. The token is
+ * never logged. A failure surfaces the SAME neutral message on every surface — it
+ * carries no account signal, so it does not weaken the reset flow's
+ * no-enumeration guarantee.
+ */
+async function verifyBotProtection(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
+  const token = formData.get(TURNSTILE_FIELD_NAME);
+  const h = await headers();
+  const remoteIp = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const result = await verifyTurnstileToken(typeof token === "string" ? token : null, remoteIp);
+  if (!result.ok) {
+    return { ok: false, error: "Couldn't verify you're human. Please try again." };
+  }
+  return { ok: true };
+}
+
 export async function signUp(_prev: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
   const creds = readCredentials(formData);
   if ("error" in creds) return { ok: false, error: creds.error };
+  const captcha = await verifyBotProtection(formData);
+  if (!captcha.ok) return { ok: false, error: captcha.error };
   // ANON-BUILDER-2 — same-origin destination after auth (e.g. /start/continue to
   // restore an anonymous draft). Sanitized; defaults to /workflows.
   const returnTo = safeReturnPath(
@@ -80,6 +104,8 @@ export async function signUp(_prev: AuthActionResult | null, formData: FormData)
 export async function signIn(_prev: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
   const creds = readCredentials(formData);
   if ("error" in creds) return { ok: false, error: creds.error };
+  const captcha = await verifyBotProtection(formData);
+  if (!captcha.ok) return { ok: false, error: captcha.error };
   const returnTo = safeReturnPath(
     typeof formData.get("returnTo") === "string" ? (formData.get("returnTo") as string) : null,
   );
@@ -112,6 +138,8 @@ export async function requestPasswordReset(
   if (typeof email !== "string" || email.trim().length === 0) {
     return { ok: false, error: "Email is required." };
   }
+  const captcha = await verifyBotProtection(formData);
+  if (!captcha.ok) return { ok: false, error: captcha.error };
   const supabase = await createClient();
   const origin = await resolveOrigin();
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
