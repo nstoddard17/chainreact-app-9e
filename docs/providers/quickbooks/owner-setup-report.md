@@ -184,6 +184,18 @@ accounting Payment entity) or OpenID scopes (identity comes from CompanyInfo).
 - Test-user requirements: none — sandbox companies come with demo data.
 - Rate-limit notes: 500 req/min per realm per app; V2 enriches sequentially
   and stays far under it.
+- **`intuit_tid` capture (troubleshooting / assessment answer): YES.** V2 reads
+  Intuit's `intuit_tid` response header (the transaction/correlation id Intuit
+  support asks for) from **every** QuickBooks/Intuit API response — the shared
+  Accounting-API client (`_shared/quickbooks/api/_request.ts`), the connect-time
+  CompanyInfo read, and the OAuth token-exchange/refresh calls. On a failed call
+  it is written to a sanitized `quickbooks.api.error` troubleshooting log
+  (`{ event, method, path, status, intuitTid }`) and carried on the QB error
+  classes' `intuitTid` metadata field. It is an opaque, non-sensitive id: it is
+  NEVER logged alongside the access token / Authorization header / webhook
+  verifier token / raw provider body, and it is NEVER surfaced into workflow
+  outputs or user-facing UI. This lets us quote Intuit the exact correlation id
+  for any failing request during an assessment or support escalation.
 
 ## Vercel environment variables
 

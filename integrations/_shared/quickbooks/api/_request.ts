@@ -3,7 +3,14 @@ import {
   Unauthorized401Error,
 } from "@/services/oauth/refreshAndRetry";
 import { quickbooksApiBase } from "@/integrations/quickbooks/oauth";
-import { NotFoundError, RateLimitedError, surfaceQuickbooksError } from "../errors";
+import {
+  NotFoundError,
+  QuickbooksApiError,
+  RateLimitedError,
+  logQuickbooksApiError,
+  readIntuitTid,
+  surfaceQuickbooksError,
+} from "../errors";
 
 /**
  * Shared HTTP request helper for the QuickBooks Online Accounting API —
@@ -35,10 +42,17 @@ import { NotFoundError, RateLimitedError, surfaceQuickbooksError } from "../erro
  *   - 404 → `NotFoundError(resourceForNotFound)`.
  *   - 429 → `RateLimitedError(retryAfterSeconds)` — 500 req/min per
  *     realm; Retry-After parsed defensively (header undocumented).
- *   - Other non-OK → generic Error with the Fault envelope's first
+ *   - Other non-OK → `QuickbooksApiError` with the Fault envelope's first
  *     `Message (code n)` via `surfaceQuickbooksError` (never the raw
  *     body — `Fault.Error[].Detail` embeds entity field values and is
  *     deliberately dropped).
+ *
+ * `intuit_tid` capture: the `intuit_tid` response header (Intuit's
+ * transaction/correlation id) is read from EVERY response and, on failure,
+ * written to a sanitized `quickbooks.api.error` troubleshooting log and
+ * carried on the QB-owned error classes' `intuitTid` field. It is an opaque,
+ * non-sensitive id — never logged alongside the token/Authorization header or
+ * raw body, and never surfaced into workflow outputs or UI.
  */
 
 export interface QuickbooksRequestInput {
@@ -75,7 +89,19 @@ function parseRetryAfter(res: Response): number | null {
 async function throwMapped(
   res: Response,
   input: QuickbooksRequestInput,
+  intuitTid: string | null,
 ): Promise<never> {
+  // Sanitized troubleshooting line for EVERY non-OK status — carries the
+  // Intuit correlation id + coarse coordinates only (no token/Authorization/
+  // body). 401/403 are cross-provider error classes that don't carry the tid
+  // themselves, so this log is where their correlation id is preserved.
+  logQuickbooksApiError({
+    method: input.method,
+    path: input.path,
+    status: res.status,
+    intuitTid,
+  });
+
   if (res.status === 401) {
     throw new Unauthorized401Error(
       `QuickBooks ${input.method} ${input.path} returned HTTP 401`,
@@ -92,14 +118,17 @@ async function throwMapped(
     throw new NotFoundError(
       input.resourceForNotFound,
       surfaceQuickbooksError(text, 404),
+      intuitTid,
     );
   }
   if (res.status === 429) {
-    throw new RateLimitedError(parseRetryAfter(res));
+    throw new RateLimitedError(parseRetryAfter(res), intuitTid);
   }
   const text = await res.text().catch(() => "");
-  throw new Error(
+  throw new QuickbooksApiError(
+    res.status,
     `QuickBooks ${input.method} ${input.path} failed: ${surfaceQuickbooksError(text, res.status)}`,
+    intuitTid,
   );
 }
 
@@ -143,7 +172,12 @@ export async function quickbooksRequest<T>(
     body: bodyString,
   });
 
-  if (!res.ok) await throwMapped(res, input);
+  // Capture Intuit's transaction/correlation id from EVERY response (present
+  // on success and failure). Used only for sanitized troubleshooting logs +
+  // error metadata below — never surfaced into workflow outputs or UI.
+  const intuitTid = readIntuitTid(res);
+
+  if (!res.ok) await throwMapped(res, input, intuitTid);
 
   return (await res.json().catch(() => ({}))) as T;
 }

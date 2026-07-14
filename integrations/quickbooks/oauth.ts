@@ -5,6 +5,10 @@ import {
   isRefreshAuthRequiredCode,
 } from "@/contracts/integration";
 import { encryptToken } from "@/core/encryption/tokens";
+import {
+  logQuickbooksApiError,
+  readIntuitTid,
+} from "@/integrations/_shared/quickbooks/errors";
 
 /**
  * QuickBooks Online OAuth implementation — QUICKBOOKS-1.
@@ -174,7 +178,18 @@ async function resolveCompanyInfo(
         },
       },
     );
-    if (!res.ok) return { companyName: null, country: null };
+    if (!res.ok) {
+      // Best-effort read — degrade to nulls, but capture Intuit's correlation
+      // id in a sanitized log so a failing connect-time CompanyInfo call is
+      // diagnosable. No token/Authorization/body is logged.
+      logQuickbooksApiError({
+        method: "GET",
+        path: "/companyinfo",
+        status: res.status,
+        intuitTid: readIntuitTid(res),
+      });
+      return { companyName: null, country: null };
+    }
     const json = (await res.json()) as QuickbooksCompanyInfoResponse;
     const info = json.CompanyInfo;
     return {
@@ -233,6 +248,12 @@ export const quickbooksOAuth: ProviderOAuth = {
       },
     );
     if (!tokenRes.ok) {
+      logQuickbooksApiError({
+        method: "POST",
+        path: "/oauth2/v1/tokens/bearer",
+        status: tokenRes.status,
+        intuitTid: readIntuitTid(tokenRes),
+      });
       throw new Error(
         `QuickBooks token exchange failed: ${await readQuickbooksErrorCode(tokenRes)}`,
       );
@@ -300,6 +321,12 @@ export const quickbooksOAuth: ProviderOAuth = {
       body: params.toString(),
     });
     if (!res.ok) {
+      logQuickbooksApiError({
+        method: "POST",
+        path: "/oauth2/v1/tokens/bearer",
+        status: res.status,
+        intuitTid: readIntuitTid(res),
+      });
       const code = await readQuickbooksErrorCode(res);
       if (isRefreshAuthRequiredCode(code)) {
         throw new RefreshAuthRequiredError("quickbooks", code);

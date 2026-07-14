@@ -28,6 +28,8 @@ beforeEach(() => {
   process.env.QUICKBOOKS_CLIENT_SECRET = "test-qbo-client-secret";
   process.env.NEXT_PUBLIC_APP_URL = "https://app.example.test";
   process.env.TOKEN_ENCRYPTION_KEY = TOKEN_KEY;
+  // Silence + capture the sanitized `quickbooks.api.error` troubleshooting log.
+  jest.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -42,17 +44,21 @@ afterEach(() => {
 });
 
 function mockFetchSequence(
-  responses: Array<{ status?: number; json?: unknown; text?: string }>,
+  responses: Array<{
+    status?: number;
+    json?: unknown;
+    text?: string;
+    headers?: Record<string, string>;
+  }>,
 ) {
   const spy = jest.spyOn(globalThis, "fetch");
   for (const r of responses) {
     const status = r.status ?? 200;
+    const init = { status, headers: r.headers };
     if (r.text !== undefined) {
-      spy.mockResolvedValueOnce(new Response(r.text, { status }));
+      spy.mockResolvedValueOnce(new Response(r.text, init));
     } else {
-      spy.mockResolvedValueOnce(
-        new Response(JSON.stringify(r.json), { status }),
-      );
+      spy.mockResolvedValueOnce(new Response(JSON.stringify(r.json), init));
     }
   }
   return spy;
@@ -166,10 +172,10 @@ describe("handleCallback", () => {
     expect(JSON.stringify(result)).not.toContain("qbo-refresh-token");
   });
 
-  it("degrades to the realmId as displayName when CompanyInfo fails", async () => {
+  it("degrades to the realmId as displayName when CompanyInfo fails, capturing intuit_tid in a sanitized log", async () => {
     mockFetchSequence([
       { json: TOKEN_SUCCESS },
-      { status: 500, text: "boom" },
+      { status: 500, text: "boom", headers: { intuit_tid: "tid-company-info" } },
     ]);
     const result = await quickbooksOAuth.handleCallback(
       "code-1",
@@ -183,6 +189,16 @@ describe("handleCallback", () => {
       realmId: "42",
       companyName: null,
     });
+    // The failing connect-time CompanyInfo read logs its intuit_tid, sanitized.
+    const logged = String((console.error as jest.Mock).mock.calls[0]![0]);
+    expect(JSON.parse(logged)).toMatchObject({
+      event: "quickbooks.api.error",
+      path: "/companyinfo",
+      status: 500,
+      intuitTid: "tid-company-info",
+    });
+    expect(logged).not.toContain("qbo-access-token");
+    expect(logged).not.toContain("boom");
   });
 
   it("fails fast when the token response has no refresh_token", async () => {
@@ -229,11 +245,26 @@ describe("refreshToken", () => {
     expect(decryptToken(tokens.refreshTokenEncrypted!)).toBe("old-refresh");
   });
 
-  it("maps invalid_grant to RefreshAuthRequiredError", async () => {
-    mockFetchSequence([{ status: 400, json: { error: "invalid_grant" } }]);
+  it("maps invalid_grant to RefreshAuthRequiredError and logs the intuit_tid", async () => {
+    mockFetchSequence([
+      {
+        status: 400,
+        json: { error: "invalid_grant" },
+        headers: { intuit_tid: "tid-refresh" },
+      },
+    ]);
     await expect(quickbooksOAuth.refreshToken("dead")).rejects.toBeInstanceOf(
       RefreshAuthRequiredError,
     );
+    const logged = String((console.error as jest.Mock).mock.calls[0]![0]);
+    expect(JSON.parse(logged)).toMatchObject({
+      event: "quickbooks.api.error",
+      status: 400,
+      intuitTid: "tid-refresh",
+    });
+    // Never the refresh token or the Basic client-secret header.
+    expect(logged).not.toContain("dead");
+    expect(logged).not.toContain("test-qbo-client-secret");
   });
 
   it("sends Basic auth on refresh", async () => {
