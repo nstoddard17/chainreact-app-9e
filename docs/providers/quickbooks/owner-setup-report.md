@@ -13,6 +13,34 @@
   config, Vercel env vars, sandbox company, smoke env pins), then Phase 13
   sandbox-first live certification.
 
+### Phase 13 live-certification attempt — 2026-07-13
+A Phase 13 live-certification pass was attempted from the local coding
+environment. Result: **BLOCKED (owner-interactive / env-gated)** — no live
+run was performed. Findings:
+- Mocked boundary re-verified green: 13 QuickBooks unit/route/resolver/
+  lifecycle/webhook suites, **113 tests passing**; `npx tsc --noEmit` exit 0;
+  `npm run lint:structure` OK. Code is certification-ready.
+- The live smoke harness is gated OFF here. `.env.local` carries
+  `QUICKBOOKS_CLIENT_ID` / `QUICKBOOKS_CLIENT_SECRET` only; the sandbox live
+  pins are **absent**: `QUICKBOOKS_API_BASE` (sandbox flag),
+  `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN`, `SMOKE_QUICKBOOKS_CONNECTED`,
+  `SMOKE_QUICKBOOKS_CUSTOMER_ID` / `_ITEM_ID` / `_INVOICE_ID` / `_SEND_TO`.
+  Without them the QuickBooks action fixtures self-SKIP and stay
+  `BLOCKED_ENV` in the certification seed (`scripts/chainreact/smoke/
+  certificationSeed/other.ts`).
+- Triggers cannot be certified from a shell at all: there is no QuickBooks
+  trigger-smoke test, and the 4 triggers require **real Intuit webhook
+  deliveries** to the deployed `/api/webhooks/quickbooks` endpoint, driven by
+  sandbox-UI Customer/Invoice/Payment actions. This is inherently
+  owner-interactive.
+- No code bugs found; no code changed. The live acceptance bar
+  (invoice_paid zero-balance-with-positive-total gate, invoice-identity dedup
+  collapsing Payment Create+Update, per-realm credential isolation,
+  fail-closed HMAC-SHA256 signature verify, count-only no-leak logging) is
+  **code-verified and unit-tested**, live-pending.
+- Disposition: remains **code-complete, live certification owner-gated**. The
+  owner checklist below is unchanged and is the path to `live-complete`.
+
 ## Provider developer portal setup
 
 ### App/basic settings (developer.intuit.com)

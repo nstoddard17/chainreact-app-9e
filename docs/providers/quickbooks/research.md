@@ -258,6 +258,16 @@ delete operations are deliberately NOT shipped, so smoke cleanup is manual and
 documented in the owner report. Production certification only after the
 Intuit app assessment unlocks production keys.
 
+**Live-cert attempt 2026-07-13:** BLOCKED (owner-interactive / env-gated) — no
+live run performed. The local environment lacks the sandbox live gate
+(`QUICKBOOKS_API_BASE`, `QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN`,
+`SMOKE_QUICKBOOKS_*`) and cannot receive real Intuit webhook deliveries, so
+neither the action live smoke nor trigger certification could run. Mocked
+suites re-verified green (113 tests), typecheck clean. Full attempt log in
+[`owner-setup-report.md`](./owner-setup-report.md) → "Phase 13
+live-certification attempt — 2026-07-13". Observed live webhook event shapes
+remain TO-BE-CAPTURED at owner-run time.
+
 ## Known API limitations (summary)
 
 - realmId only at callback → needs callback-param passthrough (see pattern
