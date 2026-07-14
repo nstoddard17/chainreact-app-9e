@@ -1,0 +1,30 @@
+/**
+ * Shared MCP client — public surface. Provider code imports from here, not the
+ * individual modules. Inaugural consumer: Eden (`integrations/_shared/eden/`).
+ */
+export { McpClient, createMcpClient, readStructuredError, MCP_PROTOCOL_VERSION } from "./client";
+export type { McpClientOptions, CallToolOptions, FetchLike, FetchLikeResponse } from "./client";
+export { detectSchemaDrift } from "./drift";
+export type { SchemaDriftResult } from "./drift";
+export { tokenFingerprint, scrubSecrets } from "./sanitize";
+export {
+  McpError,
+  McpAuthError,
+  McpPermissionError,
+  McpToolNotFoundError,
+  McpRateLimitError,
+  McpTransportError,
+  McpProtocolError,
+  McpSchemaDriftError,
+} from "./errors";
+export type {
+  JsonRpcRequest,
+  JsonRpcResponse,
+  McpTool,
+  McpListToolsResult,
+  McpCallToolResult,
+  McpContentBlock,
+  McpInitializeResult,
+  McpListResourcesResult,
+  McpListPromptsResult,
+} from "./types";
