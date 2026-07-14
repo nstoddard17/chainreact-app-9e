@@ -2,10 +2,12 @@ import { listOfficialTemplatesServiceRole } from "@/repositories/workflowTemplat
 import {
   matchOfficialTemplates,
   selectOfficialCatalogEntries,
+  selectOfficialTemplateRecommendation,
   type MatchOfficialTemplatesOptions,
   type MatchOfficialTemplatesResult,
   type OfficialTemplateCatalogEntry,
   type OfficialTemplateMatch,
+  type TemplateMatchOutcome,
 } from "@/core/workflows/officialTemplateMatcher";
 import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 
@@ -31,6 +33,7 @@ import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 export type {
   MatchOfficialTemplatesResult,
   OfficialTemplateCatalogEntry,
+  TemplateMatchOutcome,
 } from "@/core/workflows/officialTemplateMatcher";
 
 export interface SuggestOfficialTemplatesInput {
@@ -59,6 +62,42 @@ export async function suggestOfficialTemplatesForRequest(
   const load = input.loadCatalog ?? loadOfficialCatalogEntries;
   const catalog = await load();
   return matchOfficialTemplates(input.requestText, catalog, input.options);
+}
+
+/**
+ * REACT-AGENT-TEMPLATE-MATCH-4 — the three-way decision seam the guidance route acts on: should the
+ * agent RECOMMEND an official template, or build the workflow manually? Loads the official-only
+ * catalog, runs the deterministic structural classifier, and maps a strong recommendation (if any)
+ * into the SAFE guidance DTO. A `strong_match` carries a SINGLE recommendation; `weak_match` /
+ * `no_match` carry `null` (the agent falls back to manual node-by-node construction).
+ */
+export interface SelectOfficialTemplateRecommendationResult {
+  readonly outcome: TemplateMatchOutcome;
+  /** The SAFE recommendation DTO for a `strong_match`; `null` for `weak_match` / `no_match`. */
+  readonly recommendation: GuidanceOfficialTemplateMatch | null;
+}
+
+export async function selectOfficialTemplateRecommendationForRequest(
+  input: SuggestOfficialTemplatesInput,
+): Promise<SelectOfficialTemplateRecommendationResult> {
+  const load = input.loadCatalog ?? loadOfficialCatalogEntries;
+  const catalog = await load();
+  const result = selectOfficialTemplateRecommendation(input.requestText, catalog);
+  return {
+    outcome: result.outcome,
+    recommendation: result.recommendation
+      ? (toGuidanceTemplateMatches([result.recommendation])[0] ?? null)
+      : null,
+  };
+}
+
+/**
+ * Deterministic, model-free rail copy for the manual-fallback path (REACT-AGENT-TEMPLATE-MATCH-4).
+ * Shown when a template only PARTIALLY matched (a `weak_match`) and the agent is building directly
+ * instead of forcing an unsuitable template on the user.
+ */
+export function buildManualFallbackNoticeText(): string {
+  return "I couldn't find a template that closely matches this request, so I'll build it directly.";
 }
 
 /**

@@ -44,13 +44,26 @@ export type WorkflowGuidanceResponse =
       baseGraphVersion?: string;
       warnings?: readonly string[];
       /**
-       * REACT-AGENT-TEMPLATE-MATCH-2 — deterministic, SAFE official-template recommendations for a
-       * "build this workflow" request. Present when the route's matcher found useful matches: either
-       * the high-confidence short-circuit (`source === "official_template_match"`, no model call /
-       * no AI credit) or medium/low suggestions riding alongside normal guidance. Recommendation-only
-       * — rendering it never creates/forks/uses a template; it carries no raw definition/config/{{...}}.
+       * REACT-AGENT-TEMPLATE-MATCH-4 — a deterministic, SAFE official-template recommendation for a
+       * "build this workflow" request. Present ONLY for a STRONG match (`source ===
+       * "official_template_match"`, `templateMatchOutcome === "strong_match"`, no model call / no AI
+       * credit). It is capped at a SINGLE recommendation — never a menu of partial alternatives.
+       * Recommendation-only — rendering it never creates/forks/uses a template; it carries no raw
+       * definition/config/{{...}}. Absent for weak/no matches (the agent builds the workflow manually).
        */
       officialTemplateMatches?: readonly GuidanceOfficialTemplateMatch[];
+      /**
+       * REACT-AGENT-TEMPLATE-MATCH-4 — the explicit three-way decision. `strong_match` accompanies a
+       * recommendation; `weak_match` means a partial template was found but deliberately NOT recommended
+       * (the agent is building manually). Absent for `no_match` / editing turns.
+       */
+      templateMatchOutcome?: "strong_match" | "weak_match";
+      /**
+       * REACT-AGENT-TEMPLATE-MATCH-4 — brief, safe copy for the manual-fallback path: a partial template
+       * matched but wasn't close enough, so the agent builds directly instead of forcing it. Present
+       * only alongside `templateMatchOutcome === "weak_match"`.
+       */
+      templateFallbackNotice?: string;
     }
   | { ok: false; code: string; message: string };
 

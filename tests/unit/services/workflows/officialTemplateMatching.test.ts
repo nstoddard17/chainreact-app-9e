@@ -12,6 +12,8 @@ jest.mock("@/repositories/workflowTemplates", () => ({
 
 import {
   suggestOfficialTemplatesForRequest,
+  selectOfficialTemplateRecommendationForRequest,
+  buildManualFallbackNoticeText,
   toGuidanceTemplateMatches,
   buildOfficialTemplateMatchGuidanceText,
 } from "@/services/workflows/officialTemplateMatching";
@@ -105,6 +107,60 @@ describe("suggestOfficialTemplatesForRequest — default loader uses the officia
     expect(listOfficialTemplatesServiceRole).toHaveBeenCalledTimes(1);
     expect(res.matches.every((m) => m.templateId !== "sneaky-user")).toBe(true);
     expect(res.matches[0]!.templateId).toBe("t-shopify-order");
+  });
+});
+
+describe("selectOfficialTemplateRecommendationForRequest — three-way decision (MATCH-4)", () => {
+  it("strong_match → maps a SINGLE safe recommendation DTO (isOfficial, no summary/config)", async () => {
+    const res = await selectOfficialTemplateRecommendationForRequest({
+      requestText:
+        "When a Shopify order is created, log it to Google Sheets, create a HubSpot task, and notify Slack.",
+      loadCatalog: async () => [SHOPIFY_ENTRY],
+    });
+    expect(res.outcome).toBe("strong_match");
+    expect(res.recommendation).not.toBeNull();
+    expect(res.recommendation!.templateId).toBe("t-shopify-order");
+    expect(res.recommendation!.isOfficial).toBe(true);
+    expect(res.recommendation).not.toHaveProperty("summary");
+    const json = JSON.stringify(res);
+    expect(json).not.toContain("{{");
+    expect(json).not.toMatch(/"config"|"definition"|"edges"/);
+  });
+
+  it("weak_match (partial / unrelated side-effects) → no recommendation (build manually)", async () => {
+    const res = await selectOfficialTemplateRecommendationForRequest({
+      requestText: "When a Shopify order is created, notify Slack.", // template also adds Sheets + HubSpot
+      loadCatalog: async () => [SHOPIFY_ENTRY],
+    });
+    expect(res.outcome).toBe("weak_match");
+    expect(res.recommendation).toBeNull();
+  });
+
+  it("no_match (vague request) → no recommendation", async () => {
+    const res = await selectOfficialTemplateRecommendationForRequest({
+      requestText: "make my business easier",
+      loadCatalog: async () => [SHOPIFY_ENTRY],
+    });
+    expect(res.outcome).toBe("no_match");
+    expect(res.recommendation).toBeNull();
+  });
+
+  it("default loader reads the official-only repository", async () => {
+    listOfficialTemplatesServiceRole.mockResolvedValue([officialSummary({ id: "t-shopify-order" })]);
+    const res = await selectOfficialTemplateRecommendationForRequest({
+      requestText:
+        "When a Shopify order is created, log it to Google Sheets, create a HubSpot task, and notify Slack.",
+    });
+    expect(listOfficialTemplatesServiceRole).toHaveBeenCalledTimes(1);
+    expect(res.outcome).toBe("strong_match");
+  });
+});
+
+describe("buildManualFallbackNoticeText", () => {
+  it("returns safe, model-free copy (no {{...}}, no ids)", () => {
+    const text = buildManualFallbackNoticeText();
+    expect(text.toLowerCase()).toContain("build it directly");
+    expect(text).not.toContain("{{");
   });
 });
 

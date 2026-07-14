@@ -63,12 +63,13 @@ jest.mock("@/services/integrations/guidanceCredentialAvailability", () => ({
   getGuidanceCredentialAvailability: (...a: unknown[]) => mockCredentials(...a),
 }));
 
-// REACT-AGENT-TEMPLATE-MATCH-2 — mock ONLY the catalog-loading matcher entry point; the pure mapper +
-// guidance-text helpers run for REAL (so the route's response no-leak assertions reflect production).
-const mockSuggest = jest.fn();
+// REACT-AGENT-TEMPLATE-MATCH-4 — mock ONLY the catalog-loading decision entry point; the pure mapper +
+// guidance-text/fallback helpers run for REAL (so the route's response no-leak assertions reflect
+// production).
+const mockDecision = jest.fn();
 jest.mock("@/services/workflows/officialTemplateMatching", () => ({
   ...jest.requireActual("@/services/workflows/officialTemplateMatching"),
-  suggestOfficialTemplatesForRequest: (...a: unknown[]) => mockSuggest(...a),
+  selectOfficialTemplateRecommendationForRequest: (...a: unknown[]) => mockDecision(...a),
 }));
 
 import { POST } from "@/app/api/accounts/[id]/ai/workflow-guidance/route";
@@ -100,37 +101,34 @@ beforeEach(() => {
   mockRunner.mockReset().mockResolvedValue(guidanceOk);
   mockGetAccount.mockReset().mockResolvedValue({ id: ACCOUNT, type: "team" });
   mockCredentials.mockReset().mockResolvedValue({ accountSharedProviders: [], currentUserPrivateProviders: [] });
-  // Default: no template match → existing behavior unchanged.
-  mockSuggest.mockReset().mockResolvedValue({ confidence: "none", matches: [] });
+  // Default: no template match → build manually (existing model path unchanged).
+  mockDecision.mockReset().mockResolvedValue({ outcome: "no_match", recommendation: null });
 });
 
-/** A matcher result with one match at the given confidence (matcher shape, with nested `summary`). */
-function matchResult(confidence: "high" | "medium" | "low") {
+/** A safe strong-match recommendation DTO (the mapped guidance shape the route surfaces). */
+function strongRecommendation() {
   return {
-    confidence,
-    matches: [
-      {
-        templateId: "c0ffee00-0000-4000-8000-00000000004e",
-        name: "Support escalation from email",
-        description: "Open a HubSpot ticket, Trello card, Slack alert, and draft a reply.",
-        score: confidence === "high" ? 20 : 6,
-        confidence,
-        reasons: ["Matches the Gmail new labeled email trigger", "Includes the HubSpot create ticket step"],
-        summary: {
-          providers: ["gmail", "hubspot", "trello", "slack"],
-          providerLabels: ["Gmail", "HubSpot", "Trello", "Slack"],
-          triggerKind: "app" as const,
-          category: "sales-crm",
-          categoryLabel: "Sales & CRM",
-          nodeCount: 5,
-          stepCount: 4,
-          steps: [
-            { kind: "trigger" as const, provider: "gmail", type: "new_labeled_email", label: "Gmail: New labeled email" },
-            { kind: "action" as const, provider: "hubspot", type: "create_ticket", label: "HubSpot: Create ticket" },
-          ],
-        },
-      },
-    ],
+    outcome: "strong_match" as const,
+    recommendation: {
+      templateId: "c0ffee00-0000-4000-8000-00000000004e",
+      name: "Support escalation from email",
+      description: "Open a HubSpot ticket, Trello card, Slack alert, and draft a reply.",
+      score: 20,
+      confidence: "high" as const,
+      reasons: ["Matches the Gmail new labeled email trigger", "Includes the HubSpot create ticket step"],
+      isOfficial: true as const,
+      providers: ["gmail", "hubspot", "trello", "slack"],
+      providerLabels: ["Gmail", "HubSpot", "Trello", "Slack"],
+      triggerKind: "app" as const,
+      category: "sales-crm",
+      categoryLabel: "Sales & CRM",
+      nodeCount: 5,
+      stepCount: 4,
+      steps: [
+        { kind: "trigger" as const, provider: "gmail", type: "new_labeled_email", label: "Gmail: New labeled email" },
+        { kind: "action" as const, provider: "hubspot", type: "create_ticket", label: "HubSpot: Create ticket" },
+      ],
+    },
   };
 }
 
@@ -674,14 +672,16 @@ describe("workflow-guidance route — server-only / no forbidden surface (static
   });
 });
 
-describe("workflow-guidance route — official-template matching (REACT-AGENT-TEMPLATE-MATCH-2)", () => {
-  it("high-confidence match short-circuits: returns matches, skips the model AND the credit gate", async () => {
-    mockSuggest.mockResolvedValueOnce(matchResult("high"));
+describe("workflow-guidance route — official-template decision (REACT-AGENT-TEMPLATE-MATCH-4)", () => {
+  it("(#1) strong_match short-circuits: returns ONE recommendation, skips the model AND the credit gate", async () => {
+    mockDecision.mockResolvedValueOnce(strongRecommendation());
     const res = await call(ACCOUNT, { goalText: "When a labeled support email arrives, open a HubSpot ticket, a Trello card, alert Slack, and draft a reply." });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.source).toBe("official_template_match");
+    expect(body.templateMatchOutcome).toBe("strong_match");
+    // Anti-loop: a SINGLE recommendation, never a menu of alternatives.
     expect(body.officialTemplateMatches).toHaveLength(1);
     expect(body.officialTemplateMatches[0]).toMatchObject({
       templateId: "c0ffee00-0000-4000-8000-00000000004e",
@@ -696,8 +696,8 @@ describe("workflow-guidance route — official-template matching (REACT-AGENT-TE
     expect(mockEnabled).not.toHaveBeenCalled(); // skips the Hermes-availability check too
   });
 
-  it("high-confidence response carries no raw definition/config/{{...}}/account-id/resource-id", async () => {
-    mockSuggest.mockResolvedValueOnce(matchResult("high"));
+  it("strong_match response carries no raw definition/config/{{...}}/account-id/resource-id", async () => {
+    mockDecision.mockResolvedValueOnce(strongRecommendation());
     const res = await call(ACCOUNT, { goalText: "Open a HubSpot ticket and Slack alert from a support email." });
     const json = JSON.stringify(await res.json());
     expect(json).not.toContain("{{");
@@ -706,25 +706,29 @@ describe("workflow-guidance route — official-template matching (REACT-AGENT-TE
     expect(json).not.toMatch(/xox[baprs]-|sk_live_|whsec_/);
   });
 
-  it("medium-confidence does NOT suppress guidance: model runs and matches ride along", async () => {
-    mockSuggest.mockResolvedValueOnce(matchResult("medium"));
+  it("(#2) weak_match is NOT recommended: model runs, no template card, and a manual-fallback notice is surfaced", async () => {
+    mockDecision.mockResolvedValueOnce({ outcome: "weak_match", recommendation: null });
     const res = await call(ACCOUNT, goodBody);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.source).toBe("hermes-agent"); // normal guidance preserved
-    expect(body.officialTemplateMatches).toHaveLength(1);
-    expect(body.officialTemplateMatches[0].confidence).toBe("medium");
-    expect(mockRunner).toHaveBeenCalledTimes(1); // model path still ran
+    expect(body.source).toBe("hermes-agent"); // normal manual guidance preserved
+    // The partial template is NOT surfaced (never force/repeat a weak match).
+    expect(body).not.toHaveProperty("officialTemplateMatches");
+    expect(body.templateMatchOutcome).toBe("weak_match");
+    expect(body.templateFallbackNotice.toLowerCase()).toContain("build it directly");
+    expect(mockRunner).toHaveBeenCalledTimes(1); // manual model path still ran
     expect(mockGate).toHaveBeenCalledTimes(1); // credits gated normally for the model call
   });
 
-  it("no confident match preserves existing behavior (no officialTemplateMatches field, model runs)", async () => {
-    mockSuggest.mockResolvedValueOnce({ confidence: "none", matches: [] });
+  it("(#3) no_match: manual planning begins immediately (no officialTemplateMatches, no fallback notice)", async () => {
+    mockDecision.mockResolvedValueOnce({ outcome: "no_match", recommendation: null });
     const res = await call(ACCOUNT, goodBody);
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body).not.toHaveProperty("officialTemplateMatches");
+    expect(body).not.toHaveProperty("templateFallbackNotice");
+    expect(body).not.toHaveProperty("templateMatchOutcome");
     expect(mockRunner).toHaveBeenCalledTimes(1);
   });
 
@@ -734,16 +738,17 @@ describe("workflow-guidance route — official-template matching (REACT-AGENT-TE
       currentDraft: { nodes: [{ id: "n1", kind: "trigger", provider: "native", type: "manual.run", position: { x: 0, y: 0 }, config: {} }], edges: [] },
     });
     expect(res.status).toBe(200);
-    expect(mockSuggest).not.toHaveBeenCalled();
+    expect(mockDecision).not.toHaveBeenCalled();
   });
 
-  it("a matcher read error never breaks guidance (falls through to the normal model path)", async () => {
-    mockSuggest.mockRejectedValueOnce(new Error("db down"));
+  it("(#12 planner failure) a decision read error never breaks guidance (falls through to the manual model path)", async () => {
+    mockDecision.mockRejectedValueOnce(new Error("db down"));
     const res = await call(ACCOUNT, goodBody);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body).not.toHaveProperty("officialTemplateMatches");
+    expect(body).not.toHaveProperty("templateFallbackNotice");
     expect(mockRunner).toHaveBeenCalledTimes(1);
   });
 });

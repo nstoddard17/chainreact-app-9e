@@ -78,6 +78,40 @@ export interface MatchOfficialTemplatesOptions {
   readonly maxMatches?: number;
 }
 
+/**
+ * REACT-AGENT-TEMPLATE-MATCH-4 — the EXPLICIT, three-way decision the React Agent acts on. Kept
+ * separate from raw matcher scoring so the agent never has to interpret a fuzzy confidence band:
+ *
+ *   - `strong_match` — a template SUBSTANTIALLY matches the request (right trigger, the named apps
+ *     are all present, no unrelated apps/side-effects, ≥2 named apps overlap). ONLY this outcome may
+ *     lead to a template recommendation.
+ *   - `weak_match`   — a template scored, but only partially (a shared app or a few keywords). The
+ *     agent must NOT recommend/force it; it proceeds to build the workflow manually.
+ *   - `no_match`     — nothing scored. The agent proceeds to build manually.
+ *
+ * A shared provider or a few matching keywords are deliberately NOT enough for `strong_match`.
+ */
+export const TEMPLATE_MATCH_OUTCOMES = ["strong_match", "weak_match", "no_match"] as const;
+export type TemplateMatchOutcome = (typeof TEMPLATE_MATCH_OUTCOMES)[number];
+
+/**
+ * Anti-loop cap. The agent surfaces AT MOST this many template recommendations per decision — a
+ * SINGLE strong match, never a menu of partial alternatives to reject. This is the guardrail that
+ * prevents template lookup from becoming a loop that stalls workflow creation.
+ */
+export const MAX_TEMPLATE_RECOMMENDATIONS = 1;
+
+export interface TemplateRecommendationResult {
+  readonly outcome: TemplateMatchOutcome;
+  /** Present ONLY for `strong_match` — the single recommended template. `null` otherwise. */
+  readonly recommendation: OfficialTemplateMatch | null;
+  /**
+   * Safe, human-readable reasons the top candidate was NOT strong (empty for `strong_match` /
+   * `no_match`). Diagnostic only — same no-leak surface as `reasons` (provider/step labels).
+   */
+  readonly rejectedReasons: readonly string[];
+}
+
 // ── Provider term tables ─────────────────────────────────────────────────────
 
 /** EXPLICIT provider mentions — a named app. Missing one of these penalizes a template (no silent
@@ -259,6 +293,10 @@ const HIGH_SCORE = 10;
 const HIGH_SCORE_WITH_TWO_APPS = 8;
 const MEDIUM_SCORE = 5;
 const DEFAULT_MAX_MATCHES = 5;
+
+/** A `strong_match` requires at least this many EXPLICITLY-named apps to overlap the template — one
+ *  shared app (or alias/keyword-only signal) is never enough. */
+const STRONG_MIN_EXPLICIT_PROVIDERS = 2;
 
 interface ScoredEntry {
   readonly entry: OfficialTemplateCatalogEntry;
@@ -442,6 +480,103 @@ export function matchOfficialTemplates(
     confidence: matches.length > 0 ? matches[0]!.confidence : "none",
     matches,
   };
+}
+
+// ── Strong-match classification (REACT-AGENT-TEMPLATE-MATCH-4) ────────────────
+
+/**
+ * Structural gate that promotes the top-ranked candidate to a `strong_match`. Deterministic and
+ * pure. ALL of the following must hold — otherwise the candidate is a `weak_match` (and the agent
+ * builds manually instead of recommending it):
+ *
+ *   1. ≥ `STRONG_MIN_EXPLICIT_PROVIDERS` explicitly-named apps overlap the template (a single shared
+ *      app / alias-or-keyword-only signal is never a strong match).
+ *   2. Every explicitly-named app is present in the template (the requested outcome is covered — the
+ *      template doesn't silently drop an app the user named).
+ *   3. The template introduces NO app the user didn't ask for (no unrelated providers/side-effects).
+ *   4. The trigger is aligned to the requested start event: a manual/scheduled (native-trigger)
+ *      template is always fine; an app-trigger template's trigger provider must be one the user
+ *      named/implied (rejects a template that starts from the wrong event).
+ *
+ * Returns the boolean plus the SAFE reasons any condition failed (provider labels only — never a
+ * config value, `{{...}}`, or a resource id).
+ */
+function evaluateStrongMatch(
+  scored: ScoredEntry,
+  req: RequestAnalysis,
+): { readonly strong: boolean; readonly reasons: string[] } {
+  const entry = scored.entry;
+  const requested = new Set<string>([...req.explicitProviders, ...req.aliasProviders]);
+  const templateProviders = new Set(entry.providers);
+  const reasons: string[] = [];
+
+  // 1. Enough explicitly-named apps overlap.
+  if (scored.explicitMatches < STRONG_MIN_EXPLICIT_PROVIDERS) {
+    reasons.push("Fewer than two of the apps you named overlap this template");
+  }
+
+  // 2. Every named app is present (no dropped requested outcome).
+  const missingExplicit = [...req.explicitProviders].filter((p) => !templateProviders.has(p));
+  if (missingExplicit.length > 0) {
+    reasons.push(`Doesn't include ${dedupe(missingExplicit.map(providerLabel)).join(", ")}`);
+  }
+
+  // 3. No unrequested app / side-effect.
+  const extraProviders = entry.providers.filter((p) => !requested.has(p));
+  if (extraProviders.length > 0) {
+    reasons.push(`Adds apps you didn't ask for (${dedupe(extraProviders.map(providerLabel)).join(", ")})`);
+  }
+
+  // 4. Trigger aligned to the requested start event.
+  const triggerStep = entry.steps.find((s) => s.kind === "trigger");
+  const triggerAligned =
+    triggerStep === undefined || triggerStep.provider === "native"
+      ? true
+      : requested.has(triggerStep.provider);
+  if (!triggerAligned) {
+    reasons.push(`Starts from ${providerLabel(triggerStep!.provider)}, not the event you described`);
+  }
+
+  return { strong: reasons.length === 0, reasons };
+}
+
+/**
+ * Decide whether an official template should be RECOMMENDED for a request, or the agent should build
+ * manually (REACT-AGENT-TEMPLATE-MATCH-4). Runs the same deterministic ranking as
+ * {@link matchOfficialTemplates}, then applies the structural strong-match gate to the top candidate:
+ *
+ *   - top candidate passes the gate → `strong_match` with a SINGLE recommendation
+ *     (capped at {@link MAX_TEMPLATE_RECOMMENDATIONS} — never a menu of alternatives);
+ *   - a candidate scored but failed the gate → `weak_match` (no recommendation; build manually);
+ *   - nothing scored → `no_match` (build manually).
+ *
+ * Pure and side-effect-free; carries only the safe public-catalog match surface. This is the single
+ * entry point the agent/route uses to keep template matching SEPARATE from workflow construction.
+ */
+export function selectOfficialTemplateRecommendation(
+  requestText: string,
+  catalog: readonly OfficialTemplateCatalogEntry[],
+): TemplateRecommendationResult {
+  if (!requestText || requestText.trim().length === 0) {
+    return { outcome: "no_match", recommendation: null, rejectedReasons: [] };
+  }
+
+  const req = analyzeRequest(requestText);
+  const scored = catalog
+    .map((entry) => scoreEntry(entry, req))
+    .filter((s) => s.included)
+    .sort(compareScored);
+
+  if (scored.length === 0) {
+    return { outcome: "no_match", recommendation: null, rejectedReasons: [] };
+  }
+
+  const top = scored[0]!;
+  const { strong, reasons } = evaluateStrongMatch(top, req);
+  if (strong) {
+    return { outcome: "strong_match", recommendation: toMatch(top), rejectedReasons: [] };
+  }
+  return { outcome: "weak_match", recommendation: null, rejectedReasons: reasons };
 }
 
 /**

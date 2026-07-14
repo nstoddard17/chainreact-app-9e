@@ -362,6 +362,22 @@ export default [
     },
   },
 
+  // core/workflows/officialTemplateMatcher.ts — the pure, deterministic official-template matcher +
+  // strong/weak/no-match classifier (REACT-AGENT-TEMPLATE-MATCH). It is intentionally ONE cohesive,
+  // side-effect-free module: the provider/alias/stopword tables, the request analyzer, the scorer, and
+  // the strong-match structural gate all share the same private primitives (splitting them would force
+  // exporting those internals and break encapsulation). MATCH-4 added the classifier (~40 counted
+  // lines). Capped at 440 (snug headroom) to keep further drift visible.
+  {
+    files: ["core/workflows/officialTemplateMatcher.ts"],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 440, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+
   // features/workflow-builder/state/graphSlice.ts — the single source of truth for the builder's
   // nodes/edges/dirty/save state. It was already over the default cap (a long-standing, accepted
   // pre-existing warning); BUILDER-TOPBAR-UNDO-REDO added the intrinsic draft-edit history (the

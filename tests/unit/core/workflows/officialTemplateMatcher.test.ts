@@ -4,6 +4,8 @@
 import {
   matchOfficialTemplates,
   selectOfficialCatalogEntries,
+  selectOfficialTemplateRecommendation,
+  MAX_TEMPLATE_RECOMMENDATIONS,
   type OfficialTemplateCatalogEntry,
 } from "@/core/workflows/officialTemplateMatcher";
 import type { MarketplaceTemplateSummary, TemplateStepSummary } from "@/contracts/workflowTemplate";
@@ -257,6 +259,131 @@ describe("matchOfficialTemplates — no-leak output", () => {
         "triggerKind",
       ].sort(),
     );
+  });
+});
+
+describe("selectOfficialTemplateRecommendation — strong / weak / no-match classification (MATCH-4)", () => {
+  // A tight 2-app template used to isolate the trigger + side-effect gates.
+  const SHOPIFY_SLACK: OfficialTemplateCatalogEntry = {
+    id: "t-shopify-slack",
+    name: "Shopify order to Slack",
+    description: "When a Shopify order is created, notify the team in Slack.",
+    category: "ecommerce",
+    triggerKind: "app",
+    providers: ["shopify", "slack"],
+    steps: [step("trigger", "shopify", "webhook_received"), step("action", "slack", "send_channel_message")],
+    nodeCount: 2,
+    stepCount: 1,
+  };
+
+  it("(#1) a template that substantially matches (right trigger, all named apps, no extras) → strong_match with ONE recommendation", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a support email is labeled in Gmail, open a HubSpot ticket, create a Trello card, and alert Slack.",
+      CATALOG,
+    );
+    expect(res.outcome).toBe("strong_match");
+    expect(res.recommendation).not.toBeNull();
+    expect(res.recommendation!.templateId).toBe("t-support");
+    expect(res.rejectedReasons).toHaveLength(0);
+  });
+
+  it("(#3) a vague request → no_match (build manually, no recommendation)", () => {
+    const res = selectOfficialTemplateRecommendation("make my business easier", CATALOG);
+    expect(res.outcome).toBe("no_match");
+    expect(res.recommendation).toBeNull();
+  });
+
+  it("(#3) empty input → no_match", () => {
+    expect(selectOfficialTemplateRecommendation("   ", CATALOG).outcome).toBe("no_match");
+  });
+
+  it("(#2) a partial match (unrelated side-effects) is a weak_match, not a recommendation", () => {
+    // The request names Teams + GitHub; the incident template ALSO fans out to monday/Notion/Calendar.
+    const res = selectOfficialTemplateRecommendation(
+      "When a message is posted in a Microsoft Teams channel, open a GitHub issue.",
+      CATALOG,
+    );
+    expect(res.outcome).toBe("weak_match");
+    expect(res.recommendation).toBeNull();
+  });
+
+  it("(#5) matching only ONE named provider does not qualify as strong (→ weak, build manually)", () => {
+    const res = selectOfficialTemplateRecommendation("Notify my team in Slack when something happens.", CATALOG);
+    expect(res.outcome).toBe("weak_match");
+    expect(res.recommendation).toBeNull();
+    // The single-provider reason is surfaced (safe, provider-label only).
+    expect(res.rejectedReasons.join(" ").toLowerCase()).toContain("two of the apps");
+  });
+
+  it("(#6) a template whose TRIGGER is a different app than requested is rejected (weak)", () => {
+    const WRONG_TRIGGER: OfficialTemplateCatalogEntry = {
+      id: "t-wrong-trigger",
+      name: "Gmail-triggered CRM ticket",
+      description: "When a Gmail email arrives, open a HubSpot ticket and alert Slack.",
+      category: "sales-crm",
+      triggerKind: "app",
+      providers: ["gmail", "hubspot", "slack"],
+      steps: [
+        step("trigger", "gmail", "new_email"),
+        step("action", "hubspot", "create_ticket"),
+        step("action", "slack", "send_channel_message"),
+      ],
+      nodeCount: 3,
+      stepCount: 2,
+    };
+    // User wants the workflow to START from a HubSpot deal — the template starts from Gmail.
+    const res = selectOfficialTemplateRecommendation(
+      "When a HubSpot deal is updated, open a ticket and alert Slack.",
+      [WRONG_TRIGGER],
+    );
+    expect(res.outcome).toBe("weak_match");
+    expect(res.recommendation).toBeNull();
+    expect(res.rejectedReasons.join(" ")).toMatch(/Gmail/);
+  });
+
+  it("(#7) a template that adds unrelated providers/side-effects is rejected with a safe reason", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a Shopify order is created, notify Slack.",
+      CATALOG, // SHOPIFY_ORDER also creates sheet/monday/hubspot side-effects
+    );
+    expect(res.outcome).toBe("weak_match");
+    expect(res.rejectedReasons.join(" ")).toMatch(/didn't ask for/i);
+  });
+
+  it("(#7) the SAME request against a tight 2-app template (no extras) IS a strong_match", () => {
+    const res = selectOfficialTemplateRecommendation("When a Shopify order is created, notify Slack.", [
+      SHOPIFY_SLACK,
+    ]);
+    expect(res.outcome).toBe("strong_match");
+    expect(res.recommendation!.templateId).toBe("t-shopify-slack");
+  });
+
+  it("(keywords aren't enough) an alias/keyword-only request never yields a strong_match", () => {
+    const res = selectOfficialTemplateRecommendation("Set up a CRM pipeline for new leads", CATALOG);
+    expect(res.outcome).not.toBe("strong_match");
+    expect(res.recommendation).toBeNull();
+  });
+
+  it("(#4 anti-loop) a strong match returns a SINGLE recommendation, never a menu of alternatives", () => {
+    expect(MAX_TEMPLATE_RECOMMENDATIONS).toBe(1);
+    const res = selectOfficialTemplateRecommendation("When a Shopify order is created, notify Slack.", [
+      SHOPIFY_SLACK,
+    ]);
+    // Exactly one recommendation object (not an array of partial alternatives to keep suggesting).
+    expect(res.outcome).toBe("strong_match");
+    expect(Array.isArray(res.recommendation)).toBe(false);
+    expect(res.recommendation).not.toBeNull();
+  });
+
+  it("no-leak: the recommendation carries no raw {{...}}, config, definition, or resource-id shapes", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a support email is labeled in Gmail, open a HubSpot ticket, create a Trello card, and alert Slack.",
+      CATALOG,
+    );
+    const json = JSON.stringify(res);
+    expect(json).not.toContain("{{");
+    expect(json).not.toMatch(/"config"|"definition"|"edges"/);
+    expect(json).not.toMatch(/xox[baprs]-|sk_live_|whsec_/);
   });
 });
 

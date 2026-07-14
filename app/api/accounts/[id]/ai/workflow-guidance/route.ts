@@ -20,11 +20,10 @@ import { buildEditableWorkflowGraph } from "@/services/ai-guidance/editableGraph
 import { buildCapabilityCatalogKeys } from "@/services/ai-guidance/capabilityCatalog";
 import { getGuidanceCredentialAvailability } from "@/services/integrations/guidanceCredentialAvailability";
 import {
-  suggestOfficialTemplatesForRequest,
-  toGuidanceTemplateMatches,
+  selectOfficialTemplateRecommendationForRequest,
   buildOfficialTemplateMatchGuidanceText,
+  buildManualFallbackNoticeText,
 } from "@/services/workflows/officialTemplateMatching";
-import type { GuidanceOfficialTemplateMatch } from "@/contracts/aiGuidance";
 import { WorkflowDefinitionSchema } from "@/contracts/workflowDefinition";
 import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
@@ -169,34 +168,40 @@ export async function POST(
     workflowCreatedByUserId = wf.record.createdByUserId;
   }
 
-  // 3b. REACT-AGENT-TEMPLATE-MATCH-2 — deterministic official-template recommendation, BEFORE the
-  // model path. Only for a NEW-workflow "build this" request (no non-empty draft to edit). No LLM, no
-  // provider call, no mutation. Degrades to "no matches" on any read error (never blocks guidance).
+  // 3b. REACT-AGENT-TEMPLATE-MATCH-4 — deterministic official-template DECISION, BEFORE the model path.
+  // Only for a NEW-workflow "build this" request (no non-empty draft to edit). No LLM, no provider
+  // call, no mutation. Degrades to "no match" on any read error (never blocks guidance).
   //
-  //   - HIGH confidence → short-circuit with a deterministic, model-free recommendation. This returns
-  //     BEFORE the Hermes-availability check AND the credit gate, so it skips the model call and
-  //     consumes NO AI credits (the gate is where credits are deducted).
-  //   - MEDIUM / LOW → do NOT suppress normal guidance; the matches ride along the final response as
-  //     suggestions.
-  //   - NONE → behavior unchanged (no field added).
+  // A template is only ever an OPTIONAL accelerator — never a requirement:
+  //   - `strong_match` (right trigger, all named apps present, no unrelated apps, ≥2 apps overlap) →
+  //     short-circuit with a SINGLE deterministic recommendation (capped, no menu of alternatives to
+  //     reject). This returns BEFORE the Hermes-availability check AND the credit gate, so it skips the
+  //     model call and consumes NO AI credits (the gate is where credits are deducted).
+  //   - `weak_match` (only a partial/shared-app overlap) → do NOT recommend/force it. Note the manual
+  //     fallback and fall through to normal node-by-node construction.
+  //   - `no_match` → behavior unchanged (fall through to normal construction; no field added).
   const isNewWorkflowRequest = !(currentDraft && currentDraft.nodes.length > 0);
-  let officialTemplateMatches: GuidanceOfficialTemplateMatch[] = [];
+  let templateFallbackNotice: string | null = null;
   if (isNewWorkflowRequest) {
     try {
-      const matchResult = await suggestOfficialTemplatesForRequest({ requestText: goalText });
-      officialTemplateMatches = toGuidanceTemplateMatches(matchResult.matches);
-      if (matchResult.confidence === "high" && officialTemplateMatches.length > 0) {
+      const decision = await selectOfficialTemplateRecommendationForRequest({ requestText: goalText });
+      if (decision.outcome === "strong_match" && decision.recommendation) {
         return NextResponse.json({
           ok: true,
-          guidanceText: buildOfficialTemplateMatchGuidanceText(officialTemplateMatches),
+          guidanceText: buildOfficialTemplateMatchGuidanceText([decision.recommendation]),
           source: "official_template_match",
           workflowPlan: null,
           previewDraft: null,
-          officialTemplateMatches,
+          officialTemplateMatches: [decision.recommendation],
+          templateMatchOutcome: "strong_match",
         });
       }
+      // A partial template existed but is NOT close enough — never force/repeat it; build manually.
+      if (decision.outcome === "weak_match") {
+        templateFallbackNotice = buildManualFallbackNoticeText();
+      }
     } catch {
-      officialTemplateMatches = []; // never let template matching break guidance
+      templateFallbackNotice = null; // never let template matching break guidance
     }
   }
 
@@ -354,8 +359,11 @@ export async function POST(
     // refuse to Apply onto a canvas that changed since (one more stale guard at the explicit Apply click).
     ...(proposedDefinition && baseGraphVersion ? { baseGraphVersion } : {}),
     ...(warnings.length ? { warnings } : {}),
-    // REACT-AGENT-TEMPLATE-MATCH-2 — medium/low official-template suggestions ride ALONGSIDE normal
-    // guidance (high-confidence already short-circuited above). Omitted when there are none.
-    ...(officialTemplateMatches.length ? { officialTemplateMatches } : {}),
+    // REACT-AGENT-TEMPLATE-MATCH-4 — a partial (weak) template match was found but deliberately NOT
+    // recommended; the agent is building manually. Surface the brief, safe fallback notice so the UI
+    // can explain why no template card appeared. Omitted for strong (short-circuited) / no match.
+    ...(templateFallbackNotice
+      ? { templateFallbackNotice, templateMatchOutcome: "weak_match" }
+      : {}),
   });
 }
