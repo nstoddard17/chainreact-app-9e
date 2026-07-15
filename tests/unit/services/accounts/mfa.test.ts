@@ -13,17 +13,14 @@ const mockList = jest.fn();
 const mockEnroll = jest.fn();
 const mockChallengeVerify = jest.fn();
 const mockUnenroll = jest.fn();
+const mockGetAAL = jest.fn();
 
 jest.mock("@/repositories/auth/mfa", () => ({
   listTotpFactors: (...a: unknown[]) => mockList(...a),
   enrollTotp: (...a: unknown[]) => mockEnroll(...a),
   challengeAndVerifyTotp: (...a: unknown[]) => mockChallengeVerify(...a),
   unenrollFactor: (...a: unknown[]) => mockUnenroll(...a),
-}));
-
-const mockReauth = jest.fn();
-jest.mock("@/services/accounts/accountDeletionReauth", () => ({
-  verifyPasswordReauth: (...a: unknown[]) => mockReauth(...a),
+  getAssuranceLevel: (...a: unknown[]) => mockGetAAL(...a),
 }));
 
 import {
@@ -48,7 +45,7 @@ beforeEach(() => {
   mockEnroll.mockReset();
   mockChallengeVerify.mockReset();
   mockUnenroll.mockReset();
-  mockReauth.mockReset();
+  mockGetAAL.mockReset();
 });
 
 describe("getMfaStatus", () => {
@@ -115,32 +112,48 @@ describe("confirmTotpEnrollment", () => {
   });
 });
 
-describe("disableTotp", () => {
+describe("disableTotp (Supabase AAL2 model — no password)", () => {
   it("refuses when not enrolled (no verified factor)", async () => {
     mockList.mockResolvedValueOnce([]);
-    expect(await disableTotp({ email: "u@x.io", password: "pw" })).toEqual({
-      ok: false,
-      reason: "not_enrolled",
-    });
-    expect(mockReauth).not.toHaveBeenCalled();
+    expect(await disableTotp()).toEqual({ ok: false, reason: "not_enrolled" });
+    expect(mockGetAAL).not.toHaveBeenCalled();
     expect(mockUnenroll).not.toHaveBeenCalled();
   });
 
-  it("does NOT remove factors when the password step-up fails", async () => {
-    mockList.mockResolvedValueOnce([verified]);
-    mockReauth.mockResolvedValueOnce({ ok: false, reason: "invalid_credentials" });
-    expect(await disableTotp({ email: "u@x.io", password: "wrong" })).toEqual({
-      ok: false,
-      reason: "reauth_failed",
-    });
-    expect(mockUnenroll).not.toHaveBeenCalled();
-  });
-
-  it("removes every factor after a successful step-up", async () => {
+  it("removes every factor directly when the session is already AAL2 (no code needed)", async () => {
     mockList.mockResolvedValueOnce([verified, unverified]);
-    mockReauth.mockResolvedValueOnce({ ok: true });
+    mockGetAAL.mockResolvedValueOnce({ currentLevel: "aal2", nextLevel: "aal2" });
     mockUnenroll.mockResolvedValue(true);
-    expect(await disableTotp({ email: "u@x.io", password: "right" })).toEqual({ ok: true });
+    expect(await disableTotp()).toEqual({ ok: true });
+    expect(mockChallengeVerify).not.toHaveBeenCalled();
+    expect(mockUnenroll).toHaveBeenCalledWith("f-verified");
+    expect(mockUnenroll).toHaveBeenCalledWith("f-unverified");
+  });
+
+  it("requires a code (mfa_required) on an AAL1 session with no code — and does NOT unenroll", async () => {
+    mockList.mockResolvedValueOnce([verified]);
+    mockGetAAL.mockResolvedValueOnce({ currentLevel: "aal1", nextLevel: "aal2" });
+    expect(await disableTotp({})).toEqual({ ok: false, reason: "mfa_required" });
+    expect(mockChallengeVerify).not.toHaveBeenCalled();
+    expect(mockUnenroll).not.toHaveBeenCalled();
+  });
+
+  it("rejects a wrong step-up code (invalid_code) — and does NOT unenroll", async () => {
+    mockList.mockResolvedValueOnce([verified]);
+    mockGetAAL.mockResolvedValueOnce({ currentLevel: "aal1", nextLevel: "aal2" });
+    mockChallengeVerify.mockResolvedValueOnce(false);
+    expect(await disableTotp({ code: "000000" })).toEqual({ ok: false, reason: "invalid_code" });
+    expect(mockChallengeVerify).toHaveBeenCalledWith("f-verified", "000000");
+    expect(mockUnenroll).not.toHaveBeenCalled();
+  });
+
+  it("elevates with a correct code on AAL1, then removes every factor", async () => {
+    mockList.mockResolvedValueOnce([verified, unverified]);
+    mockGetAAL.mockResolvedValueOnce({ currentLevel: "aal1", nextLevel: "aal2" });
+    mockChallengeVerify.mockResolvedValueOnce(true);
+    mockUnenroll.mockResolvedValue(true);
+    expect(await disableTotp({ code: "123456" })).toEqual({ ok: true });
+    expect(mockChallengeVerify).toHaveBeenCalledWith("f-verified", "123456");
     expect(mockUnenroll).toHaveBeenCalledWith("f-verified");
     expect(mockUnenroll).toHaveBeenCalledWith("f-unverified");
   });

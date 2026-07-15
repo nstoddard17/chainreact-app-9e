@@ -55,8 +55,8 @@ export function TwoFactorPanel() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Disable state.
-  const [password, setPassword] = useState("");
+  // Disable state: whether the (rare) AAL1 case needs a step-up code. No password.
+  const [needsCode, setNeedsCode] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -77,7 +77,7 @@ export function TwoFactorPanel() {
   function resetTransient() {
     setEnrollment(null);
     setCode("");
-    setPassword("");
+    setNeedsCode(false);
     setActionError(null);
     setBusy(false);
   }
@@ -121,17 +121,29 @@ export function TwoFactorPanel() {
   }
 
   async function confirmDisable() {
-    if (password.length === 0) {
-      setActionError("Enter your password to turn off two-factor.");
+    const clean = code.replace(/\s+/g, "");
+    if (needsCode && !/^\d{6}$/.test(clean)) {
+      setActionError("Enter the 6-digit code from your app.");
       return;
     }
     setBusy(true);
     setActionError(null);
     try {
-      await disableMfa(password);
-      resetTransient();
-      setMode("idle");
-      await load();
+      const result = await disableMfa(needsCode ? clean : undefined);
+      if (result.ok) {
+        resetTransient();
+        setMode("idle");
+        await load();
+        return;
+      }
+      if (result.reason === "mfa_required") {
+        // Rare: session isn't AAL2. Reveal the code field and ask for a step-up.
+        setNeedsCode(true);
+        setActionError("Enter the 6-digit code from your authenticator app to turn off two-factor.");
+      } else {
+        setActionError("That code didn't match. Try the current code from your app.");
+      }
+      setBusy(false);
     } catch (err) {
       setActionError(
         err instanceof AccountApiError ? err.message : "Couldn't turn off two-factor. Try again.",
@@ -285,25 +297,34 @@ export function TwoFactorPanel() {
         </div>
       )}
 
-      {/* Disable flow (password step-up). */}
+      {/* Disable flow (Supabase AAL2 model — no password). Usually the session is
+          already AAL2 so a single confirm turns it off; only the rare AAL1 case
+          reveals the authenticator-code step-up. */}
       {mode === "disabling" && (
         <div data-testid="mfa-disable-form" className="flex flex-col gap-3 rounded-xl border border-border bg-background/40 p-4">
           <p className="text-xs text-muted-foreground">
-            Enter your password to turn off two-factor authentication.
+            Turn off two-factor authentication for your account?
           </p>
-          <input
-            type="password"
-            aria-label="Current password"
-            data-testid="mfa-disable-password"
-            value={password}
-            disabled={busy}
-            autoComplete="current-password"
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setActionError(null);
-            }}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          />
+          {needsCode && (
+            <label className="flex flex-col gap-1 text-xs font-medium text-foreground">
+              Authenticator code
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                aria-label="Authenticator code"
+                data-testid="mfa-disable-code"
+                value={code}
+                maxLength={7}
+                disabled={busy}
+                onChange={(e) => {
+                  setCode(e.target.value);
+                  setActionError(null);
+                }}
+                className="h-9 rounded-md border border-input bg-background px-3 tracking-widest text-sm"
+              />
+            </label>
+          )}
           {actionError && (
             <p role="alert" data-testid="mfa-action-error" className="text-xs text-destructive">
               {actionError}

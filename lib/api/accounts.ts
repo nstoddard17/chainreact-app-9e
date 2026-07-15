@@ -286,14 +286,38 @@ export async function confirmMfaEnrollment(input: {
   if (!res.ok) throw await parseError(res);
 }
 
-/** POST /api/account/mfa/disable — turn MFA off (password step-up). */
-export async function disableMfa(password: string): Promise<void> {
+/**
+ * Result of a disable attempt. Turning MFA off follows Supabase's AAL2 model (no
+ * password): usually the session is already AAL2 and it just succeeds; if the
+ * session is AAL1 the caller must supply the current authenticator code
+ * (`mfa_required`), and a wrong code is `invalid_code`. Other failures throw.
+ */
+export type DisableMfaResult = { ok: true } | { ok: false; reason: "mfa_required" | "invalid_code" };
+
+/**
+ * POST /api/account/mfa/disable — turn MFA off. Pass the authenticator `code` only
+ * when a prior call returned `mfa_required` (AAL1 session). No password.
+ */
+export async function disableMfa(code?: string): Promise<DisableMfaResult> {
   const res = await fetch("/api/account/mfa/disable", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify(code ? { code } : {}),
   });
-  if (!res.ok) throw await parseError(res);
+  if (res.ok) return { ok: true };
+  let body: { error?: string; code?: string } = {};
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    // Non-JSON — fall through to a thrown generic error below.
+  }
+  if (body.code === "MFA_REQUIRED") return { ok: false, reason: "mfa_required" };
+  if (body.code === "INVALID_CODE") return { ok: false, reason: "invalid_code" };
+  const message =
+    typeof body.error === "string" && body.error.length > 0
+      ? body.error
+      : `Request failed (${res.status})`;
+  throw new AccountApiError(message, codeForStatus(res.status), res.status);
 }
 
 /** POST /api/auth/mfa/verify — satisfy the login-time MFA challenge (elevates session). */

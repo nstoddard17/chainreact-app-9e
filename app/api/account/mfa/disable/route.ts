@@ -9,14 +9,17 @@ import { disableTotp } from "@/services/accounts/mfa";
 /**
  * POST /api/account/mfa/disable — turn OFF two-factor for the caller (SEC-3).
  *
- * Gate order: auth → validate → current-password step-up (`verifyPasswordReauth`,
- * the same re-auth delete/transfer/password-change use) → remove every TOTP
- * factor. The step-up on top of the already-elevated (aal2) session defends
- * against an unattended machine. A wrong password is a generic `REAUTH_FAILED`
- * (the failing factor is never disclosed); the password is never logged.
+ * Follows Supabase's security model: unenrolling a verified factor requires an
+ * **AAL2** session. This route does NOT require the account password (that breaks
+ * OAuth/SSO users and isn't Supabase's gate). Gate order: auth → validate → the
+ * service enforces AAL2 (or steps up with the submitted authenticator code) →
+ * remove every factor.
  *
- * Self-scoped: the email comes from the verified session (never the body) and the
- * factors are the caller's own, so a caller can only ever disable their own MFA.
+ * Outcomes:
+ *   - already AAL2 (common — the middleware forces AAL2 to reach this page) → 200.
+ *   - AAL1 + no code → 403 `MFA_REQUIRED` (the client then prompts for a code).
+ *   - AAL1 + wrong code → 400 `INVALID_CODE`.
+ * The code is never logged. Self-scoped: factors are the caller's own.
  */
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireAuthedUserId();
@@ -25,12 +28,21 @@ export async function POST(request: Request): Promise<Response> {
   const body = await parseAccountBody(request, MfaDisableBodySchema);
   if (!body.ok) return body.response;
 
-  const result = await disableTotp({ email: auth.email, password: body.data.password });
+  const result = await disableTotp({ code: body.data.code ?? null });
   if (!result.ok) {
-    if (result.reason === "reauth_failed") {
+    if (result.reason === "mfa_required") {
       return NextResponse.json(
-        { error: "Password confirmation failed.", code: "REAUTH_FAILED" },
-        { status: 401, headers: { "cache-control": "no-store" } },
+        {
+          error: "Enter the 6-digit code from your authenticator app to turn off two-factor.",
+          code: "MFA_REQUIRED",
+        },
+        { status: 403, headers: { "cache-control": "no-store" } },
+      );
+    }
+    if (result.reason === "invalid_code") {
+      return NextResponse.json(
+        { error: "That code didn't match. Try the current code from your app.", code: "INVALID_CODE" },
+        { status: 400, headers: { "cache-control": "no-store" } },
       );
     }
     if (result.reason === "not_enrolled") {

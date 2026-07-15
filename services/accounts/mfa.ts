@@ -3,10 +3,10 @@ import {
   enrollTotp,
   challengeAndVerifyTotp,
   unenrollFactor,
+  getAssuranceLevel,
   type TotpEnrollment,
   type TotpFactorMeta,
 } from "@/repositories/auth/mfa";
-import { verifyPasswordReauth } from "@/services/accounts/accountDeletionReauth";
 
 /**
  * MFA (TOTP) service (ACCOUNT-SETTINGS-MFA-1 / SEC-3).
@@ -53,7 +53,7 @@ export type ConfirmEnrollmentResult =
 
 export type DisableResult =
   | { ok: true }
-  | { ok: false; reason: "reauth_failed" | "not_enrolled" | "failed" };
+  | { ok: false; reason: "not_enrolled" | "mfa_required" | "invalid_code" | "failed" };
 
 export type LoginChallengeResult =
   | { ok: true }
@@ -108,23 +108,41 @@ export async function confirmTotpEnrollment(
 }
 
 /**
- * Disable MFA: password step-up (the same re-auth delete/transfer/password-change
- * use) → remove EVERY TOTP factor. Requiring a fresh password on top of the
- * already-elevated session defends against an unattended aal2 session. Never
- * discloses which factor / step failed.
+ * Disable MFA following Supabase's security model: `mfa.unenroll` on a verified
+ * factor requires an **AAL2** session. We do NOT require the account password —
+ * that breaks OAuth/SSO users (who have none) and is not Supabase's gate.
+ *
+ * Flow:
+ *   - No verified factor → `not_enrolled`.
+ *   - Session already AAL2 (the common path — the middleware forces AAL2 to reach
+ *     the account page once MFA is on) → remove every factor directly.
+ *   - Session still AAL1 → require the current authenticator code and step up to
+ *     AAL2 via `challengeAndVerify` (same client, so the elevated cookie is read by
+ *     the subsequent unenroll). A missing code → `mfa_required` (the caller
+ *     prompts); a wrong code → `invalid_code`. The AAL2 requirement is enforced,
+ *     never bypassed.
+ *
+ * Provider-agnostic: works for email/password, Google OAuth, and future SSO — the
+ * only credential involved is the TOTP code (or an already-AAL2 session). The code
+ * is never logged.
  */
-export async function disableTotp(input: {
-  email: string | null;
-  password: string;
-}): Promise<DisableResult> {
+export async function disableTotp(input?: { code?: string | null }): Promise<DisableResult> {
   const factors = await listTotpFactors();
-  if (!verifiedFactor(factors)) {
+  const verified = verifiedFactor(factors);
+  if (!verified) {
     return { ok: false, reason: "not_enrolled" };
   }
 
-  const reauth = await verifyPasswordReauth(input.email, input.password);
-  if (!reauth.ok) {
-    return { ok: false, reason: "reauth_failed" };
+  const aal = await getAssuranceLevel();
+  if (aal.currentLevel !== "aal2") {
+    const code = input?.code ?? null;
+    if (!code) {
+      return { ok: false, reason: "mfa_required" };
+    }
+    const elevated = await challengeAndVerifyTotp(verified.id, code);
+    if (!elevated) {
+      return { ok: false, reason: "invalid_code" };
+    }
   }
 
   let allRemoved = true;

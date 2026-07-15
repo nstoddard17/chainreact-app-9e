@@ -25,9 +25,14 @@ migration** — factors live in Supabase-managed `auth.mfa_factors`.
     (rules) → `repositories/auth/mfa.ts` (the only module touching the MFA API).
   - Enable: enroll → scan QR / enter key → confirm with a 6-digit code. A correct
     code marks the factor verified **and** elevates the session to `aal2`.
-  - Disable: **current-password step-up** (the same `verifyPasswordReauth` used by
-    delete/transfer/password-change) on top of the already-`aal2` session, then
-    remove every factor.
+  - Disable: follows **Supabase's AAL2 model — no password**. `mfa.unenroll`
+    requires an AAL2 session; the middleware already forces AAL2 to reach the
+    account page, so disable is normally a single confirm. If the session is AAL1
+    (rare), the panel asks for the current authenticator code and steps up to AAL2
+    via `challengeAndVerify` before unenrolling. This works for **email/password,
+    Google OAuth, and future SSO** — the only credential is the TOTP code (or an
+    already-AAL2 session), never the account password (which OAuth/SSO users don't
+    have). The AAL2 requirement is enforced, never bypassed.
 - **Login challenge enforcement** — `utils/supabase/middleware.ts` reads the
   authoritative factor list from `getUser()` and the session's `aal` claim; a user
   with a **verified** factor whose session is still `aal1` is redirected to

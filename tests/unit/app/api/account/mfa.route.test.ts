@@ -141,26 +141,42 @@ describe("POST /api/account/mfa/verify", () => {
   });
 });
 
-describe("POST /api/account/mfa/disable", () => {
-  it("passes the SESSION email to the service (body email ignored)", async () => {
+describe("POST /api/account/mfa/disable (Supabase AAL2 model — no password)", () => {
+  it("401s an unauthenticated caller before the service", async () => {
+    anon();
+    const res = await DISABLE(jsonReq({}));
+    expect(res.status).toBe(401);
+    expect(mockDisable).not.toHaveBeenCalled();
+  });
+
+  it("200 on success with NO code (session already AAL2) — no password anywhere", async () => {
     signedIn();
     mockDisable.mockResolvedValueOnce({ ok: true });
-    const res = await DISABLE(jsonReq({ password: "pw", email: "victim@x.io" }));
-    expect(res.status).toBe(200);
-    expect(mockDisable).toHaveBeenCalledWith({ email: "u@example.com", password: "pw" });
-  });
-
-  it("401 REAUTH_FAILED on a wrong password", async () => {
-    signedIn();
-    mockDisable.mockResolvedValueOnce({ ok: false, reason: "reauth_failed" });
-    const res = await DISABLE(jsonReq({ password: "wrong" }));
-    expect(res.status).toBe(401);
-    expect((await res.json()).code).toBe("REAUTH_FAILED");
-  });
-
-  it("400s a missing password before the service", async () => {
-    signedIn();
     const res = await DISABLE(jsonReq({}));
+    expect(res.status).toBe(200);
+    expect(mockDisable).toHaveBeenCalledWith({ code: null });
+  });
+
+  it("403 MFA_REQUIRED when the session is AAL1 and no code was given", async () => {
+    signedIn();
+    mockDisable.mockResolvedValueOnce({ ok: false, reason: "mfa_required" });
+    const res = await DISABLE(jsonReq({}));
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("MFA_REQUIRED");
+  });
+
+  it("passes the step-up code to the service and 400s INVALID_CODE on a wrong one", async () => {
+    signedIn();
+    mockDisable.mockResolvedValueOnce({ ok: false, reason: "invalid_code" });
+    const res = await DISABLE(jsonReq({ code: "000000" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("INVALID_CODE");
+    expect(mockDisable).toHaveBeenCalledWith({ code: "000000" });
+  });
+
+  it("400s a malformed code before the service (no password required)", async () => {
+    signedIn();
+    const res = await DISABLE(jsonReq({ code: "abc" }));
     expect(res.status).toBe(400);
     expect(mockDisable).not.toHaveBeenCalled();
   });

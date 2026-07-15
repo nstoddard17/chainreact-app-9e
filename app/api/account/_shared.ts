@@ -220,8 +220,14 @@ export const MfaVerifyBodySchema = z.object({
 });
 export type MfaVerifyBody = z.infer<typeof MfaVerifyBodySchema>;
 
+/**
+ * Body for POST /api/account/mfa/disable. Disabling follows Supabase's AAL2 model,
+ * NOT a password: when the session is already AAL2 no code is needed; when it's
+ * AAL1 the caller supplies the current authenticator `code` to step up. Optional,
+ * validated as 6 digits when present. No password field.
+ */
 export const MfaDisableBodySchema = z.object({
-  password: z.string().min(1, "Your password is required to turn off two-factor authentication."),
+  code: TotpCodeSchema.optional(),
 });
 export type MfaDisableBody = z.infer<typeof MfaDisableBodySchema>;
 
