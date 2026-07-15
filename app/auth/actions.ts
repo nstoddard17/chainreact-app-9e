@@ -18,7 +18,7 @@ import { readCaptchaToken } from "@/services/security/turnstile";
 
 export type AuthActionResult =
   | { ok: true; confirmationRequired?: boolean }
-  | { ok: false; error: string };
+  | { ok: false; error: string; mfaRequired?: boolean };
 
 function readCredentials(formData: FormData): { email: string; password: string } | { error: string } {
   const email = formData.get("email");
@@ -153,11 +153,28 @@ function readNewPassword(formData: FormData): { password: string } | { error: st
   return { password };
 }
 
+/** Read + normalize the optional TOTP code from the reset form (6 digits, spaces trimmed). */
+function readTotpCode(formData: FormData): string | null {
+  const raw = formData.get("code");
+  if (typeof raw !== "string") return null;
+  const code = raw.replace(/\s+/g, "");
+  return /^\d{6}$/.test(code) ? code : null;
+}
+
 /**
  * Reset-password: set a new password. Requires the recovery session that
  * `/auth/callback` established from the emailed link — if there is no session
  * (link expired/invalid, or page opened directly), we refuse and tell the user
  * to request a fresh link rather than failing opaquely.
+ *
+ * MFA step-up (SEC-3): Supabase refuses a password update on an AAL1 session when
+ * the user has enrolled MFA ("AAL2 session is required…"). The emailed recovery
+ * link only establishes AAL1. So when the user has a verified TOTP factor and the
+ * session isn't already AAL2, we require the current authenticator code, elevate
+ * the session to AAL2 via Supabase's MFA API **on this same client** (so the
+ * elevated token is the one that performs the update), and only then update the
+ * password. We never bypass the AAL2 requirement — a missing/invalid code stops
+ * the update and re-prompts. The code is never logged.
  */
 export async function updatePassword(
   _prev: AuthActionResult | null,
@@ -172,6 +189,37 @@ export async function updatePassword(
   if (!user) {
     return { ok: false, error: "Your reset link is invalid or has expired. Request a new one." };
   }
+
+  // Authoritative factor list comes from getUser (not the cached session), so we
+  // don't miss a factor the recovery session object didn't carry.
+  const verifiedTotp = (user.factors ?? []).find(
+    (f) => f.status === "verified" && f.factor_type === "totp",
+  );
+  if (verifiedTotp) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.currentLevel !== "aal2") {
+      const code = readTotpCode(formData);
+      if (!code) {
+        return {
+          ok: false,
+          error: "Enter the 6-digit code from your authenticator app to set a new password.",
+          mfaRequired: true,
+        };
+      }
+      const { error: mfaError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: verifiedTotp.id,
+        code,
+      });
+      if (mfaError) {
+        return {
+          ok: false,
+          error: "That code didn't match. Try the current code from your app.",
+          mfaRequired: true,
+        };
+      }
+    }
+  }
+
   const { error } = await supabase.auth.updateUser({ password: parsed.password });
   if (error) return { ok: false, error: error.message };
   redirect("/workflows");

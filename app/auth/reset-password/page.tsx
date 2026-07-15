@@ -20,11 +20,24 @@ export default async function ResetPasswordPage() {
     );
   }
 
+  // MFA step-up (SEC-3): when the user has a verified TOTP factor and the recovery
+  // session is still AAL1, Supabase will refuse the password update. Detect that up
+  // front so the form asks for the authenticator code immediately (the action
+  // enforces it regardless).
+  const hasVerifiedTotp = (user.factors ?? []).some(
+    (f) => f.status === "verified" && f.factor_type === "totp",
+  );
+  let mfaRequired = false;
+  if (hasVerifiedTotp) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    mfaRequired = aal?.currentLevel !== "aal2";
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center p-8">
       <div className="flex flex-col gap-6 w-full max-w-sm">
         <h1 className="text-2xl font-bold">Set a new password</h1>
-        <ResetPasswordForm />
+        <ResetPasswordForm mfaRequired={mfaRequired} />
       </div>
     </main>
   );

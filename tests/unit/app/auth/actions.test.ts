@@ -15,6 +15,8 @@ const mockSignOut = jest.fn();
 const mockResetPasswordForEmail = jest.fn();
 const mockUpdateUser = jest.fn();
 const mockGetUser = jest.fn();
+const mockGetAAL = jest.fn();
+const mockChallengeAndVerify = jest.fn();
 
 jest.mock("@/utils/supabase/server", () => ({
   createClient: jest.fn(async () => ({
@@ -25,6 +27,10 @@ jest.mock("@/utils/supabase/server", () => ({
       resetPasswordForEmail: mockResetPasswordForEmail,
       updateUser: mockUpdateUser,
       getUser: mockGetUser,
+      mfa: {
+        getAuthenticatorAssuranceLevel: mockGetAAL,
+        challengeAndVerify: mockChallengeAndVerify,
+      },
     },
   })),
 }));
@@ -55,6 +61,8 @@ beforeEach(() => {
   mockResetPasswordForEmail.mockReset();
   mockUpdateUser.mockReset();
   mockGetUser.mockReset();
+  mockGetAAL.mockReset();
+  mockChallengeAndVerify.mockReset();
 });
 
 function fd(fields: Record<string, string>): FormData {
@@ -206,5 +214,77 @@ describe("auth actions — updatePassword (reset password)", () => {
     mockUpdateUser.mockResolvedValueOnce({ error: { message: "New password is too weak" } });
     const result = await updatePassword(null, fd({ password: "password123", confirm: "password123" }));
     expect(result).toEqual({ ok: false, error: "New password is too weak" });
+  });
+
+  it("does NOT touch MFA when the user has no verified factor", async () => {
+    mockGetUser.mockResolvedValueOnce({ data: { user: { id: "u1", factors: [] } } });
+    mockUpdateUser.mockResolvedValueOnce({ error: null });
+    await expectRedirect(() =>
+      updatePassword(null, fd({ password: "newpassword123", confirm: "newpassword123" })),
+    );
+    expect(mockGetAAL).not.toHaveBeenCalled();
+    expect(mockChallengeAndVerify).not.toHaveBeenCalled();
+    expect(mockUpdateUser).toHaveBeenCalledWith({ password: "newpassword123" });
+  });
+});
+
+describe("updatePassword — MFA step-up on an AAL1 recovery session (SEC-3)", () => {
+  const withVerifiedTotp = {
+    data: {
+      user: {
+        id: "u1",
+        factors: [{ id: "factor-1", factor_type: "totp", status: "verified" }],
+      },
+    },
+  };
+
+  it("requires the code (mfaRequired) and does NOT update when AAL1 and no code given", async () => {
+    mockGetUser.mockResolvedValueOnce(withVerifiedTotp);
+    mockGetAAL.mockResolvedValueOnce({ data: { currentLevel: "aal1", nextLevel: "aal2" } });
+    const result = await updatePassword(null, fd({ password: "newpassword123", confirm: "newpassword123" }));
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/authenticator app/i), mfaRequired: true });
+    expect(mockChallengeAndVerify).not.toHaveBeenCalled();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("re-prompts (mfaRequired) and does NOT update on a wrong code", async () => {
+    mockGetUser.mockResolvedValueOnce(withVerifiedTotp);
+    mockGetAAL.mockResolvedValueOnce({ data: { currentLevel: "aal1", nextLevel: "aal2" } });
+    mockChallengeAndVerify.mockResolvedValueOnce({ error: { message: "Invalid TOTP code" } });
+    const result = await updatePassword(
+      null,
+      fd({ password: "newpassword123", confirm: "newpassword123", code: "000000" }),
+    );
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/didn't match/i), mfaRequired: true });
+    expect(mockChallengeAndVerify).toHaveBeenCalledWith({ factorId: "factor-1", code: "000000" });
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("elevates to AAL2 with a correct code, THEN updates the password and redirects", async () => {
+    mockGetUser.mockResolvedValueOnce(withVerifiedTotp);
+    mockGetAAL.mockResolvedValueOnce({ data: { currentLevel: "aal1", nextLevel: "aal2" } });
+    mockChallengeAndVerify.mockResolvedValueOnce({ error: null });
+    mockUpdateUser.mockResolvedValueOnce({ error: null });
+    const dest = await expectRedirect(() =>
+      updatePassword(null, fd({ password: "newpassword123", confirm: "newpassword123", code: "123 456" })),
+    );
+    // spaces trimmed; elevation happens before the update
+    expect(mockChallengeAndVerify).toHaveBeenCalledWith({ factorId: "factor-1", code: "123456" });
+    expect(mockUpdateUser).toHaveBeenCalledWith({ password: "newpassword123" });
+    const orderChallenge = mockChallengeAndVerify.mock.invocationCallOrder[0] as number;
+    const orderUpdate = mockUpdateUser.mock.invocationCallOrder[0] as number;
+    expect(orderChallenge).toBeLessThan(orderUpdate);
+    expect(dest).toBe("/workflows");
+  });
+
+  it("skips the challenge when the session is already AAL2 (updates directly)", async () => {
+    mockGetUser.mockResolvedValueOnce(withVerifiedTotp);
+    mockGetAAL.mockResolvedValueOnce({ data: { currentLevel: "aal2", nextLevel: "aal2" } });
+    mockUpdateUser.mockResolvedValueOnce({ error: null });
+    await expectRedirect(() =>
+      updatePassword(null, fd({ password: "newpassword123", confirm: "newpassword123" })),
+    );
+    expect(mockChallengeAndVerify).not.toHaveBeenCalled();
+    expect(mockUpdateUser).toHaveBeenCalledWith({ password: "newpassword123" });
   });
 });

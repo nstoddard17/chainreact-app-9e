@@ -38,6 +38,16 @@ migration** — factors live in Supabase-managed `auth.mfa_factors`.
     never challenged. The `/auth/*` and `/api/auth/mfa` prefixes stay reachable at
     `aal1` so a challenged user can complete or abandon (sign out) MFA.
 - **Fail-safe:** wrong/expired codes never elevate and never disclose the reason.
+- **Password recovery + MFA (AAL2 step-up):** the emailed recovery link only
+  establishes an AAL1 session, and Supabase refuses `updateUser({ password })` on
+  AAL1 when the user has enrolled MFA ("AAL2 session is required…"). So the
+  reset-password flow (`app/auth/reset-password/page.tsx` + `updatePassword` in
+  `app/auth/actions.ts`) detects a verified TOTP factor on an AAL1 session, asks
+  for the current authenticator code, elevates the SAME client's session to AAL2
+  via `mfa.challengeAndVerify`, and only then updates the password. The AAL2
+  requirement is **enforced, never bypassed** — a missing/invalid code stops the
+  update and re-prompts. The elevation runs on the same client instance so the
+  update uses the elevated token. The code is never logged.
 
 ### Bot protection (Cloudflare Turnstile — Supabase-native verification)
 
