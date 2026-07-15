@@ -7,8 +7,22 @@ description: Use whenever Marcus asks to add, audit, or maintain official ChainR
 
 The repeatable procedure for growing the official ChainReact workflow-template catalog in
 safe seed batches. It encodes the pattern that seed batches 1–4 locked in (5 + 45 + 25 + 15 =
-**90 official templates**; batch 2 commit `4a4155758`, batch 4 the complex-template batch), so a
+90 seeded; batch 2 commit `4a4155758`, batch 4 the complex-template batch), so a
 future session can add, audit, or maintain official templates without re-deriving the rules.
+
+> **TEMPLATE-QUALITY-1 (2026-07-15) — catalog standard update.** Batches 1–3 (75 ≤4-node
+> demos) are RETIRED by the guarded DELETE migration
+> `20260715000000_retire_official_templates_batch_1_3.sql`; batch 5
+> (`20260715000001_seed_official_templates_batch_5.sql`, 12 templates) seeds safe prewiring
+> directly in the seed file (allowed for never-applied rows). The EFFECTIVE catalog is
+> **27 templates, every one ≥5 nodes** — enforced by
+> `tests/unit/migrations/officialTemplateCatalogIntegrity.test.ts` (effective catalog =
+> seeds − retirements + prewire overlays; a future <5-node seed FAILS unless retired).
+> Every new official template MUST have ≥5 meaningful nodes and a complete business outcome.
+> Retiring applied officials = a NEW forward DELETE migration guarded by
+> `source='official' AND account_id IS NULL AND id IN (<fixed ids>)` — never a node-count
+> predicate. Capability audit + gap report:
+> [`docs/product/template-business-capability-audit.md`](../../../docs/product/template-business-capability-audit.md).
 
 This is the **operational "how to ship a batch" procedure**. It composes with
 [`chainreactv2-official-template-builder`](../chainreactv2-official-template-builder/SKILL.md)
