@@ -23,6 +23,10 @@ import { edenRenameNoteMeta } from "@/integrations/eden/actions/renameNote.meta"
 import { edenCreateStickyNoteMeta } from "@/integrations/eden/actions/createStickyNote.meta";
 import { edenListNotesMeta } from "@/integrations/eden/actions/listNotes.meta";
 import { edenSearchItemsMeta } from "@/integrations/eden/actions/searchItems.meta";
+import { edenListBoardsMeta } from "@/integrations/eden/actions/listBoards.meta";
+import { edenListBoardItemsMeta } from "@/integrations/eden/actions/listBoardItems.meta";
+import { edenRenameBoardMeta } from "@/integrations/eden/actions/renameBoard.meta";
+import { edenSaveLinksToBoardMeta } from "@/integrations/eden/actions/saveLinksToBoard.meta";
 
 export const EDEN_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   edenListWorkspacesMeta,
@@ -40,4 +44,9 @@ export const EDEN_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   edenCreateStickyNoteMeta,
   edenListNotesMeta,
   edenSearchItemsMeta,
+  // Batch 2 — boards.
+  edenListBoardsMeta,
+  edenListBoardItemsMeta,
+  edenRenameBoardMeta,
+  edenSaveLinksToBoardMeta,
 ];

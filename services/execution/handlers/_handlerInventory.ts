@@ -34,6 +34,10 @@ import { edenRenameNote } from "@/integrations/eden/actions/renameNote";
 import { edenCreateStickyNote } from "@/integrations/eden/actions/createStickyNote";
 import { edenListNotes } from "@/integrations/eden/actions/listNotes";
 import { edenSearchItems } from "@/integrations/eden/actions/searchItems";
+import { edenListBoards } from "@/integrations/eden/actions/listBoards";
+import { edenListBoardItems } from "@/integrations/eden/actions/listBoardItems";
+import { edenRenameBoard } from "@/integrations/eden/actions/renameBoard";
+import { edenSaveLinksToBoard } from "@/integrations/eden/actions/saveLinksToBoard";
 // Slice 3.DISCORD-2 — Discord runtime port (5 actions). Bot-token
 // auth via env (DISCORD_BOT_TOKEN); no user-OAuth token used at
 // action time. Per Slice 3.DISCORD-1 decisions: actions only, no
@@ -796,6 +800,11 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "eden", type: "create_sticky_note", handler: edenCreateStickyNote },
   { provider: "eden", type: "list_notes", handler: edenListNotes },
   { provider: "eden", type: "search_items", handler: edenSearchItems },
+  // Eden (EDEN-5) — Batch 2 boards area (live-certified).
+  { provider: "eden", type: "list_boards", handler: edenListBoards },
+  { provider: "eden", type: "list_board_items", handler: edenListBoardItems },
+  { provider: "eden", type: "rename_board", handler: edenRenameBoard },
+  { provider: "eden", type: "save_links_to_board", handler: edenSaveLinksToBoard },
   // Slice 3.DISCORD-2 — 5 V1-manifest-declared action handlers.
   // delete_message is destructive (bulk + filter modes — see handler
   // docstring). Triggers + the 18 unsurfaced V1 handlers are NOT

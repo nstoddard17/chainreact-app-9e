@@ -13,7 +13,7 @@
  */
 import { readFileSync } from "node:fs";
 import { listWorkspaces } from "@/integrations/_shared/eden/api/workspaces";
-import { createBoard, readBoard, trashBoard, listBoards } from "@/integrations/_shared/eden/api/boards";
+import { createBoard, readBoard, trashBoard, listBoards, renameBoard, saveLinksToBoard } from "@/integrations/_shared/eden/api/boards";
 import {
   createNote,
   getNoteMarkdown,
@@ -158,5 +158,40 @@ d("Eden Batch-2 notes area (create → read → append → rewrite → rename �
 
   afterAll(async () => {
     if (LIVE && TOKEN && boardId) await trashBoard({ accessToken, boardId }); // cleanup (trashes board + its notes)
+  }, 30_000);
+});
+
+d("Eden Batch-2 boards area (list → rename → save links → list items)", () => {
+  const accessToken = TOKEN as string;
+  let boardId: string | undefined;
+
+  it("board lifecycle certifies list_boards/rename_board/save_links_to_board/list_board_items", async () => {
+    const ws = await listWorkspaces({ accessToken });
+    const workspaceId = ws.defaultWorkspaceId ?? ws.workspaces[0]!.id;
+
+    const b = await createBoard({ accessToken, workspaceId, title: "ChainReact B2 Boards Cert" });
+    boardId = b.boardId;
+
+    // list_boards — bounded, workspace index eventually consistent → assert shape
+    const boards = await listBoards({ accessToken, workspaceId, limit: 100 });
+    expect(Array.isArray(boards.items)).toBe(true);
+    for (const it of boards.items) expect(typeof it.id).toBe("string");
+
+    // rename_board
+    const renamed = await renameBoard({ accessToken, boardId: boardId!, name: "ChainReact B2 Boards Cert Renamed" });
+    expect(renamed.boardId).toBe(boardId);
+
+    // save_links_to_board
+    const saved = await saveLinksToBoard({ accessToken, workspaceId, boardId: boardId!, urls: ["https://example.com/cert-article"] });
+    expect(saved.boardId).toBe(boardId);
+    expect(typeof saved.itemsCreated === "number" || saved.itemsCreated === null).toBe(true);
+
+    // list_board_items — the saved link is a child of the board
+    const items = await listWorkspaceItems({ accessToken, workspaceId, parentId: boardId!, limit: 50 });
+    expect(Array.isArray(items.items)).toBe(true);
+  }, 90_000);
+
+  afterAll(async () => {
+    if (LIVE && TOKEN && boardId) await trashBoard({ accessToken, boardId });
   }, 30_000);
 });

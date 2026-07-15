@@ -123,3 +123,54 @@ export async function listBoards(input: {
   }).filter((i) => i.id.length > 0);
   return { items, nextCursor: str(env.nextCursor), totalCount: num(env.totalCount) };
 }
+
+/** `eden_rename_board` → change a board's name. */
+export async function renameBoard(input: {
+  accessToken: string;
+  boardId: string;
+  name: string;
+}): Promise<{ boardId: string; name: string | null }> {
+  const env = await edenCallTool({
+    accessToken: input.accessToken,
+    tool: "eden_rename_board",
+    args: { boardId: input.boardId, name: input.name },
+    idempotent: false,
+  });
+  return { boardId: str(env.boardId) ?? input.boardId, name: str(env.name) };
+}
+
+/** `eden_save_links_to_board` → save one or more URLs onto a board. */
+export async function saveLinksToBoard(input: {
+  accessToken: string;
+  workspaceId?: string;
+  boardId: string;
+  urls: string[];
+}): Promise<{ boardId: string; itemsCreated: number | null; itemsSkipped: number | null }> {
+  const env = await edenCallTool({
+    accessToken: input.accessToken,
+    tool: "eden_save_links_to_board",
+    args: { ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}), boardId: input.boardId, urls: input.urls },
+    idempotent: false,
+  });
+  return { boardId: str(env.boardId) ?? input.boardId, itemsCreated: num(env.itemsCreated), itemsSkipped: num(env.itemsSkipped) };
+}
+
+/**
+ * `eden_save_posts_to_board` → save indexed social posts onto a board.
+ * Each post is `{ platform, contentId }` where `contentId` is Eden's DB UUID (as returned by
+ * `read_card` / creator tools), NOT the platform-native id.
+ */
+export async function savePostsToBoard(input: {
+  accessToken: string;
+  workspaceId?: string;
+  boardId: string;
+  posts: Array<{ platform: string; contentId: string }>;
+}): Promise<{ boardId: string; itemsCreated: number | null; itemsSkipped: number | null }> {
+  const env = await edenCallTool({
+    accessToken: input.accessToken,
+    tool: "eden_save_posts_to_board",
+    args: { ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}), boardId: input.boardId, posts: input.posts },
+    idempotent: false,
+  });
+  return { boardId: str(env.boardId) ?? input.boardId, itemsCreated: num(env.itemsCreated), itemsSkipped: num(env.itemsSkipped) };
+}
