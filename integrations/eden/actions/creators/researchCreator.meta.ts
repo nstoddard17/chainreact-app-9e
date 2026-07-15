@@ -1,0 +1,54 @@
+import type { ActionMeta } from "@/contracts/actionMeta";
+
+/** Builder metadata for `eden:research_creator` (EDEN-5). Read action. */
+export const edenResearchCreatorMeta: ActionMeta = {
+  key: "eden:research_creator",
+  provider: "eden",
+  type: "research_creator",
+  displayName: "Research Creator",
+  description: "Get a creator's profile plus aggregate performance (averages + outlier baselines).",
+  category: "data",
+  requiresIntegration: true,
+  fields: [
+    { name: "query", label: "Handle or name", description: "The creator to research.", type: "text", required: true, placeholder: "mkbhd" },
+    {
+      name: "platform",
+      label: "Platform",
+      description: "Optional platform hint.",
+      type: "select",
+      required: false,
+      options: [
+        { value: "youtube", label: "YouTube" },
+        { value: "twitter", label: "X (Twitter)" },
+        { value: "tiktok", label: "TikTok" },
+        { value: "instagram", label: "Instagram" },
+        { value: "linkedin", label: "LinkedIn" },
+        { value: "threads", label: "Threads" },
+        { value: "substack", label: "Substack" },
+      ],
+    },
+    { name: "topPostLimit", label: "Top posts", description: "How many top posts to analyze (1–50).", type: "number", required: false, placeholder: "10" },
+    { name: "since", label: "Since", description: "Optional ISO date to analyze from.", type: "text", required: false, placeholder: "2026-01-01" },
+    {
+      name: "workspaceId",
+      label: "Workspace",
+      description: "Optional workspace context. Leave empty for your default workspace.",
+      type: "combobox",
+      required: false,
+      optionsSource: "eden:workspaces",
+      placeholder: "Default workspace",
+    },
+  ],
+  outputs: [
+    { name: "creator", type: "object", description: "Bounded creator profile { id, platform, username, displayName, profileUrl, followerCount, totalContentCount, syncStatus }." },
+    { name: "metrics", type: "object", description: "Aggregate metrics { count, avgViews, avgEngagementRate, avgOutlier, medianOutlier, totalViews, totalLikes, totalComments }." },
+    { name: "indexingStatus", type: "string", description: "Indexing state (e.g. synced/pending). If still indexing, branch instead of waiting.", nullable: true },
+    { name: "indexedPostCount", type: "number", description: "Posts Eden has indexed for this creator, or null.", nullable: true },
+  ],
+  producesFileRef: false,
+  consumesFileRef: false,
+  isDestructive: false,
+  requiresConfirmation: false,
+  displayOrder: 72,
+  riskLevel: "low",
+};

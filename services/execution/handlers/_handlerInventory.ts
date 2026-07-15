@@ -19,25 +19,36 @@ import { createList as trelloCreateList } from "@/integrations/trello/actions/cr
 import { moveCard as trelloMoveCard } from "@/integrations/trello/actions/moveCard";
 import { updateCard as trelloUpdateCard } from "@/integrations/trello/actions/updateCard";
 // Eden (EDEN-4) — MCP-backed actions (batch 1: 4 reads + 3 board/note writes).
-import { edenListWorkspaces } from "@/integrations/eden/actions/listWorkspaces";
-import { edenListSchedules } from "@/integrations/eden/actions/listSchedules";
-import { edenListScheduledPosts } from "@/integrations/eden/actions/listScheduledPosts";
-import { edenCreateBoard } from "@/integrations/eden/actions/createBoard";
-import { edenCreateNote } from "@/integrations/eden/actions/createNote";
-import { edenReadBoard } from "@/integrations/eden/actions/readBoard";
-import { edenTrashBoard } from "@/integrations/eden/actions/trashBoard";
+import { edenListWorkspaces } from "@/integrations/eden/actions/workspaces/listWorkspaces";
+import { edenListSchedules } from "@/integrations/eden/actions/scheduling/listSchedules";
+import { edenListScheduledPosts } from "@/integrations/eden/actions/scheduling/listScheduledPosts";
+import { edenCreateBoard } from "@/integrations/eden/actions/boards/createBoard";
+import { edenCreateNote } from "@/integrations/eden/actions/notes/createNote";
+import { edenReadBoard } from "@/integrations/eden/actions/boards/readBoard";
+import { edenTrashBoard } from "@/integrations/eden/actions/boards/trashBoard";
 // Eden (EDEN-5) — Batch 2 notes area.
-import { edenReadNote } from "@/integrations/eden/actions/readNote";
-import { edenAppendToNote } from "@/integrations/eden/actions/appendToNote";
-import { edenUpdateNote } from "@/integrations/eden/actions/updateNote";
-import { edenRenameNote } from "@/integrations/eden/actions/renameNote";
-import { edenCreateStickyNote } from "@/integrations/eden/actions/createStickyNote";
-import { edenListNotes } from "@/integrations/eden/actions/listNotes";
-import { edenSearchItems } from "@/integrations/eden/actions/searchItems";
-import { edenListBoards } from "@/integrations/eden/actions/listBoards";
-import { edenListBoardItems } from "@/integrations/eden/actions/listBoardItems";
-import { edenRenameBoard } from "@/integrations/eden/actions/renameBoard";
-import { edenSaveLinksToBoard } from "@/integrations/eden/actions/saveLinksToBoard";
+import { edenReadNote } from "@/integrations/eden/actions/notes/readNote";
+import { edenAppendToNote } from "@/integrations/eden/actions/notes/appendToNote";
+import { edenUpdateNote } from "@/integrations/eden/actions/notes/updateNote";
+import { edenRenameNote } from "@/integrations/eden/actions/notes/renameNote";
+import { edenCreateStickyNote } from "@/integrations/eden/actions/notes/createStickyNote";
+import { edenListNotes } from "@/integrations/eden/actions/notes/listNotes";
+import { edenSearchItems } from "@/integrations/eden/actions/notes/searchItems";
+import { edenListBoards } from "@/integrations/eden/actions/boards/listBoards";
+import { edenListBoardItems } from "@/integrations/eden/actions/boards/listBoardItems";
+import { edenRenameBoard } from "@/integrations/eden/actions/boards/renameBoard";
+import { edenSaveLinksToBoard } from "@/integrations/eden/actions/boards/saveLinksToBoard";
+// Eden (EDEN-5) — Batch 2 content/creator/prompt reads.
+import { edenListPrompts } from "@/integrations/eden/actions/library/listPrompts";
+import { edenGetPrompt } from "@/integrations/eden/actions/library/getPrompt";
+import { edenExportSkill } from "@/integrations/eden/actions/library/exportSkill";
+import { edenReadContent } from "@/integrations/eden/actions/content/readContent";
+import { edenListCaptures } from "@/integrations/eden/actions/content/listCaptures";
+import { edenListHighlights } from "@/integrations/eden/actions/content/listHighlights";
+import { edenListCreatorLists } from "@/integrations/eden/actions/creators/listCreatorLists";
+import { edenResolveCreator } from "@/integrations/eden/actions/creators/resolveCreator";
+import { edenResearchCreator } from "@/integrations/eden/actions/creators/researchCreator";
+import { edenFollowingOverview } from "@/integrations/eden/actions/creators/followingOverview";
 // Slice 3.DISCORD-2 — Discord runtime port (5 actions). Bot-token
 // auth via env (DISCORD_BOT_TOKEN); no user-OAuth token used at
 // action time. Per Slice 3.DISCORD-1 decisions: actions only, no
@@ -805,6 +816,17 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "eden", type: "list_board_items", handler: edenListBoardItems },
   { provider: "eden", type: "rename_board", handler: edenRenameBoard },
   { provider: "eden", type: "save_links_to_board", handler: edenSaveLinksToBoard },
+  // Eden (EDEN-5) — Batch 2 content / creator / prompt reads (live-certified).
+  { provider: "eden", type: "list_prompts", handler: edenListPrompts },
+  { provider: "eden", type: "get_prompt", handler: edenGetPrompt },
+  { provider: "eden", type: "export_skill", handler: edenExportSkill },
+  { provider: "eden", type: "read_content", handler: edenReadContent },
+  { provider: "eden", type: "list_captures", handler: edenListCaptures },
+  { provider: "eden", type: "list_highlights", handler: edenListHighlights },
+  { provider: "eden", type: "list_creator_lists", handler: edenListCreatorLists },
+  { provider: "eden", type: "resolve_creator", handler: edenResolveCreator },
+  { provider: "eden", type: "research_creator", handler: edenResearchCreator },
+  { provider: "eden", type: "following_overview", handler: edenFollowingOverview },
   // Slice 3.DISCORD-2 — 5 V1-manifest-declared action handlers.
   // delete_message is destructive (bulk + filter modes — see handler
   // docstring). Triggers + the 18 unsurfaced V1 handlers are NOT

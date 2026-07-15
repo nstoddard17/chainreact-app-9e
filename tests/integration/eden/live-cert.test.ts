@@ -24,6 +24,9 @@ import {
 } from "@/integrations/_shared/eden/api/notes";
 import { listWorkspaceItems, searchWorkspaceItems } from "@/integrations/_shared/eden/api/items";
 import { listSchedules, listScheduledPosts } from "@/integrations/_shared/eden/api/schedules";
+import { readCard, listCaptures, listHighlights } from "@/integrations/_shared/eden/api/content";
+import { listCreatorLists, resolveCreator, analyzeCreator, followingOverview } from "@/integrations/_shared/eden/api/creators";
+import { listPrompts, getPrompt, exportSkill } from "@/integrations/_shared/eden/api/library";
 
 const LIVE = process.env.EDEN_LIVE_CERT === "1";
 
@@ -194,4 +197,59 @@ d("Eden Batch-2 boards area (list → rename → save links → list items)", ()
   afterAll(async () => {
     if (LIVE && TOKEN && boardId) await trashBoard({ accessToken, boardId });
   }, 30_000);
+});
+
+d("Eden Batch-2 prompts area (list → get → export)", () => {
+  const accessToken = TOKEN as string;
+  it("list_prompts + get_prompt + export_skill certify against saved library", async () => {
+    const ws = await listWorkspaces({ accessToken });
+    const workspaceId = ws.defaultWorkspaceId ?? ws.workspaces[0]!.id;
+    const list = await listPrompts({ accessToken, workspaceId });
+    expect(Array.isArray(list.prompts)).toBe(true);
+    if (list.prompts.length > 0) {
+      const id = list.prompts[0]!.id;
+      const p = await getPrompt({ accessToken, promptId: id });
+      expect(p.id).toBe(id);
+      const ex = await exportSkill({ accessToken, promptId: id });
+      expect(typeof ex.markdown).toBe("string");
+    }
+  }, 60_000);
+});
+
+d("Eden Batch-2 content reads (read_content + captures + highlights)", () => {
+  const accessToken = TOKEN as string;
+  it("read_content returns a bounded post (+contentId); captures/highlights are bounded", async () => {
+    const ws = await listWorkspaces({ accessToken });
+    const workspaceId = ws.defaultWorkspaceId ?? ws.workspaces[0]!.id;
+    const card = await readCard({ accessToken, url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", includeTranscript: false, workspaceId });
+    expect(typeof card.contentId === "string" || card.contentId === null).toBe(true);
+    expect(card.post === null || typeof card.post.platform === "string").toBe(true);
+    const caps = await listCaptures({ accessToken, workspaceId, limit: 5 });
+    expect(Array.isArray(caps.captures)).toBe(true);
+    const hl = await listHighlights({ accessToken, limit: 5 });
+    expect(Array.isArray(hl.highlights)).toBe(true);
+  }, 60_000);
+});
+
+d("Eden Batch-2 creator reads (lists + resolve + research + following)", () => {
+  const accessToken = TOKEN as string;
+  it("list_creator_lists / resolve_creator / research_creator / following_overview certify (harmless public creator)", async () => {
+    const ws = await listWorkspaces({ accessToken });
+    const workspaceId = ws.defaultWorkspaceId ?? ws.workspaces[0]!.id;
+
+    const lists = await listCreatorLists({ accessToken, workspaceId });
+    expect(Array.isArray(lists.lists)).toBe(true); // may be empty on a fresh account
+
+    const resolved = await resolveCreator({ accessToken, query: "mkbhd", platform: "youtube", limit: 2 });
+    expect(Array.isArray(resolved.creators)).toBe(true);
+    expect(resolved.creators.length).toBeGreaterThan(0);
+
+    // research_creator surfaces indexingStatus (never blocks). Public creator, read-only.
+    const research = await analyzeCreator({ accessToken, query: "mkbhd", platform: "youtube", topPostLimit: 2 });
+    expect(typeof research.creator === "object").toBe(true);
+    expect(research.indexingStatus === null || typeof research.indexingStatus === "string").toBe(true);
+
+    const following = await followingOverview({ accessToken, workspaceId, limit: 5 });
+    expect(Array.isArray(following.follows)).toBe(true);
+  }, 90_000);
 });

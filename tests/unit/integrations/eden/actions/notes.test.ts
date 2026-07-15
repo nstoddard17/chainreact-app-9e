@@ -20,15 +20,15 @@ jest.mock("@/integrations/_shared/eden/api/notes", () => notesApi);
 const itemsApi = { listWorkspaceItems: jest.fn(), searchWorkspaceItems: jest.fn() };
 jest.mock("@/integrations/_shared/eden/api/items", () => itemsApi);
 
-import { edenReadNote } from "@/integrations/eden/actions/readNote";
-import { edenAppendToNote } from "@/integrations/eden/actions/appendToNote";
-import { edenUpdateNote } from "@/integrations/eden/actions/updateNote";
-import { edenRenameNote } from "@/integrations/eden/actions/renameNote";
-import { edenCreateStickyNote } from "@/integrations/eden/actions/createStickyNote";
-import { edenListNotes } from "@/integrations/eden/actions/listNotes";
-import { edenSearchItems } from "@/integrations/eden/actions/searchItems";
-import { ReadNoteConfigSchema } from "@/integrations/eden/actions/readNote.schema";
-import { AppendToNoteConfigSchema } from "@/integrations/eden/actions/appendToNote.schema";
+import { edenReadNote } from "@/integrations/eden/actions/notes/readNote";
+import { edenAppendToNote } from "@/integrations/eden/actions/notes/appendToNote";
+import { edenUpdateNote } from "@/integrations/eden/actions/notes/updateNote";
+import { edenRenameNote } from "@/integrations/eden/actions/notes/renameNote";
+import { edenCreateStickyNote } from "@/integrations/eden/actions/notes/createStickyNote";
+import { edenListNotes } from "@/integrations/eden/actions/notes/listNotes";
+import { edenSearchItems } from "@/integrations/eden/actions/notes/searchItems";
+import { ReadNoteConfigSchema } from "@/integrations/eden/actions/notes/readNote.schema";
+import { AppendToNoteConfigSchema } from "@/integrations/eden/actions/notes/appendToNote.schema";
 
 const base = { workflowId: "wf", userId: "u", accountId: "acct-1", runId: "r", nodeId: "n", triggerEvent: {} as never };
 beforeEach(() => jest.clearAllMocks());

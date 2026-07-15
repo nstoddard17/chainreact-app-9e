@@ -1,0 +1,49 @@
+import type { ActionMeta } from "@/contracts/actionMeta";
+
+/** Builder metadata for `eden:get_prompt` (EDEN-5). Read action. */
+export const edenGetPromptMeta: ActionMeta = {
+  key: "eden:get_prompt",
+  provider: "eden",
+  type: "get_prompt",
+  displayName: "Read Saved Prompt",
+  description: "Read a saved Eden prompt/skill's full definition (including its system prompt).",
+  category: "data",
+  requiresIntegration: true,
+  fields: [
+    {
+      name: "workspaceId",
+      label: "Workspace",
+      description: "The workspace that owns the prompt. Leave empty for your default workspace.",
+      type: "combobox",
+      required: false,
+      optionsSource: "eden:workspaces",
+      placeholder: "Default workspace",
+    },
+    {
+      name: "promptId",
+      label: "Prompt / skill",
+      description: "The saved prompt/skill to read. Pick a workspace first, or paste a prompt id.",
+      type: "combobox",
+      required: true,
+      optionsSource: "eden:prompts",
+      dependsOn: "workspaceId",
+      placeholder: "Select a saved prompt/skill",
+    },
+  ],
+  outputs: [
+    { name: "id", type: "string", description: "The prompt/skill id." },
+    { name: "title", type: "string", description: "Title, or null.", nullable: true },
+    { name: "summary", type: "string", description: "Short summary, or null.", nullable: true },
+    { name: "description", type: "string", description: "Description, or null.", nullable: true },
+    { name: "category", type: "string", description: "Category, or null.", nullable: true },
+    { name: "systemPrompt", type: "string", description: "The prompt/skill's system prompt body, or null.", nullable: true },
+    { name: "toolsEnabled", type: "array", description: "Tool names the skill enables." },
+    { name: "usesVoiceProfile", type: "boolean", description: "Whether the skill uses the account voice profile." },
+  ],
+  producesFileRef: false,
+  consumesFileRef: false,
+  isDestructive: false,
+  requiresConfirmation: false,
+  displayOrder: 61,
+  riskLevel: "low",
+};

@@ -407,6 +407,7 @@ import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
 import { edenWorkspacesResolver } from "@/integrations/eden/options/workspaces";
 import { edenBoardsResolver } from "@/integrations/eden/options/boards";
 import { edenNotesResolver } from "@/integrations/eden/options/notes";
+import { edenPromptsResolver } from "@/integrations/eden/options/prompts";
 import { trelloListsResolver } from "@/integrations/trello/options/lists";
 import { trelloCardsResolver } from "@/integrations/trello/options/cards";
 import { trelloMembersResolver } from "@/integrations/trello/options/members";
@@ -640,8 +641,9 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // Eden (EDEN-4) — workspace + board pickers for the MCP-backed actions.
   edenWorkspacesResolver,
   edenBoardsResolver,
-  // Eden (EDEN-5) — note picker for Batch 2 note actions.
+  // Eden (EDEN-5) — note + saved-prompt pickers for Batch 2 actions.
   edenNotesResolver,
+  edenPromptsResolver,
   trelloListsResolver,
   trelloCardsResolver,
   trelloMembersResolver,

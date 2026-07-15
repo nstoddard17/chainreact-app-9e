@@ -23,10 +23,10 @@ jest.mock("@/integrations/_shared/eden/api/workspaces", () => ({
   listWorkspaces: (...a: unknown[]) => mockListWorkspaces(...a),
 }));
 
-import { edenCreateBoard } from "@/integrations/eden/actions/createBoard";
-import { edenListWorkspaces } from "@/integrations/eden/actions/listWorkspaces";
-import { edenTrashBoard } from "@/integrations/eden/actions/trashBoard";
-import { CreateBoardConfigSchema } from "@/integrations/eden/actions/createBoard.schema";
+import { edenCreateBoard } from "@/integrations/eden/actions/boards/createBoard";
+import { edenListWorkspaces } from "@/integrations/eden/actions/workspaces/listWorkspaces";
+import { edenTrashBoard } from "@/integrations/eden/actions/boards/trashBoard";
+import { CreateBoardConfigSchema } from "@/integrations/eden/actions/boards/createBoard.schema";
 
 const base = {
   workflowId: "wf",

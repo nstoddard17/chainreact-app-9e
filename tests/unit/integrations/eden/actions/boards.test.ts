@@ -12,11 +12,11 @@ jest.mock("@/integrations/_shared/eden/api/boards", () => boardsApi);
 const itemsApi = { listWorkspaceItems: jest.fn(), searchWorkspaceItems: jest.fn() };
 jest.mock("@/integrations/_shared/eden/api/items", () => itemsApi);
 
-import { edenListBoards } from "@/integrations/eden/actions/listBoards";
-import { edenListBoardItems } from "@/integrations/eden/actions/listBoardItems";
-import { edenRenameBoard } from "@/integrations/eden/actions/renameBoard";
-import { edenSaveLinksToBoard } from "@/integrations/eden/actions/saveLinksToBoard";
-import { SaveLinksToBoardConfigSchema } from "@/integrations/eden/actions/saveLinksToBoard.schema";
+import { edenListBoards } from "@/integrations/eden/actions/boards/listBoards";
+import { edenListBoardItems } from "@/integrations/eden/actions/boards/listBoardItems";
+import { edenRenameBoard } from "@/integrations/eden/actions/boards/renameBoard";
+import { edenSaveLinksToBoard } from "@/integrations/eden/actions/boards/saveLinksToBoard";
+import { SaveLinksToBoardConfigSchema } from "@/integrations/eden/actions/boards/saveLinksToBoard.schema";
 
 const base = { workflowId: "wf", userId: "u", accountId: "acct-1", runId: "r", nodeId: "n", triggerEvent: {} as never };
 beforeEach(() => jest.clearAllMocks());
