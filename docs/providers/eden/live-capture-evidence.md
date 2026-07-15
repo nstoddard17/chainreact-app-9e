@@ -52,6 +52,24 @@ Not scope-detectable from `tools/list` (all tools are listed). A read-only token
 permission error only when a WRITE tool is called; the transport maps that to `McpPermissionError`
 → `InsufficientScopeError` (reconnect with Read & write). Certification here used a Read & write token.
 
+## Batch-2 findings (EDEN-5, 2026-07-14)
+- **Workspace item types:** boards = **`canvas`**, notes = **`markdown`** (the only two top-level
+  types on a fresh workspace). `type:"board"`/`type:"note"` filters return nothing.
+- **Eventual consistency:** a just-created note/board is reliably readable BY ID and appears under
+  its board (`parentId`), but the workspace-wide `list_workspace_items`/`search` index lags a few
+  seconds — actions certify by bounded shape, not immediate global membership.
+- **`read_card`** (Read Social Post) returns a rich post `{ title, body, publishedAt, durationSeconds,
+  hashtags, language, metrics{views,likes,comments,engagementRate,outlierScore}, transcript,
+  transcriptStatus, profile }` + an Eden `contentId` (UUID). Bounded wrapper drops nothing sensitive
+  (public creator content); no account identity present.
+- **`save_posts_to_board`** requires `{ platform, contentId }` where `contentId` is Eden's UUID (from
+  `read_card`/creator tools) — NOT the platform-native id and NOT a URL.
+- **`resolve_creator`/`analyze_creator`** return public creator profiles + `syncStatus`/`library.status`
+  (indexing state). No PII/account fields. `search_social_content` uses a structured `creatorRef`
+  scope (no global Discover string) — deferred.
+- **Prompts & skills** share one library: `list_prompts` == `list_skills` (both return `prompts`+`skills`
+  arrays); `get_prompt`/`get_skill` return the same object; `export_skill` → `{ skillMd, slug }`.
+
 ## Cleanup accounting
 All disposable data created during capture + certification was **trashed** (reversible in Eden):
 every board created by the shape probe, the type probe, and the cert run was removed via

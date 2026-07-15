@@ -24,6 +24,50 @@ batch), or **EXCLUDE** (with evidence + reason).
 Option sources shipped: `eden:workspaces`, `eden:boards` (boards = workspace items of type
 **`canvas`** — a live-cert finding; `type:"board"` returns nothing).
 
+## SHIPPED — Batch 2 (21 actions, LIVE-CERTIFIED 2026-07-14) — EDEN-5
+
+Content / board / note / saved-content / creator-research / prompt-read areas. **No scheduling
+writes, no triggers** (deliberately out of scope for this batch).
+
+| Area | Action (`eden:*`) | Tool | Kind |
+|---|---|---|---|
+| Notes | `read_note` | `eden_get_note_markdown` | read |
+| Notes | `append_to_note` | `eden_append_to_note` | write |
+| Notes | `update_note` (rewrite) | `eden_update_note` | write |
+| Notes | `rename_note` | `eden_rename_note` | write |
+| Notes | `create_sticky_note` | `eden_create_sticky_note` | write |
+| Notes | `list_notes` | `eden_list_workspace_items` (type=`markdown`) | read |
+| Notes | `search_items` | `eden_search_workspace_items` | read |
+| Boards | `list_boards` | `eden_list_workspace_items` (type=`canvas`) | read |
+| Boards | `list_board_items` | `eden_list_workspace_items` (parentId) | read |
+| Boards | `rename_board` | `eden_rename_board` | write |
+| Boards | `save_links_to_board` | `eden_save_links_to_board` | write |
+| Content | `read_content` | `eden_read_card` | read (+transcript) |
+| Content | `list_captures` | `eden_list_captures` | read |
+| Content | `list_highlights` | `eden_list_highlights` | read |
+| Creators | `list_creator_lists` | `eden_list_creator_lists` | read |
+| Creators | `resolve_creator` | `eden_resolve_creator` | read |
+| Creators | `research_creator` | `eden_analyze_creator` | read (surfaces `indexingStatus`) |
+| Creators | `following_overview` | `eden_following_overview` | read |
+| Prompts | `list_prompts` | `eden_list_prompts` | read |
+| Prompts | `get_prompt` | `eden_get_prompt` | read |
+| Prompts | `export_skill` | `eden_export_skill` | read (Markdown) |
+
+Option sources added: `eden:notes` (type=`markdown`), `eden:prompts`. Actions live under
+`integrations/eden/actions/<area>/` (subfolder split — the flat folder crossed the 50-file cap).
+
+**Batch-2 live-cert findings:** notes are workspace items of type **`markdown`** (not `note`);
+workspace-wide item lists are **eventually consistent** (cert asserts bounded shape, not immediate
+read-your-write); `save_posts_to_board` needs `{platform, contentId}` where `contentId` is Eden's
+**DB UUID** from `read_content`, not a URL.
+
+**Deferred from Batch 2 (recorded):** `save_post_to_board` (needs a structured object-list editor +
+an Eden `contentId` sourced from a `read_content` node — wrapper `savePostsToBoard` is built);
+`get_skill` (duplicate of `get_prompt` — same shared object); `find_creator_in_workspace` and
+`analyze_list` (wrappers built; test account had no tracked creators / lists to certify non-empty);
+`read_saved_post` (`eden_read_social_post` — needs an already-indexed contentId; `read_content`
+covers by-URL reads); `search_social_content` (structured `creatorRef` scope — no global Discover).
+
 ## DEFER — pinned, useful & supportable, not yet implemented/certified
 
 These are real, safe candidates for follow-up **certified** batches (each still needs

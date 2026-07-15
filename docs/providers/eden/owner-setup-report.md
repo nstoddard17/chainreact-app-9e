@@ -1,10 +1,14 @@
 # Eden Owner Setup Report
 
 ## Status
-- **Code status:** auth + transport + **Batch-1 actions (7) LIVE-CERTIFIED** against `mcp.eden.so`
-  (2026-07-14). Eden stays `isExperimental: true` (hidden from the default Apps catalog) until the
-  full useful catalog is shipped/certified. The remaining useful tools are pinned in
-  [`catalog-audit.md`](./catalog-audit.md) as follow-up certified batches (NOT hidden, NOT complete).
+- **Code status:** auth + transport + **28 actions LIVE-CERTIFIED** against `mcp.eden.so`
+  (Batch 1 = 7, Batch 2 = 21; 2026-07-14). Eden stays `isExperimental: true` (hidden from the default
+  Apps catalog) until scheduling writes + polling-trigger design land. Remaining useful tools are
+  pinned in [`catalog-audit.md`](./catalog-audit.md) as follow-up certified batches (NOT hidden).
+- **Batch 2 (EDEN-5):** content / board / note / saved-content / creator-research / prompt-read
+  areas. 21 actions + 2 option sources (`eden:notes`, `eden:prompts`), all live-certified. No
+  scheduling writes, no triggers (deliberately deferred). Commits: `531ceb324` (notes),
+  `83551b2eb` (boards), `46746f0dd` (content/creator/prompt reads + actions/ subfolder split).
 - **Push status:** Nothing pushed. Nothing deployed. No DB migration (none needed).
 - **Smoke status:** 53 unit tests (mocked boundary) + a gated live-cert suite
   (`tests/integration/eden/live-cert.test.ts`, `EDEN_LIVE_CERT=1`) that exercises the real wrappers
@@ -84,6 +88,25 @@ disposable board trashed as cleanup):
 Option sources: `eden:workspaces`, `eden:boards` (boards = `canvas` items — live-cert finding).
 The remaining useful catalog is pinned in [`catalog-audit.md`](./catalog-audit.md).
 Live evidence: [`live-capture-evidence.md`](./live-capture-evidence.md).
+
+## Actions shipped (Batch 2, EDEN-5) — 21 actions, all live-certified 2026-07-14
+
+Full table (action → Eden tool → read/write) is in [`catalog-audit.md`](./catalog-audit.md) §"SHIPPED — Batch 2".
+Certified live via `tests/integration/eden/live-cert.test.ts` (`EDEN_LIVE_CERT=1`, 11 checks) across:
+
+| Area | Actions | Cert method | Cleanup |
+|---|---|---|---|
+| Notes | read/append/rewrite/rename/sticky/list/search (7) | create→read→append→rewrite→rename→sticky→list→search | board trashed |
+| Boards | list/list-items/rename/save-links (4) | create→list→rename→save-links→list-items | board trashed |
+| Content | read_content/list_captures/list_highlights (3) | read a public post (+captures/highlights) | none (reads) |
+| Creators | list_creator_lists/resolve/research/following (4) | harmless public creator (mkbhd), read-only | none (reads) |
+| Prompts | list/get/export (3) | read the account's saved prompt library | none (reads) |
+
+- **Token permission:** Read & write (writes: notes/boards; reads work with read-only too).
+- **Creator research** returns `indexingStatus` so a workflow branches instead of blocking; no
+  `wait_for_creator_index`, no follow/unfollow, no list/identity mutation.
+- **New option sources:** `eden:notes`, `eden:prompts`. Actions reorganized into
+  `integrations/eden/actions/<area>/` subfolders (50-file cap).
 
 ## Triggers shipped
 **None.** No Eden webhook/event API exists. Native (polling) triggers ship only if the live read
