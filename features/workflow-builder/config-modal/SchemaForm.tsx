@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
-import { normalizeDependsOn } from "@/contracts/actionMeta";
+import { isVisibleWhenMet, normalizeDependsOn } from "@/contracts/actionMeta";
 import { getFieldRenderer } from "./fields/_registry";
 
 /**
@@ -65,6 +65,24 @@ export interface SchemaFormProps {
    * No match → nothing is highlighted.
    */
   highlightFieldName?: string;
+  /**
+   * CONFIG-UX-SETUP-ADVANCED-1 — which slice of the field list to RENDER:
+   *
+   *   - `"setup"`    → only non-advanced fields (the default Setup tab).
+   *   - `"advanced"` → only `advanced: true` fields, each wrapped in the
+   *     override frame ("Custom value set" + Reset) so a power-user change
+   *     is visibly distinct from standard behavior.
+   *   - omitted      → legacy single-surface mode: normal fields plus the
+   *     collapsed "Advanced" `<details>` disclosure (kept for callers that
+   *     don't compose tabs).
+   *
+   * IMPORTANT: pass the FULL `fields` list regardless of section. The form
+   * keeps every field in scope for `dependsOn`/`visibleWhen` cascades and
+   * parent lookups; `section` only filters what is drawn. Both sections
+   * share the same `values`/`errors`/`onChange`, so pending edits survive
+   * tab switches by construction.
+   */
+  section?: "setup" | "advanced";
 }
 
 /**
@@ -109,6 +127,7 @@ export function SchemaForm({
   disabled,
   className,
   highlightFieldName,
+  section,
 }: SchemaFormProps) {
   const childrenByParent = React.useMemo(
     () => buildChildrenByParent(fields),
@@ -141,12 +160,26 @@ export function SchemaForm({
     (name: string, value: unknown) => {
       onChange(name, value);
       const children = childrenByParent.get(name);
-      if (!children || children.length === 0) return;
-      for (const child of children) {
-        onChange(child, undefined);
+      if (children) {
+        for (const child of children) {
+          onChange(child, undefined);
+        }
+      }
+      // CONFIG-UX-SETUP-ADVANCED-1 — when a controller change HIDES a
+      // `visibleWhen`-gated sibling, clear that sibling's value so a stale
+      // other-mode value can never trip an XOR/refinement at runtime
+      // (mirrors the dependsOn cascade and the spreadsheet mode toggle).
+      // A sibling that stays visible under the new value keeps its value.
+      const nextValues = { ...values, [name]: value };
+      for (const f of fields) {
+        if (f.visibleWhen?.field !== name) continue;
+        if (values[f.name] === undefined) continue;
+        if (!isVisibleWhenMet(f.visibleWhen, nextValues)) {
+          onChange(f.name, undefined);
+        }
       }
     },
-    [childrenByParent, onChange],
+    [childrenByParent, onChange, fields, values],
   );
 
   // SPREADSHEET-CONFIG-REDESIGN-1 — a field whose `renderedBy` names a
@@ -163,16 +196,23 @@ export function SchemaForm({
   const isCompositeManaged = (f: FieldMeta): boolean =>
     f.renderedBy !== undefined && knownFieldNames.has(f.renderedBy);
 
-  // CONFIG-UX-AUDIT-1 — developer-grade escape hatches (`advanced: true`)
-  // render inside a collapsed "Advanced" disclosure, out of the normal
-  // setup path. The disclosure defaults open when any advanced field is
-  // required or already carries a value (so nothing required/filled is
-  // ever hidden).
+  // CONFIG-UX-SETUP-ADVANCED-1 — a field hidden by an unmet top-level
+  // `visibleWhen` is not drawn (it still participates in cascades above,
+  // and its value — e.g. hydrated from a saved workflow — is preserved
+  // until the user changes the controller).
+  const isVisible = (f: FieldMeta): boolean => isVisibleWhenMet(f.visibleWhen, values);
+
+  // CONFIG-UX-AUDIT-1 → CONFIG-UX-SETUP-ADVANCED-1 — `advanced: true`
+  // fields live outside the normal setup path. In legacy single-surface
+  // mode (no `section`) they render inside a collapsed "Advanced"
+  // disclosure that defaults open when any advanced field is required or
+  // already carries a value. In section mode the config shell composes a
+  // dedicated Advanced tab instead.
   const normalFields = fields.filter(
-    (f) => f.advanced !== true && !isCompositeManaged(f),
+    (f) => f.advanced !== true && !isCompositeManaged(f) && isVisible(f),
   );
   const advancedFields = fields.filter(
-    (f) => f.advanced === true && !isCompositeManaged(f),
+    (f) => f.advanced === true && !isCompositeManaged(f) && isVisible(f),
   );
   const advancedOpenByDefault = advancedFields.some(
     (f) =>
@@ -182,7 +222,23 @@ export function SchemaForm({
         values[f.name] !== ""),
   );
 
-  const renderField = (field: FieldMeta): React.ReactNode => {
+  // CONFIG-UX-SETUP-ADVANCED-1 — an advanced value "overrides" standard
+  // behavior when it is set AND differs from the field's declared default
+  // (deep-equal values are standard behavior, not an override). Reset
+  // clears the key entirely — the runtime default / derived behavior takes
+  // back over, and the chip disappears.
+  const isOverrideActive = (field: FieldMeta): boolean => {
+    const value = values[field.name];
+    if (value === undefined || value === null || value === "") return false;
+    if (field.defaultValue === undefined) return true;
+    try {
+      return JSON.stringify(value) !== JSON.stringify(field.defaultValue);
+    } catch {
+      return true;
+    }
+  };
+
+  const renderField = (field: FieldMeta, inAdvanced = false): React.ReactNode => {
         const isHighlighted = highlightFieldName === field.name;
         // Wrap every field in a stable, queryable container so a "Go to field"
         // navigation can highlight + scroll to it. The visual ring is presentation
@@ -259,7 +315,7 @@ export function SchemaForm({
             .join(", ");
         }
 
-    return wrap(
+    const rendered = (
       <Renderer
         field={field}
         value={value}
@@ -276,9 +332,77 @@ export function SchemaForm({
         // both props.
         formValues={values}
         onChangeField={handleChange}
-      />,
+      />
     );
+
+    // CONFIG-UX-SETUP-ADVANCED-1 — in the Advanced section, a field whose
+    // value departs from standard behavior gets an explicit override chip
+    // and a one-click return to the standard/derived behavior. Reset
+    // clears the stored key (never writes a guessed value). The row sits
+    // AFTER the input inside an always-present frame so its appearance
+    // never shifts the input's tree position (a remount would drop focus
+    // mid-typing).
+    if (inAdvanced) {
+      const overrideActive = isOverrideActive(field) && !disabled;
+      return wrap(
+        <div className="flex flex-col gap-1">
+          {rendered}
+          {overrideActive ? (
+            <div
+              className="flex items-center justify-between gap-2"
+              data-testid="advanced-override-row"
+              data-override-field={field.name}
+            >
+              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                Custom value — overrides standard behavior
+              </span>
+              <button
+                type="button"
+                data-testid="advanced-override-reset"
+                data-override-field={field.name}
+                className="text-[11px] text-muted-foreground underline hover:text-foreground"
+                onClick={() => handleChange(field.name, undefined)}
+              >
+                Reset to standard
+              </button>
+            </div>
+          ) : null}
+        </div>,
+      );
+    }
+
+    return wrap(rendered);
   };
+
+  // CONFIG-UX-SETUP-ADVANCED-1 — section mode: the config shell composes
+  // Setup and Advanced as separate tabs over ONE field list + ONE pending
+  // draft. `setup` draws only the normal fields; `advanced` draws only the
+  // advanced fields (with override frames). Legacy mode (no `section`)
+  // keeps the collapsed disclosure for callers that don't compose tabs.
+  if (section === "setup") {
+    return (
+      <div className={className ?? "flex flex-col gap-4"} data-testid="schema-form">
+        {normalFields.length === 0 ? (
+          <p className="text-xs italic text-muted-foreground">
+            {fields.length === 0
+              ? "This step has no settings to fill in."
+              : "Nothing to set up here — this step is ready as-is. Optional settings live in the Advanced tab."}
+          </p>
+        ) : null}
+        {normalFields.map((f) => renderField(f))}
+      </div>
+    );
+  }
+  if (section === "advanced") {
+    return (
+      <div
+        className={className ?? "flex flex-col gap-4"}
+        data-testid="schema-form-advanced-section"
+      >
+        {advancedFields.map((f) => renderField(f, true))}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -292,7 +416,7 @@ export function SchemaForm({
           This action has no configurable fields.
         </p>
       ) : null}
-      {normalFields.map(renderField)}
+      {normalFields.map((f) => renderField(f))}
       {advancedFields.length > 0 ? (
         <details
           data-testid="schema-form-advanced"
@@ -303,7 +427,7 @@ export function SchemaForm({
             Advanced
           </summary>
           <div className="flex flex-col gap-4 pt-3">
-            {advancedFields.map(renderField)}
+            {advancedFields.map((f) => renderField(f, true))}
           </div>
         </details>
       ) : null}

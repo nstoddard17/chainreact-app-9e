@@ -774,9 +774,10 @@ describe("ConfigModalShell — native trigger open state", () => {
     await waitFor(() => {
       expect(screen.getByText("Manual Trigger")).toBeInTheDocument();
     });
-    // SchemaForm's empty-fields hint surfaces when fields[] is empty.
+    // SchemaForm's empty-fields hint surfaces when fields[] is empty
+    // (Setup-section copy — CONFIG-UX-SETUP-ADVANCED-1).
     expect(
-      screen.getByText(/this action has no configurable fields/i),
+      screen.getByText(/this step has no settings to fill in/i),
     ).toBeInTheDocument();
   });
 

@@ -1,4 +1,4 @@
-import type { FieldMeta } from "@/contracts/actionMeta";
+import { isVisibleWhenMet, type FieldMeta } from "@/contracts/actionMeta";
 import { isRequiredValueMissing } from "@/core/workflows/requiredFields";
 import { getReadinessAdapter } from "./adapters";
 import type { ConfigConnectionInput } from "./connectionInput";
@@ -196,15 +196,32 @@ function connectionCta(
  * Generic checklist: one row per required metadata field (labels only —
  * never field names). Required fields with a metadata `defaultValue` are
  * always satisfiable and never listed (mirrors `missingRequiredFields`).
+ *
+ * CONFIG-UX-SETUP-ADVANCED-1:
+ *   - A required field hidden by an unmet `visibleWhen` is not a user
+ *     decision right now — skipped (it appears the moment the mode that
+ *     reveals it is enabled), mirroring `missingRequiredFields`.
+ *   - Optional Advanced fields never appear here (only `required` fields
+ *     are listed), so Advanced settings can't make a complete node look
+ *     unfinished. The rare required Advanced field is labeled with its
+ *     location so the user knows which tab to open.
  */
 function genericChecklist(
   fields: readonly FieldMeta[],
   values: Readonly<Record<string, unknown>>,
 ): ReadinessChecklistItem[] {
   return fields
-    .filter((f) => f.required && f.defaultValue === undefined)
+    .filter(
+      (f) =>
+        f.required &&
+        f.defaultValue === undefined &&
+        isVisibleWhenMet(f.visibleWhen, values),
+    )
     .map((f) => ({
-      label: `Fill in ${f.label}`,
+      label:
+        f.advanced === true
+          ? `Fill in ${f.label} (in the Advanced tab)`
+          : `Fill in ${f.label}`,
       done: !isRequiredValueMissing(values[f.name]),
     }));
 }

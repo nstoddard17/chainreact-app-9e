@@ -123,6 +123,16 @@ export const FieldTypeSchema = z.enum([
   // user typed is lost, and the config modal's Save gate blocks until
   // it is fixed (friendly copy only; no parser/renderer internals).
   "json",
+  // CONFIG-UX-SETUP-ADVANCED-1 — `object`: a SINGLE small fixed-key object
+  // edited as labeled sub-fields (one "row" of an object-list, declared by
+  // the same `itemFields`). Replaces required/optional paste-JSON for flat
+  // shapes (Mailchimp audience contact + campaign defaults, Shopify order
+  // addresses, Stripe automaticTax). Commits a REAL
+  // `Record<string, string | number | boolean>`; empty optional sub-fields
+  // are omitted; an entirely-empty object commits `undefined`. Keys present
+  // in a SAVED value that the meta doesn't declare are preserved verbatim
+  // (never dropped by the UI). Nested / union grammars stay on `json`.
+  "object",
   // SPREADSHEET-CONFIG-REDESIGN-1 — `spreadsheet-rows`: the column-aware
   // row editor for spreadsheet append/update actions (first consumer:
   // `microsoft-excel:add_row`). One composite editor owns BOTH save
@@ -190,6 +200,106 @@ export type FieldNumericBounds = z.infer<typeof FieldNumericBoundsSchema>;
  */
 export const FieldSensitivitySchema = z.enum(["secret", "connection", "recipient"]);
 export type FieldSensitivity = z.infer<typeof FieldSensitivitySchema>;
+
+/**
+ * CONFIG-UX-SETUP-ADVANCED-1 — top-level conditional visibility for a field.
+ *
+ * Shows the field only while a SIBLING field's value matches. Backs the
+ * "specialized mode reveals its own settings" pattern (e.g. a boolean toggle
+ * that reveals its detail fields, or a select whose choice enables extra
+ * options) so uncommon settings stay out of the common path without being
+ * demoted to Advanced.
+ *
+ * Semantics (see `isVisibleWhenMet`):
+ *   - `valueTruthy: true`  → visible only while the sibling is boolean `true`.
+ *   - `valueTruthy: false` → visible only while the sibling is NOT `true`.
+ *   - `valueIn: [...]`     → visible only while the sibling is one of the
+ *     listed string values.
+ *   - Both set → both must hold.
+ *
+ * Interaction contracts:
+ *   - Readiness: a `required` field hidden by an unmet `visibleWhen` is NOT a
+ *     setup gap (`core/workflows/requiredFields.ts` evaluates the condition
+ *     against the node config on both client and server). It becomes required
+ *     the moment the mode that reveals it is enabled.
+ *   - Cascade: when the CONTROLLER field changes to a value that hides a
+ *     dependent, SchemaForm clears the hidden dependent's value (mirrors the
+ *     `dependsOn` cascade and spreadsheet mode-toggle precedent) so a stale
+ *     other-mode value can never trip an XOR/refinement at runtime. Values
+ *     hydrated from a saved workflow are untouched until the user edits the
+ *     controller.
+ *   - Single hop: the controller must not itself declare `visibleWhen`
+ *     (enforced by the meta-level superRefine) — no visibility chains.
+ */
+export const FieldVisibilityConditionSchema = z
+  .object({
+    /** Sibling field (same meta) whose value gates this field's visibility. */
+    field: z.string().min(1).max(128),
+    /** Visible while the sibling's value is one of these strings. */
+    valueIn: z.array(z.string().min(1).max(256)).min(1).max(64).optional(),
+    /** Visible while the sibling is boolean `true` (or NOT `true` when false). */
+    valueTruthy: z.boolean().optional(),
+  })
+  .strict()
+  .refine(
+    (w) => w.valueIn !== undefined || w.valueTruthy !== undefined,
+    "visibleWhen needs `valueIn` or `valueTruthy`.",
+  );
+export type FieldVisibilityCondition = z.infer<typeof FieldVisibilityConditionSchema>;
+
+/**
+ * Evaluate a top-level `visibleWhen` condition against the current config
+ * values. Shared by SchemaForm (render + cascade), the readiness core
+ * (`missingRequiredFields`), and the config readiness banner so "visible"
+ * means exactly one thing everywhere. A field with no condition is always
+ * visible.
+ */
+export function isVisibleWhenMet(
+  condition: FieldVisibilityCondition | undefined,
+  values: Readonly<Record<string, unknown>>,
+): boolean {
+  if (!condition) return true;
+  const raw = values[condition.field];
+  if (condition.valueTruthy !== undefined) {
+    const isTrue = raw === true;
+    if (condition.valueTruthy ? !isTrue : isTrue) return false;
+  }
+  if (condition.valueIn !== undefined) {
+    if (typeof raw !== "string" || !condition.valueIn.includes(raw)) return false;
+  }
+  return true;
+}
+
+/**
+ * Shared meta-level validation for top-level `visibleWhen` references —
+ * used by BOTH ActionMetaSchema and TriggerMetaSchema superRefines:
+ *   - the controller must be a known sibling field, and
+ *   - the controller must not itself be conditionally visible (single hop).
+ */
+export function checkVisibleWhenReferences(
+  fields: readonly FieldMeta[],
+  ctx: z.RefinementCtx,
+): void {
+  const byName = new Map(fields.map((f) => [f.name, f]));
+  for (let i = 0; i < fields.length; i++) {
+    const w = fields[i]!.visibleWhen;
+    if (!w) continue;
+    const controller = byName.get(w.field);
+    if (!controller) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fields", i, "visibleWhen"],
+        message: `Field '${fields[i]!.name}' is gated by unknown field '${w.field}'.`,
+      });
+    } else if (controller.visibleWhen) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fields", i, "visibleWhen"],
+        message: `Field '${fields[i]!.name}' is gated by '${w.field}', which is itself conditionally visible (chains are not allowed).`,
+      });
+    }
+  }
+}
 
 /**
  * CONFIG-UX-AUDIT-1 — sub-field of an `object-list` row.
@@ -429,6 +539,14 @@ export const FieldMetaSchema = z
      */
     advanced: z.boolean().optional(),
     /**
+     * CONFIG-UX-SETUP-ADVANCED-1 — show this field only while a sibling
+     * field's value matches (specialized-mode reveal). See
+     * `FieldVisibilityConditionSchema` for semantics, readiness interaction,
+     * and the controller-change clearing cascade. Cross-field reference
+     * validity is enforced by the meta-level superRefines.
+     */
+    visibleWhen: FieldVisibilityConditionSchema.optional(),
+    /**
      * SPREADSHEET-CONFIG-REDESIGN-1 — for `spreadsheet-rows` fields, the
      * NAME of the sibling field that stores the batch ("Several rows")
      * shape (`Array<Record<columnHeader, cellValue>>`). The composite
@@ -594,18 +712,26 @@ export const FieldMetaSchema = z
         message: "`fileArrayMaxItems` is only valid on `file-array` fields.",
       });
     }
-    if (field.type === "object-list" && !field.itemFields) {
+    if (
+      (field.type === "object-list" || field.type === "object") &&
+      !field.itemFields
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["itemFields"],
-        message: "`object-list` fields must declare `itemFields`.",
+        message: `\`${field.type}\` fields must declare \`itemFields\`.`,
       });
     }
-    if (field.itemFields && field.type !== "object-list") {
+    if (
+      field.itemFields &&
+      field.type !== "object-list" &&
+      field.type !== "object"
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["itemFields"],
-        message: "`itemFields` is only valid on `object-list` fields.",
+        message:
+          "`itemFields` is only valid on `object-list` or `object` fields.",
       });
     }
     if (field.itemFields) {
@@ -638,6 +764,17 @@ export const FieldMetaSchema = z
         path: ["listMaxItems"],
         message:
           "`listMaxItems` is only valid on `object-list` or `keyvalue-list` fields.",
+      });
+    }
+
+    // CONFIG-UX-SETUP-ADVANCED-1 — a field can't gate its own visibility.
+    // Cross-field checks (known sibling, no chains) live in the meta-level
+    // superRefine via `checkVisibleWhenReferences`.
+    if (field.visibleWhen?.field === field.name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["visibleWhen"],
+        message: `Field '${field.name}' cannot gate its own visibility.`,
       });
     }
 
@@ -901,6 +1038,10 @@ export const ActionMetaSchema = z
         }
       }
     }
+
+    // CONFIG-UX-SETUP-ADVANCED-1 — visibleWhen must reference a known,
+    // unconditionally-visible sibling.
+    checkVisibleWhenReferences(meta.fields, ctx);
 
     // SPREADSHEET-CONFIG-REDESIGN-1 — composite-editor references must
     // resolve to known siblings, and a `renderedBy` target must be a

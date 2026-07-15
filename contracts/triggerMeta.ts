@@ -3,6 +3,7 @@ import {
   ActionCategorySchema,
   FieldMetaSchema,
   OutputMetaSchema,
+  checkVisibleWhenReferences,
   normalizeDependsOn,
   type FieldMeta,
   type OutputMeta,
@@ -94,6 +95,9 @@ export const TriggerMetaSchema = z
         }
       }
     }
+    // CONFIG-UX-SETUP-ADVANCED-1 — visibleWhen must reference a known,
+    // unconditionally-visible sibling (shared with ActionMetaSchema).
+    checkVisibleWhenReferences(meta.fields, ctx);
   });
 export type TriggerMeta = z.infer<typeof TriggerMetaSchema>;
 

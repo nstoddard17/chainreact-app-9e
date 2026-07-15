@@ -183,23 +183,25 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
   expect(action.provider).toBe("notion");
   expect(action.type).toBe("query_database");
 
-  // 3. Open config rail. Verify the four expected controls render and
-  //    startCursor is NOT in the form.
+  // 3. Open config rail. Setup shows databaseId + pageSize; filter and
+  //    sorts are `advanced: true` and live in the Advanced tab
+  //    (CONFIG-UX-SETUP-ADVANCED-1). startCursor is NOT in the form.
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
       screen.getByRole("textbox", { name: /^database id$/i }),
     ).toBeInTheDocument();
   });
-  expect(screen.getByRole("textbox", { name: /^filter$/i })).toBeInTheDocument();
-  expect(screen.getByRole("textbox", { name: /^sorts$/i })).toBeInTheDocument();
   expect(
     screen.getByRole("spinbutton", { name: /^page size$/i }),
   ).toBeInTheDocument();
+  // Advanced-only fields are not visible on Setup.
+  expect(screen.queryByRole("textbox", { name: /^filter$/i })).toBeNull();
+  expect(screen.queryByRole("textbox", { name: /^sorts$/i })).toBeNull();
   // startCursor is server-managed and intentionally absent from meta.
   expect(screen.queryByRole("textbox", { name: /start cursor/i })).toBeNull();
 
-  // 4. Type databaseId.
+  // 4. Type databaseId (Setup tab).
   await user.type(
     screen.getByRole("textbox", { name: /^database id$/i }),
     DATABASE_ID,
@@ -208,7 +210,18 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
     DATABASE_ID,
   );
 
-  // 5. Paste filter JSON. Textarea stores the literal string.
+  // 5. Switch to Advanced — filter + sorts render there; startCursor is
+  //    absent from BOTH tabs.
+  await user.click(screen.getByRole("tab", { name: /advanced/i }));
+  await waitFor(() => {
+    expect(
+      screen.getByRole("textbox", { name: /^filter$/i }),
+    ).toBeInTheDocument();
+  });
+  expect(screen.getByRole("textbox", { name: /^sorts$/i })).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: /start cursor/i })).toBeNull();
+
+  //    Paste filter JSON. Textarea stores the literal string.
   await user.click(screen.getByRole("textbox", { name: /^filter$/i }));
   await user.paste(FILTER_JSON);
   expect(useConfigSlice.getState().drafts[action.id]!.values.filter).toEqual(JSON.parse(FILTER_JSON));
@@ -218,7 +231,10 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
   await user.paste(SORTS_JSON);
   expect(useConfigSlice.getState().drafts[action.id]!.values.sorts).toEqual(JSON.parse(SORTS_JSON));
 
-  // 7. Set pageSize. NumberField parses integer-typed bounds.
+  // 7. Back to Setup to set pageSize — both tabs share the same draft,
+  //    so the Advanced values survive the switch. NumberField parses
+  //    integer-typed bounds.
+  await user.click(screen.getByRole("tab", { name: /^setup$/i }));
   await user.type(
     screen.getByRole("spinbutton", { name: /^page size$/i }),
     "50",

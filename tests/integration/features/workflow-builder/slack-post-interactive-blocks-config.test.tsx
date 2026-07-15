@@ -220,34 +220,46 @@ it("end-to-end: pick channel + paste Block Kit JSON + type notification text →
   expect(action.provider).toBe("slack");
   expect(action.type).toBe("post_interactive_blocks");
 
-  // 3. Open config rail.
+  // 3. Open config rail. channel + notification text live on Setup;
+  //    blocks is `advanced: true` and lives in the Advanced tab
+  //    (CONFIG-UX-SETUP-ADVANCED-1) — not visible on Setup.
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
       screen.getByRole("combobox", { name: /^channel$/i }),
     ).toBeInTheDocument();
   });
-  expect(screen.getByRole("textbox", { name: /^blocks$/i })).toBeInTheDocument();
   expect(
     screen.getByRole("textbox", { name: /^notification text$/i }),
   ).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: /^blocks$/i })).toBeNull();
 
-  // 4. Pick channel.
+  // 4. Pick channel (Setup tab).
   await pickComboboxOption(user, /^channel$/i, "#general");
   expect(useConfigSlice.getState().drafts[action.id]!.values.channel).toBe(
     "C01ABC23DEF",
   );
 
-  // 5. Paste Block Kit JSON into the advanced json field. The renderer
-  //    PARSES it and commits the REAL array the runtime z.array schema
-  //    expects (the paste-JSON era saved a string it rejected).
+  // 5. Switch to Advanced and paste Block Kit JSON into the advanced
+  //    json field. The renderer PARSES it and commits the REAL array the
+  //    runtime z.array schema expects (the paste-JSON era saved a string
+  //    it rejected).
+  await user.click(screen.getByRole("tab", { name: /advanced/i }));
+  await waitFor(() => {
+    expect(
+      screen.getByRole("textbox", { name: /^blocks$/i }),
+    ).toBeInTheDocument();
+  });
   await user.click(screen.getByRole("textbox", { name: /^blocks$/i }));
   await user.paste(BLOCKS_JSON);
   expect(useConfigSlice.getState().drafts[action.id]!.values.blocks).toEqual(
     BLOCKS_PARSED,
   );
 
-  // 6. Type the optional notification-preview text.
+  // 6. Back to Setup for the optional notification-preview text — both
+  //    tabs share the same draft, so the Advanced blocks value survives
+  //    the switch.
+  await user.click(screen.getByRole("tab", { name: /^setup$/i }));
   await user.type(
     screen.getByRole("textbox", { name: /^notification text$/i }),
     "Build is green",
@@ -317,6 +329,8 @@ it("invalid Block Kit JSON shows friendly copy, blocks Modal Save, and never lea
   });
   await user.click(screen.getByText("Post Interactive Blocks"));
   await openLastNodeOfKind("action");
+  // blocks is advanced-only — switch to the Advanced tab to reach it.
+  await user.click(await screen.findByRole("tab", { name: /advanced/i }));
   await waitFor(() => {
     expect(screen.getByRole("textbox", { name: /^blocks$/i })).toBeInTheDocument();
   });
@@ -337,6 +351,17 @@ it("invalid Block Kit JSON shows friendly copy, blocks Modal Save, and never lea
   expect(document.body.textContent).not.toMatch(
     /SyntaxError|JSON\.parse|zod|renderer|unexpected token/i,
   );
+
+  // The json-blocking footer lives OUTSIDE the tabs — it stays visible
+  // (and Save stays disabled) even after switching back to Setup.
+  await user.click(screen.getByRole("tab", { name: /^setup$/i }));
+  expect(screen.getByTestId("config-modal-json-blocking")).toHaveTextContent(
+    /fix .blocks. before saving/i,
+  );
+  expect(
+    within(modal).getByRole("button", { name: /^save$/i }),
+  ).toBeDisabled();
+  await user.click(screen.getByRole("tab", { name: /advanced/i }));
 
   // Valid JSON but WRONG SHAPE (object where the schema wants a list).
   await user.clear(screen.getByRole("textbox", { name: /^blocks$/i }));
@@ -374,6 +399,8 @@ it("a whole-value {{...}} variable stays a string (runtime resolver supplies the
     .getState()
     .pendingNodes.find((n) => n.kind === "action")!;
   await openLastNodeOfKind("action");
+  // blocks is advanced-only — switch to the Advanced tab to reach it.
+  await user.click(await screen.findByRole("tab", { name: /advanced/i }));
   await waitFor(() => {
     expect(screen.getByRole("textbox", { name: /^blocks$/i })).toBeInTheDocument();
   });

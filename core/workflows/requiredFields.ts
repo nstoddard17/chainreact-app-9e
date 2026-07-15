@@ -1,4 +1,9 @@
-import type { ActionMeta, FieldMeta } from "@/contracts/actionMeta";
+import {
+  isVisibleWhenMet,
+  type ActionMeta,
+  type FieldMeta,
+  type FieldVisibilityCondition,
+} from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowNode } from "@/contracts/workflow";
 
@@ -38,6 +43,16 @@ export interface NodeTypeRequirement {
    * handler schema (a required `enum().default("ROWS")` is runnable as-is).
    */
   readonly hasDefault?: boolean;
+  /**
+   * CONFIG-UX-SETUP-ADVANCED-1 — the field's top-level `visibleWhen`
+   * condition, when it declares one. A required field whose condition is NOT
+   * met by the node's current config is not shown to the user and is not a
+   * readiness gap (its runtime requirement only applies inside the mode that
+   * reveals it). Evaluated by `missingRequiredFields` via the shared
+   * `isVisibleWhenMet` so client and server agree. Plain data — serializes
+   * with the rest of the map (`page.tsx` threads it RSC→client).
+   */
+  readonly visibleWhen?: FieldVisibilityCondition;
 }
 
 /** Required-field requirements for one node type, keyed by `provider:type`. */
@@ -75,6 +90,7 @@ export function buildRequiredFieldsByType(
           name: f.name,
           label: f.label,
           hasDefault: f.defaultValue !== undefined,
+          ...(f.visibleWhen ? { visibleWhen: f.visibleWhen } : {}),
         })),
     };
   }
@@ -127,7 +143,14 @@ export function missingRequiredFields(
   if (key === ROUTER_NODE_TYPE) return [];
   const reqs = requiredFieldsByType?.[key];
   if (!reqs) return [];
+  const config = node.config ?? {};
   return reqs.requiredFields.filter(
-    (f) => !f.hasDefault && isRequiredValueMissing((node.config ?? {})[f.name]),
+    (f) =>
+      !f.hasDefault &&
+      // CONFIG-UX-SETUP-ADVANCED-1 — a required field hidden by an unmet
+      // `visibleWhen` is not a gap; it becomes required once the mode that
+      // reveals it is enabled (same evaluation the builder form uses).
+      isVisibleWhenMet(f.visibleWhen, config) &&
+      isRequiredValueMissing(config[f.name]),
   );
 }

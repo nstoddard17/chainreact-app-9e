@@ -207,8 +207,21 @@ it("end-to-end: paste parent + properties JSON + optional icon → Modal Save (d
   expect(action.provider).toBe("notion");
   expect(action.type).toBe("create_page");
 
-  // 3. Open config rail.
+  // 3. Open config rail. Every create_page field is `advanced: true`,
+  //    so the Setup tab shows NONE of them — they all live in the
+  //    Advanced tab (CONFIG-UX-SETUP-ADVANCED-1).
   await openLastNodeOfKind("action");
+  const advancedTab = await screen.findByRole("tab", { name: /advanced/i });
+  expect(screen.queryByRole("textbox", { name: /^parent$/i })).toBeNull();
+  expect(screen.queryByRole("textbox", { name: /^properties$/i })).toBeNull();
+  expect(
+    screen.queryByRole("textbox", { name: /^children blocks$/i }),
+  ).toBeNull();
+  expect(screen.queryByRole("textbox", { name: /^icon$/i })).toBeNull();
+  expect(screen.queryByRole("textbox", { name: /^cover$/i })).toBeNull();
+
+  // Switch to Advanced — all five JSON fields render there.
+  await user.click(advancedTab);
   await waitFor(() => {
     expect(screen.getByRole("textbox", { name: /^parent$/i })).toBeInTheDocument();
   });

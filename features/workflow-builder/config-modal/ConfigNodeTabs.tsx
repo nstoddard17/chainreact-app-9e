@@ -38,10 +38,18 @@ export function ConfigNodeTabBar({
   tabs,
   activeTab,
   onSelect,
+  advancedActiveCount,
 }: {
   tabs: readonly ConfigNodeTab[];
   activeTab: ConfigNodeTab;
   onSelect: (tab: ConfigNodeTab) => void;
+  /**
+   * CONFIG-UX-SETUP-ADVANCED-1 — number of Advanced settings currently set
+   * (custom values). Rendered as a small count chip on the Advanced tab so
+   * it is visible FROM Setup that non-standard behavior is active. Zero /
+   * undefined renders no chip.
+   */
+  advancedActiveCount?: number;
 }) {
   return (
     <nav
@@ -52,6 +60,10 @@ export function ConfigNodeTabBar({
     >
       {tabs.map((tab) => {
         const active = tab === activeTab;
+        const showBadge =
+          tab === "advanced" &&
+          advancedActiveCount !== undefined &&
+          advancedActiveCount > 0;
         return (
           <button
             key={tab}
@@ -59,13 +71,22 @@ export function ConfigNodeTabBar({
             role="tab"
             aria-selected={active ? "true" : "false"}
             onClick={() => onSelect(tab)}
-            className={`px-3 py-1.5 text-xs transition-colors ${
+            className={`flex items-center gap-1 px-3 py-1.5 text-xs transition-colors ${
               active
                 ? "border-b-2 border-primary font-medium text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {TAB_LABEL[tab]}
+            {showBadge ? (
+              <span
+                data-testid="config-tab-advanced-badge"
+                title={`${advancedActiveCount} Advanced setting${advancedActiveCount === 1 ? "" : "s"} set`}
+                className="rounded-full bg-amber-500/20 px-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400"
+              >
+                {advancedActiveCount}
+              </span>
+            ) : null}
           </button>
         );
       })}

@@ -307,10 +307,33 @@ export function ConfigModalShell() {
       })
     : null;
 
-  // BUILDER-CONFIG-TABS-1 — Advanced is shown ONLY when the node actually has
-  // advanced options. There is no advanced-field concept in the metadata yet, so
-  // it is omitted (never a dead tab); add it here once such options exist.
-  const hasAdvancedOptions = false;
+  // CONFIG-UX-SETUP-ADVANCED-1 — Advanced is shown ONLY when the node's
+  // metadata actually declares advanced fields (`advanced: true`, excluding
+  // composite-managed siblings) — never a dead tab. Both tabs render over
+  // the SAME pending draft (values/errors/updateField), so switching tabs
+  // never discards unsaved edits, and a Setup edit can never erase an
+  // unrelated Advanced value (per-field writes only).
+  const advancedFields = (activeMeta?.fields ?? []).filter(
+    (f) =>
+      f.advanced === true &&
+      !(f.renderedBy !== undefined &&
+        activeMeta!.fields.some((s) => s.name === f.renderedBy)),
+  );
+  const hasAdvancedOptions = advancedFields.length > 0;
+  // Count of advanced settings currently holding a custom value — surfaces
+  // as a chip on the Advanced tab so non-standard behavior is visible from
+  // Setup. Values equal to the field's declared default are standard, not
+  // custom.
+  const advancedActiveCount = advancedFields.filter((f) => {
+    const v = (values as Record<string, unknown>)[f.name];
+    if (v === undefined || v === null || v === "") return false;
+    if (f.defaultValue === undefined) return true;
+    try {
+      return JSON.stringify(v) !== JSON.stringify(f.defaultValue);
+    } catch {
+      return true;
+    }
+  }).length;
   const visibleTabs: ConfigNodeTab[] = hasAdvancedOptions
     ? ["setup", "test", "data", "advanced"]
     : ["setup", "test", "data"];
@@ -354,12 +377,37 @@ export function ConfigModalShell() {
         */}
       </header>
 
-      <ConfigNodeTabBar tabs={visibleTabs} activeTab={currentTab} onSelect={setActiveTab} />
+      <ConfigNodeTabBar
+        tabs={visibleTabs}
+        activeTab={currentTab}
+        onSelect={setActiveTab}
+        advancedActiveCount={advancedActiveCount}
+      />
 
       {currentTab === "test" ? (
         <ConfigTabEmptyState tab="test" />
       ) : currentTab === "data" ? (
         <ConfigTabEmptyState tab="data" />
+      ) : currentTab === "advanced" && activeMeta ? (
+        <section
+          aria-label="Advanced settings"
+          data-testid="config-advanced-tab"
+          className="flex flex-col gap-3"
+        >
+          <p className="rounded bg-muted/40 px-2 py-1.5 text-[11px] text-muted-foreground">
+            Settings for specialized workflows. Changing these can override or
+            alter the behavior chosen in Setup. Use &ldquo;Reset to
+            standard&rdquo; to return a setting to its default behavior.
+          </p>
+          <SchemaForm
+            fields={activeMeta.fields}
+            values={values}
+            errors={errors}
+            onChange={(name, value) => updateField({ name, value })}
+            section="advanced"
+            {...(focusFieldKey ? { highlightFieldName: focusFieldKey } : {})}
+          />
+        </section>
       ) : (
       <section aria-label="Setup fields" className="flex flex-col gap-3">
         {readiness ? <NodeConfigReadinessBanner readiness={readiness} /> : null}
@@ -419,6 +467,7 @@ export function ConfigModalShell() {
             values={values}
             errors={errors}
             onChange={(name, value) => updateField({ name, value })}
+            section="setup"
             {...(focusFieldKey ? { highlightFieldName: focusFieldKey } : {})}
           />
         )}

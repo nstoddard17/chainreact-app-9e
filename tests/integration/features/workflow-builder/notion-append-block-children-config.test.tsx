@@ -177,7 +177,9 @@ it("end-to-end: type blockId + paste children JSON → Modal Save (draft only) �
   expect(action.provider).toBe("notion");
   expect(action.type).toBe("append_block_children");
 
-  // 3. Open config rail.
+  // 3. Open config rail. blockId lives on Setup; children is
+  //    `advanced: true` and lives in the Advanced tab
+  //    (CONFIG-UX-SETUP-ADVANCED-1) — not visible on Setup.
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
@@ -185,11 +187,11 @@ it("end-to-end: type blockId + paste children JSON → Modal Save (draft only) �
     ).toBeInTheDocument();
   });
   expect(
-    screen.getByRole("textbox", { name: /^children blocks$/i }),
-  ).toBeInTheDocument();
+    screen.queryByRole("textbox", { name: /^children blocks$/i }),
+  ).toBeNull();
 
-  // 4. Type blockId. (Schema accepts both block ids and page ids; the
-  //    integration test just round-trips a placeholder.)
+  // 4. Type blockId (Setup tab). (Schema accepts both block ids and
+  //    page ids; the integration test just round-trips a placeholder.)
   await user.type(
     screen.getByRole("textbox", { name: /^block \/ page id$/i }),
     BLOCK_ID,
@@ -198,8 +200,15 @@ it("end-to-end: type blockId + paste children JSON → Modal Save (draft only) �
     BLOCK_ID,
   );
 
-  // 5. Paste children JSON. The textarea stores the literal string —
-  //    no UI-side JSON parsing.
+  // 5. Switch to Advanced — children renders there. Paste children
+  //    JSON. The textarea stores the literal string — no UI-side JSON
+  //    parsing.
+  await user.click(screen.getByRole("tab", { name: /advanced/i }));
+  await waitFor(() => {
+    expect(
+      screen.getByRole("textbox", { name: /^children blocks$/i }),
+    ).toBeInTheDocument();
+  });
   await user.click(screen.getByRole("textbox", { name: /^children blocks$/i }));
   await user.paste(CHILDREN_JSON);
   expect(useConfigSlice.getState().drafts[action.id]!.values.children).toEqual(JSON.parse(CHILDREN_JSON));

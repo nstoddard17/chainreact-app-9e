@@ -15,6 +15,7 @@ import { TemporalField } from "./TemporalField";
 import { TimezoneField } from "./TimezoneField";
 import { LocationField } from "./LocationField";
 import { ObjectListField } from "./ObjectListField";
+import { ObjectField } from "./ObjectField";
 import { KeyValueListField } from "./KeyValueListField";
 import { JsonField } from "./JsonField";
 import { SpreadsheetRowsField } from "./spreadsheet/SpreadsheetRowsField";
@@ -58,6 +59,9 @@ export const FIELD_RENDERERS: Readonly<Record<FieldType, FieldComponent>> =
     // CONFIG-UX-AUDIT-1 structured editors (replace paste-JSON textareas).
     "object-list": ObjectListField,
     "keyvalue-list": KeyValueListField,
+    // CONFIG-UX-SETUP-ADVANCED-1 — single fixed-key object as labeled
+    // sub-fields (one object-list "row"); replaces flat-object JSON entry.
+    object: ObjectField,
     // CONFIG-UX-AUDIT-2 — the advanced JSON escape hatch (commits parsed
     // values / whole-value variables; never raw JSON strings as final).
     json: JsonField,

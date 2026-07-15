@@ -96,17 +96,17 @@ describe("builder config copy guard (CONFIG-UX-AUDIT-1)", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("advanced JSON escape hatches use the `json` field type with a declared shape (CONFIG-UX-AUDIT-2)", () => {
-    // Every advanced field must be a `json` field — the ONLY renderer
-    // that parses/validates to the runtime schema's shape instead of
-    // saving a raw string. `jsonShape` must be explicit (array/object)
-    // so the renderer + Save gate validate against the real contract.
-    const advanced = all.filter(({ field }) => field.advanced === true);
-    expect(advanced.length).toBeGreaterThan(0);
-    for (const { metaKey, field } of advanced) {
-      expect(`${metaKey}.${field.name}:${field.type}`).toBe(
-        `${metaKey}.${field.name}:json`,
-      );
+  it("advanced JSON escape hatches declare an explicit shape (CONFIG-UX-AUDIT-2 → CONFIG-UX-SETUP-ADVANCED-1)", () => {
+    // CONFIG-UX-SETUP-ADVANCED-1 deliberately widened `advanced: true`
+    // from "JSON escape hatch only" to "any power-user control that
+    // belongs in the Advanced tab" (pagination cursors, tuning knobs,
+    // developer toggles). The invariant that REMAINS: every `json`-typed
+    // field must declare an explicit array/object shape so the renderer +
+    // Save gate validate against the real runtime contract ("any" is a
+    // documented escape valve with no consumer — not allowed in metas).
+    const jsonFields = all.filter(({ field }) => field.type === "json");
+    expect(jsonFields.length).toBeGreaterThan(0);
+    for (const { field } of jsonFields) {
       expect(["array", "object"]).toContain(field.jsonShape);
     }
   });
