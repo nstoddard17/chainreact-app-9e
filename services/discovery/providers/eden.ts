@@ -15,6 +15,14 @@ import { edenCreateBoardMeta } from "@/integrations/eden/actions/createBoard.met
 import { edenCreateNoteMeta } from "@/integrations/eden/actions/createNote.meta";
 import { edenReadBoardMeta } from "@/integrations/eden/actions/readBoard.meta";
 import { edenTrashBoardMeta } from "@/integrations/eden/actions/trashBoard.meta";
+// Batch 2 — notes area (EDEN-5).
+import { edenReadNoteMeta } from "@/integrations/eden/actions/readNote.meta";
+import { edenAppendToNoteMeta } from "@/integrations/eden/actions/appendToNote.meta";
+import { edenUpdateNoteMeta } from "@/integrations/eden/actions/updateNote.meta";
+import { edenRenameNoteMeta } from "@/integrations/eden/actions/renameNote.meta";
+import { edenCreateStickyNoteMeta } from "@/integrations/eden/actions/createStickyNote.meta";
+import { edenListNotesMeta } from "@/integrations/eden/actions/listNotes.meta";
+import { edenSearchItemsMeta } from "@/integrations/eden/actions/searchItems.meta";
 
 export const EDEN_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   edenListWorkspacesMeta,
@@ -24,4 +32,12 @@ export const EDEN_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   edenReadBoardMeta,
   edenCreateNoteMeta,
   edenTrashBoardMeta,
+  // Batch 2 — notes.
+  edenReadNoteMeta,
+  edenAppendToNoteMeta,
+  edenUpdateNoteMeta,
+  edenRenameNoteMeta,
+  edenCreateStickyNoteMeta,
+  edenListNotesMeta,
+  edenSearchItemsMeta,
 ];

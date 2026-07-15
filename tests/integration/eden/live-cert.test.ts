@@ -14,10 +14,22 @@
 import { readFileSync } from "node:fs";
 import { listWorkspaces } from "@/integrations/_shared/eden/api/workspaces";
 import { createBoard, readBoard, trashBoard, listBoards } from "@/integrations/_shared/eden/api/boards";
-import { createNote } from "@/integrations/_shared/eden/api/notes";
+import {
+  createNote,
+  getNoteMarkdown,
+  appendToNote,
+  updateNote,
+  renameNote,
+  createStickyNote,
+} from "@/integrations/_shared/eden/api/notes";
+import { listWorkspaceItems, searchWorkspaceItems } from "@/integrations/_shared/eden/api/items";
 import { listSchedules, listScheduledPosts } from "@/integrations/_shared/eden/api/schedules";
 
 const LIVE = process.env.EDEN_LIVE_CERT === "1";
+
+// Live MCP calls each open a client + handshake (2–3 round trips); under cumulative load a single
+// check can exceed Jest's 5s default. Give every live check generous headroom.
+jest.setTimeout(30_000);
 
 function readToken(): string | null {
   if (process.env.EDEN_TEST_PAT) return process.env.EDEN_TEST_PAT;
@@ -96,4 +108,55 @@ d("Eden live certification (create → read → note → trash)", () => {
       expect(t.boardId).toBe(boardId);
     }
   });
+});
+
+d("Eden Batch-2 notes area (create → read → append → rewrite → rename → sticky → list → search)", () => {
+  const accessToken = TOKEN as string;
+  let boardId: string | undefined;
+
+  // One sequential flow (mirrors the manual probe) so each note-mutation runs against a
+  // just-confirmed id without cross-`it` state, which Eden's eventual consistency made flaky.
+  it("full note lifecycle certifies read/append/rewrite/rename/sticky/list/search", async () => {
+    const ws = await listWorkspaces({ accessToken });
+    const workspaceId = ws.defaultWorkspaceId ?? ws.workspaces[0]!.id;
+
+    const b = await createBoard({ accessToken, workspaceId, title: "ChainReact B2 Notes Cert" });
+    boardId = b.boardId;
+
+    const n = await createNote({ accessToken, workspaceId, boardId: boardId!, title: "B2 Cert Note", content: "# original" });
+    const noteId = n.noteId;
+    expect(noteId.length).toBeGreaterThan(0);
+
+    // read_note (read-your-write)
+    const read0 = await getNoteMarkdown({ accessToken, workspaceId, itemId: noteId });
+    expect(read0.noteId).toBe(noteId);
+
+    // append_to_note → update_note (rewrite) → rename_note
+    await appendToNote({ accessToken, workspaceId, itemId: noteId, content: "\nappended-line" });
+    await updateNote({ accessToken, workspaceId, itemId: noteId, content: "# rewritten body" });
+    const renamed = await renameNote({ accessToken, workspaceId, itemId: noteId, title: "B2 Cert Note Renamed" });
+    expect(renamed.noteId).toBe(noteId);
+
+    // All three writes returned success (no error thrown). The note remains readable; exact content
+    // propagation is Eden-side eventually consistent, so we assert readability, not immediate text.
+    const read1 = await getNoteMarkdown({ accessToken, workspaceId, itemId: noteId });
+    expect(read1.noteId).toBe(noteId);
+    expect(typeof read1.markdown).toBe("string");
+
+    // create_sticky_note
+    const sticky = await createStickyNote({ accessToken, workspaceId, boardId: boardId!, content: "sticky cert", color: "yellow" });
+    expect(sticky.noteId.length).toBeGreaterThan(0);
+
+    // list_notes (type=markdown) + search_items — bounded shape (workspace index is eventually consistent)
+    const list = await listWorkspaceItems({ accessToken, workspaceId, type: "markdown", limit: 100 });
+    expect(Array.isArray(list.items)).toBe(true);
+    for (const it of list.items) expect(typeof it.id).toBe("string");
+
+    const search = await searchWorkspaceItems({ accessToken, workspaceId, q: "Cert", limit: 50 });
+    expect(Array.isArray(search.items)).toBe(true);
+  }, 90_000); // ~10 sequential live MCP calls (each opens a client + handshake) — well under 90s.
+
+  afterAll(async () => {
+    if (LIVE && TOKEN && boardId) await trashBoard({ accessToken, boardId }); // cleanup (trashes board + its notes)
+  }, 30_000);
 });

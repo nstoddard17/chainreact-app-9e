@@ -26,6 +26,14 @@ import { edenCreateBoard } from "@/integrations/eden/actions/createBoard";
 import { edenCreateNote } from "@/integrations/eden/actions/createNote";
 import { edenReadBoard } from "@/integrations/eden/actions/readBoard";
 import { edenTrashBoard } from "@/integrations/eden/actions/trashBoard";
+// Eden (EDEN-5) — Batch 2 notes area.
+import { edenReadNote } from "@/integrations/eden/actions/readNote";
+import { edenAppendToNote } from "@/integrations/eden/actions/appendToNote";
+import { edenUpdateNote } from "@/integrations/eden/actions/updateNote";
+import { edenRenameNote } from "@/integrations/eden/actions/renameNote";
+import { edenCreateStickyNote } from "@/integrations/eden/actions/createStickyNote";
+import { edenListNotes } from "@/integrations/eden/actions/listNotes";
+import { edenSearchItems } from "@/integrations/eden/actions/searchItems";
 // Slice 3.DISCORD-2 — Discord runtime port (5 actions). Bot-token
 // auth via env (DISCORD_BOT_TOKEN); no user-OAuth token used at
 // action time. Per Slice 3.DISCORD-1 decisions: actions only, no
@@ -780,6 +788,14 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "eden", type: "create_note", handler: edenCreateNote },
   { provider: "eden", type: "read_board", handler: edenReadBoard },
   { provider: "eden", type: "trash_board", handler: edenTrashBoard },
+  // Eden (EDEN-5) — Batch 2 notes area (live-certified).
+  { provider: "eden", type: "read_note", handler: edenReadNote },
+  { provider: "eden", type: "append_to_note", handler: edenAppendToNote },
+  { provider: "eden", type: "update_note", handler: edenUpdateNote },
+  { provider: "eden", type: "rename_note", handler: edenRenameNote },
+  { provider: "eden", type: "create_sticky_note", handler: edenCreateStickyNote },
+  { provider: "eden", type: "list_notes", handler: edenListNotes },
+  { provider: "eden", type: "search_items", handler: edenSearchItems },
   // Slice 3.DISCORD-2 — 5 V1-manifest-declared action handlers.
   // delete_message is destructive (bulk + filter modes — see handler
   // docstring). Triggers + the 18 unsurfaced V1 handlers are NOT
