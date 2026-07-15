@@ -93,7 +93,8 @@ describeDb("official template seed — CS-XT-8A", () => {
   it("an authenticated user can read an official template via marketplace RLS; anon cannot", async () => {
     const u = await createTestUser();
     const supa = await sessionClient(u.email, u.password);
-    const id = "c0ffee00-0000-4000-8000-000000000001";
+    // a KEPT batch-4 template (batches 1–3 were retired by 20260715000000 / TEMPLATE-QUALITY-1).
+    const id = "c0ffee00-0000-4000-8000-00000000004c";
 
     const { data: seen } = await supa.from("workflow_templates").select("id, source").eq("id", id);
     expect(seen).toHaveLength(1);
@@ -102,5 +103,20 @@ describeDb("official template seed — CS-XT-8A", () => {
     const anon = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: anonSeen } = await anon.from("workflow_templates").select("id").eq("id", id);
     expect(anonSeen ?? []).toHaveLength(0);
+  });
+
+  it("retired ≤4-node officials are gone (TEMPLATE-QUALITY-1 retirement applied)", async () => {
+    // Spot-check the first/last retired ids (batch 1 …0001, batch 3 …004b): the retirement
+    // migration deletes them, so no surface (marketplace, search, AI matcher) can list them.
+    const retired = [
+      "c0ffee00-0000-4000-8000-000000000001",
+      "c0ffee00-0000-4000-8000-00000000004b",
+    ];
+    const { data, error } = await admin
+      .from("workflow_templates")
+      .select("id")
+      .in("id", retired);
+    expect(error).toBeNull();
+    expect(data ?? []).toHaveLength(0);
   });
 });

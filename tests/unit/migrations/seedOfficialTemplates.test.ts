@@ -2,12 +2,18 @@
  * @jest-environment node
  *
  * Static guard for the official template seed catalog (Slice 4.WORKFLOW-TEMPLATES-MARKETPLACE-6 /
- * CS-XT-8A — batch 1; MARKETPLACE-OFFICIAL-CATALOG-1 — batch 2). Reads EVERY official-seed SQL
- * file (no DB) and proves: each inserts OFFICIAL templates with the platform-owned invariants
- * (source='official', account_id NULL, visibility='public', safe 'ChainReact' attribution), is
- * idempotent, leaks no credential material, and every embedded definition is a VALID,
- * credential-free workflow graph using only real registered node types. Across all batches the
- * catalog is ≥50 templates with unique ids/names.
+ * CS-XT-8A — batch 1; MARKETPLACE-OFFICIAL-CATALOG-1 — batch 2; TEMPLATE-QUALITY-1 — batch 5 +
+ * retirement of the ≤4-node batches 1–3). Reads EVERY official-seed SQL file (no DB) and proves:
+ * each inserts OFFICIAL templates with the platform-owned invariants (source='official',
+ * account_id NULL, visibility='public', safe 'ChainReact' attribution), is idempotent, leaks no
+ * credential material, and every embedded definition is a VALID, credential-free workflow graph
+ * using only real registered node types.
+ *
+ * Since TEMPLATE-QUALITY-1, seed configs may carry SAFE variable-only prewiring (verified
+ * {{trigger.x}} / {{nodeId.x}} references + generic static labels) — the per-value safety rules,
+ * the EFFECTIVE catalog (seeds minus retirements), and the ≥5-node floor are enforced by
+ * tests/unit/migrations/officialTemplateCatalogIntegrity.test.ts; this file guards the seed
+ * files themselves.
  *
  * Forward-compatible: it discovers `*_seed_official_templates*.sql` rather than hard-coding one
  * file, so future seed batches are validated automatically — and so this guard validates the
@@ -108,6 +114,18 @@ const KNOWN_NODES = new Set([
   "google-drive/get_file_metadata",
   "google-drive/create_folder",
   "google-calendar/create_event",
+  // batch 5 additions (TEMPLATE-QUALITY-1 — business-process catalog)
+  "typeform/new_response_in_form",
+  "calendly/event_scheduled",
+  "calendly/event_canceled",
+  "quickbooks/invoice_created",
+  "quickbooks/payment_received",
+  "quickbooks/get_customer",
+  "asana/create_task",
+  "asana/create_subtask",
+  "asana/task_completed",
+  "native/if_then_condition",
+  "hubspot/get_deals",
 ]);
 
 // Extract every '{...}'::jsonb definition literal across all seed files.
@@ -127,8 +145,12 @@ describe("CS-XT-8A — official template seed (static guards)", () => {
     }
   });
 
-  it("seeds the full official catalog (≥90 templates) with unique ids", () => {
-    expect(definitions.length).toBeGreaterThanOrEqual(90);
+  it("seeds the full official catalog (≥102 templates across all batches) with unique ids", () => {
+    // 5 (batch 1) + 45 (batch 2) + 25 (batch 3) + 15 (batch 4) + 12 (batch 5). Batches 1–3 are
+    // RETIRED by 20260715000000 (≤4-node demos) but their applied seed files remain part of the
+    // corpus this static guard validates; the effective catalog is asserted in
+    // officialTemplateCatalogIntegrity.test.ts.
+    expect(definitions.length).toBeGreaterThanOrEqual(102);
     // every row is official / public with a safe attribution + no account/author id.
     const officials = code.match(/'official'/g) ?? [];
     expect(officials.length).toBe(definitions.length);
@@ -144,7 +166,9 @@ describe("CS-XT-8A — official template seed (static guards)", () => {
   it("leaks NO credential / secret / identity material", () => {
     expect(code).not.toMatch(/xox[baprs]-/i);
     expect(code).not.toMatch(/access_token|refresh_token|client_secret|api[_-]?key|bearer/i);
-    expect(code).not.toMatch(/sk_[a-z0-9]{6,}|whsec_/i);
+    // `\b` so a HubSpot field name like `hs_task_subject` (…sk_subject…) is not a false
+    // positive; real Stripe secret keys are token-delimited (`"sk_live_…"`).
+    expect(code).not.toMatch(/\bsk_[a-z0-9]{6,}|whsec_/i);
     // no email-shaped strings, no provider account labels.
     expect(code).not.toMatch(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
   });
@@ -155,11 +179,17 @@ describe("CS-XT-8A — official template seed (static guards)", () => {
       // passes both the strict template schema AND the workflow schema (one trigger, valid edges).
       expect(() => TemplateDefinitionSchema.parse(def)).not.toThrow();
       expect(() => WorkflowDefinitionSchema.parse(def)).not.toThrow();
-      // exactly one trigger; every config is empty (no secrets / resource ids baked in).
+      // exactly one trigger; every config value is either empty or a SAFE prewired string
+      // (variable reference / generic static label — no secrets, no resource-id, no email
+      // literals; the full per-value policy is enforced in officialTemplateCatalogIntegrity).
       const triggers = def.nodes.filter((n: { kind: string }) => n.kind === "trigger");
       expect(triggers).toHaveLength(1);
       for (const node of def.nodes) {
-        expect(node.config).toEqual({});
+        for (const value of Object.values(node.config as Record<string, unknown>)) {
+          expect(typeof value).toBe("string");
+          expect((value as string).length).toBeLessThanOrEqual(200);
+          expect(value as string).not.toMatch(/@|xox[baprs]-|\bsk_[a-z0-9]{8,}|whsec_/i);
+        }
         expect(KNOWN_NODES.has(`${node.provider}/${node.type}`)).toBe(true);
       }
     }

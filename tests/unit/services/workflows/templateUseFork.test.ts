@@ -36,15 +36,40 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createWorkflowFromTemplate, forkTemplateToAccount } from "@/services/workflows/templateManagement";
 
-// A REAL official-seed definition (parsed from the seed migrations) — used to prove an official
-// template instantiates a workflow with NO credentials / account-specific values.
+// The REAL EFFECTIVE official catalog (parsed from the migrations: seeds minus retired ids,
+// with the latest prewired definition overlaid) — used to prove every LIVE official template
+// instantiates a workflow with NO credentials / account-specific values. Since
+// TEMPLATE-QUALITY-1, configs may carry safe variable-only prewiring ({{trigger.x}} references
+// + generic labels) — never a secret, email, or literal resource id.
+type SeedDef = { nodes: Array<{ id: string; config: Record<string, unknown> }>; edges: unknown[] };
 const SEED_MIGRATIONS = resolve(process.cwd(), "supabase/migrations");
-const SEED_DEFINITIONS = readdirSync(SEED_MIGRATIONS)
+const migrationFiles = readdirSync(SEED_MIGRATIONS).sort();
+const stripped = (f: string) =>
+  readFileSync(join(SEED_MIGRATIONS, f), "utf8").replace(/--[^\n]*/g, "");
+const seededRows = migrationFiles
   .filter((f) => /_seed_official_templates.*\.sql$/.test(f))
   .flatMap((f) => [
-    ...readFileSync(join(SEED_MIGRATIONS, f), "utf8").matchAll(/'(\{"nodes".*?\})'::jsonb/g),
+    ...stripped(f).matchAll(
+      /'(c0ffee00-[0-9a-f-]+)',\s*NULL,\s*NULL,\s*'[^']*',\s*'[^']*',\s*'official',\s*'public',\s*'(\{.*?\})'::jsonb/gs,
+    ),
   ])
-  .map((m) => JSON.parse(m[1]!) as { nodes: Array<{ id: string; config: unknown }>; edges: unknown[] });
+  .map((m) => ({ id: m[1]!, def: JSON.parse(m[2]!) as SeedDef }));
+const retiredIds = new Set(
+  migrationFiles
+    .filter((f) => /_retire_official_templates.*\.sql$/.test(f))
+    .flatMap((f) => [...stripped(f).matchAll(/'(c0ffee00-[0-9a-f-]+)'/g)].map((m) => m[1]!)),
+);
+const prewiredDefs = new Map(
+  migrationFiles
+    .filter((f) => /_prewire_official_templates.*\.sql$/.test(f))
+    .flatMap((f) => [
+      ...stripped(f).matchAll(/'(\{"nodes".*?\})'::jsonb\s*WHERE id = '(c0ffee00-[0-9a-f-]+)'/gs),
+    ])
+    .map((m) => [m[2]!, JSON.parse(m[1]!) as SeedDef] as const),
+);
+const SEED_DEFINITIONS = seededRows
+  .filter((r) => !retiredIds.has(r.id))
+  .map((r) => prewiredDefs.get(r.id) ?? r.def);
 
 const ACTOR = "user-1";
 const TARGET = "target-acct";
@@ -114,8 +139,9 @@ describe("createWorkflowFromTemplate (use)", () => {
     expect(r.ok).toBe(true);
   });
 
-  it("EVERY seeded official template → instantiates a workflow with NO credentials / account values", async () => {
-    expect(SEED_DEFINITIONS.length).toBeGreaterThanOrEqual(90);
+  it("EVERY effective official template → instantiates a workflow with NO credentials / account values", async () => {
+    // 15 kept batch-4 + 12 batch-5 (TEMPLATE-QUALITY-1); batches 1–3 are retired.
+    expect(SEED_DEFINITIONS.length).toBeGreaterThanOrEqual(27);
     for (const def of SEED_DEFINITIONS) {
       jest.clearAllMocks();
       mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
@@ -130,15 +156,18 @@ describe("createWorkflowFromTemplate (use)", () => {
       expect(r.ok).toBe(true); // never invalid_template — the seed graph passes WorkflowDefinitionSchema.
 
       const createArg = mockCreateWorkflow.mock.calls[0]![0];
-      // the created workflow's draft is the sanitized graph verbatim — every config empty, so no
+      // the created workflow's draft is the sanitized graph verbatim — configs are empty or
+      // carry only safe portable prewiring (variable references / generic labels), so no
       // token / channel id / recipient / account-specific value travels; nothing even needed
       // redaction (no __REDACTED__ marker), and no secret-shaped string appears.
-      for (const node of createArg.draftDefinition.nodes as Array<{ config: unknown }>) {
-        expect(node.config).toEqual({});
+      for (const node of createArg.draftDefinition.nodes as Array<{ config: Record<string, unknown> }>) {
+        for (const value of Object.values(node.config)) {
+          expect(typeof value).toBe("string"); // scalar prewiring only — never a nested payload
+        }
       }
       const blob = JSON.stringify(createArg.draftDefinition);
       expect(blob).not.toContain("__REDACTED__");
-      expect(blob).not.toMatch(/xox[baprs]-|sk_[a-z0-9]{6,}|whsec_|@[a-z0-9.-]+\.[a-z]{2,}/i);
+      expect(blob).not.toMatch(/xox[baprs]-|\bsk_[a-z0-9]{6,}|whsec_|@[a-z0-9.-]+\.[a-z]{2,}/i);
     }
   });
 
@@ -161,11 +190,12 @@ describe("createWorkflowFromTemplate (use)", () => {
       const r = await createWorkflowFromTemplate({ templateId: "tpl-1", targetAccountId: TARGET, actorUserId: ACTOR });
       expect(r.ok).toBe(true);
       const createArg = mockCreateWorkflow.mock.calls[0]![0];
-      // the full multi-step chain survives instantiation: every node id is preserved, configs empty.
+      // the full multi-step chain survives instantiation: every node id is preserved, and each
+      // config survives verbatim (empty or safe prewired scalars — never mutated by /use).
       const created = createArg.draftDefinition.nodes as Array<{ id: string; config: unknown }>;
       expect(created).toHaveLength(def.nodes.length);
       expect(created.map((n) => n.id).sort()).toEqual(def.nodes.map((n) => n.id).sort());
-      for (const n of created) expect(n.config).toEqual({});
+      expect(created.map((n) => n.config)).toEqual(def.nodes.map((n) => n.config));
     }
   });
 
