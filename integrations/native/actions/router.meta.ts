@@ -44,7 +44,7 @@ export const routerMeta: ActionMeta = {
       name: "routes",
       label: "Routes",
       description:
-        "Ordered list of routes. Each route has a unique label (the edge label downstream nodes wire to) and a condition. Up to 32 routes.",
+        "The paths this step can take, checked in order — the first matching route wins. Each route’s name becomes a path you can connect steps to. Up to 32 routes.",
       type: "router-routes",
       required: true,
     },
@@ -52,7 +52,7 @@ export const routerMeta: ActionMeta = {
       name: "defaultRoute",
       label: "Default Route",
       description:
-        "Optional label to take when no route matches. Must match one of the routes' labels OR a fall-through label with its own outgoing edge.",
+        "Which path to take when no route matches — type one of your route names exactly. Leave empty to take no path.",
       type: "text",
       required: false,
     },

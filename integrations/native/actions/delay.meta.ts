@@ -14,7 +14,7 @@ export const delayMeta: ActionMeta = {
   type: "delay",
   displayName: "Delay",
   description:
-    "Pause the workflow for 1–30 seconds. For longer waits, compose multiple scheduled triggers — unbounded delay is not yet supported.",
+    "Pause the workflow for 1–30 seconds before the next step. Longer waits aren’t supported yet.",
   category: "scheduling",
   requiresIntegration: false,
   fields: [

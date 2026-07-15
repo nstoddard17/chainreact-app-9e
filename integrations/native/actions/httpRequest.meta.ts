@@ -31,7 +31,7 @@ export const httpRequestMeta: ActionMeta = {
     {
       name: "method",
       label: "Method",
-      description: "HTTP method. GET / HEAD requests do not send a body.",
+      description: "HTTP method. GET requests do not send a body.",
       type: "select",
       required: true,
       options: [
@@ -54,7 +54,8 @@ export const httpRequestMeta: ActionMeta = {
     {
       name: "headers",
       label: "Headers",
-      description: "Optional request headers. Up to 50 entries.",
+      description:
+        "Optional request headers. Up to 50 entries. Header values are saved with the workflow — avoid pasting long-lived secrets.",
       type: "keyvalue",
       required: false,
       keyValueMaxRows: 50,
@@ -70,10 +71,15 @@ export const httpRequestMeta: ActionMeta = {
     {
       name: "body",
       label: "Request Body",
-      description: "Raw request body. Ignored for GET requests. Up to 1 MiB.",
+      description:
+        "Raw request body sent with the request. Up to 1 MiB. Set a Content-Type header to match.",
       type: "textarea",
       required: false,
       placeholder: '{"hello":"world"}',
+      // CONFIG-UX-SETUP-ADVANCED-1 — the runtime ignores a body on GET, so
+      // the field only shows for body-bearing methods (switching to GET
+      // clears a stale body via the visibility cascade).
+      visibleWhen: { field: "method", valueIn: ["POST", "PUT", "PATCH", "DELETE"] },
     },
     {
       name: "timeoutSeconds",
@@ -83,6 +89,8 @@ export const httpRequestMeta: ActionMeta = {
       required: false,
       defaultValue: 15,
       numeric: { min: 1, max: 30, integer: true, step: 1 },
+      // Tuning knob with a safe default — Advanced tab, not the common path.
+      advanced: true,
     },
   ],
   outputs: [

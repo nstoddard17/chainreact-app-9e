@@ -23,7 +23,7 @@ export const manualTriggerMeta: TriggerMeta = {
   type: "manual.run",
   displayName: "Manual Trigger",
   description:
-    "Runs the workflow when you click 'Run Now' in the builder or POST to the run-now endpoint. Inputs you supply at run time are available as {{trigger.inputs.*}} in downstream nodes.",
+    "Runs the workflow when you click ‘Run Now’. Any inputs you provide at run time are available to later steps as {{trigger.inputs.*}}.",
   category: "logic",
   activation: "manual",
   requiresIntegration: false,

@@ -27,7 +27,7 @@ export const formatTransformerMeta: ActionMeta = {
     {
       name: "sourceFormat",
       label: "Source Format",
-      description: "Format of the input. `auto` lets the handler detect HTML vs Markdown vs plain.",
+      description: "What format the input text is in. Auto-detect usually gets this right — set it only if the result looks wrong.",
       type: "select",
       required: false,
       defaultValue: "auto",
