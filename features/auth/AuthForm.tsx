@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import type { AuthActionResult } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
+import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/services/security/turnstile";
 
 type Action = (prev: AuthActionResult | null, formData: FormData) => Promise<AuthActionResult>;
 
@@ -30,6 +31,20 @@ export function AuthForm({
     action,
     null,
   );
+
+  // Bot protection (SEC-3). The Turnstile token is captured from the widget and
+  // submitted in the `cf-turnstile-response` field, which the server action
+  // forwards to Supabase's `captchaToken`. A Turnstile token is single-use, so on
+  // a failed submit (Supabase redeemed it) we clear it and force a fresh one.
+  const captchaConfigured = isTurnstileWidgetConfigured();
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [resetSignal, setResetSignal] = useState(0);
+  useEffect(() => {
+    if (state && !state.ok) {
+      setCaptchaToken("");
+      setResetSignal((n) => n + 1);
+    }
+  }, [state]);
 
   // An ok result that didn't redirect (sign-up with email confirmation pending).
   if (state?.ok && successMessage) {
@@ -65,7 +80,16 @@ export function AuthForm({
         />
       </label>
       {/* Bot protection — renders only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. */}
-      <TurnstileWidget />
+      {captchaConfigured && (
+        <>
+          <input type="hidden" name={TURNSTILE_FIELD_NAME} value={captchaToken} readOnly />
+          <TurnstileWidget
+            onVerify={setCaptchaToken}
+            onExpire={() => setCaptchaToken("")}
+            resetSignal={resetSignal}
+          />
+        </>
+      )}
       {state && !state.ok && (
         <p role="alert" className="text-sm text-destructive">
           {state.error}
@@ -73,7 +97,7 @@ export function AuthForm({
       )}
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || (captchaConfigured && captchaToken.length === 0)}
         className="rounded bg-primary text-primary-foreground px-4 py-2 font-medium disabled:opacity-60"
       >
         {pending ? "..." : submitLabel}

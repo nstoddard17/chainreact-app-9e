@@ -39,20 +39,41 @@ migration** — factors live in Supabase-managed `auth.mfa_factors`.
     `aal1` so a challenged user can complete or abandon (sign out) MFA.
 - **Fail-safe:** wrong/expired codes never elevate and never disclose the reason.
 
-### Bot protection (Cloudflare Turnstile)
+### Bot protection (Cloudflare Turnstile — Supabase-native verification)
 
-App-side token verification (chosen over Supabase-native so enforcement lives in
-our code and is testable in-repo, and can extend to non-Supabase surfaces later).
+**Verification is Supabase-native.** The widget produces a single-use token; the
+token is forwarded to the Supabase Auth SDK via the supported `captchaToken`
+option, and **Supabase verifies it server-side** against the Turnstile secret
+configured in the Supabase dashboard (Authentication → Bot & Abuse Protection).
+The app does **not** call Cloudflare siteverify itself — a Turnstile token is
+single-use, so redeeming it app-side consumes it and Supabase then rejects the
+request with *"captcha protection: request disallowed (no captcha_token found)"*.
+Verification lives in exactly one place: Supabase.
+
+> Note: an earlier revision of this slice did app-side siteverify; that was
+> replaced once Supabase-native captcha protection was enabled, because the two
+> approaches both try to redeem the same single-use token. The app-side
+> `verifyTurnstileToken` was removed.
 
 - Widget `features/auth/TurnstileWidget.tsx` on **sign-up, sign-in, and
-  forgot-password**; the token is verified in the server actions
-  (`app/auth/actions.ts`) via `services/security/turnstile.ts` (Cloudflare
-  siteverify) before the Supabase call.
-- **Posture — fail-closed when configured:** with `TURNSTILE_SECRET_KEY` set, a
-  missing/invalid token is rejected; with it unset, verification is skipped and the
-  widget is hidden (so local/dev + existing tests run without keys).
-- Google OAuth sign-in is not captcha-gated (it hands off to Google immediately;
-  Supabase/Google rate-limit that path).
+  forgot-password**. It surfaces the token to the form (`onVerify`), disables the
+  submit button until a token exists, clears it on expiry/error, and **mints a
+  fresh token after a failed submit** (single-use). The token travels in the
+  `cf-turnstile-response` field; the server actions (`app/auth/actions.ts`) read it
+  (`readCaptchaToken`) and pass it to `signUp` / `signInWithPassword` /
+  `resetPasswordForEmail` as `options.captchaToken`. `services/security/turnstile.ts`
+  now holds only the field name + widget-configured helper.
+- **Every captcha-gated auth flow is covered.** The Supabase SDK exposes
+  `captchaToken` on exactly the surfaces GoTrue gates: `signUp`,
+  `signInWithPassword`, and `resetPasswordForEmail` — all wired. `signInWithOAuth`
+  (Google) has **no** `captchaToken` option and is not captcha-gated (the
+  `/authorize` redirect isn't a protected endpoint), so the Google button is
+  correctly left untouched. The MFA methods (`mfa.enroll/challenge/verify`) also
+  have no `captchaToken` and are not gated, so account-page MFA enrollment is
+  unaffected.
+- **Config:** the app only needs `NEXT_PUBLIC_TURNSTILE_SITE_KEY`; the secret lives
+  in the Supabase dashboard. When the site key is unset the widget is hidden and no
+  token is sent (correct for dev, where Supabase captcha is off).
 
 ## Security guarantees
 
@@ -88,20 +109,23 @@ once at enrollment) + a recovery-verify branch on `/auth/mfa`. Requires a new ta
 1. **Supabase Auth → MFA:** ensure **TOTP** enrollment is enabled for the project
    (Dashboard → Authentication → Providers/MFA). It is on by default for TOTP on
    current projects; confirm it is not disabled.
-2. **Cloudflare Turnstile:** create a Turnstile site, then set **both**
-   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (see `.env.example`).
-   Set them together — a secret without the site key hides the widget while still
-   requiring a token (lockout).
+2. **Cloudflare Turnstile:** create a Turnstile site. Set
+   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` in the app env, AND enable Turnstile with the
+   matching **secret** in the Supabase dashboard (Authentication → Bot & Abuse
+   Protection). Both must be on together: the app-side widget needs the site key,
+   and Supabase needs the secret to verify the token. The app never reads the
+   secret (see `.env.example`).
 3. **Support runbook:** document the support-assisted MFA-removal procedure
    (service-role admin unenroll) for the recovery path above.
 
 ## Verification baseline
 
-Newly added unit tests (this batch): Turnstile verify (enabled/disabled/fail),
+Unit tests: Turnstile token wiring (`readCaptchaToken` / widget-configured helper),
 `mfaChallengeGuard` decisions, MFA service rules, and MFA + login-challenge routes
-(auth gate, no-leak, status mapping). Auth-action tests extended for the captcha
-gate. See the batch's slice report for the exact `tsc`/`lint`/`test` results — this
-doc does not assert a command was run that wasn't.
+(auth gate, no-leak, status mapping). Auth-action tests assert the `captchaToken` is
+forwarded to the Supabase SDK on sign-up / sign-in / password reset. See the batch's
+slice report for the exact `tsc`/`lint`/`test` results — this doc does not assert a
+command was run that wasn't.
 
 **Not covered here:** a live end-to-end MFA login against a real Supabase project
 (needs a project with a test user + authenticator) and a live Turnstile challenge

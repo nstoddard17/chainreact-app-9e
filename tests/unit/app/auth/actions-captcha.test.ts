@@ -1,10 +1,12 @@
 /**
  * @jest-environment node
  *
- * Captcha-gate tests for app/auth/actions.ts (SEC-3). Mocks the Turnstile service
- * to force a verification failure and proves the public auth actions (sign-up,
- * sign-in, forgot-password) refuse BEFORE touching Supabase — and that a passing
- * verification lets them through.
+ * Captcha-wiring tests for app/auth/actions.ts (SEC-3). Verification is
+ * Supabase-native: the app forwards the Turnstile token from the form to the
+ * Supabase SDK via `options.captchaToken`. These tests prove the token is read
+ * from the `cf-turnstile-response` field and passed to signUp / signIn /
+ * resetPasswordForEmail — and that its absence yields `captchaToken: undefined`
+ * (dev / not configured), never a thrown/blocked request app-side.
  */
 
 const mockSignUp = jest.fn();
@@ -33,19 +35,12 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
-const mockVerify = jest.fn();
-jest.mock("@/services/security/turnstile", () => ({
-  verifyTurnstileToken: (...a: unknown[]) => mockVerify(...a),
-  TURNSTILE_FIELD_NAME: "cf-turnstile-response",
-}));
-
 import { signIn, signUp, requestPasswordReset } from "@/app/auth/actions";
 
 beforeEach(() => {
   mockSignUp.mockReset();
   mockSignInWithPassword.mockReset();
   mockResetPasswordForEmail.mockReset();
-  mockVerify.mockReset();
 });
 
 function fd(fields: Record<string, string>): FormData {
@@ -54,46 +49,61 @@ function fd(fields: Record<string, string>): FormData {
   return f;
 }
 
-describe("captcha gate — failing verification blocks the action", () => {
-  beforeEach(() => mockVerify.mockResolvedValue({ ok: false }));
+async function swallowRedirect(fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn();
+  } catch (e) {
+    if (!String((e as { digest?: string }).digest ?? "").startsWith("NEXT_REDIRECT;")) throw e;
+  }
+}
 
-  it("signUp refuses and never calls supabase", async () => {
-    const result = await signUp(null, fd({ email: "u@example.test", password: "password123" }));
-    expect(result).toEqual({ ok: false, error: expect.stringMatching(/verify you're human/i) });
-    expect(mockSignUp).not.toHaveBeenCalled();
-  });
-
-  it("signIn refuses and never calls supabase", async () => {
-    const result = await signIn(null, fd({ email: "u@example.test", password: "password123" }));
-    expect(result).toEqual({ ok: false, error: expect.stringMatching(/verify you're human/i) });
-    expect(mockSignInWithPassword).not.toHaveBeenCalled();
-  });
-
-  it("requestPasswordReset refuses and never calls supabase", async () => {
-    const result = await requestPasswordReset(null, fd({ email: "u@example.test" }));
-    expect(result).toEqual({ ok: false, error: expect.stringMatching(/verify you're human/i) });
-    expect(mockResetPasswordForEmail).not.toHaveBeenCalled();
-  });
-});
-
-describe("captcha gate — passing verification lets the action through", () => {
-  beforeEach(() => mockVerify.mockResolvedValue({ ok: true, enforced: true }));
-
-  it("signUp reads the token from the form and proceeds to supabase", async () => {
+describe("captcha token forwarded to Supabase", () => {
+  it("signUp passes the form token as options.captchaToken", async () => {
     mockSignUp.mockResolvedValueOnce({ data: { session: null }, error: null });
-    const result = await signUp(
+    await signUp(
       null,
-      fd({ email: "u@example.test", password: "password123", "cf-turnstile-response": "tok" }),
+      fd({ email: "u@example.test", password: "password123", "cf-turnstile-response": "tok-abc" }),
     );
-    expect(mockVerify).toHaveBeenCalledWith("tok", null);
-    expect(result).toEqual({ ok: true, confirmationRequired: true });
-    expect(mockSignUp).toHaveBeenCalled();
+    expect(mockSignUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "u@example.test",
+        options: expect.objectContaining({ captchaToken: "tok-abc" }),
+      }),
+    );
   });
 
-  it("requestPasswordReset proceeds (still neutral success)", async () => {
+  it("signIn passes the form token as options.captchaToken", async () => {
+    mockSignInWithPassword.mockResolvedValueOnce({ error: null });
+    await swallowRedirect(() =>
+      signIn(null, fd({ email: "u@example.test", password: "password123", "cf-turnstile-response": "tok-xyz" })),
+    );
+    expect(mockSignInWithPassword).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "u@example.test",
+        password: "password123",
+        options: { captchaToken: "tok-xyz" },
+      }),
+    );
+  });
+
+  it("requestPasswordReset passes the form token as captchaToken", async () => {
     mockResetPasswordForEmail.mockResolvedValueOnce({ error: null });
-    const result = await requestPasswordReset(null, fd({ email: "u@example.test", "cf-turnstile-response": "tok" }));
+    const result = await requestPasswordReset(
+      null,
+      fd({ email: "u@example.test", "cf-turnstile-response": "tok-reset" }),
+    );
     expect(result).toEqual({ ok: true });
-    expect(mockResetPasswordForEmail).toHaveBeenCalled();
+    expect(mockResetPasswordForEmail).toHaveBeenCalledWith(
+      "u@example.test",
+      expect.objectContaining({ captchaToken: "tok-reset" }),
+    );
+  });
+
+  it("omits the token (undefined) when the field is absent — dev / not configured", async () => {
+    mockSignInWithPassword.mockResolvedValueOnce({ error: null });
+    await swallowRedirect(() => signIn(null, fd({ email: "u@example.test", password: "password123" })));
+    expect(mockSignInWithPassword).toHaveBeenCalledWith(
+      expect.objectContaining({ options: { captchaToken: undefined } }),
+    );
   });
 });

@@ -5,29 +5,40 @@ import { useEffect, useRef } from "react";
 /**
  * Cloudflare Turnstile widget (SEC-3).
  *
- * Renders the bot-protection challenge on public auth forms (sign-up, sign-in,
- * password reset). The widget injects a single-use token into a hidden form field
- * (`cf-turnstile-response`) which the form's server action forwards to
- * `verifyTurnstileToken` for server-side verification.
+ * Renders the bot-protection challenge on the public auth forms. The solved token
+ * is surfaced via `onVerify` (the parent stores it and submits it in the
+ * `cf-turnstile-response` field, which the server action forwards to Supabase's
+ * `captchaToken`). We deliberately disable Turnstile's own hidden input
+ * (`response-field: false`) so the PARENT is the single source of truth for the
+ * token — no duplicate form fields, and the parent can clear it deterministically.
+ *
+ * Token lifecycle:
+ *   - solved            → `onVerify(token)`
+ *   - expired / errored → `onExpire()` (parent clears + disables submit)
+ *   - `resetSignal` bump → `turnstile.reset()` mints a FRESH token (used after a
+ *     failed submit, since a Turnstile token is single-use and Supabase has now
+ *     redeemed it).
  *
  * Renders NOTHING when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is unset — so local/dev
- * (and the existing auth tests) run untouched. In production, with the key set,
- * the widget appears and the server enforces the token (fail-closed).
- *
- * Uses explicit rendering (the script is loaded with `render=explicit`) because
- * the widget mounts inside a client component after the script may already have
- * loaded — implicit auto-scan wouldn't catch it reliably.
+ * (and the existing auth tests) run untouched.
  */
 
-const SCRIPT_SRC =
-  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const SCRIPT_ID = "cf-turnstile-script";
 
+interface TurnstileRenderOptions {
+  sitekey: string;
+  theme?: "auto" | "light" | "dark";
+  callback?: (token: string) => void;
+  "expired-callback"?: () => void;
+  "error-callback"?: () => void;
+  "timeout-callback"?: () => void;
+  "response-field"?: boolean;
+}
+
 interface TurnstileApi {
-  render: (
-    el: HTMLElement,
-    opts: { sitekey: string; theme?: "auto" | "light" | "dark"; callback?: (token: string) => void },
-  ) => string;
+  render: (el: HTMLElement, opts: TurnstileRenderOptions) => string;
+  reset: (widgetId: string) => void;
   remove: (widgetId: string) => void;
 }
 
@@ -44,7 +55,6 @@ function ensureScript(): Promise<void> {
     const existing = document.getElementById(SCRIPT_ID);
     if (existing) {
       existing.addEventListener("load", () => resolve(), { once: true });
-      // If it already loaded, turnstile is present; the check above handles it.
       if (window.turnstile) resolve();
       return;
     }
@@ -58,10 +68,26 @@ function ensureScript(): Promise<void> {
   });
 }
 
-export function TurnstileWidget() {
+export function TurnstileWidget({
+  onVerify,
+  onExpire,
+  resetSignal = 0,
+}: {
+  /** Called with the solved token — parent submits it + enables the button. */
+  onVerify: (token: string) => void;
+  /** Called when the token expires/errors — parent clears it + disables the button. */
+  onExpire: () => void;
+  /** Increment to force a fresh token (e.g. after a failed submit). */
+  resetSignal?: number;
+}) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
+  // Keep the latest callbacks without forcing a widget re-render.
+  const onVerifyRef = useRef(onVerify);
+  const onExpireRef = useRef(onExpire);
+  onVerifyRef.current = onVerify;
+  onExpireRef.current = onExpire;
 
   useEffect(() => {
     if (!siteKey) return;
@@ -69,11 +95,16 @@ export function TurnstileWidget() {
 
     void ensureScript().then(() => {
       if (cancelled || !containerRef.current || !window.turnstile) return;
-      // Guard against a double render (StrictMode remount).
-      if (widgetIdRef.current) return;
+      if (widgetIdRef.current) return; // guard StrictMode double-mount
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey: siteKey,
         theme: "auto",
+        // Parent owns the hidden input — avoid a duplicate injected field.
+        "response-field": false,
+        callback: (token) => onVerifyRef.current(token),
+        "expired-callback": () => onExpireRef.current(),
+        "error-callback": () => onExpireRef.current(),
+        "timeout-callback": () => onExpireRef.current(),
       });
     });
 
@@ -83,14 +114,26 @@ export function TurnstileWidget() {
         try {
           window.turnstile.remove(widgetIdRef.current);
         } catch {
-          // Widget already gone — nothing to clean up.
+          // Already gone.
         }
         widgetIdRef.current = null;
       }
     };
   }, [siteKey]);
 
-  // No site key → render nothing (widget disabled; server skips enforcement).
+  // Force a fresh token when asked (post-failure). Clear the stale one first.
+  useEffect(() => {
+    if (resetSignal === 0) return;
+    if (widgetIdRef.current && window.turnstile) {
+      onExpireRef.current();
+      try {
+        window.turnstile.reset(widgetIdRef.current);
+      } catch {
+        // Not ready yet — the managed widget will re-solve on its own.
+      }
+    }
+  }, [resetSignal]);
+
   if (!siteKey) return null;
 
   return <div ref={containerRef} data-testid="turnstile-widget" className="min-h-[65px]" />;

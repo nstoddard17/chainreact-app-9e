@@ -123,9 +123,9 @@ describe("auth actions — supabase error surfacing", () => {
     // via searchParams). With no returnTo the destination is still /auth/confirmed.
     expect(mockSignUp).toHaveBeenCalledWith(
       expect.objectContaining({
-        options: {
+        options: expect.objectContaining({
           emailRedirectTo: "https://chainreact.app/auth/callback?next=%2Fauth%2Fconfirmed",
-        },
+        }),
       }),
     );
   });
