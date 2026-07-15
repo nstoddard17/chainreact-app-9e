@@ -139,5 +139,23 @@ trigger-free (the complete, honest surface). See [`research.md`](./research.md) 
 - **Substack** scheduling depends on a browser extension (limited unattended support) — will be
   surfaced honestly in the scheduling action when built.
 
+## Batch 3 (EDEN-6) — scheduling writes: owner action required
+
+Batch 3 ships 8 scheduling actions (draft/read/schedule/publish/update/reschedule/first-comment/cancel).
+The **safe, connection-free** paths (create draft, read, first-comment, reschedule, cancel + error
+propagation) are **live-certified**. What still needs YOU:
+
+- [ ] **Connect ONE disposable throwaway social account to Eden** (X/Twitter text is simplest). The
+      cert account currently has **0 connected accounts**, so `schedule_post`, `publish_post_now`, and
+      content-`update` return a deterministic 400 "No active connection" — they cannot be
+      success-certified without a connection. (Error propagation IS certified.)
+- [ ] Confirm the throwaway account is **safe to publish public test posts on** and that content can
+      be removed afterward. Only then will `publish_post_now` be certified — with immediate cleanup.
+- [ ] The disposable **Read & write PAT** (`EDEN_TEST_PAT` in `.env.local`) is present and was used;
+      it may be **revoked** once the account-gated certification is complete.
+
+Never connect the owner's real production social accounts for certification. Publish tests run ONLY
+on an approved throwaway account.
+
 ## No secrets in this doc
 This report contains env var **names** only. No token, key, or secret value appears here.

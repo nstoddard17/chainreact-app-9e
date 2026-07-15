@@ -38,6 +38,15 @@ import { edenListCreatorListsMeta } from "@/integrations/eden/actions/creators/l
 import { edenResolveCreatorMeta } from "@/integrations/eden/actions/creators/resolveCreator.meta";
 import { edenResearchCreatorMeta } from "@/integrations/eden/actions/creators/researchCreator.meta";
 import { edenFollowingOverviewMeta } from "@/integrations/eden/actions/creators/followingOverview.meta";
+// Batch 3 — scheduling writes (EDEN-6): 8 actions, no triggers.
+import { edenCreateSchedulingDraftMeta } from "@/integrations/eden/actions/scheduling/createSchedulingDraft.meta";
+import { edenReadScheduledPostMeta } from "@/integrations/eden/actions/scheduling/readScheduledPost.meta";
+import { edenSchedulePostMeta } from "@/integrations/eden/actions/scheduling/schedulePost.meta";
+import { edenPublishPostNowMeta } from "@/integrations/eden/actions/scheduling/publishPostNow.meta";
+import { edenUpdateScheduledPostMeta } from "@/integrations/eden/actions/scheduling/updateScheduledPost.meta";
+import { edenReschedulePostMeta } from "@/integrations/eden/actions/scheduling/reschedulePost.meta";
+import { edenSetFirstCommentMeta } from "@/integrations/eden/actions/scheduling/setFirstComment.meta";
+import { edenCancelScheduledPostMeta } from "@/integrations/eden/actions/scheduling/cancelScheduledPost.meta";
 
 export const EDEN_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   edenListWorkspacesMeta,
@@ -71,4 +80,13 @@ export const EDEN_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   edenResolveCreatorMeta,
   edenResearchCreatorMeta,
   edenFollowingOverviewMeta,
+  // Batch 3 — scheduling writes (EDEN-6).
+  edenCreateSchedulingDraftMeta,
+  edenReadScheduledPostMeta,
+  edenSchedulePostMeta,
+  edenPublishPostNowMeta,
+  edenUpdateScheduledPostMeta,
+  edenReschedulePostMeta,
+  edenSetFirstCommentMeta,
+  edenCancelScheduledPostMeta,
 ];

@@ -27,6 +27,14 @@ import { listSchedules, listScheduledPosts } from "@/integrations/_shared/eden/a
 import { readCard, listCaptures, listHighlights } from "@/integrations/_shared/eden/api/content";
 import { listCreatorLists, resolveCreator, analyzeCreator, followingOverview } from "@/integrations/_shared/eden/api/creators";
 import { listPrompts, getPrompt, exportSkill } from "@/integrations/_shared/eden/api/library";
+import { readScheduledPost } from "@/integrations/_shared/eden/api/schedules";
+import {
+  createSchedulingDraft,
+  schedulePost,
+  updateScheduledPost,
+  setFirstComment,
+  cancelScheduledPost,
+} from "@/integrations/_shared/eden/api/scheduling";
 
 const LIVE = process.env.EDEN_LIVE_CERT === "1";
 
@@ -252,4 +260,100 @@ d("Eden Batch-2 creator reads (lists + resolve + research + following)", () => {
     const following = await followingOverview({ accessToken, workspaceId, limit: 5 });
     expect(Array.isArray(following.follows)).toBe(true);
   }, 90_000);
+});
+
+// ── Batch 3 (EDEN-6) — scheduling SAFE lifecycle. No public posting: every write is a draft or a
+// far-future scheduled post that is CANCELLED in the same flow, so nothing ever publishes.
+// publish_post_now + a scheduled post actually firing are certified separately, only on a
+// disposable throwaway connected account (owner-gated).
+d("Eden Batch-3 scheduling — SAFE lifecycle (draft → read → edit → reschedule → first-comment → cancel)", () => {
+  const accessToken = TOKEN as string;
+  const noEmail = (v: unknown) => expect(JSON.stringify(v)).not.toMatch(/@/);
+  const noToken = (v: unknown) => expect(JSON.stringify(v)).not.toContain(accessToken);
+  const createdPostIds: string[] = [];
+
+  it("certifies the full reversible write lifecycle with zero public exposure", async () => {
+    // Unique per-run nonce — Eden content-dedupes drafts, so identical text returns a prior draft.
+    const nonce = Date.now().toString(36);
+    // 1) create a text-only draft (safe — a draft never publishes).
+    const draft = await createSchedulingDraft({
+      accessToken,
+      content: { platforms: ["twitter"], text: `ChainReact EDEN-6 safe-cert draft ${nonce} — will be cancelled.` },
+    });
+    expect(typeof draft.id).toBe("string");
+    expect(draft.id.length).toBeGreaterThan(0);
+    expect(draft.status).toBe("draft");
+    // bounded + no account identity leaked
+    expect(JSON.stringify(draft)).not.toContain("connectionId");
+    noEmail(draft);
+    noToken(draft);
+    createdPostIds.push(draft.id);
+
+    // 2) read it back (bounded full read).
+    const read0 = await readScheduledPost({ accessToken, postId: draft.id });
+    expect(read0).not.toBeNull();
+    expect(read0!.id).toBe(draft.id);
+    noEmail(read0);
+
+    // 3) attach a first comment to the draft (reversible; no publish).
+    const fc = await setFirstComment({ accessToken, postId: draft.id, comment: "cert first comment", delayMinutes: 5 });
+    expect(fc.postId).toBe(draft.id);
+    expect(fc.hasFirstComment).toBe(true);
+
+    // 4) cancel the draft (certifies cancel_scheduled_post).
+    const cancelled = await cancelScheduledPost({ accessToken, postId: draft.id });
+    expect(cancelled.postId).toBe(draft.id);
+    expect(cancelled.cancelled).toBe(true);
+
+    // 5) verify cancellation — the post reads back as non-draft (or is gone).
+    const afterCancel = await readScheduledPost({ accessToken, postId: draft.id });
+    if (afterCancel) expect(afterCancel.status).not.toBe("draft");
+
+    // 6) EDIT / ENQUEUE operations (update content, set a publish time, schedule, publish) REBUILD the
+    //    post and REQUIRE a connected social account. On this account (0 connections) Eden returns a
+    //    deterministic 400 "No active connection". Certify each wrapper PROPAGATES that as a thrown
+    //    HANDLER_FAILED error instead of silently succeeding (rule 8) — so a workflow NEVER believes it
+    //    queued/edited a post it didn't, and NOTHING is ever published. (These certify for real on a
+    //    connected throwaway account — see the account-gated block.)
+    const farFuture = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+    const draft2 = await createSchedulingDraft({
+      accessToken,
+      content: { platforms: ["twitter"], text: `ChainReact EDEN-6 guard ${nonce}.` },
+    });
+    createdPostIds.push(draft2.id);
+    // reschedule_post (time-only) does NOT rebuild targets → it works without a connection and keeps
+    // the post a DRAFT (a proposed time, not enqueued). Certify it here.
+    const rescheduled = await updateScheduledPost({ accessToken, postId: draft2.id, scheduledAtIso: farFuture });
+    expect(rescheduled.id).toBe(draft2.id);
+    expect(rescheduled.scheduledAtIso).not.toBeNull();
+    expect(rescheduled.status).toBe("draft"); // still a draft — not enqueued, will not publish
+    noToken(rescheduled);
+
+    // A CONTENT edit rebuilds targets → requires a connection. Certify the wrapper propagates the error.
+    await expect(
+      updateScheduledPost({ accessToken, postId: draft2.id, content: { text: `ChainReact EDEN-6 guard ${nonce} edit.` } }),
+    ).rejects.toThrow(/eden_update_scheduled_post failed/i);
+    // schedule_post / publish_post_now ENQUEUE for real → require a connection. Certify propagation.
+    await expect(
+      schedulePost({
+        accessToken,
+        scheduledAtIso: farFuture,
+        content: { platforms: ["twitter"], text: `ChainReact EDEN-6 must-not-post ${nonce} (no connection).` },
+      }),
+    ).rejects.toThrow(/eden_schedule_post failed/i);
+    await cancelScheduledPost({ accessToken, postId: draft2.id });
+  }, 90_000);
+
+  afterAll(async () => {
+    // CLEANUP: cancel EVERYTHING created so nothing remains queued to publish.
+    if (!(LIVE && TOKEN)) return;
+    for (const id of createdPostIds) {
+      try {
+        const c = await cancelScheduledPost({ accessToken, postId: id });
+        expect(c.postId).toBe(id);
+      } catch {
+        /* already cancelled / gone */
+      }
+    }
+  });
 });

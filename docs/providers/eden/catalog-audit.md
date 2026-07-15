@@ -68,6 +68,38 @@ an Eden `contentId` sourced from a `read_content` node — wrapper `savePostsToB
 `read_saved_post` (`eden_read_social_post` — needs an already-indexed contentId; `read_content`
 covers by-URL reads); `search_social_content` (structured `creatorRef` scope — no global Discover).
 
+## SHIPPED — Batch 3 (8 actions, EDEN-6) — scheduling writes
+
+Full details + certification: [`batch-3-scheduling.md`](./batch-3-scheduling.md). Live catalog
+re-verified this batch — **71 tools, no drift**. No triggers.
+
+| Action (`eden:*`) | Tool | Kind | Cert (empty account) |
+|---|---|---|---|
+| `create_scheduling_draft` | `eden_create_scheduling_draft` | write (draft) | ✅ live |
+| `read_scheduled_post` | `eden_list_scheduled_posts` (`postId`+`full`) | read | ✅ live |
+| `set_first_comment` | `eden_set_first_comment` | write | ✅ live |
+| `reschedule_post` | `eden_update_scheduled_post` (time-only) | write | ✅ live |
+| `cancel_scheduled_post` | `eden_cancel_scheduled_post` | write | ✅ live |
+| `update_scheduled_post` | `eden_update_scheduled_post` (content) | write | ⏸ error-path (success needs connected account) |
+| `schedule_post` | `eden_schedule_post` | write (public) | ⏸ error-path (success needs connected account) |
+| `publish_post_now` | `eden_publish_post_now` | write (public, irreversible) | ⏳ needs throwaway account |
+
+Option sources added: `eden:schedules`, `eden:scheduled_posts`, `eden:draft_posts`. `list_schedules`
+(Batch 1) read wrapper unchanged; a `readScheduledPost` bounded full-read was added.
+
+**Live findings:** (1) drafts create without a connected account, but any op that *rebuilds targets
+or enqueues* (content edit / schedule / publish) returns a deterministic 400 "No active connection"
+— wrappers now throw on the app-level `ok:false` envelope so errors propagate (rule 8). (2) `scheduledFor`/
+`createdAt` are epoch-ms; wrappers add a derived `scheduledAtIso`. (3) `content.extras.firstComment*`
+holds first-comment state; `errorMessage` holds publish-failure detail.
+
+**Absent from the live catalog (asked for, NOT invented / NOT shipped):** X **auto-retweet** + delay,
+**duplicate** draft/post, and **return-to-draft / retry-failed** — no such tools exist in the 71.
+**Deferred:** the base64/multipart media-upload tools (`eden_upload_scheduling_media`,
+`eden_prepare_/sign_/complete_/abort_scheduling_media_upload`) — bytes-in-config conflicts with the
+file-output contract; media is public-URL only. "Schedule into next queue slot" — no native tool;
+composition deferred until a schedule with slots exists on a cert account.
+
 ## DEFER — pinned, useful & supportable, not yet implemented/certified
 
 These are real, safe candidates for follow-up **certified** batches (each still needs
@@ -89,14 +121,13 @@ schema/meta/handler/tests + live cert before shipping). Grouped:
 `eden_get_my_voice`, `eden_get_voice`, `eden_list_briefs`, `eden_read_brief`,
 `eden_read_brief_idea`, `eden_list_brief_definitions`, `eden_get_brief_setup`.
 
-**Batch 4 — scheduling writes (certify WITHOUT public posting where possible)**
-`eden_create_scheduling_draft` (safe — draft), `eden_schedule_post`, `eden_publish_post_now`,
-`eden_update_scheduled_post`, `eden_set_first_comment`, `eden_cancel_scheduled_post`,
-`eden_upload_scheduling_media`. The multipart upload primitives
-(`eden_prepare_/sign_/complete_/abort_scheduling_media_upload`) are **infra**, not user actions —
-fold into a single "Upload media" action (or URL-based media) rather than 4 separate actions.
-> Certification caution: `schedule_post`/`publish_post_now` post to **real connected social
-> accounts**. Certify via a draft + cancel, or a throwaway connected account, to avoid public spam.
+**Scheduling writes — NOW SHIPPED as Batch 3 (EDEN-6).** `eden_create_scheduling_draft`,
+`eden_schedule_post`, `eden_publish_post_now`, `eden_update_scheduled_post`, `eden_set_first_comment`,
+`eden_cancel_scheduled_post` are shipped (see the SHIPPED — Batch 3 section above). The base64/multipart
+media-upload primitives (`eden_upload_scheduling_media`, `eden_prepare_/sign_/complete_/abort_scheduling_media_upload`)
+remain **DEFERRED** — bytes-in-config conflicts with the file-output contract; Batch 3 uses public-URL
+media only. `schedule_post`/`publish_post_now` post to **real connected accounts** → certified via
+draft+cancel on the empty account, with public-publish certification gated on a throwaway account.
 
 ## EXCLUDE — with evidence + reason (present in the live catalog, deliberately NOT shipped)
 

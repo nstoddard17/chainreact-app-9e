@@ -49,6 +49,15 @@ import { edenListCreatorLists } from "@/integrations/eden/actions/creators/listC
 import { edenResolveCreator } from "@/integrations/eden/actions/creators/resolveCreator";
 import { edenResearchCreator } from "@/integrations/eden/actions/creators/researchCreator";
 import { edenFollowingOverview } from "@/integrations/eden/actions/creators/followingOverview";
+// Eden (EDEN-6) — Batch 3 scheduling writes (8 actions; no triggers).
+import { edenCreateSchedulingDraft } from "@/integrations/eden/actions/scheduling/createSchedulingDraft";
+import { edenReadScheduledPost } from "@/integrations/eden/actions/scheduling/readScheduledPost";
+import { edenSchedulePost } from "@/integrations/eden/actions/scheduling/schedulePost";
+import { edenPublishPostNow } from "@/integrations/eden/actions/scheduling/publishPostNow";
+import { edenUpdateScheduledPost } from "@/integrations/eden/actions/scheduling/updateScheduledPost";
+import { edenReschedulePost } from "@/integrations/eden/actions/scheduling/reschedulePost";
+import { edenSetFirstComment } from "@/integrations/eden/actions/scheduling/setFirstComment";
+import { edenCancelScheduledPost } from "@/integrations/eden/actions/scheduling/cancelScheduledPost";
 // Slice 3.DISCORD-2 — Discord runtime port (5 actions). Bot-token
 // auth via env (DISCORD_BOT_TOKEN); no user-OAuth token used at
 // action time. Per Slice 3.DISCORD-1 decisions: actions only, no
@@ -827,6 +836,15 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "eden", type: "resolve_creator", handler: edenResolveCreator },
   { provider: "eden", type: "research_creator", handler: edenResearchCreator },
   { provider: "eden", type: "following_overview", handler: edenFollowingOverview },
+  // Eden (EDEN-6) — Batch 3 scheduling writes.
+  { provider: "eden", type: "create_scheduling_draft", handler: edenCreateSchedulingDraft },
+  { provider: "eden", type: "read_scheduled_post", handler: edenReadScheduledPost },
+  { provider: "eden", type: "schedule_post", handler: edenSchedulePost },
+  { provider: "eden", type: "publish_post_now", handler: edenPublishPostNow },
+  { provider: "eden", type: "update_scheduled_post", handler: edenUpdateScheduledPost },
+  { provider: "eden", type: "reschedule_post", handler: edenReschedulePost },
+  { provider: "eden", type: "set_first_comment", handler: edenSetFirstComment },
+  { provider: "eden", type: "cancel_scheduled_post", handler: edenCancelScheduledPost },
   // Slice 3.DISCORD-2 — 5 V1-manifest-declared action handlers.
   // delete_message is destructive (bulk + filter modes — see handler
   // docstring). Triggers + the 18 unsurfaced V1 handlers are NOT

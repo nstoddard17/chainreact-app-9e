@@ -408,6 +408,11 @@ import { edenWorkspacesResolver } from "@/integrations/eden/options/workspaces";
 import { edenBoardsResolver } from "@/integrations/eden/options/boards";
 import { edenNotesResolver } from "@/integrations/eden/options/notes";
 import { edenPromptsResolver } from "@/integrations/eden/options/prompts";
+import {
+  edenSchedulesResolver,
+  edenScheduledPostsResolver,
+  edenDraftPostsResolver,
+} from "@/integrations/eden/options/scheduling";
 import { trelloListsResolver } from "@/integrations/trello/options/lists";
 import { trelloCardsResolver } from "@/integrations/trello/options/cards";
 import { trelloMembersResolver } from "@/integrations/trello/options/members";
@@ -644,6 +649,10 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // Eden (EDEN-5) — note + saved-prompt pickers for Batch 2 actions.
   edenNotesResolver,
   edenPromptsResolver,
+  // Eden (EDEN-6) — scheduling pickers (schedules, scheduled posts, drafts).
+  edenSchedulesResolver,
+  edenScheduledPostsResolver,
+  edenDraftPostsResolver,
   trelloListsResolver,
   trelloCardsResolver,
   trelloMembersResolver,

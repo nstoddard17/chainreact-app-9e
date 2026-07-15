@@ -70,7 +70,32 @@ permission error only when a WRITE tool is called; the transport maps that to `M
 - **Prompts & skills** share one library: `list_prompts` == `list_skills` (both return `prompts`+`skills`
   arrays); `get_prompt`/`get_skill` return the same object; `export_skill` → `{ skillMd, slug }`.
 
+## Batch 3 (EDEN-6) — scheduling live evidence (2026-07-14)
+
+- **Drift check:** live `tools/list` re-captured → **71 tools, identical to the pinned set** (no drift).
+- **Account state:** `eden_list_schedules` → `schedules: []`; `eden_list_scheduled_posts` → `posts: []`.
+  **0 posting schedules, 0 connected social accounts** on the cert account.
+- **Draft create (no connection):** `eden_create_scheduling_draft` with `platforms:["twitter"]` →
+  `{ ok:true, id, status:"draft", targets:[{connectionId, platform:"twitter", kind:"text", status:"pending"}] }`.
+  Drafts create WITHOUT a connected account. (`connectionId` is dropped from all V2 outputs.)
+- **Connection gating (live):** `eden_schedule_post`, `eden_publish_post_now`, and a **content**
+  `eden_update_scheduled_post` all return `{ ok:false, status:"invalid", httpStatus:400,
+  message:"No active connection on this schedule for X." }`. A **time-only** update (reschedule)
+  and `eden_set_first_comment` and `eden_cancel_scheduled_post` succeed without a connection.
+- **Envelope-ok fix:** the app-level `ok:false` came back WITHOUT the MCP transport throwing → the
+  scheduling wrappers now assert `ok` and throw a sanitized error (provider `message` only, no
+  `errors[]` segment text, no token) so failures propagate as `HANDLER_FAILED`.
+- **Full-post shape (from `list_scheduled_posts` mode=full):** `{ id, scheduleId, status, scheduledFor
+  (epoch ms), timezone, content:{ text, media[], extras:{ firstComment, firstCommentLikes,
+  firstCommentDelayMin } }, targets:[{ kind, status, platform, connectionId }], errorMessage,
+  createdAt, updatedAt }`.
+- **Safe-lifecycle cert:** create draft → read → first-comment → cancel → verify → reschedule
+  (time-only, stays draft) → assert content-edit/schedule error propagation → cancel. PASS. No post
+  was ever published.
+- **Residual sweep after cert:** listed all posts, **0 active EDEN-6 posts remained** (all cancelled).
+
 ## Cleanup accounting
-All disposable data created during capture + certification was **trashed** (reversible in Eden):
-every board created by the shape probe, the type probe, and the cert run was removed via
-`eden_trash_board` (cleanup asserted). No permanent deletion performed. No residual artifacts expected.
+All disposable data created during capture + certification was cleaned up. Batch-1/2: every board
+created by the shape/type probes + cert runs was removed via `eden_trash_board` (asserted). Batch-3:
+every cert draft was **cancelled** in-flow and re-swept; a final list confirmed **0 active EDEN-6
+posts**. No permanent deletion performed. No residual artifacts. Nothing was ever published.
