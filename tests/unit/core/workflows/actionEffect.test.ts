@@ -6,6 +6,10 @@ import {
   analyzeRequestedOutcomes,
   classifyActionEffect,
   isMeaningfulAction,
+  parseRequestedOutcomes,
+  requestedActionText,
+  uncoveredOutcomes,
+  type RequestedOutcome,
 } from "@/core/workflows/actionEffect";
 
 describe("classifyActionEffect — normalized effect from action type + optional ActionMeta facts", () => {
@@ -86,5 +90,92 @@ describe("actionContributesToRequest — conservative outcome matching", () => {
     expect(actionContributesToRequest(classifyActionEffect("hubspot", "create_contact"), contactReq)).toBe(true);
     // create_task shares the 'create' concept but the object 'task' was never named → no contribution.
     expect(actionContributesToRequest(classifyActionEffect("hubspot", "create_task"), contactReq)).toBe(false);
+  });
+});
+
+describe("requestedActionText — separates the trigger clause from downstream actions", () => {
+  it("strips a leading 'When …,' trigger clause", () => {
+    expect(requestedActionText("When Typeform receives a response, create a HubSpot contact")).toBe(
+      "create a HubSpot contact",
+    );
+    expect(requestedActionText("After a file is uploaded, save a copy to Dropbox")).toBe(
+      "save a copy to Dropbox",
+    );
+  });
+
+  it("leaves a request with no leading trigger clause unchanged", () => {
+    expect(requestedActionText("create a HubSpot contact and notify Slack")).toBe(
+      "create a HubSpot contact and notify Slack",
+    );
+  });
+
+  it("returns empty for a pure trigger phrase (no downstream action)", () => {
+    expect(requestedActionText("When a new Typeform response arrives")).toBe("");
+  });
+});
+
+describe("parseRequestedOutcomes — multiple downstream outcomes, trigger verbs excluded", () => {
+  const concepts = (text: string) => parseRequestedOutcomes(text).map((o) => o.concept);
+
+  it("preserves MULTIPLE outcomes for the same provider", () => {
+    expect(concepts("When Typeform receives a response, create a HubSpot contact and update its lifecycle stage")).toEqual(
+      ["create", "update"],
+    );
+    expect(concepts("When a Slack reaction is added, post a message and create a Slack channel")).toEqual([
+      "send",
+      "create",
+    ]);
+  });
+
+  it("(#7) trigger verbs (labeled / added / deleted / created / uploaded) do NOT become action requirements", () => {
+    expect(concepts("When a contact is labeled, create a task")).toEqual(["create"]); // not 'update'
+    expect(concepts("When a row is added, notify Slack")).toEqual(["send"]); // not 'append'
+    expect(concepts("When a message is deleted, create a task")).toEqual(["create"]); // not 'delete'
+    expect(concepts("When a HubSpot contact is created, add a row to Google Sheets")).toEqual(["append"]); // not 'create'
+  });
+
+  it("(#10) maps mechanism / semantic wording to the right concept", () => {
+    expect(concepts("log it in Sheets")).toEqual(["append"]);
+    expect(concepts("notify Slack")).toEqual(["send"]);
+    expect(concepts("update the lifecycle stage")).toEqual(["update"]);
+    expect(concepts("format the row")).toEqual(["update"]);
+  });
+
+  it("(#12) vague / uncertain wording creates NO required outcome", () => {
+    expect(concepts("do the needful")).toEqual([]);
+    expect(concepts("When a form is submitted, handle the response somehow")).toEqual([]);
+  });
+});
+
+describe("uncoveredOutcomes — injective concept coverage (one action can't cover two outcomes)", () => {
+  const o = (concept: RequestedOutcome["concept"]): RequestedOutcome => ({ concept, confidence: "high", text: concept });
+
+  it("reports a requested concept with no matching action as uncovered", () => {
+    const uncovered = uncoveredOutcomes(
+      [o("create"), o("update")],
+      [classifyActionEffect("hubspot", "create_contact")],
+    );
+    expect(uncovered.map((u) => u.concept)).toEqual(["update"]);
+  });
+
+  it("full coverage when each outcome has a distinct matching action", () => {
+    const uncovered = uncoveredOutcomes(
+      [o("create"), o("update")],
+      [classifyActionEffect("hubspot", "create_contact"), classifyActionEffect("hubspot", "update_contact")],
+    );
+    expect(uncovered).toEqual([]);
+  });
+
+  it("two same-concept outcomes require TWO distinct actions (one can't satisfy both)", () => {
+    const oneAction = uncoveredOutcomes(
+      [o("send"), o("send")],
+      [classifyActionEffect("slack", "send_channel_message")],
+    );
+    expect(oneAction).toHaveLength(1);
+    const twoActions = uncoveredOutcomes(
+      [o("send"), o("send")],
+      [classifyActionEffect("slack", "send_channel_message"), classifyActionEffect("slack", "send_direct_message")],
+    );
+    expect(twoActions).toEqual([]);
   });
 });

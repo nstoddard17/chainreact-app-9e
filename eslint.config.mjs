@@ -366,16 +366,16 @@ export default [
   // strong/weak/no-match classifier (REACT-AGENT-TEMPLATE-MATCH). It is intentionally ONE cohesive,
   // side-effect-free module: the provider/alias/stopword tables, the request analyzer, the scorer, and
   // the strong-match structural gate all share the same private primitives (splitting them would force
-  // exporting those internals and break encapsulation). The semantic action-effect layer WAS extracted
-  // to `actionEffect.ts`; what remains here is the structural gate plus the single-/multi-provider
-  // specificity checks (MATCH-4 + the multi-provider action-contribution hardening). Capped at 520
-  // (snug headroom) to keep further drift visible.
+  // exporting those internals and break encapsulation). The semantic action-effect layer (and now the
+  // requested-outcome parsing / coverage) lives in `actionEffect.ts`; what remains here is the
+  // structural gate plus the single-/multi-provider specificity + outcome-coverage wiring. Capped at
+  // 540 (snug headroom) to keep further drift visible.
   {
     files: ["core/workflows/officialTemplateMatcher.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 520, skipBlankLines: true, skipComments: true },
+        { max: 540, skipBlankLines: true, skipComments: true },
       ],
     },
   },

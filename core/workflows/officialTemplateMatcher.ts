@@ -9,7 +9,10 @@ import {
   actionContributesToRequest,
   analyzeRequestedOutcomes,
   classifyActionEffect,
+  effectConceptLabel,
   isMeaningfulAction,
+  parseRequestedOutcomes,
+  uncoveredOutcomes,
   type ActionEffectFactsLookup,
 } from "./actionEffect";
 
@@ -539,16 +542,25 @@ function stepTypeTokens(
  *         mismatched primary action AND unrelated recipient-visible/destructive side-effects).
  *     S3  at least one action satisfies the described outcome.
  *
- *   Multi-provider requests (≥2 named apps) are governed by provider-exactness (C2/C3) + C4–C6 AND a
- *   SEMANTIC action check in both directions (via `core/workflows/actionEffect`):
+ *   Requested-outcome COVERAGE (M3, all requests — single AND multi): every CONFIDENTLY-identified
+ *   downstream action outcome (parsed from the TRIGGER-STRIPPED request, so a start-event verb like
+ *   "labeled"/"deleted"/"uploaded" never becomes an action requirement) must be delivered by a
+ *   DISTINCT template action of the same effect concept. Multiple outcomes may share a provider —
+ *   "create a HubSpot contact AND update its lifecycle stage" needs BOTH a create and an update
+ *   action. Matched by normalized concept (semantic equivalence: "update lifecycle" ≈ `update_contact`),
+ *   via maximum bipartite matching so one action can't satisfy two outcomes. Uncertain wording → no
+ *   requirement.
+ *
+ *   Multi-provider requests (≥2 named apps) additionally run a SEMANTIC action check (via
+ *   `core/workflows/actionEffect`):
  *     M1 — every MEANINGFUL template action (state-changing / recipient-visible / external — not a
  *          pure read or native step) must CONTRIBUTE to a requested outcome. Mechanism wording never
- *          false-rejects ("log to Sheets" ≈ `append_row`, "notify Slack" ≈ `send_channel_message`),
- *          while an unrequested destructive / recipient-visible / external side effect (`delete_row`,
- *          an unasked `send_email`, a public share) DOES disqualify — even from a requested provider.
- *     M2 — every requested outcome must be DELIVERED: each named provider must be the trigger or carry
- *          a meaningful action (a named app that only reads means the asked-for outcome is missing).
- *   Conservative: an action that can't be shown to contribute → weak (build manually).
+ *          false-rejects, while an unrequested destructive / recipient-visible / external side effect
+ *          (`delete_row`, an unasked `send_email`, a public share) DOES disqualify — even from a
+ *          requested provider.
+ *     M2 — provider-presence floor: each named provider must be the trigger or carry a meaningful
+ *          action (a coarse guard; per-outcome completeness is M3's job).
+ *   Conservative: an outcome that can't be shown to be covered → weak (build manually).
  *
  * `effectFactsFor` (optional) injects the authoritative `ActionMeta` side-effect facts
  * (destructive / category); absent → the action-type-verb fallback is used.
@@ -651,6 +663,24 @@ function evaluateStrongMatch(
     }
   }
 
+  // M3 — COMPLETE requested-outcome coverage (single- AND multi-provider). Every CONFIDENTLY-identified
+  // downstream action outcome (parsed from the trigger-stripped request, so start-event verbs never
+  // count) must be delivered by a DISTINCT template action of the same effect concept. This closes the
+  // same-provider multi-outcome gap the provider-level M2 proxy missed — e.g. "create a HubSpot contact
+  // AND update its lifecycle stage" needs BOTH a create and an update action, not just any HubSpot
+  // action. Uncertain/vague wording yields no outcome, so it never forces a rejection.
+  const requestedOutcomes = parseRequestedOutcomes(requestText);
+  if (requestedOutcomes.length > 0) {
+    const actionEffects = actionSteps.map((s) =>
+      classifyActionEffect(s.provider, s.type, effectFactsFor?.(s.provider, s.type)),
+    );
+    const uncovered = uncoveredOutcomes(requestedOutcomes, actionEffects);
+    if (uncovered.length > 0) {
+      const missing = dedupe(uncovered.map((o) => effectConceptLabel(o.concept)));
+      reasons.push(`Doesn't include every step you asked for (missing a ${missing.join(", ")} step)`);
+    }
+  }
+
   // Multi-provider requests: semantic action scrutiny. Provider-exactness gives no per-action
   // discrimination when several apps are named, so compare normalized EFFECT concepts in both
   // directions (via `core/workflows/actionEffect`).
@@ -674,9 +704,9 @@ function evaluateStrongMatch(
       reasons.push(`Includes actions you didn't ask for (${dedupe(unjustified).join(", ")})`);
     }
 
-    // M2 — every requested outcome must be delivered: a named provider must be the trigger OR carry a
-    // meaningful action. A named app that only appears as a read/no-op means the outcome the user
-    // asked that app for is missing (prefer building manually over a template that drops it).
+    // M2 — provider PRESENCE floor: every named provider must be the trigger OR carry a meaningful
+    // action (a named app that only reads is doing nothing). This is a coarse per-provider guard;
+    // per-outcome completeness (incl. multiple outcomes on one provider) is enforced by M3 above.
     const triggerProvider = triggerNative ? null : triggerStep!.provider;
     const missingOutcome = [...explicit].filter(
       (p) => p !== triggerProvider && !meaningfulProviders.has(p),

@@ -92,6 +92,8 @@ const EFFECT_KEYWORDS: Readonly<Record<string, EffectCategory>> = {
   send: "send", post: "send", notify: "send", alert: "send", dm: "send", message: "send",
   reply: "send", announce: "send", ping: "send", publish: "send", share: "send",
   broadcast: "send", mention: "send", respond: "send", tell: "send", email: "send", mail: "send",
+  // update (formatting is a kind of modify/update)
+  format: "update", reformat: "update",
   // append
   append: "append", add: "append", log: "append", track: "append", record: "append",
   tally: "append", insert: "append",
@@ -192,6 +194,44 @@ export function isMeaningfulAction(effect: ActionEffect): boolean {
   return true;
 }
 
+// ── Trigger / action separation ───────────────────────────────────────────────
+
+/** Leading connectives that introduce a TRIGGER / start-event clause. */
+const TRIGGER_CONNECTIVES: readonly string[] = [
+  "when", "whenever", "after", "once", "if", "on", "anytime",
+  "each time", "every time", "any time", "as soon as",
+];
+
+/** Concepts that represent a REQUESTED DOWNSTREAM ACTION (not a benign read / unknown). */
+const ACTION_CONCEPTS: ReadonlySet<EffectCategory> = new Set([
+  "create", "update", "delete", "send", "append", "upload", "archive",
+]);
+
+/**
+ * Strip a LEADING trigger/start-event clause so its verbs ("labeled", "added", "deleted", "uploaded",
+ * "created") are NOT mistaken for requested downstream action outcomes. The trigger clause runs from a
+ * leading connective ("When …", "After …") to the first clause boundary (a comma or " then "). A
+ * request with no leading trigger clause is returned unchanged; a pure trigger with no downstream
+ * clause returns "".
+ */
+export function requestedActionText(requestText: string): string {
+  const trimmed = requestText.trim();
+  const lower = trimmed.toLowerCase();
+  const startsWithTrigger = TRIGGER_CONNECTIVES.some((c) => lower === c || lower.startsWith(`${c} `));
+  if (!startsWithTrigger) return trimmed;
+
+  const commaIdx = trimmed.indexOf(",");
+  const thenMatch = /\bthen\b/i.exec(trimmed);
+  const boundaries = [commaIdx, thenMatch ? thenMatch.index : -1].filter((i) => i >= 0);
+  if (boundaries.length === 0) return ""; // a pure trigger phrase — no downstream action
+  const cut = Math.min(...boundaries);
+  return trimmed
+    .slice(cut)
+    .replace(/^\s*,\s*/, "")
+    .replace(/^\s*then\s+/i, "")
+    .trim();
+}
+
 // ── Request analysis ──────────────────────────────────────────────────────────
 
 export interface RequestedOutcomes {
@@ -202,20 +242,113 @@ export interface RequestedOutcomes {
 }
 
 /**
- * Derive the outcome concepts + object tokens the request asks for. Scans the RAW request words (not a
- * stopword-filtered set) because the concept signal often lives in exactly those generic verbs
- * ("log" → append, "notify" → send, "save" → upload).
+ * Derive the DOWNSTREAM outcome concepts + object tokens the request asks for. Operates on the
+ * trigger-stripped {@link requestedActionText} (so trigger vocabulary never leaks into requested
+ * concepts) and scans raw words because the concept signal often lives in generic verbs ("log" →
+ * append, "notify" → send, "save" → upload).
  */
 export function analyzeRequestedOutcomes(requestText: string): RequestedOutcomes {
   const concepts = new Set<EffectCategory>();
   const toks = new Set<string>();
-  for (const raw of tokens(requestText)) {
+  for (const raw of tokens(requestedActionText(requestText))) {
     const s = singularize(raw);
     toks.add(s);
     const concept = EFFECT_KEYWORDS[raw] ?? EFFECT_KEYWORDS[s];
     if (concept) concepts.add(concept);
   }
   return { concepts, tokens: toks };
+}
+
+/**
+ * One CONFIDENTLY-identified requested downstream action outcome. Multiple outcomes may share a
+ * provider/concept (e.g. "create a contact AND update its lifecycle stage" → two outcomes). Only
+ * outcomes with a recognized ACTION verb are emitted — vague/uncertain wording produces nothing, so
+ * no spurious requirement is created (a false negative is preferred over a false strong match).
+ */
+export interface RequestedOutcome {
+  readonly concept: EffectCategory;
+  readonly confidence: "high" | "uncertain";
+  /** The clause the outcome was parsed from (safe — the user's own words, no ids/config). */
+  readonly text: string;
+}
+
+/**
+ * Parse the request into zero or more high-confidence downstream outcomes. Splits the
+ * trigger-stripped action text on clause delimiters (comma / and / then / plus / & / ;) and maps each
+ * clause's first recognized ACTION verb to a concept. Clauses with no recognized action verb are
+ * dropped (uncertain → no requirement).
+ */
+export function parseRequestedOutcomes(requestText: string): RequestedOutcome[] {
+  const text = requestedActionText(requestText);
+  if (!text) return [];
+  const segments = text
+    .split(/\s*(?:,|\band\b|\bthen\b|\bplus\b|&|;)\s*/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const outcomes: RequestedOutcome[] = [];
+  for (const seg of segments) {
+    let concept: EffectCategory | undefined;
+    for (const raw of tokens(seg)) {
+      const c = EFFECT_KEYWORDS[raw] ?? EFFECT_KEYWORDS[singularize(raw)];
+      if (c && ACTION_CONCEPTS.has(c)) {
+        concept = c;
+        break;
+      }
+    }
+    if (concept) outcomes.push({ concept, confidence: "high", text: seg });
+  }
+  return outcomes;
+}
+
+/**
+ * Complete-coverage check: can EVERY high-confidence requested outcome be matched to a DISTINCT
+ * meaningful template action of the same effect concept? Uses maximum bipartite matching (Kuhn's
+ * augmenting paths) so N requested outcomes of the same concept require N distinct actions of that
+ * concept — a single action can never cover two separate outcomes. Returns the UNCOVERED outcomes
+ * (empty → full coverage).
+ */
+export function uncoveredOutcomes(
+  outcomes: readonly RequestedOutcome[],
+  actionEffects: readonly ActionEffect[],
+): RequestedOutcome[] {
+  const actions = actionEffects.filter(isMeaningfulAction);
+  const actionToOutcome: (number | undefined)[] = new Array(actions.length).fill(undefined);
+
+  const tryAssign = (oi: number, seen: boolean[]): boolean => {
+    for (let aj = 0; aj < actions.length; aj++) {
+      if (actions[aj]!.effectCategory !== outcomes[oi]!.concept) continue;
+      if (seen[aj]) continue;
+      seen[aj] = true;
+      const held = actionToOutcome[aj];
+      if (held === undefined || tryAssign(held, seen)) {
+        actionToOutcome[aj] = oi;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const uncovered: RequestedOutcome[] = [];
+  for (let oi = 0; oi < outcomes.length; oi++) {
+    if (outcomes[oi]!.confidence !== "high") continue;
+    if (!tryAssign(oi, new Array(actions.length).fill(false))) uncovered.push(outcomes[oi]!);
+  }
+  return uncovered;
+}
+
+/** Friendly, safe label for an effect concept (used in match-reason copy). */
+export function effectConceptLabel(concept: EffectCategory): string {
+  switch (concept) {
+    case "send":
+    case "notify":
+      return "send/notify";
+    case "append":
+      return "add";
+    case "upload":
+      return "save";
+    default:
+      return concept;
+  }
 }
 
 /**

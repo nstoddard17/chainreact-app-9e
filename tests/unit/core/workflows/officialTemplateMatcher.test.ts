@@ -647,6 +647,207 @@ describe("selectOfficialTemplateRecommendation — multi-provider semantic actio
   });
 });
 
+describe("selectOfficialTemplateRecommendation — complete requested-outcome coverage (M3)", () => {
+  const tf = (): TemplateStepSummary => step("trigger", "typeform", "new_response");
+
+  // ── HubSpot: two outcomes on ONE provider (create + update) ────────────────────────────────────
+  const HS_CREATE_ONLY: OfficialTemplateCatalogEntry = {
+    id: "t-hs-create",
+    name: "Typeform lead to HubSpot contact",
+    description: "When a Typeform response is submitted, create a HubSpot contact.",
+    category: "sales-crm",
+    triggerKind: "app",
+    providers: ["typeform", "hubspot"],
+    steps: [tf(), step("action", "hubspot", "create_contact")],
+    nodeCount: 2,
+    stepCount: 1,
+  };
+  const HS_CREATE_UPDATE: OfficialTemplateCatalogEntry = {
+    ...HS_CREATE_ONLY,
+    id: "t-hs-create-update",
+    name: "Typeform lead to HubSpot contact with lifecycle update",
+    description: "When a Typeform response is submitted, create a HubSpot contact and update its lifecycle stage.",
+    steps: [tf(), step("action", "hubspot", "create_contact"), step("action", "hubspot", "update_contact")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const HS_CREATE_LIFECYCLE: OfficialTemplateCatalogEntry = {
+    ...HS_CREATE_UPDATE,
+    id: "t-hs-create-lifecycle",
+    steps: [tf(), step("action", "hubspot", "create_contact"), step("action", "hubspot", "update_lifecycle_stage")],
+  };
+  const HS_REQUEST = "When Typeform receives a response, create a HubSpot contact and update its lifecycle stage.";
+
+  it("(#1/#11) same-provider create+update requested, only create present → weak_match", () => {
+    const res = selectOfficialTemplateRecommendation(HS_REQUEST, [HS_CREATE_ONLY]);
+    expect(res.outcome).toBe("weak_match");
+    expect(res.recommendation).toBeNull();
+    expect(res.rejectedReasons.join(" ").toLowerCase()).toMatch(/every step you asked for|update/);
+  });
+
+  it("(#2) same-provider create+update requested, both present → strong_match", () => {
+    expect(selectOfficialTemplateRecommendation(HS_REQUEST, [HS_CREATE_UPDATE]).outcome).toBe("strong_match");
+  });
+
+  it("(#10) 'update lifecycle stage' is satisfied by a compatible HubSpot update action", () => {
+    expect(selectOfficialTemplateRecommendation(HS_REQUEST, [HS_CREATE_LIFECYCLE]).outcome).toBe("strong_match");
+  });
+
+  // ── Slack: two outcomes on ONE provider (post + create channel) ────────────────────────────────
+  const SLACK_POST_ONLY: OfficialTemplateCatalogEntry = {
+    id: "t-slack-post",
+    name: "Slack reaction repost",
+    description: "When a reaction is added in Slack, repost the message to another channel.",
+    category: "team-ops",
+    triggerKind: "app",
+    providers: ["slack"],
+    steps: [step("trigger", "slack", "reaction_added"), step("action", "slack", "send_channel_message")],
+    nodeCount: 2,
+    stepCount: 1,
+  };
+  const SLACK_POST_CREATE: OfficialTemplateCatalogEntry = {
+    ...SLACK_POST_ONLY,
+    id: "t-slack-post-create",
+    name: "Slack reaction repost and new channel",
+    description: "When a reaction is added in Slack, repost the message and create a new channel.",
+    steps: [
+      step("trigger", "slack", "reaction_added"),
+      step("action", "slack", "send_channel_message"),
+      step("action", "slack", "create_channel"),
+    ],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const SLACK_REQUEST = "When a Slack reaction is added, post a message and create a Slack channel.";
+
+  it("(#3) Slack post-message + create-channel requested, only message present → weak_match", () => {
+    const res = selectOfficialTemplateRecommendation(SLACK_REQUEST, [SLACK_POST_ONLY]);
+    expect(res.outcome).toBe("weak_match");
+    expect(res.rejectedReasons.join(" ").toLowerCase()).toMatch(/every step you asked for|create/);
+  });
+
+  it("(#4) Slack post-message + create-channel requested, both present → strong_match", () => {
+    expect(selectOfficialTemplateRecommendation(SLACK_REQUEST, [SLACK_POST_CREATE]).outcome).toBe("strong_match");
+  });
+
+  // ── Google Sheets: append + format ─────────────────────────────────────────────────────────────
+  const SHEETS_APPEND_ONLY: OfficialTemplateCatalogEntry = {
+    id: "t-sheets-append",
+    name: "Typeform response to Google Sheets row",
+    description: "When a Typeform response is submitted, append it as a new row in Google Sheets.",
+    category: "personal-productivity",
+    triggerKind: "app",
+    providers: ["typeform", "google-sheets"],
+    steps: [tf(), step("action", "google-sheets", "append_row")],
+    nodeCount: 2,
+    stepCount: 1,
+  };
+  const SHEETS_APPEND_FORMAT: OfficialTemplateCatalogEntry = {
+    ...SHEETS_APPEND_ONLY,
+    id: "t-sheets-append-format",
+    name: "Typeform response to Google Sheets, formatted",
+    description: "When a Typeform response is submitted, append a new row in Google Sheets and format the row.",
+    steps: [tf(), step("action", "google-sheets", "append_row"), step("action", "google-sheets", "format_row")],
+    nodeCount: 3,
+    stepCount: 2,
+  };
+  const SHEETS_REQUEST = "When a Typeform response is submitted, add a row to Google Sheets and format the new row.";
+
+  it("(#5) append-row + format-row requested, only append present → weak_match", () => {
+    expect(selectOfficialTemplateRecommendation(SHEETS_REQUEST, [SHEETS_APPEND_ONLY]).outcome).toBe("weak_match");
+  });
+
+  it("(#6) append-row + format-row requested, both present → strong_match", () => {
+    expect(selectOfficialTemplateRecommendation(SHEETS_REQUEST, [SHEETS_APPEND_FORMAT]).outcome).toBe("strong_match");
+  });
+
+  // ── Trigger-clause verbs must not create a downstream requirement ───────────────────────────────
+  it("(#7) a trigger verb ('created') does not require a create action downstream", () => {
+    const T: OfficialTemplateCatalogEntry = {
+      id: "t-created-trigger",
+      name: "New HubSpot contact to Google Sheets",
+      description: "When a HubSpot contact is created, append a new row in Google Sheets.",
+      category: "personal-productivity",
+      triggerKind: "app",
+      providers: ["hubspot", "google-sheets"],
+      steps: [step("trigger", "hubspot", "contact_created"), step("action", "google-sheets", "append_row")],
+      nodeCount: 2,
+      stepCount: 1,
+    };
+    // Only an append outcome is required (the 'created' trigger verb must not demand a create action).
+    expect(
+      selectOfficialTemplateRecommendation("When a HubSpot contact is created, add a row to Google Sheets.", [T]).outcome,
+    ).toBe("strong_match");
+  });
+
+  it("(#8) 'When a row is added, notify Slack' requires the notify action but NOT an extra append", () => {
+    const T: OfficialTemplateCatalogEntry = {
+      id: "t-row-added-notify",
+      name: "New Sheets lead row to Slack",
+      description: "When a new lead row is added in Google Sheets, alert the sales team in Slack.",
+      category: "team-ops",
+      triggerKind: "app",
+      providers: ["google-sheets", "slack"],
+      steps: [step("trigger", "google-sheets", "new_row"), step("action", "slack", "send_channel_message")],
+      nodeCount: 2,
+      stepCount: 1,
+    };
+    // The only downstream outcome is the Slack alert — the 'added' trigger verb must NOT require an
+    // extra append-row action (the template has none, yet it is still a strong match).
+    expect(
+      selectOfficialTemplateRecommendation(
+        "When a lead row is added in Google Sheets, alert the sales team in Slack.",
+        [T],
+      ).outcome,
+    ).toBe("strong_match");
+  });
+
+  it("(#9) 'When a message is deleted, create a task' requires the task action but NOT a delete action", () => {
+    const GOOD: OfficialTemplateCatalogEntry = {
+      id: "t-deleted-good",
+      name: "Deleted Slack message to HubSpot task",
+      description: "When a Slack message is deleted, create a follow-up task in HubSpot.",
+      category: "team-ops",
+      triggerKind: "app",
+      providers: ["slack", "hubspot"],
+      steps: [step("trigger", "slack", "message_deleted"), step("action", "hubspot", "create_task")],
+      nodeCount: 2,
+      stepCount: 1,
+    };
+    const req = "When a Slack message is deleted, create a HubSpot task.";
+    expect(selectOfficialTemplateRecommendation(req, [GOOD]).outcome).toBe("strong_match");
+    // (#13) An actual delete-message action WAS NOT requested downstream → M1 rejects it.
+    const BAD: OfficialTemplateCatalogEntry = {
+      ...GOOD,
+      id: "t-deleted-bad",
+      steps: [
+        step("trigger", "slack", "message_deleted"),
+        step("action", "hubspot", "create_task"),
+        step("action", "slack", "delete_message"),
+      ],
+      nodeCount: 3,
+      stepCount: 2,
+    };
+    expect(selectOfficialTemplateRecommendation(req, [BAD]).outcome).toBe("weak_match");
+  });
+
+  it("(#12) vague trailing wording does not create a spurious required action", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a Typeform response is submitted, add a row to Google Sheets and do the needful.",
+      [SHEETS_APPEND_ONLY],
+    );
+    expect(res.outcome).toBe("strong_match");
+  });
+
+  it("(#17) a strong outcome-complete match still returns exactly ONE recommendation", () => {
+    expect(MAX_TEMPLATE_RECOMMENDATIONS).toBe(1);
+    const res = selectOfficialTemplateRecommendation(HS_REQUEST, [HS_CREATE_UPDATE]);
+    expect(res.outcome).toBe("strong_match");
+    expect(Array.isArray(res.recommendation)).toBe(false);
+    expect(res.recommendation).not.toBeNull();
+  });
+});
+
 describe("selectOfficialCatalogEntries — excludes user / private / unlisted", () => {
   function summary(over: Partial<MarketplaceTemplateSummary>): MarketplaceTemplateSummary {
     return {
