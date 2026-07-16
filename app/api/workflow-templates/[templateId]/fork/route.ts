@@ -29,6 +29,11 @@ export async function POST(
   const auth = await requireAuthedUserId();
   if (!auth.ok) return auth.response;
   const { templateId } = await params;
+  // A malformed (non-uuid) id collapses to the same 404 as an unknown id — never a 500
+  // from a failed Postgres uuid cast, and no malformed-vs-missing oracle.
+  if (!z.string().uuid().safeParse(templateId).success) {
+    return NextResponse.json({ error: "No such template.", code: "TEMPLATE_NOT_FOUND" }, { status: 404 });
+  }
 
   const body = await parseAccountBody(request, ForkTemplateBodySchema);
   if (!body.ok) return body.response;

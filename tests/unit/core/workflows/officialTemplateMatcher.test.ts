@@ -887,3 +887,92 @@ describe("selectOfficialCatalogEntries — excludes user / private / unlisted", 
     expect(entries.map((e) => e.id)).toEqual(["official-public"]);
   });
 });
+
+describe("batch-5 provider lexicon (TEMPLATE-QUALITY-1) — calendly / quickbooks / asana are explicit terms", () => {
+  const CALENDLY_BOOKING: OfficialTemplateCatalogEntry = {
+    id: "t-calendly-booking",
+    name: "New meeting booked to prepared call",
+    description:
+      "When an invitee books a meeting through Calendly, create or update the HubSpot contact from the invitee email, open a preparation task, start a meeting-notes document in Google Docs, log the booking to a sheet, and tell the team in Slack.",
+    category: "sales-crm",
+    triggerKind: "app",
+    providers: ["calendly", "hubspot", "google-docs", "google-sheets", "slack"],
+    steps: [
+      step("trigger", "calendly", "event_scheduled"),
+      step("action", "hubspot", "create_contact"),
+      step("action", "hubspot", "create_task"),
+      step("action", "google-docs", "create_document"),
+      step("action", "google-sheets", "append_row"),
+      step("action", "slack", "send_channel_message"),
+    ],
+    nodeCount: 6,
+    stepCount: 5,
+  };
+
+  const QUICKBOOKS_INVOICE: OfficialTemplateCatalogEntry = {
+    id: "t-quickbooks-invoice",
+    name: "Invoice tracking and payment follow-up",
+    description:
+      "When a new invoice is created in QuickBooks, look up the customer record, log the invoice to your accounts-receivable sheet, open a payment follow-up task in HubSpot tied to the due date, and notify the finance channel in Slack.",
+    category: "reporting",
+    triggerKind: "app",
+    providers: ["quickbooks", "google-sheets", "hubspot", "slack"],
+    steps: [
+      step("trigger", "quickbooks", "invoice_created"),
+      step("action", "quickbooks", "get_customer"),
+      step("action", "google-sheets", "append_row"),
+      step("action", "hubspot", "create_task"),
+      step("action", "slack", "send_channel_message"),
+    ],
+    nodeCount: 5,
+    stepCount: 4,
+  };
+
+  const VENDOR_INVOICE_AP: OfficialTemplateCatalogEntry = {
+    id: "t-vendor-invoice",
+    name: "Vendor invoice email intake",
+    description:
+      "When an email with your invoices label arrives in Gmail, prepare a received-acknowledgment reply draft for your review, open an accounts-payable processing task in Asana, log the invoice to your register sheet, and notify finance in Slack.",
+    category: "team-ops",
+    triggerKind: "app",
+    providers: ["gmail", "asana", "google-sheets", "slack"],
+    steps: [
+      step("trigger", "gmail", "new_labeled_email"),
+      step("action", "gmail", "create_draft_reply"),
+      step("action", "asana", "create_task"),
+      step("action", "google-sheets", "append_row"),
+      step("action", "slack", "send_channel_message"),
+    ],
+    nodeCount: 5,
+    stepCount: 4,
+  };
+
+  const B5_CATALOG = [...CATALOG, CALENDLY_BOOKING, QUICKBOOKS_INVOICE, VENDOR_INVOICE_AP];
+
+  it("a Calendly booking request strong-matches the Calendly template (lexicon recognizes 'calendly')", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When someone books a meeting through Calendly, create a HubSpot contact from the invitee, open a preparation task, start a meeting notes document in Google Docs, log the booking to a Google Sheet, and notify my team in Slack.",
+      B5_CATALOG,
+    );
+    expect(res.outcome).toBe("strong_match");
+    expect(res.recommendation?.templateId).toBe("t-calendly-booking");
+  });
+
+  it("a QuickBooks invoice request strong-matches the QuickBooks template (lexicon recognizes 'quickbooks')", () => {
+    const res = selectOfficialTemplateRecommendation(
+      "When a new invoice is created in QuickBooks, look up the customer, log it to Google Sheets, create a HubSpot follow-up task, and notify Slack.",
+      B5_CATALOG,
+    );
+    expect(res.outcome).toBe("strong_match");
+    expect(res.recommendation?.templateId).toBe("t-quickbooks-invoice");
+  });
+
+  it("naming Asana contributes explicit provider signal (top match is the Asana AP template)", () => {
+    const res = matchOfficialTemplates(
+      "When a labeled vendor invoice email arrives in Gmail, draft an acknowledgment reply, open a processing task in Asana, log it to Google Sheets, and notify finance in Slack.",
+      B5_CATALOG,
+    );
+    expect(res.matches[0]?.templateId).toBe("t-vendor-invoice");
+    expect(res.matches[0]?.summary.providers).toContain("asana");
+  });
+});

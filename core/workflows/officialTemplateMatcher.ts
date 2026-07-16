@@ -162,6 +162,9 @@ const EXPLICIT_PROVIDER_TERMS: Readonly<Record<string, string>> = {
   onenote: "microsoft-onenote",
   onedrive: "microsoft-onedrive",
   typeform: "typeform",
+  calendly: "calendly",
+  quickbooks: "quickbooks",
+  asana: "asana",
 };
 
 /** AMBIGUOUS aliases — generic concept → candidate providers. These only ADD weak positive signal

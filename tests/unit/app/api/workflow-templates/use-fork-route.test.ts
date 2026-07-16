@@ -20,10 +20,12 @@ jest.mock("@/services/workflows/templateManagement", () => ({
 import { POST as USE } from "@/app/api/workflow-templates/[templateId]/use/route";
 import { POST as FORK } from "@/app/api/workflow-templates/[templateId]/fork/route";
 
-const TPL = "tpl-1";
+// Must be uuid-shaped: the routes 404 a malformed id BEFORE the service runs (no 500 from a
+// failed Postgres uuid cast, and no malformed-vs-missing oracle).
+const TPL = "22222222-2222-4222-8222-222222222222";
 const ACCT = "11111111-1111-1111-1111-111111111111";
-function params() {
-  return { params: Promise.resolve({ templateId: TPL }) };
+function params(templateId: string = TPL) {
+  return { params: Promise.resolve({ templateId }) };
 }
 function authed() {
   mockGetUser.mockResolvedValue({ data: { user: { id: "user-1", email: "u@x.test" } }, error: null });
@@ -65,6 +67,13 @@ describe("use route", () => {
     expect((await res.json()).code).toBe("TEMPLATE_NOT_FOUND");
   });
 
+  it("malformed (non-uuid) template id → 404 TEMPLATE_NOT_FOUND, service never called", async () => {
+    const res = await USE(req({ targetAccountId: ACCT }), params("not-a-real-id"));
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("TEMPLATE_NOT_FOUND");
+    expect(mockUse).not.toHaveBeenCalled();
+  });
+
   it("target_not_member → 403 NOT_ACCOUNT_MEMBER", async () => {
     mockUse.mockResolvedValue({ ok: false, reason: "target_not_member" });
     const res = await USE(req({ targetAccountId: ACCT }), params());
@@ -104,6 +113,13 @@ describe("fork route", () => {
     const res = await FORK(req({ targetAccountId: ACCT }), params());
     expect(res.status).toBe(403);
     expect((await res.json()).code).toBe("FORBIDDEN");
+  });
+
+  it("malformed (non-uuid) template id → 404 TEMPLATE_NOT_FOUND, service never called", async () => {
+    const res = await FORK(req({ targetAccountId: ACCT }), params("not-a-real-id"));
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("TEMPLATE_NOT_FOUND");
+    expect(mockFork).not.toHaveBeenCalled();
   });
 
   it("template_not_found → 404", async () => {
