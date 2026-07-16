@@ -44,11 +44,15 @@ describe("CronField — input + label", () => {
     expect(screen.getByText("*")).toBeInTheDocument();
   });
 
-  it("forwards typing through onChange", async () => {
+  it("forwards typing through onChange in Custom (cron) mode", async () => {
     const onChange = jest.fn();
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     render(<CronField field={field()} value="" onChange={onChange} />);
-    await user.type(screen.getByLabelText(/cron expression/i), "0");
+    // CONFIG-UX-SETUP-ADVANCED-1 — the raw input lives behind the
+    // "Custom (cron)" preset choice; power users still get verbatim typing.
+    await user.click(screen.getByLabelText(/cron expression/i));
+    await user.click(screen.getByRole("option", { name: /custom \(cron\)/i }));
+    await user.type(screen.getByLabelText(/custom cron expression/i), "0");
     expect(onChange).toHaveBeenLastCalledWith("0");
   });
 

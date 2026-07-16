@@ -29,7 +29,7 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConfigModalShell } from "@/features/workflow-builder/config-modal/ConfigModalShell";
 import { useGraphSlice } from "@/features/workflow-builder/state/graphSlice";

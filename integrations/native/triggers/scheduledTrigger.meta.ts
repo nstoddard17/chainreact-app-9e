@@ -28,8 +28,9 @@ export const scheduledTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "cronExpression",
-      label: "Cron Expression",
-      description: "5-field UTC cron expression. Minute Hour Day-of-month Month Day-of-week. Up to 120 characters.",
+      label: "Schedule",
+      description:
+        "When the workflow runs. Pick a preset (every hour, day, week…) or choose Custom for a 5-field UTC cron expression.",
       type: "cron",
       required: true,
       placeholder: "0 9 * * 1-5",

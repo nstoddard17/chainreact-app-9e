@@ -794,7 +794,14 @@ describe("ConfigModalShell — native trigger open state", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Cron Expression")).toBeInTheDocument();
     });
-    await user.type(screen.getByLabelText("Cron Expression"), "*/15 * * * *");
+    // CONFIG-UX-SETUP-ADVANCED-1 — the raw cron input lives behind the
+    // "Custom (cron)" preset choice; power syntax still saves verbatim.
+    await user.click(screen.getByLabelText("Cron Expression"));
+    await user.click(screen.getByRole("option", { name: /custom \(cron\)/i }));
+    await user.type(
+      screen.getByLabelText(/custom cron expression/i),
+      "*/15 * * * *",
+    );
     await user.click(screen.getByRole("button", { name: /^save$/i }));
     const persisted = useGraphSlice
       .getState()

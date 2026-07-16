@@ -158,9 +158,12 @@ it("end-to-end: add scheduled trigger, configure cron, save modal, save workflow
     expect(screen.getByLabelText("Cron Expression")).toBeInTheDocument();
   });
 
-  // 4. Type a valid cron expression.
+  // 4. Type a valid cron expression (power path: the raw input lives
+  //    behind the "Custom (cron)" preset choice — CONFIG-UX-SETUP-ADVANCED-1).
+  await user.click(screen.getByLabelText("Cron Expression"));
+  await user.click(screen.getByRole("option", { name: /custom \(cron\)/i }));
   await user.type(
-    screen.getByLabelText("Cron Expression"),
+    screen.getByLabelText(/custom cron expression/i),
     "*/15 * * * *",
   );
   expect(

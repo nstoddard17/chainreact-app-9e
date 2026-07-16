@@ -180,8 +180,11 @@ describe("NumberField", () => {
 });
 
 describe("CronField", () => {
-  it("renders a monospace text input with cron placeholder", () => {
-    render(
+  it("renders the schedule preset picker; an unrecognized expression shows the monospace raw input", () => {
+    // CONFIG-UX-SETUP-ADVANCED-1 — empty value renders the preset picker
+    // ("Choose when to run…"); the raw cron input appears for Custom /
+    // unrecognized expressions and keeps the monospace treatment.
+    const { rerender } = render(
       <CronField
         field={textField({
           name: "cronExpression",
@@ -193,8 +196,23 @@ describe("CronField", () => {
         onChange={jest.fn()}
       />,
     );
-    const input = screen.getByLabelText("Cron Expression");
-    expect(input).toHaveAttribute("placeholder", "0 9 * * 1-5");
+    expect(screen.getByLabelText("Cron Expression")).toBeInTheDocument();
+    expect(screen.getByText(/choose when to run/i)).toBeInTheDocument();
+
+    rerender(
+      <CronField
+        field={textField({
+          name: "cronExpression",
+          label: "Cron Expression",
+          type: "cron",
+          required: true,
+        })}
+        value="*/15 * * * *"
+        onChange={jest.fn()}
+      />,
+    );
+    const input = screen.getByLabelText("Custom cron expression");
+    expect(input).toHaveValue("*/15 * * * *");
     expect(input).toHaveClass("font-mono");
   });
 
