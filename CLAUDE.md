@@ -211,6 +211,7 @@ linked here.
 2. **No `make_api_call` escape hatch.** No generic method/path/body passthrough; fill gaps with targeted typed actions.
 3. **`.strict()` schemas; reject raw provider wire-format.** The wrapper synthesizes provider wire-format from V2-shaped inputs — workflow authors never hand-author raw provider payloads.
 4. **Q11 — explicit required fields, no hidden defaults.** High-risk / recipient-visible / behaviour-switching fields are required with no silent default (e.g. Sheets `valueInputOption`, Outlook `replyAll` / `isHtml` / `importance`).
+   - **Setup/Advanced progressive disclosure (CONFIG-UX-SETUP-ADVANCED-1).** Fields render on the Setup tab by default; mark power-user / plumbing fields (pagination cursors, tuning knobs, developer toggles) `advanced: true` (they render in the config panel's Advanced tab and never count toward setup-needed unless required), scope mode-specific fields with top-level `visibleWhen` (required-when-visible; hidden ⇒ not a readiness gap), and surface a handler default the user should see as `defaultValue`. Raw `json` entry stays advanced-only; flat fixed-key objects use the `object` editor instead of JSON. Rationale + field classification: [`docs/slices/phase-5/builder-config-setup-advanced-tracker.md`](./docs/slices/phase-5/builder-config-setup-advanced-tracker.md).
 
 **Outputs**
 5. **Bounded outputs.** Build output from a fixed key set; never spread the raw provider response (`...result`).
