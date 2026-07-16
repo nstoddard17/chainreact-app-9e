@@ -5,10 +5,10 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * 4.TEAMS-META-3. Mirrors `sendChatMessage.schema.ts`. Write action
  * (medium risk).
  *
- * `chatId` stays a **typeable text field** — a `microsoft-teams:chats`
- * resolver is deferred (Marcus decision: 1:1 chats are unnamed, labeling
- * needs participant expansion). Help text points at where to obtain a
- * chatId. `bodyContent` output → sensitive.
+ * `chatId` → `microsoft-teams:chats` combobox (RESOLVERS-1 — Marcus
+ * approved un-deferring; unnamed chats are labeled by participant
+ * display names via member expansion). Manual entry stays available for
+ * pasted ids / variable wiring. `bodyContent` output → sensitive.
  */
 export const microsoftTeamsSendChatMessageMeta: ActionMeta = {
   key: "microsoft-teams:send_chat_message",
@@ -21,12 +21,14 @@ export const microsoftTeamsSendChatMessageMeta: ActionMeta = {
   fields: [
     {
       name: "chatId",
-      label: "Chat ID",
+      label: "Chat",
       description:
-        "Paste the chat's id from a Teams chat link, or wire it from an earlier step. A chat picker may be added later.",
-      type: "text",
+        "Pick the chat to post to — unnamed chats are listed by participant names. You can also paste a chat id or wire it from an earlier step.",
+      type: "combobox",
       required: true,
-      placeholder: "19:...@thread.v2",
+      optionsSource: "microsoft-teams:chats",
+      allowManualEntry: true,
+      placeholder: "Search chats…",
     },
     {
       name: "content",

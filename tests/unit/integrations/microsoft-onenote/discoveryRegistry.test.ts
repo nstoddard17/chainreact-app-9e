@@ -21,8 +21,9 @@
  *   - create_page contentType defaults to `text/html` (V2 D-ON1).
  *   - Deferred raw OData `filter` field is absent from list_pages.
  *   - No secret-shaped output names anywhere.
- *   - copy_page targetSectionId is `text` (not combobox — dual-
- *     hierarchy picker limitation documented in description).
+ *   - copy_page targetSectionId is a dep-less `target_sections`
+ *     combobox with manual entry (RESOLVERS-1 resolved the dual-
+ *     hierarchy picker limitation with a flat all-notebooks list).
  */
 import {
   getActionMeta,
@@ -265,10 +266,12 @@ describe("copy_page meta — async + dual-hierarchy picker limitation", () => {
     expect(sp.dependsOn).toBe("sectionId");
   });
 
-  it("targetSectionId is TEXT not combobox (dual-hierarchy picker limitation)", () => {
+  it("targetSectionId is a dep-less target_sections combobox with manual entry (RESOLVERS-1)", () => {
     const ts = meta.fields.find((f) => f.name === "targetSectionId")!;
-    expect(ts.type).toBe("text");
-    expect(ts.optionsSource).toBeUndefined();
+    expect(ts.type).toBe("combobox");
+    expect(ts.optionsSource).toBe("microsoft-onenote:target_sections");
+    expect(ts.dependsOn).toBeUndefined();
+    expect(ts.allowManualEntry).toBe(true);
     expect(ts.required).toBe(true);
   });
 

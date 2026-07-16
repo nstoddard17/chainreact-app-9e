@@ -12,25 +12,28 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *   - `sourcePageId`    REQUIRED — page to copy. Combobox via
  *                       `microsoft-onenote:pages` (depends on
  *                       `sectionId`).
- *   - `targetSectionId` REQUIRED — destination section. **TEXT input,
- *                       not a picker** — see §"Dual-hierarchy picker
- *                       limitation" below.
+ *   - `targetSectionId` REQUIRED — destination section. Combobox via
+ *                       `microsoft-onenote:target_sections`
+ *                       (RESOLVERS-1) — a FLAT all-notebooks section
+ *                       list labeled "Notebook › Section", no parent
+ *                       dep. Manual entry stays available for pasted
+ *                       ids / variable wiring.
  *
- * §Dual-hierarchy picker limitation
+ * §Dual-hierarchy picker limitation (resolved in RESOLVERS-1)
  *   The builder's cascade wiring keys on field NAME — it sends
  *   `deps[<parent-field-name>]` to the options route. Resolver
  *   `microsoft-onenote:sections` requires `notebookId` as its dep,
  *   so the parent field MUST be literally named `notebookId`. Field
  *   names within a single meta must be unique → we can have ONE
  *   source-side cascade or ONE target-side cascade, but not both.
- *   The source side wins (it provides the natural notebook → section
- *   → page narrowing for picking the page to copy); the target side
- *   uses a text input with a description that points authors at
- *   chaining a `list_sections` action and picking via the variable
- *   picker. Resolving this without runtime contortions requires either
- *   a `microsoft-onenote:sections_by_target_notebook` sibling
- *   resolver OR route-level renamable deps; both deferred to
- *   ONENOTE-N polish.
+ *   The source side keeps the cascade (notebook → section → page
+ *   narrowing for picking the page to copy); the target side now uses
+ *   the dep-less `microsoft-onenote:target_sections` resolver, which
+ *   lists sections across ALL notebooks in one picker. A
+ *   `targetNotebookId` cascade parent was rejected deliberately:
+ *   `copyPage.schema.ts` is `.strict()` and would reject the extra
+ *   key at runtime — the flat resolver needs zero runtime-schema
+ *   changes.
  *
  * §Asynchronous Graph operation
  *   Graph `POST /me/onenote/pages/{id}/copyToSection` returns
@@ -98,12 +101,14 @@ export const microsoftOneNoteCopyPageMeta: ActionMeta = {
     {
       name: "targetSectionId",
       sensitivity: "recipient",
-      label: "Target section id",
+      label: "Target section",
       description:
-        "The section to copy the page into. Paste a section id, or add a List Sections step earlier and insert its id with the variable picker.",
-      type: "text",
+        "The section to copy the page into — listed as Notebook › Section across all your notebooks. You can also paste a section id or insert one with the variable picker.",
+      type: "combobox",
       required: true,
-      placeholder: "0-ABCD1234…",
+      optionsSource: "microsoft-onenote:target_sections",
+      allowManualEntry: true,
+      placeholder: "Search sections…",
     },
   ],
   outputs: [

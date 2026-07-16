@@ -4,13 +4,14 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Builder-facing metadata for `slack:unarchive_channel`.
  *
  * Mirrors `unarchiveChannel.schema.ts` (same shape as
- * `archive_channel`). The picker surfaces public + private channels;
- * note that archived channels are excluded from the picker's
- * `slack:channels` resolver (`excludeArchived: true`), so authors
- * unarchiving must wire the channel id via a `{{...}}` reference
- * (e.g. from a List Channels call with `excludeArchived: false`).
+ * `archive_channel`). RESOLVERS-1: the picker now uses the dedicated
+ * `slack:channels_archived` resolver (conversations.list with
+ * `exclude_archived=false`, filtered to `is_archived: true`) so authors
+ * can pick the archived channel directly. Manual entry stays available
+ * for archived channels beyond the resolver's single bounded page.
  *
- * Required scope: `channels:manage` (or `groups:write`).
+ * Required scope: `channels:manage` (or `groups:write`) at runtime;
+ * the picker reads on the already-granted `channels:read`/`groups:read`.
  */
 export const slackUnarchiveChannelMeta: ActionMeta = {
   key: "slack:unarchive_channel",
@@ -18,7 +19,7 @@ export const slackUnarchiveChannelMeta: ActionMeta = {
   type: "unarchive_channel",
   displayName: "Unarchive Channel",
   description:
-    "Restore an archived Slack channel via conversations.unarchive. Archived channels do not appear in the channel picker — wire the id from an upstream List Channels call (with Exclude archived = false).",
+    "Restore an archived Slack channel via conversations.unarchive. Pick the archived channel from the list, or paste its id (C…/G…).",
   category: "messaging",
   requiresIntegration: true,
   fields: [
@@ -27,12 +28,12 @@ export const slackUnarchiveChannelMeta: ActionMeta = {
       sensitivity: "recipient",
       label: "Channel",
       description:
-        "Slack channel id to unarchive (C…/G…). The async picker only surfaces non-archived channels; wire the id via `{{...}}` from a List Channels output when needed.",
+        "Archived Slack channel to restore. The picker lists archived channels only; you can also paste a channel id (C…/G…) or wire one via `{{...}}` from a List Channels output.",
       type: "combobox",
-      optionsSource: "slack:channels",
+      optionsSource: "slack:channels_archived",
       allowManualEntry: true,
       required: true,
-      placeholder: "Search or wire channel id…",
+      placeholder: "Search archived channels…",
     },
   ],
   outputs: [

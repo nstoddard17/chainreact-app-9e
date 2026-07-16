@@ -15,7 +15,7 @@ describe("microsoft-outlook manifest", () => {
     expect(getProvider("microsoft-outlook")).toBe(microsoftOutlookManifest);
   });
 
-  it("declares the mail-only Graph scopes — exactly the four approved through Outlook Mail 2.1", () => {
+  it("declares the mail-only Graph scopes — the four required through Outlook Mail 2.1 + optional MailboxSettings.Read", () => {
     // Slice 6 confirmed scope decision #4 + Outlook Mail 2.1 P-O1
     // widening (accepted 2026-05-15, see
     // docs/slices/parity/outlook-mail-2-1-compose-drafts-plan.md §2):
@@ -28,7 +28,13 @@ describe("microsoft-outlook manifest", () => {
       "Mail.Read",
       "Mail.ReadWrite",
     ]);
-    expect(microsoftOutlookManifest.scopes.optional).toEqual([]);
+    // RESOLVERS-1 (Marcus-approved) — MailboxSettings.Read is OPTIONAL:
+    // it backs only the `microsoft-outlook:categories` options resolver
+    // (GET /me/outlook/masterCategories); no action handler needs it.
+    // Existing connections predate it and must reconnect to grant it.
+    expect(microsoftOutlookManifest.scopes.optional).toEqual([
+      "MailboxSettings.Read",
+    ]);
     expect(microsoftOutlookManifest.scopes.deprecated).toEqual([]);
   });
 

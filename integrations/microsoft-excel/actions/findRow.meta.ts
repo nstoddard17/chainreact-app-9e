@@ -8,7 +8,9 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * `lookupValue` (string-coerced compare), scanning one bounded page.
  * `firstMatch` carries the matched row's cells → marked sensitive.
  * `workbookId` → workbooks resolver; `tableName` → tables resolver
- * (dependsOn workbookId); `lookupColumn` stays typed (no columns resolver).
+ * (dependsOn workbookId); `lookupColumn` → table_columns resolver
+ * (dependsOn workbookId + tableName, RESOLVERS-1) with manual entry
+ * kept for variable wiring / unlisted headers.
  */
 export const microsoftExcelFindRowMeta: ActionMeta = {
   key: "microsoft-excel:find_row",
@@ -42,10 +44,14 @@ export const microsoftExcelFindRowMeta: ActionMeta = {
     {
       name: "lookupColumn",
       label: "Lookup Column",
-      description: "Header name of the column to match against (e.g. `Email`, `Status`).",
-      type: "text",
+      description:
+        "The column to match against. Pick one from the table's headers, or type a header name.",
+      type: "combobox",
       required: true,
-      placeholder: "Email",
+      optionsSource: "microsoft-excel:table_columns",
+      dependsOn: ["workbookId", "tableName"],
+      allowManualEntry: true,
+      placeholder: "Select table first",
     },
     {
       name: "lookupValue",

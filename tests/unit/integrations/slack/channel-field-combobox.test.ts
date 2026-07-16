@@ -140,12 +140,15 @@ describe("CS-2b — every Slack channel combobox (action + trigger) allows manua
 
   it("manual entry only appears on the slack channel/user/group-DM pickers (no accidental conversion)", () => {
     // After the sweep, allowManualEntry is valid on the slack:channels,
-    // slack:users, and slack:group_dms single-select picker comboboxes AND on
-    // the per-chip slack:users string-array picker (invite_users_to_channel,
-    // Group A config-UX sweep) — but never on any other field.
+    // slack:channels_archived (RESOLVERS-1 — unarchive_channel's archived-only
+    // picker), slack:users, and slack:group_dms single-select picker comboboxes
+    // AND on the per-chip slack:users string-array picker
+    // (invite_users_to_channel, Group A config-UX sweep) — but never on any
+    // other field.
     const isSlackPicker = (f: FieldMeta): boolean =>
       (f.type === "combobox" &&
         (f.optionsSource === "slack:channels" ||
+          f.optionsSource === "slack:channels_archived" ||
           f.optionsSource === "slack:users" ||
           f.optionsSource === "slack:group_dms")) ||
       (f.type === "string-array" && f.optionsSource === "slack:users");

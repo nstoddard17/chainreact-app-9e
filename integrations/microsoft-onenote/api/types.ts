@@ -53,6 +53,12 @@ export interface OneNoteSection {
   isDefault?: boolean;
   pagesUrl?: string;
   links?: OneNoteLinks;
+  /**
+   * Owning notebook — requested via `$expand=parentNotebook` by the
+   * account-wide sections list (RESOLVERS-1) so the target-section
+   * picker can label items "Notebook › Section".
+   */
+  parentNotebook?: { id?: string; displayName?: string };
   [k: string]: unknown;
 }
 

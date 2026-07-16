@@ -8,9 +8,12 @@
  *      normal setup path stays picker + limit only. `list_boards`'s
  *      cursor copy now matches the runtime contract (paste `nextCursor`,
  *      which IS the stringified page index the handler accepts).
- *   2. `add_column.columnType` stays REQUIRED free text (Monday's full
- *      ColumnType value set is not pinnable in-repo — Monday ships new
- *      types; the server validates) — the sweep improved copy only.
+ *   2. `add_column.columnType` is a REQUIRED combobox over STATIC options
+ *      for the documented stable Monday ColumnType enum ids, with
+ *      `allowManualEntry: true` for forward-compat (Monday ships new
+ *      types; the server validates) — RESOLVERS-1. Monday's column types
+ *      are a GraphQL enum with no list endpoint, so this is meta-only
+ *      (deliberately NO optionsSource resolver).
  *   3. `update_item.columnValue` keeps its runtime-compatible textarea
  *      (zod accepts string OR object; a typed string is always safe) —
  *      copy-only fix, no shape change.
@@ -51,12 +54,50 @@ describe("monday pagination cursors — Advanced tab", () => {
 });
 
 describe("monday copy-only holds (no capability change)", () => {
-  it("add_column.columnType stays required free text (forward-compat with new Monday types)", () => {
+  it("add_column.columnType is a required STATIC-options combobox with manual entry (RESOLVERS-1)", () => {
     const f = field(mondayAddColumnMeta, "columnType");
-    expect(f.type).toBe("text");
+    expect(f.type).toBe("combobox");
     expect(f.required).toBe(true);
+    // Meta-only: Monday's ColumnType is a GraphQL enum with no list
+    // endpoint — static options, deliberately NO optionsSource resolver.
     expect(f.optionsSource).toBeUndefined();
-    expect(f.options).toBeUndefined();
+    expect(f.options).toBeDefined();
+    // Manual entry preserves forward-compat with column types Monday
+    // ships after this list (runtime schema stays a non-enum string).
+    expect(f.allowManualEntry).toBe(true);
+    const values = (f.options ?? []).map((o) => o.value);
+    // Spot-check documented stable enum ids (values are the exact API ids).
+    for (const expected of [
+      "status",
+      "text",
+      "long_text",
+      "numbers",
+      "date",
+      "people",
+      "dropdown",
+      "checkbox",
+      "timeline",
+      "link",
+      "email",
+      "phone",
+      "rating",
+      "country",
+      "hour",
+      "week",
+      "world_clock",
+      "file",
+      "board_relation",
+      "dependency",
+      "tags",
+      "color_picker",
+    ]) {
+      expect(values).toContain(expected);
+    }
+    // No duplicates, and every option keeps a human label.
+    expect(new Set(values).size).toBe(values.length);
+    for (const o of f.options ?? []) {
+      expect(o.label.length).toBeGreaterThan(0);
+    }
   });
 
   it("update_item.columnValue stays a required textarea (runtime accepts string or object)", () => {

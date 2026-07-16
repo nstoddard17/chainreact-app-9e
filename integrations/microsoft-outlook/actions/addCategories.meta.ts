@@ -14,7 +14,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * this. The description surfaces the behavior so workflow authors
  * aren't surprised.
  *
- * Required scope: `Mail.ReadWrite` (P-O1 manifest widening).
+ * Required scope: `Mail.ReadWrite` (P-O1 manifest widening). The
+ * `categories` per-chip picker additionally reads the mailbox's master
+ * categories on the OPTIONAL `MailboxSettings.Read` scope (RESOLVERS-1) —
+ * the runtime PATCH itself never needs it, and manual entry keeps the
+ * field usable when the scope isn't granted.
  *
  * Outputs match `addCategories.ts:68-74` exactly.
  */
@@ -40,8 +44,14 @@ export const outlookAddCategoriesMeta: ActionMeta = {
       name: "categories",
       label: "Categories",
       description:
-        "Categories to set on the message. PATCH-REPLACE — these REPLACE any existing categories. Press Enter or click Add to append each category name. Microsoft uses display-name strings (e.g. 'Red Category', 'Follow up') — no id translation.",
+        "Categories to set on the message. PATCH-REPLACE — these REPLACE any existing categories. Pick from your mailbox's category list, or type a name and press Enter to add it. Microsoft uses display-name strings (e.g. 'Red Category', 'Follow up') — no id translation; a typed name Outlook doesn't know yet is still applied.",
       type: "string-array",
+      // RESOLVERS-1 — per-chip picker over the mailbox's master categories
+      // (GET /me/outlook/masterCategories, MailboxSettings.Read — optional
+      // manifest scope; older connections see a Reconnect prompt in the
+      // picker while manual entry keeps working).
+      optionsSource: "microsoft-outlook:categories",
+      allowManualEntry: true,
       required: true,
       placeholder: "Red Category",
     },

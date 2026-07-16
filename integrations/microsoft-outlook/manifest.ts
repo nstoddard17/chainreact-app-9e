@@ -93,7 +93,21 @@ export const microsoftOutlookManifest: ProviderManifest =
         // new_email. Accepted 2026-05-15.
         "Mail.ReadWrite",
       ],
-      optional: [],
+      optional: [
+        // RESOLVERS-1 (Marcus-approved for this batch, same posture as the
+        // CONFIG-FIELD-UX-SWEEP-4 scope adds) — needed ONLY by the
+        // `microsoft-outlook:categories` options resolver (GET
+        // /me/outlook/masterCategories), which backs the category picker
+        // on add_categories. Optional, not required: no ACTION handler
+        // needs it, and an IT-restricted tenant that declines it loses
+        // only the picker (manual entry keeps the field usable).
+        // NOTE: existing connections predate this scope — the picker
+        // surfaces PROVIDER_REAUTH_REQUIRED (Reconnect) until the user
+        // re-consents, and the Azure AD app registration may need the
+        // delegated MailboxSettings.Read permission added before consent
+        // can succeed.
+        "MailboxSettings.Read",
+      ],
       deprecated: [],
     },
     capabilities: {
