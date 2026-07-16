@@ -10,7 +10,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * `tags` as a `string-array` field so the builder UI renders the
  * chip-input the array type provides.
  *
- * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver.
+ * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver;
+ * the subscriber picker uses `mailchimp:members` (dependsOn
+ * `audience_id`, whose resolver value IS the member email string the
+ * schema stores) with `allowManualEntry` so an unlisted / upstream-wired
+ * email still commits.
  *
  * Sensitive outputs: `email` (PII), `addedTags` (categorical labels —
  * symmetric with `add_subscriber.tags`).
@@ -41,10 +45,14 @@ export const mailchimpAddTagMeta: ActionMeta = {
       name: "email",
       sensitivity: "recipient",
       label: "Email",
-      description: "Subscriber email. Required.",
-      type: "text",
+      description:
+        "Subscriber to tag — pick a member of the selected audience, or type/wire an email. Required.",
+      type: "combobox",
+      optionsSource: "mailchimp:members",
+      dependsOn: "audience_id",
+      allowManualEntry: true,
       required: true,
-      placeholder: "subscriber@example.com",
+      placeholder: "Select or type a subscriber email",
     },
     {
       name: "tags",

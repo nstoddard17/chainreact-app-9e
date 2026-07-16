@@ -7,7 +7,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * non-empty STRING ARRAY — same shape as `add_tag`. Mailchimp accepts
  * the same `/tags` endpoint with `status: inactive` to detach.
  *
- * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver.
+ * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver;
+ * the subscriber picker uses `mailchimp:members` (dependsOn
+ * `audience_id`, whose resolver value IS the member email string the
+ * schema stores) with `allowManualEntry` so an unlisted / upstream-wired
+ * email still commits.
  *
  * Risk: medium — removes tags from an existing subscriber (subtractive
  * mutation). Reversible via `add_tag`. NOT destructive — the subscriber
@@ -36,10 +40,14 @@ export const mailchimpRemoveTagMeta: ActionMeta = {
       name: "email",
       sensitivity: "recipient",
       label: "Email",
-      description: "Subscriber email. Required.",
-      type: "text",
+      description:
+        "Subscriber to untag — pick a member of the selected audience, or type/wire an email. Required.",
+      type: "combobox",
+      optionsSource: "mailchimp:members",
+      dependsOn: "audience_id",
+      allowManualEntry: true,
       required: true,
-      placeholder: "subscriber@example.com",
+      placeholder: "Select or type a subscriber email",
     },
     {
       name: "tags",

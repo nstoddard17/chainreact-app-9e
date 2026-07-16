@@ -21,7 +21,12 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * permanent-block-on-re-subscribe consequence explicitly so authors
  * see it before confirmation.
  *
- * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver.
+ * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver;
+ * the subscriber picker uses `mailchimp:members` (dependsOn
+ * `audience_id`, whose resolver value IS the member email string the
+ * schema stores) with `allowManualEntry` so an unlisted / upstream-wired
+ * email still commits. The picker does NOT soften the destructive trio —
+ * `mode` still requires an explicit pick and confirmation still gates.
  *
  * Outputs are narrow and intentionally structural:
  *   - `email` is sensitive (PII + suspicious-name trigger).
@@ -52,10 +57,14 @@ export const mailchimpRemoveSubscriberMeta: ActionMeta = {
       name: "email",
       sensitivity: "recipient",
       label: "Email",
-      description: "Subscriber email to remove. Required.",
-      type: "text",
+      description:
+        "Subscriber to remove — pick a member of the selected audience, or type/wire an email. Required.",
+      type: "combobox",
+      optionsSource: "mailchimp:members",
+      dependsOn: "audience_id",
+      allowManualEntry: true,
       required: true,
-      placeholder: "subscriber@example.com",
+      placeholder: "Select or type a subscriber email",
     },
     {
       name: "mode",

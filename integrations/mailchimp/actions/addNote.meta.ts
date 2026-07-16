@@ -9,7 +9,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Mailchimp side; this action attaches a new note rather than
  * editing an existing one.
  *
- * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver.
+ * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver;
+ * the subscriber picker uses `mailchimp:members` (dependsOn
+ * `audience_id`, whose resolver value IS the member email string the
+ * schema stores) with `allowManualEntry` so an unlisted / upstream-wired
+ * email still commits.
  *
  * Sensitive outputs: `email` (PII + suspicious-name trigger), `note`
  * (free-form text the workflow author wrote — may carry context that's
@@ -41,10 +45,14 @@ export const mailchimpAddNoteMeta: ActionMeta = {
       name: "email",
       sensitivity: "recipient",
       label: "Email",
-      description: "Subscriber email. Required.",
-      type: "text",
+      description:
+        "Subscriber to annotate — pick a member of the selected audience, or type/wire an email. Required.",
+      type: "combobox",
+      optionsSource: "mailchimp:members",
+      dependsOn: "audience_id",
+      allowManualEntry: true,
       required: true,
-      placeholder: "subscriber@example.com",
+      placeholder: "Select or type a subscriber email",
     },
     {
       name: "note",

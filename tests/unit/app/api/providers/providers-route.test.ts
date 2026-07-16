@@ -874,7 +874,11 @@ describe("GET /api/providers/[id]/actions", () => {
     // Narrow field + output shape — single required text id, narrow
     // structural outputs (neither sensitive).
     expect(removeLineItem.fields.map((f) => f.name)).toEqual(["lineItemId"]);
-    expect(removeLineItem.fields[0]!.type).toBe("text");
+    // RESOLVERS-1 — the line-item id is a record-search picker (manual entry
+    // preserved) rather than a paste-the-internal-id text field.
+    expect(removeLineItem.fields[0]!.type).toBe("combobox");
+    expect(removeLineItem.fields[0]!.optionsSource).toBe("hubspot:line_items");
+    expect(removeLineItem.fields[0]!.allowManualEntry).toBe(true);
     expect(removeLineItem.fields[0]!.required).toBe(true);
     expect(removeLineItem.outputs.map((o) => o.name)).toEqual([
       "lineItemId",
@@ -1465,8 +1469,11 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(srcPg.optionsSource).toBe("microsoft-onenote:pages");
     expect(srcPg.dependsOn).toBe("sectionId");
     const tgtSec = copy.fields.find((f) => f.name === "targetSectionId")!;
-    expect(tgtSec.type).toBe("text");
-    expect(tgtSec.optionsSource).toBeUndefined();
+    // RESOLVERS-1 — flat "Notebook › Section" picker (copy_page's schema is
+    // .strict(), so the picker is dep-less rather than notebook-scoped).
+    expect(tgtSec.type).toBe("combobox");
+    expect(tgtSec.optionsSource).toBe("microsoft-onenote:target_sections");
+    expect(tgtSec.allowManualEntry).toBe(true);
     expect(copy.isDestructive).toBe(false);
 
     // get_page_content — boolean fields preserved camelCase.

@@ -110,6 +110,24 @@ function audiencesResponse(
   };
 }
 
+/**
+ * RESOLVERS-1 — the `mailchimp:members` resolver's option VALUE is the
+ * member email string itself (see `integrations/mailchimp/options/members.ts`),
+ * which is exactly what `removeSubscriber.schema.ts` stores in `email`
+ * (`z.string().email()`). That value-shape identity is what makes this
+ * field wireable to the picker at all; the e2e below pins it end-to-end.
+ */
+function membersResponse(
+  items: ReadonlyArray<{ value: string; label: string; description?: string }>,
+) {
+  return {
+    ok: true as const,
+    source: "mailchimp:members",
+    items,
+    hasMore: false,
+  };
+}
+
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
   mockListNativeActions.mockReset();
@@ -128,6 +146,13 @@ beforeEach(() => {
       return Promise.resolve(
         audiencesResponse([
           { value: AUDIENCE_ID, label: AUDIENCE_LABEL, description: "42 members" },
+        ]),
+      );
+    }
+    if (source === "mailchimp:members") {
+      return Promise.resolve(
+        membersResponse([
+          { value: EMAIL, label: EMAIL, description: "subscribed" },
         ]),
       );
     }
@@ -176,8 +201,20 @@ it("Mailchimp remove_subscriber meta declares the FULL destructive trio (high + 
   expect(audience.optionsSource).toBe("mailchimp:audiences");
   expect(audience.required).toBe(true);
 
-  expect(byName.get("email")!.type).toBe("text");
-  expect(byName.get("email")!.required).toBe(true);
+  // RESOLVERS-1 — the subscriber field is a REAL picker backed by the
+  // registered `mailchimp:members` resolver, cascaded off the audience.
+  // `dependsOn` MUST stay `audience_id`: the builder keys the outgoing
+  // `deps[<parent>]` by the parent FIELD NAME, and the resolver declares
+  // `requiredDeps: ["audience_id"]` — any rename on either side silently
+  // breaks the cascade into a permanent MISSING_DEPENDENCY.
+  const email = byName.get("email")!;
+  expect(email.type).toBe("combobox");
+  expect(email.optionsSource).toBe("mailchimp:members");
+  expect(email.dependsOn).toBe("audience_id");
+  // Graceful degradation: a subscriber the bounded page can't list (or an
+  // upstream {{...}} variable) must still commit — destructive or not.
+  expect(email.allowManualEntry).toBe(true);
+  expect(email.required).toBe(true);
 
   // Q11 required-mode gate — NO default, BOTH options exposed.
   const mode = byName.get("mode")!;
@@ -198,7 +235,7 @@ it("Mailchimp remove_subscriber meta declares the FULL destructive trio (high + 
   expect(sensitive.map((o) => o.name)).toEqual(["email"]);
 });
 
-it("end-to-end: pick audience → fill email → select mode → Modal Save → Toolbar Save persists ONCE with EXACT runtime field names", async () => {
+it("end-to-end: pick audience → pick subscriber from the cascaded members picker → select mode → Modal Save → Toolbar Save persists ONCE with EXACT runtime field names", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -240,24 +277,43 @@ it("end-to-end: pick audience → fill email → select mode → Modal Save → 
     expect(screen.getByRole("combobox", { name: /^audience$/i })).toBeInTheDocument();
   });
 
-  // 4. Pick audience.
+  // 4. The subscriber picker is GATED until an audience is chosen — the
+  //    members resolver is audience-scoped, so no fetch may fire yet.
+  expect(screen.getByTestId("combobox-parent-missing")).toHaveTextContent(
+    /select audience first/i,
+  );
+  expect(mockFetchOptionsSource).not.toHaveBeenCalledWith(
+    "mailchimp:members",
+    expect.anything(),
+  );
+
+  // 5. Pick audience.
   await pickComboboxOption(user, /^audience$/i, AUDIENCE_LABEL);
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.audience_id,
   ).toBe(AUDIENCE_ID);
 
-  // 5. Fill email.
-  await user.type(screen.getByRole("textbox", { name: /^email$/i }), EMAIL);
+  // 6. Pick the subscriber from the now-cascaded members picker. The
+  //    committed value is the EMAIL string itself (the resolver's option
+  //    value), which is exactly what the handler schema stores — no hash,
+  //    no member id.
+  await pickComboboxOption(user, /^email$/i, EMAIL);
   expect(useConfigSlice.getState().drafts[action.id]!.values.email).toBe(EMAIL);
+  // The members fetch was scoped by the chosen audience via `deps`, keyed
+  // by the parent field name the resolver's `requiredDeps` declares.
+  expect(mockFetchOptionsSource).toHaveBeenCalledWith(
+    "mailchimp:members",
+    expect.objectContaining({ deps: { audience_id: AUDIENCE_ID } }),
+  );
 
-  // 6. Pick mode = delete_permanent (the high-risk choice). Q11 forces
+  // 7. Pick mode = delete_permanent (the high-risk choice). Q11 forces
   // the explicit pick — no default could land for us.
   await pickComboboxOption(user, /^mode$/i, /delete permanently/i);
   expect(useConfigSlice.getState().drafts[action.id]!.values.mode).toBe(
     "delete_permanent",
   );
 
-  // 7. Modal Save flushes the draft.
+  // 8. Modal Save flushes the draft.
   const modal = screen.getByRole("complementary", {
     name: /node configuration/i,
   });
@@ -270,7 +326,7 @@ it("end-to-end: pick audience → fill email → select mode → Modal Save → 
   expect(pendingConfig.mode).toBe("delete_permanent");
   expect(mockUpdateWorkflow).not.toHaveBeenCalled();
 
-  // 8. Toolbar Save persists once.
+  // 9. Toolbar Save persists once.
   const allSaveButtons = screen.getAllByRole("button", { name: /^save$/i });
   const toolbarSave = allSaveButtons.find((btn) => !modal.contains(btn))!;
   await user.click(toolbarSave);

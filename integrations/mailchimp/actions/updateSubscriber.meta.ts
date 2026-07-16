@@ -15,7 +15,13 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * `upemail` webhooks; documented in the field description so workflow
  * authors know the side effect.
  *
- * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver.
+ * Audience picker uses the MAILCHIMP-2 `mailchimp:audiences` resolver;
+ * the subscriber picker uses `mailchimp:members` (dependsOn
+ * `audience_id`, whose resolver value IS the member email string the
+ * schema stores) with `allowManualEntry` so an unlisted / upstream-wired
+ * email still commits. `new_email` stays free text — the NEW address is
+ * by definition not yet a member of the audience, so a member picker
+ * would be wrong there.
  *
  * Outputs mirror `updateSubscriber.ts:return` exactly — same projection
  * as `get_subscriber` minus `mergeFields`/`tags` (PATCH response
@@ -48,10 +54,14 @@ export const mailchimpUpdateSubscriberMeta: ActionMeta = {
       name: "email",
       sensitivity: "recipient",
       label: "Email",
-      description: "Current subscriber email. Required — used to derive the per-list subscriber hash for the API path.",
-      type: "text",
+      description:
+        "Current subscriber email — pick a member of the selected audience, or type/wire an email. Required: used to derive the per-list subscriber hash for the API path.",
+      type: "combobox",
+      optionsSource: "mailchimp:members",
+      dependsOn: "audience_id",
+      allowManualEntry: true,
       required: true,
-      placeholder: "subscriber@example.com",
+      placeholder: "Select or type a subscriber email",
     },
     {
       name: "new_email",
