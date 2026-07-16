@@ -11,8 +11,13 @@
  *     is intact.
  *   - find_row.operator copy drops roadmap-speak.
  *
- * row_changed's changeKinds combobox conversion + keyColumn visibleWhen are
- * pinned in the builder integration test
+ * Also pins (RESOLVERS-1): find_row.column is a `google-sheets:columns`
+ * combobox gated on the spreadsheetId + sheetName cascade with manual entry,
+ * and still commits a HEADER NAME (what the handler's `headers.indexOf`
+ * matches) — not a column letter.
+ *
+ * row_changed's changeKinds combobox conversion + keyColumn visibleWhen /
+ * columns picker are pinned in the builder integration test
  * (google-sheets-row-changed-trigger-config.test.tsx).
  *
  * Deliberately NOT changed (deferred product decision per
@@ -94,5 +99,32 @@ describe("google-sheets:find_row copy polish (CONFIG-UX sweep)", () => {
     expect(f.options!.map((o) => o.value)).toEqual(["equals"]);
     expect(f.description!.toLowerCase()).not.toContain("slice");
     expect(f.description!.toLowerCase()).not.toContain("batch 1");
+  });
+});
+
+describe("google-sheets:find_row.column — google-sheets:columns picker (RESOLVERS-1)", () => {
+  it("is a combobox sourced from google-sheets:columns, gated on the spreadsheet + sheet cascade, with manual entry", () => {
+    const f = field(googleSheetsFindRowMeta, "column");
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("google-sheets:columns");
+    // BOTH parents — the resolver needs spreadsheetId AND sheetName to read
+    // row 1; a missing dep short-circuits the route on MISSING_DEPENDENCY.
+    expect(f.dependsOn).toEqual(["spreadsheetId", "sheetName"]);
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.required).toBe(true);
+    expect(f.options).toBeUndefined();
+  });
+
+  it("the declared parents are real sibling fields (cascade can actually resolve)", () => {
+    const names = googleSheetsFindRowMeta.fields.map((x) => x.name);
+    expect(names).toContain("spreadsheetId");
+    expect(names).toContain("sheetName");
+  });
+
+  it("still stores a HEADER NAME — copy never tells authors to type a column letter", () => {
+    // The handler does `headers.indexOf(config.column)`; a column letter
+    // would never match. The picker's values are header strings.
+    const f = field(googleSheetsFindRowMeta, "column");
+    expect(f.description!.toLowerCase()).toContain("header name");
   });
 });

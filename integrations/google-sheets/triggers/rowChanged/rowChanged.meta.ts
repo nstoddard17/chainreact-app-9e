@@ -33,10 +33,17 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  *                          `string[]` the schema's enum array expects).
  *   - `snapshotRowLimit`  (optional number, defaults to 1000) —
  *                          bounded storage cost. Min 100, max 10000.
- *   - `keyColumn`         (optional text) — header name to use as the
+ *   - `keyColumn`         (optional) — header name to use as the
  *                          stable row key (positional otherwise).
  *                          REQUIRES `headerRow: true` — schema rejects
- *                          the mismatched combination at parse time.
+ *                          the mismatched combination at parse time, so
+ *                          the field keeps its `visibleWhen` headerRow
+ *                          gate. RESOLVERS-1: combobox from
+ *                          `google-sheets:columns` (deps spreadsheetId +
+ *                          sheetName) reading the tab's REAL row-1
+ *                          headers, with `allowManualEntry` — the
+ *                          committed value is still the header string the
+ *                          snapshot resolves against.
  *
  * Payload mirrors `normalize.ts` exactly. `rowValues` and `keyValue`
  * carry user-typed cell content — both marked sensitive (PII /
@@ -116,8 +123,11 @@ export const googleSheetsRowChangedTriggerMeta: TriggerMeta = {
       name: "keyColumn",
       label: "Key column",
       description:
-        "Optional header name to use as the stable row key. When set, rows are identified by their value in this column rather than by position — survives mid-sheet inserts/deletes. Available when Header row is on. Leave blank for positional row identity.",
-      type: "text",
+        "Optional header name to use as the stable row key. When set, rows are identified by their value in this column rather than by position — survives mid-sheet inserts/deletes. Pick from the sheet's row-1 headers, or type a header name if they aren't detected. Available when Header row is on. Leave blank for positional row identity.",
+      type: "combobox",
+      optionsSource: "google-sheets:columns",
+      dependsOn: ["spreadsheetId", "sheetName"],
+      allowManualEntry: true,
       required: false,
       visibleWhen: { field: "headerRow", valueTruthy: true },
       placeholder: "Email",

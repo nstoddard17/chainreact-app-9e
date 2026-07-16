@@ -9,6 +9,15 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * (CONFIG-UX sweep G — the earlier text fields committed a comma
  * string that failed the runtime schema; no CSV split ever existed in
  * the submit/execution path).
+ *
+ * RESOLVERS-1: both chip fields now source per-chip options from
+ * `github:labels` / `github:assignees` (dependsOn `repository`) with
+ * `allowManualEntry` — the committed shape is UNCHANGED (`string[]` of
+ * label names / logins, exactly what the resolvers' values are), so pasting
+ * and `{{...}}` wiring keep working. `milestone` stays a plain `number`
+ * field with no picker: the runtime schema stores `z.number()`, a combobox
+ * commits a string, and the ActionMeta contract forbids `optionsSource` on
+ * `number` fields — documented RESOLVERS-1 skip.
  */
 export const createIssueMeta: ActionMeta = {
   key: "github:create_issue",
@@ -48,16 +57,24 @@ export const createIssueMeta: ActionMeta = {
     {
       name: "labels",
       label: "Labels",
-      description: "Labels to put on the issue. Press Enter after each one.",
+      description:
+        "Labels to put on the issue. Pick from the repository's labels, or type a label name and press Enter.",
       type: "string-array",
+      optionsSource: "github:labels",
+      dependsOn: "repository",
+      allowManualEntry: true,
       required: false,
       placeholder: "bug",
     },
     {
       name: "assignees",
       label: "Assignees",
-      description: "GitHub usernames to assign to the issue. Press Enter after each one.",
+      description:
+        "People to assign the issue to. Pick from the users this repository accepts as assignees, or type a GitHub username and press Enter.",
       type: "string-array",
+      optionsSource: "github:assignees",
+      dependsOn: "repository",
+      allowManualEntry: true,
       required: false,
       placeholder: "octocat",
     },

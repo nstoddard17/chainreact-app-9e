@@ -9,6 +9,7 @@ import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
 import { buildPreviewSetupFields } from "@/core/workflows/previewSetupFields";
 import { buildConfigDiffFieldMeta } from "@/core/workflows/configDiffFieldMeta";
+import { buildNodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 import {
   listAllActionMetas,
   listAllTriggerMetas,
@@ -124,6 +125,12 @@ export default async function WorkflowDetailPage({ params }: Props) {
   // populates, and secret redaction uses declared sensitivity. Static, so computed once here.
   const fieldMetaByType = buildConfigDiffFieldMeta(listAllActionMetas(), listAllTriggerMetas());
 
+  // CONFIG-UX-NODE-SUMMARY-1 — display-safe field metadata (label / type / optionsSource / options /
+  // visibleWhen) per node type, from the same registry. Lets the canvas adapter compute each node's
+  // at-a-glance summary ("Send Channel Message · #support-alerts") for the COLLAPSED card. Static, so
+  // computed once here.
+  const summaryFieldsByType = buildNodeSummaryFieldsByType(listAllActionMetas(), listAllTriggerMetas());
+
   const providers = listProviders();
   const triggerProviders = providers
     .filter((p) => p.isEnabled && p.capabilities.webhookTrigger)
@@ -153,6 +160,7 @@ export default async function WorkflowDetailPage({ params }: Props) {
         requiredFieldsByType={requiredFieldsByType}
         setupFieldsByType={setupFieldsByType}
         fieldMetaByType={fieldMetaByType}
+        summaryFieldsByType={summaryFieldsByType}
         // HERMES-AGENT-GUIDANCE-UI-BUILDER — the React Agent rail is LIVE BY DEFAULT in the builder
         // (no feature-flag gate). `accountId` is server-resolved, never client-supplied. The actual
         // Hermes gateway call stays gated on gateway config server-side (route `getHermesAgentGatewayConfig()`);

@@ -32,6 +32,7 @@ interface WireField {
   required: boolean;
   optionsSource?: string;
   dependsOn?: string | string[];
+  allowManualEntry?: boolean;
   options?: Array<{ value: string; label: string }>;
 }
 interface WireOutput {
@@ -94,13 +95,14 @@ describe("GET /api/providers/microsoft-teams/actions", () => {
     expect(channel.dependsOn).toBe("teamId");
   });
 
-  it("chatId + messageId serialize as typeable text (no deferred resolvers)", async () => {
+  it("chatId serializes as a chats combobox (RESOLVERS-1); messageId stays typeable text", async () => {
     const byKey = new Map((await fetchActions()).map((a) => [a.key, a]));
     const chatId = byKey.get("microsoft-teams:send_chat_message")!.fields.find(
       (f) => f.name === "chatId",
     )!;
-    expect(chatId.type).toBe("text");
-    expect(chatId.optionsSource).toBeUndefined();
+    expect(chatId.type).toBe("combobox");
+    expect(chatId.optionsSource).toBe("microsoft-teams:chats");
+    expect(chatId.allowManualEntry).toBe(true);
     const messageId = byKey.get("microsoft-teams:reply_to_channel_message")!.fields.find(
       (f) => f.name === "messageId",
     )!;
@@ -150,11 +152,10 @@ describe("GET /api/providers/microsoft-teams/actions", () => {
     expect(members.fields!.find((f) => f.name === "email")!.sensitive).toBe(true);
   });
 
-  it("no action field references a rejected/deferred Teams resolver", async () => {
+  it("no action field references a rejected/deferred Teams resolver (chats un-deferred in RESOLVERS-1)", async () => {
     for (const a of await fetchActions()) {
       for (const f of a.fields) {
         expect(f.optionsSource).not.toBe("microsoft-teams:members");
-        expect(f.optionsSource).not.toBe("microsoft-teams:chats");
         expect(f.optionsSource).not.toBe("microsoft-teams:messages");
       }
     }

@@ -117,6 +117,17 @@ describe("microsoft-excel discovery — field hygiene + resolver wiring", () => 
     }
   });
 
+  it("find_row.lookupColumn uses the table_columns resolver (dependsOn workbook + table, manual entry kept) — RESOLVERS-1", () => {
+    const f = getActionMeta("microsoft-excel:find_row")!.fields.find(
+      (x) => x.name === "lookupColumn",
+    )!;
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("microsoft-excel:table_columns");
+    expect(f.dependsOn).toEqual(["workbookId", "tableName"]);
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.required).toBe(true);
+  });
+
   it("new-name fields stay plain text (no picker)", () => {
     expect(
       getActionMeta("microsoft-excel:create_worksheet")!.fields.find((f) => f.name === "name")!.type,

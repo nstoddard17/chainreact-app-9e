@@ -128,21 +128,20 @@ describe("GET /api/providers/airtable/actions", () => {
     expect(file.type).toBe("file");
   });
 
-  it("recordId serializes the airtable:records picker on get/update/delete_record (multi-parent + manual entry; RESOLVERS-1)", async () => {
+  it("recordId serializes the airtable:records picker on every record-referencing action (multi-parent + manual entry; RESOLVERS-1)", async () => {
     const byKey = new Map((await fetchActions()).map((a) => [a.key, a]));
-    for (const key of ["airtable:get_record", "airtable:update_record", "airtable:delete_record"]) {
+    for (const key of [
+      "airtable:get_record",
+      "airtable:update_record",
+      "airtable:delete_record",
+      "airtable:add_attachment",
+    ]) {
       const recordId = byKey.get(key)!.fields.find((f) => f.name === "recordId")!;
       expect(recordId.type).toBe("combobox");
       expect(recordId.optionsSource).toBe("airtable:records");
       expect(recordId.dependsOn).toEqual(["baseId", "tableIdOrName"]);
       expect(recordId.allowManualEntry).toBe(true);
     }
-    // add_attachment.recordId stays a typed text field (picker not wired there).
-    const addRecordId = byKey
-      .get("airtable:add_attachment")!
-      .fields.find((f) => f.name === "recordId")!;
-    expect(addRecordId.type).toBe("text");
-    expect(addRecordId.optionsSource).toBeUndefined();
   });
 
   it("create/update fields maps are json editors (CONFIG-UX-SETUP-ADVANCED-1)", async () => {
@@ -196,11 +195,12 @@ describe("GET /api/providers/airtable/actions", () => {
     expect(baseSchema.outputs.find((o) => o.name === "tables")!.sensitive).not.toBe(true);
   });
 
-  it("airtable:records is referenced ONLY by get/update/delete_record recordId", async () => {
+  it("airtable:records is referenced only by recordId fields (no accidental spread)", async () => {
     const allowed = new Set([
       "airtable:get_record.recordId",
       "airtable:update_record.recordId",
       "airtable:delete_record.recordId",
+      "airtable:add_attachment.recordId",
     ]);
     for (const a of await fetchActions()) {
       for (const f of a.fields) {

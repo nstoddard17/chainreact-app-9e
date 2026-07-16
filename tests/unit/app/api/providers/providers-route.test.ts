@@ -602,6 +602,7 @@ describe("GET /api/providers/[id]/actions", () => {
           required: boolean;
           defaultValue?: unknown;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
           numeric?: { min?: number; max?: number; integer?: boolean };
           options?: Array<{ value: string; label: string }>;
@@ -986,6 +987,7 @@ describe("GET /api/providers/[id]/actions", () => {
           name: string;
           type: string;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
           required: boolean;
         }>;
@@ -1156,6 +1158,7 @@ describe("GET /api/providers/[id]/actions", () => {
           name: string;
           type: string;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
           defaultValue?: unknown;
           numeric?: { min?: number; max?: number; integer?: boolean };
@@ -1251,6 +1254,7 @@ describe("GET /api/providers/[id]/actions", () => {
           type: string;
           required: boolean;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
           defaultValue?: unknown;
           options?: Array<{ value: string }>;
@@ -1392,6 +1396,7 @@ describe("GET /api/providers/[id]/actions", () => {
           type: string;
           required: boolean;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
           defaultValue?: unknown;
           options?: Array<{ value: string }>;
@@ -1630,6 +1635,7 @@ describe("GET /api/providers/[id]/triggers", () => {
           type: string;
           required: boolean;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
         }>;
         payloadShape: Array<{ name: string; type: string; sensitive?: boolean }>;
@@ -1765,6 +1771,7 @@ describe("GET /api/providers/[id]/triggers", () => {
           name: string;
           type: string;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
         }>;
         payloadShape: Array<{ name: string; sensitive?: boolean }>;
@@ -1973,6 +1980,7 @@ describe("GET /api/providers/[id]/triggers", () => {
           required: boolean;
           defaultValue?: unknown;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
           numeric?: { min?: number; max?: number; integer?: boolean };
           options?: Array<{ value: string; label: string }>;
@@ -2270,6 +2278,7 @@ describe("GET /api/providers/[id]/triggers", () => {
           type: string;
           required: boolean;
           optionsSource?: string;
+          allowManualEntry?: boolean;
           dependsOn?: string;
           description?: string;
         }>;

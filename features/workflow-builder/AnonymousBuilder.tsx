@@ -10,6 +10,7 @@ import { useGraphSlice } from "./state/graphSlice";
 import type { ProviderOption } from "./panels/AddNodePanel";
 import type { RequiredFieldsByType } from "./validation/collectBuilderValidationIssues";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
+import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 
 /**
  * ANON-BUILDER — local-only builder for logged-out visitors (`/start`).
@@ -37,6 +38,8 @@ interface Props {
   actionProviders: readonly ProviderOption[];
   requiredFieldsByType?: RequiredFieldsByType;
   setupFieldsByType?: PreviewSetupFieldsByType;
+  /** CONFIG-UX-NODE-SUMMARY-1 — passed straight through so anonymous cards summarize like signed-in ones. */
+  summaryFieldsByType?: NodeSummaryFieldsByType;
 }
 
 /**
@@ -69,6 +72,7 @@ export function AnonymousBuilder({
   actionProviders,
   requiredFieldsByType,
   setupFieldsByType,
+  summaryFieldsByType,
 }: Props) {
   const [prompt, setPrompt] = useState("");
   const [workflow, setWorkflow] = useState<WorkflowDetail>(() =>
@@ -141,6 +145,7 @@ export function AnonymousBuilder({
       onAnonPromptChange={handlePromptChange}
       {...(requiredFieldsByType ? { requiredFieldsByType } : {})}
       {...(setupFieldsByType ? { setupFieldsByType } : {})}
+      {...(summaryFieldsByType ? { summaryFieldsByType } : {})}
     />
   );
 }

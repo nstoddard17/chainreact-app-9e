@@ -2676,10 +2676,12 @@ describe("per-provider accessors", () => {
           return notionActionMetas().find((m) => m.key === "notion:get_block")!;
         }
 
-        it("exposes only blockId (required text)", () => {
+        it("exposes only blockId (required notion:pages picker — RESOLVERS-1)", () => {
           expect(meta().fields.map((f) => f.name)).toEqual(["blockId"]);
           const blockId = meta().fields[0]!;
-          expect(blockId.type).toBe("text");
+          expect(blockId.type).toBe("combobox");
+          expect(blockId.optionsSource).toBe("notion:pages");
+          expect(blockId.allowManualEntry).toBe(true);
           expect(blockId.required).toBe(true);
         });
 
@@ -2717,9 +2719,11 @@ describe("per-provider accessors", () => {
           expect(names).not.toContain("startCursor");
         });
 
-        it("blockId required text; pageSize optional number 1..100", () => {
+        it("blockId is a required notion:pages picker; pageSize optional number 1..100 (RESOLVERS-1)", () => {
           const byName = new Map(meta().fields.map((f) => [f.name, f]));
-          expect(byName.get("blockId")!.type).toBe("text");
+          expect(byName.get("blockId")!.type).toBe("combobox");
+          expect(byName.get("blockId")!.optionsSource).toBe("notion:pages");
+          expect(byName.get("blockId")!.allowManualEntry).toBe(true);
           expect(byName.get("blockId")!.required).toBe(true);
           const pageSize = byName.get("pageSize")!;
           expect(pageSize.type).toBe("number");
@@ -4605,9 +4609,11 @@ describe("per-provider accessors", () => {
           expect(f.defaultValue).toBe(false);
         });
 
-        it("keyColumn is optional text (description notes the headerRow precondition)", () => {
+        it("keyColumn is the google-sheets:columns picker, optional, revealed by headerRow (RESOLVERS-1)", () => {
           const f = meta().fields.find((x) => x.name === "keyColumn")!;
-          expect(f.type).toBe("text");
+          expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("google-sheets:columns");
+        expect(f.allowManualEntry).toBe(true);
           expect(f.required).toBe(false);
           expect(f.description!.toLowerCase()).toContain("header row");
         });
@@ -5284,14 +5290,14 @@ describe("per-provider accessors", () => {
         expect(f.optionsSource).toBe("hubspot:owners");
       });
 
-      it("association fields are optional text (search-by-property pickers deferred)", () => {
+      it("association fields are optional record-search pickers (RESOLVERS-1)", () => {
         for (const name of [
           "associatedContactId",
           "associatedCompanyId",
           "associatedDealId",
         ]) {
           const f = meta().fields.find((x) => x.name === name)!;
-          expect(f.type).toBe("text");
+          expect(f.type).toBe("combobox");
           expect(f.required).toBe(false);
         }
       });

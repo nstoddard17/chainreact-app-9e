@@ -12,6 +12,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *                       (row 0 is treated as headers; the handler
  *                       resolves header → column index). NOT a column
  *                       letter — that's a deliberate Batch 1 narrowing.
+ *                       RESOLVERS-1: combobox from `google-sheets:columns`
+ *                       (deps spreadsheetId + sheetName) reading the tab's
+ *                       REAL row-1 headers, with `allowManualEntry` — the
+ *                       committed value is still the header string the
+ *                       handler's `headers.indexOf(column)` matches.
  *   - `value`          (required) — value to match against. Schema
  *                       accepts string / number / boolean; the UI stores
  *                       as text and the runtime coerces via
@@ -62,8 +67,11 @@ export const googleSheetsFindRowMeta: ActionMeta = {
       name: "column",
       label: "Column",
       description:
-        "Header name of the column to search (e.g. `Email`, `Status`). The handler reads row 0 as headers and resolves this to a column index. Column letters / numeric indices are NOT accepted in Batch 1.",
-      type: "text",
+        "The column to search, picked by its header name. The picker reads row 1 of the chosen sheet — change the spreadsheet or sheet and it re-fetches. Type a header name instead if the sheet's headers aren't detected. Column letters (`A`) and numeric indices are NOT accepted — the match is on the header text.",
+      type: "combobox",
+      optionsSource: "google-sheets:columns",
+      dependsOn: ["spreadsheetId", "sheetName"],
+      allowManualEntry: true,
       required: true,
       placeholder: "Email",
     },

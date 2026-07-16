@@ -23,6 +23,12 @@ import { githubRequest } from "./_request";
  *   - `reposBranchesList` — GET `/repos/{owner}/{repo}/branches`
  *     (RESOLVERS-1 — `github:branches` options resolver; read-only,
  *     one bounded page).
+ *   - `reposLabelsList` — GET `/repos/{owner}/{repo}/labels`
+ *     (RESOLVERS-1 — `github:labels` options resolver; read-only,
+ *     one bounded page).
+ *   - `reposAssigneesList` — GET `/repos/{owner}/{repo}/assignees`
+ *     (RESOLVERS-1 — `github:assignees` options resolver; read-only,
+ *     one bounded page).
  */
 
 // ─── Wire-format response types ─────────────────────────────────────────────
@@ -240,6 +246,133 @@ export async function reposBranchesList(
     }
   }
   return { branches, truncated: batch.length === BRANCHES_PAGE_SIZE };
+}
+
+// ─── reposLabelsList ────────────────────────────────────────────────────────
+
+/** One page is 100 (GitHub's max `per_page` for the labels endpoint). */
+export const LABELS_PAGE_SIZE = 100;
+
+/** Normalized label option — only the fields a picker needs; no raw payload. */
+export interface RepoLabelOption {
+  /**
+   * Label NAME (e.g. `bug`, `priority: high`) — the value handlers store.
+   * `create_issue.labels` is `string[]` of names, NOT numeric label ids.
+   */
+  name: string;
+}
+
+/** Wire shape of one GET `/repos/{owner}/{repo}/labels` entry. */
+interface GitHubLabelWire {
+  name?: string;
+}
+
+export interface ReposLabelsListInput {
+  accessToken: string;
+  owner: string;
+  repo: string;
+}
+
+export interface ReposLabelsListResult {
+  labels: RepoLabelOption[];
+  /** True when a full page came back — more labels may exist. */
+  truncated: boolean;
+}
+
+/**
+ * List a repository's labels, normalized to `{ name }`. READ-ONLY
+ * (`GET /repos/{owner}/{repo}/labels?per_page=100`) using the already-granted
+ * `repo` scope. BOUNDED: one page of {@link LABELS_PAGE_SIZE}; callers keep a
+ * manual label-name entry path for repos with more labels. Raw label payloads
+ * (ids, colors, descriptions, URLs) never escape — only `name`.
+ *
+ * Docs: https://docs.github.com/en/rest/issues/labels?apiVersion=2022-11-28#list-labels-for-a-repository
+ */
+export async function reposLabelsList(
+  input: ReposLabelsListInput,
+): Promise<ReposLabelsListResult> {
+  const query = new URLSearchParams({
+    per_page: String(LABELS_PAGE_SIZE),
+  });
+  const batch = await githubRequest<GitHubLabelWire[]>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/labels`,
+    query,
+    resourceForNotFound: `repository ${input.owner}/${input.repo}`,
+  });
+
+  const labels: RepoLabelOption[] = [];
+  for (const l of batch) {
+    if (l && typeof l.name === "string" && l.name.length > 0) {
+      labels.push({ name: l.name });
+    }
+  }
+  return { labels, truncated: batch.length === LABELS_PAGE_SIZE };
+}
+
+// ─── reposAssigneesList ─────────────────────────────────────────────────────
+
+/** One page is 100 (GitHub's max `per_page` for the assignees endpoint). */
+export const ASSIGNEES_PAGE_SIZE = 100;
+
+/** Normalized assignee option — only the fields a picker needs; no raw payload. */
+export interface RepoAssigneeOption {
+  /**
+   * GitHub LOGIN (e.g. `octocat`) — the value handlers store.
+   * `create_issue.assignees` is `string[]` of logins, NOT numeric user ids.
+   */
+  login: string;
+}
+
+/** Wire shape of one GET `/repos/{owner}/{repo}/assignees` entry. */
+interface GitHubAssigneeWire {
+  login?: string;
+}
+
+export interface ReposAssigneesListInput {
+  accessToken: string;
+  owner: string;
+  repo: string;
+}
+
+export interface ReposAssigneesListResult {
+  assignees: RepoAssigneeOption[];
+  /** True when a full page came back — more assignees may exist. */
+  truncated: boolean;
+}
+
+/**
+ * List the users who can be assigned to issues/PRs on a repository, normalized
+ * to `{ login }`. READ-ONLY (`GET /repos/{owner}/{repo}/assignees?per_page=100`)
+ * using the already-granted `repo` scope. BOUNDED: one page of
+ * {@link ASSIGNEES_PAGE_SIZE}; callers keep a manual login entry path for repos
+ * with more assignable users. Raw user payloads never escape — only `login`
+ * (deliberately NOT `name`, `email`, `avatar_url`, or the numeric user id).
+ *
+ * Docs: https://docs.github.com/en/rest/issues/assignees?apiVersion=2022-11-28#list-assignees
+ */
+export async function reposAssigneesList(
+  input: ReposAssigneesListInput,
+): Promise<ReposAssigneesListResult> {
+  const query = new URLSearchParams({
+    per_page: String(ASSIGNEES_PAGE_SIZE),
+  });
+  const batch = await githubRequest<GitHubAssigneeWire[]>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/assignees`,
+    query,
+    resourceForNotFound: `repository ${input.owner}/${input.repo}`,
+  });
+
+  const assignees: RepoAssigneeOption[] = [];
+  for (const a of batch) {
+    if (a && typeof a.login === "string" && a.login.length > 0) {
+      assignees.push({ login: a.login });
+    }
+  }
+  return { assignees, truncated: batch.length === ASSIGNEES_PAGE_SIZE };
 }
 
 // ─── gitRefGet ──────────────────────────────────────────────────────────────

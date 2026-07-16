@@ -28,12 +28,14 @@ export const stripeFindCustomerMeta: ActionMeta = {
   fields: [
     {
       name: "customerId",
-      label: "Customer ID",
+      label: "Customer",
       description:
-        "Stripe customer id (`cus_xxx`) for direct lookup. Leave empty when looking up by Email instead.",
-      type: "text",
+        "Look up one specific customer. Leave empty to look up by Email instead.",
+      type: "combobox",
       required: false,
       placeholder: "cus_xxx",
+      optionsSource: "stripe:customers",
+      allowManualEntry: true,
     },
     {
       name: "email",

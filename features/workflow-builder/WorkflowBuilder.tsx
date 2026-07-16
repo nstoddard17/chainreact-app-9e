@@ -13,6 +13,8 @@ import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
 import { BuilderPreviewControlBar } from "./canvas/BuilderPreviewControlBar";
 import type { ConfigDiffFieldMetaByType } from "@/core/workflows/configDiffFieldMeta";
+import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
+import { useResourceLabelCache } from "./state/resourceLabelCache";
 import { PreviewReviewPanel } from "./panels/PreviewReviewPanel";
 import { BuilderApplyNotice } from "./canvas/BuilderApplyNotice";
 import type { AgentSetupIssue } from "@/core/workflows/agentSetupIssues";
@@ -90,6 +92,13 @@ interface Props {
    * tests keep passing (absent → the diff still computes; field labels fall back to key names).
    */
   fieldMetaByType?: ConfigDiffFieldMetaByType;
+  /**
+   * CONFIG-UX-NODE-SUMMARY-1 — display-safe field metadata per `provider:type`, computed server-side
+   * from the discovery registry. Lets the canvas adapter compute each node's at-a-glance summary line
+   * ("Send Channel Message · #support-alerts") for the COLLAPSED card. Optional so isolated builder
+   * tests keep passing (absent → cards render exactly as before, with no summary line).
+   */
+  summaryFieldsByType?: NodeSummaryFieldsByType;
   /**
    * HERMES-AGENT-GUIDANCE-UI-BUILDER — owning account for the advisory "Build with me" guidance
    * entry. Resolved server-side from the workflow record; never client-supplied. The entry renders
@@ -176,6 +185,7 @@ export function WorkflowBuilder({
   requiredFieldsByType,
   setupFieldsByType,
   fieldMetaByType,
+  summaryFieldsByType,
   accountId,
   guidanceEnabled,
   localOnly,
@@ -253,6 +263,11 @@ export function WorkflowBuilder({
 
   const providerLabels = buildProviderLabelMap(triggerProviders, actionProviders);
   const providerIcons = buildProviderIconMap(triggerProviders, actionProviders);
+
+  // CONFIG-UX-NODE-SUMMARY-1 — the canvas adapter is a PURE synchronous converter and must not read
+  // the label store itself, so subscribe here and thread the snapshot down. The subscription is what
+  // makes a card's summary line appear as its picker resolves the resource's name.
+  const resourceLabels = useResourceLabelCache((s) => s.labels);
 
   // BUILDER-AGENT-RAIL-WIRING-EXTRACT — the rail's deterministic Check-workflow / setup / canvas-guard
   // callbacks live in a focused hook (no behavior change). All deterministic/local: no model call, no
@@ -730,6 +745,8 @@ export function WorkflowBuilder({
           onArrange={handleArrange}
           triggerTagText={triggerTagText}
           requiredFieldsByType={requiredFieldsByType}
+          summaryFieldsByType={summaryFieldsByType}
+          resourceLabels={resourceLabels}
           // HERMES-AGENT-APPLY-CONFIG-HINTS — nodes the most recent apply added get the
           // short-lived "Added from preview" badge. Undefined when nothing was just applied.
           // HERMES-AGENT-PREVIEW-CANVAS-STATE-AND-FIT — non-null while a preview is active (a fresh

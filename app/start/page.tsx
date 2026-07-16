@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { listProviders, providerIconUrl } from "@/integrations/_registry";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
 import { buildPreviewSetupFields } from "@/core/workflows/previewSetupFields";
+import { buildNodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 import {
   listAllActionMetas,
   listAllTriggerMetas,
@@ -46,6 +47,12 @@ export default async function StartPage() {
     listAllActionMetas(),
     listAllTriggerMetas(),
   );
+  // CONFIG-UX-NODE-SUMMARY-1 — same registry-derived, display-safe field metadata the signed-in
+  // builder threads, so anonymous cards summarize identically.
+  const summaryFieldsByType = buildNodeSummaryFieldsByType(
+    listAllActionMetas(),
+    listAllTriggerMetas(),
+  );
 
   const providers = listProviders();
   const triggerProviders = providers
@@ -74,6 +81,7 @@ export default async function StartPage() {
         actionProviders={actionProviders}
         requiredFieldsByType={requiredFieldsByType}
         setupFieldsByType={setupFieldsByType}
+        summaryFieldsByType={summaryFieldsByType}
       />
     </main>
   );

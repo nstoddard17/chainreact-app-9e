@@ -139,6 +139,17 @@ interface Props {
    */
   requiredFieldsByType?: import("../validation/collectBuilderValidationIssues").RequiredFieldsByType;
   /**
+   * CONFIG-UX-NODE-SUMMARY-1 — display-safe field metadata per `provider:type`. Threaded into the
+   * node adapter so a configured node's card can show its at-a-glance summary line. Optional (no
+   * map → prior behavior, no summary line).
+   */
+  summaryFieldsByType?: import("@/core/workflows/nodeSummaryFields").NodeSummaryFieldsByType;
+  /**
+   * CONFIG-UX-NODE-SUMMARY-1 — resource label cache snapshot, subscribed by `WorkflowBuilder` and
+   * threaded down so the adapter stays pure. Absent ⇒ no resource names resolved ⇒ no summary line.
+   */
+  resourceLabels?: Readonly<Record<string, string>>;
+  /**
    * Slice 4.BUILDER-SETTINGS-MVP-1 — workflow-level metadata for the top-level
    * Settings tab (the `WorkflowDetail` subset threaded from `WorkflowBuilder`).
    * Optional so isolated canvas tests keep passing; the Settings tab still
@@ -209,6 +220,8 @@ function WorkflowCanvasInner({
   addActionBlockedReason,
   triggerTagText,
   requiredFieldsByType,
+  summaryFieldsByType,
+  resourceLabels,
   workflowSettings,
   onWorkflowNameSaved,
   previewToken,
@@ -286,19 +299,27 @@ function WorkflowCanvasInner({
     // HERMES-AGENT-PREVIEW-DIFF-GRAPH — in preview mode the canvas shows ONE composed diff graph
     // (read-only) instead of the live editable graph; no overlay, no selection highlight.
     if (previewDiff) {
-      return previewDiffToFlowNodes(previewDiff, { providerLabels, providerIcons, requiredFieldsByType });
+      return previewDiffToFlowNodes(previewDiff, {
+        providerLabels,
+        providerIcons,
+        requiredFieldsByType,
+        summaryFieldsByType,
+        resourceLabels,
+      });
     }
     const base = workflowNodesToFlowNodes(pendingNodes, {
       providerLabels,
       providerIcons,
       requiredFieldsByType,
+      summaryFieldsByType,
+      resourceLabels,
       tailNodeIds,
     });
     if (!activeNodeId) return base;
     return base.map((n) =>
       n.id === activeNodeId ? { ...n, selected: true } : n,
     );
-  }, [previewDiff, pendingNodes, providerLabels, providerIcons, requiredFieldsByType, tailNodeIds, activeNodeId]);
+  }, [previewDiff, pendingNodes, providerLabels, providerIcons, requiredFieldsByType, summaryFieldsByType, resourceLabels, tailNodeIds, activeNodeId]);
 
   const flowEdges = useMemo<FlowEdge[]>(
     () =>

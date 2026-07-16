@@ -44,12 +44,15 @@ export const airtableAddAttachmentMeta: ActionMeta = {
     },
     {
       name: "recordId",
-      label: "Record ID",
+      label: "Record",
       description:
-        "The record to attach to (e.g. recXXXXXXXXXXXXXX). Usually mapped from an upstream step.",
-      type: "text",
+        "Which record to attach the file to. Pick a record, paste a rec… id, or insert one from an earlier step.",
+      type: "combobox",
       required: true,
       placeholder: "rec…",
+      optionsSource: "airtable:records",
+      allowManualEntry: true,
+      dependsOn: ["baseId", "tableIdOrName"],
     },
     {
       name: "fieldName",

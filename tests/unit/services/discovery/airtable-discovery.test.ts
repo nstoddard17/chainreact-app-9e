@@ -137,12 +137,14 @@ describe("airtable discovery — field hygiene + resolver wiring", () => {
     }
   });
 
-  it("add_attachment.recordId stays plain text (picker wired only on get/update/delete_record)", () => {
+  it("add_attachment.recordId is the airtable:records picker too (RESOLVERS-1 — every record reference is pickable)", () => {
     const f = getActionMeta("airtable:add_attachment")!.fields.find(
       (x) => x.name === "recordId",
     )!;
-    expect(f.type).toBe("text");
-    expect(f.optionsSource).toBeUndefined();
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("airtable:records");
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.dependsOn).toEqual(["baseId", "tableIdOrName"]);
   });
 
   it("typed field maps + batch records are advanced json fields (no typed-field-map renderer yet — CONFIG-UX-AUDIT-2 parses to the schema shape)", () => {
@@ -163,11 +165,12 @@ describe("airtable discovery — field hygiene + resolver wiring", () => {
     }
   });
 
-  it("airtable:records is referenced ONLY by get/update/delete_record recordId (no accidental spread)", () => {
+  it("airtable:records is referenced only by recordId fields (get/update/delete_record + add_attachment)", () => {
     const allowed = new Set([
       "airtable:get_record.recordId",
       "airtable:update_record.recordId",
       "airtable:delete_record.recordId",
+      "airtable:add_attachment.recordId",
     ]);
     for (const m of listActionMetasForProvider("airtable")) {
       for (const f of m.fields) {

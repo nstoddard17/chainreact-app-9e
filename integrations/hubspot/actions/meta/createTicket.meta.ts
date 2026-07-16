@@ -113,27 +113,33 @@ export const hubspotCreateTicketMeta: ActionMeta = {
     },
     {
       name: "associatedContactId",
-      label: "Associated contact ID",
+      label: "Associated contact",
       description:
-        "Link this ticket to a contact — insert a contact ID from an earlier step. If linking fails the ticket is still created (see associationWarnings).",
-      type: "text",
+        "Link this ticket to a contact. If linking fails the ticket is still created (see associationWarnings).",
+      type: "combobox",
       required: false,
+      optionsSource: "hubspot:contacts",
+      allowManualEntry: true,
     },
     {
       name: "associatedCompanyId",
-      label: "Associated company ID",
+      label: "Associated company",
       description:
-        "Link this ticket to a company — insert a company ID from an earlier step. If linking fails the ticket is still created (see associationWarnings).",
-      type: "text",
+        "Link this ticket to a company. If linking fails the ticket is still created (see associationWarnings).",
+      type: "combobox",
       required: false,
+      optionsSource: "hubspot:companies",
+      allowManualEntry: true,
     },
     {
       name: "associatedDealId",
-      label: "Associated deal ID",
+      label: "Associated deal",
       description:
-        "Link this ticket to a deal — insert a deal ID from an earlier step. If linking fails the ticket is still created (see associationWarnings).",
-      type: "text",
+        "Link this ticket to a deal. If linking fails the ticket is still created (see associationWarnings).",
+      type: "combobox",
       required: false,
+      optionsSource: "hubspot:deals",
+      allowManualEntry: true,
     },
   ],
   outputs: [

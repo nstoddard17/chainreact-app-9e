@@ -8,6 +8,10 @@ import type {
   WorkflowNode,
 } from "@/contracts/workflow";
 import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import { requirementLookupKey } from "@/core/workflows/requiredFields";
+import { buildNodeConfigSummary } from "@/core/workflows/nodeConfigSummary";
+import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
+import { readResourceLabel } from "../state/resourceLabelCache";
 import {
   missingRequiredFields,
   type RequiredFieldsByType,
@@ -88,6 +92,15 @@ export interface WorkflowNodeData extends Record<string, unknown> {
    */
   providerIcon?: string;
   /**
+   * CONFIG-UX-NODE-SUMMARY-1 — the node's at-a-glance summary line, e.g.
+   * "Send Channel Message · #support-alerts". Present ONLY when the node's
+   * primary resource resolved to a recognizable NAME; see
+   * {@link summaryHeadlineFor} for why an unresolved id is omitted rather than
+   * shown. Absent when no `summaryFieldsByType` is threaded (back-compat), when
+   * the node has no configured resource, or when its labels aren't loaded yet.
+   */
+  summaryHeadline?: string;
+  /**
    * HERMES-AGENT-PREVIEW-DIFF-GRAPH — when this node is part of an AI PREVIEW (one composed diff graph,
    * not a floating overlay), its diff status drives the card's diff treatment (added/removed/changed
    * styling + pill) and read-only behavior. Absent for the normal live graph.
@@ -117,6 +130,70 @@ export interface NodeConversionContext {
    * adapter flags each node's `isTail` so the card can render the tail `+`.
    */
   tailNodeIds?: ReadonlySet<string>;
+  /**
+   * CONFIG-UX-NODE-SUMMARY-1 — display-safe field metadata per `provider:type`,
+   * computed server-side from the discovery registry. When supplied, the adapter
+   * computes each node's summary headline for the collapsed card. Omitting it
+   * preserves the prior card exactly (no summary line).
+   */
+  summaryFieldsByType?: NodeSummaryFieldsByType;
+  /**
+   * CONFIG-UX-NODE-SUMMARY-1 — the resource label cache SNAPSHOT
+   * (`(optionsSource|value) → label`). The adapter is a pure synchronous
+   * converter and must not read the Zustand store itself, so `WorkflowBuilder`
+   * subscribes (`useResourceLabelCache((s) => s.labels)`) and threads the map
+   * down; the card then re-renders as pickers resolve names. Absent/empty ⇒ no
+   * resource name is known yet ⇒ no summary line (never a raw id).
+   */
+  resourceLabels?: Readonly<Record<string, string>>;
+}
+
+/**
+ * The node's collapsed-card summary headline, or `undefined` when it would not
+ * add a recognizable name.
+ *
+ * The card only earns a second line when the summary resolves the node's
+ * primary RESOURCE to a real name ("#support-alerts") — that is the whole
+ * product value. Two cases deliberately yield nothing rather than something:
+ *
+ *   - No resource segment at all ⇒ the headline is just the display name, which
+ *     the card's title already shows; repeating it is noise.
+ *   - Any resource lookup MISSED the label cache ⇒ `buildNodeConfigSummary`
+ *     honestly falls back to the stored id, and a raw provider id (`C0192837`)
+ *     on the canvas is worse than no line. The config panel is the surface that
+ *     shows the saved id (flagged "saved id"); the canvas stays quiet until the
+ *     pickers have resolved names.
+ *
+ * Pure — `labelFor` only reads the injected snapshot.
+ */
+function summaryHeadlineFor(
+  node: WorkflowNode,
+  ctx: NodeConversionContext,
+): string | undefined {
+  if (!ctx.summaryFieldsByType || !node.type) return undefined;
+  const meta = ctx.summaryFieldsByType[requirementLookupKey(node)];
+  if (!meta) return undefined;
+
+  const labels = ctx.resourceLabels ?? {};
+  let missedLabel = false;
+  const summary = buildNodeConfigSummary({
+    // The card's own title (custom name when the user set one), so the headline
+    // reads as "<what the card says> · <resource>" rather than reintroducing the
+    // metadata name the user renamed away from.
+    displayName: getNodeDisplayName(node),
+    fields: meta.fields,
+    config: node.config ?? {},
+    labelFor: (source, value) => {
+      const label = readResourceLabel(labels, source, value);
+      if (label === undefined) missedLabel = true;
+      return label;
+    },
+  });
+
+  if (missedLabel) return undefined;
+  const hasResource = summary.segments.some((s) => s.kind === "resource");
+  if (!hasResource) return undefined;
+  return summary.headline;
 }
 
 export interface EdgeConversionContext {
@@ -149,8 +226,18 @@ export function workflowNodesToFlowNodes(
       providerIcon: ctx.providerIcons?.[node.provider],
       missingRequiredConfig:
         missingRequiredFields(node, ctx.requiredFieldsByType).length > 0,
+      ...summaryHeadlineData(node, ctx),
     },
   }));
+}
+
+/** Spread-shaped so an absent headline leaves `summaryHeadline` off `data` entirely. */
+function summaryHeadlineData(
+  node: WorkflowNode,
+  ctx: NodeConversionContext,
+): { summaryHeadline?: string } {
+  const summaryHeadline = summaryHeadlineFor(node, ctx);
+  return summaryHeadline ? { summaryHeadline } : {};
 }
 
 export function workflowEdgesToFlowEdges(
@@ -209,6 +296,7 @@ export function previewDiffToFlowNodes(
       // Removed nodes are leaving — don't nag about their config; others show real readiness.
       missingRequiredConfig:
         node.diffStatus !== "removed" && missingRequiredFields(node, ctx.requiredFieldsByType).length > 0,
+      ...summaryHeadlineData(node, ctx),
       diffStatus: node.diffStatus,
     },
   }));

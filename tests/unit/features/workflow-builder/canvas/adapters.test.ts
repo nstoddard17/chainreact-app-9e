@@ -13,9 +13,11 @@ import type {
   WorkflowEdge,
   WorkflowNode,
 } from "@/contracts/workflow";
+import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 import {
   WORKFLOW_NODE_TYPE,
   flowNodePositionPatch,
+  previewDiffToFlowNodes,
   workflowEdgesToFlowEdges,
   workflowNodesToFlowNodes,
 } from "@/features/workflow-builder/canvas/adapters";
@@ -182,5 +184,105 @@ describe("workflowNodesToFlowNodes — missingRequiredConfig (BUILDER-READINESS)
   it("does not flag when no lookup is supplied (back-compat)", () => {
     const [n] = workflowNodesToFlowNodes([http({})]);
     expect(n!.data.missingRequiredConfig).toBe(false);
+  });
+});
+
+describe("workflowNodesToFlowNodes — summaryHeadline (CONFIG-UX-NODE-SUMMARY-1)", () => {
+  const summaryFieldsByType: NodeSummaryFieldsByType = {
+    "slack:send_channel_message": {
+      displayName: "Send Channel Message",
+      fields: [
+        {
+          name: "channel",
+          label: "Channel",
+          type: "combobox",
+          required: true,
+          optionsSource: "slack:channels",
+        },
+        { name: "text", label: "Message", type: "textarea", required: true },
+      ],
+    },
+  };
+
+  const slackNode = (
+    config: Record<string, unknown>,
+    extra: Partial<WorkflowNode> = {},
+  ): WorkflowNode => ({
+    id: "s1",
+    kind: "action",
+    provider: "slack",
+    type: "send_channel_message",
+    config,
+    position: { x: 0, y: 0 },
+    ...extra,
+  });
+
+  // The cache's own key shape: `optionsSource|value`.
+  const labels = { "slack:channels|C123": "#support-alerts" };
+
+  it("builds '<name> · <resource>' when the resource label is resolved", () => {
+    const [n] = workflowNodesToFlowNodes(
+      [slackNode({ channel: "C123", text: "hi" })],
+      { summaryFieldsByType, resourceLabels: labels },
+    );
+    expect(n!.data.summaryHeadline).toBe("Send Channel Message · #support-alerts");
+  });
+
+  it("prefixes the node's CUSTOM name (matching the card title), not the metadata name", () => {
+    const [n] = workflowNodesToFlowNodes(
+      [slackNode({ channel: "C123" }, { displayName: "Notify Support" })],
+      { summaryFieldsByType, resourceLabels: labels },
+    );
+    expect(n!.data.summaryHeadline).toBe("Notify Support · #support-alerts");
+  });
+
+  it("omits the headline when the label is NOT resolved — never leaks a raw provider id", () => {
+    const [n] = workflowNodesToFlowNodes([slackNode({ channel: "C123" })], {
+      summaryFieldsByType,
+      resourceLabels: {},
+    });
+    expect(n!.data.summaryHeadline).toBeUndefined();
+    expect(JSON.stringify(n!.data)).not.toContain("C123");
+  });
+
+  it("omits the headline when the cache is absent entirely", () => {
+    const [n] = workflowNodesToFlowNodes([slackNode({ channel: "C123" })], {
+      summaryFieldsByType,
+    });
+    expect(n!.data.summaryHeadline).toBeUndefined();
+  });
+
+  it("omits the headline when the node has no resource configured (title would just repeat)", () => {
+    const [n] = workflowNodesToFlowNodes([slackNode({ text: "hi" })], {
+      summaryFieldsByType,
+      resourceLabels: labels,
+    });
+    expect(n!.data.summaryHeadline).toBeUndefined();
+  });
+
+  it("omits the headline for an unknown node type (not in the lookup)", () => {
+    const [n] = workflowNodesToFlowNodes([actionNode], {
+      summaryFieldsByType,
+      resourceLabels: labels,
+    });
+    expect(n!.data.summaryHeadline).toBeUndefined();
+  });
+
+  it("does not set `summaryHeadline` at all when no summaryFieldsByType is supplied (back-compat)", () => {
+    const [n] = workflowNodesToFlowNodes([slackNode({ channel: "C123" })], {
+      resourceLabels: labels,
+    });
+    expect(n!.data).not.toHaveProperty("summaryHeadline");
+  });
+
+  it("summarizes preview diff-graph nodes through the same path", () => {
+    const [n] = previewDiffToFlowNodes(
+      {
+        nodes: [{ ...slackNode({ channel: "C123" }), diffStatus: "added" }],
+        edges: [],
+      },
+      { summaryFieldsByType, resourceLabels: labels },
+    );
+    expect(n!.data.summaryHeadline).toBe("Send Channel Message · #support-alerts");
   });
 });

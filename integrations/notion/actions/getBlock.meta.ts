@@ -29,12 +29,14 @@ export const notionGetBlockMeta: ActionMeta = {
   fields: [
     {
       name: "blockId",
-      label: "Block / page ID",
+      label: "Page or block",
       description:
-        "Notion id to fetch. Accepts both block ids and page ids — Notion treats pages as blocks at the API level.",
-      type: "text",
+        "Which page (or block) to read. Pick a page, paste an id, or insert one from an earlier step.",
+      type: "combobox",
       required: true,
       placeholder: "abcd1234-...",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
     },
   ],
   outputs: [

@@ -48,6 +48,14 @@ export function WorkflowNodeCard({
   const isTrigger = data.kind === "trigger";
   const providerLabel = data.providerLabel ?? data.provider;
 
+  // CONFIG-UX-NODE-SUMMARY-1 — the at-a-glance line ("Send Channel Message ·
+  // #support-alerts") that lets an author read the node's behavior off the
+  // COLLAPSED card. It only earns a line when it adds the recognizable resource
+  // name: when it equals the title the card already says it, and the adapter
+  // omits the headline entirely rather than surface an unresolved raw id.
+  const showSummary =
+    !!data.summaryHeadline && data.summaryHeadline !== data.displayName;
+
   // HERMES-AGENT-PREVIEW-DIFF-GRAPH — when this card is part of an AI preview diff graph, its
   // `diffStatus` drives a diff treatment (added/removed/changed) and READ-ONLY behavior (no rename /
   // delete / tail-add affordances). `unchanged` renders normally (just non-interactive).
@@ -227,6 +235,16 @@ export function WorkflowNodeCard({
           >
             {providerLabel}
           </div>
+          {showSummary ? (
+            <div
+              data-testid="node-summary-line"
+              className="mt-0.5 truncate text-[10.5px] leading-tight"
+              style={{ color: "var(--builder-muted)" }}
+              title={data.summaryHeadline}
+            >
+              {data.summaryHeadline}
+            </div>
+          ) : null}
         </div>
       </div>
 

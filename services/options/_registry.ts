@@ -30,6 +30,10 @@ import { slackGroupDmsResolver } from "@/integrations/slack/options/groupDms";
 // docs/slices/phase-3/google-sheets-action-metadata-plan.md §4.
 import { googleSheetsSpreadsheetsResolver } from "@/integrations/google-sheets/options/spreadsheets";
 import { googleSheetsSheetsResolver } from "@/integrations/google-sheets/options/sheets";
+// RESOLVERS-1 — `google-sheets:columns` reads the sheet's header row so
+// find_row.column / row_changed.keyColumn are picked, not hand-typed
+// (mirrors microsoft-excel:worksheet_columns).
+import { googleSheetsColumnsResolver } from "@/integrations/google-sheets/options/columns";
 
 // HubSpot resolvers — Slice 3.HUBSPOT-2.
 //   - `hubspot:owners` — backs the `hubspot_owner_id` field across 8
@@ -449,6 +453,36 @@ import { outlookCategoriesResolver } from "@/integrations/microsoft-outlook/opti
 import { microsoftExcelTableColumnsResolver } from "@/integrations/microsoft-excel/options/tableColumns";
 import { microsoftTeamsChatsResolver } from "@/integrations/microsoft-teams/options/chats";
 import { microsoftOneNoteTargetSectionsResolver } from "@/integrations/microsoft-onenote/options/targetSections";
+
+// Microsoft Power BI resolvers — 21 sources backing every cascading picker
+// in the provider's 47 actions + 16 triggers. Cascade roots take no deps
+// (`workspaces`, `pipelines`, `gateways`, `capacities`); children pin their
+// dep names VERBATIM to the runtime Zod schema field names (camelCase:
+// `workspaceId`, `semanticModelId`, `reportId`, `pipelineId`,
+// `sourceStageOrder`, `gatewayId`, `datasourceId`, `dataflowId`). Labels are
+// resource names/roles only — never parameter values, connection strings, or
+// credentials. Plan: docs/providers/microsoft-powerbi/implementation-plan.md.
+import { microsoftPowerBiWorkspacesResolver } from "@/integrations/microsoft-powerbi/options/workspaces";
+import { microsoftPowerBiSemanticModelsResolver } from "@/integrations/microsoft-powerbi/options/semanticModels";
+import { microsoftPowerBiSemanticModelParametersResolver } from "@/integrations/microsoft-powerbi/options/semanticModelParameters";
+import { microsoftPowerBiReportsResolver } from "@/integrations/microsoft-powerbi/options/reports";
+import { microsoftPowerBiPaginatedReportsResolver } from "@/integrations/microsoft-powerbi/options/paginatedReports";
+import { microsoftPowerBiReportPagesResolver } from "@/integrations/microsoft-powerbi/options/reportPages";
+import { microsoftPowerBiImportsResolver } from "@/integrations/microsoft-powerbi/options/imports";
+import { microsoftPowerBiDataflowsResolver } from "@/integrations/microsoft-powerbi/options/dataflows";
+import { microsoftPowerBiDataflowTransactionsResolver } from "@/integrations/microsoft-powerbi/options/dataflowTransactions";
+import { microsoftPowerBiPipelinesResolver } from "@/integrations/microsoft-powerbi/options/pipelines";
+import { microsoftPowerBiPipelineStagesResolver } from "@/integrations/microsoft-powerbi/options/pipelineStages";
+import { microsoftPowerBiPipelineStageSemanticModelsResolver } from "@/integrations/microsoft-powerbi/options/pipelineStageSemanticModels";
+import { microsoftPowerBiPipelineStageReportsResolver } from "@/integrations/microsoft-powerbi/options/pipelineStageReports";
+import { microsoftPowerBiPipelineStageDashboardsResolver } from "@/integrations/microsoft-powerbi/options/pipelineStageDashboards";
+import { microsoftPowerBiPipelineStageDataflowsResolver } from "@/integrations/microsoft-powerbi/options/pipelineStageDataflows";
+import { microsoftPowerBiPipelineUsersResolver } from "@/integrations/microsoft-powerbi/options/pipelineUsers";
+import { microsoftPowerBiGatewaysResolver } from "@/integrations/microsoft-powerbi/options/gateways";
+import { microsoftPowerBiGatewayDatasourcesResolver } from "@/integrations/microsoft-powerbi/options/gatewayDatasources";
+import { microsoftPowerBiGatewayDatasourceUsersResolver } from "@/integrations/microsoft-powerbi/options/gatewayDatasourceUsers";
+import { microsoftPowerBiCapacitiesResolver } from "@/integrations/microsoft-powerbi/options/capacities";
+import { microsoftPowerBiWorkspaceUsersResolver } from "@/integrations/microsoft-powerbi/options/workspaceUsers";
 import {
   quickbooksItemsResolver,
   quickbooksTaxCodesResolver,
@@ -523,6 +557,10 @@ import { githubReposResolver } from "@/integrations/github/options/repos";
 // create_pull_request.head/base, create_branch.sourceBranch, and the
 // new_commit trigger's branch filter. Decrypt-direct (GitHub non-refreshable).
 import { githubBranchesResolver } from "@/integrations/github/options/branches";
+// RESOLVERS-1 — `github:labels` + `github:assignees` (deps: repository) back
+// create_issue's label/assignee chips (both are string-array per-chip pickers).
+import { githubLabelsResolver } from "@/integrations/github/options/labels";
+import { githubAssigneesResolver } from "@/integrations/github/options/assignees";
 // RESOLVERS-1 — `shopify:products` backs update_product.product_id +
 // create_product_variant.product_id. One bounded page (id/title/status) on
 // the already-granted read_products; shop pinned to the integration row.
@@ -800,6 +838,30 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // RESOLVERS-1 — copy_page.targetSectionId flat all-notebooks picker
   // ("Notebook › Section", dep-less — copy_page schema is .strict()).
   microsoftOneNoteTargetSectionsResolver,
+  // Microsoft Power BI — 21 sources. Cascade roots first, then children in
+  // dependency order (workspace → model/report/dataflow/import → leaf;
+  // pipeline → stage → stage artifacts; gateway → datasource → users).
+  microsoftPowerBiWorkspacesResolver,
+  microsoftPowerBiSemanticModelsResolver,
+  microsoftPowerBiSemanticModelParametersResolver,
+  microsoftPowerBiReportsResolver,
+  microsoftPowerBiPaginatedReportsResolver,
+  microsoftPowerBiReportPagesResolver,
+  microsoftPowerBiImportsResolver,
+  microsoftPowerBiDataflowsResolver,
+  microsoftPowerBiDataflowTransactionsResolver,
+  microsoftPowerBiPipelinesResolver,
+  microsoftPowerBiPipelineStagesResolver,
+  microsoftPowerBiPipelineStageSemanticModelsResolver,
+  microsoftPowerBiPipelineStageReportsResolver,
+  microsoftPowerBiPipelineStageDashboardsResolver,
+  microsoftPowerBiPipelineStageDataflowsResolver,
+  microsoftPowerBiPipelineUsersResolver,
+  microsoftPowerBiGatewaysResolver,
+  microsoftPowerBiGatewayDatasourcesResolver,
+  microsoftPowerBiGatewayDatasourceUsersResolver,
+  microsoftPowerBiCapacitiesResolver,
+  microsoftPowerBiWorkspaceUsersResolver,
   // RESOLVERS-1 — HubSpot record + property-name + call-disposition pickers.
   // Record search is server-side (ctx.q → CRM search `query`); labels are
   // display names only (contacts NEVER show email); description = record id.
@@ -819,6 +881,9 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // RESOLVERS-1 — github branches (deps: repository), notion databases,
   // shopify products. All read-only on already-granted scopes.
   githubBranchesResolver,
+  githubLabelsResolver,
+  githubAssigneesResolver,
+  googleSheetsColumnsResolver,
   notionDatabasesResolver,
   shopifyProductsResolver,
   shopifyCustomersResolver,

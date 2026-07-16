@@ -11,6 +11,10 @@
  *     `fork-owner:branch` heads and `{{...}}` wiring keep working),
  *   - `create_branch.branchName` stays free text (it's a NEW branch name —
  *     never a pick-from-list),
+ *   - `create_issue.labels` / `.assignees` stay `string-array` chip fields
+ *     (they commit `string[]`) but source per-chip options from
+ *     `github:labels` / `github:assignees` with `dependsOn: "repository"` +
+ *     `allowManualEntry`,
  *   - `create_issue.milestone` stays a `number` field with NO optionsSource:
  *     the runtime schema stores `z.number()`, a combobox commits a string,
  *     and the ActionMeta contract forbids `optionsSource` on `number`
@@ -57,6 +61,39 @@ describe("github branch fields — github:branches combobox + manual entry", () 
     const f = field(createBranchMeta, "branchName");
     expect(f.type).toBe("text");
     expect(f.optionsSource).toBeUndefined();
+  });
+});
+
+describe("github create_issue chip pickers — per-chip resolver + manual entry", () => {
+  const CHIP_PICKER_FIELDS = [
+    ["labels", "github:labels"],
+    ["assignees", "github:assignees"],
+  ] as const;
+
+  it.each(CHIP_PICKER_FIELDS)(
+    "create_issue.%s is a string-array sourced from %s (dependsOn repository, manual entry)",
+    (name, source) => {
+      const f = field(createIssueMeta, name);
+      // The COMMITTED shape is unchanged — still a real string[] of names /
+      // logins (sweep G's fix). The resolver only supplies the chip options.
+      expect(f.type).toBe("string-array");
+      expect(f.optionsSource).toBe(source);
+      expect(f.dependsOn).toBe("repository");
+      expect(f.allowManualEntry).toBe(true);
+      expect(f.required).toBe(false);
+      // Static options never coexist with the resolver.
+      expect(f.options).toBeUndefined();
+    },
+  );
+
+  it("both chip pickers hang off the same `repository` field the meta actually declares", () => {
+    // A dependsOn naming a non-existent sibling would strand the picker on
+    // MISSING_DEPENDENCY forever (ActionMetaSchema enforces this too).
+    const names = createIssueMeta.fields.map((f) => f.name);
+    expect(names).toContain("repository");
+    expect(field(createIssueMeta, "repository").optionsSource).toBe(
+      "github:repos",
+    );
   });
 });
 

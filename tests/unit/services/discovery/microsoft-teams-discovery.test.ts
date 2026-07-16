@@ -6,11 +6,12 @@
  * Pins the full 8-action Teams surface (TEAMS-READ-2 added the read-only
  * `list_teams` / `list_channels` / `list_channel_messages`): keys in
  * displayOrder, key===provider:type, category 'messaging', camelCase fields,
- * resolver wiring (teams root + channels dependsOn teamId), chatId/messageId
- * staying typeable text (no deferred-resolver references), get_team_members.top
+ * resolver wiring (teams root + channels dependsOn teamId + chats root on
+ * send_chat_message.chatId — un-deferred in RESOLVERS-1 with Marcus's
+ * sign-off), messageId staying typeable text, get_team_members.top
  * bounds, all-medium-or-low / none-destructive risk, sensitive bodyContent
  * + channel/member email outputs, and the rejected/deferred Teams resolvers
- * staying absent. Trigger assertions live in
+ * (members, messages) staying absent. Trigger assertions live in
  * microsoft-teams-triggers-discovery.test.ts.
  */
 import {
@@ -112,12 +113,15 @@ describe("microsoft-teams discovery — field hygiene + resolver wiring", () => 
     }
   });
 
-  it("send_chat_message.chatId stays typeable text — no chats resolver", () => {
+  it("send_chat_message.chatId uses the chats resolver (root, manual entry kept) — RESOLVERS-1", () => {
     const chatId = getActionMeta("microsoft-teams:send_chat_message")!.fields.find(
       (f) => f.name === "chatId",
     )!;
-    expect(chatId.type).toBe("text");
-    expect(chatId.optionsSource).toBeUndefined();
+    expect(chatId.type).toBe("combobox");
+    expect(chatId.optionsSource).toBe("microsoft-teams:chats");
+    expect(chatId.dependsOn).toBeUndefined();
+    expect(chatId.allowManualEntry).toBe(true);
+    expect(chatId.required).toBe(true);
   });
 
   it("reply_to_channel_message.messageId stays typeable text — no messages resolver", () => {
@@ -150,11 +154,10 @@ describe("microsoft-teams discovery — field hygiene + resolver wiring", () => 
     }
   });
 
-  it("no field anywhere references the rejected/deferred Teams resolvers", () => {
+  it("no field anywhere references the rejected/deferred Teams resolvers (chats un-deferred in RESOLVERS-1)", () => {
     for (const m of listActionMetasForProvider("microsoft-teams")) {
       for (const f of m.fields) {
         expect(f.optionsSource).not.toBe("microsoft-teams:members");
-        expect(f.optionsSource).not.toBe("microsoft-teams:chats");
         expect(f.optionsSource).not.toBe("microsoft-teams:messages");
       }
     }

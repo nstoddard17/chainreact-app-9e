@@ -459,3 +459,41 @@ describe("WorkflowNodeCard — Needs setup (BUILDER-READINESS)", () => {
     );
   });
 });
+
+describe("WorkflowNodeCard — at-a-glance summary line (CONFIG-UX-NODE-SUMMARY-1)", () => {
+  const base: WorkflowNodeData = {
+    kind: "action",
+    provider: "slack",
+    type: "send_channel_message",
+    displayName: "Send Channel Message",
+    providerLabel: "Slack",
+  };
+
+  it("renders the summary line when the headline carries a resolved resource name", () => {
+    renderCard({
+      data: { ...base, summaryHeadline: "Send Channel Message · #support-alerts" },
+    });
+    const line = screen.getByTestId("node-summary-line");
+    expect(line).toHaveTextContent("Send Channel Message · #support-alerts");
+    // Truncated on the card, so the full text must stay readable on hover.
+    expect(line).toHaveAttribute("title", "Send Channel Message · #support-alerts");
+  });
+
+  it("does NOT render the line when no headline was computed (unresolved label / no summary metadata)", () => {
+    renderCard({ data: base });
+    expect(screen.queryByTestId("node-summary-line")).toBeNull();
+  });
+
+  it("does NOT render the line when the headline only repeats the title the card already shows", () => {
+    renderCard({ data: { ...base, summaryHeadline: "Send Channel Message" } });
+    expect(screen.queryByTestId("node-summary-line")).toBeNull();
+  });
+
+  it("keeps the provider-label subtitle alongside the summary line", () => {
+    renderCard({
+      data: { ...base, summaryHeadline: "Send Channel Message · #support-alerts" },
+    });
+    expect(screen.getByText("Slack")).toBeInTheDocument();
+    expect(screen.getByTestId("node-summary-line")).toBeInTheDocument();
+  });
+});

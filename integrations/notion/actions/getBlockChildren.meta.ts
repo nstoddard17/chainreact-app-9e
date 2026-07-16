@@ -27,12 +27,14 @@ export const notionGetBlockChildrenMeta: ActionMeta = {
   fields: [
     {
       name: "blockId",
-      label: "Block / page ID",
+      label: "Page or block",
       description:
-        "Notion id to list children for. Accepts both block ids and page ids.",
-      type: "text",
+        "Which page (or block) to read. Pick a page, paste an id, or insert one from an earlier step.",
+      type: "combobox",
       required: true,
       placeholder: "abcd1234-...",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
     },
     {
       name: "pageSize",
