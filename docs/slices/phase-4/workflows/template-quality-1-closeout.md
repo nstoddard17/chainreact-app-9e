@@ -230,3 +230,37 @@ provider work. No push, no deploy, no PR, no `db:push`, no production-data chang
   DELETE-only / INSERT-only, guarded, data-only, idempotent).
 - Gap slices G1–G9 (see audit doc §3) — G1 (webhook payload flattening) and G2
   (`new_attachment` attachmentId) are the highest-leverage next steps.
+
+---
+
+## Production closeout addendum (2026-07-15)
+
+TEMPLATE-QUALITY-1 is **live in production**.
+
+- **Migrations applied** (via `npm run db:push`, target guard `qcepijemjlkssfkvzlio` verified):
+  `20260720000000_retire_official_templates_batch_1_3.sql` then
+  `20260720000001_seed_official_templates_batch_5.sql`. Both recorded in the remote migration
+  ledger. The files were **renumbered from 20260715xxxxxx** in forward commit `3e17dfd08` — a
+  parallel slice's applied `20260715000000_workflow_checkpoints.sql` collided with the version.
+- **Direct DB certification (13/13 PASS):** 27 officials (15 batch-4 + 12 batch-5, each id
+  exactly once), all 75 retired ids absent, node counts min 5 / median 6 / max 8
+  (distribution 8×5, 11×6, 7×7, 1×8), all rows platform-owned/public/ChainReact, no fork
+  lineage pointing at retired ids, retired usage-ledger rows cascaded.
+- **Pushed + deployed:** commits `366631b22`, `8e2109747`, `3e17dfd08`, `7048a0ae4` reached
+  `origin/v2-main`; final production deployment `dpl_GDL87d7Vtcuf5ZXn8fBdFRtwNRwm` (commit
+  `7048a0a`) Ready and aliased to https://chainreact.app.
+- **Surface certification (34/34 PASS, authenticated):** Templates page shows exactly 27
+  official cards incl. all 12 batch-5 titles; retired titles gone; business-purpose search
+  works; details dialogs hide `{{…}}`; marketplace API returns 27 officials with no <5-node
+  card; retired id → 404; malformed id → 404; AI guidance strong-matches batch-5
+  `…05d` deterministically (no model call) and never forces a template on an unsupported
+  request; linear + branching template application inserts exact graphs (labeled `true` edge +
+  if/then mapping intact), workflows stay `draft`, cleanup verified; zero 5xx observed.
+- **Certification fixes (forward commit `7048a0ae4`):** matcher lexicon gained
+  `calendly` / `quickbooks` / `asana` (batch-5 providers could never strong-match before);
+  `/use` + `/fork` now 404 on malformed (non-uuid) template ids instead of 500.
+- **Known environmental limitation (pre-existing, unrelated):** SEC-3 Turnstile blocks the
+  automated password sign-in used by the authenticated Playwright smoke and the DB-gated RLS
+  test's `signInWithPassword` (`captcha protection: request disallowed`). Public smoke: PASSED.
+  Surface certification instead minted the smoke user's session via the service-role magiclink
+  admin API. Follow-up: teach the smoke harness a Turnstile-compatible auth path.
