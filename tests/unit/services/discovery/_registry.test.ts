@@ -2589,9 +2589,7 @@ describe("per-provider accessors", () => {
           "value",
           "property",
         ]);
-        const valueChoices = filter.itemFields?.find(
-          (s) => s.name === "value",
-        )!;
+        const valueChoices = filter.itemFields!.find((s) => s.name === "value")!;
         expect(valueChoices.type).toBe("select");
         expect(valueChoices.options?.map((o) => o.value)).toEqual([
           "page",
