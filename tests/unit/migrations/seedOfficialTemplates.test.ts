@@ -147,7 +147,7 @@ describe("CS-XT-8A — official template seed (static guards)", () => {
 
   it("seeds the full official catalog (≥102 templates across all batches) with unique ids", () => {
     // 5 (batch 1) + 45 (batch 2) + 25 (batch 3) + 15 (batch 4) + 12 (batch 5). Batches 1–3 are
-    // RETIRED by 20260715000000 (≤4-node demos) but their applied seed files remain part of the
+    // RETIRED by 20260720000000 (≤4-node demos) but their applied seed files remain part of the
     // corpus this static guard validates; the effective catalog is asserted in
     // officialTemplateCatalogIntegrity.test.ts.
     expect(definitions.length).toBeGreaterThanOrEqual(102);

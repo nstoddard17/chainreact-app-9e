@@ -2,7 +2,7 @@
 --
 -- Twelve complete BUSINESS-PROCESS templates (5-7 nodes each) built from the REGISTERED
 -- capability surface audited in docs/product/template-business-capability-audit.md. This batch
--- accompanies 20260715000000_retire_official_templates_batch_1_3.sql (which retires the 75
+-- accompanies 20260720000000_retire_official_templates_batch_1_3.sql (which retires the 75
 -- two/three-node integration demos): together they enforce the new catalog standard — every
 -- platform template has at least FIVE meaningful nodes and models a recognizable end-to-end
 -- business outcome. Providers newly covered: typeform, calendly, quickbooks, asana, plus the

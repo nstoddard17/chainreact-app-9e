@@ -42,10 +42,10 @@ contributor rewards affected). Workflows created from templates carry no FK — 
 
 **Migrations (forward-only, data-only, idempotent, NOT applied):**
 
-- `supabase/migrations/20260715000000_retire_official_templates_batch_1_3.sql` — DELETE of
+- `supabase/migrations/20260720000000_retire_official_templates_batch_1_3.sql` — DELETE of
   exactly the 75 retired official UUIDs, guarded by `source='official' AND account_id IS NULL
   AND id IN (<fixed ids>)`. No node-count predicate; can never match user/community rows.
-- `supabase/migrations/20260715000001_seed_official_templates_batch_5.sql` — INSERT of 12
+- `supabase/migrations/20260720000001_seed_official_templates_batch_5.sql` — INSERT of 12
   templates (`…05b`–`…066`), `ON CONFLICT (id) DO NOTHING`, platform-owned invariants, configs
   empty or safe-prewired per the locked variable-only policy (verified refs + generic labels;
   first batch to seed prewiring directly since the rows have never been applied anywhere).

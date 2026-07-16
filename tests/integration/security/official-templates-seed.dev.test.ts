@@ -93,7 +93,7 @@ describeDb("official template seed — CS-XT-8A", () => {
   it("an authenticated user can read an official template via marketplace RLS; anon cannot", async () => {
     const u = await createTestUser();
     const supa = await sessionClient(u.email, u.password);
-    // a KEPT batch-4 template (batches 1–3 were retired by 20260715000000 / TEMPLATE-QUALITY-1).
+    // a KEPT batch-4 template (batches 1–3 were retired by 20260720000000 / TEMPLATE-QUALITY-1).
     const id = "c0ffee00-0000-4000-8000-00000000004c";
 
     const { data: seen } = await supa.from("workflow_templates").select("id, source").eq("id", id);

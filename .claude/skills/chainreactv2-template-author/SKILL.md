@@ -12,8 +12,8 @@ future session can add, audit, or maintain official templates without re-derivin
 
 > **TEMPLATE-QUALITY-1 (2026-07-15) — catalog standard update.** Batches 1–3 (75 ≤4-node
 > demos) are RETIRED by the guarded DELETE migration
-> `20260715000000_retire_official_templates_batch_1_3.sql`; batch 5
-> (`20260715000001_seed_official_templates_batch_5.sql`, 12 templates) seeds safe prewiring
+> `20260720000000_retire_official_templates_batch_1_3.sql`; batch 5
+> (`20260720000001_seed_official_templates_batch_5.sql`, 12 templates) seeds safe prewiring
 > directly in the seed file (allowed for never-applied rows). The EFFECTIVE catalog is
 > **27 templates, every one ≥5 nodes** — enforced by
 > `tests/unit/migrations/officialTemplateCatalogIntegrity.test.ts` (effective catalog =
