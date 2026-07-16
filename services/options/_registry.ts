@@ -115,6 +115,10 @@ import { mailchimpMembersResolver } from "@/integrations/mailchimp/options/membe
 // filter). Both read-only, account-scoped, single bounded page.
 import { notionUsersResolver } from "@/integrations/notion/options/users";
 import { notionPagesResolver } from "@/integrations/notion/options/pages";
+// RESOLVERS-1 — `notion:databases` backs query_database.databaseId +
+// create_database_entry.databaseId. Same search wrapper as notion:pages with
+// the object=database filter; ctx.q doubles as Notion's server-side search.
+import { notionDatabasesResolver } from "@/integrations/notion/options/databases";
 
 // Discord resolvers — Slice 3.DISCORD-3.
 //   - `discord:guilds` — bot's guild list (no deps; top-level picker
@@ -510,6 +514,14 @@ import { microsoftTeamsChannelsResolver } from "@/integrations/microsoft-teams/o
 //     lists the EDITOR's repos only (no co-member exposure). A free-text
 //     `owner/repo` fallback in the UI keeps repos beyond the cap reachable.
 import { githubReposResolver } from "@/integrations/github/options/repos";
+// RESOLVERS-1 — `github:branches` (deps: repository = `owner/repo`) backs
+// create_pull_request.head/base, create_branch.sourceBranch, and the
+// new_commit trigger's branch filter. Decrypt-direct (GitHub non-refreshable).
+import { githubBranchesResolver } from "@/integrations/github/options/branches";
+// RESOLVERS-1 — `shopify:products` backs update_product.product_id +
+// create_product_variant.product_id. One bounded page (id/title/status) on
+// the already-granted read_products; shop pinned to the integration row.
+import { shopifyProductsResolver } from "@/integrations/shopify/options/products";
 
 // Gmail resolver — Slice ANALYTICS-SOURCES-GMAIL-1.
 //   - `gmail:labels` — the editor's own Gmail labels (system + user), backing the
@@ -797,6 +809,11 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   hubspotProductPropertiesResolver,
   hubspotLineItemPropertiesResolver,
   hubspotCallDispositionOptionsResolver,
+  // RESOLVERS-1 — github branches (deps: repository), notion databases,
+  // shopify products. All read-only on already-granted scopes.
+  githubBranchesResolver,
+  notionDatabasesResolver,
+  shopifyProductsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

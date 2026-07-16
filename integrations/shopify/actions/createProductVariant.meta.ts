@@ -18,11 +18,14 @@ export const shopifyCreateProductVariantMeta: ActionMeta = {
   fields: [
     {
       name: "product_id",
-      label: "Product ID",
-      description: "The parent product id to add the variant to.",
-      type: "text",
+      label: "Product",
+      description:
+        "The parent product to add the variant to. Pick from your store's products or type a Shopify product id.",
+      type: "combobox",
+      optionsSource: "shopify:products",
+      allowManualEntry: true,
       required: true,
-      placeholder: "632910392",
+      placeholder: "Search products or type an id",
     },
     {
       name: "price",

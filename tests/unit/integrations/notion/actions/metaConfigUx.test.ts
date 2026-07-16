@@ -26,6 +26,7 @@ import { notionCreateDatabaseMeta } from "@/integrations/notion/actions/createDa
 import { notionAppendBlockChildrenMeta } from "@/integrations/notion/actions/appendBlockChildren.meta";
 import { notionGetBlockChildrenMeta } from "@/integrations/notion/actions/getBlockChildren.meta";
 import { notionQueryDatabaseMeta } from "@/integrations/notion/actions/queryDatabase.meta";
+import { notionCreateDatabaseEntryMeta } from "@/integrations/notion/actions/createDatabaseEntry.meta";
 import { notionSearchMeta } from "@/integrations/notion/actions/search.meta";
 import { notionListUsersMeta } from "@/integrations/notion/actions/listUsers.meta";
 import { SearchConfigSchema } from "@/integrations/notion/actions/search.schema";
@@ -60,6 +61,25 @@ describe("notion page/block id fields — notion:pages combobox + manual entry",
       expect(f.optionsSource).toBe("notion:pages");
       expect(f.allowManualEntry).toBe(true);
       expect(f.required).toBe(required);
+      // Static options never coexist with the resolver.
+      expect(f.options).toBeUndefined();
+    },
+  );
+});
+
+describe("notion databaseId fields — notion:databases combobox + manual entry (RESOLVERS-1)", () => {
+  it.each([
+    [notionQueryDatabaseMeta.key, notionQueryDatabaseMeta],
+    [notionCreateDatabaseEntryMeta.key, notionCreateDatabaseEntryMeta],
+  ] as const)(
+    "%s.databaseId is a notion:databases combobox with manual entry (string value preserved)",
+    (_key, meta) => {
+      const f = field(meta, "databaseId");
+      expect(f.type).toBe("combobox");
+      expect(f.optionsSource).toBe("notion:databases");
+      expect(f.allowManualEntry).toBe(true);
+      expect(f.required).toBe(true);
+      expect(f.dependsOn).toBeUndefined();
       // Static options never coexist with the resolver.
       expect(f.options).toBeUndefined();
     },

@@ -18,11 +18,14 @@ export const shopifyUpdateProductMeta: ActionMeta = {
   fields: [
     {
       name: "product_id",
-      label: "Product ID",
-      description: "The Shopify product id to update.",
-      type: "text",
+      label: "Product",
+      description:
+        "The product to update. Pick from your store's products or type a Shopify product id.",
+      type: "combobox",
+      optionsSource: "shopify:products",
+      allowManualEntry: true,
       required: true,
-      placeholder: "632910392",
+      placeholder: "Search products or type an id",
     },
     {
       name: "title",

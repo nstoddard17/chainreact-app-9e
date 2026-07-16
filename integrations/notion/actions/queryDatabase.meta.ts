@@ -4,7 +4,9 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Builder-facing metadata for `notion:query_database`.
  *
  * Mirrors `queryDatabase.schema.ts`:
- *   - `databaseId` (required) — database to query.
+ *   - `databaseId` (required) — database to query. RESOLVERS-1: a
+ *     `notion:databases` combobox with manual entry (value stays the
+ *     raw id string; pasted ids + `{{...}}` wiring keep working).
  *   - `filter`     (optional) — raw Notion filter object passed verbatim
  *                  to the API. V2 deliberately does NOT re-derive Notion's
  *                  filter grammar; Notion validates server-side.
@@ -31,12 +33,14 @@ export const notionQueryDatabaseMeta: ActionMeta = {
   fields: [
     {
       name: "databaseId",
-      label: "Database ID",
+      label: "Database",
       description:
-        "Notion database id to query. Usually wired from `{{notion:create_database.databaseId}}` / `{{notion:search.results[0].id}}`.",
-      type: "text",
+        "Notion database to query. Pick from your accessible databases, paste a database id, or wire `{{notion:create_database.databaseId}}` / `{{notion:search.results[0].id}}`.",
+      type: "combobox",
+      optionsSource: "notion:databases",
+      allowManualEntry: true,
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Search databases or paste an id",
     },
     {
       name: "filter",

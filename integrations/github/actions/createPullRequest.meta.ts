@@ -9,6 +9,10 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * blank is safe (no silent fallback to literal 'main').
  *
  * `head` accepts cross-repo notation `fork-owner:branch`.
+ *
+ * RESOLVERS-1: `head` / `base` are `github:branches` comboboxes
+ * (dependsOn `repository`) with manual entry preserved — cross-repo
+ * heads and beyond-the-page branches stay typeable.
  */
 export const createPullRequestMeta: ActionMeta = {
   key: "github:create_pull_request",
@@ -42,8 +46,11 @@ export const createPullRequestMeta: ActionMeta = {
       name: "head",
       label: "Head Branch",
       description:
-        "Branch with your changes. Accepts simple names ('feature/x') or cross-repo notation ('fork-owner:branch').",
-      type: "text",
+        "Branch with your changes. Pick from the repository's branches, or type a name — cross-repo notation ('fork-owner:branch') is also accepted.",
+      type: "combobox",
+      optionsSource: "github:branches",
+      dependsOn: "repository",
+      allowManualEntry: true,
       required: true,
       placeholder: "feature/widget",
     },
@@ -52,7 +59,10 @@ export const createPullRequestMeta: ActionMeta = {
       label: "Base Branch",
       description:
         "Branch you want the changes merged into. When blank, auto-detected from the repository's default branch.",
-      type: "text",
+      type: "combobox",
+      optionsSource: "github:branches",
+      dependsOn: "repository",
+      allowManualEntry: true,
       required: false,
       placeholder: "main",
     },

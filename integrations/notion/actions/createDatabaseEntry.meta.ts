@@ -5,6 +5,9 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *
  * Mirrors `createDatabaseEntry.schema.ts`:
  *   - `databaseId` (required) — database the entry is created in.
+ *     RESOLVERS-1: a `notion:databases` combobox with manual entry
+ *     (value stays the raw id string; pasted ids + `{{...}}` wiring
+ *     keep working).
  *   - `properties` (required) — typed property-input map (same shape as
  *                  create_page's properties). MUST include the database's
  *                  title property — Notion rejects requests missing it.
@@ -31,12 +34,14 @@ export const notionCreateDatabaseEntryMeta: ActionMeta = {
   fields: [
     {
       name: "databaseId",
-      label: "Database ID",
+      label: "Database",
       description:
-        "Notion database id. Usually wired from `{{notion:create_database.databaseId}}` / `{{notion:search.results[0].id}}`.",
-      type: "text",
+        "Notion database the entry is created in. Pick from your accessible databases, paste a database id, or wire `{{notion:create_database.databaseId}}` / `{{notion:search.results[0].id}}`.",
+      type: "combobox",
+      optionsSource: "notion:databases",
+      allowManualEntry: true,
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Search databases or paste an id",
     },
     {
       name: "properties",

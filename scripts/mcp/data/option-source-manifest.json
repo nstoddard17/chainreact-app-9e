@@ -211,6 +211,14 @@
       ]
     },
     {
+      "source": "github:branches",
+      "provider": "github",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "repository"
+      ]
+    },
+    {
       "source": "github:repos",
       "provider": "github",
       "requiresIntegration": true,
@@ -297,7 +305,25 @@
       "requiredDeps": null
     },
     {
+      "source": "hubspot:call_disposition",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:companies",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "hubspot:company_lifecyclestage",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:company_properties",
       "provider": "hubspot",
       "requiresIntegration": true,
       "requiredDeps": null
@@ -315,6 +341,18 @@
       "requiredDeps": null
     },
     {
+      "source": "hubspot:contact_properties",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:contacts",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "hubspot:deal_dealtype",
       "provider": "hubspot",
       "requiresIntegration": true,
@@ -322,6 +360,12 @@
     },
     {
       "source": "hubspot:deal_pipelines",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:deal_properties",
       "provider": "hubspot",
       "requiresIntegration": true,
       "requiredDeps": null
@@ -335,6 +379,24 @@
       ]
     },
     {
+      "source": "hubspot:deals",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:line_item_properties",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:line_items",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "hubspot:lists",
       "provider": "hubspot",
       "requiresIntegration": true,
@@ -342,6 +404,18 @@
     },
     {
       "source": "hubspot:owners",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:product_properties",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "hubspot:products",
       "provider": "hubspot",
       "requiresIntegration": true,
       "requiredDeps": null
@@ -359,6 +433,12 @@
       "requiredDeps": null
     },
     {
+      "source": "hubspot:ticket_properties",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "hubspot:ticket_source_type",
       "provider": "hubspot",
       "requiresIntegration": true,
@@ -371,6 +451,12 @@
       "requiredDeps": [
         "hs_pipeline"
       ]
+    },
+    {
+      "source": "hubspot:tickets",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": null
     },
     {
       "source": "mailchimp:audiences",
@@ -588,6 +674,12 @@
       ]
     },
     {
+      "source": "notion:databases",
+      "provider": "notion",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "notion:pages",
       "provider": "notion",
       "requiresIntegration": true,
@@ -626,6 +718,12 @@
     {
       "source": "quickbooks:terms",
       "provider": "quickbooks",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "shopify:products",
+      "provider": "shopify",
       "requiresIntegration": true,
       "requiredDeps": null
     },

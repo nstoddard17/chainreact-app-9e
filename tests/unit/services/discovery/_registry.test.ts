@@ -2225,7 +2225,7 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("ID fields: pageId/parentPageId are notion:pages comboboxes with manual entry (CONFIG-UX-SETUP-ADVANCED-1 wiring); databaseId stays text (no databases resolver yet)", () => {
+    it("ID fields: pageId/parentPageId are notion:pages comboboxes; databaseId is a notion:databases combobox (RESOLVERS-1); all keep manual entry", () => {
       for (const meta of notionActionMetas()) {
         for (const f of meta.fields) {
           if (f.name === "pageId" || f.name === "parentPageId") {
@@ -2234,8 +2234,9 @@ describe("per-provider accessors", () => {
             expect(f.allowManualEntry).toBe(true);
           }
           if (f.name === "databaseId") {
-            expect(f.type).toBe("text");
-            expect(f.optionsSource).toBeUndefined();
+            expect(f.type).toBe("combobox");
+            expect(f.optionsSource).toBe("notion:databases");
+            expect(f.allowManualEntry).toBe(true);
           }
         }
       }
@@ -2504,7 +2505,8 @@ describe("per-provider accessors", () => {
         const byName = new Map(
           createEntryMeta().fields.map((f) => [f.name, f]),
         );
-        expect(byName.get("databaseId")!.type).toBe("text");
+        expect(byName.get("databaseId")!.type).toBe("combobox");
+        expect(byName.get("databaseId")!.optionsSource).toBe("notion:databases");
         expect(byName.get("databaseId")!.required).toBe(true);
         expect(byName.get("properties")!.type).toBe("json");
         expect(byName.get("properties")!.required).toBe(true);
@@ -2540,7 +2542,8 @@ describe("per-provider accessors", () => {
 
       it("databaseId required text; filter/sorts optional textareas; pageSize optional number 1..100", () => {
         const byName = new Map(queryMeta().fields.map((f) => [f.name, f]));
-        expect(byName.get("databaseId")!.type).toBe("text");
+        expect(byName.get("databaseId")!.type).toBe("combobox");
+        expect(byName.get("databaseId")!.optionsSource).toBe("notion:databases");
         expect(byName.get("databaseId")!.required).toBe(true);
         expect(byName.get("filter")!.type).toBe("json");
         expect(byName.get("filter")!.required).toBe(false);

@@ -4,8 +4,9 @@
  *
  * Canonical UX-shape test for the "id-with-JSON-filter" surface — a
  * shape no other Notion meta exercises end-to-end:
- *   - databaseId is a plain text field (resolver-less for v1; future
- *     `notion:databases` resolver flips it without contract churn),
+ *   - databaseId is a `notion:databases` combobox with manual entry
+ *     (RESOLVERS-1 — the anticipated resolver flip; the committed value
+ *     stays the raw id string the runtime schema expects),
  *   - filter renders as an optional textarea (raw Notion filter JSON
  *     forward-passed to the API),
  *   - sorts renders as an optional textarea (raw Notion sort array),
@@ -50,6 +51,7 @@ jest.mock("@/lib/api/options", () => ({
 }));
 
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
+import { pickComboboxOption } from "./helpers/comboboxField";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -111,12 +113,23 @@ beforeEach(() => {
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
   mockFetchOptionsSource.mockReset();
-  mockFetchOptionsSource.mockImplementation(async (source: string) => ({
-    ok: false,
-    source,
-    code: "SOURCE_NOT_FOUND",
-    message: `Unknown source '${source}'.`,
-  }));
+  mockFetchOptionsSource.mockImplementation(async (source: string) => {
+    // RESOLVERS-1 — the databaseId combobox loads `notion:databases`.
+    if (source === "notion:databases") {
+      return {
+        ok: true,
+        source,
+        items: [{ value: DATABASE_ID, label: "Tasks DB" }],
+        hasMore: false,
+      };
+    }
+    return {
+      ok: false,
+      source,
+      code: "SOURCE_NOT_FOUND",
+      message: `Unknown source '${source}'.`,
+    };
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -134,7 +147,9 @@ it("Notion query_database meta exposes databaseId / filter / sorts / pageSize an
   const byName = new Map(
     notionQueryDatabaseMeta.fields.map((f) => [f.name, f]),
   );
-  expect(byName.get("databaseId")!.type).toBe("text");
+  expect(byName.get("databaseId")!.type).toBe("combobox");
+  expect(byName.get("databaseId")!.optionsSource).toBe("notion:databases");
+  expect(byName.get("databaseId")!.allowManualEntry).toBe(true);
   expect(byName.get("databaseId")!.required).toBe(true);
   expect(byName.get("filter")!.type).toBe("json");
   expect(byName.get("filter")!.required).toBe(false);
@@ -149,7 +164,7 @@ it("Notion query_database meta exposes databaseId / filter / sorts / pageSize an
   expect(pageSize.numeric?.integer).toBe(true);
 });
 
-it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Modal Save (draft only) → Toolbar Save (updateWorkflow once)", async () => {
+it("end-to-end: pick database + paste filter+sorts JSON + set pageSize → Modal Save (draft only) → Toolbar Save (updateWorkflow once)", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -191,7 +206,7 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("textbox", { name: /^database id$/i }),
+      screen.getByRole("combobox", { name: /^database$/i }),
     ).toBeInTheDocument();
   });
   // Advanced-only fields are not visible on Setup.
@@ -201,11 +216,10 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
   // startCursor is server-managed and intentionally absent from meta.
   expect(screen.queryByRole("textbox", { name: /start cursor/i })).toBeNull();
 
-  // 4. Type databaseId (Setup tab).
-  await user.type(
-    screen.getByRole("textbox", { name: /^database id$/i }),
-    DATABASE_ID,
-  );
+  // 4. Pick the database from the `notion:databases` combobox (Setup tab).
+  //    The committed value is the raw database id — exactly what the
+  //    runtime schema stores (manual paste + `{{...}}` wiring unchanged).
+  await pickComboboxOption(user, /^database$/i, "Tasks DB");
   expect(useConfigSlice.getState().drafts[action.id]!.values.databaseId).toBe(
     DATABASE_ID,
   );

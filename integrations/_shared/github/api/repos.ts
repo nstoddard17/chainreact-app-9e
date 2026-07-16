@@ -20,6 +20,9 @@ import { githubRequest } from "./_request";
  *     (`create_branch` source-branch SHA lookup).
  *   - `gitRefsCreate` — POST `/repos/{owner}/{repo}/git/refs`
  *     (`create_branch` new-ref creation).
+ *   - `reposBranchesList` — GET `/repos/{owner}/{repo}/branches`
+ *     (RESOLVERS-1 — `github:branches` options resolver; read-only,
+ *     one bounded page).
  */
 
 // ─── Wire-format response types ─────────────────────────────────────────────
@@ -174,6 +177,69 @@ export async function userReposList(
   }
 
   return { repos, truncated };
+}
+
+// ─── reposBranchesList ──────────────────────────────────────────────────────
+
+/** One page is 100 (GitHub's max `per_page` for the branches endpoint). */
+export const BRANCHES_PAGE_SIZE = 100;
+
+/** Normalized branch option — only the fields a picker needs; no raw payload. */
+export interface RepoBranchOption {
+  /** Branch name (e.g. `main`, `feature/widget`) — the value handlers store. */
+  name: string;
+  protected: boolean;
+}
+
+/** Wire shape of one GET `/repos/{owner}/{repo}/branches` entry. */
+interface GitHubBranchWire {
+  name?: string;
+  protected?: boolean;
+}
+
+export interface ReposBranchesListInput {
+  accessToken: string;
+  owner: string;
+  repo: string;
+}
+
+export interface ReposBranchesListResult {
+  branches: RepoBranchOption[];
+  /** True when a full page came back — more branches may exist. */
+  truncated: boolean;
+}
+
+/**
+ * List a repository's branches, normalized to `{ name, protected }`.
+ * READ-ONLY (`GET /repos/{owner}/{repo}/branches?per_page=100`) using the
+ * already-granted `repo` scope. BOUNDED: one page of
+ * {@link BRANCHES_PAGE_SIZE}; callers keep a manual branch-name entry path
+ * for repos with more branches. Raw branch payloads (commit SHAs, URLs)
+ * never escape — only `name` + a protected flag.
+ *
+ * Docs: https://docs.github.com/en/rest/branches/branches?apiVersion=2022-11-28#list-branches
+ */
+export async function reposBranchesList(
+  input: ReposBranchesListInput,
+): Promise<ReposBranchesListResult> {
+  const query = new URLSearchParams({
+    per_page: String(BRANCHES_PAGE_SIZE),
+  });
+  const batch = await githubRequest<GitHubBranchWire[]>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: `/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/branches`,
+    query,
+    resourceForNotFound: `repository ${input.owner}/${input.repo}`,
+  });
+
+  const branches: RepoBranchOption[] = [];
+  for (const b of batch) {
+    if (b && typeof b.name === "string" && b.name.length > 0) {
+      branches.push({ name: b.name, protected: Boolean(b.protected) });
+    }
+  }
+  return { branches, truncated: batch.length === BRANCHES_PAGE_SIZE };
 }
 
 // ─── gitRefGet ──────────────────────────────────────────────────────────────

@@ -47,8 +47,11 @@ export const createBranchMeta: ActionMeta = {
       name: "sourceBranch",
       label: "Source Branch",
       description:
-        "Branch to branch off of. When blank, auto-detected from the repository's default branch.",
-      type: "text",
+        "Branch to branch off of. Pick from the repository's branches or type a name. When blank, auto-detected from the repository's default branch.",
+      type: "combobox",
+      optionsSource: "github:branches",
+      dependsOn: "repository",
+      allowManualEntry: true,
       required: false,
       placeholder: "main",
     },

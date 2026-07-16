@@ -7,6 +7,8 @@ import { shopifyRequest } from "./_request";
  * `create_product_variant`.
  * Shopify 2.1 Commit 1 — `variantsUpdate` (the only parity gap left
  * after Slice 12 per [`docs/slices/parity-shopify.md`](../../../docs/slices/parity-shopify.md) §5).
+ * RESOLVERS-1 — `productsList` (read-only, one bounded page; backs the
+ * `shopify:products` options resolver).
  */
 
 // ─── Wire-format response types ─────────────────────────────────────────────
@@ -52,6 +54,75 @@ interface ShopifyProductResponse {
 
 interface ShopifyVariantResponse {
   variant: ShopifyProductVariant;
+}
+
+// ─── productsList ───────────────────────────────────────────────────────────
+
+/** One page is 100 (Shopify allows up to 250; 100 matches the V2 resolver posture). */
+export const PRODUCTS_PAGE_SIZE = 100;
+
+/** Normalized product option — only the fields a picker needs; no raw payload. */
+export interface ProductOption {
+  /** Numeric product id (Shopify REST id). */
+  id: number;
+  title: string;
+  /** `active` / `draft` / `archived`. */
+  status: string;
+}
+
+interface ShopifyProductsListResponse {
+  products: Array<{ id?: number; title?: string; status?: string }>;
+}
+
+export interface ProductsListInput {
+  shopDomain: string;
+  accessToken: string;
+}
+
+export interface ProductsListResult {
+  products: ProductOption[];
+  /** True when a full page came back — more products may exist. */
+  truncated: boolean;
+}
+
+/**
+ * List the shop's products, normalized to `{ id, title, status }`.
+ * READ-ONLY (`GET /products.json?limit=100&fields=id,title,status`) on the
+ * already-granted `read_products` scope. BOUNDED: one page of
+ * {@link PRODUCTS_PAGE_SIZE}; callers keep a manual product-id entry path
+ * for catalogs beyond the cap (cursor pagination via the `Link` header is
+ * intentionally not followed). Only id/title/status are requested — no
+ * variants, prices, or inventory ever cross this boundary.
+ *
+ * Docs: https://shopify.dev/docs/api/admin-rest/2024-10/resources/product#get-products
+ */
+export async function productsList(
+  input: ProductsListInput,
+): Promise<ProductsListResult> {
+  const query = new URLSearchParams({
+    limit: String(PRODUCTS_PAGE_SIZE),
+    fields: "id,title,status",
+  });
+  const response = await shopifyRequest<ShopifyProductsListResponse>({
+    shopDomain: input.shopDomain,
+    accessToken: input.accessToken,
+    method: "GET",
+    path: "/products.json",
+    query,
+    resourceForNotFound: "products",
+  });
+
+  const products: ProductOption[] = [];
+  for (const p of response.products ?? []) {
+    if (p && typeof p.id === "number") {
+      products.push({
+        id: p.id,
+        title: typeof p.title === "string" ? p.title : "",
+        status: typeof p.status === "string" ? p.status : "",
+      });
+    }
+  }
+  return { products, truncated: products.length === PRODUCTS_PAGE_SIZE };
 }
 
 // ─── productsCreate ─────────────────────────────────────────────────────────

@@ -39,8 +39,12 @@ export const newCommitTriggerMeta: TriggerMeta = {
     {
       name: "branch",
       label: "Branch (optional)",
-      description: "When set, only fire for pushes to this branch. When blank, fires for every push to any branch.",
-      type: "text",
+      description:
+        "When set, only fire for pushes to this branch — pick from the repository's branches or type a name. When blank, fires for every push to any branch.",
+      type: "combobox",
+      optionsSource: "github:branches",
+      dependsOn: "repository",
+      allowManualEntry: true,
       required: false,
       placeholder: "main",
     },
