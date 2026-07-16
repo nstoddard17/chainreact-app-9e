@@ -1,13 +1,13 @@
 ---
 name: chainreactv2-provider-integration-builder
-description: Use to add or audit a NEW app/provider integration in ChainReactV2 end-to-end, or to run the post-owner-setup live certification (Phase 13) once credentials exist. This skill must research the real provider API, audit existing V2 provider patterns, install the provider completely into V2, expose it in Apps + Builder + AI surfaces (including the Apps catalog metadata gate), implement OAuth/API-key/token-ingest auth, actions, triggers, webhooks/polling, option sources, credential-sharing classification, tests, smoke fixtures, and owner setup documentation. "Done" at implementation time means code-complete owner setup required; a provider is live-complete only after Phase 13 verifies the real provider boundary (live OAuth, every action, every trigger lifecycle, event-shape review, cleanup accounting, deploy-gated retest when a live bug was fixed).
+description: Use to add or audit a NEW app/provider integration in ChainReactV2 end-to-end, or to run the post-owner-setup live certification (the "Phase 13" live pass) once credentials exist. This skill researches the provider's real repetitive-task use cases (not just its API), audits existing V2 patterns, and installs the provider completely into V2 — auth, typed actions, triggers/webhooks/polling, builder metadata, provider resource discovery + option resolvers, Setup/Advanced configuration UX, at-a-glance node summaries, credential-sharing classification, runtime + builder + resolver tests, smoke fixtures, and owner setup documentation. A provider is NOT complete when its actions merely execute: every shipped node must be configurable by an ordinary business user, with no provider docs, wire formats, or internal identifiers required on the normal Setup path. Builder usability, option resolvers, and configuration design are in-scope implementation work and must never be deferred to an unspecified follow-up. Implementation-time "done" means code-complete owner setup required; live-complete requires the live certification phase.
 ---
 
 # ChainReactV2 Provider / App Integration Builder
 
-Use this skill when adding a **new app/provider** to ChainReactV2 or auditing whether an attempted provider install is actually complete.
+Use this skill when adding a **new app/provider** to ChainReactV2, or auditing whether an attempted provider install is actually complete.
 
-The goal is a **complete, real, V2-native provider integration** — not a partial runtime stub, not a "coming soon" shell, not an untested manifest entry.
+The goal is a **complete, real, V2-native, user-configurable provider integration** — not a partial runtime stub, not a "coming soon" shell, not an untested manifest entry, and **not a set of working handlers wrapped in an API-shaped config form**.
 
 When this skill says the provider is done, Marcus should only need to:
 
@@ -16,7 +16,37 @@ When this skill says the provider is done, Marcus should only need to:
 3. Run the documented smoke command or review the already-run smoke results.
 4. See exactly what is shipped, blocked, deferred, or requires manual portal setup.
 
-No hidden follow-up work. No fake completion.
+No hidden follow-up work. No fake completion. **No "the builder UX comes later."**
+
+---
+
+## Product north star — read this before anything else
+
+**ChainReact is an automation product, not an API request builder.**
+
+A provider is not complete because its actions and triggers execute. Every shipped action and trigger must also be ready for an **ordinary business user** to configure as a **repeatable task**.
+
+Each node is designed around the repetitive business task the user is automating. A normal user must be able to understand, at a glance:
+
+* what causes the trigger to fire,
+* what the action will do,
+* which recognizable business resource it will use,
+* which values stay fixed on every run,
+* which values come from earlier workflow steps,
+* what still needs to be configured,
+* what will happen each time the workflow repeats.
+
+The normal Setup path must **not** require knowledge of: provider APIs · provider documentation · internal provider identifiers · request wire formats · serialization formats · developer terminology · provider-specific query languages · raw payload structures · technical values ChainReact can safely derive.
+
+Power-user controls remain available in **Advanced**. The goal is **progressive disclosure, not capability removal**.
+
+### The deferral ban (the failure this skill exists to prevent)
+
+Builder usability, option resolvers, and configuration redesign are **provider implementation work**. When they are required for the common path, they ship in the **same provider implementation**.
+
+It is **not acceptable** to declare a provider finished with a note like "dynamic pickers to follow", "resolver deferred", or "config polish tracked separately" when a central field is a raw identifier text box. A missing resolver is **implementation work, not a deferral reason** — even when it requires new provider API wrappers, routes, services, search, pagination, or UI.
+
+If such work is genuinely incomplete, the provider is reported **partially complete with the blocker named** — never re-labelled as a future enhancement.
 
 ---
 
@@ -25,40 +55,44 @@ No hidden follow-up work. No fake completion.
 The flow is:
 
 1. MCP / project context — follow the [`chainreactv2-mcp-context`](../chainreactv2-mcp-context/SKILL.md) skill; read current project memory and rule docs.
-2. Current ChainReactV2 code inspection — inspect existing provider implementations; they are the reference.
-3. Official provider docs research — scopes, endpoints, auth, rate limits, webhook support, payloads.
-4. Existing V2 pattern audit — pick the same-family provider patterns to reuse.
-5. Implementation plan.
-6. Build / test / smoke.
-7. Owner setup report.
-8. Live completion certification after owner setup (Phase 13).
+2. Current ChainReactV2 code inspection — existing provider implementations are the reference.
+3. Official provider docs research — scopes, endpoints, auth, rate limits, webhook support, payloads, **list/search endpoints**.
+4. **Repetitive-task research** — what business work this provider is actually used for.
+5. Existing V2 pattern audit — pick the same-family provider patterns to reuse.
+6. Action/trigger catalog gate → configuration design pass → implementation plan.
+7. Build / test / smoke.
+8. Owner setup report.
+9. Live certification after owner setup.
 
-Use current ChainReactV2 code, docs, tests, provider patterns, official provider API docs, and live provider evidence as the only implementation references. If a provider pattern is unclear, derive it from current V2 provider implementations and rule docs, then verify against the provider's official docs and live behavior.
+Use current ChainReactV2 code, docs, tests, provider patterns, official provider API docs, and live provider evidence as the only implementation references.
 
 ---
 
-## Non-negotiable definition of done
+## Hard definition of done
 
-A provider is **not done** until all applicable items below are complete or explicitly listed as blocked with proof:
+The provider is **not complete** until every applicable item is true:
 
-* Provider research completed and documented.
-* Existing V2 pattern audit completed and documented.
-* Credential class chosen and added to `core/integrations/credentialSharing.ts`.
-* Auth flow implemented through the correct V2 dispatcher path.
-* Manifest registered and capabilities are honest.
-* Apps page can connect the provider through a real flow AND the Apps catalog metadata gate passes (category, description, icon, connectable status, regression + connect-flow tests — see Phase 2).
-* Builder metadata exists for every shipped action/trigger.
-* AI visibility is available only through safe booleans/redacted flags.
-* Every shipped action has handler + schema + metadata + tests + smoke fixture.
-* Every shipped trigger has lifecycle + config schema + metadata + tests + smoke path.
-* Option sources exist for dynamic fields.
-* Webhooks/polling are implemented when shipped and tested through dispatch.
-* Owner setup report is committed in docs and includes provider portal + Vercel env instructions.
-* Focused tests, typecheck, lint, structure lint, migration lint where applicable, and smoke tests were run.
-* Local commit created.
-* Nothing pushed unless Marcus explicitly said to push.
+1. The agreed action and trigger catalog is implemented.
+2. Authentication and scopes are complete.
+3. Every handler and trigger is registered.
+4. Manifest capabilities are honest.
+5. Every builder-visible node has builder metadata.
+6. Every common path is understandable **without provider documentation**.
+7. Discoverable resources have real selectors (registered resolvers, not raw text).
+8. Dynamic values can be mapped from previous steps.
+9. Power-user controls remain available in Advanced.
+10. Every node has a useful at-a-glance summary.
+11. Runtime and builder contracts match.
+12. Required targeted tests pass.
+13. Live certification is completed where credentials are available.
+14. External owner setup is documented.
+15. **No normal-path usability blocker is deferred** merely because it requires provider API, resolver, route, service, search, pagination, or UI infrastructure.
 
-If live provider credentials, developer-portal setup, or Vercel env vars are missing, the implementation can still be code-complete, but the final status must say **"code-complete owner setup required"**, not simply "done." A provider only reaches **`live-complete`** after Phase 13 (post-owner-setup live certification) passes against the real provider boundary — see the Status definitions section.
+Plus the standing V2 requirements: credential class entry, Apps catalog metadata gate, AI visibility via safe redacted flags, smoke fixtures, docs, local commit, nothing pushed without Marcus.
+
+If live credentials / portal setup / env vars are missing, the implementation can still be code-complete, but status is **`code-complete owner setup required`**, not "done". `live-complete` requires the live certification phase.
+
+**When any item is incomplete, report the provider as `partial` and name the blocker.** Do not redefine a missing requirement as a future enhancement.
 
 ---
 
@@ -66,116 +100,98 @@ If live provider credentials, developer-portal setup, or Vercel env vars are mis
 
 For provider `<provider>`:
 
-### 1. Research doc
+### 1. Research doc — `docs/providers/<provider>/research.md`
 
-Create or update:
+**API research:**
 
-`docs/providers/<provider>/research.md`
+* Provider official docs reviewed; date researched; links.
+* Auth type: OAuth code flow, OAuth PKCE, API key, token-ingest, webhook signing, other.
+* Required scopes with exact names; optional scopes considered and rejected.
+* Redirect URI format; webhook callback URL format; webhook signing/verification.
+* Rate limits and retry guidance; pagination model.
+* File/download behavior, if any. Known API limitations.
 
-Include:
+**Repetitive-task research (required — this drives the catalog and the config design):**
 
-* Provider official docs reviewed.
-* Auth type: OAuth code flow, OAuth PKCE, API key, token-ingest, webhook signing, or other.
-* Required scopes with exact names.
-* Optional scopes considered but rejected.
-* Redirect URI format.
-* Webhook callback URL format.
-* Webhook signing / verification requirements.
-* Rate limits and retry guidance.
-* Pagination model.
-* File/download behavior, if any.
-* Known API limitations.
-* Links to official docs.
-* Date researched.
+For each proposed action and trigger, document:
 
-Do not invent unsupported API behavior. If docs are unclear, say so.
+* the business task it automates,
+* who commonly performs that task,
+* what causes it to repeat,
+* which configuration stays fixed across runs,
+* which values normally change per execution,
+* which provider resources the user must select,
+* **which provider endpoints list or search those resources** (exact endpoint + search + pagination + scope),
+* required and optional scopes,
+* pagination and search behavior,
+* duplicate-name handling (how a user tells two same-named resources apart),
+* provider limits and known failure modes,
+* whether the task belongs on the normal Setup path or is primarily for Advanced users.
 
-### 2. Existing V2 pattern audit
+**Never design node configuration by copying provider API parameters directly into metadata.** If docs are unclear, say so — do not invent unsupported API behavior.
 
-Create or update:
+### 2. Existing V2 pattern audit — `docs/providers/<provider>/v2-pattern-audit.md`
 
-`docs/providers/<provider>/v2-pattern-audit.md`
+* Current V2 providers inspected as implementation examples.
+* Matching provider-family patterns, if any.
+* Auth pattern selected and why.
+* Action/trigger/schema patterns reused.
+* Webhook/polling lifecycle patterns reused.
+* **Option-resolver + picker patterns reused** (which existing provider's `options/` folder is the model).
+* **Setup/Advanced classification + node-summary patterns reused.**
+* Apps/Builder/AI visibility patterns reused.
+* Smoke/live-certification pattern reused.
+* Divergences from existing V2 patterns and why.
 
-Include:
+Registry presence, not file presence, defines what a V2 provider ships. Do not treat orphan files as shipped.
 
-- current V2 providers inspected as implementation examples,
-- matching provider-family patterns, if any,
-- auth pattern selected and why,
-- action/trigger/schema patterns reused,
-- webhook/polling lifecycle patterns reused,
-- option-source patterns reused,
-- Apps/Builder/AI visibility patterns reused,
-- smoke/live-certification pattern reused,
-- divergences from existing V2 patterns and why.
+### 3. Implementation plan doc — `docs/providers/<provider>/implementation-plan.md`
 
-Registry presence, not file presence, defines what a V2 provider actually ships. Do not treat orphan files as shipped.
-
-### 3. Implementation plan doc
-
-Create or update:
-
-`docs/providers/<provider>/implementation-plan.md`
-
-Include:
-
-* Provider ID.
-* Display name.
-* Credential class: `personal` or `account`.
-* Auth flow.
-* Actions to ship in this slice.
-* Triggers to ship in this slice.
-* Option sources needed.
-* Webhook/polling model.
-* Builder fields needed.
-* Smoke-test strategy.
-* Owner setup requirements.
-* Known blockers.
+* Provider ID; display name; credential class (`personal` | `account`); auth flow.
+* **Action/trigger catalog decision table** (ship now / skip permanently / defer with named dependency / not appropriate) — see the catalog gate.
+* **Per-node configuration design** (field classification table) — see the configuration design pass.
+* **Resolvers + resource types to build**, with the backing provider list/search endpoint for each.
+* Node summaries planned.
+* Webhook/polling model; smoke strategy; owner setup requirements; known blockers.
 
 ---
 
 ## Credential classification
 
-Before coding, classify the provider in:
+Before coding, classify the provider in `core/integrations/credentialSharing.ts`:
 
-`core/integrations/credentialSharing.ts`
-
-Choose explicitly:
-
-* `account` — shared workspace/store/portal/business resource. Examples: Slack workspace, Stripe account, Shopify shop, HubSpot CRM, Mailchimp account.
-* `personal` — acts as the connecting human. Examples: Gmail, Google Calendar, Microsoft Outlook, Dropbox, Discord, GitHub, Airtable, Trello, Monday.
+* `account` — shared workspace/store/portal/business resource (Slack workspace, Stripe account, Shopify shop, HubSpot CRM, Mailchimp account).
+* `personal` — acts as the connecting human (Gmail, Google Calendar, Outlook, Dropbox, Discord, GitHub, Airtable, Trello, Monday).
 
 Default to `personal` if unsure. Build fails without an entry (fail-safe = personal).
 
-This is **not** the same thing as `manifest.tokenScope`. A `tokenScope: "user"` provider can still be account-controlled if the external resource is a shared business account.
+This is **not** the same as `manifest.tokenScope`. A `tokenScope: "user"` provider can still be account-controlled when the external resource is a shared business account.
 
-This classification controls sharing, team visibility, option-source access, AI redaction, workflow run permissions, and offboarding behavior.
+It controls sharing, team visibility, **option-resolver credential access**, AI redaction, workflow run permissions, and offboarding.
 
 ---
 
 ## V2 integration anatomy
 
-Provider code lives under:
+Provider code lives under `integrations/<provider>/`.
 
-`integrations/<provider>/`
+| Piece                | Location                                                                 | Required when                               |
+| -------------------- | ------------------------------------------------------------------------ | ------------------------------------------- |
+| Manifest             | `integrations/<provider>/manifest.ts`                                    | Always                                      |
+| UI metadata          | `integrations/<provider>/ui.ts` or existing provider UI metadata pattern | Always, if Apps/Builder surface reads it    |
+| OAuth                | `integrations/<provider>/oauth.ts`                                       | OAuth providers                             |
+| Token-ingest auth    | `integrations/<provider>/auth.ts`                                        | Fragment/token-ingest providers             |
+| Client/API wrappers  | `integrations/<provider>/api/` or `client.ts`                            | Any provider API call                       |
+| Actions              | `integrations/<provider>/actions/<name>.{ts,meta.ts,schema.ts}`          | Every shipped action                        |
+| Triggers             | `integrations/<provider>/triggers/<name>/`                               | Every shipped trigger                       |
+| **Option resolvers** | `integrations/<provider>/options/<resource>.ts` (+ `_shared.ts`)         | **Every discoverable provider resource**    |
+| **Resolver registry**| `services/options/_registry.ts`                                          | **Every resolver**                          |
+| Webhooks             | `integrations/<provider>/webhooks/receive.ts`, `normalize.ts`            | Webhook triggers/system webhooks            |
+| Registry             | `integrations/_registry.ts` + action/trigger registries                  | Always                                      |
+| Credential class     | `core/integrations/credentialSharing.ts`                                 | Always                                      |
+| Smoke fixtures       | `tests/smoke-actions/` and/or trigger smoke harness                      | Every shipped action/trigger where possible |
 
-Expected pieces:
-
-| Piece               | Location                                                                 | Required when                               |
-| ------------------- | ------------------------------------------------------------------------ | ------------------------------------------- |
-| Manifest            | `integrations/<provider>/manifest.ts`                                    | Always                                      |
-| UI metadata         | `integrations/<provider>/ui.ts` or existing provider UI metadata pattern | Always, if Apps/Builder surface reads it    |
-| OAuth               | `integrations/<provider>/oauth.ts`                                       | OAuth providers                             |
-| Token-ingest auth   | `integrations/<provider>/auth.ts`                                        | Fragment/token-ingest providers             |
-| Client/API wrappers | `integrations/<provider>/api/` or `client.ts`                            | Any provider API call                       |
-| Actions             | `integrations/<provider>/actions/<name>.{ts,meta.ts,schema.ts}`          | Every shipped action                        |
-| Triggers            | `integrations/<provider>/triggers/<name>/`                               | Every shipped trigger                       |
-| Option sources      | `integrations/<provider>/options/`                                       | Dynamic fields                              |
-| Webhooks            | `integrations/<provider>/webhooks/receive.ts`, `normalize.ts`            | Webhook triggers/system webhooks            |
-| Registry            | `integrations/_registry.ts` and relevant action/trigger registries       | Always                                      |
-| Credential class    | `core/integrations/credentialSharing.ts`                                 | Always                                      |
-| Smoke fixtures      | `tests/smoke-actions/` and/or trigger smoke harness                      | Every shipped action/trigger where possible |
-
-Do not add provider definitions outside the provider folder except for required registries/shared framework hooks.
+Do not add provider definitions outside the provider folder except for required registries / shared framework hooks. Respect the 50-file leaf-folder cap (split `actions/` into domain subfolders).
 
 ---
 
@@ -183,230 +199,280 @@ Do not add provider definitions outside the provider folder except for required 
 
 ### Phase 0 — Preflight
 
-* Confirm provider does not already exist under another ID.
-* Confirm no duplicate/incomplete provider folder exists.
+* Confirm the provider does not already exist under another ID; no duplicate/incomplete folder.
 * Confirm stable provider ID naming.
-* Check current branch and git status.
-* Do not overwrite other sessions' work.
-* Do not push.
+* Check current branch and git status; confirm the working tree is ChainReactV2.
+* Do not overwrite other sessions' work. Do not push.
 
 ### Phase 1 — Research + existing V2 pattern audit
 
-Follow this order:
+MCP/project context → current V2 provider code inspection → official provider docs → **repetitive-task research** → V2 pattern audit → catalog gate → config design pass → plan. Write research + v2-pattern-audit docs before major coding.
 
-1. MCP / project context.
-2. Current V2 provider code inspection.
-3. Official provider docs research.
-4. Existing V2 pattern audit.
-5. Implementation plan.
-6. Build / test / smoke / live certification (later phases).
+### Phase 2 — Action and trigger catalog gate
 
-Concretely:
+Research the provider's **useful** action and trigger catalog **before implementation**. Classify each candidate:
 
-* Read official provider docs.
-* Audit existing V2 providers for the patterns to reuse.
-* Decide auth flow.
-* Decide credential class.
-* Decide action/trigger scope.
-* Write research + v2-pattern-audit + plan docs before major coding.
-
-### Phase 2 — Manifest + registry + UI visibility
-
-Implement:
-
-* `manifest.ts`
-* provider UI metadata
-* `_registry.ts` import (add manifest to `ALL_MANIFESTS` + import triggers for side-effect registration)
-* action/trigger side-effect imports where needed
-* `credentialSharing.ts` entry
-* Apps-page listing
-* Builder visibility metadata
-
-Manifest capabilities must be honest:
-
-* `actions: true` only after real action handlers are registered.
-* `webhookTrigger: true` only after real webhook trigger lifecycle is registered.
-* `pollingTrigger: true` only after real polling trigger lifecycle is registered.
-* No "coming soon" fake availability.
-
-**Apps catalog metadata gate.** Every net-new provider must be fully represented in the Apps catalog, not just technically connectable:
-
-* explicit category,
-* non-empty description,
-* icon,
-* connectable status derived from real manifest/auth capability,
-* regression test proving every registered provider has category + description,
-* client-flow test proving clicking Connect uses the generic OAuth/token-ingest connect path and surfaces errors visibly.
-
-A provider card rendering under "Other" with blank copy is not acceptable for a finished provider. (Asana trial: this gap shipped in the first slice and needed a follow-up fix commit.)
-
-### Phase 3 — Auth
-
-Implement the correct auth path:
-
-* OAuth providers use `services/oauth/dispatcher.ts` + `integrations/<provider>/oauth.ts`.
-* Token-ingest providers use the token-ingest contract, generic ingest route/page, and provider `auth.ts`.
-* API-key providers use the existing secure credential storage pattern or design a documented extension if none exists.
-
-Required:
-
-* Minimum scopes only.
-* Refresh behavior implemented if provider supports refresh tokens.
-* Non-refreshable providers must fail clearly on 401 and surface reconnect/action-required behavior.
-* Tokens/secrets encrypted before storage.
-* No plaintext token logging.
-* Redirect URI uses the canonical app URL pattern.
-* Owner report lists all dev-portal auth settings.
-* Before testing OAuth against a real provider app, run the **environment alignment gate** (Phase 13) — a local app sending users to a provider whose registered callback points at production is the classic misdiagnosis trap.
-
-### Phase 4 — API wrappers
-
-Build typed, narrow API wrappers.
+* **Ship now**
+* **Skip permanently** (with reason)
+* **Defer with a specific named dependency** (a real, named dependency — not "later")
+* **Not appropriate for workflow automation** (with reason)
 
 Rules:
 
-* One provider endpoint per action/helper.
-* No generic `make_api_call`.
-* No raw method/path/body escape hatch.
-* Bounded outputs.
-* No raw provider response spreading.
-* Pagination returns one page with `nextCursor` / `hasMore` unless there is a documented reason otherwise.
-* Provider URLs, paging links, tokens, and secrets never become workflow variables.
-* File outputs use `FileRef`, never bytes/base64/content.
+* Favor actions and triggers that support meaningful repetitive business work.
+* **Do not ship only the easiest technical endpoints when central repetitive tasks are missing.** A provider whose main job is "create a task / update a record / notify on a new entry" is not complete because `list_x` and `get_x` were easy.
+* Do not ship generic escape-hatch actions exposing arbitrary method, route, body, `operation`, `deleteBy`, `searchColumn`, or provider payload construction. One provider endpoint per action; typed and narrow.
+* Prefer webhooks over polling when the provider supports reliable webhooks.
 
-### Phase 5 — Actions
+Record the decision table in the implementation plan. Get the catalog agreed before mass implementation.
 
-For each shipped action:
+### Phase 3 — Configuration design pass (before writing builder metadata)
 
-* `action.ts` handler.
-* `.schema.ts` with `.strict()`.
-* `.meta.ts` for builder/AI metadata.
-* Registry entry.
-* Typed output schema if the repo uses one.
-* `refreshAndRetry` (V2 refresh+retry path) around provider calls that can 401.
-* Humanized, engine-classifiable errors.
-* Unit tests:
+For **every proposed node**, classify **every field** before any `.meta.ts` is written:
 
-  * success
-  * schema rejection
-  * missing dependency / disconnected integration
-  * 401/403 where relevant
-  * 429/rate limit where relevant
-  * provider 5xx/timeout where relevant
-  * no token/secret leakage
-  * bounded output shape
-* Smoke fixture.
+| Classification                  | Resulting UI                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| Core user decision              | Setup, plain-language label, required                                            |
+| Provider resource selection     | Setup, **searchable picker backed by a registered resolver**                     |
+| Upstream data mapping           | Setup, variable/data selector supported                                          |
+| Fixed value reused each run     | Setup, clearly labeled                                                           |
+| Structured composition          | Setup, **purpose-built structured editor** (`object`/list) — never raw JSON      |
+| Safe visible default            | Setup with `defaultValue` the user can see                                       |
+| Derived value                   | **Not a field** — ChainReact derives it                                          |
+| Conditional option              | Setup with top-level `visibleWhen` (required-when-visible)                       |
+| Advanced power-user control     | `advanced: true`                                                                 |
+| Internal implementation detail  | **Hidden or derived — never surfaced**                                           |
+| Unsupported raw configuration   | **Blocker** — build the proper editor, or the node is not ready to ship          |
 
-High-risk or recipient-visible fields must be explicit. Do not add hidden defaults for behavior-switching fields.
+The resulting UI must follow this classification. Field metadata types (`advanced`, `visibleWhen`, `optionsSource`, `dependsOn`, `allowManualEntry`, `defaultValue`) are defined in [`contracts/actionMeta.ts`](../../../contracts/actionMeta.ts). Rationale + classification precedent: [`docs/slices/phase-5/builder-config-setup-advanced-tracker.md`](../../../docs/slices/phase-5/builder-config-setup-advanced-tracker.md).
 
-### Phase 6 — Triggers
+### Phase 4 — Manifest + registry + Apps catalog gate
 
-Prefer webhooks over polling when the provider supports reliable webhooks.
+Implement `manifest.ts`, provider UI metadata, `_registry.ts` import (manifest in `ALL_MANIFESTS` + trigger side-effect imports), action/trigger registries, `credentialSharing.ts` entry, Apps listing, Builder visibility.
 
-For each shipped trigger:
+Manifest capabilities must be honest: `actions: true` only after real handlers are registered; `webhookTrigger: true` / `pollingTrigger: true` only after real lifecycles are registered. No "coming soon" fake availability.
 
-* `configSchema`.
-* `meta`.
-* `activate`.
-* `deactivate`.
-* `renew` if provider subscriptions expire.
-* `normalize`.
-* `index` registration.
-* Builder metadata.
-* Option sources for dynamic config.
-* Tests:
+**Apps catalog metadata gate** — every net-new provider needs: explicit category · non-empty description · icon · connectable status derived from real manifest/auth capability · regression test proving every registered provider has category + description · client-flow test proving Connect uses the generic OAuth/token-ingest connect path and surfaces errors visibly. A card rendering under "Other" with blank copy is not a finished provider. (Asana trial: this gap shipped in the first slice and needed a follow-up fix commit.)
 
-  * activation success
-  * activation rollback/failure
-  * deactivation success/best effort
-  * renewal where applicable
-  * disabled/paused workflow drops event
-  * duplicate delivery dedup
-  * wrong signature rejected
-  * event normalization shape
-  * short-form `eventType` matches trigger registration
-  * no token/PII leakage in event id/logs
+### Phase 5 — Auth
 
-Polling triggers must baseline on activation and fire zero events on the first post-activation poll. Do not swallow baseline seed failures.
+* OAuth → `services/oauth/dispatcher.ts` + `integrations/<provider>/oauth.ts`.
+* Token-ingest → token-ingest contract, generic ingest route/page, provider `auth.ts` ([`docs/rules/token-ingest-auth.md`](../../../docs/rules/token-ingest-auth.md)).
+* API key → existing secure credential storage pattern, or a documented extension if none exists.
 
-Webhook triggers must verify signatures. Do not trust Cloudflare, Vercel, or route secrecy as a substitute.
+Required: minimum scopes only · refresh implemented where supported · non-refreshable providers fail clearly on 401 with reconnect/action-required behavior · tokens encrypted before storage · no plaintext token logging · canonical redirect URI · all dev-portal auth settings in the owner report · run the **environment alignment gate** before testing OAuth against a real provider app.
 
-### Phase 7 — Option sources
+### Phase 6 — API wrappers
 
-For every dynamic field:
+Typed, narrow wrappers. One provider endpoint per action/helper. No `make_api_call`, no raw method/path/body escape hatch. Bounded outputs from a fixed key set — never spread the raw provider response. Single-page lists with `nextCursor`/`hasMore`. Provider URLs, paging links, tokens, and secrets never become workflow variables. File outputs use `FileRef` ([`docs/rules/file-output-contract.md`](../../../docs/rules/file-output-contract.md)).
 
-* Implement option source.
-* Use typed provider API wrapper.
-* Respect credential class:
+**Also build the list/search wrappers the resolvers need** (Phase 9). Discovery wrappers are part of this phase's scope, not a later chore.
 
-  * personal providers pin options to the creator / allowed actor.
-  * account providers are account-shared.
-  * no co-member personal credential fallback.
-* Return redacted, user-safe labels.
-* Test:
+### Phase 7 — Actions
 
-  * owner/allowed user can fetch
-  * non-owner on personal provider gets safe denial (`NOT_WORKFLOW_OWNER` — no fetch, no label leak)
-  * no credential label or owner ID leak
-  * provider failure surfaces a usable error
+For each shipped action: handler · `.strict()` schema · `.meta.ts` · registry entry · typed output schema · `refreshAndRetry` around 401-capable calls · humanized, engine-classifiable errors (throw; no `{success:false}` envelope).
 
-### Phase 8 — Apps page + Builder + AI visibility
+Q11 — high-risk / recipient-visible / behavior-switching fields are explicit and required, with no hidden defaults. A default the user should see is a visible `defaultValue`.
 
-Install the provider in all real product surfaces:
+Tests: success · schema rejection · missing/disconnected integration · 401/403 · 429 · provider 5xx/timeout · refresh behavior · runtime output contract · repeated execution and side-effect safety · user-facing error behavior · no token/secret leakage · bounded output shape. Plus a smoke fixture.
 
-* Apps page shows provider and real connect state.
-* Connect button hits real auth route.
-* Connected state is backed by integration data, not fake UI flags.
-* Builder node library shows every shipped action/trigger.
-* Builder config renders all required fields and option sources.
-* AI/React Agent visibility uses safe redacted capability state:
+### Phase 8 — Triggers
 
-  * `connected`
-  * `ownerControlled`
-  * `ownerMustConnect`
-  * `availableActions`
-  * `availableTriggers`
-* AI never sees tokens, scopes, credential labels, owner IDs, provider account IDs, or external emails unless an existing safe display contract explicitly allows it.
+For each shipped trigger: `configSchema` · `meta` · `activate` · `deactivate` · `renew` (if subscriptions expire) · `normalize` · `index` registration · builder metadata · **option resolvers for dynamic config**.
 
-### Phase 9 — Smoke tests
+`TriggerEvent.eventType` MUST equal the short form passed to `registerActivation(provider, eventType, …)`. Namespaced subtypes go in `payload.classifiedType`.
 
-Every shipped action and trigger needs a smoke path.
+Polling triggers baseline on activation and fire zero events on the first post-activation poll; throw on seed failure — never swallow it. Webhook triggers verify signatures (route secrecy / Cloudflare / Vercel is not a substitute). Trigger filters are pure — no enrichment I/O, no `FileRef` construction, no Promises. Dedup is DB-backed on stable provider IDs, fail-closed.
 
-Add/update:
+Tests: activation · activation rollback/failure · deactivation · renewal · event normalization shape · filtering · dedup / duplicate delivery · baseline-first behavior · repeated delivery · disabled/paused workflow drops event · wrong signature rejected · provider failure and recovery · short-form `eventType` matches registration · no token/PII leakage in event ids/logs.
 
-* `tests/smoke-actions/fixtures.ts` (or the repo's current fixture pattern under `tests/smoke-actions/`)
-* trigger smoke fixture/harness under `tests/integration/trigger-smoke/` if available
-* docs/runbooks action-smoke references if the provider introduces a new pattern
+### Phase 9 — Resource discovery and option resolvers
 
-Smoke must exercise the real V2 action/trigger handler path and mock only the external provider boundary unless Marcus has provided live credentials and asked for live-provider testing.
+**This phase is mandatory whenever a node references a provider resource. It is never a follow-up.**
 
-For every shipped action, smoke report must include:
+For every provider resource referenced by a node, determine which it is:
 
-* fixture name
-* command run
-* result
-* mocked/live boundary
-* any skipped fields and why
+1. **A static resource selected while building the workflow** → searchable selector (resolver required).
+2. **A dynamic resource supplied by an earlier step** → variable mapping supported.
+3. **A business value naturally known by the user** → plain input is fine.
+4. **A provider-internal identifier** → derive it, or Advanced manual entry only.
+5. **A resource the provider cannot list through a supported API** → documented; manual entry allowed with an explanation in the field description.
 
-For every shipped trigger, smoke report must include:
+**Static discoverable resources must normally have searchable selectors.** Do not expose a plain text field for a discoverable provider resource merely because no option resolver currently exists. When the provider exposes a supported list or search API, **the provider implementation builds the discovery infrastructure.**
 
-* activation path tested
-* event injection method
-* dispatch/run enqueue verified
-* dedup verified where applicable
-* disabled/paused drop verified where applicable
+#### The V2 resolver architecture (follow it exactly)
 
-If a trigger cannot be smoke-tested with the current harness, that is a blocker or explicit limitation in the final report — not silent completion.
+```
+features/workflow-builder/config-modal/fields/ComboboxField.tsx   (or MultiOptionsField / StringArrayField)
+  └─> features/workflow-builder/hooks/useOptionsSource.ts          (debounce, abort, status state machine)
+       └─> lib/api/options.ts                                      (typed client API)
+            └─> app/api/options/[source]/route.ts                  (auth, parse q + deps + workflowId)
+                 └─> services/options/resolveOptionsSource.ts      (shared brain; also used by diagnostics)
+                      ├─> services/options/credentialPolicy.ts     (which integration/account may be used)
+                      └─> services/options/_registry.ts            (getOptionsResolver)
+                           └─> integrations/<provider>/options/<resource>.ts
+```
 
-### Phase 10 — Owner setup report
+**No direct provider fetches from React components. No tokens exposed to the client. No client access to repositories. No use of an unrelated account or integration.**
 
-Create:
+Build, per resource:
 
-`docs/providers/<provider>/owner-setup-report.md`
+* the provider list/search API wrapper,
+* a resolver object implementing `OptionsResolver` from [`services/options/types.ts`](../../../services/options/types.ts): `source` (`<provider>:<resource>`), `provider`, `requiresIntegration`, `requiredDeps`, `resolve(ctx)`,
+* registration in [`services/options/_registry.ts`](../../../services/options/_registry.ts) (validated at module load: key format, provider prefix, duplicate rejection),
+* a provider `options/_shared.ts` with the integration guard + provider→`OptionsSourceErrorCode` mapping (model: `integrations/stripe/options/_shared.ts`),
+* field wiring in `.meta.ts`: `optionsSource`, plus `dependsOn` for cascades (must cover the resolver's `requiredDeps`).
 
-This is the report Marcus should open after the work is done.
+Resolver contract rules:
 
-It must include:
+* **Search:** `ctx.q` is always defined, trimmed, clamped (256 chars). Filter locally (`filterAndSortByLabel`) or pass through to a search endpoint (model: `integrations/hubspot/options/records.ts`).
+* **Pagination:** the result is `{items, hasMore}`. **`hasMore` is a UI hint** ("showing first N — refine with search"), **not a cursor** — return one bounded page. Never load an unbounded provider account into the browser.
+* **Errors:** return the closed `OptionsSourceErrorCode` union — loading, empty, reconnect-required, missing-permission, rate-limit, missing-dependency, and provider-error states must all be reachable and sanitized. Adding a new code requires updating both `services/options/types.ts` **and** the client mirror in `lib/api/options.ts` (this mirror is not compile-guarded — a real drift seam).
+* **Credentials:** account/integration-aware via `credentialPolicy`; refresh-and-retry on 401; personal providers pin to the creator/allowed actor with a safe denial (`NOT_WORKFLOW_OWNER`) for others; **no co-member personal credential fallback**.
+* **Labels/values:** normalized, recognizable labels; **the picker saves the exact identifier the runtime handler requires**. Add duplicate-name context to the label (parent, email, id suffix) when names collide.
+* **Never fabricate options, never auto-select the first result, never leak tokens/credential labels/owner ids.**
+
+Every resource field should support the appropriate combination of: **select an existing resource** · **map a dynamic value from an earlier step** · **enter manually in Advanced** (`allowManualEntry`).
+
+### Phase 10 — Setup / Advanced configuration UX
+
+**Setup is the default experience.** It contains only the decisions most users genuinely need for the common repetitive task.
+
+Prefer: plain-language labels · outcome-focused descriptions · searchable provider-resource pickers · clearly labeled fixed values · upstream variable/data selectors · purpose-built structured editors · toggles for real yes/no decisions · conditional fields (`visibleWhen`) · safe visible defaults · presets for common use cases · friendly loading, empty, reconnect, permission, and error states · clear readiness guidance.
+
+**Advanced** preserves meaningful control: manual identifier entry · less-common behavior switches · provider-specific tuning · specialized filtering · validated technical grammars that cannot reasonably be represented structurally · overrides of Setup-derived behavior.
+
+**Advanced must not become a dumping ground.** Move a field to Advanced only when it is a real power-user decision. Internal details are derived or hidden entirely.
+
+Advanced requirements (verify each):
+
+* shared pending draft with Setup; switching tabs never loses changes,
+* existing values hydrate correctly,
+* overrides are visibly indicated; reset-to-standard is available,
+* optional Advanced fields do not count as incomplete setup (`advanced: true` non-required never counts toward setup-needed; a `required` field hidden by an unmet `visibleWhen` is not a readiness gap — see `core/workflows/requiredFields.ts` and `features/workflow-builder/config-modal/readiness/computeConfigReadiness.ts`),
+* manual entry never silently overwrites picker or variable values,
+* structured controls remain preferred over raw syntax,
+* **arbitrary JSON editing is not accepted as normal configuration** — raw `json` entry is advanced-only; flat fixed-key objects use the `object` editor.
+
+### Phase 11 — At-a-glance node summaries
+
+Every node must produce a useful configured summary in the collapsed node and the config overview.
+
+Summaries are **derived**, not authored: [`core/workflows/nodeConfigSummary.ts`](../../../core/workflows/nodeConfigSummary.ts) builds them from existing field metadata + config. **There is no `summary` meta field** — a good summary is a consequence of good metadata:
+
+* fields with `optionsSource` classify as `resource` and render via the injected `labelFor` (client threads [`features/workflow-builder/state/resourceLabelCache.ts`](../../../features/workflow-builder/state/resourceLabelCache.ts)),
+* `{{…}}` values classify as `dynamic`,
+* select/boolean classify as `condition`; literals as `fixed`,
+* a label-cache miss shows the stored value flagged `unresolved` — honest, not fabricated.
+
+Intended style:
+
+* "When a new response is submitted to Customer Intake"
+* "Send a message to #support-alerts"
+* "Create a task in Website Redesign"
+* "Add a row to Monthly Revenue"
+* "Update the matching customer in Active Accounts"
+
+**Do not display stored provider identifiers in normal summaries.** When a value is dynamic, the summary explains its source: "Customer from New Order" · "Channel selected at runtime" · "File from Step 2".
+
+Verify per node: the summary reads as a sentence about the repeated behavior, uses recognizable labels, and is not empty for a configured node. If a summary renders a raw id on the normal path, the cause is usually a missing resolver or a mis-classified field — fix the metadata, not the summary.
+
+### Phase 12 — Apps page + Builder + AI visibility
+
+* Apps page shows the provider and real connect state; Connect hits the real auth route; connected state is backed by integration data, not fake UI flags.
+* Builder node library shows every shipped action/trigger; config renders all required fields and their pickers.
+* AI/React Agent visibility uses safe redacted capability state only: `connected` · `ownerControlled` · `ownerMustConnect` · `availableActions` · `availableTriggers`. AI never sees tokens, scopes, credential labels, owner IDs, provider account IDs, or external emails unless an existing safe display contract allows it.
+
+### Phase 13 — Repetitive-task readiness gate
+
+For **every** shipped action and trigger, verify and record:
+
+* fixed values can be configured once and reused,
+* changing values can be mapped from previous steps,
+* static and dynamic values are visually distinguishable,
+* required decisions are obvious before activation,
+* optional Advanced controls do not block readiness,
+* no repeated manual intervention is required,
+* the trigger/action behaves safely across repeated runs,
+* pagination, cursor, dedup, and baseline behavior are correct where relevant,
+* errors explain how to restore the automation,
+* the node summary accurately describes each repeated execution.
+
+Any node failing this gate is **not shippable** — fix it or drop it from the catalog. It does not ship with a follow-up note.
+
+### Phase 14 — Builder and runtime contract
+
+The friendly configuration layer must preserve the **exact** runtime contract:
+
+* do not rename runtime keys unnecessarily,
+* do not weaken `.strict()` schemas,
+* do not duplicate schemas in UI code,
+* do not introduce hidden behavior,
+* do not silently apply consequential defaults,
+* do not alter existing saved configuration during unrelated edits,
+* preserve variable-backed values,
+* preserve manual Advanced values,
+* preserve missing/deleted saved resources as unavailable selections (the picker keeps the saved value and hints it is unavailable — `ComboboxField.tsx`; rendering a picker never writes a value),
+* **store identifiers, not display labels**,
+* hydrate existing values even when absent from the latest provider results.
+
+### Phase 15 — Tests
+
+Run focused tests first, then the gates.
+
+**Per action:** good path · invalid configuration · missing integration · 401/403/429/5xx/timeout where applicable · refresh behavior · runtime output contract · repeated execution and side-effect safety · user-facing error behavior.
+
+**Per trigger:** activation · deactivation · event normalization · filtering · dedup · baseline-first for polling · repeated delivery · disabled and paused workflow handling · provider failure and recovery.
+
+**Per resolver family** (models: `tests/unit/integrations/stripe/options/resolvers.test.ts`, `tests/unit/integrations/microsoft-outlook/options/categories.test.ts`, route-level `tests/unit/app/api/options/options-route.test.ts`, cascade `tests/integration/features/workflow-builder/hubspot-options-cascade.test.tsx`):
+
+* correct provider resources listed · search · pagination/bounded page · duplicate labels · empty account · missing permission · reconnect-required · rate limit · provider failure · selected integration and owning account used · tokens/sensitive data not leaked · saved missing resource preserved · exact runtime identifier saved.
+
+**Builder configuration:** Setup is the default · Advanced appears when appropriate · Setup and Advanced share a draft · picker selection saves the expected value · variable mapping remains supported · manual entry remains in Advanced · conditional fields work · readiness counts only real user decisions · node summary uses recognizable labels · save and reload preserve behavior · the node never falls back to an unsupported raw developer-facing input.
+
+**Provider-completion regression test.** Extend the repo's existing sweep pattern rather than inventing a parallel one — [`tests/structure/option-source-reference-integrity.test.ts`](../../../tests/structure/option-source-reference-integrity.test.ts) already walks all metas via `listAllActionMetas` / `listAllTriggerMetas` and asserts every `optionsSource` resolves and every `dependsOn` covers its resolver's `requiredDeps`. Add a provider sweep (model: `tests/unit/integrations/monday/actions/configUxSweepMeta.test.ts`, `tests/unit/integrations/microsoft-onenote/discoveryRegistry.test.ts`) that **fails** when:
+
+* a builder-visible action or trigger has no metadata,
+* a static discoverable resource is rendered as plain Setup text with no registered resolver,
+* required paste-JSON appears in the normal path,
+* a node lacks a useful configured summary,
+* runtime schema and builder metadata disagree,
+* a required field has no valid Setup, mapping, derivation, or explicitly enabled Advanced path.
+
+Commands (unless clearly inapplicable):
+
+```bash
+npm run typecheck
+npm run lint
+npm run lint:structure
+npm test
+```
+
+If migrations were added: `npm run lint:migrations` then `npm run db:push` (allowed by default unless Marcus says otherwise; `db:push` is not git push).
+
+**Do not claim a test ran unless it actually ran.** If a test was not run, say exactly why.
+
+### Phase 16 — Smoke tests
+
+Every shipped action and trigger needs a smoke path. Add/update `tests/smoke-actions/fixtures.ts` (current fixture pattern), trigger smoke fixtures under `tests/integration/trigger-smoke/`, and runbook references if a new pattern is introduced.
+
+```bash
+npm run smoke:actions          # smoke CLI (npm run chainreact -- smoke actions)
+npm run smoke:actions:run      # jest smoke suites
+# trigger smoke, provider-dependent:
+#   npm run smoke:triggers:webhook
+#   npm run smoke:triggers:scheduled
+```
+
+For E2E/provider-mock specs: `npx playwright test <relevant-spec> --workers=1`.
+
+Smoke exercises the real V2 handler path and mocks only the external provider boundary. Per action report: fixture name · command · result · mocked/live boundary · skipped fields and why. Per trigger: activation path · event injection method · dispatch/run enqueue verified · dedup verified · disabled/paused drop verified.
+
+**Mock-only testing must never be described as live certification.** If a trigger cannot be smoke-tested with the current harness, that is a blocker or explicit limitation — not silent completion.
+
+### Phase 17 — Owner setup report
+
+Create `docs/providers/<provider>/owner-setup-report.md`. This is what Marcus opens when the work is done; it must be sufficient to complete external setup **without rereading implementation files**.
 
 ```md
 # <Provider> Owner Setup Report
@@ -421,61 +487,38 @@ It must include:
 ## Provider developer portal setup
 
 ### App/basic settings
-- App name:
-- App type:
-- Website URL:
-- Privacy policy URL:
-- Terms URL:
-- Support email:
-- Logo/icon requirements:
-- Notes:
+- App name / App type / Website URL / Privacy policy URL / Terms URL / Support email / Logo requirements / Notes:
 
 ### Redirect URIs
-- Local:
-- Preview/Vercel:
-- Production:
-- Exact callback path:
+- Local / Preview / Production / Exact callback path:
 
 ### Webhook URLs
-- Local:
-- Preview/Vercel:
-- Production:
-- Events to subscribe to:
-- Signature secret location:
-- Verification/challenge notes:
+- Local / Preview / Production / Events to subscribe to / Signature secret location / Verification notes:
 
 ### OAuth scopes
 | Scope | Required? | Used by | Why |
 |---|---:|---|---|
 
 ### Provider-specific settings
-- Token rotation:
-- PKCE:
-- Webhook signing:
-- Event subscriptions:
-- Bot/user install choice:
-- Marketplace/review steps:
-- Test-user requirements:
-- Rate-limit notes:
+- Token rotation / PKCE / Webhook signing / Event subscriptions / Bot vs user install / Marketplace or app-review steps / Test-user requirements / Rate-limit notes:
 
 ## Vercel environment variables
-
 | Env var | Required? | Local? | Preview? | Production? | Where used | Notes |
 |---|---:|---:|---:|---:|---|---|
 
 ## Supabase / database setup
-- Migrations added:
-- db:push run:
-- RLS/policy notes:
-- Storage bucket notes:
-- Cron notes:
+- Migrations added / db:push run / RLS notes / Storage notes / Cron requirements:
 
 ## Actions shipped
-| Action | Handler | Schema | Metadata | Options | Unit tests | Smoke |
-|---|---|---|---|---|---|---|
+| Action | Handler | Schema | Metadata | Setup fields | Advanced fields | Resolvers | Summary | Unit tests | Builder tests | Smoke |
+|---|---|---|---|---|---|---|---|---|---|---|
 
 ## Triggers shipped
-| Trigger | Webhook/Polling | Lifecycle | Config | Unit tests | Smoke |
+| Trigger | Webhook/Polling | Lifecycle | Config | Setup fields | Advanced fields | Resolvers | Summary | Unit tests | Builder tests | Smoke |
+|---|---|---|---|---|---|---|---|---|---|---|
+
+## Option resolvers shipped
+| Source key | Resource | Provider endpoint | Search | Cascade deps | Tests |
 |---|---|---|---|---|---|
 
 ## Manual verification checklist for Marcus
@@ -493,137 +536,53 @@ It must include:
 - None, or list with exact owner.
 ```
 
-No secrets or actual env values belong in this doc. Use env var names only.
+No secrets or actual env values belong in this doc — env var names only.
 
-### Phase 11 — Tests and verification
+### Phase 18 — Documentation and local commit
 
-Run the focused tests first, then full gates as appropriate.
-
-Minimum commands unless clearly inapplicable:
-
-```bash
-npm run typecheck
-npm run lint
-npm run lint:structure
-npm test
-```
-
-If migrations were added:
-
-```bash
-npm run lint:migrations
-npm run db:push
-```
-
-`db:push` is allowed by default unless Marcus explicitly says not to. `db:push` is not git push.
-
-Smoke (use the real scripts from `package.json`):
-
-```bash
-npm run smoke:actions          # smoke CLI (npm run chainreact -- smoke actions)
-npm run smoke:actions:run      # jest smoke suites (tests/integration|unit/smoke-actions)
-# trigger smoke, provider-dependent:
-#   npm run smoke:triggers:webhook
-#   npm run smoke:triggers:scheduled
-#   provider-specific: smoke:triggers:excel / :onenote / etc.
-```
-
-For E2E/provider-mock specs:
-
-```bash
-npx playwright test <relevant-spec> --workers=1
-```
-
-Do not claim a test ran unless it actually ran. If a test was not run, say exactly why.
-
-### Phase 12 — Documentation and local commit
-
-Update docs in the same batch when the provider introduces or changes:
-
-* provider pattern
-* auth pattern
-* action pattern
-* trigger pattern
-* smoke pattern
-* env/deploy/ops setup
-* shared helper
-* file-output behavior
-* token-ingest behavior
-* webhook behavior
-
-Then commit locally.
+Update docs in the same batch when the provider introduces or changes: a provider/auth/action/trigger/resolver/summary/smoke pattern, env-deploy-ops setup, a shared helper, file-output behavior, token-ingest behavior, or webhook behavior. Then commit locally.
 
 Do not push, open PRs, deploy, or change production posture unless Marcus explicitly says to.
 
-### Phase 13 — Live provider completion (post-owner-setup)
+### Phase 19 — Live provider completion (post-owner-setup live certification)
 
-If live credentials, developer app setup, Vercel env vars, marketplace approval, or callback URLs are missing at implementation time, the initial status is `code-complete owner setup required`. After Marcus completes owner setup, run this phase. It verifies the **real provider boundary**, not only mocked/synthetic tests. (Established by the Asana trial, 2026-07-04.)
+> **Also known as "Phase 13"** — the phases above were renumbered when the builder-usability phases were added. Existing provider docs (Asana, Calendly, `docs/PROJECT_MEMORY.md`) call this pass **Phase 13**, and that name remains valid: "run Phase 13" means this phase. Established by the Asana trial, 2026-07-04.
+
+If live credentials, developer app setup, Vercel env vars, marketplace approval, or callback URLs are missing at implementation time, initial status is `code-complete owner setup required`. After Marcus completes owner setup, run this phase against the **real provider boundary**.
 
 #### Environment alignment gate
 
-Before testing OAuth or live webhooks, confirm the environment under test is actually the environment receiving callbacks. Check and report:
+Before testing OAuth or live webhooks, confirm the environment under test is the environment receiving callbacks. Check and report:
 
-* The provider commit is present in the environment being tested. For production/Vercel, verify the deployed commit contains the provider. Do not assume local code exists in production.
-* `NEXT_PUBLIC_APP_URL` points to the environment being tested.
-* The provider developer portal has the matching redirect URI registered.
-* Vercel env vars are set in the same scope being tested: Local, Preview, or Production.
-* If testing locally, restart the dev server after adding `.env.local` vars.
-* If the provider requires HTTPS callbacks, use a tunnel and set `NEXT_PUBLIC_APP_URL` to the tunnel origin.
-* The callback URL in the provider portal must match the environment: local/tunnel → local dev server; preview URL → preview deployment; production URL → deployed production commit.
+* the provider commit is present in the environment being tested (for production/Vercel, verify the **deployed** commit contains the provider — do not assume local code exists in production),
+* `NEXT_PUBLIC_APP_URL` points at the environment being tested,
+* the developer portal has the matching redirect URI registered,
+* Vercel env vars are set in the scope being tested (Local / Preview / Production),
+* restart the dev server after adding `.env.local` vars,
+* use a tunnel (and set `NEXT_PUBLIC_APP_URL` to the tunnel origin) if the provider requires HTTPS callbacks.
 
-Do not misdiagnose a callback failure until this is checked. The classic failure mode is `local app → provider OAuth → production callback`: if production does not contain the provider commit, the callback fails with errors like "No OAuth implementation registered for provider" even though local code is correct.
+Do not misdiagnose a callback failure until this is checked. The classic trap is `local app → provider OAuth → production callback`: if production lacks the provider commit, the callback fails ("No OAuth implementation registered for provider") even though local code is correct. A proven workaround (Asana): drive activation from the local repo with `NEXT_PUBLIC_APP_URL` pointing at the deployed app (shared Supabase), so handshakes and events land on the deployed route while orchestration stays local.
 
-A pattern that works when local can't receive provider callbacks (proven on Asana): drive activation from the local repo with `NEXT_PUBLIC_APP_URL` pointing at the deployed app (shared Supabase), so handshakes and events land on the deployed route while orchestration stays local.
+#### Live coverage required
 
-#### Live OAuth
+Smoke-test **every shipped action, trigger, and resolver** against the real provider. Verify: authentication · required scopes · resource listing · search/pagination · builder selection · saved configuration · action execution · trigger registration and receipt · repeated execution behavior · error and reconnect behavior where practical.
 
-* Connect from the deployed or intended test environment.
-* Confirm the integration row is created.
-* Confirm the token refresh path works if the provider issues short-lived access tokens.
-* Confirm the credential class behavior still holds with the live integration.
+* **Live OAuth** — connect from the intended test environment; integration row created; refresh path works for short-lived tokens; credential class behavior holds.
+* **Live actions** — every action through the real V2 execution path with `testMode=false`. Record: workflow/action name, input used, provider-side result, ChainReact run result, independent read-back where possible, cleanup result, artifacts left behind.
+* **Live triggers** — prove: activation creates the provider webhook/subscription · handshake succeeds · signature verification works against real deliveries · a real event enqueues/runs the correct workflow · one provider event creates the intended number of runs · server-side filters prevent cross-resource fan-out · dedup is correct · disabled/paused drops covered · deactivation unregisters the provider webhook · cleanup verified (ideally a second delete/read returning provider-side not-found). If live redelivery or wrong-resource testing is impractical, say why and cite the synthetic coverage protecting it.
+* **Live resolvers** — top-level list, cascades, search, labels safe/redacted, **the picker's saved value is the identifier the live handler accepts**, no co-member personal credential fallback, provider errors sanitized.
 
-#### Live actions
+#### Live event-shape review
 
-Run every shipped action through the real V2 execution path with `testMode=false`. For each action record: workflow/action name, input used, provider-side result, ChainReact run result, independent read-back when possible, cleanup result, and any artifact left behind when cleanup is impossible.
-
-#### Live triggers
-
-Run every shipped trigger against the real provider webhook/polling lifecycle. For webhook triggers, prove:
-
-* activation creates the provider webhook/subscription,
-* the provider handshake succeeds,
-* webhook secret/signature verification works against real provider deliveries,
-* a real provider event enqueues/runs the correct workflow,
-* one provider event creates the intended number of runs,
-* server-side filters prevent cross-resource fan-out where practical,
-* dedup behavior is correct,
-* disabled/paused drops are covered by unit/integration tests and live-tested where practical,
-* deactivation deletes/unregisters the provider webhook,
-* cleanup is verified — ideally a second delete/read returning provider-side not-found.
-
-If live redelivery or wrong-resource testing is not practical, state why and cite the unit/synthetic coverage that protects it.
-
-#### Live option sources
-
-Verify live: the top-level list, cascades, labels are safe/redacted, no co-member personal credential fallback, and provider errors are sanitized.
-
-#### Live-provider event-shape review
-
-Real provider events may differ from docs or synthetic tests. During live trigger certification:
-
-* Save sanitized examples of observed event shapes in `docs/providers/<provider>/research.md`.
-* Look for duplicate deliveries, parent/resource fan-out, batched payloads, timestamp variance, and missing fields.
-* Review dedup key design using live payloads. Dedup keys should use stable semantic identity: provider, trigger event type, resource scope, durable provider entity id.
-* Do not include volatile timestamps in dedup keys unless the timestamp is part of the provider's true unique event identity. (Asana: one task creation emits `task+added` once per parent — project and section — milliseconds apart; a timestamp-bearing key double-fired the workflow.)
-* If the provider emits multiple events for one user-visible action, decide whether the workflow should fire once or multiple times and test that decision.
+Real provider events differ from docs. Save sanitized observed event shapes in `research.md`. Look for duplicate deliveries, parent/resource fan-out, batched payloads, timestamp variance, missing fields. Review dedup key design against live payloads: keys use stable semantic identity (provider, trigger event type, resource scope, durable provider entity id) and **must not include volatile timestamps** unless the timestamp is part of true unique event identity. (Asana: one task creation emits `task+added` once per parent — project and section — milliseconds apart; a timestamp-bearing key double-fired the workflow.) If the provider emits multiple events per user-visible action, decide whether the workflow fires once or many times and test that decision.
 
 #### Live cleanup accounting
 
-Every live smoke report must include cleanup accounting: test tasks/items/records/messages/files created; test comments/events/webhooks created; what was cleaned; what remains; why anything remains; whether remaining artifacts are harmless; provider-side cleanup proof where available. If the provider has no delete action, prefer harmless cleanup (complete/archive the test item) and document the artifact.
+Every live smoke report includes: test items/records/messages/files created · test comments/events/webhooks created · what was cleaned · what remains · why · whether remaining artifacts are harmless · provider-side cleanup proof where available. If the provider has no delete action, prefer harmless cleanup (complete/archive the test item) and document the artifact.
 
 #### Deploy-gated retest
 
-If live testing finds a production bug and the fix is committed locally, the provider is **not fully complete** until the fix is deployed and retested. Use status `complete with follow-ups (deploy-gated retest)` and the report must include: the local fix commit, whether production still has the old behavior, the exact retest command, the exact expected result, and what remains unsafe or incomplete until deploy. Do not say production is fixed until the commit is pushed/deployed and the live retest passes.
+If live testing finds a production bug and the fix is committed locally, the provider is **not fully complete** until the fix is deployed and retested. Use status `complete with follow-ups (deploy-gated retest)`; the report must include the local fix commit, whether production still has the old behavior, the exact retest command, the exact expected result, and what remains unsafe until deploy. Do not say production is fixed until the commit is deployed and the live retest passes.
 
 ---
 
@@ -631,12 +590,12 @@ If live testing finds a production bug and the fix is committed locally, the pro
 
 * Never log tokens, refresh tokens, auth codes, signing secrets, API keys, provider secrets, or raw webhook bodies containing user data.
 * Never expose co-member personal credentials.
-* Never use service-role on a user-triggered path without explicit reason and existing service-role boundary.
-* Never store plaintext OAuth/API tokens.
-* Never put secrets in owner setup docs.
+* Never use service-role on a user-triggered path without explicit reason and an existing service-role boundary.
+* Never store plaintext OAuth/API tokens. Never put secrets in owner setup docs.
 * Webhooks require provider signature verification.
-* Option sources must not leak credential labels/owner IDs for personal providers.
-* File outputs must use `FileRef`; no bytes/base64/content in workflow outputs.
+* Option resolvers must not leak credential labels/owner IDs for personal providers, and must never return tokens or raw provider errors to the client.
+* No provider fetches from React components; no tokens in the client; no client access to repositories.
+* File outputs use `FileRef`; no bytes/base64/content in workflow outputs.
 * Provider event IDs used for dedup must be stable and not raw PII when avoidable.
 * Capability flags must be honest.
 
@@ -644,28 +603,15 @@ If live testing finds a production bug and the fix is committed locally, the pro
 
 ## Blocker policy
 
-Stop and report before coding if:
+**Stop and report before coding** if: the provider requires paid/API approval blocking basic implementation · docs do not expose required endpoints · only unsafe auth exists with no V2 contract · required scopes would be too broad for the action/trigger set · webhooks require a public URL or manual verification that cannot be mocked/tested locally · required V2 infrastructure does not exist · the provider would require a new cross-cutting pattern.
 
-* Provider requires paid/API approval that blocks basic implementation.
-* Provider docs do not expose required endpoints.
-* Provider only supports unsafe auth without a V2 contract.
-* Required scopes would be too broad for the action/trigger set.
-* Webhooks require a public URL or manual verification that cannot be mocked/tested locally.
-* Required V2 infrastructure does not exist.
-* The provider would require a new cross-cutting pattern.
+**Continue coding with explicit limitation** if: developer portal setup is manual but code can be implemented · live credentials are missing but mocked-boundary tests prove V2 behavior · marketplace approval is only needed after implementation · a live smoke must wait on Marcus's env setup.
 
-Continue coding with explicit limitation if:
-
-* Developer portal setup is manual but code can be implemented.
-* Live credentials are missing but mocked external-boundary tests can prove V2 behavior.
-* Marketplace approval is needed only after implementation.
-* A live provider smoke must be done by Marcus after env setup.
+**Never a valid deferral:** missing option resolver · missing list/search API wrapper · missing route/service plumbing · missing search or pagination support · missing structured editor · missing node summary · "config UX polish". These are in-scope implementation work. If they are truly blocked (the provider has no supported list API), that is a documented limitation with the resource classified type 5 — not a silent raw-identifier field.
 
 ---
 
-## Final report format
-
-The final response must use this format:
+## Final report format (Owner Report — required every run)
 
 ```md
 ## Provider integration closeout — <Provider>
@@ -676,65 +622,101 @@ The final response must use this format:
 **Commit:** <hash> (local, not pushed)
 **Status:** live-complete | code-complete owner setup required | complete with follow-ups (deploy-gated retest) | blocked | partial
 
-### What shipped
-- Actions:
-- Triggers:
-- Option sources:
-- Apps page:
-- Builder:
-- AI visibility:
-- Webhooks/polling:
+### Provider researched
+- Docs reviewed / date:
 
-### Owner setup tasks for Marcus
-- Provider portal:
-- Redirect URIs:
-- Webhook URLs:
-- Scopes:
-- Vercel env vars:
-- Other:
+### Repetitive business tasks identified
+- <task> — who does it, what makes it repeat, what stays fixed, what changes per run.
 
-### Smoke results
-| Surface | Name | Command | Result |
+### Action catalog
+| Action | Ship now / Skip / Defer (dependency) / Not appropriate | Business task | Why |
 |---|---|---|---|
 
-### Tests run
+### Trigger catalog
+| Trigger | Ship now / Skip / Defer (dependency) / Not appropriate | Business task | Why |
+|---|---|---|---|
+
+### Authentication and scopes
+- Flow / scopes requested / why each / refresh behavior:
+
+### Builder Setup design per node
+| Node | Setup fields | Field kind (decision / resource / mapping / fixed / structured / conditional / default) | Understandable without provider docs? |
+|---|---|---|---|
+
+### Advanced controls per node
+| Node | Advanced fields | Why power-user, not internal |
+|---|---|---|
+
+### Option resolvers and resource types added
+| Source key | Resource type (1–5) | Provider endpoint | Search | Pagination | Cascade deps | Manual entry in Advanced? |
+|---|---|---|---|---|---|---|
+
+### Node summaries added
+| Node | Example configured summary |
+|---|---|
+
+### Runtime tests
+| Command / file | Result |
+|---|---|
+
+### Builder tests
+| Command / file | Result |
+|---|---|
+
+### Resolver tests
+| Command / file | Result |
+|---|---|
+
+### E2E tests
+| Spec | Result |
+|---|---|
+
+### Live certification matrix
+| Surface | Name | Boundary (live/mocked) | Result | Evidence |
+|---|---|---|---|---|
+
+### Provider developer-portal checklist
+- App settings / redirect URIs / webhook URLs / scopes / events / token settings / app review:
+
+### Vercel environment checklist
+| Env var | Scope(s) | Required? |
+|---|---|---|
+
+### Remaining blockers
+- None, or each blocker with its exact owner and what it blocks.
+
+### Exact commands and results
 | Command | Result |
 |---|---|
 
 ### Security notes
-- Credential class rationale:
-- Token/secrets handling:
-- Co-member personal credential exposure checked:
-- Webhook signature/dedup checked:
-- File output checked:
+- Credential class rationale / token handling / co-member exposure checked / webhook signature + dedup checked / resolver leak checked / file output checked:
 
 ### V2 pattern audit / divergences
-- V2 providers/patterns inspected:
-- Behavior/patterns reused:
-- Intentional divergences:
-- New reusable pattern introduced:
-
-### Blockers / limitations
-- None, or list exact remaining owner/action.
+- Patterns inspected / reused / intentional divergences / new reusable pattern introduced:
 
 ### Docs created/updated
-- Research:
-- V2 pattern audit:
-- Implementation plan:
-- Owner setup report:
-- Other:
+- Research / v2-pattern-audit / implementation-plan / owner-setup-report / other:
 
-### Push status
-Nothing pushed.
+### Commit hashes
+- <hash> — <subject>
+
+### Push / deploy / migration status
+- Nothing pushed. | Pushed to v2-main with Marcus's explicit approval (deploys to prod).
+- Migrations: none | added + db:push run
+
+### Ordinary-user verdict
+> Can an ordinary user configure every common path for every shipped node without locating provider-internal values?
+- **Yes** — or **No**, with the exact nodes/fields that fail and why.
 ```
 
-A provider is not "100% finished" unless the report has no hidden implementation work left. If only Marcus's provider-portal/Vercel setup remains, say **"code-complete; owner setup required"** and list every remaining external setup item exactly.
+The **Ordinary-user verdict** is mandatory and must be an explicit yes/no. A "no" means the provider is `partial`, not `done`.
+
+A provider is not "100% finished" unless the report has no hidden implementation work left. If only Marcus's portal/Vercel setup remains, say **"code-complete; owner setup required"** and list every remaining external item exactly.
 
 ---
 
-## Live completion report format (Phase 13)
-
-After owner setup and the live certification phase, use this report:
+## Live completion report format (Phase 19, a.k.a. Phase 13)
 
 ```md
 ## <Provider> live completion closeout
@@ -747,50 +729,32 @@ After owner setup and the live certification phase, use this report:
 **Push status:** Nothing pushed | pushed by Marcus approval
 
 ### OAuth
--
-
 ### Live actions verified
 | Action | Result | Evidence / notes |
 |---|---|---|
-
 ### Live triggers verified
 | Trigger | Result | Evidence / notes |
 |---|---|---|
-
-### Option sources verified
-| Option source | Result | Notes |
-|---|---|---|
-
+### Option resolvers verified (live)
+| Source key | List | Search | Cascade | Saved id accepted by handler | Notes |
+|---|---|---|---|---|---|
 ### Live quirks discovered
--
-
 ### Bugs found/fixed
--
-
 ### Cleanup
--
-
 ### Docs updated
--
-
 ### Tests/commands run
 | Command | Result |
 |---|---|
-
 ### Deploy-gated retests
--
-
 ### Remaining owner actions
--
 ```
 
 ---
 
 ## Status definitions
 
-Use these terms consistently:
-
-* `code-complete owner setup required` — implementation is complete, but provider dashboard/env/live credentials are not ready.
-* `live-complete` — owner setup is done and real provider actions/triggers passed.
-* `complete with follow-ups (deploy-gated retest)` — live provider bug was found and fixed locally, but production needs deploy + retest.
-* `blocked` — provider cannot be completed without external approval, missing API capability, unsafe auth, or missing V2 infrastructure.
+* `code-complete owner setup required` — implementation is complete (**including resolvers, Setup/Advanced UX, and summaries**), but provider dashboard/env/live credentials are not ready.
+* `live-complete` — owner setup is done and real provider actions/triggers/resolvers passed.
+* `complete with follow-ups (deploy-gated retest)` — a live provider bug was found and fixed locally; production needs deploy + retest.
+* `blocked` — cannot be completed without external approval, missing API capability, unsafe auth, or missing V2 infrastructure.
+* `partial` — one or more hard-definition-of-done items are incomplete. **Name the blocker.** Never relabel a missing requirement as a future enhancement.
