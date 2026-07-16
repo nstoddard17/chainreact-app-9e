@@ -118,13 +118,28 @@ Keep pure helpers only in `core/`.
 
 ## Provider Implementation Pattern
 
-For each provider, prefer this larger batch rhythm:
+Every new provider follows the full provider-addition skill. The required delivery
+sequence is:
 
-1. Plan doc
-2. Manifest + OAuth
-3. Actions + API wrappers
-4. Triggers/webhooks/polling
-5. E2E walkthrough with mocked external provider boundary
+1. Research repetitive business tasks
+2. Decide and document the action/trigger catalog
+3. Implement authentication and scopes
+4. Implement typed runtime actions and triggers
+5. Design every node's Setup / Advanced configuration
+6. Build required provider-resource discovery and option resolvers
+7. Register builder metadata and verify at-a-glance summaries
+8. Run runtime, builder, resolver, and relevant E2E tests
+9. Complete live provider certification where credentials are available
+10. Produce the owner developer-portal and environment checklist
+
+An action or trigger is not shipped merely because its handler executes. Its
+ordinary-user configuration path must also be complete.
+
+Use the updated provider-addition skill —
+[`.claude/skills/chainreactv2-provider-integration-builder/SKILL.md`](./.claude/skills/chainreactv2-provider-integration-builder/SKILL.md)
+— for the full procedure and Owner Report contract. (Its post-owner-setup live
+certification pass keeps its established **"Phase 13"** alias; existing outcome docs
+that say "Phase 13" remain correct.)
 
 Do not push after each batch unless Marcus explicitly says to. On his explicit
 approval, the batch pushes to `v2-main` and deploys to prod (intended at this stage).
@@ -194,8 +209,24 @@ Source of truth:
 * **Revived/deferred providers:** [`docs/slices/phase-3/missing-providers-status.md`](./docs/slices/phase-3/missing-providers-status.md) → [`provider-completion-closeout.md`](./docs/slices/phase-3/provider-completion-closeout.md)
 * **Per-slice plans & outcomes:** [`docs/slices/`](./docs/slices/)
 
-**Provider-addition gate (durable):** no net-new provider without a `v2-pattern-audit.md`
-and a roadmap entry. Local work is not pushed without Marcus.
+**Provider-addition gate (durable):** no net-new provider without:
+
+- A researched action/trigger catalog with ship, skip, and defer decisions
+- A configuration-design audit for every shipped node
+- A `v2-pattern-audit.md`
+- A roadmap entry
+- Builder metadata for every shipped action and trigger
+- Required provider-resource discovery and option resolvers
+- Runtime, builder, and resolver test evidence
+- An explicit Owner Report verdict on whether an ordinary user can configure every
+  common path without locating provider-internal values
+
+A provider is only partially complete when any common-path node still requires
+technical provider knowledge that ChainReact can reasonably remove. Missing option
+resolvers, API wrappers, routes, services, search, or pagination are implementation
+work — not acceptable reasons to relabel the usability gap as a future enhancement.
+
+Local work is not pushed without Marcus.
 
 ---
 
@@ -232,6 +263,10 @@ linked here.
 14. **Don't treat orphan files as shipped.** Registry presence — not `.ts` presence — defines the action set; orphan backfill is product-signal-gated.
 15. **Manifest honesty.** Don't set `actions:true` / `webhookTrigger:true` until handlers/triggers are registered. (Also in *Important Defaults*.)
 16. **50-file leaf-folder cap.** Split a provider's `actions/` into domain subfolders (`actions/channels/`, `actions/line_items/`) as it approaches the cap; update registry import paths to match.
+
+**Builder & configuration**
+17. **Builder completion is provider completion.** Every shipped action and trigger must support an understandable repetitive-task configuration path. Static discoverable provider resources use real account-aware selectors; changing runtime values support upstream mapping; manual identifier entry is retained in Advanced for power users. Setup must not require provider documentation, opaque identifiers, raw payload construction, or arbitrary JSON when ChainReact can provide a structured path. **If that configuration path is incomplete, manifest/runtime registration does not make the node complete.** (Mechanics — `advanced` / `visibleWhen` / `defaultValue` / `object`-vs-`json` — are rule 4's sub-bullet; this rule is the completion bar.)
+    - **Configuration-design doc required.** The provider's configuration-design document must classify *every* field of *every* shipped node as exactly one of: **core user decision** · **static provider resource** · **dynamic upstream value** · **fixed repeated value** · **derived/defaulted value** · **conditional option** · **advanced control** · **internal implementation detail**. The resulting UI must follow the classification — a static provider resource is a registered selector, not a raw text box; an internal implementation detail is derived or hidden, not surfaced. Full procedure + Owner Report contract: [`.claude/skills/chainreactv2-provider-integration-builder/SKILL.md`](./.claude/skills/chainreactv2-provider-integration-builder/SKILL.md).
 
 **Cross-cutting contracts:** file output → [`docs/rules/file-output-contract.md`](./docs/rules/file-output-contract.md) · token-ingest auth → [`docs/rules/token-ingest-auth.md`](./docs/rules/token-ingest-auth.md).
 

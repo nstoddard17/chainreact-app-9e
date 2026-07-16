@@ -228,23 +228,27 @@ Record the decision table in the implementation plan. Get the catalog agreed bef
 
 ### Phase 3 — Configuration design pass (before writing builder metadata)
 
-For **every proposed node**, classify **every field** before any `.meta.ts` is written:
+For **every proposed node**, classify **every field** before any `.meta.ts` is written, and record the table in the implementation plan (this is the "configuration-design document" the CLAUDE.md provider-addition gate requires).
 
-| Classification                  | Resulting UI                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------------- |
-| Core user decision              | Setup, plain-language label, required                                            |
-| Provider resource selection     | Setup, **searchable picker backed by a registered resolver**                     |
-| Upstream data mapping           | Setup, variable/data selector supported                                          |
-| Fixed value reused each run     | Setup, clearly labeled                                                           |
-| Structured composition          | Setup, **purpose-built structured editor** (`object`/list) — never raw JSON      |
-| Safe visible default            | Setup with `defaultValue` the user can see                                       |
-| Derived value                   | **Not a field** — ChainReact derives it                                          |
-| Conditional option              | Setup with top-level `visibleWhen` (required-when-visible)                       |
-| Advanced power-user control     | `advanced: true`                                                                 |
-| Internal implementation detail  | **Hidden or derived — never surfaced**                                           |
-| Unsupported raw configuration   | **Blocker** — build the proper editor, or the node is not ready to ship          |
+Every field is **exactly one** of these eight classes. These are the canonical classes from **CLAUDE.md rule 17** — use these names verbatim so the plan doc and the gate agree:
 
-The resulting UI must follow this classification. Field metadata types (`advanced`, `visibleWhen`, `optionsSource`, `dependsOn`, `allowManualEntry`, `defaultValue`) are defined in [`contracts/actionMeta.ts`](../../../contracts/actionMeta.ts). Rationale + classification precedent: [`docs/slices/phase-5/builder-config-setup-advanced-tracker.md`](../../../docs/slices/phase-5/builder-config-setup-advanced-tracker.md).
+| Class                          | Resulting UI                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------- |
+| Core user decision             | Setup, plain-language label, required                                            |
+| Static provider resource       | Setup, **searchable picker backed by a registered resolver**                     |
+| Dynamic upstream value         | Setup, variable/data selector supported                                          |
+| Fixed repeated value           | Setup, clearly labeled; configured once and reused every run                     |
+| Derived/defaulted value        | A default the user should see → visible `defaultValue`; a value ChainReact can derive → **not a field at all** |
+| Conditional option             | Setup with top-level `visibleWhen` (required-when-visible)                       |
+| Advanced control               | `advanced: true` — a real power-user decision                                    |
+| Internal implementation detail | **Hidden or derived — never surfaced**                                           |
+
+Two cross-cutting notes (UI treatments and a stop condition — *not* extra classes):
+
+* **Structured composition.** When a *core user decision* or *fixed repeated value* is an object/list, it gets a purpose-built structured editor (`object`/list), never raw JSON. Raw `json` entry is advanced-only.
+* **Unsupported raw configuration = blocker.** If a field can only be expressed as raw payload/JSON/wire-format on the normal path, the node is **not ready to ship**: build the proper editor, move it to Advanced if it is genuinely a power-user grammar, or drop it from the catalog. Do not ship it as a normal Setup field with a note.
+
+The resulting UI must follow this classification: a static provider resource is a registered selector, not a raw text box; an internal implementation detail is derived or hidden, not surfaced. Field metadata types (`advanced`, `visibleWhen`, `optionsSource`, `dependsOn`, `allowManualEntry`, `defaultValue`) are defined in [`contracts/actionMeta.ts`](../../../contracts/actionMeta.ts). Rationale + classification precedent: [`docs/slices/phase-5/builder-config-setup-advanced-tracker.md`](../../../docs/slices/phase-5/builder-config-setup-advanced-tracker.md).
 
 ### Phase 4 — Manifest + registry + Apps catalog gate
 
@@ -640,7 +644,7 @@ If live testing finds a production bug and the fix is committed locally, the pro
 - Flow / scopes requested / why each / refresh behavior:
 
 ### Builder Setup design per node
-| Node | Setup fields | Field kind (decision / resource / mapping / fixed / structured / conditional / default) | Understandable without provider docs? |
+| Node | Setup fields | Field class (CLAUDE.md rule 17: core decision / static provider resource / dynamic upstream value / fixed repeated value / derived-defaulted / conditional option) | Understandable without provider docs? |
 |---|---|---|---|
 
 ### Advanced controls per node
