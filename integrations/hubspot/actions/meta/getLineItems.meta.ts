@@ -47,6 +47,8 @@ export const hubspotGetLineItemsMeta: ActionMeta = {
       description:
         "HubSpot property names to return for each line item. Add property names as individual chips (e.g. `name`, `hs_product_id`, `quantity`, `price`, `amount`, `discount`). Omit to use HubSpot's default set.",
       type: "string-array",
+      optionsSource: "hubspot:line_item_properties",
+      allowManualEntry: true,
       required: false,
       advanced: true,
     },
@@ -54,8 +56,10 @@ export const hubspotGetLineItemsMeta: ActionMeta = {
       name: "filterProperty",
       label: "Filter property",
       description:
-        "Optional HubSpot property name to filter on (EQ match). Pair with `Filter value` — BOTH fields must be present for the filter to apply.",
-      type: "text",
+        "Optional HubSpot property to filter on (EQ match) — pick from the portal's real properties or type a custom internal name. Pair with `Filter value` — BOTH fields must be present for the filter to apply.",
+      type: "combobox",
+      optionsSource: "hubspot:line_item_properties",
+      allowManualEntry: true,
       required: false,
       placeholder: "hs_product_id",
     },

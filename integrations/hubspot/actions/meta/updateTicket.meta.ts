@@ -35,12 +35,14 @@ export const hubspotUpdateTicketMeta: ActionMeta = {
   fields: [
     {
       name: "ticketId",
-      label: "Ticket ID",
+      label: "Ticket",
       description:
-        "Which ticket to update — insert the ticket ID from an earlier step (e.g. Create Ticket or Get Tickets).",
-      type: "text",
+        "Which ticket to update — search your HubSpot tickets by subject, paste a ticket ID, or insert one from an earlier step (e.g. Create Ticket or Get Tickets).",
+      type: "combobox",
+      optionsSource: "hubspot:tickets",
+      allowManualEntry: true,
       required: true,
-      placeholder: "12345",
+      placeholder: "Search tickets or paste an ID…",
     },
     {
       name: "subject",

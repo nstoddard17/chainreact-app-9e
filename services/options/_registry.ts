@@ -59,7 +59,27 @@ import {
   hubspotCompanyLifecycleStageOptionsResolver,
   hubspotTicketCategoryOptionsResolver,
   hubspotTicketSourceTypeOptionsResolver,
+  hubspotCallDispositionOptionsResolver,
 } from "@/integrations/hubspot/options/propertyOptions";
+// RESOLVERS-1 — HubSpot record-search pickers (server-side ctx.q via the CRM
+// search endpoint; labels are display names only — contacts NEVER show email;
+// description = record id) + get-family property-NAME pickers.
+import {
+  hubspotContactsResolver,
+  hubspotCompaniesResolver,
+  hubspotDealsResolver,
+  hubspotTicketsResolver,
+  hubspotProductsResolver,
+  hubspotLineItemsResolver,
+} from "@/integrations/hubspot/options/records";
+import {
+  hubspotContactPropertiesResolver,
+  hubspotCompanyPropertiesResolver,
+  hubspotDealPropertiesResolver,
+  hubspotTicketPropertiesResolver,
+  hubspotProductPropertiesResolver,
+  hubspotLineItemPropertiesResolver,
+} from "@/integrations/hubspot/options/propertyNames";
 import { hubspotDealPipelinesResolver } from "@/integrations/hubspot/options/dealPipelines";
 import { hubspotDealStagesResolver } from "@/integrations/hubspot/options/dealStages";
 import { hubspotTicketPipelinesResolver } from "@/integrations/hubspot/options/ticketPipelines";
@@ -403,6 +423,23 @@ import { quickbooksCustomersResolver } from "@/integrations/quickbooks/options/c
 import { stripeCustomersResolver } from "@/integrations/stripe/options/customers";
 import { stripeSubscriptionsResolver } from "@/integrations/stripe/options/subscriptions";
 import { stripePricesResolver } from "@/integrations/stripe/options/prices";
+// RESOLVERS-1 — `slack:channels_archived` backs unarchive_channel.channel:
+// `slack:channels` lists exclude_archived=true so the unarchive target was
+// unpickable; this variant lists excludeArchived:false and keeps ONLY
+// is_archived:true. Existing channels:read/groups:read scopes; decrypt-direct.
+import { slackChannelsArchivedResolver } from "@/integrations/slack/options/channelsArchived";
+// RESOLVERS-1 — `microsoft-outlook:categories` backs the per-chip picker on
+// add_categories.categories. VALUE = category displayName (the exact string
+// the PATCH stores — Graph message categories are name-keyed, not id-keyed).
+// GET /me/outlook/masterCategories on the newly-OPTIONAL MailboxSettings.Read
+// scope; pre-scope tokens surface PROVIDER_REAUTH_REQUIRED (Reconnect).
+import { outlookCategoriesResolver } from "@/integrations/microsoft-outlook/options/categories";
+// RESOLVERS-1 — Microsoft additions: find_row.lookupColumn header picker,
+// send_chat_message.chatId picker (un-deferred with Marcus's sign-off),
+// copy_page.targetSectionId flat "Notebook › Section" picker.
+import { microsoftExcelTableColumnsResolver } from "@/integrations/microsoft-excel/options/tableColumns";
+import { microsoftTeamsChatsResolver } from "@/integrations/microsoft-teams/options/chats";
+import { microsoftOneNoteTargetSectionsResolver } from "@/integrations/microsoft-onenote/options/targetSections";
 import {
   quickbooksItemsResolver,
   quickbooksTaxCodesResolver,
@@ -458,9 +495,9 @@ import { microsoftOneDriveFilesResolver } from "@/integrations/microsoft-onedriv
 // Both auth via refreshAndRetry (refreshable, Excel/OneDrive pattern), NOT
 // decrypt-direct. NO UI-scope schema fields needed — teamId/channelId are
 // already real runtime fields. `microsoft-teams:members` REJECTED (no action
-// consumes a member-id input); `microsoft-teams:chats` +
-// `microsoft-teams:messages` DEFERRED (chatId/messageId typeable/trigger-fed
-// for v1) — none registered.
+// consumes a member-id input); `microsoft-teams:messages` DEFERRED
+// (messageId is trigger/upstream-fed). `microsoft-teams:chats` is now
+// REGISTERED (RESOLVERS-1, Marcus sign-off) — see the import below.
 import { microsoftTeamsTeamsResolver } from "@/integrations/microsoft-teams/options/teams";
 import { microsoftTeamsChannelsResolver } from "@/integrations/microsoft-teams/options/channels";
 
@@ -676,8 +713,8 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // Slice 4.TEAMS-META-2 — 2 Microsoft Teams resolvers (resolver-first ahead
   // of TEAMS-META-3 metas). teams (root, no dep) + channels (dep: teamId).
   // New read helpers teamsList + channelsList (api/ had no list helper).
-  // Auth refreshable (refreshAndRetry). members rejected; chats/messages
-  // deferred. Teams stays OUT of COVERED_PROVIDERS until TEAMS-META-3.
+  // Auth refreshable (refreshAndRetry). members rejected; messages deferred;
+  // chats registered below (RESOLVERS-1).
   microsoftTeamsTeamsResolver,
   microsoftTeamsChannelsResolver,
   // Slice ANALYTICS-SOURCES-GITHUB-UI-3 — `github:repos` repository picker for
@@ -731,6 +768,35 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   stripeCustomersResolver,
   stripeSubscriptionsResolver,
   stripePricesResolver,
+  // RESOLVERS-1 — unarchive picker (archived-only channel variant).
+  slackChannelsArchivedResolver,
+  // RESOLVERS-1 — Outlook master categories (value = displayName; optional
+  // MailboxSettings.Read scope — pre-scope connections show Reconnect).
+  outlookCategoriesResolver,
+  // RESOLVERS-1 — find_row.lookupColumn header picker (deps: workbookId + tableName).
+  microsoftExcelTableColumnsResolver,
+  // RESOLVERS-1 — send_chat_message.chatId picker. UN-DEFERRED with Marcus's
+  // sign-off: labels = topic else participant displayNames ($expand=members).
+  microsoftTeamsChatsResolver,
+  // RESOLVERS-1 — copy_page.targetSectionId flat all-notebooks picker
+  // ("Notebook › Section", dep-less — copy_page schema is .strict()).
+  microsoftOneNoteTargetSectionsResolver,
+  // RESOLVERS-1 — HubSpot record + property-name + call-disposition pickers.
+  // Record search is server-side (ctx.q → CRM search `query`); labels are
+  // display names only (contacts NEVER show email); description = record id.
+  hubspotContactsResolver,
+  hubspotCompaniesResolver,
+  hubspotDealsResolver,
+  hubspotTicketsResolver,
+  hubspotProductsResolver,
+  hubspotLineItemsResolver,
+  hubspotContactPropertiesResolver,
+  hubspotCompanyPropertiesResolver,
+  hubspotDealPropertiesResolver,
+  hubspotTicketPropertiesResolver,
+  hubspotProductPropertiesResolver,
+  hubspotLineItemPropertiesResolver,
+  hubspotCallDispositionOptionsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

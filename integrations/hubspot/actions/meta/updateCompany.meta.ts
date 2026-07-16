@@ -26,12 +26,14 @@ export const hubspotUpdateCompanyMeta: ActionMeta = {
   fields: [
     {
       name: "companyId",
-      label: "Company ID",
+      label: "Company",
       description:
-        "Which company to update — insert the company ID from an earlier step (e.g. Create Company or Get Companies).",
-      type: "text",
+        "Which company to update — search your HubSpot companies by name, paste a company ID, or insert one from an earlier step (e.g. Create Company or Get Companies).",
+      type: "combobox",
+      optionsSource: "hubspot:companies",
+      allowManualEntry: true,
       required: true,
-      placeholder: "12345",
+      placeholder: "Search companies or paste an ID…",
     },
     {
       name: "name",

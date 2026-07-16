@@ -22,12 +22,14 @@ export const hubspotUpdateProductMeta: ActionMeta = {
   fields: [
     {
       name: "productId",
-      label: "Product ID",
+      label: "Product",
       description:
-        "Which product to update — insert the product ID from an earlier step (e.g. Create Product or Get Products).",
-      type: "text",
+        "Which product to update — search your HubSpot product library by name, paste a product ID, or insert one from an earlier step (e.g. Create Product or Get Products).",
+      type: "combobox",
+      optionsSource: "hubspot:products",
+      allowManualEntry: true,
       required: true,
-      placeholder: "12345",
+      placeholder: "Search products or paste an ID…",
     },
     {
       name: "name",

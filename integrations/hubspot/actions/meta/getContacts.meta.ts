@@ -56,6 +56,8 @@ export const hubspotGetContactsMeta: ActionMeta = {
       description:
         "HubSpot property names to return for each contact. Add property names as individual chips (e.g. `firstname`, `lastname`, `email`, `phone`, `company`, `lifecyclestage`, custom property names). Omit to use HubSpot's default set.",
       type: "string-array",
+      optionsSource: "hubspot:contact_properties",
+      allowManualEntry: true,
       required: false,
       advanced: true,
     },
@@ -63,8 +65,10 @@ export const hubspotGetContactsMeta: ActionMeta = {
       name: "filterProperty",
       label: "Filter property",
       description:
-        "Optional HubSpot property name to filter on (EQ match). Pair with `Filter value` — BOTH fields must be present for the filter to apply.",
-      type: "text",
+        "Optional HubSpot property to filter on (EQ match) — pick from the portal's real properties or type a custom internal name. Pair with `Filter value` — BOTH fields must be present for the filter to apply.",
+      type: "combobox",
+      optionsSource: "hubspot:contact_properties",
+      allowManualEntry: true,
       required: false,
       placeholder: "email",
     },

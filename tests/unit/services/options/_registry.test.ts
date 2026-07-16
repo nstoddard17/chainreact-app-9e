@@ -522,12 +522,13 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toEqual(["workbookId"]);
     });
 
-    it("registers exactly the 4 Excel resolver keys (worksheet_columns joined in SPREADSHEET-CONFIG-REDESIGN-1)", () => {
+    it("registers exactly the 5 Excel resolver keys (worksheet_columns: SPREADSHEET-CONFIG-REDESIGN-1; table_columns: RESOLVERS-1)", () => {
       const sources = listOptionsResolvers()
         .filter((r) => r.provider === "microsoft-excel")
         .map((r) => r.source)
         .sort();
       expect(sources).toEqual([
+        "microsoft-excel:table_columns",
         "microsoft-excel:tables",
         "microsoft-excel:workbooks",
         "microsoft-excel:worksheet_columns",
@@ -739,26 +740,25 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toEqual(["teamId"]);
     });
 
-    it("registers exactly the 2 TEAMS-META-2 resolver keys", () => {
+    it("registers exactly the 3 Teams resolver keys (chats joined in RESOLVERS-1)", () => {
       const sources = listOptionsResolvers()
         .filter((r) => r.provider === "microsoft-teams")
         .map((r) => r.source)
         .sort();
       expect(sources).toEqual([
         "microsoft-teams:channels",
+        "microsoft-teams:chats",
         "microsoft-teams:teams",
       ]);
     });
 
-    it("does NOT register members / chats / messages (rejected or deferred for v1)", () => {
+    it("does NOT register members / messages (rejected or upstream-fed)", () => {
       expect(getOptionsResolver("microsoft-teams:members")).toBeUndefined();
-      expect(getOptionsResolver("microsoft-teams:chats")).toBeUndefined();
       expect(getOptionsResolver("microsoft-teams:messages")).toBeUndefined();
       const sources = listOptionsResolvers()
         .filter((r) => r.provider === "microsoft-teams")
         .map((r) => r.source);
       expect(sources).not.toContain("microsoft-teams:members");
-      expect(sources).not.toContain("microsoft-teams:chats");
       expect(sources).not.toContain("microsoft-teams:messages");
     });
   });

@@ -37,12 +37,14 @@ export const hubspotRemoveLineItemMeta: ActionMeta = {
   fields: [
     {
       name: "lineItemId",
-      label: "Line item ID",
+      label: "Line item",
       description:
-        "Which line item to delete — insert the line item ID from an earlier step (e.g. Get Line Items). After deletion the ID can no longer be used.",
-      type: "text",
+        "Which line item to delete — search your HubSpot line items by name, paste a line item ID, or insert one from an earlier step (e.g. Get Line Items). After deletion the ID can no longer be used.",
+      type: "combobox",
+      optionsSource: "hubspot:line_items",
+      allowManualEntry: true,
       required: true,
-      placeholder: "12345",
+      placeholder: "Search line items or paste an ID…",
     },
   ],
   outputs: [

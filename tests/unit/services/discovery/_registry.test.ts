@@ -4849,9 +4849,11 @@ describe("per-provider accessors", () => {
         )!;
       }
 
-      it("contactId is required text (search-by-email picker deferred to follow-up)", () => {
+      it("contactId is a required hubspot:contacts record-search picker (RESOLVERS-1)", () => {
         const f = meta().fields.find((x) => x.name === "contactId")!;
-        expect(f.type).toBe("text");
+        expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("hubspot:contacts");
+        expect(f.allowManualEntry).toBe(true);
         expect(f.required).toBe(true);
       });
 
@@ -4984,12 +4986,14 @@ describe("per-provider accessors", () => {
     });
 
     describe("update_company / get_companies parity", () => {
-      it("update_company.companyId is required text", () => {
+      it("update_company.companyId is a required hubspot:companies record-search picker (RESOLVERS-1)", () => {
         const meta = hubspotActionMetas().find(
           (m) => m.key === "hubspot:update_company",
         )!;
         const f = meta.fields.find((x) => x.name === "companyId")!;
-        expect(f.type).toBe("text");
+        expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("hubspot:companies");
+        expect(f.allowManualEntry).toBe(true);
         expect(f.required).toBe(true);
       });
 
@@ -5133,9 +5137,11 @@ describe("per-provider accessors", () => {
         )!;
       }
 
-      it("dealId is required text (search-by-property picker deferred)", () => {
+      it("dealId is a required hubspot:deals record-search picker (RESOLVERS-1)", () => {
         const f = meta().fields.find((x) => x.name === "dealId")!;
-        expect(f.type).toBe("text");
+        expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("hubspot:deals");
+        expect(f.allowManualEntry).toBe(true);
         expect(f.required).toBe(true);
       });
 
@@ -5321,9 +5327,11 @@ describe("per-provider accessors", () => {
         )!;
       }
 
-      it("ticketId is required text", () => {
+      it("ticketId is a required hubspot:tickets record-search picker (RESOLVERS-1)", () => {
         const f = meta().fields.find((x) => x.name === "ticketId")!;
-        expect(f.type).toBe("text");
+        expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("hubspot:tickets");
+        expect(f.allowManualEntry).toBe(true);
         expect(f.required).toBe(true);
       });
 
@@ -5743,10 +5751,12 @@ describe("per-provider accessors", () => {
         }
       });
 
-      it("update_product.productId is required text; every property field is OPTIONAL", () => {
+      it("update_product.productId is a required hubspot:products picker; every property field is OPTIONAL (RESOLVERS-1)", () => {
         const m = updateMeta();
         const id = m.fields.find((x) => x.name === "productId")!;
-        expect(id.type).toBe("text");
+        expect(id.type).toBe("combobox");
+        expect(id.optionsSource).toBe("hubspot:products");
+        expect(id.allowManualEntry).toBe(true);
         expect(id.required).toBe(true);
         for (const f of m.fields.filter((x) => x.name !== "productId")) {
           expect(f.required).toBe(false);
@@ -5820,10 +5830,12 @@ describe("per-provider accessors", () => {
         }
       });
 
-      it("update_line_item.lineItemId is required text; every property field is OPTIONAL", () => {
+      it("update_line_item.lineItemId is a required hubspot:line_items picker; every property field is OPTIONAL (RESOLVERS-1)", () => {
         const m = updateMeta();
         const id = m.fields.find((x) => x.name === "lineItemId")!;
-        expect(id.type).toBe("text");
+        expect(id.type).toBe("combobox");
+        expect(id.optionsSource).toBe("hubspot:line_items");
+        expect(id.allowManualEntry).toBe(true);
         expect(id.required).toBe(true);
         for (const f of m.fields.filter((x) => x.name !== "lineItemId")) {
           expect(f.required).toBe(false);
@@ -5871,10 +5883,12 @@ describe("per-provider accessors", () => {
         expect(m.riskDescription!.length).toBeGreaterThan(0);
       });
 
-      it("exposes a single required lineItemId text field — no other config", () => {
+      it("exposes a single required lineItemId hubspot:line_items picker — no other config (RESOLVERS-1)", () => {
         expect(meta().fields.map((f) => f.name)).toEqual(["lineItemId"]);
         const f = meta().fields[0]!;
-        expect(f.type).toBe("text");
+        expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("hubspot:line_items");
+        expect(f.allowManualEntry).toBe(true);
         expect(f.required).toBe(true);
       });
 

@@ -33,6 +33,7 @@ import {
   hubspotCompanyLifecycleStageOptionsResolver,
   hubspotTicketCategoryOptionsResolver,
   hubspotTicketSourceTypeOptionsResolver,
+  hubspotCallDispositionOptionsResolver,
 } from "@/integrations/hubspot/options/propertyOptions";
 import {
   InsufficientScopeError,
@@ -218,6 +219,43 @@ describe("hubspot SWEEP-4 property-options resolvers — shape", () => {
       { value: "lead", label: "Lead" },
       { value: "customer", label: "Customer" },
     ]);
+  });
+});
+
+// ─── RESOLVERS-1 — calls hs_call_disposition resolver ─────────────────────────
+
+describe("hubspotCallDispositionOptionsResolver — shape + GUID mapping", () => {
+  it("declares hubspot:call_disposition / provider hubspot / requiresIntegration", () => {
+    expect(hubspotCallDispositionOptionsResolver.source).toBe(
+      "hubspot:call_disposition",
+    );
+    expect(hubspotCallDispositionOptionsResolver.provider).toBe("hubspot");
+    expect(hubspotCallDispositionOptionsResolver.requiresIntegration).toBe(true);
+  });
+
+  it("stores the portal GUID value, shows the outcome label", async () => {
+    mockRefreshAndRetry.mockResolvedValueOnce({
+      name: "hs_call_disposition",
+      options: [
+        { label: "Connected", value: "f240bbac-87c9-4f6e-bf70-924b57d47db7" },
+        { label: "No answer", value: "73a0d17f-1163-4015-bdd5-ec830791da20" },
+      ],
+    });
+    const result = await hubspotCallDispositionOptionsResolver.resolve(ctx());
+    expect(result.items).toEqual([
+      { value: "f240bbac-87c9-4f6e-bf70-924b57d47db7", label: "Connected" },
+      { value: "73a0d17f-1163-4015-bdd5-ec830791da20", label: "No answer" },
+    ]);
+    expect(result.hasMore).toBe(false);
+  });
+
+  it("403 (calls property read rejected on this portal) → PROVIDER_REAUTH_REQUIRED, manual entry keeps working", async () => {
+    mockRefreshAndRetry.mockRejectedValueOnce(
+      new InsufficientScopeError("HubSpot 403", "hubspot"),
+    );
+    await expect(
+      hubspotCallDispositionOptionsResolver.resolve(ctx()),
+    ).rejects.toMatchObject({ code: "PROVIDER_REAUTH_REQUIRED" });
   });
 });
 

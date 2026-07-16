@@ -186,3 +186,24 @@ export const hubspotTicketSourceTypeOptionsResolver: OptionsResolver =
     objectType: "tickets",
     propertyName: "source_type",
   });
+
+/**
+ * `hubspot:call_disposition` — RESOLVERS-1. The portal's call-outcome enum
+ * (`hs_call_disposition` on calls). Values are portal-configured GUIDs with
+ * human labels ("Connected", "No answer", …) — exactly the picker-vs-paste
+ * case: authors can't guess a GUID, so create_call's field was free text.
+ * Reads GET /crm/v3/properties/calls/hs_call_disposition.
+ *
+ * Scope note: the manifest has no calls-specific scope; per HubSpot's public
+ * API spec the properties read accepts the already-granted `automation` /
+ * `tickets` scopes among its alternatives, so this is expected to work like
+ * the ticket property reads (closeout §11 posture) — needs live smoke. If a
+ * portal 403s, the resolver maps to PROVIDER_REAUTH_REQUIRED and the field's
+ * `allowManualEntry` keeps free-text GUIDs working.
+ */
+export const hubspotCallDispositionOptionsResolver: OptionsResolver =
+  makeHubspotPropertyOptionsResolver({
+    source: "hubspot:call_disposition",
+    objectType: "calls",
+    propertyName: "hs_call_disposition",
+  });

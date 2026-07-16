@@ -34,12 +34,14 @@ export const hubspotUpdateDealMeta: ActionMeta = {
   fields: [
     {
       name: "dealId",
-      label: "Deal ID",
+      label: "Deal",
       description:
-        "Which deal to update — insert the deal ID from an earlier step (e.g. Create Deal or Get Deals).",
-      type: "text",
+        "Which deal to update — search your HubSpot deals by name, paste a deal ID, or insert one from an earlier step (e.g. Create Deal or Get Deals).",
+      type: "combobox",
+      optionsSource: "hubspot:deals",
+      allowManualEntry: true,
       required: true,
-      placeholder: "12345",
+      placeholder: "Search deals or paste an ID…",
     },
     {
       name: "dealname",

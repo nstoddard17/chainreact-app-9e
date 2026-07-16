@@ -49,6 +49,8 @@ export const hubspotGetCompaniesMeta: ActionMeta = {
       description:
         "HubSpot property names to return for each company. Add chips one at a time (e.g. `name`, `domain`, `industry`, `annualrevenue`, custom property names). Omit to use HubSpot's default set.",
       type: "string-array",
+      optionsSource: "hubspot:company_properties",
+      allowManualEntry: true,
       required: false,
       advanced: true,
     },
@@ -56,8 +58,10 @@ export const hubspotGetCompaniesMeta: ActionMeta = {
       name: "filterProperty",
       label: "Filter property",
       description:
-        "Optional HubSpot property name to filter on (EQ match). BOTH this field and `Filter value` must be set for the filter to apply.",
-      type: "text",
+        "Optional HubSpot property to filter on (EQ match) — pick from the portal's real properties or type a custom internal name. BOTH this field and `Filter value` must be set for the filter to apply.",
+      type: "combobox",
+      optionsSource: "hubspot:company_properties",
+      allowManualEntry: true,
       required: false,
       placeholder: "domain",
     },

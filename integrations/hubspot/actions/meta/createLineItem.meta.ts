@@ -32,20 +32,25 @@ export const hubspotCreateLineItemMeta: ActionMeta = {
   fields: [
     {
       name: "dealId",
-      label: "Deal ID",
+      label: "Deal",
       description:
-        "The deal this line item belongs to — insert the deal ID from an earlier step (e.g. Create Deal or Get Deals).",
-      type: "text",
+        "The deal this line item belongs to — search your HubSpot deals by name, paste a deal ID, or insert one from an earlier step (e.g. Create Deal or Get Deals).",
+      type: "combobox",
+      optionsSource: "hubspot:deals",
+      allowManualEntry: true,
       required: true,
-      placeholder: "12345",
+      placeholder: "Search deals or paste an ID…",
     },
     {
       name: "hs_product_id",
-      label: "Product ID",
+      label: "Product",
       description:
-        "Link an existing product (Product ID) or type a one-off Name — set at least one. Insert the product ID from an earlier step (e.g. Create Product or Get Products).",
-      type: "text",
+        "Link an existing product — search your HubSpot product library by name or paste a product ID — or type a one-off Name below instead; set at least one.",
+      type: "combobox",
+      optionsSource: "hubspot:products",
+      allowManualEntry: true,
       required: false,
+      placeholder: "Search products or paste an ID…",
     },
     {
       name: "name",

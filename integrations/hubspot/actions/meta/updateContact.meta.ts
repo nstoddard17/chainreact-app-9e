@@ -9,10 +9,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * runtime — the meta keeps every property optional so authors can
  * partial-update.
  *
- * `contactId` is plain text in V1 — the HubSpot contact-search
- * resolver is intentionally deferred per HUBSPOT-1 §4.2 (search-by-
- * email picker is a follow-up polish slice). Authors wire from
- * `{{hubspot:create_contact.contactId}}` / `{{hubspot:get_contacts.contacts[0].id}}`.
+ * `contactId` is a `hubspot:contacts` combobox (RESOLVERS-1 — server-side
+ * name search via the CRM search endpoint; labels are names only, never
+ * emails) with `allowManualEntry` so pasted ids and
+ * `{{hubspot:create_contact.contactId}}` / `{{hubspot:get_contacts.contacts[0].id}}`
+ * wiring keep working.
  *
  * Output mirrors `updateContact.ts:return` exactly — narrower than
  * `create_contact` (no `wasUpdate` / `wasSkip` because update has
@@ -30,12 +31,14 @@ export const hubspotUpdateContactMeta: ActionMeta = {
   fields: [
     {
       name: "contactId",
-      label: "Contact ID",
+      label: "Contact",
       description:
-        "Which contact to update — insert the contact ID from an earlier step (e.g. Create Contact or Get Contacts).",
-      type: "text",
+        "Which contact to update — search your HubSpot contacts by name, paste a contact ID, or insert one from an earlier step (e.g. Create Contact or Get Contacts).",
+      type: "combobox",
+      optionsSource: "hubspot:contacts",
+      allowManualEntry: true,
       required: true,
-      placeholder: "12345",
+      placeholder: "Search contacts or paste an ID…",
     },
     {
       name: "email",

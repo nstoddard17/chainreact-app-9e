@@ -401,6 +401,15 @@
       ]
     },
     {
+      "source": "microsoft-excel:table_columns",
+      "provider": "microsoft-excel",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "workbookId",
+        "tableName"
+      ]
+    },
+    {
       "source": "microsoft-excel:tables",
       "provider": "microsoft-excel",
       "requiresIntegration": true,
@@ -474,8 +483,20 @@
       ]
     },
     {
+      "source": "microsoft-onenote:target_sections",
+      "provider": "microsoft-onenote",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "microsoft-outlook-calendar:calendars",
       "provider": "microsoft-outlook-calendar",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "microsoft-outlook:categories",
+      "provider": "microsoft-outlook",
       "requiresIntegration": true,
       "requiredDeps": null
     },
@@ -492,6 +513,12 @@
       "requiredDeps": [
         "teamId"
       ]
+    },
+    {
+      "source": "microsoft-teams:chats",
+      "provider": "microsoft-teams",
+      "requiresIntegration": true,
+      "requiredDeps": null
     },
     {
       "source": "microsoft-teams:teams",
@@ -609,6 +636,12 @@
       "requiredDeps": null
     },
     {
+      "source": "slack:channels_archived",
+      "provider": "slack",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "slack:group_dms",
       "provider": "slack",
       "requiresIntegration": true,
@@ -617,6 +650,24 @@
     {
       "source": "slack:users",
       "provider": "slack",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "stripe:customers",
+      "provider": "stripe",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "stripe:prices",
+      "provider": "stripe",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "stripe:subscriptions",
+      "provider": "stripe",
       "requiresIntegration": true,
       "requiredDeps": null
     },

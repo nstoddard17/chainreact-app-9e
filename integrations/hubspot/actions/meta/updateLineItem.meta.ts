@@ -24,12 +24,14 @@ export const hubspotUpdateLineItemMeta: ActionMeta = {
   fields: [
     {
       name: "lineItemId",
-      label: "Line item ID",
+      label: "Line item",
       description:
-        "Which line item to update — insert the line item ID from an earlier step (e.g. Create Line Item or Get Line Items).",
-      type: "text",
+        "Which line item to update — search your HubSpot line items by name, paste a line item ID, or insert one from an earlier step (e.g. Create Line Item or Get Line Items).",
+      type: "combobox",
+      optionsSource: "hubspot:line_items",
+      allowManualEntry: true,
       required: true,
-      placeholder: "12345",
+      placeholder: "Search line items or paste an ID…",
     },
     {
       name: "name",

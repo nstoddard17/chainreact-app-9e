@@ -40,6 +40,12 @@ import { hubspotCreateTicketMeta } from "@/integrations/hubspot/actions/meta/cre
 import { hubspotUpdateTicketMeta } from "@/integrations/hubspot/actions/meta/updateTicket.meta";
 import { hubspotCreateContactMeta } from "@/integrations/hubspot/actions/meta/createContact.meta";
 import { hubspotCreateCompanyMeta } from "@/integrations/hubspot/actions/meta/createCompany.meta";
+import { hubspotUpdateContactMeta } from "@/integrations/hubspot/actions/meta/updateContact.meta";
+import { hubspotUpdateCompanyMeta } from "@/integrations/hubspot/actions/meta/updateCompany.meta";
+import { hubspotUpdateLineItemMeta } from "@/integrations/hubspot/actions/meta/updateLineItem.meta";
+import { hubspotRemoveLineItemMeta } from "@/integrations/hubspot/actions/meta/removeLineItem.meta";
+import { hubspotCreateLineItemMeta } from "@/integrations/hubspot/actions/meta/createLineItem.meta";
+import { hubspotCreateNoteMeta } from "@/integrations/hubspot/actions/meta/createNote.meta";
 import { CreateDealConfigSchema } from "@/integrations/hubspot/actions/createDeal.schema";
 import { UpdateDealConfigSchema } from "@/integrations/hubspot/actions/updateDeal.schema";
 import { CreateProductConfigSchema } from "@/integrations/hubspot/actions/createProduct.schema";
@@ -316,6 +322,106 @@ describe("meta defaultValue mirrors the runtime Zod default exactly", () => {
       field(hubspotUpdateTicketMeta, "hs_ticket_priority").defaultValue,
     ).toBeUndefined();
   });
+});
+
+// ─── RESOLVERS-1 — record pickers + property-name pickers + call disposition ──
+
+describe("RESOLVERS-1: update-family id fields are record-search comboboxes with manual entry", () => {
+  const cases: ReadonlyArray<[ActionMeta, string, string]> = [
+    [hubspotUpdateContactMeta, "contactId", "hubspot:contacts"],
+    [hubspotUpdateCompanyMeta, "companyId", "hubspot:companies"],
+    [hubspotUpdateDealMeta, "dealId", "hubspot:deals"],
+    [hubspotUpdateTicketMeta, "ticketId", "hubspot:tickets"],
+    [hubspotUpdateProductMeta, "productId", "hubspot:products"],
+    [hubspotUpdateLineItemMeta, "lineItemId", "hubspot:line_items"],
+    [hubspotRemoveLineItemMeta, "lineItemId", "hubspot:line_items"],
+    [hubspotCreateLineItemMeta, "dealId", "hubspot:deals"],
+  ];
+
+  it.each(cases.map(([m, f, s]) => [`${m.key}.${f}`, m, f, s] as const))(
+    "%s: required combobox + allowManualEntry (ids stay pasteable / wireable)",
+    (_name, meta, fieldName, source) => {
+      const f = field(meta, fieldName);
+      expect(f.type).toBe("combobox");
+      expect(f.optionsSource).toBe(source);
+      expect(f.allowManualEntry).toBe(true);
+      expect(f.required).toBe(true);
+    },
+  );
+
+  it("create_line_item.hs_product_id: OPTIONAL hubspot:products combobox + manual entry (one-off Name stays possible)", () => {
+    const f = field(hubspotCreateLineItemMeta, "hs_product_id");
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("hubspot:products");
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.required).toBe(false);
+  });
+});
+
+describe("RESOLVERS-1: engagement association fields are record comboboxes with manual entry", () => {
+  const engagements: ReadonlyArray<ActionMeta> = [
+    hubspotCreateNoteMeta,
+    hubspotCreateTaskMeta,
+    hubspotCreateCallMeta,
+    hubspotCreateMeetingMeta,
+  ];
+  const assoc: ReadonlyArray<[string, string]> = [
+    ["associatedContactId", "hubspot:contacts"],
+    ["associatedCompanyId", "hubspot:companies"],
+    ["associatedDealId", "hubspot:deals"],
+    ["associatedTicketId", "hubspot:tickets"],
+  ];
+
+  it.each(
+    engagements.flatMap((meta) =>
+      assoc.map(([fieldName, source]) => [`${meta.key}.${fieldName}`, meta, fieldName, source] as const),
+    ),
+  )("%s: optional combobox + allowManualEntry", (_name, meta, fieldName, source) => {
+    const f = field(meta, fieldName);
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe(source);
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.required).toBe(false);
+  });
+});
+
+describe("RESOLVERS-1: create_call.hs_call_disposition — portal call-outcome picker", () => {
+  it("optional hubspot:call_disposition combobox + allowManualEntry (custom GUIDs stay pasteable)", () => {
+    const f = field(hubspotCreateCallMeta, "hs_call_disposition");
+    expect(f.type).toBe("combobox");
+    expect(f.optionsSource).toBe("hubspot:call_disposition");
+    expect(f.allowManualEntry).toBe(true);
+    expect(f.required).toBe(false);
+  });
+});
+
+describe("RESOLVERS-1: get-family filterProperty + properties consume the property-name resolvers", () => {
+  const cases: ReadonlyArray<[ActionMeta, string]> = [
+    [hubspotGetContactsMeta, "hubspot:contact_properties"],
+    [hubspotGetCompaniesMeta, "hubspot:company_properties"],
+    [hubspotGetDealsMeta, "hubspot:deal_properties"],
+    [hubspotGetTicketsMeta, "hubspot:ticket_properties"],
+    [hubspotGetProductsMeta, "hubspot:product_properties"],
+    [hubspotGetLineItemsMeta, "hubspot:line_item_properties"],
+  ];
+
+  it.each(cases.map(([m, s]) => [m.key, m, s] as const))(
+    "%s: filterProperty = combobox + manual, properties = per-chip string-array picker + manual (both optional, properties stays advanced)",
+    (_key, meta, source) => {
+      const filterProperty = field(meta, "filterProperty");
+      expect(filterProperty.type).toBe("combobox");
+      expect(filterProperty.optionsSource).toBe(source);
+      expect(filterProperty.allowManualEntry).toBe(true);
+      expect(filterProperty.required).toBe(false);
+
+      const properties = field(meta, "properties");
+      expect(properties.type).toBe("string-array");
+      expect(properties.optionsSource).toBe(source);
+      expect(properties.allowManualEntry).toBe(true);
+      expect(properties.required).toBe(false);
+      expect(properties.advanced).toBe(true);
+    },
+  );
 });
 
 describe("create_task reminders — advanced escape hatch", () => {

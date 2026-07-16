@@ -8,12 +8,13 @@
  * focuses on:
  *   - meta-shape guard: isDestructive=true + requiresConfirmation=true
  *     + riskLevel=high + riskDescription present + single required
- *     lineItemId text field + narrow {lineItemId, deleted} outputs
- *     with neither sensitive.
- *   - end-to-end: pick action → fill lineItemId → Modal Save flushes
- *     draft → Toolbar Save persists exactly once with the EXACT
- *     runtime field name (`lineItemId` — NOT camelCased / underscored
- *     / `id`).
+ *     lineItemId `hubspot:line_items` combobox (RESOLVERS-1) with
+ *     allowManualEntry + narrow {lineItemId, deleted} outputs with
+ *     neither sensitive.
+ *   - end-to-end: pick action → pick a line item from the resolver-
+ *     backed combobox → Modal Save flushes draft → Toolbar Save
+ *     persists exactly once with the EXACT runtime field name
+ *     (`lineItemId` — NOT camelCased / underscored / `id`).
  *
  * Out of scope (covered separately):
  *   - The confirmation modal UI itself — owned by the cross-provider
@@ -54,6 +55,7 @@ jest.mock("@/lib/api/options", () => ({
 }));
 
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
+import { pickComboboxOption } from "./helpers/comboboxField";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -113,13 +115,30 @@ beforeEach(() => {
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
   mockFetchOptionsSource.mockReset();
-  // remove_line_item has no optionsSource fields — defensive guard.
-  mockFetchOptionsSource.mockImplementation(async (source: string) => ({
-    ok: false,
-    source,
-    code: "SOURCE_NOT_FOUND",
-    message: `Unknown source '${source}' (test mock).`,
-  }));
+  // RESOLVERS-1 — lineItemId is a `hubspot:line_items` combobox. The mock
+  // mirrors the resolver contract: value = id, label = name, description = id.
+  mockFetchOptionsSource.mockImplementation(async (source: string) =>
+    source === "hubspot:line_items"
+      ? {
+          ok: true,
+          source,
+          items: [
+            {
+              value: LINE_ITEM_ID,
+              label: "Pro Plan x3",
+              description: LINE_ITEM_ID,
+            },
+            { value: "111", label: "Starter Plan", description: "111" },
+          ],
+          hasMore: false,
+        }
+      : {
+          ok: false,
+          source,
+          code: "SOURCE_NOT_FOUND",
+          message: `Unknown source '${source}' (test mock).`,
+        },
+  );
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -129,7 +148,7 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("HubSpot remove_line_item meta declares the full destructive trio (high + isDestructive + requiresConfirmation) with riskDescription, single required text lineItemId, narrow non-sensitive outputs — Slice 3.HUBSPOT-5 meta guard", () => {
+it("HubSpot remove_line_item meta declares the full destructive trio (high + isDestructive + requiresConfirmation) with riskDescription, single required lineItemId combobox + manual entry, narrow non-sensitive outputs — Slice 3.HUBSPOT-5 meta guard", () => {
   // Risk classification — the contract superRefine in actionMeta.ts
   // already enforces "isDestructive=true requires riskLevel=high",
   // but pin it from the test side too because this is the sole
@@ -141,12 +160,16 @@ it("HubSpot remove_line_item meta declares the full destructive trio (high + isD
   expect(hubspotRemoveLineItemMeta.riskDescription).toBeDefined();
   expect(hubspotRemoveLineItemMeta.riskDescription!.length).toBeGreaterThan(0);
 
-  // Field shape — single required text id, no other config.
+  // Field shape — single required record picker (RESOLVERS-1:
+  // `hubspot:line_items` combobox; manual entry keeps pasted ids +
+  // `{{...}}` wiring working), no other config.
   expect(hubspotRemoveLineItemMeta.fields.map((f) => f.name)).toEqual([
     "lineItemId",
   ]);
   const lineItemIdField = hubspotRemoveLineItemMeta.fields[0]!;
-  expect(lineItemIdField.type).toBe("text");
+  expect(lineItemIdField.type).toBe("combobox");
+  expect(lineItemIdField.optionsSource).toBe("hubspot:line_items");
+  expect(lineItemIdField.allowManualEntry).toBe(true);
   expect(lineItemIdField.required).toBe(true);
 
   // Output shape — narrow {lineItemId, deleted}, neither sensitive
@@ -167,7 +190,7 @@ it("HubSpot remove_line_item meta declares the full destructive trio (high + isD
   expect(hubspotRemoveLineItemMeta.consumesFileRef).toBe(false);
 });
 
-it("end-to-end: pick Remove Line Item action → fill lineItemId → Modal Save → Toolbar Save persists ONCE with EXACT runtime field name `lineItemId`", async () => {
+it("end-to-end: pick Remove Line Item action → pick a line item from the combobox → Modal Save → Toolbar Save persists ONCE with EXACT runtime field name `lineItemId`", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -203,19 +226,17 @@ it("end-to-end: pick Remove Line Item action → fill lineItemId → Modal Save 
   expect(action.provider).toBe("hubspot");
   expect(action.type).toBe("remove_line_item");
 
-  // 3. Open config rail. Expected single text input.
+  // 3. Open config rail. Expected single `hubspot:line_items` combobox.
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("textbox", { name: /^line item id$/i }),
+      screen.getByRole("combobox", { name: /^line item$/i }),
     ).toBeInTheDocument();
   });
 
-  // 4. Fill lineItemId.
-  await user.type(
-    screen.getByRole("textbox", { name: /^line item id$/i }),
-    LINE_ITEM_ID,
-  );
+  // 4. Pick the line item from the resolver-backed combobox — commits the
+  //    stable id VALUE while the picker showed the human name label.
+  await pickComboboxOption(user, /^line item$/i, "Pro Plan x3");
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.lineItemId,
   ).toBe(LINE_ITEM_ID);
@@ -256,9 +277,13 @@ it("end-to-end: pick Remove Line Item action → fill lineItemId → Modal Save 
   expect(persistedAction.type).toBe("remove_line_item");
   expect(persistedAction.config.lineItemId).toBe(LINE_ITEM_ID);
 
-  // Resolver was never hit — remove_line_item has no optionsSource
-  // fields. Any non-zero count would indicate a meta-shape regression.
-  expect(mockFetchOptionsSource).not.toHaveBeenCalled();
+  // The resolver was consulted for the `hubspot:line_items` picker —
+  // and ONLY that source (no stray option fetches).
+  const sourcesFetched = mockFetchOptionsSource.mock.calls.map(
+    (c) => c[0] as string,
+  );
+  expect(sourcesFetched.length).toBeGreaterThan(0);
+  expect(new Set(sourcesFetched)).toEqual(new Set(["hubspot:line_items"]));
 
   // Single updateWorkflow call.
   expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);
