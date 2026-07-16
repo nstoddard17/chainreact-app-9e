@@ -33,6 +33,7 @@ import {
 import { validateRoutesValue } from "./fields/_routesValidator";
 import { collectJsonFieldBlockingError } from "./fields/_jsonFieldValue";
 import { NodeConfigReadinessBanner } from "./NodeConfigReadinessBanner";
+import { NodeConfigOverview } from "./NodeConfigOverview";
 import { computeConfigReadiness } from "./readiness/computeConfigReadiness";
 import { connectionInputForProvider } from "./readiness/connectionInput";
 import { useConnectionReadiness } from "../hooks/useConnectionReadiness";
@@ -411,6 +412,16 @@ export function ConfigModalShell() {
       ) : (
       <section aria-label="Setup fields" className="flex flex-col gap-3">
         {readiness ? <NodeConfigReadinessBanner readiness={readiness} /> : null}
+        {/* CONFIG-UX-NODE-SUMMARY-1 — what this step will do on every run,
+            in plain language with recognizable resource names. Read-only;
+            renders nothing until something is configured. */}
+        {activeMeta ? (
+          <NodeConfigOverview
+            displayName={activeMeta.displayName}
+            fields={activeMeta.fields}
+            values={values as Readonly<Record<string, unknown>>}
+          />
+        ) : null}
         <div className="flex flex-col gap-1">
           <label
             htmlFor="node-name-input"

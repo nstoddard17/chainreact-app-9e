@@ -24,6 +24,7 @@ import type { OptionItem } from "@/lib/api/options";
 import { normalizeDependsOn } from "@/contracts/actionMeta";
 import { useGraphSlice } from "../../state/graphSlice";
 import { useConfigSlice } from "../../state/configSlice";
+import { useResourceLabelCache } from "../../state/resourceLabelCache";
 import { useActiveNodeUpstreamVariables } from "../../hooks/useActiveNodeUpstreamVariables";
 import { VariablePickerButton } from "./VariablePickerButton";
 import { FieldSetupHint } from "./FieldSetupHint";
@@ -124,6 +125,21 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
     }
     return null;
   }, [selectedSnapshot, state, value]);
+
+  // CONFIG-UX-NODE-SUMMARY-1 — feed every loaded option's label into the shared
+  // resource-label cache so node summaries can show recognizable names instead
+  // of stored ids. Display-only: the saved value is untouched.
+  const setLabels = useResourceLabelCache((s) => s.setLabels);
+  const optionsSource = field.optionsSource;
+  React.useEffect(() => {
+    if (!optionsSource) return;
+    if (state.status !== "ready" && state.status !== "loading") return;
+    if (state.items.length === 0) return;
+    setLabels(
+      optionsSource,
+      state.items.map((o) => ({ value: o.value, label: o.label })),
+    );
+  }, [optionsSource, state, setLabels]);
 
   const triggerLabel = value
     ? (knownSelected?.label ?? value)

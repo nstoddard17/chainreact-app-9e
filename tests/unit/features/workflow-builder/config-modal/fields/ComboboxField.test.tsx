@@ -707,6 +707,7 @@ describe("ComboboxField — saved value missing from the loaded list (RESOLVERS-
         { value: "C1", label: "#general" },
         { value: "C2", label: "#random" },
       ],
+      hasMore: false,
     } as UseOptionsSourceState);
     const onChange = jest.fn();
     render(
@@ -732,6 +733,7 @@ describe("ComboboxField — saved value missing from the loaded list (RESOLVERS-
     setHookState({
       status: "ready",
       items: [{ value: "C1", label: "#general" }],
+      hasMore: false,
     } as UseOptionsSourceState);
     const { rerender } = render(
       <ComboboxField field={asyncField()} value="C1" onChange={jest.fn()} />,
