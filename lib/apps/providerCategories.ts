@@ -96,6 +96,7 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   eden: "Social",
   // Analytics
   "google-analytics": "Analytics",
+  "microsoft-powerbi": "Analytics",
   // Developer
   github: "Developer",
 };
@@ -134,6 +135,8 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
   facebook: "Watch posts and comments.",
   eden: "Research creators, save to boards, and schedule social posts.",
   "google-analytics": "Pull reports and traffic metrics.",
+  "microsoft-powerbi":
+    "Refresh semantic models, run DAX, export reports, and deploy pipelines.",
   github: "Watch issues, PRs, and commits.",
 };
 

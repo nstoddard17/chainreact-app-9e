@@ -318,6 +318,11 @@ import {
   MICROSOFT_EXCEL_ACTION_METAS,
   MICROSOFT_EXCEL_TRIGGER_METAS,
 } from "./providers/microsoft-excel";
+// Microsoft Power BI — 47 actions (8 domains) + 16 polling triggers.
+import {
+  MICROSOFT_POWERBI_ACTION_METAS,
+  MICROSOFT_POWERBI_TRIGGER_METAS,
+} from "./providers/microsoft-powerbi";
 // Airtable (Slice 4.AIRTABLE-META-3) — 11 actions + 1 webhook trigger.
 import {
   AIRTABLE_ACTION_METAS,
@@ -651,6 +656,7 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...GOOGLE_ANALYTICS_ACTION_METAS, // Google Analytics (GOOGLE-ANALYTICS-4) — 6 actions, displayOrder 10..60.
   ...SHOPIFY_ACTION_METAS, // Shopify (SHOPIFY-META-2) — 11 actions, displayOrder 10..110.
   ...MICROSOFT_EXCEL_ACTION_METAS, // Microsoft Excel (EXCEL-META-3) — 10 actions, displayOrder 10..100.
+  ...MICROSOFT_POWERBI_ACTION_METAS, // Microsoft Power BI — 47 actions, displayOrder 10..810.
   ...AIRTABLE_ACTION_METAS, // Airtable (AIRTABLE-META-3) — 11 actions, displayOrder 10..110.
   ...TRELLO_ACTION_METAS, // Trello (TRELLO-META-3) — 8 actions, displayOrder 10..80.
   ...EDEN_ACTION_METAS, // Eden (EDEN-4) — 7 MCP actions (batch 1), displayOrder 10..33.
@@ -770,6 +776,18 @@ export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // <type>, ...), so the trigger-meta-activation-invariant test is
   // satisfied without an exemption.
   ...MICROSOFT_EXCEL_TRIGGER_METAS,
+  // Microsoft Power BI — 16 polling triggers (refresh/job lifecycle for
+  // semantic models, dataflows, imports, and pipeline deployments; DAX
+  // condition/result watches; gateway datasource status; workspace item +
+  // access diffs), displayOrder 10..160. Power BI exposes no author-safe
+  // outbound webhook for these resources, so every trigger polls with an
+  // activation-seeded baseline (first poll after activation fires zero
+  // events). Each registers an activation hook in its
+  // triggers/<event>/index.ts → registerActivation("microsoft-powerbi",
+  // <type>, ...), satisfying the trigger-meta-activation-invariant test
+  // without an exemption. Tenant-admin governance triggers are deliberately
+  // NOT shipped — see docs/providers/microsoft-powerbi/owner-setup-report.md.
+  ...MICROSOFT_POWERBI_TRIGGER_METAS,
   // Airtable (AIRTABLE-META-3) — 1 webhook trigger (`record_changed`,
   // consolidated per-base subscription; workflows branch on
   // payload.eventType). Activation registered in

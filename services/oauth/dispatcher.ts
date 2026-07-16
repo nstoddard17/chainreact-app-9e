@@ -25,6 +25,7 @@ import { hubspotOAuth } from "@/integrations/hubspot/oauth";
 import { mailchimpOAuth } from "@/integrations/mailchimp/oauth";
 import { mondayOAuth } from "@/integrations/monday/oauth";
 import { microsoftExcelOAuth } from "@/integrations/microsoft-excel/oauth";
+import { microsoftPowerBiOAuth } from "@/integrations/microsoft-powerbi/oauth";
 import { microsoftOneDriveOAuth } from "@/integrations/microsoft-onedrive/oauth";
 import { microsoftOneNoteOAuth } from "@/integrations/microsoft-onenote/oauth";
 import { microsoftOutlookOAuth } from "@/integrations/microsoft-outlook/oauth";
@@ -81,6 +82,7 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   "microsoft-onedrive": microsoftOneDriveOAuth,
   "microsoft-onenote": microsoftOneNoteOAuth,
   "microsoft-excel": microsoftExcelOAuth,
+  "microsoft-powerbi": microsoftPowerBiOAuth,
   "microsoft-teams": microsoftTeamsOAuth,
   notion: notionOAuth,
   airtable: airtableOAuth,

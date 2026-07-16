@@ -143,9 +143,25 @@ describe("certification seed split — data invariance", () => {
     // (21 -> 57). Live certification for eden is tracked in the EDEN slice
     // docs, not this matrix, until fixtures exist.
     // 350 registered / 273 LIVE_PASS / 57 MISSING / 20 BLOCKED_ENV.
-    expect(m.totals.registered).toBe(350);
+    // MICROSOFT-POWERBI (2026-07-16): +47 registered (12 semantic-model, 7
+    // report/export, 2 import, 4 dataflow, 10 pipeline, 5 workspace, 5 gateway,
+    // 2 capacity), all 47 fixtures authored (10 read + 37 write) and now
+    // registered in fixtures.ts. Registering a fixture moves a row
+    // MISSING_FIXTURE -> LIVE_NOT_RUN (the matrix derives status from
+    // fixture-presence + explicit cert records ONLY — it never reads
+    // `requiredEnv`), so the 47 land in liveNotRun, NOT blockedEnv: no
+    // microsoft-powerbi certification records are seeded yet. The fixtures are
+    // still env-gated at RUN time (SMOKE_MICROSOFT_POWERBI_CONNECTED +
+    // SMOKE_POWERBI_*), so nothing executes live pre-owner-setup. Seeding the
+    // 47 BLOCKED_ENV records (the QUICKBOOKS-1 precedent, which is why that
+    // batch moved blockedEnv) is a separate deliberate step; Phase 13 live
+    // certification flips them after owner setup.
+    // missingFixture nets back to 57: 57 + 47 powerbi (registered, no fixtures)
+    // = 104 before this batch, - 47 now that the fixtures are wired.
+    // 397 registered / 273 LIVE_PASS / 47 LIVE_NOT_RUN / 57 MISSING / 20 BLOCKED_ENV.
+    expect(m.totals.registered).toBe(397);
     expect(m.totals.livePass).toBe(273);
-    expect(m.totals.liveNotRun).toBe(0);
+    expect(m.totals.liveNotRun).toBe(47);
     expect(m.totals.missingFixture).toBe(57);
     expect(m.totals.blockedEnv).toBe(20);
     expect(m.totals.fail).toBe(0);

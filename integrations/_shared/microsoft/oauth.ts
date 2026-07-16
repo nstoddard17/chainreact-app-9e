@@ -143,6 +143,14 @@ interface MicrosoftTokenSuccess {
   expires_in: number;
   scope?: string;
   token_type?: string;
+  /**
+   * OIDC id_token, present when the authorize request included `openid`.
+   * Graph-scoped providers ignore it (they resolve identity via Graph
+   * `/me`); non-Graph-audience providers (Power BI) need it because
+   * their access token cannot call Graph. Surfaced additively via
+   * `MicrosoftTokenExchangeResult.idToken`.
+   */
+  id_token?: string;
 }
 
 interface MicrosoftTokenError {
@@ -159,6 +167,14 @@ export interface MicrosoftTokenExchangeResult {
   /** Epoch seconds, or null if Microsoft's response omitted expires_in. */
   expiresAt: number | null;
   scopesGranted: string[];
+  /**
+   * OIDC id_token when the scope list included `openid`; null otherwise.
+   * Consumed by providers whose access token audience is NOT Microsoft
+   * Graph (e.g. Power BI) to resolve the connected account's email
+   * without a Graph `/me` call. Additive — Graph-scoped providers
+   * ignore it.
+   */
+  idToken: string | null;
 }
 
 export async function exchangeMicrosoftAuthCode(input: {
@@ -213,6 +229,7 @@ export async function exchangeMicrosoftAuthCode(input: {
     refreshToken: tokenJson.refresh_token,
     expiresAt,
     scopesGranted,
+    idToken: tokenJson.id_token ?? null,
   };
 }
 

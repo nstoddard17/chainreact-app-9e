@@ -22,6 +22,7 @@ import { googleSheetsManifest } from "./google-sheets/manifest";
 import { microsoftExcelManifest } from "./microsoft-excel/manifest";
 import { microsoftOneDriveManifest } from "./microsoft-onedrive/manifest";
 import { microsoftOneNoteManifest } from "./microsoft-onenote/manifest";
+import { microsoftPowerBiManifest } from "./microsoft-powerbi/manifest";
 import { microsoftOutlookManifest } from "./microsoft-outlook/manifest";
 import { microsoftOutlookCalendarManifest } from "./microsoft-outlook-calendar/manifest";
 import { microsoftTeamsManifest } from "./microsoft-teams/manifest";
@@ -72,6 +73,28 @@ import "./microsoft-excel/triggers/newTableRow";
 import "./microsoft-excel/triggers/newWorksheet";
 import "./microsoft-excel/triggers/updatedRow";
 import "./microsoft-excel/triggers/updatedTableRow";
+// Microsoft Power BI — 16 polling triggers. Power BI exposes no author-safe
+// outbound webhook for these resources, so everything polls with an
+// activation-seeded baseline (first poll after activation fires zero events).
+// Each index.ts registers ONLY its activation hook; the single shared
+// `microsoftPowerBiPollingHandler` (covering all 16 event types via its
+// canHandle predicate) is registered once, by semanticModelRefreshCompleted.
+import "./microsoft-powerbi/triggers/semanticModelRefreshCompleted";
+import "./microsoft-powerbi/triggers/semanticModelRefreshFailed";
+import "./microsoft-powerbi/triggers/semanticModelRefreshCanceled";
+import "./microsoft-powerbi/triggers/dataflowRefreshCompleted";
+import "./microsoft-powerbi/triggers/dataflowRefreshFailed";
+import "./microsoft-powerbi/triggers/dataflowRefreshCanceled";
+import "./microsoft-powerbi/triggers/importCompleted";
+import "./microsoft-powerbi/triggers/importFailed";
+import "./microsoft-powerbi/triggers/pipelineDeploymentCompleted";
+import "./microsoft-powerbi/triggers/pipelineDeploymentFailed";
+import "./microsoft-powerbi/triggers/daxConditionMet";
+import "./microsoft-powerbi/triggers/daxQueryResultChanged";
+import "./microsoft-powerbi/triggers/gatewayDatasourceStatusChanged";
+import "./microsoft-powerbi/triggers/workspaceItemAdded";
+import "./microsoft-powerbi/triggers/workspaceItemRemoved";
+import "./microsoft-powerbi/triggers/workspaceAccessChanged";
 import "./microsoft-teams/triggers/newChannelMessage";
 import "./airtable/triggers/recordChanged";
 import "./stripe/triggers/eventReceived";
@@ -212,6 +235,7 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   microsoftOutlookCalendarManifest,
   microsoftOneDriveManifest,
   microsoftOneNoteManifest,
+  microsoftPowerBiManifest,
   microsoftExcelManifest,
   microsoftTeamsManifest,
   notionManifest,

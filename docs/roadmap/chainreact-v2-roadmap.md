@@ -82,6 +82,24 @@ skill end to end: research → v2-pattern-audit → implementation plan → buil
 owner setup report → live completion certification. No net-new provider ships without a
 `v2-pattern-audit.md` and a roadmap entry.
 
+**Added providers:**
+
+- **Microsoft Power BI** (`microsoft-powerbi`) — 2026-07-16, **code-complete; owner setup
+  required** (local/unpushed). Analytics-category provider covering the Power BI REST API's
+  stable v1.0 surface: 47 typed actions across 8 domains (semantic models, reports/exports,
+  imports, dataflows, deployment pipelines, workspaces, gateways, capacities), 16 baseline-first
+  polling triggers, and 23 cascading option sources. Reuses the shared Microsoft Entra app;
+  first non-Graph audience on it (Power BI resource scopes; identity resolved from the OIDC
+  `id_token` because a Power BI-audience token cannot call Graph `/me`). Selection gate:
+  *valued* (refresh/report-delivery/deployment automation is the top Power BI ask);
+  *supported* (all shipped nodes map to documented delegated-scope v1.0 endpoints);
+  *fits* (polling + FileRef + option-source patterns already exist); *certifiable* (pending
+  Marcus's Entra permission grant + a Pro-licensed test tenant). Tenant-admin governance
+  triggers are **deliberately not shipped** — `Tenant.Read.All` is admin-consent-gated and
+  would break connect for non-admin users; they need an optional-scope consent flow first.
+  Docs → [`docs/providers/microsoft-powerbi/`](../providers/microsoft-powerbi/)
+  (research · v2-pattern-audit · implementation-plan · owner-setup-report).
+
 ### Ongoing hardening
 
 - Extend engine coverage (parallel branch/loop execution, per-handler timeouts + circuit

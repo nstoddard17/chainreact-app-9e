@@ -689,6 +689,14 @@
       ]
     },
     {
+      "source": "microsoft-powerbi:pipeline_operations",
+      "provider": "microsoft-powerbi",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "pipelineId"
+      ]
+    },
+    {
       "source": "microsoft-powerbi:pipeline_stage_dashboards",
       "provider": "microsoft-powerbi",
       "requiresIntegration": true,
@@ -773,11 +781,28 @@
       ]
     },
     {
+      "source": "microsoft-powerbi:semantic_model_refreshes",
+      "provider": "microsoft-powerbi",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "workspaceId",
+        "semanticModelId"
+      ]
+    },
+    {
       "source": "microsoft-powerbi:semantic_models",
       "provider": "microsoft-powerbi",
       "requiresIntegration": true,
       "requiredDeps": [
         "workspaceId"
+      ]
+    },
+    {
+      "source": "microsoft-powerbi:target_semantic_models",
+      "provider": "microsoft-powerbi",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "targetWorkspaceId"
       ]
     },
     {

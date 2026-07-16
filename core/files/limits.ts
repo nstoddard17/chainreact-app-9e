@@ -48,6 +48,13 @@ export const FILE_REF_SIZE_GUIDANCE = {
   // upload_session flow (deferred — FACEBOOK-N). upload_photo / upload_video
   // warn past this conservative bound; Graph enforces the hard cap.
   facebook: 25 * MB,
+  // Microsoft Power BI — `import_power_bi_file` posts the .pbix through the
+  // direct multipart path, which Microsoft documents at 1 GB. (The 1–10 GB
+  // range needs the Premium-only temporary-upload-location flow, which the
+  // provider deliberately does not ship.) The advisory number matches the
+  // direct-path ceiling rather than the 25 MB default, which would
+  // false-warn on ordinary .pbix files; Power BI enforces the hard cap.
+  "microsoft-powerbi": 1024 * MB,
 } as const;
 
 export type FileRefSizeGuidanceProvider = keyof typeof FILE_REF_SIZE_GUIDANCE;

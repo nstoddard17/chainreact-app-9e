@@ -275,8 +275,14 @@ export default [
   // of the registry can stay small; splitting them further by alphabetical
   // halves hurts review (the reviewer reads a single PR diff to see exactly
   // which providers a slice covers — that's the whole point of explicit
-  // hand-maintained registration). Capped at 800 LOC to leave headroom for
-  // future providers without auto-allowing unbounded growth.
+  // hand-maintained registration). Capped to leave headroom for future
+  // providers without auto-allowing unbounded growth. Raised 800→900 for
+  // Microsoft Power BI, whose 47 typed actions (one endpoint per action —
+  // the typed-and-narrow rule is what makes the catalog this large) consumed
+  // the prior headroom. A provider batch raising this pin deliberately is the
+  // intended workflow; the pin exists to keep drift visible, not to cap the
+  // provider set. If it needs raising again, prefer that over splitting: the
+  // single reviewable list is the point.
   {
     files: [
       "services/discovery/_metaInventory.ts",
@@ -285,7 +291,7 @@ export default [
     rules: {
       "max-lines": [
         "warn",
-        { max: 800, skipBlankLines: true, skipComments: true },
+        { max: 900, skipBlankLines: true, skipComments: true },
       ],
     },
   },

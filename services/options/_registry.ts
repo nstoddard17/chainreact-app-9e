@@ -465,13 +465,16 @@ import { microsoftOneNoteTargetSectionsResolver } from "@/integrations/microsoft
 import { microsoftPowerBiWorkspacesResolver } from "@/integrations/microsoft-powerbi/options/workspaces";
 import { microsoftPowerBiSemanticModelsResolver } from "@/integrations/microsoft-powerbi/options/semanticModels";
 import { microsoftPowerBiSemanticModelParametersResolver } from "@/integrations/microsoft-powerbi/options/semanticModelParameters";
+import { microsoftPowerBiSemanticModelRefreshesResolver } from "@/integrations/microsoft-powerbi/options/semanticModelRefreshes";
 import { microsoftPowerBiReportsResolver } from "@/integrations/microsoft-powerbi/options/reports";
+import { microsoftPowerBiTargetSemanticModelsResolver } from "@/integrations/microsoft-powerbi/options/targetSemanticModels";
 import { microsoftPowerBiPaginatedReportsResolver } from "@/integrations/microsoft-powerbi/options/paginatedReports";
 import { microsoftPowerBiReportPagesResolver } from "@/integrations/microsoft-powerbi/options/reportPages";
 import { microsoftPowerBiImportsResolver } from "@/integrations/microsoft-powerbi/options/imports";
 import { microsoftPowerBiDataflowsResolver } from "@/integrations/microsoft-powerbi/options/dataflows";
 import { microsoftPowerBiDataflowTransactionsResolver } from "@/integrations/microsoft-powerbi/options/dataflowTransactions";
 import { microsoftPowerBiPipelinesResolver } from "@/integrations/microsoft-powerbi/options/pipelines";
+import { microsoftPowerBiPipelineOperationsResolver } from "@/integrations/microsoft-powerbi/options/pipelineOperations";
 import { microsoftPowerBiPipelineStagesResolver } from "@/integrations/microsoft-powerbi/options/pipelineStages";
 import { microsoftPowerBiPipelineStageSemanticModelsResolver } from "@/integrations/microsoft-powerbi/options/pipelineStageSemanticModels";
 import { microsoftPowerBiPipelineStageReportsResolver } from "@/integrations/microsoft-powerbi/options/pipelineStageReports";
@@ -838,12 +841,17 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // RESOLVERS-1 — copy_page.targetSectionId flat all-notebooks picker
   // ("Notebook › Section", dep-less — copy_page schema is .strict()).
   microsoftOneNoteTargetSectionsResolver,
-  // Microsoft Power BI — 21 sources. Cascade roots first, then children in
+  // Microsoft Power BI — 24 sources. Cascade roots first, then children in
   // dependency order (workspace → model/report/dataflow/import → leaf;
   // pipeline → stage → stage artifacts; gateway → datasource → users).
+  // `target_semantic_models` mirrors `semantic_models` on a `targetWorkspaceId`
+  // dep (clone_report's target-workspace cascade) — deps are keyed by the
+  // parent FIELD name, so the dep name, not the resolver, has to match.
   microsoftPowerBiWorkspacesResolver,
   microsoftPowerBiSemanticModelsResolver,
+  microsoftPowerBiTargetSemanticModelsResolver,
   microsoftPowerBiSemanticModelParametersResolver,
+  microsoftPowerBiSemanticModelRefreshesResolver,
   microsoftPowerBiReportsResolver,
   microsoftPowerBiPaginatedReportsResolver,
   microsoftPowerBiReportPagesResolver,
@@ -851,6 +859,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   microsoftPowerBiDataflowsResolver,
   microsoftPowerBiDataflowTransactionsResolver,
   microsoftPowerBiPipelinesResolver,
+  microsoftPowerBiPipelineOperationsResolver,
   microsoftPowerBiPipelineStagesResolver,
   microsoftPowerBiPipelineStageSemanticModelsResolver,
   microsoftPowerBiPipelineStageReportsResolver,

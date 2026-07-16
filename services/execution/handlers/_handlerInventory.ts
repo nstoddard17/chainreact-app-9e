@@ -1,3 +1,54 @@
+// Microsoft Power BI — 47 typed actions across 8 domains (semantic models,
+// reports/exports, imports, dataflows, deployment pipelines, workspaces,
+// gateways, capacities). Domain subfolders keep every leaf dir under the
+// 50-file cap. Plan: docs/providers/microsoft-powerbi/implementation-plan.md.
+import { bindSemanticModelToGateway as powerbiBindSemanticModelToGateway } from "@/integrations/microsoft-powerbi/actions/semantic_models/bindSemanticModelToGateway";
+import { cancelSemanticModelRefresh as powerbiCancelSemanticModelRefresh } from "@/integrations/microsoft-powerbi/actions/semantic_models/cancelSemanticModelRefresh";
+import { executeDaxQuery as powerbiExecuteDaxQuery } from "@/integrations/microsoft-powerbi/actions/semantic_models/executeDaxQuery";
+import { getQueryScaleOutSyncStatus as powerbiGetQueryScaleOutSyncStatus } from "@/integrations/microsoft-powerbi/actions/semantic_models/getQueryScaleOutSyncStatus";
+import { getSemanticModelRefreshDetails as powerbiGetSemanticModelRefreshDetails } from "@/integrations/microsoft-powerbi/actions/semantic_models/getSemanticModelRefreshDetails";
+import { getSemanticModelRefreshHistory as powerbiGetSemanticModelRefreshHistory } from "@/integrations/microsoft-powerbi/actions/semantic_models/getSemanticModelRefreshHistory";
+import { refreshSemanticModel as powerbiRefreshSemanticModel } from "@/integrations/microsoft-powerbi/actions/semantic_models/refreshSemanticModel";
+import { takeOverSemanticModel as powerbiTakeOverSemanticModel } from "@/integrations/microsoft-powerbi/actions/semantic_models/takeOverSemanticModel";
+import { triggerQueryScaleOutSync as powerbiTriggerQueryScaleOutSync } from "@/integrations/microsoft-powerbi/actions/semantic_models/triggerQueryScaleOutSync";
+import { updateSemanticModelDatasources as powerbiUpdateSemanticModelDatasources } from "@/integrations/microsoft-powerbi/actions/semantic_models/updateSemanticModelDatasources";
+import { updateSemanticModelParameters as powerbiUpdateSemanticModelParameters } from "@/integrations/microsoft-powerbi/actions/semantic_models/updateSemanticModelParameters";
+import { updateSemanticModelRefreshSchedule as powerbiUpdateSemanticModelRefreshSchedule } from "@/integrations/microsoft-powerbi/actions/semantic_models/updateSemanticModelRefreshSchedule";
+import { bindPaginatedReportToGateway as powerbiBindPaginatedReportToGateway } from "@/integrations/microsoft-powerbi/actions/reports/bindPaginatedReportToGateway";
+import { cloneReport as powerbiCloneReport } from "@/integrations/microsoft-powerbi/actions/reports/cloneReport";
+import { exportPaginatedReportToFile as powerbiExportPaginatedReportToFile } from "@/integrations/microsoft-powerbi/actions/reports/exportPaginatedReportToFile";
+import { exportPowerBiReportToFile as powerbiExportPowerBiReportToFile } from "@/integrations/microsoft-powerbi/actions/reports/exportPowerBiReportToFile";
+import { exportReportDefinition as powerbiExportReportDefinition } from "@/integrations/microsoft-powerbi/actions/reports/exportReportDefinition";
+import { rebindReport as powerbiRebindReport } from "@/integrations/microsoft-powerbi/actions/reports/rebindReport";
+import { updatePaginatedReportDatasources as powerbiUpdatePaginatedReportDatasources } from "@/integrations/microsoft-powerbi/actions/reports/updatePaginatedReportDatasources";
+import { getImportStatus as powerbiGetImportStatus } from "@/integrations/microsoft-powerbi/actions/imports/getImportStatus";
+import { importPowerBiFile as powerbiImportPowerBiFile } from "@/integrations/microsoft-powerbi/actions/imports/importPowerBiFile";
+import { cancelDataflowRefresh as powerbiCancelDataflowRefresh } from "@/integrations/microsoft-powerbi/actions/dataflows/cancelDataflowRefresh";
+import { getDataflowRefreshHistory as powerbiGetDataflowRefreshHistory } from "@/integrations/microsoft-powerbi/actions/dataflows/getDataflowRefreshHistory";
+import { refreshDataflow as powerbiRefreshDataflow } from "@/integrations/microsoft-powerbi/actions/dataflows/refreshDataflow";
+import { updateDataflowRefreshSchedule as powerbiUpdateDataflowRefreshSchedule } from "@/integrations/microsoft-powerbi/actions/dataflows/updateDataflowRefreshSchedule";
+import { addOrUpdatePipelineUser as powerbiAddOrUpdatePipelineUser } from "@/integrations/microsoft-powerbi/actions/pipelines/addOrUpdatePipelineUser";
+import { assignWorkspaceToPipelineStage as powerbiAssignWorkspaceToPipelineStage } from "@/integrations/microsoft-powerbi/actions/pipelines/assignWorkspaceToPipelineStage";
+import { createDeploymentPipeline as powerbiCreateDeploymentPipeline } from "@/integrations/microsoft-powerbi/actions/pipelines/createDeploymentPipeline";
+import { deployAllPipelineContent as powerbiDeployAllPipelineContent } from "@/integrations/microsoft-powerbi/actions/pipelines/deployAllPipelineContent";
+import { getPipelineDeploymentHistory as powerbiGetPipelineDeploymentHistory } from "@/integrations/microsoft-powerbi/actions/pipelines/getPipelineDeploymentHistory";
+import { getPipelineDeploymentStatus as powerbiGetPipelineDeploymentStatus } from "@/integrations/microsoft-powerbi/actions/pipelines/getPipelineDeploymentStatus";
+import { removePipelineUser as powerbiRemovePipelineUser } from "@/integrations/microsoft-powerbi/actions/pipelines/removePipelineUser";
+import { selectivelyDeployPipelineContent as powerbiSelectivelyDeployPipelineContent } from "@/integrations/microsoft-powerbi/actions/pipelines/selectivelyDeployPipelineContent";
+import { unassignWorkspaceFromPipelineStage as powerbiUnassignWorkspaceFromPipelineStage } from "@/integrations/microsoft-powerbi/actions/pipelines/unassignWorkspaceFromPipelineStage";
+import { updateDeploymentPipeline as powerbiUpdateDeploymentPipeline } from "@/integrations/microsoft-powerbi/actions/pipelines/updateDeploymentPipeline";
+import { addWorkspaceUser as powerbiAddWorkspaceUser } from "@/integrations/microsoft-powerbi/actions/workspaces/addWorkspaceUser";
+import { createWorkspace as powerbiCreateWorkspace } from "@/integrations/microsoft-powerbi/actions/workspaces/createWorkspace";
+import { removeWorkspaceUser as powerbiRemoveWorkspaceUser } from "@/integrations/microsoft-powerbi/actions/workspaces/removeWorkspaceUser";
+import { updateWorkspace as powerbiUpdateWorkspace } from "@/integrations/microsoft-powerbi/actions/workspaces/updateWorkspace";
+import { updateWorkspaceUser as powerbiUpdateWorkspaceUser } from "@/integrations/microsoft-powerbi/actions/workspaces/updateWorkspaceUser";
+import { addOrUpdateGatewayDatasourceUser as powerbiAddOrUpdateGatewayDatasourceUser } from "@/integrations/microsoft-powerbi/actions/gateways/addOrUpdateGatewayDatasourceUser";
+import { createGatewayDatasource as powerbiCreateGatewayDatasource } from "@/integrations/microsoft-powerbi/actions/gateways/createGatewayDatasource";
+import { removeGatewayDatasourceUser as powerbiRemoveGatewayDatasourceUser } from "@/integrations/microsoft-powerbi/actions/gateways/removeGatewayDatasourceUser";
+import { testGatewayDatasourceConnection as powerbiTestGatewayDatasourceConnection } from "@/integrations/microsoft-powerbi/actions/gateways/testGatewayDatasourceConnection";
+import { updateGatewayDatasourceCredentials as powerbiUpdateGatewayDatasourceCredentials } from "@/integrations/microsoft-powerbi/actions/gateways/updateGatewayDatasourceCredentials";
+import { assignWorkspaceToCapacity as powerbiAssignWorkspaceToCapacity } from "@/integrations/microsoft-powerbi/actions/capacities/assignWorkspaceToCapacity";
+import { getCapacityAssignmentStatus as powerbiGetCapacityAssignmentStatus } from "@/integrations/microsoft-powerbi/actions/capacities/getCapacityAssignmentStatus";
 import { addAttachment as airtableAddAttachment } from "@/integrations/airtable/actions/addAttachment";
 import { createMultipleRecords as airtableCreateMultipleRecords } from "@/integrations/airtable/actions/createMultipleRecords";
 import { createRecord as airtableCreateRecord } from "@/integrations/airtable/actions/createRecord";
@@ -565,6 +616,61 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "microsoft-outlook-calendar", type: "update_event", handler: updateOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "delete_event", handler: deleteOutlookCalendarEvent },
   { provider: "microsoft-outlook-calendar", type: "add_attendees", handler: addOutlookCalendarAttendees },
+  // semantic models
+  { provider: "microsoft-powerbi", type: "bind_semantic_model_to_gateway", handler: powerbiBindSemanticModelToGateway },
+  { provider: "microsoft-powerbi", type: "cancel_semantic_model_refresh", handler: powerbiCancelSemanticModelRefresh },
+  { provider: "microsoft-powerbi", type: "execute_dax_query", handler: powerbiExecuteDaxQuery },
+  { provider: "microsoft-powerbi", type: "get_query_scale_out_sync_status", handler: powerbiGetQueryScaleOutSyncStatus },
+  { provider: "microsoft-powerbi", type: "get_semantic_model_refresh_details", handler: powerbiGetSemanticModelRefreshDetails },
+  { provider: "microsoft-powerbi", type: "get_semantic_model_refresh_history", handler: powerbiGetSemanticModelRefreshHistory },
+  { provider: "microsoft-powerbi", type: "refresh_semantic_model", handler: powerbiRefreshSemanticModel },
+  { provider: "microsoft-powerbi", type: "take_over_semantic_model", handler: powerbiTakeOverSemanticModel },
+  { provider: "microsoft-powerbi", type: "trigger_query_scale_out_sync", handler: powerbiTriggerQueryScaleOutSync },
+  { provider: "microsoft-powerbi", type: "update_semantic_model_datasources", handler: powerbiUpdateSemanticModelDatasources },
+  { provider: "microsoft-powerbi", type: "update_semantic_model_parameters", handler: powerbiUpdateSemanticModelParameters },
+  { provider: "microsoft-powerbi", type: "update_semantic_model_refresh_schedule", handler: powerbiUpdateSemanticModelRefreshSchedule },
+  // reports
+  { provider: "microsoft-powerbi", type: "bind_paginated_report_to_gateway", handler: powerbiBindPaginatedReportToGateway },
+  { provider: "microsoft-powerbi", type: "clone_report", handler: powerbiCloneReport },
+  { provider: "microsoft-powerbi", type: "export_paginated_report_to_file", handler: powerbiExportPaginatedReportToFile },
+  { provider: "microsoft-powerbi", type: "export_power_bi_report_to_file", handler: powerbiExportPowerBiReportToFile },
+  { provider: "microsoft-powerbi", type: "export_report_definition", handler: powerbiExportReportDefinition },
+  { provider: "microsoft-powerbi", type: "rebind_report", handler: powerbiRebindReport },
+  { provider: "microsoft-powerbi", type: "update_paginated_report_datasources", handler: powerbiUpdatePaginatedReportDatasources },
+  // imports
+  { provider: "microsoft-powerbi", type: "get_import_status", handler: powerbiGetImportStatus },
+  { provider: "microsoft-powerbi", type: "import_power_bi_file", handler: powerbiImportPowerBiFile },
+  // dataflows
+  { provider: "microsoft-powerbi", type: "cancel_dataflow_refresh", handler: powerbiCancelDataflowRefresh },
+  { provider: "microsoft-powerbi", type: "get_dataflow_refresh_history", handler: powerbiGetDataflowRefreshHistory },
+  { provider: "microsoft-powerbi", type: "refresh_dataflow", handler: powerbiRefreshDataflow },
+  { provider: "microsoft-powerbi", type: "update_dataflow_refresh_schedule", handler: powerbiUpdateDataflowRefreshSchedule },
+  // pipelines
+  { provider: "microsoft-powerbi", type: "add_or_update_pipeline_user", handler: powerbiAddOrUpdatePipelineUser },
+  { provider: "microsoft-powerbi", type: "assign_workspace_to_pipeline_stage", handler: powerbiAssignWorkspaceToPipelineStage },
+  { provider: "microsoft-powerbi", type: "create_deployment_pipeline", handler: powerbiCreateDeploymentPipeline },
+  { provider: "microsoft-powerbi", type: "deploy_all_pipeline_content", handler: powerbiDeployAllPipelineContent },
+  { provider: "microsoft-powerbi", type: "get_pipeline_deployment_history", handler: powerbiGetPipelineDeploymentHistory },
+  { provider: "microsoft-powerbi", type: "get_pipeline_deployment_status", handler: powerbiGetPipelineDeploymentStatus },
+  { provider: "microsoft-powerbi", type: "remove_pipeline_user", handler: powerbiRemovePipelineUser },
+  { provider: "microsoft-powerbi", type: "selectively_deploy_pipeline_content", handler: powerbiSelectivelyDeployPipelineContent },
+  { provider: "microsoft-powerbi", type: "unassign_workspace_from_pipeline_stage", handler: powerbiUnassignWorkspaceFromPipelineStage },
+  { provider: "microsoft-powerbi", type: "update_deployment_pipeline", handler: powerbiUpdateDeploymentPipeline },
+  // workspaces
+  { provider: "microsoft-powerbi", type: "add_workspace_user", handler: powerbiAddWorkspaceUser },
+  { provider: "microsoft-powerbi", type: "create_workspace", handler: powerbiCreateWorkspace },
+  { provider: "microsoft-powerbi", type: "remove_workspace_user", handler: powerbiRemoveWorkspaceUser },
+  { provider: "microsoft-powerbi", type: "update_workspace", handler: powerbiUpdateWorkspace },
+  { provider: "microsoft-powerbi", type: "update_workspace_user", handler: powerbiUpdateWorkspaceUser },
+  // gateways
+  { provider: "microsoft-powerbi", type: "add_or_update_gateway_datasource_user", handler: powerbiAddOrUpdateGatewayDatasourceUser },
+  { provider: "microsoft-powerbi", type: "create_gateway_datasource", handler: powerbiCreateGatewayDatasource },
+  { provider: "microsoft-powerbi", type: "remove_gateway_datasource_user", handler: powerbiRemoveGatewayDatasourceUser },
+  { provider: "microsoft-powerbi", type: "test_gateway_datasource_connection", handler: powerbiTestGatewayDatasourceConnection },
+  { provider: "microsoft-powerbi", type: "update_gateway_datasource_credentials", handler: powerbiUpdateGatewayDatasourceCredentials },
+  // capacities
+  { provider: "microsoft-powerbi", type: "assign_workspace_to_capacity", handler: powerbiAssignWorkspaceToCapacity },
+  { provider: "microsoft-powerbi", type: "get_capacity_assignment_status", handler: powerbiGetCapacityAssignmentStatus },
   { provider: "microsoft-excel", type: "add_row", handler: excelAddRow },
   { provider: "microsoft-excel", type: "add_table_row", handler: excelAddTableRow },
   { provider: "microsoft-excel", type: "create_worksheet", handler: excelCreateWorksheet },

@@ -71,6 +71,10 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   "microsoft-onenote": "personal",
   "microsoft-excel": "personal",
   "microsoft-teams": "personal",
+  // Power BI: the OAuth token is the connecting human's Entra identity —
+  // workspaces/gateways they can reach are governed by THEIR Power BI
+  // permissions. Same posture as every other microsoft-* provider.
+  "microsoft-powerbi": "personal",
   dropbox: "personal",
   discord: "personal",
   // Asana (Slice 5.ASANA-1): the OAuth token acts AS the connecting human —

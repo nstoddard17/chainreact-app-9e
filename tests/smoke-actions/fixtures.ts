@@ -376,6 +376,64 @@ import quickbooksListInvoices from "@/tests/fixtures/action-smoke/quickbooks/lis
 import quickbooksCreateCustomer from "@/tests/fixtures/action-smoke/quickbooks/create_customer";
 import quickbooksCreateInvoice from "@/tests/fixtures/action-smoke/quickbooks/create_invoice";
 import quickbooksSendInvoice from "@/tests/fixtures/action-smoke/quickbooks/send_invoice";
+// MICROSOFT-POWERBI — all 47 Power BI actions. The 10 reads run through the read
+// path; the 37 mutating ones (32 write + 5 destructive) are write-harness-only.
+// NONE carry a `writeHarness` phase plan yet: authoring those needs live Power BI
+// resources (a real workspace/semantic model/gateway to set up -> verify -> clean
+// up), so the phase plans are Phase 13 work after owner setup. Every fixture is
+// env-gated (SMOKE_MICROSOFT_POWERBI_CONNECTED + SMOKE_POWERBI_*): with that env
+// unset a live run SKIPs, so nothing here executes live today. NOTE: in the
+// certification matrix these land as LIVE_NOT_RUN, not BLOCKED_ENV — the matrix
+// derives status from fixture-presence + explicit cert records and never reads
+// `requiredEnv`. BLOCKED_ENV would require seeding 47 certification records
+// (the QUICKBOOKS-1 precedent); that is a separate, deliberate step.
+import powerbiExecuteDaxQuery from "@/tests/fixtures/action-smoke/microsoft-powerbi/execute_dax_query";
+import powerbiGetCapacityAssignmentStatus from "@/tests/fixtures/action-smoke/microsoft-powerbi/get_capacity_assignment_status";
+import powerbiGetDataflowRefreshHistory from "@/tests/fixtures/action-smoke/microsoft-powerbi/get_dataflow_refresh_history";
+import powerbiGetImportStatus from "@/tests/fixtures/action-smoke/microsoft-powerbi/get_import_status";
+import powerbiGetPipelineDeploymentHistory from "@/tests/fixtures/action-smoke/microsoft-powerbi/get_pipeline_deployment_history";
+import powerbiGetPipelineDeploymentStatus from "@/tests/fixtures/action-smoke/microsoft-powerbi/get_pipeline_deployment_status";
+import powerbiGetQueryScaleOutSyncStatus from "@/tests/fixtures/action-smoke/microsoft-powerbi/get_query_scale_out_sync_status";
+import powerbiGetSemanticModelRefreshDetails from "@/tests/fixtures/action-smoke/microsoft-powerbi/get_semantic_model_refresh_details";
+import powerbiGetSemanticModelRefreshHistory from "@/tests/fixtures/action-smoke/microsoft-powerbi/get_semantic_model_refresh_history";
+import powerbiTestGatewayDatasourceConnection from "@/tests/fixtures/action-smoke/microsoft-powerbi/test_gateway_datasource_connection";
+import powerbiAddOrUpdateGatewayDatasourceUser from "@/tests/fixtures/action-smoke/microsoft-powerbi/add_or_update_gateway_datasource_user";
+import powerbiAddOrUpdatePipelineUser from "@/tests/fixtures/action-smoke/microsoft-powerbi/add_or_update_pipeline_user";
+import powerbiAddWorkspaceUser from "@/tests/fixtures/action-smoke/microsoft-powerbi/add_workspace_user";
+import powerbiAssignWorkspaceToCapacity from "@/tests/fixtures/action-smoke/microsoft-powerbi/assign_workspace_to_capacity";
+import powerbiAssignWorkspaceToPipelineStage from "@/tests/fixtures/action-smoke/microsoft-powerbi/assign_workspace_to_pipeline_stage";
+import powerbiBindPaginatedReportToGateway from "@/tests/fixtures/action-smoke/microsoft-powerbi/bind_paginated_report_to_gateway";
+import powerbiBindSemanticModelToGateway from "@/tests/fixtures/action-smoke/microsoft-powerbi/bind_semantic_model_to_gateway";
+import powerbiCancelDataflowRefresh from "@/tests/fixtures/action-smoke/microsoft-powerbi/cancel_dataflow_refresh";
+import powerbiCancelSemanticModelRefresh from "@/tests/fixtures/action-smoke/microsoft-powerbi/cancel_semantic_model_refresh";
+import powerbiCloneReport from "@/tests/fixtures/action-smoke/microsoft-powerbi/clone_report";
+import powerbiCreateDeploymentPipeline from "@/tests/fixtures/action-smoke/microsoft-powerbi/create_deployment_pipeline";
+import powerbiCreateGatewayDatasource from "@/tests/fixtures/action-smoke/microsoft-powerbi/create_gateway_datasource";
+import powerbiCreateWorkspace from "@/tests/fixtures/action-smoke/microsoft-powerbi/create_workspace";
+import powerbiDeployAllPipelineContent from "@/tests/fixtures/action-smoke/microsoft-powerbi/deploy_all_pipeline_content";
+import powerbiExportPaginatedReportToFile from "@/tests/fixtures/action-smoke/microsoft-powerbi/export_paginated_report_to_file";
+import powerbiExportPowerBiReportToFile from "@/tests/fixtures/action-smoke/microsoft-powerbi/export_power_bi_report_to_file";
+import powerbiExportReportDefinition from "@/tests/fixtures/action-smoke/microsoft-powerbi/export_report_definition";
+import powerbiImportPowerBiFile from "@/tests/fixtures/action-smoke/microsoft-powerbi/import_power_bi_file";
+import powerbiRebindReport from "@/tests/fixtures/action-smoke/microsoft-powerbi/rebind_report";
+import powerbiRefreshDataflow from "@/tests/fixtures/action-smoke/microsoft-powerbi/refresh_dataflow";
+import powerbiRefreshSemanticModel from "@/tests/fixtures/action-smoke/microsoft-powerbi/refresh_semantic_model";
+import powerbiRemoveGatewayDatasourceUser from "@/tests/fixtures/action-smoke/microsoft-powerbi/remove_gateway_datasource_user";
+import powerbiRemovePipelineUser from "@/tests/fixtures/action-smoke/microsoft-powerbi/remove_pipeline_user";
+import powerbiRemoveWorkspaceUser from "@/tests/fixtures/action-smoke/microsoft-powerbi/remove_workspace_user";
+import powerbiSelectivelyDeployPipelineContent from "@/tests/fixtures/action-smoke/microsoft-powerbi/selectively_deploy_pipeline_content";
+import powerbiTakeOverSemanticModel from "@/tests/fixtures/action-smoke/microsoft-powerbi/take_over_semantic_model";
+import powerbiTriggerQueryScaleOutSync from "@/tests/fixtures/action-smoke/microsoft-powerbi/trigger_query_scale_out_sync";
+import powerbiUnassignWorkspaceFromPipelineStage from "@/tests/fixtures/action-smoke/microsoft-powerbi/unassign_workspace_from_pipeline_stage";
+import powerbiUpdateDataflowRefreshSchedule from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_dataflow_refresh_schedule";
+import powerbiUpdateDeploymentPipeline from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_deployment_pipeline";
+import powerbiUpdateGatewayDatasourceCredentials from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_gateway_datasource_credentials";
+import powerbiUpdatePaginatedReportDatasources from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_paginated_report_datasources";
+import powerbiUpdateSemanticModelDatasources from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_semantic_model_datasources";
+import powerbiUpdateSemanticModelParameters from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_semantic_model_parameters";
+import powerbiUpdateSemanticModelRefreshSchedule from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_semantic_model_refresh_schedule";
+import powerbiUpdateWorkspace from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_workspace";
+import powerbiUpdateWorkspaceUser from "@/tests/fixtures/action-smoke/microsoft-powerbi/update_workspace_user";
 
 export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   nativeFormatTransformer,
@@ -483,12 +541,31 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   quickbooksGetCustomer,
   quickbooksGetInvoice,
   quickbooksListInvoices,
+  // MICROSOFT-POWERBI — the 10 read-risk Power BI fixtures. Env-gated, so a live
+  // run SKIPs pre-owner-setup (matrix status: LIVE_NOT_RUN — see the import
+  // block). The other 37 are write-harness-only, in WRITE_SMOKE_FIXTURES.
+  powerbiExecuteDaxQuery,
+  powerbiGetCapacityAssignmentStatus,
+  powerbiGetDataflowRefreshHistory,
+  powerbiGetImportStatus,
+  powerbiGetPipelineDeploymentHistory,
+  powerbiGetPipelineDeploymentStatus,
+  powerbiGetQueryScaleOutSyncStatus,
+  powerbiGetSemanticModelRefreshDetails,
+  powerbiGetSemanticModelRefreshHistory,
+  powerbiTestGatewayDatasourceConnection,
 ];
 
 /**
  * Mutating pilot fixtures, run ONLY through the write harness (writeRunner.ts).
  * Kept OUT of ALL_SMOKE_FIXTURES so the read live runner never executes them.
- * Each carries a `writeHarness` spec (setup -> execute -> verify -> cleanup).
+ * Most carry a `writeHarness` spec (setup -> execute -> verify -> cleanup).
+ *
+ * EXCEPTION — the microsoft-powerbi block has NO `writeHarness` phase plans yet:
+ * authoring them requires live Power BI resources that do not exist pre-owner-
+ * setup (Phase 13). They are registered here so the inventory/certification
+ * matrix sees the fixtures and the read runner never touches them; a fixture
+ * without a phase plan is simply not executable by the write harness.
  */
 export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   airtableCreateRecord,
@@ -679,6 +756,49 @@ export const WRITE_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   quickbooksCreateCustomer,
   quickbooksCreateInvoice,
   quickbooksSendInvoice,
+  // MICROSOFT-POWERBI — the 37 mutating Power BI fixtures (32 write + 5
+  // destructive). Listed here so the read runner never executes them. NONE has a
+  // `writeHarness` phase plan yet — those need live Power BI resources to author
+  // honestly, so they are Phase 13 work after owner setup. All env-gated
+  // (SMOKE_MICROSOFT_POWERBI_CONNECTED + SMOKE_POWERBI_*), so a live run SKIPs
+  // today (matrix status: LIVE_NOT_RUN — see the import block).
+  powerbiAddOrUpdateGatewayDatasourceUser,
+  powerbiAddOrUpdatePipelineUser,
+  powerbiAddWorkspaceUser,
+  powerbiAssignWorkspaceToCapacity,
+  powerbiAssignWorkspaceToPipelineStage,
+  powerbiBindPaginatedReportToGateway,
+  powerbiBindSemanticModelToGateway,
+  powerbiCancelDataflowRefresh,
+  powerbiCancelSemanticModelRefresh,
+  powerbiCloneReport,
+  powerbiCreateDeploymentPipeline,
+  powerbiCreateGatewayDatasource,
+  powerbiCreateWorkspace,
+  powerbiDeployAllPipelineContent,
+  powerbiExportPaginatedReportToFile,
+  powerbiExportPowerBiReportToFile,
+  powerbiExportReportDefinition,
+  powerbiImportPowerBiFile,
+  powerbiRebindReport,
+  powerbiRefreshDataflow,
+  powerbiRefreshSemanticModel,
+  powerbiRemoveGatewayDatasourceUser,
+  powerbiRemovePipelineUser,
+  powerbiRemoveWorkspaceUser,
+  powerbiSelectivelyDeployPipelineContent,
+  powerbiTakeOverSemanticModel,
+  powerbiTriggerQueryScaleOutSync,
+  powerbiUnassignWorkspaceFromPipelineStage,
+  powerbiUpdateDataflowRefreshSchedule,
+  powerbiUpdateDeploymentPipeline,
+  powerbiUpdateGatewayDatasourceCredentials,
+  powerbiUpdatePaginatedReportDatasources,
+  powerbiUpdateSemanticModelDatasources,
+  powerbiUpdateSemanticModelParameters,
+  powerbiUpdateSemanticModelRefreshSchedule,
+  powerbiUpdateWorkspace,
+  powerbiUpdateWorkspaceUser,
 ];
 
 /** Read + write fixtures — for inventory / validation / certification parity. */
