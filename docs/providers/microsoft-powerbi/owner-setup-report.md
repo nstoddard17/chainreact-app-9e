@@ -22,9 +22,27 @@
 
 ### App/basic settings
 
-- **App name:** the EXISTING ChainReact Entra app — the same registration behind
-  Outlook, OneDrive, Excel, OneNote, Teams (`MICROSOFT_CLIENT_ID`).
-  **Do not create a new app registration.**
+- **App name / id:** the EXISTING Entra app that `MICROSOFT_CLIENT_ID` names.
+  **Do not create a new app registration**, and do NOT use a per-provider app.
+
+  > **Identify it before granting anything.** V2 reads exactly ONE Microsoft
+  > client id (`_shared/microsoft/oauth.ts::getMicrosoftClientId()` →
+  > `MICROSOFT_CLIENT_ID`); every Microsoft provider authenticates through it.
+  > As of 2026-07-16 the LOCAL `.env.local` value is
+  > `39f73cfa-4a6c-4e62-b4e8-e67152491d50`.
+  >
+  > The tenant ALSO contains older per-provider registrations — "Chain React
+  > One Note" (`ecb3e2b0-…`), "Chain React OneDrive" (`bd7755bd-…`), "Chain
+  > React Outlook" (`68058b0d-…`), "Chain React Teams" (`427ee8d6-…`). These
+  > are V1-era leftovers of the separate-app pattern V2 deliberately dropped
+  > (see the Excel manifest's "V1 rot" note); there is no Excel app at all,
+  > because Excel already rides the shared one. **Adding Power BI permissions
+  > to any of those four does nothing.**
+  >
+  > Confirm the **Vercel Production** `MICROSOFT_CLIENT_ID` matches the local
+  > value before granting. If Production names a different app, grant there —
+  > permissions must live on the app that the environment under test actually
+  > sends users to (the Phase 13 environment-alignment gate).
 - **App type:** Web (confidential client; PKCE is sent as defense-in-depth).
 - **Supported account types:** unchanged (multi-tenant, `/common`).
 - **Website / Privacy / Terms / Support:** unchanged.
@@ -152,7 +170,11 @@ timestamps.
 
 ## Manual verification checklist for Marcus
 
-- [ ] Open the existing ChainReact app registration in Entra ID.
+- [ ] Confirm Vercel **Production** `MICROSOFT_CLIENT_ID` (local is
+      `39f73cfa-4a6c-4e62-b4e8-e67152491d50`), then open THAT app registration in
+      Entra ID — search it under **All applications**, not just *Owned
+      applications*. Do NOT use the per-provider One Note / OneDrive / Outlook /
+      Teams apps; V2 never reads their client ids.
 - [ ] API permissions → Add a permission → **Power BI Service** → Delegated → add the
       13 scopes in the table above.
 - [ ] Grant consent (or let the first connecting user consent — none are admin-gated).
