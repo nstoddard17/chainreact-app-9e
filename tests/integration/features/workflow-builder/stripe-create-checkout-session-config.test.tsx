@@ -13,8 +13,11 @@
  *     `required: true` + `visibleWhen: mode ∈ {payment, subscription}`
  *     (CONFIG-UX-SETUP-ADVANCED-1) — required-when-visible mirrors the
  *     runtime superRefine (required in those 2 modes, REJECTED in setup),
- *   - `customer` / `customerEmail` render as plain text (XOR enforced at
- *     runtime; not expressible in FieldMeta),
+ *   - `customer` renders as an async combobox sourced from
+ *     `stripe:customers` with `allowManualEntry: true` (RESOLVERS-1) —
+ *     picking a customer stores the raw `cus_…` id; `customerEmail` stays
+ *     plain text. The XOR between them is enforced at runtime (not
+ *     expressible in FieldMeta) and documented in both descriptions,
  *   - `metadata` renders as the `keyvalue` chip UI — stored as the
  *     `Record<string, string>` wire shape Stripe's schema expects
  *     (`keyValueShape: "record"`, CONFIG-UX-AUDIT-1),
@@ -68,6 +71,7 @@ import { __resetNativeActionsCacheForTests } from "@/features/workflow-builder/h
 import { __resetNativeTriggersCacheForTests } from "@/features/workflow-builder/hooks/useNativeTriggers";
 import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder/hooks/useProviderActions";
 import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
+import { pickComboboxOption } from "./helpers/comboboxField";
 import { stripeCreateCheckoutSessionMeta } from "@/integrations/stripe/actions/createCheckoutSession.meta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
@@ -120,12 +124,27 @@ beforeEach(() => {
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
   mockFetchOptionsSource.mockReset();
-  mockFetchOptionsSource.mockImplementation(async (source: string) => ({
-    ok: false,
-    source,
-    code: "SOURCE_NOT_FOUND",
-    message: `Unknown source '${source}'.`,
-  }));
+  // RESOLVERS-1 — `customer` is now backed by the `stripe:customers`
+  // option source. Mock it so the picker loads deterministically.
+  mockFetchOptionsSource.mockImplementation(async (source: string) => {
+    if (source === "stripe:customers") {
+      return {
+        ok: true,
+        source: "stripe:customers",
+        items: [
+          { value: CUSTOMER_ID, label: "Ada Lovelace" },
+          { value: "cus_OtherCustomer", label: "Grace Hopper" },
+        ],
+        hasMore: false,
+      };
+    }
+    return {
+      ok: false,
+      source,
+      code: "SOURCE_NOT_FOUND",
+      message: `Unknown source '${source}'.`,
+    };
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -135,7 +154,7 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Stripe create_checkout_session meta declares mode select + object-list lineItems + plain-text URLs + record keyvalue metadata + customer-facing url output — Slice 3.46 meta guard + CONFIG-UX-AUDIT-1", () => {
+it("Stripe create_checkout_session meta declares mode select + object-list lineItems + plain-text URLs + customer stripe:customers combobox + record keyvalue metadata + customer-facing url output — Slice 3.46 meta guard + CONFIG-UX-AUDIT-1", () => {
   // mode: required select with 3 enum values, NO defaultValue (Q11)
   const mode = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "mode",
@@ -180,19 +199,36 @@ it("Stripe create_checkout_session meta declares mode select + object-list lineI
     valueIn: ["payment", "subscription"],
   });
 
-  // customer + customerEmail: text, both optional, MUTEX documented in descriptions
+  // customer: optional combobox backed by the `stripe:customers` resolver
+  // (RESOLVERS-1). allowManualEntry keeps a raw `cus_…` id / `{{...}}`
+  // variable typeable.
   const customer = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "customer",
   )!;
-  expect(customer.type).toBe("text");
+  expect(customer.type).toBe("combobox");
   expect(customer.required).toBe(false);
-  expect(customer.description?.toLowerCase()).toContain("mutex");
+  expect(customer.optionsSource).toBe("stripe:customers");
+  expect(customer.allowManualEntry).toBe(true);
+  expect(customer.options).toBeUndefined();
+
+  // customerEmail: optional text.
   const customerEmail = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "customerEmail",
   )!;
   expect(customerEmail.type).toBe("text");
   expect(customerEmail.required).toBe(false);
+
+  // The customer/customerEmail XOR is not expressible in FieldMeta, so
+  // BOTH descriptions must carry the either-or copy at design time — it's
+  // the only warning an author gets before the runtime superRefine
+  // rejects the pair. RESOLVERS-1 reworded `customer` away from the
+  // literal "mutex" wording, so assert the constraint each field actually
+  // ships rather than a single shared keyword.
+  expect(customer.description).toMatch(
+    /use this or customer email, not both/i,
+  );
   expect(customerEmail.description?.toLowerCase()).toContain("mutex");
+  expect(customerEmail.description).toMatch(/pass one, not both/i);
 
   // metadata: keyvalue with keyValueMaxRows: 50, record wire shape
   const metadata = stripeCreateCheckoutSessionMeta.fields.find(
@@ -319,9 +355,12 @@ it(
   // The paste-JSON path is gone from the normal setup surface.
   expect(document.body.textContent).not.toMatch(/paste json/i);
 
-  // 7. Fill customerId (the `customer` field).
-  await user.type(
-    screen.getByRole("textbox", { name: /^customer id$/i }),
+  // 7. Pick the customer from the `stripe:customers` picker (the
+  //    `customer` field) — the committed value is the RAW `cus_…` id; the
+  //    friendly label ("Ada Lovelace") must never leak into config.
+  expect(screen.queryByRole("textbox", { name: /^customer id$/i })).toBeNull();
+  await pickComboboxOption(user, /^customer$/i, /ada lovelace/i);
+  expect(useConfigSlice.getState().drafts[action.id]!.values.customer).toBe(
     CUSTOMER_ID,
   );
 

@@ -225,8 +225,12 @@ it("end-to-end: variable-picker → Outlook send_email.attachments file-array �
     ).toBeInTheDocument();
   });
   await user.click(screen.getByLabelText("Insert {{trigger.file}}"));
-  // Chip rendered.
-  expect(screen.getByText("{{trigger.file}}")).toBeInTheDocument();
+  // Chip rendered. Scope to the chip container — the rail's
+  // "What this step will do" overview (CONFIG-UX-NODE-SUMMARY-1) also
+  // echoes the token, so an unscoped getByText is ambiguous.
+  expect(screen.getByTestId("field-attachments-chips")).toHaveTextContent(
+    "{{trigger.file}}",
+  );
   // Popover closes.
   expect(
     screen.queryByTestId("file-array-attachments-picker-popover"),

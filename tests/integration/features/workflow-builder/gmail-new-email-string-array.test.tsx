@@ -211,7 +211,14 @@ it("end-to-end: Gmail new_email from[] + labelIds[] round-trip as real arrays vi
 
   // 5. `from` chip input renders empty; the chip area shows "No items."
   // 6. `labelIds` already shows the INBOX chip courtesy of defaultValue.
-  expect(screen.getByText("INBOX")).toBeInTheDocument();
+  //    Scope to the config rail — the canvas node's at-a-glance summary also
+  //    renders "INBOX", so an unscoped getByText is ambiguous.
+  const configRail = screen.getByRole("complementary", {
+    name: /node configuration/i,
+  });
+  expect(
+    within(configRail).getByTestId("field-labelIds-chips"),
+  ).toHaveTextContent("INBOX");
 
   // 7. Add "a@x.com" via Enter, then "b@x.com" via the Add button.
   const fromInput = screen.getByRole("textbox", {

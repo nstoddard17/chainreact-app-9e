@@ -14,7 +14,9 @@
  *     `allowManualEntry: true` (CONFIG-UX-SETUP-ADVANCED sweep — free
  *     typing of ANY lowercase ISO code keeps working; never a closed
  *     135-option select),
- *   - `customerId` is plain text (resolver-less for v1),
+ *   - `customerId` renders as an async combobox sourced from
+ *     `stripe:customers` with `allowManualEntry: true` (RESOLVERS-1) —
+ *     picking a customer stores the raw `cus_…` id, never the label,
  *   - `metadata` renders as the `keyvalue` chip UI — the renderer
  *     stores typed `Array<{key, value}>` (NOT a JSON string),
 *   - nextAction is exposed in the meta outputs (not exercised in the
@@ -117,12 +119,27 @@ beforeEach(() => {
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
   mockFetchOptionsSource.mockReset();
-  mockFetchOptionsSource.mockImplementation(async (source: string) => ({
-    ok: false,
-    source,
-    code: "SOURCE_NOT_FOUND",
-    message: `Unknown source '${source}'.`,
-  }));
+  // RESOLVERS-1 — `customerId` is now backed by the `stripe:customers`
+  // option source. Mock it so the picker loads deterministically.
+  mockFetchOptionsSource.mockImplementation(async (source: string) => {
+    if (source === "stripe:customers") {
+      return {
+        ok: true,
+        source: "stripe:customers",
+        items: [
+          { value: CUSTOMER_ID, label: "Ada Lovelace" },
+          { value: "cus_OtherCustomer456", label: "Grace Hopper" },
+        ],
+        hasMore: false,
+      };
+    }
+    return {
+      ok: false,
+      source,
+      code: "SOURCE_NOT_FOUND",
+      message: `Unknown source '${source}'.`,
+    };
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -132,7 +149,7 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Stripe create_payment_intent meta declares dollars-anchored amount + currency combobox with manual entry + customerId text + keyvalue metadata + NO clientSecret output (Slice 3.SEC-8) — Slice 3.45 meta guard", () => {
+it("Stripe create_payment_intent meta declares dollars-anchored amount + currency combobox with manual entry + customerId stripe:customers combobox + keyvalue metadata + NO clientSecret output (Slice 3.SEC-8) — Slice 3.45 meta guard", () => {
   // amount: required number, min 0.01, step 0.01, dollars-anchored
   const amount = stripeCreatePaymentIntentMeta.fields.find(
     (f) => f.name === "amount",
@@ -161,13 +178,20 @@ it("Stripe create_payment_intent meta declares dollars-anchored amount + currenc
   expect(currencyValues.length).toBeLessThan(30); // curated, not the full ISO table
   for (const v of currencyValues) expect(v).toMatch(/^[a-z]{3}$/); // runtime regex
 
-  // customerId: optional text (no resolver in v1)
+  // customerId: optional combobox backed by the `stripe:customers`
+  // resolver (RESOLVERS-1). allowManualEntry keeps a raw `cus_…` id (or a
+  // `{{...}}` variable from an upstream node) typeable — the resolver is
+  // a convenience, never a cage. Still optional: guest one-time payments
+  // must stay possible without picking a customer.
   const customerId = stripeCreatePaymentIntentMeta.fields.find(
     (f) => f.name === "customerId",
   )!;
-  expect(customerId.type).toBe("text");
+  expect(customerId.type).toBe("combobox");
   expect(customerId.required).toBe(false);
-  expect(customerId.optionsSource).toBeUndefined();
+  expect(customerId.optionsSource).toBe("stripe:customers");
+  expect(customerId.allowManualEntry).toBe(true);
+  // No static option table — the resolver is the only source of items.
+  expect(customerId.options).toBeUndefined();
 
   // metadata: keyvalue with keyValueMaxRows: 50, record wire shape
   const metadata = stripeCreatePaymentIntentMeta.fields.find(
@@ -239,9 +263,12 @@ it("end-to-end: type dollars amount + currency + customerId + add metadata row �
   expect(
     screen.getByRole("combobox", { name: /^currency$/i }),
   ).toBeInTheDocument();
+  // RESOLVERS-1 — Customer is the `stripe:customers` picker, not a raw
+  // id textbox.
   expect(
-    screen.getByRole("textbox", { name: /^customer id$/i }),
+    screen.getByRole("combobox", { name: /^customer$/i }),
   ).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: /^customer id$/i })).toBeNull();
   expect(
     screen.getByRole("textbox", { name: /^description$/i }),
   ).toBeInTheDocument();
@@ -262,11 +289,10 @@ it("end-to-end: type dollars amount + currency + customerId + add metadata row �
     "usd",
   );
 
-  // 6. Type customerId.
-  await user.type(
-    screen.getByRole("textbox", { name: /^customer id$/i }),
-    CUSTOMER_ID,
-  );
+  // 6. Pick the customer from the `stripe:customers` picker — the
+  //    committed value is the RAW `cus_…` id; the friendly label
+  //    ("Ada Lovelace") must never leak into config.
+  await pickComboboxOption(user, /^customer$/i, /ada lovelace/i);
   expect(useConfigSlice.getState().drafts[action.id]!.values.customerId).toBe(
     CUSTOMER_ID,
   );

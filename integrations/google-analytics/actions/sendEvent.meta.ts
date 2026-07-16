@@ -1,16 +1,16 @@
 import type { ActionMeta } from "@/contracts/actionMeta";
 
 /**
- * Google Analytics `send_event` ActionMeta â Slice 3.GOOGLE-ANALYTICS-4.
+ * Google Analytics `send_event` ActionMeta — Slice 3.GOOGLE-ANALYTICS-4.
  *
- * Sends a GA4 Measurement Protocol event. Cascade: `accountId` (UI-scope) â
- * `propertyId` (UI-scope; scopes the data-stream picker) â `measurementId`
+ * Sends a GA4 Measurement Protocol event. Cascade: `accountId` (UI-scope) →
+ * `propertyId` (UI-scope; scopes the data-stream picker) → `measurementId`
  * (dependsOn propertyId, backed by `google-analytics:data_streams`,
  * required). The Measurement Protocol authenticates with `apiSecret` (a
- * sensitive INPUT) â there is no password/secret FieldType, so it is a
+ * sensitive INPUT) — there is no password/secret FieldType, so it is a
  * `text` field clearly described as a secret; it is NEVER an output.
  *
- * Output is structural only: `{ success, eventName, sentAt }` â clientId /
+ * Output is structural only: `{ success, eventName, sentAt }` — clientId /
  * userId / eventParams / apiSecret are NEVER echoed. Medium risk (ingests an
  * analytics event).
  */
@@ -58,7 +58,7 @@ export const googleAnalyticsSendEventMeta: ActionMeta = {
       name: "apiSecret",
       label: "API Secret",
       description:
-        "The Measurement Protocol API secret for this data stream (treated as a secret â created in GA Admin â Data Streams â Measurement Protocol API secrets).",
+        "The Measurement Protocol API secret for this data stream (treated as a secret — created in GA Admin → Data Streams → Measurement Protocol API secrets).",
       type: "text",
       required: true,
       sensitivity: "secret",

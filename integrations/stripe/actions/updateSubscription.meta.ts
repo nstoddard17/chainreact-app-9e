@@ -67,7 +67,7 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
       name: "priceId",
       label: "New price",
       description:
-        "Optional â switch the subscription to a different price. The existing subscription item is updated in place.",
+        "Optional — switch the subscription to a different price. The existing subscription item is updated in place.",
       type: "combobox",
       required: false,
       placeholder: "price_xxx",

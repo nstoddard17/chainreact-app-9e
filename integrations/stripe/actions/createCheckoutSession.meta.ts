@@ -137,7 +137,7 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
       name: "customer",
       label: "Customer",
       description:
-        "Optional â attach the session to an existing customer. Use this OR Customer email, not both.",
+        "Optional — attach the session to an existing customer. Use this OR Customer email, not both.",
       type: "combobox",
       required: false,
       placeholder: "cus_xxx",
