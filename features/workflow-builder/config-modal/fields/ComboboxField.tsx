@@ -129,6 +129,20 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
     ? (knownSelected?.label ?? value)
     : (field.placeholder ?? "Choose...");
 
+  // RESOLVERS-1 — a saved identifier that is absent from the loaded
+  // options (deleted/archived resource, or beyond the first page) must
+  // read as an UNAVAILABLE SAVED SELECTION — never silently cleared,
+  // never mistaken for a fresh pick. Variable tokens are excluded (the
+  // raw-token display is their normal presentation), as is anything the
+  // user just committed via manual entry / variable insert (snapshot).
+  const savedValueMissingFromList =
+    typeof value === "string" &&
+    value.length > 0 &&
+    !value.includes("{{") &&
+    knownSelected === null &&
+    state.status === "ready" &&
+    state.items.length > 0;
+
   // CS-2 — opt-in manual "name-or-ID" entry. When `field.allowManualEntry`,
   // a power user can commit exactly what they typed (e.g. paste a stable id the
   // resolver can't enumerate) instead of being forced to pick a loaded option.
@@ -410,6 +424,17 @@ const AsyncComboboxBody: React.FC<AsyncComboboxBodyProps> = ({
         />
       ) : null}
       </div>
+      {savedValueMissingFromList ? (
+        <p
+          role="status"
+          data-testid="combobox-saved-value-missing"
+          className="text-xs text-muted-foreground"
+        >
+          Saved value <span className="font-mono">{value}</span> isn&rsquo;t in
+          the current list — it may have been deleted, renamed, or be further
+          down. It stays saved unless you pick something else.
+        </p>
+      ) : null}
       {error ? null : (
         <FieldSetupHint
           state={classifyConfigFieldValue({ value, required: field.required })}

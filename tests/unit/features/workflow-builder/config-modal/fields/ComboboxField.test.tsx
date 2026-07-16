@@ -698,3 +698,62 @@ describe("ComboboxField async optionsSource — dependsOn cascade props (Slice 3
     expect(mockUseOptionsSource).not.toHaveBeenCalled();
   });
 });
+
+describe("ComboboxField — saved value missing from the loaded list (RESOLVERS-1)", () => {
+  it("shows the unavailable-saved-selection hint and NEVER clears the value", () => {
+    setHookState({
+      status: "ready",
+      items: [
+        { value: "C1", label: "#general" },
+        { value: "C2", label: "#random" },
+      ],
+    } as UseOptionsSourceState);
+    const onChange = jest.fn();
+    render(
+      <ComboboxField
+        field={asyncField()}
+        value="C_DELETED"
+        onChange={onChange}
+      />,
+    );
+    // Raw saved id stays visible in the trigger.
+    expect(
+      screen.getByRole("combobox", { name: "Channel" }),
+    ).toHaveTextContent("C_DELETED");
+    const hint = screen.getByTestId("combobox-saved-value-missing");
+    expect(hint).toHaveTextContent(/isn’t in the current list/i);
+    expect(hint).toHaveTextContent("C_DELETED");
+    expect(hint).toHaveTextContent(/stays saved/i);
+    // Rendering (a "picker refresh") never writes a value.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("no hint for a value that IS in the list, an empty value, or a variable token", () => {
+    setHookState({
+      status: "ready",
+      items: [{ value: "C1", label: "#general" }],
+    } as UseOptionsSourceState);
+    const { rerender } = render(
+      <ComboboxField field={asyncField()} value="C1" onChange={jest.fn()} />,
+    );
+    expect(
+      screen.queryByTestId("combobox-saved-value-missing"),
+    ).not.toBeInTheDocument();
+    rerender(
+      <ComboboxField field={asyncField()} value="" onChange={jest.fn()} />,
+    );
+    expect(
+      screen.queryByTestId("combobox-saved-value-missing"),
+    ).not.toBeInTheDocument();
+    rerender(
+      <ComboboxField
+        field={asyncField()}
+        value="{{step1.channelId}}"
+        onChange={jest.fn()}
+      />,
+    );
+    expect(
+      screen.queryByTestId("combobox-saved-value-missing"),
+    ).not.toBeInTheDocument();
+  });
+});
