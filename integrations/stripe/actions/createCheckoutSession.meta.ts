@@ -135,12 +135,14 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
     },
     {
       name: "customer",
-      label: "Customer ID",
+      label: "Customer",
       description:
-        "Optional Stripe customer (`cus_xxx`) to associate with the session. **Mutex with Customer email — pass one, not both.** Wire from `{{stripe:create_customer.customerId}}` or `{{stripe:find_customer.customer.customerId}}`.",
-      type: "text",
+        "Optional â attach the session to an existing customer. Use this OR Customer email, not both.",
+      type: "combobox",
       required: false,
       placeholder: "cus_xxx",
+      optionsSource: "stripe:customers",
+      allowManualEntry: true,
     },
     {
       name: "customerEmail",

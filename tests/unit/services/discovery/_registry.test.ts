@@ -1600,7 +1600,7 @@ describe("per-provider accessors", () => {
       ] as const;
 
       it.each(CHANNEL_FIELD_KEYS)(
-        "%s `channel` field is a required async combobox sourced from slack:channels",
+        "%s `channel` field is a required async combobox sourced from a slack channels resolver",
         (key) => {
           const channel = metaByKey(key).fields.find(
             (f) => f.name === "channel",
@@ -1608,7 +1608,14 @@ describe("per-provider accessors", () => {
           expect(channel).toBeDefined();
           expect(channel!.type).toBe("combobox");
           expect(channel!.required).toBe(true);
-          expect(channel!.optionsSource).toBe("slack:channels");
+          // RESOLVERS-1 — unarchive can only ever target ARCHIVED channels,
+          // which the live-channels resolver excludes; it uses the archived
+          // variant. Every other management action lists live channels.
+          expect(channel!.optionsSource).toBe(
+            key === "slack:unarchive_channel"
+              ? "slack:channels_archived"
+              : "slack:channels",
+          );
           expect(channel!.options).toBeUndefined();
         },
       );
@@ -2915,18 +2922,30 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("ID fields (customerId, paymentIntentId, chargeId, subscriptionId, priceId, invoiceId) are `text` (resolvers deferred to follow-up)", () => {
-      const idFieldNames = new Set([
-        "customerId",
-        "paymentIntentId",
-        "chargeId",
-        "subscriptionId",
-        "priceId",
-        "invoiceId",
-      ]);
+    it("ID fields: customer/subscription/price ids are resolver-backed comboboxes (RESOLVERS-1); payment-intent/charge/invoice ids stay text (upstream-fed)", () => {
+      // RESOLVERS-1 wired the catalog-shaped ids to real pickers. Runtime
+      // ids that only ever arrive from an earlier step (pi_/ch_/in_) stay
+      // free text by design — there is no meaningful browse list for them.
+      const RESOLVER_BY_FIELD: Record<string, string> = {
+        customerId: "stripe:customers",
+        customer: "stripe:customers",
+        subscriptionId: "stripe:subscriptions",
+        priceId: "stripe:prices",
+      };
+      const TEXT_ID_FIELDS = new Set(["paymentIntentId", "chargeId", "invoiceId"]);
       for (const meta of stripeActionMetas()) {
         for (const f of meta.fields) {
-          if (idFieldNames.has(f.name)) {
+          const source = RESOLVER_BY_FIELD[f.name];
+          if (source && f.type !== "object-list") {
+            // find_customer looks up by email, not id — its fields aren't ids.
+            if (meta.type === "find_customer") continue;
+            expect(`${meta.key}.${f.name}:${f.type}`).toBe(
+              `${meta.key}.${f.name}:combobox`,
+            );
+            expect(f.optionsSource).toBe(source);
+            expect(f.allowManualEntry).toBe(true);
+          }
+          if (TEXT_ID_FIELDS.has(f.name)) {
             expect(f.type).toBe("text");
             expect(f.optionsSource).toBeUndefined();
           }
@@ -3559,10 +3578,12 @@ describe("per-provider accessors", () => {
         )!;
       }
 
-      it("exposes only subscriptionId (required text)", () => {
+      it("exposes only subscriptionId (required stripe:subscriptions picker — RESOLVERS-1)", () => {
         expect(meta().fields.map((f) => f.name)).toEqual(["subscriptionId"]);
         const f = meta().fields[0]!;
-        expect(f.type).toBe("text");
+        expect(f.type).toBe("combobox");
+        expect(f.optionsSource).toBe("stripe:subscriptions");
+        expect(f.allowManualEntry).toBe(true);
         expect(f.required).toBe(true);
       });
 
@@ -3621,16 +3642,17 @@ describe("per-provider accessors", () => {
         expect(li.listMaxItems).toBe(99);
       });
 
-      it("customer + customerEmail are both optional with XOR documented in description", () => {
+      it("customer + customerEmail are both optional; customer is a stripe:customers picker with the XOR spelled out (RESOLVERS-1)", () => {
         const byName = new Map(meta().fields.map((f) => [f.name, f]));
-        expect(byName.get("customer")!.required).toBe(false);
-        expect(byName.get("customerEmail")!.required).toBe(false);
-        expect(byName.get("customer")!.description?.toLowerCase()).toContain(
-          "mutex",
+        const customer = byName.get("customer")!;
+        expect(customer.required).toBe(false);
+        expect(customer.type).toBe("combobox");
+        expect(customer.optionsSource).toBe("stripe:customers");
+        expect(customer.allowManualEntry).toBe(true);
+        expect(customer.description?.toLowerCase()).toContain(
+          "or customer email, not both",
         );
-        expect(
-          byName.get("customerEmail")!.description?.toLowerCase(),
-        ).toContain("mutex");
+        expect(byName.get("customerEmail")!.required).toBe(false);
         expect(meta().description.toLowerCase()).toContain("exactly one");
       });
 

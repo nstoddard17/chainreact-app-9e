@@ -74,12 +74,14 @@ export const stripeCreatePaymentIntentMeta: ActionMeta = {
     },
     {
       name: "customerId",
-      label: "Customer ID",
+      label: "Customer",
       description:
-        "Optional Stripe customer (`cus_xxx`) to charge. Usually wired from `{{stripe:create_customer.customerId}}` or `{{stripe:find_customer.customer.customerId}}`. Required for off-session / saved-card flows; optional for one-time guest payments.",
-      type: "text",
+        "Optional â the customer to charge. Required for off-session / saved-card flows; leave empty for one-time guest payments.",
+      type: "combobox",
       required: false,
       placeholder: "cus_xxx",
+      optionsSource: "stripe:customers",
+      allowManualEntry: true,
     },
     {
       name: "description",

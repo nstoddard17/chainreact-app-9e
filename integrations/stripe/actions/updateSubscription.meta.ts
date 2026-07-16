@@ -54,21 +54,25 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
   fields: [
     {
       name: "subscriptionId",
-      label: "Subscription ID",
+      label: "Subscription",
       description:
-        "Stripe subscription (`sub_xxx`) to update. Usually wired from `{{stripe:create_subscription.subscriptionId}}` or a Stripe webhook trigger payload.",
-      type: "text",
+        "Which subscription to update. Pick one, paste a sub_ id, or insert one from an earlier step.",
+      type: "combobox",
       required: true,
       placeholder: "sub_xxx",
+      optionsSource: "stripe:subscriptions",
+      allowManualEntry: true,
     },
     {
       name: "priceId",
-      label: "Price ID",
+      label: "New price",
       description:
-        "Optional — replace the subscription's price. The handler updates the existing subscription item in-place (does not append a second item).",
-      type: "text",
+        "Optional â switch the subscription to a different price. The existing subscription item is updated in place.",
+      type: "combobox",
       required: false,
       placeholder: "price_xxx",
+      optionsSource: "stripe:prices",
+      allowManualEntry: true,
     },
     {
       name: "quantity",

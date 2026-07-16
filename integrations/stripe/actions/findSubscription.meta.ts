@@ -25,12 +25,14 @@ export const stripeFindSubscriptionMeta: ActionMeta = {
   fields: [
     {
       name: "subscriptionId",
-      label: "Subscription ID",
+      label: "Subscription",
       description:
-        "Stripe subscription (`sub_xxx`) to look up. Usually wired from `{{stripe:create_subscription.subscriptionId}}` or a Stripe webhook trigger payload.",
-      type: "text",
+        "Which subscription to look up. Pick one, paste a sub_ id, or insert one from an earlier step.",
+      type: "combobox",
       required: true,
       placeholder: "sub_xxx",
+      optionsSource: "stripe:subscriptions",
+      allowManualEntry: true,
     },
   ],
   outputs: [

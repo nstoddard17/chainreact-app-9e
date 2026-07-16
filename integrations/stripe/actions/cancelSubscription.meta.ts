@@ -49,12 +49,14 @@ export const stripeCancelSubscriptionMeta: ActionMeta = {
   fields: [
     {
       name: "subscriptionId",
-      label: "Subscription ID",
+      label: "Subscription",
       description:
-        "Stripe subscription (`sub_xxx`) to cancel. Usually wired from `{{stripe:create_subscription.subscriptionId}}` or a Stripe webhook trigger payload.",
-      type: "text",
+        "Which subscription to cancel. Pick one, paste a sub_ id, or insert one from an earlier step.",
+      type: "combobox",
       required: true,
       placeholder: "sub_xxx",
+      optionsSource: "stripe:subscriptions",
+      allowManualEntry: true,
     },
     {
       name: "at_period_end",

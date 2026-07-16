@@ -25,12 +25,14 @@ export const stripeUpdateCustomerMeta: ActionMeta = {
   fields: [
     {
       name: "customerId",
-      label: "Customer ID",
+      label: "Customer",
       description:
-        "Stripe customer id (`cus_xxx`) to update. Usually wired from `{{stripe:create_customer.customerId}}` or `{{stripe:find_customer.customer.customerId}}`.",
-      type: "text",
+        "Which customer to update. Pick one, paste a cus_ id, or insert one from an earlier step.",
+      type: "combobox",
       required: true,
       placeholder: "cus_xxx",
+      optionsSource: "stripe:customers",
+      allowManualEntry: true,
     },
     {
       name: "email",

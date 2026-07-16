@@ -190,3 +190,53 @@ export async function subscriptionsCancel(
     resourceForNotFound: `subscription ${input.subscriptionId}`,
   });
 }
+
+// ─── subscriptionsList (RESOLVERS-1 — backs the stripe:subscriptions picker) ─
+
+/**
+ * List-entry shape for `GET /v1/subscriptions?expand[]=data.customer`.
+ * The expanded customer is used ONLY to build a human label in the
+ * options resolver (name — never email); handlers keep using
+ * `subscriptionsGet`, whose `customer` stays a string id.
+ * https://docs.stripe.com/api/subscriptions/list
+ */
+export interface StripeSubscriptionListEntry {
+  id: string;
+  object: "subscription";
+  status: string;
+  customer: string | { id: string; name: string | null; deleted?: boolean };
+  created: number;
+}
+
+export interface StripeSubscriptionListResponse {
+  object: "list";
+  data: StripeSubscriptionListEntry[];
+  has_more: boolean;
+}
+
+export interface SubscriptionsListInput {
+  accessToken: string;
+  /** Stripe caps list pages at 100. */
+  limit?: number;
+  /** Defaults to Stripe's "active-ish" set; pass "all" to include ended. */
+  status?: string;
+  /** Expand `data.customer` so the picker can label by customer name. */
+  expandCustomer?: boolean;
+}
+
+export async function subscriptionsList(
+  input: SubscriptionsListInput,
+): Promise<StripeSubscriptionListResponse> {
+  const query = new URLSearchParams();
+  if (input.limit !== undefined) query.set("limit", String(input.limit));
+  if (input.status !== undefined) query.set("status", input.status);
+  if (input.expandCustomer === true) query.append("expand[]", "data.customer");
+
+  return stripeRequest<StripeSubscriptionListResponse>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: "/v1/subscriptions",
+    query,
+    resourceForNotFound: "subscriptions (list)",
+  });
+}

@@ -39,12 +39,14 @@ export const stripeCreateInvoiceMeta: ActionMeta = {
   fields: [
     {
       name: "customerId",
-      label: "Customer ID",
+      label: "Customer",
       description:
-        "Stripe customer (`cus_xxx`) to invoice. Usually wired from `{{stripe:create_customer.customerId}}` or `{{stripe:find_customer.customer.customerId}}`.",
-      type: "text",
+        "Who to invoice. Pick a customer, paste a cus_ id, or insert one from an earlier step.",
+      type: "combobox",
       required: true,
       placeholder: "cus_xxx",
+      optionsSource: "stripe:customers",
+      allowManualEntry: true,
     },
     {
       name: "description",

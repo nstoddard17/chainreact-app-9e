@@ -397,6 +397,12 @@ import { calendlyEventTypesResolver } from "@/integrations/calendly/options/even
 // tax codes, invoices) backing the action pickers. Account-shared
 // (account credential class). Refreshable via refreshAndRetry.
 import { quickbooksCustomersResolver } from "@/integrations/quickbooks/options/customers";
+// RESOLVERS-1 — Stripe pickers (customers, subscriptions, prices) backing
+// the raw-id fields the CONFIG-UX audit flagged. Labels are names /
+// catalog labels only — never emails, phones, or customer balances.
+import { stripeCustomersResolver } from "@/integrations/stripe/options/customers";
+import { stripeSubscriptionsResolver } from "@/integrations/stripe/options/subscriptions";
+import { stripePricesResolver } from "@/integrations/stripe/options/prices";
 import {
   quickbooksItemsResolver,
   quickbooksTaxCodesResolver,
@@ -717,6 +723,14 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   quickbooksTermsResolver,
   quickbooksTaxCodesResolver,
   quickbooksInvoicesResolver,
+  // RESOLVERS-1 — 3 Stripe resolvers (all root, no deps). Values are the
+  // raw cus_/sub_/price_ ids the handler schemas already store; labels
+  // are customer names, "customer — status", and "product — amount/
+  // interval" (merchant catalog pricing; never customer PII). Bounded
+  // single page (≤100) + local q-filter; account-shared credential class.
+  stripeCustomersResolver,
+  stripeSubscriptionsResolver,
+  stripePricesResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

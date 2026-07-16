@@ -36,12 +36,14 @@ export const stripeGetPaymentsMeta: ActionMeta = {
   fields: [
     {
       name: "customer",
-      label: "Customer ID",
+      label: "Customer",
       description:
-        "Optional — filter results to a single Stripe customer (`cus_xxx`). Omit to list all charges on the connected account.",
-      type: "text",
+        "Optional — only list payments from one customer. Leave empty to list payments from everyone.",
+      type: "combobox",
       required: false,
       placeholder: "cus_xxx",
+      optionsSource: "stripe:customers",
+      allowManualEntry: true,
     },
     {
       name: "limit",
