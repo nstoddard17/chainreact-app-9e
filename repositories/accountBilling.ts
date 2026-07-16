@@ -643,6 +643,135 @@ export async function attachStripeCustomerIfAbsentServiceRole(
   return { stored: false, customerId: existing?.stripeCustomerId ?? customerId };
 }
 
+// ─── Free-trial state (PRO-TEAM-TRIAL-ENFORCEMENT-1) — service-role ONLY ──────
+//
+// The account-scoped record of the account's ONE free trial (across Pro and Team) and the
+// atomic claim primitive. The DB is authoritative for whether the account has consumed its
+// trial (`trial_consumed_at`); the claim RPC is the sole writer of that marker + origin plan.
+// Reads are service-role only; the raw timestamps never reach the client (the UI uses the
+// sanitized `resolveTrialOffer` boolean). Trial-eligibility (Pro/Team only) + the effective
+// length live in trialPolicy / platformTrialPolicy, never here.
+
+/** Server-only view of an account's trial state. */
+export interface AccountTrialState {
+  /** The permanent one-trial marker. Non-null ⇒ the account has consumed its trial. */
+  consumedAt: string | null;
+  startedAt: string | null;
+  endsAt: string | null;
+  /** Which plan the one trial began on ('pro' | 'team'). Observability only. */
+  originPlan: "pro" | "team" | null;
+}
+
+interface AccountTrialRow {
+  trial_consumed_at: string | null;
+  trial_started_at: string | null;
+  trial_ends_at: string | null;
+  trial_origin_plan: "pro" | "team" | null;
+}
+
+/**
+ * Service-role read of the account's trial state. Server-only — the raw consumed/ends
+ * timestamps must never be surfaced to a client (the sanitized offer boolean is derived in
+ * `services/billing/platformTrialPolicy.resolveTrialOffer`). Returns null when the account has
+ * no billing row.
+ */
+export async function getTrialStateServiceRole(
+  accountId: string,
+): Promise<AccountTrialState | null> {
+  const supabase = getServiceRoleClient(
+    `account_billing: read trial state for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_billing")
+    .select("trial_consumed_at, trial_started_at, trial_ends_at, trial_origin_plan")
+    .eq("account_id", accountId)
+    .maybeSingle<AccountTrialRow>();
+  if (error) {
+    throw new Error(`account_billing.getTrialStateServiceRole failed: ${error.message}`);
+  }
+  if (!data) return null;
+  return {
+    consumedAt: data.trial_consumed_at,
+    startedAt: data.trial_started_at,
+    endsAt: data.trial_ends_at,
+    originPlan: data.trial_origin_plan,
+  };
+}
+
+export interface ClaimTrialResult {
+  /** True only when THIS call consumed the account's one trial (won the atomic compare-and-set).
+   *  False when the account already consumed it (or has no billing row) → subscribe without a trial. */
+  claimed: boolean;
+  /** The account's trial end (this call's when claimed; the pre-existing one when not — never advanced). */
+  trialEndsAt: string | null;
+  originPlan: "pro" | "team" | null;
+}
+
+/**
+ * Atomically claim the account's ONE free trial for a server-validated Pro/Team origin plan.
+ * Wraps the `claim_account_trial` SECURITY DEFINER RPC (compare-and-set on
+ * `trial_consumed_at IS NULL`), so two concurrent requests / duplicate checkout submissions /
+ * retries can never both receive a trial — exactly one gets `claimed: true`. The RPC RAISES on a
+ * non-Pro/Team origin plan (defense in depth); callers pass only 'pro'/'team'. Service-role only;
+ * there is no client claim path.
+ */
+export async function claimAccountTrialServiceRole(
+  accountId: string,
+  originPlan: "pro" | "team",
+  trialEndsAt: string,
+): Promise<ClaimTrialResult> {
+  const supabase = getServiceRoleClient(
+    `account_billing: claim one trial (origin=${originPlan}) for account ${accountId}`,
+  );
+  const { data, error } = await supabase.rpc("claim_account_trial", {
+    p_account_id: accountId,
+    p_origin_plan: originPlan,
+    p_trial_ends_at: trialEndsAt,
+  });
+  if (error) {
+    throw new Error(`claim_account_trial RPC failed: ${error.message}`);
+  }
+  const row = data as {
+    claimed: boolean;
+    trial_ends_at: string | null;
+    trial_origin_plan: "pro" | "team" | null;
+  };
+  return {
+    claimed: row.claimed,
+    trialEndsAt: row.trial_ends_at,
+    originPlan: row.trial_origin_plan,
+  };
+}
+
+/**
+ * Service-role write of the trial WINDOW (started/ends) ONLY — used by the webhook to reconcile
+ * the account's `trial_started_at` / `trial_ends_at` to Stripe's authoritative values. It NEVER
+ * touches `trial_consumed_at` (the permanent one-trial marker) or `trial_origin_plan` — so a
+ * webhook can never grant, restore, or re-key an account's trial eligibility, only mirror the
+ * window Stripe reports for an already-claimed trial. Only provided keys are written; no-op on an
+ * empty patch.
+ */
+export async function syncTrialWindowServiceRole(
+  accountId: string,
+  fields: { trialStartedAt?: string | null; trialEndsAt?: string | null },
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if ("trialStartedAt" in fields) patch.trial_started_at = fields.trialStartedAt ?? null;
+  if ("trialEndsAt" in fields) patch.trial_ends_at = fields.trialEndsAt ?? null;
+  if (Object.keys(patch).length === 0) return;
+
+  const supabase = getServiceRoleClient(
+    `account_billing: sync trial window for account ${accountId}`,
+  );
+  const { error } = await supabase
+    .from("account_billing")
+    .update(patch)
+    .eq("account_id", accountId);
+  if (error) {
+    throw new Error(`account_billing.syncTrialWindowServiceRole failed: ${error.message}`);
+  }
+}
+
 /** Partial Stripe-attachment update (only provided fields are written). */
 export interface StripeAttachmentUpdate {
   stripeCustomerId?: string | null;

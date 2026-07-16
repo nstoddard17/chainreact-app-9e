@@ -54,3 +54,35 @@ it("forwards the frozen flag so the trigger is disabled on a frozen account", ()
   render(<PersonalUpgradePanel accountId="personal-1" frozen={true} />);
   expect(mockButton).toHaveBeenCalledWith(expect.objectContaining({ frozen: true }));
 });
+
+// PRO-TEAM-TRIAL-ENFORCEMENT-1 — trial-aware CTA + copy.
+it("eligible account: shows 'Start Pro free trial' + honest one-time free-trial copy", () => {
+  render(
+    <PersonalUpgradePanel
+      accountId="personal-1"
+      frozen={false}
+      trialOffer={{ eligible: true, trialPeriodDays: 14 }}
+    />,
+  );
+  expect(mockButton).toHaveBeenCalledWith(
+    expect.objectContaining({ label: "Start Pro free trial" }),
+  );
+  const panel = screen.getByTestId("personal-upgrade-panel");
+  expect(panel).toHaveTextContent(/14-day free trial/i);
+  expect(panel).toHaveTextContent(/no charge today/i);
+  expect(panel).toHaveTextContent(/one free trial/i);
+});
+
+it("ineligible account (already used its trial): 'Upgrade to Pro' + 'Billing starts today', no free-trial claim", () => {
+  render(
+    <PersonalUpgradePanel
+      accountId="personal-1"
+      frozen={false}
+      trialOffer={{ eligible: false, trialPeriodDays: 0 }}
+    />,
+  );
+  expect(mockButton).toHaveBeenCalledWith(expect.objectContaining({ label: "Upgrade to Pro" }));
+  const panel = screen.getByTestId("personal-upgrade-panel");
+  expect(panel).toHaveTextContent(/Billing starts today/i);
+  expect(panel).not.toHaveTextContent(/free trial/i);
+});

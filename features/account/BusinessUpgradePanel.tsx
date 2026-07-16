@@ -30,8 +30,14 @@ export function BusinessUpgradePanel({ accountId, personalAccountId, frozen }: P
         Business raises this account&apos;s capacity to{" "}
         <span className="font-medium text-foreground">25 members</span> and{" "}
         <span className="font-medium text-foreground">250 folders</span>. The upgrade
-        completes after Stripe checkout and webhook confirmation. If you have a Personal Pro
-        subscription, you can keep it or schedule it to downgrade to Free at period end.
+        completes after Stripe checkout and webhook confirmation.{" "}
+        {/* PRO-TEAM-TRIAL-ENFORCEMENT-1: Business is never trial-eligible — say so plainly and
+            never advertise a free trial here. */}
+        <span data-testid="business-upgrade-no-trial-copy" className="font-medium text-foreground">
+          Business has no free trial — billing starts today.
+        </span>{" "}
+        If you have a Personal Pro subscription, you can keep it or schedule it to downgrade to
+        Free at period end.
       </p>
       <CheckoutChoiceButton
         checkoutAccountId={accountId}

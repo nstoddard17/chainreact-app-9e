@@ -30,6 +30,25 @@ legacy `STRIPE_PRICE_{PRO,TEAM,BUSINESS}` vars remain a deprecated monthly fallb
 public pricing page shows the month-to-month price as the headline and the annual-equivalent as a
 sub-line. Annual is purchasable only once the annual Price IDs are set and billing flags are on.
 
+## Free trials (Pro & Team only, one per account)
+
+Implemented in PRO-TEAM-TRIAL-ENFORCEMENT-1, **dark by default**. Only **Pro** and **Team** are
+trial-eligible; Free, Business, Enterprise, and any unknown/malformed plan never receive a trial.
+Each account gets **one** free trial **total** across Pro and Team, keyed on the canonical
+`account_id` (never a user / price / product / subscription / interval). The permanent marker is
+`account_billing.trial_consumed_at`, claimed atomically at checkout
+(`claim_account_trial` compare-and-set) and never cleared by cancellation, downgrade, interval
+change, resubscription, or webhook. Switching plans/intervals cannot restart or extend the trial —
+there is no second-claim path.
+
+- **Eligibility allowlist:** `core/billing/trialPolicy.ts` (`TRIAL_ELIGIBLE_PLANS = ['pro','team']`).
+- **Effective length:** `PLATFORM_TRIAL_PERIOD_DAYS` env (recommended **14**; unset/0 = trials off,
+  the current default). Resolved by `services/billing/platformTrialConfig.resolveTrialPeriodDays`.
+- **Where it's granted:** `createCheckoutSession` sends `subscription_data.trial_period_days` only for
+  an approved, atomically-claimed Pro/Team trial. Business/Enterprise/Free/ineligible send none.
+- Full owner report + go-live steps:
+  [`docs/slices/phase-4/account-settings/trial-enforcement-report.md`](../slices/phase-4/account-settings/trial-enforcement-report.md).
+
 ## Limit matrix (per month unless noted)
 
 These numbers live in `PLAN_LIMITS` and are read by the marketing pricing page, account-settings

@@ -12,6 +12,7 @@ import { getByIdServiceRole } from "@/repositories/accounts";
 import {
   applyBillingSubscriptionSyncServiceRole,
   applyBusinessUpgradeServiceRole,
+  syncTrialWindowServiceRole,
   type ApplyBusinessUpgradeInput,
   type BillingSubscriptionSync,
 } from "@/repositories/accountBilling";
@@ -40,6 +41,15 @@ import { hasProcessed, recordProcessed } from "@/repositories/stripeBillingEvent
  * a canceled/deleted subscription sets plan_status='canceled' and LEAVES the plan
  * (revert/downgrade is CS-5). Account id + plan come only from trusted (signed) Stripe
  * metadata; plan is validated against plan policy before any write.
+ *
+ * TRIAL (PRO-TEAM-TRIAL-ENFORCEMENT-1): the webhook only MIRRORS Stripe's authoritative trial
+ * window (`trial_start` / `trial_end`) into `account_billing.trial_started_at` / `trial_ends_at`
+ * for an already-claimed trial, and only for keys Stripe actually reports (so a non-trial /
+ * Business subscription never wipes a prior trial end). It NEVER writes `trial_consumed_at` or
+ * `trial_origin_plan` — the atomic checkout claim is the sole authority for whether an account has
+ * consumed its one trial. Consequently a webhook can never grant a new trial, restore eligibility
+ * after cancellation, or infer a trial from a `trialing` status; it cannot advance/restart the
+ * trial (it copies Stripe's value, and Stripe preserves the original end on in-place updates).
  */
 
 export const STRIPE_BILLING_WEBHOOK_SECRET_ENV = "STRIPE_BILLING_WEBHOOK_SECRET";
@@ -137,10 +147,30 @@ function resolveCurrentPeriodEnd(obj: Record<string, unknown>): number | null {
   return latest;
 }
 
+/** Trial window mirrored from Stripe — only the keys Stripe actually reports (never null-wipes). */
+interface TrialWindowPatch {
+  trialStartedAt?: string;
+  trialEndsAt?: string;
+}
+
 type EventResolution =
-  | { kind: "sync"; accountId: string; fields: BillingSubscriptionSync }
+  | { kind: "sync"; accountId: string; fields: BillingSubscriptionSync; trialWindow?: TrialWindowPatch }
   | { kind: "upgrade"; input: ApplyBusinessUpgradeInput }
   | { kind: "ignore"; accountId: string | null };
+
+/**
+ * Mirror Stripe's authoritative trial window from a Subscription object. Returns ONLY the keys
+ * Stripe reports (a subscription with no trial reports neither, so nothing is written and any prior
+ * trial end is preserved). Never includes `trial_consumed_at` — that is claim-only, never webhook.
+ */
+function resolveTrialWindow(obj: Record<string, unknown>): TrialWindowPatch {
+  const patch: TrialWindowPatch = {};
+  const start = unixSecondsToIso(obj.trial_start);
+  if (start) patch.trialStartedAt = start;
+  const end = unixSecondsToIso(obj.trial_end);
+  if (end) patch.trialEndsAt = end;
+  return patch;
+}
 
 /**
  * True when this verified event is a recognized Team → Business UPGRADE (BU-3): the trusted
@@ -267,7 +297,9 @@ async function resolveEvent(
     return { kind: "upgrade", input: toUpgradeInput(accountId, fields) };
   }
   applyResolvedPlan(account.type, obj, fields);
-  return { kind: "sync", accountId, fields };
+  // Mirror Stripe's trial window (never the consumed marker). Only for the subscription events —
+  // checkout.session.completed carries no trial_start/end (those live on the subscription).
+  return { kind: "sync", accountId, fields, trialWindow: resolveTrialWindow(obj) };
 }
 
 export async function handleStripeBillingWebhook(
@@ -316,6 +348,12 @@ export async function handleStripeBillingWebhook(
 
   // Sync FIRST, then record — a sync failure leaves the event unrecorded for retry.
   await applyBillingSubscriptionSyncServiceRole(resolution.accountId, resolution.fields);
+  // Mirror Stripe's trial window (started/ends only) for an already-claimed trial. Separate,
+  // idempotent write that NEVER touches trial_consumed_at/origin — so it cannot grant or restore
+  // eligibility. Only runs when Stripe reported a trial field. Also before record, so a failure retries.
+  if (resolution.trialWindow && Object.keys(resolution.trialWindow).length > 0) {
+    await syncTrialWindowServiceRole(resolution.accountId, resolution.trialWindow);
+  }
   await recordProcessed({ eventId, eventType, accountId: resolution.accountId });
   return { ok: true, outcome: "processed", eventType };
 }

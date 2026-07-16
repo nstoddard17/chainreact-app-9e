@@ -37,6 +37,15 @@ parent closeout: [billing-plan-metadata-closeout.md](./billing-plan-metadata-clo
 > that UI slice. The remaining go-live blockers are now purely **environment / config /
 > manual-test** (see §2–§5, §10–§13) plus the deliberate flag flip (§8).
 
+> **Update (2026-07-15, PRO-TEAM-TRIAL-ENFORCEMENT-1):** the §16/§17 "no trials/coupons"
+> limitation is now **superseded for trials** by a one-Pro/Team-trial-per-account system, shipped
+> **dark by config** (`PLATFORM_TRIAL_PERIOD_DAYS`, default 0 = off — no behavior change until set).
+> Only Pro & Team are trial-eligible; Business/Enterprise/Free never are; each account gets one trial
+> total across Pro & Team, enforced by an atomic DB claim on `account_billing.trial_consumed_at`
+> keyed on `account_id`. To go live set `PLATFORM_TRIAL_PERIOD_DAYS=14` (after applying migration
+> `20260721000000_account_billing_trial.sql`). Full owner report + steps:
+> [`trial-enforcement-report.md`](./trial-enforcement-report.md). Coupons remain out of scope.
+
 > **Update (2026-06-07, slices `03f4ef3b8` + `8ebaa44d1` — CS-PRO-1/2):** Personal Pro is now
 > dark-launched behind a **second flag, `ENABLE_PERSONAL_PRO`** (default OFF), and has a **real
 > benefit — 1,000 monthly tasks** (vs Free 100), set on `account_billing.tasks_limit` by the

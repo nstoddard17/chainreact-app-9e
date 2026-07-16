@@ -112,3 +112,32 @@ describe("PricingPage — honesty (no invented pricing / overpromised features)"
     ).toBeGreaterThan(0);
   });
 });
+
+// PRO-TEAM-TRIAL-ENFORCEMENT-1 — public trial copy is Pro/Team-only and dark by default.
+describe("PricingPage — free-trial advertising (config-gated, Pro/Team only)", () => {
+  const orig = process.env.PLATFORM_TRIAL_PERIOD_DAYS;
+  afterEach(() => {
+    if (orig === undefined) delete process.env.PLATFORM_TRIAL_PERIOD_DAYS;
+    else process.env.PLATFORM_TRIAL_PERIOD_DAYS = orig;
+  });
+
+  it("DARK by default: advertises no free trial on any tier", () => {
+    delete process.env.PLATFORM_TRIAL_PERIOD_DAYS;
+    render(<PricingPage />);
+    expect(screen.queryByTestId("pricing-trial-pro")).toBeNull();
+    expect(screen.queryByTestId("pricing-trial-team")).toBeNull();
+    expect(screen.queryByText(/free trial/i)).toBeNull();
+  });
+
+  it("when configured on: advertises the trial on Pro & Team ONLY — never Business/Enterprise/Free", () => {
+    process.env.PLATFORM_TRIAL_PERIOD_DAYS = "14";
+    render(<PricingPage />);
+    expect(screen.getByTestId("pricing-trial-pro")).toHaveTextContent(/14-day free trial/i);
+    expect(screen.getByTestId("pricing-trial-team")).toHaveTextContent(/14-day free trial/i);
+    expect(screen.queryByTestId("pricing-trial-business")).toBeNull();
+    expect(screen.queryByTestId("pricing-trial-enterprise")).toBeNull();
+    expect(screen.queryByTestId("pricing-trial-free")).toBeNull();
+    // FAQ explains one-trial-per-account, only for Pro/Team.
+    expect(screen.getByText(/Pro and Team each include a 14-day free trial/i)).toBeInTheDocument();
+  });
+});

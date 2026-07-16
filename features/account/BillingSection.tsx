@@ -66,6 +66,16 @@ export interface AccountBillingView {
    * unaffected. NOT a subscription state and carries no Stripe ids / audit reason.
    */
   billingMode?: BillingDisplayMode;
+  /**
+   * PRO-TEAM-TRIAL-ENFORCEMENT-1 — the SANITIZED Pro free-trial offer for a PERSONAL account
+   * (null for team/business/enterprise, or when unavailable). `eligible` is a server-derived
+   * boolean (Pro/Team allowlist ∧ trials configured on ∧ `trial_consumed_at IS NULL`) — never the
+   * raw timestamp. When eligible, the personal upgrade CTA shows the honest one-time free-trial
+   * copy; otherwise it shows "Upgrade to Pro / billing starts today". Business & Enterprise never
+   * receive or advertise a trial. The server re-decides + atomically claims at checkout; this is
+   * display-only.
+   */
+  trialOffer?: { eligible: boolean; trialPeriodDays: number } | null;
 }
 
 /**
@@ -398,7 +408,11 @@ export function BillingSection({
 
         {showPersonalUpgrade && accountId && (
           <SettingRow label="Upgrade plan" stacked>
-            <PersonalUpgradePanel accountId={accountId} frozen={billing.frozen} />
+            <PersonalUpgradePanel
+              accountId={accountId}
+              frozen={billing.frozen}
+              trialOffer={billing.trialOffer ?? null}
+            />
           </SettingRow>
         )}
 

@@ -24,6 +24,8 @@ import {
   templateLimitFor,
   canBulkExportForPlan,
 } from "@/core/billing/planPolicy";
+import { isTrialEligiblePlan } from "@/core/billing/trialPolicy";
+import { resolveTrialPeriodDays } from "@/services/billing/platformTrialConfig";
 
 /**
  * Public Pricing page (Slice 4.PRICING-1).
@@ -388,6 +390,22 @@ function Cell({ v }: { v: CellVal }) {
 }
 
 export function PricingPage() {
+  // PRO-TEAM-TRIAL-ENFORCEMENT-1 — public trial copy is shown ONLY when the platform has a trial
+  // length configured (dark by default → no trial advertised, preserving the honest current copy),
+  // and ONLY on the trial-eligible tiers (Pro & Team). Business and Enterprise never show a trial.
+  // For unauthenticated visitors this is a general offer; account-specific eligibility is revalidated
+  // server-side after sign-in (the in-app CTA uses the sanitized per-account offer).
+  const trialDays = resolveTrialPeriodDays();
+  const trialsOn = trialDays > 0;
+  const faqItems = trialsOn
+    ? [
+        {
+          q: "Is there a free trial?",
+          a: `Yes — Pro and Team each include a ${trialDays}-day free trial with no charge today. Business and Enterprise don't include a trial. Each account gets one free trial total across Pro and Team; switching plans or billing intervals doesn't restart it.`,
+        },
+        ...FAQ,
+      ]
+    : FAQ;
   return (
     <div data-marketing-surface className="pr-root" data-testid="pricing-page">
       <MarketingHeader />
@@ -448,6 +466,11 @@ export function PricingPage() {
                     {tier.bigUnit && <span className="pr-price-u">{tier.bigUnit}</span>}
                   </div>
                   <div className="pr-price-sub">{tier.priceNote}</div>
+                  {trialsOn && isTrialEligiblePlan(tier.tier) && (
+                    <div className="pr-trial" data-testid={`pricing-trial-${tier.tier}`}>
+                      {trialDays}-day free trial · no charge today
+                    </div>
+                  )}
                   <p className="pr-desc">{tier.who}</p>
                   <CtaLink cta={tier.cta} testId={`pricing-cta-${tier.tier}`} />
                   <ul className="pr-bullets">
@@ -625,7 +648,7 @@ export function PricingPage() {
               </p>
             </div>
             <div className="pr-faq-list">
-              {FAQ.map((item) => (
+              {faqItems.map((item) => (
                 <details key={item.q} className="pr-faq-item">
                   <summary className="pr-faq-q">
                     <span>{item.q}</span>
@@ -711,6 +734,7 @@ export function PricingPage() {
         .pr-price-v { font-size: clamp(26px, 3vw, 34px); font-weight: 700; letter-spacing: -0.03em; line-height: 1; color: var(--mk-text); }
         .pr-price-u { font-size: 12.5px; color: var(--mk-muted); }
         .pr-price-sub { font-size: 12px; color: var(--mk-muted); min-height: 16px; }
+        .pr-trial { margin-top: 8px; display:inline-flex; align-items:center; align-self:flex-start; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--mk-text); background: var(--mk-success-soft); border: 1px solid color-mix(in oklab, var(--mk-success) 30%, var(--mk-border)); border-radius: 999px; padding: 4px 10px; }
         .pr-desc { font-size: 13px; color: var(--mk-text-2); margin: 12px 0 16px; line-height: 1.5; }
         .pr-card .pr-cta { width: 100%; margin-bottom: 18px; }
         .pr-bullets { list-style: none; padding: 0; margin: auto 0 0; display:flex; flex-direction:column; gap: 11px; padding-top: 18px; border-top: 1px dashed var(--mk-border); }

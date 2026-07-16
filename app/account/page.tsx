@@ -7,6 +7,7 @@ import { getDisplayName } from "@/repositories/userProfiles";
 import { getUsage, getBillingModeServiceRole } from "@/repositories/accountBilling";
 import { getAiCreditUsage } from "@/repositories/accountBillingAiCredits";
 import { isBusinessDowngradeEnabled } from "@/services/billing/billingFeatureFlags";
+import { resolveTrialOffer } from "@/services/billing/platformTrialPolicy";
 import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
 import { folderLimitForAccount } from "@/services/workflowFolders/folderLimits";
@@ -111,7 +112,7 @@ export default async function AccountPage({ searchParams }: Props) {
     frozen,
   };
   if (active) {
-    const [usage, memberCount, aiCreditUsage, billingMode] = await Promise.all([
+    const [usage, memberCount, aiCreditUsage, billingMode, trialOffer] = await Promise.all([
       getUsage(active.id).catch(() => null),
       active.type !== "personal"
         ? listMembers(active.id)
@@ -125,6 +126,13 @@ export default async function AccountPage({ searchParams }: Props) {
       // caller's own accounts (listUserAccountSummaries), so this read is membership-
       // scoped; it carries no Stripe ids / audit reason. Fail-safe to "standard".
       getBillingModeServiceRole(active.id).catch(() => "standard" as const),
+      // PRO-TEAM-TRIAL-ENFORCEMENT-1: the SANITIZED trial offer for this account's Pro upgrade
+      // (personal only). A derived boolean + days — never the raw trial_consumed_at timestamp.
+      // Fail-safe to no-offer; drives honest "Start free trial" vs "Upgrade" CTA copy. Business/
+      // Enterprise accounts never get a trial offer here (Pro isn't valid for them → no-offer).
+      active.type === "personal"
+        ? resolveTrialOffer(active.id, "pro").catch(() => null)
+        : Promise.resolve<{ eligible: boolean; trialPeriodDays: number } | null>(null),
     ]);
     billing = {
       usage,
@@ -155,6 +163,8 @@ export default async function AccountPage({ searchParams }: Props) {
       personalAccountId: personal.id,
       // BILLING-USAGE-VISIBILITY-1: drives the honest internal-account note.
       billingMode,
+      // PRO-TEAM-TRIAL-ENFORCEMENT-1: sanitized Pro trial offer (personal accounts only).
+      trialOffer,
     };
   }
 

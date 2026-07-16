@@ -11,6 +11,9 @@ import {
   getPlatformStripeClient,
 } from "@/services/billing/platformStripeClient";
 import { resolvePlanPrice } from "@/services/billing/platformStripePrices";
+import { isTrialEligiblePlan } from "@/core/billing/trialPolicy";
+import { resolveTrialPeriodDays } from "@/services/billing/platformTrialConfig";
+import { claimAccountTrialServiceRole } from "@/repositories/accountBilling";
 
 /**
  * Platform billing — Checkout + Customer Portal SESSION creation
@@ -27,8 +30,10 @@ import { resolvePlanPrice } from "@/services/billing/platformStripePrices";
  * HARD SCOPE (CS-3): creates Checkout / Portal sessions ONLY. It does NOT sync
  * subscription state and MUST NOT mutate `account_billing.plan` / `plan_status` — Stripe
  * redirect success is NOT proof of a paid subscription; the CS-4 webhook is the sole
- * authority that flips plan/status. This service writes exactly one column ever:
- * `stripe_customer_id` (lazy attach), and nothing else.
+ * authority that flips plan/status. Checkout writes exactly two things: `stripe_customer_id`
+ * (lazy attach) and — for an approved Pro/Team trial only — the account's atomic one-trial
+ * claim (`trial_consumed_at` etc., via the claim RPC; PRO-TEAM-TRIAL-ENFORCEMENT-1). It never
+ * touches plan/status.
  *
  * Separate from the WORKFLOW Stripe provider (`integrations/stripe/`) — uses the platform
  * secret-key client, never a per-merchant OAuth token.
@@ -160,6 +165,28 @@ export async function createCheckoutSession(
     checkoutMetadata.targetAccountType = upgradeTargetType;
   }
 
+  // Trial gate — the LAST decision before creating the session, and the ONLY place a trial is
+  // granted. Three independent authorities must all pass; any one vetoes:
+  //   1. server-owned allowlist (`isTrialEligiblePlan`): Pro/Team only — Business/Enterprise/Free
+  //      can NEVER carry a trial (Enterprise never reaches checkout; Business is dropped here);
+  //   2. platform config (`resolveTrialPeriodDays`): 0 = trials off (dark default) → no trial;
+  //   3. the account's authoritative DB state, enforced ATOMICALLY: `claimAccountTrialServiceRole`
+  //      consumes the account's one trial only when `trial_consumed_at IS NULL`. `claimed: true`
+  //      means THIS request won the compare-and-set → it gets trial config; `claimed: false` means
+  //      the account already used its trial (or a concurrent request won) → subscribe with NO trial.
+  // Ordering: the claim runs after every validation + customer attach, so a rejected checkout never
+  // consumes the trial. If Stripe session creation throws AFTER a successful claim, the trial stays
+  // consumed by design (a deliberate, documented state transition — we do NOT roll back, which would
+  // reintroduce the duplicate-trial race). The user simply has no subscription and, on retry,
+  // subscribes without a trial. The DB — not this metadata, not Stripe status — is the source of truth.
+  const trialPeriodDays = resolveTrialPeriodDays();
+  let trialApplies = false;
+  if (trialPeriodDays > 0 && isTrialEligiblePlan(requestedPlan)) {
+    const trialEndsAtIso = new Date(Date.now() + trialPeriodDays * 86_400_000).toISOString();
+    const claim = await claimAccountTrialServiceRole(accountId, requestedPlan, trialEndsAtIso);
+    trialApplies = claim.claimed;
+  }
+
   const base = appBaseUrl();
   const session = await client.request<StripeUrlResponse>({
     method: "POST",
@@ -171,7 +198,13 @@ export async function createCheckoutSession(
       success_url: `${base}/account?billing=success`,
       cancel_url: `${base}/account?billing=canceled`,
       metadata: checkoutMetadata,
-      subscription_data: { metadata: checkoutMetadata },
+      subscription_data: {
+        metadata: checkoutMetadata,
+        // Only an approved, atomically-claimed Pro/Team trial adds trial config. Business,
+        // Enterprise, Free, ineligible/already-consumed accounts, and the dark (days=0) state all
+        // send NO trial_period_days — so their subscription bills immediately.
+        ...(trialApplies ? { trial_period_days: trialPeriodDays } : {}),
+      },
     },
   });
 

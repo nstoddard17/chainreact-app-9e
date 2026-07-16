@@ -40,3 +40,14 @@ it("explains the capacity increase + Personal Pro choice, and renders no Stripe 
   expect(panel).toHaveTextContent(/Personal Pro/i);
   expect(container.innerHTML).not.toMatch(/cus_|sub_/);
 });
+
+// PRO-TEAM-TRIAL-ENFORCEMENT-1 — Business is never trial-eligible; never advertise a free trial.
+it("never advertises a Business free trial — states billing starts today", () => {
+  render(<BusinessUpgradePanel accountId="team-1" personalAccountId="personal-1" frozen={false} />);
+  expect(screen.getByTestId("business-upgrade-no-trial-copy")).toHaveTextContent(
+    /no free trial — billing starts today/i,
+  );
+  // The CTA never offers a trial; it is an upgrade, not a "Start free trial".
+  expect(mockButton).toHaveBeenCalledWith(expect.objectContaining({ label: "Upgrade to Business" }));
+  expect(screen.getByTestId("ccb")).not.toHaveTextContent(/free trial/i);
+});
