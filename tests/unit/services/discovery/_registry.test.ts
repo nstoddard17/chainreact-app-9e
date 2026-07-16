@@ -675,7 +675,7 @@ describe("per-provider accessors", () => {
   });
 
   describe("gmail:new_labeled_email field-type choices (Slice 3.12)", () => {
-    it("has a single required `labelId` text field", () => {
+    it("has a single required `labelId` gmail:labels combobox (CONFIG-UX-SETUP-ADVANCED-1)", () => {
       const meta = listTriggerMetasForProvider("gmail").find(
         (m) => m.key === "gmail:new_labeled_email",
       );
@@ -683,7 +683,9 @@ describe("per-provider accessors", () => {
       expect(meta!.fields).toHaveLength(1);
       const f = meta!.fields[0]!;
       expect(f.name).toBe("labelId");
-      expect(f.type).toBe("text");
+      expect(f.type).toBe("combobox");
+      expect(f.optionsSource).toBe("gmail:labels");
+      expect(f.allowManualEntry).toBe(true);
       expect(f.required).toBe(true);
     });
   });
@@ -1024,14 +1026,16 @@ describe("per-provider accessors", () => {
   });
 
   describe("microsoft-outlook:email_flagged D-OM4 over-fire surface", () => {
-    it("exposes folder only (D-OM4 — no prior-state cache, V1-parity over-fire)", () => {
+    it("exposes folder only (D-OM4 — no prior-state cache, V1-parity over-fire) as an optional microsoft-outlook:folders combobox (CONFIG-UX-SETUP-ADVANCED-1)", () => {
       const meta = listTriggerMetasForProvider("microsoft-outlook").find(
         (m) => m.key === "microsoft-outlook:email_flagged",
       );
       const names = meta!.fields.map((f) => f.name);
       expect(names).toEqual(["folder"]);
       const folder = meta!.fields[0]!;
-      expect(folder.type).toBe("text");
+      expect(folder.type).toBe("combobox");
+      expect(folder.optionsSource).toBe("microsoft-outlook:folders");
+      expect(folder.allowManualEntry).toBe(true);
       expect(folder.required).toBe(false);
     });
 
@@ -1623,7 +1627,7 @@ describe("per-provider accessors", () => {
         expect(channel).toBeUndefined();
       });
 
-      it("list_channels.kind is a select with the public/private/both options + no enabled default", () => {
+      it("list_channels.kind is a select with the public/private/both options + defaultValue 'public' (CONFIG-UX-SETUP-ADVANCED-1 — safe read-only default made explicit)", () => {
         const kind = metaByKey("slack:list_channels").fields.find(
           (f) => f.name === "kind",
         );
@@ -1635,7 +1639,7 @@ describe("per-provider accessors", () => {
           "private",
           "both",
         ]);
-        expect(kind!.defaultValue).toBeUndefined();
+        expect(kind!.defaultValue).toBe("public");
       });
 
       it("list_channels.excludeArchived is an optional boolean (handler default is true)", () => {
@@ -1686,15 +1690,17 @@ describe("per-provider accessors", () => {
         expect(name!.required).toBe(true);
       });
 
-      it("invite_users_to_channel.users is a required string-array (multi-select combobox is deferred)", () => {
+      it("invite_users_to_channel.users is a required string-array backed by the slack:users resolver (CONFIG-UX-SETUP-ADVANCED-1 wiring)", () => {
         const users = metaByKey("slack:invite_users_to_channel").fields.find(
           (f) => f.name === "users",
         );
         expect(users).toBeDefined();
         expect(users!.type).toBe("string-array");
         expect(users!.required).toBe(true);
-        // No slack:users resolver yet.
-        expect(users!.optionsSource).toBeUndefined();
+        // CONFIG-UX-SETUP-ADVANCED-1 wired the slack:users resolver;
+        // manual entry stays allowed for pasted/wired user ids.
+        expect(users!.optionsSource).toBe("slack:users");
+        expect(users!.allowManualEntry).toBe(true);
       });
 
       it("invite_users_to_channel.sendInviteNotification is a required boolean with NO defaultValue (Q11)", () => {
@@ -2212,15 +2218,15 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("ID fields (pageId, databaseId, parentPageId, etc.) are `text` (resolvers deferred to Slice 3.43+)", () => {
-      const idFieldNames = new Set([
-        "pageId",
-        "databaseId",
-        "parentPageId",
-      ]);
+    it("ID fields: pageId/parentPageId are notion:pages comboboxes with manual entry (CONFIG-UX-SETUP-ADVANCED-1 wiring); databaseId stays text (no databases resolver yet)", () => {
       for (const meta of notionActionMetas()) {
         for (const f of meta.fields) {
-          if (idFieldNames.has(f.name)) {
+          if (f.name === "pageId" || f.name === "parentPageId") {
+            expect(f.type).toBe("combobox");
+            expect(f.optionsSource).toBe("notion:pages");
+            expect(f.allowManualEntry).toBe(true);
+          }
+          if (f.name === "databaseId") {
             expect(f.type).toBe("text");
             expect(f.optionsSource).toBeUndefined();
           }
@@ -2228,7 +2234,7 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("nested-object fields (parent, properties, children, icon, cover, filter, sorts) are `textarea` (paste-JSON UX)", () => {
+    it("nested-object fields (parent, properties, children, icon, cover, filter, sorts) are advanced json — except search.filter, now a structured object editor (CONFIG-UX-SETUP-ADVANCED-1)", () => {
       const jsonFieldNames = new Set([
         "parent",
         "properties",
@@ -2240,14 +2246,25 @@ describe("per-provider accessors", () => {
       ]);
       for (const meta of notionActionMetas()) {
         for (const f of meta.fields) {
-          if (jsonFieldNames.has(f.name)) {
-            // CONFIG-UX-AUDIT-2: forward-passed Notion grammars are
-            // advanced json fields that parse to the schema shape.
-            expect(f.type).toBe("json");
+          if (!jsonFieldNames.has(f.name)) continue;
+          if (meta.key === "notion:search" && f.name === "filter") {
+            // CONFIG-UX-SETUP-ADVANCED-1: the flat two-key search filter
+            // became a structured object editor (value/property selects)
+            // that commits the exact object the runtime schema expects.
+            expect(f.type).toBe("object");
             expect(f.advanced).toBe(true);
-            expect(["array", "object"]).toContain(f.jsonShape);
-            expect(f.placeholder).toBeDefined();
+            expect(f.itemFields?.map((s) => s.name)).toEqual([
+              "value",
+              "property",
+            ]);
+            continue;
           }
+          // CONFIG-UX-AUDIT-2: forward-passed Notion grammars are
+          // advanced json fields that parse to the schema shape.
+          expect(f.type).toBe("json");
+          expect(f.advanced).toBe(true);
+          expect(["array", "object"]).toContain(f.jsonShape);
+          expect(f.placeholder).toBeDefined();
         }
       }
     });
@@ -2322,20 +2339,26 @@ describe("per-provider accessors", () => {
         return notionActionMetas().find((m) => m.key === "notion:update_page")!;
       }
 
-      it("pageId is required text; properties/icon/cover are optional textareas; archived is optional boolean", () => {
+      it("pageId is a required notion:pages combobox; properties/icon/cover are optional advanced json; archived is an optional advanced boolean (CONFIG-UX-SETUP-ADVANCED-1)", () => {
         const byName = new Map(
           updatePageMeta().fields.map((f) => [f.name, f]),
         );
-        expect(byName.get("pageId")!.type).toBe("text");
+        expect(byName.get("pageId")!.type).toBe("combobox");
+        expect(byName.get("pageId")!.optionsSource).toBe("notion:pages");
+        expect(byName.get("pageId")!.allowManualEntry).toBe(true);
         expect(byName.get("pageId")!.required).toBe(true);
         expect(byName.get("properties")!.type).toBe("json");
         expect(byName.get("properties")!.required).toBe(false);
+        expect(byName.get("properties")!.advanced).toBe(true);
         expect(byName.get("icon")!.type).toBe("json");
         expect(byName.get("icon")!.required).toBe(false);
+        expect(byName.get("icon")!.advanced).toBe(true);
         expect(byName.get("cover")!.type).toBe("json");
         expect(byName.get("cover")!.required).toBe(false);
+        expect(byName.get("cover")!.advanced).toBe(true);
         expect(byName.get("archived")!.type).toBe("boolean");
         expect(byName.get("archived")!.required).toBe(false);
+        expect(byName.get("archived")!.advanced).toBe(true);
       });
 
       it("description mentions the runtime cross-field 'at least one mutating field' invariant", () => {
@@ -2359,11 +2382,13 @@ describe("per-provider accessors", () => {
         "notion:archive_page",
         "notion:restore_page",
         "notion:get_page",
-      ])("%s exposes only pageId (required text)", (key) => {
+      ])("%s exposes only pageId (required notion:pages combobox with manual entry — CONFIG-UX-SETUP-ADVANCED-1)", (key) => {
         const meta = notionActionMetas().find((m) => m.key === key)!;
         expect(meta.fields.map((f) => f.name)).toEqual(["pageId"]);
         const pageId = meta.fields[0]!;
-        expect(pageId.type).toBe("text");
+        expect(pageId.type).toBe("combobox");
+        expect(pageId.optionsSource).toBe("notion:pages");
+        expect(pageId.allowManualEntry).toBe(true);
         expect(pageId.required).toBe(true);
       });
 
@@ -2542,14 +2567,29 @@ describe("per-provider accessors", () => {
         expect(names).not.toContain("startCursor");
       });
 
-      it("query required text (empty allowed per Notion API); filter optional textarea; pageSize optional number", () => {
+      it("query required text (empty allowed per Notion API); filter optional advanced object editor (value/property selects); pageSize optional advanced number (CONFIG-UX-SETUP-ADVANCED-1)", () => {
         const byName = new Map(searchMeta().fields.map((f) => [f.name, f]));
         expect(byName.get("query")!.type).toBe("text");
         expect(byName.get("query")!.required).toBe(true);
-        expect(byName.get("filter")!.type).toBe("json");
-        expect(byName.get("filter")!.required).toBe(false);
+        const filter = byName.get("filter")!;
+        expect(filter.type).toBe("object");
+        expect(filter.required).toBe(false);
+        expect(filter.advanced).toBe(true);
+        expect(filter.itemFields?.map((s) => s.name)).toEqual([
+          "value",
+          "property",
+        ]);
+        const valueChoices = filter.itemFields?.find(
+          (s) => s.name === "value",
+        )!;
+        expect(valueChoices.type).toBe("select");
+        expect(valueChoices.options?.map((o) => o.value)).toEqual([
+          "page",
+          "database",
+        ]);
         expect(byName.get("pageSize")!.type).toBe("number");
         expect(byName.get("pageSize")!.required).toBe(false);
+        expect(byName.get("pageSize")!.advanced).toBe(true);
       });
 
       it("output is {results: array, hasMore: boolean, nextCursor: string}", () => {
@@ -2585,13 +2625,17 @@ describe("per-provider accessors", () => {
           )!;
         }
 
-        it("exposes blockId (required text) + children (required textarea)", () => {
+        it("exposes blockId (required notion:pages combobox) + children (required advanced json array) — CONFIG-UX-SETUP-ADVANCED-1", () => {
           const fields = meta().fields;
           expect(fields.map((f) => f.name)).toEqual(["blockId", "children"]);
           const byName = new Map(fields.map((f) => [f.name, f]));
-          expect(byName.get("blockId")!.type).toBe("text");
+          expect(byName.get("blockId")!.type).toBe("combobox");
+          expect(byName.get("blockId")!.optionsSource).toBe("notion:pages");
+          expect(byName.get("blockId")!.allowManualEntry).toBe(true);
           expect(byName.get("blockId")!.required).toBe(true);
           expect(byName.get("children")!.type).toBe("json");
+          expect(byName.get("children")!.jsonShape).toBe("array");
+          expect(byName.get("children")!.advanced).toBe(true);
           expect(byName.get("children")!.required).toBe(true);
         });
 
@@ -2690,14 +2734,16 @@ describe("per-provider accessors", () => {
           )!;
         }
 
-        it("exposes pageId (optional) / discussionId (optional) / text (required textarea)", () => {
+        it("exposes pageId (optional notion:pages combobox — CONFIG-UX-SETUP-ADVANCED-1) / discussionId (optional text) / text (required textarea)", () => {
           expect(meta().fields.map((f) => f.name)).toEqual([
             "pageId",
             "discussionId",
             "text",
           ]);
           const byName = new Map(meta().fields.map((f) => [f.name, f]));
-          expect(byName.get("pageId")!.type).toBe("text");
+          expect(byName.get("pageId")!.type).toBe("combobox");
+          expect(byName.get("pageId")!.optionsSource).toBe("notion:pages");
+          expect(byName.get("pageId")!.allowManualEntry).toBe(true);
           expect(byName.get("pageId")!.required).toBe(false);
           expect(byName.get("discussionId")!.type).toBe("text");
           expect(byName.get("discussionId")!.required).toBe(false);
@@ -2907,23 +2953,35 @@ describe("per-provider accessors", () => {
       expect(foundCount).toBe(9);
     });
 
-    it("nested fields: lineItems is a structured object-list; automaticTax/afterCompletion stay JSON textareas behind the Advanced disclosure (CONFIG-UX-AUDIT-1)", () => {
+    it("nested fields: lineItems is a required structured object-list; automaticTax is a structured object editor; afterCompletion stays advanced JSON (CONFIG-UX-SETUP-ADVANCED-1)", () => {
       let foundCount = 0;
       for (const meta of stripeActionMetas()) {
         for (const f of meta.fields) {
           if (f.name === "lineItems") {
             // Visual repeater writing the REAL [{priceId, quantity}] array
             // the runtime schema expects — never a JSON-encoded string.
+            // CONFIG-UX-SETUP-ADVANCED-1 made it required at the field
+            // level (checkout hides it in setup mode via visibleWhen).
             expect(f.type).toBe("object-list");
             expect(f.itemFields?.map((s) => s.name)).toEqual([
               "priceId",
               "quantity",
             ]);
+            expect(f.required).toBe(true);
             expect(f.advanced).toBeUndefined();
             foundCount += 1;
           }
-          if (f.name === "automaticTax" || f.name === "afterCompletion") {
-            // Developer escape hatches — advanced json fields that parse
+          if (f.name === "automaticTax") {
+            // CONFIG-UX-SETUP-ADVANCED-1: structured object editor
+            // (enabled toggle) committing the exact {enabled} object the
+            // runtime schema expects; stays behind the Advanced disclosure.
+            expect(f.type).toBe("object");
+            expect(f.itemFields?.map((s) => s.name)).toEqual(["enabled"]);
+            expect(f.advanced).toBe(true);
+            foundCount += 1;
+          }
+          if (f.name === "afterCompletion") {
+            // Developer escape hatch — advanced json field that parses
             // to the object shape the schema expects (CONFIG-UX-AUDIT-2).
             expect(f.type).toBe("json");
             expect(f.jsonShape).toBe("object");
@@ -3148,11 +3206,23 @@ describe("per-provider accessors", () => {
         expect(amount.description?.toLowerCase()).toContain("dollar");
       });
 
-      it("currency is required text (NOT a 135-option select)", () => {
+      it("currency is a required combobox — 10 common codes + manual entry, NOT a 135-option select (CONFIG-UX-SETUP-ADVANCED-1)", () => {
         const currency = meta().fields.find((f) => f.name === "currency")!;
-        expect(currency.type).toBe("text");
+        expect(currency.type).toBe("combobox");
         expect(currency.required).toBe(true);
-        expect(currency.options).toBeUndefined();
+        expect(currency.allowManualEntry).toBe(true);
+        expect(currency.options?.map((o) => o.value)).toEqual([
+          "usd",
+          "eur",
+          "gbp",
+          "cad",
+          "aud",
+          "jpy",
+          "chf",
+          "sek",
+          "nzd",
+          "mxn",
+        ]);
       });
 
       it("output does NOT include clientSecret (Slice 3.SEC-8 removal)", () => {
@@ -3444,11 +3514,18 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("at_period_end / invoice_now / prorate are boolean with NO defaultValue (Q11)", () => {
-        for (const name of ["at_period_end", "invoice_now", "prorate"]) {
+      it("at_period_end is REQUIRED with NO defaultValue (Q11 — deliberate immediate-vs-period-end choice); invoice_now/prorate are optional advanced booleans with NO defaultValue (CONFIG-UX-SETUP-ADVANCED-1)", () => {
+        const atPeriodEnd = meta().fields.find(
+          (ff) => ff.name === "at_period_end",
+        )!;
+        expect(atPeriodEnd.type).toBe("boolean");
+        expect(atPeriodEnd.required).toBe(true);
+        expect(atPeriodEnd.defaultValue).toBeUndefined();
+        for (const name of ["invoice_now", "prorate"]) {
           const f = meta().fields.find((ff) => ff.name === name)!;
           expect(f.type).toBe("boolean");
           expect(f.required).toBe(false);
+          expect(f.advanced).toBe(true);
           expect(f.defaultValue).toBeUndefined();
         }
       });
@@ -3532,14 +3609,16 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("lineItems is a structured object-list (optional at field level; XOR with mode enforced at runtime)", () => {
+      it("lineItems is a REQUIRED structured object-list, shown only for payment/subscription modes via visibleWhen (CONFIG-UX-SETUP-ADVANCED-1 — hidden in setup mode)", () => {
         const li = meta().fields.find((f) => f.name === "lineItems")!;
         expect(li.type).toBe("object-list");
-        expect(li.required).toBe(false);
+        expect(li.required).toBe(true);
+        expect(li.visibleWhen).toEqual({
+          field: "mode",
+          valueIn: ["payment", "subscription"],
+        });
         expect(li.itemFields?.map((s) => s.name)).toEqual(["priceId", "quantity"]);
         expect(li.listMaxItems).toBe(99);
-        expect(li.description?.toLowerCase()).toContain("setup");
-        expect(li.description?.toLowerCase()).toContain("required");
       });
 
       it("customer + customerEmail are both optional with XOR documented in description", () => {
@@ -3555,11 +3634,15 @@ describe("per-provider accessors", () => {
         expect(meta().description.toLowerCase()).toContain("exactly one");
       });
 
-      it("automaticTax is an advanced json field (object shape)", () => {
+      it("automaticTax is an advanced structured object editor (enabled toggle — CONFIG-UX-SETUP-ADVANCED-1)", () => {
         const at = meta().fields.find((f) => f.name === "automaticTax")!;
-        expect(at.type).toBe("json");
-        expect(at.jsonShape).toBe("object");
+        expect(at.type).toBe("object");
+        expect(at.advanced).toBe(true);
         expect(at.required).toBe(false);
+        expect(at.itemFields?.map((s) => s.name)).toEqual(["enabled"]);
+        const enabled = at.itemFields!.find((s) => s.name === "enabled")!;
+        expect(enabled.type).toBe("boolean");
+        expect(enabled.required).toBe(true);
       });
 
       it("successUrl/cancelUrl are required text with URL placeholders", () => {
@@ -3642,13 +3725,13 @@ describe("per-provider accessors", () => {
         ]);
       });
 
-      it("autoAdvance is boolean with NO defaultValue (Q11) and description warns of Stripe server-side `true` default", () => {
+      it("autoAdvance is a REQUIRED boolean with NO defaultValue (Q11 — CONFIG-UX-SETUP-ADVANCED-1 forces a deliberate choice) and description warns money moves", () => {
         const a = meta().fields.find((f) => f.name === "autoAdvance")!;
         expect(a.type).toBe("boolean");
-        expect(a.required).toBe(false);
+        expect(a.required).toBe(true);
         expect(a.defaultValue).toBeUndefined();
-        expect(a.description?.toLowerCase()).toContain("money-moving");
-        expect(a.description?.toLowerCase()).toContain("true");
+        expect(a.description?.toLowerCase()).toContain("money moves");
+        expect(a.description?.toLowerCase()).toContain("charge");
       });
 
       it("description is the autoAdvance finalization warning", () => {
@@ -4467,12 +4550,17 @@ describe("per-provider accessors", () => {
           expect(f.required).toBe(true);
         });
 
-        it("changeKinds is a required string-array defaulting to ['added'] (chip input; 3 allowed values documented in description)", () => {
+        it("changeKinds is a required multi-select combobox defaulting to ['added'] with the 3 change-kind options (CONFIG-UX-SETUP-ADVANCED-1 — no more free-typed chips)", () => {
           const f = meta().fields.find((x) => x.name === "changeKinds")!;
-          expect(f.type).toBe("string-array");
+          expect(f.type).toBe("combobox");
+          expect(f.multiple).toBe(true);
           expect(f.required).toBe(true);
           expect(f.defaultValue).toEqual(["added"]);
-          expect(f.stringArrayMaxItems).toBe(3);
+          expect(f.options?.map((o) => o.value)).toEqual([
+            "added",
+            "updated",
+            "removed",
+          ]);
         });
 
         it("snapshotRowLimit is an optional number with min=100 / max=10000 / integer (mirrors schema bounds)", () => {
@@ -6082,7 +6170,7 @@ describe("per-provider accessors", () => {
       expect(properties.required).toBe(false);
     });
 
-    it("mailchimp:create_segment pins the discriminated-union shape — mode required with NO default + both options + structured conditions/emails editors (CONFIG-UX-AUDIT-1)", () => {
+    it("mailchimp:create_segment pins the discriminated-union shape — mode required with NO default + both options + mode-gated conditions/emails/match editors via visibleWhen (CONFIG-UX-SETUP-ADVANCED-1)", () => {
       const m = mailchimp().find((x) => x.key === "mailchimp:create_segment")!;
       const mode = m.fields.find((f) => f.name === "mode")!;
       expect(mode.type).toBe("select");
@@ -6099,13 +6187,32 @@ describe("per-provider accessors", () => {
         "op",
         "value",
       ]);
-      expect(conditions.required).toBe(false); // cross-field required at runtime
+      // CONFIG-UX-SETUP-ADVANCED-1: required is now honest (a saved
+      // segment needs conditions) and the mode gate moved from a runtime
+      // cross-field refine into a declarative visibleWhen.
+      expect(conditions.required).toBe(true);
+      expect(conditions.visibleWhen).toEqual({
+        field: "mode",
+        valueIn: ["saved"],
+      });
       const staticEmails = m.fields.find((f) => f.name === "static_emails")!;
       expect(staticEmails.type).toBe("string-array");
       expect(staticEmails.required).toBe(false);
+      expect(staticEmails.visibleWhen).toEqual({
+        field: "mode",
+        valueIn: ["static"],
+      });
+      const match = m.fields.find((f) => f.name === "match")!;
+      expect(match.type).toBe("select");
+      expect(match.required).toBe(false);
+      expect(match.visibleWhen).toEqual({
+        field: "mode",
+        valueIn: ["saved"],
+      });
+      expect(match.options!.map((o) => o.value)).toEqual(["any", "all"]);
     });
 
-    it("mailchimp:create_audience pins the compliance fields as required + nested objects as advanced JSON textareas", () => {
+    it("mailchimp:create_audience pins the compliance fields as required + contact/campaign_defaults as required structured object editors on the normal path (CONFIG-UX-SETUP-ADVANCED-1 — no longer advanced JSON)", () => {
       const m = mailchimp().find((x) => x.key === "mailchimp:create_audience")!;
       const byName = new Map(m.fields.map((f) => [f.name, f]));
       expect(byName.get("name")!.required).toBe(true);
@@ -6114,17 +6221,33 @@ describe("per-provider accessors", () => {
       const emailTypeOption = byName.get("email_type_option")!;
       expect(emailTypeOption.type).toBe("boolean");
       expect(emailTypeOption.required).toBe(true);
-      // Nested objects stay JSON textareas until a dedicated nested-form UI
-      // lands — marked advanced so the disclosure (auto-open for required
-      // fields) hosts them and JSON copy stays off the normal path.
-      expect(byName.get("contact")!.type).toBe("json");
-      expect(byName.get("contact")!.jsonShape).toBe("object");
-      expect(byName.get("contact")!.required).toBe(true);
-      expect(byName.get("contact")!.advanced).toBe(true);
-      expect(byName.get("campaign_defaults")!.type).toBe("json");
-      expect(byName.get("campaign_defaults")!.jsonShape).toBe("object");
-      expect(byName.get("campaign_defaults")!.required).toBe(true);
-      expect(byName.get("campaign_defaults")!.advanced).toBe(true);
+      // CONFIG-UX-SETUP-ADVANCED-1: the required compliance objects are
+      // structured object editors (typed sub-fields, no JSON copy) and
+      // live on the normal setup path — NOT behind the Advanced disclosure.
+      const contact = byName.get("contact")!;
+      expect(contact.type).toBe("object");
+      expect(contact.required).toBe(true);
+      expect(contact.advanced).toBeUndefined();
+      expect(contact.itemFields!.map((s) => s.name)).toEqual([
+        "company",
+        "address1",
+        "address2",
+        "city",
+        "state",
+        "zip",
+        "country",
+        "phone",
+      ]);
+      const campaignDefaults = byName.get("campaign_defaults")!;
+      expect(campaignDefaults.type).toBe("object");
+      expect(campaignDefaults.required).toBe(true);
+      expect(campaignDefaults.advanced).toBeUndefined();
+      expect(campaignDefaults.itemFields!.map((s) => s.name)).toEqual([
+        "from_name",
+        "from_email",
+        "subject",
+        "language",
+      ]);
     });
 
     it("PII-bearing Mailchimp outputs are marked sensitive", () => {
@@ -6328,7 +6451,7 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("Mailchimp audience_event trigger preserves field-name variance (audienceId, eventTypes string-array) and exposes the 6 allowed event types in its eventTypes description", () => {
+    it("Mailchimp audience_event trigger preserves field-name variance (audienceId, eventTypes multi-select combobox) and exposes the 6 allowed event types as static options (CONFIG-UX-SETUP-ADVANCED-1)", () => {
       const metas = listTriggerMetasForProvider("mailchimp");
       const m = metas.find((x) => x.key === "mailchimp:audience_event")!;
 
@@ -6340,11 +6463,22 @@ describe("per-provider accessors", () => {
       // snake-case actions.
       expect(m.fields.find((f) => f.name === "audience_id")).toBeUndefined();
 
+      // CONFIG-UX-SETUP-ADVANCED-1: the free-typed string-array became a
+      // multi-select combobox with the 6-value allowlist as static options
+      // — authors pick from the allowlist instead of reading activate.ts.
       const eventTypes = m.fields.find((f) => f.name === "eventTypes")!;
-      expect(eventTypes.type).toBe("string-array");
+      expect(eventTypes.type).toBe("combobox");
+      expect(eventTypes.multiple).toBe(true);
       expect(eventTypes.required).toBe(true);
-      // The 6 allowed event types must surface in the description so
-      // workflow authors know the allowlist without reading activate.ts.
+      expect(eventTypes.options?.map((o) => o.value)).toEqual([
+        "subscribe",
+        "unsubscribe",
+        "profile",
+        "upemail",
+        "cleaned",
+        "campaign",
+      ]);
+      // The allowlist also stays documented in the description.
       for (const allowed of [
         "subscribe",
         "unsubscribe",

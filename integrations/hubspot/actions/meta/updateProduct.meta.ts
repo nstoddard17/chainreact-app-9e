@@ -24,7 +24,7 @@ export const hubspotUpdateProductMeta: ActionMeta = {
       name: "productId",
       label: "Product ID",
       description:
-        "HubSpot product id (numeric, returned by the API as a string). Usually wired from `{{hubspot:create_product.productId}}` or `{{hubspot:get_products.products[0].id}}`.",
+        "Which product to update — insert the product ID from an earlier step (e.g. Create Product or Get Products).",
       type: "text",
       required: true,
       placeholder: "12345",
@@ -47,7 +47,7 @@ export const hubspotUpdateProductMeta: ActionMeta = {
       name: "price",
       label: "Price",
       description:
-        "**Numeric STRING** — HubSpot expects stringified numbers for CRM property writes.",
+        "Unit price as a number, e.g. 99.00 — in the portal's default currency. Stored as a text string (HubSpot's required format).",
       type: "text",
       required: false,
     },
@@ -61,7 +61,8 @@ export const hubspotUpdateProductMeta: ActionMeta = {
     {
       name: "hs_cost_of_goods_sold",
       label: "Cost of goods sold",
-      description: "**Numeric STRING** — same shape as `Price`.",
+      description:
+        "Cost of goods sold as a number, e.g. 25.00. Stored as a text string — HubSpot's required format.",
       type: "text",
       required: false,
     },
@@ -69,9 +70,17 @@ export const hubspotUpdateProductMeta: ActionMeta = {
       name: "hs_recurring_billing_period",
       label: "Recurring billing period",
       description:
-        "HubSpot `hs_recurring_billing_period` property. ISO 8601 duration string (e.g. `P1M`, `P1Y`).",
-      type: "text",
+        "How often the product bills — pick a common period, or type any ISO 8601 duration (e.g. `P2M`). HubSpot validates server-side.",
+      type: "combobox",
+      allowManualEntry: true,
       required: false,
+      placeholder: "P1M",
+      options: [
+        { value: "P1M", label: "Monthly" },
+        { value: "P3M", label: "Quarterly" },
+        { value: "P6M", label: "Every 6 months" },
+        { value: "P1Y", label: "Yearly" },
+      ],
     },
   ],
   outputs: [

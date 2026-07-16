@@ -13,10 +13,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *
  * `fileExtensions` is required-by-handler when `downloadMode ===
  * "by_extension"`; `fileNameFilter` is required-by-handler when
- * `downloadMode === "by_name"`. Both fields render unconditionally
- * because the FieldMeta contract has no conditional-visibility surface
- * (mirrors searchEmails's mode-dependent field pattern in the Gmail
- * metas). The handler's mode-specific validation gates at runtime.
+ * `downloadMode === "by_name"`. Both are gated by `visibleWhen` on
+ * `downloadMode` and marked required — required-when-visible means
+ * readiness only flags them in the mode that actually needs them,
+ * and the mode-change cascade clears stale other-mode values. The
+ * handler's mode-specific validation stays authoritative at runtime.
  *
  * Output: `attachments[]` — each entry carries a FileRef when the
  * attachment was downloaded (fileAttachment passing the mode filter)
@@ -62,27 +63,29 @@ export const outlookGetAttachmentMeta: ActionMeta = {
     },
     {
       name: "fileExtensions",
-      label: "File extensions (by_extension mode only)",
+      label: "File extensions",
       description:
-        "List of extensions to match (e.g. 'pdf', 'png'). Leading dots are stripped; case-insensitive. Required when Download mode is 'By extension' — the handler rejects if absent.",
+        "Extensions to match (e.g. 'pdf', 'png'). Leading dots and letter case are ignored.",
       type: "string-array",
-      required: false,
+      required: true,
+      visibleWhen: { field: "downloadMode", valueIn: ["by_extension"] },
       placeholder: "pdf",
     },
     {
       name: "fileNameFilter",
-      label: "File name filter (by_name mode only)",
+      label: "File name contains",
       description:
-        "Case-insensitive substring match against attachment filenames. Required when Download mode is 'By name' — the handler rejects if absent.",
+        "Text to look for in attachment filenames (case-insensitive).",
       type: "text",
-      required: false,
+      required: true,
+      visibleWhen: { field: "downloadMode", valueIn: ["by_name"] },
       placeholder: "invoice",
     },
     {
       name: "excludeInline",
       label: "Exclude inline attachments",
       description:
-        "When on (default, V1-parity), skip attachments marked isInline:true (embedded HTML images). Turn off to include them.",
+        "On (default): skip images embedded in the email body. Turn off to download those too.",
       type: "boolean",
       required: false,
       defaultValue: true,

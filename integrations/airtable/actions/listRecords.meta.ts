@@ -10,8 +10,9 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * (both multi-parent dep [baseId, tableIdOrName], via BUILDER-OPTIONS-1).
  * `fields` is an optional multi-select — it renders as a deferred
  * multi-select picker until Slice 3.7; leaving it blank returns all
- * fields, so the deferral does not block the action. `sort` has no
- * array-of-object FieldType → textarea paste-JSON.
+ * fields, so the deferral does not block the action. `sort` is an
+ * `object-list` (`[{field, direction?}]` — identical committed shape to
+ * the runtime schema; direction optional, Airtable defaults to asc).
  *
  * Output `records[].fields` carries record cell values → sensitive
  * (the record id / createdTime are not).
@@ -49,9 +50,10 @@ export const airtableListRecordsMeta: ActionMeta = {
       name: "filterByFormula",
       label: "Filter by formula",
       description:
-        "Optional Airtable formula to filter records, e.g. {Status}='Open'.",
+        "Only return records matching an Airtable formula, e.g. {Status}='Open'. Leave empty to return all records.",
       type: "textarea",
       required: false,
+      advanced: true,
       placeholder: "{Status}='Open'",
     },
     {
@@ -80,13 +82,32 @@ export const airtableListRecordsMeta: ActionMeta = {
     {
       name: "sort",
       label: "Sort",
-      description:
-        'Optional sort order as a JSON array, e.g. [{"field":"Name","direction":"asc"}]. direction is "asc" or "desc".',
-      type: "json",
+      description: "Sort the returned records by one or more fields.",
+      type: "object-list",
       required: false,
       advanced: true,
-      jsonShape: "array",
-      placeholder: '[{ "field": "Name", "direction": "asc" }]',
+      itemFields: [
+        {
+          name: "field",
+          label: "Field",
+          description: "Field name to sort by (as it appears in Airtable).",
+          type: "text",
+          required: true,
+          placeholder: "e.g. Name",
+        },
+        {
+          name: "direction",
+          label: "Direction",
+          description: "Optional. Airtable defaults to ascending.",
+          type: "select",
+          required: false,
+          options: [
+            { value: "asc", label: "Ascending" },
+            { value: "desc", label: "Descending" },
+          ],
+          placeholder: "Ascending (default)",
+        },
+      ],
     },
     {
       name: "pageSize",
@@ -110,6 +131,7 @@ export const airtableListRecordsMeta: ActionMeta = {
       description: "Pagination cursor from a previous run's `offset` output.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "itr…/rec…",
     },
   ],

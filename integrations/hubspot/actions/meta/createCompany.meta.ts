@@ -116,7 +116,7 @@ export const hubspotCreateCompanyMeta: ActionMeta = {
       name: "annualrevenue",
       label: "Annual revenue",
       description:
-        "**Numeric STRING** — HubSpot's API expects stringified numbers for CRM property writes. Wire an upstream number through `{{String(value)}}` if needed. Example: `\"5000000\"`.",
+        "Annual revenue as a number, e.g. 5000000. Stored as a text string — HubSpot's required format.",
       type: "text",
       required: false,
       placeholder: "5000000",
@@ -125,7 +125,7 @@ export const hubspotCreateCompanyMeta: ActionMeta = {
       name: "numberofemployees",
       label: "Number of employees",
       description:
-        "**Numeric STRING** — same shape as `Annual revenue`. Example: `\"250\"`.",
+        "Employee count, e.g. 250. Stored as a text string — HubSpot's required format.",
       type: "text",
       required: false,
       placeholder: "250",
@@ -144,25 +144,25 @@ export const hubspotCreateCompanyMeta: ActionMeta = {
       name: "duplicateHandling",
       label: "Duplicate handling",
       description:
-        "What to do when HubSpot returns 409 (a company with this domain already exists). `fail` surfaces the error; `update` PATCHes the existing company with the supplied properties; `skip` returns the existing company unchanged. Requires `Domain` for the search-by-property recovery.",
+        "What to do when a company with this domain already exists. Fail stops the workflow; Update overwrites it with the fields above; Skip leaves it unchanged and returns it. Requires `Domain` for Update / Skip.",
       type: "select",
       required: true,
       defaultValue: "fail",
       options: [
         {
           value: "fail",
-          label: "fail",
-          description: "Surface the 409 error. Default.",
+          label: "Fail the step",
+          description: "Stop the workflow with an error. Default.",
         },
         {
           value: "update",
-          label: "update",
-          description: "Search-by-domain + PATCH existing company.",
+          label: "Update the existing company",
+          description: "Overwrite the existing company with the fields above.",
         },
         {
           value: "skip",
-          label: "skip",
-          description: "Search-by-domain + return existing company unchanged.",
+          label: "Skip (keep existing company unchanged)",
+          description: "Return the existing company without changing it.",
         },
       ],
     },

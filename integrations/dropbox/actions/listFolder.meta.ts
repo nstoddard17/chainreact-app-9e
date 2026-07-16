@@ -49,6 +49,7 @@ export const dropboxListFolderMeta: ActionMeta = {
         "Continue a previous list. When set, the folder / recursive / limit fields are ignored by Dropbox.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "Opaque token from a previous call",
     },
   ],

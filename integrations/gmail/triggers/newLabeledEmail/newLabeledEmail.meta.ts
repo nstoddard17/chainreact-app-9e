@@ -14,11 +14,10 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  * `fields[]` mirrors the user-set fields of
  * `GmailNewLabeledEmailConfigSchema`. The single required field is
  * `labelId` — the workflow's "fire when THIS label is applied"
- * selector. An async Gmail-labels picker would land alongside the
- * future multi-select renderer slice; for now this is a text input
- * with a placeholder so workflow authors paste the label id from
- * Gmail's web UI (the same pattern GitHub's `repository` field
- * uses).
+ * selector. A `combobox` backed by the `gmail:labels` option source
+ * (CONFIG-UX sweep); `allowManualEntry` keeps the raw-id paste path
+ * for ids the resolver can't list. The committed value is still a
+ * single label-id string.
  *
  * Internal server-managed state — `pollingEnabled`, `snapshot`,
  * `polling` — is intentionally NOT surfaced. Polling cadence is set
@@ -44,12 +43,14 @@ export const newLabeledEmailTriggerMeta: TriggerMeta = {
   fields: [
     {
       name: "labelId",
-      label: "Label ID",
+      label: "Label",
       description:
-        "Gmail label id that fires this trigger when applied to an email. System labels use uppercase names (e.g. 'INBOX', 'STARRED'); user labels use 'Label_<n>' ids — find these in Gmail Settings → Labels or via the labels.list API.",
-      type: "text",
+        "Pick the Gmail label that starts this workflow when it's applied to an email. System labels are also accepted by ID (e.g. 'STARRED').",
+      type: "combobox",
+      optionsSource: "gmail:labels",
+      allowManualEntry: true,
       required: true,
-      placeholder: "Label_12345",
+      placeholder: "Search labels or paste a label ID",
     },
   ],
   payloadShape: [

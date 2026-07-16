@@ -32,12 +32,14 @@ export const notionUpdatePageMeta: ActionMeta = {
   fields: [
     {
       name: "pageId",
-      label: "Page ID",
+      label: "Page",
       description:
-        "Notion page to update. Usually wired from `{{notion:create_page.pageId}}` / `{{notion:query_database.results[0].id}}` / `{{notion:search.results[0].id}}`.",
-      type: "text",
+        "Page to update. Pick one, paste an id, or wire `{{...}}` from an upstream step (e.g. `{{notion:create_page.pageId}}`).",
+      type: "combobox",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a page, or paste an id",
     },
     {
       name: "properties",
@@ -57,6 +59,7 @@ export const notionUpdatePageMeta: ActionMeta = {
         "Optional. True archives the page; false un-archives. Omitted leaves the archived state alone. Prefer the dedicated Archive Page / Restore Page actions when archive state is the only mutation.",
       type: "boolean",
       required: false,
+      advanced: true,
     },
     {
       name: "icon",

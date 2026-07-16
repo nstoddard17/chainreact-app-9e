@@ -19,9 +19,16 @@ export const edenListCapturesMeta: ActionMeta = {
       optionsSource: "eden:workspaces",
       placeholder: "Default workspace",
     },
-    { name: "status", label: "Status filter", description: "Optional capture status to filter by.", type: "text", required: false },
+    {
+      name: "status",
+      label: "Status filter",
+      description:
+        "Only include captures with this status, exactly as Eden reports it in each capture's `status` output. Leave empty for all captures.",
+      type: "text",
+      required: false,
+    },
     { name: "limit", label: "Limit", description: "Maximum captures to return (1–100).", type: "number", required: false, placeholder: "25" },
-    { name: "offset", label: "Offset", description: "Pagination offset.", type: "number", required: false, placeholder: "0" },
+    { name: "offset", label: "Offset", description: "Pagination offset.", type: "number", required: false, advanced: true, placeholder: "0" },
   ],
   outputs: [
     { name: "captures", type: "array", description: "Captures. Each: { id, title, url, status, createdAt }." },

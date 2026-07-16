@@ -55,7 +55,8 @@ export const shopifyUpdateProductMeta: ActionMeta = {
     {
       name: "tags",
       label: "Tags",
-      description: "Optional comma-separated tags (replaces existing tags).",
+      description:
+        "Optional comma-separated tags. **Replaces ALL existing tags on the product — include any you want to keep.**",
       type: "text",
       required: false,
     },

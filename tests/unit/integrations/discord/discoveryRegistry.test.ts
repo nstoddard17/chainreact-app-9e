@@ -155,14 +155,21 @@ describe("Discord delete_message meta — destructive trio", () => {
     expect(meta.riskDescription).toMatch(/partial/i);
   });
 
-  it("array filter fields use string-array (no optionsSource — contract limitation)", () => {
+  it("array filter fields use string-array; id fields wire their pickers (SWEEP-2 contract allows optionsSource on string-array)", () => {
     for (const name of ["messageIds", "userIds", "keywords"]) {
       const field = meta.fields.find((f) => f.name === name)!;
       expect(field.type).toBe("string-array");
-      // Contract: optionsSource is not permitted on string-array fields.
-      // Documented limitation per Slice 3.DISCORD-4 instruction.
-      expect(field.optionsSource).toBeUndefined();
     }
+    const messageIds = meta.fields.find((f) => f.name === "messageIds")!;
+    expect(messageIds.optionsSource).toBe("discord:messages");
+    expect(messageIds.dependsOn).toBe("channelId");
+    expect(messageIds.allowManualEntry).toBe(true);
+    const userIds = meta.fields.find((f) => f.name === "userIds")!;
+    expect(userIds.optionsSource).toBe("discord:members");
+    expect(userIds.dependsOn).toBe("guildId");
+    expect(userIds.allowManualEntry).toBe(true);
+    // keywords is free text by nature — no picker.
+    expect(meta.fields.find((f) => f.name === "keywords")!.optionsSource).toBeUndefined();
   });
 
   it("keywordMatchType defaultValue is 'partial' (mirrors V1 runtime default)", () => {

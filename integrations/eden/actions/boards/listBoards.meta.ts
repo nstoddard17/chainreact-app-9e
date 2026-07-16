@@ -20,7 +20,7 @@ export const edenListBoardsMeta: ActionMeta = {
       placeholder: "Default workspace",
     },
     { name: "limit", label: "Limit", description: "Maximum boards to return (1–100).", type: "number", required: false, placeholder: "25" },
-    { name: "cursor", label: "Cursor", description: "Pagination cursor from a previous call's nextCursor.", type: "text", required: false },
+    { name: "cursor", label: "Cursor", description: "Pagination cursor from a previous call's nextCursor.", type: "text", required: false, advanced: true },
   ],
   outputs: [
     { name: "boards", type: "array", description: "Boards. Each: { id, title, type, parentId, url, createdAt, updatedAt }." },

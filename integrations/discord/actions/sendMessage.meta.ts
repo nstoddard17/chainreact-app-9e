@@ -51,7 +51,7 @@ export const discordSendMessageMeta: ActionMeta = {
       name: "guildId",
       label: "Server",
       description:
-        "Discord server (guild) the bot is installed in. Picker sourced from `discord:guilds` — only servers where ChainReact's bot has been added appear.",
+        "Server to post in. Only servers where the ChainReact bot has been added appear.",
       type: "combobox",
       optionsSource: "discord:guilds",
       required: true,
@@ -61,7 +61,7 @@ export const discordSendMessageMeta: ActionMeta = {
       name: "channelId",
       label: "Channel",
       description:
-        "Text channel inside the selected server. Picker sourced from `discord:channels`; gated on Server — change the Server and the channel picker re-fetches. Voice / category / thread channels are excluded.",
+        "Text channel to post in. Pick a server first. Voice and thread channels can't receive bot posts.",
       type: "combobox",
       optionsSource: "discord:channels",
       dependsOn: "guildId",

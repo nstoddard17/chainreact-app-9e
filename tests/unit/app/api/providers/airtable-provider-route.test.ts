@@ -136,15 +136,15 @@ describe("GET /api/providers/airtable/actions", () => {
     }
   });
 
-  it("create/update fields maps are textarea paste-JSON (no typed-field-map renderer)", async () => {
+  it("create/update fields maps are json editors (CONFIG-UX-SETUP-ADVANCED-1)", async () => {
     const byKey = new Map((await fetchActions()).map((a) => [a.key, a]));
     for (const key of ["airtable:create_record", "airtable:update_record"]) {
       const fields = byKey.get(key)!.fields.find((f) => f.name === "fields")!;
-      expect(fields.type).toBe("textarea");
+      expect(fields.type).toBe("json");
     }
     for (const key of ["airtable:create_multiple_records", "airtable:update_multiple_records"]) {
       const records = byKey.get(key)!.fields.find((f) => f.name === "records")!;
-      expect(records.type).toBe("textarea");
+      expect(records.type).toBe("json");
     }
   });
 

@@ -20,8 +20,8 @@ export const microsoftExcelGetWorkbooksMeta: ActionMeta = {
   fields: [
     {
       name: "top",
-      label: "Limit",
-      description: "Optional maximum number of workbooks to return (1–1000).",
+      label: "Max results",
+      description: "How many workbooks to return at most (1–1000).",
       type: "number",
       required: false,
       numeric: { min: 1, max: 1000, integer: true },

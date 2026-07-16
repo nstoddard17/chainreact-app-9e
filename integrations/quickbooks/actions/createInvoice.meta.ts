@@ -101,6 +101,8 @@ export const quickbooksCreateInvoiceMeta: ActionMeta = {
       optionsSource: "quickbooks:terms",
       required: false,
       placeholder: "Company default",
+      description:
+        "Payment terms (e.g. Net 30) that set when the invoice is due. Leave empty to use the company default.",
     },
     {
       name: "customerEmail",
@@ -130,6 +132,7 @@ export const quickbooksCreateInvoiceMeta: ActionMeta = {
       label: "Tax treatment (non-US companies)",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "TaxExcluded", label: "Tax excluded" },
         { value: "TaxInclusive", label: "Tax inclusive" },

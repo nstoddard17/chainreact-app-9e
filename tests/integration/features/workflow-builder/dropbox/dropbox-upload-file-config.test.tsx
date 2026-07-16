@@ -35,11 +35,13 @@ describe("dropbox upload_file meta — Builder shape (FileRef consumer)", () => 
     expect(f.required).toBe(false);
   });
 
-  it("mode is a static enum select (add / overwrite), no defaultValue", () => {
+  it("mode is a static enum select (add / overwrite) surfacing the schema's 'add' default", () => {
     const f = dropboxUploadFileMeta.fields.find((x) => x.name === "mode")!;
     expect(f.type).toBe("select");
     expect(f.options?.map((o) => o.value).sort()).toEqual(["add", "overwrite"]);
-    expect(f.defaultValue).toBeUndefined();
+    // Mirrors uploadFile.schema.ts `.default("add")` — honest default,
+    // no behavior change (CONFIG-UX sweep G).
+    expect(f.defaultValue).toBe("add");
   });
 
   it("description explains provider_url FileRef is unsupported", () => {

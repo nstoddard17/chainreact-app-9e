@@ -80,15 +80,16 @@ export const createDraftReplyMeta: ActionMeta = {
       description: "Optional Reply-To header on the draft.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "reply-to-this@example.com",
     },
     {
       name: "signature",
       label: "Signature",
-      description:
-        "Optional signature appended to the body. Text body gets a blank-line separator; HTML body gets two <br> tags.",
+      description: "Optional signature added after the body.",
       type: "textarea",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

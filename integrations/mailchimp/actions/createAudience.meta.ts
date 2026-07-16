@@ -11,12 +11,14 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * are all required by Mailchimp's API. V2 mirrors these as schema-
  * required so misuse fails at validation time, not at API call time.
  *
- * `contact` and `campaign_defaults` are nested objects; the builder
- * surface exposes them as `textarea` paste-JSON fields per the
- * accepted plan (D-MC strategy — `keyvalue` doesn't handle nested
- * objects, and a dedicated nested-form UI is a future slice). The
- * field descriptions list the required keys verbatim so authors know
- * what JSON shape to paste.
+ * `contact` and `campaign_defaults` are flat fixed-key objects; the
+ * builder surface exposes them as `object` fixed-key editors
+ * (CONFIG-UX-SETUP-ADVANCED-1) on the NORMAL setup path — they are
+ * required compliance fields, so they must not hide behind the
+ * Advanced disclosure. `itemFields` mirror the runtime `.strict()`
+ * schema keys verbatim (`ContactSchema` / `CampaignDefaultsSchema` in
+ * `createAudience.schema.ts`); the editor commits the identical
+ * `Record<string, string>` shape the schema always expected.
  *
  * Output: `name` is sensitive (audience name surfaces in workflow
  * outputs — workflow authors may name audiences with customer-
@@ -33,7 +35,7 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
   type: "create_audience",
   displayName: "Create Audience",
   description:
-    "Create a new Mailchimp audience (list) via `POST /lists`. **Mailchimp requires compliance fields** (`permission_reminder`, `contact` mailing address, `campaign_defaults`) up front — V2 mirrors them as required. Nested `contact` and `campaign_defaults` are paste-JSON until a dedicated nested-form UI lands.",
+    "Create a new Mailchimp audience (list) via `POST /lists`. **Mailchimp requires compliance fields** (`permission_reminder`, `contact` mailing address, `campaign_defaults`) up front — V2 mirrors them as required and edits both objects as plain labeled fields.",
   category: "marketing",
   requiresIntegration: true,
   fields: [
@@ -64,25 +66,105 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
     },
     {
       name: "contact",
-      label: "Contact (physical address)",
+      label: "Mailing address",
       description:
-        "Your organization's mailing address, required by anti-spam law (CAN-SPAM). Enter as a JSON object with `company`, `address1`, `city`, `state`, `zip`, `country` (all required) plus optional `address2` and `phone` — or insert a value from a previous step. A structured address form is coming; this is currently a developer-style field.",
-      type: "json",
+        "Your organization's mailing address — shown in the footer of every email, as required by anti-spam law.",
+      type: "object",
       required: true,
-      advanced: true,
-      jsonShape: "object",
-      placeholder: '{"company":"Acme","address1":"123 Main St","city":"SF","state":"CA","zip":"94102","country":"US"}',
+      itemFields: [
+        {
+          name: "company",
+          label: "Company / organization",
+          type: "text",
+          required: true,
+          placeholder: "Acme Inc.",
+        },
+        {
+          name: "address1",
+          label: "Address line 1",
+          type: "text",
+          required: true,
+          placeholder: "123 Main St",
+        },
+        {
+          name: "address2",
+          label: "Address line 2",
+          type: "text",
+          required: false,
+          placeholder: "Suite 400",
+        },
+        {
+          name: "city",
+          label: "City",
+          type: "text",
+          required: true,
+          placeholder: "San Francisco",
+        },
+        {
+          name: "state",
+          label: "State / region",
+          type: "text",
+          required: true,
+          placeholder: "CA",
+        },
+        {
+          name: "zip",
+          label: "ZIP / postal code",
+          type: "text",
+          required: true,
+          placeholder: "94102",
+        },
+        {
+          name: "country",
+          label: "Country",
+          type: "text",
+          required: true,
+          placeholder: "US",
+        },
+        {
+          name: "phone",
+          label: "Phone",
+          type: "text",
+          required: false,
+        },
+      ],
     },
     {
       name: "campaign_defaults",
-      label: "Campaign defaults",
+      label: "Default sender",
       description:
-        "Default sender details for campaigns to this audience, required by Mailchimp. Enter as a JSON object with `from_name` and `from_email` (both required) plus optional `subject` and `language` — or insert a value from a previous step. A structured form is coming; this is currently a developer-style field.",
-      type: "json",
+        "The name and email address campaigns to this audience are sent from. Use an email on a domain you've verified in Mailchimp.",
+      type: "object",
       required: true,
-      advanced: true,
-      jsonShape: "object",
-      placeholder: '{"from_name":"Acme Team","from_email":"newsletter@acme.com"}',
+      itemFields: [
+        {
+          name: "from_name",
+          label: "From name",
+          type: "text",
+          required: true,
+          placeholder: "Acme Team",
+        },
+        {
+          name: "from_email",
+          label: "From email",
+          type: "text",
+          required: true,
+          placeholder: "newsletter@acme.com",
+        },
+        {
+          name: "subject",
+          label: "Default subject",
+          type: "text",
+          required: false,
+        },
+        {
+          name: "language",
+          label: "Language",
+          type: "text",
+          required: false,
+          placeholder: "en",
+        },
+      ],
     },
     {
       name: "use_archive_bar",
@@ -90,6 +172,7 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
       description: "Optional. When `true`, Mailchimp displays an archive-bar at the top of every campaign sent to this audience.",
       type: "boolean",
       required: false,
+      advanced: true,
     },
     {
       name: "notify_on_subscribe",
@@ -97,6 +180,7 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
       description: "Optional. Mailchimp emails this address when someone subscribes to the audience.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "ops@acme.com",
     },
     {
@@ -105,6 +189,7 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
       description: "Optional. Mailchimp emails this address when someone unsubscribes.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "ops@acme.com",
     },
     {
@@ -113,6 +198,7 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
       description: "Optional. When `true`, Mailchimp exposes the GDPR marketing-permissions UI on signup forms.",
       type: "boolean",
       required: false,
+      advanced: true,
     },
     {
       name: "double_optin",
@@ -120,6 +206,7 @@ export const mailchimpCreateAudienceMeta: ActionMeta = {
       description: "Optional. When `true`, new subscribers must confirm via Mailchimp's confirmation email. Recommended for GDPR-strict use cases.",
       type: "boolean",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

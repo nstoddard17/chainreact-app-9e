@@ -90,8 +90,7 @@ export const slackUploadFileMeta: ActionMeta = {
     {
       name: "initialComment",
       label: "Message",
-      description:
-        "Optional message posted alongside the file share (delivered as Slack's initial_comment — no separate chat.postMessage round-trip).",
+      description: "Optional message shown with the file in the channel.",
       type: "textarea",
       required: false,
     },
@@ -99,7 +98,7 @@ export const slackUploadFileMeta: ActionMeta = {
       name: "threadTs",
       label: "Thread timestamp",
       description:
-        "Optional Slack message timestamp — the file appears as a reply in that thread. Format `<seconds>.<microseconds>` as Slack returns. The caller is responsible for extracting `ts` from an upstream Slack output at resolve time.",
+        "Optional. Wire the `ts` output of an earlier Slack message step to share the file as a reply in that thread.",
       type: "text",
       required: false,
       placeholder: "1700000000.000100",

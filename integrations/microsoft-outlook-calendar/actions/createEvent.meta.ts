@@ -31,7 +31,7 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
     {
       name: "subject",
       label: "Title",
-      description: "Event title (Graph accepts an empty subject).",
+      description: "The event's title, as attendees will see it on the invite.",
       type: "text",
       required: true,
       placeholder: "Team sync",
@@ -70,7 +70,7 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
       name: "isAllDay",
       label: "All Day",
       description:
-        "When on, Outlook treats this as an all-day event. Microsoft Graph requires all-day events to start/end at midnight in the event time zone — set times accordingly.",
+        "Make this an all-day event. All-day events must start and end at midnight in the event's time zone.",
       type: "boolean",
       required: true,
     },
@@ -123,6 +123,7 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
       description: "Reminder minutes before the event starts. Omit for tenant default.",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 0, integer: true },
     },
     {
@@ -131,6 +132,7 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
       description: "How the event appears on your calendar.",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "free", label: "Free" },
         { value: "tentative", label: "Tentative" },
@@ -145,6 +147,7 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
       description: "Event sensitivity (Outlook privacy level).",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "normal", label: "Normal" },
         { value: "personal", label: "Personal" },
@@ -158,6 +161,7 @@ export const microsoftOutlookCalendarCreateEventMeta: ActionMeta = {
       description: "Event importance.",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "low", label: "Low" },
         { value: "normal", label: "Normal" },

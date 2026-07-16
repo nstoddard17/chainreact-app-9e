@@ -19,14 +19,15 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *                  `google-docs:update_document.replace` rationale.
  *   - `content`    REQUIRED — HTML fragment (caller owns markup;
  *                  Graph parses with the HTML5 parser).
- *   - `target`     OPTIONAL — REQUIRED at runtime when
+ *   - `target`     REQUIRED-WHEN-VISIBLE — runtime requires it when
  *                  `updateMode === "insert"` (schema enforces via
  *                  `.superRefine`). CSS selector or `data-id` value.
- *                  The description warns; the contract doesn't
- *                  surface conditional visibility today.
+ *                  Gated by `visibleWhen: updateMode ∈ {insert}`
+ *                  (CONFIG-UX-SETUP-ADVANCED-1 required-when-visible
+ *                  semantics — hidden ⇒ not a readiness gap).
  *   - `position`   enum — `after` / `before` / `inside`. Only used
- *                  when `updateMode === "insert"`. Schema default
- *                  `after`.
+ *                  when `updateMode === "insert"`; same `visibleWhen`
+ *                  gate. Schema default `after`.
  *
  * Risk: `medium`. Mutates existing OneNote content. `replace` mode is
  * recoverable via OneNote's per-page version history (right-click the
@@ -85,7 +86,7 @@ export const microsoftOneNoteUpdatePageMeta: ActionMeta = {
       name: "updateMode",
       label: "Update mode",
       description:
-        "How `content` is applied to the page body. `append` adds to the end; `prepend` adds to the start; `replace` wipes the body and inserts (recoverable only via OneNote's per-page version history, NOT through ChainReact); `insert` inserts relative to a CSS selector or `data-id` target (requires `target`).",
+        "Where your content goes: add to the end (append), the start (prepend), replace everything (old content only recoverable via OneNote's version history), or insert at a specific spot (set Insert target).",
       type: "select",
       required: true,
       defaultValue: "append",
@@ -103,7 +104,7 @@ export const microsoftOneNoteUpdatePageMeta: ActionMeta = {
       name: "content",
       label: "Content",
       description:
-        "HTML fragment to apply. Caller owns the markup — Graph parses with the HTML5 parser. Variables resolve at runtime — interpolate upstream node outputs with `{{nodeId.field}}` syntax.",
+        "The content to add or insert. HTML formatting is supported; variables from earlier steps resolve at runtime.",
       type: "textarea",
       required: true,
       placeholder: "<p>Updated content…</p>",
@@ -112,23 +113,24 @@ export const microsoftOneNoteUpdatePageMeta: ActionMeta = {
       name: "target",
       label: "Insert target",
       description:
-        "REQUIRED when `updateMode` is `insert` — ignored for `append` / `prepend` / `replace`. CSS selector (e.g. `div#summary`) or `data-id` value from a prior `get_page_content` call with `includeIDs: true`.",
+        "Where on the page to insert: a CSS selector (e.g. div#summary) or a data-id value from an earlier Get Page Content step with Include element IDs turned on.",
       type: "text",
-      required: false,
+      required: true,
+      visibleWhen: { field: "updateMode", valueIn: ["insert"] },
       placeholder: "#summary",
     },
     {
       name: "position",
       label: "Insert position",
-      description:
-        "Only used when `updateMode` is `insert`. `after` / `before` insert adjacent to the target; `inside` injects as a child of the target.",
+      description: "Where the content lands relative to the Insert target.",
       type: "select",
       required: false,
       defaultValue: "after",
+      visibleWhen: { field: "updateMode", valueIn: ["insert"] },
       options: [
-        { value: "after", label: "After target" },
-        { value: "before", label: "Before target" },
-        { value: "inside", label: "Inside target" },
+        { value: "after", label: "After the target" },
+        { value: "before", label: "Before the target" },
+        { value: "inside", label: "Inside the target" },
       ],
     },
   ],

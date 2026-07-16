@@ -47,8 +47,8 @@ export const microsoftExcelExportSheetMeta: ActionMeta = {
     },
     {
       name: "limit",
-      label: "Row Limit",
-      description: "Optional cap on returned data rows (1–10000).",
+      label: "Max results",
+      description: "How many data rows to return at most (1–10000).",
       type: "number",
       required: false,
       numeric: { min: 1, max: 10000, integer: true },

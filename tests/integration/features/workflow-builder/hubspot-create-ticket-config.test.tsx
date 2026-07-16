@@ -375,8 +375,9 @@ it("end-to-end: type subject → pick hs_pipeline → stage picker activates and
     useConfigSlice.getState().drafts[action.id]!.values.hubspot_owner_id,
   ).toBe(OWNER_ID);
 
-  // 9. Switch priority to HIGH via the static select.
-  await selectFieldOption(user, /^priority$/i, "HIGH");
+  // 9. Switch priority to High via the static select (plain-English
+  //    label; committed value stays the HubSpot wire enum "HIGH").
+  await selectFieldOption(user, /^priority$/i, "High");
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.hs_ticket_priority,
   ).toBe("HIGH");

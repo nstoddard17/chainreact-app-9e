@@ -98,25 +98,28 @@ export const sendEmailMeta: ActionMeta = {
         "Optional Reply-To header. Accepts bare email or display-name form (e.g. 'Name <a@b.com>'). Used verbatim with no provider-side parsing.",
       type: "text",
       required: false,
+      advanced: true,
       sensitivity: "recipient",
       placeholder: "reply-to-this@example.com",
     },
     {
       name: "signature",
       label: "Signature",
-      description:
-        "Optional signature appended to the body. Text body gets a blank-line separator; HTML body gets two <br> tags. Workflow authors providing HTML signatures for HTML-only sends should pre-format as HTML.",
+      description: "Optional signature added after the body.",
       type: "textarea",
       required: false,
+      advanced: true,
     },
     {
       name: "labels",
       label: "Labels (apply after send)",
       description:
-        "Gmail label ids to apply to the sent message via users.messages.modify. Label IDs only — no name-to-id lookup. Use Create Label upstream to generate one.",
+        "Optionally tag the sent email with Gmail labels. Pick from your labels or paste a label ID.",
       type: "string-array",
+      optionsSource: "gmail:labels",
+      allowManualEntry: true,
       required: false,
-      placeholder: "Label_12345",
+      placeholder: "Search labels or paste a label ID",
     },
   ],
   outputs: [

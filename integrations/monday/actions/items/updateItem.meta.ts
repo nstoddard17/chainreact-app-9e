@@ -46,7 +46,7 @@ export const mondayUpdateItemMeta: ActionMeta = {
       name: "columnValue",
       label: "Column value",
       description:
-        'Value for the chosen column. Simple columns take plain text; status/person/date columns take JSON (e.g. {"label":"Done"}).',
+        'The new value. Text and number columns: just type it. Status: {"label":"Done"} with the label exactly as shown in Monday. Date: {"date":"2026-07-15"}.',
       type: "textarea",
       required: true,
       placeholder: '{"label":"Done"}',

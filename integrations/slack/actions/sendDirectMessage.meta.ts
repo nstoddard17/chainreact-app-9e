@@ -34,7 +34,7 @@ export const slackSendDirectMessageMeta: ActionMeta = {
       name: "userId",
       label: "User",
       description:
-        "Slack user id (U-prefixed). Wire from an upstream Slack action / trigger payload (e.g. `{{trigger.user}}`, `{{slack:get_user_info.user.id}}`).",
+        "Who receives the DM. Pick a person, or wire a user from an earlier step (e.g. `{{trigger.user}}`).",
       type: "combobox",
       optionsSource: "slack:users",
       allowManualEntry: true,
@@ -54,7 +54,7 @@ export const slackSendDirectMessageMeta: ActionMeta = {
       name: "threadTs",
       label: "Thread timestamp",
       description:
-        "Optional Slack message timestamp — post as a thread reply within the DM. Wired from an upstream Slack message action's `ts` output.",
+        "Optional. Paste or wire the `ts` output of an earlier Slack message step to reply in that thread within the DM.",
       type: "text",
       required: false,
       placeholder: "1700000000.000100",

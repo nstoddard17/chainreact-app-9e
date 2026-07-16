@@ -20,7 +20,7 @@ export const dropboxCreateSharedLinkMeta: ActionMeta = {
   fields: [
     {
       name: "folderPath",
-      label: "Folder (for file picker)",
+      label: "Browse folder (optional)",
       description:
         "Optional — pick a folder to populate the File picker below. Root-level files can't be listed here; type their path in the File field instead.",
       type: "combobox",

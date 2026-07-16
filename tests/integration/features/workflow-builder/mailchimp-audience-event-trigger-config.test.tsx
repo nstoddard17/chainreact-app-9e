@@ -4,20 +4,24 @@
  * shell.
  *
  * Proves **field-name preservation** on the trigger surface: this
- * trigger uses `audienceId` (camelCase) + `eventTypes` (string-array),
- * NOT `audience_id` like the 10 snake-case Mailchimp actions. The
- * runtime activate hook reads `node.config.audienceId` directly; any
- * drift in the meta would break activation at runtime.
+ * trigger uses `audienceId` (camelCase) + `eventTypes` (multi-select
+ * combobox → `string[]`), NOT `audience_id` like the 10 snake-case
+ * Mailchimp actions. The runtime activate hook reads
+ * `node.config.audienceId` directly; any drift in the meta would break
+ * activation at runtime.
  *
  * Pins:
  *   - meta surface: required `audienceId` combobox (mailchimp:audiences)
- *     + required `eventTypes` string-array; description enumerates the
- *     6 allowed event types from the activation allowlist.
+ *     + required `eventTypes` multi-select combobox whose static options
+ *     are EXACTLY the 6-value activation allowlist
+ *     (CONFIG-UX-SETUP-ADVANCED sweep — the old free-text chip input
+ *     let typos through to an activation failure).
  *   - activation = "webhook" (this trigger creates a Mailchimp webhook
  *     subscription at activation time, NOT polling).
- *   - end-to-end: pick audience → add 2 event types via the chip input
+ *   - end-to-end: pick audience → pick 2 event types in the multi-select
  *     → Modal Save → Toolbar Save persists once with `{audienceId,
- *     eventTypes: [...]}`.
+ *     eventTypes: [...]}` — the committed value stays a plain `string[]`
+ *     of RAW event-type values (labels never leak into config).
  *   - persisted config carries EXACT runtime names — `audienceId`
  *     (NOT `audience_id`); `eventTypes` (NOT `event_types`).
  *
@@ -130,7 +134,7 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Mailchimp audience_event trigger meta — webhook activation + audienceId camelCase + eventTypes string-array with 6 allowed values surfaced + payload sensitive markings — Slice 3.MAILCHIMP-4 meta guard", () => {
+it("Mailchimp audience_event trigger meta — webhook activation + audienceId camelCase + eventTypes multi-select combobox closed over the 6-value allowlist + payload sensitive markings — Slice 3.MAILCHIMP-4 meta guard", () => {
   expect(mailchimpAudienceEventTriggerMeta.activation).toBe("webhook");
   expect(mailchimpAudienceEventTriggerMeta.category).toBe("marketing");
   expect(mailchimpAudienceEventTriggerMeta.requiresIntegration).toBe(true);
@@ -154,20 +158,32 @@ it("Mailchimp audience_event trigger meta — webhook activation + audienceId ca
   const eventTypes = mailchimpAudienceEventTriggerMeta.fields.find(
     (f) => f.name === "eventTypes",
   )!;
-  expect(eventTypes.type).toBe("string-array");
+  // CONFIG-UX-SETUP-ADVANCED sweep: closed enum → multi-select combobox
+  // (mirrors stripe:event_received.enabledEvents). Free typing is gone,
+  // so a typo can no longer reach activation and fail there.
+  expect(eventTypes.type).toBe("combobox");
+  expect(eventTypes.multiple).toBe(true);
   expect(eventTypes.required).toBe(true);
-  // The 6 allowed event types must surface in the description so
-  // workflow authors know the allowlist.
-  for (const allowed of [
+  expect(eventTypes.optionsSource).toBeUndefined(); // static closed set
+  // Option VALUES are exactly the activation allowlist, in order —
+  // the committed string[] stays what activate.ts validates against.
+  expect(eventTypes.options?.map((o) => o.value)).toEqual([
     "subscribe",
     "unsubscribe",
     "profile",
     "upemail",
     "cleaned",
     "campaign",
-  ]) {
-    expect(eventTypes.description).toContain(allowed);
-  }
+  ]);
+  // Labels are plain language (never raw wire values leaking as copy).
+  expect(eventTypes.options?.map((o) => o.label)).toEqual([
+    "Someone subscribes",
+    "Someone unsubscribes",
+    "Profile updated",
+    "Email address changed",
+    "Address cleaned (bounced)",
+    "Campaign sent",
+  ]);
 
   // payloadShape sensitive markings.
   const payloadByName = new Map(
@@ -181,7 +197,7 @@ it("Mailchimp audience_event trigger meta — webhook activation + audienceId ca
   expect(payloadByName.get("campaignId")?.sensitive).toBeFalsy();
 });
 
-it("end-to-end: pick audience → add 2 event types via chip input → Modal Save → Toolbar Save persists ONCE with EXACT runtime field names (audienceId / eventTypes)", async () => {
+it("end-to-end: pick audience → pick 2 event types via the multi-select → Modal Save → Toolbar Save persists ONCE with EXACT runtime field names (audienceId / eventTypes) and RAW enum values", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -228,13 +244,18 @@ it("end-to-end: pick audience → add 2 event types via chip input → Modal Sav
     useConfigSlice.getState().drafts[trigger.id]!.values.audience_id,
   ).toBeUndefined();
 
-  // 4. Add two event types via the string-array chip input. The chip
-  //    input renders a single text-shaped input that consumes Enter
-  //    (or comma) to commit a chip.
-  const eventTypesInput = screen.getByRole("textbox", { name: /^event types/i });
-  await user.click(eventTypesInput);
-  await user.type(eventTypesInput, "subscribe{Enter}");
-  await user.type(eventTypesInput, "unsubscribe{Enter}");
+  // 4. Pick two event types via the static multi-select popover
+  //    (MultiOptionsField). Clicking toggles membership and keeps the
+  //    popover open; the committed value is the RAW enum string[] —
+  //    labels ("Someone subscribes") never leak into config.
+  await user.click(screen.getByTestId("multi-select-eventTypes"));
+  await user.click(
+    await screen.findByRole("option", { name: /someone subscribes/i }),
+  );
+  await user.click(
+    await screen.findByRole("option", { name: /someone unsubscribes/i }),
+  );
+  await user.keyboard("{Escape}");
   expect(
     useConfigSlice.getState().drafts[trigger.id]!.values.eventTypes,
   ).toEqual(["subscribe", "unsubscribe"]);

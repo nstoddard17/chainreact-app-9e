@@ -28,7 +28,14 @@ export const edenResearchCreatorMeta: ActionMeta = {
       ],
     },
     { name: "topPostLimit", label: "Top posts", description: "How many top posts to analyze (1–50).", type: "number", required: false, placeholder: "10" },
-    { name: "since", label: "Since", description: "Optional ISO date to analyze from.", type: "text", required: false, placeholder: "2026-01-01" },
+    {
+      name: "since",
+      label: "Since",
+      description: "Only analyze posts published on or after this date.",
+      type: "date",
+      required: false,
+      placeholder: "2026-01-01",
+    },
     {
       name: "workspaceId",
       label: "Workspace",

@@ -21,12 +21,14 @@ export const notionRestorePageMeta: ActionMeta = {
   fields: [
     {
       name: "pageId",
-      label: "Page ID",
+      label: "Page",
       description:
-        "Notion page id to restore. Accepts both bare-page ids and database-row ids.",
-      type: "text",
+        "Page to restore. Pick one, paste an id, or wire `{{...}}` from an upstream step. Accepts both bare-page ids and database-row ids.",
+      type: "combobox",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a page, or paste an id",
     },
   ],
   outputs: [

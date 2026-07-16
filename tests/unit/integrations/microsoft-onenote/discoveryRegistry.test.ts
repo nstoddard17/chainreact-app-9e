@@ -205,10 +205,22 @@ describe("update_page meta — 3-level cascade + replace warning", () => {
     ]);
   });
 
-  it("target is optional text (REQUIRED at runtime when updateMode=insert per schema superRefine)", () => {
+  it("target is required-when-visible text, gated on updateMode=insert (schema superRefine parity)", () => {
     const field = meta.fields.find((f) => f.name === "target")!;
     expect(field.type).toBe("text");
-    expect(field.required).toBe(false);
+    expect(field.required).toBe(true);
+    expect(field.visibleWhen).toEqual({
+      field: "updateMode",
+      valueIn: ["insert"],
+    });
+  });
+
+  it("position is gated on updateMode=insert alongside target", () => {
+    const field = meta.fields.find((f) => f.name === "position")!;
+    expect(field.visibleWhen).toEqual({
+      field: "updateMode",
+      valueIn: ["insert"],
+    });
   });
 
   it("description warns replace mode wipes body + OneNote version-history recovery", () => {
@@ -260,14 +272,15 @@ describe("copy_page meta — async + dual-hierarchy picker limitation", () => {
     expect(ts.required).toBe(true);
   });
 
-  it("description warns about async Graph operation: success means accepted, NOT complete", () => {
-    expect(meta.description).toMatch(/asynchronous|async/i);
-    expect(meta.description).toMatch(/accepted.*not.*complete|success.*not.*complete/i);
+  it("description conveys the copy completes AFTER the step succeeds (outcome language)", () => {
+    expect(meta.description).toMatch(/finishes on Microsoft's side|shortly after/i);
+    expect(meta.description).toMatch(/New Note trigger/i);
   });
 
-  it("description mentions the dual-picker limitation + list_sections workaround", () => {
-    expect(meta.description).toMatch(/list_sections/i);
-    expect(meta.description).toMatch(/deferred|polish|limitation/i);
+  it("description carries no Graph endpoint paths or internal slice IDs (config-UX copy sweep)", () => {
+    expect(meta.description).not.toMatch(
+      /copyToSection|POST \/|\/me\/onenote|ONENOTE-\d|ONENOTE-N/i,
+    );
   });
 
   it("output exposes operationLocation + success boolean", () => {

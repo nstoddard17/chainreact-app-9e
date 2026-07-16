@@ -31,8 +31,9 @@ export const microsoftOneDriveListItemsMeta: ActionMeta = {
     },
     {
       name: "top",
-      label: "Page Size",
-      description: "Max items to return (1–1000). Graph defaults to 200.",
+      label: "Max results",
+      description:
+        "How many items to return at most (1–1000). Leave empty for the standard page of 200.",
       type: "number",
       required: false,
       numeric: { min: 1, max: 1000, integer: true },
@@ -40,11 +41,16 @@ export const microsoftOneDriveListItemsMeta: ActionMeta = {
     {
       name: "orderBy",
       label: "Sort",
-      description:
-        'Graph $orderby clause, e.g. "name asc" or "lastModifiedDateTime desc".',
-      type: "text",
+      description: "How the returned items are sorted.",
+      type: "select",
       required: false,
-      placeholder: "name asc",
+      options: [
+        { value: "name asc", label: "Name (A–Z)" },
+        { value: "name desc", label: "Name (Z–A)" },
+        { value: "lastModifiedDateTime desc", label: "Recently modified first" },
+        { value: "lastModifiedDateTime asc", label: "Oldest modified first" },
+        { value: "size desc", label: "Largest first" },
+      ],
     },
   ],
   outputs: [

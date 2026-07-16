@@ -50,10 +50,15 @@ export const trelloMoveCardMeta: ActionMeta = {
       name: "pos",
       label: "Position",
       description:
-        '"top", "bottom", or a number (optional). Leave empty to keep the current position.',
-      type: "text",
+        "Where the item is placed. Leave empty to keep the current position. For a precise numeric position, map a number from a variable.",
+      type: "select",
       required: false,
-      placeholder: "top | bottom | number",
+      advanced: true,
+      options: [
+        { value: "top", label: "Top of list" },
+        { value: "bottom", label: "Bottom of list" },
+      ],
+      placeholder: "Keep current position",
     },
   ],
   outputs: [

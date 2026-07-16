@@ -17,7 +17,7 @@ export const microsoftTeamsListChannelMessagesMeta: ActionMeta = {
   type: "list_channel_messages",
   displayName: "List Channel Messages",
   description:
-    "List a channel's recent messages as header-level metadata only (id, timestamps, importance, type, sender id, deeplink). One page (Top, 1–50, default 20). Read-only — message body, subject, attachments, and sender names are never returned.",
+    "List a channel's recent messages as header-level metadata only (id, timestamps, importance, type, sender id, deeplink). One page (Max messages, 1–50, default 20). Read-only — message body, subject, attachments, and sender names are never returned.",
   category: "messaging",
   requiresIntegration: true,
   fields: [
@@ -42,8 +42,8 @@ export const microsoftTeamsListChannelMessagesMeta: ActionMeta = {
     },
     {
       name: "top",
-      label: "Top",
-      description: "Max messages to return in this single page (1–50). Defaults to 20.",
+      label: "Max messages",
+      description: "How many recent messages to return (1–50). Default 20.",
       type: "number",
       required: false,
       defaultValue: 20,

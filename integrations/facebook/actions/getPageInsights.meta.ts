@@ -3,10 +3,14 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 /**
  * Facebook `get_page_insights` ActionMeta — Slice 3.FACEBOOK-4.
  *
- * Read-only Page analytics. `metric` is a comma-separated list of Graph
- * metric names (free text — the catalog is large and version-dependent).
- * `period` is the Graph aggregation window (static enum, no UI default —
- * the runtime schema owns the default). `since`/`until` bound the range.
+ * Read-only Page analytics. `metric` is a combobox seeded with the
+ * in-repo-verified metric names (live-certified `page_post_engagements`
+ * plus the long-standing `page_views_total` example) with manual entry
+ * for the rest of Graph's large, version-dependent catalog — a typed
+ * comma-separated list still commits the same string. `period` is the
+ * Graph aggregation window (static enum, no UI default — the runtime
+ * schema owns the default). `since`/`until` bound the range
+ * (`datetime-utc`; the schema accepts the trailing-`Z` instant).
  * The `metrics` collection output is marked sensitive (private Page
  * performance). Field names mirror the runtime schema exactly.
  */
@@ -32,12 +36,16 @@ export const facebookGetPageInsightsMeta: ActionMeta = {
       name: "metric",
       label: "Metrics",
       description:
-        "Comma-separated Graph metric names (e.g. page_post_engagements,page_views_total). " +
-        "Note: Meta's 2024 Page Insights deprecation removed page_impressions* / page_fans / " +
-        "page_engaged_users — those return a (#100) invalid-metric error on current Graph versions.",
-      type: "text",
+        "The Page statistic to read. Pick a metric, or type comma-separated metric names to read several at once. " +
+        "Metrics Meta has retired (page_impressions, page_fans, page_engaged_users) no longer work.",
+      type: "combobox",
       required: true,
-      placeholder: "page_post_engagements,page_views_total",
+      options: [
+        { value: "page_post_engagements", label: "Post engagements" },
+        { value: "page_views_total", label: "Page views (total)" },
+      ],
+      allowManualEntry: true,
+      placeholder: "page_post_engagements",
     },
     {
       name: "period",
@@ -54,16 +62,16 @@ export const facebookGetPageInsightsMeta: ActionMeta = {
     {
       name: "since",
       label: "Since",
-      description: "Optional. ISO-8601 start of the range (e.g. 2026-05-01T00:00:00Z).",
-      type: "text",
+      description: "Start of the reporting window (UTC). Leave empty for the default range.",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-05-01T00:00:00Z",
     },
     {
       name: "until",
       label: "Until",
-      description: "Optional. ISO-8601 end of the range (e.g. 2026-05-31T00:00:00Z).",
-      type: "text",
+      description: "End of the reporting window (UTC).",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-05-31T00:00:00Z",
     },

@@ -31,6 +31,7 @@ export const dropboxCreateFolderMeta: ActionMeta = {
       description: "Rename automatically instead of failing when a folder already exists at that path.",
       type: "boolean",
       required: false,
+      defaultValue: false,
     },
   ],
   outputs: [

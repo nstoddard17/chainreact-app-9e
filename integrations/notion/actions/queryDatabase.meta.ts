@@ -67,6 +67,7 @@ export const notionQueryDatabaseMeta: ActionMeta = {
         "Optional. Max rows per call (1..100, Notion's hard ceiling). Omit to use Notion's default.",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 1, max: 100, integer: true, step: 1 },
     },
   ],

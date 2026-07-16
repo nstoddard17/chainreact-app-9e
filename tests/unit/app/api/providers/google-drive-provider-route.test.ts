@@ -67,7 +67,7 @@ async function fetchActions(): Promise<WireAction[]> {
 }
 
 describe("GET /api/providers/google-drive/actions", () => {
-  it("returns the full 5-action surface in display order", async () => {
+  it("returns the full 7-action surface in display order", async () => {
     const actions = await fetchActions();
     expect(actions.map((a) => a.key)).toEqual([
       "google-drive:upload_file",
@@ -75,6 +75,8 @@ describe("GET /api/providers/google-drive/actions", () => {
       "google-drive:list_files",
       "google-drive:move_file",
       "google-drive:delete_file",
+      "google-drive:get_file_metadata",
+      "google-drive:search_files",
     ]);
   });
 
@@ -100,12 +102,16 @@ describe("GET /api/providers/google-drive/actions", () => {
     expect(move.required).toBe(true);
   });
 
-  it("fileId serializes as typeable text with no resolver (move/delete)", async () => {
+  it("fileId serializes as a combobox on the files resolver (move/delete/get_file_metadata) — CONFIG-UX-SETUP-ADVANCED-1", async () => {
     const byKey = new Map((await fetchActions()).map((a) => [a.key, a]));
-    for (const key of ["google-drive:move_file", "google-drive:delete_file"]) {
+    for (const key of [
+      "google-drive:move_file",
+      "google-drive:delete_file",
+      "google-drive:get_file_metadata",
+    ]) {
       const fld = byKey.get(key)!.fields.find((f) => f.name === "fileId")!;
-      expect(fld.type).toBe("text");
-      expect(fld.optionsSource).toBeUndefined();
+      expect(fld.type).toBe("combobox");
+      expect(fld.optionsSource).toBe("google-drive:files");
       expect(fld.required).toBe(true);
     }
   });
@@ -121,6 +127,8 @@ describe("GET /api/providers/google-drive/actions", () => {
       "google-drive:create_folder",
       "google-drive:list_files",
       "google-drive:move_file",
+      "google-drive:get_file_metadata",
+      "google-drive:search_files",
     ]) {
       expect(byKey.get(key)!.isDestructive).toBe(false);
       expect(byKey.get(key)!.requiresConfirmation).toBe(false);
@@ -140,9 +148,14 @@ describe("GET /api/providers/google-drive/actions", () => {
     expect(files.sensitive).toBe(true);
   });
 
-  it("no action field references a deferred/rejected Drive resolver", async () => {
+  it("only fileId references the files resolver; deferred/rejected Drive resolvers stay unwired", async () => {
     for (const a of await fetchActions()) {
       for (const f of a.fields) {
+        if (f.name === "fileId") {
+          // CONFIG-UX-SETUP-ADVANCED-1 wired the files resolver.
+          expect(f.optionsSource).toBe("google-drive:files");
+          continue;
+        }
         for (const resolver of [
           "google-drive:files",
           "google-drive:items",

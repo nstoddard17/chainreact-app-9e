@@ -114,6 +114,17 @@ describe("OneNote get_page_content meta — Builder shape", () => {
     expect(field.defaultValue).toBe(true);
   });
 
+  it("includeIDs + preGenerated are Advanced-tab power-user knobs (CONFIG-UX sweep)", () => {
+    const includeIDs = microsoftOneNoteGetPageContentMeta.fields.find(
+      (f) => f.name === "includeIDs",
+    )!;
+    const preGenerated = microsoftOneNoteGetPageContentMeta.fields.find(
+      (f) => f.name === "preGenerated",
+    )!;
+    expect(includeIDs.advanced).toBe(true);
+    expect(preGenerated.advanced).toBe(true);
+  });
+
   it("description explains includeIDs is load-bearing for chaining into update_page insert mode", () => {
     const desc = microsoftOneNoteGetPageContentMeta.description;
     expect(desc).toMatch(/includeIDs.*insert|insert.*includeIDs/i);

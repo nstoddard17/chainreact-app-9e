@@ -46,6 +46,15 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+// CONFIG-UX sweep — `labelIds` is now backed by the `gmail:labels` option
+// source (per-chip picker + allowManualEntry). Mock the options API so the
+// picker loads deterministically.
+const mockFetchOptionsSource = jest.fn();
+jest.mock("@/lib/api/options", () => ({
+  __esModule: true,
+  fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
+}));
+
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -118,6 +127,26 @@ beforeEach(() => {
   mockListProviderTriggers.mockImplementation(async (p: string) =>
     p === "gmail" ? [newEmailTriggerMeta] : [],
   );
+  mockFetchOptionsSource.mockReset();
+  mockFetchOptionsSource.mockImplementation(async (source: string) => {
+    if (source === "gmail:labels") {
+      return {
+        ok: true,
+        source: "gmail:labels",
+        items: [
+          { value: "Label_5", label: "Invoices" },
+          { value: "STARRED", label: "Starred" },
+        ],
+        hasMore: false,
+      };
+    }
+    return {
+      ok: false,
+      source,
+      code: "SOURCE_NOT_FOUND",
+      message: `Unknown source '${source}'.`,
+    };
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -175,7 +204,10 @@ it("end-to-end: Gmail new_email from[] + labelIds[] round-trip as real arrays vi
       screen.getByRole("textbox", { name: /from \(optional\)/i }),
     ).toBeInTheDocument();
   });
-  expect(screen.getByRole("textbox", { name: /labels/i })).toBeInTheDocument();
+  // Labels renders as the per-chip option picker (add-button trigger), not
+  // a free-text input (CONFIG-UX sweep — gmail:labels option source).
+  expect(screen.getByTestId("string-array-labelIds-add")).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: /labels/i })).toBeNull();
 
   // 5. `from` chip input renders empty; the chip area shows "No items."
   // 6. `labelIds` already shows the INBOX chip courtesy of defaultValue.
@@ -195,15 +227,13 @@ it("end-to-end: Gmail new_email from[] + labelIds[] round-trip as real arrays vi
   // Draft becomes dirty after the first change.
   expect(useConfigSlice.getState().drafts[trigger!.id]!.isDirty).toBe(true);
 
-  // 8. Remove the INBOX chip from labelIds, then add Label_5.
+  // 8. Remove the INBOX chip from labelIds, then add Label_5 by picking
+  //    the "Invoices" option from the gmail:labels picker (stores the id).
   await user.click(
     screen.getByRole("button", { name: /Remove Labels item INBOX/i }),
   );
-  const labelsInput = screen.getByRole("textbox", {
-    name: /labels/i,
-  }) as HTMLInputElement;
-  await user.type(labelsInput, "Label_5");
-  await user.keyboard("{Enter}");
+  await user.click(screen.getByTestId("string-array-labelIds-add"));
+  await user.click(await screen.findByText("Invoices"));
 
   // 9. Modal Save — pendingNodes carries real string[] values.
   const modal = screen.getByRole("complementary", {

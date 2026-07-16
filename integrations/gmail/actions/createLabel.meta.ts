@@ -46,6 +46,7 @@ export const createLabelMeta: ActionMeta = {
         "Controls visibility in the Gmail sidebar. Leave unset to use Gmail's server-side default (V2 does NOT silently substitute).",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "labelShow", label: "Show in label list" },
         { value: "labelShowIfUnread", label: "Show if unread" },
@@ -59,6 +60,7 @@ export const createLabelMeta: ActionMeta = {
         "Controls visibility in the message list. Leave unset to use Gmail's server-side default.",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "show", label: "Show in message list" },
         { value: "hide", label: "Hide from message list" },

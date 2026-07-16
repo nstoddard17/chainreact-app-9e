@@ -20,10 +20,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *                                                   to notifications
  *                                                   explicitly.
  *
- * Multi-select combobox over `slack:users` would be ideal here, but
- * `multiple: true` on combobox is deferred (Slice 3.7) and there's
- * no `slack:users` resolver yet (Slice 3.39+). `string-array` is the
- * right v1 shape — workflow authors paste / chip-append user ids.
+ * CONFIG-UX sweep: `users` keeps the `string-array` shape (the saved
+ * value is still `string[]` of U-ids) but now sources per-chip options
+ * from the registered `slack:users` resolver with `allowManualEntry`
+ * (same pattern as gmail `labelIds`). Pasting / wiring raw ids still
+ * works.
  *
  * Required scope: `channels:manage` (or `groups:write`).
  *
@@ -56,8 +57,10 @@ export const slackInviteUsersToChannelMeta: ActionMeta = {
       name: "users",
       label: "User ids",
       description:
-        "Slack user ids to invite (U-prefixed). Press Enter or click Add to append each id. A future `slack:users` resolver slice will replace this with a multi-select picker.",
+        "Pick the people to invite, or paste / wire user ids from an earlier step.",
       type: "string-array",
+      optionsSource: "slack:users",
+      allowManualEntry: true,
       required: true,
       placeholder: "U01ABC23DEF",
     },

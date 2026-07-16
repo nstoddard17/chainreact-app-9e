@@ -52,6 +52,7 @@ export const dropboxUploadFileMeta: ActionMeta = {
       description: "Defaults to Add (never overwrites an existing file).",
       type: "select",
       required: false,
+      defaultValue: "add",
       options: [
         { value: "add", label: "Add (never overwrite)" },
         { value: "overwrite", label: "Overwrite" },
@@ -63,6 +64,7 @@ export const dropboxUploadFileMeta: ActionMeta = {
       description: "Rename automatically instead of failing when a file already exists.",
       type: "boolean",
       required: false,
+      defaultValue: false,
     },
   ],
   outputs: [

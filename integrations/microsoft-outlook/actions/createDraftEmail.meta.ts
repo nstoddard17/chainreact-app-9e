@@ -75,7 +75,7 @@ export const outlookCreateDraftEmailMeta: ActionMeta = {
       name: "isHtml",
       label: "Is HTML",
       description:
-        "Required. When on, the body is stored as HTML; when off, plain text. NO default per Outlook Phase 2 Q11 — V2 forces explicit choice.",
+        "How the draft body is stored: on = formatted HTML email, off = plain text. Required — match how you wrote the body.",
       type: "boolean",
       required: true,
     },
@@ -83,7 +83,7 @@ export const outlookCreateDraftEmailMeta: ActionMeta = {
       name: "importance",
       label: "Importance",
       description:
-        "Required. Microsoft Graph importance flag. NO default per Outlook Phase 2 Q11 — V2 forces explicit choice.",
+        "Priority flag recipients see. 'High' shows Outlook's red exclamation mark. Required — pick one (Normal is typical).",
       type: "select",
       required: true,
       options: [

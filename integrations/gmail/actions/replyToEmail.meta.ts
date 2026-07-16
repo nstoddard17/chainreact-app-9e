@@ -86,15 +86,16 @@ export const replyToEmailMeta: ActionMeta = {
         "Optional Reply-To header on the sent reply. Bare email or display-name form.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "reply-to-this@example.com",
     },
     {
       name: "signature",
       label: "Signature",
-      description:
-        "Optional signature appended with V1-faithful separators (text: blank line; HTML: two <br>).",
+      description: "Optional signature added after the body.",
       type: "textarea",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

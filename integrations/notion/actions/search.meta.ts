@@ -8,8 +8,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *                accessible objects." Schema accepts `z.string()` (key
  *                must be present; value can be empty).
  *   - `filter`   (optional) — `{value: "page" | "database",
- *                property: "object"}`. The two-field discriminated shape
- *                doesn't fit a single FieldType — paste-JSON for v1.
+ *                property: "object"}`. Flat two-key shape → `object`
+ *                editor (CONFIG-UX sweep): `value` select + `property`
+ *                select (single legal option). Commits the identical
+ *                object the runtime schema expects; all-empty commits
+ *                `undefined` so the optional filter drops out.
  *   - `pageSize` (optional) — 1..100.
  *
  * `startCursor` is server-managed; NOT exposed.
@@ -50,12 +53,34 @@ export const notionSearchMeta: ActionMeta = {
       name: "filter",
       label: "Filter (object type)",
       description:
-        "Optional. Narrow to pages OR databases — `{\"value\":\"page\",\"property\":\"object\"}` or `{\"value\":\"database\",\"property\":\"object\"}`. Notion's API rejects any other shape.",
-      type: "json",
+        "Optional. Return only pages or only databases. Set both choices to apply the filter, or leave both empty to search everything.",
+      type: "object",
       required: false,
       advanced: true,
-      jsonShape: "object",
-      placeholder: '{"value":"page","property":"object"}',
+      itemFields: [
+        {
+          name: "value",
+          label: "Show only",
+          description: "Which object type to return.",
+          type: "select",
+          required: true,
+          options: [
+            { value: "page", label: "Pages" },
+            { value: "database", label: "Databases" },
+          ],
+          placeholder: "Choose…",
+        },
+        {
+          name: "property",
+          label: "Filter by",
+          description:
+            "Notion only supports filtering by object type — pick it to apply the filter.",
+          type: "select",
+          required: true,
+          options: [{ value: "object", label: "Object type" }],
+          placeholder: "Choose…",
+        },
+      ],
     },
     {
       name: "pageSize",
@@ -64,6 +89,7 @@ export const notionSearchMeta: ActionMeta = {
         "Optional. Max results per call (1..100). Omit to use Notion's default.",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 1, max: 100, integer: true, step: 1 },
     },
   ],

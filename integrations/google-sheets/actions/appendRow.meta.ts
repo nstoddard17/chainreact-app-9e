@@ -42,7 +42,7 @@ export const googleSheetsAppendRowMeta: ActionMeta = {
   type: "append_row",
   displayName: "Append Row",
   description:
-    "Append a single row to a Google Sheet via `spreadsheets.values.append`. Sheets detects the existing table from the supplied range and appends below the bottom row. Add one cell value per column, in column order. **Q11 required:** choose RAW (literal — `=SUM(...)` stays a string) vs USER_ENTERED (parses formulas, dates, numbers as a human would).",
+    "Append a single row to a Google Sheet. Sheets detects the existing table from the supplied range and appends below the bottom row. Add one cell value per column, in column order. Required choice: parse values as if typed in Sheets, or store them exactly as written.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -78,19 +78,19 @@ export const googleSheetsAppendRowMeta: ActionMeta = {
       name: "valueInputOption",
       label: "Value input option",
       description:
-        "How Sheets interprets the values you pass. **No default — pick explicitly.** RAW: literal strings (`=SUM(...)` stays a string). USER_ENTERED: parses formulas, dates, numbers as if a human typed them.",
+        "How Sheets treats your values. Required — 'parse as typed' makes =SUM(...), dates and numbers live; 'store exactly' keeps them as text.",
       type: "select",
       required: true,
       options: [
         {
-          value: "RAW",
-          label: "RAW",
-          description: "Literal text — formulas / dates / numbers stay as the strings you passed.",
+          value: "USER_ENTERED",
+          label: "Parse as if typed in Sheets",
+          description: "Formulas evaluate, dates and numbers become live values.",
         },
         {
-          value: "USER_ENTERED",
-          label: "USER_ENTERED",
-          description: "Parsed as if a human typed it — formulas evaluate, `2026-01-01` becomes a date, `\"42\"` becomes a number.",
+          value: "RAW",
+          label: "Store exactly as written",
+          description: "Everything stays literal text — =SUM(...) stays a string.",
         },
       ],
     },

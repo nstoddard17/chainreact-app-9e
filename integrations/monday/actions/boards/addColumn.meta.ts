@@ -36,7 +36,7 @@ export const mondayAddColumnMeta: ActionMeta = {
       name: "columnType",
       label: "Column type",
       description:
-        "Monday ColumnType id (e.g. text, long_text, status, dropdown, numbers, date, people, checkbox).",
+        "What kind of column to add — type a Monday column-type id, e.g. text, long_text, status, dropdown, numbers, date, people, checkbox.",
       type: "text",
       required: true,
       placeholder: "status",

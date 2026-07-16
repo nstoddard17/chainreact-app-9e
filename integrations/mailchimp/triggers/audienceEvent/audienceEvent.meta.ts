@@ -16,10 +16,13 @@ import { MAILCHIMP_ALLOWED_EVENT_TYPES } from "./allowedEventTypes";
  * trigger-meta-activation-invariant test is satisfied without an
  * exemption.
  *
- * `eventTypes` is a `string-array` chip input — V1 used a multi-select
- * with the same allowlisted set. The chip placeholder + description
- * enumerate the 6 allowed values; activation rejects anything outside
- * the allowlist.
+ * `eventTypes` is a multi-select combobox over the closed 6-value
+ * allowlist (`MAILCHIMP_ALLOWED_EVENT_TYPES` — the same constant
+ * activation validates against), mirroring the `stripe:event_received`
+ * `enabledEvents` pattern. The committed value stays a plain
+ * `string[]` of raw event-type values, exactly what `activate.ts`
+ * reads — a free-text chip input previously let typos through to an
+ * activation failure (CONFIG-UX-SETUP-ADVANCED sweep).
  *
  * `payloadShape` mirrors `normalize.ts:normalizeMailchimpEvent` —
  * `type`, `audienceId`, `email`, `subscriberHash`, `campaignId`,
@@ -53,10 +56,19 @@ export const mailchimpAudienceEventTriggerMeta: TriggerMeta = {
       name: "eventTypes",
       label: "Event types",
       description:
-        `Mailchimp event types to react to. Allowed values: ${MAILCHIMP_ALLOWED_EVENT_TYPES.join(", ")}. Chip-style entry; at least one required. Activation rejects anything outside this allowlist.`,
-      type: "string-array",
+        `Which audience events fire this trigger. Pick one or more: ${MAILCHIMP_ALLOWED_EVENT_TYPES.join(", ")}. At least one is required.`,
+      type: "combobox",
       required: true,
-      placeholder: "Add event type (e.g. subscribe, unsubscribe)…",
+      multiple: true,
+      placeholder: "Pick one or more event types…",
+      options: [
+        { value: "subscribe", label: "Someone subscribes" },
+        { value: "unsubscribe", label: "Someone unsubscribes" },
+        { value: "profile", label: "Profile updated" },
+        { value: "upemail", label: "Email address changed" },
+        { value: "cleaned", label: "Address cleaned (bounced)" },
+        { value: "campaign", label: "Campaign sent" },
+      ],
     },
   ],
   payloadShape: [

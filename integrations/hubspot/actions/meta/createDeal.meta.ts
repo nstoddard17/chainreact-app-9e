@@ -69,7 +69,7 @@ export const hubspotCreateDealMeta: ActionMeta = {
       name: "amount",
       label: "Amount",
       description:
-        "**Numeric STRING** — HubSpot's API expects stringified numbers for CRM property writes. Wire an upstream number through `{{String(value)}}` if needed. Currency is the portal's default; HubSpot does not accept a per-deal currency override on this property.",
+        "Deal amount as a number, e.g. 5000 — in the portal's default currency. Stored as a text string (HubSpot's required format).",
       type: "text",
       required: false,
       placeholder: "5000",
@@ -78,8 +78,8 @@ export const hubspotCreateDealMeta: ActionMeta = {
       name: "closedate",
       label: "Close date",
       description:
-        "Expected close date. HubSpot accepts an ISO 8601 datetime (`2026-12-31T00:00:00Z`) or a millisecond-epoch string. Wire upstream date variables through `{{... .toISOString()}}` for the ISO form.",
-      type: "text",
+        "When you expect the deal to close, in UTC. A pasted millisecond-epoch string still hydrates as editable text.",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-12-31T00:00:00Z",
     },
@@ -105,7 +105,7 @@ export const hubspotCreateDealMeta: ActionMeta = {
       name: "hubspot_owner_id",
       label: "Owner",
       description:
-        "HubSpot user account that owns this deal. Pick from the connected portal's owners list. The picker returns the owner `id` (NOT the `userId`) — that's the value HubSpot's `hubspot_owner_id` property accepts.",
+        "HubSpot user account that owns this deal. Pick from the connected portal's owners list.",
       type: "combobox",
       optionsSource: "hubspot:owners",
       required: false,

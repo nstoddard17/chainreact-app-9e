@@ -72,7 +72,7 @@ export const googleDocsShareDocumentMeta: ActionMeta = {
       name: "shareWith",
       label: "Share with (emails)",
       description:
-        "Email addresses to grant access. Press Enter to append each address. Required when `makePublic` is false. Empty array is valid ONLY when `makePublic: true` (share via anyone-link without per-user shares). Google Contacts autocomplete is deferred — paste / type emails directly.",
+        "Required unless 'Make public' is on. Email addresses to grant access — press Enter to append each address. May be left empty ONLY when sharing via the public anyone-link.",
       type: "string-array",
       required: false,
       placeholder: "teammate@example.com",
@@ -105,9 +105,10 @@ export const googleDocsShareDocumentMeta: ActionMeta = {
       name: "message",
       label: "Notification message",
       description:
-        "Optional. Custom message Drive appends to the notification email. Ignored when `sendNotification: false`. Variables resolve at runtime.",
+        "Optional. Custom message Drive appends to the notification email. Variables resolve at runtime.",
       type: "textarea",
       required: false,
+      visibleWhen: { field: "sendNotification", valueTruthy: true },
       placeholder: "Sharing the Q4 planning doc — please review by Friday.",
     },
     {
@@ -123,9 +124,10 @@ export const googleDocsShareDocumentMeta: ActionMeta = {
       name: "publicPermission",
       label: "Public permission",
       description:
-        "Permission granted via the anyone-link when `makePublic: true`. Ignored otherwise. Defaults to `reader` (least-privilege).",
+        "Permission granted via the anyone-link. Defaults to `reader` (least-privilege).",
       type: "select",
       required: false,
+      visibleWhen: { field: "makePublic", valueTruthy: true },
       defaultValue: "reader",
       options: [
         { value: "reader", label: "Reader (view)" },
@@ -138,9 +140,10 @@ export const googleDocsShareDocumentMeta: ActionMeta = {
       name: "allowDiscovery",
       label: "Allow Google search discovery",
       description:
-        "When true alongside `makePublic`, Drive permits the doc to surface in public Google search results. Public + discoverable = effectively published on the web.",
+        "When true, Drive permits the doc to surface in public Google search results. Public + discoverable = effectively published on the web.",
       type: "boolean",
       required: false,
+      visibleWhen: { field: "makePublic", valueTruthy: true },
       defaultValue: false,
     },
     {
@@ -150,6 +153,7 @@ export const googleDocsShareDocumentMeta: ActionMeta = {
         "When true, transfers ownership of the document to the single email in `shareWith`. Requires `permission: owner` AND `shareWith.length === 1` (schema enforces). **Irreversible without the new owner's cooperation** — the source account becomes a writer; reclaiming ownership requires the new owner to transfer it back.",
       type: "boolean",
       required: false,
+      advanced: true,
       defaultValue: false,
     },
   ],

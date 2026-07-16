@@ -130,6 +130,7 @@ export const microsoftOutlookCalendarUpdateEventMeta: ActionMeta = {
       description: "Change the reminder minutes before the event starts.",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 0, integer: true },
     },
     {
@@ -138,6 +139,7 @@ export const microsoftOutlookCalendarUpdateEventMeta: ActionMeta = {
       description: "How the event appears on your calendar.",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "free", label: "Free" },
         { value: "tentative", label: "Tentative" },
@@ -152,6 +154,7 @@ export const microsoftOutlookCalendarUpdateEventMeta: ActionMeta = {
       description: "Event sensitivity (Outlook privacy level).",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "normal", label: "Normal" },
         { value: "personal", label: "Personal" },
@@ -165,6 +168,7 @@ export const microsoftOutlookCalendarUpdateEventMeta: ActionMeta = {
       description: "Event importance.",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         { value: "low", label: "Low" },
         { value: "normal", label: "Normal" },

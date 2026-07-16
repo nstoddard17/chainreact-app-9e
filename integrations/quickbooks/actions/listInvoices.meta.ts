@@ -47,15 +47,17 @@ export const quickbooksListInvoicesMeta: ActionMeta = {
       label: "Page size",
       type: "number",
       required: false,
+      defaultValue: 25,
       numeric: { min: 1, max: 100, integer: true },
       placeholder: "25",
-      description: "Invoices per run, 1–100. Defaults to 25.",
+      description: "Invoices per run, 1–100. 25 matches the documented default.",
     },
     {
       name: "startPosition",
       label: "Start position",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 1, integer: true },
       placeholder: "1",
       description:

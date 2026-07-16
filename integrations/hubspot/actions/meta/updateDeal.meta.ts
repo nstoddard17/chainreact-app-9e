@@ -36,7 +36,7 @@ export const hubspotUpdateDealMeta: ActionMeta = {
       name: "dealId",
       label: "Deal ID",
       description:
-        "HubSpot deal id (numeric, returned by the API as a string). Usually wired from `{{hubspot:create_deal.dealId}}` or `{{hubspot:get_deals.deals[0].id}}`. Search-by-property picker is a follow-up slice.",
+        "Which deal to update — insert the deal ID from an earlier step (e.g. Create Deal or Get Deals).",
       type: "text",
       required: true,
       placeholder: "12345",
@@ -73,7 +73,7 @@ export const hubspotUpdateDealMeta: ActionMeta = {
       name: "amount",
       label: "Amount",
       description:
-        "**Numeric STRING** — HubSpot's API expects stringified numbers for CRM property writes. Wire an upstream number through `{{String(value)}}` if needed.",
+        "Deal amount as a number, e.g. 5000 — in the portal's default currency. Stored as a text string (HubSpot's required format).",
       type: "text",
       required: false,
     },
@@ -81,8 +81,8 @@ export const hubspotUpdateDealMeta: ActionMeta = {
       name: "closedate",
       label: "Close date",
       description:
-        "HubSpot accepts an ISO 8601 datetime or a millisecond-epoch string.",
-      type: "text",
+        "When you expect the deal to close, in UTC. A pasted millisecond-epoch string still hydrates as editable text.",
+      type: "datetime-utc",
       required: false,
     },
     {
@@ -106,8 +106,7 @@ export const hubspotUpdateDealMeta: ActionMeta = {
     {
       name: "hubspot_owner_id",
       label: "Owner",
-      description:
-        "Reassign the deal to a different HubSpot user. The picker returns the owner `id` (NOT the `userId`).",
+      description: "Reassign the deal to a different HubSpot user.",
       type: "combobox",
       optionsSource: "hubspot:owners",
       required: false,

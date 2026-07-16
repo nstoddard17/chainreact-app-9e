@@ -17,8 +17,14 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *   - `cancelUrl`          (required) — Stripe redirects here on
  *                           customer abandon.
  *   - `lineItems`          (required for payment/subscription,
- *                           REJECTED for setup) — paste-JSON array
- *                           of `[{priceId, quantity}]`. Min 1, max 99.
+ *                           REJECTED for setup) — object-list rows of
+ *                           `{priceId, quantity}`. Min 1, max 99.
+ *                           `visibleWhen: mode ∈ {payment, subscription}`
+ *                           + `required: true` (required-when-visible)
+ *                           mirrors the runtime superRefine: readiness
+ *                           demands it exactly when the runtime does,
+ *                           and the field is hidden (and auto-cleared)
+ *                           in `setup` mode where the runtime rejects it.
  *   - `customer`           (optional) — Stripe customer id. Mutex
  *                           with customerEmail (schema refines).
  *   - `customerEmail`      (optional) — pre-fill the email field.
@@ -27,14 +33,16 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *                           echoed back on the webhook.
  *   - `metadata`           (optional) — Record<string,string>.
  *   - `allowPromotionCodes`(optional boolean) — no default.
- *   - `automaticTax`       (optional paste-JSON object) — shape:
- *                           `{enabled: boolean}`.
+ *   - `automaticTax`       (optional `object` fixed-key editor,
+ *                           Advanced) — single boolean key `enabled`,
+ *                           mirroring the runtime `.strict()` shape.
  *
- * Cross-field invariants (runtime-enforced, NOT expressible in
- * FieldMeta):
+ * Cross-field invariants:
  *   - `lineItems` REQUIRED when `mode` is `payment` / `subscription`;
- *     REJECTED when `mode` is `setup`.
- *   - `customer` + `customerEmail` MUTEX — pass one, not both.
+ *     REJECTED when `mode` is `setup` — expressed via `visibleWhen`
+ *     (above) AND enforced by the runtime superRefine.
+ *   - `customer` + `customerEmail` MUTEX — pass one, not both
+ *     (runtime-enforced; no either-or grouping in FieldMeta yet).
  *
  * Outputs match `createCheckoutSession.ts:return` — 17-key bounded
  * projection. `url` is the customer-facing Stripe-hosted checkout
@@ -102,9 +110,10 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
       name: "lineItems",
       label: "Line items",
       description:
-        "What the customer is paying for. Add one line per Stripe price (max 99). **Required when Mode is `payment` or `subscription`; leave empty when Mode is `setup`.**",
+        "What the customer is paying for. Add one line per Stripe price (max 99).",
       type: "object-list",
-      required: false,
+      required: true,
+      visibleWhen: { field: "mode", valueIn: ["payment", "subscription"] },
       listMaxItems: 99,
       itemFields: [
         {
@@ -174,12 +183,18 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
       name: "automaticTax",
       label: "Automatic tax",
       description:
-        "Developer option. Stripe's automatic-tax setting as a JSON object, e.g. `{\"enabled\": true}` to calculate and collect tax from the customer's address (requires Stripe Tax on the account). Enter the JSON value or insert a value from a previous step.",
-      type: "json",
+        "Optional. Turn on to have Stripe calculate and collect tax from the customer's address (requires Stripe Tax on the account). Leave untouched to use Stripe's default (off).",
+      type: "object",
       required: false,
       advanced: true,
-      jsonShape: "object",
-      placeholder: '{"enabled": true}',
+      itemFields: [
+        {
+          name: "enabled",
+          label: "Calculate tax automatically",
+          type: "boolean",
+          required: true,
+        },
+      ],
     },
   ],
   outputs: [

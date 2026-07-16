@@ -114,20 +114,21 @@ describe("sweep — Slack single-value user fields use the slack:users picker", 
     expect(TriggerMetaSchema.safeParse(t).success).toBe(true);
   });
 
-  it("does NOT convert the multi-value invite users field (combobox has no multi-select)", () => {
+  it("invite_users_to_channel users is a per-chip slack:users picker (string-array shape unchanged)", () => {
     const invite = listActionMetasForProvider("slack").find(
       (x) => x.key === "slack:invite_users_to_channel",
     );
     if (!invite) throw new Error("invite_users_to_channel not found");
     const users = invite.fields.find((x) => x.name === "users");
     expect(users).toBeDefined();
-    // Stays a multi-value chip input (string-array), NOT a single-select slack:users combobox.
+    // Stays a multi-value chip input (string-array) — the picker is per-chip
+    // (gmail labelIds pattern), NOT a single-select combobox conversion.
     expect(users!.type).toBe("string-array");
-    expect(users!.optionsSource).toBeUndefined();
-    // And no Slack field anywhere was wrongly pointed at slack:users as a multi field.
-    for (const f of invite.fields) {
-      if (f.optionsSource === "slack:users") expect(f.multiple).not.toBe(true);
-    }
+    expect(users!.optionsSource).toBe("slack:users");
+    expect(users!.allowManualEntry).toBe(true); // paste / wire raw U-ids still works
+    expect(users!.required).toBe(true);
+    expect(users!.name).toBe("users"); // stored config key unchanged → handler intact
+    expect(ActionMetaSchema.safeParse(invite).success).toBe(true);
   });
 });
 
@@ -329,5 +330,121 @@ describe("builder-qa-1 — GitHub repository fields use the github:repos picker"
     expect(f.allowManualEntry).toBe(true);
     expect(f.required).toBe(true);
     expect(TriggerMetaSchema.safeParse(t).success).toBe(true);
+  });
+});
+
+// ─── SWEEP-5 — Group A (slack + eden) config-UX audit adoptions ───────────────
+// Pagination/window plumbing → Advanced tab; visible defaults for invisible
+// handler defaults; eden platform text→select (sibling-verified option set);
+// eden since text→date. Metadata-only — stored config keys/value formats
+// unchanged.
+
+describe("sweep-5 — Slack history/window timestamp filters live in Advanced", () => {
+  it.each([
+    ["slack:get_messages", "oldest"],
+    ["slack:get_messages", "latest"],
+    ["slack:get_thread_messages", "oldest"],
+    ["slack:get_thread_messages", "latest"],
+    ["slack:list_scheduled_messages", "oldest"],
+    ["slack:list_scheduled_messages", "latest"],
+  ] as const)("%s.%s is advanced (still optional text, key unchanged)", (key, name) => {
+    const m = meta("slack", key);
+    const f = field(m, name);
+    expect(f.advanced).toBe(true);
+    expect(f.type).toBe("text"); // raw Slack ts format preserved
+    expect(f.required).toBe(false);
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+});
+
+describe("sweep-5 — Slack list_channels surfaces its handler defaults visibly", () => {
+  it("kind defaults to 'public' (mirrors handler default; value set unchanged)", () => {
+    const m = meta("slack", "slack:list_channels");
+    const kind = field(m, "kind");
+    expect(kind.type).toBe("select");
+    expect(kind.defaultValue).toBe("public");
+    expect((kind.options ?? []).map((o) => o.value)).toEqual(["public", "private", "both"]);
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+  it("excludeArchived defaults to true (mirrors handler default)", () => {
+    const m = meta("slack", "slack:list_channels");
+    const f = field(m, "excludeArchived");
+    expect(f.type).toBe("boolean");
+    expect(f.defaultValue).toBe(true);
+  });
+});
+
+describe("sweep-5 — Eden pagination plumbing lives in Advanced", () => {
+  it.each([
+    ["eden:list_boards", "cursor"],
+    ["eden:list_board_items", "cursor"],
+    ["eden:list_notes", "cursor"],
+    ["eden:search_items", "cursor"],
+    ["eden:list_captures", "offset"],
+    ["eden:list_highlights", "offset"],
+    ["eden:list_highlights", "orderBy"],
+  ] as const)("%s.%s is advanced (type/required/key unchanged)", (key, name) => {
+    const m = meta("eden", key);
+    const f = field(m, name);
+    expect(f.advanced).toBe(true);
+    expect(f.required).toBe(false);
+    expect(f.name).toBe(name); // stored config key unchanged → handler intact
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+
+  it("publish_post_now timezone is advanced (near-meaningless for publish-now); schedule_post keeps it in Setup", () => {
+    const publish = field(meta("eden", "eden:publish_post_now"), "timezone");
+    expect(publish.type).toBe("timezone");
+    expect(publish.advanced).toBe(true);
+    const schedule = field(meta("eden", "eden:schedule_post"), "timezone");
+    expect(schedule.advanced).toBeUndefined();
+  });
+});
+
+describe("sweep-5 — Eden following_overview platform is a select matching the sibling creator actions", () => {
+  it("platform options equal resolve_creator's option set exactly (same lowercase string values)", () => {
+    const overview = field(meta("eden", "eden:following_overview"), "platform");
+    const sibling = field(meta("eden", "eden:resolve_creator"), "platform");
+    expect(overview.type).toBe("select");
+    expect(overview.required).toBe(false); // empty = all platforms
+    expect(overview.defaultValue).toBeUndefined();
+    expect(overview.options).toEqual(sibling.options);
+    expect((overview.options ?? []).map((o) => o.value)).toEqual([
+      "youtube",
+      "twitter",
+      "tiktok",
+      "instagram",
+      "linkedin",
+      "threads",
+      "substack",
+    ]);
+    expect(ActionMetaSchema.safeParse(meta("eden", "eden:following_overview")).success).toBe(true);
+  });
+});
+
+describe("sweep-5 — Eden research_creator since is a date control", () => {
+  it("since is type date (commits a plain YYYY-MM-DD string; schema is z.string(), key unchanged)", () => {
+    const m = meta("eden", "eden:research_creator");
+    const f = field(m, "since");
+    expect(f.type).toBe("date");
+    expect(f.required).toBe(false);
+    expect(f.name).toBe("since");
+    expect(ActionMetaSchema.safeParse(m).success).toBe(true);
+  });
+});
+
+describe("sweep-5 — required-advanced stays put where the audit accepted it", () => {
+  it("slack post_interactive_blocks blocks stays a required advanced json field (Block Kit is genuinely raw)", () => {
+    const m = meta("slack", "slack:post_interactive_blocks");
+    const f = field(m, "blocks");
+    expect(f.type).toBe("json");
+    expect(f.advanced).toBe(true);
+    expect(f.required).toBe(true);
+  });
+  it("eden scheduling idempotencyKey stays advanced with leave-empty copy", () => {
+    const f = field(meta("eden", "eden:create_scheduling_draft"), "idempotencyKey");
+    expect(f.advanced).toBe(true);
+    expect(f.required).toBe(false);
+    expect(f.description).toMatch(/leave empty/i);
   });
 });

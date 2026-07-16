@@ -63,7 +63,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       name: "allDay",
       label: "All Day",
       description:
-        "When on, use the Start/End Date fields (YYYY-MM-DD). When off, use the Start/End Date-Time fields (ISO 8601).",
+        "When on, the event covers whole days (date-only). When off, it has exact start and end times.",
       type: "boolean",
       required: false,
       defaultValue: false,
@@ -74,6 +74,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       description: "Event start. Required unless All Day is on.",
       type: "datetime",
       required: false,
+      visibleWhen: { field: "allDay", valueTruthy: false },
     },
     {
       name: "endDateTime",
@@ -81,6 +82,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       description: "Event end. Required unless All Day is on.",
       type: "datetime",
       required: false,
+      visibleWhen: { field: "allDay", valueTruthy: false },
     },
     {
       name: "startDate",
@@ -88,6 +90,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
       description: "All-day start. Required when All Day is on.",
       type: "date",
       required: false,
+      visibleWhen: { field: "allDay", valueTruthy: true },
     },
     {
       name: "endDate",
@@ -96,6 +99,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
         "All-day end (exclusive — the day after the event ends). Required when All Day is on.",
       type: "date",
       required: false,
+      visibleWhen: { field: "allDay", valueTruthy: true },
     },
     {
       name: "timezone",
@@ -182,7 +186,7 @@ export const googleCalendarCreateEventMeta: ActionMeta = {
     {
       name: "colorId",
       label: "Color",
-      description: "Google Calendar color id (1–11). Optional.",
+      description: "Event color shown on the calendar.",
       type: "select",
       required: false,
       options: [

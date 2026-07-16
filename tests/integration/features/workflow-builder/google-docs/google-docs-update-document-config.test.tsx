@@ -95,12 +95,16 @@ describe("Google Docs update_document meta — Builder shape", () => {
     ]);
   });
 
-  it("searchText is optional text (schema enforces required-when-after-text/before-text at runtime)", () => {
+  it("searchText is required-when-visible text gated on after_text/before_text (CONFIG-UX sweep — mirrors the schema's superRefine)", () => {
     const field = googleDocsUpdateDocumentMeta.fields.find(
       (f) => f.name === "searchText",
     )!;
     expect(field.type).toBe("text");
-    expect(field.required).toBe(false);
+    expect(field.required).toBe(true);
+    expect(field.visibleWhen).toEqual({
+      field: "insertLocation",
+      valueIn: ["after_text", "before_text"],
+    });
   });
 
   it("risk: medium, not destructive, no confirmation (per D-GD4 — replace mode recoverable via Docs version history)", () => {

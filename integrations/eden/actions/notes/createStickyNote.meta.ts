@@ -30,7 +30,14 @@ export const edenCreateStickyNoteMeta: ActionMeta = {
       placeholder: "Select a board, or paste a board id",
     },
     { name: "content", label: "Content", description: "The sticky note text.", type: "textarea", required: true, placeholder: "Sticky note…" },
-    { name: "color", label: "Color", description: "Optional sticky note color (e.g. yellow).", type: "text", required: false, placeholder: "yellow" },
+    {
+      name: "color",
+      label: "Color",
+      description: "Sticky color as Eden names it (e.g. yellow). Leave empty for the default.",
+      type: "text",
+      required: false,
+      placeholder: "yellow",
+    },
   ],
   outputs: [
     { name: "noteId", type: "string", description: "The new sticky note's item id." },

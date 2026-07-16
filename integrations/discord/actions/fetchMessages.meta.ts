@@ -12,18 +12,13 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *   - `none`, `author`, `content`, `has_attachments`, `has_embeds`,
  *     `is_pinned`, `from_bots`, `from_humans`, `has_reactions`.
  *
- * **Conditional field visibility — NOT EXPRESSIBLE in V2 FieldMeta
- * contract today.** The contract has no `condition` / `visible` /
- * `when` field (see `contracts/actionMeta.ts:108-237`). V1 hides
- * `filterAuthor` unless `filterType === "author"`, hides
- * `filterContent` + `caseSensitive` unless `filterType === "content"`.
- * V2 mirrors the V1 schema behavior at runtime (the handler ignores
- * irrelevant filter inputs) but the meta surfaces all 3 conditional
- * fields always-visible with descriptions that explain when each one
- * applies. Pattern matches Gmail `search_emails` (Slice 3.15) —
- * documented in `searchEmails.meta.ts` header. A future contract
- * extension may add proper conditional visibility; the saved-config
- * shape would not change.
+ * **Conditional field visibility (CONFIG-UX-SETUP-ADVANCED-1).**
+ * `filterAuthor` is gated on `filterType === "author"`;
+ * `filterContent` + `caseSensitive` on `filterType === "content"` via
+ * top-level `visibleWhen` — mirrors V1's UI and the handler, which
+ * ignores irrelevant filter inputs. The saved-config shape is
+ * unchanged (SchemaForm clears a hidden dependent when the controller
+ * changes, matching the handler's ignore semantics).
  *
  * Outputs mirror `fetchMessages.ts:return`. `messages[]` is the
  * primary surface — marked sensitive because the array carries
@@ -48,7 +43,7 @@ export const discordFetchMessagesMeta: ActionMeta = {
     {
       name: "guildId",
       label: "Server",
-      description: "Discord server. Drives the channel picker.",
+      description: "Server to read from. Only servers where the ChainReact bot has been added appear.",
       type: "combobox",
       optionsSource: "discord:guilds",
       required: true,
@@ -58,7 +53,7 @@ export const discordFetchMessagesMeta: ActionMeta = {
       name: "channelId",
       sensitivity: "recipient",
       label: "Channel",
-      description: "Channel to read messages from. Gated on Server.",
+      description: "Channel to read messages from. Pick a server first.",
       type: "combobox",
       optionsSource: "discord:channels",
       dependsOn: "guildId",
@@ -68,8 +63,7 @@ export const discordFetchMessagesMeta: ActionMeta = {
     {
       name: "limit",
       label: "Max messages",
-      description:
-        "Maximum number of post-filter messages to return. Discord caps the wire limit at 100; when a filter is active the handler over-fetches up to 3× to give the result a chance to hit this count. **Default: 20.**",
+      description: "How many matching messages to return (up to 100). Default 20.",
       type: "number",
       required: false,
       defaultValue: 20,
@@ -91,14 +85,14 @@ export const discordFetchMessagesMeta: ActionMeta = {
       name: "filterType",
       label: "Filter",
       description:
-        "Limit the returned messages to a category. **Default: `none`** (no filter). `author` requires `filterAuthor` below; `content` requires `filterContent`.",
+        "Limit the returned messages to a category. Default: none (no filter). Picking an author or content filter reveals its extra setting.",
       type: "select",
       required: false,
       defaultValue: "none",
       options: [
         { value: "none", label: "None (return all)" },
-        { value: "author", label: "By specific author (requires Author below)" },
-        { value: "content", label: "Containing specific text (requires Content below)" },
+        { value: "author", label: "By specific author" },
+        { value: "content", label: "Containing specific text" },
         { value: "has_attachments", label: "With attachments" },
         { value: "has_embeds", label: "With embeds" },
         { value: "is_pinned", label: "Pinned only" },
@@ -110,31 +104,32 @@ export const discordFetchMessagesMeta: ActionMeta = {
     {
       name: "filterAuthor",
       label: "Author (filter)",
-      description:
-        "**Only used when Filter is set to `By specific author`.** Member to filter messages by. Picker sourced from `discord:members`; gated on Server. Other Filter modes ignore this field.",
+      description: "Only return messages posted by this member. Pick a server first.",
       type: "combobox",
       optionsSource: "discord:members",
       dependsOn: "guildId",
       required: false,
+      visibleWhen: { field: "filterType", valueIn: ["author"] },
       placeholder: "Select Server first",
     },
     {
       name: "filterContent",
       label: "Content (filter)",
-      description:
-        "**Only used when Filter is set to `Containing specific text`.** Text to match in each message's `content`. Other Filter modes ignore this field.",
+      description: "Only return messages containing this text.",
       type: "text",
       required: false,
+      visibleWhen: { field: "filterType", valueIn: ["content"] },
       placeholder: "welcome",
     },
     {
       name: "caseSensitive",
       label: "Case-sensitive content match",
       description:
-        "**Only used when Filter is set to `Containing specific text`.** When true, the substring match is case-sensitive. **Default: false** (case-insensitive).",
+        "When on, the text must match with the same upper/lower case. Default: off (case-insensitive).",
       type: "boolean",
       required: false,
       defaultValue: false,
+      visibleWhen: { field: "filterType", valueIn: ["content"] },
     },
   ],
   outputs: [

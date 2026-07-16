@@ -28,9 +28,10 @@ export const hubspotGetDealsMeta: ActionMeta = {
       name: "limit",
       label: "Limit",
       description:
-        "Max deals per call (1..100, HubSpot's documented cap). Omit for HubSpot's default. Use `after` for pagination.",
+        "Max deals per call (1..100, HubSpot's documented cap). Use `after` for pagination.",
       type: "number",
       required: false,
+      defaultValue: 25,
       numeric: { min: 1, max: 100, integer: true, step: 1 },
     },
     {
@@ -40,6 +41,7 @@ export const hubspotGetDealsMeta: ActionMeta = {
         "Opaque pagination cursor. Pass the previous call's `nextCursor` to fetch the next page. Omit for the first page.",
       type: "text",
       required: false,
+      advanced: true,
     },
     {
       name: "properties",
@@ -48,6 +50,7 @@ export const hubspotGetDealsMeta: ActionMeta = {
         "HubSpot property names to return for each deal. Add property names as individual chips (e.g. `dealname`, `amount`, `dealstage`, `pipeline`, `closedate`, custom property names). Omit to use HubSpot's default set.",
       type: "string-array",
       required: false,
+      advanced: true,
     },
     {
       name: "filterProperty",
@@ -61,9 +64,11 @@ export const hubspotGetDealsMeta: ActionMeta = {
     {
       name: "filterValue",
       label: "Filter value",
-      description: "Value to EQ-match against `Filter property`. BOTH `Filter property` and this field must be set.",
+      description:
+        "Only return deals whose chosen property exactly equals this value. Stage filters use the internal stage id (e.g. `closedwon`) — copy it from the Deal stage picker on Create Deal.",
       type: "text",
       required: false,
+      visibleWhen: { field: "filterProperty", valueTruthy: true },
       placeholder: "closedwon",
     },
   ],

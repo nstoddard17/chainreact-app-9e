@@ -64,7 +64,7 @@ export const stripeCreateSubscriptionMeta: ActionMeta = {
       name: "default_payment_method",
       label: "Default payment method ID",
       description:
-        "Optional Stripe payment method (`pm_xxx`) Stripe will charge for this subscription. Required for off-session billing when the customer has no default payment method on file. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional Stripe payment method (`pm_xxx`) Stripe will charge for this subscription. Required for off-session billing when the customer has no default payment method on file.",
       type: "text",
       required: false,
       placeholder: "pm_xxx",
@@ -73,9 +73,10 @@ export const stripeCreateSubscriptionMeta: ActionMeta = {
       name: "payment_behavior",
       label: "Payment behavior",
       description:
-        "Optional Stripe payment-behavior selector. Controls how Stripe handles the first invoice when the customer's card is declined or requires action. **No default applied here** — when omitted, Stripe applies its server-side default. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional Stripe payment-behavior selector. Controls how Stripe handles the first invoice when the customer's card is declined or requires action. **No default applied here** — when omitted, Stripe applies its server-side default.",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         {
           value: "allow_incomplete",

@@ -32,7 +32,7 @@ export const hubspotUpdateContactMeta: ActionMeta = {
       name: "contactId",
       label: "Contact ID",
       description:
-        "HubSpot contact id (numeric, returned by the API as a string). Usually wired from `{{hubspot:create_contact.contactId}}` or `{{hubspot:get_contacts.contacts[0].id}}`. Search-by-email picker is a follow-up slice.",
+        "Which contact to update — insert the contact ID from an earlier step (e.g. Create Contact or Get Contacts).",
       type: "text",
       required: true,
       placeholder: "12345",

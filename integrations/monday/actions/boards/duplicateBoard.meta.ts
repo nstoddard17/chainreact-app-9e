@@ -28,7 +28,7 @@ export const mondayDuplicateBoardMeta: ActionMeta = {
       name: "duplicateType",
       label: "Duplicate type",
       description:
-        "structure = columns/groups only (no items); pulses = + items; pulses_and_updates = + items and updates.",
+        "Choose how much to copy: just the structure, structure + items, or structure + items + their updates.",
       type: "select",
       required: false,
       defaultValue: "duplicate_board_with_structure",

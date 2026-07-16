@@ -28,9 +28,10 @@ export const slackListChannelsMeta: ActionMeta = {
       name: "kind",
       label: "Channel kind",
       description:
-        "Which kinds of channels to include. Defaults to public when omitted (handler-side).",
+        "Which channels to include. Public only unless you choose otherwise.",
       type: "select",
       required: false,
+      defaultValue: "public",
       options: [
         { value: "public", label: "Public channels" },
         { value: "private", label: "Private channels" },
@@ -40,10 +41,10 @@ export const slackListChannelsMeta: ActionMeta = {
     {
       name: "excludeArchived",
       label: "Exclude archived",
-      description:
-        "When enabled, archived channels are omitted from results (handler default is true).",
+      description: "Skip archived channels (recommended).",
       type: "boolean",
       required: false,
+      defaultValue: true,
     },
     {
       name: "limit",

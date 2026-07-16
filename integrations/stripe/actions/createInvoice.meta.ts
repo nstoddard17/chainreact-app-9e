@@ -14,11 +14,14 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *   - `customerId`  (required) — existing Stripe customer.
  *   - `description` (optional) — visible on the hosted invoice page.
  *   - `metadata`    (optional) — Record<string,string>.
- *   - `autoAdvance` (optional boolean) — no default applied here.
- *                    Stripe defaults `true` server-side when omitted,
- *                    which queues automatic finalization + collection.
- *                    Pass `false` to keep the invoice in `draft` until
- *                    a downstream action finalizes it.
+ *   - `autoAdvance` (REQUIRED at the meta layer, NO defaultValue —
+ *                    Q11) — Stripe defaults `true` server-side when
+ *                    omitted, which queues automatic finalization +
+ *                    collection (money moves). A money-moving
+ *                    behaviour switch must be an explicit author
+ *                    choice, so readiness forces it even though the
+ *                    runtime schema keeps accepting both values (and
+ *                    omission, for saved configs).
  *
  * Outputs match `createInvoice.ts:return` — 14-key bounded projection.
  * `hostedInvoiceUrl` and `invoicePdf` are intentional customer-facing
@@ -64,11 +67,11 @@ export const stripeCreateInvoiceMeta: ActionMeta = {
     },
     {
       name: "autoAdvance",
-      label: "Auto-advance",
+      label: "Finalize and collect automatically",
       description:
-        "Optional — controls whether Stripe automatically finalizes the draft invoice and attempts collection. **No default applied here.** When omitted, Stripe applies its server-side default of `true` — the invoice transitions draft → open and Stripe attempts collection (this is MONEY-MOVING). Pass `false` to keep the invoice in `draft` until a downstream action explicitly finalizes it.",
+        "Required — choose deliberately. Yes: Stripe finalizes this invoice and attempts to charge or email the customer (money moves). No: the invoice stays a draft until another step finalizes it.",
       type: "boolean",
-      required: false,
+      required: true,
     },
   ],
   outputs: [

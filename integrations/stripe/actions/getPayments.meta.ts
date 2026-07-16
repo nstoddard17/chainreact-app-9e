@@ -60,6 +60,7 @@ export const stripeGetPaymentsMeta: ActionMeta = {
         "Optional forward pagination cursor — the id of the last charge from the previous page (typically wired from `{{prev.nextCursor}}`). Stripe pagination uses last-result IDs as cursors, not page numbers. **Mutex with Ending before.**",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "ch_xxx",
     },
     {
@@ -69,6 +70,7 @@ export const stripeGetPaymentsMeta: ActionMeta = {
         "Optional backward pagination cursor — the id of the first charge on the next-newer page. Use to walk backwards through results. **Mutex with Starting after.** Stripe pagination uses charge IDs as cursors, not page numbers.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "ch_xxx",
     },
   ],

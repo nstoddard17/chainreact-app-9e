@@ -41,7 +41,8 @@ export const microsoftOneDriveUploadFileMeta: ActionMeta = {
     {
       name: "mimeType",
       label: "MIME Type",
-      description: "The file's content type.",
+      description:
+        "What kind of file this is, as a standard content type matching the file name's extension — e.g. text/plain for .txt, application/pdf for .pdf, image/png for .png.",
       type: "text",
       required: true,
       placeholder: "e.g. application/pdf, text/plain",
@@ -62,8 +63,8 @@ export const microsoftOneDriveUploadFileMeta: ActionMeta = {
       required: false,
       defaultValue: "utf8",
       options: [
-        { value: "utf8", label: "UTF-8 (text)" },
-        { value: "base64", label: "Base64 (binary)" },
+        { value: "utf8", label: "Text (as typed)" },
+        { value: "base64", label: "Base64 (binary files)" },
       ],
     },
   ],

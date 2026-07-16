@@ -129,7 +129,7 @@ describe("GET /api/providers/monday/actions", () => {
     expect(fileId.dependsOn).toEqual(["itemId", "columnId"]);
   });
 
-  it("serializes static enum options (create_board boardKind) + textarea JSON fields (create_item columnValues)", async () => {
+  it("serializes static enum options (create_board boardKind) + json editor fields (create_item columnValues) — CONFIG-UX-SETUP-ADVANCED-1", async () => {
     const byKey = new Map((await fetchMondayActions()).map((a) => [a.key, a]));
     const createBoard = byKey.get("monday:create_board")!;
     const kind = createBoard.fields.find((f) => f.name === "boardKind")!;
@@ -141,7 +141,7 @@ describe("GET /api/providers/monday/actions", () => {
     ]);
     const createItem = byKey.get("monday:create_item")!;
     const cv = createItem.fields.find((f) => f.name === "columnValues")!;
-    expect(cv.type).toBe("textarea");
+    expect(cv.type).toBe("json");
   });
 });
 

@@ -138,15 +138,17 @@ describe("CS-2b — every Slack channel combobox (action + trigger) allows manua
     }
   });
 
-  it("manual entry only appears on the slack channel/user/group-DM picker comboboxes (no accidental conversion)", () => {
+  it("manual entry only appears on the slack channel/user/group-DM pickers (no accidental conversion)", () => {
     // After the sweep, allowManualEntry is valid on the slack:channels,
-    // slack:users, and slack:group_dms single-select pickers — but never on any
-    // other field.
+    // slack:users, and slack:group_dms single-select picker comboboxes AND on
+    // the per-chip slack:users string-array picker (invite_users_to_channel,
+    // Group A config-UX sweep) — but never on any other field.
     const isSlackPicker = (f: FieldMeta): boolean =>
-      f.type === "combobox" &&
-      (f.optionsSource === "slack:channels" ||
-        f.optionsSource === "slack:users" ||
-        f.optionsSource === "slack:group_dms");
+      (f.type === "combobox" &&
+        (f.optionsSource === "slack:channels" ||
+          f.optionsSource === "slack:users" ||
+          f.optionsSource === "slack:group_dms")) ||
+      (f.type === "string-array" && f.optionsSource === "slack:users");
     const allFields = [
       ...slackActionMetas.flatMap((m) => m.fields),
       ...slackTriggerMetas.flatMap((m) => m.fields),
@@ -156,7 +158,7 @@ describe("CS-2b — every Slack channel combobox (action + trigger) allows manua
         expect(f.allowManualEntry).toBeUndefined();
       }
     }
-    // The new-channel-name + multi-value invite-users fields stay non-pickers.
+    // The new-channel-name field stays a non-picker.
     const nameField = slackCreateChannelMeta.fields.find((f) => f.name === "name");
     expect(nameField!.allowManualEntry).toBeUndefined();
     expect(nameField!.optionsSource).toBeUndefined();

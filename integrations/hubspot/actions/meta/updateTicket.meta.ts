@@ -37,7 +37,7 @@ export const hubspotUpdateTicketMeta: ActionMeta = {
       name: "ticketId",
       label: "Ticket ID",
       description:
-        "HubSpot ticket id (numeric, returned by the API as a string). Usually wired from `{{hubspot:create_ticket.ticketId}}` or `{{hubspot:get_tickets.tickets[0].id}}`. Search-by-property picker is a follow-up slice.",
+        "Which ticket to update — insert the ticket ID from an earlier step (e.g. Create Ticket or Get Tickets).",
       type: "text",
       required: true,
       placeholder: "12345",
@@ -81,13 +81,13 @@ export const hubspotUpdateTicketMeta: ActionMeta = {
     {
       name: "hs_ticket_priority",
       label: "Priority",
-      description: "HubSpot `hs_ticket_priority` property. One of `LOW`, `MEDIUM`, `HIGH`.",
+      description: "How urgent the ticket is.",
       type: "select",
       required: false,
       options: [
-        { value: "LOW", label: "LOW" },
-        { value: "MEDIUM", label: "MEDIUM" },
-        { value: "HIGH", label: "HIGH" },
+        { value: "LOW", label: "Low" },
+        { value: "MEDIUM", label: "Medium" },
+        { value: "HIGH", label: "High" },
       ],
     },
     {
@@ -113,8 +113,7 @@ export const hubspotUpdateTicketMeta: ActionMeta = {
     {
       name: "hubspot_owner_id",
       label: "Owner",
-      description:
-        "Reassign the ticket to a different HubSpot user. The picker returns the owner `id` (NOT the `userId`).",
+      description: "Reassign the ticket to a different HubSpot user.",
       type: "combobox",
       optionsSource: "hubspot:owners",
       required: false,

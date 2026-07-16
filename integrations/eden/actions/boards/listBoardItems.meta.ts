@@ -30,7 +30,7 @@ export const edenListBoardItemsMeta: ActionMeta = {
       placeholder: "Select a board, or paste a board id",
     },
     { name: "limit", label: "Limit", description: "Maximum items to return (1–100).", type: "number", required: false, placeholder: "25" },
-    { name: "cursor", label: "Cursor", description: "Pagination cursor from a previous call's nextCursor.", type: "text", required: false },
+    { name: "cursor", label: "Cursor", description: "Pagination cursor from a previous call's nextCursor.", type: "text", required: false, advanced: true },
   ],
   outputs: [
     { name: "items", type: "array", description: "Board items. Each: { id, title, type, parentId, url, createdAt, updatedAt }." },

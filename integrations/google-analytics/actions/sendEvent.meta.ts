@@ -95,6 +95,7 @@ export const googleAnalyticsSendEventMeta: ActionMeta = {
       description: "Optional GA4 user_id for cross-device attribution.",
       type: "text",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

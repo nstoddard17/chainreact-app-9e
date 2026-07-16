@@ -28,6 +28,9 @@ const SLACK_REQUIRED_SCOPES = [
   "pins:write",
   "im:history",
   "mpim:history",
+  // CONFIG-FIELD-UX-SWEEP-4: slack:group_dms picker lists group DMs
+  // (conversations.list types=mpim), which requires mpim:read.
+  "mpim:read",
   "reactions:read",
   "groups:history",
   "groups:read",

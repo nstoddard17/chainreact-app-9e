@@ -91,19 +91,18 @@ describe("OneNote copy_page meta — Builder shape (source cascade + dual-hierar
     expect(tgt.required).toBe(true);
   });
 
-  it("description warns about async Graph operation: success != complete", () => {
+  it("description conveys the copy completes AFTER the step succeeds (async, outcome language)", () => {
     expect(microsoftOneNoteCopyPageMeta.description).toMatch(
-      /asynchronous|async/i,
+      /finishes on Microsoft's side|shortly after/i,
     );
     expect(microsoftOneNoteCopyPageMeta.description).toMatch(
-      /accepted.*not.*complete|success.*not.*complete/i,
+      /New Note trigger/i,
     );
   });
 
-  it("description documents the list_sections workaround for target picker", () => {
-    expect(microsoftOneNoteCopyPageMeta.description).toMatch(/list_sections/i);
-    expect(microsoftOneNoteCopyPageMeta.description).toMatch(
-      /variable picker|chain/i,
+  it("description contains no Graph endpoint paths or internal slice IDs (config-UX copy sweep)", () => {
+    expect(microsoftOneNoteCopyPageMeta.description).not.toMatch(
+      /copyToSection|POST \/|\/me\/onenote|ONENOTE-\d|ONENOTE-N/i,
     );
   });
 

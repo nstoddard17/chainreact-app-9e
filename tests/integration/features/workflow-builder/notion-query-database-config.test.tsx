@@ -10,7 +10,8 @@
  *     forward-passed to the API),
  *   - sorts renders as an optional textarea (raw Notion sort array),
  *   - pageSize renders as an optional number with min:1 / max:100
- *     bounds (Notion's hard ceiling),
+ *     bounds (Notion's hard ceiling) — `advanced: true` per the
+ *     config-UX sweep (pagination tuning lives in the Advanced tab),
  *   - **startCursor is intentionally absent** from the meta — pagination
  *     handle is server-managed; authors call again with `{{prev.nextCursor}}`,
  *   - Modal Save flushes the draft,
@@ -142,6 +143,7 @@ it("Notion query_database meta exposes databaseId / filter / sorts / pageSize an
   const pageSize = byName.get("pageSize")!;
   expect(pageSize.type).toBe("number");
   expect(pageSize.required).toBe(false);
+  expect(pageSize.advanced).toBe(true);
   expect(pageSize.numeric?.min).toBe(1);
   expect(pageSize.numeric?.max).toBe(100);
   expect(pageSize.numeric?.integer).toBe(true);
@@ -183,8 +185,8 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
   expect(action.provider).toBe("notion");
   expect(action.type).toBe("query_database");
 
-  // 3. Open config rail. Setup shows databaseId + pageSize; filter and
-  //    sorts are `advanced: true` and live in the Advanced tab
+  // 3. Open config rail. Setup shows databaseId only; filter, sorts, and
+  //    pageSize are `advanced: true` and live in the Advanced tab
   //    (CONFIG-UX-SETUP-ADVANCED-1). startCursor is NOT in the form.
   await openLastNodeOfKind("action");
   await waitFor(() => {
@@ -192,10 +194,8 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
       screen.getByRole("textbox", { name: /^database id$/i }),
     ).toBeInTheDocument();
   });
-  expect(
-    screen.getByRole("spinbutton", { name: /^page size$/i }),
-  ).toBeInTheDocument();
   // Advanced-only fields are not visible on Setup.
+  expect(screen.queryByRole("spinbutton", { name: /^page size$/i })).toBeNull();
   expect(screen.queryByRole("textbox", { name: /^filter$/i })).toBeNull();
   expect(screen.queryByRole("textbox", { name: /^sorts$/i })).toBeNull();
   // startCursor is server-managed and intentionally absent from meta.
@@ -210,8 +210,8 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
     DATABASE_ID,
   );
 
-  // 5. Switch to Advanced — filter + sorts render there; startCursor is
-  //    absent from BOTH tabs.
+  // 5. Switch to Advanced — filter + sorts + pageSize render there;
+  //    startCursor is absent from BOTH tabs.
   await user.click(screen.getByRole("tab", { name: /advanced/i }));
   await waitFor(() => {
     expect(
@@ -219,6 +219,9 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
     ).toBeInTheDocument();
   });
   expect(screen.getByRole("textbox", { name: /^sorts$/i })).toBeInTheDocument();
+  expect(
+    screen.getByRole("spinbutton", { name: /^page size$/i }),
+  ).toBeInTheDocument();
   expect(screen.queryByRole("textbox", { name: /start cursor/i })).toBeNull();
 
   //    Paste filter JSON. Textarea stores the literal string.
@@ -231,15 +234,16 @@ it("end-to-end: type databaseId + paste filter+sorts JSON + set pageSize → Mod
   await user.paste(SORTS_JSON);
   expect(useConfigSlice.getState().drafts[action.id]!.values.sorts).toEqual(JSON.parse(SORTS_JSON));
 
-  // 7. Back to Setup to set pageSize — both tabs share the same draft,
-  //    so the Advanced values survive the switch. NumberField parses
-  //    integer-typed bounds.
-  await user.click(screen.getByRole("tab", { name: /^setup$/i }));
+  // 7. Set pageSize (also on the Advanced tab). NumberField parses
+  //    integer-typed bounds. Then hop back to Setup — both tabs share
+  //    the same draft, so the Advanced values survive the switch.
   await user.type(
     screen.getByRole("spinbutton", { name: /^page size$/i }),
     "50",
   );
   expect(useConfigSlice.getState().drafts[action.id]!.values.pageSize).toBe(50);
+  await user.click(screen.getByRole("tab", { name: /^setup$/i }));
+  expect(useConfigSlice.getState().drafts[action.id]!.values.filter).toEqual(JSON.parse(FILTER_JSON));
 
   // 8. Modal Save flushes the draft.
   const modal = screen.getByRole("complementary", {

@@ -57,7 +57,7 @@ export const discordNewMessageTriggerMeta: TriggerMeta = {
       name: "guildId",
       label: "Server",
       description:
-        "Discord server (guild) the channel lives in. Picker sourced from `discord:guilds` — only servers where ChainReact's bot has been added appear.",
+        "Server to watch. Only servers where the ChainReact bot has been added appear.",
       type: "combobox",
       optionsSource: "discord:guilds",
       required: true,
@@ -68,7 +68,7 @@ export const discordNewMessageTriggerMeta: TriggerMeta = {
       sensitivity: "recipient",
       label: "Channel",
       description:
-        "Text channel to watch for new messages. Picker sourced from `discord:channels`; gated on Server — change the Server and the channel picker re-fetches. Voice / category / thread channels are excluded.",
+        "Text channel to watch for new messages. Pick a server first. Voice and thread channels are excluded.",
       type: "combobox",
       optionsSource: "discord:channels",
       dependsOn: "guildId",
@@ -79,7 +79,7 @@ export const discordNewMessageTriggerMeta: TriggerMeta = {
       name: "contentFilter",
       label: "Content keywords (optional)",
       description:
-        "Substring keywords to match against the message body (case-insensitive, OR-match — message passes if its content contains ANY listed keyword). Press Enter or click Add to append each keyword. Leave empty to fire for every new message regardless of content. Requires the bot's MESSAGE_CONTENT intent (see trigger description).",
+        "Only run when the message contains any of these words (case-insensitive). Leave empty to run for every message.",
       type: "string-array",
       required: false,
       placeholder: "release notes",
@@ -89,7 +89,7 @@ export const discordNewMessageTriggerMeta: TriggerMeta = {
       name: "authorFilter",
       label: "Author (optional)",
       description:
-        "When set, only fire for messages posted by the chosen server member. Picker sourced from `discord:members`; gated on Server. Leave empty to fire for any author.",
+        "Only run for messages posted by this member. Pick a server first. Leave empty to run for any author.",
       type: "combobox",
       optionsSource: "discord:members",
       dependsOn: "guildId",

@@ -36,18 +36,20 @@ export const notionCreateCommentMeta: ActionMeta = {
   fields: [
     {
       name: "pageId",
-      label: "Page ID",
+      label: "Page",
       description:
-        "Notion page id — when set, creates a NEW discussion thread on the named page. Leave empty when replying via Discussion ID instead.",
-      type: "text",
+        "Page to start a NEW comment thread on. Set this OR Discussion ID — exactly one. Pick a page, paste an id, or wire `{{...}}` from an upstream step.",
+      type: "combobox",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
       required: false,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a page, or paste an id",
     },
     {
       name: "discussionId",
       label: "Discussion ID",
       description:
-        "Existing Notion discussion thread id — when set, posts a reply to that thread. Usually wired from a prior `create_comment` / `list_comments` output. Leave empty when starting a new thread via Page ID instead.",
+        "Existing thread to reply to (from a previous comment step's `discussionId` output). Set this OR Page — exactly one.",
       type: "text",
       required: false,
       placeholder: "efgh5678-...",

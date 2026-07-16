@@ -49,10 +49,11 @@ export const mondayAddFileMeta: ActionMeta = {
     {
       name: "file",
       label: "File",
-      description: "Upstream FileRef to upload. Insert a {{nodeId.file}} token from a producer.",
+      description:
+        "The file to upload — insert the file output of an earlier step (e.g. Download File, Get Attachment).",
       type: "file",
       required: true,
-      placeholder: "Paste a {{...}} FileRef token",
+      placeholder: "Insert a file from an earlier step",
     },
     {
       name: "filename",

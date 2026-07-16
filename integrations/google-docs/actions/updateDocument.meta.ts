@@ -12,12 +12,12 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *     `replace`, `after_text`, `before_text`). Schema has no
  *     `.default()`; the meta mirrors that — the author chooses
  *     explicitly per the Q11 honest-state pattern (no silent default).
- *   - `searchText`     OPTIONAL — required at runtime when
+ *   - `searchText`     required at runtime when
  *     `insertLocation ∈ {"after_text", "before_text"}` (schema enforces
- *     via `.superRefine`). Documented as conditional in the field
- *     description; the contract doesn't surface conditional visibility
- *     to the renderer today, so the field is unconditionally visible
- *     and the description warns when it's needed.
+ *     via `.superRefine`). Gated by `visibleWhen` on `insertLocation`
+ *     and marked required — required-when-visible means readiness only
+ *     flags it in the two modes that need it, and the mode-change
+ *     cascade clears a stale value for the other modes.
  *
  * **`replace` mode wipes the existing body before inserting the new
  * content.** Recovery is via Docs' built-in version history (File →
@@ -80,7 +80,7 @@ export const googleDocsUpdateDocumentMeta: ActionMeta = {
       name: "insertLocation",
       label: "Insert location",
       description:
-        "Where to insert the content. `end` appends; `beginning` inserts at the top (right after BODY_START); `replace` wipes the existing body and inserts (irreversible via API — recover via Docs Version history); `after_text` / `before_text` find the last match of `searchText` and insert relative to it. No default — author chooses explicitly.",
+        "Where to insert the content. `end` appends; `beginning` inserts at the top; `replace` wipes the existing body and inserts (irreversible via API — recover via Docs Version history); `after_text` / `before_text` find the last match of the search text and insert relative to it. No default — author chooses explicitly.",
       type: "select",
       required: true,
       options: [
@@ -96,11 +96,15 @@ export const googleDocsUpdateDocumentMeta: ActionMeta = {
     },
     {
       name: "searchText",
-      label: "Search text",
+      label: "Text to find",
       description:
-        "REQUIRED when `insertLocation` is `after_text` or `before_text` — ignored for `end` / `beginning` / `replace`. The handler finds the LAST match in the document body. Supports wildcard `*` (maps to regex `.*` — paste a literal `*` if you want regex-wildcard behavior; otherwise the text is matched literally).",
+        "Text to locate in the doc (last match wins). `*` matches anything, e.g. `Invoice *:`. Other text matches exactly.",
       type: "text",
-      required: false,
+      required: true,
+      visibleWhen: {
+        field: "insertLocation",
+        valueIn: ["after_text", "before_text"],
+      },
       placeholder: "Last edited:",
     },
   ],

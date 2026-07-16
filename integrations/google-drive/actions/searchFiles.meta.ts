@@ -57,6 +57,7 @@ export const googleDriveSearchFilesMeta: ActionMeta = {
       description: "Pagination cursor from a prior run's Next Page Token.",
       type: "text",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

@@ -9,14 +9,18 @@
  *   - `successUrl` / `cancelUrl` render as text URL inputs,
  *   - `lineItems` renders as the object-list repeater (CONFIG-UX-AUDIT-1)
  *     — add-a-line UI storing the REAL `[{priceId, quantity}]` array the
- *     runtime schema expects (never a JSON-encoded string),
+ *     runtime schema expects (never a JSON-encoded string). It is
+ *     `required: true` + `visibleWhen: mode ∈ {payment, subscription}`
+ *     (CONFIG-UX-SETUP-ADVANCED-1) — required-when-visible mirrors the
+ *     runtime superRefine (required in those 2 modes, REJECTED in setup),
  *   - `customer` / `customerEmail` render as plain text (XOR enforced at
  *     runtime; not expressible in FieldMeta),
  *   - `metadata` renders as the `keyvalue` chip UI — stored as the
  *     `Record<string, string>` wire shape Stripe's schema expects
  *     (`keyValueShape: "record"`, CONFIG-UX-AUDIT-1),
- *   - `automaticTax` is an advanced JSON textarea behind the Advanced
- *     disclosure,
+ *   - `automaticTax` is an advanced `object` fixed-key editor (single
+ *     boolean key `enabled`, matching the runtime `.strict()` shape)
+ *     behind the Advanced disclosure,
  *   - Modal Save flushes the draft into pendingNodes,
  *   - Toolbar Save persists once with every field intact (no hidden
  *     destructive defaults).
@@ -158,7 +162,10 @@ it("Stripe create_checkout_session meta declares mode select + object-list lineI
   expect(cancelUrl.type).toBe("text");
   expect(cancelUrl.required).toBe(true);
 
-  // lineItems: object-list repeater (optional at field level; XOR with mode enforced at runtime)
+  // lineItems: object-list repeater, required-when-visible — visibleWhen
+  // scopes it to the 2 modes where the runtime superRefine REQUIRES it,
+  // and hides it in `setup` mode where the runtime REJECTS it
+  // (CONFIG-UX-SETUP-ADVANCED-1; hiding auto-clears a stale value).
   const lineItems = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "lineItems",
   )!;
@@ -167,7 +174,11 @@ it("Stripe create_checkout_session meta declares mode select + object-list lineI
     "priceId",
     "quantity",
   ]);
-  expect(lineItems.required).toBe(false);
+  expect(lineItems.required).toBe(true);
+  expect(lineItems.visibleWhen).toEqual({
+    field: "mode",
+    valueIn: ["payment", "subscription"],
+  });
 
   // customer + customerEmail: text, both optional, MUTEX documented in descriptions
   const customer = stripeCreateCheckoutSessionMeta.fields.find(
@@ -192,12 +203,16 @@ it("Stripe create_checkout_session meta declares mode select + object-list lineI
   expect(metadata.required).toBe(false);
   expect(metadata.keyValueMaxRows).toBe(50);
 
-  // automaticTax: advanced json field (developer escape hatch)
+  // automaticTax: advanced `object` fixed-key editor — single boolean
+  // key `enabled`, exactly the runtime `.strict()` shape (json → object,
+  // CONFIG-UX-SETUP-ADVANCED-1). Stays behind the Advanced disclosure.
   const automaticTax = stripeCreateCheckoutSessionMeta.fields.find(
     (f) => f.name === "automaticTax",
   )!;
-  expect(automaticTax.type).toBe("json");
-  expect(automaticTax.jsonShape).toBe("object");
+  expect(automaticTax.type).toBe("object");
+  expect(automaticTax.jsonShape).toBeUndefined();
+  expect(automaticTax.itemFields?.map((s) => s.name)).toEqual(["enabled"]);
+  expect(automaticTax.itemFields?.[0]?.type).toBe("boolean");
   expect(automaticTax.advanced).toBe(true);
   expect(automaticTax.required).toBe(false);
 

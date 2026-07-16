@@ -28,9 +28,10 @@ export const hubspotGetCompaniesMeta: ActionMeta = {
       name: "limit",
       label: "Limit",
       description:
-        "Max companies per call (1..100). Omit for HubSpot's default. Use `after` for pagination.",
+        "Max companies per call (1..100). Use `after` for pagination.",
       type: "number",
       required: false,
+      defaultValue: 25,
       numeric: { min: 1, max: 100, integer: true, step: 1 },
     },
     {
@@ -40,6 +41,7 @@ export const hubspotGetCompaniesMeta: ActionMeta = {
         "Opaque pagination cursor. Pass the previous call's `nextCursor` to fetch the next page.",
       type: "text",
       required: false,
+      advanced: true,
     },
     {
       name: "properties",
@@ -48,6 +50,7 @@ export const hubspotGetCompaniesMeta: ActionMeta = {
         "HubSpot property names to return for each company. Add chips one at a time (e.g. `name`, `domain`, `industry`, `annualrevenue`, custom property names). Omit to use HubSpot's default set.",
       type: "string-array",
       required: false,
+      advanced: true,
     },
     {
       name: "filterProperty",
@@ -61,9 +64,11 @@ export const hubspotGetCompaniesMeta: ActionMeta = {
     {
       name: "filterValue",
       label: "Filter value",
-      description: "Value to EQ-match against `Filter property`.",
+      description:
+        "Only return companies whose chosen property exactly equals this value.",
       type: "text",
       required: false,
+      visibleWhen: { field: "filterProperty", valueTruthy: true },
       placeholder: "acme.com",
     },
   ],

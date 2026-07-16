@@ -38,11 +38,12 @@ export const stripeCapturePaymentIntentMeta: ActionMeta = {
     },
     {
       name: "amount_to_capture",
-      label: "Amount to capture (CENTS — Stripe wire-format)",
+      label: "Amount to capture (cents)",
       description:
         "Optional partial-capture amount in CENTS — e.g. `2099` for $20.99, `100` for $1.00. **DIFFERENT unit from Create Payment Intent's `amount` which is DOLLARS.** Omit to capture the full authorized amount (the common case). Cannot exceed the originally authorized amount.",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 1, integer: true, step: 1 },
       placeholder: "2099",
     },

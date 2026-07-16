@@ -106,6 +106,11 @@ describe("microsoft-outlook manifest", () => {
         "fetch_emails",
         "forward_email",
         "get_attachment",
+        // Later additions to the registered set (stale pin caught by the
+        // CONFIG-UX-SETUP-ADVANCED-1 gate run — these handlers shipped
+        // with the profile/folders slices, not with that sweep).
+        "get_profile",
+        "list_folders",
         "move_email",
         "reply_to_email",
         "send_email",

@@ -43,7 +43,7 @@ export const discordEditMessageMeta: ActionMeta = {
     {
       name: "guildId",
       label: "Server",
-      description: "Discord server. Drives the channel picker cascade.",
+      description: "Server containing the message. Only servers where the ChainReact bot has been added appear.",
       type: "combobox",
       optionsSource: "discord:guilds",
       required: true,
@@ -53,7 +53,7 @@ export const discordEditMessageMeta: ActionMeta = {
       name: "channelId",
       sensitivity: "recipient",
       label: "Channel",
-      description: "Channel containing the bot-authored message. Gated on Server.",
+      description: "Channel containing the message. Pick a server first.",
       type: "combobox",
       optionsSource: "discord:channels",
       dependsOn: "guildId",
@@ -64,7 +64,7 @@ export const discordEditMessageMeta: ActionMeta = {
       name: "messageId",
       label: "Message",
       description:
-        "Pick a message the bot previously posted. Filtered to bot-authored only — Discord blocks edits to messages authored by other users (403 + code 50005). Gated on Channel.",
+        "Message to edit. Only messages the ChainReact bot itself posted can be edited — Discord blocks editing anyone else's. Pick a channel first.",
       type: "combobox",
       optionsSource: "discord:bot_messages",
       dependsOn: "channelId",

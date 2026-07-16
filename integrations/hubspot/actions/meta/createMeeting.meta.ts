@@ -70,17 +70,16 @@ export const hubspotCreateMeetingMeta: ActionMeta = {
     {
       name: "hs_meeting_outcome",
       label: "Outcome",
-      description:
-        "Meeting outcome. Defaults to `SCHEDULED` if omitted (matches V1 + the schema's Zod default).",
+      description: "Meeting outcome. Defaults to Scheduled if omitted.",
       type: "select",
       required: false,
       defaultValue: "SCHEDULED",
       options: [
-        { value: "SCHEDULED", label: "SCHEDULED" },
-        { value: "COMPLETED", label: "COMPLETED" },
-        { value: "RESCHEDULED", label: "RESCHEDULED" },
-        { value: "NO_SHOW", label: "NO_SHOW" },
-        { value: "CANCELED", label: "CANCELED" },
+        { value: "SCHEDULED", label: "Scheduled" },
+        { value: "COMPLETED", label: "Completed" },
+        { value: "RESCHEDULED", label: "Rescheduled" },
+        { value: "NO_SHOW", label: "No show" },
+        { value: "CANCELED", label: "Canceled" },
       ],
     },
     {
@@ -94,8 +93,7 @@ export const hubspotCreateMeetingMeta: ActionMeta = {
     {
       name: "hubspot_owner_id",
       label: "Owner",
-      description:
-        "HubSpot user account that owns this meeting. The picker returns the owner `id` (NOT the `userId`).",
+      description: "HubSpot user account that owns this meeting.",
       type: "combobox",
       optionsSource: "hubspot:owners",
       required: false,
@@ -104,28 +102,32 @@ export const hubspotCreateMeetingMeta: ActionMeta = {
     {
       name: "associatedContactId",
       label: "Associated contact ID",
-      description: "Optional HubSpot contact id to associate. Best-effort.",
+      description:
+        "Link this meeting to a contact — insert a contact ID from an earlier step. If linking fails the meeting is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedCompanyId",
       label: "Associated company ID",
-      description: "Optional HubSpot company id to associate. Best-effort.",
+      description:
+        "Link this meeting to a company — insert a company ID from an earlier step. If linking fails the meeting is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedDealId",
       label: "Associated deal ID",
-      description: "Optional HubSpot deal id to associate. Best-effort.",
+      description:
+        "Link this meeting to a deal — insert a deal ID from an earlier step. If linking fails the meeting is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedTicketId",
       label: "Associated ticket ID",
-      description: "Optional HubSpot ticket id to associate. Best-effort.",
+      description:
+        "Link this meeting to a ticket — insert a ticket ID from an earlier step. If linking fails the meeting is still created (see associationWarnings).",
       type: "text",
       required: false,
     },

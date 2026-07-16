@@ -56,9 +56,10 @@ export const googleDriveFileChangedTriggerMeta: TriggerMeta = {
       name: "folderId",
       label: "Restrict To Folder (Optional)",
       description:
-        "Optional post-fetch filter. When set, the trigger only emits changes whose file is a DIRECT child of this folder. Independent of Folder To Watch — useful when you watch the whole Drive but only care about one folder's children.",
+        "Only run when the changed file sits directly inside this folder. Leave empty to run for every change in the watched location.",
       type: "combobox",
       required: false,
+      advanced: true,
       optionsSource: "google-drive:folders",
       placeholder: "No filter (emit all changes from the watch target)",
     },

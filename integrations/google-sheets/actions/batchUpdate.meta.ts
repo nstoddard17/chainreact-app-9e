@@ -30,7 +30,7 @@ export const googleSheetsBatchUpdateMeta: ActionMeta = {
   type: "batch_update",
   displayName: "Batch Update",
   description:
-    "Write multiple ranges in one call via `spreadsheets.values.batchUpdate`. Pass a JSON array of `{range, values}` entries (1..100). Each `range` MUST include a sheet-name prefix (e.g. `Sheet1!A1:B2`); `values` is a 2D array. **Q11 required:** choose RAW vs USER_ENTERED explicitly. Overwrites whatever was in the addressed cells.",
+    "Write multiple ranges in one call. Pass a JSON array of `{range, values}` entries (1..100). Each `range` MUST include a sheet-name prefix (e.g. `Sheet1!A1:B2`); `values` is a 2D array. Required choice: parse values as if typed in Sheets, or store them exactly as written. Overwrites whatever was in the addressed cells.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -48,19 +48,19 @@ export const googleSheetsBatchUpdateMeta: ActionMeta = {
       name: "valueInputOption",
       label: "Value input option",
       description:
-        "How Sheets interprets the values you pass. **No default — pick explicitly.** RAW: literal strings (`=SUM(...)` stays a string). USER_ENTERED: parses formulas, dates, numbers as if a human typed them.",
+        "How Sheets treats your values. Required — 'parse as typed' makes =SUM(...), dates and numbers live; 'store exactly' keeps them as text.",
       type: "select",
       required: true,
       options: [
         {
-          value: "RAW",
-          label: "RAW",
-          description: "Literal text — formulas / dates / numbers stay as the strings you passed.",
+          value: "USER_ENTERED",
+          label: "Parse as if typed in Sheets",
+          description: "Formulas evaluate, dates and numbers become live values.",
         },
         {
-          value: "USER_ENTERED",
-          label: "USER_ENTERED",
-          description: "Parsed as if a human typed it — formulas evaluate, `2026-01-01` becomes a date, `\"42\"` becomes a number.",
+          value: "RAW",
+          label: "Store exactly as written",
+          description: "Everything stays literal text — =SUM(...) stays a string.",
         },
       ],
     },

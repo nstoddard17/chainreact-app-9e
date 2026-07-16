@@ -40,7 +40,7 @@ export const slackRemoveReactionMeta: ActionMeta = {
       name: "ts",
       label: "Message timestamp",
       description:
-        "Slack message timestamp (`<seconds>.<microseconds>`). Wire from an upstream Slack send/post action's `ts` output.",
+        "The message's timestamp. Paste or wire the `ts` output of an earlier Slack message step.",
       type: "text",
       required: true,
       placeholder: "1700000000.000100",

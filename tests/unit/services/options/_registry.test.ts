@@ -522,7 +522,7 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toEqual(["workbookId"]);
     });
 
-    it("registers exactly the 3 EXCEL-META-2 resolver keys (columns deferred)", () => {
+    it("registers exactly the 4 Excel resolver keys (worksheet_columns joined in SPREADSHEET-CONFIG-REDESIGN-1)", () => {
       const sources = listOptionsResolvers()
         .filter((r) => r.provider === "microsoft-excel")
         .map((r) => r.source)
@@ -530,6 +530,7 @@ describe("options resolver registry", () => {
       expect(sources).toEqual([
         "microsoft-excel:tables",
         "microsoft-excel:workbooks",
+        "microsoft-excel:worksheet_columns",
         "microsoft-excel:worksheets",
       ]);
       // `columns` resolver intentionally deferred (hand-typed headers OK).

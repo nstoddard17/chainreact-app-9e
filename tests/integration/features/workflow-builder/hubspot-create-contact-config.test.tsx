@@ -71,6 +71,7 @@ import { hubspotCreateContactMeta } from "@/integrations/hubspot/actions/meta/cr
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import { selectFieldOption } from "./helpers/selectField";
+import { pickComboboxOption } from "./helpers/comboboxField";
 
 const manualTriggerMeta: TriggerMeta = {
   key: "native:manual.run",
@@ -121,15 +122,29 @@ beforeEach(() => {
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
   mockFetchOptionsSource.mockReset();
-  // Defensive: HUBSPOT-3 contact/company metas have ZERO optionsSource
-  // fields. Any fetch invocation indicates a meta-shape regression
-  // (a resolver was added without a schema change to back it).
-  mockFetchOptionsSource.mockImplementation(async (source: string) => ({
-    ok: false,
-    source,
-    code: "SOURCE_NOT_FOUND",
-    message: `Unknown source '${source}' (test mock).`,
-  }));
+  // lifecyclestage / hs_lead_status are portal-real enum-property
+  // comboboxes (propertyOptions resolvers). Serve lifecyclestage so the
+  // e2e can drive the picker; every OTHER source still errors so an
+  // unexpected resolver reference surfaces as a regression.
+  mockFetchOptionsSource.mockImplementation(async (source: string) => {
+    if (source === "hubspot:contact_lifecyclestage") {
+      return {
+        ok: true as const,
+        source,
+        items: [
+          { value: LIFECYCLESTAGE, label: "Lead" },
+          { value: "customer", label: "Customer" },
+        ],
+        hasMore: false,
+      };
+    }
+    return {
+      ok: false,
+      source,
+      code: "SOURCE_NOT_FOUND",
+      message: `Unknown source '${source}' (test mock).`,
+    };
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -239,7 +254,7 @@ it("end-to-end: type email + names + phone + lifecyclestage → switch duplicate
   expect(screen.getByRole("textbox", { name: /^last name$/i })).toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: /^phone$/i })).toBeInTheDocument();
   expect(
-    screen.getByRole("textbox", { name: /^lifecycle stage$/i }),
+    screen.getByRole("combobox", { name: /^lifecycle stage$/i }),
   ).toBeInTheDocument();
   expect(
     screen.getByRole("combobox", { name: /^duplicate handling$/i }),
@@ -268,17 +283,18 @@ it("end-to-end: type email + names + phone + lifecyclestage → switch duplicate
   await user.type(screen.getByRole("textbox", { name: /^phone$/i }), PHONE);
   expect(useConfigSlice.getState().drafts[action.id]!.values.phone).toBe(PHONE);
 
-  await user.type(
-    screen.getByRole("textbox", { name: /^lifecycle stage$/i }),
-    LIFECYCLESTAGE,
-  );
+  await pickComboboxOption(user, /^lifecycle stage$/i, "Lead");
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.lifecyclestage,
   ).toBe(LIFECYCLESTAGE);
 
   // 5. Switch duplicateHandling 'fail' → 'update' to exercise the
-  //    select.
-  await selectFieldOption(user, /^duplicate handling$/i, "update");
+  //    select (plain-English label; committed value stays "update").
+  await selectFieldOption(
+    user,
+    /^duplicate handling$/i,
+    "Update the existing contact",
+  );
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.duplicateHandling,
   ).toBe("update");
@@ -335,10 +351,16 @@ it("end-to-end: type email + names + phone + lifecyclestage → switch duplicate
   expect(persistedAction.config.lifecyclestage).toBe(LIFECYCLESTAGE);
   expect(persistedAction.config.duplicateHandling).toBe("update");
 
-  // Resolver was never hit — HUBSPOT-3 metas have no optionsSource
-  // fields. Any non-zero call count would indicate a meta-shape
-  // regression (a resolver was added without a schema change).
-  expect(mockFetchOptionsSource).not.toHaveBeenCalled();
+  // Only the portal-real enum-property resolvers were hit — the meta's
+  // two comboboxes (lifecyclestage / hs_lead_status). Any OTHER source
+  // would indicate a meta-shape regression (a resolver was added
+  // without a schema change).
+  const fetchedSources = new Set(
+    mockFetchOptionsSource.mock.calls.map((c) => c[0]),
+  );
+  expect(fetchedSources).toEqual(
+    new Set(["hubspot:contact_lifecyclestage", "hubspot:contact_lead_status"]),
+  );
 
   // Single updateWorkflow call — text-input / select interactions
   // must not double-fire persistence.

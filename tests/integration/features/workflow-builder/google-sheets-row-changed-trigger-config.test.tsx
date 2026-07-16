@@ -167,13 +167,29 @@ it("Google Sheets row_changed meta field shape + payload-sensitive flags — Sli
   );
   expect(byName.get("sheetName")!.optionsSource).toBe("google-sheets:sheets");
   expect(byName.get("sheetName")!.dependsOn).toBe("spreadsheetId");
-  expect(byName.get("changeKinds")!.type).toBe("string-array");
-  expect(byName.get("changeKinds")!.defaultValue).toEqual(["added"]);
+  // CONFIG-UX sweep — changeKinds is a static multi-select combobox
+  // (typo-proof pick of the 3 runtime enum values; still commits string[]).
+  const changeKinds = byName.get("changeKinds")!;
+  expect(changeKinds.type).toBe("combobox");
+  expect(changeKinds.multiple).toBe(true);
+  expect(changeKinds.options!.map((o) => o.value).sort()).toEqual([
+    "added",
+    "removed",
+    "updated",
+  ]);
+  expect(changeKinds.defaultValue).toEqual(["added"]);
   expect(byName.get("headerRow")!.defaultValue).toBe(false);
   expect(byName.get("snapshotRowLimit")!.numeric).toMatchObject({
     min: 100,
     max: 10000,
     integer: true,
+  });
+  // CONFIG-UX sweep — snapshot tuning lives in the Advanced tab; keyColumn
+  // only renders while the Header row toggle is on (visibleWhen).
+  expect(byName.get("snapshotRowLimit")!.advanced).toBe(true);
+  expect(byName.get("keyColumn")!.visibleWhen).toEqual({
+    field: "headerRow",
+    valueTruthy: true,
   });
 
   // Payload sensitive pins.
@@ -261,24 +277,24 @@ it("end-to-end: trigger picker → spreadsheet → sheet (cascade) → headerRow
     true,
   );
 
-  // 7. changeKinds chip input — remove the default `added` chip and add
-  //    `updated` + `removed` to exercise the full snapshot-diff path.
+  // 7. changeKinds multi-pick (CONFIG-UX sweep — static options popover):
+  //    remove the default `added` chip, then pick Updated + Removed to
+  //    exercise the full snapshot-diff path. Still commits string[].
   await user.click(
-    screen.getByRole("button", { name: /Remove Change kinds item added/i }),
+    screen.getByRole("button", { name: /Remove Change kinds item Rows added/i }),
   );
-  const changeKindsInput = screen.getByRole("textbox", {
-    name: /change kinds/i,
-  }) as HTMLInputElement;
-  await user.type(changeKindsInput, "updated");
-  await user.keyboard("{Enter}");
-  await user.type(changeKindsInput, "removed");
-  await user.keyboard("{Enter}");
+  await user.click(screen.getByTestId("multi-select-changeKinds"));
+  await user.click(await screen.findByRole("option", { name: /rows updated/i }));
+  await user.click(await screen.findByRole("option", { name: /rows removed/i }));
+  await user.keyboard("{Escape}");
   expect(useConfigSlice.getState().drafts[trigger.id]!.values.changeKinds).toEqual(
     ["updated", "removed"],
   );
 
-  // 8. snapshotRowLimit — bump to 2000.
-  const snapshotInput = screen.getByRole("spinbutton", {
+  // 8. snapshotRowLimit — bump to 2000. Lives in the Advanced tab now
+  //    (CONFIG-UX sweep), so switch tabs around the edit.
+  await user.click(screen.getByRole("tab", { name: /advanced/i }));
+  const snapshotInput = await screen.findByRole("spinbutton", {
     name: /snapshot row limit/i,
   });
   await user.clear(snapshotInput);
@@ -286,6 +302,7 @@ it("end-to-end: trigger picker → spreadsheet → sheet (cascade) → headerRow
   expect(
     useConfigSlice.getState().drafts[trigger.id]!.values.snapshotRowLimit,
   ).toBe(2000);
+  await user.click(screen.getByRole("tab", { name: /setup/i }));
 
   // 9. keyColumn — type the header name.
   await user.type(

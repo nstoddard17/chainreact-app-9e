@@ -46,6 +46,7 @@ export const googleAnalyticsRunReportMeta: ActionMeta = {
     {
       name: "dateRange",
       label: "Date range",
+      description: "The period the report covers. Pick Custom to set exact dates.",
       type: "select",
       required: true,
       options: [...DATE_RANGE_OPTIONS],
@@ -53,16 +54,18 @@ export const googleAnalyticsRunReportMeta: ActionMeta = {
     {
       name: "startDate",
       label: "Start date",
-      description: "Only for a Custom range.",
+      description: "First day of the custom range.",
       type: "date",
       required: false,
+      visibleWhen: { field: "dateRange", valueIn: ["custom"] },
     },
     {
       name: "endDate",
       label: "End date",
-      description: "Only for a Custom range.",
+      description: "Last day of the custom range.",
       type: "date",
       required: false,
+      visibleWhen: { field: "dateRange", valueIn: ["custom"] },
     },
     {
       name: "metrics",

@@ -4,15 +4,18 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Builder-facing metadata for `mailchimp:create_segment`.
  *
  * Mirrors `createSegment.schema.ts` — a Zod discriminated union on
- * `mode` (static | saved). The contract layer can't represent the
- * union directly via individual `FieldMeta` entries, so the meta
- * exposes the SUPERSET of fields with their cross-mode requirements
- * documented in the descriptions:
+ * `mode` (static | saved). The meta exposes the SUPERSET of fields and
+ * scopes each mode-specific field with a top-level `visibleWhen` on
+ * `mode` (CONFIG-UX-SETUP-ADVANCED-1), matching the union's arms:
  *
  *   - `audience_id` + `name` + `mode`: always required.
- *   - `static_emails`: required when `mode = static`.
- *   - `conditions`: required when `mode = saved` (object-list rows).
- *   - `match`: optional, only meaningful when `mode = saved`.
+ *   - `static_emails`: visible only when `mode = static` (the saved-
+ *     mode `.strict()` arm REJECTS it). Optional — empty static
+ *     segments are legal.
+ *   - `conditions`: visible only when `mode = saved` and REQUIRED
+ *     there (required-when-visible; SavedModeSchema demands min 1 —
+ *     the static arm rejects it).
+ *   - `match`: visible only when `mode = saved`; optional.
  *
  * `mode` carries NO defaultValue (Q11 — workflow authors must pick
  * static vs saved deliberately because the semantics differ). The
@@ -79,22 +82,25 @@ export const mailchimpCreateSegmentMeta: ActionMeta = {
       name: "static_emails",
       label: "Static segment emails",
       description:
-        "Used when Mode is `static`. Add the email addresses to seed the segment with — one at a time. Leave empty for an empty static segment.",
+        "The email addresses to seed the segment with — one at a time. Leave empty for an empty static segment.",
       type: "string-array",
       required: false,
+      visibleWhen: { field: "mode", valueIn: ["static"] },
       placeholder: "member@example.com",
     },
     {
       name: "conditions",
-      label: "Conditions (saved segments only)",
+      label: "Conditions",
       description:
-        "Used when Mode is `saved`. Add one rule per row — the member field to test (e.g. `EMAIL`), how to compare it (e.g. `contains`), and the value to match. See Mailchimp's segment-conditions reference for valid field/comparison combinations.",
+        "Add one rule per row — the member field to test (a merge field like `EMAIL`), how to compare it (e.g. `contains`), and the value to match. See Mailchimp's segment-conditions reference for valid field/comparison combinations.",
       type: "object-list",
-      required: false,
+      required: true,
+      visibleWhen: { field: "mode", valueIn: ["saved"] },
       itemFields: [
         {
           name: "field",
           label: "Field",
+          description: "Merge field to test — e.g. `EMAIL`, or a custom merge field's tag.",
           type: "text",
           required: true,
           placeholder: "EMAIL",
@@ -102,6 +108,8 @@ export const mailchimpCreateSegmentMeta: ActionMeta = {
         {
           name: "op",
           label: "Comparison",
+          description:
+            "How to compare — e.g. is, not, contains, notcontain, starts, ends, greater, less. Valid comparisons depend on the field.",
           type: "text",
           required: true,
           placeholder: "contains",
@@ -117,11 +125,12 @@ export const mailchimpCreateSegmentMeta: ActionMeta = {
     },
     {
       name: "match",
-      label: "Match (saved segments only)",
+      label: "Match",
       description:
-        "Optional. Only meaningful when `Mode = saved`. `any` = OR semantics (member matches if at least one condition is true); `all` = AND semantics. Mailchimp's server default is `any`.",
+        "Optional. `any` = OR semantics (member matches if at least one condition is true); `all` = AND semantics. Mailchimp's server default is `any`.",
       type: "select",
       required: false,
+      visibleWhen: { field: "mode", valueIn: ["saved"] },
       options: [
         { value: "any", label: "Any (OR — match if at least one condition is true)" },
         { value: "all", label: "All (AND — match only when every condition is true)" },

@@ -17,16 +17,12 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *      `{ deletedCount: 0, ... }` without an API call (empty-filter
  *      guard refuses to delete an unbounded set).
  *
- * **`messageIds[]` / `userIds[]` / `keywords[]` use `string-array`.**
- * The current FieldMeta contract forbids `optionsSource` on
- * `string-array` fields (see `contracts/actionMeta.ts:193-200`
- * superRefine: "`options` / `optionsSource` are only valid on
- * `select` or `combobox` fields"). The descriptions tell workflow
- * authors which Discord ids to paste in. A future contract extension
- * (`multi-select combobox` or `string-array-with-options`) would let
- * `messageIds[]` consume `discord:messages` and `userIds[]` consume
- * `discord:members` directly — out of scope for DISCORD-4. Documented
- * limitation per Slice 3.DISCORD-4 instruction.
+ * **`messageIds[]` / `userIds[]` are `string-array` WITH pickers.**
+ * The FieldMeta contract allows `optionsSource` on `string-array`
+ * (SWEEP-2), so `messageIds[]` consumes `discord:messages`
+ * (deps: channelId) and `userIds[]` consumes `discord:members`
+ * (deps: guildId), both with `allowManualEntry` for pasted ids.
+ * `keywords[]` stays a plain chip list (free text by nature).
  *
  * **`keywordMatchType` default = "partial".** Mirrors V1 runtime
  * default + the handler schema's `.default("partial")` per Slice
@@ -57,7 +53,7 @@ export const discordDeleteMessageMeta: ActionMeta = {
     {
       name: "guildId",
       label: "Server",
-      description: "Discord server. Drives the channel picker.",
+      description: "Server containing the messages. Only servers where the ChainReact bot has been added appear.",
       type: "combobox",
       optionsSource: "discord:guilds",
       required: true,
@@ -67,7 +63,7 @@ export const discordDeleteMessageMeta: ActionMeta = {
       name: "channelId",
       sensitivity: "recipient",
       label: "Channel",
-      description: "Channel containing the message(s) to delete. Gated on Server.",
+      description: "Channel containing the message(s) to delete. Pick a server first.",
       type: "combobox",
       optionsSource: "discord:channels",
       dependsOn: "guildId",
@@ -78,8 +74,11 @@ export const discordDeleteMessageMeta: ActionMeta = {
       name: "messageIds",
       label: "Message ids",
       description:
-        "Optional. Specific Discord message ids (snowflakes) to delete. Press Enter to append each id. When set, the other filters (`userIds`, `keywords`) are ignored. **Limitation:** the current field type does not support a picker; paste message ids from upstream node outputs or directly. A future contract extension may surface `discord:messages` here.",
+        "Specific messages to delete. Pick from the channel's recent messages or paste message ids. When set, the author/keyword filters are ignored.",
       type: "string-array",
+      optionsSource: "discord:messages",
+      dependsOn: "channelId",
+      allowManualEntry: true,
       required: false,
       placeholder: "1234567890123456789",
     },
@@ -87,8 +86,11 @@ export const discordDeleteMessageMeta: ActionMeta = {
       name: "userIds",
       label: "From user ids",
       description:
-        "Optional. Discord user ids to filter by author. When set with no `messageIds`, the handler fetches the last 100 messages in the channel and deletes only those whose author matches. Combines with `keywords` as AND. **Limitation:** no picker today; paste ids. A future contract extension may surface `discord:members` here.",
+        "Only delete messages posted by these members (checks the channel's last 100 messages). Combines with keywords.",
       type: "string-array",
+      optionsSource: "discord:members",
+      dependsOn: "guildId",
+      allowManualEntry: true,
       required: false,
       placeholder: "1234567890123456789",
     },
@@ -96,7 +98,7 @@ export const discordDeleteMessageMeta: ActionMeta = {
       name: "keywords",
       label: "Containing keywords",
       description:
-        "Optional. Words to match in message content. See `keywordMatchType` below for matching semantics. When set with no `messageIds`, fetches the last 100 messages and deletes only matches. Combines with `userIds` as AND.",
+        "Only delete messages containing these words (checks the channel's last 100 messages). Combines with the member filter.",
       type: "string-array",
       required: false,
       placeholder: "spam",

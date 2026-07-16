@@ -63,6 +63,7 @@ export const googleAnalyticsGetRealtimeDataMeta: ActionMeta = {
     {
       name: "limit",
       label: "Row limit",
+      description: "Maximum rows to return.",
       type: "number",
       required: false,
       numeric: { min: 1, integer: true },

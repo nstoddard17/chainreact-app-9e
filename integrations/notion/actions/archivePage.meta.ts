@@ -25,12 +25,14 @@ export const notionArchivePageMeta: ActionMeta = {
   fields: [
     {
       name: "pageId",
-      label: "Page ID",
+      label: "Page",
       description:
-        "Notion page id to archive. Accepts both bare-page ids and database-row ids (rows are pages in Notion). Usually wired from upstream.",
-      type: "text",
+        "Page to archive. Pick one, paste an id, or wire `{{...}}` from an upstream step. Accepts both bare-page ids and database-row ids (rows are pages in Notion).",
+      type: "combobox",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a page, or paste an id",
     },
   ],
   outputs: [

@@ -26,13 +26,11 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  *                          when true, row 1 is treated as headers
  *                          (surfaced into the `headers` payload field)
  *                          and `keyColumn` becomes available.
- *   - `changeKinds`       (required string-array, default `["added"]`) —
- *                          which change kinds emit events. Allowed
- *                          values: `added`, `updated`, `removed`.
- *                          string-array rather than multi-select per
- *                          the slice rule "do not add new FieldTypes";
- *                          chip input with the 3 valid values
- *                          documented in the description.
+ *   - `changeKinds`       (required, default `["added"]`) — which
+ *                          change kinds emit events. Multi-select
+ *                          combobox with the 3 valid values as static
+ *                          options (CONFIG-UX sweep — commits the same
+ *                          `string[]` the schema's enum array expects).
  *   - `snapshotRowLimit`  (optional number, defaults to 1000) —
  *                          bounded storage cost. Min 100, max 10000.
  *   - `keyColumn`         (optional text) — header name to use as the
@@ -92,19 +90,25 @@ export const googleSheetsRowChangedTriggerMeta: TriggerMeta = {
       name: "changeKinds",
       label: "Change kinds",
       description:
-        "Which change kinds emit events. Allowed values (one per chip): `added`, `updated`, `removed`. Default is `added` only (fast-path count-delta). Add `updated` or `removed` to enable per-row hash snapshot tracking (uses `snapshotRowLimit` rows of storage).",
-      type: "string-array",
+        "Which changes fire this trigger. Default: added rows only. Include 'Rows updated' or 'Rows removed' to also track edits and deletions (tracks a bounded row snapshot).",
+      type: "combobox",
+      multiple: true,
       required: true,
       defaultValue: ["added"],
-      stringArrayMaxItems: 3,
+      options: [
+        { value: "added", label: "Rows added" },
+        { value: "updated", label: "Rows updated" },
+        { value: "removed", label: "Rows removed" },
+      ],
     },
     {
       name: "snapshotRowLimit",
       label: "Snapshot row limit",
       description:
-        "Maximum rows tracked in the per-row hash snapshot when `changeKinds` includes `updated` or `removed`. Bounded storage cost. Min 100, max 10,000. Default 1,000. Ignored when `changeKinds` is `added`-only.",
+        "Maximum rows tracked in the per-row snapshot when Change kinds includes updated or removed. Bounds storage cost. Min 100, max 10,000. Default 1,000. Ignored when only added rows are tracked.",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 100, max: 10000, integer: true, step: 100 },
       defaultValue: 1000,
     },
@@ -112,9 +116,10 @@ export const googleSheetsRowChangedTriggerMeta: TriggerMeta = {
       name: "keyColumn",
       label: "Key column",
       description:
-        "Optional header name to use as the stable row key. When set, rows are identified by their value in this column rather than by position — survives mid-sheet inserts/deletes. **Requires `Header row` to be on.** Leave blank for positional row identity.",
+        "Optional header name to use as the stable row key. When set, rows are identified by their value in this column rather than by position — survives mid-sheet inserts/deletes. Available when Header row is on. Leave blank for positional row identity.",
       type: "text",
       required: false,
+      visibleWhen: { field: "headerRow", valueTruthy: true },
       placeholder: "Email",
     },
   ],

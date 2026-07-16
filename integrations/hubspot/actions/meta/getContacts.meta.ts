@@ -35,9 +35,10 @@ export const hubspotGetContactsMeta: ActionMeta = {
       name: "limit",
       label: "Limit",
       description:
-        "Max contacts per call (1..100, HubSpot's documented cap). Omit for HubSpot's default. Use `after` for pagination.",
+        "Max contacts per call (1..100, HubSpot's documented cap). Use `after` for pagination.",
       type: "number",
       required: false,
+      defaultValue: 25,
       numeric: { min: 1, max: 100, integer: true, step: 1 },
     },
     {
@@ -47,6 +48,7 @@ export const hubspotGetContactsMeta: ActionMeta = {
         "Opaque pagination cursor. Pass the previous call's `nextCursor` to fetch the next page. Omit for the first page.",
       type: "text",
       required: false,
+      advanced: true,
     },
     {
       name: "properties",
@@ -55,6 +57,7 @@ export const hubspotGetContactsMeta: ActionMeta = {
         "HubSpot property names to return for each contact. Add property names as individual chips (e.g. `firstname`, `lastname`, `email`, `phone`, `company`, `lifecyclestage`, custom property names). Omit to use HubSpot's default set.",
       type: "string-array",
       required: false,
+      advanced: true,
     },
     {
       name: "filterProperty",
@@ -68,9 +71,11 @@ export const hubspotGetContactsMeta: ActionMeta = {
     {
       name: "filterValue",
       label: "Filter value",
-      description: "Value to EQ-match against `Filter property`. BOTH `Filter property` and this field must be set.",
+      description:
+        "Only return contacts whose chosen property exactly equals this value.",
       type: "text",
       required: false,
+      visibleWhen: { field: "filterProperty", valueTruthy: true },
       placeholder: "alice@example.com",
     },
   ],

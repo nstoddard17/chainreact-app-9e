@@ -137,10 +137,16 @@ describe("certification seed split — data invariance", () => {
     // BLOCKED_ENV pre-owner-setup (no Intuit app / sandbox company /
     // SMOKE_QUICKBOOKS_* env yet). Phase 13 flips them after owner setup.
     // 314 registered / 273 LIVE_PASS / 20 BLOCKED_ENV.
-    expect(m.totals.registered).toBe(314);
+    // EDEN-4/5/6 (2026-07): +36 registered eden MCP actions (batches 1–3:
+    // notes, boards, content/creator/prompt reads, scheduling writes). No
+    // smoke fixtures authored yet, so all 36 land in missingFixture
+    // (21 -> 57). Live certification for eden is tracked in the EDEN slice
+    // docs, not this matrix, until fixtures exist.
+    // 350 registered / 273 LIVE_PASS / 57 MISSING / 20 BLOCKED_ENV.
+    expect(m.totals.registered).toBe(350);
     expect(m.totals.livePass).toBe(273);
     expect(m.totals.liveNotRun).toBe(0);
-    expect(m.totals.missingFixture).toBe(21);
+    expect(m.totals.missingFixture).toBe(57);
     expect(m.totals.blockedEnv).toBe(20);
     expect(m.totals.fail).toBe(0);
     expect(m.totals.bug).toBe(0);

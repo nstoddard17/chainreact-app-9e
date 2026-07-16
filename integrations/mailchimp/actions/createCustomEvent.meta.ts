@@ -89,11 +89,12 @@ export const mailchimpCreateCustomEventMeta: ActionMeta = {
     },
     {
       name: "is_syncing",
-      label: "Sync mode",
+      label: "Suppress automations (bulk sync)",
       description:
         "Optional. When `true`, marks this event as part of a sync — Mailchimp suppresses any downstream automation triggers for it. Use during bulk backfills.",
       type: "boolean",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

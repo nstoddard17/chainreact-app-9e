@@ -57,6 +57,7 @@ export const slackListScheduledMessagesMeta: ActionMeta = {
         "Optional Slack timestamp lower bound (`<seconds>.<microseconds>`). Filters by scheduled `post_at`, not creation time.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "1700000000.000100",
     },
     {
@@ -66,6 +67,7 @@ export const slackListScheduledMessagesMeta: ActionMeta = {
         "Optional Slack timestamp upper bound (`<seconds>.<microseconds>`). Filters by scheduled `post_at`, not creation time.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "1700000999.999999",
     },
   ],

@@ -6,10 +6,10 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Mirrors `searchEmails.schema.ts`. The runtime schema is a Zod
  * discriminated union on `searchMode` — V2 metadata is a flat field
  * array, so the meta exposes `searchMode` as a select plus all fields
- * from both branches. The resolved-config Zod schema rejects fields
+ * from both branches, each gated by `visibleWhen` to its mode
+ * (CONFIG-UX sweep). The resolved-config Zod schema rejects fields
  * that don't belong to the chosen mode (strict union behavior); the
- * description documents which fields apply per mode so authors aren't
- * surprised by save-time errors.
+ * visibleWhen cascade clears other-mode values when the mode changes.
  *
  * Decisions:
  *   - `searchMode` defaults to `"filters"` (workflow-friendly path).
@@ -18,9 +18,10 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *     server is the authoritative check; the renderer doesn't enforce.
  *   - `dateAfter` / `dateBefore` use strict YYYY/MM/DD per the schema's
  *     regex (Gmail q syntax form). Documented in description; the
- *     renderer is a plain text field today (no date-picker dependency).
- *   - `labelIds` uses string-array (free-text label-id chips). Same
- *     pattern as the Gmail new_email trigger meta's labelIds field.
+ *     renderer is a plain text field (a date field would commit the
+ *     wrong shape for Gmail q-syntax).
+ *   - `labelIds` uses string-array chips backed by the `gmail:labels`
+ *     option source with `allowManualEntry` (raw-id paste path kept).
  *
  * Required scope: `gmail.readonly`.
  *
@@ -50,50 +51,56 @@ export const searchEmailsMeta: ActionMeta = {
         { value: "query", label: "Raw query (q syntax)" },
       ],
     },
-    // Raw-query branch:
+    // Raw-query branch (visible only in 'Raw query' mode):
     {
       name: "query",
-      label: "Query (raw mode only)",
+      label: "Query",
       description:
-        "Raw Gmail q-syntax search string. Only used when Search Mode is 'Raw query'. See Google's q-syntax reference.",
+        "Raw Gmail q-syntax search string (advanced). See Google's q-syntax reference for the full grammar.",
       type: "text",
       required: false,
+      advanced: true,
+      visibleWhen: { field: "searchMode", valueIn: ["query"] },
       placeholder: "from:alice@example.com subject:invoice",
     },
-    // Filters branch:
+    // Filters branch (visible only in 'Filters' mode):
     {
       name: "from",
-      label: "From (filter mode)",
+      label: "From",
       description:
-        "Sender address or domain (substring match). Filter mode only. Literal '\"' characters are not allowed — use Raw query for quoted phrases.",
+        "Sender address or domain (substring match). Literal '\"' characters are not allowed — use Raw query for quoted phrases.",
       type: "text",
       required: false,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       placeholder: "alice@example.com",
     },
     {
       name: "to",
       sensitivity: "recipient",
-      label: "To (filter mode)",
-      description: "Recipient address (substring match). Filter mode only.",
+      label: "To",
+      description: "Recipient address (substring match).",
       type: "text",
       required: false,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       placeholder: "bob@example.com",
     },
     {
       name: "subject",
-      label: "Subject (filter mode)",
-      description: "Subject substring. Filter mode only.",
+      label: "Subject",
+      description: "Text the subject line must contain.",
       type: "text",
       required: false,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       placeholder: "Invoice",
     },
     {
       name: "hasAttachment",
-      label: "Has attachment (filter mode)",
+      label: "Has attachment",
       description:
-        "Filter by attachment presence. Filter mode only. Omit for no constraint.",
+        "Filter by attachment presence. Omit for no constraint.",
       type: "select",
       required: false,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       options: [
         { value: "yes", label: "Has attachment" },
         { value: "no", label: "No attachment" },
@@ -101,64 +108,75 @@ export const searchEmailsMeta: ActionMeta = {
     },
     {
       name: "dateAfter",
-      label: "Date after (filter mode)",
+      label: "Date after",
       description:
-        "Messages newer than this date. Filter mode only. Strict YYYY/MM/DD format (Gmail q-syntax).",
+        "Only emails after this date. Type as YYYY/MM/DD (e.g. 2026/01/01).",
       type: "text",
       required: false,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       placeholder: "2026/01/01",
     },
     {
       name: "dateBefore",
-      label: "Date before (filter mode)",
+      label: "Date before",
       description:
-        "Messages older than this date. Filter mode only. Strict YYYY/MM/DD format.",
+        "Only emails before this date. Type as YYYY/MM/DD (e.g. 2026/12/31).",
       type: "text",
       required: false,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       placeholder: "2026/12/31",
     },
     {
       name: "largerThan",
-      label: "Larger than bytes (filter mode)",
+      label: "Larger than bytes",
       description:
-        "Match messages larger than this size in bytes. Filter mode only.",
+        "Match messages larger than this size in bytes.",
       type: "number",
       required: false,
+      advanced: true,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       numeric: { min: 1, integer: true, step: 1 },
     },
     {
       name: "smallerThan",
-      label: "Smaller than bytes (filter mode)",
+      label: "Smaller than bytes",
       description:
-        "Match messages smaller than this size in bytes. Filter mode only.",
+        "Match messages smaller than this size in bytes.",
       type: "number",
       required: false,
+      advanced: true,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       numeric: { min: 1, integer: true, step: 1 },
     },
     {
       name: "labelIds",
-      label: "Labels (filter mode)",
+      label: "Labels",
       description:
-        "Gmail label ids to AND-match (each id becomes a label:<id> operator). Filter mode only. Press Enter or click Add for each id.",
+        "Only match emails carrying every one of these labels. Pick from your labels or paste a label ID.",
       type: "string-array",
+      optionsSource: "gmail:labels",
+      allowManualEntry: true,
       required: false,
-      placeholder: "Label_12345",
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
+      placeholder: "Search labels or paste a label ID",
     },
     {
       name: "hasWords",
-      label: "Has words (filter mode)",
+      label: "Has words",
       description:
-        "Free-text inclusion clause. Filter mode only. Composed into the q-syntax verbatim.",
+        "Words the email must contain.",
       type: "text",
       required: false,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       placeholder: "urgent",
     },
     {
       name: "doesntHaveWords",
-      label: "Doesn't have words (filter mode)",
-      description: "Free-text exclusion clause. Filter mode only.",
+      label: "Doesn't have words",
+      description: "Words the email must NOT contain.",
       type: "text",
       required: false,
+      visibleWhen: { field: "searchMode", valueIn: ["filters"] },
       placeholder: "unsubscribe",
     },
     // Shared across both modes:
@@ -169,6 +187,7 @@ export const searchEmailsMeta: ActionMeta = {
         "Cap on results returned by this call (1..500). Gmail defaults to 100 when omitted — V2 does NOT silently substitute, the cap matters for pagination.",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 1, max: 500, integer: true, step: 1 },
     },
     {
@@ -178,6 +197,7 @@ export const searchEmailsMeta: ActionMeta = {
         "Caller-driven pagination token from a previous result's nextPageToken. The handler does NOT auto-loop pages.",
       type: "text",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

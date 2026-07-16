@@ -31,12 +31,14 @@ export const removeLabelMeta: ActionMeta = {
     },
     {
       name: "labelIds",
-      label: "Label ids to remove",
+      label: "Labels to remove",
       description:
-        "One or more Gmail label ids to remove. Press Enter or click Add to append each id.",
+        "Pick one or more Gmail labels to remove (stored as label ids), or paste a raw id. System labels use uppercase names (e.g. 'STARRED'); user labels use 'Label_<n>' ids.",
       type: "string-array",
+      optionsSource: "gmail:labels",
+      allowManualEntry: true,
       required: true,
-      placeholder: "Label_12345",
+      placeholder: "Search labels or paste a label ID",
     },
   ],
   outputs: [

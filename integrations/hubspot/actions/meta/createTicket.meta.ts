@@ -73,13 +73,13 @@ export const hubspotCreateTicketMeta: ActionMeta = {
     {
       name: "hs_ticket_priority",
       label: "Priority",
-      description: "HubSpot `hs_ticket_priority` property. One of `LOW`, `MEDIUM`, `HIGH`.",
+      description: "How urgent the ticket is.",
       type: "select",
       required: false,
       options: [
-        { value: "LOW", label: "LOW" },
-        { value: "MEDIUM", label: "MEDIUM" },
-        { value: "HIGH", label: "HIGH" },
+        { value: "LOW", label: "Low" },
+        { value: "MEDIUM", label: "Medium" },
+        { value: "HIGH", label: "High" },
       ],
     },
     {
@@ -105,8 +105,7 @@ export const hubspotCreateTicketMeta: ActionMeta = {
     {
       name: "hubspot_owner_id",
       label: "Owner",
-      description:
-        "HubSpot user account that owns this ticket. The picker returns the owner `id` (NOT the `userId`).",
+      description: "HubSpot user account that owns this ticket.",
       type: "combobox",
       optionsSource: "hubspot:owners",
       required: false,
@@ -116,7 +115,7 @@ export const hubspotCreateTicketMeta: ActionMeta = {
       name: "associatedContactId",
       label: "Associated contact ID",
       description:
-        "Optional HubSpot contact id to associate with this ticket. Best-effort — failures surface as `associationWarnings`. Usually wired from `{{hubspot:get_contacts.contacts[0].id}}`.",
+        "Link this ticket to a contact — insert a contact ID from an earlier step. If linking fails the ticket is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
@@ -124,7 +123,7 @@ export const hubspotCreateTicketMeta: ActionMeta = {
       name: "associatedCompanyId",
       label: "Associated company ID",
       description:
-        "Optional HubSpot company id to associate with this ticket. Best-effort — failures surface as `associationWarnings`.",
+        "Link this ticket to a company — insert a company ID from an earlier step. If linking fails the ticket is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
@@ -132,7 +131,7 @@ export const hubspotCreateTicketMeta: ActionMeta = {
       name: "associatedDealId",
       label: "Associated deal ID",
       description:
-        "Optional HubSpot deal id to associate with this ticket. Best-effort — failures surface as `associationWarnings`.",
+        "Link this ticket to a deal — insert a deal ID from an earlier step. If linking fails the ticket is still created (see associationWarnings).",
       type: "text",
       required: false,
     },

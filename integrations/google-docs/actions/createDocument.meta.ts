@@ -58,7 +58,7 @@ export const googleDocsCreateDocumentMeta: ActionMeta = {
       name: "content",
       label: "Initial content",
       description:
-        "Optional initial body text. Inserted at the document's BODY_START sentinel (index 1) via documents.batchUpdate. Variables resolve at runtime — interpolate upstream node outputs with {{nodeId.field}} syntax. Leave empty to create a blank doc and populate later via Update Document.",
+        "Optional starting text for the document. Insert values from earlier steps with {{nodeId.field}}. Leave empty to create a blank doc.",
       type: "textarea",
       required: false,
       placeholder: "Pasted body text…",

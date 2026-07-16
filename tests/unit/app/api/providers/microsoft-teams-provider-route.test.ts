@@ -62,7 +62,7 @@ async function fetchActions(): Promise<WireAction[]> {
 }
 
 describe("GET /api/providers/microsoft-teams/actions", () => {
-  it("returns the full 5-action surface in display order", async () => {
+  it("returns the full 8-action surface in display order", async () => {
     const actions = await fetchActions();
     expect(actions.map((a) => a.key)).toEqual([
       "microsoft-teams:send_channel_message",
@@ -70,6 +70,9 @@ describe("GET /api/providers/microsoft-teams/actions", () => {
       "microsoft-teams:send_chat_message",
       "microsoft-teams:get_channel_details",
       "microsoft-teams:get_team_members",
+      "microsoft-teams:list_teams",
+      "microsoft-teams:list_channels",
+      "microsoft-teams:list_channel_messages",
     ]);
   });
 
@@ -121,6 +124,9 @@ describe("GET /api/providers/microsoft-teams/actions", () => {
     for (const key of [
       "microsoft-teams:get_channel_details",
       "microsoft-teams:get_team_members",
+      "microsoft-teams:list_teams",
+      "microsoft-teams:list_channels",
+      "microsoft-teams:list_channel_messages",
     ]) {
       expect(byKey.get(key)!.riskLevel).toBe("low");
     }

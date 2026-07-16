@@ -48,7 +48,7 @@ export const hubspotCreateCallMeta: ActionMeta = {
       name: "hs_call_duration",
       label: "Duration (ms)",
       description:
-        "**Numeric STRING** — call duration in milliseconds. HubSpot expects a stringified number. Wire an upstream number through `{{String(value)}}` if needed.",
+        "How long the call lasted, in milliseconds (15 min = 900000). Stored as a text string — HubSpot's required format.",
       type: "text",
       required: false,
       placeholder: "900000",
@@ -61,8 +61,8 @@ export const hubspotCreateCallMeta: ActionMeta = {
       type: "select",
       required: false,
       options: [
-        { value: "INBOUND", label: "INBOUND" },
-        { value: "OUTBOUND", label: "OUTBOUND" },
+        { value: "INBOUND", label: "Inbound" },
+        { value: "OUTBOUND", label: "Outbound" },
       ],
     },
     {
@@ -76,21 +76,20 @@ export const hubspotCreateCallMeta: ActionMeta = {
     {
       name: "hs_call_status",
       label: "Status",
-      description:
-        "Call status. Defaults to `COMPLETED` if omitted (matches V1 + the schema's Zod default).",
+      description: "Call status. Defaults to Completed if omitted.",
       type: "select",
       required: false,
       defaultValue: "COMPLETED",
       options: [
-        { value: "BUSY", label: "BUSY" },
-        { value: "CANCELED", label: "CANCELED" },
-        { value: "COMPLETED", label: "COMPLETED" },
-        { value: "CONNECTING", label: "CONNECTING" },
-        { value: "FAILED", label: "FAILED" },
-        { value: "IN_PROGRESS", label: "IN_PROGRESS" },
-        { value: "NO_ANSWER", label: "NO_ANSWER" },
-        { value: "QUEUED", label: "QUEUED" },
-        { value: "RINGING", label: "RINGING" },
+        { value: "BUSY", label: "Busy" },
+        { value: "CANCELED", label: "Canceled" },
+        { value: "COMPLETED", label: "Completed" },
+        { value: "CONNECTING", label: "Connecting" },
+        { value: "FAILED", label: "Failed" },
+        { value: "IN_PROGRESS", label: "In progress" },
+        { value: "NO_ANSWER", label: "No answer" },
+        { value: "QUEUED", label: "Queued" },
+        { value: "RINGING", label: "Ringing" },
       ],
     },
     {
@@ -104,8 +103,7 @@ export const hubspotCreateCallMeta: ActionMeta = {
     {
       name: "hubspot_owner_id",
       label: "Owner",
-      description:
-        "HubSpot user account that owns this call. The picker returns the owner `id` (NOT the `userId`).",
+      description: "HubSpot user account that owns this call.",
       type: "combobox",
       optionsSource: "hubspot:owners",
       required: false,
@@ -114,28 +112,32 @@ export const hubspotCreateCallMeta: ActionMeta = {
     {
       name: "associatedContactId",
       label: "Associated contact ID",
-      description: "Optional HubSpot contact id to associate. Best-effort.",
+      description:
+        "Link this call to a contact — insert a contact ID from an earlier step. If linking fails the call is still logged (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedCompanyId",
       label: "Associated company ID",
-      description: "Optional HubSpot company id to associate. Best-effort.",
+      description:
+        "Link this call to a company — insert a company ID from an earlier step. If linking fails the call is still logged (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedDealId",
       label: "Associated deal ID",
-      description: "Optional HubSpot deal id to associate. Best-effort.",
+      description:
+        "Link this call to a deal — insert a deal ID from an earlier step. If linking fails the call is still logged (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedTicketId",
       label: "Associated ticket ID",
-      description: "Optional HubSpot ticket id to associate. Best-effort.",
+      description:
+        "Link this call to a ticket — insert a ticket ID from an earlier step. If linking fails the call is still logged (see associationWarnings).",
       type: "text",
       required: false,
     },

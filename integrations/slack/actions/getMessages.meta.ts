@@ -56,6 +56,7 @@ export const slackGetMessagesMeta: ActionMeta = {
         "Optional Slack timestamp lower bound (`<seconds>.<microseconds>`). Messages older than this are excluded.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "1700000000.000100",
     },
     {
@@ -65,6 +66,7 @@ export const slackGetMessagesMeta: ActionMeta = {
         "Optional Slack timestamp upper bound (`<seconds>.<microseconds>`). Messages newer than this are excluded.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "1700000999.999999",
     },
   ],

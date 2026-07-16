@@ -37,6 +37,7 @@ export const typeformListResponsesMeta: ActionMeta = {
       label: "Page size",
       type: "number",
       required: false,
+      advanced: true,
       placeholder: "25",
       numeric: { min: 1, max: 100, integer: true },
       description: "Responses per page, 1–100. Defaults to 25.",
@@ -68,6 +69,7 @@ export const typeformListResponsesMeta: ActionMeta = {
       label: "Page cursor",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "Leave empty for the first (newest) page",
       description:
         "Pagination cursor from a previous run's `nextBefore` output.",

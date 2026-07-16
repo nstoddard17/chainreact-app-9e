@@ -37,9 +37,10 @@ export const hubspotGetOwnersMeta: ActionMeta = {
       name: "limit",
       label: "Limit",
       description:
-        "Max owners per call (1..100, HubSpot's documented cap). Omit for the wrapper's default of 100.",
+        "Max owners per call (1..100, HubSpot's documented cap).",
       type: "number",
       required: false,
+      defaultValue: 100,
       numeric: { min: 1, max: 100, integer: true, step: 1 },
     },
     {
@@ -59,6 +60,7 @@ export const hubspotGetOwnersMeta: ActionMeta = {
         "Opaque pagination cursor. Pass the previous call's `nextCursor` to fetch the next page. Omit for the first page.",
       type: "text",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

@@ -38,9 +38,30 @@ export const googleDriveUploadFileMeta: ActionMeta = {
     {
       name: "mimeType",
       label: "MIME Type",
-      description: 'The file content type, e.g. "application/pdf" or "text/plain".',
-      type: "text",
+      description: "What kind of file this is. Pick a common type, or type any MIME type.",
+      type: "combobox",
       required: true,
+      options: [
+        { value: "application/pdf", label: "PDF" },
+        { value: "text/plain", label: "Plain text" },
+        { value: "text/csv", label: "CSV" },
+        { value: "application/json", label: "JSON data file" },
+        { value: "text/html", label: "HTML" },
+        { value: "text/markdown", label: "Markdown" },
+        { value: "image/png", label: "PNG image" },
+        { value: "image/jpeg", label: "JPEG image" },
+        { value: "image/gif", label: "GIF image" },
+        {
+          value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          label: "Word document (DOCX)",
+        },
+        {
+          value: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          label: "Excel workbook (XLSX)",
+        },
+        { value: "application/zip", label: "ZIP archive" },
+      ],
+      allowManualEntry: true,
       placeholder: "application/pdf",
     },
     {
@@ -57,6 +78,7 @@ export const googleDriveUploadFileMeta: ActionMeta = {
       description: 'How the Content field is encoded. Use "base64" for binary files.',
       type: "select",
       required: false,
+      advanced: true,
       defaultValue: "utf8",
       options: [
         { value: "utf8", label: "UTF-8 (text)" },

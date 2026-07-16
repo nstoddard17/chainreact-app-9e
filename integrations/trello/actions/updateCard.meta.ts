@@ -66,15 +66,21 @@ export const trelloUpdateCardMeta: ActionMeta = {
     {
       name: "pos",
       label: "Position",
-      description: '"top", "bottom", or a number (optional).',
-      type: "text",
+      description:
+        "Where the item is placed. Leave empty to keep the current position. For a precise numeric position, map a number from a variable.",
+      type: "select",
       required: false,
-      placeholder: "top | bottom | number",
+      advanced: true,
+      options: [
+        { value: "top", label: "Top of list" },
+        { value: "bottom", label: "Bottom of list" },
+      ],
+      placeholder: "Keep current position",
     },
     {
       name: "due",
       label: "Due Date",
-      description: "Optional due date, entered in **UTC** (stored as `2026-06-01T17:00:00Z`).",
+      description: "Optional due date (UTC).",
       type: "datetime-utc",
       required: false,
       placeholder: "2026-06-01T17:00:00Z",
@@ -89,7 +95,7 @@ export const trelloUpdateCardMeta: ActionMeta = {
     {
       name: "start",
       label: "Start Date",
-      description: "Optional start date, entered in **UTC** (stored as `2026-05-01T09:00:00Z`).",
+      description: "Optional start date (UTC).",
       type: "datetime-utc",
       required: false,
       placeholder: "2026-05-01T09:00:00Z",

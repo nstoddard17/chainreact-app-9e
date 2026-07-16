@@ -68,8 +68,7 @@ export const microsoftOneNoteListPagesMeta: ActionMeta = {
     {
       name: "top",
       label: "Max results",
-      description:
-        "How many pages to return. Graph caps `$top` at 100 for OneNote pages — the schema enforces 1..100. Default 20.",
+      description: "How many pages to return (1–100). Default 20.",
       type: "number",
       required: false,
       defaultValue: 20,

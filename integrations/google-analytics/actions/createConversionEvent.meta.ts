@@ -59,9 +59,10 @@ export const googleAnalyticsCreateConversionEventMeta: ActionMeta = {
     {
       name: "customEvent",
       label: "Custom event",
-      description: "Mark this as a custom (non-default) event.",
+      description: "Turn on if this event is one you defined yourself rather than a built-in GA4 event.",
       type: "boolean",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

@@ -49,7 +49,7 @@ export const microsoftOutlookCalendarAddAttendeesMeta: ActionMeta = {
       name: "attendeeType",
       label: "Attendee Type",
       description:
-        "How the new attendees appear on the event. Required attendees are mandatory invitees; optional attendees are FYI invitees. Microsoft Graph shows these differently in the calendar grid.",
+        "How the new attendees appear on the event. Required attendees are mandatory invitees; optional attendees are FYI invitees.",
       type: "select",
       required: true,
       options: [

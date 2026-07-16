@@ -50,8 +50,7 @@ export const hubspotCreateNoteMeta: ActionMeta = {
     {
       name: "hubspot_owner_id",
       label: "Owner",
-      description:
-        "HubSpot user account that owns this note. The picker returns the owner `id` (NOT the `userId`).",
+      description: "HubSpot user account that owns this note.",
       type: "combobox",
       optionsSource: "hubspot:owners",
       required: false,
@@ -61,7 +60,7 @@ export const hubspotCreateNoteMeta: ActionMeta = {
       name: "associatedContactId",
       label: "Associated contact ID",
       description:
-        "Optional HubSpot contact id to associate with this note. Best-effort — failures surface as `associationWarnings`.",
+        "Link this note to a contact — insert a contact ID from an earlier step. If linking fails the note is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
@@ -69,7 +68,7 @@ export const hubspotCreateNoteMeta: ActionMeta = {
       name: "associatedCompanyId",
       label: "Associated company ID",
       description:
-        "Optional HubSpot company id to associate with this note. Best-effort — failures surface as `associationWarnings`.",
+        "Link this note to a company — insert a company ID from an earlier step. If linking fails the note is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
@@ -77,7 +76,7 @@ export const hubspotCreateNoteMeta: ActionMeta = {
       name: "associatedDealId",
       label: "Associated deal ID",
       description:
-        "Optional HubSpot deal id to associate with this note. Best-effort — failures surface as `associationWarnings`.",
+        "Link this note to a deal — insert a deal ID from an earlier step. If linking fails the note is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
@@ -85,7 +84,7 @@ export const hubspotCreateNoteMeta: ActionMeta = {
       name: "associatedTicketId",
       label: "Associated ticket ID",
       description:
-        "Optional HubSpot ticket id to associate with this note. Best-effort — failures surface as `associationWarnings`.",
+        "Link this note to a ticket — insert a ticket ID from an earlier step. If linking fails the note is still created (see associationWarnings).",
       type: "text",
       required: false,
     },

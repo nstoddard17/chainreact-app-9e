@@ -6,8 +6,9 @@
  * outside the heavier create_page (which is exercised in the Slice
  * 3.41 integration test). Proves the dual-meaning blockId + children
  * JSON textarea round-trips through the builder shell:
- *   - blockId renders as a plain text field (accepts both block ids
- *     and page ids per the schema),
+ *   - blockId renders as a `notion:pages` combobox with
+ *     `allowManualEntry` (config-UX sweep) — picking a page commits
+ *     its id; block ids stay reachable via manual entry / `{{...}}`,
  *   - children renders as a required textarea (typed BlockSpec[] JSON
  *     paste — no structured block builder in v1 per the metadata
  *     plan §3.2),
@@ -51,6 +52,7 @@ jest.mock("@/lib/api/options", () => ({
 }));
 
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
+import { pickComboboxOption } from "./helpers/comboboxField";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -112,12 +114,22 @@ beforeEach(() => {
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
   mockFetchOptionsSource.mockReset();
-  mockFetchOptionsSource.mockImplementation(async (source: string) => ({
-    ok: false,
-    source,
-    code: "SOURCE_NOT_FOUND",
-    message: `Unknown source '${source}'.`,
-  }));
+  mockFetchOptionsSource.mockImplementation(async (source: string) => {
+    if (source === "notion:pages") {
+      return {
+        ok: true as const,
+        source,
+        items: [{ value: BLOCK_ID, label: "Meeting Notes" }],
+        hasMore: false,
+      };
+    }
+    return {
+      ok: false,
+      source,
+      code: "SOURCE_NOT_FOUND",
+      message: `Unknown source '${source}'.`,
+    };
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -127,21 +139,23 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Notion append_block_children meta declares blockId (text required) + children (textarea required) — Slice 3.42 meta guard", () => {
+it("Notion append_block_children meta declares blockId (notion:pages combobox + manual entry, required) + children (json required) — Slice 3.42 meta guard", () => {
   const fieldNames = notionAppendBlockChildrenMeta.fields.map((f) => f.name);
   expect(fieldNames).toEqual(["blockId", "children"]);
 
   const byName = new Map(
     notionAppendBlockChildrenMeta.fields.map((f) => [f.name, f]),
   );
-  expect(byName.get("blockId")!.type).toBe("text");
+  expect(byName.get("blockId")!.type).toBe("combobox");
+  expect(byName.get("blockId")!.optionsSource).toBe("notion:pages");
+  expect(byName.get("blockId")!.allowManualEntry).toBe(true);
   expect(byName.get("blockId")!.required).toBe(true);
   expect(byName.get("children")!.type).toBe("json");
   expect(byName.get("children")!.jsonShape).toBe("array");
   expect(byName.get("children")!.required).toBe(true);
 });
 
-it("end-to-end: type blockId + paste children JSON → Modal Save (draft only) → Toolbar Save (updateWorkflow once with literal JSON string)", async () => {
+it("end-to-end: pick blockId page + paste children JSON → Modal Save (draft only) → Toolbar Save (updateWorkflow once with literal JSON string)", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -177,25 +191,23 @@ it("end-to-end: type blockId + paste children JSON → Modal Save (draft only) �
   expect(action.provider).toBe("notion");
   expect(action.type).toBe("append_block_children");
 
-  // 3. Open config rail. blockId lives on Setup; children is
-  //    `advanced: true` and lives in the Advanced tab
-  //    (CONFIG-UX-SETUP-ADVANCED-1) — not visible on Setup.
+  // 3. Open config rail. blockId lives on Setup as the `notion:pages`
+  //    combobox; children is `advanced: true` and lives in the Advanced
+  //    tab (CONFIG-UX-SETUP-ADVANCED-1) — not visible on Setup.
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("textbox", { name: /^block \/ page id$/i }),
+      screen.getByRole("combobox", { name: /^block \/ page$/i }),
     ).toBeInTheDocument();
   });
   expect(
     screen.queryByRole("textbox", { name: /^children blocks$/i }),
   ).toBeNull();
 
-  // 4. Type blockId (Setup tab). (Schema accepts both block ids and
-  //    page ids; the integration test just round-trips a placeholder.)
-  await user.type(
-    screen.getByRole("textbox", { name: /^block \/ page id$/i }),
-    BLOCK_ID,
-  );
+  // 4. Pick the page from the resolver-backed combobox — commits the
+  //    page id string (schema accepts both block ids and page ids;
+  //    block ids stay reachable via manual entry / `{{...}}`).
+  await pickComboboxOption(user, /^block \/ page$/i, "Meeting Notes");
   expect(useConfigSlice.getState().drafts[action.id]!.values.blockId).toBe(
     BLOCK_ID,
   );

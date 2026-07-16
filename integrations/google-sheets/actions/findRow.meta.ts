@@ -80,7 +80,7 @@ export const googleSheetsFindRowMeta: ActionMeta = {
       name: "operator",
       label: "Operator",
       description:
-        "Match operator. Batch 1 ships `equals` only. Additional operators (`contains`, `starts_with`, `greater_than`) land in a follow-up slice without breaking existing callers.",
+        "How to compare. Currently 'equals' (exact match).",
       type: "select",
       required: true,
       defaultValue: "equals",

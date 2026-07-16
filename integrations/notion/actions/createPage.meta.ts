@@ -38,7 +38,7 @@ export const notionCreatePageMeta: ActionMeta = {
       name: "parent",
       label: "Parent",
       description:
-        "Discriminated JSON object — enter EITHER `{\"databaseId\":\"<id>\"}` (creates a row in that database) OR `{\"pageId\":\"<id>\"}` (creates a subpage). Or wire `{{...}}` from an upstream output. Notion's API rejects requests carrying both / neither.",
+        "Where the page is created: `{\"databaseId\":\"<id>\"}` adds a row to that database; `{\"pageId\":\"<id>\"}` creates a subpage. Set exactly one key, or wire `{{...}}` from upstream.",
       type: "json",
       required: true,
       advanced: true,

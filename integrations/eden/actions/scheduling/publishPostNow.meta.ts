@@ -15,7 +15,7 @@ export const edenPublishPostNowMeta: ActionMeta = {
     "Immediately publish a social post PUBLICLY through Eden. This is a real publish — it cannot be unpublished from ChainReact. Use only when you explicitly want to post now.",
   category: "scheduling",
   requiresIntegration: true,
-  fields: [edenWorkspaceField, edenScheduleField, ...edenContentFields()],
+  fields: [edenWorkspaceField, edenScheduleField, ...edenContentFields({ timezoneAdvanced: true })],
   outputs: edenPostOutputs,
   producesFileRef: false,
   consumesFileRef: false,

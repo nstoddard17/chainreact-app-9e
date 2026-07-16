@@ -39,6 +39,7 @@ export const asanaListTasksInProjectMeta: ActionMeta = {
       label: "Page size",
       type: "number",
       required: false,
+      advanced: true,
       placeholder: "50",
       description: "Tasks per page, 1–100. Defaults to 50.",
     },
@@ -47,6 +48,7 @@ export const asanaListTasksInProjectMeta: ActionMeta = {
       label: "Page offset",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "Leave empty for the first page",
       description:
         "Pagination cursor from a previous run's `nextOffset` output.",

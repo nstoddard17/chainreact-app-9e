@@ -46,7 +46,7 @@ export const mondayCreateSubitemMeta: ActionMeta = {
       name: "columnValues",
       label: "Column values",
       description:
-        'JSON-encoded column-values map for the subitems board. Example: {"status":{"label":"Working on it"}}.',
+        'JSON-encoded column-values map for the subitems board. Example: {"status":{"label":"Working on it"}}. Column keys come from Get Board / the Column picker on Update Item.',
       type: "json",
       required: false,
       advanced: true,

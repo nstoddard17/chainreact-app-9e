@@ -105,7 +105,7 @@ describe("microsoft-teams manifest", () => {
     expect(providerSupports("microsoft-teams", "pollingTrigger")).toBe(false);
   });
 
-  it("when actions: true, the action-handler registry contains all 5 Teams actions", () => {
+  it("when actions: true, the action-handler registry contains all 8 Teams actions", () => {
     if (microsoftTeamsManifest.capabilities.actions) {
       const registered = listRegisteredHandlers().filter(
         (h) => h.provider === "microsoft-teams",
@@ -113,6 +113,9 @@ describe("microsoft-teams manifest", () => {
       expect(registered.map((r) => r.type).sort()).toEqual([
         "get_channel_details",
         "get_team_members",
+        "list_channel_messages",
+        "list_channels",
+        "list_teams",
         "reply_to_channel_message",
         "send_channel_message",
         "send_chat_message",

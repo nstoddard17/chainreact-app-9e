@@ -22,7 +22,8 @@ export const edenListScheduledPostsMeta: ActionMeta = {
     {
       name: "status",
       label: "Status filter",
-      description: "Optional status to filter by (e.g. queued, sent).",
+      description:
+        "Only include posts with this status, as Eden reports it in each post's `status` output (e.g. queued, sent, draft). Leave empty for all posts.",
       type: "text",
       required: false,
       placeholder: "queued",

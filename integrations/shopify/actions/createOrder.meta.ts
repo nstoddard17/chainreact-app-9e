@@ -10,10 +10,12 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * `line_items` is an `object-list` (variant id + quantity rows) that writes
  * the REAL array the runtime schema expects (CONFIG-UX-AUDIT-1 — the old
  * paste-JSON textarea stored a string the `.strict()` schema rejected).
- * The two address objects stay JSON textareas behind the Advanced
- * disclosure (fixed-key single objects; a structured address editor is a
- * follow-up). Outputs mirror `createOrder.ts:return` exactly; `email` is
- * marked sensitive (customer PII).
+ * The two address objects are `object` fixed-key editors
+ * (CONFIG-UX-SETUP-ADVANCED-1) that stay behind the Advanced disclosure
+ * (optional power-user detail); `itemFields` mirror the runtime `Address`
+ * `.strict()` keys verbatim (all optional strings; `country_code` is
+ * ISO 3166-1 alpha-2). Outputs mirror `createOrder.ts:return` exactly;
+ * `email` is marked sensitive (customer PII).
  */
 export const shopifyCreateOrderMeta: ActionMeta = {
   key: "shopify:create_order",
@@ -45,6 +47,8 @@ export const shopifyCreateOrderMeta: ActionMeta = {
         {
           name: "variant_id",
           label: "Product variant ID",
+          description:
+            "Numeric id of the product variant. Find it on the product's variant in Shopify, or map it from a product step's output.",
           type: "number",
           required: true,
           placeholder: "123456789",
@@ -101,24 +105,108 @@ export const shopifyCreateOrderMeta: ActionMeta = {
       sensitivity: "recipient",
       label: "Shipping address",
       description:
-        'Developer option. The shipping address as a JSON object with any of `address1`, `address2`, `city`, `province`, `country_code` (two-letter code like "US"), `zip`. Enter the JSON value or insert a value from a previous step.',
-      type: "json",
+        "Optional shipping address for the order. Fill in only the parts you have — every part is optional.",
+      type: "object",
       required: false,
       advanced: true,
-      jsonShape: "object",
-      placeholder:
-        '{"address1":"1 Main St","city":"Denver","province":"CO","country_code":"US","zip":"80202"}',
+      itemFields: [
+        {
+          name: "address1",
+          label: "Address line 1",
+          type: "text",
+          required: false,
+          placeholder: "1 Main St",
+        },
+        {
+          name: "address2",
+          label: "Address line 2",
+          type: "text",
+          required: false,
+        },
+        {
+          name: "city",
+          label: "City",
+          type: "text",
+          required: false,
+          placeholder: "Denver",
+        },
+        {
+          name: "province",
+          label: "State / province",
+          type: "text",
+          required: false,
+          placeholder: "CO",
+        },
+        {
+          name: "country_code",
+          label: "Country code",
+          description: "2-letter code, e.g. US",
+          type: "text",
+          required: false,
+          placeholder: "US",
+        },
+        {
+          name: "zip",
+          label: "ZIP / postal code",
+          type: "text",
+          required: false,
+          placeholder: "80202",
+        },
+      ],
     },
     {
       name: "billing_address",
       sensitivity: "recipient",
       label: "Billing address",
       description:
-        "Developer option. Same shape as Shipping address, as a JSON object. Enter the JSON value or insert a value from a previous step.",
-      type: "json",
+        "Optional billing address for the order. Fill in only the parts you have — every part is optional.",
+      type: "object",
       required: false,
       advanced: true,
-      jsonShape: "object",
+      itemFields: [
+        {
+          name: "address1",
+          label: "Address line 1",
+          type: "text",
+          required: false,
+          placeholder: "1 Main St",
+        },
+        {
+          name: "address2",
+          label: "Address line 2",
+          type: "text",
+          required: false,
+        },
+        {
+          name: "city",
+          label: "City",
+          type: "text",
+          required: false,
+          placeholder: "Denver",
+        },
+        {
+          name: "province",
+          label: "State / province",
+          type: "text",
+          required: false,
+          placeholder: "CO",
+        },
+        {
+          name: "country_code",
+          label: "Country code",
+          description: "2-letter code, e.g. US",
+          type: "text",
+          required: false,
+          placeholder: "US",
+        },
+        {
+          name: "zip",
+          label: "ZIP / postal code",
+          type: "text",
+          required: false,
+          placeholder: "80202",
+        },
+      ],
     },
   ],
   outputs: [

@@ -21,7 +21,7 @@ export const dropboxDeleteFileMeta: ActionMeta = {
   fields: [
     {
       name: "folderPath",
-      label: "Folder (for file picker)",
+      label: "Browse folder (optional)",
       description:
         "Optional — pick a folder to populate the picker below. Root-level items can't be listed here; type their path manually.",
       type: "combobox",

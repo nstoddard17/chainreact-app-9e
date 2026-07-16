@@ -27,10 +27,13 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *                    credits at the time of cancellation. Schema field
  *                    name preserved as snake_case.
  *
- * **No defaults applied here** (Q11). When `at_period_end` is omitted,
- * Stripe defaults to immediate cancellation — the description makes
- * this loud. `invoice_now` / `prorate` default to Stripe's
- * server-side defaults when omitted.
+ * **No defaults applied here** (Q11). `at_period_end` is REQUIRED at
+ * the meta layer with NO defaultValue — an omitted value silently
+ * meant IMMEDIATE cancellation (a destructive hidden default), so
+ * readiness now forces the explicit immediate-vs-period-end choice.
+ * The runtime schema keeps accepting both values (and omission, for
+ * saved configs). `invoice_now` / `prorate` are Advanced billing
+ * knobs; Stripe's server-side defaults apply when omitted.
  *
  * Outputs match `cancelSubscription.ts:return` exactly.
  */
@@ -57,25 +60,27 @@ export const stripeCancelSubscriptionMeta: ActionMeta = {
       name: "at_period_end",
       label: "Cancel at period end",
       description:
-        "When true, cancellation is scheduled for the end of the current billing period — customer keeps service through the paid period. When false or omitted, cancellation is **IMMEDIATE** and the customer loses service now. Maps to Stripe's `cancel_at_period_end` query parameter. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Required — choose deliberately. Yes: cancellation is scheduled for the end of the current billing period and the customer keeps service through the paid period. No: cancellation is **IMMEDIATE** and the customer loses service now.",
       type: "boolean",
-      required: false,
+      required: true,
     },
     {
       name: "invoice_now",
       label: "Invoice now",
       description:
-        "Optional — emit a final invoice for any unbilled time before cancellation. Omit to fall through to Stripe's server-side default. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional — emit a final invoice for any unbilled time before cancellation. Omit to fall through to Stripe's server-side default.",
       type: "boolean",
       required: false,
+      advanced: true,
     },
     {
       name: "prorate",
       label: "Prorate",
       description:
-        "Optional — calculate prorated charges or credits at the time of cancellation. Omit to fall through to Stripe's server-side default. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional — calculate prorated charges or credits at the time of cancellation. Omit to fall through to Stripe's server-side default.",
       type: "boolean",
       required: false,
+      advanced: true,
     },
   ],
   outputs: [

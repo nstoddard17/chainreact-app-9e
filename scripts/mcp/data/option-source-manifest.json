@@ -139,6 +139,48 @@
       "requiredDeps": null
     },
     {
+      "source": "eden:boards",
+      "provider": "eden",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "eden:draft_posts",
+      "provider": "eden",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "eden:notes",
+      "provider": "eden",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "eden:prompts",
+      "provider": "eden",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "eden:scheduled_posts",
+      "provider": "eden",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "eden:schedules",
+      "provider": "eden",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "eden:workspaces",
+      "provider": "eden",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "facebook:albums",
       "provider": "facebook",
       "requiresIntegration": true,
@@ -373,6 +415,15 @@
       "requiredDeps": null
     },
     {
+      "source": "microsoft-excel:worksheet_columns",
+      "provider": "microsoft-excel",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "workbookId",
+        "worksheetName"
+      ]
+    },
+    {
       "source": "microsoft-excel:worksheets",
       "provider": "microsoft-excel",
       "requiresIntegration": true,
@@ -518,6 +569,36 @@
     {
       "source": "notion:users",
       "provider": "notion",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "quickbooks:customers",
+      "provider": "quickbooks",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "quickbooks:invoices",
+      "provider": "quickbooks",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "quickbooks:items",
+      "provider": "quickbooks",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "quickbooks:tax_codes",
+      "provider": "quickbooks",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "quickbooks:terms",
+      "provider": "quickbooks",
       "requiresIntegration": true,
       "requiredDeps": null
     },

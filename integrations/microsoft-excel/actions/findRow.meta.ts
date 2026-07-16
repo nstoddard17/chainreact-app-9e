@@ -58,10 +58,11 @@ export const microsoftExcelFindRowMeta: ActionMeta = {
     {
       name: "maxRows",
       label: "Max Rows",
-      description: "Max rows to scan in this single page (1–500). Defaults to 100.",
+      description: "How many rows to scan at most (1–500). Default 100.",
       type: "number",
       required: false,
       defaultValue: 100,
+      advanced: true,
       numeric: { min: 1, max: 500, integer: true },
     },
   ],

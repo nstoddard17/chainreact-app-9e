@@ -77,19 +77,21 @@ export const microsoftOneNoteGetPageContentMeta: ActionMeta = {
       name: "includeIDs",
       label: "Include element IDs",
       description:
-        "When enabled, Graph embeds `data-id` attributes in the returned HTML — load-bearing when chaining into Update Page with mode `insert` (the `target` field accepts those `data-id` values).",
+        "Turn on when a later Update Page step will insert at a specific spot on this page.",
       type: "boolean",
       required: false,
       defaultValue: false,
+      advanced: true,
     },
     {
       name: "preGenerated",
       label: "Use cached HTML",
       description:
-        "Graph performance hint — when enabled (default), Graph may return a cached HTML representation. Flip to `false` only when you need fresh content and accept the latency cost.",
+        "Faster (may return a slightly stale copy of the page). Turn off to always fetch the latest content.",
       type: "boolean",
       required: false,
       defaultValue: true,
+      advanced: true,
     },
   ],
   outputs: [

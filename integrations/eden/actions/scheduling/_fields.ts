@@ -33,8 +33,12 @@ export const edenScheduleField: FieldMeta = {
   placeholder: "Default schedule",
 };
 
-/** The content-body fields (platforms, text, segments, media, youtube title, timezone, idempotency). */
-export function edenContentFields(opts?: { textLabel?: string }): FieldMeta[] {
+/**
+ * The content-body fields (platforms, text, segments, media, youtube title, timezone, idempotency).
+ * `timezoneAdvanced` moves the timezone field to the Advanced tab for actions where it is
+ * near-meaningless (publish-now — there is no scheduling to localize).
+ */
+export function edenContentFields(opts?: { textLabel?: string; timezoneAdvanced?: boolean }): FieldMeta[] {
   return [
     {
       name: "platforms",
@@ -92,6 +96,7 @@ export function edenContentFields(opts?: { textLabel?: string }): FieldMeta[] {
       description: "Optional. IANA timezone for scheduling. Defaults to the schedule's timezone.",
       type: "timezone",
       required: false,
+      ...(opts?.timezoneAdvanced ? { advanced: true } : {}),
     },
     {
       name: "idempotencyKey",

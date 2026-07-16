@@ -40,10 +40,12 @@ export const outlookNewEmailTriggerMeta: TriggerMeta = {
       name: "folder",
       label: "Folder (optional)",
       description:
-        "Optional folder to scope the subscription. Accepts well-known names ('inbox', 'sentitems', 'drafts', etc.) OR a custom Graph folder id. When blank, the subscription watches all folders via /me/messages.",
-      type: "text",
+        "Optional. Pick the folder to watch, or paste a folder ID or well-known name ('inbox', 'sentitems', 'drafts', etc.). Leave blank to watch all folders.",
+      type: "combobox",
+      optionsSource: "microsoft-outlook:folders",
+      allowManualEntry: true,
       required: false,
-      placeholder: "inbox",
+      placeholder: "Search folders or paste a folder ID",
     },
     {
       name: "from",

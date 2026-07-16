@@ -6,7 +6,11 @@
  * shape `{channel (combobox), users (string-array), sendInviteNotification
  * (boolean)}` round-trips through the builder shell:
  *   - channel renders as async combobox sourced from `slack:channels`,
- *   - users renders as the Slice 3.13 chip renderer (string-array),
+ *   - users renders as the per-chip option picker (CONFIG-UX sweep:
+ *     string-array + `slack:users` optionsSource + allowManualEntry —
+ *     gmail labelIds pattern),
+ *   - picking a person stores the stable U-id VALUE; manual entry still
+ *     appends a raw typed id,
  *   - sendInviteNotification renders as a Radix Switch,
  *   - selecting a channel writes the underlying channel id,
  *   - the users draft is a `string[]` (NOT CSV-encoded text),
@@ -122,6 +126,17 @@ beforeEach(() => {
         hasMore: false,
       };
     }
+    if (source === "slack:users") {
+      return {
+        ok: true,
+        source: "slack:users",
+        items: [
+          { value: "U01ABC23DEF", label: "Alice Anderson" },
+          { value: "U02XYZ45GHI", label: "Bob Brown" },
+        ],
+        hasMore: false,
+      };
+    }
     return {
       ok: false,
       source,
@@ -153,8 +168,10 @@ it("Slack invite_users_to_channel meta declares channel (combobox), users (strin
   expect(users).toBeDefined();
   expect(users!.type).toBe("string-array");
   expect(users!.required).toBe(true);
-  // No slack:users resolver yet — text-style chip input.
-  expect(users!.optionsSource).toBeUndefined();
+  // CONFIG-UX sweep: per-chip picker over the registered slack:users
+  // resolver; manual entry keeps the paste/wire-an-id path.
+  expect(users!.optionsSource).toBe("slack:users");
+  expect(users!.allowManualEntry).toBe(true);
 
   const flag = slackInviteUsersToChannelMeta.fields.find(
     (f) => f.name === "sendInviteNotification",
@@ -165,7 +182,7 @@ it("Slack invite_users_to_channel meta declares channel (combobox), users (strin
   expect(flag!.defaultValue).toBeUndefined();
 });
 
-it("end-to-end: pick channel + add two user ids via chips + toggle notification → Modal Save (draft only) → Toolbar Save (updateWorkflow once with users:string[])", async () => {
+it("end-to-end: pick channel + add two users (picker option + manual entry) + toggle notification → Modal Save (draft only) → Toolbar Save (updateWorkflow once with users:string[])", async () => {
   mockUpdateWorkflow.mockImplementation(async (_id, body) => ({
     ...baseWorkflow,
     draftDefinition: body.draftDefinition,
@@ -206,9 +223,12 @@ it("end-to-end: pick channel + add two user ids via chips + toggle notification 
       screen.getByRole("combobox", { name: /^channel$/i }),
     ).toBeInTheDocument();
   });
+  // Users renders as the per-chip option picker (add-button trigger), not a
+  // free-text input.
+  expect(screen.getByTestId("string-array-users-add")).toBeInTheDocument();
   expect(
-    screen.getByRole("textbox", { name: /^user ids$/i }),
-  ).toBeInTheDocument();
+    screen.queryByRole("textbox", { name: /^user ids$/i }),
+  ).not.toBeInTheDocument();
   expect(
     screen.getByRole("switch", { name: /send invite notification/i }),
   ).toBeInTheDocument();
@@ -219,22 +239,18 @@ it("end-to-end: pick channel + add two user ids via chips + toggle notification 
     "C02XYZ45GHI",
   );
 
-  // 5. Add two user-id chips. First via Enter, second via the Add
-  //    button (mirrors the Outlook send_email canonical flow).
-  const usersInput = screen.getByRole("textbox", {
-    name: /^user ids$/i,
-  }) as HTMLInputElement;
-  await user.type(usersInput, "U01ABC23DEF");
-  await user.keyboard("{Enter}");
-  await user.type(usersInput, "U02XYZ45GHI");
-  await user.click(
-    screen.getByRole("button", { name: /^add user ids item$/i }),
-  );
+  // 5. Add two user chips. First by picking a resolver option (stores the
+  //    stable U-id VALUE, shows the friendly label), second via manual
+  //    entry (paste-a-raw-id path preserved by allowManualEntry).
+  await user.click(screen.getByTestId("string-array-users-add"));
+  await user.click(await screen.findByText("Alice Anderson"));
+  await user.type(await screen.findByPlaceholderText(/U01ABC23DEF/i), "U99MANUAL00");
+  await user.click(await screen.findByTestId("string-array-manual-entry"));
 
-  // Draft holds a real string[] (NOT CSV, NOT JSON-encoded).
+  // Draft holds a real string[] of U-ids (NOT CSV, NOT JSON-encoded, NOT labels).
   const usersDraft = useConfigSlice.getState().drafts[action.id]!.values.users;
   expect(Array.isArray(usersDraft)).toBe(true);
-  expect(usersDraft).toEqual(["U01ABC23DEF", "U02XYZ45GHI"]);
+  expect(usersDraft).toEqual(["U01ABC23DEF", "U99MANUAL00"]);
 
   // 6. Toggle Send Invite Notification on.
   await user.click(
@@ -253,7 +269,7 @@ it("end-to-end: pick channel + add two user ids via chips + toggle notification 
     .getState()
     .pendingNodes.find((n) => n.id === action.id)!.config;
   expect(pendingConfig.channel).toBe("C02XYZ45GHI");
-  expect(pendingConfig.users).toEqual(["U01ABC23DEF", "U02XYZ45GHI"]);
+  expect(pendingConfig.users).toEqual(["U01ABC23DEF", "U99MANUAL00"]);
   expect(Array.isArray(pendingConfig.users)).toBe(true);
   expect(pendingConfig.sendInviteNotification).toBe(true);
 
@@ -279,7 +295,7 @@ it("end-to-end: pick channel + add two user ids via chips + toggle notification 
   expect(persistedAction.config.channel).toBe("C02XYZ45GHI");
   expect(persistedAction.config.users).toEqual([
     "U01ABC23DEF",
-    "U02XYZ45GHI",
+    "U99MANUAL00",
   ]);
   expect(Array.isArray(persistedAction.config.users)).toBe(true);
   expect(persistedAction.config.sendInviteNotification).toBe(true);

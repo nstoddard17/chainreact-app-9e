@@ -10,7 +10,10 @@
  * Proves end-to-end:
  *   - `amount` renders as `<input type="number">` with DOLLARS-anchored
  *     label + decimal step (NOT integer-only),
- *   - `currency` renders as plain text (NOT a 135-option select),
+ *   - `currency` renders as a combobox of common lowercase codes with
+ *     `allowManualEntry: true` (CONFIG-UX-SETUP-ADVANCED sweep — free
+ *     typing of ANY lowercase ISO code keeps working; never a closed
+ *     135-option select),
  *   - `customerId` is plain text (resolver-less for v1),
  *   - `metadata` renders as the `keyvalue` chip UI — the renderer
  *     stores typed `Array<{key, value}>` (NOT a JSON string),
@@ -54,6 +57,7 @@ jest.mock("@/lib/api/options", () => ({
 }));
 
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
+import { pickComboboxOption } from "./helpers/comboboxField";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
@@ -128,7 +132,7 @@ beforeEach(() => {
   useRunSlice.getState().reset();
 });
 
-it("Stripe create_payment_intent meta declares dollars-anchored amount + plain-text currency + customerId text + keyvalue metadata + NO clientSecret output (Slice 3.SEC-8) — Slice 3.45 meta guard", () => {
+it("Stripe create_payment_intent meta declares dollars-anchored amount + currency combobox with manual entry + customerId text + keyvalue metadata + NO clientSecret output (Slice 3.SEC-8) — Slice 3.45 meta guard", () => {
   // amount: required number, min 0.01, step 0.01, dollars-anchored
   const amount = stripeCreatePaymentIntentMeta.fields.find(
     (f) => f.name === "amount",
@@ -142,13 +146,20 @@ it("Stripe create_payment_intent meta declares dollars-anchored amount + plain-t
   expect(amount.label.toLowerCase()).toContain("dollar");
   expect(amount.description?.toLowerCase()).toContain("dollar");
 
-  // currency: required text, NOT a select (135+ ISO codes would balloon the meta)
+  // currency: required combobox of COMMON lowercase codes + manual entry
+  // (CONFIG-UX-SETUP-ADVANCED sweep). allowManualEntry keeps every other
+  // lowercase ISO code typeable — capability preserved, `USD` footgun
+  // steered away from. Never a closed 135-option select.
   const currency = stripeCreatePaymentIntentMeta.fields.find(
     (f) => f.name === "currency",
   )!;
-  expect(currency.type).toBe("text");
+  expect(currency.type).toBe("combobox");
   expect(currency.required).toBe(true);
-  expect(currency.options).toBeUndefined();
+  expect(currency.allowManualEntry).toBe(true);
+  const currencyValues = currency.options?.map((o) => o.value) ?? [];
+  expect(currencyValues.length).toBeGreaterThan(0);
+  expect(currencyValues.length).toBeLessThan(30); // curated, not the full ISO table
+  for (const v of currencyValues) expect(v).toMatch(/^[a-z]{3}$/); // runtime regex
 
   // customerId: optional text (no resolver in v1)
   const customerId = stripeCreatePaymentIntentMeta.fields.find(
@@ -222,10 +233,12 @@ it("end-to-end: type dollars amount + currency + customerId + add metadata row �
   await openLastNodeOfKind("action");
   await waitFor(() => {
     expect(
-      screen.getByRole("spinbutton", { name: /amount.*usd dollars/i }),
+      screen.getByRole("spinbutton", { name: /amount.*dollars/i }),
     ).toBeInTheDocument();
   });
-  expect(screen.getByRole("textbox", { name: /^currency$/i })).toBeInTheDocument();
+  expect(
+    screen.getByRole("combobox", { name: /^currency$/i }),
+  ).toBeInTheDocument();
   expect(
     screen.getByRole("textbox", { name: /^customer id$/i }),
   ).toBeInTheDocument();
@@ -236,16 +249,15 @@ it("end-to-end: type dollars amount + currency + customerId + add metadata row �
   // 4. Type amount in DOLLARS (e.g. 20.99). NumberField stores as a
   //    parsed number — NOT a string, NOT cents.
   await user.type(
-    screen.getByRole("spinbutton", { name: /amount.*usd dollars/i }),
+    screen.getByRole("spinbutton", { name: /amount.*dollars/i }),
     "20.99",
   );
   expect(useConfigSlice.getState().drafts[action.id]!.values.amount).toBe(20.99);
 
-  // 5. Type currency.
-  await user.type(
-    screen.getByRole("textbox", { name: /^currency$/i }),
-    "usd",
-  );
+  // 5. Pick currency from the static combobox — the committed value is
+  //    the RAW lowercase code (labels like "usd — US dollar" never leak
+  //    into config).
+  await pickComboboxOption(user, /^currency$/i, /usd — us dollar/i);
   expect(useConfigSlice.getState().drafts[action.id]!.values.currency).toBe(
     "usd",
   );

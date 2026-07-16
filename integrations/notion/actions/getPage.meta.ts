@@ -24,12 +24,14 @@ export const notionGetPageMeta: ActionMeta = {
   fields: [
     {
       name: "pageId",
-      label: "Page ID",
+      label: "Page",
       description:
-        "Notion page id. Accepts both bare-page ids and database-row ids.",
-      type: "text",
+        "Page to fetch. Pick one, paste an id, or wire `{{...}}` from an upstream step. Accepts both bare-page ids and database-row ids.",
+      type: "combobox",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a page, or paste an id",
     },
   ],
   outputs: [

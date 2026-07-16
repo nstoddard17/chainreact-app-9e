@@ -42,9 +42,9 @@ export const stripeCreatePaymentIntentMeta: ActionMeta = {
   fields: [
     {
       name: "amount",
-      label: "Amount (USD dollars)",
+      label: "Amount (dollars / major units)",
       description:
-        "Payment amount in DOLLARS — e.g. `20.99`. The handler converts to CENTS for Stripe's API. Output `amount` echoes back in CENTS. **Critical:** do NOT pass cents here — the capture action expects cents, but THIS action expects dollars.",
+        "Payment amount in DOLLARS (major currency units) — e.g. `20.99`. Converted to CENTS for Stripe automatically. Output `amount` echoes back in CENTS. **Critical:** do NOT pass cents here — the capture action expects cents, but THIS action expects dollars.",
       type: "number",
       required: true,
       numeric: { min: 0.01, step: 0.01 },
@@ -54,9 +54,22 @@ export const stripeCreatePaymentIntentMeta: ActionMeta = {
       name: "currency",
       label: "Currency",
       description:
-        "Lowercase ISO-4217 currency code — e.g. `usd`, `eur`, `gbp`. Stripe rejects uppercase codes (`USD` will fail at validation).",
-      type: "text",
+        "3-letter lowercase code, e.g. `usd`. Uppercase is rejected (`USD` fails validation). Pick a common code or type any lowercase ISO-4217 code.",
+      type: "combobox",
       required: true,
+      allowManualEntry: true,
+      options: [
+        { value: "usd", label: "usd — US dollar" },
+        { value: "eur", label: "eur — Euro" },
+        { value: "gbp", label: "gbp — British pound" },
+        { value: "cad", label: "cad — Canadian dollar" },
+        { value: "aud", label: "aud — Australian dollar" },
+        { value: "jpy", label: "jpy — Japanese yen" },
+        { value: "chf", label: "chf — Swiss franc" },
+        { value: "sek", label: "sek — Swedish krona" },
+        { value: "nzd", label: "nzd — New Zealand dollar" },
+        { value: "mxn", label: "mxn — Mexican peso" },
+      ],
       placeholder: "usd",
     },
     {

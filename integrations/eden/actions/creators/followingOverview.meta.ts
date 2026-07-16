@@ -19,7 +19,22 @@ export const edenFollowingOverviewMeta: ActionMeta = {
       optionsSource: "eden:workspaces",
       placeholder: "Default workspace",
     },
-    { name: "platform", label: "Platform filter", description: "Optional platform to filter by.", type: "text", required: false, placeholder: "youtube" },
+    {
+      name: "platform",
+      label: "Platform filter",
+      description: "Only include follows on this platform. Leave empty for all platforms.",
+      type: "select",
+      required: false,
+      options: [
+        { value: "youtube", label: "YouTube" },
+        { value: "twitter", label: "X (Twitter)" },
+        { value: "tiktok", label: "TikTok" },
+        { value: "instagram", label: "Instagram" },
+        { value: "linkedin", label: "LinkedIn" },
+        { value: "threads", label: "Threads" },
+        { value: "substack", label: "Substack" },
+      ],
+    },
     { name: "limit", label: "Limit", description: "Maximum follows to return (1–100).", type: "number", required: false, placeholder: "25" },
   ],
   outputs: [

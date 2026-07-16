@@ -31,7 +31,7 @@ export const hubspotRemoveLineItemMeta: ActionMeta = {
   type: "remove_line_item",
   displayName: "Remove Line Item",
   description:
-    "Permanently delete a HubSpot CRM line item via `DELETE /crm/v3/objects/line_items/{id}`. **DESTRUCTIVE** — there is no soft-delete or undo; reversing requires manually re-creating the line item with the same properties and re-associating it to the parent deal. Replaying a DELETE against an already-deleted line item returns 404 (the wrapper surfaces it as the canonical `NotFoundError`).",
+    "Permanently delete a HubSpot CRM line item. **DESTRUCTIVE** — there is no soft-delete or undo; reversing requires manually re-creating the line item with the same properties and re-associating it to the parent deal. Deleting an already-deleted line item fails with a not-found error.",
   category: "crm",
   requiresIntegration: true,
   fields: [
@@ -39,7 +39,7 @@ export const hubspotRemoveLineItemMeta: ActionMeta = {
       name: "lineItemId",
       label: "Line item ID",
       description:
-        "HubSpot line item id (numeric, returned by the API as a string). Usually wired from `{{hubspot:get_line_items.lineItems[0].id}}`. After deletion the id can no longer be used.",
+        "Which line item to delete — insert the line item ID from an earlier step (e.g. Get Line Items). After deletion the ID can no longer be used.",
       type: "text",
       required: true,
       placeholder: "12345",

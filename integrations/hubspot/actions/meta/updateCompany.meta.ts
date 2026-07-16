@@ -28,7 +28,7 @@ export const hubspotUpdateCompanyMeta: ActionMeta = {
       name: "companyId",
       label: "Company ID",
       description:
-        "HubSpot company id (numeric, returned as a string). Usually wired from `{{hubspot:create_company.companyId}}` or `{{hubspot:get_companies.companies[0].id}}`. Search-by-domain picker is a follow-up slice.",
+        "Which company to update — insert the company ID from an earlier step (e.g. Create Company or Get Companies).",
       type: "text",
       required: true,
       placeholder: "12345",
@@ -116,14 +116,15 @@ export const hubspotUpdateCompanyMeta: ActionMeta = {
       name: "annualrevenue",
       label: "Annual revenue",
       description:
-        "**Numeric STRING** — HubSpot's API expects stringified numbers. Wire upstream numbers through `{{String(value)}}` if needed.",
+        "Annual revenue as a number, e.g. 5000000. Stored as a text string — HubSpot's required format.",
       type: "text",
       required: false,
     },
     {
       name: "numberofemployees",
       label: "Number of employees",
-      description: "**Numeric STRING** — same shape as `Annual revenue`.",
+      description:
+        "Employee count, e.g. 250. Stored as a text string — HubSpot's required format.",
       type: "text",
       required: false,
     },

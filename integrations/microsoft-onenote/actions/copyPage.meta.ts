@@ -59,7 +59,7 @@ export const microsoftOneNoteCopyPageMeta: ActionMeta = {
   type: "copy_page",
   displayName: "Copy Page",
   description:
-    "Copy a OneNote page into another section via Graph `POST /me/onenote/pages/{id}/copyToSection`. **Asynchronous on Graph's side** — the call returns immediately with `success: true` meaning 'Graph accepted the request', NOT 'copy complete'. Authors needing the new page id chain the next polling cycle's `new_note` trigger (ONENOTE-5). The target section picker is intentionally a text input — pickers for both source and target would require dep-name disambiguation that's deferred to ONENOTE-N polish; chain a `list_sections` action and use the variable picker for `targetSectionId`.",
+    "Copy a page into another section. The copy finishes on Microsoft's side shortly after this step succeeds — use the New Note trigger if a later step needs the new page.",
   category: "files",
   requiresIntegration: true,
   fields: [
@@ -100,7 +100,7 @@ export const microsoftOneNoteCopyPageMeta: ActionMeta = {
       sensitivity: "recipient",
       label: "Target section id",
       description:
-        "Destination section id. **Text input — no picker.** Paste a section id from a URL or chain a `list_sections` action upstream and use the variable picker to insert `{{nodeId.sections[].id}}`. The dual-hierarchy picker limitation is documented in the action description.",
+        "The section to copy the page into. Paste a section id, or add a List Sections step earlier and insert its id with the variable picker.",
       type: "text",
       required: true,
       placeholder: "0-ABCD1234…",

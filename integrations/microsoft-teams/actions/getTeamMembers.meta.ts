@@ -29,8 +29,8 @@ export const microsoftTeamsGetTeamMembersMeta: ActionMeta = {
     },
     {
       name: "top",
-      label: "Page Size",
-      description: "Max members to return (1–999). Graph defaults to a full page.",
+      label: "Max results",
+      description: "How many members to return at most (1–999).",
       type: "number",
       required: false,
       numeric: { min: 1, max: 999, integer: true },

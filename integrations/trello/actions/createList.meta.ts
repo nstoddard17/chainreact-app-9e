@@ -38,10 +38,15 @@ export const trelloCreateListMeta: ActionMeta = {
       name: "pos",
       label: "Position",
       description:
-        '"top", "bottom", or a number (optional). Leave empty for Trello\'s default (bottom).',
-      type: "text",
+        "Where the item is placed. Leave empty for Trello's default (bottom). For a precise numeric position, map a number from a variable.",
+      type: "select",
       required: false,
-      placeholder: "top | bottom | number",
+      advanced: true,
+      options: [
+        { value: "top", label: "First on the board" },
+        { value: "bottom", label: "Last on the board" },
+      ],
+      placeholder: "Trello's default",
     },
   ],
   outputs: [

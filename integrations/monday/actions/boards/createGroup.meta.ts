@@ -30,7 +30,8 @@ export const mondayCreateGroupMeta: ActionMeta = {
     {
       name: "color",
       label: "Color (optional)",
-      description: "Monday group color name/hex. Leave empty to let Monday assign one.",
+      description:
+        "Pick from Monday's group palette (e.g. #037f4c). Leave empty and Monday picks one.",
       type: "text",
       required: false,
       placeholder: "#037f4c",

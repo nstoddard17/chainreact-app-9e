@@ -55,7 +55,7 @@ export const slackScheduleMessageMeta: ActionMeta = {
       name: "postAt",
       label: "Post at",
       description:
-        "Absolute scheduled time, entered in **UTC** (stored as `2026-06-01T09:00:00Z`). The handler also still accepts a pasted ISO-8601 with an explicit `+HH:MM` offset OR a Unix-seconds integer string (`1748793600`) — those hydrate as editable text. Naive datetimes (no offset / no `Z`) are rejected at execute time.",
+        "When Slack should post the message (UTC). A pasted ISO time with an explicit offset, or Unix seconds, also works.",
       type: "datetime-utc",
       required: true,
       placeholder: "2026-06-01T09:00:00Z",
@@ -64,7 +64,7 @@ export const slackScheduleMessageMeta: ActionMeta = {
       name: "threadTs",
       label: "Thread timestamp",
       description:
-        "Optional Slack message timestamp — the scheduled message will be posted as a thread reply to that parent.",
+        "Optional. Paste or wire the `ts` output of an earlier Slack message step to post the scheduled message as a reply in that thread.",
       type: "text",
       required: false,
       placeholder: "1700000000.000100",

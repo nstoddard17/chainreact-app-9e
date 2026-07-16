@@ -37,7 +37,7 @@ export const googleSheetsUpdateRowMeta: ActionMeta = {
   type: "update_row",
   displayName: "Update Row",
   description:
-    "Update an existing row in a Google Sheet via `spreadsheets.values.update`. Overwrites the cells in the supplied range (e.g. `Sheet1!A5:Z5` to overwrite row 5). If `values` is shorter than the range width, Google leaves the extra cells unchanged. **Q11 required:** choose RAW vs USER_ENTERED explicitly.",
+    "Update an existing row in a Google Sheet. Overwrites the cells in the supplied range (e.g. `Sheet1!A5:Z5` to overwrite row 5). If `values` is shorter than the range width, Google leaves the extra cells unchanged. Required choice: parse values as if typed in Sheets, or store them exactly as written.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -73,19 +73,19 @@ export const googleSheetsUpdateRowMeta: ActionMeta = {
       name: "valueInputOption",
       label: "Value input option",
       description:
-        "How Sheets interprets the values you pass. **No default — pick explicitly.** RAW: literal strings. USER_ENTERED: parses formulas, dates, numbers as if a human typed them.",
+        "How Sheets treats your values. Required — 'parse as typed' makes =SUM(...), dates and numbers live; 'store exactly' keeps them as text.",
       type: "select",
       required: true,
       options: [
         {
-          value: "RAW",
-          label: "RAW",
-          description: "Literal text — formulas / dates / numbers stay as the strings you passed.",
+          value: "USER_ENTERED",
+          label: "Parse as if typed in Sheets",
+          description: "Formulas evaluate, dates and numbers become live values.",
         },
         {
-          value: "USER_ENTERED",
-          label: "USER_ENTERED",
-          description: "Parsed as if a human typed it — formulas evaluate, `2026-01-01` becomes a date, `\"42\"` becomes a number.",
+          value: "RAW",
+          label: "Store exactly as written",
+          description: "Everything stays literal text — =SUM(...) stays a string.",
         },
       ],
     },

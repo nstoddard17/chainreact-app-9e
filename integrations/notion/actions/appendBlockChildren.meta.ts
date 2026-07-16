@@ -30,12 +30,14 @@ export const notionAppendBlockChildrenMeta: ActionMeta = {
   fields: [
     {
       name: "blockId",
-      label: "Block / page ID",
+      label: "Block / page",
       description:
-        "Notion id to append children under. Accepts both block ids and page ids — Notion treats pages as block parents. Usually wired from upstream `{{notion:create_page.pageId}}` or `{{notion:get_block.blockId}}`.",
-      type: "text",
+        "Where the new blocks are appended. Pick a page, paste an id, or wire `{{...}}` from an upstream step. Accepts both page ids and block ids (pages are blocks in Notion).",
+      type: "combobox",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a page, or paste an id",
     },
     {
       name: "children",

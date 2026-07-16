@@ -84,16 +84,17 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
       name: "trial_end",
       label: "Trial end",
       description:
-        "Optional — Unix timestamp (seconds) for when the trial should end, OR the literal string `\"now\"` to end the trial immediately. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional — enter `now` to end the trial immediately, or map a Unix timestamp (seconds) for when the trial should end.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "now",
     },
     {
       name: "cancel_at_period_end",
       label: "Cancel at period end",
       description:
-        "Optional — when true, the subscription cancels at the end of the current billing period (vs immediate). When false, an existing scheduled cancellation is cleared. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional — when true, the subscription cancels at the end of the current billing period (vs immediate). When false, an existing scheduled cancellation is cleared.",
       type: "boolean",
       required: false,
     },
@@ -101,9 +102,10 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
       name: "proration_behavior",
       label: "Proration behavior",
       description:
-        "Optional Stripe proration selector. **No default applied here** — when omitted, Stripe applies its server-side default (typically `create_prorations` for mid-cycle changes). Pass `none` explicitly to suppress proration. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional Stripe proration selector. **No default applied here** — when omitted, Stripe applies its server-side default (typically `create_prorations` for mid-cycle changes). Pass `none` explicitly to suppress proration.",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         {
           value: "create_prorations",
@@ -129,7 +131,7 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
       name: "default_payment_method",
       label: "Default payment method ID",
       description:
-        "Optional — replace the subscription's default payment method (`pm_xxx`). Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional — replace the subscription's default payment method (`pm_xxx`).",
       type: "text",
       required: false,
       placeholder: "pm_xxx",
@@ -148,7 +150,7 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
       name: "collection_method",
       label: "Collection method",
       description:
-        "Optional — controls how Stripe collects payment. `charge_automatically` debits the default payment method; `send_invoice` emails an invoice for the customer to pay. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional — controls how Stripe collects payment. `charge_automatically` debits the default payment method; `send_invoice` emails an invoice for the customer to pay.",
       type: "select",
       required: false,
       options: [
@@ -170,9 +172,10 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
       name: "days_until_due",
       label: "Days until due",
       description:
-        "Optional — number of days from invoice finalization until payment is due. Only meaningful when `collection_method = send_invoice`. Positive integer. Schema field name preserved as snake_case for V1 cutover parity.",
+        "Optional — number of days from invoice finalization until payment is due. Positive integer.",
       type: "number",
       required: false,
+      visibleWhen: { field: "collection_method", valueIn: ["send_invoice"] },
       numeric: { min: 1, integer: true, step: 1 },
       placeholder: "30",
     },

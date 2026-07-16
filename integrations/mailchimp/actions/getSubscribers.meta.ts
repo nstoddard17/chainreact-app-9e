@@ -66,9 +66,10 @@ export const mailchimpGetSubscribersMeta: ActionMeta = {
       name: "count",
       label: "Page size",
       description:
-        "Number of subscribers per page. Mailchimp caps at 100; V2 wrappers clamp accordingly. Defaults to 50 server-side when omitted.",
+        "Number of subscribers per page (1–100). 50 matches Mailchimp's server default.",
       type: "number",
       required: false,
+      defaultValue: 50,
       numeric: { min: 1, max: 100, integer: true },
     },
     {
@@ -77,21 +78,22 @@ export const mailchimpGetSubscribersMeta: ActionMeta = {
       description: "Pagination offset. Wire from a previous run's `nextOffset` output to walk the audience.",
       type: "number",
       required: false,
+      advanced: true,
       numeric: { min: 0, integer: true },
     },
     {
       name: "sinceLastChanged",
       label: "Since last changed",
-      description: "Optional ISO-8601 timestamp. Return only subscribers updated on/after this time.",
-      type: "text",
+      description: "Optional. Return only subscribers updated on/after this time (UTC).",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-01-01T00:00:00Z",
     },
     {
       name: "beforeLastChanged",
       label: "Before last changed",
-      description: "Optional ISO-8601 timestamp. Return only subscribers updated before this time.",
-      type: "text",
+      description: "Optional. Return only subscribers updated before this time (UTC).",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-12-31T23:59:59Z",
     },
@@ -110,9 +112,13 @@ export const mailchimpGetSubscribersMeta: ActionMeta = {
     {
       name: "sortDir",
       label: "Sort direction",
-      description: "Optional. Pair with `Sort field`.",
+      description: "Optional. Applies to the chosen Sort field.",
       type: "select",
       required: false,
+      visibleWhen: {
+        field: "sortField",
+        valueIn: ["timestamp_opt", "timestamp_signup", "last_changed"],
+      },
       options: [
         { value: "ASC", label: "Ascending" },
         { value: "DESC", label: "Descending" },

@@ -51,6 +51,7 @@ export const facebookUploadPhotoMeta: ActionMeta = {
       description: "When on, the photo is posted to the Page timeline. When off, it's uploaded but unpublished.",
       type: "boolean",
       required: false,
+      defaultValue: true,
     },
   ],
   outputs: [

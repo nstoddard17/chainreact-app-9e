@@ -73,7 +73,7 @@ export const slackPostInteractiveBlocksMeta: ActionMeta = {
       name: "threadTs",
       label: "Thread timestamp",
       description:
-        "Optional Slack message timestamp — post as a thread reply under that parent message. Usually wired from an upstream Slack action's `ts` output.",
+        "Optional. Paste or wire the `ts` output of an earlier Slack message step to reply in that thread.",
       type: "text",
       required: false,
       placeholder: "1700000000.000100",

@@ -273,7 +273,9 @@ it("end-to-end: pick spreadsheet → type range → add row values as chips → 
   );
 
   // 7. Pick valueInputOption (Q11 — no default; author MUST choose).
-  await selectFieldOption(user, /^value input option$/i, "USER_ENTERED");
+  // CONFIG-UX sweep — friendlier option label; committed value stays
+  // the verbatim USER_ENTERED enum (asserted below).
+  await selectFieldOption(user, /^value input option$/i, "Parse as if typed in Sheets");
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.valueInputOption,
   ).toBe("USER_ENTERED");

@@ -127,8 +127,13 @@ describe("GET /api/providers/facebook/actions", () => {
     expect(period.type).toBe("select");
     expect(period.options?.map((o) => o.value)).toEqual(["day", "week", "days_28"]);
     const metric = insights.fields.find((f) => f.name === "metric")!;
-    expect(metric.type).toBe("text");
+    // CONFIG-UX-SETUP-ADVANCED-1: metric is a static-options combobox with manual entry.
+    expect(metric.type).toBe("combobox");
     expect(metric.optionsSource).toBeUndefined();
+    expect(metric.options?.map((o) => o.value)).toEqual([
+      "page_post_engagements",
+      "page_views_total",
+    ]);
   });
 
   it("sensitive output flags round-trip through the wire (recipientId PSID + insights metrics)", async () => {

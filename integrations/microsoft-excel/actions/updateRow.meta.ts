@@ -40,7 +40,8 @@ export const microsoftExcelUpdateRowMeta: ActionMeta = {
     {
       name: "rowNumber",
       label: "Row Number",
-      description: "1-based row number to update.",
+      description:
+        "The row to update, counted from 1 (row 1 is usually your header row). Often wired from Find Row's rowNumber output.",
       type: "number",
       required: true,
       numeric: { min: 1, integer: true },
@@ -49,7 +50,7 @@ export const microsoftExcelUpdateRowMeta: ActionMeta = {
       name: "values",
       label: "Values (column → value)",
       description:
-        "Column-header → cell-value pairs. At least one entry. Header names must match the worksheet's header row.",
+        "Pick a column and enter its new value. Column names must match your header row exactly, including capitals.",
       type: "keyvalue",
       required: true,
       keyValueShape: "record",

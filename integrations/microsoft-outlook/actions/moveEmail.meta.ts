@@ -36,10 +36,12 @@ export const outlookMoveEmailMeta: ActionMeta = {
       sensitivity: "recipient",
       label: "Destination folder",
       description:
-        "Target folder. Accepts well-known names ('inbox', 'sentitems', 'deleteditems', 'drafts', 'archive', 'junkemail', 'outbox') OR a custom Graph folder id.",
-      type: "text",
+        "Pick the folder to move the email into, or paste a folder ID or well-known name ('inbox', 'sentitems', 'deleteditems', 'drafts', 'archive', 'junkemail', 'outbox').",
+      type: "combobox",
+      optionsSource: "microsoft-outlook:folders",
+      allowManualEntry: true,
       required: true,
-      placeholder: "archive",
+      placeholder: "Search folders or paste a folder ID",
     },
   ],
   outputs: [

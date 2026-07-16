@@ -44,7 +44,7 @@ export const mondayCreateItemMeta: ActionMeta = {
       name: "columnValues",
       label: "Column values",
       description:
-        'JSON-encoded column-values map. Example: {"status":{"label":"Done"},"text_col":"hello"}. Leave empty to create with no column values.',
+        'JSON-encoded column-values map. Example: {"status":{"label":"Done"},"text_col":"hello"}. Leave empty to create with no column values. Column keys come from Get Board / the Column picker on Update Item.',
       type: "json",
       required: false,
       advanced: true,

@@ -154,25 +154,25 @@ export const hubspotCreateContactMeta: ActionMeta = {
       name: "duplicateHandling",
       label: "Duplicate handling",
       description:
-        "What to do when HubSpot returns 409 (a contact with this email already exists). `fail` surfaces the error; `update` PATCHes the existing contact with the supplied properties; `skip` returns the existing contact unchanged. Output `wasUpdate` / `wasSkip` reflect which path ran.",
+        "What to do when a contact with this email already exists. Fail stops the workflow; Update overwrites it with the fields above; Skip leaves it unchanged and returns it. Output `wasUpdate` / `wasSkip` reflect which path ran.",
       type: "select",
       required: true,
       defaultValue: "fail",
       options: [
         {
           value: "fail",
-          label: "fail",
-          description: "Surface the 409 error. Default.",
+          label: "Fail the step",
+          description: "Stop the workflow with an error. Default.",
         },
         {
           value: "update",
-          label: "update",
-          description: "Search-by-email + PATCH existing contact.",
+          label: "Update the existing contact",
+          description: "Overwrite the existing contact with the fields above.",
         },
         {
           value: "skip",
-          label: "skip",
-          description: "Search-by-email + return existing contact unchanged.",
+          label: "Skip (keep existing contact unchanged)",
+          description: "Return the existing contact without changing it.",
         },
       ],
     },

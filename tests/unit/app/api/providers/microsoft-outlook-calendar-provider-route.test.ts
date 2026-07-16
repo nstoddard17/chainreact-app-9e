@@ -99,18 +99,29 @@ describe("GET /api/providers/microsoft-outlook-calendar/actions", () => {
     }
     expect(names.has("start")).toBe(false);
     expect(names.has("end")).toBe(false);
+    // CONFIG-UX-SETUP-ADVANCED-1: date-times use the datetime picker, zones the timezone picker.
     const startDateTime = create.fields.find((f) => f.name === "startDateTime")!;
-    expect(startDateTime.type).toBe("text");
+    expect(startDateTime.type).toBe("datetime");
     expect(startDateTime.required).toBe(true);
+    const startTimeZone = create.fields.find((f) => f.name === "startTimeZone")!;
+    expect(startTimeZone.type).toBe("timezone");
+    const endDateTime = create.fields.find((f) => f.name === "endDateTime")!;
+    expect(endDateTime.type).toBe("datetime");
+    expect(endDateTime.required).toBe(true);
   });
 
   it("update_event exposes the same 4 flat time fields (all optional)", async () => {
     const update = (await fetchActions()).find(
       (a) => a.key === "microsoft-outlook-calendar:update_event",
     )!;
-    for (const n of ["startDateTime", "startTimeZone", "endDateTime", "endTimeZone"]) {
+    for (const n of ["startDateTime", "endDateTime"]) {
       const f = update.fields.find((x) => x.name === n)!;
-      expect(f.type).toBe("text");
+      expect(f.type).toBe("datetime");
+      expect(f.required).toBe(false);
+    }
+    for (const n of ["startTimeZone", "endTimeZone"]) {
+      const f = update.fields.find((x) => x.name === n)!;
+      expect(f.type).toBe("timezone");
       expect(f.required).toBe(false);
     }
   });

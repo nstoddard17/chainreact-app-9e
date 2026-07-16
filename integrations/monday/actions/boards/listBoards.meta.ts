@@ -24,9 +24,12 @@ export const mondayListBoardsMeta: ActionMeta = {
     {
       name: "cursor",
       label: "Next-page cursor",
+      description:
+        "Paste `nextCursor` from the previous call to get the next page. Leave empty for the first page.",
       type: "text",
       required: false,
-      placeholder: "Page index from a previous call",
+      advanced: true,
+      placeholder: "nextCursor from a previous call",
     },
   ],
   outputs: [

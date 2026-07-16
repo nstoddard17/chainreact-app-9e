@@ -60,21 +60,24 @@ export const shopifyUpdateProductVariantMeta: ActionMeta = {
     {
       name: "option1",
       label: "Option 1",
-      description: "Optional value for the first option position.",
+      description:
+        "Optional new value for the product's first option — e.g. 'Large' if option 1 is Size.",
       type: "text",
       required: false,
     },
     {
       name: "option2",
       label: "Option 2",
-      description: "Optional value for the second option position.",
+      description:
+        "Optional new value for the product's second option — e.g. 'Red' if option 2 is Color.",
       type: "text",
       required: false,
     },
     {
       name: "option3",
       label: "Option 3",
-      description: "Optional value for the third option position.",
+      description:
+        "Optional new value for the product's third option — e.g. 'Cotton' if option 3 is Material.",
       type: "text",
       required: false,
     },

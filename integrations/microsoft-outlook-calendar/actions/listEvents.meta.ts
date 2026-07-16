@@ -32,7 +32,7 @@ export const microsoftOutlookCalendarListEventsMeta: ActionMeta = {
       name: "startDateTime",
       label: "Start Of Window",
       description:
-        "Lower bound, entered in **UTC** (stored as `2026-06-01T00:00:00Z`). Required if End Of Window is set (both or neither).",
+        "Earliest event start to include (UTC). Set both window fields or neither.",
       type: "datetime-utc",
       required: false,
       placeholder: "2026-06-01T00:00:00Z",
@@ -41,7 +41,7 @@ export const microsoftOutlookCalendarListEventsMeta: ActionMeta = {
       name: "endDateTime",
       label: "End Of Window",
       description:
-        "Upper bound, entered in **UTC** (stored as `2026-06-30T23:59:59Z`). Required if Start Of Window is set (both or neither).",
+        "Latest event start to include (UTC). Set both window fields or neither.",
       type: "datetime-utc",
       required: false,
       placeholder: "2026-06-30T23:59:59Z",
@@ -70,7 +70,7 @@ export const microsoftOutlookCalendarListEventsMeta: ActionMeta = {
     {
       name: "subjectFilter",
       label: "Subject Contains",
-      description: "Optional substring filter on the event subject (Graph $filter).",
+      description: "Only include events whose title contains this text.",
       type: "text",
       required: false,
     },

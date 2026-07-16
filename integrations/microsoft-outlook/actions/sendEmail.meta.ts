@@ -42,7 +42,7 @@ export const outlookSendEmailMeta: ActionMeta = {
   type: "send_email",
   displayName: "Send Email",
   description:
-    "Send an email from the connected Outlook mailbox via Microsoft Graph. isHtml and importance are required — V2 forces explicit choice for both because each has user-visible behavior. Attachments are an advanced option not yet exposed in the builder — set via direct workflow JSON if needed. Requires the Mail.Send scope.",
+    "Send an email from the connected Outlook mailbox via Microsoft Graph. isHtml and importance are required — V2 forces explicit choice for both because each has user-visible behavior. Requires the Mail.Send scope.",
   category: "email",
   requiresIntegration: true,
   fields: [
@@ -101,7 +101,7 @@ export const outlookSendEmailMeta: ActionMeta = {
       name: "isHtml",
       label: "Is HTML",
       description:
-        "Required. When on, the body is sent as HTML; when off, plain text. NO default per Outlook Phase 2 Q11 — V2 forces explicit choice to avoid V1's silent plaintext default surprising HTML authors.",
+        "How the body is delivered: on = formatted HTML email, off = plain text. Required — match how you wrote the body.",
       type: "boolean",
       required: true,
     },
@@ -109,7 +109,7 @@ export const outlookSendEmailMeta: ActionMeta = {
       name: "importance",
       label: "Importance",
       description:
-        "Required. Microsoft Graph importance flag. 'High' adds the user-visible exclamation in Outlook. NO default per Outlook Phase 2 Q11 — V2 forces explicit choice.",
+        "Priority flag recipients see. 'High' shows Outlook's red exclamation mark. Required — pick one (Normal is typical).",
       type: "select",
       required: true,
       options: [
@@ -122,7 +122,7 @@ export const outlookSendEmailMeta: ActionMeta = {
       name: "attachments",
       label: "Attachments",
       description:
-        "Optional file attachments. Use the variable picker to insert upstream FileRef outputs (e.g. gmail:get_attachment, slack:download_file). The Outlook handler enforces Microsoft Graph's synchronous-sendMail caps (3 MB per attachment, 25 MB combined) before calling Graph; signed-URL + provider-URL fetching is handler-owned. Prefer upstream get_*/download_* actions that yield v2_storage refs — Outlook's handler rejects provider_url refs (cross-provider URL fetch is not supported).",
+        "Attach files from earlier steps — use the variable picker to insert a file output (e.g. a downloaded attachment). Limits: 3 MB per file, 25 MB total.",
       type: "file-array",
       required: false,
       fileArrayMaxItems: 25,

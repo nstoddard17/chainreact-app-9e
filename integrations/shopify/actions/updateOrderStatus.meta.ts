@@ -5,13 +5,16 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  *
  * Mirrors `updateOrderStatus.schema.ts`, a `z.discriminatedUnion("action", …)`
  * over three operations: `cancel`, `add_tags`, `add_note`. The union is
- * flattened into a single field set:
+ * flattened into a single field set scoped by top-level `visibleWhen`
+ * (CONFIG-UX-SETUP-ADVANCED-1) so each operation shows only its own fields:
  *   - `action` / `order_id` / `notify_customer` are common (required).
- *   - `reason` / `restock` (cancel-only) and `tags` (add_tags) / `note`
- *     (add_note) carry `dependsOn: "action"` so the builder clears them when
- *     the operation changes. They are `required: false` at the meta layer
- *     because their requiredness is operation-conditional; the runtime
- *     discriminated union is authoritative.
+ *   - `reason` / `restock` are cancel-only (optional in the Cancel arm) —
+ *     `visibleWhen: action ∈ {cancel}`.
+ *   - `tags` (add_tags) and `note` (add_note) are REQUIRED by their union
+ *     arms — `visibleWhen` + `required: true` (required-when-visible), so
+ *     readiness demands them exactly when the runtime does. When the
+ *     operation changes, hidden fields are auto-cleared (visibleWhen
+ *     cascade), so a stale other-arm value can't trip the `.strict()` union.
  *
  * RISK (Marcus decision, 4.SHOPIFY-META-2): the `cancel` operation cancels
  * the order and (when notify_customer) emails the customer — irreversible
@@ -58,17 +61,17 @@ export const shopifyUpdateOrderStatusMeta: ActionMeta = {
       name: "notify_customer",
       label: "Notify Customer",
       description:
-        "Required, no default (explicit consent). For Cancel, when true Shopify emails the customer a cancellation notice. Has no email effect for tags/note but is required for shape consistency.",
+        "Required, no default (explicit consent). For Cancel: emails the customer a cancellation notice. Has no effect for Add Tags / Add Note (still required).",
       type: "boolean",
       required: true,
     },
     {
       name: "reason",
       label: "Cancel Reason",
-      description: "Cancel only. Why the order is being cancelled.",
+      description: "Why the order is being cancelled.",
       type: "select",
       required: false,
-      dependsOn: "action",
+      visibleWhen: { field: "action", valueIn: ["cancel"] },
       options: [
         { value: "customer", label: "Customer" },
         { value: "fraud", label: "Fraud" },
@@ -80,28 +83,28 @@ export const shopifyUpdateOrderStatusMeta: ActionMeta = {
     {
       name: "restock",
       label: "Restock Items",
-      description: "Cancel only. When true, Shopify restocks the order's items.",
+      description: "When true, Shopify restocks the order's items.",
       type: "boolean",
       required: false,
-      dependsOn: "action",
+      visibleWhen: { field: "action", valueIn: ["cancel"] },
     },
     {
       name: "tags",
       label: "Tags",
       description:
-        "Add Tags only (required for that operation). Comma-separated tags; merged with the order's existing tags by the handler.",
+        "Comma-separated tags; merged with the order's existing tags.",
       type: "text",
-      required: false,
-      dependsOn: "action",
+      required: true,
+      visibleWhen: { field: "action", valueIn: ["add_tags"] },
       placeholder: "priority, gift",
     },
     {
       name: "note",
       label: "Note",
-      description: "Add Note only (required for that operation). The order note text.",
+      description: "The order note text.",
       type: "textarea",
-      required: false,
-      dependsOn: "action",
+      required: true,
+      visibleWhen: { field: "action", valueIn: ["add_note"] },
     },
   ],
   outputs: [

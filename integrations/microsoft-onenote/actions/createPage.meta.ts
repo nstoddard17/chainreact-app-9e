@@ -75,8 +75,7 @@ export const microsoftOneNoteCreatePageMeta: ActionMeta = {
     {
       name: "title",
       label: "Title",
-      description:
-        "Page title. Shown in the OneNote app's page list and in the rendered HTML's `<title>` element.",
+      description: "The page's title, as shown in OneNote's page list.",
       type: "text",
       required: true,
       placeholder: "Q4 Planning",
@@ -85,25 +84,26 @@ export const microsoftOneNoteCreatePageMeta: ActionMeta = {
       name: "content",
       label: "Content",
       description:
-        "Page body. Empty is valid (the page renders with just the title). Variables resolve at runtime — interpolate upstream node outputs with `{{nodeId.field}}` syntax. Markup is interpreted per `contentType`.",
+        "What the page says. Empty is valid (the page renders with just the title). HTML formatting is supported by default (see Content type); you can insert values from earlier steps with the variable picker.",
       type: "textarea",
       required: false,
-      placeholder: "<p>Body…</p>",
+      placeholder: "Write the page content…",
     },
     {
       name: "contentType",
       label: "Content type",
       description:
-        "How the body markup is interpreted. `text/html` is the V2 default — accepts full HTML5 fragments; the OneNote app renders them inline. `text/plain` wraps the body in a `<pre>` block. `application/xhtml+xml` requires strict XHTML.",
+        "How your Content is read: HTML renders formatting; Plain text keeps it exactly as typed.",
       type: "select",
       required: true,
       defaultValue: "text/html",
+      advanced: true,
       options: [
-        { value: "text/html", label: "HTML (text/html — V2 default)" },
-        { value: "text/plain", label: "Plain text (text/plain)" },
+        { value: "text/html", label: "HTML" },
+        { value: "text/plain", label: "Plain text" },
         {
           value: "application/xhtml+xml",
-          label: "XHTML (application/xhtml+xml)",
+          label: "Strict XHTML",
         },
       ],
     },

@@ -23,7 +23,7 @@ export const microsoftTeamsSendChatMessageMeta: ActionMeta = {
       name: "chatId",
       label: "Chat ID",
       description:
-        "The target chat's id. Obtain it from Teams (chat deep-link), Microsoft Graph, or admin tooling — a chat picker may be added later. You can also wire it from an upstream step.",
+        "Paste the chat's id from a Teams chat link, or wire it from an earlier step. A chat picker may be added later.",
       type: "text",
       required: true,
       placeholder: "19:...@thread.v2",

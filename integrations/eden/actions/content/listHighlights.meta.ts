@@ -11,8 +11,15 @@ export const edenListHighlightsMeta: ActionMeta = {
   requiresIntegration: true,
   fields: [
     { name: "limit", label: "Limit", description: "Maximum highlights to return (1–100).", type: "number", required: false, placeholder: "25" },
-    { name: "offset", label: "Offset", description: "Pagination offset.", type: "number", required: false, placeholder: "0" },
-    { name: "orderBy", label: "Order by", description: "Optional ordering (provider-defined).", type: "text", required: false },
+    { name: "offset", label: "Offset", description: "Pagination offset.", type: "number", required: false, advanced: true, placeholder: "0" },
+    {
+      name: "orderBy",
+      label: "Order by",
+      description: "Sort order key as Eden accepts it. Leave empty for the default order.",
+      type: "text",
+      required: false,
+      advanced: true,
+    },
   ],
   outputs: [
     { name: "highlights", type: "array", description: "Highlights. Each: { id, text, url, createdAt }." },

@@ -47,8 +47,8 @@ export const facebookCreatePostMeta: ActionMeta = {
       name: "scheduledPublishTime",
       label: "Schedule for",
       description:
-        "Optional. ISO-8601 time to publish the post in the future (e.g. 2026-06-01T09:00:00Z). Leave empty to publish immediately.",
-      type: "text",
+        "Publish at this future time (UTC) instead of immediately. Leave empty to publish now.",
+      type: "datetime-utc",
       required: false,
       placeholder: "2026-06-01T09:00:00Z",
     },

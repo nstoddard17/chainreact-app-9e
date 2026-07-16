@@ -37,12 +37,14 @@ export const notionCreateDatabaseMeta: ActionMeta = {
   fields: [
     {
       name: "parentPageId",
-      label: "Parent page ID",
+      label: "Parent page",
       description:
-        "Page id under which the database is created. Workspace-level databases are not supported in this batch.",
-      type: "text",
+        "Page the database is created under. Pick one, paste an id, or wire `{{...}}` from an upstream step. Workspace-level databases are not supported.",
+      type: "combobox",
+      optionsSource: "notion:pages",
+      allowManualEntry: true,
       required: true,
-      placeholder: "abcd1234-...",
+      placeholder: "Select a page, or paste an id",
     },
     {
       name: "title",

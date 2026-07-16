@@ -46,45 +46,42 @@ export const hubspotCreateTaskMeta: ActionMeta = {
     {
       name: "hs_task_status",
       label: "Status",
-      description:
-        "Task status. Defaults to `NOT_STARTED` if omitted (matches V1 + the schema's Zod default).",
+      description: "Task status. Defaults to Not started if omitted.",
       type: "select",
       required: false,
       defaultValue: "NOT_STARTED",
       options: [
-        { value: "NOT_STARTED", label: "NOT_STARTED" },
-        { value: "IN_PROGRESS", label: "IN_PROGRESS" },
-        { value: "COMPLETED", label: "COMPLETED" },
-        { value: "WAITING", label: "WAITING" },
-        { value: "DEFERRED", label: "DEFERRED" },
+        { value: "NOT_STARTED", label: "Not started" },
+        { value: "IN_PROGRESS", label: "In progress" },
+        { value: "COMPLETED", label: "Completed" },
+        { value: "WAITING", label: "Waiting" },
+        { value: "DEFERRED", label: "Deferred" },
       ],
     },
     {
       name: "hs_task_priority",
       label: "Priority",
-      description:
-        "Task priority. Defaults to `MEDIUM` if omitted (matches V1 + the schema's Zod default).",
+      description: "Task priority. Defaults to Medium if omitted.",
       type: "select",
       required: false,
       defaultValue: "MEDIUM",
       options: [
-        { value: "LOW", label: "LOW" },
-        { value: "MEDIUM", label: "MEDIUM" },
-        { value: "HIGH", label: "HIGH" },
+        { value: "LOW", label: "Low" },
+        { value: "MEDIUM", label: "Medium" },
+        { value: "HIGH", label: "High" },
       ],
     },
     {
       name: "hs_task_type",
       label: "Type",
-      description:
-        "Task type. Defaults to `TODO` if omitted (matches V1 + the schema's Zod default).",
+      description: "Task type. Defaults to To-do if omitted.",
       type: "select",
       required: false,
       defaultValue: "TODO",
       options: [
-        { value: "TODO", label: "TODO" },
-        { value: "CALL", label: "CALL" },
-        { value: "EMAIL", label: "EMAIL" },
+        { value: "TODO", label: "To-do" },
+        { value: "CALL", label: "Call" },
+        { value: "EMAIL", label: "Email" },
       ],
     },
     {
@@ -100,15 +97,15 @@ export const hubspotCreateTaskMeta: ActionMeta = {
       name: "hs_task_reminders",
       label: "Reminders",
       description:
-        "Comma-separated millisecond-epoch timestamps for HubSpot reminder pings. Free-form string — HubSpot validates server-side.",
+        "Reminder times as millisecond timestamps, comma-separated. HubSpot validates server-side.",
       type: "text",
       required: false,
+      advanced: true,
     },
     {
       name: "hubspot_owner_id",
       label: "Owner",
-      description:
-        "HubSpot user account assigned to this task. The picker returns the owner `id` (NOT the `userId`).",
+      description: "HubSpot user account assigned to this task.",
       type: "combobox",
       optionsSource: "hubspot:owners",
       required: false,
@@ -117,28 +114,32 @@ export const hubspotCreateTaskMeta: ActionMeta = {
     {
       name: "associatedContactId",
       label: "Associated contact ID",
-      description: "Optional HubSpot contact id to associate. Best-effort.",
+      description:
+        "Link this task to a contact — insert a contact ID from an earlier step. If linking fails the task is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedCompanyId",
       label: "Associated company ID",
-      description: "Optional HubSpot company id to associate. Best-effort.",
+      description:
+        "Link this task to a company — insert a company ID from an earlier step. If linking fails the task is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedDealId",
       label: "Associated deal ID",
-      description: "Optional HubSpot deal id to associate. Best-effort.",
+      description:
+        "Link this task to a deal — insert a deal ID from an earlier step. If linking fails the task is still created (see associationWarnings).",
       type: "text",
       required: false,
     },
     {
       name: "associatedTicketId",
       label: "Associated ticket ID",
-      description: "Optional HubSpot ticket id to associate. Best-effort.",
+      description:
+        "Link this task to a ticket — insert a ticket ID from an earlier step. If linking fails the task is still created (see associationWarnings).",
       type: "text",
       required: false,
     },

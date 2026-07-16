@@ -81,12 +81,12 @@ describe("GET /api/providers/google-calendar/actions", () => {
     }
   });
 
-  it("calendarId serializes as typeable text default 'primary' with no resolver", async () => {
+  it("calendarId serializes as a combobox on the calendars resolver, default 'primary' (CONFIG-UX-SETUP-ADVANCED-1)", async () => {
     for (const a of await fetchActions()) {
       const cal = a.fields.find((f) => f.name === "calendarId")!;
-      expect(cal.type).toBe("text");
+      expect(cal.type).toBe("combobox");
       expect(cal.defaultValue).toBe("primary");
-      expect(cal.optionsSource).toBeUndefined();
+      expect(cal.optionsSource).toBe("google-calendar:calendars");
     }
   });
 
@@ -137,9 +137,14 @@ describe("GET /api/providers/google-calendar/actions", () => {
     ).toBe(true);
   });
 
-  it("no action field references a deferred/rejected Calendar resolver", async () => {
+  it("only calendarId references the calendars resolver; deferred/rejected Calendar resolvers stay unwired", async () => {
     for (const a of await fetchActions()) {
       for (const f of a.fields) {
+        if (f.name === "calendarId") {
+          // CONFIG-UX-SETUP-ADVANCED-1 wired the calendars resolver.
+          expect(f.optionsSource).toBe("google-calendar:calendars");
+          continue;
+        }
         for (const resolver of [
           "google-calendar:calendars",
           "google-calendar:events",
@@ -182,9 +187,9 @@ describe("GET /api/providers/google-calendar/triggers", () => {
     expect(t.requiresIntegration).toBe(true);
     expect(t.category).toBe("calendar");
     const cal = t.fields.find((f) => f.name === "calendarId")!;
-    expect(cal.type).toBe("text");
+    expect(cal.type).toBe("combobox");
     expect(cal.defaultValue).toBe("primary");
-    expect(cal.optionsSource).toBeUndefined();
+    expect(cal.optionsSource).toBe("google-calendar:calendars");
   });
 
   it("attendees + description payload fields serialize sensitive", async () => {

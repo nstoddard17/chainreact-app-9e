@@ -19,7 +19,7 @@ export const dropboxCopyFileMeta: ActionMeta = {
   fields: [
     {
       name: "folderPath",
-      label: "Source folder (for file picker)",
+      label: "Browse source folder (optional)",
       description:
         "Optional — pick a folder to populate the From picker below. Root-level items can't be listed here; type the From path manually.",
       type: "combobox",
@@ -53,6 +53,7 @@ export const dropboxCopyFileMeta: ActionMeta = {
       description: "Rename automatically instead of failing when something already exists at the destination.",
       type: "boolean",
       required: false,
+      defaultValue: false,
     },
   ],
   outputs: [

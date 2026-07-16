@@ -48,7 +48,7 @@ export const googleSheetsReadRowsMeta: ActionMeta = {
       name: "range",
       label: "Range",
       description:
-        "A1-notation range. Common shapes: `Sheet1!A:Z` (every row in columns A–Z — the typical choice), `Sheet1!A1:D100` (bounded rectangle), or just `Sheet1` (the whole tab). Use the read-rows comment block in `readRows.schema.ts` for the full grammar.",
+        "Which cells to read, in A1 notation. Examples: `Sheet1!A:Z` (all rows in columns A–Z — most common), `Sheet1!A1:D100` (fixed block), or `Sheet1` (whole tab).",
       type: "text",
       required: true,
       placeholder: "Sheet1!A:Z",
@@ -60,6 +60,7 @@ export const googleSheetsReadRowsMeta: ActionMeta = {
         "How Google groups cells in the returned `values` array. `ROWS` (default) yields one inner array per row — what almost every workflow expects. `COLUMNS` yields one inner array per column.",
       type: "select",
       required: true,
+      advanced: true,
       defaultValue: "ROWS",
       options: [
         {
@@ -81,6 +82,7 @@ export const googleSheetsReadRowsMeta: ActionMeta = {
         "How Sheets renders cell values. Omit to use Sheets' `FORMATTED_VALUE` default (numbers as displayed, formulas as their computed value).",
       type: "select",
       required: false,
+      advanced: true,
       options: [
         {
           value: "FORMATTED_VALUE",

@@ -449,7 +449,7 @@ describe("GET /api/providers/[id]/actions", () => {
     expect(body).toMatchObject({ code: "PROVIDER_NOT_FOUND" });
   });
 
-  it("returns the 13 Gmail action metas registered in Slice 3.15, all email category + requiresIntegration", async () => {
+  it("returns the 15 Gmail action metas (Slice 3.15 + list_labels/get_profile), all email category + requiresIntegration", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/gmail/actions"), {
       params: Promise.resolve({ id: "gmail" }),
@@ -460,7 +460,7 @@ describe("GET /api/providers/[id]/actions", () => {
       actions: Array<{ key: string; category: string; requiresIntegration: boolean }>;
     };
     expect(body.provider).toBe("gmail");
-    expect(body.actions).toHaveLength(13);
+    expect(body.actions).toHaveLength(15);
     expect(body.actions.map((a) => a.key)).toEqual([
       "gmail:send_email",
       "gmail:reply_to_email",
@@ -475,12 +475,14 @@ describe("GET /api/providers/[id]/actions", () => {
       "gmail:mark_as_unread",
       "gmail:archive_email",
       "gmail:delete_email",
+      "gmail:list_labels",
+      "gmail:get_profile",
     ]);
     expect(body.actions.every((a) => a.category === "email")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
   });
 
-  it("returns the 9 Microsoft Outlook action metas registered in Slice 3.17, all email category + requiresIntegration", async () => {
+  it("returns the 11 Microsoft Outlook action metas (Slice 3.17 + list_folders/get_profile), all email category + requiresIntegration", async () => {
     authedUser();
     const res = await getActions(new Request("http://x/microsoft-outlook/actions"), {
       params: Promise.resolve({ id: "microsoft-outlook" }),
@@ -491,7 +493,7 @@ describe("GET /api/providers/[id]/actions", () => {
       actions: Array<{ key: string; category: string; requiresIntegration: boolean }>;
     };
     expect(body.provider).toBe("microsoft-outlook");
-    expect(body.actions).toHaveLength(9);
+    expect(body.actions).toHaveLength(11);
     expect(body.actions.map((a) => a.key)).toEqual([
       "microsoft-outlook:send_email",
       "microsoft-outlook:reply_to_email",
@@ -502,6 +504,8 @@ describe("GET /api/providers/[id]/actions", () => {
       "microsoft-outlook:add_categories",
       "microsoft-outlook:move_email",
       "microsoft-outlook:delete_email",
+      "microsoft-outlook:list_folders",
+      "microsoft-outlook:get_profile",
     ]);
     expect(body.actions.every((a) => a.category === "email")).toBe(true);
     expect(body.actions.every((a) => a.requiresIntegration === true)).toBe(true);
@@ -1849,20 +1853,55 @@ describe("GET /api/providers/[id]/triggers", () => {
     expect(body.triggers[0]!.requiresIntegration).toBe(true);
     expect(body.triggers[0]!.category).toBe("crm");
 
-    // Config field — single required `subscriptions` textarea.
+    // Config field — single required `subscriptions` object-list
+    // (CONFIG-UX-SETUP-ADVANCED-1: structured rows replaced paste-JSON).
     expect(body.triggers[0]!.fields.map((f) => f.name)).toEqual([
       "subscriptions",
     ]);
-    const subscriptionsField = body.triggers[0]!.fields[0]!;
-    expect(subscriptionsField.type).toBe("textarea");
+    const subscriptionsField = body.triggers[0]!.fields[0]! as {
+      name: string;
+      type: string;
+      required: boolean;
+      description?: string;
+      itemFields?: Array<{
+        name: string;
+        type: string;
+        required: boolean;
+        options?: Array<{ value: string; label: string }>;
+        visibleWhen?: { field: string; valueEndsWith?: string };
+      }>;
+    };
+    expect(subscriptionsField.type).toBe("object-list");
     expect(subscriptionsField.required).toBe(true);
-    // Description rounds-trip and calls out the allowed event types.
-    expect(subscriptionsField.description!.toLowerCase()).toContain(
+    // Item fields: eventType select mirroring the activation allowlist 1:1,
+    // and a propertyName text shown only for propertyChange events.
+    expect(subscriptionsField.itemFields!.map((f) => f.name)).toEqual([
+      "eventType",
+      "propertyName",
+    ]);
+    const eventTypeItem = subscriptionsField.itemFields![0]!;
+    expect(eventTypeItem.type).toBe("select");
+    expect(eventTypeItem.required).toBe(true);
+    expect(eventTypeItem.options!.map((o) => o.value)).toEqual([
       "contact.creation",
-    );
-    expect(subscriptionsField.description!.toLowerCase()).toContain(
-      "propertyname",
-    );
+      "contact.propertyChange",
+      "contact.deletion",
+      "company.creation",
+      "company.propertyChange",
+      "company.deletion",
+      "deal.creation",
+      "deal.propertyChange",
+      "deal.deletion",
+      "ticket.creation",
+      "ticket.propertyChange",
+      "ticket.deletion",
+    ]);
+    const propertyNameItem = subscriptionsField.itemFields![1]!;
+    expect(propertyNameItem.type).toBe("text");
+    expect(propertyNameItem.visibleWhen).toEqual({
+      field: "eventType",
+      valueEndsWith: ".propertyChange",
+    });
 
     // Payload shape — exact 12-field set, in declared order.
     expect(body.triggers[0]!.payloadShape.map((o) => o.name)).toEqual([
@@ -2260,16 +2299,32 @@ describe("GET /api/providers/[id]/triggers", () => {
     }
 
     // audience_event field-name preservation: audienceId (camelCase) +
-    // eventTypes (string-array, with 6 allowed values surfaced in description).
+    // eventTypes (multi-select combobox over the 6 allowed values —
+    // CONFIG-UX-SETUP-ADVANCED-1).
     const audEvt = body.triggers.find((t) => t.key === "mailchimp:audience_event")!;
     const audId = audEvt.fields.find((f) => f.name === "audienceId")!;
     expect(audId.type).toBe("combobox");
     expect(audId.optionsSource).toBe("mailchimp:audiences");
     expect(audId.required).toBe(true);
     expect(audEvt.fields.find((f) => f.name === "audience_id")).toBeUndefined();
-    const evtTypes = audEvt.fields.find((f) => f.name === "eventTypes")!;
-    expect(evtTypes.type).toBe("string-array");
+    const evtTypes = audEvt.fields.find((f) => f.name === "eventTypes")! as {
+      type: string;
+      required: boolean;
+      description?: string;
+      multiple?: boolean;
+      options?: Array<{ value: string; label: string }>;
+    };
+    expect(evtTypes.type).toBe("combobox");
+    expect(evtTypes.multiple).toBe(true);
     expect(evtTypes.required).toBe(true);
+    expect(evtTypes.options!.map((o) => o.value)).toEqual([
+      "subscribe",
+      "unsubscribe",
+      "profile",
+      "upemail",
+      "cleaned",
+      "campaign",
+    ]);
     for (const allowed of [
       "subscribe",
       "unsubscribe",

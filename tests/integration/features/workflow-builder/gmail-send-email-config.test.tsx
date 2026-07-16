@@ -56,6 +56,15 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+// CONFIG-UX sweep — `labels` is now backed by the `gmail:labels` option
+// source (per-chip picker + allowManualEntry). Mock the options API so the
+// picker loads deterministically.
+const mockFetchOptionsSource = jest.fn();
+jest.mock("@/lib/api/options", () => ({
+  __esModule: true,
+  fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
+}));
+
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -117,6 +126,26 @@ beforeEach(() => {
   );
   mockListProviderTriggers.mockReset();
   mockListProviderTriggers.mockResolvedValue([]);
+  mockFetchOptionsSource.mockReset();
+  mockFetchOptionsSource.mockImplementation(async (source: string) => {
+    if (source === "gmail:labels") {
+      return {
+        ok: true,
+        source: "gmail:labels",
+        items: [
+          { value: "Label_5", label: "Invoices" },
+          { value: "STARRED", label: "Starred" },
+        ],
+        hasMore: false,
+      };
+    }
+    return {
+      ok: false,
+      source,
+      code: "SOURCE_NOT_FOUND",
+      message: `Unknown source '${source}'.`,
+    };
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -179,11 +208,16 @@ it("end-to-end: Gmail send_email config round-trips chip arrays through modal Sa
   expect(screen.getByRole("textbox", { name: /^subject$/i })).toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: /^text body$/i })).toBeInTheDocument();
   expect(screen.getByRole("textbox", { name: /^html body$/i })).toBeInTheDocument();
-  expect(screen.getByRole("textbox", { name: /^reply-to$/i })).toBeInTheDocument();
-  expect(screen.getByRole("textbox", { name: /^signature$/i })).toBeInTheDocument();
+  // CONFIG-UX sweep — replyTo / signature moved to the Advanced tab
+  // (`advanced: true`); they must NOT render in the Setup tab.
+  expect(screen.queryByRole("textbox", { name: /^reply-to$/i })).toBeNull();
+  expect(screen.queryByRole("textbox", { name: /^signature$/i })).toBeNull();
+  // Labels renders as the per-chip option picker (add-button trigger),
+  // not a free-text input (CONFIG-UX sweep — gmail:labels option source).
+  expect(screen.getByTestId("string-array-labels-add")).toBeInTheDocument();
   expect(
-    screen.getByRole("textbox", { name: /labels \(apply after send\)/i }),
-  ).toBeInTheDocument();
+    screen.queryByRole("textbox", { name: /labels \(apply after send\)/i }),
+  ).toBeNull();
 
   // 5. Add two recipients to `to`. First via Enter, second via Add button.
   const toInput = screen.getByRole("textbox", { name: /^to$/i }) as HTMLInputElement;
@@ -210,12 +244,10 @@ it("end-to-end: Gmail send_email config round-trips chip arrays through modal Sa
     "Hello from builder",
   );
 
-  // 8. Add a label chip.
-  const labelsInput = screen.getByRole("textbox", {
-    name: /labels \(apply after send\)/i,
-  }) as HTMLInputElement;
-  await user.type(labelsInput, "Label_5");
-  await user.keyboard("{Enter}");
+  // 8. Add a label chip via the option picker (CONFIG-UX sweep — labels
+  //    is backed by `gmail:labels`; picking an option stores the label id).
+  await user.click(screen.getByTestId("string-array-labels-add"));
+  await user.click(await screen.findByText("Invoices"));
 
   // 9. Modal Save flushes the draft into graphSlice.pendingNodes.
   const modal = screen.getByRole("complementary", {

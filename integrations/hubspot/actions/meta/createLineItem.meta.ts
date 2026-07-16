@@ -34,7 +34,7 @@ export const hubspotCreateLineItemMeta: ActionMeta = {
       name: "dealId",
       label: "Deal ID",
       description:
-        "HubSpot deal id to associate this line item with. Required — the handler always wires the line_item → deal association after create. Usually wired from `{{hubspot:create_deal.dealId}}`.",
+        "The deal this line item belongs to — insert the deal ID from an earlier step (e.g. Create Deal or Get Deals).",
       type: "text",
       required: true,
       placeholder: "12345",
@@ -43,7 +43,7 @@ export const hubspotCreateLineItemMeta: ActionMeta = {
       name: "hs_product_id",
       label: "Product ID",
       description:
-        "HubSpot product id to link this line item to an existing catalog product. Optional, BUT one of `Product ID` or `Name` MUST be present (handler enforces; HubSpot otherwise returns a confusing validation error). Usually wired from `{{hubspot:create_product.productId}}` or `{{hubspot:get_products.products[0].id}}`.",
+        "Link an existing product (Product ID) or type a one-off Name — set at least one. Insert the product ID from an earlier step (e.g. Create Product or Get Products).",
       type: "text",
       required: false,
     },
@@ -51,7 +51,7 @@ export const hubspotCreateLineItemMeta: ActionMeta = {
       name: "name",
       label: "Name",
       description:
-        "Free-form line item name (when not linking to an existing product). Optional, BUT one of `Product ID` or `Name` MUST be present.",
+        "Free-form line item name when not linking a product. Set at least one of Product ID or Name.",
       type: "text",
       required: false,
       placeholder: "Custom integration setup",
@@ -60,7 +60,7 @@ export const hubspotCreateLineItemMeta: ActionMeta = {
       name: "quantity",
       label: "Quantity",
       description:
-        "**Numeric STRING** — HubSpot's API expects stringified numbers for CRM property writes. Required. Wire an upstream number through `{{String(value)}}` if needed.",
+        "How many units, e.g. 1. Stored as a text string — HubSpot's required format.",
       type: "text",
       required: true,
       placeholder: "1",
@@ -69,7 +69,7 @@ export const hubspotCreateLineItemMeta: ActionMeta = {
       name: "price",
       label: "Price",
       description:
-        "**Numeric STRING** — unit price. HubSpot computes `amount = price × quantity` server-side. Omit to inherit the linked product's price.",
+        "Unit price as a number, e.g. 99.00. HubSpot computes amount = price × quantity; omit to inherit the linked product's price.",
       type: "text",
       required: false,
       placeholder: "99.00",
@@ -78,7 +78,7 @@ export const hubspotCreateLineItemMeta: ActionMeta = {
       name: "discount",
       label: "Discount",
       description:
-        "**Numeric STRING** — discount amount in the portal's currency. HubSpot subtracts from the computed amount server-side.",
+        "Discount amount in the portal's currency, e.g. 10. HubSpot subtracts it from the computed amount.",
       type: "text",
       required: false,
     },

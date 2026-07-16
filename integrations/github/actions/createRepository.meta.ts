@@ -4,15 +4,19 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Builder-facing metadata for `github:create_repository`.
  *
  * Mirrors `createRepository.schema.ts`. Per the schema docstring, V2
- * deliberately does NOT default `private` or `auto_init` — authors
- * must opt in. The meta surfaces both as optional booleans with no
- * `defaultValue` so the renderer doesn't fake a default.
+ * deliberately does NOT default `private` or `auto_init` at the schema
+ * layer. `private` is REQUIRED in the meta with NO defaultValue
+ * (CONFIG-UX sweep G, Q11 spirit): repository visibility is a
+ * world-visible switch, so the author must choose explicitly instead
+ * of riding GitHub's silent public default. The runtime schema keeps
+ * it optional (existing runs unaffected); pre-existing saved configs
+ * without `private` surface as needs-setup in the builder.
  *
- * `gitignore_template` and `license_template` have well-known enum
- * values (e.g. 'Node', 'Python' / 'mit', 'apache-2.0') but enumerating
- * them in the meta would risk drift from GitHub's catalog. Text input
- * for v1; a Slice 3.4 wrapper may add comboboxes backed by GitHub's
- * `/gitignore/templates` and `/licenses` endpoints later.
+ * `gitignore_template` / `license_template` are comboboxes seeded with
+ * the template names already documented in this repo (schema/meta
+ * examples), with `allowManualEntry` so any other GitHub catalog name
+ * still works. A resolver backed by GitHub's `/gitignore/templates`
+ * and `/licenses` endpoints may replace the static seeds later.
  */
 export const createRepositoryMeta: ActionMeta = {
   key: "github:create_repository",
@@ -42,9 +46,9 @@ export const createRepositoryMeta: ActionMeta = {
     {
       name: "private",
       label: "Private",
-      description: "When true, the repository is only visible to invited collaborators. GitHub defaults to public when omitted.",
+      description: "Choose who can see the repository: on = only invited collaborators, off = public to everyone.",
       type: "boolean",
-      required: false,
+      required: true,
     },
     {
       name: "auto_init",
@@ -56,17 +60,30 @@ export const createRepositoryMeta: ActionMeta = {
     {
       name: "gitignore_template",
       label: "Gitignore Template",
-      description: "Optional gitignore template name (e.g. 'Node', 'Python', 'Go'). Case-sensitive.",
-      type: "text",
+      description:
+        "Start the repo with a .gitignore for a language. Pick one, or type any GitHub template name (case-sensitive).",
+      type: "combobox",
       required: false,
+      options: [
+        { value: "Node", label: "Node" },
+        { value: "Python", label: "Python" },
+        { value: "Go", label: "Go" },
+      ],
+      allowManualEntry: true,
       placeholder: "Node",
     },
     {
       name: "license_template",
       label: "License Template",
-      description: "Optional SPDX license keyword (e.g. 'mit', 'apache-2.0').",
-      type: "text",
+      description:
+        "Start the repo with a license. Pick one, or type any license keyword GitHub supports.",
+      type: "combobox",
       required: false,
+      options: [
+        { value: "mit", label: "MIT" },
+        { value: "apache-2.0", label: "Apache 2.0" },
+      ],
+      allowManualEntry: true,
       placeholder: "mit",
     },
     {

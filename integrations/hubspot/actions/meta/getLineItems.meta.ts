@@ -26,9 +26,10 @@ export const hubspotGetLineItemsMeta: ActionMeta = {
       name: "limit",
       label: "Limit",
       description:
-        "Max line items per call (1..100, HubSpot's documented cap). Omit for HubSpot's default. Use `after` for pagination.",
+        "Max line items per call (1..100, HubSpot's documented cap). Use `after` for pagination.",
       type: "number",
       required: false,
+      defaultValue: 25,
       numeric: { min: 1, max: 100, integer: true, step: 1 },
     },
     {
@@ -38,6 +39,7 @@ export const hubspotGetLineItemsMeta: ActionMeta = {
         "Opaque pagination cursor. Pass the previous call's `nextCursor` to fetch the next page. Omit for the first page.",
       type: "text",
       required: false,
+      advanced: true,
     },
     {
       name: "properties",
@@ -46,6 +48,7 @@ export const hubspotGetLineItemsMeta: ActionMeta = {
         "HubSpot property names to return for each line item. Add property names as individual chips (e.g. `name`, `hs_product_id`, `quantity`, `price`, `amount`, `discount`). Omit to use HubSpot's default set.",
       type: "string-array",
       required: false,
+      advanced: true,
     },
     {
       name: "filterProperty",
@@ -59,9 +62,11 @@ export const hubspotGetLineItemsMeta: ActionMeta = {
     {
       name: "filterValue",
       label: "Filter value",
-      description: "Value to EQ-match against `Filter property`. BOTH `Filter property` and this field must be set.",
+      description:
+        "Only return line items whose chosen property exactly equals this value.",
       type: "text",
       required: false,
+      visibleWhen: { field: "filterProperty", valueTruthy: true },
     },
   ],
   outputs: [

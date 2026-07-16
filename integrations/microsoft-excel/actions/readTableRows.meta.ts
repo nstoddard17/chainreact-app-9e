@@ -13,7 +13,7 @@ export const microsoftExcelReadTableRowsMeta: ActionMeta = {
   type: "read_table_rows",
   displayName: "Read Table Rows",
   description:
-    "Read one page of rows from an Excel table. Returns each row's stable index and cell values. Single page only (Top, 1–500, default 100) — pagination is not auto-followed.",
+    "Read one page of rows from an Excel table. Returns each row's stable index and cell values. Single page only (Max rows, 1–500, default 100) — pagination is not auto-followed.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -38,8 +38,8 @@ export const microsoftExcelReadTableRowsMeta: ActionMeta = {
     },
     {
       name: "top",
-      label: "Top",
-      description: "Max rows to return in this single page (1–500). Defaults to 100.",
+      label: "Max rows",
+      description: "How many rows to return at most (1–500). Default 100.",
       type: "number",
       required: false,
       defaultValue: 100,

@@ -268,14 +268,16 @@ it("end-to-end: meta-derived defaults seed the draft → type subject → switch
     useConfigSlice.getState().drafts[action.id]!.values.hs_task_subject,
   ).toBe(SUBJECT);
 
-  // 5. Switch priority MEDIUM → HIGH via the static select.
-  await selectFieldOption(user, /^priority$/i, "HIGH");
+  // 5. Switch priority Medium → High via the static select (plain-English
+  //    label; committed value stays the HubSpot wire enum "HIGH").
+  await selectFieldOption(user, /^priority$/i, "High");
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.hs_task_priority,
   ).toBe("HIGH");
 
-  // 6. Switch status NOT_STARTED → IN_PROGRESS.
-  await selectFieldOption(user, /^status$/i, "IN_PROGRESS");
+  // 6. Switch status Not started → In progress (label; value stays
+  //    "IN_PROGRESS").
+  await selectFieldOption(user, /^status$/i, "In progress");
   expect(
     useConfigSlice.getState().drafts[action.id]!.values.hs_task_status,
   ).toBe("IN_PROGRESS");

@@ -7,13 +7,12 @@
  * itself is exercised by `destructive-action-confirmation-modal.test.tsx`
  * — this test pins the Discord-specific shape that flows in.
  *
- * Limitation acknowledged in the meta: `messageIds[]`, `userIds[]`,
- * `keywords[]` are `string-array` fields. The current FieldMeta
- * contract forbids `optionsSource` on string-array, so the pickers
- * (`discord:messages`, `discord:members`) do NOT cascade-populate
- * these fields. A future contract extension would let them. The
- * test verifies the string-array shape AND that the saved-config
- * keys preserve camelCase.
+ * `messageIds[]` / `userIds[]` are `string-array` fields WITH pickers
+ * (SWEEP-2 allows `optionsSource` on string-array): `discord:messages`
+ * (deps: channelId) and `discord:members` (deps: guildId), both with
+ * `allowManualEntry` for pasted ids. `keywords[]` stays a plain chip
+ * list. The test verifies the string-array shape, the picker wiring,
+ * AND that the saved-config keys preserve camelCase.
  */
 
 const mockUpdateWorkflow = jest.fn();
@@ -92,18 +91,22 @@ describe("Discord delete_message meta — destructive shape", () => {
     expect(byName.get("channelId")!.dependsOn).toBe("guildId");
   });
 
-  it("string-array fields (messageIds / userIds / keywords) have NO optionsSource (contract limitation)", () => {
+  it("string-array id fields wire their pickers with manual entry; keywords stays plain", () => {
     const byName = new Map(
       discordDeleteMessageMeta.fields.map((f) => [f.name, f]),
     );
     for (const name of ["messageIds", "userIds", "keywords"]) {
-      const field = byName.get(name)!;
-      expect(field.type).toBe("string-array");
-      // contracts/actionMeta.ts superRefine: optionsSource is only
-      // valid on `select` / `combobox` fields. Future contract
-      // extension would lift this.
-      expect(field.optionsSource).toBeUndefined();
+      expect(byName.get(name)!.type).toBe("string-array");
     }
+    const messageIds = byName.get("messageIds")!;
+    expect(messageIds.optionsSource).toBe("discord:messages");
+    expect(messageIds.dependsOn).toBe("channelId");
+    expect(messageIds.allowManualEntry).toBe(true);
+    const userIds = byName.get("userIds")!;
+    expect(userIds.optionsSource).toBe("discord:members");
+    expect(userIds.dependsOn).toBe("guildId");
+    expect(userIds.allowManualEntry).toBe(true);
+    expect(byName.get("keywords")!.optionsSource).toBeUndefined();
   });
 
   it("keywordMatchType defaults to 'partial' (mirrors V1 runtime default)", () => {

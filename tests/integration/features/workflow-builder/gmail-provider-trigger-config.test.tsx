@@ -51,6 +51,15 @@ jest.mock("@/lib/api/discovery", () => ({
   },
 }));
 
+// CONFIG-UX sweep — `labelId` is now a combobox backed by the
+// `gmail:labels` option source (allowManualEntry keeps the raw-id paste
+// path). Mock the options API so the picker loads deterministically.
+const mockFetchOptionsSource = jest.fn();
+jest.mock("@/lib/api/options", () => ({
+  __esModule: true,
+  fetchOptionsSource: (...args: unknown[]) => mockFetchOptionsSource(...args),
+}));
+
 import { openLastNodeOfKind } from "./helpers/openLastNodeOfKind";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -64,6 +73,7 @@ import { __resetProviderActionsCacheForTests } from "@/features/workflow-builder
 import { __resetProviderTriggersCacheForTests } from "@/features/workflow-builder/hooks/useProviderTriggers";
 import { newEmailTriggerMeta } from "@/integrations/gmail/triggers/newEmail/newEmail.meta";
 import { newLabeledEmailTriggerMeta } from "@/integrations/gmail/triggers/newLabeledEmail/newLabeledEmail.meta";
+import { pickComboboxOption } from "./helpers/comboboxField";
 import type { ActionMeta } from "@/contracts/actionMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 
@@ -130,6 +140,26 @@ beforeEach(() => {
   mockListProviderTriggers.mockImplementation(async (p: string) =>
     p === "gmail" ? [newEmailTriggerMeta, newLabeledEmailTriggerMeta] : [],
   );
+  mockFetchOptionsSource.mockReset();
+  mockFetchOptionsSource.mockImplementation(async (source: string) => {
+    if (source === "gmail:labels") {
+      return {
+        ok: true,
+        source: "gmail:labels",
+        items: [
+          { value: "Label_12345", label: "Invoices" },
+          { value: "STARRED", label: "Starred" },
+        ],
+        hasMore: false,
+      };
+    }
+    return {
+      ok: false,
+      source,
+      code: "SOURCE_NOT_FOUND",
+      message: `Unknown source '${source}'.`,
+    };
+  });
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -177,10 +207,13 @@ it("end-to-end: pick Gmail new_labeled_email via drill-in, configure, save, down
   expect(trigger!.provider).toBe("gmail");
   expect(trigger!.type).toBe("new_labeled_email");
 
-  // 5. Open the trigger config rail.
+  // 5. Open the trigger config rail. `labelId` renders as the async
+  //    gmail:labels combobox (CONFIG-UX sweep).
   await openLastNodeOfKind("trigger");
   await waitFor(() => {
-    expect(screen.getByLabelText(/label id/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: /^label$/i }),
+    ).toBeInTheDocument();
   });
   // Header shows the meta's displayName. (Slice 4.BUILDER-NODE-IDENTITY-1: the
   // canvas card now also shows the node name, so scope this to the config panel.)
@@ -190,8 +223,9 @@ it("end-to-end: pick Gmail new_labeled_email via drill-in, configure, save, down
     ),
   ).toBeInTheDocument();
 
-  // 6. Type a label id — configSlice draft flips dirty.
-  await user.type(screen.getByLabelText(/label id/i), "Label_12345");
+  // 6. Pick a label from the resolver — stores the label ID value and
+  //    flips the configSlice draft dirty.
+  await pickComboboxOption(user, /^label$/i, "Invoices");
   expect(useConfigSlice.getState().drafts[trigger!.id]!.isDirty).toBe(true);
 
   // 7. Modal Save — graphSlice.pendingNodes carries the config.

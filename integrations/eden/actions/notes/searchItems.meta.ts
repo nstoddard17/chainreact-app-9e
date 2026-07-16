@@ -20,9 +20,17 @@ export const edenSearchItemsMeta: ActionMeta = {
       placeholder: "Default workspace",
     },
     { name: "query", label: "Search text", description: "Text to search for.", type: "text", required: true, placeholder: "Search…" },
-    { name: "type", label: "Type filter", description: "Optional item type to filter by (e.g. note, canvas).", type: "text", required: false, placeholder: "note" },
+    {
+      name: "type",
+      label: "Type filter",
+      description:
+        "Only include one item type. Eden types boards as `canvas` and notes as `markdown`. Leave empty for all types.",
+      type: "text",
+      required: false,
+      placeholder: "canvas",
+    },
     { name: "limit", label: "Limit", description: "Maximum items to return (1–100).", type: "number", required: false, placeholder: "25" },
-    { name: "cursor", label: "Cursor", description: "Pagination cursor from a previous call's nextCursor.", type: "text", required: false },
+    { name: "cursor", label: "Cursor", description: "Pagination cursor from a previous call's nextCursor.", type: "text", required: false, advanced: true },
   ],
   outputs: [
     { name: "items", type: "array", description: "Matching items. Each: { id, title, type, parentId, url, createdAt, updatedAt }." },

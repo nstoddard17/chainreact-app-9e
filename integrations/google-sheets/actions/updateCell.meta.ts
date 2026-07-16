@@ -31,7 +31,7 @@ export const googleSheetsUpdateCellMeta: ActionMeta = {
   type: "update_cell",
   displayName: "Update Cell",
   description:
-    "Update a single cell value via `spreadsheets.values.update`. Specify sheet + cell separately (`Sheet1` + `B5`); the handler composes the A1 range. Value can be a string, number, boolean, or `null` (blanks the cell). **Q11 required:** choose RAW vs USER_ENTERED explicitly.",
+    "Update a single cell value. Specify sheet + cell separately (`Sheet1` + `B5`). Value can be a string, number, boolean, or `null` (blanks the cell). Required choice: parse the value as if typed in Sheets, or store it exactly as written.",
   category: "data",
   requiresIntegration: true,
   fields: [
@@ -78,19 +78,19 @@ export const googleSheetsUpdateCellMeta: ActionMeta = {
       name: "valueInputOption",
       label: "Value input option",
       description:
-        "How Sheets interprets the value. **No default — pick explicitly.** RAW: literal text (`=SUM(A1:A10)` stays a string). USER_ENTERED: parses formulas, dates, numbers as a human would type them.",
+        "How Sheets treats your value. Required — 'parse as typed' makes =SUM(...), dates and numbers live; 'store exactly' keeps them as text.",
       type: "select",
       required: true,
       options: [
         {
-          value: "RAW",
-          label: "RAW",
-          description: "Literal text — formulas / dates / numbers stay as the string you passed.",
+          value: "USER_ENTERED",
+          label: "Parse as if typed in Sheets",
+          description: "Formulas evaluate, dates and numbers become live values.",
         },
         {
-          value: "USER_ENTERED",
-          label: "USER_ENTERED",
-          description: "Parsed as if a human typed it — formulas evaluate, dates parse, `\"42\"` becomes a number.",
+          value: "RAW",
+          label: "Store exactly as written",
+          description: "Everything stays literal text — =SUM(...) stays a string.",
         },
       ],
     },

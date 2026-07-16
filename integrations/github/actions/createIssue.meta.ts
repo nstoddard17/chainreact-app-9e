@@ -4,14 +4,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Builder-facing metadata for `github:create_issue`.
  *
  * Mirrors `createIssue.schema.ts`. `labels` and `assignees` are
- * `string[]` in the resolved-config schema; we surface them as text
- * fields with a "comma-separated" description so the v1 renderer
- * (Slice 3.1) can do the CSV split at submit time. A richer tag-list
- * field type will land if/when authors hit friction.
- *
- * `repository` is plain text for v1 — a future Slice 3.4 GitHubConfig
- * wrapper may swap in a combobox backed by an `/api/integrations/github/data/repos`
- * endpoint. Until that ships, the text input matches V1's behavior.
+ * `string[]` in the resolved-config schema and are surfaced as
+ * `string-array` chip fields so the renderer commits a real `string[]`
+ * (CONFIG-UX sweep G — the earlier text fields committed a comma
+ * string that failed the runtime schema; no CSV split ever existed in
+ * the submit/execution path).
  */
 export const createIssueMeta: ActionMeta = {
   key: "github:create_issue",
@@ -51,18 +48,18 @@ export const createIssueMeta: ActionMeta = {
     {
       name: "labels",
       label: "Labels",
-      description: "Optional comma-separated list of label names to attach (e.g. 'bug, priority-high').",
-      type: "text",
+      description: "Labels to put on the issue. Press Enter after each one.",
+      type: "string-array",
       required: false,
-      placeholder: "bug, priority-high",
+      placeholder: "bug",
     },
     {
       name: "assignees",
       label: "Assignees",
-      description: "Optional comma-separated list of GitHub usernames to assign (e.g. 'octocat, hubot').",
-      type: "text",
+      description: "GitHub usernames to assign to the issue. Press Enter after each one.",
+      type: "string-array",
       required: false,
-      placeholder: "octocat, hubot",
+      placeholder: "octocat",
     },
     {
       name: "milestone",

@@ -57,7 +57,8 @@ export const shopifyUpdateCustomerMeta: ActionMeta = {
     {
       name: "tags",
       label: "Tags",
-      description: "Optional comma-separated tags (replaces existing tags).",
+      description:
+        "Optional comma-separated tags. **Replaces ALL existing tags on the customer — include any you want to keep.**",
       type: "text",
       required: false,
     },
@@ -72,7 +73,7 @@ export const shopifyUpdateCustomerMeta: ActionMeta = {
       name: "accepts_marketing",
       label: "Accepts Marketing",
       description:
-        "Optional marketing-consent flag. Omit to leave the current value unchanged.",
+        "Optional marketing-consent flag. Only set this to true with the customer's actual consent. Omit to leave the current value unchanged.",
       type: "boolean",
       required: false,
     },

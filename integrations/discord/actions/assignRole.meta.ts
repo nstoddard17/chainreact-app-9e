@@ -45,7 +45,7 @@ export const discordAssignRoleMeta: ActionMeta = {
     {
       name: "guildId",
       label: "Server",
-      description: "Discord server. Drives the member + role pickers.",
+      description: "Server where the member and role live. Only servers where the ChainReact bot has been added appear.",
       type: "combobox",
       optionsSource: "discord:guilds",
       required: true,
@@ -54,8 +54,7 @@ export const discordAssignRoleMeta: ActionMeta = {
     {
       name: "userId",
       label: "Member",
-      description:
-        "Discord member who will receive the role. Picker sourced from `discord:members`; gated on Server.",
+      description: "Member who will receive the role. Pick a server first.",
       type: "combobox",
       optionsSource: "discord:members",
       dependsOn: "guildId",
@@ -66,7 +65,7 @@ export const discordAssignRoleMeta: ActionMeta = {
       name: "roleId",
       label: "Role",
       description:
-        "Role to assign. Picker sourced from `discord:roles`; gated on Server. `@everyone` and integration-managed roles (booster, bot integrations) are excluded. **Discord blocks assigning a role higher than the bot's own highest role** — hierarchy filtering is enforced at runtime, not in this picker.",
+        "Role to assign. Pick a server first. @everyone and integration-managed roles are excluded, and Discord only lets the bot assign roles below its own highest role.",
       type: "combobox",
       optionsSource: "discord:roles",
       dependsOn: "guildId",

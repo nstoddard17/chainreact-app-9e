@@ -26,7 +26,7 @@ export const hubspotUpdateLineItemMeta: ActionMeta = {
       name: "lineItemId",
       label: "Line item ID",
       description:
-        "HubSpot line item id (numeric, returned by the API as a string). Usually wired from `{{hubspot:create_line_item.lineItemId}}` or `{{hubspot:get_line_items.lineItems[0].id}}`.",
+        "Which line item to update — insert the line item ID from an earlier step (e.g. Create Line Item or Get Line Items).",
       type: "text",
       required: true,
       placeholder: "12345",
@@ -41,21 +41,24 @@ export const hubspotUpdateLineItemMeta: ActionMeta = {
     {
       name: "quantity",
       label: "Quantity",
-      description: "**Numeric STRING** — HubSpot expects stringified numbers.",
+      description:
+        "How many units, e.g. 1. Stored as a text string — HubSpot's required format.",
       type: "text",
       required: false,
     },
     {
       name: "price",
       label: "Price",
-      description: "**Numeric STRING** — unit price. HubSpot recomputes `amount` server-side.",
+      description:
+        "Unit price as a number, e.g. 99.00. HubSpot recomputes the amount server-side.",
       type: "text",
       required: false,
     },
     {
       name: "discount",
       label: "Discount",
-      description: "**Numeric STRING** — discount amount in the portal's currency.",
+      description:
+        "Discount amount in the portal's currency, e.g. 10. HubSpot subtracts it from the computed amount.",
       type: "text",
       required: false,
     },

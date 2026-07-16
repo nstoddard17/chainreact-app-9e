@@ -41,8 +41,11 @@ export const mondayListItemsMeta: ActionMeta = {
     {
       name: "cursor",
       label: "Next-page cursor",
+      description:
+        "Paste `nextCursor` from the previous call to get the next page. Leave empty for the first page.",
       type: "text",
       required: false,
+      advanced: true,
       placeholder: "Opaque token from a previous call",
     },
   ],

@@ -40,7 +40,7 @@ export const outlookReplyToEmailMeta: ActionMeta = {
       name: "replyAll",
       label: "Reply all",
       description:
-        "Required. When on, the reply goes to the sender AND all other recipients (Graph /replyAll endpoint). When off, only the sender (/reply endpoint). NO default per Outlook Phase 2 Q11 — endpoint selection is destructive enough to force explicit choice.",
+        "Required. On: reply goes to the sender and everyone else on the email. Off: only the sender. Choose deliberately — reply-all is visible to all recipients.",
       type: "boolean",
       required: true,
     },
