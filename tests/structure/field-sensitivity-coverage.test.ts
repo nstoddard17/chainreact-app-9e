@@ -86,6 +86,7 @@ const HEURISTIC_FALSE_POSITIVES: Record<string, readonly string[]> = {
   "facebook:comment_on_post": ["attachmentUrl"], // media to attach
   "shopify:create_fulfillment": ["tracking_url"], // shipment tracking link (data, not a destination)
   "mailchimp:link_clicked": ["url"], // trigger filter: which clicked link to match
+  "eden:read_content": ["url"], // the public post URL to READ (fetch source), not a send destination
   "microsoft-onenote:update_page": ["target"], // CSS selector / data-id (insert target in HTML), not a destination
   // QUICKBOOKS-1 — stored contact/billing details on the customer RECORD, not send
   // destinations: V2 never sends anything to the phone or postal address (the only
@@ -96,6 +97,20 @@ const HEURISTIC_FALSE_POSITIVES: Record<string, readonly string[]> = {
   "quickbooks:create_customer": ["phone", "addressLine1", "addressLine2"],
   // `dateTo` — an invoice-date range bound; the "to" token matches incidentally.
   "quickbooks:list_invoices": ["dateTo"],
+  // POWER BI — resolver-backed resource selectors whose `target` token matches the
+  // recipient heuristic. Both name WHICH Power BI resource the clone is created in /
+  // bound to (a workspace container and a semantic model), not a party a message is
+  // sent to — the same shape as `microsoft-onenote:update_page.target`. Still
+  // heuristic-blocked at the apply gate.
+  "microsoft-powerbi:clone_report": ["targetWorkspaceId", "targetSemanticModelId"],
+  // `url` — the CONNECTION DETAIL of the data source the on-premises gateway itself
+  // connects to (OData/SharePoint/Web/File path), not a destination V2 sends anything
+  // to; mirrors `mailchimp:link_clicked.url`. `credentialType` — a select enum naming
+  // the auth METHOD (Basic/Windows/Key); it matches the `credential` secret substring
+  // but holds no credential material (the actual material lives in the `username` /
+  // `password` fields, which ARE annotated `secret`).
+  "microsoft-powerbi:create_gateway_datasource": ["url", "credentialType"],
+  "microsoft-powerbi:update_gateway_datasource_credentials": ["credentialType"],
 };
 
 /** Every sensitivity category the apply-safety heuristics would assign to this key. */
