@@ -5,6 +5,7 @@ import type { OptionItem, OptionsResolver } from "@/services/options/types";
 import {
   filterAndSortByLabel,
   mapGithubOptionsError,
+  parseRepositoryDep,
   requireGithubIntegration,
 } from "./_shared";
 
@@ -43,20 +44,11 @@ export const githubBranchesResolver: OptionsResolver = {
     const integration = requireGithubIntegration(ctx);
 
     // The route validated presence/non-emptiness; shape is ours to check.
-    const repository = ctx.deps.repository ?? "";
-    const slash = repository.indexOf("/");
-    if (
-      slash <= 0 ||
-      slash === repository.length - 1 ||
-      repository.slice(slash + 1).includes("/") ||
-      /\s/.test(repository)
-    ) {
-      // Not `owner/repo`-shaped (e.g. mid-typing manual entry) — an
-      // empty list with manual entry beats a scary error state.
-      return { items: [], hasMore: false };
-    }
-    const owner = repository.slice(0, slash);
-    const repo = repository.slice(slash + 1);
+    // Not `owner/repo`-shaped (e.g. mid-typing manual entry) → empty list;
+    // manual entry beats a scary error state.
+    const parsed = parseRepositoryDep(ctx.deps.repository ?? "");
+    if (!parsed) return { items: [], hasMore: false };
+    const { owner, repo } = parsed;
 
     const accessToken = decryptToken(integration.accessTokenEncrypted);
 

@@ -58,6 +58,35 @@ export function mapGithubOptionsError(err: unknown, what: string): never {
   );
 }
 
+/**
+ * Split the `repository` dep (`owner/repo` — the exact value `github:repos`
+ * stores) into `{ owner, repo }`, or `null` when it isn't `owner/repo`-shaped.
+ *
+ * Returns null rather than throwing: a half-typed manual entry is the normal
+ * mid-edit state, and every repo-scoped resolver (`branches` / `labels` /
+ * `assignees`) turns null into an empty option list — an empty picker with
+ * manual entry beats a scary error state. Deliberately NOT
+ * `actions/_parseRepository.ts`, which throws AND echoes the raw value into
+ * the message (fine for a handler, wrong for a browser-facing picker).
+ */
+export function parseRepositoryDep(
+  repository: string,
+): { owner: string; repo: string } | null {
+  const slash = repository.indexOf("/");
+  if (
+    slash <= 0 ||
+    slash === repository.length - 1 ||
+    repository.slice(slash + 1).includes("/") ||
+    /\s/.test(repository)
+  ) {
+    return null;
+  }
+  return {
+    owner: repository.slice(0, slash),
+    repo: repository.slice(slash + 1),
+  };
+}
+
 /** Case-insensitive substring filter on labels, then alpha sort. */
 export function filterAndSortByLabel(
   items: readonly OptionItem[],

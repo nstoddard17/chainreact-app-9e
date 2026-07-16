@@ -12,7 +12,10 @@
  *   - changeKinds string-array (chip input) — pin that ['added',
  *     'updated', 'removed'] all flow through as a real `string[]`,
  *   - snapshotRowLimit bounded number,
- *   - keyColumn text,
+ *   - keyColumn combobox sourced from `google-sheets:columns` with
+ *     `dependsOn: [spreadsheetId, sheetName]` (RESOLVERS-1) — exercises a
+ *     MULTI-parent cascade end-to-end and keeps the visibleWhen headerRow
+ *     gate,
  *   - payload sensitive flags (rowValues, keyValue, previousValues)
  *     surface from the meta — pinned at the meta-shape level,
  *   - Modal Save flushes draft → Toolbar Save persists once.
@@ -127,6 +130,18 @@ beforeEach(() => {
         hasMore: false,
       };
     }
+    if (source === "google-sheets:columns") {
+      // RESOLVERS-1 — the real row-1 headers of the chosen tab.
+      return {
+        ok: true,
+        source: "google-sheets:columns",
+        items: [
+          { value: KEY_COLUMN, label: KEY_COLUMN, description: "Column A" },
+          { value: "Customer", label: "Customer", description: "Column B" },
+        ],
+        hasMore: false,
+      };
+    }
     return {
       ok: false,
       source,
@@ -187,10 +202,21 @@ it("Google Sheets row_changed meta field shape + payload-sensitive flags — Sli
   // CONFIG-UX sweep — snapshot tuning lives in the Advanced tab; keyColumn
   // only renders while the Header row toggle is on (visibleWhen).
   expect(byName.get("snapshotRowLimit")!.advanced).toBe(true);
-  expect(byName.get("keyColumn")!.visibleWhen).toEqual({
+  const keyColumn = byName.get("keyColumn")!;
+  expect(keyColumn.visibleWhen).toEqual({
     field: "headerRow",
     valueTruthy: true,
   });
+  // RESOLVERS-1 — keyColumn picks a REAL row-1 header via google-sheets:columns
+  // (deps spreadsheetId + sheetName) instead of asking authors to type it.
+  // visibleWhen headerRow is preserved: keyColumn without headerRow is a
+  // combination the trigger schema rejects at parse time.
+  expect(keyColumn.type).toBe("combobox");
+  expect(keyColumn.optionsSource).toBe("google-sheets:columns");
+  expect(keyColumn.dependsOn).toEqual(["spreadsheetId", "sheetName"]);
+  expect(keyColumn.allowManualEntry).toBe(true);
+  expect(keyColumn.required).toBe(false);
+  expect(keyColumn.options).toBeUndefined();
 
   // Payload sensitive pins.
   const payload = new Map(
@@ -304,14 +330,23 @@ it("end-to-end: trigger picker → spreadsheet → sheet (cascade) → headerRow
   ).toBe(2000);
   await user.click(screen.getByRole("tab", { name: /setup/i }));
 
-  // 9. keyColumn — type the header name.
-  await user.type(
-    screen.getByRole("textbox", { name: /^key column$/i }),
-    KEY_COLUMN,
-  );
+  // 9. keyColumn — pick a REAL row-1 header from google-sheets:columns
+  //    (RESOLVERS-1). The committed value is still the header string.
+  await pickComboboxOption(user, /^key column$/i, KEY_COLUMN);
   expect(useConfigSlice.getState().drafts[trigger.id]!.values.keyColumn).toBe(
     KEY_COLUMN,
   );
+  // The columns picker is cascaded on BOTH parents — pin that the request
+  // actually carried them (a missing dep short-circuits at the route).
+  await waitFor(() => {
+    const call = mockFetchOptionsSource.mock.calls.find(
+      (c) => c[0] === "google-sheets:columns",
+    );
+    expect(call).toBeDefined();
+    const args = call![1] as { deps?: Record<string, string> } | undefined;
+    expect(args?.deps?.spreadsheetId).toBe(SPREADSHEET_ID);
+    expect(args?.deps?.sheetName).toBe(SHEET_NAME);
+  });
 
   // 10. Modal Save flushes the draft.
   const modal = screen.getByRole("complementary", {
