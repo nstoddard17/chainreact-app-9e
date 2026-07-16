@@ -1,8 +1,19 @@
 # Builder Config Setup/Advanced Usability Audit — Tracker (CONFIG-UX-SETUP-ADVANCED-1)
 
-**Date:** 2026-07-15 · **Branch:** `v2-main` · **Local commits only, nothing pushed.**
-**Predecessors (untouched):** CONFIG-FIELD-UX-MODERNIZATION (phase-4), CONFIG-UX-AUDIT-1/2,
+**Date:** 2026-07-15 · **Branch:** `v2-main` · **Predecessors (untouched):**
+CONFIG-FIELD-UX-MODERNIZATION (phase-4), CONFIG-UX-AUDIT-1/2,
 SPREADSHEET-CONFIG-REDESIGN-1 (phase-5).
+
+> **⚠️ This tracker's original closeout was PREMATURE — superseded by the
+> corrective pass below (RESOLVERS-1 + CONFIG-UX-NODE-SUMMARY-1, 2026-07-16).**
+> The first pass classified fields and fixed the Setup/Advanced structure, but it
+> DEFERRED the provider-discovery work that the normal path actually depends on —
+> leaving normal users to paste `sub_…` / `cus_…` / `price_…` / record ids into
+> "Setup". Deferring that was wrong: needing a new read-only API wrapper, a
+> resolver, pagination, or account-scoped credentials is an implementation
+> requirement, not a reason to redefine product scope. §9–§11 record the correction.
+
+---
 
 ## 1. Scope and method
 
@@ -170,3 +181,112 @@ corrected against the long-committed handler registries.
 
 Recorded in the final owner report (commands + results), including the inherited
 baseline failures that predate this slice.
+
+---
+
+## 9. Corrective pass — RESOLVERS-1 (provider resource discovery)
+
+**Why:** the first pass shipped Setup/Advanced structure but left ~60 fields where the
+normal path still demanded a provider-internal identifier, because building the
+discovery infrastructure was scoped out. That failed the product standard: *a normal
+user must never have to leave ChainReact, inspect a URL, or hunt an opaque id to
+configure the common path.* Stripe was the clearest failure — **zero** resolvers, so
+`update_subscription` asked for `sub_…` **and** `price_…` as free text.
+
+### Re-audit method
+
+The whole 1,571-field surface was re-dumped from the LIVE discovery registry (not the
+earlier report) and every resource-referencing field was classified into five buckets:
+static-setup-resource (picker required) · upstream-runtime value (mapping is correct) ·
+external-system-supplied · provider-cannot-list · freeform business key. Full ledger,
+including endpoint + scope verdicts for anything left uncovered:
+[`config-ux-audit/resource-field-ledger.md`](./config-ux-audit/resource-field-ledger.md).
+
+### Resolver families added (24 new sources)
+
+| Provider | Sources | Backing endpoint |
+|---|---|---|
+| stripe (had **zero**) | `customers`, `subscriptions`, `prices` | `/v1/customers`, `/v1/subscriptions?expand=data.customer`, `/v1/prices?expand=data.product` |
+| hubspot | `contacts`, `companies`, `deals`, `tickets`, `products`, `line_items` (server-side search) + 6 `*_properties` + `call_disposition` | `POST /crm/v3/objects/{type}/search`, `GET /crm/v3/properties/{type}` |
+| github | `branches`, `labels`, `assignees` | `/repos/{o}/{r}/{branches,labels,assignees}` |
+| google-sheets | `columns` | header-row `values.get` (mirrors `excel:worksheet_columns`) |
+| microsoft | `excel:table_columns`, `teams:chats` (un-deferred with owner sign-off), `onenote:target_sections` | Graph `tables/{t}/columns`, `/me/chats?$expand=members`, `/me/onenote/sections?$expand=parentNotebook` |
+| slack | `channels_archived` | `conversations.list` (`excludeArchived:false`, archived-only) |
+| microsoft-outlook | `categories` | `/me/outlook/masterCategories` |
+| notion | `databases` | `POST /v1/search` (object=database filter) |
+| shopify | `products`, `customers` | `products.json`, `customers.json` |
+| airtable | `records` (reverses the v1 record-picker rejection) | base schema → primary field, `/v0/{base}/{table}` |
+
+Plus **12 fields wired to resolvers that already existed but were never connected**
+(gmail labels ×5, outlook folders ×4, notion pages ×7, slack users, discord
+messages/members, mailchimp members ×5, airtable add_attachment, stripe find_customer,
+hubspot ticket associations ×3, notion get_block ×2).
+
+**Label policy (enforced by tests):** display names only — contact/customer labels never
+carry email, phone, balance, or spend. Subscription labels read "customer — status";
+price labels use the merchant's own catalog pricing. Every picker keeps
+`allowManualEntry` + variable insertion, so a power user is never trapped by a resolver
+that can't list their resource.
+
+### The durable guard
+
+[`tests/structure/resource-field-discovery-coverage.test.ts`](../../../tests/structure/resource-field-discovery-coverage.test.ts)
+scans every builder-visible field and **fails** when an identifier-shaped field is plain
+Setup text with no registered `optionsSource`, unless it carries a documented exemption
+in one of four evidence classes — **UPSTREAM · NO-LISTING · SCOPE · CONTRACT**. It also
+fails on a picker pointing at an unregistered source, and on a stale exemption whose
+field no longer exists. This is what stops paste-the-id UX from returning.
+
+### Honestly unresolved (35 exemptions, each with evidence in the guard)
+
+- **UPSTREAM (majority):** message / email / event / attachment / charge / payment-intent
+  ids. Produced by an earlier step or delivered by a trigger; there is no meaningful
+  browse list and mapping is the correct UX.
+- **SCOPE:** `shopify:update_inventory.location_id` — the Location REST resource requires
+  `read_locations`, absent from the manifest; adding it forces every merchant to
+  reconnect (an owner decision). Same parent-gap blocks `variant_id`.
+- **CONTRACT:** `github:create_issue.milestone` (runtime stores `z.number()`; the contract
+  forbids `optionsSource` on `number` and a combobox commits a string — needs a schema
+  change); `mailchimp:unsubscribe_subscriber.emailAddress` (its V1 field names can't feed
+  the members resolver, which reads `deps.audience_id` — SchemaForm keys deps by the
+  parent's field NAME); object-list ROW sub-fields (the `ObjectListItemField` contract has
+  no `optionsSource`, which is why quickbooks invoice line items and stripe checkout row
+  prices still take typed ids).
+- **NO-LISTING:** GA `send_event.apiSecret` (decision D-GA1 — never read or surfaced),
+  GA `clientId`/`userId` (generated by the customer's own site at runtime).
+
+## 10. Corrective pass — CONFIG-UX-NODE-SUMMARY-1 (at-a-glance)
+
+A configured node now explains itself in business language, on the collapsed card and in
+the panel, per the north star.
+
+- **`core/workflows/nodeConfigSummary.ts`** (pure): task-shaped headline + segments from
+  registry metadata. Classifies each value RESOURCE (picker-backed → recognizable name) ·
+  DYNAMIC (`{{…}}` → "from the trigger" / "from an earlier step") · CONDITION
+  (select/boolean → the chosen option's label) · FIXED (reused every run). Hidden
+  (`visibleWhen` unmet) and empty fields excluded; structured rows summarize by count.
+- **`resourceLabelCache`**: pickers write `(source,value)→label` as they load; summaries
+  read it. Display-only — never influences what is saved. A miss shows the stored id
+  marked "(saved id)" rather than inventing a name.
+- **`NodeConfigOverview`** (Setup tab) groups *Using · From earlier steps (changes each
+  run) · Behavior · Same on every run*, so fixed-vs-per-run is visually distinguishable.
+- **Card headline** via `buildNodeSummaryFieldsByType` (the `configDiffFieldMeta`
+  server-computed-prop pattern) → canvas adapter → `node-summary-line`. It renders **only
+  when every resource label resolved**, making a raw id on the canvas structurally
+  impossible.
+
+## 11. Live verification — NOT done
+
+**No resolver in RESOLVERS-1 has been exercised against a real provider account in this
+session** (no connected test accounts available). Each resolver header records its
+endpoint + official doc URL and is unit-tested against a mocked provider boundary
+(labels/values, q-filter, pagination `hasMore`, disconnected, 401→reconnect,
+provider-error sanitization, no-PII pins). **Nothing here may be described as
+live-certified.** Graceful degradation is what makes this safe to ship un-smoked: every
+wired field keeps manual entry, and scope/permission failures map to a typed Reconnect
+state rather than a dead control.
+
+**Owner action needed before these light up for existing users:**
+`microsoft-outlook:categories` requires the newly-**optional** `MailboxSettings.Read`
+scope — existing Outlook connections must reconnect, and the Azure app registration may
+need the delegated permission added first.
