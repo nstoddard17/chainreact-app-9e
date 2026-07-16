@@ -39,12 +39,15 @@ export const airtableUpdateRecordMeta: ActionMeta = {
     },
     {
       name: "recordId",
-      label: "Record ID",
+      label: "Record",
       description:
-        "The record id to update (e.g. recXXXXXXXXXXXXXX). Usually mapped from an upstream step.",
-      type: "text",
+        "The record to update. Pick from the list, paste a record id (e.g. recXXXXXXXXXXXXXX), or map one from an upstream step. Pick a base and table first.",
+      type: "combobox",
       required: true,
-      placeholder: "rec…",
+      optionsSource: "airtable:records",
+      dependsOn: ["baseId", "tableIdOrName"],
+      allowManualEntry: true,
+      placeholder: "Select base + table first",
     },
     {
       name: "fields",

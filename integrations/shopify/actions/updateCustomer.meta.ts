@@ -18,11 +18,14 @@ export const shopifyUpdateCustomerMeta: ActionMeta = {
   fields: [
     {
       name: "customer_id",
-      label: "Customer ID",
-      description: "The Shopify customer id to update.",
-      type: "text",
+      label: "Customer",
+      description:
+        "The customer to update. Pick from the list, paste a Shopify customer id, or map one from an upstream step.",
+      type: "combobox",
       required: true,
-      placeholder: "207119551",
+      optionsSource: "shopify:customers",
+      allowManualEntry: true,
+      placeholder: "Search customers…",
     },
     {
       name: "email",

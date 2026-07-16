@@ -583,7 +583,7 @@ describe("options resolver registry", () => {
       expect(r?.requiredDeps).toEqual(["baseId", "tableIdOrName"]);
     });
 
-    it("registers exactly the 5 AIRTABLE-META-2 resolver keys", () => {
+    it("registers the 6 Airtable resolver keys (records joined in RESOLVERS-1)", () => {
       const sources = listOptionsResolvers()
         .filter((r) => r.provider === "airtable")
         .map((r) => r.source)
@@ -592,17 +592,18 @@ describe("options resolver registry", () => {
         "airtable:attachment_fields",
         "airtable:bases",
         "airtable:fields",
+        "airtable:records",
         "airtable:tables",
         "airtable:views",
       ]);
     });
 
-    it("does NOT register airtable:records (record pickers rejected for v1)", () => {
-      expect(getOptionsResolver("airtable:records")).toBeUndefined();
-      const sources = listOptionsResolvers()
-        .filter((r) => r.provider === "airtable")
-        .map((r) => r.source);
-      expect(sources).not.toContain("airtable:records");
+    it("registers airtable:records (RESOLVERS-1 reversed the v1 rejection; deps baseId + tableIdOrName)", () => {
+      const r = getOptionsResolver("airtable:records");
+      expect(r).toBeDefined();
+      expect(r?.provider).toBe("airtable");
+      expect(r?.requiresIntegration).toBe(true);
+      expect(r?.requiredDeps).toEqual(["baseId", "tableIdOrName"]);
     });
   });
 

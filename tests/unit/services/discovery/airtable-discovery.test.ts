@@ -7,8 +7,9 @@
  * key===provider:type, category 'data', camelCase fields (Airtable
  * schemas are camelCase), resolver wiring (bases / tables dependsOn
  * baseId / fields+views+attachment_fields multi-parent dependsOn
- * [baseId, tableIdOrName]), delete_record risk trio, sensitive cell-data
- * outputs, and the rejected airtable:records resolver staying absent.
+ * [baseId, tableIdOrName] / records picker on get/update/delete_record
+ * recordId — RESOLVERS-1, Marcus-required), delete_record risk trio, and
+ * sensitive cell-data outputs.
  * Trigger assertions live in airtable-triggers-discovery.test.ts.
  */
 import {
@@ -122,17 +123,26 @@ describe("airtable discovery — field hygiene + resolver wiring", () => {
     expect(add.fields.find((f) => f.name === "file")!.type).toBe("file");
   });
 
-  it("recordId stays plain text (no record picker; airtable:records rejected)", () => {
+  it("recordId on get/update/delete_record → airtable:records picker (multi-parent + manual entry; RESOLVERS-1)", () => {
     for (const key of [
       "airtable:get_record",
       "airtable:update_record",
       "airtable:delete_record",
-      "airtable:add_attachment",
     ]) {
       const f = getActionMeta(key)!.fields.find((x) => x.name === "recordId")!;
-      expect(f.type).toBe("text");
-      expect(f.optionsSource).toBeUndefined();
+      expect(f.type).toBe("combobox");
+      expect(f.optionsSource).toBe("airtable:records");
+      expect(f.dependsOn).toEqual(["baseId", "tableIdOrName"]);
+      expect(f.allowManualEntry).toBe(true);
     }
+  });
+
+  it("add_attachment.recordId stays plain text (picker wired only on get/update/delete_record)", () => {
+    const f = getActionMeta("airtable:add_attachment")!.fields.find(
+      (x) => x.name === "recordId",
+    )!;
+    expect(f.type).toBe("text");
+    expect(f.optionsSource).toBeUndefined();
   });
 
   it("typed field maps + batch records are advanced json fields (no typed-field-map renderer yet — CONFIG-UX-AUDIT-2 parses to the schema shape)", () => {
@@ -153,10 +163,17 @@ describe("airtable discovery — field hygiene + resolver wiring", () => {
     }
   });
 
-  it("no field anywhere references the rejected airtable:records resolver", () => {
+  it("airtable:records is referenced ONLY by get/update/delete_record recordId (no accidental spread)", () => {
+    const allowed = new Set([
+      "airtable:get_record.recordId",
+      "airtable:update_record.recordId",
+      "airtable:delete_record.recordId",
+    ]);
     for (const m of listActionMetasForProvider("airtable")) {
       for (const f of m.fields) {
-        expect(f.optionsSource).not.toBe("airtable:records");
+        if (f.optionsSource === "airtable:records") {
+          expect(allowed.has(`${m.key}.${f.name}`)).toBe(true);
+        }
       }
     }
   });

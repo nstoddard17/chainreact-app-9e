@@ -371,13 +371,18 @@ import { microsoftExcelWorksheetColumnsResolver } from "@/integrations/microsoft
 // tables/fields/views/attachment_fields reuse the existing
 // `basesGetSchema` helper; only `bases` needs the new `basesList`. Dep
 // names (`baseId`, `tableIdOrName`) are pinned verbatim to the Airtable
-// runtime Zod schemas. `airtable:records` is intentionally NOT
-// registered (record pickers are large/ambiguous — rejected for v1).
+// runtime Zod schemas. RESOLVERS-1 (Marcus-required) reverses the v1
+// record-picker rejection: `airtable:records` now backs the recordId
+// pickers on get/update/delete_record (primary-field label, id value).
 import { airtableBasesResolver } from "@/integrations/airtable/options/bases";
 import { airtableTablesResolver } from "@/integrations/airtable/options/tables";
 import { airtableFieldsResolver } from "@/integrations/airtable/options/fields";
 import { airtableViewsResolver } from "@/integrations/airtable/options/views";
 import { airtableAttachmentFieldsResolver } from "@/integrations/airtable/options/attachmentFields";
+import { airtableRecordsResolver } from "@/integrations/airtable/options/records";
+// RESOLVERS-1 — `shopify:customers` backs update_customer.customer_id.
+// Names-only labels (NO email/phone/spend); read_customers scope.
+import { shopifyCustomersResolver } from "@/integrations/shopify/options/customers";
 
 // Trello resolvers — Slice 4.TRELLO-META-2 (resolver-first ahead of
 // TRELLO-META-3 action/trigger metas; Trello stays OUT of
@@ -688,6 +693,8 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   airtableFieldsResolver,
   airtableViewsResolver,
   airtableAttachmentFieldsResolver,
+  // RESOLVERS-1 — record picker (deps: baseId + tableIdOrName).
+  airtableRecordsResolver,
   // Slice 4.TRELLO-META-2 — 5 Trello resolvers (resolver-first ahead of
   // TRELLO-META-3 metas). boards (root) → lists / cards / members /
   // labels (dep: boardId, single-parent — no multi-parent needed). 5 new
@@ -814,6 +821,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   githubBranchesResolver,
   notionDatabasesResolver,
   shopifyProductsResolver,
+  shopifyCustomersResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

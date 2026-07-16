@@ -196,8 +196,9 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // test. The 1 webhook trigger meta (`record_changed`) ships in the same
   // slice; trigger coverage is enforced by trigger-meta-activation-invariant,
   // not here. `delete_record` = high/destructive/requiresConfirmation
-  // (Marcus decision). `airtable:records` resolver intentionally absent
-  // (recordId stays typed).
+  // (Marcus decision). `airtable:records` picker wired on
+  // get/update/delete_record recordId (RESOLVERS-1 — Marcus-required,
+  // reversing the AIRTABLE-META-1 v1 rejection).
   "airtable",
   // Trello added in Slice 4.TRELLO-META-3 once all 8 registered Trello
   // action handlers have a matching meta (create/update/move/archive card,

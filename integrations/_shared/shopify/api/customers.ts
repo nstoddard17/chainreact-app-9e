@@ -4,6 +4,8 @@ import { shopifyRequest } from "./_request";
  * Shopify Admin REST `/customers` resource wrappers.
  *
  * Slice 12 Commit 3. Covers `create_customer` and `update_customer`.
+ * RESOLVERS-1 adds the read-only `customersList` (GET /customers.json)
+ * backing the `shopify:customers` options resolver.
  *
  * The `send_email_welcome` field is Shopify's REST equivalent of the
  * Q11 `send_welcome_email` consent gate from the action schema.
@@ -30,6 +32,44 @@ export interface ShopifyCustomer {
 
 interface ShopifyCustomerResponse {
   customer: ShopifyCustomer;
+}
+
+// ─── customersList ──────────────────────────────────────────────────────────
+
+export interface CustomersListInput {
+  shopDomain: string;
+  accessToken: string;
+  /** Page size, 1..250 (Shopify max). Callers pass an explicit bound. */
+  limit: number;
+}
+
+interface ShopifyCustomersListResponse {
+  customers: ShopifyCustomer[];
+}
+
+/**
+ * One bounded page of customers — GET `/customers.json?limit=N`.
+ * Docs: https://shopify.dev/docs/api/admin-rest/2024-10/resources/customer#get-customers
+ *
+ * RESOLVERS-1: read path for the `shopify:customers` options resolver.
+ * No cursor / `page_info` pagination is exposed — the resolver is
+ * single-page by design (V2 posture: bounded page + local q filter).
+ */
+export async function customersList(
+  input: CustomersListInput,
+): Promise<ShopifyCustomer[]> {
+  const query = new URLSearchParams();
+  query.append("limit", String(input.limit));
+
+  const response = await shopifyRequest<ShopifyCustomersListResponse>({
+    shopDomain: input.shopDomain,
+    accessToken: input.accessToken,
+    method: "GET",
+    path: "/customers.json",
+    query,
+    resourceForNotFound: "customers (list)",
+  });
+  return response.customers;
 }
 
 // ─── customersCreate ────────────────────────────────────────────────────────

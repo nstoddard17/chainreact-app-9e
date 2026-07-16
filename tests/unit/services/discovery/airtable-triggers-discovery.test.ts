@@ -40,7 +40,7 @@ describe("airtable trigger discovery — record_changed", () => {
     expect(table.required).toBe(false);
   });
 
-  it("does not reference the rejected airtable:records resolver", () => {
+  it("does not reference the airtable:records resolver (record picker is action-only)", () => {
     const t = getTriggerMeta("airtable:record_changed")!;
     for (const f of t.fields) {
       expect(f.optionsSource).not.toBe("airtable:records");

@@ -22,7 +22,11 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
  *   - `view` / `fields` → airtable:views / airtable:fields (multi-parent
  *     dep `["baseId","tableIdOrName"]`, enabled by BUILDER-OPTIONS-1).
  *   - `add_attachment.fieldName` → airtable:attachment_fields (multi-parent).
- *   - `recordId` is typed (no record picker; `airtable:records` rejected).
+ *   - `recordId` on get/update/delete_record → airtable:records
+ *     (multi-parent dep `["baseId","tableIdOrName"]` + allowManualEntry;
+ *     RESOLVERS-1 — Marcus explicitly required record pickers, reversing
+ *     the AIRTABLE-META-1 v1 rejection). `add_attachment.recordId` stays
+ *     typed for now.
  *
  * `delete_record` is high/destructive/requiresConfirmation (Marcus
  * decision — deleting a record can permanently remove business data;

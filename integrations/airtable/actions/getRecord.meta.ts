@@ -3,8 +3,9 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 /**
  * Builder metadata for `airtable:get_record` — Slice 4.AIRTABLE-META-3.
  * Mirrors `getRecord.schema.ts`. Read action (low risk). `recordId` is a
- * typed field (no record picker — ids flow from upstream steps; per
- * AIRTABLE-META-1 the `airtable:records` resolver is rejected for v1).
+ * searchable record picker (`airtable:records`, RESOLVERS-1 — Marcus
+ * explicitly required record pickers, reversing the AIRTABLE-META-1
+ * v1 rejection) with manual entry so upstream-mapped ids still work.
  * Output `fields` carries record cell values → sensitive.
  */
 export const airtableGetRecordMeta: ActionMeta = {
@@ -38,12 +39,15 @@ export const airtableGetRecordMeta: ActionMeta = {
     },
     {
       name: "recordId",
-      label: "Record ID",
+      label: "Record",
       description:
-        "The record id (e.g. recXXXXXXXXXXXXXX). Usually mapped from an upstream trigger or list/find step.",
-      type: "text",
+        "The record to fetch. Pick from the list, paste a record id (e.g. recXXXXXXXXXXXXXX), or map one from an upstream trigger or list/find step. Pick a base and table first.",
+      type: "combobox",
       required: true,
-      placeholder: "rec…",
+      optionsSource: "airtable:records",
+      dependsOn: ["baseId", "tableIdOrName"],
+      allowManualEntry: true,
+      placeholder: "Select base + table first",
     },
   ],
   outputs: [

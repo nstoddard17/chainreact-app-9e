@@ -26,6 +26,15 @@
       ]
     },
     {
+      "source": "airtable:records",
+      "provider": "airtable",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "baseId",
+        "tableIdOrName"
+      ]
+    },
+    {
       "source": "airtable:tables",
       "provider": "airtable",
       "requiresIntegration": true,
@@ -718,6 +727,12 @@
     {
       "source": "quickbooks:terms",
       "provider": "quickbooks",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "shopify:customers",
+      "provider": "shopify",
       "requiresIntegration": true,
       "requiredDeps": null
     },
