@@ -41,11 +41,20 @@ export const quickbooksCreateInvoiceMeta: ActionMeta = {
         "One row per invoice line. Item id is the QuickBooks product/service id (find ids via the Items dropdown on other fields or in QuickBooks). Amount is the line total — it is never derived for you.",
       itemFields: [
         {
+          // RESOLVERS-3 — picked from the company's own product/service
+          // catalog (`quickbooks:items`, registered by QUICKBOOKS-1 but
+          // referenced by ZERO fields until now — it existed only because a
+          // sub-field could not bind an option source). `allowManualEntry`
+          // keeps `{{...}}` mapping + paste-an-id working.
           name: "itemId",
-          label: "Item id",
+          label: "Product/service",
+          description:
+            "The QuickBooks product or service this line bills for. Pick one, or map it from an earlier step.",
           type: "text",
           required: true,
-          placeholder: "QuickBooks item id",
+          placeholder: "Search products and services…",
+          optionsSource: "quickbooks:items",
+          allowManualEntry: true,
         },
         {
           name: "amount",
@@ -72,10 +81,19 @@ export const quickbooksCreateInvoiceMeta: ActionMeta = {
           required: false,
         },
         {
+          // RESOLVERS-3 — `quickbooks:tax_codes` was likewise registered and
+          // unreferenced. Stays OPTIONAL and undefaulted: when omitted,
+          // QuickBooks' own tax behavior applies (see the schema doc) — the
+          // picker only removes the id lookup, it does not change semantics.
           name: "taxCodeId",
-          label: "Tax code id",
+          label: "Tax code",
+          description:
+            "Optional. Leave empty to let QuickBooks apply its own tax behavior for this line.",
           type: "text",
           required: false,
+          placeholder: "Search tax codes…",
+          optionsSource: "quickbooks:tax_codes",
+          allowManualEntry: true,
         },
       ],
     },

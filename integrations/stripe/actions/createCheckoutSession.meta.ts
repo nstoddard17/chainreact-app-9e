@@ -117,12 +117,20 @@ export const stripeCreateCheckoutSessionMeta: ActionMeta = {
       listMaxItems: 99,
       itemFields: [
         {
+          // RESOLVERS-3 — picked from the merchant's own Stripe catalog
+          // (`stripe:prices`, registered since RESOLVERS-1) instead of
+          // hand-typing a `price_xxx` id. `allowManualEntry` keeps upstream
+          // `{{...}}` mapping + paste-an-id working; the committed value is
+          // the same raw price id the .strict() schema always took.
           name: "priceId",
-          label: "Price ID",
-          description: "The Stripe price to charge (starts with `price_`).",
+          label: "Price",
+          description:
+            "The Stripe price to charge. Pick one from your catalog, or map it from an earlier step.",
           type: "text",
           required: true,
-          placeholder: "price_xxx",
+          placeholder: "Search prices…",
+          optionsSource: "stripe:prices",
+          allowManualEntry: true,
         },
         {
           name: "quantity",

@@ -13,8 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FieldShell } from "./FieldShell";
-import type { ObjectListItemField } from "@/contracts/actionMeta";
+import type { FieldMeta, ObjectListItemField } from "@/contracts/actionMeta";
 import type { FieldRendererProps } from "./types";
+import { ItemFieldPicker, hasItemFieldPicker } from "./_itemFieldPicker";
 
 /**
  * `object-list` field renderer (CONFIG-UX-AUDIT-1) — repeating rows of a
@@ -22,6 +23,14 @@ import type { FieldRendererProps } from "./types";
  * the paste-JSON textareas that previously fronted array-of-object
  * configs (HubSpot webhook subscriptions, Stripe line items, Shopify
  * order line items, Mailchimp segment conditions).
+ *
+ * RESOLVERS-3 — a sub-field that declares `optionsSource` renders a REAL
+ * account-aware picker per row (delegated to ComboboxField via
+ * `_itemFieldPicker`) instead of a raw text box, so a provider id inside a
+ * row (Stripe `lineItems[].priceId`, Shopify `line_items[].variant_id`) is
+ * chosen, not hand-typed. The picker is ADDITIVE: manual entry and
+ * `{{upstream}}` variable mapping still work, and the committed row shape is
+ * unchanged (a `number` sub-field still commits a number).
  *
  * Value contract:
  *   - Writes a REAL `Array<Record<string, string | number | boolean>>` —
@@ -98,6 +107,8 @@ export const ObjectListField: React.FC<FieldRendererProps> = ({
   error,
   onChange,
   disabled,
+  formValues,
+  formFields,
 }) => {
   const rows = asRows(value);
   const controlId = `field-${field.name}`;
@@ -197,9 +208,12 @@ export const ObjectListField: React.FC<FieldRendererProps> = ({
                   key={sub.name}
                   sub={sub}
                   rowIndex={i}
+                  fieldName={field.name}
                   fieldLabel={field.label}
                   value={row[sub.name]}
                   disabled={disabled}
+                  formValues={formValues}
+                  formFields={formFields}
                   onChange={(v) => updateRow(i, sub.name, v)}
                 />
               ) : null,
@@ -227,20 +241,45 @@ export const ObjectListField: React.FC<FieldRendererProps> = ({
 function SubFieldInput({
   sub,
   rowIndex,
+  fieldName,
   fieldLabel,
   value,
   disabled,
+  formValues,
+  formFields,
   onChange,
 }: {
   sub: ObjectListItemField;
   rowIndex: number;
+  fieldName: string;
   fieldLabel: string;
   value: string | number | boolean | undefined;
   disabled: boolean | undefined;
+  formValues: Readonly<Record<string, unknown>> | undefined;
+  formFields: readonly FieldMeta[] | undefined;
   onChange: (v: string | number | boolean | undefined) => void;
 }): React.ReactElement {
   const inputId = `object-list-${fieldLabel}-${rowIndex}-${sub.name}`;
   const ariaLabel = `${sub.label} (entry ${rowIndex + 1})`;
+
+  // RESOLVERS-3 — picker path. Checked BEFORE the type branches: the
+  // sub-field's `type` stays its VALUE type (the picker still commits a
+  // number for a `number` sub-field), `optionsSource` only upgrades the
+  // widget. The control name is row-qualified so each row gets its own DOM
+  // id / testids instead of duplicates.
+  if (hasItemFieldPicker(sub)) {
+    return (
+      <ItemFieldPicker
+        sub={sub}
+        controlName={`${fieldName}-${rowIndex}-${sub.name}`}
+        value={value}
+        disabled={disabled}
+        formValues={formValues}
+        formFields={formFields}
+        onChange={onChange}
+      />
+    );
+  }
 
   if (sub.type === "boolean") {
     return (

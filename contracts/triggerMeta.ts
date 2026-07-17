@@ -3,6 +3,7 @@ import {
   ActionCategorySchema,
   FieldMetaSchema,
   OutputMetaSchema,
+  checkItemFieldOptionSourceReferences,
   checkVisibleWhenReferences,
   normalizeDependsOn,
   type FieldMeta,
@@ -98,6 +99,10 @@ export const TriggerMetaSchema = z
     // CONFIG-UX-SETUP-ADVANCED-1 — visibleWhen must reference a known,
     // unconditionally-visible sibling (shared with ActionMetaSchema).
     checkVisibleWhenReferences(meta.fields, ctx);
+
+    // RESOLVERS-3 — an itemField picker's `dependsOn` must name a real
+    // TOP-LEVEL sibling (shared with ActionMetaSchema).
+    checkItemFieldOptionSourceReferences(meta.fields, ctx);
   });
 export type TriggerMeta = z.infer<typeof TriggerMetaSchema>;
 

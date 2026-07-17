@@ -332,6 +332,10 @@ export function SchemaForm({
         // both props.
         formValues={values}
         onChangeField={handleChange}
+        // RESOLVERS-3 — structured editors resolve an itemField picker's
+        // `dependsOn` against the node's TOP-LEVEL fields and need their
+        // labels for the "Select <parent> first" hint. Ignored elsewhere.
+        formFields={fields}
       />
     );
 

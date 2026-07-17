@@ -302,14 +302,88 @@ export function checkVisibleWhenReferences(
 }
 
 /**
- * CONFIG-UX-AUDIT-1 — sub-field of an `object-list` row.
+ * RESOLVERS-3 — shared meta-level validation for `itemFields` option-source
+ * references. Used by BOTH ActionMetaSchema and TriggerMetaSchema superRefines.
  *
- * Deliberately a REDUCED shape (no optionsSource, no dependsOn, no nesting):
- * object-list rows are small fixed-shape objects; anything richer belongs in
- * a dedicated field type. `visibleWhen` gates a sub-field on a sibling
- * sub-field's value in the SAME row (e.g. HubSpot `propertyName` only when
- * `eventType` ends with `.propertyChange`). A sub-field hidden by
- * `visibleWhen` is omitted from the serialized row object entirely.
+ * A sub-field picker's `dependsOn` is resolved by the renderer against the
+ * NODE'S TOP-LEVEL config (the object-list field's siblings) — row-local deps
+ * are deliberately NOT supported (see ObjectListItemFieldSchema's scope
+ * limit). So a `dependsOn` that names something which is not a real top-level
+ * field on the same node can never be satisfied: the options route would
+ * short-circuit MISSING_DEPENDENCY on every keystroke and ship a permanently
+ * dead dropdown with no error to explain it.
+ *
+ * That fails LOUDLY at module load here — for every importer, not just one
+ * test suite — exactly like the top-level "depends on unknown field" guard.
+ * Naming the object-list field itself is rejected too: an object-list value is
+ * an array of rows, never a dep string.
+ */
+export function checkItemFieldOptionSourceReferences(
+  fields: readonly FieldMeta[],
+  ctx: z.RefinementCtx,
+): void {
+  const topLevelNames = new Set(fields.map((f) => f.name));
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i]!;
+    const itemFields = field.itemFields;
+    if (!itemFields) continue;
+    for (let j = 0; j < itemFields.length; j++) {
+      const sub = itemFields[j]!;
+      for (const dep of normalizeDependsOn(sub.dependsOn)) {
+        if (!topLevelNames.has(dep)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["fields", i, "itemFields", j, "dependsOn"],
+            message: `Sub-field '${field.name}[].${sub.name}' depends on unknown top-level field '${dep}'. Sub-field \`dependsOn\` resolves against the node's top-level fields, not other columns in the same row.`,
+          });
+        } else if (dep === field.name) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["fields", i, "itemFields", j, "dependsOn"],
+            message: `Sub-field '${field.name}[].${sub.name}' cannot depend on its own containing field '${field.name}'.`,
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * CONFIG-UX-AUDIT-1 — sub-field of an `object-list` row (also used by the
+ * single-object `object` editor).
+ *
+ * Still a REDUCED shape (no nesting), but as of RESOLVERS-3 a sub-field CAN
+ * bind a registered `optionsSource`, so a provider identifier living inside a
+ * structured row (Stripe `lineItems[].priceId`, QuickBooks
+ * `lineItems[].itemId`, Shopify `line_items[].variant_id`) is PICKED from the
+ * user's real account instead of hand-typed. Before RESOLVERS-3 the contract
+ * could not express this and every such id was a raw text box next to a
+ * registered-but-unreferenced resolver.
+ *
+ * `type` stays the sub-field's VALUE type — it is not a widget selector.
+ * `optionsSource` upgrades the INPUT to a searchable picker while `type`
+ * keeps deciding what gets committed, so a `number` sub-field bound to a
+ * picker still writes a number and the runtime `.strict()` schema sees a
+ * byte-identical row.
+ *
+ * `visibleWhen` gates a sub-field on a sibling sub-field's value in the SAME
+ * row (e.g. HubSpot `propertyName` only when `eventType` ends with
+ * `.propertyChange`). A sub-field hidden by `visibleWhen` is omitted from the
+ * serialized row object entirely.
+ *
+ * ── SCOPE LIMIT, read before wiring a picker ──────────────────────────────
+ * `dependsOn` on a sub-field resolves against the NODE'S TOP-LEVEL config —
+ * the object-list field's SIBLINGS — never against row-local values. Every
+ * shipped case needs exactly that (Power BI `parameters[].name` depends on
+ * the top-level `workspaceId` + `semanticModelId`), and the meta-level
+ * superRefine enforces it: a sub-field `dependsOn` naming something that is
+ * not a real top-level field on the same node throws at module load.
+ *
+ * A picker whose source or deps vary PER ROW (e.g. HubSpot
+ * `subscriptions[].propertyName`, where the right resolver —
+ * contact/company/deal/ticket_properties — is chosen by that row's own
+ * `eventType`) is NOT expressible here and must stay a text sub-field. Do not
+ * fake it by hoisting a row-local value to the node.
  */
 export const ObjectListItemFieldSchema = z
   .object({
@@ -325,6 +399,35 @@ export const ObjectListItemFieldSchema = z
     placeholder: z.string().max(256).optional(),
     /** Static options; only valid (and required) when `type: "select"`. */
     options: z.array(FieldOptionSchema).max(256).optional(),
+    /**
+     * RESOLVERS-3 — registered option-source id backing a per-row picker.
+     * Only valid on `text` / `number` sub-fields (a `select` sub-field is the
+     * static-options widget; `boolean` is a switch). Mutually exclusive with
+     * `options`. The referenced source must be registered — enforced by
+     * tests/structure/option-source-reference-integrity.test.ts, same as
+     * top-level `optionsSource`.
+     */
+    optionsSource: z.string().min(1).max(128).optional(),
+    /**
+     * RESOLVERS-3 — parent field name(s) whose values the resolver needs as
+     * `requiredDeps`. Resolved against the NODE'S TOP-LEVEL fields (the
+     * object-list field's siblings), NOT against other columns in the same
+     * row — see the scope limit above. Only valid alongside `optionsSource`.
+     */
+    dependsOn: z
+      .union([
+        z.string().min(1).max(128),
+        z.array(z.string().min(1).max(128)).min(1).max(8),
+      ])
+      .optional(),
+    /**
+     * RESOLVERS-3 — let a power user commit exactly what they typed instead
+     * of forcing a pick from the loaded list. Only valid alongside
+     * `optionsSource`. Row identifiers are frequently mapped from an earlier
+     * step via `{{...}}`, so a picker is added ALONGSIDE manual entry and
+     * variable insertion, never instead of them.
+     */
+    allowManualEntry: z.boolean().optional(),
     /**
      * Row-local visibility condition. At least one of `valueEndsWith` /
      * `valueIn` must be set. The referenced field must be a sibling
@@ -364,6 +467,57 @@ export const ObjectListItemFieldSchema = z
         code: z.ZodIssueCode.custom,
         path: ["visibleWhen"],
         message: `Sub-field '${f.name}' cannot gate its own visibility.`,
+      });
+    }
+
+    // RESOLVERS-3 — optionsSource invariants. Mirrors the top-level
+    // FieldMetaSchema superRefine (options ⊕ optionsSource; allowManualEntry
+    // only where free entry is meaningful) against the reduced sub-field
+    // widget set.
+    if (f.options && f.optionsSource) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["optionsSource"],
+        message:
+          "Sub-field cannot declare both `options` (static) and `optionsSource` (dynamic).",
+      });
+    }
+    if (f.optionsSource && f.type !== "text" && f.type !== "number") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["optionsSource"],
+        message:
+          "`optionsSource` is only valid on `text` or `number` sub-fields.",
+      });
+    }
+    if (f.allowManualEntry && !f.optionsSource) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["allowManualEntry"],
+        message:
+          "`allowManualEntry` is only valid on sub-fields with `optionsSource`.",
+      });
+    }
+    const subDeps = normalizeDependsOn(f.dependsOn);
+    if (subDeps.length > 0 && !f.optionsSource) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dependsOn"],
+        message: "`dependsOn` is only valid on sub-fields with `optionsSource`.",
+      });
+    }
+    if (subDeps.includes(f.name)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dependsOn"],
+        message: `Sub-field '${f.name}' cannot depend on itself.`,
+      });
+    }
+    if (new Set(subDeps).size !== subDeps.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dependsOn"],
+        message: "Duplicate entry in `dependsOn`.",
       });
     }
   });
@@ -1042,6 +1196,10 @@ export const ActionMetaSchema = z
     // CONFIG-UX-SETUP-ADVANCED-1 — visibleWhen must reference a known,
     // unconditionally-visible sibling.
     checkVisibleWhenReferences(meta.fields, ctx);
+
+    // RESOLVERS-3 — an itemField picker's `dependsOn` must name a real
+    // TOP-LEVEL sibling (row-local deps are not supported).
+    checkItemFieldOptionSourceReferences(meta.fields, ctx);
 
     // SPREADSHEET-CONFIG-REDESIGN-1 — composite-editor references must
     // resolve to known siblings, and a `renderedBy` target must be a

@@ -44,10 +44,25 @@ export const microsoftPowerBiUpdateSemanticModelParametersMeta: ActionMeta = {
       listMaxItems: 100,
       itemFields: [
         {
+          // RESOLVERS-3 — the model's REAL parameter names, listed by
+          // `microsoft-powerbi:semantic_model_parameters` (registered but
+          // referenced by zero fields until now). Parameter names are
+          // case-sensitive and must already exist on the model, so typing
+          // them blind was the single most error-prone part of this node.
+          //
+          // `dependsOn` resolves against the node's TOP-LEVEL fields — both
+          // parents are top-level siblings here, which is exactly the shape
+          // the contract supports (no row-local deps).
           name: "name",
           label: "Parameter name",
+          description:
+            "Pick a parameter that exists on the selected model, or map the name from an earlier step.",
           type: "text",
           required: true,
+          placeholder: "Search parameters…",
+          optionsSource: "microsoft-powerbi:semantic_model_parameters",
+          dependsOn: ["workspaceId", "semanticModelId"],
+          allowManualEntry: true,
         },
         {
           name: "newValue",

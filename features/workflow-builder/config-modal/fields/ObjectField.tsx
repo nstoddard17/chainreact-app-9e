@@ -11,8 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FieldShell } from "./FieldShell";
-import type { ObjectListItemField } from "@/contracts/actionMeta";
+import type { FieldMeta, ObjectListItemField } from "@/contracts/actionMeta";
 import type { FieldRendererProps } from "./types";
+import { ItemFieldPicker, hasItemFieldPicker } from "./_itemFieldPicker";
 
 /**
  * `object` field renderer (CONFIG-UX-SETUP-ADVANCED-1) — a SINGLE small
@@ -31,6 +32,11 @@ import type { FieldRendererProps } from "./types";
  *   - Backward compatibility: keys present in a SAVED value that the meta
  *     does not declare are preserved verbatim on every commit — the UI
  *     never drops data it doesn't understand.
+ *
+ * RESOLVERS-3 — a sub-field declaring `optionsSource` renders a real
+ * account-aware picker (via `_itemFieldPicker` → ComboboxField) instead of a
+ * raw text box, with manual entry / variable mapping still available and the
+ * committed value type unchanged.
  *
  * The runtime schema stays authoritative for validation; `required`
  * markers here are UI affordances.
@@ -59,6 +65,8 @@ export const ObjectField: React.FC<FieldRendererProps> = ({
   error,
   onChange,
   disabled,
+  formValues,
+  formFields,
 }) => {
   const current = asObject(value);
   const controlId = `field-${field.name}`;
@@ -122,6 +130,8 @@ export const ObjectField: React.FC<FieldRendererProps> = ({
             fieldName={field.name}
             value={current[sub.name]}
             disabled={disabled}
+            formValues={formValues}
+            formFields={formFields}
             onChange={(v) => updateKey(sub.name, v)}
           />
         ))}
@@ -135,15 +145,35 @@ function ObjectSubFieldInput({
   fieldName,
   value,
   disabled,
+  formValues,
+  formFields,
   onChange,
 }: {
   sub: ObjectListItemField;
   fieldName: string;
   value: string | number | boolean | undefined;
   disabled: boolean | undefined;
+  formValues: Readonly<Record<string, unknown>> | undefined;
+  formFields: readonly FieldMeta[] | undefined;
   onChange: (v: string | number | boolean | undefined) => void;
 }): React.ReactElement {
   const inputId = `object-${fieldName}-${sub.name}`;
+
+  // RESOLVERS-3 — picker path (see ObjectListField for the rationale). Only
+  // one instance per key here, so the field-qualified name is already unique.
+  if (hasItemFieldPicker(sub)) {
+    return (
+      <ItemFieldPicker
+        sub={sub}
+        controlName={`${fieldName}-${sub.name}`}
+        value={value}
+        disabled={disabled}
+        formValues={formValues}
+        formFields={formFields}
+        onChange={onChange}
+      />
+    );
+  }
 
   if (sub.type === "boolean") {
     return (

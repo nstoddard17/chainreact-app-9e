@@ -45,13 +45,22 @@ export const shopifyCreateOrderMeta: ActionMeta = {
       required: true,
       itemFields: [
         {
+          // RESOLVERS-3 — picked from the store's real catalog
+          // (`shopify:variants`) instead of looking a numeric id up in the
+          // Shopify admin. `type` stays "number" ON PURPOSE: it is the VALUE
+          // type, not the widget — the picker commits a NUMBER, so the row
+          // still satisfies `variant_id: z.number().int().positive()` in
+          // createOrder.schema.ts byte-for-byte. `allowManualEntry` keeps
+          // mapping the id from a product step's output working.
           name: "variant_id",
-          label: "Product variant ID",
+          label: "Product variant",
           description:
-            "Numeric id of the product variant. Find it on the product's variant in Shopify, or map it from a product step's output.",
+            "The product variant being ordered. Pick one from your catalog, or map it from an earlier step.",
           type: "number",
           required: true,
-          placeholder: "123456789",
+          placeholder: "Search product variants…",
+          optionsSource: "shopify:variants",
+          allowManualEntry: true,
         },
         {
           name: "quantity",

@@ -52,6 +52,21 @@ function collectOptionSourceFields(): FieldRef[] {
           dependsOn: dependsOnList(field.dependsOn),
         });
       }
+      // RESOLVERS-3 — `itemFields` sub-fields can bind an option source too
+      // (a picker for a provider id INSIDE an object-list row / object). They
+      // reach the exact same resolver + route, so an unregistered source or
+      // an uncovered `requiredDeps` ships the same permanently-dead dropdown
+      // — walk them under the same guards.
+      for (const sub of field.itemFields ?? []) {
+        if (typeof sub.optionsSource === "string" && sub.optionsSource.length > 0) {
+          refs.push({
+            metaKey: meta.key,
+            fieldName: `${field.name}[].${sub.name}`,
+            optionsSource: sub.optionsSource,
+            dependsOn: dependsOnList(sub.dependsOn),
+          });
+        }
+      }
     }
   }
   return refs;

@@ -18,10 +18,14 @@ import {
  *
  * Three small active-record catalogs behind one factory: each is a
  * single bounded query via the typed wrappers, id values + name-only
- * labels, local `ctx.q` filtering. `items` exists for id discovery
- * next to create_invoice's line rows (object-list sub-fields can't
- * bind option sources — documented limitation on the meta);
- * `terms`/`tax_codes` back the term/tax pickers directly.
+ * labels, local `ctx.q` filtering. `terms` backs the invoice term
+ * picker directly.
+ *
+ * RESOLVERS-3: `items` and `tax_codes` now back REAL per-row pickers on
+ * create_invoice's `lineItems[].itemId` / `[].taxCodeId`. They previously
+ * existed for id discovery only, because `itemFields` could not bind an
+ * option source — that limitation is gone (see ObjectListItemFieldSchema),
+ * and both are wired.
  */
 const PAGE_SIZE = 100;
 

@@ -9,7 +9,11 @@
  *   - `successUrl` / `cancelUrl` render as text URL inputs,
  *   - `lineItems` renders as the object-list repeater (CONFIG-UX-AUDIT-1)
  *     — add-a-line UI storing the REAL `[{priceId, quantity}]` array the
- *     runtime schema expects (never a JSON-encoded string). It is
+ *     runtime schema expects (never a JSON-encoded string). Its `priceId`
+ *     sub-field is a PER-ROW async picker sourced from `stripe:prices`
+ *     (RESOLVERS-3) — previously a raw `price_xxx` text box; picking stores
+ *     the raw price id, and `allowManualEntry` keeps paste/`{{...}}` mapping
+ *     available. It is
  *     `required: true` + `visibleWhen: mode ∈ {payment, subscription}`
  *     (CONFIG-UX-SETUP-ADVANCED-1) — required-when-visible mirrors the
  *     runtime superRefine (required in those 2 modes, REJECTED in setup),
@@ -134,6 +138,20 @@ beforeEach(() => {
         items: [
           { value: CUSTOMER_ID, label: "Ada Lovelace" },
           { value: "cus_OtherCustomer", label: "Grace Hopper" },
+        ],
+        hasMore: false,
+      };
+    }
+    // RESOLVERS-3 — `lineItems[].priceId` is now backed by the
+    // `stripe:prices` option source PER ROW (it was a raw `price_xxx` text
+    // box while this resolver sat registered and unreferenced).
+    if (source === "stripe:prices") {
+      return {
+        ok: true,
+        source: "stripe:prices",
+        items: [
+          { value: "price_TestPrice", label: "Pro plan - $20.00/month" },
+          { value: "price_Other", label: "Starter - $5.00/month" },
         ],
         hasMore: false,
       };
@@ -337,14 +355,17 @@ it(
     CANCEL_URL,
   );
 
-  // 6. Build the line items visually — no JSON anywhere. Add one row,
-  //    fill Price ID + Quantity; the object-list renderer commits the
-  //    REAL [{priceId, quantity}] array the runtime schema expects.
+  // 6. Build the line items visually — no JSON anywhere. Add one row, PICK
+  //    the price from the merchant's real catalog (RESOLVERS-3: this was a
+  //    raw `price_xxx` text box), fill Quantity; the object-list renderer
+  //    commits the REAL [{priceId, quantity}] array the runtime schema
+  //    expects. Picking stores the RAW price id — the friendly catalog label
+  //    ("Pro plan …") must never leak into config.
   await user.click(screen.getByTestId("object-list-lineItems-add"));
-  await user.type(
-    screen.getByRole("textbox", { name: /price id \(entry 1\)/i }),
-    "price_TestPrice",
-  );
+  expect(
+    screen.queryByRole("textbox", { name: /price id \(entry 1\)/i }),
+  ).toBeNull();
+  await pickComboboxOption(user, /^price$/i, /pro plan/i);
   await user.type(
     screen.getByRole("spinbutton", { name: /quantity \(entry 1\)/i }),
     "2",

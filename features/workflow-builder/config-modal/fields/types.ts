@@ -64,6 +64,15 @@ export interface FieldRendererProps {
    */
   formValues?: Readonly<Record<string, unknown>>;
   /**
+   * RESOLVERS-3 — the field definitions for the SAME form (usually
+   * `meta.fields`). Structured editors (`object-list` / `object`) whose
+   * `itemFields` declare an `optionsSource` + `dependsOn` resolve those deps
+   * against the node's TOP-LEVEL config, and read the parent field's `label`
+   * from here for the "Select <parent> first" hint. Ordinary single-field
+   * renderers ignore it (SchemaForm already computes their cascade).
+   */
+  formFields?: readonly FieldMeta[];
+  /**
    * SPREADSHEET-CONFIG-REDESIGN-1 — write ANOTHER field's value (same
    * cascade-clearing semantics as a direct edit of that field; wired to
    * SchemaForm's internal change handler). Only composite editors that

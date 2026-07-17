@@ -100,6 +100,22 @@ export const hubspotWebhookReceivedTriggerMeta: TriggerMeta = {
           ],
         },
         {
+          // RESOLVERS-3 — DELIBERATELY still a text sub-field, not a picker.
+          //
+          // The property resolvers exist (`hubspot:contact_properties` /
+          // `company_` / `deal_` / `ticket_properties`), but WHICH one is
+          // correct is decided by this row's OWN `eventType` sibling — a
+          // ROW-LOCAL dependency, and one that selects the option SOURCE
+          // itself, not just a dep value. Sub-field `optionsSource` +
+          // `dependsOn` resolve against the node's TOP-LEVEL fields only
+          // (see ObjectListItemFieldSchema's scope limit), and each row here
+          // can watch a different object type, so there is no honest
+          // top-level field to hoist `eventType` to.
+          //
+          // Wiring one arbitrary resolver (e.g. always contact_properties)
+          // would ship a picker that is silently WRONG for deal/ticket rows.
+          // A per-row source selector is a contract extension, not a
+          // wiring gap — tracked as follow-up, not faked here.
           name: "propertyName",
           label: "Property to watch",
           description:

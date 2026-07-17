@@ -43,12 +43,16 @@ export const stripeCreatePaymentLinkMeta: ActionMeta = {
       listMaxItems: 20,
       itemFields: [
         {
+          // RESOLVERS-3 — same catalog picker as create_checkout_session.
           name: "priceId",
-          label: "Price ID",
-          description: "The Stripe price to charge (starts with `price_`).",
+          label: "Price",
+          description:
+            "The Stripe price to charge. Pick one from your catalog, or map it from an earlier step.",
           type: "text",
           required: true,
-          placeholder: "price_xxx",
+          placeholder: "Search prices…",
+          optionsSource: "stripe:prices",
+          allowManualEntry: true,
         },
         {
           name: "quantity",
