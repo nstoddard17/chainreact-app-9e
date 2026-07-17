@@ -126,25 +126,48 @@ describe("GET /api/providers/microsoft-outlook-calendar/actions", () => {
     }
   });
 
-  it("NO action field references any resolver (zero optionsSource across the surface)", async () => {
+  it("eventId is the ONLY resolver-wired action field across the surface (RESOLVERS-2)", async () => {
+    // Was: "NO action field references any resolver". RESOLVERS-2 shipped
+    // `microsoft-outlook-calendar:events`, so the surface is no longer
+    // resolver-free — but eventId is still the only wired field, and this pins
+    // that rather than deleting the invariant.
     for (const a of await fetchActions()) {
       for (const f of a.fields) {
-        expect(f.optionsSource).toBeUndefined();
+        if (f.name === "eventId") {
+          expect(f.optionsSource).toBe("microsoft-outlook-calendar:events");
+          continue;
+        }
+        expect(`${a.key}.${f.name}:${f.optionsSource}`).toBe(
+          `${a.key}.${f.name}:undefined`,
+        );
       }
     }
   });
 
-  it("eventId is typeable text on update/delete/add_attendees (required)", async () => {
+  it("eventId is an events picker with NO dependsOn — these actions have no calendarId field (RESOLVERS-2)", async () => {
+    // Deliberately asymmetric with google-calendar, which cascades off a real
+    // `calendarId` field. The Outlook update/delete/add_attendees schemas take
+    // eventId ONLY: their wrappers address /me/events, the signed-in user's
+    // default calendar. So the picker is dep-less and lists from that same
+    // default-calendar scope — every id it offers is one the handler can
+    // actually address. Inventing a calendarId field to create a cascade parent
+    // would mean changing a shipped .strict() runtime schema.
     const byKey = new Map((await fetchActions()).map((a) => [a.key, a]));
     for (const key of [
       "microsoft-outlook-calendar:update_event",
       "microsoft-outlook-calendar:delete_event",
       "microsoft-outlook-calendar:add_attendees",
     ]) {
-      const f = byKey.get(key)!.fields.find((x) => x.name === "eventId")!;
-      expect(f.type).toBe("text");
-      expect(f.optionsSource).toBeUndefined();
+      const action = byKey.get(key)!;
+      const f = action.fields.find((x) => x.name === "eventId")!;
+      expect(f.type).toBe("combobox");
+      expect(f.optionsSource).toBe("microsoft-outlook-calendar:events");
+      expect(f.dependsOn).toBeUndefined();
+      expect(f.allowManualEntry).toBe(true);
       expect(f.required).toBe(true);
+      // The premise of the dep-less design: there is no calendar field to
+      // depend on. If one is ever added, this picker must become a cascade.
+      expect(action.fields.map((x) => x.name)).not.toContain("calendarId");
     }
   });
 

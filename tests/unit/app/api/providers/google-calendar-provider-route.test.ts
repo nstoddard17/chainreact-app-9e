@@ -90,7 +90,13 @@ describe("GET /api/providers/google-calendar/actions", () => {
     }
   });
 
-  it("eventId serializes as typeable text with no resolver (update/delete/add_attendees)", async () => {
+  it("eventId serializes as an events picker cascading off calendarId, with manual entry preserved (RESOLVERS-2)", async () => {
+    // Was: "serializes as typeable text with no resolver". RESOLVERS-2 replaced
+    // the hand-typed opaque event id with a real picker — Google exposes
+    // events.list, so making a user go find an id was a choice, not a limit.
+    // allowManualEntry stays true because these ids very often arrive from a
+    // trigger via {{...}}; the picker is added ALONGSIDE upstream mapping, not
+    // instead of it.
     const byKey = new Map((await fetchActions()).map((a) => [a.key, a]));
     for (const key of [
       "google-calendar:update_event",
@@ -98,8 +104,10 @@ describe("GET /api/providers/google-calendar/actions", () => {
       "google-calendar:add_attendees",
     ]) {
       const ev = byKey.get(key)!.fields.find((f) => f.name === "eventId")!;
-      expect(ev.type).toBe("text");
-      expect(ev.optionsSource).toBeUndefined();
+      expect(ev.type).toBe("combobox");
+      expect(ev.optionsSource).toBe("google-calendar:events");
+      expect(ev.dependsOn).toBe("calendarId");
+      expect(ev.allowManualEntry).toBe(true);
       expect(ev.required).toBe(true);
     }
   });
@@ -137,12 +145,23 @@ describe("GET /api/providers/google-calendar/actions", () => {
     ).toBe(true);
   });
 
-  it("only calendarId references the calendars resolver; deferred/rejected Calendar resolvers stay unwired", async () => {
+  it("calendarId -> calendars and eventId -> events are the ONLY resolver-wired fields; timezones/colors stay unwired", async () => {
+    // RESOLVERS-2 moved `google-calendar:events` out of the "deferred" list and
+    // shipped it, so this now pins the real wiring rather than its absence.
+    // `timezones` / `colors` remain unwired on purpose — neither is registered,
+    // and a field pointing at an unregistered source is a permanently-empty
+    // dropdown (tests/structure/option-source-reference-integrity.test.ts).
+    const WIRED: Record<string, string> = {
+      calendarId: "google-calendar:calendars",
+      eventId: "google-calendar:events",
+    };
     for (const a of await fetchActions()) {
       for (const f of a.fields) {
-        if (f.name === "calendarId") {
-          // CONFIG-UX-SETUP-ADVANCED-1 wired the calendars resolver.
-          expect(f.optionsSource).toBe("google-calendar:calendars");
+        const expected = WIRED[f.name];
+        if (expected) {
+          expect(`${a.key}.${f.name}:${f.optionsSource}`).toBe(
+            `${a.key}.${f.name}:${expected}`,
+          );
           continue;
         }
         for (const resolver of [
