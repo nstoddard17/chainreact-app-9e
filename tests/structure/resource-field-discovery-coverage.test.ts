@@ -56,6 +56,25 @@ interface Exemption {
 
 const EXEMPT: Readonly<Record<string, Exemption>> = {
   // ── UPSTREAM: produced by an earlier step / trigger at runtime ──────────
+  // MOTIVE-1 — a fuel-purchase id is a transactional record id, normally wired
+  // from the New Fuel Purchase trigger or a List Fuel Purchases step (or pasted
+  // in Advanced). There are potentially thousands of fuel transactions — no
+  // meaningful browse list — so a picker would be worse than variable mapping.
+  "motive:get_fuel_purchase.fuelPurchaseId": {
+    klass: "UPSTREAM",
+    reason:
+      "Fuel-purchase id comes from a New Fuel Purchase trigger or a List Fuel Purchases step; transactional records have no meaningful browse list.",
+  },
+  "motive:update_fuel_purchase.fuelPurchaseId": {
+    klass: "UPSTREAM",
+    reason:
+      "Fuel-purchase id comes from a New Fuel Purchase trigger or a List Fuel Purchases step; transactional records have no meaningful browse list.",
+  },
+  "motive:delete_fuel_purchase.fuelPurchaseId": {
+    klass: "UPSTREAM",
+    reason:
+      "Fuel-purchase id comes from a New Fuel Purchase trigger or a List Fuel Purchases step; transactional records have no meaningful browse list.",
+  },
   "slack:update_message.ts": {
     klass: "UPSTREAM",
     reason:

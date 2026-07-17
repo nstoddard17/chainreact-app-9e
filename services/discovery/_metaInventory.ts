@@ -396,6 +396,10 @@ import {
   QUICKBOOKS_ACTION_METAS,
   QUICKBOOKS_TRIGGER_METAS,
 } from "./providers/quickbooks";
+// Motive (MOTIVE-1 — fifth net-new provider, no V1 code) — 10 fleet actions +
+// 7 company-webhook triggers + 1 fuel-purchase polling trigger. See
+// providers/motive.ts header + docs/providers/motive/.
+import { MOTIVE_ACTION_METAS, MOTIVE_TRIGGER_METAS } from "./providers/motive";
 
 // Slack trigger metadata (Slice 3.11 coverage scope).
 import { newMessageChannelTriggerMeta } from "@/integrations/slack/triggers/newMessageChannel/newMessageChannel.meta";
@@ -668,6 +672,7 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...ASANA_ACTION_METAS, // Asana (ASANA-1) — 5 actions, displayOrder 10..50.
   ...TYPEFORM_ACTION_METAS, // Typeform (TYPEFORM-2) — 2 read actions, displayOrder 10..20.
   ...QUICKBOOKS_ACTION_METAS, // QuickBooks (QUICKBOOKS-1) — 7 actions, displayOrder 10..70.
+  ...MOTIVE_ACTION_METAS, // Motive (MOTIVE-1) — 10 fleet actions, displayOrder 10..90.
 ];
 
 export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
@@ -863,4 +868,9 @@ export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [
   // integrations/quickbooks/triggers/<event>/index.ts, so the
   // trigger-meta-activation-invariant test passes without an exemption.
   ...QUICKBOOKS_TRIGGER_METAS,
+  // Motive (MOTIVE-1) — 7 company-webhook triggers + 1 fuel-purchase polling
+  // trigger. Activation + deactivation/polling registered in
+  // integrations/motive/triggers/<event>/index.ts, so the
+  // trigger-meta-activation-invariant test passes without an exemption.
+  ...MOTIVE_TRIGGER_METAS,
 ];

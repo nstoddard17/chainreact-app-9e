@@ -314,6 +314,11 @@ const COVERED_PROVIDERS: ReadonlySet<string> = new Set([
   // (Asana posture), so 1:1 handler↔meta drift is enforced from day one
   // (7 actions, 4 app-level-webhook triggers).
   "quickbooks",
+  // Motive (MOTIVE-1) — fifth net-new provider; actions AND triggers ship in
+  // the first slice, so 1:1 handler↔meta drift is enforced from day one
+  // (10 fleet actions, 7 company-webhook triggers + 1 fuel-purchase polling
+  // trigger).
+  "motive",
 ]);
 
 describe("discovery meta coverage (covered providers)", () => {

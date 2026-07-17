@@ -533,6 +533,9 @@ import {
   quickbooksTermsResolver,
 } from "@/integrations/quickbooks/options/catalog";
 import { quickbooksInvoicesResolver } from "@/integrations/quickbooks/options/invoices";
+// MOTIVE-1 — vehicle + driver pickers (account credential class).
+import { motiveVehiclesResolver } from "@/integrations/motive/options/vehicles";
+import { motiveDriversResolver } from "@/integrations/motive/options/drivers";
 import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
 import { edenWorkspacesResolver } from "@/integrations/eden/options/workspaces";
 import { edenBoardsResolver } from "@/integrations/eden/options/boards";
@@ -887,6 +890,9 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   quickbooksTermsResolver,
   quickbooksTaxCodesResolver,
   quickbooksInvoicesResolver,
+  // MOTIVE-1 — vehicle + driver pickers (account-shared; local q filter).
+  motiveVehiclesResolver,
+  motiveDriversResolver,
   // RESOLVERS-1 — 3 Stripe resolvers (all root, no deps). Values are the
   // raw cus_/sub_/price_ ids the handler schemas already store; labels
   // are customer names, "customer — status", and "product — amount/

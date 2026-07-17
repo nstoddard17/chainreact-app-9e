@@ -376,6 +376,11 @@ import quickbooksListInvoices from "@/tests/fixtures/action-smoke/quickbooks/lis
 import quickbooksCreateCustomer from "@/tests/fixtures/action-smoke/quickbooks/create_customer";
 import quickbooksCreateInvoice from "@/tests/fixtures/action-smoke/quickbooks/create_invoice";
 import quickbooksSendInvoice from "@/tests/fixtures/action-smoke/quickbooks/send_invoice";
+// MOTIVE-1 — 2 read-risk fuel fixtures. Env-gated on SMOKE_MOTIVE_CONNECTED, so
+// a live run SKIPs pre-owner-setup (Phase 13). The 8 mutating actions +
+// 8 triggers are exercised at live certification (owner-setup-report.md).
+import motiveListFuelPurchases from "@/tests/fixtures/action-smoke/motive/list_fuel_purchases";
+import motiveGetFuelPurchase from "@/tests/fixtures/action-smoke/motive/get_fuel_purchase";
 // MICROSOFT-POWERBI — all 47 Power BI actions. The 10 reads run through the read
 // path; the 37 mutating ones (32 write + 5 destructive) are write-harness-only.
 // NONE carry a `writeHarness` phase plan yet: authoring those needs live Power BI
@@ -541,6 +546,9 @@ export const ALL_SMOKE_FIXTURES: readonly ActionSmokeFixture[] = [
   quickbooksGetCustomer,
   quickbooksGetInvoice,
   quickbooksListInvoices,
+  // MOTIVE-1 — 2 read fuel fixtures (live-gated; SKIP pre-owner-setup).
+  motiveListFuelPurchases,
+  motiveGetFuelPurchase,
   // MICROSOFT-POWERBI — the 10 read-risk Power BI fixtures. Env-gated, so a live
   // run SKIPs pre-owner-setup (matrix status: LIVE_NOT_RUN — see the import
   // block). The other 37 are write-harness-only, in WRITE_SMOKE_FIXTURES.

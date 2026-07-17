@@ -41,6 +41,7 @@ import { edenAuth } from "@/integrations/eden/auth";
 import { calendlyOAuth } from "@/integrations/calendly/oauth";
 import { typeformOAuth } from "@/integrations/typeform/oauth";
 import { quickbooksOAuth } from "@/integrations/quickbooks/oauth";
+import { motiveOAuth } from "@/integrations/motive/oauth";
 import {
   getActiveForExecution,
   getByIdForAccountServiceRole,
@@ -137,6 +138,9 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   // dispatcher's generic `callbackParams` passthrough; connect FAILS
   // without it. See integrations/quickbooks/oauth.ts.
   quickbooks: quickbooksOAuth,
+  // MOTIVE-1 — non-PKCE body-auth OAuth; companyId read from /v1/users/me at
+  // connect (not a callback param), rotating single-use refresh tokens.
+  motive: motiveOAuth,
 });
 
 /**

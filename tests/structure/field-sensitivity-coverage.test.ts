@@ -95,6 +95,12 @@ const HEURISTIC_FALSE_POSITIVES: Record<string, readonly string[]> = {
   // send_invoice.sendTo, IS annotated `recipient`). Mislabeling stored record data
   // as a destination would be inventing metadata.
   "quickbooks:create_customer": ["phone", "addressLine1", "addressLine2"],
+  // MOTIVE-1 — `phone` is stored contact data on the driver RECORD, not a send
+  // destination: V2 never messages the phone (the only outward Motive surface is
+  // send_message, which targets a driverId, not a phone). Mislabeling stored
+  // record data as a destination would be inventing metadata. Still
+  // heuristic-blocked at the apply gate.
+  "motive:update_driver": ["phone"],
   // `dateTo` — an invoice-date range bound; the "to" token matches incidentally.
   "quickbooks:list_invoices": ["dateTo"],
   // POWER BI — resolver-backed resource selectors whose `target` token matches the

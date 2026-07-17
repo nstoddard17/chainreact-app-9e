@@ -32,6 +32,7 @@ export type AppsCategory =
   | "Social"
   | "Analytics"
   | "Developer"
+  | "Fleet & Telematics"
   | "Other";
 
 /**
@@ -52,6 +53,7 @@ export const APPS_CATEGORY_ORDER: readonly AppsCategory[] = [
   "Social",
   "Analytics",
   "Developer",
+  "Fleet & Telematics",
   "Other",
 ];
 
@@ -99,6 +101,8 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   "microsoft-powerbi": "Analytics",
   // Developer
   github: "Developer",
+  // Fleet & Telematics
+  motive: "Fleet & Telematics",
 };
 
 export function categoryFor(providerId: string): AppsCategory {
@@ -138,6 +142,7 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
   "microsoft-powerbi":
     "Refresh semantic models, run DAX, export reports, and deploy pipelines.",
   github: "Watch issues, PRs, and commits.",
+  motive: "Log fuel purchases and watch fleet safety events.",
 };
 
 export function descriptionFor(providerId: string): string {

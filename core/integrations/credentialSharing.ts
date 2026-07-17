@@ -57,6 +57,11 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   // jointly operates, not one person's private data. Same posture as
   // Stripe / Shopify / HubSpot.
   quickbooks: "account",
+  // Motive (MOTIVE-1): the OAuth token represents a COMPANY's fleet — the
+  // vehicles, drivers, fuel purchases, and safety events the whole operations
+  // team jointly manages, not one person's private data. Same posture as
+  // Stripe / Shopify / HubSpot / QuickBooks.
+  motive: "account",
 
   // ── Personal: acts AS the connecting human; must not auto-share in a Team. ──
   gmail: "personal",

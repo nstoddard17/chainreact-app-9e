@@ -202,6 +202,13 @@ const ALLOWLIST: ReadonlyMap<string, string> = new Map([
     "microsoft-teams:list_channel_messages::messages",
     "Header-only message metadata (opaque ids + timestamps + webUrl); no body/subject/sender-name/PII.",
   ],
+  // MOTIVE-1 — the bulk-import result `message` is a sanitized provider STATUS
+  // string (surfaceMotiveError / status), never user content or PII. The
+  // "message" name trips the suspicious-name guard only.
+  [
+    "motive:import_fuel_purchases_csv::message",
+    "Sanitized import status string; no user content or PII.",
+  ],
 ]);
 
 // ─── Walker ─────────────────────────────────────────────────────────────────

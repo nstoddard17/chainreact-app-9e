@@ -439,6 +439,18 @@ import { createInvoice as quickbooksCreateInvoice } from "@/integrations/quickbo
 import { sendInvoice as quickbooksSendInvoice } from "@/integrations/quickbooks/actions/sendInvoice";
 import { getInvoice as quickbooksGetInvoice } from "@/integrations/quickbooks/actions/getInvoice";
 import { listInvoices as quickbooksListInvoices } from "@/integrations/quickbooks/actions/listInvoices";
+// MOTIVE-1 — 10 fleet actions (fuel CRUD + bulk CSV import + send message +
+// create/update vehicle + update driver).
+import { createFuelPurchase as motiveCreateFuelPurchase } from "@/integrations/motive/actions/createFuelPurchase";
+import { importFuelPurchasesCsv as motiveImportFuelPurchasesCsv } from "@/integrations/motive/actions/importFuelPurchasesCsv";
+import { listFuelPurchases as motiveListFuelPurchases } from "@/integrations/motive/actions/listFuelPurchases";
+import { getFuelPurchase as motiveGetFuelPurchase } from "@/integrations/motive/actions/getFuelPurchase";
+import { updateFuelPurchase as motiveUpdateFuelPurchase } from "@/integrations/motive/actions/updateFuelPurchase";
+import { deleteFuelPurchase as motiveDeleteFuelPurchase } from "@/integrations/motive/actions/deleteFuelPurchase";
+import { sendMessage as motiveSendMessage } from "@/integrations/motive/actions/sendMessage";
+import { createVehicle as motiveCreateVehicle } from "@/integrations/motive/actions/createVehicle";
+import { updateVehicle as motiveUpdateVehicle } from "@/integrations/motive/actions/updateVehicle";
+import { updateDriver as motiveUpdateDriver } from "@/integrations/motive/actions/updateDriver";
 import type { ActionHandler } from "./types";
 
 /**
@@ -1014,5 +1026,16 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "quickbooks", type: "send_invoice", handler: quickbooksSendInvoice },
   { provider: "quickbooks", type: "get_invoice", handler: quickbooksGetInvoice },
   { provider: "quickbooks", type: "list_invoices", handler: quickbooksListInvoices },
+  // MOTIVE-1 — 10 fleet actions.
+  { provider: "motive", type: "create_fuel_purchase", handler: motiveCreateFuelPurchase },
+  { provider: "motive", type: "import_fuel_purchases_csv", handler: motiveImportFuelPurchasesCsv },
+  { provider: "motive", type: "list_fuel_purchases", handler: motiveListFuelPurchases },
+  { provider: "motive", type: "get_fuel_purchase", handler: motiveGetFuelPurchase },
+  { provider: "motive", type: "update_fuel_purchase", handler: motiveUpdateFuelPurchase },
+  { provider: "motive", type: "delete_fuel_purchase", handler: motiveDeleteFuelPurchase },
+  { provider: "motive", type: "send_message", handler: motiveSendMessage },
+  { provider: "motive", type: "create_vehicle", handler: motiveCreateVehicle },
+  { provider: "motive", type: "update_vehicle", handler: motiveUpdateVehicle },
+  { provider: "motive", type: "update_driver", handler: motiveUpdateDriver },
 ];
 

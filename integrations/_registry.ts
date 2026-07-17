@@ -9,6 +9,7 @@ import { discordManifest } from "./discord/manifest";
 import { calendlyManifest } from "./calendly/manifest";
 import { typeformManifest } from "./typeform/manifest";
 import { quickbooksManifest } from "./quickbooks/manifest";
+import { motiveManifest } from "./motive/manifest";
 import { edenManifest } from "./eden/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
@@ -203,6 +204,23 @@ import "./quickbooks/triggers/customerCreated";
 import "./quickbooks/triggers/invoiceCreated";
 import "./quickbooks/triggers/paymentReceived";
 import "./quickbooks/triggers/invoicePaid";
+// MOTIVE-1 — 7 Motive company-webhook triggers + 1 fuel-purchase polling
+// trigger. Each webhook trigger registers its activation (POST
+// /v1/company_webhooks with a V2-minted 20-char secret — no creation
+// handshake), shared deactivation (DELETE /v1/company_webhooks/{id}), and a
+// P-S2 companyId filter at module load. Strict-direct-lookup via
+// ?workflowId=&nodeId=; events arrive at /api/webhooks/motive and are verified
+// with X-KT-Webhook-Signature (HMAC-SHA1). Motive webhooks don't expire — no
+// renewal marker. new_fuel_purchase polls (no fuel webhook exists) with an
+// activation-seeded id high-water (first-poll-miss protection).
+import "./motive/triggers/newInspectionReport";
+import "./motive/triggers/newHosViolation";
+import "./motive/triggers/newSafetyEvent";
+import "./motive/triggers/newSpeedingEvent";
+import "./motive/triggers/newFaultCode";
+import "./motive/triggers/newVehicle";
+import "./motive/triggers/newDriver";
+import "./motive/triggers/newFuelPurchase";
 // Native-nodes Slice 2 Commit 3 — scheduled_trigger registers its
 // native-activation hook at module load. See
 // docs/slices/parity/native-nodes-2-tier-b-triggers-plan.md §5.
@@ -299,6 +317,16 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // 100-day window; realmId (company id) arrives only on the OAuth
   // callback redirect and is the providerAccountId.
   quickbooksManifest,
+  // MOTIVE-1 — Motive (gomotive.com, formerly KeepTruckin), a fleet-management /
+  // telematics provider. 10 bounded actions (fuel CRUD + bulk CSV import + send
+  // message + create/update vehicle + update driver) + 7 company-webhook
+  // triggers + 1 fuel-purchase polling trigger + 2 option sources ship in the
+  // same slice, so actions/webhookTrigger/pollingTrigger are all true from day
+  // one. ACCOUNT credential class (a company's fleet — the Stripe/QuickBooks
+  // posture); refreshable non-PKCE OAuth with body-auth token exchange and
+  // SINGLE-USE ROTATING refresh tokens; companyId (read from /v1/users/me) is
+  // the providerAccountId + webhook fan-out scope.
+  motiveManifest,
   // EDEN-3 — Eden (eden.so), a content-research / boards / creator-analysis /
   // social-scheduling platform whose ONLY automation surface is a remote MCP
   // server (https://mcp.eden.so/mcp). NEW `token_paste` auth (pasted `eden_pat_`).
