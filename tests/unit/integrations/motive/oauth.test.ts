@@ -9,6 +9,7 @@
 import { decryptToken } from "@/core/encryption/tokens";
 import { RefreshAuthRequiredError } from "@/contracts/integration";
 import { motiveOAuth } from "@/integrations/motive/oauth";
+import { motiveManifest } from "@/integrations/motive/manifest";
 
 const TOKEN_KEY = (() => {
   const bytes = Buffer.alloc(32);
@@ -69,6 +70,22 @@ describe("buildAuthUrl", () => {
     );
     expect(url.searchParams.get("code_challenge")).toBeNull();
     expect(url.toString()).not.toContain("test-motive-client-secret");
+  });
+
+  it("requests ALL 14 manifest scope identifiers in the authorize URL, no duplicates", () => {
+    const url = new URL(
+      motiveOAuth.buildAuthUrl("state", [...motiveManifest.scopes.required], null),
+    );
+    const scopeParam = url.searchParams.get("scope") ?? "";
+    const scopes = scopeParam.split(" ").filter((s) => s.length > 0);
+    // Every required identifier is present, exactly the 14, no duplicates.
+    expect(scopes.sort()).toEqual([...motiveManifest.scopes.required].sort());
+    expect(scopes).toHaveLength(14);
+    expect(new Set(scopes).size).toBe(14);
+    // Spot-check the additions that gate webhooks + inspection reports.
+    expect(scopes).toContain("company_webhooks.manage");
+    expect(scopes).toContain("inspection_reports.read");
+    expect(scopes).not.toContain("forms.read");
   });
 });
 

@@ -22,22 +22,55 @@ describe("motive manifest", () => {
     });
   });
 
-  it("requests only the scopes the shipped nodes use", () => {
-    expect(motiveManifest.scopes.required).toEqual(
-      expect.arrayContaining([
-        "companies.read",
-        "users.read",
-        "users.manage",
-        "vehicles.read",
-        "vehicles.manage",
-        "fuel_purchases.read",
-        "fuel_purchases.manage",
-        "messages.manage",
-      ]),
+  // The exact Doorkeeper scope identifiers the shipped nodes require — pinned so
+  // adding/removing a scope forces a deliberate test update.
+  const EXPECTED_SCOPES = [
+    "companies.read",
+    "fuel_purchases.read",
+    "fuel_purchases.manage",
+    "vehicles.read",
+    "vehicles.manage",
+    "users.read",
+    "users.manage",
+    "messages.manage",
+    "company_webhooks.manage",
+    "inspection_reports.read",
+    "hos_logs.hos_violation",
+    "driver_performance_events.read",
+    "speeding_events.read",
+    "fault_codes.read",
+  ];
+
+  it("requests EXACTLY the 14 scopes the shipped nodes use, with no duplicates", () => {
+    expect([...motiveManifest.scopes.required].sort()).toEqual(
+      [...EXPECTED_SCOPES].sort(),
     );
+    expect(motiveManifest.scopes.required).toHaveLength(14);
+    // No duplicates.
+    expect(new Set(motiveManifest.scopes.required).size).toBe(14);
+    expect(motiveManifest.scopes.optional).toEqual([]);
+  });
+
+  it("covers every shipped capability and excludes non-authorizing / unused scopes", () => {
+    const req = new Set(motiveManifest.scopes.required);
+    // Webhook creation is mandatory for the 7 webhook triggers.
+    expect(req.has("company_webhooks.manage")).toBe(true);
+    // Each safety/inspection trigger's read scope is present.
+    for (const s of [
+      "inspection_reports.read",
+      "hos_logs.hos_violation",
+      "driver_performance_events.read",
+      "speeding_events.read",
+      "fault_codes.read",
+    ]) {
+      expect(req.has(s)).toBe(true);
+    }
+    // Dispatch-Forms scopes do NOT authorize Inspection Reports — must be absent.
+    expect(req.has("forms.read")).toBe(false);
+    expect(req.has("form_entries.read")).toBe(false);
     // No unused broad scopes.
-    expect(motiveManifest.scopes.required).not.toContain("dispatches.manage");
-    expect(motiveManifest.scopes.required).not.toContain("locations.vehicle_locations_list");
+    expect(req.has("dispatches.manage")).toBe(false);
+    expect(req.has("locations.vehicle_locations_list")).toBe(false);
   });
 
   it("is an ACCOUNT credential provider (shared company fleet)", () => {

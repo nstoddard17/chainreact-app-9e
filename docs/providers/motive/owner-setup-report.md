@@ -46,19 +46,31 @@
   tunnel + set `MOTIVE_WEBHOOK_URL`/`NEXT_PUBLIC_APP_URL` to the tunnel origin, or test
   against the deployed environment).
 
-### OAuth scopes
-| Scope | Required? | Used by | Why |
-|---|---:|---|---|
-| `companies.read` | yes | connect identity | read the company id at connect; token attribution |
-| `users.read` | yes | driver picker, new_driver | list/read drivers |
-| `users.manage` | yes | update_driver | update a driver record |
-| `vehicles.read` | yes | vehicle picker, new_vehicle | list/read vehicles |
-| `vehicles.manage` | yes | create/update vehicle | write vehicles |
-| `fuel_purchases.read` | yes | fuel list/get, new_fuel_purchase | read fuel purchases |
-| `fuel_purchases.manage` | yes | fuel create/update/delete, bulk import | write fuel purchases |
-| `forms.read` | yes | new_inspection_report context | inspection/form reads |
-| `form_entries.read` | yes | inspection/form triggers | form-entry reads |
-| `messages.manage` | yes | send_message | send an in-app driver message |
+### OAuth scopes (exact Doorkeeper identifiers — all 14 required)
+Enable the matching portal checkbox for each. The token only receives a scope
+that is BOTH enabled in the portal AND requested by the manifest, so this set is
+mirrored 1:1 in `integrations/motive/manifest.ts`.
+
+| Scope identifier | Portal checkbox | Used by |
+|---|---|---|
+| `companies.read` | Company Details | connect identity (companyId) |
+| `fuel_purchases.read` | Fuel Purchases (read) | fuel list/get, new_fuel_purchase |
+| `fuel_purchases.manage` | Fuel Purchases (manage) | fuel create/update/delete, bulk import |
+| `vehicles.read` | Vehicles (read) | vehicle picker, new_vehicle |
+| `vehicles.manage` | Vehicles (manage) | create/update vehicle |
+| `users.read` | Drivers and Fleet Managers (read) | driver picker, new_driver |
+| `users.manage` | Drivers and Fleet Managers (manage) | update_driver |
+| `messages.manage` | Messages (manage) | send_message |
+| `company_webhooks.manage` | Company Webhooks (manage) | **all 7 webhook triggers** (POST /v1/company_webhooks) |
+| `inspection_reports.read` | Inspection Reports (read) | new_inspection_report |
+| `hos_logs.hos_violation` | HOS Violations (read) | new_hos_violation |
+| `driver_performance_events.read` | Driver Performance (read) | new_safety_event |
+| `speeding_events.read` | Speeding Events (read) | new_speeding_event |
+| `fault_codes.read` | Fault Codes (read) | new_fault_code |
+
+> **Do NOT enable Dispatch Forms / Dispatch Form Entries** for inspections —
+> `forms.read` / `form_entries.read` authorize Dispatch Forms, NOT Inspection
+> Reports. `inspection_reports.read` is the correct scope and is requested above.
 
 ### Provider-specific settings
 - Token rotation: **refresh tokens are single-use / rotating** — V2 persists the rotated

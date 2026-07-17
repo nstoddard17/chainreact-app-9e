@@ -55,22 +55,37 @@ Model: **every GET needs a `*.read` scope; every write (POST/PUT/PATCH/DELETE)
 needs the matching `*.manage` scope.** Motive recommends always enabling
 `companies.read` so a token can be attributed to its organization.
 
+Exact Doorkeeper scope identifiers (14, verified against the developer-portal
+scope picker, 2026-07-17):
+
 | Scope | Required? | Used by |
 |---|---|---|
 | `companies.read` | required | connect-time company identity + attribution |
-| `users.read` | required | driver/user pickers, driver upsert trigger |
-| `users.manage` | required | `update_driver` |
-| `vehicles.read` | required | vehicle picker, vehicle upsert trigger |
-| `vehicles.manage` | required | `create_vehicle`, `update_vehicle` |
 | `fuel_purchases.read` | required | fuel list/get, new-fuel-purchase polling trigger |
 | `fuel_purchases.manage` | required | fuel create/update/delete, bulk CSV import |
-| `forms.read` | required | inspection-report trigger payload context |
-| `form_entries.read` | required | form-entry / inspection triggers |
+| `vehicles.read` | required | vehicle picker, `new_vehicle` trigger |
+| `vehicles.manage` | required | `create_vehicle`, `update_vehicle` |
+| `users.read` | required | driver picker, `new_driver` trigger |
+| `users.manage` | required | `update_driver` |
 | `messages.manage` | required | `send_message` |
+| `company_webhooks.manage` | required | **all 7 webhook triggers** — `POST /v1/company_webhooks` |
+| `inspection_reports.read` | required | `new_inspection_report` |
+| `hos_logs.hos_violation` | required | `new_hos_violation` |
+| `driver_performance_events.read` | required | `new_safety_event` |
+| `speeding_events.read` | required | `new_speeding_event` |
+| `fault_codes.read` | required | `new_fault_code` |
+
+> **CORRECTION (2026-07-17):** an earlier draft mapped inspections to
+> `forms.read` / `form_entries.read` — those are **Dispatch Forms** permissions
+> and do NOT authorize Inspection Reports. The correct scope is
+> `inspection_reports.read`. `company_webhooks.manage` (mandatory for webhook
+> creation) and the four safety-event read scopes were also added. Aligned in
+> `manifest.ts` + owner-setup-report.md (forward commit on top of 85cf7a59c).
 
 Deliberately excluded (no shipped node needs them): `dispatches.*`,
-`documents.*`, `assets.*`, `locations.*`, `ifta_reports.*`, `geofences.*`.
-Add later only when a node that needs them ships.
+`documents.*`, `assets.*`, `locations.*`, `ifta_reports.*`, `geofences.*`,
+`forms.*` / `form_entries.*` (Dispatch Forms). Add later only when a node that
+needs them ships.
 
 Source: `developer-docs.gomotive.com/docs/oauth-scopes`.
 

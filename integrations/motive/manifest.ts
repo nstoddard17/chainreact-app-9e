@@ -52,18 +52,28 @@ export const motiveManifest: ProviderManifest = ProviderManifestSchema.parse({
   tokenScope: "user",
   oauthFlows: ["v2"],
   accountIdField: "companyId",
+  // Exact Doorkeeper scope identifiers (14). Each maps 1:1 to a shipped node —
+  // see docs/providers/motive/owner-setup-report.md. `company_webhooks.manage`
+  // is MANDATORY for the 7 webhook triggers (POST /v1/company_webhooks); the
+  // safety-event reads authorize their triggers. Deliberately NOT requested:
+  // `forms.read` / `form_entries.read` are DISPATCH-FORMS permissions and do
+  // NOT authorize Inspection Reports — `inspection_reports.read` does.
   scopes: {
     required: [
       "companies.read",
-      "users.read",
-      "users.manage",
-      "vehicles.read",
-      "vehicles.manage",
       "fuel_purchases.read",
       "fuel_purchases.manage",
-      "forms.read",
-      "form_entries.read",
+      "vehicles.read",
+      "vehicles.manage",
+      "users.read",
+      "users.manage",
       "messages.manage",
+      "company_webhooks.manage",
+      "inspection_reports.read",
+      "hos_logs.hos_violation",
+      "driver_performance_events.read",
+      "speeding_events.read",
+      "fault_codes.read",
     ],
     optional: [],
     deprecated: [],
