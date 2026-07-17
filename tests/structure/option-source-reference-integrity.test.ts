@@ -86,4 +86,23 @@ describe("option-source reference integrity", () => {
     }
     expect(unwired).toEqual([]);
   });
+
+  /*
+   * NOT GUARDED HERE ON PURPOSE — "every dependsOn names a real sibling field".
+   *
+   * A dependsOn pointing at a field the node does not have would be a
+   * permanently-empty dropdown (the route short-circuits MISSING_DEPENDENCY on
+   * every keystroke, with no error to explain it), and it is a live hazard:
+   * Stripe lists payment methods only per-customer, but only create_subscription
+   * HAS a customer field, so wiring update_subscription's picker to
+   * `dependsOn: "customerId"` would look correct and ship a dead dropdown
+   * (RESOLVERS-2 needed a subscriptionId-keyed variant instead).
+   *
+   * It needs no test: the ActionMeta/TriggerMeta Zod contract already rejects it
+   * at MODULE LOAD — "Field 'default_payment_method' depends on unknown field
+   * 'customerId'." That is strictly stronger than a structure test (it fails for
+   * every importer, not just this suite), and a test asserting it could never
+   * fail — the registry throws before the suite runs. Verified by deliberately
+   * breaking updateSubscription.meta.ts and observing the load-time ZodError.
+   */
 });
