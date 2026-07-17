@@ -41,13 +41,21 @@ import { HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES } from "./allowedSubscriptionTypes";
  *
  * Field surface — single `subscriptions` object-list (CONFIG-UX-AUDIT-1).
  * Each row is one subscription: an event-type picker plus a property-name
- * input that appears only for `*.propertyChange` events. The renderer
+ * picker that appears only for `*.propertyChange` events. The renderer
  * writes the REAL `[{ eventType, propertyName? }]` array that
  * `parseSubscriptions` expects — the previous paste-JSON textarea stored
  * a STRING, which activation rejected outright (`Array.isArray` guard),
  * so the visual editor is both the UX fix and the correctness fix.
  * Activation stays authoritative for validation (allowlist, propertyName
  * rules, duplicates).
+ *
+ * RESOLVERS-4 — `propertyName` is a REAL picker of the portal's own
+ * properties, scoped per row by that row's `eventType` (`dependsOnRow` →
+ * `hubspot:subscription_properties`, which maps the event's object prefix to
+ * the right HubSpot object type server-side). The saved row shape is
+ * UNCHANGED — still `[{ eventType, propertyName? }]` with `propertyName` an
+ * internal property-name string — so activation and `parseSubscriptions` are
+ * untouched by the picker.
  *
  * Payload — mirrors `normalize.ts:normalizeHubSpotEvent` exactly.
  * `propertyValue` and `event` (raw payload) MUST stay sensitive — they
@@ -100,29 +108,30 @@ export const hubspotWebhookReceivedTriggerMeta: TriggerMeta = {
           ],
         },
         {
-          // RESOLVERS-3 — DELIBERATELY still a text sub-field, not a picker.
+          // RESOLVERS-4 — a REAL picker of the portal's own properties.
           //
-          // The property resolvers exist (`hubspot:contact_properties` /
-          // `company_` / `deal_` / `ticket_properties`), but WHICH one is
-          // correct is decided by this row's OWN `eventType` sibling — a
-          // ROW-LOCAL dependency, and one that selects the option SOURCE
-          // itself, not just a dep value. Sub-field `optionsSource` +
-          // `dependsOn` resolve against the node's TOP-LEVEL fields only
-          // (see ObjectListItemFieldSchema's scope limit), and each row here
-          // can watch a different object type, so there is no honest
-          // top-level field to hoist `eventType` to.
+          // `hubspot:subscription_properties` takes this row's `eventType`
+          // (`dependsOnRow` — the same row-local scope `visibleWhen` uses) and
+          // dispatches SERVER-SIDE to the matching object type's properties, so
+          // a deal row lists deal properties and a contact row lists contact
+          // properties. `allowManualEntry` keeps raw internal names + upstream
+          // `{{...}}` mapping available for power users.
           //
-          // Wiring one arbitrary resolver (e.g. always contact_properties)
-          // would ship a picker that is silently WRONG for deal/ticket rows.
-          // A per-row source selector is a contract extension, not a
-          // wiring gap — tracked as follow-up, not faked here.
+          // `type` stays "text": a sub-field's `type` is its VALUE type, not a
+          // widget selector (there is no "combobox" sub-field type).
+          // `optionsSource` is what upgrades the input to a picker, and the row
+          // still commits the same plain string `parseSubscriptions` has always
+          // read.
           name: "propertyName",
           label: "Property to watch",
           description:
-            "The property whose changes should fire this workflow (e.g. `amount`, `dealstage`, `email`).",
+            "The property whose changes should fire this workflow (e.g. Amount on a deal, Lead status on a contact).",
           type: "text",
           required: true,
-          placeholder: "amount",
+          placeholder: "Choose a property…",
+          optionsSource: "hubspot:subscription_properties",
+          dependsOnRow: "eventType",
+          allowManualEntry: true,
           visibleWhen: { field: "eventType", valueEndsWith: ".propertyChange" },
         },
       ],

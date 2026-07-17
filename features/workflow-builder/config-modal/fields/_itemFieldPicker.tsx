@@ -25,21 +25,30 @@ import { ComboboxField } from "./ComboboxField";
  * saved workflows) the `combobox-saved-value-missing` unavailable-selection
  * hint. No fetching happens in this module.
  *
- * ── dep resolution ────────────────────────────────────────────────────────
- * A sub-field's `dependsOn` resolves against the NODE'S TOP-LEVEL config
- * (`formValues` / `formFields`, i.e. the object-list field's siblings) — NOT
- * against other columns in the same row. That is what every shipped case
- * needs (Power BI `parameters[].name` depends on the top-level `workspaceId`
- * + `semanticModelId`), and the contract's meta-level superRefine rejects a
- * sub-field `dependsOn` naming anything else at module load.
+ * ── dep resolution (RESOLVERS-4) ──────────────────────────────────────────
+ * A sub-field declares its parents in one of two EXPLICIT scopes, and this
+ * module resolves each in its own scope then MERGES them into ONE dep map:
  *
- * Row-local deps (a picker whose source/deps come from another column in the
- * SAME row — e.g. HubSpot `subscriptions[].propertyName`, keyed by that row's
- * own `eventType`) are NOT supported. Such fields stay text sub-fields.
+ *   - `dependsOn`    → the NODE'S TOP-LEVEL config (`formValues` /
+ *                      `formFields`, i.e. the object-list field's siblings).
+ *                      Power BI `parameters[].name` ← top-level `workspaceId`
+ *                      + `semanticModelId`.
+ *   - `dependsOnRow` → the SAME ROW'S other itemFields (`rowValues` /
+ *                      `itemFields`). HubSpot `subscriptions[].propertyName`
+ *                      ← that row's own `eventType`.
  *
- * The semantics below mirror SchemaForm's top-level cascade exactly: `enabled`
- * only once EVERY parent has a non-empty string, `deps` never partial, and
- * `parentLabel` naming the still-missing parents.
+ * Row-local resolution is not a new scope in this file's world view —
+ * `visibleWhen.field` has always resolved against the row. `dependsOnRow` makes
+ * deps consistent with visibility rather than inventing a third notion of
+ * "where a name points". The contract's meta-level superRefine rejects a name
+ * that doesn't exist in the scope it declares, at module load.
+ *
+ * The resolver receives a FLAT `ctx.deps` and never learns which scope a value
+ * came from. The semantics below mirror SchemaForm's top-level cascade exactly,
+ * now across BOTH scopes: `enabled` only once EVERY parent (top-level and
+ * row-local alike) has a non-empty string, `deps` never partial, and
+ * `parentLabel` naming the still-missing parents (a row-local parent is named
+ * by its sibling itemField's `label`).
  */
 
 /** True when this sub-field should render as a picker rather than an input. */
@@ -62,27 +71,49 @@ interface ResolvedDeps {
 }
 
 /**
- * Resolve a sub-field picker's `dependsOn` against the node's TOP-LEVEL
- * values. Exported for direct unit testing of the cascade semantics.
+ * Resolve a sub-field picker's parents — `dependsOn` against the node's
+ * TOP-LEVEL values, `dependsOnRow` against the SAME ROW's values — and merge
+ * both into one dep set. Exported for direct unit testing of the cascade
+ * semantics.
+ *
+ * `rowValues` / `itemFields` describe the row this instance is rendering for
+ * (for the single-object `ObjectField`, the "row" IS the object). Omitting them
+ * degrades only `dependsOnRow`: its parents read as missing, so the picker stays
+ * passive rather than firing a partial request.
  */
 export function resolveItemFieldDeps(input: {
   sub: ObjectListItemField;
   formValues: Readonly<Record<string, unknown>> | undefined;
   formFields: readonly FieldMeta[] | undefined;
+  rowValues?: Readonly<Record<string, unknown>> | undefined;
+  itemFields?: readonly ObjectListItemField[] | undefined;
 }): ResolvedDeps {
-  const parents = normalizeDependsOn(input.sub.dependsOn);
-  if (parents.length === 0) {
+  const topParents = normalizeDependsOn(input.sub.dependsOn);
+  const rowParents = normalizeDependsOn(input.sub.dependsOnRow);
+  if (topParents.length === 0 && rowParents.length === 0) {
     return { deps: undefined, enabled: undefined, parentLabel: undefined };
   }
   const values = input.formValues ?? {};
+  const rowValues = input.rowValues ?? {};
   const labelFor = (name: string): string =>
     input.formFields?.find((f) => f.name === name)?.label ?? name;
+  const rowLabelFor = (name: string): string =>
+    input.itemFields?.find((s) => s.name === name)?.label ?? name;
 
-  const resolved = parents.map((name) => ({
-    name,
-    label: labelFor(name),
-    value: readParentString(values[name]),
-  }));
+  // One list, two scopes. The contract forbids a name in both, so the merged
+  // dep map can never collide.
+  const resolved = [
+    ...topParents.map((name) => ({
+      name,
+      label: labelFor(name),
+      value: readParentString(values[name]),
+    })),
+    ...rowParents.map((name) => ({
+      name,
+      label: rowLabelFor(name),
+      value: readParentString(rowValues[name]),
+    })),
+  ];
   const missing = resolved.filter((p) => p.value.length === 0);
   const enabled = missing.length === 0;
   return {
@@ -141,6 +172,10 @@ export const ItemFieldPicker: React.FC<{
   error?: string | undefined;
   formValues: Readonly<Record<string, unknown>> | undefined;
   formFields: readonly FieldMeta[] | undefined;
+  /** This row's own values — the scope `dependsOnRow` resolves in. */
+  rowValues?: Readonly<Record<string, unknown>> | undefined;
+  /** The row's sibling sub-fields — labels for row-local parent hints. */
+  itemFields?: readonly ObjectListItemField[] | undefined;
   onChange: (v: string | number | undefined) => void;
 }> = ({
   sub,
@@ -150,13 +185,27 @@ export const ItemFieldPicker: React.FC<{
   error,
   formValues,
   formFields,
+  rowValues,
+  itemFields,
   onChange,
 }) => {
   // Synthesized top-level-shaped meta. Only fields ComboboxField reads are
   // set; `multiple` is never set (a row cell is single-valued), so the
   // MultiOptionsField branch is unreachable from here.
-  const synthesized = React.useMemo<FieldMeta>(
-    () => ({
+  //
+  // RESOLVERS-4 — `dependsOn` here carries the MERGED parent names (top-level +
+  // row-local). ComboboxField reads it for exactly one purpose: deciding
+  // whether `enabled === false` should render the passive "Select <parent>
+  // first" trigger instead of mounting the options hook. It never re-resolves
+  // the names against any scope (this module already did that), so merging is
+  // what keeps a row-local-only picker passive while its parent is unset. This
+  // meta is UI-only and never validated by the contract.
+  const synthesized = React.useMemo<FieldMeta>(() => {
+    const mergedParents = [
+      ...normalizeDependsOn(sub.dependsOn),
+      ...normalizeDependsOn(sub.dependsOnRow),
+    ];
+    return {
       name: controlName,
       label: sub.label,
       type: "combobox",
@@ -166,18 +215,19 @@ export const ItemFieldPicker: React.FC<{
       ...(sub.optionsSource !== undefined && {
         optionsSource: sub.optionsSource,
       }),
-      ...(sub.dependsOn !== undefined && { dependsOn: sub.dependsOn }),
+      ...(mergedParents.length > 0 && { dependsOn: mergedParents }),
       ...(sub.allowManualEntry !== undefined && {
         allowManualEntry: sub.allowManualEntry,
       }),
-    }),
-    [controlName, sub],
-  );
+    };
+  }, [controlName, sub]);
 
   const { deps, enabled, parentLabel } = resolveItemFieldDeps({
     sub,
     formValues,
     formFields,
+    rowValues,
+    itemFields,
   });
 
   // A saved value is rendered as-is (stringified for display) — a number row

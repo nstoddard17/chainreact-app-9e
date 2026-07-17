@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { FieldShell } from "./FieldShell";
 import type { FieldMeta, ObjectListItemField } from "@/contracts/actionMeta";
+import { normalizeDependsOn } from "@/contracts/actionMeta";
 import type { FieldRendererProps } from "./types";
 import { ItemFieldPicker, hasItemFieldPicker } from "./_itemFieldPicker";
 
@@ -31,6 +32,13 @@ import { ItemFieldPicker, hasItemFieldPicker } from "./_itemFieldPicker";
  * chosen, not hand-typed. The picker is ADDITIVE: manual entry and
  * `{{upstream}}` variable mapping still work, and the committed row shape is
  * unchanged (a `number` sub-field still commits a number).
+ *
+ * RESOLVERS-4 — a picker can also be scoped by another column in ITS OWN ROW
+ * (`dependsOnRow`), so each row resolves independently: HubSpot
+ * `subscriptions[].propertyName` lists the properties of whatever object type
+ * THAT row's `eventType` names. Each row's values are passed to its own picker,
+ * and changing a row-local parent CLEARS its dependents in that row only (see
+ * `updateRow`) — mirroring SchemaForm's top-level cascade.
  *
  * Value contract:
  *   - Writes a REAL `Array<Record<string, string | number | boolean>>` —
@@ -147,6 +155,20 @@ export const ObjectListField: React.FC<FieldRendererProps> = ({
       const updated: RowValue = { ...row };
       if (v === undefined) delete updated[name];
       else updated[name] = v;
+      // RESOLVERS-4 — row-local `dependsOnRow` cascade, mirroring SchemaForm's
+      // top-level one: changing a parent CLEARS its direct dependents in THIS
+      // row (other rows are untouched — that is the whole point of a row-local
+      // dep). Without this, switching a HubSpot row from "Deal property
+      // changed" to "Contact property changed" would silently keep `amount` — a
+      // property that doesn't exist on contacts — and activation would create a
+      // subscription that never fires. Direct-only, no grand-children: the
+      // contract's sub-field shape has no chains.
+      for (const sub of itemFields) {
+        if (sub.name === name) continue;
+        if (normalizeDependsOn(sub.dependsOnRow).includes(name)) {
+          delete updated[sub.name];
+        }
+      }
       return updated;
     });
     commit(next);
@@ -214,6 +236,8 @@ export const ObjectListField: React.FC<FieldRendererProps> = ({
                   disabled={disabled}
                   formValues={formValues}
                   formFields={formFields}
+                  rowValues={row}
+                  itemFields={itemFields}
                   onChange={(v) => updateRow(i, sub.name, v)}
                 />
               ) : null,
@@ -247,6 +271,8 @@ function SubFieldInput({
   disabled,
   formValues,
   formFields,
+  rowValues,
+  itemFields,
   onChange,
 }: {
   sub: ObjectListItemField;
@@ -257,6 +283,8 @@ function SubFieldInput({
   disabled: boolean | undefined;
   formValues: Readonly<Record<string, unknown>> | undefined;
   formFields: readonly FieldMeta[] | undefined;
+  rowValues: Readonly<Record<string, unknown>>;
+  itemFields: readonly ObjectListItemField[];
   onChange: (v: string | number | boolean | undefined) => void;
 }): React.ReactElement {
   const inputId = `object-list-${fieldLabel}-${rowIndex}-${sub.name}`;
@@ -267,6 +295,9 @@ function SubFieldInput({
   // number for a `number` sub-field), `optionsSource` only upgrades the
   // widget. The control name is row-qualified so each row gets its own DOM
   // id / testids instead of duplicates.
+  //
+  // RESOLVERS-4 — this row's own values + sibling metas flow through so a
+  // `dependsOnRow` picker resolves against THIS row.
   if (hasItemFieldPicker(sub)) {
     return (
       <ItemFieldPicker
@@ -276,6 +307,8 @@ function SubFieldInput({
         disabled={disabled}
         formValues={formValues}
         formFields={formFields}
+        rowValues={rowValues}
+        itemFields={itemFields}
         onChange={onChange}
       />
     );

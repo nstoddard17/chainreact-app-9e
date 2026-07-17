@@ -11,6 +11,11 @@
  *     payloadShape with sensitive flags on `propertyValue` / `event`.
  *   - end-to-end: build three subscriptions VISUALLY (no JSON anywhere)
  *     → Modal Save flushes draft → Toolbar Save persists once.
+ *   - RESOLVERS-4: propertyName is PICKED from the row's object type (the
+ *     user chooses "Amount", never types `amount`), the row's own eventType
+ *     is what scopes the request, and the SAVED ROW SHAPE is byte-identical
+ *     to the hand-typed era — `EXPECTED_SUBSCRIPTIONS` below is unchanged,
+ *     which is the pin that activation/parseSubscriptions stayed untouched.
  *   - subscriptions persists as the REAL `[{eventType, propertyName?}]`
  *     ARRAY that activate.ts:parseSubscriptions expects. The paste-JSON
  *     era stored a literal string, which parseSubscriptions REJECTED
@@ -106,15 +111,40 @@ beforeEach(() => {
     p === "hubspot" ? [hubspotWebhookReceivedTriggerMeta] : [],
   );
   mockFetchOptionsSource.mockReset();
-  // Defensive: this trigger meta has ZERO optionsSource fields (the
-  // eventType picker is STATIC options inside the object-list). Any
-  // fetch invocation indicates a meta-shape regression.
-  mockFetchOptionsSource.mockImplementation(async (source: string) => ({
-    ok: false,
-    source,
-    code: "SOURCE_NOT_FOUND",
-    message: `Unknown source '${source}' (test mock).`,
-  }));
+  // RESOLVERS-4 — the ONLY option source on this meta is the per-row
+  // propertyName picker (`hubspot:subscription_properties`); the eventType
+  // picker is still STATIC options. The mock stands in for the server-side
+  // dispatch: it asserts the row's eventType arrived as a dep and answers with
+  // that object type's properties, so the test proves the builder→route wiring
+  // without a HubSpot portal. Any OTHER source means a meta-shape regression.
+  mockFetchOptionsSource.mockImplementation(
+    async (source: string, opts?: { deps?: Record<string, string> }) => {
+      if (source !== "hubspot:subscription_properties") {
+        return {
+          ok: false,
+          source,
+          code: "SOURCE_NOT_FOUND",
+          message: `Unknown source '${source}' (test mock).`,
+        };
+      }
+      const byEventType: Record<string, Array<{ value: string; label: string }>> =
+        {
+          "deal.propertyChange": [
+            { value: "amount", label: "Amount" },
+            { value: "dealstage", label: "Deal stage" },
+          ],
+          "contact.propertyChange": [
+            { value: "hs_lead_status", label: "Lead status" },
+          ],
+        };
+      return {
+        ok: true,
+        source,
+        items: byEventType[opts?.deps?.eventType ?? ""] ?? [],
+        hasMore: false,
+      };
+    },
+  );
   __resetNativeActionsCacheForTests();
   __resetNativeTriggersCacheForTests();
   __resetProviderActionsCacheForTests();
@@ -138,6 +168,8 @@ it("HubSpot webhook_received trigger meta — required subscriptions object-list
   const subscriptionsField = hubspotWebhookReceivedTriggerMeta.fields[0]!;
   expect(subscriptionsField.type).toBe("object-list");
   expect(subscriptionsField.required).toBe(true);
+  // The object-list itself has no source; its propertyName SUB-field does
+  // (RESOLVERS-4, asserted below).
   expect(subscriptionsField.optionsSource).toBeUndefined();
   expect(subscriptionsField.label.toLowerCase()).not.toContain("json");
   expect(subscriptionsField.description!.toLowerCase()).not.toContain("json");
@@ -155,7 +187,13 @@ it("HubSpot webhook_received trigger meta — required subscriptions object-list
     ...HUBSPOT_ALLOWED_SUBSCRIPTION_TYPES,
   ]);
   const propertyName = subscriptionsField.itemFields![1]!;
+  // RESOLVERS-4 — a REAL picker of the portal's own properties, scoped by THIS
+  // row's eventType. `type` stays the VALUE type ("text"): the saved row shape
+  // parseSubscriptions reads is unchanged, only the widget was upgraded.
   expect(propertyName.type).toBe("text");
+  expect(propertyName.optionsSource).toBe("hubspot:subscription_properties");
+  expect(propertyName.dependsOnRow).toBe("eventType");
+  expect(propertyName.allowManualEntry).toBe(true);
   expect(propertyName.required).toBe(true); // required WHEN VISIBLE
   expect(propertyName.visibleWhen).toEqual({
     field: "eventType",
@@ -255,10 +293,13 @@ it(
       await screen.findByRole("option", { name: "Contact created" }),
     );
     expect(
-      screen.queryByRole("textbox", { name: /property to watch \(entry 1\)/i }),
+      screen.queryByRole("combobox", { name: /^property to watch$/i }),
     ).not.toBeInTheDocument();
 
-    // 5. Row 2 — "Deal property changed" reveals the property-name input.
+    // 5. Row 2 — "Deal property changed" reveals the property-name PICKER
+    //    (RESOLVERS-4). The user never types an internal property name: they
+    //    pick "Amount" by its HubSpot display label and the row commits the
+    //    internal name `amount`.
     await user.click(screen.getByTestId("object-list-subscriptions-add"));
     await user.click(
       screen.getByRole("combobox", { name: /event \(entry 2\)/i }),
@@ -266,10 +307,20 @@ it(
     await user.click(
       await screen.findByRole("option", { name: "Deal property changed" }),
     );
-    const propertyInput = await screen.findByRole("textbox", {
-      name: /property to watch \(entry 2\)/i,
+    const propertyPicker = await screen.findByRole("combobox", {
+      name: /^property to watch$/i,
     });
-    await user.type(propertyInput, "amount");
+    await user.click(propertyPicker);
+    await user.click(await screen.findByText("Amount"));
+
+    // The row's OWN eventType reached the resolver as a dep — that is what
+    // lets one source serve rows watching different object types.
+    await waitFor(() => {
+      expect(mockFetchOptionsSource).toHaveBeenCalledWith(
+        "hubspot:subscription_properties",
+        expect.objectContaining({ deps: { eventType: "deal.propertyChange" } }),
+      );
+    });
 
     // 6. Row 3 — "Ticket deleted".
     await user.click(screen.getByTestId("object-list-subscriptions-add"));
@@ -331,8 +382,12 @@ it(
     expect(persistedTrigger.config.appId).toBeUndefined();
     expect(persistedTrigger.config.hubId).toBeUndefined();
 
-    // Resolver was never hit — the eventType picker is static options.
-    expect(mockFetchOptionsSource).not.toHaveBeenCalled();
+    // The ONLY source ever requested is the row-dispatching one — the
+    // eventType picker is still static options, and no per-object property
+    // resolver is reachable from this trigger.
+    for (const [source] of mockFetchOptionsSource.mock.calls) {
+      expect(source).toBe("hubspot:subscription_properties");
+    }
 
     // Single updateWorkflow call.
     expect(mockUpdateWorkflow).toHaveBeenCalledTimes(1);

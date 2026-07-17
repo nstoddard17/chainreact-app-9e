@@ -84,6 +84,17 @@ import {
   hubspotProductPropertiesResolver,
   hubspotLineItemPropertiesResolver,
 } from "@/integrations/hubspot/options/propertyNames";
+// RESOLVERS-4 — `hubspot:subscription_properties` backs the PER-ROW
+// `propertyName` picker on the webhook_received trigger's `subscriptions`
+// object-list. It exists because WHICH property list is right is decided by
+// that ROW's own `eventType` (a row-local dep, `dependsOnRow`), and different
+// rows watch different object types — so no single per-object resolver above
+// could be wired without being silently wrong for the other rows, and a field
+// names only ONE source. This one takes the choice server-side: it dispatches
+// the row's eventType prefix (contact/company/deal/ticket) to the right HubSpot
+// object type per request, reusing the same resolve body as the six per-object
+// property resolvers.
+import { hubspotSubscriptionPropertiesResolver } from "@/integrations/hubspot/options/subscriptionProperties";
 import { hubspotDealPipelinesResolver } from "@/integrations/hubspot/options/dealPipelines";
 import { hubspotDealStagesResolver } from "@/integrations/hubspot/options/dealStages";
 import { hubspotTicketPipelinesResolver } from "@/integrations/hubspot/options/ticketPipelines";
@@ -947,6 +958,9 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   hubspotTicketPropertiesResolver,
   hubspotProductPropertiesResolver,
   hubspotLineItemPropertiesResolver,
+  // RESOLVERS-4 — server-side per-row dispatch (deps: eventType). See the
+  // import-site note above.
+  hubspotSubscriptionPropertiesResolver,
   hubspotCallDispositionOptionsResolver,
   // RESOLVERS-1 — github branches (deps: repository), notion databases,
   // shopify products. All read-only on already-granted scopes.

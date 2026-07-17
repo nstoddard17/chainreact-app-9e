@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { FieldShell } from "./FieldShell";
 import type { FieldMeta, ObjectListItemField } from "@/contracts/actionMeta";
+import { normalizeDependsOn } from "@/contracts/actionMeta";
 import type { FieldRendererProps } from "./types";
 import { ItemFieldPicker, hasItemFieldPicker } from "./_itemFieldPicker";
 
@@ -37,6 +38,16 @@ import { ItemFieldPicker, hasItemFieldPicker } from "./_itemFieldPicker";
  * account-aware picker (via `_itemFieldPicker` → ComboboxField) instead of a
  * raw text box, with manual entry / variable mapping still available and the
  * committed value type unchanged.
+ *
+ * RESOLVERS-4 — `dependsOnRow` (a picker scoped by a SIBLING sub-field rather
+ * than a top-level field) is supported here on the same terms as in
+ * ObjectListField. This editor's "row" IS the object: there is exactly one, so
+ * `rowValues` is the object's current value and the row-local scope is simply
+ * the other keys of this same object. Everything else follows identically —
+ * merged deps, never-partial dep sets, and the clearing cascade in `updateKey`
+ * (changing a parent key clears its dependents). Keeping the two editors
+ * behaviorally identical means the contract means ONE thing wherever
+ * `itemFields` appears, rather than something subtly different per renderer.
  *
  * The runtime schema stays authoritative for validation; `required`
  * markers here are UI affordances.
@@ -106,6 +117,16 @@ export const ObjectField: React.FC<FieldRendererProps> = ({
     const next: ObjectValue = { ...current };
     if (v === undefined) delete next[name];
     else next[name] = v;
+    // RESOLVERS-4 — row-local dep cascade (this object IS the row). A stale
+    // value picked under a different parent is never kept silently. Direct
+    // dependents only, mirroring ObjectListField + SchemaForm. Unknown saved
+    // keys are untouched: only DECLARED dependents are cleared.
+    for (const sub of itemFields) {
+      if (sub.name === name) continue;
+      if (normalizeDependsOn(sub.dependsOnRow).includes(name)) {
+        delete next[sub.name];
+      }
+    }
     commit(next);
   }
 
@@ -132,6 +153,8 @@ export const ObjectField: React.FC<FieldRendererProps> = ({
             disabled={disabled}
             formValues={formValues}
             formFields={formFields}
+            rowValues={current}
+            itemFields={itemFields}
             onChange={(v) => updateKey(sub.name, v)}
           />
         ))}
@@ -147,6 +170,8 @@ function ObjectSubFieldInput({
   disabled,
   formValues,
   formFields,
+  rowValues,
+  itemFields,
   onChange,
 }: {
   sub: ObjectListItemField;
@@ -155,12 +180,15 @@ function ObjectSubFieldInput({
   disabled: boolean | undefined;
   formValues: Readonly<Record<string, unknown>> | undefined;
   formFields: readonly FieldMeta[] | undefined;
+  rowValues: Readonly<Record<string, unknown>>;
+  itemFields: readonly ObjectListItemField[];
   onChange: (v: string | number | boolean | undefined) => void;
 }): React.ReactElement {
   const inputId = `object-${fieldName}-${sub.name}`;
 
   // RESOLVERS-3 — picker path (see ObjectListField for the rationale). Only
   // one instance per key here, so the field-qualified name is already unique.
+  // RESOLVERS-4 — the object's own value doubles as the row scope.
   if (hasItemFieldPicker(sub)) {
     return (
       <ItemFieldPicker
@@ -170,6 +198,8 @@ function ObjectSubFieldInput({
         disabled={disabled}
         formValues={formValues}
         formFields={formFields}
+        rowValues={rowValues}
+        itemFields={itemFields}
         onChange={onChange}
       />
     );

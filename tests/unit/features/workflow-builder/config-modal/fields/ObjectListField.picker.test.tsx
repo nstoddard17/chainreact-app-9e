@@ -19,7 +19,10 @@
  *   - manual entry + variable insertion still work (the picker is ADDITIVE
  *     to `{{...}}` mapping, never a replacement);
  *   - `dependsOn` resolves against the node's TOP-LEVEL config (the
- *     object-list's siblings), NOT row-local values.
+ *     object-list's siblings);
+ *   - RESOLVERS-4: `dependsOnRow` resolves against THE SAME ROW's other
+ *     columns, each row independently, and changing a row-local parent clears
+ *     its dependents in that row only.
  *
  * Radix/cmdk note: the popover is a real portal — `user.click(combobox)`
  * then `user.click(option)`; fireEvent.change does not drive it.
@@ -142,6 +145,42 @@ const powerbiField = (): FieldMeta =>
       { name: "newValue", label: "New value", type: "text", required: true },
     ],
   }) as FieldMeta;
+
+/**
+ * RESOLVERS-4 — HubSpot webhook_received shape: a picker scoped by ANOTHER
+ * COLUMN IN THE SAME ROW. Each row can watch a different object type, so no
+ * top-level field could carry `eventType` honestly.
+ */
+const hubspotField = (): FieldMeta =>
+  ({
+    name: "subscriptions",
+    label: "Events to watch",
+    type: "object-list",
+    required: true,
+    itemFields: [
+      {
+        name: "eventType",
+        label: "Event",
+        type: "select",
+        required: true,
+        options: [
+          { value: "contact.propertyChange", label: "Contact property changed" },
+          { value: "deal.propertyChange", label: "Deal property changed" },
+          { value: "contact.creation", label: "Contact created" },
+        ],
+      },
+      {
+        name: "propertyName",
+        label: "Property to watch",
+        type: "text",
+        required: true,
+        optionsSource: "hubspot:subscription_properties",
+        dependsOnRow: "eventType",
+        allowManualEntry: true,
+        visibleWhen: { field: "eventType", valueEndsWith: ".propertyChange" },
+      },
+    ],
+  }) as unknown as FieldMeta;
 
 const powerbiTopLevel: FieldMeta[] = [
   { name: "workspaceId", label: "Workspace", type: "combobox", required: true },
@@ -475,6 +514,233 @@ describe("object-list row picker — dependsOn resolves against TOP-LEVEL config
   });
 });
 
+/*
+ * RESOLVERS-4 — the row-local dep scope. This is what makes HubSpot's
+ * `subscriptions[].propertyName` a real picker instead of a text box asking a
+ * business user to type `hs_lead_status`.
+ */
+describe("object-list row picker — dependsOnRow resolves against THE SAME ROW", () => {
+  it("each row sends its OWN eventType as the dep (rows resolve independently)", () => {
+    setHookState(ready([{ value: "amount", label: "Amount" }]));
+    render(
+      <ObjectListField
+        field={hubspotField()}
+        value={[
+          { eventType: "contact.propertyChange", propertyName: "email" },
+          { eventType: "deal.propertyChange", propertyName: "amount" },
+        ]}
+        onChange={jest.fn()}
+      />,
+    );
+    // The whole point: one source, two rows, two DIFFERENT dep values — the
+    // resolver dispatches to contacts for row 0 and deals for row 1.
+    const depsSeen = mockUseOptionsSource.mock.calls.map((c) => c[0]?.deps);
+    expect(depsSeen).toContainEqual({ eventType: "contact.propertyChange" });
+    expect(depsSeen).toContainEqual({ eventType: "deal.propertyChange" });
+    for (const call of mockUseOptionsSource.mock.calls) {
+      expect(call[0]?.source).toBe("hubspot:subscription_properties");
+    }
+  });
+
+  it("gates the picker until the ROW's parent is set, naming the sibling's label", () => {
+    render(
+      <ObjectListField
+        field={hubspotField()}
+        // A row whose eventType is a propertyChange type (so propertyName is
+        // visible) can't exist with an empty eventType — but a stale/partial
+        // saved row can, and the picker must stay passive rather than fire a
+        // dep-less request.
+        value={[{ propertyName: "amount" }]}
+        onChange={jest.fn()}
+      />,
+    );
+    // visibleWhen hides propertyName when eventType is empty, so nothing is
+    // rendered and no request is made.
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+  });
+
+  it("never calls the resolver with a PARTIAL dep set when a row-local parent is missing", () => {
+    // A sub-field with a row-local dep but NO visibleWhen gate — the picker
+    // renders, and must stay passive with a "Select Event first" hint.
+    const ungated = hubspotField();
+    const propertyName = ungated.itemFields![1]! as {
+      visibleWhen?: unknown;
+    };
+    delete propertyName.visibleWhen;
+    render(
+      <ObjectListField
+        field={ungated}
+        value={[{ propertyName: "" }]}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId("combobox-parent-missing")).toHaveTextContent(
+      "Select Event first",
+    );
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+  });
+
+  it("merges top-level and row-local parents into ONE dep set", () => {
+    // Nothing shipped needs both today, but the contract allows composing them
+    // and a partial merge would silently mis-scope a resolver.
+    const mixed = hubspotField();
+    Object.assign(mixed.itemFields![1]!, { dependsOn: "workspaceId" });
+    setHookState(ready([{ value: "amount", label: "Amount" }]));
+    render(
+      <ObjectListField
+        field={mixed}
+        value={[{ eventType: "deal.propertyChange", propertyName: "amount" }]}
+        onChange={jest.fn()}
+        formValues={{ workspaceId: "ws-1" }}
+        formFields={powerbiTopLevel}
+      />,
+    );
+    expect(mockUseOptionsSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deps: { workspaceId: "ws-1", eventType: "deal.propertyChange" },
+      }),
+    );
+  });
+
+  it("a missing TOP-LEVEL parent still gates a row-local picker (both scopes, one rule)", () => {
+    const mixed = hubspotField();
+    Object.assign(mixed.itemFields![1]!, { dependsOn: "workspaceId" });
+    render(
+      <ObjectListField
+        field={mixed}
+        value={[{ eventType: "deal.propertyChange", propertyName: "" }]}
+        onChange={jest.fn()}
+        formValues={{}}
+        formFields={powerbiTopLevel}
+      />,
+    );
+    expect(screen.getByTestId("combobox-parent-missing")).toHaveTextContent(
+      "Select Workspace first",
+    );
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
+  });
+});
+
+describe("object-list row picker — changing a row-local parent CLEARS its dependents", () => {
+  it("switching a row's eventType to another object type drops the stale propertyName", async () => {
+    // The correctness bug this prevents: `amount` is a DEAL property. Carried
+    // onto a contact.propertyChange row it would be a subscription HubSpot
+    // accepts but never fires — a silently dead workflow. Mirrors SchemaForm's
+    // top-level dependsOn cascade.
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    setHookState(ready([{ value: "amount", label: "Amount" }]));
+    render(
+      <ObjectListField
+        field={hubspotField()}
+        value={[{ eventType: "deal.propertyChange", propertyName: "amount" }]}
+        onChange={onChange}
+      />,
+    );
+    await user.click(screen.getByRole("combobox", { name: /event \(entry 1\)/i }));
+    await user.click(
+      await screen.findByRole("option", { name: "Contact property changed" }),
+    );
+
+    expect(onChange).toHaveBeenCalledWith([
+      { eventType: "contact.propertyChange" },
+    ]);
+  });
+
+  it("clears ONLY the changed row — other rows keep their own selections", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    setHookState(ready([{ value: "amount", label: "Amount" }]));
+    render(
+      <ObjectListField
+        field={hubspotField()}
+        value={[
+          { eventType: "deal.propertyChange", propertyName: "amount" },
+          { eventType: "contact.propertyChange", propertyName: "email" },
+        ]}
+        onChange={onChange}
+      />,
+    );
+    await user.click(screen.getByRole("combobox", { name: /event \(entry 1\)/i }));
+    await user.click(
+      await screen.findByRole("option", { name: "Contact property changed" }),
+    );
+
+    expect(onChange).toHaveBeenCalledWith([
+      { eventType: "contact.propertyChange" },
+      { eventType: "contact.propertyChange", propertyName: "email" },
+    ]);
+  });
+
+  it("the cascade is DIRECTIONAL — changing the dependent never clears its parent", async () => {
+    // Surgical by design: only DECLARED dependents of the CHANGED column are
+    // cleared. Picking a new property must not wipe the row's event.
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    setHookState(
+      ready([
+        { value: "amount", label: "Amount" },
+        { value: "dealstage", label: "Deal stage" },
+      ]),
+    );
+    render(
+      <ObjectListField
+        field={hubspotField()}
+        value={[{ eventType: "deal.propertyChange", propertyName: "amount" }]}
+        onChange={onChange}
+      />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Property to watch" }));
+    await user.click(await screen.findByText("Deal stage"));
+
+    expect(onChange).toHaveBeenCalledWith([
+      { eventType: "deal.propertyChange", propertyName: "dealstage" },
+    ]);
+  });
+
+  it("a saved propertyName absent from the current list is still flagged, not cleared", () => {
+    // Saved-workflow compatibility: a property renamed/removed in HubSpot must
+    // stay visible and stay saved until the user acts.
+    const onChange = jest.fn();
+    setHookState(ready([{ value: "amount", label: "Amount" }]));
+    render(
+      <ObjectListField
+        field={hubspotField()}
+        value={[
+          { eventType: "deal.propertyChange", propertyName: "legacy_custom" },
+        ]}
+        onChange={onChange}
+      />,
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Property to watch" }),
+    ).toHaveTextContent("legacy_custom");
+    expect(screen.getByTestId("combobox-saved-value-missing")).toHaveTextContent(
+      "legacy_custom",
+    );
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("a resolver ERROR never erases a saved row", () => {
+    const onChange = jest.fn();
+    setHookState({
+      status: "error",
+      message: "Couldn't load HubSpot deal properties. Try again.",
+    } as UseOptionsSourceState);
+    render(
+      <ObjectListField
+        field={hubspotField()}
+        value={[{ eventType: "deal.propertyChange", propertyName: "amount" }]}
+        onChange={onChange}
+      />,
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Property to watch" }),
+    ).toHaveTextContent("amount");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
 describe("object (single) editor — same picker path", () => {
   it("renders a picker for an optionsSource sub-field and commits the object shape", async () => {
     const user = userEvent.setup();
@@ -540,6 +806,100 @@ describe("object (single) editor — same picker path", () => {
       itemId: "item_9",
       legacyKey: "keep-me",
     });
+  });
+
+  /*
+   * RESOLVERS-4 — the single-object editor's "row" IS the object. Row-local
+   * deps behave identically here, so `itemFields` means ONE thing wherever it
+   * appears rather than something subtly different per renderer.
+   */
+  const rowScopedObject = () =>
+    ({
+      name: "watch",
+      label: "Watch",
+      type: "object",
+      required: false,
+      itemFields: [
+        {
+          name: "eventType",
+          label: "Event",
+          type: "select",
+          required: true,
+          options: [
+            { value: "deal.propertyChange", label: "Deal property changed" },
+            {
+              value: "contact.propertyChange",
+              label: "Contact property changed",
+            },
+          ],
+        },
+        {
+          name: "propertyName",
+          label: "Property to watch",
+          type: "text",
+          required: true,
+          optionsSource: "hubspot:subscription_properties",
+          dependsOnRow: "eventType",
+          allowManualEntry: true,
+        },
+      ],
+    }) as unknown as FieldMeta;
+
+  it("resolves a dependsOnRow picker against the object's OWN keys", () => {
+    setHookState(ready([{ value: "amount", label: "Amount" }]));
+    render(
+      <ObjectField
+        field={rowScopedObject()}
+        value={{ eventType: "deal.propertyChange", propertyName: "amount" }}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(mockUseOptionsSource).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "hubspot:subscription_properties",
+        deps: { eventType: "deal.propertyChange" },
+      }),
+    );
+  });
+
+  it("changing the parent key clears its dependent key (same cascade as rows)", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    setHookState(ready([{ value: "amount", label: "Amount" }]));
+    render(
+      <ObjectField
+        field={rowScopedObject()}
+        value={{
+          eventType: "deal.propertyChange",
+          propertyName: "amount",
+          legacyKey: "keep-me",
+        }}
+        onChange={onChange}
+      />,
+    );
+    await user.click(screen.getByRole("combobox", { name: "Event" }));
+    await user.click(
+      await screen.findByRole("option", { name: "Contact property changed" }),
+    );
+    // Dependent cleared; the unknown saved key is NOT collateral damage.
+    expect(onChange).toHaveBeenCalledWith({
+      eventType: "contact.propertyChange",
+      legacyKey: "keep-me",
+    });
+  });
+
+  it("stays passive (no request) while the object's parent key is unset", () => {
+    render(
+      <ObjectField
+        field={rowScopedObject()}
+        value={{ propertyName: "" }}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId("combobox-parent-missing")).toHaveTextContent(
+      "Select Event first",
+    );
+    expect(mockUseOptionsSource).not.toHaveBeenCalled();
   });
 });
 

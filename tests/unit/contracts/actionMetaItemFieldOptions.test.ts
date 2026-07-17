@@ -8,6 +8,12 @@
  * field-local invariants, and — the load-bearing one — the meta-level guard
  * that a sub-field's `dependsOn` names a REAL TOP-LEVEL sibling, for actions
  * AND triggers.
+ *
+ * RESOLVERS-4 adds the second, explicitly-scoped dep channel: `dependsOnRow`,
+ * resolved against the SAME ROW's other itemFields (the scope `visibleWhen`
+ * already resolves in). Its guards mirror `dependsOn`'s one-for-one, including
+ * the load-time throw on a dangling name — the two scopes differ only in WHERE
+ * a name must exist, never in how loudly a bad one fails.
  */
 import {
   ActionMetaSchema,
@@ -232,10 +238,12 @@ describe("meta-level — sub-field dependsOn must name a real TOP-LEVEL sibling"
     ).toThrow(/depends on unknown top-level field 'workspcaeId'/);
   });
 
-  it("REJECTS a dependsOn naming a ROW-LOCAL sibling (unsupported scope)", () => {
-    // The row HAS an `eventType` column, but sub-field deps resolve against
-    // the node's top level — so this must fail loudly rather than silently
-    // never resolving. This is the HubSpot propertyName shape.
+  it("REJECTS a dependsOn naming a ROW-LOCAL sibling (wrong scope — that's `dependsOnRow`)", () => {
+    // The row HAS an `eventType` column, but `dependsOn` resolves against the
+    // node's top level — so this must fail loudly rather than silently never
+    // resolving. RESOLVERS-4 gave the row-local scope its own key
+    // (`dependsOnRow`); using `dependsOn` for it stays an error, so the two
+    // scopes can never be confused for one another.
     const field = {
       name: "subscriptions",
       label: "Events",
@@ -281,6 +289,137 @@ describe("meta-level — sub-field dependsOn must name a real TOP-LEVEL sibling"
     expect(() =>
       TriggerMetaSchema.parse(
         baseTrigger([parentField, listWithPicker({ dependsOn: "workspaceId" })]),
+      ),
+    ).not.toThrow();
+  });
+});
+
+/*
+ * RESOLVERS-4 — `dependsOnRow`, the ROW-LOCAL dep scope.
+ *
+ * This is the HubSpot `subscriptions[].propertyName` shape: the value that
+ * scopes the picker (`eventType`) lives in the ROW, and different rows watch
+ * different object types, so no top-level field can honestly carry it. It is
+ * the same scope `visibleWhen.field` has always resolved in.
+ */
+/** The HubSpot subscriptions row shape: an eventType column + a row-scoped picker. */
+const rowScopedList = (subOverrides: Record<string, unknown> = {}): FieldMeta =>
+  ({
+    name: "subscriptions",
+    label: "Events",
+    type: "object-list",
+    required: true,
+    itemFields: [
+      {
+        name: "eventType",
+        label: "Event",
+        type: "select",
+        required: true,
+        options: [{ value: "deal.propertyChange", label: "Deal changed" }],
+      },
+      {
+        name: "propertyName",
+        label: "Property",
+        type: "text",
+        required: true,
+        optionsSource: "hubspot:subscription_properties",
+        dependsOnRow: "eventType",
+        allowManualEntry: true,
+        visibleWhen: { field: "eventType", valueEndsWith: ".propertyChange" },
+        ...subOverrides,
+      },
+    ],
+  }) as unknown as FieldMeta;
+
+describe("ObjectListItemFieldSchema — dependsOnRow field-local invariants", () => {
+  it("accepts single- and multi-parent dependsOnRow alongside optionsSource", () => {
+    for (const dependsOnRow of ["eventType", ["eventType"]]) {
+      expect(() =>
+        FieldMetaSchema.parse(rowScopedList({ dependsOnRow })),
+      ).not.toThrow();
+    }
+  });
+
+  it("rejects dependsOnRow without optionsSource", () => {
+    expect(() =>
+      FieldMetaSchema.parse(
+        rowScopedList({ optionsSource: undefined, allowManualEntry: undefined }),
+      ),
+    ).toThrow(/`dependsOnRow` is only valid on sub-fields with `optionsSource`/);
+  });
+
+  it("rejects self-referencing and duplicated dependsOnRow", () => {
+    expect(() =>
+      FieldMetaSchema.parse(rowScopedList({ dependsOnRow: "propertyName" })),
+    ).toThrow(/cannot depend on itself/);
+    expect(() =>
+      FieldMetaSchema.parse(
+        rowScopedList({ dependsOnRow: ["eventType", "eventType"] }),
+      ),
+    ).toThrow(/Duplicate entry in `dependsOnRow`/);
+  });
+
+  it("rejects a name declared in BOTH scopes (a parent resolves in exactly one)", () => {
+    // Ambiguous by construction: the renderer would not know whether to read
+    // `eventType` from the node's config or from the row.
+    expect(() =>
+      FieldMetaSchema.parse(
+        rowScopedList({ dependsOn: "eventType", dependsOnRow: "eventType" }),
+      ),
+    ).toThrow(/appears in both `dependsOn` and `dependsOnRow`/);
+  });
+});
+
+describe("meta-level — dependsOnRow must name a real SIBLING sub-field", () => {
+  it("accepts a dependsOnRow naming a sibling column (the HubSpot shape)", () => {
+    expect(() =>
+      ActionMetaSchema.parse(baseAction([rowScopedList()])),
+    ).not.toThrow();
+  });
+
+  it("REJECTS a dangling dependsOnRow at MODULE LOAD (typo / dead dropdown)", () => {
+    // Same loudness as the top-level "depends on unknown field" guard: a typo
+    // fails for every importer at import time, not as a silently-empty picker
+    // the user has no way to interpret.
+    expect(() =>
+      ActionMetaSchema.parse(
+        baseAction([rowScopedList({ dependsOnRow: "evenType" })]),
+      ),
+    ).toThrow(/depends on unknown sibling sub-field 'evenType'/);
+  });
+
+  it("REJECTS a dependsOnRow naming a TOP-LEVEL field (wrong scope — that's `dependsOn`)", () => {
+    // The mirror of the dependsOn-naming-a-row-column rejection above. The node
+    // HAS a `workspaceId` field, but dependsOnRow reads the row — so pointing
+    // it at a top-level name must fail rather than resolve to nothing.
+    expect(() =>
+      ActionMetaSchema.parse(
+        baseAction([parentField, rowScopedList({ dependsOnRow: "workspaceId" })]),
+      ),
+    ).toThrow(/depends on unknown sibling sub-field 'workspaceId'/);
+  });
+
+  it("applies the same guard to TRIGGER metas (webhook_received is a trigger)", () => {
+    expect(() =>
+      TriggerMetaSchema.parse(
+        baseTrigger([rowScopedList({ dependsOnRow: "nope" })]),
+      ),
+    ).toThrow(/depends on unknown sibling sub-field 'nope'/);
+    expect(() =>
+      TriggerMetaSchema.parse(baseTrigger([rowScopedList()])),
+    ).not.toThrow();
+  });
+
+  it("the two scopes compose on one sub-field (top-level AND row-local parents)", () => {
+    expect(() =>
+      ActionMetaSchema.parse(
+        baseAction([
+          parentField,
+          rowScopedList({
+            dependsOn: "workspaceId",
+            dependsOnRow: "eventType",
+          }),
+        ]),
       ),
     ).not.toThrow();
   });

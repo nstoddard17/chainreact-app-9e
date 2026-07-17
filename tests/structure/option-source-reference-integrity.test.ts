@@ -33,6 +33,7 @@ interface FieldRef {
   metaKey: string;
   fieldName: string;
   optionsSource: string;
+  /** Union of every declared parent, across every dep scope. */
   dependsOn: string[];
 }
 
@@ -57,13 +58,24 @@ function collectOptionSourceFields(): FieldRef[] {
       // reach the exact same resolver + route, so an unregistered source or
       // an uncovered `requiredDeps` ships the same permanently-dead dropdown
       // — walk them under the same guards.
+      //
+      // RESOLVERS-4 — a sub-field supplies its resolver's deps from EITHER
+      // scope: `dependsOn` (the node's top-level fields) or `dependsOnRow`
+      // (the same row's other columns). The renderer merges both into one dep
+      // map and the resolver sees a flat `ctx.deps`, so requiredDeps coverage
+      // must be checked against the UNION — checking only `dependsOn` would
+      // flag `hubspot:subscription_properties` (row-local `eventType`) as
+      // unwired when it is correctly wired.
       for (const sub of field.itemFields ?? []) {
         if (typeof sub.optionsSource === "string" && sub.optionsSource.length > 0) {
           refs.push({
             metaKey: meta.key,
             fieldName: `${field.name}[].${sub.name}`,
             optionsSource: sub.optionsSource,
-            dependsOn: dependsOnList(sub.dependsOn),
+            dependsOn: [
+              ...dependsOnList(sub.dependsOn),
+              ...dependsOnList(sub.dependsOnRow),
+            ],
           });
         }
       }

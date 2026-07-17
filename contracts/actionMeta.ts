@@ -302,16 +302,19 @@ export function checkVisibleWhenReferences(
 }
 
 /**
- * RESOLVERS-3 — shared meta-level validation for `itemFields` option-source
- * references. Used by BOTH ActionMetaSchema and TriggerMetaSchema superRefines.
+ * RESOLVERS-3 / RESOLVERS-4 — shared meta-level validation for `itemFields`
+ * option-source references. Used by BOTH ActionMetaSchema and TriggerMetaSchema
+ * superRefines.
  *
- * A sub-field picker's `dependsOn` is resolved by the renderer against the
- * NODE'S TOP-LEVEL config (the object-list field's siblings) — row-local deps
- * are deliberately NOT supported (see ObjectListItemFieldSchema's scope
- * limit). So a `dependsOn` that names something which is not a real top-level
- * field on the same node can never be satisfied: the options route would
- * short-circuit MISSING_DEPENDENCY on every keystroke and ship a permanently
- * dead dropdown with no error to explain it.
+ * A sub-field picker declares its parents in one of TWO explicitly-scoped ways:
+ *   - `dependsOn`    → resolved against the NODE'S TOP-LEVEL config (the
+ *                      object-list field's siblings).
+ *   - `dependsOnRow` → resolved against the SAME ROW'S other itemFields
+ *                      (RESOLVERS-4).
+ *
+ * Either one naming something that does not exist in ITS OWN scope can never be
+ * satisfied: the options route would short-circuit MISSING_DEPENDENCY on every
+ * keystroke and ship a permanently dead dropdown with no error to explain it.
  *
  * That fails LOUDLY at module load here — for every importer, not just one
  * test suite — exactly like the top-level "depends on unknown field" guard.
@@ -327,6 +330,7 @@ export function checkItemFieldOptionSourceReferences(
     const field = fields[i]!;
     const itemFields = field.itemFields;
     if (!itemFields) continue;
+    const siblingNames = new Set(itemFields.map((s) => s.name));
     for (let j = 0; j < itemFields.length; j++) {
       const sub = itemFields[j]!;
       for (const dep of normalizeDependsOn(sub.dependsOn)) {
@@ -334,13 +338,24 @@ export function checkItemFieldOptionSourceReferences(
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["fields", i, "itemFields", j, "dependsOn"],
-            message: `Sub-field '${field.name}[].${sub.name}' depends on unknown top-level field '${dep}'. Sub-field \`dependsOn\` resolves against the node's top-level fields, not other columns in the same row.`,
+            message: `Sub-field '${field.name}[].${sub.name}' depends on unknown top-level field '${dep}'. Sub-field \`dependsOn\` resolves against the node's top-level fields; use \`dependsOnRow\` for another column in the same row.`,
           });
         } else if (dep === field.name) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["fields", i, "itemFields", j, "dependsOn"],
             message: `Sub-field '${field.name}[].${sub.name}' cannot depend on its own containing field '${field.name}'.`,
+          });
+        }
+      }
+      // RESOLVERS-4 — row-local scope. Same load-time loudness, resolved
+      // against the sibling columns instead of the node's top level.
+      for (const dep of normalizeDependsOn(sub.dependsOnRow)) {
+        if (!siblingNames.has(dep)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["fields", i, "itemFields", j, "dependsOnRow"],
+            message: `Sub-field '${field.name}[].${sub.name}' depends on unknown sibling sub-field '${dep}'. \`dependsOnRow\` resolves against the other columns in the same row; use \`dependsOn\` for a top-level field.`,
           });
         }
       }
@@ -371,19 +386,32 @@ export function checkItemFieldOptionSourceReferences(
  * `.propertyChange`). A sub-field hidden by `visibleWhen` is omitted from the
  * serialized row object entirely.
  *
- * ── SCOPE LIMIT, read before wiring a picker ──────────────────────────────
- * `dependsOn` on a sub-field resolves against the NODE'S TOP-LEVEL config —
- * the object-list field's SIBLINGS — never against row-local values. Every
- * shipped case needs exactly that (Power BI `parameters[].name` depends on
- * the top-level `workspaceId` + `semanticModelId`), and the meta-level
- * superRefine enforces it: a sub-field `dependsOn` naming something that is
- * not a real top-level field on the same node throws at module load.
+ * ── DEP SCOPE, read before wiring a picker ────────────────────────────────
+ * A sub-field picker names its parents in ONE of two EXPLICIT scopes:
  *
- * A picker whose source or deps vary PER ROW (e.g. HubSpot
- * `subscriptions[].propertyName`, where the right resolver —
- * contact/company/deal/ticket_properties — is chosen by that row's own
- * `eventType`) is NOT expressible here and must stay a text sub-field. Do not
- * fake it by hoisting a row-local value to the node.
+ *   - `dependsOn`    → the NODE'S TOP-LEVEL config (the object-list field's
+ *                      siblings). Power BI `parameters[].name` depends on the
+ *                      top-level `workspaceId` + `semanticModelId`.
+ *   - `dependsOnRow` → the SAME ROW'S other itemFields (RESOLVERS-4). HubSpot
+ *                      `subscriptions[].propertyName` depends on that row's own
+ *                      `eventType`, and different rows watch different object
+ *                      types — there is no honest top-level field to hoist it
+ *                      to.
+ *
+ * Row-local dep resolution is NOT a new scope: `visibleWhen.field` above has
+ * always resolved row-locally. `dependsOnRow` simply makes DEPS consistent with
+ * VISIBILITY — the same row, the same sibling column — instead of forcing a
+ * row-local relationship through a node-level channel that cannot express it.
+ *
+ * Both are enforced at module load by the meta-level superRefine: a name that
+ * does not exist in the scope it declares throws, so a typo is a loud failure
+ * rather than a permanently-dead dropdown.
+ *
+ * A picker whose option SOURCE varies per row is still not expressible (the
+ * source is one static id). Dispatch on the dep value SERVER-SIDE inside one
+ * resolver instead — `hubspot:subscription_properties` maps that row's
+ * `eventType` prefix to the right HubSpot object type — rather than trying to
+ * pick a different `optionsSource` per row.
  */
 export const ObjectListItemFieldSchema = z
   .object({
@@ -411,10 +439,34 @@ export const ObjectListItemFieldSchema = z
     /**
      * RESOLVERS-3 — parent field name(s) whose values the resolver needs as
      * `requiredDeps`. Resolved against the NODE'S TOP-LEVEL fields (the
-     * object-list field's siblings), NOT against other columns in the same
-     * row — see the scope limit above. Only valid alongside `optionsSource`.
+     * object-list field's siblings). For a parent in the SAME ROW use
+     * `dependsOnRow` — see the dep-scope note above. Only valid alongside
+     * `optionsSource`.
      */
     dependsOn: z
+      .union([
+        z.string().min(1).max(128),
+        z.array(z.string().min(1).max(128)).min(1).max(8),
+      ])
+      .optional(),
+    /**
+     * RESOLVERS-4 — parent SIBLING SUB-FIELD name(s) in the SAME ROW whose
+     * values the resolver needs as `requiredDeps`. The row-local counterpart of
+     * `dependsOn`, resolving in exactly the scope `visibleWhen.field` already
+     * resolves in.
+     *
+     * Use it when the value that scopes the picker belongs to the row rather
+     * than the node — HubSpot `subscriptions[].propertyName` is keyed by that
+     * row's own `eventType`, and each row may watch a different object type, so
+     * no top-level field could carry it honestly.
+     *
+     * The renderer MERGES `dependsOn` + `dependsOnRow` into one dep map for the
+     * resolver, which sees a flat `ctx.deps` and neither knows nor cares which
+     * scope each value came from. Both scopes share the "never call with a
+     * partial dep set" rule. Only valid alongside `optionsSource`; a name may
+     * not appear in both lists (its scope would be ambiguous).
+     */
+    dependsOnRow: z
       .union([
         z.string().min(1).max(128),
         z.array(z.string().min(1).max(128)).min(1).max(8),
@@ -519,6 +571,44 @@ export const ObjectListItemFieldSchema = z
         path: ["dependsOn"],
         message: "Duplicate entry in `dependsOn`.",
       });
+    }
+
+    // RESOLVERS-4 — the row-local dep scope. Same field-local invariants as
+    // `dependsOn` (needs a source, no self-reference, no duplicates), plus the
+    // cross-scope rule: one name, one scope. "Names a real sibling sub-field"
+    // needs the parent field's itemFields list and is checked meta-level in
+    // `checkItemFieldOptionSourceReferences`.
+    const subRowDeps = normalizeDependsOn(f.dependsOnRow);
+    if (subRowDeps.length > 0 && !f.optionsSource) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dependsOnRow"],
+        message:
+          "`dependsOnRow` is only valid on sub-fields with `optionsSource`.",
+      });
+    }
+    if (subRowDeps.includes(f.name)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dependsOnRow"],
+        message: `Sub-field '${f.name}' cannot depend on itself.`,
+      });
+    }
+    if (new Set(subRowDeps).size !== subRowDeps.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dependsOnRow"],
+        message: "Duplicate entry in `dependsOnRow`.",
+      });
+    }
+    for (const dep of subRowDeps) {
+      if (subDeps.includes(dep)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dependsOnRow"],
+          message: `'${dep}' appears in both \`dependsOn\` and \`dependsOnRow\` — a parent resolves in exactly one scope (top-level or row-local).`,
+        });
+      }
     }
   });
 export type ObjectListItemField = z.infer<typeof ObjectListItemFieldSchema>;

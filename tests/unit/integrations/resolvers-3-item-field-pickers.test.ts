@@ -17,9 +17,11 @@
  *     what the .strict() schema expects, and a row built from the meta still
  *     parses. Metadata-only slice — no handler/schema/field-name changes.
  *
- * Also pins the ONE case deliberately left as text (HubSpot
- * subscriptions[].propertyName) so nobody "fixes" it into a silently-wrong
- * picker.
+ * RESOLVERS-4 update: the one case RESOLVERS-3 deliberately left as text
+ * (HubSpot subscriptions[].propertyName) is now wired via the row-local dep
+ * scope. Its pin below is updated, not dropped — it still fails if anyone
+ * attaches a per-object property resolver, which WOULD be silently wrong for
+ * rows watching a different object type.
  */
 import type { FieldMeta, ObjectListItemField } from "@/contracts/actionMeta";
 import { normalizeDependsOn } from "@/contracts/actionMeta";
@@ -215,24 +217,70 @@ describe("RESOLVERS-3 — runtime schemas still accept the picker-produced rows"
   });
 });
 
-describe("RESOLVERS-3 — deliberately NOT wired", () => {
-  it("hubspot webhook_received subscriptions[].propertyName stays a text sub-field (needs a ROW-LOCAL source)", () => {
-    // The right resolver (contact_/company_/deal_/ticket_properties) is chosen
-    // by the row's OWN eventType. Sub-field optionsSource resolves deps
-    // against the node's TOP-LEVEL config only, and each row may watch a
-    // different object type — so any single resolver here would be silently
-    // WRONG for other rows. Left as text on purpose.
+/*
+ * RESOLVERS-4 — the case RESOLVERS-3 left as text is now WIRED.
+ *
+ * This block previously pinned the OPPOSITE ("propertyName stays a text
+ * sub-field") so nobody would fix it into a silently-wrong picker by attaching
+ * one arbitrary per-object resolver. That constraint was real, and the pin is
+ * UPDATED rather than deleted: it now asserts the two things that make the
+ * picker honest instead of arbitrary —
+ *   1. the source is the ROW-DISPATCHING one (not contact_/deal_/… directly);
+ *   2. it declares its `eventType` parent in the ROW-LOCAL scope
+ *      (`dependsOnRow`), never hoisted to a top-level field that could not
+ *      honestly carry a per-row value.
+ * Wiring any per-object property resolver here still fails this suite.
+ */
+describe("RESOLVERS-4 — hubspot subscriptions[].propertyName is a ROW-SCOPED picker", () => {
+  const propertyNameSub = () => {
     const meta = listTriggerMetasForProvider("hubspot").find(
       (m) => m.key === "hubspot:webhook_received",
     );
     expect(meta).toBeDefined();
     const subscriptions = meta!.fields.find((f) => f.name === "subscriptions")!;
-    const propertyName = (subscriptions.itemFields ?? []).find(
+    return (subscriptions.itemFields ?? []).find(
       (s) => s.name === "propertyName",
     )!;
+  };
+
+  it("names the row-dispatching resolver, keyed to the row's OWN eventType", () => {
+    const propertyName = propertyNameSub();
+    expect(propertyName.optionsSource).toBe("hubspot:subscription_properties");
+    // Row-local scope — NOT `dependsOn`. Each row may watch a different object
+    // type, so there is no honest top-level field to hoist eventType to.
+    expect(propertyName.dependsOnRow).toBe("eventType");
+    expect(propertyName.dependsOn).toBeUndefined();
+    // The picker is ADDITIVE — a power user can still commit a raw internal
+    // name or an upstream {{...}} token.
+    expect(propertyName.allowManualEntry).toBe(true);
+  });
+
+  it("does NOT wire a per-object resolver (would be silently wrong for other rows)", () => {
+    expect([
+      "hubspot:contact_properties",
+      "hubspot:company_properties",
+      "hubspot:deal_properties",
+      "hubspot:ticket_properties",
+    ]).not.toContain(propertyNameSub().optionsSource);
+  });
+
+  it("the resolver is registered, hubspot-provided, and requires the eventType dep", () => {
+    const resolver = getOptionsResolver("hubspot:subscription_properties");
+    expect(resolver).toBeDefined();
+    expect(resolver!.provider).toBe("hubspot");
+    expect(resolver!.requiredDeps).toEqual(["eventType"]);
+    // The declared row-local parent covers the resolver's requiredDeps.
+    expect(normalizeDependsOn(propertyNameSub().dependsOnRow)).toEqual(
+      resolver!.requiredDeps,
+    );
+  });
+
+  it("the runtime contract is untouched: name/type/required + the visibleWhen gate", () => {
+    const propertyName = propertyNameSub();
+    // `type` is the VALUE type, not a widget — the row still commits the same
+    // plain string parseSubscriptions has always read.
     expect(propertyName.type).toBe("text");
-    expect(propertyName.optionsSource).toBeUndefined();
-    // The row-local gate that makes a top-level picker impossible.
+    expect(propertyName.required).toBe(true);
     expect(propertyName.visibleWhen).toEqual({
       field: "eventType",
       valueEndsWith: ".propertyChange",

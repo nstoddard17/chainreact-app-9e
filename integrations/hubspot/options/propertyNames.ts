@@ -1,5 +1,10 @@
 import { refreshAndRetry } from "@/services/oauth/refreshAndRetry";
-import type { OptionItem, OptionsResolver } from "@/services/options/types";
+import type {
+  OptionItem,
+  OptionsResolver,
+  OptionsResolverContext,
+  OptionsResolverResult,
+} from "@/services/options/types";
 import { propertiesList } from "@/integrations/_shared/hubspot/api/properties";
 import { mapHubspotOptionsError, requireHubspotIntegration } from "./_shared";
 
@@ -49,6 +54,74 @@ interface MakePropertyNamesInput {
   what: string;
 }
 
+/**
+ * THE property-name resolve body — fetch, map, filter, sort. The ONE place
+ * this behavior lives.
+ *
+ * Extracted from the factory below in RESOLVERS-4 so the object type can be
+ * chosen per REQUEST rather than only per registered source:
+ * `hubspot:subscription_properties` picks the object type from a row-local
+ * `eventType` dep at resolve time and calls straight into here. That keeps the
+ * per-row picker's mapping / filtering / sanitization behavior IDENTICAL to the
+ * six shipped per-object resolvers by construction — not by a second copy that
+ * drifts.
+ */
+export async function resolveHubspotPropertyNameOptions(input: {
+  ctx: OptionsResolverContext;
+  /** HubSpot object type path segment, e.g. "contacts". */
+  objectType: string;
+  /** Noun for the sanitized PROVIDER_ERROR copy, e.g. "contact properties". */
+  what: string;
+}): Promise<OptionsResolverResult> {
+  const { ctx, objectType, what } = input;
+  const integration = requireHubspotIntegration(ctx);
+
+  let response;
+  try {
+    response = await refreshAndRetry({
+      accountId: integration.accountId,
+      provider: "hubspot",
+      providerAccountId: null,
+      apiCall: (accessToken) => propertiesList({ accessToken, objectType }),
+    });
+  } catch (err) {
+    mapHubspotOptionsError(err, what);
+  }
+
+  const items: OptionItem[] = [];
+  for (const property of response.results ?? []) {
+    if (typeof property.name !== "string" || property.name.length === 0) {
+      continue;
+    }
+    if (property.hidden === true) continue;
+    const label =
+      typeof property.label === "string" && property.label.length > 0
+        ? property.label
+        : property.name;
+    items.push(
+      label === property.name
+        ? { value: property.name, label }
+        : { value: property.name, label, description: property.name },
+    );
+  }
+
+  // Local q filter over label AND internal name (authors search
+  // either "Lead status" or "hs_lead_status"), then alpha sort.
+  const lowerQ = ctx.q.toLowerCase();
+  const filtered =
+    lowerQ.length > 0
+      ? items.filter(
+          (item) =>
+            item.label.toLowerCase().includes(lowerQ) ||
+            item.value.toLowerCase().includes(lowerQ),
+        )
+      : items;
+  filtered.sort((a, b) => a.label.localeCompare(b.label));
+
+  // Full definition set arrives in one response — nothing beyond it.
+  return { items: filtered, hasMore: false };
+}
+
 export function makeHubspotPropertyNamesResolver(
   input: MakePropertyNamesInput,
 ): OptionsResolver {
@@ -57,55 +130,8 @@ export function makeHubspotPropertyNamesResolver(
     source,
     provider: "hubspot",
     requiresIntegration: true,
-    async resolve(ctx) {
-      const integration = requireHubspotIntegration(ctx);
-
-      let response;
-      try {
-        response = await refreshAndRetry({
-          accountId: integration.accountId,
-          provider: "hubspot",
-          providerAccountId: null,
-          apiCall: (accessToken) =>
-            propertiesList({ accessToken, objectType }),
-        });
-      } catch (err) {
-        mapHubspotOptionsError(err, what);
-      }
-
-      const items: OptionItem[] = [];
-      for (const property of response.results ?? []) {
-        if (typeof property.name !== "string" || property.name.length === 0) {
-          continue;
-        }
-        if (property.hidden === true) continue;
-        const label =
-          typeof property.label === "string" && property.label.length > 0
-            ? property.label
-            : property.name;
-        items.push(
-          label === property.name
-            ? { value: property.name, label }
-            : { value: property.name, label, description: property.name },
-        );
-      }
-
-      // Local q filter over label AND internal name (authors search
-      // either "Lead status" or "hs_lead_status"), then alpha sort.
-      const lowerQ = ctx.q.toLowerCase();
-      const filtered =
-        lowerQ.length > 0
-          ? items.filter(
-              (item) =>
-                item.label.toLowerCase().includes(lowerQ) ||
-                item.value.toLowerCase().includes(lowerQ),
-            )
-          : items;
-      filtered.sort((a, b) => a.label.localeCompare(b.label));
-
-      // Full definition set arrives in one response — nothing beyond it.
-      return { items: filtered, hasMore: false };
-    },
+    resolve: (ctx) =>
+      resolveHubspotPropertyNameOptions({ ctx, objectType, what }),
   };
 }
 
