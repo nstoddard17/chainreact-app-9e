@@ -111,13 +111,17 @@ export const shopifyManifest: ProviderManifest = ProviderManifestSchema.parse({
       // picker. Same posture as the optional `MailboxSettings.Read`
       // scope on integrations/microsoft-outlook/manifest.ts.
       //
-      // NOTE: existing connections predate this scope — the picker
-      // surfaces PROVIDER_REAUTH_REQUIRED (Reconnect) until the merchant
-      // re-authorizes, and manual entry / upstream {{...}} mapping keeps
-      // the field fully usable meanwhile. Shopify tokens are
-      // non-refreshable, so re-consent was always the only path anyway.
-      // The scope must also be added to the app's configured scope list
-      // in the Shopify Partner dashboard before consent can include it.
+      // NOTE: read_locations is already enabled in the app's configured
+      // scope list in the Shopify Partner dashboard, so no dashboard change
+      // is needed — this is purely ChainReact newly REQUESTING it. The
+      // OAuth dispatcher requests [...required, ...optional]
+      // (services/oauth/dispatcher.ts), so from the deploy of this change
+      // on, new connections and reconnects consent to it. Existing
+      // connections predate the request and their granted-scope set lacks
+      // it, so the locations picker alone surfaces PROVIDER_REAUTH_REQUIRED
+      // (Reconnect) until the merchant re-authorizes; manual entry /
+      // upstream {{...}} mapping keeps the field usable meanwhile. Shopify
+      // tokens are non-refreshable, so re-consent was always the only path.
       "read_locations",
     ],
     deprecated: [],

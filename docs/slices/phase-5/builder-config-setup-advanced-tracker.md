@@ -377,12 +377,29 @@ live-certified.**
 
 **Owner actions before these light up for existing users:**
 
-- **Shopify `read_locations`** — added to `scopes.optional`, so *zero* existing
-  connections are forced to reconnect and every current handler is unaffected. But tokens
-  minted before it genuinely lack the scope, so the **locations picker alone** returns
-  `PROVIDER_REAUTH_REQUIRED` → Reconnect prompt until those merchants re-authorize
-  (manual entry + `{{…}}` keep the field usable meanwhile). **`read_locations` must first
-  be added to the app config in the Shopify Partner dashboard**, or consent cannot include it.
+- **Shopify `read_locations` — no Partner-dashboard change needed; existing Shopify
+  connections need reconnect.** Evidence (verified in-tree 2026-07-17):
+  - The scope is **already enabled** in the app's configured scope list in the Shopify
+    Partner dashboard, so there is **no external dashboard action** — an earlier draft of
+    this note wrongly listed one; it is retracted.
+  - `read_locations` was **newly added to ChainReact's *requested* scopes** by this work.
+    On `origin/v2-main` the Shopify manifest's `scopes.optional` was `[]` (`git show
+    origin/v2-main:integrations/shopify/manifest.ts`); commit `23dfa7f2a` added
+    `read_locations` to `optional`. The OAuth dispatcher requests
+    `[...scopes.required, ...scopes.optional]`
+    ([`services/oauth/dispatcher.ts:355`](../../../services/oauth/dispatcher.ts)), so it was
+    **not** requested before and **is** requested from the deploy of this change onward.
+  - Because it was newly requested (not always requested), **every currently-stored
+    Shopify integration was minted without it** and its persisted granted-scope set
+    (`scopes: scopesGranted`, [`integrations/shopify/oauth.ts:345`](../../../integrations/shopify/oauth.ts))
+    lacks it — more so because these commits are unpushed, so production has never once
+    requested it. Existing connections therefore **need reconnect/reauthorization** for the
+    locations picker; new connections and reconnects get it automatically.
+  - Failure mode for an un-reconnected token is a **designed Reconnect prompt, not a broken
+    control**: `_request.ts` maps Shopify's 403 → `InsufficientScopeError` (raw body
+    dropped), and `mapShopifyOptionsError` maps that → `PROVIDER_REAUTH_REQUIRED`. Manual
+    entry + `{{…}}` mapping keep the field usable meanwhile. Shopify tokens are
+    non-refreshable, so re-consent was always the only path regardless.
 - **Outlook `MailboxSettings.Read`** — as recorded in §11.
 - **One live check worth doing:** `shopify:orders` uses `order=created_at desc`, a
   long-standing but undocumented param. Shopify ignores unknown params silently rather
@@ -454,6 +471,9 @@ not survive a switch from deal to contact) and only that row's.
 - **Still nothing is live-certified** (§11, §12.4 stand). No HubSpot/Stripe/Shopify/Google/
   Microsoft credentials exist in this environment; every resolver is unit-tested against a mocked
   provider boundary only.
-- **Owner actions unchanged**: Shopify `read_locations` in the Partner dashboard; Outlook
-  `MailboxSettings.Read`; the one live check on Shopify's undocumented `order=created_at desc`.
+- **Owner actions** (corrected 2026-07-17, see §12.4): Shopify `read_locations` needs **no
+  Partner-dashboard change** (already enabled there) — the only consequence is that existing
+  Shopify connections need **reconnect** for the locations picker, because this work newly
+  requested the scope; Outlook `MailboxSettings.Read`; the one live check on Shopify's
+  undocumented `order=created_at desc`.
 - `dependsOnRow` supports **direct** dependents only (no chains), matching the top-level cascade.

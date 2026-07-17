@@ -524,20 +524,32 @@ an HTML blob the author must eyeball and hand-copy. The chain is conceptually re
 
 ## OWNER ACTION REQUIRED
 
-Both items are **owner/dashboard steps this pass cannot perform in code**, and both were
-verified in the working tree.
+Both items were verified in the working tree. Neither is a Partner-dashboard change:
+OA-1's dashboard scope is already enabled (its only consequence is an existing-merchant
+reconnect), and OA-2 is likewise a reconnect. Neither is a release blocker.
 
-### OA-1 — Shopify `read_locations` must be added to the Partner dashboard app config
+### OA-1 — Shopify `read_locations`: NO Partner-dashboard change; existing connections reconnect
 
-- **Verified:** `integrations/shopify/manifest.ts` now declares `scopes.optional:
-  ["read_locations"]` (RESOLVERS-2); the 11 `scopes.required` entries are unchanged.
-- **Owner action:** **`read_locations` must be added to the Shopify Partner dashboard app
-  configuration before consent can include it.** Until that is done, the widened scope is
-  requested by the app but cannot be granted, and the `shopify:locations` picker cannot
-  work for anyone.
-- **Merchant action:** merchants who connected **before** this change hold tokens minted
-  without `read_locations`. They must **reconnect — for the locations picker only.**
-  Everything else on the Shopify integration keeps working untouched.
+> **Corrected 2026-07-17.** An earlier draft listed a Partner-dashboard step as a release
+> blocker. That was wrong: `read_locations` is **already enabled** in the app's Partner
+> dashboard scope list. There is **no external dashboard action** and it is **not** a
+> release blocker. The only real consequence is a merchant reconnect, detailed below.
+
+- **This work newly *requested* the scope — it did not always request it.** On
+  `origin/v2-main` the Shopify manifest's `scopes.optional` was `[]` (`git show
+  origin/v2-main:integrations/shopify/manifest.ts`); commit `23dfa7f2a` added
+  `read_locations` to `optional`. The OAuth dispatcher requests
+  `[...scopes.required, ...scopes.optional]` (`services/oauth/dispatcher.ts:355`), so the
+  authorize URL did **not** carry `read_locations` before this change and **does** from the
+  deploy onward.
+- **Existing connections need reconnect** (this is the "scope newly added" branch, not the
+  "always requested" branch). Because the scope was never in the authorize URL before —
+  and these commits are unpushed, so production has never requested it — **every
+  currently-stored Shopify integration was minted without `read_locations`**, and its
+  persisted granted-scope set (`scopes: scopesGranted`, `integrations/shopify/oauth.ts:345`)
+  lacks it. Those merchants must **reconnect — for the locations picker only;** everything
+  else on the integration keeps working. New connections and reconnects get it
+  automatically.
 - **Failure mode is designed, not silent** (verified in `integrations/shopify/options/locations.ts`):
   a pre-change token gets HTTP 403 → `InsufficientScopeError` (mapped in
   `_shared/shopify/api/_request.ts`) → `PROVIDER_REAUTH_REQUIRED` → the client renders a
@@ -717,9 +729,10 @@ misclassified at least four rows in both directions (`hubspot company`,
    Outlook "search", Slack `fileId` vs `file_id`, OneNote `data-id`) or that is actively
    misleading (Gmail's `messageId` decoy). Classifications are unaffected; the copy is
    not. **None were fixed — this pass is documentation-only.**
-5. **Two OWNER ACTIONS block shipped pickers** (OA-1 Shopify Partner-dashboard
-   `read_locations`; OA-2 Outlook `MailboxSettings.Read` reconnect). Until OA-1 is done,
-   the `shopify:locations` picker cannot work for anyone.
+5. **Two OWNER ACTIONS are reconnect-only — neither blocks the release** (OA-1 Shopify
+   `read_locations`: dashboard scope already enabled, existing merchants reconnect for the
+   locations picker only; OA-2 Outlook `MailboxSettings.Read`: reconnect). New connections
+   and reconnects pick up both scopes automatically.
 
 **Rows where the runtime meaning could not be determined from the code: none.** All 69
 were resolved to a concrete API parameter, path segment, or body field. Where uncertainty
