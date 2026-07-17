@@ -5,7 +5,32 @@
 
 ## Status
 
-- **Code status:** code-complete; owner setup required.
+> **Phase 13 live certification — IN PROGRESS, BLOCKED on tenant licensing (2026-07-17).**
+> Live OAuth is **certified**: connecting `…@ChainReact120.onmicrosoft.com` created a
+> healthy integration row — identity resolved from the OIDC `id_token` (the non-Graph
+> path), access + refresh tokens stored encrypted, all 9 Power BI resource scopes
+> granted, token audience `https://analysis.windows.net/powerbi/api`. Two local-env
+> issues were found and fixed to get there (both LOCAL dev only, not code):
+> (1) a duplicated `NEXT_PUBLIC_APP_URL` key in `.env.local` that made the redirect
+> resolve to production intermittently; (2) **HTTP 431** — Power BI's authorization
+> code (13 scopes) plus the browser's Supabase session cookies exceeded Node's default
+> 16 KB request-header limit, so the callback was rejected before reaching the app; the
+> dev server now runs with `NODE_OPTIONS=--max-http-header-size=65536`.
+>
+> **BLOCKER:** every Power BI REST call returns `404` with header
+> `x-powerbi-error-info: UserNotLicensed` — the connected user has **no Power BI
+> license**. No action/trigger can be certified until a license is assigned. See
+> *Phase 13 blocker* below. This is a licensing/provisioning gap, not a code defect.
+>
+> **Follow-up worth doing (not blocking):** the wrapper surfaces this as a bare
+> `HTTP 404`. Since Power BI signals the real cause in `x-powerbi-error-info`
+> (`UserNotLicensed`), the option-source/action error path could read that header and
+> show "Your Power BI account isn't licensed — ask an admin to assign a Power BI Pro
+> license" instead of a generic not-found. Recommended small enhancement.
+
+- **Code status:** code-complete. **Auth surface live-certified; actions/triggers not
+  live-certified (blocked by the connected user's missing Power BI license).**
+  Owner-accepted close (2026-07-17) — see the live-certification summary above.
 - **Commit:** local, not pushed (see the closeout report for the hash).
 - **Push status:** nothing pushed.
 - **Smoke status:** mocked-boundary unit tests cover all 47 actions and 16 triggers, and
@@ -231,6 +256,28 @@ timestamps.
    plans can't be written honestly (or run) without a live workspace/model/gateway.
    Phase 13 authors them alongside live certification. The fixtures themselves are
    registered and env-gated, so nothing silently executes.
+
+## Phase 13 blocker — Power BI license required (2026-07-17)
+
+Live OAuth works, but the connected user is not licensed for Power BI, so every REST
+call returns `404 / x-powerbi-error-info: UserNotLicensed`. To unblock:
+
+1. In the **Microsoft 365 admin center** (admin.microsoft.com) → **Users** → the test
+   user → **Licenses and apps**, assign a **Power BI Pro** (or **Power BI Premium Per
+   User**) license. On a dev/trial tenant like `ChainReact120.onmicrosoft.com` you can
+   start a **Power BI Pro trial** or a **Microsoft Fabric trial** to get one free.
+2. Sign in once at **app.powerbi.com** with that user to initialize the Power BI service
+   and create at least one workspace (the API's `/myorg/groups` is empty until a
+   workspace exists).
+3. For the **capacity-gated** actions (export-to-file, enhanced refresh, scale-out,
+   deployment pipelines) the workspace must be on **Premium / Fabric capacity** — a
+   Fabric trial capacity satisfies this. Gateway actions additionally need a real
+   on-premises data gateway. Anything the tenant can't provide, I'll certify as far as
+   possible and record the rest as genuinely blocked (not passed).
+
+Once the license is assigned (and, ideally, a Fabric trial capacity + a smoke
+workspace), re-run certification — the local env is already aligned and the integration
+is connected, so no re-setup is needed.
 
 ## Phase 13 — live certification plan (after setup)
 
