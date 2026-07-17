@@ -43,6 +43,12 @@ export const createProductVariant: ActionHandler = async (input) => {
       success: true,
       variantId: variant.id,
       productId: variant.product_id,
+      // RESOLVERS-2 sweep: update_inventory.inventory_item_id is a justified
+      // upstream-mapped field, but the most natural producer of that value —
+      // "create a variant, then set its stock" — did not actually emit it
+      // (only update_product_variant did), so the documented flow was
+      // unbuildable. Shopify returns it on the created variant; project it.
+      inventoryItemId: variant.inventory_item_id ?? null,
       sku: variant.sku ?? null,
       price: variant.price ?? null,
       adminUrl: `https://${shopDomain}/admin/products/${variant.product_id}/variants/${variant.id}`,

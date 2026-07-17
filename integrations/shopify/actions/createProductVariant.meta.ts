@@ -94,6 +94,12 @@ export const shopifyCreateProductVariantMeta: ActionMeta = {
     { name: "success", type: "boolean", description: "True when the variant was created." },
     { name: "variantId", type: "string", description: "Shopify variant id." },
     { name: "productId", type: "string", description: "Parent product id." },
+    {
+      name: "inventoryItemId",
+      type: "string",
+      description:
+        "The new variant's inventory item id. Map this into Update Inventory to set the variant's stock in the next step.",
+    },
     { name: "sku", type: "string", description: "SKU stored. Null when not supplied." },
     { name: "price", type: "string", description: "Variant price as a decimal string." },
     { name: "adminUrl", type: "string", description: "Shopify admin URL for the variant." },

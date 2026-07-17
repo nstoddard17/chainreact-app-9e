@@ -37,6 +37,8 @@ interface WireField {
   required: boolean;
   defaultValue?: unknown;
   optionsSource?: string;
+  dependsOn?: string | string[];
+  allowManualEntry?: boolean;
   options?: Array<{ value: string; label: string }>;
 }
 interface WireOutput {

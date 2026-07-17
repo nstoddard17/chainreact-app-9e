@@ -513,6 +513,14 @@
       "requiredDeps": null
     },
     {
+      "source": "mailchimp:links",
+      "provider": "mailchimp",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "campaignId"
+      ]
+    },
+    {
       "source": "mailchimp:members",
       "provider": "mailchimp",
       "requiresIntegration": true,

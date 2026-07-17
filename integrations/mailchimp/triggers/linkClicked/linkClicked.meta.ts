@@ -44,12 +44,15 @@ export const mailchimpLinkClickedTriggerMeta: TriggerMeta = {
     },
     {
       name: "url",
-      label: "URL filter",
+      label: "Link filter",
       description:
-        "Optional. When set, only fires for clicks on this exact URL (Mailchimp returns the URL string verbatim in its click details). Leave empty to fire on any link.",
-      type: "text",
+        "Optional. Pick one of the campaign's tracked links to fire only for clicks on it, or leave empty to fire on any link. Choose the campaign above first — Mailchimp lists clicked links per campaign. The match is exact, so picking beats typing: a URL that differs by a trailing slash or a utm_ parameter never matches.",
+      type: "combobox",
+      optionsSource: "mailchimp:links",
+      dependsOn: "campaignId",
+      allowManualEntry: true,
       required: false,
-      placeholder: "https://example.com/landing",
+      placeholder: "Any link",
     },
   ],
   payloadShape: [

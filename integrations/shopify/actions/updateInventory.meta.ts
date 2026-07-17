@@ -40,7 +40,7 @@ export const shopifyUpdateInventoryMeta: ActionMeta = {
       name: "inventory_item_id",
       label: "Inventory Item",
       description:
-        "The inventory item to adjust. Map this from an earlier step's `inventoryItemId` output (Update Product Variant / Create Product Variant both produce it), or type a Shopify inventory item id.",
+        "The inventory item to adjust. Map this from an earlier step's `inventoryItemId` output — Create Product Variant and Update Product Variant both produce it — or type a Shopify inventory item id.",
       type: "text",
       required: true,
       placeholder: "{{step.inventoryItemId}}",

@@ -110,6 +110,15 @@ import { hubspotListsResolver } from "@/integrations/hubspot/options/lists";
 // reconnect required.
 import { mailchimpAudiencesResolver } from "@/integrations/mailchimp/options/audiences";
 import { mailchimpCampaignsResolver } from "@/integrations/mailchimp/options/campaigns";
+// RESOLVERS-2 contradiction sweep — `mailchimp:links` backs the link_clicked
+// trigger's `url` filter, which was a hand-typed text box matched VERBATIM
+// against Mailchimp's reported URL: a trailing slash or utm_ param apart and
+// the trigger silently never fired. Cascade child of the sibling campaignId
+// (itself optional — no campaign chosen ⇒ MISSING_DEPENDENCY ⇒ "Select a
+// campaign first", which is honest: Mailchimp exposes clicked URLs only
+// per-campaign report). Same wrapper the trigger's poll already calls each
+// tick — no new API surface and no scope change (Mailchimp ignores scopes).
+import { mailchimpLinksResolver } from "@/integrations/mailchimp/options/links";
 import { mailchimpSegmentsResolver } from "@/integrations/mailchimp/options/segments";
 // SMOKE-ACTIONS-TIER1-CLEANUP — `mailchimp:members` (deps audience_id) backs the
 // subscriber/email picker on get_subscriber; reuses the membersList read wrapper.
@@ -688,6 +697,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // metas + 7 trigger metas + COVERED_PROVIDERS flip).
   mailchimpAudiencesResolver,
   mailchimpCampaignsResolver,
+  mailchimpLinksResolver, // RESOLVERS-2 sweep — cascade child of campaignId.
   mailchimpSegmentsResolver,
   // SMOKE-ACTIONS-TIER1-CLEANUP — member picker (deps audience_id) for
   // get_subscriber.email; read-only single page via membersList.
