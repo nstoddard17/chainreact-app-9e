@@ -463,6 +463,14 @@
       "requiredDeps": null
     },
     {
+      "source": "hubspot:subscription_properties",
+      "provider": "hubspot",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "eventType"
+      ]
+    },
+    {
       "source": "hubspot:ticket_category",
       "provider": "hubspot",
       "requiresIntegration": true,
