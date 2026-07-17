@@ -3,11 +3,13 @@
  * shape as it flows into the WorkflowBuilder shell.
  *
  * Pins the source-side cascade (notebookId → sectionId → sourcePageId
- * combobox triple), the **dual-hierarchy picker limitation**
- * (targetSectionId is `text` not combobox), and the **async Graph
- * operation** semantics that `success: true` means "request accepted"
- * — NOT "copy complete". The runtime returns `operationLocation` for
- * downstream polling (deferred to ONENOTE-N polish).
+ * combobox triple), the RESOLVERS-1 target picker (targetSectionId is
+ * a dep-less `microsoft-onenote:target_sections` combobox with manual
+ * entry — the flat all-notebooks list that resolved the former
+ * dual-hierarchy picker limitation), and the **async Graph operation**
+ * semantics that `success: true` means "request accepted" — NOT "copy
+ * complete". The runtime returns `operationLocation` for downstream
+ * polling (deferred to ONENOTE-N polish).
  */
 
 const mockUpdateWorkflow = jest.fn();
@@ -81,13 +83,14 @@ describe("OneNote copy_page meta — Builder shape (source cascade + dual-hierar
     expect([nb.required, sec.required, src.required]).toEqual([true, true, true]);
   });
 
-  it("targetSectionId is TEXT input (NOT combobox) — dual-hierarchy picker limitation", () => {
+  it("targetSectionId is a dep-less target_sections combobox with manual entry (RESOLVERS-1)", () => {
     const tgt = microsoftOneNoteCopyPageMeta.fields.find(
       (f) => f.name === "targetSectionId",
     )!;
-    expect(tgt.type).toBe("text");
-    expect(tgt.optionsSource).toBeUndefined();
+    expect(tgt.type).toBe("combobox");
+    expect(tgt.optionsSource).toBe("microsoft-onenote:target_sections");
     expect(tgt.dependsOn).toBeUndefined();
+    expect(tgt.allowManualEntry).toBe(true);
     expect(tgt.required).toBe(true);
   });
 
@@ -106,11 +109,12 @@ describe("OneNote copy_page meta — Builder shape (source cascade + dual-hierar
     );
   });
 
-  it("targetSectionId description points authors at upstream list_sections + variable picker", () => {
+  it("targetSectionId description explains the Notebook › Section labeling + manual/variable fallback", () => {
     const tgt = microsoftOneNoteCopyPageMeta.fields.find(
       (f) => f.name === "targetSectionId",
     )!;
-    expect(tgt.description?.toLowerCase()).toMatch(/list_sections|variable/);
+    expect(tgt.description).toMatch(/Notebook › Section/);
+    expect(tgt.description?.toLowerCase()).toMatch(/variable/);
   });
 
   it("risk: medium, not destructive (copy is recoverable by deleting the duplicate once it surfaces)", () => {

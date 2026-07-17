@@ -32,10 +32,11 @@ export const CopyPageConfigSchema = z
     // requires `notebookId`; builder cascade wiring sends
     // `deps[<parent-field-name>]` so parent fields MUST be literally
     // named `notebookId` / `sectionId`. Target side (`targetSectionId`)
-    // uses a text input — same-meta field-name uniqueness + the
-    // fixed resolver dep names mean a usable target picker would
-    // require new resolvers (`sections_by_target_notebook`); deferred
-    // to ONENOTE-N polish. The meta's description documents this.
+    // is a dep-less combobox since RESOLVERS-1 — backed by
+    // `microsoft-onenote:target_sections` (sections across ALL
+    // notebooks, labeled "Notebook › Section"), chosen precisely so
+    // this `.strict()` schema needs NO new field (a `targetNotebookId`
+    // narrower would be rejected here at runtime).
     notebookId: z.string().min(1).optional(),
     sectionId: z.string().min(1).optional(),
   })
