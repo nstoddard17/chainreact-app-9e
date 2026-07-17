@@ -389,3 +389,71 @@ live-certified.**
   than erroring, and the wrapper re-sorts the returned page itself — so what the user sees
   is always newest-first. What is unproven is whether the page Shopify *selects* is the 50
   newest or the 50 oldest on a shop with >50 orders.
+
+---
+
+## 13. Corrective pass 3 — RESOLVERS-3 / RESOLVERS-4 (rows are configuration too)
+
+### 13.1 The gap under the gap
+
+§12's re-audit swept **top-level** fields. It did not look inside structured rows. When it did,
+the finding was worse than the one it had just fixed: **no `itemField` in the entire registry
+could carry an `optionsSource` — the contract could not express it.** So a provider value inside
+a row had to be hand-typed *even when a registered resolver for it already existed*.
+
+That is Marcus's original complaint one layer down. `stripe:create_checkout_session` made a user
+type `price_xxx` into a line item while `stripe:prices` sat registered and unused, and three
+resolvers — `quickbooks:items`, `quickbooks:tax_codes`,
+`microsoft-powerbi:semantic_model_parameters` — were **registered and referenced by ZERO fields**
+for exactly this reason. The QuickBooks resolver's own comment admitted it ("object-list
+sub-fields can't bind option sources — documented limitation"). A "documented limitation" that is
+really an unbuilt feature is just a deferral wearing a lab coat.
+
+### 13.2 RESOLVERS-3 — `optionsSource` on `itemFields` (commit `0704be7ef`)
+
+Contract gains `optionsSource` / `dependsOn` / `allowManualEntry` on the itemFields schema;
+`ObjectListField` + `ObjectField` render a real picker by delegating to the existing
+`ComboboxField` (no parallel discovery path). **`type` remains the VALUE type; `optionsSource`
+upgrades only the WIDGET** — which is what keeps `shopify:create_order line_items[].variant_id`
+(`type: "number"`) committing a number, pinned by a test asserting the runtime schema *rejects* a
+string so the coercion is load-bearing rather than incidental.
+
+Wired: stripe checkout + payment-link `lineItems[].priceId`, quickbooks `lineItems[].itemId` +
+`.taxCodeId`, shopify `line_items[].variant_id`, powerbi `parameters[].name`.
+
+### 13.3 RESOLVERS-4 — row-local deps (commit `29825366f`)
+
+RESOLVERS-3 resolved sub-field deps against **top-level** fields only, which left
+`hubspot:webhook_received subscriptions[].propertyName` on plain text — REQUIRED, and asking the
+user to know `amount` / `dealstage` / `hs_lead_status` by heart. The row's OWN `eventType` decides
+which property list applies, and different rows watch different object types, so there was no
+honest top-level field to hoist it to.
+
+Two moves closed it:
+
+- **`dependsOnRow`** — an explicit second scope resolving against the same row's other
+  sub-fields. Not a new notion: `visibleWhen.field` on an itemField has *always* resolved
+  row-locally, so this makes deps consistent with visibility rather than inventing a third rule.
+  Both scopes merge into one flat `ctx.deps`; the resolver never learns which scope a value came
+  from; a name that doesn't exist in the scope it declares throws at **module load**, in both
+  directions.
+- **Server-side dispatch** — when the row value should select the option SOURCE itself, do not
+  invent per-row sources. `hubspot:subscription_properties` takes `eventType` as a dep and maps
+  `contact./company./deal./ticket.` → `contacts/companies/deals/tickets` internally, calling the
+  same `resolveHubspotPropertyNameOptions` the six shipped per-object resolvers use (extracted,
+  not copied — a test asserts its output equals `hubspot:deal_properties`' for the same portal
+  data, so they cannot drift).
+
+An unmappable eventType returns an **empty list**, not `MISSING_DEPENDENCY`: the dep IS present
+and the user DID choose an event, so "Select Event first" under a populated Event picker would be
+a lie. Changing a row's eventType clears **that row's** now-wrong property (a stale `amount` must
+not survive a switch from deal to contact) and only that row's.
+
+### 13.4 What is still NOT closed
+
+- **Still nothing is live-certified** (§11, §12.4 stand). No HubSpot/Stripe/Shopify/Google/
+  Microsoft credentials exist in this environment; every resolver is unit-tested against a mocked
+  provider boundary only.
+- **Owner actions unchanged**: Shopify `read_locations` in the Partner dashboard; Outlook
+  `MailboxSettings.Read`; the one live check on Shopify's undocumented `order=created_at desc`.
+- `dependsOnRow` supports **direct** dependents only (no chains), matching the top-level cascade.
