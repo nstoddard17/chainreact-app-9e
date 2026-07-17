@@ -4,13 +4,20 @@
  * Slice 4.GCAL-META-2 — Google Calendar discovery-registry coverage.
  *
  * Pins the full 5-action Calendar surface: keys in displayOrder,
- * key===provider:type, category 'calendar', camelCase fields, NO resolver
- * wiring (calendarId text/default "primary"; eventId typeable text), Q11
+ * key===provider:type, category 'calendar', camelCase fields, resolver
+ * wiring (calendarId → `google-calendar:calendars`, default "primary";
+ * eventId → `google-calendar:events`, a cascade child of calendarId), Q11
  * required fields, list_events.maxResults bounds, the delete_event
  * destructive trio, and the deliberate sensitive marks (attendee email
  * arrays + meetLink + events bulk read + description bodies). The
- * rejected/deferred Calendar resolvers must stay unreferenced. Trigger
+ * still-rejected/deferred Calendar resolvers must stay unreferenced. Trigger
  * assertions live in google-calendar-triggers-discovery.test.ts.
+ *
+ * Slice RESOLVERS-2 flipped `eventId` from typeable text to a searchable
+ * `google-calendar:events` combobox — the "eventId is typeable text with no
+ * resolver" pin below was retired with it, and `google-calendar:events` moved
+ * out of DEFERRED_RESOLVERS. `allowManualEntry` stays true on both pickers so
+ * `{{trigger.eventId}}` upstream mapping keeps working.
  */
 import {
   getActionMeta,
@@ -26,17 +33,17 @@ const EXPECTED_KEYS_IN_ORDER = [
   "google-calendar:add_attendees",
 ];
 
-/** Actions that take a typeable eventId. */
+/** Actions that target a single event by id. */
 const EVENT_ID_ACTIONS = [
   "google-calendar:update_event",
   "google-calendar:delete_event",
   "google-calendar:add_attendees",
 ];
 
-// CONFIG-FIELD-UX-SWEEP-4 shipped `google-calendar:calendars` (calendar picker),
-// so it is no longer deferred. The rest remain unbuilt/rejected.
+// CONFIG-FIELD-UX-SWEEP-4 shipped `google-calendar:calendars` (calendar picker)
+// and RESOLVERS-2 shipped `google-calendar:events` (event picker), so neither is
+// deferred. The rest remain unbuilt/rejected.
 const DEFERRED_RESOLVERS = [
-  "google-calendar:events",
   "google-calendar:timezones",
   "google-calendar:colors",
 ];
@@ -101,12 +108,30 @@ describe("google-calendar discovery — field hygiene + no resolver wiring", () 
     }
   });
 
-  it("eventId is typeable text with no resolver (update/delete/add_attendees, required)", () => {
+  it("eventId is a searchable events combobox cascading off calendarId (update/delete/add_attendees, required)", () => {
     for (const key of EVENT_ID_ACTIONS) {
       const ev = getActionMeta(key)!.fields.find((f) => f.name === "eventId")!;
-      expect(ev.type).toBe("text");
-      expect(ev.optionsSource).toBeUndefined();
+      expect(ev.type).toBe("combobox");
+      expect(ev.optionsSource).toBe("google-calendar:events");
+      // Dep must name the sibling calendar field VERBATIM as the runtime
+      // schema spells it — the resolver's requiredDeps is keyed on it.
+      expect(ev.dependsOn).toBe("calendarId");
       expect(ev.required).toBe(true);
+    }
+  });
+
+  it("eventId keeps allowManualEntry so trigger/upstream {{...}} mapping still works", () => {
+    for (const key of EVENT_ID_ACTIONS) {
+      const ev = getActionMeta(key)!.fields.find((f) => f.name === "eventId")!;
+      expect(ev.allowManualEntry).toBe(true);
+    }
+  });
+
+  it("every eventId dependsOn names a real sibling field on the same action", () => {
+    for (const key of EVENT_ID_ACTIONS) {
+      const meta = getActionMeta(key)!;
+      const ev = meta.fields.find((f) => f.name === "eventId")!;
+      expect(meta.fields.some((f) => f.name === ev.dependsOn)).toBe(true);
     }
   });
 

@@ -133,12 +133,15 @@ export const stripeUpdateSubscriptionMeta: ActionMeta = {
     },
     {
       name: "default_payment_method",
-      label: "Default payment method ID",
+      label: "Default payment method",
       description:
-        "Optional — replace the subscription's default payment method (`pm_xxx`).",
-      type: "text",
+        "Optional — replace the subscription's default payment method. Lists the payment methods saved on this subscription's customer; you can also paste a pm_ id or insert one from an earlier step.",
+      type: "combobox",
       required: false,
       placeholder: "pm_xxx",
+      optionsSource: "stripe:subscription_payment_methods",
+      dependsOn: "subscriptionId",
+      allowManualEntry: true,
     },
     {
       name: "metadata",

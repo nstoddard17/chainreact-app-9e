@@ -121,3 +121,68 @@ export async function chargesList(
     resourceForNotFound: "charges (list)",
   });
 }
+
+// ─── chargesListExpanded (RESOLVERS-2 — backs the stripe:charges picker) ────
+
+/**
+ * List-entry shape for `GET /v1/charges?expand[]=data.customer`.
+ *
+ * Deliberately a SEPARATE type from `StripeCharge` above rather than
+ * widening that interface's `customer` to a union: `StripeCharge` is
+ * the shape `get_payments` projects into its bounded output, where
+ * `customer` is contractually a string id. Expanding it there would
+ * change a shipped action's output type. This mirrors the same split
+ * `subscriptions.ts` already makes between `StripeSubscription`
+ * (handler-facing, `customer: string`) and `StripeSubscriptionListEntry`
+ * (resolver-facing, expanded customer object).
+ *
+ * The expanded customer is used ONLY to build a human option label —
+ * NAME only, never email / phone / balance (the `_shared.ts` label
+ * policy), which is why only `id` + `name` are pinned here.
+ */
+export interface StripeChargeListEntry {
+  id: string;
+  object: "charge";
+  /** Amount in MINOR UNITS of `currency` (cents for USD, yen for JPY). */
+  amount: number;
+  currency: string;
+  status: string;
+  created: number;
+  description: string | null;
+  customer: string | { id: string; name: string | null; deleted?: boolean } | null;
+}
+
+export interface StripeChargeListEntryResponse {
+  object: "list";
+  data: StripeChargeListEntry[];
+  has_more: boolean;
+}
+
+export interface ChargesListExpandedInput {
+  accessToken: string;
+  /** Stripe caps list pages at 100. */
+  limit?: number;
+  /** Expand `data.customer` so the picker can label by customer name. */
+  expandCustomer?: boolean;
+}
+
+/**
+ * Single bounded page of charges with the customer expanded, for the
+ * `stripe:charges` option resolver. Handlers keep using `chargesList`
+ * above (unexpanded, cursor-driven, filterable).
+ */
+export async function chargesListExpanded(
+  input: ChargesListExpandedInput,
+): Promise<StripeChargeListEntryResponse> {
+  const query = new URLSearchParams();
+  if (input.limit !== undefined) query.set("limit", String(input.limit));
+  if (input.expandCustomer === true) query.append("expand[]", "data.customer");
+
+  return stripeRequest<StripeChargeListEntryResponse>({
+    accessToken: input.accessToken,
+    method: "GET",
+    path: "/v1/charges",
+    query,
+    resourceForNotFound: "charges (list)",
+  });
+}

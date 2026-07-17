@@ -1,4 +1,5 @@
 import {
+  InsufficientScopeError,
   IntegrationActionRequiredError,
   Unauthorized401Error,
 } from "@/services/oauth/refreshAndRetry";
@@ -21,6 +22,12 @@ import type { IntegrationRecord } from "@/repositories/integrations";
  * stays in one place.
  *
  * Error sanitization (nothing provider-raw reaches the browser):
+ *   - `InsufficientScopeError` (HTTP 403 — RESOLVERS-2) →
+ *     `PROVIDER_REAUTH_REQUIRED`. The integration ROW is fine; the
+ *     merchant's granted scopes just don't cover the endpoint (the
+ *     `read_locations` OPTIONAL-scope add is the live case). Only
+ *     re-consent grants it, so the client must show Reconnect, not
+ *     "try again".
  *   - `IntegrationActionRequiredError` / leaked `Unauthorized401Error`
  *     → `INTEGRATION_DISCONNECTED` ("Reconnect Shopify…") — for a
  *     non-refreshable token, reconnect IS the fix.
@@ -42,6 +49,14 @@ export function requireShopifyIntegration(
 /** Map a wrapper/API failure to a sanitized OptionsResolverError. Never returns. */
 export function mapShopifyOptionsError(err: unknown, what: string): never {
   if (err instanceof OptionsResolverError) throw err;
+  if (err instanceof InsufficientScopeError) {
+    // Granted scopes don't cover the endpoint (e.g. a token minted before
+    // `read_locations` was added). Reconnect — not retry — is the fix.
+    throw new OptionsResolverError(
+      "PROVIDER_REAUTH_REQUIRED",
+      `Reconnect your Shopify store to allow listing your ${what}.`,
+    );
+  }
   if (
     err instanceof IntegrationActionRequiredError ||
     err instanceof Unauthorized401Error
@@ -55,6 +70,21 @@ export function mapShopifyOptionsError(err: unknown, what: string): never {
     "PROVIDER_ERROR",
     `Couldn't load Shopify ${what}. Try again.`,
   );
+}
+
+/**
+ * Case-insensitive substring filter on labels, PRESERVING the incoming
+ * order. For lists whose provider-side order is meaningful (RESOLVERS-2:
+ * orders are most-recent-first) — alpha-sorting them would bury the
+ * newest order under "#1001".
+ */
+export function filterByLabel(
+  items: readonly OptionItem[],
+  q: string,
+): OptionItem[] {
+  const lowerQ = q.toLowerCase();
+  if (lowerQ.length === 0) return [...items];
+  return items.filter((item) => item.label.toLowerCase().includes(lowerQ));
 }
 
 /** Case-insensitive substring filter on labels, then alpha sort. */

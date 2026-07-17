@@ -14,9 +14,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * will reject one-sided updates with `ErrorInvalidArgument`). The
  * schema's "≥1 mutable field beyond eventId" refine still applies.
  *
- * No resolver wiring: `eventId` typeable text (the
- * `microsoft-outlook-calendar:events` resolver is deferred —
- * trigger/upstream-fed). Sensitive outputs: `attendees`, `organizer`.
+ * Resolver wiring (RESOLVERS-2): `eventId` →
+ * `microsoft-outlook-calendar:events` (no `dependsOn` — this action has no
+ * `calendarId` field; it addresses /me/events, the default calendar).
+ * `allowManualEntry` keeps `{{trigger.eventId}}` / upstream mapping working.
+ * Sensitive outputs: `attendees`, `organizer`.
  */
 export const microsoftOutlookCalendarUpdateEventMeta: ActionMeta = {
   key: "microsoft-outlook-calendar:update_event",
@@ -30,11 +32,14 @@ export const microsoftOutlookCalendarUpdateEventMeta: ActionMeta = {
   fields: [
     {
       name: "eventId",
-      label: "Event Id",
-      description: "The event to update. Often comes from a trigger or List Events.",
-      type: "text",
+      label: "Event",
+      description:
+        "The event to update. Pick one from your calendar, or map it from an earlier step or the trigger.",
+      type: "combobox",
+      optionsSource: "microsoft-outlook-calendar:events",
+      allowManualEntry: true,
       required: true,
-      placeholder: "{{trigger.eventId}}",
+      placeholder: "Search events or use {{trigger.eventId}}",
     },
     {
       name: "subject",

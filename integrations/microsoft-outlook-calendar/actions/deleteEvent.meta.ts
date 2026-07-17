@@ -12,8 +12,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * retry — it does NOT make it non-destructive. Mirrors GCal
  * `delete_event` / OneDrive `delete_item` / Airtable `delete_record`.
  *
- * No resolver wiring: `eventId` typeable text (events resolver
- * deferred). No output is PII-bearing, so none is marked sensitive.
+ * Resolver wiring (RESOLVERS-2): `eventId` →
+ * `microsoft-outlook-calendar:events` (no `dependsOn` — this action has no
+ * `calendarId` field; it addresses /me/events, the default calendar).
+ * `allowManualEntry` keeps trigger/upstream-fed ids working. No output is
+ * PII-bearing, so none is marked sensitive.
  */
 export const microsoftOutlookCalendarDeleteEventMeta: ActionMeta = {
   key: "microsoft-outlook-calendar:delete_event",
@@ -27,11 +30,14 @@ export const microsoftOutlookCalendarDeleteEventMeta: ActionMeta = {
   fields: [
     {
       name: "eventId",
-      label: "Event Id",
-      description: "The event to delete. Often comes from a trigger or List Events.",
-      type: "text",
+      label: "Event",
+      description:
+        "The event to delete. Pick one from your calendar, or map it from an earlier step or the trigger.",
+      type: "combobox",
+      optionsSource: "microsoft-outlook-calendar:events",
+      allowManualEntry: true,
       required: true,
-      placeholder: "{{trigger.eventId}}",
+      placeholder: "Search events or use {{trigger.eventId}}",
     },
   ],
   outputs: [

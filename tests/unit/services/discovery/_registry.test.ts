@@ -2927,17 +2927,25 @@ describe("per-provider accessors", () => {
       }
     });
 
-    it("ID fields: customer/subscription/price ids are resolver-backed comboboxes (RESOLVERS-1); payment-intent/charge/invoice ids stay text (upstream-fed)", () => {
-      // RESOLVERS-1 wired the catalog-shaped ids to real pickers. Runtime
-      // ids that only ever arrive from an earlier step (pi_/ch_/in_) stay
-      // free text by design — there is no meaningful browse list for them.
+    it("ID fields: customer/subscription/price/charge/payment-method ids are resolver-backed comboboxes (RESOLVERS-1 + -2); payment-intent/invoice ids stay text (upstream-fed)", () => {
+      // RESOLVERS-1 wired the catalog-shaped ids to real pickers; RESOLVERS-2
+      // added the two that Stripe DOES expose a supported listing for —
+      // `chargeId` (GET /v1/charges) and the payment-method family (listed
+      // per-customer; the three dep-name variants exist because only
+      // create_subscription has a customer field — see services/options/_registry.ts).
+      //
+      // `paymentIntentId` / `invoiceId` stay free text by design: both are
+      // runtime ids that only ever arrive from an earlier step (pi_/in_), and
+      // browsing a list of them is not the repetitive-task path. Upstream
+      // mapping is the primary path and stays available on every field here.
       const RESOLVER_BY_FIELD: Record<string, string> = {
         customerId: "stripe:customers",
         customer: "stripe:customers",
         subscriptionId: "stripe:subscriptions",
         priceId: "stripe:prices",
+        chargeId: "stripe:charges",
       };
-      const TEXT_ID_FIELDS = new Set(["paymentIntentId", "chargeId", "invoiceId"]);
+      const TEXT_ID_FIELDS = new Set(["paymentIntentId", "invoiceId"]);
       for (const meta of stripeActionMetas()) {
         for (const f of meta.fields) {
           const source = RESOLVER_BY_FIELD[f.name];
@@ -2955,6 +2963,46 @@ describe("per-provider accessors", () => {
             expect(f.optionsSource).toBeUndefined();
           }
         }
+      }
+    });
+
+    it("the payment-method family is picker-backed on all three actions, each dep-matched to the customer-bearing field it actually has (RESOLVERS-2)", () => {
+      // Stripe lists payment methods only per-customer, and deps are keyed by
+      // the parent FIELD name — so each action wires the variant matching the
+      // field it actually carries. A flat field→source map cannot express this,
+      // hence the explicit table.
+      const EXPECTED: ReadonlyArray<
+        readonly [key: string, field: string, source: string, dep: string]
+      > = [
+        [
+          "stripe:create_subscription",
+          "default_payment_method",
+          "stripe:payment_methods",
+          "customerId",
+        ],
+        [
+          "stripe:update_subscription",
+          "default_payment_method",
+          "stripe:subscription_payment_methods",
+          "subscriptionId",
+        ],
+        [
+          "stripe:confirm_payment_intent",
+          "payment_method",
+          "stripe:payment_intent_payment_methods",
+          "paymentIntentId",
+        ],
+      ];
+      for (const [key, field, source, dep] of EXPECTED) {
+        const meta = stripeActionMetas().find((m) => m.key === key)!;
+        const f = meta.fields.find((x) => x.name === field)!;
+        expect(`${key}.${field}:${f.type}`).toBe(`${key}.${field}:combobox`);
+        expect(f.optionsSource).toBe(source);
+        expect(f.dependsOn).toBe(dep);
+        // The dep must name a real sibling, or the picker is permanently empty.
+        expect(meta.fields.map((x) => x.name)).toContain(dep);
+        // Upstream mapping / power-user entry must survive the conversion.
+        expect(f.allowManualEntry).toBe(true);
       }
     });
 

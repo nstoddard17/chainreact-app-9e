@@ -11,10 +11,12 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * `attendees` here REPLACES the list — use Add Attendees to add without
  * replacing.
  *
- * No resolver wiring: `calendarId` is typeable text (default "primary");
- * `eventId` is typeable text (commonly `{{trigger.eventId}}` or a List
- * Events output). Sensitive outputs: `attendees` (PII) + `description`
- * (event body, per the GCAL-META-2 sensitivity decision).
+ * Resolver wiring: `calendarId` → `google-calendar:calendars` (default
+ * "primary"); `eventId` → `google-calendar:events`, a cascade child of
+ * `calendarId` (RESOLVERS-2). Both keep `allowManualEntry` so
+ * `{{trigger.eventId}}` / upstream mapping still works. Sensitive outputs:
+ * `attendees` (PII) + `description` (event body, per the GCAL-META-2
+ * sensitivity decision).
  */
 export const googleCalendarUpdateEventMeta: ActionMeta = {
   key: "google-calendar:update_event",
@@ -40,11 +42,15 @@ export const googleCalendarUpdateEventMeta: ActionMeta = {
     },
     {
       name: "eventId",
-      label: "Event Id",
-      description: "The event to update. Often comes from a trigger or List Events.",
-      type: "text",
+      label: "Event",
+      description:
+        "The event to update. Pick one from the calendar above, or map it from an earlier step or the trigger.",
+      type: "combobox",
+      optionsSource: "google-calendar:events",
+      dependsOn: "calendarId",
+      allowManualEntry: true,
       required: true,
-      placeholder: "{{trigger.eventId}}",
+      placeholder: "Search events or use {{trigger.eventId}}",
     },
     {
       name: "summary",

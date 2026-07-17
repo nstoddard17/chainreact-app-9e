@@ -58,6 +58,10 @@ import {
  * implicitly required by `create_fulfillment` (Shopify's scope model
  * requires both halves for fulfillment management).
  *
+ * `scopes.optional: ["read_locations"]` — RESOLVERS-2. Read-only, picker-
+ * only (`shopify:locations` → `update_inventory.location_id`); see the
+ * inline note on the field for why it is optional rather than required.
+ *
  * `oauthFlows: ["v2"]` — Shopify's current OAuth 2.0 flow. The
  * "online vs offline" access-mode distinction (Shopify ships both)
  * is irrelevant here — V2 always requests offline (the default for
@@ -97,7 +101,25 @@ export const shopifyManifest: ProviderManifest = ProviderManifestSchema.parse({
       "read_fulfillments",
       "write_fulfillments",
     ],
-    optional: [],
+    optional: [
+      // RESOLVERS-2 — needed ONLY by the `shopify:locations` options
+      // resolver (GET /locations.json), which backs the location picker
+      // on `update_inventory`. OPTIONAL, not required, on purpose: no
+      // ACTION handler needs it (update_inventory only WRITES against a
+      // location id it is given), and promoting it to required would
+      // force every already-connected store to reconnect just to gain a
+      // picker. Same posture as the optional `MailboxSettings.Read`
+      // scope on integrations/microsoft-outlook/manifest.ts.
+      //
+      // NOTE: existing connections predate this scope — the picker
+      // surfaces PROVIDER_REAUTH_REQUIRED (Reconnect) until the merchant
+      // re-authorizes, and manual entry / upstream {{...}} mapping keeps
+      // the field fully usable meanwhile. Shopify tokens are
+      // non-refreshable, so re-consent was always the only path anyway.
+      // The scope must also be added to the app's configured scope list
+      // in the Shopify Partner dashboard before consent can include it.
+      "read_locations",
+    ],
     deprecated: [],
   },
   capabilities: {

@@ -37,12 +37,14 @@ export const stripeCreateRefundMeta: ActionMeta = {
   fields: [
     {
       name: "chargeId",
-      label: "Charge ID",
+      label: "Charge",
       description:
-        "Stripe charge id (`ch_xxx`) to refund. Leave empty when refunding via Payment Intent ID instead.",
-      type: "text",
+        "The charge to refund. Pick one from your recent Stripe charges, paste a ch_ id, or insert one from an earlier step. Leave empty when refunding via Payment Intent ID instead.",
+      type: "combobox",
       required: false,
       placeholder: "ch_xxx",
+      optionsSource: "stripe:charges",
+      allowManualEntry: true,
     },
     {
       name: "paymentIntentId",

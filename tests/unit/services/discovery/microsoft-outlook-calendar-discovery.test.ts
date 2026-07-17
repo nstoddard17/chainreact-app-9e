@@ -8,13 +8,21 @@
  * Pins the full 5-action surface: keys in displayOrder, key===provider:type,
  * category 'calendar', camelCase fields, the Approach-A flat-time-fields
  * shape on create_event + update_event (no nested `start`/`end` field
- * exposed in the meta — schema preprocess handles both shapes), NO
- * resolver wiring on any field (zero `optionsSource` references), Q11
+ * exposed in the meta — schema preprocess handles both shapes), the
+ * `eventId` → `microsoft-outlook-calendar:events` resolver wiring, Q11
  * required booleans + select, the delete_event destructive trio, and
  * the deliberate sensitive marks (attendees / organizer / events /
- * attendeesAdded / attendeesAlreadyPresent). The deferred / rejected
+ * attendeesAdded / attendeesAlreadyPresent). The still-deferred / rejected
  * resolvers must stay unreferenced. Trigger assertions live in
  * microsoft-outlook-calendar-triggers-discovery.test.ts.
+ *
+ * Slice RESOLVERS-2 flipped `eventId` from typeable text to a searchable
+ * `microsoft-outlook-calendar:events` combobox, retiring the "zero
+ * optionsSource across the surface" pin. NOTE the deliberate asymmetry with
+ * the Google sibling: these actions have NO `calendarId` field (they address
+ * /me/events — the default calendar), so `eventId` carries NO `dependsOn` and
+ * the resolver declares no requiredDeps. `allowManualEntry` stays true so
+ * `{{trigger.eventId}}` upstream mapping keeps working.
  */
 import {
   getActionMeta,
@@ -36,9 +44,12 @@ const EVENT_ID_ACTIONS = [
   "microsoft-outlook-calendar:add_attendees",
 ];
 
+// RESOLVERS-2 shipped `microsoft-outlook-calendar:events` (event picker), so it
+// is no longer deferred. `microsoft-outlook-calendar:calendars` exists for the
+// analytics widgets but is deliberately NOT referenced by these five action
+// metas — none of them has a calendarId field. The rest remain unbuilt/rejected.
 const DEFERRED_OR_REJECTED_RESOLVERS = [
   "microsoft-outlook-calendar:calendars",
-  "microsoft-outlook-calendar:events",
   "microsoft-outlook-calendar:timezones",
   "microsoft-outlook-calendar:categories",
 ];
@@ -126,19 +137,37 @@ describe("microsoft-outlook-calendar discovery — field hygiene + zero resolver
     expect(update.fields.find((f) => f.name === "end")).toBeUndefined();
   });
 
-  it("eventId is typeable text (no resolver) on update/delete/add_attendees, required", () => {
+  it("eventId is a searchable events combobox on update/delete/add_attendees, required", () => {
     for (const key of EVENT_ID_ACTIONS) {
       const f = getActionMeta(key)!.fields.find((x) => x.name === "eventId")!;
-      expect(f.type).toBe("text");
-      expect(f.optionsSource).toBeUndefined();
+      expect(f.type).toBe("combobox");
+      expect(f.optionsSource).toBe("microsoft-outlook-calendar:events");
       expect(f.required).toBe(true);
     }
   });
 
-  it("NO field anywhere references a resolver (zero optionsSource across the surface)", () => {
+  it("eventId keeps allowManualEntry so trigger/upstream {{...}} mapping still works", () => {
+    for (const key of EVENT_ID_ACTIONS) {
+      const f = getActionMeta(key)!.fields.find((x) => x.name === "eventId")!;
+      expect(f.allowManualEntry).toBe(true);
+    }
+  });
+
+  it("eventId has NO dependsOn — these actions have no calendarId field (they target /me/events)", () => {
+    for (const key of EVENT_ID_ACTIONS) {
+      const meta = getActionMeta(key)!;
+      expect(meta.fields.find((f) => f.name === "eventId")!.dependsOn).toBeUndefined();
+      // Guard the premise: if a calendarId field is ever added to these
+      // actions, eventId must gain dependsOn and the resolver requiredDeps.
+      expect(meta.fields.some((f) => f.name === "calendarId")).toBe(false);
+    }
+  });
+
+  it("the ONLY resolver referenced across the action surface is the events picker", () => {
     for (const m of listActionMetasForProvider("microsoft-outlook-calendar")) {
       for (const f of m.fields) {
-        expect(f.optionsSource).toBeUndefined();
+        if (f.optionsSource === undefined) continue;
+        expect(f.optionsSource).toBe("microsoft-outlook-calendar:events");
       }
     }
   });

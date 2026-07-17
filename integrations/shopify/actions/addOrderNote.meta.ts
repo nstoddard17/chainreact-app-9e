@@ -18,11 +18,14 @@ export const shopifyAddOrderNoteMeta: ActionMeta = {
   fields: [
     {
       name: "order_id",
-      label: "Order ID",
-      description: "The Shopify order id to add the note to.",
-      type: "text",
+      label: "Order",
+      description:
+        "Which order to add the note to. Pick one of your store's recent orders, map an order id from an earlier step, or type a Shopify order id.",
+      type: "combobox",
+      optionsSource: "shopify:orders",
+      allowManualEntry: true,
       required: true,
-      placeholder: "450789469",
+      placeholder: "Search orders or type an id",
     },
     {
       name: "note",

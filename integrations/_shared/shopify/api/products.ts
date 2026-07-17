@@ -125,6 +125,108 @@ export async function productsList(
   return { products, truncated: products.length === PRODUCTS_PAGE_SIZE };
 }
 
+// ─── productVariantsList (RESOLVERS-2) ──────────────────────────────────────
+
+/**
+ * Normalized variant option — only what a picker label needs.
+ * No inventory, no barcode, no timestamps.
+ */
+export interface ProductVariantOption {
+  /** Numeric variant id (Shopify REST id). */
+  id: number;
+  /** Parent product title, e.g. "Acme Tee". Empty when omitted. */
+  productTitle: string;
+  /** Variant title, e.g. "Small / Blue". Empty when omitted. */
+  variantTitle: string;
+  /** SKU. Empty when unset. */
+  sku: string;
+  /** Decimal-as-string price, e.g. "19.00". Empty when omitted. */
+  price: string;
+}
+
+interface ShopifyProductsWithVariantsResponse {
+  products?: Array<{
+    id?: number;
+    title?: string;
+    variants?: Array<{
+      id?: number;
+      title?: string;
+      sku?: string | null;
+      price?: string;
+    }>;
+  }>;
+}
+
+export interface ProductVariantsListInput {
+  shopDomain: string;
+  accessToken: string;
+}
+
+export interface ProductVariantsListResult {
+  /** Flattened product→variant list, in Shopify's product order. */
+  variants: ProductVariantOption[];
+  /** True when a full page of PRODUCTS came back — more variants may exist. */
+  truncated: boolean;
+}
+
+/**
+ * List the shop's variants, flattened across products and normalized to
+ * {@link ProductVariantOption}. READ-ONLY on the already-granted
+ * `read_products` scope.
+ *
+ * `GET /products.json?limit=100&fields=id,title,variants`
+ *
+ * WHY products-with-embedded-variants rather than a variants endpoint:
+ * Shopify's Admin REST has **no shop-wide `/variants.json` list** — the
+ * only variant list endpoint is `/products/{product_id}/variants.json`,
+ * which needs a product id the caller may not have. Requesting
+ * `fields=…,variants` on the products list returns each product's
+ * variants inline, so one bounded call yields a flat, product-qualified
+ * variant picker (RESOLVERS-2; backs `shopify:variants`).
+ *
+ * BOUNDED: one page of {@link PRODUCTS_PAGE_SIZE} PRODUCTS (each product
+ * carries all of its own variants, so the variant count is unbounded per
+ * product but the product page is not followed). `truncated` reflects a
+ * full product page — callers keep a manual / upstream-mapped variant-id
+ * path for catalogs beyond the cap.
+ *
+ * Docs: https://shopify.dev/docs/api/admin-rest/2024-10/resources/product#get-products
+ */
+export async function productVariantsList(
+  input: ProductVariantsListInput,
+): Promise<ProductVariantsListResult> {
+  const query = new URLSearchParams({
+    limit: String(PRODUCTS_PAGE_SIZE),
+    fields: "id,title,variants",
+  });
+  const response = await shopifyRequest<ShopifyProductsWithVariantsResponse>({
+    shopDomain: input.shopDomain,
+    accessToken: input.accessToken,
+    method: "GET",
+    path: "/products.json",
+    query,
+    resourceForNotFound: "product variants (list)",
+  });
+
+  const products = response.products ?? [];
+  const variants: ProductVariantOption[] = [];
+  for (const p of products) {
+    if (!p) continue;
+    const productTitle = typeof p.title === "string" ? p.title : "";
+    for (const v of p.variants ?? []) {
+      if (!v || typeof v.id !== "number") continue;
+      variants.push({
+        id: v.id,
+        productTitle,
+        variantTitle: typeof v.title === "string" ? v.title : "",
+        sku: typeof v.sku === "string" ? v.sku : "",
+        price: typeof v.price === "string" ? v.price : "",
+      });
+    }
+  }
+  return { variants, truncated: products.length === PRODUCTS_PAGE_SIZE };
+}
+
 // ─── productsCreate ─────────────────────────────────────────────────────────
 
 export interface ProductsCreateInput {

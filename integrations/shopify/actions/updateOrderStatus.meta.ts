@@ -51,11 +51,14 @@ export const shopifyUpdateOrderStatusMeta: ActionMeta = {
     },
     {
       name: "order_id",
-      label: "Order ID",
-      description: "The Shopify order id to update.",
-      type: "text",
+      label: "Order",
+      description:
+        "Which order to update. Pick one of your store's recent orders, map an order id from an earlier step, or type a Shopify order id.",
+      type: "combobox",
+      optionsSource: "shopify:orders",
+      allowManualEntry: true,
       required: true,
-      placeholder: "450789469",
+      placeholder: "Search orders or type an id",
     },
     {
       name: "notify_customer",

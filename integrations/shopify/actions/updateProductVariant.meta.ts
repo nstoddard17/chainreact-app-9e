@@ -22,11 +22,14 @@ export const shopifyUpdateProductVariantMeta: ActionMeta = {
   fields: [
     {
       name: "variant_id",
-      label: "Variant ID",
-      description: "The Shopify variant id to update.",
-      type: "text",
+      label: "Variant",
+      description:
+        "Which variant to update. Pick from your store's product variants (listed as Product - Variant - SKU - price), map a variant id from an earlier step, or type a Shopify variant id.",
+      type: "combobox",
+      optionsSource: "shopify:variants",
+      allowManualEntry: true,
       required: true,
-      placeholder: "808950810",
+      placeholder: "Search variants or type an id",
     },
     {
       name: "price",

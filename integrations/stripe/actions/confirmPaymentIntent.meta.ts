@@ -49,12 +49,15 @@ export const stripeConfirmPaymentIntentMeta: ActionMeta = {
     },
     {
       name: "payment_method",
-      label: "Payment method ID",
+      label: "Payment method",
       description:
-        "Optional Stripe payment method id (`pm_xxx`). Required when the PaymentIntent has no payment method attached yet; omit when confirming an intent that already has one (Stripe uses the attached method).",
-      type: "text",
+        "Optional — the payment method to confirm with. Lists the payment methods saved on the PaymentIntent's customer; you can also paste a pm_ id or insert one from an earlier step. Required when the PaymentIntent has no payment method attached yet; omit when confirming an intent that already has one (Stripe uses the attached method).",
+      type: "combobox",
       required: false,
       placeholder: "pm_xxx",
+      optionsSource: "stripe:payment_intent_payment_methods",
+      dependsOn: "paymentIntentId",
+      allowManualEntry: true,
     },
     {
       name: "receipt_email",

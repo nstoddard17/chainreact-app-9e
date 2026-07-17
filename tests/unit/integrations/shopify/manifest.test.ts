@@ -52,7 +52,18 @@ describe("shopifyManifest", () => {
       ]),
     );
     expect(shopifyManifest.scopes.required).toHaveLength(11);
-    expect(shopifyManifest.scopes.optional).toEqual([]);
+  });
+
+  it("declares read_locations as OPTIONAL — picker-only, no reconnect forced on existing stores", () => {
+    // RESOLVERS-2. `shopify:locations` (GET /locations.json) backs the
+    // update_inventory location picker. It MUST stay optional: no action
+    // handler needs it, and making it required would force every existing
+    // Shopify connection to reconnect. Same posture as the optional
+    // MailboxSettings.Read scope on microsoft-outlook. Existing tokens
+    // predate it → the resolver surfaces PROVIDER_REAUTH_REQUIRED and
+    // manual entry keeps the field usable.
+    expect(shopifyManifest.scopes.optional).toEqual(["read_locations"]);
+    expect(shopifyManifest.scopes.required).not.toContain("read_locations");
   });
 
   it("pins API version 2024-10 (matches V1's pinned version)", () => {

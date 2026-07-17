@@ -66,12 +66,15 @@ export const stripeCreateSubscriptionMeta: ActionMeta = {
     },
     {
       name: "default_payment_method",
-      label: "Default payment method ID",
+      label: "Default payment method",
       description:
-        "Optional Stripe payment method (`pm_xxx`) Stripe will charge for this subscription. Required for off-session billing when the customer has no default payment method on file.",
-      type: "text",
+        "Optional — the payment method Stripe will charge for this subscription. Lists the payment methods saved on the selected customer; you can also paste a pm_ id or insert one from an earlier step. Required for off-session billing when the customer has no default payment method on file.",
+      type: "combobox",
       required: false,
       placeholder: "pm_xxx",
+      optionsSource: "stripe:payment_methods",
+      dependsOn: "customerId",
+      allowManualEntry: true,
     },
     {
       name: "payment_behavior",

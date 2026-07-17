@@ -298,6 +298,14 @@
       "requiredDeps": null
     },
     {
+      "source": "google-calendar:events",
+      "provider": "google-calendar",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "calendarId"
+      ]
+    },
+    {
       "source": "google-docs:documents",
       "provider": "google-docs",
       "requiresIntegration": true,
@@ -610,6 +618,12 @@
     },
     {
       "source": "microsoft-outlook-calendar:calendars",
+      "provider": "microsoft-outlook-calendar",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "microsoft-outlook-calendar:events",
       "provider": "microsoft-outlook-calendar",
       "requiresIntegration": true,
       "requiredDeps": null
@@ -955,7 +969,25 @@
       "requiredDeps": null
     },
     {
+      "source": "shopify:locations",
+      "provider": "shopify",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "shopify:orders",
+      "provider": "shopify",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "shopify:products",
+      "provider": "shopify",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
+      "source": "shopify:variants",
       "provider": "shopify",
       "requiresIntegration": true,
       "requiredDeps": null
@@ -985,16 +1017,46 @@
       "requiredDeps": null
     },
     {
+      "source": "stripe:charges",
+      "provider": "stripe",
+      "requiresIntegration": true,
+      "requiredDeps": null
+    },
+    {
       "source": "stripe:customers",
       "provider": "stripe",
       "requiresIntegration": true,
       "requiredDeps": null
     },
     {
+      "source": "stripe:payment_intent_payment_methods",
+      "provider": "stripe",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "paymentIntentId"
+      ]
+    },
+    {
+      "source": "stripe:payment_methods",
+      "provider": "stripe",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "customerId"
+      ]
+    },
+    {
       "source": "stripe:prices",
       "provider": "stripe",
       "requiresIntegration": true,
       "requiredDeps": null
+    },
+    {
+      "source": "stripe:subscription_payment_methods",
+      "provider": "stripe",
+      "requiresIntegration": true,
+      "requiredDeps": [
+        "subscriptionId"
+      ]
     },
     {
       "source": "stripe:subscriptions",

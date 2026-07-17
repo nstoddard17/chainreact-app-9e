@@ -1,4 +1,7 @@
-import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
+import {
+  InsufficientScopeError,
+  Unauthorized401Error,
+} from "@/services/oauth/refreshAndRetry";
 import { shopifyApiBase } from "./_base";
 import { NotFoundError, surfaceShopifyError } from "../errors";
 
@@ -41,6 +44,19 @@ import { NotFoundError, surfaceShopifyError } from "../errors";
  *     surfaces as `IntegrationActionRequiredError(reason:
  *     "refresh_not_supported")` — the user's prompt is "reconnect
  *     your Shopify account."
+ *   - 403 → `InsufficientScopeError` (RESOLVERS-2). Shopify's Admin
+ *     REST returns 403 when the merchant's granted scope set doesn't
+ *     cover the endpoint (e.g. `GET /locations.json` without
+ *     `read_locations`, added to the manifest's OPTIONAL scopes in
+ *     RESOLVERS-2 — tokens minted before the add don't carry it).
+ *     Shopify tokens are non-refreshable, and even on a refreshable
+ *     provider a refresh keeps the SAME granted scopes — only merchant
+ *     re-consent (reconnect) fixes it. Deliberately NOT
+ *     `Unauthorized401Error` (that would burn a pointless refresh).
+ *     `refreshAndRetry` propagates it verbatim; option resolvers map it
+ *     to `PROVIDER_REAUTH_REQUIRED` (Reconnect UX). Mirrors the
+ *     QuickBooks `_request.ts` precedent. Shopify's raw 403 body never
+ *     reaches the error message.
  *   - 404 → `NotFoundError(resource)` so handlers can give a stable
  *     "not found" UX or surface a clear error.
  *   - Other non-OK → generic `Error("Shopify <method> <path> failed:
@@ -104,6 +120,15 @@ export async function shopifyRequest<T>(
   if (res.status === 401) {
     throw new Unauthorized401Error(
       `Shopify ${input.method} ${input.path} returned HTTP 401`,
+    );
+  }
+  if (res.status === 403) {
+    // Granted scopes don't cover this endpoint. Typed signal only — the
+    // raw Shopify body ("[API] This action requires merchant approval
+    // for the read_locations scope") is intentionally dropped.
+    throw new InsufficientScopeError(
+      `Shopify ${input.method} ${input.path} returned HTTP 403 (insufficient scope)`,
+      "shopify",
     );
   }
   if (res.status === 404) {

@@ -117,12 +117,11 @@ const EXEMPT: Readonly<Record<string, Exemption>> = {
     reason:
       "Runtime schema stores z.number(); the ActionMeta contract forbids optionsSource on `number` fields and a combobox commits a string. Needs a coerce-to-number schema change (a slice that may touch schemas).",
   },
-  // ── SCOPE: listing needs a permission the manifest doesn't grant ────────
-  "shopify:update_inventory.location_id": {
-    klass: "SCOPE",
-    reason:
-      "The Location REST resource requires `read_locations` (Shopify 2024-10 changelog); the manifest grants 11 scopes and not that one. Adding it forces every merchant to reconnect — an owner decision.",
-  },
+  // RESOLVERS-2 retired the `shopify:update_inventory.location_id` SCOPE
+  // exemption: `read_locations` is now requested as an OPTIONAL manifest
+  // scope (optional ⇒ no forced reconnect for existing stores), and the
+  // field is a real `shopify:locations` picker. Tokens predating the scope
+  // get PROVIDER_REAUTH_REQUIRED → Reconnect, not a broken empty box.
   // ── NO-LISTING / deliberate product decisions ───────────────────────────
   "google-analytics:send_event.apiSecret": {
     klass: "NO-LISTING",
@@ -259,21 +258,15 @@ const EXEMPT: Readonly<Record<string, Exemption>> = {
     reason:
       "Slack file ids arrive from the file_shared trigger or an upload step; files.list would be an unbounded workspace dump rather than a useful picker.",
   },
-  "shopify:update_order_status.order_id": {
-    klass: "UPSTREAM",
-    reason:
-      "Shopify order ids are transactional values delivered by the order webhooks / an earlier step — an order picker would list an unbounded, constantly-changing history rather than a resource the author picks once at setup.",
-  },
-  "shopify:add_order_note.order_id": {
-    klass: "UPSTREAM",
-    reason:
-      "Shopify order ids are transactional values delivered by the order webhooks / an earlier step — an order picker would list an unbounded, constantly-changing history rather than a resource the author picks once at setup.",
-  },
-  "shopify:create_fulfillment.order_id": {
-    klass: "UPSTREAM",
-    reason:
-      "Shopify order ids are transactional values delivered by the order webhooks / an earlier step — an order picker would list an unbounded, constantly-changing history rather than a resource the author picks once at setup.",
-  },
+  // RESOLVERS-2 retired the three `shopify:*.order_id` UPSTREAM exemptions.
+  // The premise ("an order picker would list an unbounded, constantly-changing
+  // history") didn't survive contact with the API: `GET /orders.json` is a
+  // supported list endpoint on the already-required `read_orders` scope, and
+  // ONE bounded page of the 50 most recent orders, labeled
+  // `#1001 - Jane Smith - 84.20 USD - paid`, is exactly what a merchant needs
+  // when hand-picking an order. Being ALSO commonly mapped from an order
+  // webhook never justified withholding the picker — `allowManualEntry: true`
+  // keeps {{...}} mapping and pasted ids working unchanged.
   "stripe:create_refund.paymentIntentId": {
     klass: "UPSTREAM",
     reason:
@@ -299,15 +292,17 @@ const EXEMPT: Readonly<Record<string, Exemption>> = {
     reason:
       "A free reference the author chooses to correlate the session with their own system — not a Stripe resource to browse.",
   },
-  "shopify:update_product_variant.variant_id": {
-    klass: "SCOPE",
-    reason:
-      "Variants are listable via GET /products/{id}/variants.json, but the picker needs a product-scoped UI parent this action does not have (its only field is the variant id). Adding one is a meta/UX change tracked in the ledger, not a silent edit.",
-  },
+  // RESOLVERS-2 retired the `shopify:update_product_variant.variant_id` SCOPE
+  // exemption. The "needs a product-scoped UI parent" premise was wrong: the
+  // products list can return each product's variants INLINE
+  // (`GET /products.json?fields=id,title,variants`), so one bounded call backs
+  // a FLAT `shopify:variants` picker with product-qualified labels
+  // ("Acme Tee - Small / Blue - SKU ABC-1 - 19.00"). No parent field, and no
+  // runtime schema change, was needed after all.
   "shopify:update_inventory.inventory_item_id": {
-    klass: "SCOPE",
+    klass: "UPSTREAM",
     reason:
-      "Inventory item ids come from a variant's inventory_item_id; the same product-scoped parent gap as variant_id, plus location listing needs read_locations.",
+      "Re-classified in RESOLVERS-2 (was SCOPE, citing a product-parent gap + read_locations — both now resolved, and neither was ever this field's real blocker). An inventory item is a variant's invisible inventory record: it has no name, no SKU of its own, and no merchant-facing identity anywhere in the Shopify admin, and Shopify exposes no standalone listing (/inventory_items.json requires an ids= filter you can only get from variants you already hold). A picker could only show the PARENT VARIANT's label — the variants picker wearing a different id, which would silently mis-target. The real path is mapping {{step.inventoryItemId}} from an upstream Update / Create Product Variant step, which both emit it.",
   },
 };
 

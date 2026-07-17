@@ -187,6 +187,12 @@ import { googleDriveFilesResolver } from "@/integrations/google-drive/options/fi
 // calendarList.list on the newly-added `calendar.readonly` scope; a token
 // missing the scope surfaces PROVIDER_REAUTH_REQUIRED (reconnect).
 import { googleCalendarCalendarsResolver } from "@/integrations/google-calendar/options/calendars";
+// RESOLVERS-2 — `google-calendar:events` replaces the hand-typed eventId on
+// update_event / delete_event / add_attendees. Cascade child of the sibling
+// `calendarId` field; lists from 30 days back, singleEvents+orderBy=startTime
+// so the picked id is the recurrence INSTANCE the handler patches. Uses
+// Google's own `q` server-side search.
+import { googleCalendarEventsResolver } from "@/integrations/google-calendar/options/events";
 
 // Microsoft OneNote resolvers — Slice 3.ONENOTE-3.
 //   - `microsoft-onenote:notebooks` — account-scoped notebook picker
@@ -436,6 +442,21 @@ import { quickbooksCustomersResolver } from "@/integrations/quickbooks/options/c
 import { stripeCustomersResolver } from "@/integrations/stripe/options/customers";
 import { stripeSubscriptionsResolver } from "@/integrations/stripe/options/subscriptions";
 import { stripePricesResolver } from "@/integrations/stripe/options/prices";
+// RESOLVERS-2 — Stripe payment-method family + charge picker. Stripe lists
+// payment methods only per-customer, but only create_subscription HAS a
+// customer field: update_subscription has subscriptionId and
+// confirm_payment_intent has paymentIntentId. Deps are keyed by the parent
+// FIELD name, so the family mirrors itself across three dep names (the
+// microsoft-powerbi target_semantic_models precedent) rather than renaming
+// shipped .strict() schema keys; the two indirect variants resolve the
+// customer first via subscriptionsGet / paymentIntentsGet. Labels are
+// brand+last4+expiry (never a PAN) and amount+description+date.
+import {
+  stripePaymentMethodsResolver,
+  stripeSubscriptionPaymentMethodsResolver,
+  stripePaymentIntentPaymentMethodsResolver,
+} from "@/integrations/stripe/options/paymentMethods";
+import { stripeChargesResolver } from "@/integrations/stripe/options/charges";
 // RESOLVERS-1 — `slack:channels_archived` backs unarchive_channel.channel:
 // `slack:channels` lists exclude_archived=true so the unarchive target was
 // unpickable; this variant lists excludeArchived:false and keeps ONLY
@@ -568,6 +589,19 @@ import { githubAssigneesResolver } from "@/integrations/github/options/assignees
 // create_product_variant.product_id. One bounded page (id/title/status) on
 // the already-granted read_products; shop pinned to the integration row.
 import { shopifyProductsResolver } from "@/integrations/shopify/options/products";
+// RESOLVERS-2 — Shopify id pickers. `orders` backs update_order_status /
+// add_order_note / create_fulfillment `.order_id` (one bounded page,
+// most-recent-first, on the already-granted read_orders; customer NAME only in
+// labels). `variants` backs update_product_variant.variant_id — flat, no dep:
+// the .strict() schema has no product field, and Shopify has no shop-wide
+// /variants.json, so variants come inline off /products.json with
+// product-qualified labels. `locations` backs update_inventory.location_id and
+// is the one that needs the NEW OPTIONAL read_locations scope — tokens minted
+// before it get PROVIDER_REAUTH_REQUIRED (reconnect prompt) rather than a
+// broken empty box; manual entry + {{...}} mapping keep working meanwhile.
+import { shopifyOrdersResolver } from "@/integrations/shopify/options/orders";
+import { shopifyVariantsResolver } from "@/integrations/shopify/options/variants";
+import { shopifyLocationsResolver } from "@/integrations/shopify/options/locations";
 
 // Gmail resolver — Slice ANALYTICS-SOURCES-GMAIL-1.
 //   - `gmail:labels` — the editor's own Gmail labels (system + user), backing the
@@ -590,6 +624,16 @@ import { outlookFoldersResolver } from "@/integrations/microsoft-outlook/options
 // (no reconnect). Personal + refreshable → refreshAndRetry. Lists the EDITOR's
 // calendars only (no co-member exposure); only calendar id + name are read.
 import { outlookCalendarsResolver } from "@/integrations/microsoft-outlook-calendar/options/calendars";
+// RESOLVERS-2 — `microsoft-outlook-calendar:events` replaces the hand-typed
+// eventId on update_event / delete_event / add_attendees. DEP-LESS on purpose:
+// unlike Google, those three .strict() schemas have no calendarId field —
+// their wrappers address /me/events (the signed-in user's default calendar) —
+// so the picker lists from that same default-calendar scope, guaranteeing every
+// id offered is one the handler can actually address. Uses /me/calendarView
+// (auto-expands recurrences; the only events endpoint with an orderable
+// start/dateTime); `q` filters client-side because Graph rejects
+// $filter+$orderby on start and $search cannot combine with either.
+import { outlookCalendarEventsResolver } from "@/integrations/microsoft-outlook-calendar/options/events";
 
 /**
  * Hand-maintained options-source resolver registry.
@@ -668,6 +712,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   googleDriveFilesResolver,
   // CONFIG-FIELD-UX-SWEEP-4 — Google Calendar calendar picker.
   googleCalendarCalendarsResolver,
+  googleCalendarEventsResolver, // RESOLVERS-2 — cascade child of calendarId.
   // Slice 3.ONENOTE-3 — Microsoft OneNote options resolvers
   // (resolver-first ahead of ONENOTE-4 action metas). First Microsoft
   // Graph options resolvers; pattern: PAGE_SIZE=100, nextLink →
@@ -787,6 +832,7 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   gmailLabelsResolver,
   outlookFoldersResolver,
   outlookCalendarsResolver,
+  outlookCalendarEventsResolver, // RESOLVERS-2 — dep-less; see import note.
   // Slice 5.ASANA-1 — 4 Asana resolvers (first net-new provider; metas +
   // resolvers land in the same slice). workspaces (root) → projects /
   // users (dep: workspaceId) → tasks (dep: projectId). Auth refreshable
@@ -828,6 +874,11 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   stripeCustomersResolver,
   stripeSubscriptionsResolver,
   stripePricesResolver,
+  // RESOLVERS-2 — payment-method family (3 dep-name variants) + charges.
+  stripePaymentMethodsResolver,
+  stripeSubscriptionPaymentMethodsResolver,
+  stripePaymentIntentPaymentMethodsResolver,
+  stripeChargesResolver,
   // RESOLVERS-1 — unarchive picker (archived-only channel variant).
   slackChannelsArchivedResolver,
   // RESOLVERS-1 — Outlook master categories (value = displayName; optional
@@ -896,6 +947,10 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   notionDatabasesResolver,
   shopifyProductsResolver,
   shopifyCustomersResolver,
+  // RESOLVERS-2 — order / variant / location pickers (dep-less; see imports).
+  shopifyOrdersResolver,
+  shopifyVariantsResolver,
+  shopifyLocationsResolver,
 ];
 
 // Module-load validation. Throws synchronously so any importer of this

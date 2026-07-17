@@ -11,9 +11,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * destructive trio. The runtime's `alreadyDeleted` short-circuit makes the
  * delete idempotent on retry — it does NOT make it non-destructive.
  *
- * No resolver wiring: `calendarId` typeable text (default "primary");
- * `eventId` typeable text (commonly trigger/upstream-fed). No output is
- * attendee/body-bearing, so none is marked sensitive.
+ * Resolver wiring: `calendarId` → `google-calendar:calendars` (default
+ * "primary"); `eventId` → `google-calendar:events`, a cascade child of
+ * `calendarId` (RESOLVERS-2). Both keep `allowManualEntry` so
+ * trigger/upstream-fed ids still work. No output is attendee/body-bearing,
+ * so none is marked sensitive.
  */
 export const googleCalendarDeleteEventMeta: ActionMeta = {
   key: "google-calendar:delete_event",
@@ -39,11 +41,15 @@ export const googleCalendarDeleteEventMeta: ActionMeta = {
     },
     {
       name: "eventId",
-      label: "Event Id",
-      description: "The event to delete. Often comes from a trigger or List Events.",
-      type: "text",
+      label: "Event",
+      description:
+        "The event to delete. Pick one from the calendar above, or map it from an earlier step or the trigger.",
+      type: "combobox",
+      optionsSource: "google-calendar:events",
+      dependsOn: "calendarId",
+      allowManualEntry: true,
       required: true,
-      placeholder: "{{trigger.eventId}}",
+      placeholder: "Search events or use {{trigger.eventId}}",
     },
     {
       name: "sendNotifications",

@@ -14,8 +14,11 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * Microsoft Graph distinguishes these in the calendar grid (different
  * UI affordance for invitees).
  *
- * No resolver wiring: `eventId` typeable text. Sensitive outputs:
- * `attendeesAdded` + `attendeesAlreadyPresent` (email-string arrays).
+ * Resolver wiring (RESOLVERS-2): `eventId` →
+ * `microsoft-outlook-calendar:events` (no `dependsOn` — this action has no
+ * `calendarId` field; it addresses /me/events, the default calendar).
+ * `allowManualEntry` keeps trigger/upstream-fed ids working. Sensitive
+ * outputs: `attendeesAdded` + `attendeesAlreadyPresent` (email-string arrays).
  */
 export const microsoftOutlookCalendarAddAttendeesMeta: ActionMeta = {
   key: "microsoft-outlook-calendar:add_attendees",
@@ -29,11 +32,14 @@ export const microsoftOutlookCalendarAddAttendeesMeta: ActionMeta = {
   fields: [
     {
       name: "eventId",
-      label: "Event Id",
-      description: "The event to add attendees to. Often comes from a trigger or List Events.",
-      type: "text",
+      label: "Event",
+      description:
+        "The event to add attendees to. Pick one from your calendar, or map it from an earlier step or the trigger.",
+      type: "combobox",
+      optionsSource: "microsoft-outlook-calendar:events",
+      allowManualEntry: true,
       required: true,
-      placeholder: "{{trigger.eventId}}",
+      placeholder: "Search events or use {{trigger.eventId}}",
     },
     {
       name: "attendees",

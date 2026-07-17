@@ -6,6 +6,25 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * add vs subtract; `quantity` is non-negative (the handler negates it for
  * subtract). No Q11 gate. Inventory changes affect storefront availability,
  * so this is a medium-risk write.
+ *
+ * RESOLVERS-2 — the two id fields diverge deliberately:
+ *   - `location_id` → `shopify:locations` combobox. Locations are a small,
+ *     stable, listable set of static provider resources (`GET
+ *     /locations.json`, `read_locations` — added to the manifest's OPTIONAL
+ *     scopes). A merchant should never hand-copy one.
+ *   - `inventory_item_id` stays TEXT — a justified **dynamic upstream
+ *     value**, not a usability gap. An inventory item is a variant's
+ *     invisible inventory record: it has no name, no SKU of its own, and no
+ *     merchant-facing identity anywhere in the Shopify admin UI, and Shopify
+ *     exposes NO standalone list endpoint for it (`/inventory_items.json`
+ *     requires an `ids=` filter you can only obtain from variants you
+ *     already have). The only labels a synthetic picker could show would be
+ *     the parent variant's — i.e. the `shopify:variants` picker wearing a
+ *     different id, which would silently mis-target if a merchant picked the
+ *     variant they wanted while the field expects the inventory item. The
+ *     real path is mapping `{{step.inventoryItemId}}` from an upstream
+ *     Update / Create Product Variant step (both emit it) or a product
+ *     trigger, which is what the description now says.
  */
 export const shopifyUpdateInventoryMeta: ActionMeta = {
   key: "shopify:update_inventory",
@@ -19,20 +38,23 @@ export const shopifyUpdateInventoryMeta: ActionMeta = {
   fields: [
     {
       name: "inventory_item_id",
-      label: "Inventory Item ID",
+      label: "Inventory Item",
       description:
-        "The Shopify inventory item id (available from a variant's `inventoryItemId` output).",
+        "The inventory item to adjust. Map this from an earlier step's `inventoryItemId` output (Update Product Variant / Create Product Variant both produce it), or type a Shopify inventory item id.",
       type: "text",
       required: true,
-      placeholder: "808950810",
+      placeholder: "{{step.inventoryItemId}}",
     },
     {
       name: "location_id",
-      label: "Location ID",
-      description: "The Shopify location id where inventory is tracked.",
-      type: "text",
+      label: "Location",
+      description:
+        "Which store location the inventory is tracked at. Pick one of your store's locations, map a location id from an earlier step, or type a Shopify location id.",
+      type: "combobox",
+      optionsSource: "shopify:locations",
+      allowManualEntry: true,
       required: true,
-      placeholder: "905684977",
+      placeholder: "Search locations or type an id",
     },
     {
       name: "adjustment_type",

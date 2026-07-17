@@ -8,10 +8,12 @@ import type { ActionMeta } from "@/contracts/actionMeta";
  * case-insensitive email diff, and patches with the union — it adds without
  * removing existing attendees (use Update Event to replace the whole list).
  *
- * No resolver wiring: `calendarId` typeable text (default "primary");
- * `eventId` typeable text (trigger/upstream-fed). Sensitive outputs:
- * `attendees` (full merged list — provider data), plus the `addedAttendees`
- * / `alreadyInvited` email echoes.
+ * Resolver wiring: `calendarId` → `google-calendar:calendars` (default
+ * "primary"); `eventId` → `google-calendar:events`, a cascade child of
+ * `calendarId` (RESOLVERS-2). Both keep `allowManualEntry` so
+ * trigger/upstream-fed ids still work. Sensitive outputs: `attendees` (full
+ * merged list — provider data), plus the `addedAttendees` / `alreadyInvited`
+ * email echoes.
  */
 export const googleCalendarAddAttendeesMeta: ActionMeta = {
   key: "google-calendar:add_attendees",
@@ -37,11 +39,15 @@ export const googleCalendarAddAttendeesMeta: ActionMeta = {
     },
     {
       name: "eventId",
-      label: "Event Id",
-      description: "The event to add attendees to. Often comes from a trigger or List Events.",
-      type: "text",
+      label: "Event",
+      description:
+        "The event to add attendees to. Pick one from the calendar above, or map it from an earlier step or the trigger.",
+      type: "combobox",
+      optionsSource: "google-calendar:events",
+      dependsOn: "calendarId",
+      allowManualEntry: true,
       required: true,
-      placeholder: "{{trigger.eventId}}",
+      placeholder: "Search events or use {{trigger.eventId}}",
     },
     {
       name: "attendees",
