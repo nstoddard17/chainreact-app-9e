@@ -290,3 +290,102 @@ state rather than a dead control.
 `microsoft-outlook:categories` requires the newly-**optional** `MailboxSettings.Read`
 scope — existing Outlook connections must reconnect, and the Azure app registration may
 need the delegated permission added first.
+
+---
+
+## 12. Corrective pass 2 — RESOLVERS-2 + the clean-checkout gap (2026-07-16)
+
+### 12.1 Why there was a second corrective pass
+
+§9's RESOLVERS-1 closed the resource-discovery gap for the fields the first audit had
+flagged. It did not re-audit the registry afterwards. Two things were therefore missed,
+and both are the same mistake in different clothes — **trusting the previous pass's
+inventory instead of re-reading the live registry**:
+
+1. **The registry had grown.** The Microsoft Power BI provider landed (47 actions + 16
+   polling triggers + 24 option sources), taking the surface from 424 nodes / 1,571
+   fields to **487 nodes (397 actions + 90 triggers) / 1,780 fields / 32 providers**.
+   None of its 63 nodes had ever been through a config-UX audit.
+2. **RESOLVERS-1 left picker-able fields on plain text**, including
+   `stripe:update_subscription.default_payment_method` — a text box on the *exact node*
+   whose text boxes prompted the correction in the first place.
+
+Re-running the audit against the live registry (not the tracker) found **15 Setup fields
+across 4 providers** that made an ordinary user go find an opaque id by hand while the
+provider exposed a perfectly good listing endpoint.
+
+### 12.2 What shipped (commit `23dfa7f2a`)
+
+9 new resolver families; **149 → 158** registered resolvers; **716 of 1,780 fields** are
+now resolver-backed pickers.
+
+| Source | Backs | Shape |
+|---|---|---|
+| `google-calendar:events` | update/delete/add_attendees `.eventId` | cascade child of `calendarId`; 30d back, `singleEvents`+`orderBy=startTime` so the picked id is the recurrence INSTANCE the handler patches; native `q` search |
+| `microsoft-outlook-calendar:events` | update/delete/add_attendees `.eventId` | **dep-less on purpose** — those schemas have no `calendarId` field (wrappers address `/me/events`), so the picker lists the same default-calendar scope the handler writes to |
+| `shopify:orders` | update_order_status / add_order_note / create_fulfillment `.order_id` | one bounded page, most-recent-first, existing `read_orders` |
+| `shopify:variants` | update_product_variant `.variant_id` | flat — no product field in the schema, and Shopify has no shop-wide `/variants.json`; variants come inline off `/products.json` |
+| `shopify:locations` | update_inventory `.location_id` | needs the **new optional** `read_locations` scope |
+| `stripe:charges` | create_refund `.chargeId` | `GET /v1/charges` |
+| `stripe:payment_methods` | create_subscription `.default_payment_method` | dep `customerId` |
+| `stripe:subscription_payment_methods` | update_subscription `.default_payment_method` | dep `subscriptionId` → resolves customer via `subscriptionsGet` |
+| `stripe:payment_intent_payment_methods` | confirm_payment_intent `.payment_method` | dep `paymentIntentId` → resolves customer via `paymentIntentsGet` |
+
+**The Stripe payment-method family is one listing behind three resolvers.** Stripe lists
+payment methods only per-customer; deps are keyed by the parent **field** name; and only
+`create_subscription` actually has a customer field. Wiring the other two to
+`dependsOn: "customerId"` would look correct and ship a permanently-empty dropdown. The
+alternative — renaming keys in shipped `.strict()` schemas — was refused. Same precedent
+as `microsoft-powerbi:target_semantic_models`.
+
+Every converted field keeps `required` as-is and keeps `allowManualEntry: true`: these
+ids very often arrive from a trigger via `{{…}}`, so **the picker is added alongside
+upstream mapping, not instead of it**. No runtime schema, field name, or handler changed.
+
+### 12.3 The clean-checkout gap (commits `c28e397f3`, `292b3bf48`, `a875adcd3`)
+
+For several days `v2-main` **could not be compiled from a clean clone**: `225826fb2`
+registered 21 Power BI resolvers whose source files were never `git add`ed (21× TS2307).
+The same omission had already happened twice (`github/options/_shared.ts`; then 5
+resolvers in `eb62221c8`). The provider slice landing in `c28e397f3` closed the gap;
+verification against a **detached worktree of the commit** (not the dirty tree) confirms
+`npx tsc --noEmit` → **0 errors**.
+
+This bug class is invisible to every other gate — tsc, lint and jest all read the dirty
+working tree, where the untracked file is sitting right there on disk. Only a fresh clone
+fails. So it now has a structural guard that reads **git's index** instead of the
+filesystem: [`tests/structure/no-tracked-import-of-untracked-file.test.ts`](../../../tests/structure/no-tracked-import-of-untracked-file.test.ts),
+verified to fire by reproducing the exact defect.
+
+`292b3bf48` separately restored `field-sensitivity-coverage` to green: the Power BI slice
+added 5 heuristic-over-matching fields, and a 6th (`eden:read_content.url`) had left the
+guard permanently red — a guard that always fails enforces nothing.
+
+**A guard that cannot fail is worse than no guard.** A proposed "every `dependsOn` names a
+real sibling" test was written and then *deleted*: the `ActionMeta` Zod contract already
+rejects that at module load, so the test could never fail and would have read as coverage
+it did not provide.
+
+### 12.4 Still not live-certified
+
+§11 stands, now covering RESOLVERS-2 as well: **no resolver in either pass has been run
+against a real provider account.** No connected Stripe / Shopify / Google / Microsoft test
+accounts exist in this environment. Playwright was attempted rather than skipped and is
+blocked at sign-in by an unavailable Supabase (`Database error deleting user`) — the same
+root cause as the 28 DB-backed jest suites. **Nothing here may be described as
+live-certified.**
+
+**Owner actions before these light up for existing users:**
+
+- **Shopify `read_locations`** — added to `scopes.optional`, so *zero* existing
+  connections are forced to reconnect and every current handler is unaffected. But tokens
+  minted before it genuinely lack the scope, so the **locations picker alone** returns
+  `PROVIDER_REAUTH_REQUIRED` → Reconnect prompt until those merchants re-authorize
+  (manual entry + `{{…}}` keep the field usable meanwhile). **`read_locations` must first
+  be added to the app config in the Shopify Partner dashboard**, or consent cannot include it.
+- **Outlook `MailboxSettings.Read`** — as recorded in §11.
+- **One live check worth doing:** `shopify:orders` uses `order=created_at desc`, a
+  long-standing but undocumented param. Shopify ignores unknown params silently rather
+  than erroring, and the wrapper re-sorts the returned page itself — so what the user sees
+  is always newest-first. What is unproven is whether the page Shopify *selects* is the 50
+  newest or the 50 oldest on a shop with >50 orders.
