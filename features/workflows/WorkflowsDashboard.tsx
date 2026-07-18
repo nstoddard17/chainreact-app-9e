@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { listWorkflows, WorkflowApiError } from "@/lib/api/workflows";
 import type { WorkflowListItem } from "@/contracts/workflow";
 import type { WorkflowFolder } from "@/contracts/folders";
+import type { OnboardingChecklistDTO } from "@/contracts/onboarding";
+import { OnboardingChecklist } from "@/features/onboarding/OnboardingChecklist";
 import { WorkflowCard } from "./WorkflowCard";
 import { WorkflowsTable } from "./WorkflowsTable";
 import { WorkflowsEmptyState } from "./WorkflowsEmptyState";
@@ -54,15 +56,35 @@ interface Props {
   initialWorkflows: readonly WorkflowListItem[];
   initialFolders?: readonly WorkflowFolder[];
   folderLimit?: number;
+  /**
+   * 5.ONBOARD-1 — server-derived onboarding checklist (null = flag off or
+   * derivation failed → nothing renders; the dashboard must never depend on
+   * onboarding succeeding).
+   */
+  initialOnboarding?: OnboardingChecklistDTO | null;
 }
 
 const UNDO_TIMEOUT_MS = 8000;
+
+/** Initial visibility from the server DTO — avoids an empty-state flash before
+ * the checklist's mount effect reports visibility. Mirrors the orchestrator's
+ * visibility contract. */
+function initialOnboardingVisible(dto: OnboardingChecklistDTO | null | undefined): boolean {
+  if (!dto || !dto.enabled || !dto.presentation) return false;
+  if (dto.presentation.dismissed) return false;
+  if (dto.completed && !dto.presentation.celebrationPending) return false;
+  return true;
+}
 
 export function WorkflowsDashboard({
   initialWorkflows,
   initialFolders = [],
   folderLimit = 10,
+  initialOnboarding = null,
 }: Props) {
+  const [onboardingVisible, setOnboardingVisible] = useState(() =>
+    initialOnboardingVisible(initialOnboarding),
+  );
   const [workflows, setWorkflows] = useState<readonly WorkflowListItem[]>(initialWorkflows);
   const [tab, setTab] = useState<WorkflowsTab>("automations");
   const [query, setQuery] = useState("");
@@ -291,6 +313,16 @@ export function WorkflowsDashboard({
         </p>
       </header>
 
+      {/* 5.ONBOARD-1 — first-workflow checklist renders ABOVE the stat cards
+          and, while visible, replaces the no-workflows empty state below (one
+          getting-started surface, not two competing ones). */}
+      {initialOnboarding !== null && (
+        <OnboardingChecklist
+          initial={initialOnboarding}
+          onVisibilityChange={setOnboardingVisible}
+        />
+      )}
+
       <WorkflowsStatCards workflows={workflows} />
 
       <WorkflowsToolbar
@@ -328,7 +360,7 @@ export function WorkflowsDashboard({
       {/* ── Automations tab ── */}
       {tab === "automations" && (
         <>
-          {!hasAny && <WorkflowsEmptyState kind="no-workflows" />}
+          {!hasAny && !onboardingVisible && <WorkflowsEmptyState kind="no-workflows" />}
           {hasAny && !hasFiltered && (
             <WorkflowsEmptyState
               kind={folderScopedOnly ? "empty-folder" : "no-matches"}

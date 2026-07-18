@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { AppMobileBar } from "./AppMobileBar";
 import { AppRail } from "./AppRail";
 import { AppTopBar } from "./AppTopBar";
@@ -52,6 +53,10 @@ export function AppShell({
   recentNotifications,
   children,
 }: Props) {
+  // 5.ONBOARD-1 — server-evaluated here (the shell renders inside server
+  // pages) and threaded down: the flag env var is NOT NEXT_PUBLIC, so a
+  // client-side read would always be false in the browser bundle.
+  const gettingStartedEnabled = isOnboardingChecklistEnabled();
   return (
     <div
       data-testid="app-shell-root"
@@ -64,11 +69,13 @@ export function AppShell({
           userEmail={userEmail}
           unreadNotifications={unreadNotifications}
           recentNotifications={recentNotifications}
+          gettingStartedEnabled={gettingStartedEnabled}
         />
         <AppTopBar
           userEmail={userEmail}
           unreadNotifications={unreadNotifications}
           recentNotifications={recentNotifications}
+          gettingStartedEnabled={gettingStartedEnabled}
         />
         {children}
       </div>

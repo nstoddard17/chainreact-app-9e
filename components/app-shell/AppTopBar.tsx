@@ -32,12 +32,15 @@ interface Props {
   userEmail: string;
   unreadNotifications: number;
   recentNotifications: readonly NotificationPreview[];
+  /** 5.ONBOARD-1 — server-evaluated onboarding flag (drives "Getting started"). */
+  gettingStartedEnabled?: boolean;
 }
 
 export function AppTopBar({
   userEmail,
   unreadNotifications,
   recentNotifications,
+  gettingStartedEnabled = false,
 }: Props) {
   return (
     <header
@@ -53,7 +56,7 @@ export function AppTopBar({
           unreadCount={unreadNotifications}
           recentNotifications={recentNotifications}
         />
-        <UserMenu userEmail={userEmail} />
+        <UserMenu userEmail={userEmail} gettingStartedEnabled={gettingStartedEnabled} />
       </div>
     </header>
   );

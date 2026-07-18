@@ -461,3 +461,25 @@
     border-color: var(--builder-accent);
   }
 }
+
+/* ── 5.ONBOARD-1 — onboarding checklist motion (ported from the Claude Design
+   project's Onboarding.html: obUp / obPop / obPulse). Motion-safe only: every
+   animation is scoped to prefers-reduced-motion: no-preference, so reduced-
+   motion users get the final state instantly with no pulse/pop/slide. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes ob-card-in {
+    from { opacity: 0; transform: translateY(14px) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes ob-check-pop {
+    from { transform: scale(0.3); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+  @keyframes ob-celebrate {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    40% { box-shadow: 0 0 0 1px hsl(var(--primary)), 0 0 0 5px hsl(var(--primary) / 0.12); }
+  }
+  .ob-animate-card-in { animation: ob-card-in 0.34s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .ob-animate-check-pop { animation: ob-check-pop 0.32s cubic-bezier(0.2, 1.4, 0.4, 1); }
+  .ob-animate-celebrate { animation: ob-celebrate 0.7s ease; }
+}

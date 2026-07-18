@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { signOut } from "@/app/auth/actions";
+import { postOnboardingPresentation } from "@/lib/api/onboarding";
 
 /**
  * Authenticated-user menu (Slice 4.APP-SHELL-1; rail-style refit in
@@ -34,11 +35,31 @@ const SUPPORT_EMAIL = "support@chainreact.app";
 
 interface Props {
   userEmail: string;
+  /**
+   * 5.ONBOARD-1 — server-evaluated ENABLE_ONBOARDING_CHECKLIST (threaded from
+   * AppShell; the env var is not NEXT_PUBLIC so it can't be read here). Shows
+   * the "Getting started" item that reopens a dismissed checklist.
+   */
+  gettingStartedEnabled?: boolean;
 }
 
-export function UserMenu({ userEmail }: Props) {
+export function UserMenu({ userEmail, gettingStartedEnabled = false }: Props) {
   const [open, setOpen] = useState(false);
   const initials = initialsForEmail(userEmail);
+
+  // Reopen the checklist for the ACTIVE account, then land on /workflows with
+  // a full reload (same re-scope idiom as the account switcher) so the
+  // server-fetched checklist reflects the reopen. The POST is best-effort —
+  // navigation proceeds even if it fails.
+  async function openGettingStarted() {
+    setOpen(false);
+    try {
+      await postOnboardingPresentation({ action: "reopen" });
+    } catch {
+      /* best-effort */
+    }
+    window.location.assign("/workflows");
+  }
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -76,6 +97,16 @@ export function UserMenu({ userEmail }: Props) {
           </span>
         </div>
         <div className="my-1 h-px bg-border" />
+        {gettingStartedEnabled && (
+          <button
+            type="button"
+            data-testid="app-shell-getting-started"
+            onClick={() => void openGettingStarted()}
+            className="block w-full rounded-sm px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+          >
+            Getting started
+          </button>
+        )}
         <Link
           href="/account"
           data-testid="app-shell-account"
