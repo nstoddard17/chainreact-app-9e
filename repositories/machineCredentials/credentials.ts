@@ -1,23 +1,18 @@
-import { getServiceRoleClient } from "./supabase/serviceRoleClient";
+import { getServiceRoleClient } from "../supabase/serviceRoleClient";
 
 /**
- * Repository for `account_machine_credentials` + `machine_credential_audit`.
+ * Repository for `account_machine_credentials` (the encrypted credential rows).
  *
  * Provider-neutral storage for the machine (client_credentials + mTLS) auth flow
- * (first consumer: ADP). Mirrors the discipline of `repositories/integrations.ts`
- * and `repositories/accountApiKeys.ts`:
+ * (first consumer: ADP). Mirrors `repositories/integrations.ts` discipline:
  *
  *   - Server-side only (lint guard forbids client import).
- *   - Encrypted secret columns are encrypted by the CALLER (the machine-credential
- *     store service, `services/machineCredentials/store.ts`) BEFORE they reach this
- *     layer, and are returned as-encrypted. This repository never encrypts or
- *     decrypts.
- *   - All access is service-role. There is no `authenticated` GRANT on either
- *     table (see the migration) — an encrypted secret can never transit the Data
- *     API. Client-facing callers project to a secret-omitting DTO.
- *
- * Account scoping: every read/write filters `account_id` exactly, so a credential
- * belonging to a different account is never visible or mutable across accounts.
+ *   - Encrypted secret columns are encrypted by the CALLER (the store service,
+ *     `services/machineCredentials/store.ts`) BEFORE reaching this layer, and are
+ *     returned as-encrypted. This repository never encrypts or decrypts.
+ *   - All access is service-role; there is no `authenticated` GRANT on the table
+ *     (see the migration) so an encrypted secret can never transit the Data API.
+ *   - Every read/write filters `account_id` exactly (cross-account isolation).
  */
 
 export interface MachineCredentialRecord {
@@ -111,11 +106,10 @@ export interface UpsertMachineCredentialInput {
  * (accountId, provider). The partial unique index
  * `account_machine_credentials_active_unique` enforces at-most-one active row.
  *
- * When an active row exists, this is a rotation/replacement: the secret columns +
- * cert metadata are overwritten, `rotated_at` is stamped, the cached token is
- * cleared (the old token was minted with the old credentials), and
- * `connected_by_user_id` is updated to the current actor (this is an account
- * credential — provenance = who last set it, unlike personal-token provenance).
+ * When an active row exists this is a rotation/replacement: secret columns + cert
+ * metadata are overwritten, `rotated_at` is stamped, the cached token is cleared
+ * (it was minted with the old material), and `connected_by_user_id` is updated to
+ * the current actor (account credential — provenance = who last set it).
  */
 export async function upsertActiveMachineCredential(
   input: UpsertMachineCredentialInput,
@@ -150,7 +144,6 @@ export async function upsertActiveMachineCredential(
         cert_subject: input.certSubject,
         cert_not_after: input.certNotAfter,
         metadata: input.metadata,
-        // Rotation invalidates the cached token minted with the old material.
         cached_access_token_encrypted: null,
         cached_token_expires_at: null,
         rotated_at: now,
@@ -213,8 +206,10 @@ export async function getActiveMachineCredential(
   return data ? rowToRecord(data) : null;
 }
 
-/** Active credentials for an account (Apps listing). Secret columns are present
- * on the record but the caller MUST project to a secret-omitting DTO. */
+/**
+ * Active credentials for an account (Apps listing). Secret columns are present on
+ * the record but the caller MUST project to a secret-omitting DTO.
+ */
 export async function listActiveMachineCredentialsByAccount(
   accountId: string,
 ): Promise<readonly MachineCredentialRecord[]> {
@@ -232,9 +227,8 @@ export async function listActiveMachineCredentialsByAccount(
 }
 
 /**
- * Persist the freshly-minted short-lived access token (encrypted by the caller)
- * and its expiry. Guarded `disconnected_at IS NULL` so a disconnected credential
- * is never re-tokened. Returns whether a row was updated.
+ * Persist a freshly-minted short-lived access token (encrypted by the caller) +
+ * its expiry. Guarded `disconnected_at IS NULL`. Returns whether a row updated.
  */
 export async function updateCachedToken(input: {
   id: string;
@@ -286,100 +280,4 @@ export async function disconnectMachineCredential(input: {
     throw new Error(`machine credentials disconnect failed: ${error.message}`);
   }
   return { disconnected: (data ?? []).length > 0 };
-}
-
-// ── Audit ────────────────────────────────────────────────────────────────────
-
-export type MachineCredentialAuditEvent =
-  | "created"
-  | "rotated"
-  | "disconnected"
-  | "mint_succeeded"
-  | "mint_failed"
-  | "validation_failed";
-
-export interface MachineCredentialAuditRecord {
-  id: string;
-  accountId: string;
-  credentialId: string | null;
-  provider: string;
-  actorUserId: string | null;
-  event: MachineCredentialAuditEvent;
-  detail: Readonly<Record<string, unknown>>;
-  createdAt: string;
-}
-
-interface MachineCredentialAuditRow {
-  id: string;
-  account_id: string;
-  credential_id: string | null;
-  provider: string;
-  actor_user_id: string | null;
-  event: MachineCredentialAuditEvent;
-  detail: Record<string, unknown>;
-  created_at: string;
-}
-
-/**
- * Append an audit event. The CALLER guarantees `detail` carries NO secret
- * material (only fingerprints, cert expiry, redacted error codes, environment).
- * Best-effort by convention — callers wrap in try/catch so an audit-write failure
- * never masks the primary operation's result.
- */
-export async function recordMachineCredentialAudit(input: {
-  accountId: string;
-  credentialId: string | null;
-  provider: string;
-  actorUserId: string | null;
-  event: MachineCredentialAuditEvent;
-  detail?: Record<string, unknown>;
-}): Promise<void> {
-  const supabase = getServiceRoleClient(
-    `machine-credentials: audit ${input.event} ${input.provider}`,
-  );
-  const { error } = await supabase.from("machine_credential_audit").insert({
-    account_id: input.accountId,
-    credential_id: input.credentialId,
-    provider: input.provider,
-    actor_user_id: input.actorUserId,
-    event: input.event,
-    detail: input.detail ?? {},
-  });
-  if (error) {
-    throw new Error(`machine credentials audit insert failed: ${error.message}`);
-  }
-}
-
-/** List recent audit rows for an account (+ optional provider filter). */
-export async function listMachineCredentialAudit(
-  accountId: string,
-  opts?: { provider?: string; limit?: number },
-): Promise<readonly MachineCredentialAuditRecord[]> {
-  const supabase = getServiceRoleClient(
-    `machine-credentials: listAudit for account ${accountId}`,
-  );
-  let query = supabase
-    .from("machine_credential_audit")
-    .select("*")
-    .eq("account_id", accountId);
-  if (opts?.provider) query = query.eq("provider", opts.provider);
-  const { data, error } = await query
-    .order("created_at", { ascending: false })
-    .limit(opts?.limit ?? 50);
-  if (error) {
-    throw new Error(`machine credentials listAudit failed: ${error.message}`);
-  }
-  return (data ?? []).map((r) => {
-    const row = r as MachineCredentialAuditRow;
-    return {
-      id: row.id,
-      accountId: row.account_id,
-      credentialId: row.credential_id,
-      provider: row.provider,
-      actorUserId: row.actor_user_id,
-      event: row.event,
-      detail: row.detail ?? {},
-      createdAt: row.created_at,
-    };
-  });
 }
