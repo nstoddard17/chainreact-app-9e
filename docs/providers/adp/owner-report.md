@@ -2,9 +2,10 @@
 
 **Provider:** ADP (Automatic Data Processing) — payroll / HR / workforce platform
 **Provider ID (proposed):** `adp`
-**Status:** **BLOCKED — research complete, nothing implemented.**
-**Date:** 2026-07-17
-**Companion docs:** [`research.md`](./research.md) · [`infrastructure-plan.md`](./infrastructure-plan.md)
+**Status:** Backend **foundation code-complete + tested (mocked boundary); provider DISABLED**; ADP API access still blocked on partnership/cert/sandbox. Typed actions/triggers are the sandbox-gated next slice.
+**→ See [`implementation-status.md`](./implementation-status.md)** for exactly what was built, what's mocked-only, what's blocked, and the live-certification steps. The ADP-side owner actions in §3 below remain fully valid.
+**Date:** 2026-07-17 (updated after the infrastructure + ADP-foundation build)
+**Companion docs:** [`research.md`](./research.md) · [`infrastructure-plan.md`](./infrastructure-plan.md) · [`implementation-status.md`](./implementation-status.md)
 
 ---
 
