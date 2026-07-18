@@ -285,6 +285,7 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
     // (resolves the active account to target the credential, then owner/admin-gates).
     resolve(ROOT, "app/api/integrations/machine-credentials/[provider]/connect/route.ts"),
     resolve(ROOT, "app/api/integrations/machine-credentials/[provider]/disconnect/route.ts"),
+    resolve(ROOT, "app/api/integrations/machine-credentials/[provider]/validate/route.ts"),
   ];
   // resolveActiveAccount's production callers — the foreground gates + helpers only.
   const RESOLVER_ALLOWED = new Set([
