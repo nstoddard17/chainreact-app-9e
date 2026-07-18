@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { AuthForm } from "@/features/auth/AuthForm";
-import { GoogleSignInButton } from "@/features/auth/GoogleSignInButton";
-import { AuthShell, AuthHeading } from "@/features/auth/AuthShell";
-import { AuthDivider } from "@/features/auth/AuthControls";
+import { AuthShell } from "@/features/auth/AuthShell";
+import { SignUpFlow } from "@/features/auth/SignUpFlow";
 import { signUp } from "@/app/auth/actions";
 import { safeReturnPath } from "@/lib/safeReturnPath";
 import { authReasonLine } from "@/features/auth/authReturnReason";
@@ -24,33 +22,13 @@ export default async function SignUpPage({
 
   return (
     <AuthShell showcase="sign-up">
-      <AuthHeading eyebrow="Get started free" title="Create your account">
-        Describe an automation in plain English — ChainReact builds and runs it.
-      </AuthHeading>
-
-      {reasonText && (
-        <p data-testid="auth-reason" className="au-note">
-          {reasonText}
-        </p>
-      )}
-      {carry === "/start/continue" && (
-        <p data-testid="auth-same-browser-note" className="au-note">
-          To keep the draft you just built, finish creating your account in this same
-          browser.
-        </p>
-      )}
-
-      <GoogleSignInButton {...(carry ? { returnTo: carry } : {})} />
-      <AuthDivider>or with email</AuthDivider>
-
-      <AuthForm
+      {/* AUTH-EMAIL-OTP-1 — the signup form and the 6-digit verification screen
+          are two states of one client flow; the page stays a thin server shell. */}
+      <SignUpFlow
         action={signUp}
-        submitLabel="Sign up"
-        pendingLabel="Creating account…"
-        passwordAutoComplete="new-password"
-        passwordHint="Use 8 or more characters."
-        successMessage="Check your email to confirm your account, then sign in."
         {...(carry ? { returnTo: carry } : {})}
+        {...(reasonText ? { reasonText } : {})}
+        sameBrowserNote={carry === "/start/continue"}
       />
 
       <p className="au-swap">

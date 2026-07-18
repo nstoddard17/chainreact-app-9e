@@ -17,8 +17,8 @@ import { readCaptchaToken } from "@/services/security/turnstile";
  */
 
 export type AuthActionResult =
-  | { ok: true; confirmationRequired?: boolean }
-  | { ok: false; error: string; mfaRequired?: boolean };
+  | { ok: true; confirmationRequired?: boolean; resent?: boolean }
+  | { ok: false; error: string; mfaRequired?: boolean; codeExpired?: boolean };
 
 function readCredentials(formData: FormData): { email: string; password: string } | { error: string } {
   const email = formData.get("email");
@@ -223,4 +223,142 @@ export async function updatePassword(
   const { error } = await supabase.auth.updateUser({ password: parsed.password });
   if (error) return { ok: false, error: error.message };
   redirect("/workflows");
+}
+
+/* ------------------------------------------------------------------ *
+ * Signup email verification by 6-digit code (Slice AUTH-EMAIL-OTP-1)
+ * ------------------------------------------------------------------ */
+
+/** Read + normalize the 6-digit signup code (spaces stripped, digits only). */
+function readSignupCode(formData: FormData): string | null {
+  const raw = formData.get("code");
+  if (typeof raw !== "string") return null;
+  const code = raw.replace(/\s+/g, "");
+  return /^\d{6}$/.test(code) ? code : null;
+}
+
+/** Read the pending signup address. Never logged, never echoed into an error. */
+function readPendingEmail(formData: FormData): string | null {
+  const raw = formData.get("email");
+  if (typeof raw !== "string" || raw.trim().length === 0) return null;
+  return raw.trim();
+}
+
+/**
+ * Translate a Supabase verify failure into a safe, actionable message.
+ *
+ * Supabase's raw text ("Token has expired or is invalid") is never shown: it
+ * conflates two cases the user can act on differently, and provider strings are
+ * not a UI contract. We branch on the typed `code` first and fall back to a
+ * message probe for older gateway responses.
+ *
+ * Deliberately NOT enumerating: every branch is about the CODE, never about
+ * whether the address has an account, so this cannot be used as an oracle.
+ */
+function mapOtpError(code: string | undefined, message: string): {
+  error: string;
+  codeExpired: boolean;
+} {
+  const probe = `${code ?? ""} ${message}`.toLowerCase();
+  if (probe.includes("expired")) {
+    return { error: "That code has expired. Request a new code.", codeExpired: true };
+  }
+  if (
+    probe.includes("invalid") ||
+    probe.includes("incorrect") ||
+    probe.includes("not_found") ||
+    probe.includes("otp")
+  ) {
+    return { error: "That code is incorrect. Check the code and try again.", codeExpired: false };
+  }
+  return { error: "We couldn't verify the code right now. Try again.", codeExpired: false };
+}
+
+/**
+ * Verify the 6-digit signup code and establish the session.
+ *
+ * `verifyOtp({ type: "signup" })` is Supabase's supported confirmation path — it
+ * is the SAME confirmation the emailed link performs, just redeemed by token
+ * instead of by URL, so the `on_auth_user_created` trigger (profile + billing +
+ * personal account + owner membership) has already run at signUp time and needs
+ * no help from us.
+ *
+ * Runs on the SERVER client so the returned session is written straight into the
+ * auth cookies, exactly like `/auth/callback` does for OAuth and recovery. On
+ * success we `redirect` to the sanitized returnTo — an unsafe or absent value
+ * collapses to /workflows via `safeReturnPath`, so an attacker-supplied
+ * destination can never be honoured.
+ *
+ * This changes NOTHING about sign-in, OAuth, recovery, or MFA.
+ */
+export async function verifySignupOtp(
+  _prev: AuthActionResult | null,
+  formData: FormData,
+): Promise<AuthActionResult> {
+  const email = readPendingEmail(formData);
+  if (!email) {
+    return { ok: false, error: "We lost track of that signup. Start again from the sign-up form." };
+  }
+  const code = readSignupCode(formData);
+  if (!code) {
+    return { ok: false, error: "Enter the 6-digit code from your email." };
+  }
+  const returnTo = safeReturnPath(
+    typeof formData.get("returnTo") === "string" ? (formData.get("returnTo") as string) : null,
+  );
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "signup" });
+  if (error) {
+    const mapped = mapOtpError(error.code, error.message);
+    return { ok: false, error: mapped.error, codeExpired: mapped.codeExpired };
+  }
+  // A verified code without a session would leave the user stranded on a screen
+  // whose code has already been consumed — say so instead of redirecting into a
+  // protected route they cannot load.
+  if (!data?.session) {
+    return { ok: false, error: "We couldn't verify the code right now. Try again." };
+  }
+  redirect(returnTo);
+}
+
+/**
+ * Resend the signup confirmation email.
+ *
+ * `resend({ type: "signup" })` re-issues the SAME confirmation mail the original
+ * signUp sent, so whatever the Supabase template renders (code and/or link) is
+ * what the user receives. Turnstile is forwarded because Supabase enforces
+ * captcha on this endpoint when the project has captcha protection enabled —
+ * without it the resend is rejected.
+ *
+ * NO USER ENUMERATION: the result is the same neutral success regardless of
+ * whether the address is a real pending signup; provider errors are logged
+ * server-side only. The 60s cooldown in the UI is UX debouncing, NOT rate
+ * limiting — Supabase enforces the real limit.
+ */
+export async function resendSignupOtp(
+  _prev: AuthActionResult | null,
+  formData: FormData,
+): Promise<AuthActionResult> {
+  const email = readPendingEmail(formData);
+  if (!email) {
+    return { ok: false, error: "We lost track of that signup. Start again from the sign-up form." };
+  }
+  const captchaToken = readCaptchaToken(formData);
+  const supabase = await createClient();
+  const origin = await resolveOrigin();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback?next=/auth/confirmed`,
+      captchaToken,
+    },
+  });
+  if (error) {
+    // Message only — never the address, never the token.
+    console.warn(JSON.stringify({ event: "auth.signup_resend.error", message: error.message }));
+    return { ok: false, error: "We couldn't send a new code right now. Try again in a moment." };
+  }
+  return { ok: true, resent: true };
 }

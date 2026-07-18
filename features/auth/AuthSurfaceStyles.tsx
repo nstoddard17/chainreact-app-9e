@@ -79,6 +79,36 @@ export function AuthSurfaceStyles() {
       .au-submit:active:not(:disabled) { transform: translateY(1px); }
       .au-submit:disabled { opacity: .55; cursor: not-allowed; }
 
+      /* ---------- 6-digit verification code (AUTH-EMAIL-OTP-1) ----------
+         The design draws six boxes; we paint six presentational cells and lay
+         ONE real input across them (see AuthCodeInput.tsx). The input keeps its
+         own text and caret transparent so the cells do the drawing — the active
+         cell ring IS the caret indicator, which is why focus stays obvious
+         without a blinking bar drifting out of alignment. */
+      .au-code { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+      @media (min-width: 400px) { .au-code { gap: 10px; } }
+      .au-code-cell { display: flex; align-items: center; justify-content: center; aspect-ratio: 1 / 1.15; background: var(--au-panel); border: 1px solid var(--au-border); border-radius: 10px; font-family: var(--font-mono), ui-monospace, monospace; font-size: 20px; font-weight: 600; color: var(--au-text); transition: border-color .15s ease, box-shadow .15s ease; }
+      @media (min-width: 400px) { .au-code-cell { font-size: 22px; } }
+      .au-code-cell-filled { border-color: color-mix(in oklab, var(--au-accent) 45%, var(--au-border)); }
+      .au-code-cell-active { border-color: var(--au-accent); box-shadow: 0 0 0 3px var(--au-accent-soft); }
+      .au-code-cell-invalid { border-color: var(--au-danger); }
+      .au-code[data-disabled="true"] .au-code-cell { opacity: .6; }
+      .au-code-input {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        background: transparent; border: 0; outline: none; padding: 0;
+        font-family: var(--font-mono), ui-monospace, monospace; font-size: 20px;
+        letter-spacing: 1em; text-indent: .5em;
+        color: transparent; caret-color: transparent;
+      }
+      .au-code-input::selection { background: transparent; }
+      .au-code-input:disabled { cursor: not-allowed; }
+      /* The overlay input spans all six cells, so the generic auth focus ring
+         would draw one box around the whole group and hide WHICH digit you're
+         on. Focus is shown by .au-code-cell-active instead — a solid accent
+         border plus ring on the single active cell. The extra qualifiers exist
+         to out-specify the generic au-root input focus-visible rule above. */
+      .au-root .au-code .au-code-input:focus-visible { outline: none; }
+
       /* ---------- messages ---------- */
       .au-alert { display: flex; gap: 9px; align-items: flex-start; margin: 0; padding: 10px 12px; background: var(--au-danger-soft); border: 1px solid color-mix(in oklab, var(--au-danger) 34%, transparent); border-radius: 10px; font-size: 12.5px; line-height: 1.45; color: var(--au-text); }
       .au-status { margin: 0; padding: 12px 14px; background: color-mix(in oklab, var(--au-success) 12%, transparent); border: 1px solid color-mix(in oklab, var(--au-success) 32%, transparent); border-radius: 10px; font-size: 13px; line-height: 1.5; color: var(--au-text-2); }
@@ -87,7 +117,10 @@ export function AuthSurfaceStyles() {
       /* ---------- swap / back / badge ---------- */
       .au-swap { text-align: center; font-size: 13px; color: var(--au-muted); margin: 22px 0 0; }
       .au-swap-btn { background: none; border: 0; padding: 0 0 0 6px; color: var(--au-accent); font-weight: 600; font-size: 13px; border-radius: 4px; }
-      .au-swap-btn:hover { color: var(--au-accent-strong); text-decoration: underline; }
+      .au-swap-btn:hover:not(:disabled) { color: var(--au-accent-strong); text-decoration: underline; }
+      .au-swap-btn:disabled { color: var(--au-muted-2); cursor: not-allowed; }
+      .au-swap-muted { color: var(--au-muted-2); padding-left: 6px; }
+      .au-swap-tight { margin-top: 8px; }
 
       .au-back { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 26px; padding: 6px 12px 6px 8px; background: var(--au-panel); border: 1px solid var(--au-border); border-radius: 999px; font-size: 12.5px; color: var(--au-muted); transition: border-color .15s ease, color .15s ease; }
       .au-back:hover { color: var(--au-text); border-color: var(--au-border-strong); }
