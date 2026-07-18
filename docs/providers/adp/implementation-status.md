@@ -53,6 +53,7 @@ Until those exist, the manifest stays `isEnabled: false` (the connect route refu
 
 ## 5. Exact live-certification steps (run once owner setup is done)
 
+0. **(Prereq) Apply + prove the store on an isolated local DB:** follow [`docs/runbooks/local-supabase-machine-credentials-rls.md`](../../runbooks/local-supabase-machine-credentials-rls.md) to stand up a throwaway local Supabase, apply migration `20260722000000`, and run the machine-credential RLS proof.
 1. **Enable the provider:** flip `integrations/adp/manifest.ts` `isEnabled: true` (and set `actions`/`webhookTrigger` true only when those slices ship).
 2. **Env + hosts:** confirm the IAT hosts in `integrations/adp/auth.ts` against the ADP portal; correct if needed.
 3. **Connect (IAT):** owner/admin submits client_id / client_secret / WS cert / private key + environment `iat` to `POST /api/integrations/machine-credentials/adp/connect`. Confirm: the store validates the cert (pairing + validity), encrypts, and returns the safe DTO; an audit `created` row is written.

@@ -30,7 +30,9 @@
 ```
 ALLOW_DB_INTEGRATION_TESTS=true npx jest tests/integration/security/machine-credentials-rls.test.ts
 ```
-(after applying the migration to that DB — via `supabase db reset`/`supabase start` locally, or a dedicated non-prod test project).
+Step-by-step setup (prereqs, safe local init, target verification, applying the
+migration, env vars, troubleshooting, cleanup):
+[`docs/runbooks/local-supabase-machine-credentials-rls.md`](../../runbooks/local-supabase-machine-credentials-rls.md).
 
 ---
 
