@@ -18,6 +18,18 @@ import type { BuilderTeamContextValue } from "@/features/workflow-builder/contex
 
 interface Props {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ focus?: string | string[] }>;
+}
+
+/** 5.ONBOARD-1 Batch 3 — validated `?focus=` deep-link targets. Anything else
+ * is ignored (no error, no behavior). */
+const FOCUS_TARGETS = ["setup", "test", "activate"] as const;
+type FocusTarget = (typeof FOCUS_TARGETS)[number];
+function parseFocus(raw: string | string[] | undefined): FocusTarget | undefined {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return FOCUS_TARGETS.includes(value as FocusTarget)
+    ? (value as FocusTarget)
+    : undefined;
 }
 
 /**
@@ -42,7 +54,7 @@ interface Props {
  * longer mounted on this route. Re-introducing it as an in-header
  * edit-in-place affordance is a follow-up slice (see plan doc).
  */
-export default async function WorkflowDetailPage({ params }: Props) {
+export default async function WorkflowDetailPage({ params, searchParams }: Props) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -50,6 +62,7 @@ export default async function WorkflowDetailPage({ params }: Props) {
   if (!user) redirect("/auth/sign-in");
 
   const { id } = await params;
+  const initialFocus = parseFocus((await searchParams)?.focus);
   const record = await workflowsRepo.getById(id);
   // Soft-deleted workflows are 404 — same contract as GET /api/workflows/[id].
   if (!record || record.state === "deleted") notFound();
@@ -168,6 +181,7 @@ export default async function WorkflowDetailPage({ params }: Props) {
         // "temporarily unavailable" error in chat instead of disappearing.
         accountId={record.accountId}
         guidanceEnabled={true}
+        {...(initialFocus ? { initialFocus } : {})}
         {...(teamContext ? { teamContext } : {})}
       />
     </main>

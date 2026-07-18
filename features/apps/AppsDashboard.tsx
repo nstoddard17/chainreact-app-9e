@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { AppCatalogItem, AppsCategory } from "@/contracts/apps";
 import { AppCard } from "./AppCard";
+import { useProviderHighlight } from "./useProviderHighlight";
 import { AppsCategoryNav } from "./AppsCategoryNav";
 import { AppsEmptyState } from "./AppsEmptyState";
 import { AppsStatCards } from "./AppsStatCards";
@@ -30,9 +31,21 @@ interface Props {
   categories: readonly AppsCategory[];
   /** Active account that owns these connections — threaded to AppCard for disconnect. */
   accountId: string;
+  /**
+   * 5.ONBOARD-1 Batch 3 — validated `?highlight=<provider>` deep-link target
+   * (server-checked against the catalog). Scroll + transient ring only; never
+   * auto-starts a connect/reconnect.
+   */
+  highlightProvider?: string | null;
 }
 
-export function AppsDashboard({ items, categories, accountId }: Props) {
+export function AppsDashboard({
+  items,
+  categories,
+  accountId,
+  highlightProvider = null,
+}: Props) {
+  const activeHighlight = useProviderHighlight(highlightProvider);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AppsStatusFilter>("all");
   const [category, setCategory] = useState<string>("All");
@@ -110,7 +123,12 @@ export function AppsDashboard({ items, categories, accountId }: Props) {
                 className="flex flex-col gap-2"
               >
                 {filtered.map((app) => (
-                  <AppCard key={app.providerId} app={app} accountId={accountId} />
+                  <AppCard
+                    key={app.providerId}
+                    app={app}
+                    accountId={accountId}
+                    highlighted={activeHighlight === app.providerId}
+                  />
                 ))}
               </ul>
             )}

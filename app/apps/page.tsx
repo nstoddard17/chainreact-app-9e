@@ -72,6 +72,19 @@ export default async function AppsPage({ searchParams }: Props) {
     callerRole,
   });
   const categories = buildCategoryList(items);
+  // 5.ONBOARD-1 Batch 3 — validated `?highlight=<provider>` deep link (used by
+  // the onboarding checklist's Connect CTA). Only a provider key that exists in
+  // THIS caller's rendered catalog passes; anything else is silently ignored.
+  // Attention-only: the dashboard scrolls + rings the card — Connect/Reconnect
+  // remain explicit, permission-gated clicks.
+  const rawHighlight = Array.isArray(params.highlight)
+    ? params.highlight[0]
+    : params.highlight;
+  const highlightProvider =
+    typeof rawHighlight === "string" &&
+    items.some((i) => i.providerId === rawHighlight)
+      ? rawHighlight
+      : null;
   const recentNotifications = recentNotificationRecords.map(toNotificationPreview);
   // CS-8: surface pending credential-reassignment requests in the bell.
   const bell = await applyCredentialRequestNotice(
@@ -88,7 +101,12 @@ export default async function AppsPage({ searchParams }: Props) {
     >
       <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
         <ConnectionStatusBanner searchParams={params} />
-        <AppsDashboard items={items} categories={categories} accountId={ownerAccount.id} />
+        <AppsDashboard
+          items={items}
+          categories={categories}
+          accountId={ownerAccount.id}
+          highlightProvider={highlightProvider}
+        />
       </main>
     </AppShell>
   );

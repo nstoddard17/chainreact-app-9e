@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConnectButton } from "@/features/integrations/ConnectButton";
 import type { AppCatalogItem } from "@/contracts/apps";
@@ -55,10 +55,23 @@ interface Props {
   app: AppCatalogItem;
   /** The active account that owns these connections — needed for the disconnect API path. */
   accountId: string;
+  /**
+   * 5.ONBOARD-1 Batch 3 — transient deep-link highlight (`/apps?highlight=`).
+   * Adds a temporary ring + moves keyboard/AT focus to the card region.
+   * Visual/focus only — Connect/Reconnect stay explicit, gated clicks.
+   */
+  highlighted?: boolean;
 }
 
-export function AppCard({ app, accountId }: Props) {
+export function AppCard({ app, accountId, highlighted = false }: Props) {
   const router = useRouter();
+  const rootRef = useRef<HTMLLIElement | null>(null);
+
+  // Move focus once when the highlight lands so keyboard/screen-reader users
+  // arrive where the deep link pointed (tabIndex -1 = programmatic only).
+  useEffect(() => {
+    if (highlighted) rootRef.current?.focus({ preventScroll: true });
+  }, [highlighted]);
   const [expanded, setExpanded] = useState(false);
   // The account row whose Disconnect dialog is open (null = closed).
   const [disconnectTarget, setDisconnectTarget] = useState<
@@ -95,10 +108,18 @@ export function AppCard({ app, accountId }: Props) {
 
   return (
     <li
+      ref={rootRef}
+      tabIndex={-1}
       data-testid="app-card"
       data-provider-id={app.providerId}
       data-state={app.isConnected ? "connected" : "available"}
-      className="rounded-md border border-border bg-card transition hover:border-foreground/20"
+      data-highlighted={highlighted || undefined}
+      aria-label={highlighted ? `${app.name} — highlighted` : undefined}
+      className={`rounded-md border bg-card transition focus:outline-none ${
+        highlighted
+          ? "border-primary ring-2 ring-primary/60"
+          : "border-border hover:border-foreground/20"
+      }`}
     >
       <div className="flex items-center gap-4 p-4">
         <ProviderIcon

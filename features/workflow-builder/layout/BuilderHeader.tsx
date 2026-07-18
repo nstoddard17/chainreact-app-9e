@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { WorkflowState } from "@/contracts/workflow";
 import { HeaderRightLocalOnly } from "../panels/AnonymousLocalChrome";
@@ -71,6 +71,13 @@ interface Props {
    * no-op. Optional/additive — undefined keeps the authenticated header.
    */
   localOnly?: boolean;
+  /**
+   * 5.ONBOARD-1 Batch 3 — transient onboarding deep-link pulse: "test" rings
+   * the run controls, "activate" rings the lifecycle cluster. Purely visual
+   * attention treatment (set once by `useInitialBuilderFocus`, auto-clears);
+   * never clicks, runs, saves, or activates anything.
+   */
+  focusPulse?: "test" | "activate" | null;
 }
 
 /**
@@ -101,6 +108,7 @@ export function BuilderHeader({
   requiredFieldsByType,
   runEditBlocked,
   localOnly,
+  focusPulse = null,
 }: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
@@ -189,6 +197,7 @@ export function BuilderHeader({
             validationCounts={validationCounts}
             lifecycle={lifecycle}
             runEditBlocked={runEditBlocked}
+            focusPulse={focusPulse}
           />
         )}
       </header>
@@ -347,6 +356,7 @@ function HeaderRight({
   validationCounts,
   lifecycle,
   runEditBlocked,
+  focusPulse = null,
 }: {
   isDirty: boolean;
   isSaving: boolean;
@@ -364,6 +374,8 @@ function HeaderRight({
     unpublishedChanges?: boolean;
   };
   runEditBlocked?: boolean;
+  /** 5.ONBOARD-1 Batch 3 — transient deep-link attention ring (visual only). */
+  focusPulse?: "test" | "activate" | null;
 }) {
   // BUILDER-READINESS — any validation error (missing required field, no
   // trigger, unconfigured node, invalid router routes) blocks Run Manually +
@@ -437,10 +449,14 @@ function HeaderRight({
         />
       ) : null}
       <HeaderDivider />
-      <HeaderRunControls
-        blockingIssueCount={blockingIssueCount}
-        runEditBlocked={runEditBlocked}
-      />
+      {/* 5.ONBOARD-1 Batch 3 — the ?focus=test deep link rings the EXISTING run
+          controls for a moment (visual only; nothing is clicked or run). */}
+      <FocusPulseWrap active={focusPulse === "test"} name="test">
+        <HeaderRunControls
+          blockingIssueCount={blockingIssueCount}
+          runEditBlocked={runEditBlocked}
+        />
+      </FocusPulseWrap>
       <button
         type="button"
         onClick={onSave}
@@ -459,12 +475,17 @@ function HeaderRight({
       {lifecycle ? (
         <>
           <HeaderDivider />
-          <LifecycleActions
-            workflowId={lifecycle.workflowId}
-            state={lifecycle.state}
-            blockingIssueCount={blockingIssueCount}
-            unpublishedChanges={lifecycle.unpublishedChanges}
-          />
+          {/* 5.ONBOARD-1 Batch 3 — ?focus=activate rings the EXISTING lifecycle
+              cluster; a blocked activation still explains itself via the
+              validation pill/drawer as always. */}
+          <FocusPulseWrap active={focusPulse === "activate"} name="activate">
+            <LifecycleActions
+              workflowId={lifecycle.workflowId}
+              state={lifecycle.state}
+              blockingIssueCount={blockingIssueCount}
+              unpublishedChanges={lifecycle.unpublishedChanges}
+            />
+          </FocusPulseWrap>
         </>
       ) : null}
     </div>
@@ -473,6 +494,35 @@ function HeaderRight({
 
 /** ANON-BUILDER-1 — ⌘S handler when there's nothing to save (local-only mode). */
 function noop() {}
+
+/** 5.ONBOARD-1 Batch 3 — transient attention ring around an existing control
+ * cluster for the onboarding `?focus=` deep link. Visual only. */
+function FocusPulseWrap({
+  active,
+  name,
+  children,
+}: {
+  active: boolean;
+  name: "test" | "activate";
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className="inline-flex items-center rounded-md transition-shadow"
+      {...(active ? { "data-testid": `builder-header-focus-pulse-${name}` } : {})}
+      style={
+        active
+          ? {
+              boxShadow:
+                "0 0 0 2px var(--builder-accent), 0 0 0 6px var(--builder-accent-soft)",
+            }
+          : undefined
+      }
+    >
+      {children}
+    </span>
+  );
+}
 
 /** Hairline vertical separator between header action groups (purely decorative). */
 function HeaderDivider({ className }: { className?: string }) {

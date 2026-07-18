@@ -8,6 +8,7 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDetail } from "@/contracts/workflow";
 import type { AgentChangeHistoryItem } from "@/contracts/agentChangeHistory";
 import { useRestoredDraftHandoff } from "./hooks/useRestoredDraftHandoff";
+import { useInitialBuilderFocus } from "./hooks/useInitialBuilderFocus";
 import { RestoredDraftBanner } from "./panels/RestoredDraftBanner";
 import { WorkflowCanvas } from "./canvas/WorkflowCanvas";
 import { BuilderPreviewOverlay } from "./canvas/BuilderPreviewOverlay";
@@ -136,6 +137,12 @@ interface Props {
    * used when `localOnly` is true.
    */
   onAnonPromptChange?: (prompt: string) => void;
+  /**
+   * 5.ONBOARD-1 Batch 3 — validated `?focus=` deep-link target from the route
+   * (setup → reveal the first incomplete node/field; test/activate → transient
+   * header pulse). One-shot + navigation-only (see useInitialBuilderFocus).
+   */
+  initialFocus?: import("./hooks/useInitialBuilderFocus").BuilderInitialFocus;
 }
 
 /**
@@ -191,6 +198,7 @@ export function WorkflowBuilder({
   localOnly,
   initialAgentPrompt,
   onAnonPromptChange,
+  initialFocus,
 }: Props) {
   const router = useRouter();
   const hydrate = useGraphSlice((s) => s.hydrate);
@@ -227,6 +235,18 @@ export function WorkflowBuilder({
   useEffect(() => {
     hydrate(workflow.id, workflow.draftDefinition, workflow.updatedAt);
   }, [workflow.id, workflow.draftDefinition, workflow.updatedAt, hydrate]);
+
+  // 5.ONBOARD-1 Batch 3 — one-shot `?focus=` deep-link handling (defined AFTER
+  // the hydrate effect so the graph store is populated when it fires). setup →
+  // reveal first incomplete node/field via the existing validation rule;
+  // test/activate → transient header pulse. Navigation-only; consumes the
+  // query param so back/forward/reload never replay it.
+  const headerFocusPulse = useInitialBuilderFocus({
+    focus: initialFocus,
+    workflowId: workflow.id,
+    requiredFieldsByType,
+    enabled: !localOnly,
+  });
 
   // Reset per-workflow client state (config drafts, latest-run pointer, and the
   // graph) ONLY when the workflow id changes or the builder unmounts — never on
@@ -620,6 +640,7 @@ export function WorkflowBuilder({
           // Only an explicit `false` blocks; undefined (fixture/back-compat) does
           // not. The run-now/activate routes still enforce with a typed 403.
           runEditBlocked={workflow.viewerCanRunEdit === false}
+          focusPulse={headerFocusPulse}
           // ANON-BUILDER-1 — local-only: replace save/run/activate with a sign-up CTA.
           {...(localOnly ? { localOnly: true } : {})}
         />
