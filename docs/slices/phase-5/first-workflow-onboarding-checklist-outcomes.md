@@ -271,8 +271,24 @@ anything (test-asserted). No video asset was produced in this slice.
   = 2422 green with **5 pre-existing failures reproduced byte-identically at
   HEAD with this slice's changes stashed** (WorkflowCanvas action bar, notion
   list-comments config, variable-picker file-array — unrelated).
-- Full `npm test` — run at the end of the slice; result recorded in the owner
-  report (kicked off after this doc's last edit).
+- Full `npm test` — run at the end of the slice: **25,315 passed / 124 failed /
+  80 skipped (2,256 suites passed, 52 failed)**. Every failing suite was
+  attributed: ~35 are the DB-backed integration/security/migrations suites,
+  which run against the hosted dev project in this environment and fail on the
+  same project-level captcha enforcement that blocks all UI/password sign-in
+  (plus `user-onboarding-states-rls`, which additionally needs the unapplied
+  migration); the rest are pre-existing local failures **verified unrelated**
+  by re-running with the baseline (`ce1e60d35`) code — including
+  `workflowRuns.listByAccountForDisplay`, `staleWorkflowRunSweep`,
+  `buildWorkflowFailurePayload`, `dispatch-idempotency` (fail identically with
+  my `workflowRuns.ts` reverted), the builder-config/WorkflowCanvas/
+  variable-picker set, and the two structure suites whose remaining entries
+  point only at pre-existing `features/auth` turnstile imports and old
+  token-shaped literals in five untouched test files. The two failures this
+  slice DID introduce (AppShell components→services boundary; a token-shaped
+  literal in the new events test) were fixed in commit `cacb2ce61`, after
+  which the components-boundary arm and all 171 onboarding/app-shell tests +
+  2,080 app/workflows/apps tests are green.
 - **RLS integration suite** (`user-onboarding-states-rls.test.ts`) — written,
   **self-skipped** in this environment (`ALLOW_DB_INTEGRATION_TESTS` not set;
   would also require the migration to be applied first).
