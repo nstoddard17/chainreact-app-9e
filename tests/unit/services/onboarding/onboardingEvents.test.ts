@@ -67,7 +67,7 @@ describe("recordOnboardingEvent", () => {
         silent: true,
         // Everything below must be dropped:
         email: "user@example.com",
-        token: "xoxb-secret",
+        token: "provider-secret-shaped-value",
         config: { to: "someone@example.com" },
         user_role: "owner<script>",
       },
@@ -81,7 +81,7 @@ describe("recordOnboardingEvent", () => {
       silent: true,
     });
     expect(JSON.stringify(row)).not.toContain("example.com");
-    expect(JSON.stringify(row)).not.toContain("xoxb");
+    expect(JSON.stringify(row)).not.toContain("secret-shaped");
   });
 
   it("FAIL-OPEN: repository failure is swallowed after a message-only log", async () => {

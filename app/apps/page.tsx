@@ -8,6 +8,7 @@ import { getRole } from "@/repositories/accountMemberships";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
@@ -95,6 +96,7 @@ export default async function AppsPage({ searchParams }: Props) {
 
   return (
     <AppShell
+      gettingStartedEnabled={isOnboardingChecklistEnabled()}
       userEmail={user.email ?? ""}
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}

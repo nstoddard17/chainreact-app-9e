@@ -12,6 +12,7 @@ import { listMembers } from "@/services/accounts/membership";
 import { memberLimitFor } from "@/services/accounts/memberLimits";
 import { folderLimitForAccount } from "@/services/workflowFolders/folderLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { AccountSettings } from "@/features/account/AccountSettings";
 import type { AccountBillingView } from "@/features/account/AccountSections";
@@ -170,6 +171,7 @@ export default async function AccountPage({ searchParams }: Props) {
 
   return (
     <AppShell
+      gettingStartedEnabled={isOnboardingChecklistEnabled()}
       userEmail={user.email ?? ""}
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}

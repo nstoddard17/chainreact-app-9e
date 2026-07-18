@@ -6,6 +6,7 @@ import { listMembers } from "@/services/accounts/membership";
 import { listInvitations } from "@/services/accounts/invitations";
 import { memberLimitFor, TEAM_MAX_MEMBERS } from "@/services/accounts/memberLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { TeamDashboard } from "@/features/team/TeamDashboard";
 import type {
@@ -106,6 +107,7 @@ export default async function TeamPage() {
 
   return (
     <AppShell
+      gettingStartedEnabled={isOnboardingChecklistEnabled()}
       userEmail={user.email ?? ""}
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}

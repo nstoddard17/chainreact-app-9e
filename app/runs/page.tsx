@@ -6,6 +6,7 @@ import * as workflowsRepo from "@/repositories/workflows";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { RunsDashboard } from "@/features/runs/RunsDashboard";
 import {
@@ -77,6 +78,7 @@ export default async function RunsPage() {
 
   return (
     <AppShell
+      gettingStartedEnabled={isOnboardingChecklistEnabled()}
       userEmail={user.email ?? ""}
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}

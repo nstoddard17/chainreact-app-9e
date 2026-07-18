@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { AppMobileBar } from "./AppMobileBar";
 import { AppRail } from "./AppRail";
 import { AppTopBar } from "./AppTopBar";
@@ -44,6 +43,14 @@ interface Props {
   userEmail: string;
   unreadNotifications: number;
   recentNotifications: readonly NotificationPreview[];
+  /**
+   * 5.ONBOARD-1 — ENABLE_ONBOARDING_CHECKLIST, evaluated by the rendering
+   * PAGE (`isOnboardingChecklistEnabled()` from services/onboarding) and
+   * passed down — the client/server boundary rule forbids components/ from
+   * importing services/ values, and the env var is not NEXT_PUBLIC so it
+   * cannot be read client-side. Drives the user-menu "Getting started" item.
+   */
+  gettingStartedEnabled?: boolean;
   children: ReactNode;
 }
 
@@ -51,12 +58,9 @@ export function AppShell({
   userEmail,
   unreadNotifications,
   recentNotifications,
+  gettingStartedEnabled = false,
   children,
 }: Props) {
-  // 5.ONBOARD-1 — server-evaluated here (the shell renders inside server
-  // pages) and threaded down: the flag env var is NOT NEXT_PUBLIC, so a
-  // client-side read would always be false in the browser bundle.
-  const gettingStartedEnabled = isOnboardingChecklistEnabled();
   return (
     <div
       data-testid="app-shell-root"

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { ReactAgentFeedbackDashboard } from "@/features/admin/react-agent/ReactAgentFeedbackDashboard";
 import { loadInternalAdmin } from "@/app/api/internal/react-agent/_shared";
 
@@ -24,7 +25,7 @@ export default async function ReactAgentFeedbackPage() {
   if (state.status !== "ok") notFound();
 
   return (
-    <AppShell userEmail={state.email} unreadNotifications={0} recentNotifications={[]}>
+    <AppShell gettingStartedEnabled={isOnboardingChecklistEnabled()} userEmail={state.email} unreadNotifications={0} recentNotifications={[]}>
       <ReactAgentFeedbackDashboard />
     </AppShell>
   );

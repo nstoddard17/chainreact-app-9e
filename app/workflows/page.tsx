@@ -114,6 +114,7 @@ export default async function WorkflowsPage() {
 
   return (
     <AppShell
+      gettingStartedEnabled={isOnboardingChecklistEnabled()}
       userEmail={user.email ?? ""}
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}

@@ -8,6 +8,7 @@ import {
 } from "@/services/workflows/templateManagement";
 import * as notificationsRepo from "@/repositories/notifications";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
@@ -49,7 +50,7 @@ export default async function TemplatesPage() {
   const mine = mineRecords.map((r) => toMyTemplateItem(r));
 
   return (
-    <AppShell userEmail={user.email ?? ""} unreadNotifications={unread} recentNotifications={recentNotifications}>
+    <AppShell gettingStartedEnabled={isOnboardingChecklistEnabled()} userEmail={user.email ?? ""} unreadNotifications={unread} recentNotifications={recentNotifications}>
       <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
         <TemplatesDashboard
           accountId={account.id}
