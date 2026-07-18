@@ -53,11 +53,36 @@ export type TokenScope = z.infer<typeof TokenScopeSchema>;
  *     upsert); only the client transport differs. Inaugural consumer: Eden
  *     (a pasted `eden_pat_` bearer token — docs/providers/eden/).
  */
-export const AuthFlowSchema = z.enum(["code_callback", "token_ingest", "token_paste"]);
+/*
+ *   - `machine_credentials`: server-to-server OAuth 2.0 `client_credentials`
+ *     grant whose token endpoint AND API endpoints require a client certificate
+ *     at the TLS layer (mutual TLS). There is NO user redirect and NO refresh
+ *     token — access tokens are MINTED from a stored {client_id, client_secret,
+ *     certificate, private key} set and re-minted on expiry. Connect is a
+ *     credential-entry form (not an OAuth pop-up) handled OUTSIDE the OAuth
+ *     dispatcher, by `services/machineCredentials/*` against the account-scoped
+ *     encrypted machine-credential store. Inaugural (still-disabled) consumer:
+ *     ADP (ADP Marketplace / API Central). These providers set
+ *     `capabilities.oauth = false` — they do not use the redirect dispatcher.
+ */
+export const AuthFlowSchema = z.enum([
+  "code_callback",
+  "token_ingest",
+  "token_paste",
+  "machine_credentials",
+]);
 export type AuthFlow = z.infer<typeof AuthFlowSchema>;
 
 /** Auth flows that supply a non-refreshable per-user token directly (no code exchange). */
 export const DIRECT_TOKEN_AUTH_FLOWS = ["token_ingest", "token_paste"] as const;
+
+/** Auth flows that mint tokens server-to-server (no user redirect, no refresh token). */
+export const MACHINE_CREDENTIAL_AUTH_FLOWS = ["machine_credentials"] as const;
+
+/** True when a provider uses the machine (client_credentials + mTLS) auth flow. */
+export function isMachineCredentialAuthFlow(authFlow: AuthFlow): boolean {
+  return (MACHINE_CREDENTIAL_AUTH_FLOWS as readonly string[]).includes(authFlow);
+}
 
 export const ProviderManifestSchema = z
   .object({
@@ -149,6 +174,24 @@ export const ProviderManifestSchema = z
         path: ["refreshable"],
         message: `authFlow='${m.authFlow}' providers cannot be refreshable.`,
       });
+    }
+    if ((MACHINE_CREDENTIAL_AUTH_FLOWS as readonly string[]).includes(m.authFlow)) {
+      // Machine (client_credentials + mTLS) providers mint tokens server-to-server:
+      // no refresh token, and they do NOT use the OAuth redirect dispatcher.
+      if (m.refreshable) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["refreshable"],
+          message: `authFlow='${m.authFlow}' providers cannot be refreshable (tokens are minted, not refreshed).`,
+        });
+      }
+      if (m.capabilities.oauth) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["capabilities", "oauth"],
+          message: `authFlow='${m.authFlow}' providers must not declare the 'oauth' capability (they use the machine-credential connect path, not the redirect dispatcher).`,
+        });
+      }
     }
   });
 
