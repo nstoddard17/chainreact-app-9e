@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { signOut } from "@/app/auth/actions";
 import { MfaChallengeForm } from "@/features/auth/MfaChallengeForm";
+import { AuthShell, AuthHeading } from "@/features/auth/AuthShell";
+import { ShieldGlyph } from "@/features/auth/AuthGlyphs";
 import { safeReturnPath } from "@/lib/safeReturnPath";
 
 /**
@@ -37,25 +39,23 @@ export default async function MfaChallengePage({
   const returnTo = raw ? safeReturnPath(raw) : "/workflows";
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <div className="flex w-full max-w-sm flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold">Two-factor authentication</h1>
-          <p className="text-sm text-muted-foreground">
-            Enter the 6-digit code from your authenticator app to finish signing in.
-          </p>
-        </div>
-        <MfaChallengeForm returnTo={returnTo} />
+    <AuthShell showcase="sign-in">
+      <div className="au-badge" aria-hidden>
+        <ShieldGlyph size={22} />
+      </div>
+      <AuthHeading eyebrow="One more step" title="Two-factor authentication">
+        Enter the 6-digit code from your authenticator app to finish signing in.
+      </AuthHeading>
+
+      <MfaChallengeForm returnTo={returnTo} />
+
+      <div className="au-swap">
         <form action={signOut}>
-          <button
-            type="submit"
-            data-testid="mfa-challenge-sign-out"
-            className="text-sm text-muted-foreground underline"
-          >
+          <button type="submit" data-testid="mfa-challenge-sign-out" className="au-swap-btn">
             Sign in with a different account
           </button>
         </form>
       </div>
-    </main>
+    </AuthShell>
   );
 }

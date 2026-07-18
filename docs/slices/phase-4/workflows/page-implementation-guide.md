@@ -80,6 +80,14 @@ When in doubt about a shell-control style, read the rail/mobile-bar components i
 
 **Rule:** Do not introduce sidebars / top bars / nav chrome inside a feature dashboard. Defer them to the app-shell slice and document the deferral (see §11).
 
+**Auth surface (Slice AUTH-DESIGN-1).** `/auth/*` is its own scoped surface, a fourth peer alongside `data-app-surface` / `[data-marketing-surface]` / `[data-builder-surface]`:
+
+- Every auth route renders through [`features/auth/AuthShell.tsx`](../../../../features/auth/AuthShell.tsx), whose root carries `data-auth-surface`. That attribute scopes the `--au-*` palette declared in `app/globals.css` (ported from the `Auth.html` design handoff). It is dark-only by design and re-themes nothing outside the auth subtree.
+- **Do NOT use `--au-*` tokens outside `/auth/*`**, and do not use `--mk-*` / `--builder-*` inside it — the same non-bleed rule that already applies to the marketing and builder palettes.
+- Auth page files stay thin: server component reads `searchParams` / session, then composes `AuthShell` + `AuthHeading` + the feature forms. Shared field/control primitives live in `features/auth/AuthField.tsx` and `AuthControls.tsx`; the surface stylesheet is rendered once by `AuthShell` via `AuthSurfaceStyles.tsx`.
+- **Load-bearing selectors:** the Playwright suites (`tests/smoke/auth.setup.ts` and every `tests/e2e/slice-*.spec.ts` sign-in helper) resolve fields with `getByLabel(/email|password/i)` and the submit with `getByRole("button", { name: "Sign in", exact: true })`. Keep those accessible names, and keep any new icon-only control in the credential form from matching `/password/i` (the reveal toggle is named "Show/Hide typed characters" for exactly this reason — covered by `tests/unit/features/auth/AuthFormFields.test.tsx`).
+- **Honesty rule applies here too:** the handoff's showcase panel shipped named customer testimonials and install/hours-saved metrics. Those are fabricated and were replaced with labelled example prompts + the structurally-true stat band already approved for the homepage. See the header of `features/auth/AuthShowcase.tsx` and `features/marketing/MarketingStatsBand.tsx`.
+
 ## 2. Server data loading vs. client interactivity
 
 Split every page into two files:

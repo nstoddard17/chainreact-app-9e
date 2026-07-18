@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AuthForm } from "@/features/auth/AuthForm";
 import { GoogleSignInButton } from "@/features/auth/GoogleSignInButton";
+import { AuthShell, AuthHeading } from "@/features/auth/AuthShell";
+import { AuthDivider } from "@/features/auth/AuthControls";
 import { signUp } from "@/app/auth/actions";
 import { safeReturnPath } from "@/lib/safeReturnPath";
 import { authReasonLine } from "@/features/auth/authReturnReason";
@@ -19,44 +21,44 @@ export default async function SignUpPage({
   const signInHref = carry
     ? `/auth/sign-in?returnTo=${encodeURIComponent(carry)}${reason ? `&reason=${encodeURIComponent(reason)}` : ""}`
     : "/auth/sign-in";
+
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <div className="flex flex-col gap-6 w-full max-w-sm">
-        <h1 className="text-2xl font-bold">Create your account</h1>
-        {reasonText && (
-          <p data-testid="auth-reason" className="text-sm text-muted-foreground">
-            {reasonText}
-          </p>
-        )}
-        {carry === "/start/continue" && (
-          <p
-            data-testid="auth-same-browser-note"
-            className="rounded border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
-          >
-            To keep the draft you just built, finish creating your account in this
-            same browser.
-          </p>
-        )}
-        <GoogleSignInButton {...(carry ? { returnTo: carry } : {})} />
-        <div className="flex items-center gap-3">
-          <span className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted-foreground">or</span>
-          <span className="h-px flex-1 bg-border" />
-        </div>
-        <AuthForm
-          action={signUp}
-          submitLabel="Sign up"
-          passwordAutoComplete="new-password"
-          successMessage="Check your email to confirm your account, then sign in."
-          {...(carry ? { returnTo: carry } : {})}
-        />
-        <p className="text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link href={signInHref} className="underline">
-            Sign in
-          </Link>
+    <AuthShell showcase="sign-up">
+      <AuthHeading eyebrow="Get started free" title="Create your account">
+        Describe an automation in plain English — ChainReact builds and runs it.
+      </AuthHeading>
+
+      {reasonText && (
+        <p data-testid="auth-reason" className="au-note">
+          {reasonText}
         </p>
-      </div>
-    </main>
+      )}
+      {carry === "/start/continue" && (
+        <p data-testid="auth-same-browser-note" className="au-note">
+          To keep the draft you just built, finish creating your account in this same
+          browser.
+        </p>
+      )}
+
+      <GoogleSignInButton {...(carry ? { returnTo: carry } : {})} />
+      <AuthDivider>or with email</AuthDivider>
+
+      <AuthForm
+        action={signUp}
+        submitLabel="Sign up"
+        pendingLabel="Creating account…"
+        passwordAutoComplete="new-password"
+        passwordHint="Use 8 or more characters."
+        successMessage="Check your email to confirm your account, then sign in."
+        {...(carry ? { returnTo: carry } : {})}
+      />
+
+      <p className="au-swap">
+        Already have an account?
+        <Link className="au-swap-btn" href={signInHref}>
+          Sign in
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useActionState } from "react";
 import { updatePassword, type AuthActionResult } from "@/app/auth/actions";
+import { AuthField } from "./AuthField";
+import { AuthFormError, AuthSubmit } from "./AuthControls";
 
 /**
  * Reset-password form (set a new password). Runs against the recovery session
@@ -13,7 +15,10 @@ import { updatePassword, type AuthActionResult } from "@/app/auth/actions";
  * authenticator-code field is shown when `mfaRequired` is known up front (page
  * server check) OR when the action reports it needs the code
  * (`state.mfaRequired`). The submitted code is used server-side to elevate to AAL2
- * before the password is set.
+ * before the password is set — the client never decides whether MFA applies, it
+ * only decides whether to render the input.
+ *
+ * Restyled to the `Auth.html` handoff (Slice AUTH-DESIGN-1); behaviour unchanged.
  */
 export function ResetPasswordForm({ mfaRequired = false }: { mfaRequired?: boolean }) {
   const [state, formAction, pending] = useActionState<AuthActionResult | null, FormData>(
@@ -24,59 +29,46 @@ export function ResetPasswordForm({ mfaRequired = false }: { mfaRequired?: boole
   const showCode = mfaRequired || Boolean(state && !state.ok && state.mfaRequired);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 w-full max-w-sm">
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">New password</span>
-        <input
-          type="password"
-          name="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-          className="rounded border border-input bg-background px-3 py-2"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Confirm new password</span>
-        <input
-          type="password"
-          name="confirm"
-          required
-          minLength={8}
-          autoComplete="new-password"
-          className="rounded border border-input bg-background px-3 py-2"
-        />
-      </label>
+    <form action={formAction} className="au-fields">
+      <AuthField
+        label="New password"
+        type="password"
+        name="password"
+        required
+        minLength={8}
+        autoComplete="new-password"
+        reveal
+        hint="Use 8 or more characters."
+        placeholder="At least 8 characters"
+      />
+      <AuthField
+        label="Confirm new password"
+        type="password"
+        name="confirm"
+        required
+        minLength={8}
+        autoComplete="new-password"
+        placeholder="Re-enter your new password"
+      />
       {showCode && (
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Authenticator code</span>
-          <input
-            type="text"
-            name="code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            required
-            maxLength={7}
-            data-testid="reset-mfa-code"
-            className="rounded border border-input bg-background px-3 py-2 tracking-widest"
-          />
-          <span className="text-xs text-muted-foreground">
-            Two-factor is on for this account — enter the current 6-digit code to confirm.
-          </span>
-        </label>
+        <AuthField
+          label="Authenticator code"
+          type="text"
+          name="code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          required
+          maxLength={7}
+          placeholder="123456"
+          data-testid="reset-mfa-code"
+          fieldClassName="au-inp-code"
+          hint="Two-factor is on for this account — enter the current 6-digit code to confirm."
+        />
       )}
-      {state && !state.ok && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded bg-primary text-primary-foreground px-4 py-2 font-medium disabled:opacity-60"
-      >
-        {pending ? "..." : "Set new password"}
-      </button>
+      {state && !state.ok && <AuthFormError>{state.error}</AuthFormError>}
+      <AuthSubmit pending={pending} pendingLabel="Saving…">
+        Set new password
+      </AuthSubmit>
     </form>
   );
 }

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
+import { AuthShell, AuthHeading } from "@/features/auth/AuthShell";
+import { MailGlyph } from "@/features/auth/AuthGlyphs";
 
 /**
  * Email-confirmation success screen.
@@ -24,22 +26,16 @@ export default async function ConfirmedPage() {
     : { href: "/auth/sign-in", label: "Continue to sign in" };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <div className="flex flex-col gap-6 w-full max-w-sm text-center">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold">Email confirmed</h1>
-          <p className="text-sm text-muted-foreground">
-            Your email has been verified. You can now continue to ChainReact.
-          </p>
-        </div>
-        <Link
-          href={cta.href}
-          data-testid="confirmed-cta"
-          className="rounded bg-primary text-primary-foreground px-4 py-2 font-medium"
-        >
-          {cta.label}
-        </Link>
+    <AuthShell showcase="sign-in">
+      <div className="au-badge" aria-hidden>
+        <MailGlyph size={22} />
       </div>
-    </main>
+      <AuthHeading eyebrow="You're all set" title="Email confirmed">
+        Your email has been verified. You can now continue to ChainReact.
+      </AuthHeading>
+      <Link href={cta.href} data-testid="confirmed-cta" className="au-submit">
+        {cta.label}
+      </Link>
+    </AuthShell>
   );
 }

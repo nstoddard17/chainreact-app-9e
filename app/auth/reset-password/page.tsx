@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { ResetPasswordForm } from "@/features/auth/ResetPasswordForm";
+import { AuthShell, AuthHeading } from "@/features/auth/AuthShell";
+import { LockGlyph } from "@/features/auth/AuthGlyphs";
 
 /**
  * Landing page for the recovery link. `/auth/callback` exchanges the emailed
@@ -34,11 +36,15 @@ export default async function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <div className="flex flex-col gap-6 w-full max-w-sm">
-        <h1 className="text-2xl font-bold">Set a new password</h1>
-        <ResetPasswordForm mfaRequired={mfaRequired} />
+    <AuthShell showcase="sign-in">
+      <div className="au-badge" aria-hidden>
+        <LockGlyph size={22} />
       </div>
-    </main>
+      <AuthHeading eyebrow="Password reset" title="Set a new password">
+        Choose a new password for your account. You&apos;ll be signed in once it&apos;s
+        saved.
+      </AuthHeading>
+      <ResetPasswordForm mfaRequired={mfaRequired} />
+    </AuthShell>
   );
 }

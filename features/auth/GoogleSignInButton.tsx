@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { GoogleG } from "./AuthGlyphs";
 
 /**
  * Initiates Google sign-in via Supabase Auth.
@@ -42,17 +43,13 @@ export function GoogleSignInButton({ returnTo }: { returnTo?: string } = {}) {
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={pending}
-        className="rounded border border-input px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-60"
-      >
-        {pending ? "Redirecting…" : "Sign in with Google"}
+    <div className="au-social">
+      <button type="button" onClick={handleClick} disabled={pending} className="au-sso">
+        <GoogleG size={16} />
+        {pending ? "Redirecting…" : "Continue with Google"}
       </button>
       {error && (
-        <span role="alert" className="text-xs text-destructive">
+        <span role="alert" className="au-fld-err">
           {error}
         </span>
       )}

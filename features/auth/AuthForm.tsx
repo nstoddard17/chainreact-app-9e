@@ -1,23 +1,42 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import type { AuthActionResult } from "@/app/auth/actions";
 import { TurnstileWidget } from "./TurnstileWidget";
 import { TURNSTILE_FIELD_NAME, isTurnstileWidgetConfigured } from "@/services/security/turnstile";
+import { AuthField } from "./AuthField";
+import { AuthFormError, AuthFormStatus, AuthSubmit } from "./AuthControls";
 
 type Action = (prev: AuthActionResult | null, formData: FormData) => Promise<AuthActionResult>;
 
+/**
+ * Email + password form shared by sign-in and sign-up.
+ *
+ * Restyled to the `Auth.html` handoff (Slice AUTH-DESIGN-1); the behaviour is
+ * unchanged — same server actions, same hidden `returnTo`, same Turnstile
+ * token handling, same success/error branches.
+ */
 export function AuthForm({
   action,
   submitLabel,
+  pendingLabel,
   passwordAutoComplete = "current-password",
+  passwordHint,
+  forgotPasswordHref,
   successMessage,
   returnTo,
 }: {
   action: Action;
   submitLabel: string;
+  /** Label while the submit is in flight. */
+  pendingLabel: string;
   /** "current-password" for sign-in, "new-password" for sign-up (password managers). */
   passwordAutoComplete?: "current-password" | "new-password";
+  /** Helper text under the password field (sign-up states the length rule). */
+  passwordHint?: string;
+  /** When set, renders the "Forgot password?" link on the password label row. */
+  forgotPasswordHref?: string;
   /** Shown when the action resolves ok WITHOUT redirecting (e.g. sign-up email confirmation). */
   successMessage?: string;
   /**
@@ -36,6 +55,12 @@ export function AuthForm({
   // submitted in the `cf-turnstile-response` field, which the server action
   // forwards to Supabase's `captchaToken`. A Turnstile token is single-use, so on
   // a failed submit (Supabase redeemed it) we clear it and force a fresh one.
+  // The email is controlled so a rejected submit doesn't wipe it — React resets
+  // uncontrolled inputs when the action resolves, and retyping the address after
+  // a typo'd password is needless friction. The PASSWORD is deliberately left
+  // uncontrolled: it is cleared on every failed attempt and never persisted.
+  const [email, setEmail] = useState("");
+
   const captchaConfigured = isTurnstileWidgetConfigured();
   const [captchaToken, setCaptchaToken] = useState("");
   const [resetSignal, setResetSignal] = useState(0);
@@ -48,37 +73,44 @@ export function AuthForm({
 
   // An ok result that didn't redirect (sign-up with email confirmation pending).
   if (state?.ok && successMessage) {
-    return (
-      <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
-        {successMessage}
-      </p>
-    );
+    return <AuthFormStatus>{successMessage}</AuthFormStatus>;
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 w-full max-w-sm">
+    <form action={formAction} className="au-fields">
       {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Email</span>
-        <input
-          type="email"
-          name="email"
-          required
-          autoComplete="email"
-          className="rounded border border-input bg-background px-3 py-2"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Password</span>
-        <input
-          type="password"
-          name="password"
-          required
-          minLength={8}
-          autoComplete={passwordAutoComplete}
-          className="rounded border border-input bg-background px-3 py-2"
-        />
-      </label>
+
+      <AuthField
+        label="Email"
+        type="email"
+        name="email"
+        required
+        autoComplete="email"
+        placeholder="you@company.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
+      <AuthField
+        label="Password"
+        type="password"
+        name="password"
+        required
+        minLength={8}
+        autoComplete={passwordAutoComplete}
+        reveal
+        {...(passwordHint ? { hint: passwordHint } : {})}
+        {...(forgotPasswordHref
+          ? {
+              extra: (
+                <Link className="au-fld-link" href={forgotPasswordHref}>
+                  Forgot password?
+                </Link>
+              ),
+            }
+          : {})}
+      />
+
       {/* Bot protection — renders only when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set. */}
       {captchaConfigured && (
         <>
@@ -90,18 +122,16 @@ export function AuthForm({
           />
         </>
       )}
-      {state && !state.ok && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
-      <button
-        type="submit"
-        disabled={pending || (captchaConfigured && captchaToken.length === 0)}
-        className="rounded bg-primary text-primary-foreground px-4 py-2 font-medium disabled:opacity-60"
+
+      {state && !state.ok && <AuthFormError>{state.error}</AuthFormError>}
+
+      <AuthSubmit
+        pending={pending}
+        pendingLabel={pendingLabel}
+        disabled={captchaConfigured && captchaToken.length === 0}
       >
-        {pending ? "..." : submitLabel}
-      </button>
+        {submitLabel}
+      </AuthSubmit>
     </form>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { AccountApiError, verifyMfaChallenge } from "@/lib/api/accounts";
+import { AuthField } from "./AuthField";
+import { AuthFormError, AuthSubmit } from "./AuthControls";
 
 /**
  * Login-time MFA code entry (SEC-3).
@@ -10,6 +12,8 @@ import { AccountApiError, verifyMfaChallenge } from "@/lib/api/accounts";
  * session is elevated to aal2. We then do a FULL navigation to `returnTo` (not a
  * client router push) so the middleware re-reads the fresh aal2 cookie and stops
  * diverting. Wrong codes surface a generic inline error and never lock the field.
+ *
+ * Restyled to the `Auth.html` handoff (Slice AUTH-DESIGN-1); behaviour unchanged.
  */
 export function MfaChallengeForm({ returnTo }: { returnTo: string }) {
   const [code, setCode] = useState("");
@@ -28,49 +32,39 @@ export function MfaChallengeForm({ returnTo }: { returnTo: string }) {
       // Full navigation so middleware sees the elevated session.
       window.location.assign(returnTo);
     } catch (err) {
-      setError(
-        err instanceof AccountApiError
-          ? err.message
-          : "Couldn't verify that code. Try again.",
-      );
+      setError(err instanceof AccountApiError ? err.message : "Couldn't verify that code. Try again.");
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Authenticator code</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          aria-label="Authenticator code"
-          data-testid="mfa-challenge-code"
-          value={code}
-          maxLength={7}
-          disabled={busy}
-          autoFocus
-          onChange={(e) => {
-            setCode(e.target.value);
-            setError(null);
-          }}
-          className="rounded border border-input bg-background px-3 py-2 tracking-widest"
-        />
-      </label>
-      {error && (
-        <p role="alert" data-testid="mfa-challenge-error" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <button
-        type="submit"
+    <form onSubmit={submit} className="au-fields">
+      <AuthField
+        label="Authenticator code"
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        data-testid="mfa-challenge-code"
+        value={code}
+        maxLength={7}
+        disabled={busy}
+        autoFocus
+        placeholder="123456"
+        fieldClassName="au-inp-code"
+        onChange={(e) => {
+          setCode(e.target.value);
+          setError(null);
+        }}
+      />
+      {error && <AuthFormError data-testid="mfa-challenge-error">{error}</AuthFormError>}
+      <AuthSubmit
+        pending={busy}
+        pendingLabel="Verifying…"
         disabled={!canSubmit}
         data-testid="mfa-challenge-submit"
-        className="rounded bg-primary px-4 py-2 font-medium text-primary-foreground disabled:opacity-60"
       >
-        {busy ? "Verifying…" : "Verify"}
-      </button>
+        Verify
+      </AuthSubmit>
     </form>
   );
 }

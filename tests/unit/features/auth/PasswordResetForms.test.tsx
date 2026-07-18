@@ -30,11 +30,28 @@ describe("ForgotPasswordForm", () => {
     render(<ForgotPasswordForm />);
     await user.type(screen.getByRole("textbox"), "user@example.test");
     await user.click(screen.getByRole("button", { name: /send reset link/i }));
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      /if an account exists for that email/i,
-    );
+    const status = await screen.findByRole("status");
+    // Conditional phrasing only — the copy must never assert that the address
+    // does (or does not) have an account.
+    expect(status).toHaveTextContent(/if an account exists for/i);
+    expect(status.textContent).not.toMatch(/\b(no account|doesn't exist|not found|we sent you)\b/i);
     // The form (and email field) is replaced by the neutral message.
     expect(screen.queryByRole("button", { name: /send reset link/i })).toBeNull();
+  });
+
+  it("lets the user return to the form to try a different email", async () => {
+    mockRequestPasswordReset.mockResolvedValueOnce({ ok: true });
+    const user = userEvent.setup();
+    render(<ForgotPasswordForm />);
+    await user.type(screen.getByRole("textbox"), "typo@example.test");
+    await user.click(screen.getByRole("button", { name: /send reset link/i }));
+    await screen.findByRole("status");
+
+    await user.click(screen.getByRole("button", { name: /try a different email/i }));
+
+    // Back on the request form, ready for another address.
+    expect(screen.getByRole("button", { name: /send reset link/i })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("renders a validation error from the action", async () => {

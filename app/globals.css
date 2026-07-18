@@ -269,6 +269,48 @@
     }
   }
 
+  /* Auth surface (Slice AUTH-DESIGN-1). Palette from the `Auth.html`
+     Anthropic Design handoff (its `src/auth-app.jsx`). Scoped via
+     [data-auth-surface], mirroring the --mk- and --builder- scoping above;
+     never bleeds into in-app or marketing surfaces. The design ships
+     dark-only (`<html data-theme="dark">`), so there is no light variant
+     here — the auth routes opt in on their own root and nothing else is
+     re-themed. Kept distinct from --mk- because auth leads with the sky
+     brand accent (--au-accent) where marketing's accent is plain white. */
+  [data-auth-surface] {
+    --au-bg: #07080a;
+    --au-panel: #111114;
+    --au-panel-2: #16171b;
+    --au-border: #23252b;
+    --au-border-strong: #31333a;
+    --au-text: #f5f5f5;
+    --au-text-2: #d4d4d8;
+    --au-muted: #9696a0;
+    --au-muted-2: #5e5f68;
+    --au-accent: #38bdf8;
+    --au-accent-2: #7dd3fc;
+    --au-accent-soft: rgba(56, 189, 248, 0.12);
+    --au-accent-strong: #bae6fd;
+    /* Ink used ON the accent fill (primary submit button). */
+    --au-on-accent: #04202e;
+    --au-success: #34d399;
+    --au-danger: #f87171;
+    --au-danger-soft: rgba(248, 113, 113, 0.14);
+
+    background: var(--au-bg);
+    color: var(--au-text);
+    font-feature-settings: "ss01", "cv11";
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-auth-surface] *,
+    [data-auth-surface] *::before,
+    [data-auth-surface] *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
   /* Brand logo accent — the "Spark Link" mark. One confident sky-blue, no
      gradient: #0284c7 on light surfaces, #38bdf8 on dark (brighter so the
      mark stays legible). The wordmark ink inherits `currentColor` from its
@@ -278,7 +320,8 @@
   }
   .dark,
   [data-app-surface="dark"],
-  [data-marketing-surface] {
+  [data-marketing-surface],
+  [data-auth-surface] {
     --logo-brand: #38bdf8;
   }
   [data-marketing-surface][data-marketing-theme="light"] {

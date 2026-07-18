@@ -23,7 +23,7 @@ describe("GoogleSignInButton", () => {
     mockSignInWithOAuth.mockResolvedValueOnce({ error: null });
     const user = userEvent.setup();
     render(<GoogleSignInButton />);
-    await user.click(screen.getByRole("button", { name: /sign in with google/i }));
+    await user.click(screen.getByRole("button", { name: /continue with google/i }));
     await waitFor(() => {
       expect(mockSignInWithOAuth).toHaveBeenCalledWith({
         provider: "google",
@@ -39,7 +39,7 @@ describe("GoogleSignInButton", () => {
     );
     const user = userEvent.setup();
     render(<GoogleSignInButton />);
-    const btn = screen.getByRole("button", { name: /sign in with google/i });
+    const btn = screen.getByRole("button", { name: /continue with google/i });
     await user.click(btn);
     expect(btn).toBeDisabled();
     expect(btn.textContent).toMatch(/redirecting/i);
@@ -53,8 +53,8 @@ describe("GoogleSignInButton", () => {
     });
     const user = userEvent.setup();
     render(<GoogleSignInButton />);
-    await user.click(screen.getByRole("button", { name: /sign in with google/i }));
+    await user.click(screen.getByRole("button", { name: /continue with google/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/provider not enabled/i);
-    expect(screen.getByRole("button", { name: /sign in with google/i })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: /continue with google/i })).not.toBeDisabled();
   });
 });
