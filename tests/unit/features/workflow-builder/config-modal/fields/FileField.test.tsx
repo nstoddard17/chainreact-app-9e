@@ -40,14 +40,14 @@ const signedRef = {
 } as const;
 
 describe("FileField", () => {
-  it("renders 'No file.' when value is undefined", () => {
+  it("renders the actionable empty state when value is undefined", () => {
     render(<FileField field={field()} value={undefined} onChange={jest.fn()} />);
-    expect(screen.getByText("No file.")).toBeInTheDocument();
+    expect(screen.getByText(/No file yet/)).toBeInTheDocument();
   });
 
-  it("renders 'No file.' when value is an empty string", () => {
+  it("renders the actionable empty state when value is an empty string", () => {
     render(<FileField field={field()} value="" onChange={jest.fn()} />);
-    expect(screen.getByText("No file.")).toBeInTheDocument();
+    expect(screen.getByText(/No file yet/)).toBeInTheDocument();
   });
 
   it("renders a chip for an existing valid FileRef literal", () => {
@@ -75,7 +75,7 @@ describe("FileField", () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByText("No file.")).toBeInTheDocument();
+    expect(screen.getByText(/No file yet/)).toBeInTheDocument();
     // The renderer must NOT auto-clear a malformed parent value — that
     // would mask an upstream-producer bug.
     expect(onChange).not.toHaveBeenCalled();
@@ -89,7 +89,7 @@ describe("FileField", () => {
         onChange={jest.fn()}
       />,
     );
-    expect(screen.getByText("No file.")).toBeInTheDocument();
+    expect(screen.getByText(/No file yet/)).toBeInTheDocument();
   });
 
   it("does NOT fire onChange on initial mount with a valid value", () => {
@@ -164,7 +164,11 @@ describe("FileField", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("silently rejects a paste that is neither a token nor a FileRef JSON; clears the input", async () => {
+  // Batch R1 — a rejected paste must NEVER silently clear (a cleared
+  // input reads as success). The text stays put and an inline error
+  // says what went wrong. Catches a regression to the Slice 3.25
+  // "silent reject" behavior.
+  it("rejects a paste that is neither a token nor a FileRef JSON with a visible error; input text is PRESERVED", async () => {
     const user = userEvent.setup();
     const onChange = jest.fn();
     render(
@@ -175,7 +179,89 @@ describe("FileField", () => {
     await user.paste('{"not":"a fileref"}');
     await user.keyboard("{Enter}");
     expect(onChange).not.toHaveBeenCalled();
+    // The typed text survives the rejection…
+    expect(input.value).toBe('{"not":"a fileref"}');
+    // …and the rejection is unmistakable.
+    const issue = screen.getByTestId("field-file-input-error");
+    expect(issue).toHaveTextContent(/isn't a file reference/i);
+    expect(input).toHaveAttribute("aria-invalid", "true");
+  });
+
+  // Batch R1 — correcting the value clears the error (a stale error on
+  // now-valid input would be as misleading as the old silent clear).
+  it("editing the input after a rejection clears the inline error; a valid retry commits", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <FileField field={field()} value={undefined} onChange={onChange} />,
+    );
+    const input = screen.getByLabelText("File") as HTMLInputElement;
+    input.focus();
+    await user.paste("not a file");
+    await user.keyboard("{Enter}");
+    expect(screen.getByTestId("field-file-input-error")).toBeInTheDocument();
+    // First keystroke of the correction removes the stale message.
+    await user.clear(input);
+    expect(
+      screen.queryByTestId("field-file-input-error"),
+    ).not.toBeInTheDocument();
+    await user.paste("{{getAtt.file}}");
+    await user.keyboard("{Enter}");
+    expect(onChange).toHaveBeenCalledWith("{{getAtt.file}}");
     expect(input.value).toBe("");
+    expect(
+      screen.queryByTestId("field-file-input-error"),
+    ).not.toBeInTheDocument();
+  });
+
+  // Batch R1 — pending-input safety: typed-but-not-Set text used to
+  // live only in local state and vanish when the user clicked Save /
+  // Cancel / another tab. Every pointer/keyboard route there blurs the
+  // input first, so blur committing valid text closes the loss path.
+  it("blur auto-commits a valid pending token (typed text survives save/close flows)", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <FileField field={field()} value={undefined} onChange={onChange} />,
+    );
+    const input = screen.getByLabelText("File") as HTMLInputElement;
+    input.focus();
+    await user.paste("{{getAtt.file}}");
+    await user.tab(); // leave the field without pressing Set/Enter
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith("{{getAtt.file}}");
+    expect(input.value).toBe("");
+  });
+
+  it("blur with INVALID pending text preserves the text and shows the error (no silent discard, no bogus commit)", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <FileField field={field()} value={undefined} onChange={onChange} />,
+    );
+    const input = screen.getByLabelText("File") as HTMLInputElement;
+    input.focus();
+    await user.paste("report.pdf");
+    await user.tab();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe("report.pdf");
+    expect(screen.getByTestId("field-file-input-error")).toBeInTheDocument();
+  });
+
+  // Batch R1 — FieldShell stacks the error ABOVE the description
+  // instead of replacing it: the guidance a user needs to fix the
+  // error must not disappear exactly when they need it.
+  it("field-level error and description render together (FieldShell stacking)", () => {
+    render(
+      <FileField
+        field={field({ description: "The file to upload." })}
+        value={undefined}
+        onChange={jest.fn()}
+        error="File is required."
+      />,
+    );
+    expect(screen.getByText("File is required.")).toBeInTheDocument();
+    expect(screen.getByText("The file to upload.")).toBeInTheDocument();
   });
 
   it("paste of the SAME token already held in the field produces no onChange (dedup)", async () => {

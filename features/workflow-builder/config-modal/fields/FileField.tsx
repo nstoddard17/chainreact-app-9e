@@ -48,14 +48,24 @@ import type { FieldRendererProps } from "./types";
  *     would mask the upstream-producer bug.
  *
  * Add path (single auto-detecting input — mirrors FileRefArrayField):
- *   - Trim. Reject empty / whitespace-only silently.
+ *   - Trim. Reject empty / whitespace-only silently (nothing was lost).
  *   - If exactly one `{{nodeId.path}}` token → set value to the token
  *     (REPLACES any existing value — single-value semantics).
  *   - Else try `JSON.parse` + `FileRefSchema.safeParse` → set value to
  *     the FileRef (REPLACES).
- *   - Anything else → silent reject, clear input.
+ *   - Anything else → inline error, input text PRESERVED (Batch R1 —
+ *     silent clearing read as success to non-technical users; see
+ *     docs/slices/phase-5/plain-language-node-audit-tracker.md).
  *   - Setting the same token / FileRef when one already lives in the
- *     field is a no-op (`onChange` skipped to avoid spurious dirty).
+ *     field is a no-op (`onChange` skipped to avoid spurious dirty) and
+ *     clears the input — the value the user typed IS the saved value,
+ *     so clearing is truthful success feedback here.
+ *
+ * Pending-input safety (Batch R1):
+ *   - Blur commits a valid pending value automatically (or surfaces the
+ *     inline error for an invalid one). Every pointer/keyboard path to
+ *     Save / Cancel / tab-switch blurs this input first, so typed text
+ *     can no longer be silently discarded by closing or saving.
  *
  * Variable picker:
  *   - Embedded `VariablePickerButton` next to the input. Picker hides
@@ -99,6 +109,11 @@ export const FileField: React.FC<FieldRendererProps> = ({
   const controlId = `field-${field.name}`;
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = React.useState("");
+  // Batch R1 — inline message for a rejected paste. Set on an invalid
+  // Add/blur attempt, cleared on the next keystroke or a successful
+  // commit. The typed text is PRESERVED alongside it — a cleared input
+  // reads as success to a non-technical user.
+  const [inputIssue, setInputIssue] = React.useState<string | null>(null);
   const { sources, latestValuesBySource } = useActiveNodeUpstreamVariables();
 
   function commit(next: string | FileRef): void {
@@ -111,10 +126,15 @@ export const FileField: React.FC<FieldRendererProps> = ({
     onChange(next);
   }
 
-  function tryAdd(): void {
+  /**
+   * Shared Add path for the Set button, Enter, and blur auto-commit.
+   * `refocus` is false on blur — grabbing focus back during a blur
+   * would trap the user in the field.
+   */
+  function tryAdd(opts?: { refocus?: boolean }): void {
     if (disabled) return;
     const trimmed = pending.trim();
-    if (trimmed.length === 0) return; // silent reject
+    if (trimmed.length === 0) return; // nothing typed — nothing to lose
 
     let next: string | FileRef | null = null;
     if (isExactToken(trimmed)) {
@@ -124,15 +144,29 @@ export const FileField: React.FC<FieldRendererProps> = ({
       if (ref) next = ref;
     }
     if (next === null) {
-      // Paste was neither a token nor a parseable FileRef. Silent
-      // reject — clear the input so the user knows the attempt
-      // landed.
-      setPending("");
+      // Batch R1 — the paste is neither a token nor a parseable
+      // FileRef. Keep the text and say so; never silently clear.
+      setInputIssue(
+        "That text isn't a file reference. Choose a file from an earlier step instead.",
+      );
       return;
     }
     commit(next);
     setPending("");
-    inputRef.current?.focus();
+    setInputIssue(null);
+    if (opts?.refocus !== false) inputRef.current?.focus();
+  }
+
+  /**
+   * Batch R1 — pending-input safety. Any pointer/keyboard route to
+   * Save / Cancel / another tab blurs this input first, so committing
+   * valid pending text here means typed-but-not-Set values can no
+   * longer be silently discarded. Invalid text stays put with the
+   * inline error.
+   */
+  function handleBlur(): void {
+    if (pending.trim().length === 0) return;
+    tryAdd({ refocus: false });
   }
 
   function clearValue(): void {
@@ -145,6 +179,13 @@ export const FileField: React.FC<FieldRendererProps> = ({
     // Prevent Enter from submitting any enclosing form.
     e.preventDefault();
     tryAdd();
+  }
+
+  function handlePendingChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    setPending(e.target.value);
+    // Editing the text is the start of a correction — clear the stale
+    // rejection message so it can't outlive the input it described.
+    if (inputIssue) setInputIssue(null);
   }
 
   /**
@@ -183,24 +224,27 @@ export const FileField: React.FC<FieldRendererProps> = ({
             name={field.name}
             value={pending}
             placeholder={field.placeholder}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={error || inputIssue ? true : undefined}
             aria-describedby={
-              error
-                ? `${controlId}-err`
-                : field.description
-                  ? `${controlId}-help`
-                  : undefined
+              inputIssue
+                ? `${controlId}-input-err`
+                : error
+                  ? `${controlId}-err`
+                  : field.description
+                    ? `${controlId}-help`
+                    : undefined
             }
             disabled={disabled}
-            onChange={(e) => setPending(e.target.value)}
+            onChange={handlePendingChange}
             onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
             className="flex-1"
           />
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={tryAdd}
+            onClick={() => tryAdd()}
             disabled={disabled}
             aria-label={`Set ${field.label} value`}
           >
@@ -214,8 +258,20 @@ export const FileField: React.FC<FieldRendererProps> = ({
             latestValuesBySource={latestValuesBySource}
           />
         </div>
+        {inputIssue ? (
+          <p
+            id={`${controlId}-input-err`}
+            role="alert"
+            data-testid={`field-${field.name}-input-error`}
+            className="text-xs text-destructive"
+          >
+            {inputIssue}
+          </p>
+        ) : null}
         {current === undefined ? (
-          <p className="text-xs italic text-muted-foreground">No file.</p>
+          <p className="text-xs italic text-muted-foreground">
+            No file yet — add one from an earlier step above.
+          </p>
         ) : (
           <div
             className="flex flex-wrap gap-1.5"

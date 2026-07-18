@@ -28,6 +28,12 @@ import type { FieldRendererProps } from "./types";
  * value) so typing a column name doesn't reorder keys mid-keystroke;
  * every edit commits the serialized records upward. The modal remounts
  * the renderer per open, so external resets re-hydrate naturally.
+ *
+ * Batch R1 — per-pair hints (plain-language audit): a pair whose column
+ * name is empty was silently omitted from the committed value, and a
+ * duplicate column name within a row silently last-write-wins. Both now
+ * surface a visible per-pair message so nothing the user can see
+ * disappears unnoticed.
  */
 
 type Pair = { key: string; value: string };
@@ -54,6 +60,32 @@ function rowsFromValue(value: unknown): PairRow[] {
     }
   }
   return rows;
+}
+
+/**
+ * Batch R1 — per-pair messages for the two silent-loss paths (empty
+ * column name with a value typed; duplicate column name within the same
+ * row). Derived on render; `null` = pair is fine.
+ */
+function computePairIssues(pairs: PairRow): Array<string | null> {
+  const keyCounts = new Map<string, number>();
+  for (const p of pairs) {
+    const key = p.key.trim();
+    if (key.length === 0) continue;
+    keyCounts.set(key, (keyCounts.get(key) ?? 0) + 1);
+  }
+  return pairs.map((p) => {
+    const key = p.key.trim();
+    if (key.length === 0) {
+      return p.value.trim().length > 0
+        ? "Give this column a name, or it won't be saved."
+        : null;
+    }
+    if ((keyCounts.get(key) ?? 0) > 1) {
+      return `"${key}" is used more than once in this row — only the last value will be saved.`;
+    }
+    return null;
+  });
 }
 
 function serializeRows(rows: PairRow[]): Array<Record<string, string>> | undefined {
@@ -151,10 +183,12 @@ export const KeyValueListField: React.FC<FieldRendererProps> = ({
       >
         {rows.length === 0 ? (
           <p className="text-xs italic text-muted-foreground">
-            No rows added yet.
+            No rows yet. Add a row to get started.
           </p>
         ) : null}
-        {rows.map((pairs, rowIndex) => (
+        {rows.map((pairs, rowIndex) => {
+          const pairIssues = computePairIssues(pairs);
+          return (
           <div
             key={rowIndex}
             className="flex flex-col gap-2 rounded-md border p-3"
@@ -176,37 +210,49 @@ export const KeyValueListField: React.FC<FieldRendererProps> = ({
               </Button>
             </div>
             {pairs.map((pair, pairIndex) => (
-              <div key={pairIndex} className="flex items-center gap-2">
-                <Input
-                  aria-label={`Row ${rowIndex + 1} column ${pairIndex + 1} name`}
-                  placeholder="Column"
-                  value={pair.key}
-                  disabled={disabled}
-                  onChange={(e) =>
-                    updatePair(rowIndex, pairIndex, { key: e.target.value })
-                  }
-                  className="flex-1"
-                />
-                <Input
-                  aria-label={`Row ${rowIndex + 1} column ${pairIndex + 1} value`}
-                  placeholder="Value"
-                  value={pair.value}
-                  disabled={disabled}
-                  onChange={(e) =>
-                    updatePair(rowIndex, pairIndex, { value: e.target.value })
-                  }
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Remove row ${rowIndex + 1} column ${pairIndex + 1}`}
-                  onClick={() => removePair(rowIndex, pairIndex)}
-                  disabled={disabled}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+              <div key={pairIndex} className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <Input
+                    aria-label={`Row ${rowIndex + 1} column ${pairIndex + 1} name`}
+                    placeholder="Column"
+                    value={pair.key}
+                    disabled={disabled}
+                    aria-invalid={pairIssues[pairIndex] ? true : undefined}
+                    onChange={(e) =>
+                      updatePair(rowIndex, pairIndex, { key: e.target.value })
+                    }
+                    className="flex-1"
+                  />
+                  <Input
+                    aria-label={`Row ${rowIndex + 1} column ${pairIndex + 1} value`}
+                    placeholder="Value"
+                    value={pair.value}
+                    disabled={disabled}
+                    onChange={(e) =>
+                      updatePair(rowIndex, pairIndex, { value: e.target.value })
+                    }
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove row ${rowIndex + 1} column ${pairIndex + 1}`}
+                    onClick={() => removePair(rowIndex, pairIndex)}
+                    disabled={disabled}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                {pairIssues[pairIndex] ? (
+                  <p
+                    role="alert"
+                    data-testid={`keyvalue-list-${field.name}-row-${rowIndex}-pair-${pairIndex}-error`}
+                    className="text-xs text-destructive"
+                  >
+                    {pairIssues[pairIndex]}
+                  </p>
+                ) : null}
               </div>
             ))}
             <div>
@@ -223,7 +269,8 @@ export const KeyValueListField: React.FC<FieldRendererProps> = ({
               </Button>
             </div>
           </div>
-        ))}
+          );
+        })}
         <div>
           <Button
             type="button"

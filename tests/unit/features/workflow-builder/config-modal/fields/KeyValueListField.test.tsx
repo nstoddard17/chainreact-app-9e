@@ -118,4 +118,93 @@ describe("KeyValueListField", () => {
     );
     expect(document.body.textContent).not.toMatch(/json/i);
   });
+
+  // ── Batch R1 — silent-loss fixes ─────────────────────────────────────
+
+  // A value typed under a nameless column was silently omitted from the
+  // committed rows: visible on screen, absent from the save.
+  it("a pair with a value but no column name shows a visible 'give this column a name' error; naming it clears the error and commits", async () => {
+    const onChange = jest.fn();
+    const user = userEvent.setup();
+    render(
+      <KeyValueListField field={rowsField()} value={undefined} onChange={onChange} />,
+    );
+    await user.click(screen.getByTestId("keyvalue-list-rows-add-row"));
+    // Fresh empty pair — nothing to lose, no flag.
+    expect(
+      screen.queryByTestId("keyvalue-list-rows-row-0-pair-0-error"),
+    ).not.toBeInTheDocument();
+    await user.type(
+      screen.getByRole("textbox", { name: /row 1 column 1 value/i }),
+      "Ada",
+    );
+    expect(
+      screen.getByTestId("keyvalue-list-rows-row-0-pair-0-error"),
+    ).toHaveTextContent(/give this column a name/i);
+    // The committed value really does omit it (the warning is truthful).
+    expect(onChange).toHaveBeenLastCalledWith([{}]);
+    // Correcting the name clears the error and the value lands.
+    await user.type(
+      screen.getByRole("textbox", { name: /row 1 column 1 name/i }),
+      "Name",
+    );
+    expect(
+      screen.queryByTestId("keyvalue-list-rows-row-0-pair-0-error"),
+    ).not.toBeInTheDocument();
+    expect(onChange).toHaveBeenLastCalledWith([{ Name: "Ada" }]);
+  });
+
+  // Duplicate column names within one row silently last-write-win in the
+  // committed record. The overwrite must be visible.
+  it("duplicate column names in the same row flag every occurrence; renaming clears the flags", async () => {
+    const onChange = jest.fn();
+    const user = userEvent.setup();
+    render(
+      <KeyValueListField
+        field={rowsField()}
+        value={[{ Name: "Ada", Email: "ada@example.com" }]}
+        onChange={onChange}
+      />,
+    );
+    const secondName = screen.getByRole("textbox", {
+      name: /row 1 column 2 name/i,
+    }) as HTMLInputElement;
+    await user.clear(secondName);
+    await user.type(secondName, "Name");
+    expect(
+      screen.getByTestId("keyvalue-list-rows-row-0-pair-0-error"),
+    ).toHaveTextContent(/only the last value will be saved/i);
+    expect(
+      screen.getByTestId("keyvalue-list-rows-row-0-pair-1-error"),
+    ).toHaveTextContent(/only the last value will be saved/i);
+    // Truthful warning: the record really is last-write-wins.
+    expect(onChange).toHaveBeenLastCalledWith([{ Name: "ada@example.com" }]);
+    await user.clear(secondName);
+    await user.type(secondName, "Email");
+    expect(
+      screen.queryByTestId("keyvalue-list-rows-row-0-pair-0-error"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("keyvalue-list-rows-row-0-pair-1-error"),
+    ).not.toBeInTheDocument();
+  });
+
+  // Saved values reload with no spurious flags.
+  it("hydrating saved rows renders with no pair errors", () => {
+    render(
+      <KeyValueListField
+        field={rowsField()}
+        value={[{ Name: "Ada", Email: "ada@example.com" }]}
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByDisplayValue("Name")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("ada@example.com")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("keyvalue-list-rows-row-0-pair-0-error"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("keyvalue-list-rows-row-0-pair-1-error"),
+    ).not.toBeInTheDocument();
+  });
 });

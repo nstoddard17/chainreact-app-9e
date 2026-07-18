@@ -79,21 +79,46 @@ const FreeTextArrayBody: React.FC<FieldRendererProps> = ({
   const controlId = `field-${field.name}`;
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const [pending, setPending] = React.useState("");
+  // Batch R1 — inline message for a rejected Add (duplicates). Cleared
+  // on the next keystroke or a successful add; the typed text is
+  // preserved alongside it (a silently-cleared input reads as success).
+  const [inputIssue, setInputIssue] = React.useState<string | null>(null);
 
   const maxItems = field.stringArrayMaxItems;
   const atCap = maxItems !== undefined && items.length >= maxItems;
 
-  function tryAdd(): void {
+  /**
+   * Shared Add path for the Add button, Enter, and blur auto-commit.
+   * `refocus` is false on blur — grabbing focus back during a blur
+   * would trap the user in the field.
+   */
+  function tryAdd(opts?: { refocus?: boolean }): void {
     if (disabled || atCap) return;
     const trimmed = pending.trim();
     if (trimmed.length === 0) return;
     if (items.includes(trimmed)) {
-      setPending("");
+      // Batch R1 — duplicate used to silently clear the input,
+      // indistinguishable from a successful add. Keep the text, say so.
+      setInputIssue(`"${trimmed}" is already in the list.`);
       return;
     }
     onChange([...items, trimmed]);
     setPending("");
-    inputRef.current?.focus();
+    setInputIssue(null);
+    if (opts?.refocus !== false) inputRef.current?.focus();
+  }
+
+  /**
+   * Batch R1 — pending-input safety. Typed-but-not-Added text used to
+   * live only in local state and silently vanished on Save / Cancel /
+   * tab-switch. Every pointer/keyboard route there blurs this input
+   * first, so committing valid pending text on blur closes the loss
+   * path (free-text mode: any non-empty, non-duplicate string is
+   * valid by definition).
+   */
+  function handleBlur(): void {
+    if (pending.trim().length === 0) return;
+    tryAdd({ refocus: false });
   }
 
   function removeAt(index: number): void {
@@ -106,6 +131,11 @@ const FreeTextArrayBody: React.FC<FieldRendererProps> = ({
     if (e.key !== "Enter") return;
     e.preventDefault();
     tryAdd();
+  }
+
+  function handlePendingChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    setPending(e.target.value);
+    if (inputIssue) setInputIssue(null);
   }
 
   return (
@@ -124,20 +154,27 @@ const FreeTextArrayBody: React.FC<FieldRendererProps> = ({
             name={field.name}
             value={pending}
             placeholder={field.placeholder}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={error || inputIssue ? true : undefined}
             aria-describedby={
-              error ? `${controlId}-err` : field.description ? `${controlId}-help` : undefined
+              inputIssue
+                ? `${controlId}-input-err`
+                : error
+                  ? `${controlId}-err`
+                  : field.description
+                    ? `${controlId}-help`
+                    : undefined
             }
             disabled={disabled || atCap}
-            onChange={(e) => setPending(e.target.value)}
+            onChange={handlePendingChange}
             onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
             className="flex-1"
           />
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={tryAdd}
+            onClick={() => tryAdd()}
             disabled={disabled || atCap}
             aria-label={`Add ${field.label} item`}
           >
@@ -145,7 +182,23 @@ const FreeTextArrayBody: React.FC<FieldRendererProps> = ({
             Add{atCap ? ` (max ${maxItems})` : ""}
           </Button>
         </div>
-        <ChipList field={field} items={items} disabled={disabled} onRemove={removeAt} />
+        {inputIssue ? (
+          <p
+            id={`${controlId}-input-err`}
+            role="alert"
+            data-testid={`field-${field.name}-input-error`}
+            className="text-xs text-destructive"
+          >
+            {inputIssue}
+          </p>
+        ) : null}
+        <ChipList
+          field={field}
+          items={items}
+          disabled={disabled}
+          onRemove={removeAt}
+          emptyHint="Nothing added yet — type above, then press Add."
+        />
       </div>
     </FieldShell>
   );
@@ -321,7 +374,14 @@ export const OptionsArrayBody: React.FC<FieldRendererProps> = ({
                     </CommandGroup>
                   ) : null}
                   {state.status === "empty" && !showManualEntry ? (
-                    <CommandEmpty>No matches.</CommandEmpty>
+                    // Batch R1 — name the next action instead of dead-ending.
+                    // A typed search means "search found nothing"; an empty
+                    // search means the account genuinely has none of these.
+                    <CommandEmpty>
+                      {trimmed.length > 0
+                        ? `No matches for "${trimmed}". Try a different search.`
+                        : "No options found in your connected account. Create one in the app, then reopen this list."}
+                    </CommandEmpty>
                   ) : null}
                   {state.status === "error" ? (
                     <p role="alert" className="px-2 py-3 text-xs text-destructive">
@@ -348,6 +408,7 @@ export const OptionsArrayBody: React.FC<FieldRendererProps> = ({
           disabled={disabled}
           onRemove={removeAt}
           labelByValue={labelByValue}
+          emptyHint="Nothing picked yet — use the button above to add one."
         />
       </div>
     </FieldShell>
@@ -362,6 +423,7 @@ function ChipList({
   disabled,
   onRemove,
   labelByValue,
+  emptyHint,
 }: {
   field: FieldRendererProps["field"];
   items: readonly string[];
@@ -369,9 +431,19 @@ function ChipList({
   onRemove: (index: number) => void;
   /** Option-picker mode supplies value→label so chips show friendly names. */
   labelByValue?: Readonly<Record<string, string>>;
+  /**
+   * Batch R1 — mode-specific empty-state copy that names the next
+   * action ("type above…" vs "use the button above…") instead of the
+   * fact-stating "No items.".
+   */
+  emptyHint?: string;
 }): React.ReactElement {
   if (items.length === 0) {
-    return <p className="text-xs italic text-muted-foreground">No items.</p>;
+    return (
+      <p className="text-xs italic text-muted-foreground">
+        {emptyHint ?? "Nothing added yet."}
+      </p>
+    );
   }
   return (
     <div className="flex flex-wrap gap-1.5" data-testid={`field-${field.name}-chips`}>

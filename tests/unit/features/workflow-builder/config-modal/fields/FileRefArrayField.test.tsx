@@ -41,18 +41,18 @@ const signedRef = {
 } as const;
 
 describe("FileRefArrayField", () => {
-  it("renders 'No attachments.' when value is an empty array", () => {
+  it("renders the actionable empty state when value is an empty array", () => {
     render(
       <FileRefArrayField field={field()} value={[]} onChange={jest.fn()} />,
     );
-    expect(screen.getByText("No attachments.")).toBeInTheDocument();
+    expect(screen.getByText(/No attachments yet/)).toBeInTheDocument();
   });
 
-  it("renders 'No attachments.' when value is undefined (untouched optional field)", () => {
+  it("renders the actionable empty state when value is undefined (untouched optional field)", () => {
     render(
       <FileRefArrayField field={field()} value={undefined} onChange={jest.fn()} />,
     );
-    expect(screen.getByText("No attachments.")).toBeInTheDocument();
+    expect(screen.getByText(/No attachments yet/)).toBeInTheDocument();
   });
 
   it("renders a chip for an existing valid FileRef literal", () => {
@@ -98,7 +98,7 @@ describe("FileRefArrayField", () => {
         onChange={jest.fn()}
       />,
     );
-    expect(screen.getByText("No attachments.")).toBeInTheDocument();
+    expect(screen.getByText(/No attachments yet/)).toBeInTheDocument();
   });
 
   it("filters malformed entries out of an initial array (object that fails FileRefSchema; non-token string; nulls / numbers)", () => {
@@ -208,7 +208,10 @@ describe("FileRefArrayField", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("silently rejects a paste that is neither a valid token nor a valid FileRef JSON", async () => {
+  // Batch R1 — a rejected paste must NEVER silently clear (a cleared
+  // input read as success). Invalid input and duplicates get DISTINCT
+  // visible messages; the typed text is preserved in both cases.
+  it("rejects an invalid paste with a visible 'not a file reference' error; input text is PRESERVED", async () => {
     const user = userEvent.setup();
     const onChange = jest.fn();
     render(
@@ -219,11 +222,14 @@ describe("FileRefArrayField", () => {
     await user.paste('{"not":"a fileref"}');
     await user.keyboard("{Enter}");
     expect(onChange).not.toHaveBeenCalled();
-    // Input is cleared so the user sees the attempt landed.
-    expect(input.value).toBe("");
+    expect(input.value).toBe('{"not":"a fileref"}');
+    expect(
+      screen.getByTestId("field-attachments-input-error"),
+    ).toHaveTextContent(/isn't a file reference/i);
+    expect(input).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("silently rejects an exact-duplicate token entry", async () => {
+  it("rejects an exact-duplicate token with a visible 'already in the list' message — never looks successfully added", async () => {
     const user = userEvent.setup();
     const onChange = jest.fn();
     render(
@@ -238,10 +244,15 @@ describe("FileRefArrayField", () => {
     await user.paste("{{getAtt.file}}");
     await user.keyboard("{Enter}");
     expect(onChange).not.toHaveBeenCalled();
-    expect(input.value).toBe("");
+    // Preserved text + explicit duplicate copy (distinct from the
+    // invalid-paste message) — a rejected add is unmistakable.
+    expect(input.value).toBe("{{getAtt.file}}");
+    expect(
+      screen.getByTestId("field-attachments-input-error"),
+    ).toHaveTextContent(/already in the list/i);
   });
 
-  it("silently rejects an exact-duplicate FileRef literal (by canonical JSON)", async () => {
+  it("rejects an exact-duplicate FileRef literal (by canonical JSON) with the duplicate message; input preserved", async () => {
     const user = userEvent.setup();
     const onChange = jest.fn();
     render(
@@ -256,7 +267,78 @@ describe("FileRefArrayField", () => {
     await user.paste(JSON.stringify(v2Ref));
     await user.keyboard("{Enter}");
     expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe(JSON.stringify(v2Ref));
+    expect(
+      screen.getByTestId("field-attachments-input-error"),
+    ).toHaveTextContent(/already in the list/i);
+  });
+
+  // Batch R1 — the invalid and duplicate messages must be
+  // distinguishable in one flow (the audit requirement is that a user
+  // can tell WHICH thing went wrong).
+  it("shows the invalid message for garbage and the duplicate message for a repeat — distinct copy in the same session", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <FileRefArrayField
+        field={field()}
+        value={["{{getAtt.file}}"]}
+        onChange={onChange}
+      />,
+    );
+    const input = screen.getByLabelText("Attachments") as HTMLInputElement;
+    input.focus();
+    await user.paste("garbage");
+    await user.keyboard("{Enter}");
+    const issue = screen.getByTestId("field-attachments-input-error");
+    expect(issue).toHaveTextContent(/isn't a file reference/i);
+    expect(issue).not.toHaveTextContent(/already in the list/i);
+    await user.clear(input);
+    // Clearing (an edit) removes the stale message.
+    expect(
+      screen.queryByTestId("field-attachments-input-error"),
+    ).not.toBeInTheDocument();
+    await user.paste("{{getAtt.file}}");
+    await user.keyboard("{Enter}");
+    expect(
+      screen.getByTestId("field-attachments-input-error"),
+    ).toHaveTextContent(/already in the list/i);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // Batch R1 — pending-input safety: typed-but-not-Added text must
+  // survive the flows that blur the input (Save / Cancel / tab-switch
+  // all blur first).
+  it("blur auto-commits a valid pending token as a chip", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <FileRefArrayField field={field()} value={[]} onChange={onChange} />,
+    );
+    const input = screen.getByLabelText("Attachments") as HTMLInputElement;
+    input.focus();
+    await user.paste("{{getAtt.file}}");
+    await user.tab();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(["{{getAtt.file}}"]);
     expect(input.value).toBe("");
+  });
+
+  it("blur with invalid pending text preserves the text and shows the error — nothing silently discarded", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <FileRefArrayField field={field()} value={[]} onChange={onChange} />,
+    );
+    const input = screen.getByLabelText("Attachments") as HTMLInputElement;
+    input.focus();
+    await user.paste("report.pdf");
+    await user.tab();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe("report.pdf");
+    expect(
+      screen.getByTestId("field-attachments-input-error"),
+    ).toBeInTheDocument();
   });
 
   it("clicking a chip's remove button drops only that item", async () => {

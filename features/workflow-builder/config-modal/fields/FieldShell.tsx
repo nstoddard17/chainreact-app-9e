@@ -14,7 +14,10 @@ import { cn } from "@/lib/utils";
  *   - Required marker is a red asterisk after the label.
  *   - Helper / description text is 12px slate-500 (text-xs
  *     text-muted-foreground), one line per concept.
- *   - Error text is 12px destructive, replaces helper when both apply.
+ *   - Error text is 12px destructive, stacked ABOVE the helper (Batch
+ *     R1 — the error used to REPLACE the description, hiding the
+ *     guidance the user needs to fix the error exactly when they need
+ *     it most).
  */
 
 export interface FieldShellProps {
@@ -58,7 +61,8 @@ export function FieldShell({
         <p id={errorId} role="alert" className="text-xs text-destructive">
           {error}
         </p>
-      ) : description ? (
+      ) : null}
+      {description ? (
         <p id={helperId} className="text-xs text-muted-foreground">
           {description}
         </p>

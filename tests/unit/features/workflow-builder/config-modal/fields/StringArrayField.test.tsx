@@ -22,9 +22,9 @@ function field(overrides: Partial<FieldMeta> = {}): FieldMeta {
 }
 
 describe("StringArrayField", () => {
-  it("renders 'No items.' when value is an empty array", () => {
+  it("renders the actionable empty state when value is an empty array", () => {
     render(<StringArrayField field={field()} value={[]} onChange={jest.fn()} />);
-    expect(screen.getByText("No items.")).toBeInTheDocument();
+    expect(screen.getByText(/Nothing added yet/)).toBeInTheDocument();
   });
 
   it("renders one chip per string item", () => {
@@ -47,7 +47,7 @@ describe("StringArrayField", () => {
         onChange={jest.fn()}
       />,
     );
-    expect(screen.getByText("No items.")).toBeInTheDocument();
+    expect(screen.getByText(/Nothing added yet/)).toBeInTheDocument();
   });
 
   it("filters non-string entries out of an initial array", () => {
@@ -117,7 +117,10 @@ describe("StringArrayField", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("silently rejects exact-string duplicate of an existing item", async () => {
+  // Batch R1 — a duplicate used to silently clear the input, which is
+  // indistinguishable from a successful add. Now the text stays and a
+  // visible message says why nothing was added.
+  it("rejects an exact-string duplicate with a visible message; input text is PRESERVED", async () => {
     const user = userEvent.setup();
     const onChange = jest.fn();
     render(
@@ -131,8 +134,75 @@ describe("StringArrayField", () => {
     await user.type(input, "a@x.com");
     await user.keyboard("{Enter}");
     expect(onChange).not.toHaveBeenCalled();
-    // Input is cleared so the user sees the attempt landed.
+    expect(input.value).toBe("a@x.com");
+    expect(screen.getByTestId("field-from-input-error")).toHaveTextContent(
+      /already in the list/i,
+    );
+    expect(input).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("editing the input after a duplicate rejection clears the message", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <StringArrayField
+        field={field()}
+        value={["a@x.com"]}
+        onChange={onChange}
+      />,
+    );
+    const input = screen.getByLabelText("From") as HTMLInputElement;
+    await user.type(input, "a@x.com");
+    await user.keyboard("{Enter}");
+    expect(screen.getByTestId("field-from-input-error")).toBeInTheDocument();
+    await user.type(input, "x");
+    expect(
+      screen.queryByTestId("field-from-input-error"),
+    ).not.toBeInTheDocument();
+  });
+
+  // Batch R1 — THE silent-loss P0: typed-but-not-Added text lived only
+  // in local state, so clicking Save / Cancel / another tab (all of
+  // which blur the input first) silently discarded it. Blur now
+  // auto-commits valid pending text.
+  it("blur auto-commits valid pending text as a chip (typed text survives save/close flows)", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(<StringArrayField field={field()} value={[]} onChange={onChange} />);
+    const input = screen.getByLabelText("From") as HTMLInputElement;
+    await user.type(input, "alice@example.com");
+    await user.tab(); // leave the field without pressing Add/Enter
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(["alice@example.com"]);
     expect(input.value).toBe("");
+  });
+
+  it("blur with a duplicate keeps the text and shows the message (no silent discard, no double-add)", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(
+      <StringArrayField
+        field={field()}
+        value={["a@x.com"]}
+        onChange={onChange}
+      />,
+    );
+    const input = screen.getByLabelText("From") as HTMLInputElement;
+    await user.type(input, "a@x.com");
+    await user.tab();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe("a@x.com");
+    expect(screen.getByTestId("field-from-input-error")).toBeInTheDocument();
+  });
+
+  it("blur with only whitespace commits nothing (nothing to lose)", async () => {
+    const user = userEvent.setup();
+    const onChange = jest.fn();
+    render(<StringArrayField field={field()} value={[]} onChange={onChange} />);
+    const input = screen.getByLabelText("From") as HTMLInputElement;
+    await user.type(input, "   ");
+    await user.tab();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("clicking a chip's remove button drops only that item", async () => {

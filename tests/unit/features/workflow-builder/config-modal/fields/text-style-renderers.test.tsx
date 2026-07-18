@@ -64,7 +64,10 @@ describe("TextField", () => {
     expect(screen.getByText("Up to 256 characters.")).toBeInTheDocument();
   });
 
-  it("renders inline error text instead of helper when error is supplied", () => {
+  // Batch R1 — the error STACKS above the helper instead of replacing
+  // it: the guidance a user needs to fix the error must stay visible
+  // exactly when they need it.
+  it("renders inline error text ABOVE the helper when error is supplied (both visible)", () => {
     render(
       <TextField
         field={textField({ description: "Up to 256 characters." })}
@@ -74,7 +77,7 @@ describe("TextField", () => {
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent("Title is required.");
-    expect(screen.queryByText("Up to 256 characters.")).not.toBeInTheDocument();
+    expect(screen.getByText("Up to 256 characters.")).toBeInTheDocument();
   });
 
   it("marks input as aria-invalid when error is present", () => {

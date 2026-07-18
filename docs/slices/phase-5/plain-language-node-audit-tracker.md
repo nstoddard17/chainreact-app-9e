@@ -1,7 +1,7 @@
 # Plain-Language Node Audit — Tracker (Phase 5)
 
 **Date:** 2026-07-18
-**Status:** Audit COMPLETE · Fixes NOT started
+**Status:** Audit COMPLETE · **Batch R1 (renderer safety) SHIPPED 2026-07-18** · R2+ not started
 **Owner question audited:** *Could an older, non-technical person (persona: a 65-year-old
 office worker) understand and complete every node's configuration without provider
 documentation or help?*
@@ -164,7 +164,7 @@ product fails the persona in five repeating, fixable ways:
 
 | Batch | Scope | Clears |
 |---|---|---|
-| **R1 — renderer safety** | Silent-loss trio, KeyValue row hints, inline reject errors, empty-state copy pass, FieldShell error-stacking | 3 renderer P0s + a P1/P2 band across all nodes |
+| **R1 — renderer safety** ✅ SHIPPED | Silent-loss trio, KeyValue row hints, inline reject errors, empty-state copy pass, FieldShell error-stacking — see "Batch R1 outcomes" below | 3 renderer P0s + a P1/P2 band across all nodes |
 | **R2 — variable picker overhaul** | Labeled trigger, humanized names, search, type filtering, array drill-down, dynamic-id field affordance | Gmail P0; converts ~23 raw-id P0s (Slack/Teams/Stripe…) into guided flows; those nodes also get copy in C-batches |
 | **R3 — copy infrastructure** | Plain-text copy rule doc + lint (markdown ban, jargon list, paste⇒`allowManualEntry`), FieldShell decision, `requiredWhen`/mutex meta evaluation | Prevents regression; unblocks copy sweeps |
 | **P1 — google-sheets range redesign** | `range` → sheet picker (+ row number / optional range), Batch Update object-list editor | 5 P0s — single highest-value provider fix |
@@ -175,6 +175,71 @@ product fails the persona in five repeating, fixable ways:
 
 Each batch: implement → gates (`tsc`, lint, structure, migrations, tests) → local
 commit → owner review. No pushes without explicit approval (per CLAUDE.md).
+
+## Batch R1 outcomes (shipped 2026-07-18, local commit)
+
+Scope: shared field renderers only (`features/workflow-builder/config-modal/fields/`).
+No provider metadata, no variable-picker overhaul, no structured editors, no FileRef
+provider migrations — those remain R2/R3/P-batches.
+
+Fixed (root cause → new behavior):
+
+1. **FileField** — invalid paste silently cleared the input (read as success).
+   Now: inline error ("That text isn't a file reference…"), typed text preserved,
+   `aria-invalid`, error clears on the next keystroke. Pasting a value identical to
+   the already-set one still clears the input silently — that is truthful success
+   feedback (the value IS set), kept deliberately.
+2. **FileRefArrayField** — invalid paste AND duplicate add both silently cleared,
+   indistinguishable from success; picker re-pick of an existing token was a silent
+   no-op. Now: DISTINCT inline messages ("…isn't a file reference" vs "That file is
+   already in the list"), input preserved, picker duplicates surface the message too.
+3. **StringArrayField (free-text)** — typed-but-not-Added text lived only in local
+   state and vanished on Save/Cancel/tab-switch; duplicates silently cleared. Now:
+   blur auto-commits valid pending text (every pointer/keyboard route to
+   Save/Cancel/tab blurs the input first, and the zustand draft updates
+   synchronously, so the commit lands before the draft is saved); duplicates show a
+   message and keep the text. Same blur auto-commit added to FileField and
+   FileRefArrayField (valid → commit; invalid → error + text preserved).
+4. **KeyValueField (record mode)** — a row with a value but no name was silently
+   omitted from the committed record; duplicate names silently last-write-win. Now:
+   per-row inline messages on both paths (empty-name rows are flagged only once a
+   value exists to lose; every occurrence of a duplicated name is flagged). Pairs
+   mode deliberately unchanged — it commits rows as-is and duplicates are legal
+   there (HTTP headers).
+5. **KeyValueListField** — same two paths per pair within each row; same fix.
+6. **FieldShell** — the error message REPLACED the field description, hiding the
+   guidance needed to fix the error. Now error and description stack (error first).
+7. **Empty states** — "No file." / "No attachments." / "No items." / "No entries." /
+   "No rows added yet." → action-naming copy ("No file yet — add one from an earlier
+   step above.", "Nothing added yet — type above, then press Add.", "No rows yet.
+   Add a row to get started."). StringArrayField's options-mode "No matches." now
+   distinguishes "No matches for 'X'. Try a different search." from "No options
+   found in your connected account. Create one in the app, then reopen this list."
+
+Save-path ownership decision: the config shell's existing blocking mechanism
+(`collectJsonFieldBlockingError` + `hasBlockingValidationError`) operates on DRAFT
+values and cannot see renderer-local pending state; the correct owner for
+pending-text safety is blur auto-commit in the renderer (no new shell seam, no
+provider-specific save logic). Residual edge: a focus-loss-free programmatic close
+would still drop pending text — no such path exists in the current UI (all
+Save/Cancel/tab/close routes are pointer- or Tab-key-driven and blur first).
+
+Verification (all run 2026-07-18): focused fields suite 37 suites / 498 tests PASS ·
+`npx tsc --noEmit` PASS · `npm run lint` 0 errors (15 pre-existing warnings in
+untouched files) · `npm run lint:structure` PASS · `npm run lint:migrations` PASS ·
+full workflow-builder tree run with A/B attribution — the only deterministic
+failures (WorkflowCanvas "History" tab, notion-list-comments ×2,
+variable-picker-file-array ×2) reproduce at CLEAN HEAD in an isolated worktree and
+pre-date this batch; the builder e2e config suites sit at their 5s jest timeout
+cliff and flip stochastically on BOTH trees (measured: outlook e2e alone — base
+4987ms vs R1 3767ms), independent of R1. Follow-up candidate: raise those suites'
+per-test timeout.
+
+Remaining R1-adjacent findings deferred by design: variable-picker overhaul
+(labeled trigger, humanized names, search, type filtering, array drill-down) → R2;
+ComboboxField/MultiOptionsField "No matches." + manual-entry "Use this ID" +
+JsonField replace-without-warning + RouterRoutesField/CronField copy → R2/R3;
+FieldShell markdown rendering decision → R3.
 
 ## Cross-references
 - Setup/Advanced classification rationale: `docs/slices/phase-5/builder-config-setup-advanced-tracker.md`
