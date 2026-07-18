@@ -82,6 +82,10 @@ export function useOnboardingChecklist(initial: OnboardingChecklistDTO | null) {
       act({ action: "expand" }, (p) => patchPresentation(p, { minimized: false })),
     selectWorkflow: (workflowId: string) =>
       act({ action: "select_workflow", workflowId }, (p) => p, { refetch: true }),
+    videoWatched: () =>
+      act({ action: "video_watched" }, (p) =>
+        patchPresentation(p, { videoWatched: true }),
+      ),
     acknowledgeCelebration: () =>
       act({ action: "celebrated" }, (p) =>
         patchPresentation(p, { celebrationPending: false }),

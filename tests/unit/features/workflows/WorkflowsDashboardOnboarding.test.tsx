@@ -28,6 +28,7 @@ const mockGet = jest.fn();
 jest.mock("@/lib/api/onboarding", () => ({
   getOnboardingChecklist: (...a: unknown[]) => mockGet(...a),
   postOnboardingPresentation: (...a: unknown[]) => mockPost(...a),
+  postOnboardingEvent: jest.fn(),
 }));
 
 import { render, screen, waitFor } from "@testing-library/react";

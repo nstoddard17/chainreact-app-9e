@@ -83,3 +83,26 @@ export async function postOnboardingPresentation(
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as OnboardingPresentationResult;
 }
+
+export type OnboardingClientEvent =
+  | {
+      event: "cta_clicked";
+      stepKey: "create" | "connect" | "configure" | "test" | "activate";
+      creationPath?: "agent" | "template" | "manual";
+    }
+  | { event: "video_opened" };
+
+/**
+ * Fire-and-forget analytics ping (5.ONBOARD-1 Batch 4). NEVER throws and never
+ * blocks navigation — analytics failure is invisible to the user by contract.
+ */
+export function postOnboardingEvent(event: OnboardingClientEvent): void {
+  void fetch("/api/onboarding/events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(event),
+    keepalive: true,
+  }).catch(() => {
+    /* fail-open */
+  });
+}

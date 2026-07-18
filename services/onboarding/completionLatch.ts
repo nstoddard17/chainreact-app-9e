@@ -1,5 +1,6 @@
 import { latchCompletionServiceRole } from "@/repositories/onboarding/userOnboardingStates";
 import { isOnboardingChecklistEnabled } from "./onboardingFlags";
+import { recordOnboardingEvent } from "./onboardingEvents";
 
 /**
  * Activation-time onboarding completion latch (5.ONBOARD-1, locked decisions
@@ -27,11 +28,21 @@ export async function latchOnboardingCompletionOnActivation(input: {
 }): Promise<void> {
   if (!isOnboardingChecklistEnabled()) return;
   try {
-    await latchCompletionServiceRole({
+    const won = await latchCompletionServiceRole({
       userId: input.userId,
       accountId: input.accountId,
       workflowId: input.workflowId,
     });
+    if (won) {
+      // One-time funnel event (fail-open inside the recorder).
+      await recordOnboardingEvent({
+        userId: input.userId,
+        accountId: input.accountId,
+        eventType: "onboarding_completed",
+        workflowId: input.workflowId,
+        metadata: { silent: false },
+      });
+    }
   } catch (err) {
     console.error(
       "[onboarding] completion latch failed (activation unaffected):",

@@ -35,6 +35,11 @@ jest.mock("@/services/diagnostics/integrationConnection", () => ({
   diagnoseWorkflowConnections: (...a: unknown[]) => mockDiagnose(...a),
 }));
 
+const mockRecordEvent = jest.fn();
+jest.mock("@/services/onboarding/onboardingEvents", () => ({
+  recordOnboardingEvent: (...a: unknown[]) => mockRecordEvent(...a),
+}));
+
 const mockWritePath = jest.fn();
 jest.mock("@/services/workflows/executionReadiness", () => ({
   checkWritePathReadiness: (...a: unknown[]) => mockWritePath(...a),

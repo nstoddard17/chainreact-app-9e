@@ -177,13 +177,13 @@ export async function latchCompletionServiceRole(input: {
   accountId: string;
   workflowId: string;
   silent?: boolean;
-}): Promise<void> {
+}): Promise<boolean> {
   await ensureRow(input.userId, input.accountId);
   const supabase = getServiceRoleClient(
     `onboarding: latchCompletion ${input.userId}/${input.accountId}`,
   );
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("user_onboarding_states")
     .update({
       completed_at: now,
@@ -192,10 +192,15 @@ export async function latchCompletionServiceRole(input: {
     })
     .eq("user_id", input.userId)
     .eq("account_id", input.accountId)
-    .is("completed_at", null);
+    .is("completed_at", null)
+    .select("user_id");
   if (error) {
     throw new Error(
       `user_onboarding_states.latchCompletion failed: ${error.message}`,
     );
   }
+  // True only when THIS call won the conditional update (first latch) — lets
+  // callers emit the one-time onboarding_completed analytics event without
+  // double-counting later activations.
+  return (data ?? []).length > 0;
 }

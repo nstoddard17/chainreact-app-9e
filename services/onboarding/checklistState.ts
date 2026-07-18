@@ -18,6 +18,7 @@ import {
   type SelectedWorkflowFacts,
 } from "./checklistDerivation";
 import { isOnboardingChecklistEnabled } from "./onboardingFlags";
+import { recordOnboardingEvent } from "./onboardingEvents";
 
 /**
  * Onboarding checklist orchestration (5.ONBOARD-1 Batch 1).
@@ -133,12 +134,28 @@ export async function getOnboardingChecklist(input: {
     // seen it gets the normal celebration on their next load (e.g. the
     // activation-route latch failed fail-open, or a co-member activated).
     const silent = !row?.firstShownAt;
-    await onboardingRepo.latchCompletionServiceRole({
+    const won = await onboardingRepo.latchCompletionServiceRole({
       userId,
       accountId,
       workflowId: evidence.id,
       silent,
     });
+    if (won) {
+      const minutes =
+        row?.firstShownAt != null
+          ? Math.max(0, (Date.now() - Date.parse(row.firstShownAt)) / 60000)
+          : undefined;
+      void recordOnboardingEvent({
+        userId,
+        accountId,
+        eventType: "onboarding_completed",
+        workflowId: evidence.id,
+        metadata: {
+          silent,
+          ...(minutes !== undefined ? { minutes_from_first_shown: minutes } : {}),
+        },
+      });
+    }
     effectiveRow = await onboardingRepo.getServiceRole(userId, accountId);
   }
 
@@ -191,6 +208,11 @@ export async function getOnboardingChecklist(input: {
   if (!dismissed && !effectiveRow?.firstShownAt) {
     try {
       await onboardingRepo.latchFirstShownServiceRole(userId, accountId);
+      void recordOnboardingEvent({
+        userId,
+        accountId,
+        eventType: "onboarding_shown",
+      });
     } catch {
       /* fail-open */
     }

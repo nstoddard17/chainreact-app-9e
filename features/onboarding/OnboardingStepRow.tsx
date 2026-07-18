@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { OnboardingStepDTO } from "@/contracts/onboarding";
+import { postOnboardingEvent } from "@/lib/api/onboarding";
 import { ObIcons } from "./onboardingIcons";
 import { STEP_PRESENTATION, stepCta, stepDescription } from "./onboardingCopy";
 import { stepHref } from "./utils/stepDestinations";
@@ -149,6 +150,9 @@ export function OnboardingStepRow({
                     <Link
                       href={href}
                       data-testid={`onboarding-step-${step.key}-cta`}
+                      onClick={() =>
+                        postOnboardingEvent({ event: "cta_clicked", stepKey: step.key })
+                      }
                       className="inline-flex items-center gap-[7px] whitespace-nowrap rounded-[9px] bg-primary px-[13px] py-2 text-[13px] font-semibold text-primary-foreground transition hover:brightness-110 active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {cta}

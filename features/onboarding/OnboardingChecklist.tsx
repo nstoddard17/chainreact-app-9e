@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { OnboardingChecklistDTO } from "@/contracts/onboarding";
+import { postOnboardingEvent } from "@/lib/api/onboarding";
 import { OnboardingChecklistCard } from "./OnboardingChecklistCard";
 import { OnboardingMinimizedBar } from "./OnboardingMinimizedBar";
 import { OnboardingSuccessCard } from "./OnboardingSuccessCard";
+import { OnboardingVideoModal } from "./OnboardingVideoModal";
 import { useOnboardingChecklist } from "./hooks/useOnboardingChecklist";
+
+export interface OnboardingVideoProps {
+  readonly videoUrl: string;
+  readonly captionsUrl: string | null;
+}
 
 /**
  * Onboarding checklist orchestrator (5.ONBOARD-1 Batch 2) — decides which of
@@ -25,9 +32,12 @@ import { useOnboardingChecklist } from "./hooks/useOnboardingChecklist";
 export function OnboardingChecklist({
   initial,
   onVisibilityChange,
+  video = null,
 }: {
   initial: OnboardingChecklistDTO | null;
   onVisibilityChange?: (visible: boolean) => void;
+  /** Server-configured optional video (null = surface hidden entirely). */
+  video?: OnboardingVideoProps | null;
 }) {
   const {
     checklist,
@@ -38,7 +48,9 @@ export function OnboardingChecklist({
     expand,
     selectWorkflow,
     acknowledgeCelebration,
+    videoWatched,
   } = useOnboardingChecklist(initial);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   const presentation = checklist?.presentation;
   const completed = checklist?.completed === true;
@@ -75,6 +87,29 @@ export function OnboardingChecklist({
           onMinimize={() => void minimize()}
           onDismiss={() => void dismiss()}
           onSelectWorkflow={(id) => void selectWorkflow(id)}
+          footerExtras={
+            video ? (
+              <button
+                type="button"
+                data-testid="onboarding-video-open"
+                onClick={() => {
+                  postOnboardingEvent({ event: "video_opened" });
+                  setVideoOpen(true);
+                }}
+                className="rounded-[7px] px-2 py-[5px] text-xs text-muted-foreground/70 transition hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                See how it works — 1 min
+              </button>
+            ) : undefined
+          }
+        />
+      )}
+      {videoOpen && video && (
+        <OnboardingVideoModal
+          videoUrl={video.videoUrl}
+          captionsUrl={video.captionsUrl}
+          onWatched={() => void videoWatched()}
+          onClose={() => setVideoOpen(false)}
         />
       )}
       {actionError && (

@@ -19,7 +19,10 @@ import {
 } from "@/app/notifications/notificationPreview";
 import type { OnboardingChecklistDTO } from "@/contracts/onboarding";
 import { getOnboardingChecklist } from "@/services/onboarding/checklistState";
-import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
+import {
+  getOnboardingVideoConfig,
+  isOnboardingChecklistEnabled,
+} from "@/services/onboarding/onboardingFlags";
 
 /**
  * Workflows dashboard route (Slice 4.WORKFLOWS-PAGE-1).
@@ -125,6 +128,7 @@ export default async function WorkflowsPage() {
           initialFolders={folders}
           folderLimit={folderLimitForAccount(planResolution.plan, ownerAccount.type)}
           initialOnboarding={onboarding}
+          onboardingVideo={onboarding ? getOnboardingVideoConfig() : null}
         />
       </main>
     </AppShell>

@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { createWorkflow, WorkflowApiError } from "@/lib/api/workflows";
+import { postOnboardingEvent } from "@/lib/api/onboarding";
 import { ObIcons } from "./onboardingIcons";
 
 /**
@@ -24,7 +25,8 @@ export function OnboardingCreateChooser() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  async function createAndOpen() {
+  async function createAndOpen(creationPath: "agent" | "manual") {
+    postOnboardingEvent({ event: "cta_clicked", stepKey: "create", creationPath });
     setCreating(true);
     setError(null);
     try {
@@ -63,7 +65,7 @@ export function OnboardingCreateChooser() {
           type="button"
           data-testid="onboarding-create-react"
           disabled={creating}
-          onClick={() => void createAndOpen()}
+          onClick={() => void createAndOpen("agent")}
           className="block w-full rounded-md px-2.5 py-2 text-left hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="block text-sm font-medium text-foreground">
@@ -76,7 +78,14 @@ export function OnboardingCreateChooser() {
         <Link
           href="/templates"
           data-testid="onboarding-create-template"
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            postOnboardingEvent({
+              event: "cta_clicked",
+              stepKey: "create",
+              creationPath: "template",
+            });
+            setOpen(false);
+          }}
           className="block w-full rounded-md px-2.5 py-2 text-left hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="block text-sm font-medium text-foreground">
@@ -90,7 +99,7 @@ export function OnboardingCreateChooser() {
           type="button"
           data-testid="onboarding-create-scratch"
           disabled={creating}
-          onClick={() => void createAndOpen()}
+          onClick={() => void createAndOpen("manual")}
           className="block w-full rounded-md px-2.5 py-2 text-left hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="block text-sm font-medium text-foreground">

@@ -168,6 +168,10 @@ export default defineConfig({
       // Different port from the typical dev server (3000) so a developer
       // can keep a dev server running for manual testing without colliding.
       PORT: String(E2E_PORT),
+      // 5.ONBOARD-1 — the first-workflow onboarding checklist ships behind a
+      // default-OFF flag; the e2e journey (onboarding-checklist.spec.ts)
+      // exercises it end-to-end, so the dev server runs with it ON. e2e-only.
+      ENABLE_ONBOARDING_CHECKLIST: "true",
       // Route V2's Slack OAuth + chat.postMessage calls through the mock.
       // Production never sets these; the override is e2e-only.
       SLACK_API_BASE: MOCK_BASE,

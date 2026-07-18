@@ -15,3 +15,22 @@ export const ONBOARDING_CHECKLIST_FLAG = "ENABLE_ONBOARDING_CHECKLIST";
 export function isOnboardingChecklistEnabled(): boolean {
   return process.env[ONBOARDING_CHECKLIST_FLAG] === "true";
 }
+
+export interface OnboardingVideoConfig {
+  readonly videoUrl: string;
+  readonly captionsUrl: string | null;
+}
+
+/**
+ * Optional "See how it works" video (5.ONBOARD-1 Batch 4). Server-configured
+ * asset URLs — the content is replaceable by re-uploading at the same URL
+ * without a code deploy. `null` (unset/blank) hides the entire video surface
+ * (safe unavailable state — never a broken player). Captions are strongly
+ * recommended; the modal renders the <track> only when configured.
+ */
+export function getOnboardingVideoConfig(): OnboardingVideoConfig | null {
+  const videoUrl = process.env.ONBOARDING_VIDEO_URL?.trim();
+  if (!videoUrl) return null;
+  const captionsUrl = process.env.ONBOARDING_VIDEO_CAPTIONS_URL?.trim();
+  return { videoUrl, captionsUrl: captionsUrl || null };
+}

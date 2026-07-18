@@ -7,7 +7,10 @@ import { listWorkflows, WorkflowApiError } from "@/lib/api/workflows";
 import type { WorkflowListItem } from "@/contracts/workflow";
 import type { WorkflowFolder } from "@/contracts/folders";
 import type { OnboardingChecklistDTO } from "@/contracts/onboarding";
-import { OnboardingChecklist } from "@/features/onboarding/OnboardingChecklist";
+import {
+  OnboardingChecklist,
+  type OnboardingVideoProps,
+} from "@/features/onboarding/OnboardingChecklist";
 import { WorkflowCard } from "./WorkflowCard";
 import { WorkflowsTable } from "./WorkflowsTable";
 import { WorkflowsEmptyState } from "./WorkflowsEmptyState";
@@ -62,6 +65,8 @@ interface Props {
    * onboarding succeeding).
    */
   initialOnboarding?: OnboardingChecklistDTO | null;
+  /** 5.ONBOARD-1 Batch 4 — server-configured optional video (null = hidden). */
+  onboardingVideo?: OnboardingVideoProps | null;
 }
 
 const UNDO_TIMEOUT_MS = 8000;
@@ -81,6 +86,7 @@ export function WorkflowsDashboard({
   initialFolders = [],
   folderLimit = 10,
   initialOnboarding = null,
+  onboardingVideo = null,
 }: Props) {
   const [onboardingVisible, setOnboardingVisible] = useState(() =>
     initialOnboardingVisible(initialOnboarding),
@@ -320,6 +326,7 @@ export function WorkflowsDashboard({
         <OnboardingChecklist
           initial={initialOnboarding}
           onVisibilityChange={setOnboardingVisible}
+          video={onboardingVideo}
         />
       )}
 

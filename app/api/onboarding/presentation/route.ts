@@ -7,6 +7,19 @@ import { OnboardingPresentationActionSchema } from "@/contracts/onboarding";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as onboardingRepo from "@/repositories/onboarding/userOnboardingStates";
 import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
+import {
+  recordOnboardingEvent,
+  type OnboardingEventType,
+} from "@/services/onboarding/onboardingEvents";
+
+/** Presentation verbs that emit a funnel event (fail-open, content-free). */
+const EVENT_BY_ACTION: Partial<Record<string, OnboardingEventType>> = {
+  dismiss: "onboarding_dismissed",
+  reopen: "onboarding_reopened",
+  minimize: "onboarding_minimized",
+  select_workflow: "onboarding_workflow_switched",
+  video_watched: "onboarding_video_watched",
+};
 
 /**
  * POST /api/onboarding/presentation — the ONLY client-writable onboarding
@@ -82,6 +95,18 @@ export async function POST(request: Request): Promise<Response> {
       auth.accountId,
       patch,
     );
+    const eventType = EVENT_BY_ACTION[action.action];
+    if (eventType) {
+      // Fire-and-forget — the recorder is fail-open and never blocks the verb.
+      void recordOnboardingEvent({
+        userId: auth.userId,
+        accountId: auth.accountId,
+        eventType,
+        ...(action.action === "select_workflow"
+          ? { workflowId: action.workflowId }
+          : {}),
+      });
+    }
     return NextResponse.json({
       ok: true,
       presentation: {
