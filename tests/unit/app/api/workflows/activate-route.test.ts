@@ -52,6 +52,16 @@ jest.mock("@/services/notifications/notifyHighRiskWorkflowEvent", () => ({
   notifyHighRiskRun: jest.fn(),
 }));
 
+// 5.ONBOARD-1 — the activation-time onboarding completion latch is mocked so
+// route tests can assert WHEN it fires (success only) without a DB. The real
+// service is flag-gated + swallows its own errors (proven in
+// tests/unit/services/onboarding/completionLatch.test.ts).
+const mockOnboardingLatch = jest.fn();
+jest.mock("@/services/onboarding/completionLatch", () => ({
+  latchOnboardingCompletionOnActivation: (...args: unknown[]) =>
+    mockOnboardingLatch(...args),
+}));
+
 import { POST } from "@/app/api/workflows/[id]/activate/route";
 
 const baseWorkflowRecord = {
@@ -135,6 +145,74 @@ beforeEach(() => {
   // overrides to false).
   mockIsMember.mockReset();
   mockIsMember.mockResolvedValue(true);
+  mockOnboardingLatch.mockReset();
+  mockOnboardingLatch.mockResolvedValue(undefined);
+});
+
+// ── 5.ONBOARD-1 — onboarding completion latch fires ONLY on real success ────
+
+describe("POST /activate — onboarding completion latch (5.ONBOARD-1)", () => {
+  it("latches for the activating user's (user, account) pair after a successful activation", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(baseWorkflowRecord);
+    const res = await POST(buildRequest(""), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(200);
+    expect(mockOnboardingLatch).toHaveBeenCalledWith({
+      userId: "user-1",
+      accountId: baseWorkflowRecord.accountId,
+      workflowId: "wf-1",
+    });
+  });
+
+  it("does NOT latch when the orchestrator rejects the activation", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce(baseWorkflowRecord);
+    const { LifecycleError } = jest.requireActual("@/core/workflows/lifecycle");
+    mockActivate.mockRejectedValueOnce(
+      new LifecycleError("TRIGGER_REGISTRATION_FAILED", "boom"),
+    );
+    const res = await POST(buildRequest(""), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(mockOnboardingLatch).not.toHaveBeenCalled();
+  });
+
+  it("does NOT latch when the readiness gate blocks activation (422)", async () => {
+    signedInAs("user-1");
+    mockGetById.mockResolvedValueOnce({
+      ...baseWorkflowRecord,
+      draftDefinition: {
+        nodes: [
+          {
+            id: "trigger-node",
+            kind: "trigger" as const,
+            provider: "native",
+            type: "manual.run",
+            config: {},
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: "action-node",
+            kind: "action" as const,
+            provider: "gmail",
+            type: "send_email",
+            config: {}, // missing required `to`
+            position: { x: 0, y: 100 },
+          },
+        ],
+        edges: [{ id: "e1", from: "trigger-node", to: "action-node" }],
+      },
+    });
+    const res = await POST(buildRequest(""), {
+      params: Promise.resolve({ id: "wf-1" }),
+    });
+    expect(res.status).toBe(422);
+    expect(mockOnboardingLatch).not.toHaveBeenCalled();
+    expect(mockActivate).not.toHaveBeenCalled();
+  });
 });
 
 // ── auth gate ───────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ import {
   toWorkflowSummary,
 } from "../../_shared";
 import { checkWritePathReadiness } from "@/services/workflows/executionReadiness";
+import { latchOnboardingCompletionOnActivation } from "@/services/onboarding/completionLatch";
 
 /**
  * POST /api/workflows/[id]/activate
@@ -164,6 +165,16 @@ export async function POST(
           confirmationRequiredActions: risk.actions,
         });
       }
+      // 5.ONBOARD-1 — latch first-workflow onboarding completion for the
+      // activating user's (user, account) pair. Runs ONLY on orchestrator
+      // success (readiness + trigger registration already passed), is
+      // flag-gated + best-effort inside the service (it swallows its own
+      // errors), and never alters this successful activation response.
+      await latchOnboardingCompletionOnActivation({
+        userId: auth.userId,
+        accountId: record.accountId,
+        workflowId: record.id,
+      });
       return NextResponse.json(toWorkflowSummary(record));
     },
   );

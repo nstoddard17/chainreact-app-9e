@@ -327,6 +327,33 @@ export async function listByWorkflow(
 }
 
 /**
+ * 5.ONBOARD-1 — does this workflow have at least one SUCCEEDED run (test or
+ * live)? Narrow existence probe for the onboarding "confirm a successful run"
+ * step: `status = 'succeeded'` only — failed/running/queued rows never count.
+ * NON-AUTHORIZING (service-role): callers must have membership-gated the
+ * workflow's account upstream. Selects `id` only — no payload columns.
+ */
+export async function hasSucceededRunServiceRole(
+  workflowId: string,
+): Promise<boolean> {
+  const supabase = getServiceRoleClient(
+    `onboarding: hasSucceededRun ${workflowId}`,
+  );
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select("id")
+    .eq("workflow_id", workflowId)
+    .eq("status", "succeeded")
+    .limit(1);
+  if (error) {
+    throw new Error(
+      `workflow_runs.hasSucceededRunServiceRole failed: ${error.message}`,
+    );
+  }
+  return (data ?? []).length > 0;
+}
+
+/**
  * Display-safe per-account run-history projection (Slice 4.RUNS-PAGE-1;
  * account-scoped in 4.ACCOUNT-MODEL-8).
  *
