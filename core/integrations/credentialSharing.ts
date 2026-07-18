@@ -62,6 +62,11 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   // team jointly manages, not one person's private data. Same posture as
   // Stripe / Shopify / HubSpot / QuickBooks.
   motive: "account",
+  // ADP (client_credentials + mTLS machine credential): the credential represents
+  // the COMPANY's payroll/HR portal — a shared business resource the whole account
+  // operates, not one person's private data. Same posture as Stripe / QuickBooks /
+  // Motive. (Provider ships disabled; classification required for registry coverage.)
+  adp: "account",
 
   // ── Personal: acts AS the connecting human; must not auto-share in a Team. ──
   gmail: "personal",

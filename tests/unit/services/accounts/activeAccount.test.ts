@@ -280,6 +280,11 @@ describe("resolver wiring is gate-only; background paths never use it (11c)", ()
   // passes the resolved id in. This is a foreground gate, NOT a background path.
   const FOREGROUND_ROUTE_FILES = [
     resolve(ROOT, "app/api/integrations/oauth/[provider]/connect/route.ts"),
+    // Machine-credential (client_credentials + mTLS) connect/disconnect — the
+    // same foreground, user-initiated connect gate as the OAuth connect route
+    // (resolves the active account to target the credential, then owner/admin-gates).
+    resolve(ROOT, "app/api/integrations/machine-credentials/[provider]/connect/route.ts"),
+    resolve(ROOT, "app/api/integrations/machine-credentials/[provider]/disconnect/route.ts"),
   ];
   // resolveActiveAccount's production callers — the foreground gates + helpers only.
   const RESOLVER_ALLOWED = new Set([

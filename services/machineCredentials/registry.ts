@@ -1,4 +1,5 @@
 import type { ProviderMachineAuth } from "./types";
+import { adpMachineAuth } from "@/integrations/adp/auth";
 
 /**
  * Registry of providers that use the machine (client_credentials + mTLS) auth
@@ -12,7 +13,9 @@ import type { ProviderMachineAuth } from "./types";
  */
 const MACHINE_AUTH_BY_PROVIDER: Readonly<Record<string, ProviderMachineAuth>> =
   Object.freeze({
-    // adp: adpMachineAuth,  ← added when the ADP provider slice lands
+    // ADP config is present so connect is READY when Marcus enables the manifest;
+    // the manifest's `isEnabled: false` is what blocks connect until owner setup.
+    adp: adpMachineAuth,
   });
 
 export function getMachineAuth(provider: string): ProviderMachineAuth | undefined {

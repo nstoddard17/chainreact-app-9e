@@ -10,6 +10,7 @@ import { calendlyManifest } from "./calendly/manifest";
 import { typeformManifest } from "./typeform/manifest";
 import { quickbooksManifest } from "./quickbooks/manifest";
 import { motiveManifest } from "./motive/manifest";
+import { adpManifest } from "./adp/manifest";
 import { edenManifest } from "./eden/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
@@ -335,6 +336,16 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // blocked until an authorized eden_pat_ credential is supplied. isExperimental
   // true (hidden from the default Apps catalog) until Phase 13 live certification.
   edenManifest,
+  // ADP (adp.com) — payroll / HR / workforce platform. NEW `machine_credentials`
+  // auth (OAuth2 client_credentials + mandatory mutual-TLS client certificate),
+  // handled by services/machineCredentials/* (NOT the OAuth dispatcher). Shipped
+  // DISABLED (isEnabled:false) + all capabilities false: the auth/transport/
+  // webhook-verify FOUNDATION is code-complete + tested, but ADP API access is
+  // gated on ADP Marketplace partnership / API Central + an ADP-issued WS cert +
+  // sandbox + security certification, and the typed action/trigger catalog awaits
+  // sandbox verification of ADP's exact request/response shapes (no fabrication).
+  // See docs/providers/adp/owner-report.md.
+  adpManifest,
 ];
 
 // Validate every manifest against the schema at module load. parse() throws

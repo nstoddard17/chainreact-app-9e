@@ -33,6 +33,7 @@ export type AppsCategory =
   | "Analytics"
   | "Developer"
   | "Fleet & Telematics"
+  | "HR & Payroll"
   | "Other";
 
 /**
@@ -54,6 +55,7 @@ export const APPS_CATEGORY_ORDER: readonly AppsCategory[] = [
   "Analytics",
   "Developer",
   "Fleet & Telematics",
+  "HR & Payroll",
   "Other",
 ];
 
@@ -103,6 +105,8 @@ const PROVIDER_CATEGORIES: Readonly<Record<string, AppsCategory>> = {
   github: "Developer",
   // Fleet & Telematics
   motive: "Fleet & Telematics",
+  // HR & Payroll
+  adp: "HR & Payroll",
 };
 
 export function categoryFor(providerId: string): AppsCategory {
@@ -143,6 +147,7 @@ const PROVIDER_DESCRIPTIONS: Readonly<Record<string, string>> = {
     "Refresh semantic models, run DAX, export reports, and deploy pipelines.",
   github: "Watch issues, PRs, and commits.",
   motive: "Log fuel purchases and watch fleet safety events.",
+  adp: "Connect ADP payroll and HR (setup in progress).",
 };
 
 export function descriptionFor(providerId: string): string {
