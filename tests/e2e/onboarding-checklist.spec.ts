@@ -15,12 +15,22 @@ import { readMockState } from "./global-setup";
  * 5.ONBOARD-1 Batch 4 — first-workflow onboarding checklist e2e journey.
  *
  * Real surfaces exercised (shared-mock rule: ONLY the Slack network boundary
- * is mocked): auth sign-in UI, the flag-ON checklist on /workflows, the
- * create-chooser → real workflow creation, the /apps?highlight deep link +
- * REAL OAuth dispatcher against the mock Slack, connection-diagnosis-driven
- * step derivation, write-path readiness, a real test-mode run (workflow_runs
- * row), real activation (trigger registration + lifecycle), the completion
- * latch + success state, and persistence across sign-out/sign-in.
+ * is mocked): auth sign-in UI, the checklist on /workflows, the
+ * create-chooser → real workflow creation, the /apps destination +
+ * REAL OAuth dispatcher against the mock Slack, account-level integration
+ * health driving step derivation, write-path readiness, a real test-mode run
+ * (workflow_runs row), real activation (trigger registration + lifecycle), the
+ * completion latch + success state, and persistence across sign-out/sign-in.
+ *
+ * 5.ONBOARD-4 — no feature flag any more. Both checklists are on by default, so
+ * this journey exercises exactly what production serves. The second describe
+ * block below covers the ROLE-SPECIFIC collaboration checklists end to end,
+ * including real invitation acceptance through the /invitations/accept page.
+ *
+ * NOTE this first block deliberately keeps its user on their PERSONAL account.
+ * On an eligible shared account the collaboration checklist WINS the floating
+ * slot (OnboardingWidget mounts exactly one card), so the first-workflow
+ * checklist would legitimately be absent.
  *
  * Bad paths here: reconnect-required regression of the Connect step and the
  * automated-trigger "waiting for first run" honesty. The remaining bad paths
@@ -71,7 +81,7 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
     }
   });
 
-  test("signup-equivalent → checklist → create → connect (highlight) → configure (focus) → test → activate → latched completion survives re-login", async ({
+  test("signup-equivalent → checklist → create → connect → configure (focus) → test → activate → latched completion survives re-login", async ({
     page,
   }) => {
     if (!testUser) throw new Error("test user setup failed");
@@ -108,7 +118,10 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
     ]);
     const workflowId = page.url().match(/\/workflows\/([0-9a-f-]+)/)![1]!;
 
-    // ── 5. Step 1 complete; empty graph keeps Connect honest ──
+    // ── 5. Step 1 complete; Connect is actionable even on an empty graph ──
+    // 5.ONBOARD-3: the `blocked` status was removed and connect is no longer
+    // skipped for a workflow with no steps. Connecting an app is a standalone
+    // account-level action, so it is a legitimate next move immediately.
     await page.goto("/workflows");
     await expect(page.getByTestId("onboarding-step-create")).toHaveAttribute(
       "data-status",
@@ -116,7 +129,7 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
     );
     await expect(page.getByTestId("onboarding-step-connect")).toHaveAttribute(
       "data-status",
-      "blocked",
+      "current",
     );
 
     // Give the workflow real steps (manual trigger + Slack action, config
@@ -147,31 +160,26 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
     });
     expect(patch.status(), await patch.text()).toBe(200);
 
-    // ── 6–7. Connect step lists Slack; its CTA deep-links to the highlight ──
+    // ── 6–7. Connect teaches the GENERAL action and lands on /apps ──
+    // 5.ONBOARD-3: the step names no provider (no chips, no per-provider
+    // readiness) and its CTA is a plain /apps link. The Apps page keeps its own
+    // ?highlight= support for other callers; the CHECKLIST no longer uses it.
     await page.goto("/workflows");
     const connectStep = page.getByTestId("onboarding-step-connect");
     await expect(connectStep).toHaveAttribute("data-status", "current");
-    await expect(page.getByTestId("onboarding-provider-slack")).toBeVisible();
+    await expect(connectStep).toContainText("Connect an app");
+    // No provider identity is disclosed by the checklist.
+    await expect(page.getByTestId("onboarding-provider-slack")).toHaveCount(0);
     const connectCta = page.getByTestId("onboarding-step-connect-cta");
-    await expect(connectCta).toHaveAttribute("href", "/apps?highlight=slack");
+    await expect(connectCta).toHaveAttribute("href", "/apps");
+    await expect(connectCta).toHaveText(/Open Apps/);
     await connectCta.click();
+    await expect(page).toHaveURL(/\/apps$/);
 
-    // The Slack card is highlighted (attention only — OAuth NOT started).
     const slackCard = page.locator(
       '[data-testid="app-card"][data-provider-id="slack"]',
     );
     await expect(slackCard).toBeVisible();
-    await expect(slackCard).toHaveAttribute("data-highlighted", "true");
-    // The param was consumed.
-    await expect(page).toHaveURL(/\/apps$/);
-
-    // The highlight is a TRANSIENT attention ring that clears itself (~2.6s),
-    // re-rendering the card. Wait for it to settle before interacting so the
-    // click cannot race that re-render (a retried click starts OAuth twice).
-    // Waiting here also proves the highlight really is temporary.
-    await expect(slackCard).not.toHaveAttribute("data-highlighted", "true", {
-      timeout: 10_000,
-    });
 
     // REAL OAuth dispatcher against the mock Slack (explicit click).
     await Promise.all([
@@ -466,14 +474,336 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
       .eq("id", integrations[0]!.id);
     expect(error).toBeNull();
 
+    // 5.ONBOARD-3: the regression is now expressed purely as the step becoming
+    // incomplete again — `blocked`, the `-blocked` detail row, and the
+    // "Open Apps to reconnect" CTA variant were all removed with the
+    // provider-specific treatment. What still matters, and is asserted here, is
+    // that a dead credential UN-COMPLETES the step rather than leaving a stale
+    // green tick: isIntegrationHealthy() rejects a needs-reconnect row.
     await page.goto("/workflows");
     const connectStep = page.getByTestId("onboarding-step-connect");
-    await expect(connectStep).toHaveAttribute("data-status", "blocked");
-    await expect(page.getByTestId("onboarding-step-connect-blocked")).toContainText(
-      /reconnect/i,
+    await expect(connectStep).not.toHaveAttribute("data-status", "complete");
+    await expect(connectStep).toHaveAttribute("data-status", "current");
+    // Still the general action — no provider named, no reconnect-specific copy.
+    await expect(page.getByTestId("onboarding-step-connect-cta")).toHaveText(
+      /Open Apps/,
     );
-    await expect(
-      page.getByTestId("onboarding-step-connect-cta"),
-    ).toContainText("Open Apps to reconnect");
+    await expect(page.getByTestId("onboarding-step-connect-cta")).toHaveAttribute(
+      "href",
+      "/apps",
+    );
+  });
+});
+
+/**
+ * 5.ONBOARD-4 — role-specific collaboration onboarding, end to end.
+ *
+ * Exercises the parts that only a REAL multi-user, multi-account run can prove:
+ * that the track a user gets is decided by their actual membership row, that an
+ * invited user who accepts through the real /invitations/accept page lands on
+ * the MEMBER checklist, and that only one floating card is ever on screen.
+ *
+ * Everything here is real: real team creation (which seeds plan='team', the
+ * authoritative eligibility signal), real invitations with real single-use
+ * tokens, real acceptance through the page + route, real membership rows, and
+ * server-rendered checklists. Nothing is stubbed — there is no provider boundary
+ * in this flow to mock.
+ *
+ * Fixture discipline (mirrors the Jest integration suites): every user, the team
+ * account, and both invite tokens are built in `beforeAll` and fully awaited, so
+ * no fixture creation is ever in flight while a test body runs. Teardown deletes
+ * the INVITEES FIRST and the owner LAST — `deleteTestUser` cascades the owner's
+ * account, and removing it first would strip the team out from under the
+ * memberships still pointing at it.
+ */
+test.describe("5.ONBOARD-4 — role-specific collaboration onboarding", () => {
+  // Serial: the three roles share one team account and its seat count.
+  test.describe.configure({ mode: "serial", timeout: 180_000 });
+
+  let owner: TestUser | null = null;
+  let adminUser: TestUser | null = null;
+  let member: TestUser | null = null;
+  let teamId = "";
+  let adminToken = "";
+  let memberToken = "";
+
+  test.beforeAll(async ({ browser }) => {
+    owner = await createTestUser();
+    adminUser = await createTestUser();
+    member = await createTestUser();
+
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    try {
+      await signInViaEmailLink(page, owner);
+
+      // Real team creation. `createTeamAccount` inserts the account + the owner
+      // membership AND seeds account_billing with plan='team' — the authoritative
+      // signal the collaboration checklist gates on — then auto-activates it.
+      const created = await page.request.post("/api/accounts", {
+        data: { name: "E2E Collab Team", type: "team" },
+      });
+      expect(created.status(), await created.text()).toBe(201);
+      teamId = ((await created.json()) as { account: { id: string } }).account.id;
+
+      // Real invitations. The raw token is returned ONLY on create, never stored
+      // — exactly how a real invite link is produced.
+      for (const [user, role] of [
+        [adminUser, "admin"],
+        [member, "member"],
+      ] as const) {
+        const invited = await page.request.post(
+          `/api/accounts/${teamId}/invitations`,
+          { data: { email: user.email, role } },
+        );
+        expect(invited.status(), await invited.text()).toBe(201);
+        const body = (await invited.json()) as {
+          acceptToken: string;
+          acceptPath: string;
+        };
+        expect(body.acceptToken).toBeTruthy();
+        // The path the notification actually links to — the one that used to 404.
+        expect(body.acceptPath).toBe(
+          `/invitations/accept?token=${encodeURIComponent(body.acceptToken)}`,
+        );
+        if (role === "admin") adminToken = body.acceptToken;
+        else memberToken = body.acceptToken;
+      }
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test.afterAll(async () => {
+    // Invitees first, owner last (owner's account delete cascades memberships).
+    for (const u of [member, adminUser]) {
+      if (u) await deleteTestUser(u.id);
+    }
+    if (owner) await deleteTestUser(owner.id);
+    owner = adminUser = member = null;
+  });
+
+  test("owner sees the OWNER track with invite + teammate-join setup steps", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    try {
+      await signInViaEmailLink(page, owner!);
+      await page.goto("/workflows");
+
+      const card = page.getByTestId("collab-checklist-card");
+      await expect(card).toBeVisible();
+      await expect(card).toHaveAttribute("data-track", "team_owner");
+      await expect(card).toContainText("Set up your team account");
+
+      // The two owner setup steps exist.
+      await expect(page.getByTestId("collab-step-invite_teammate")).toBeVisible();
+      await expect(page.getByTestId("collab-step-teammate_joined")).toBeVisible();
+      await expect(
+        page.getByTestId("collab-step-connect_shared_app"),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("collab-step-create_shared_workflow"),
+      ).toBeVisible();
+
+      // Invite is already satisfied — two invitations are pending.
+      await expect(page.getByTestId("collab-step-invite_teammate")).toHaveAttribute(
+        "data-status",
+        "complete",
+      );
+      // ...but nobody has JOINED yet: a pending invite must not satisfy this.
+      await expect(
+        page.getByTestId("collab-step-teammate_joined"),
+      ).not.toHaveAttribute("data-status", "complete");
+
+      // ONLY ONE FLOATING CARD: the collaboration checklist owns the slot, so
+      // the first-workflow checklist is not mounted at all.
+      await expect(page.getByTestId("collab-checklist")).toHaveCount(1);
+      await expect(page.getByTestId("onboarding-checklist")).toHaveCount(0);
+      await expect(page.getByTestId("onboarding-checklist-card")).toHaveCount(0);
+
+      // Every CTA is navigation-only.
+      await expect(
+        page.getByTestId("collab-step-invite_teammate-cta"),
+      ).toHaveAttribute("href", "/team");
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("invited MEMBER accepts through the real page and lands on the member checklist", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    try {
+      await signInViaEmailLink(page, member!);
+
+      // The real invite link — the path the invitation service has always minted
+      // and that had no page until 5.ONBOARD-4.
+      await page.goto(
+        `/invitations/accept?token=${encodeURIComponent(memberToken)}`,
+      );
+      await expect(page.getByTestId("accept-invitation-identity")).toContainText(
+        member!.email,
+      );
+
+      // Acceptance is an explicit click, never a side effect of the GET.
+      await Promise.all([
+        page.waitForURL(/\/workflows/),
+        page.getByTestId("accept-invitation-submit").click(),
+      ]);
+
+      // Joined the RIGHT account, and it auto-activated.
+      const card = page.getByTestId("collab-checklist-card");
+      await expect(card).toBeVisible();
+      await expect(card).toHaveAttribute("data-track", "team_member");
+      await expect(card).toContainText("Get started with your team");
+
+      // MEMBERS NEVER GET OWNER SETUP STEPS.
+      await expect(page.getByTestId("collab-step-invite_teammate")).toHaveCount(0);
+      await expect(page.getByTestId("collab-step-teammate_joined")).toHaveCount(0);
+
+      // They get the participation steps instead.
+      await expect(page.getByTestId("collab-step-explore_workspace")).toBeVisible();
+      await expect(
+        page.getByTestId("collab-step-open_shared_workflow"),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("collab-step-use_shared_workflow"),
+      ).toBeVisible();
+      await expect(page.getByTestId("collab-step-explore_directory")).toBeVisible();
+
+      // Accepting activated the shared account, which is a REAL server-recorded
+      // workspace exploration — so that learning step is genuinely complete.
+      await expect(
+        page.getByTestId("collab-step-explore_workspace"),
+      ).toHaveAttribute("data-status", "complete");
+      // ...while the steps needing evidence they have not produced are not.
+      await expect(
+        page.getByTestId("collab-step-use_shared_workflow"),
+      ).not.toHaveAttribute("data-status", "complete");
+
+      // Still exactly one floating card.
+      await expect(page.getByTestId("collab-checklist")).toHaveCount(1);
+      await expect(page.getByTestId("onboarding-checklist")).toHaveCount(0);
+
+      // A member LEARNING step completes only from a real authorized visit.
+      await expect(
+        page.getByTestId("collab-step-explore_directory"),
+      ).not.toHaveAttribute("data-status", "complete");
+      await page.goto("/apps");
+      await page.goto("/workflows");
+      await expect(page.getByTestId("collab-step-explore_directory")).toHaveAttribute(
+        "data-status",
+        "complete",
+      );
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("invited ADMIN gets the admin track — invite yes, owner-only join step no", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    try {
+      await signInViaEmailLink(page, adminUser!);
+      await page.goto(
+        `/invitations/accept?token=${encodeURIComponent(adminToken)}`,
+      );
+      await Promise.all([
+        page.waitForURL(/\/workflows/),
+        page.getByTestId("accept-invitation-submit").click(),
+      ]);
+
+      const card = page.getByTestId("collab-checklist-card");
+      await expect(card).toBeVisible();
+      await expect(card).toHaveAttribute("data-track", "team_admin");
+
+      // Admins CAN invite (the invitations route allows owner+admin).
+      await expect(page.getByTestId("collab-step-invite_teammate")).toBeVisible();
+      // But the owner-only waiting step is ABSENT — not blocked, not disabled.
+      await expect(page.getByTestId("collab-step-teammate_joined")).toHaveCount(0);
+      // ...replaced by a real admin action.
+      await expect(page.getByTestId("collab-step-review_team")).toBeVisible();
+
+      await expect(page.getByTestId("collab-checklist")).toHaveCount(1);
+      await expect(page.getByTestId("onboarding-checklist")).toHaveCount(0);
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("the invite token is single-use and the page never leaks on failure", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    try {
+      // A THIRD party replaying the member's already-used token.
+      const stranger = await createTestUser();
+      try {
+        await signInViaEmailLink(page, stranger);
+        await page.goto(
+          `/invitations/accept?token=${encodeURIComponent(memberToken)}`,
+        );
+        await page.getByTestId("accept-invitation-submit").click();
+
+        const error = page.getByTestId("accept-invitation-error");
+        await expect(error).toBeVisible();
+        // Refused, and the message discloses nothing about the account or the
+        // address the invite was actually sent to.
+        const text = (await error.textContent()) ?? "";
+        expect(text).not.toContain(member!.email);
+        expect(text).not.toContain("E2E Collab Team");
+        expect(text).not.toContain(teamId);
+
+        // The stranger did NOT join: still on their own personal account, which
+        // is not collaboration-eligible, so there is no collaboration card.
+        await page.goto("/workflows");
+        await expect(page.getByTestId("collab-checklist")).toHaveCount(0);
+      } finally {
+        await deleteTestUser(stranger.id);
+      }
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("the owner teammate-join step completes once members have actually joined", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    try {
+      await signInViaEmailLink(page, owner!);
+      await page.goto("/workflows");
+      // The two preceding tests joined real members, so this is now real.
+      await expect(page.getByTestId("collab-step-teammate_joined")).toHaveAttribute(
+        "data-status",
+        "complete",
+      );
+    } finally {
+      await ctx.close();
+    }
+  });
+
+  test("a PERSONAL account gets no collaboration checklist", async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    const solo = await createTestUser();
+    try {
+      await signInViaEmailLink(page, solo);
+      await page.goto("/workflows");
+      // Personal accounts keep ONLY the first-workflow checklist.
+      await expect(page.getByTestId("collab-checklist")).toHaveCount(0);
+      await expect(page.getByTestId("onboarding-checklist")).toHaveCount(1);
+    } finally {
+      await deleteTestUser(solo.id);
+      await ctx.close();
+    }
   });
 });

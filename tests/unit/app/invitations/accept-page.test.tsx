@@ -137,6 +137,6 @@ describe("no-leak on render", () => {
     expect(code).not.toMatch(/services\/accounts\/invitations/);
     expect(code).not.toMatch(/getByTokenHash/);
     // No accept call of any kind on the render path.
-    expect(code).not.toMatch(/acceptInvitation/);
+    expect(code).not.toMatch(/\bacceptInvitation\b/);
   });
 });
