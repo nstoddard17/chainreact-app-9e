@@ -136,6 +136,15 @@ function extractPlanCandidate(raw: unknown): WorkflowPlan | null {
       provider: s.provider as string,
       type: s.type as string,
       purpose: typeof s.purpose === "string" ? s.purpose : "",
+      // REACT-CONFIG-COVERAGE-1 — carry the model's field-key hints + user-supplied config values
+      // through the sibling-object path too (previously dropped, losing user constraints). Both are
+      // untrusted here; the route sanitizes config against registry FieldMeta before surfacing.
+      ...(Array.isArray(s.requiredInputs) && s.requiredInputs.every((k) => typeof k === "string")
+        ? { requiredInputs: s.requiredInputs as string[] }
+        : {}),
+      ...(s.config && typeof s.config === "object" && !Array.isArray(s.config) && Object.keys(s.config).length > 0
+        ? { config: s.config as Record<string, unknown> }
+        : {}),
     }));
   if (planSteps.length === 0) return null;
   const p = planObj as { title?: unknown; summary?: unknown };

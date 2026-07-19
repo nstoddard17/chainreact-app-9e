@@ -30,6 +30,27 @@ import {
   sanitizeSeedConfig,
   type PreviewSetupFieldsByType,
 } from "@/core/workflows/previewSetupFields";
+import { isSecretLikeKey } from "@/core/security/secretKeys";
+
+/**
+ * REACT-CONFIG-COVERAGE-1 — defense-in-depth filter for SERVER-SANITIZED plan-step config before it
+ * seeds the local draft. The route already filtered values against registry FieldMeta (declared,
+ * non-secret/connection fields only; typed; resolver-verified); this client-side pass only re-drops
+ * empties and secret-shaped keys so a compromised/older server response still can't seed a secret.
+ * Explicit `false` / `0` are preserved.
+ */
+function sanitizePlanSeedConfig(
+  raw: Readonly<Record<string, unknown>> | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!raw) return out;
+  for (const [key, value] of Object.entries(raw)) {
+    if (isSecretLikeKey(key)) continue;
+    if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) continue;
+    out[key] = value;
+  }
+  return out;
+}
 
 /**
  * HERMES-AGENT-GUIDED-PREVIEW-SETUP-1 — optional guided-setup seeding. `previewConfig` is keyed by the
@@ -64,7 +85,12 @@ export function planToBuilderPatch(
   const nodes: BuilderPatchNode[] = kept.map(({ step, originalIndex }, i) => {
     const fields = options.setupFieldsByType?.[`${step.provider}:${step.type}`];
     const raw = options.previewConfig?.[previewStepId(originalIndex)];
-    const config = sanitizeSeedConfig(raw, fields);
+    // REACT-CONFIG-COVERAGE-1 — seed BOTH sources: the server-sanitized values the user supplied in
+    // their request (step.config), overridden by anything the user typed/picked on the guided setup
+    // card (previewConfig wins — it is the later, explicit edit).
+    const planSeed = sanitizePlanSeedConfig(step.config);
+    const cardSeed = sanitizeSeedConfig(raw, fields);
+    const config = { ...planSeed, ...cardSeed };
     return {
       ref: `p${i}`,
       kind: step.role as "trigger" | "action",

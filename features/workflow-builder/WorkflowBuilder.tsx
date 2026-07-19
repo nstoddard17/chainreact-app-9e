@@ -449,6 +449,7 @@ export function WorkflowBuilder({
     applyNotice,
     agentSetupIssues,
     previewConfig,
+    previewPrefilledConfig,
     previewDiffGraph,
     configDiff,
     previewRationale,
@@ -692,6 +693,7 @@ export function WorkflowBuilder({
             previewForSetup={previewOverlay?.preview ?? null}
             {...(setupFieldsByType ? { setupFieldsByType } : {})}
             previewConfig={previewConfig}
+            previewPrefilledConfig={previewPrefilledConfig}
             onPreviewConfigChange={handlePreviewConfigChange}
             onApplyPreview={handleApplyPreview}
             getCheckReviewContext={getCheckReviewContext}

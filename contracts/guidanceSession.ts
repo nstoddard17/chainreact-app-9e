@@ -9,11 +9,14 @@
  *   - `GuidanceSession` / `GuidanceTurn` / `WorkflowGuidanceIntent` are PRIVATE + account-scoped.
  *     They may carry the user's own words. They are NEVER promoted raw into global learning —
  *     only a sanitized, generalized `SanitizedSkillEvent` derived from them may go global.
- *   - `WorkflowPlan` is advisory output: `notApplied: true` always. It NEVER carries config
- *     values, secrets, resolved `{{...}}` variables, or provider credentials, and every
- *     trigger/action step's `provider`/`type` is validated against the ChainReact capability
- *     registry before the plan is trusted (Hermes may hallucinate capabilities; ChainReact is
- *     the source of truth). NOTHING here mutates a workflow.
+ *   - `WorkflowPlan` is advisory output: `notApplied: true` always. It NEVER carries secrets,
+ *     credentials, or connection identity. A step MAY carry `config` values, but ONLY ones the
+ *     user explicitly supplied (REACT-CONFIG-COVERAGE-1) — sanitized against registry FieldMeta
+ *     (secret/connection fields stripped) before the plan is trusted. Every trigger/action step's
+ *     `provider`/`type` is validated against the ChainReact capability registry (Hermes may
+ *     hallucinate capabilities; ChainReact is the source of truth). NOTHING here mutates a
+ *     workflow. The skill-event boundary still promotes ONLY role/provider/type — step config
+ *     never reaches global learning.
  */
 
 export const WORKFLOW_PLAN_SCHEMA_VERSION = 1 as const;
@@ -65,7 +68,14 @@ export type WorkflowPlanStepRole = "trigger" | "action" | "logic";
 /**
  * One step of an advisory plan. `provider`/`type` are CLAIMS that must be validated against the
  * ChainReact capability registry. `requiredInputs` are field KEY names/labels only — never
- * values. No config, no secrets, no resolved variables.
+ * values. No secrets, no resolved variables.
+ *
+ * `config` (REACT-CONFIG-COVERAGE-1) carries ONLY values the USER explicitly supplied in their own
+ * request (or `{{...}}` upstream references / `[[EMAIL_n]]`-style placeholder tokens ChainReact
+ * rebinds server-side). It is UNTRUSTED until `sanitizePlanStepConfigs` filters it against the
+ * node's real registry `FieldMeta` (declared, non-secret, non-connection fields; type-checked) —
+ * only the sanitized plan is surfaced or seeded. Credentials/tokens are unrepresentable: a
+ * secret/connection-sensitivity key is stripped before the plan is trusted.
  */
 export interface WorkflowPlanStep {
   /** In-plan handle, e.g. "s0". */
@@ -79,6 +89,12 @@ export interface WorkflowPlanStep {
   readonly purpose: string;
   /** Field KEY names/labels the user would still need to provide — never values. */
   readonly requiredInputs?: readonly string[];
+  /**
+   * USER-SUPPLIED config values for this step's declared fields (required OR optional). Sanitized
+   * against registry metadata before the plan is trusted; seeded into the draft node only on the
+   * user's explicit Apply. Absent when the user supplied no field values.
+   */
+  readonly config?: Readonly<Record<string, unknown>>;
 }
 
 /**

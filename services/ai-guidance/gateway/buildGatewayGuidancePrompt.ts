@@ -33,6 +33,13 @@ export interface BuildGatewayPromptInput {
   /** Public capability catalog the brain may propose from (provider:type keys). Safe — not user data. */
   readonly capabilityCatalog?: readonly string[];
   /**
+   * REACT-CONFIG-COVERAGE-1 — pre-rendered field-schema lines for a NARROWED, relevant provider
+   * subset (see `promptFieldSchemas`). PUBLIC registry metadata only (field keys/types/flags/static
+   * option values) — never user data or config values. Lets the model see every declared field
+   * (required AND optional) so a user-supplied constraint lands in its canonical field.
+   */
+  readonly fieldSchemaLines?: readonly string[];
+  /**
    * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the SAFE, model-facing editable view of the user's CURRENT local
    * draft (opaque node refs + safe editable config + edges + a version token). Present ONLY for an EDIT
    * request. Built by `buildEditableWorkflowGraph` (the editor privacy boundary) — it carries NO real
@@ -119,6 +126,14 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
       input.capabilityCatalog.map((c) => `  - ${c}`).join("\n")
     : "";
 
+  // REACT-CONFIG-COVERAGE-1 — declared config fields for the relevant capabilities (public registry
+  // metadata). "required" fields gate validity; "optional" fields must STILL be filled whenever the
+  // user supplied the information (see FIELD_VALUE_INSTRUCTIONS).
+  const fieldSchemaBlock = input.fieldSchemaLines?.length
+    ? "Config fields for the most relevant capabilities (field name, type, required/optional):\n" +
+      input.fieldSchemaLines.join("\n")
+    : "";
+
   const findingsLine = input.request.findingCodes?.length
     ? `Known issues (codes): ${input.request.findingCodes.join(", ")}`
     : "";
@@ -144,11 +159,13 @@ export function buildGatewayGuidancePrompt(input: BuildGatewayPromptInput): stri
     editableGraphBlock,
     findingsLine,
     catalogLine,
+    fieldSchemaBlock,
     accountLine,
     sharedConnLine,
     ownConnLine,
     privateConnLine,
     RESPONSE_FORMAT_INSTRUCTIONS,
+    FIELD_VALUE_INSTRUCTIONS,
     editInstructions,
     CONTEXT_SCOPE_INSTRUCTION,
     CREDENTIAL_AVAILABILITY_INSTRUCTION,
@@ -195,6 +212,26 @@ function buildEditableGraphBlock(graph: EditableWorkflowGraph): string {
 }
 
 /**
+ * REACT-CONFIG-COVERAGE-1 — the canonical field-value rule, sent on EVERY request (create + edit).
+ * Required fields are only the validity gate; the model must consider EVERY declared field and
+ * carry the user's explicit constraints — optional or not — into config. It must never guess a
+ * value the user didn't supply, and must copy `[[EMAIL_n]]` / `[[PHONE_n]]` placeholder tokens
+ * VERBATIM (ChainReact substitutes the user's real value locally; the raw literal never crosses
+ * this boundary).
+ */
+const FIELD_VALUE_INSTRUCTIONS = [
+  "Filling config fields (applies to plans AND edits):",
+  "- Required fields are only the minimum needed for the step to be valid. Consider EVERY declared field of the chosen capability — required and optional, including ones marked 'advanced'.",
+  '- If the user supplies information that matches ANY field (an address to filter on, a subject phrase, a folder, a flag like "reply to all"), include that field with the user\'s value in the step\'s "config". NEVER omit a constraint the user stated just because its field is optional.',
+  "- If the user did NOT mention a field and nothing determines its value, leave it out entirely. Do not guess, pad, or fill defaults.",
+  "- Preserve explicit false and 0 values exactly — they are real values, not omissions.",
+  "- For a field marked 'dynamic options', put the user's own words as the value (e.g. the channel or board NAME); ChainReact resolves it to the stored id through its own picker, or asks the user. Never invent an id.",
+  "- When the user wants a value taken from an earlier step's output, use the {{...}} variable reference to a declared output name.",
+  "- Placeholders like [[EMAIL_1]] or [[PHONE_1]] stand for a literal value the user provided (hidden for privacy). Copy the placeholder EXACTLY, unchanged, into the config field where that value belongs (e.g. a sender filter or recipient field). Never expand, alter, or guess the hidden value.",
+  "- Never fabricate ids, recipients, enum values, account resources, or credentials. Never fill secret/credential/connection fields at all.",
+].join("\n");
+
+/**
  * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — how to propose an EDIT against the editable graph above. The model
  * MUST reference existing steps ONLY by the opaque refs shown (never by position, provider, or a guessed
  * id), declare NEW nodes with `new_`-prefixed refs, and echo the graph `version` so a stale proposal is
@@ -208,7 +245,7 @@ const EDIT_RESPONSE_INSTRUCTIONS = [
   `- Target an EXISTING connection for removeEdge / replaceEdge ONLY by its "${EXISTING_EDGE_REF_PREFIX}" reference shown under Connections. For a NEW connection, addEdge with from/to node references (give the edge any id).`,
   "- A replacement is removeNode (old reference) + addNode (new reference) + addEdge(s) re-wiring the new node — NOT an append. To insert a step BEFORE another, removeEdge the existing connection (by its edge_ ref) and addEdge through the new step.",
   "- Use ONLY references that appear in the editable workflow above, or new_ references you introduce in the SAME patch. Do not invent or reuse a reference for a step that isn't shown.",
-  "- Missing config VALUES are fine — leave them out; ChainReact collects them with a setup form. Provider:type for any added/replaced step MUST come from the capability catalog.",
+  "- Config VALUES the user did not supply are fine to leave out — ChainReact collects them with a setup form. But every value the user DID supply must be carried in the operation: use updateNodeConfig for an existing step, or set config on the node you add (see 'Filling config fields'). Provider:type for any added/replaced step MUST come from the capability catalog.",
   '- Each operation uses this EXACT shape: {"op":"removeNode","nodeId":"node_2"}, {"op":"addNode","node":{"id":"new_email","kind":"action","provider":"gmail","type":"send_email"}}, {"op":"addEdge","edge":{"id":"e1","from":"node_1","to":"new_email"}}, {"op":"removeEdge","edgeId":"edge_1"}. Do NOT invent other shapes.',
   "- CLARIFICATION RULE (critical): whenever you need the user to CHOOSE something before you can commit — which app/provider to use (e.g. Gmail vs Outlook for email), or which of several similar steps they mean — ask ONLY that question in plain prose and OMIT the json block entirely. NEVER pick one option AND ask which to use in the same reply, and never include operations alongside a question. Only return operations when you are committing to a specific change with no question.",
   "- Only claim a change is proposed when you return a valid operations block (no question). The rail shows the user a plain summary and a preview — do not paste the json into your prose.",
@@ -233,11 +270,12 @@ const RESPONSE_FORMAT_INSTRUCTIONS = [
   "How to respond:",
   "- Answer in clear, normal language first (one or two sentences is fine).",
   "- The structured plan describes the workflow SHAPE — which trigger and actions, in what order. Missing CONFIG VALUES (e.g. which Slack channel, the recipient, the exact message text, specific dates) are NOT part of the shape and are NOT a reason to withhold the plan: ChainReact collects them itself with a guided setup form (dropdowns / text fields) after the user reviews the shape.",
-  "- When the trigger/action shape is clear, RETURN the plan even if specific config values are still unknown. List each unknown field key the step needs in that step's `requiredInputs` (e.g. \"channel\", \"text\") and leave the values out — do NOT ask the user for a channel, recipient, or message text before returning the plan.",
+  "- When the trigger/action shape is clear, RETURN the plan even if specific config values are still unknown. List each unknown field key the step needs in that step's `requiredInputs` (e.g. \"channel\", \"text\") and leave those values out — do NOT ask the user for a channel, recipient, or message text before returning the plan.",
+  '- But every config value the user ALREADY supplied (or a [[...]] placeholder standing for one) goes into that step\'s "config" object under its declared field key — required or optional. A user constraint must never be dropped or downgraded to a requiredInputs entry when its value is known.',
   "- This applies to MULTI-STEP shapes too: a trigger plus two or more actions (e.g. tag a subscriber, then notify a channel) is still a clear shape — return the whole plan as steps, do NOT just describe the sequence in prose. The user will see the skeleton on the canvas as you talk.",
   "- EDITING an existing workflow (the user asks to change/remove/replace/reconfigure/reconnect a step, e.g. 'change it to email', 'remove that Slack step', 'put a delay before the email', 'change the trigger'): return a STRUCTURED EDIT — a single fenced ```json block of the form {\"operations\": [ ... ]} describing the change as WorkflowPatch operations: addNode, removeNode, updateNodeConfig, addEdge, removeEdge, replaceEdge, moveNode, replaceTrigger. Reference EXISTING steps by their exact node id from the current workflow (never by position or provider) so a workflow with two similar steps is unambiguous. Use new patch-local ids for nodes you add, and re-connect edges so the graph stays wired. Missing config is fine — leave it out (ChainReact collects it as setup). Do NOT reply that the change is fine without returning the operations, and do NOT claim you changed anything (ChainReact validates + applies only after the user clicks Apply). If two steps could match the user's reference, ASK which one instead of guessing.",
   "- Append the plan as ONE optional structured plan in a single fenced ```json code block, in this shape:",
-  '  {"title": "...", "summary": "...", "steps": [{"ref": "s0", "role": "trigger|action|logic", "provider": "<from the catalog>", "type": "<from the catalog>", "purpose": "...", "requiredInputs": ["fieldKey"]}], "clarifyingQuestions": ["..."]}',
+  '  {"title": "...", "summary": "...", "steps": [{"ref": "s0", "role": "trigger|action|logic", "provider": "<from the catalog>", "type": "<from the catalog>", "purpose": "...", "requiredInputs": ["fieldKey"], "config": {"<declaredFieldKey>": "<value the user supplied>"}}], "clarifyingQuestions": ["..."]}',
   "- Every step's provider:type MUST be one of the listed ChainReact capabilities. Do not invent providers, actions, or triggers.",
   "- The TRIGGER (the source/event ChainReact watches) is held to the same rule: only use a trigger from the catalog. If the user describes watching a metric or condition with no matching catalog trigger (e.g. \"when usage drops\", \"low usage\", \"on churn\"), do NOT claim the flow is ready/straightforward and do NOT invent a trigger. Instead ASK which source the data should come from (e.g. Stripe, HubSpot, Google Analytics, a webhook, or their app), OR return a plan using the `native:manual.run` trigger and say it is a STARTING point they can re-point to a real source. List the still-needed pieces in `requiredInputs`/`clarifyingQuestions`.",
   "- Ask short clarifying questions FIRST (and OMIT the json block) ONLY when the SHAPE itself is ambiguous — e.g. you cannot tell which trigger or action to use, which app/provider the user means, or the request could map to materially different workflow structures. Missing config values alone never make the shape ambiguous.",

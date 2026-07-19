@@ -67,6 +67,11 @@ export interface WorkflowGuidanceIntakeInput {
   /** Optional public capability catalog (provider:type keys) — safe, not user data. */
   readonly capabilityCatalog?: readonly string[];
   /**
+   * REACT-CONFIG-COVERAGE-1 — pre-rendered field-schema lines for the narrowed relevant provider
+   * subset (public registry metadata only; built by `promptFieldSchemas` in the route). Optional.
+   */
+  readonly fieldSchemaLines?: readonly string[];
+  /**
    * HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the SAFE, model-facing editable graph of the user's CURRENT local
    * draft (opaque refs + safe editable config + version), built by the route via the editor privacy
    * boundary. Present ONLY for an EDIT request. It carries NO real ids/credentials/secrets; the route
@@ -179,6 +184,7 @@ export async function runWorkflowGuidanceIntakeCapability(
         goalText: input.goalText,
         ...(input.recentTurns && input.recentTurns.length ? { recentTurns: input.recentTurns } : {}),
         ...(input.capabilityCatalog ? { capabilityCatalog: input.capabilityCatalog } : {}),
+        ...(input.fieldSchemaLines ? { fieldSchemaLines: input.fieldSchemaLines } : {}),
         ...(context ? { context } : {}),
         ...(input.editableGraph ? { editableGraph: input.editableGraph } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),

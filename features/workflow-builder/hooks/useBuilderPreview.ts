@@ -10,6 +10,10 @@ import type {
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { AgentApplyMode } from "@/contracts/agentApplyModes";
 import type { PreviewSetupFieldsByType } from "@/core/workflows/previewSetupFields";
+import {
+  buildInitialPreviewConfig,
+  buildPlanPrefilledConfig,
+} from "@/core/workflows/planPreviewConfig";
 import { planToBuilderPatch } from "@/core/workflows/planToBuilderPatch";
 import { buildConfigDiff, type ConfigDiff } from "@/core/workflows/buildConfigDiff";
 import {
@@ -247,7 +251,11 @@ export function useBuilderPreview({
       setAppliedNodeIds([]);
       // A NEW preview supersedes the old one — drop any guided-setup values entered for the prior
       // preview (previewIds are positional and would otherwise collide across previews).
-      setPreviewConfig({});
+      // REACT-CONFIG-COVERAGE-1 — then PRE-FILL the guided-setup state from the plan's step `config`
+      // (values the user supplied in their own request, sanitized server-side), for fields the rail
+      // card can render. The user sees + can edit them before Apply; unsupported-control values are
+      // shown read-only by the card and seeded by `planToBuilderPatch` on Apply either way.
+      setPreviewConfig(buildInitialPreviewConfig(payload.plan, setupFieldsByType));
       // AGENT-CHANGE-HISTORY-1 — mint a correlation id so apply/discard transition the SAME timeline
       // row, and record a `preview_created` event. Counts come from a VALUE-FREE structural diff of the
       // current draft vs the proposed end-state (edit path); the additive new-workflow path has no
@@ -285,7 +293,7 @@ export function useBuilderPreview({
       // this (possibly superseding) preview.
       setPreviewShowCount((c) => c + 1);
     },
-    [agentChanges, fieldMetaByType],
+    [agentChanges, fieldMetaByType, setupFieldsByType],
   );
 
   // HERMES-AGENT-GUIDED-PREVIEW-SETUP-RAIL-UX — record one guided-setup value for the current preview,
@@ -529,6 +537,13 @@ export function useBuilderPreview({
     setApplyNotice(message);
   }, []);
 
+  // REACT-CONFIG-COVERAGE-1 — values the user supplied in their request (server-sanitized plan-step
+  // config), keyed by preview node id. Display/visibility only — Apply seeds from the plan itself.
+  const previewPrefilledConfig = useMemo(
+    () => buildPlanPrefilledConfig(previewOverlay?.proposedDefinition ? null : previewOverlay?.plan),
+    [previewOverlay],
+  );
+
   return {
     previewOverlay,
     previewShowCount,
@@ -536,6 +551,9 @@ export function useBuilderPreview({
     appliedConfigHints,
     agentSetupIssues,
     previewConfig,
+    // REACT-CONFIG-COVERAGE-1 — plan-config values the user supplied in their request, keyed by
+    // preview node id, for the setup card's "from your request" display.
+    previewPrefilledConfig,
     previewDiffGraph,
     configDiff,
     previewRationale,

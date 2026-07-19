@@ -70,6 +70,8 @@ export interface BuilderGuidanceRailProps {
   readonly setupFieldsByType?: PreviewSetupFieldsByType;
   /** Ephemeral guided-setup values (previewId → field → value). Owned by `WorkflowBuilder`. */
   readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  /** REACT-CONFIG-COVERAGE-1 — user-request plan-config values (previewId → field → value) for display. */
+  readonly previewPrefilledConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /** Record one ephemeral setup value. Preview-only — never mutates the real draft before Apply. */
   readonly onPreviewConfigChange?: (previewId: string, fieldName: string, value: unknown) => void;
   /** The existing explicit "Apply preview" action — seeds previewConfig into the new draft nodes. */
@@ -115,6 +117,7 @@ export function BuilderGuidanceRail({
   previewForSetup,
   setupFieldsByType,
   previewConfig,
+  previewPrefilledConfig,
   onPreviewConfigChange,
   onApplyPreview,
   getCheckReviewContext,
@@ -164,6 +167,7 @@ export function BuilderGuidanceRail({
                       preview={previewForSetup}
                       {...(setupFieldsByType ? { setupFieldsByType } : {})}
                       {...(previewConfig ? { previewConfig } : {})}
+                      {...(previewPrefilledConfig ? { prefilledConfig: previewPrefilledConfig } : {})}
                       onPreviewConfigChange={onPreviewConfigChange}
                       onApply={onApplyPreview}
                       workflowId={workflowId}

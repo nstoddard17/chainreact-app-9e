@@ -91,6 +91,8 @@ export async function requestHermesAgentGuidanceNormalized(params: {
   /** Session-scoped recent conversation (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE). Plain text only. */
   recentTurns?: readonly GuidanceConversationTurn[];
   capabilityCatalog?: readonly string[];
+  /** REACT-CONFIG-COVERAGE-1 — pre-rendered field-schema lines (public registry metadata only). */
+  fieldSchemaLines?: readonly string[];
   /** Scope-guarded context (HERMES-AGENT-MEMORY-SCOPE-GUARD). */
   context?: SafeGuidanceContext;
   /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the safe editable graph for an EDIT request. */
@@ -102,6 +104,7 @@ export async function requestHermesAgentGuidanceNormalized(params: {
     ...(params.goalText ? { goalText: params.goalText } : {}),
     ...(params.recentTurns && params.recentTurns.length ? { recentTurns: params.recentTurns } : {}),
     ...(params.capabilityCatalog ? { capabilityCatalog: params.capabilityCatalog } : {}),
+    ...(params.fieldSchemaLines && params.fieldSchemaLines.length ? { fieldSchemaLines: params.fieldSchemaLines } : {}),
     ...(params.context ? { context: params.context } : {}),
     ...(params.editableGraph ? { editableGraph: params.editableGraph } : {}),
   });

@@ -38,6 +38,14 @@ export interface BuilderPreviewSetupCardProps {
   readonly setupFieldsByType?: PreviewSetupFieldsByType;
   /** Ephemeral guided-setup values, keyed previewId → fieldName → value. Owned by `WorkflowBuilder`. */
   readonly previewConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  /**
+   * REACT-CONFIG-COVERAGE-1 — values the user supplied in their own request (server-sanitized
+   * plan-step config), keyed previewId → fieldName → value. Fields with a supported control render
+   * editable (their value is pre-seeded into previewConfig); the rest are listed read-only so the
+   * user can SEE what will be set on Apply. Client-local display of the user's own data — never
+   * sent anywhere from here.
+   */
+  readonly prefilledConfig?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /** Record one ephemeral value. Preview-only — never touches the real draft / configSlice / DB. */
   readonly onPreviewConfigChange: (previewId: string, fieldName: string, value: unknown) => void;
   /** The existing explicit "Apply preview" action (additive local-draft edit). */
@@ -54,25 +62,39 @@ export function BuilderPreviewSetupCard({
   preview,
   setupFieldsByType,
   previewConfig,
+  prefilledConfig,
   onPreviewConfigChange,
   onApply,
   workflowId,
 }: BuilderPreviewSetupCardProps) {
   // Per node: which still-missing fields can be collected now (supported local controls) vs. which
   // must wait until after Apply (async resolver / cascade / unsupported). Deterministic, metadata-driven.
+  // REACT-CONFIG-COVERAGE-1 — fields the user's request already filled (prefilledConfig) also render:
+  // editable when a supported control exists, otherwise as a read-only "From your request" row.
   const setupNodes = preview.nodes
     .map((node) => {
       const missing = node.missingInputs ?? [];
-      if (missing.length === 0) return null;
+      const prefilled = prefilledConfig?.[node.previewId] ?? {};
+      const prefilledNames = Object.keys(prefilled);
+      if (missing.length === 0 && prefilledNames.length === 0) return null;
       const all = setupFieldsByType?.[`${node.provider}:${node.type}`] ?? [];
-      const supported = all.filter((f) => missing.includes(f.name));
+      const supported = all.filter((f) => missing.includes(f.name) || prefilledNames.includes(f.name));
       const supportedNames = new Set(supported.map((f) => f.name));
       const afterApply = missing.filter((n) => !supportedNames.has(n));
-      return { node, supported, afterApply };
+      const prefilledReadOnly = prefilledNames
+        .filter((n) => !supportedNames.has(n))
+        .map((n) => ({ name: n, value: prefilled[n] }));
+      return { node, supported, afterApply, prefilledReadOnly };
     })
     .filter(
-      (x): x is { node: DraftPreviewNode; supported: PreviewSetupField[]; afterApply: string[] } =>
-        x !== null,
+      (
+        x,
+      ): x is {
+        node: DraftPreviewNode;
+        supported: PreviewSetupField[];
+        afterApply: string[];
+        prefilledReadOnly: { name: string; value: unknown }[];
+      } => x !== null,
     );
 
   const hasAnyMissing = setupNodes.length > 0;
@@ -97,7 +119,7 @@ export function BuilderPreviewSetupCard({
       </p>
 
       <div className="mt-2 max-h-[40vh] space-y-2.5 overflow-y-auto">
-        {setupNodes.map(({ node, supported, afterApply }) => (
+        {setupNodes.map(({ node, supported, afterApply, prefilledReadOnly }) => (
           <div key={node.previewId}>
             <div className="text-[11.5px] font-medium" style={{ color: "var(--builder-text)" }}>
               {node.label}
@@ -122,6 +144,18 @@ export function BuilderPreviewSetupCard({
                   testid={`preview-setup-${node.previewId}-${field.name}`}
                 />
               ),
+            )}
+            {prefilledReadOnly.length > 0 && (
+              <div
+                data-testid="preview-setup-prefilled"
+                className="mt-1 text-[11px]"
+                style={{ color: "var(--builder-muted)" }}
+              >
+                From your request:{" "}
+                {prefilledReadOnly
+                  .map(({ name, value }) => `${name}: ${Array.isArray(value) ? value.join(", ") : String(value)}`)
+                  .join(" · ")}
+              </div>
             )}
             {afterApply.length > 0 && (
               <div

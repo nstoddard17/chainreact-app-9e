@@ -29,6 +29,17 @@ import {
   MAX_GUIDANCE_CONVERSATION_TURNS,
   MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
 } from "@/contracts/aiGuidance";
+import type { WorkflowPlan } from "@/contracts/guidanceSession";
+import {
+  rebindSensitiveLiteralsDeep,
+  rebindSensitiveLiteralsInText,
+  tokenizeSensitiveLiterals,
+  type SensitiveLiteralBinding,
+} from "@/core/security/sensitiveLiterals";
+import { sanitizePlanStepConfigs } from "@/services/ai-guidance/planConfig/sanitizeProposedConfig";
+import { resolveProposedOptionValues } from "@/services/ai-guidance/planConfig/resolveProposedOptionValues";
+import { prepareProposedOperations } from "@/services/ai-guidance/planConfig/prepareProposedOperations";
+import { buildFieldSchemaLines, selectRelevantProviders } from "@/services/ai-guidance/promptFieldSchemas";
 import * as accountsRepo from "@/repositories/accounts";
 
 /**
@@ -155,6 +166,21 @@ export async function POST(
   // Belt-and-suspenders bound: keep only the MOST RECENT turns (schema already caps the count).
   const boundedRecentTurns = recentTurns?.slice(-MAX_GUIDANCE_CONVERSATION_TURNS);
 
+  // REACT-CONFIG-COVERAGE-1 — tokenize recipient-class literals (emails/phones) BEFORE anything
+  // crosses to Hermes. The raw literal stays ONLY in this request-local binding list; the prompt
+  // carries a typed placeholder (e.g. [[EMAIL_1]]) the model copies verbatim into config, and the
+  // route rebinds the original value into the model's output below. Deterministic fallbacks and the
+  // template matcher keep the RAW goal text — they are local and model-free.
+  let literalBindings: readonly SensitiveLiteralBinding[] = [];
+  const tokenizedGoal = tokenizeSensitiveLiterals(goalText);
+  literalBindings = tokenizedGoal.bindings;
+  const safeGoalText = tokenizedGoal.text;
+  const safeRecentTurns = boundedRecentTurns?.map((turn) => {
+    const tokenized = tokenizeSensitiveLiterals(turn.text, literalBindings);
+    literalBindings = tokenized.bindings;
+    return { role: turn.role, text: tokenized.text };
+  });
+
   // 3. Optional workflow context — must belong to THIS account + caller is a member (else 404).
   let definition: import("@/contracts/workflow").WorkflowDefinition | undefined;
   let workflowCreatedByUserId: string | undefined;
@@ -238,13 +264,25 @@ export async function POST(
   const editing = !!currentDraft && currentDraft.nodes.length > 0;
   const builtEditableGraph = editing ? buildEditableWorkflowGraph(currentDraft!) : null;
 
+  // REACT-CONFIG-COVERAGE-1 — narrowed, bounded field schemas for the relevant providers (public
+  // registry metadata only), so the model can land user-supplied values in their canonical fields.
+  const canvasCapabilityKeys = editing ? currentDraft!.nodes.map((n) => `${n.provider}:${n.type}`) : [];
+  const fieldSchemaLines = buildFieldSchemaLines(
+    selectRelevantProviders({
+      texts: [goalText, ...(boundedRecentTurns?.map((t) => t.text) ?? [])],
+      ...(canvasCapabilityKeys.length ? { canvasCapabilityKeys } : {}),
+      connectedProviders: [...sharedCredentialProviders, ...ownConnectionProviders],
+    }),
+  );
+
   // 6. Run the advisory capability through the governance seam (audited). Read-only — no mutation.
   const result = await runWorkflowGuidanceIntakeCapability(
     {
       scope: { userId, accountId, ...(workflowId ? { workflowId } : {}) },
-      goalText,
-      ...(boundedRecentTurns && boundedRecentTurns.length ? { recentTurns: boundedRecentTurns } : {}),
+      goalText: safeGoalText,
+      ...(safeRecentTurns && safeRecentTurns.length ? { recentTurns: safeRecentTurns } : {}),
       ...(definition ? { definition } : {}),
+      ...(fieldSchemaLines.length ? { fieldSchemaLines } : {}),
       ...(builtEditableGraph ? { editableGraph: builtEditableGraph.graph, capabilityCatalog: buildCapabilityCatalogKeys() } : {}),
       contextInputs: {
         account: { type: accountType },
@@ -262,6 +300,58 @@ export async function POST(
     return guidanceUnavailableResponse();
   }
 
+  // REACT-CONFIG-COVERAGE-1 — rebind sensitive-literal placeholders back to the user's exact values
+  // in everything the model returned (display text, plan-step config, patch operations). Then run
+  // the metadata-driven config pipeline: sanitize against the node's real FieldMeta and verify /
+  // label-map dynamic option values through the canonical resolvers. A supplied-but-unusable value
+  // becomes a targeted setup input (requiredInputs / a safe warning) — never a silent drop.
+  const reboundGuidanceText = rebindSensitiveLiteralsInText(result.guidanceText, literalBindings);
+  const reboundMutationOperations = result.mutationOperations
+    ? rebindSensitiveLiteralsDeep(result.mutationOperations, literalBindings)
+    : undefined;
+  const configWarnings: string[] = [];
+
+  /** Sanitize + dynamic-resolve one plan's step configs. Field KEYS only ever reach warnings. */
+  async function preparePlanConfigs(plan: WorkflowPlan): Promise<WorkflowPlan> {
+    const rebound = rebindSensitiveLiteralsDeep(plan, literalBindings);
+    const sanitized = sanitizePlanStepConfigs(rebound).plan;
+    const targets = sanitized.steps
+      .filter(
+        (s): s is typeof s & { config: Readonly<Record<string, unknown>> } =>
+          (s.role === "trigger" || s.role === "action") && !!s.config && Object.keys(s.config).length > 0,
+      )
+      .map((s) => ({
+        ref: s.ref,
+        kind: s.role as "trigger" | "action",
+        capabilityKey: `${s.provider}:${s.type}`,
+        config: s.config,
+      }));
+    if (targets.length === 0) return sanitized;
+    const resolved = await resolveProposedOptionValues({
+      userId,
+      ...(workflowId ? { workflowId } : {}),
+      targets,
+    });
+    const byRef = new Map(resolved.map((r) => [r.ref, r]));
+    return {
+      ...sanitized,
+      steps: sanitized.steps.map((step) => {
+        const r = byRef.get(step.ref);
+        if (!r) return step;
+        for (const field of r.deferredFields) {
+          configWarnings.push(`I couldn't set '${field}' automatically — pick it in the step's setup.`);
+        }
+        const requiredInputs = [...new Set([...(step.requiredInputs ?? []), ...r.deferredFields])];
+        const { config: _config, ...rest } = step;
+        return {
+          ...rest,
+          ...(requiredInputs.length > 0 ? { requiredInputs } : {}),
+          ...(Object.keys(r.config).length > 0 ? { config: r.config } : {}),
+        };
+      }),
+    };
+  }
+
   // HERMES-AGENT-WORKFLOW-EDITOR — when the user is EDITING an existing draft (a current draft was sent),
   // run the GENERAL mutation pipeline: prefer the model's proposed `WorkflowPatch` operations; else a
   // DEMOTED Slack↔email fallback that emits general operations (it asks WHICH step when ambiguous, never
@@ -272,11 +362,11 @@ export async function POST(
   );
   // DEMOTED, degraded-recovery fallback ONLY (never the primary mechanism): runs when the MODEL proposed
   // no patch. It emits real-id ops (it has the real draft), so it bypasses ref-resolution.
-  const fallback = editing && !result.mutationOperations
+  const fallback = editing && !reboundMutationOperations
     ? inferDeterministicMutationOps({ goalText, currentDraft: currentDraft!, connectedEmailProviders })
     : { kind: "none" as const };
 
-  let workflowPlan = result.workflowPlan;
+  let workflowPlan = result.workflowPlan ? await preparePlanConfigs(result.workflowPlan) : null;
   let previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
   let proposedDefinition: import("@/contracts/workflowDefinition").WorkflowDefinition | null = null;
   let baseGraphVersion: string | null = null;
@@ -289,12 +379,34 @@ export async function POST(
   const MALFORMED_EDIT_MESSAGE =
     "I couldn't preview that change. Tell me a bit more about what you'd like to change and I'll try again.";
 
-  if (editing && result.mutationOperations && builtEditableGraph) {
+  if (editing && reboundMutationOperations && builtEditableGraph) {
+    // REACT-CONFIG-COVERAGE-1 — sanitize config-bearing ops against registry metadata + verify /
+    // label-map dynamic option values through the canonical resolvers BEFORE the edit pipeline.
+    // Unusable supplied values are removed and surfaced as targeted setup notes (never silently).
+    const prepared = await prepareProposedOperations({
+      operations: reboundMutationOperations,
+      nodeContextForRef: (nodeRef) => {
+        const realId = builtEditableGraph.refMap.get(nodeRef) ?? nodeRef;
+        const node = currentDraft!.nodes.find((n) => n.id === realId);
+        if (!node) return null;
+        return {
+          kind: node.kind === "trigger" ? "trigger" : "action",
+          capabilityKey: `${node.provider}:${node.type}`,
+          existingConfig: node.config ?? {},
+        };
+      },
+      userId,
+      ...(workflowId ? { workflowId } : {}),
+    });
+    for (const { field } of prepared.deferredFields) {
+      configWarnings.push(`I couldn't set '${field}' automatically — pick it in the step's setup.`);
+    }
+
     // PRIMARY model-driven path: opaque refs → stale guard → real ids → atomic catalog validation.
     const edit = runWorkflowEditFromModel({
       currentDraft: currentDraft!,
       editableGraph: builtEditableGraph,
-      operations: result.mutationOperations,
+      operations: prepared.operations,
       ...(result.mutationBaseVersion ? { modelBaseVersion: result.mutationBaseVersion } : {}),
     });
     if (edit.kind === "proposal") {
@@ -340,10 +452,11 @@ export async function POST(
 
   // The rail message: editing turns use the route-owned text; everything else uses the (already
   // JSON-stripped) model prose. Warnings carry only safe non-blocking notes.
-  const guidanceText = editorGuidanceText ?? result.guidanceText;
+  const guidanceText = editorGuidanceText ?? reboundGuidanceText;
   const warnings = [
     ...(result.warnings ?? []),
     ...proposalWarnings,
+    ...[...new Set(configWarnings)],
     ...(catalogGap ? [catalogGap.message] : []),
   ];
 

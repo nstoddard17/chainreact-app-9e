@@ -39,6 +39,9 @@ const planStepShapeSchema = z
     type: z.string(),
     purpose: z.string().optional(),
     requiredInputs: z.array(z.string()).optional(),
+    // REACT-CONFIG-COVERAGE-1 — user-supplied config values (untrusted here; the route sanitizes
+    // them against registry FieldMeta before the plan is surfaced or seeded).
+    config: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
 
@@ -71,6 +74,7 @@ function toCandidatePlan(parsed: z.infer<typeof planShapeSchema>): WorkflowPlan 
       type: s.type,
       purpose: s.purpose ?? "",
       ...(s.requiredInputs ? { requiredInputs: s.requiredInputs } : {}),
+      ...(s.config && Object.keys(s.config).length > 0 ? { config: s.config } : {}),
     })),
     ...(parsed.clarifyingQuestions ? { clarifyingQuestions: parsed.clarifyingQuestions } : {}),
     notApplied: true,
