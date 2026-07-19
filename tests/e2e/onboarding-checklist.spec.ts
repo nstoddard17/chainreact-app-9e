@@ -623,10 +623,16 @@ test.describe("5.ONBOARD-4 — role-specific collaboration onboarding", () => {
       await expect(page.getByTestId("onboarding-checklist")).toHaveCount(0);
       await expect(page.getByTestId("onboarding-checklist-card")).toHaveCount(0);
 
-      // Every CTA is navigation-only.
-      await expect(
-        page.getByTestId("collab-step-invite_teammate-cta"),
-      ).toHaveAttribute("href", "/team");
+      // The CURRENT step is teammate_joined (invite is already satisfied), and
+      // only the current step renders its CTA — a completed step collapses. That
+      // CTA is navigation-only: a plain link to a page, never a mutation.
+      await expect(page.getByTestId("collab-step-teammate_joined")).toHaveAttribute(
+        "data-status",
+        "current",
+      );
+      const ownerCta = page.getByTestId("collab-step-teammate_joined-cta");
+      await expect(ownerCta).toHaveAttribute("href", "/team");
+      await expect(ownerCta).toHaveJSProperty("tagName", "A");
     } finally {
       await ctx.close();
     }
