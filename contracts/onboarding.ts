@@ -88,8 +88,19 @@ export interface OnboardingChecklistDTO {
   readonly enabled: boolean;
   readonly completed?: boolean;
   readonly completedAt?: string | null;
-  /** Completion provenance (null when the workflow was since deleted). */
-  readonly completionWorkflow?: { readonly id: string; readonly name: string } | null;
+  /**
+   * Completion provenance for the success state.
+   *
+   * `id` is null when the workflow row is gone (deleted / FK nulled) but the
+   * immutable `completion_workflow_name` snapshot survives — the UI still names
+   * what completed onboarding, it just cannot link to it. The whole field is
+   * null only when neither a live row nor a snapshot exists (e.g. rows latched
+   * before the provenance correction), and the UI then uses generic copy.
+   */
+  readonly completionWorkflow?: {
+    readonly id: string | null;
+    readonly name: string;
+  } | null;
   readonly presentation?: OnboardingPresentationDTO;
   readonly selectedWorkflow?: OnboardingSelectedWorkflowDTO | null;
   /** Non-deleted account workflows for the picker (ids + names only). */

@@ -14,7 +14,7 @@ import { diagnoseWorkflowConnections } from "@/services/diagnostics/integrationC
 import { checkWritePathReadiness } from "@/services/workflows/executionReadiness";
 import {
   deriveChecklistSteps,
-  workflowProvesPriorActivation,
+  pickActivationEvidenceWorkflow,
   type SelectedWorkflowFacts,
 } from "./checklistDerivation";
 import { isOnboardingChecklistEnabled } from "./onboardingFlags";
@@ -126,7 +126,10 @@ export async function getOnboardingChecklist(input: {
   ]);
 
   // ── Completion (already latched, or provable from lifecycle evidence) ──
-  const evidence = workflows.find(workflowProvesPriorActivation) ?? null;
+  // Deterministic pick when several workflows qualify: strongest evidence
+  // (currently `active`) first, then most recently updated — the repo list is
+  // already `updated_at DESC`. See pickActivationEvidenceWorkflow.
+  const evidence = pickActivationEvidenceWorkflow(workflows);
   let effectiveRow = row;
   if (!row?.completedAt && evidence) {
     // Existing-user / cross-member silent latch: no first-time celebration when
@@ -138,6 +141,10 @@ export async function getOnboardingChecklist(input: {
       userId,
       accountId,
       workflowId: evidence.id,
+      // Pre-feature users have no earlier snapshot to honor, so the evidence
+      // workflow's CURRENT name at first silent latch becomes the historical
+      // value — captured once here and never refreshed afterwards.
+      workflowName: evidence.name,
       silent,
     });
     if (won) {
@@ -164,13 +171,23 @@ export async function getOnboardingChecklist(input: {
       ? (workflows.find((w) => w.id === effectiveRow.completionWorkflowId) ??
         (await workflowsRepo.getByIdServiceRole(effectiveRow.completionWorkflowId)))
       : null;
+    // Display precedence (provenance correction): the LIVE row's name when the
+    // workflow still exists (so a rename shows correctly while it is around),
+    // else the immutable snapshot (survives deletion / a nulled FK), else no
+    // name at all → the UI falls back to generic success copy. A deleted
+    // completion workflow must never blank the success state or error the
+    // response. `id` is omitted when the row is gone: there is nothing to link.
+    const liveCompletion =
+      completionWf && completionWf.state !== "deleted" ? completionWf : null;
+    const snapshotName = effectiveRow.completionWorkflowName;
     return {
       enabled: true,
       completed: true,
       completedAt: effectiveRow.completedAt,
-      completionWorkflow:
-        completionWf && completionWf.state !== "deleted"
-          ? { id: completionWf.id, name: completionWf.name }
+      completionWorkflow: liveCompletion
+        ? { id: liveCompletion.id, name: liveCompletion.name }
+        : snapshotName
+          ? { id: null, name: snapshotName }
           : null,
       presentation: {
         dismissed: effectiveRow.dismissedAt !== null,

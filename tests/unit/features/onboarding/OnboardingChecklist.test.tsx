@@ -491,3 +491,51 @@ describe("OnboardingChecklist — keyboard/a11y", () => {
     );
   });
 });
+
+describe("OnboardingChecklist — completion provenance fallback (correction)", () => {
+  const completedDto = (
+    completionWorkflow: { id: string | null; name: string } | null,
+  ): OnboardingChecklistDTO =>
+    dto({
+      completed: true,
+      completedAt: "2026-07-18T00:00:00Z",
+      completionWorkflow,
+      presentation: {
+        dismissed: false,
+        minimized: false,
+        videoWatched: false,
+        celebrationPending: true,
+      },
+    });
+
+  it("live workflow → names it AND links to it", () => {
+    render(<OnboardingChecklist initial={completedDto({ id: "wf-1", name: "Lead intake" })} />);
+    const card = screen.getByTestId("onboarding-success-card");
+    expect(card).toHaveTextContent("Your first workflow is live.");
+    expect(card).toHaveTextContent("Lead intake");
+    expect(screen.getByTestId("onboarding-success-open-workflow")).toHaveAttribute(
+      "href",
+      "/workflows/wf-1",
+    );
+  });
+
+  it("DELETED workflow with a surviving snapshot → still NAMES it, with no dead link", () => {
+    render(
+      <OnboardingChecklist initial={completedDto({ id: null, name: "Lead intake → Slack" })} />,
+    );
+    const card = screen.getByTestId("onboarding-success-card");
+    expect(card).toHaveTextContent("Your first workflow is live.");
+    // The snapshot name survives the workflow's deletion.
+    expect(card).toHaveTextContent("Lead intake → Slack");
+    // …but there is nothing to navigate to.
+    expect(screen.queryByTestId("onboarding-success-open-workflow")).toBeNull();
+  });
+
+  it("no name available at all → graceful generic success copy", () => {
+    render(<OnboardingChecklist initial={completedDto(null)} />);
+    const card = screen.getByTestId("onboarding-success-card");
+    expect(card).toHaveTextContent("Your first workflow is live.");
+    expect(card).toHaveTextContent("when its trigger occurs");
+    expect(screen.queryByTestId("onboarding-success-open-workflow")).toBeNull();
+  });
+});

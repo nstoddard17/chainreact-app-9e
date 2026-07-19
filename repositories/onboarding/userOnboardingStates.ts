@@ -8,10 +8,12 @@ import { getServiceRoleClient } from "../supabase/serviceRoleClient";
  * accountId) pair from the caller's own session (`requireUserWithAccount`)
  * before any call here — the hard eq predicates are the scope, not the authz.
  *
- * HONESTY CONTRACT: this table persists presentation state + two server-latched
- * timestamps. `completed_at` / `completion_workflow_id` are written ONLY by
- * `latchCompletionServiceRole`, only while `completed_at IS NULL` (single-winner
- * under concurrency), and never from any client-supplied value.
+ * HONESTY CONTRACT: this table persists presentation state + server-latched
+ * completion provenance. `completed_at` / `completion_workflow_id` /
+ * `completion_workflow_name` are written ONLY by `latchCompletionServiceRole`,
+ * only while `completed_at IS NULL` (single-winner under concurrency), and never
+ * from any client-supplied value. `PresentationPatch` has no field that can reach
+ * them, so the presentation route physically cannot mutate provenance.
  */
 
 export interface UserOnboardingStateRecord {
@@ -19,6 +21,8 @@ export interface UserOnboardingStateRecord {
   accountId: string;
   selectedWorkflowId: string | null;
   completionWorkflowId: string | null;
+  /** Immutable name snapshot from first latch; survives rename AND deletion. */
+  completionWorkflowName: string | null;
   firstShownAt: string | null;
   dismissedAt: string | null;
   minimized: boolean;
@@ -34,6 +38,7 @@ interface UserOnboardingStatesRow {
   account_id: string;
   selected_workflow_id: string | null;
   completion_workflow_id: string | null;
+  completion_workflow_name: string | null;
   first_shown_at: string | null;
   dismissed_at: string | null;
   minimized: boolean;
@@ -50,6 +55,9 @@ function rowToRecord(row: UserOnboardingStatesRow): UserOnboardingStateRecord {
     accountId: row.account_id,
     selectedWorkflowId: row.selected_workflow_id,
     completionWorkflowId: row.completion_workflow_id,
+    // Back-compat: rows written before the provenance correction have no
+    // snapshot column value — surface null rather than undefined.
+    completionWorkflowName: row.completion_workflow_name ?? null,
     firstShownAt: row.first_shown_at,
     dismissedAt: row.dismissed_at,
     minimized: row.minimized,
@@ -168,6 +176,16 @@ export async function latchFirstShownServiceRole(
  * (first writer wins; later calls update zero rows). Never replaces an
  * existing completion (provenance is immutable).
  *
+ * ATOMIC PROVENANCE: `completed_at`, `completion_workflow_id`, and
+ * `completion_workflow_name` are written in ONE conditional UPDATE, so a winner
+ * can never persist a half-set (e.g. id without name). This is deliberately NOT
+ * read-then-write — a read of "is it still incomplete?" followed by an
+ * unconditional update would let two concurrent activations both pass the read
+ * and the second would overwrite the first's provenance.
+ *
+ * `workflowName` is the activating workflow's name AT LATCH TIME — a historical
+ * snapshot, never refreshed afterwards (see the migration's rationale).
+ *
  * `silent: true` also stamps celebrated_at so pre-existing-success accounts
  * (evidence observed at derivation time, checklist never/just shown) don't get
  * a first-time celebration.
@@ -176,6 +194,8 @@ export async function latchCompletionServiceRole(input: {
   userId: string;
   accountId: string;
   workflowId: string;
+  /** Snapshot of the workflow's name at latch time (null when unknowable). */
+  workflowName?: string | null;
   silent?: boolean;
 }): Promise<boolean> {
   await ensureRow(input.userId, input.accountId);
@@ -188,6 +208,7 @@ export async function latchCompletionServiceRole(input: {
     .update({
       completed_at: now,
       completion_workflow_id: input.workflowId,
+      completion_workflow_name: input.workflowName ?? null,
       ...(input.silent ? { celebrated_at: now } : {}),
     })
     .eq("user_id", input.userId)

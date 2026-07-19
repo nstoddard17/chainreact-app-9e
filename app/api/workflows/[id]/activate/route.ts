@@ -170,10 +170,13 @@ export async function POST(
       // success (readiness + trigger registration already passed), is
       // flag-gated + best-effort inside the service (it swallows its own
       // errors), and never alters this successful activation response.
+      // `record.name` is the name AT ACTIVATION — stored as the immutable
+      // provenance snapshot so it survives later renames and deletion.
       await latchOnboardingCompletionOnActivation({
         userId: auth.userId,
         accountId: record.accountId,
         workflowId: record.id,
+        workflowName: record.name,
       });
       return NextResponse.json(toWorkflowSummary(record));
     },

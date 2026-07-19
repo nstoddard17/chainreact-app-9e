@@ -19,12 +19,18 @@ import { recordOnboardingEvent } from "./onboardingEvents";
  *
  * Latch semantics live in the repository: `completed_at IS NULL` conditional
  * update — first activation wins, concurrent/later activations are no-ops, and
- * completion provenance (completion_workflow_id) is never replaced.
+ * completion provenance (id + name snapshot) is never replaced.
+ *
+ * PROVENANCE SNAPSHOT: `workflowName` is passed from the ACTIVATED record the
+ * route already holds, so the stored name is the name at the moment onboarding
+ * completed. It is never re-read or refreshed later — a rename after completion
+ * must not rewrite history, and the value must outlive the workflow row.
  */
 export async function latchOnboardingCompletionOnActivation(input: {
   userId: string;
   accountId: string;
   workflowId: string;
+  workflowName?: string | null;
 }): Promise<void> {
   if (!isOnboardingChecklistEnabled()) return;
   try {
@@ -32,6 +38,7 @@ export async function latchOnboardingCompletionOnActivation(input: {
       userId: input.userId,
       accountId: input.accountId,
       workflowId: input.workflowId,
+      workflowName: input.workflowName ?? null,
     });
     if (won) {
       // One-time funnel event (fail-open inside the recorder).

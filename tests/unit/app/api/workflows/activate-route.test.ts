@@ -159,10 +159,13 @@ describe("POST /activate — onboarding completion latch (5.ONBOARD-1)", () => {
       params: Promise.resolve({ id: "wf-1" }),
     });
     expect(res.status).toBe(200);
+    // Provenance correction: the latch also receives the workflow NAME as it
+    // stood at activation, so the stored snapshot is historical.
     expect(mockOnboardingLatch).toHaveBeenCalledWith({
       userId: "user-1",
       accountId: baseWorkflowRecord.accountId,
       workflowId: "wf-1",
+      workflowName: baseWorkflowRecord.name,
     });
   });
 

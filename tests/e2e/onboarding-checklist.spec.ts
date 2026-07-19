@@ -243,15 +243,22 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
       async () => {
         const { data } = await admin()
           .from("user_onboarding_states")
-          .select("completed_at, completion_workflow_id")
+          .select("completed_at, completion_workflow_id, completion_workflow_name")
           .eq("user_id", user.id)
           .not("completed_at", "is", null)
-          .maybeSingle<{ completed_at: string; completion_workflow_id: string }>();
+          .maybeSingle<{
+            completed_at: string;
+            completion_workflow_id: string;
+            completion_workflow_name: string | null;
+          }>();
         return data ?? null;
       },
       { description: "onboarding completion latch", timeoutMs: 10_000 },
     );
     expect(state!.completion_workflow_id).toBe(workflowId);
+    // Provenance correction: the immutable name snapshot is latched atomically
+    // with the id, from the workflow as it stood at activation.
+    expect(state!.completion_workflow_name).toBe("My first workflow");
 
     // ── 16–18. Acknowledge; completion + dismissal survive re-login ──
     await success.getByTestId("onboarding-success-done").click();
@@ -269,12 +276,53 @@ test.describe("5.ONBOARD-1 — first-workflow onboarding checklist", () => {
     await expect(page.getByTestId("onboarding-checklist")).toHaveCount(0);
     const { data: after } = await admin()
       .from("user_onboarding_states")
-      .select("completed_at, completion_workflow_id")
+      .select("completed_at, completion_workflow_id, completion_workflow_name")
       .eq("user_id", user.id)
       .not("completed_at", "is", null)
-      .maybeSingle<{ completed_at: string; completion_workflow_id: string }>();
+      .maybeSingle<{
+        completed_at: string;
+        completion_workflow_id: string | null;
+        completion_workflow_name: string | null;
+      }>();
     expect(after?.completed_at).toBe(state!.completed_at);
     expect(after?.completion_workflow_id).toBe(workflowId);
+
+    // ── 19. DELETING the completion workflow must NOT erase the displayed
+    // provenance: the FK is nulled, the snapshot survives, and the success
+    // card still names the workflow that completed onboarding. ──
+    const del = await page.request.delete(`/api/workflows/${workflowId}`);
+    expect([200, 204]).toContain(del.status());
+
+    const afterDelete = await waitFor(
+      async () => {
+        const { data } = await admin()
+          .from("user_onboarding_states")
+          .select("completed_at, completion_workflow_id, completion_workflow_name")
+          .eq("user_id", user.id)
+          .not("completed_at", "is", null)
+          .maybeSingle<{
+            completed_at: string;
+            completion_workflow_id: string | null;
+            completion_workflow_name: string | null;
+          }>();
+        return data ?? null;
+      },
+      { description: "onboarding row after workflow deletion", timeoutMs: 10_000 },
+    );
+    // completed_at is untouched; the snapshot name outlives the workflow row.
+    expect(afterDelete!.completed_at).toBe(state!.completed_at);
+    expect(afterDelete!.completion_workflow_name).toBe("My first workflow");
+
+    // Reopen the checklist: the success state still NAMES it (unlinked).
+    await page.goto("/workflows");
+    await page.getByTestId("app-shell-user-menu-trigger").first().click();
+    await page.getByTestId("app-shell-getting-started").click();
+    const reopened = page.getByTestId("onboarding-success-card");
+    await expect(reopened).toBeVisible();
+    await expect(reopened).toContainText("My first workflow");
+    await expect(
+      page.getByTestId("onboarding-success-open-workflow"),
+    ).toHaveCount(0);
   });
 
   test("bad paths: reconnect-required regresses Connect; automated trigger shows honest waiting copy", async ({

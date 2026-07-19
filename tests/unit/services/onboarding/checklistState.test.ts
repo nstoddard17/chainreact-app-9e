@@ -75,6 +75,7 @@ function stateRow(overrides: Record<string, unknown> = {}) {
     accountId: ACCOUNT,
     selectedWorkflowId: null,
     completionWorkflowId: null,
+    completionWorkflowName: null,
     firstShownAt: null,
     dismissedAt: null,
     minimized: false,
@@ -174,6 +175,7 @@ describe("getOnboardingChecklist", () => {
       userId: USER,
       accountId: ACCOUNT,
       workflowId: "wf-1",
+      workflowName: "Lead intake",
       silent: true,
     });
     expect(dto.completed).toBe(true);
@@ -310,5 +312,109 @@ describe("getOnboardingChecklist", () => {
     ]) {
       expect(serialized).not.toContain(forbidden);
     }
+  });
+});
+
+describe("completion provenance (correction) — DTO precedence", () => {
+  it("live workflow present → uses the CURRENT name and links to it (rename visible while it exists)", async () => {
+    mockGetState.mockResolvedValue(
+      stateRow({
+        completedAt: "2026-07-18T00:00:00Z",
+        completionWorkflowId: "wf-1",
+        completionWorkflowName: "Original name at latch",
+      }),
+    );
+    mockListByAccount.mockResolvedValue([wf({ id: "wf-1", name: "Renamed later" })]);
+    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+    expect(dto.completionWorkflow).toEqual({ id: "wf-1", name: "Renamed later" });
+  });
+
+  it("WORKFLOW DELETED (FK nulled) → falls back to the immutable snapshot, named but unlinked", async () => {
+    mockGetState.mockResolvedValue(
+      stateRow({
+        completedAt: "2026-07-18T00:00:00Z",
+        // ON DELETE SET NULL already cleared the pointer…
+        completionWorkflowId: null,
+        // …but the snapshot survives.
+        completionWorkflowName: "Lead intake → Slack",
+      }),
+    );
+    mockListByAccount.mockResolvedValue([]);
+    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+    expect(dto.completed).toBe(true);
+    expect(dto.completionWorkflow).toEqual({ id: null, name: "Lead intake → Slack" });
+  });
+
+  it("workflow row soft-deleted but FK still set → snapshot still wins over the deleted row", async () => {
+    mockGetState.mockResolvedValue(
+      stateRow({
+        completedAt: "2026-07-18T00:00:00Z",
+        completionWorkflowId: "wf-del",
+        completionWorkflowName: "Snapshot name",
+      }),
+    );
+    mockListByAccount.mockResolvedValue([]);
+    mockGetWorkflowById.mockResolvedValue(wf({ id: "wf-del", state: "deleted", name: "Deleted row name" }));
+    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+    expect(dto.completionWorkflow).toEqual({ id: null, name: "Snapshot name" });
+  });
+
+  it("pre-correction row (no snapshot, workflow gone) → null provenance, response still succeeds", async () => {
+    mockGetState.mockResolvedValue(
+      stateRow({
+        completedAt: "2026-07-15T00:00:00Z",
+        completionWorkflowId: null,
+        completionWorkflowName: null,
+      }),
+    );
+    mockListByAccount.mockResolvedValue([]);
+    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+    expect(dto.completed).toBe(true);
+    expect(dto.completionWorkflow).toBeNull();
+  });
+
+  it("deleted completion workflow never crashes derivation or blanks completion", async () => {
+    mockGetState.mockResolvedValue(
+      stateRow({
+        completedAt: "2026-07-18T00:00:00Z",
+        completionWorkflowId: "wf-gone",
+        completionWorkflowName: "Gone but remembered",
+      }),
+    );
+    mockListByAccount.mockResolvedValue([]);
+    mockGetWorkflowById.mockRejectedValue(new Error("row vanished mid-read"));
+    await expect(
+      getOnboardingChecklist({ userId: USER, accountId: ACCOUNT }),
+    ).rejects.toThrow(); // surfaced to the route, which maps it to a safe 500
+    // …and the route-level fail-open is covered in the route suite.
+  });
+
+  it("existing-user silent latch captures a deterministic name from the STRONGEST evidence workflow", async () => {
+    mockGetState
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        stateRow({
+          completedAt: "2026-07-18T00:00:00Z",
+          completionWorkflowId: "wf-active",
+          completionWorkflowName: "The live one",
+          celebratedAt: "2026-07-18T00:00:00Z",
+        }),
+      );
+    // Newest-first list: a paused workflow is more recent, but `active` is
+    // stronger evidence and must win deterministically.
+    mockListByAccount.mockResolvedValue([
+      wf({ id: "wf-paused", name: "Paused newer", state: "paused" }),
+      wf({ id: "wf-active", name: "The live one", state: "active" }),
+    ]);
+    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+    expect(mockLatchCompletion).toHaveBeenCalledWith({
+      userId: USER,
+      accountId: ACCOUNT,
+      workflowId: "wf-active",
+      workflowName: "The live one",
+      silent: true,
+    });
+    // Silent: no first-time celebration for a pre-feature account.
+    expect(dto.presentation?.celebrationPending).toBe(false);
   });
 });

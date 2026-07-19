@@ -19,7 +19,12 @@ export function OnboardingSuccessCard({
   completionWorkflow,
   onDone,
 }: {
-  completionWorkflow: { id: string; name: string } | null;
+  /**
+   * Live row → `{id, name}` (links to the workflow); deleted row with a
+   * surviving snapshot → `{id: null, name}` (named, not linked); neither →
+   * null (generic copy). See the DTO contract.
+   */
+  completionWorkflow: { id: string | null; name: string } | null;
   onDone: () => void;
 }) {
   return (
@@ -53,7 +58,9 @@ export function OnboardingSuccessCard({
           when its trigger occurs.
         </p>
         <div className="flex items-center justify-center gap-2">
-          {completionWorkflow && (
+          {/* Only linkable while the workflow row still exists — a snapshot-only
+              completion names the workflow but has nowhere to navigate. */}
+          {completionWorkflow?.id && (
             <Link
               href={`/workflows/${completionWorkflow.id}`}
               data-testid="onboarding-success-open-workflow"

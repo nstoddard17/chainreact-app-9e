@@ -181,13 +181,53 @@ export function workflowProvesPriorActivation(wf: {
   state: string;
   activeRevisionId: string | null;
 }): boolean {
+  return workflowActivationEvidenceRank(wf) > 0;
+}
+
+/**
+ * Strength of a workflow's prior-activation evidence (0 = none).
+ *
+ * Used to pick ONE deterministic completion-provenance workflow when several
+ * qualify (provenance correction, 2026-07-19). Ranked strongest-first:
+ *   2 — `state === "active"`: live, currently-running proof.
+ *   1 — was-active lifecycle states, or a draft carrying `active_revision_id`
+ *       (a revision is only stamped by an activation transition).
+ * Ties are broken by the caller taking the FIRST match over an
+ * `updated_at DESC` list ⇒ strongest, then most recently updated.
+ */
+export function workflowActivationEvidenceRank(wf: {
+  state: string;
+  activeRevisionId: string | null;
+}): number {
+  if (wf.state === "active") return 2;
   if (
-    wf.state === "active" ||
     wf.state === "paused" ||
     wf.state === "disabled" ||
-    wf.state === "eligible_to_resume"
+    wf.state === "eligible_to_resume" ||
+    wf.activeRevisionId !== null
   ) {
-    return true;
+    return 1;
   }
-  return wf.activeRevisionId !== null;
+  return 0;
+}
+
+/**
+ * Pick the completion-provenance workflow from an `updated_at DESC` list:
+ * highest evidence rank wins; the first (most recently updated) of that rank
+ * breaks ties. Returns null when nothing proves prior activation.
+ */
+export function pickActivationEvidenceWorkflow<
+  T extends { state: string; activeRevisionId: string | null },
+>(workflowsNewestFirst: readonly T[]): T | null {
+  let best: T | null = null;
+  let bestRank = 0;
+  for (const wf of workflowsNewestFirst) {
+    const rank = workflowActivationEvidenceRank(wf);
+    // Strict `>` keeps the FIRST (most recently updated) workflow of a rank.
+    if (rank > bestRank) {
+      best = wf;
+      bestRank = rank;
+    }
+  }
+  return best;
 }

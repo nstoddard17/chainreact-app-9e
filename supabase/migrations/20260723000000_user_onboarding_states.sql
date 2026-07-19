@@ -13,10 +13,19 @@
 -- readiness services. NEVER add per-step completion booleans here — a stored
 -- "connected/tested ✓" goes stale the moment the underlying state changes.
 --
--- completed_at + completion_workflow_id are latched by the SERVER only (activation
--- success path / derivation-time evidence), never from client input, and are
--- immutable once set. completion_workflow_id is FK ON DELETE SET NULL so deleting
--- the workflow never erases the completion fact (completed_at survives).
+-- completed_at + completion_workflow_id + completion_workflow_name are latched by
+-- the SERVER only (activation success path / derivation-time evidence), never from
+-- client input, and are immutable once set. completion_workflow_id is FK ON DELETE
+-- SET NULL so deleting the workflow never erases the completion fact.
+--
+-- WHY completion_workflow_name EXISTS (provenance correction, 2026-07-19): the FK
+-- alone does NOT preserve provenance — ON DELETE SET NULL keeps `completed_at` but
+-- drops the pointer, so after the workflow is deleted the success state could no
+-- longer name what completed onboarding. `completion_workflow_name` is an IMMUTABLE
+-- HISTORICAL SNAPSHOT of the workflow's name at first-latch time. It is deliberately
+-- NOT a cache of the live name: a later rename must not rewrite history, and the
+-- value must outlive the row it came from. Read order for display is live row name →
+-- snapshot → generic copy.
 --
 -- ROLLBACK (pre-launch, feature flag ENABLE_ONBOARDING_CHECKLIST default OFF):
 --   DROP TABLE public.user_onboarding_states;
@@ -30,6 +39,8 @@ CREATE TABLE public.user_onboarding_states (
   -- Completion provenance: the workflow whose successful activation latched
   -- completion. SET NULL on workflow deletion; completed_at is the durable fact.
   completion_workflow_id uuid REFERENCES public.workflows(id) ON DELETE SET NULL,
+  -- Immutable name snapshot taken at first latch (survives rename AND deletion).
+  completion_workflow_name text,
   first_shown_at       timestamptz,
   dismissed_at         timestamptz,
   minimized            boolean NOT NULL DEFAULT false,

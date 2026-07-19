@@ -191,16 +191,21 @@ describeDb("user_onboarding_states RLS — 5.ONBOARD-1", () => {
       user_id: a.userId,
       account_id: a.accountId,
       completed_at: new Date().toISOString(),
+      completion_workflow_name: "forged provenance",
     });
     expect(error).not.toBeNull();
     await c.auth.signOut();
   });
 
-  it("authenticated UPDATE of one's own row is denied (completed_at / completion_workflow_id unreachable)", async () => {
+  it("authenticated UPDATE of one's own row is denied (completed_at / completion_workflow_id / completion_workflow_name unreachable)", async () => {
     const c = await sessionClient(a.email, a.password);
     const { data, error } = await c
       .from("user_onboarding_states")
-      .update({ completed_at: new Date().toISOString(), minimized: true })
+      .update({
+        completed_at: new Date().toISOString(),
+        completion_workflow_name: "forged provenance",
+        minimized: true,
+      })
       .eq("user_id", a.userId)
       .eq("account_id", a.accountId)
       .select("*");
@@ -213,11 +218,16 @@ describeDb("user_onboarding_states RLS — 5.ONBOARD-1", () => {
     }
     const { data: after } = await admin
       .from("user_onboarding_states")
-      .select("completed_at, minimized")
+      .select("completed_at, completion_workflow_name, minimized")
       .eq("user_id", a.userId)
       .eq("account_id", a.accountId)
-      .single<{ completed_at: string | null; minimized: boolean }>();
+      .single<{
+        completed_at: string | null;
+        completion_workflow_name: string | null;
+        minimized: boolean;
+      }>();
     expect(after?.completed_at).toBeNull();
+    expect(after?.completion_workflow_name).toBeNull();
     expect(after?.minimized).toBe(false);
     await c.auth.signOut();
   });
@@ -245,6 +255,52 @@ describeDb("user_onboarding_states RLS — 5.ONBOARD-1", () => {
     expect(after.error).toBeNull();
     expect(after.data).toHaveLength(0);
     await c.auth.signOut();
+  });
+
+  it("PROVENANCE: deleting the completion workflow nulls the FK but PRESERVES the name snapshot", async () => {
+    // Seed a workflow, latch completion against it (service-role, as the app
+    // does), then hard-delete the workflow and prove the snapshot survives.
+    const { data: wf, error: wfErr } = await admin
+      .from("workflows")
+      .insert({
+        account_id: a.accountId,
+        created_by_user_id: a.userId,
+        name: "Provenance probe workflow",
+      })
+      .select("id")
+      .single<{ id: string }>();
+    expect(wfErr).toBeNull();
+
+    const { error: latchErr } = await admin
+      .from("user_onboarding_states")
+      .update({
+        completed_at: new Date().toISOString(),
+        completion_workflow_id: wf!.id,
+        completion_workflow_name: "Provenance probe workflow",
+      })
+      .eq("user_id", a.userId)
+      .eq("account_id", a.accountId)
+      .is("completed_at", null);
+    expect(latchErr).toBeNull();
+
+    const { error: delErr } = await admin.from("workflows").delete().eq("id", wf!.id);
+    expect(delErr).toBeNull();
+
+    const { data: after } = await admin
+      .from("user_onboarding_states")
+      .select("completed_at, completion_workflow_id, completion_workflow_name")
+      .eq("user_id", a.userId)
+      .eq("account_id", a.accountId)
+      .single<{
+        completed_at: string | null;
+        completion_workflow_id: string | null;
+        completion_workflow_name: string | null;
+      }>();
+    // FK cleared by ON DELETE SET NULL…
+    expect(after?.completion_workflow_id).toBeNull();
+    // …but the completion fact AND the historical name remain.
+    expect(after?.completed_at).not.toBeNull();
+    expect(after?.completion_workflow_name).toBe("Provenance probe workflow");
   });
 
   it("service_role sees and writes everything (the approved repository path)", async () => {

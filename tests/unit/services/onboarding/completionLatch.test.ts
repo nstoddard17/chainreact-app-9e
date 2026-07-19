@@ -17,7 +17,12 @@ jest.mock("@/services/onboarding/onboardingEvents", () => ({
 
 import { latchOnboardingCompletionOnActivation } from "@/services/onboarding/completionLatch";
 
-const INPUT = { userId: "user-1", accountId: "acct-1", workflowId: "wf-1" };
+const INPUT = {
+  userId: "user-1",
+  accountId: "acct-1",
+  workflowId: "wf-1",
+  workflowName: "Lead intake → Slack",
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -41,6 +46,7 @@ describe("latchOnboardingCompletionOnActivation", () => {
       userId: "user-1",
       accountId: "acct-1",
       workflowId: "wf-1",
+      workflowName: "Lead intake → Slack",
     });
     // First latch → the one-time completed funnel event.
     expect(mockRecordEvent).toHaveBeenCalledWith(
@@ -67,6 +73,74 @@ describe("latchOnboardingCompletionOnActivation", () => {
       expect.stringContaining("[onboarding] completion latch failed"),
       "db unavailable",
     );
+    consoleSpy.mockRestore();
+  });
+});
+
+describe("provenance snapshot (correction)", () => {
+  beforeEach(() => {
+    process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
+  });
+
+  it("passes null (not undefined) when the activating record has no name", async () => {
+    mockLatch.mockResolvedValue(true);
+    await latchOnboardingCompletionOnActivation({
+      userId: "user-1",
+      accountId: "acct-1",
+      workflowId: "wf-1",
+    });
+    expect(mockLatch).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowName: null }),
+    );
+  });
+
+  it("a LATER activation that loses the conditional latch emits no event — original provenance stands", async () => {
+    mockLatch.mockResolvedValue(false);
+    await latchOnboardingCompletionOnActivation({
+      userId: "user-1",
+      accountId: "acct-1",
+      workflowId: "wf-second",
+      workflowName: "Second workflow",
+    });
+    expect(mockLatch).toHaveBeenCalledTimes(1);
+    expect(mockRecordEvent).not.toHaveBeenCalled();
+  });
+
+  it("CONCURRENCY: two activations race — exactly one wins and one event fires", async () => {
+    // The repository's conditional UPDATE is the arbiter; simulate first-wins.
+    mockLatch.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await Promise.all([
+      latchOnboardingCompletionOnActivation({
+        userId: "user-1",
+        accountId: "acct-1",
+        workflowId: "wf-a",
+        workflowName: "A",
+      }),
+      latchOnboardingCompletionOnActivation({
+        userId: "user-1",
+        accountId: "acct-1",
+        workflowId: "wf-b",
+        workflowName: "B",
+      }),
+    ]);
+    expect(mockLatch).toHaveBeenCalledTimes(2);
+    expect(mockRecordEvent).toHaveBeenCalledTimes(1);
+    // The winner's id and name travel together (one consistent pair).
+    const evt = mockRecordEvent.mock.calls[0]![0] as { workflowId: string };
+    expect(["wf-a", "wf-b"]).toContain(evt.workflowId);
+  });
+
+  it("latch failure still never fails activation (snapshot path included)", async () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    mockLatch.mockRejectedValue(new Error("constraint violated"));
+    await expect(
+      latchOnboardingCompletionOnActivation({
+        userId: "user-1",
+        accountId: "acct-1",
+        workflowId: "wf-1",
+        workflowName: "Whatever",
+      }),
+    ).resolves.toBeUndefined();
     consoleSpy.mockRestore();
   });
 });

@@ -6,6 +6,7 @@
  */
 import {
   deriveChecklistSteps,
+  pickActivationEvidenceWorkflow,
   workflowProvesPriorActivation,
   type SelectedWorkflowFacts,
 } from "@/services/onboarding/checklistDerivation";
@@ -216,5 +217,54 @@ describe("workflowProvesPriorActivation", () => {
     expect(
       workflowProvesPriorActivation({ state: "draft", activeRevisionId: "rev-1" }),
     ).toBe(true);
+  });
+});
+
+describe("activation-evidence pick (provenance correction)", () => {
+  const wf = (over: Partial<{ id: string; state: string; activeRevisionId: string | null }> = {}) => ({
+    id: "wf-1",
+    state: "draft",
+    activeRevisionId: null,
+    ...over,
+  });
+
+  it("prefers a currently-active workflow over merely was-active evidence", () => {
+    // List order is `updated_at DESC`, so the paused row is the more recent one.
+    const picked = pickActivationEvidenceWorkflow([
+      wf({ id: "paused-recent", state: "paused" }),
+      wf({ id: "active-older", state: "active" }),
+    ]);
+    expect(picked?.id).toBe("active-older");
+  });
+
+  it("breaks ties by most recently updated (first in the list)", () => {
+    const picked = pickActivationEvidenceWorkflow([
+      wf({ id: "paused-newest", state: "paused" }),
+      wf({ id: "disabled-older", state: "disabled" }),
+    ]);
+    expect(picked?.id).toBe("paused-newest");
+  });
+
+  it("accepts a draft carrying active_revision_id as weaker evidence", () => {
+    const picked = pickActivationEvidenceWorkflow([
+      wf({ id: "plain-draft" }),
+      wf({ id: "was-activated", activeRevisionId: "rev-1" }),
+    ]);
+    expect(picked?.id).toBe("was-activated");
+  });
+
+  it("returns null when nothing proves prior activation", () => {
+    expect(pickActivationEvidenceWorkflow([wf(), wf({ id: "wf-2" })])).toBeNull();
+  });
+
+  it("is deterministic across repeated calls on the same list", () => {
+    const list = [
+      wf({ id: "a", state: "paused" }),
+      wf({ id: "b", state: "active" }),
+      wf({ id: "c", state: "active" }),
+    ];
+    const first = pickActivationEvidenceWorkflow(list)?.id;
+    expect(first).toBe("b");
+    expect(pickActivationEvidenceWorkflow(list)?.id).toBe(first);
   });
 });
