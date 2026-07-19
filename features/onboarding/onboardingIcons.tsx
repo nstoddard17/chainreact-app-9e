@@ -96,6 +96,15 @@ export const ObIcons = {
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </Icon>
   ),
+  // 5.ONBOARD-4 — collaboration steps (invite / teammate-joined / review team).
+  Users: (p: IconProps) => (
+    <Icon {...p}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </Icon>
+  ),
 } as const;
 
 export type ObIconName = keyof typeof ObIcons;

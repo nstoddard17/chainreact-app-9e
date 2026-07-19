@@ -7,10 +7,9 @@ import { listWorkflows, WorkflowApiError } from "@/lib/api/workflows";
 import type { WorkflowListItem } from "@/contracts/workflow";
 import type { WorkflowFolder } from "@/contracts/folders";
 import type { OnboardingChecklistDTO } from "@/contracts/onboarding";
-import {
-  OnboardingChecklist,
-  type OnboardingVideoProps,
-} from "@/features/onboarding/OnboardingChecklist";
+import type { CollaborationChecklistDTO } from "@/contracts/collaborationOnboarding";
+import type { OnboardingVideoProps } from "@/features/onboarding/OnboardingChecklist";
+import { OnboardingWidget } from "@/features/onboarding/OnboardingWidget";
 import { WorkflowCard } from "./WorkflowCard";
 import { WorkflowsTable } from "./WorkflowsTable";
 import { WorkflowsEmptyState } from "./WorkflowsEmptyState";
@@ -65,6 +64,12 @@ interface Props {
    * succeeding).
    */
   initialOnboarding?: OnboardingChecklistDTO | null;
+  /**
+   * 5.ONBOARD-4 — server-derived, ROLE-SPECIFIC collaboration checklist for the
+   * active account (null = personal account, ineligible plan, flag off, or a
+   * derivation failure). Takes priority over the workflow checklist while visible.
+   */
+  initialCollaborationOnboarding?: CollaborationChecklistDTO | null;
   /** 5.ONBOARD-1 Batch 4 — server-configured optional video (null = hidden). */
   onboardingVideo?: OnboardingVideoProps | null;
 }
@@ -81,14 +86,29 @@ function initialOnboardingVisible(dto: OnboardingChecklistDTO | null | undefined
   return true;
 }
 
+/** Mirror of isCollaborationChecklistVisible for the pre-mount seed. */
+function initialCollaborationVisible(
+  dto: CollaborationChecklistDTO | null | undefined,
+): boolean {
+  if (!dto) return false;
+  if (dto.presentation.dismissed) return false;
+  if (dto.completed && !dto.presentation.celebrationPending) return false;
+  return true;
+}
+
 export function WorkflowsDashboard({
   initialWorkflows,
   initialFolders = [],
   folderLimit = 10,
   initialOnboarding = null,
+  initialCollaborationOnboarding = null,
   onboardingVideo = null,
 }: Props) {
   const [onboardingVisible, setOnboardingVisible] = useState(() =>
+    // 5.ONBOARD-4 — either checklist occupying the slot suppresses the empty
+    // state, so seed from BOTH. The collaboration card is visible unless it was
+    // dismissed or silently completed (mirrors isCollaborationChecklistVisible).
+    initialCollaborationVisible(initialCollaborationOnboarding) ||
     initialOnboardingVisible(initialOnboarding),
   );
   const [workflows, setWorkflows] = useState<readonly WorkflowListItem[]>(initialWorkflows);
@@ -321,10 +341,14 @@ export function WorkflowsDashboard({
 
       {/* 5.ONBOARD-2 — mounted here (this surface has the server-derived DTO)
           but rendered as a FIXED bottom-right widget, so it reserves no layout
-          space. While visible it still replaces the no-workflows empty state. */}
-      {initialOnboarding !== null && (
-        <OnboardingChecklist
-          initial={initialOnboarding}
+          space. While visible it still replaces the no-workflows empty state.
+          5.ONBOARD-4 — now via OnboardingWidget, which mounts EXACTLY ONE of the
+          collaboration and workflow checklists so the two can never overlap in
+          the shared bottom-right slot. */}
+      {(initialOnboarding !== null || initialCollaborationOnboarding !== null) && (
+        <OnboardingWidget
+          workflow={initialOnboarding}
+          collaboration={initialCollaborationOnboarding}
           onVisibilityChange={setOnboardingVisible}
           video={onboardingVideo}
         />

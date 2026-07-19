@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/popover";
 import { signOut } from "@/app/auth/actions";
 import { postOnboardingPresentation } from "@/lib/api/onboarding";
+import { postCollaborationPresentation } from "@/lib/api/collaborationOnboarding";
 
 /**
  * Authenticated-user menu (Slice 4.APP-SHELL-1; rail-style refit in
@@ -43,15 +44,23 @@ export function UserMenu({ userEmail }: Props) {
 
   // Reopen the checklist for the ACTIVE account, then land on /workflows with
   // a full reload (same re-scope idiom as the account switcher) so the
-  // server-fetched checklist reflects the reopen. The POST is best-effort —
-  // navigation proceeds even if it fails.
+  // server-fetched checklist reflects the reopen.
+  //
+  // 5.ONBOARD-4 — un-dismiss BOTH checklists rather than guessing which one the
+  // user meant. Which card actually appears is then decided server-side by the
+  // coordinator's priority rule from the user's REAL role in the CURRENT account,
+  // so "Getting started" always reopens the right checklist without the client
+  // needing to know the role or the plan. The collaboration POST 404s harmlessly
+  // on personal and ineligible accounts (there is no track to reopen).
+  //
+  // Both are best-effort and independent: one failing must not block the other or
+  // the navigation.
   async function openGettingStarted() {
     setOpen(false);
-    try {
-      await postOnboardingPresentation({ action: "reopen" });
-    } catch {
-      /* best-effort */
-    }
+    await Promise.allSettled([
+      postOnboardingPresentation({ action: "reopen" }),
+      postCollaborationPresentation({ action: "reopen" }),
+    ]);
     window.location.assign("/workflows");
   }
   return (

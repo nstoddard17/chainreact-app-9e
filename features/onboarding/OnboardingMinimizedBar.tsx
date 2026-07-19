@@ -15,18 +15,28 @@ export function OnboardingMinimizedBar({
   completedStepCount,
   totalStepCount,
   onExpand,
+  title = "Launch your first workflow",
+  testId = "onboarding-minimized-bar",
 }: {
   completedStepCount: number;
   totalStepCount: number;
   onExpand: () => void;
+  /**
+   * 5.ONBOARD-4 — which checklist this pill collapses. Defaults to the
+   * first-workflow copy so existing callers are unchanged; the collaboration
+   * checklist passes its per-track title so the accessible name names the RIGHT
+   * checklist rather than telling a team member to launch their first workflow.
+   */
+  title?: string;
+  testId?: string;
 }) {
   const fraction = totalStepCount > 0 ? completedStepCount / totalStepCount : 0;
   return (
     <button
       type="button"
       onClick={onExpand}
-      data-testid="onboarding-minimized-bar"
-      aria-label={`Launch your first workflow — ${completedStepCount} of ${totalStepCount} steps complete. Expand checklist.`}
+      data-testid={testId}
+      aria-label={`${title} — ${completedStepCount} of ${totalStepCount} steps complete. Expand checklist.`}
       className="inline-flex items-center gap-3 rounded-[14px] bg-card py-[11px] pl-3 pr-[15px] text-left shadow-[inset_0_0_0_1px_hsl(var(--border))] transition hover:-translate-y-0.5 hover:shadow-[inset_0_0_0_1px_hsl(var(--primary))] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:hover:translate-y-0"
     >
       <OnboardingProgressRing fraction={fraction} />

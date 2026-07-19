@@ -18,7 +18,9 @@ import {
   toNotificationPreview,
 } from "@/app/notifications/notificationPreview";
 import type { OnboardingChecklistDTO } from "@/contracts/onboarding";
+import type { CollaborationChecklistDTO } from "@/contracts/collaborationOnboarding";
 import { getOnboardingChecklist } from "@/services/onboarding/checklistState";
+import { getCollaborationChecklist } from "@/services/collaborationOnboarding/checklistState";
 import { getOnboardingVideoConfig } from "@/services/onboarding/onboardingVideo";
 
 /**
@@ -107,6 +109,25 @@ export default async function WorkflowsPage() {
     );
   }
 
+  // 5.ONBOARD-4 — server-fetched, ROLE-SPECIFIC collaboration checklist. Fetched
+  // here (not client-side) for two reasons: the card renders without a loading
+  // flash, and — more importantly — the ROLE is resolved server-side before the
+  // first paint, so a member can never briefly see the owner checklist while
+  // account state loads. Returns null for personal accounts and ineligible plans.
+  // Fail-open, exactly like the workflow checklist above.
+  let collaborationOnboarding: CollaborationChecklistDTO | null = null;
+  try {
+    collaborationOnboarding = await getCollaborationChecklist({
+      userId: user.id,
+      accountId: ownerAccount.id,
+    });
+  } catch (err) {
+    console.error(
+      "[collab-onboarding] dashboard checklist fetch failed:",
+      err instanceof Error ? err.message : "unknown error",
+    );
+  }
+
   return (
     <AppShell
       userEmail={user.email ?? ""}
@@ -123,6 +144,7 @@ export default async function WorkflowsPage() {
           initialFolders={folders}
           folderLimit={folderLimitForAccount(planResolution.plan, ownerAccount.type)}
           initialOnboarding={onboarding}
+          initialCollaborationOnboarding={collaborationOnboarding}
           onboardingVideo={onboarding ? getOnboardingVideoConfig() : null}
         />
       </main>
