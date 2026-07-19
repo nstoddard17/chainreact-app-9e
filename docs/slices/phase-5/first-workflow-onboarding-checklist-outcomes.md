@@ -518,8 +518,42 @@ routes/components + workflows + apps + app-shell + workflow API routes):
 
 **Full suite** was run with `ALLOW_DB_INTEGRATION_TESTS=false` — a deliberate
 change from the implementation batch, so the destructive DB-backed suites skip
-instead of executing against production (§15a). Results and the
-baseline-vs-HEAD comparison are in §18.
+instead of executing against production (§15a). Results in §18.
+
+## 18. Full-suite baseline comparison — 0 regressions (proven, not assumed)
+
+Both runs used `jest --json`, same machine, same flags
+(`ALLOW_DB_INTEGRATION_TESTS=false`). The baseline is the **pre-onboarding**
+commit `ce1e60d35`, checked out in a dedicated git worktree
+(`git worktree add /c/tmp/cr-baseline ce1e60d35`) and executed there — so the
+comparison is against actually-executed results, not an assumption.
+
+| | Baseline `ce1e60d35` | HEAD `052794091` |
+|---|---|---|
+| Suites failed / passed | 48 / 2198 | **29 / 2230** |
+| Tests failed / passed / skipped | 56 / 25 010 / 325 | **31 / 25 182 / 334** |
+
+Set difference of failing suites:
+
+- **New failures at HEAD: 0.** Every failing suite at HEAD also fails at the
+  pre-onboarding baseline.
+- **Failing in both (pre-existing): 29** — 19 builder provider-config
+  integration suites, `variable-picker-file-array`, `WorkflowCanvas`, the two
+  structure suites (`client-server-boundary` — remaining entries are
+  pre-existing `features/auth` turnstile + `features/marketing` billing imports,
+  none from onboarding; `no-literal-slack-token-fixtures` — five untouched test
+  files), `option-source-manifest`, `workflowRuns.listByAccountForDisplay`,
+  `activeAccount`, `staleWorkflowRunSweep`, `buildWorkflowFailurePayload`,
+  `dispatch-idempotency`, `certification-seed-split`.
+- **Failed at baseline but PASSING at HEAD: 19** (mostly builder config suites).
+
+**Caveat, stated plainly:** the builder provider-config integration suites are
+load-sensitive — an earlier HEAD run in this batch showed 13 failing suites vs
+29 in the recorded run, with no code change between them. Their pass/fail set
+varies with parallel scheduling, which is also why 19 "recovered" above. That
+flakiness is pre-existing and orthogonal to this arc; the load-bearing fact is
+that **the failing set at HEAD is a strict subset of the baseline's** — the
+onboarding arc introduced no suite that fails at HEAD and passes at baseline.
 
 ## 12. Deferred / follow-ups
 
