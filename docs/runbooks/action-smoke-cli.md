@@ -38,7 +38,7 @@ drift.
 | `ALLOW_LIVE_PROVIDER_SMOKE=true` | mode 4 | Second gate — enables real provider calls (read/baseline live fixtures). |
 | `ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true` | mode 4, `write` fixtures | Third gate — enables live fixtures classified `liveRisk: "write"` (they post/mutate). |
 | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | modes 3, 4 | Dev DB service-role access (auto-loaded from `.env.local`). |
-| `SMOKE_ACCOUNT_ID`, `SMOKE_USER_ID` | modes 3, 4 | The dev account + member user the throwaway workflow is created under. |
+| `SMOKE_LIVE_ACCOUNT_ID`, `SMOKE_LIVE_USER_ID` | mode 4 only | The real account + user a LIVE run targets. Mode 3 needs neither: it provisions a throwaway account per run and deletes it afterwards. Live runs must name their target explicitly — the old general-purpose `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` are no longer read by any suite. |
 | `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true` | mode 4, destructive only | Second half of the destructive opt-in (with `includeDestructive`). No shipped fixture is both `liveSafe` and destructive. |
 | `SMOKE_SLACK_CONNECTED=1` | Slack fixtures (modes 2–4) | Signals the smoke account has Slack connected. Unset → Slack fixtures SKIP. |
 | `SMOKE_SLACK_CHANNEL_ID=<channel id>` | Slack `send_channel_message` (write), `get_channel_info`, `get_messages`, `get_thread_messages` | Target channel id (overlaid onto config). Unset → those fixtures SKIP **before** any workflow is created. |
@@ -150,7 +150,7 @@ To live-verify connected providers with ZERO manual selector env:
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   npm run smoke:actions:run:workflow:live
 ```
 
@@ -297,7 +297,7 @@ selector reads need their id env, else SKIP):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_SLACK_CONNECTED=1 \
   SMOKE_SLACK_CHANNEL_ID=<C…> SMOKE_SLACK_USER_ID=<U…> \
   npm run smoke:actions:run:workflow:live
@@ -326,7 +326,7 @@ need a table id; `get_record` also needs a record id, else SKIP):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_AIRTABLE_CONNECTED=1 \
   SMOKE_AIRTABLE_BASE_ID=<app…> SMOKE_AIRTABLE_TABLE_ID=<tbl… or name> \
   npm run smoke:actions:run:workflow:live
@@ -349,7 +349,7 @@ name; `find_row` also needs a lookup column + value — any missing one SKIPs):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_GOOGLE_SHEETS_CONNECTED=1 \
   SMOKE_GSHEETS_SPREADSHEET_ID=<spreadsheet id> \
   SMOKE_GSHEETS_RANGE='Sheet1!A1:D5' SMOKE_GSHEETS_SHEET_NAME=Sheet1 \
@@ -387,7 +387,7 @@ an optional folder — any missing required one SKIPs):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_GOOGLE_DRIVE_CONNECTED=1 \
   SMOKE_GDRIVE_FILE_ID=<file id> SMOKE_GDRIVE_QUERY=<text> \
   npm run smoke:actions:run:workflow:live
@@ -419,7 +419,7 @@ no bytes). Point the ids at a **dedicated smoke Drive** you control.
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_GMAIL_CONNECTED=1 SMOKE_GMAIL_QUERY='newer_than:7d' \
   npm run smoke:actions:run:workflow:live
 ```
@@ -450,7 +450,7 @@ connected Outlook; `fetch_emails` optionally narrows via `SMOKE_OUTLOOK_QUERY`):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_MICROSOFT_OUTLOOK_CONNECTED=1 \
   npm run smoke:actions:run:workflow:live
 ```
@@ -483,7 +483,7 @@ required env SKIPs):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_NOTION_CONNECTED=1 \
   SMOKE_NOTION_DATABASE_ID=<id> SMOKE_NOTION_PAGE_ID=<id> \
   npm run smoke:actions:run:workflow:live
@@ -520,7 +520,7 @@ missing required env SKIPs):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_MICROSOFT_EXCEL_CONNECTED=1 SMOKE_EXCEL_WORKBOOK_ID=<drive item id> \
   SMOKE_EXCEL_WORKSHEET_NAME=Sheet1 SMOKE_EXCEL_RANGE='A1:D10' \
   SMOKE_EXCEL_TABLE_NAME=Table1 \
@@ -564,7 +564,7 @@ also need a channel id — missing required env SKIPs):
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_MICROSOFT_TEAMS_CONNECTED=1 \
   SMOKE_TEAMS_TEAM_ID=<team id> SMOKE_TEAMS_CHANNEL_ID=<channel id> \
   npm run smoke:actions:run:workflow:live
@@ -779,14 +779,14 @@ status.
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true \
-  SMOKE_ACCOUNT_ID=<dev account uuid> SMOKE_USER_ID=<dev user uuid> \
   npm run smoke:actions:run:workflow
 ```
 
 Requirements (else the suite **SKIPs**, never fails): `ALLOW_DB_INTEGRATION_TESTS=true`,
 `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (auto-loaded from
-`.env.local`), and `SMOKE_ACCOUNT_ID` + `SMOKE_USER_ID` (a real dev account + a
-member user the throwaway workflow is created under).
+`.env.local`). No account id is needed: the suite provisions a throwaway user and
+account per run and hard-deletes them afterwards, so nothing it creates lands in a
+real account.
 
 Safety model:
 
@@ -817,7 +817,7 @@ mode**, so the provider handler actually runs. **Only `liveSafe` fixtures run.**
 
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<dev account uuid> SMOKE_USER_ID=<dev user uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<dev account uuid> SMOKE_LIVE_USER_ID=<dev user uuid> \
   SMOKE_SLACK_CONNECTED=1 \
   npm run smoke:actions:run:workflow:live
 ```
@@ -827,7 +827,7 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<dev account uuid> SMOKE_USER_ID=<dev user uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<dev account uuid> SMOKE_LIVE_USER_ID=<dev user uuid> \
   SMOKE_SLACK_CONNECTED=1 SMOKE_SLACK_CHANNEL_ID=<channel id> \
   npm run smoke:actions:run:workflow:live
 ```
@@ -839,7 +839,7 @@ ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
 
 Requirements (else the suite **SKIPs**): the mode-3 set **plus**
 `ALLOW_LIVE_PROVIDER_SMOKE=true`, plus each fixture's provider-connection env
-(`SMOKE_SLACK_CONNECTED=1` needs a real Slack connection on `SMOKE_ACCOUNT_ID`);
+(`SMOKE_SLACK_CONNECTED=1` needs a real Slack connection on `SMOKE_LIVE_ACCOUNT_ID`);
 the write fixture additionally needs `ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true` +
 `SMOKE_SLACK_CHANNEL_ID`.
 
@@ -854,7 +854,7 @@ Safety model (additions over mode 3):
 - **Destructive double-opt-in** — a destructive fixture runs live ONLY with **both**
   `includeDestructive` **and** `ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true`. No shipped
   fixture is both `liveSafe` and destructive.
-- **Real runs consume one task** from `SMOKE_ACCOUNT_ID`'s balance.
+- **Real runs consume one task** from `SMOKE_LIVE_ACCOUNT_ID`'s balance.
 - **No data leak** — the report asserts only the terminal run status; it never
   contains the channel list / provider output. Failure reasons are humanized
   titles / engine codes, then run through `sanitizeFailureReason` (redacts
@@ -929,8 +929,8 @@ ALLOW_DB_INTEGRATION_TESTS=true      # master dev-DB gate
 ALLOW_LIVE_PROVIDER_SMOKE=true       # live-read gate
 NEXT_PUBLIC_SUPABASE_URL=…           # auto-loaded from .env.local
 SUPABASE_SERVICE_ROLE_KEY=…          # auto-loaded from .env.local
-SMOKE_ACCOUNT_ID=<dev account uuid>
-SMOKE_USER_ID=<dev member user uuid>
+SMOKE_LIVE_ACCOUNT_ID=<dev account uuid>
+SMOKE_LIVE_USER_ID=<dev member user uuid>
 ```
 
 **One provider at a time** (set the provider connection + any selector env it needs):
@@ -1682,7 +1682,7 @@ others can never run live by accident):
 ```bash
 ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
   ALLOW_LIVE_PROVIDER_WRITE_SMOKE=true ALLOW_DESTRUCTIVE_PROVIDER_SMOKE=true \
-  SMOKE_ACCOUNT_ID=<uuid> SMOKE_USER_ID=<uuid> \
+  SMOKE_LIVE_ACCOUNT_ID=<uuid> SMOKE_LIVE_USER_ID=<uuid> \
   SMOKE_PROVIDER=airtable SMOKE_AIRTABLE_CONNECTED=1 \
   SMOKE_AIRTABLE_BASE_ID=<dedicated smoke base> SMOKE_AIRTABLE_TABLE_ID=<smoke table> \
   SMOKE_AIRTABLE_TEXT_FIELD='<the table primary text field, e.g. Name>' \
@@ -1814,7 +1814,7 @@ smoke-owned guard, dry-run-never-mutates, every gate, PASS path, pure helpers).
   create→verify→cleanup write-harness slice — not yet built. This read + native-logic
   harness is the safe-by-default foundation.
 - **Workflow-run modes are dev-DB-gated.** They require `ALLOW_DB_INTEGRATION_TESTS`
-  + Supabase service-role env + `SMOKE_ACCOUNT_ID`/`SMOKE_USER_ID` (mode 4 also
+  + Supabase service-role env + `SMOKE_LIVE_ACCOUNT_ID`/`SMOKE_LIVE_USER_ID` (mode 4 also
   needs `ALLOW_LIVE_PROVIDER_SMOKE`). Without them they SKIP — so CI exercises
   modes 1–2, not 3–4.
 - **Live mode (4) is intentionally narrow.** Only `liveSafe` fixtures run — 42 today

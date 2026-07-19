@@ -186,6 +186,72 @@ Examples:
 
 When in doubt, mock at the **HTTP boundary** or the **provider SDK call**. Mock as little as possible and as far out as possible.
 
+## DB-backed fixture teardown (REQUIRED)
+
+Any suite that creates real rows on the shared Supabase project — auth users,
+accounts, workflows, integrations — **must** tear them down with the shared
+helper. Do not hand-roll an `afterAll`.
+
+```ts
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
+
+const fixtures = createFixtureTracker();
+
+// Mint users through the helper so the id is tracked before anything can throw.
+const user = await createTrackedUser(admin, fixtures, "my-suite");
+// Track any account the suite creates EXPLICITLY (team/org). Personal accounts
+// are created by a DB trigger and resolved automatically from owner_user_id.
+fixtures.trackAccount(teamId);
+
+afterAll(async () => {
+  await cleanupFixtures(admin, fixtures);
+});
+```
+
+**Why this is a rule, not a suggestion.** Every suite used to write its own
+teardown, and they repeated the same three mistakes: deleting
+`account_memberships` before `accounts` (which trips the
+`account_memberships_team_owner_invariant_violation` trigger), leaving an
+`ON DELETE RESTRICT` child behind so the account delete fails, and never
+checking `error` — so a green run silently leaked. ~320 synthetic
+`@chainreact.test` users accumulated in the shared project that way, alongside
+9,320 debris workflows. `cleanupFixtures` deletes in the production purge order
+(`services/accounts/accountPurge.ts`): RESTRICT children → account rows
+(cascading memberships) → `auth.users` last. It collects every failure and
+throws one aggregate at the end, so teardown never stops early and never passes
+silently.
+
+**Build fixtures in `beforeAll`, not in `it()` bodies.** A creation started
+inside a test that then fails or times out can complete *after* `afterAll` has
+run, leaving an untracked row nothing can clean. Fully await every fixture in
+`beforeAll`.
+
+**Tables the helper deliberately does NOT touch.** These FK `accounts` with
+`ON DELETE SET NULL`, or have no FK at all, so they neither cascade nor block —
+and in production they are meant to outlive the account:
+`task_usage_events`, `ai_cost_events`, `billing_shadow_comparisons`,
+`react_agent_audit_events`, `account_deletions`, and platform-owned
+`workflow_templates` (`account_id NULL`). A suite that writes to any of them
+clears its own rows **before** calling `cleanupFixtures`.
+
+**Smoke suites never use a real account.** Throwaway runs call
+`provisionDisposableSmokeAccount` (`@/tests/helpers/smokeAccount`); live-provider
+runs must name their target explicitly via `SMOKE_LIVE_ACCOUNT_ID` /
+`SMOKE_LIVE_USER_ID` and skip when unset. The general-purpose
+`SMOKE_ACCOUNT_ID` / `SMOKE_USER_ID` vars pointed at a real production account
+and are no longer read by any suite; a structure test
+(`tests/structure/no-shared-smoke-account.test.ts`) fails the build if they
+come back.
+
+**`tests/globalTeardown.ts` is a safety net, not the cleanup path.** It sweeps
+leftover `@chainreact.test` fixtures once per run and names the offending suite
+in a warning. If it reports anything, fix that suite's teardown — do not rely on
+the net.
+
 ## Regression test process
 
 Any known bug that influenced ChainReactV2 architecture gets a regression test in `tests/parity/` before the related subsystem is considered done.

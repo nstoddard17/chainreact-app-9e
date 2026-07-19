@@ -320,7 +320,7 @@ SMOKE_QUICKBOOKS_SEND_TO=<safe test email>   # OPTIONAL — required ONLY to
                                              # other action still runs.
 ```
 The dev-DB access already in `.env.local` (`NEXT_PUBLIC_SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, `SMOKE_ACCOUNT_ID`, `SMOKE_USER_ID`) plus
+`SUPABASE_SERVICE_ROLE_KEY`, `SMOKE_LIVE_ACCOUNT_ID`, `SMOKE_LIVE_USER_ID`) plus
 `QUICKBOOKS_CLIENT_ID` / `QUICKBOOKS_CLIENT_SECRET` are also needed to reach
 the connected realm.
 
