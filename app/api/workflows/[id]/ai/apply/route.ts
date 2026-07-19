@@ -56,6 +56,8 @@ function applyFailureStatus(code: ApplyErrorCode): number {
       return 428;
     case "STALE_PATCH":
       return 409;
+    case "PLAN_FEATURE_REQUIRED":
+      return 403;
     case "PATCH_INVALID":
     case "UNSUPPORTED_OPERATION":
     case "VALIDATION_FAILED":

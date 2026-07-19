@@ -123,6 +123,7 @@ export async function restoreCheckpoint(input: {
   if (!checkpoint) return { ok: false, reason: "checkpoint_not_found" };
 
   const saved = await saveDraftDefinition({
+    accountId: input.workflow.accountId,
     previousState: input.workflow.state,
     previousDefinition: input.workflow.draftDefinition,
     nextDefinition: checkpoint.definition,

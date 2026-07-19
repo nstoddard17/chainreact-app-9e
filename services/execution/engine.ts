@@ -31,6 +31,8 @@ import {
 } from "@/services/integrations/connectionResolution";
 import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimator";
 import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
+import { definitionUsesAdvancedBranching } from "@/core/workflows/advancedBranching";
+import { resolveAdvancedBranchingEntitlementServiceRole } from "@/services/billing/advancedBranchingEntitlement";
 import { getDefinitionForExecution } from "@/services/workflows/activeRevision";
 import { recordShadowComparison } from "@/services/billing/reserveReconcileShadowMode";
 import { recordBillingShadowComparison } from "@/services/billing/billingShadowComparisons";
@@ -308,6 +310,66 @@ export class WorkflowEngine {
       }
       return fatalResult;
     };
+
+    // BRANCH-ENT-1 C5 — advanced-branching plan gate at the SAME universal
+    // choke point. Inspects the EFFECTIVE definition being executed (draft for
+    // test runs, active revision for live) and the workflow-OWNING account's
+    // current billing (service-role read, fail-closed). Runs for test AND real
+    // runs, BEFORE readiness and billing, so a non-entitled account gets a
+    // typed failure with zero handler invocations, zero side effects, and zero
+    // task deduction — covering run-now, webhooks, polling, scheduled, the
+    // public API route, and the queue processor without per-route plumbing.
+    if (definitionUsesAdvancedBranching(def)) {
+      const entitlement = await resolveAdvancedBranchingEntitlementServiceRole(
+        workflow.accountId,
+      );
+      if (!entitlement.entitled) {
+        log("execution.run.fatal", {
+          code: "PLAN_FEATURE_REQUIRED",
+          plan: entitlement.plan,
+          fallback: entitlement.fallback,
+        });
+        const fatal = await failBeforeExecution(
+          "PLAN_FEATURE_REQUIRED",
+          "This workflow uses If/Else routing, which requires Pro or higher. Upgrade or remove the branching node to run this workflow.",
+        );
+        // Background trigger sources would otherwise re-fire noisy failed runs
+        // on every event. Disable ONCE through the existing lifecycle
+        // orchestrator (typed billing reason + human context); the dispatch
+        // layers' `state === "active"` gates then stop further enqueues, and
+        // the user recovers via the normal Reactivate → Resume path after
+        // upgrading or removing the branching step. Manual/test runs never
+        // change lifecycle state. Lazy import keeps the engine's module graph
+        // (and its unit-test surface) free of the orchestrator unless needed.
+        if (
+          !isTest &&
+          workflow.state === "active" &&
+          (triggeredBy === "webhook" ||
+            triggeredBy === "scheduled" ||
+            triggeredBy === "api_key")
+        ) {
+          try {
+            const { createLifecycleOrchestrator } = await import(
+              "@/services/workflows/orchestratorFactory"
+            );
+            await createLifecycleOrchestrator().disable({
+              workflowId: input.workflowId,
+              reason: "billing_exhausted",
+              context:
+                "Advanced branching (If/Else routing) requires Pro or higher. Upgrade or remove the branching step, then reactivate.",
+            });
+            log("execution.run.plan_feature_disabled", {
+              workflowId: input.workflowId,
+            });
+          } catch (err) {
+            log("execution.run.plan_feature_disable_failed", {
+              error: (err as Error).message,
+            });
+          }
+        }
+        return fatal;
+      }
+    }
 
     // B — execution-readiness backstop (the universal choke point). Every entry
     // path — run-now, webhooks, scheduled (services/triggers/dispatch), v1

@@ -138,6 +138,16 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
         action: "upgrade_plan",
         severity: "warning",
       };
+    case "PLAN_FEATURE_REQUIRED":
+      return {
+        title: "Upgrade required for If/Else routing",
+        description:
+          input.message ||
+          "This workflow uses If/Else routing, which requires Pro or higher.",
+        hint: "Upgrade your plan, or remove the branching step to run this workflow.",
+        action: "upgrade_plan",
+        severity: "warning",
+      };
     case "INVALID_BRANCH":
       return {
         title: "Branch label not found",

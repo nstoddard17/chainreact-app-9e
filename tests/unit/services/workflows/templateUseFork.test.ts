@@ -32,6 +32,16 @@ jest.mock("@/services/accounts/accountAuthz", () => ({
   requireAccountRole: (...a: unknown[]) => mockRequireRole(...a),
 }));
 
+// BRANCH-ENT-1 C5 — the use path gates advanced-branching templates on the
+// DESTINATION account's entitlement. Mocked at the billing boundary; default
+// (set in beforeEach) is ENTITLED so existing use/fork tests run unchanged.
+const mockBranchingEntitlement = jest.fn();
+jest.mock("@/services/billing/advancedBranchingEntitlement", () => ({
+  resolveAdvancedBranchingEntitlement: (...a: unknown[]) => mockBranchingEntitlement(...a),
+  resolveAdvancedBranchingEntitlementServiceRole: (...a: unknown[]) =>
+    mockBranchingEntitlement(...a),
+}));
+
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createWorkflowFromTemplate, forkTemplateToAccount } from "@/services/workflows/templateManagement";
@@ -113,6 +123,8 @@ beforeEach(() => {
   mockGetDisplayName.mockResolvedValue("Jane Doe");
   mockResolveCaps.mockResolvedValue({ plan: "pro", fallback: false, capabilities: { plan: "pro", canBulkExport: true, canCreateTemplates: true, canUseBuiltInTemplates: true } });
   mockRequireRole.mockResolvedValue({ ok: true, role: "owner" });
+  // BRANCH-ENT-1 — default: destination account entitled to advanced branching.
+  mockBranchingEntitlement.mockResolvedValue({ entitled: true, plan: "pro", planStatus: "active", fallback: false });
 });
 
 describe("createWorkflowFromTemplate (use)", () => {
@@ -137,6 +149,52 @@ describe("createWorkflowFromTemplate (use)", () => {
     repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(template({ source: "official", accountId: null, visibility: "public" }));
     const r = await createWorkflowFromTemplate({ templateId: "tpl-1", targetAccountId: TARGET, actorUserId: ACTOR });
     expect(r.ok).toBe(true);
+  });
+
+  // ── BRANCH-ENT-1 C5 — destination-account plan gate on template use ──
+  const BRANCHING_TEMPLATE_DEF = {
+    nodes: [
+      { id: "t1", kind: "trigger", provider: "native", type: "manual.run", position: { x: 0, y: 0 }, config: {} },
+      { id: "if1", kind: "action", provider: "native", type: "if_then_condition", position: { x: 0, y: 100 }, config: { input: "x", operator: "is_not_empty" } },
+    ],
+    edges: [{ id: "e1", from: "t1", to: "if1" }],
+  };
+
+  it("a branching template into a NON-entitled destination is rejected typed — no workflow row, no usage event, no silent flattening", async () => {
+    repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(
+      template({ source: "official", accountId: null, definition: BRANCHING_TEMPLATE_DEF }),
+    );
+    mockBranchingEntitlement.mockResolvedValue({ entitled: false, plan: "free", planStatus: "active", fallback: false });
+
+    const r = await createWorkflowFromTemplate({ templateId: "tpl-1", targetAccountId: TARGET, actorUserId: ACTOR });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe("plan_feature_required");
+    }
+    expect(mockCreateWorkflow).not.toHaveBeenCalled();
+    expect(repo.recordTemplateUsageEventServiceRole).not.toHaveBeenCalled();
+    // Entitlement is resolved for the DESTINATION account (never the source's).
+    expect(mockBranchingEntitlement).toHaveBeenCalledWith(TARGET);
+    // Authorization ran BEFORE the plan check (no plan-state oracle for non-members).
+    expect(mockRequireRole).toHaveBeenCalledWith(ACTOR, TARGET, ["owner", "admin", "member"]);
+  });
+
+  it("a NON-member never reaches the plan check for a branching template (authz before plan)", async () => {
+    repo.getTemplateByIdAnyAccountServiceRole.mockResolvedValue(
+      template({ source: "official", accountId: null, definition: BRANCHING_TEMPLATE_DEF }),
+    );
+    mockRequireRole.mockResolvedValue({ ok: false, reason: "not_member" });
+    const r = await createWorkflowFromTemplate({ templateId: "tpl-1", targetAccountId: TARGET, actorUserId: ACTOR });
+    expect(r).toEqual({ ok: false, reason: "target_not_member" });
+    expect(mockBranchingEntitlement).not.toHaveBeenCalled();
+  });
+
+  it("a LINEAR template instantiates fine for a non-entitled destination (only branching is gated)", async () => {
+    mockBranchingEntitlement.mockResolvedValue({ entitled: false, plan: "free", planStatus: "active", fallback: false });
+    const r = await createWorkflowFromTemplate({ templateId: "tpl-1", targetAccountId: TARGET, actorUserId: ACTOR });
+    expect(r.ok).toBe(true);
+    // The SANITIZED_DEF template has no branching node → billing never consulted.
+    expect(mockBranchingEntitlement).not.toHaveBeenCalled();
   });
 
   it("EVERY effective official template → instantiates a workflow with NO credentials / account values", async () => {

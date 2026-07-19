@@ -3,6 +3,7 @@ import type { WorkflowRecord } from "@/repositories/workflows";
 import { triggerChanged } from "@/core/workflows/triggerChange";
 import { getTriggerMeta } from "@/services/discovery/_registry";
 import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
+import { assertDefinitionPlanEntitlement } from "@/services/workflows/planFeatureGate";
 
 /**
  * Authoritative "save draft definition + active-trigger-change deactivation" path shared by
@@ -47,6 +48,14 @@ function hasActivatableTrigger(def: WorkflowDefinition): boolean {
 }
 
 export interface SaveDraftDefinitionInput {
+  /**
+   * The WORKFLOW-OWNING account (BRANCH-ENT-1 C5). Drives the plan-feature
+   * gate: a next-definition that uses advanced branching is rejected with a
+   * typed `PlanFeatureRequiredError` when this account's current billing does
+   * not entitle it. Always the workflow row's `accountId` — never the acting
+   * user's active account.
+   */
+  accountId: string;
   /** The workflow's state BEFORE the save (drives the deactivation decision). */
   previousState: WorkflowState;
   previousDefinition: WorkflowDefinition;
@@ -74,6 +83,18 @@ export interface SaveDraftDefinitionInput {
 export async function saveDraftDefinition(
   input: SaveDraftDefinitionInput,
 ): Promise<WorkflowRecord | null> {
+  // BRANCH-ENT-1 C5 — plan-feature gate BEFORE any write. Validates the
+  // PROPOSED definition only: introducing or retaining advanced branching
+  // without entitlement rejects the save (typed PlanFeatureRequiredError,
+  // nothing persisted); a compliant replacement that removes every branching
+  // node always passes, so a downgraded account can edit itself back into
+  // compliance. All four definition-update paths (manual PATCH, AI apply,
+  // checkpoint restore, template replace) share this one rule.
+  await assertDefinitionPlanEntitlement({
+    accountId: input.accountId,
+    definition: input.nextDefinition,
+  });
+
   const updated = await input.write();
   if (!updated) return null; // stale / no-op write → never deactivate
 

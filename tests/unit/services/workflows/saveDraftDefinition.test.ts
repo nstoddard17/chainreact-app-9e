@@ -19,6 +19,15 @@ jest.mock("@/services/workflows/orchestratorFactory", () => ({
   createLifecycleOrchestrator: () => ({ disable: (...a: unknown[]) => mockDisable(...a) }),
 }));
 
+// BRANCH-ENT-1 C5 — the plan gate resolves billing through this service; mock
+// at the billing boundary (the DECISION under test — proposed-definition rule,
+// reject-before-write, compliant-replacement pass — is the real code).
+const mockEntitlement = jest.fn();
+jest.mock("@/services/billing/advancedBranchingEntitlement", () => ({
+  resolveAdvancedBranchingEntitlement: (...a: unknown[]) => mockEntitlement(...a),
+  resolveAdvancedBranchingEntitlementServiceRole: (...a: unknown[]) => mockEntitlement(...a),
+}));
+
 import { saveDraftDefinition, activatableTriggerChanged } from "@/services/workflows/saveDraftDefinition";
 import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { WorkflowRecord } from "@/repositories/workflows";
@@ -67,6 +76,7 @@ describe("saveDraftDefinition — deactivation decision", () => {
   it("active + webhook trigger change → writes then disables (reason/context), returns disabled record", async () => {
     const write = writeReturning(recordFor(webhookDef({ channel: "C2" })));
     const result = await saveDraftDefinition({
+      accountId: "acct-1",
       previousState: "active",
       previousDefinition: webhookDef({ channel: "C1" }),
       nextDefinition: webhookDef({ channel: "C2" }),
@@ -84,6 +94,7 @@ describe("saveDraftDefinition — deactivation decision", () => {
   it("active + MANUAL trigger change → writes, does NOT disable, stays active", async () => {
     const write = writeReturning(recordFor(manualDef({ a: 2 })));
     const result = await saveDraftDefinition({
+      accountId: "acct-1",
       previousState: "active",
       previousDefinition: manualDef({ a: 1 }),
       nextDefinition: manualDef({ a: 2 }),
@@ -96,7 +107,7 @@ describe("saveDraftDefinition — deactivation decision", () => {
 
   it("active external → manual.run → disables with MANUAL-specific copy (no 'reconnect')", async () => {
     const write = writeReturning(recordFor(manualDef()));
-    await saveDraftDefinition({ previousState: "active", previousDefinition: webhookDef(), nextDefinition: manualDef(), write });
+    await saveDraftDefinition({ accountId: "acct-1", previousState: "active", previousDefinition: webhookDef(), nextDefinition: manualDef(), write });
     expect(mockDisable).toHaveBeenCalledTimes(1);
     const context = mockDisable.mock.calls[0][0].context as string;
     expect(context).toContain("runs manually");
@@ -105,7 +116,7 @@ describe("saveDraftDefinition — deactivation decision", () => {
 
   it("active manual.run → external → disables (forces Reactivate→Resume to register the new trigger)", async () => {
     const write = writeReturning(recordFor(webhookDef()));
-    await saveDraftDefinition({ previousState: "active", previousDefinition: manualDef(), nextDefinition: webhookDef(), write });
+    await saveDraftDefinition({ accountId: "acct-1", previousState: "active", previousDefinition: manualDef(), nextDefinition: webhookDef(), write });
     expect(mockDisable).toHaveBeenCalledTimes(1);
   });
 
@@ -113,7 +124,7 @@ describe("saveDraftDefinition — deactivation decision", () => {
     const before = def([trig("slack", "message_received"), act({ text: "a" })]);
     const after = def([trig("slack", "message_received"), act({ text: "b" })]);
     const write = writeReturning(recordFor(after));
-    await saveDraftDefinition({ previousState: "active", previousDefinition: before, nextDefinition: after, write });
+    await saveDraftDefinition({ accountId: "acct-1", previousState: "active", previousDefinition: before, nextDefinition: after, write });
     expect(mockDisable).not.toHaveBeenCalled();
   });
 
@@ -121,7 +132,7 @@ describe("saveDraftDefinition — deactivation decision", () => {
     "%s + webhook trigger change → no disable (not actively dispatching)",
     async (state) => {
       const write = writeReturning(recordFor(webhookDef({ channel: "C2" }), state));
-      await saveDraftDefinition({ previousState: state, previousDefinition: webhookDef({ channel: "C1" }), nextDefinition: webhookDef({ channel: "C2" }), write });
+      await saveDraftDefinition({ accountId: "acct-1", previousState: state, previousDefinition: webhookDef({ channel: "C1" }), nextDefinition: webhookDef({ channel: "C2" }), write });
       expect(mockDisable).not.toHaveBeenCalled();
     },
   );
@@ -129,6 +140,7 @@ describe("saveDraftDefinition — deactivation decision", () => {
   it("write returns null (stale / no-op) → returns null, NO disable", async () => {
     const write = jest.fn(async () => null);
     const result = await saveDraftDefinition({
+      accountId: "acct-1",
       previousState: "active",
       previousDefinition: webhookDef({ channel: "C1" }),
       nextDefinition: webhookDef({ channel: "C2" }),
@@ -136,5 +148,73 @@ describe("saveDraftDefinition — deactivation decision", () => {
     });
     expect(result).toBeNull();
     expect(mockDisable).not.toHaveBeenCalled();
+  });
+});
+
+// ── BRANCH-ENT-1 C5 — advanced-branching plan gate on the shared save path ──
+describe("saveDraftDefinition — advanced-branching plan gate", () => {
+  const branchingNode = {
+    id: "if1",
+    kind: "action",
+    provider: "native",
+    type: "if_then_condition",
+    config: { input: "x", operator: "is_not_empty" },
+    position: { x: 0, y: 160 },
+  };
+  const branchingDef = def([trig("native", "manual.run"), act(), branchingNode]);
+
+  beforeEach(() => {
+    mockEntitlement.mockReset();
+  });
+
+  it("non-entitled account: a save that ADDS or RETAINS a branching node is rejected typed, NOTHING written, no disable", async () => {
+    mockEntitlement.mockResolvedValue({ entitled: false, plan: "free", planStatus: "active", fallback: false });
+    const write = jest.fn(async () => recordFor(branchingDef));
+    await expect(
+      saveDraftDefinition({
+        accountId: "acct-free",
+        previousState: "draft",
+        previousDefinition: manualDef(),
+        nextDefinition: branchingDef,
+        write,
+      }),
+    ).rejects.toMatchObject({
+      code: "PLAN_FEATURE_REQUIRED",
+      capability: "advanced_branching",
+      requiredPlan: "pro",
+      nodeIds: ["if1"],
+    });
+    expect(write).not.toHaveBeenCalled();
+    expect(mockDisable).not.toHaveBeenCalled();
+    expect(mockEntitlement).toHaveBeenCalledWith("acct-free");
+  });
+
+  it("entitled account: the same branching save writes normally", async () => {
+    mockEntitlement.mockResolvedValue({ entitled: true, plan: "pro", planStatus: "active", fallback: false });
+    const write = writeReturning(recordFor(branchingDef, "draft"));
+    const result = await saveDraftDefinition({
+      accountId: "acct-pro",
+      previousState: "draft",
+      previousDefinition: manualDef(),
+      nextDefinition: branchingDef,
+      write,
+    });
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(result).not.toBeNull();
+  });
+
+  it("downgrade recovery: a COMPLIANT replacement (branching removed) saves without even consulting billing", async () => {
+    mockEntitlement.mockResolvedValue({ entitled: false, plan: "free", planStatus: "active", fallback: false });
+    const write = writeReturning(recordFor(manualDef(), "draft"));
+    const result = await saveDraftDefinition({
+      accountId: "acct-free",
+      previousState: "draft",
+      previousDefinition: branchingDef, // currently-persisted draft still has the node
+      nextDefinition: manualDef(), // the user removed it
+      write,
+    });
+    expect(result).not.toBeNull();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(mockEntitlement).not.toHaveBeenCalled();
   });
 });

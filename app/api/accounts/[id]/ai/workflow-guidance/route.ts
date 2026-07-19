@@ -14,6 +14,11 @@ import { planToDraftPreview } from "@/services/ai-guidance/preview/planToDraftPr
 import { inferDeterministicPreviewPlan, detectCatalogGap } from "@/services/ai-guidance/fallback/inferDeterministicPreview";
 import { inferDeterministicMutationOps } from "@/services/ai-guidance/fallback/inferDeterministicMutation";
 import { proposeWorkflowMutation } from "@/services/ai-guidance/mutation/proposeWorkflowMutation";
+import {
+  definitionUsesAdvancedBranching,
+  isAdvancedBranchingTypeKey,
+} from "@/core/workflows/advancedBranching";
+import { resolveAdvancedBranchingEntitlement } from "@/services/billing/advancedBranchingEntitlement";
 import { runWorkflowEditFromModel } from "@/services/ai-guidance/mutation/runWorkflowEditFromModel";
 import { summarizeProposedEdit } from "@/services/ai-guidance/mutation/summarizeProposedEdit";
 import { buildEditableWorkflowGraph } from "@/services/ai-guidance/editableGraph/buildEditableWorkflowGraph";
@@ -528,6 +533,32 @@ export async function POST(
   }
 
   const catalogGap = !editing && !workflowPlan && !proposedDefinition && !providerClarification ? detectCatalogGap(goalText) : null;
+
+  // BRANCH-ENT-1 C5 — plan-feature guard for AI OUTPUT. If the turn produced a
+  // plan/preview/proposal that uses advanced branching (If/Then Condition /
+  // Router) and THIS account's current billing doesn't entitle it, the route
+  // drops the plan/proposal and answers with a grounded upgrade explanation
+  // instead — the agent never hands a Free account a branching graph, never
+  // silently rewrites it linear, and never claims a change was made. (The
+  // shared save gate + engine gate remain the enforcement backstops if any
+  // other path tries to persist or run one.)
+  const aiOutputUsesBranching =
+    (proposedDefinition !== null && definitionUsesAdvancedBranching(proposedDefinition)) ||
+    (workflowPlan?.steps.some((s) =>
+      isAdvancedBranchingTypeKey(`${s.provider}:${s.type}`),
+    ) ??
+      false);
+  if (aiOutputUsesBranching) {
+    const branchingEntitlement = await resolveAdvancedBranchingEntitlement(accountId);
+    if (!branchingEntitlement.entitled) {
+      workflowPlan = null;
+      previewDraft = null;
+      proposedDefinition = null;
+      baseGraphVersion = null;
+      editorGuidanceText =
+        "This workflow needs If/Else branching, which is available on Pro and higher. You can upgrade your plan, or I can help build a simpler linear version if one fits your goal.";
+    }
+  }
 
   // The rail message: editing turns use the route-owned text; a provider clarification OWNS the
   // message (the model's prose may assume a provider we refused); everything else uses the (already

@@ -47,6 +47,7 @@ export type ApplyErrorCode =
   | "VALIDATION_FAILED" // semantic validation failed (registry/config/variable/edge)
   | "CONFIRMATION_REQUIRED" // high-risk/destructive patch needs explicit confirm
   | "STALE_PATCH" // baseRevision != current workflow revision (updatedAt)
+  | "PLAN_FEATURE_REQUIRED" // BRANCH-ENT-1: advanced branching needs Pro+; nothing persisted
   | "UPDATE_FAILED"; // the repository persist call failed
 
 /** Safe, value-free summary of the workflow after apply. */

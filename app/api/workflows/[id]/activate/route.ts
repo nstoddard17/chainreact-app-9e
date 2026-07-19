@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  assertDefinitionPlanEntitlement,
+  isPlanFeatureRequiredError,
+  planFeatureRequiredBody,
+} from "@/services/workflows/planFeatureGate";
 import { z } from "zod";
 import * as workflowsRepo from "@/repositories/workflows";
 import { notifyHighRiskActivation } from "@/services/notifications/notifyHighRiskWorkflowEvent";
@@ -143,6 +148,22 @@ export async function POST(
     const readinessError = checkWritePathReadiness(workflow.draftDefinition);
     if (readinessError) {
       return NextResponse.json(readinessError, { status: 422 });
+    }
+    // BRANCH-ENT-1 C5 — plan-feature preflight: a draft that uses advanced
+    // branching cannot be activated by a non-entitled account (typed 403 with
+    // the upgrade CTA; membership already passed above). The engine's
+    // pre-execution gate remains the authoritative backstop for anything that
+    // was activated while entitled and later downgraded.
+    try {
+      await assertDefinitionPlanEntitlement({
+        accountId: workflow.accountId,
+        definition: workflow.draftDefinition,
+      });
+    } catch (err) {
+      if (isPlanFeatureRequiredError(err)) {
+        return NextResponse.json(planFeatureRequiredBody(err), { status: 403 });
+      }
+      throw err;
     }
   }
 

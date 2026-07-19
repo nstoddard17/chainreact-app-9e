@@ -4,6 +4,10 @@ import * as workflowsRepo from "@/repositories/workflows";
 import { moveWorkflowToFolder } from "@/services/workflowFolders/folderService";
 import { deleteWorkflow } from "@/services/workflowFolders/trashService";
 import { saveDraftDefinition } from "@/services/workflows/saveDraftDefinition";
+import {
+  isPlanFeatureRequiredError,
+  planFeatureRequiredBody,
+} from "@/services/workflows/planFeatureGate";
 import { folderErrorResponse, trashErrorResponse } from "@/app/api/folders/_shared";
 import {
   parseJsonBody,
@@ -104,13 +108,24 @@ export async function PATCH(
     // changed (stale trigger_resources / provider subscription), deactivates it so the
     // teardown runs and the user re-registers via Reactivate → Resume. Manual-trigger and
     // action/label/layout/edge edits stay live. The unguarded write never returns null.
-    const saved = await saveDraftDefinition({
-      previousState: loaded.record.state,
-      previousDefinition: loaded.record.draftDefinition,
-      nextDefinition: definition,
-      write: () => workflowsRepo.updateDraftDefinition(id, definition),
-    });
-    if (saved) next = saved;
+    // BRANCH-ENT-1 C5 — the shared path also enforces the advanced-branching
+    // plan gate on the PROPOSED definition (membership was already verified
+    // above, so the typed 403 leaks nothing). Nothing is persisted on reject.
+    try {
+      const saved = await saveDraftDefinition({
+        accountId: loaded.record.accountId,
+        previousState: loaded.record.state,
+        previousDefinition: loaded.record.draftDefinition,
+        nextDefinition: definition,
+        write: () => workflowsRepo.updateDraftDefinition(id, definition),
+      });
+      if (saved) next = saved;
+    } catch (err) {
+      if (isPlanFeatureRequiredError(err)) {
+        return NextResponse.json(planFeatureRequiredBody(err), { status: 403 });
+      }
+      throw err;
+    }
   }
   // 4.WORKFLOW-FOLDERS-3 / WF-2 — move into a folder or uncategorize (null). The
   // service validates the folder is live + same-account; the DB trigger backstops.

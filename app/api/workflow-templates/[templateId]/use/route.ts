@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthedUserId, parseAccountBody } from "@/app/api/account/_shared";
 import { createWorkflowFromTemplate } from "@/services/workflows/templateManagement";
+import { planFeatureRequiredBody } from "@/services/workflows/planFeatureGate";
 
 /**
  * POST /api/workflow-templates/[templateId]/use (CS-XT-5B).
@@ -58,6 +59,11 @@ export async function POST(
           { error: "This template can't be turned into a workflow.", code: "INVALID_TEMPLATE" },
           { status: 422 },
         );
+      case "plan_feature_required":
+        // BRANCH-ENT-1 C5 — the template uses advanced branching; the TARGET
+        // account's plan doesn't allow it. Ordered AFTER the membership check
+        // in the service, so plan state is never disclosed to non-members.
+        return NextResponse.json(planFeatureRequiredBody(result.error), { status: 403 });
     }
   }
 

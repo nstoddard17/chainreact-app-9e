@@ -24,6 +24,11 @@ import {
 } from "../../_shared";
 import { checkWorkflowReadiness } from "@/services/workflows/executionReadiness";
 import {
+  assertDefinitionPlanEntitlement,
+  isPlanFeatureRequiredError,
+  planFeatureRequiredBody,
+} from "@/services/workflows/planFeatureGate";
+import {
   getDefinitionForExecution,
   type ExecutionDefinitionMode,
 } from "@/services/workflows/activeRevision";
@@ -238,6 +243,23 @@ export async function POST(
       { error: "Workflow has no manual_trigger node." },
       { status: 422 },
     );
+  }
+
+  // BRANCH-ENT-1 C5 — plan-feature preflight for BOTH test and real runs (the
+  // paid feature is gated even in test mode — a test run still exercises the
+  // branching engine). Validates the SAME definition the engine will execute;
+  // the engine's own pre-execution gate is the authoritative backstop for any
+  // path that skips this route. Membership already passed above → no leak.
+  try {
+    await assertDefinitionPlanEntitlement({
+      accountId: workflow.accountId,
+      definition: executionDef,
+    });
+  } catch (err) {
+    if (isPlanFeatureRequiredError(err)) {
+      return NextResponse.json(planFeatureRequiredBody(err), { status: 403 });
+    }
+    throw err;
   }
 
   // Slice 3.SEC-4B — destructive-action confirmation gate.

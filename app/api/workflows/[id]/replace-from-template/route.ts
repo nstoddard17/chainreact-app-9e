@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { replaceWorkflowWithTemplate } from "@/services/workflows/templateManagement";
+import { planFeatureRequiredBody } from "@/services/workflows/planFeatureGate";
 import { parseJsonBody, requireUser, toWorkflowDetail } from "../../_shared";
 
 /**
@@ -58,6 +59,10 @@ export async function POST(
           { error: "This template can't be applied to a workflow.", code: "INVALID_TEMPLATE" },
           { status: 422 },
         );
+      case "plan_feature_required":
+        // BRANCH-ENT-1 C5 — branching template into a non-entitled account;
+        // the current draft was left untouched.
+        return NextResponse.json(planFeatureRequiredBody(result.error), { status: 403 });
     }
   }
 

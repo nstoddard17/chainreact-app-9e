@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { restoreCheckpoint } from "@/services/workflows/checkpoints";
+import {
+  isPlanFeatureRequiredError,
+  planFeatureRequiredBody,
+} from "@/services/workflows/planFeatureGate";
 import { workflowUsesPrivateCredential } from "@/core/integrations/workflowCredentialScope";
 import { LifecycleError } from "@/core/workflows/lifecycle";
 import {
@@ -61,6 +65,12 @@ export async function POST(
     // helper the lifecycle routes use (typed 4xx/502 + stable code, no provider/identifier leak).
     if (err instanceof LifecycleError) {
       return lifecycleErrorResponse(err);
+    }
+    // BRANCH-ENT-1 C5 — the checkpoint's definition uses advanced branching
+    // and the owning account is no longer entitled (e.g. downgraded since the
+    // checkpoint was taken). Typed 403; the current draft is untouched.
+    if (isPlanFeatureRequiredError(err)) {
+      return NextResponse.json(planFeatureRequiredBody(err), { status: 403 });
     }
     // Any other throw (DB error, credential-plan read, etc.) must NEVER reach the client as a raw
     // 500 carrying an internal message/stack. Log the raw error server-side ONLY, and return a

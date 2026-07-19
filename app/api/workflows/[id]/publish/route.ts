@@ -3,6 +3,11 @@ import * as workflowsRepo from "@/repositories/workflows";
 import { createLifecycleOrchestrator } from "@/services/workflows/orchestratorFactory";
 import { checkWritePathReadiness } from "@/services/workflows/executionReadiness";
 import {
+  assertDefinitionPlanEntitlement,
+  isPlanFeatureRequiredError,
+  planFeatureRequiredBody,
+} from "@/services/workflows/planFeatureGate";
+import {
   assertWorkflowRunEditAllowed,
   authorizeWorkflowLifecycleAccess,
   requireUser,
@@ -54,6 +59,21 @@ export async function POST(
     const readinessError = checkWritePathReadiness(record.draftDefinition);
     if (readinessError) {
       return NextResponse.json(readinessError, { status: 422 });
+    }
+
+    // BRANCH-ENT-1 C5 — plan-feature preflight: a draft that uses advanced
+    // branching cannot be published live by a non-entitled account (typed 403
+    // with the upgrade CTA). The engine's pre-execution gate stays the backstop.
+    try {
+      await assertDefinitionPlanEntitlement({
+        accountId: record.accountId,
+        definition: record.draftDefinition,
+      });
+    } catch (err) {
+      if (isPlanFeatureRequiredError(err)) {
+        return NextResponse.json(planFeatureRequiredBody(err), { status: 403 });
+      }
+      throw err;
     }
   }
 

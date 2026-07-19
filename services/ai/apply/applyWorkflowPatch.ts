@@ -33,6 +33,7 @@ import {
   updateDraftDefinitionIfRevisionMatches,
   type WorkflowRecord,
 } from "@/repositories/workflows";
+import { isPlanFeatureRequiredError } from "@/services/workflows/planFeatureGate";
 import { saveDraftDefinition } from "@/services/workflows/saveDraftDefinition";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
 import { validateWorkflowPatch } from "@/services/workflows/patch/validateWorkflowPatch";
@@ -234,6 +235,7 @@ export async function applyWorkflowPatchForAI(
   let updated: WorkflowRecord | null;
   try {
     updated = await saveDraftDefinition({
+      accountId: record.accountId,
       previousState: record.state,
       previousDefinition: currentDef,
       nextDefinition: candidate,
@@ -245,7 +247,13 @@ export async function applyWorkflowPatchForAI(
           expectedUpdatedAt: record.updatedAt,
         }),
     });
-  } catch {
+  } catch (err) {
+    // BRANCH-ENT-1 C5 — the shared save path rejected the candidate because
+    // it uses advanced branching without entitlement. Surface the TYPED code
+    // (never a fake success, never a silent node drop); nothing was persisted.
+    if (isPlanFeatureRequiredError(err)) {
+      return fail("PLAN_FEATURE_REQUIRED", err.message);
+    }
     return fail("UPDATE_FAILED", "Couldn't save the updated workflow. Try again.");
   }
   if (!updated) {

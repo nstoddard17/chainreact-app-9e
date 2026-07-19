@@ -30,6 +30,16 @@ export type RunFailureCode =
    */
   | "WORKFLOW_NOT_READY"
   /**
+   * BRANCH-ENT-1 — the effective definition uses advanced branching (If/Then
+   * Condition / Router) but the workflow-owning account's CURRENT billing does
+   * not entitle it (Free, or a canceled/incomplete subscription; unknown fails
+   * closed). Checked at the engine's universal pre-execution choke point —
+   * BEFORE readiness and billing, for test AND real runs — so no handler runs,
+   * no side effect occurs, and no task is deducted. Humanizes to the
+   * `upgrade_plan` action.
+   */
+  | "PLAN_FEATURE_REQUIRED"
+  /**
    * COST-15C — a run row already exists for this runId when the engine tried
    * to create the pre-run row. The dispatch is a duplicate/replay; the engine
    * refuses to re-execute (no double side effects / double billing). Not

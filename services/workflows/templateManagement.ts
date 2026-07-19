@@ -14,6 +14,11 @@ import * as userProfilesRepo from "@/repositories/userProfiles";
 import { isMember } from "@/repositories/accountMemberships";
 import { createTemplateFromWorkflow } from "@/services/workflows/createTemplateFromWorkflow";
 import { saveDraftDefinition } from "@/services/workflows/saveDraftDefinition";
+import {
+  assertDefinitionPlanEntitlement,
+  isPlanFeatureRequiredError,
+  type PlanFeatureRequiredError,
+} from "@/services/workflows/planFeatureGate";
 import { createCheckpoint } from "@/services/workflows/checkpoints";
 import { recordAgentChange } from "@/services/workflows/agentChangeHistory";
 import { resolveAccountCapabilities } from "@/services/billing/planCapabilities";
@@ -244,7 +249,10 @@ export type UseTemplateResult =
   | { ok: true; workflowId: string; workflowName: string }
   | { ok: false; reason: "template_not_found" }
   | { ok: false; reason: "target_not_member" }
-  | { ok: false; reason: "invalid_template" };
+  | { ok: false; reason: "invalid_template" }
+  /** BRANCH-ENT-1 C5 — the template uses advanced branching and the DESTINATION
+   *  account's plan does not allow it. The template is never silently flattened. */
+  | { ok: false; reason: "plan_feature_required"; error: PlanFeatureRequiredError };
 
 export interface UseTemplateInput {
   templateId: string;
@@ -272,6 +280,22 @@ export async function createWorkflowFromTemplate(input: UseTemplateInput): Promi
   // credential-free; this never re-introduces secrets.
   const parsed = WorkflowDefinitionSchema.safeParse(tpl.definition);
   if (!parsed.success) return { ok: false, reason: "invalid_template" };
+
+  // BRANCH-ENT-1 C5 — plan-feature gate on the DESTINATION account (never the
+  // template owner's plan). A Free account cannot obtain an advanced-branching
+  // workflow through template instantiation; the operation is rejected typed —
+  // the branching nodes are never silently removed and no workflow row is created.
+  try {
+    await assertDefinitionPlanEntitlement({
+      accountId: input.targetAccountId,
+      definition: parsed.data,
+    });
+  } catch (err) {
+    if (isPlanFeatureRequiredError(err)) {
+      return { ok: false, reason: "plan_feature_required", error: err };
+    }
+    throw err;
+  }
 
   const name = input.workflowName?.trim() || tpl.name;
   const workflow = await workflowsRepo.create({
@@ -380,7 +404,10 @@ export type ReplaceWorkflowWithTemplateResult =
   | { ok: true; workflow: WorkflowRecord }
   | { ok: false; reason: "workflow_not_found" }
   | { ok: false; reason: "template_not_found" }
-  | { ok: false; reason: "invalid_template" };
+  | { ok: false; reason: "invalid_template" }
+  /** BRANCH-ENT-1 C5 — the template uses advanced branching and the workflow's
+   *  owning account isn't entitled; nothing was persisted. */
+  | { ok: false; reason: "plan_feature_required"; error: PlanFeatureRequiredError };
 
 export interface ReplaceWorkflowWithTemplateInput {
   /** The CURRENTLY-OPEN workflow whose draft definition is being overwritten. */
@@ -461,12 +488,24 @@ export async function replaceWorkflowWithTemplate(
   //    registration is now stale, deactivates via the lifecycle orchestrator (tearing down stale
   //    trigger_resources / provider subscriptions). Action/layout-only or manual-trigger replaces
   //    leave the workflow active. Account ownership / id / name are never changed.
-  const saved = await saveDraftDefinition({
-    previousState: workflow.state,
-    previousDefinition: workflow.draftDefinition,
-    nextDefinition: parsed.data,
-    write: () => workflowsRepo.updateDraftDefinition(input.workflowId, parsed.data),
-  });
+  let saved: WorkflowRecord | null;
+  try {
+    saved = await saveDraftDefinition({
+      accountId: workflow.accountId,
+      previousState: workflow.state,
+      previousDefinition: workflow.draftDefinition,
+      nextDefinition: parsed.data,
+      write: () => workflowsRepo.updateDraftDefinition(input.workflowId, parsed.data),
+    });
+  } catch (err) {
+    // BRANCH-ENT-1 C5 — branching template into a non-entitled account: typed
+    // rejection, the existing draft is untouched (the pre-replace checkpoint,
+    // when recorded, is a harmless snapshot of the unchanged draft).
+    if (isPlanFeatureRequiredError(err)) {
+      return { ok: false, reason: "plan_feature_required", error: err };
+    }
+    throw err;
+  }
   // The unguarded write never returns null; fall back to the loaded record defensively.
   const updated = saved ?? workflow;
 

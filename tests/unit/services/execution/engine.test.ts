@@ -46,6 +46,26 @@ jest.mock("@/services/billing/executionBillingGate", () => ({
   executionBillingGate: (...args: unknown[]) => mockBillingGate(...args),
 }));
 
+// BRANCH-ENT-1 C5 — the engine's advanced-branching plan gate resolves the
+// owning account's entitlement through this service (service-role read).
+// Default (set in beforeEach): ENTITLED, so every pre-existing fixture that
+// happens to use a native branching node runs unchanged; the dedicated gate
+// tests flip it to denied.
+const mockBranchingEntitlement = jest.fn();
+jest.mock("@/services/billing/advancedBranchingEntitlement", () => ({
+  resolveAdvancedBranchingEntitlementServiceRole: (...args: unknown[]) =>
+    mockBranchingEntitlement(...args),
+}));
+
+// BRANCH-ENT-1 C5 — on a background-source entitlement rejection the engine
+// lazily imports the orchestrator factory to disable the workflow once.
+const mockPlanDisable = jest.fn();
+jest.mock("@/services/workflows/orchestratorFactory", () => ({
+  createLifecycleOrchestrator: () => ({
+    disable: (...args: unknown[]) => mockPlanDisable(...args),
+  }),
+}));
+
 const mockNotifyWorkflowFailure = jest.fn();
 jest.mock("@/services/notifications/notifyWorkflowFailure", () => ({
   notifyWorkflowFailure: (...args: unknown[]) => mockNotifyWorkflowFailure(...args),
@@ -244,6 +264,16 @@ beforeEach(() => {
   // Default: gate allows. Individual tests override for the refusal path.
   mockBillingGate.mockReset();
   mockBillingGate.mockResolvedValue({ ok: true, used: 1, limit: 100 });
+  // BRANCH-ENT-1 C5 — default: entitled (paid). The plan-gate tests flip it.
+  mockBranchingEntitlement.mockReset();
+  mockBranchingEntitlement.mockResolvedValue({
+    entitled: true,
+    plan: "pro",
+    planStatus: "active",
+    fallback: false,
+  });
+  mockPlanDisable.mockReset();
+  mockPlanDisable.mockResolvedValue({ state: "disabled" });
   mockNotifyWorkflowFailure.mockReset();
   mockNotifyWorkflowFailure.mockResolvedValue({ claimed: true, results: [] });
   // V2-READY-41B — default: resolve to the workflow's own draft, so every
@@ -3521,5 +3551,180 @@ describe("WorkflowEngine — durable-queue claim (Slice 6)", () => {
     expect(loser.status).toBe("failed");
     expect(loser.fatalError?.code).toBe("DUPLICATE_DISPATCH");
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── BRANCH-ENT-1 C5 — advanced-branching plan gate at the engine choke point ──
+//
+// Business rule: a workflow whose EFFECTIVE definition uses If/Then Condition /
+// Router only executes for an entitled (Pro+) owning account. The gate runs
+// before readiness and billing, for test AND real runs, so a denied run makes
+// zero handler calls, zero side effects, and zero task deductions — across
+// every entry path (they all reach the engine). Background trigger sources
+// additionally disable the workflow ONCE so live triggers stop refiring.
+describe("WorkflowEngine — advanced-branching plan gate (BRANCH-ENT-1)", () => {
+  const branchingWorkflow = {
+    ...baseWorkflow,
+    draftDefinition: {
+      nodes: [
+        trigger("t1"),
+        {
+          id: "if1",
+          kind: "action" as const,
+          provider: "native",
+          type: "if_then_condition",
+          // onFalse "skip" keeps this a valid true-only graph under the shared
+          // branch-wiring readiness rules (no False edge required).
+          config: { input: "x", operator: "is_not_empty", onFalse: "skip" },
+          position: { x: 0, y: 100 },
+        },
+        action("a1", "step_one"),
+      ],
+      edges: [edge("e1", "t1", "if1"), labeledEdge("e2", "if1", "a1", "true")],
+    },
+  };
+
+  function denyEntitlement() {
+    mockBranchingEntitlement.mockResolvedValue({
+      entitled: false,
+      plan: "free",
+      planStatus: "active",
+      fallback: false,
+    });
+  }
+
+  it("non-entitled account: run fails typed PLAN_FEATURE_REQUIRED before any handler or billing call", async () => {
+    denyEntitlement();
+    mockGetByIdServiceRole.mockResolvedValueOnce(branchingWorkflow);
+    const handler = jest.fn();
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.fatalError?.code).toBe("PLAN_FEATURE_REQUIRED");
+    expect(result.fatalError?.message).toMatch(/If\/Else routing/);
+    expect(result.steps).toHaveLength(0); // no node executed or recorded
+    expect(handler).not.toHaveBeenCalled();
+    expect(mockBillingGate).not.toHaveBeenCalled(); // no task deducted
+    expect(mockCreateBillingReservation).not.toHaveBeenCalled();
+    // Entitlement resolved from the WORKFLOW-OWNING account.
+    expect(mockBranchingEntitlement).toHaveBeenCalledWith("acct-user-1");
+  });
+
+  it("gate applies to TEST runs too (paid feature is gated even in test mode)", async () => {
+    denyEntitlement();
+    mockGetByIdServiceRole.mockResolvedValueOnce(branchingWorkflow);
+    const handler = jest.fn();
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      testMode: true,
+      triggeredBy: "test",
+    });
+
+    expect(result.fatalError?.code).toBe("PLAN_FEATURE_REQUIRED");
+    expect(handler).not.toHaveBeenCalled();
+    // Manual/test rejections never touch lifecycle state.
+    expect(mockPlanDisable).not.toHaveBeenCalled();
+  });
+
+  it("entitled account: the same branching workflow executes normally (no false positives)", async () => {
+    mockGetByIdServiceRole.mockResolvedValueOnce(branchingWorkflow);
+    const ifHandler = jest.fn(async () => ({ output: { conditionMet: true }, branchTaken: "true" }));
+    const stepHandler = jest.fn(async () => ({ output: { ok: true } }));
+    mockGetActionHandler.mockImplementation((_p: string, type: string) =>
+      type === "if_then_condition" ? ifHandler : type === "step_one" ? stepHandler : undefined,
+    );
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+    expect(result.status).toBe("succeeded");
+    expect(ifHandler).toHaveBeenCalledTimes(1);
+    expect(stepHandler).toHaveBeenCalledTimes(1);
+    expect(mockPlanDisable).not.toHaveBeenCalled();
+  });
+
+  it("workflows WITHOUT branching never consult the entitlement service (Free linear workflows unaffected)", async () => {
+    denyEntitlement(); // even a denied account…
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: {
+        nodes: [trigger("t1"), action("a1", "step_one")],
+        edges: [edge("e1", "t1", "a1")],
+      },
+    });
+    const handler = jest.fn(async () => ({ output: {} }));
+    mockGetActionHandler.mockReturnValue(handler);
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+    expect(result.status).toBe("succeeded");
+    expect(mockBranchingEntitlement).not.toHaveBeenCalled();
+  });
+
+  it("webhook-sourced rejection disables the ACTIVE workflow once (billing reason + branching context) so triggers stop refiring", async () => {
+    denyEntitlement();
+    mockGetByIdServiceRole.mockResolvedValueOnce(branchingWorkflow);
+    mockGetActionHandler.mockReturnValue(jest.fn());
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      triggeredBy: "webhook",
+    });
+
+    expect(result.fatalError?.code).toBe("PLAN_FEATURE_REQUIRED");
+    expect(mockPlanDisable).toHaveBeenCalledTimes(1);
+    expect(mockPlanDisable).toHaveBeenCalledWith({
+      workflowId: "wf-1",
+      reason: "billing_exhausted",
+      context: expect.stringMatching(/Advanced branching .*Pro or higher/),
+    });
+  });
+
+  it("manual-sourced rejection does NOT disable (the user is present; no lifecycle surprise)", async () => {
+    denyEntitlement();
+    mockGetByIdServiceRole.mockResolvedValueOnce(branchingWorkflow);
+    mockGetActionHandler.mockReturnValue(jest.fn());
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      triggeredBy: "manual",
+    });
+    expect(result.fatalError?.code).toBe("PLAN_FEATURE_REQUIRED");
+    expect(mockPlanDisable).not.toHaveBeenCalled();
+  });
+
+  it("a disable failure never masks the typed run failure (fail-safe)", async () => {
+    denyEntitlement();
+    mockPlanDisable.mockRejectedValueOnce(new Error("lifecycle down"));
+    mockGetByIdServiceRole.mockResolvedValueOnce(branchingWorkflow);
+    mockGetActionHandler.mockReturnValue(jest.fn());
+
+    const result = await new WorkflowEngine({ resolveStrict: (v) => v }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+      triggeredBy: "scheduled",
+    });
+    expect(result.status).toBe("failed");
+    expect(result.fatalError?.code).toBe("PLAN_FEATURE_REQUIRED");
   });
 });
