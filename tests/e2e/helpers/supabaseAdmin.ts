@@ -53,20 +53,101 @@ export async function createTestUser(): Promise<TestUser> {
   return { id: data.user.id, email, password };
 }
 
+/**
+ * Tables with an `account_id` FK to `accounts` declared ON DELETE RESTRICT.
+ * Each one blocks the parent `accounts` row delete until it is cleared, so
+ * teardown must remove them first, children-before-parents.
+ *
+ * Order matters: workflow_runs before workflows (runs reference the workflow).
+ * Every other `accounts` FK in the schema is CASCADE or SET NULL and needs no
+ * explicit handling — notably `account_memberships`, which cascades with the
+ * account row.
+ */
+const ACCOUNT_RESTRICT_TABLES = [
+  "workflow_runs",
+  "workflows",
+  "workflow_folders",
+  "integrations",
+  "account_billing",
+] as const;
+
+/**
+ * Delete a test user and everything the account model hangs off them.
+ *
+ * WHY THIS IS NOT A ONE-LINER: `auth.admin.deleteUser` alone always fails,
+ * because `accounts.owner_user_id` is ON DELETE RESTRICT — the user's owned
+ * account must be gone first. And the account row itself cannot be deleted
+ * while any RESTRICT child (workflows / runs / integrations / folders /
+ * billing) still points at it.
+ *
+ * The previous implementation got this wrong in three compounding ways, which
+ * is why synthetic users accumulated in the shared project instead of being
+ * cleaned up:
+ *
+ *   1. It deleted `account_memberships` BEFORE `accounts`. Removing the owner's
+ *      membership row while the account still exists trips the DB trigger
+ *      `account_memberships_team_owner_invariant_violation` ("account must keep
+ *      at least one owner"), so that delete always failed.
+ *   2. It never cleared the account's RESTRICT children, so the `accounts`
+ *      delete always failed with an FK violation.
+ *   3. Neither delete checked `error`, so both failures were silent — and the
+ *      resulting `deleteUser` failure was only `console.warn`ed. A passing test
+ *      run left the user, their account, and all their rows behind.
+ *
+ * Correct order mirrors the production purge path
+ * (`services/accounts/accountPurge.ts`): RESTRICT children -> account row
+ * (which cascades memberships) -> `auth.users` LAST.
+ *
+ * Intermediate failures are warned-not-thrown (a given table is often simply
+ * empty for a test user, and a partial teardown should still try the rest),
+ * but a failure to remove the auth user THROWS. That is the whole point of the
+ * fix: silent teardown failure is what let the synthetic users pile up, so it
+ * must surface as a failing test rather than a warning nobody reads.
+ */
 export async function deleteTestUser(userId: string): Promise<void> {
-  // Slice 4.ACCOUNT-MODEL-3: accounts.owner_user_id is ON DELETE RESTRICT
-  // (the user/account deletion flow is the only legitimate path to remove
-  // an account; not implemented yet). E2e teardown is best-effort and not
-  // production code — explicitly clear the user's account_memberships and
-  // accounts rows before calling auth.admin.deleteUser so the FK doesn't
-  // block teardown.
   const client = adminClient();
-  await client.from("account_memberships").delete().eq("user_id", userId);
-  await client.from("accounts").delete().eq("owner_user_id", userId);
+
+  const { data: owned, error: ownedErr } = await client
+    .from("accounts")
+    .select("id")
+    .eq("owner_user_id", userId);
+  if (ownedErr) {
+    console.warn(`[e2e cleanup] deleteTestUser ${userId}: owned-account lookup failed: ${ownedErr.message}`);
+  }
+  const accountIds = (owned ?? []).map((row) => (row as { id: string }).id);
+
+  if (accountIds.length > 0) {
+    for (const table of ACCOUNT_RESTRICT_TABLES) {
+      const { error } = await client.from(table).delete().in("account_id", accountIds);
+      if (error) {
+        console.warn(`[e2e cleanup] deleteTestUser ${userId}: ${table} delete failed: ${error.message}`);
+      }
+    }
+    // Cascades account_memberships (and invitations, api keys, templates, ...).
+    const { error } = await client.from("accounts").delete().in("id", accountIds);
+    if (error) {
+      console.warn(`[e2e cleanup] deleteTestUser ${userId}: accounts delete failed: ${error.message}`);
+    }
+  }
+
+  // Memberships in accounts owned by SOMEONE ELSE (e.g. a user invited into a
+  // shared account) do not cascade above — clear them so no orphan row is left
+  // pointing at a deleted auth user. Safe after the owned-account delete: this
+  // user is no longer the last owner of anything that still exists.
+  const { error: memErr } = await client
+    .from("account_memberships")
+    .delete()
+    .eq("user_id", userId);
+  if (memErr) {
+    console.warn(`[e2e cleanup] deleteTestUser ${userId}: membership delete failed: ${memErr.message}`);
+  }
+
   const { error } = await client.auth.admin.deleteUser(userId);
   if (error) {
-    // Don't throw — teardown is best-effort. Log so the test runner shows it.
-    console.warn(`[e2e cleanup] deleteTestUser ${userId} failed: ${error.message}`);
+    throw new Error(
+      `[e2e cleanup] deleteTestUser ${userId} failed: ${error.message}. ` +
+        `The user was NOT removed and will accumulate in the shared project.`,
+    );
   }
 }
 
