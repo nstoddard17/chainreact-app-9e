@@ -3,6 +3,10 @@ const config = {
   preset: "ts-jest",
   testEnvironment: "jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
+  // Last-resort sweep of leaked @chainreact.test fixtures. Per-suite afterAll is
+  // the primary mechanism; this only catches suites whose worker died before it
+  // could run, and warns loudly when it has to do anything.
+  globalTeardown: "<rootDir>/tests/globalTeardown.ts",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1",
     "\\.(css|less|scss|sass)$": "<rootDir>/tests/__mocks__/styleMock.js",
