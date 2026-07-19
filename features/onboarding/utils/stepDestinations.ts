@@ -8,9 +8,12 @@ import type { OnboardingStepDTO } from "@/contracts/onboarding";
  * opens the creation chooser instead).
  *
  * 5.ONBOARD-1 Batch 3 — the hrefs now carry the contextual deep-link params:
- * `/apps?highlight=<provider>` (scroll + highlight the first not-ready
- * provider's card) and `/workflows/[id]?focus=setup|test|activate` (one-shot
- * post-hydration builder focus). Both consumers are strictly navigation-only.
+ * `/workflows/[id]?focus=setup|test|activate` (one-shot post-hydration builder
+ * focus). Strictly navigation-only.
+ *
+ * 5.ONBOARD-3: connect no longer sends `?highlight=<provider>`. The step teaches
+ * the general "connect an app" action and tracks no specific provider, so it
+ * links to the plain Apps page.
  */
 export function stepHref(step: OnboardingStepDTO): string | null {
   // 5.ONBOARD-2: the target comes from the STEP, not from a shared selection.
@@ -22,12 +25,11 @@ export function stepHref(step: OnboardingStepDTO): string | null {
   switch (step.key) {
     case "create":
       return null;
-    case "connect": {
-      const target = (step.providers ?? []).find((p) => !p.ready);
-      return target
-        ? `/apps?highlight=${encodeURIComponent(target.provider)}`
-        : "/apps";
-    }
+    case "connect":
+      // 5.ONBOARD-3: always the plain Apps page. No `?highlight=<provider>`,
+      // because the step no longer tracks a specific provider — and this is a
+      // navigation link, so it never begins OAuth.
+      return "/apps";
     case "configure":
       return workflowId ? `/workflows/${workflowId}?focus=setup` : null;
     case "test":

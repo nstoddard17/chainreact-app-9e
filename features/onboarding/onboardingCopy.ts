@@ -1,8 +1,4 @@
-import type {
-  OnboardingProviderEntry,
-  OnboardingStepDTO,
-  OnboardingStepKey,
-} from "@/contracts/onboarding";
+import type { OnboardingStepDTO, OnboardingStepKey } from "@/contracts/onboarding";
 import type { ObIconName } from "./onboardingIcons";
 
 /**
@@ -31,9 +27,9 @@ export const STEP_PRESENTATION: Record<OnboardingStepKey, StepPresentation> = {
     cta: "New workflow",
   },
   connect: {
-    label: "Connect your apps",
+    label: "Connect an app",
     icon: "Database",
-    description: "Link the apps this workflow reads from and writes to.",
+    description: "Connect an app you want to use in your workflows.",
     cta: "Open Apps",
   },
   configure: {
@@ -59,20 +55,9 @@ export const STEP_PRESENTATION: Record<OnboardingStepKey, StepPresentation> = {
 /** Dynamic per-step description overrides driven by real derived state. */
 export function stepDescription(step: OnboardingStepDTO): string {
   const base = STEP_PRESENTATION[step.key].description;
-  if (step.key === "connect") {
-    if (step.blockedReason === "add_steps_first") {
-      return "Add steps to your workflow first — then we'll show which apps it needs.";
-    }
-    if (step.blockedReason === "admin_required") {
-      const names = blockedProviderNames(step.providers, (p) => p.adminRequired);
-      return `A workspace owner or admin needs to connect ${names}.`;
-    }
-    if (step.blockedReason === "reconnect_required") {
-      const names = blockedProviderNames(step.providers, (p) => p.reconnectNeeded);
-      return `${names} needs to be reconnected before this workflow can run.`;
-    }
-    return base;
-  }
+  // 5.ONBOARD-3: Connect has NO dynamic copy. It teaches the general action, so
+  // it never names a provider or explains a scope/reconnect gap — that detail
+  // lives on the Apps page and in the builder.
   if (step.key === "test") {
     if (step.waitingForFirstRun) {
       return "Waiting for the first successful run — we'll check this off automatically.";
@@ -90,27 +75,12 @@ export function stepDescription(step: OnboardingStepDTO): string {
 
 /** CTA label overrides for derived states (null = hide the CTA entirely). */
 export function stepCta(step: OnboardingStepDTO): string | null {
-  if (step.key === "connect") {
-    if (step.blockedReason === "add_steps_first") return null;
-    if (step.blockedReason === "admin_required") return null;
-    if (step.blockedReason === "reconnect_required") return "Open Apps to reconnect";
-  }
+  // Connect always reads "Open Apps" — there is no reconnect/admin variant any
+  // more, because the step no longer tracks a specific provider (5.ONBOARD-3).
   if (step.key === "test") {
     if (step.waitingForFirstRun) return null;
     if (step.testable === false) return null;
     if (step.lastRunFailed) return "Open the results";
   }
   return STEP_PRESENTATION[step.key].cta;
-}
-
-function blockedProviderNames(
-  providers: readonly OnboardingProviderEntry[] | undefined,
-  match: (p: OnboardingProviderEntry) => boolean,
-): string {
-  const names = (providers ?? [])
-    .filter((p) => !p.ready && match(p))
-    .map((p) => p.name ?? p.provider);
-  if (names.length === 0) return "this app";
-  if (names.length === 1) return names[0]!;
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]!}`;
 }

@@ -34,11 +34,11 @@ export function OnboardingChecklistCard({
   const total = checklist.totalStepCount ?? steps.length;
   const fraction = total > 0 ? done / total : 0;
 
-  // The expanded row: the derived current/blocked step by default; the user
+  // The expanded row: the derived current step by default; the user
   // can peek at another incomplete step (design's onFocus behavior). Reset on
   // DTO change is unnecessary — the derived index wins unless the user peeked.
   const derivedActiveKey =
-    steps.find((s) => s.status === "current" || s.status === "blocked")?.key ?? null;
+    steps.find((s) => s.status === "current")?.key ?? null;
   const [peekKey, setPeekKey] = useState<string | null>(null);
   const activeKey =
     peekKey && steps.some((s) => s.key === peekKey && s.status !== "complete")

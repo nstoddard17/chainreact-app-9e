@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * Orchestration tests for services/onboarding/checklistState.ts (5.ONBOARD-1
- * Batch 1). Mocks the repository + diagnosis boundaries; the pure derivation
+ * Batch 1). Mocks the repository boundaries; the pure derivation
  * runs for real so DTO shapes reflect production.
  */
 const mockListByAccount = jest.fn();
@@ -30,9 +30,11 @@ jest.mock("@/repositories/onboarding/userOnboardingStates", () => ({
   latchCompletionServiceRole: (...a: unknown[]) => mockLatchCompletion(...a),
 }));
 
-const mockDiagnose = jest.fn();
-jest.mock("@/services/diagnostics/integrationConnection", () => ({
-  diagnoseWorkflowConnections: (...a: unknown[]) => mockDiagnose(...a),
+// 5.ONBOARD-3: connect completion is ACCOUNT-level, read from the account's own
+// integration rows. The old `diagnoseWorkflowConnections` boundary is gone.
+const mockListActiveIntegrations = jest.fn();
+jest.mock("@/repositories/integrations", () => ({
+  listActiveByAccount: (...a: unknown[]) => mockListActiveIntegrations(...a),
 }));
 
 const mockRecordEvent = jest.fn();
@@ -88,14 +90,20 @@ function stateRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** A genuinely usable account integration (see isIntegrationHealthy). */
+function integration(overrides: Record<string, unknown> = {}) {
+  return {
+    disconnectedAt: null,
+    needsReconnectAt: null,
+    accessTokenExpiresAt: null,
+    refreshTokenEncrypted: "enc",
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
-  mockDiagnose.mockResolvedValue({
-    workflowId: "wf-1",
-    access: "OK",
-    allRequiredConnected: true,
-    providers: [],
-  });
+  mockListActiveIntegrations.mockResolvedValue([]);
   mockWritePath.mockReturnValue(null);
   mockHasSucceededRun.mockResolvedValue(false);
   mockListRuns.mockResolvedValue([]);
@@ -212,78 +220,48 @@ describe("getOnboardingChecklist", () => {
     expect(dto.presentation?.dismissed).toBe(true);
   });
 
-  it("connection diagnosis feeds the connect step; unhealthy provider keeps it incomplete", async () => {
-    mockGetState.mockResolvedValue(stateRow({ selectedWorkflowId: "wf-1" }));
+  // ── 5.ONBOARD-3: connect is a general, ACCOUNT-level action ───────────
+  it("connect is COMPLETE when the account has one healthy integration", async () => {
+    mockGetState.mockResolvedValue(stateRow());
     mockListByAccount.mockResolvedValue([wf()]);
-    mockDiagnose.mockResolvedValue({
-      workflowId: "wf-1",
-      access: "OK",
-      allRequiredConnected: false,
-      providers: [
-        {
-          provider: "slack",
-          name: "Slack",
-          credentialClass: "account",
-          nodeIds: ["a"],
-          nodeCount: 1,
-          status: "DISCONNECTED",
-          ready: false,
-          providerEnabled: true,
-          refreshable: true,
-          tokenExpired: null,
-          scopesSatisfied: true,
-          missingScopeCount: 0,
-          reconnectNeeded: false,
-          canReconnect: true,
-        },
-      ],
-    });
+    mockListActiveIntegrations.mockResolvedValue([integration()]);
     const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
     const connect = dto.steps?.find((s) => s.key === "connect");
-    expect(connect?.status).toBe("current");
-    expect(connect?.providers?.[0]).toMatchObject({
-      provider: "slack",
-      ready: false,
-      canConnect: true,
-      adminRequired: false,
-    });
-    expect(mockDiagnose).toHaveBeenCalledWith({
-      subjectUserId: USER,
-      workflowId: "wf-1",
-    });
+    expect(connect?.status).toBe("complete");
   });
 
-  it("account-class provider a member cannot connect → adminRequired entry + blocked step", async () => {
-    mockGetState.mockResolvedValue(stateRow({ selectedWorkflowId: "wf-1" }));
+  it("connect is NOT complete when the only integration needs reconnecting", async () => {
+    mockGetState.mockResolvedValue(stateRow());
     mockListByAccount.mockResolvedValue([wf()]);
-    mockDiagnose.mockResolvedValue({
-      workflowId: "wf-1",
-      access: "OK",
-      allRequiredConnected: false,
-      providers: [
-        {
-          provider: "stripe",
-          name: "Stripe",
-          credentialClass: "account",
-          nodeIds: ["a"],
-          nodeCount: 1,
-          status: "DISCONNECTED",
-          ready: false,
-          providerEnabled: true,
-          refreshable: true,
-          tokenExpired: null,
-          scopesSatisfied: true,
-          missingScopeCount: 0,
-          reconnectNeeded: false,
-          canReconnect: false,
-        },
-      ],
-    });
+    mockListActiveIntegrations.mockResolvedValue([
+      integration({ needsReconnectAt: "2026-07-18T00:00:00Z" }),
+    ]);
     const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
     const connect = dto.steps?.find((s) => s.key === "connect");
-    expect(connect?.status).toBe("blocked");
-    expect(connect?.blockedReason).toBe("admin_required");
-    expect(connect?.providers?.[0]?.adminRequired).toBe(true);
+    expect(connect?.status).not.toBe("complete");
+    expect(connect?.status).toBe("current");
+  });
+
+  it("connect completes with NO workflows at all — it is workflow-independent", async () => {
+    mockGetState.mockResolvedValue(stateRow());
+    // No workflows exist, so nothing can possibly reference the connection…
+    mockListByAccount.mockResolvedValue([]);
+    mockListActiveIntegrations.mockResolvedValue([integration()]);
+    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+    // …and the general "connect an app" action is still genuinely done.
+    expect(dto.steps?.find((s) => s.key === "connect")?.status).toBe("complete");
+    expect(dto.steps?.find((s) => s.key === "create")?.status).toBe("current");
+  });
+
+  it("reads integrations strictly for the CALLER'S account (no cross-account credit)", async () => {
+    mockGetState.mockResolvedValue(stateRow());
+    mockListByAccount.mockResolvedValue([wf()]);
+    mockListActiveIntegrations.mockResolvedValue([integration()]);
+    await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+    expect(mockListActiveIntegrations).toHaveBeenCalledWith(ACCOUNT);
+    for (const call of mockListActiveIntegrations.mock.calls) {
+      expect(call[0]).toBe(ACCOUNT);
+    }
   });
 
   it("no-leak: the DTO never carries config, tokens, scopes, or provider account ids", async () => {

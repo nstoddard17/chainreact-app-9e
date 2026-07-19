@@ -1,8 +1,4 @@
-import type {
-  OnboardingProviderEntry,
-  OnboardingStepDTO,
-  OnboardingStepKey,
-} from "@/contracts/onboarding";
+import type { OnboardingStepDTO, OnboardingStepKey } from "@/contracts/onboarding";
 
 /**
  * PURE checklist-step derivation (5.ONBOARD-1). No I/O — the orchestration
@@ -20,11 +16,17 @@ import type {
  * Completion sources (one existing source of truth per step — never a parallel
  * validator, and never a stored "step done" boolean):
  *   create    → ≥1 non-deleted workflow in the account
- *   connect   → SOME workflow has nodes AND diagnoseWorkflowConnections
- *               `allRequiredConnected`, with no provider needing reconnect
+ *   connect   → the ACCOUNT has ≥1 healthy integration (5.ONBOARD-3)
  *   configure → SOME workflow has checkWritePathReadiness(draft) === null
  *   test      → SOME workflow has a real workflow_runs row status='succeeded'
  *   activate  → SOME workflow has state === 'active' exactly
+ *
+ * CONNECT IS WORKFLOW-INDEPENDENT (5.ONBOARD-3). The checklist teaches the
+ * general action "connect an app", so the step completes as soon as the account
+ * has one genuinely usable connection — whether or not any workflow references
+ * it. It deliberately carries NO provider names, chips, scope gaps or reconnect
+ * detail: those are per-workflow, per-provider concerns that belong on the Apps
+ * page and in the builder, not in a general getting-started guide.
  */
 
 /** Minimal projection of ONE account workflow the derivation needs. */
@@ -34,9 +36,6 @@ export interface WorkflowChecklistFacts {
   readonly state: string;
   readonly nodeCount: number;
   readonly hasManualTrigger: boolean;
-  /** From diagnoseWorkflowConnections (undefined when the graph has no nodes). */
-  readonly allRequiredConnected: boolean | undefined;
-  readonly providers: readonly OnboardingProviderEntry[];
   /** True when checkWritePathReadiness returned null. */
   readonly writePathReady: boolean;
   readonly hasSucceededRun: boolean;
@@ -48,24 +47,6 @@ export interface DerivedChecklist {
   readonly steps: readonly OnboardingStepDTO[];
   readonly completedStepCount: number;
   readonly totalStepCount: number;
-}
-
-/** Does THIS workflow satisfy the connect step? (see deriveChecklistSteps) */
-function workflowConnectDone(w: WorkflowChecklistFacts): boolean {
-  // Never "complete" for an empty graph — zero required providers is only
-  // meaningful once the workflow has steps.
-  //
-  // A provider flagged `needs_reconnect` also blocks completion even when the
-  // connection-diagnosis `ready` ladder still reports OK: that persisted flag
-  // is set at the execution seam when the credential actually failed, so
-  // treating the step as complete would show a green "connected" tick for a
-  // connection the next run will fail on — precisely the stale completion this
-  // checklist must never display.
-  return (
-    w.nodeCount > 0 &&
-    w.allRequiredConnected === true &&
-    w.providers.every((p) => !p.reconnectNeeded)
-  );
 }
 
 /**
@@ -86,17 +67,10 @@ function stepCloseness(key: OnboardingStepKey, w: WorkflowChecklistFacts): numbe
     case "create":
       // Never targets an existing workflow — the CTA opens the create chooser.
       return 0;
-    case "connect": {
-      if (w.nodeCount === 0) return 0; // nothing to connect yet
-      if (workflowConnectDone(w)) return 4;
-      const total = w.providers.length;
-      if (total === 0) return 1;
-      const usable = w.providers.filter((p) => p.ready && !p.reconnectNeeded).length;
-      // 1..3 by how much of the provider set is already healthy, and prefer a
-      // gap this user can actually fix over one needing an owner/admin.
-      const fixableByUser = w.providers.some((p) => !p.ready && p.canConnect);
-      return 1 + (usable / total) + (fixableByUser ? 1 : 0);
-    }
+    case "connect":
+      // 5.ONBOARD-3: connect is an ACCOUNT-level action with a fixed
+      // destination (/apps). It never targets a workflow.
+      return 0;
     case "configure": {
       if (w.writePathReady) return 3;
       if (w.nodeCount === 0) return 1; // an empty draft is still the place to build
@@ -111,9 +85,44 @@ function stepCloseness(key: OnboardingStepKey, w: WorkflowChecklistFacts): numbe
     case "activate": {
       if (w.state === "active") return 4;
       if (!w.writePathReady) return w.nodeCount > 0 ? 1 : 0;
-      return workflowConnectDone(w) ? 3 : 2;
+      return 2;
     }
   }
+}
+
+/** Minimal projection of an account integration row the connect step needs. */
+export interface IntegrationHealthFacts {
+  /** Set when the connection was explicitly disconnected. */
+  readonly disconnectedAt: string | null;
+  /** Set at the execution seam when the credential actually failed. */
+  readonly needsReconnectAt?: string | null;
+  readonly accessTokenExpiresAt?: string | null;
+  readonly refreshTokenEncrypted?: string | null;
+}
+
+/**
+ * Is this integration genuinely usable RIGHT NOW? (5.ONBOARD-3)
+ *
+ * The connect step must never tick green for a connection the next run would
+ * fail on, so every known unhealthy signal disqualifies it:
+ *   - disconnected  → the user removed it
+ *   - needs-reconnect → the execution seam saw the credential fail (revoked /
+ *     scope-reduced); this is set even when the row otherwise looks fine
+ *   - expired with NO refresh token → nothing can mint a new access token, so
+ *     it is dead. An expired access token WITH a refresh token is healthy:
+ *     `refreshAndRetry` renews it transparently on the next call.
+ */
+export function isIntegrationHealthy(
+  i: IntegrationHealthFacts,
+  now: Date = new Date(),
+): boolean {
+  if (i.disconnectedAt != null) return false;
+  if (i.needsReconnectAt != null) return false;
+  if (i.accessTokenExpiresAt != null && i.refreshTokenEncrypted == null) {
+    const expiresAt = Date.parse(i.accessTokenExpiresAt);
+    if (Number.isFinite(expiresAt) && expiresAt <= now.getTime()) return false;
+  }
+  return true;
 }
 
 /**
@@ -148,15 +157,16 @@ export function pickStepTarget(
 export function deriveChecklistSteps(input: {
   /** Account workflows, `updated_at DESC` (the repo's natural order). */
   workflows: readonly WorkflowChecklistFacts[];
+  /**
+   * Whether the ACCOUNT has ≥1 genuinely usable integration (5.ONBOARD-3).
+   * Computed from the account's integration rows, not from any workflow.
+   */
+  accountHasHealthyIntegration: boolean;
 }): DerivedChecklist {
   const workflows = input.workflows;
 
   const createDone = workflows.length > 0;
-  // "Empty graph" is an account-level notion now: nothing anywhere has steps,
-  // so connecting apps is not yet the actionable move.
-  const emptyGraph = createDone && workflows.every((w) => w.nodeCount === 0);
-
-  const connectDone = workflows.some(workflowConnectDone);
+  const connectDone = input.accountHasHealthyIntegration;
   const configureDone = workflows.some((w) => w.writePathReady);
   const testDone = workflows.some((w) => w.hasSucceededRun);
   const activateDone = workflows.some((w) => w.state === "active");
@@ -171,12 +181,7 @@ export function deriveChecklistSteps(input: {
     activate: pickStepTarget("activate", workflows),
   };
 
-  // Step-scoped views used by the per-step detail below. The connect step shows
-  // the provider set of the workflow its CTA will open — not a union across the
-  // account, which would list apps the user is not being sent to fix.
-  const connectTarget = targetFor.connect;
   const testTarget = targetFor.test;
-  const selected = connectTarget; // provider detail source (may be null)
 
   const doneByKey: Record<OnboardingStepKey, boolean> = {
     create: createDone,
@@ -186,11 +191,13 @@ export function deriveChecklistSteps(input: {
     activate: activateDone,
   };
 
-  // The "current" step is the first incomplete one the user can act on. With an
-  // empty graph the actionable next move is building steps (configure), not
-  // connecting apps for a workflow that doesn't require any yet. An automated
-  // (non-testable) workflow whose only remaining gap is the run confirmation
-  // points at activate instead — the honest path (locked decision #8).
+  // The "current" step is the first incomplete one the user can act on. An
+  // automated (non-testable) workflow whose only remaining gap is the run
+  // confirmation points at activate instead — the honest path (decision #8).
+  //
+  // 5.ONBOARD-3: connect is no longer skipped for an empty graph. Connecting an
+  // app is a standalone action a user can take at any time, so it stays a
+  // legitimate next move even before any workflow has steps.
   const order: OnboardingStepKey[] = [
     "create",
     "connect",
@@ -203,8 +210,7 @@ export function deriveChecklistSteps(input: {
     if (doneByKey[key]) continue;
     // With no workflows at all, steps 2–5 cannot be evaluated or acted on —
     // only "create" may be current.
-    if (!createDone && key !== "create") break;
-    if (key === "connect" && emptyGraph) continue;
+    if (!createDone && key !== "create" && key !== "connect") break;
     if (key === "test" && testTarget !== null && !testTarget.hasManualTrigger && !activateDone) {
       // The best testable candidate has no manual-trigger test path yet:
       // activation is the actionable step.
@@ -225,30 +231,6 @@ export function deriveChecklistSteps(input: {
     return "pending";
   };
 
-  const connectStep: OnboardingStepDTO = {
-    key: "connect",
-    status: statusFor("connect"),
-    ...(selected && selected.providers.length > 0
-      ? { providers: selected.providers }
-      : {}),
-    ...(emptyGraph && !connectDone
-      ? { blockedReason: "add_steps_first" as const }
-      : {}),
-  };
-  // Escalate the blocked reasons the UI must explain: an unhealthy connection
-  // the user can fix (reconnect) vs one an owner/admin must handle.
-  if (!connectDone && selected && selected.providers.length > 0) {
-    // "Not usable" = the readiness ladder says no OR the persisted
-    // needs-reconnect flag is set (the latter can coexist with ready===true).
-    const notReady = selected.providers.filter((p) => !p.ready || p.reconnectNeeded);
-    if (notReady.some((p) => p.adminRequired)) {
-      (connectStep as { blockedReason?: string }).blockedReason = "admin_required";
-    } else if (notReady.some((p) => p.reconnectNeeded)) {
-      (connectStep as { blockedReason?: string }).blockedReason =
-        "reconnect_required";
-    }
-  }
-
   const waitingForFirstRun =
     testTarget !== null && !testDone && !testTarget.hasManualTrigger && activateDone;
 
@@ -259,7 +241,9 @@ export function deriveChecklistSteps(input: {
 
   const steps: OnboardingStepDTO[] = [
     { key: "create", status: statusFor("create") },
-    { ...connectStep, ...ctaId("connect") },
+    // No providers / no blockedReason: connect is the general "connect an app"
+    // action with a fixed /apps destination and carries no provider detail.
+    { key: "connect", status: statusFor("connect") },
     { key: "configure", status: statusFor("configure"), ...ctaId("configure") },
     {
       key: "test",
@@ -272,17 +256,14 @@ export function deriveChecklistSteps(input: {
     { key: "activate", status: statusFor("activate"), ...ctaId("activate") },
   ];
 
-  // Blocked status renders distinctly (permission/reconnect) without losing
-  // "current" targeting: a blocked step that is also the current step stays
-  // "blocked" — the UI highlights it with the blocked treatment.
-  const finalSteps = steps.map((s) =>
-    s.blockedReason && s.status !== "complete" ? { ...s, status: "blocked" as const } : s,
-  );
-
+  // NOTE (5.ONBOARD-3): the "blocked" status is gone. It existed only to
+  // explain provider-specific connect failures (admin_required /
+  // reconnect_required / add_steps_first), and those details now live on the
+  // Apps page and in the builder rather than in this general guide.
   return {
-    steps: finalSteps,
-    completedStepCount: finalSteps.filter((s) => s.status === "complete").length,
-    totalStepCount: finalSteps.length,
+    steps,
+    completedStepCount: steps.filter((s) => s.status === "complete").length,
+    totalStepCount: steps.length,
   };
 }
 

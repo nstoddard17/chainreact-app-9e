@@ -15,8 +15,7 @@ import { stepHref } from "./utils/stepDestinations";
  * a struck-through label + "Done" tag, the current row is highlighted and
  * expands to description + CTA. Deviations from the design demo (documented):
  * no "Mark done" skip (fake completion is forbidden — steps complete only via
- * real application state) and blocked rows render an explanation instead of a
- * dead CTA.
+ * real application state) and a step never renders a dead CTA.
  */
 export function OnboardingStepRow({
   step,
@@ -25,7 +24,7 @@ export function OnboardingStepRow({
   createChooser,
 }: {
   step: OnboardingStepDTO;
-  /** Whether this row renders its expanded body (current/blocked row). */
+  /** Whether this row renders its expanded body (the current row). */
   expanded: boolean;
   onFocus: () => void;
   /** The create step's CTA area (chooser popover) — supplied by the card. */
@@ -34,7 +33,6 @@ export function OnboardingStepRow({
   const presentation = STEP_PRESENTATION[step.key];
   const StepIcon = ObIcons[presentation.icon];
   const done = step.status === "complete";
-  const blocked = step.status === "blocked";
   const href = stepHref(step);
   const cta = stepCta(step);
 
@@ -92,54 +90,15 @@ export function OnboardingStepRow({
               Done
             </span>
           )}
-          {blocked && !done && (
-            <span
-              data-testid={`onboarding-step-${step.key}-blocked`}
-              className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-[7px] py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.03em] text-warning"
-            >
-              {step.blockedReason === "admin_required" ? (
-                <ObIcons.Lock size={10} />
-              ) : (
-                <ObIcons.AlertTriangle size={10} />
-              )}
-              {step.blockedReason === "admin_required"
-                ? "Admin needed"
-                : step.blockedReason === "reconnect_required"
-                  ? "Reconnect"
-                  : "Waiting"}
-            </span>
-          )}
         </div>
         {expanded && !done && (
           <div>
             <p className="mb-[11px] mt-[5px] text-[12.5px] leading-normal text-muted-foreground">
               {stepDescription(step)}
             </p>
-            {step.key === "connect" && (step.providers?.length ?? 0) > 0 && (
-              <ul
-                data-testid="onboarding-connect-providers"
-                aria-label="Apps this workflow needs"
-                className="mb-[11px] flex flex-wrap gap-1.5"
-              >
-                {step.providers!.map((p) => (
-                  <li
-                    key={p.provider}
-                    data-testid={`onboarding-provider-${p.provider}`}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-                      p.ready
-                        ? "bg-success/10 text-success"
-                        : "bg-card text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border))]"
-                    }`}
-                  >
-                    {p.ready && <ObIcons.Check size={10} />}
-                    {p.name ?? p.provider}
-                    {!p.ready && p.reconnectNeeded && (
-                      <span className="text-warning">· reconnect</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {/* 5.ONBOARD-3: no provider chips. The Connect step teaches the
+                general action, so it names no app and shows no per-provider
+                readiness — that belongs on the Apps page and in the builder. */}
             <div className="flex items-center gap-2">
               {step.key === "create"
                 ? createChooser

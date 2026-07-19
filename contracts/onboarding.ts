@@ -21,42 +21,26 @@ export const ONBOARDING_STEP_KEYS = [
 
 export type OnboardingStepKey = (typeof ONBOARDING_STEP_KEYS)[number];
 
-export type OnboardingStepStatus = "complete" | "current" | "pending" | "blocked";
-
-/** Why a step is blocked (safe reason codes; UI maps to copy). */
-export type OnboardingStepBlockedReason =
-  | "admin_required"
-  | "reconnect_required"
-  | "add_steps_first";
+export type OnboardingStepStatus = "complete" | "current" | "pending";
 
 /**
- * Per-provider connection summary for the Connect step. Mirrors the safe subset
- * of `WorkflowProviderConnectionEntry` (services/diagnostics/integrationConnection.ts)
- * that the checklist renders — never statuses' raw provider data.
+ * 5.ONBOARD-3: the `blocked` status, `OnboardingStepBlockedReason`, and
+ * `OnboardingProviderEntry` were removed. They existed only to explain
+ * provider-specific Connect failures (missing scopes, reconnect required, an
+ * owner/admin-only provider). The checklist now teaches the general action
+ * "connect an app" and carries no provider identity at all — those diagnostics
+ * belong on the Apps page and in the workflow builder.
  */
-export interface OnboardingProviderEntry {
-  readonly provider: string;
-  /** Public manifest display name (null when unregistered). */
-  readonly name: string | null;
-  readonly ready: boolean;
-  readonly reconnectNeeded: boolean;
-  /** Whether THIS user may (re)connect it (role-aware). */
-  readonly canConnect: boolean;
-  /** True when an owner/admin must connect (account-class provider, member caller). */
-  readonly adminRequired: boolean;
-}
 
 export interface OnboardingStepDTO {
   readonly key: OnboardingStepKey;
   readonly status: OnboardingStepStatus;
-  readonly blockedReason?: OnboardingStepBlockedReason;
   /**
-   * Step-specific safe detail:
-   *  - connect: providers the step's CTA-target workflow requires.
-   *  - test: whether that workflow supports an in-builder test (manual trigger)
-   *    and whether it is "waiting for first run" post-activation.
+   * Step-specific safe detail (test only): whether the CTA-target workflow
+   * supports an in-builder test (manual trigger) and whether it is "waiting for
+   * first run" post-activation. Connect carries NO detail — it is the general
+   * "connect an app" action.
    */
-  readonly providers?: readonly OnboardingProviderEntry[];
   readonly testable?: boolean;
   readonly waitingForFirstRun?: boolean;
   readonly lastRunFailed?: boolean;

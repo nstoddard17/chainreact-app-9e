@@ -1,7 +1,7 @@
 /**
  * 5.ONBOARD-1 Batch 2 — onboarding checklist UI states, driven by fixtures
  * shaped exactly like the real `OnboardingChecklistDTO`. Covers every imported
- * design state adapted to real behavior: untouched / in-progress / blocked /
+ * design state adapted to real behavior: untouched / in-progress /
  * failed-test / waiting-for-first-run / minimized / dismissed / success /
  * silent-suppression / error restore, plus CTA destinations and a11y semantics.
  */
@@ -19,10 +19,11 @@ jest.mock("@/features/marketing/MarketingBrandLogo", () => ({
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockPostEvent = jest.fn();
 jest.mock("@/lib/api/onboarding", () => ({
   getOnboardingChecklist: (...a: unknown[]) => mockGet(...a),
   postOnboardingPresentation: (...a: unknown[]) => mockPost(...a),
-  postOnboardingEvent: jest.fn(),
+  postOnboardingEvent: (...a: unknown[]) => mockPostEvent(...a),
 }));
 
 const mockCreateWorkflow = jest.fn();
@@ -161,35 +162,67 @@ describe("OnboardingChecklist — expanded card", () => {
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
   });
 
-  it("connect CTA deep-links to the first not-ready provider's highlight", () => {
-    render(
-      <OnboardingChecklist
-        initial={dto({
-          steps: steps({
-            connect: {
-              status: "current",
-              providers: [
-                {
-                  provider: "slack",
-                  name: "Slack",
-                  ready: false,
-                  reconnectNeeded: false,
-                  canConnect: true,
-                  adminRequired: false,
-                },
-              ],
-            },
-          }),
-        })}
-      />,
+  // 5.ONBOARD-3: Connect is the GENERAL "connect an app" action. The old
+  // provider chips / `?highlight=<provider>` deep link, the admin-required
+  // block and the reconnect-required block are all gone: those are
+  // per-workflow, per-provider concerns that live on the Apps page and in the
+  // builder, not in a general getting-started guide.
+  it("the Connect step names no provider", () => {
+    const { container } = render(
+      <OnboardingChecklist initial={dto({ steps: steps({ connect: { status: "current" } }) })} />,
     );
-    expect(screen.getByTestId("onboarding-step-connect-cta")).toHaveAttribute(
-      "href",
-      "/apps?highlight=slack",
-    );
-    expect(screen.getByTestId("onboarding-provider-slack")).toBeInTheDocument();
+    const card = screen.getByTestId("onboarding-checklist-card");
+    expect(screen.queryByTestId("onboarding-connect-providers")).toBeNull();
+    expect(container.querySelector("[data-testid^=onboarding-provider-]")).toBeNull();
+    for (const provider of ["Slack", "Stripe", "Google", "Gmail", "Notion", "HubSpot"]) {
+      expect(card.textContent).not.toContain(provider);
+    }
   });
 
+  it("the Connect copy teaches the general action", () => {
+    render(
+      <OnboardingChecklist initial={dto({ steps: steps({ connect: { status: "current" } }) })} />,
+    );
+    expect(screen.getByText("Connect an app")).toBeInTheDocument();
+    expect(
+      screen.getByText("Connect an app you want to use in your workflows."),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("onboarding-step-connect-cta")).toHaveTextContent(
+      "Open Apps",
+    );
+  });
+
+  it("the Connect CTA navigates to /apps and starts no OAuth", async () => {
+    const user = userEvent.setup();
+    // jsdom cannot follow a link; swallow the default so the click is observed
+    // without the "Not implemented: navigation" noise.
+    const swallow = (e: Event) => e.preventDefault();
+    document.addEventListener("click", swallow);
+    const fetchSpy = jest.fn();
+    const previousFetch = global.fetch;
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    try {
+      render(
+        <OnboardingChecklist initial={dto({ steps: steps({ connect: { status: "current" } }) })} />,
+      );
+      const cta = screen.getByTestId("onboarding-step-connect-cta");
+      // Plain Apps page — no `?highlight=`, no provider, no query string.
+      expect(cta).toHaveAttribute("href", "/apps");
+      await user.click(cta);
+      // The only side effect is the existing analytics ping…
+      expect(mockPostEvent).toHaveBeenCalledTimes(1);
+      expect(mockPostEvent).toHaveBeenCalledWith({
+        event: "cta_clicked",
+        stepKey: "connect",
+      });
+      // …no OAuth start, no presentation mutation, no raw network call.
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(mockPost).not.toHaveBeenCalled();
+    } finally {
+      global.fetch = previousFetch;
+      document.removeEventListener("click", swallow);
+    }
+  });
   it.each([
     ["configure", "setup"],
     ["test", "test"],
@@ -206,69 +239,6 @@ describe("OnboardingChecklist — expanded card", () => {
     expect(screen.getByTestId(`onboarding-step-${key}-cta`)).toHaveAttribute(
       "href",
       `/workflows/wf-1?focus=${focus}`,
-    );
-  });
-
-  it("PERMISSION-BLOCKED: member sees admin-required copy and no dead CTA", () => {
-    render(
-      <OnboardingChecklist
-        initial={dto({
-          steps: steps({
-            connect: {
-              status: "blocked",
-              blockedReason: "admin_required",
-              providers: [
-                {
-                  provider: "stripe",
-                  name: "Stripe",
-                  ready: false,
-                  reconnectNeeded: false,
-                  canConnect: false,
-                  adminRequired: true,
-                },
-              ],
-            },
-          }),
-        })}
-      />,
-    );
-    expect(
-      screen.getByText("A workspace owner or admin needs to connect Stripe."),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-step-connect-blocked")).toHaveTextContent(
-      "Admin needed",
-    );
-    expect(screen.queryByTestId("onboarding-step-connect-cta")).toBeNull();
-  });
-
-  it("RECONNECT-REQUIRED: blocked chip + reconnect copy + Apps CTA", () => {
-    render(
-      <OnboardingChecklist
-        initial={dto({
-          steps: steps({
-            connect: {
-              status: "blocked",
-              blockedReason: "reconnect_required",
-              providers: [
-                {
-                  provider: "slack",
-                  name: "Slack",
-                  ready: false,
-                  reconnectNeeded: true,
-                  canConnect: true,
-                  adminRequired: false,
-                },
-              ],
-            },
-          }),
-        })}
-      />,
-    );
-    expect(
-      screen.getByText("Slack needs to be reconnected before this workflow can run."),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("onboarding-step-connect-cta")).toHaveTextContent(
-      "Open Apps to reconnect",
     );
   });
 

@@ -1,18 +1,16 @@
-import type {
-  OnboardingChecklistDTO,
-  OnboardingProviderEntry,
-} from "@/contracts/onboarding";
+import type { OnboardingChecklistDTO } from "@/contracts/onboarding";
 import {
   MANUAL_TRIGGER_EVENT_TYPE,
   MANUAL_TRIGGER_PROVIDER,
 } from "@/integrations/native/triggers/manualTrigger.schema";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as runsRepo from "@/repositories/workflowRuns";
+import * as integrationsRepo from "@/repositories/integrations";
 import * as onboardingRepo from "@/repositories/onboarding/userOnboardingStates";
-import { diagnoseWorkflowConnections } from "@/services/diagnostics/integrationConnection";
 import { checkWritePathReadiness } from "@/services/workflows/executionReadiness";
 import {
   deriveChecklistSteps,
+  isIntegrationHealthy,
   pickActivationEvidenceWorkflow,
   type WorkflowChecklistFacts,
 } from "./checklistDerivation";
@@ -49,47 +47,11 @@ function hasManualTrigger(
   );
 }
 
-function toProviderEntry(p: {
-  provider: string;
-  name: string | null;
-  credentialClass: "personal" | "account";
-  ready: boolean;
-  reconnectNeeded: boolean;
-  canReconnect: boolean;
-}): OnboardingProviderEntry {
-  // Personal-identity providers: any member may connect their OWN identity
-  // (APPS-PERM-1), so canConnect is unconditionally true. Account/service
-  // providers: the diagnosis' role-aware canReconnect is the authority.
-  const canConnect = p.credentialClass === "personal" ? true : p.canReconnect;
-  return {
-    provider: p.provider,
-    name: p.name,
-    ready: p.ready,
-    reconnectNeeded: p.reconnectNeeded,
-    canConnect,
-    adminRequired: p.credentialClass === "account" && !canConnect && !p.ready,
-  };
-}
-
 async function buildWorkflowFacts(
-  userId: string,
   wf: workflowsRepo.WorkflowRecord,
 ): Promise<WorkflowChecklistFacts> {
   const nodes = wf.draftDefinition?.nodes ?? [];
   const edges = wf.draftDefinition?.edges ?? [];
-
-  let providers: OnboardingProviderEntry[] = [];
-  let allRequiredConnected: boolean | undefined;
-  if (nodes.length > 0) {
-    const connections = await diagnoseWorkflowConnections({
-      subjectUserId: userId,
-      workflowId: wf.id,
-    });
-    if (connections.access === "OK") {
-      providers = (connections.providers ?? []).map(toProviderEntry);
-      allRequiredConnected = connections.allRequiredConnected;
-    }
-  }
 
   const writePathReady =
     nodes.length > 0 && checkWritePathReadiness({ nodes, edges }) === null;
@@ -107,8 +69,6 @@ async function buildWorkflowFacts(
     state: wf.state,
     nodeCount: nodes.length,
     hasManualTrigger: hasManualTrigger(nodes),
-    allRequiredConnected,
-    providers,
     writePathReady,
     hasSucceededRun,
     lastRunFailed,
@@ -211,10 +171,20 @@ export async function getOnboardingChecklist(input: {
   // have not already completed, and an unbounded fan-out would make the
   // dashboard's first paint scale with account size.
   const factWorkflows = workflows.slice(0, FACT_WORKFLOW_LIMIT);
-  const facts = await Promise.all(
-    factWorkflows.map((wf) => buildWorkflowFacts(userId, wf)),
+  const [facts, accountIntegrations] = await Promise.all([
+    Promise.all(factWorkflows.map((wf) => buildWorkflowFacts(wf))),
+    // Connect is ACCOUNT-level (5.ONBOARD-3): the authoritative source is the
+    // account's own integration rows, read strictly by accountId. Whether any
+    // workflow references the connection is irrelevant.
+    integrationsRepo.listActiveByAccount(accountId),
+  ]);
+  const accountHasHealthyIntegration = accountIntegrations.some((i) =>
+    isIntegrationHealthy(i),
   );
-  const derived = deriveChecklistSteps({ workflows: facts });
+  const derived = deriveChecklistSteps({
+    workflows: facts,
+    accountHasHealthyIntegration,
+  });
 
   const dismissed = effectiveRow?.dismissedAt != null;
   if (!dismissed && !effectiveRow?.firstShownAt) {
