@@ -20,7 +20,10 @@ describe("buildGatewayGuidancePrompt — scope instruction + safe context", () =
     const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "help" });
     expect(prompt).toContain("Use only the context included in this request");
     expect(prompt).toContain("Do not infer or claim access to other team members");
-    expect(prompt).toContain("Only suggest using connections listed as available in this request");
+    // REACT-PROVIDER-AMBIGUITY-2 — the availability instruction still grounds suggestions in the
+    // sanitized connection list, but no longer reads as "prefer whatever is connected".
+    expect(prompt).toContain("Do not assume a connection exists that isn't listed as available");
+    expect(prompt).toContain("A connected provider is AVAILABLE, not SELECTED");
   });
 
   it("renders account summary + shared/own connections + private-connection notice from context", () => {

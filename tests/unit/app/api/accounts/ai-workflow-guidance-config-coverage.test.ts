@@ -100,7 +100,12 @@ import { POST } from "@/app/api/accounts/[id]/ai/workflow-guidance/route";
 
 const ACCOUNT = "acct-1";
 const EMAIL = "vendor@example.com";
-const GOAL = `When I receive an email from ${EMAIL}, post it to Slack`;
+/**
+ * REACT-PROVIDER-AMBIGUITY-1/-2 — this suite exercises FIELD COVERAGE, so every goal NAMES its
+ * provider. A bare "email" request is provider-ambiguous by design and yields a clarification
+ * instead of a plan (that behavior is pinned in ai-workflow-guidance-provider-ambiguity.test.ts).
+ */
+const GOAL = `When I receive a Gmail email from ${EMAIL}, post it to Slack`;
 
 function call(body: unknown) {
   return POST(
@@ -214,7 +219,7 @@ describe("scenario 6 — dynamic label through the canonical resolver", () => {
       source: "hermes-agent",
       workflowPlan: planWithSenderFilter({ labelIds: ["Vendors"] }),
     });
-    const res = await call({ goalText: "When an email lands in my Vendors label, post it to Slack" });
+    const res = await call({ goalText: "When a Gmail email lands in my Vendors label, post it to Slack" });
     const body = await res.json();
     expect(body.workflowPlan.steps[0].config).toEqual({ labelIds: ["Label_7"] });
     expect(mockResolveOptions).toHaveBeenCalledWith(
@@ -233,7 +238,7 @@ describe("scenario 6 — dynamic label through the canonical resolver", () => {
       source: "hermes-agent",
       workflowPlan: planWithSenderFilter({ labelIds: ["No Such Label"] }),
     });
-    const res = await call({ goalText: "When an email lands in a label, post it to Slack" });
+    const res = await call({ goalText: "When a Gmail email lands in a label, post it to Slack" });
     const body = await res.json();
     const step = body.workflowPlan.steps[0];
     expect(step.config).toBeUndefined();

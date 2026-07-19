@@ -201,6 +201,31 @@ describe("4 — editing an existing Outlook trigger preserves Outlook", () => {
     expect(trigger.config).toEqual({ folder: "Inbox", from: EMAIL });
   });
 
+  it("the SAME edit on an existing GMAIL trigger preserves Gmail (symmetric; no clarification)", async () => {
+    // Only Outlook connected — the existing NODE decides, not connection state.
+    connected(["slack", "microsoft-outlook"]);
+    const GMAIL_DRAFT = {
+      nodes: [
+        { id: "t1", kind: "trigger", provider: "gmail", type: "new_email", config: { labelIds: ["INBOX"] }, position: { x: 0, y: 0 } },
+        { id: "a1", kind: "action", provider: "slack", type: "send_channel_message", config: { channel: "C1", text: "hi" }, position: { x: 200, y: 0 } },
+      ],
+      edges: [{ id: "e1", from: "t1", to: "a1" }],
+    };
+    mockRunner.mockResolvedValue({
+      ok: true,
+      guidanceText: "Added the sender filter.",
+      source: "hermes-agent",
+      workflowPlan: null,
+      mutationOperations: [{ op: "updateNodeConfig", nodeId: "node_1", config: { from: ["[[EMAIL_1]]"] } }],
+    });
+    const res = await call({ goalText: `Only trigger when it comes from ${EMAIL}`, currentDraft: GMAIL_DRAFT });
+    const body = await res.json();
+    expect(body.providerClarification).toBeUndefined();
+    const trigger = body.proposedDefinition.nodes.find((n: { id: string }) => n.id === "t1");
+    expect(trigger.provider).toBe("gmail");
+    expect(trigger.config).toEqual({ labelIds: ["INBOX"], from: [EMAIL] });
+  });
+
   it("a model attempt to REPLACE the trigger with unnamed Gmail is refused → clarification, draft untouched", async () => {
     mockRunner.mockResolvedValue({
       ok: true,
@@ -284,25 +309,40 @@ describe("6 — no connected email provider", () => {
   });
 });
 
-describe("7 — exactly one connected email provider (the pinned product rule)", () => {
-  it("accepts the sole-connected provider WITH a visible notice (documented narrowing, not a user choice)", async () => {
-    connected(["slack", "microsoft-outlook"]);
+describe("7 — exactly one connected email provider still clarifies (REACT-PROVIDER-AMBIGUITY-2)", () => {
+  // Scenarios 1/2/3/12 of the -2 batch: every connection permutation, and the model having already
+  // committed to the connected provider, must still produce the question.
+  it.each([
+    ["Gmail connected, Outlook registered but not connected", ["slack", "gmail"], "gmail", "Gmail"],
+    ["Outlook connected, Gmail registered but not connected", ["slack", "microsoft-outlook"], "microsoft-outlook", "Microsoft Outlook"],
+  ])("%s → clarification naming the connected provider, nothing committed", async (_label, conn, modelPick, connectedLabel) => {
+    connected(conn);
     mockRunner.mockResolvedValue({
       ok: true,
       guidanceText: "Watching your inbox.",
       source: "hermes-agent",
-      workflowPlan: emailToSlackPlan("microsoft-outlook", { from: "[[EMAIL_1]]" }),
+      // The model already committed to the SOLE CONNECTED provider — the guard must still refuse.
+      workflowPlan: emailToSlackPlan(modelPick, { from: modelPick === "gmail" ? ["[[EMAIL_1]]"] : "[[EMAIL_1]]" }),
     });
     const res = await call({ goalText: GENERIC_GOAL });
     const body = await res.json();
-    expect(body.providerClarification).toBeUndefined();
-    expect(body.workflowPlan.steps[0].provider).toBe("microsoft-outlook");
-    expect(body.workflowPlan.steps[0].config).toEqual({ from: EMAIL });
-    expect((body.warnings as string[]).join(" ")).toContain("Using your connected Microsoft Outlook");
+    expect(body.workflowPlan).toBeNull();
+    expect(body.previewDraft).toBeNull();
+    expect(body.proposedDefinition).toBeUndefined();
+    // Both providers offered; the connected one is flagged + mentioned as a convenience only.
+    const byId = new Map(
+      (body.providerClarification.options as { providerId: string; label: string; isConnected: boolean }[]).map((o) => [o.providerId, o]),
+    );
+    expect([...byId.keys()]).toEqual(expect.arrayContaining(["gmail", "microsoft-outlook"]));
+    expect(byId.get(modelPick)!.isConnected).toBe(true);
+    expect(body.guidanceText).toContain(`${connectedLabel} is already connected`);
+    expect(body.guidanceText).toContain("Which email service should this use");
+    // The user's other details are explicitly preserved by the copy.
+    expect(body.guidanceText).toContain("I'll keep everything else you've told me");
   });
 
-  it("still clarifies when the model picks a DIFFERENT provider than the sole-connected one (no substitution)", async () => {
-    connected(["slack", "microsoft-outlook"]);
+  it("both connected → still clarification (no most-recent / alphabetical / model preference)", async () => {
+    connected(["slack", "gmail", "microsoft-outlook"]);
     mockRunner.mockResolvedValue({
       ok: true,
       guidanceText: "Watching Gmail.",
@@ -313,6 +353,66 @@ describe("7 — exactly one connected email provider (the pinned product rule)",
     const body = await res.json();
     expect(body.workflowPlan).toBeNull();
     expect(body.providerClarification).toBeDefined();
+    expect(body.guidanceText).toContain("are already connected");
+  });
+
+  it("no narrowing NOTICE is ever emitted in warnings (the notice channel is gone)", async () => {
+    connected(["slack", "gmail"]);
+    mockRunner.mockResolvedValue({
+      ok: true,
+      guidanceText: "Watching your inbox.",
+      source: "hermes-agent",
+      workflowPlan: emailToSlackPlan("gmail", { from: ["[[EMAIL_1]]"] }),
+    });
+    const res = await call({ goalText: GENERIC_GOAL });
+    const body = await res.json();
+    expect(JSON.stringify(body.warnings ?? [])).not.toContain("Using your connected");
+  });
+});
+
+describe("6b — explicit provider that is NOT connected is still honored (never substituted)", () => {
+  it("explicit Outlook with only Gmail connected → Outlook selected, sender filled, Gmail not substituted", async () => {
+    connected(["slack", "gmail"]);
+    mockRunner.mockResolvedValue({
+      ok: true,
+      guidanceText: "Watching Outlook.",
+      source: "hermes-agent",
+      workflowPlan: emailToSlackPlan("microsoft-outlook", { from: "[[EMAIL_1]]" }),
+    });
+    const res = await call({ goalText: `When an email arrives in Outlook from ${EMAIL}, post it to Slack` });
+    const body = await res.json();
+    expect(body.providerClarification).toBeUndefined();
+    expect(body.workflowPlan.steps[0].provider).toBe("microsoft-outlook");
+    expect(body.workflowPlan.steps[0].config).toEqual({ from: EMAIL });
+  });
+});
+
+describe("15 — category-general: the rule is metadata-driven, not an email special case", () => {
+  it("a generic 'spreadsheet' request with exactly one spreadsheet provider connected still clarifies", async () => {
+    // google-sheets + microsoft-excel are both registered data providers; only Sheets is connected.
+    connected(["slack", "google-sheets"]);
+    mockRunner.mockResolvedValue({
+      ok: true,
+      guidanceText: "I'll log it to a spreadsheet.",
+      source: "hermes-agent",
+      workflowPlan: {
+        schemaVersion: 1,
+        title: "Log to a spreadsheet",
+        summary: "Append each response to a spreadsheet",
+        steps: [
+          { ref: "s0", role: "trigger", provider: "native", type: "manual.run", purpose: "start" },
+          { ref: "s1", role: "action", provider: "google-sheets", type: "append_row", purpose: "log" },
+        ],
+        notApplied: true,
+      },
+    });
+    const res = await call({ goalText: "When I run this manually, add each response to a spreadsheet" });
+    const body = await res.json();
+    expect(body.workflowPlan).toBeNull();
+    expect(body.providerClarification).toBeDefined();
+    const ids = (body.providerClarification.options as { providerId: string }[]).map((o) => o.providerId);
+    expect(ids).toEqual(expect.arrayContaining(["google-sheets", "microsoft-excel"]));
+    expect(body.guidanceText).toContain("Google Sheets is already connected");
   });
 });
 

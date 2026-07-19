@@ -370,16 +370,16 @@ export async function POST(
     ? inferDeterministicMutationOps({ goalText, currentDraft: currentDraft!, connectedEmailProviders })
     : { kind: "none" as const };
 
-  // REACT-PROVIDER-AMBIGUITY-1 — the provider-selection guard's shared context: the user's words
+  // REACT-PROVIDER-AMBIGUITY-1/-2 — the provider-selection guard's shared context: the user's words
   // (all turns), providers already on their canvas, and connected providers. See the decision table
-  // in `providerSelectionGuard.ts` — a capability match never authorizes inventing a provider.
+  // in `providerSelectionGuard.ts` — a capability match never authorizes inventing a provider, and
+  // `connectedProviders` informs only the clarification COPY (connection ≠ intent).
   const providerGuardCtx = {
     texts: [goalText, ...(boundedRecentTurns?.map((t) => t.text) ?? [])],
     canvasProviders: editing ? currentDraft!.nodes.map((n) => n.provider) : [],
     connectedProviders: [...sharedCredentialProviders, ...ownConnectionProviders],
   };
   let providerClarification: ProviderClarification | null = null;
-  const providerNotices: string[] = [];
 
   let workflowPlan = result.workflowPlan ? await preparePlanConfigs(result.workflowPlan) : null;
   let previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
@@ -437,8 +437,6 @@ export async function POST(
     if (editAmbiguity.clarification) {
       providerClarification = editAmbiguity.clarification;
       editorGuidanceText = editAmbiguity.clarification.question;
-    } else {
-      providerNotices.push(...editAmbiguity.notices);
     }
 
     // PRIMARY model-driven path: opaque refs → stale guard → real ids → atomic catalog validation.
@@ -465,8 +463,29 @@ export async function POST(
   } else if (editing && fallback.kind === "ops") {
     // DEGRADED RECOVERY only: the model proposed no usable patch but the deterministic Slack↔email
     // fallback can. This also recovers a MALFORMED model edit when it maps to a supported shape.
-    const proposal = proposeWorkflowMutation({ currentDraft: currentDraft!, operations: fallback.operations });
-    if (proposal.kind === "proposal") {
+    //
+    // REACT-PROVIDER-AMBIGUITY-2 — the fallback's own resolver no longer reads connection state, but
+    // run its ADDED nodes through the SAME guard anyway (defense in depth): one decision table
+    // governs every path that can introduce a provider, whatever the source of the operations.
+    const fallbackAdded = fallback.operations.flatMap((op) =>
+      op.op === "addNode" || op.op === "replaceTrigger"
+        ? [
+            {
+              provider: op.node.provider,
+              type: op.node.type,
+              kind: (op.node.kind === "trigger" ? "trigger" : "action") as "trigger" | "action",
+            },
+          ]
+        : [],
+    );
+    const fallbackAmbiguity = findProviderAmbiguity(fallbackAdded, providerGuardCtx);
+    const proposal = fallbackAmbiguity.clarification
+      ? ({ kind: "clarify" } as const)
+      : proposeWorkflowMutation({ currentDraft: currentDraft!, operations: fallback.operations });
+    if (fallbackAmbiguity.clarification) {
+      providerClarification = fallbackAmbiguity.clarification;
+      editorGuidanceText = fallbackAmbiguity.clarification.question;
+    } else if (proposal.kind === "proposal") {
       proposedDefinition = proposal.proposedDefinition;
       previewDraft = proposal.previewDraft;
       workflowPlan = proposal.workflowPlan;
@@ -505,8 +524,6 @@ export async function POST(
       providerClarification = planAmbiguity.clarification;
       workflowPlan = null;
       previewDraft = null;
-    } else {
-      providerNotices.push(...planAmbiguity.notices);
     }
   }
 
@@ -520,7 +537,6 @@ export async function POST(
     ...(result.warnings ?? []),
     ...proposalWarnings,
     ...[...new Set(configWarnings)],
-    ...[...new Set(providerNotices)],
     ...(catalogGap ? [catalogGap.message] : []),
   ];
 

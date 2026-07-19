@@ -1,7 +1,14 @@
-# REACT-PROVIDER-AMBIGUITY-1 — provider selection is never invented
+# REACT-PROVIDER-AMBIGUITY — provider selection is never invented
 
-**Status:** implemented + verified locally (follows `6607fb687` / REACT-CONFIG-COVERAGE-1).
-Local commit on `v2-main`, not pushed.
+**Status:** implemented + verified locally across two slices, both local on `v2-main`, not pushed:
+
+- **-1** (`dcdc1cebd`, follows `6607fb687` / REACT-CONFIG-COVERAGE-1) — the guard, the prompt rule,
+  the template-alias fix.
+- **-2** (this update) — **removed the `sole-connected` rule**. Connection availability is not
+  proof of intent, so a single connected provider among several registered ones now asks instead
+  of selecting. See [§ REACT-PROVIDER-AMBIGUITY-2](#react-provider-ambiguity-2--connection-is-not-a-choice).
+
+The decision table below is the CURRENT (post-`-2`) rule.
 
 ## The correction
 
@@ -38,21 +45,27 @@ create path (plan steps) and edit path (`addNode` / `replaceTrigger`) — in
 | 1 | `native` | platform capability (manual/schedule/logic) | n/a |
 | 2 | `explicit` | the user named the provider in ANY turn (shared vocabulary — "outlook", "Microsoft email" → microsoft-outlook; generic words never match) | user's own words |
 | 3 | `canvas` | the provider is already on the current draft (existing-node context; editing never silently swaps a provider) | on the canvas |
-| 4 | `sole-registered` | it is the ONLY registered provider for this kind+category | preview shows the provider on the node card |
-| 5 | `sole-connected` | ≥2 registered, but it is the only CONNECTED candidate — the established connected-narrowing contract (same rule `inferDeterministicMutationOps.resolveEmailTarget` has always used) | explicit warning: "Using your connected X … tell me if you'd rather use a different one" |
-| — | otherwise | **AMBIGUOUS** → targeted clarification (stable ids + display names), NO plan/preview/proposal committed. If the sole-connected candidate differs from the model's pick, we still clarify — the guard **never substitutes** one provider for another. | `guidanceText` + `providerClarification` response field |
+| 4 | `sole-registered` | it is the ONLY provider **REGISTERED** for this kind+category — a platform-capability fact (no alternative exists in the catalog), independent of whether it is connected | preview shows the provider on the node card |
+| — | otherwise | **AMBIGUOUS** → targeted clarification (stable ids + display names + `isConnected`), NO plan/preview/proposal committed. The guard **never substitutes** one provider for another. | `guidanceText` + `providerClarification` response field |
+
+There is deliberately **no connection-based rule** (removed in `-2`).
 
 Candidates are computed as a **set** from the registry (same kind + category), all outputs sorted
 by display label — registry/catalog/connection **ordering can never change the result**.
 
-## Behavior by eligible/connected count (generic "email" request)
+## Behavior by registered/connected count (generic "email" request)
 
-- **Zero connected** → clarification listing supported providers (never defaults to Gmail);
-  connecting comes after choosing (selection ≠ connection).
-- **Exactly one connected** → that provider is accepted *only if the model chose it*, with a
-  visible narrowing notice; a different model pick still clarifies.
-- **Two+ connected (or none named)** → clarification: "Which email service should this use:
-  Gmail or Microsoft Outlook? I'll keep everything else you've told me."
+With **two registered** email providers (Gmail, Microsoft Outlook), the answer is the same
+regardless of connections — only the copy changes:
+
+- **Zero connected** → clarification listing supported providers; connecting comes after choosing
+  (selection ≠ connection).
+- **Exactly one connected** → clarification that *mentions* it: "Which email service should this
+  use: Gmail or Microsoft Outlook? Gmail is already connected. I'll keep everything else you've
+  told me." Both options stay on offer; `isConnected` is display emphasis only.
+- **Both connected** → clarification ("… Gmail and Microsoft Outlook are already connected.").
+- **Exactly one REGISTERED** (any connection state) → automatic selection is allowed
+  (`sole-registered`) and the preview names the provider.
 - **Unsupported provider named ("Yahoo")** → no silent substitution; the clarification presents
   the supported candidates only.
 
@@ -112,3 +125,79 @@ is pipeline plumbing, not provider inference).
 client rail sweep 43 suites / 485 tests green · full `npm test`: failure set **byte-identical**
 to the pre-existing baseline verified against clean HEAD (environment/live-DB + known drifts);
 25,629 passed. Nothing pushed, no deploy, no migration.
+
+---
+
+## REACT-PROVIDER-AMBIGUITY-2 — connection is not a choice
+
+Follow-up slice. `-1` still let one rule infer a provider from account state: `sole-connected`
+("≥2 registered, but only one connected → use it, with a notice"). That is availability, not
+intent — a user with only Gmail connected may fully intend to connect Outlook for this workflow.
+The rule is now **removed**; nothing about connection state can select a provider.
+
+### What changed
+
+- **`providerSelectionGuard.ts`** — `sole-connected` deleted from `ProviderJustifiedRule` and from
+  `evaluateProviderChoice`. The remaining table is: `native` · `explicit` · `canvas` ·
+  `sole-registered`. Connection state now only decorates the clarification:
+  `ProviderClarificationOption.isConnected` (display emphasis; must never preselect) and the
+  question's convenience sentence ("Gmail is already connected.").
+- **`findProviderAmbiguity`** — the `notices` channel is gone with the rule it disclosed. Every
+  surviving justification is the user's words, their canvas, a native step, or a catalog fact —
+  none is an inference needing disclosure. A provider the user didn't choose now yields a
+  QUESTION, never a notice.
+- **`inferDeterministicMutation.resolveEmailTarget`** — the demoted edit fallback had the SAME
+  connected-narrowing rule (`connectedCandidates.length === 1 → use it`). Removed; it now decides
+  on named-provider or sole-registered only, and otherwise returns its existing "ask" result.
+  `connectedEmailProviders` remains on the input shape but is documented as ignored.
+- **Route (defense in depth)** — the fallback's `addNode`/`replaceTrigger` operations now also run
+  through `findProviderAmbiguity`, so ONE decision table governs every path that can introduce a
+  provider, whatever produced the operations.
+- **Prompt** — the credential-availability instruction no longer reads as "prefer what's
+  connected" ("A connected provider is AVAILABLE, not SELECTED"), plus a new CONNECTION IS NOT A
+  CHOICE rule: *a connected provider is available, not selected; for a new workflow do not choose
+  among multiple supported providers unless the user identifies one; ask even when only one of
+  those providers is connected.*
+
+### Registered vs connected (the distinction that matters)
+
+| | Automatic selection? |
+|---|---|
+| Exactly one provider **REGISTERED** for the capability | **Yes** — `sole-registered`; no alternative exists in the catalog, and the preview names it |
+| One provider **CONNECTED** among several registered | **No** — clarification required |
+
+### Preserved
+
+Optional-field coverage, sensitive-literal tokenization/rebinding, multi-turn constraint
+preservation, existing-node provider preservation, explicit selection, order independence,
+unsupported-provider non-substitution, strict patch validation, preview/apply gates, and config
+merge preservation are all unchanged and green. Suites whose fixtures relied on silent provider
+selection were updated to NAME their provider (they exercise field coverage / pipeline plumbing,
+not provider inference): `ai-workflow-guidance-config-coverage`, one `ai-workflow-guidance-route`
+fallback case, and one `inferDeterministicMutation` case (which now asserts the question).
+
+### Tests (`-2`)
+
+- `providerSelectionGuard.test.ts` (16 total, +5) — all four connection permutations over two
+  registered candidates still ambiguous for BOTH providers; connected-mention copy + `isConnected`
+  flags without filtering options; REGISTERED-vs-CONNECTED pinned in one test; sole-registered
+  independent of connection; explicit beats connection; order independence now also reverses the
+  CONNECTION list.
+- `ai-workflow-guidance-provider-ambiguity.test.ts` (16 total, +5) — Gmail-only-connected and
+  Outlook-only-connected both clarify while naming the connected provider (the model having
+  already committed to that provider); both-connected clarifies; no narrowing notice ever appears
+  in `warnings`; explicit-but-unconnected Outlook still honored with Gmail connected; existing
+  **Gmail** node edit preserved (symmetric with the Outlook case) while only Outlook is connected;
+  category-general **spreadsheet** case (Google Sheets connected, Excel registered) still asks.
+- `inferDeterministicMutation.test.ts` (+2, 1 updated) — one-connected now asks; none-connected
+  asks; naming the provider still resolves even when the OTHER provider is the connected one.
+- `providerAmbiguityIndependence.test.ts` (+1) — the prompt states connection ≠ selection even
+  when the context lists the caller's connected accounts.
+
+### Verification (`-2`, 2026-07-19)
+
+`npx tsc --noEmit` clean · `npm run lint -- --max-warnings=0` 0 errors / 18 pre-existing
+`max-lines` warnings (none new) · `npm run lint:structure` OK · `npm run lint:migrations` OK (no
+migration) · React-agent + builder sweep: 445 suites / 4,790 tests passed with only the 5 known
+pre-existing failures · full `npm test` failure set unchanged from the recorded baseline.
+Nothing pushed, no deploy, no migration, no `db:push`.

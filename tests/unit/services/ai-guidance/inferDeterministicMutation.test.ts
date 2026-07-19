@@ -46,9 +46,24 @@ describe("inferDeterministicMutationOps — Slack → email", () => {
     expect(res.kind).toBe("needs_provider_choice");
   });
 
-  it("no provider named + exactly ONE connected → uses it", () => {
+  // REACT-PROVIDER-AMBIGUITY-2 — connection state no longer decides the provider. With Gmail AND
+  // Outlook both registered, "change it to an email notification" must ask which one, even when
+  // exactly one is connected (previously this silently used the connected provider).
+  it("no provider named + exactly ONE connected → STILL asks Gmail vs Outlook (connected ≠ chosen)", () => {
     const res = inferDeterministicMutationOps({ goalText: "change it to an email notification", currentDraft: manualSlack(), connectedEmailProviders: ["gmail"] });
+    expect(res.kind).toBe("needs_provider_choice");
+  });
+
+  it("no provider named + NONE connected → asks (unchanged)", () => {
+    const res = inferDeterministicMutationOps({ goalText: "change it to an email notification", currentDraft: manualSlack(), connectedEmailProviders: [] });
+    expect(res.kind).toBe("needs_provider_choice");
+  });
+
+  it("naming the provider still resolves immediately regardless of connection state", () => {
+    const res = inferDeterministicMutationOps({ goalText: "change it to a gmail email", currentDraft: manualSlack(), connectedEmailProviders: ["microsoft-outlook"] });
     expect(res.kind).toBe("ops");
+    if (res.kind !== "ops") return;
+    expect(res.operations.some((o) => o.op === "addNode" && o.node.provider === "gmail")).toBe(true);
   });
 
   it("MORE THAN ONE Slack step → asks WHICH one (never guesses by provider/type)", () => {

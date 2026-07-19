@@ -65,9 +65,14 @@ const CONTEXT_SCOPE_INSTRUCTION =
 /**
  * Provider-availability instruction (HERMES-AGENT-CREDENTIAL-AVAILABILITY-CONTEXT). Keeps suggestions
  * grounded in the sanitized availability summary instead of assuming a connection exists.
+ *
+ * REACT-PROVIDER-AMBIGUITY-2 — it must NOT read as "prefer whatever is connected". The connection
+ * list says what is AVAILABLE; it never says which provider the user WANTS. The second sentence
+ * makes that explicit so the listed connections can't become an implicit default.
  */
 const CREDENTIAL_AVAILABILITY_INSTRUCTION =
-  "Only suggest using connections listed as available in this request, or ask the user to connect or share the provider first.";
+  "Do not assume a connection exists that isn't listed as available in this request; if a provider the user chose isn't connected, say it needs connecting. " +
+  "A connected provider is AVAILABLE, not SELECTED — never treat the connection list as the user's choice of provider.";
 
 /**
  * Defensive redaction of obvious secret/token shapes from user free text. The goal text is the
@@ -280,6 +285,7 @@ const RESPONSE_FORMAT_INSTRUCTIONS = [
   "- The TRIGGER (the source/event ChainReact watches) is held to the same rule: only use a trigger from the catalog. If the user describes watching a metric or condition with no matching catalog trigger (e.g. \"when usage drops\", \"low usage\", \"on churn\"), do NOT claim the flow is ready/straightforward and do NOT invent a trigger. Instead ASK which source the data should come from (e.g. Stripe, HubSpot, Google Analytics, a webhook, or their app), OR return a plan using the `native:manual.run` trigger and say it is a STARTING point they can re-point to a real source. List the still-needed pieces in `requiredInputs`/`clarifyingQuestions`.",
   "- Ask short clarifying questions FIRST (and OMIT the json block) ONLY when the SHAPE itself is ambiguous — e.g. you cannot tell which trigger or action to use, which app/provider the user means, or the request could map to materially different workflow structures. Missing config values alone never make the shape ambiguous.",
   '- PROVIDER RULE (critical): a generic capability word — "email", "spreadsheet", "message", "calendar", "document" — names a KIND of app, NOT a provider. It is NOT permission to pick one. When the catalog offers more than one provider for the capability and the user has not named one (and no step of that kind is already on their canvas), ASK which provider to use (e.g. "Gmail or Microsoft Outlook?") and OMIT the json block. Never default to Gmail or to the first catalog entry. When the user then names the provider, return the full plan with every value they already gave — they must never have to repeat details.',
+  "- CONNECTION IS NOT A CHOICE: a connected provider is available, not selected. For a new workflow, do not choose among multiple supported providers unless the user identifies one. Ask a targeted clarification even when only one of those providers is connected — you may mention which one is already connected as a convenience, but the user still decides. (Only when the catalog has exactly ONE provider for the capability may you use it without asking.)",
   "- If the shape is genuinely unclear and you cannot pick capabilities from the catalog, OMIT the json block — do not guess providers/actions.",
   "- The plan is a suggestion for the user to review. Do NOT say you created, added, applied, saved, ran, or changed anything — nothing is changed in their workflow.",
 ].join("\n");

@@ -1,5 +1,5 @@
 /**
- * Deterministic provider-selection guard (REACT-PROVIDER-AMBIGUITY-1).
+ * Deterministic provider-selection guard (REACT-PROVIDER-AMBIGUITY-1 · -2).
  *
  * A capability match never authorizes React to INVENT a provider choice. The model may propose a
  * plan step or an added node using `gmail:new_email` for "when I receive an email…" — but "email"
@@ -16,18 +16,22 @@
  *                            "microsoft outlook" → microsoft-outlook; generic words never match).
  *   3. `canvas`            — P is already on the user's current draft (existing-node context; editing
  *                            never silently swaps a provider the user already chose).
- *   4. `sole-registered`   — P is the ONLY registered provider exposing this kind+category. The
- *                            preview states the provider on the node card, so the inference is visible.
- *   5. `sole-connected`    — ≥2 providers are registered, but P is the ONLY one of them the account
- *                            has connected. This is the ESTABLISHED connected-provider narrowing
- *                            contract (same rule the deterministic edit fallback
- *                            `inferDeterministicMutationOps.resolveEmailTarget` has always used);
- *                            the route adds a visible notice so it never reads as a user choice.
+ *   4. `sole-registered`   — P is the ONLY provider REGISTERED for this kind+category. This is a
+ *                            PLATFORM-CAPABILITY fact (no alternative exists in the catalog), not an
+ *                            inference about the user; the preview names the provider on the node card.
  *
  * Otherwise the choice is AMBIGUOUS: the guard yields a clarification carrying stable provider IDS
  * plus user-facing display names, and the caller returns the question INSTEAD of a plan/proposal.
- * If the sole-connected candidate exists but the model picked a DIFFERENT provider, the guard still
- * clarifies — it NEVER substitutes one provider for another.
+ *
+ * ── CONNECTION STATE IS NOT INTENT (REACT-PROVIDER-AMBIGUITY-2) ──
+ *
+ * There is deliberately NO `sole-connected` rule. When ≥2 providers are REGISTERED for the
+ * capability, the account having connected exactly one of them does NOT answer "which provider did
+ * the user mean" — they may fully intend to connect the other. Connection state therefore feeds
+ * ONLY the clarification COPY / display emphasis (`ProviderClarificationOption.isConnected` and the
+ * "X is already connected" sentence); it can never preselect, commit, or justify a provider. The
+ * REGISTERED-vs-CONNECTED distinction is the whole point: one registered ⇒ automatic selection is
+ * allowed; one connected among several registered ⇒ clarification required.
  *
  * Candidates are computed as a SET from the discovery registry (same kind + same category) and every
  * output is sorted by display label — registry/catalog/connection ordering can never change the
@@ -60,20 +64,23 @@ export interface ProviderSelectionContext {
   readonly texts: readonly string[];
   /** Providers already on the current draft (existing-node context). */
   readonly canvasProviders?: readonly string[];
-  /** Providers the account has connected (shared + own). */
+  /**
+   * Providers the account has connected (shared + own). REACT-PROVIDER-AMBIGUITY-2: used ONLY for
+   * clarification copy / display emphasis — connection state never justifies a provider choice.
+   */
   readonly connectedProviders?: readonly string[];
 }
 
-export type ProviderJustifiedRule =
-  | "native"
-  | "explicit"
-  | "canvas"
-  | "sole-registered"
-  | "sole-connected";
+export type ProviderJustifiedRule = "native" | "explicit" | "canvas" | "sole-registered";
 
 export interface ProviderClarificationOption {
   readonly providerId: string;
   readonly label: string;
+  /**
+   * Whether the account already has this provider connected. DISPLAY EMPHASIS ONLY — the UI may
+   * highlight it, but it must never preselect or commit the option (REACT-PROVIDER-AMBIGUITY-2).
+   */
+  readonly isConnected: boolean;
 }
 
 export interface ProviderClarification {
@@ -125,13 +132,26 @@ export function registeredCategoryCandidates(
   return [...out].sort((a, b) => displayLabel(a).localeCompare(displayLabel(b)) || a.localeCompare(b));
 }
 
-/** Build the targeted question. Lists up to 4 names; larger candidate sets get an open phrasing. */
+/**
+ * Build the targeted question. Lists up to 4 names; larger candidate sets get an open phrasing.
+ *
+ * REACT-PROVIDER-AMBIGUITY-2 — when some candidates are already connected, the question SAYS SO as
+ * a convenience ("Gmail is already connected."). That sentence is copy only: the question is still
+ * asked, no option is preselected, and nothing is committed until the user answers.
+ */
 function buildQuestion(kind: "trigger" | "action", category: string, options: readonly ProviderClarificationOption[]): string {
   const noun = CATEGORY_NOUNS[category] ?? "app";
   const names = options.map((o) => o.label);
   const listed = names.slice(0, 4).join(names.length === 2 ? " or " : ", ");
   const suffix = names.length > 4 ? ", or another supported app" : "";
-  return `Which ${noun} should this use: ${listed}${suffix}? I'll keep everything else you've told me.`;
+  const connected = options.filter((o) => o.isConnected).map((o) => o.label);
+  const connectedSentence =
+    connected.length === 0
+      ? ""
+      : connected.length === 1
+        ? ` ${connected[0]} is already connected.`
+        : ` ${connected.slice(0, 3).join(" and ")} are already connected.`;
+  return `Which ${noun} should this use: ${listed}${suffix}?${connectedSentence} I'll keep everything else you've told me.`;
 }
 
 /**
@@ -160,20 +180,23 @@ export function evaluateProviderChoice(
     return { justified: true, rule: "canvas" };
   }
 
+  // REGISTERED candidates only. A capability with exactly ONE registered provider has no
+  // alternative in the product catalog, so selecting it is a platform fact, not an assumption.
   const rawCandidates = candidatesOverride ?? registeredCategoryCandidates(node.kind, meta.category);
   const candidates = new Set(rawCandidates);
   candidates.add(node.provider); // the chosen provider is always a candidate of its own category
   if (candidates.size <= 1) return { justified: true, rule: "sole-registered" };
 
-  const connectedCandidates = new Set(
-    (ctx.connectedProviders ?? []).filter((p) => candidates.has(p)),
-  );
-  if (connectedCandidates.size === 1 && connectedCandidates.has(node.provider)) {
-    return { justified: true, rule: "sole-connected" };
-  }
-
+  // REACT-PROVIDER-AMBIGUITY-2 — with ≥2 REGISTERED candidates the choice is the USER'S to make.
+  // Connection state is deliberately NOT consulted here: having connected exactly one of them is
+  // availability, not intent (they may intend to connect another). It only decorates the options.
+  const connected = new Set((ctx.connectedProviders ?? []).filter((p) => candidates.has(p)));
   const options = [...candidates]
-    .map((providerId) => ({ providerId, label: displayLabel(providerId) }))
+    .map((providerId) => ({
+      providerId,
+      label: displayLabel(providerId),
+      isConnected: connected.has(providerId),
+    }))
     .sort((a, b) => a.label.localeCompare(b.label) || a.providerId.localeCompare(b.providerId));
   return {
     justified: false,
@@ -189,32 +212,23 @@ export function evaluateProviderChoice(
 export interface ProviderAmbiguityResult {
   /** The FIRST ambiguous choice (plan order), or null when every choice is justified. */
   readonly clarification: ProviderClarification | null;
-  /**
-   * Visible notices for inferences the user did not explicitly make (sole-connected narrowing) —
-   * safe display names only. Empty when every choice was explicit/canvas/native/sole-registered.
-   */
-  readonly notices: readonly string[];
 }
 
-/** Evaluate a set of chosen nodes; first ambiguity wins (one targeted question per turn). */
+/**
+ * Evaluate a set of chosen nodes; the FIRST ambiguity wins (one targeted question per turn).
+ *
+ * REACT-PROVIDER-AMBIGUITY-2 removed the "narrowing notice" channel along with the sole-connected
+ * rule: every remaining justification is either the user's own words, their own canvas, a platform
+ * capability with no alternative, or a native step — none of which is an inference needing
+ * disclosure. A provider the user did not choose now produces a QUESTION, never a notice.
+ */
 export function findProviderAmbiguity(
   nodes: readonly ProviderChoiceNode[],
   ctx: ProviderSelectionContext,
 ): ProviderAmbiguityResult {
-  const notices: string[] = [];
-  const noticed = new Set<string>();
   for (const node of nodes) {
     const verdict = evaluateProviderChoice(node, ctx);
-    if (!verdict.justified) return { clarification: verdict.clarification, notices };
-    if (verdict.rule === "sole-connected" && !noticed.has(node.provider)) {
-      noticed.add(node.provider);
-      const meta =
-        node.kind === "trigger" ? getTriggerMeta(`${node.provider}:${node.type}`) : getActionMeta(`${node.provider}:${node.type}`);
-      const noun = CATEGORY_NOUNS[meta?.category ?? ""] ?? "app";
-      notices.push(
-        `Using your connected ${displayLabel(node.provider)} for the ${noun} step — tell me if you'd rather use a different one.`,
-      );
-    }
+    if (!verdict.justified) return { clarification: verdict.clarification };
   }
-  return { clarification: null, notices };
+  return { clarification: null };
 }

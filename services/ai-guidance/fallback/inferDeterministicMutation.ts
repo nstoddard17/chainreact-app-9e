@@ -8,9 +8,9 @@
  * — it does NOT apply anything itself and adds no special-case apply path.
  *
  * It uses STABLE node ids from the current draft (never "the first Slack action") and respects
- * ambiguity: more than one matching notification step → it asks WHICH one rather than guessing. Email
- * provider is asked for when ambiguous (both Gmail + Outlook available, none connected / both connected)
- * unless the goal names one or exactly one is connected. No invented providers; the chosen capability is
+ * ambiguity: more than one matching notification step → it asks WHICH one rather than guessing. The email
+ * provider is asked for whenever the catalog registers more than one candidate and the goal doesn't name
+ * one — connection state is NOT consulted (REACT-PROVIDER-AMBIGUITY-2: connected ≠ chosen). No invented providers; the chosen capability is
  * registry-checked (the downstream `validateWorkflowPatch` re-checks everything). Pure + model-free.
  *
  * NO new one-off intent matchers belong here — broaden coverage by improving the MODEL patch path.
@@ -28,7 +28,11 @@ const SLACK_NOTIFY_TYPES = ["send_channel_message", "send_direct_message"];
 export interface InferMutationInput {
   readonly goalText: string;
   readonly currentDraft: WorkflowDefinition;
-  /** Email providers (gmail / microsoft-outlook) the caller already has connected — drives the default. */
+  /**
+   * DEPRECATED / IGNORED (REACT-PROVIDER-AMBIGUITY-2). Connection state no longer influences the
+   * provider decision — connected is available, not chosen. Kept in the input shape so callers and
+   * the route wiring stay source-compatible; the resolver never reads it.
+   */
   readonly connectedEmailProviders?: readonly string[];
 }
 
@@ -46,14 +50,21 @@ function capabilityExists(provider: string, type: string): boolean {
   return getActionMeta(`${provider}:${type}`) != null;
 }
 
-function resolveEmailTarget(goal: string, connected: readonly string[]): { provider: string; type: string } | "ask" | "none" {
+/**
+ * Resolve which email capability a "switch it to email" request means.
+ *
+ * REACT-PROVIDER-AMBIGUITY-2 — connection state is deliberately NOT consulted. Only two things
+ * decide: the user NAMING a provider, or the catalog REGISTERING exactly one candidate. Having
+ * connected exactly one of several registered providers is availability, not intent, so it now
+ * yields "ask" (the same targeted question both-connected always produced) instead of silently
+ * picking the connected one. Mirrors `providerSelectionGuard`'s decision table.
+ */
+function resolveEmailTarget(goal: string): { provider: string; type: string } | "ask" | "none" {
   if (/\bgmail\b/.test(goal) && capabilityExists(GMAIL_SEND.provider, GMAIL_SEND.type)) return { ...GMAIL_SEND };
   if (/\b(outlook|office\s?365|microsoft)\b/.test(goal) && capabilityExists(OUTLOOK_SEND.provider, OUTLOOK_SEND.type)) return { ...OUTLOOK_SEND };
   const candidates = [GMAIL_SEND, OUTLOOK_SEND].filter((c) => capabilityExists(c.provider, c.type));
   if (candidates.length === 0) return "none";
-  const connectedCandidates = candidates.filter((c) => connected.includes(c.provider));
-  if (connectedCandidates.length === 1) return { ...connectedCandidates[0]! };
-  if (candidates.length === 1) return { ...candidates[0]! };
+  if (candidates.length === 1) return { ...candidates[0]! }; // sole REGISTERED candidate — platform fact
   return "ask";
 }
 
@@ -93,7 +104,7 @@ export function inferDeterministicMutationOps(input: InferMutationInput): Mutati
     if (slackNodes.length > 1) {
       return { kind: "needs_node_choice", message: "You have more than one Slack step — which one should I change to email?" };
     }
-    const target = resolveEmailTarget(goal, input.connectedEmailProviders ?? []);
+    const target = resolveEmailTarget(goal);
     if (target === "none") return { kind: "catalog_gap", message: "ChainReact doesn't have an email send action in the catalog yet, so I can't switch the notification to email here." };
     if (target === "ask") return { kind: "needs_provider_choice", message: EMAIL_PROVIDER_QUESTION };
     return { kind: "ops", operations: buildSwapOps(draft, slackNodes[0]!, target), summary: "Switch the Slack notification to email" };

@@ -522,11 +522,14 @@ describe("workflow-guidance route — capability call + safe response", () => {
     expect(emailPreview.missingInputs).toContain("to");
   });
 
-  it("HERMES-AGENT-WORKFLOW-EDITOR — no model patch + demoted fallback: Slack→email with one connected provider → proposedDefinition", async () => {
+  // REACT-PROVIDER-AMBIGUITY-2 — the demoted fallback no longer reads connection state, so the goal
+  // must NAME the provider for it to resolve (a bare "email" request with Gmail+Outlook both
+  // registered now asks which one — pinned in ai-workflow-guidance-provider-ambiguity.test.ts).
+  it("HERMES-AGENT-WORKFLOW-EDITOR — no model patch + demoted fallback: Slack→named Gmail → proposedDefinition", async () => {
     mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Sure.", source: "hermes-agent", workflowPlan: null });
     mockCredentials.mockResolvedValueOnce({ accountSharedProviders: [], currentUserPrivateProviders: [{ providerKey: "gmail", displayName: "Gmail", status: "available" }] });
     const res = await call(ACCOUNT, {
-      goalText: "can you actually change it to an email notification",
+      goalText: "can you actually change it to a Gmail email notification",
       currentDraft: {
         nodes: [
           { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },

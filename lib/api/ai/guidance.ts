@@ -43,16 +43,22 @@ export type WorkflowGuidanceResponse =
        */
       baseGraphVersion?: string;
       /**
-       * REACT-PROVIDER-AMBIGUITY-1 — the targeted provider question when the request named a
-       * capability ("email") that more than one provider implements and none was justified
-       * (explicit mention / canvas / sole candidate / documented connected narrowing). Present ⇒
+       * REACT-PROVIDER-AMBIGUITY-1/-2 — the targeted provider question when the request named a
+       * capability ("email") that more than one REGISTERED provider implements and none was
+       * justified (explicit mention / existing canvas node / sole registered candidate). Present ⇒
        * NO plan/preview/proposal was committed this turn; `guidanceText` carries the question.
-       * `options` pair stable provider ids with user-facing display names.
+       * `options` pair stable provider ids with user-facing display names; `isConnected` is
+       * DISPLAY EMPHASIS ONLY — the UI must never preselect or auto-commit a connected option
+       * (connection is availability, not the user's choice).
        */
       providerClarification?: {
         readonly kind: "trigger" | "action";
         readonly category: string;
-        readonly options: readonly { readonly providerId: string; readonly label: string }[];
+        readonly options: readonly {
+          readonly providerId: string;
+          readonly label: string;
+          readonly isConnected: boolean;
+        }[];
         readonly question: string;
       };
       warnings?: readonly string[];

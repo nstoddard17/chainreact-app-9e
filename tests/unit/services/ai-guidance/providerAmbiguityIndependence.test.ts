@@ -12,6 +12,7 @@ import {
 } from "@/core/workflows/officialTemplateMatcher";
 import { buildGatewayGuidancePrompt } from "@/services/ai-guidance/gateway/buildGatewayGuidancePrompt";
 import { buildEditableWorkflowGraph } from "@/services/ai-guidance/editableGraph/buildEditableWorkflowGraph";
+import { buildSafeGuidanceContext } from "@/services/ai-guidance/guidanceContextPolicy";
 import type { WorkflowGuidanceRequest } from "@/contracts/aiGuidance";
 
 const GMAIL_TO_SLACK_TEMPLATE: OfficialTemplateCatalogEntry = {
@@ -61,6 +62,26 @@ describe("gateway prompt — no Gmail few-shot bias; explicit provider rule", ()
     expect(prompt).toContain("PROVIDER RULE");
     expect(prompt).toContain('names a KIND of app, NOT a provider');
     expect(prompt).toContain("Never default to Gmail or to the first catalog entry");
+  });
+
+  it("states that a connected provider is available, NOT selected (REACT-PROVIDER-AMBIGUITY-2)", () => {
+    const prompt = buildGatewayGuidancePrompt({
+      request: EMPTY_REQUEST,
+      goalText: "when I receive an email, post it to Slack",
+      // A REAL scope-guarded context listing Gmail as the caller's own connection — the prompt must
+      // still tell the model that availability isn't a selection.
+      context: buildSafeGuidanceContext({
+        viewerUserId: "user-1",
+        account: { type: "personal" },
+        ownConnectionProviders: ["gmail"],
+      }),
+    });
+    expect(prompt).toContain("CONNECTION IS NOT A CHOICE");
+    expect(prompt).toContain("a connected provider is available, not selected");
+    expect(prompt).toContain("Ask a targeted clarification even when only one of those providers is connected");
+    // The availability instruction must not read as "prefer what's connected".
+    expect(prompt).toContain("A connected provider is AVAILABLE, not SELECTED");
+    expect(prompt).not.toContain("Only suggest using connections listed as available");
   });
 
   it("the edit-instruction op example is provider-neutral (no gmail:send_email few-shot)", () => {
