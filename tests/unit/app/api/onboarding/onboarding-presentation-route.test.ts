@@ -3,8 +3,12 @@
  *
  * POST /api/onboarding/presentation (5.ONBOARD-1 Batch 1): the ONLY
  * client-writable onboarding surface. Proves the forgery wall (completion /
- * step state unreachable, strict body), the cross-account no-leak 404 for
- * select_workflow, server-assigned timestamps, and flag-off inertness.
+ * step state unreachable, strict body), server-assigned timestamps, and that
+ * every read/write is scoped to the CALLER'S resolved (userId, accountId).
+ *
+ * 5.ONBOARD-2: the checklist is account-level — `select_workflow` is gone from
+ * the action union, so no workflow id crosses this boundary at all. A body
+ * still sending it is a schema rejection (400), not a 200 and not a 404.
  */
 import { NextResponse } from "next/server";
 
@@ -128,42 +132,94 @@ describe("POST /api/onboarding/presentation", () => {
     expect(mockUpdatePresentation).not.toHaveBeenCalled();
   });
 
-  it("select_workflow: own-account workflow persists the selection", async () => {
+  it("5.ONBOARD-2: select_workflow is REJECTED by the action union (400), nothing written, no workflow lookup", async () => {
     authedAs("user-1", "acct-1");
-    mockGetWorkflowById.mockResolvedValue({
-      id: WF_UUID,
-      accountId: "acct-1",
-      state: "draft",
-    });
-    const res = await POST(req({ action: "select_workflow", workflowId: WF_UUID }));
-    expect(res.status).toBe(200);
-    expect(mockUpdatePresentation).toHaveBeenCalledWith("user-1", "acct-1", {
-      selectedWorkflowId: WF_UUID,
-    });
-  });
-
-  it("select_workflow: foreign-account workflow collapses to the no-leak 404, nothing written", async () => {
-    authedAs("user-1", "acct-1");
-    mockGetWorkflowById.mockResolvedValue({
-      id: WF_UUID,
-      accountId: "acct-OTHER",
-      state: "draft",
-    });
-    const res = await POST(req({ action: "select_workflow", workflowId: WF_UUID }));
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: "WORKFLOW_NOT_FOUND" });
+    for (const body of [
+      { action: "select_workflow", workflowId: WF_UUID },
+      { action: "select_workflow", workflowId: null },
+      { action: "select_workflow" },
+    ]) {
+      const res = await POST(req(body));
+      expect(res.status).toBe(400);
+      // Never the old cross-account no-leak 404 path, and never a silent 200.
+      expect(await res.json()).not.toEqual({ error: "WORKFLOW_NOT_FOUND" });
+    }
     expect(mockUpdatePresentation).not.toHaveBeenCalled();
+    expect(mockGetWorkflowById).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["unknown workflow", null],
-    ["deleted workflow", { id: WF_UUID, accountId: "acct-1", state: "deleted" }],
-  ])("select_workflow: %s → identical no-leak 404", async (_label, record) => {
+  it("no workflow id crosses this boundary: a valid verb never reads a workflow row", async () => {
     authedAs("user-1", "acct-1");
-    mockGetWorkflowById.mockResolvedValue(record);
-    const res = await POST(req({ action: "select_workflow", workflowId: WF_UUID }));
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: "WORKFLOW_NOT_FOUND" });
+    await POST(req({ action: "dismiss" }));
+    expect(mockGetWorkflowById).not.toHaveBeenCalled();
+    expect(mockUpdatePresentation).toHaveBeenCalledWith("user-1", "acct-1", {
+      dismissedAt: expect.any(String),
+    });
+  });
+
+  describe("NO CROSS-ACCOUNT LEAK: scoping comes from the auth helper, never the body", () => {
+    it.each([
+      ["dismiss"],
+      ["reopen"],
+      ["minimize"],
+      ["expand"],
+      ["video_watched"],
+      ["celebrated"],
+    ] as const)(
+      "%s writes to the CALLER'S (userId, accountId) pair only",
+      async (action) => {
+        authedAs("user-B", "acct-B");
+        const res = await POST(req({ action }));
+        expect(res.status).toBe(200);
+        const [userId, accountId] = mockUpdatePresentation.mock.calls[0]!;
+        expect(userId).toBe("user-B");
+        expect(accountId).toBe("acct-B");
+      },
+    );
+
+    it("a body smuggling another account's userId/accountId is a 400, nothing written", async () => {
+      authedAs("user-A", "acct-A");
+      for (const body of [
+        { action: "dismiss", accountId: "acct-B" },
+        { action: "dismiss", userId: "user-B" },
+        { action: "reopen", accountId: "acct-B", userId: "user-B" },
+      ]) {
+        const res = await POST(req(body));
+        expect(res.status).toBe(400);
+      }
+      expect(mockUpdatePresentation).not.toHaveBeenCalled();
+    });
+
+    it("account A's request can never touch account B's row (same user, different active account)", async () => {
+      authedAs("user-1", "acct-A");
+      await POST(req({ action: "minimize" }));
+      authedAs("user-1", "acct-B");
+      await POST(req({ action: "minimize" }));
+
+      const accountsWritten = mockUpdatePresentation.mock.calls.map((c) => c[1]);
+      expect(accountsWritten).toEqual(["acct-A", "acct-B"]);
+      // Each call is scoped to exactly one account — no call ever received the
+      // other account's id, so progress cannot bleed across accounts.
+      expect(
+        mockUpdatePresentation.mock.calls.every(
+          (c) => typeof c[0] === "string" && typeof c[1] === "string",
+        ),
+      ).toBe(true);
+    });
+
+    it("the response is built ONLY from the row the caller's own scoped write returned", async () => {
+      authedAs("user-A", "acct-A");
+      mockUpdatePresentation.mockResolvedValue(
+        updatedRow({ userId: "user-A", accountId: "acct-A", minimized: true }),
+      );
+      const res = await POST(req({ action: "minimize" }));
+      expect(res.status).toBe(200);
+      const body = JSON.stringify(await res.json());
+      // No foreign identifiers, and no account/user identity echoed back at all.
+      for (const forbidden of ["acct-B", "user-B", "acct-A", "user-A"]) {
+        expect(body).not.toContain(forbidden);
+      }
+    });
   });
 
   it("repository failure → safe 500, internals not leaked", async () => {

@@ -112,38 +112,44 @@ describe("getOnboardingChecklist", () => {
     mockListByAccount.mockResolvedValue([]);
     const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
     expect(dto.completed).toBe(false);
-    expect(dto.selectedWorkflow).toBeNull();
     expect(dto.steps?.[0]).toMatchObject({ key: "create", status: "current" });
     expect(mockLatchFirstShown).toHaveBeenCalledWith(USER, ACCOUNT);
     expect(mockLatchCompletion).not.toHaveBeenCalled();
   });
 
-  it("draft-only account: selects the newest workflow and persists the repoint", async () => {
+  // ── 5.ONBOARD-2: account-level, no selected workflow ──────────────────
+  it("exposes NO selected-workflow or workflow-options surface", async () => {
     mockGetState.mockResolvedValue(stateRow());
     mockListByAccount.mockResolvedValue([wf({ id: "wf-new" }), wf({ id: "wf-old" })]);
     const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
-    expect(dto.selectedWorkflow?.id).toBe("wf-new");
-    expect(mockUpdatePresentation).toHaveBeenCalledWith(USER, ACCOUNT, {
-      selectedWorkflowId: "wf-new",
-    });
+    // The picker and its persisted pointer are gone; steps aggregate instead.
+    expect("selectedWorkflow" in dto).toBe(false);
+    expect("workflowOptions" in dto).toBe(false);
   });
 
-  it("valid persisted selection wins over the newest workflow and is not re-persisted", async () => {
-    mockGetState.mockResolvedValue(stateRow({ selectedWorkflowId: "wf-old" }));
+  it("never persists a selected-workflow pointer while deriving", async () => {
+    mockGetState.mockResolvedValue(stateRow());
     mockListByAccount.mockResolvedValue([wf({ id: "wf-new" }), wf({ id: "wf-old" })]);
-    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
-    expect(dto.selectedWorkflow?.id).toBe("wf-old");
-    expect(mockUpdatePresentation).not.toHaveBeenCalled();
+    await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+    // Deriving the checklist is a READ. The old code auto-repointed a
+    // selectedWorkflowId here; nothing should write that any more.
+    for (const call of mockUpdatePresentation.mock.calls) {
+      expect(call[2]).not.toHaveProperty("selectedWorkflowId");
+    }
   });
 
-  it("deleted selected workflow: auto-repoints to the newest remaining workflow", async () => {
-    mockGetState.mockResolvedValue(stateRow({ selectedWorkflowId: "wf-gone" }));
-    mockListByAccount.mockResolvedValue([wf({ id: "wf-new" })]);
-    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
-    expect(dto.selectedWorkflow?.id).toBe("wf-new");
-    expect(mockUpdatePresentation).toHaveBeenCalledWith(USER, ACCOUNT, {
-      selectedWorkflowId: "wf-new",
-    });
+  it("scopes every read to the CALLER'S account — progress cannot leak across accounts", async () => {
+    mockGetState.mockResolvedValue(stateRow());
+    mockListByAccount.mockResolvedValue([wf({ id: "wf-a" })]);
+    await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
+
+    // The persisted row is keyed on (userId, accountId)...
+    expect(mockGetState).toHaveBeenCalledWith(USER, ACCOUNT);
+    // ...and the workflow facts come only from that account's list.
+    expect(mockListByAccount).toHaveBeenCalledWith(ACCOUNT, expect.anything());
+    for (const call of mockListByAccount.mock.calls) {
+      expect(call[0]).toBe(ACCOUNT);
+    }
   });
 
   it("prior-activation evidence (paused workflow), user never shown → SILENT latch, completed DTO, no celebration", async () => {

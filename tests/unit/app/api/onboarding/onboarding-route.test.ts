@@ -72,13 +72,16 @@ describe("GET /api/onboarding", () => {
     authedAs("user-1", "acct-1");
     mockGetChecklist.mockResolvedValue({
       completed: false,
-      selectedWorkflow: { id: "wf-1", name: "Lead intake", state: "draft", testable: true },
-      workflowOptions: [{ id: "wf-1", name: "Lead intake" }],
+      completionWorkflow: null,
       steps: [
         { key: "create", status: "complete" },
         {
+          // 5.ONBOARD-2: steps are account-level and carry their own CTA target
+          // (navigation only) instead of a shared selected workflow.
           key: "connect",
           status: "current",
+          ctaWorkflowId: "wf-1",
+          ctaWorkflowName: "Lead intake",
           providers: [
             {
               provider: "slack",

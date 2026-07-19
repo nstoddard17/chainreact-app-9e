@@ -7,12 +7,13 @@
 import {
   deriveChecklistSteps,
   pickActivationEvidenceWorkflow,
+  pickStepTarget,
   workflowProvesPriorActivation,
-  type SelectedWorkflowFacts,
+  type WorkflowChecklistFacts,
 } from "@/services/onboarding/checklistDerivation";
 import type { OnboardingProviderEntry } from "@/contracts/onboarding";
 
-function facts(overrides: Partial<SelectedWorkflowFacts> = {}): SelectedWorkflowFacts {
+function facts(overrides: Partial<WorkflowChecklistFacts> = {}): WorkflowChecklistFacts {
   return {
     id: "wf-1",
     name: "Lead intake",
@@ -48,7 +49,7 @@ function stepByKey(result: ReturnType<typeof deriveChecklistSteps>, key: string)
 
 describe("deriveChecklistSteps", () => {
   it("brand-new account: no workflows → only create is current, nothing complete", () => {
-    const r = deriveChecklistSteps({ hasAnyWorkflow: false, selected: null });
+    const r = deriveChecklistSteps({ workflows: [] });
     expect(stepByKey(r, "create").status).toBe("current");
     for (const key of ["connect", "configure", "test", "activate"]) {
       expect(stepByKey(r, key).status).toBe("pending");
@@ -57,16 +58,19 @@ describe("deriveChecklistSteps", () => {
     expect(r.totalStepCount).toBe(5);
   });
 
-  it("workflow exists but none selectable → create complete, rest pending", () => {
-    const r = deriveChecklistSteps({ hasAnyWorkflow: true, selected: null });
+  it("a single empty draft completes only create; connect is blocked on having steps", () => {
+    const r = deriveChecklistSteps({ workflows: [facts({ nodeCount: 0 })] });
     expect(stepByKey(r, "create").status).toBe("complete");
-    expect(stepByKey(r, "connect").status).toBe("pending");
+    // Not "pending": with nothing built anywhere, the honest blocker is that
+    // there are no steps to connect apps for yet.
+    expect(stepByKey(r, "connect").status).toBe("blocked");
+    expect(stepByKey(r, "connect").blockedReason).toBe("add_steps_first");
+    expect(r.completedStepCount).toBe(1);
   });
 
   it("empty graph: connect is NOT complete (zero providers is not 'fully connected') and configure is current", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({ nodeCount: 0, allRequiredConnected: undefined, writePathReady: false }),
+            workflows: [facts({ nodeCount: 0, allRequiredConnected: undefined, writePathReady: false })],
     });
     const connect = stepByKey(r, "connect");
     expect(connect.status).toBe("blocked");
@@ -76,19 +80,17 @@ describe("deriveChecklistSteps", () => {
 
   it("native-only workflow with nodes: connect completes vacuously", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({ providers: [], allRequiredConnected: true }),
+            workflows: [facts({ providers: [], allRequiredConnected: true })],
     });
     expect(stepByKey(r, "connect").status).toBe("complete");
   });
 
   it("missing connection → connect current with provider detail, not complete", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({
+            workflows: [facts({
         allRequiredConnected: false,
         providers: [provider({ ready: false })],
-      }),
+      })],
     });
     const connect = stepByKey(r, "connect");
     expect(connect.status).toBe("current");
@@ -97,11 +99,10 @@ describe("deriveChecklistSteps", () => {
 
   it("reconnect required → connect blocked with reconnect_required", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({
+            workflows: [facts({
         allRequiredConnected: false,
         providers: [provider({ ready: false, reconnectNeeded: true })],
-      }),
+      })],
     });
     const connect = stepByKey(r, "connect");
     expect(connect.status).toBe("blocked");
@@ -110,27 +111,25 @@ describe("deriveChecklistSteps", () => {
 
   it("admin-required provider for a plain member → connect blocked with admin_required (wins over reconnect)", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({
+            workflows: [facts({
         allRequiredConnected: false,
         providers: [
           provider({ ready: false, reconnectNeeded: true }),
           provider({ provider: "stripe", name: "Stripe", ready: false, canConnect: false, adminRequired: true }),
         ],
-      }),
+      })],
     });
     expect(stepByKey(r, "connect").blockedReason).toBe("admin_required");
   });
 
   it("REGRESSION: a needs_reconnect provider un-completes Connect even when the readiness ladder says ready", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({
+            workflows: [facts({
         // The diagnosis ladder still reports OK…
         allRequiredConnected: true,
         // …but the execution seam flagged the credential as needing reconnect.
         providers: [provider({ ready: true, reconnectNeeded: true })],
-      }),
+      })],
     });
     const connect = stepByKey(r, "connect");
     expect(connect.status).toBe("blocked");
@@ -139,8 +138,7 @@ describe("deriveChecklistSteps", () => {
 
   it("connected but unconfigured → configure current", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({ writePathReady: false }),
+            workflows: [facts({ writePathReady: false })],
     });
     expect(stepByKey(r, "connect").status).toBe("complete");
     expect(stepByKey(r, "configure").status).toBe("current");
@@ -148,8 +146,7 @@ describe("deriveChecklistSteps", () => {
 
   it("configured, no run yet → test current; failed last run surfaces lastRunFailed and stays incomplete", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({ writePathReady: true, hasSucceededRun: false, lastRunFailed: true }),
+            workflows: [facts({ writePathReady: true, hasSucceededRun: false, lastRunFailed: true })],
     });
     const test = stepByKey(r, "test");
     expect(test.status).toBe("current");
@@ -158,8 +155,7 @@ describe("deriveChecklistSteps", () => {
 
   it("succeeded run (test or live) completes the test step", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({ writePathReady: true, hasSucceededRun: true }),
+            workflows: [facts({ writePathReady: true, hasSucceededRun: true })],
     });
     expect(stepByKey(r, "test").status).toBe("complete");
     expect(stepByKey(r, "activate").status).toBe("current");
@@ -169,8 +165,7 @@ describe("deriveChecklistSteps", () => {
     "state %s never completes the activate step",
     (state) => {
       const r = deriveChecklistSteps({
-        hasAnyWorkflow: true,
-        selected: facts({ state, writePathReady: true, hasSucceededRun: true }),
+                workflows: [facts({ state, writePathReady: true, hasSucceededRun: true })],
       });
       expect(stepByKey(r, "activate").status).not.toBe("complete");
     },
@@ -178,8 +173,7 @@ describe("deriveChecklistSteps", () => {
 
   it("state active completes the activate step", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({ state: "active", writePathReady: true, hasSucceededRun: true }),
+            workflows: [facts({ state: "active", writePathReady: true, hasSucceededRun: true })],
     });
     expect(stepByKey(r, "activate").status).toBe("complete");
     expect(r.completedStepCount).toBe(5);
@@ -187,8 +181,7 @@ describe("deriveChecklistSteps", () => {
 
   it("automated trigger, not yet active: test is skipped as current — activate is the actionable step, test not faked", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({ hasManualTrigger: false, writePathReady: true }),
+            workflows: [facts({ hasManualTrigger: false, writePathReady: true })],
     });
     const test = stepByKey(r, "test");
     expect(test.status).toBe("pending");
@@ -198,19 +191,179 @@ describe("deriveChecklistSteps", () => {
 
   it("automated trigger, activated, no run yet: waiting for first run — test stays incomplete", () => {
     const r = deriveChecklistSteps({
-      hasAnyWorkflow: true,
-      selected: facts({
+            workflows: [facts({
         hasManualTrigger: false,
         writePathReady: true,
         state: "active",
         hasSucceededRun: false,
-      }),
+      })],
     });
     const test = stepByKey(r, "test");
     expect(test.status).toBe("current");
     expect(test.waitingForFirstRun).toBe(true);
     expect(stepByKey(r, "activate").status).toBe("complete");
     expect(r.completedStepCount).toBe(4);
+  });
+});
+
+/**
+ * 5.ONBOARD-2 — the checklist is ACCOUNT-level. A step is complete when ANY
+ * workflow satisfies it, and different workflows may satisfy different steps.
+ * These are the cases the old per-workflow derivation got wrong.
+ */
+describe("deriveChecklistSteps — account-level aggregation", () => {
+  it("aggregates steps across DIFFERENT workflows in the same account", () => {
+    // Nothing here satisfies more than one step on its own; together they
+    // satisfy four. The old single-workflow derivation would have reported the
+    // progress of whichever one happened to be selected.
+    const connected = facts({
+      id: "wf-connected",
+      nodeCount: 2,
+      allRequiredConnected: true,
+      providers: [provider({ ready: true })],
+      writePathReady: false,
+    });
+    const configured = facts({
+      id: "wf-configured",
+      nodeCount: 3,
+      allRequiredConnected: false,
+      writePathReady: true,
+    });
+    const tested = facts({ id: "wf-tested", hasSucceededRun: true });
+    const activated = facts({ id: "wf-activated", state: "active" });
+
+    const r = deriveChecklistSteps({
+      workflows: [connected, configured, tested, activated],
+    });
+
+    expect(stepByKey(r, "create").status).toBe("complete");
+    expect(stepByKey(r, "connect").status).toBe("complete");
+    expect(stepByKey(r, "configure").status).toBe("complete");
+    expect(stepByKey(r, "test").status).toBe("complete");
+    expect(stepByKey(r, "activate").status).toBe("complete");
+    expect(r.completedStepCount).toBe(5);
+  });
+
+  it("does NOT require one workflow to satisfy every step", () => {
+    // Two workflows, each satisfying exactly one of the later steps. Neither
+    // alone would complete both.
+    const onlyTested = facts({ id: "a", hasSucceededRun: true, state: "draft" });
+    const onlyActive = facts({ id: "b", hasSucceededRun: false, state: "active" });
+
+    const r = deriveChecklistSteps({ workflows: [onlyTested, onlyActive] });
+
+    expect(stepByKey(r, "test").status).toBe("complete");
+    expect(stepByKey(r, "activate").status).toBe("complete");
+  });
+
+  it("a step stays incomplete when NO workflow satisfies it", () => {
+    const r = deriveChecklistSteps({
+      workflows: [
+        facts({ id: "a", hasSucceededRun: false, state: "draft" }),
+        facts({ id: "b", hasSucceededRun: false, state: "paused" }),
+      ],
+    });
+    expect(stepByKey(r, "test").status).not.toBe("complete");
+    expect(stepByKey(r, "activate").status).not.toBe("complete");
+  });
+
+  it("connect completes when ANY workflow is fully connected, even if others are not", () => {
+    const r = deriveChecklistSteps({
+      workflows: [
+        facts({ id: "broken", allRequiredConnected: false, providers: [provider({ ready: false })] }),
+        facts({ id: "good", allRequiredConnected: true, providers: [provider({ ready: true })] }),
+      ],
+    });
+    expect(stepByKey(r, "connect").status).toBe("complete");
+  });
+
+  it("empty-graph blocking is account-wide: one workflow WITH steps unblocks connect", () => {
+    const r = deriveChecklistSteps({
+      workflows: [
+        facts({ id: "empty", nodeCount: 0 }),
+        facts({ id: "built", nodeCount: 2, allRequiredConnected: false, providers: [provider()] }),
+      ],
+    });
+    const connect = stepByKey(r, "connect");
+    expect(connect.blockedReason).not.toBe("add_steps_first");
+  });
+});
+
+describe("pickStepTarget — deterministic CTA targeting", () => {
+  it("targets the workflow closest to satisfying the step", () => {
+    const notReady = facts({ id: "empty", nodeCount: 0, writePathReady: false });
+    const closer = facts({ id: "built", nodeCount: 4, writePathReady: false });
+    // `configure`: a workflow with steps is closer than an empty draft.
+    expect(pickStepTarget("configure", [notReady, closer])?.id).toBe("built");
+  });
+
+  it("breaks ties by most recently updated (first in the updated_at DESC list)", () => {
+    const newer = facts({ id: "newer", writePathReady: true });
+    const older = facts({ id: "older", writePathReady: true });
+    expect(pickStepTarget("configure", [newer, older])?.id).toBe("newer");
+  });
+
+  it("is deterministic across repeated calls on the same list", () => {
+    const list = [
+      facts({ id: "a", nodeCount: 2, writePathReady: false }),
+      facts({ id: "b", nodeCount: 2, writePathReady: true }),
+      facts({ id: "c", nodeCount: 0 }),
+    ];
+    const first = pickStepTarget("configure", list)?.id;
+    for (let i = 0; i < 5; i += 1) {
+      expect(pickStepTarget("configure", list)?.id).toBe(first);
+    }
+  });
+
+  it("returns null when no workflow is a candidate → the UI routes to create", () => {
+    expect(pickStepTarget("connect", [])).toBeNull();
+    // An empty graph has nothing to connect, so it is not a connect candidate.
+    expect(pickStepTarget("connect", [facts({ nodeCount: 0 })])).toBeNull();
+  });
+
+  it("create never targets an existing workflow (its CTA opens the chooser)", () => {
+    expect(pickStepTarget("create", [facts({ id: "a" })])).toBeNull();
+  });
+
+  it("test prefers a workflow the user can actually run now (manual trigger)", () => {
+    const automated = facts({ id: "auto", writePathReady: true, hasManualTrigger: false });
+    const manual = facts({ id: "manual", writePathReady: true, hasManualTrigger: true });
+    expect(pickStepTarget("test", [automated, manual])?.id).toBe("manual");
+  });
+
+  it("connect prefers a gap THIS user can fix over one needing an admin", () => {
+    const adminBlocked = facts({
+      id: "admin",
+      allRequiredConnected: false,
+      providers: [provider({ ready: false, canConnect: false, adminRequired: true })],
+    });
+    const userFixable = facts({
+      id: "self",
+      allRequiredConnected: false,
+      providers: [provider({ ready: false, canConnect: true })],
+    });
+    expect(pickStepTarget("connect", [adminBlocked, userFixable])?.id).toBe("self");
+  });
+
+  it("surfaces each step's target on the step DTO so CTAs can differ per step", () => {
+    const configured = facts({ id: "wf-config", nodeCount: 3, writePathReady: true });
+    const activated = facts({ id: "wf-active", nodeCount: 3, writePathReady: true, state: "active" });
+    const r = deriveChecklistSteps({ workflows: [configured, activated] });
+
+    // activate is satisfied only by wf-active, so its CTA must point there.
+    expect(stepByKey(r, "activate").ctaWorkflowId).toBe("wf-active");
+    // Every non-create step carries a target when a candidate exists.
+    for (const key of ["connect", "configure", "test", "activate"]) {
+      expect(stepByKey(r, key).ctaWorkflowId).toBeTruthy();
+    }
+    expect(stepByKey(r, "create").ctaWorkflowId).toBeUndefined();
+  });
+
+  it("omits the CTA target when the account has no workflows", () => {
+    const r = deriveChecklistSteps({ workflows: [] });
+    for (const key of ["create", "connect", "configure", "test", "activate"]) {
+      expect(stepByKey(r, key).ctaWorkflowId).toBeUndefined();
+    }
   });
 });
 

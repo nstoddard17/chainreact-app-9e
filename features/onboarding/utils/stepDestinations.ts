@@ -12,10 +12,13 @@ import type { OnboardingStepDTO } from "@/contracts/onboarding";
  * provider's card) and `/workflows/[id]?focus=setup|test|activate` (one-shot
  * post-hydration builder focus). Both consumers are strictly navigation-only.
  */
-export function stepHref(
-  step: OnboardingStepDTO,
-  selectedWorkflowId: string | null,
-): string | null {
+export function stepHref(step: OnboardingStepDTO): string | null {
+  // 5.ONBOARD-2: the target comes from the STEP, not from a shared selection.
+  // The server picks the workflow closest to satisfying that step (ties → most
+  // recently updated), so each CTA lands where the work actually is. When no
+  // workflow qualifies, `ctaWorkflowId` is absent and the caller routes to
+  // creation instead.
+  const workflowId = step.ctaWorkflowId ?? null;
   switch (step.key) {
     case "create":
       return null;
@@ -26,16 +29,10 @@ export function stepHref(
         : "/apps";
     }
     case "configure":
-      return selectedWorkflowId
-        ? `/workflows/${selectedWorkflowId}?focus=setup`
-        : null;
+      return workflowId ? `/workflows/${workflowId}?focus=setup` : null;
     case "test":
-      return selectedWorkflowId
-        ? `/workflows/${selectedWorkflowId}?focus=test`
-        : null;
+      return workflowId ? `/workflows/${workflowId}?focus=test` : null;
     case "activate":
-      return selectedWorkflowId
-        ? `/workflows/${selectedWorkflowId}?focus=activate`
-        : null;
+      return workflowId ? `/workflows/${workflowId}?focus=activate` : null;
   }
 }

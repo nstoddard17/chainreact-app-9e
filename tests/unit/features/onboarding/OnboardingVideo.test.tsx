@@ -36,14 +36,14 @@ function dto(): OnboardingChecklistDTO {
       videoWatched: false,
       celebrationPending: false,
     },
-    selectedWorkflow: { id: "wf-1", name: "Lead intake", state: "draft", testable: true },
-    workflowOptions: [{ id: "wf-1", name: "Lead intake" }],
+    // 5.ONBOARD-2: account-level checklist — each step carries its own CTA
+    // target instead of a shared selected workflow.
     steps: [
       { key: "create", status: "complete" },
       { key: "connect", status: "current" },
-      { key: "configure", status: "pending" },
-      { key: "test", status: "pending", testable: true },
-      { key: "activate", status: "pending" },
+      { key: "configure", status: "pending", ctaWorkflowId: "wf-1" },
+      { key: "test", status: "pending", testable: true, ctaWorkflowId: "wf-1" },
+      { key: "activate", status: "pending", ctaWorkflowId: "wf-1" },
     ],
     completedStepCount: 1,
     totalStepCount: 5,

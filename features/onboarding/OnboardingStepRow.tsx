@@ -20,13 +20,11 @@ import { stepHref } from "./utils/stepDestinations";
  */
 export function OnboardingStepRow({
   step,
-  selectedWorkflowId,
   expanded,
   onFocus,
   createChooser,
 }: {
   step: OnboardingStepDTO;
-  selectedWorkflowId: string | null;
   /** Whether this row renders its expanded body (current/blocked row). */
   expanded: boolean;
   onFocus: () => void;
@@ -37,7 +35,7 @@ export function OnboardingStepRow({
   const StepIcon = ObIcons[presentation.icon];
   const done = step.status === "complete";
   const blocked = step.status === "blocked";
-  const href = stepHref(step, selectedWorkflowId);
+  const href = stepHref(step);
   const cta = stepCta(step);
 
   return (

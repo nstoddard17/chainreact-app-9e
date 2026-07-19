@@ -319,9 +319,9 @@ export function WorkflowsDashboard({
         </p>
       </header>
 
-      {/* 5.ONBOARD-1 — first-workflow checklist renders ABOVE the stat cards
-          and, while visible, replaces the no-workflows empty state below (one
-          getting-started surface, not two competing ones). */}
+      {/* 5.ONBOARD-2 — mounted here (this surface has the server-derived DTO)
+          but rendered as a FIXED bottom-right widget, so it reserves no layout
+          space. While visible it still replaces the no-workflows empty state. */}
       {initialOnboarding !== null && (
         <OnboardingChecklist
           initial={initialOnboarding}

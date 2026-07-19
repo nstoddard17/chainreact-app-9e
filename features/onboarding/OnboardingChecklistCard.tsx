@@ -6,7 +6,6 @@ import { MarketingBrandLogo } from "@/features/marketing/MarketingBrandLogo";
 import { ObIcons } from "./onboardingIcons";
 import { OnboardingCreateChooser } from "./OnboardingCreateChooser";
 import { OnboardingStepRow } from "./OnboardingStepRow";
-import { OnboardingWorkflowPicker } from "./OnboardingWorkflowPicker";
 
 /**
  * Expanded checklist card (5.ONBOARD-1 Batch 2) — ports the design's
@@ -22,21 +21,18 @@ export function OnboardingChecklistCard({
   actionPending,
   onMinimize,
   onDismiss,
-  onSelectWorkflow,
   footerExtras,
 }: {
   checklist: OnboardingChecklistDTO;
   actionPending: boolean;
   onMinimize: () => void;
   onDismiss: () => void;
-  onSelectWorkflow: (workflowId: string) => void;
   footerExtras?: ReactNode;
 }) {
   const steps = checklist.steps ?? [];
   const done = checklist.completedStepCount ?? 0;
   const total = checklist.totalStepCount ?? steps.length;
   const fraction = total > 0 ? done / total : 0;
-  const selectedId = checklist.selectedWorkflow?.id ?? null;
 
   // The expanded row: the derived current/blocked step by default; the user
   // can peek at another incomplete step (design's onFocus behavior). Reset on
@@ -54,7 +50,10 @@ export function OnboardingChecklistCard({
       role="region"
       aria-label="Getting started"
       data-testid="onboarding-checklist-card"
-      className="ob-animate-card-in w-full max-w-sm overflow-hidden rounded-[18px] bg-gradient-to-b from-accent/70 to-card shadow-[inset_0_0_0_1px_hsl(var(--border))]"
+      // `min-h-0` + a flex column let the STEP LIST scroll internally when the
+      // viewport is short, so the header/progress/footer stay visible and the
+      // card never grows past the fixed wrapper's max-height.
+      className="ob-animate-card-in flex min-h-0 w-full max-w-sm flex-col overflow-hidden rounded-[18px] bg-gradient-to-b from-accent/70 to-card shadow-[inset_0_0_0_1px_hsl(var(--border))]"
     >
       <div className="flex items-start justify-between gap-3 px-[18px] pb-3.5 pt-[17px]">
         <div className="flex items-start gap-[11px]">
@@ -100,19 +99,15 @@ export function OnboardingChecklistCard({
         />
       </div>
 
-      <OnboardingWorkflowPicker
-        options={checklist.workflowOptions ?? []}
-        selectedId={selectedId}
-        disabled={actionPending}
-        onSelect={onSelectWorkflow}
-      />
-
-      <ol className="flex flex-col gap-0.5 px-2.5 pb-1.5 pt-2.5" aria-label="Setup steps">
+      <ol
+        data-testid="onboarding-step-list"
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2.5 pb-1.5 pt-2.5"
+        aria-label="Setup steps"
+      >
         {steps.map((step) => (
           <OnboardingStepRow
             key={step.key}
             step={step}
-            selectedWorkflowId={selectedId}
             expanded={activeKey === step.key}
             onFocus={() => setPeekKey(step.key)}
             createChooser={step.key === "create" ? <OnboardingCreateChooser /> : undefined}

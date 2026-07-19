@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import {
-  requireUserWithAccount,
-  workflowNotFoundResponse,
-} from "@/app/api/workflows/_shared";
+import { requireUserWithAccount } from "@/app/api/workflows/_shared";
 import { OnboardingPresentationActionSchema } from "@/contracts/onboarding";
-import * as workflowsRepo from "@/repositories/workflows";
+// NOTE (5.ONBOARD-2): no workflows-repo import here any more. With
+// `select_workflow` gone, no workflow id crosses this boundary, so the route
+// never needs to resolve or authorize one.
 import * as onboardingRepo from "@/repositories/onboarding/userOnboardingStates";
 import {
   recordOnboardingEvent,
@@ -16,7 +15,6 @@ const EVENT_BY_ACTION: Partial<Record<string, OnboardingEventType>> = {
   dismiss: "onboarding_dismissed",
   reopen: "onboarding_reopened",
   minimize: "onboarding_minimized",
-  select_workflow: "onboarding_workflow_switched",
   video_watched: "onboarding_video_watched",
 };
 
@@ -28,9 +26,10 @@ const EVENT_BY_ACTION: Partial<Record<string, OnboardingEventType>> = {
  * union rejects any body that tries (400), and the repository patch type has
  * no such fields.
  *
- * select_workflow: the target must be a non-deleted workflow in the CALLER'S
- * resolved account; anything else collapses to the standard no-leak 404
- * (`WORKFLOW_NOT_FOUND`) — no cross-account existence oracle.
+ * 5.ONBOARD-2: `select_workflow` was removed with the "Working on" picker. The
+ * checklist is account-level, so there is no per-user selected workflow to
+ * persist and no workflow id crosses this boundary at all. A body still sending
+ * it now fails the `.strict()` union with a 400.
  */
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireUserWithAccount();
@@ -76,14 +75,6 @@ export async function POST(request: Request): Promise<Response> {
       case "celebrated":
         patch = { celebratedAt: now };
         break;
-      case "select_workflow": {
-        const wf = await workflowsRepo.getByIdServiceRole(action.workflowId);
-        if (!wf || wf.state === "deleted" || wf.accountId !== auth.accountId) {
-          return workflowNotFoundResponse();
-        }
-        patch = { selectedWorkflowId: wf.id };
-        break;
-      }
     }
     const record = await onboardingRepo.updatePresentationServiceRole(
       auth.userId,
@@ -97,9 +88,6 @@ export async function POST(request: Request): Promise<Response> {
         userId: auth.userId,
         accountId: auth.accountId,
         eventType,
-        ...(action.action === "select_workflow"
-          ? { workflowId: action.workflowId }
-          : {}),
       });
     }
     return NextResponse.json({

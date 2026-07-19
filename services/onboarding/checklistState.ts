@@ -1,7 +1,6 @@
 import type {
   OnboardingChecklistDTO,
   OnboardingProviderEntry,
-  OnboardingSelectedWorkflowDTO,
 } from "@/contracts/onboarding";
 import {
   MANUAL_TRIGGER_EVENT_TYPE,
@@ -15,7 +14,7 @@ import { checkWritePathReadiness } from "@/services/workflows/executionReadiness
 import {
   deriveChecklistSteps,
   pickActivationEvidenceWorkflow,
-  type SelectedWorkflowFacts,
+  type WorkflowChecklistFacts,
 } from "./checklistDerivation";
 import { recordOnboardingEvent } from "./onboardingEvents";
 
@@ -30,6 +29,14 @@ import { recordOnboardingEvent } from "./onboardingEvents";
  * service scopes strictly to that pair and never widens it.
  */
 
+/**
+ * How many workflows contribute derived facts. Each costs a connection
+ * diagnosis + a run lookup, so this bounds the dashboard's first paint. The
+ * list is updated_at DESC, so this is "the 25 most recently touched".
+ */
+const FACT_WORKFLOW_LIMIT = 25;
+
+/** How many workflows are fetched at all (cheap list read). */
 const WORKFLOW_OPTION_LIMIT = 50;
 
 function hasManualTrigger(
@@ -64,10 +71,10 @@ function toProviderEntry(p: {
   };
 }
 
-async function buildSelectedFacts(
+async function buildWorkflowFacts(
   userId: string,
   wf: workflowsRepo.WorkflowRecord,
-): Promise<SelectedWorkflowFacts> {
+): Promise<WorkflowChecklistFacts> {
   const nodes = wf.draftDefinition?.nodes ?? [];
   const edges = wf.draftDefinition?.edges ?? [];
 
@@ -193,28 +200,21 @@ export async function getOnboardingChecklist(input: {
     };
   }
 
-  // ── Selection: persisted pointer when still valid, else newest-updated. ──
-  const persisted = effectiveRow?.selectedWorkflowId
-    ? (workflows.find((w) => w.id === effectiveRow.selectedWorkflowId) ?? null)
-    : null;
-  const selected = persisted ?? workflows[0] ?? null;
-  if (selected && selected.id !== effectiveRow?.selectedWorkflowId) {
-    // Auto-repoint (deleted / cross-account-stale pointer). Best-effort — the
-    // DTO already reflects the corrected selection.
-    try {
-      await onboardingRepo.updatePresentationServiceRole(userId, accountId, {
-        selectedWorkflowId: selected.id,
-      });
-    } catch {
-      /* presentation persistence must never break derivation */
-    }
-  }
-
-  const facts = selected ? await buildSelectedFacts(userId, selected) : null;
-  const derived = deriveChecklistSteps({
-    hasAnyWorkflow: workflows.length > 0,
-    selected: facts,
-  });
+  // ── Account-level facts (5.ONBOARD-2) ──
+  // Every step aggregates across the account, so facts are gathered for each
+  // workflow rather than one selected pointer. `workflows` is already
+  // `updated_at DESC`, which is what makes CTA tie-breaking deterministic.
+  //
+  // Bounded on purpose: each workflow costs a connection diagnosis + a run
+  // lookup, so only the FACT_WORKFLOW_LIMIT most recently updated participate.
+  // Past that the marginal workflow cannot change a step that the newer ones
+  // have not already completed, and an unbounded fan-out would make the
+  // dashboard's first paint scale with account size.
+  const factWorkflows = workflows.slice(0, FACT_WORKFLOW_LIMIT);
+  const facts = await Promise.all(
+    factWorkflows.map((wf) => buildWorkflowFacts(userId, wf)),
+  );
+  const derived = deriveChecklistSteps({ workflows: facts });
 
   const dismissed = effectiveRow?.dismissedAt != null;
   if (!dismissed && !effectiveRow?.firstShownAt) {
@@ -230,15 +230,6 @@ export async function getOnboardingChecklist(input: {
     }
   }
 
-  const selectedDto: OnboardingSelectedWorkflowDTO | null = facts
-    ? {
-        id: facts.id,
-        name: facts.name,
-        state: facts.state,
-        testable: facts.hasManualTrigger,
-      }
-    : null;
-
   return {
     completed: false,
     completedAt: null,
@@ -248,8 +239,6 @@ export async function getOnboardingChecklist(input: {
       videoWatched: effectiveRow?.videoWatchedAt != null,
       celebrationPending: false,
     },
-    selectedWorkflow: selectedDto,
-    workflowOptions: workflows.map((w) => ({ id: w.id, name: w.name })),
     steps: derived.steps,
     completedStepCount: derived.completedStepCount,
     totalStepCount: derived.totalStepCount,

@@ -1,8 +1,12 @@
 /**
- * 5.ONBOARD-1 Batch 2 — dashboard integration: the checklist renders in the
- * slot ABOVE the stat cards, replaces (not duplicates) the no-workflows empty
- * state while visible, hands back to the empty state on dismissal, and never
- * breaks the dashboard when absent.
+ * 5.ONBOARD-1 Batch 2 / 5.ONBOARD-2 — dashboard integration: the checklist is
+ * still MOUNTED by the dashboard, replaces (not duplicates) the no-workflows
+ * empty state while visible, hands back to the empty state on dismissal, and
+ * never breaks the dashboard when absent.
+ *
+ * 5.ONBOARD-2: the checklist is a FIXED bottom-right widget, so it reserves no
+ * layout space. These tests deliberately assert PRESENCE + empty-state
+ * suppression only — never inline document order against the page's flow.
  */
 const mockList = jest.fn();
 jest.mock("@/lib/api/workflows", () => {
@@ -47,8 +51,6 @@ function checklistDto(): OnboardingChecklistDTO {
       videoWatched: false,
       celebrationPending: false,
     },
-    selectedWorkflow: null,
-    workflowOptions: [],
     steps: [
       { key: "create", status: "current" },
       { key: "connect", status: "pending" },
@@ -100,17 +102,13 @@ beforeEach(() => {
 });
 
 describe("WorkflowsDashboard × onboarding checklist", () => {
-  it("renders the checklist above the stat cards and SUPPRESSES the duplicate empty state", () => {
+  it("renders the checklist and SUPPRESSES the duplicate empty state", () => {
     render(
       <WorkflowsDashboard initialWorkflows={[]} initialOnboarding={checklistDto()} />,
     );
-    const checklist = screen.getByTestId("onboarding-checklist");
-    const stats = screen.getByText("Total automations");
-    expect(checklist).toBeInTheDocument();
-    // DOM order: checklist precedes the stat cards.
-    expect(
-      checklist.compareDocumentPosition(stats) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(screen.getByTestId("onboarding-checklist")).toBeInTheDocument();
+    // The rest of the dashboard still renders normally alongside it.
+    expect(screen.getByText("Total automations")).toBeInTheDocument();
     expect(screen.queryByTestId("workflows-empty-no-workflows")).toBeNull();
   });
 
@@ -138,18 +136,22 @@ describe("WorkflowsDashboard × onboarding checklist", () => {
         initialWorkflows={[listItem("wf-1", "Lead intake")]}
         initialOnboarding={{
           ...checklistDto(),
-          selectedWorkflow: {
-            id: "wf-1",
-            name: "Lead intake",
-            state: "draft",
-            testable: true,
-          },
-          workflowOptions: [{ id: "wf-1", name: "Lead intake" }],
           steps: [
             { key: "create", status: "complete" },
-            { key: "connect", status: "current" },
+            {
+              key: "connect",
+              status: "current",
+              ctaWorkflowId: "wf-1",
+              ctaWorkflowName: "Lead intake",
+            },
             { key: "configure", status: "pending" },
-            { key: "test", status: "pending", testable: true },
+            {
+              key: "test",
+              status: "pending",
+              testable: true,
+              ctaWorkflowId: "wf-1",
+              ctaWorkflowName: "Lead intake",
+            },
             { key: "activate", status: "pending" },
           ],
           completedStepCount: 1,
@@ -157,7 +159,8 @@ describe("WorkflowsDashboard × onboarding checklist", () => {
       />,
     );
     expect(screen.getByTestId("onboarding-checklist")).toBeInTheDocument();
-    expect(screen.getByText("Lead intake")).toBeInTheDocument();
+    // The workflow list still renders alongside the fixed widget.
+    expect(screen.getAllByText("Lead intake").length).toBeGreaterThan(0);
     expect(screen.queryByTestId("workflows-empty-no-workflows")).toBeNull();
   });
 });

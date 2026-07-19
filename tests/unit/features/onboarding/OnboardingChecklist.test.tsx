@@ -32,12 +32,14 @@ jest.mock("@/lib/api/workflows", () => ({
 }));
 
 function steps(overrides: Partial<Record<string, Partial<OnboardingStepDTO>>> = {}) {
+  // 5.ONBOARD-2: each step carries its OWN CTA target (`ctaWorkflowId`); there
+  // is no shared "selected workflow" any more.
   const base: OnboardingStepDTO[] = [
     { key: "create", status: "complete" },
     { key: "connect", status: "current" },
-    { key: "configure", status: "pending" },
-    { key: "test", status: "pending", testable: true },
-    { key: "activate", status: "pending" },
+    { key: "configure", status: "pending", ctaWorkflowId: "wf-1", ctaWorkflowName: "Lead intake" },
+    { key: "test", status: "pending", testable: true, ctaWorkflowId: "wf-1", ctaWorkflowName: "Lead intake" },
+    { key: "activate", status: "pending", ctaWorkflowId: "wf-1", ctaWorkflowName: "Lead intake" },
   ];
   return base.map((s) => ({ ...s, ...(overrides[s.key] ?? {}) })) as OnboardingStepDTO[];
 }
@@ -52,8 +54,6 @@ function dto(overrides: Partial<OnboardingChecklistDTO> = {}): OnboardingCheckli
       videoWatched: false,
       celebrationPending: false,
     },
-    selectedWorkflow: { id: "wf-1", name: "Lead intake", state: "draft", testable: true },
-    workflowOptions: [{ id: "wf-1", name: "Lead intake" }],
     steps: steps(),
     completedStepCount: 1,
     totalStepCount: 5,
@@ -132,8 +132,6 @@ describe("OnboardingChecklist — expanded card", () => {
             connect: { status: "pending" },
           }),
           completedStepCount: 0,
-          selectedWorkflow: null,
-          workflowOptions: [],
         })}
       />,
     );
@@ -373,30 +371,128 @@ describe("OnboardingChecklist — presentation actions", () => {
     expect(screen.getByTestId("onboarding-checklist-card")).toBeInTheDocument();
   });
 
-  it("workflow picker shows for ≥2 options; selecting posts select_workflow and refetches", async () => {
+  it("minimize, dismiss, and expand all still fire their presentation actions", async () => {
     const user = userEvent.setup();
-    mockGet.mockResolvedValue(dto());
-    render(
+
+    // minimize
+    const minimized = render(<OnboardingChecklist initial={dto()} />);
+    await user.click(screen.getByTestId("onboarding-minimize"));
+    expect(mockPost).toHaveBeenCalledWith({ action: "minimize" });
+    minimized.unmount();
+
+    // expand (from the persisted minimized state)
+    mockPost.mockClear();
+    const expanded = render(
       <OnboardingChecklist
         initial={dto({
-          workflowOptions: [
-            { id: "wf-1", name: "Lead intake" },
-            { id: "wf-2", name: "Stripe sync" },
-          ],
+          presentation: {
+            dismissed: false,
+            minimized: true,
+            videoWatched: false,
+            celebrationPending: false,
+          },
         })}
       />,
     );
-    await user.selectOptions(screen.getByTestId("onboarding-workflow-picker"), "wf-2");
-    expect(mockPost).toHaveBeenCalledWith({
-      action: "select_workflow",
-      workflowId: "wf-2",
-    });
-    await waitFor(() => expect(mockGet).toHaveBeenCalled());
+    await user.click(screen.getByTestId("onboarding-minimized-bar"));
+    expect(mockPost).toHaveBeenCalledWith({ action: "expand" });
+    expanded.unmount();
+
+    // dismiss
+    mockPost.mockClear();
+    render(<OnboardingChecklist initial={dto()} />);
+    await user.click(screen.getByTestId("onboarding-dismiss"));
+    expect(mockPost).toHaveBeenCalledWith({ action: "dismiss" });
   });
 
-  it("picker is hidden with a single option", () => {
+  it("rendering alone mutates NOTHING — reads only, no presentation POST", async () => {
     render(<OnboardingChecklist initial={dto()} />);
+    await screen.findByTestId("onboarding-checklist-card");
+    expect(mockPost).not.toHaveBeenCalled();
+    // The server-derived DTO arrives as a prop; mount performs no refetch either.
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+});
+
+describe("OnboardingChecklist — account-level checklist (5.ONBOARD-2)", () => {
+  it("the 'Working on' workflow dropdown is GONE (the checklist is account-level)", () => {
+    render(<OnboardingChecklist initial={dto()} />);
+    expect(screen.getByTestId("onboarding-checklist-card")).toBeInTheDocument();
     expect(screen.queryByTestId("onboarding-workflow-picker")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(document.querySelector("select")).toBeNull();
+    expect(screen.queryByText(/working on/i)).toBeNull();
+    expect(screen.queryByLabelText(/working on/i)).toBeNull();
+  });
+
+  it("each step CTA uses its OWN ctaWorkflowId — steps target independently", async () => {
+    const user = userEvent.setup();
+    render(
+      <OnboardingChecklist
+        initial={dto({
+          steps: steps({
+            connect: { status: "complete" },
+            configure: { status: "current", ctaWorkflowId: "wf-A" },
+            test: { status: "complete" },
+            activate: { status: "pending", ctaWorkflowId: "wf-B" },
+          }),
+          completedStepCount: 3,
+        })}
+      />,
+    );
+    // `configure` is the derived current row; peek at `activate` for its CTA.
+    expect(screen.getByTestId("onboarding-step-configure-cta")).toHaveAttribute(
+      "href",
+      "/workflows/wf-A?focus=setup",
+    );
+    await user.click(screen.getByTestId("onboarding-step-activate-focus"));
+    expect(screen.getByTestId("onboarding-step-activate-cta")).toHaveAttribute(
+      "href",
+      "/workflows/wf-B?focus=activate",
+    );
+  });
+});
+
+describe("OnboardingChecklist — fixed widget placement (5.ONBOARD-2)", () => {
+  const rootClass = (): string => {
+    const root = screen.getByTestId("onboarding-checklist");
+    return root.className;
+  };
+
+  it("is pinned bottom-right on desktop, above page content but below modals", () => {
+    render(<OnboardingChecklist initial={dto()} />);
+    const cls = rootClass();
+    expect(cls).toContain("fixed");
+    expect(cls).toMatch(/bottom-/);
+    expect(cls).toContain("sm:bottom-6");
+    expect(cls).toContain("sm:right-6");
+    // z-40: above page chrome, BELOW modals/toasts (z-50).
+    expect(cls).toContain("z-40");
+  });
+
+  it("mobile placement stays inside the viewport (side margins + safe-area bottom)", () => {
+    render(<OnboardingChecklist initial={dto()} />);
+    const cls = rootClass();
+    // Unprefixed = mobile base: 16px side margins so it can never overflow.
+    expect(cls).toContain("left-4");
+    expect(cls).toContain("right-4");
+    // Bottom clears home-indicator / notch chrome.
+    expect(cls).toContain("bottom-[calc(env(safe-area-inset-bottom,0px)+16px)]");
+    // Desktop overrides are `sm:`-scoped, so they never apply on mobile.
+    expect(cls).toContain("sm:left-auto");
+    expect(cls).toContain("sm:max-w-sm");
+  });
+
+  it("the body scrolls internally instead of growing past the viewport", () => {
+    render(<OnboardingChecklist initial={dto()} />);
+    expect(screen.getByTestId("onboarding-step-list").className).toContain(
+      "overflow-y-auto",
+    );
+    const inner = screen.getByTestId("onboarding-checklist").firstElementChild;
+    expect(inner).not.toBeNull();
+    expect(inner!.className).toContain("pointer-events-auto");
+    expect(inner!.className).toMatch(/(^|\s)max-h-\[/);
+    expect(inner!.className).toMatch(/sm:max-h-\[/);
   });
 });
 

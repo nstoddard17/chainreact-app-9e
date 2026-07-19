@@ -52,27 +52,25 @@ export interface OnboardingStepDTO {
   readonly blockedReason?: OnboardingStepBlockedReason;
   /**
    * Step-specific safe detail:
-   *  - connect: providers the selected workflow requires.
-   *  - test: whether the workflow supports an in-builder test (manual trigger)
+   *  - connect: providers the step's CTA-target workflow requires.
+   *  - test: whether that workflow supports an in-builder test (manual trigger)
    *    and whether it is "waiting for first run" post-activation.
    */
   readonly providers?: readonly OnboardingProviderEntry[];
   readonly testable?: boolean;
   readonly waitingForFirstRun?: boolean;
   readonly lastRunFailed?: boolean;
-}
-
-export interface OnboardingSelectedWorkflowDTO {
-  readonly id: string;
-  readonly name: string;
-  readonly state: string;
-  /** True when the workflow has a native manual trigger (test path exists). */
-  readonly testable: boolean;
-}
-
-export interface OnboardingWorkflowOptionDTO {
-  readonly id: string;
-  readonly name: string;
+  /**
+   * Which workflow this step's CTA should open (5.ONBOARD-2).
+   *
+   * Steps are account-level and independent, so each one targets the workflow
+   * CLOSEST to satisfying it, tie-broken by most-recently-updated. Absent when
+   * no workflow is a candidate — the UI then routes to workflow creation.
+   * Navigation only: the id never triggers a connect/save/test/activate.
+   */
+  readonly ctaWorkflowId?: string;
+  /** Display name of `ctaWorkflowId`, so the CTA can name where it leads. */
+  readonly ctaWorkflowName?: string;
 }
 
 export interface OnboardingPresentationDTO {
@@ -100,9 +98,6 @@ export interface OnboardingChecklistDTO {
     readonly name: string;
   } | null;
   readonly presentation?: OnboardingPresentationDTO;
-  readonly selectedWorkflow?: OnboardingSelectedWorkflowDTO | null;
-  /** Non-deleted account workflows for the picker (ids + names only). */
-  readonly workflowOptions?: readonly OnboardingWorkflowOptionDTO[];
   readonly steps?: readonly OnboardingStepDTO[];
   readonly completedStepCount?: number;
   readonly totalStepCount?: number;
@@ -120,12 +115,11 @@ export const OnboardingPresentationActionSchema = z.discriminatedUnion("action",
   z.object({ action: z.literal("expand") }).strict(),
   z.object({ action: z.literal("video_watched") }).strict(),
   z.object({ action: z.literal("celebrated") }).strict(),
-  z
-    .object({
-      action: z.literal("select_workflow"),
-      workflowId: z.string().uuid(),
-    })
-    .strict(),
+  // NOTE (5.ONBOARD-2): `select_workflow` was removed with the "Working on"
+  // picker. The checklist is account-level — steps aggregate across every
+  // workflow — so there is no selected workflow to persist, and each CTA
+  // derives its own target. A body still sending it is now a 400, which is
+  // correct: honouring it would reintroduce per-workflow scoping.
 ]);
 
 export type OnboardingPresentationAction = z.infer<
