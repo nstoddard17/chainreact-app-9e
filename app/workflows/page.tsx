@@ -19,10 +19,7 @@ import {
 } from "@/app/notifications/notificationPreview";
 import type { OnboardingChecklistDTO } from "@/contracts/onboarding";
 import { getOnboardingChecklist } from "@/services/onboarding/checklistState";
-import {
-  getOnboardingVideoConfig,
-  isOnboardingChecklistEnabled,
-} from "@/services/onboarding/onboardingFlags";
+import { getOnboardingVideoConfig } from "@/services/onboarding/onboardingVideo";
 
 /**
  * Workflows dashboard route (Slice 4.WORKFLOWS-PAGE-1).
@@ -98,23 +95,20 @@ export default async function WorkflowsPage() {
   // without a loading flash. Fail-open: any derivation error → null → the
   // dashboard renders nothing onboarding-related and stays fully functional.
   let onboarding: OnboardingChecklistDTO | null = null;
-  if (isOnboardingChecklistEnabled()) {
-    try {
-      onboarding = await getOnboardingChecklist({
-        userId: user.id,
-        accountId: ownerAccount.id,
-      });
-    } catch (err) {
-      console.error(
-        "[onboarding] dashboard checklist fetch failed:",
-        err instanceof Error ? err.message : "unknown error",
-      );
-    }
+  try {
+    onboarding = await getOnboardingChecklist({
+      userId: user.id,
+      accountId: ownerAccount.id,
+    });
+  } catch (err) {
+    console.error(
+      "[onboarding] dashboard checklist fetch failed:",
+      err instanceof Error ? err.message : "unknown error",
+    );
   }
 
   return (
     <AppShell
-      gettingStartedEnabled={isOnboardingChecklistEnabled()}
       userEmail={user.email ?? ""}
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}

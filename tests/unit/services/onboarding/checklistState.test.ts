@@ -90,7 +90,6 @@ function stateRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
   mockDiagnose.mockResolvedValue({
     workflowId: "wf-1",
     access: "OK",
@@ -106,24 +105,12 @@ beforeEach(() => {
   mockGetWorkflowById.mockResolvedValue(null);
 });
 
-afterEach(() => {
-  delete process.env.ENABLE_ONBOARDING_CHECKLIST;
-});
-
 describe("getOnboardingChecklist", () => {
-  it("flag off → {enabled:false} and touches nothing", async () => {
-    delete process.env.ENABLE_ONBOARDING_CHECKLIST;
-    const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
-    expect(dto).toEqual({ enabled: false });
-    expect(mockListByAccount).not.toHaveBeenCalled();
-    expect(mockGetState).not.toHaveBeenCalled();
-  });
 
   it("brand-new account: no workflows, no row → create current, first_shown latched, no completion latch", async () => {
     mockGetState.mockResolvedValue(null);
     mockListByAccount.mockResolvedValue([]);
     const dto = await getOnboardingChecklist({ userId: USER, accountId: ACCOUNT });
-    expect(dto.enabled).toBe(true);
     expect(dto.completed).toBe(false);
     expect(dto.selectedWorkflow).toBeNull();
     expect(dto.steps?.[0]).toMatchObject({ key: "create", status: "current" });

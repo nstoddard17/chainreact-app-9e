@@ -39,7 +39,6 @@ import type { WorkflowListItem } from "@/contracts/workflow";
 
 function checklistDto(): OnboardingChecklistDTO {
   return {
-    enabled: true,
     completed: false,
     completedAt: null,
     presentation: {

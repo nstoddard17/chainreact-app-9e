@@ -44,7 +44,6 @@ function steps(overrides: Partial<Record<string, Partial<OnboardingStepDTO>>> = 
 
 function dto(overrides: Partial<OnboardingChecklistDTO> = {}): OnboardingChecklistDTO {
   return {
-    enabled: true,
     completed: false,
     completedAt: null,
     presentation: {
@@ -82,10 +81,6 @@ describe("OnboardingChecklist — visibility", () => {
     expect(container.querySelector("[data-testid=onboarding-checklist]")).toBeNull();
   });
 
-  it("renders nothing when the flag is off (enabled:false)", () => {
-    render(<OnboardingChecklist initial={{ enabled: false }} />);
-    expect(screen.queryByTestId("onboarding-checklist")).toBeNull();
-  });
 
   it("renders nothing when dismissed, and reports visibility=false", () => {
     const onVisibilityChange = jest.fn();

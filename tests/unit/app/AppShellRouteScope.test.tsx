@@ -84,6 +84,14 @@ jest.mock("@/services/accounts/activeAccount", () => ({
     },
   })),
 }));
+// 5.ONBOARD-1 — the workflows page always derives the onboarding checklist now
+// (the feature flag was removed), so this route-scope test must stub that
+// service like its other data dependencies. Without it the page reaches for a
+// service-role Supabase client that this environment has no credentials for.
+jest.mock("@/services/onboarding/checklistState", () => ({
+  getOnboardingChecklist: jest.fn(async () => null),
+}));
+
 jest.mock("@/repositories/notifications", () => ({
   listForUser: jest.fn().mockResolvedValue([]),
   countUnreadForUser: jest.fn().mockResolvedValue(0),

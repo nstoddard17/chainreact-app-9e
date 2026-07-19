@@ -17,7 +17,6 @@ import {
   pickActivationEvidenceWorkflow,
   type SelectedWorkflowFacts,
 } from "./checklistDerivation";
-import { isOnboardingChecklistEnabled } from "./onboardingFlags";
 import { recordOnboardingEvent } from "./onboardingEvents";
 
 /**
@@ -113,9 +112,6 @@ export async function getOnboardingChecklist(input: {
   userId: string;
   accountId: string;
 }): Promise<OnboardingChecklistDTO> {
-  if (!isOnboardingChecklistEnabled()) {
-    return { enabled: false };
-  }
   const { userId, accountId } = input;
 
   const [row, workflows] = await Promise.all([
@@ -181,7 +177,6 @@ export async function getOnboardingChecklist(input: {
       completionWf && completionWf.state !== "deleted" ? completionWf : null;
     const snapshotName = effectiveRow.completionWorkflowName;
     return {
-      enabled: true,
       completed: true,
       completedAt: effectiveRow.completedAt,
       completionWorkflow: liveCompletion
@@ -245,7 +240,6 @@ export async function getOnboardingChecklist(input: {
     : null;
 
   return {
-    enabled: true,
     completed: false,
     completedAt: null,
     presentation: {

@@ -1,5 +1,4 @@
 import { latchCompletionServiceRole } from "@/repositories/onboarding/userOnboardingStates";
-import { isOnboardingChecklistEnabled } from "./onboardingFlags";
 import { recordOnboardingEvent } from "./onboardingEvents";
 
 /**
@@ -32,7 +31,6 @@ export async function latchOnboardingCompletionOnActivation(input: {
   workflowId: string;
   workflowName?: string | null;
 }): Promise<void> {
-  if (!isOnboardingChecklistEnabled()) return;
   try {
     const won = await latchCompletionServiceRole({
       userId: input.userId,

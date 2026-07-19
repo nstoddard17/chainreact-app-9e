@@ -122,6 +122,21 @@ describe("deriveChecklistSteps", () => {
     expect(stepByKey(r, "connect").blockedReason).toBe("admin_required");
   });
 
+  it("REGRESSION: a needs_reconnect provider un-completes Connect even when the readiness ladder says ready", () => {
+    const r = deriveChecklistSteps({
+      hasAnyWorkflow: true,
+      selected: facts({
+        // The diagnosis ladder still reports OK…
+        allRequiredConnected: true,
+        // …but the execution seam flagged the credential as needing reconnect.
+        providers: [provider({ ready: true, reconnectNeeded: true })],
+      }),
+    });
+    const connect = stepByKey(r, "connect");
+    expect(connect.status).toBe("blocked");
+    expect(connect.blockedReason).toBe("reconnect_required");
+  });
+
   it("connected but unconfigured → configure current", () => {
     const r = deriveChecklistSteps({
       hasAnyWorkflow: true,

@@ -28,7 +28,6 @@ jest.mock("@/lib/api/workflows", () => ({
 
 function dto(): OnboardingChecklistDTO {
   return {
-    enabled: true,
     completed: false,
     completedAt: null,
     presentation: {

@@ -8,7 +8,6 @@ import { getActiveForExecution } from "@/repositories/integrations";
 import { listOrSeedDashboards } from "@/services/analytics/dashboards";
 import { getAnalyticsOverview } from "@/services/analytics/analyticsOverview";
 import { AppShell } from "@/components/app-shell/AppShell";
-import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
 import { exposedConnectedAppSources } from "@/features/analytics/connectedAppSources";
@@ -99,7 +98,6 @@ export default async function AnalyticsPage() {
 
   return (
     <AppShell
-      gettingStartedEnabled={isOnboardingChecklistEnabled()}
       userEmail={user.email ?? ""}
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}

@@ -29,17 +29,12 @@ function req(body: unknown): Request {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
   mockRequireUserWithAccount.mockResolvedValue({
     ok: true,
     userId: "user-1",
     accountId: "acct-1",
   });
   mockRecord.mockResolvedValue(undefined);
-});
-
-afterEach(() => {
-  delete process.env.ENABLE_ONBOARDING_CHECKLIST;
 });
 
 describe("POST /api/onboarding/events", () => {
@@ -53,12 +48,6 @@ describe("POST /api/onboarding/events", () => {
     expect(mockRecord).not.toHaveBeenCalled();
   });
 
-  it("flag off → 404, nothing recorded", async () => {
-    delete process.env.ENABLE_ONBOARDING_CHECKLIST;
-    const res = await POST(req({ event: "video_opened" }));
-    expect(res.status).toBe(404);
-    expect(mockRecord).not.toHaveBeenCalled();
-  });
 
   it("cta_clicked records with step key + creation path for the RESOLVED identity", async () => {
     const res = await POST(

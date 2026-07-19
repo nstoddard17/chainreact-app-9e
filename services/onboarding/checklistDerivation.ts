@@ -59,10 +59,18 @@ export function deriveChecklistSteps(input: {
 
   // connect: never "complete" for an empty graph — zero required providers is
   // only meaningful once the workflow has steps.
+  //
+  // A provider flagged `needs_reconnect` also blocks completion even when the
+  // connection-diagnosis `ready` ladder still reports OK: that persisted flag
+  // is set at the execution seam when the credential actually failed, so
+  // treating the step as complete would show a green "connected" tick for a
+  // connection the next run will fail on — precisely the stale completion this
+  // checklist must never display.
   const connectDone =
     selected !== null &&
     selected.nodeCount > 0 &&
-    selected.allRequiredConnected === true;
+    selected.allRequiredConnected === true &&
+    selected.providers.every((p) => !p.reconnectNeeded);
   const configureDone = selected !== null && selected.writePathReady;
   const testDone = selected !== null && selected.hasSucceededRun;
   const activateDone = selected !== null && selected.state === "active";
@@ -126,7 +134,9 @@ export function deriveChecklistSteps(input: {
   // Escalate the blocked reasons the UI must explain: an unhealthy connection
   // the user can fix (reconnect) vs one an owner/admin must handle.
   if (!connectDone && selected && selected.providers.length > 0) {
-    const notReady = selected.providers.filter((p) => !p.ready);
+    // "Not usable" = the readiness ladder says no OR the persisted
+    // needs-reconnect flag is set (the latter can coexist with ready===true).
+    const notReady = selected.providers.filter((p) => !p.ready || p.reconnectNeeded);
     if (notReady.some((p) => p.adminRequired)) {
       (connectStep as { blockedReason?: string }).blockedReason = "admin_required";
     } else if (notReady.some((p) => p.reconnectNeeded)) {

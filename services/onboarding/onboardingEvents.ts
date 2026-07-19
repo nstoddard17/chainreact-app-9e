@@ -1,6 +1,5 @@
 import * as eventsRepo from "@/repositories/onboarding/onboardingEvents";
 import type { OnboardingEventType } from "@/repositories/onboarding/onboardingEvents";
-import { isOnboardingChecklistEnabled } from "./onboardingFlags";
 
 export type { OnboardingEventType };
 
@@ -55,7 +54,6 @@ export async function recordOnboardingEvent(input: {
   provider?: string;
   metadata?: Readonly<Record<string, unknown>>;
 }): Promise<void> {
-  if (!isOnboardingChecklistEnabled()) return;
   try {
     await eventsRepo.insertServiceRole({
       userId: input.userId,

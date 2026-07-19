@@ -61,12 +61,7 @@ function updatedRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
   mockUpdatePresentation.mockResolvedValue(updatedRow());
-});
-
-afterEach(() => {
-  delete process.env.ENABLE_ONBOARDING_CHECKLIST;
 });
 
 describe("POST /api/onboarding/presentation", () => {
@@ -80,14 +75,6 @@ describe("POST /api/onboarding/presentation", () => {
     expect(mockUpdatePresentation).not.toHaveBeenCalled();
   });
 
-  it("flag off → 404 ONBOARDING_DISABLED, no write", async () => {
-    delete process.env.ENABLE_ONBOARDING_CHECKLIST;
-    authedAs("user-1", "acct-1");
-    const res = await POST(req({ action: "dismiss" }));
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: "ONBOARDING_DISABLED" });
-    expect(mockUpdatePresentation).not.toHaveBeenCalled();
-  });
 
   it.each([
     ["dismiss", "dismissedAt"],

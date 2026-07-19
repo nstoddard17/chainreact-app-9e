@@ -43,14 +43,6 @@ interface Props {
   userEmail: string;
   unreadNotifications: number;
   recentNotifications: readonly NotificationPreview[];
-  /**
-   * 5.ONBOARD-1 — ENABLE_ONBOARDING_CHECKLIST, evaluated by the rendering
-   * PAGE (`isOnboardingChecklistEnabled()` from services/onboarding) and
-   * passed down — the client/server boundary rule forbids components/ from
-   * importing services/ values, and the env var is not NEXT_PUBLIC so it
-   * cannot be read client-side. Drives the user-menu "Getting started" item.
-   */
-  gettingStartedEnabled?: boolean;
   children: ReactNode;
 }
 
@@ -58,7 +50,6 @@ export function AppShell({
   userEmail,
   unreadNotifications,
   recentNotifications,
-  gettingStartedEnabled = false,
   children,
 }: Props) {
   return (
@@ -73,13 +64,11 @@ export function AppShell({
           userEmail={userEmail}
           unreadNotifications={unreadNotifications}
           recentNotifications={recentNotifications}
-          gettingStartedEnabled={gettingStartedEnabled}
         />
         <AppTopBar
           userEmail={userEmail}
           unreadNotifications={unreadNotifications}
           recentNotifications={recentNotifications}
-          gettingStartedEnabled={gettingStartedEnabled}
         />
         {children}
       </div>

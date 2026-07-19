@@ -20,8 +20,8 @@ export interface OnboardingVideoProps {
  * success / nothing) from the server-derived DTO + persisted presentation.
  *
  * Visibility contract:
- *   - flag off, derivation failed (initial null), or dismissed → renders
- *     nothing; `/workflows` is never blocked by onboarding.
+ *   - derivation failed (initial null) or dismissed → renders nothing;
+ *     `/workflows` is never blocked by onboarding.
  *   - completed → the success card, and ONLY while the celebration is
  *     unacknowledged (silently-latched pre-existing accounts never see it).
  *   - otherwise → expanded card or the minimized pill.
@@ -56,7 +56,6 @@ export function OnboardingChecklist({
   const completed = checklist?.completed === true;
   const visible =
     checklist !== null &&
-    checklist.enabled &&
     presentation !== undefined &&
     !presentation.dismissed &&
     (!completed || presentation.celebrationPending);

@@ -3,7 +3,6 @@ import { createClient } from "@/utils/supabase/server";
 import * as notificationsRepo from "@/repositories/notifications";
 import { NotificationsList } from "@/features/notifications/NotificationsList";
 import { AppShell } from "@/components/app-shell/AppShell";
-import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
@@ -42,7 +41,6 @@ export default async function NotificationsPage() {
 
   return (
     <AppShell
-      gettingStartedEnabled={isOnboardingChecklistEnabled()}
       userEmail={user.email ?? ""}
       unreadNotifications={bell.unreadNotifications}
       recentNotifications={bell.recentNotifications}

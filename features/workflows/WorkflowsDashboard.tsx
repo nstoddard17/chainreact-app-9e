@@ -60,9 +60,9 @@ interface Props {
   initialFolders?: readonly WorkflowFolder[];
   folderLimit?: number;
   /**
-   * 5.ONBOARD-1 — server-derived onboarding checklist (null = flag off or
-   * derivation failed → nothing renders; the dashboard must never depend on
-   * onboarding succeeding).
+   * 5.ONBOARD-1 — server-derived onboarding checklist (null = derivation
+   * failed → nothing renders; the dashboard must never depend on onboarding
+   * succeeding).
    */
   initialOnboarding?: OnboardingChecklistDTO | null;
   /** 5.ONBOARD-1 Batch 4 — server-configured optional video (null = hidden). */
@@ -75,7 +75,7 @@ const UNDO_TIMEOUT_MS = 8000;
  * the checklist's mount effect reports visibility. Mirrors the orchestrator's
  * visibility contract. */
 function initialOnboardingVisible(dto: OnboardingChecklistDTO | null | undefined): boolean {
-  if (!dto || !dto.enabled || !dto.presentation) return false;
+  if (!dto || !dto.presentation) return false;
   if (dto.presentation.dismissed) return false;
   if (dto.completed && !dto.presentation.celebrationPending) return false;
   return true;

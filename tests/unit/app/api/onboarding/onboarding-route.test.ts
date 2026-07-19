@@ -2,8 +2,7 @@
  * @jest-environment node
  *
  * GET /api/onboarding (5.ONBOARD-1 Batch 1): gate order (auth+account first),
- * flag-off inertness, DTO passthrough, safe failure, and a response no-leak
- * scan. The derivation service is mocked at its module boundary; the route's
+ * DTO passthrough, safe failure, and a response no-leak scan. The derivation service is mocked at its module boundary; the route's
  * own mapping runs for real.
  */
 import { NextResponse } from "next/server";
@@ -30,10 +29,6 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-afterEach(() => {
-  delete process.env.ENABLE_ONBOARDING_CHECKLIST;
-});
-
 describe("GET /api/onboarding", () => {
   it("unauthenticated → the gate's response passes through and nothing derives", async () => {
     mockRequireUserWithAccount.mockResolvedValue({
@@ -45,18 +40,10 @@ describe("GET /api/onboarding", () => {
     expect(mockGetChecklist).not.toHaveBeenCalled();
   });
 
-  it("flag off → {enabled:false}, derivation never called (inert)", async () => {
-    authedAs("user-1", "acct-1");
-    const res = await GET();
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ enabled: false });
-    expect(mockGetChecklist).not.toHaveBeenCalled();
-  });
 
-  it("flag on → derives for the RESOLVED (user, account) pair and returns the DTO", async () => {
-    process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
+  it("derives for the RESOLVED (user, account) pair and returns the DTO", async () => {
     authedAs("user-1", "acct-1");
-    const dto = { enabled: true, completed: false, steps: [] };
+    const dto = { completed: false, steps: [] };
     mockGetChecklist.mockResolvedValue(dto);
     const res = await GET();
     expect(res.status).toBe(200);
@@ -68,7 +55,6 @@ describe("GET /api/onboarding", () => {
   });
 
   it("derivation failure → safe 500 that leaks no internals", async () => {
-    process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
     authedAs("user-1", "acct-1");
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     mockGetChecklist.mockRejectedValue(
@@ -83,10 +69,8 @@ describe("GET /api/onboarding", () => {
   });
 
   it("no-leak scan: a representative DTO response carries no secrets/config surface", async () => {
-    process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
     authedAs("user-1", "acct-1");
     mockGetChecklist.mockResolvedValue({
-      enabled: true,
       completed: false,
       selectedWorkflow: { id: "wf-1", name: "Lead intake", state: "draft", testable: true },
       workflowOptions: [{ id: "wf-1", name: "Lead intake" }],

@@ -47,7 +47,17 @@ export function useInitialBuilderFocus(input: {
 
   useEffect(() => {
     if (!focus || !enabled || firedRef.current) return;
-    firedRef.current = true;
+
+    // Applied on a deferred tick rather than inline. The builder resets
+    // configSlice in an effect cleanup keyed on the workflow id; under React's
+    // dev double-invoke (and any remount) that cleanup runs AFTER this effect's
+    // first pass and would wipe a reveal made inline, while the one-shot ref
+    // would block the second pass from re-applying it — the config panel then
+    // never opens. Scheduling here means the cancelled first pass leaves no
+    // mark (the ref is set inside the callback) and the surviving pass applies
+    // the reveal once the mount cycle has settled.
+    const apply = setTimeout(() => {
+      firedRef.current = true;
 
     // Consume the param immediately so back/forward/reload never replays.
     try {
@@ -77,11 +87,21 @@ export function useInitialBuilderFocus(input: {
       return;
     }
 
-    // test / activate — transient attention pulse on the header controls.
-    setPulse(focus);
+      // test / activate — transient attention pulse on the header controls.
+      setPulse(focus);
+    }, 0);
+    return () => clearTimeout(apply);
+  }, [focus, enabled, workflowId, requiredFieldsByType, revealNode]);
+
+  // Auto-clear in its own effect keyed on `pulse` — same reasoning as
+  // features/apps/useProviderHighlight: a timer created inside the ref-guarded
+  // one-shot effect gets cleared by that effect's cleanup on a re-run while the
+  // guard blocks a replacement, so the pulse would never turn off.
+  useEffect(() => {
+    if (!pulse) return;
     const timer = setTimeout(() => setPulse(null), HEADER_PULSE_MS);
     return () => clearTimeout(timer);
-  }, [focus, enabled, workflowId, requiredFieldsByType, revealNode]);
+  }, [pulse]);
 
   return pulse;
 }

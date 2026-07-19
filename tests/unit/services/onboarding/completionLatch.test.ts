@@ -28,18 +28,9 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-afterEach(() => {
-  delete process.env.ENABLE_ONBOARDING_CHECKLIST;
-});
-
 describe("latchOnboardingCompletionOnActivation", () => {
-  it("flag off (default) → no-op, repository never touched", async () => {
-    await latchOnboardingCompletionOnActivation(INPUT);
-    expect(mockLatch).not.toHaveBeenCalled();
-  });
 
-  it("flag on → latches for the activating (user, account) pair with the workflow as provenance (non-silent)", async () => {
-    process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
+  it("latches for the activating (user, account) pair with the workflow as provenance (non-silent)", async () => {
     mockLatch.mockResolvedValue(true);
     await latchOnboardingCompletionOnActivation(INPUT);
     expect(mockLatch).toHaveBeenCalledWith({
@@ -58,14 +49,12 @@ describe("latchOnboardingCompletionOnActivation", () => {
   });
 
   it("already-latched (concurrent/later activation) → no duplicate completed event", async () => {
-    process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
     mockLatch.mockResolvedValue(false);
     await latchOnboardingCompletionOnActivation(INPUT);
     expect(mockRecordEvent).not.toHaveBeenCalled();
   });
 
   it("repository failure is swallowed (activation unaffected) and logged message-only", async () => {
-    process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
     const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     mockLatch.mockRejectedValue(new Error("db unavailable"));
     await expect(latchOnboardingCompletionOnActivation(INPUT)).resolves.toBeUndefined();
@@ -78,10 +67,6 @@ describe("latchOnboardingCompletionOnActivation", () => {
 });
 
 describe("provenance snapshot (correction)", () => {
-  beforeEach(() => {
-    process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
-  });
-
   it("passes null (not undefined) when the activating record has no name", async () => {
     mockLatch.mockResolvedValue(true);
     await latchOnboardingCompletionOnActivation({

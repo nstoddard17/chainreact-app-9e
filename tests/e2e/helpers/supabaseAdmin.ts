@@ -74,10 +74,14 @@ export async function getIntegrationsForUser(
   userId: string,
   provider: string,
 ): Promise<readonly Record<string, unknown>[]> {
+  // 4.ACCOUNT-MODEL: `integrations.user_id` was DROPPED in the account cutover —
+  // rows are owned by `account_id`, with `connected_by_user_id` as provenance.
+  // Querying the old column errors ("column integrations.user_id does not
+  // exist"), so match on the connector instead.
   const { data, error } = await adminClient()
     .from("integrations")
     .select("*")
-    .eq("user_id", userId)
+    .eq("connected_by_user_id", userId)
     .eq("provider", provider);
   if (error) throw new Error(`getIntegrationsForUser: ${error.message}`);
   return data ?? [];
@@ -94,10 +98,21 @@ export async function getOAuthStateRowCount(): Promise<number> {
 export async function getWorkflowRunsForUser(
   userId: string,
 ): Promise<readonly Record<string, unknown>[]> {
-  const { data, error } = await adminClient()
+  // 4.ACCOUNT-MODEL: `workflow_runs.user_id` was DROPPED — runs are owned by
+  // `account_id`. Resolve the user's accounts first, then read their runs
+  // (covers webhook/schedule-triggered runs, which carry no triggering user).
+  const admin = adminClient();
+  const { data: memberships, error: memErr } = await admin
+    .from("account_memberships")
+    .select("account_id")
+    .eq("user_id", userId);
+  if (memErr) throw new Error(`getWorkflowRunsForUser (accounts): ${memErr.message}`);
+  const accountIds = (memberships ?? []).map((m) => m.account_id as string);
+  if (accountIds.length === 0) return [];
+  const { data, error } = await admin
     .from("workflow_runs")
     .select("*")
-    .eq("user_id", userId);
+    .in("account_id", accountIds);
   if (error) throw new Error(`getWorkflowRunsForUser: ${error.message}`);
   return data ?? [];
 }
@@ -467,5 +482,57 @@ export async function cleanupWorkflowFilesForUser(
     console.warn(
       `[e2e cleanup] workflow_files delete failed: ${delErr.message}`,
     );
+  }
+}
+
+/**
+ * TEST-ONLY sign-in that does not go through the password form.
+ *
+ * WHY: this Supabase project enforces CAPTCHA (Bot & Abuse Protection) on
+ * password sign-in, and the local app has no `NEXT_PUBLIC_TURNSTILE_SITE_KEY`,
+ * so the widget never renders and no token can be produced — every UI password
+ * sign-in fails with "captcha protection: request disallowed". CAPTCHA is a
+ * project-level setting protecting the live site and is deliberately NOT
+ * weakened for tests.
+ *
+ * HOW: the service role mints a real email-link token (`generateLink`) and the
+ * test drives the app's OWN `/auth/callback` route with it, which calls
+ * `verifyOtp` and sets the normal session cookies. Nothing about the app
+ * changes: no bypass, no backdoor, no relaxed route authorization, and no
+ * credentials in source control. `recovery` is used because it is already in
+ * the callback's narrow allow-list (`ALLOWED_OTP_TYPES`) — the allow-list is
+ * NOT widened for tests. The resulting session is an ordinary authenticated
+ * session, so every downstream authorization check still runs for real.
+ *
+ * CAPTCHA is not involved in link verification, so this is unaffected by the
+ * project's bot-protection setting.
+ */
+export async function signInViaEmailLink(
+  page: import("@playwright/test").Page,
+  user: TestUser,
+  opts: { next?: string } = {},
+): Promise<void> {
+  const { data, error } = await adminClient().auth.admin.generateLink({
+    type: "recovery",
+    email: user.email,
+  });
+  if (error || !data?.properties?.hashed_token) {
+    throw new Error(`signInViaEmailLink: ${error?.message ?? "no hashed_token"}`);
+  }
+  const next = opts.next ?? "/workflows";
+  // Drive the app's real callback: it verifies the token and sets cookies.
+  await page.goto(
+    `/auth/callback?token_hash=${encodeURIComponent(
+      data.properties.hashed_token,
+    )}&type=recovery&next=${encodeURIComponent(next)}`,
+  );
+  // The callback redirects to `next` on success; an auth error lands on
+  // /auth/... with a message — fail loudly rather than continue unauthenticated.
+  await page.waitForURL((url) => !/\/auth\/callback/.test(url.toString()), {
+    timeout: 15_000,
+  });
+  const landed = new URL(page.url()).pathname;
+  if (landed.startsWith("/auth/")) {
+    throw new Error(`signInViaEmailLink: callback rejected → ${page.url()}`);
   }
 }

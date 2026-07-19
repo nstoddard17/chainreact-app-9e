@@ -42,9 +42,19 @@ export function useProviderHighlight(provider: string | null): string | null {
       behavior: reduceMotion ? "auto" : "smooth",
     });
     setActive(provider);
+  }, [provider]);
+
+  // Auto-clear lives in its own effect keyed on `active`, NOT alongside the
+  // one-shot block above: React re-runs effects (StrictMode double-invoke in
+  // dev, and future re-mounts), and a timer created inside the ref-guarded
+  // effect would be cleared by that run's cleanup while the guard prevents a
+  // replacement from ever being scheduled — leaving the highlight stuck on
+  // forever. Keyed on `active`, the timer is always re-created after cleanup.
+  useEffect(() => {
+    if (!active) return;
     const timer = setTimeout(() => setActive(null), HIGHLIGHT_MS);
     return () => clearTimeout(timer);
-  }, [provider]);
+  }, [active]);
 
   return active;
 }

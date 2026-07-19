@@ -84,8 +84,6 @@ export interface OnboardingPresentationDTO {
 }
 
 export interface OnboardingChecklistDTO {
-  /** False when the feature flag is off (everything else absent). */
-  readonly enabled: boolean;
   readonly completed?: boolean;
   readonly completedAt?: string | null;
   /**

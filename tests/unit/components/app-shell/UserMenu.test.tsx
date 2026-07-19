@@ -79,7 +79,7 @@ describe("UserMenu", () => {
   });
 });
 
-describe("UserMenu — Getting started (5.ONBOARD-1)", () => {
+describe("UserMenu — Getting started (always available)", () => {
   const originalLocation = window.location;
 
   beforeEach(() => {
@@ -98,16 +98,10 @@ describe("UserMenu — Getting started (5.ONBOARD-1)", () => {
     });
   });
 
-  it("is hidden when the onboarding flag prop is off (default)", async () => {
+
+  it("reopens the checklist then navigates to /workflows", async () => {
     const user = userEvent.setup();
     render(<UserMenu userEmail="marcus@example.com" />);
-    await user.click(screen.getByTestId("app-shell-user-menu-trigger"));
-    expect(screen.queryByTestId("app-shell-getting-started")).toBeNull();
-  });
-
-  it("reopens the checklist then navigates to /workflows when enabled", async () => {
-    const user = userEvent.setup();
-    render(<UserMenu userEmail="marcus@example.com" gettingStartedEnabled />);
     await user.click(screen.getByTestId("app-shell-user-menu-trigger"));
     await user.click(screen.getByTestId("app-shell-getting-started"));
     expect(mockPostPresentation).toHaveBeenCalledWith({ action: "reopen" });
@@ -118,7 +112,7 @@ describe("UserMenu — Getting started (5.ONBOARD-1)", () => {
   it("still navigates when the reopen POST fails (best-effort)", async () => {
     const user = userEvent.setup();
     mockPostPresentation.mockRejectedValueOnce(new Error("offline"));
-    render(<UserMenu userEmail="marcus@example.com" gettingStartedEnabled />);
+    render(<UserMenu userEmail="marcus@example.com" />);
     await user.click(screen.getByTestId("app-shell-user-menu-trigger"));
     await user.click(screen.getByTestId("app-shell-getting-started"));
     await new Promise((r) => setTimeout(r, 0));

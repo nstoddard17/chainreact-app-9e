@@ -201,6 +201,9 @@ export async function startMockSlackServer(opts: {
   };
 }
 
+/** Authorization code → scopes granted for it (mirrors real Slack's echo). */
+const grantedScopesByCode = new Map<string, string>();
+
 async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
@@ -221,7 +224,13 @@ async function handleRequest(
       "/api/integrations/oauth/slack/callback",
       appBaseUrl,
     );
-    callback.searchParams.set("code", `mock-code-${Date.now()}`);
+    const code = `mock-code-${Date.now()}`;
+    // Real Slack grants the scopes the app asked for and echoes them back on
+    // token exchange. Remember them per-code so the exchange can do the same —
+    // a fixed list would under-grant and make legitimate scope checks (e.g. the
+    // onboarding checklist's connection readiness) report MISSING_SCOPES.
+    grantedScopesByCode.set(code, url.searchParams.get("scope") ?? "");
+    callback.searchParams.set("code", code);
     callback.searchParams.set("state", state);
     res.writeHead(302, { location: callback.toString() });
     res.end();
@@ -239,7 +248,9 @@ async function handleRequest(
       JSON.stringify({
         ok: true,
         access_token: SLACK_TOKEN_PLACEHOLDER,
-        scope: "channels:history,channels:read,chat:write,users:read",
+        scope:
+          grantedScopesByCode.get(parsed.code ?? "") ||
+          "channels:history,channels:read,chat:write,users:read",
         team: { id: "T-MOCK-TEAM", name: "Mock Workspace" },
         bot_user_id: "U-MOCK-BOT",
         app_id: "A-MOCK-APP",

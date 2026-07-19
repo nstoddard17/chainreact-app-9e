@@ -575,23 +575,181 @@ onboarding arc introduced no suite that fails at HEAD and passes at baseline.
 5. `AppCard.tsx` / `BuilderHeader.tsx` sit at the `max-lines` warning
    threshold — candidates for the next refactor touching those files.
 
-## 19. Corrected blocker sequence + owner decisions
+---
 
-**Ordered — each step unblocks the next:**
+# Verification batch (2026-07-19) — migrations applied, RLS + E2E green, flag removed
 
-1. **Stand up a non-production database** (local Supabase via the CLI, or a
-   dedicated test project) per
-   [staging-environment-plan.md](./staging-environment-plan.md). Everything
-   below is blocked on this; nothing else in the list is safe first.
-2. **Apply both onboarding migrations there** (`npm run db:push` against that
-   target) — `20260723000000_user_onboarding_states` (now including
-   `completion_workflow_name`) and `20260724000000_onboarding_events`.
-3. **Run the RLS suite** against it (`ALLOW_DB_INTEGRATION_TESTS=true`),
-   including the new deletion-preserves-snapshot test.
-4. **Repair the e2e sign-in harness** (service-role `generateLink` + `verifyOtp`
-   session injection — test-only, no app change) and run
-   `npx playwright test tests/e2e/onboarding-checklist.spec.ts --workers=1`.
-5. **Only then** consider enabling `ENABLE_ONBOARDING_CHECKLIST` anywhere.
+Marcus authorized using `qcepijemjlkssfkvzlio` for verification (pre-launch, no
+real users; synthetic/destructive test data acceptable; cleanup before launch)
+and, mid-batch, directed that the feature flag be removed entirely.
+
+## 20. Migrations applied
+
+Applied with `npm run db:push` against `qcepijemjlkssfkvzlio` (guard reported
+target ref match). Three were pending — the two onboarding ones **plus one
+unrelated**, which was inspected before proceeding rather than applied blindly:
+
+| Migration | Origin | Verified before apply |
+|---|---|---|
+| `20260722000000_account_machine_credentials` | prior local commit `b1970b90c` (**not** this arc) | purely additive: 2 new tables + their indexes/trigger/RLS/grants; no DROP, no ALTER of existing tables, no data mutation |
+| `20260723000000_user_onboarding_states` | this arc (incl. the `completion_workflow_name` correction) | — |
+| `20260724000000_onboarding_events` | this arc | — |
+
+Post-apply schema verification confirmed: all 13 expected columns (including
+`completion_workflow_name text`), FK delete rules
+(`user_id`/`account_id` CASCADE, `selected_workflow_id`/`completion_workflow_id`
+**SET NULL**), RLS enabled on both tables, and the expected policies.
+
+### 20a. Defect found by verification — and fixed
+
+The applied grants did **not** match the migrations' intent: `anon` and
+`authenticated` held **ALL** privileges on all four new tables. Root cause:
+this project carries `ALTER DEFAULT PRIVILEGES … GRANT ALL ON TABLES TO anon,
+authenticated, service_role` (visible in `pg_default_acl`), so a narrow `GRANT`
+in a migration does not produce a narrow result — the surplus must be
+explicitly revoked. That is exactly why the repo already has a revoke series
+(`20260627000000`…`20260701000000`) for earlier tables; the onboarding
+migrations simply hadn't followed it.
+
+The same gap hit `account_machine_credentials` / `machine_credential_audit`,
+whose own migration states *"There is NO `authenticated` GRANT on this table —
+a client SELECT returns 42501 — so an encrypted secret can never transit the
+Data API."* Applying it made that exposure live, so it is fixed here too.
+
+**Fix:** new migration
+`20260725000000_revoke_default_privileges_onboarding_and_machine_credentials.sql`
+(applied + verified). Resulting grants:
+
+| Table | anon | authenticated | service_role |
+|---|---|---|---|
+| `user_onboarding_states` | — | `SELECT` only | full |
+| `onboarding_events` | — | — | full |
+| `account_machine_credentials` | — | — | full |
+| `machine_credential_audit` | — | — | full |
+
+RLS was already fail-closed for writes (no policy ⇒ denied), so this restores
+defense-in-depth rather than closing an open write path — except on the
+machine-credential tables, where the **read** path was materially wider than
+documented.
+
+## 21. Feature flag removed (always-on)
+
+`ENABLE_ONBOARDING_CHECKLIST` is gone: the accessor module, every
+`process.env` read, all disabled-state branches (`{enabled:false}` DTO,
+`ONBOARDING_DISABLED` 404s, the `enabled` DTO field and its client error code),
+the `gettingStartedEnabled` prop threaded through AppShell → bars → UserMenu
+(the "Getting started" item is now unconditional), the flag-specific tests, and
+the e2e webServer env entry. `getOnboardingVideoConfig` moved to
+`services/onboarding/onboardingVideo.ts` — it is content configuration, not a
+feature flag. Unchanged by design: eligibility/derivation rules, dismissal and
+minimize/reopen behavior, existing-user silent suppression, and the fail-open
+isolation that keeps `/workflows` working when onboarding errors.
+
+## 22. E2E authentication (CAPTCHA-safe, test-only)
+
+CAPTCHA was **not** weakened, disabled, or bypassed, and no app code changed.
+Two test-only helpers establish ordinary sessions via a service-role email link:
+
+- `signInViaEmailLink` (`tests/e2e/helpers/supabaseAdmin.ts`) — mints a token
+  with `auth.admin.generateLink` and drives the app's **own** `/auth/callback`,
+  which calls `verifyOtp` and sets normal session cookies. It uses `recovery`
+  because that type is already in the callback's narrow `ALLOWED_OTP_TYPES`
+  allow-list — the allow-list was **not** widened.
+- `signedInClient` (`tests/helpers/dbSessionClient.ts`) — same idea for raw
+  Supabase clients in DB integration suites; the other CAPTCHA-blocked suites
+  can adopt it.
+
+Link verification is not CAPTCHA-gated, so this is unaffected by the project's
+bot-protection setting, and every downstream authorization check still runs.
+
+## 23. RLS results — 9/9 passing
+
+`ALLOW_DB_INTEGRATION_TESTS=true npx jest tests/integration/security/user-onboarding-states-rls.test.ts`
+→ **9 passed**, against the real database:
+own-row read while a member · another user's row invisible · foreign account
+invisible · anon denied · authenticated INSERT denied · authenticated UPDATE of
+`completed_at`/`completion_workflow_id`/`completion_workflow_name` denied (values
+verified unchanged) · removed member loses access · service-role read/write works
+· **workflow deletion nulls the FK but preserves the name snapshot**.
+
+One assertion was updated, not weakened: anon is now rejected at the GRANT layer
+(`42501`) instead of being filtered to zero rows by RLS — a stronger posture, so
+the test accepts either but still requires that no data comes back.
+
+## 24. E2E results — 2/2 passing, twice consecutively
+
+`npx playwright test tests/e2e/onboarding-checklist.spec.ts --workers=1` →
+**2 passed** (~1.6 min), repeated for stability.
+
+Primary journey proven end-to-end against the real app + real database, with
+only the Slack network boundary mocked: session → checklist renders (and
+replaces the empty state) → create via the chooser → Connect step lists Slack →
+`/apps?highlight=slack` deep link highlights the card without starting OAuth →
+**real OAuth dispatcher** against mock Slack → Connect completes →
+`?focus=setup` opens the node config → configure → **real succeeded test run** →
+`?focus=activate` → activation → success state naming the workflow → completion
+latched with `completion_workflow_id` **and** `completion_workflow_name` →
+dismissal persisted → session dropped and re-established → completion still
+latched → **workflow deleted: FK nulled, snapshot name preserved and served by
+the DTO**. Bad paths: reconnect-required regresses Connect; automated-trigger
+shows the honest waiting copy with no fake test result.
+
+## 25. Fixes made during verification
+
+**Product bugs (found by E2E, fixed):**
+
+1. **Transient highlight never cleared.** `useProviderHighlight` created its
+   auto-clear timer inside a ref-guarded one-shot effect: on any effect re-run
+   (React's dev double-invoke, or a remount) the first pass's cleanup cleared
+   the timer while the guard blocked a replacement — the ring stuck on forever.
+   The clear now lives in its own effect keyed on the active value.
+2. **Builder `?focus=` reveal was wiped.** `useInitialBuilderFocus` had the same
+   shape, and the builder's own reset-effect cleanup ran after it, erasing the
+   revealed node while the guard prevented re-application — the config panel
+   never opened. The one-shot now applies on a deferred tick, so the cancelled
+   pass leaves no mark and the surviving pass applies it after mount settles.
+3. **`needs_reconnect` did not regress the Connect step.** The persisted
+   reconnect flag can coexist with a `ready` verdict from the connection ladder,
+   so a workflow whose credential had already failed at the execution seam still
+   showed a green "connected" tick. Connect now requires every provider to be
+   both ready **and** not reconnect-flagged, and the blocked-reason escalation
+   accounts for reconnect-flagged-but-"ready" providers. Unit regression added.
+
+**Test-infrastructure fixes (stale/racy, not product):**
+
+4. `getIntegrationsForUser` / `getWorkflowRunsForUser` queried `user_id` columns
+   **dropped** in the account cutover (`integrations.user_id`,
+   `workflow_runs.user_id`); now `connected_by_user_id` and account-scoped.
+5. Mock Slack returned a hardcoded 4-scope grant while the action requests ~19,
+   so legitimate scope checking reported `MISSING_SCOPES`. It now echoes the
+   requested scopes per authorization code, as real Slack does.
+6. Spec: ambiguous `[data-provider-id]` locator (matched card + icon + chips)
+   scoped to the app card; per-spec 180s timeout (the journey far exceeds
+   Playwright's 30s default — aborting mid-flight let `afterEach` delete the
+   user's memberships *during* an OAuth callback, surfacing as a spurious
+   `account_access_revoked`); hydration-safe chooser interaction; waits for the
+   highlight to settle and for dismissal to persist; activation asserted via the
+   builder's real Pause control (`data-status-kind` belongs to the list badge);
+   automated-trigger copy read by expanding its collapsed row; deletion-survival
+   asserted at the DTO (the success card is intentionally one-shot after the
+   celebration is acknowledged).
+7. `AppShellRouteScope.test.tsx` now stubs the onboarding service — with the
+   flag gone the page always derives, and that suite has no DB credentials.
+
+## 19. Blocker sequence — RESOLVED 2026-07-19
+
+Steps 2–4 below were completed in the verification batch (§20–24) after Marcus
+authorized using the shared project for pre-launch verification; step 5 is moot
+because the flag was removed (§21). Step 1 remains the standing recommendation.
+
+1. **Stand up a non-production database** — still recommended before broad
+   rollout / taking payments (see
+   [staging-environment-plan.md](./staging-environment-plan.md)). Not a blocker
+   for the work above, by owner decision.
+2. ~~Apply both onboarding migrations~~ — **done** (§20).
+3. ~~Run the RLS suite~~ — **done, 9/9** (§23).
+4. ~~Repair the e2e sign-in harness and run the journey~~ — **done, 2/2** (§22, §24).
+5. ~~Enable the flag~~ — **moot**: the flag was removed; onboarding is always on (§21).
 
 **Owner decisions needed:**
 

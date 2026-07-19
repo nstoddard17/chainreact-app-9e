@@ -21,20 +21,10 @@ const BASE = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env.ENABLE_ONBOARDING_CHECKLIST = "true";
   mockInsert.mockResolvedValue(undefined);
 });
 
-afterEach(() => {
-  delete process.env.ENABLE_ONBOARDING_CHECKLIST;
-});
-
 describe("recordOnboardingEvent", () => {
-  it("flag off (default) → records nothing", async () => {
-    delete process.env.ENABLE_ONBOARDING_CHECKLIST;
-    await recordOnboardingEvent(BASE);
-    expect(mockInsert).not.toHaveBeenCalled();
-  });
 
   it("records the sanitized row (ids + keys only)", async () => {
     await recordOnboardingEvent({

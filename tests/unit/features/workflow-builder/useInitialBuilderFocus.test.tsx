@@ -50,6 +50,16 @@ const DEFINITION = {
   edges: [{ id: "e1", from: "trigger-1", to: "action-1" }],
 };
 
+/**
+ * The hook applies its one-shot on a deferred tick (remount-safe — see the
+ * hook's comment), so tests must flush timers after mounting before asserting.
+ */
+function settle(): void {
+  act(() => {
+    jest.advanceTimersByTime(1);
+  });
+}
+
 let lastPulse: BuilderInitialFocus | null = null;
 function Harness({
   focus,
@@ -87,6 +97,7 @@ afterEach(() => {
 describe("useInitialBuilderFocus — setup", () => {
   it("reveals the first incomplete node + field via the existing validation rule", () => {
     render(<Harness focus="setup" />);
+    settle();
     const cfg = useConfigSlice.getState();
     expect(cfg.activeNodeId).toBe("action-1");
     expect(cfg.focusFieldKey).toBe("channel");
@@ -94,18 +105,21 @@ describe("useInitialBuilderFocus — setup", () => {
 
   it("runs ONCE — a re-render never re-fires the reveal or moves the canvas again", () => {
     const { rerender } = render(<Harness focus="setup" />);
+    settle();
     const seqAfterFirst = useConfigSlice.getState().canvasFocusSeq;
     // Simulate the user moving on, then an unrelated re-render.
     act(() => {
       useConfigSlice.getState().closeNode();
     });
     rerender(<Harness focus="setup" />);
+    settle();
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
     expect(useConfigSlice.getState().canvasFocusSeq).toBe(seqAfterFirst);
   });
 
   it("consumes the focus query param (back/forward/reload safe)", () => {
     render(<Harness focus="setup" />);
+    settle();
     expect(window.location.pathname + window.location.search).toBe(
       "/workflows/wf-1",
     );
@@ -114,6 +128,7 @@ describe("useInitialBuilderFocus — setup", () => {
   it("NAVIGATION-ONLY: the graph is untouched — no mutation, no dirty flag", () => {
     const nodesBefore = useGraphSlice.getState().pendingNodes;
     render(<Harness focus="setup" />);
+    settle();
     const state = useGraphSlice.getState();
     expect(state.pendingNodes).toEqual(nodesBefore);
     expect(state.isDirty).toBe(false);
@@ -135,11 +150,13 @@ describe("useInitialBuilderFocus — setup", () => {
       "2026-07-18T00:00:00Z",
     );
     render(<Harness focus="setup" />);
+    settle();
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });
 
   it("disabled (local-only mode) → inert", () => {
     render(<Harness focus="setup" enabled={false} />);
+    settle();
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });
 });
@@ -149,6 +166,7 @@ describe("useInitialBuilderFocus — test/activate pulses", () => {
     "focus=%s pulses once and auto-clears without touching config or graph",
     (focus) => {
       render(<Harness focus={focus} />);
+      settle();
       expect(lastPulse).toBe(focus);
       expect(useConfigSlice.getState().activeNodeId).toBeNull();
       act(() => {
@@ -162,6 +180,7 @@ describe("useInitialBuilderFocus — test/activate pulses", () => {
   it("no focus param → no pulse, no reveal, nothing consumed", () => {
     window.history.replaceState(null, "", "/workflows/wf-1");
     render(<Harness focus={undefined} />);
+    settle();
     expect(lastPulse).toBeNull();
     expect(useConfigSlice.getState().activeNodeId).toBeNull();
   });

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUserWithAccount } from "@/app/api/workflows/_shared";
 import { recordOnboardingEvent } from "@/services/onboarding/onboardingEvents";
-import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 
 /**
  * POST /api/onboarding/events — the two CLIENT-originated analytics events
@@ -28,9 +27,6 @@ const EventBodySchema = z.discriminatedUnion("event", [
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireUserWithAccount();
   if (!auth.ok) return auth.response;
-  if (!isOnboardingChecklistEnabled()) {
-    return NextResponse.json({ error: "ONBOARDING_DISABLED" }, { status: 404 });
-  }
 
   let rawBody: unknown;
   try {

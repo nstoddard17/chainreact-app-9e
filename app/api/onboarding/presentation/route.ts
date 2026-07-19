@@ -6,7 +6,6 @@ import {
 import { OnboardingPresentationActionSchema } from "@/contracts/onboarding";
 import * as workflowsRepo from "@/repositories/workflows";
 import * as onboardingRepo from "@/repositories/onboarding/userOnboardingStates";
-import { isOnboardingChecklistEnabled } from "@/services/onboarding/onboardingFlags";
 import {
   recordOnboardingEvent,
   type OnboardingEventType,
@@ -36,10 +35,6 @@ const EVENT_BY_ACTION: Partial<Record<string, OnboardingEventType>> = {
 export async function POST(request: Request): Promise<Response> {
   const auth = await requireUserWithAccount();
   if (!auth.ok) return auth.response;
-
-  if (!isOnboardingChecklistEnabled()) {
-    return NextResponse.json({ error: "ONBOARDING_DISABLED" }, { status: 404 });
-  }
 
   let rawBody: unknown;
   try {
