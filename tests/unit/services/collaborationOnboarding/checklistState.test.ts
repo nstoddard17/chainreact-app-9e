@@ -86,7 +86,6 @@ function fullySetUpAccount() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env.ENABLE_COLLABORATION_ONBOARDING = "true";
   mockGetAccount.mockResolvedValue({ id: ACCOUNT, type: "team" });
   mockGetPlan.mockResolvedValue("team");
   mockGetCollabState.mockResolvedValue(null);
@@ -98,10 +97,6 @@ beforeEach(() => {
   mockFindRecordedTypes.mockResolvedValue(new Set());
   mockLatchCompletion.mockResolvedValue(true);
   mockLatchFirstShown.mockResolvedValue(undefined);
-});
-
-afterEach(() => {
-  delete process.env.ENABLE_COLLABORATION_ONBOARDING;
 });
 
 describe("role selection — proofs 1, 2, 8", () => {
@@ -244,16 +239,6 @@ describe("eligibility — proofs 12, 13", () => {
     await expect(
       getCollaborationChecklist({ userId: USER, accountId: ACCOUNT }),
     ).resolves.toBeNull();
-  });
-
-  it("returns null when the feature flag is off", async () => {
-    process.env.ENABLE_COLLABORATION_ONBOARDING = "false";
-    mockGetRole.mockResolvedValue("owner");
-    await expect(
-      getCollaborationChecklist({ userId: USER, accountId: ACCOUNT }),
-    ).resolves.toBeNull();
-    // Nothing was even read.
-    expect(mockGetRole).not.toHaveBeenCalled();
   });
 });
 

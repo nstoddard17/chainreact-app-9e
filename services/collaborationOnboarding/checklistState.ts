@@ -21,7 +21,6 @@ import {
   type CollaborationAccountFacts,
   type CollaborationMemberFacts,
 } from "./checklistDerivation";
-import { isCollaborationOnboardingEnabled } from "./flags";
 
 /**
  * Collaboration onboarding orchestration (5.ONBOARD-4).
@@ -50,12 +49,11 @@ import { isCollaborationOnboardingEnabled } from "./flags";
  * shared app connected", never which one or who connected it.
  */
 
-/** Returns null when the account is not eligible or the flag is off. */
+/** Returns null when the account is not eligible for a collaboration checklist. */
 export async function getCollaborationChecklist(input: {
   userId: string;
   accountId: string;
 }): Promise<CollaborationChecklistDTO | null> {
-  if (!isCollaborationOnboardingEnabled()) return null;
   const { userId, accountId } = input;
 
   // Role, account type, and plan are all read server-side for THIS request.
@@ -261,7 +259,6 @@ export async function resolveCurrentTrack(input: {
   userId: string;
   accountId: string;
 }): Promise<CollaborationTrack | null> {
-  if (!isCollaborationOnboardingEnabled()) return null;
   const [role, account, plan] = await Promise.all([
     membershipsRepo.getRoleServiceRole(input.accountId, input.userId),
     accountsRepo.getByIdServiceRole(input.accountId),

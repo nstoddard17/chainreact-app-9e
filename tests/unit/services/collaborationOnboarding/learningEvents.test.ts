@@ -28,13 +28,8 @@ const ACCOUNT = "acct-1";
 
 beforeEach(() => {
   jest.clearAllMocks();
-  process.env.ENABLE_COLLABORATION_ONBOARDING = "true";
   mockFindRecordedTypes.mockResolvedValue(new Set());
   mockRecordEvent.mockResolvedValue(undefined);
-});
-
-afterEach(() => {
-  delete process.env.ENABLE_COLLABORATION_ONBOARDING;
 });
 
 describe("the client events route cannot forge a learning step", () => {
@@ -114,17 +109,6 @@ describe("recordCollaborationLearningEvent", () => {
     ).resolves.toBeUndefined();
     expect(mockRecordEvent).not.toHaveBeenCalled();
     spy.mockRestore();
-  });
-
-  it("records nothing while the feature flag is off", async () => {
-    process.env.ENABLE_COLLABORATION_ONBOARDING = "false";
-    await recordCollaborationLearningEvent({
-      userId: USER,
-      accountId: ACCOUNT,
-      eventType: "collab_team_viewed",
-    });
-    expect(mockFindRecordedTypes).not.toHaveBeenCalled();
-    expect(mockRecordEvent).not.toHaveBeenCalled();
   });
 
   it("carries a workflow id only for the shared-workflow-opened event", async () => {

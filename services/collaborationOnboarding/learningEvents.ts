@@ -1,7 +1,6 @@
 import * as eventsRepo from "@/repositories/onboarding/onboardingEvents";
 import type { CollaborationLearningEventType } from "@/repositories/onboarding/onboardingEvents";
 import { recordOnboardingEvent } from "@/services/onboarding/onboardingEvents";
-import { isCollaborationOnboardingEnabled } from "./flags";
 
 export type { CollaborationLearningEventType };
 
@@ -46,7 +45,6 @@ export async function recordCollaborationLearningEvent(input: {
   /** Only set for collab_shared_workflow_opened. */
   workflowId?: string;
 }): Promise<void> {
-  if (!isCollaborationOnboardingEnabled()) return;
   try {
     const existing = await eventsRepo.findRecordedTypesServiceRole({
       userId: input.userId,

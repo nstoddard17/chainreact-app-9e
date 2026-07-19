@@ -32,8 +32,11 @@
 -- already done before this checklist existed) also stamps celebrated_at so no
 -- celebration is shown for work the user did not just do.
 --
--- ROLLBACK (pre-launch, feature flag ENABLE_COLLABORATION_ONBOARDING default OFF):
---   DROP TABLE public.collaboration_onboarding_states;
+-- ROLLBACK (pre-launch): DROP TABLE public.collaboration_onboarding_states;
+-- Dropping it discards only presentation state (dismissed/minimized/celebrated)
+-- and the completion timestamps. Every step re-derives from live account data
+-- and the onboarding_events learning ledger, so no progress is truly lost --
+-- users would simply see their checklists again.
 
 CREATE TABLE public.collaboration_onboarding_states (
   user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
