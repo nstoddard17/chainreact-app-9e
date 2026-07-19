@@ -6,6 +6,7 @@ import {
   getSmoothStepPath,
   type EdgeProps,
 } from "@xyflow/react";
+import { branchLabelDisplay } from "../utils/branchHandles";
 import { shouldShowPlusButton } from "../utils/shouldShowPlusButton";
 
 /**
@@ -59,6 +60,7 @@ export function WorkflowEdge(props: EdgeProps) {
     source,
     target,
     data,
+    label,
   } = props;
   const edgeData = (data ?? {}) as WorkflowEdgeData;
 
@@ -98,6 +100,34 @@ export function WorkflowEdge(props: EdgeProps) {
           ...(diff ? { stroke: diff.stroke, strokeDasharray: diff.strokeDasharray, ...(diff.opacity !== undefined ? { opacity: diff.opacity } : {}) } : {}),
         }}
       />
+      {typeof label === "string" && label.length > 0 ? (
+        // BRANCH-ENT-1 C4 — the persisted branch route, rendered ON the edge
+        // so True/False/route paths are visually distinguishable. Custom edge
+        // components must draw `label` themselves; before this, branch labels
+        // were invisible on the canvas. Sits above the plus-button slot.
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: "absolute",
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 16}px)`,
+              pointerEvents: "none",
+            }}
+            data-testid={`workflow-edge-label-${id}`}
+            className="z-10"
+          >
+            <span
+              className="builder-mono inline-flex items-center rounded-[3px] px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.05em]"
+              style={{
+                background: "var(--builder-accent-soft)",
+                color: "var(--builder-accent)",
+                border: "1px solid var(--builder-accent)",
+              }}
+            >
+              {branchLabelDisplay(label)}
+            </span>
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
       {showPlus ? (
         <EdgeLabelRenderer>
           <div

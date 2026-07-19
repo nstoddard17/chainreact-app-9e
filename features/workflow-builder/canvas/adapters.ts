@@ -13,6 +13,10 @@ import { buildNodeConfigSummary } from "@/core/workflows/nodeConfigSummary";
 import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 import { readResourceLabel } from "../state/resourceLabelCache";
 import {
+  BRANCH_ALWAYS_HANDLE_ID,
+  branchHandleId,
+} from "../utils/branchHandles";
+import {
   missingRequiredFields,
   type RequiredFieldsByType,
 } from "../validation/collectBuilderValidationIssues";
@@ -106,6 +110,15 @@ export interface WorkflowNodeData extends Record<string, unknown> {
    * styling + pill) and read-only behavior. Absent for the normal live graph.
    */
   diffStatus?: PreviewNodeDiffStatus;
+  /**
+   * BRANCH-ENT-1 C4 — the branch route labels this node exposes as SOURCE
+   * handles (If/Then: true/false per onFalse; Router: route labels +
+   * defaultRoute; plus any stale labels still carried by existing edges).
+   * Present only for branching nodes; the card then renders one labeled
+   * handle per route + an "Always" cleanup handle instead of the single
+   * default source handle.
+   */
+  branchHandles?: readonly string[];
 }
 
 export interface NodeConversionContext {
@@ -146,6 +159,13 @@ export interface NodeConversionContext {
    * resource name is known yet ⇒ no summary line (never a raw id).
    */
   resourceLabels?: Readonly<Record<string, string>>;
+  /**
+   * BRANCH-ENT-1 C4 — per-node branch handle labels from
+   * `computeBranchHandleLabels(nodes, edges)`. The canvas computes it once
+   * (it needs nodes AND edges) and threads it to BOTH converters so node
+   * handles and edge `sourceHandle` ids can never disagree.
+   */
+  branchHandleLabels?: ReadonlyMap<string, readonly string[]>;
 }
 
 /**
@@ -205,6 +225,13 @@ export interface EdgeConversionContext {
    * plus-button (the edge still renders).
    */
   onEdgePlusClick?: (edgeId: string) => void;
+  /**
+   * BRANCH-ENT-1 C4 — same map as `NodeConversionContext.branchHandleLabels`.
+   * Edges whose SOURCE is a branching node attach to the matching branch
+   * handle (`branch:<label>`, or the Always handle when unlabeled) so the
+   * rendered route can never drift from the persisted `edge.label`.
+   */
+  branchHandleLabels?: ReadonlyMap<string, readonly string[]>;
 }
 
 export function workflowNodesToFlowNodes(
@@ -227,6 +254,9 @@ export function workflowNodesToFlowNodes(
       missingRequiredConfig:
         missingRequiredFields(node, ctx.requiredFieldsByType).length > 0,
       ...summaryHeadlineData(node, ctx),
+      ...(ctx.branchHandleLabels?.has(node.id)
+        ? { branchHandles: ctx.branchHandleLabels.get(node.id) }
+        : {}),
     },
   }));
 }
@@ -244,23 +274,34 @@ export function workflowEdgesToFlowEdges(
   edges: readonly WorkflowEdge[],
   ctx: EdgeConversionContext = {},
 ): FlowEdge[] {
-  return edges.map((edge) => ({
-    id: edge.id,
-    type: WORKFLOW_EDGE_TYPE,
-    source: edge.from,
-    target: edge.to,
-    // Surface optional branch label as the edge label so authors can
-    // see it on the canvas. Router routes editor (Slice 3.6) is the
-    // surface that produces labeled edges; until then `label` is just
-    // a passthrough display.
-    ...(edge.label ? { label: edge.label } : {}),
-    // Slice 4.BUILDER-ADD-FLOW-1 — surface the plus-button click
-    // handler through edge `data`. The custom `WorkflowEdge` reads it
-    // and renders the plus only when a handler is supplied.
-    data: ctx.onEdgePlusClick
-      ? { onPlusClick: ctx.onEdgePlusClick }
-      : undefined,
-  }));
+  return edges.map((edge) => {
+    // BRANCH-ENT-1 C4 — pin edges from branching nodes to their route
+    // handle. The handle id is derived from the persisted `edge.label`
+    // (never from position/order), so routes cannot swap on reload,
+    // re-layout, or edge-array reordering.
+    const sourceIsBranching = ctx.branchHandleLabels?.has(edge.from) ?? false;
+    return {
+      id: edge.id,
+      type: WORKFLOW_EDGE_TYPE,
+      source: edge.from,
+      target: edge.to,
+      ...(sourceIsBranching
+        ? {
+            sourceHandle: edge.label
+              ? branchHandleId(edge.label)
+              : BRANCH_ALWAYS_HANDLE_ID,
+          }
+        : {}),
+      // Surface the branch label so the custom edge renders a route pill.
+      ...(edge.label ? { label: edge.label } : {}),
+      // Slice 4.BUILDER-ADD-FLOW-1 — surface the plus-button click
+      // handler through edge `data`. The custom `WorkflowEdge` reads it
+      // and renders the plus only when a handler is supplied.
+      data: ctx.onEdgePlusClick
+        ? { onPlusClick: ctx.onEdgePlusClick }
+        : undefined,
+    };
+  });
 }
 
 /** Edge `data` carries the optional diff status so {@link WorkflowEdge} can style a preview edge. */

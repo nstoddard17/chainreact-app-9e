@@ -74,11 +74,16 @@ export function insertActionAtEdge(
   // Step 4: remove the original user-clicked edge.
   useGraphSlice.getState().removeEdge(edgeId);
 
-  // Step 5: wire A → N → B.
+  // Step 5: wire A → N → B. BRANCH-ENT-1 C4 — the original edge's branch
+  // label (True/False/route) stays on the UPSTREAM half (A → N) so inserting
+  // a step inside a branch never silently drops the route; N → B is the
+  // plain continuation of that branch.
   try {
-    useGraphSlice
-      .getState()
-      .connectNodes({ from: fromNodeId, to: newNode.id });
+    useGraphSlice.getState().connectNodes({
+      from: fromNodeId,
+      to: newNode.id,
+      ...(targetEdge.label !== undefined ? { label: targetEdge.label } : {}),
+    });
     useGraphSlice
       .getState()
       .connectNodes({ from: newNode.id, to: toNodeId });

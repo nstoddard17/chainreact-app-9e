@@ -4,6 +4,8 @@ import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDefinition, WorkflowDetail, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
 import type { BuilderPreviewPatch } from "@/contracts/workflowPlanPreview";
+import { isAdvancedBranchingNode } from "@/core/workflows/advancedBranching";
+import { returnableBranchLabels } from "@/core/workflows/branchWiring";
 import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
 import {
   WorkflowApiError,
@@ -163,11 +165,12 @@ export interface GraphSliceActions {
   /**
    * Slice 3.5 — add an edge between two existing nodes (canvas connect
    * handle). Returns the new edge. Throws when either endpoint is
-   * unknown, when from === to (self-loop), or when an unlabeled edge
-   * between the same (from, to) already exists. Label support is
-   * deferred — branching edits land with Slice 3.6 (router routes).
+   * unknown, when from === to (self-loop), or when an edge between the
+   * same (from, to, label) already exists. `label` carries the branch
+   * route ("true"/"false"/router route) the connection was drawn from
+   * (BRANCH-ENT-1 C4); omitted = the always-run cleanup edge.
    */
-  connectNodes(input: { from: string; to: string }): WorkflowEdge;
+  connectNodes(input: { from: string; to: string; label?: string }): WorkflowEdge;
   /**
    * Slice 3.5 — remove an edge by id (canvas keyboard-delete on a
    * selected edge). No-op on unknown edgeId.
@@ -430,6 +433,27 @@ function newEdgeId(): string {
   return `edge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * BRANCH-ENT-1 C4 — after a branching node's config changes, drop its outgoing
+ * labeled edges whose label the node can no longer return (stale routes).
+ * Returns the filtered edge list, or null when nothing changed / the node has
+ * no checkable vocabulary (non-branching, or a not-yet-valid Router config —
+ * that state is owned by routes validation, never silently pruned).
+ */
+function reconcileBranchEdgesForNode(
+  node: WorkflowNode,
+  edges: readonly WorkflowEdge[],
+): WorkflowEdge[] | null {
+  if (!isAdvancedBranchingNode(node)) return null;
+  const vocabulary = returnableBranchLabels(node);
+  if (vocabulary === null) return null;
+  const vocab = new Set(vocabulary);
+  const next = edges.filter(
+    (e) => !(e.from === node.id && e.label !== undefined && !vocab.has(e.label)),
+  );
+  return next.length === edges.length ? null : next;
+}
+
 export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   // BUILDER-TOPBAR-UNDO-REDO — history-capturing wrapper around the store setter. Every existing edit
   // action funnels through this `set`. An EDIT is an OBJECT partial that flips the graph DIRTY *and*
@@ -675,8 +699,15 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     const updated: WorkflowNode = { ...current, config: { ...config } };
     const nextNodes = [...pendingNodes];
     nextNodes[idx] = updated;
+    // BRANCH-ENT-1 C4 — reconcile branch edges with the new config so a
+    // route the node can no longer return never survives as an invisible
+    // stale edge: switching If/Then to onFalse="skip" drops its False
+    // edge(s); removing/renaming a Router route drops that route's edges.
+    // Re-enabling a route later starts UNWIRED (never silently reconnected).
+    const nextEdges = reconcileBranchEdgesForNode(updated, get().pendingEdges);
     set({
       pendingNodes: nextNodes,
+      ...(nextEdges !== null ? { pendingEdges: nextEdges } : {}),
       isDirty: true,
       saveError: null,
     });
@@ -744,7 +775,7 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     });
   },
 
-  connectNodes({ from, to }) {
+  connectNodes({ from, to, label }) {
     const { pendingNodes, pendingEdges } = get();
     if (from === to) {
       throw new Error("Self-loops are not allowed.");
@@ -755,20 +786,25 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     if (!pendingNodes.some((n) => n.id === to)) {
       throw new Error(`Unknown target node '${to}'.`);
     }
-    // Dedup unlabeled edges. Labels are deferred to Slice 3.6.
+    // Dedup on (from, to, label) — mirrors WorkflowDefinitionSchema's edge
+    // dedup key, so a branch node may run BOTH its True and False routes to
+    // the same target, but the exact same route can't be drawn twice.
     if (
       pendingEdges.some(
-        (e) => e.from === from && e.to === to && e.label === undefined,
+        (e) => e.from === from && e.to === to && e.label === label,
       )
     ) {
       throw new Error(
-        `An edge from '${from}' to '${to}' already exists.`,
+        label === undefined
+          ? `An edge from '${from}' to '${to}' already exists.`
+          : `The "${label}" route already connects '${from}' to '${to}'.`,
       );
     }
     const edge: WorkflowEdge = {
       id: newEdgeId(),
       from,
       to,
+      ...(label !== undefined ? { label } : {}),
     };
     set({
       pendingEdges: [...pendingEdges, edge],

@@ -56,9 +56,13 @@ const baseDef: WorkflowDefinition = {
 function edges() {
   return useGraphSlice.getState().pendingEdges;
 }
-function callConnect(source: string, target: string) {
-  const onConnect = capturedProps.onConnect as (c: { source: string; target: string }) => void;
-  act(() => onConnect({ source, target }));
+function callConnect(source: string, target: string, sourceHandle?: string) {
+  const onConnect = capturedProps.onConnect as (c: {
+    source: string;
+    target: string;
+    sourceHandle?: string | null;
+  }) => void;
+  act(() => onConnect({ source, target, sourceHandle: sourceHandle ?? null }));
 }
 
 beforeEach(() => {
@@ -116,6 +120,38 @@ describe("WorkflowCanvas — connection UX", () => {
     callConnect("act1", "act2"); // valid → hint clears
     expect(screen.queryByTestId("connection-hint")).toBeNull();
     expect(edges().some((e) => e.from === "act1" && e.to === "act2")).toBe(true);
+  });
+
+  // BRANCH-ENT-1 C4 — the handle a connection is drawn from IS the branch
+  // route. Business rule: a True-handle drag persists `label: "true"`, an
+  // Always/default-handle drag persists an unlabeled cleanup edge, and the
+  // same route can't be drawn twice while both routes may share a target.
+  it("dragging from a branch handle persists that route's edge label", () => {
+    render(<WorkflowCanvas />);
+    callConnect("act1", "act2", "branch:true");
+    const created = edges().find((e) => e.from === "act1" && e.to === "act2");
+    expect(created?.label).toBe("true");
+  });
+
+  it("dragging from the Always handle (or default handle) creates an UNLABELED cleanup edge", () => {
+    render(<WorkflowCanvas />);
+    callConnect("act1", "act2", "branch-always");
+    const cleanup = edges().find((e) => e.from === "act1" && e.to === "act2");
+    expect(cleanup).toBeDefined();
+    expect(cleanup?.label).toBeUndefined();
+  });
+
+  it("True and False routes may share a target, but the SAME route is blocked as a duplicate", () => {
+    render(<WorkflowCanvas />);
+    callConnect("act1", "act2", "branch:true");
+    callConnect("act1", "act2", "branch:false"); // different route, same target → allowed
+    const pair = edges().filter((e) => e.from === "act1" && e.to === "act2");
+    expect(pair.map((e) => e.label).sort()).toEqual(["false", "true"]);
+    callConnect("act1", "act2", "branch:true"); // same route twice → blocked
+    expect(
+      edges().filter((e) => e.from === "act1" && e.to === "act2"),
+    ).toHaveLength(2);
+    expect(screen.getByTestId("connection-hint").textContent).toMatch(/already connects/i);
   });
 
   it("a connection-handle interaction never advances the canvas-focus signal (no config-open focus)", () => {

@@ -19,6 +19,10 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import {
+  computeBranchHandleLabels,
+  labelFromBranchHandle,
+} from "../utils/branchHandles";
 import { resolveNonOverlappingDrop } from "../utils/workflowLayout";
 
 import { useGraphSlice } from "../state/graphSlice";
@@ -290,6 +294,14 @@ function WorkflowCanvasInner({
     return new Set(pendingNodes.filter((n) => !withOutgoing.has(n.id)).map((n) => n.id));
   }, [pendingNodes, pendingEdges]);
 
+  // BRANCH-ENT-1 C4 — per-node branch route handles (If/Then true/false,
+  // Router route labels). Computed once from nodes+edges and threaded to
+  // BOTH adapters so node handles and edge sourceHandle ids always agree.
+  const branchHandleLabels = useMemo(
+    () => computeBranchHandleLabels(pendingNodes, pendingEdges),
+    [pendingNodes, pendingEdges],
+  );
+
   const pendingDeleteNode =
     pendingDelete?.kind === "single"
       ? pendingNodes.find((n) => n.id === pendingDelete.nodeId)
@@ -314,19 +326,23 @@ function WorkflowCanvasInner({
       summaryFieldsByType,
       resourceLabels,
       tailNodeIds,
+      branchHandleLabels,
     });
     if (!activeNodeId) return base;
     return base.map((n) =>
       n.id === activeNodeId ? { ...n, selected: true } : n,
     );
-  }, [previewDiff, pendingNodes, providerLabels, providerIcons, requiredFieldsByType, summaryFieldsByType, resourceLabels, tailNodeIds, activeNodeId]);
+  }, [previewDiff, pendingNodes, providerLabels, providerIcons, requiredFieldsByType, summaryFieldsByType, resourceLabels, tailNodeIds, branchHandleLabels, activeNodeId]);
 
   const flowEdges = useMemo<FlowEdge[]>(
     () =>
       previewDiff
         ? previewDiffToFlowEdges(previewDiff)
-        : workflowEdgesToFlowEdges(pendingEdges, { onEdgePlusClick }),
-    [previewDiff, pendingEdges, onEdgePlusClick],
+        : workflowEdgesToFlowEdges(pendingEdges, {
+            onEdgePlusClick,
+            branchHandleLabels,
+          }),
+    [previewDiff, pendingEdges, onEdgePlusClick, branchHandleLabels],
   );
 
   // BUILDER-CANVAS-NODE-DRAG-UX-AUDIT-1 — React Flow must be a CONTROLLED flow with an
@@ -384,7 +400,15 @@ function WorkflowCanvasInner({
     (conn: Connection) => {
       if (!conn.source || !conn.target) return;
       try {
-        connectNodes({ from: conn.source, to: conn.target });
+        // BRANCH-ENT-1 C4 — the handle the user dragged from IS the route:
+        // `branch:<label>` handles persist edge.label; the Always/default
+        // handle creates an unlabeled cleanup edge.
+        const label = labelFromBranchHandle(conn.sourceHandle);
+        connectNodes({
+          from: conn.source,
+          to: conn.target,
+          ...(label !== undefined ? { label } : {}),
+        });
         setConnectionHint(null); // valid connect clears any stale hint
       } catch (err) {
         setConnectionHint(

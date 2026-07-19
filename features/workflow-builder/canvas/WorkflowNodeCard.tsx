@@ -3,6 +3,11 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { WorkflowNodeData } from "./adapters";
+import {
+  BRANCH_ALWAYS_HANDLE_ID,
+  branchHandleId,
+  branchLabelDisplay,
+} from "../utils/branchHandles";
 import { classifyNodeStatus, type NodeStatus } from "../utils/classifyNodeStatus";
 import { useBuilderNodeActions } from "./nodeActionsContext";
 import { NodeQuickActions } from "./NodeCardQuickActions";
@@ -288,13 +293,75 @@ export function WorkflowNodeCard({
       </div>
       </div>
 
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        aria-label="Outgoing edge source"
-        className="builder-handle--source"
-      />
+      {data.branchHandles && data.branchHandles.length > 0 ? (
+        // BRANCH-ENT-1 C4 — one labeled source handle per route + an Always
+        // (cleanup) handle. Handle IDS carry route identity; the caption row
+        // below uses the same equal-column layout as the handle percentages,
+        // so caption and dot stay aligned at every card width.
+        <BranchHandles labels={data.branchHandles} />
+      ) : (
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          aria-label="Outgoing edge source"
+          className="builder-handle--source"
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Labeled branch source handles + caption row for a branching node. Each
+ * route handle's id is `branch:<label>` (stable route identity — never
+ * positional); the trailing "Always" handle creates unlabeled cleanup edges.
+ */
+function BranchHandles({ labels }: { labels: readonly string[] }) {
+  const all: Array<{ id: string; caption: string; isAlways: boolean }> = [
+    ...labels.map((label) => ({
+      id: branchHandleId(label),
+      caption: branchLabelDisplay(label),
+      isAlways: false,
+    })),
+    { id: BRANCH_ALWAYS_HANDLE_ID, caption: "Always", isAlways: true },
+  ];
+  const count = all.length;
+  return (
+    <>
+      <div
+        data-testid="branch-handle-captions"
+        className="grid pt-0.5"
+        style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
+      >
+        {all.map((h) => (
+          <span
+            key={h.id}
+            className="builder-mono truncate text-center text-[8.5px] font-medium uppercase tracking-[0.04em]"
+            style={{
+              color: h.isAlways ? "var(--builder-muted-2)" : "var(--builder-accent)",
+            }}
+            title={h.isAlways ? "Runs on every result" : `${h.caption} route`}
+          >
+            {h.caption}
+          </span>
+        ))}
+      </div>
+      {all.map((h, i) => (
+        <Handle
+          key={h.id}
+          id={h.id}
+          type="source"
+          position={Position.Bottom}
+          aria-label={
+            h.isAlways
+              ? "Outgoing edge source (always runs)"
+              : `Outgoing ${h.caption} route source`
+          }
+          className="builder-handle--source"
+          style={{ left: `${((i + 0.5) / count) * 100}%` }}
+        />
+      ))}
+    </>
   );
 }
 

@@ -172,11 +172,17 @@ export function deleteNodeFromGraph(
     if (fromId === toId) {
       warning = "rewire_would_self_loop";
     } else {
-      const hasDuplicateUnlabeled = input.edges.some(
+      // BRANCH-ENT-1 C4 — the rewire inherits the INCOMING edge's branch
+      // label (deleting a step inside a True branch keeps A —true→ C), so a
+      // linear delete never silently drops the route. Duplicate detection
+      // therefore matches on the same (from, to, label) key the definition
+      // contract dedupes on.
+      const inheritedLabel = incoming[0]!.label;
+      const hasDuplicate = input.edges.some(
         (e) =>
-          e.from === fromId && e.to === toId && e.label === undefined,
+          e.from === fromId && e.to === toId && e.label === inheritedLabel,
       );
-      if (hasDuplicateUnlabeled) {
+      if (hasDuplicate) {
         warning = "rewire_would_duplicate";
       } else {
         const idGen = input.newEdgeId ?? defaultNewEdgeId;
@@ -184,6 +190,7 @@ export function deleteNodeFromGraph(
           id: idGen(),
           from: fromId,
           to: toId,
+          ...(inheritedLabel !== undefined ? { label: inheritedLabel } : {}),
         };
       }
     }
