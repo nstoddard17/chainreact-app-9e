@@ -149,6 +149,16 @@ export interface PlanCapabilities {
   /** May the plan USE first-party built-in templates. TRUE for every tier (an onboarding/value
    *  driver — gating consumption of built-ins would hurt activation). */
   canUseBuiltInTemplates: boolean;
+  /**
+   * May the plan use ADVANCED BRANCHING nodes — `native:if_then_condition` (If/Then
+   * Condition) and `native:router` (Router), i.e. any node that selects between distinct
+   * downstream routes (BRANCH-ENT-1). Free = false; Pro+ = true. The canonical node set
+   * lives in `core/workflows/advancedBranching.ts`; this boolean answers only "does the
+   * PLAN permit it". Trial/billing-status handling is layered on via
+   * {@link planStatusRetainsPaidCapabilities} — the plan boolean alone is not the full
+   * entitlement decision for execution/save gates.
+   */
+  canUseAdvancedBranching: boolean;
 }
 
 /** Whether `plan` may perform a bulk (whole-account) export. Free = false; Pro+ = true. */
@@ -167,6 +177,42 @@ export function canUseBuiltInTemplatesForPlan(_plan: PlanTier): boolean {
   return true;
 }
 
+/** Whether `plan` may use advanced branching (If/Then Condition, Router). Free = false;
+ *  Pro+ = true. See {@link PlanCapabilities.canUseAdvancedBranching}. */
+export function canUseAdvancedBranchingForPlan(plan: PlanTier): boolean {
+  return plan !== "free";
+}
+
+/**
+ * Whether a billing `plan_status` keeps PAID feature capabilities usable (BRANCH-ENT-1).
+ *
+ *   - `active` / `trialing` — a live subscription or an active Pro/Team trial: entitled.
+ *   - `past_due` — payment retrying; the repo's billing lifecycle is warn-first
+ *     (`deriveBillingLifecycle` never blocks on past_due), so paid capabilities are
+ *     retained during the grace window.
+ *   - `canceled` / `incomplete` — no proven live subscription: NOT entitled (fail
+ *     closed). An expired trial that converts to nothing transitions through Stripe to
+ *     `canceled` and/or a plan reversion to `free`; either signal denies.
+ *
+ * This is a STATUS rule only — combine with a per-capability plan boolean (e.g.
+ * {@link canUseAdvancedBranchingForPlan}) via {@link isAdvancedBranchingEntitled}.
+ */
+export function planStatusRetainsPaidCapabilities(status: PlanStatus): boolean {
+  return status === "active" || status === "trialing" || status === "past_due";
+}
+
+/**
+ * The single pure decision for the `advanced_branching` capability: does this
+ * (plan, plan_status) pair entitle the account to advanced branching right now?
+ * Callers resolve the pair from the WORKFLOW-OWNING account's `account_billing` row
+ * (never from `accounts.type`, never from the acting user) and must fail closed to
+ * (`"free"`, denied) when the row is missing or unreadable — see
+ * `services/billing/advancedBranchingEntitlement.ts`.
+ */
+export function isAdvancedBranchingEntitled(plan: PlanTier, status: PlanStatus): boolean {
+  return canUseAdvancedBranchingForPlan(plan) && planStatusRetainsPaidCapabilities(status);
+}
+
 /** The full capability bundle for a plan — only plan + boolean capabilities, no Stripe data. */
 export function planCapabilitiesFor(plan: PlanTier): PlanCapabilities {
   return {
@@ -174,6 +220,7 @@ export function planCapabilitiesFor(plan: PlanTier): PlanCapabilities {
     canBulkExport: canBulkExportForPlan(plan),
     canCreateTemplates: canCreateTemplatesForPlan(plan),
     canUseBuiltInTemplates: canUseBuiltInTemplatesForPlan(plan),
+    canUseAdvancedBranching: canUseAdvancedBranchingForPlan(plan),
   };
 }
 

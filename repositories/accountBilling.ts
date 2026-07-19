@@ -431,6 +431,63 @@ export async function getPlan(accountId: string): Promise<PlanTier | null> {
   return data?.plan ?? null;
 }
 
+/** Plan tier + billing status pair for entitlement decisions (BRANCH-ENT-1). */
+export interface AccountPlanState {
+  plan: PlanTier;
+  planStatus: PlanStatus;
+}
+
+/**
+ * Lean read of an account's plan TIER + STATUS (BRANCH-ENT-1). Same posture as
+ * `getPlan` (SSR-cookie / RLS client, explicit non-secret columns, null when no
+ * billing row — callers fail closed), but also returns `plan_status` so capability
+ * gates can distinguish a live/trialing subscription from a canceled or incomplete
+ * one. Used by `services/billing/advancedBranchingEntitlement.ts` for user-context
+ * boundaries (save / activate / run-now / AI routes).
+ */
+export async function getPlanState(
+  accountId: string,
+): Promise<AccountPlanState | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("account_billing")
+    .select("plan, plan_status")
+    .eq("account_id", accountId)
+    .maybeSingle<{ plan: PlanTier; plan_status: PlanStatus }>();
+  if (error) {
+    throw new Error(`account_billing.getPlanState failed: ${error.message}`);
+  }
+  if (!data) return null;
+  return { plan: data.plan, planStatus: data.plan_status };
+}
+
+/**
+ * Service-role variant of {@link getPlanState} for background execution contexts
+ * (engine pre-execution gate, queue processor, webhook/polling/scheduled dispatch)
+ * where no user session exists. Reads the SAME two non-secret columns — never the
+ * Stripe attachment. Missing row → null (callers fail closed to denied, mirroring
+ * `resolveAccountPlan`'s free fallback).
+ */
+export async function getPlanStateServiceRole(
+  accountId: string,
+): Promise<AccountPlanState | null> {
+  const supabase = getServiceRoleClient(
+    `account_billing: read plan state for account ${accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("account_billing")
+    .select("plan, plan_status")
+    .eq("account_id", accountId)
+    .maybeSingle<{ plan: PlanTier; plan_status: PlanStatus }>();
+  if (error) {
+    throw new Error(
+      `account_billing.getPlanStateServiceRole failed: ${error.message}`,
+    );
+  }
+  if (!data) return null;
+  return { plan: data.plan, planStatus: data.plan_status };
+}
+
 // ─── Internal billing entitlement (BIE-1) — service-role ONLY ────────────────
 //
 // `billing_mode` marks an account as `internal_free` so the execution billing

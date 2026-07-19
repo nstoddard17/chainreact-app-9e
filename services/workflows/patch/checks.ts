@@ -3,6 +3,7 @@ import type {
   WorkflowDefinition,
   WorkflowNode,
 } from "@/contracts/workflowDefinition";
+import { ADVANCED_BRANCHING_NODE_TYPES } from "@/core/workflows/advancedBranching";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
 import type {
   PatchValidationError,
@@ -210,7 +211,8 @@ export function checkNodeRegistryAndConfig(node: WorkflowNode): {
 
 // ─── Branch-label sanity (route-membership validation deferred) ───────────────
 
-const BRANCHING_TYPES = new Set(["native:router", "native:if_then_condition"]);
+// Canonical branching-node set (BRANCH-ENT-1) — do not re-declare locally.
+const BRANCHING_TYPES = ADVANCED_BRANCHING_NODE_TYPES;
 
 export function checkBranchLabels(
   candidate: WorkflowDefinition,

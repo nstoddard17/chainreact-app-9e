@@ -57,6 +57,7 @@ describe("resolveAccountCapabilities", () => {
       canBulkExport: true,
       canCreateTemplates: true,
       canUseBuiltInTemplates: true,
+      canUseAdvancedBranching: true,
     });
   });
 
@@ -68,6 +69,7 @@ describe("resolveAccountCapabilities", () => {
       canBulkExport: false,
       canCreateTemplates: false,
       canUseBuiltInTemplates: true,
+      canUseAdvancedBranching: false,
     });
   });
 

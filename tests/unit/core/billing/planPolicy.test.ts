@@ -152,16 +152,24 @@ describe("template limits + feature capabilities (CS-XT-1)", () => {
       canBulkExport: false,
       canCreateTemplates: false,
       canUseBuiltInTemplates: true,
+      canUseAdvancedBranching: false,
     });
     expect(planCapabilitiesFor("pro")).toEqual({
       plan: "pro",
       canBulkExport: true,
       canCreateTemplates: true,
       canUseBuiltInTemplates: true,
+      canUseAdvancedBranching: true,
     });
     // No stray fields (e.g. a leaked stripe id) ever appear in the bundle.
     expect(Object.keys(planCapabilitiesFor("business")).sort()).toEqual(
-      ["canBulkExport", "canCreateTemplates", "canUseBuiltInTemplates", "plan"],
+      [
+        "canBulkExport",
+        "canCreateTemplates",
+        "canUseAdvancedBranching",
+        "canUseBuiltInTemplates",
+        "plan",
+      ],
     );
   });
 });
