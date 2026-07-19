@@ -14,6 +14,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -47,6 +52,7 @@ if (!RUN) {
 
 describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => {
   let admin: SupabaseClient;
+  const fixtures = createFixtureTracker();
   let userId = "";
   let email = "";
   let password = "";
@@ -93,16 +99,11 @@ describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => 
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    email = `wf-runstats-${slug}@chainreact.test`;
-    password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    userId = data.user.id;
+    const user = await createTrackedUser(admin, fixtures, "wf-runstats");
+    userId = user.userId;
+    email = user.email;
+    password = user.password;
+    const slug = userId.slice(0, 8);
     const { data: pa } = await admin
       .from("accounts").select("id").eq("type", "personal").eq("owner_user_id", userId).single<{ id: string }>();
     personalId = pa!.id;
@@ -111,6 +112,7 @@ describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => 
       .from("accounts").insert({ type: "team", name: `RS Team ${slug}`, owner_user_id: userId })
       .select("id").single<{ id: string }>();
     teamId = team!.id;
+    fixtures.trackAccount(teamId);
     await admin.from("account_memberships").insert({ account_id: teamId, user_id: userId, role: "owner" });
 
     wfPersonal = await seedWorkflow(personalId, "Personal WF");
@@ -122,13 +124,7 @@ describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => 
   });
 
   afterAll(async () => {
-    if (!admin || !userId) return;
-    await admin.from("workflow_runs").delete().in("account_id", [personalId, teamId]);
-    await admin.from("workflows").delete().eq("created_by_user_id", userId);
-    await admin.from("account_billing").delete().in("account_id", [personalId, teamId]);
-    await admin.from("account_memberships").delete().eq("user_id", userId);
-    await admin.from("accounts").delete().eq("owner_user_id", userId);
-    await admin.auth.admin.deleteUser(userId);
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("scoping to the personal account returns ONLY the personal workflow's real-run stats", async () => {

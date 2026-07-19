@@ -19,6 +19,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createApiKey, revokeApiKey } from "@/services/apiKeys/management";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -59,6 +64,9 @@ interface NotificationRow {
 
 describeDb("API-key audit notifications persist — AUDIT-2", () => {
   let admin: SupabaseClient;
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts) tracks every synthetic
+  // user + account so afterAll tears them down in RESTRICT-safe order.
+  const fixtures = createFixtureTracker();
   let userId = "";
   let accountId = "";
   let keyId = "";
@@ -67,14 +75,8 @@ describeDb("API-key audit notifications persist — AUDIT-2", () => {
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `api-key-audit-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    userId = data.user.id;
+    const user = await createTrackedUser(admin, fixtures, "api-key-audit");
+    userId = user.userId;
     const { data: acct, error: acctErr } = await admin
       .from("accounts")
       .select("id")
@@ -86,13 +88,7 @@ describeDb("API-key audit notifications persist — AUDIT-2", () => {
   });
 
   afterAll(async () => {
-    if (!admin || !userId) return;
-    await admin.from("notifications").delete().eq("user_id", userId);
-    await admin.from("account_billing").delete().eq("account_id", accountId);
-    await admin.from("account_memberships").delete().eq("user_id", userId);
-    await admin.from("accounts").delete().eq("owner_user_id", userId);
-    const { error } = await admin.auth.admin.deleteUser(userId);
-    if (error) console.warn(`cleanup: failed to delete user ${userId}: ${error.message}`);
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("createApiKey persists an api_key_created notice with safe fields only", async () => {

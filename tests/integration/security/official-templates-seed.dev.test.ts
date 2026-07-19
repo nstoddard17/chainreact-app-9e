@@ -14,6 +14,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -43,15 +48,14 @@ if (!RUN) {
 
 describeDb("official template seed — CS-XT-8A", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts) tracks every synthetic
+  // user + account so afterAll tears them down in RESTRICT-safe order. The
+  // platform-owned `workflow_templates` seed rows are NOT fixtures — this suite
+  // only reads them, so teardown must never touch them.
+  const fixtures = createFixtureTracker();
 
   async function createTestUser() {
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `official-seed-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
+    const { email, password } = await createTrackedUser(admin, fixtures, "official-seed");
     return { email, password };
   }
   async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
@@ -65,13 +69,7 @@ describeDb("official template seed — CS-XT-8A", () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
   });
   afterAll(async () => {
-    for (const id of createdUserIds) {
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      for (const a of (accts ?? []) as Array<{ id: string }>) await admin.from("account_billing").delete().eq("account_id", a.id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      await admin.auth.admin.deleteUser(id);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("seeded ≥5 official rows: platform-owned, public, safe attribution, no author", async () => {

@@ -18,6 +18,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -51,24 +56,23 @@ if (!RUN) {
 
 describeDb("account_billing Stripe attachment — CS-2", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
   const accounts: Array<{ userId: string; email: string; password: string; accountId: string }> = [];
 
   async function createTestUser(label: string) {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `stripe-attach-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
+    const { userId, email, password } = await createTrackedUser(
+      admin,
+      fixtures,
+      `stripe-attach-${label}`,
+    );
     const { data: acct, error: acctErr } = await admin
       .from("accounts")
       .select("id")
       .eq("type", "personal")
-      .eq("owner_user_id", data.user.id)
+      .eq("owner_user_id", userId)
       .single<{ id: string }>();
     if (acctErr || !acct) throw new Error(`personalAccount: ${acctErr?.message ?? "no row"}`);
-    return { userId: data.user.id, email, password, accountId: acct.id };
+    return { userId, email, password, accountId: acct.id };
   }
 
   beforeAll(async () => {
@@ -78,18 +82,7 @@ describeDb("account_billing Stripe attachment — CS-2", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-      if (accountIds.length > 0) {
-        await admin.from("account_billing").delete().in("account_id", accountIds);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("new billing rows have NULL Stripe ids + cancel_at_period_end=false (both accounts)", async () => {

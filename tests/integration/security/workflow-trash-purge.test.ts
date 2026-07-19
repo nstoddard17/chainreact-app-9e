@@ -18,6 +18,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -50,35 +55,27 @@ if (!RUN) {
 
 describeDb("workflow trash purge invariants — WF-4", () => {
   let admin: SupabaseClient;
+  const fixtures = createFixtureTracker();
   let userId = "";
   let accountId = "";
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `wf-purge-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    userId = data.user.id;
+    const user = await createTrackedUser(admin, fixtures, "wf-purge");
+    userId = user.userId;
     const { data: acct } = await admin
       .from("accounts").select("id").eq("type", "personal").eq("owner_user_id", userId).single<{ id: string }>();
     accountId = acct!.id;
   });
 
   afterAll(async () => {
-    if (!admin || !userId) return;
-    await admin.from("task_usage_events").delete().eq("account_id", accountId);
-    await admin.from("workflows").update({ folder_id: null }).eq("account_id", accountId);
-    await admin.from("workflows").delete().eq("account_id", accountId);
-    await admin.from("workflow_folders").update({ parent_folder_id: null }).eq("account_id", accountId);
-    await admin.from("workflow_folders").delete().eq("account_id", accountId);
-    await admin.from("account_billing").delete().eq("account_id", accountId);
-    await admin.from("account_memberships").delete().eq("user_id", userId);
-    await admin.from("accounts").delete().eq("owner_user_id", userId);
-    await admin.auth.admin.deleteUser(userId);
+    // task_usage_events is a billing ledger: it is account-scoped but is NOT one
+    // of the shared teardown's RESTRICT children, so it must be cleared here
+    // before the account rows go.
+    if (admin && accountId) {
+      await admin.from("task_usage_events").delete().eq("account_id", accountId);
+    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("purge selector catches expired trash but not in-window trash; RESTRICT forces workflows-first; ledgers survive", async () => {

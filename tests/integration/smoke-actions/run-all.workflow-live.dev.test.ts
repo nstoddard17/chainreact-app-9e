@@ -16,7 +16,7 @@
  *     transform. No write/destructive fixture is liveSafe.
  *   - Destructive fixtures additionally need includeDestructive +
  *     ALLOW_DESTRUCTIVE_PROVIDER_SMOKE — neither is set here by default.
- *   - Real runs consume one task from SMOKE_ACCOUNT_ID's balance.
+ *   - Real runs consume one task from SMOKE_LIVE_ACCOUNT_ID's balance.
  *   - Reports carry only status + sanitized reasons — never provider output,
  *     tokens, signed URLs, or bytes.
  *
@@ -24,9 +24,9 @@
  *   ALLOW_DB_INTEGRATION_TESTS=true
  *   ALLOW_LIVE_PROVIDER_SMOKE=true
  *   NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (auto-loaded from .env.local)
- *   SMOKE_ACCOUNT_ID + SMOKE_USER_ID
+ *   SMOKE_LIVE_ACCOUNT_ID + SMOKE_LIVE_USER_ID
  *   provider connection env per fixture (e.g. SMOKE_SLACK_CONNECTED=1 — needs a
- *   real Slack connection on SMOKE_ACCOUNT_ID; otherwise the Slack fixture SKIPs).
+ *   real Slack connection on SMOKE_LIVE_ACCOUNT_ID; otherwise the Slack fixture SKIPs).
  *
  * Optional:
  *   SMOKE_PROVIDER=<id> — run only one provider's live fixtures (e.g.
@@ -37,12 +37,12 @@
  *
  * Run (bash):
  *   ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
- *     SMOKE_ACCOUNT_ID=... SMOKE_USER_ID=... SMOKE_SLACK_CONNECTED=1 \
+ *     SMOKE_LIVE_ACCOUNT_ID=... SMOKE_LIVE_USER_ID=... SMOKE_SLACK_CONNECTED=1 \
  *     npm run smoke:actions:run:workflow:live
  *
  *   # one provider only:
  *   ALLOW_DB_INTEGRATION_TESTS=true ALLOW_LIVE_PROVIDER_SMOKE=true \
- *     SMOKE_ACCOUNT_ID=... SMOKE_USER_ID=... SMOKE_PROVIDER=google-drive \
+ *     SMOKE_LIVE_ACCOUNT_ID=... SMOKE_LIVE_USER_ID=... SMOKE_PROVIDER=google-drive \
  *     SMOKE_GOOGLE_DRIVE_CONNECTED=1 \
  *     npm run smoke:actions:run:workflow:live
  */
@@ -56,6 +56,7 @@ import { runActionSmokeWorkflowMode } from "@/tests/smoke-actions/harness";
 import { makeRealWorkflowRunDeps } from "@/tests/smoke-actions/workflowRunDeps";
 import { renderExecutionHuman, renderExecutionJson } from "@/scripts/chainreact/smoke/core";
 import { isCertifiedFailing, isCertifiedLivePass } from "@/scripts/chainreact/smoke/certification";
+import { resolveLiveSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -78,8 +79,12 @@ const ALLOW_DB = process.env.ALLOW_DB_INTEGRATION_TESTS === "true";
 const ALLOW_LIVE = process.env.ALLOW_LIVE_PROVIDER_SMOKE === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
+// Live smoke must name its target account EXPLICITLY (SMOKE_LIVE_*). It must
+// never inherit the general-purpose SMOKE_ACCOUNT_ID, which pointed at a real
+// production account and caused smoke workflows to be written into real data.
+const LIVE_ACCOUNT = resolveLiveSmokeAccount();
+const ACCOUNT_ID = LIVE_ACCOUNT?.accountId;
+const USER_ID = LIVE_ACCOUNT?.userId;
 const ALLOW_DESTRUCTIVE = process.env.ALLOW_DESTRUCTIVE_PROVIDER_SMOKE === "true";
 const ALLOW_WRITE = process.env.ALLOW_LIVE_PROVIDER_WRITE_SMOKE === "true";
 const HAS_SLACK_CHANNEL = !!process.env.SMOKE_SLACK_CHANNEL_ID;
@@ -100,7 +105,7 @@ if (!RUN) {
   console.log(
     "SKIP action-smoke LIVE workflow harness — needs ALLOW_DB_INTEGRATION_TESTS=true AND " +
       "ALLOW_LIVE_PROVIDER_SMOKE=true with NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + " +
-      "SMOKE_ACCOUNT_ID + SMOKE_USER_ID (runs real provider calls for liveSafe fixtures). " +
+      "SMOKE_LIVE_ACCOUNT_ID + SMOKE_LIVE_USER_ID (runs real provider calls for liveSafe fixtures). " +
       "Optional SMOKE_PROVIDER=<id> scopes the run to one provider.",
   );
 }

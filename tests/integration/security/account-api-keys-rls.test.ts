@@ -17,6 +17,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -50,18 +55,12 @@ if (!RUN) {
 
 describeDb("account_api_keys foundation RLS — FK-1 (service-role only, no client read)", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
   const sessions: Array<{ userId: string; email: string; password: string; accountId: string }> = [];
   let keyId = "";
 
   async function createTestUser(label: string) {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `api-keys-rls-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return { userId: data.user.id, email, password };
+    return createTrackedUser(admin, fixtures, `api-keys-rls-${label}`);
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -105,18 +104,7 @@ describeDb("account_api_keys foundation RLS — FK-1 (service-role only, no clie
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      for (const a of (accts ?? []) as Array<{ id: string }>) {
-        // account_api_keys cascade on account delete; clear billing first.
-        await admin.from("account_billing").delete().eq("account_id", a.id);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("service_role can read the seeded key", async () => {

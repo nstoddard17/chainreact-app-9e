@@ -18,6 +18,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -51,25 +56,17 @@ if (!RUN) {
 
 describeDb("user_onboarding_states RLS — 5.ONBOARD-1", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
-  const createdTeamAccountIds: string[] = [];
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts) tracks every synthetic
+  // user + account so afterAll tears them down in RESTRICT-safe order.
+  const fixtures = createFixtureTracker();
 
   let a: { userId: string; email: string; password: string; accountId: string };
   let b: { userId: string; email: string; password: string; accountId: string };
   let teamAccountId: string;
 
   async function createTestUser(label: string) {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `onb-rls-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return { userId: data.user.id, email, password };
+    const { userId, email, password } = await createTrackedUser(admin, fixtures, `onb-rls-${label}`);
+    return { userId, email, password };
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -119,7 +116,7 @@ describeDb("user_onboarding_states RLS — 5.ONBOARD-1", () => {
       .single<{ id: string }>();
     if (teamErr || !team) throw new Error(`seed team: ${teamErr?.message ?? "no row"}`);
     teamAccountId = team.id;
-    createdTeamAccountIds.push(team.id);
+    fixtures.trackAccount(team.id);
     const { error: memErr } = await admin.from("account_memberships").insert([
       { account_id: team.id, user_id: a.userId, role: "owner" },
       { account_id: team.id, user_id: b.userId, role: "member" },
@@ -129,16 +126,7 @@ describeDb("user_onboarding_states RLS — 5.ONBOARD-1", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const teamId of createdTeamAccountIds) {
-      await admin.from("account_memberships").delete().eq("account_id", teamId);
-      await admin.from("accounts").delete().eq("id", teamId);
-    }
-    for (const id of createdUserIds) {
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      await admin.auth.admin.deleteUser(id);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("a user reads their own row in their own account", async () => {

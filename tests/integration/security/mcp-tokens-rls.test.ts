@@ -31,6 +31,11 @@ import { generateMcpToken } from "@/core/mcp/token";
 import { verifyMcpToken } from "@/services/mcp/verify";
 import { handleMcpRpc } from "@/services/mcp/server";
 import { canActorUseIntegrationForMcp } from "@/services/mcp/integrationUsage";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -64,8 +69,11 @@ if (!RUN) {
 
 describeDb("public MCP — account isolation + token revocation (live DB)", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
-  const createdAccountIds: string[] = [];
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts). Tracks every synthetic
+  // user + account so afterAll can tear them down in RESTRICT-safe order and
+  // THROW if anything survives, instead of silently leaking into the shared
+  // project the way the old inline afterAll did.
+  const fixtures = createFixtureTracker();
 
   type Session = { userId: string; email: string; password: string; personalAccountId: string };
   const sessions: Session[] = [];
@@ -81,14 +89,13 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
   let personalGmailAId = ""; // gmail on A's personal account (cross-account probe)
 
   async function createTestUser(label: string): Promise<Session> {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `mcp-rls-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    const personalAccountId = await personalAccountIdFor(data.user.id);
-    return { userId: data.user.id, email, password, personalAccountId };
+    const { userId, email, password } = await createTrackedUser(
+      admin,
+      fixtures,
+      `mcp-rls-${label}`,
+    );
+    const personalAccountId = await personalAccountIdFor(userId);
+    return { userId, email, password, personalAccountId };
   }
 
   async function personalAccountIdFor(userId: string): Promise<string> {
@@ -190,7 +197,7 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
       .single<{ id: string }>();
     if (teamErr || !team) throw new Error(`seed team: ${teamErr?.message ?? "no row"}`);
     teamAccountId = team.id;
-    createdAccountIds.push(team.id);
+    fixtures.trackAccount(team.id);
     await admin.from("account_memberships").insert([
       { account_id: team.id, user_id: a.userId, role: "owner" },
       { account_id: team.id, user_id: b.userId, role: "member" },
@@ -211,25 +218,7 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    const allAccountIds = [...createdAccountIds];
-    for (const s of sessions) allAccountIds.push(s.personalAccountId);
-    for (const id of allAccountIds) {
-      await admin.from("account_mcp_tokens").delete().eq("account_id", id);
-      await admin.from("mcp_request_audit").delete().eq("account_id", id);
-      await admin.from("workflows").delete().eq("account_id", id);
-      await admin.from("integrations").delete().eq("account_id", id);
-    }
-    for (const id of createdAccountIds) {
-      await admin.from("account_memberships").delete().eq("account_id", id);
-      await admin.from("accounts").delete().eq("id", id);
-    }
-    for (const uid of createdUserIds) {
-      await admin.from("account_memberships").delete().eq("user_id", uid);
-      await admin.from("accounts").delete().eq("owner_user_id", uid);
-      const { error } = await admin.auth.admin.deleteUser(uid);
-      if (error) console.warn(`cleanup: failed to delete user ${uid}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   async function sessionClient(email: string, password: string): Promise<SupabaseClient> {

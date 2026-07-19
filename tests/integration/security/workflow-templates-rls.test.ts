@@ -17,6 +17,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -52,7 +57,7 @@ const DEF = { nodes: [], edges: [] };
 
 describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
   let publicTemplateId = "";
   let officialTemplateId = "";
   const sessions: Array<{
@@ -64,13 +69,7 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
   }> = [];
 
   async function createTestUser(label: string) {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `wf-tpl-rls-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return { userId: data.user.id, email, password };
+    return createTrackedUser(admin, fixtures, `wf-tmpl-${label}`);
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -133,19 +132,13 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      for (const a of (accts ?? []) as Array<{ id: string }>) {
-        await admin.from("workflow_templates").delete().eq("account_id", a.id);
-        await admin.from("account_billing").delete().eq("account_id", a.id);
-      }
-      await admin.from("workflow_templates").delete().eq("created_by_user_id", id);
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
+    // The OFFICIAL template is platform-owned (account_id NULL), so it neither
+    // cascades from an account nor is reachable by the shared account-scoped
+    // teardown. Remove templates by author first; the rest is account-scoped.
+    if (admin && fixtures.userIds.length > 0) {
+      await admin.from("workflow_templates").delete().in("created_by_user_id", [...fixtures.userIds]);
     }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("service-role created the seed template (sanity)", () => {

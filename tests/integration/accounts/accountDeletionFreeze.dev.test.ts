@@ -16,6 +16,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -51,20 +56,14 @@ describeDb("4.ACCOUNT-MODEL-10b — account deletion freeze (dev DB)", () => {
   jest.setTimeout(120_000);
 
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
-  const password = "Pw-deletion-freeze-10b!";
+  const fixtures = createFixtureTracker();
+  /** email -> password, so sessionClientFor can sign the created user in. */
+  const passwords = new Map<string, string>();
 
   async function createUser(): Promise<{ userId: string; email: string }> {
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `acct-del-10b-${slug}@chainreact-10b.invalid`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return { userId: data.user.id, email };
+    const { userId, email, password } = await createTrackedUser(admin, fixtures, "acct-del-10b");
+    passwords.set(email, password);
+    return { userId, email };
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -98,6 +97,8 @@ describeDb("4.ACCOUNT-MODEL-10b — account deletion freeze (dev DB)", () => {
     const client = createClient(URL as string, ANON_KEY as string, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    const password = passwords.get(email);
+    if (!password) throw new Error(`sessionClientFor: no password for ${email}`);
     const { error } = await client.auth.signInWithPassword({ email, password });
     if (error) throw new Error(`signIn: ${error.message}`);
     return client;
@@ -121,23 +122,12 @@ describeDb("4.ACCOUNT-MODEL-10b — account deletion freeze (dev DB)", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin
-        .from("accounts")
-        .select("id")
-        .eq("owner_user_id", id);
-      const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-      if (accountIds.length > 0) {
-        await admin.from("workflows").delete().in("account_id", accountIds);
-        await admin.from("account_billing").delete().in("account_id", accountIds);
-      }
-      await admin.from("account_deletions").delete().eq("owner_user_id", id);
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
+    // account_deletions has NO FK to accounts (durable audit) — it neither
+    // cascades nor blocks, so cleanupFixtures cannot reach it.
+    if (admin && fixtures.userIds.length > 0) {
+      await admin.from("account_deletions").delete().in("owner_user_id", [...fixtures.userIds]);
     }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("RLS hides workflows from the owner's session client while pending_deletion, and restores on cancel", async () => {

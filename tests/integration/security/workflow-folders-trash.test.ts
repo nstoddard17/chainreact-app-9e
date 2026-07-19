@@ -15,6 +15,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -48,19 +53,14 @@ if (!RUN) {
 
 describeDb("workflow_folders trash window + RLS — WF-3", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
   const sessions: Array<{ userId: string; email: string; password: string; accountId: string }> = [];
 
   async function createUser(label: string) {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `wf-trash-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
+    const { userId, email, password } = await createTrackedUser(admin, fixtures, `wf-trash-${label}`);
     const { data: acct } = await admin
-      .from("accounts").select("id").eq("type", "personal").eq("owner_user_id", data.user.id).single<{ id: string }>();
-    sessions.push({ userId: data.user.id, email, password, accountId: acct!.id });
+      .from("accounts").select("id").eq("type", "personal").eq("owner_user_id", userId).single<{ id: string }>();
+    sessions.push({ userId, email, password, accountId: acct!.id });
     return sessions[sessions.length - 1]!;
   }
 
@@ -78,18 +78,7 @@ describeDb("workflow_folders trash window + RLS — WF-3", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      await admin.from("workflow_folders").update({ parent_folder_id: null }).eq("created_by_user_id", id);
-      await admin.from("workflow_folders").delete().eq("created_by_user_id", id);
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      for (const a of (accts ?? []) as Array<{ id: string }>) {
-        await admin.from("account_billing").delete().eq("account_id", a.id);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      await admin.auth.admin.deleteUser(id);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("trash filter shows within-window items, hides past-purge_after + live items", async () => {

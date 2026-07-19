@@ -18,6 +18,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -53,21 +58,14 @@ const ARGS = { p_plan_status: "active", p_tasks_limit: 100 };
 
 describeDb("apply_business_downgrade — CS-BD-1", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
   let userId = "";
   let orgId = "";
   let personalId = "";
 
   async function createUser(label: string) {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `csbd1-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return data.user.id;
+    const { userId: id } = await createTrackedUser(admin, fixtures, `csbd1-${label}`);
+    return id;
   }
 
   beforeAll(async () => {
@@ -90,22 +88,14 @@ describeDb("apply_business_downgrade — CS-BD-1", () => {
       .single<{ id: string }>();
     if (orgErr || !org) throw new Error(`org insert: ${orgErr?.message ?? "no row"}`);
     orgId = org.id;
+    fixtures.trackAccount(orgId);
     await admin
       .from("account_billing")
       .insert({ account_id: orgId, plan: "business", tasks_limit: 100, stripe_customer_id: "cus_csbd1_keep" });
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      const ids = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-      if (ids.length) await admin.from("account_billing").delete().in("account_id", ids);
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("flips an organization account to team + team plan + tasks_limit, keeping the Stripe customer", async () => {

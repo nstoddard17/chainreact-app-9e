@@ -35,6 +35,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { encryptToken, decryptToken } from "@/core/encryption/tokens";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -85,6 +90,7 @@ describeDb("refresh-oauth-tokens cron — end-to-end (mock Google HTTP only)", (
   let userId = "";
   let accountId = "";
   const integrationIds: string[] = [];
+  const fixtures = createFixtureTracker();
   let mockMode: MockMode = "refresh_no_rotation";
   let tokenEndpointHits = 0;
 
@@ -131,14 +137,8 @@ describeDb("refresh-oauth-tokens cron — end-to-end (mock Google HTTP only)", (
     process.env.CRON_SECRET = process.env.CRON_SECRET || "smoke-cron-secret";
 
     // Throwaway user (trigger provisions the personal account).
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `oauth-refresh-smoke-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    userId = data.user.id;
+    const created = await createTrackedUser(admin, fixtures, "oauth-refresh-smoke");
+    userId = created.userId;
     const { data: acct, error: acctErr } = await admin
       .from("accounts")
       .select("id")
@@ -152,16 +152,12 @@ describeDb("refresh-oauth-tokens cron — end-to-end (mock Google HTTP only)", (
   afterAll(async () => {
     await new Promise<void>((r) => server.close(() => r()));
     delete process.env.GOOGLE_TOKEN_BASE;
-    if (!admin || !userId) return;
-    for (const id of integrationIds) {
-      await admin.from("integrations").delete().eq("id", id);
+    // `notifications` is keyed by user_id, not account_id — not covered by the
+    // account-scoped shared cleanup, so clear it first.
+    if (admin && userId) {
+      await admin.from("notifications").delete().eq("user_id", userId);
     }
-    await admin.from("notifications").delete().eq("user_id", userId);
-    await admin.from("account_memberships").delete().eq("user_id", userId);
-    await admin.from("account_billing").delete().eq("account_id", accountId);
-    await admin.from("accounts").delete().eq("owner_user_id", userId);
-    const { error } = await admin.auth.admin.deleteUser(userId);
-    if (error) console.warn(`cleanup: failed to delete user ${userId}: ${error.message}`);
+    await cleanupFixtures(admin, fixtures);
   });
 
   async function seedGmailRow(providerAccountId: string, expiresAtIso: string): Promise<string> {

@@ -18,6 +18,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -52,18 +57,11 @@ describeDb("4.ACCOUNT-MODEL-13 — type/role CHECK relaxations (dev DB)", () => 
   jest.setTimeout(120_000);
 
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
 
   async function createUser(): Promise<string> {
-    const slug = `tor-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return data.user.id;
+    const { userId } = await createTrackedUser(admin, fixtures, "team-org-types");
+    return userId;
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -92,20 +90,7 @@ describeDb("4.ACCOUNT-MODEL-13 — type/role CHECK relaxations (dev DB)", () => 
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin
-        .from("accounts")
-        .select("id")
-        .eq("owner_user_id", id);
-      const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-      if (accountIds.length > 0) {
-        await admin.from("account_billing").delete().in("account_id", accountIds);
-        await admin.from("accounts").delete().in("id", accountIds); // cascades memberships
-      }
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("accounts.type accepts 'team' and 'organization', rejects garbage", async () => {

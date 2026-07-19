@@ -32,8 +32,8 @@
  * assumption the trigger-smoke / RLS dev tests make. A pre-clean of our alert keys +
  * a fail-fast precondition keep it self-healing.
  *
- * GATED: runs ONLY with ALLOW_DB_INTEGRATION_TESTS=true + Supabase env +
- * SMOKE_ACCOUNT_ID + SMOKE_USER_ID. It also needs the two ops migrations
+ * GATED: runs ONLY with ALLOW_DB_INTEGRATION_TESTS=true + Supabase env (the suite
+ * provisions a throwaway smoke account per run). It also needs the two ops migrations
  * (`ops_signal_events`, `ops_alert_events`) + the durable-queue migration applied to
  * the target DB; if they are not, seeding/eval fails loudly (never a false pass).
  *
@@ -55,6 +55,8 @@ import {
 } from "@/services/observability/opsAlertEvaluator";
 import { DEFAULT_OPS_ALERT_THRESHOLDS } from "@/core/observability/alertThresholds";
 import type { OpsAlertCandidate } from "@/contracts/opsAlert";
+import { cleanupFixtures, createFixtureTracker } from "@/tests/helpers/dbFixtureCleanup";
+import { provisionDisposableSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -76,17 +78,20 @@ loadEnvLocal();
 const ALLOW_DB = process.env.ALLOW_DB_INTEGRATION_TESTS === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
+// NOTE: SMOKE_ACCOUNT_ID / SMOKE_USER_ID are deliberately NOT read here.
+// They pointed at a real owner account, so every run wrote `ops-alerts-smoke:*`
+// workflows into production data that the harness then only SOFT-deleted. This
+// suite now provisions a throwaway account per run and hard-deletes it in afterAll.
 
-const RUN = ALLOW_DB && !!URL && !!SERVICE_KEY && !!ACCOUNT_ID && !!USER_ID;
+const RUN = ALLOW_DB && !!URL && !!SERVICE_KEY;
 const describeLive = RUN ? describe : describe.skip;
 
 if (!RUN) {
   console.log(
     "SKIP ops-alerts evaluator e2e — needs ALLOW_DB_INTEGRATION_TESTS=true + " +
-      "NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + SMOKE_ACCOUNT_ID + SMOKE_USER_ID " +
-      "(and the ops + durable-queue migrations applied). No external webhook is ever called.",
+      "NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (provisions a throwaway smoke " +
+      "account per run, and the ops + durable-queue migrations applied). " +
+      "No external webhook is ever called.",
   );
 }
 
@@ -96,8 +101,10 @@ describeLive("ops-alerts evaluator: end-to-end fire -> deliver -> dedupe -> reso
   const admin: SupabaseClient = createClient(URL as string, SERVICE_KEY as string, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const account = ACCOUNT_ID as string;
-  const user = USER_ID as string;
+  // Provisioned in beforeAll so nothing is seeded under a real account.
+  const fixtures = createFixtureTracker();
+  let account = "";
+  let user = "";
 
   // Deterministic per-run markers so seeds + alert keys never collide with real data.
   const token = randomUUID().slice(0, 8);
@@ -189,6 +196,9 @@ describeLive("ops-alerts evaluator: end-to-end fire -> deliver -> dedupe -> reso
   }
 
   beforeAll(async () => {
+    // Throwaway account FIRST — every seed below is scoped to it.
+    ({ accountId: account, userId: user } = await provisionDisposableSmokeAccount(admin, fixtures));
+
     // Pre-clean any stale alert rows for OUR keys so the FIRE step starts fresh
     // (dev DB self-heal; only touches our own dedupe keys, never unrelated alerts).
     await admin.from("ops_alert_events").delete().in("dedupe_key", ALL_KEYS);
@@ -274,6 +284,9 @@ describeLive("ops-alerts evaluator: end-to-end fire -> deliver -> dedupe -> reso
     if (seededSignalIds.length) await admin.from("ops_signal_events").delete().in("id", seededSignalIds);
     await admin.from("ops_alert_events").delete().in("dedupe_key", ALL_KEYS);
     if (workflowId) await admin.from("workflows").delete().eq("id", workflowId);
+    // Hard-deletes the throwaway account and everything created under it. Throws
+    // if anything survives, so a leak fails the suite instead of accumulating.
+    await cleanupFixtures(admin, fixtures);
   }, 60_000);
 
   it("FIRE: first evaluate opens one alert per category and delivers each once", async () => {

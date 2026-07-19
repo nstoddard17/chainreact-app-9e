@@ -17,6 +17,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -49,6 +54,7 @@ if (!RUN) {
 
 describeDb("workflow_folders partial UNIQUE sibling-name index — WF-2", () => {
   let admin: SupabaseClient;
+  const fixtures = createFixtureTracker();
   let userId = "";
   let accountId = "";
 
@@ -64,14 +70,8 @@ describeDb("workflow_folders partial UNIQUE sibling-name index — WF-2", () => 
     admin = createClient(URL!, SERVICE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `wf-folder-uniq-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    userId = data.user.id;
+    const user = await createTrackedUser(admin, fixtures, "wf-folder-uniq");
+    userId = user.userId;
     const { data: acct, error: aErr } = await admin
       .from("accounts")
       .select("id")
@@ -83,14 +83,14 @@ describeDb("workflow_folders partial UNIQUE sibling-name index — WF-2", () => 
   });
 
   afterAll(async () => {
-    if (!admin || !userId) return;
-    // Break parent links (RESTRICT) before deleting, then clean up.
-    await admin.from("workflow_folders").update({ parent_folder_id: null }).eq("created_by_user_id", userId);
-    await admin.from("workflow_folders").delete().eq("created_by_user_id", userId);
-    await admin.from("account_billing").delete().eq("account_id", accountId);
-    await admin.from("account_memberships").delete().eq("user_id", userId);
-    await admin.from("accounts").delete().eq("owner_user_id", userId);
-    await admin.auth.admin.deleteUser(userId);
+    // This suite nests folders (a child under 'Parent'), and
+    // workflow_folders.parent_folder_id is self-referential RESTRICT — the shared
+    // bulk delete cannot drop a parent while its child row still points at it.
+    // Break the parent links first, then hand off to the shared teardown.
+    if (admin && userId) {
+      await admin.from("workflow_folders").update({ parent_folder_id: null }).eq("created_by_user_id", userId);
+    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("two live top-level folders with the same name collide (NULLS NOT DISTINCT)", async () => {

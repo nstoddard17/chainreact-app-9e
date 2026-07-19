@@ -26,6 +26,8 @@ import { createClient } from "@supabase/supabase-js";
 
 import { runScheduledTriggerSmoke } from "@/tests/trigger-smoke/scheduledSmoke";
 import { makeRealScheduledSmokeDeps } from "@/tests/trigger-smoke/scheduledSmokeDeps";
+import { cleanupFixtures, createFixtureTracker } from "@/tests/helpers/dbFixtureCleanup";
+import { provisionDisposableSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -48,16 +50,18 @@ const ALLOW_DB = process.env.ALLOW_DB_INTEGRATION_TESTS === "true";
 const ALLOW_TRIGGER = process.env.ALLOW_TRIGGER_SMOKE === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
+// NOTE: SMOKE_ACCOUNT_ID / SMOKE_USER_ID are deliberately NOT read here.
+// They pointed at a real owner account, so every run wrote `trigger-smoke:*`
+// workflows into production data that the harness then only SOFT-deleted. This
+// suite now provisions a throwaway account per run and hard-deletes it in afterAll.
 
-const RUN = ALLOW_DB && ALLOW_TRIGGER && !!URL && !!SERVICE_KEY && !!ACCOUNT_ID && !!USER_ID;
+const RUN = ALLOW_DB && ALLOW_TRIGGER && !!URL && !!SERVICE_KEY;
 const describeLive = RUN ? describe : describe.skip;
 
 if (!RUN) {
   console.log(
     "SKIP trigger smoke (scheduled) — needs ALLOW_DB_INTEGRATION_TESTS + ALLOW_TRIGGER_SMOKE + " +
-      "Supabase env + SMOKE_ACCOUNT_ID + SMOKE_USER_ID. No live-provider gates required.",
+      "Supabase env (provisions a throwaway smoke account per run). No live-provider gates required.",
   );
 }
 
@@ -65,10 +69,19 @@ describeLive("trigger smoke: native:schedule.fired (real dev DB, dispatch path)"
   const supabase = createClient(URL as string, SERVICE_KEY as string, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const deps = makeRealScheduledSmokeDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
+  // Provisioned in beforeAll so nothing is created under a real account.
+  const fixtures = createFixtureTracker();
+  let deps: ReturnType<typeof makeRealScheduledSmokeDeps>;
+
+  beforeAll(async () => {
+    const { accountId, userId } = await provisionDisposableSmokeAccount(supabase, fixtures);
+    deps = makeRealScheduledSmokeDeps({ supabase, accountId, userId });
+  });
+
+  // Hard-deletes the throwaway account and everything created under it. Throws
+  // if anything survives, so a leak fails the suite instead of accumulating.
+  afterAll(async () => {
+    await cleanupFixtures(supabase, fixtures);
   });
 
   it("arms, fires once through the scheduled dispatch path, reaches terminal, cleans up", async () => {

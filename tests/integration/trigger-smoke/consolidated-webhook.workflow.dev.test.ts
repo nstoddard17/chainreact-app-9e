@@ -41,6 +41,8 @@ import { HUBSPOT_WEBHOOK_RECEIVED_SPEC } from "@/tests/trigger-smoke/hubspotWebh
 import { makeRealHubSpotWebhookSmokeDeps } from "@/tests/trigger-smoke/hubspotWebhookSmokeDeps";
 import { MAILCHIMP_AUDIENCE_EVENT_SPEC } from "@/tests/trigger-smoke/mailchimpWebhookSmoke";
 import { makeRealMailchimpWebhookSmokeDeps } from "@/tests/trigger-smoke/mailchimpWebhookSmokeDeps";
+import { cleanupFixtures, createFixtureTracker } from "@/tests/helpers/dbFixtureCleanup";
+import { provisionDisposableSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -63,16 +65,18 @@ const ALLOW_DB = process.env.ALLOW_DB_INTEGRATION_TESTS === "true";
 const ALLOW_TRIGGER = process.env.ALLOW_TRIGGER_SMOKE === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
+// NOTE: SMOKE_ACCOUNT_ID / SMOKE_USER_ID are deliberately NOT read here.
+// They pointed at a real owner account, so every run wrote `trigger-smoke:*`
+// workflows into production data that the harness then only SOFT-deleted. This
+// suite now provisions a throwaway account per run and hard-deletes it in afterAll.
 
-const BASE = ALLOW_DB && ALLOW_TRIGGER && !!URL && !!SERVICE_KEY && !!ACCOUNT_ID && !!USER_ID;
+const BASE = ALLOW_DB && ALLOW_TRIGGER && !!URL && !!SERVICE_KEY;
 const describeBase = BASE ? describe : describe.skip;
 
 if (!BASE) {
   console.log(
     "SKIP trigger smoke (consolidated webhook) — needs ALLOW_DB_INTEGRATION_TESTS + " +
-      "ALLOW_TRIGGER_SMOKE + Supabase env + SMOKE_ACCOUNT_ID + SMOKE_USER_ID.",
+      "ALLOW_TRIGGER_SMOKE + Supabase env (provisions a throwaway smoke account per run).",
   );
 }
 
@@ -101,11 +105,26 @@ describeBase("trigger smoke: consolidated webhook family (real dev DB, synthetic
   const supabase = createClient(URL as string, SERVICE_KEY as string, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  // Provisioned in beforeAll so nothing is created under a real account; the
+  // ids are filled in before any `it` builds its deps from this object.
+  const fixtures = createFixtureTracker();
   const config = {
     supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
+    accountId: "",
+    userId: "",
   };
+
+  beforeAll(async () => {
+    const { accountId, userId } = await provisionDisposableSmokeAccount(supabase, fixtures);
+    config.accountId = accountId;
+    config.userId = userId;
+  });
+
+  // Hard-deletes the throwaway account and everything created under it. Throws
+  // if anything survives, so a leak fails the suite instead of accumulating.
+  afterAll(async () => {
+    await cleanupFixtures(supabase, fixtures);
+  });
 
   // Stripe needs NO provider env — the signing secret is per-row and minted.
   it(

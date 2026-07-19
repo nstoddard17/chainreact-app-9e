@@ -41,6 +41,11 @@ import {
   TEST_CLIENT_CERT_PEM,
   TEST_CLIENT_KEY_PEM,
 } from "@/tests/fixtures/mtls/testCerts";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -84,25 +89,22 @@ const secrets = {
 
 describeDb("machine-credential store — RLS + isolation + rotation (live DB)", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts) tracks every synthetic
+  // user + account so afterAll tears them down in RESTRICT-safe order.
+  const fixtures = createFixtureTracker();
 
   type Session = { userId: string; email: string; password: string; personalAccountId: string };
 
   async function createTestUser(label: string): Promise<Session> {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `mc-rls-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
+    const { userId, email, password } = await createTrackedUser(admin, fixtures, `mc-rls-${label}`);
     const { data: acc, error: accErr } = await admin
       .from("accounts")
       .select("id")
       .eq("type", "personal")
-      .eq("owner_user_id", data.user.id)
+      .eq("owner_user_id", userId)
       .single<{ id: string }>();
     if (accErr || !acc) throw new Error(`personal account: ${accErr?.message ?? "none"}`);
-    return { userId: data.user.id, email, password, personalAccountId: acc.id };
+    return { userId, email, password, personalAccountId: acc.id };
   }
 
   let A: Session;
@@ -115,9 +117,7 @@ describeDb("machine-credential store — RLS + isolation + rotation (live DB)", 
   });
 
   afterAll(async () => {
-    for (const id of createdUserIds) {
-      await admin.auth.admin.deleteUser(id).catch(() => {});
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("service-role save stores CIPHERTEXT and returns a secret-free DTO", async () => {

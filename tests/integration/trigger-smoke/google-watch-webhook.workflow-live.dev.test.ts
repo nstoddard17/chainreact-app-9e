@@ -42,6 +42,7 @@ import {
 } from "@/tests/trigger-smoke/directSeedWebhookSmoke";
 import { ALL_GOOGLE_WATCH_SPECS } from "@/tests/trigger-smoke/googleWatchWebhookSmoke";
 import { makeRealGoogleWatchWebhookSmokeDeps } from "@/tests/trigger-smoke/googleWatchWebhookSmokeDeps";
+import { resolveLiveSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -64,8 +65,12 @@ const ALLOW_DB = process.env.ALLOW_DB_INTEGRATION_TESTS === "true";
 const ALLOW_TRIGGER = process.env.ALLOW_TRIGGER_SMOKE === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
+// Live smoke must name its target account EXPLICITLY (SMOKE_LIVE_*). It must
+// never inherit the general-purpose SMOKE_ACCOUNT_ID, which pointed at a real
+// production account and caused smoke workflows to be written into real data.
+const LIVE_ACCOUNT = resolveLiveSmokeAccount();
+const ACCOUNT_ID = LIVE_ACCOUNT?.accountId;
+const USER_ID = LIVE_ACCOUNT?.userId;
 
 const RUN = ALLOW_DB && ALLOW_TRIGGER && !!URL && !!SERVICE_KEY && !!ACCOUNT_ID && !!USER_ID;
 const describeLive = RUN ? describe : describe.skip;
@@ -73,7 +78,7 @@ const describeLive = RUN ? describe : describe.skip;
 if (!RUN) {
   console.log(
     "SKIP trigger smoke (google watch webhook) — needs ALLOW_DB_INTEGRATION_TESTS + " +
-      "ALLOW_TRIGGER_SMOKE + Supabase env + SMOKE_ACCOUNT_ID + SMOKE_USER_ID (+ connected " +
+      "ALLOW_TRIGGER_SMOKE + Supabase env + SMOKE_LIVE_ACCOUNT_ID + SMOKE_LIVE_USER_ID (+ connected " +
       "google-sheets/google-docs/google-drive/google-calendar integrations).",
   );
 }

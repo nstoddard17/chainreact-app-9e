@@ -51,6 +51,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 
 import type {
   ActionHandlerInput,
@@ -152,22 +153,15 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
   jest.setTimeout(180_000);
 
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
 
   // Remember the live flag's pre-suite value so afterAll restores it.
   const PRIOR_LIVE = process.env.ENABLE_RESERVE_RECONCILE_BILLING;
   const PRIOR_SHADOW = process.env.ENABLE_RESERVE_RECONCILE_SHADOW;
 
   async function createUser(): Promise<string> {
-    const email = `cost15i-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@chainreact-rr-engine.invalid`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password: `Pw-${Math.random().toString(36).slice(2)}-${Date.now()}`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return data.user.id;
+    const { userId } = await createTrackedUser(admin, fixtures, "rr-engine");
+    return userId;
   }
 
   /**
@@ -360,32 +354,22 @@ describeDb("COST-15I — live reserve/reconcile engine verification (dev DB)", (
     else process.env.ENABLE_RESERVE_RECONCILE_SHADOW = PRIOR_SHADOW;
 
     if (!admin) return;
-    // FK-safe explicit deletes by seeded ids, then drop the users (cascade).
-    // Phase B (4.ACCOUNT-MODEL-6/7/8): workflows + workflow_runs are account-owned
-    // (user_id dropped) with ON DELETE RESTRICT FKs to accounts, and
-    // accounts.owner_user_id is itself ON DELETE RESTRICT (slice -3). So delete
-    // those by account_id, and clear all dependents before accounts + the user.
-    // 4.ACCOUNT-MODEL-9d: billing_shadow_comparisons / task_usage_events are
-    // account-owned now (ON DELETE CASCADE), so they go by account_id.
-    const { data: accts } = await admin
-      .from("accounts")
-      .select("id")
-      .in("owner_user_id", createdUserIds);
-    const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-    if (accountIds.length > 0) {
-      await admin.from("billing_shadow_comparisons").delete().in("account_id", accountIds);
-      await admin.from("task_usage_events").delete().in("account_id", accountIds);
-      await admin.from("workflow_runs").delete().in("account_id", accountIds);
-      await admin.from("workflows").delete().in("account_id", accountIds);
-      // account_billing -> accounts is ON DELETE RESTRICT.
-      await admin.from("account_billing").delete().in("account_id", accountIds);
+    // The ledger tables are the one thing the shared teardown cannot cover:
+    // 20260531000008_ledger_anonymization repointed
+    // billing_shadow_comparisons.account_id / task_usage_events.account_id at
+    // accounts with ON DELETE SET NULL (so ledger history survives an account
+    // delete). They are therefore NOT cascaded away and must be cleared here,
+    // BEFORE cleanupFixtures removes the accounts they are keyed on.
+    const userIds = [...fixtures.userIds];
+    if (userIds.length > 0) {
+      const { data: accts } = await admin.from("accounts").select("id").in("owner_user_id", userIds);
+      const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
+      if (accountIds.length > 0) {
+        await admin.from("billing_shadow_comparisons").delete().in("account_id", accountIds);
+        await admin.from("task_usage_events").delete().in("account_id", accountIds);
+      }
     }
-    await admin.from("account_memberships").delete().in("user_id", createdUserIds);
-    await admin.from("accounts").delete().in("owner_user_id", createdUserIds);
-    for (const id of createdUserIds) {
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.error(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("sanity: LIVE flag on, shadow off", () => {

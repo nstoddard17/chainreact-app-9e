@@ -18,6 +18,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -59,22 +60,20 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
   jest.setTimeout(120_000);
 
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
-  const password = `Pw-${Math.random().toString(36).slice(2)}!`;
+  const fixtures = createFixtureTracker();
+  // createTrackedUser mints a per-user password; sessionFor looks it up by email.
+  const passwords = new Map<string, string>();
 
   async function createUser(
     userMetadata?: Record<string, unknown>,
   ): Promise<{ userId: string; email: string }> {
-    const email = `mi-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@chainreact.test`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      ...(userMetadata ? { user_metadata: userMetadata } : {}),
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return { userId: data.user.id, email };
+    const { userId, email, password } = await createTrackedUser(admin, fixtures, "member-identities");
+    passwords.set(email, password);
+    if (userMetadata) {
+      const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: userMetadata });
+      if (error) throw new Error(`createUser metadata: ${error.message}`);
+    }
+    return { userId, email };
   }
 
   async function createTeam(ownerId: string): Promise<string> {
@@ -83,6 +82,7 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
       .insert({ type: "team", name: "Identity test", owner_user_id: ownerId })
       .select("id").single<{ id: string }>();
     if (error || !data) throw new Error(`createTeam: ${error?.message ?? "no row"}`);
+    fixtures.trackAccount(data.id);
     await admin.from("account_memberships").insert({ account_id: data.id, user_id: ownerId, role: "owner" });
     return data.id;
   }
@@ -91,7 +91,7 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
     const client = createClient(URL as string, ANON_KEY as string, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { error } = await client.auth.signInWithPassword({ email, password });
+    const { error } = await client.auth.signInWithPassword({ email, password: passwords.get(email) ?? "" });
     if (error) throw new Error(`signIn: ${error.message}`);
     return client;
   }
@@ -103,16 +103,7 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      const ids = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-      if (ids.length) {
-        await admin.from("account_billing").delete().in("account_id", ids);
-        await admin.from("accounts").delete().in("id", ids); // cascades memberships
-      }
-      await admin.auth.admin.deleteUser(id);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("a co-member sees every member's email + display_name", async () => {

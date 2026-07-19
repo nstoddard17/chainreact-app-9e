@@ -16,6 +16,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cleanupFixtures, createFixtureTracker } from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -48,7 +49,10 @@ if (!RUN) {
 
 describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  // This suite deliberately calls admin.auth.admin.createUser INLINE in each
+  // test — the raw signup is what the trigger assertions are about — so it
+  // tracks ids with fixtures.trackUser instead of createTrackedUser.
+  const fixtures = createFixtureTracker();
 
   beforeAll(() => {
     admin = createClient(URL!, SERVICE_KEY!, {
@@ -57,23 +61,7 @@ describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      // 4.ACCOUNT-MODEL-9c: handle_new_user now also seeds account_billing,
-      // whose account_id FK is ON DELETE RESTRICT — clear it before accounts.
-      const { data: accts } = await admin
-        .from("accounts")
-        .select("id")
-        .eq("owner_user_id", id);
-      const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-      if (accountIds.length > 0) {
-        await admin.from("account_billing").delete().in("account_id", accountIds);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("supabase.auth.admin.createUser produces one personal account + one owner membership atomically", async () => {
@@ -86,7 +74,7 @@ describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
     expect(createErr).toBeNull();
     expect(created.user?.id).toBeTruthy();
     const userId = created.user!.id;
-    createdUserIds.push(userId);
+    fixtures.trackUser(userId);
 
     const { data: accounts, error: aErr } = await admin
       .from("accounts")
@@ -119,7 +107,7 @@ describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
     });
     expect(createErr).toBeNull();
     const userId = created.user!.id;
-    createdUserIds.push(userId);
+    fixtures.trackUser(userId);
 
     const { data: profile, error: pErr } = await admin
       .from("user_profiles")
@@ -139,7 +127,7 @@ describeDb("handle_new_user extension — Slice 4.ACCOUNT-MODEL-3", () => {
     });
     expect(createErr).toBeNull();
     const userId = created.user!.id;
-    createdUserIds.push(userId);
+    fixtures.trackUser(userId);
 
     const { data: account, error: aErr } = await admin
       .from("accounts")

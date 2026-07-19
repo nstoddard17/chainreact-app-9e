@@ -39,6 +39,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { encryptToken, decryptToken } from "@/core/encryption/tokens";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -90,8 +95,9 @@ const CLEARTEXT_PATTERNS = [
 
 describeDb("integrations table — account-membership RLS + no-cleartext-at-rest", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
-  const createdAccountIds: string[] = [];
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts) tracks every synthetic
+  // user + account so afterAll tears them down in RESTRICT-safe order.
+  const fixtures = createFixtureTracker();
 
   type Session = {
     userId: string;
@@ -106,18 +112,13 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
   let teamIntegrationId = "";
 
   async function createTestUser(label: string): Promise<Session> {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `integrations-rls-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    const personalAccountId = await personalAccountIdFor(data.user.id);
-    return { userId: data.user.id, email, password, personalAccountId };
+    const { userId, email, password } = await createTrackedUser(
+      admin,
+      fixtures,
+      `integrations-rls-${label}`,
+    );
+    const personalAccountId = await personalAccountIdFor(userId);
+    return { userId, email, password, personalAccountId };
   }
 
   async function personalAccountIdFor(userId: string): Promise<string> {
@@ -183,7 +184,7 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
       .single<{ id: string }>();
     if (teamErr || !team) throw new Error(`seed team account: ${teamErr?.message ?? "no row"}`);
     teamAccountId = team.id;
-    createdAccountIds.push(team.id);
+    fixtures.trackAccount(team.id);
     await admin
       .from("account_memberships")
       .insert({ account_id: team.id, user_id: a.userId, role: "owner" });
@@ -198,27 +199,7 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    // integrations.account_id FK is ON DELETE RESTRICT — delete the rows first.
-    for (const id of createdAccountIds) {
-      await admin.from("integrations").delete().eq("account_id", id);
-    }
-    for (const uid of createdUserIds) {
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", uid);
-      for (const acct of (accts ?? []) as Array<{ id: string }>) {
-        await admin.from("integrations").delete().eq("account_id", acct.id);
-        await admin.from("account_billing").delete().eq("account_id", acct.id);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", uid);
-    }
-    for (const id of createdAccountIds) {
-      await admin.from("accounts").delete().eq("id", id); // cascades memberships
-    }
-    for (const uid of createdUserIds) {
-      await admin.from("accounts").delete().eq("owner_user_id", uid);
-      const { error } = await admin.auth.admin.deleteUser(uid);
-      if (error) console.warn(`cleanup: failed to delete user ${uid}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("member A's DIRECT authenticated SELECT is denied (V2-READY-47D; 42501) — reads flow through service-role", async () => {

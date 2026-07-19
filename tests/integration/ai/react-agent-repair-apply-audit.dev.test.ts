@@ -38,6 +38,11 @@ import { executeWorkflowPatch } from "@/services/workflows/patch/executeWorkflow
 import { resolveFieldSensitivity } from "@/services/workflows/patch/resolveFieldSensitivity";
 import type { PatchOperation } from "@/services/workflows/patch/types";
 import type { WorkflowDefinition } from "@/contracts/workflow";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -84,6 +89,7 @@ interface AuditRow {
 
 describeDb("REACT-AGENT-CS-7E — repair proposal/apply audit live smoke", () => {
   let admin: SupabaseClient;
+  const fixtures = createFixtureTracker();
   let userId = "";
   let accountId = "";
   let workflowId = "";
@@ -111,14 +117,8 @@ describeDb("REACT-AGENT-CS-7E — repair proposal/apply audit live smoke", () =>
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const slug = `cs7e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data: u, error: uErr } = await admin.auth.admin.createUser({
-      email: `react-agent-cs7e-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (uErr || !u.user) throw new Error(`createUser: ${uErr?.message ?? "no user"}`);
-    userId = u.user.id;
+    const created = await createTrackedUser(admin, fixtures, "react-agent-cs7e");
+    userId = created.userId;
 
     const { data: acct, error: aErr } = await admin
       .from("accounts").select("id").eq("type", "personal").eq("owner_user_id", userId).single<{ id: string }>();
@@ -144,21 +144,16 @@ describeDb("REACT-AGENT-CS-7E — repair proposal/apply audit live smoke", () =>
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    if (insertedAuditIds.length) await admin.from("react_agent_audit_events").delete().in("id", insertedAuditIds);
-    if (accountId) await admin.from("react_agent_audit_events").delete().eq("account_id", accountId); // sweep
-    if (workflowId) await admin.from("workflows").delete().eq("id", workflowId);
-    if (accountId) {
-      await admin.from("ai_cost_events").delete().eq("account_id", accountId);
-      await admin.from("account_billing").delete().eq("account_id", accountId);
-      await admin.from("account_memberships").delete().eq("account_id", accountId);
-      await admin.from("accounts").delete().eq("id", accountId);
+    // react_agent_audit_events + ai_cost_events FK accounts ON DELETE SET NULL —
+    // they neither cascade nor block, so cleanupFixtures cannot reach them.
+    if (admin) {
+      if (insertedAuditIds.length) await admin.from("react_agent_audit_events").delete().in("id", insertedAuditIds);
+      if (accountId) {
+        await admin.from("react_agent_audit_events").delete().eq("account_id", accountId); // sweep
+        await admin.from("ai_cost_events").delete().eq("account_id", accountId);
+      }
     }
-    if (userId) {
-      await admin.from("user_profiles").delete().eq("id", userId);
-      const { error } = await admin.auth.admin.deleteUser(userId);
-      if (error) console.warn(`cleanup user ${userId}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   function expectNoLeak(row: AuditRow): void {

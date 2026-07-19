@@ -42,6 +42,36 @@ const ACCOUNT_RESTRICT_TABLES = [
   "account_billing",
 ] as const;
 
+/**
+ * Tables that FK `accounts` with ON DELETE SET NULL, or with no FK at all.
+ * They neither cascade nor block, so cleanupFixtures does NOT touch them —
+ * deleting them here would be wrong, because in production these rows
+ * deliberately OUTLIVE the account (ledger/audit retention):
+ *
+ *   task_usage_events, ai_cost_events, billing_shadow_comparisons
+ *     -> SET NULL, per 20260531000008_ledger_anonymization.sql
+ *   react_agent_audit_events            -> SET NULL
+ *   account_deletions                   -> no FK at all
+ *   workflow_templates (account_id NULL) -> platform-owned, not account-scoped
+ *
+ * A suite that writes to any of these must clear its OWN rows explicitly,
+ * BEFORE calling cleanupFixtures. Handling them here would either orphan test
+ * rows silently or delete production-shaped audit history.
+ */
+export const NON_CASCADING_ACCOUNT_TABLES = [
+  "task_usage_events",
+  "ai_cost_events",
+  "billing_shadow_comparisons",
+  "react_agent_audit_events",
+  "account_deletions",
+] as const;
+
+/** Supabase reports an already-deleted auth user as 404 / "User not found". */
+function isAlreadyGone(error: { message?: string; status?: number }): boolean {
+  if (error.status === 404) return true;
+  return /user not found|not_found/i.test(error.message ?? "");
+}
+
 export interface FixtureTracker {
   /** Record an auth user id the suite created. Safe to call repeatedly. */
   trackUser(userId: string): void;
@@ -145,6 +175,17 @@ export async function cleanupFixtures(
 
   // 1. RESTRICT children, children-before-parents.
   if (allAccountIds.length > 0) {
+    // workflow_folders.parent_folder_id is a SELF-referential RESTRICT FK, so a
+    // bulk delete of a nested tree can fail: Postgres enforces RESTRICT per row,
+    // and the parent may be deleted while a child still points at it. Detach the
+    // tree first — then the bulk delete below is order-independent.
+    const { error: detachError } = await admin
+      .from("workflow_folders")
+      .update({ parent_folder_id: null })
+      .in("account_id", allAccountIds)
+      .not("parent_folder_id", "is", null);
+    record("detach workflow_folders.parent_folder_id", detachError?.message);
+
     for (const table of ACCOUNT_RESTRICT_TABLES) {
       const { error } = await admin.from(table).delete().in("account_id", allAccountIds);
       record(`delete ${table}`, error?.message);
@@ -164,9 +205,16 @@ export async function cleanupFixtures(
   }
 
   // 4. auth.users LAST — accounts.owner_user_id RESTRICT is lifted by step 2.
+  //
+  //    A user that is ALREADY GONE is a success, not a failure: suites that
+  //    exercise deletion itself (accountPurge, ledgerAnonymization) remove their
+  //    own fixtures as the thing under test. Treating "not found" as an error
+  //    would make those suites fail on a clean run, which would push people back
+  //    toward swallowing teardown errors — the exact habit this helper exists to
+  //    break. Only a REAL failure to delete is recorded.
   for (const userId of userIds) {
     const { error } = await admin.auth.admin.deleteUser(userId);
-    record(`deleteUser ${userId}`, error?.message);
+    if (error && !isAlreadyGone(error)) record(`deleteUser ${userId}`, error.message);
   }
 
   if (failures.length > 0) {

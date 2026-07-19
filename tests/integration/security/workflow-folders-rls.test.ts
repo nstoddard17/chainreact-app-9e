@@ -18,6 +18,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -51,7 +56,7 @@ if (!RUN) {
 
 describeDb("workflow_folders foundation RLS + same-account guards — WF-1", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
   const sessions: Array<{
     userId: string;
     email: string;
@@ -61,17 +66,7 @@ describeDb("workflow_folders foundation RLS + same-account guards — WF-1", () 
   }> = [];
 
   async function createTestUser(label: string) {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `wf-folder-rls-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return { userId: data.user.id, email, password };
+    return createTrackedUser(admin, fixtures, `wf-folders-${label}`);
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -117,21 +112,7 @@ describeDb("workflow_folders foundation RLS + same-account guards — WF-1", () 
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      // Order matters: workflows reference folders (folder_id RESTRICT) and
-      // folders reference accounts (account_id RESTRICT). Clear deepest first.
-      await admin.from("workflows").delete().eq("created_by_user_id", id);
-      await admin.from("workflow_folders").delete().eq("created_by_user_id", id);
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      for (const a of (accts ?? []) as Array<{ id: string }>) {
-        await admin.from("account_billing").delete().eq("account_id", a.id);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("RLS: member A sees their folder; non-member B does not; anon does not", async () => {

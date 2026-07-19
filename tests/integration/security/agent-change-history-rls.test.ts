@@ -39,6 +39,11 @@ import { randomUUID } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -74,8 +79,12 @@ describeDb("agent_change_history RLS + constraints — AGENT-CHANGE-HISTORY-1", 
   jest.setTimeout(120_000);
 
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
-  const password = `Pw-${Math.random().toString(36).slice(2)}!`;
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts) tracks every synthetic
+  // user + account so afterAll tears them down in RESTRICT-safe order.
+  const fixtures = createFixtureTracker();
+  // createTrackedUser mints a unique password per user; sessionClient(email)
+  // looks it up here so the helper's single-argument shape is preserved.
+  const passwordByEmail = new Map<string, string>();
 
   // Account OWNER (creator), a non-creator co-MEMBER of the same team account, and
   // a different-account STRANGER. The team account proves membership scoping is not
@@ -96,16 +105,9 @@ describeDb("agent_change_history RLS + constraints — AGENT-CHANGE-HISTORY-1", 
   };
 
   async function createTestUser(label: string): Promise<{ userId: string; email: string }> {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `ach-rls-${slug}@chainreact.test`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return { userId: data.user.id, email };
+    const { userId, email, password } = await createTrackedUser(admin, fixtures, `ach-rls-${label}`);
+    passwordByEmail.set(email, password);
+    return { userId, email };
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -126,6 +128,7 @@ describeDb("agent_change_history RLS + constraints — AGENT-CHANGE-HISTORY-1", 
       .select("id")
       .single<{ id: string }>();
     if (error || !data) throw new Error(`createTeamAccount: ${error?.message ?? "no row"}`);
+    fixtures.trackAccount(data.id);
     const { error: mErr } = await admin
       .from("account_memberships")
       .insert({ account_id: data.id, user_id: ownerId, role: "owner" });
@@ -180,7 +183,10 @@ describeDb("agent_change_history RLS + constraints — AGENT-CHANGE-HISTORY-1", 
     const c = createClient(URL!, ANON_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { error } = await c.auth.signInWithPassword({ email, password });
+    const { error } = await c.auth.signInWithPassword({
+      email,
+      password: passwordByEmail.get(email)!,
+    });
     if (error) throw new Error(`signInWithPassword: ${error.message}`);
     return c;
   }
@@ -230,20 +236,7 @@ describeDb("agent_change_history RLS + constraints — AGENT-CHANGE-HISTORY-1", 
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      // history + workflows cascade from the workflow / account; delete workflows
-      // (by creator) then accounts owned by the user.
-      await admin.from("workflows").delete().eq("created_by_user_id", id);
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      for (const a of (accts ?? []) as Array<{ id: string }>) {
-        await admin.from("account_billing").delete().eq("account_id", a.id);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   // ── SELECT membership scoping ───────────────────────────────────────────────

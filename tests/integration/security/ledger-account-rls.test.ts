@@ -15,6 +15,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -48,7 +53,9 @@ if (!RUN) {
 
 describeDb("ledger account RLS — Slice 4.ACCOUNT-MODEL-9d", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts) tracks every synthetic
+  // user + account so afterAll tears them down in RESTRICT-safe order.
+  const fixtures = createFixtureTracker();
   const sessions: Array<{
     userId: string;
     email: string;
@@ -59,13 +66,12 @@ describeDb("ledger account RLS — Slice 4.ACCOUNT-MODEL-9d", () => {
   }> = [];
 
   async function createTestUser(label: string) {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `ledger-acc-rls-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return { userId: data.user.id, email, password };
+    const { userId, email, password } = await createTrackedUser(
+      admin,
+      fixtures,
+      `ledger-acc-rls-${label}`,
+    );
+    return { userId, email, password };
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -162,25 +168,7 @@ describeDb("ledger account RLS — Slice 4.ACCOUNT-MODEL-9d", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-      if (accountIds.length > 0) {
-        // account_id ON DELETE CASCADE would also clear these with the account,
-        // but delete explicitly so teardown is order-independent.
-        await admin.from("task_usage_events").delete().in("account_id", accountIds);
-        await admin.from("ai_cost_events").delete().in("account_id", accountIds);
-        await admin.from("billing_shadow_comparisons").delete().in("account_id", accountIds);
-        await admin.from("workflow_runs").delete().in("account_id", accountIds);
-        await admin.from("workflows").delete().in("account_id", accountIds);
-        await admin.from("account_billing").delete().in("account_id", accountIds);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   const LEDGERS = ["task_usage_events", "ai_cost_events", "billing_shadow_comparisons"] as const;

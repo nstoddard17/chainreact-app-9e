@@ -18,7 +18,7 @@
  * Gates (mutates OneNote pages → real provider write):
  *   ALLOW_DB_INTEGRATION_TESTS + ALLOW_TRIGGER_SMOKE + ALLOW_LIVE_PROVIDER_SMOKE +
  *   ALLOW_LIVE_PROVIDER_WRITE_SMOKE + ALLOW_DESTRUCTIVE_PROVIDER_SMOKE +
- *   Supabase env + SMOKE_ACCOUNT_ID + SMOKE_USER_ID + SMOKE_MICROSOFT_ONENOTE_CONNECTED
+ *   Supabase env + SMOKE_LIVE_ACCOUNT_ID + SMOKE_LIVE_USER_ID + SMOKE_MICROSOFT_ONENOTE_CONNECTED
  *
  * Run:
  *   ALLOW_DB_INTEGRATION_TESTS=true ALLOW_TRIGGER_SMOKE=true \
@@ -36,6 +36,7 @@ import {
   type OneNotePollingTriggerSpec,
 } from "@/tests/trigger-smoke/onenotePollingSmoke";
 import { makeRealOneNotePollingSmokeDeps } from "@/tests/trigger-smoke/onenotePollingSmokeDeps";
+import { resolveLiveSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -61,8 +62,12 @@ const ALLOW_WRITE = process.env.ALLOW_LIVE_PROVIDER_WRITE_SMOKE === "true";
 const ALLOW_DESTRUCTIVE = process.env.ALLOW_DESTRUCTIVE_PROVIDER_SMOKE === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
+// Live smoke must name its target account EXPLICITLY (SMOKE_LIVE_*). It must
+// never inherit the general-purpose SMOKE_ACCOUNT_ID, which pointed at a real
+// production account and caused smoke workflows to be written into real data.
+const LIVE_ACCOUNT = resolveLiveSmokeAccount();
+const ACCOUNT_ID = LIVE_ACCOUNT?.accountId;
+const USER_ID = LIVE_ACCOUNT?.userId;
 const ONENOTE_CONNECTED = process.env.SMOKE_MICROSOFT_ONENOTE_CONNECTED === "1";
 
 const RUN =
@@ -75,7 +80,7 @@ if (!RUN) {
   console.log(
     "SKIP trigger smoke (onenote polling) — needs ALLOW_DB_INTEGRATION_TESTS + ALLOW_TRIGGER_SMOKE + " +
       "ALLOW_LIVE_PROVIDER_SMOKE + ALLOW_LIVE_PROVIDER_WRITE_SMOKE + ALLOW_DESTRUCTIVE_PROVIDER_SMOKE + " +
-      "Supabase env + SMOKE_ACCOUNT_ID + SMOKE_USER_ID + SMOKE_MICROSOFT_ONENOTE_CONNECTED.",
+      "Supabase env + SMOKE_LIVE_ACCOUNT_ID + SMOKE_LIVE_USER_ID + SMOKE_MICROSOFT_ONENOTE_CONNECTED.",
   );
 }
 

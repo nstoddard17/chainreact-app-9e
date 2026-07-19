@@ -72,6 +72,7 @@ import {
 import { renderWriteSmokeHuman } from "@/tests/smoke-actions/writeHarness";
 import { classifyWriteTarget } from "@/tests/smoke-actions/writeTargets";
 import { renderExecutionJson } from "@/scripts/chainreact/smoke/core";
+import { resolveLiveSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -94,8 +95,12 @@ const ALLOW_WRITE = process.env.ALLOW_LIVE_PROVIDER_WRITE_SMOKE === "true";
 const ALLOW_DESTRUCTIVE = process.env.ALLOW_DESTRUCTIVE_PROVIDER_SMOKE === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
+// Live smoke must name its target account EXPLICITLY (SMOKE_LIVE_*). It must
+// never inherit the general-purpose SMOKE_ACCOUNT_ID, which pointed at a real
+// production account and caused smoke workflows to be written into real data.
+const LIVE_ACCOUNT = resolveLiveSmokeAccount();
+const ACCOUNT_ID = LIVE_ACCOUNT?.accountId;
+const USER_ID = LIVE_ACCOUNT?.userId;
 const PROVIDER = process.env.SMOKE_PROVIDER || null;
 
 const RUN =
@@ -106,8 +111,8 @@ const describeLive = RUN ? describe : describe.skip;
 
 if (!RUN) {
   console.log(
-    "SKIP write smoke LIVE — needs the 4 write gates + Supabase env + SMOKE_ACCOUNT_ID + " +
-      "SMOKE_USER_ID + SMOKE_PROVIDER=<one pilot provider>.",
+    "SKIP write smoke LIVE — needs the 4 write gates + Supabase env + SMOKE_LIVE_ACCOUNT_ID + " +
+      "SMOKE_LIVE_USER_ID + SMOKE_PROVIDER=<one pilot provider>.",
   );
 }
 

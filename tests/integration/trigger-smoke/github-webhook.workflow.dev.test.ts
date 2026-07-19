@@ -45,6 +45,8 @@ import { createClient } from "@supabase/supabase-js";
 
 import { runGitHubWebhookSmoke } from "@/tests/trigger-smoke/githubWebhookSmoke";
 import { makeRealGitHubWebhookSmokeDeps } from "@/tests/trigger-smoke/githubWebhookSmokeDeps";
+import { cleanupFixtures, createFixtureTracker } from "@/tests/helpers/dbFixtureCleanup";
+import { provisionDisposableSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -67,24 +69,19 @@ const ALLOW_DB = process.env.ALLOW_DB_INTEGRATION_TESTS === "true";
 const ALLOW_TRIGGER = process.env.ALLOW_TRIGGER_SMOKE === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
 const WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET;
+// NOTE: SMOKE_ACCOUNT_ID / SMOKE_USER_ID are deliberately NOT read here.
+// They pointed at a real owner account, so every run wrote `trigger-smoke:*`
+// workflows into production data that the harness then only SOFT-deleted. This
+// suite now provisions a throwaway account per run and hard-deletes it in afterAll.
 
-const RUN =
-  ALLOW_DB &&
-  ALLOW_TRIGGER &&
-  !!URL &&
-  !!SERVICE_KEY &&
-  !!ACCOUNT_ID &&
-  !!USER_ID &&
-  !!WEBHOOK_SECRET;
+const RUN = ALLOW_DB && ALLOW_TRIGGER && !!URL && !!SERVICE_KEY && !!WEBHOOK_SECRET;
 const describeLive = RUN ? describe : describe.skip;
 
 if (!RUN) {
   console.log(
     "SKIP trigger smoke (github webhook) — needs ALLOW_DB_INTEGRATION_TESTS + ALLOW_TRIGGER_SMOKE + " +
-      "Supabase env + SMOKE_ACCOUNT_ID + SMOKE_USER_ID + GITHUB_WEBHOOK_SECRET. " +
+      "Supabase env + GITHUB_WEBHOOK_SECRET (provisions a throwaway smoke account per run). " +
       "No live-provider gates / no connected GitHub account required (direct-seed).",
   );
 }
@@ -93,10 +90,19 @@ describeLive("trigger smoke: github:new_commit (real dev DB, direct-seeded synth
   const supabase = createClient(URL as string, SERVICE_KEY as string, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const deps = makeRealGitHubWebhookSmokeDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
+  // Provisioned in beforeAll so nothing is created under a real account.
+  const fixtures = createFixtureTracker();
+  let deps: ReturnType<typeof makeRealGitHubWebhookSmokeDeps>;
+
+  beforeAll(async () => {
+    const { accountId, userId } = await provisionDisposableSmokeAccount(supabase, fixtures);
+    deps = makeRealGitHubWebhookSmokeDeps({ supabase, accountId, userId });
+  });
+
+  // Hard-deletes the throwaway account and everything created under it. Throws
+  // if anything survives, so a leak fails the suite instead of accumulating.
+  afterAll(async () => {
+    await cleanupFixtures(supabase, fixtures);
   });
 
   it("seed → synthetic signed push fires 1, terminal succeeded, dedup holds, 0 leaked", async () => {

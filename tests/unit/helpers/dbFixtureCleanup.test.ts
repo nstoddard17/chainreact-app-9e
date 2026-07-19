@@ -41,6 +41,20 @@ function fakeAdmin() {
           return { data: ids.map((id) => ({ id })), error: null };
         },
       }),
+      update: (_patch: unknown) => {
+        const chain = {
+          in: (_col: string, _vals: unknown) => chain,
+          not: async (_col: string, _op: string, _v: unknown) => {
+            ops.push({ table: `${table}:detach` });
+            return {
+              error: tableErrors[`${table}:detach`]
+                ? { message: tableErrors[`${table}:detach`] }
+                : null,
+            };
+          },
+        };
+        return chain;
+      },
       delete: () => ({
         in: async (col: string, vals: unknown) => {
           ops.push({ table, col, vals });
@@ -63,7 +77,10 @@ function fakeAdmin() {
         },
         deleteUser: async (id: string) => {
           ops.push({ table: "auth.users", col: "id", vals: id });
-          if (deleteUserErrors[id]) return { error: { message: deleteUserErrors[id] } };
+          if (deleteUserErrors[id]) {
+            const message = deleteUserErrors[id] as string;
+            return { error: { message, status: message === "User not found" ? 404 : 500 } };
+          }
           deletedAuthUsers.push(id);
           return { error: null };
         },
@@ -213,6 +230,42 @@ describe("cleanupFixtures", () => {
 
     await cleanupFixtures(admin, t);
     expect(deletedAuthUsers).toEqual(["user-1"]);
+  });
+
+  it("detaches nested workflow_folders before deleting them", async () => {
+    // parent_folder_id is a self-referential RESTRICT FK; a bulk delete of a
+    // nested tree fails unless the tree is detached first.
+    const t = createFixtureTracker();
+    t.trackAccount("acct-1");
+    await cleanupFixtures(fakeAdmin(), t);
+    expect(idx("workflow_folders:detach")).toBeGreaterThan(-1);
+    expect(idx("workflow_folders:detach")).toBeLessThan(idx("workflow_folders"));
+  });
+
+  it("treats an already-deleted auth user as success, not failure", async () => {
+    // accountPurge / ledgerAnonymization delete their own fixtures as the thing
+    // under test; teardown must not then fail on 'User not found'.
+    const t = createFixtureTracker();
+    t.trackUser("u1");
+    deleteUserErrors = { u1: "User not found" };
+
+    await expect(cleanupFixtures(fakeAdmin(), t)).resolves.toBeUndefined();
+  });
+
+  it("still fails on a REAL delete error, not just any error", async () => {
+    const t = createFixtureTracker();
+    t.trackUser("u1");
+    deleteUserErrors = { u1: "still referenced by something" };
+
+    await expect(cleanupFixtures(fakeAdmin(), t)).rejects.toThrow(/still referenced/);
+  });
+
+  it("reports a failed folder detach rather than silently continuing", async () => {
+    const t = createFixtureTracker();
+    t.trackAccount("acct-1");
+    tableErrors = { "workflow_folders:detach": "detach exploded" };
+
+    await expect(cleanupFixtures(fakeAdmin(), t)).rejects.toThrow(/detach exploded/);
   });
 
   it("does nothing when admin is null (unconfigured env / skipped suite)", async () => {

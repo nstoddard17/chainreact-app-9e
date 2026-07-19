@@ -16,6 +16,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -49,19 +54,14 @@ if (!RUN) {
 
 describeDb("account_billing plan metadata — CS-1", () => {
   let admin: SupabaseClient;
+  const fixtures = createFixtureTracker();
   let userId = "";
   let accountId = "";
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `plan-meta-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    userId = data.user.id;
+    const created = await createTrackedUser(admin, fixtures, "plan-meta");
+    userId = created.userId;
     const { data: acct, error: acctErr } = await admin
       .from("accounts")
       .select("id")
@@ -73,12 +73,7 @@ describeDb("account_billing plan metadata — CS-1", () => {
   });
 
   afterAll(async () => {
-    if (!admin || !userId) return;
-    await admin.from("account_billing").delete().eq("account_id", accountId);
-    await admin.from("account_memberships").delete().eq("user_id", userId);
-    await admin.from("accounts").delete().eq("owner_user_id", userId);
-    const { error } = await admin.auth.admin.deleteUser(userId);
-    if (error) console.warn(`cleanup: failed to delete user ${userId}: ${error.message}`);
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("a new personal account billing row defaults to free / active", async () => {

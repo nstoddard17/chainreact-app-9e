@@ -23,6 +23,11 @@ import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { aiCreditGate } from "@/services/billing/aiCreditGate";
 import { AI_CREDIT_ENFORCEMENT_FLAG } from "@/services/billing/billingFeatureFlags";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -66,6 +71,7 @@ async function usedCredits(admin: SupabaseClient, accountId: string): Promise<nu
 
 describeDb("AI credit gate — dev DB smoke (3b-dev-smoke)", () => {
   let admin: SupabaseClient;
+  const fixtures = createFixtureTracker();
   let userId = "";
   let accountId = "";
   const priorFlag = process.env[AI_CREDIT_ENFORCEMENT_FLAG];
@@ -74,14 +80,8 @@ describeDb("AI credit gate — dev DB smoke (3b-dev-smoke)", () => {
     admin = createClient(URL!, SERVICE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `ai-credit-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    userId = data.user.id;
+    const created = await createTrackedUser(admin, fixtures, "ai-credit");
+    userId = created.userId;
     const { data: acct, error: acctErr } = await admin
       .from("accounts")
       .select("id")
@@ -103,12 +103,7 @@ describeDb("AI credit gate — dev DB smoke (3b-dev-smoke)", () => {
     // Restore the in-process flag to its pre-test value (set only for the smoke).
     if (priorFlag === undefined) delete process.env[AI_CREDIT_ENFORCEMENT_FLAG];
     else process.env[AI_CREDIT_ENFORCEMENT_FLAG] = priorFlag;
-    if (!admin || !userId) return;
-    await admin.from("account_billing").delete().eq("account_id", accountId);
-    await admin.from("account_memberships").delete().eq("user_id", userId);
-    await admin.from("accounts").delete().eq("owner_user_id", userId);
-    const { error } = await admin.auth.admin.deleteUser(userId);
-    if (error) console.warn(`cleanup: failed to delete user ${userId}: ${error.message}`);
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("flag ON + enough credits → the gate deducts from the workflow-owning account", async () => {

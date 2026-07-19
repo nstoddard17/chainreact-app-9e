@@ -36,6 +36,8 @@ import { ALL_SMOKE_FIXTURES } from "@/tests/smoke-actions/fixtures";
 import { runActionSmokeWorkflowMode } from "@/tests/smoke-actions/harness";
 import { makeRealWorkflowRunDeps } from "@/tests/smoke-actions/workflowRunDeps";
 import { renderExecutionHuman } from "@/scripts/chainreact/smoke/core";
+import { cleanupFixtures, createFixtureTracker } from "@/tests/helpers/dbFixtureCleanup";
+import { provisionDisposableSmokeAccount } from "@/tests/helpers/smokeAccount";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -57,9 +59,11 @@ loadEnvLocal();
 const ALLOW = process.env.ALLOW_DB_INTEGRATION_TESTS === "true";
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ACCOUNT_ID = process.env.SMOKE_ACCOUNT_ID;
-const USER_ID = process.env.SMOKE_USER_ID;
-const RUN = ALLOW && !!URL && !!SERVICE_KEY && !!ACCOUNT_ID && !!USER_ID;
+// NOTE: SMOKE_ACCOUNT_ID / SMOKE_USER_ID are deliberately NOT read here.
+// They pointed at a real owner account, so every run wrote `smoke:*` workflows
+// into production data that the harness then only SOFT-deleted. This suite now
+// provisions a throwaway account per run and hard-deletes it in afterAll.
+const RUN = ALLOW && !!URL && !!SERVICE_KEY;
 
 const describeDb = RUN ? describe : describe.skip;
 
@@ -75,11 +79,24 @@ describeDb("action smoke: full workflow-run mode (real dev DB)", () => {
   const supabase = createClient(URL as string, SERVICE_KEY as string, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const deps = makeRealWorkflowRunDeps({
-    supabase,
-    accountId: ACCOUNT_ID as string,
-    userId: USER_ID as string,
-    newUuid: randomUUID,
+  // Provisioned in beforeAll so nothing is created under a real account.
+  const fixtures = createFixtureTracker();
+  let deps: ReturnType<typeof makeRealWorkflowRunDeps>;
+
+  beforeAll(async () => {
+    const { accountId, userId } = await provisionDisposableSmokeAccount(supabase, fixtures);
+    deps = makeRealWorkflowRunDeps({
+      supabase,
+      accountId,
+      userId,
+      newUuid: randomUUID,
+    });
+  });
+
+  // Hard-deletes the throwaway account and everything created under it. Throws
+  // if anything survives, so a leak fails the suite instead of accumulating.
+  afterAll(async () => {
+    await cleanupFixtures(supabase, fixtures);
   });
 
   it("runs the native fixture end-to-end through manual run-now and reaches a terminal persisted state", async () => {

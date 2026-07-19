@@ -22,6 +22,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -58,22 +63,15 @@ describeDb("4.ACCOUNT-MODEL-10d — ledger anonymization (dev DB)", () => {
   jest.setTimeout(120_000);
 
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
 
   async function createUser(): Promise<{ userId: string; accountId: string }> {
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `acct-ledger-10d-${slug}@chainreact-10d.invalid`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
+    const { userId } = await createTrackedUser(admin, fixtures, "acct-ledger");
     const { data: acct, error: aerr } = await admin
-      .from("accounts").select("id").eq("type", "personal").eq("owner_user_id", data.user.id)
+      .from("accounts").select("id").eq("type", "personal").eq("owner_user_id", userId)
       .single<{ id: string }>();
     if (aerr || !acct) throw new Error(`personalAccountId: ${aerr?.message ?? "no row"}`);
-    return { userId: data.user.id, accountId: acct.id };
+    return { userId, accountId: acct.id };
   }
 
   /** Seed one row in each ledger. `marker` → ai_cost_events.model_name so each
@@ -132,27 +130,34 @@ describeDb("4.ACCOUNT-MODEL-10d — ledger anonymization (dev DB)", () => {
 
   afterAll(async () => {
     if (!admin) return;
-    // Clean any survivors of a failed run (accounts/users), plus this run's
-    // anonymized ledger rows (matched by their unique markers).
-    for (const id of createdUserIds) {
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
+    const userIds = [...fixtures.userIds];
+    if (userIds.length) {
+      // The ledgers FK accounts ON DELETE SET NULL — they neither cascade nor
+      // block, so cleanupFixtures cannot reach them. Clear this run's rows while
+      // the accounts still resolve.
+      const { data: accts } = await admin.from("accounts").select("id").in("owner_user_id", userIds);
       const ids = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
       if (ids.length) {
         await admin.from("task_usage_events").delete().in("account_id", ids);
         await admin.from("ai_cost_events").delete().in("account_id", ids);
         await admin.from("billing_shadow_comparisons").delete().in("account_id", ids);
-        await admin.from("account_billing").delete().in("account_id", ids);
       }
-      await admin.from("account_deletions").delete().eq("owner_user_id", id);
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      await admin.auth.admin.deleteUser(id).catch(() => {});
+      // account_deletions has NO FK to accounts (durable audit).
+      await admin.from("account_deletions").delete().in("owner_user_id", userIds);
     }
     // Anonymized rows have NULL account_id — reap this run's by marker.
     for (const marker of ["anon-survive", "anon-retention"]) {
       await admin.from("ai_cost_events").delete().is("account_id", null).eq("model_name", marker);
       await admin.from("task_usage_events").delete().is("account_id", null).eq("cost_policy_version", marker);
     }
+    // The purge UNDER TEST deletes its own auth user; cleanupFixtures throws on a
+    // missing user, so hand it only the fixtures the tests left behind.
+    const survivors = createFixtureTracker();
+    for (const id of userIds) {
+      const { data } = await admin.auth.admin.getUserById(id);
+      if (data?.user) survivors.trackUser(id);
+    }
+    await cleanupFixtures(admin, survivors);
   });
 
   it("anonymizes ledgers before account deletion; rows survive and are not account-addressable", async () => {

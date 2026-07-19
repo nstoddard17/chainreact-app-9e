@@ -15,6 +15,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  cleanupFixtures,
+  createFixtureTracker,
+  createTrackedUser,
+} from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -46,16 +51,15 @@ if (!RUN) {
 
 describeDb("analytics_source_snapshots isolation — ANALYTICS-SOURCES-CACHE-1", () => {
   let admin: SupabaseClient;
+  // Shared teardown (tests/helpers/dbFixtureCleanup.ts) tracks every synthetic
+  // user + account so afterAll tears them down in RESTRICT-safe order.
+  const fixtures = createFixtureTracker();
   const users: { id: string; email: string; password: string }[] = [];
   let teamId = "";
 
   async function makeUser(tag: string) {
-    const slug = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const email = `snap-${tag}-${slug}@chainreact.test`;
-    const password = `Pw-${slug}!`;
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    const u = { id: data.user.id, email, password };
+    const { userId, email, password } = await createTrackedUser(admin, fixtures, `snap-${tag}`);
+    const u = { id: userId, email, password };
     users.push(u);
     return u;
   }
@@ -97,6 +101,7 @@ describeDb("analytics_source_snapshots isolation — ANALYTICS-SOURCES-CACHE-1",
       .from("accounts").insert({ type: "team", name: `Snap Team ${Date.now()}`, owner_user_id: a.id })
       .select("id").single<{ id: string }>();
     teamId = team!.id;
+    fixtures.trackAccount(teamId);
     await admin.from("account_memberships").insert([
       { account_id: teamId, user_id: a.id, role: "owner" },
       { account_id: teamId, user_id: b.id, role: "member" },
@@ -106,12 +111,7 @@ describeDb("analytics_source_snapshots isolation — ANALYTICS-SOURCES-CACHE-1",
   });
 
   afterAll(async () => {
-    if (!admin || users.length === 0) return;
-    await admin.from("analytics_source_snapshots").delete().eq("account_id", teamId);
-    await admin.from("account_billing").delete().eq("account_id", teamId);
-    await admin.from("account_memberships").delete().eq("account_id", teamId);
-    await admin.from("accounts").delete().eq("id", teamId);
-    for (const u of users) await admin.auth.admin.deleteUser(u.id);
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("a member reads the account-shared snapshot", async () => {

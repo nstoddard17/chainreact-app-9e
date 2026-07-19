@@ -23,6 +23,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -55,18 +56,11 @@ if (!RUN) {
 
 describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
 
   async function createTestUser(label: string): Promise<string> {
-    const slug = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email: `acc-foundation-backfill-${slug}@chainreact.test`,
-      password: `Pw-${slug}!`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createTestUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return data.user.id;
+    const { userId } = await createTrackedUser(admin, fixtures, `acct-foundation-${label}`);
+    return userId;
   }
 
   async function getPersonalAccountId(userId: string): Promise<string> {
@@ -87,25 +81,7 @@ describeDb("account_id foundation backfill — Slice 4.ACCOUNT-MODEL-5", () => {
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const id of createdUserIds) {
-      // All three hot tables' user_id columns are now dropped (-6/-7/-8).
-      // Delete workflows by created_by_user_id — workflow_runs + revisions
-      // cascade (ON DELETE CASCADE from workflows). integrations by
-      // connected_by_user_id.
-      await admin.from("workflows").delete().eq("created_by_user_id", id);
-      await admin.from("integrations").delete().eq("connected_by_user_id", id);
-      // 4.ACCOUNT-MODEL-9c2: handle_new_user seeds account_billing (ON DELETE
-      // RESTRICT to accounts) — clear it before accounts. user_billing is gone.
-      const { data: accts } = await admin.from("accounts").select("id").eq("owner_user_id", id);
-      for (const a of (accts ?? []) as Array<{ id: string }>) {
-        await admin.from("account_billing").delete().eq("account_id", a.id);
-      }
-      await admin.from("account_memberships").delete().eq("user_id", id);
-      await admin.from("accounts").delete().eq("owner_user_id", id);
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) console.warn(`cleanup: failed to delete user ${id}: ${error.message}`);
-    }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("workflow_run is written with account_id + triggered_by_user_id directly (compat trigger gone, -8)", async () => {

@@ -47,6 +47,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
 
 import type { ActionHandlerInput, ActionHandlerResult } from "@/services/execution/handlers/types";
 import type { WorkflowNode, WorkflowEdge, WorkflowDefinition } from "@/contracts/workflowDefinition";
@@ -144,7 +145,7 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
   jest.setTimeout(120_000);
 
   let admin: SupabaseClient;
-  const createdUserIds: string[] = [];
+  const fixtures = createFixtureTracker();
   const createdWorkflowIds: string[] = [];
   let user1 = "";
   let user2 = "";
@@ -162,15 +163,8 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
   let capturedSummary: Awaited<ReturnType<typeof getReserveReconcileShadowStats>> | null = null;
 
   async function createUser(): Promise<string> {
-    const email = `cost14e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@chainreact-shadow-harness.invalid`;
-    const { data, error } = await admin.auth.admin.createUser({
-      email,
-      password: `Pw-${Math.random().toString(36).slice(2)}-${Date.now()}`,
-      email_confirm: true,
-    });
-    if (error || !data.user) throw new Error(`createUser: ${error?.message ?? "no user"}`);
-    createdUserIds.push(data.user.id);
-    return data.user.id;
+    const { userId } = await createTrackedUser(admin, fixtures, "rr-shadow");
+    return userId;
   }
 
   async function personalAccountId(userId: string): Promise<string> {
@@ -272,33 +266,22 @@ describeDb("COST-14E — reserve/reconcile shadow data collection + review (dev 
 
   afterAll(async () => {
     if (!admin) return;
-    // Explicit FK-safe deletes by seeded ids, then drop the users (cascade).
-    // Slice 4.ACCOUNT-MODEL-3: accounts.owner_user_id is ON DELETE RESTRICT,
-    // so explicitly clear account_memberships + accounts before auth.admin.deleteUser.
-    // Phase B: workflows + workflow_runs are account-owned (user_id dropped).
-    // 9c: account_billing -> accounts is ON DELETE RESTRICT. Resolve accounts and
-    // delete account-owned + account_billing rows before accounts + the user.
-    const { data: accts } = await admin
-      .from("accounts")
-      .select("id")
-      .in("owner_user_id", createdUserIds);
-    const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
-    if (accountIds.length > 0) {
-      // 4.ACCOUNT-MODEL-9d: ledgers are account-owned now.
-      await admin.from("billing_shadow_comparisons").delete().in("account_id", accountIds);
-      await admin.from("task_usage_events").delete().in("account_id", accountIds);
-      await admin.from("workflow_runs").delete().in("account_id", accountIds);
-      await admin.from("workflows").delete().in("account_id", accountIds);
-      await admin.from("account_billing").delete().in("account_id", accountIds);
-    }
-    await admin.from("account_memberships").delete().in("user_id", createdUserIds);
-    await admin.from("accounts").delete().in("owner_user_id", createdUserIds);
-    for (const id of createdUserIds) {
-      const { error } = await admin.auth.admin.deleteUser(id);
-      if (error) {
-        console.error(`cleanup: failed to delete user ${id}: ${error.message}`);
+    // The ledger tables are the one thing the shared teardown cannot cover:
+    // 20260531000008_ledger_anonymization repointed
+    // billing_shadow_comparisons.account_id / task_usage_events.account_id at
+    // accounts with ON DELETE SET NULL (so ledger history survives an account
+    // delete). They are therefore NOT cascaded away and must be cleared here,
+    // BEFORE cleanupFixtures removes the accounts they are keyed on.
+    const userIds = [...fixtures.userIds];
+    if (userIds.length > 0) {
+      const { data: accts } = await admin.from("accounts").select("id").in("owner_user_id", userIds);
+      const accountIds = ((accts ?? []) as Array<{ id: string }>).map((a) => a.id);
+      if (accountIds.length > 0) {
+        await admin.from("billing_shadow_comparisons").delete().in("account_id", accountIds);
+        await admin.from("task_usage_events").delete().in("account_id", accountIds);
       }
     }
+    await cleanupFixtures(admin, fixtures);
   });
 
   it("never enables the LIVE reserve/reconcile billing flag", () => {
