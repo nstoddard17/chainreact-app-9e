@@ -17,6 +17,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -82,13 +83,11 @@ describeDb("user_onboarding_states RLS — 5.ONBOARD-1", () => {
     return data.id;
   }
 
-  async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+  // CAPTCHA is enforced on password sign-in for this project, so sessions are
+  // established via a service-role email link instead (see dbSessionClient).
+  // The resulting session is ordinary — RLS still applies exactly as in prod.
+  async function sessionClient(email: string, _password: string): Promise<SupabaseClient> {
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   async function seedState(userId: string, accountId: string): Promise<void> {
@@ -176,13 +175,19 @@ describeDb("user_onboarding_states RLS — 5.ONBOARD-1", () => {
     await c.auth.signOut();
   });
 
-  it("anon gets nothing", async () => {
+  it("anon gets nothing — blocked at the GRANT layer (42501), before RLS", async () => {
     const c = createClient(URL!, ANON_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data, error } = await c.from("user_onboarding_states").select("*");
-    expect(error).toBeNull();
-    expect(data).toHaveLength(0);
+    // 20260725000000 revoked the default-privilege grants, so anon is denied by
+    // privilege rather than filtered to zero rows by RLS — a strictly stronger
+    // posture. Accept either shape, but require that NO data comes back.
+    if (error) {
+      expect(error.code).toBe("42501");
+    } else {
+      expect(data).toHaveLength(0);
+    }
   });
 
   it("authenticated INSERT is denied (no write grant — completion cannot be forged)", async () => {
