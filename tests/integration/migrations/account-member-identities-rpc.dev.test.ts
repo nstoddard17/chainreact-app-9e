@@ -19,6 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -61,14 +62,32 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
 
   let admin: SupabaseClient;
   const fixtures = createFixtureTracker();
-  // createTrackedUser mints a per-user password; sessionFor looks it up by email.
-  const passwords = new Map<string, string>();
+
+  /**
+   * FIXTURE LIFECYCLE (deliberate — this suite used to leak).
+   *
+   * Every user and account is created in `beforeAll` and fully awaited there,
+   * so no creation is ever in flight while a test runs. Previously each `it`
+   * created its own users; when a test failed or timed out, jest moved on while
+   * a `createUser` request was still outstanding, and the user landed in the DB
+   * AFTER `afterAll` had already run — untracked, and only removable by the
+   * global safety net.
+   *
+   * `teardownBegun` makes that failure mode impossible to reintroduce: any
+   * attempt to mint a fixture once teardown has started throws immediately
+   * rather than racing the cleanup.
+   */
+  let teardownBegun = false;
 
   async function createUser(
     userMetadata?: Record<string, unknown>,
   ): Promise<{ userId: string; email: string }> {
-    const { userId, email, password } = await createTrackedUser(admin, fixtures, "member-identities");
-    passwords.set(email, password);
+    if (teardownBegun) {
+      throw new Error("createUser called after teardown began — fixtures must be built in beforeAll");
+    }
+    // createTrackedUser registers the id before it can throw, so even a
+    // partially-created user is torn down.
+    const { userId, email } = await createTrackedUser(admin, fixtures, "member-identities");
     if (userMetadata) {
       const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: userMetadata });
       if (error) throw new Error(`createUser metadata: ${error.message}`);
@@ -77,6 +96,9 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
   }
 
   async function createTeam(ownerId: string): Promise<string> {
+    if (teardownBegun) {
+      throw new Error("createTeam called after teardown began — fixtures must be built in beforeAll");
+    }
     const { data, error } = await admin
       .from("accounts")
       .insert({ type: "team", name: "Identity test", owner_user_id: ownerId })
@@ -87,69 +109,115 @@ describeDb("4.TEAM-PAGE-2 — get_account_member_identities (dev DB)", () => {
     return data.id;
   }
 
+  /**
+   * Authenticated session WITHOUT `signInWithPassword`.
+   *
+   * The project enforces CAPTCHA on password sign-in, so the old helper failed
+   * every test here — and those failures are what made the fixture race fire.
+   * `signedInClient` redeems a service-role-minted email link instead, which is
+   * not CAPTCHA-gated. The resulting session is an ordinary authenticated
+   * session: RLS and the RPC's SECURITY DEFINER member check still apply in
+   * full, so the authorization coverage below is unchanged.
+   */
   async function sessionFor(email: string): Promise<SupabaseClient> {
-    const client = createClient(URL as string, ANON_KEY as string, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await client.auth.signInWithPassword({ email, password: passwords.get(email) ?? "" });
-    if (error) throw new Error(`signIn: ${error.message}`);
-    return client;
+    return signedInClient({ url: URL as string, anonKey: ANON_KEY as string, admin, email });
   }
 
-  beforeAll(() => {
+  // Fixtures for all three cases, built once. Sessions are established here too,
+  // so the tests themselves perform no fixture I/O at all.
+  let team1 = "";
+  let owner1 = { userId: "", email: "" };
+  let member1 = { userId: "", email: "" };
+  let owner1Session: SupabaseClient;
+
+  let team2 = "";
+  let owner2 = { userId: "", email: "" };
+  let owner2Session: SupabaseClient;
+
+  let team3 = "";
+  let strangerSession: SupabaseClient;
+
+  beforeAll(async () => {
     admin = createClient(URL as string, SERVICE_KEY as string, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    // Case 1 — co-member visibility. Owner has a profile display_name; the
+    // member deliberately does not, so its display_name stays null.
+    owner1 = await createUser();
+    member1 = await createUser();
+    team1 = await createTeam(owner1.userId);
+    await admin
+      .from("account_memberships")
+      .insert({ account_id: team1, user_id: member1.userId, role: "member" });
+    await admin.from("user_profiles").update({ display_name: "Ada Owner" }).eq("id", owner1.userId);
+    owner1Session = await sessionFor(owner1.email);
+
+    // Case 2 — metadata fallback. No profile display_name, but an OAuth-style
+    // full_name in auth metadata.
+    owner2 = await createUser({ full_name: "Dana Metadata" });
+    team2 = await createTeam(owner2.userId);
+    owner2Session = await sessionFor(owner2.email);
+
+    // Case 3 — non-member probe against an account they do not belong to.
+    const owner3 = await createUser();
+    const stranger = await createUser();
+    team3 = await createTeam(owner3.userId);
+    strangerSession = await sessionFor(stranger.email);
   });
 
   afterAll(async () => {
+    // Set FIRST: from here on, any stray fixture call fails loudly instead of
+    // creating a row that teardown has already walked past.
+    teardownBegun = true;
     await cleanupFixtures(admin, fixtures);
   });
 
   it("a co-member sees every member's email + display_name", async () => {
-    const owner = await createUser();
-    const member = await createUser();
-    const teamId = await createTeam(owner.userId);
-    await admin.from("account_memberships").insert({ account_id: teamId, user_id: member.userId, role: "member" });
-    // Owner set a display_name; member did not (stays null).
-    await admin.from("user_profiles").update({ display_name: "Ada Owner" }).eq("id", owner.userId);
-
-    const ownerSession = await sessionFor(owner.email);
-    const { data, error } = await ownerSession.rpc("get_account_member_identities", { p_account_id: teamId });
+    const { data, error } = await owner1Session.rpc("get_account_member_identities", {
+      p_account_id: team1,
+    });
     expect(error).toBeNull();
     const rows = (data ?? []) as IdentityRow[];
     expect(rows.length).toBe(2);
 
-    const ownerRow = rows.find((r) => r.user_id === owner.userId)!;
-    const memberRow = rows.find((r) => r.user_id === member.userId)!;
-    expect(ownerRow.email).toBe(owner.email);
+    const ownerRow = rows.find((r) => r.user_id === owner1.userId)!;
+    const memberRow = rows.find((r) => r.user_id === member1.userId)!;
+    expect(ownerRow.email).toBe(owner1.email);
     expect(ownerRow.display_name).toBe("Ada Owner");
-    expect(memberRow.email).toBe(member.email);
+    expect(memberRow.email).toBe(member1.email);
     expect(memberRow.display_name).toBeNull();
   });
 
   it("falls back to auth metadata full_name/name when display_name is unset", async () => {
-    // Owner has no profile display_name but DOES carry an OAuth-style full_name.
-    const owner = await createUser({ full_name: "Dana Metadata" });
-    const teamId = await createTeam(owner.userId);
-
-    const ownerSession = await sessionFor(owner.email);
-    const { data, error } = await ownerSession.rpc("get_account_member_identities", { p_account_id: teamId });
+    const { data, error } = await owner2Session.rpc("get_account_member_identities", {
+      p_account_id: team2,
+    });
     expect(error).toBeNull();
     const rows = (data ?? []) as IdentityRow[];
-    const ownerRow = rows.find((r) => r.user_id === owner.userId)!;
+    const ownerRow = rows.find((r) => r.user_id === owner2.userId)!;
     expect(ownerRow.display_name).toBe("Dana Metadata");
   });
 
   it("a NON-member gets an error and zero rows (no email leak)", async () => {
-    const owner = await createUser();
-    const stranger = await createUser();
-    const teamId = await createTeam(owner.userId);
-
-    const strangerSession = await sessionFor(stranger.email);
-    const { data, error } = await strangerSession.rpc("get_account_member_identities", { p_account_id: teamId });
+    const { data, error } = await strangerSession.rpc("get_account_member_identities", {
+      p_account_id: team3,
+    });
     // SECURITY DEFINER raises 42501 for a non-member; supabase surfaces it as error.
     expect(error).not.toBeNull();
     expect(data ?? []).toEqual([]);
+  });
+
+  it("fixture minting is refused once teardown has begun", async () => {
+    // Guards the exact race that made this suite leak: a creation call that
+    // outlives teardown must fail, not quietly insert an untracked row.
+    const wasBegun = teardownBegun;
+    teardownBegun = true;
+    try {
+      await expect(createUser()).rejects.toThrow(/after teardown began/);
+      await expect(createTeam(owner1.userId)).rejects.toThrow(/after teardown began/);
+    } finally {
+      teardownBegun = wasBegun;
+    }
   });
 });
