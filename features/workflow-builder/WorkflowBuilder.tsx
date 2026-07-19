@@ -34,6 +34,10 @@ import {
   type AddNodePanelMode,
   type ProviderOption,
 } from "./panels/AddNodePanel";
+import {
+  ADVANCED_BRANCHING_NODE_TYPES,
+  isAdvancedBranchingTypeKey,
+} from "@/core/workflows/advancedBranching";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { AgentChangeDiffDrawer } from "./panels/AgentChangeDiffDrawer";
@@ -143,6 +147,17 @@ interface Props {
    * header pulse). One-shot + navigation-only (see useInitialBuilderFocus).
    */
   initialFocus?: import("./hooks/useInitialBuilderFocus").BuilderInitialFocus;
+  /**
+   * BRANCH-ENT-1 C6 — whether the workflow-owning account's plan allows
+   * advanced branching (If/Then Condition, Router). The route resolves it
+   * server-side (fail-closed) and passes an explicit boolean; anonymous
+   * local-only mode is treated as not entitled. `false` renders the branching
+   * library entries LOCKED (visible + searchable, "Pro" badge, upgrade
+   * explanation + CTA on click) and blocks every insertion path. Optional so
+   * isolated builder tests keep passing (undefined → unlocked UI; the server
+   * gates remain the enforcement authority regardless).
+   */
+  canUseAdvancedBranching?: boolean;
 }
 
 /**
@@ -199,6 +214,7 @@ export function WorkflowBuilder({
   initialAgentPrompt,
   onAnonPromptChange,
   initialFocus,
+  canUseAdvancedBranching,
 }: Props) {
   const router = useRouter();
   const hydrate = useGraphSlice((s) => s.hydrate);
@@ -395,11 +411,25 @@ export function WorkflowBuilder({
     setAddPanelMode({ kind: "insertAction", edgeId });
   }, []);
 
+  // BRANCH-ENT-1 C6 — plan-locked library entries. `false` = locked (Free /
+  // fail-closed resolution); anonymous local-only mode has no provable
+  // entitlement, so it is locked too. Undefined (isolated tests) = unlocked
+  // UI; the server-side gates remain authoritative either way.
+  const branchingLocked = canUseAdvancedBranching === false || localOnly === true;
+  const lockedActionKeys = useMemo(
+    () => (branchingLocked ? ADVANCED_BRANCHING_NODE_TYPES : undefined),
+    [branchingLocked],
+  );
+
   const handlePickTrigger = useCallback((meta: TriggerMeta) => {
     useGraphSlice.getState().addTriggerFromMeta(meta);
   }, []);
   const handlePickAction = useCallback(
     (meta: ActionMeta, insertContext: { edgeId: string } | null) => {
+      // Defense in depth: the picker shows the upgrade explanation instead of
+      // picking, so this should be unreachable — but no insertion surface
+      // (search, keyboard, future callers) may ever add a locked node.
+      if (branchingLocked && isAdvancedBranchingTypeKey(meta.key)) return;
       const slice = useGraphSlice.getState();
       if (insertContext) {
         insertActionAtEdge(insertContext.edgeId, meta);
@@ -414,7 +444,7 @@ export function WorkflowBuilder({
       }
       slice.addActionFromMeta(meta);
     },
-    [],
+    [branchingLocked],
   );
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
@@ -815,6 +845,7 @@ export function WorkflowBuilder({
             onPickTrigger={handlePickTrigger}
             onPickAction={handlePickAction}
             onClose={closeAddPanel}
+            {...(lockedActionKeys ? { lockedActionKeys } : {})}
           />
         ) : null}
         {/* AI preview controls (UI state only — never merges into the real graph / writes / saves).

@@ -37,6 +37,13 @@ export interface ActionPickerProps {
   onPickAction: (meta: ActionMeta) => void;
   searchQuery?: string;
   providerIcons?: Readonly<Record<string, string>>;
+  /**
+   * BRANCH-ENT-1 C6 — meta keys the account's PLAN locks (advanced branching
+   * on Free). Locked entries stay visible/searchable with a "Pro" badge;
+   * clicking one shows an explicit upgrade explanation + CTA instead of
+   * adding the node. Server-side enforcement is the authority — this is UX.
+   */
+  lockedActionKeys?: ReadonlySet<string>;
 }
 
 export function ActionPicker({
@@ -47,10 +54,13 @@ export function ActionPicker({
   onPickAction,
   searchQuery,
   providerIcons,
+  lockedActionKeys,
 }: ActionPickerProps) {
   const [selectedProvider, setSelectedProvider] = useState<ProviderOption | null>(
     null,
   );
+  // The locked entry whose upgrade explanation is currently expanded.
+  const [upgradeNoticeKey, setUpgradeNoticeKey] = useState<string | null>(null);
 
   if (selectedProvider) {
     return (
@@ -105,24 +115,63 @@ export function ActionPicker({
             className="flex flex-col overflow-hidden rounded-[5px]"
             style={{ border: "1px solid var(--builder-border)" }}
           >
-            {filteredNative.map((meta, i) => (
-              <li
-                key={meta.key}
-                style={{
-                  borderBottom:
-                    i === filteredNative.length - 1
-                      ? "0"
-                      : "1px solid var(--builder-border)",
-                }}
-              >
-                <PickerRow
-                  title={meta.displayName}
-                  description={meta.description}
-                  metaKey={meta.key}
-                  onClick={() => onPickAction(meta)}
-                />
-              </li>
-            ))}
+            {filteredNative.map((meta, i) => {
+              const locked = lockedActionKeys?.has(meta.key) === true;
+              return (
+                <li
+                  key={meta.key}
+                  style={{
+                    borderBottom:
+                      i === filteredNative.length - 1
+                        ? "0"
+                        : "1px solid var(--builder-border)",
+                  }}
+                >
+                  <PickerRow
+                    title={meta.displayName}
+                    description={meta.description}
+                    metaKey={meta.key}
+                    // A locked click NEVER picks: it toggles the explicit
+                    // upgrade explanation below (accessible + keyboard-usable;
+                    // the node is not added and nothing appears broken).
+                    onClick={() =>
+                      locked
+                        ? setUpgradeNoticeKey((k) => (k === meta.key ? null : meta.key))
+                        : onPickAction(meta)
+                    }
+                    {...(locked ? { lockedBadge: "Pro" } : {})}
+                  />
+                  {locked && upgradeNoticeKey === meta.key ? (
+                    <div
+                      role="note"
+                      data-testid="branching-upgrade-callout"
+                      className="flex flex-col gap-1 px-2.5 pb-2 pt-1 text-[11px]"
+                      style={{
+                        background: "var(--builder-panel-2)",
+                        color: "var(--builder-muted)",
+                        borderTop: "1px dashed var(--builder-border)",
+                      }}
+                    >
+                      <span>
+                        Route your workflow down different paths based on
+                        conditions. {meta.displayName} is available on the Pro
+                        plan and higher.
+                      </span>
+                      <a
+                        href="/account"
+                        className="w-fit rounded-[3px] px-2 py-0.5 text-[11px] font-medium"
+                        style={{
+                          background: "var(--builder-accent)",
+                          color: "white",
+                        }}
+                      >
+                        Upgrade to Pro
+                      </a>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

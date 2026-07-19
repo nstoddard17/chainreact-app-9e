@@ -7,6 +7,7 @@ import * as membershipsRepo from "@/repositories/accountMemberships";
 import { getActiveAccountId } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
+import { resolveAdvancedBranchingEntitlement } from "@/services/billing/advancedBranchingEntitlement";
 import { buildPreviewSetupFields } from "@/core/workflows/previewSetupFields";
 import { buildConfigDiffFieldMeta } from "@/core/workflows/configDiffFieldMeta";
 import { buildNodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
@@ -159,6 +160,13 @@ export default async function WorkflowDetailPage({ params, searchParams }: Props
   // computed once here.
   const summaryFieldsByType = buildNodeSummaryFieldsByType(listAllActionMetas(), listAllTriggerMetas());
 
+  // BRANCH-ENT-1 C6 — advanced-branching plan capability for the owning
+  // account (fail-closed: missing row / non-member RLS miss / read error →
+  // not entitled → locked library entries).
+  const branchingEntitlement = await resolveAdvancedBranchingEntitlement(
+    record.accountId,
+  );
+
   const providers = listProviders();
   const triggerProviders = providers
     .filter((p) => p.isEnabled && p.capabilities.webhookTrigger)
@@ -196,6 +204,11 @@ export default async function WorkflowDetailPage({ params, searchParams }: Props
         // "temporarily unavailable" error in chat instead of disappearing.
         accountId={record.accountId}
         guidanceEnabled={true}
+        // BRANCH-ENT-1 C6 — plan capability for the WORKFLOW-OWNING account,
+        // resolved server-side (RLS read; unknown/unreadable fails closed to
+        // locked). Drives the locked If/Then + Router library entries; the
+        // server-side save/run gates stay the enforcement authority.
+        canUseAdvancedBranching={branchingEntitlement.entitled}
         {...(initialFocus ? { initialFocus } : {})}
         {...(teamContext ? { teamContext } : {})}
       />

@@ -128,22 +128,30 @@ export function PickerSectionHeader({
 /**
  * Row inside a picker list (native triggers / native actions / drilled-in
  * per-provider list). Renders title + description + meta-key chip.
+ *
+ * BRANCH-ENT-1 C6 — `lockedBadge` marks a plan-gated entry (e.g. "Pro"): the
+ * row stays visible, searchable, focusable and CLICKABLE (the caller shows an
+ * upgrade explanation instead of picking), so the locked state is accessible
+ * and keyboard-usable rather than a dead/disabled row.
  */
 export function PickerRow({
   title,
   description,
   metaKey,
   onClick,
+  lockedBadge,
 }: {
   title: string;
   description: string;
   metaKey: string;
   onClick: () => void;
+  lockedBadge?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      {...(lockedBadge ? { "data-locked": "true" } : {})}
       className="flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors"
       style={{
         background: "var(--builder-panel)",
@@ -157,7 +165,23 @@ export function PickerRow({
       }}
     >
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-[12.5px] font-medium">{title}</span>
+        <span className="flex items-center gap-1.5 text-[12.5px] font-medium">
+          {title}
+          {lockedBadge ? (
+            <span
+              data-testid="picker-row-plan-badge"
+              className="builder-mono inline-flex items-center rounded-[3px] px-1.5 text-[9px] font-semibold uppercase tracking-[0.05em]"
+              style={{
+                background: "var(--builder-accent-soft)",
+                color: "var(--builder-accent)",
+                border: "1px solid var(--builder-accent)",
+                lineHeight: 1.5,
+              }}
+            >
+              {lockedBadge}
+            </span>
+          ) : null}
+        </span>
         <span
           className="line-clamp-1 text-[11px]"
           style={{ color: "var(--builder-muted)" }}

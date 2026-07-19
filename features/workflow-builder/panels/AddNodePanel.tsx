@@ -78,6 +78,8 @@ interface Props {
     insertContext: { edgeId: string } | null,
   ) => void;
   onClose: () => void;
+  /** BRANCH-ENT-1 C6 — plan-locked action keys (see ActionPickerProps). */
+  lockedActionKeys?: ReadonlySet<string>;
 }
 
 export function AddNodePanel({
@@ -88,6 +90,7 @@ export function AddNodePanel({
   onPickTrigger,
   onPickAction,
   onClose,
+  lockedActionKeys,
 }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -253,6 +256,7 @@ export function AddNodePanel({
               onPickAction={handlePickAction}
               searchQuery={searchQuery}
               providerIcons={providerIcons}
+              {...(lockedActionKeys ? { lockedActionKeys } : {})}
             />
           )}
         </div>
