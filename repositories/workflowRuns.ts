@@ -354,6 +354,47 @@ export async function hasSucceededRunServiceRole(
 }
 
 /**
+ * 5.ONBOARD-4 — has THIS user personally driven a successful run in THIS account?
+ *
+ * Evidence for the member checklist's "use a team workflow" step. Deliberately
+ * stricter than {@link hasSucceededRunServiceRole}: it additionally requires
+ * `triggered_by_user_id = userId`, which is non-null only for a manual run or
+ * retry a human actually started (webhook / polling / cron / schedule runs leave
+ * it NULL — see WorkflowRunRecord.triggeredByUserId). So a member cannot complete
+ * this step by watching someone else's automation fire; they must have run or
+ * tested a team workflow themselves.
+ *
+ * Test-mode runs count on purpose — the step teaches "you are allowed to run team
+ * workflows", and an in-builder test proves exactly that. Members ARE authorized
+ * to run (app/api/workflows/_shared.ts: workflow access is membership-only, not
+ * role-gated), so this step never asks for something the member cannot do.
+ *
+ * NON-AUTHORIZING (service-role): callers must have membership-gated the account
+ * upstream. Selects `id` only — no payload columns.
+ */
+export async function hasSucceededRunByUserInAccountServiceRole(input: {
+  accountId: string;
+  userId: string;
+}): Promise<boolean> {
+  const supabase = getServiceRoleClient(
+    `collabOnboarding: hasSucceededRunByUser ${input.accountId}`,
+  );
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select("id")
+    .eq("account_id", input.accountId)
+    .eq("triggered_by_user_id", input.userId)
+    .eq("status", "succeeded")
+    .limit(1);
+  if (error) {
+    throw new Error(
+      `workflow_runs.hasSucceededRunByUserInAccountServiceRole failed: ${error.message}`,
+    );
+  }
+  return (data ?? []).length > 0;
+}
+
+/**
  * Display-safe per-account run-history projection (Slice 4.RUNS-PAGE-1;
  * account-scoped in 4.ACCOUNT-MODEL-8).
  *

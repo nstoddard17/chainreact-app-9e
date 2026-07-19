@@ -13,6 +13,7 @@ import {
   NOTIFICATION_BELL_PREVIEW_LIMIT,
   toNotificationPreview,
 } from "@/app/notifications/notificationPreview";
+import { recordCollaborationLearningEvent } from "@/services/collaborationOnboarding/learningEvents";
 import { buildCategoryList, resolveAppCatalog } from "./_shared";
 
 interface Props {
@@ -72,6 +73,17 @@ export default async function AppsPage({ searchParams }: Props) {
     callerRole,
   });
   const categories = buildCategoryList(items);
+  // 5.ONBOARD-4 — member learning evidence. Recorded HERE, after the membership
+  // gate above (`callerRole !== null`) has already authorized and served this
+  // account's app catalog, so the event can only exist because the caller really
+  // did view the shared Apps page. Not client-postable; fail-open inside.
+  if (callerRole !== null) {
+    await recordCollaborationLearningEvent({
+      userId: user.id,
+      accountId: ownerAccount.id,
+      eventType: "collab_apps_viewed",
+    });
+  }
   // 5.ONBOARD-1 Batch 3 — validated `?highlight=<provider>` deep link (used by
   // the onboarding checklist's Connect CTA). Only a provider key that exists in
   // THIS caller's rendered catalog passes; anything else is silently ignored.

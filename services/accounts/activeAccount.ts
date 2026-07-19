@@ -3,6 +3,7 @@ import * as accountsRepo from "@/repositories/accounts";
 import * as membershipsRepo from "@/repositories/accountMemberships";
 import * as userProfilesRepo from "@/repositories/userProfiles";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
+import { recordCollaborationLearningEvent } from "@/services/collaborationOnboarding/learningEvents";
 
 /**
  * Active-account resolver (4.ACCOUNT-MODEL-11b).
@@ -161,6 +162,19 @@ export async function setActiveAccount(
   const verified = await verifyMemberAccount(userId, accountId);
   if (!verified.ok) return { ok: false, reason: verified.reason, accountId };
   await userProfilesRepo.setActiveAccountId(userId, accountId);
+  // 5.ONBOARD-4 — member learning evidence for "explore your team workspace".
+  // Recorded only AFTER `verifyMemberAccount` confirmed the caller really is a
+  // member of the target, and only for SHARED accounts (switching to Personal
+  // teaches nothing about collaboration). `userId` is the authenticated caller,
+  // never request input, so this cannot be recorded on someone else's behalf.
+  // Fail-open inside — a switch must never fail because of an analytics write.
+  if (verified.account.type !== "personal") {
+    await recordCollaborationLearningEvent({
+      userId,
+      accountId,
+      eventType: "collab_workspace_explored",
+    });
+  }
   return { ok: true, account: verified.account };
 }
 

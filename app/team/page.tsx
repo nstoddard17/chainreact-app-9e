@@ -7,6 +7,7 @@ import { listInvitations } from "@/services/accounts/invitations";
 import { memberLimitFor, TEAM_MAX_MEMBERS } from "@/services/accounts/memberLimits";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
+import { recordCollaborationLearningEvent } from "@/services/collaborationOnboarding/learningEvents";
 import { TeamDashboard } from "@/features/team/TeamDashboard";
 import type {
   TeamInvitationView,
@@ -81,6 +82,17 @@ export default async function TeamPage() {
       displayName: m.displayName,
       isYou: m.userId === user.id,
     }));
+
+    // 5.ONBOARD-4 — learning evidence for the member track's "explore shared apps
+    // or team members" step and the admin track's "review team" step. Recorded
+    // only after `listMembers` above actually served this caller the roster for a
+    // shared account they belong to, so it proves a real authorized visit rather
+    // than a client assertion. Fail-open inside.
+    await recordCollaborationLearningEvent({
+      userId: user.id,
+      accountId: active.id,
+      eventType: "collab_team_viewed",
+    });
 
     if (canManage) {
       const inviteRecords = await listInvitations(active.id);

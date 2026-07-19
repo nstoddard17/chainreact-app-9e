@@ -14,6 +14,7 @@ import {
   listAllActionMetas,
   listAllTriggerMetas,
 } from "@/services/discovery/_registry";
+import { recordCollaborationLearningEvent } from "@/services/collaborationOnboarding/learningEvents";
 import type { BuilderTeamContextValue } from "@/features/workflow-builder/context/builderTeamContext";
 
 interface Props {
@@ -101,6 +102,20 @@ export default async function WorkflowDetailPage({ params, searchParams }: Props
     ]);
     const isTeamWorkflow = (workflowAccount?.type ?? "personal") !== "personal";
     const isViewerCreator = record.createdByUserId === user.id;
+    // 5.ONBOARD-4 — member learning evidence for "open a shared workflow".
+    // `workflowsRepo.getById` above reads through the SESSION (RLS) client, so
+    // reaching this line already proves the caller was authorized to open this
+    // workflow; combined with the shared-account check it proves they opened a
+    // workflow belonging to a shared account. Fail-open inside, and the whole
+    // block is already wrapped in the best-effort try/catch below.
+    if (isTeamWorkflow) {
+      await recordCollaborationLearningEvent({
+        userId: user.id,
+        accountId: record.accountId,
+        eventType: "collab_shared_workflow_opened",
+        workflowId: record.id,
+      });
+    }
     let creatorDisplayName: string | null = null;
     if (isTeamWorkflow && !isViewerCreator) {
       const identities = await membershipsRepo.listMemberIdentities(record.accountId);
