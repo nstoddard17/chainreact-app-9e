@@ -44,6 +44,8 @@ export function categorizeValidationIssue(
     case "unreachable_node":
     case "stale_edge":
     case "self_loop_edge":
+    case "missing_branch_edge":
+    case "stale_branch_edge":
       return "workflow_setup";
     case "broken_variable_reference":
       return "data_reference";

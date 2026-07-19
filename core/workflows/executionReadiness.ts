@@ -1,4 +1,5 @@
 import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
+import { findBranchWiringIssues } from "./branchWiring";
 import {
   type RequiredFieldsByType,
   missingRequiredFields,
@@ -27,7 +28,9 @@ export type GraphIssueCode =
   | "multiple_triggers"
   | "stale_edge"
   | "self_loop_edge"
-  | "unreachable_node";
+  | "unreachable_node"
+  | "missing_branch_edge"
+  | "stale_branch_edge";
 
 export interface GraphIssue {
   readonly code: GraphIssueCode;
@@ -41,6 +44,8 @@ export interface GraphIssue {
   readonly edgeId?: string;
   readonly from?: string;
   readonly to?: string;
+  /** Set for branch-wiring issues (BRANCH-ENT-1): the missing/stale route label. */
+  readonly branchLabel?: string;
 }
 
 export interface ReadinessFieldGap {
@@ -116,6 +121,24 @@ export function findGraphIssues(
       from: sl.nodeId,
       to: sl.nodeId,
       message: "A step is connected to itself. Remove the self-connection.",
+    });
+  }
+
+  // Branch wiring (BRANCH-ENT-1 D3) — every label a branching node can return
+  // must have a destination edge (else the run would fail INVALID_BRANCH),
+  // and labeled edges whose label can never be returned are dead paths.
+  // Shared here so the builder drawer, Activate/publish/run-now preflights,
+  // and the engine pre-dispatch backstop all agree.
+  for (const bw of findBranchWiringIssues(nodes, edges)) {
+    issues.push({
+      code: bw.code,
+      nodeId: bw.nodeId,
+      displayName: bw.displayName,
+      branchLabel: bw.branchLabel,
+      message: bw.message,
+      ...(bw.edgeId !== undefined && { edgeId: bw.edgeId }),
+      ...(bw.from !== undefined && { from: bw.from }),
+      ...(bw.to !== undefined && { to: bw.to }),
     });
   }
 

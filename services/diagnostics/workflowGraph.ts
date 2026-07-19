@@ -48,6 +48,7 @@ export type GraphFindingKind =
   | "MULTIPLE_TRIGGERS"
   | "STALE_EDGE"
   | "UNREACHABLE_NODE"
+  | "BRANCH_WIRING"
   | "UNSUPPORTED_NODE"
   | "INCOMPLETE_NODE_TYPE"
   | "MISSING_REQUIRED_FIELDS"
@@ -125,7 +126,9 @@ export function analyzeWorkflowGraph(def: WorkflowDefinition): GraphFindingDTO[]
           ? "MULTIPLE_TRIGGERS"
           : g.code === "stale_edge"
             ? "STALE_EDGE"
-            : "UNREACHABLE_NODE";
+            : g.code === "missing_branch_edge" || g.code === "stale_branch_edge"
+              ? "BRANCH_WIRING"
+              : "UNREACHABLE_NODE";
     findings.push({
       kind,
       severity: "error",

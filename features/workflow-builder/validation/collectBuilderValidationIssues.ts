@@ -63,6 +63,8 @@ export type BuilderValidationIssueCode =
   | "unreachable_node"
   | "stale_edge"
   | "self_loop_edge"
+  | "missing_branch_edge"
+  | "stale_branch_edge"
   | "broken_variable_reference";
 
 export interface BuilderValidationIssue {
@@ -174,9 +176,15 @@ export function collectBuilderValidationIssues(
     }
     issues.push({
       id:
-        g.code === "stale_edge" || g.code === "self_loop_edge"
+        g.code === "stale_edge" ||
+        g.code === "self_loop_edge" ||
+        g.code === "stale_branch_edge"
           ? `${g.code}:${g.edgeId}`
-          : `${g.code}:${g.nodeId}`,
+          : g.code === "missing_branch_edge"
+            ? // Multiple missing routes per node (e.g. true AND false) each
+              // need their own stable row.
+              `${g.code}:${g.nodeId}:${g.branchLabel}`
+            : `${g.code}:${g.nodeId}`,
       code: g.code,
       severity: "error",
       message: g.message,

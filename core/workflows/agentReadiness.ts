@@ -170,6 +170,8 @@ const GRAPH_VALIDATION_CODES: ReadonlySet<string> = new Set([
   "unreachable_node",
   "stale_edge",
   "self_loop_edge",
+  "missing_branch_edge",
+  "stale_branch_edge",
   "router_routes_invalid",
 ]);
 
