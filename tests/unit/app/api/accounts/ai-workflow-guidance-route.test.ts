@@ -358,7 +358,10 @@ describe("workflow-guidance route — capability call + safe response", () => {
       ],
     };
     mockRunner.mockResolvedValueOnce({ ok: true, guidanceText: "Here's a plan.", source: "hermes-agent", workflowPlan: plan });
-    const res = await call(ACCOUNT, goodBody);
+    // REACT-PROVIDER-AMBIGUITY-1 — the goal NAMES both providers, so the provider-selection guard
+    // justifies the plan (the generic-goal case now yields a targeted provider question instead;
+    // covered in ai-workflow-guidance-provider-ambiguity.test.ts).
+    const res = await call(ACCOUNT, { goalText: "When a Gmail email arrives from a lead, notify my team in Slack" });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.workflowPlan).toEqual(plan);
@@ -493,7 +496,9 @@ describe("workflow-guidance route — capability call + safe response", () => {
       ],
     });
     const res = await call(ACCOUNT, {
-      goalText: "change it to an email notification",
+      // Names Gmail → the provider-selection guard justifies the added gmail:send_email node
+      // (the generic "email" phrasing now asks Gmail-vs-Outlook first; see the ambiguity suite).
+      goalText: "change it to a Gmail email notification",
       currentDraft: {
         nodes: [
           { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },
@@ -575,7 +580,8 @@ describe("workflow-guidance route — capability call + safe response", () => {
       ],
     });
     const res = await call(ACCOUNT, {
-      goalText: "change it to an email",
+      // Names Gmail → justified provider (generic "email" now clarifies; see the ambiguity suite).
+      goalText: "change it to a Gmail email",
       currentDraft: {
         nodes: [
           { id: "t1", kind: "trigger", provider: "native", type: "manual.run", config: {}, position: { x: 0, y: 0 } },

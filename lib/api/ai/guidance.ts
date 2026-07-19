@@ -42,6 +42,19 @@ export type WorkflowGuidanceResponse =
        * since (the user kept editing). Present only alongside a `proposedDefinition`.
        */
       baseGraphVersion?: string;
+      /**
+       * REACT-PROVIDER-AMBIGUITY-1 — the targeted provider question when the request named a
+       * capability ("email") that more than one provider implements and none was justified
+       * (explicit mention / canvas / sole candidate / documented connected narrowing). Present ⇒
+       * NO plan/preview/proposal was committed this turn; `guidanceText` carries the question.
+       * `options` pair stable provider ids with user-facing display names.
+       */
+      providerClarification?: {
+        readonly kind: "trigger" | "action";
+        readonly category: string;
+        readonly options: readonly { readonly providerId: string; readonly label: string }[];
+        readonly question: string;
+      };
       warnings?: readonly string[];
       /**
        * REACT-AGENT-TEMPLATE-MATCH-4 — a deterministic, SAFE official-template recommendation for a

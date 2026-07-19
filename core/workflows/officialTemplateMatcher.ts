@@ -579,7 +579,13 @@ function evaluateStrongMatch(
 ): { readonly strong: boolean; readonly reasons: string[] } {
   const entry = scored.entry;
   const explicit = req.explicitProviders;
-  const requested = new Set<string>([...explicit, ...req.aliasProviders]);
+  // REACT-PROVIDER-AMBIGUITY-1 — strong-match provider evidence is EXPLICIT-ONLY. An ambiguous
+  // alias ("email" → gmail|microsoft-outlook) stays a weak RANKING signal (scoreEntry) but can
+  // never justify recommending a template whose provider the user did not name: a generic "email"
+  // request must not silently become a Gmail (or Outlook) recommendation. Alias-satisfied
+  // providers now count as unrequested here (C3/C4/C5 reject → weak_match → build manually, where
+  // the provider-selection guard asks the targeted question).
+  const requested = new Set<string>([...explicit]);
   const templateProviders = new Set(entry.providers);
   const reasons: string[] = [];
 

@@ -40,6 +40,10 @@ import { sanitizePlanStepConfigs } from "@/services/ai-guidance/planConfig/sanit
 import { resolveProposedOptionValues } from "@/services/ai-guidance/planConfig/resolveProposedOptionValues";
 import { prepareProposedOperations } from "@/services/ai-guidance/planConfig/prepareProposedOperations";
 import { buildFieldSchemaLines, selectRelevantProviders } from "@/services/ai-guidance/promptFieldSchemas";
+import {
+  findProviderAmbiguity,
+  type ProviderClarification,
+} from "@/services/ai-guidance/providerSelection/providerSelectionGuard";
 import * as accountsRepo from "@/repositories/accounts";
 
 /**
@@ -366,6 +370,17 @@ export async function POST(
     ? inferDeterministicMutationOps({ goalText, currentDraft: currentDraft!, connectedEmailProviders })
     : { kind: "none" as const };
 
+  // REACT-PROVIDER-AMBIGUITY-1 — the provider-selection guard's shared context: the user's words
+  // (all turns), providers already on their canvas, and connected providers. See the decision table
+  // in `providerSelectionGuard.ts` — a capability match never authorizes inventing a provider.
+  const providerGuardCtx = {
+    texts: [goalText, ...(boundedRecentTurns?.map((t) => t.text) ?? [])],
+    canvasProviders: editing ? currentDraft!.nodes.map((n) => n.provider) : [],
+    connectedProviders: [...sharedCredentialProviders, ...ownConnectionProviders],
+  };
+  let providerClarification: ProviderClarification | null = null;
+  const providerNotices: string[] = [];
+
   let workflowPlan = result.workflowPlan ? await preparePlanConfigs(result.workflowPlan) : null;
   let previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
   let proposedDefinition: import("@/contracts/workflowDefinition").WorkflowDefinition | null = null;
@@ -402,21 +417,48 @@ export async function POST(
       configWarnings.push(`I couldn't set '${field}' automatically — pick it in the step's setup.`);
     }
 
+    // REACT-PROVIDER-AMBIGUITY-1 — every node the edit ADDS (addNode / replaceTrigger) must carry a
+    // JUSTIFIED provider (explicit mention / canvas / sole candidate / documented connected
+    // narrowing). An unjustified choice becomes a targeted question INSTEAD of a proposal — an
+    // existing node's provider is never silently swapped for an invented one. updateNodeConfig on
+    // existing nodes carries no provider decision and passes through.
+    const addedNodes = prepared.operations.flatMap((op) =>
+      op.op === "addNode" || op.op === "replaceTrigger"
+        ? [
+            {
+              provider: op.node.provider,
+              type: op.node.type,
+              kind: (op.node.kind === "trigger" ? "trigger" : "action") as "trigger" | "action",
+            },
+          ]
+        : [],
+    );
+    const editAmbiguity = findProviderAmbiguity(addedNodes, providerGuardCtx);
+    if (editAmbiguity.clarification) {
+      providerClarification = editAmbiguity.clarification;
+      editorGuidanceText = editAmbiguity.clarification.question;
+    } else {
+      providerNotices.push(...editAmbiguity.notices);
+    }
+
     // PRIMARY model-driven path: opaque refs → stale guard → real ids → atomic catalog validation.
-    const edit = runWorkflowEditFromModel({
-      currentDraft: currentDraft!,
-      editableGraph: builtEditableGraph,
-      operations: prepared.operations,
-      ...(result.mutationBaseVersion ? { modelBaseVersion: result.mutationBaseVersion } : {}),
-    });
-    if (edit.kind === "proposal") {
+    // Skipped entirely when the provider choice needs clarification (no proposal is previewed).
+    const edit = providerClarification
+      ? null
+      : runWorkflowEditFromModel({
+          currentDraft: currentDraft!,
+          editableGraph: builtEditableGraph,
+          operations: prepared.operations,
+          ...(result.mutationBaseVersion ? { modelBaseVersion: result.mutationBaseVersion } : {}),
+        });
+    if (edit && edit.kind === "proposal") {
       proposedDefinition = edit.proposedDefinition;
       previewDraft = edit.previewDraft;
       workflowPlan = edit.workflowPlan;
       baseGraphVersion = edit.baseGraphVersion;
       editorGuidanceText = summarizeProposedEdit(currentDraft!, edit.proposedDefinition);
       proposalWarnings.push(...edit.warnings);
-    } else if (edit.kind === "invalid" || edit.kind === "stale") {
+    } else if (edit && (edit.kind === "invalid" || edit.kind === "stale")) {
       // Safe, actionable reason (changed/unknown step, unsupported capability) — never raw refs/JSON.
       editorGuidanceText = edit.message;
     }
@@ -448,15 +490,37 @@ export async function POST(
     workflowPlan = inferDeterministicPreviewPlan(goalText);
     previewDraft = workflowPlan ? planToDraftPreview(workflowPlan) : null;
   }
-  const catalogGap = !editing && !workflowPlan && !proposedDefinition ? detectCatalogGap(goalText) : null;
 
-  // The rail message: editing turns use the route-owned text; everything else uses the (already
+  // REACT-PROVIDER-AMBIGUITY-1 — NEW-workflow provider guard: every plan step's provider must be
+  // justified (decision table in providerSelectionGuard.ts). "Email" names a capability, not Gmail:
+  // an unjustified choice drops the plan/preview and asks ONE targeted provider question instead.
+  // The user's constraints (incl. tokenized literals) survive via the conversation — the follow-up
+  // turn re-plans with the chosen provider and the same values, nothing needs re-typing.
+  if (!editing && workflowPlan && !proposedDefinition) {
+    const planNodes = workflowPlan.steps
+      .filter((s) => s.role === "trigger" || s.role === "action")
+      .map((s) => ({ provider: s.provider, type: s.type, kind: s.role as "trigger" | "action" }));
+    const planAmbiguity = findProviderAmbiguity(planNodes, providerGuardCtx);
+    if (planAmbiguity.clarification) {
+      providerClarification = planAmbiguity.clarification;
+      workflowPlan = null;
+      previewDraft = null;
+    } else {
+      providerNotices.push(...planAmbiguity.notices);
+    }
+  }
+
+  const catalogGap = !editing && !workflowPlan && !proposedDefinition && !providerClarification ? detectCatalogGap(goalText) : null;
+
+  // The rail message: editing turns use the route-owned text; a provider clarification OWNS the
+  // message (the model's prose may assume a provider we refused); everything else uses the (already
   // JSON-stripped) model prose. Warnings carry only safe non-blocking notes.
-  const guidanceText = editorGuidanceText ?? reboundGuidanceText;
+  const guidanceText = editorGuidanceText ?? (providerClarification ? providerClarification.question : reboundGuidanceText);
   const warnings = [
     ...(result.warnings ?? []),
     ...proposalWarnings,
     ...[...new Set(configWarnings)],
+    ...[...new Set(providerNotices)],
     ...(catalogGap ? [catalogGap.message] : []),
   ];
 
@@ -472,6 +536,9 @@ export async function POST(
     // HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the draft version this proposal is pinned to, so the client can
     // refuse to Apply onto a canvas that changed since (one more stale guard at the explicit Apply click).
     ...(proposedDefinition && baseGraphVersion ? { baseGraphVersion } : {}),
+    // REACT-PROVIDER-AMBIGUITY-1 — the targeted provider question (stable ids + display names).
+    // Present ⇒ no plan/preview/proposal was committed this turn.
+    ...(providerClarification ? { providerClarification } : {}),
     ...(warnings.length ? { warnings } : {}),
     // REACT-AGENT-TEMPLATE-MATCH-4 — a partial (weak) template match was found but deliberately NOT
     // recommended; the agent is building manually. Surface the brief, safe fallback notice so the UI

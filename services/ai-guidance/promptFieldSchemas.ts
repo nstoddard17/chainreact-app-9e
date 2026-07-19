@@ -30,6 +30,7 @@ import {
   listProvidersWithMetadata,
   listTriggerMetasForProvider,
 } from "@/services/discovery/_registry";
+import { buildWordSet, isProviderMentioned } from "./providerVocabulary";
 
 export const MAX_FIELD_SCHEMA_PROVIDERS = 12;
 export const MAX_FIELD_SCHEMA_NODES = 80;
@@ -60,16 +61,6 @@ export interface SelectRelevantProvidersInput {
   readonly connectedProviders?: readonly string[];
 }
 
-function wordSet(texts: readonly string[]): Set<string> {
-  const words = new Set<string>();
-  for (const t of texts) {
-    for (const w of t.toLowerCase().split(/[^a-z0-9]+/)) {
-      if (w.length >= 2) words.add(w);
-    }
-  }
-  return words;
-}
-
 /** Categories a provider's registered nodes span. */
 function providerCategories(providerId: string): Set<ActionCategory> {
   const cats = new Set<ActionCategory>();
@@ -84,7 +75,7 @@ function providerCategories(providerId: string): Set<ActionCategory> {
  */
 export function selectRelevantProviders(input: SelectRelevantProvidersInput): readonly string[] {
   const withMeta = new Set(listProvidersWithMetadata());
-  const words = wordSet(input.texts);
+  const words = buildWordSet(input.texts);
 
   const canvas: string[] = [];
   for (const key of input.canvasCapabilityKeys ?? []) {
@@ -96,10 +87,7 @@ export function selectRelevantProviders(input: SelectRelevantProvidersInput): re
   const byCategory: string[] = [];
   for (const manifest of listProviders()) {
     if (!withMeta.has(manifest.id)) continue;
-    const idTokens = manifest.id.toLowerCase().split("-");
-    const nameTokens = manifest.displayName.toLowerCase().split(/[^a-z0-9]+/);
-    const tokens = [...idTokens, ...nameTokens, manifest.id.toLowerCase()].filter((t) => t.length >= 3);
-    if (tokens.some((t) => words.has(t))) {
+    if (isProviderMentioned(manifest.id, manifest.displayName, words)) {
       mentioned.push(manifest.id);
       continue;
     }

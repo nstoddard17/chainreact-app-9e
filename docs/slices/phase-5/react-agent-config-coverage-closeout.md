@@ -16,6 +16,14 @@ reached the trigger's optional `from` filter. After this batch the sender lands 
 (exact value, resolver-shaped `["vendor@example.com"]`) while the raw address never crosses to
 Hermes (a typed placeholder does).
 
+> **Superseded detail (REACT-PROVIDER-AMBIGUITY-1):** the Gmail choice itself was NOT justified
+> by this prompt — "email" names a capability, not a provider. The follow-up slice
+> ([react-agent-provider-ambiguity-closeout.md](./react-agent-provider-ambiguity-closeout.md))
+> adds the deterministic provider-selection guard: for this exact prompt with both Gmail and
+> Outlook eligible, React now asks which email service to use first (the sender constraint and
+> placeholder binding survive the clarification); the field-population behavior described here
+> applies after the provider is justified.
+
 ## Root cause (traced, not assumed)
 
 Four compounding causes on the CREATE path, one on the EDIT path:
