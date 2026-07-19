@@ -1938,6 +1938,203 @@ describe("WorkflowEngine — label-aware branching (Engine Branching Commit 2 lo
     });
   });
 
+  // ── BRANCH-ENT-1 routing fix D1 — order-independent reconvergence ──────────
+  //
+  // Regression: the merge node used to be finalized "skipped" the moment the
+  // label-blind BFS visited it un-activated, so a reconverging node on a
+  // SHORTER path than its activating parent executed or not depending on edge
+  // ARRAY ORDER. Business rule: route selection and OR-merge behavior depend
+  // only on stable labels, never on edge storage order.
+  describe("reconvergence with unequal path lengths is edge-order independent (D1)", () => {
+    const nodes = [
+      trigger("t1"),
+      action("router", "route"),
+      action("A", "a_handler"),
+      action("M", "merge_handler"),
+    ];
+    // Direct short path router→M (label 'b'); long path router→A ('a') → M.
+    const edgesMergeFirst = [
+      edge("e1", "t1", "router"),
+      labeledEdge("e2", "router", "M", "b"),
+      labeledEdge("e3", "router", "A", "a"),
+      edge("e4", "A", "M"),
+    ];
+    const edgesMergeLast = [
+      edge("e1", "t1", "router"),
+      labeledEdge("e3", "router", "A", "a"),
+      edge("e4", "A", "M"),
+      labeledEdge("e2", "router", "M", "b"),
+    ];
+
+    async function run(edges: ReturnType<typeof edge>[], picked: string) {
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        draftDefinition: { nodes, edges },
+      });
+      const aHandler = jest.fn(async () => ({ output: { which: "A" } }));
+      const mergeHandler = jest.fn(async () => ({ output: { merged: true } }));
+      mockGetActionHandler.mockImplementation((_p: string, type: string) =>
+        type === "route"
+          ? async () => ({ output: {}, branchTaken: picked })
+          : type === "a_handler"
+            ? aHandler
+            : type === "merge_handler"
+              ? mergeHandler
+              : undefined,
+      );
+      const result = await new WorkflowEngine({
+        resolveStrict: (v) => v,
+      }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+      return { result, aHandler, mergeHandler };
+    }
+
+    it("long branch selected, merge edge stored FIRST: merge node still executes exactly once (the bug case)", async () => {
+      const { result, aHandler, mergeHandler } = await run(edgesMergeFirst, "a");
+      expect(result.status).toBe("succeeded");
+      expect(aHandler).toHaveBeenCalledTimes(1);
+      expect(mergeHandler).toHaveBeenCalledTimes(1);
+      const statusMap = Object.fromEntries(
+        result.steps.map((s) => [s.nodeId, s.status]),
+      );
+      expect(statusMap).toEqual({
+        t1: "succeeded",
+        router: "succeeded",
+        A: "succeeded",
+        M: "succeeded",
+      });
+    });
+
+    it("long branch selected, merge edge stored LAST: identical outcome (order independence)", async () => {
+      const { result, aHandler, mergeHandler } = await run(edgesMergeLast, "a");
+      expect(result.status).toBe("succeeded");
+      expect(aHandler).toHaveBeenCalledTimes(1);
+      expect(mergeHandler).toHaveBeenCalledTimes(1);
+    });
+
+    it("short branch selected: merge node runs once via the direct edge, long branch skipped — both edge orders", async () => {
+      for (const edges of [edgesMergeFirst, edgesMergeLast]) {
+        const { result, aHandler, mergeHandler } = await run(edges, "b");
+        expect(result.status).toBe("succeeded");
+        expect(aHandler).not.toHaveBeenCalled();
+        expect(mergeHandler).toHaveBeenCalledTimes(1);
+        const statusMap = Object.fromEntries(
+          result.steps.map((s) => [s.nodeId, s.status]),
+        );
+        expect(statusMap).toEqual({
+          t1: "succeeded",
+          router: "succeeded",
+          A: "skipped",
+          M: "succeeded",
+        });
+      }
+    });
+
+    it("nested condition on the non-selected outer branch stays skipped along with its descendants", async () => {
+      // t1 → outer → (true → innerIf → deep, false → other). Outer picks
+      // 'false': innerIf and deep must be persisted skipped, never invoked.
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        draftDefinition: {
+          nodes: [
+            trigger("t1"),
+            action("outer", "route"),
+            action("innerIf", "inner_handler"),
+            action("deep", "deep_handler"),
+            action("other", "other_handler"),
+          ],
+          edges: [
+            edge("e1", "t1", "outer"),
+            labeledEdge("e2", "outer", "innerIf", "true"),
+            labeledEdge("e3", "outer", "other", "false"),
+            labeledEdge("e4", "innerIf", "deep", "true"),
+          ],
+        },
+      });
+      const innerHandler = jest.fn();
+      const deepHandler = jest.fn();
+      const otherHandler = jest.fn(async () => ({ output: { ran: true } }));
+      mockGetActionHandler.mockImplementation((_p: string, type: string) =>
+        type === "route"
+          ? async () => ({ output: {}, branchTaken: "false" })
+          : type === "inner_handler"
+            ? innerHandler
+            : type === "deep_handler"
+              ? deepHandler
+              : type === "other_handler"
+                ? otherHandler
+                : undefined,
+      );
+      const result = await new WorkflowEngine({
+        resolveStrict: (v) => v,
+      }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+      expect(result.status).toBe("succeeded");
+      expect(innerHandler).not.toHaveBeenCalled();
+      expect(deepHandler).not.toHaveBeenCalled();
+      expect(otherHandler).toHaveBeenCalledTimes(1);
+      const statusMap = Object.fromEntries(
+        result.steps.map((s) => [s.nodeId, s.status]),
+      );
+      expect(statusMap).toEqual({
+        t1: "succeeded",
+        outer: "succeeded",
+        innerIf: "skipped",
+        deep: "skipped",
+        other: "succeeded",
+      });
+    });
+
+    it("unlabeled cleanup edge from the branching node executes regardless of the selected branch, and reconverges once", async () => {
+      // t1 → router → (label 'a' → A → M, unlabeled cleanup → M). Cleanup
+      // always activates M; A's path also reaches M. M must run exactly once.
+      mockGetByIdServiceRole.mockResolvedValueOnce({
+        ...baseWorkflow,
+        draftDefinition: {
+          nodes: [
+            trigger("t1"),
+            action("router", "route"),
+            action("A", "a_handler"),
+            action("M", "merge_handler"),
+          ],
+          edges: [
+            edge("e1", "t1", "router"),
+            edge("e_cleanup", "router", "M"),
+            labeledEdge("e2", "router", "A", "a"),
+            edge("e4", "A", "M"),
+          ],
+        },
+      });
+      const aHandler = jest.fn(async () => ({ output: {} }));
+      const mergeHandler = jest.fn(async () => ({ output: {} }));
+      mockGetActionHandler.mockImplementation((_p: string, type: string) =>
+        type === "route"
+          ? async () => ({ output: {}, branchTaken: "a" })
+          : type === "a_handler"
+            ? aHandler
+            : type === "merge_handler"
+              ? mergeHandler
+              : undefined,
+      );
+      const result = await new WorkflowEngine({
+        resolveStrict: (v) => v,
+      }).runWorkflow({
+        workflowId: "wf-1",
+        triggerNodeId: "t1",
+        triggerEvent,
+      });
+      expect(result.status).toBe("succeeded");
+      expect(aHandler).toHaveBeenCalledTimes(1);
+      expect(mergeHandler).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("skipped-node variable reference: downstream config that references a skipped node surfaces MISSING_VARIABLE", async () => {
     // Topology: t1 → router → (label='taken' → A → C, label='not-taken' → B).
     // C.config references {{B.field}}; B is skipped because branchTaken='taken',

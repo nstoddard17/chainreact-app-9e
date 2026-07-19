@@ -99,12 +99,22 @@ export const ifThenConditionMeta: ActionMeta = {
       ],
     },
   ],
+  // Outputs mirror the HANDLER's bounded output exactly (BRANCH-ENT-1 D2 fix):
+  // { conditionMet, operator, onFalse }. `branchTaken` is an ENGINE-level edge
+  // decision, never placed in run variables — advertising it (or the old
+  // `result` name) produced builder variable picks that failed at run time
+  // with MISSING_VARIABLE.
   outputs: [
-    { name: "result", type: "boolean", description: "Result of the condition." },
     {
-      name: "branchTaken",
+      name: "conditionMet",
+      type: "boolean",
+      description: "Whether the condition evaluated to true.",
+    },
+    { name: "operator", type: "string", description: "The operator that was evaluated." },
+    {
+      name: "onFalse",
       type: "string",
-      description: "'true' or 'false' (or null when onFalse is 'skip' and the condition was false).",
+      description: "'branch' or 'skip' — how a false result routes.",
     },
   ],
   producesFileRef: false,

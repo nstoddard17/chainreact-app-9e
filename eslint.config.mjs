@@ -307,13 +307,15 @@ export default [
   // billing reservation / test-mode gating / failure classification.
   // Capped (with headroom) to make further drift visible. Raised 550→580 for
   // the Slice 6 durable-queue claim-or-create block (claimQueuedWorkflowRun
-  // before the create-at-start fallback); the phase split remains future work.
+  // before the create-at-start fallback); raised 580→590 for the BRANCH-ENT-1
+  // D1 fix (order-independent reconvergence needs the fixpoint worklist
+  // scaffolding around the node loop); the phase split remains future work.
   {
     files: ["services/execution/engine.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 580, skipBlankLines: true, skipComments: true },
+        { max: 590, skipBlankLines: true, skipComments: true },
       ],
     },
   },

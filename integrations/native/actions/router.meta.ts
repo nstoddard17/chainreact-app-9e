@@ -57,11 +57,26 @@ export const routerMeta: ActionMeta = {
       required: false,
     },
   ],
+  // Outputs mirror the HANDLER's bounded output exactly (BRANCH-ENT-1 D2 fix):
+  // { matched, routeLabel, evaluatedCount }. `branchTaken` is an ENGINE-level
+  // edge decision, never placed in run variables — advertising it produced
+  // builder variable picks that failed at run time with MISSING_VARIABLE.
   outputs: [
     {
-      name: "branchTaken",
+      name: "matched",
+      type: "boolean",
+      description: "Whether any route's condition matched.",
+    },
+    {
+      name: "routeLabel",
       type: "string",
-      description: "The label of the first matching route, the defaultRoute when no route matched, or null.",
+      description:
+        "The label of the first matching route, the default route when none matched, or null.",
+    },
+    {
+      name: "evaluatedCount",
+      type: "number",
+      description: "How many routes were evaluated before the first match (or all, when none matched).",
     },
   ],
   producesFileRef: false,

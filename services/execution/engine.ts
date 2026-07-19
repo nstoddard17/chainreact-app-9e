@@ -455,14 +455,25 @@ export class WorkflowEngine {
       : null;
     const acceptedNodeOwners = sharingOn ? null : await loadAcceptedNodeOwners(input.workflowId);
 
-    for (const node of order) {
-      // Skip nodes that no activated edge has reached. The trigger is
-      // always seeded as reachable, so the first iteration always runs.
+    // Fixpoint worklist over the BFS order (BRANCH-ENT-1 routing fix D1). The
+    // BFS order is label-blind, so a reconverging node can appear BEFORE the
+    // parent that activates it. The old single pass finalized such a node as
+    // "skipped" on first un-activated visit, making OR-merge depend on edge
+    // ARRAY ORDER. Un-activated nodes are now deferred and re-visited after
+    // each pass that made progress; survivors are finalized skipped only at
+    // the fixpoint. A node leaves the worklist when executed, so each node
+    // still runs at most once and cycles stay bounded exactly as before.
+    let pendingNodes: readonly (typeof def.nodes)[number][] = order;
+    while (pendingNodes.length > 0 && !runFailed) {
+      const deferredNodes: (typeof def.nodes)[number][] = [];
+      let progressed = false;
+      for (const node of pendingNodes) {
+      // Defer nodes no activated edge has reached yet (trigger is seeded).
       if (!reachable.has(node.id)) {
-        steps.push({ nodeId: node.id, status: "skipped" });
-        log("execution.step.skipped", { nodeId: node.id });
+        deferredNodes.push(node);
         continue;
       }
+      progressed = true;
 
       if (node.kind === "trigger") {
         // The trigger doesn't execute — its payload is the seed. Record
@@ -700,6 +711,17 @@ export class WorkflowEngine {
         runFailed = true;
         break;
       }
+      }
+      pendingNodes = deferredNodes;
+      // No execution this pass → nothing left can become reachable.
+      if (!progressed) break;
+    }
+    // Finalize never-activated survivors as skipped. On a mid-run failure
+    // `pendingNodes` holds the un-activated nodes visited before the failure
+    // point, matching the pre-fix persistence.
+    for (const node of pendingNodes) {
+      steps.push({ nodeId: node.id, status: "skipped" });
+      log("execution.step.skipped", { nodeId: node.id });
     }
 
     const finishedAt = new Date().toISOString();
