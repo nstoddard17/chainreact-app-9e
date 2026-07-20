@@ -154,10 +154,14 @@ function rootRank(node: WorkflowNode, index: number): number {
  * Algorithm (small graphs — builder workflows):
  *   1. Split into connected components (undirected) so disconnected pieces never
  *      collide; components stack vertically in authoring order.
- *   2. Per component: roots = indegree-0 nodes (triggers first); BFS along
- *      outgoing edges assigns each node a depth (row), first-visit wins. A pure
- *      cycle with no indegree-0 entry seeds from its stable-first member; any
- *      node a cycle leaves unreached is stacked below.
+ *   2. Per component: roots = indegree-0 nodes (triggers first); depth (row) is
+ *      the LONGEST path from a root, via bounded edge relaxation, so a
+ *      reconverging node always sits below its deepest parent (RECONV-1 S2 —
+ *      first-visit BFS hoisted the shared node of an asymmetric diamond above
+ *      its parent, producing an upward edge). Cycles are legal in definitions,
+ *      so passes and depths are clamped at the component size. A pure cycle
+ *      with no indegree-0 entry seeds from its stable-first member; any node
+ *      relaxation never reaches is stacked below.
  *   3. Each depth is a row (y = row * ROW_GAP); nodes sharing a row fan out into
  *      columns (x = col * BRANCH_GAP_X) in authoring order. A linear chain → one
  *      column at x = 0, exactly the existing convention.
@@ -220,22 +224,27 @@ export function layoutWorkflowGraph(
     }
 
     const depth = new Map<string, number>();
-    const queue: string[] = [];
-    for (const r of roots) {
-      depth.set(r, 0);
-      queue.push(r);
-    }
-    while (queue.length > 0) {
-      const id = queue.shift()!;
-      const d = depth.get(id)!;
-      for (const c of outAdj.get(id)!) {
-        if (!depth.has(c)) {
-          depth.set(c, d + 1);
-          queue.push(c);
+    for (const r of roots) depth.set(r, 0);
+    // Longest-path depth via bounded relaxation. Depths and pass count are
+    // clamped at the component size so cyclic graphs (legal — only self-loops
+    // are rejected) terminate deterministically at a finite fixed point.
+    const depthCap = comp.length;
+    for (let pass = 0; pass < depthCap; pass++) {
+      let changed = false;
+      for (const id of comp) {
+        const d = depth.get(id);
+        if (d === undefined) continue;
+        for (const c of outAdj.get(id)!) {
+          const candidate = Math.min(d + 1, depthCap);
+          if ((depth.get(c) ?? -1) < candidate) {
+            depth.set(c, candidate);
+            changed = true;
+          }
         }
       }
+      if (!changed) break;
     }
-    // Cycle remnants the BFS never reached → stack below, stable order.
+    // Cycle remnants the relaxation never reached → stack below, stable order.
     let maxDepth = 0;
     for (const d of depth.values()) maxDepth = Math.max(maxDepth, d);
     const unreached = comp.filter((id) => !depth.has(id)).sort((a, b) => index.get(a)! - index.get(b)!);

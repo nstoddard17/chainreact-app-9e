@@ -188,6 +188,52 @@ describe("layoutWorkflowGraph", () => {
     );
   });
 
+  it("asymmetric diamond: the reconverged node lands strictly BELOW its deepest parent (longest-path depth)", () => {
+    // t → s direct AND t → a → b → s. First-visit BFS put s on row 1 (above
+    // its parent b), producing an upward edge after Arrange — RECONV-1 S2
+    // switches depth to the longest path from the trigger: depth(s) = 3.
+    const nodes = [
+      node("t", "trigger", 99, 5),
+      node("s", "action", -40, 999),
+      node("a", "action", 200, 12),
+      node("b", "action", 7, 7),
+    ];
+    const edges = [
+      edge("e1", "t", "s"),
+      edge("e2", "t", "a"),
+      edge("e3", "a", "b"),
+      edge("e4", "b", "s"),
+    ];
+    const out = layoutWorkflowGraph(nodes, edges);
+    const at = (id: string) => out.find((n) => n.id === id)!.position;
+    expect(at("t")).toEqual({ x: 0, y: 0 });
+    expect(at("a")).toEqual({ x: 0, y: LAYOUT_ROW_GAP_Y });
+    expect(at("b")).toEqual({ x: 0, y: 2 * LAYOUT_ROW_GAP_Y });
+    expect(at("s")).toEqual({ x: 0, y: 3 * LAYOUT_ROW_GAP_Y });
+    // Strictly below BOTH parents (the chain tail and the direct-edge source).
+    expect(at("s").y).toBeGreaterThan(at("b").y);
+    expect(at("s").y).toBeGreaterThan(at("t").y);
+    const positions = out.map((n) => n.position);
+    for (let i = 0; i < positions.length; i++) {
+      for (let j = i + 1; j < positions.length; j++) {
+        expect(positionsOverlap(positions[i]!, positions[j]!)).toBe(false);
+      }
+    }
+  });
+
+  it("a 2-node cycle terminates with finite, non-overlapping positions (depth clamp)", () => {
+    const nodes = [node("a", "action", 5, 5), node("b", "action", 5, 5)];
+    const edges = [edge("e1", "a", "b"), edge("e2", "b", "a")];
+    const out = layoutWorkflowGraph(nodes, edges);
+    for (const n of out) {
+      expect(Number.isFinite(n.position.x)).toBe(true);
+      expect(Number.isFinite(n.position.y)).toBe(true);
+    }
+    expect(
+      positionsOverlap(out[0]!.position, out[1]!.position),
+    ).toBe(false);
+  });
+
   it("returns already-tidy nodes by reference (no-op detection) and handles empty input", () => {
     expect(layoutWorkflowGraph([], [])).toEqual([]);
     const nodes = [node("t", "trigger", 0, 0), node("a1", "action", 0, 120)];

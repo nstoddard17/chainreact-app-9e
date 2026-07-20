@@ -154,6 +154,21 @@ describe("WorkflowCanvas — connection UX", () => {
     expect(screen.getByTestId("connection-hint").textContent).toMatch(/already connects/i);
   });
 
+  // RECONV-1 S2 — router 3-lane variant of the True/False-share-a-target rule.
+  it("three Router lanes drawn to one shared target coexist; re-drawing a lane is blocked", () => {
+    render(<WorkflowCanvas />);
+    callConnect("act1", "act2", "branch:hot");
+    callConnect("act1", "act2", "branch:warm");
+    callConnect("act1", "act2", "branch:cold");
+    const lanes = edges().filter((e) => e.from === "act1" && e.to === "act2");
+    expect(lanes.map((e) => e.label).sort()).toEqual(["cold", "hot", "warm"]);
+    callConnect("act1", "act2", "branch:warm"); // same lane twice → blocked
+    expect(
+      edges().filter((e) => e.from === "act1" && e.to === "act2"),
+    ).toHaveLength(3);
+    expect(screen.getByTestId("connection-hint").textContent).toMatch(/already connects/i);
+  });
+
   it("a connection-handle interaction never advances the canvas-focus signal (no config-open focus)", () => {
     render(<WorkflowCanvas />);
     const seqBefore = useConfigSlice.getState().canvasFocusSeq;

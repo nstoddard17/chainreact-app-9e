@@ -7,16 +7,18 @@
  *   2. standalone (0 in, 0 out)
  *   3. last (≥1 in, 0 out)
  *   4. first (0 in, ≥1 out)
- *   5. linear (1 in, 1 out)
+ *   5. rewirable (≥1 in, exactly 1 out)
  *      a. fresh rewire
  *      b. self-loop suppression
  *      c. duplicate suppression
  *      d. positions preserved on the remaining nodes
- *   6. multi-edge blocked (≥2 in OR ≥2 out, with both sides present)
+ *      e. fan-in heal (RECONV-1 S2): one rewire per incoming edge, labels
+ *         preserved, per-candidate dedup/self-loop downgrade to warning
+ *   6. multi-out blocked (≥1 in AND ≥2 out)
  *
  * Also covers:
  *   - deterministic id injection.
- *   - labeled outgoing edges count toward multi-edge block.
+ *   - labeled outgoing edges count toward the multi-out block.
  *   - duplicate-suppression is unlabeled-only — labeled siblings are fine.
  *   - input arrays are not mutated (purity).
  */
@@ -77,25 +79,32 @@ describe("deleteNodeFromGraph — blocked branches", () => {
     expect(result.message).toMatch(/no node with id/i);
   });
 
-  it("blocks when a node has 2+ incoming edges AND at least 1 outgoing edge", () => {
-    // Fan-in: A → mid, B → mid, mid → C. Deleting `mid` could spread out
-    // to A → C and B → C, but we refuse to silently fan out — the user's
-    // intent for that topology is ambiguous (was it meant to converge?).
+  it("blocks when a node has 2+ incoming AND 2+ outgoing edges (genuinely ambiguous)", () => {
+    // Fan-in AND fan-out: A → mid, B → mid, mid → C, mid → D. With multiple
+    // successors there is no single continuation to heal to — rewiring would
+    // fan out N×M edges. Refuse; state untouched.
     const nodes = [
       n("a", "trigger"),
       n("b", "action"),
       n("mid", "action"),
       n("c", "action"),
+      n("d", "action"),
     ];
     const edges = [
       e("e-a-mid", "a", "mid"),
       e("e-b-mid", "b", "mid"),
       e("e-mid-c", "mid", "c"),
+      e("e-mid-d", "mid", "d"),
     ];
+    const nodesBefore = [...nodes];
+    const edgesBefore = [...edges];
     const result = deleteNodeFromGraph({ nodes, edges, nodeId: "mid" });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("cannot_rewire_multi_edge");
+    expect(result.message).toMatch(/multiple paths/i);
+    expect(nodes).toEqual(nodesBefore);
+    expect(edges).toEqual(edgesBefore);
   });
 
   it("blocks when a node has 1 incoming AND 2+ outgoing edges (router-style)", () => {
@@ -334,6 +343,123 @@ describe("deleteNodeFromGraph — linear middle (1 in, 1 out)", () => {
     const cAfter = result.nodes.find((x) => x.id === "c")!;
     expect(aAfter.position).toEqual({ x: 10, y: 20 });
     expect(cAfter.position).toEqual({ x: 500, y: 800 });
+  });
+});
+
+describe("deleteNodeFromGraph — reconverged shared node heal (≥2 in, 1 out) — RECONV-1 S2", () => {
+  it("diamond: A→S, B→S, S→T heals to A→T and B→T (unlabeled sources stay unlabeled)", () => {
+    // br —true→ A → S, br —false→ B → S, S → T. A/B are not branching
+    // sources, so their incoming edges into S are unlabeled — the heals are
+    // unlabeled too. The branch-route edges upstream are never touched.
+    const nodes = [
+      n("br", "trigger"),
+      n("a", "action"),
+      n("b", "action"),
+      n("s", "action"),
+      n("t", "action"),
+    ];
+    const edges = [
+      e("e-br-a", "br", "a", "true"),
+      e("e-br-b", "br", "b", "false"),
+      e("e-a-s", "a", "s"),
+      e("e-b-s", "b", "s"),
+      e("e-s-t", "s", "t"),
+    ];
+    let seq = 0;
+    const result = deleteNodeFromGraph({
+      nodes,
+      edges,
+      nodeId: "s",
+      newEdgeId: () => `HEAL-${++seq}`,
+    });
+    assertOk(result);
+    expect(result.nodes.map((x) => x.id).sort()).toEqual(["a", "b", "br", "t"]);
+    expect(result.edges).toEqual([
+      { id: "e-br-a", from: "br", to: "a", label: "true" },
+      { id: "e-br-b", from: "br", to: "b", label: "false" },
+      { id: "HEAL-1", from: "a", to: "t" },
+      { id: "HEAL-2", from: "b", to: "t" },
+    ]);
+    expect(new Set(result.removedEdgeIds)).toEqual(
+      new Set(["e-a-s", "e-b-s", "e-s-t"]),
+    );
+    expect(result.rewiredEdgeId).toBe("HEAL-1");
+    expect(result.warning).toBeNull();
+  });
+
+  it("direct rejoin: br —true→ S, br —false→ S, S→T heals BOTH routes to T with labels preserved", () => {
+    const nodes = [n("br", "trigger"), n("s", "action"), n("t", "action")];
+    const edges = [
+      e("e-true", "br", "s", "true"),
+      e("e-false", "br", "s", "false"),
+      e("e-s-t", "s", "t"),
+    ];
+    let seq = 0;
+    const result = deleteNodeFromGraph({
+      nodes,
+      edges,
+      nodeId: "s",
+      newEdgeId: () => `HEAL-${++seq}`,
+    });
+    assertOk(result);
+    expect(result.nodes.map((x) => x.id).sort()).toEqual(["br", "t"]);
+    expect(result.edges).toEqual([
+      { id: "HEAL-1", from: "br", to: "t", label: "true" },
+      { id: "HEAL-2", from: "br", to: "t", label: "false" },
+    ]);
+    expect(result.rewiredEdgeId).toBe("HEAL-1");
+    expect(result.warning).toBeNull();
+  });
+
+  it("dedup: an existing A→T drops only that heal candidate (duplicate warning); the other heal still lands", () => {
+    const nodes = [
+      n("a", "trigger"),
+      n("b", "action"),
+      n("s", "action"),
+      n("t", "action"),
+    ];
+    const edges = [
+      e("e-a-s", "a", "s"),
+      e("e-b-s", "b", "s"),
+      e("e-s-t", "s", "t"),
+      e("e-a-t", "a", "t"), // pre-existing shortcut — the A heal would duplicate it
+    ];
+    let seq = 0;
+    const result = deleteNodeFromGraph({
+      nodes,
+      edges,
+      nodeId: "s",
+      newEdgeId: () => `HEAL-${++seq}`,
+    });
+    assertOk(result);
+    expect(result.edges).toEqual([
+      { id: "e-a-t", from: "a", to: "t" },
+      { id: "HEAL-1", from: "b", to: "t" },
+    ]);
+    expect(result.rewiredEdgeId).toBe("HEAL-1");
+    expect(result.warning).toBe("rewire_would_duplicate");
+  });
+
+  it("self-loop: an incoming edge FROM the successor suppresses only that heal candidate", () => {
+    // t → s (back-edge) and a → s, with s → t. Healing t → t would
+    // self-loop; skip it, keep the a → t heal, and break the cycle.
+    const nodes = [n("a", "trigger"), n("s", "action"), n("t", "action")];
+    const edges = [
+      e("e-a-s", "a", "s"),
+      e("e-t-s", "t", "s"),
+      e("e-s-t", "s", "t"),
+    ];
+    let seq = 0;
+    const result = deleteNodeFromGraph({
+      nodes,
+      edges,
+      nodeId: "s",
+      newEdgeId: () => `HEAL-${++seq}`,
+    });
+    assertOk(result);
+    expect(result.edges).toEqual([{ id: "HEAL-1", from: "a", to: "t" }]);
+    expect(result.rewiredEdgeId).toBe("HEAL-1");
+    expect(result.warning).toBe("rewire_would_self_loop");
   });
 });
 

@@ -1235,7 +1235,9 @@ describe("graphSlice.deleteNodeAndRewire", () => {
     expect(s.isDirty).toBe(true);
   });
 
-  it("blocks a multi-edge fan-in node with downstream — no state mutation", () => {
+  it("blocks a fan-in node with MULTIPLE outgoing edges — no state mutation", () => {
+    // RECONV-1 S2 — fan-in with a SINGLE outgoing edge now heals, so the
+    // blocked topology needs a second outgoing edge (genuinely ambiguous).
     useGraphSlice.getState().hydrate("wf-1", {
       nodes: [
         {
@@ -1270,11 +1272,20 @@ describe("graphSlice.deleteNodeAndRewire", () => {
           config: {},
           position: { x: 200, y: 200 },
         },
+        {
+          id: "d",
+          kind: "action",
+          provider: "native",
+          type: "noop",
+          config: {},
+          position: { x: 300, y: 200 },
+        },
       ],
       edges: [
         { id: "e-trig-mid", from: "trig", to: "mid" },
         { id: "e-alt-mid", from: "alt", to: "mid" },
         { id: "e-mid-c", from: "mid", to: "c" },
+        { id: "e-mid-d", from: "mid", to: "d" },
       ],
     });
     useGraphSlice.setState({ isDirty: false });

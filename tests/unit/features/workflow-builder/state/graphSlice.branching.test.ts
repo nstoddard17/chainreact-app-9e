@@ -170,3 +170,53 @@ describe("deleteNodeAndRewire — label preservation", () => {
     expect(rewired).toBeDefined();
   });
 });
+
+describe("connectNodes — multi-lane reconvergence (RECONV-1 S2)", () => {
+  it("three Router lanes may reconverge on one shared target — all labeled edges coexist", () => {
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf-router-lanes", {
+      nodes: [
+        { id: "trig", kind: "trigger", provider: "native", type: "manual", config: {}, position: { x: 0, y: 0 } },
+        { id: "r1", kind: "action", provider: "native", type: "router", config: { routes: [{ label: "hot", condition: { input: "x", operator: "is_not_empty" } }, { label: "warm", condition: { input: "y", operator: "is_not_empty" } }, { label: "cold", condition: { input: "z", operator: "is_not_empty" } }] }, position: { x: 0, y: 200 } },
+        { id: "merge", kind: "action", provider: "native", type: "delay", config: {}, position: { x: 0, y: 400 } },
+      ],
+      edges: [{ id: "e1", from: "trig", to: "r1" }],
+    });
+    slice().connectNodes({ from: "r1", to: "merge", label: "hot" });
+    slice().connectNodes({ from: "r1", to: "merge", label: "warm" });
+    slice().connectNodes({ from: "r1", to: "merge", label: "cold" });
+    const lanes = slice().pendingEdges.filter(
+      (e) => e.from === "r1" && e.to === "merge",
+    );
+    expect(lanes.map((e) => e.label).sort()).toEqual(["cold", "hot", "warm"]);
+  });
+
+  it("an inner branch's labeled edge may target its parent route's continuation node", () => {
+    useGraphSlice.getState().reset();
+    useGraphSlice.getState().hydrate("wf-nested", {
+      nodes: [
+        { id: "trig", kind: "trigger", provider: "native", type: "manual", config: {}, position: { x: 0, y: 0 } },
+        { id: "outer", kind: "action", provider: "native", type: "if_then_condition", config: { input: "x", operator: "is_not_empty", onFalse: "branch" }, position: { x: 0, y: 200 } },
+        { id: "inner", kind: "action", provider: "native", type: "if_then_condition", config: { input: "y", operator: "is_not_empty", onFalse: "branch" }, position: { x: -100, y: 400 } },
+        { id: "cont", kind: "action", provider: "native", type: "delay", config: {}, position: { x: 100, y: 400 } },
+        { id: "act", kind: "action", provider: "native", type: "delay", config: {}, position: { x: -100, y: 600 } },
+      ],
+      edges: [
+        { id: "e1", from: "trig", to: "outer" },
+        { id: "e2", from: "outer", to: "inner", label: "true" },
+        { id: "e3", from: "outer", to: "cont", label: "false" },
+        { id: "e4", from: "inner", to: "act", label: "true" },
+      ],
+    });
+    // Inner False rejoins the OUTER False route's continuation node.
+    const rejoined = slice().connectNodes({ from: "inner", to: "cont", label: "false" });
+    expect(rejoined.label).toBe("false");
+    expect(
+      slice().pendingEdges.some(
+        (e) => e.from === "inner" && e.to === "cont" && e.label === "false",
+      ),
+    ).toBe(true);
+    // The parent route's own edge is untouched.
+    expect(slice().pendingEdges.some((e) => e.id === "e3")).toBe(true);
+  });
+});
