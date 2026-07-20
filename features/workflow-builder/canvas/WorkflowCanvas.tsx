@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  applyEdgeChanges,
   applyNodeChanges,
   Background,
   BackgroundVariant,
@@ -14,6 +15,7 @@ import {
   type Edge as FlowEdge,
   type Node as FlowNode,
   type NodeMouseHandler,
+  type OnEdgesChange,
   type OnNodeDrag,
   type OnNodesChange,
 } from "@xyflow/react";
@@ -364,6 +366,25 @@ function WorkflowCanvasInner({
     [],
   );
 
+  // RECONV-1 S4 — same controlled-flow rule for EDGES. `edges` was bound
+  // straight to the slice-derived `flowEdges` with no `onEdgesChange`, so React
+  // Flow's edge SELECTION changes were silently dropped — an edge could never
+  // become selected, which made the documented edges-only keyboard-delete
+  // contract (useCanvasNodeDeletion: "edges-only → proceed → onEdgesDelete →
+  // removeEdge") unreachable and left authors with no way to disconnect a
+  // mis-drawn edge (required for any diverge/reconverge rewiring). RF's working
+  // edge array now lives in local state (selection applies live); the graph
+  // slice stays the source of truth — structural changes still flow through
+  // onConnect / onEdgesDelete, and `flowEdges` re-syncs this state on change.
+  const [rfEdges, setRfEdges] = useState<FlowEdge[]>(flowEdges);
+  useEffect(() => {
+    setRfEdges(flowEdges);
+  }, [flowEdges]);
+  const onEdgesChange = useCallback<OnEdgesChange<FlowEdge>>(
+    (changes) => setRfEdges((current) => applyEdgeChanges(changes, current)),
+    [],
+  );
+
   const handleNodeClick = useCallback<NodeMouseHandler>(
     (_event, node) => {
       const wfNode = pendingNodes.find((n) => n.id === node.id);
@@ -474,7 +495,7 @@ function WorkflowCanvasInner({
           <>
         <ReactFlow
           nodes={rfNodes}
-          edges={flowEdges}
+          edges={rfEdges}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
           // HERMES-AGENT-PREVIEW-DIFF-GRAPH — the diff preview is a READ-ONLY visualization: no select /
@@ -484,6 +505,7 @@ function WorkflowCanvasInner({
           elementsSelectable={!previewDiffActive}
           onNodeClick={previewDiffActive ? undefined : handleNodeClick}
           onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
           onNodeDragStop={previewDiffActive ? undefined : handleNodeDragStop}
           onConnect={previewDiffActive ? undefined : handleConnect}
           onBeforeDelete={previewDiffActive ? undefined : handleBeforeDelete}
