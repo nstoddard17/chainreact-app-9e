@@ -66,6 +66,25 @@ describe("materializeAiPatchNodeIds — new-node id remapping", () => {
     expect(res.edgeIdMap).toEqual({ edge1: "sys-edge-1" });
   });
 
+  it("keeps a branch label on addEdge through id materialization (RECONV-1 S3)", () => {
+    const res = materializeAiPatchNodeIds(
+      patch([
+        { op: "addNode", node: node("ifn", "action", "native", "if_then_condition") },
+        { op: "addNode", node: node("rec", "action", "slack", "send_channel_message") },
+        { op: "addEdge", edge: { id: "e", from: "ifn", to: "rec", label: "true" } },
+      ]),
+      EMPTY,
+      gens(),
+    );
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const edgeOp = res.patch.operations.find((o) => o.op === "addEdge");
+    expect(edgeOp).toEqual({
+      op: "addEdge",
+      edge: { id: "sys-edge-1", from: "sys-node-1", to: "sys-node-2", label: "true" },
+    });
+  });
+
   it("rewrites edge from/to + edge id to the assigned system ids", () => {
     const res = materializeAiPatchNodeIds(
       patch([

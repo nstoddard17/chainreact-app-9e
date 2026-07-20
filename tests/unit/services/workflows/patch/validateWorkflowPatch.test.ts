@@ -360,6 +360,105 @@ describe("validateWorkflowPatch — task-cost estimate (COST-2)", () => {
   });
 });
 
+describe("validateWorkflowPatch — branch labels + branch wiring (RECONV-1 S3)", () => {
+  /** Valid If/Then config (input/operator/value are the required fields). */
+  const ifConfig = { input: "paid", operator: "contains", value: "pay" };
+  const slackCfg = (text: string) => ({ channel: "C1", text });
+
+  it("warns SUSPICIOUS_BRANCH_LABEL on a labeled edge from a NON-branching source (non-blocking)", () => {
+    const res = validateWorkflowPatch(
+      patch([
+        { op: "addNode", node: node("a2", "action", "slack", "send_channel_message", slackCfg("hi")) },
+        { op: "addEdge", edge: { id: "e2", from: "a1", to: "a2", label: "true" } },
+      ]),
+      baseDef,
+    );
+    expect(res.ok).toBe(true);
+    expect(res.warnings.some((w) => w.code === "SUSPICIOUS_BRANCH_LABEL" && w.edgeId === "e2")).toBe(true);
+    // Non-branching sources have no label vocabulary → never missing/stale.
+    expect(res.warnings.some((w) => w.code === "MISSING_BRANCH_EDGE" || w.code === "STALE_BRANCH_EDGE")).toBe(false);
+  });
+
+  it("a fully-wired If/Then DIAMOND (true/false routes reconverging on one shared step) validates with NO errors and NO branch warnings", () => {
+    const res = validateWorkflowPatch(
+      patch([
+        { op: "addNode", node: node("ifn", "action", "native", "if_then_condition", ifConfig) },
+        { op: "addNode", node: node("receipt", "action", "slack", "send_channel_message", slackCfg("receipt")) },
+        { op: "addNode", node: node("notify", "action", "slack", "send_channel_message", slackCfg("notify")) },
+        { op: "addNode", node: node("log", "action", "slack", "send_channel_message", slackCfg("log")) },
+        { op: "addEdge", edge: { id: "e2", from: "a1", to: "ifn" } },
+        { op: "addEdge", edge: { id: "e3", from: "ifn", to: "receipt", label: "true" } },
+        { op: "addEdge", edge: { id: "e4", from: "ifn", to: "notify", label: "false" } },
+        { op: "addEdge", edge: { id: "e5", from: "receipt", to: "log" } },
+        { op: "addEdge", edge: { id: "e6", from: "notify", to: "log" } },
+      ]),
+      baseDef,
+    );
+    expect(res.errors).toEqual([]);
+    expect(res.ok).toBe(true);
+    expect(
+      res.warnings.some(
+        (w) => w.code === "SUSPICIOUS_BRANCH_LABEL" || w.code === "MISSING_BRANCH_EDGE" || w.code === "STALE_BRANCH_EDGE",
+      ),
+    ).toBe(false);
+  });
+
+  it("labeled edges from a ROUTER whose routes cover them produce no branch warnings", () => {
+    const res = validateWorkflowPatch(
+      patch([
+        { op: "addNode", node: node("rt", "action", "native", "router", { routes: [{ label: "gold" }, { label: "silver" }] }) },
+        { op: "addNode", node: node("g", "action", "slack", "send_channel_message", slackCfg("g")) },
+        { op: "addNode", node: node("s", "action", "slack", "send_channel_message", slackCfg("s")) },
+        { op: "addEdge", edge: { id: "e2", from: "a1", to: "rt" } },
+        { op: "addEdge", edge: { id: "e3", from: "rt", to: "g", label: "gold" } },
+        { op: "addEdge", edge: { id: "e4", from: "rt", to: "s", label: "silver" } },
+      ]),
+      baseDef,
+    );
+    expect(
+      res.warnings.some(
+        (w) => w.code === "SUSPICIOUS_BRANCH_LABEL" || w.code === "MISSING_BRANCH_EDGE" || w.code === "STALE_BRANCH_EDGE",
+      ),
+    ).toBe(false);
+  });
+
+  it("an If/Then (onFalse=branch default) with only the 'true' route wired → MISSING_BRANCH_EDGE warning, patch still valid", () => {
+    const res = validateWorkflowPatch(
+      patch([
+        { op: "addNode", node: node("ifn", "action", "native", "if_then_condition", ifConfig) },
+        { op: "addNode", node: node("receipt", "action", "slack", "send_channel_message", slackCfg("receipt")) },
+        { op: "addEdge", edge: { id: "e2", from: "a1", to: "ifn" } },
+        { op: "addEdge", edge: { id: "e3", from: "ifn", to: "receipt", label: "true" } },
+      ]),
+      baseDef,
+    );
+    expect(res.ok).toBe(true); // NON-blocking — the readiness gates own the block
+    const missing = res.warnings.filter((w) => w.code === "MISSING_BRANCH_EDGE");
+    expect(missing).toHaveLength(1);
+    expect(missing[0]!.nodeId).toBe("ifn");
+    expect(missing[0]!.message).toContain('"false"');
+  });
+
+  it("a labeled edge the node can never return (onFalse=skip keeps a 'false' edge) → STALE_BRANCH_EDGE warning, patch still valid", () => {
+    const res = validateWorkflowPatch(
+      patch([
+        { op: "addNode", node: node("ifn", "action", "native", "if_then_condition", { ...ifConfig, onFalse: "skip" }) },
+        { op: "addNode", node: node("receipt", "action", "slack", "send_channel_message", slackCfg("receipt")) },
+        { op: "addNode", node: node("notify", "action", "slack", "send_channel_message", slackCfg("notify")) },
+        { op: "addEdge", edge: { id: "e2", from: "a1", to: "ifn" } },
+        { op: "addEdge", edge: { id: "e3", from: "ifn", to: "receipt", label: "true" } },
+        { op: "addEdge", edge: { id: "e4", from: "ifn", to: "notify", label: "false" } },
+      ]),
+      baseDef,
+    );
+    expect(res.ok).toBe(true);
+    const stale = res.warnings.filter((w) => w.code === "STALE_BRANCH_EDGE");
+    expect(stale).toHaveLength(1);
+    expect(stale[0]!.edgeId).toBe("e4");
+    expect(stale[0]!.message).toContain('"false"');
+  });
+});
+
 describe("validateWorkflowPatch — no secret leakage", () => {
   it("never echoes secrets / raw config values into errors or warnings", () => {
     const secrets = {

@@ -67,6 +67,22 @@ describe("applyPatchToDefinition", () => {
     expect(replaced.ok && replaced.definition.edges[0]!.label).toBe("x");
   });
 
+  it("adding a SECOND incoming edge to an existing node preserves the first edge (reconvergence — RECONV-1 S3)", () => {
+    const res = applyPatchToDefinition(base, [
+      { op: "addNode", node: node("ifn", "action", "native", "if_then_condition") },
+      { op: "addEdge", edge: { id: "e2", from: "ifn", to: "a1", label: "false" } },
+    ]);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    // Both incoming edges of a1 present; the pre-existing edge is untouched.
+    expect(res.definition.edges).toEqual([
+      { id: "e1", from: "t", to: "a1" },
+      { id: "e2", from: "ifn", to: "a1", label: "false" },
+    ]);
+    // Untouched nodes preserved byte-for-byte.
+    expect(JSON.stringify(res.definition.nodes.slice(0, 2))).toBe(JSON.stringify(base.nodes));
+  });
+
   it("moveNode updates only position", () => {
     const res = applyPatchToDefinition(base, [
       { op: "moveNode", nodeId: "a1", position: { x: 99, y: 42 } },

@@ -130,6 +130,8 @@ export type PatchWarningCode =
   | "ORPHANS_DOWNSTREAM" // a removal disconnects downstream nodes
   | "DELETES_USER_WORK" // a removal/replace discards existing nodes/edges
   | "SUSPICIOUS_BRANCH_LABEL" // labeled edge from a non-branching node (route-membership check deferred)
+  | "MISSING_BRANCH_EDGE" // a route the branching node can take has no outgoing edge (RECONV-1 S3; blocks later at activate/publish)
+  | "STALE_BRANCH_EDGE" // labeled edge whose label the branching node can never return (dead path; RECONV-1 S3)
   | "COST_WARNING"; // pass-through from the COST-2 estimator
 
 export interface PatchValidationWarning {

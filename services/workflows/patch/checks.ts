@@ -4,6 +4,7 @@ import type {
   WorkflowNode,
 } from "@/contracts/workflowDefinition";
 import { ADVANCED_BRANCHING_NODE_TYPES } from "@/core/workflows/advancedBranching";
+import { findBranchWiringIssues } from "@/core/workflows/branchWiring";
 import { getActionMeta, getTriggerMeta } from "@/services/discovery/_registry";
 import type {
   PatchValidationError,
@@ -232,4 +233,29 @@ export function checkBranchLabels(
     }
   }
   return warnings;
+}
+
+/**
+ * Branch-wiring warnings (RECONV-1 S3). Runs `findBranchWiringIssues` — the
+ * SAME pure check the activate/publish readiness gates use — against the
+ * CANDIDATE, so an AI patch that leaves a route disconnected
+ * (missing_branch_edge) or keeps a labeled edge the node can never activate
+ * (stale_branch_edge) is surfaced at PROPOSAL time instead of only failing
+ * later at activate/publish/run-now. NON-blocking by design: same warning
+ * mechanism as SUSPICIOUS_BRANCH_LABEL — the blocking decision stays with the
+ * readiness gates. Messages come from branchWiring (friendly names, no raw
+ * config values), so they are safe to surface to the user.
+ */
+export function checkBranchWiring(
+  candidate: WorkflowDefinition,
+): PatchValidationWarning[] {
+  return findBranchWiringIssues(candidate.nodes, candidate.edges).map((issue) => ({
+    code:
+      issue.code === "missing_branch_edge"
+        ? ("MISSING_BRANCH_EDGE" as const)
+        : ("STALE_BRANCH_EDGE" as const),
+    message: issue.message,
+    nodeId: issue.nodeId,
+    ...(issue.edgeId !== undefined ? { edgeId: issue.edgeId } : {}),
+  }));
 }

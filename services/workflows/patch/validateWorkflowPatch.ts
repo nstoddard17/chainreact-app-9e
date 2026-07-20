@@ -8,6 +8,7 @@ import { estimateWorkflowTaskCost } from "@/services/billing/workflowCostEstimat
 import { applyPatchToDefinition } from "./applyPatchToDefinition";
 import {
   checkBranchLabels,
+  checkBranchWiring,
   checkNodeRegistryAndConfig,
   checkStructure,
 } from "./checks";
@@ -38,7 +39,7 @@ import type {
  *   4. Structural validation of the candidate (ids, triggers, edges).
  *   5. Registry grounding + FieldMeta config validation (affected nodes).
  *   6. Variable-reference validation (affected nodes).
- *   7. Branch-label sanity warnings.
+ *   7. Branch-label sanity + branch-wiring (missing/stale route) warnings.
  *   8. Deterministic risk/confirmation classification.
  *   9. COST-2 task-cost estimate over the candidate.
  *
@@ -205,8 +206,10 @@ export function validateWorkflowPatch(
     errors.push(...checkNodeVariableReferences(candidate, node));
   }
 
-  // 7. Branch-label sanity.
+  // 7. Branch-label sanity + branch-wiring warnings (RECONV-1 S3 — a
+  // disconnected/stale route surfaces at proposal time, non-blocking).
   warnings.push(...checkBranchLabels(candidate));
+  warnings.push(...checkBranchWiring(candidate));
 
   // 8. Deterministic risk classification (overrides any model-provided values).
   const risk = classifyPatchRisk(currentDefinition, candidate, operations);

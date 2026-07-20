@@ -107,6 +107,14 @@ describe("normalizeLinearWorkflowLayout — guards (no relayout)", () => {
     expect(normalizeLinearWorkflowLayout(def, [addNodeOp]).nodes).toEqual(def.nodes);
   });
 
+  it("does NOT relayout a fan-in graph (two nodes converge on one — RECONV-1 reconvergence)", () => {
+    const def: WorkflowDefinition = {
+      nodes: [node("a", "action", 0, 0), node("b", "action", 300, 0), node("m", "action", 150, 240)],
+      edges: [edge("e1", "a", "m"), edge("e2", "b", "m")], // m has in-degree 2 (merge)
+    };
+    expect(normalizeLinearWorkflowLayout(def, [addNodeOp]).nodes).toEqual(def.nodes);
+  });
+
   it("does NOT relayout a disconnected graph (more than one head)", () => {
     const def: WorkflowDefinition = {
       nodes: [node("t", "trigger", 0, 0), node("a", "action", 0, 120), node("orphan", "action", 700, 700)],

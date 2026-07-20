@@ -99,6 +99,61 @@ describe("buildGatewayGuidancePrompt — prefer partial preview + guided setup (
   });
 });
 
+// RECONV-1 S3 — the edit-path prompt must teach branch labels + reconvergence (the model was never
+// told edges can carry a "label" or that mutually exclusive routes should rejoin on one shared step),
+// and the create-path plan format must not encourage a silent linear chain for conditional requests.
+describe("buildGatewayGuidancePrompt — branch labels + reconvergence teaching (RECONV-1)", () => {
+  const editableGraph = {
+    schemaVersion: 1 as const,
+    version: "v-test-1",
+    nodeCount: 1,
+    edgeCount: 0,
+    nodes: [
+      {
+        ref: "node_1",
+        role: "trigger" as const,
+        kind: "trigger",
+        provider: "native",
+        type: "manual.run",
+        capabilityKey: "native:manual.run",
+        config: [],
+      },
+    ],
+    edges: [],
+  };
+
+  it("edit instructions document the optional edge label field + the label vocabulary", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "branch it", editableGraph });
+    expect(prompt).toContain('may carry an optional "label" field');
+    expect(prompt).toContain('"label":"true"');
+    expect(prompt).toContain("native:if_then_condition");
+    expect(prompt).toMatch(/onFalse is "branch"/);
+    expect(prompt).toMatch(/onFalse "skip", wire only "true"/);
+    expect(prompt).toContain("config.routes[].label");
+    expect(prompt).toContain("defaultRoute");
+    expect(prompt).toContain("Edges from any OTHER step are unlabeled");
+  });
+
+  it("edit instructions include the worked reconvergence example (routes rejoin ONE shared step)", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "branch it", editableGraph });
+    expect(prompt).toContain("RECONVERGENCE");
+    expect(prompt).toContain("reconverge on ONE shared downstream step");
+    expect(prompt).toContain("the shared step runs once (whichever route ran)");
+    // The four worked edges: two labeled route picks + two unlabeled rejoins.
+    expect(prompt).toContain('"from":"node_if","to":"new_receipt","label":"true"');
+    expect(prompt).toContain('"from":"node_if","to":"new_notify","label":"false"');
+    expect(prompt).toContain('"from":"new_receipt","to":"new_log"');
+    expect(prompt).toContain('"from":"new_notify","to":"new_log"');
+  });
+
+  it("create-path plan instructions warn that conditional requests cannot be a silent linear chain", () => {
+    const prompt = buildGatewayGuidancePrompt({ request: EMPTY_REQUEST, goalText: "if paid send receipt otherwise notify, then log" });
+    expect(prompt).toContain("CONDITIONAL requests");
+    expect(prompt).toContain("branch topology CANNOT be expressed in the ordered plan steps");
+    expect(prompt).toContain("Do NOT emit a linear chain that would silently run both actions unconditionally");
+  });
+});
+
 describe("buildGatewayGuidancePrompt — recent conversation (HERMES-AGENT-BUILDER-RAIL-CHAT-MODE)", () => {
   it("renders the recent conversation turns as labeled lines (most recent last)", () => {
     const prompt = buildGatewayGuidancePrompt({

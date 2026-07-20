@@ -175,6 +175,52 @@ describe("proposeWorkflowMutation — validation + safety", () => {
   // wording / raw ids. The structural risk warnings (DELETES_USER_WORK / ORPHANS_DOWNSTREAM) that the
   // validator emits for a removeNode embed the raw node id and are already conveyed by the human summary,
   // so they are filtered OUT of the surfaced warnings.
+  // RECONV-1 S3 — the branch-wiring warnings (MISSING_BRANCH_EDGE / STALE_BRANCH_EDGE) are the
+  // actionable "your route is disconnected / dead" signals; unlike the id-bearing structural
+  // warnings, they ARE user-safe (friendly step names, no raw ids/config) and MUST reach the rail.
+  it("surfaces a MISSING_BRANCH_EDGE warning to the user when a proposed If/Then leaves the false route unwired", () => {
+    const res = propose(manualSlackDraft(), [
+      { op: "addNode", node: node("ifn", "action", "native", "if_then_condition", { input: "paid", operator: "contains", value: "pay" }) },
+      { op: "addNode", node: node("rec", "action", "slack", "send_channel_message", { channel: "C1", text: "receipt" }) },
+      { op: "addEdge", edge: { id: "be1", from: "a1", to: "ifn" } },
+      { op: "addEdge", edge: { id: "be2", from: "ifn", to: "rec", label: "true" } },
+    ]);
+    expect(res.kind).toBe("proposal"); // non-blocking — still previews
+    if (res.kind !== "proposal") return;
+    expect(res.warnings.some((w) => /Connect the "false" route/i.test(w))).toBe(true);
+  });
+
+  it("surfaces a STALE_BRANCH_EDGE warning to the user when a 'false' edge is wired but onFalse is 'skip'", () => {
+    const res = propose(manualSlackDraft(), [
+      { op: "addNode", node: node("ifn", "action", "native", "if_then_condition", { input: "paid", operator: "contains", value: "pay", onFalse: "skip" }) },
+      { op: "addNode", node: node("rec", "action", "slack", "send_channel_message", { channel: "C1", text: "receipt" }) },
+      { op: "addNode", node: node("nt", "action", "slack", "send_channel_message", { channel: "C1", text: "notify" }) },
+      { op: "addEdge", edge: { id: "be1", from: "a1", to: "ifn" } },
+      { op: "addEdge", edge: { id: "be2", from: "ifn", to: "rec", label: "true" } },
+      { op: "addEdge", edge: { id: "be3", from: "ifn", to: "nt", label: "false" } },
+    ]);
+    expect(res.kind).toBe("proposal");
+    if (res.kind !== "proposal") return;
+    expect(res.warnings.some((w) => /no "false" route anymore/i.test(w))).toBe(true);
+  });
+
+  it("a fully-wired If/Then diamond proposal previews with NO branch-wiring warnings", () => {
+    const res = propose(manualSlackDraft(), [
+      { op: "addNode", node: node("ifn", "action", "native", "if_then_condition", { input: "paid", operator: "contains", value: "pay" }) },
+      { op: "addNode", node: node("rec", "action", "slack", "send_channel_message", { channel: "C1", text: "receipt" }) },
+      { op: "addNode", node: node("nt", "action", "slack", "send_channel_message", { channel: "C1", text: "notify" }) },
+      { op: "addNode", node: node("lg", "action", "slack", "send_channel_message", { channel: "C1", text: "log" }) },
+      { op: "addEdge", edge: { id: "be1", from: "a1", to: "ifn" } },
+      { op: "addEdge", edge: { id: "be2", from: "ifn", to: "rec", label: "true" } },
+      { op: "addEdge", edge: { id: "be3", from: "ifn", to: "nt", label: "false" } },
+      { op: "addEdge", edge: { id: "be4", from: "rec", to: "lg" } },
+      { op: "addEdge", edge: { id: "be5", from: "nt", to: "lg" } },
+    ]);
+    expect(res.kind).toBe("proposal");
+    if (res.kind !== "proposal") return;
+    expect(res.warnings.some((w) => /route/i.test(w))).toBe(false);
+  });
+
   it("does not surface id-bearing structural warnings (no 'Node <id> and its edges are removed.')", () => {
     const res = propose(manualSlackDraft(), [
       { op: "removeNode", nodeId: "a1" },

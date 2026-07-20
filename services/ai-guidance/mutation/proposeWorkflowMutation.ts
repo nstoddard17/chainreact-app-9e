@@ -43,9 +43,17 @@ const NON_BLOCKING_CODES: ReadonlySet<PatchValidationError["code"]> = new Set(["
  * (DELETES_USER_WORK / ORPHANS_DOWNSTREAM / UNKNOWN_CONFIG_FIELD / SUSPICIOUS_BRANCH_LABEL) embed raw
  * node/edge ids and internal patch wording ("Node '<uuid>' and its edges are removed."), and a removal
  * is already explained by the human `summary` — so they NEVER reach the rail. Only human-safe, id-free
- * notes (cost) pass through. Risk classification itself is unchanged; this only filters DISPLAY copy.
+ * notes pass through: cost, and the branch-wiring warnings (RECONV-1 S3 —
+ * MISSING_BRANCH_EDGE / STALE_BRANCH_EDGE). The latter are ACTIONABLE "your route is disconnected /
+ * dead" signals whose messages are built from friendly step names (never raw uuids or config values),
+ * and hiding them would let a half-wired branch proposal look clean until activate/publish fails.
+ * Risk classification itself is unchanged; this only filters DISPLAY copy.
  */
-const USER_SAFE_WARNING_CODES: ReadonlySet<PatchWarningCode> = new Set(["COST_WARNING"]);
+const USER_SAFE_WARNING_CODES: ReadonlySet<PatchWarningCode> = new Set([
+  "COST_WARNING",
+  "MISSING_BRANCH_EDGE",
+  "STALE_BRANCH_EDGE",
+]);
 
 export interface ProposeWorkflowMutationInput {
   /** The user's CURRENT local draft (the unsaved canvas) — the diff base + validation target. */
