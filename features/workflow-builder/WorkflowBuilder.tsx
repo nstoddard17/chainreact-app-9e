@@ -63,6 +63,12 @@ import { useBuilderReadiness } from "./hooks/useBuilderReadiness";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
+import {
+  DocumentView,
+  readBuilderViewPref,
+  writeBuilderViewPref,
+  type BuilderViewMode,
+} from "./document";
 
 interface Props {
   workflow: WorkflowDetail;
@@ -158,6 +164,14 @@ interface Props {
    * gates remain the enforcement authority regardless).
    */
   canUseAdvancedBranching?: boolean;
+  /**
+   * 5.DUAL-BUILDER-1 CS-1 — server-resolved `ENABLE_DOCUMENT_BUILDER` flag
+   * (default OFF). When true the header shows a Visual/Document toggle and the
+   * center workspace can render the read-only Document projection of the SAME
+   * `graphSlice` draft. When false/undefined the builder is byte-identical to
+   * today: no toggle, no Document surface mounted.
+   */
+  documentBuilderEnabled?: boolean;
 }
 
 /**
@@ -215,6 +229,7 @@ export function WorkflowBuilder({
   onAnonPromptChange,
   initialFocus,
   canUseAdvancedBranching,
+  documentBuilderEnabled,
 }: Props) {
   const router = useRouter();
   const hydrate = useGraphSlice((s) => s.hydrate);
@@ -231,6 +246,25 @@ export function WorkflowBuilder({
   // rename from the Settings tab updates the header without a reload. Re-synced
   // from the server prop on workflow switch (in the reset effect below).
   const [workflowName, setWorkflowName] = useState(workflow.name);
+
+  // 5.DUAL-BUILDER-1 CS-1 — which surface renders the center workspace. The
+  // SAME graphSlice draft backs both; switching is pure client view state
+  // (never saves, hydrates, resets, or clones the workflow). Device-local
+  // preference: per-workflow key first, device-wide fallback, invalid → visual.
+  const [builderView, setBuilderView] = useState<BuilderViewMode>(() =>
+    documentBuilderEnabled ? readBuilderViewPref(workflow.id) : "visual",
+  );
+  useEffect(() => {
+    setBuilderView(documentBuilderEnabled ? readBuilderViewPref(workflow.id) : "visual");
+  }, [workflow.id, documentBuilderEnabled]);
+  const handleSetBuilderView = useCallback(
+    (view: BuilderViewMode) => {
+      setBuilderView(view);
+      writeBuilderViewPref(view, workflow.id);
+    },
+    [workflow.id],
+  );
+  const documentViewActive = documentBuilderEnabled === true && builderView === "document";
 
   // ANON-BUILDER-2/3 — when this builder was just opened by the anonymous-draft
   // restore flow, a one-shot { prompt, reason } is parked under the new workflow
@@ -449,6 +483,21 @@ export function WorkflowBuilder({
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
+
+  // 5.DUAL-BUILDER-1 CS-1 — complex-region handoff: switch to the Visual
+  // surface and reveal the region's anchor node via the EXISTING focus API
+  // (configSlice.revealNode — navigation only, never a write/save/mutation).
+  const handleOpenInVisual = useCallback(
+    (nodeId: string | null) => {
+      setBuilderView("visual");
+      writeBuilderViewPref("visual", workflow.id);
+      if (!nodeId) return;
+      const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId);
+      if (!node) return;
+      revealNode({ nodeId, initialValues: node.config ?? {} });
+    },
+    [workflow.id, revealNode],
+  );
   // CHECKPOINTS-1 — drives the "this will discard unsaved changes" warning on restore.
   const isDirty = useGraphSlice((s) => s.isDirty);
   const hasTrigger = useGraphSlice((s) =>
@@ -672,6 +721,11 @@ export function WorkflowBuilder({
           // not. The run-now/activate routes still enforce with a typed 403.
           runEditBlocked={workflow.viewerCanRunEdit === false}
           focusPulse={headerFocusPulse}
+          // 5.DUAL-BUILDER-1 CS-1 — Visual/Document toggle, only when the
+          // server-resolved flag is on (absent → header byte-identical).
+          {...(documentBuilderEnabled
+            ? { viewToggle: { view: builderView, onChange: handleSetBuilderView } }
+            : {})}
           // ANON-BUILDER-1 — local-only: replace save/run/activate with a sign-up CTA.
           {...(localOnly ? { localOnly: true } : {})}
         />
@@ -786,6 +840,19 @@ export function WorkflowBuilder({
         aria-label="Workflow builder"
         data-testid="builder-center-workspace"
       >
+        {/* 5.DUAL-BUILDER-1 CS-1 — the center workspace renders ONE of two
+            projections of the same graphSlice draft. Switching mounts/unmounts
+            the surface only; graph state, config drafts, dirty, undo history,
+            and canvas positions live in the shared stores and are untouched. */}
+        {documentViewActive ? (
+          <DocumentView
+            requiredFieldsByType={requiredFieldsByType}
+            summaryFieldsByType={summaryFieldsByType}
+            providerLabels={providerLabels}
+            providerIcons={providerIcons}
+            onOpenInVisual={handleOpenInVisual}
+          />
+        ) : (
         <WorkflowCanvas
           providerLabels={providerLabels}
           providerIcons={providerIcons}
@@ -836,6 +903,7 @@ export function WorkflowBuilder({
             />
           }
         />
+        )}
         {addPanelMode !== null ? (
           <AddNodePanel
             mode={addPanelMode}
@@ -850,7 +918,9 @@ export function WorkflowBuilder({
         ) : null}
         {/* AI preview controls (UI state only — never merges into the real graph / writes / saves).
             Discard clears state; Apply runs the explicit local-draft edit (HERMES-AGENT-APPLY-PREVIEW-PATCH). */}
-        {previewOverlay && previewDiffGraph ? (
+        {/* Preview visuals are canvas-anchored; in Document view they stay
+            unmounted (the preview STATE is untouched and returns on switch). */}
+        {!documentViewActive && previewOverlay && previewDiffGraph ? (
           // EDIT proposal: the canvas shows the single diff graph; this is just the slim, non-overlay
           // Apply/Discard control bar (the SINGLE primary control). HERMES-AGENT-PREVIEW-DIFF-GRAPH.
           <BuilderPreviewControlBar
@@ -858,7 +928,7 @@ export function WorkflowBuilder({
             onApply={handleApplyPreview}
             onDiscard={handleDiscardPreview}
           />
-        ) : previewOverlay ? (
+        ) : !documentViewActive && previewOverlay ? (
           // Additive new-workflow skeleton (no candidate definition): keep the ghost overlay (empty canvas).
           <BuilderPreviewOverlay
             preview={previewOverlay.preview}

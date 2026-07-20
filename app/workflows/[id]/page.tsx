@@ -8,6 +8,7 @@ import { getActiveAccountId } from "@/repositories/userProfiles";
 import { WorkflowBuilder } from "@/features/workflow-builder/WorkflowBuilder";
 import { buildRequiredFieldsByType } from "@/features/workflow-builder/validation/buildRequiredFieldsByType";
 import { resolveAdvancedBranchingEntitlement } from "@/services/billing/advancedBranchingEntitlement";
+import { isDocumentBuilderEnabled } from "@/services/workflows/documentBuilderFlags";
 import { buildPreviewSetupFields } from "@/core/workflows/previewSetupFields";
 import { buildConfigDiffFieldMeta } from "@/core/workflows/configDiffFieldMeta";
 import { buildNodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
@@ -209,6 +210,10 @@ export default async function WorkflowDetailPage({ params, searchParams }: Props
         // locked). Drives the locked If/Then + Router library entries; the
         // server-side save/run gates stay the enforcement authority.
         canUseAdvancedBranching={branchingEntitlement.entitled}
+        // 5.DUAL-BUILDER-1 CS-1 — server-resolved, default-OFF rollout flag for
+        // the read-only Document view toggle. No NEXT_PUBLIC_*; flag OFF keeps
+        // the builder byte-identical to today.
+        documentBuilderEnabled={isDocumentBuilderEnabled()}
         {...(initialFocus ? { initialFocus } : {})}
         {...(teamContext ? { teamContext } : {})}
       />

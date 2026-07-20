@@ -27,6 +27,13 @@ import {
 } from "./_BuilderHeaderPills";
 import { HeaderRunControls } from "./HeaderRunControls";
 import { BuilderTemplatesModal } from "../panels/BuilderTemplatesModal";
+import type { BuilderViewMode } from "../document/documentViewPref";
+
+/** 5.DUAL-BUILDER-1 CS-1 — Visual/Document view toggle wiring (flag-gated). */
+export interface HeaderViewToggle {
+  view: BuilderViewMode;
+  onChange: (view: BuilderViewMode) => void;
+}
 
 interface Props {
   workflowName: string;
@@ -78,6 +85,13 @@ interface Props {
    * never clicks, runs, saves, or activates anything.
    */
   focusPulse?: "test" | "activate" | null;
+  /**
+   * 5.DUAL-BUILDER-1 CS-1 — Visual/Document view toggle. Rendered ONLY when
+   * present (the builder passes it only when ENABLE_DOCUMENT_BUILDER is on),
+   * so the flag-off header stays byte-identical. Pure view switch — never
+   * saves, hydrates, or mutates the graph.
+   */
+  viewToggle?: HeaderViewToggle;
 }
 
 /**
@@ -109,6 +123,7 @@ export function BuilderHeader({
   runEditBlocked,
   localOnly,
   focusPulse = null,
+  viewToggle,
 }: Props) {
   const isDirty = useGraphSlice((s) => s.isDirty);
   const isSaving = useGraphSlice((s) => s.isSaving);
@@ -198,6 +213,7 @@ export function BuilderHeader({
             lifecycle={lifecycle}
             runEditBlocked={runEditBlocked}
             focusPulse={focusPulse}
+            viewToggle={viewToggle}
           />
         )}
       </header>
@@ -357,6 +373,7 @@ function HeaderRight({
   lifecycle,
   runEditBlocked,
   focusPulse = null,
+  viewToggle,
 }: {
   isDirty: boolean;
   isSaving: boolean;
@@ -376,6 +393,8 @@ function HeaderRight({
   runEditBlocked?: boolean;
   /** 5.ONBOARD-1 Batch 3 — transient deep-link attention ring (visual only). */
   focusPulse?: "test" | "activate" | null;
+  /** 5.DUAL-BUILDER-1 CS-1 — flag-gated Visual/Document toggle (absent → not rendered). */
+  viewToggle?: HeaderViewToggle;
 }) {
   // BUILDER-READINESS — any validation error (missing required field, no
   // trigger, unconfigured node, invalid router routes) blocks Run Manually +
@@ -425,6 +444,48 @@ function HeaderRight({
         </BuilderIconButton>
       </div>
       <HeaderDivider className="hidden xl:inline-block" />
+      {/* 5.DUAL-BUILDER-1 CS-1 — Visual/Document segmented toggle (flag-gated by
+          presence). Pure view switch: same graphSlice draft renders either way;
+          nothing is saved, hydrated, reset, or cloned. */}
+      {viewToggle ? (
+        <div
+          data-testid="builder-view-toggle"
+          role="group"
+          aria-label="Builder view"
+          className="flex items-center gap-0.5 rounded-md p-0.5"
+          style={{
+            background: "var(--builder-panel-2)",
+            border: "1px solid var(--builder-border)",
+          }}
+        >
+          {(["visual", "document"] as const).map((view) => {
+            const active = viewToggle.view === view;
+            return (
+              <button
+                key={view}
+                type="button"
+                data-testid={`builder-view-toggle-${view}`}
+                aria-pressed={active}
+                onClick={() => {
+                  if (!active) viewToggle.onChange(view);
+                }}
+                className="inline-flex h-7 items-center rounded px-2.5 text-[12px] font-medium"
+                style={
+                  active
+                    ? {
+                        background: "var(--builder-panel)",
+                        color: "var(--builder-text)",
+                        border: "1px solid var(--builder-border)",
+                      }
+                    : { color: "var(--builder-muted)" }
+                }
+              >
+                {view === "visual" ? "Visual" : "Document"}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       {/* In-builder template entry point — opens the create-new / replace-current modal. */}
       {workflowId ? (
         <button
