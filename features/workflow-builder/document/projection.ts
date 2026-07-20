@@ -1,8 +1,7 @@
 import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
-import { isAdvancedBranchingNode, nodeTypeKey } from "@/core/workflows/advancedBranching";
-import { returnableBranchLabels } from "@/core/workflows/branchWiring";
+import { isAdvancedBranchingNode } from "@/core/workflows/advancedBranching";
+import { findBranchWiringIssues, type BranchWiringIssue } from "@/core/workflows/branchWiring";
 import {
-  MAX_FORK_DEPTH,
   TIER_C_REASONS,
   complexRegionMessage,
   findCycle,
@@ -10,24 +9,14 @@ import {
 } from "./projectionTiers";
 import type {
   DocumentBlock,
-  DocumentForkBlock,
-  DocumentForkLane,
   DocumentModel,
   DocumentProjectionInput,
   ProjectionMeta,
   ProjectionWarning,
 } from "./documentModel";
-import {
-  blankChipsFor,
-  complexBlock,
-  forkConditionSummary,
-  forkMetaDisplayName,
-  laneSubtitle,
-  laneTitle,
-  providerLabelFor,
-  sentenceBlocksFor,
-} from "./projectionText";
-import { getNodeDisplayName } from "@/core/workflows/nodeDisplayName";
+import { complexBlock, sentenceBlocksFor } from "./projectionText";
+import { walkFork } from "./projectionFork";
+import type { SegmentResult, WalkContext } from "./projectionWalk";
 
 /**
  * Document Builder — pure graph→Document projection (5.DUAL-BUILDER-1 / CS-1).
@@ -185,6 +174,9 @@ function projectInner(input: DocumentProjectionInput): DocumentModel {
     visited: new Set<string>(),
     visitOrder: [],
     meta,
+    // CS-2 — the SHARED branch-wiring findings (same vocabulary + messages the
+    // validation drawer shows), grouped per node for fork warning lanes.
+    wiringIssuesByNode: groupWiringIssues(findBranchWiringIssues(nodes, edges)),
   };
 
   const main = walkSegment(ctx, root, 0);
@@ -231,26 +223,19 @@ function containsComplexBlock(blocks: readonly DocumentBlock[]): boolean {
   return false;
 }
 
-interface WalkContext {
-  readonly byId: ReadonlyMap<string, WorkflowNode>;
-  readonly outgoing: ReadonlyMap<string, WorkflowEdge[]>;
-  readonly indegree: ReadonlyMap<string, number>;
-  readonly visited: Set<string>;
-  readonly visitOrder: string[];
-  readonly meta: ProjectionMeta;
+function groupWiringIssues(
+  issues: readonly BranchWiringIssue[],
+): ReadonlyMap<string, readonly BranchWiringIssue[]> {
+  const map = new Map<string, BranchWiringIssue[]>();
+  for (const issue of issues) {
+    const bucket = map.get(issue.nodeId);
+    if (bucket) bucket.push(issue);
+    else map.set(issue.nodeId, [issue]);
+  }
+  return map;
 }
 
-interface SegmentResult {
-  readonly blocks: DocumentBlock[];
-  /**
-   * The join node this segment stopped BEFORE (not emitted, not visited) —
-   * bubbled up so the enclosing fork can prove a single rejoin. Null when the
-   * segment is terminal (path ends or degraded into a complex region).
-   */
-  readonly exit: string | null;
-}
-
-function allPredsVisited(ctx: WalkContext, nodeId: string): boolean {
+export function allPredsVisited(ctx: WalkContext, nodeId: string): boolean {
   for (const [from, bucket] of ctx.outgoing) {
     if (ctx.visited.has(from)) continue;
     for (const e of bucket) {
@@ -260,7 +245,7 @@ function allPredsVisited(ctx: WalkContext, nodeId: string): boolean {
   return true;
 }
 
-function walkSegment(ctx: WalkContext, startId: string, depth: number): SegmentResult {
+export function walkSegment(ctx: WalkContext, startId: string, depth: number): SegmentResult {
   const blocks: DocumentBlock[] = [];
   let cur: string | null = startId;
   // A join node a just-emitted fork PROVED as its single rejoin — the one
@@ -308,7 +293,16 @@ function walkSegment(ctx: WalkContext, startId: string, depth: number): SegmentR
       return { blocks, exit: null };
     }
 
-    blocks.push(...sentenceBlocksFor(ctx.meta, ctx.byId, node));
+    // CS-2 — safe manual-insertion metadata: a single unlabeled outgoing edge
+    // is the only unambiguous "insert between" shape; no outgoing edge is the
+    // only unambiguous "add at end" anchor.
+    const single = out.length === 1 && out[0]!.label === undefined ? out[0]! : null;
+    blocks.push(
+      ...sentenceBlocksFor(ctx.meta, ctx.byId, node, {
+        insertAfter: single ? { edgeId: single.id, toNodeId: single.to } : null,
+        isLinearTail: out.length === 0,
+      }),
+    );
 
     if (out.length === 0) return { blocks, exit: null };
     if (out.length > 1) {
@@ -322,135 +316,7 @@ function walkSegment(ctx: WalkContext, startId: string, depth: number): SegmentR
   return { blocks, exit: null };
 }
 
-interface ForkResult {
-  readonly blocks: DocumentBlock[];
-  /** Rejoin node to continue the enclosing segment at (proven safe to visit next). */
-  readonly continueAt: string | null;
-  /** Bubbled join when the rejoin belongs to an enclosing fork. */
-  readonly exit: string | null;
-}
-
-function walkFork(ctx: WalkContext, node: WorkflowNode, depth: number): ForkResult {
-  const id = node.id;
-  const out = ctx.outgoing.get(id) ?? [];
-  const downstream = out.map((e) => e.to);
-
-  if (depth + 1 > MAX_FORK_DEPTH) {
-    return bailFork(ctx, "nesting_too_deep", id, downstream);
-  }
-
-  const vocabulary = returnableBranchLabels(node);
-  if (vocabulary === null) {
-    // Unconfigured / malformed Router — routes validation owns this state.
-    return bailFork(ctx, "branch_config_invalid", id, downstream);
-  }
-
-  const byLabel = new Map<string, WorkflowEdge[]>();
-  const alwaysEdges: WorkflowEdge[] = [];
-  for (const e of out) {
-    if (e.label === undefined) {
-      alwaysEdges.push(e);
-      continue;
-    }
-    const bucket = byLabel.get(e.label);
-    if (bucket) bucket.push(e);
-    else byLabel.set(e.label, [e]);
-  }
-
-  // Wiring must match the engine's activation exactly: every returnable label
-  // wired once, no stale labels, at most one always edge, no same-label fan-out.
-  for (const label of vocabulary) {
-    if ((byLabel.get(label)?.length ?? 0) !== 1) {
-      return bailFork(ctx, "branch_wiring", id, downstream);
-    }
-  }
-  for (const label of byLabel.keys()) {
-    if (!vocabulary.includes(label)) {
-      return bailFork(ctx, "branch_wiring", id, downstream);
-    }
-  }
-  if (alwaysEdges.length > 1) {
-    return bailFork(ctx, "parallel_fan_out", id, downstream);
-  }
-
-  const regionStart = ctx.visitOrder.length;
-  const lanes: DocumentForkLane[] = [];
-  const exits = new Set<string>();
-  const typeKey = nodeTypeKey(node);
-
-  const laneOrder: Array<{ label: string; kindHint: "labeled" | "always"; target: string }> = [
-    ...vocabulary.map((label) => ({
-      label,
-      kindHint: "labeled" as const,
-      target: byLabel.get(label)![0]!.to,
-    })),
-    ...alwaysEdges.map((e) => ({ label: "", kindHint: "always" as const, target: e.to })),
-  ];
-
-  for (const lane of laneOrder) {
-    const seg = walkSegment(ctx, lane.target, depth + 1);
-    if (seg.exit !== null) exits.add(seg.exit);
-    const lastBlock = seg.blocks[seg.blocks.length - 1];
-    lanes.push({
-      label: lane.label,
-      title: laneTitle(typeKey, lane.label, lane.kindHint, node),
-      subtitle: laneSubtitle(typeKey, lane.label, node),
-      kindHint: lane.kindHint,
-      blocks: seg.blocks,
-      terminal: seg.exit === null && lastBlock?.kind !== "complex",
-    });
-  }
-
-  if (exits.size > 1) {
-    // Lanes converge in more than one place — un-emittable as one rejoin.
-    // The lanes' nodes were already visited; the whole fork region degrades.
-    const regionIds = [id, ...ctx.visitOrder.slice(regionStart)];
-    const block = buildComplexRegion(ctx, "ambiguous_rejoin", regionIds, [...exits]);
-    return { blocks: [block], continueAt: null, exit: null };
-  }
-
-  const rejoin = exits.size === 1 ? [...exits][0]! : null;
-  const forkBlock: DocumentForkBlock = {
-    kind: "fork",
-    nodeId: id,
-    title: getNodeDisplayName(node, forkMetaDisplayName(ctx.meta, node)),
-    providerId: node.provider,
-    providerLabel: providerLabelFor(ctx.meta, node.provider),
-    conditionSummary: forkConditionSummary(node, vocabulary),
-    blankChips: blankChipsFor(ctx.meta, node),
-    lanes,
-    rejoinNodeId: rejoin,
-    depth,
-  };
-
-  if (rejoin === null) {
-    return { blocks: [forkBlock], continueAt: null, exit: null };
-  }
-  if (!allPredsVisited(ctx, rejoin)) {
-    // The rejoin belongs to an enclosing fork — bubble it up unresolved.
-    return { blocks: [forkBlock], continueAt: null, exit: rejoin };
-  }
-  return { blocks: [forkBlock], continueAt: rejoin, exit: null };
-}
-
-function bailFork(
-  ctx: WalkContext,
-  reason: ComplexRegionReason,
-  forkId: string,
-  downstream: readonly string[],
-): ForkResult {
-  return {
-    blocks: [buildComplexRegion(ctx, reason, [forkId], downstream)],
-    continueAt: null,
-    exit: null,
-  };
-}
-
-/**
- * Collect `include` plus every not-yet-visited node reachable from `seeds`
- * (edge-array-order DFS), mark them visited, and build the region block.
- */
-function buildComplexRegion(
+export function buildComplexRegion(
   ctx: WalkContext,
   reason: ComplexRegionReason,
   include: readonly string[],

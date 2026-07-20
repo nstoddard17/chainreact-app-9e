@@ -3,30 +3,42 @@
 import type { DocumentSentenceBlock } from "./projection";
 
 /**
- * One read-only Document sentence (5.DUAL-BUILDER-1 / CS-1).
+ * One Document sentence (5.DUAL-BUILDER-1 CS-1; interactive in CS-2).
  *
  * Renders a step as calm prose: marker ("When" / step number) · provider
  * identity · title · configured value chips (shared summary core) · blank
  * chips (same required-field rule as the canvas "Needs setup" chip).
  *
- * READ-ONLY in CS-1: chips are plain spans — no fake controls. Guided-Stop
- * editing arrives in CS-2.
+ * CS-2 — chips are buttons that open the anchored Guided Stop for that
+ * field, and every sentence exposes "Configure step" (the existing full
+ * inspector). Chip clicks NEVER mutate anything themselves — they only open
+ * the editor; commits flow through the shared config path.
  */
 export function DocumentSentence({
   block,
   marker,
   providerIcon,
+  onEditField,
+  onConfigureStep,
+  editingFieldName,
 }: {
   block: DocumentSentenceBlock;
   /** Reading-order marker: "When" for the trigger, a number for actions. */
   marker: string;
   providerIcon?: string | undefined;
+  /** CS-2 — open the Guided Stop for one field of this step. */
+  onEditField?: ((nodeId: string, fieldName: string) => void) | undefined;
+  /** CS-2 — open the existing full inspector for this step. */
+  onConfigureStep?: ((nodeId: string) => void) | undefined;
+  /** The field currently being edited by an open Guided Stop (highlight). */
+  editingFieldName?: string | null | undefined;
 }) {
+  const chipInteractive = onEditField !== undefined;
   return (
     <div
       data-testid={`document-sentence-${block.nodeId}`}
       data-node-id={block.nodeId}
-      className="flex items-start gap-3 rounded-lg px-3 py-2.5"
+      className="group flex items-start gap-3 rounded-lg px-3 py-2.5"
     >
       <span
         className="builder-mono mt-0.5 inline-flex h-6 min-w-[44px] shrink-0 items-center justify-center rounded-full px-2 text-[10.5px] font-semibold uppercase tracking-[0.04em]"
@@ -48,30 +60,59 @@ export function DocumentSentence({
               — not set up yet
             </span>
           ) : null}
+          {onConfigureStep ? (
+            <button
+              type="button"
+              data-testid={`document-configure-step-${block.nodeId}`}
+              onClick={() => onConfigureStep(block.nodeId)}
+              className="ml-2 inline-flex h-6 items-center gap-1 rounded-md px-2 align-middle text-[11px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100 motion-reduce:transition-none"
+              style={{
+                color: "var(--builder-muted)",
+                border: "1px solid var(--builder-border)",
+              }}
+              title="Everything this step does, in one place"
+            >
+              ⚙ Configure step
+            </button>
+          ) : null}
         </p>
         {block.valueChips.length > 0 || block.blankChips.length > 0 ? (
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {block.valueChips.map((chip) => (
-              <span
-                key={`v-${chip.label}`}
+              <button
+                key={`v-${chip.name}`}
+                type="button"
+                disabled={!chipInteractive}
                 data-testid={`document-value-chip-${block.nodeId}-${chip.label}`}
-                className="inline-flex max-w-[280px] items-center gap-1 truncate rounded-md px-2 py-0.5 text-[12px]"
+                data-field-name={chip.name}
+                onClick={() => onEditField?.(block.nodeId, chip.name)}
+                className="inline-flex max-w-[280px] items-center gap-1 truncate rounded-md px-2 py-0.5 text-left text-[12px] disabled:cursor-default"
                 title={`${chip.label}: ${chip.display}`}
                 style={{
-                  background: "var(--builder-panel-2)",
+                  background:
+                    editingFieldName === chip.name
+                      ? "var(--builder-accent-soft)"
+                      : "var(--builder-panel-2)",
                   color: "var(--builder-text-2)",
-                  border: "1px solid var(--builder-border)",
+                  border:
+                    editingFieldName === chip.name
+                      ? "1px solid var(--builder-accent)"
+                      : "1px solid var(--builder-border)",
                 }}
               >
                 <span style={{ color: "var(--builder-muted)" }}>{chip.label}</span>
                 <span className="truncate font-medium">{chip.display}</span>
-              </span>
+              </button>
             ))}
             {block.blankChips.map((chip) => (
-              <span
+              <button
                 key={`b-${chip.name}`}
+                type="button"
+                disabled={!chipInteractive}
                 data-testid={`document-blank-chip-${block.nodeId}-${chip.name}`}
-                className="inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-medium"
+                data-field-name={chip.name}
+                onClick={() => onEditField?.(block.nodeId, chip.name)}
+                className="inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-medium disabled:cursor-default"
                 title={`${chip.label} still needs a value`}
                 style={{
                   background: "var(--builder-accent-soft)",
@@ -80,7 +121,7 @@ export function DocumentSentence({
                 }}
               >
                 {chip.label}?
-              </span>
+              </button>
             ))}
           </div>
         ) : null}

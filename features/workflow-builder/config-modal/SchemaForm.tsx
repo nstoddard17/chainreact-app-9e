@@ -83,6 +83,16 @@ export interface SchemaFormProps {
    * tab switches by construction.
    */
   section?: "setup" | "advanced";
+  /**
+   * 5.DUAL-BUILDER-1 CS-2 — draw ONLY the named field (the Document Guided
+   * Stop's single-question editor) while keeping the FULL `fields` list in
+   * scope, exactly like `section`: dependsOn parents resolve from `values`,
+   * changing the drawn field still clears its direct dependents and hidden
+   * `visibleWhen` siblings, and composite/advanced semantics are unchanged.
+   * A field hidden by `visibleWhen`, composite-managed, or unknown draws
+   * nothing (the caller owns that state). Takes precedence over `section`.
+   */
+  only?: string;
 }
 
 /**
@@ -128,6 +138,7 @@ export function SchemaForm({
   className,
   highlightFieldName,
   section,
+  only,
 }: SchemaFormProps) {
   const childrenByParent = React.useMemo(
     () => buildChildrenByParent(fields),
@@ -377,6 +388,24 @@ export function SchemaForm({
 
     return wrap(rendered);
   };
+
+  // 5.DUAL-BUILDER-1 CS-2 — single-field mode (the Guided Stop). One drawn
+  // field, full cascade scope. Renders nothing when the field is unknown,
+  // composite-managed, or hidden by an unmet visibleWhen.
+  if (only !== undefined) {
+    const target = fieldsByName.get(only);
+    const drawable =
+      target !== undefined && !isCompositeManaged(target) && isVisible(target);
+    return (
+      <div
+        className={className ?? "flex flex-col gap-4"}
+        data-testid="schema-form-only-field"
+        data-only-field={only}
+      >
+        {drawable ? renderField(target, target.advanced === true) : null}
+      </div>
+    );
+  }
 
   // CONFIG-UX-SETUP-ADVANCED-1 — section mode: the config shell composes
   // Setup and Advanced as separate tabs over ONE field list + ONE pending

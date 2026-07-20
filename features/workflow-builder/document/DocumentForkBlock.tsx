@@ -4,18 +4,29 @@ import type { ReactNode } from "react";
 import type { DocumentBlock, DocumentForkBlock as ForkModel } from "./projection";
 
 /**
- * Read-only fork rendering (5.DUAL-BUILDER-1 / CS-1): condition header +
- * vertically stacked labeled lanes (design direction: "linear steps stay as
- * calm words; a branch becomes a compact visual — never a wide node canvas").
- * Nested forks render inside their lane via `renderBlocks` (injected by
- * DocumentView so this file stays cycle-free).
+ * Fork rendering (5.DUAL-BUILDER-1 CS-1; CS-2 adds interactivity + wiring
+ * warnings): condition header + vertically stacked labeled lanes (design
+ * direction: "linear steps stay as calm words; a branch becomes a compact
+ * visual — never a wide node canvas"). Nested forks render inside their lane
+ * via `renderBlocks` (injected by DocumentView so this file stays cycle-free).
+ *
+ * CS-2 — a lane whose wiring is broken renders a plain-language WARNING ROW
+ * (shared `missing_branch_edge`/`stale_branch_edge` findings) instead of the
+ * whole fork collapsing to a complex region. Structural repair stays a
+ * Visual-Builder job (`onOpenInVisual`).
  */
 export function DocumentForkBlock({
   block,
   renderBlocks,
+  onEditField,
+  onConfigureStep,
+  onOpenInVisual,
 }: {
   block: ForkModel;
   renderBlocks: (blocks: readonly DocumentBlock[]) => ReactNode;
+  onEditField?: ((nodeId: string, fieldName: string) => void) | undefined;
+  onConfigureStep?: ((nodeId: string) => void) | undefined;
+  onOpenInVisual?: ((nodeId: string | null) => void) | undefined;
 }) {
   return (
     <div
@@ -25,7 +36,7 @@ export function DocumentForkBlock({
       style={{ border: "1px solid var(--builder-border)", background: "var(--builder-panel)" }}
     >
       <div
-        className="flex flex-wrap items-center gap-2 px-4 py-2.5"
+        className="group flex flex-wrap items-center gap-2 px-4 py-2.5"
         style={{
           background: "var(--builder-panel-2)",
           borderBottom: "1px solid var(--builder-border)",
@@ -41,10 +52,14 @@ export function DocumentForkBlock({
           {block.conditionSummary}
         </span>
         {block.blankChips.map((chip) => (
-          <span
+          <button
             key={chip.name}
+            type="button"
+            disabled={onEditField === undefined}
             data-testid={`document-blank-chip-${block.nodeId}-${chip.name}`}
-            className="inline-flex items-center rounded-md px-2 py-0.5 text-[11.5px] font-medium"
+            data-field-name={chip.name}
+            onClick={() => onEditField?.(block.nodeId, chip.name)}
+            className="inline-flex items-center rounded-md px-2 py-0.5 text-[11.5px] font-medium disabled:cursor-default"
             style={{
               background: "var(--builder-accent-soft)",
               color: "var(--builder-accent)",
@@ -52,8 +67,20 @@ export function DocumentForkBlock({
             }}
           >
             {chip.label}?
-          </span>
+          </button>
         ))}
+        {onConfigureStep ? (
+          <button
+            type="button"
+            data-testid={`document-configure-step-${block.nodeId}`}
+            onClick={() => onConfigureStep(block.nodeId)}
+            className="ml-auto inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100 motion-reduce:transition-none"
+            style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
+            title="Everything this split does, in one place"
+          >
+            ⚙ Configure step
+          </button>
+        ) : null}
       </div>
       {block.lanes.map((lane, i) => (
         <div
@@ -83,9 +110,43 @@ export function DocumentForkBlock({
               </span>
             ) : null}
           </div>
+          {lane.warning ? (
+            <div
+              data-testid={`document-lane-warning-${block.nodeId}-${lane.label || "always"}`}
+              data-warning-code={lane.warning.code}
+              className="mb-1.5 flex flex-wrap items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] font-medium"
+              style={{
+                background: "var(--builder-accent-soft)",
+                color: "var(--builder-accent)",
+                border: "1.5px dashed var(--builder-accent)",
+              }}
+            >
+              <span className="min-w-0 flex-1">
+                {lane.warning.code === "missing_branch_edge"
+                  ? "This path needs a next step. "
+                  : "This path no longer matches the current routes. "}
+                <span className="font-normal">{lane.warning.message}</span>
+              </span>
+              {onOpenInVisual ? (
+                <button
+                  type="button"
+                  data-testid={`document-lane-warning-fix-${block.nodeId}-${lane.label || "always"}`}
+                  onClick={() => onOpenInVisual(block.nodeId)}
+                  className="inline-flex h-6 shrink-0 items-center rounded-md px-2 text-[11.5px] font-medium"
+                  style={{
+                    background: "var(--builder-panel)",
+                    color: "var(--builder-text)",
+                    border: "1px solid var(--builder-border)",
+                  }}
+                >
+                  Open in Visual Builder
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           {lane.blocks.length > 0 ? (
             <div className="pl-1">{renderBlocks(lane.blocks)}</div>
-          ) : (
+          ) : lane.warning ? null : (
             <p className="m-0 pl-1 text-[12.5px]" style={{ color: "var(--builder-muted)" }}>
               Continues below.
             </p>

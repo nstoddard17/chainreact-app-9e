@@ -65,6 +65,8 @@ import { ValidationSummary } from "./validation/ValidationSummary";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
 import {
   DocumentView,
+  guardDocumentActionMeta,
+  describeDocumentRefusal,
   readBuilderViewPref,
   writeBuilderViewPref,
   type BuilderViewMode,
@@ -240,6 +242,7 @@ export function WorkflowBuilder({
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
   const closeNode = useConfigSlice((s) => s.closeNode);
   const revealNode = useConfigSlice((s) => s.revealNode);
+  const openNodeConfig = useConfigSlice((s) => s.openNode);
   const runId = useRunSlice((s) => s.runId);
 
   // Slice 4.BUILDER-SETTINGS-2 — the workflow name lives in local state so a
@@ -265,6 +268,16 @@ export function WorkflowBuilder({
     [workflow.id],
   );
   const documentViewActive = documentBuilderEnabled === true && builderView === "document";
+  // 5.DUAL-BUILDER-1 CS-2 — the node whose configSlice selection is driven by
+  // an OPEN Document Guided Stop. The stop IS the editor for that selection,
+  // so the drawer's auto-open transition is suppressed for it (a ref, read by
+  // the existing transition effect without re-running it).
+  const guidedStopNodeRef = useRef<string | null>(null);
+  const handleGuidedStopActive = useCallback((nodeId: string | null) => {
+    guidedStopNodeRef.current = nodeId;
+  }, []);
+  // Transient Document notice (typed refusals, e.g. branching-in-CS-2).
+  const [documentNotice, setDocumentNotice] = useState<string | null>(null);
 
   // ANON-BUILDER-2/3 — when this builder was just opened by the anonymous-draft
   // restore flow, a one-shot { prompt, reason } is parked under the new workflow
@@ -371,6 +384,10 @@ export function WorkflowBuilder({
     const activeCleared = activeNodeId === null && prevActive !== null;
     prevActiveNodeId.current = activeNodeId;
     if (activeSet) {
+      // CS-2 — a Guided-Stop-driven selection edits inline in the Document;
+      // opening the inspector drawer on top of it would be two editors for
+      // one field. Every other selection path is unchanged.
+      if (guidedStopNodeRef.current === activeNodeId) return;
       openDrawer("inspector");
     } else if (activeCleared && mode === "inspector") {
       closeDrawer();
@@ -464,6 +481,16 @@ export function WorkflowBuilder({
       // picking, so this should be unreachable — but no insertion surface
       // (search, keyboard, future callers) may ever add a locked node.
       if (branchingLocked && isAdvancedBranchingTypeKey(meta.key)) return;
+      // 5.DUAL-BUILDER-1 CS-2 — the Document shares this picker, but Document
+      // branch AUTHORING is a later slice. Refuse with a typed handoff rather
+      // than partially creating an unconfigured branch node.
+      if (documentViewActive) {
+        const guard = guardDocumentActionMeta(meta);
+        if (!guard.ok) {
+          setDocumentNotice(describeDocumentRefusal(guard.reason));
+          return;
+        }
+      }
       const slice = useGraphSlice.getState();
       if (insertContext) {
         insertActionAtEdge(insertContext.edgeId, meta);
@@ -478,7 +505,7 @@ export function WorkflowBuilder({
       }
       slice.addActionFromMeta(meta);
     },
-    [branchingLocked],
+    [branchingLocked, documentViewActive],
   );
 
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
@@ -487,6 +514,24 @@ export function WorkflowBuilder({
   // 5.DUAL-BUILDER-1 CS-1 — complex-region handoff: switch to the Visual
   // surface and reveal the region's anchor node via the EXISTING focus API
   // (configSlice.revealNode — navigation only, never a write/save/mutation).
+  // CS-2 — "Configure step" from the Document: clear the Guided-Stop
+  // suppression so the EXISTING transition effect opens the inspector drawer,
+  // then select through the same configSlice.openNode the canvas uses.
+  const handleOpenStepInspector = useCallback(
+    (nodeId: string) => {
+      guidedStopNodeRef.current = null;
+      const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId);
+      if (!node) return;
+      // Re-select: when the stop already had this node selected, openNode is a
+      // no-op for the transition effect, so nudge it through a clear first.
+      if (useConfigSlice.getState().activeNodeId === nodeId) {
+        useConfigSlice.getState().closeNode();
+      }
+      openNodeConfig({ nodeId, initialValues: node.config ?? {} });
+    },
+    [openNodeConfig],
+  );
+
   const handleOpenInVisual = useCallback(
     (nodeId: string | null) => {
       setBuilderView("visual");
@@ -851,6 +896,14 @@ export function WorkflowBuilder({
             providerLabels={providerLabels}
             providerIcons={providerIcons}
             onOpenInVisual={handleOpenInVisual}
+            // CS-2 — Document gestures reuse the EXACT canvas paths: the same
+            // action picker (tail append / edge insert) and the same inspector.
+            onAppendAfter={handleAppendAfter}
+            onInsertAtEdge={memoizedEdgePlusClick}
+            onOpenStepInspector={handleOpenStepInspector}
+            onGuidedStopActive={handleGuidedStopActive}
+            notice={documentNotice}
+            onNotice={setDocumentNotice}
           />
         ) : (
         <WorkflowCanvas

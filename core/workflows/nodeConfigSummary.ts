@@ -37,6 +37,12 @@ export type ConfigSummaryKind =
   | "fixed"; // a plain literal reused on every run
 
 export interface ConfigSummarySegment {
+  /**
+   * The field's config key (FieldMeta.name) — 5.DUAL-BUILDER-1 CS-2. Lets a
+   * consumer map a rendered segment back to its field (the Document Builder's
+   * clickable value chips). Additive: display surfaces keep using `label`.
+   */
+  readonly name: string;
   /** The field's human label (never its config key). */
   readonly label: string;
   /** The value to display — a resolved resource name, a variable hint, an option label, or the literal. */
@@ -129,11 +135,12 @@ export function buildNodeConfigSummary(
     // Resource picker → recognizable name (or raw value if not yet resolved).
     if (field.optionsSource && typeof value === "string") {
       if (isDynamic(value)) {
-        segments.push({ label: field.label, display: describeDynamic(value), kind: "dynamic" });
+        segments.push({ name: field.name, label: field.label, display: describeDynamic(value), kind: "dynamic" });
         continue;
       }
       const resolved = labelFor?.(field.optionsSource, value);
       segments.push({
+        name: field.name,
         label: field.label,
         display: resolved ?? value,
         kind: "resource",
@@ -150,17 +157,17 @@ export function buildNodeConfigSummary(
         }
         return String(v);
       });
-      segments.push({ label: field.label, display: shortList(shown), kind: "resource" });
+      segments.push({ name: field.name, label: field.label, display: shortList(shown), kind: "resource" });
       continue;
     }
 
     if (isDynamic(value)) {
-      segments.push({ label: field.label, display: describeDynamic(value as string), kind: "dynamic" });
+      segments.push({ name: field.name, label: field.label, display: describeDynamic(value as string), kind: "dynamic" });
       continue;
     }
 
     if (field.type === "select" || field.type === "boolean") {
-      segments.push({ label: field.label, display: describeChoice(field, value), kind: "condition" });
+      segments.push({ name: field.name, label: field.label, display: describeChoice(field, value), kind: "condition" });
       continue;
     }
 
@@ -172,9 +179,9 @@ export function buildNodeConfigSummary(
         (v) => v !== null && typeof v === "object",
       );
       if (hasObjectRows) {
-        segments.push({ label: field.label, display: `${value.length} set`, kind: "fixed" });
+        segments.push({ name: field.name, label: field.label, display: `${value.length} set`, kind: "fixed" });
       } else {
-        segments.push({ label: field.label, display: shortList(value), kind: "fixed" });
+        segments.push({ name: field.name, label: field.label, display: shortList(value), kind: "fixed" });
       }
       continue;
     }
@@ -182,6 +189,7 @@ export function buildNodeConfigSummary(
     if (typeof value === "object" && value !== null) {
       // A single structured object — summarize by field count.
       segments.push({
+        name: field.name,
         label: field.label,
         display: `${Object.keys(value).length} set`,
         kind: "fixed",
@@ -189,7 +197,7 @@ export function buildNodeConfigSummary(
       continue;
     }
 
-    segments.push({ label: field.label, display: String(value), kind: "fixed" });
+    segments.push({ name: field.name, label: field.label, display: String(value), kind: "fixed" });
   }
 
   const empty = segments.length === 0;

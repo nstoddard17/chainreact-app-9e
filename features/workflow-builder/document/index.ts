@@ -30,3 +30,15 @@ export {
   writeBuilderViewPref,
   type BuilderViewMode,
 } from "./documentViewPref";
+export {
+  cancelDocumentField,
+  commitDocumentField,
+  describeDocumentRefusal,
+  guardDocumentActionMeta,
+  openDocumentStepConfig,
+  validateDocumentEdgeInsertion,
+  validateDocumentTailAdd,
+  type DocumentCommandRefusal,
+  type DocumentCommandResult,
+} from "./documentCommands";
+export { planGuidedStop, type GuidedStopPlan } from "./guidedStopModel";

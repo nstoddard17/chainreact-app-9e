@@ -32,6 +32,8 @@ export interface ProjectionMeta {
 
 /** A configured value shown inline in a sentence (from the shared summary core). */
 export interface DocumentValueChip {
+  /** The field's config key (FieldMeta.name) — the Guided Stop edit target (CS-2). */
+  readonly name: string;
   readonly label: string;
   readonly display: string;
   readonly kind: ConfigSummaryKind;
@@ -56,6 +58,15 @@ export interface DocumentSentenceBlock {
   readonly untyped: boolean;
   readonly valueChips: readonly DocumentValueChip[];
   readonly blankChips: readonly DocumentBlankChip[];
+  /**
+   * CS-2 — safe manual-insertion metadata. `insertAfter` is present when this
+   * step has EXACTLY ONE unlabeled outgoing edge (the only shape where
+   * "insert between" is unambiguous); `isLinearTail` is true when it has no
+   * outgoing edges (safe "add at end" anchor). Fork/always/fan-out shapes
+   * never carry either — the Document refuses rather than guesses.
+   */
+  readonly insertAfter: { readonly edgeId: string; readonly toNodeId: string } | null;
+  readonly isLinearTail: boolean;
 }
 
 export interface DocumentForkLane {
@@ -69,6 +80,17 @@ export interface DocumentForkLane {
   readonly blocks: readonly DocumentBlock[];
   /** True when this lane's path ends (no continuation to a rejoin). */
   readonly terminal: boolean;
+  /**
+   * CS-2 — branch-wiring finding for this lane, from the SHARED
+   * `findBranchWiringIssues` vocabulary (missing_branch_edge = a returnable
+   * route with no destination; stale_branch_edge = an edge whose label the
+   * node can no longer return). The fork stays readable; the lane carries
+   * the plain-language warning instead of collapsing to a complex region.
+   */
+  readonly warning: {
+    readonly code: "missing_branch_edge" | "stale_branch_edge";
+    readonly message: string;
+  } | null;
 }
 
 export interface DocumentForkBlock {

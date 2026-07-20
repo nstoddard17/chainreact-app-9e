@@ -90,8 +90,8 @@ describe("buildNodeConfigSummary — resource labels + task-shaped headline", ()
       config: { importance: "high", isHtml: true },
     });
     expect(summary.segments).toEqual([
-      { label: "Importance", display: "High", kind: "condition" },
-      { label: "Send as HTML", display: "Yes", kind: "condition" },
+      { name: "importance", label: "Importance", display: "High", kind: "condition" },
+      { name: "isHtml", label: "Send as HTML", display: "Yes", kind: "condition" },
     ]);
   });
 
@@ -122,7 +122,12 @@ describe("buildNodeConfigSummary — resource labels + task-shaped headline", ()
       fields,
       config: { lineItems: [{ priceId: "price_1" }, { priceId: "price_2" }] },
     });
-    expect(summary.segments[0]).toEqual({ label: "Line items", display: "2 set", kind: "fixed" });
+    expect(summary.segments[0]).toEqual({
+      name: "lineItems",
+      label: "Line items",
+      display: "2 set",
+      kind: "fixed",
+    });
   });
 
   it("empty config → empty summary with the plain node name", () => {
