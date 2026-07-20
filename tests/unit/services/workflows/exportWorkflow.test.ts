@@ -146,6 +146,39 @@ describe("sanitizeWorkflowDefinitionForExport — graph shape", () => {
     expect(json).not.toMatch(/boss@acme\.com/);
   });
 
+  // RECONV-1 S1 — a reconverging (diamond) graph survives export intact: the
+  // sanitizer maps edges verbatim, so all four diamond edges (two labeled out
+  // of the branch node, two rejoining into the shared node) keep ids, wiring,
+  // and labels exactly.
+  it("preserves a diamond's edges + labels verbatim (RECONV-1)", () => {
+    const nodeShape = (id: string, kind: "trigger" | "action", provider: string, type: string) =>
+      ({ id, kind, provider, type, position: { x: 0, y: 0 }, config: {} }) as WorkflowDefinition["nodes"][number];
+    const diamondEdges = [
+      { id: "e1", from: "t1", to: "branch" },
+      { id: "e2", from: "branch", to: "A", label: "true" },
+      { id: "e3", from: "branch", to: "B", label: "false" },
+      { id: "e4", from: "A", to: "S" },
+      { id: "e5", from: "B", to: "S" },
+    ];
+    const diamond: WorkflowDefinition = {
+      nodes: [
+        nodeShape("t1", "trigger", "native", "manual.run"),
+        nodeShape("branch", "action", "native", "if_then_condition"),
+        nodeShape("A", "action", "slack", "send_channel_message"),
+        nodeShape("B", "action", "gmail", "send_email"),
+        nodeShape("S", "action", "slack", "send_channel_message"),
+      ],
+      edges: diamondEdges,
+    };
+    const out = sanitizeWorkflowDefinitionForExport(diamond);
+    expect(out.edges).toEqual(diamondEdges);
+    // Labels specifically survive on the two branch lanes.
+    expect(out.edges.filter((e) => e.label !== undefined)).toEqual([
+      { id: "e2", from: "branch", to: "A", label: "true" },
+      { id: "e3", from: "branch", to: "B", label: "false" },
+    ]);
+  });
+
   it("drops unexpected/unknown node fields (whitelist defense)", () => {
     const sneaky = {
       nodes: [

@@ -25,6 +25,17 @@ function http(id: string, config: Record<string, unknown>): WorkflowNode {
 function edge(id: string, from: string, to: string): WorkflowEdge {
   return { id, from, to };
 }
+function labeledEdge(id: string, from: string, to: string, label: string): WorkflowEdge {
+  return { id, from, to, label };
+}
+// RECONV-1 S1 — real branching node types so findGraphIssues' branch-wiring
+// pass (findBranchWiringIssues) sees a label vocabulary.
+function ifThen(id: string, config: Record<string, unknown> = {}): WorkflowNode {
+  return { id, kind: "action", provider: "native", type: "if_then_condition", config, position: { x: 0, y: 0 } };
+}
+function router(id: string, config: Record<string, unknown>): WorkflowNode {
+  return { id, kind: "action", provider: "native", type: "router", config, position: { x: 0, y: 0 } };
+}
 
 describe("findGraphIssues", () => {
   it("no_trigger when there are zero triggers", () => {
@@ -79,6 +90,101 @@ describe("findGraphIssues", () => {
     const issues = findGraphIssues([trigger(), http("a1", {})], [edge("e", "ghost", "a1")]);
     expect(issues.some((i) => i.code === "unreachable_node" && i.nodeId === "a1")).toBe(true);
     expect(issues.some((i) => i.code === "stale_edge")).toBe(true);
+  });
+});
+
+// ─── RECONV-1 S1 — divergence/reconvergence graph acceptance ────────────────
+//
+// Reconverging (diamond) graphs are first-class: none of the shared graph
+// checks (stale/self-loop/branch-wiring/reachability) may flag a well-formed
+// rejoin, and adding a genuinely-broken edge to a diamond still reports it.
+describe("findGraphIssues — RECONV-1 divergence/reconvergence", () => {
+  it("If/Then diamond (true→A→S, false→B→S, S→tail) has no issues", () => {
+    const nodes = [trigger(), ifThen("b"), http("a", {}), http("bb", {}), http("s", {}), http("tail", {})];
+    const edges = [
+      edge("e1", "t1", "b"),
+      labeledEdge("e2", "b", "a", "true"),
+      labeledEdge("e3", "b", "bb", "false"),
+      edge("e4", "a", "s"),
+      edge("e5", "bb", "s"),
+      edge("e6", "s", "tail"),
+    ];
+    expect(findGraphIssues(nodes, edges)).toEqual([]);
+  });
+
+  it("direct rejoin (true→S and false→S straight from the branch node) has no issues", () => {
+    const nodes = [trigger(), ifThen("b"), http("s", {})];
+    const edges = [
+      edge("e1", "t1", "b"),
+      labeledEdge("e2", "b", "s", "true"),
+      labeledEdge("e3", "b", "s", "false"),
+    ];
+    expect(findGraphIssues(nodes, edges)).toEqual([]);
+  });
+
+  it("three-lane Router rejoin (routes a/b + defaultRoute d, all lanes → S) has no issues", () => {
+    const nodes = [
+      trigger(),
+      router("r", { routes: [{ label: "a" }, { label: "b" }], defaultRoute: "d" }),
+      http("la", {}),
+      http("lb", {}),
+      http("ld", {}),
+      http("s", {}),
+    ];
+    const edges = [
+      edge("e1", "t1", "r"),
+      labeledEdge("e2", "r", "la", "a"),
+      labeledEdge("e3", "r", "lb", "b"),
+      labeledEdge("e4", "r", "ld", "d"),
+      edge("e5", "la", "s"),
+      edge("e6", "lb", "s"),
+      edge("e7", "ld", "s"),
+    ];
+    expect(findGraphIssues(nodes, edges)).toEqual([]);
+  });
+
+  it("one-terminal-branch encoding (onFalse='skip', only true→A→S wired) has no issues", () => {
+    const nodes = [trigger(), ifThen("b", { onFalse: "skip" }), http("a", {}), http("s", {})];
+    const edges = [
+      edge("e1", "t1", "b"),
+      labeledEdge("e2", "b", "a", "true"),
+      edge("e3", "a", "s"),
+    ];
+    expect(findGraphIssues(nodes, edges)).toEqual([]);
+  });
+
+  it("a diamond PLUS a self-loop edge still reports self_loop_edge (and nothing else)", () => {
+    const nodes = [trigger(), ifThen("b"), http("a", {}), http("bb", {}), http("s", {})];
+    const edges = [
+      edge("e1", "t1", "b"),
+      labeledEdge("e2", "b", "a", "true"),
+      labeledEdge("e3", "b", "bb", "false"),
+      edge("e4", "a", "s"),
+      edge("e5", "bb", "s"),
+      edge("e-loop", "s", "s"),
+    ];
+    const issues = findGraphIssues(nodes, edges);
+    expect(issues.map((i) => i.code)).toEqual(["self_loop_edge"]);
+    expect(issues[0]?.edgeId).toBe("e-loop");
+    expect(issues[0]?.nodeId).toBe("s");
+  });
+
+  it("a diamond with a stale labeled edge (onFalse='skip' leftover False lane) still reports stale_branch_edge", () => {
+    // The branch switched to skip-on-false but the old False lane edges remain:
+    // the 'false' edge can never activate → stale_branch_edge, nothing else.
+    const nodes = [trigger(), ifThen("b", { onFalse: "skip" }), http("a", {}), http("bb", {}), http("s", {})];
+    const edges = [
+      edge("e1", "t1", "b"),
+      labeledEdge("e2", "b", "a", "true"),
+      labeledEdge("e3", "b", "bb", "false"),
+      edge("e4", "a", "s"),
+      edge("e5", "bb", "s"),
+    ];
+    const issues = findGraphIssues(nodes, edges);
+    expect(issues.map((i) => i.code)).toEqual(["stale_branch_edge"]);
+    expect(issues[0]?.edgeId).toBe("e3");
+    expect(issues[0]?.branchLabel).toBe("false");
+    expect(issues[0]?.nodeId).toBe("b");
   });
 });
 

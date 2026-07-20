@@ -2450,6 +2450,307 @@ describe("WorkflowEngine — label-aware branching (Engine Branching Commit 2 lo
   });
 });
 
+// ─── RECONV-1 S1 — divergence/reconvergence coverage ────────────────────────
+//
+// Extends the label-aware branching + D1 blocks above with the remaining
+// reconvergence shapes from the RECONV-1 spec: direct rejoin (case 7), nested
+// rejoin (case 5), a three-way Router-style rejoin (case 4), and full
+// storage-order independence (nodes array AND edges array permuted — D1 only
+// permuted the edges array). Same stub idiom as above: a "route"-style handler
+// whose result carries `branchTaken` — the real native If/Then / Router
+// handlers are unit-tested elsewhere; the engine only sees branchTaken + edge
+// labels.
+describe("WorkflowEngine — RECONV-1 divergence/reconvergence (S1)", () => {
+  const okHandler = () => jest.fn(async () => ({ output: {} }));
+  const branchHandler = (picked: string) =>
+    jest.fn(async () => ({ output: {}, branchTaken: picked }));
+
+  /** Seed the workflow, wire stub handlers by action type, run once. */
+  async function runGraph(
+    definition: { nodes: WorkflowNode[]; edges: WorkflowEdge[] },
+    handlers: Record<string, jest.Mock>,
+  ) {
+    mockGetByIdServiceRole.mockResolvedValueOnce({
+      ...baseWorkflow,
+      draftDefinition: definition,
+    });
+    mockGetActionHandler.mockImplementation(
+      (_p: string, type: string) => handlers[type],
+    );
+    const result = await new WorkflowEngine({
+      resolveStrict: (v) => v,
+    }).runWorkflow({
+      workflowId: "wf-1",
+      triggerNodeId: "t1",
+      triggerEvent,
+    });
+    const statusMap = Object.fromEntries(
+      result.steps.map((s) => [s.nodeId, s.status]),
+    );
+    return { result, statusMap };
+  }
+
+  describe("case 7 — direct reconvergence: true→M and false→M with no intermediates", () => {
+    const nodes = [
+      trigger("t1"),
+      action("branch", "route"),
+      action("M", "merge_handler"),
+      action("tail", "tail_handler"),
+    ];
+    const edges = [
+      edge("e1", "t1", "branch"),
+      labeledEdge("e2", "branch", "M", "true"),
+      labeledEdge("e3", "branch", "M", "false"),
+      edge("e4", "M", "tail"),
+    ];
+
+    for (const picked of ["true", "false"]) {
+      it(`selecting '${picked}': M executes exactly once and the tail runs`, async () => {
+        const handlers = {
+          route: branchHandler(picked),
+          merge_handler: okHandler(),
+          tail_handler: okHandler(),
+        };
+        const { result, statusMap } = await runGraph({ nodes, edges }, handlers);
+        expect(result.status).toBe("succeeded");
+        expect(handlers.route).toHaveBeenCalledTimes(1);
+        expect(handlers.merge_handler).toHaveBeenCalledTimes(1);
+        expect(handlers.tail_handler).toHaveBeenCalledTimes(1);
+        expect(statusMap).toEqual({
+          t1: "succeeded",
+          branch: "succeeded",
+          M: "succeeded",
+          tail: "succeeded",
+        });
+      });
+    }
+  });
+
+  describe("case 5 — nested rejoin: inner diamond inside the outer True branch", () => {
+    // t1 → outer → (true → inner → (true → A, false → B) → InnerShared,
+    //               false → C); InnerShared → OuterShared; C → OuterShared.
+    const nodes = [
+      trigger("t1"),
+      action("outer", "outer_route"),
+      action("inner", "inner_route"),
+      action("A", "a_handler"),
+      action("B", "b_handler"),
+      action("innerShared", "inner_shared_handler"),
+      action("C", "c_handler"),
+      action("outerShared", "outer_shared_handler"),
+    ];
+    const edges = [
+      edge("e1", "t1", "outer"),
+      labeledEdge("e2", "outer", "inner", "true"),
+      labeledEdge("e3", "outer", "C", "false"),
+      labeledEdge("e4", "inner", "A", "true"),
+      labeledEdge("e5", "inner", "B", "false"),
+      edge("e6", "A", "innerShared"),
+      edge("e7", "B", "innerShared"),
+      edge("e8", "innerShared", "outerShared"),
+      edge("e9", "C", "outerShared"),
+    ];
+
+    function handlersFor(outerPick: string, innerPick: string) {
+      return {
+        outer_route: branchHandler(outerPick),
+        inner_route: branchHandler(innerPick),
+        a_handler: okHandler(),
+        b_handler: okHandler(),
+        inner_shared_handler: okHandler(),
+        c_handler: okHandler(),
+        outer_shared_handler: okHandler(),
+      };
+    }
+
+    it("outer=true, inner=true: A runs, B skipped, InnerShared once, C skipped, OuterShared once", async () => {
+      const handlers = handlersFor("true", "true");
+      const { result, statusMap } = await runGraph({ nodes, edges }, handlers);
+      expect(result.status).toBe("succeeded");
+      expect(handlers.a_handler).toHaveBeenCalledTimes(1);
+      expect(handlers.b_handler).not.toHaveBeenCalled();
+      expect(handlers.inner_shared_handler).toHaveBeenCalledTimes(1);
+      expect(handlers.c_handler).not.toHaveBeenCalled();
+      expect(handlers.outer_shared_handler).toHaveBeenCalledTimes(1);
+      expect(statusMap).toEqual({
+        t1: "succeeded",
+        outer: "succeeded",
+        inner: "succeeded",
+        A: "succeeded",
+        B: "skipped",
+        innerShared: "succeeded",
+        C: "skipped",
+        outerShared: "succeeded",
+      });
+      // No node ever executes twice.
+      for (const h of Object.values(handlers)) {
+        expect(h.mock.calls.length).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it("outer=false: whole inner subtree skipped, C runs, OuterShared exactly once — no node executes twice", async () => {
+      const handlers = handlersFor("false", "true");
+      const { result, statusMap } = await runGraph({ nodes, edges }, handlers);
+      expect(result.status).toBe("succeeded");
+      expect(handlers.inner_route).not.toHaveBeenCalled();
+      expect(handlers.a_handler).not.toHaveBeenCalled();
+      expect(handlers.b_handler).not.toHaveBeenCalled();
+      expect(handlers.inner_shared_handler).not.toHaveBeenCalled();
+      expect(handlers.c_handler).toHaveBeenCalledTimes(1);
+      expect(handlers.outer_shared_handler).toHaveBeenCalledTimes(1);
+      expect(statusMap).toEqual({
+        t1: "succeeded",
+        outer: "succeeded",
+        inner: "skipped",
+        A: "skipped",
+        B: "skipped",
+        innerShared: "skipped",
+        C: "succeeded",
+        outerShared: "succeeded",
+      });
+      for (const h of Object.values(handlers)) {
+        expect(h.mock.calls.length).toBeLessThanOrEqual(1);
+      }
+    });
+  });
+
+  describe("case 4 — three-way Router-style rejoin (routes a/b + default d)", () => {
+    const nodes = [
+      trigger("t1"),
+      action("router", "route"),
+      action("A1", "a1_handler"),
+      action("B1", "b1_handler"),
+      action("D1", "d1_handler"),
+      action("shared", "shared_handler"),
+    ];
+    const edges = [
+      edge("e1", "t1", "router"),
+      labeledEdge("e2", "router", "A1", "a"),
+      labeledEdge("e3", "router", "B1", "b"),
+      labeledEdge("e4", "router", "D1", "d"),
+      edge("e5", "A1", "shared"),
+      edge("e6", "B1", "shared"),
+      edge("e7", "D1", "shared"),
+    ];
+    const lanes: ReadonlyArray<readonly [string, "A1" | "B1" | "D1"]> = [
+      ["a", "A1"],
+      ["b", "B1"],
+      ["d", "D1"], // Router falls back to defaultRoute → branchTaken 'd'
+    ];
+
+    for (const [picked, laneNode] of lanes) {
+      it(`selection '${picked}': only ${laneNode} executes, other lanes skipped, shared exactly once`, async () => {
+        const handlers = {
+          route: branchHandler(picked),
+          a1_handler: okHandler(),
+          b1_handler: okHandler(),
+          d1_handler: okHandler(),
+          shared_handler: okHandler(),
+        };
+        const { result, statusMap } = await runGraph({ nodes, edges }, handlers);
+        expect(result.status).toBe("succeeded");
+        expect(handlers.shared_handler).toHaveBeenCalledTimes(1);
+        const handlerByLane = {
+          A1: handlers.a1_handler,
+          B1: handlers.b1_handler,
+          D1: handlers.d1_handler,
+        } as const;
+        for (const [node, h] of Object.entries(handlerByLane)) {
+          expect(h).toHaveBeenCalledTimes(node === laneNode ? 1 : 0);
+        }
+        const expected: Record<string, string> = {
+          t1: "succeeded",
+          router: "succeeded",
+          A1: "skipped",
+          B1: "skipped",
+          D1: "skipped",
+          shared: "succeeded",
+        };
+        expected[laneNode] = "succeeded";
+        expect(statusMap).toEqual(expected);
+      });
+    }
+  });
+
+  describe("storage-order independence: nodes array AND edges array permuted (unequal-length diamond)", () => {
+    // Same topology as the D1 block above: t1 → router; router →('a') A → M;
+    // router →('b') M directly. D1 proved edge-order independence with the
+    // nodes array fixed — the new bit here is permuting the NODES array too,
+    // in two mirror-image orderings, against the canonical baseline.
+    const canonicalNodes = [
+      trigger("t1"),
+      action("router", "route"),
+      action("A", "a_handler"),
+      action("M", "merge_handler"),
+    ];
+    const canonicalEdges = [
+      edge("e1", "t1", "router"),
+      labeledEdge("e2", "router", "M", "b"),
+      labeledEdge("e3", "router", "A", "a"),
+      edge("e4", "A", "M"),
+    ];
+    const orderings = [
+      {
+        name: "nodes reversed + edges rotated",
+        nodes: [...canonicalNodes].reverse(),
+        edges: [...canonicalEdges.slice(2), ...canonicalEdges.slice(0, 2)],
+      },
+      {
+        name: "nodes reversed + edges reversed (mirror)",
+        nodes: [...canonicalNodes].reverse(),
+        edges: [...canonicalEdges].reverse(),
+      },
+      { name: "canonical baseline", nodes: canonicalNodes, edges: canonicalEdges },
+    ];
+
+    it("long branch 'a': merge executes exactly once with identical step statuses in every ordering", async () => {
+      for (const ordering of orderings) {
+        const handlers = {
+          route: branchHandler("a"),
+          a_handler: okHandler(),
+          merge_handler: okHandler(),
+        };
+        const { result, statusMap } = await runGraph(
+          { nodes: ordering.nodes, edges: ordering.edges },
+          handlers,
+        );
+        expect(result.status).toBe("succeeded");
+        expect(handlers.a_handler).toHaveBeenCalledTimes(1);
+        expect(handlers.merge_handler).toHaveBeenCalledTimes(1);
+        expect(statusMap).toEqual({
+          t1: "succeeded",
+          router: "succeeded",
+          A: "succeeded",
+          M: "succeeded",
+        });
+      }
+    });
+
+    it("short branch 'b': A skipped and merge executes exactly once in every ordering", async () => {
+      for (const ordering of orderings) {
+        const handlers = {
+          route: branchHandler("b"),
+          a_handler: okHandler(),
+          merge_handler: okHandler(),
+        };
+        const { result, statusMap } = await runGraph(
+          { nodes: ordering.nodes, edges: ordering.edges },
+          handlers,
+        );
+        expect(result.status).toBe("succeeded");
+        expect(handlers.a_handler).not.toHaveBeenCalled();
+        expect(handlers.merge_handler).toHaveBeenCalledTimes(1);
+        expect(statusMap).toEqual({
+          t1: "succeeded",
+          router: "succeeded",
+          A: "skipped",
+          M: "succeeded",
+        });
+      }
+    });
+  });
+});
+
 // ─── Slice 3.SEC-2 — engine test-mode gate ──────────────────────────────────
 //
 // Verifies the engine consults the testModeGate BEFORE invoking handlers

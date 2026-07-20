@@ -202,3 +202,67 @@ describe("restoreCheckpoint", () => {
     expect(mockUpdateDraftDefinition).not.toHaveBeenCalled();
   });
 });
+
+// ─── RECONV-1 S1 — a reconverging (diamond) graph round-trips verbatim ──────
+//
+// Checkpoint create/restore must never rewrite, reorder, or drop rejoining
+// edges: the payload handed to the repo IS the input definition, labels
+// included. The branch node here is a plain action carrying labeled edges
+// (labeled edges alone are not plan-gated), so the restore path's real
+// saveDraftDefinition run stays entitlement-neutral.
+describe("RECONV-1 — diamond definition round-trip", () => {
+  const DIAMOND: WorkflowDefinition = {
+    nodes: [
+      { id: "t1", kind: "trigger", provider: "slack", type: "new_message", config: {}, position: { x: 0, y: 0 } },
+      { id: "branch", kind: "action", provider: "slack", type: "route", config: {}, position: { x: 0, y: 100 } },
+      { id: "A", kind: "action", provider: "slack", type: "send_channel_message", config: { channel: "C1" }, position: { x: -100, y: 200 } },
+      { id: "B", kind: "action", provider: "gmail", type: "send_email", config: {}, position: { x: 100, y: 200 } },
+      { id: "S", kind: "action", provider: "slack", type: "send_channel_message", config: { channel: "C2" }, position: { x: 0, y: 300 } },
+    ],
+    edges: [
+      { id: "e1", from: "t1", to: "branch" },
+      { id: "e2", from: "branch", to: "A", label: "true" },
+      { id: "e3", from: "branch", to: "B", label: "false" },
+      { id: "e4", from: "A", to: "S" },
+      { id: "e5", from: "B", to: "S" },
+    ],
+  };
+
+  it("createCheckpoint hands the repo the diamond's edges (labels included) verbatim", async () => {
+    mockCreate.mockResolvedValue({
+      id: "cp-d", workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      source: "manual", name: "Before rewire", prompt: null, summary: null,
+      definition: DIAMOND, createdAt: "2026-07-15T04:00:00Z",
+    });
+    await createCheckpoint({
+      workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      source: "manual", name: "Before rewire", definition: DIAMOND,
+    });
+    const stored = mockCreate.mock.calls[0]![0] as { definition: WorkflowDefinition };
+    expect(stored.definition.edges).toEqual(DIAMOND.edges);
+    expect(stored.definition).toEqual(DIAMOND);
+  });
+
+  it("restoreCheckpoint writes the captured diamond back verbatim (stored payload === input edges)", async () => {
+    mockGetByIdForWorkflow.mockResolvedValue({
+      id: "cp-d", workflowId: "wf-1", accountId: "acct-1", createdByUserId: "user-1",
+      source: "manual", name: "Before rewire", prompt: null, summary: null,
+      definition: DIAMOND, createdAt: "2026-07-15T04:00:00Z",
+    });
+    mockUpdateDraftDefinition.mockImplementation(async (_id: string, def: WorkflowDefinition) =>
+      baseWorkflow({ draftDefinition: def, updatedAt: "2026-07-15T05:00:00Z" }),
+    );
+
+    const result = await restoreCheckpoint({
+      workflow: baseWorkflow({ draftDefinition: CURRENT_DRAFT }),
+      checkpointId: "cp-d",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mockUpdateDraftDefinition).toHaveBeenCalledWith("wf-1", DIAMOND);
+    if (result.ok) {
+      expect(result.record.draftDefinition.edges).toEqual(DIAMOND.edges);
+      expect(result.record.draftDefinition).toEqual(DIAMOND);
+    }
+  });
+});

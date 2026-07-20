@@ -291,4 +291,54 @@ describe("WorkflowDefinitionSchema", () => {
       ).toBe(true);
     }
   });
+
+  // RECONV-1 S1 — divergence/reconvergence definitions are schema-legal. The
+  // dedup key is `${from}->${to}::${label ?? ""}`, so rejoining edges (distinct
+  // from-nodes into one shared target, or one source with distinct labels) are
+  // never mistaken for duplicates.
+  describe("RECONV-1 divergence/reconvergence", () => {
+    // branch n2 → (true → n3, false → n4) → shared n5.
+    const diamondEdges = [
+      { id: "e1", from: "n1", to: "n2" },
+      { id: "e2", from: "n2", to: "n3", label: "true" },
+      { id: "e3", from: "n2", to: "n4", label: "false" },
+      { id: "e4", from: "n3", to: "n5" },
+      { id: "e5", from: "n4", to: "n5" },
+    ];
+    const diamondNodes = [trigger("n1"), action("n2"), action("n3"), action("n4"), action("n5")];
+
+    it("accepts a full diamond (2 labeled edges out of the branch, 2 edges into the shared node)", () => {
+      expect(
+        WorkflowDefinitionSchema.safeParse({ nodes: diamondNodes, edges: diamondEdges }).success,
+      ).toBe(true);
+    });
+
+    it("accepts a direct rejoin — true→S and false→S from the same branch node", () => {
+      const def = {
+        nodes: [trigger("n1"), action("n2"), action("n3")],
+        edges: [
+          { id: "e1", from: "n1", to: "n2" },
+          { id: "e2", from: "n2", to: "n3", label: "true" },
+          { id: "e3", from: "n2", to: "n3", label: "false" },
+        ],
+      };
+      expect(WorkflowDefinitionSchema.safeParse(def).success).toBe(true);
+    });
+
+    it("rejects a diamond containing an identically-duplicated labeled edge (same from/to/label)", () => {
+      const def = {
+        nodes: diamondNodes,
+        edges: [...diamondEdges, { id: "e2-dup", from: "n2", to: "n3", label: "true" }],
+      };
+      const result = WorkflowDefinitionSchema.safeParse(def);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(
+          result.error.issues.some(
+            (i) => i.message.includes("Duplicate edge") && i.message.includes("label 'true'"),
+          ),
+        ).toBe(true);
+      }
+    });
+  });
 });
