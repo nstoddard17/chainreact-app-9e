@@ -5,14 +5,13 @@ import { defineActionSmokeFixture } from "@/tests/smoke-actions/contract";
  * Genuinely EXECUTES through real V2 internals with NO credentials, so it
  * actually PASSes everywhere — including the full workflow-run modes (3/4).
  *
- * IMPORTANT terminal-node safety: the smoke harness runs every action as a
- * SINGLE terminal node (`manual.run → action`) with no outgoing edges. A router
- * that returns a non-null `branchTaken` (a matched/default label) fails the
- * engine with INVALID_BRANCH because there is no edge with that label. So this
- * fixture is authored to land on the NULL branch: the single route does NOT
- * match and there is NO `defaultRoute` ⇒ `branchTaken: null` ⇒ no labeled edge
- * required ⇒ terminal-safe. The handler still fully executes (schema parse +
- * real route evaluation); it just selects no route.
+ * Branch wiring (BRANCH-ENT-1): the harness's workflow mode now wires one
+ * format_transformer sink per RETURNABLE route label (here: "never"), so the
+ * graph passes the shared branch-wiring readiness rule. This fixture still
+ * lands on the NULL branch (the single route does not match and there is no
+ * `defaultRoute` ⇒ `branchTaken: null`), so the sink is persisted `skipped` —
+ * the handler fully executes (schema parse + real route evaluation) and the
+ * run succeeds.
  *
  * Route `"smoke" equals "different"` is false → no match → no defaultRoute →
  * branchTaken null. A real run succeeds and returns `{ matched:false, ... }`.

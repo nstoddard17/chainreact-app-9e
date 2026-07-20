@@ -47,6 +47,24 @@ export async function provisionDisposableSmokeAccount(
         `${error?.message ?? "no row"}`,
     );
   }
+
+  // BRANCH-ENT-1 — smoke certifies ACTION behavior, not billing. A fresh
+  // personal account defaults to the Free plan, which the engine's
+  // advanced-branching plan gate rightly blocks for the native
+  // if_then_condition / router fixtures. Stamp the throwaway account Pro
+  // (personal accounts allow free/pro) so plan entitlement never masks an
+  // action regression; the entitlement rules themselves are covered by the
+  // dedicated unit/e2e suites.
+  const { error: planError } = await admin
+    .from("account_billing")
+    .update({ plan: "pro", plan_status: "active" })
+    .eq("account_id", data.id);
+  if (planError) {
+    throw new Error(
+      `provisionDisposableSmokeAccount: pro-plan stamp for ${data.id} failed: ${planError.message}`,
+    );
+  }
+
   return { accountId: data.id, userId };
 }
 

@@ -1,7 +1,8 @@
 # Advanced Branching — Routing Hardening + Plan Entitlement (BRANCH-ENT-1)
 
-> Status: PLAN → IN PROGRESS (2026-07-19). Local-only batch; no push, no deploy, no
-> `db:push`, no migration expected. Owner report lands with the closeout.
+> Status: COMPLETE — see
+> [`advanced-branching-routing-and-entitlement-closeout.md`](./advanced-branching-routing-and-entitlement-closeout.md).
+> Local-only batch; no push, no deploy, no `db:push`, no migration.
 
 ## 0. Scope
 

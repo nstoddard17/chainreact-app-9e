@@ -27,6 +27,7 @@ import {
   WorkflowDefinitionSchema,
   type WorkflowDefinition,
 } from "@/contracts/workflowDefinition";
+import { returnableBranchLabels } from "@/core/workflows/branchWiring";
 import {
   MANUAL_TRIGGER_EVENT_TYPE,
   MANUAL_TRIGGER_PROVIDER,
@@ -62,6 +63,43 @@ export function buildSmokeManualRunDefinition(
   fixture: ActionSmokeFixture,
   configOverride?: Readonly<Record<string, unknown>>,
 ): SmokeManualRunWorkflow {
+  const actionNode = {
+    id: SMOKE_ACTION_NODE_ID,
+    kind: "action" as const,
+    provider: fixture.provider,
+    type: fixture.action,
+    config: (configOverride ?? fixture.config) as Record<string, unknown>,
+    position: { x: 0, y: 160 },
+  };
+
+  // BRANCH-ENT-1 — branching fixtures (if_then_condition / router) can no
+  // longer run as bare terminal nodes: the shared branch-wiring readiness rule
+  // requires every RETURNABLE route label to have a destination edge (a
+  // selected-but-unwired label would fail the run with INVALID_BRANCH).
+  // Wire one pure format_transformer sink per returnable label, derived from
+  // the SAME canonical vocabulary helper the validator uses, so the smoke
+  // graph is exactly what a correctly-authored branching workflow looks like.
+  // Non-branching fixtures get no sinks (vocabulary null → unchanged shape).
+  const branchLabels = returnableBranchLabels(actionNode) ?? [];
+  const branchSinkNodes = branchLabels.map((label, i) => ({
+    id: `smoke-branch-sink-${i}`,
+    kind: "action" as const,
+    provider: "native",
+    type: "format_transformer",
+    config: {
+      content: `smoke branch sink: ${label}`,
+      sourceFormat: "plain",
+      targetFormat: "plain",
+    },
+    position: { x: 220 * (i + 1), y: 320 },
+  }));
+  const branchSinkEdges = branchLabels.map((label, i) => ({
+    id: `smoke-branch-edge-${i}`,
+    from: SMOKE_ACTION_NODE_ID,
+    to: `smoke-branch-sink-${i}`,
+    label,
+  }));
+
   const definition = WorkflowDefinitionSchema.parse({
     nodes: [
       {
@@ -72,16 +110,13 @@ export function buildSmokeManualRunDefinition(
         config: {},
         position: { x: 0, y: 0 },
       },
-      {
-        id: SMOKE_ACTION_NODE_ID,
-        kind: "action",
-        provider: fixture.provider,
-        type: fixture.action,
-        config: configOverride ?? fixture.config,
-        position: { x: 0, y: 160 },
-      },
+      actionNode,
+      ...branchSinkNodes,
     ],
-    edges: [{ id: "smoke-edge", from: SMOKE_TRIGGER_NODE_ID, to: SMOKE_ACTION_NODE_ID }],
+    edges: [
+      { id: "smoke-edge", from: SMOKE_TRIGGER_NODE_ID, to: SMOKE_ACTION_NODE_ID },
+      ...branchSinkEdges,
+    ],
   });
 
   return {

@@ -1,8 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
+  adminClient,
   createTestUser,
   deleteTestUser,
   getWorkflowRunsForUser,
+  signInViaEmailLink,
   waitFor,
   type TestUser,
 } from "./helpers/supabaseAdmin";
@@ -76,6 +78,23 @@ let testUser: TestUser | null = null;
 test.describe("Native-nodes Slice 3 — Tier C control-flow walkthrough", () => {
   test.beforeEach(async () => {
     testUser = await createTestUser();
+    // BRANCH-ENT-1 — advanced branching (if_then_condition / router) is now a
+    // Pro+ capability enforced at save + execution. This walkthrough certifies
+    // ROUTING semantics, not billing, so stamp the throwaway personal account
+    // Pro (the entitlement rules have their own dedicated spec:
+    // advanced-branching-entitlement.spec.ts).
+    const admin = adminClient();
+    const { data: account } = await admin
+      .from("accounts")
+      .select("id")
+      .eq("owner_user_id", testUser.id)
+      .single<{ id: string }>();
+    if (!account) throw new Error("walkthrough: personal account not found");
+    const { error } = await admin
+      .from("account_billing")
+      .update({ plan: "pro", plan_status: "active" })
+      .eq("account_id", account.id);
+    if (error) throw new Error(`walkthrough: pro-plan stamp failed: ${error.message}`);
   });
 
   test.afterEach(async () => {
@@ -521,17 +540,11 @@ test.describe("Native-nodes Slice 3 — Tier C control-flow walkthrough", () => 
 
 // ── helpers ──────────────────────────────────────────────────────────────
 
+// The project enforces CAPTCHA on password sign-in (no local Turnstile key),
+// so tests authenticate through the app's own /auth/callback with a
+// service-role-minted email link — an ordinary session, no bypass.
 async function signIn(page: Page, user: TestUser): Promise<void> {
-  await page.goto("/auth/sign-in");
-  await page.getByLabel(/email/i).fill(user.email);
-  await page.getByLabel(/password/i).fill(user.password);
-  await Promise.all([
-    page.waitForURL(
-      (url) => !/\/auth\/sign-in/.test(url.toString()),
-      { timeout: 15_000 },
-    ),
-    page.getByRole("button", { name: "Sign in", exact: true }).click(),
-  ]);
+  await signInViaEmailLink(page, user);
 }
 
 /**
@@ -542,7 +555,19 @@ async function signIn(page: Page, user: TestUser): Promise<void> {
  */
 async function createWorkflow(page: Page, name: string): Promise<string> {
   await page.goto("/workflows");
-  await page.getByRole("button", { name: "Create workflow" }).click();
+  // A fresh account gets the getting-started checklist overlay (5.ONBOARD-1),
+  // which floats over the dashboard CTA — dismiss it so clicks land.
+  const dismiss = page.getByTestId("onboarding-dismiss");
+  if (await dismiss.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await dismiss.click();
+    await expect(page.getByTestId("onboarding-checklist")).toBeHidden();
+  }
+  // Both the toolbar and the empty state render a "Create workflow" button on
+  // a fresh account — scope to the toolbar for a strict-mode-safe click.
+  await page
+    .getByTestId("workflows-toolbar")
+    .getByRole("button", { name: "Create workflow" })
+    .click();
   await page.getByLabel(/workflow name/i).fill(name);
   await Promise.all([
     page.waitForURL(/\/workflows\/[0-9a-f-]+/),
@@ -565,23 +590,34 @@ async function patchDraftDefinition(
 
 async function activate(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Activate" }).click();
-  await expect(page.locator("[data-status-kind=active]")).toBeVisible({
+  // The redesigned header swaps the lifecycle cluster to "Pause" once the
+  // workflow is active — that's the stable active-state signal.
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible({
     timeout: 10_000,
   });
 }
 
-/** Poll workflow_runs for exactly one row; return it. */
+/**
+ * Poll workflow_runs for exactly one TERMINAL row; return it. Since
+ * DURABLE-QUEUE-1 the row exists as 'queued' before execution (run-now
+ * enqueues durably, then drains), so waiting for mere row EXISTENCE races the
+ * drain — wait until the status leaves queued/running.
+ */
 async function pollSingleRun(
   userId: string,
 ): Promise<Record<string, unknown>> {
   const rows = await waitFor(
     async () => {
       const r = await getWorkflowRunsForUser(userId);
-      return r.length > 0 ? r : null;
+      const terminal = r.filter((row) => {
+        const status = (row as { status?: string }).status;
+        return status !== "queued" && status !== "running";
+      });
+      return terminal.length > 0 ? terminal : null;
     },
     {
-      description: "workflow_runs row for slice-3 walkthrough",
-      timeoutMs: 15_000,
+      description: "terminal workflow_runs row for slice-3 walkthrough",
+      timeoutMs: 20_000,
     },
   );
   expect(rows).toHaveLength(1);
