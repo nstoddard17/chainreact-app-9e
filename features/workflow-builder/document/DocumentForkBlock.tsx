@@ -21,12 +21,17 @@ export function DocumentForkBlock({
   onEditField,
   onConfigureStep,
   onOpenInVisual,
+  onInsertInLane,
 }: {
   block: ForkModel;
   renderBlocks: (blocks: readonly DocumentBlock[]) => ReactNode;
   onEditField?: ((nodeId: string, fieldName: string) => void) | undefined;
   onConfigureStep?: ((nodeId: string) => void) | undefined;
   onOpenInVisual?: ((nodeId: string | null) => void) | undefined;
+  /** CS-2B — add an ordinary action at the START of a healthy labeled lane. */
+  onInsertInLane?:
+    | ((laneInsert: NonNullable<ForkModel["lanes"][number]["laneInsert"]>) => void)
+    | undefined;
 }) {
   return (
     <div
@@ -142,6 +147,27 @@ export function DocumentForkBlock({
                   Open in Visual Builder
                 </button>
               ) : null}
+            </div>
+          ) : null}
+          {/* CS-2B — insertion affordance at the START of an editable lane,
+              between the lane label and its first action. Rendered only when
+              the projection proved the lane's entry edge unambiguous. */}
+          {onInsertInLane && lane.laneInsert ? (
+            <div className="group/lane-ins mb-1 pl-1">
+              <button
+                type="button"
+                data-testid={`document-lane-insert-${block.nodeId}-${lane.label}`}
+                data-edge-id={lane.laneInsert.edgeId}
+                onClick={() => onInsertInLane(lane.laneInsert!)}
+                className="inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover/lane-ins:opacity-100 motion-reduce:transition-none"
+                style={{
+                  color: "var(--builder-muted)",
+                  border: "1.5px dashed var(--builder-border)",
+                }}
+                title={`Add a step at the start of the "${lane.title}" path`}
+              >
+                ＋ Add a step here
+              </button>
             </div>
           ) : null}
           {lane.blocks.length > 0 ? (

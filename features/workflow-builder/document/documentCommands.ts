@@ -1,5 +1,9 @@
 import type { ActionMeta } from "@/contracts/actionMeta";
-import { isAdvancedBranchingTypeKey } from "@/core/workflows/advancedBranching";
+import {
+  isAdvancedBranchingNode,
+  isAdvancedBranchingTypeKey,
+} from "@/core/workflows/advancedBranching";
+import { returnableBranchLabels } from "@/core/workflows/branchWiring";
 import { commitNodeConfigDraft } from "../state/commitConfigDraft";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
@@ -26,7 +30,10 @@ export type DocumentCommandRefusal =
   | "stale_document_model"
   | "ambiguous_insertion"
   | "branching_not_supported_in_cs2"
-  | "unsupported_region";
+  | "unsupported_region"
+  // 5.DUAL-BUILDER-1 CS-2B — branch-lane insertion refusals.
+  | "stale_branch_label"
+  | "invalid_branch_source";
 
 const ok: DocumentCommandResult = { ok: true };
 const refuse = (reason: DocumentCommandRefusal): DocumentCommandResult => ({ ok: false, reason });
@@ -119,6 +126,70 @@ export function openDocumentStepConfig(input: { nodeId: string }): DocumentComma
   return ok;
 }
 
+/**
+ * 5.DUAL-BUILDER-1 CS-2B — validate inserting an ordinary action at the START
+ * of a branch lane: `branch --[LABEL]--> B` becomes
+ * `branch --[LABEL]--> NEW --> B`.
+ *
+ * Every check runs against LIVE `pendingNodes`/`pendingEdges` immediately
+ * before the caller mutates, so a stale DocumentModel can never redirect the
+ * insertion onto a different or deleted edge. This validates ONLY; the actual
+ * rewiring stays in the shared `insertActionAtEdge` (which already keeps the
+ * route label on the upstream half and leaves the continuation unlabeled) —
+ * there is no Document-only rewiring implementation.
+ *
+ * NOT branch authoring: no lane is created, removed, relabeled, or reordered,
+ * and the node's returnable vocabulary is untouched, so the fork's runtime
+ * meaning (activation, skips, rejoin, terminal paths) is unchanged.
+ */
+export function validateDocumentBranchLaneInsertion(input: {
+  edgeId: string;
+  expectedFrom: string;
+  expectedTo: string;
+  expectedLabel: string;
+}): DocumentCommandResult {
+  const { pendingNodes, pendingEdges } = useGraphSlice.getState();
+
+  const edge = pendingEdges.find((e) => e.id === input.edgeId);
+  if (!edge) return refuse("edge_missing");
+  // The rendered lane must still be THIS edge, end to end.
+  if (edge.from !== input.expectedFrom || edge.to !== input.expectedTo) {
+    return refuse("stale_document_model");
+  }
+  if (edge.label === undefined) return refuse("unsupported_region");
+  if (edge.label !== input.expectedLabel) return refuse("stale_document_model");
+
+  const source = pendingNodes.find((n) => n.id === edge.from);
+  if (!source) return refuse("node_missing");
+  const target = pendingNodes.find((n) => n.id === edge.to);
+  if (!target) return refuse("node_missing");
+
+  // Only a recognized native If/Then or Router node owns labeled routes the
+  // Document understands. A labeled edge from anything else is the
+  // `labeled_edge_non_branching` shape — Visual Builder territory.
+  if (!isAdvancedBranchingNode(source)) return refuse("invalid_branch_source");
+
+  // The label must still be RETURNABLE by the node's current config; a stale
+  // route is a dead path that CS-2 renders as a warning and CS-2B refuses to
+  // build on (repairing stale wiring is explicitly out of scope).
+  const vocabulary = returnableBranchLabels(source);
+  if (vocabulary === null) return refuse("invalid_branch_source");
+  if (!vocabulary.includes(edge.label)) return refuse("stale_branch_label");
+
+  // One unambiguous lane destination: exactly one edge carries this label.
+  const sameLabel = pendingEdges.filter(
+    (e) => e.from === edge.from && e.label === edge.label,
+  );
+  if (sameLabel.length !== 1) return refuse("ambiguous_insertion");
+
+  // Post-insert safety, mirroring connectNodes' own guards so the shared
+  // helper can never half-mutate: the continuation `NEW -> target` is a fresh
+  // node id, so it can only collide if the target IS the source (self-loop).
+  if (edge.from === edge.to) return refuse("unsupported_region");
+
+  return ok;
+}
+
 /** Plain-language copy for a typed refusal (never a raw error in the UI). */
 export function describeDocumentRefusal(reason: DocumentCommandRefusal): string {
   switch (reason) {
@@ -135,6 +206,10 @@ export function describeDocumentRefusal(reason: DocumentCommandRefusal): string 
     case "branching_not_supported_in_cs2":
       return "Splits are added on the canvas for now. Open the Visual Builder to add this one.";
     case "unsupported_region":
-      return "This part is easier to edit on the canvas.";
+      return "This branch shape is easier to edit in the Visual Builder.";
+    case "stale_branch_label":
+      return "This route no longer exists on the branch. Review the workflow and try again.";
+    case "invalid_branch_source":
+      return "This connection isn't a branch route the Document can add to. Open the Visual Builder.";
   }
 }

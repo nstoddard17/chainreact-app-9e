@@ -91,6 +91,20 @@ export interface DocumentForkLane {
     readonly code: "missing_branch_edge" | "stale_branch_edge";
     readonly message: string;
   } | null;
+  /**
+   * CS-2B — safe "add a step at the start of this lane" anchor. Present ONLY
+   * for a healthy labeled lane whose entry edge is unambiguous (one edge
+   * carries the label, the route is currently returnable, and the source is a
+   * recognized branch node). Absent for always-run lanes, warning lanes
+   * (missing/stale wiring), and any lane the projection degraded — the
+   * Document refuses rather than guessing which route the user meant.
+   */
+  readonly laneInsert: {
+    readonly edgeId: string;
+    readonly fromNodeId: string;
+    readonly toNodeId: string;
+    readonly label: string;
+  } | null;
 }
 
 export interface DocumentForkBlock {

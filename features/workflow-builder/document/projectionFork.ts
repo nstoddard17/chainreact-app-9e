@@ -92,6 +92,8 @@ export function walkFork(ctx: WalkContext, node: WorkflowNode, depth: number): F
     readonly warning: DocumentForkLane["warning"];
     /** Stale lanes render + walk but never vote on the rejoin (dead path). */
     readonly votesOnRejoin: boolean;
+    /** CS-2B — the lane's entry edge when it is safe to insert at its start. */
+    readonly laneInsert: DocumentForkLane["laneInsert"];
   }
   const laneOrder: LanePlan[] = [
     ...vocabulary.map((label): LanePlan => {
@@ -107,9 +109,20 @@ export function walkFork(ctx: WalkContext, node: WorkflowNode, depth: number): F
             message: issue?.message ?? `Choose where the "${label}" path should continue.`,
           },
           votesOnRejoin: false,
+          laneInsert: null,
         };
       }
-      return { label, kindHint: "labeled", target: edge.to, warning: null, votesOnRejoin: true };
+      return {
+        label,
+        kindHint: "labeled",
+        target: edge.to,
+        warning: null,
+        votesOnRejoin: true,
+        // CS-2B — healthy labeled lane: its entry edge is a safe insertion
+        // point (the label is returnable and, per the fan-out guard above,
+        // exactly one edge carries it).
+        laneInsert: { edgeId: edge.id, fromNodeId: id, toNodeId: edge.to, label },
+      };
     }),
     ...[...byLabel.entries()]
       .filter(([label]) => !vocabulary.includes(label))
@@ -127,6 +140,8 @@ export function walkFork(ctx: WalkContext, node: WorkflowNode, depth: number): F
                 `This path no longer matches the current routes — review it after changing the condition.`,
             },
             votesOnRejoin: false,
+            // Stale routes are dead paths — CS-2B never builds on them.
+            laneInsert: null,
           };
         }),
       )
@@ -138,6 +153,9 @@ export function walkFork(ctx: WalkContext, node: WorkflowNode, depth: number): F
         target: e.to,
         warning: null,
         votesOnRejoin: true,
+        // Always-run continuations have no route semantics to preserve;
+        // placement there stays a Visual-Builder gesture in this slice.
+        laneInsert: null,
       }),
     ),
   ];
@@ -156,6 +174,8 @@ export function walkFork(ctx: WalkContext, node: WorkflowNode, depth: number): F
       terminal:
         seg !== null && seg.exit === null && laneBlocks.length > 0 && lastBlock?.kind !== "complex",
       warning: lane.warning,
+      // A lane that degraded into a complex region is not safely insertable.
+      laneInsert: lastBlock?.kind === "complex" ? null : lane.laneInsert,
     });
   }
 

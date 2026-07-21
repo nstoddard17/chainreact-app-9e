@@ -12,6 +12,7 @@ import { useDocumentGuidedStop } from "./useDocumentGuidedStop";
 import {
   describeDocumentRefusal,
   openDocumentStepConfig,
+  validateDocumentBranchLaneInsertion,
   validateDocumentEdgeInsertion,
   validateDocumentTailAdd,
 } from "./documentCommands";
@@ -137,6 +138,32 @@ export function DocumentView({
     [onAppendAfter, say],
   );
 
+  // CS-2B — insert an ordinary action at the start of a branch lane. Validates
+  // against LIVE store state, then delegates to the SAME picker + shared
+  // insertActionAtEdge path the canvas edge "+" uses (label preserved upstream,
+  // continuation unlabeled).
+  const handleInsertInLane = useCallback(
+    (laneInsert: {
+      edgeId: string;
+      fromNodeId: string;
+      toNodeId: string;
+      label: string;
+    }) => {
+      const check = validateDocumentBranchLaneInsertion({
+        edgeId: laneInsert.edgeId,
+        expectedFrom: laneInsert.fromNodeId,
+        expectedTo: laneInsert.toNodeId,
+        expectedLabel: laneInsert.label,
+      });
+      if (!check.ok) {
+        say(describeDocumentRefusal(check.reason));
+        return;
+      }
+      onInsertAtEdge?.(laneInsert.edgeId);
+    },
+    [onInsertAtEdge, say],
+  );
+
   const handleInsertBetween = useCallback(
     (block: DocumentSentenceBlock) => {
       if (!block.insertAfter) return;
@@ -242,6 +269,7 @@ export function DocumentView({
             onEditField={interactive ? handleEditField : undefined}
             onConfigureStep={interactive ? handleConfigureStep : undefined}
             onOpenInVisual={onOpenInVisual}
+            onInsertInLane={interactive && onInsertAtEdge ? handleInsertInLane : undefined}
           />,
         );
         if (stop?.nodeId === block.nodeId) {
