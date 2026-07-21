@@ -394,15 +394,36 @@ export default [
   // nodes/edges/dirty/save state. It was already over the default cap (a long-standing, accepted
   // pre-existing warning); BUILDER-TOPBAR-UNDO-REDO added the intrinsic draft-edit history (the
   // history-capturing `set` wrapper + undo/redo, which must live ON the store's mutation surface to
-  // stay correct). Splitting the store is a real refactor (every action shares `set`/`get` + the
-  // hydrate/save reconciliation), not a top-bar cleanup commit. Capped at 650 to make further drift
-  // visible. Mirrors the engine.ts / WorkflowBuilder.tsx precedent above.
+  // stay correct). 5.DUAL-BUILDER-1 CS-4 added the presentation (manual sections) dimension to the
+  // SAME canonical draft — state fields + snapshots + hydrate/save/undo-redo reconciliation + the
+  // node-set membership-prune choke point, all of which must live on the mutation surface. The pure
+  // section-command LOGIC was already extracted to `presentationCommands.ts` (only thin store
+  // wrappers remain here). Splitting the store further is a real refactor (every action shares
+  // `set`/`get`). Capped at 820 to make further drift visible. Mirrors the precedent above.
   {
     files: ["features/workflow-builder/state/graphSlice.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 650, skipBlankLines: true, skipComments: true },
+        { max: 820, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+
+  // features/workflow-builder/document/DocumentView.tsx — the Document Builder surface. It composes
+  // the projection render (sentences/forks/complex regions), the CS-2 Guided Stop editing, the CS-3
+  // Finish Setup banner/controls + Whole Workflow map wiring, and the CS-4 manual-section rendering
+  // (section headers + collapsed summaries + wrap/add/remove affordances). Pure logic already lives
+  // in sibling modules (projection, documentSections, documentSectionCommands, useDocumentSetup);
+  // what remains is the render composition + the thin store-command handlers, which are cohesive to
+  // the surface. Capped at 620 to keep further drift visible; the section render helpers are the next
+  // extraction candidate if it grows again. Mirrors the WorkflowBuilder.tsx precedent above.
+  {
+    files: ["features/workflow-builder/document/DocumentView.tsx"],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 620, skipBlankLines: true, skipComments: true },
       ],
     },
   },

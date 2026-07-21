@@ -68,3 +68,20 @@ export {
   type DocumentNavOutcome,
   type DocumentNavRefusal,
 } from "./documentNavigation";
+export {
+  groupBlocksIntoSections,
+  summarizeDocumentSection,
+  blockOwnedNodeIds,
+  blockPrimaryNodeId,
+  type DocumentSection,
+  type SectionedRow,
+  type SectionedDocument,
+  type SectionSummary,
+} from "./documentSections";
+export {
+  resolveWrapSelection,
+  resolveBlockNodeIds,
+  describeSectionRefusal,
+  type SectionSelectionResult,
+  type SectionSelectionRefusal,
+} from "./documentSectionCommands";

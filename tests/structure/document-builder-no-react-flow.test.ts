@@ -52,6 +52,10 @@ describe("document builder — no React Flow / canvas coupling", () => {
       "FinishSetupControls.tsx",
       "WholeWorkflowMap.tsx",
       "useFinishSetupQueue.ts",
+      // CS-4 — persistent manual sections.
+      "documentSections.ts",
+      "documentSectionCommands.ts",
+      "DocumentSectionHeader.tsx",
     ]) {
       expect(files).toContain(expected);
     }
@@ -76,6 +80,9 @@ describe("document builder — no React Flow / canvas coupling", () => {
     "setupQueueModel.ts",
     "wholeWorkflowMapModel.ts",
     "documentNavigation.ts",
+    // CS-4 pure section grouping/summary + command resolution.
+    "documentSections.ts",
+    "documentSectionCommands.ts",
   ])(
     "%s is pure (no React, no store, no fetch)",
     (file) => {

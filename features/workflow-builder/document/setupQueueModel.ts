@@ -1,3 +1,4 @@
+import type { WorkflowPresentation } from "@/contracts/workflowPresentation";
 import type {
   BuilderValidationIssue,
   BuilderValidationIssueCode,
@@ -104,6 +105,8 @@ export interface SetupQueue {
 export interface BuildSetupQueueInput {
   readonly outline: readonly OutlineRow[];
   readonly issues: readonly BuilderValidationIssue[];
+  /** CS-4 — manual sections; when present, a section title leads an item's crumbs. */
+  readonly presentation?: WorkflowPresentation | null | undefined;
 }
 
 /**
@@ -123,7 +126,14 @@ export interface BuildSetupQueueInput {
  * `complex_region` handoff — never a field stop the Document can't anchor.
  */
 export function buildSetupQueue(input: BuildSetupQueueInput): SetupQueue {
-  const { outline, issues } = input;
+  const { outline, issues, presentation } = input;
+
+  // CS-4 — node id → owning section title (queue order is UNCHANGED by sections;
+  // the section title only leads the item's breadcrumb).
+  const nodeSectionTitle = new Map<string, string>();
+  for (const section of presentation?.sections ?? []) {
+    for (const id of section.nodeIds) nodeSectionTitle.set(id, section.title);
+  }
 
   // Owning-node context: only true executable step/fork/trigger rows carry a
   // node the Document can host a stop on. (The `rejoin` connector row also has
@@ -151,6 +161,8 @@ export function buildSetupQueue(input: BuildSetupQueueInput): SetupQueue {
     if (FIELD_STOP_CODES.has(issue.code) && issue.nodeId && issue.fieldName) {
       const ctx = nodeContext.get(issue.nodeId);
       if (ctx && !complexNodeIds.has(issue.nodeId)) {
+        const sectionTitle = nodeSectionTitle.get(issue.nodeId);
+        const crumbs = sectionTitle ? [sectionTitle, ...ctx.crumbs] : ctx.crumbs;
         scored.push({
           origIndex,
           item: {
@@ -161,7 +173,7 @@ export function buildSetupQueue(input: BuildSetupQueueInput): SetupQueue {
             severity: issue.severity,
             kind: "field",
             documentOrder: ctx.order,
-            crumbs: ctx.crumbs,
+            crumbs,
             label: issue.message,
           },
         });

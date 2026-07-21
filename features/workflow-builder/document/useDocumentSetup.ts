@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, type MutableRefObject } from "react";
 import type { WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
+import type { WorkflowPresentation } from "@/contracts/workflowPresentation";
 import type { RequiredFieldsByType } from "@/core/workflows/requiredFields";
 import {
   collectBuilderValidationIssues,
@@ -12,6 +13,7 @@ import {
   buildSetupQueue,
   deriveSetupBannerState,
   type SetupBannerState,
+  type SetupQueue,
 } from "./setupQueueModel";
 import {
   buildWholeWorkflowMap,
@@ -39,12 +41,15 @@ export function useDocumentSetup(input: {
   requiredFieldsByType?: RequiredFieldsByType | undefined;
   isDirty: boolean;
   stop: GuidedStopTarget | null;
+  /** CS-4 — manual section metadata, so the queue + map understand sections. */
+  presentation?: WorkflowPresentation | null | undefined;
   openStop: (nodeId: string, fieldKey: string) => unknown;
   releaseStop: () => void;
 }): {
   bannerState: SetupBannerState;
   wholeMap: WholeWorkflowMap;
   finishSetup: FinishSetupQueueApi;
+  queue: SetupQueue;
   scrollRef: MutableRefObject<HTMLDivElement | null>;
   scrollToNode: (nodeId: string) => void;
 } {
@@ -55,6 +60,7 @@ export function useDocumentSetup(input: {
     requiredFieldsByType,
     isDirty,
     stop,
+    presentation,
     openStop,
     releaseStop,
   } = input;
@@ -69,10 +75,19 @@ export function useDocumentSetup(input: {
     [pendingNodes, pendingEdges, requiredFieldsByType],
   );
   const outline = useMemo(() => buildDocumentOutline(model), [model]);
-  const setupQueueData = useMemo(() => buildSetupQueue({ outline, issues }), [outline, issues]);
+  const setupQueueData = useMemo(
+    () => buildSetupQueue({ outline, issues, presentation: presentation ?? null }),
+    [outline, issues, presentation],
+  );
   const wholeMap = useMemo(
-    () => buildWholeWorkflowMap({ outline, issues, queue: setupQueueData }),
-    [outline, issues, setupQueueData],
+    () =>
+      buildWholeWorkflowMap({
+        outline,
+        issues,
+        queue: setupQueueData,
+        presentation: presentation ?? null,
+      }),
+    [outline, issues, setupQueueData, presentation],
   );
   const bannerState = useMemo(
     () =>
@@ -103,7 +118,7 @@ export function useDocumentSetup(input: {
     }
   }, []);
 
-  return { bannerState, wholeMap, finishSetup, scrollRef, scrollToNode };
+  return { bannerState, wholeMap, finishSetup, queue: setupQueueData, scrollRef, scrollToNode };
 }
 
 /** Plain-language copy for a refused map navigation (never a raw error). */

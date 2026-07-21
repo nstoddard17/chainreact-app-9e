@@ -3,7 +3,22 @@ import type { ActionMeta } from "@/contracts/actionMeta";
 import type { TriggerMeta } from "@/contracts/triggerMeta";
 import type { WorkflowDefinition, WorkflowDetail, WorkflowEdge, WorkflowNode } from "@/contracts/workflow";
 import type { WorkflowNodePosition } from "@/contracts/workflowDefinition";
+import {
+  normalizePresentation,
+  type WorkflowPresentation,
+} from "@/contracts/workflowPresentation";
 import type { BuilderPreviewPatch } from "@/contracts/workflowPlanPreview";
+import {
+  addNodesToSectionCommand,
+  createSectionCommand,
+  removeNodesFromSectionCommand,
+  renameSectionCommand,
+  setSectionCollapsedCommand,
+  ungroupSectionCommand,
+  type SectionCommandOutcome,
+  type SectionMutationRefusal,
+  type SectionMutationResult,
+} from "./presentationCommands";
 import { isAdvancedBranchingNode } from "@/core/workflows/advancedBranching";
 import { returnableBranchLabels } from "@/core/workflows/branchWiring";
 import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
@@ -56,6 +71,17 @@ export interface GraphSliceState {
   pendingNodes: readonly WorkflowNode[];
   pendingEdges: readonly WorkflowEdge[];
 
+  /**
+   * 5.DUAL-BUILDER-1 CS-4 — presentation-only manual section metadata, part of
+   * the SAME canonical draft as nodes/edges (never a separate store that could
+   * drift). `null` = no sections. Reconciled to `savedPresentation` on save,
+   * captured in undo/redo snapshots, and pruned to the live node set on every
+   * node-set change (so removing a node prunes its membership atomically). The
+   * engine, readiness, and entitlement never read it.
+   */
+  savedPresentation: WorkflowPresentation | null;
+  pendingPresentation: WorkflowPresentation | null;
+
   isDirty: boolean;
   isSaving: boolean;
   saveError: string | null;
@@ -85,6 +111,8 @@ export interface GraphSliceState {
 export interface GraphSnapshot {
   readonly nodes: readonly WorkflowNode[];
   readonly edges: readonly WorkflowEdge[];
+  /** CS-4 — presentation is part of the same undoable draft snapshot. */
+  readonly presentation: WorkflowPresentation | null;
 }
 
 export interface AddNodeInput {
@@ -264,7 +292,36 @@ export interface GraphSliceActions {
   undo(): void;
   /** BUILDER-TOPBAR-UNDO-REDO — re-apply the most recently undone edit (`future` → pending). No-op when empty. Same pure-local guarantees as `undo()`. */
   redo(): void;
+
+  /**
+   * 5.DUAL-BUILDER-1 CS-4 — presentation SECTION commands. All operate on
+   * canonical node ids, mutate ONLY the presentation block (never nodes, edges,
+   * config, positions, labels, or topology), mark the SAME workflow dirty, are
+   * captured by undo/redo, and return a typed non-throwing result. The Document
+   * command layer validates block contiguity/structural safety before calling
+   * these; the store re-validates node existence and refuses (without mutation)
+   * on a stale/empty selection.
+   */
+  createSection(input: {
+    nodeIds: readonly string[];
+    title: string;
+    collapsed?: boolean;
+  }): SectionMutationResult;
+  /** Rename a section (trimmed, capped). No-op (still ok) when unchanged. */
+  renameSection(sectionId: string, title: string): SectionMutationResult;
+  /** Collapse/expand a section. No-op (still ok) when unchanged. */
+  setSectionCollapsed(sectionId: string, collapsed: boolean): SectionMutationResult;
+  /** Move node ids INTO a section (atomically removed from any prior section). */
+  addNodesToSection(sectionId: string, nodeIds: readonly string[]): SectionMutationResult;
+  /** Remove node ids from whatever section owns them; drop any emptied section. */
+  removeNodesFromSection(nodeIds: readonly string[]): SectionMutationResult;
+  /** Remove the section WRAPPER only — its member nodes stay exactly where they were. */
+  ungroupSection(sectionId: string): SectionMutationResult;
 }
+
+// CS-4 — section command result types live in ./presentationCommands; re-exported
+// so existing importers keep resolving them from the store module.
+export type { SectionMutationResult, SectionMutationRefusal };
 
 /** Outcome of {@link GraphSliceActions.applyAdditivePatch}. */
 export type ApplyAdditivePatchOutcome =
@@ -374,6 +431,8 @@ const INITIAL_STATE: GraphSliceState = Object.freeze({
   savedEdges: [],
   pendingNodes: [],
   pendingEdges: [],
+  savedPresentation: null,
+  pendingPresentation: null,
   isDirty: false,
   isSaving: false,
   saveError: null,
@@ -433,6 +492,15 @@ function newEdgeId(): string {
   return `edge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** CS-4 — stable id for a manual presentation section. */
+function newSectionId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return `section-${globalThis.crypto.randomUUID()}`;
+  }
+  return `section-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+
 /**
  * BRANCH-ENT-1 C4 — after a branching node's config changes, drop its outgoing
  * labeled edges whose label the node can no longer return (stale routes).
@@ -467,19 +535,43 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     partial: Parameters<typeof rawSet>[0],
     replace?: boolean,
   ): void => {
+    // CS-4 — a presentation-only edit (rename/collapse/wrap/ungroup) is also an
+    // edit that history must capture, so it counts alongside node/edge edits.
     const isEdit =
       partial !== null &&
       typeof partial === "object" &&
       (partial as Partial<GraphSliceState>).isDirty === true &&
-      ("pendingNodes" in partial || "pendingEdges" in partial);
+      ("pendingNodes" in partial ||
+        "pendingEdges" in partial ||
+        "pendingPresentation" in partial);
     if (isEdit) {
       // Edits are always partial updates (never a full replace), so a plain partial set is correct.
       const before = get();
+      const p = partial as Partial<GraphSlice>;
+      // CS-4 — when an edit changes the NODE SET but doesn't itself set
+      // presentation (removeNode, deleteNodeAndRewire, replaceGraphLocal, an AI
+      // patch), prune section membership to the surviving nodes atomically in
+      // the SAME set. Empty sections drop out; `normalizePresentation` returns
+      // the same reference when nothing changed, so a position/config edit keeps
+      // presentation byte-identical.
+      let applied = p;
+      if ("pendingNodes" in p && !("pendingPresentation" in p) && before.pendingPresentation) {
+        const ids = new Set((p.pendingNodes as readonly WorkflowNode[]).map((n) => n.id));
+        const reconciled = normalizePresentation(before.pendingPresentation, ids);
+        if (reconciled !== before.pendingPresentation) {
+          applied = { ...p, pendingPresentation: reconciled };
+        }
+      }
       rawSet({
-        ...(partial as Partial<GraphSlice>),
-        past: [...before.past, { nodes: before.pendingNodes, edges: before.pendingEdges }].slice(
-          -MAX_HISTORY,
-        ),
+        ...applied,
+        past: [
+          ...before.past,
+          {
+            nodes: before.pendingNodes,
+            edges: before.pendingEdges,
+            presentation: before.pendingPresentation,
+          },
+        ].slice(-MAX_HISTORY),
         future: [],
       });
       return;
@@ -516,6 +608,16 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     const nextRevision = sameWorkflow
       ? revision ?? state.hydratedRevision ?? null
       : revision ?? null;
+    // CS-4 — hydrate presentation DEFENSIVELY: the repository read path casts
+    // stored jsonb rather than parsing it, so `def.presentation` may be
+    // malformed. `normalizePresentation` accepts unknown, prunes stale
+    // membership against the hydrated nodes, and degrades to null on garbage —
+    // it never crashes the builder. saved === pending by reference so the
+    // dirty/undo checks match after a clean hydrate.
+    const presentation = normalizePresentation(
+      def.presentation,
+      new Set(def.nodes.map((n) => n.id)),
+    );
     set({
       workflowId,
       isHydrated: true,
@@ -523,6 +625,8 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
       savedEdges: def.edges,
       pendingNodes: def.nodes,
       pendingEdges: def.edges,
+      savedPresentation: presentation,
+      pendingPresentation: presentation,
       isDirty: false,
       isSaving: false,
       saveError: null,
@@ -975,22 +1079,38 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   },
 
   async save() {
-    const { workflowId, pendingNodes, pendingEdges, isSaving } = get();
+    const { workflowId, pendingNodes, pendingEdges, pendingPresentation, isSaving } = get();
     if (!workflowId) {
       throw new Error("graphSlice.save() called before hydrate().");
     }
     if (isSaving) return; // single-flight
     set({ isSaving: true, saveError: null });
     try {
+      // CS-4 — include presentation ONLY when non-empty (normalized against the
+      // nodes being saved), so a workflow with no sections sends the exact same
+      // `{ nodes, edges }` payload as before. Save stays the SAME explicit PATCH
+      // funnel; readiness/entitlement/engine ignore presentation server-side.
+      const outboundPresentation = normalizePresentation(
+        pendingPresentation,
+        new Set(pendingNodes.map((n) => n.id)),
+      );
       const updated = await updateWorkflow(workflowId, {
         draftDefinition: {
           nodes: [...pendingNodes],
           edges: [...pendingEdges],
+          ...(outboundPresentation ? { presentation: outboundPresentation } : {}),
         },
       });
+      // CS-4 — reconcile saved presentation from the server-echoed definition,
+      // re-normalized against the echoed nodes (defensive; the read path casts).
+      const savedPresentation = normalizePresentation(
+        updated.draftDefinition.presentation,
+        new Set(updated.draftDefinition.nodes.map((n) => n.id)),
+      );
       set({
         savedNodes: updated.draftDefinition.nodes,
         savedEdges: updated.draftDefinition.edges,
+        savedPresentation,
         // BUILDER-SAVE-WIPE-1 — track the server revision the save advanced to,
         // so a post-save RSC re-render at the SAME revision can't clobber any
         // further edits the user makes (the hydrate guard keys off this).
@@ -998,8 +1118,15 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
         // The user could keep editing during save; the pending* values they
         // see should not snap back to the server payload. Reconcile only
         // when pending == what we just sent, otherwise leave dirty.
-        ...(pendingNodes === get().pendingNodes && pendingEdges === get().pendingEdges
-          ? { pendingNodes: updated.draftDefinition.nodes, pendingEdges: updated.draftDefinition.edges, isDirty: false }
+        ...(pendingNodes === get().pendingNodes &&
+        pendingEdges === get().pendingEdges &&
+        pendingPresentation === get().pendingPresentation
+          ? {
+              pendingNodes: updated.draftDefinition.nodes,
+              pendingEdges: updated.draftDefinition.edges,
+              pendingPresentation: savedPresentation,
+              isDirty: false,
+            }
           : { isDirty: true }),
         isSaving: false,
       });
@@ -1013,34 +1140,113 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   },
 
   undo() {
-    const { past, future, pendingNodes, pendingEdges, savedNodes, savedEdges } = get();
+    const {
+      past,
+      future,
+      pendingNodes,
+      pendingEdges,
+      pendingPresentation,
+      savedNodes,
+      savedEdges,
+      savedPresentation,
+    } = get();
     if (past.length === 0) return;
     const prev = past[past.length - 1]!;
     // Restore via rawSet so navigating history never records new history. Dirty is recomputed against
-    // the saved baseline BY REFERENCE: history keeps the exact array refs, and hydrate/save set
-    // `saved* === pending*`, so undoing back to the saved state matches by ref (isDirty:false).
+    // the saved baseline BY REFERENCE (nodes + edges + presentation): history keeps the exact refs,
+    // and hydrate/save set `saved* === pending*`, so undoing back to the saved state matches by ref.
     rawSet({
       pendingNodes: prev.nodes,
       pendingEdges: prev.edges,
+      pendingPresentation: prev.presentation,
       past: past.slice(0, -1),
-      future: [{ nodes: pendingNodes, edges: pendingEdges }, ...future].slice(0, MAX_HISTORY),
-      isDirty: !(prev.nodes === savedNodes && prev.edges === savedEdges),
+      future: [
+        { nodes: pendingNodes, edges: pendingEdges, presentation: pendingPresentation },
+        ...future,
+      ].slice(0, MAX_HISTORY),
+      isDirty: !(
+        prev.nodes === savedNodes &&
+        prev.edges === savedEdges &&
+        prev.presentation === savedPresentation
+      ),
       saveError: null,
     });
   },
 
   redo() {
-    const { past, future, pendingNodes, pendingEdges, savedNodes, savedEdges } = get();
+    const {
+      past,
+      future,
+      pendingNodes,
+      pendingEdges,
+      pendingPresentation,
+      savedNodes,
+      savedEdges,
+      savedPresentation,
+    } = get();
     if (future.length === 0) return;
     const next = future[0]!;
     rawSet({
       pendingNodes: next.nodes,
       pendingEdges: next.edges,
-      past: [...past, { nodes: pendingNodes, edges: pendingEdges }].slice(-MAX_HISTORY),
+      pendingPresentation: next.presentation,
+      past: [
+        ...past,
+        { nodes: pendingNodes, edges: pendingEdges, presentation: pendingPresentation },
+      ].slice(-MAX_HISTORY),
       future: future.slice(1),
-      isDirty: !(next.nodes === savedNodes && next.edges === savedEdges),
+      isDirty: !(
+        next.nodes === savedNodes &&
+        next.edges === savedEdges &&
+        next.presentation === savedPresentation
+      ),
       saveError: null,
     });
   },
+
+  // ---- CS-4 presentation section commands ---------------------------------
+  // Each re-validates against LIVE pending state, mutates ONLY presentation,
+  // marks dirty via `set` (history-captured), and refuses without mutation on a
+  // stale/empty selection. `normalizePresentation` finalizes membership so a
+  // node is never in two sections and no empty section persists.
+
+  createSection(input) {
+    return runSectionCommand(
+      createSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, input, newSectionId),
+    );
+  },
+  renameSection(sectionId, title) {
+    return runSectionCommand(
+      renameSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId, title),
+    );
+  },
+  setSectionCollapsed(sectionId, collapsed) {
+    return runSectionCommand(
+      setSectionCollapsedCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId, collapsed),
+    );
+  },
+  addNodesToSection(sectionId, nodeIds) {
+    return runSectionCommand(
+      addNodesToSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId, nodeIds),
+    );
+  },
+  removeNodesFromSection(nodeIds) {
+    return runSectionCommand(
+      removeNodesFromSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, nodeIds),
+    );
+  },
+  ungroupSection(sectionId) {
+    return runSectionCommand(
+      ungroupSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId),
+    );
+  },
   };
+
+  /** Commit a pure section-command outcome: on success, set + mark dirty (history-captured). */
+  function runSectionCommand(outcome: SectionCommandOutcome): SectionMutationResult {
+    if (outcome.result.ok) {
+      set({ pendingPresentation: outcome.presentation, isDirty: true, saveError: null });
+    }
+    return outcome.result;
+  }
 });

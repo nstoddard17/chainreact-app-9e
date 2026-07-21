@@ -1,4 +1,8 @@
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
+import {
+  normalizePresentation,
+  type WorkflowPresentation,
+} from "@/contracts/workflowPresentation";
 import type { WorkflowRecord } from "@/repositories/workflows";
 
 /**
@@ -109,32 +113,51 @@ export interface ExportedWorkflowEdge {
 export interface ExportedWorkflowDefinition {
   nodes: ExportedWorkflowNode[];
   edges: ExportedWorkflowEdge[];
+  /**
+   * 5.DUAL-BUILDER-1 CS-4 — presentation-only manual section metadata. Kept
+   * like `displayName` (user-authored, length-capped by normalization, not
+   * stripped). Carries ONLY section title + node-id membership + collapse
+   * state — never a token, secret, email, or account/user/credential id
+   * (there is nowhere in the shape to put one; membership is node ids only).
+   * Stale memberships are pruned to the exported node ids by normalization.
+   */
+  presentation?: WorkflowPresentation;
 }
 
 /**
  * Sanitize a full workflow definition for export. Node/edge fields are WHITELISTED (any unexpected
  * field on a node/edge is dropped — defense against future fields that might carry identity), and
  * each node's opaque `config` is run through {@link sanitizeConfigForExport}.
+ *
+ * CS-4 — presentation section metadata is carried through, normalized against the exported node
+ * ids (stale/overlapping membership pruned, empty sections dropped). It is presentation-only and
+ * cannot carry credentials, so it needs no redaction beyond the length/shape normalization.
  */
 export function sanitizeWorkflowDefinitionForExport(
   definition: WorkflowDefinition,
 ): ExportedWorkflowDefinition {
+  const nodes = (definition.nodes ?? []).map((n) => ({
+    id: n.id,
+    kind: n.kind,
+    provider: n.provider,
+    type: n.type,
+    ...(n.displayName != null ? { displayName: n.displayName } : {}),
+    position: { x: n.position?.x ?? 0, y: n.position?.y ?? 0 },
+    config: sanitizeConfigForExport(n.config ?? {}),
+  }));
+  const presentation = normalizePresentation(
+    definition.presentation,
+    new Set(nodes.map((n) => n.id)),
+  );
   return {
-    nodes: (definition.nodes ?? []).map((n) => ({
-      id: n.id,
-      kind: n.kind,
-      provider: n.provider,
-      type: n.type,
-      ...(n.displayName != null ? { displayName: n.displayName } : {}),
-      position: { x: n.position?.x ?? 0, y: n.position?.y ?? 0 },
-      config: sanitizeConfigForExport(n.config ?? {}),
-    })),
+    nodes,
     edges: (definition.edges ?? []).map((e) => ({
       id: e.id,
       from: e.from,
       to: e.to,
       ...(e.label != null ? { label: e.label } : {}),
     })),
+    ...(presentation ? { presentation } : {}),
   };
 }
 

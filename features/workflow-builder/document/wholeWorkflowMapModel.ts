@@ -1,3 +1,4 @@
+import type { WorkflowPresentation } from "@/contracts/workflowPresentation";
 import type {
   BuilderValidationIssue,
   BuilderValidationIssueCode,
@@ -33,9 +34,12 @@ export type MapStatus =
   | "connection"
   | "unsupported";
 
+/** CS-4 — map rows include synthetic `section` PARENT rows over grouped blocks. */
+export type MapRowKind = OutlineRowKind | "section";
+
 export interface WholeWorkflowMapRow {
   readonly key: string;
-  readonly kind: OutlineRowKind;
+  readonly kind: MapRowKind;
   readonly nodeId: string | null;
   readonly depth: number;
   readonly title: string;
@@ -51,6 +55,9 @@ export interface WholeWorkflowMapRow {
   readonly complexReason: ComplexRegionReason | null;
   /** Best node to reveal for a complex/handoff navigation. */
   readonly focusNodeId: string | null;
+  /** CS-4 — set on a `section` parent row: the section id + collapse state. */
+  readonly sectionId?: string;
+  readonly sectionCollapsed?: boolean;
 }
 
 export interface WholeWorkflowMap {
@@ -61,12 +68,14 @@ export interface BuildWholeWorkflowMapInput {
   readonly outline: readonly OutlineRow[];
   readonly issues: readonly BuilderValidationIssue[];
   readonly queue: SetupQueue;
+  /** CS-4 — manual sections rendered as hierarchical parent rows over their blocks. */
+  readonly presentation?: WorkflowPresentation | null | undefined;
 }
 
 export function buildWholeWorkflowMap(
   input: BuildWholeWorkflowMapInput,
 ): WholeWorkflowMap {
-  const { outline, issues, queue } = input;
+  const { outline, issues, queue, presentation } = input;
 
   // Group the supported field stops + handoffs by owning node for O(1) lookup.
   const queueItemsByNode = new Map<string, SetupQueueItem[]>();
@@ -111,7 +120,96 @@ export function buildWholeWorkflowMap(
     };
   });
 
-  return { rows };
+  return { rows: applyMapSections(rows, presentation) };
+}
+
+/**
+ * CS-4 — insert synthetic `section` PARENT rows over contiguous runs of
+ * top-level (depth-0) rows that share a section, indenting the contained rows.
+ * Fork/lane/nested/rejoin/terminal hierarchy INSIDE a section is preserved
+ * (every non-section row keeps its relative depth, shifted by 1). A section
+ * whose members are split in document order simply yields two parent runs —
+ * the map never reorders the workflow. Section parent status aggregates the
+ * contained rows' statuses (most-severe wins).
+ */
+function applyMapSections(
+  rows: readonly WholeWorkflowMapRow[],
+  presentation: WorkflowPresentation | null | undefined,
+): readonly WholeWorkflowMapRow[] {
+  if (!presentation || presentation.sections.length === 0) return rows;
+
+  const nodeToSection = new Map<string, WorkflowPresentation["sections"][number]>();
+  for (const s of presentation.sections) {
+    for (const id of s.nodeIds) nodeToSection.set(id, s);
+  }
+  const sectionOfTopRow = (
+    row: WholeWorkflowMapRow,
+  ): WorkflowPresentation["sections"][number] | null => {
+    const anchor = row.nodeId ?? row.focusNodeId;
+    return anchor ? (nodeToSection.get(anchor) ?? null) : null;
+  };
+
+  const out: WholeWorkflowMapRow[] = [];
+  let currentSectionId: string | null = null;
+  let parentIndex = -1; // index in `out` of the open section parent
+  let runSeq = 0;
+
+  for (const row of rows) {
+    if (row.depth === 0) {
+      const section = sectionOfTopRow(row);
+      const sectionId = section?.id ?? null;
+      if (sectionId !== currentSectionId) {
+        currentSectionId = sectionId;
+        if (section) {
+          parentIndex = out.length;
+          out.push({
+            key: `section-${section.id}-${runSeq++}`,
+            kind: "section",
+            nodeId: null,
+            depth: 0,
+            title: section.title,
+            subtitle: null,
+            crumbs: [],
+            status: "ready",
+            queueItemIds: [],
+            firstFieldKey: null,
+            handoff: null,
+            complexReason: null,
+            focusNodeId: null,
+            sectionId: section.id,
+            sectionCollapsed: section.collapsed === true,
+          });
+        } else {
+          parentIndex = -1;
+        }
+      }
+    }
+    if (currentSectionId !== null && parentIndex >= 0) {
+      out.push({ ...row, depth: row.depth + 1 });
+      // Aggregate the parent's status from its contained rows.
+      const parent = out[parentIndex]!;
+      out[parentIndex] = {
+        ...parent,
+        status: moreSevereStatus(parent.status, row.status),
+      };
+    } else {
+      out.push(row);
+    }
+  }
+  return out;
+}
+
+const STATUS_SEVERITY: Record<MapStatus, number> = {
+  ready: 0,
+  locked: 1,
+  connection: 2,
+  needs_detail: 3,
+  warning: 4,
+  unsupported: 5,
+  structural_issue: 6,
+};
+function moreSevereStatus(a: MapStatus, b: MapStatus): MapStatus {
+  return STATUS_SEVERITY[b] > STATUS_SEVERITY[a] ? b : a;
 }
 
 function statusFor(

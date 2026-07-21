@@ -26,6 +26,7 @@ const STATUS_META: Record<MapStatus, { label: string; color: string }> = {
 };
 
 function isInteractive(row: WholeWorkflowMapRow): boolean {
+  if (row.kind === "section") return true; // click reveals the section
   if (row.kind === "complex") return true;
   if (row.kind === "lane" || row.kind === "always") return row.status === "warning";
   if (row.kind === "terminal" || row.kind === "rejoin") return row.nodeId !== null;
@@ -108,6 +109,7 @@ function MapRowView({
 }) {
   const status = STATUS_META[row.status];
   const interactive = isInteractive(row);
+  const isSection = row.kind === "section";
   const isConnector =
     row.kind === "lane" ||
     row.kind === "always" ||
@@ -127,9 +129,10 @@ function MapRowView({
           className="block truncate text-[12.5px]"
           style={{
             color: isConnector ? "var(--builder-muted)" : "var(--builder-text)",
-            fontWeight: row.kind === "fork" || row.kind === "trigger" ? 600 : 400,
+            fontWeight: isSection || row.kind === "fork" || row.kind === "trigger" ? 600 : 400,
           }}
         >
+          {isSection ? (row.sectionCollapsed ? "▸ " : "▾ ") : ""}
           {row.kind === "terminal" ? "⏹ " : row.kind === "rejoin" ? "↳ " : ""}
           {row.title}
         </span>
@@ -158,8 +161,11 @@ function MapRowView({
       {interactive ? (
         <button
           type="button"
-          data-testid={`document-map-row-${row.nodeId ?? row.key}`}
+          data-testid={
+            isSection ? `document-map-section-${row.sectionId}` : `document-map-row-${row.nodeId ?? row.key}`
+          }
           data-node-id={row.nodeId ?? undefined}
+          data-section-id={row.sectionId ?? undefined}
           data-status={row.status}
           data-active={isActive ? "true" : undefined}
           onClick={() => onSelect(row)}

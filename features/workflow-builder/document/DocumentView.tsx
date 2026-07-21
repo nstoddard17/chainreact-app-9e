@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 import type { RequiredFieldsByType } from "@/core/workflows/requiredFields";
 import { useGraphSlice } from "../state/graphSlice";
 import { DocumentComplexRegion } from "./DocumentComplexRegion";
 import { DocumentForkBlock } from "./DocumentForkBlock";
 import { DocumentSentence } from "./DocumentSentence";
+import { DocumentSectionHeader } from "./DocumentSectionHeader";
 import { GuidedStopEditor } from "./GuidedStopEditor";
 import { FinishSetupBanner } from "./FinishSetupBanner";
 import { FinishSetupControls } from "./FinishSetupControls";
@@ -15,6 +16,17 @@ import { useDocumentGuidedStop } from "./useDocumentGuidedStop";
 import { useDocumentSetup, navRefusalCopy } from "./useDocumentSetup";
 import type { WholeWorkflowMapRow } from "./wholeWorkflowMapModel";
 import { resolveMapRowNavigation } from "./documentNavigation";
+import {
+  blockPrimaryNodeId,
+  groupBlocksIntoSections,
+  summarizeDocumentSection,
+  type DocumentSection,
+  type SectionedRow,
+} from "./documentSections";
+import {
+  describeSectionRefusal,
+  resolveBlockNodeIds,
+} from "./documentSectionCommands";
 import {
   describeDocumentRefusal,
   openDocumentStepConfig,
@@ -101,17 +113,67 @@ export function DocumentView({
   // derived from the SAME authoritative validation output that drives the header
   // issues pill, per-node "Needs setup", activation blocking, and the blank
   // chips. There is NO second readiness system (see useDocumentSetup).
-  const { bannerState, wholeMap, finishSetup, scrollRef, scrollToNode } = useDocumentSetup({
+  // CS-4 — presentation sections live in the SAME canonical draft (graphSlice).
+  const pendingPresentation = useGraphSlice((s) => s.pendingPresentation);
+  const { bannerState, wholeMap, finishSetup, queue, scrollRef, scrollToNode } = useDocumentSetup({
     model,
     pendingNodes,
     pendingEdges,
     requiredFieldsByType,
     isDirty,
     stop,
+    presentation: pendingPresentation,
     openStop: (nodeId, fieldKey) => openStop(nodeId, fieldKey),
     releaseStop,
   });
   const [mapOpen, setMapOpen] = useState(false);
+
+  // CS-4 — sections that a Guided Stop / map navigation has TEMPORARILY revealed
+  // even though they are stored collapsed (so a queued/map-target field inside a
+  // collapsed section is never hidden behind the collapse). Session-only.
+  const [revealedSectionIds, setRevealedSectionIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const nodeToSectionId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of pendingPresentation?.sections ?? []) {
+      for (const id of s.nodeIds) m.set(id, s.id);
+    }
+    return m;
+  }, [pendingPresentation]);
+  const revealSectionForNode = useCallback(
+    (nodeId: string) => {
+      const sectionId = nodeToSectionId.get(nodeId);
+      if (!sectionId) return;
+      setRevealedSectionIds((prev) => {
+        if (prev.has(sectionId)) return prev;
+        const next = new Set(prev);
+        next.add(sectionId);
+        return next;
+      });
+    },
+    [nodeToSectionId],
+  );
+
+  // Continuous top-level step numbering ("When", 1, 2, …). Precomputed so a
+  // section boundary never restarts the count (lane numbering stays per-lane).
+  const topLevelMarkers = useMemo(() => {
+    const m = new Map<string, string>();
+    let n = 0;
+    for (const b of model.blocks) {
+      if (b.kind === "sentence") {
+        m.set(b.nodeId, b.nodeKind === "trigger" ? "When" : String(++n));
+      }
+    }
+    return m;
+  }, [model.blocks]);
+
+  // Unresolved supported-setup count per node (for collapsed section summaries).
+  const unresolvedByNode = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const item of queue.items) m.set(item.nodeId, (m.get(item.nodeId) ?? 0) + 1);
+    return m;
+  }, [queue.items]);
 
   const say = useCallback(
     (text: string | null) => {
@@ -162,13 +224,28 @@ export function DocumentView({
   // Builder. Stale ids and structural connectors refuse safely.
   const handleMapSelect = useCallback(
     (row: WholeWorkflowMapRow) => {
+      // CS-4 — clicking a section parent row REVEALS it (transient, no store
+      // mutation / no save), so its children become navigable.
+      if (row.kind === "section") {
+        if (row.sectionId) {
+          setRevealedSectionIds((prev) => {
+            if (prev.has(row.sectionId!)) return prev;
+            const next = new Set(prev);
+            next.add(row.sectionId!);
+            return next;
+          });
+        }
+        return;
+      }
       const liveIds = new Set(useGraphSlice.getState().pendingNodes.map((n) => n.id));
       const outcome = resolveMapRowNavigation(row, liveIds);
       switch (outcome.kind) {
         case "scroll":
+          revealSectionForNode(outcome.nodeId); // reveal a collapsed section first
           scrollToNode(outcome.nodeId);
           break;
         case "scroll_and_edit":
+          revealSectionForNode(outcome.nodeId);
           scrollToNode(outcome.nodeId);
           handleEditField(outcome.nodeId, outcome.fieldKey);
           break;
@@ -183,8 +260,60 @@ export function DocumentView({
           break;
       }
     },
-    [scrollToNode, handleEditField, handleConfigureStep, onOpenInVisual, say],
+    [scrollToNode, handleEditField, handleConfigureStep, onOpenInVisual, say, revealSectionForNode],
   );
+
+  // ---- CS-4 section commands (thin: resolve block → node ids, delegate to the
+  // shared graphSlice section actions; never mutate nodes/edges/topology). ----
+  const handleWrapBlock = useCallback(
+    (block: DocumentBlock) => {
+      const resolved = resolveBlockNodeIds(block);
+      if (!resolved.ok) {
+        say(describeSectionRefusal(resolved.reason));
+        return;
+      }
+      const result = useGraphSlice.getState().createSection({
+        nodeIds: resolved.nodeIds,
+        title: "New section",
+      });
+      if (!result.ok && result.reason !== "no_change") {
+        say("This part can't be grouped into a section.");
+      }
+    },
+    [say],
+  );
+  const handleAddBlockToSection = useCallback(
+    (block: DocumentBlock, sectionId: string) => {
+      const resolved = resolveBlockNodeIds(block);
+      if (!resolved.ok) {
+        say(describeSectionRefusal(resolved.reason));
+        return;
+      }
+      useGraphSlice.getState().addNodesToSection(sectionId, resolved.nodeIds);
+    },
+    [say],
+  );
+  const handleRemoveBlockFromSection = useCallback((block: DocumentBlock) => {
+    const resolved = resolveBlockNodeIds(block);
+    if (!resolved.ok) return;
+    useGraphSlice.getState().removeNodesFromSection(resolved.nodeIds);
+  }, []);
+  const handleRenameSection = useCallback((sectionId: string, title: string) => {
+    useGraphSlice.getState().renameSection(sectionId, title);
+  }, []);
+  const handleUngroupSection = useCallback((sectionId: string) => {
+    useGraphSlice.getState().ungroupSection(sectionId);
+  }, []);
+  const handleToggleCollapse = useCallback((section: DocumentSection) => {
+    // A manual toggle clears any transient reveal override for this section.
+    setRevealedSectionIds((prev) => {
+      if (!prev.has(section.id)) return prev;
+      const next = new Set(prev);
+      next.delete(section.id);
+      return next;
+    });
+    useGraphSlice.getState().setSectionCollapsed(section.id, !section.collapsed);
+  }, []);
 
   const handleTailAdd = useCallback(
     (nodeId: string) => {
@@ -260,7 +389,7 @@ export function DocumentView({
 
   const renderBlocks = (
     blocks: readonly DocumentBlock[],
-    opts?: { dimUnrelated?: boolean },
+    opts?: { dimUnrelated?: boolean; markerMap?: ReadonlyMap<string, string> },
   ): ReactNode => {
     let actionOrdinal = 0;
     const groups: Array<{ block: DocumentBlock; nodes: ReactNode[] }> = [];
@@ -271,7 +400,11 @@ export function DocumentView({
     };
     for (const block of blocks) {
       if (block.kind === "sentence") {
-        const marker = block.nodeKind === "trigger" ? "When" : String(++actionOrdinal);
+        // CS-4 — top-level markers are precomputed (continuous across section
+        // boundaries); lane blocks fall back to the local per-lane counter.
+        const marker =
+          opts?.markerMap?.get(block.nodeId) ??
+          (block.nodeKind === "trigger" ? "When" : String(++actionOrdinal));
         out.push(
           <DocumentSentence
             key={block.nodeId}
@@ -364,6 +497,110 @@ export function DocumentView({
     });
   };
 
+  // CS-4 — a loose top-level block's "group into section" / "add to adjacent
+  // section" affordances. Section grouping only; never changes graph order.
+  const looseSectionAffordance = (
+    block: DocumentBlock,
+    adjacentSection: { id: string; title: string } | null,
+  ): ReactNode => {
+    if (!interactive) return null;
+    const primary = blockPrimaryNodeId(block);
+    if (primary === null) return null;
+    return (
+      <div key={`sec-aff-${primary}`} className="group/sec flex items-center gap-2 pl-14">
+        <button
+          type="button"
+          data-testid={`document-wrap-section-${primary}`}
+          onClick={() => handleWrapBlock(block)}
+          className="inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover/sec:opacity-100 motion-reduce:transition-none"
+          style={{ color: "var(--builder-muted)", border: "1.5px dashed var(--builder-border)" }}
+        >
+          ＋ Section
+        </button>
+        {adjacentSection ? (
+          <button
+            type="button"
+            data-testid={`document-add-to-section-${primary}`}
+            onClick={() => handleAddBlockToSection(block, adjacentSection.id)}
+            className="inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover/sec:opacity-100 motion-reduce:transition-none"
+            style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
+          >
+            Add to “{adjacentSection.title}”
+          </button>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderSectionBody = (section: DocumentSection): ReactNode => (
+    <div className="px-3 pb-3 pt-1">
+      {renderBlocks(section.blocks, { dimUnrelated: true, markerMap: topLevelMarkers })}
+      {interactive ? (
+        <div className="pl-11">
+          <button
+            type="button"
+            data-testid={`document-section-remove-last-${section.id}`}
+            onClick={() => {
+              const last = section.blocks[section.blocks.length - 1];
+              if (last) handleRemoveBlockFromSection(last);
+            }}
+            className="mt-1 inline-flex h-6 items-center rounded-full px-2.5 text-[11px] font-medium"
+            style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
+            title="Move the last step out of this section"
+          >
+            Move step out
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const sectionContainsActiveStop = (section: DocumentSection): boolean =>
+    stop !== null && section.blocks.some((b) => blockContainsNode(b, stop.nodeId));
+
+  const renderSectionedRows = (rows: readonly SectionedRow[]): ReactNode => {
+    // Find, for each loose block, whether a section is immediately adjacent so
+    // the "add to section" affordance can extend a contiguous section.
+    return rows.map((row, i) => {
+      if (row.kind === "section") {
+        const { section } = row;
+        const collapsed =
+          section.collapsed &&
+          !revealedSectionIds.has(section.id) &&
+          !sectionContainsActiveStop(section);
+        const summary = summarizeDocumentSection(section, { providerLabels, unresolvedByNode });
+        return (
+          <div key={`section-${section.id}-${section.runIndex}`} className="my-2">
+            <DocumentSectionHeader
+              section={section}
+              collapsed={collapsed}
+              summaryText={summary.text}
+              onRename={(title) => handleRenameSection(section.id, title)}
+              onToggleCollapse={() => handleToggleCollapse(section)}
+              onUngroup={() => handleUngroupSection(section.id)}
+            >
+              {collapsed ? null : renderSectionBody(section)}
+            </DocumentSectionHeader>
+          </div>
+        );
+      }
+      const prev = rows[i - 1];
+      const next = rows[i + 1];
+      const adjacent =
+        prev?.kind === "section"
+          ? { id: prev.section.id, title: prev.section.title }
+          : next?.kind === "section"
+            ? { id: next.section.id, title: next.section.title }
+            : null;
+      return (
+        <Fragment key={`loose-${blockPrimaryNodeId(row.block) ?? i}`}>
+          {renderBlocks([row.block], { dimUnrelated: true, markerMap: topLevelMarkers })}
+          {looseSectionAffordance(row.block, adjacent)}
+        </Fragment>
+      );
+    });
+  };
+
   return (
     <div
       data-testid="document-view"
@@ -411,7 +648,9 @@ export function DocumentView({
               </p>
             </div>
           ) : (
-            renderBlocks(model.blocks, { dimUnrelated: true })
+            renderSectionedRows(
+              groupBlocksIntoSections(model.blocks, pendingPresentation).rows,
+            )
           )}
         </div>
         {notice ? (
