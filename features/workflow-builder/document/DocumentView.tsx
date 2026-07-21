@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 import type { RequiredFieldsByType } from "@/core/workflows/requiredFields";
 import { useGraphSlice } from "../state/graphSlice";
@@ -8,7 +8,13 @@ import { DocumentComplexRegion } from "./DocumentComplexRegion";
 import { DocumentForkBlock } from "./DocumentForkBlock";
 import { DocumentSentence } from "./DocumentSentence";
 import { GuidedStopEditor } from "./GuidedStopEditor";
+import { FinishSetupBanner } from "./FinishSetupBanner";
+import { FinishSetupControls } from "./FinishSetupControls";
+import { WholeWorkflowMap } from "./WholeWorkflowMap";
 import { useDocumentGuidedStop } from "./useDocumentGuidedStop";
+import { useDocumentSetup, navRefusalCopy } from "./useDocumentSetup";
+import type { WholeWorkflowMapRow } from "./wholeWorkflowMapModel";
+import { resolveMapRowNavigation } from "./documentNavigation";
 import {
   describeDocumentRefusal,
   openDocumentStepConfig,
@@ -81,6 +87,8 @@ export function DocumentView({
     [pendingNodes, pendingEdges, requiredFieldsByType, summaryFieldsByType, providerLabels],
   );
 
+  const isDirty = useGraphSlice((s) => s.isDirty);
+
   const handleStopActive = useCallback(
     (nodeId: string | null) => onGuidedStopActive?.(nodeId),
     [onGuidedStopActive],
@@ -88,6 +96,22 @@ export function DocumentView({
   const { stop, openStop, commitStop, cancelStop, releaseStop } = useDocumentGuidedStop({
     onActiveChange: handleStopActive,
   });
+
+  // 5.DUAL-BUILDER-1 CS-3 — Finish Setup queue + Whole Workflow map + banner are
+  // derived from the SAME authoritative validation output that drives the header
+  // issues pill, per-node "Needs setup", activation blocking, and the blank
+  // chips. There is NO second readiness system (see useDocumentSetup).
+  const { bannerState, wholeMap, finishSetup, scrollRef, scrollToNode } = useDocumentSetup({
+    model,
+    pendingNodes,
+    pendingEdges,
+    requiredFieldsByType,
+    isDirty,
+    stop,
+    openStop: (nodeId, fieldKey) => openStop(nodeId, fieldKey),
+    releaseStop,
+  });
+  const [mapOpen, setMapOpen] = useState(false);
 
   const say = useCallback(
     (text: string | null) => {
@@ -107,14 +131,20 @@ export function DocumentView({
 
   const handleEditField = useCallback(
     (nodeId: string, fieldName: string) => {
+      // While the queue is active, a chip click moves the queue cursor to that
+      // field (reusing the same stop machinery) so map/controls stay in sync.
+      if (finishSetup.active && finishSetup.goToNode(nodeId, fieldName)) return;
       const result = openStop(nodeId, fieldName);
       if (!result.ok) say(describeDocumentRefusal(result.reason));
     },
-    [openStop, say],
+    [finishSetup, openStop, say],
   );
 
   const handleConfigureStep = useCallback(
     (nodeId: string) => {
+      // Inspector/map conflict resolution: the map closes before the full
+      // inspector opens (never overlapping drawers). Queue session is preserved.
+      setMapOpen(false);
       releaseStop();
       if (onOpenStepInspector) {
         onOpenStepInspector(nodeId);
@@ -124,6 +154,36 @@ export function DocumentView({
       if (!result.ok) say(describeDocumentRefusal(result.reason));
     },
     [releaseStop, onOpenStepInspector, say],
+  );
+
+  // CS-3 — execute a typed, non-throwing navigation from a Whole Workflow map
+  // row. Navigation NEVER saves or mutates: it scrolls, opens the existing
+  // Guided Stop, opens the existing inspector, or hands off to the Visual
+  // Builder. Stale ids and structural connectors refuse safely.
+  const handleMapSelect = useCallback(
+    (row: WholeWorkflowMapRow) => {
+      const liveIds = new Set(useGraphSlice.getState().pendingNodes.map((n) => n.id));
+      const outcome = resolveMapRowNavigation(row, liveIds);
+      switch (outcome.kind) {
+        case "scroll":
+          scrollToNode(outcome.nodeId);
+          break;
+        case "scroll_and_edit":
+          scrollToNode(outcome.nodeId);
+          handleEditField(outcome.nodeId, outcome.fieldKey);
+          break;
+        case "open_inspector":
+          handleConfigureStep(outcome.nodeId);
+          break;
+        case "open_in_visual":
+          onOpenInVisual?.(outcome.nodeId);
+          break;
+        case "refuse":
+          say(navRefusalCopy(outcome.reason));
+          break;
+      }
+    },
+    [scrollToNode, handleEditField, handleConfigureStep, onOpenInVisual, say],
   );
 
   const handleTailAdd = useCallback(
@@ -181,6 +241,23 @@ export function DocumentView({
     [onInsertAtEdge, say],
   );
 
+  // The active Guided Stop editor, anchored under the block that owns the
+  // clicked chip (sentence OR fork). Reused for both so the render stays DRY.
+  const renderStopEditor = (nodeId: string): ReactNode =>
+    stop?.nodeId === nodeId ? (
+      <GuidedStopEditor
+        key={`stop-${nodeId}`}
+        nodeId={stop.nodeId}
+        fieldName={stop.fieldName}
+        onCommit={() => {
+          const result = commitStop();
+          if (!result.ok) say(describeDocumentRefusal(result.reason));
+        }}
+        onCancel={() => cancelStop()}
+        onOpenInspector={() => handleConfigureStep(stop.nodeId)}
+      />
+    ) : null;
+
   const renderBlocks = (
     blocks: readonly DocumentBlock[],
     opts?: { dimUnrelated?: boolean },
@@ -206,21 +283,7 @@ export function DocumentView({
             editingFieldName={stop?.nodeId === block.nodeId ? stop.fieldName : null}
           />,
         );
-        if (stop?.nodeId === block.nodeId) {
-          out.push(
-            <GuidedStopEditor
-              key={`stop-${block.nodeId}`}
-              nodeId={stop.nodeId}
-              fieldName={stop.fieldName}
-              onCommit={() => {
-                const result = commitStop();
-                if (!result.ok) say(describeDocumentRefusal(result.reason));
-              }}
-              onCancel={() => cancelStop()}
-              onOpenInspector={() => handleConfigureStep(stop.nodeId)}
-            />,
-          );
-        }
+        if (stop?.nodeId === block.nodeId) out.push(renderStopEditor(block.nodeId));
         if (interactive && block.insertAfter && onInsertAtEdge) {
           out.push(
             <div key={`ins-${block.nodeId}`} className="group/ins flex justify-start pl-14">
@@ -272,21 +335,7 @@ export function DocumentView({
             onInsertInLane={interactive && onInsertAtEdge ? handleInsertInLane : undefined}
           />,
         );
-        if (stop?.nodeId === block.nodeId) {
-          out.push(
-            <GuidedStopEditor
-              key={`stop-${block.nodeId}`}
-              nodeId={stop.nodeId}
-              fieldName={stop.fieldName}
-              onCommit={() => {
-                const result = commitStop();
-                if (!result.ok) say(describeDocumentRefusal(result.reason));
-              }}
-              onCancel={() => cancelStop()}
-              onOpenInspector={() => handleConfigureStep(stop.nodeId)}
-            />,
-          );
-        }
+        if (stop?.nodeId === block.nodeId) out.push(renderStopEditor(block.nodeId));
         flush(block);
         continue;
       }
@@ -319,52 +368,74 @@ export function DocumentView({
     <div
       data-testid="document-view"
       data-projection-tier={model.tier}
-      className="relative min-h-0 flex-1 overflow-y-auto"
+      className="relative flex min-h-0 flex-1"
       style={{ background: "var(--builder-panel)" }}
       aria-label="Workflow document"
     >
-      <div className="mx-auto max-w-[760px] px-8 py-6">
-        <p
-          data-testid="document-readonly-note"
-          className="builder-mono m-0 mb-4 text-[10.5px] uppercase tracking-[0.12em]"
-          style={{ color: "var(--builder-muted-2)" }}
-        >
-          Document view · click any value to edit · Save when you&rsquo;re ready
-        </p>
-        {model.empty ? (
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-[760px] px-8 py-6">
+          {interactive && !model.empty ? (
+            <>
+              <FinishSetupBanner
+                state={bannerState}
+                queueActive={finishSetup.active}
+                onFinishSetup={finishSetup.start}
+                onOpenMap={() => setMapOpen(true)}
+                {...(onOpenInVisual ? { onOpenInVisual: () => onOpenInVisual(null) } : {})}
+              />
+              <FinishSetupControls queue={finishSetup} />
+            </>
+          ) : null}
+          <p
+            data-testid="document-readonly-note"
+            className="builder-mono m-0 mb-4 text-[10.5px] uppercase tracking-[0.12em]"
+            style={{ color: "var(--builder-muted-2)" }}
+          >
+            Document view · click any value to edit · Save when you&rsquo;re ready
+          </p>
+          {model.empty ? (
+            <div
+              data-testid="document-empty-state"
+              className="rounded-xl px-5 py-8 text-center"
+              style={{
+                border: "1.5px dashed var(--builder-border)",
+                color: "var(--builder-muted)",
+              }}
+            >
+              <p className="m-0 text-[14px] font-medium" style={{ color: "var(--builder-text-2)" }}>
+                Nothing here yet.
+              </p>
+              <p className="m-0 mt-1 text-[12.5px]">
+                Switch to the Visual builder to add a trigger — the Document reads the same
+                workflow.
+              </p>
+            </div>
+          ) : (
+            renderBlocks(model.blocks, { dimUnrelated: true })
+          )}
+        </div>
+        {notice ? (
           <div
-            data-testid="document-empty-state"
-            className="rounded-xl px-5 py-8 text-center"
+            data-testid="document-notice"
+            role="status"
+            className="pointer-events-none sticky bottom-4 mx-auto w-fit max-w-[85%] rounded-lg px-4 py-2 text-[12.5px] font-medium"
             style={{
-              border: "1.5px dashed var(--builder-border)",
-              color: "var(--builder-muted)",
+              background: "var(--builder-text)",
+              color: "var(--builder-panel)",
+              boxShadow: "0 14px 30px -12px rgba(0,0,0,.4)",
             }}
           >
-            <p className="m-0 text-[14px] font-medium" style={{ color: "var(--builder-text-2)" }}>
-              Nothing here yet.
-            </p>
-            <p className="m-0 mt-1 text-[12.5px]">
-              Switch to the Visual builder to add a trigger — the Document reads the same
-              workflow.
-            </p>
+            {notice}
           </div>
-        ) : (
-          renderBlocks(model.blocks, { dimUnrelated: true })
-        )}
+        ) : null}
       </div>
-      {notice ? (
-        <div
-          data-testid="document-notice"
-          role="status"
-          className="pointer-events-none sticky bottom-4 mx-auto w-fit max-w-[85%] rounded-lg px-4 py-2 text-[12.5px] font-medium"
-          style={{
-            background: "var(--builder-text)",
-            color: "var(--builder-panel)",
-            boxShadow: "0 14px 30px -12px rgba(0,0,0,.4)",
-          }}
-        >
-          {notice}
-        </div>
+      {interactive && mapOpen ? (
+        <WholeWorkflowMap
+          map={wholeMap}
+          activeNodeId={stop?.nodeId ?? null}
+          onClose={() => setMapOpen(false)}
+          onSelectRow={handleMapSelect}
+        />
       ) : null}
     </div>
   );

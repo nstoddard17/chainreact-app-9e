@@ -43,6 +43,15 @@ describe("document builder — no React Flow / canvas coupling", () => {
       "documentViewPref.ts",
       "DocumentView.tsx",
       "index.ts",
+      // CS-3 — Finish Setup queue + Whole Workflow map.
+      "documentOutline.ts",
+      "setupQueueModel.ts",
+      "wholeWorkflowMapModel.ts",
+      "documentNavigation.ts",
+      "FinishSetupBanner.tsx",
+      "FinishSetupControls.tsx",
+      "WholeWorkflowMap.tsx",
+      "useFinishSetupQueue.ts",
     ]) {
       expect(files).toContain(expected);
     }
@@ -62,6 +71,11 @@ describe("document builder — no React Flow / canvas coupling", () => {
     "projectionText.ts",
     "documentModel.ts",
     "documentViewPref.ts",
+    // CS-3 pure derivations — queue/map/navigation models are React-free data.
+    "documentOutline.ts",
+    "setupQueueModel.ts",
+    "wholeWorkflowMapModel.ts",
+    "documentNavigation.ts",
   ])(
     "%s is pure (no React, no store, no fetch)",
     (file) => {

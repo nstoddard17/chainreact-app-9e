@@ -42,3 +42,29 @@ export {
   type DocumentCommandResult,
 } from "./documentCommands";
 export { planGuidedStop, type GuidedStopPlan } from "./guidedStopModel";
+export {
+  buildDocumentOutline,
+  type OutlineRow,
+  type OutlineRowKind,
+} from "./documentOutline";
+export {
+  buildSetupQueue,
+  deriveSetupBannerState,
+  type SetupQueue,
+  type SetupQueueItem,
+  type SetupQueueHandoff,
+  type SetupBannerState,
+  type SetupBannerPrimary,
+  type SetupHandoffReason,
+} from "./setupQueueModel";
+export {
+  buildWholeWorkflowMap,
+  type WholeWorkflowMap as WholeWorkflowMapModel,
+  type WholeWorkflowMapRow,
+  type MapStatus,
+} from "./wholeWorkflowMapModel";
+export {
+  resolveMapRowNavigation,
+  type DocumentNavOutcome,
+  type DocumentNavRefusal,
+} from "./documentNavigation";
