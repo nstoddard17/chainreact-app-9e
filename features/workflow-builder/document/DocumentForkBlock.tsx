@@ -22,6 +22,7 @@ export function DocumentForkBlock({
   onConfigureStep,
   onOpenInVisual,
   onInsertInLane,
+  onAddToEmptyLane,
 }: {
   block: ForkModel;
   renderBlocks: (blocks: readonly DocumentBlock[]) => ReactNode;
@@ -32,6 +33,8 @@ export function DocumentForkBlock({
   onInsertInLane?:
     | ((laneInsert: NonNullable<ForkModel["lanes"][number]["laneInsert"]>) => void)
     | undefined;
+  /** CS-5 — add the first step of an EMPTY (missing_branch_edge) labeled lane. */
+  onAddToEmptyLane?: ((forkNodeId: string, label: string) => void) | undefined;
 }) {
   return (
     <div
@@ -132,6 +135,25 @@ export function DocumentForkBlock({
                   : "This path no longer matches the current routes. "}
                 <span className="font-normal">{lane.warning.message}</span>
               </span>
+              {/* CS-5 — a MISSING lane (returnable route, no destination) can get
+                  its first step in-place; a STALE lane (dead route) is a
+                  Visual-Builder repair job only. */}
+              {onAddToEmptyLane && lane.warning.code === "missing_branch_edge" && lane.kindHint === "labeled" ? (
+                <button
+                  type="button"
+                  data-testid={`document-lane-add-step-${block.nodeId}-${lane.label}`}
+                  data-route-label={lane.label}
+                  onClick={() => onAddToEmptyLane(block.nodeId, lane.label)}
+                  className="inline-flex h-6 shrink-0 items-center rounded-md px-2 text-[11.5px] font-medium"
+                  style={{
+                    background: "var(--builder-panel)",
+                    color: "var(--builder-text)",
+                    border: "1px solid var(--builder-border)",
+                  }}
+                >
+                  ＋ Add a step
+                </button>
+              ) : null}
               {onOpenInVisual ? (
                 <button
                   type="button"

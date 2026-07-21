@@ -16,6 +16,7 @@ import { useDocumentGuidedStop } from "./useDocumentGuidedStop";
 import { useDocumentSetup, navRefusalCopy } from "./useDocumentSetup";
 import type { WholeWorkflowMapRow } from "./wholeWorkflowMapModel";
 import { resolveMapRowNavigation } from "./documentNavigation";
+import { buildLaneContext } from "./documentBranchContext";
 import {
   blockPrimaryNodeId,
   groupBlocksIntoSections,
@@ -63,6 +64,7 @@ export function DocumentView({
   onInsertAtEdge,
   onOpenStepInspector,
   onGuidedStopActive,
+  onAddToEmptyLane,
   notice,
   onNotice,
 }: {
@@ -80,6 +82,8 @@ export function DocumentView({
   onOpenStepInspector?: ((nodeId: string) => void) | undefined;
   /** CS-2 — which node's selection is Guided-Stop-driven (drawer suppression). */
   onGuidedStopActive?: ((nodeId: string | null) => void) | undefined;
+  /** CS-5 — open the shared picker to wire the first step of an empty lane. */
+  onAddToEmptyLane?: ((forkNodeId: string, label: string) => void) | undefined;
   /** CS-2 — transient notice owned by WorkflowBuilder (e.g. branch-pick refusal). */
   notice?: string | null | undefined;
   onNotice?: ((text: string | null) => void) | undefined;
@@ -378,6 +382,10 @@ export function DocumentView({
         key={`stop-${nodeId}`}
         nodeId={stop.nodeId}
         fieldName={stop.fieldName}
+        // CS-5 — lane-aware context: breadcrumb ancestry + sibling-lane chips
+        // for a stop inside a branch lane. Switching a lane is FOCUS ONLY.
+        laneContext={buildLaneContext(model, stop.nodeId)}
+        onSwitchLane={(targetNodeId) => scrollToNode(targetNodeId)}
         onCommit={() => {
           const result = commitStop();
           if (!result.ok) say(describeDocumentRefusal(result.reason));
@@ -466,6 +474,7 @@ export function DocumentView({
             onConfigureStep={interactive ? handleConfigureStep : undefined}
             onOpenInVisual={onOpenInVisual}
             onInsertInLane={interactive && onInsertAtEdge ? handleInsertInLane : undefined}
+            onAddToEmptyLane={interactive ? onAddToEmptyLane : undefined}
           />,
         );
         if (stop?.nodeId === block.nodeId) out.push(renderStopEditor(block.nodeId));

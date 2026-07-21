@@ -345,15 +345,18 @@ export default [
   // features/workflow-builder/WorkflowBuilder.tsx — the central builder orchestrator (canvas/rail/drawer
   // composition + the add-node and right-drawer state machines). The AI-preview lifecycle + checkpoint
   // orchestration + "Review changes" config diff were extracted into the useBuilderPreview hook, which
-  // dropped this file from 585 → 452 counted lines. Capped at 460 (snug, modest headroom) to keep
-  // further drift visible; still over the 400 default because of the canvas/rail/drawer wiring. Next
-  // extraction candidates if it grows again: the right-drawer and add-node state machines.
+  // dropped this file from 585 → 452 counted lines. 5.DUAL-BUILDER-1 CS-5 routes Document branch
+  // authoring through the SAME picker state machine (the pick handler now classifies a branch pick into
+  // a create-command location + wires empty-lane adds), which is cohesive to the add-node machine here.
+  // Capped at 740 to keep further drift visible; still over the 400 default because of the
+  // canvas/rail/drawer wiring. Next extraction candidates if it grows again: the right-drawer and
+  // add-node state machines.
   {
     files: ["features/workflow-builder/WorkflowBuilder.tsx"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 460, skipBlankLines: true, skipComments: true },
+        { max: 740, skipBlankLines: true, skipComments: true },
       ],
     },
   },
@@ -398,14 +401,17 @@ export default [
   // SAME canonical draft — state fields + snapshots + hydrate/save/undo-redo reconciliation + the
   // node-set membership-prune choke point, all of which must live on the mutation surface. The pure
   // section-command LOGIC was already extracted to `presentationCommands.ts` (only thin store
-  // wrappers remain here). Splitting the store further is a real refactor (every action shares
-  // `set`/`get`). Capped at 820 to make further drift visible. Mirrors the precedent above.
+  // wrappers remain here). 5.DUAL-BUILDER-1 CS-5 added the `renameBranchRouteLabel` transaction (the
+  // route-identity "approach 2": config route-label + this node's matching outgoing edge labels
+  // rewritten atomically in one history-captured `set`) — it must live on the mutation surface to stay
+  // undo/redo-correct. Splitting the store further is a real refactor (every action shares `set`/`get`).
+  // Capped at 880 to make further drift visible. Mirrors the precedent above.
   {
     files: ["features/workflow-builder/state/graphSlice.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 820, skipBlankLines: true, skipComments: true },
+        { max: 880, skipBlankLines: true, skipComments: true },
       ],
     },
   },

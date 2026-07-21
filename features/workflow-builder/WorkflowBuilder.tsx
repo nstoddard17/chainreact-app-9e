@@ -65,12 +65,45 @@ import { ValidationSummary } from "./validation/ValidationSummary";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
 import {
   DocumentView,
-  guardDocumentActionMeta,
-  describeDocumentRefusal,
   readBuilderViewPref,
   writeBuilderViewPref,
+  addDocumentActionToEmptyLane,
+  createDocumentIfThenBranch,
+  createDocumentRouterBranch,
+  describeBranchRefusal,
+  type BranchInsertLocation,
   type BuilderViewMode,
 } from "./document";
+
+/**
+ * 5.DUAL-BUILDER-1 CS-5 — classify a Document insertion context into a
+ * branch-creation location: a labeled edge from a branching node → laneStart
+ * (nested fork), an unlabeled edge → between, otherwise a tail anchor → tail.
+ * Returns null when no safe location is known (the branch command would refuse).
+ */
+function documentBranchLocation(
+  insertContext: { edgeId: string } | null,
+  appendAfter: string | null,
+): BranchInsertLocation | null {
+  if (insertContext) {
+    const edge = useGraphSlice
+      .getState()
+      .pendingEdges.find((e) => e.id === insertContext.edgeId);
+    if (!edge) return null;
+    if (edge.label !== undefined) {
+      return {
+        kind: "laneStart",
+        edgeId: edge.id,
+        expectedFrom: edge.from,
+        expectedTo: edge.to,
+        expectedLabel: edge.label,
+      };
+    }
+    return { kind: "between", edgeId: edge.id, expectedFrom: edge.from, expectedTo: edge.to };
+  }
+  if (appendAfter) return { kind: "tail", anchorNodeId: appendAfter };
+  return null;
+}
 
 interface Props {
   workflow: WorkflowDetail;
@@ -438,15 +471,28 @@ export function WorkflowBuilder({
   // (not state) so the picker's pick handler reads the latest target without
   // re-creating the callback. Read in `handlePickAction`, then cleared on close.
   const appendAfterRef = useRef<string | null>(null);
+  // CS-5 — when the picker was opened by an empty branch lane's "Add a step",
+  // this names the fork + route label the pick should be wired into.
+  const branchLaneRef = useRef<{ forkNodeId: string; label: string } | null>(null);
   const openTriggerPicker = useCallback(() => {
     setAddPanelMode({ kind: "trigger" });
   }, []);
   const openActionPicker = useCallback(() => {
     appendAfterRef.current = null;
+    branchLaneRef.current = null;
     setAddPanelMode({ kind: "action" });
   }, []);
   const handleAppendAfter = useCallback((nodeId: string) => {
     appendAfterRef.current = nodeId;
+    branchLaneRef.current = null;
+    setAddPanelMode({ kind: "action" });
+  }, []);
+  // 5.DUAL-BUILDER-1 CS-5 — an empty branch lane's "Add a step" opens the SAME
+  // picker; the pick is wired into that lane (fork --[label]--> new) via the
+  // Document branch command rather than the linear insert path.
+  const handleAddToEmptyLane = useCallback((forkNodeId: string, label: string) => {
+    branchLaneRef.current = { forkNodeId, label };
+    appendAfterRef.current = null;
     setAddPanelMode({ kind: "action" });
   }, []);
   // Slice 4.BUILDER-CANVAS-LAYOUT-1 — re-arrange the whole graph into a clean,
@@ -456,9 +502,11 @@ export function WorkflowBuilder({
   }, []);
   const closeAddPanel = useCallback(() => {
     appendAfterRef.current = null;
+    branchLaneRef.current = null;
     setAddPanelMode(null);
   }, []);
   const handleEdgePlusClick = useCallback((edgeId: string) => {
+    branchLaneRef.current = null;
     setAddPanelMode({ kind: "insertAction", edgeId });
   }, []);
 
@@ -472,51 +520,14 @@ export function WorkflowBuilder({
     [branchingLocked],
   );
 
-  const handlePickTrigger = useCallback((meta: TriggerMeta) => {
-    useGraphSlice.getState().addTriggerFromMeta(meta);
-  }, []);
-  const handlePickAction = useCallback(
-    (meta: ActionMeta, insertContext: { edgeId: string } | null) => {
-      // Defense in depth: the picker shows the upgrade explanation instead of
-      // picking, so this should be unreachable — but no insertion surface
-      // (search, keyboard, future callers) may ever add a locked node.
-      if (branchingLocked && isAdvancedBranchingTypeKey(meta.key)) return;
-      // 5.DUAL-BUILDER-1 CS-2 — the Document shares this picker, but Document
-      // branch AUTHORING is a later slice. Refuse with a typed handoff rather
-      // than partially creating an unconfigured branch node.
-      if (documentViewActive) {
-        const guard = guardDocumentActionMeta(meta);
-        if (!guard.ok) {
-          setDocumentNotice(describeDocumentRefusal(guard.reason));
-          return;
-        }
-      }
-      const slice = useGraphSlice.getState();
-      if (insertContext) {
-        insertActionAtEdge(insertContext.edgeId, meta);
-        return;
-      }
-      // BUILDER-CANVAS-ERGONOMICS-FIX-1 — a tail "+" names the exact branch end to
-      // extend; the global CTA leaves it null → append to the sole chain tail.
-      const appendAfter = appendAfterRef.current;
-      if (appendAfter) {
-        slice.addActionAfterFromMeta(appendAfter, meta);
-        return;
-      }
-      slice.addActionFromMeta(meta);
-    },
-    [branchingLocked, documentViewActive],
-  );
-
-  const pendingNodes = useGraphSlice((s) => s.pendingNodes);
-  const pendingEdges = useGraphSlice((s) => s.pendingEdges);
-
   // 5.DUAL-BUILDER-1 CS-1 — complex-region handoff: switch to the Visual
   // surface and reveal the region's anchor node via the EXISTING focus API
   // (configSlice.revealNode — navigation only, never a write/save/mutation).
   // CS-2 — "Configure step" from the Document: clear the Guided-Stop
   // suppression so the EXISTING transition effect opens the inspector drawer,
-  // then select through the same configSlice.openNode the canvas uses.
+  // then select through the same configSlice.openNode the canvas uses. CS-5 —
+  // also used to open the router-routes renderer right after a Router branch is
+  // created, so routes are configured through the EXISTING inspector.
   const handleOpenStepInspector = useCallback(
     (nodeId: string) => {
       guidedStopNodeRef.current = null;
@@ -531,6 +542,70 @@ export function WorkflowBuilder({
     },
     [openNodeConfig],
   );
+
+  const handlePickTrigger = useCallback((meta: TriggerMeta) => {
+    useGraphSlice.getState().addTriggerFromMeta(meta);
+  }, []);
+  const handlePickAction = useCallback(
+    (meta: ActionMeta, insertContext: { edgeId: string } | null) => {
+      // Defense in depth: the picker shows the upgrade explanation instead of
+      // picking, so this should be unreachable — but no insertion surface
+      // (search, keyboard, future callers) may ever add a locked node.
+      if (branchingLocked && isAdvancedBranchingTypeKey(meta.key)) return;
+      const slice = useGraphSlice.getState();
+
+      // 5.DUAL-BUILDER-1 CS-5 — Document branch authoring. The SAME picker (with
+      // its existing Pro locking) drives it; branch picks route through the
+      // typed Document branch commands, which validate live store state and
+      // refuse (never partially mutate) rather than dropping an unconfigured
+      // node. Non-branch picks fall through to the shared linear paths below.
+      if (documentViewActive) {
+        const emptyLane = branchLaneRef.current;
+        const isBranch = isAdvancedBranchingTypeKey(meta.key);
+        if (emptyLane) {
+          // Add a step (ordinary OR nested branch) into an empty lane.
+          const result = addDocumentActionToEmptyLane({
+            forkNodeId: emptyLane.forkNodeId,
+            label: emptyLane.label,
+            meta,
+          });
+          if (!result.ok) setDocumentNotice(describeBranchRefusal(result.reason));
+          else if (isBranch && result.nodeId) handleOpenStepInspector(result.nodeId);
+          return;
+        }
+        if (isBranch) {
+          const location = documentBranchLocation(insertContext, appendAfterRef.current);
+          if (!location) {
+            setDocumentNotice(describeBranchRefusal("branching_not_supported_here"));
+            return;
+          }
+          const result =
+            meta.type === "router"
+              ? createDocumentRouterBranch({ location, canUseAdvancedBranching })
+              : createDocumentIfThenBranch({ location, canUseAdvancedBranching });
+          if (!result.ok) setDocumentNotice(describeBranchRefusal(result.reason));
+          else if (meta.type === "router" && result.nodeId) handleOpenStepInspector(result.nodeId);
+          return;
+        }
+      }
+      if (insertContext) {
+        insertActionAtEdge(insertContext.edgeId, meta);
+        return;
+      }
+      // BUILDER-CANVAS-ERGONOMICS-FIX-1 — a tail "+" names the exact branch end to
+      // extend; the global CTA leaves it null → append to the sole chain tail.
+      const appendAfter = appendAfterRef.current;
+      if (appendAfter) {
+        slice.addActionAfterFromMeta(appendAfter, meta);
+        return;
+      }
+      slice.addActionFromMeta(meta);
+    },
+    [branchingLocked, documentViewActive, canUseAdvancedBranching, handleOpenStepInspector],
+  );
+
+  const pendingNodes = useGraphSlice((s) => s.pendingNodes);
+  const pendingEdges = useGraphSlice((s) => s.pendingEdges);
 
   const handleOpenInVisual = useCallback(
     (nodeId: string | null) => {
@@ -902,6 +977,7 @@ export function WorkflowBuilder({
             onInsertAtEdge={memoizedEdgePlusClick}
             onOpenStepInspector={handleOpenStepInspector}
             onGuidedStopActive={handleGuidedStopActive}
+            onAddToEmptyLane={handleAddToEmptyLane}
             notice={documentNotice}
             onNotice={setDocumentNotice}
           />

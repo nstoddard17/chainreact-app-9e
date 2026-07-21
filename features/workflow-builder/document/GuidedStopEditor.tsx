@@ -7,6 +7,7 @@ import { useNodeMeta } from "../hooks/useNodeMeta";
 import { useConfigSlice } from "../state/configSlice";
 import { useGraphSlice } from "../state/graphSlice";
 import { planGuidedStop, type GuidedStopInspectorReason } from "./guidedStopModel";
+import type { DocumentLaneContext } from "./documentBranchContext";
 
 /**
  * 5.DUAL-BUILDER-1 CS-2 — the anchored single-question editor.
@@ -38,12 +39,18 @@ export function GuidedStopEditor({
   onCommit,
   onCancel,
   onOpenInspector,
+  laneContext,
+  onSwitchLane,
 }: {
   nodeId: string;
   fieldName: string;
   onCommit: () => void;
   onCancel: () => void;
   onOpenInspector: () => void;
+  /** CS-5 — lane ancestry + sibling lanes when the stop is inside a branch. */
+  laneContext?: DocumentLaneContext | null | undefined;
+  /** CS-5 — focus another sibling lane (navigation only; never mutates). */
+  onSwitchLane?: ((nodeId: string) => void) | undefined;
 }) {
   const node = useGraphSlice((s) => s.pendingNodes.find((n) => n.id === nodeId));
   const draft = useConfigSlice((s) => s.drafts[nodeId]);
@@ -113,6 +120,52 @@ export function GuidedStopEditor({
           boxShadow: "0 14px 34px -18px rgba(0,0,0,.35)",
         }}
       >
+        {/* CS-5 — lane-aware context: breadcrumb ancestry + sibling-lane chips
+            (focus only). Rendered only when the stop is inside a branch lane. */}
+        {laneContext && laneContext.breadcrumb.length > 0 ? (
+          <div className="mb-2" data-testid="guided-stop-lane-context">
+            <nav
+              data-testid="guided-stop-breadcrumb"
+              className="builder-mono mb-1.5 flex flex-wrap items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.06em]"
+              style={{ color: "var(--builder-muted)" }}
+              aria-label="Branch location"
+            >
+              {laneContext.breadcrumb.map((crumb, i) => (
+                <span key={`${crumb.forkNodeId}-${crumb.laneLabel}`} className="flex items-center gap-1">
+                  {i > 0 ? <span aria-hidden>›</span> : null}
+                  <span>{crumb.forkTitle}</span>
+                  <span aria-hidden>›</span>
+                  <span style={{ color: "var(--builder-accent)" }}>{crumb.laneTitle}</span>
+                </span>
+              ))}
+            </nav>
+            {onSwitchLane && laneContext.siblings.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-1.5" data-testid="guided-stop-sibling-lanes">
+                <span className="text-[10.5px]" style={{ color: "var(--builder-muted-2)" }}>
+                  Switch lane:
+                </span>
+                {laneContext.siblings.map((sib) => (
+                  <button
+                    key={`${sib.forkNodeId}-${sib.label}`}
+                    type="button"
+                    data-testid={`guided-stop-sibling-${sib.label || "always"}`}
+                    data-active={sib.active ? "true" : "false"}
+                    disabled={sib.active}
+                    onClick={() => onSwitchLane(sib.firstNodeId ?? sib.forkNodeId)}
+                    className="inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium disabled:cursor-default"
+                    style={{
+                      background: sib.active ? "var(--builder-accent-soft)" : "var(--builder-panel-2)",
+                      color: sib.active ? "var(--builder-accent)" : "var(--builder-muted)",
+                      border: "1px solid var(--builder-border)",
+                    }}
+                  >
+                    ● {sib.title}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="mb-2 flex items-baseline gap-2">
           <span
             className="builder-mono text-[10px] font-semibold uppercase tracking-[0.1em]"

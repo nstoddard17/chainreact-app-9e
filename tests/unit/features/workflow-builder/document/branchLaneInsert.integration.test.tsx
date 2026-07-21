@@ -311,19 +311,33 @@ describe("inserting in a lane", () => {
     expect(useGraphSlice.getState().isDirty).toBe(false);
   });
 
-  it("picking a BRANCH action from a lane insertion point creates nothing and explains why", async () => {
+  it("picking a BRANCH action from a lane insertion point creates a nested branch (CS-5)", async () => {
+    // CS-5 supersedes the CS-2 refusal: a branch pick at a safe lane-start
+    // insertion point now authors a NESTED fork through the canonical commands.
     renderBuilder();
-    const before = useGraphSlice.getState().pendingNodes;
 
     fireEvent.click(screen.getByTestId("document-lane-insert-if-true"));
     const picker = await screen.findByTestId("add-node-panel");
     fireEvent.click(await within(picker).findByText("If/Then Condition"));
 
-    // No node created; a plain-language notice is shown.
-    expect(useGraphSlice.getState().pendingNodes).toBe(before);
-    expect(useGraphSlice.getState().isDirty).toBe(false);
-    const notice = await screen.findByTestId("document-notice");
-    expect(notice.textContent ?? "").toMatch(/canvas|Visual Builder/i);
+    // A nested If/Then is inserted between the fork and the lane's first node.
+    await waitFor(() => {
+      const ifThens = useGraphSlice
+        .getState()
+        .pendingNodes.filter((n) => n.type === "if_then_condition");
+      expect(ifThens).toHaveLength(2);
+    });
+    const edges = useGraphSlice.getState().pendingEdges;
+    // if --[true]--> NESTED (the original if→hot edge is replaced) …
+    const trueEdge = edges.find((e) => e.from === "if" && e.label === "true")!;
+    const nestedId = trueEdge.to;
+    expect(nestedId).not.toBe("hot");
+    // … and NESTED wires both true/false to the preserved downstream (rejoin).
+    expect(
+      edges.filter((e) => e.from === nestedId && e.to === "hot").map((e) => e.label).sort(),
+    ).toEqual(["false", "true"]);
+    // Local edit only — dirty flips, but the Save button stays the sole persist.
+    expect(useGraphSlice.getState().isDirty).toBe(true);
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });

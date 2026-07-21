@@ -19,7 +19,7 @@ import {
   type SectionMutationRefusal,
   type SectionMutationResult,
 } from "./presentationCommands";
-import { isAdvancedBranchingNode } from "@/core/workflows/advancedBranching";
+import { isAdvancedBranchingNode, nodeTypeKey } from "@/core/workflows/advancedBranching";
 import { returnableBranchLabels } from "@/core/workflows/branchWiring";
 import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
 import {
@@ -317,7 +317,42 @@ export interface GraphSliceActions {
   removeNodesFromSection(nodeIds: readonly string[]): SectionMutationResult;
   /** Remove the section WRAPPER only — its member nodes stay exactly where they were. */
   ungroupSection(sectionId: string): SectionMutationResult;
+
+  /**
+   * 5.DUAL-BUILDER-1 CS-5 — rename a Router route label, DELIBERATELY preserving
+   * its wiring (route-identity decision "approach 2"): in ONE history-captured
+   * edit, rewrite the route's `config.routes[].label` from the exact old label
+   * to the new one AND relabel every outgoing edge of THIS node that carried the
+   * old label. This is the SAME canonical config + `edge.label` model the engine
+   * reads — no new route id, no runtime shape change, no engine behavior change.
+   *
+   * Refuses (without mutation) when identity can't be proven safe: the old label
+   * must be exactly ONE current route label (present + unambiguous), the new
+   * label must be non-empty and must not collide with another route label or an
+   * existing outgoing edge label of this node. Renaming to the same label is a
+   * no-op success. The Document command layer additionally enforces the
+   * `ROUTE_LABEL_MAX` length cap before calling.
+   */
+  renameBranchRouteLabel(
+    nodeId: string,
+    oldLabel: string,
+    newLabel: string,
+  ): BranchRouteRenameResult;
 }
+
+/** Outcome of {@link GraphSliceActions.renameBranchRouteLabel}. */
+export type BranchRouteRenameResult =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly reason:
+        | "node_missing"
+        | "not_router"
+        | "invalid_label"
+        | "invalid_route_config"
+        | "stale_route_label"
+        | "duplicate_route_label";
+    };
 
 // CS-4 — section command result types live in ./presentationCommands; re-exported
 // so existing importers keep resolving them from the store module.
@@ -1239,6 +1274,57 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     return runSectionCommand(
       ungroupSectionCommand({ nodes: get().pendingNodes, presentation: get().pendingPresentation }, sectionId),
     );
+  },
+
+  renameBranchRouteLabel(nodeId, oldLabel, newLabel) {
+    const { pendingNodes, pendingEdges } = get();
+    const idx = pendingNodes.findIndex((n) => n.id === nodeId);
+    if (idx === -1) return { ok: false, reason: "node_missing" };
+    const node = pendingNodes[idx]!;
+    if (nodeTypeKey(node) !== "native:router") return { ok: false, reason: "not_router" };
+
+    const trimmedNew = newLabel.trim();
+    if (trimmedNew.length === 0) return { ok: false, reason: "invalid_label" };
+
+    const config = (node.config ?? {}) as Record<string, unknown>;
+    const routes = config.routes;
+    if (!Array.isArray(routes)) return { ok: false, reason: "invalid_route_config" };
+    const labels = routes.map((r) => (r as { label?: unknown } | null)?.label);
+
+    // The old label must name EXACTLY ONE current route — absent or ambiguous
+    // (schema forbids dup route labels, but stay defensive) refuses.
+    if (labels.filter((l) => l === oldLabel).length !== 1) {
+      return { ok: false, reason: "stale_route_label" };
+    }
+    if (trimmedNew === oldLabel) return { ok: true }; // no-op success
+    // New label must not collide with another route label…
+    if (labels.includes(trimmedNew)) return { ok: false, reason: "duplicate_route_label" };
+    // …nor with any existing outgoing edge label of this node (a stale edge with
+    // the new label would become an ambiguous duplicate after the relabel).
+    if (pendingEdges.some((e) => e.from === nodeId && e.label === trimmedNew)) {
+      return { ok: false, reason: "duplicate_route_label" };
+    }
+
+    const nextRoutes = routes.map((r) =>
+      (r as { label?: unknown } | null)?.label === oldLabel
+        ? { ...(r as Record<string, unknown>), label: trimmedNew }
+        : r,
+    );
+    const nextConfig: Record<string, unknown> = { ...config, routes: nextRoutes };
+    // Keep an optional defaultRoute pointing at the renamed route.
+    if (typeof config.defaultRoute === "string" && config.defaultRoute === oldLabel) {
+      nextConfig.defaultRoute = trimmedNew;
+    }
+    const updatedNode: WorkflowNode = { ...node, config: nextConfig };
+    const nextNodes = [...pendingNodes];
+    nextNodes[idx] = updatedNode;
+    // Deliberate edge-relabel: this node's edges carrying the old label become
+    // the new label, preserving each lane's destination.
+    const nextEdges = pendingEdges.map((e) =>
+      e.from === nodeId && e.label === oldLabel ? { ...e, label: trimmedNew } : e,
+    );
+    set({ pendingNodes: nextNodes, pendingEdges: nextEdges, isDirty: true, saveError: null });
+    return { ok: true };
   },
   };
 

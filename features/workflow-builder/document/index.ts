@@ -43,6 +43,28 @@ export {
 } from "./documentCommands";
 export { planGuidedStop, type GuidedStopPlan } from "./guidedStopModel";
 export {
+  createDocumentIfThenBranch,
+  createDocumentRouterBranch,
+  updateDocumentIfThenCondition,
+  addDocumentBranchRoute,
+  removeDocumentBranchRoute,
+  renameDocumentBranchRoute,
+  addDocumentActionToEmptyLane,
+  resolveDocumentSiblingLane,
+  describeBranchRefusal,
+  type BranchInsertLocation,
+  type DocumentBranchResult,
+  type DocumentBranchRefusal,
+} from "./documentBranchCommands";
+export {
+  buildLaneContext,
+  findForkBlock,
+  firstNodeIdOfBlocks,
+  type DocumentLaneContext,
+  type LaneCrumb,
+  type SiblingLane,
+} from "./documentBranchContext";
+export {
   buildDocumentOutline,
   type OutlineRow,
   type OutlineRowKind,

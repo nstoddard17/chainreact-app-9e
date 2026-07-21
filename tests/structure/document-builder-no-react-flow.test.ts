@@ -56,6 +56,9 @@ describe("document builder — no React Flow / canvas coupling", () => {
       "documentSections.ts",
       "documentSectionCommands.ts",
       "DocumentSectionHeader.tsx",
+      // CS-5 — branch authoring commands + lane context.
+      "documentBranchCommands.ts",
+      "documentBranchContext.ts",
     ]) {
       expect(files).toContain(expected);
     }
@@ -83,6 +86,8 @@ describe("document builder — no React Flow / canvas coupling", () => {
     // CS-4 pure section grouping/summary + command resolution.
     "documentSections.ts",
     "documentSectionCommands.ts",
+    // CS-5 pure lane-context derivation (breadcrumbs / sibling lanes / depth).
+    "documentBranchContext.ts",
   ])(
     "%s is pure (no React, no store, no fetch)",
     (file) => {
