@@ -201,15 +201,30 @@ describe("createDocumentRouterBranch", () => {
     expect(edges().some((e) => e.from === "b" && e.to === r.id && e.label === undefined)).toBe(true);
   });
 
-  it("inserts a Router between two linear nodes preserving downstream as unlabeled continuation", () => {
+  // CS-6 LOCKED DECISION — a Router may NOT be inserted between A → B (it would
+  // leave B as a misleading unlabeled always-run continuation). Only a true tail
+  // (or an empty lane via addDocumentActionToEmptyLane) is allowed.
+  it("REFUSES a Router between two linear nodes WITHOUT mutating", () => {
     useGraphSlice.getState().hydrate("wf", clone(linear));
+    const before = JSON.stringify({ n: nodes(), e: edges() });
     const res = createDocumentRouterBranch({
       location: { kind: "between", edgeId: "e2", expectedFrom: "a", expectedTo: "b" },
     });
-    expect(res.ok).toBe(true);
-    const r = routerNode()!;
-    expect(edges().some((e) => e.from === "a" && e.to === r.id && e.label === undefined)).toBe(true);
-    expect(edges().some((e) => e.from === r.id && e.to === "b" && e.label === undefined)).toBe(true);
+    expect(res).toEqual({ ok: false, reason: "router_between_unsupported" });
+    expect(routerNode()).toBeUndefined();
+    expect(JSON.stringify({ n: nodes(), e: edges() })).toBe(before);
+  });
+
+  it("REFUSES a Router at a branch-lane start (would preserve a misleading continuation)", () => {
+    useGraphSlice.getState().hydrate("wf", routerWorkflow());
+    const before = JSON.stringify({ n: nodes(), e: edges() });
+    // The 'hot' lane entry edge (r --hot--> h) has a downstream node 'h'.
+    const laneEdge = edges().find((e) => e.from === "r" && e.label === "hot")!;
+    const res = createDocumentRouterBranch({
+      location: { kind: "laneStart", edgeId: laneEdge.id, expectedFrom: "r", expectedTo: "h", expectedLabel: "hot" },
+    });
+    expect(res).toEqual({ ok: false, reason: "router_between_unsupported" });
+    expect(JSON.stringify({ n: nodes(), e: edges() })).toBe(before);
   });
 });
 

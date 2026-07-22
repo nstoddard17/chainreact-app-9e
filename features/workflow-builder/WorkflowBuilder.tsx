@@ -474,6 +474,19 @@ export function WorkflowBuilder({
   // CS-5 — when the picker was opened by an empty branch lane's "Add a step",
   // this names the fork + route label the pick should be wired into.
   const branchLaneRef = useRef<{ forkNodeId: string; label: string } | null>(null);
+  // 5.DUAL-BUILDER-1 CS-6 — the Document's empty-state composer / persistent Ask
+  // React bar prefills the ONE existing agent conversation (the left rail's
+  // WorkflowGuidancePanel via `initialComposerValue`) and expands the rail. It
+  // NEVER opens a second conversation or sends on its own — the rail's composer
+  // owns submit. One-shot seed (the panel fills only an empty, untouched composer).
+  const [documentComposerSeed, setDocumentComposerSeed] = useState<string | undefined>(undefined);
+  const handleDocumentAskReact = useCallback(
+    (prompt: string) => {
+      setDocumentComposerSeed(prompt);
+      leftRail.expand();
+    },
+    [leftRail],
+  );
   const openTriggerPicker = useCallback(() => {
     setAddPanelMode({ kind: "trigger" });
   }, []);
@@ -904,7 +917,9 @@ export function WorkflowBuilder({
             getCurrentGraphShape={getCurrentGraphShape}
             getCurrentDraft={getCurrentDraft}
             renderCheckSetup={renderCheckSetup}
-            {...(restoredComposerValue ? { initialComposerValue: restoredComposerValue } : {})}
+            {...(documentComposerSeed ?? restoredComposerValue
+              ? { initialComposerValue: documentComposerSeed ?? restoredComposerValue }
+              : {})}
             onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
           />
           )}
@@ -978,6 +993,15 @@ export function WorkflowBuilder({
             onOpenStepInspector={handleOpenStepInspector}
             onGuidedStopActive={handleGuidedStopActive}
             onAddToEmptyLane={handleAddToEmptyLane}
+            // CS-6 — empty-state manual creation + single-agent Ask React.
+            onStartWithTrigger={openTriggerPicker}
+            onAskReact={handleDocumentAskReact}
+            {...(canUseAdvancedBranching !== undefined ? { canUseAdvancedBranching } : {})}
+            // CS-6 — the ephemeral agent preview (owned by useBuilderPreview) +
+            // the canonical apply/discard handlers, rendered as a ghost Document.
+            previewOverlay={previewOverlay}
+            onApplyPreview={handleApplyPreview}
+            onDiscardPreview={handleDiscardPreview}
             notice={documentNotice}
             onNotice={setDocumentNotice}
           />

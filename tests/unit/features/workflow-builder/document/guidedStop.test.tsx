@@ -383,8 +383,10 @@ describe("Document round-trip: edit + add, then save through the existing path",
     fireEvent.click(screen.getByTestId("guided-stop-done"));
     await waitFor(() => expect(screen.queryByTestId("document-guided-stop")).toBeNull());
 
-    // 2) Add one normal action at the linear tail via the shared picker.
+    // 2) Add one normal action at the linear tail: CS-6 "+" opens the Step /
+    // Branch / Section / Ask React menu; "Step" opens the shared picker.
     fireEvent.click(screen.getByTestId("document-add-after-a"));
+    fireEvent.click(await screen.findByTestId("document-add-after-a-step"));
     const picker = await screen.findByTestId("add-node-panel");
     fireEvent.click(await within(picker).findByText("Slack"));
     fireEvent.click(await within(picker).findByText("Send Channel Message"));
@@ -417,6 +419,7 @@ describe("Document round-trip: edit + add, then save through the existing path",
     renderInDocument();
 
     fireEvent.click(screen.getByTestId("document-insert-after-t"));
+    fireEvent.click(await screen.findByTestId("document-insert-after-t-step"));
     const picker = await screen.findByTestId("add-node-panel");
     fireEvent.click(await within(picker).findByText("Slack"));
     fireEvent.click(await within(picker).findByText("Send Channel Message"));

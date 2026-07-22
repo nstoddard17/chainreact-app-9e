@@ -12,11 +12,31 @@ import { GuidedStopEditor } from "./GuidedStopEditor";
 import { FinishSetupBanner } from "./FinishSetupBanner";
 import { FinishSetupControls } from "./FinishSetupControls";
 import { WholeWorkflowMap } from "./WholeWorkflowMap";
+import { DocumentEmptyState } from "./DocumentEmptyState";
+import { DocumentAskReactBar } from "./DocumentAskReactBar";
+import { DocumentPreview } from "./DocumentPreview";
+import { DocumentInsertMenu } from "./DocumentInsertMenu";
+import { DocumentSelectionToolbar } from "./DocumentSelectionToolbar";
 import { useDocumentGuidedStop } from "./useDocumentGuidedStop";
 import { useDocumentSetup, navRefusalCopy } from "./useDocumentSetup";
 import type { WholeWorkflowMapRow } from "./wholeWorkflowMapModel";
 import { resolveMapRowNavigation } from "./documentNavigation";
 import { buildLaneContext } from "./documentBranchContext";
+import { buildDocumentPreview } from "./documentPreviewProjection";
+import type { DraftPreview } from "@/contracts/workflowPlanPreview";
+import type { WorkflowDefinition } from "@/contracts/workflow";
+import {
+  createDocumentIfThenBranch,
+  createDocumentRouterBranch,
+  describeBranchRefusal,
+  type BranchInsertLocation,
+} from "./documentBranchCommands";
+import {
+  describeSelectionRefusal,
+  duplicateDocumentAction,
+  moveDocumentAction,
+  removeDocumentBlock,
+} from "./documentSelectionCommands";
 import {
   blockPrimaryNodeId,
   groupBlocksIntoSections,
@@ -27,6 +47,7 @@ import {
 import {
   describeSectionRefusal,
   resolveBlockNodeIds,
+  resolveWrapSelection,
 } from "./documentSectionCommands";
 import {
   describeDocumentRefusal,
@@ -65,6 +86,12 @@ export function DocumentView({
   onOpenStepInspector,
   onGuidedStopActive,
   onAddToEmptyLane,
+  onStartWithTrigger,
+  onAskReact,
+  canUseAdvancedBranching,
+  previewOverlay,
+  onApplyPreview,
+  onDiscardPreview,
   notice,
   onNotice,
 }: {
@@ -84,6 +111,22 @@ export function DocumentView({
   onGuidedStopActive?: ((nodeId: string | null) => void) | undefined;
   /** CS-5 — open the shared picker to wire the first step of an empty lane. */
   onAddToEmptyLane?: ((forkNodeId: string, label: string) => void) | undefined;
+  /** CS-6 — empty-state "Start with a trigger" → the existing TriggerPicker. */
+  onStartWithTrigger?: (() => void) | undefined;
+  /** CS-6 — seed + expand the ONE existing React Agent conversation. */
+  onAskReact?: ((prompt: string) => void) | undefined;
+  /** CS-6 — advanced-branching entitlement (Pro lock for branch menu entries). */
+  canUseAdvancedBranching?: boolean | undefined;
+  /**
+   * CS-6 — the ephemeral React-Agent preview (owned by `useBuilderPreview`).
+   * Rendering it never mutates the graph; only `onApplyPreview` does (canonical).
+   */
+  previewOverlay?:
+    | { readonly preview: DraftPreview; readonly proposedDefinition?: WorkflowDefinition | undefined }
+    | null
+    | undefined;
+  onApplyPreview?: (() => void) | undefined;
+  onDiscardPreview?: (() => void) | undefined;
   /** CS-2 — transient notice owned by WorkflowBuilder (e.g. branch-pick refusal). */
   notice?: string | null | undefined;
   onNotice?: ((text: string | null) => void) | undefined;
@@ -194,6 +237,133 @@ export function DocumentView({
   }, [notice, onNotice]);
 
   const interactive = onGuidedStopActive !== undefined;
+
+  // CS-6 — the ephemeral agent proposal as a read-only ghost Document. Computed
+  // from the SAME live graph + the overlay owned by useBuilderPreview; building
+  // it mutates nothing. Null when no preview is active.
+  const previewModel = useMemo(
+    () =>
+      previewOverlay
+        ? buildDocumentPreview({
+            liveNodes: pendingNodes,
+            liveEdges: pendingEdges,
+            preview: previewOverlay.preview,
+            proposedDefinition: previewOverlay.proposedDefinition,
+            meta: { requiredFieldsByType, summaryFieldsByType, providerLabels },
+          })
+        : null,
+    [previewOverlay, pendingNodes, pendingEdges, requiredFieldsByType, summaryFieldsByType, providerLabels],
+  );
+
+  // CS-6 — safe top-level multi-selection (ids of the primary node of each
+  // selected top-level block). Session-only UI state; never persisted.
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleSelect = useCallback((primaryId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(primaryId)) next.delete(primaryId);
+      else next.add(primaryId);
+      return next;
+    });
+  }, []);
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  // Selection references live node ids; prune ids that disappeared (undo/delete).
+  useEffect(() => {
+    const live = new Set(pendingNodes.map((n) => n.id));
+    setSelectedIds((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (live.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [pendingNodes]);
+
+  // CS-6 — the top-level blocks (document order) for selection + insertion menus.
+  const topLevelBlocks = model.blocks;
+  // A single selected ORDINARY action is duplicate/move eligible.
+  const singleSelectedActionable = useMemo(() => {
+    if (selectedIds.size !== 1) return false;
+    const id = [...selectedIds][0]!;
+    const node = pendingNodes.find((n) => n.id === id);
+    return node?.kind === "action";
+  }, [selectedIds, pendingNodes]);
+
+  // CS-6 — insertion-menu handlers. A branch pick routes through the CS-5 create
+  // commands (Router-between is refused there); Step reuses the existing picker;
+  // Ask React seeds the ONE agent with a plain-language, id-safe location.
+  const handleCreateBranch = useCallback(
+    (location: BranchInsertLocation, kind: "if_then" | "router") => {
+      const result =
+        kind === "router"
+          ? createDocumentRouterBranch({ location, canUseAdvancedBranching })
+          : createDocumentIfThenBranch({ location, canUseAdvancedBranching });
+      if (!result.ok) say(describeBranchRefusal(result.reason));
+      else if (kind === "router" && result.nodeId) onOpenStepInspector?.(result.nodeId);
+    },
+    [canUseAdvancedBranching, say, onOpenStepInspector],
+  );
+
+  // CS-6 — Ask React with an insertion CONTEXT (plain-language + safe ids only).
+  const handleAskReactAt = useCallback(
+    (context: string) => {
+      onAskReact?.(`Add a step ${context}. `);
+    },
+    [onAskReact],
+  );
+
+  // CS-6 — selection-toolbar command handlers (all typed, non-throwing).
+  const handleWrapSelection = useCallback(() => {
+    const resolved = resolveWrapSelection(topLevelBlocks, [...selectedIds]);
+    if (!resolved.ok) {
+      say(describeSectionRefusal(resolved.reason));
+      return;
+    }
+    const result = useGraphSlice.getState().createSection({ nodeIds: resolved.nodeIds, title: "New section" });
+    if (!result.ok && result.reason !== "no_change") say("This part can't be grouped into a section.");
+    else clearSelection();
+  }, [topLevelBlocks, selectedIds, say, clearSelection]);
+
+  const handleDuplicateSelection = useCallback(() => {
+    if (selectedIds.size !== 1) return;
+    const result = duplicateDocumentAction({ nodeId: [...selectedIds][0]! });
+    if (!result.ok) say(describeSelectionRefusal(result.reason));
+    else clearSelection();
+  }, [selectedIds, say, clearSelection]);
+
+  const handleDeleteSelection = useCallback(() => {
+    let confirmed = false;
+    for (const id of selectedIds) {
+      const result = removeDocumentBlock({ nodeId: id, confirmed });
+      if (!result.ok) {
+        if (result.reason === "destructive_confirmation_required") {
+          // The Document's own confirm gesture — native confirm keeps the flow simple.
+          if (typeof window !== "undefined" && window.confirm("Delete the selected step(s)? This changes your workflow.")) {
+            confirmed = true;
+            const retry = removeDocumentBlock({ nodeId: id, confirmed: true });
+            if (!retry.ok) { say(describeSelectionRefusal(retry.reason)); return; }
+          } else {
+            return;
+          }
+        } else {
+          say(describeSelectionRefusal(result.reason));
+          return;
+        }
+      }
+    }
+    clearSelection();
+  }, [selectedIds, say, clearSelection]);
+
+  const handleMoveSelection = useCallback(
+    (direction: "earlier" | "later") => {
+      if (selectedIds.size !== 1) return;
+      const result = moveDocumentAction({ nodeId: [...selectedIds][0]!, direction });
+      if (!result.ok) say(describeSelectionRefusal(result.reason));
+    },
+    [selectedIds, say],
+  );
 
   const handleEditField = useCallback(
     (nodeId: string, fieldName: string) => {
@@ -397,7 +567,7 @@ export function DocumentView({
 
   const renderBlocks = (
     blocks: readonly DocumentBlock[],
-    opts?: { dimUnrelated?: boolean; markerMap?: ReadonlyMap<string, string> },
+    opts?: { dimUnrelated?: boolean; markerMap?: ReadonlyMap<string, string>; selectable?: boolean },
   ): ReactNode => {
     let actionOrdinal = 0;
     const groups: Array<{ block: DocumentBlock; nodes: ReactNode[] }> = [];
@@ -425,39 +595,44 @@ export function DocumentView({
           />,
         );
         if (stop?.nodeId === block.nodeId) out.push(renderStopEditor(block.nodeId));
+        // CS-6 — the "+" now opens the Step / Branch / Section / Ask React menu
+        // (no Loop). Router is offered only where placement is valid (tail);
+        // between two nodes it is refused (locked rule) → Router omitted there.
         if (interactive && block.insertAfter && onInsertAtEdge) {
+          const loc: BranchInsertLocation = {
+            kind: "between",
+            edgeId: block.insertAfter.edgeId,
+            expectedFrom: block.nodeId,
+            expectedTo: block.insertAfter.toNodeId,
+          };
           out.push(
-            <div key={`ins-${block.nodeId}`} className="group/ins flex justify-start pl-14">
-              <button
-                type="button"
-                data-testid={`document-insert-after-${block.nodeId}`}
-                onClick={() => handleInsertBetween(block)}
-                className="inline-flex h-6 items-center gap-1 rounded-full px-2.5 text-[11px] font-medium opacity-0 transition-opacity focus:opacity-100 group-hover/ins:opacity-100 motion-reduce:transition-none"
-                style={{
-                  color: "var(--builder-muted)",
-                  border: "1.5px dashed var(--builder-border)",
-                }}
-              >
-                ＋ Add a step here
-              </button>
+            <div key={`ins-${block.nodeId}`} className="group flex justify-start pl-14">
+              <DocumentInsertMenu
+                testId={`document-insert-after-${block.nodeId}`}
+                label="＋ Add a step here"
+                branchLocked={canUseAdvancedBranching === false}
+                onStep={() => handleInsertBetween(block)}
+                onIfThen={() => handleCreateBranch(loc, "if_then")}
+                onSection={() => handleWrapBlock(block)}
+                onAskReact={() => handleAskReactAt("after this step")}
+              />
             </div>,
           );
         }
         if (interactive && block.isLinearTail && onAppendAfter) {
+          const loc: BranchInsertLocation = { kind: "tail", anchorNodeId: block.nodeId };
           out.push(
-            <div key={`tail-${block.nodeId}`} className="mt-1 pl-14">
-              <button
-                type="button"
-                data-testid={`document-add-after-${block.nodeId}`}
-                onClick={() => handleTailAdd(block.nodeId)}
-                className="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-[12px] font-medium"
-                style={{
-                  color: "var(--builder-text-2)",
-                  border: "1.5px dashed var(--builder-border)",
-                }}
-              >
-                ＋ Add a step
-              </button>
+            <div key={`tail-${block.nodeId}`} className="group mt-1 pl-14">
+              <DocumentInsertMenu
+                testId={`document-add-after-${block.nodeId}`}
+                label="＋ Add a step"
+                branchLocked={canUseAdvancedBranching === false}
+                onStep={() => handleTailAdd(block.nodeId)}
+                onIfThen={() => handleCreateBranch(loc, "if_then")}
+                onRouter={() => handleCreateBranch(loc, "router")}
+                onSection={() => handleWrapBlock(block)}
+                onAskReact={() => handleAskReactAt("at the end of the workflow")}
+              />
             </div>,
           );
         }
@@ -493,13 +668,39 @@ export function DocumentView({
     const dimActive = opts?.dimUnrelated === true && stop !== null;
     return groups.map(({ block, nodes }, i) => {
       const dim = dimActive && !blockContainsNode(block, stop!.nodeId);
+      // CS-6 — a top-level sentence/fork block gets a select control (top-level
+      // selection only — never nested lane steps).
+      const primary =
+        opts?.selectable && interactive && (block.kind === "sentence" || block.kind === "fork")
+          ? block.nodeId
+          : null;
+      const selected = primary !== null && selectedIds.has(primary);
       return (
         <div
           key={`group-${i}`}
           {...(dim ? { "data-document-dimmed": "true" } : {})}
-          className="transition-opacity motion-reduce:transition-none"
+          {...(selected ? { "data-document-selected": "true" } : {})}
+          className="group/sel relative transition-opacity motion-reduce:transition-none"
           style={dim ? { opacity: 0.45 } : undefined}
         >
+          {primary !== null ? (
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={selected}
+              aria-label={selected ? "Deselect step" : "Select step"}
+              data-testid={`document-select-${primary}`}
+              onClick={() => toggleSelect(primary)}
+              className={`absolute left-0 top-2 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-md text-[11px] transition-opacity motion-reduce:transition-none ${selected ? "opacity-100" : "opacity-0 focus:opacity-100 group-hover/sel:opacity-100"}`}
+              style={{
+                border: "1.5px solid var(--builder-border)",
+                background: selected ? "var(--builder-accent)" : "var(--builder-panel)",
+                color: selected ? "var(--builder-panel)" : "transparent",
+              }}
+            >
+              ✓
+            </button>
+          ) : null}
           {nodes}
         </div>
       );
@@ -543,7 +744,7 @@ export function DocumentView({
 
   const renderSectionBody = (section: DocumentSection): ReactNode => (
     <div className="px-3 pb-3 pt-1">
-      {renderBlocks(section.blocks, { dimUnrelated: true, markerMap: topLevelMarkers })}
+      {renderBlocks(section.blocks, { dimUnrelated: true, markerMap: topLevelMarkers, selectable: true })}
       {interactive ? (
         <div className="pl-11">
           <button
@@ -603,7 +804,7 @@ export function DocumentView({
             : null;
       return (
         <Fragment key={`loose-${blockPrimaryNodeId(row.block) ?? i}`}>
-          {renderBlocks([row.block], { dimUnrelated: true, markerMap: topLevelMarkers })}
+          {renderBlocks([row.block], { dimUnrelated: true, markerMap: topLevelMarkers, selectable: true })}
           {looseSectionAffordance(row.block, adjacent)}
         </Fragment>
       );
@@ -620,6 +821,28 @@ export function DocumentView({
     >
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[760px] px-8 py-6">
+          {/* CS-6 — a top-level selection surfaces the safe-actions toolbar. */}
+          {interactive && selectedIds.size > 0 ? (
+            <DocumentSelectionToolbar
+              count={selectedIds.size}
+              singleActionable={singleSelectedActionable}
+              onWrap={handleWrapSelection}
+              onDuplicate={handleDuplicateSelection}
+              onDelete={handleDeleteSelection}
+              onMoveEarlier={() => handleMoveSelection("earlier")}
+              onMoveLater={() => handleMoveSelection("later")}
+              onClear={clearSelection}
+            />
+          ) : null}
+          {/* CS-6 — the React-Agent proposal as a non-mutating ghost Document. */}
+          {interactive && previewModel && onApplyPreview && onDiscardPreview ? (
+            <DocumentPreview
+              model={previewModel}
+              onApply={onApplyPreview}
+              onDiscard={onDiscardPreview}
+              {...(onOpenInVisual ? { onOpenInVisual: () => onOpenInVisual(null) } : {})}
+            />
+          ) : null}
           {interactive && !model.empty ? (
             <>
               <FinishSetupBanner
@@ -632,34 +855,26 @@ export function DocumentView({
               <FinishSetupControls queue={finishSetup} />
             </>
           ) : null}
-          <p
-            data-testid="document-readonly-note"
-            className="builder-mono m-0 mb-4 text-[10.5px] uppercase tracking-[0.12em]"
-            style={{ color: "var(--builder-muted-2)" }}
-          >
-            Document view · click any value to edit · Save when you&rsquo;re ready
-          </p>
           {model.empty ? (
-            <div
-              data-testid="document-empty-state"
-              className="rounded-xl px-5 py-8 text-center"
-              style={{
-                border: "1.5px dashed var(--builder-border)",
-                color: "var(--builder-muted)",
-              }}
-            >
-              <p className="m-0 text-[14px] font-medium" style={{ color: "var(--builder-text-2)" }}>
-                Nothing here yet.
-              </p>
-              <p className="m-0 mt-1 text-[12.5px]">
-                Switch to the Visual builder to add a trigger — the Document reads the same
-                workflow.
-              </p>
-            </div>
+            <DocumentEmptyState
+              {...(onAskReact ? { onAskReact } : {})}
+              {...(onStartWithTrigger ? { onStartWithTrigger } : {})}
+            />
           ) : (
-            renderSectionedRows(
-              groupBlocksIntoSections(model.blocks, pendingPresentation).rows,
-            )
+            <>
+              <p
+                data-testid="document-readonly-note"
+                className="builder-mono m-0 mb-4 text-[10.5px] uppercase tracking-[0.12em]"
+                style={{ color: "var(--builder-muted-2)" }}
+              >
+                Document view · click any value to edit · Save when you&rsquo;re ready
+              </p>
+              {renderSectionedRows(
+                groupBlocksIntoSections(model.blocks, pendingPresentation).rows,
+              )}
+              {/* CS-6 — persistent, unobtrusive entry to the ONE agent. */}
+              {interactive && onAskReact ? <DocumentAskReactBar onAskReact={onAskReact} /> : null}
+            </>
           )}
         </div>
         {notice ? (

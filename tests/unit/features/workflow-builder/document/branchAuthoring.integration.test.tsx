@@ -124,9 +124,11 @@ beforeEach(() => {
 describe("creating an If/Then branch from a safe Document location", () => {
   it("appends an If/Then at the linear tail and renders the fork with empty-lane warnings", async () => {
     renderBuilder();
+    // CS-6 — the "+" opens the Step / Branch / Section / Ask React menu; Branch →
+    // If/Then creates the fork through the canonical CS-5 command (no picker).
     fireEvent.click(await screen.findByTestId("document-add-after-a"));
-    const picker = await screen.findByTestId("add-node-panel");
-    fireEvent.click(await within(picker).findByText("If/Then Condition"));
+    fireEvent.click(await screen.findByTestId("document-add-after-a-branch"));
+    fireEvent.click(await screen.findByTestId("document-add-after-a-ifthen"));
 
     // A fork appears; both lanes are empty (missing_branch_edge warnings).
     await waitFor(() => {
@@ -146,7 +148,8 @@ describe("creating an If/Then branch from a safe Document location", () => {
   it("wires a normal action into an empty lane through the shared picker", async () => {
     renderBuilder();
     fireEvent.click(await screen.findByTestId("document-add-after-a"));
-    fireEvent.click(await within(await screen.findByTestId("add-node-panel")).findByText("If/Then Condition"));
+    fireEvent.click(await screen.findByTestId("document-add-after-a-branch"));
+    fireEvent.click(await screen.findByTestId("document-add-after-a-ifthen"));
     const ifNode = await waitFor(() => {
       const n = useGraphSlice.getState().pendingNodes.find((x) => x.type === "if_then_condition");
       expect(n).toBeDefined();

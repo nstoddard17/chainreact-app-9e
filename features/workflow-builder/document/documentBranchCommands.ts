@@ -6,7 +6,6 @@ import { ifThenConditionMeta } from "@/integrations/native/actions/ifThenConditi
 import { routerMeta } from "@/integrations/native/actions/router.meta";
 import { ROUTER_MAX_ROUTES, ROUTE_LABEL_MAX } from "@/integrations/native/actions/router.schema";
 import { useGraphSlice } from "../state/graphSlice";
-import { insertActionAtEdge } from "../utils/insertActionAtEdge";
 import { computeNonOverlappingPosition } from "../utils/workflowLayout";
 import { buildLaneContext, findForkBlock } from "./documentBranchContext";
 import {
@@ -55,6 +54,7 @@ export type DocumentBranchRefusal =
   | "nesting_depth_exceeded"
   | "plan_feature_required"
   | "destructive_confirmation_required"
+  | "router_between_unsupported"
   | "branching_not_supported_here";
 
 const refuse = (reason: DocumentBranchRefusal): DocumentBranchResult => ({ ok: false, reason });
@@ -214,31 +214,34 @@ export function createDocumentIfThenBranch(input: {
 }
 
 /**
- * CS-5 — add a Router branch at a structurally-safe Document location. The
- * router is inserted with NO routes yet; the caller opens the existing
- * `router-routes` renderer (inspector) so the author configures routes. A
- * between/laneStart insertion preserves the downstream node as the router's
- * unlabeled always-run continuation (never a fabricated node). Returns the new
- * node id so the UI can open its configuration.
+ * CS-5/CS-6 — add a Router branch at a structurally-safe Document location.
+ *
+ * LOCKED PRODUCT DECISION (CS-6): a Router may ONLY be created at a true tail (or
+ * inside an EMPTY branch lane, via `addDocumentActionToEmptyLane`). Inserting a
+ * Router BETWEEN existing A → B (linear `between`, or a `laneStart` whose lane
+ * already has a downstream node) is REFUSED: it would leave B as an UNLABELED
+ * always-run continuation, which runs regardless of which route is selected and
+ * is not a true post-lane rejoin — semantically misleading. If/Then still
+ * inserts between two nodes because its command deliberately wires BOTH lanes to
+ * the one real downstream rejoin.
+ *
+ * The router is inserted with NO routes yet; the caller opens the existing
+ * `router-routes` renderer (inspector) so the author configures routes. Returns
+ * the new node id so the UI can open its configuration.
  */
 export function createDocumentRouterBranch(input: {
   location: BranchInsertLocation;
   canUseAdvancedBranching?: boolean | undefined;
 }): DocumentBranchResult {
   if (entitlementBlocks(input.canUseAdvancedBranching)) return refuse("plan_feature_required");
+  // Router-between / router-into-a-lane-with-a-downstream is refused BEFORE any
+  // validation or mutation — the caller shows the plain-language handoff.
+  if (input.location.kind !== "tail") return refuse("router_between_unsupported");
   const valid = validateBranchLocation(input.location);
   if (!valid.ok) return valid;
 
-  if (input.location.kind === "tail") {
-    const node = useGraphSlice.getState().addActionAfterFromMeta(input.location.anchorNodeId, routerMeta);
-    return { ok: true, nodeId: node.id };
-  }
-  // between / laneStart — reuse the shared insertActionAtEdge composition, which
-  // preserves the upstream branch label and leaves an unlabeled continuation.
-  const beforeIds = new Set(useGraphSlice.getState().pendingNodes.map((n) => n.id));
-  insertActionAtEdge(input.location.edgeId, routerMeta);
-  const created = useGraphSlice.getState().pendingNodes.find((n) => !beforeIds.has(n.id));
-  return created ? { ok: true, nodeId: created.id } : refuse("stale_document_model");
+  const node = useGraphSlice.getState().addActionAfterFromMeta(input.location.anchorNodeId, routerMeta);
+  return { ok: true, nodeId: node.id };
 }
 
 /** Read a node and assert it is a native branching node (else typed refusal). */
@@ -488,6 +491,8 @@ export function describeBranchRefusal(reason: DocumentBranchRefusal): string {
       return "Branches are a Pro feature. Upgrade to add If/Then and Router steps.";
     case "destructive_confirmation_required":
       return "Removing this route would strand steps that only run on it. Confirm to remove it anyway.";
+    case "router_between_unsupported":
+      return "A Router needs its paths connected before the workflow can continue. Add it at the end of a path, or use the Visual Builder for this placement.";
     case "branching_not_supported_here":
       return "A branch can't be added at this spot. Add it on the canvas.";
   }

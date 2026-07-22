@@ -65,6 +65,21 @@ export {
   type SiblingLane,
 } from "./documentBranchContext";
 export {
+  buildDocumentPreview,
+  type DocumentPreviewModel,
+  type DocumentPreviewInput,
+  type GhostSentence,
+  type PreviewNodeStatus,
+} from "./documentPreviewProjection";
+export {
+  duplicateDocumentAction,
+  removeDocumentBlock,
+  moveDocumentAction,
+  describeSelectionRefusal,
+  type DocumentSelectionResult,
+  type DocumentSelectionRefusal,
+} from "./documentSelectionCommands";
+export {
   buildDocumentOutline,
   type OutlineRow,
   type OutlineRowKind,

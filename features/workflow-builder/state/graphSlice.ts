@@ -338,6 +338,21 @@ export interface GraphSliceActions {
     oldLabel: string,
     newLabel: string,
   ): BranchRouteRenameResult;
+
+  /**
+   * 5.DUAL-BUILDER-1 CS-6 — swap an ordinary action with its adjacent LINEAR
+   * neighbor (one unambiguous unlabeled path), in ONE history-captured edit.
+   * `later` swaps the node with its single unlabeled successor; `earlier` swaps
+   * it with its single unlabeled predecessor. Refuses (without mutation) any
+   * non-linear boundary — a fork/rejoin (indegree/outdegree ≠ 1), a labeled
+   * (branch-lane) edge, a trigger neighbor, or a missing neighbor — so a move
+   * can never silently cross a lane, reorder a branch, or displace the trigger.
+   * Pure edge-endpoint rewrite: node ids, config, and positions are untouched.
+   */
+  swapAdjacentLinearActions(
+    nodeId: string,
+    direction: "earlier" | "later",
+  ): LinearSwapResult;
 }
 
 /** Outcome of {@link GraphSliceActions.renameBranchRouteLabel}. */
@@ -353,6 +368,11 @@ export type BranchRouteRenameResult =
         | "stale_route_label"
         | "duplicate_route_label";
     };
+
+/** Outcome of {@link GraphSliceActions.swapAdjacentLinearActions}. */
+export type LinearSwapResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: "node_missing" | "no_target" | "not_linear" };
 
 // CS-4 — section command result types live in ./presentationCommands; re-exported
 // so existing importers keep resolving them from the store module.
@@ -1324,6 +1344,77 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
       e.from === nodeId && e.label === oldLabel ? { ...e, label: trimmedNew } : e,
     );
     set({ pendingNodes: nextNodes, pendingEdges: nextEdges, isDirty: true, saveError: null });
+    return { ok: true };
+  },
+
+  swapAdjacentLinearActions(nodeId, direction) {
+    const { pendingNodes, pendingEdges } = get();
+    const node = pendingNodes.find((n) => n.id === nodeId);
+    if (!node) return { ok: false, reason: "node_missing" };
+
+    // Resolve the ORDERED linear pair (X → S) to swap. For `later`, X is the
+    // node; for `earlier`, the node is S and X is its predecessor.
+    const soleUnlabeled = (
+      pred: (e: WorkflowEdge) => boolean,
+    ): WorkflowEdge | "none" | "ambiguous" => {
+      const matches = pendingEdges.filter(pred);
+      if (matches.length === 0) return "none";
+      if (matches.length > 1 || matches[0]!.label !== undefined) return "ambiguous";
+      return matches[0]!;
+    };
+
+    let xId: string;
+    let sId: string;
+    if (direction === "later") {
+      const out = soleUnlabeled((e) => e.from === nodeId);
+      if (out === "none") return { ok: false, reason: "no_target" };
+      if (out === "ambiguous") return { ok: false, reason: "not_linear" };
+      xId = nodeId;
+      sId = out.to;
+    } else {
+      const inc = soleUnlabeled((e) => e.to === nodeId);
+      if (inc === "none") return { ok: false, reason: "no_target" };
+      if (inc === "ambiguous") return { ok: false, reason: "not_linear" };
+      xId = inc.from;
+      sId = nodeId;
+    }
+
+    const xNode = pendingNodes.find((n) => n.id === xId);
+    const sNode = pendingNodes.find((n) => n.id === sId);
+    if (!xNode || !sNode) return { ok: false, reason: "not_linear" };
+    // Neither end of the swap may be the trigger or a branching node.
+    if (xNode.kind === "trigger" || sNode.kind === "trigger") return { ok: false, reason: "not_linear" };
+    if (isAdvancedBranchingNode(xNode) || isAdvancedBranchingNode(sNode)) {
+      return { ok: false, reason: "not_linear" };
+    }
+
+    // The pair must be a clean linear segment: X has ≤1 unlabeled in (P→X), the
+    // single X→S edge, and S has indegree 1 + ≤1 unlabeled out (S→T). Any labeled
+    // edge or extra fan-in/out makes the swap ambiguous → refuse.
+    const pEdge = soleUnlabeled((e) => e.to === xId);
+    if (pEdge === "ambiguous") return { ok: false, reason: "not_linear" };
+    const xsEdge = pendingEdges.filter((e) => e.from === xId && e.to === sId);
+    if (xsEdge.length !== 1 || xsEdge[0]!.label !== undefined) return { ok: false, reason: "not_linear" };
+    // S must not be a rejoin (indegree 1 = only the X→S edge).
+    if (pendingEdges.filter((e) => e.to === sId).length !== 1) return { ok: false, reason: "not_linear" };
+    const tEdge = soleUnlabeled((e) => e.from === sId);
+    if (tEdge === "ambiguous") return { ok: false, reason: "not_linear" };
+    const pId = pEdge === "none" ? null : pEdge.from;
+    const tId = tEdge === "none" ? null : tEdge.to;
+    // Guard against a degenerate loop (P===S / T===X would self-loop after swap).
+    if (pId === sId || tId === xId) return { ok: false, reason: "not_linear" };
+
+    // Rewrite endpoints: P→X becomes P→S; X→S reverses to S→X; S→T becomes X→T.
+    const xsId = xsEdge[0]!.id;
+    const pEdgeId = pEdge === "none" ? null : pEdge.id;
+    const tEdgeId = tEdge === "none" ? null : tEdge.id;
+    const nextEdges = pendingEdges.map((e) => {
+      if (pEdgeId && e.id === pEdgeId) return { ...e, to: sId };
+      if (e.id === xsId) return { ...e, from: sId, to: xId };
+      if (tEdgeId && e.id === tEdgeId) return { ...e, from: xId };
+      return e;
+    });
+    set({ pendingEdges: nextEdges, isDirty: true, saveError: null });
     return { ok: true };
   },
   };

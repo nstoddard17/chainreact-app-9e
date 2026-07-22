@@ -405,13 +405,17 @@ export default [
   // route-identity "approach 2": config route-label + this node's matching outgoing edge labels
   // rewritten atomically in one history-captured `set`) — it must live on the mutation surface to stay
   // undo/redo-correct. Splitting the store further is a real refactor (every action shares `set`/`get`).
-  // Capped at 880 to make further drift visible. Mirrors the precedent above.
+  // 5.DUAL-BUILDER-1 CS-6 added the atomic `swapAdjacentLinearActions` transaction
+  // (the adjacent-linear move used by the Document selection toolbar) — like the
+  // CS-5 rename transaction it must live on the mutation surface to stay
+  // undo/redo-correct. Capped at 940 to make further drift visible. Mirrors the
+  // precedent above.
   {
     files: ["features/workflow-builder/state/graphSlice.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 880, skipBlankLines: true, skipComments: true },
+        { max: 940, skipBlankLines: true, skipComments: true },
       ],
     },
   },
@@ -428,8 +432,16 @@ export default [
     files: ["features/workflow-builder/document/DocumentView.tsx"],
     rules: {
       "max-lines": [
+        // 5.DUAL-BUILDER-1 CS-6 adds the creation-layer wiring (empty-state,
+        // persistent Ask React bar, non-mutating ghost preview render, the
+        // Step/Branch/Section/Ask React insertion menu, and top-level
+        // multi-selection). The heavy pieces are extracted into sibling
+        // components (DocumentEmptyState / DocumentAskReactBar / DocumentPreview
+        // / DocumentInsertMenu / DocumentSelectionToolbar) and pure command
+        // modules; what remains here is the cohesive render composition + thin
+        // store-command handlers. Bumped to 800 to keep further drift visible.
         "warn",
-        { max: 620, skipBlankLines: true, skipComments: true },
+        { max: 800, skipBlankLines: true, skipComments: true },
       ],
     },
   },

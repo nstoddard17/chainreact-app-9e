@@ -59,6 +59,14 @@ describe("document builder — no React Flow / canvas coupling", () => {
       // CS-5 — branch authoring commands + lane context.
       "documentBranchCommands.ts",
       "documentBranchContext.ts",
+      // CS-6 — creation layer + agent re-host.
+      "documentPreviewProjection.ts",
+      "documentSelectionCommands.ts",
+      "DocumentEmptyState.tsx",
+      "DocumentAskReactBar.tsx",
+      "DocumentPreview.tsx",
+      "DocumentInsertMenu.tsx",
+      "DocumentSelectionToolbar.tsx",
     ]) {
       expect(files).toContain(expected);
     }
@@ -88,6 +96,8 @@ describe("document builder — no React Flow / canvas coupling", () => {
     "documentSectionCommands.ts",
     // CS-5 pure lane-context derivation (breadcrumbs / sibling lanes / depth).
     "documentBranchContext.ts",
+    // CS-6 pure agent-preview projection.
+    "documentPreviewProjection.ts",
   ])(
     "%s is pure (no React, no store, no fetch)",
     (file) => {
