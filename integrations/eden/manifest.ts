@@ -35,14 +35,16 @@ import {
  *     docs/providers/eden/deferred-actions.md. Re-register only after a live
  *     success capture against a disposable connected account.)
  *   - `webhookTrigger/pollingTrigger: false` — Eden has no event API; none exist.
- *   - `isExperimental: true` — kept out of the default Apps catalog until the
- *     release point (published jointly with Linear once both meet their gates).
+ *   - `isExperimental: false` — LIVE and published to the production Apps catalog
+ *     (CS-6E), jointly with Linear. The certified surface is 33 actions; the 3
+ *     social-publish writes stay DEFERRED/hidden (unregistered) pending a live
+ *     success capture — see docs/providers/eden/deferred-actions.md.
  */
 export const edenManifest: ProviderManifest = ProviderManifestSchema.parse({
   id: "eden",
   displayName: "Eden",
   isEnabled: true,
-  isExperimental: true,
+  isExperimental: false,
   apiVersion: "mcp",
   tokenScope: "user",
   oauthFlows: ["personal_access_token"],

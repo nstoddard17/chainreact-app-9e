@@ -280,8 +280,12 @@ export function toAppCatalogItem(
  * OFF by default — production never sets it, so experimental providers stay
  * hidden and NO certification state changes (the manifest's `isExperimental`
  * stays `true`). Deliberately scoped to MCP apps so it can never accidentally
- * reveal an unrelated experimental native provider. Remove the env var after
- * certification (the flip to `isExperimental: false` supersedes it).
+ * reveal an unrelated experimental native provider.
+ *
+ * CS-6E: Linear + Eden are now published (`isExperimental: false`), so this flag
+ * no longer affects them — the flip supersedes it. The MECHANISM REMAINS for the
+ * NEXT MCP-catalog app, which stays experimental until its own live certification.
+ * Do not remove it.
  */
 function experimentalMcpPreviewEnabled(): boolean {
   return process.env.ENABLE_EXPERIMENTAL_MCP_APPS === "true";

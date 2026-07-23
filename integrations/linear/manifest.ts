@@ -31,15 +31,20 @@ import {
  *     handler over the shared MCP executor. `webhookTrigger/pollingTrigger:
  *     false` — no triggers in phase 1 (native triggers compose with MCP
  *     actions for free).
- *   - `isExperimental: true` — still hidden from the default Apps catalog until
- *     the docs-draft snapshot is re-captured live AND the app is live-certified
- *     (CS-6), then flip. Actions register but the provider is not yet offered.
+ *   - `isExperimental: false` — LIVE-CERTIFIED and published to the production
+ *     Apps catalog (CS-6E). Certification (CS-6/6C/6D): live OAuth connect, live
+ *     `tools/list` capture (no drift, 52 tools), live read + write evidence
+ *     (create/update/comment on disposable records), certified bounded structured
+ *     outputs, real option resolvers (Team/Project/State/Assignee/Labels), and
+ *     the Rule-17 configuration-UX audit (priority dropdown, due-date picker, no
+ *     MCP terminology). Cycle stays a text/manual field until a non-empty cycle
+ *     shape is captured. Full record: docs/providers/linear/live-capture-evidence.md.
  */
 export const linearManifest: ProviderManifest = ProviderManifestSchema.parse({
   id: "linear",
   displayName: "Linear",
   isEnabled: true,
-  isExperimental: true,
+  isExperimental: false,
   apiVersion: "mcp",
   tokenScope: "user",
   oauthFlows: ["authorization_code"],

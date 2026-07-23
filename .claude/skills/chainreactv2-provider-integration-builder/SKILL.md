@@ -1,6 +1,6 @@
 ---
 name: chainreactv2-provider-integration-builder
-description: Use to add or audit a NEW app/provider integration in ChainReactV2 end-to-end, or to run the post-owner-setup live certification (the "Phase 13" live pass) once credentials exist. This skill researches the provider's real repetitive-task use cases (not just its API), audits existing V2 patterns, and installs the provider completely into V2 — auth, typed actions, triggers/webhooks/polling, builder metadata, provider resource discovery + option resolvers, Setup/Advanced configuration UX, at-a-glance node summaries, credential-sharing classification, runtime + builder + resolver tests, smoke fixtures, and owner setup documentation. A provider is NOT complete when its actions merely execute: every shipped node must be configurable by an ordinary business user, with no provider docs, wire formats, or internal identifiers required on the normal Setup path. Builder usability, option resolvers, and configuration design are in-scope implementation work and must never be deferred to an unspecified follow-up. Implementation-time "done" means code-complete owner setup required; live-complete requires the live certification phase.
+description: Use to add or audit a NEW app/provider integration in ChainReactV2 end-to-end, or to run the post-owner-setup live certification (the "Phase 13" live pass) once credentials exist. This skill researches the provider's real repetitive-task use cases (not just its API), audits existing V2 patterns, and installs the provider completely into V2 — auth, typed actions, triggers/webhooks/polling, builder metadata, provider resource discovery + option resolvers, Setup/Advanced configuration UX, at-a-glance node summaries, credential-sharing classification, runtime + builder + resolver tests, smoke fixtures, and owner setup documentation. A provider is NOT complete when its actions merely execute: every shipped node must be configurable by an ordinary business user, with no provider docs, wire formats, or internal identifiers required on the normal Setup path. Builder usability, option resolvers, and configuration design are in-scope implementation work and must never be deferred to an unspecified follow-up. Implementation-time "done" means code-complete owner setup required; live-complete requires the live certification phase. Supports TWO provider paths: (1) native providers (hand-written API wrappers), and (2) MCP-backed catalog providers — a Marcus-selected, personally-reviewed official/trusted vendor MCP server whose certified tools are compiled into ordinary V2 artifacts (schemas, ActionMeta, handlers, resolvers) via scripts/mcp-import + core/mcpCompile, proven by the Linear arc; identical product/Rule-17/security bar, gated write-evidence, bounded structured outputs, drift/certification, and isExperimental-until-certified. Distinct from the future Customer Custom MCP feature (customer-supplied servers) — do not conflate.
 ---
 
 # ChainReactV2 Provider / App Integration Builder
@@ -47,6 +47,20 @@ Builder usability, option resolvers, and configuration redesign are **provider i
 It is **not acceptable** to declare a provider finished with a note like "dynamic pickers to follow", "resolver deferred", or "config polish tracked separately" when a central field is a raw identifier text box. A missing resolver is **implementation work, not a deferral reason** — even when it requires new provider API wrappers, routes, services, search, pagination, or UI.
 
 If such work is genuinely incomplete, the provider is reported **partially complete with the blocker named** — never re-labelled as a future enhancement.
+
+---
+
+## Two provider paths (decide up front)
+
+A new app is added by ONE of two paths.
+
+1. **Native provider** — ChainReact hand-writes an API wrapper per endpoint (auth, typed action handlers, triggers, option resolvers). This is the default; **Phases 0–19 below describe it.** Use it when there is no official/trusted vendor MCP server (or the app already has a native V2 provider).
+
+2. **MCP-backed catalog provider** — a **Marcus-selected, personally reviewed** vendor with an **official / trusted remote MCP server**. Instead of hand-writing wrappers, ChainReact captures the vendor's `tools/list`, curates a ship/skip/defer allowlist, and **compiles** the approved tools into ORDINARY V2 provider artifacts (manifest, `.strict()` schemas, `ActionMeta`, thin handlers over the shared MCP executor, option resolvers). Users see a normal app; nodes say "Create Issue in Linear", never `tools/call`. See the dedicated **[MCP-backed catalog provider path](#mcp-backed-catalog-provider-path-proven-by-the-linear-arc)** section — proven end-to-end by the Linear arc (CS-1..CS-6E). Design of record: [`docs/slices/phase-5/mcp-integration-layer-architecture-plan.md`](../../../docs/slices/phase-5/mcp-integration-layer-architecture-plan.md).
+
+**The product bar is IDENTICAL for both paths** — the north star, deferral ban, Rule-17 configuration quality, credential classification, security rules, and Owner Report apply unchanged. The MCP-backed path changes only HOW artifacts are produced (compiled from certified evidence, not hand-written); it removes nothing from the bar.
+
+**Do NOT conflate with Customer Custom MCP** — a separate, FUTURE paid feature where a *customer* connects their OWN MCP server (technical validation only, clearly badged, never mixed into the reviewed catalog, its own security-reviewed plan). This skill covers ONLY the reviewed **catalog** path; do not anticipate customer-supplied server URLs.
 
 ---
 
@@ -587,6 +601,47 @@ Every live smoke report includes: test items/records/messages/files created · t
 #### Deploy-gated retest
 
 If live testing finds a production bug and the fix is committed locally, the provider is **not fully complete** until the fix is deployed and retested. Use status `complete with follow-ups (deploy-gated retest)`; the report must include the local fix commit, whether production still has the old behavior, the exact retest command, the exact expected result, and what remains unsafe until deploy. Do not say production is fixed until the commit is deployed and the live retest passes.
+
+---
+
+## MCP-backed catalog provider path (proven by the Linear arc)
+
+Only for an **official / trusted vendor MCP server**, Marcus-selected and personally reviewed. Public catalog visibility comes ONLY after live certification. This path compiles certified vendor tools into ordinary V2 artifacts and reuses every native gate above; the steps below are the MCP-specific *additions/differences* (they map to the CS-1..CS-6E Linear arc). Authoritative design: [`mcp-integration-layer-architecture-plan.md`](../../../docs/slices/phase-5/mcp-integration-layer-architecture-plan.md); live procedure: [`docs/providers/linear/live-certification-runbook.md`](../../../docs/providers/linear/live-certification-runbook.md).
+
+### Front-load credentials + disposable test data BEFORE coding
+
+The biggest time sink in the Linear arc was certification blocked on missing credentials/scope (a read-only token cost a full extra batch). Before writing provider code, secure and verify:
+
+* the vendor OAuth app (client id/secret) or a dev PAT, in `.env.local`, loaded via the repo's Next env loader (`@next/env` `loadEnvConfig` — the `scripts/mcp-import` CLI reads these);
+* **write scope** on the dev credential — a read-only token cannot certify write actions;
+* a **disposable test workspace + project + records** the owner creates up front, so live read/write evidence has real targets on day one.
+
+Verify **presence only** (never print secret values). If a required credential is missing, **STOP and report the missing variable name** — never fabricate.
+
+### The pipeline
+
+Use the dev tooling `scripts/mcp-import` + the pure compiler `core/mcpCompile`. **Never hand-edit generated files** — a jest byte-sync guard regenerates from snapshot+catalog and diffs.
+
+1. **Auth (CS-1)** — reuse the shared MCP OAuth helper (`integrations/_shared/mcp/oauth.ts`: RS/AS-metadata discovery + PKCE + resource indicators, static-or-DCR), or `token_paste` for PAT servers (Eden). A thin per-app `ProviderOAuth` registers in the dispatcher like any provider; tokens land encrypted in `integrations`; 401 → `refreshAndRetry`.
+2. **Live capture (CS-6)** — `mcp:import capture <app>` snapshots the live `tools/list` (`capturedBy: "live"`, per-tool schema hashes). Never ship from a docs-draft assumption.
+3. **Curate the allowlist** — edit `mcp-catalog.ts`: `ship` / `skip` / `defer` EVERY tool with a reason (the catalog IS the decision record). Never expose every discovered tool; destructive/`delete_*`/publish tools stay `skip`/`defer` absent product signal. A vendor dispatcher tool (Linear `save_issue`) may be SPLIT into typed V2 actions (create/update) via field omission + required-pinning.
+4. **Compile (CS-2)** — `mcp:import generate <app>` → `.strict()` Zod schemas + `ActionMeta` + thin handlers over the shared executor + `_pinned.ts` (certified hashes). No raw-JSON Setup field ever; the compiler emits `NEEDS_MANUAL` for unions/deep nesting the curator must resolve. Curator-only widget upgrades: closed-enum override → `select`; `format` override → date/date-time picker; numeric bounds override — all enforced in the generated schema.
+5. **Read evidence** — `mcp:import capture --evidence` runs ONLY read-only, catalog-approved tools and records **TYPE-ONLY, scrubbed** result shapes. Evidence is INPUT to human curation, never authority.
+6. **Option resolvers from REAL list-tool evidence (native Phase 9 bar)** — where the server has list tools, ship real resolvers mapping `{value:id, label:name}` with `dependsOn` cascades (Project→Team; State requires Team → route shows "choose a team first"). **NEVER guess a resolver shape** — if a list tool returns empty or its item shape is unconfirmed (Linear cycles), keep verified name-or-id text and document it; do not invent fields.
+7. **Gated write evidence** — writes are NEVER auto-captured. Use the explicit, double-gated `mcp:import write-evidence` / `write-evidence-chain` (`--allow-write-evidence` + effective risk exactly `write` + not a forbidden verb + `--yes-run-write`) against DISPOSABLE records. Chaining reuses a created id **transiently** (create → update → comment) so no id is copied by hand; committed evidence stays TYPE-ONLY (raw values never persisted).
+8. **Bounded structured outputs (from write evidence only)** — curate `outputs` to the **proven fields only**. The executor's `normalizeOutput` projects EXACTLY the declared top-level keys (bounded, type-checked, no provider-internal leak). Declare only what evidence proves — Linear's `save_issue` returns NO `identifier`, so it is not declared (use `url`); `save_comment` returns no `issueId`, so it is omitted. Never fabricate a field.
+9. **Registration wiring** — `mcp:import generate --print-registration` prints the exact `_metaInventory.ts` / `_handlerInventory.ts` / discovery-provider / options-registry fragments to paste (mutates nothing; refuses if artifacts are stale). Registration is EXPLICIT + reviewed — **new server tools NEVER appear automatically** (allowlist = committed code).
+10. **Drift + schema cache (CS-4)** — the runtime executor classifies drift against the pinned schema (breaking → fail closed with the `INTEGRATION_CHANGED` "being reviewed" UX, not `HANDLER_FAILED`); a short-TTL live-tools cache backs it; `mcp:import check` is the proactive sweep. Certification state lives in docs, not a new table.
+11. **Icon + Rule-17 audit + `isExperimental`** — add `public/integrations/<id>.svg` (a MISSING asset renders a broken icon — regression-locked by `providerIconUrl.test.ts`, which asserts every enabled provider has its asset). Run the Rule-17 configuration-UX audit (closed enums → dropdowns e.g. priority; date fields → date picker; static resources → resolvers; **no MCP terminology anywhere** in labels/descriptions). Ship `isExperimental: true` — hidden from the production catalog but reachable in dev via `ENABLE_EXPERIMENTAL_MCP_APPS=true` for certification (the flag mechanism stays for the next MCP app after this one is published).
+12. **Live certification + release flip (native Phase 13 / "Phase 19" / CS-6E)** — with real credentials: live OAuth connect, zero unresolved drift, live tool execution, certified read + write evidence, structured outputs, resolver-backed common paths, config-UX audit, tests green. THEN flip `isExperimental: false` (Marcus-approved). Leave any unverified action HIDDEN — unregister its meta + handler, keep the impl files as orphans (rule 14), and document it as deferred (Eden's 3 publish writes; see [`docs/providers/eden/deferred-actions.md`](../../../docs/providers/eden/deferred-actions.md)).
+
+### The React Agent invariant (do NOT get this wrong)
+
+The React Agent **plans against typed provider metadata** (registry `provider:type` keys + capabilities) and **never calls MCP tools directly**. MCP-backed workflow actions execute ONLY through the normal engine handler registry — exactly like native actions. The agent gets MCP-app parity for free the moment the metas register; there is **no agent-side MCP tool bus**. (This supersedes any earlier "the agent calls MCP" assumption.)
+
+### Reuse from the native flow (unchanged)
+
+Credential classification, the configuration-design doc classifying every field (Phase 3), the Apps/Builder/AI-visibility gate (Phase 12), the tests bar (Phase 15 — runtime + builder + resolver + determinism/byte-sync + drift + no-leak), the Owner Report (required every run), docs + local commit, nothing pushed without Marcus. The MCP-backed path ADDS the compiler/evidence/drift specifics above; it removes nothing from the product bar.
 
 ---
 

@@ -23,8 +23,8 @@ describe("edenManifest", () => {
     expect(edenManifest.capabilities.pollingTrigger).toBe(false); // no Eden event API
   });
 
-  it("is experimental until live-certified (kept out of the default Apps catalog)", () => {
-    expect(edenManifest.isExperimental).toBe(true);
+  it("is published to the production Apps catalog (CS-6E, non-experimental)", () => {
+    expect(edenManifest.isExperimental).toBe(false);
     expect(edenManifest.isEnabled).toBe(true);
   });
 

@@ -19,17 +19,16 @@ runs once real credentials exist. Local/unpushed.
 > - **Live E2E** (both workflows, reconnect, drift) — needs `LINEAR_CLIENT_ID`/
 >   `LINEAR_CLIENT_SECRET` + an OAuth connection (Part 7).
 >
-> **CS-6D LIVE update (2026-07-23):** write-scoped bearer supplied. The full
-> tool + data + config surface is now LIVE-certified: no drift (52 tools),
-> write-evidence chain executed (create→update→comment on disposable records),
-> certified structured outputs (Create: id/title/url/status/team/project/createdAt
-> — Linear returns NO `identifier`, use `url`), and resolver-backed dropdowns
-> (Team/Project/State/Assignee/Labels). Cycle stays text (cert team has none).
-> Linear STILL **Experimental** — the ONLY remaining gates are full-app /
-> human-interactive: a live OAuth browser connection, both workflows run through
-> the app engine with a live Slack downstream, and live refresh/reconnect. Those
-> need an owner-run browser E2E (they can't run headlessly). Full detail:
-> `docs/providers/linear/live-capture-evidence.md` (CS-6D LIVE run).
+> **CS-6E — PUBLISHED (2026-07-23):** Linear is `isExperimental: false`, live in
+> the production Apps catalog. The owner accepted the completed live
+> smoke/certification (CS-6/6C/6D) as sufficient — no additional browser E2E
+> required. Certified: live OAuth connect, no drift (52 tools), live read + write
+> evidence (create→update→comment on disposable records), bounded structured
+> outputs (Create: id/title/url/status/team/project/createdAt — Linear returns NO
+> `identifier`, use `url`), resolver-backed dropdowns (Team/Project/State/Assignee/
+> Labels), Rule-17 config-UX audit, icon, no MCP terminology. Cycle stays text
+> (cert team has no cycles). Eden published jointly at its 33-action surface. This
+> runbook remains the permanent template for the NEXT MCP catalog app.
 
 ## Owner prerequisites (all required before step 1)
 

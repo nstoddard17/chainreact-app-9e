@@ -10,6 +10,10 @@
  */
 import { ActionMetaSchema, type ActionMeta, type FieldMeta } from "@/contracts/actionMeta";
 import { TriggerMetaSchema } from "@/contracts/triggerMeta";
+// CS-6E — schedule_post / publish_post_now are DEFERRED (unregistered/hidden), so
+// their config-UX is asserted from the retained orphan meta OBJECTS, not the registry.
+import { edenSchedulePostMeta } from "@/integrations/eden/actions/scheduling/schedulePost.meta";
+import { edenPublishPostNowMeta } from "@/integrations/eden/actions/scheduling/publishPostNow.meta";
 import {
   listActionMetasForProvider,
   listTriggerMetasForProvider,
@@ -392,11 +396,11 @@ describe("sweep-5 — Eden pagination plumbing lives in Advanced", () => {
     expect(ActionMetaSchema.safeParse(m).success).toBe(true);
   });
 
-  it("publish_post_now timezone is advanced (near-meaningless for publish-now); schedule_post keeps it in Setup", () => {
-    const publish = field(meta("eden", "eden:publish_post_now"), "timezone");
+  it("publish_post_now timezone is advanced (near-meaningless for publish-now); schedule_post keeps it in Setup (deferred metas)", () => {
+    const publish = field(edenPublishPostNowMeta, "timezone");
     expect(publish.type).toBe("timezone");
     expect(publish.advanced).toBe(true);
-    const schedule = field(meta("eden", "eden:schedule_post"), "timezone");
+    const schedule = field(edenSchedulePostMeta, "timezone");
     expect(schedule.advanced).toBeUndefined();
   });
 });

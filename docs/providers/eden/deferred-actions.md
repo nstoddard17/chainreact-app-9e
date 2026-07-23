@@ -1,7 +1,9 @@
 # Eden — Deferred Publishing Actions (CS-6D)
 
-**Status:** three Eden actions are DEFERRED (hidden) pending live success
-certification. Local/unpushed.
+**Status:** Eden is PUBLISHED (`isExperimental: false`, CS-6E) at its certified
+**33-action** surface. Three publishing actions remain DEFERRED (hidden,
+unregistered) pending live success certification — they are NOT part of the
+published surface. Local/unpushed.
 
 ## What is deferred, and why
 

@@ -296,3 +296,26 @@ only if both meet their own gates," and Linear does not meet its full-app gate
 Linear** the moment Linear's owner-run browser E2E passes. Flipping Eden alone was
 not done — same-release publication is the owner's stated condition, and a
 production flip is outward-facing.
+
+---
+
+## CS-6E — PUBLISHED to the production catalog — 2026-07-23
+
+The owner decided the completed live smoke/certification work is sufficient for
+release (no additional hour-long browser E2E required). Both providers are now
+production-visible:
+
+- **Linear `isExperimental: false`** — published. All certification evidence above
+  (live OAuth connect, no drift on 52 tools, live read + write evidence, certified
+  bounded structured outputs, real Team/Project/State/Assignee/Labels resolvers,
+  Rule-17 config-UX audit, icon, no MCP terminology) is the accepted proof.
+- **Eden `isExperimental: false`** — published jointly, at the certified **33-action**
+  surface. The 3 deferred publishing writes remain unregistered/hidden (see
+  `docs/providers/eden/deferred-actions.md`).
+
+Dev experimental-MCP visibility: the `ENABLE_EXPERIMENTAL_MCP_APPS` flag mechanism
+is unchanged and now serves the NEXT MCP app (Linear/Eden no longer need it — the
+flip supersedes it). No unrelated experimental provider became visible.
+
+Cycle stays a text/manual field on Find/Create/Update Issue (the cert team has no
+cycles; the item shape is unproven — resolver deferred, not invented).

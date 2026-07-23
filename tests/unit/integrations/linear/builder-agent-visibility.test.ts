@@ -2,11 +2,12 @@
  * @jest-environment node
  *
  * Proves that Linear's registered actions are visible + selectable in the
- * workflow builder AND discoverable by the React Agent WHILE the provider stays
- * `isExperimental: true` — WITHOUT any code change. The builder and agent are
- * driven by REGISTERED METADATA + `capabilities.actions`, never by the manifest
- * `isExperimental` flag (that flag gates only the Apps *catalog* connect surface,
- * not the action palette). This is a regression guard for that contract.
+ * workflow builder AND discoverable by the React Agent, driven by REGISTERED
+ * METADATA + `capabilities.actions`, never by the manifest `isExperimental` flag
+ * (that flag gates only the Apps *catalog* connect surface, not the action
+ * palette). This held while Linear was experimental (the original guard) and
+ * remains true now that CS-6E published it (`isExperimental: false`) — the
+ * builder/agent contract is independent of the catalog flag. Regression guard.
  *
  * Data-layer test on purpose: the builder's provider filter is an inline server
  * predicate (`app/workflows/[id]/page.tsx` + `app/start/page.tsx`), so we assert
@@ -32,12 +33,12 @@ const BUILDER_ACTION_PROVIDER_PREDICATE = (p: {
   capabilities: { actions: boolean };
 }) => p.isEnabled && p.capabilities.actions;
 
-describe("Linear builder visibility while experimental", () => {
+describe("Linear builder visibility (metadata-driven, independent of the catalog flag)", () => {
   const linear = getProvider("linear");
 
-  it("Linear is experimental yet action-capable + enabled", () => {
+  it("Linear is published (non-experimental), action-capable + enabled", () => {
     expect(linear).toBeDefined();
-    expect(linear!.isExperimental).toBe(true); // production catalog stays hidden
+    expect(linear!.isExperimental).toBe(false); // CS-6E — published to the production catalog
     expect(linear!.isEnabled).toBe(true);
     expect(linear!.capabilities.actions).toBe(true);
     expect(linear!.apiVersion).toBe("mcp");

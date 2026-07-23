@@ -5,6 +5,22 @@ changes in this slice. Nothing pushed.**
 **Date:** 2026-07-22
 **Branch:** `v2-main` (local, unpushed)
 
+> **Implementation status (updated CS-6E, 2026-07-23): Tier 1 (catalog) is BUILT and
+> LIVE.** The full arc shipped and both first apps are published to the production
+> catalog (`isExperimental: false`): CS-1 MCP-OAuth helper · CS-2 `core/mcpCompile`
+> compiler + `scripts/mcp-import` CLI (capture / generate / check / evidence /
+> write-evidence[-chain] / print-registration) · CS-3 shared executor + registration ·
+> CS-4 drift classification + schema cache + certification state · CS-5 agent capability
+> parity via registered metadata · CS-6/6C/6D live certification (OAuth, no drift on 52
+> tools, live read + write evidence, bounded structured outputs, real option resolvers,
+> Rule-17 config-UX, icons) · CS-6E release flip for **Linear + Eden**. The repeatable
+> process is encoded in the provider-addition skill's *MCP-backed catalog provider path*.
+> Deferred by design (unchanged): React-Agent semantic capability layer (§4.9), proactive
+> cron drift sweep as a scheduled job, and **Tier 2 Customer Custom MCP** (§10.9 — its own
+> security-reviewed plan, not started). The §1.1 "MCP stays external" memory wording is
+> reconciled: the agent plans against typed metadata and never calls MCP; MCP-backed
+> *workflow actions* execute through the engine's typed handler registry.
+
 **Source of truth (verified current state):**
 [integrations/_registry.ts](../../../integrations/_registry.ts) (provider manifests, hand-maintained, Zod-validated at load) ·
 [contracts/integration.ts](../../../contracts/integration.ts) (`ProviderManifestSchema`, `AuthFlowSchema` = `code_callback | token_ingest | token_paste | machine_credentials`, `ProviderOAuth` interface) ·
