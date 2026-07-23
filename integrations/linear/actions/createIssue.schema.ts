@@ -16,7 +16,7 @@ export const CreateIssueConfigSchema = z
     assignee: z.string().min(1).optional(),
     delegate: z.string().min(1).optional(),
     labels: z.array(z.string().min(1)).min(1).optional(),
-    dueDate: z.string().min(1).optional(),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     slaBreachesAt: z.string().min(1).optional(),
     slaType: z.enum(["all", "onlyBusinessDays"]).optional(),
     parentId: z.string().min(1).optional(),

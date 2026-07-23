@@ -107,6 +107,8 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         title: { required: true },
         // Closed dropdown for priority (rule 17); schema rejects out-of-range.
         priority: { enumValues: PRIORITY_LEVELS, description: "Priority level for the new issue." },
+        // Date picker (Linear types dueDate as a bare string); YYYY-MM-DD schema.
+        dueDate: { format: "date", description: "Due date (YYYY-MM-DD)." },
         // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
         team: { required: true, optionsSource: "linear:teams", description: "Team the issue belongs to — pick one, or type a team name/ID." },
         assignee: { optionsSource: "linear:assignees" },
@@ -155,6 +157,8 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         },
         // Closed dropdown for priority (rule 17); schema rejects out-of-range.
         priority: { enumValues: PRIORITY_LEVELS, description: "Change the issue's priority level." },
+        // Date picker (Linear types dueDate as a bare string); YYYY-MM-DD schema.
+        dueDate: { format: "date", description: "Due date (YYYY-MM-DD)." },
         // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
         team: { optionsSource: "linear:teams", description: "Move the issue to a different team — pick one, or type a team name/ID (optional)." },
         assignee: { optionsSource: "linear:assignees" },

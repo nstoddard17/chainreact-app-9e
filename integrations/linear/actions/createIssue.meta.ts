@@ -116,7 +116,8 @@ export const createIssueMeta: ActionMeta = {
     {
       name: "dueDate",
       label: "Due date",
-      type: "text",
+      description: "Due date (YYYY-MM-DD).",
+      type: "date",
       required: false,
     },
     {

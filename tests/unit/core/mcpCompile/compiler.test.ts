@@ -194,6 +194,16 @@ describe("compileFields — mapping table", () => {
     });
     expect(out.fields[0]!.meta).toMatchObject({ type: "number", numeric: { min: 1, max: 250 } });
   });
+
+  it("format override maps a format-less string field to the date/datetime control", () => {
+    const asDate = fields(obj({ due: { type: "string" } }), { due: { format: "date" } });
+    expect(asDate.fields[0]!.meta).toMatchObject({ type: "date" });
+    const asDatetime = fields(obj({ at: { type: "string" } }), { at: { format: "datetime" } });
+    expect(asDatetime.fields[0]!.meta).toMatchObject({ type: "datetime-utc" });
+    // Only valid on a string field — fails closed on a number.
+    const bad = fields(obj({ n: { type: "number" } }), { n: { format: "date" } });
+    expect(bad.diagnostics[0]!.reason).toMatch(/requires a string field/);
+  });
 });
 
 describe("risk classification", () => {

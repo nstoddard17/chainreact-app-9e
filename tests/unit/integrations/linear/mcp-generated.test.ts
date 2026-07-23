@@ -159,6 +159,22 @@ describe("closed-vocabulary + numeric bounds (CS-6C rule-17 config UX)", () => {
     expect(() => CreateIssueConfigSchema.parse({ title: "t", team: "Core", estimate: -1 })).toThrow();
     expect(CreateIssueConfigSchema.parse({ title: "t", team: "Core", estimate: 3 })).toMatchObject({ estimate: 3 });
   });
+
+  it("dueDate uses the date picker (not a text box) on Create + Update, YYYY-MM-DD enforced", () => {
+    for (const meta of [createIssueMeta, updateIssueMeta]) {
+      expect(meta.fields.find((f) => f.name === "dueDate")).toMatchObject({ type: "date" });
+    }
+    // Valid calendar date passes; a datetime / garbage / wrong-shape is rejected.
+    expect(CreateIssueConfigSchema.parse({ title: "t", team: "Core", dueDate: "2026-01-15" })).toMatchObject({
+      dueDate: "2026-01-15",
+    });
+    expect(UpdateIssueConfigSchema.parse({ id: "LIN-1", dueDate: "2026-12-31" })).toMatchObject({
+      dueDate: "2026-12-31",
+    });
+    for (const bad of ["2026-01-15T00:00:00Z", "01/15/2026", "not-a-date", "2026-1-5"]) {
+      expect(() => CreateIssueConfigSchema.parse({ title: "t", team: "Core", dueDate: bad })).toThrow();
+    }
+  });
 });
 
 describe("generated handlers (executor seam)", () => {

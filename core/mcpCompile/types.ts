@@ -130,6 +130,16 @@ export const McpCatalogFieldOverrideSchema = z
      */
     numericMin: z.number().finite().optional(),
     numericMax: z.number().finite().optional(),
+    /**
+     * Force a string field onto ChainReact's date / date-time control when the
+     * tool schema omits `format` but the field IS a date (Linear `dueDate` is a
+     * plain `string` described "Due date (ISO format)"). `date` renders the date
+     * picker and constrains the schema to `YYYY-MM-DD`; `datetime` renders the
+     * UTC date-time control. Only valid on a string field; the field renderer
+     * keeps variable input. Don't use it on duration-accepting fields (Linear
+     * `createdAt`/`updatedAt` take `-P1D`) — those stay text.
+     */
+    format: z.enum(["date", "datetime"]).optional(),
   })
   .strict();
 export type McpCatalogFieldOverride = z.infer<typeof McpCatalogFieldOverrideSchema>;

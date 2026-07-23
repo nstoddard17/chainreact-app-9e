@@ -139,6 +139,12 @@ what was code-completable now vs. what stays owner-blocked:
   parse (runtime enforced; tested in `mcp-generated.test.ts`).
 - **Numeric bounds**: `limit` → 1..250, `estimate` → ≥ 0 (new `numericMin`/
   `numericMax` overrides).
+- **`dueDate` → date picker** on Create + Update (new compiler `format` override;
+  Linear types it as a bare string). Schema enforces `YYYY-MM-DD`; variable input
+  preserved. Date/date-time audit: `slaBreachesAt` was already the date-time
+  control (`format: date-time` in the tool schema); `createdAt`/`updatedAt`
+  (Find, Advanced) intentionally stay text — they accept ISO-8601 **or durations**
+  (`-P1D`), which a date picker would block.
 - **Config-UX cleanups**: plain-English labels/descriptions (SLA fields, parent
   fields, team/labels descriptions no longer say "required when creating" / "as a
   JSON array"). No MCP terminology anywhere (already true; reconfirmed).

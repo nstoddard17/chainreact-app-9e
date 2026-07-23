@@ -180,6 +180,17 @@ function fieldKind(
     return { kind: { k: "curated-enum", valueType, options: vals } };
   }
 
+  // Force a date / date-time control on a string field the tool schema left
+  // format-less (Linear `dueDate`). Only meaningful on strings.
+  if (override.format) {
+    if (node.type !== "string") {
+      return {
+        error: `format override '${override.format}' for '${name}' requires a string field, got '${node.type ?? "unknown"}' (${path})`,
+      };
+    }
+    return { kind: { k: override.format === "date" ? "date" : "datetime" } };
+  }
+
   if (node.enumValues) return { kind: { k: "enum", values: node.enumValues } };
 
   switch (node.type) {
