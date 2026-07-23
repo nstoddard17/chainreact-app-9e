@@ -109,9 +109,9 @@ import { edenFollowingOverview } from "@/integrations/eden/actions/creators/foll
 // Eden (EDEN-6) — Batch 3 scheduling writes (8 actions; no triggers).
 import { edenCreateSchedulingDraft } from "@/integrations/eden/actions/scheduling/createSchedulingDraft";
 import { edenReadScheduledPost } from "@/integrations/eden/actions/scheduling/readScheduledPost";
-import { edenSchedulePost } from "@/integrations/eden/actions/scheduling/schedulePost";
-import { edenPublishPostNow } from "@/integrations/eden/actions/scheduling/publishPostNow";
-import { edenUpdateScheduledPost } from "@/integrations/eden/actions/scheduling/updateScheduledPost";
+// CS-6D — schedule_post / publish_post_now / update_scheduled_post handlers are
+// DEFERRED (hidden): success path not live-certified. Unregistered from execution
+// until certified; impl files kept as orphans (rule 14).
 import { edenReschedulePost } from "@/integrations/eden/actions/scheduling/reschedulePost";
 import { edenSetFirstComment } from "@/integrations/eden/actions/scheduling/setFirstComment";
 import { edenCancelScheduledPost } from "@/integrations/eden/actions/scheduling/cancelScheduledPost";
@@ -963,9 +963,6 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // Eden (EDEN-6) — Batch 3 scheduling writes.
   { provider: "eden", type: "create_scheduling_draft", handler: edenCreateSchedulingDraft },
   { provider: "eden", type: "read_scheduled_post", handler: edenReadScheduledPost },
-  { provider: "eden", type: "schedule_post", handler: edenSchedulePost },
-  { provider: "eden", type: "publish_post_now", handler: edenPublishPostNow },
-  { provider: "eden", type: "update_scheduled_post", handler: edenUpdateScheduledPost },
   { provider: "eden", type: "reschedule_post", handler: edenReschedulePost },
   { provider: "eden", type: "set_first_comment", handler: edenSetFirstComment },
   { provider: "eden", type: "cancel_scheduled_post", handler: edenCancelScheduledPost },

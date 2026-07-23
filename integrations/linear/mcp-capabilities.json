@@ -22,7 +22,7 @@
       "key": "linear:create_issue",
       "tool": "save_issue",
       "schemaQuality": "fair",
-      "outputQuality": "poor",
+      "outputQuality": "good",
       "descriptionQuality": "good",
       "complexity": "high",
       "pickerSupport": "partial",
@@ -31,7 +31,7 @@
         "classification": "write",
         "level": "medium"
       },
-      "planningQuality": "poor",
+      "planningQuality": "good",
       "configurationQuality": "fair",
       "schemaHash": "1fd1b57e90b57f24593d5b3f39b61d0655b13486902072cdbe53bbc647fbc291"
     },
@@ -39,7 +39,7 @@
       "key": "linear:update_issue",
       "tool": "save_issue",
       "schemaQuality": "fair",
-      "outputQuality": "poor",
+      "outputQuality": "good",
       "descriptionQuality": "good",
       "complexity": "high",
       "pickerSupport": "partial",
@@ -48,7 +48,7 @@
         "classification": "write",
         "level": "medium"
       },
-      "planningQuality": "poor",
+      "planningQuality": "good",
       "configurationQuality": "fair",
       "schemaHash": "1fd1b57e90b57f24593d5b3f39b61d0655b13486902072cdbe53bbc647fbc291"
     },
@@ -56,7 +56,7 @@
       "key": "linear:add_comment",
       "tool": "save_comment",
       "schemaQuality": "fair",
-      "outputQuality": "poor",
+      "outputQuality": "good",
       "descriptionQuality": "excellent",
       "complexity": "low",
       "pickerSupport": "none",
@@ -65,7 +65,7 @@
         "classification": "write",
         "level": "medium"
       },
-      "planningQuality": "poor",
+      "planningQuality": "good",
       "configurationQuality": "fair",
       "schemaHash": "a734ef7fed07fac49776257e715cc84363c7cf8570fd0786aecbd5b9c396c48f"
     }

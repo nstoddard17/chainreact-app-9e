@@ -24,7 +24,23 @@ export const addComment: ActionHandler = async (input) => {
     args: config,
     pinnedSchema: pinned.inputSchema,
     pinnedSchemaHash: pinned.schemaHash,
-    output: { kind: "text" },
+    output: {
+    kind: "structured",
+    fields: [
+      {
+        name: "id",
+        type: "string",
+      },
+      {
+        name: "body",
+        type: "string",
+      },
+      {
+        name: "createdAt",
+        type: "string",
+      },
+    ],
+  },
     idempotent: false,
   });
 };

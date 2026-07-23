@@ -282,9 +282,29 @@ export const updateIssueMeta: ActionMeta = {
   ],
   outputs: [
     {
-      name: "text",
+      name: "id",
       type: "string",
-      description: "Text returned by the provider for this call.",
+      description: "The issue's unique ID.",
+    },
+    {
+      name: "title",
+      type: "string",
+      description: "The issue title after the update.",
+    },
+    {
+      name: "url",
+      type: "string",
+      description: "Direct link to the issue in Linear (contains its LIN-… reference).",
+    },
+    {
+      name: "status",
+      type: "string",
+      description: "Current workflow state name after the update.",
+    },
+    {
+      name: "updatedAt",
+      type: "string",
+      description: "When the issue was last updated (ISO-8601 UTC).",
     },
   ],
   producesFileRef: false,

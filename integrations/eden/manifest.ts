@@ -25,16 +25,18 @@ import {
  *
  * Capability honesty:
  *   - `oauth: true` — a real connect path exists (the paste flow IS the connect).
- *   - `actions: true` — 36 typed MCP-backed actions are registered (handlers +
- *     metas), all `.strict()`-schema'd against the live `tools/list` capture.
+ *   - `actions: true` — 33 typed MCP-backed actions are registered (handlers +
+ *     metas), all `.strict()`-schema'd against the live `tools/list` capture and
+ *     live success-certified. (CS-6D — the 3 social-publish writes `schedule_post`,
+ *     `publish_post_now`, `update_scheduled_post` are DEFERRED: their success path
+ *     is not live-certified — the cert account has no connected social accounts —
+ *     so they are unregistered from discovery + execution and hidden from the
+ *     builder/catalog/agent. Their impl files remain as orphans. See
+ *     docs/providers/eden/deferred-actions.md. Re-register only after a live
+ *     success capture against a disposable connected account.)
  *   - `webhookTrigger/pollingTrigger: false` — Eden has no event API; none exist.
- *   - `isExperimental: true` — kept out of the default Apps catalog. 33 of the 36
- *     actions are live success-certified; the 3 social-publish writes
- *     (`schedule_post`, `publish_post_now`, `update_scheduled_post`) have only
- *     their error path certified (the cert account has no connected social
- *     accounts), so their success path is NOT yet live-proven — the outstanding
- *     Phase 13 gate. Flip to false only once those 3 are success-certified
- *     against a disposable connected account (or they are hidden/deferred).
+ *   - `isExperimental: true` — kept out of the default Apps catalog until the
+ *     release point (published jointly with Linear once both meet their gates).
  */
 export const edenManifest: ProviderManifest = ProviderManifestSchema.parse({
   id: "eden",
@@ -55,9 +57,9 @@ export const edenManifest: ProviderManifest = ProviderManifestSchema.parse({
     oauth: true,
     webhookTrigger: false,
     pollingTrigger: false,
-    // 36 MCP-backed actions registered against mcp.eden.so (33 live
-    // success-certified; 3 social-publish writes error-path-only — see the
-    // capability-honesty note above). Triggers remain false (no Eden event API).
+    // 33 MCP-backed actions registered against mcp.eden.so (all live
+    // success-certified). The 3 social-publish writes are DEFERRED/hidden until
+    // certified — see the capability-honesty note above. Triggers remain false.
     actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000,

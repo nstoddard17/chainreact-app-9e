@@ -387,4 +387,52 @@ describe("bounded output normalization", () => {
       normalizeOutput({ structuredContent: { file: { some: "ref" } } }, { kind: "structured", fields: [{ name: "file", type: "fileRef" }] }, label),
     ).toThrow(McpProtocolError);
   });
+
+  it("CS-6D — projects Linear's certified save_issue write output, dropping the rest", () => {
+    // Representative of the REAL captured save_issue result (mcp-evidence.json):
+    // many extra fields (priority object, teamId, projectId, sla*, gitBranchName…)
+    // must NOT leak; only the certified create_issue keys are projected.
+    const saveIssueResult = {
+      structuredContent: {
+        id: "uuid-1", title: "ChainReact certification — DELETE ME", description: "…",
+        priority: { value: 3, name: "Medium" }, url: "https://linear.app/acme/issue/ACME-42/x",
+        gitBranchName: "feat/x", createdAt: "2026-07-23T00:00:00Z", updatedAt: "2026-07-23T00:00:00Z",
+        status: "Backlog", statusType: "backlog", labels: [], team: "ChainReact", teamId: "t-uuid",
+        project: "Delete Me", projectId: "p-uuid", createdBy: "Ada", createdById: "u-uuid",
+      },
+    };
+    const out = normalizeOutput(saveIssueResult, {
+      kind: "structured",
+      fields: [
+        { name: "id", type: "string" }, { name: "title", type: "string" }, { name: "url", type: "string" },
+        { name: "status", type: "string" }, { name: "team", type: "string" }, { name: "project", type: "string" },
+        { name: "createdAt", type: "string" },
+      ],
+    }, label);
+    expect(out).toEqual({
+      id: "uuid-1", title: "ChainReact certification — DELETE ME",
+      url: "https://linear.app/acme/issue/ACME-42/x", status: "Backlog",
+      team: "ChainReact", project: "Delete Me", createdAt: "2026-07-23T00:00:00Z",
+    });
+    // No provider internals / unrelated fields leak.
+    for (const k of ["priority", "teamId", "projectId", "gitBranchName", "statusType", "createdById", "description"]) {
+      expect(out).not.toHaveProperty(k);
+    }
+  });
+
+  it("CS-6D — projects Linear's certified save_comment write output", () => {
+    const commentResult = {
+      structuredContent: {
+        id: "c-uuid", body: "ChainReact certification comment — DELETE ME",
+        createdAt: "2026-07-23T00:00:00Z", updatedAt: "2026-07-23T00:00:00Z",
+        parentId: null, author: { id: "u-uuid", name: "Ada" },
+      },
+    };
+    const out = normalizeOutput(commentResult, {
+      kind: "structured",
+      fields: [{ name: "id", type: "string" }, { name: "body", type: "string" }, { name: "createdAt", type: "string" }],
+    }, label);
+    expect(out).toEqual({ id: "c-uuid", body: "ChainReact certification comment — DELETE ME", createdAt: "2026-07-23T00:00:00Z" });
+    expect(out).not.toHaveProperty("author"); // no nested author object leaks
+  });
 });

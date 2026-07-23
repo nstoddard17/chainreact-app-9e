@@ -316,27 +316,92 @@ export interface WriteEvidenceInput {
  * the same type-only, scrubbed, bounded shape as read evidence. Callers gate on
  * `writeEvidenceEligibility` + the CLI confirmation flags BEFORE calling this.
  */
+/** Map a derived shape to a committable (type-only) ToolEvidence record. */
+function shapeToEvidence(tool: string, shape: EvidenceShape): ToolEvidence {
+  if (!shape.safe) {
+    return { tool, captureStatus: "manual_review_required", reason: "sanitization could not confidently make the result safe to commit" };
+  }
+  return {
+    tool,
+    captureStatus: "captured",
+    resultKind: shape.resultKind,
+    ...(shape.observedShape !== undefined ? { observedShape: shape.observedShape } : {}),
+    ...(shape.fieldsObserved ? { fieldsObserved: shape.fieldsObserved } : {}),
+    ...(shape.pagination !== undefined ? { pagination: shape.pagination } : {}),
+    ...(shape.textLength !== undefined ? { textLength: shape.textLength } : {}),
+    supportsStructuredOutput: shape.supportsStructuredOutput,
+    recommendation: shape.recommendation,
+    notes: shape.notes,
+  };
+}
+
 export async function buildWriteEvidence(input: WriteEvidenceInput): Promise<ToolEvidence> {
   try {
     const result = await input.callTool(input.tool, input.args);
-    const shape = deriveEvidenceShape(result);
-    if (!shape.safe) {
-      return { tool: input.tool, captureStatus: "manual_review_required", reason: "sanitization could not confidently make the result safe to commit" };
-    }
-    return {
-      tool: input.tool,
-      captureStatus: "captured",
-      resultKind: shape.resultKind,
-      ...(shape.observedShape !== undefined ? { observedShape: shape.observedShape } : {}),
-      ...(shape.fieldsObserved ? { fieldsObserved: shape.fieldsObserved } : {}),
-      ...(shape.pagination !== undefined ? { pagination: shape.pagination } : {}),
-      ...(shape.textLength !== undefined ? { textLength: shape.textLength } : {}),
-      supportsStructuredOutput: shape.supportsStructuredOutput,
-      recommendation: shape.recommendation,
-      notes: shape.notes,
-    };
+    return shapeToEvidence(input.tool, deriveEvidenceShape(result));
   } catch (err) {
     return { tool: input.tool, captureStatus: "error", reason: safeError(err) };
+  }
+}
+
+/**
+ * Find a scalar field's RAW value in a tool result — top-level or nested one
+ * level inside a wrapper object (`{ issue: { id } }` or `{ id }`). Used ONLY for
+ * transient in-run chaining (e.g. reuse a created issue's id for the update +
+ * comment steps); the returned value is NEVER written to committed evidence.
+ */
+function findFieldValue(payload: unknown, field: string): string | undefined {
+  const asStr = (v: unknown): string | undefined =>
+    typeof v === "string" && v.length > 0 ? v : typeof v === "number" ? String(v) : undefined;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return undefined;
+  const obj = payload as Record<string, unknown>;
+  if (field in obj) {
+    const v = asStr(obj[field]);
+    if (v) return v;
+  }
+  for (const val of Object.values(obj)) {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      const v = asStr((val as Record<string, unknown>)[field]);
+      if (v) return v;
+    }
+  }
+  return undefined;
+}
+
+export interface WriteEvidenceStepInput extends WriteEvidenceInput {
+  /** varName → result field name to capture (RAW, transient — for chaining only). */
+  readonly capture?: Readonly<Record<string, string>>;
+}
+export interface WriteEvidenceStepResult {
+  readonly evidence: ToolEvidence;
+  /** Transient RAW captured values for in-run chaining. NEVER committed to disk. */
+  readonly captured: Record<string, string>;
+}
+
+/**
+ * One gated write-evidence step that ALSO returns transient captured field
+ * values, so a certification chain (create → reuse id → update → comment) needs
+ * no manual ID copying. The committed evidence stays type-only (via
+ * `shapeToEvidence`); the captured RAW values are returned separately for in-run
+ * interpolation and must never be persisted. Callers gate on
+ * `writeEvidenceEligibility` + the CLI confirmation flags exactly as for
+ * `buildWriteEvidence`.
+ */
+export async function runWriteEvidenceStep(input: WriteEvidenceStepInput): Promise<WriteEvidenceStepResult> {
+  try {
+    const result = await input.callTool(input.tool, input.args);
+    const evidence = shapeToEvidence(input.tool, deriveEvidenceShape(result));
+    const captured: Record<string, string> = {};
+    if (input.capture) {
+      const payload = structuredPayload(result);
+      for (const [varName, field] of Object.entries(input.capture)) {
+        const v = findFieldValue(payload, field);
+        if (v) captured[varName] = v;
+      }
+    }
+    return { evidence, captured };
+  } catch (err) {
+    return { evidence: { tool: input.tool, captureStatus: "error", reason: safeError(err) }, captured: {} };
   }
 }
 

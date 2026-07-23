@@ -24,7 +24,39 @@ export const createIssue: ActionHandler = async (input) => {
     args: config,
     pinnedSchema: pinned.inputSchema,
     pinnedSchemaHash: pinned.schemaHash,
-    output: { kind: "text" },
+    output: {
+    kind: "structured",
+    fields: [
+      {
+        name: "id",
+        type: "string",
+      },
+      {
+        name: "title",
+        type: "string",
+      },
+      {
+        name: "url",
+        type: "string",
+      },
+      {
+        name: "status",
+        type: "string",
+      },
+      {
+        name: "team",
+        type: "string",
+      },
+      {
+        name: "project",
+        type: "string",
+      },
+      {
+        name: "createdAt",
+        type: "string",
+      },
+    ],
+  },
     idempotent: false,
   });
 };

@@ -105,6 +105,20 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       // the explicit `write-evidence` command + a disposable-record fixture; a
       // create fixture (no id) → create shape, an update fixture (id) → update.
       writeEvidence: { description: "Creates a new issue (or updates one if the fixture has an id) via save_issue." },
+      // CS-6D — CERTIFIED from the real save_issue write result (mcp-evidence.json,
+      // write-evidence chain). Bounded to the proven top-level fields. NOTE: Linear's
+      // save_issue result carries NO `identifier` (e.g. LIN-42) field — only `id`
+      // (UUID) + `url` (the URL contains the human reference), so `identifier` is
+      // NOT declared (not proven). status/team/project are returned as name strings.
+      outputs: [
+        { name: "id", type: "string", description: "The new issue's unique ID." },
+        { name: "title", type: "string", description: "The issue title." },
+        { name: "url", type: "string", description: "Direct link to the issue in Linear (contains its LIN-… reference — use this for Slack/downstream)." },
+        { name: "status", type: "string", description: "Current workflow state name (e.g. Backlog, In Progress)." },
+        { name: "team", type: "string", description: "Name of the team the issue belongs to." },
+        { name: "project", type: "string", description: "Name of the project the issue is in (empty when none)." },
+        { name: "createdAt", type: "string", description: "When the issue was created (ISO-8601 UTC)." },
+      ],
       fieldOverrides: {
         id: { omit: true },
         title: { required: true },
@@ -163,6 +177,16 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       risk: "write",
       reason:
         "The update half of save_issue (id pinned required). Kept whole otherwise so state moves, reassignment, and relation edits are one node.",
+      // CS-6D — CERTIFIED from the real save_issue write result (same tool as create;
+      // mcp-evidence.json write-evidence chain). Bounded; no `identifier` (not
+      // returned by Linear — use `url`). `updatedAt` reflects the edit.
+      outputs: [
+        { name: "id", type: "string", description: "The issue's unique ID." },
+        { name: "title", type: "string", description: "The issue title after the update." },
+        { name: "url", type: "string", description: "Direct link to the issue in Linear (contains its LIN-… reference)." },
+        { name: "status", type: "string", description: "Current workflow state name after the update." },
+        { name: "updatedAt", type: "string", description: "When the issue was last updated (ISO-8601 UTC)." },
+      ],
       fieldOverrides: {
         id: {
           required: true,
@@ -226,6 +250,15 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         "Core repetitive-task write. Scoped to ISSUE comments for v1 — the tool's project/initiative/document/milestone parents are omitted so the node stays single-purpose; issueId pinned required.",
       // CS-6B — write-evidence-eligible (disposable comment on a test issue).
       writeEvidence: { description: "Adds a comment to an issue via save_comment." },
+      // CS-6D — CERTIFIED from the real save_comment write result (mcp-evidence.json
+      // write-evidence chain): { id, body, createdAt, updatedAt, author, … }. The
+      // result does NOT echo `issueId`, so it is NOT declared (not proven). `body`
+      // is the comment text the user authored (safe to surface).
+      outputs: [
+        { name: "id", type: "string", description: "The new comment's unique ID." },
+        { name: "body", type: "string", description: "The comment text (Markdown)." },
+        { name: "createdAt", type: "string", description: "When the comment was created (ISO-8601 UTC)." },
+      ],
       fieldOverrides: {
         id: { omit: true },
         projectId: { omit: true },

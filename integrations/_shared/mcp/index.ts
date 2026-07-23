@@ -38,6 +38,7 @@ export {
   buildEvidence,
   writeEvidenceEligibility,
   buildWriteEvidence,
+  runWriteEvidenceStep,
 } from "./evidence";
 export type {
   EvidenceShape,
@@ -49,6 +50,8 @@ export type {
   EvidenceCallTool,
   WriteEvidenceEligibility,
   WriteEvidenceInput,
+  WriteEvidenceStepInput,
+  WriteEvidenceStepResult,
 } from "./evidence";
 // CS-6B — shared MCP tool-call seam for option resolvers.
 export { mcpResolverCall, mcpStructured } from "./resolverClient";

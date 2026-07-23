@@ -83,7 +83,7 @@ describe("generated Linear metas", () => {
     expect(addCommentMeta.fields.find((f) => f.name === "body")).toMatchObject({ required: true });
   });
 
-  it("bounded outputs: find_issues structured from live evidence; writes stay text-only (CS-6)", () => {
+  it("bounded structured outputs certified from live evidence (CS-6/CS-6D)", () => {
     // find_issues — CERTIFIED structured output from the real captured
     // list_issues shape (mcp-evidence.json): a page + Linear pagination fields.
     expect(findIssuesMeta.outputs.map((o) => `${o.name}:${o.type}`)).toEqual([
@@ -91,10 +91,20 @@ describe("generated Linear metas", () => {
       "hasNextPage:boolean",
       "cursor:string",
     ]);
-    // save_issue / save_comment are WRITES, not auto-captured → no certified
-    // result shape → text-only (never fabricated).
+    // CS-6D — save_issue / save_comment WRITE result shapes were captured via the
+    // gated write-evidence chain; outputs are bounded to the PROVEN fields.
+    // Linear's save_issue result has NO `identifier`, so it is not declared.
+    expect(createIssueMeta.outputs.map((o) => o.name)).toEqual([
+      "id", "title", "url", "status", "team", "project", "createdAt",
+    ]);
+    expect(createIssueMeta.outputs.every((o) => o.name !== "identifier")).toBe(true);
+    expect(updateIssueMeta.outputs.map((o) => o.name)).toEqual([
+      "id", "title", "url", "status", "updatedAt",
+    ]);
+    expect(addCommentMeta.outputs.map((o) => o.name)).toEqual(["id", "body", "createdAt"]);
+    // Still bounded — never a raw-response spread (all outputs are declared scalars).
     for (const meta of [createIssueMeta, updateIssueMeta, addCommentMeta]) {
-      expect(meta.outputs).toEqual([expect.objectContaining({ name: "text", type: "string" })]);
+      expect(meta.outputs.every((o) => o.type === "string")).toBe(true);
     }
   });
 });
@@ -197,7 +207,15 @@ describe("generated handlers (executor seam)", () => {
       tool: "save_issue", // create_issue is the create half of the save_issue dispatcher
       accountId: "acct",
       idempotent: false, // write
-      output: { kind: "text" },
+      // CS-6D — create_issue now emits a certified STRUCTURED output (bounded).
+      output: {
+        kind: "structured",
+        fields: [
+          { name: "id", type: "string" }, { name: "title", type: "string" }, { name: "url", type: "string" },
+          { name: "status", type: "string" }, { name: "team", type: "string" }, { name: "project", type: "string" },
+          { name: "createdAt", type: "string" },
+        ],
+      },
     });
     // pinned hash matches the certified snapshot (drift guard input).
     expect(typeof call.pinnedSchemaHash).toBe("string");
@@ -216,12 +234,11 @@ describe("capability report + registration fragments", () => {
       ALL_METAS.map((m) => m.key).sort(),
     );
     expect(report.actions.every((a) => a.verified === false)).toBe(true);
-    // CS-6 — find_issues has a live-evidence-backed structured output (good);
-    // the write actions remain text-only (poor) pending write-result evidence.
+    // CS-6D — find_issues AND all three write actions now have live-evidence-backed
+    // structured outputs (good). Nothing text-only remains.
     const byKey = new Map(report.actions.map((a) => [a.key, a]));
-    expect(byKey.get("linear:find_issues")!.outputQuality).toBe("good");
-    for (const k of ["linear:create_issue", "linear:update_issue", "linear:add_comment"]) {
-      expect(byKey.get(k)!.outputQuality).toBe("poor");
+    for (const k of ["linear:find_issues", "linear:create_issue", "linear:update_issue", "linear:add_comment"]) {
+      expect(byKey.get(k)!.outputQuality).toBe("good");
     }
   });
 

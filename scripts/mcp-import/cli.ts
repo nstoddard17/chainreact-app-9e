@@ -32,7 +32,7 @@ import {
 } from "@/core/mcpCompile";
 import { createMcpClient, type McpClient } from "@/integrations/_shared/mcp/client";
 import { buildDriftReport, type DriftReport } from "@/integrations/_shared/mcp/driftClassify";
-import { buildEvidence, writeEvidenceEligibility, buildWriteEvidence } from "@/integrations/_shared/mcp/evidence";
+import { buildEvidence, writeEvidenceEligibility, buildWriteEvidence, runWriteEvidenceStep } from "@/integrations/_shared/mcp/evidence";
 // `@next/env` is CommonJS — default-import the namespace so this resolves under
 // both native ESM (the CLI runtime) and tsc.
 import nextEnv from "@next/env";
@@ -343,6 +343,118 @@ async function writeEvidence(
   console.log("Reminder: delete the disposable certification record you just created.\n");
 }
 
+/**
+ * CS-6D — gated write-evidence CHAIN: a sequence of write-evidence steps where a
+ * later step reuses a value captured from an earlier one (create → reuse id for
+ * update + comment; no manual ID copying). Same gates PER STEP as single-shot
+ * write-evidence. Captured values are transient — committed evidence stays
+ * type-only. Fixture: { steps: [{ tool, label?, args, capture?: {var: field} }] };
+ * interpolate a captured var in a later step's args with "{{var}}".
+ */
+async function writeEvidenceChain(
+  provider: string,
+  opts: { fixture?: string; allow: boolean; yes: boolean },
+): Promise<void> {
+  if (!opts.allow) {
+    console.log("REFUSED: write-evidence-chain is disabled by default. Re-run with --allow-write-evidence to opt in.");
+    process.exitCode = 2;
+    return;
+  }
+  if (!opts.fixture) {
+    console.log("REFUSED: --fixture <path> is required — a JSON chain file { \"steps\": [ { tool, args, capture? } ] }.");
+    process.exitCode = 2;
+    return;
+  }
+  const catalog = McpCatalogSchema.parse(await readCatalog(provider));
+  const raw = JSON.parse(readFileSync(path.resolve(repoRoot, opts.fixture), "utf8")) as {
+    steps?: Array<{ tool?: string; label?: string; args?: Record<string, unknown>; capture?: Record<string, string> }>;
+  };
+  const steps = raw.steps;
+  if (!Array.isArray(steps) || steps.length === 0) {
+    console.log("REFUSED: fixture must be { \"steps\": [ { tool, args, capture? } ] }.");
+    process.exitCode = 2;
+    return;
+  }
+  // Pre-flight: every step's tool must pass the write-evidence eligibility gate.
+  for (const s of steps) {
+    if (!s.tool || !s.args || typeof s.args !== "object") {
+      console.log("REFUSED: each step needs a `tool` and an `args` object.");
+      process.exitCode = 2;
+      return;
+    }
+    const elig = writeEvidenceEligibility(catalog, s.tool);
+    if (!elig.eligible) {
+      console.log(`REFUSED: step '${s.tool}': ${elig.reason}.`);
+      process.exitCode = 2;
+      return;
+    }
+  }
+
+  console.log("\n============================================================");
+  console.log("  ⚠  WRITE EVIDENCE CHAIN — this CREATES/MODIFIES REAL DATA");
+  console.log("============================================================");
+  console.log(`  provider: ${provider}`);
+  for (const [i, s] of steps.entries()) {
+    console.log(`  step ${i + 1}: ${s.label ?? s.tool}  (tool: ${s.tool}, arg keys: ${Object.keys(s.args!).join(", ")})`);
+  }
+  console.log("  Use DISPOSABLE certification records. NO auto-cleanup — delete them yourself.");
+  console.log("============================================================");
+  if (!opts.yes) {
+    console.log("STOPPED: add --yes-run-write to acknowledge and actually run the chain.\n");
+    process.exitCode = 2;
+    return;
+  }
+
+  const client = makeLiveClient(provider, catalog.serverUrl);
+  await client.initialize();
+  const vars: Record<string, string> = {};
+  const interpolate = (v: unknown): unknown => {
+    if (typeof v === "string") {
+      const m = /^\{\{(\w+)\}\}$/.exec(v);
+      return m ? (vars[m[1]!] ?? v) : v;
+    }
+    return v;
+  };
+  const collected: Array<{ tool: string }> = [];
+  for (const s of steps) {
+    const args: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(s.args!)) args[k] = interpolate(v);
+    const { evidence, captured } = await runWriteEvidenceStep({
+      provider,
+      tool: s.tool!,
+      args,
+      // Writes are NOT idempotent → single attempt (never auto-retried).
+      callTool: (tool, a) => client.callTool(tool, a, { idempotent: false }),
+      ...(s.capture ? { capture: s.capture } : {}),
+    });
+    Object.assign(vars, captured); // transient, in-run only — never persisted
+    collected.push(evidence);
+    console.log(`  [${evidence.captureStatus}] ${s.label ?? s.tool}${s.capture ? ` (captured: ${Object.keys(captured).join(", ") || "none"})` : ""}`);
+    if (evidence.captureStatus === "error") {
+      console.log(`     reason: ${evidence.reason}`);
+      console.log("  CHAIN ABORTED — a step failed; not merging partial evidence.");
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  // Merge type-only evidence (dedupe by tool, last write wins — e.g. save_issue
+  // create+update share the tool; the shapes are identical).
+  const evPath = path.join(providerDir(provider), "mcp-evidence.json");
+  const existing = JSON.parse(readFileSync(evPath, "utf8")) as { tools: Array<{ tool: string }>; [k: string]: unknown };
+  const freshTools = new Set(collected.map((e) => e.tool));
+  const others = (existing.tools ?? []).filter((t) => !freshTools.has(t.tool));
+  const dedupedFresh = [...new Map(collected.map((e) => [e.tool, e])).values()];
+  const merged = {
+    ...existing,
+    tools: [...others, ...dedupedFresh].sort((a, b) => a.tool.localeCompare(b.tool)),
+    writeEvidenceCapturedAt: new Date().toISOString(),
+  };
+  writeFileSync(evPath, JSON.stringify(merged, null, 2) + "\n", "utf8");
+  console.log(`\nwrite-evidence chain complete → integrations/${provider}/mcp-evidence.json`);
+  console.log("Reminder: delete the disposable certification records you just created.\n");
+}
+
 interface ParsedArgs {
   positionals: string[];
   flags: Map<string, string | true>;
@@ -389,6 +501,13 @@ async function main(): Promise<void> {
   if (command === "write-evidence") {
     return writeEvidence(provider, {
       ...(flagVal("tool") ? { tool: flagVal("tool") } : {}),
+      ...(flagVal("fixture") ? { fixture: flagVal("fixture") } : {}),
+      allow: flag("allow-write-evidence"),
+      yes: flag("yes-run-write"),
+    });
+  }
+  if (command === "write-evidence-chain") {
+    return writeEvidenceChain(provider, {
       ...(flagVal("fixture") ? { fixture: flagVal("fixture") } : {}),
       allow: flag("allow-write-evidence"),
       yes: flag("yes-run-write"),

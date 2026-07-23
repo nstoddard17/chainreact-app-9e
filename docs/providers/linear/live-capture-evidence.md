@@ -219,16 +219,80 @@ token and a full-app E2E, neither available this session. Everything else is don
 live snapshot + no drift, real dropdowns for Team/Assignee/Labels/Project/State,
 Priority dropdown, dueDate picker, no MCP terminology.
 
-### Eden (Part 13) — hide plan, staged for the release point
+---
 
-Eden go-live is tied to "the same release point," which Linear did not reach, and
-the owner said not to auto-flip Eden — so Eden is **not** flipped and its 3
-unverified social-publish writes are **not** unregistered this batch (they remain
-fully tested; `scheduling-metadata.test.ts` asserts them registered + visible).
-Ready-to-run hide for the release point: remove `edenSchedulePostMeta` /
-`edenPublishPostNowMeta` / `edenUpdateScheduledPostMeta` from `EDEN_ACTION_METAS`
-(`services/discovery/providers/eden.ts`) and the matching 3 lines from
-`services/execution/handlers/_handlerInventory.ts`, update
-`scheduling-metadata.test.ts` to assert those 3 are withheld from the catalog, and
-change the manifest note 36→33. Do this together with the write-scoped-token
-certification so both providers reach live in one verified batch.
+## CS-6D LIVE run — 2026-07-23 (write-scoped bearer supplied)
+
+The owner updated `MCP_IMPORT_BEARER` to **Read & write**. All three creds present
+(`.env.local`, loaded via `@next/env`). `check linear` → **no drift, 52 tools**.
+
+**Write-evidence chain — EXECUTED LIVE (real disposable records):** a new gated
+`write-evidence-chain` command (`runWriteEvidenceStep` + CLI) chains steps and
+reuses a captured field so no ID is copied by hand. The committed evidence stays
+type-only; captured raw values are transient. Ran:
+`create (save_issue) → capture id → update (save_issue, id={{id}}) → comment
+(save_comment, issueId={{id}})` on team **ChainReact**, project **Delete Me**,
+labelled "ChainReact certification — DELETE ME". All three captured. **Delete the
+disposable issue.**
+
+**Certified structured outputs (from the REAL write shapes):**
+
+| Action | Certified output keys | Note |
+|---|---|---|
+| Create Issue | `id, title, url, status, team, project, createdAt` | **No `identifier`** — Linear's save_issue result carries none; `url` holds the LIN-… reference (use it for Slack). status/team/project are name strings. |
+| Update Issue | `id, title, url, status, updatedAt` | same tool/shape; `updatedAt` reflects the edit |
+| Add Comment | `id, body, createdAt` | result has no `issueId`, so it is not declared |
+
+The executor's `normalizeOutput` projects EXACTLY these keys from the top-level
+result (bounded; type-checked; provider internals like `teamId`/`projectId`/
+`priority`/`gitBranchName` never leak) — certified by an output-projection test
+using the real shape. `mcp-capabilities.json` now rates all four actions
+`outputQuality: good`.
+
+**Resolvers (final):** Team, Assignee, Labels, **Project** (optional team
+filter), **State** (`linear:issue_statuses`, requiredDeps team → "choose a team
+first") — all live-evidence-backed dropdowns. **Cycle** stays text (cert team has
+no cycles; item shape unproven — not invented). dueDate = date picker; priority =
+closed dropdown; no MCP terminology.
+
+### Linear release decision (CS-6D): STAYS `isExperimental: true`
+
+Everything executable from a headless certification session now passes:
+live tool capture + no drift, the **write tool path executed live**
+(create/update/comment), certified structured outputs, resolver-backed common
+paths, config-UX audit, icon, tests green. **Remaining blockers are all
+full-app / human-interactive and cannot be executed here:**
+
+1. **Live OAuth *connection*** — the browser consent round-trip that lands an
+   encrypted token in `integrations`. The write cert used the dev PAT
+   (`MCP_IMPORT_BEARER`), a different credential path than the app's OAuth
+   integration; a real connect needs human consent at Linear's screen.
+2. **Both full-app workflows** (Manual trigger → engine → node handler via
+   `refreshAndRetry`/DB integration → Slack). The engine handler path is proven
+   by tests (real internals, mocked provider boundary) and the provider tool path
+   is proven live, but the end-to-end app run + a live Slack downstream was not
+   executed.
+3. **Live refresh-token rotation + reconnect** via the OAuth integration.
+
+Per "do not lower the release bar" + "do not claim a live result if the full app
+path cannot be executed," the flag is NOT flipped. The final step is an
+owner-run browser E2E (connect Linear + Slack, run both workflows, revoke→reconnect),
+after which `isExperimental: false` is warranted.
+
+### Eden (Part 6) — 3 writes HIDDEN this batch; NOT flipped (joint-publish gate)
+
+CS-6D **executed** the hide: `schedule_post` / `publish_post_now` /
+`update_scheduled_post` are removed from `EDEN_ACTION_METAS`
+(`services/discovery/providers/eden.ts`) AND from the execution inventory
+(`_handlerInventory.ts`); the manifest now states **33** actions; impl files
+remain as orphans; `scheduling-metadata.test.ts` now proves the 3 are withheld
+from catalog/registry/metas while their metadata contract is still asserted via
+direct import. Full detail: `docs/providers/eden/deferred-actions.md`.
+
+Eden is **not** flipped: the owner's rule is "publish them in the same release
+only if both meet their own gates," and Linear does not meet its full-app gate
+(above). Eden's 33-action surface is consistent + tested and its connection model
+(`token_paste`) needs no browser OAuth, so Eden is ready to publish **jointly with
+Linear** the moment Linear's owner-run browser E2E passes. Flipping Eden alone was
+not done — same-release publication is the owner's stated condition, and a
+production flip is outward-facing.

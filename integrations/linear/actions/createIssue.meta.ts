@@ -236,9 +236,39 @@ export const createIssueMeta: ActionMeta = {
   ],
   outputs: [
     {
-      name: "text",
+      name: "id",
       type: "string",
-      description: "Text returned by the provider for this call.",
+      description: "The new issue's unique ID.",
+    },
+    {
+      name: "title",
+      type: "string",
+      description: "The issue title.",
+    },
+    {
+      name: "url",
+      type: "string",
+      description: "Direct link to the issue in Linear (contains its LIN-… reference — use this for Slack/downstream).",
+    },
+    {
+      name: "status",
+      type: "string",
+      description: "Current workflow state name (e.g. Backlog, In Progress).",
+    },
+    {
+      name: "team",
+      type: "string",
+      description: "Name of the team the issue belongs to.",
+    },
+    {
+      name: "project",
+      type: "string",
+      description: "Name of the project the issue is in (empty when none).",
+    },
+    {
+      name: "createdAt",
+      type: "string",
+      description: "When the issue was created (ISO-8601 UTC).",
     },
   ],
   producesFileRef: false,

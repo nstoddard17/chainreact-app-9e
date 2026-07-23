@@ -14,6 +14,7 @@ import {
   buildEvidence,
   writeEvidenceEligibility,
   buildWriteEvidence,
+  runWriteEvidenceStep,
 } from "@/integrations/_shared/mcp/evidence";
 import { schemaHash, McpCatalogSchema, McpToolSnapshotFileSchema } from "@/core/mcpCompile";
 import type { McpCallToolResult } from "@/integrations/_shared/mcp";
@@ -277,5 +278,42 @@ describe("buildWriteEvidence — type-only, scrubbed, single-shot", () => {
     const ev = await buildWriteEvidence({ provider: "demo", tool: "save_thing", args: {}, callTool: async () => { throw new Error("boom Bearer sk_live_supersecret"); } });
     expect(ev.captureStatus).toBe("error");
     expect(ev.reason).not.toContain("sk_live_supersecret"); // Bearer <token> scrubbed
+  });
+});
+
+describe("runWriteEvidenceStep — chaining handoff (CS-6D)", () => {
+  it("captures a field's RAW value transiently while the evidence stays type-only", async () => {
+    const { evidence, captured } = await runWriteEvidenceStep({
+      provider: "demo",
+      tool: "save_issue",
+      args: { title: "cert DELETE ME" },
+      capture: { issueId: "id" },
+      callTool: async () => ({ structuredContent: { id: "real-uuid-123", url: "https://linear.app/x", title: "cert DELETE ME" } }),
+    });
+    // Transient capture carries the RAW id (for the next step) …
+    expect(captured).toEqual({ issueId: "real-uuid-123" });
+    // … but the committed evidence is type-only — the raw id never appears in it.
+    expect(evidence.captureStatus).toBe("captured");
+    expect(evidence.observedShape).toEqual({ id: "string", url: "string", title: "string" });
+    expect(JSON.stringify(evidence)).not.toContain("real-uuid-123");
+    expect(JSON.stringify(evidence)).not.toContain("cert DELETE ME");
+  });
+
+  it("finds the field one level inside a wrapper object ({ issue: { id } })", async () => {
+    const { captured } = await runWriteEvidenceStep({
+      provider: "demo", tool: "save_issue", args: {}, capture: { issueId: "id" },
+      callTool: async () => ({ structuredContent: { issue: { id: "nested-9", identifier: "LIN-9" } } }),
+    });
+    expect(captured).toEqual({ issueId: "nested-9" });
+  });
+
+  it("a failed step captures nothing and reports the error safely", async () => {
+    const { evidence, captured } = await runWriteEvidenceStep({
+      provider: "demo", tool: "save_issue", args: {}, capture: { issueId: "id" },
+      callTool: async () => { throw new Error("denied Bearer sk_live_top"); },
+    });
+    expect(evidence.captureStatus).toBe("error");
+    expect(captured).toEqual({});
+    expect(JSON.stringify(evidence)).not.toContain("sk_live_top");
   });
 });

@@ -24,7 +24,31 @@ export const updateIssue: ActionHandler = async (input) => {
     args: config,
     pinnedSchema: pinned.inputSchema,
     pinnedSchemaHash: pinned.schemaHash,
-    output: { kind: "text" },
+    output: {
+    kind: "structured",
+    fields: [
+      {
+        name: "id",
+        type: "string",
+      },
+      {
+        name: "title",
+        type: "string",
+      },
+      {
+        name: "url",
+        type: "string",
+      },
+      {
+        name: "status",
+        type: "string",
+      },
+      {
+        name: "updatedAt",
+        type: "string",
+      },
+    ],
+  },
     idempotent: false,
   });
 };

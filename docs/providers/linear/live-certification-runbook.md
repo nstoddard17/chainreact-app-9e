@@ -19,14 +19,17 @@ runs once real credentials exist. Local/unpushed.
 > - **Live E2E** (both workflows, reconnect, drift) — needs `LINEAR_CLIENT_ID`/
 >   `LINEAR_CLIENT_SECRET` + an OAuth connection (Part 7).
 >
-> **CS-6C LIVE update (2026-07-23):** credentials were supplied via `.env.local`
-> and the read path ran live (no drift on 52 tools). `linear:projects` +
-> `linear:issue_statuses` resolvers now ship from **real** evidence. BUT the dev
-> `MCP_IMPORT_BEARER` is **read-only** — `save_issue`/`save_comment` were denied
-> ("lacks write permission"), so write-evidence, write structured outputs, and
-> the two E2E workflows remain blocked. Re-mint the bearer with **Read & write**
-> scope to finish. Linear stays **Experimental**. Full detail:
-> `docs/providers/linear/live-capture-evidence.md` (CS-6C LIVE run).
+> **CS-6D LIVE update (2026-07-23):** write-scoped bearer supplied. The full
+> tool + data + config surface is now LIVE-certified: no drift (52 tools),
+> write-evidence chain executed (create→update→comment on disposable records),
+> certified structured outputs (Create: id/title/url/status/team/project/createdAt
+> — Linear returns NO `identifier`, use `url`), and resolver-backed dropdowns
+> (Team/Project/State/Assignee/Labels). Cycle stays text (cert team has none).
+> Linear STILL **Experimental** — the ONLY remaining gates are full-app /
+> human-interactive: a live OAuth browser connection, both workflows run through
+> the app engine with a live Slack downstream, and live refresh/reconnect. Those
+> need an owner-run browser E2E (they can't run headlessly). Full detail:
+> `docs/providers/linear/live-capture-evidence.md` (CS-6D LIVE run).
 
 ## Owner prerequisites (all required before step 1)
 

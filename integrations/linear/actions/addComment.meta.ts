@@ -37,9 +37,19 @@ export const addCommentMeta: ActionMeta = {
   ],
   outputs: [
     {
-      name: "text",
+      name: "id",
       type: "string",
-      description: "Text returned by the provider for this call.",
+      description: "The new comment's unique ID.",
+    },
+    {
+      name: "body",
+      type: "string",
+      description: "The comment text (Markdown).",
+    },
+    {
+      name: "createdAt",
+      type: "string",
+      description: "When the comment was created (ISO-8601 UTC).",
     },
   ],
   producesFileRef: false,

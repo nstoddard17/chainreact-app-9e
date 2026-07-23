@@ -41,9 +41,12 @@ import { edenFollowingOverviewMeta } from "@/integrations/eden/actions/creators/
 // Batch 3 — scheduling writes (EDEN-6): 8 actions, no triggers.
 import { edenCreateSchedulingDraftMeta } from "@/integrations/eden/actions/scheduling/createSchedulingDraft.meta";
 import { edenReadScheduledPostMeta } from "@/integrations/eden/actions/scheduling/readScheduledPost.meta";
-import { edenSchedulePostMeta } from "@/integrations/eden/actions/scheduling/schedulePost.meta";
-import { edenPublishPostNowMeta } from "@/integrations/eden/actions/scheduling/publishPostNow.meta";
-import { edenUpdateScheduledPostMeta } from "@/integrations/eden/actions/scheduling/updateScheduledPost.meta";
+// CS-6D — schedule_post / publish_post_now / update_scheduled_post are DEFERRED
+// (hidden): their success path is not live-certified (the cert account has no
+// connected social accounts), so they are withheld from discovery + execution
+// registration until certified. Their implementation files (`.meta.ts`/
+// `.schema.ts`/`.ts`) remain in the repo as orphans (rule 14). Do NOT re-add
+// them without a live success capture. See docs/providers/eden/deferred-actions.md.
 import { edenReschedulePostMeta } from "@/integrations/eden/actions/scheduling/reschedulePost.meta";
 import { edenSetFirstCommentMeta } from "@/integrations/eden/actions/scheduling/setFirstComment.meta";
 import { edenCancelScheduledPostMeta } from "@/integrations/eden/actions/scheduling/cancelScheduledPost.meta";
@@ -80,12 +83,10 @@ export const EDEN_ACTION_METAS: ReadonlyArray<ActionMeta> = [
   edenResolveCreatorMeta,
   edenResearchCreatorMeta,
   edenFollowingOverviewMeta,
-  // Batch 3 — scheduling writes (EDEN-6).
+  // Batch 3 — scheduling writes (EDEN-6). schedule_post / publish_post_now /
+  // update_scheduled_post are DEFERRED (hidden, CS-6D) — not live-certified.
   edenCreateSchedulingDraftMeta,
   edenReadScheduledPostMeta,
-  edenSchedulePostMeta,
-  edenPublishPostNowMeta,
-  edenUpdateScheduledPostMeta,
   edenReschedulePostMeta,
   edenSetFirstCommentMeta,
   edenCancelScheduledPostMeta,
