@@ -2,12 +2,604 @@
   "provider": "linear",
   "serverUrl": "https://mcp.linear.app/mcp",
   "protocolVersion": null,
-  "capturedBy": "docs-draft",
-  "capturedAt": "2026-06-18 (verbatim community capture of the official server; committed 2026-07-22 pending live re-capture)",
+  "capturedBy": "live",
+  "capturedAt": "2026-07-23T03:05:29.644Z",
   "tools": [
     {
+      "name": "get_attachment",
+      "description": "Retrieve an attachment's content by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Attachment ID"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "f94091e00b624724f8607705fa72777c7d82963422c332d10cc2080ceed2233b"
+    },
+    {
+      "name": "prepare_attachment_upload",
+      "description": "Prepare a direct Linear file upload for an existing issue.\n\nWorkflow:\n1. Call this tool with issue, filename, contentType, and size.\n2. Upload raw bytes with PUT to uploadRequest.url outside MCP.\n3. All headers in uploadRequest.headers are part of the signed request, so send them verbatim.\n4. After PUT succeeds, call create_attachment_from_upload with assetUrl to link it to the issue.\n\nDo not base64-encode or transform the file. Use curl --data-binary @path or fetch(url, { method: 'PUT', body: blob }).\nOmitting or modifying any signed header, including casing, will return HTTP 403.\nThe signed URL must be used within 60 seconds or it will expire.\n\nUpload sequencing:\nPrepare, PUT, and finalize one file before calling this tool for another file.\nDo not batch multiple prepare_attachment_upload calls before starting the PUTs because earlier signed URLs can expire while later files are prepared.\n\nExample:\ncurl -X PUT --data-binary @file.png \\\n  -H \"content-type: image/png\" \\\n  -H \"x-goog-content-length-range: N,N\" \\\n  -H \"cache-control: public, max-age=31536000\" \\\n  -H 'Content-Disposition: attachment; filename=\"file.png\"' \\\n  \"<uploadRequest.url>\"",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "issue": {
+            "type": "string",
+            "description": "Issue ID or identifier (e.g., LIN-123)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Filename for the upload, e.g. screenshot.png"
+          },
+          "contentType": {
+            "type": "string",
+            "description": "MIME type, e.g. image/png or application/pdf"
+          },
+          "size": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Exact file size in bytes. Must be smaller than 2 GB."
+          },
+          "title": {
+            "description": "Suggested attachment title for the finalize step",
+            "type": "string"
+          },
+          "subtitle": {
+            "description": "Suggested attachment subtitle for the finalize step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue",
+          "filename",
+          "contentType",
+          "size"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "1228581f87d0d0c307e285b2181fdcc8b98a393fe0888bac9363dc7727094321"
+    },
+    {
+      "name": "create_attachment_from_upload",
+      "description": "Link an already-uploaded Linear assetUrl to an existing issue as an attachment.\n\nUse this only after:\n1. prepare_attachment_upload returned an assetUrl and uploadRequest.\n2. The client successfully PUT raw file bytes to uploadRequest.url.\n\nThis tool does not upload file content. It only creates the Linear attachment row.\nIf the direct upload failed or the signed URL expired, rerun prepare_attachment_upload and upload again.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "issue": {
+            "type": "string",
+            "description": "Issue ID or identifier (e.g., LIN-123)"
+          },
+          "assetUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Linear upload assetUrl returned by prepare_attachment_upload"
+          },
+          "title": {
+            "description": "Attachment title. Defaults to filename or asset URL",
+            "type": "string"
+          },
+          "subtitle": {
+            "description": "Optional attachment subtitle",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue",
+          "assetUrl"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "42d72cdae1b6691ce71665bb719a2025fec778e751470bf217d26ae2503b6f0d"
+    },
+    {
+      "name": "create_attachment",
+      "description": "Deprecated fallback for tiny files only. Accepts base64 file content, verifies SHA-256 checksum, and uploads it through the MCP worker.\nPrefer `prepare_attachment_upload` plus direct PUT plus `create_attachment_from_upload`.\n\nCRITICAL: Do not print base64Content and then copy it into this tool call.\nOpaque base64 copied through model-visible text is easy to corrupt.\n\nGenerate base64Content mechanically from the source bytes and pass it through a programmatic argument construction path whenever available. Before calling this tool, verify the values are consistent:\n\nUnix-like shells:\nfile=\"/path/to/file\"\nbase64Content=$(base64 < \"$file\" | tr -d '\\n\\r')\nsha256=$(shasum -a 256 \"$file\" | awk '{print $1}')\ndecodedSha256=$(printf '%s' \"$base64Content\" | base64 -d | shasum -a 256 | awk '{print $1}')\nsize=$(wc -c < \"$file\" | tr -d ' ') # optional; stat can also get file byte size\ndecodedSize=$(printf '%s' \"$base64Content\" | base64 -d | wc -c | tr -d ' ')\n\nPowerShell:\n$file = 'C:\\path\\to\\file'\n$bytes = [IO.File]::ReadAllBytes($file)\n$base64Content = [Convert]::ToBase64String($bytes)\n$sha256 = (Get-FileHash -Algorithm SHA256 -Path $file).Hash.ToLower()\n$size = $bytes.Length # optional\n$decoded = [Convert]::FromBase64String($base64Content)\n$decodedStream = [IO.MemoryStream]::new($decoded)\n$decodedSha256 = (Get-FileHash -Algorithm SHA256 -InputStream $decodedStream).Hash.ToLower()\n$decodedSize = $decoded.Length\n\ndecodedSha256 must equal sha256. If you pass size, decodedSize must equal size.\nPass `sha256`. Passing `size` is optional, but recommended for clearer mismatch errors.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "issue": {
+            "type": "string",
+            "description": "Issue ID or identifier (e.g., LIN-123)"
+          },
+          "base64Content": {
+            "type": "string",
+            "description": "Deprecated base64-encoded file content to upload"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Filename for the upload (e.g., 'screenshot.png')"
+          },
+          "contentType": {
+            "type": "string",
+            "description": "MIME type for the upload (e.g., 'image/png', 'application/pdf')"
+          },
+          "size": {
+            "description": "Optional expected decoded file size in bytes. Rejects the upload if it does not match.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "description": "Expected SHA-256 hex digest of the decoded file bytes."
+          },
+          "title": {
+            "description": "Optional title for the attachment",
+            "type": "string"
+          },
+          "subtitle": {
+            "description": "Optional subtitle for the attachment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue",
+          "base64Content",
+          "filename",
+          "contentType",
+          "sha256"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "7851695636171cf15989005b08585a962f834880c0dc1f5d97c9f6b5e33e1ed1"
+    },
+    {
+      "name": "delete_attachment",
+      "description": "Delete an attachment by ID",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Attachment ID"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "f94091e00b624724f8607705fa72777c7d82963422c332d10cc2080ceed2233b"
+    },
+    {
+      "name": "list_agent_skills",
+      "description": "List Linear Agent skills available to the authenticated user.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "4fe017abf22869613a55a721e427f0abb6b469a088cda8cb9a1d0e7456db7cf8"
+    },
+    {
+      "name": "get_agent_skill",
+      "description": "Retrieve a Linear Agent skill by ID, including its full markdown instructions.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Agent skill ID"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "184f187a24656208facc2f1ee3c24b6c3764b38371e08ad5e53bd7a0fcbdcb02"
+    },
+    {
+      "name": "list_comments",
+      "description": "List comments on a Linear issue, project, initiative, document, project milestone, or project/initiative status update. Provide exactly one of `issueId`, `projectId`, `initiativeId`, `documentId`, `milestoneId`, or `statusUpdateId`. For issues, projects, and initiatives this returns both top-level discussion threads and inline description comments. Inline (anchored) comments carry a non-null `quotedText` set to the snippet of description text they reference.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "issueId": {
+            "description": "Issue ID or identifier (e.g., LIN-123) (provide exactly one parent)",
+            "type": "string"
+          },
+          "projectId": {
+            "description": "Project name, ID, or slug (provide exactly one parent)",
+            "type": "string"
+          },
+          "initiativeId": {
+            "description": "Initiative name or ID (provide exactly one parent)",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Document ID or slug (provide exactly one parent)",
+            "type": "string"
+          },
+          "milestoneId": {
+            "description": "Milestone UUID (provide exactly one parent). Resolve milestone names via `list_milestones` first.",
+            "type": "string"
+          },
+          "statusUpdateId": {
+            "description": "Status update UUID (provide exactly one parent). Resolve status updates via `get_status_updates` first.",
+            "type": "string"
+          },
+          "statusUpdateType": {
+            "description": "Type of status update named by `statusUpdateId`, as returned by `get_status_updates`. Only valid together with `statusUpdateId`; omit to check both project and initiative status updates.",
+            "type": "string",
+            "enum": [
+              "project",
+              "initiative"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "827f0a1768a76c516c6cc4959ffd8aca4ab865c4e847767ac20c68aa12d34cf5"
+    },
+    {
+      "name": "save_comment",
+      "description": "Create or update a comment on a Linear issue, project, initiative, document, project milestone, or project/initiative status update. If `id` is provided, updates the existing comment; otherwise creates a new one. To start a new thread, pass `body` and exactly one of `issueId`, `projectId`, `initiativeId`, `documentId`, `milestoneId`, or `statusUpdateId` — comments on issues/projects/initiatives become top-level discussion threads; comments on documents/milestones become description comments. A status update holds a single thread, so a comment on an update that already has one is added to it as a reply. To reply to an existing thread, pass `parentId` and `body`; the reply inherits the parent's thread type, so no entity reference is needed. Parent reference fields are ignored when `id` or `parentId` is provided (`statusUpdateType` is rejected instead).",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Comment ID. If provided, updates the existing comment",
+            "type": "string"
+          },
+          "issueId": {
+            "description": "Issue ID or identifier (e.g., LIN-123) (provide exactly one parent)",
+            "type": "string"
+          },
+          "projectId": {
+            "description": "Project name, ID, or slug (provide exactly one parent)",
+            "type": "string"
+          },
+          "initiativeId": {
+            "description": "Initiative name or ID (provide exactly one parent)",
+            "type": "string"
+          },
+          "documentId": {
+            "description": "Document ID or slug (provide exactly one parent)",
+            "type": "string"
+          },
+          "milestoneId": {
+            "description": "Milestone UUID (provide exactly one parent). Resolve milestone names via `list_milestones` first.",
+            "type": "string"
+          },
+          "statusUpdateId": {
+            "description": "Status update UUID (provide exactly one parent). Resolve status updates via `get_status_updates` first.",
+            "type": "string"
+          },
+          "statusUpdateType": {
+            "description": "Type of status update named by `statusUpdateId`, as returned by `get_status_updates`. Only valid together with `statusUpdateId`; omit to check both project and initiative status updates.",
+            "type": "string",
+            "enum": [
+              "project",
+              "initiative"
+            ]
+          },
+          "parentId": {
+            "description": "Parent comment ID (for replies, only when creating)",
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "description": "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "a734ef7fed07fac49776257e715cc84363c7cf8570fd0786aecbd5b9c396c48f"
+    },
+    {
+      "name": "delete_comment",
+      "description": "Delete a Linear comment. Inline description comments (those with non-null `quotedText`) anchor a mark in the editor, so their root cannot be deleted — delete the replies individually or resolve the thread instead.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Comment ID"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "aac22596f2589df092e2a0ba35324e27452544bfad32cc0c0561d1d306278437"
+    },
+    {
+      "name": "list_cycles",
+      "description": "Retrieve cycles for a specific Linear team",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "description": "Team ID"
+          },
+          "type": {
+            "description": "Filter: current, previous, next, or all",
+            "type": "string",
+            "enum": [
+              "current",
+              "previous",
+              "next"
+            ]
+          }
+        },
+        "required": [
+          "teamId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "6fcdddea17d6bb5cde05dd11ea98195fa7c633ce423b26148ee3c3e356a45f3e"
+    },
+    {
+      "name": "get_document",
+      "description": "Retrieve a Linear document by ID or slug",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Document ID or slug"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "f552a91ced8cdf0ee30238606ae7d36e7e473aa0296d31d8cc0a1ef87b4c7d61"
+    },
+    {
+      "name": "list_documents",
+      "description": "List documents in the user's Linear workspace",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "query": {
+            "description": "Search query",
+            "type": "string"
+          },
+          "projectId": {
+            "description": "Filter by project ID",
+            "type": "string"
+          },
+          "initiativeId": {
+            "description": "Filter by initiative ID",
+            "type": "string"
+          },
+          "teamId": {
+            "description": "Filter by team ID",
+            "type": "string"
+          },
+          "creatorId": {
+            "description": "Filter by creator ID",
+            "type": "string"
+          },
+          "createdAt": {
+            "description": "Created after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Updated after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "includeArchived": {
+            "default": false,
+            "description": "Include archived items",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "8b1a57eee46f6a6f1c476d568ab3fe93aa02887a22c923d0bb4b5c40cb1139fb"
+    },
+    {
+      "name": "save_document",
+      "description": "Create or update a Linear document. If `id` is provided, updates the existing document; otherwise creates a new one. When creating, `title` is required and exactly one parent (`project`, `issue`, `initiative`, `cycle`, or `team`) must be specified. On update, passing a parent reparents the document.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Document ID or slug to update. Omit to create a new document.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Document title (required when creating)",
+            "type": "string"
+          },
+          "content": {
+            "description": "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+            "type": "string"
+          },
+          "project": {
+            "description": "Project name, ID, or slug",
+            "type": "string"
+          },
+          "issue": {
+            "description": "Issue ID or identifier (e.g., LIN-123)",
+            "type": "string"
+          },
+          "initiative": {
+            "description": "Initiative name or ID",
+            "type": "string"
+          },
+          "cycle": {
+            "description": "Cycle name, number, or ID. When passing a name or number, also pass `team` to disambiguate.",
+            "type": "string"
+          },
+          "team": {
+            "description": "Team name or ID. Attaches the document to the team, unless `cycle` is also passed, in which case it disambiguates the cycle.",
+            "type": "string"
+          },
+          "icon": {
+            "description": "Icon name or emoji code (e.g. \"Rocket\" or \":eagle:\"), not a raw Unicode emoji",
+            "type": "string"
+          },
+          "color": {
+            "description": "Hex color",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "1cc982bd04122878bd964bc6f36b9c0ceb567debae985e7aff1201e4e61d611f"
+    },
+    {
+      "name": "extract_images",
+      "description": "Extract and fetch images from markdown content. Use this to view screenshots, diagrams, or other images embedded in Linear issues, comments, or documents. Pass the markdown content (e.g., issue description) and receive the images as viewable data.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "markdown": {
+            "type": "string",
+            "description": "Markdown content containing image references (e.g., issue description, comment body)"
+          }
+        },
+        "required": [
+          "markdown"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "6ee9dd919cc6e1e1d7ca89d8584b3e3d683f3a9afcffdfaf919b2e424abd17bb"
+    },
+    {
+      "name": "get_issue",
+      "description": "Retrieve detailed information about an issue by ID, including attachments, git branch name, and active Triage Intelligence suggestions when the issue is in triage",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Issue ID or identifier (e.g., LIN-123)"
+          },
+          "includeRelations": {
+            "default": false,
+            "description": "Include blocking/related/duplicate relations",
+            "type": "boolean"
+          },
+          "includeCustomerNeeds": {
+            "default": false,
+            "description": "Include associated customer needs",
+            "type": "boolean"
+          },
+          "includeReleases": {
+            "default": false,
+            "description": "Include associated releases",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "b5969e0f70a5c0d6a28facab03a8dd300bb672f0bf8240a3e34ac594d04349fd"
+    },
+    {
       "name": "list_issues",
-      "description": "List issues in the user's Linear workspace. For my issues, use \"me\" as the assignee. Use \"null\" for no assignee.",
+      "description": "List issues in the user's Linear workspace, including active Triage Intelligence suggestions for issues in triage. For my issues, use \"me\" as the assignee. Use \"null\" for no assignee.",
       "inputSchema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
@@ -70,6 +662,10 @@
             "description": "Project name, ID, or slug",
             "type": "string"
           },
+          "release": {
+            "description": "Release ID or slug",
+            "type": "string"
+          },
           "priority": {
             "description": "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
             "type": "number"
@@ -95,7 +691,7 @@
         "additionalProperties": false
       },
       "outputSchema": null,
-      "schemaHash": "0140aeb2aa7575b1b2f6dbbaff9303b9a9d21ef6e9ed6e6ede06b367be25874f"
+      "schemaHash": "f2ec4a94207f5f58b8fb956741e8795d4d4383bda1d3a9817d3e1ba8318c3c1d"
     },
     {
       "name": "save_issue",
@@ -140,8 +736,15 @@
             "type": "number"
           },
           "project": {
-            "description": "Project name, ID, or slug",
-            "type": "string"
+            "description": "Project name, ID, or slug. Null to remove",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "state": {
             "description": "State type, name, or ID",
@@ -170,15 +773,43 @@
             ]
           },
           "labels": {
-            "description": "Label names or IDs",
+            "description": "Label names or IDs as a JSON array of strings (e.g. [\"Bug\", \"Urgent\"]). Replaces the full label set; existing labels not included are removed. Omit to leave labels unchanged",
             "type": "array",
             "items": {
               "type": "string"
             }
           },
           "dueDate": {
-            "description": "Due date (ISO format)",
-            "type": "string"
+            "description": "Due date (ISO format). On update, pass null to remove the due date",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slaBreachesAt": {
+            "description": "ISO-8601 timestamp when the SLA will breach. On update, pass null to remove the SLA",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "slaType": {
+            "description": "SLA day counting type: \"all\" or \"onlyBusinessDays\". Only use with slaBreachesAt",
+            "type": "string",
+            "enum": [
+              "all",
+              "onlyBusinessDays"
+            ]
           },
           "parentId": {
             "description": "Parent issue ID or identifier (e.g., LIN-123). Null to remove",
@@ -192,8 +823,15 @@
             ]
           },
           "estimate": {
-            "description": "Issue estimate value",
-            "type": "number"
+            "description": "Issue estimate value. On create, pass null or omit for no estimate. On update, pass null to clear the estimate; omitting leaves it unchanged. 0 is a real estimate only on teams that allow zero estimates.",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "links": {
             "description": "Link attachments to add [{url, title}]. Append-only; existing links are never removed",
@@ -214,6 +852,27 @@
                 "url",
                 "title"
               ]
+            }
+          },
+          "setReleases": {
+            "description": "Replace all releases on the issue with these. Cannot be combined with addReleases/removeReleases",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "addReleases": {
+            "description": "Release IDs or slugs to add. Append-only; existing releases are never removed",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removeReleases": {
+            "description": "Release IDs or slugs to remove. Only valid when updating an existing issue",
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           },
           "blocks": {
@@ -273,46 +932,968 @@
         "additionalProperties": false
       },
       "outputSchema": null,
-      "schemaHash": "57b5444fda895fee62ed0e08ccaaa1e9a438071edc5227f6fe7429fee6c04628"
+      "schemaHash": "1fd1b57e90b57f24593d5b3f39b61d0655b13486902072cdbe53bbc647fbc291"
     },
     {
-      "name": "save_comment",
-      "description": "Create or update a comment on a Linear issue, project, initiative, document, or project milestone. If `id` is provided, updates the existing comment; otherwise creates a new one. To start a new thread, pass `body` and exactly one of `issueId`, `projectId`, `initiativeId`, `documentId`, or `milestoneId` — comments on issues/projects/initiatives become top-level discussion threads; comments on documents/milestones become description comments. To reply to an existing thread, pass `parentId` and `body`; the reply inherits the parent's thread type, so no entity reference is needed.",
+      "name": "list_issue_statuses",
+      "description": "List available issue statuses in a Linear team",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "team": {
+            "type": "string",
+            "description": "Team name or ID"
+          }
+        },
+        "required": [
+          "team"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "9e25c0d13f37b8f89f4b6423e35c9b0de46ebd4ef16671c971e1360b87765374"
+    },
+    {
+      "name": "get_issue_status",
+      "description": "Retrieve detailed information about an issue status in Linear by name or ID",
       "inputSchema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {
           "id": {
-            "description": "Comment ID. If provided, updates the existing comment",
+            "type": "string",
+            "description": "Status ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Status name"
+          },
+          "team": {
+            "type": "string",
+            "description": "Team name or ID"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "af38aadbd14c26a171061128499f26d3a61d3ab7a8c8920c915fafcc2c14596e"
+    },
+    {
+      "name": "list_issue_labels",
+      "description": "List available issue labels in a Linear workspace or team",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
             "type": "string"
           },
-          "issueId": {
-            "description": "Issue ID or identifier (e.g., LIN-123) (provide exactly one parent)",
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "name": {
+            "description": "Filter by name",
             "type": "string"
           },
-          "projectId": {
-            "description": "Project name, ID, or slug (provide exactly one parent)",
+          "team": {
+            "description": "Team name or ID",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "a8873ab1da2294a6c387503c7fc44364d2f9eaf243f6b56727dcc2ec1d089193"
+    },
+    {
+      "name": "create_issue_label",
+      "description": "Create a new Linear issue label",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Label name"
+          },
+          "description": {
+            "description": "Label description",
             "type": "string"
           },
-          "initiativeId": {
-            "description": "Initiative name or ID (provide exactly one parent)",
+          "color": {
+            "description": "Hex color code",
             "type": "string"
           },
-          "documentId": {
-            "description": "Document ID or slug (provide exactly one parent)",
+          "teamId": {
+            "description": "Team UUID (omit for workspace label)",
             "type": "string"
           },
-          "milestoneId": {
-            "description": "Milestone UUID (provide exactly one parent). Resolve milestone names via `list_milestones` first.",
+          "parent": {
+            "description": "Parent label group name",
+            "type": "string"
+          },
+          "isGroup": {
+            "default": false,
+            "description": "Is label group (not directly applicable)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "bb78ceac5c5fead458015b1d1c6c17c58cb22ea3214ba66be0d42c683c9fd4cf"
+    },
+    {
+      "name": "list_projects",
+      "description": "List projects in the user's Linear workspace",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 50)",
+            "type": "number",
+            "maximum": 50
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "query": {
+            "description": "Search project name",
+            "type": "string"
+          },
+          "state": {
+            "description": "State type, name, or ID",
+            "type": "string"
+          },
+          "initiative": {
+            "description": "Initiative name or ID",
+            "type": "string"
+          },
+          "team": {
+            "description": "Team name or ID",
+            "type": "string"
+          },
+          "member": {
+            "description": "User ID, name, email, or \"me\"",
+            "type": "string"
+          },
+          "label": {
+            "description": "Label name or ID",
+            "type": "string"
+          },
+          "createdAt": {
+            "description": "Created after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Updated after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "includeMilestones": {
+            "default": false,
+            "description": "Include milestones",
+            "type": "boolean"
+          },
+          "includeMembers": {
+            "default": false,
+            "description": "Include project members",
+            "type": "boolean"
+          },
+          "includeArchived": {
+            "default": false,
+            "description": "Include archived items",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "dec2ed258634803e6127c0c8602c2b7b65c5bbdf7d1ef488a7529c8533c04cff"
+    },
+    {
+      "name": "get_project",
+      "description": "Retrieve details of a specific project in Linear",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Project name, ID, or slug"
+          },
+          "includeMilestones": {
+            "default": false,
+            "description": "Include milestones",
+            "type": "boolean"
+          },
+          "includeMembers": {
+            "default": false,
+            "description": "Include project members",
+            "type": "boolean"
+          },
+          "includeResources": {
+            "default": false,
+            "description": "Include resources (documents, links, attachments)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "784176c019bcb07e477018ce2d9c45c50ee82143f953bfc8d5b8b65bd7ed7b28"
+    },
+    {
+      "name": "save_project",
+      "description": "Create or update a Linear project. If `id` is provided, updates the existing project; otherwise creates a new one. When creating, `name` and at least one team (via `addTeams` or `setTeams`) are required.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Project ID. If provided, updates the existing project",
+            "type": "string"
+          },
+          "name": {
+            "description": "Project name (required when creating)",
+            "type": "string"
+          },
+          "icon": {
+            "description": "Icon name or emoji code (e.g. \"Rocket\" or \":eagle:\"), not a raw Unicode emoji",
+            "type": "string"
+          },
+          "color": {
+            "description": "Hex color",
+            "type": "string"
+          },
+          "summary": {
+            "description": "Short summary (max 255 chars)",
+            "type": "string"
+          },
+          "description": {
+            "description": "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+            "type": "string"
+          },
+          "state": {
+            "description": "Project state",
+            "type": "string"
+          },
+          "startDate": {
+            "description": "Start date (ISO format). Pair with startDateResolution to indicate precision (e.g. month, quarter)",
+            "type": "string"
+          },
+          "startDateResolution": {
+            "description": "Start date resolution",
+            "type": "string",
+            "enum": [
+              "halfYear",
+              "month",
+              "quarter",
+              "year"
+            ]
+          },
+          "targetDate": {
+            "description": "Target date (ISO format). Pair with targetDateResolution to indicate precision (e.g. month, quarter)",
+            "type": "string"
+          },
+          "targetDateResolution": {
+            "description": "Target date resolution",
+            "type": "string",
+            "enum": [
+              "halfYear",
+              "month",
+              "quarter",
+              "year"
+            ]
+          },
+          "priority": {
+            "description": "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "addTeams": {
+            "description": "Team name or ID to add",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removeTeams": {
+            "description": "Team name or ID to remove",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "setTeams": {
+            "description": "Replace all teams with these. Cannot combine with addTeams/removeTeams",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "description": "Label names or IDs as a JSON array of strings (e.g. [\"Bug\", \"Urgent\"]). Replaces the full label set; existing labels not included are removed. Omit to leave labels unchanged",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lead": {
+            "description": "User ID, name, email, or \"me\". Null to remove",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "addInitiatives": {
+            "description": "Initiative names/IDs to add",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removeInitiatives": {
+            "description": "Initiative names/IDs to remove",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "setInitiatives": {
+            "description": "Replace all initiatives with these. Cannot combine with addInitiatives/removeInitiatives",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "d8a34afcb80039b373f4c55828fb3c89dc5fe34513db8818f2343c37ddfc6061"
+    },
+    {
+      "name": "list_project_labels",
+      "description": "List available project labels in the Linear workspace",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "name": {
+            "description": "Filter by name",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "9e23fb0259f063aafa1b39d205843d4e4249a7d1d852974807425dae13afec70"
+    },
+    {
+      "name": "list_release_pipelines",
+      "description": "List release pipelines in the workspace.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "query": {
+            "description": "Search pipeline name",
+            "type": "string"
+          },
+          "team": {
+            "description": "Team name or ID",
+            "type": "string"
+          },
+          "type": {
+            "description": "Pipeline type: continuous | scheduled",
+            "type": "string",
+            "enum": [
+              "continuous",
+              "scheduled"
+            ]
+          },
+          "isProduction": {
+            "description": "Filter by production pipeline flag",
+            "type": "boolean"
+          },
+          "includeStages": {
+            "default": false,
+            "description": "Include each pipeline's stages",
+            "type": "boolean"
+          },
+          "includeTeams": {
+            "default": false,
+            "description": "Include each pipeline's teams",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "description": "Created after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Updated after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "includeArchived": {
+            "default": false,
+            "description": "Include archived items",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "07296c819abed70c253220ff33f687315a9d1f4146bc86315a95499aeb208b2b"
+    },
+    {
+      "name": "list_releases",
+      "description": "List releases in the workspace, with optional filtering by pipeline, stage, version, and text.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "query": {
+            "description": "Search release name or version",
+            "type": "string"
+          },
+          "pipeline": {
+            "description": "Release pipeline ID, slug, or exact name",
+            "type": "string"
+          },
+          "stage": {
+            "description": "Release stage ID or exact name",
+            "type": "string"
+          },
+          "stageType": {
+            "description": "Filter by stage lifecycle type",
+            "type": "string",
+            "enum": [
+              "planned",
+              "started",
+              "completed",
+              "canceled"
+            ]
+          },
+          "version": {
+            "description": "Exact version match",
+            "type": "string"
+          },
+          "hasReleaseNotes": {
+            "description": "Filter to releases that do (true) or do not (false) have release notes",
+            "type": "boolean"
+          },
+          "includeReleaseNotes": {
+            "default": false,
+            "description": "Include associated release notes",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "description": "Created after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Updated after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "includeArchived": {
+            "default": false,
+            "description": "Include archived items",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "3f621ba932023957ecc9d7e1dcc13ec0134ad5045fa9f7b90077bb13a06ae8e0"
+    },
+    {
+      "name": "get_release",
+      "description": "Retrieve details of a release by ID or slug.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Release ID or slug"
+          },
+          "includeReleaseNotes": {
+            "default": false,
+            "description": "Include associated release notes",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "8c5ba09cd9cb6addb14c9978dc4ddeaea4c4d729d641492bd77854d47185017d"
+    },
+    {
+      "name": "save_release",
+      "description": "Create or update a release. If `id` is provided, updates the existing release; otherwise creates a new one. When creating, `name` and `pipeline` are required. Release status is modeled as the release pipeline stage.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Release ID or slug to update. Omit to create a new release.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Release name (required when creating)",
+            "type": "string"
+          },
+          "description": {
+            "description": "Release description",
+            "type": "string"
+          },
+          "version": {
+            "description": "Version identifier",
+            "type": "string"
+          },
+          "pipeline": {
+            "description": "Release pipeline ID, slug, or exact name (required when creating)",
+            "type": "string"
+          },
+          "stage": {
+            "description": "Release stage ID, exact name, or lifecycle type within the release pipeline",
+            "type": "string"
+          },
+          "startDate": {
+            "description": "Estimated start date (ISO YYYY-MM-DD, null to remove)",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "targetDate": {
+            "description": "Estimated completion date (ISO YYYY-MM-DD, null to remove)",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "description": "Import/create timestamp (ISO DateTime)",
+            "type": "string"
+          },
+          "startedAt": {
+            "description": "Started timestamp (ISO DateTime, null to remove)",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completedAt": {
+            "description": "Completed timestamp (ISO DateTime, null to remove)",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commitSha": {
+            "description": "Commit SHA associated with the release",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "45a0186c2de13cdb94f4af7496be886102871cb3154ca334afbd39af54e47e31"
+    },
+    {
+      "name": "list_release_notes",
+      "description": "List release notes in the workspace, optionally filtered by pipeline or covered release.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "query": {
+            "description": "Search release notes title",
+            "type": "string"
+          },
+          "pipeline": {
+            "description": "Release pipeline ID, slug, or exact name",
+            "type": "string"
+          },
+          "release": {
+            "description": "Release ID or slug",
+            "type": "string"
+          },
+          "includeContent": {
+            "default": false,
+            "description": "Include markdown release notes content",
+            "type": "boolean"
+          },
+          "includeReleases": {
+            "default": false,
+            "description": "Include associated releases",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "description": "Created after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Updated after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "includeArchived": {
+            "default": false,
+            "description": "Include archived items",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "51ad9491ca397129abcde2c3a02d91a4d18242057cd265b28b468ebc4ae1165e"
+    },
+    {
+      "name": "get_release_note",
+      "description": "Retrieve release notes by ID or slug, including markdown content.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Release notes ID or slug"
+          },
+          "includeReleases": {
+            "default": false,
+            "description": "Include associated releases",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "56845b9ead5e4af15d4a6f3841d0da92992f99e799aeb8a5e66064c79eeb23b5"
+    },
+    {
+      "name": "save_release_note",
+      "description": "Create or update release notes. If `id` is provided, updates the existing release notes; otherwise creates a new one. When creating, `pipeline` and either `releases` or a release range are required.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Release notes ID or slug to update. Omit to create new release notes.",
+            "type": "string"
+          },
+          "pipeline": {
+            "description": "Release pipeline ID, slug, or exact name (required when creating)",
+            "type": "string"
+          },
+          "title": {
+            "description": "Release notes title",
+            "type": "string"
+          },
+          "content": {
+            "description": "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+            "type": "string"
+          },
+          "releases": {
+            "description": "Release IDs or slugs to include in the note",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rangeFromRelease": {
+            "description": "Oldest release ID or slug in the note range",
+            "type": "string"
+          },
+          "rangeToRelease": {
+            "description": "Newest release ID or slug in the note range",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "4efe530d9604ac77be7b31fbaab30ed803b00c4f2333ca7d689e802c9a3688c4"
+    },
+    {
+      "name": "get_diff",
+      "description": "Exact lookup for a Linear diff. Use with review URLs, GitHub PR URLs, Linear full identifiers, UUIDs, or slugs.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "urlOrId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Linear review URL, diff slug, pull request ID, Linear full identifier, or GitHub PR URL"
+          }
+        },
+        "required": [
+          "urlOrId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "828af88e67209af121141c83d6656bf38c1b256f6f4b2d491bee4b3527bb68ef"
+    },
+    {
+      "name": "list_diffs",
+      "description": "List Linear diff pull requests visible to the authenticated user",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "query": {
+            "description": "Broad search by title, branch, PR number, or bare slug",
+            "type": "string"
+          },
+          "owner": {
+            "description": "Filter returned diffs by repository owner",
+            "type": "string"
+          },
+          "repo": {
+            "description": "Filter returned diffs by repository name",
+            "type": "string"
+          },
+          "status": {
+            "description": "Filter returned diffs by pull request status",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "d436b90b54b1087ee87a03136ac089857659b7e21d20bcb9b1b27fc0822c842b"
+    },
+    {
+      "name": "get_diff_threads",
+      "description": "Exact lookup for diff threads. Use with review URLs, GitHub PR URLs, Linear full identifiers, UUIDs, or slugs.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "urlOrId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Linear review URL, diff slug, pull request ID, Linear full identifier, or GitHub PR URL"
+          },
+          "threadId": {
+            "description": "Optional top-level thread/comment ID to return",
+            "type": "string"
+          },
+          "resolved": {
+            "description": "Filter returned threads by resolved state",
+            "type": "boolean"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          }
+        },
+        "required": [
+          "urlOrId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "0d10df8702305e6a9d66dfafebd3598f0299fb2bf20830fb92df2b4f656af62f"
+    },
+    {
+      "name": "save_diff_comment",
+      "description": "Create, reply to, or edit a comment on a Linear diff. Provide urlOrId when creating a comment or reply; provide commentId to edit an existing comment.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "urlOrId": {
+            "description": "Linear review URL, diff slug, pull request ID, Linear full identifier, or GitHub PR URL",
+            "type": "string",
+            "minLength": 1
+          },
+          "commentId": {
+            "description": "Existing comment ID to edit",
             "type": "string"
           },
           "parentId": {
-            "description": "Parent comment ID (for replies, only when creating)",
+            "description": "Top-level comment ID to reply to",
             "type": "string"
           },
           "body": {
             "type": "string",
-            "description": "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)"
+            "minLength": 1,
+            "description": "Comment body as plain text"
+          },
+          "anchor": {
+            "description": "Optional comment anchor copied from a diff thread or built for a file or diff hunk",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
           }
         },
         "required": [
@@ -321,7 +1902,516 @@
         "additionalProperties": false
       },
       "outputSchema": null,
-      "schemaHash": "29db7173131cd75c0fc5a71c7cbf0b36f817ca42ac51bb2237ff0f03a9c4a8f7"
+      "schemaHash": "f935630ca629c6b1818e5492740b49c44bf2c28233bd17a557c72ed3346f14eb"
+    },
+    {
+      "name": "resolve_diff_thread",
+      "description": "Resolve or reopen a top-level comment thread on a Linear diff",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Top-level diff thread/comment ID"
+          },
+          "resolved": {
+            "default": true,
+            "description": "True to resolve the thread; false to reopen it",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "threadId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "b4959e249ed320a98ca32d726b27a1ce7a2208ebcbbeab68952e7bfd89f32356"
+    },
+    {
+      "name": "delete_diff_comment",
+      "description": "Delete a comment from a Linear diff",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "commentId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Diff comment ID to delete"
+          }
+        },
+        "required": [
+          "commentId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "072a16a7361e6e6181091ce1180500b3b9703c22843e854857158b5588a24f32"
+    },
+    {
+      "name": "submit_diff_review",
+      "description": "Approve a Linear diff, request changes, or submit a review comment",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "urlOrId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Linear review URL, diff slug, pull request ID, Linear full identifier, or GitHub PR URL"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "changesRequested",
+              "commented"
+            ],
+            "description": "Review decision: approved, changesRequested, or commented"
+          },
+          "body": {
+            "description": "Optional review body; required when requesting changes or commenting",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "urlOrId",
+          "decision"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "d9c59b2336875f878c075a4d1a3c32c11bac95e7c802c4ee15addde99b49c559"
+    },
+    {
+      "name": "merge_diff",
+      "description": "Merge a Linear diff or add it to the repository's merge queue",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "urlOrId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Linear review URL, diff slug, pull request ID, Linear full identifier, or GitHub PR URL"
+          },
+          "mergeMethod": {
+            "description": "Merge method; omit to use the repository default",
+            "type": "string",
+            "enum": [
+              "MERGE",
+              "REBASE",
+              "SQUASH"
+            ]
+          }
+        },
+        "required": [
+          "urlOrId"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "d2e258eadf258c1cefbc24c327c23a01e0cd931c3ffe6692489c110f2612bc17"
+    },
+    {
+      "name": "list_milestones",
+      "description": "List all milestones in a Linear project",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "description": "Project name, ID, or slug"
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "ab07e321a762bf8f7bef9a5678de99b37cc6c92a48fb101569a2859c3af1cdee"
+    },
+    {
+      "name": "get_milestone",
+      "description": "Retrieve details of a specific milestone by ID or name",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "description": "Project name, ID, or slug"
+          },
+          "query": {
+            "type": "string",
+            "description": "Milestone name or ID"
+          }
+        },
+        "required": [
+          "project",
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "f282dee4a4f682a48c2acf13307a0acdc478aef487ec6ade89ac1c9acee7eaf0"
+    },
+    {
+      "name": "save_milestone",
+      "description": "Create or update a milestone in a Linear project. If `id` is provided, updates the existing milestone; otherwise creates a new one. When creating, `name` is required.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "project": {
+            "type": "string",
+            "description": "Project name, ID, or slug"
+          },
+          "id": {
+            "description": "Milestone name or ID",
+            "type": "string"
+          },
+          "name": {
+            "description": "Milestone name (required when creating)",
+            "type": "string"
+          },
+          "description": {
+            "description": "Milestone description",
+            "type": "string"
+          },
+          "targetDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Target completion date (ISO format, null to remove)"
+          }
+        },
+        "required": [
+          "project"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "a83e8f5a9123eb3290e90b088c311d82cb63b1c2251e77cfa163d1a59328d2a8"
+    },
+    {
+      "name": "list_teams",
+      "description": "List teams in the user's Linear workspace",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "query": {
+            "description": "Search query",
+            "type": "string"
+          },
+          "includeArchived": {
+            "default": false,
+            "description": "Include archived items",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "description": "Created after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Updated after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "01c859b16bfa3e54d98edb56e6d9e55306f3275e220c7cbf57654f4b45a3d20d"
+    },
+    {
+      "name": "get_team",
+      "description": "Retrieve details of a specific Linear team",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Team UUID, key, or name"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "539b018e28b13df185c11af9a1487599416f0de05c0e889341f85332a7a7953c"
+    },
+    {
+      "name": "list_users",
+      "description": "Retrieve users in the Linear workspace",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "query": {
+            "description": "Filter by name or email",
+            "type": "string"
+          },
+          "team": {
+            "description": "Team name or ID",
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "e41f5fd0c0c1beaa6c6177f98e90ae43e98fcaf301d75b62f8b2b94c504ed16d"
+    },
+    {
+      "name": "get_user",
+      "description": "Retrieve details of a specific Linear user",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "User ID, name, email, or \"me\""
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "1627e66b8f14c17907974f8136c45bd2bb4bd1f806a6447207275ab2a1d2ab14"
+    },
+    {
+      "name": "search_documentation",
+      "description": "Search Linear's documentation to learn about features and usage",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query"
+          },
+          "page": {
+            "default": 0,
+            "description": "Page number",
+            "type": "number"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "5d3303dffe8dfe2d6420b5c9ea1c9a9510fe1a334ae5e44cf248a48b808182da"
+    },
+    {
+      "name": "get_status_updates",
+      "description": "List or get project/initiative status updates. Pass `id` to get a specific update, or filter to list.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 50,
+            "description": "Max results (default 50, max 250)",
+            "type": "number",
+            "maximum": 250
+          },
+          "cursor": {
+            "description": "Next page cursor",
+            "type": "string"
+          },
+          "orderBy": {
+            "default": "updatedAt",
+            "description": "Sort: createdAt | updatedAt",
+            "type": "string",
+            "enum": [
+              "createdAt",
+              "updatedAt"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "project",
+              "initiative"
+            ],
+            "description": "Type of status update"
+          },
+          "id": {
+            "description": "Status update ID - if provided, returns this specific update",
+            "type": "string"
+          },
+          "project": {
+            "description": "Project name, ID, or slug",
+            "type": "string"
+          },
+          "initiative": {
+            "description": "Initiative name or ID",
+            "type": "string"
+          },
+          "user": {
+            "description": "User ID, name, email, or \"me\"",
+            "type": "string"
+          },
+          "createdAt": {
+            "description": "Created after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Updated after: ISO-8601 date/duration (e.g., -P1D)",
+            "type": "string"
+          },
+          "includeArchived": {
+            "default": false,
+            "description": "Include archived items",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "feee31a61cfe0d784fd8dd356e49e2db65c652aa72b2de9a62e643f5f7f5f0ad"
+    },
+    {
+      "name": "save_status_update",
+      "description": "Create or update a project/initiative status update. Omit `id` to create, provide `id` to update.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "project",
+              "initiative"
+            ],
+            "description": "Type of status update"
+          },
+          "id": {
+            "description": "Status update ID - if provided, updates this existing update",
+            "type": "string"
+          },
+          "project": {
+            "description": "Project name, ID, or slug",
+            "type": "string"
+          },
+          "initiative": {
+            "description": "Initiative name or ID",
+            "type": "string"
+          },
+          "body": {
+            "description": "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+            "type": "string"
+          },
+          "health": {
+            "description": "onTrack | atRisk | offTrack",
+            "type": "string",
+            "enum": [
+              "onTrack",
+              "atRisk",
+              "offTrack"
+            ]
+          },
+          "isDiffHidden": {
+            "description": "Deprecated. Hide diff with previous update (create only)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "da7f140c8e262e99cb59446b5eab34b9850615c53b7d24b3417e2667902d0700"
+    },
+    {
+      "name": "delete_status_update",
+      "description": "Delete (archive) a project or initiative status update.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "project",
+              "initiative"
+            ],
+            "description": "Type of status update"
+          },
+          "id": {
+            "type": "string",
+            "description": "Status update ID"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": null,
+      "schemaHash": "58ef73bc4e2494fcba0d01efc2a9c9f67ebac879216e893d2b3476c9b04b75d1"
     }
   ]
 }

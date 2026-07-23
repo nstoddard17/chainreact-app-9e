@@ -4,8 +4,8 @@
     {
       "key": "linear:find_issues",
       "tool": "list_issues",
-      "schemaQuality": "good",
-      "outputQuality": "poor",
+      "schemaQuality": "fair",
+      "outputQuality": "good",
       "descriptionQuality": "good",
       "complexity": "high",
       "pickerSupport": "none",
@@ -14,9 +14,9 @@
         "classification": "read",
         "level": "low"
       },
-      "planningQuality": "poor",
-      "configurationQuality": "good",
-      "schemaHash": "0140aeb2aa7575b1b2f6dbbaff9303b9a9d21ef6e9ed6e6ede06b367be25874f"
+      "planningQuality": "good",
+      "configurationQuality": "fair",
+      "schemaHash": "f2ec4a94207f5f58b8fb956741e8795d4d4383bda1d3a9817d3e1ba8318c3c1d"
     },
     {
       "key": "linear:create_issue",
@@ -33,7 +33,7 @@
       },
       "planningQuality": "poor",
       "configurationQuality": "fair",
-      "schemaHash": "57b5444fda895fee62ed0e08ccaaa1e9a438071edc5227f6fe7429fee6c04628"
+      "schemaHash": "1fd1b57e90b57f24593d5b3f39b61d0655b13486902072cdbe53bbc647fbc291"
     },
     {
       "key": "linear:update_issue",
@@ -50,7 +50,7 @@
       },
       "planningQuality": "poor",
       "configurationQuality": "fair",
-      "schemaHash": "57b5444fda895fee62ed0e08ccaaa1e9a438071edc5227f6fe7429fee6c04628"
+      "schemaHash": "1fd1b57e90b57f24593d5b3f39b61d0655b13486902072cdbe53bbc647fbc291"
     },
     {
       "key": "linear:add_comment",
@@ -67,7 +67,7 @@
       },
       "planningQuality": "poor",
       "configurationQuality": "fair",
-      "schemaHash": "29db7173131cd75c0fc5a71c7cbf0b36f817ca42ac51bb2237ff0f03a9c4a8f7"
+      "schemaHash": "a734ef7fed07fac49776257e715cc84363c7cf8570fd0786aecbd5b9c396c48f"
     }
   ]
 }

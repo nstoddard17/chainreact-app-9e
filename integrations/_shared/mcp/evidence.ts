@@ -218,13 +218,19 @@ export function selectEvidenceTools(
   const skipped: EvidenceSkip[] = [];
 
   for (const entry of catalog.tools) {
-    if (entry.decision !== "ship") continue;
+    const sampleArgs = entry.evidence?.sampleArgs;
+    const hasEvidence = !!sampleArgs;
+    // Surface SHIP tools (so missing coverage is visible) and any tool that
+    // carries an explicit evidence approval (e.g. a `defer`'d resolver-source
+    // list tool — captured for resolver design, not shipped as an action).
+    // Other non-ship tools are ignored to avoid clutter.
+    if (entry.decision !== "ship" && !hasEvidence) continue;
     const effectiveRisk = entry.risk ?? classifyToolRisk(entry.tool);
     if (effectiveRisk !== "read") {
       skipped.push({ tool: entry.tool, reason: `not read-only (risk: ${effectiveRisk}) — write-tool evidence execution is deferred (CS-5A)` });
       continue;
     }
-    if (!entry.evidence?.sampleArgs) {
+    if (!hasEvidence) {
       skipped.push({ tool: entry.tool, reason: "no evidence approval — add an `evidence.sampleArgs` block to the catalog to allow capture" });
       continue;
     }
@@ -233,7 +239,7 @@ export function selectEvidenceTools(
       skipped.push({ tool: entry.tool, reason: "tool missing from the snapshot — re-capture first" });
       continue;
     }
-    callable.push({ tool: entry.tool, schemaHash, sampleArgs: entry.evidence.sampleArgs });
+    callable.push({ tool: entry.tool, schemaHash, sampleArgs });
   }
   return { callable, skipped };
 }

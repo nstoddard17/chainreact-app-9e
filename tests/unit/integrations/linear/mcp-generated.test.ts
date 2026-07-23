@@ -82,8 +82,17 @@ describe("generated Linear metas", () => {
     expect(addCommentMeta.fields.find((f) => f.name === "body")).toMatchObject({ required: true });
   });
 
-  it("bounded outputs only (text default until live structured evidence exists)", () => {
-    for (const meta of ALL_METAS) {
+  it("bounded outputs: find_issues structured from live evidence; writes stay text-only (CS-6)", () => {
+    // find_issues — CERTIFIED structured output from the real captured
+    // list_issues shape (mcp-evidence.json): a page + Linear pagination fields.
+    expect(findIssuesMeta.outputs.map((o) => `${o.name}:${o.type}`)).toEqual([
+      "issues:array",
+      "hasNextPage:boolean",
+      "cursor:string",
+    ]);
+    // save_issue / save_comment are WRITES, not auto-captured → no certified
+    // result shape → text-only (never fabricated).
+    for (const meta of [createIssueMeta, updateIssueMeta, addCommentMeta]) {
       expect(meta.outputs).toEqual([expect.objectContaining({ name: "text", type: "string" })]);
     }
   });
@@ -149,7 +158,13 @@ describe("capability report + registration fragments", () => {
       ALL_METAS.map((m) => m.key).sort(),
     );
     expect(report.actions.every((a) => a.verified === false)).toBe(true);
-    expect(report.actions.every((a) => a.outputQuality === "poor")).toBe(true); // text-only until live capture
+    // CS-6 — find_issues has a live-evidence-backed structured output (good);
+    // the write actions remain text-only (poor) pending write-result evidence.
+    const byKey = new Map(report.actions.map((a) => [a.key, a]));
+    expect(byKey.get("linear:find_issues")!.outputQuality).toBe("good");
+    for (const k of ["linear:create_issue", "linear:update_issue", "linear:add_comment"]) {
+      expect(byKey.get(k)!.outputQuality).toBe("poor");
+    }
   });
 
   it("registration fragments cover the 4 shipped actions", () => {

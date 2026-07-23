@@ -46,7 +46,18 @@ filter decisions (Setup); static-resource filters (team/state/assignee/label/pro
 share the resolver-deferral note. `limit`, `cursor`, `orderBy`, `includeArchived`,
 `delegate`, `parentId`, `createdAt`, `updatedAt` = advanced controls.
 
-## Option resolvers — DEFERRED (documented per the task; NOT faked)
+> **CS-6 update (live capture done).** The snapshot is now a real 52-tool live
+> capture; the list tools backing these pickers are CONFIRMED
+> (`list_teams`/`list_projects`/`list_users`/`list_issue_statuses`/`list_issue_labels`)
+> and added to the catalog as `defer` resolver sources with read-only evidence
+> approvals. `find_issues` now ships a certified structured output. What remains
+> to turn the static-resource fields below into pickers is a **second evidence
+> pass** to record the list tools' result shapes, then shipping the resolvers —
+> see [`live-capture-evidence.md`](./live-capture-evidence.md). Resolvers are NOT
+> yet shipped (no fabricated shapes), so the fields below stay name-or-id text
+> for now.
+
+## Option resolvers — PRIMED, not yet shipped (documented per the task; NOT faked)
 
 **Decision: no option resolvers ship in CS-3. Team / Project / State / Assignee / Label
 stay text inputs that accept a NAME or an id.** This is honest and rule-compliant, not a
@@ -82,13 +93,17 @@ standard `services/options` one, unchanged for MCP:
   regenerate; the `option-source-reference-integrity` test enforces the resolver exists.
 - Manual name-or-id entry stays available in Advanced for power users (as today).
 
-## Outputs — text interim, structured at certification
+## Outputs — CS-6 status (partly certified)
 
-Every node ships one `{ text: string }` output (the tool's result text; for a write this
-typically includes the created/updated identifier, e.g. "Created LIN-42"). The executor
-already supports bounded STRUCTURED outputs; once live capture yields representative
-`structuredContent`, curate bounded outputs (e.g. Create Issue → `identifier`, `id`,
-`url`, `title`, `state`) so downstream steps consume a clean `{{node.identifier}}` instead
-of parsing prose. No code change — a curated `outputs` block on the catalog entry +
-regenerate. This is the CS-6 deliverable that fully realizes the brief's "Create Linear
-issue → send issue identifier to Slack" example with a first-class variable.
+- **Find Issues — CERTIFIED structured** from the real captured `list_issues`
+  shape: `issues: array`, `hasNextPage: boolean`, `cursor: string`. Downstream
+  reads `{{find.issues}}` (each issue carries id/title/url/status/team/priority).
+- **Create / Update Issue, Add Comment — still text-only.** Their tools
+  (`save_issue`/`save_comment`) are WRITES and were not auto-captured
+  (write-evidence deferred) — the result shape is not certified, so we do NOT
+  fabricate a structured output. The identifier the brief's "Create issue → Slack"
+  example wants lives on `save_issue`'s write result (list_issues does NOT return
+  it), so certifying `create_issue` → `{ identifier, id, url, … }` needs a
+  write-evidence capture (explicit operator mode) — the remaining gap for that
+  flagship workflow. The executor already supports the structured shape; this is
+  a curation + evidence step, no code change.

@@ -8,7 +8,7 @@
  */
 export const linearPinnedToolSchemas: Record<string, { schemaHash: string; inputSchema: Record<string, unknown> }> = {
   "list_issues": {
-    schemaHash: "0140aeb2aa7575b1b2f6dbbaff9303b9a9d21ef6e9ed6e6ede06b367be25874f",
+    schemaHash: "f2ec4a94207f5f58b8fb956741e8795d4d4383bda1d3a9817d3e1ba8318c3c1d",
     inputSchema: {
       $schema: "http://json-schema.org/draft-07/schema#",
       type: "object",
@@ -71,6 +71,10 @@ export const linearPinnedToolSchemas: Record<string, { schemaHash: string; input
           description: "Project name, ID, or slug",
           type: "string",
         },
+        release: {
+          description: "Release ID or slug",
+          type: "string",
+        },
         priority: {
           description: "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
           type: "number",
@@ -97,7 +101,7 @@ export const linearPinnedToolSchemas: Record<string, { schemaHash: string; input
     },
   },
   "save_issue": {
-    schemaHash: "57b5444fda895fee62ed0e08ccaaa1e9a438071edc5227f6fe7429fee6c04628",
+    schemaHash: "1fd1b57e90b57f24593d5b3f39b61d0655b13486902072cdbe53bbc647fbc291",
     inputSchema: {
       $schema: "http://json-schema.org/draft-07/schema#",
       type: "object",
@@ -138,8 +142,15 @@ export const linearPinnedToolSchemas: Record<string, { schemaHash: string; input
           type: "number",
         },
         project: {
-          description: "Project name, ID, or slug",
-          type: "string",
+          description: "Project name, ID, or slug. Null to remove",
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
         },
         state: {
           description: "State type, name, or ID",
@@ -168,15 +179,43 @@ export const linearPinnedToolSchemas: Record<string, { schemaHash: string; input
           ],
         },
         labels: {
-          description: "Label names or IDs",
+          description: "Label names or IDs as a JSON array of strings (e.g. [\"Bug\", \"Urgent\"]). Replaces the full label set; existing labels not included are removed. Omit to leave labels unchanged",
           type: "array",
           items: {
             type: "string",
           },
         },
         dueDate: {
-          description: "Due date (ISO format)",
+          description: "Due date (ISO format). On update, pass null to remove the due date",
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        slaBreachesAt: {
+          description: "ISO-8601 timestamp when the SLA will breach. On update, pass null to remove the SLA",
+          anyOf: [
+            {
+              type: "string",
+              format: "date-time",
+              pattern: "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        slaType: {
+          description: "SLA day counting type: \"all\" or \"onlyBusinessDays\". Only use with slaBreachesAt",
           type: "string",
+          enum: [
+            "all",
+            "onlyBusinessDays",
+          ],
         },
         parentId: {
           description: "Parent issue ID or identifier (e.g., LIN-123). Null to remove",
@@ -190,8 +229,15 @@ export const linearPinnedToolSchemas: Record<string, { schemaHash: string; input
           ],
         },
         estimate: {
-          description: "Issue estimate value",
-          type: "number",
+          description: "Issue estimate value. On create, pass null or omit for no estimate. On update, pass null to clear the estimate; omitting leaves it unchanged. 0 is a real estimate only on teams that allow zero estimates.",
+          anyOf: [
+            {
+              type: "number",
+            },
+            {
+              type: "null",
+            },
+          ],
         },
         links: {
           description: "Link attachments to add [{url, title}]. Append-only; existing links are never removed",
@@ -212,6 +258,27 @@ export const linearPinnedToolSchemas: Record<string, { schemaHash: string; input
               "url",
               "title",
             ],
+          },
+        },
+        setReleases: {
+          description: "Replace all releases on the issue with these. Cannot be combined with addReleases/removeReleases",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+        addReleases: {
+          description: "Release IDs or slugs to add. Append-only; existing releases are never removed",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+        removeReleases: {
+          description: "Release IDs or slugs to remove. Only valid when updating an existing issue",
+          type: "array",
+          items: {
+            type: "string",
           },
         },
         blocks: {
@@ -272,7 +339,7 @@ export const linearPinnedToolSchemas: Record<string, { schemaHash: string; input
     },
   },
   "save_comment": {
-    schemaHash: "29db7173131cd75c0fc5a71c7cbf0b36f817ca42ac51bb2237ff0f03a9c4a8f7",
+    schemaHash: "a734ef7fed07fac49776257e715cc84363c7cf8570fd0786aecbd5b9c396c48f",
     inputSchema: {
       $schema: "http://json-schema.org/draft-07/schema#",
       type: "object",
@@ -300,6 +367,18 @@ export const linearPinnedToolSchemas: Record<string, { schemaHash: string; input
         milestoneId: {
           description: "Milestone UUID (provide exactly one parent). Resolve milestone names via `list_milestones` first.",
           type: "string",
+        },
+        statusUpdateId: {
+          description: "Status update UUID (provide exactly one parent). Resolve status updates via `get_status_updates` first.",
+          type: "string",
+        },
+        statusUpdateType: {
+          description: "Type of status update named by `statusUpdateId`, as returned by `get_status_updates`. Only valid together with `statusUpdateId`; omit to check both project and initiative status updates.",
+          type: "string",
+          enum: [
+            "project",
+            "initiative",
+          ],
         },
         parentId: {
           description: "Parent comment ID (for replies, only when creating)",

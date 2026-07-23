@@ -108,6 +108,14 @@ export const findIssuesMeta: ActionMeta = {
       required: false,
     },
     {
+      name: "release",
+      label: "Release",
+      description: "Release ID or slug",
+      type: "text",
+      required: false,
+      advanced: true,
+    },
+    {
       name: "priority",
       label: "Priority",
       description: "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
@@ -150,9 +158,19 @@ export const findIssuesMeta: ActionMeta = {
   ],
   outputs: [
     {
-      name: "text",
+      name: "issues",
+      type: "array",
+      description: "One page of matching issues (each: id, title, description, url, status, statusType, team, teamId, priority, createdAt, updatedAt, labels).",
+    },
+    {
+      name: "hasNextPage",
+      type: "boolean",
+      description: "True when more issues exist beyond this page.",
+    },
+    {
+      name: "cursor",
       type: "string",
-      description: "Text returned by the provider for this call.",
+      description: "Opaque next-page token — pass to a later Find Issues run's Cursor to page forward.",
     },
   ],
   producesFileRef: false,

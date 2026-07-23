@@ -16,6 +16,7 @@ export const FindIssuesConfigSchema = z
     assignee: z.string().min(1).optional(),
     delegate: z.string().min(1).optional(),
     project: z.string().min(1).optional(),
+    release: z.string().min(1).optional(),
     priority: z.number().optional(),
     parentId: z.string().min(1).optional(),
     createdAt: z.string().min(1).optional(),

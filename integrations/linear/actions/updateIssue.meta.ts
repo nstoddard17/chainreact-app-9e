@@ -65,7 +65,6 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "project",
       label: "Project",
-      description: "Project name, ID, or slug",
       type: "text",
       required: false,
     },
@@ -92,16 +91,40 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "labels",
       label: "Labels",
-      description: "Label names or IDs",
+      description: "Label names or IDs as a JSON array of strings (e.g. [\"Bug\", \"Urgent\"]). Replaces the full label set; existing labels not included are removed. Omit to leave labels unchanged",
       type: "string-array",
       required: false,
     },
     {
       name: "dueDate",
       label: "Due date",
-      description: "Due date (ISO format)",
       type: "text",
       required: false,
+    },
+    {
+      name: "slaBreachesAt",
+      label: "Sla breaches at",
+      type: "datetime-utc",
+      required: false,
+      advanced: true,
+    },
+    {
+      name: "slaType",
+      label: "Sla type",
+      description: "SLA day counting type: \"all\" or \"onlyBusinessDays\". Only use with slaBreachesAt",
+      type: "select",
+      required: false,
+      options: [
+        {
+          value: "all",
+          label: "All",
+        },
+        {
+          value: "onlyBusinessDays",
+          label: "Only business days",
+        },
+      ],
+      advanced: true,
     },
     {
       name: "parentId",
@@ -113,7 +136,6 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "estimate",
       label: "Estimate",
-      description: "Issue estimate value",
       type: "number",
       required: false,
       advanced: true,
@@ -138,6 +160,30 @@ export const updateIssueMeta: ActionMeta = {
           required: true,
         },
       ],
+      advanced: true,
+    },
+    {
+      name: "setReleases",
+      label: "Set releases",
+      description: "Replace all releases on the issue with these. Cannot be combined with addReleases/removeReleases",
+      type: "string-array",
+      required: false,
+      advanced: true,
+    },
+    {
+      name: "addReleases",
+      label: "Add releases",
+      description: "Release IDs or slugs to add. Append-only; existing releases are never removed",
+      type: "string-array",
+      required: false,
+      advanced: true,
+    },
+    {
+      name: "removeReleases",
+      label: "Remove releases",
+      description: "Release IDs or slugs to remove. Only valid when updating an existing issue",
+      type: "string-array",
+      required: false,
       advanced: true,
     },
     {

@@ -138,9 +138,26 @@ describe("selectEvidenceTools — read-only + explicit approval only", () => {
     expect(skipped.find((s) => s.tool === "search_things")!.reason).toMatch(/no evidence approval/i);
   });
 
-  it("never considers non-ship tools", () => {
+  it("never considers non-ship tools WITHOUT an evidence block", () => {
     const { callable, skipped } = selectEvidenceTools(catalog, snapshot);
     expect([...callable, ...skipped].map((t) => t.tool)).not.toContain("delete_thing");
+  });
+
+  it("captures a DEFER'd resolver-source tool that carries an evidence block (CS-6)", () => {
+    // A read-only list tool marked `defer` (not a shipped action) but explicitly
+    // approved for evidence is auto-callable — that's how resolver sources are
+    // captured without shipping them as actions.
+    const snap = snapshotOf([{ name: "list_teams" }]);
+    const cat = McpCatalogSchema.parse({
+      provider: "demo",
+      serverUrl: "https://x/mcp",
+      tools: [
+        { tool: "list_teams", decision: "defer", reason: "resolver source: Team picker", evidence: { sampleArgs: { limit: 5 } } },
+      ],
+    });
+    const { callable } = selectEvidenceTools(cat, snap);
+    expect(callable.map((c) => c.tool)).toEqual(["list_teams"]);
+    expect(callable[0]!.sampleArgs).toEqual({ limit: 5 });
   });
 });
 

@@ -1,0 +1,76 @@
+{
+  "provider": "linear",
+  "tools": [
+    {
+      "tool": "list_issues",
+      "schemaHash": "f2ec4a94207f5f58b8fb956741e8795d4d4383bda1d3a9817d3e1ba8318c3c1d",
+      "captureStatus": "captured",
+      "resultKind": "structured",
+      "observedShape": {
+        "issues": [
+          {
+            "id": "string",
+            "title": "string",
+            "description": "string",
+            "priority": {
+              "value": "number",
+              "name": "string"
+            },
+            "url": "string",
+            "gitBranchName": "string",
+            "createdAt": "string",
+            "updatedAt": "string",
+            "archivedAt": "null",
+            "completedAt": "null",
+            "startedAt": "null",
+            "canceledAt": "null",
+            "dueDate": "null",
+            "slaStartedAt": "null",
+            "slaMediumRiskAt": "null",
+            "slaHighRiskAt": "null",
+            "slaBreachesAt": "null",
+            "slaType": "string",
+            "status": "string",
+            "statusType": "string",
+            "labels": [],
+            "team": "string",
+            "teamId": "string"
+          }
+        ],
+        "hasNextPage": "boolean",
+        "cursor": "string"
+      },
+      "fieldsObserved": [
+        "issues",
+        "hasNextPage",
+        "cursor"
+      ],
+      "pagination": {
+        "cursorField": "cursor"
+      },
+      "supportsStructuredOutput": true,
+      "recommendation": "structured_output_curatable",
+      "notes": [
+        "pagination_detected",
+        "resolver_candidate"
+      ]
+    },
+    {
+      "tool": "save_comment",
+      "captureStatus": "skipped",
+      "reason": "not read-only (risk: write) — write-tool evidence execution is deferred (CS-5A)"
+    },
+    {
+      "tool": "save_issue",
+      "captureStatus": "skipped",
+      "reason": "not read-only (risk: write) — write-tool evidence execution is deferred (CS-5A)"
+    },
+    {
+      "tool": "save_issue",
+      "captureStatus": "skipped",
+      "reason": "not read-only (risk: write) — write-tool evidence execution is deferred (CS-5A)"
+    }
+  ],
+  "capturedAt": "2026-07-23T03:05:29.956Z",
+  "capturedBy": "live"
+}

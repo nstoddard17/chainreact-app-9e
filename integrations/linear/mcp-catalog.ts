@@ -1,24 +1,32 @@
 import { McpCatalogSchema, type McpCatalog } from "@/core/mcpCompile";
 
 /**
- * Linear MCP catalog — the committed APPROVAL ALLOWLIST (CS-2).
+ * Linear MCP catalog — the committed APPROVAL ALLOWLIST.
  *
- * Only `decision: "ship"` entries generate artifacts; everything else is a
- * decision record. Snapshot provenance: `mcp-snapshot.json` is currently
- * `capturedBy: "docs-draft"` (verbatim 2026-06-18 community capture of the
- * official server — see docs/providers/linear/research.md §CS-2) and MUST be
- * re-captured live (`npm run mcp:import -- capture linear`) before any of
- * these actions register or certify. Drift is hash-pinned either way.
+ * Only `decision: "ship"` entries generate action artifacts; everything else is
+ * a decision record. **Snapshot provenance (CS-6): `mcp-snapshot.json` is now a
+ * LIVE authenticated capture** (`capturedBy: "live"`, 52 tools from
+ * `https://mcp.linear.app/mcp`, 2026-07-23) — the docs-draft assumptions are
+ * superseded. Drift is hash-pinned against the live schemas.
  *
  * Linear consolidated create/update into single `save_*` dispatcher tools
  * (changelog 2026-02-26). Per plan §10.5 those ship here as SPLIT typed V2
  * actions — `create_issue` / `update_issue` from `save_issue` — using field
  * omission + required-pinning so each node is single-purpose (rule 1).
  *
- * No `optionsSource` yet: Linear option resolvers (teams/projects/states)
- * are executor-slice work; team/project/state fields stay text inputs that
- * accept names or IDs (the tool resolves names server-side), recorded as a
- * configuration-quality limitation in mcp-capabilities.json.
+ * CS-6 evidence status:
+ *   - `find_issues` (list_issues) has a CERTIFIED structured output curated from
+ *     the real captured `list_issues` result shape (mcp-evidence.json).
+ *   - `create_issue` / `update_issue` / `add_comment` stay text-only: their
+ *     tools (save_issue / save_comment) are WRITES and were not auto-captured
+ *     (write-evidence is deferred) — their result shapes are not certified, so
+ *     we do NOT fabricate structured outputs.
+ *   - Option resolvers (Team/Project/State/Assignee/Labels) require the LIST
+ *     tools' result shapes. The list tools are added below as `defer` resolver
+ *     sources with read-only evidence approvals; run `capture --evidence` again
+ *     to record their shapes, then build the resolvers. State depends on a
+ *     `team`, so `list_issue_statuses` carries NO committed sampleArgs (an
+ *     account-specific team can't be committed).
  */
 export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
   provider: "linear",
@@ -35,10 +43,17 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       displayOrder: 10,
       risk: "read",
       reason: "Core repetitive-task read: find issues to act on downstream.",
-      // CS-5A — pre-approved for `capture --evidence`: read-only + bounded to a
-      // tiny page so the eventual live capture records list_issues' result shape
-      // (for structured-output curation) without pulling a large payload.
+      // Read-only + bounded to a tiny page so `capture --evidence` records the
+      // list_issues result shape without pulling a large payload.
       evidence: { sampleArgs: { limit: 3 } },
+      // CS-6 — CERTIFIED from the real captured list_issues result shape
+      // (mcp-evidence.json): a page of issue objects + Linear's pagination
+      // fields. `issues[]` carries id/title/url/status/team/priority/timestamps.
+      outputs: [
+        { name: "issues", type: "array", description: "One page of matching issues (each: id, title, description, url, status, statusType, team, teamId, priority, createdAt, updatedAt, labels)." },
+        { name: "hasNextPage", type: "boolean", description: "True when more issues exist beyond this page." },
+        { name: "cursor", type: "string", description: "Opaque next-page token — pass to a later Find Issues run's Cursor to page forward." },
+      ],
       fieldOverrides: {
         limit: { advanced: true },
         cursor: { advanced: true, description: "Next-page cursor from a previous Find Issues step." },
@@ -48,6 +63,7 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         parentId: { advanced: true },
         createdAt: { advanced: true },
         updatedAt: { advanced: true },
+        release: { advanced: true }, // live-only field (CS-6): power-user release filter.
       },
     },
     {
@@ -70,6 +86,7 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         removeBlockedBy: { omit: true },
         removeRelatedTo: { omit: true },
         duplicateOf: { omit: true },
+        removeReleases: { omit: true }, // live-only (CS-6): nothing to remove on create.
         delegate: { advanced: true },
         cycle: { advanced: true },
         milestone: { advanced: true },
@@ -79,6 +96,11 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         blockedBy: { advanced: true },
         relatedTo: { advanced: true },
         parentId: { advanced: true },
+        // live-only (CS-6) — SLA + release plumbing: power-user, Advanced tab.
+        slaBreachesAt: { advanced: true },
+        slaType: { advanced: true },
+        addReleases: { advanced: true },
+        setReleases: { advanced: true },
       },
     },
     {
@@ -112,6 +134,12 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         removeBlocks: { advanced: true },
         removeBlockedBy: { advanced: true },
         removeRelatedTo: { advanced: true },
+        // live-only (CS-6) — SLA + release plumbing on the Advanced tab.
+        slaBreachesAt: { advanced: true },
+        slaType: { advanced: true },
+        addReleases: { advanced: true },
+        setReleases: { advanced: true },
+        removeReleases: { advanced: true },
       },
     },
     {
@@ -134,13 +162,51 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         milestoneId: { omit: true },
         issueId: { required: true },
         parentId: { advanced: true },
+        // live-only (CS-6) — status-update comment parents are out of the
+        // issue-scoped node; omit so Add Comment stays single-purpose.
+        statusUpdateId: { omit: true },
+        statusUpdateType: { omit: true },
       },
+    },
+    // ── Resolver-source list tools (CS-6). Not shipped as actions — captured
+    //    for option-resolver design via read-only evidence approvals. The
+    //    `defer` decision generates no artifact; the `evidence` block approves
+    //    a bounded read-only call by `capture --evidence`. ──────────────────
+    {
+      tool: "list_teams",
+      decision: "defer",
+      reason: "Resolver source: backs the Team picker (list_teams). Captured for resolver design; not a standalone action.",
+      evidence: { sampleArgs: { limit: 5 } },
+    },
+    {
+      tool: "list_projects",
+      decision: "defer",
+      reason: "Resolver source: backs the Project picker (list_projects). Captured for resolver design; not a standalone action.",
+      evidence: { sampleArgs: { limit: 5 } },
+    },
+    {
+      tool: "list_users",
+      decision: "defer",
+      reason: "Resolver source: backs the Assignee picker (list_users). Captured for resolver design; not a standalone action.",
+      evidence: { sampleArgs: { limit: 5 } },
+    },
+    {
+      tool: "list_issue_labels",
+      decision: "defer",
+      reason: "Resolver source: backs the Labels picker (list_issue_labels). Captured for resolver design; not a standalone action.",
+      evidence: { sampleArgs: { limit: 5 } },
+    },
+    {
+      tool: "list_issue_statuses",
+      decision: "defer",
+      reason:
+        "Resolver source: backs the State picker (cascade child of Team). REQUIRES a `team` arg, so it carries NO committed evidence sampleArgs (an account-specific team can't be committed safely); capture its shape at cert time with a real team, or the resolver derives value/label from status/statusType strings surfaced by list_issues.",
     },
     {
       tool: "get_issue",
       decision: "defer",
       reason:
-        "Find Issues covers v1 lookup; a dedicated Get Issue (with relations/attachments) lands with the executor slice when its richer output can be bounded from live structuredContent evidence.",
+        "Find Issues covers v1 lookup; a dedicated Get Issue (with relations/attachments) lands later. Also a potential proxy for save_issue's write output shape, but it REQUIRES an issue `id`, so no committed evidence sampleArgs (account-specific).",
     },
     {
       tool: "delete_comment",

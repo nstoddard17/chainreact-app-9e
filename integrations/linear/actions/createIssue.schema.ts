@@ -17,6 +17,8 @@ export const CreateIssueConfigSchema = z
     delegate: z.string().min(1).optional(),
     labels: z.array(z.string().min(1)).min(1).optional(),
     dueDate: z.string().min(1).optional(),
+    slaBreachesAt: z.string().min(1).optional(),
+    slaType: z.enum(["all", "onlyBusinessDays"]).optional(),
     parentId: z.string().min(1).optional(),
     estimate: z.number().optional(),
     links: z.array(z
@@ -25,6 +27,8 @@ export const CreateIssueConfigSchema = z
       title: z.string(),
       })
       .strict()).min(1).optional(),
+    setReleases: z.array(z.string().min(1)).min(1).optional(),
+    addReleases: z.array(z.string().min(1)).min(1).optional(),
     blocks: z.array(z.string().min(1)).min(1).optional(),
     blockedBy: z.array(z.string().min(1)).min(1).optional(),
     relatedTo: z.array(z.string().min(1)).min(1).optional(),
