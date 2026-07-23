@@ -7,6 +7,25 @@ export type { McpClientOptions, CallToolOptions, FetchLike, FetchLikeResponse } 
 export { detectSchemaDrift } from "./drift";
 export type { SchemaDriftResult } from "./drift";
 export { tokenFingerprint, scrubSecrets } from "./sanitize";
+// CS-1 MCP-AUTH — shared OAuth 2.1 helper for MCP-catalog providers.
+export { createMcpProviderOAuth } from "./oauth";
+export type {
+  McpProviderOAuthConfig,
+  McpOAuthEndpoints,
+  McpOAuthTokenResponse,
+} from "./oauth";
+export {
+  discoverProtectedResource,
+  discoverAuthorizationServer,
+  discoverForResource,
+  canonicalResourceUri,
+  clearMcpOAuthDiscoveryCache,
+  McpOAuthDiscoveryError,
+} from "./oauthDiscovery";
+export type {
+  ProtectedResourceMetadata,
+  AuthorizationServerMetadata,
+} from "./oauthDiscovery";
 export {
   McpError,
   McpAuthError,

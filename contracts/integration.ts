@@ -295,8 +295,19 @@ export interface AccountSteer {
  * Per-provider OAuth implementation. Each provider in `integrations/<id>/oauth.ts`
  * exports an object that satisfies this shape. The generic dispatcher in
  * `services/oauth/dispatcher.ts` is the only caller.
+ *
+ * `TAuthUrl` (CS-1 MCP-AUTH): `buildAuthUrl` is synchronous for every
+ * classic provider (the default, `string`), but MCP-catalog providers in
+ * `discovered` endpoint mode resolve their authorize endpoint via RFC
+ * 9728/8414 metadata at connect time — I/O — so they implement
+ * `ProviderOAuth<string | Promise<string>>` (alias `AnyProviderOAuth`).
+ * The dispatcher awaits the result either way; a sync implementation is
+ * assignable to the async-capable variant (covariant return), so nothing
+ * existing changes.
  */
-export interface ProviderOAuth {
+export interface ProviderOAuth<
+  TAuthUrl extends string | Promise<string> = string,
+> {
   /**
    * Optional. Providers that use PKCE (Gmail, future PKCE-required
    * providers) implement this; the dispatcher calls it at connect time
@@ -338,6 +349,11 @@ export interface ProviderOAuth {
    * connect call supplied a hint AND the provider's
    * `validateProviderHint` accepted it; other providers receive `null`
    * and ignore it.
+   *
+   * Returns `TAuthUrl` — `string` for classic providers; MCP-catalog
+   * providers in `discovered` mode may return `Promise<string>` (endpoint
+   * discovery is I/O — `integrations/_shared/mcp/oauthDiscovery.ts`). The
+   * dispatcher awaits the result in both cases.
    */
   buildAuthUrl(
     state: string,
@@ -351,7 +367,7 @@ export interface ProviderOAuth {
      * existing 3-/4-arg implementations satisfy the interface structurally.
      */
     steer?: AccountSteer | null,
-  ): string;
+  ): TAuthUrl;
   /**
    * Exchanges the authorization code for tokens. `pkce` is non-null only for
    * providers that asked the dispatcher to issue a PKCE challenge at connect
@@ -382,6 +398,13 @@ export interface ProviderOAuth {
   /** Best-effort token revocation at the provider; safe to call on disconnect. */
   revoke(token: string): Promise<void>;
 }
+
+/**
+ * A `ProviderOAuth` whose `buildAuthUrl` may be asynchronous. The dispatcher
+ * registry accepts this shape; every classic (sync) implementation is
+ * assignable to it. Introduced in CS-1 MCP-AUTH for MCP-catalog providers.
+ */
+export type AnyProviderOAuth = ProviderOAuth<string | Promise<string>>;
 
 /**
  * Per-provider token-ingest implementation. Used by manifests that declare

@@ -1,9 +1,9 @@
 import {
   type AccountSteer,
+  type AnyProviderOAuth,
   DIRECT_TOKEN_AUTH_FLOWS,
   type EncryptedTokens,
   type ProviderHint,
-  type ProviderOAuth,
   type ProviderTokenIngestAuth,
   RefreshAuthRequiredError,
   TokenIngestVerificationError,
@@ -42,6 +42,7 @@ import { calendlyOAuth } from "@/integrations/calendly/oauth";
 import { typeformOAuth } from "@/integrations/typeform/oauth";
 import { quickbooksOAuth } from "@/integrations/quickbooks/oauth";
 import { motiveOAuth } from "@/integrations/motive/oauth";
+import { linearOAuth } from "@/integrations/linear/oauth";
 import {
   getActiveForExecution,
   getByIdForAccountServiceRole,
@@ -67,7 +68,10 @@ import { createState, consumeState, InvalidStateError, type OAuthStatePayload } 
  * — explicit imports surface in PRs).
  */
 
-const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze({
+// AnyProviderOAuth (CS-1 MCP-AUTH): classic sync implementations remain
+// assignable; MCP-catalog providers may return a Promise from buildAuthUrl
+// (endpoint discovery is I/O) — connect() awaits it either way.
+const OAUTH_BY_PROVIDER: Readonly<Record<string, AnyProviderOAuth>> = Object.freeze({
   slack: slackOAuth,
   gmail: gmailOAuth,
   // Slice 3.GOOGLE-ANALYTICS-2 — GA4 OAuth. Refreshable, PKCE S256,
@@ -141,6 +145,13 @@ const OAUTH_BY_PROVIDER: Readonly<Record<string, ProviderOAuth>> = Object.freeze
   // MOTIVE-1 — non-PKCE body-auth OAuth; companyId read from /v1/users/me at
   // connect (not a callback param), rotating single-use refresh tokens.
   motive: motiveOAuth,
+  // CS-1 MCP-AUTH — Linear, first MCP-catalog app, via the shared MCP OAuth
+  // helper (integrations/_shared/mcp/oauth.ts) in static-endpoint mode:
+  // regular Linear OAuth (PKCE S256, comma-separated scopes, body-auth),
+  // 24-hour access tokens + ROTATING refresh tokens (mandatory since
+  // 2026-04-01), identity from GraphQL viewer. The issued Bearer is accepted
+  // directly by https://mcp.linear.app/mcp (vendor-documented).
+  linear: linearOAuth,
 });
 
 /**
@@ -443,7 +454,10 @@ export async function connect(input: ConnectInput): Promise<ConnectOutput> {
   const steer: AccountSteer | null = input.reconnect
     ? { loginHint: input.reconnect.expectedProviderAccountId, forceAccountSelection: true }
     : null;
-  const redirectUrl = oauth.buildAuthUrl(
+  // CS-1 MCP-AUTH: buildAuthUrl may return a Promise (MCP-catalog providers in
+  // `discovered` mode resolve endpoints via RFC 9728/8414 metadata). Awaiting
+  // a plain string is a no-op, so every existing sync provider is unaffected.
+  const redirectUrl = await oauth.buildAuthUrl(
     state,
     requestedScopes,
     pkceGen !== undefined

@@ -12,6 +12,7 @@ import { quickbooksManifest } from "./quickbooks/manifest";
 import { motiveManifest } from "./motive/manifest";
 import { adpManifest } from "./adp/manifest";
 import { edenManifest } from "./eden/manifest";
+import { linearManifest } from "./linear/manifest";
 import { dropboxManifest } from "./dropbox/manifest";
 import { facebookManifest } from "./facebook/manifest";
 import { githubManifest } from "./github/manifest";
@@ -336,6 +337,14 @@ const ALL_MANIFESTS: readonly ProviderManifest[] = [
   // blocked until an authorized eden_pat_ credential is supplied. isExperimental
   // true (hidden from the default Apps catalog) until Phase 13 live certification.
   edenManifest,
+  // CS-1 MCP-AUTH — Linear (linear.app), the first MCP-CATALOG app (approved
+  // plan: docs/slices/phase-5/mcp-integration-layer-architecture-plan.md).
+  // Connect-only this slice: capabilities.oauth true via the shared MCP OAuth
+  // helper in static-endpoint mode (regular Linear OAuth; Bearer accepted by
+  // mcp.linear.app per vendor docs); actions/triggers honestly false until the
+  // compiler + executor slices (CS-2/CS-3) register typed handlers.
+  // isExperimental true until live certification (CS-6).
+  linearManifest,
   // ADP (adp.com) — payroll / HR / workforce platform. NEW `machine_credentials`
   // auth (OAuth2 client_credentials + mandatory mutual-TLS client certificate),
   // handled by services/machineCredentials/* (NOT the OAuth dispatcher). Shipped

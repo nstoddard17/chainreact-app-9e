@@ -105,6 +105,11 @@ const POLICY: Readonly<Record<string, CredentialSharing>> = Object.freeze({
   // post on your behalf"). Personal, like Trello / Monday / Asana / Notion-as-
   // personal-workspace; must not auto-share in a Team.
   eden: "personal",
+  // Linear (CS-1 MCP-AUTH): the OAuth token acts AS the connecting human —
+  // their issue assignments, their comment authorship (tokenScope "user",
+  // GraphQL viewer identity). Same posture as Asana / Trello / Monday, and
+  // the launch-safe default.
+  linear: "personal",
 
   // ── Needs product decision → default personal for launch safety. ──
   github: "personal",
