@@ -54,6 +54,22 @@ export function useDocumentGuidedStop(input: {
   const { onActiveChange } = input;
   const [stop, setStop] = useState<GuidedStopTarget | null>(null);
 
+  // 5.DUAL-BUILDER-1 CS-7 — focus management. The element that was focused when
+  // the stop opened (the originating phrase/chip) is captured on open and focus
+  // is returned to it after Done / Cancel / Escape closes the editor, so keyboard
+  // and screen-reader users land back on the sentence they were editing (never
+  // the page root). An inspector handoff (releaseStop) does NOT restore — the
+  // drawer takes focus instead.
+  const originElementRef = useRef<HTMLElement | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (stop !== null) return; // only once the editor has unmounted
+    const el = restoreFocusRef.current;
+    if (!el) return;
+    restoreFocusRef.current = null;
+    if (el.isConnected && typeof el.focus === "function") el.focus();
+  }, [stop]);
+
   const activeNodeId = useConfigSlice((s) => s.activeNodeId);
   const stopNodeExists = useGraphSlice((s) =>
     stop ? s.pendingNodes.some((n) => n.id === stop.nodeId) : true,
@@ -63,6 +79,10 @@ export function useDocumentGuidedStop(input: {
     (nodeId: string, fieldName: string): DocumentCommandResult => {
       const node = useGraphSlice.getState().pendingNodes.find((n) => n.id === nodeId);
       if (!node) return { ok: false, reason: "node_missing" };
+      // CS-7 — capture the originating phrase/chip so focus can return to it on
+      // close. Best-effort: only a connected, focusable element is restored.
+      originElementRef.current =
+        typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
       // Mark the selection stop-driven BEFORE openNode so WorkflowBuilder's
       // drawer transition effect (which fires after this render) sees it.
       onActiveChange(nodeId);
@@ -80,6 +100,9 @@ export function useDocumentGuidedStop(input: {
 
   const clear = useCallback(
     (opts?: { keepSelection?: boolean }) => {
+      // CS-7 — arm focus return to the originating phrase (commit/cancel/Escape).
+      restoreFocusRef.current = originElementRef.current;
+      originElementRef.current = null;
       setStop(null);
       onActiveChange(null);
       if (!opts?.keepSelection) {

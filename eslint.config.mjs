@@ -348,15 +348,17 @@ export default [
   // dropped this file from 585 → 452 counted lines. 5.DUAL-BUILDER-1 CS-5 routes Document branch
   // authoring through the SAME picker state machine (the pick handler now classifies a branch pick into
   // a create-command location + wires empty-lane adds), which is cohesive to the add-node machine here.
-  // Capped at 740 to keep further drift visible; still over the 400 default because of the
-  // canvas/rail/drawer wiring. Next extraction candidates if it grows again: the right-drawer and
-  // add-node state machines.
+  // Capped at 780 to keep further drift visible; still over the 400 default because of the
+  // canvas/rail/drawer wiring. 5.DUAL-BUILDER-1 CS-7 adds the keyed/VERSIONED composer-seed channel
+  // (replacing the one-shot seed) + the Document-surface telemetry wiring (flag-gated emit calls +
+  // preview apply/reject wrappers), both cohesive to the orchestration here. Next extraction
+  // candidates if it grows again: the right-drawer and add-node state machines.
   {
     files: ["features/workflow-builder/WorkflowBuilder.tsx"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 740, skipBlankLines: true, skipComments: true },
+        { max: 780, skipBlankLines: true, skipComments: true },
       ],
     },
   },
@@ -408,14 +410,18 @@ export default [
   // 5.DUAL-BUILDER-1 CS-6 added the atomic `swapAdjacentLinearActions` transaction
   // (the adjacent-linear move used by the Document selection toolbar) — like the
   // CS-5 rename transaction it must live on the mutation surface to stay
-  // undo/redo-correct. Capped at 940 to make further drift visible. Mirrors the
-  // precedent above.
+  // undo/redo-correct. 5.DUAL-BUILDER-1 CS-7 adds the router exact-rename
+  // wiring-preservation (readRouterRoutes + relabelEdgesForExactRouterRename +
+  // the updateNodeConfig branch that relabels the matching lane edge instead of
+  // dropping it) — it must live on the mutation surface to stay undo/redo-correct;
+  // the pure classifier itself lives in core/workflows/routeLabelDiff.ts. Capped
+  // at 980 to make further drift visible. Mirrors the precedent above.
   {
     files: ["features/workflow-builder/state/graphSlice.ts"],
     rules: {
       "max-lines": [
         "warn",
-        { max: 940, skipBlankLines: true, skipComments: true },
+        { max: 980, skipBlankLines: true, skipComments: true },
       ],
     },
   },
@@ -439,9 +445,14 @@ export default [
         // components (DocumentEmptyState / DocumentAskReactBar / DocumentPreview
         // / DocumentInsertMenu / DocumentSelectionToolbar) and pure command
         // modules; what remains here is the cohesive render composition + thin
-        // store-command handlers. Bumped to 800 to keep further drift visible.
+        // store-command handlers. 5.DUAL-BUILDER-1 CS-7 adds the flag-gated
+        // Document telemetry emits (map/insert/guided-stop/handoff/finish-setup/
+        // complex-region) + the centralized Visual-handoff wrapper + source-tagged
+        // Ask React wrappers, all thin and cohesive to the surface. Bumped to 880
+        // to keep further drift visible; the telemetry effects are the next
+        // extraction candidate (a `useDocumentTelemetry` hook) if it grows again.
         "warn",
-        { max: 800, skipBlankLines: true, skipComments: true },
+        { max: 880, skipBlankLines: true, skipComments: true },
       ],
     },
   },

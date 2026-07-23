@@ -168,6 +168,17 @@ export default defineConfig({
       // Different port from the typical dev server (3000) so a developer
       // can keep a dev server running for manual testing without colliding.
       PORT: String(E2E_PORT),
+      // 5.DUAL-BUILDER-1 CS-7 — the Document Builder stays flag-gated (default
+      // OFF) here too, so every OTHER e2e spec runs exactly production's Visual
+      // builder. The dual-builder journey is run by explicitly setting
+      // `ENABLE_DOCUMENT_BUILDER=true` in the COMMAND ENVIRONMENT
+      // (e.g. `ENABLE_DOCUMENT_BUILDER=true npx playwright test dual-builder-document-journey`).
+      // This forwards that command-env value into the isolated test server WITHOUT
+      // hardcoding an always-on flag in the checked-in config — checked-in default
+      // remains unset/OFF. No shared .env file is touched.
+      ...(process.env.ENABLE_DOCUMENT_BUILDER
+        ? { ENABLE_DOCUMENT_BUILDER: process.env.ENABLE_DOCUMENT_BUILDER }
+        : {}),
       // 5.ONBOARD-4 — NO onboarding feature flags here any more. Both the
       // first-workflow checklist and the role-specific collaboration checklists
       // are on by default, so the e2e journey exercises exactly what production

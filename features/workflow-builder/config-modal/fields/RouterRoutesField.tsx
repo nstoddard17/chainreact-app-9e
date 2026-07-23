@@ -198,7 +198,19 @@ export const RouterRoutesField: React.FC<FieldRendererProps> = ({
           <p className="text-xs italic text-muted-foreground">
             No routes yet. Add a route to get started.
           </p>
-        ) : null}
+        ) : (
+          // 5.DUAL-BUILDER-1 CS-7 — a route's identity is its label (it wires the
+          // route to its lane). Renaming exactly one label is preserved
+          // automatically; other bulk label changes may leave a lane needing to
+          // be reconnected — surfaced immediately by the branch-wiring warnings.
+          <p
+            role="note"
+            data-testid="router-routes-rename-caution"
+            className="text-xs text-muted-foreground"
+          >
+            Changing route labels may require reconnecting their paths.
+          </p>
+        )}
         {rows.map((row, i) => {
           const isUnary = ROUTER_UNARY_OPERATORS.has(row.condition.operator);
           const rowError = validation.rowErrors[i];

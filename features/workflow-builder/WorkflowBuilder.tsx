@@ -39,6 +39,11 @@ import {
   isAdvancedBranchingTypeKey,
 } from "@/core/workflows/advancedBranching";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
+import type { ComposerSeed } from "@/features/workflows/composerSeed";
+import {
+  emitDocumentBuilderEvent,
+  setDocumentBuilderTelemetryEnabled,
+} from "./document/documentTelemetry";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { AgentChangeDiffDrawer } from "./panels/AgentChangeDiffDrawer";
 import { AnonymousAgentRail } from "./panels/AnonymousAgentRail";
@@ -297,10 +302,20 @@ export function WorkflowBuilder({
     (view: BuilderViewMode) => {
       setBuilderView(view);
       writeBuilderViewPref(view, workflow.id);
+      // CS-7 telemetry — categorical only (target view), never workflow content.
+      emitDocumentBuilderEvent("builder_view_switched", { to: view });
     },
     [workflow.id],
   );
   const documentViewActive = documentBuilderEnabled === true && builderView === "document";
+  // CS-7 telemetry — gate emission on the server-resolved flag so flag OFF emits
+  // NOTHING, then record when the Document surface is actually shown.
+  useEffect(() => {
+    setDocumentBuilderTelemetryEnabled(documentBuilderEnabled === true);
+  }, [documentBuilderEnabled]);
+  useEffect(() => {
+    if (documentViewActive) emitDocumentBuilderEvent("document_builder_view_opened");
+  }, [documentViewActive]);
   // 5.DUAL-BUILDER-1 CS-2 — the node whose configSlice selection is driven by
   // an OPEN Document Guided Stop. The stop IS the editor for that selection,
   // so the drawer's auto-open transition is suppressed for it (a ref, read by
@@ -474,20 +489,48 @@ export function WorkflowBuilder({
   // CS-5 — when the picker was opened by an empty branch lane's "Add a step",
   // this names the fork + route label the pick should be wired into.
   const branchLaneRef = useRef<{ forkNodeId: string; label: string } | null>(null);
-  // 5.DUAL-BUILDER-1 CS-6 — the Document's empty-state composer / persistent Ask
-  // React bar prefills the ONE existing agent conversation (the left rail's
-  // WorkflowGuidancePanel via `initialComposerValue`) and expands the rail. It
-  // NEVER opens a second conversation or sends on its own — the rail's composer
-  // owns submit. One-shot seed (the panel fills only an empty, untouched composer).
-  const [documentComposerSeed, setDocumentComposerSeed] = useState<string | undefined>(undefined);
+  // 5.DUAL-BUILDER-1 CS-6/CS-7 — the Document's empty-state composer, persistent
+  // Ask React bar, and insertion "Ask React" all prefill the ONE existing agent
+  // conversation (the left rail's WorkflowGuidancePanel) and expand the rail. They
+  // NEVER open a second conversation or send on their own — the rail's composer
+  // owns submit. CS-7: a keyed/VERSIONED seed (composerSeed.ts) so a second rapid
+  // Document request reliably supersedes the first unsent seed instead of being
+  // dropped, while an unrelated re-render never clobbers manually-typed text. The
+  // restored anonymous-draft prompt (ANON-BUILDER-2) is folded into the SAME
+  // channel as a `restore` seed (fill-if-empty only).
+  const [documentComposerSeed, setDocumentComposerSeed] = useState<ComposerSeed | undefined>(
+    undefined,
+  );
+  const seedVersionRef = useRef(0);
   const handleDocumentAskReact = useCallback(
-    (prompt: string) => {
-      setDocumentComposerSeed(prompt);
+    (prompt: string, source: "document-empty" | "document-bar" | "document-insert") => {
+      setDocumentComposerSeed({ value: prompt, version: ++seedVersionRef.current, source });
       leftRail.expand();
+      // CS-7 telemetry — the SOURCE token only (never the prompt text).
+      if (source === "document-empty") {
+        emitDocumentBuilderEvent("document_empty_react_started");
+      }
     },
     [leftRail],
   );
+  // Fold the restored anonymous prompt into the versioned channel the first time
+  // it arrives, only if no explicit Document seed has been minted yet.
+  useEffect(() => {
+    const restored = (restoredComposerValue ?? "").trim();
+    if (restored.length === 0) return;
+    setDocumentComposerSeed((current) =>
+      current
+        ? current
+        : { value: restored, version: ++seedVersionRef.current, source: "restore" },
+    );
+  }, [restoredComposerValue]);
   const openTriggerPicker = useCallback(() => {
+    setAddPanelMode({ kind: "trigger" });
+  }, []);
+  // CS-7 — the Document empty-state "Start with a trigger" path: record a manual
+  // start (categorical, no content), then open the SAME shared trigger picker.
+  const handleDocumentManualStart = useCallback(() => {
+    emitDocumentBuilderEvent("document_manual_start");
     setAddPanelMode({ kind: "trigger" });
   }, []);
   const openActionPicker = useCallback(() => {
@@ -691,6 +734,18 @@ export function WorkflowBuilder({
     pendingEdges,
     runTestAfterApply: builderRunControls.handleTestWorkflow,
   });
+
+  // CS-7 telemetry — Document-surface preview apply/reject. Emitted only while the
+  // Document is the active surface (categorical, no workflow content); delegates
+  // to the SAME canonical apply/discard handlers the rail uses.
+  const handleDocumentApplyPreview = useCallback(() => {
+    emitDocumentBuilderEvent("document_agent_preview_applied");
+    handleApplyPreview();
+  }, [handleApplyPreview]);
+  const handleDocumentDiscardPreview = useCallback(() => {
+    emitDocumentBuilderEvent("document_agent_preview_rejected");
+    handleDiscardPreview();
+  }, [handleDiscardPreview]);
 
   // REACT-AGENT-APPLY-MODES-1 — deterministic availability of the three apply modes for the active
   // edit preview (readiness vs the proposed end-state, risk from the rationale, trigger/active
@@ -917,9 +972,7 @@ export function WorkflowBuilder({
             getCurrentGraphShape={getCurrentGraphShape}
             getCurrentDraft={getCurrentDraft}
             renderCheckSetup={renderCheckSetup}
-            {...(documentComposerSeed ?? restoredComposerValue
-              ? { initialComposerValue: documentComposerSeed ?? restoredComposerValue }
-              : {})}
+            {...(documentComposerSeed ? { composerSeed: documentComposerSeed } : {})}
             onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
           />
           )}
@@ -994,14 +1047,14 @@ export function WorkflowBuilder({
             onGuidedStopActive={handleGuidedStopActive}
             onAddToEmptyLane={handleAddToEmptyLane}
             // CS-6 — empty-state manual creation + single-agent Ask React.
-            onStartWithTrigger={openTriggerPicker}
+            onStartWithTrigger={handleDocumentManualStart}
             onAskReact={handleDocumentAskReact}
             {...(canUseAdvancedBranching !== undefined ? { canUseAdvancedBranching } : {})}
             // CS-6 — the ephemeral agent preview (owned by useBuilderPreview) +
             // the canonical apply/discard handlers, rendered as a ghost Document.
             previewOverlay={previewOverlay}
-            onApplyPreview={handleApplyPreview}
-            onDiscardPreview={handleDiscardPreview}
+            onApplyPreview={handleDocumentApplyPreview}
+            onDiscardPreview={handleDocumentDiscardPreview}
             notice={documentNotice}
             onNotice={setDocumentNotice}
           />

@@ -299,6 +299,38 @@ describe("Guided Stop — commit / cancel", () => {
     expect(useConfigSlice.getState().drafts["a"]?.values.text).toBe("Hello team");
   });
 
+  // 5.DUAL-BUILDER-1 CS-7 — focus returns to the originating phrase/chip after
+  // the Guided Stop closes, so keyboard + screen-reader users land back where
+  // they were (never the page root).
+  it("Cancel returns focus to the originating chip", async () => {
+    renderInDocument();
+    const chip = screen.getByTestId("document-value-chip-a-Message");
+    chip.focus();
+    fireEvent.click(chip);
+    const stop = await screen.findByTestId("document-guided-stop");
+    await within(stop).findByDisplayValue("Hello team");
+
+    fireEvent.click(screen.getByTestId("guided-stop-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("document-guided-stop")).toBeNull());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByTestId("document-value-chip-a-Message")),
+    );
+  });
+
+  it("Escape returns focus to the originating chip", async () => {
+    renderInDocument();
+    const chip = screen.getByTestId("document-value-chip-a-Message");
+    chip.focus();
+    fireEvent.click(chip);
+    const stop = await screen.findByTestId("document-guided-stop");
+
+    fireEvent.keyDown(stop, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("document-guided-stop")).toBeNull());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByTestId("document-value-chip-a-Message")),
+    );
+  });
+
   it("undo spans both surfaces and closes/keeps the stop consistent", async () => {
     renderInDocument();
     fireEvent.click(screen.getByTestId("document-value-chip-a-Message"));

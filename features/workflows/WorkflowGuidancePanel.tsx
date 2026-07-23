@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { requestWorkflowGuidance } from "@/lib/api/ai/guidance";
+import { useComposerSeed, type ComposerSeed } from "./composerSeed";
 import {
   buildAgentReviewGoalText,
   composeCheckWorkflowReview,
@@ -123,13 +124,14 @@ export interface WorkflowGuidancePanelProps {
    */
   readonly renderCheckSetup?: (targets: readonly CheckWorkflowSetupTarget[]) => ReactNode;
   /**
-   * ANON-BUILDER-2 — conversational-only: an initial value to seed the composer
-   * ONCE when it first arrives (e.g. the prompt carried over from an anonymous
-   * draft restored after sign-up). It only fills an empty, untouched composer —
-   * it never overwrites what the user has typed and never auto-sends. Absent →
-   * the composer starts empty as before.
+   * 5.DUAL-BUILDER-1 CS-7 — conversational-only: the ONE keyed/versioned seed for
+   * the single composer (see features/workflows/composerSeed.ts). Replaces the
+   * one-shot `initialComposerValue`. A `restore` seed (ANON-BUILDER-2) fills only
+   * an empty composer; an explicit Document Ask React seed (document-*) replaces
+   * it and a new version reliably supersedes an earlier unsent seed. Never
+   * auto-sends. Absent → the composer starts empty.
    */
-  readonly initialComposerValue?: string;
+  readonly composerSeed?: ComposerSeed;
   /**
    * AI-TEMPLATE-APPLY-CURRENT — builder-only: apply a React-Agent-suggested official template to the
    * CURRENTLY-OPEN workflow (in place) instead of creating a new one. When provided (with a
@@ -203,7 +205,7 @@ function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, initialComposerValue, onTemplateApplyToCurrent }: WorkflowGuidancePanelProps) {
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, composerSeed, onTemplateApplyToCurrent }: WorkflowGuidancePanelProps) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -217,17 +219,11 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   const nextId = useRef(0);
   const makeId = () => String(nextId.current++);
 
-  // ANON-BUILDER-2 — seed the composer ONCE from a restored anonymous prompt when
-  // it first arrives, only if the user hasn't typed anything yet. Never overwrites
-  // user input, never auto-sends.
-  const seededComposerRef = useRef(false);
-  useEffect(() => {
-    if (seededComposerRef.current) return;
-    const seed = (initialComposerValue ?? "").trim();
-    if (seed.length === 0) return;
-    seededComposerRef.current = true;
-    setInput((current) => (current.length === 0 ? seed : current));
-  }, [initialComposerValue]);
+  // 5.DUAL-BUILDER-1 CS-7 — the ONE keyed/versioned composer seed. Each new
+  // version is applied at most once: a restore seed fills only an empty composer;
+  // an explicit Document Ask React seed replaces it, and a later version reliably
+  // supersedes an earlier unsent one. Never auto-sends (only `setInput`).
+  useComposerSeed(composerSeed, setInput);
 
   // HERMES-AGENT-RAIL-CHAT-LAYOUT-POLISH — keep the newest content in view. Scroll the transcript to the
   // bottom when a message is added OR the setup-card footer appears/disappears. Keyed on the message

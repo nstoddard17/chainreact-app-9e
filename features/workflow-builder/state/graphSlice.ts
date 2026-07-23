@@ -21,6 +21,7 @@ import {
 } from "./presentationCommands";
 import { isAdvancedBranchingNode, nodeTypeKey } from "@/core/workflows/advancedBranching";
 import { returnableBranchLabels } from "@/core/workflows/branchWiring";
+import { classifyRouteLabelEdit, type RouteLike } from "@/core/workflows/routeLabelDiff";
 import { computeEditableGraphVersion } from "@/core/workflows/editableGraphVersion";
 import {
   WorkflowApiError,
@@ -577,6 +578,57 @@ function reconcileBranchEdgesForNode(
   return next.length === edges.length ? null : next;
 }
 
+/**
+ * 5.DUAL-BUILDER-1 CS-7 — read the classifier-shaped route list from a router
+ * node's config. Returns null for non-router nodes or a malformed `routes`
+ * array so callers fall through to the generic reconcile path.
+ */
+function readRouterRoutes(config: Record<string, unknown> | undefined): RouteLike[] | null {
+  const routes = config?.routes;
+  if (!Array.isArray(routes)) return null;
+  const out: RouteLike[] = [];
+  for (const r of routes) {
+    const label = (r as { label?: unknown } | null)?.label;
+    if (typeof label !== "string") return null;
+    out.push({ label, condition: (r as { condition?: unknown } | null)?.condition });
+  }
+  return out;
+}
+
+/**
+ * 5.DUAL-BUILDER-1 CS-7 — when a router config commit is an EXACT one-to-one
+ * label rename, produce the edge set that RELABELS the matching lane edge(s)
+ * old→new (wiring preserved) instead of dropping them via vocabulary reconcile.
+ * Returns null when the edit is not an exact rename (caller uses the generic
+ * conservative reconcile). Never invents or reattaches an unrelated lane.
+ */
+function relabelEdgesForExactRouterRename(
+  nodeId: string,
+  priorConfig: Record<string, unknown>,
+  nextConfig: Record<string, unknown>,
+  edges: readonly WorkflowEdge[],
+): WorkflowEdge[] | null {
+  const prior = readRouterRoutes(priorConfig);
+  const next = readRouterRoutes(nextConfig);
+  if (prior === null || next === null) return null;
+  const diff = classifyRouteLabelEdit(prior, next);
+  if (diff.kind !== "exact_rename") return null;
+  const { oldLabel, newLabel } = diff;
+  const trimmedNew = newLabel.trim();
+  // Defensive: never create an ambiguous duplicate by relabeling onto a label
+  // an existing edge from this node already carries.
+  if (edges.some((e) => e.from === nodeId && e.label === trimmedNew)) return null;
+  let changed = false;
+  const relabeled = edges.map((e) => {
+    if (e.from === nodeId && e.label === oldLabel) {
+      changed = true;
+      return { ...e, label: trimmedNew };
+    }
+    return e;
+  });
+  return changed ? relabeled : null;
+}
+
 export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
   // BUILDER-TOPBAR-UNDO-REDO — history-capturing wrapper around the store setter. Every existing edit
   // action funnels through this `set`. An EDIT is an OBJECT partial that flips the graph DIRTY *and*
@@ -858,12 +910,24 @@ export const useGraphSlice = create<GraphSlice>((rawSet, get) => {
     const updated: WorkflowNode = { ...current, config: { ...config } };
     const nextNodes = [...pendingNodes];
     nextNodes[idx] = updated;
+    const currentEdges = get().pendingEdges;
+    // 5.DUAL-BUILDER-1 CS-7 — a router routes edit that is an EXACT one-to-one
+    // label rename preserves each renamed lane's wiring by RELABELING its edge
+    // old→new (identity-preserving), rather than dropping it in the generic
+    // vocabulary reconcile below. Only the single unambiguous rename case takes
+    // this path (classifyRouteLabelEdit); any bulk / ambiguous / add / remove
+    // edit falls through to conservative reconcile so a re-enabled or renamed
+    // route never silently reconnects to an unrelated old lane.
+    const relabeled =
+      nodeTypeKey(current) === "native:router"
+        ? relabelEdgesForExactRouterRename(nodeId, current.config, updated.config, currentEdges)
+        : null;
     // BRANCH-ENT-1 C4 — reconcile branch edges with the new config so a
     // route the node can no longer return never survives as an invisible
     // stale edge: switching If/Then to onFalse="skip" drops its False
     // edge(s); removing/renaming a Router route drops that route's edges.
     // Re-enabling a route later starts UNWIRED (never silently reconnected).
-    const nextEdges = reconcileBranchEdgesForNode(updated, get().pendingEdges);
+    const nextEdges = relabeled ?? reconcileBranchEdgesForNode(updated, currentEdges);
     set({
       pendingNodes: nextNodes,
       ...(nextEdges !== null ? { pendingEdges: nextEdges } : {}),

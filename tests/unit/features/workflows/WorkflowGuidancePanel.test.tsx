@@ -906,18 +906,19 @@ describe("WorkflowGuidancePanel — auto-show eligibility guard", () => {
 });
 
 /**
- * ANON-BUILDER-2 — `initialComposerValue` seeds the composer ONCE (the prompt
- * restored from an anonymous draft after sign-up) without overwriting user input
- * and without auto-sending.
+ * 5.DUAL-BUILDER-1 CS-7 — the keyed/versioned `composerSeed` seeds the ONE
+ * composer. A `restore` seed (ANON-BUILDER-2 anonymous-draft handoff) fills only
+ * an empty composer and never auto-sends; an explicit Document `document-*` seed
+ * replaces it, and a later version supersedes an earlier unsent one.
  */
-describe("WorkflowGuidancePanel — conversational initial composer seed", () => {
-  it("seeds the composer from initialComposerValue (no auto-send)", async () => {
+describe("WorkflowGuidancePanel — conversational versioned composer seed", () => {
+  it("fills an empty composer from a restore seed (no auto-send)", async () => {
     render(
       <WorkflowGuidancePanel
         accountId="acct-1"
         workflowId="wf-9"
         conversational
-        initialComposerValue="Notify #wins on a 5-star review"
+        composerSeed={{ value: "Notify #wins on a 5-star review", version: 1, source: "restore" }}
       />,
     );
     const composer = screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement;
@@ -925,7 +926,7 @@ describe("WorkflowGuidancePanel — conversational initial composer seed", () =>
     expect(mockRequest).not.toHaveBeenCalled();
   });
 
-  it("does not overwrite what the user has already typed", async () => {
+  it("a restore seed does not overwrite what the user has already typed", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
       <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational />,
@@ -937,10 +938,51 @@ describe("WorkflowGuidancePanel — conversational initial composer seed", () =>
         accountId="acct-1"
         workflowId="wf-9"
         conversational
-        initialComposerValue="seeded value"
+        composerSeed={{ value: "seeded value", version: 2, source: "restore" }}
       />,
     );
     expect(composer.value).toBe("my own text");
+  });
+
+  it("an explicit Document seed replaces the composer, and a newer version supersedes the first unsent seed", async () => {
+    const { rerender } = render(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        composerSeed={{ value: "Add a step at the end. ", version: 1, source: "document-bar" }}
+      />,
+    );
+    const composer = screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement;
+    await waitFor(() => expect(composer.value).toBe("Add a step at the end. "));
+    // A SECOND explicit Document request (new version) replaces the unsent first seed.
+    rerender(
+      <WorkflowGuidancePanel
+        accountId="acct-1"
+        workflowId="wf-9"
+        conversational
+        composerSeed={{ value: "Add a branch after step 2. ", version: 2, source: "document-insert" }}
+      />,
+    );
+    await waitFor(() => expect(composer.value).toBe("Add a branch after step 2. "));
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+
+  it("an unrelated re-render with the SAME seed version never re-seeds over user text", async () => {
+    const user = userEvent.setup();
+    const seed = { value: "Add a step. ", version: 5, source: "document-bar" as const };
+    const { rerender } = render(
+      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational composerSeed={seed} />,
+    );
+    const composer = screen.getByPlaceholderText(/Describe what to add or change/i) as HTMLTextAreaElement;
+    await waitFor(() => expect(composer.value).toBe("Add a step. "));
+    await user.clear(composer);
+    await user.type(composer, "hand edited");
+    // Re-render with the identical seed version (an unrelated parent render).
+    rerender(
+      <WorkflowGuidancePanel accountId="acct-1" workflowId="wf-9" conversational composerSeed={seed} />,
+    );
+    expect(composer.value).toBe("hand edited");
   });
 });
 

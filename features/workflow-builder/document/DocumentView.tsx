@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { NodeSummaryFieldsByType } from "@/core/workflows/nodeSummaryFields";
 import type { RequiredFieldsByType } from "@/core/workflows/requiredFields";
 import { useGraphSlice } from "../state/graphSlice";
@@ -62,6 +62,7 @@ import {
   type DocumentModel,
   type DocumentSentenceBlock,
 } from "./projection";
+import { emitDocumentBuilderEvent } from "./documentTelemetry";
 
 /**
  * Document Builder surface (5.DUAL-BUILDER-1; editable in CS-2).
@@ -113,8 +114,14 @@ export function DocumentView({
   onAddToEmptyLane?: ((forkNodeId: string, label: string) => void) | undefined;
   /** CS-6 — empty-state "Start with a trigger" → the existing TriggerPicker. */
   onStartWithTrigger?: (() => void) | undefined;
-  /** CS-6 — seed + expand the ONE existing React Agent conversation. */
-  onAskReact?: ((prompt: string) => void) | undefined;
+  /**
+   * CS-6/CS-7 — seed + expand the ONE existing React Agent conversation. The
+   * `source` tags which Document control fired it so the keyed/versioned composer
+   * seed can mint a fresh version (see features/workflows/composerSeed.ts).
+   */
+  onAskReact?:
+    | ((prompt: string, source: "document-empty" | "document-bar" | "document-insert") => void)
+    | undefined;
   /** CS-6 — advanced-branching entitlement (Pro lock for branch menu entries). */
   canUseAdvancedBranching?: boolean | undefined;
   /**
@@ -174,6 +181,22 @@ export function DocumentView({
     releaseStop,
   });
   const [mapOpen, setMapOpen] = useState(false);
+
+  // CS-7 telemetry — Finish Setup start/complete transitions (categorical only).
+  const finishActiveRef = useRef(false);
+  const finishCompletedRef = useRef(false);
+  useEffect(() => {
+    if (finishSetup.active && !finishActiveRef.current) {
+      emitDocumentBuilderEvent("document_finish_setup_started", {
+        count: Math.min(queue.items.length, 10_000),
+      });
+    }
+    finishActiveRef.current = finishSetup.active;
+    if (finishSetup.completed && !finishCompletedRef.current) {
+      emitDocumentBuilderEvent("document_finish_setup_completed");
+    }
+    finishCompletedRef.current = finishSetup.completed;
+  }, [finishSetup.active, finishSetup.completed, queue.items.length]);
 
   // CS-4 — sections that a Guided Stop / map navigation has TEMPORARILY revealed
   // even though they are stored collapsed (so a queued/map-target field inside a
@@ -238,6 +261,40 @@ export function DocumentView({
 
   const interactive = onGuidedStopActive !== undefined;
 
+  // CS-7 telemetry — a centralized Visual-Builder handoff wrapper so every handoff
+  // (complex region, wiring repair, map row) records ONE categorical event.
+  const handoffToVisual = useCallback(
+    (nodeId: string | null) => {
+      emitDocumentBuilderEvent("document_visual_handoff");
+      onOpenInVisual?.(nodeId);
+    },
+    [onOpenInVisual],
+  );
+
+  // CS-7 telemetry — record when a complex (Tier B/C) region is actually shown to
+  // the user, bucketed by tier only. Keyed on the tier signature so an unrelated
+  // re-render does not re-emit.
+  const complexTierSignature = useMemo(() => {
+    const tiers = new Set<string>();
+    const scan = (blocks: readonly DocumentBlock[]): void => {
+      for (const b of blocks) {
+        if (b.kind === "complex") tiers.add(b.tier === "C" ? "c" : "b");
+        else if (b.kind === "fork") b.lanes.forEach((l) => scan(l.blocks));
+      }
+    };
+    scan(model.blocks);
+    return [...tiers].sort().join(",");
+  }, [model.blocks]);
+  const lastComplexSigRef = useRef<string>("");
+  useEffect(() => {
+    if (complexTierSignature === lastComplexSigRef.current) return;
+    lastComplexSigRef.current = complexTierSignature;
+    if (complexTierSignature.length === 0) return;
+    for (const tier of complexTierSignature.split(",")) {
+      emitDocumentBuilderEvent("document_complex_region_seen", { tier });
+    }
+  }, [complexTierSignature]);
+
   // CS-6 — the ephemeral agent proposal as a read-only ghost Document. Computed
   // from the SAME live graph + the overlay owned by useBuilderPreview; building
   // it mutates nothing. Null when no preview is active.
@@ -296,6 +353,7 @@ export function DocumentView({
   // Ask React seeds the ONE agent with a plain-language, id-safe location.
   const handleCreateBranch = useCallback(
     (location: BranchInsertLocation, kind: "if_then" | "router") => {
+      emitDocumentBuilderEvent("document_insert_used", { kind: "branch" });
       const result =
         kind === "router"
           ? createDocumentRouterBranch({ location, canUseAdvancedBranching })
@@ -309,8 +367,18 @@ export function DocumentView({
   // CS-6 — Ask React with an insertion CONTEXT (plain-language + safe ids only).
   const handleAskReactAt = useCallback(
     (context: string) => {
-      onAskReact?.(`Add a step ${context}. `);
+      onAskReact?.(`Add a step ${context}. `, "document-insert");
     },
+    [onAskReact],
+  );
+  // CS-7 — source-tagged wrappers so the empty-state composer and the persistent
+  // bar mint distinct seed versions for the ONE composer.
+  const askReactFromEmpty = useCallback(
+    (prompt: string) => onAskReact?.(prompt, "document-empty"),
+    [onAskReact],
+  );
+  const askReactFromBar = useCallback(
+    (prompt: string) => onAskReact?.(prompt, "document-bar"),
     [onAskReact],
   );
 
@@ -427,14 +495,14 @@ export function DocumentView({
           handleConfigureStep(outcome.nodeId);
           break;
         case "open_in_visual":
-          onOpenInVisual?.(outcome.nodeId);
+          handoffToVisual(outcome.nodeId);
           break;
         case "refuse":
           say(navRefusalCopy(outcome.reason));
           break;
       }
     },
-    [scrollToNode, handleEditField, handleConfigureStep, onOpenInVisual, say, revealSectionForNode],
+    [scrollToNode, handleEditField, handleConfigureStep, handoffToVisual, say, revealSectionForNode],
   );
 
   // ---- CS-4 section commands (thin: resolve block → node ids, delegate to the
@@ -446,6 +514,7 @@ export function DocumentView({
         say(describeSectionRefusal(resolved.reason));
         return;
       }
+      emitDocumentBuilderEvent("document_insert_used", { kind: "section" });
       const result = useGraphSlice.getState().createSection({
         nodeIds: resolved.nodeIds,
         title: "New section",
@@ -496,6 +565,7 @@ export function DocumentView({
         say(describeDocumentRefusal(check.reason));
         return;
       }
+      emitDocumentBuilderEvent("document_insert_used", { kind: "step" });
       onAppendAfter?.(nodeId);
     },
     [onAppendAfter, say],
@@ -539,6 +609,7 @@ export function DocumentView({
         say(describeDocumentRefusal(check.reason));
         return;
       }
+      emitDocumentBuilderEvent("document_insert_used", { kind: "step" });
       onInsertAtEdge?.(block.insertAfter.edgeId);
     },
     [onInsertAtEdge, say],
@@ -559,6 +630,7 @@ export function DocumentView({
         onCommit={() => {
           const result = commitStop();
           if (!result.ok) say(describeDocumentRefusal(result.reason));
+          else emitDocumentBuilderEvent("document_guided_stop_completed");
         }}
         onCancel={() => cancelStop()}
         onOpenInspector={() => handleConfigureStep(stop.nodeId)}
@@ -647,7 +719,7 @@ export function DocumentView({
             renderBlocks={renderBlocks}
             onEditField={interactive ? handleEditField : undefined}
             onConfigureStep={interactive ? handleConfigureStep : undefined}
-            onOpenInVisual={onOpenInVisual}
+            onOpenInVisual={onOpenInVisual ? handoffToVisual : undefined}
             onInsertInLane={interactive && onInsertAtEdge ? handleInsertInLane : undefined}
             onAddToEmptyLane={interactive ? onAddToEmptyLane : undefined}
           />,
@@ -660,7 +732,7 @@ export function DocumentView({
         <DocumentComplexRegion
           key={`complex-${block.reason}-${block.nodeIds[0] ?? "empty"}`}
           block={block}
-          onOpenInVisual={onOpenInVisual}
+          onOpenInVisual={onOpenInVisual ? handoffToVisual : undefined}
         />,
       );
       flush(block);
@@ -840,7 +912,7 @@ export function DocumentView({
               model={previewModel}
               onApply={onApplyPreview}
               onDiscard={onDiscardPreview}
-              {...(onOpenInVisual ? { onOpenInVisual: () => onOpenInVisual(null) } : {})}
+              {...(onOpenInVisual ? { onOpenInVisual: () => handoffToVisual(null) } : {})}
             />
           ) : null}
           {interactive && !model.empty ? (
@@ -849,15 +921,18 @@ export function DocumentView({
                 state={bannerState}
                 queueActive={finishSetup.active}
                 onFinishSetup={finishSetup.start}
-                onOpenMap={() => setMapOpen(true)}
-                {...(onOpenInVisual ? { onOpenInVisual: () => onOpenInVisual(null) } : {})}
+                onOpenMap={() => {
+                  emitDocumentBuilderEvent("document_map_opened");
+                  setMapOpen(true);
+                }}
+                {...(onOpenInVisual ? { onOpenInVisual: () => handoffToVisual(null) } : {})}
               />
               <FinishSetupControls queue={finishSetup} />
             </>
           ) : null}
           {model.empty ? (
             <DocumentEmptyState
-              {...(onAskReact ? { onAskReact } : {})}
+              {...(onAskReact ? { onAskReact: askReactFromEmpty } : {})}
               {...(onStartWithTrigger ? { onStartWithTrigger } : {})}
             />
           ) : (
@@ -873,7 +948,7 @@ export function DocumentView({
                 groupBlocksIntoSections(model.blocks, pendingPresentation).rows,
               )}
               {/* CS-6 — persistent, unobtrusive entry to the ONE agent. */}
-              {interactive && onAskReact ? <DocumentAskReactBar onAskReact={onAskReact} /> : null}
+              {interactive && onAskReact ? <DocumentAskReactBar onAskReact={askReactFromBar} /> : null}
             </>
           )}
         </div>

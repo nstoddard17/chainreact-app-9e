@@ -47,6 +47,22 @@ export function DocumentInsertMenu({
     fn();
   };
 
+  // CS-7 — arrow-key navigation among the currently-rendered menu items (the
+  // submenu items only exist in the DOM while the branch submenu is open).
+  const moveFocus = (delta: 1 | -1 | "first" | "last") => {
+    const items = rootRef.current
+      ? Array.from(rootRef.current.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+      : [];
+    if (items.length === 0) return;
+    const idx = items.indexOf(document.activeElement as HTMLElement);
+    let next: number;
+    if (delta === "first") next = 0;
+    else if (delta === "last") next = items.length - 1;
+    else if (delta === 1) next = idx < 0 ? 0 : (idx + 1) % items.length;
+    else next = idx <= 0 ? items.length - 1 : idx - 1;
+    items[next]?.focus();
+  };
+
   return (
     <div
       ref={rootRef}
@@ -55,6 +71,27 @@ export function DocumentInsertMenu({
         if (e.key === "Escape") {
           e.stopPropagation();
           close();
+          return;
+        }
+        if (!open) {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setOpen(true);
+          }
+          return;
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          moveFocus(1);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          moveFocus(-1);
+        } else if (e.key === "Home") {
+          e.preventDefault();
+          moveFocus("first");
+        } else if (e.key === "End") {
+          e.preventDefault();
+          moveFocus("last");
         }
       }}
       onBlur={(e) => {
