@@ -67,8 +67,14 @@ test.describe("5.DUAL-BUILDER-1 CS-7 — Document Builder cross-builder journey"
     }
   });
 
-  test("flag OFF hides the Visual/Document toggle (Visual only)", async ({ page }) => {
-    test.skip(FLAG_ON, "runs only with ENABLE_DOCUMENT_BUILDER unset (flag OFF)");
+  test("flag OFF hides the Visual/Document toggle (Visual only) @flag-off", async ({ page }) => {
+    // CS-7D — assert the app is running flag-OFF; do NOT self-skip. Selected by
+    // `npm run e2e:dual-builder:flag-off` (grep @flag-off). If the wrong app
+    // state is running this fails loudly instead of silently skipping.
+    expect(
+      FLAG_ON,
+      "flag-off case must run with ENABLE_DOCUMENT_BUILDER unset/false — use `npm run e2e:dual-builder:flag-off`",
+    ).toBe(false);
     if (!testUser) throw new Error("test user setup failed");
     await signInViaEmailLink(page, testUser);
     await createWorkflow(page, "E2E dual-builder flag-off");
@@ -82,10 +88,16 @@ test.describe("5.DUAL-BUILDER-1 CS-7 — Document Builder cross-builder journey"
     await expect(page.getByTestId("builder-view-toggle")).toHaveCount(0);
   });
 
-  test("build in Visual, edit in Document, save/reload/persist, run — one workflow", async ({
+  test("build in Visual, edit in Document, save/reload/persist, run — one workflow @flag-on", async ({
     page,
   }) => {
-    test.skip(!FLAG_ON, "runs only with ENABLE_DOCUMENT_BUILDER=true (flag ON)");
+    // CS-7D — assert the app is running flag-ON; do NOT self-skip. Selected by
+    // `npm run e2e:dual-builder` (grep @flag-on). If the wrong app state is
+    // running this fails loudly instead of silently skipping.
+    expect(
+      FLAG_ON,
+      "flag-on journey must run with ENABLE_DOCUMENT_BUILDER=true — use `npm run e2e:dual-builder`",
+    ).toBe(true);
     if (!testUser) throw new Error("test user setup failed");
     const user = testUser;
     await signInViaEmailLink(page, user);
@@ -112,11 +124,15 @@ test.describe("5.DUAL-BUILDER-1 CS-7 — Document Builder cross-builder journey"
     await expect(page.getByTestId("document-view")).toBeVisible();
     // The action's configured value renders as a chip in prose.
     await expect(page.getByTestId("document-view")).toContainText("visual value");
+    // CS-7D — capture real authenticated screenshots at each reached state
+    // (uncommitted owner-review dir). Never fails the journey.
+    await shot(page, "01-document-linear");
 
     // ── 3. Edit a configured value through the Guided Stop ─────────────────
     await page.getByTestId(`document-value-chip-${fmtId}-Content`).click();
     const stop = page.getByTestId("document-guided-stop");
     await expect(stop).toBeVisible();
+    await shot(page, "02-guided-stop-open");
     const textarea = stop.getByRole("textbox", { name: "Content", exact: true });
     await textarea.fill("document value");
     await page.getByTestId("guided-stop-done").click();
@@ -129,6 +145,7 @@ test.describe("5.DUAL-BUILDER-1 CS-7 — Document Builder cross-builder journey"
     if (await mapOpener.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await mapOpener.click();
       await expect(page.getByRole("dialog", { name: "Whole workflow map" })).toBeVisible();
+      await shot(page, "07-whole-workflow-map");
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog", { name: "Whole workflow map" })).toHaveCount(0);
     }
@@ -152,9 +169,17 @@ test.describe("5.DUAL-BUILDER-1 CS-7 — Document Builder cross-builder journey"
     await docToggle.click();
     await expect(page.getByTestId("document-view")).toContainText("document value");
 
+    await shot(page, "10-document-saved-persisted");
+    // Narrow-width Document (responsive) — capture then restore the viewport.
+    await page.setViewportSize({ width: 400, height: 900 });
+    await expect(page.getByTestId("document-view")).toBeVisible();
+    await shot(page, "11-narrow-document");
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     // ── 7. Switch to Visual; canonical topology/config unchanged ───────────
     await page.getByTestId("builder-view-toggle-visual").click();
     await expect(page.getByTestId("workflow-node-view")).toHaveCount(2);
+    await shot(page, "12-visual-same-graph");
     const reloaded = await readDefinition(page, workflowId);
     expect(reloaded.nodes).toHaveLength(2);
     expect(reloaded.edges.filter((e) => e.from === triggerId && e.to === fmtId)).toHaveLength(1);
@@ -174,6 +199,22 @@ test.describe("5.DUAL-BUILDER-1 CS-7 — Document Builder cross-builder journey"
 });
 
 // ── helpers (same local idiom as the sibling walkthrough specs) ──────────────
+
+/**
+ * CS-7D — capture a real authenticated screenshot into the uncommitted
+ * owner-review directory. Best-effort: a screenshot failure must never fail the
+ * acceptance journey (the assertions above already prove the state).
+ */
+async function shot(page: Page, name: string): Promise<void> {
+  try {
+    await page.screenshot({
+      path: `owner-review/cs7d/${name}.png`,
+      fullPage: true,
+    });
+  } catch {
+    // ignore — screenshots are evidence, not an assertion
+  }
+}
 
 async function listNodeIds(page: Page): Promise<string[]> {
   return page

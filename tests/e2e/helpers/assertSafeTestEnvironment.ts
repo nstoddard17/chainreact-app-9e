@@ -139,7 +139,7 @@ export function evaluateTestEnvironmentSafety(
  * delete rows against an unproven (potentially production) project.
  */
 export function assertSafeTestEnvironment(
-  env: NodeJS.ProcessEnv | TestEnvironmentInput = process.env,
+  env: Record<string, string | undefined> = process.env,
 ): void {
   const result = evaluateTestEnvironmentSafety(env as TestEnvironmentInput);
   if (!result.safe) {

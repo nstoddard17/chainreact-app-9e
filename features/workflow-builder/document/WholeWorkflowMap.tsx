@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { MapStatus, WholeWorkflowMap as MapModel, WholeWorkflowMapRow } from "./wholeWorkflowMapModel";
 
 /**
@@ -44,12 +45,23 @@ export function WholeWorkflowMap({
   onClose: () => void;
   onSelectRow: (row: WholeWorkflowMapRow) => void;
 }) {
+  // CS-7D — focus the dialog container on mount so Escape closes it in a REAL
+  // browser (matches GuidedStopEditor). Without this, focus stays on the opener
+  // button OUTSIDE this subtree and the `onKeyDown` Escape handler never fires —
+  // a defect jsdom unit tests miss (they dispatch keydown directly on the node)
+  // but the live browser journey exposes.
+  const rootRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    rootRef.current?.focus();
+  }, []);
   return (
     <aside
+      ref={rootRef}
+      tabIndex={-1}
       data-testid="document-whole-workflow-map"
       role="dialog"
       aria-label="Whole workflow map"
-      className="flex h-full w-[320px] shrink-0 flex-col border-l"
+      className="flex h-full w-[320px] shrink-0 flex-col border-l outline-none"
       style={{ background: "var(--builder-panel)", borderColor: "var(--builder-border)" }}
       onKeyDown={(e) => {
         if (e.key === "Escape") {
