@@ -272,10 +272,39 @@ export function toAppCatalogItem(
 }
 
 /**
- * Resolve the full catalog server-side. Filters out experimental providers
- * (same rule the existing `IntegrationsList` applied). Items render in
- * `listProviders()` registry order — the design's category nav handles the
- * actual grouping client-side, so we don't need to pre-group here.
+ * Development-only catalog preview (CS-6 follow-up). When
+ * `ENABLE_EXPERIMENTAL_MCP_APPS=true`, EXPERIMENTAL **MCP-catalog** providers
+ * (`apiVersion: "mcp"`) become visible in the Apps catalog so the owner can
+ * connect + live-certify them BEFORE their manifest flips to non-experimental.
+ *
+ * OFF by default — production never sets it, so experimental providers stay
+ * hidden and NO certification state changes (the manifest's `isExperimental`
+ * stays `true`). Deliberately scoped to MCP apps so it can never accidentally
+ * reveal an unrelated experimental native provider. Remove the env var after
+ * certification (the flip to `isExperimental: false` supersedes it).
+ */
+function experimentalMcpPreviewEnabled(): boolean {
+  return process.env.ENABLE_EXPERIMENTAL_MCP_APPS === "true";
+}
+
+function isCatalogVisible(p: {
+  isEnabled: boolean;
+  isExperimental: boolean;
+  apiVersion?: string;
+}): boolean {
+  if (!p.isEnabled) return false;
+  if (!p.isExperimental) return true;
+  // Experimental providers are hidden, EXCEPT an MCP-catalog app when the
+  // dev-only preview flag is on (production leaves the flag unset → hidden).
+  return experimentalMcpPreviewEnabled() && p.apiVersion === "mcp";
+}
+
+/**
+ * Resolve the full catalog server-side. Filters out disabled + experimental
+ * providers (same rule the existing `IntegrationsList` applied), except an
+ * experimental MCP-catalog app when the dev preview flag is on (see
+ * `isCatalogVisible`). Items render in `listProviders()` registry order — the
+ * design's category nav handles the grouping client-side.
  */
 export function resolveAppCatalog(
   records: readonly IntegrationRecord[],
@@ -288,7 +317,7 @@ export function resolveAppCatalog(
     providersByUser.set(r.provider, bucket);
   }
   return listProviders()
-    .filter((p) => p.isEnabled && !p.isExperimental)
+    .filter(isCatalogVisible)
     .map((p) =>
       toAppCatalogItem(p, providersByUser.get(p.id) ?? [], ctx),
     );

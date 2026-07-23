@@ -37,6 +37,7 @@ function mkProvider(over: Partial<{
   displayName: string;
   isEnabled: boolean;
   isExperimental: boolean;
+  apiVersion: string;
   capabilities: { oauth: boolean };
   connectInput: { hintKey: string; label: string; placeholder: string; help?: string };
 }> = {}) {
@@ -516,6 +517,49 @@ describe("resolveAppCatalog — visibility filter", () => {
     ]);
     const items = resolveAppCatalog([]);
     expect(items.map((i) => i.providerId)).toEqual(["slack", "stripe"]);
+  });
+
+  describe("ENABLE_EXPERIMENTAL_MCP_APPS dev preview (CS-6 follow-up)", () => {
+    const prev = process.env.ENABLE_EXPERIMENTAL_MCP_APPS;
+    afterEach(() => {
+      if (prev === undefined) delete process.env.ENABLE_EXPERIMENTAL_MCP_APPS;
+      else process.env.ENABLE_EXPERIMENTAL_MCP_APPS = prev;
+    });
+
+    it("hides an experimental MCP app by default (flag unset → production-safe)", () => {
+      delete process.env.ENABLE_EXPERIMENTAL_MCP_APPS;
+      mockList.mockReturnValue([
+        mkProvider({ id: "slack" }),
+        mkProvider({ id: "linear", isExperimental: true, apiVersion: "mcp" }),
+      ]);
+      expect(resolveAppCatalog([]).map((i) => i.providerId)).toEqual(["slack"]);
+    });
+
+    it("shows an experimental MCP app when the dev flag is on", () => {
+      process.env.ENABLE_EXPERIMENTAL_MCP_APPS = "true";
+      mockList.mockReturnValue([
+        mkProvider({ id: "slack" }),
+        mkProvider({ id: "linear", isExperimental: true, apiVersion: "mcp" }),
+      ]);
+      expect(resolveAppCatalog([]).map((i) => i.providerId)).toEqual(["slack", "linear"]);
+    });
+
+    it("does NOT reveal a non-MCP experimental provider even with the flag on (scoped)", () => {
+      process.env.ENABLE_EXPERIMENTAL_MCP_APPS = "true";
+      mockList.mockReturnValue([
+        mkProvider({ id: "slack" }),
+        mkProvider({ id: "future-native", isExperimental: true }), // no apiVersion
+      ]);
+      expect(resolveAppCatalog([]).map((i) => i.providerId)).toEqual(["slack"]);
+    });
+
+    it("still hides a DISABLED experimental MCP app with the flag on", () => {
+      process.env.ENABLE_EXPERIMENTAL_MCP_APPS = "true";
+      mockList.mockReturnValue([
+        mkProvider({ id: "linear", isEnabled: false, isExperimental: true, apiVersion: "mcp" }),
+      ]);
+      expect(resolveAppCatalog([]).map((i) => i.providerId)).toEqual([]);
+    });
   });
 
   it("groups integration records by provider and keeps providers with no rows in the catalog", () => {

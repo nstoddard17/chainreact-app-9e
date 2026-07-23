@@ -23,6 +23,25 @@ runs once real credentials exist. Local/unpushed.
 If any is missing → **stop; do not fabricate a capture** (a fabricated snapshot
 would certify invented schemas — the worst possible outcome).
 
+### Development preview — connect BEFORE certification
+
+Linear stays `isExperimental: true` (hidden from the production Apps catalog)
+until Phase 7. To connect + certify it in development WITHOUT changing that
+production state, set the dev-only flag:
+
+```
+ENABLE_EXPERIMENTAL_MCP_APPS=true   # dev/localhost only — never in production
+```
+
+This reveals experimental **MCP-catalog** providers (`apiVersion: "mcp"`) in the
+Apps catalog so the OAuth "Connect" flow is reachable (`app/apps/_shared.ts`
+`isCatalogVisible`). It is scoped to MCP apps, OFF by default, and touches no
+manifest — production (flag unset) keeps Linear hidden and its certification
+state unchanged. Remove the flag once Phase 7 flips `isExperimental: false`
+(which supersedes it). Linear's action metas are already registered, so its
+nodes appear in the builder for building the certification workflows regardless
+of this flag.
+
 ## The pipeline is READY (verified CS-3/CS-4, credential-independent)
 
 Everything below is code-complete and tested against a mocked boundary; only live
