@@ -9,7 +9,12 @@ import {
   type OptionsResolverContext,
 } from "@/services/options/types";
 import type { IntegrationRecord } from "@/repositories/integrations";
-import { mcpResolverCall, mcpStructured, type McpResolverDeps } from "@/integrations/_shared/mcp";
+import {
+  mcpResolverCall,
+  mcpStructured,
+  type McpCallToolResult,
+  type McpResolverDeps,
+} from "@/integrations/_shared/mcp";
 
 /**
  * Shared helpers for the Linear option resolvers (CS-6B).
@@ -34,17 +39,16 @@ export function requireLinearIntegration(ctx: OptionsResolverContext): Integrati
   return ctx.integration;
 }
 
-/** Call a Linear list tool and return its structured payload object. */
-export async function linearListTool(
+/** Call a Linear read-only list tool through the shared seam; returns the raw result. */
+async function linearCall(
   ctx: OptionsResolverContext,
   tool: string,
   args: Readonly<Record<string, unknown>>,
   deps?: McpResolverDeps,
-): Promise<Record<string, unknown>> {
+): Promise<McpCallToolResult> {
   const integration = requireLinearIntegration(ctx);
-  let result;
   try {
-    result = await mcpResolverCall(
+    return await mcpResolverCall(
       {
         accountId: integration.accountId,
         provider: "linear",
@@ -59,11 +63,51 @@ export async function linearListTool(
   } catch (err) {
     mapLinearOptionsError(err);
   }
-  const structured = mcpStructured(result);
+}
+
+/** Call a Linear list tool and return its structured payload object (`{ key: [...] }`). */
+export async function linearListTool(
+  ctx: OptionsResolverContext,
+  tool: string,
+  args: Readonly<Record<string, unknown>>,
+  deps?: McpResolverDeps,
+): Promise<Record<string, unknown>> {
+  const structured = mcpStructured(await linearCall(ctx, tool, args, deps));
   if (!structured) {
     throw new OptionsResolverError("PROVIDER_ERROR", "Couldn't read Linear options. Try again.");
   }
   return structured;
+}
+
+/**
+ * Call a Linear list tool whose result is a TOP-LEVEL array of rows (e.g.
+ * `list_issue_statuses` → `[{ id, type, name }]`), which `mcpStructured`
+ * intentionally rejects. Reads the array from `structuredContent` or a JSON text
+ * block; never spreads a row.
+ */
+export async function linearListToolArray(
+  ctx: OptionsResolverContext,
+  tool: string,
+  args: Readonly<Record<string, unknown>>,
+  deps?: McpResolverDeps,
+): Promise<Record<string, unknown>[]> {
+  const result = await linearCall(ctx, tool, args, deps);
+  let payload: unknown = Array.isArray(result.structuredContent) ? result.structuredContent : null;
+  if (!payload) {
+    const text = (result.content ?? []).find((b) => b.type === "text" && typeof b.text === "string")?.text;
+    if (typeof text === "string") {
+      try {
+        const parsed = JSON.parse(text) as unknown;
+        if (Array.isArray(parsed)) payload = parsed;
+      } catch {
+        /* not JSON */
+      }
+    }
+  }
+  if (!Array.isArray(payload)) {
+    throw new OptionsResolverError("PROVIDER_ERROR", "Couldn't read Linear options. Try again.");
+  }
+  return payload.filter((x) => x && typeof x === "object") as Record<string, unknown>[];
 }
 
 /** Read a bounded array field off a Linear list result. */

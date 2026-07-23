@@ -19,10 +19,14 @@ runs once real credentials exist. Local/unpushed.
 > - **Live E2E** (both workflows, reconnect, drift) — needs `LINEAR_CLIENT_ID`/
 >   `LINEAR_CLIENT_SECRET` + an OAuth connection (Part 7).
 >
-> The CS-6C environment had `MCP_IMPORT_BEARER`, `LINEAR_CLIENT_ID`, and
-> `LINEAR_CLIENT_SECRET` all unset, so none of the above could be executed and
-> nothing was fabricated. Linear stays **Experimental**. This runbook is what
-> runs the moment those credentials are supplied.
+> **CS-6C LIVE update (2026-07-23):** credentials were supplied via `.env.local`
+> and the read path ran live (no drift on 52 tools). `linear:projects` +
+> `linear:issue_statuses` resolvers now ship from **real** evidence. BUT the dev
+> `MCP_IMPORT_BEARER` is **read-only** — `save_issue`/`save_comment` were denied
+> ("lacks write permission"), so write-evidence, write structured outputs, and
+> the two E2E workflows remain blocked. Re-mint the bearer with **Read & write**
+> scope to finish. Linear stays **Experimental**. Full detail:
+> `docs/providers/linear/live-capture-evidence.md` (CS-6C LIVE run).
 
 ## Owner prerequisites (all required before step 1)
 

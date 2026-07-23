@@ -168,3 +168,67 @@ what was code-completable now vs. what stays owner-blocked:
 Until the write-evidence + resolver captures + live E2E are done, Linear stays
 `isExperimental: true` (Phase 7 gate not met). State/Cycle/Project remain
 name-or-id text on the Setup path in the interim (documented, not a silent gap).
+
+---
+
+## CS-6C LIVE run — 2026-07-23 (credentials supplied via `.env.local`)
+
+The owner supplied `LINEAR_CLIENT_ID` / `LINEAR_CLIENT_SECRET` / `MCP_IMPORT_BEARER`
+in `.env.local` (git-ignored). The mcp-import CLI now loads it via `@next/env`'s
+`loadEnvConfig` (Next tooling convention). Live path confirmed: `check linear`
+→ **no drift across 52 tools**; server reachable; bearer valid.
+
+**Resolvers shipped from REAL live evidence (read path — token has `read`):**
+
+| Picker | Tool | Live shape (type-only) | Resolver |
+|---|---|---|---|
+| Project | `list_projects` | `{ projects:[{ id, name, url, status:{id,name,type}, … }], hasNextPage }` — **non-empty** (cert project "Delete Me") | **`linear:projects`** (value=id, label=name; optional `team` cascade filter) |
+| State | `list_issue_statuses` | top-level array `[{ id, type, name }]` (team-scoped) | **`linear:issue_statuses`** (value=id, label=name; **requiredDeps: team** → "choose a team first") |
+| Cycle | `list_cycles` | **empty `[]`** — cert team ("ChainReact") has no cycles configured | **NOT shipped** — item shape unconfirmed; Cycle stays name/number/ID text (no guessed shape) |
+
+State + Project are now cascade comboboxes (`dependsOn: team`) on Find / Create /
+Update Issue — dropdown + manual name/ID fallback. Team was discovered via
+`list_teams` (single team) and the disposable project via `list_projects`; no ID
+was hand-entered.
+
+**Write path — BLOCKED by token SCOPE (not absence):**
+
+`save_issue` / `save_comment` were denied live: **`McpPermissionError: the
+connected token lacks write permission`**. The dev `MCP_IMPORT_BEARER` is
+**read-only**. Therefore:
+- `create_issue` / `update_issue` / `add_comment` structured outputs **stay
+  text-only** — the write result shapes could not be observed and are NOT
+  fabricated. `mcp-evidence.json` records `save_issue` / `save_comment` as
+  `skipped` with the read-only-scope reason.
+- Live E2E Workflows A/B (which create/update/comment) could not run.
+
+**Unblock:** re-mint `MCP_IMPORT_BEARER` with **Read & write** scope in Linear
+(Settings → API), then run `mcp:import write-evidence` for `save_issue` (create +
+update fixtures) and `save_comment`, curate the bounded outputs (id / identifier /
+title / url / status / team / project), regenerate. For the two live workflows,
+connect Linear (OAuth) + Slack in a running app instance and execute them.
+
+**Cycle:** re-capture from a team that HAS cycles to confirm the item shape, then
+ship `linear:cycles` (dependsOn team) the same way.
+
+### Linear release decision (CS-6C): STAYS `isExperimental: true`
+
+Phase-7 gate: structured write outputs (gate 3) and both live E2E workflows +
+reconnect/drift-in-flight (gate 4) are **not** met — blocked on a write-scoped
+token and a full-app E2E, neither available this session. Everything else is done:
+live snapshot + no drift, real dropdowns for Team/Assignee/Labels/Project/State,
+Priority dropdown, dueDate picker, no MCP terminology.
+
+### Eden (Part 13) — hide plan, staged for the release point
+
+Eden go-live is tied to "the same release point," which Linear did not reach, and
+the owner said not to auto-flip Eden — so Eden is **not** flipped and its 3
+unverified social-publish writes are **not** unregistered this batch (they remain
+fully tested; `scheduling-metadata.test.ts` asserts them registered + visible).
+Ready-to-run hide for the release point: remove `edenSchedulePostMeta` /
+`edenPublishPostNowMeta` / `edenUpdateScheduledPostMeta` from `EDEN_ACTION_METAS`
+(`services/discovery/providers/eden.ts`) and the matching 3 lines from
+`services/execution/handlers/_handlerInventory.ts`, update
+`scheduling-metadata.test.ts` to assert those 3 are withheld from the catalog, and
+change the manifest note 36→33. Do this together with the write-scoped-token
+certification so both providers reach live in one verified batch.

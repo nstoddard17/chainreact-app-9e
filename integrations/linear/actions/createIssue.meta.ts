@@ -81,15 +81,24 @@ export const createIssueMeta: ActionMeta = {
     {
       name: "project",
       label: "Project",
-      type: "text",
+      description: "Project to add the issue to — pick from the list or type a project name/ID.",
+      type: "combobox",
       required: false,
+      dependsOn: [
+        "team",
+      ],
+      optionsSource: "linear:projects",
     },
     {
       name: "state",
       label: "State",
-      description: "State type, name, or ID",
-      type: "text",
+      description: "Workflow state — pick a team first, then choose a state (or type a state name/ID).",
+      type: "combobox",
       required: false,
+      dependsOn: [
+        "team",
+      ],
+      optionsSource: "linear:issue_statuses",
     },
     {
       name: "assignee",

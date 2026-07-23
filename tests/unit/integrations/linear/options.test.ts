@@ -10,6 +10,8 @@
 import { makeLinearTeamsResolver } from "@/integrations/linear/options/teams";
 import { makeLinearAssigneesResolver } from "@/integrations/linear/options/assignees";
 import { makeLinearLabelsResolver } from "@/integrations/linear/options/labels";
+import { makeLinearProjectsResolver } from "@/integrations/linear/options/projects";
+import { makeLinearIssueStatusesResolver } from "@/integrations/linear/options/statuses";
 import type { McpResolverDeps } from "@/integrations/_shared/mcp";
 import type { OptionsResolverContext } from "@/services/options/types";
 import { Unauthorized401Error } from "@/services/oauth/refreshAndRetry";
@@ -90,6 +92,50 @@ describe("linear:labels", () => {
     const res = await r.resolve(ctx({ q: "bu" }));
     expect(res.items).toEqual([{ value: "l1", label: "bug" }]);
     expect(lastCall!.args).toMatchObject({ name: "bu" });
+  });
+});
+
+describe("linear:projects (CS-6C)", () => {
+  it("maps id→value, name→label; optional team filter from deps; hasMore", async () => {
+    const r = makeLinearProjectsResolver(
+      deps({ projects: [{ id: "p2", name: "Roadmap" }, { id: "p1", name: "Delete Me" }], hasNextPage: true }),
+    );
+    const res = await r.resolve(ctx({ deps: { team: "t1" } }));
+    expect(res.items).toEqual([
+      { value: "p1", label: "Delete Me" },
+      { value: "p2", label: "Roadmap" },
+    ]);
+    expect(res.hasMore).toBe(true);
+    // team from deps flows to the tool as a cascade filter.
+    expect(lastCall).toMatchObject({ tool: "list_projects", args: { limit: 50, team: "t1" } });
+  });
+
+  it("omits the team arg when no team is selected (lists all projects)", async () => {
+    const r = makeLinearProjectsResolver(deps({ projects: [], hasNextPage: false }));
+    await r.resolve(ctx());
+    expect(lastCall!.args).not.toHaveProperty("team");
+  });
+});
+
+describe("linear:issue_statuses (CS-6C)", () => {
+  it("parses a TOP-LEVEL array result; maps id→value, name→label; team-scoped", async () => {
+    // list_issue_statuses returns a bare array (not { key: [...] }).
+    const r = makeLinearIssueStatusesResolver(
+      deps([
+        { id: "s2", type: "started", name: "In Progress" },
+        { id: "s1", type: "backlog", name: "Backlog" },
+      ]),
+    );
+    const res = await r.resolve(ctx({ deps: { team: "t1" } }));
+    expect(res.items).toEqual([
+      { value: "s1", label: "Backlog" },
+      { value: "s2", label: "In Progress" },
+    ]);
+    expect(lastCall).toMatchObject({ tool: "list_issue_statuses", args: { team: "t1" } });
+  });
+
+  it("declares team as a required dependency (route enforces 'choose a team first')", () => {
+    expect(makeLinearIssueStatusesResolver().requiredDeps).toEqual(["team"]);
   });
 });
 

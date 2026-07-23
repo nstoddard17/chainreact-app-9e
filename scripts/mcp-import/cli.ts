@@ -33,9 +33,20 @@ import {
 import { createMcpClient, type McpClient } from "@/integrations/_shared/mcp/client";
 import { buildDriftReport, type DriftReport } from "@/integrations/_shared/mcp/driftClassify";
 import { buildEvidence, writeEvidenceEligibility, buildWriteEvidence } from "@/integrations/_shared/mcp/evidence";
+// `@next/env` is CommonJS — default-import the namespace so this resolves under
+// both native ESM (the CLI runtime) and tsc.
+import nextEnv from "@next/env";
+const { loadEnvConfig } = nextEnv;
 
 // Run from the repo root (the npm script guarantees the cwd).
 const repoRoot = process.cwd();
+
+// Load .env / .env.local the way Next.js tooling does, so the live commands
+// (capture/check/write-evidence) pick up MCP_IMPORT_BEARER / LINEAR_* from the
+// repo's local env files without the operator having to export them by hand.
+// process.env still WINS over the files (Next precedence). Silent logger — the
+// info line names files only, but we suppress it entirely and NEVER print values.
+loadEnvConfig(repoRoot, true, { info: () => {}, error: (...a) => console.error(...a) });
 
 function providerDir(provider: string): string {
   if (!/^[a-z][a-z0-9_-]*$/.test(provider)) throw new Error(`Invalid provider id '${provider}'.`);

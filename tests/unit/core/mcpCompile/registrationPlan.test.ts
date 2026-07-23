@@ -68,10 +68,17 @@ describe("registration plan — Linear (matches the committed wiring)", () => {
     }
   });
 
-  it("options fragment reports Linear's resolver sources (CS-6B)", () => {
-    expect(plan.resolverSources).toEqual(["linear:assignees", "linear:labels", "linear:teams"]);
+  it("options fragment reports Linear's resolver sources (CS-6B + CS-6C)", () => {
+    // CS-6C added linear:projects + linear:issue_statuses (team-scoped dropdowns).
+    expect(plan.resolverSources).toEqual([
+      "linear:assignees",
+      "linear:issue_statuses",
+      "linear:labels",
+      "linear:projects",
+      "linear:teams",
+    ]);
     const optionsFragment = plan.fragments.find((f) => f.destination === "services/options/_registry.ts")!;
-    for (const s of ["linear:teams", "linear:assignees", "linear:labels"]) {
+    for (const s of ["linear:teams", "linear:assignees", "linear:labels", "linear:projects", "linear:issue_statuses"]) {
       expect(optionsFragment.content).toContain(s);
     }
   });

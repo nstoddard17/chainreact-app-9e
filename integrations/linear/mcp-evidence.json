@@ -2,6 +2,12 @@
   "provider": "linear",
   "tools": [
     {
+      "tool": "list_cycles",
+      "schemaHash": "6fcdddea17d6bb5cde05dd11ea98195fa7c633ce423b26148ee3c3e356a45f3e",
+      "captureStatus": "skipped",
+      "reason": "cert team has zero cycles — empty array; item shape unconfirmed; resolver not shipped (no guessed shape)."
+    },
+    {
       "tool": "list_issue_labels",
       "schemaHash": "a8873ab1da2294a6c387503c7fc44364d2f9eaf243f6b56727dcc2ec1d089193",
       "captureStatus": "captured",
@@ -26,6 +32,32 @@
       "recommendation": "structured_output_curatable",
       "notes": [
         "resolver_candidate"
+      ]
+    },
+    {
+      "tool": "list_issue_statuses",
+      "schemaHash": "9e25c0d13f37b8f89f4b6423e35c9b0de46ebd4ef16671c971e1360b87765374",
+      "captureStatus": "captured",
+      "resultKind": "structured",
+      "observedShape": [
+        {
+          "id": "string",
+          "type": "string",
+          "name": "string"
+        }
+      ],
+      "fieldsObserved": [
+        "id",
+        "type",
+        "name"
+      ],
+      "pagination": null,
+      "supportsStructuredOutput": true,
+      "recommendation": "structured_output_curatable",
+      "notes": [
+        "resolver_candidate",
+        "resolver_source:linear:issue-statuses",
+        "team_scoped"
       ]
     },
     {
@@ -88,7 +120,48 @@
       "captureStatus": "captured",
       "resultKind": "structured",
       "observedShape": {
-        "projects": [],
+        "projects": [
+          {
+            "id": "string",
+            "icon": "null",
+            "color": "string",
+            "name": "string",
+            "summary": "string",
+            "description": "string",
+            "url": "string",
+            "createdAt": "string",
+            "updatedAt": "string",
+            "startedAt": "null",
+            "completedAt": "null",
+            "canceledAt": "null",
+            "startDate": "null",
+            "startDateResolution": "null",
+            "targetDate": "null",
+            "targetDateResolution": "null",
+            "priority": {
+              "value": "number",
+              "name": "string"
+            },
+            "labels": [],
+            "initiatives": [],
+            "lead": {
+              "id": "string",
+              "name": "string"
+            },
+            "status": {
+              "id": "string",
+              "name": "string",
+              "type": "string"
+            },
+            "teams": [
+              {
+                "id": "...",
+                "name": "...",
+                "key": "..."
+              }
+            ]
+          }
+        ],
         "hasNextPage": "boolean"
       },
       "fieldsObserved": [
@@ -98,7 +171,10 @@
       "pagination": null,
       "supportsStructuredOutput": true,
       "recommendation": "structured_output_curatable",
-      "notes": []
+      "notes": [
+        "resolver_candidate",
+        "resolver_source:linear:projects"
+      ]
     },
     {
       "tool": "list_teams",
@@ -162,18 +238,15 @@
     },
     {
       "tool": "save_comment",
+      "schemaHash": "a734ef7fed07fac49776257e715cc84363c7cf8570fd0786aecbd5b9c396c48f",
       "captureStatus": "skipped",
-      "reason": "not read-only (risk: write) — write-tool evidence execution is deferred (CS-5A)"
+      "reason": "write-evidence blocked: dev MCP_IMPORT_BEARER is READ-ONLY (server denied writes). Re-mint a write-scoped dev token to certify the add_comment result shape."
     },
     {
       "tool": "save_issue",
+      "schemaHash": "1fd1b57e90b57f24593d5b3f39b61d0655b13486902072cdbe53bbc647fbc291",
       "captureStatus": "skipped",
-      "reason": "not read-only (risk: write) — write-tool evidence execution is deferred (CS-5A)"
-    },
-    {
-      "tool": "save_issue",
-      "captureStatus": "skipped",
-      "reason": "not read-only (risk: write) — write-tool evidence execution is deferred (CS-5A)"
+      "reason": "write-evidence blocked: dev MCP_IMPORT_BEARER is READ-ONLY (server denied save_issue: lacks write permission). Re-mint a write-scoped dev token to certify create/update result shapes."
     }
   ],
   "capturedAt": "2026-07-23T03:24:45.141Z",

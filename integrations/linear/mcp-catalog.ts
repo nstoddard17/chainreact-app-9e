@@ -80,10 +80,13 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         release: { advanced: true }, // live-only field (CS-6): power-user release filter.
         // Closed dropdown for the priority FILTER (rule 17); schema-constrained.
         priority: { enumValues: PRIORITY_LEVELS, description: "Only return issues at this priority level." },
-        // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
+        // CS-6B/CS-6C resolver-backed pickers (combobox — keeps manual name/ID entry).
         team: { optionsSource: "linear:teams" },
         assignee: { optionsSource: "linear:assignees" },
         label: { optionsSource: "linear:labels" },
+        // CS-6C — State + Project dropdowns, cascade children of Team.
+        state: { optionsSource: "linear:issue_statuses", dependsOn: ["team"] },
+        project: { optionsSource: "linear:projects", dependsOn: ["team"] },
       },
     },
     {
@@ -115,6 +118,17 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         labels: {
           optionsSource: "linear:labels",
           description: "Labels to apply — pick from the list or type label names/IDs.",
+        },
+        // CS-6C — State + Project dropdowns, cascade children of Team.
+        state: {
+          optionsSource: "linear:issue_statuses",
+          dependsOn: ["team"],
+          description: "Workflow state — pick a team first, then choose a state (or type a state name/ID).",
+        },
+        project: {
+          optionsSource: "linear:projects",
+          dependsOn: ["team"],
+          description: "Project to add the issue to — pick from the list or type a project name/ID.",
         },
         removeBlocks: { omit: true },
         removeBlockedBy: { omit: true },
@@ -165,6 +179,17 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         labels: {
           optionsSource: "linear:labels",
           description: "Replace the issue's labels — pick from the list or type label names/IDs. Leave empty to keep existing labels.",
+        },
+        // CS-6C — State + Project dropdowns, cascade children of Team.
+        state: {
+          optionsSource: "linear:issue_statuses",
+          dependsOn: ["team"],
+          description: "Move the issue to a workflow state — pick a team first, then a state (or type a state name/ID).",
+        },
+        project: {
+          optionsSource: "linear:projects",
+          dependsOn: ["team"],
+          description: "Move the issue to a project — pick from the list or type a project name/ID.",
         },
         delegate: { advanced: true },
         cycle: { advanced: true },
@@ -248,7 +273,7 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       tool: "list_issue_statuses",
       decision: "defer",
       reason:
-        "Resolver source: backs the State picker (`linear:issue-statuses`, a cascade child of Team via dependsOn). Live schema REQUIRES a `team` arg, so it carries NO committed evidence sampleArgs (an account-specific team can't be committed safely). To ship the picker: at cert time add a transient `evidence: { sampleArgs: { team: \"<real-team>\" } }` here and run `capture --evidence` to record the result shape, then build `linear:issue-statuses` (dependsOn team). Until that shape is captured the State field stays name-or-id text — do NOT guess the shape.",
+        "Resolver source: backs the State picker (`linear:issue_statuses`, a cascade child of Team via dependsOn). Live schema REQUIRES a `team` arg, so it carries NO committed evidence sampleArgs (an account-specific team can't be committed safely). To ship the picker: at cert time add a transient `evidence: { sampleArgs: { team: \"<real-team>\" } }` here and run `capture --evidence` to record the result shape, then build `linear:issue_statuses` (dependsOn team). Until that shape is captured the State field stays name-or-id text — do NOT guess the shape.",
     },
     {
       tool: "list_cycles",

@@ -71,8 +71,12 @@ export const findIssuesMeta: ActionMeta = {
       name: "state",
       label: "State",
       description: "State type, name, or ID",
-      type: "text",
+      type: "combobox",
       required: false,
+      dependsOn: [
+        "team",
+      ],
+      optionsSource: "linear:issue_statuses",
     },
     {
       name: "cycle",
@@ -108,8 +112,12 @@ export const findIssuesMeta: ActionMeta = {
       name: "project",
       label: "Project",
       description: "Project name, ID, or slug",
-      type: "text",
+      type: "combobox",
       required: false,
+      dependsOn: [
+        "team",
+      ],
+      optionsSource: "linear:projects",
     },
     {
       name: "release",
