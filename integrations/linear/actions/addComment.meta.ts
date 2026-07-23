@@ -14,15 +14,15 @@ export const addCommentMeta: ActionMeta = {
   fields: [
     {
       name: "issueId",
-      label: "Issue id",
+      label: "Issue",
       description: "Issue ID or identifier (e.g., LIN-123) (provide exactly one parent)",
       type: "text",
       required: true,
     },
     {
       name: "parentId",
-      label: "Parent id",
-      description: "Parent comment ID (for replies, only when creating)",
+      label: "Parent comment",
+      description: "Reply under an existing comment (comment ID). Leave empty for a top-level comment.",
       type: "text",
       required: false,
       advanced: true,

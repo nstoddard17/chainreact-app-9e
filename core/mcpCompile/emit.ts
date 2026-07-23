@@ -118,6 +118,21 @@ function zodForField(f: CompiledFieldIr): string {
     case "enum":
       expr = `z.enum([${f.kind.values.map((v) => JSON.stringify(v)).join(", ")}])`;
       break;
+    case "curated-enum": {
+      if (f.kind.valueType === "number") {
+        const nums = f.kind.options.map((o) => o.value as number);
+        const lo = Math.min(...nums);
+        const hi = Math.max(...nums);
+        // The picker commits the chosen value as a STRING; coerce back to the
+        // wire number and bound it to the curated contiguous range. Negatives,
+        // out-of-range, and non-numeric values are rejected at parse time
+        // (the engine has already resolved any {{variable}} first).
+        expr = `z.coerce.number().int().min(${lo}).max(${hi})`;
+      } else {
+        expr = `z.enum([${f.kind.options.map((o) => JSON.stringify(String(o.value))).join(", ")}])`;
+      }
+      break;
+    }
     case "enum-array":
       expr = `z.array(z.enum([${f.kind.values.map((v) => JSON.stringify(v)).join(", ")}])).min(1)`;
       break;

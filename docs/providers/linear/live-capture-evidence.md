@@ -105,13 +105,60 @@ npm run mcp:import -- write-evidence linear --tool save_comment --fixture commen
 # → then curate create_issue/update_issue/add_comment `outputs` from the real
 #   shapes (id/identifier/title/url/status), regenerate, and re-run tests.
 
-# 2. Projects + statuses resolvers: re-capture with a workspace that HAS projects,
-#    and add a transient evidence block for list_issue_statuses with a real team:
+# 2. Projects + statuses + cycles resolvers: re-capture with a workspace that HAS
+#    projects, and add transient evidence blocks for the team-scoped list tools:
 #      { tool: "list_issue_statuses", decision: "defer", reason: "...",
 #        evidence: { sampleArgs: { team: "<your-team>" } } }
+#      { tool: "list_cycles", decision: "defer", reason: "...",
+#        evidence: { sampleArgs: { teamId: "<your-team-id>" } } }
 npm run mcp:import -- capture linear --evidence
-# → then ship linear:projects (dependsOn team) + linear:issue-statuses (dependsOn team).
+# → then ship linear:projects (dependsOn team) + linear:issue-statuses (dependsOn
+#   team) + linear:cycles (dependsOn team).
 
 # 3. Run both live workflows (with ENABLE_EXPERIMENTAL_MCP_APPS=true) and verify
 #    OAuth refresh/reconnect, run history, drift, and downstream mappings.
 ```
+
+---
+
+## CS-6C outcome — 2026-07-22 (final production-readiness batch)
+
+The CS-6C environment had `MCP_IMPORT_BEARER`, `LINEAR_CLIENT_ID`, and
+`LINEAR_CLIENT_SECRET` **all unset** — so no live capture, write-evidence, or
+OAuth workflow run could be executed. Nothing was fabricated. Work split into
+what was code-completable now vs. what stays owner-blocked:
+
+**Shipped in CS-6C (no live credential needed, verified by tests):**
+
+- **Priority is now a labelled closed dropdown** on Find/Create/Update Issue
+  (No priority · Urgent · High · Medium · Low). Linear types `priority` as a bare
+  `number` with the set only in prose; a new compiler `enumValues` override
+  (`core/mcpCompile`) renders a `select` and constrains the generated zod schema
+  to `z.coerce.number().int().min(0).max(4)` — the picker's string coerces to the
+  wire integer and negative / out-of-range / non-numeric values are rejected at
+  parse (runtime enforced; tested in `mcp-generated.test.ts`).
+- **Numeric bounds**: `limit` → 1..250, `estimate` → ≥ 0 (new `numericMin`/
+  `numericMax` overrides).
+- **Config-UX cleanups**: plain-English labels/descriptions (SLA fields, parent
+  fields, team/labels descriptions no longer say "required when creating" / "as a
+  JSON array"). No MCP terminology anywhere (already true; reconfirmed).
+- **State / Cycle / Project resolver sources STAGED** in `mcp-catalog.ts` with
+  exact capture instructions; `list_cycles` added as a defer source. Not shipped
+  as pickers — see below.
+- **Broken Apps-page icons fixed** for Linear (+ Eden) — `public/integrations/
+  linear.svg` / `eden.svg` were missing; added + regression test
+  (`providerIconUrl.test.ts` now asserts every enabled provider has its asset).
+
+**Still owner-blocked (must NOT be fabricated):**
+
+| Gap | Blocker | Unblock command |
+|---|---|---|
+| Create/Update/Comment **structured outputs** (Parts 1–2) | write-tool result shapes are `skipped` in `mcp-evidence.json` | `mcp:import write-evidence` for `save_issue`×2 + `save_comment` (disposable records), then curate `outputs`, regenerate |
+| **State** picker (`linear:issue-statuses`) | `list_issue_statuses` needs a `team` arg; not captured | add transient `evidence.sampleArgs.team`, `capture --evidence` |
+| **Cycle** picker (`linear:cycles`) | `list_cycles` needs a `teamId` arg; not captured | add transient `evidence.sampleArgs.teamId`, `capture --evidence` |
+| **Project** picker (`linear:projects`) | `list_projects` captured EMPTY (item shape unconfirmed) | `capture --evidence` from a workspace WITH projects |
+| **Live E2E** (Part 7): OAuth, dropdowns live, run history, reconnect, drift | no `LINEAR_CLIENT_ID`/`SECRET`; no connection | run both workflows per the runbook Phase 6 |
+
+Until the write-evidence + resolver captures + live E2E are done, Linear stays
+`isExperimental: true` (Phase 7 gate not met). State/Cycle/Project remain
+name-or-id text on the Setup path in the interim (documented, not a silent gap).

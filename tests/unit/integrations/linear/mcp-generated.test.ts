@@ -29,6 +29,7 @@ import { findIssuesMeta } from "@/integrations/linear/actions/findIssues.meta";
 import { createIssueMeta } from "@/integrations/linear/actions/createIssue.meta";
 import { updateIssueMeta } from "@/integrations/linear/actions/updateIssue.meta";
 import { addCommentMeta } from "@/integrations/linear/actions/addComment.meta";
+import { FindIssuesConfigSchema } from "@/integrations/linear/actions/findIssues.schema";
 import { CreateIssueConfigSchema } from "@/integrations/linear/actions/createIssue.schema";
 import { UpdateIssueConfigSchema } from "@/integrations/linear/actions/updateIssue.schema";
 import { AddCommentConfigSchema } from "@/integrations/linear/actions/addComment.schema";
@@ -116,6 +117,47 @@ describe("generated strict schemas", () => {
     expect(AddCommentConfigSchema.parse({ issueId: "LIN-1", body: "hi" })).toMatchObject({
       issueId: "LIN-1",
     });
+  });
+});
+
+describe("closed-vocabulary + numeric bounds (CS-6C rule-17 config UX)", () => {
+  it("priority renders as a labelled dropdown, not an unrestricted number", () => {
+    for (const meta of [findIssuesMeta, createIssueMeta, updateIssueMeta]) {
+      const priority = meta.fields.find((f) => f.name === "priority");
+      expect(priority).toMatchObject({ type: "select" });
+      // Named levels, values are the wire integers as strings (FieldMeta contract).
+      expect((priority as { options: { value: string; label: string }[] }).options).toEqual([
+        { value: "0", label: "No priority" },
+        { value: "1", label: "Urgent" },
+        { value: "2", label: "High" },
+        { value: "3", label: "Medium" },
+        { value: "4", label: "Low" },
+      ]);
+    }
+  });
+
+  it("priority schema coerces the picked value to a bounded wire integer and REJECTS out-of-range", () => {
+    // Picker commits a string → coerced to the wire number.
+    expect(FindIssuesConfigSchema.parse({ priority: "3" })).toEqual({ priority: 3 });
+    // A mapped variable resolving to a number also passes.
+    expect(FindIssuesConfigSchema.parse({ priority: 2 })).toEqual({ priority: 2 });
+    // Out-of-range / negative / non-integer / non-numeric are rejected at parse.
+    for (const bad of ["-1", "5", "1.5", "high", -1, 5]) {
+      expect(() => FindIssuesConfigSchema.parse({ priority: bad })).toThrow();
+    }
+    // Optional — omitting is fine (Linear applies its own default).
+    expect(FindIssuesConfigSchema.parse({})).toEqual({});
+    // Same closed set is enforced on the write actions.
+    expect(CreateIssueConfigSchema.parse({ title: "t", team: "Core", priority: "1" })).toMatchObject({ priority: 1 });
+    expect(() => UpdateIssueConfigSchema.parse({ id: "LIN-1", priority: "9" })).toThrow();
+  });
+
+  it("numeric fields carry valid bounds: limit 1..250, estimate >= 0", () => {
+    expect(() => FindIssuesConfigSchema.parse({ limit: 0 })).toThrow();
+    expect(() => FindIssuesConfigSchema.parse({ limit: 251 })).toThrow();
+    expect(FindIssuesConfigSchema.parse({ limit: 50 })).toEqual({ limit: 50 });
+    expect(() => CreateIssueConfigSchema.parse({ title: "t", team: "Core", estimate: -1 })).toThrow();
+    expect(CreateIssueConfigSchema.parse({ title: "t", team: "Core", estimate: 3 })).toMatchObject({ estimate: 3 });
   });
 });
 

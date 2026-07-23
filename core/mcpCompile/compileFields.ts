@@ -146,6 +146,40 @@ function fieldKind(
   override: McpCatalogFieldOverride,
   path: string,
 ): { kind: CompiledFieldKind } | { error: string } {
+  // Curated closed vocabulary (catalog override) wins over the tool schema —
+  // it upgrades a bare scalar to a labelled `select` + a constrained zod set.
+  if (override.enumValues) {
+    const vals = override.enumValues;
+    const allNumber = vals.every((o) => typeof o.value === "number");
+    const allString = vals.every((o) => typeof o.value === "string");
+    if (!allNumber && !allString) {
+      return { error: `enumValues for '${name}' mixes number and string values — pick one (${path})` };
+    }
+    const valueType: "number" | "string" = allNumber ? "number" : "string";
+    const scalarMatches =
+      (valueType === "number" && (node.type === "number" || node.type === "integer")) ||
+      (valueType === "string" && node.type === "string");
+    if (!scalarMatches) {
+      return {
+        error: `enumValues for '${name}' are ${valueType} but the tool field is '${node.type ?? "unknown"}' (${path})`,
+      };
+    }
+    if (valueType === "number") {
+      const nums = vals.map((o) => o.value as number);
+      if (!nums.every((n) => Number.isInteger(n))) {
+        return { error: `numeric enumValues for '${name}' must be integers (${path})` };
+      }
+      const sorted = [...nums].sort((a, b) => a - b);
+      const contiguous = sorted.every((n, i) => i === 0 || n === sorted[i - 1]! + 1);
+      if (!contiguous) {
+        return {
+          error: `numeric enumValues for '${name}' must be a contiguous integer range, got [${sorted.join(", ")}] (${path})`,
+        };
+      }
+    }
+    return { kind: { k: "curated-enum", valueType, options: vals } };
+  }
+
   if (node.enumValues) return { kind: { k: "enum", values: node.enumValues } };
 
   switch (node.type) {
@@ -159,15 +193,18 @@ function fieldKind(
       return { kind: { k: "string", multiline } };
     }
     case "integer":
-    case "number":
+    case "number": {
+      const min = override.numericMin ?? (node.minimum !== null ? node.minimum : undefined);
+      const max = override.numericMax ?? (node.maximum !== null ? node.maximum : undefined);
       return {
         kind: {
           k: "number",
           integer: node.type === "integer",
-          ...(node.minimum !== null ? { min: node.minimum } : {}),
-          ...(node.maximum !== null ? { max: node.maximum } : {}),
+          ...(min !== undefined ? { min } : {}),
+          ...(max !== undefined ? { max } : {}),
         },
       };
+    }
     case "boolean":
       return { kind: { k: "boolean" } };
     case "array": {
@@ -257,6 +294,15 @@ function buildFieldMeta(
       return { ...base, type: kind.multiline ? "textarea" : "text" } as FieldMeta;
     case "enum":
       return { ...base, type: "select", options: enumOptions(kind.values) } as FieldMeta;
+    case "curated-enum":
+      // Labelled dropdown. FieldMeta option VALUES are strings (contract); a
+      // numeric curated-enum commits the string form and the zod schema coerces
+      // it back to the bounded wire number (emit.ts).
+      return {
+        ...base,
+        type: "select",
+        options: kind.options.map((o) => ({ value: String(o.value), label: o.label })),
+      } as FieldMeta;
     case "enum-array":
       return {
         ...base,

@@ -25,13 +25,16 @@ import {
  *
  * Capability honesty:
  *   - `oauth: true` — a real connect path exists (the paste flow IS the connect).
- *   - `actions/webhookTrigger/pollingTrigger: false` — none are registered yet.
- *     Every action's `.strict()` schema depends on the LIVE MCP `tools/list`
- *     capture, which is blocked until an authorized `eden_pat_` credential is
- *     supplied (docs/providers/eden/implementation-plan.md, blocker B3).
- *   - `isExperimental: true` — Eden is NOT live-certified and the MCP transport
- *     has unverified live details; keep it out of the default Apps catalog until
- *     actions ship and Phase 13 live certification passes, then flip to false.
+ *   - `actions: true` — 36 typed MCP-backed actions are registered (handlers +
+ *     metas), all `.strict()`-schema'd against the live `tools/list` capture.
+ *   - `webhookTrigger/pollingTrigger: false` — Eden has no event API; none exist.
+ *   - `isExperimental: true` — kept out of the default Apps catalog. 33 of the 36
+ *     actions are live success-certified; the 3 social-publish writes
+ *     (`schedule_post`, `publish_post_now`, `update_scheduled_post`) have only
+ *     their error path certified (the cert account has no connected social
+ *     accounts), so their success path is NOT yet live-proven — the outstanding
+ *     Phase 13 gate. Flip to false only once those 3 are success-certified
+ *     against a disposable connected account (or they are hidden/deferred).
  */
 export const edenManifest: ProviderManifest = ProviderManifestSchema.parse({
   id: "eden",
@@ -52,8 +55,9 @@ export const edenManifest: ProviderManifest = ProviderManifestSchema.parse({
     oauth: true,
     webhookTrigger: false,
     pollingTrigger: false,
-    // EDEN-4: 7 MCP-backed actions registered (4 reads + 3 board/note writes),
-    // all live-certified against mcp.eden.so. Triggers remain false (no Eden event API).
+    // 36 MCP-backed actions registered against mcp.eden.so (33 live
+    // success-certified; 3 social-publish writes error-path-only — see the
+    // capability-honesty note above). Triggers remain false (no Eden event API).
     actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000,

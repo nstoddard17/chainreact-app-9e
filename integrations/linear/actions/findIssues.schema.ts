@@ -5,7 +5,7 @@ import { z } from "zod";
 /** Config schema for `linear:find_issues` — mirrors findIssues.meta.ts. */
 export const FindIssuesConfigSchema = z
   .object({
-    limit: z.number().max(250).optional(),
+    limit: z.number().min(1).max(250).optional(),
     cursor: z.string().min(1).optional(),
     orderBy: z.enum(["createdAt", "updatedAt"]).optional(),
     query: z.string().min(1).optional(),
@@ -17,7 +17,7 @@ export const FindIssuesConfigSchema = z
     delegate: z.string().min(1).optional(),
     project: z.string().min(1).optional(),
     release: z.string().min(1).optional(),
-    priority: z.number().optional(),
+    priority: z.coerce.number().int().min(0).max(4).optional(),
     parentId: z.string().min(1).optional(),
     createdAt: z.string().min(1).optional(),
     updatedAt: z.string().min(1).optional(),

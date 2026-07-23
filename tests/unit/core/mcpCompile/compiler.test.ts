@@ -143,6 +143,57 @@ describe("compileFields — mapping table", () => {
     const bad = fields(obj({ id: { type: "string" } }, ["id"]), { id: { omit: true } });
     expect(bad.diagnostics[0]!.reason).toMatch(/cannot omit a REQUIRED field/);
   });
+
+  it("enumValues override: bare scalar → labelled select (curated closed vocabulary)", () => {
+    // A tool field typed `number` with the allowed set only in prose (Linear
+    // `priority`) becomes a dropdown of named levels; the IR carries the closed
+    // set so the emitter can constrain the zod schema.
+    const schema = obj({ priority: { type: "number", description: "0=None…4=Low" } });
+    const out = fields(schema, {
+      priority: {
+        enumValues: [
+          { value: 0, label: "No priority" },
+          { value: 1, label: "Urgent" },
+          { value: 2, label: "High" },
+        ],
+      },
+    });
+    expect(out.diagnostics).toEqual([]);
+    const priority = out.fields.find((f) => f.name === "priority")!;
+    expect(priority.kind).toMatchObject({ k: "curated-enum", valueType: "number" });
+    expect(priority.meta).toMatchObject({
+      type: "select",
+      options: [
+        { value: "0", label: "No priority" },
+        { value: "1", label: "Urgent" },
+        { value: "2", label: "High" },
+      ],
+    });
+  });
+
+  it("enumValues override fails closed on mismatched type, mixed values, or a gap", () => {
+    const numOnString = fields(obj({ p: { type: "string" } }), {
+      p: { enumValues: [{ value: 1, label: "One" }] },
+    });
+    expect(numOnString.diagnostics[0]!.reason).toMatch(/are number but the tool field is 'string'/);
+
+    const mixed = fields(obj({ p: { type: "number" } }), {
+      p: { enumValues: [{ value: 1, label: "One" }, { value: "two", label: "Two" }] },
+    });
+    expect(mixed.diagnostics[0]!.reason).toMatch(/mixes number and string/);
+
+    const gap = fields(obj({ p: { type: "number" } }), {
+      p: { enumValues: [{ value: 1, label: "One" }, { value: 3, label: "Three" }] },
+    });
+    expect(gap.diagnostics[0]!.reason).toMatch(/contiguous integer range/);
+  });
+
+  it("numericMin/numericMax override injects bounds the tool schema omits", () => {
+    const out = fields(obj({ n: { type: "number", maximum: 250 } }), {
+      n: { numericMin: 1 },
+    });
+    expect(out.fields[0]!.meta).toMatchObject({ type: "number", numeric: { min: 1, max: 250 } });
+  });
 });
 
 describe("risk classification", () => {

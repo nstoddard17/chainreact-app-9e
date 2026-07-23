@@ -10,7 +10,7 @@ export const CreateIssueConfigSchema = z
     team: z.string().min(1),
     cycle: z.string().min(1).optional(),
     milestone: z.string().min(1).optional(),
-    priority: z.number().optional(),
+    priority: z.coerce.number().int().min(0).max(4).optional(),
     project: z.string().min(1).optional(),
     state: z.string().min(1).optional(),
     assignee: z.string().min(1).optional(),
@@ -20,7 +20,7 @@ export const CreateIssueConfigSchema = z
     slaBreachesAt: z.string().min(1).optional(),
     slaType: z.enum(["all", "onlyBusinessDays"]).optional(),
     parentId: z.string().min(1).optional(),
-    estimate: z.number().optional(),
+    estimate: z.number().min(0).optional(),
     links: z.array(z
       .object({
       url: z.string(),

@@ -5,11 +5,24 @@ certification steps for every MCP catalog provider, using Linear as the referenc
 **It certifies nothing by itself** — it is the checklist an operator (owner + Claude)
 runs once real credentials exist. Local/unpushed.
 
-> **CS-6 could NOT be executed:** the owner prerequisites are not present in this
-> environment (`LINEAR_CLIENT_ID`, `LINEAR_CLIENT_SECRET`, `MCP_IMPORT_BEARER` all
-> unset; snapshot still `capturedBy: "docs-draft"`). Per the batch contract, no
-> capture was fabricated and Linear stays **Experimental**. This runbook is what
-> runs the moment those are supplied.
+> **Status (updated CS-6C, 2026-07-22):** CS-6/6B **DID** run against a real
+> connection — `mcp-snapshot.json` is `capturedBy: "live"` (52 tools) and
+> read-only evidence for `list_issues` + the 4 list tools is captured. What is
+> STILL owner-blocked and cannot be fabricated:
+> - **Write-evidence** for `save_issue` (create/update) + `save_comment` — their
+>   result shapes are `skipped` in `mcp-evidence.json`, so create/update/comment
+>   outputs stay text-only (Part 1/2). Needs `MCP_IMPORT_BEARER` + `write-evidence`.
+> - **State / Cycle / Project resolvers** — `list_issue_statuses` (needs `team`)
+>   and `list_cycles` (needs `teamId`) were not captured; `list_projects` captured
+>   **empty** (item shape unconfirmed). Needs a 2nd `capture --evidence` from a
+>   workspace with projects + team-scoped status/cycle sample args (Part 3).
+> - **Live E2E** (both workflows, reconnect, drift) — needs `LINEAR_CLIENT_ID`/
+>   `LINEAR_CLIENT_SECRET` + an OAuth connection (Part 7).
+>
+> The CS-6C environment had `MCP_IMPORT_BEARER`, `LINEAR_CLIENT_ID`, and
+> `LINEAR_CLIENT_SECRET` all unset, so none of the above could be executed and
+> nothing was fabricated. Linear stays **Experimental**. This runbook is what
+> runs the moment those credentials are supplied.
 
 ## Owner prerequisites (all required before step 1)
 

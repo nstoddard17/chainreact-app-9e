@@ -36,7 +36,7 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "team",
       label: "Team",
-      description: "Team name or ID (required when creating)",
+      description: "Move the issue to a different team — pick one, or type a team name/ID (optional).",
       type: "combobox",
       required: false,
       optionsSource: "linear:teams",
@@ -59,9 +59,31 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "priority",
       label: "Priority",
-      description: "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
-      type: "number",
+      description: "Change the issue's priority level.",
+      type: "select",
       required: false,
+      options: [
+        {
+          value: "0",
+          label: "No priority",
+        },
+        {
+          value: "1",
+          label: "Urgent",
+        },
+        {
+          value: "2",
+          label: "High",
+        },
+        {
+          value: "3",
+          label: "Medium",
+        },
+        {
+          value: "4",
+          label: "Low",
+        },
+      ],
     },
     {
       name: "project",
@@ -93,7 +115,7 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "labels",
       label: "Labels",
-      description: "Label names or IDs as a JSON array of strings (e.g. [\"Bug\", \"Urgent\"]). Replaces the full label set; existing labels not included are removed. Omit to leave labels unchanged",
+      description: "Replace the issue's labels — pick from the list or type label names/IDs. Leave empty to keep existing labels.",
       type: "string-array",
       required: false,
       optionsSource: "linear:labels",
@@ -106,14 +128,14 @@ export const updateIssueMeta: ActionMeta = {
     },
     {
       name: "slaBreachesAt",
-      label: "Sla breaches at",
+      label: "SLA breach time",
       type: "datetime-utc",
       required: false,
       advanced: true,
     },
     {
       name: "slaType",
-      label: "Sla type",
+      label: "SLA day counting",
       description: "SLA day counting type: \"all\" or \"onlyBusinessDays\". Only use with slaBreachesAt",
       type: "select",
       required: false,
@@ -131,7 +153,7 @@ export const updateIssueMeta: ActionMeta = {
     },
     {
       name: "parentId",
-      label: "Parent id",
+      label: "Parent issue",
       type: "text",
       required: false,
       advanced: true,
@@ -141,6 +163,9 @@ export const updateIssueMeta: ActionMeta = {
       label: "Estimate",
       type: "number",
       required: false,
+      numeric: {
+        min: 0,
+      },
       advanced: true,
     },
     {

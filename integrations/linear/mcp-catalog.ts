@@ -28,6 +28,20 @@ import { McpCatalogSchema, type McpCatalog } from "@/core/mcpCompile";
  *     `team`, so `list_issue_statuses` carries NO committed sampleArgs (an
  *     account-specific team can't be committed).
  */
+/**
+ * Linear's documented issue-priority scale (`save_issue`/`list_issues` type it
+ * as a bare `number` described "0=None…4=Low"). Curated into a labelled closed
+ * dropdown (rule 17 + Q11) so users pick a named level and the generated zod
+ * schema rejects negative / out-of-range values. Contiguous integer range.
+ */
+const PRIORITY_LEVELS = [
+  { value: 0, label: "No priority" },
+  { value: 1, label: "Urgent" },
+  { value: 2, label: "High" },
+  { value: 3, label: "Medium" },
+  { value: 4, label: "Low" },
+];
+
 export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
   provider: "linear",
   serverUrl: "https://mcp.linear.app/mcp",
@@ -55,15 +69,17 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         { name: "cursor", type: "string", description: "Opaque next-page token — pass to a later Find Issues run's Cursor to page forward." },
       ],
       fieldOverrides: {
-        limit: { advanced: true },
+        limit: { advanced: true, numericMin: 1 }, // 1..250 (max from tool schema).
         cursor: { advanced: true, description: "Next-page cursor from a previous Find Issues step." },
         orderBy: { advanced: true },
         includeArchived: { advanced: true },
         delegate: { advanced: true },
-        parentId: { advanced: true },
+        parentId: { advanced: true, label: "Parent issue" },
         createdAt: { advanced: true },
         updatedAt: { advanced: true },
         release: { advanced: true }, // live-only field (CS-6): power-user release filter.
+        // Closed dropdown for the priority FILTER (rule 17); schema-constrained.
+        priority: { enumValues: PRIORITY_LEVELS, description: "Only return issues at this priority level." },
         // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
         team: { optionsSource: "linear:teams" },
         assignee: { optionsSource: "linear:assignees" },
@@ -89,10 +105,15 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       fieldOverrides: {
         id: { omit: true },
         title: { required: true },
+        // Closed dropdown for priority (rule 17); schema rejects out-of-range.
+        priority: { enumValues: PRIORITY_LEVELS, description: "Priority level for the new issue." },
         // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
-        team: { required: true, optionsSource: "linear:teams" },
+        team: { required: true, optionsSource: "linear:teams", description: "Team the issue belongs to — pick one, or type a team name/ID." },
         assignee: { optionsSource: "linear:assignees" },
-        labels: { optionsSource: "linear:labels" },
+        labels: {
+          optionsSource: "linear:labels",
+          description: "Labels to apply — pick from the list or type label names/IDs.",
+        },
         removeBlocks: { omit: true },
         removeBlockedBy: { omit: true },
         removeRelatedTo: { omit: true },
@@ -101,15 +122,15 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         delegate: { advanced: true },
         cycle: { advanced: true },
         milestone: { advanced: true },
-        estimate: { advanced: true },
+        estimate: { advanced: true, numericMin: 0 }, // estimate points are never negative.
         links: { advanced: true },
         blocks: { advanced: true },
         blockedBy: { advanced: true },
         relatedTo: { advanced: true },
-        parentId: { advanced: true },
+        parentId: { advanced: true, label: "Parent issue" },
         // live-only (CS-6) — SLA + release plumbing: power-user, Advanced tab.
-        slaBreachesAt: { advanced: true },
-        slaType: { advanced: true },
+        slaBreachesAt: { advanced: true, label: "SLA breach time" },
+        slaType: { advanced: true, label: "SLA day counting" },
         addReleases: { advanced: true },
         setReleases: { advanced: true },
       },
@@ -132,26 +153,31 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
           label: "Issue",
           description: "Issue ID or identifier (e.g. LIN-123).",
         },
+        // Closed dropdown for priority (rule 17); schema rejects out-of-range.
+        priority: { enumValues: PRIORITY_LEVELS, description: "Change the issue's priority level." },
         // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
-        team: { optionsSource: "linear:teams" },
+        team: { optionsSource: "linear:teams", description: "Move the issue to a different team — pick one, or type a team name/ID (optional)." },
         assignee: { optionsSource: "linear:assignees" },
-        labels: { optionsSource: "linear:labels" },
+        labels: {
+          optionsSource: "linear:labels",
+          description: "Replace the issue's labels — pick from the list or type label names/IDs. Leave empty to keep existing labels.",
+        },
         delegate: { advanced: true },
         cycle: { advanced: true },
         milestone: { advanced: true },
-        estimate: { advanced: true },
+        estimate: { advanced: true, numericMin: 0 }, // estimate points are never negative.
         links: { advanced: true },
         blocks: { advanced: true },
         blockedBy: { advanced: true },
         relatedTo: { advanced: true },
         duplicateOf: { advanced: true },
-        parentId: { advanced: true },
+        parentId: { advanced: true, label: "Parent issue" },
         removeBlocks: { advanced: true },
         removeBlockedBy: { advanced: true },
         removeRelatedTo: { advanced: true },
         // live-only (CS-6) — SLA + release plumbing on the Advanced tab.
-        slaBreachesAt: { advanced: true },
-        slaType: { advanced: true },
+        slaBreachesAt: { advanced: true, label: "SLA breach time" },
+        slaType: { advanced: true, label: "SLA day counting" },
         addReleases: { advanced: true },
         setReleases: { advanced: true },
         removeReleases: { advanced: true },
@@ -177,8 +203,8 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         initiativeId: { omit: true },
         documentId: { omit: true },
         milestoneId: { omit: true },
-        issueId: { required: true },
-        parentId: { advanced: true },
+        issueId: { required: true, label: "Issue" },
+        parentId: { advanced: true, label: "Parent comment", description: "Reply under an existing comment (comment ID). Leave empty for a top-level comment." },
         // live-only (CS-6) — status-update comment parents are out of the
         // issue-scoped node; omit so Add Comment stays single-purpose.
         statusUpdateId: { omit: true },
@@ -198,7 +224,8 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
     {
       tool: "list_projects",
       decision: "defer",
-      reason: "Resolver source: backs the Project picker (list_projects). Captured for resolver design; not a standalone action.",
+      reason:
+        "Resolver source: backs the Project picker (`linear:projects`, optionally dependsOn Team via the tool's `team` filter). Live schema has NO required args. Captured live but the cert workspace had ZERO projects, so the ITEM shape (id/name fields) is unconfirmed — the empty array is insufficient to map value/label. This is NOT a decision to leave Project as text: re-run `capture --evidence` against a workspace that HAS projects, then build `linear:projects`. Do NOT ship a guessed shape.",
       evidence: { sampleArgs: { limit: 5 } },
     },
     {
@@ -217,7 +244,13 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       tool: "list_issue_statuses",
       decision: "defer",
       reason:
-        "Resolver source: backs the State picker (cascade child of Team). REQUIRES a `team` arg, so it carries NO committed evidence sampleArgs (an account-specific team can't be committed safely); capture its shape at cert time with a real team, or the resolver derives value/label from status/statusType strings surfaced by list_issues.",
+        "Resolver source: backs the State picker (`linear:issue-statuses`, a cascade child of Team via dependsOn). Live schema REQUIRES a `team` arg, so it carries NO committed evidence sampleArgs (an account-specific team can't be committed safely). To ship the picker: at cert time add a transient `evidence: { sampleArgs: { team: \"<real-team>\" } }` here and run `capture --evidence` to record the result shape, then build `linear:issue-statuses` (dependsOn team). Until that shape is captured the State field stays name-or-id text — do NOT guess the shape.",
+    },
+    {
+      tool: "list_cycles",
+      decision: "defer",
+      reason:
+        "Resolver source: backs the Cycle picker (`linear:cycles`, a cascade child of Team via dependsOn). Live schema REQUIRES a `teamId` arg (props: teamId, type), so it carries NO committed evidence sampleArgs (account-specific). To ship: add a transient `evidence: { sampleArgs: { teamId: \"<real-team-id>\" } }` and run `capture --evidence` to record the result shape, then build `linear:cycles` (dependsOn team). Until then the Cycle field stays name/number/id text — do NOT guess the shape.",
     },
     {
       tool: "get_issue",

@@ -13,6 +13,8 @@
  *   - No per-provider branches — the helper works for every manifest
  *     loaded into the registry, sampled across providers below.
  */
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   providerIconUrl,
   listProviders,
@@ -49,5 +51,20 @@ describe("providerIconUrl", () => {
     for (const p of listProviders()) {
       expect(providerIconUrl(p.id)).toBe(`/integrations/${p.id}.svg`);
     }
+  });
+
+  it("every ENABLED provider has its icon asset present on disk", () => {
+    // Regression guard for the CS-6C icon bug: `providerIconUrl` returns a
+    // URL unconditionally without validating the file exists, so a provider
+    // shipped without its `public/integrations/{id}.svg` renders a broken
+    // <img> (initials fallback) on the Apps page, builder, and node headers.
+    // Linear and Eden shipped that way. Every provider a user can actually
+    // reach — i.e. `isEnabled` — MUST have a committed icon asset.
+    const publicDir = join(process.cwd(), "public", "integrations");
+    const missing = listProviders()
+      .filter((p) => p.isEnabled)
+      .map((p) => p.id)
+      .filter((id) => !existsSync(join(publicDir, `${id}.svg`)));
+    expect(missing).toEqual([]);
   });
 });

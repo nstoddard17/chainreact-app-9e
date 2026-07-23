@@ -20,6 +20,7 @@ export const findIssuesMeta: ActionMeta = {
       required: false,
       defaultValue: 50,
       numeric: {
+        min: 1,
         max: 250,
       },
       advanced: true,
@@ -121,13 +122,35 @@ export const findIssuesMeta: ActionMeta = {
     {
       name: "priority",
       label: "Priority",
-      description: "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
-      type: "number",
+      description: "Only return issues at this priority level.",
+      type: "select",
       required: false,
+      options: [
+        {
+          value: "0",
+          label: "No priority",
+        },
+        {
+          value: "1",
+          label: "Urgent",
+        },
+        {
+          value: "2",
+          label: "High",
+        },
+        {
+          value: "3",
+          label: "Medium",
+        },
+        {
+          value: "4",
+          label: "Low",
+        },
+      ],
     },
     {
       name: "parentId",
-      label: "Parent id",
+      label: "Parent issue",
       description: "Parent issue ID or identifier (e.g., LIN-123)",
       type: "text",
       required: false,

@@ -29,7 +29,7 @@ export const createIssueMeta: ActionMeta = {
     {
       name: "team",
       label: "Team",
-      description: "Team name or ID (required when creating)",
+      description: "Team the issue belongs to — pick one, or type a team name/ID.",
       type: "combobox",
       required: true,
       optionsSource: "linear:teams",
@@ -52,9 +52,31 @@ export const createIssueMeta: ActionMeta = {
     {
       name: "priority",
       label: "Priority",
-      description: "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
-      type: "number",
+      description: "Priority level for the new issue.",
+      type: "select",
       required: false,
+      options: [
+        {
+          value: "0",
+          label: "No priority",
+        },
+        {
+          value: "1",
+          label: "Urgent",
+        },
+        {
+          value: "2",
+          label: "High",
+        },
+        {
+          value: "3",
+          label: "Medium",
+        },
+        {
+          value: "4",
+          label: "Low",
+        },
+      ],
     },
     {
       name: "project",
@@ -86,7 +108,7 @@ export const createIssueMeta: ActionMeta = {
     {
       name: "labels",
       label: "Labels",
-      description: "Label names or IDs as a JSON array of strings (e.g. [\"Bug\", \"Urgent\"]). Replaces the full label set; existing labels not included are removed. Omit to leave labels unchanged",
+      description: "Labels to apply — pick from the list or type label names/IDs.",
       type: "string-array",
       required: false,
       optionsSource: "linear:labels",
@@ -99,14 +121,14 @@ export const createIssueMeta: ActionMeta = {
     },
     {
       name: "slaBreachesAt",
-      label: "Sla breaches at",
+      label: "SLA breach time",
       type: "datetime-utc",
       required: false,
       advanced: true,
     },
     {
       name: "slaType",
-      label: "Sla type",
+      label: "SLA day counting",
       description: "SLA day counting type: \"all\" or \"onlyBusinessDays\". Only use with slaBreachesAt",
       type: "select",
       required: false,
@@ -124,7 +146,7 @@ export const createIssueMeta: ActionMeta = {
     },
     {
       name: "parentId",
-      label: "Parent id",
+      label: "Parent issue",
       type: "text",
       required: false,
       advanced: true,
@@ -134,6 +156,9 @@ export const createIssueMeta: ActionMeta = {
       label: "Estimate",
       type: "number",
       required: false,
+      numeric: {
+        min: 0,
+      },
       advanced: true,
     },
     {

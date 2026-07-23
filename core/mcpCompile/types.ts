@@ -98,6 +98,38 @@ export const McpCatalogFieldOverrideSchema = z
      * `create_issue` requires `title`+`team`, `update_issue` requires `id`.
      */
     required: z.boolean().optional(),
+    /**
+     * Curated CLOSED vocabulary for a field the tool schema types as a bare
+     * scalar (number/string) with the allowed set stated only in prose — e.g.
+     * Linear `priority` is `type: number` described "0=None…4=Low". Renders a
+     * `select` (a labelled dropdown) and CONSTRAINS the generated zod schema to
+     * exactly these values, so an ordinary user picks a named level instead of
+     * typing a magic number and out-of-range / negative / non-member values are
+     * rejected at parse time (rule 17 + Q11). All values must share ONE type
+     * (all number or all string) and match the field's underlying scalar type;
+     * numeric values must be a contiguous integer range (the picker commits a
+     * string, which the schema coerces back to the bounded wire number). Use
+     * ONLY the vendor's documented set — never invent values.
+     */
+    enumValues: z
+      .array(
+        z
+          .object({
+            value: z.union([z.number(), z.string().min(1).max(256)]),
+            label: z.string().min(1).max(128),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(64)
+      .optional(),
+    /**
+     * Inject a numeric lower/upper bound the tool schema omits so a numeric
+     * field carries valid bounds (rule 17 numeric-audit). Merged over any
+     * `minimum`/`maximum` already in the tool schema.
+     */
+    numericMin: z.number().finite().optional(),
+    numericMax: z.number().finite().optional(),
   })
   .strict();
 export type McpCatalogFieldOverride = z.infer<typeof McpCatalogFieldOverrideSchema>;
@@ -360,6 +392,11 @@ export type CompiledFieldKind =
   | { readonly k: "string"; readonly multiline: boolean }
   | { readonly k: "enum"; readonly values: readonly string[] }
   | { readonly k: "enum-array"; readonly values: readonly string[] }
+  | {
+      readonly k: "curated-enum";
+      readonly valueType: "number" | "string";
+      readonly options: readonly { readonly value: number | string; readonly label: string }[];
+    }
   | { readonly k: "number"; readonly integer: boolean; readonly min?: number; readonly max?: number }
   | { readonly k: "boolean" }
   | { readonly k: "date" }
