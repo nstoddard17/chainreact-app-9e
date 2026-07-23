@@ -58,3 +58,6 @@ supabase/.temp
 
 .vercel
 .env*
+
+# 5.DUAL-BUILDER-1 CS-7B — local owner-review screenshot artifacts (uncommitted)
+owner-review/

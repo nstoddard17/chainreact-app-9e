@@ -60,24 +60,16 @@ export function DocumentSectionHeader({
       data-testid={`document-section-${section.id}`}
       data-section-id={section.id}
       data-collapsed={collapsed ? "true" : "false"}
-      className="overflow-hidden rounded-xl"
-      style={{ border: "1px solid var(--builder-border)", background: "var(--builder-panel)" }}
+      className="crv2-section"
     >
-      <div
-        className="group/section flex flex-wrap items-center gap-2 px-4 py-2.5"
-        style={{
-          background: "var(--builder-panel-2)",
-          borderBottom: collapsed ? "none" : "1px solid var(--builder-border)",
-        }}
-      >
+      <div className={`group/section crv2-section-head${collapsed ? "" : " crv2-section-head--open"}`}>
         <button
           type="button"
           data-testid={`document-section-collapse-${section.id}`}
           onClick={onToggleCollapse}
           aria-expanded={!collapsed}
           aria-label={collapsed ? "Expand section" : "Collapse section"}
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[12px]"
-          style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
+          className="crv2-section-toggle"
         >
           {collapsed ? "▸" : "▾"}
         </button>
@@ -115,8 +107,7 @@ export function DocumentSectionHeader({
               setDraft(section.title);
               setEditing(true);
             }}
-            className="min-w-0 flex-1 truncate text-left text-[13.5px] font-semibold"
-            style={{ color: "var(--builder-text)" }}
+            className="crv2-section-title truncate"
             title="Rename section"
           >
             {section.title}
@@ -135,8 +126,7 @@ export function DocumentSectionHeader({
         {collapsed ? (
           <span
             data-testid={`document-section-summary-${section.id}`}
-            className="text-[12px]"
-            style={{ color: "var(--builder-muted)" }}
+            className="crv2-section-summary"
           >
             {summaryText}
           </span>

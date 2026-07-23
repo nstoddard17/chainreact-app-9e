@@ -1,4 +1,7 @@
-import { describe, expect, it, jest } from "@jest/globals";
+// NOTE: `expect` intentionally comes from the global (jest-dom-augmented) scope,
+// not from @jest/globals — the latter's Matchers type lacks the jest-dom matchers
+// (toHaveAttribute / toBeInTheDocument) this file uses. (Pre-existing type fix.)
+import { describe, it, jest } from "@jest/globals";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { DocumentInsertMenu } from "@/features/workflow-builder/document/DocumentInsertMenu";
 

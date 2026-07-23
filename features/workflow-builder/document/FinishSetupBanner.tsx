@@ -39,8 +39,12 @@ export function FinishSetupBanner({
           ? "Everything's filled in — save to keep your changes."
           : "This workflow is set up. Nothing else needs you here.";
 
-  const tone =
-    primary === "needs_setup" || primary === "blocked_structural" ? "attention" : "calm";
+  const tone: "attention" | "done" | "calm" =
+    primary === "needs_setup" || primary === "blocked_structural"
+      ? "attention"
+      : primary === "ready_saved"
+        ? "done"
+        : "calm";
 
   return (
     <div
@@ -48,41 +52,39 @@ export function FinishSetupBanner({
       data-banner-state={primary}
       data-supported-count={supportedCount}
       role="status"
-      className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-4 py-3"
-      style={{
-        background: tone === "attention" ? "var(--builder-accent-soft)" : "var(--builder-panel-2)",
-        border:
-          tone === "attention"
-            ? "1.5px solid var(--builder-accent)"
-            : "1px solid var(--builder-border)",
-      }}
+      className={`crv2-banner ${tone === "attention" ? "crv2-banner--attention" : tone === "done" ? "crv2-banner--done" : ""}`}
     >
-      <span
-        aria-hidden
-        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[13px]"
-        style={{
-          background: tone === "attention" ? "var(--builder-accent)" : "var(--builder-panel)",
-          color: tone === "attention" ? "var(--builder-panel)" : "var(--builder-muted)",
-          border: "1px solid var(--builder-border)",
-        }}
-      >
-        {primary === "ready_saved" ? "✓" : primary === "ready_unsaved" ? "⤳" : "◆"}
+      <span aria-hidden className="crv2-banner-mark text-[15px]">
+        {primary === "ready_saved" ? "✓" : primary === "ready_unsaved" ? "⤳" : "✦"}
       </span>
-      <p
-        className="m-0 min-w-0 flex-1 text-[13.5px] font-medium"
-        style={{ color: "var(--builder-text)" }}
-      >
-        {message}
-      </p>
+      <div className="min-w-0 flex-1">
+        <p className="m-0 text-[14px] font-semibold" style={{ color: "var(--builder-text)" }}>
+          {primary === "needs_setup"
+            ? "React drafted this workflow."
+            : primary === "ready_unsaved"
+              ? "Everything's filled in."
+              : primary === "blocked_structural"
+                ? "One part needs the Visual Builder."
+                : "All set."}
+        </p>
+        <p className="m-0 mt-0.5 text-[13px]" style={{ color: "var(--builder-muted)" }}>
+          {message}
+        </p>
+      </div>
       {primary === "needs_setup" && !queueActive ? (
         <button
           type="button"
           data-testid="document-finish-setup-button"
           onClick={onFinishSetup}
-          className="inline-flex h-8 items-center rounded-md px-3.5 text-[12.5px] font-semibold"
-          style={{ background: "var(--builder-text)", color: "var(--builder-panel)" }}
+          className="crv2-banner-primary"
         >
-          Finish setup · {supportedCount} left
+          Finish setup
+          <span
+            className="rounded-full px-2 py-px text-[12px]"
+            style={{ background: "rgba(255,255,255,.25)" }}
+          >
+            {supportedCount} left
+          </span>
         </button>
       ) : null}
       {primary === "blocked_structural" && hasVisualBlockers && onOpenInVisual ? (
@@ -90,12 +92,7 @@ export function FinishSetupBanner({
           type="button"
           data-testid="document-setup-open-visual"
           onClick={onOpenInVisual}
-          className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium"
-          style={{
-            background: "var(--builder-panel)",
-            color: "var(--builder-text)",
-            border: "1px solid var(--builder-border)",
-          }}
+          className="crv2-banner-secondary"
         >
           Open in Visual Builder
         </button>
@@ -104,12 +101,7 @@ export function FinishSetupBanner({
         type="button"
         data-testid="document-open-map-button"
         onClick={onOpenMap}
-        className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium"
-        style={{
-          background: "var(--builder-panel)",
-          color: "var(--builder-text-2)",
-          border: "1px solid var(--builder-border)",
-        }}
+        className="crv2-banner-secondary"
         title="See the whole workflow"
       >
         Whole workflow

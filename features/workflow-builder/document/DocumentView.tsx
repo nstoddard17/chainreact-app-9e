@@ -62,6 +62,7 @@ import {
   type DocumentModel,
   type DocumentSentenceBlock,
 } from "./projection";
+import { TIER_C_REASONS } from "./projectionTiers";
 import { emitDocumentBuilderEvent } from "./documentTelemetry";
 
 /**
@@ -81,6 +82,7 @@ export function DocumentView({
   summaryFieldsByType,
   providerLabels,
   providerIcons,
+  workflowTitle,
   onOpenInVisual,
   onAppendAfter,
   onInsertAtEdge,
@@ -98,6 +100,8 @@ export function DocumentView({
 }: {
   requiredFieldsByType?: RequiredFieldsByType | undefined;
   summaryFieldsByType?: NodeSummaryFieldsByType | undefined;
+  /** CS-7B — the workflow name, shown as the serif document title. */
+  workflowTitle?: string | undefined;
   providerLabels?: Readonly<Record<string, string>> | undefined;
   providerIcons?: Readonly<Record<string, string>> | undefined;
   /** Visual-Builder handoff for complex regions / wiring repair. */
@@ -278,7 +282,7 @@ export function DocumentView({
     const tiers = new Set<string>();
     const scan = (blocks: readonly DocumentBlock[]): void => {
       for (const b of blocks) {
-        if (b.kind === "complex") tiers.add(b.tier === "C" ? "c" : "b");
+        if (b.kind === "complex") tiers.add(TIER_C_REASONS.has(b.reason) ? "c" : "b");
         else if (b.kind === "fork") b.lanes.forEach((l) => scan(l.blocks));
       }
     };
@@ -885,14 +889,18 @@ export function DocumentView({
 
   return (
     <div
+      // CS-7B — `data-document-surface` scopes the warm "paper" token remap
+      // (app/globals.css). Everything inside becomes the calm editorial document
+      // vocabulary; the app shell (header/rails/canvas) keeps neutral tokens.
+      data-document-surface=""
       data-testid="document-view"
       data-projection-tier={model.tier}
       className="relative flex min-h-0 flex-1"
-      style={{ background: "var(--builder-panel)" }}
+      style={{ background: "var(--builder-bg)" }}
       aria-label="Workflow document"
     >
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[760px] px-8 py-6">
+        <div className="mx-auto max-w-[720px] px-6 py-10 sm:px-10">
           {/* CS-6 — a top-level selection surfaces the safe-actions toolbar. */}
           {interactive && selectedIds.size > 0 ? (
             <DocumentSelectionToolbar
@@ -937,13 +945,27 @@ export function DocumentView({
             />
           ) : (
             <>
-              <p
-                data-testid="document-readonly-note"
-                className="builder-mono m-0 mb-4 text-[10.5px] uppercase tracking-[0.12em]"
-                style={{ color: "var(--builder-muted-2)" }}
+              {/* CS-7B — editorial masthead: calm eyebrow + serif workflow title
+                  (the approved Document mock), replacing the engineering-style
+                  "document view" note. The setup banner above carries status. */}
+              <div
+                data-testid="document-masthead"
+                className="mb-6"
               >
-                Document view · click any value to edit · Save when you&rsquo;re ready
-              </p>
+                <div
+                  className="builder-mono m-0 text-[10.5px] uppercase tracking-[0.16em]"
+                  style={{ color: "var(--builder-muted-2)" }}
+                >
+                  Workflow
+                </div>
+                <h1
+                  data-testid="document-title"
+                  className="crv2-doc-prose m-0 mt-1.5 text-[32px] font-medium leading-[1.1] tracking-[-0.02em]"
+                  style={{ color: "var(--builder-text)" }}
+                >
+                  {(workflowTitle ?? "").trim() || "Untitled workflow"}
+                </h1>
+              </div>
               {renderSectionedRows(
                 groupBlocksIntoSections(model.blocks, pendingPresentation).rows,
               )}

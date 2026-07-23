@@ -31,20 +31,19 @@ export function DocumentEmptyState({
   return (
     <div
       data-testid="document-empty-state"
-      className="mx-auto max-w-[620px] px-2 py-10"
+      className="mx-auto max-w-[560px] px-2 py-14"
       aria-label="Start this workflow"
     >
-      <h2 className="m-0 text-[22px] font-semibold" style={{ color: "var(--builder-text)" }}>
+      <h2
+        className="crv2-doc-prose m-0 text-[30px] font-medium leading-[1.15] tracking-[-0.02em]"
+        style={{ color: "var(--builder-text)" }}
+      >
         What should this workflow do?
       </h2>
 
       {/* Path 1 — Draft it with React */}
-      <div className="mt-5">
-        <label
-          htmlFor="document-draft-composer"
-          className="builder-mono mb-1.5 block text-[10.5px] font-semibold uppercase tracking-[0.1em]"
-          style={{ color: "var(--builder-muted)" }}
-        >
+      <div className="mt-7">
+        <label htmlFor="document-draft-composer" className="crv2-eyebrow mb-2 block">
           Draft it with React
         </label>
         <textarea
@@ -60,32 +59,26 @@ export function DocumentEmptyState({
           }}
           rows={3}
           placeholder="When a new lead arrives, qualify it and notify sales if it is a large account."
-          className="w-full resize-y rounded-xl px-3.5 py-2.5 text-[13.5px] outline-none"
-          style={{
-            background: "var(--builder-panel-2)",
-            border: "1.5px solid var(--builder-border)",
-            color: "var(--builder-text)",
-          }}
+          className="crv2-composer"
         />
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <button
             type="button"
             data-testid="document-draft-submit"
             onClick={submit}
             disabled={!canDraft}
-            className="inline-flex h-8 items-center rounded-md px-3.5 text-[12.5px] font-semibold disabled:opacity-50"
-            style={{ background: "var(--builder-text)", color: "var(--builder-panel)" }}
+            className="crv2-btn-primary"
           >
-            Draft it with React
+            ✦ Draft it with React
           </button>
-          <span className="text-[11.5px]" style={{ color: "var(--builder-muted-2)" }}>
+          <span className="text-[12px]" style={{ color: "var(--builder-muted)" }}>
             React proposes a draft — nothing changes until you apply it.
           </span>
         </div>
       </div>
 
       {/* Divider */}
-      <div className="my-6 flex items-center gap-3" aria-hidden>
+      <div className="my-7 flex items-center gap-3" aria-hidden>
         <span className="h-px flex-1" style={{ background: "var(--builder-border)" }} />
         <span className="text-[11px]" style={{ color: "var(--builder-muted-2)" }}>or</span>
         <span className="h-px flex-1" style={{ background: "var(--builder-border)" }} />
@@ -93,25 +86,19 @@ export function DocumentEmptyState({
 
       {/* Path 2 — Build manually */}
       <div>
-        <span
-          className="builder-mono mb-1.5 block text-[10.5px] font-semibold uppercase tracking-[0.1em]"
-          style={{ color: "var(--builder-muted)" }}
-        >
-          Build manually
-        </span>
+        <span className="crv2-eyebrow mb-2 block">Build manually</span>
         <button
           type="button"
           data-testid="document-start-with-trigger"
           onClick={() => onStartWithTrigger?.()}
           disabled={onStartWithTrigger === undefined}
-          className="inline-flex h-9 items-center gap-2 rounded-md px-4 text-[13px] font-medium disabled:opacity-50"
-          style={{ border: "1.5px solid var(--builder-border)", color: "var(--builder-text)" }}
+          className="crv2-btn-secondary"
         >
           ＋ Start with a trigger
         </button>
       </div>
 
-      <p className="mt-6 text-[11.5px]" style={{ color: "var(--builder-muted-2)" }}>
+      <p className="mt-8 text-[12px]" style={{ color: "var(--builder-muted-2)" }}>
         AI is the fastest start — never the only one.
       </p>
     </div>

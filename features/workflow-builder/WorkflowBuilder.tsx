@@ -1038,6 +1038,7 @@ export function WorkflowBuilder({
             summaryFieldsByType={summaryFieldsByType}
             providerLabels={providerLabels}
             providerIcons={providerIcons}
+            workflowTitle={workflowName}
             onOpenInVisual={handleOpenInVisual}
             // CS-2 — Document gestures reuse the EXACT canvas paths: the same
             // action picker (tail append / edge insert) and the same inspector.

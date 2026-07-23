@@ -40,25 +40,11 @@ export function DocumentForkBlock({
     <div
       data-testid={`document-fork-${block.nodeId}`}
       data-node-id={block.nodeId}
-      className="my-2 overflow-hidden rounded-xl"
-      style={{ border: "1px solid var(--builder-border)", background: "var(--builder-panel)" }}
+      className="crv2-fork"
     >
-      <div
-        className="group flex flex-wrap items-center gap-2 px-4 py-2.5"
-        style={{
-          background: "var(--builder-panel-2)",
-          borderBottom: "1px solid var(--builder-border)",
-        }}
-      >
-        <span
-          className="builder-mono text-[10px] font-semibold uppercase tracking-[0.1em]"
-          style={{ color: "var(--builder-muted)" }}
-        >
-          It splits
-        </span>
-        <span className="text-[13.5px] font-semibold" style={{ color: "var(--builder-text)" }}>
-          {block.conditionSummary}
-        </span>
+      <div className="crv2-fork-head group">
+        <span className="crv2-fork-eyebrow">It splits</span>
+        <span className="crv2-fork-cond">{block.conditionSummary}</span>
         {block.blankChips.map((chip) => (
           <button
             key={chip.name}
@@ -94,22 +80,10 @@ export function DocumentForkBlock({
         <div
           key={`${lane.kindHint}-${lane.label}-${i}`}
           data-testid={`document-fork-lane-${block.nodeId}-${lane.kindHint === "always" ? "always" : lane.label}`}
-          className="px-4 py-3"
-          style={i > 0 ? { borderTop: "1px solid var(--builder-border)" } : undefined}
+          className={`crv2-fork-lane${i > 0 ? " crv2-fork-lane--rest" : ""}`}
         >
-          <div className="mb-1 flex items-center gap-2">
-            <span
-              className="builder-mono inline-flex items-center rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.04em]"
-              style={{
-                background:
-                  lane.kindHint === "always"
-                    ? "var(--builder-panel-2)"
-                    : "var(--builder-accent-soft)",
-                color:
-                  lane.kindHint === "always" ? "var(--builder-muted)" : "var(--builder-accent)",
-                border: "1px solid var(--builder-border)",
-              }}
-            >
+          <div className="mb-1.5 flex items-center gap-2">
+            <span className={`crv2-lane-label ${laneLabelVariant(lane.kindHint, lane.label)}`}>
               ● {lane.title}
             </span>
             {lane.subtitle ? (
@@ -202,12 +176,7 @@ export function DocumentForkBlock({
           {lane.terminal ? (
             <p
               data-testid={`document-lane-terminal-${block.nodeId}-${lane.kindHint === "always" ? "always" : lane.label}`}
-              className="m-0 mt-1.5 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium"
-              style={{
-                background: "var(--builder-panel-2)",
-                color: "var(--builder-muted)",
-                border: "1px solid var(--builder-border)",
-              }}
+              className="crv2-terminal m-0"
             >
               ⏹ Ends here — nothing else runs on this path.
             </p>
@@ -215,17 +184,21 @@ export function DocumentForkBlock({
         </div>
       ))}
       {block.rejoinNodeId ? (
-        <div
-          className="builder-mono px-4 py-2 text-[10.5px] font-semibold uppercase tracking-[0.08em]"
-          style={{
-            background: "var(--builder-panel-2)",
-            borderTop: "1px dashed var(--builder-border)",
-            color: "var(--builder-muted)",
-          }}
-        >
-          Then the paths come back together ↓
-        </div>
+        <div className="crv2-fork-rejoin">Then the paths come back together ↓</div>
       ) : null}
     </div>
   );
+}
+
+/**
+ * CS-7B — colour a lane label by its meaning: affirmative (true/yes) → olive,
+ * negative (false/no/otherwise) → blue, a named Router route → clay, an
+ * always-run continuation → muted. Purely presentational; status is also carried
+ * by the label text, never colour alone.
+ */
+function laneLabelVariant(kindHint: string, label: string): string {
+  if (kindHint === "always") return "crv2-lane-label--always";
+  if (/^(true|yes)$/i.test(label)) return "crv2-lane-label--yes";
+  if (/^(false|no|otherwise|else)$/i.test(label)) return "crv2-lane-label--no";
+  return "crv2-lane-label--route";
 }
