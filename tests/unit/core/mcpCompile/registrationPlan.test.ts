@@ -68,9 +68,12 @@ describe("registration plan — Linear (matches the committed wiring)", () => {
     }
   });
 
-  it("options fragment reports 'none' (Linear declares no optionsSource)", () => {
-    expect(plan.resolverSources).toEqual([]);
-    expect(plan.fragments[3]!.content).toMatch(/^none/);
+  it("options fragment reports Linear's resolver sources (CS-6B)", () => {
+    expect(plan.resolverSources).toEqual(["linear:assignees", "linear:labels", "linear:teams"]);
+    const optionsFragment = plan.fragments.find((f) => f.destination === "services/options/_registry.ts")!;
+    for (const s of ["linear:teams", "linear:assignees", "linear:labels"]) {
+      expect(optionsFragment.content).toContain(s);
+    }
   });
 
   it("is deterministic (same compile → identical render)", () => {

@@ -64,6 +64,10 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         createdAt: { advanced: true },
         updatedAt: { advanced: true },
         release: { advanced: true }, // live-only field (CS-6): power-user release filter.
+        // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
+        team: { optionsSource: "linear:teams" },
+        assignee: { optionsSource: "linear:assignees" },
+        label: { optionsSource: "linear:labels" },
       },
     },
     {
@@ -78,10 +82,17 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       risk: "write",
       reason:
         "Core repetitive-task write. Linear's save_issue is a create-or-update dispatcher; V2 ships it as split typed actions (plan §10.5) — this is the create half (id omitted; title+team pinned required per the tool's own prose contract).",
+      // CS-6B — save_issue (create OR update) is write-evidence-eligible. Requires
+      // the explicit `write-evidence` command + a disposable-record fixture; a
+      // create fixture (no id) → create shape, an update fixture (id) → update.
+      writeEvidence: { description: "Creates a new issue (or updates one if the fixture has an id) via save_issue." },
       fieldOverrides: {
         id: { omit: true },
         title: { required: true },
-        team: { required: true },
+        // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
+        team: { required: true, optionsSource: "linear:teams" },
+        assignee: { optionsSource: "linear:assignees" },
+        labels: { optionsSource: "linear:labels" },
         removeBlocks: { omit: true },
         removeBlockedBy: { omit: true },
         removeRelatedTo: { omit: true },
@@ -121,6 +132,10 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
           label: "Issue",
           description: "Issue ID or identifier (e.g. LIN-123).",
         },
+        // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
+        team: { optionsSource: "linear:teams" },
+        assignee: { optionsSource: "linear:assignees" },
+        labels: { optionsSource: "linear:labels" },
         delegate: { advanced: true },
         cycle: { advanced: true },
         milestone: { advanced: true },
@@ -154,6 +169,8 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       risk: "write",
       reason:
         "Core repetitive-task write. Scoped to ISSUE comments for v1 — the tool's project/initiative/document/milestone parents are omitted so the node stays single-purpose; issueId pinned required.",
+      // CS-6B — write-evidence-eligible (disposable comment on a test issue).
+      writeEvidence: { description: "Adds a comment to an issue via save_comment." },
       fieldOverrides: {
         id: { omit: true },
         projectId: { omit: true },

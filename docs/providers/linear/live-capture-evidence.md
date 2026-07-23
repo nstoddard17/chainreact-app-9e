@@ -70,9 +70,48 @@ npm run mcp:import -- capture linear --evidence
 ```
 
 This re-captures the snapshot AND records the 4 committed-arg list tools' shapes
-into `mcp-evidence.json`. `list_issue_statuses` needs a real `team` (add
-`evidence: { sampleArgs: { team: "<your-team>" } }` transiently, or derive
-State from the `status`/`statusType` strings list_issues already returns). With
-those shapes, ship `linear:teams` / `linear:projects` / `linear:assignees` /
-`linear:labels` / `linear:states` resolvers and wire `optionsSource` (+ regenerate;
-`--print-registration` then prints the `services/options/_registry.ts` entries).
+into `mcp-evidence.json`.
+
+---
+
+## CS-6B outcome — 2nd evidence pass + resolvers shipped
+
+The 2nd `capture --evidence` recorded **5 captured** (list_issues + the 4 list
+tools). Real shapes:
+
+| Tool | Shape (type-only) | Resolver |
+|---|---|---|
+| `list_teams` | `{ teams:[{ id, name }], hasNextPage }` | **`linear:teams`** shipped (value=id, label=name) |
+| `list_users` | `{ users:[{ id, name, displayName, email, … }], hasNextPage }` | **`linear:assignees`** shipped (value=id, label=displayName; **email never surfaced**) |
+| `list_issue_labels` | `{ labels:[{ id, name, color }], hasNextPage }` | **`linear:labels`** shipped (value=id, label=name) |
+| `list_projects` | `{ projects:[], hasNextPage }` — **EMPTY** in the cert workspace | `linear:projects` **deferred** — insufficient evidence (no rows to map) |
+| `list_issue_statuses` | not captured (**requires a `team` arg**) | `linear:issue-statuses` **deferred** — team-scoped |
+
+**3 resolvers shipped** (`linear:teams` / `linear:assignees` / `linear:labels`),
+wired to the `team` / `assignee` / `labels` fields (now comboboxes that keep
+manual name/ID entry) on find/create/update issue. `linear:projects` and
+`linear:issue-statuses` are NOT shipped — no fabricated shapes.
+
+### Remaining owner commands to finish certification
+
+```
+# 1. Write-evidence for the write actions' result shapes (structured outputs).
+#    Uses a DISPOSABLE record; no auto-cleanup. Create create.json / update.json /
+#    comment.json fixtures with your test-team/issue values, e.g.:
+#      { "args": { "title": "ChainReact cert — DELETE ME", "team": "<your-team>" } }
+npm run mcp:import -- write-evidence linear --tool save_issue  --fixture create.json  --allow-write-evidence --yes-run-write
+npm run mcp:import -- write-evidence linear --tool save_issue  --fixture update.json  --allow-write-evidence --yes-run-write
+npm run mcp:import -- write-evidence linear --tool save_comment --fixture comment.json --allow-write-evidence --yes-run-write
+# → then curate create_issue/update_issue/add_comment `outputs` from the real
+#   shapes (id/identifier/title/url/status), regenerate, and re-run tests.
+
+# 2. Projects + statuses resolvers: re-capture with a workspace that HAS projects,
+#    and add a transient evidence block for list_issue_statuses with a real team:
+#      { tool: "list_issue_statuses", decision: "defer", reason: "...",
+#        evidence: { sampleArgs: { team: "<your-team>" } } }
+npm run mcp:import -- capture linear --evidence
+# → then ship linear:projects (dependsOn team) + linear:issue-statuses (dependsOn team).
+
+# 3. Run both live workflows (with ENABLE_EXPERIMENTAL_MCP_APPS=true) and verify
+#    OAuth refresh/reconnect, run history, drift, and downstream mappings.
+```

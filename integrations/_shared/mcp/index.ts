@@ -36,6 +36,8 @@ export {
   typeSkeleton,
   selectEvidenceTools,
   buildEvidence,
+  writeEvidenceEligibility,
+  buildWriteEvidence,
 } from "./evidence";
 export type {
   EvidenceShape,
@@ -45,7 +47,12 @@ export type {
   EvidenceCallable,
   EvidenceSkip,
   EvidenceCallTool,
+  WriteEvidenceEligibility,
+  WriteEvidenceInput,
 } from "./evidence";
+// CS-6B — shared MCP tool-call seam for option resolvers.
+export { mcpResolverCall, mcpStructured } from "./resolverClient";
+export type { McpResolverCallInput, McpResolverDeps } from "./resolverClient";
 export { tokenFingerprint, scrubSecrets } from "./sanitize";
 // CS-1 MCP-AUTH — shared OAuth 2.1 helper for MCP-catalog providers.
 export { createMcpProviderOAuth } from "./oauth";

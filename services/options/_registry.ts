@@ -536,6 +536,17 @@ import { quickbooksInvoicesResolver } from "@/integrations/quickbooks/options/in
 // MOTIVE-1 — vehicle + driver pickers (account credential class).
 import { motiveVehiclesResolver } from "@/integrations/motive/options/vehicles";
 import { motiveDriversResolver } from "@/integrations/motive/options/drivers";
+// Linear (CS-6B) — first MCP-CATALOG option resolvers. Call the official Linear
+// MCP server's read-only list tools through the shared resolver seam
+// (refreshAndRetry + MCP client); value/label mappings come from REAL captured
+// evidence (mcp-evidence.json). `linear:teams` / `linear:assignees` /
+// `linear:labels` are workspace-scoped (no deps). `linear:projects` +
+// `linear:issue-statuses` are intentionally NOT registered yet — the cert
+// workspace returned zero projects (insufficient evidence) and list_issue_statuses
+// is team-scoped and was not captured; see docs/providers/linear/live-capture-evidence.md.
+import { linearTeamsResolver } from "@/integrations/linear/options/teams";
+import { linearAssigneesResolver } from "@/integrations/linear/options/assignees";
+import { linearLabelsResolver } from "@/integrations/linear/options/labels";
 import { trelloBoardsResolver } from "@/integrations/trello/options/boards";
 import { edenWorkspacesResolver } from "@/integrations/eden/options/workspaces";
 import { edenBoardsResolver } from "@/integrations/eden/options/boards";
@@ -815,6 +826,11 @@ export const ALL_OPTIONS_RESOLVERS: ReadonlyArray<OptionsResolver> = [
   // runtime consumer). Trello stays OUT of COVERED_PROVIDERS until
   // TRELLO-META-3.
   trelloBoardsResolver,
+  // Linear (CS-6B) — MCP-catalog resolvers (teams / assignees / labels),
+  // workspace-scoped, mapped from real captured evidence.
+  linearTeamsResolver,
+  linearAssigneesResolver,
+  linearLabelsResolver,
   // Eden (EDEN-4) — workspace + board pickers for the MCP-backed actions.
   edenWorkspacesResolver,
   edenBoardsResolver,

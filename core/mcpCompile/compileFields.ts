@@ -247,6 +247,13 @@ function buildFieldMeta(
 
   switch (kind.k) {
     case "string":
+      // A string field with an option source becomes a COMBOBOX — a picker whose
+      // committed VALUE stays a string (the id/name the runtime schema expects);
+      // the widget adds the dropdown + keeps free-text entry (the name-or-id
+      // manual path). Widget upgrade only (RESOLVERS-3/4); the zod schema stays
+      // `z.string()`. A multiline+optionsSource combination makes no sense, so the
+      // picker wins.
+      if (override.optionsSource) return { ...base, type: "combobox" } as FieldMeta;
       return { ...base, type: kind.multiline ? "textarea" : "text" } as FieldMeta;
     case "enum":
       return { ...base, type: "select", options: enumOptions(kind.values) } as FieldMeta;

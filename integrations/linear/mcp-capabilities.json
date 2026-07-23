@@ -8,7 +8,7 @@
       "outputQuality": "good",
       "descriptionQuality": "good",
       "complexity": "high",
-      "pickerSupport": "none",
+      "pickerSupport": "partial",
       "verified": false,
       "risk": {
         "classification": "read",
@@ -25,7 +25,7 @@
       "outputQuality": "poor",
       "descriptionQuality": "good",
       "complexity": "high",
-      "pickerSupport": "none",
+      "pickerSupport": "partial",
       "verified": false,
       "risk": {
         "classification": "write",
@@ -42,7 +42,7 @@
       "outputQuality": "poor",
       "descriptionQuality": "good",
       "complexity": "high",
-      "pickerSupport": "none",
+      "pickerSupport": "partial",
       "verified": false,
       "risk": {
         "classification": "write",

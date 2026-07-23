@@ -2,6 +2,33 @@
   "provider": "linear",
   "tools": [
     {
+      "tool": "list_issue_labels",
+      "schemaHash": "a8873ab1da2294a6c387503c7fc44364d2f9eaf243f6b56727dcc2ec1d089193",
+      "captureStatus": "captured",
+      "resultKind": "structured",
+      "observedShape": {
+        "labels": [
+          {
+            "id": "string",
+            "name": "string",
+            "color": "string",
+            "description": "null"
+          }
+        ],
+        "hasNextPage": "boolean"
+      },
+      "fieldsObserved": [
+        "labels",
+        "hasNextPage"
+      ],
+      "pagination": null,
+      "supportsStructuredOutput": true,
+      "recommendation": "structured_output_curatable",
+      "notes": [
+        "resolver_candidate"
+      ]
+    },
+    {
       "tool": "list_issues",
       "schemaHash": "f2ec4a94207f5f58b8fb956741e8795d4d4383bda1d3a9817d3e1ba8318c3c1d",
       "captureStatus": "captured",
@@ -56,6 +83,84 @@
       ]
     },
     {
+      "tool": "list_projects",
+      "schemaHash": "dec2ed258634803e6127c0c8602c2b7b65c5bbdf7d1ef488a7529c8533c04cff",
+      "captureStatus": "captured",
+      "resultKind": "structured",
+      "observedShape": {
+        "projects": [],
+        "hasNextPage": "boolean"
+      },
+      "fieldsObserved": [
+        "projects",
+        "hasNextPage"
+      ],
+      "pagination": null,
+      "supportsStructuredOutput": true,
+      "recommendation": "structured_output_curatable",
+      "notes": []
+    },
+    {
+      "tool": "list_teams",
+      "schemaHash": "01c859b16bfa3e54d98edb56e6d9e55306f3275e220c7cbf57654f4b45a3d20d",
+      "captureStatus": "captured",
+      "resultKind": "structured",
+      "observedShape": {
+        "teams": [
+          {
+            "id": "string",
+            "name": "string",
+            "createdAt": "string",
+            "updatedAt": "string"
+          }
+        ],
+        "hasNextPage": "boolean"
+      },
+      "fieldsObserved": [
+        "teams",
+        "hasNextPage"
+      ],
+      "pagination": null,
+      "supportsStructuredOutput": true,
+      "recommendation": "structured_output_curatable",
+      "notes": [
+        "resolver_candidate"
+      ]
+    },
+    {
+      "tool": "list_users",
+      "schemaHash": "e41f5fd0c0c1beaa6c6177f98e90ae43e98fcaf301d75b62f8b2b94c504ed16d",
+      "captureStatus": "captured",
+      "resultKind": "structured",
+      "observedShape": {
+        "users": [
+          {
+            "id": "string",
+            "name": "string",
+            "email": "string",
+            "displayName": "string",
+            "isAdmin": "boolean",
+            "isGuest": "boolean",
+            "isActive": "boolean",
+            "createdAt": "string",
+            "updatedAt": "string",
+            "status": "string"
+          }
+        ],
+        "hasNextPage": "boolean"
+      },
+      "fieldsObserved": [
+        "users",
+        "hasNextPage"
+      ],
+      "pagination": null,
+      "supportsStructuredOutput": true,
+      "recommendation": "structured_output_curatable",
+      "notes": [
+        "resolver_candidate"
+      ]
+    },
+    {
       "tool": "save_comment",
       "captureStatus": "skipped",
       "reason": "not read-only (risk: write) — write-tool evidence execution is deferred (CS-5A)"
@@ -71,6 +176,6 @@
       "reason": "not read-only (risk: write) — write-tool evidence execution is deferred (CS-5A)"
     }
   ],
-  "capturedAt": "2026-07-23T03:05:29.956Z",
+  "capturedAt": "2026-07-23T03:24:45.141Z",
   "capturedBy": "live"
 }

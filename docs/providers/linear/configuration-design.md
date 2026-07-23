@@ -46,16 +46,14 @@ filter decisions (Setup); static-resource filters (team/state/assignee/label/pro
 share the resolver-deferral note. `limit`, `cursor`, `orderBy`, `includeArchived`,
 `delegate`, `parentId`, `createdAt`, `updatedAt` = advanced controls.
 
-> **CS-6 update (live capture done).** The snapshot is now a real 52-tool live
-> capture; the list tools backing these pickers are CONFIRMED
-> (`list_teams`/`list_projects`/`list_users`/`list_issue_statuses`/`list_issue_labels`)
-> and added to the catalog as `defer` resolver sources with read-only evidence
-> approvals. `find_issues` now ships a certified structured output. What remains
-> to turn the static-resource fields below into pickers is a **second evidence
-> pass** to record the list tools' result shapes, then shipping the resolvers —
-> see [`live-capture-evidence.md`](./live-capture-evidence.md). Resolvers are NOT
-> yet shipped (no fabricated shapes), so the fields below stay name-or-id text
-> for now.
+> **CS-6B update (resolvers shipped).** 3 of 5 pickers are now SHIPPED from real
+> captured evidence: **`linear:teams`**, **`linear:assignees`** (label=displayName,
+> never email), **`linear:labels`** — wired to the `team`/`assignee`/`labels`
+> fields (now comboboxes that keep manual name/ID entry) on find/create/update
+> issue. `linear:projects` (cert workspace returned zero projects → insufficient
+> evidence) and `linear:issue-statuses` (team-scoped, not captured) are deferred —
+> no fabricated shapes; see [`live-capture-evidence.md`](./live-capture-evidence.md)
+> for the exact commands to finish them.
 
 ## Option resolvers — PRIMED, not yet shipped (documented per the task; NOT faked)
 

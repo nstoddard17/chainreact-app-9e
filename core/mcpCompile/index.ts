@@ -18,6 +18,7 @@ export {
   McpCapabilityProfileSchema,
   McpRiskClassificationSchema,
   McpEvidenceApprovalSchema,
+  McpWriteEvidenceApprovalSchema,
   McpCompileError,
 } from "./types";
 export type {

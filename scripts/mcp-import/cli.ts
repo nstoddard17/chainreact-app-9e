@@ -7,8 +7,10 @@
  *   npm run mcp:import -- capture <provider> --evidence          + approved read-only tool-call evidence
  *   npm run mcp:import -- check <provider> [--json]              live tools/list vs pinned (drift)
  *   npm run mcp:import -- rehash <provider>                      recompute snapshot schemaHash fields
+ *   npm run mcp:import -- write-evidence <provider> --tool <t> --fixture <p> --allow-write-evidence --yes-run-write
+ *                                                               explicit, gated WRITE-tool evidence (disposable records)
  *
- * `capture`/`check` need a bearer for the vendor server in MCP_IMPORT_BEARER
+ * `capture`/`check`/`write-evidence` need a bearer in MCP_IMPORT_BEARER
  * (an owner-time dev credential — NEVER a customer token; nothing is logged).
  * `generate` (write mode) and `--print-registration` are pure/deterministic;
  * `--print-registration` mutates nothing and refuses when artifacts are stale.
@@ -30,7 +32,7 @@ import {
 } from "@/core/mcpCompile";
 import { createMcpClient, type McpClient } from "@/integrations/_shared/mcp/client";
 import { buildDriftReport, type DriftReport } from "@/integrations/_shared/mcp/driftClassify";
-import { buildEvidence } from "@/integrations/_shared/mcp/evidence";
+import { buildEvidence, writeEvidenceEligibility, buildWriteEvidence } from "@/integrations/_shared/mcp/evidence";
 
 // Run from the repo root (the npm script guarantees the cwd).
 const repoRoot = process.cwd();
@@ -245,19 +247,142 @@ function rehash(provider: string): void {
   console.log(`rehashed ${raw.tools.length} tool(s).`);
 }
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const flags = new Set(args.filter((a) => a.startsWith("--")));
-  const [command, provider] = args.filter((a) => !a.startsWith("--"));
-  if (!command || !provider) {
-    console.log("usage: npm run mcp:import -- <generate|capture|check|rehash> <provider> [--print-registration|--evidence|--json]");
+/**
+ * CS-6B — EXPLICIT, operator-gated write-evidence. Never runs through ordinary
+ * `capture --evidence`. Requires, in order: `--allow-write-evidence`; a `--tool`
+ * that is catalog-approved for write-evidence + risk exactly `write` + not a
+ * forbidden verb (delete/refund/publish/invite/…); a `--fixture <path>` of
+ * DISPOSABLE test args; a prominent confirmation; and a SECOND `--yes-run-write`
+ * acknowledgment (without it the command prints the confirmation and STOPS).
+ * The result is scrubbed + bounded + type-only exactly like read evidence. NO
+ * auto-cleanup — the operator deletes the disposable record.
+ */
+async function writeEvidence(
+  provider: string,
+  opts: { tool?: string; fixture?: string; allow: boolean; yes: boolean },
+): Promise<void> {
+  if (!opts.allow) {
+    console.log("REFUSED: write-evidence is disabled by default. Re-run with --allow-write-evidence to opt in.");
     process.exitCode = 2;
     return;
   }
-  if (command === "generate") return generate(provider, { printRegistration: flags.has("--print-registration"), json: flags.has("--json") });
-  if (command === "capture") return capture(provider, { evidence: flags.has("--evidence") });
-  if (command === "check") return check(provider, { json: flags.has("--json") });
+  if (!opts.tool) {
+    console.log("REFUSED: --tool <name> is required (the exact write tool to capture).");
+    process.exitCode = 2;
+    return;
+  }
+  const catalog = McpCatalogSchema.parse(await readCatalog(provider));
+  const elig = writeEvidenceEligibility(catalog, opts.tool);
+  if (!elig.eligible) {
+    console.log(`REFUSED: ${elig.reason}.`);
+    process.exitCode = 2;
+    return;
+  }
+  if (!opts.fixture) {
+    console.log("REFUSED: --fixture <path> is required — a JSON file of DISPOSABLE test args, e.g. { \"args\": { ... } }.");
+    process.exitCode = 2;
+    return;
+  }
+  const fixtureRaw = JSON.parse(readFileSync(path.resolve(repoRoot, opts.fixture), "utf8")) as { args?: Record<string, unknown> };
+  const args = fixtureRaw.args;
+  if (!args || typeof args !== "object") {
+    console.log("REFUSED: fixture must be { \"args\": { ...tool arguments... } }.");
+    process.exitCode = 2;
+    return;
+  }
+
+  // Prominent confirmation (arg KEYS only — never echo values).
+  console.log("\n============================================================");
+  console.log("  ⚠  WRITE EVIDENCE — this CREATES/MODIFIES REAL DATA");
+  console.log("============================================================");
+  console.log(`  provider: ${provider}`);
+  console.log(`  tool:     ${opts.tool}`);
+  console.log(`  does:     ${elig.description}`);
+  console.log(`  arg keys: ${Object.keys(args).join(", ")}`);
+  console.log("  Use a DISPOSABLE certification record in a test team/project.");
+  console.log("  There is NO auto-cleanup — delete the record yourself afterward.");
+  console.log("============================================================");
+  if (!opts.yes) {
+    console.log("STOPPED: add --yes-run-write to acknowledge and actually run the write.\n");
+    process.exitCode = 2;
+    return;
+  }
+
+  const client = makeLiveClient(provider, catalog.serverUrl);
+  await client.initialize();
+  const evidence = await buildWriteEvidence({
+    provider,
+    tool: opts.tool,
+    args,
+    // Writes are NOT idempotent → single attempt (never auto-retried).
+    callTool: (tool, a) => client.callTool(tool, a, { idempotent: false }),
+  });
+
+  // Merge into mcp-evidence.json: replace the tool's (skipped) entry.
+  const evPath = path.join(providerDir(provider), "mcp-evidence.json");
+  const existing = JSON.parse(readFileSync(evPath, "utf8")) as { tools: Array<{ tool: string }>; [k: string]: unknown };
+  const others = (existing.tools ?? []).filter((t) => t.tool !== opts.tool);
+  const merged = {
+    ...existing,
+    tools: [...others, evidence].sort((a, b) => a.tool.localeCompare(b.tool)),
+    writeEvidenceCapturedAt: new Date().toISOString(),
+  };
+  writeFileSync(evPath, JSON.stringify(merged, null, 2) + "\n", "utf8");
+  console.log(`\nwrite evidence for '${opts.tool}': ${evidence.captureStatus} → integrations/${provider}/mcp-evidence.json`);
+  console.log("Reminder: delete the disposable certification record you just created.\n");
+}
+
+interface ParsedArgs {
+  positionals: string[];
+  flags: Map<string, string | true>;
+}
+
+/** Parse `positional`, `--flag`, and `--flag value` / `--flag=value`. */
+function parseArgs(argv: string[]): ParsedArgs {
+  const positionals: string[] = [];
+  const flags = new Map<string, string | true>();
+  const valueFlags = new Set(["tool", "fixture"]);
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    if (!a.startsWith("--")) {
+      positionals.push(a);
+      continue;
+    }
+    const body = a.slice(2);
+    const eq = body.indexOf("=");
+    if (eq >= 0) {
+      flags.set(body.slice(0, eq), body.slice(eq + 1));
+    } else if (valueFlags.has(body) && i + 1 < argv.length && !argv[i + 1]!.startsWith("--")) {
+      flags.set(body, argv[++i]!);
+    } else {
+      flags.set(body, true);
+    }
+  }
+  return { positionals, flags };
+}
+
+async function main(): Promise<void> {
+  const { positionals, flags } = parseArgs(process.argv.slice(2));
+  const [command, provider] = positionals;
+  const flag = (k: string): boolean => flags.get(k) === true || typeof flags.get(k) === "string";
+  const flagVal = (k: string): string | undefined => (typeof flags.get(k) === "string" ? (flags.get(k) as string) : undefined);
+  if (!command || !provider) {
+    console.log("usage: npm run mcp:import -- <generate|capture|check|rehash|write-evidence> <provider> [flags]");
+    process.exitCode = 2;
+    return;
+  }
+  if (command === "generate") return generate(provider, { printRegistration: flag("print-registration"), json: flag("json") });
+  if (command === "capture") return capture(provider, { evidence: flag("evidence") });
+  if (command === "check") return check(provider, { json: flag("json") });
   if (command === "rehash") return rehash(provider);
+  if (command === "write-evidence") {
+    return writeEvidence(provider, {
+      ...(flagVal("tool") ? { tool: flagVal("tool") } : {}),
+      ...(flagVal("fixture") ? { fixture: flagVal("fixture") } : {}),
+      allow: flag("allow-write-evidence"),
+      yes: flag("yes-run-write"),
+    });
+  }
   throw new Error(`unknown command '${command}'.`);
 }
 

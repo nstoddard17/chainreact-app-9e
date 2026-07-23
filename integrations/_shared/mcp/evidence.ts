@@ -269,6 +269,77 @@ export interface EvidenceArtifact {
 /** Injected tool-call seam — CLI passes the live client; tests pass a fake. */
 export type EvidenceCallTool = (tool: string, args: Record<string, unknown>) => Promise<McpCallToolResult>;
 
+// ─── Write-evidence gate (CS-6B) ─────────────────────────────────────────────
+
+/** Verbs that are NEVER write-evidence-eligible even if risk-classified "write". */
+const FORBIDDEN_WRITE_EVIDENCE_VERB = /^(delete|remove|destroy|archive|revoke|purge|refund|publish|invite|cancel|deactivate|disable|transfer|pay|charge)/;
+
+export interface WriteEvidenceEligibility {
+  readonly eligible: boolean;
+  /** Why not, when ineligible (safe to print). */
+  readonly reason?: string;
+  readonly description?: string;
+}
+
+/**
+ * Decide whether a tool may be captured by the explicit `write-evidence` command.
+ * The command layers additional gates (--allow-write-evidence, --fixture,
+ * --yes-run-write); this is the CATALOG-side eligibility: the tool must be a
+ * catalog entry with a `writeEvidence` approval, effective risk EXACTLY `write`,
+ * and not a forbidden verb (delete/refund/publish/invite/…).
+ */
+export function writeEvidenceEligibility(catalog: McpCatalog, tool: string): WriteEvidenceEligibility {
+  const entries = catalog.tools.filter((t) => t.tool === tool);
+  if (entries.length === 0) return { eligible: false, reason: `tool '${tool}' is not in the catalog` };
+  const approved = entries.find((e) => e.writeEvidence);
+  if (!approved) return { eligible: false, reason: `tool '${tool}' has no writeEvidence approval in the catalog` };
+  const effectiveRisk = approved.risk ?? classifyToolRisk(tool);
+  if (effectiveRisk !== "write") {
+    return { eligible: false, reason: `tool '${tool}' risk is '${effectiveRisk}', not 'write' — write-evidence refuses non-write (destructive/financial/administrative/read) tools` };
+  }
+  if (FORBIDDEN_WRITE_EVIDENCE_VERB.test(tool)) {
+    return { eligible: false, reason: `tool '${tool}' matches a forbidden write-evidence verb (delete/refund/publish/invite/…) — always refused` };
+  }
+  return { eligible: true, description: approved.writeEvidence!.description };
+}
+
+export interface WriteEvidenceInput {
+  provider: string;
+  tool: string;
+  /** Operator-supplied disposable test args (from --fixture). */
+  args: Record<string, unknown>;
+  callTool: EvidenceCallTool;
+}
+
+/**
+ * Run ONE approved write tool with operator-supplied disposable args and derive
+ * the same type-only, scrubbed, bounded shape as read evidence. Callers gate on
+ * `writeEvidenceEligibility` + the CLI confirmation flags BEFORE calling this.
+ */
+export async function buildWriteEvidence(input: WriteEvidenceInput): Promise<ToolEvidence> {
+  try {
+    const result = await input.callTool(input.tool, input.args);
+    const shape = deriveEvidenceShape(result);
+    if (!shape.safe) {
+      return { tool: input.tool, captureStatus: "manual_review_required", reason: "sanitization could not confidently make the result safe to commit" };
+    }
+    return {
+      tool: input.tool,
+      captureStatus: "captured",
+      resultKind: shape.resultKind,
+      ...(shape.observedShape !== undefined ? { observedShape: shape.observedShape } : {}),
+      ...(shape.fieldsObserved ? { fieldsObserved: shape.fieldsObserved } : {}),
+      ...(shape.pagination !== undefined ? { pagination: shape.pagination } : {}),
+      ...(shape.textLength !== undefined ? { textLength: shape.textLength } : {}),
+      supportsStructuredOutput: shape.supportsStructuredOutput,
+      recommendation: shape.recommendation,
+      notes: shape.notes,
+    };
+  } catch (err) {
+    return { tool: input.tool, captureStatus: "error", reason: safeError(err) };
+  }
+}
+
 /** Safe, scrubbed, bounded error message (never a raw provider body). */
 function safeError(err: unknown): string {
   const raw = err instanceof Error ? err.message : "unknown error";

@@ -118,6 +118,24 @@ export const McpEvidenceApprovalSchema = z
   .strict();
 export type McpEvidenceApproval = z.infer<typeof McpEvidenceApprovalSchema>;
 
+/**
+ * Per-tool WRITE-evidence approval (CS-6B). Marks a WRITE tool as eligible for
+ * the explicit, operator-gated `write-evidence` command (never the ordinary
+ * `capture --evidence`). Approval alone is not enough: the command ALSO requires
+ * `--allow-write-evidence`, an operator-supplied `--fixture` of disposable test
+ * args, a second `--yes-run-write` acknowledgment, and effective risk exactly
+ * `write` (destructive/financial/administrative/delete/refund/publish/invite are
+ * always refused). `description` is shown in the confirmation prompt. No args
+ * are committed here — the operator provides disposable values via the fixture.
+ */
+export const McpWriteEvidenceApprovalSchema = z
+  .object({
+    /** Human description of what the write does — shown in the confirmation. */
+    description: z.string().min(1).max(512),
+  })
+  .strict();
+export type McpWriteEvidenceApproval = z.infer<typeof McpWriteEvidenceApprovalSchema>;
+
 /** Curated output shape used when the tool declares no usable outputSchema. */
 export const McpCuratedOutputSchema = z
   .object({
@@ -173,6 +191,12 @@ export const McpCatalogToolSchema = z
      * (read-only) tool with committed sample args. Absent ⇒ never auto-called.
      */
     evidence: McpEvidenceApprovalSchema.optional(),
+    /**
+     * CS-6B — approval for the explicit, operator-gated `write-evidence` command
+     * (WRITE tools only; disposable-record fixture supplied at run time). Absent
+     * ⇒ the tool can never be write-evidence-captured.
+     */
+    writeEvidence: McpWriteEvidenceApprovalSchema.optional(),
     /** Flipped by live certification (Phase-13 analog) — never by codegen. */
     verified: z.boolean().default(false),
   })

@@ -37,8 +37,9 @@ export const updateIssueMeta: ActionMeta = {
       name: "team",
       label: "Team",
       description: "Team name or ID (required when creating)",
-      type: "text",
+      type: "combobox",
       required: false,
+      optionsSource: "linear:teams",
     },
     {
       name: "cycle",
@@ -78,8 +79,9 @@ export const updateIssueMeta: ActionMeta = {
     {
       name: "assignee",
       label: "Assignee",
-      type: "text",
+      type: "combobox",
       required: false,
+      optionsSource: "linear:assignees",
     },
     {
       name: "delegate",
@@ -94,6 +96,7 @@ export const updateIssueMeta: ActionMeta = {
       description: "Label names or IDs as a JSON array of strings (e.g. [\"Bug\", \"Urgent\"]). Replaces the full label set; existing labels not included are removed. Omit to leave labels unchanged",
       type: "string-array",
       required: false,
+      optionsSource: "linear:labels",
     },
     {
       name: "dueDate",

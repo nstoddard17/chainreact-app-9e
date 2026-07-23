@@ -12,6 +12,8 @@ import {
   typeSkeleton,
   selectEvidenceTools,
   buildEvidence,
+  writeEvidenceEligibility,
+  buildWriteEvidence,
 } from "@/integrations/_shared/mcp/evidence";
 import { schemaHash, McpCatalogSchema, McpToolSnapshotFileSchema } from "@/core/mcpCompile";
 import type { McpCallToolResult } from "@/integrations/_shared/mcp";
@@ -219,5 +221,61 @@ describe("buildEvidence", () => {
     const list = artifact.tools.find((t) => t.tool === "list_things")!;
     expect(list.captureStatus).toBe("manual_review_required");
     expect(list.observedShape).toBeUndefined();
+  });
+});
+
+// ─── Write-evidence gating (CS-6B) ───────────────────────────────────────────
+
+describe("writeEvidenceEligibility — catalog gate", () => {
+  const cat = McpCatalogSchema.parse({
+    provider: "demo",
+    serverUrl: "https://x/mcp",
+    tools: [
+      { tool: "save_thing", decision: "ship", type: "create_thing", displayName: "Create", reason: "x", writeEvidence: { description: "creates a thing" } },
+      { tool: "list_things", decision: "ship", type: "list_things", displayName: "List", reason: "x", evidence: { sampleArgs: {} } }, // read
+      { tool: "update_thing", decision: "ship", type: "update_thing", displayName: "Update", reason: "x" }, // write, NO approval
+      { tool: "delete_thing", decision: "skip", reason: "destructive", writeEvidence: { description: "deletes" } }, // forbidden verb
+      { tool: "charge_card", decision: "ship", type: "charge", displayName: "Charge", reason: "x", risk: "financial", writeEvidence: { description: "charges" } }, // financial
+    ],
+  });
+
+  it("eligible: a write tool with an approval and a safe verb", () => {
+    const e = writeEvidenceEligibility(cat, "save_thing");
+    expect(e.eligible).toBe(true);
+    expect(e.description).toBe("creates a thing");
+  });
+  it("refuses a read tool", () => {
+    expect(writeEvidenceEligibility(cat, "list_things").eligible).toBe(false);
+  });
+  it("refuses a write tool with NO approval block", () => {
+    expect(writeEvidenceEligibility(cat, "update_thing")).toMatchObject({ eligible: false, reason: expect.stringMatching(/no writeEvidence approval/) });
+  });
+  it("refuses a forbidden verb even with an approval", () => {
+    expect(writeEvidenceEligibility(cat, "delete_thing").eligible).toBe(false);
+  });
+  it("refuses financial/administrative/destructive risk even with an approval", () => {
+    expect(writeEvidenceEligibility(cat, "charge_card")).toMatchObject({ eligible: false, reason: expect.stringMatching(/not 'write'/) });
+  });
+  it("refuses an unknown tool", () => {
+    expect(writeEvidenceEligibility(cat, "nope").eligible).toBe(false);
+  });
+});
+
+describe("buildWriteEvidence — type-only, scrubbed, single-shot", () => {
+  it("captures the created record's shape (no business values)", async () => {
+    const ev = await buildWriteEvidence({
+      provider: "demo",
+      tool: "save_thing",
+      args: { title: "cert DELETE ME" },
+      callTool: async () => ({ structuredContent: { id: "abc", identifier: "LIN-99", url: "https://linear.app/x", title: "cert DELETE ME" } }),
+    });
+    expect(ev.captureStatus).toBe("captured");
+    expect(ev.observedShape).toEqual({ id: "string", identifier: "string", url: "string", title: "string" });
+    expect(JSON.stringify(ev)).not.toContain("cert DELETE ME"); // value not retained
+  });
+  it("records a tool error safely (scrubbed + bounded)", async () => {
+    const ev = await buildWriteEvidence({ provider: "demo", tool: "save_thing", args: {}, callTool: async () => { throw new Error("boom Bearer sk_live_supersecret"); } });
+    expect(ev.captureStatus).toBe("error");
+    expect(ev.reason).not.toContain("sk_live_supersecret"); // Bearer <token> scrubbed
   });
 });
