@@ -1,12 +1,16 @@
 /**
  * @jest-environment node
  *
- * Shared MCP executor (CS-3 LINEAR-1) — the ONE seam every MCP-catalog action
- * reaches a server through. Mocks ONLY the external boundary (a fake MCP client
- * + a refreshAndRetry test double that honors the 401→refresh→retry contract);
- * everything else is the real executor. Proves:
+ * Shared MCP executor (CS-3 LINEAR-1 + CS-4 MCP-DRIFT) — the ONE seam every
+ * MCP-catalog action reaches a server through. Mocks ONLY the external boundary
+ * (a fake MCP client + a refreshAndRetry test double that honors the
+ * 401→refresh→retry contract); everything else is the real executor. Proves:
  *   - arg mapping + refreshAndRetry wiring (provider, providerAccountId=null)
- *   - pre-send drift refusal (hash mismatch / vanished tool) — callTool NEVER runs
+ *   - drift CLASSIFICATION gate (CS-4): no-change/safe-addition run, breaking /
+ *     removed / ambiguous refuse — callTool NEVER runs when refused
+ *   - safe-addition executes AND fires a review observation; strict policy pauses
+ *   - schema cache removes the repeated tools/list fetch (perf) without dropping
+ *     the per-call safety check
  *   - bounded output normalization (text + structured; undeclared keys dropped;
  *     type mismatch / missing structured fail honestly)
  *   - transport bounds passed to the client (timeout + maxResponseBytes)
@@ -17,6 +21,7 @@ import { schemaHash } from "@/core/mcpCompile";
 import {
   executeMcpTool,
   normalizeOutput,
+  type DriftObservation,
   type ExecuteMcpToolInput,
 } from "@/integrations/_shared/mcp/executeTool";
 import {
@@ -24,7 +29,7 @@ import {
   McpPermissionError,
   McpProtocolError,
   McpSchemaDriftError,
-  McpToolNotFoundError,
+  clearSchemaCache,
   type McpCallToolResult,
   type McpClientOptions,
   type McpListToolsResult,
@@ -99,6 +104,7 @@ function baseInput(over: Partial<ExecuteMcpToolInput> = {}): ExecuteMcpToolInput
     tool: "save_issue",
     accountId: "acct-1",
     args: { title: "T", team: "Core" },
+    pinnedSchema: PINNED_SCHEMA as Record<string, unknown>,
     pinnedSchemaHash: PINNED_HASH,
     output: { kind: "text" },
     idempotent: false,
@@ -116,6 +122,7 @@ function clientFactory(cfg: FakeClientConfig) {
 
 beforeEach(() => {
   lastClient = null;
+  clearSchemaCache(); // module-level cache — isolate every case
 });
 
 describe("happy path + wiring", () => {
@@ -148,37 +155,143 @@ describe("happy path + wiring", () => {
   });
 });
 
-describe("drift refusal (fail closed, pre-send)", () => {
-  it("refuses when the live schema hash != the pinned hash — callTool never runs", async () => {
-    const driftedSchema = { ...PINNED_SCHEMA, properties: { title: { type: "string" } }, required: ["title"] };
+/** Build a live tools/list whose sole tool is `save_issue` with `schema`. */
+function liveWith(schema: Record<string, unknown>): McpListToolsResult {
+  return { tools: [{ name: "save_issue", description: "", inputSchema: schema }] };
+}
+
+describe("drift classification gate (CS-4)", () => {
+  it("BREAKING change (removed/derequired field) → refused, callTool never runs", async () => {
+    const breaking = { ...PINNED_SCHEMA, properties: { title: { type: "string" } }, required: ["title"] };
     await expect(
       executeMcpTool(baseInput(), {
-        createClient: clientFactory({
-          listTools: { tools: [{ name: "save_issue", description: "", inputSchema: driftedSchema as Record<string, unknown> }] },
-        }),
+        createClient: clientFactory({ listTools: liveWith(breaking as Record<string, unknown>) }),
         refreshAndRetry: fakeRefresh(),
       }),
     ).rejects.toBeInstanceOf(McpSchemaDriftError);
     expect(lastClient!.callToolCalls).toHaveLength(0);
   });
 
-  it("refuses when the pinned tool has vanished from the live catalog", async () => {
+  it("REMOVED tool → refused, callTool never runs", async () => {
     await expect(
       executeMcpTool(baseInput(), {
         createClient: clientFactory({ listTools: { tools: [{ name: "something_else", description: "", inputSchema: {} }] } }),
         refreshAndRetry: fakeRefresh(),
       }),
-    ).rejects.toBeInstanceOf(McpToolNotFoundError);
+    ).rejects.toBeInstanceOf(McpSchemaDriftError);
     expect(lastClient!.callToolCalls).toHaveLength(0);
   });
 
-  it("runs normally when the live schema matches the pin", async () => {
+  it("AMBIGUOUS schema change (existing field modified) → refused", async () => {
+    const modified = {
+      ...PINNED_SCHEMA,
+      properties: { title: { type: "string", maxLength: 5 }, team: { type: "string" } },
+    };
+    await expect(
+      executeMcpTool(baseInput(), {
+        createClient: clientFactory({ listTools: liveWith(modified as Record<string, unknown>) }),
+        refreshAndRetry: fakeRefresh(),
+      }),
+    ).rejects.toBeInstanceOf(McpSchemaDriftError);
+    expect(lastClient!.callToolCalls).toHaveLength(0);
+  });
+
+  it("NO CHANGE → runs normally, no review observation", async () => {
+    const observed: DriftObservation[] = [];
     const res = await executeMcpTool(baseInput(), {
       createClient: clientFactory({ callToolResult: { content: [{ type: "text", text: "ok" }] } }),
       refreshAndRetry: fakeRefresh(),
+      onDrift: (o) => observed.push(o),
     });
     expect(res.output).toEqual({ text: "ok" });
     expect(lastClient!.callToolCalls).toHaveLength(1);
+    expect(observed).toHaveLength(0);
+  });
+
+  it("SAFE ADDITION (new optional field) → runs AND fires a needs_review observation", async () => {
+    const additive = {
+      ...PINNED_SCHEMA,
+      properties: { title: { type: "string" }, team: { type: "string" }, priority: { type: "number" } },
+    };
+    const observed: DriftObservation[] = [];
+    const res = await executeMcpTool(baseInput(), {
+      createClient: clientFactory({ listTools: liveWith(additive as Record<string, unknown>), callToolResult: { content: [{ type: "text", text: "ok" }] } }),
+      refreshAndRetry: fakeRefresh(),
+      onDrift: (o) => observed.push(o),
+    });
+    expect(res.output).toEqual({ text: "ok" });
+    expect(lastClient!.callToolCalls).toHaveLength(1); // executed
+    expect(observed).toEqual([
+      { provider: "linear", tool: "save_issue", classification: "safe_addition", certificationState: "needs_review" },
+    ]);
+  });
+
+  it("strict policy (allowNeedsReview: false) PAUSES even a safe addition", async () => {
+    const additive = {
+      ...PINNED_SCHEMA,
+      properties: { title: { type: "string" }, team: { type: "string" }, priority: { type: "number" } },
+    };
+    await expect(
+      executeMcpTool(baseInput(), {
+        createClient: clientFactory({ listTools: liveWith(additive as Record<string, unknown>) }),
+        refreshAndRetry: fakeRefresh(),
+        policy: { allowNeedsReview: false },
+      }),
+    ).rejects.toBeInstanceOf(McpSchemaDriftError);
+    expect(lastClient!.callToolCalls).toHaveLength(0);
+  });
+});
+
+describe("schema cache (CS-4 perf)", () => {
+  it("serves a second execution from cache — tools/list fetched once across two calls", async () => {
+    let listToolsCalls = 0;
+    const factory = (opts: McpClientOptions) => {
+      const client = new FakeClient(opts, { callToolResult: { content: [{ type: "text", text: "ok" }] } });
+      const origList = client.listTools.bind(client);
+      client.listTools = async () => {
+        listToolsCalls++;
+        return origList();
+      };
+      lastClient = client;
+      return client as never;
+    };
+    await executeMcpTool(baseInput(), { createClient: factory, refreshAndRetry: fakeRefresh() });
+    await executeMcpTool(baseInput(), { createClient: factory, refreshAndRetry: fakeRefresh() });
+    expect(listToolsCalls).toBe(1); // second call hit the cache
+  });
+
+  it("perf: 10 executions within the TTL trigger exactly ONE tools/list fetch", async () => {
+    let listToolsCalls = 0;
+    const factory = (opts: McpClientOptions) => {
+      const client = new FakeClient(opts, { callToolResult: { content: [{ type: "text", text: "ok" }] } });
+      const origList = client.listTools.bind(client);
+      client.listTools = async () => {
+        listToolsCalls++;
+        return origList();
+      };
+      return client as never;
+    };
+    for (let i = 0; i < 10; i++) {
+      await executeMcpTool(baseInput(), { createClient: factory, refreshAndRetry: fakeRefresh() });
+    }
+    // Without the cache this would be 10 tools/list round-trips (CS-3 behavior).
+    expect(listToolsCalls).toBe(1);
+  });
+
+  it("re-fetches after the TTL expires — safety check runs against fresh tools", async () => {
+    let listToolsCalls = 0;
+    const factory = (opts: McpClientOptions) => {
+      const client = new FakeClient(opts, { callToolResult: { content: [{ type: "text", text: "ok" }] } });
+      const origList = client.listTools.bind(client);
+      client.listTools = async () => {
+        listToolsCalls++;
+        return origList();
+      };
+      return client as never;
+    };
+    await executeMcpTool(baseInput(), { createClient: factory, refreshAndRetry: fakeRefresh(), cacheTtlMs: 1000, now: 0 });
+    await executeMcpTool(baseInput(), { createClient: factory, refreshAndRetry: fakeRefresh(), cacheTtlMs: 1000, now: 2000 });
+    expect(listToolsCalls).toBe(2); // TTL expired → fresh fetch
   });
 });
 

@@ -34,13 +34,14 @@ verbatim; the only new shared machinery is the executor seam and the compile pip
    projection, error mapping) exactly once. This is the generalization the plan calls for
    (§4.5) and the template all future MCP apps inherit.
 
-2. **Pre-send drift refusal on every call.** Before `tools/call`, the executor runs
-   `tools/list`, re-hashes the pinned tool's `inputSchema` (`schemaHash`), and refuses on
-   ANY mismatch or a vanished tool (`McpSchemaDriftError` / `McpToolNotFoundError`). Eden
-   relies on the certified allowlist alone; the executor hardens this to a per-call gate
-   because the reviewed catalog must never execute against a schema no human approved
-   (plan §4.8; "changed schema fails safely"). Cost: one extra idempotent round-trip per
-   action. Accepted for a headless engine.
+2. **Pre-send drift gate on every call.** Before `tools/call`, the executor compares the
+   live `tools/list` schema against the certified one. CS-3 shipped this as a strict
+   any-change refusal; **CS-4 upgraded it to a classification** (`no_change` /
+   `safe_addition` run, `breaking_change` / `tool_removed` / `tool_renamed` /
+   `schema_changed` refuse), backed by a short-TTL schema cache so it costs one
+   `tools/list` per 5-minute window instead of one per action, and a first-class
+   `INTEGRATION_CHANGED` user experience. Eden relies on the certified allowlist alone.
+   See [`docs/rules/mcp-drift-and-certification.md`](../../rules/mcp-drift-and-certification.md).
 
 3. **`save_issue` split into two typed V2 actions.** Linear consolidated create+update
    into one `save_issue` dispatcher (changelog 2026-02-26). We ship `create_issue`

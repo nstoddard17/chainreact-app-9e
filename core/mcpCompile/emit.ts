@@ -191,9 +191,15 @@ function outputSpecLiteral(action: CompiledAction): string {
   return tsLiteral({ kind: "structured", fields }, 1);
 }
 
+/** camelCase provider id for the `_pinned.ts` export symbol. */
+function pinnedExportName(provider: string): string {
+  return `${camelCase(provider.replace(/-/g, "_"))}PinnedToolSchemas`;
+}
+
 export function emitHandlerSource(compiled: CompiledProvider, action: CompiledAction): string {
   const fn = camelCase(action.type);
   const schemaName = `${pascalCase(action.type)}ConfigSchema`;
+  const pinnedName = pinnedExportName(compiled.provider);
   // Reads are safe to auto-retry on a transient failure; writes are not (a
   // retried write could duplicate). Derived from the certified risk class so
   // the executor's retry-safety switch matches the catalog decision.
@@ -202,13 +208,16 @@ export function emitHandlerSource(compiled: CompiledProvider, action: CompiledAc
     header(compiled.provider) +
     `import type { ActionHandler } from "@/services/execution/handlers/types";\n` +
     `import { executeMcpTool } from "@/integrations/_shared/mcp/executeTool";\n` +
-    `import { ${schemaName} } from "./${fn}.schema";\n\n` +
+    `import { ${schemaName} } from "./${fn}.schema";\n` +
+    `import { ${pinnedName} } from "./_pinned";\n\n` +
     `/**\n` +
     ` * \`${action.meta.key}\` — ${action.meta.displayName}.\n` +
     ` * Validates the pre-resolved config against the strict schema, then calls\n` +
     ` * the provider through the shared executor with the certification-pinned\n` +
-    ` * tool schema hash (drift fails closed) and the bounded output spec.\n` +
+    ` * tool schema (drift is classified; breaking change fails closed) and the\n` +
+    ` * bounded output spec.\n` +
     ` */\n` +
+    `const pinned = ${pinnedName}["${action.tool}"]!;\n\n` +
     `export const ${fn}: ActionHandler = async (input) => {\n` +
     `  const config = ${schemaName}.parse(input.config);\n` +
     `  return executeMcpTool({\n` +
@@ -217,11 +226,41 @@ export function emitHandlerSource(compiled: CompiledProvider, action: CompiledAc
     `    tool: "${action.tool}",\n` +
     `    accountId: input.accountId,\n` +
     `    args: config,\n` +
-    `    pinnedSchemaHash: "${action.schemaHash}",\n` +
+    `    pinnedSchema: pinned.inputSchema,\n` +
+    `    pinnedSchemaHash: pinned.schemaHash,\n` +
     `    output: ${outputSpecLiteral(action)},\n` +
     `    idempotent: ${idempotent},\n` +
     `  });\n` +
     `};\n`
+  );
+}
+
+/**
+ * Emit `actions/_pinned.ts` — the certified inputSchema + hash for every tool a
+ * shipped action uses, deduped by tool name. The runtime executor reads these
+ * to CLASSIFY drift (breaking vs safe-addition), not just compare hashes.
+ */
+export function emitPinnedSchemas(compiled: CompiledProvider): string {
+  const byTool = new Map<string, CompiledAction>();
+  for (const a of compiled.actions) {
+    if (!byTool.has(a.tool)) byTool.set(a.tool, a);
+  }
+  const entries = [...byTool.values()]
+    .map((a) => {
+      const key = JSON.stringify(a.tool);
+      const value = tsLiteral({ schemaHash: a.schemaHash, inputSchema: a.inputSchema }, 1);
+      return `  ${key}: ${value},`;
+    })
+    .join("\n");
+  const name = pinnedExportName(compiled.provider);
+  return (
+    header(compiled.provider) +
+    `\n/**\n` +
+    ` * Certification-pinned tool inputSchemas (by tool name). The runtime\n` +
+    ` * executor compares the live \`tools/list\` schema against these to classify\n` +
+    ` * drift; a breaking change fails closed, a safe addition runs + flags review.\n` +
+    ` */\n` +
+    `export const ${name}: Record<string, { schemaHash: string; inputSchema: Record<string, unknown> }> = {\n${entries}\n};\n`
   );
 }
 
@@ -262,6 +301,7 @@ export function emitProviderArtifacts(compiled: CompiledProvider): EmittedFile[]
     files.push({ path: `${base}.meta.ts`, content: emitMetaSource(compiled.provider, action) });
     files.push({ path: `${base}.ts`, content: emitHandlerSource(compiled, action) });
   }
+  files.push({ path: "actions/_pinned.ts", content: emitPinnedSchemas(compiled) });
   files.push({ path: "actions/_generated.ts", content: emitGeneratedIndex(compiled) });
   files.push({
     path: "mcp-capabilities.json",

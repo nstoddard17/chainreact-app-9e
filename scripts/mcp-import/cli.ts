@@ -15,11 +15,14 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import {
   McpToolSnapshotFileSchema,
+  McpCatalogSchema,
   compileProvider,
   emitProviderArtifacts,
   schemaHash,
+  type McpCatalog,
 } from "@/core/mcpCompile";
 import { createMcpClient } from "@/integrations/_shared/mcp/client";
+import { buildDriftReport, type DriftReport } from "@/integrations/_shared/mcp/driftClassify";
 
 // Run from the repo root (the npm script guarantees the cwd).
 const repoRoot = process.cwd();
@@ -91,30 +94,66 @@ async function capture(provider: string): Promise<void> {
   console.log(`captured ${snapshot.tools.length} tool(s) → integrations/${provider}/mcp-snapshot.json`);
 }
 
-async function check(provider: string): Promise<void> {
+/**
+ * CS-4 — proactive drift REVIEW. Compares live `tools/list` against the certified
+ * snapshot, classifies every tool, and prints an internal review report (or JSON
+ * for scheduled/cron inspection with `--json`). Exit code 1 on any
+ * execution-blocking drift so a cron/CI can alert. NEVER regenerates, approves,
+ * or publishes — those stay human decisions.
+ */
+async function check(provider: string, opts: { json: boolean } = { json: false }): Promise<void> {
   const snapshot = McpToolSnapshotFileSchema.parse(readSnapshot(provider));
+  let catalog: McpCatalog | undefined;
+  try {
+    catalog = McpCatalogSchema.parse(await readCatalog(provider));
+  } catch {
+    catalog = undefined; // affected-actions mapping is best-effort
+  }
   const live = await liveTools(provider, snapshot.serverUrl);
-  const liveByName = new Map(live.map((t) => [t.name, t]));
-  let drifted = 0;
-  for (const pinned of snapshot.tools) {
-    const current = liveByName.get(pinned.name);
-    if (!current) {
-      console.log(`DRIFT ${pinned.name}: tool no longer listed`);
-      drifted++;
-      continue;
-    }
-    const liveHash = schemaHash((current.inputSchema ?? {}) as Record<string, unknown>);
-    if (liveHash !== pinned.schemaHash) {
-      console.log(`DRIFT ${pinned.name}: inputSchema hash changed`);
-      drifted++;
-    }
-  }
-  if (drifted === 0) {
-    console.log(`no drift across ${snapshot.tools.length} pinned tool(s).`);
+  const report = buildDriftReport({
+    provider,
+    serverUrl: snapshot.serverUrl,
+    certifiedTools: snapshot.tools,
+    liveTools: live,
+    ...(catalog ? { catalog } : {}),
+  });
+
+  if (opts.json) {
+    console.log(JSON.stringify(report, null, 2));
   } else {
-    console.log(`${drifted} drifted tool(s) — re-run capture, re-review the catalog, regenerate.`);
-    process.exitCode = 1;
+    renderDriftReport(report);
   }
+  // Exit non-zero when anything is execution-blocking (breaking / removed /
+  // renamed / ambiguous) — the signal a scheduled inspection alerts on.
+  if (report.overallRisk === "breaking") process.exitCode = 1;
+}
+
+function renderDriftReport(report: DriftReport): void {
+  console.log(`\nMCP drift review — ${report.provider} (${report.serverUrl})`);
+  console.log(`overall: ${report.overallRisk.toUpperCase()}   ready for certification: ${report.readyForCertification ? "yes" : "no"}\n`);
+  for (const f of report.findings) {
+    const flag = f.executionAllowed ? (f.classification === "no_change" ? "  ok  " : " review ") : " BLOCK ";
+    const detail: string[] = [];
+    if (f.fields.removed.length) detail.push(`removed: ${f.fields.removed.join(", ")}`);
+    if (f.fields.newlyRequired.length) detail.push(`newly-required: ${f.fields.newlyRequired.join(", ")}`);
+    if (f.fields.added.length) detail.push(`added: ${f.fields.added.join(", ")}`);
+    if (f.fields.modified.length) detail.push(`changed: ${f.fields.modified.join(", ")}`);
+    if (f.renamedTo) detail.push(`renamed→ ${f.renamedTo}`);
+    console.log(`[${flag}] ${f.tool.padEnd(18)} ${f.classification.padEnd(15)} → ${f.certificationState}`);
+    console.log(`         ${f.reason}`);
+    if (f.affectedActions.length) console.log(`         affected actions: ${f.affectedActions.join(", ")}`);
+    if (detail.length) console.log(`         ${detail.join("; ")}`);
+  }
+  if (report.unapprovedNewTools.length) {
+    console.log(`\nnew server tools (never auto-appear; curate to adopt): ${report.unapprovedNewTools.join(", ")}`);
+  }
+  console.log(
+    report.overallRisk === "breaking"
+      ? `\nACTION: breaking drift — re-capture, re-review the catalog, regenerate, re-certify.`
+      : report.overallRisk === "review"
+        ? `\nACTION: non-breaking change(s) detected — schedule a re-certification review.`
+        : `\nno drift across ${report.findings.length} certified tool(s).`,
+  );
 }
 
 function rehash(provider: string): void {
@@ -130,15 +169,17 @@ function rehash(provider: string): void {
 }
 
 async function main(): Promise<void> {
-  const [command, provider] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const flags = new Set(args.filter((a) => a.startsWith("--")));
+  const [command, provider] = args.filter((a) => !a.startsWith("--"));
   if (!command || !provider) {
-    console.log("usage: npm run mcp:import -- <generate|capture|check|rehash> <provider>");
+    console.log("usage: npm run mcp:import -- <generate|capture|check|rehash> <provider> [--json]");
     process.exitCode = 2;
     return;
   }
   if (command === "generate") return generate(provider);
   if (command === "capture") return capture(provider);
-  if (command === "check") return check(provider);
+  if (command === "check") return check(provider, { json: flags.has("--json") });
   if (command === "rehash") return rehash(provider);
   throw new Error(`unknown command '${command}'.`);
 }

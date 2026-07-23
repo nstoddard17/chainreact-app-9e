@@ -756,7 +756,12 @@ export class WorkflowEngine {
               ? "INTEGRATION_SCOPE_REQUIRED"
               : errName === "AbortError" || errName === "TimeoutError"
                 ? "TRANSIENT_PROVIDER_ERROR"
-                : "HANDLER_FAILED";
+                : // CS-4 MCP-DRIFT — the engine refused to execute against a changed,
+                  // unreviewed integration interface (certified-schema drift). Safe
+                  // stop, not a handler bug → its own first-class classification.
+                  errName === "McpSchemaDriftError"
+                  ? "INTEGRATION_CHANGED"
+                  : "HANDLER_FAILED";
         steps.push({
           nodeId: node.id,
           status: "failed",

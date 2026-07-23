@@ -282,6 +282,14 @@ export interface CompiledAction {
   readonly fields: readonly CompiledFieldIr[];
   readonly capability: McpCapabilityProfile;
   readonly schemaHash: string;
+  /**
+   * The certified tool inputSchema (raw, from the snapshot). Emitted into the
+   * generated `_pinned.ts` so the runtime executor can CLASSIFY drift (breaking
+   * vs safe-addition) — not just compare hashes (CS-4). Several actions may
+   * share one tool's schema (e.g. Linear's save_issue → create/update); the
+   * emitter dedupes by tool.
+   */
+  readonly inputSchema: Record<string, unknown>;
 }
 
 export interface CompiledProvider {

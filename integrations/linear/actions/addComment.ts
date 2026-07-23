@@ -3,13 +3,17 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { executeMcpTool } from "@/integrations/_shared/mcp/executeTool";
 import { AddCommentConfigSchema } from "./addComment.schema";
+import { linearPinnedToolSchemas } from "./_pinned";
 
 /**
  * `linear:add_comment` — Add Comment.
  * Validates the pre-resolved config against the strict schema, then calls
  * the provider through the shared executor with the certification-pinned
- * tool schema hash (drift fails closed) and the bounded output spec.
+ * tool schema (drift is classified; breaking change fails closed) and the
+ * bounded output spec.
  */
+const pinned = linearPinnedToolSchemas["save_comment"]!;
+
 export const addComment: ActionHandler = async (input) => {
   const config = AddCommentConfigSchema.parse(input.config);
   return executeMcpTool({
@@ -18,7 +22,8 @@ export const addComment: ActionHandler = async (input) => {
     tool: "save_comment",
     accountId: input.accountId,
     args: config,
-    pinnedSchemaHash: "29db7173131cd75c0fc5a71c7cbf0b36f817ca42ac51bb2237ff0f03a9c4a8f7",
+    pinnedSchema: pinned.inputSchema,
+    pinnedSchemaHash: pinned.schemaHash,
     output: { kind: "text" },
     idempotent: false,
   });

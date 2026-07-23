@@ -5,7 +5,7 @@
  */
 export { compileProvider, compileAction, classifyToolRisk } from "./compileAction";
 export { compileFields, humanizeFieldName } from "./compileFields";
-export { emitProviderArtifacts, emitSchemaSource, emitMetaSource, emitHandlerSource, tsLiteral, camelCase, pascalCase } from "./emit";
+export { emitProviderArtifacts, emitSchemaSource, emitMetaSource, emitHandlerSource, emitPinnedSchemas, tsLiteral, camelCase, pascalCase } from "./emit";
 export type { EmittedFile } from "./emit";
 export { readSchemaNode, canonicalJson, schemaHash } from "./jsonSchema";
 export {

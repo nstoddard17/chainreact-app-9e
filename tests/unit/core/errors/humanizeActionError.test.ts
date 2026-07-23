@@ -269,6 +269,21 @@ describe("humanizeActionError — CR-FAILREASON-1 provider-agnostic codes", () =
     expect(r.action).toBe("retry_later");
     expect(r.severity).toBe("warning");
   });
+
+  it("INTEGRATION_CHANGED → review_pending, warning, reassuring plain-language copy", () => {
+    const r = humanizeActionError({
+      code: "INTEGRATION_CHANGED",
+      message: 'MCP tool "save_issue" on Linear changed shape (a field was removed or newly required) — refusing to call an uncertified schema.',
+    });
+    expect(r.action).toBe("review_pending");
+    expect(r.severity).toBe("warning"); // a protection, not a hard error
+    // Reassurance: workflow is safe, ChainReact is handling it, no user action.
+    expect(r.description.toLowerCase()).toMatch(/safe/);
+    expect(r.hint?.toLowerCase()).toMatch(/don'?t need to do anything|reviewing/);
+    // No protocol jargon and NO raw drift text leaked from the message.
+    expect(`${r.title} ${r.description} ${r.hint}`.toLowerCase()).not.toMatch(/mcp|schema|tools\/list|uncertified/);
+    expect(r.description).not.toContain("save_issue");
+  });
 });
 
 describe("humanizeActionError — no-leak (generic branch never echoes raw text)", () => {

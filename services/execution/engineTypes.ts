@@ -72,7 +72,16 @@ export type RunFailureCode =
    * normalized from `AbortError` / `TimeoutError` at the handler boundary.
    * Humanizer maps it to `retry_later`.
    */
-  | "TRANSIENT_PROVIDER_ERROR";
+  | "TRANSIENT_PROVIDER_ERROR"
+  /**
+   * CS-4 MCP-DRIFT — a connected app changed its interface in a way ChainReact
+   * hasn't reviewed, so the engine refused to execute the step BEFORE sending
+   * data (normalized from `McpSchemaDriftError` at the handler boundary). This
+   * is NOT the user's fault and NOT a reconnect: the workflow is safe, and the
+   * integration is under review. Humanizer maps it to the `review_pending`
+   * action. Provider-agnostic on purpose (reusable for any certified provider).
+   */
+  | "INTEGRATION_CHANGED";
 
 export interface RunStepResult {
   nodeId: string;

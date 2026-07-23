@@ -1,0 +1,319 @@
+// Generated from integrations/linear/mcp-catalog.ts + mcp-snapshot.json (npm run mcp:import -- generate linear).
+// Curate the catalog and regenerate rather than hand-editing this file.
+
+/**
+ * Certification-pinned tool inputSchemas (by tool name). The runtime
+ * executor compares the live `tools/list` schema against these to classify
+ * drift; a breaking change fails closed, a safe addition runs + flags review.
+ */
+export const linearPinnedToolSchemas: Record<string, { schemaHash: string; inputSchema: Record<string, unknown> }> = {
+  "list_issues": {
+    schemaHash: "0140aeb2aa7575b1b2f6dbbaff9303b9a9d21ef6e9ed6e6ede06b367be25874f",
+    inputSchema: {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      properties: {
+        limit: {
+          default: 50,
+          description: "Max results (default 50, max 250)",
+          type: "number",
+          maximum: 250,
+        },
+        cursor: {
+          description: "Next page cursor",
+          type: "string",
+        },
+        orderBy: {
+          default: "updatedAt",
+          description: "Sort: createdAt | updatedAt",
+          type: "string",
+          enum: [
+            "createdAt",
+            "updatedAt",
+          ],
+        },
+        query: {
+          description: "Search issue title or description",
+          type: "string",
+        },
+        team: {
+          description: "Team name or ID",
+          type: "string",
+        },
+        state: {
+          description: "State type, name, or ID",
+          type: "string",
+        },
+        cycle: {
+          description: "Cycle name, number, or ID",
+          type: "string",
+        },
+        label: {
+          description: "Label name or ID",
+          type: "string",
+        },
+        assignee: {
+          description: "User ID, name, email, or \"me\"",
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        delegate: {
+          description: "Agent name or ID. When the user asks to delegate to \"Linear\" or \"the Linear agent\", this refers to the \"Linear\" app user specifically",
+          type: "string",
+        },
+        project: {
+          description: "Project name, ID, or slug",
+          type: "string",
+        },
+        priority: {
+          description: "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
+          type: "number",
+        },
+        parentId: {
+          description: "Parent issue ID or identifier (e.g., LIN-123)",
+          type: "string",
+        },
+        createdAt: {
+          description: "Created after: ISO-8601 date/duration (e.g., -P1D)",
+          type: "string",
+        },
+        updatedAt: {
+          description: "Updated after: ISO-8601 date/duration (e.g., -P1D)",
+          type: "string",
+        },
+        includeArchived: {
+          default: true,
+          description: "Include archived items",
+          type: "boolean",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  "save_issue": {
+    schemaHash: "57b5444fda895fee62ed0e08ccaaa1e9a438071edc5227f6fe7429fee6c04628",
+    inputSchema: {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      properties: {
+        id: {
+          description: "Only for updating an existing issue. Pass the issue ID or identifier (e.g., LIN-123). Do NOT pass this parameter when creating a new issue.",
+          type: "string",
+        },
+        title: {
+          description: "Issue title (required when creating)",
+          type: "string",
+        },
+        description: {
+          description: "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+          type: "string",
+        },
+        team: {
+          description: "Team name or ID (required when creating)",
+          type: "string",
+        },
+        cycle: {
+          description: "Cycle name, number, or ID. Null to remove",
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        milestone: {
+          description: "Milestone name or ID",
+          type: "string",
+        },
+        priority: {
+          description: "0=None, 1=Urgent, 2=High, 3=Medium, 4=Low",
+          type: "number",
+        },
+        project: {
+          description: "Project name, ID, or slug",
+          type: "string",
+        },
+        state: {
+          description: "State type, name, or ID",
+          type: "string",
+        },
+        assignee: {
+          description: "User ID, name, email, or \"me\". Null to remove",
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        delegate: {
+          description: "Agent name or ID. When the user asks to delegate to \"Linear\" or \"the Linear agent\", this refers to the \"Linear\" app user specifically. Null to remove",
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        labels: {
+          description: "Label names or IDs",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+        dueDate: {
+          description: "Due date (ISO format)",
+          type: "string",
+        },
+        parentId: {
+          description: "Parent issue ID or identifier (e.g., LIN-123). Null to remove",
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        estimate: {
+          description: "Issue estimate value",
+          type: "number",
+        },
+        links: {
+          description: "Link attachments to add [{url, title}]. Append-only; existing links are never removed",
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              url: {
+                type: "string",
+                format: "uri",
+              },
+              title: {
+                type: "string",
+                minLength: 1,
+              },
+            },
+            required: [
+              "url",
+              "title",
+            ],
+          },
+        },
+        blocks: {
+          description: "Issue IDs/identifiers this blocks. Append-only; existing relations are never removed",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+        blockedBy: {
+          description: "Issue IDs/identifiers blocking this. Append-only; existing relations are never removed",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+        relatedTo: {
+          description: "Related issue IDs/identifiers. Append-only; existing relations are never removed",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+        duplicateOf: {
+          description: "Duplicate of issue ID/identifier. Null to remove",
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        removeBlocks: {
+          description: "Issue IDs/identifiers to stop blocking",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+        removeBlockedBy: {
+          description: "Issue IDs/identifiers to remove as blockers of this issue",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+        removeRelatedTo: {
+          description: "Related issue IDs/identifiers to remove",
+          type: "array",
+          items: {
+            type: "string",
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  "save_comment": {
+    schemaHash: "29db7173131cd75c0fc5a71c7cbf0b36f817ca42ac51bb2237ff0f03a9c4a8f7",
+    inputSchema: {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      properties: {
+        id: {
+          description: "Comment ID. If provided, updates the existing comment",
+          type: "string",
+        },
+        issueId: {
+          description: "Issue ID or identifier (e.g., LIN-123) (provide exactly one parent)",
+          type: "string",
+        },
+        projectId: {
+          description: "Project name, ID, or slug (provide exactly one parent)",
+          type: "string",
+        },
+        initiativeId: {
+          description: "Initiative name or ID (provide exactly one parent)",
+          type: "string",
+        },
+        documentId: {
+          description: "Document ID or slug (provide exactly one parent)",
+          type: "string",
+        },
+        milestoneId: {
+          description: "Milestone UUID (provide exactly one parent). Resolve milestone names via `list_milestones` first.",
+          type: "string",
+        },
+        parentId: {
+          description: "Parent comment ID (for replies, only when creating)",
+          type: "string",
+        },
+        body: {
+          type: "string",
+          description: "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+        },
+      },
+      required: [
+        "body",
+      ],
+      additionalProperties: false,
+    },
+  },
+};

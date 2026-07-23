@@ -46,6 +46,13 @@ describe("failedRunCta", () => {
     });
   });
 
+  it("review_pending → guidance only (CS-4; no review route exists yet)", () => {
+    expect(failedRunCta("review_pending", ctx)).toEqual({
+      label: "ChainReact is reviewing this",
+      href: null,
+    });
+  });
+
   it("missing action → null (no CTA)", () => {
     expect(failedRunCta(undefined, ctx)).toBeNull();
   });
@@ -60,6 +67,7 @@ describe("failedRunCta", () => {
       "upgrade_plan",
       "open_node",
       "retry_later",
+      "review_pending",
       "contact_support",
     ] as const) {
       const cta = failedRunCta(action, { workflowId: "wf-123" });

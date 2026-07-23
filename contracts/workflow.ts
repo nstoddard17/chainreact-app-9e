@@ -199,12 +199,14 @@ export const HumanizedErrorSchema = z.object({
   hint: z.string().optional(),
   // CR-FAILREASON-1 — the primary next-action the failed-run UI routes to.
   // Extended from the original 3 (reconnect | open_node | upgrade_plan) with
-  // `retry_later` (transient/rate-limit/timeout failures) and `contact_support`
-  // (the safe default for unknown/unclassified errors). Back-compat: every
-  // previously-persisted row uses one of the original 3 (or none), all of which
-  // remain valid here, so old `error_classification` JSONB still parses.
+  // `retry_later` (transient/rate-limit/timeout failures), `contact_support`
+  // (the safe default for unknown/unclassified errors), and `review_pending`
+  // (CS-4 — a connected app changed and ChainReact is reviewing it; guidance
+  // only). Back-compat: every previously-persisted row uses one of the earlier
+  // values (or none), all of which remain valid here, so old
+  // `error_classification` JSONB still parses.
   action: z
-    .enum(["reconnect", "open_node", "retry_later", "upgrade_plan", "contact_support"])
+    .enum(["reconnect", "open_node", "retry_later", "upgrade_plan", "review_pending", "contact_support"])
     .optional(),
   severity: z.enum(["warning", "error"]),
 });

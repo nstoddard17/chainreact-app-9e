@@ -18,6 +18,8 @@
  *   - open_node       → builder with the failed node focused (fix config)
  *   - retry_later     → transient failure; re-run / wait (no destructive CTA)
  *   - upgrade_plan    → /subscription (billing / quota)
+ *   - review_pending  → a connected app changed; ChainReact stopped the step and
+ *                       is reviewing it (guidance only — no user action needed)
  *   - contact_support → safe default for unknown / unclassifiable failures
  *
  * RULE: when classification is uncertain, default to `contact_support` — NEVER
@@ -33,6 +35,7 @@ export interface HumanizedError {
     | "open_node"
     | "retry_later"
     | "upgrade_plan"
+    | "review_pending"
     | "contact_support";
   severity: "warning" | "error";
 }
@@ -219,6 +222,20 @@ function humanizeEngineCode(input: ErrorInput): HumanizedError | null {
           "The request to a connected app timed out or was interrupted.",
         hint: "Try running the workflow again in a few minutes.",
         action: "retry_later",
+        severity: "warning",
+      };
+    case "INTEGRATION_CHANGED":
+      // CS-4 MCP-DRIFT — a connected app changed its interface in a way we
+      // haven't reviewed; the engine stopped the step BEFORE sending any data.
+      // This is a protection, not a failure the user caused — plain language,
+      // no protocol jargon, no reconnect/fix/retry (none of those help). The
+      // raw drift detail stays server-side; this copy is fully code-derived.
+      return {
+        title: "A connected app changed",
+        description:
+          "This app updated how it works, so ChainReact stopped this step before sending anything. Your workflow is safe — no data was sent against a version we haven't reviewed.",
+        hint: "You don't need to do anything. ChainReact is reviewing the change and will restore this step once it's certified.",
+        action: "review_pending",
         severity: "warning",
       };
     case "HANDLER_FAILED":

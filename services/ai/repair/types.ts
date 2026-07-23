@@ -38,6 +38,7 @@ export interface RepairFailureSummary {
       | "open_node"
       | "retry_later"
       | "upgrade_plan"
+      | "review_pending"
       | "contact_support";
     readonly severity: "warning" | "error";
   } | null;

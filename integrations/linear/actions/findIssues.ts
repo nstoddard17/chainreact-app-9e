@@ -3,13 +3,17 @@
 import type { ActionHandler } from "@/services/execution/handlers/types";
 import { executeMcpTool } from "@/integrations/_shared/mcp/executeTool";
 import { FindIssuesConfigSchema } from "./findIssues.schema";
+import { linearPinnedToolSchemas } from "./_pinned";
 
 /**
  * `linear:find_issues` — Find Issues.
  * Validates the pre-resolved config against the strict schema, then calls
  * the provider through the shared executor with the certification-pinned
- * tool schema hash (drift fails closed) and the bounded output spec.
+ * tool schema (drift is classified; breaking change fails closed) and the
+ * bounded output spec.
  */
+const pinned = linearPinnedToolSchemas["list_issues"]!;
+
 export const findIssues: ActionHandler = async (input) => {
   const config = FindIssuesConfigSchema.parse(input.config);
   return executeMcpTool({
@@ -18,7 +22,8 @@ export const findIssues: ActionHandler = async (input) => {
     tool: "list_issues",
     accountId: input.accountId,
     args: config,
-    pinnedSchemaHash: "0140aeb2aa7575b1b2f6dbbaff9303b9a9d21ef6e9ed6e6ede06b367be25874f",
+    pinnedSchema: pinned.inputSchema,
+    pinnedSchemaHash: pinned.schemaHash,
     output: { kind: "text" },
     idempotent: true,
   });

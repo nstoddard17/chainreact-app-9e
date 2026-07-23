@@ -248,7 +248,7 @@ export function compileAction(
   };
 
   return {
-    action: { tool: tool.name, type, meta, fields, capability, schemaHash: tool.schemaHash },
+    action: { tool: tool.name, type, meta, fields, capability, schemaHash: tool.schemaHash, inputSchema: tool.inputSchema },
   };
 }
 

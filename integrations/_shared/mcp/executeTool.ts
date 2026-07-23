@@ -27,7 +27,6 @@
  * generated handler already performed (its `.strict()` schema shapes `args`).
  */
 
-import { schemaHash } from "@/core/mcpCompile";
 import {
   Unauthorized401Error,
   InsufficientScopeError,
@@ -39,11 +38,19 @@ import {
   McpPermissionError,
   McpProtocolError,
   McpSchemaDriftError,
-  McpToolNotFoundError,
   type McpCallToolResult,
   type McpClientOptions,
   type McpClient,
+  type McpTool,
 } from "@/integrations/_shared/mcp";
+import {
+  classifyToolDrift,
+  driftAllowsExecution,
+  driftToCertificationState,
+  type DriftClassification,
+} from "./driftClassify";
+import { getLiveTools, DEFAULT_SCHEMA_CACHE_TTL_MS } from "./schemaCache";
+import type { CertificationState } from "@/core/certification/certificationState";
 
 /** Per-call transport bounds. Uniform from day one (plan §4.5). */
 const DEFAULT_TIMEOUT_MS = 25_000;
@@ -79,7 +86,9 @@ export interface ExecuteMcpToolInput {
   readonly accountId: string;
   /** Strict-parsed action config; keys mirror the tool's argument names. */
   readonly args: Readonly<Record<string, unknown>>;
-  /** sha256 of the certified inputSchema — drift refusal pin. */
+  /** The certified tool inputSchema — drift is CLASSIFIED against this (CS-4). */
+  readonly pinnedSchema: Record<string, unknown>;
+  /** sha256 of the certified inputSchema — the fast no-change check. */
   readonly pinnedSchemaHash: string;
   readonly output: McpOutputSpec;
   /**
@@ -94,6 +103,25 @@ export interface ExecuteMcpToolResult {
   readonly output: Readonly<Record<string, unknown>>;
 }
 
+/** A non-blocking drift signal (safe addition executed under review, etc.). */
+export interface DriftObservation {
+  readonly provider: string;
+  readonly tool: string;
+  readonly classification: DriftClassification;
+  readonly certificationState: CertificationState;
+}
+
+/**
+ * Execution policy for observed drift. Default: run safe additions (they leave
+ * our certified args valid) while flagging them for review; refuse everything
+ * that isn't provably safe. A stricter deployment can set `allowNeedsReview:
+ * false` to pause even safe additions until a human re-certifies.
+ */
+export interface DriftPolicy {
+  readonly allowNeedsReview: boolean;
+}
+export const DEFAULT_DRIFT_POLICY: DriftPolicy = { allowNeedsReview: true };
+
 /**
  * Test seam — real engine calls omit this and get the shipped client +
  * `refreshAndRetry`. Tests inject a fake client factory / token wrapper so the
@@ -104,6 +132,13 @@ export interface ExecuteMcpToolDeps {
   readonly refreshAndRetry?: typeof refreshAndRetry;
   readonly timeoutMs?: number;
   readonly maxResponseBytes?: number;
+  /** Live-tools cache TTL. Defaults to 5 min. */
+  readonly cacheTtlMs?: number;
+  /** Injectable clock for the cache TTL (tests). */
+  readonly now?: number;
+  readonly policy?: DriftPolicy;
+  /** Called when a non-breaking change was observed (default: structured log). */
+  readonly onDrift?: (obs: DriftObservation) => void;
 }
 
 /** "linear" → "Linear". Human-safe error label; never carries the token. */
@@ -121,6 +156,8 @@ export async function executeMcpTool(
   const makeClient = deps.createClient ?? createMcpClient;
   const serverLabel = serverLabelFor(input.provider);
   const idempotent = input.idempotent ?? false;
+  const policy = deps.policy ?? DEFAULT_DRIFT_POLICY;
+  const onDrift = deps.onDrift ?? defaultDriftObserver;
 
   const result = await runRefresh<McpCallToolResult>({
     accountId: input.accountId,
@@ -138,7 +175,7 @@ export async function executeMcpTool(
         maxResponseBytes: deps.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES,
       });
       try {
-        await assertNoDrift(client, input, serverLabel);
+        await gateDrift(client, input, serverLabel, policy, onDrift, deps);
         return await client.callTool(input.tool, { ...input.args }, { idempotent });
       } catch (err) {
         // Map transport auth failures into the refreshAndRetry contract so a
@@ -163,32 +200,73 @@ export async function executeMcpTool(
 }
 
 /**
- * Refuse to call an uncertified schema. Reads the live `tools/list`, finds the
- * pinned tool, re-hashes its inputSchema, and compares to the certified hash.
- * A removed tool or ANY schema change fails closed — the certified allowlist is
- * the guard, and the reviewed catalog must never execute against a schema no
- * human approved (plan §4.8; CLAUDE.md drift rules). `tools/list` is idempotent,
- * so a 401 during discovery still routes through refresh.
+ * CS-4 drift gate. Reads the live `tools/list` (cached for a short TTL to remove
+ * the per-execution round-trip), CLASSIFIES the pinned tool's live schema
+ * against the certified one, and decides:
+ *   - execution-allowed classification (no change, or a safe additive change
+ *     under the default policy) → proceed; a non-`no_change` result fires a
+ *     non-blocking review observation.
+ *   - anything not provably safe (breaking change, removed/renamed tool,
+ *     ambiguous schema change) → refuse with `McpSchemaDriftError` BEFORE the
+ *     call. "Never execute against unknown schemas."
+ *
+ * Classification is pure, so it runs on EVERY execution even when the live
+ * schema is served from cache — the cache removes the fetch, never the safety
+ * check. `tools/list` is idempotent, so a 401 during a fetch still refreshes.
  */
-async function assertNoDrift(
+async function gateDrift(
   client: McpClient,
   input: ExecuteMcpToolInput,
   serverLabel: string,
+  policy: DriftPolicy,
+  onDrift: (obs: DriftObservation) => void,
+  deps: ExecuteMcpToolDeps,
 ): Promise<void> {
-  const listed = await client.listTools();
-  const live = listed.tools.find((t) => t.name === input.tool);
-  if (!live) {
-    // Allowlisted tool vanished from the server → treat as drift (fail closed).
-    throw new McpToolNotFoundError(serverLabel, input.tool);
+  const { tools } = await getLiveTools({
+    provider: input.provider,
+    serverUrl: input.serverUrl,
+    ttlMs: deps.cacheTtlMs ?? DEFAULT_SCHEMA_CACHE_TTL_MS,
+    ...(deps.now !== undefined ? { now: deps.now } : {}),
+    fetch: async () => (await client.listTools()).tools as readonly McpTool[],
+  });
+
+  const live = tools.find((t) => t.name === input.tool);
+  const classification = classifyToolDrift(
+    { inputSchema: input.pinnedSchema, schemaHash: input.pinnedSchemaHash },
+    live,
+  );
+  const certificationState = driftToCertificationState(classification);
+
+  const allowed =
+    driftAllowsExecution(classification) &&
+    (certificationState !== "needs_review" || policy.allowNeedsReview);
+
+  if (!allowed) {
+    throw new McpSchemaDriftError(serverLabel, input.tool, DRIFT_REASONS[classification]);
   }
-  const liveHash = schemaHash(live.inputSchema ?? {});
-  if (liveHash !== input.pinnedSchemaHash) {
-    throw new McpSchemaDriftError(
-      serverLabel,
-      input.tool,
-      "input schema no longer matches the version certified for this action",
-    );
+
+  if (classification !== "no_change") {
+    // Safe change that still runs — record a non-blocking review signal.
+    onDrift({ provider: input.provider, tool: input.tool, classification, certificationState });
   }
+}
+
+/** Safe, field-name-free reasons kept for server-side diagnostics only. */
+const DRIFT_REASONS: Record<DriftClassification, string> = {
+  no_change: "matches the certified version",
+  safe_addition: "new optional field(s) added",
+  breaking_change: "a field was removed or newly required",
+  tool_removed: "the tool is no longer offered by the server",
+  tool_renamed: "the tool appears to have been renamed",
+  schema_changed: "an existing field changed in a way that can't be proven safe",
+  output_changed: "the result shape changed",
+};
+
+/** Default observation sink — a structured, secret-free ops log (no DB). */
+function defaultDriftObserver(obs: DriftObservation): void {
+  console.warn(
+    `[mcp-drift] ${obs.provider}:${obs.tool} classified '${obs.classification}' → ${obs.certificationState} (executing under review)`,
+  );
 }
 
 // ─── Output normalization (bounded) ──────────────────────────────────────────

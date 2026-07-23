@@ -6,6 +6,30 @@ export { McpClient, createMcpClient, readStructuredError, MCP_PROTOCOL_VERSION }
 export type { McpClientOptions, CallToolOptions, FetchLike, FetchLikeResponse } from "./client";
 export { detectSchemaDrift } from "./drift";
 export type { SchemaDriftResult } from "./drift";
+// CS-4 MCP-DRIFT — drift classification + internal review report.
+export {
+  classifyToolDrift,
+  diffSchemaFields,
+  driftToCertificationState,
+  driftAllowsExecution,
+  buildDriftReport,
+  findingStateInfo,
+} from "./driftClassify";
+export type {
+  DriftClassification,
+  SchemaFieldDiff,
+  ToolDriftFinding,
+  DriftReport,
+} from "./driftClassify";
+// CS-4 MCP-DRIFT — short-TTL live-tools cache.
+export {
+  getLiveTools,
+  invalidateSchemaCache,
+  clearSchemaCache,
+  schemaCacheStats,
+  DEFAULT_SCHEMA_CACHE_TTL_MS,
+} from "./schemaCache";
+export type { GetLiveToolsInput, GetLiveToolsResult } from "./schemaCache";
 export { tokenFingerprint, scrubSecrets } from "./sanitize";
 // CS-1 MCP-AUTH — shared OAuth 2.1 helper for MCP-catalog providers.
 export { createMcpProviderOAuth } from "./oauth";

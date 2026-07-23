@@ -19,6 +19,9 @@
  * destination exists yet:
  *   - retry_later     → the workflow re-runs on its own / the user re-runs; there
  *                       is NO retry API to wire, so this is guidance only.
+ *   - review_pending  → a connected app changed and ChainReact is reviewing it;
+ *                       there is NO review/status route in V2 yet (CS-4), so this
+ *                       is guidance only — a real link lands with the review UI.
  *   - contact_support → there is NO support route in V2 yet; guidance only.
  *
  * Unknown / missing action → null (render no CTA — never a misleading one).
@@ -60,6 +63,10 @@ export function failedRunCta(
       };
     case "retry_later":
       return { label: "Try again later", href: null };
+    case "review_pending":
+      // CS-4 — a connected app changed; ChainReact is reviewing it. Guidance
+      // only (no review/status route exists yet — placeholder per the brief).
+      return { label: "ChainReact is reviewing this", href: null };
     case "contact_support":
       return { label: "Contact support", href: null };
     case undefined:
