@@ -7,6 +7,9 @@ export { compileProvider, compileAction, classifyToolRisk } from "./compileActio
 export { compileFields, humanizeFieldName } from "./compileFields";
 export { emitProviderArtifacts, emitSchemaSource, emitMetaSource, emitHandlerSource, emitPinnedSchemas, tsLiteral, camelCase, pascalCase } from "./emit";
 export type { EmittedFile } from "./emit";
+// CS-5A — registration-plan output (copy/paste inventory fragments; never edits).
+export { buildRegistrationPlan, renderRegistrationPlan } from "./registrationPlan";
+export type { RegistrationPlan, RegistrationFragment } from "./registrationPlan";
 export { readSchemaNode, canonicalJson, schemaHash } from "./jsonSchema";
 export {
   McpCatalogSchema,
@@ -14,6 +17,7 @@ export {
   McpCapabilityReportSchema,
   McpCapabilityProfileSchema,
   McpRiskClassificationSchema,
+  McpEvidenceApprovalSchema,
   McpCompileError,
 } from "./types";
 export type {
@@ -25,6 +29,7 @@ export type {
   McpCatalog,
   McpCatalogTool,
   McpCatalogFieldOverride,
+  McpEvidenceApproval,
   McpRiskClassification,
   McpSnapshotTool,
   McpToolSnapshotFile,

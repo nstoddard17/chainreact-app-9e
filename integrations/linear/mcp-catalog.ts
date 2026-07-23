@@ -35,6 +35,10 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
       displayOrder: 10,
       risk: "read",
       reason: "Core repetitive-task read: find issues to act on downstream.",
+      // CS-5A — pre-approved for `capture --evidence`: read-only + bounded to a
+      // tiny page so the eventual live capture records list_issues' result shape
+      // (for structured-output curation) without pulling a large payload.
+      evidence: { sampleArgs: { limit: 3 } },
       fieldOverrides: {
         limit: { advanced: true },
         cursor: { advanced: true, description: "Next-page cursor from a previous Find Issues step." },

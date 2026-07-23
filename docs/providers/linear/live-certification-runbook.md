@@ -29,23 +29,28 @@ Everything below is code-complete and tested against a mocked boundary; only liv
 evidence is missing. No code change is expected during certification unless the live
 diff surfaces one.
 
-- Capture / diff / regenerate: `scripts/mcp-import` (`capture`, `check [--json]`, `generate`) — refuse cleanly without a bearer; `generate` is deterministic (byte-sync guard: `mcp-generated.test.ts`).
+- Capture / diff / regenerate: `scripts/mcp-import` (`capture [--evidence]`, `check [--json]`, `generate [--print-registration]`) — capture/check refuse cleanly without a bearer; `generate` is deterministic (byte-sync guard: `mcp-generated.test.ts`). Evidence capture (CS-5A) records type-only scrubbed result shapes for read-only, catalog-approved tools; `--print-registration` prints copy/paste inventory wiring without mutating anything.
 - Executor + drift classification + schema cache + certification state + `INTEGRATION_CHANGED` UX: CS-3/CS-4, all provider-agnostic.
 - Registration + builder: Linear renders as an ordinary provider today (Experimental/hidden).
 
 ## Procedure
 
-### Phase 1 — Live capture (replaces docs-draft)
+### Phase 1 — Live capture + evidence (replaces docs-draft)
 ```
 export MCP_IMPORT_BEARER=<dev-linear-token>
-npm run mcp:import -- capture linear     # → integrations/linear/mcp-snapshot.json (capturedBy: "live")
+npm run mcp:import -- capture linear --evidence   # snapshot (capturedBy:"live") + mcp-evidence.json
 ```
-Record in a NEW `docs/providers/linear/live-capture-evidence.md`: negotiated
-`protocolVersion`; the full live tool list (names + descriptions); which **list
-tools** exist (`list_teams`/`list_projects`/`list_users`/`list_workflow_states`/
-`list_labels` or their real names); and a representative `tools/call` **result
-payload** for `save_issue`/`list_issues`/`save_comment` (the structured-output
-evidence Phase 4 needs).
+`--evidence` (CS-5A) additionally runs the catalog-approved, **read-only** tool
+calls (today: `list_issues` with `{ limit: 3 }`) and writes
+`integrations/linear/mcp-evidence.json` — TYPE-ONLY, scrubbed, bounded result
+shapes for the structured-output curation in Phase 4. It NEVER calls
+write/destructive tools. Also record in a NEW
+`docs/providers/linear/live-capture-evidence.md`: negotiated `protocolVersion`;
+the full live tool list; and which **list tools** exist
+(`list_teams`/`list_projects`/`list_users`/`list_workflow_states`/`list_labels`
+or their real names) — the resolver inputs Phase 5 needs. To capture a list
+tool's shape, add an `evidence: { sampleArgs: {...} }` block to its (read-only)
+catalog entry first.
 
 ### Phase 2 — Diff + catalog review
 ```
@@ -56,13 +61,19 @@ with a reason. **Never expose every discovered tool.** Destructive tools
 (`delete_*`) stay `skip` absent product signal. New create/read tools that pass the
 rule-17 bar may ship.
 
-### Phase 3 — Regenerate (deterministic)
+### Phase 3 — Regenerate (deterministic) + registration wiring
 ```
 npm run mcp:import -- generate linear
+npm run mcp:import -- generate linear --print-registration   # (CS-5A) copy/paste inventory fragments
 ```
-Regenerates schemas, metas, handlers, `_pinned.ts`, `_generated.ts`, capability
-report, and pinned hashes from the LIVE snapshot. `mcp-generated.test.ts` proves
-byte-sync. Do not hand-edit generated files.
+`generate` regenerates schemas, metas, handlers, `_pinned.ts`, `_generated.ts`,
+capability report, and pinned hashes from the LIVE snapshot (`mcp-generated.test.ts`
+proves byte-sync; do not hand-edit generated files). `--print-registration`
+mutates NOTHING — it validates the artifacts are fresh and prints the exact
+`services/discovery/providers/<p>.ts`, `_metaInventory.ts`, `_handlerInventory.ts`,
+and `services/options/_registry.ts` fragments to paste (it refuses if artifacts
+are stale). Linear is already registered, so this is only needed if the live
+capture adds/removes a shipped action.
 
 ### Phase 4 — Structured outputs (replace text-only)
 Using the captured result payloads, curate bounded `outputs` on each write action's

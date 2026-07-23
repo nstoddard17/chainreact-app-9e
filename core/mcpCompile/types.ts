@@ -102,6 +102,22 @@ export const McpCatalogFieldOverrideSchema = z
   .strict();
 export type McpCatalogFieldOverride = z.infer<typeof McpCatalogFieldOverrideSchema>;
 
+/**
+ * Per-tool evidence-capture approval (CS-5A). The ONLY way a tool becomes
+ * auto-callable by `capture --evidence`: an operator commits bounded, safe
+ * sample arguments here. Double-gated at capture time — the tool must ALSO be
+ * read-only (effective risk `read`); write/destructive/financial/admin/unknown
+ * tools are never auto-invoked even with an evidence block. Compiler ignores
+ * this field entirely (generated artifacts are unaffected).
+ */
+export const McpEvidenceApprovalSchema = z
+  .object({
+    /** Bounded, committed-safe arguments for the read-only evidence call. */
+    sampleArgs: z.record(z.string(), z.unknown()),
+  })
+  .strict();
+export type McpEvidenceApproval = z.infer<typeof McpEvidenceApprovalSchema>;
+
 /** Curated output shape used when the tool declares no usable outputSchema. */
 export const McpCuratedOutputSchema = z
   .object({
@@ -152,6 +168,11 @@ export const McpCatalogToolSchema = z
     fieldOverrides: z.record(z.string(), McpCatalogFieldOverrideSchema).optional(),
     /** Curated bounded outputs (used when no structured outputSchema). */
     outputs: z.array(McpCuratedOutputSchema).max(64).optional(),
+    /**
+     * CS-5A — operator approval for `capture --evidence` to auto-invoke this
+     * (read-only) tool with committed sample args. Absent ⇒ never auto-called.
+     */
+    evidence: McpEvidenceApprovalSchema.optional(),
     /** Flipped by live certification (Phase-13 analog) — never by codegen. */
     verified: z.boolean().default(false),
   })

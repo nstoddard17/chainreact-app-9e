@@ -30,6 +30,22 @@ export {
   DEFAULT_SCHEMA_CACHE_TTL_MS,
 } from "./schemaCache";
 export type { GetLiveToolsInput, GetLiveToolsResult } from "./schemaCache";
+// CS-5A — certification evidence capture (type-only shapes, double-gated).
+export {
+  deriveEvidenceShape,
+  typeSkeleton,
+  selectEvidenceTools,
+  buildEvidence,
+} from "./evidence";
+export type {
+  EvidenceShape,
+  EvidenceRecommendation,
+  EvidenceArtifact,
+  ToolEvidence,
+  EvidenceCallable,
+  EvidenceSkip,
+  EvidenceCallTool,
+} from "./evidence";
 export { tokenFingerprint, scrubSecrets } from "./sanitize";
 // CS-1 MCP-AUTH — shared OAuth 2.1 helper for MCP-catalog providers.
 export { createMcpProviderOAuth } from "./oauth";
