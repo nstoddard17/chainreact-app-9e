@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { assertSafeTestEnvironment } from "./assertSafeTestEnvironment";
 
 /**
  * Supabase admin client for e2e test setup + cleanup.
@@ -22,6 +23,12 @@ let cached: SupabaseClient | null = null;
 
 export function adminClient(): SupabaseClient {
   if (cached) return cached;
+  // CS-7C — refuse to build a service-role client (the seam every destructive
+  // create/delete goes through) unless the target proves it is a safe
+  // test/local database. Prevents the e2e harness from ever creating or
+  // deleting users/accounts/workflows against production. Throws a
+  // secret-free error (host/ref only) when the target is unproven.
+  assertSafeTestEnvironment();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url) throw new Error("e2e: NEXT_PUBLIC_SUPABASE_URL not set.");
