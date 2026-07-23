@@ -16,6 +16,27 @@ import type { WholeWorkflowMap as MapModel } from "@/features/workflow-builder/d
 const EMPTY_MAP: MapModel = { rows: [] };
 
 describe("WholeWorkflowMap dialog (CS-7D Escape/focus regression)", () => {
+  it("restores focus to the opener on close (CS-7E a11y regression)", () => {
+    // The opener button is focused (as it would be right after a click opens the map).
+    const opener = document.createElement("button");
+    opener.setAttribute("data-testid", "opener");
+    document.body.appendChild(opener);
+    opener.focus();
+    expect(document.activeElement).toBe(opener);
+
+    const { unmount } = render(
+      <WholeWorkflowMap map={EMPTY_MAP} activeNodeId={null} onClose={() => {}} onSelectRow={() => {}} />,
+    );
+    // On open, focus moves INTO the dialog.
+    expect(document.activeElement).toBe(
+      screen.getByRole("dialog", { name: "Whole workflow map" }),
+    );
+    // On close (unmount), focus RETURNS to the opener.
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
   it("focuses the dialog container on mount so Escape works in a real browser", () => {
     render(
       <WholeWorkflowMap

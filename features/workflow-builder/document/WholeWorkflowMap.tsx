@@ -51,8 +51,16 @@ export function WholeWorkflowMap({
   // a defect jsdom unit tests miss (they dispatch keydown directly on the node)
   // but the live browser journey exposes.
   const rootRef = useRef<HTMLElement | null>(null);
+  // CS-7E — standard modal focus management: on open, remember what was focused
+  // (the opener button) and move focus into the dialog; on close (unmount),
+  // RESTORE focus to the opener so keyboard users are not dropped at the top of
+  // the document. The live map journey exposed the missing restoration.
   useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     rootRef.current?.focus();
+    return () => {
+      previouslyFocused?.focus?.();
+    };
   }, []);
   return (
     <aside
