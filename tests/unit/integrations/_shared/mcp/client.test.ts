@@ -258,6 +258,37 @@ describe("McpClient — no secret / arg leakage", () => {
   });
 });
 
+describe("maxResponseBytes bound (opt-in)", () => {
+  it("rejects a response whose content-length header exceeds the bound (before reading)", async () => {
+    const fetchImpl: FetchLike = async (_url, init) => {
+      const parsed = JSON.parse(init.body);
+      if (parsed.id === undefined) return jsonResponse("", { status: 202 });
+      if (parsed.method === "initialize") return initHandler(parsed.id);
+      return jsonResponse({ jsonrpc: "2.0", id: parsed.id, result: { tools: [] } }, { headers: { "content-length": "5000" } });
+    };
+    const client = createMcpClient({ endpoint: ENDPOINT, accessToken: TOKEN, serverLabel: "Eden", fetchImpl, sleepImpl: noSleep, maxResponseBytes: 1000 });
+    await expect(client.listTools()).rejects.toBeInstanceOf(McpProtocolError);
+  });
+
+  it("rejects when the decoded body exceeds the bound even without content-length", async () => {
+    const big = { jsonrpc: "2.0", id: 0, result: { tools: [], pad: "x".repeat(2000) } };
+    const fetchImpl: FetchLike = async (_url, init) => {
+      const parsed = JSON.parse(init.body);
+      if (parsed.id === undefined) return jsonResponse("", { status: 202 });
+      if (parsed.method === "initialize") return initHandler(parsed.id);
+      return jsonResponse({ ...big, id: parsed.id });
+    };
+    const client = createMcpClient({ endpoint: ENDPOINT, accessToken: TOKEN, serverLabel: "Eden", fetchImpl, sleepImpl: noSleep, maxResponseBytes: 1000 });
+    await expect(client.listTools()).rejects.toBeInstanceOf(McpProtocolError);
+  });
+
+  it("allows a response under the bound", async () => {
+    const { fetchImpl } = scriptedFetch({ initialize: initHandler, "tools/list": (id) => jsonResponse({ jsonrpc: "2.0", id, result: { tools: [] } }) });
+    const client = createMcpClient({ endpoint: ENDPOINT, accessToken: TOKEN, serverLabel: "Eden", fetchImpl, sleepImpl: noSleep, maxResponseBytes: 1_000_000 });
+    await expect(client.listTools()).resolves.toEqual({ tools: [] });
+  });
+});
+
 describe("readStructuredError", () => {
   it("reads status/message from structuredContent", () => {
     expect(readStructuredError({ structuredContent: { ok: false, status: 403, message: "denied" } })).toEqual({ status: 403, message: "denied" });

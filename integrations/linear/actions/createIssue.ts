@@ -20,5 +20,6 @@ export const createIssue: ActionHandler = async (input) => {
     args: config,
     pinnedSchemaHash: "57b5444fda895fee62ed0e08ccaaa1e9a438071edc5227f6fe7429fee6c04628",
     output: { kind: "text" },
+    idempotent: false,
   });
 };

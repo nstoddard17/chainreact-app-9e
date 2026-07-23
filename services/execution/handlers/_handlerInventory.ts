@@ -70,6 +70,12 @@ import { createList as trelloCreateList } from "@/integrations/trello/actions/cr
 import { moveCard as trelloMoveCard } from "@/integrations/trello/actions/moveCard";
 import { updateCard as trelloUpdateCard } from "@/integrations/trello/actions/updateCard";
 // Eden (EDEN-4) — MCP-backed actions (batch 1: 4 reads + 3 board/note writes).
+// Linear (CS-3 LINEAR-1) — first MCP-CATALOG app; 4 generated handlers over the
+// shared MCP executor. Provider manifest stays isExperimental until certified.
+import { findIssues as linearFindIssues } from "@/integrations/linear/actions/findIssues";
+import { createIssue as linearCreateIssue } from "@/integrations/linear/actions/createIssue";
+import { updateIssue as linearUpdateIssue } from "@/integrations/linear/actions/updateIssue";
+import { addComment as linearAddComment } from "@/integrations/linear/actions/addComment";
 import { edenListWorkspaces } from "@/integrations/eden/actions/workspaces/listWorkspaces";
 import { edenListSchedules } from "@/integrations/eden/actions/scheduling/listSchedules";
 import { edenListScheduledPosts } from "@/integrations/eden/actions/scheduling/listScheduledPosts";
@@ -963,6 +969,13 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "eden", type: "reschedule_post", handler: edenReschedulePost },
   { provider: "eden", type: "set_first_comment", handler: edenSetFirstComment },
   { provider: "eden", type: "cancel_scheduled_post", handler: edenCancelScheduledPost },
+  // Linear (CS-3 LINEAR-1) — first MCP-CATALOG app; handlers delegate to the
+  // shared MCP executor (drift-refusal + bounded outputs). find_issues is a
+  // read (idempotent-retryable); the rest are writes.
+  { provider: "linear", type: "find_issues", handler: linearFindIssues },
+  { provider: "linear", type: "create_issue", handler: linearCreateIssue },
+  { provider: "linear", type: "update_issue", handler: linearUpdateIssue },
+  { provider: "linear", type: "add_comment", handler: linearAddComment },
   // Slice 3.DISCORD-2 — 5 V1-manifest-declared action handlers.
   // delete_message is destructive (bulk + filter modes — see handler
   // docstring). Triggers + the 18 unsurfaced V1 handlers are NOT

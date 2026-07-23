@@ -84,6 +84,22 @@ owner setup report → live completion certification. No net-new provider ships 
 
 **Added providers:**
 
+- **Linear** (`linear`) — 2026-07-22, **first MCP-CATALOG app; code-complete pending live
+  capture + certification** (local/unpushed, `isExperimental: true`). Issue tracking /
+  product planning, sourced from the official Linear MCP server (`mcp.linear.app/mcp`)
+  rather than a hand-written REST wrapper. Proves the MCP catalog pipeline end to end:
+  CS-1 shared OAuth helper + connect, CS-2 schema compiler + import CLI, **CS-3** shared
+  executor (`integrations/_shared/mcp/executeTool.ts` — `refreshAndRetry` + pre-send
+  pinned-schema drift refusal + bounded output normalization) + 4 registered typed actions
+  (find_issues, create_issue, update_issue, add_comment) that render, validate, and execute
+  as ordinary V2 actions with zero new builder surface and zero migrations. **Blocked on
+  the owner:** the Linear OAuth app + env vars (`LINEAR_CLIENT_ID/SECRET`) don't exist yet,
+  so the `docs-draft` snapshot can't be re-captured live, structured outputs stay text-only,
+  and option resolvers (team/project/state/assignee) are deferred — all CS-6 deliverables.
+  Full arc + slice breakdown:
+  [`docs/slices/phase-5/mcp-integration-layer-architecture-plan.md`](../slices/phase-5/mcp-integration-layer-architecture-plan.md)
+  §9; provider docs → [`docs/providers/linear/`](../providers/linear/) (research ·
+  v2-pattern-audit · configuration-design · owner-setup).
 - **Microsoft Power BI** (`microsoft-powerbi`) — 2026-07-16, **code-complete; owner setup
   required** (local/unpushed). Analytics-category provider covering the Power BI REST API's
   stable v1.0 surface: 47 typed actions across 8 domains (semantic models, reports/exports,

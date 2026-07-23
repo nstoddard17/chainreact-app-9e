@@ -5,12 +5,17 @@
  *
  * Proves: generated metas satisfy the real ActionMetaSchema; generated zod
  * schemas are `.strict()` and enforce the catalog's pinned requirements;
- * generated handlers fail closed on the executor seam (CS-3 ships the real
- * executor); the capability report validates; the artifacts are byte-in-sync
- * with `compileProvider(snapshot, catalog)` (nobody hand-edited generated
- * files, the emitters are deterministic); and NOTHING is registered yet
- * (rule 14 — orphans are not shipped surface).
+ * generated handlers delegate to the shared executor with the certification-
+ * pinned tool + hash + bounded output (CS-3); the capability report validates;
+ * the artifacts are byte-in-sync with `compileProvider(snapshot, catalog)`
+ * (nobody hand-edited generated files, the emitters are deterministic); and the
+ * actions ARE now registered in the meta + handler inventories (CS-3).
  */
+const mockExecuteMcpTool = jest.fn(async (_input: Record<string, unknown>) => ({ output: { text: "ok" } }));
+jest.mock("@/integrations/_shared/mcp/executeTool", () => ({
+  executeMcpTool: (i: Record<string, unknown>) => mockExecuteMcpTool(i),
+}));
+
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { ActionMetaSchema } from "@/contracts/actionMeta";
@@ -19,7 +24,6 @@ import {
   compileProvider,
   emitProviderArtifacts,
 } from "@/core/mcpCompile";
-import { McpExecutorNotAvailableError } from "@/integrations/_shared/mcp/executeTool";
 import { linearMcpCatalog } from "@/integrations/linear/mcp-catalog";
 import { findIssuesMeta } from "@/integrations/linear/actions/findIssues.meta";
 import { createIssueMeta } from "@/integrations/linear/actions/createIssue.meta";
@@ -107,18 +111,32 @@ describe("generated strict schemas", () => {
 });
 
 describe("generated handlers (executor seam)", () => {
-  it("fail closed until CS-3 registers the real executor", async () => {
-    await expect(
-      createIssue({
-        workflowId: "wf",
-        userId: "u",
-        accountId: "acct",
-        runId: "run",
-        nodeId: "n",
-        config: { title: "t", team: "Core" },
-        triggerEvent: null,
-      } as never),
-    ).rejects.toBeInstanceOf(McpExecutorNotAvailableError);
+  beforeEach(() => mockExecuteMcpTool.mockClear());
+
+  it("delegates to the shared executor with the certified tool + pinned hash + bounded output", async () => {
+    await createIssue({
+      workflowId: "wf",
+      userId: "u",
+      accountId: "acct",
+      runId: "run",
+      nodeId: "n",
+      config: { title: "t", team: "Core" },
+      triggerEvent: null,
+    } as never);
+    const call = mockExecuteMcpTool.mock.calls[0]![0] as Record<string, unknown>;
+    expect(call).toMatchObject({
+      provider: "linear",
+      serverUrl: "https://mcp.linear.app/mcp",
+      tool: "save_issue", // create_issue is the create half of the save_issue dispatcher
+      accountId: "acct",
+      idempotent: false, // write
+      output: { kind: "text" },
+    });
+    // pinned hash matches the certified snapshot (drift guard input).
+    expect(typeof call.pinnedSchemaHash).toBe("string");
+    expect((call.pinnedSchemaHash as string).length).toBeGreaterThanOrEqual(32);
+    // args are the strict-parsed config — nothing extra.
+    expect(call.args).toEqual({ title: "t", team: "Core" });
   });
 });
 
@@ -134,7 +152,7 @@ describe("capability report + registration fragments", () => {
     expect(report.actions.every((a) => a.outputQuality === "poor")).toBe(true); // text-only until live capture
   });
 
-  it("registration fragments exist but NOTHING is registered yet (rule 14)", () => {
+  it("registration fragments cover the 4 shipped actions", () => {
     expect(linearGeneratedActionMetas).toHaveLength(4);
     expect(linearGeneratedHandlers.map((h) => h.type)).toEqual([
       "find_issues",
@@ -142,16 +160,29 @@ describe("capability report + registration fragments", () => {
       "update_issue",
       "add_comment",
     ]);
+  });
+
+  it("actions ARE registered in the meta + handler inventories (CS-3)", () => {
     const handlerInventory = readFileSync(
       path.join(repoRoot, "services", "execution", "handlers", "_handlerInventory.ts"),
+      "utf8",
+    );
+    const metaSubRegistry = readFileSync(
+      path.join(repoRoot, "services", "discovery", "providers", "linear.ts"),
       "utf8",
     );
     const metaInventory = readFileSync(
       path.join(repoRoot, "services", "discovery", "_metaInventory.ts"),
       "utf8",
     );
-    expect(handlerInventory.includes("integrations/linear")).toBe(false);
-    expect(metaInventory.includes("integrations/linear")).toBe(false);
+    // Handlers: 4 direct entries wired to the shared executor.
+    expect(handlerInventory.includes("integrations/linear")).toBe(true);
+    for (const type of ["find_issues", "create_issue", "update_issue", "add_comment"]) {
+      expect(handlerInventory.includes(`type: "${type}"`)).toBe(true);
+    }
+    // Metas: meta-only sub-registry spread into the central inventory.
+    expect(metaSubRegistry.includes("integrations/linear")).toBe(true);
+    expect(metaInventory.includes("LINEAR_ACTION_METAS")).toBe(true);
   });
 });
 

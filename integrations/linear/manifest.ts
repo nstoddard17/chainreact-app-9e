@@ -26,11 +26,14 @@ import {
  *
  * Capability honesty (CLAUDE.md rule 15):
  *   - `oauth: true` — the connect path ships in this slice.
- *   - `actions/webhookTrigger/pollingTrigger: false` — NO handlers/triggers
- *     are registered yet. Typed actions arrive with the schema compiler +
- *     executor slices (CS-2/CS-3); flip `actions` only when they register.
- *   - `isExperimental: true` — hidden from the default Apps catalog until the
- *     catalog app is code-complete AND live-certified (CS-6), then flip.
+ *   - `actions: true` — 4 typed MCP-catalog actions register in CS-3
+ *     (find_issues / create_issue / update_issue / add_comment), each a thin
+ *     handler over the shared MCP executor. `webhookTrigger/pollingTrigger:
+ *     false` — no triggers in phase 1 (native triggers compose with MCP
+ *     actions for free).
+ *   - `isExperimental: true` — still hidden from the default Apps catalog until
+ *     the docs-draft snapshot is re-captured live AND the app is live-certified
+ *     (CS-6), then flip. Actions register but the provider is not yet offered.
  */
 export const linearManifest: ProviderManifest = ProviderManifestSchema.parse({
   id: "linear",
@@ -52,7 +55,7 @@ export const linearManifest: ProviderManifest = ProviderManifestSchema.parse({
     oauth: true,
     webhookTrigger: false,
     pollingTrigger: false,
-    actions: false,
+    actions: true,
   },
   healthCheckIntervalMs: 4 * 60 * 60 * 1000,
   refreshable: true,

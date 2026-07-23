@@ -74,6 +74,14 @@ export interface McpClientOptions {
   readonly serverLabel: string;
   /** Per-request timeout. Default 30s. */
   readonly timeoutMs?: number;
+  /**
+   * Optional ceiling on a single response body's size (bytes). When set, a
+   * response whose `content-length` header OR decoded text exceeds it fails
+   * with `McpProtocolError` instead of loading an unbounded blob into memory.
+   * Default: unbounded (existing consumers unaffected). The shared executor
+   * sets a bound so MCP-catalog outputs stay bounded from day one.
+   */
+  readonly maxResponseBytes?: number;
   /** Injected fetch (defaults to global fetch). */
   readonly fetchImpl?: FetchLike;
   /** Injected sleep (tests pass a no-op to avoid real backoff waits). */
@@ -97,6 +105,7 @@ export class McpClient {
   private readonly accessToken: string;
   private readonly serverLabel: string;
   private readonly timeoutMs: number;
+  private readonly maxResponseBytes: number | null;
   private readonly fetchImpl: FetchLike;
   private readonly sleepImpl: (ms: number) => Promise<void>;
   private nextId = 1;
@@ -109,6 +118,7 @@ export class McpClient {
     this.accessToken = opts.accessToken;
     this.serverLabel = opts.serverLabel;
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.maxResponseBytes = opts.maxResponseBytes ?? null;
     this.fetchImpl = opts.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
     this.sleepImpl = opts.sleepImpl ?? defaultSleep;
   }
@@ -250,7 +260,20 @@ export class McpClient {
     if (sid) this.sessionId = sid;
 
     if (!res.ok) throw this.mapHttpStatus(res.status, res.headers);
-    return res.text();
+
+    // Bounded response size (opt-in). Reject an over-size body — the advertised
+    // content-length first (cheap, before reading), then the decoded text.
+    if (this.maxResponseBytes !== null) {
+      const declared = Number(res.headers.get("content-length"));
+      if (Number.isFinite(declared) && declared > this.maxResponseBytes) {
+        throw new McpProtocolError(this.serverLabel, "response exceeded the size limit");
+      }
+    }
+    const text = await res.text();
+    if (this.maxResponseBytes !== null && text.length > this.maxResponseBytes) {
+      throw new McpProtocolError(this.serverLabel, "response exceeded the size limit");
+    }
+    return text;
   }
 
   /** Parse `application/json` or `text/event-stream` and return the JSON-RPC response for `id`. */

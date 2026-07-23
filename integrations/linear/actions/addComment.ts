@@ -20,5 +20,6 @@ export const addComment: ActionHandler = async (input) => {
     args: config,
     pinnedSchemaHash: "29db7173131cd75c0fc5a71c7cbf0b36f817ca42ac51bb2237ff0f03a9c4a8f7",
     output: { kind: "text" },
+    idempotent: false,
   });
 };

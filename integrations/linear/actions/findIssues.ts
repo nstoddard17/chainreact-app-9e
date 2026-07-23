@@ -20,5 +20,6 @@ export const findIssues: ActionHandler = async (input) => {
     args: config,
     pinnedSchemaHash: "0140aeb2aa7575b1b2f6dbbaff9303b9a9d21ef6e9ed6e6ede06b367be25874f",
     output: { kind: "text" },
+    idempotent: true,
   });
 };

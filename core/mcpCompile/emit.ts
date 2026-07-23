@@ -194,6 +194,10 @@ function outputSpecLiteral(action: CompiledAction): string {
 export function emitHandlerSource(compiled: CompiledProvider, action: CompiledAction): string {
   const fn = camelCase(action.type);
   const schemaName = `${pascalCase(action.type)}ConfigSchema`;
+  // Reads are safe to auto-retry on a transient failure; writes are not (a
+  // retried write could duplicate). Derived from the certified risk class so
+  // the executor's retry-safety switch matches the catalog decision.
+  const idempotent = action.capability.risk.classification === "read";
   return (
     header(compiled.provider) +
     `import type { ActionHandler } from "@/services/execution/handlers/types";\n` +
@@ -215,6 +219,7 @@ export function emitHandlerSource(compiled: CompiledProvider, action: CompiledAc
     `    args: config,\n` +
     `    pinnedSchemaHash: "${action.schemaHash}",\n` +
     `    output: ${outputSpecLiteral(action)},\n` +
+    `    idempotent: ${idempotent},\n` +
     `  });\n` +
     `};\n`
   );
