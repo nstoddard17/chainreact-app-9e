@@ -12,10 +12,16 @@ import {
   getShopifyMockHandle,
   getStripeMockHandle,
   getTrelloMockHandle,
+  getHermesMockHandle,
   STATE_FILE,
 } from "./global-setup";
 
 export default async function globalTeardown(): Promise<void> {
+  const hermesHandle = getHermesMockHandle();
+  if (hermesHandle) {
+    await hermesHandle.close();
+    console.log("[e2e] mock Hermes gateway stopped");
+  }
   const slackHandle = getMockHandle();
   if (slackHandle) {
     await slackHandle.stop();

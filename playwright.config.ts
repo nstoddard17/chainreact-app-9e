@@ -204,6 +204,13 @@ export default defineConfig({
       // production project. Spread first so the explicit provider/test overrides
       // below still win where they intentionally set a value.
       ...TEST_APP_ENV,
+      // CS-7F — point the Hermes AI gateway at the LOOPBACK mock started by
+      // global-setup (never a real model provider). E2E-only: this is not in any
+      // checked-in .env and never becomes a production default. The production
+      // client still resolves through the same canonical getHermesAgentGatewayConfig().
+      HERMES_AGENT_ENABLED: "true",
+      CHAINREACT_AI_GATEWAY_URL: `http://127.0.0.1:${process.env.MOCK_HERMES_PORT ?? "9890"}`,
+      CHAINREACT_AI_GATEWAY_TOKEN: "e2e-mock-hermes-token",
       // 5.DUAL-BUILDER-1 CS-7 — the Document Builder stays flag-gated (default
       // OFF) here too, so every OTHER e2e spec runs exactly production's Visual
       // builder. The dual-builder journey is run by explicitly setting
