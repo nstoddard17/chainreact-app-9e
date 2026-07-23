@@ -1,0 +1,34 @@
+// Generated from integrations/linear/mcp-catalog.ts + mcp-snapshot.json (npm run mcp:import -- generate linear).
+// Curate the catalog and regenerate rather than hand-editing this file.
+import { z } from "zod";
+
+/** Config schema for `linear:create_issue` — mirrors createIssue.meta.ts. */
+export const CreateIssueConfigSchema = z
+  .object({
+    title: z.string().min(1),
+    description: z.string().min(1).optional(),
+    team: z.string().min(1),
+    cycle: z.string().min(1).optional(),
+    milestone: z.string().min(1).optional(),
+    priority: z.number().optional(),
+    project: z.string().min(1).optional(),
+    state: z.string().min(1).optional(),
+    assignee: z.string().min(1).optional(),
+    delegate: z.string().min(1).optional(),
+    labels: z.array(z.string().min(1)).min(1).optional(),
+    dueDate: z.string().min(1).optional(),
+    parentId: z.string().min(1).optional(),
+    estimate: z.number().optional(),
+    links: z.array(z
+      .object({
+      url: z.string(),
+      title: z.string(),
+      })
+      .strict()).min(1).optional(),
+    blocks: z.array(z.string().min(1)).min(1).optional(),
+    blockedBy: z.array(z.string().min(1)).min(1).optional(),
+    relatedTo: z.array(z.string().min(1)).min(1).optional(),
+  })
+  .strict();
+
+export type CreateIssueConfig = z.infer<typeof CreateIssueConfigSchema>;

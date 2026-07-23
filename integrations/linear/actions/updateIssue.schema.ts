@@ -1,0 +1,39 @@
+// Generated from integrations/linear/mcp-catalog.ts + mcp-snapshot.json (npm run mcp:import -- generate linear).
+// Curate the catalog and regenerate rather than hand-editing this file.
+import { z } from "zod";
+
+/** Config schema for `linear:update_issue` — mirrors updateIssue.meta.ts. */
+export const UpdateIssueConfigSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    team: z.string().min(1).optional(),
+    cycle: z.string().min(1).optional(),
+    milestone: z.string().min(1).optional(),
+    priority: z.number().optional(),
+    project: z.string().min(1).optional(),
+    state: z.string().min(1).optional(),
+    assignee: z.string().min(1).optional(),
+    delegate: z.string().min(1).optional(),
+    labels: z.array(z.string().min(1)).min(1).optional(),
+    dueDate: z.string().min(1).optional(),
+    parentId: z.string().min(1).optional(),
+    estimate: z.number().optional(),
+    links: z.array(z
+      .object({
+      url: z.string(),
+      title: z.string(),
+      })
+      .strict()).min(1).optional(),
+    blocks: z.array(z.string().min(1)).min(1).optional(),
+    blockedBy: z.array(z.string().min(1)).min(1).optional(),
+    relatedTo: z.array(z.string().min(1)).min(1).optional(),
+    duplicateOf: z.string().min(1).optional(),
+    removeBlocks: z.array(z.string().min(1)).min(1).optional(),
+    removeBlockedBy: z.array(z.string().min(1)).min(1).optional(),
+    removeRelatedTo: z.array(z.string().min(1)).min(1).optional(),
+  })
+  .strict();
+
+export type UpdateIssueConfig = z.infer<typeof UpdateIssueConfigSchema>;

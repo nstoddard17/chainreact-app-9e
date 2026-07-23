@@ -1,0 +1,51 @@
+// Generated from integrations/linear/mcp-catalog.ts + mcp-snapshot.json (npm run mcp:import -- generate linear).
+// Curate the catalog and regenerate rather than hand-editing this file.
+import type { ActionMeta } from "@/contracts/actionMeta";
+
+/** Builder-facing metadata for `linear:add_comment`. */
+export const addCommentMeta: ActionMeta = {
+  key: "linear:add_comment",
+  provider: "linear",
+  type: "add_comment",
+  displayName: "Add Comment",
+  description: "Add a Markdown comment to a Linear issue (by ID or identifier, e.g. LIN-123). Reply to an existing thread via the Advanced parent comment field.",
+  category: "developer",
+  requiresIntegration: true,
+  fields: [
+    {
+      name: "issueId",
+      label: "Issue id",
+      description: "Issue ID or identifier (e.g., LIN-123) (provide exactly one parent)",
+      type: "text",
+      required: true,
+    },
+    {
+      name: "parentId",
+      label: "Parent id",
+      description: "Parent comment ID (for replies, only when creating)",
+      type: "text",
+      required: false,
+      advanced: true,
+    },
+    {
+      name: "body",
+      label: "Body",
+      description: "Content as Markdown. Do not escape the string — use literal newlines and special characters, not escape sequences. To mention a user, use @displayName (e.g., @johndoe)",
+      type: "textarea",
+      required: true,
+    },
+  ],
+  outputs: [
+    {
+      name: "text",
+      type: "string",
+      description: "Text returned by the provider for this call.",
+    },
+  ],
+  producesFileRef: false,
+  consumesFileRef: false,
+  displayOrder: 40,
+  isDestructive: false,
+  requiresConfirmation: false,
+  riskLevel: "medium",
+};

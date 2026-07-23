@@ -1,0 +1,73 @@
+{
+  "provider": "linear",
+  "actions": [
+    {
+      "key": "linear:find_issues",
+      "tool": "list_issues",
+      "schemaQuality": "good",
+      "outputQuality": "poor",
+      "descriptionQuality": "good",
+      "complexity": "high",
+      "pickerSupport": "none",
+      "verified": false,
+      "risk": {
+        "classification": "read",
+        "level": "low"
+      },
+      "planningQuality": "poor",
+      "configurationQuality": "good",
+      "schemaHash": "0140aeb2aa7575b1b2f6dbbaff9303b9a9d21ef6e9ed6e6ede06b367be25874f"
+    },
+    {
+      "key": "linear:create_issue",
+      "tool": "save_issue",
+      "schemaQuality": "fair",
+      "outputQuality": "poor",
+      "descriptionQuality": "good",
+      "complexity": "high",
+      "pickerSupport": "none",
+      "verified": false,
+      "risk": {
+        "classification": "write",
+        "level": "medium"
+      },
+      "planningQuality": "poor",
+      "configurationQuality": "fair",
+      "schemaHash": "57b5444fda895fee62ed0e08ccaaa1e9a438071edc5227f6fe7429fee6c04628"
+    },
+    {
+      "key": "linear:update_issue",
+      "tool": "save_issue",
+      "schemaQuality": "fair",
+      "outputQuality": "poor",
+      "descriptionQuality": "good",
+      "complexity": "high",
+      "pickerSupport": "none",
+      "verified": false,
+      "risk": {
+        "classification": "write",
+        "level": "medium"
+      },
+      "planningQuality": "poor",
+      "configurationQuality": "fair",
+      "schemaHash": "57b5444fda895fee62ed0e08ccaaa1e9a438071edc5227f6fe7429fee6c04628"
+    },
+    {
+      "key": "linear:add_comment",
+      "tool": "save_comment",
+      "schemaQuality": "fair",
+      "outputQuality": "poor",
+      "descriptionQuality": "excellent",
+      "complexity": "low",
+      "pickerSupport": "none",
+      "verified": false,
+      "risk": {
+        "classification": "write",
+        "level": "medium"
+      },
+      "planningQuality": "poor",
+      "configurationQuality": "fair",
+      "schemaHash": "29db7173131cd75c0fc5a71c7cbf0b36f817ca42ac51bb2237ff0f03a9c4a8f7"
+    }
+  ]
+}
