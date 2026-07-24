@@ -63,36 +63,45 @@ export function filterVehicleLinksCta<T extends string>(
 /**
  * Second, INDEPENDENT gate for "Confirm all exact VIN matches" (CS-5).
  *
- * DEFAULT OFF, and off for a specific, evidence-based reason rather than
- * caution-in-general:
+ * ── DEFAULT ON as of VEHICLE-LINKS-BULK-1 ──────────────────────────────────
+ * Launched by default, mirroring `ENABLE_RESOURCE_LINKS_UI`: only the exact
+ * string `"false"` disables it, so a typo or an unrelated value cannot silently
+ * take the shortcut away. `ENABLE_VEHICLE_VIN_BULK_CONFIRM=false` is the explicit
+ * kill switch.
  *
- * Bulk confirm writes N mappings from one click. Its safety rests entirely on
- * the premise that VIN is present and correct on BOTH sides — and the CS-5 brief
- * required verifying that against a real Fleetio account before enabling it. The
- * development database contains **zero** connected Fleetio integrations
- * (verified read-only during CS-5), so `GET /vehicles` could not be observed and
- * the premise is UNTESTED against live data. Fleetio's 2025-05-05 schema
- * *declares* `vin`, but schema presence is not population — plenty of fleets
- * leave VIN blank, and a projection that silently returns null for every vehicle
- * would make bulk confirm a no-op at best.
+ * The flag was OFF-by-default historically because bulk confirm writes N mappings
+ * from one click and that premise had not been observed against a real Fleetio
+ * account. It is safe to enable by default because the multi-write's safety does
+ * NOT rest on the flag — it rests on the server, which:
+ *   - recomputes the eligible set itself (the browser cannot supply pairs),
+ *   - restricts eligibility to the matcher's `bulkConfirmable` — an UNAMBIGUOUS
+ *     tier-1 exact-VIN match only (plate / number / name / ambiguous VIN are
+ *     never eligible), with both sides free of any active link and the pair not
+ *     dismissed,
+ *   - re-checks every write against the sources/targets already claimed earlier
+ *     in the same batch, so two proposals can never both claim one Fleetio
+ *     vehicle, and
+ *   - counts any write that still loses a concurrency race as `skipped` rather
+ *     than linking the wrong vehicle or failing the batch,
+ * and the action is owner/admin only, triggered by an explicit click — loading
+ * the page never writes anything. When VIN is sparsely populated the eligible set
+ * is simply small; nothing unsafe is written.
  *
- * Nothing else is gated by this. Individual confirmation of a VIN-tier
- * suggestion stays available with the flag off: a human is reading the evidence
- * and clicking one row, which is safe regardless of how well-populated the field
- * is across the fleet. This flag governs ONLY the multi-write shortcut.
- *
- * To lift it: connect a real Fleetio account, confirm `vin` is populated on
- * `GET /vehicles`, record the finding in the plan doc, then set the env var.
+ * This flag governs ONLY the multi-write shortcut. Individual confirmation of a
+ * VIN-tier suggestion is unaffected either way — a human reading one row's
+ * evidence and clicking is safe regardless of the field's population.
  */
 export const VEHICLE_VIN_BULK_CONFIRM_FLAG = "ENABLE_VEHICLE_VIN_BULK_CONFIRM";
 
 /**
- * DEFAULT OFF. Requires the Vehicle Links surface to be on as well — a bulk
- * action cannot be reachable when the screen that offers it does not exist.
+ * DEFAULT ON (VEHICLE-LINKS-BULK-1). Only the exact string `"false"` disables it.
+ * Still requires the Vehicle Links surface to be on as well — a bulk action
+ * cannot be reachable when the screen that offers it does not exist — so the
+ * surface's own `="false"` kill switch also disables this.
  */
 export function isVinBulkConfirmEnabled(): boolean {
   return (
     isResourceLinksUiEnabled() &&
-    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] === "true"
+    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] !== "false"
   );
 }

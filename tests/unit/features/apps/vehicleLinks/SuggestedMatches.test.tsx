@@ -311,7 +311,12 @@ describe("bulk confirm gate", () => {
     renderDashboard({ suggestions: suggestionsView({ bulkConfirmEnabled: true }) });
 
     const button = screen.getByTestId("bulk-confirm-vin");
-    expect(button).toHaveTextContent("Confirm all exact VIN matches (1)");
+    // Copy states how many UNIQUE exact-VIN matches will be linked...
+    expect(button).toHaveTextContent("Link 1 unique exact-VIN match");
+    // ...and that every other suggestion still needs individual review.
+    expect(screen.getByTestId("bulk-confirm-note")).toHaveTextContent(
+      /every other suggestion still needs individual review/i,
+    );
     await user.click(button);
     await waitFor(() => expect(mockBulkConfirm).toHaveBeenCalledWith(ACCOUNT));
   });

@@ -110,6 +110,7 @@ import {
 
 const ACCOUNT_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OWNER_A = "11111111-1111-4111-8111-111111111111";
+const ADMIN_A = "22222222-2222-4222-8222-222222222222";
 const MEMBER_A = "33333333-3333-4333-8333-333333333333";
 const OUTSIDER = "55555555-5555-4555-8555-555555555555";
 const VIN_A = "1FUJGLDR0CSBP1234";
@@ -139,6 +140,7 @@ beforeEach(() => {
   nextId = 1;
   roles.clear();
   roles.set(`${ACCOUNT_A}:${OWNER_A}`, "owner");
+  roles.set(`${ACCOUNT_A}:${ADMIN_A}`, "admin");
   roles.set(`${ACCOUNT_A}:${MEMBER_A}`, "member");
   mockGetUser.mockReset();
   mockMotive.mockReset();
@@ -316,7 +318,20 @@ describe("POST .../suggestions/dismiss", () => {
 });
 
 describe("POST .../suggestions/bulk-confirm", () => {
-  it("403 NOT_ENABLED while the VIN bulk gate is closed (the default)", async () => {
+  it("confirms by DEFAULT with no env var set (VEHICLE-LINKS-BULK-1)", async () => {
+    // beforeEach deletes the flag ⇒ default ON. An owner's explicit POST links
+    // the unambiguous VIN match; the server recomputes what to write.
+    signedInAs(OWNER_A);
+    const res = await bulkRoute(postReq(), params());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { confirmed: unknown[]; skipped: number };
+    expect(body.confirmed).toHaveLength(1);
+    expect(body.skipped).toBe(0);
+    expect(links[0]!.matchBasis).toBe("suggested_vin");
+  });
+
+  it('403 NOT_ENABLED only when the bulk flag is explicitly "false"', async () => {
+    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "false";
     signedInAs(OWNER_A);
     const res = await bulkRoute(postReq(), params());
     expect(res.status).toBe(403);
@@ -327,7 +342,7 @@ describe("POST .../suggestions/bulk-confirm", () => {
     expect(links).toHaveLength(0);
   });
 
-  it("confirms when BOTH gates are open", async () => {
+  it("confirms when explicitly enabled", async () => {
     process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "true";
     signedInAs(OWNER_A);
     const res = await bulkRoute(postReq(), params());
@@ -335,6 +350,15 @@ describe("POST .../suggestions/bulk-confirm", () => {
     const body = (await res.json()) as { confirmed: unknown[]; skipped: number };
     expect(body.confirmed).toHaveLength(1);
     expect(body.skipped).toBe(0);
+    expect(links[0]!.matchBasis).toBe("suggested_vin");
+  });
+
+  it("an ADMIN can bulk-confirm (owner/admin, not owner-only)", async () => {
+    signedInAs(ADMIN_A); // default-ON gate, real requireAccountRole(["owner","admin"])
+    const res = await bulkRoute(postReq(), params());
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { confirmed: unknown[] };
+    expect(body.confirmed).toHaveLength(1);
     expect(links[0]!.matchBasis).toBe("suggested_vin");
   });
 

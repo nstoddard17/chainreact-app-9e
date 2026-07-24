@@ -112,22 +112,33 @@ export function SuggestedMatches({
       )}
 
       {canManage && bulkCount > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-1.5" data-testid="bulk-confirm">
           {view.bulkConfirmEnabled ? (
-            <Button
-              size="sm"
-              disabled={bulkPending}
-              data-testid="bulk-confirm-vin"
-              onClick={onBulkConfirm}
-            >
-              {bulkPending
-                ? "Confirming…"
-                : `Confirm all exact VIN matches (${bulkCount})`}
-            </Button>
+            <>
+              <Button
+                size="sm"
+                disabled={bulkPending}
+                data-testid="bulk-confirm-vin"
+                onClick={onBulkConfirm}
+              >
+                {bulkPending
+                  ? "Linking…"
+                  : `Link ${bulkCount} unique exact-VIN ${bulkCount === 1 ? "match" : "matches"}`}
+              </Button>
+              <p
+                className="max-w-prose text-xs leading-relaxed text-muted-foreground"
+                data-testid="bulk-confirm-note"
+              >
+                {bulkCount === 1 ? "This is the only" : `These are the only ${bulkCount}`}{" "}
+                {bulkCount === 1 ? "match whose" : "matches whose"} VIN is an exact,
+                unique match on both sides — each VIN is re-checked as it&apos;s written.
+                Every other suggestion still needs individual review below.
+              </p>
+            </>
           ) : (
-            <p className="text-xs text-muted-foreground" data-testid="bulk-confirm-unavailable">
+            <p className="max-w-prose text-xs leading-relaxed text-muted-foreground" data-testid="bulk-confirm-unavailable">
               {bulkCount} exact VIN {bulkCount === 1 ? "match" : "matches"} found.
-              Confirming them all at once isn&apos;t available yet — confirm the ones you
+              Confirming them all at once isn&apos;t available — confirm the ones you
               want individually below.
             </p>
           )}

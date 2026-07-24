@@ -429,8 +429,15 @@ describe("ambiguity", () => {
     const view = await suggestFor();
     expect(view.suggestions[0]!.bulkConfirmable).toBe(true);
     expect(view.bulkConfirmableCount).toBe(1);
-    // ...but the GATE is still closed.
-    expect(view.bulkConfirmEnabled).toBe(false);
+    // The GATE now defaults OPEN (VEHICLE-LINKS-BULK-1)...
+    expect(view.bulkConfirmEnabled).toBe(true);
+    // ...but eligibility is independent of the gate: the "false" kill switch
+    // closes the gate WITHOUT changing which matches are eligible.
+    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "false";
+    const closed = await suggestFor();
+    expect(closed.bulkConfirmEnabled).toBe(false);
+    expect(closed.suggestions[0]!.bulkConfirmable).toBe(true);
+    expect(closed.bulkConfirmableCount).toBe(1);
   });
 });
 
@@ -741,7 +748,17 @@ describe("bulk confirm — gated, and safe when open", () => {
     });
   });
 
-  it("is REFUSED while ENABLE_VEHICLE_VIN_BULK_CONFIRM is off (the default)", async () => {
+  it("is AVAILABLE by default with no env var set (VEHICLE-LINKS-BULK-1)", async () => {
+    // beforeEach deletes the flag ⇒ default ON. The server recomputes the
+    // eligible set and links the unambiguous VIN matches — no env var required.
+    const result = await bulkConfirmVinMatches({ accountId: ACCOUNT_A, actingUserId: OWNER_A, now: NOW });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.confirmed.length).toBeGreaterThan(0);
+  });
+
+  it('is REFUSED only when ENABLE_VEHICLE_VIN_BULK_CONFIRM is explicitly "false"', async () => {
+    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "false";
     expect(
       await bulkConfirmVinMatches({ accountId: ACCOUNT_A, actingUserId: OWNER_A, now: NOW }),
     ).toEqual({ ok: false, reason: "not_enabled" });

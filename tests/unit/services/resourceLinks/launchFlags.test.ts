@@ -3,13 +3,15 @@
  *
  * 5.TRUCK-BRIDGE-1 CS-6 — the launch decision, encoded as tests.
  *
- * Two flags with DELIBERATELY OPPOSITE defaults, and the difference is the
- * whole point:
+ * Both flags now DEFAULT ON, and behave identically at the boundary — only the
+ * exact string "false" disables either (VEHICLE-LINKS-BULK-1):
  *
  *   `ENABLE_RESOURCE_LINKS_UI`        DEFAULT ON  — the feature launched.
- *   `ENABLE_VEHICLE_VIN_BULK_CONFIRM` DEFAULT OFF — bulk VIN confirm is still
- *                                                   blocked on live evidence
- *                                                   that Fleetio populates VIN.
+ *   `ENABLE_VEHICLE_VIN_BULK_CONFIRM` DEFAULT ON  — the multi-write shortcut is
+ *                                                   available; its real safety is
+ *                                                   the server's own recompute +
+ *                                                   eligibility, not this flag.
+ *   Bulk still requires the surface flag: `RESOURCE_LINKS_UI="false"` disables it.
  *
  * Also covers the serving-layer CTA gate: a `link_vehicles` action is stripped
  * when the surface is disabled, so no UI can render a button pointing at a 404,
@@ -58,24 +60,38 @@ describe("ENABLE_RESOURCE_LINKS_UI — launched ON", () => {
   });
 });
 
-describe("ENABLE_VEHICLE_VIN_BULK_CONFIRM — deliberately still OFF", () => {
-  it("is OFF by default even though the surface is now ON", () => {
+describe("ENABLE_VEHICLE_VIN_BULK_CONFIRM — launched ON (VEHICLE-LINKS-BULK-1)", () => {
+  it("is ON with no environment variable set at all", () => {
     expect(isResourceLinksUiEnabled()).toBe(true);
-    expect(isVinBulkConfirmEnabled()).toBe(false);
-  });
-
-  it('turns on only for the exact string "true"', () => {
-    for (const value of ["1", "TRUE", "yes", "", "false"]) {
-      process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = value;
-      expect(isVinBulkConfirmEnabled()).toBe(false);
-    }
-    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "true";
     expect(isVinBulkConfirmEnabled()).toBe(true);
   });
 
-  it("cannot be reached when the surface itself is disabled", () => {
-    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "true";
+  it('is OFF only for the exact string "false"', () => {
+    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "false";
+    expect(isVinBulkConfirmEnabled()).toBe(false);
+  });
+
+  it("stays ON for a typo or an unrelated value (fail-visible in the launched direction)", () => {
+    for (const value of ["true", "1", "TRUE", "FALSE", "no", "off", "", "yes"]) {
+      process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = value;
+      expect(isVinBulkConfirmEnabled()).toBe(true);
+    }
+  });
+
+  it("is read at CALL time, so a rollout toggle needs no re-import", () => {
+    expect(isVinBulkConfirmEnabled()).toBe(true);
+    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "false";
+    expect(isVinBulkConfirmEnabled()).toBe(false);
+    delete process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG];
+    expect(isVinBulkConfirmEnabled()).toBe(true);
+  });
+
+  it("cannot be reached when the surface itself is disabled (even at its own default)", () => {
+    // Bulk flag unset ⇒ its own default is ON, but the surface kill switch wins.
     process.env[RESOURCE_LINKS_UI_FLAG] = "false";
+    expect(isVinBulkConfirmEnabled()).toBe(false);
+    // Explicitly ON but surface off ⇒ still blocked.
+    process.env[VEHICLE_VIN_BULK_CONFIRM_FLAG] = "true";
     expect(isVinBulkConfirmEnabled()).toBe(false);
   });
 
