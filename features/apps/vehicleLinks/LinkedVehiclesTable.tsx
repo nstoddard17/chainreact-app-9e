@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { VehicleLinkView } from "@/contracts/vehicleLinks";
+import type { VehicleLinkHealthView } from "@/contracts/vehicleSuggestions";
+import type { LinkHealthStatus } from "@/core/resourceLinks/linkHealth";
 
 /**
  * The Linked section (5.TRUCK-BRIDGE-1 CS-4).
@@ -41,15 +43,48 @@ function formatDate(iso: string): string {
   });
 }
 
+/**
+ * Stale-link copy (CS-5). Each sentence names what ChainReact can and cannot
+ * see, and what to do — never "deleted", which ChainReact cannot actually know.
+ *
+ * The `*_unknown` variants are the load-bearing ones: during a provider outage
+ * EVERY link on that side reports unknown, and saying "no longer in Motive"
+ * there would be false and would invite users to remove healthy mappings.
+ */
+const HEALTH_COPY: Record<Exclude<LinkHealthStatus, "ok">, string> = {
+  source_missing:
+    "This Motive vehicle is no longer in your Motive vehicle list. The link still works if the id is still valid — remove it or re-link if the truck was replaced.",
+  target_missing:
+    "This Fleetio vehicle is no longer in your Fleetio vehicle list. Meter entries written to it will fail — re-link this truck to its current Fleetio vehicle.",
+  target_archived:
+    "This Fleetio vehicle is archived in Fleetio. Writes to it will fail — re-link this truck to an active Fleetio vehicle.",
+  source_unknown:
+    "Your Motive vehicle list couldn't be loaded, so ChainReact can't check this side right now. The link is unchanged.",
+  target_unknown:
+    "Your Fleetio vehicle list couldn't be loaded, so ChainReact can't check this side right now. The link is unchanged.",
+};
+
 interface Props {
   links: readonly VehicleLinkView[];
   canManage: boolean;
   pendingLinkId: string | null;
+  /** Health per link id (CS-5). Absent entries render no warning. */
+  health?: readonly VehicleLinkHealthView[];
   onRemove: (linkId: string) => void;
+  /** Re-link: hand this truck back to the Unlinked list to pair afresh. */
+  onRelink?: (link: VehicleLinkView) => void;
 }
 
-export function LinkedVehiclesTable({ links, canManage, pendingLinkId, onRemove }: Props) {
+export function LinkedVehiclesTable({
+  links,
+  canManage,
+  pendingLinkId,
+  health,
+  onRemove,
+  onRelink,
+}: Props) {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const healthById = new Map((health ?? []).map((h) => [h.linkId, h]));
 
   if (links.length === 0) {
     return (
@@ -64,10 +99,15 @@ export function LinkedVehiclesTable({ links, canManage, pendingLinkId, onRemove 
     <ul className="flex flex-col gap-3" data-testid="linked-list">
       {links.map((link) => {
         const pending = pendingLinkId === link.id;
+        const linkHealth = healthById.get(link.id);
+        const warnings = (linkHealth?.statuses ?? []).filter(
+          (s): s is Exclude<LinkHealthStatus, "ok"> => s !== "ok",
+        );
         return (
           <li
             key={link.id}
             data-testid="linked-row"
+            data-health={linkHealth?.needsAttention ? "attention" : "ok"}
             className="flex flex-col gap-2 rounded border border-border p-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -127,6 +167,40 @@ export function LinkedVehiclesTable({ links, canManage, pendingLinkId, onRemove 
                   </Button>
                 ))}
             </div>
+
+            {/*
+              Stale-link warnings (CS-5). Rendered as guidance next to the
+              mapping — the mapping itself is NEVER auto-archived or replaced,
+              and the stored names stay visible so the history still reads.
+            */}
+            {warnings.length > 0 && (
+              <ul className="flex flex-col gap-1" data-testid="link-health">
+                {warnings.map((status) => (
+                  <li
+                    key={status}
+                    data-testid={`link-health-${status}`}
+                    className={`text-xs ${
+                      status.endsWith("_unknown") ? "text-muted-foreground" : "text-warning-foreground"
+                    }`}
+                  >
+                    {HEALTH_COPY[status]}
+                  </li>
+                ))}
+                {canManage && onRelink && linkHealth?.needsAttention && (
+                  <li>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      data-testid="relink"
+                      onClick={() => onRelink(link)}
+                    >
+                      Re-link this vehicle
+                    </Button>
+                  </li>
+                )}
+              </ul>
+            )}
 
             {/* Raw ids are SUPPORT detail only — collapsed, never the identity. */}
             <details className="text-xs text-muted-foreground">

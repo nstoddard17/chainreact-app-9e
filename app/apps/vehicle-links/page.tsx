@@ -16,7 +16,14 @@ import {
   listVehicleLinks,
   unlinkedVehicles,
 } from "@/services/resourceLinks/vehicleLinkService";
-import { listVehicleOptions } from "@/services/resourceLinks/vehicleOptions";
+import {
+  loadMotiveInventory,
+  loadFleetioInventory,
+} from "@/services/resourceLinks/vehicleInventory";
+import {
+  listVehicleSuggestions,
+  assessVehicleLinkHealth,
+} from "@/services/resourceLinks/vehicleSuggestions";
 
 /**
  * `/apps/vehicle-links` — the Vehicle Links management screen
@@ -57,14 +64,37 @@ export default async function VehicleLinksPage() {
   const callerRole = await getRole(account.id, user.id);
   if (callerRole === null) notFound();
 
-  const [linksResult, motiveVehicles, unreadNotifications, recentNotificationRecords] =
-    await Promise.all([
-      listVehicleLinks({ accountId: account.id, actingUserId: user.id }),
-      listVehicleOptions({ accountId: account.id, userId: user.id, side: "motive" }),
-      notificationsRepo.countUnreadForUser(user.id),
-      notificationsRepo.listForUser(user.id, { limit: NOTIFICATION_BELL_PREVIEW_LIMIT }),
-    ]);
+  // CS-5 — the two provider lists are loaded ONCE and reused by all three
+  // sections (Unlinked, Suggested, and stale-link health), so opening this page
+  // costs exactly one Motive call and one Fleetio call regardless of how much it
+  // renders. `listVehicleSuggestions` reloads them internally for the suggestion
+  // set; the health pass reuses these.
+  const [
+    linksResult,
+    motiveInventory,
+    fleetioInventory,
+    suggestionsResult,
+    unreadNotifications,
+    recentNotificationRecords,
+  ] = await Promise.all([
+    listVehicleLinks({ accountId: account.id, actingUserId: user.id }),
+    loadMotiveInventory({ accountId: account.id }),
+    loadFleetioInventory({ accountId: account.id }),
+    listVehicleSuggestions({ accountId: account.id, actingUserId: user.id }),
+    notificationsRepo.countUnreadForUser(user.id),
+    notificationsRepo.listForUser(user.id, { limit: NOTIFICATION_BELL_PREVIEW_LIMIT }),
+  ]);
   const links = linksResult.ok ? linksResult.links : [];
+  const health = await assessVehicleLinkHealth({
+    links,
+    motive: motiveInventory,
+    fleetio: fleetioInventory,
+  });
+  // Option-shaped view of the Motive inventory for the Unlinked set difference.
+  const motiveOptions = motiveInventory.vehicles.map((v) => ({
+    value: v.identity.vehicleId,
+    label: v.label,
+  }));
   const bell = await applyCredentialRequestNotice(
     user.id,
     unreadNotifications,
@@ -82,9 +112,11 @@ export default async function VehicleLinksPage() {
           accountId={account.id}
           canManage={callerRole === "owner" || callerRole === "admin"}
           links={links}
-          motiveStatus={motiveVehicles.status}
-          motiveHasMore={motiveVehicles.hasMore}
-          unlinked={unlinkedVehicles(motiveVehicles.items, links)}
+          motiveStatus={motiveInventory.status}
+          motiveHasMore={motiveInventory.hasMore}
+          unlinked={unlinkedVehicles(motiveOptions, links)}
+          {...(suggestionsResult.ok ? { suggestions: suggestionsResult.view } : {})}
+          health={health}
         />
       </main>
     </AppShell>

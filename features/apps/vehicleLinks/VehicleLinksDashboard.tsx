@@ -4,7 +4,10 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   archiveVehicleLink,
+  bulkConfirmVinMatches,
+  confirmSuggestion,
   createVehicleLink,
+  dismissSuggestion,
   VehicleLinkApiError,
 } from "@/lib/api/vehicleLinks";
 import type {
@@ -13,8 +16,14 @@ import type {
   VehicleListStatus,
   VehicleOptionView,
 } from "@/contracts/vehicleLinks";
+import type {
+  VehicleLinkHealthView,
+  VehicleSuggestionView,
+  VehicleSuggestionsView,
+} from "@/contracts/vehicleSuggestions";
 import { LinkedVehiclesTable } from "./LinkedVehiclesTable";
 import { UnlinkedVehiclesList } from "./UnlinkedVehiclesList";
+import { SuggestedMatches, suggestionKey } from "./SuggestedMatches";
 import { vehicleLinkErrorCopy } from "./errorCopy";
 
 /**
@@ -24,10 +33,9 @@ import { vehicleLinkErrorCopy } from "./errorCopy";
  * and updates local state from the server's response rather than guessing, so a
  * refused confirm never leaves a phantom row on screen.
  *
- * The Suggested section is rendered as an explicitly DISABLED "Coming next"
- * note. It shows no candidate rows, no counts, and no evidence, because CS-4
- * ships no matching: a placeholder that looked like real suggestions would be
- * fake UI. CS-2's matching core exists but nothing calls it yet — CS-5 wires it.
+ * CS-5 replaced the "Coming next" placeholder with the real Suggested section,
+ * backed by CS-2's pure matcher. Every proposal shows its evidence verbatim and
+ * still needs a click; nothing is written because the page loaded.
  *
  * Members see the same data with no mutation affordances; the server re-checks
  * owner/admin on every write regardless, so the hidden buttons are a courtesy,
@@ -41,6 +49,10 @@ interface Props {
   motiveStatus: VehicleListStatus;
   motiveHasMore: boolean;
   unlinked: readonly UnlinkedVehicleView[];
+  /** CS-5 — suggestions + their status. Absent ⇒ the section renders nothing. */
+  suggestions?: VehicleSuggestionsView;
+  /** CS-5 — stale-link annotations, keyed by link id. */
+  health?: readonly VehicleLinkHealthView[];
 }
 
 export function VehicleLinksDashboard({
@@ -50,6 +62,8 @@ export function VehicleLinksDashboard({
   motiveStatus,
   motiveHasMore,
   unlinked: initialUnlinked,
+  suggestions: initialSuggestionsView,
+  health,
 }: Props) {
   const [links, setLinks] = useState<readonly VehicleLinkView[]>(initialLinks);
   const [unlinked, setUnlinked] = useState<readonly UnlinkedVehicleView[]>(initialUnlinked);
@@ -61,6 +75,113 @@ export function VehicleLinksDashboard({
     message: string;
   } | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
+  // CS-5 — suggestions live in local state so a confirm/dismiss removes the row
+  // without a re-fetch (each recomputation costs two provider list calls).
+  const [suggestions, setSuggestions] = useState<readonly VehicleSuggestionView[]>(
+    initialSuggestionsView?.suggestions ?? [],
+  );
+  const [pendingSuggestionKey, setPendingSuggestionKey] = useState<string | null>(null);
+  const [bulkPending, setBulkPending] = useState(false);
+  const [suggestionError, setSuggestionError] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
+
+  /** Drop a suggestion, plus any sibling that just became impossible. */
+  function retireSuggestions(sourceVehicleId: string, targetVehicleId: string) {
+    setSuggestions((current) =>
+      current.filter(
+        (s) => s.sourceVehicleId !== sourceVehicleId && s.targetVehicleId !== targetVehicleId,
+      ),
+    );
+  }
+
+  function absorbConfirmedLink(link: VehicleLinkView) {
+    setLinks((current) => [
+      link,
+      ...current.filter((l) => l.sourceVehicleId !== link.sourceVehicleId),
+    ]);
+    setUnlinked((current) =>
+      current.filter((v) => v.sourceVehicleId !== link.sourceVehicleId),
+    );
+    retireSuggestions(link.sourceVehicleId, link.targetVehicleId);
+  }
+
+  async function handleConfirmSuggestion(input: {
+    suggestion: VehicleSuggestionView;
+    targetVehicleId: string;
+    targetLabel: string;
+  }) {
+    const key = suggestionKey(input.suggestion);
+    if (pendingSuggestionKey !== null) return;
+    setPendingSuggestionKey(key);
+    setSuggestionError(null);
+    setBanner(null);
+    try {
+      const link = await confirmSuggestion(accountId, {
+        sourceVehicleId: input.suggestion.sourceVehicleId,
+        targetVehicleId: input.targetVehicleId,
+      });
+      absorbConfirmedLink(link);
+    } catch (err) {
+      const code = err instanceof VehicleLinkApiError ? err.code : "request_failed";
+      setSuggestionError({ key, message: vehicleLinkErrorCopy(code) });
+    } finally {
+      setPendingSuggestionKey(null);
+    }
+  }
+
+  async function handleDismissSuggestion(suggestion: VehicleSuggestionView) {
+    const key = suggestionKey(suggestion);
+    if (pendingSuggestionKey !== null) return;
+    setPendingSuggestionKey(key);
+    setSuggestionError(null);
+    try {
+      await dismissSuggestion(accountId, {
+        sourceVehicleId: suggestion.sourceVehicleId,
+        targetVehicleId: suggestion.targetVehicleId,
+        tier: suggestion.tier,
+        evidenceFingerprint: suggestion.evidenceFingerprint,
+      });
+      // Only THIS pair disappears — dismissing one proposal never suppresses a
+      // different vehicle's suggestion.
+      setSuggestions((current) => current.filter((s) => suggestionKey(s) !== key));
+    } catch (err) {
+      const code = err instanceof VehicleLinkApiError ? err.code : "request_failed";
+      setSuggestionError({ key, message: vehicleLinkErrorCopy(code) });
+    } finally {
+      setPendingSuggestionKey(null);
+    }
+  }
+
+  async function handleBulkConfirm() {
+    if (bulkPending) return;
+    setBulkPending(true);
+    setBanner(null);
+    try {
+      const result = await bulkConfirmVinMatches(accountId);
+      for (const link of result.confirmed) absorbConfirmedLink(link);
+      if (result.skipped > 0) {
+        setBanner(
+          `${result.confirmed.length} linked. ${result.skipped} were skipped because those vehicles were already linked.`,
+        );
+      }
+    } catch (err) {
+      const code = err instanceof VehicleLinkApiError ? err.code : "request_failed";
+      setBanner(vehicleLinkErrorCopy(code));
+    } finally {
+      setBulkPending(false);
+    }
+  }
+
+  /**
+   * Re-link a stale mapping: archive the current link, which returns the truck
+   * to Unlinked so it can be paired afresh. Deliberately the SAME archive path
+   * as Remove — nothing is replaced behind the user's back.
+   */
+  function handleRelink(link: VehicleLinkView) {
+    void handleRemove(link.id);
+  }
 
   async function handleLink(input: {
     source: UnlinkedVehicleView;
@@ -166,7 +287,9 @@ export function VehicleLinksDashboard({
           links={links}
           canManage={canManage}
           pendingLinkId={pendingLinkId}
+          health={health}
           onRemove={handleRemove}
+          onRelink={handleRelink}
         />
       </section>
 
@@ -185,17 +308,29 @@ export function VehicleLinksDashboard({
         />
       </section>
 
-      {/* No fake suggestions: CS-4 ships no matching, so this shows nothing. */}
-      <section className="flex flex-col gap-2" data-testid="suggested-placeholder">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+      <section className="flex flex-col gap-3" data-testid="suggested-section">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
           Suggested
-          <Badge variant="outline">Coming next</Badge>
+          <Badge variant="outline">Always needs your confirmation</Badge>
         </h2>
-        <p className="text-sm text-muted-foreground">
-          ChainReact will soon propose matches by VIN, plate, and unit number — each
-          with the evidence it used, and each still needing your confirmation. Until
-          then, pair vehicles by hand above.
-        </p>
+        {initialSuggestionsView ? (
+          <SuggestedMatches
+            accountId={accountId}
+            canManage={canManage}
+            view={initialSuggestionsView}
+            suggestions={suggestions}
+            pendingKey={pendingSuggestionKey}
+            bulkPending={bulkPending}
+            rowError={suggestionError}
+            onConfirm={handleConfirmSuggestion}
+            onDismiss={handleDismissSuggestion}
+            onBulkConfirm={handleBulkConfirm}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground" data-testid="suggestions-disconnected">
+            Connect both Motive and Fleetio to see suggested matches.
+          </p>
+        )}
       </section>
     </div>
   );

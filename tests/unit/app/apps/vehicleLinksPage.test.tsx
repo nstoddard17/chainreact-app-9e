@@ -73,9 +73,20 @@ jest.mock("@/services/resourceLinks/vehicleLinkService", () => {
   };
 });
 
-const mockListOptions = jest.fn();
-jest.mock("@/services/resourceLinks/vehicleOptions", () => ({
-  listVehicleOptions: (...a: unknown[]) => mockListOptions(...a),
+// CS-5 — the page now loads the two provider INVENTORIES (identity intact) and
+// derives Unlinked, Suggested, and health from them.
+const mockMotiveInventory = jest.fn();
+const mockFleetioInventory = jest.fn();
+jest.mock("@/services/resourceLinks/vehicleInventory", () => ({
+  loadMotiveInventory: (...a: unknown[]) => mockMotiveInventory(...a),
+  loadFleetioInventory: (...a: unknown[]) => mockFleetioInventory(...a),
+}));
+
+const mockListSuggestions = jest.fn();
+const mockAssessHealth = jest.fn();
+jest.mock("@/services/resourceLinks/vehicleSuggestions", () => ({
+  listVehicleSuggestions: (...a: unknown[]) => mockListSuggestions(...a),
+  assessVehicleLinkHealth: (...a: unknown[]) => mockAssessHealth(...a),
 }));
 
 let dashboardProps: Record<string, unknown> | null = null;
@@ -130,15 +141,32 @@ beforeEach(() => {
   mockGetRole.mockResolvedValue("owner");
   mockListLinks.mockReset();
   mockListLinks.mockResolvedValue({ ok: true, links: [LINK] });
-  mockListOptions.mockReset();
-  mockListOptions.mockResolvedValue({
+  mockMotiveInventory.mockReset();
+  mockMotiveInventory.mockResolvedValue({
     status: "ok",
-    items: [
-      { value: "motive-veh-88231", label: "Unit 104" },
-      { value: "motive-veh-99999", label: "Unit 205" },
+    vehicles: [
+      { identity: { vehicleId: "motive-veh-88231", number: "104", vin: null, licensePlateNumber: null }, label: "Unit 104" },
+      { identity: { vehicleId: "motive-veh-99999", number: "205", vin: null, licensePlateNumber: null }, label: "Unit 205" },
     ],
     hasMore: false,
   });
+  mockFleetioInventory.mockReset();
+  mockFleetioInventory.mockResolvedValue({ status: "ok", vehicles: [], hasMore: false });
+  mockListSuggestions.mockReset();
+  mockListSuggestions.mockResolvedValue({
+    ok: true,
+    view: {
+      status: "ok",
+      suggestions: [],
+      bulkConfirmEnabled: false,
+      bulkConfirmableCount: 0,
+      partialInventory: false,
+    },
+  });
+  mockAssessHealth.mockReset();
+  mockAssessHealth.mockResolvedValue([
+    { linkId: "link-1", statuses: ["ok"], needsAttention: false },
+  ]);
 });
 afterEach(() => {
   delete process.env[RESOURCE_LINKS_UI_FLAG];
@@ -150,7 +178,8 @@ describe("feature flag", () => {
     await expect(renderPage()).rejects.toBe(notFoundError);
     expect(mockGetUser).not.toHaveBeenCalled();
     expect(mockListLinks).not.toHaveBeenCalled();
-    expect(mockListOptions).not.toHaveBeenCalled();
+    expect(mockMotiveInventory).not.toHaveBeenCalled();
+    expect(mockListSuggestions).not.toHaveBeenCalled();
   });
 
   it('only the exact string "true" enables the page', async () => {
@@ -171,23 +200,26 @@ describe("auth + membership gating", () => {
     mockGetUser.mockResolvedValueOnce({ data: { user: null }, error: null });
     await expect(renderPage()).rejects.toBe(redirectError);
     expect(mockListLinks).not.toHaveBeenCalled();
-    expect(mockListOptions).not.toHaveBeenCalled();
+    expect(mockMotiveInventory).not.toHaveBeenCalled();
+    expect(mockListSuggestions).not.toHaveBeenCalled();
   });
 
   it("notFound() for a non-member of the resolved account — no link read", async () => {
     mockGetRole.mockResolvedValueOnce(null);
     await expect(renderPage()).rejects.toBe(notFoundError);
     expect(mockListLinks).not.toHaveBeenCalled();
-    expect(mockListOptions).not.toHaveBeenCalled();
+    expect(mockMotiveInventory).not.toHaveBeenCalled();
+    expect(mockListSuggestions).not.toHaveBeenCalled();
   });
 
   it("scopes every read to the ACTIVE account, with the session user id", async () => {
     await renderPage();
     expect(mockListLinks).toHaveBeenCalledWith({ accountId: ACCOUNT, actingUserId: USER });
-    expect(mockListOptions).toHaveBeenCalledWith({
+    expect(mockMotiveInventory).toHaveBeenCalledWith({ accountId: ACCOUNT });
+    expect(mockFleetioInventory).toHaveBeenCalledWith({ accountId: ACCOUNT });
+    expect(mockListSuggestions).toHaveBeenCalledWith({
       accountId: ACCOUNT,
-      userId: USER,
-      side: "motive",
+      actingUserId: USER,
     });
   });
 });
@@ -216,12 +248,69 @@ describe("props threaded to the client", () => {
   });
 
   it("passes a DISCONNECTED Motive status through instead of an empty fleet", async () => {
-    mockListOptions.mockResolvedValueOnce({ status: "disconnected", items: [], hasMore: false });
+    mockMotiveInventory.mockResolvedValueOnce({ status: "disconnected", vehicles: [], hasMore: false });
     await renderPage();
     expect(dashboardProps!.motiveStatus).toBe("disconnected");
     expect(dashboardProps!.unlinked).toEqual([]);
     // Links still render — a disconnected Motive doesn't hide existing mappings.
     expect(dashboardProps!.links).toEqual([LINK]);
+  });
+
+  it("threads the suggestion view and the health annotations (CS-5)", async () => {
+    mockListSuggestions.mockResolvedValueOnce({
+      ok: true,
+      view: {
+        status: "ok",
+        suggestions: [
+          {
+            sourceVehicleId: "motive-veh-99999",
+            sourceLabel: "Unit 205",
+            targetVehicleId: "907",
+            targetLabel: "Truck 205",
+            tier: "vin",
+            confidence: "exact",
+            evidence: "VIN 1FUJGLDR… matches",
+            evidenceFingerprint: "vin|VIN 1FUJGLDR… matches",
+            ambiguous: false,
+            bulkConfirmable: true,
+          },
+        ],
+        bulkConfirmEnabled: false,
+        bulkConfirmableCount: 1,
+        partialInventory: false,
+      },
+    });
+    mockAssessHealth.mockResolvedValueOnce([
+      { linkId: "link-1", statuses: ["target_missing"], needsAttention: true },
+    ]);
+    await renderPage();
+    expect(
+      (dashboardProps!.suggestions as { suggestions: unknown[] }).suggestions,
+    ).toHaveLength(1);
+    expect(dashboardProps!.health).toEqual([
+      { linkId: "link-1", statuses: ["target_missing"], needsAttention: true },
+    ]);
+  });
+
+  it("omits the suggestions prop entirely when the caller may not read them", async () => {
+    mockListSuggestions.mockResolvedValueOnce({ ok: false, reason: "not_member" });
+    await renderPage();
+    // Absent, not an empty-but-authoritative view — the section then renders its
+    // own honest note rather than claiming "no matches".
+    expect(dashboardProps).not.toHaveProperty("suggestions");
+  });
+
+  it("assesses health against the SAME two inventories it already loaded", async () => {
+    await renderPage();
+    expect(mockAssessHealth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        motive: expect.objectContaining({ status: "ok" }),
+        fleetio: expect.objectContaining({ status: "ok" }),
+      }),
+    );
+    // One Motive call and one Fleetio call for the whole page.
+    expect(mockMotiveInventory).toHaveBeenCalledTimes(1);
+    expect(mockFleetioInventory).toHaveBeenCalledTimes(1);
   });
 
   it("never threads an accountId-bearing raw link row or a user id", async () => {

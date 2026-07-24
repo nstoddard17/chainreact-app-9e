@@ -362,14 +362,29 @@ describe("member (view-only)", () => {
   });
 });
 
-describe("Suggested section is honestly empty", () => {
-  it("renders a 'Coming next' note with NO candidate rows and no counts", () => {
-    renderDashboard();
-    const suggested = screen.getByTestId("suggested-placeholder");
+/**
+ * CS-5 replaced CS-4's "Coming next" placeholder with the real Suggested
+ * section (covered in depth by SuggestedMatches.test.tsx). What still matters
+ * HERE is the no-suggestions case this suite renders: the section must not
+ * invent rows when it was given nothing.
+ */
+describe("Suggested section with no suggestion data", () => {
+  it("shows the connect-both-apps note and NO candidate rows", () => {
+    renderDashboard(); // this suite passes no `suggestions` prop
+    const suggested = screen.getByTestId("suggested-section");
     expect(suggested).toHaveTextContent("Suggested");
-    expect(suggested).toHaveTextContent("Coming next");
+    expect(screen.getByTestId("suggestions-disconnected")).toHaveTextContent(
+      /Connect both Motive and Fleetio/i,
+    );
     // No fake proposals, no confirm affordance, no fabricated evidence.
     expect(suggested.querySelectorAll("button")).toHaveLength(0);
-    expect(suggested.textContent).not.toMatch(/VIN 1|match(ed)? on|\d+ suggestion/i);
+    expect(suggested.textContent).not.toMatch(/VIN 1|\d+ suggestion/i);
+  });
+
+  it("promises confirmation in the heading rather than implying auto-linking", () => {
+    renderDashboard();
+    expect(screen.getByTestId("suggested-section")).toHaveTextContent(
+      /Always needs your confirmation/i,
+    );
   });
 });

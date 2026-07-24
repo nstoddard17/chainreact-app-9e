@@ -1191,6 +1191,204 @@ change to CS-3's action, its schema, its output, or the Fleetio manifest.
 
 ---
 
+## 11f. CS-5 outcome — Suggestions + stale-link health (SHIPPED, flag-gated OFF)
+
+**Status:** implemented behind `ENABLE_RESOURCE_LINKS_UI` (**default OFF**), with exact-VIN
+**bulk** confirm behind a second, independent flag that is **also OFF and stays off** — see the
+live-verification finding below. CS-4's "Coming next" placeholder is now the real Suggested tab.
+
+### Final suggestion behavior
+
+Suggestions are computed **only** on page load, **only** in the service, and **never** during
+workflow execution — `fleetio:find_linked_vehicle` still does exact-key lookup against a stored
+link and imports none of this code.
+
+The matcher is CS-2's `proposeVehicleMatches`, unchanged. CS-5 added no matching logic; it added
+orchestration ([`vehicleSuggestions.ts`](../../../services/resourceLinks/vehicleSuggestions.ts))
+and inventory loading ([`vehicleInventory.ts`](../../../services/resourceLinks/vehicleInventory.ts)).
+
+| Tier | Signal | Confidence shown | Evidence rendered verbatim |
+|---|---|---|---|
+| 1 `vin` | VIN equal after trim + uppercase | **Exact match** | `VIN 1FUJGLDR… matches` |
+| 2 `plate` | plate equal after trim + uppercase + stripping spaces/hyphens | **Strong match** | `Plate ABC-1234 matches` |
+| 3 `number` | Motive `number` equals Fleetio `name`, case-insensitive | **Likely match** | `Unit 104 matches "104"` |
+| 4 `name` | `number` appears as a WHOLE TOKEN in `name` | **Possible match** | `Unit 104 appears in "Truck 104"` |
+
+Rules, each asserted by test:
+
+- **Nothing is ever created automatically.** Loading the tab writes zero links and zero
+  dismissals; every row needs a click.
+- **One proposal per pair, at its strongest tier** — never four rows for one truck.
+- **No score, no percentage, no bar.** Confidence is a word, and the evidence sentence is the
+  whole claim. An opaque number would let a weak match borrow a strong one's authority.
+- **Blank never matches blank** on any tier (null/empty/whitespace simply does not participate).
+- **Already-linked vehicles are excluded** before ambiguity is computed, so linking one of two
+  rivals leaves the survivor clean. An ARCHIVED link does *not* exclude — that truck is free again.
+- **Ambiguous rows cannot be confirmed as proposed.** The Confirm button is disabled until the
+  user picks a specific Fleetio vehicle from the real picker; the CHOSEN id is what gets sent.
+- **Partial pages are declared.** When either provider page is truncated the tab says so, rather
+  than implying "no other matches exist".
+- **VIN and plate never cross the server→client boundary.** The matcher reads them server-side;
+  what ships is the rendered evidence sentence (which carries a shortened VIN at most).
+
+**The server re-derives the tier.** `ConfirmSuggestionBodySchema` is `.strict()` and has no
+`matchBasis` field: confirming recomputes the proposal set and reads the tier from the matcher.
+A client therefore cannot record a stronger `match_basis` than the evidence supports, and a
+suggestion that went stale between load and click is caught at confirm time. A pair that is no
+longer proposed is still confirmable — the user did choose it — but is honestly recorded as
+`manual`.
+
+### Bulk-confirm safety rules
+
+Eligibility (`bulkConfirmable`) is true **only** when all of these hold:
+
+1. the match is tier-1 **exact VIN**,
+2. it is **unambiguous** — exactly one Motive and one Fleetio vehicle share that VIN,
+3. neither side already holds an active link (enforced upstream by the matcher's exclusion), and
+4. the target is not claimed earlier in the same batch (a running claim set inside the loop).
+
+Everything else is one click per row. Bulk confirm is an explicit owner/admin POST with an
+**empty body** — the server recomputes what to write, so a client cannot hand it a list of pairs.
+It refuses outright when either provider list is unavailable (never bulk-write from a partial view
+of the fleet), and a lost race counts as `skipped` rather than failing the batch.
+
+### Live Fleetio VIN/plate verification — the finding
+
+**Verification could NOT be performed, and exact-VIN bulk confirm is therefore disabled.**
+
+A read-only probe of the development Supabase project (`qcepijemjlkssfkvzlio`) found **zero rows
+in `integrations` with `provider = 'fleetio'`** — total and active. Fleetio uses `credential_paste`,
+so its credentials live in that table rather than in env; with no connected account there is no
+key to call `GET /vehicles` with, and nothing was fabricated in place of live evidence.
+
+| Question | Answer |
+|---|---|
+| Is VIN populated on `GET /vehicles`? | **Unverified.** The 2025-05-05 schema *declares* `vin`, and CS-2 widened the projection to read it — but schema presence is not population. |
+| Is license plate populated? | **Unverified**, same reason. |
+| Reliable enough to enable exact-match bulk confirm? | **No — not yet.** Bulk confirm writes N mappings from one click, and its entire safety argument rests on VIN being present and correct on both sides. |
+| How does the UI behave when they are missing? | It degrades rather than breaks. Blank VIN/plate never match, so those fleets fall through to tiers 3–4 or manual pairing. The Suggested tab simply shows fewer (or no) rows; nothing errors and nothing is mis-paired. |
+
+`ENABLE_VEHICLE_VIN_BULK_CONFIRM` (default OFF) gates **only** the multi-write shortcut.
+Individual confirmation of a VIN-tier suggestion remains available with the flag off — a human
+reading one row's evidence and clicking once is safe regardless of how well-populated VIN is
+across a fleet. With the gate closed the UI renders **no bulk button** and instead says
+"*N exact VIN matches found. Confirming them all at once isn't available yet — confirm the ones
+you want individually below*", and the route answers `403 NOT_ENABLED`.
+
+**To lift it:** connect a real Fleetio account, confirm `vin` is populated on `GET /vehicles`,
+record the finding here, then set the env var.
+
+### Dismiss behavior
+
+New table [`public.account_resource_link_dismissals`](../../../supabase/migrations/20260731000000_account_resource_link_dismissals.sql)
+— **not** a link, and never stored as one. Nothing on the execution path reads it; its entire
+blast radius is which rows the Suggested tab shows.
+
+A dismissal stores the rejected pair plus an **evidence fingerprint** (`<tier>|<evidence>` as the
+user saw it, bounded ≤512, compared for equality only, never parsed). That is what makes it
+specific: the pair stays suppressed **while the claim is unchanged**, and if a fleet manager later
+fixes a VIN so the same pair starts matching on VIN instead of a weak name token, the fingerprint
+differs and the suggestion legitimately returns — a materially different claim deserves a fresh
+judgement. Deliberately a dumb equality check: no decay, no scoring, no re-ranking.
+
+- One **active** dismissal per pair (partial unique index); re-dismissing archives the previous
+  row and inserts, so evidence variants do not accumulate.
+- Archived, never deleted — "why did this stop being suggested in July?" stays answerable.
+- Confirming a pair archives any live dismissal for it, so a settled question cannot suppress a
+  future re-suggestion.
+- Owner/admin only: a dismissal changes what every member sees, so it is a management act.
+
+### Stale-link behavior
+
+Pure comparison in [`core/resourceLinks/linkHealth.ts`](../../../core/resourceLinks/linkHealth.ts),
+computed at page load from the two lists already fetched. No background job, no scheduled sync.
+
+| Status | When | UI |
+|---|---|---|
+| `ok` | both visible | no warning |
+| `source_missing` | Motive list loaded, vehicle absent | warning + Re-link |
+| `target_missing` | Fleetio list loaded, vehicle absent | warning + Re-link |
+| `target_archived` | Fleetio returned it with `archived_at` | warning + Re-link |
+| `source_unknown` | Motive list **could not be loaded** | muted "can't check right now" |
+| `target_unknown` | Fleetio list **could not be loaded** | muted "can't check right now" |
+
+**The rule that matters most: an outage is not a deletion.** When a list is unavailable every link
+on that side reports `*_unknown`, never `*_missing`, and `needsAttention` stays false so no Re-link
+button appears. Without this, a five-minute Fleetio blip would render an entire fleet as "no longer
+visible" and invite users to remove healthy mappings. `ok` is likewise never reported on the
+strength of an unavailable list.
+
+Nothing is auto-archived or auto-replaced. The mapping stays visible with its stored **last-seen
+snapshot** names, and Re-link routes through the SAME archive path as Remove — so the truck simply
+returns to Unlinked to be paired afresh.
+
+**Stated honestly:** `GET /vehicles` excludes archived vehicles by default, so a vehicle archived
+in Fleetio normally disappears from the list entirely and reports as `target_missing`. From
+ChainReact's vantage point "archived" and "deleted" are indistinguishable without a second,
+archived-inclusive request. `target_archived` exists because the projection carries `archived_at`
+and a caller that ever supplies an archived-inclusive list gets the more specific answer for free.
+
+### Permission and isolation results
+
+Unchanged from CS-4 and re-proven for every new operation: **owner/admin** confirm, bulk confirm,
+dismiss, remove, re-link; **members** view suggestions, evidence, and health but get no mutation
+affordance (and a 403 if they try anyway); **non-members** get 403 and learn nothing. Every
+`accountId` is server-derived from the path + verified session; a body-supplied one is a `.strict()`
+400. Creator/confirmer identity remains audit-only and is never consulted for authorization.
+
+Isolation proven as semantics against predicate-evaluating in-memory stores:
+
+- A's suggestions use A's inventory, A's links, and A's dismissals only.
+- B holding a link **or** a dismissal for the identical pair changes nothing for A, and vice versa.
+- A's dismissal does not suppress the same pair for B.
+- Identical VINs / plates / vehicle ids across two accounts stay isolated.
+- Confirming in A writes A's account id; no caller-supplied account id is ever honored.
+- Live DB: B can neither read nor archive A's dismissal; two accounts may hold identical pairs.
+
+### Migration created, applied, and validated
+
+`20260731000000_account_resource_link_dismissals.sql` — created, applied to the development
+Supabase project (`qcepijemjlkssfkvzlio`) via `npm run db:push`, and **database-validated**:
+[`tests/integration/security/account-resource-link-dismissals-rls.test.ts`](../../../tests/integration/security/account-resource-link-dismissals-rls.test.ts)
+passes **12/12** against the real schema — the anon/authenticated REVOKE denying `42501` (not an
+empty result), anon blind, account cascade, user-deletion nulling provenance while the row
+survives, every CHECK rejecting its bad input, the partial unique index holding, archiving freeing
+the pair, two accounts holding identical pairs, and B unable to read or archive A's row.
+
+### Tests run (focused — full suite intentionally NOT run, per owner instruction)
+
+| Suite | Result |
+|---|---|
+| [`vehicleSuggestions.test.ts`](../../../tests/unit/services/resourceLinks/vehicleSuggestions.test.ts) (new) — every tier, evidence, ambiguity, blanks, exclusions, dismiss/reappear, bulk gating, permissions, isolation, health | 55 passed |
+| [`vehicle-suggestions.route.test.ts`](../../../tests/unit/app/api/accounts/vehicle-suggestions.route.test.ts) (new) — three routes, both flags, authz, no-leak | 17 passed |
+| [`SuggestedMatches.test.tsx`](../../../tests/unit/features/apps/vehicleLinks/SuggestedMatches.test.tsx) (new) — evidence UI, ambiguity forcing a pick, dismiss, bulk gate copy, all list states, member view, stale-link health | 24 passed |
+| [`linkHealth.test.ts`](../../../tests/unit/core/resourceLinks/linkHealth.test.ts) (new) — outage-vs-deletion, archived, purity | 16 passed |
+| [`vehicleInventory.test.ts`](../../../tests/unit/services/resourceLinks/vehicleInventory.test.ts) (new) — account scoping, disconnected vs error, identity retention, **label parity pinned against the real resolvers** | 14 passed |
+| [`accountResourceLinkDismissals.test.ts`](../../../tests/unit/repositories/accountResourceLinkDismissals.test.ts) (new) — predicates, approved columns, isolation semantics, DTO projection | 17 passed |
+| [`accountResourceLinkDismissals.test.ts` (migration)](../../../tests/unit/migrations/accountResourceLinkDismissals.test.ts) (new) — static SQL guards incl. REVOKE-before-GRANT | 19 passed |
+| Consolidated focused run (all of the above + CS-1 repo/migration, CS-2 matching, CS-3 action/meta, CS-4 service/routes/UI/page, all Fleetio + Motive resolver suites, error humanization, `core-purity`, `api-route-authorization`, `no-service-role-imports`) | **45 suites / 679 passed** |
+| Gated live DB (`ALLOW_DB_INTEGRATION_TESTS=true`) | **12 passed** against the applied migration |
+| `npm run typecheck` · `lint` · `lint:structure` · `lint:migrations` | all clean (lint: 0 errors, 22 pre-existing max-lines warnings) |
+| Direct `npx eslint` on all 25 touched files | clean |
+
+### What remains for CS-6
+
+The flagship mock-boundary walkthrough (§8): a Motive trigger → `motive:get_fuel_purchase` →
+`fleetio:find_linked_vehicle` → `fleetio:create_meter_entry` through the real engine with one
+mocked Fleetio write, plus account-B isolation and the archived-link stop. Then the **flag-flip
+decision** for `ENABLE_RESOURCE_LINKS_UI`, and with it two follow-ups this slice deliberately
+deferred:
+
+1. the `link_vehicles` CTA action so the `UNMAPPED_VEHICLE` run error links straight to the screen
+   (CS-4 left it action-less rather than pointing at a flag-gated 404), and
+2. lifting `ENABLE_VEHICLE_VIN_BULK_CONFIRM` **only after** a real Fleetio account confirms VIN is
+   populated — plan **Q1**, still open and now the single named blocker for that affordance.
+
+CS-5 added no background job, no scheduled sync, no fuzzy scoring, no new workflow action, no
+change to Create Meter Entry, and no change to `OptionsResolverContext`.
+
+---
+
 ## 12. Hard boundaries — what this slice did NOT change
 
 *(Scope statement for the PLANNING slice, kept as written at the time.)* No source file, test,

@@ -109,6 +109,75 @@ export async function archiveVehicleLink(
   if (!response.ok) throw await toApiError(response);
 }
 
+// ── Suggestions (5.TRUCK-BRIDGE-1 CS-5) ─────────────────────────────────────
+
+export interface ConfirmSuggestionInput {
+  readonly sourceVehicleId: string;
+  readonly targetVehicleId: string;
+}
+
+/**
+ * Confirm one proposed pairing. Note the body carries NO match tier: the server
+ * re-derives it from its own matcher, so the client cannot claim stronger
+ * evidence than actually holds.
+ */
+export async function confirmSuggestion(
+  accountId: string,
+  input: ConfirmSuggestionInput,
+): Promise<VehicleLinkView> {
+  const response = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/vehicle-links/suggestions`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!response.ok) throw await toApiError(response);
+  const body = (await response.json()) as { link: VehicleLinkView };
+  return body.link;
+}
+
+export interface DismissSuggestionInput {
+  readonly sourceVehicleId: string;
+  readonly targetVehicleId: string;
+  readonly tier: "vin" | "plate" | "number" | "name";
+  /** Echoed from the row the user saw, so the dismissal pins that exact claim. */
+  readonly evidenceFingerprint: string;
+}
+
+export async function dismissSuggestion(
+  accountId: string,
+  input: DismissSuggestionInput,
+): Promise<void> {
+  const response = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/vehicle-links/suggestions/dismiss`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!response.ok) throw await toApiError(response);
+}
+
+export interface BulkConfirmResponse {
+  readonly confirmed: readonly VehicleLinkView[];
+  readonly skipped: number;
+}
+
+/** Empty body on purpose — the server recomputes eligibility itself. */
+export async function bulkConfirmVinMatches(
+  accountId: string,
+): Promise<BulkConfirmResponse> {
+  const response = await fetch(
+    `/api/accounts/${encodeURIComponent(accountId)}/vehicle-links/suggestions/bulk-confirm`,
+    { method: "POST" },
+  );
+  if (!response.ok) throw await toApiError(response);
+  return (await response.json()) as BulkConfirmResponse;
+}
+
 export async function fetchVehicleOptions(
   accountId: string,
   provider: "motive" | "fleetio",
