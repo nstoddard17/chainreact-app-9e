@@ -763,6 +763,68 @@ metadata, exactly as scoped.
 
 ---
 
+## 11c. CS-2 outcome — Matching core (SHIPPED, inert)
+
+**Status:** implemented. Still no UI, no route, no action, no resolver — nothing reads this module
+in production yet. It exists so CS-5's Suggested tab has a pure, tested engine to call.
+
+### Bounded projection widening
+
+[`integrations/fleetio/api/vehicles.ts`](../../../integrations/fleetio/api/vehicles.ts) —
+`FleetioVehicleSummary` gained five IDENTITY fields: `vin`, `license_plate`, `make`, `model`, `year`.
+All five are present on the wire `VehicleSummary` in the 2025-05-05 OpenAPI schema (§2.4), so the
+matcher reads data `GET /vehicles` **already returns** — no extra API call, no `GET /vehicles/{id}`
+fan-out. Still an explicit key set, still never a spread. Deliberately NOT added: meter values,
+counts, labels, group ancestry, `is_sample` — none has a consumer, and an option projection must not
+become a data dump. The `fleetio:vehicles` OPTION shape is unchanged (value + label + status), so the
+picker is byte-identical; all 26 Fleetio/resource-link suites (304 tests) pass unchanged.
+
+### `core/resourceLinks/matchSignals.ts` — pure, and pure by structure test
+
+`proposeVehicleMatches({ sources, targets, alreadyLinkedSourceIds?, alreadyLinkedTargetIds? })` →
+`MatchProposal[]`, plus `bulkConfirmableProposals()`. No I/O, no clock, no randomness, no
+repository/service imports (enforced by `tests/structure/core-purity.test.ts`).
+
+| Tier | Signal | Confidence | `match_basis` |
+|---|---|---|---|
+| 1 `vin` | VIN equal after trim + uppercase | exact | `suggested_vin` |
+| 2 `plate` | plate equal after trim + uppercase + stripping spaces/hyphens | strong | `suggested_plate` |
+| 3 `number` | Motive `number` equals Fleetio `name`, case-insensitive | moderate | `suggested_number` |
+| 4 `name` | `number` appears as a WHOLE TOKEN in `name` | weak | `suggested_name` |
+
+Decisions worth recording:
+
+- **One proposal per pair, at its strongest tier** — never four rows for one truck. A tier-3 exact
+  match never also emits a tier-4 containment duplicate.
+- **Tier 4 is whole-token, not substring.** Unit `10` does **not** match `"Truck 104"`. The needle is
+  regex-escaped, so a unit number containing metacharacters (`10.4`) cannot alter the pattern.
+- **Ambiguity is computed WITHIN a tier.** A rival at a different tier never flags a proposal. An
+  ambiguous proposal is still returned (the user may know the answer) but is flagged so the UI
+  requires a per-row choice — nothing is auto-resolved and there is no tie-break heuristic.
+- **`bulkConfirmable` is true only for an unambiguous tier-1 match**, which is exactly the plan's
+  "Confirm all exact VIN matches" affordance and nothing more.
+- **Blank never matches blank** on any tier — null/empty/whitespace simply does not participate.
+- **Exclusion happens before ambiguity**, so linking one of two rivals leaves the survivor clean
+  (and, for VIN, bulk-confirmable) rather than permanently flagged.
+- `TIER_MATCH_BASIS` is asserted against the migration's CHECK set, so tier↔column drift fails in
+  unit tests rather than as a constraint violation on a user's first confirm.
+
+**Tests:** [`tests/unit/core/resourceLinks/matchSignals.test.ts`](../../../tests/unit/core/resourceLinks/matchSignals.test.ts)
+— **31 passed**, covering tier selection and ordering determinism, cross-provider plate
+normalization, whole-token and regex-escape behavior, all six null-safety cases, ambiguity in both
+directions and across tiers, bulk-confirm eligibility per tier, already-linked exclusion, input
+immutability, empty inputs, and a 100×100 fleet page yielding 100 clean pairings rather than a cross
+product.
+
+### What remains for CS-3
+
+Unchanged from §9: `fleetio:find_linked_vehicle` (schema/output/meta/handler), both registrations,
+and the action/metadata/readiness/isolation/test-mode tests, plus the catalog-count update from three
+Fleetio actions to four. CS-2 added no service, no route, no UI, no option resolver, and no workflow
+metadata.
+
+---
+
 ## 12. Hard boundaries — what this slice did NOT change
 
 *(Scope statement for the PLANNING slice, kept as written at the time.)* No source file, test,

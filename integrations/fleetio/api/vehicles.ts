@@ -34,13 +34,35 @@ export interface FleetioVehicle {
   updated_at: string | null;
 }
 
-/** The vehicle-summary fields the resolver reads (a subset of Fleetio's VehicleSummary). */
+/**
+ * The vehicle-summary fields V2 reads (a bounded subset of Fleetio's
+ * `VehicleSummary`).
+ *
+ * TRUCK-BRIDGE-1 CS-2 widened this by five IDENTITY fields — `vin`,
+ * `license_plate`, `make`, `model`, `year` — verified present on the wire
+ * `VehicleSummary` in the 2025-05-05 OpenAPI schema. They exist so the vehicle
+ * LINK matcher can propose Motive↔Fleetio pairs from data the list endpoint
+ * ALREADY returns, instead of issuing one `GET /vehicles/{id}` per vehicle.
+ *
+ * This stays a bounded projection: still an explicit key set, still never a
+ * spread of the raw record. Deliberately NOT added: meter values, counts,
+ * labels, group ancestry, `is_sample`, or anything else on the wire object —
+ * nothing here has a consumer, and an option label must never widen into a data
+ * dump. The options resolver's OPTION shape is unchanged (value + label +
+ * status description); these fields feed the matcher only.
+ */
 export interface FleetioVehicleSummary {
   id: number;
   name: string | null;
   vehicle_status_name: string | null;
   vehicle_type_name: string | null;
   archived_at: string | null;
+  /** Identity fields — matcher input only (CS-2). Frequently null in real fleets. */
+  vin: string | null;
+  license_plate: string | null;
+  make: string | null;
+  model: string | null;
+  year: number | null;
 }
 
 interface VehiclesListEnvelope {
@@ -85,6 +107,11 @@ function toVehicleSummary(raw: unknown): FleetioVehicleSummary | null {
     vehicle_status_name: str(v.vehicle_status_name),
     vehicle_type_name: str(v.vehicle_type_name),
     archived_at: str(v.archived_at),
+    vin: str(v.vin),
+    license_plate: str(v.license_plate),
+    make: str(v.make),
+    model: str(v.model),
+    year: num(v.year),
   };
 }
 
