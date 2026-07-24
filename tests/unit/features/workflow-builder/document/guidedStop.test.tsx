@@ -68,6 +68,10 @@ jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: async () => [],
   listNativeTriggers: async () => [],
+  // AI-PROVIDER-4 CS-4 — the ActionPicker calls `useAiActions(true)`, so any
+  // suite that opens the picker must stub this catalog. Empty is the honest
+  // default (the server returns an empty list while the AI processor is off).
+  listAiActions: async () => [],
   listProviderActions: async (provider: string) =>
     provider === "slack" ? [slackSendMessage] : [],
   listProviderTriggers: async () => [],

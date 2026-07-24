@@ -35,6 +35,9 @@ jest.mock("@/lib/api/discovery", () => ({
   __esModule: true,
   listNativeActions: async () => [ifThenMeta],
   listNativeTriggers: async () => [],
+  // AI-PROVIDER-4 CS-4 — the ActionPicker calls `useAiActions(true)`; empty is
+  // the honest default (server returns none while the AI processor is off).
+  listAiActions: async () => [],
   listProviderActions: async (provider: string) => (provider === "slack" ? [slackAction] : []),
   listProviderTriggers: async () => [],
   DiscoveryApiError: class DiscoveryApiError extends Error { code = "UNKNOWN"; status = 500; },
