@@ -26,6 +26,7 @@ export const edenGetPromptMeta: ActionMeta = {
       type: "combobox",
       required: true,
       optionsSource: "eden:prompts",
+      allowManualEntry: true,
       dependsOn: "workspaceId",
       placeholder: "Select a saved prompt/skill",
     },

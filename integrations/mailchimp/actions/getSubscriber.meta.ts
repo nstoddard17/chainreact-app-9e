@@ -43,6 +43,7 @@ export const mailchimpGetSubscriberMeta: ActionMeta = {
       description: "Subscriber email — pick a member of the selected audience, or type/wire an email. Required: used to derive the per-list subscriber hash for the API path.",
       type: "combobox",
       optionsSource: "mailchimp:members",
+      allowManualEntry: true,
       dependsOn: "audience_id",
       required: true,
       placeholder: "Select or type a subscriber email",

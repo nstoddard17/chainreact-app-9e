@@ -40,6 +40,7 @@ export const googleDriveSearchFilesMeta: ActionMeta = {
       type: "combobox",
       required: false,
       optionsSource: "google-drive:folders",
+      allowManualEntry: true,
       placeholder: "My Drive (or pick a folder)",
     },
     {

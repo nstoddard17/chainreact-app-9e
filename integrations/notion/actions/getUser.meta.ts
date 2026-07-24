@@ -34,6 +34,7 @@ export const notionGetUserMeta: ActionMeta = {
         "Notion user. Pick from the workspace users list, or wire from upstream `{{notion:list_users.users[0].userId}}` / a trigger payload.",
       type: "combobox",
       optionsSource: "notion:users",
+      allowManualEntry: true,
       required: true,
       placeholder: "Select a user",
     },

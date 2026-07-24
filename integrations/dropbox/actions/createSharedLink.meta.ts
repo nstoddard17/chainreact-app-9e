@@ -35,6 +35,7 @@ export const dropboxCreateSharedLinkMeta: ActionMeta = {
         "Pick a file from the selected folder, or type a full Dropbox path. Root-level paths must be typed manually.",
       type: "combobox",
       optionsSource: "dropbox:files",
+      allowManualEntry: true,
       dependsOn: "folderPath",
       required: true,
       placeholder: "Select a folder first, or type a path",

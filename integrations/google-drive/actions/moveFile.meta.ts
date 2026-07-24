@@ -42,6 +42,7 @@ export const googleDriveMoveFileMeta: ActionMeta = {
       type: "combobox",
       required: true,
       optionsSource: "google-drive:folders",
+      allowManualEntry: true,
       placeholder: "Pick a destination folder",
     },
   ],

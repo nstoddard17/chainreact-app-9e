@@ -38,6 +38,7 @@ export const trelloCreateCardMeta: ActionMeta = {
       type: "combobox",
       required: true,
       optionsSource: "trello:lists",
+      allowManualEntry: true,
       dependsOn: "boardId",
       placeholder: "Select a board first, or paste a list id",
     },

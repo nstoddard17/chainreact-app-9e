@@ -34,6 +34,7 @@ export const microsoftOneDriveGetFileMeta: ActionMeta = {
       type: "combobox",
       required: true,
       optionsSource: "microsoft-onedrive:files",
+      allowManualEntry: true,
       placeholder: "Select a file, or paste an item id",
     },
   ],

@@ -26,6 +26,7 @@ export const edenReadBoardMeta: ActionMeta = {
       type: "combobox",
       required: true,
       optionsSource: "eden:boards",
+      allowManualEntry: true,
       dependsOn: "workspaceId",
       placeholder: "Select a board, or paste a board id",
     },

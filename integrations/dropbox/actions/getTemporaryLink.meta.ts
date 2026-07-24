@@ -37,6 +37,7 @@ export const dropboxGetTemporaryLinkMeta: ActionMeta = {
         "Pick a file from the selected folder, or type a full Dropbox file path. Root-level files must be typed manually.",
       type: "combobox",
       optionsSource: "dropbox:files",
+      allowManualEntry: true,
       dependsOn: "folderPath",
       required: true,
       placeholder: "Select a folder first, or type a path",

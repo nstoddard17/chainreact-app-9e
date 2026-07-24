@@ -27,6 +27,7 @@ export const microsoftOneDriveListItemsMeta: ActionMeta = {
       type: "combobox",
       required: false,
       optionsSource: "microsoft-onedrive:folders",
+      allowManualEntry: true,
       placeholder: "Drive root (or pick a folder)",
     },
     {

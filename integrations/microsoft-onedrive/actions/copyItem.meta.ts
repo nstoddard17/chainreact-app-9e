@@ -36,6 +36,7 @@ export const microsoftOneDriveCopyItemMeta: ActionMeta = {
       type: "combobox",
       required: true,
       optionsSource: "microsoft-onedrive:items",
+      allowManualEntry: true,
       dependsOn: "parentItemId",
       placeholder: "Select a source folder first, or paste an item id",
     },

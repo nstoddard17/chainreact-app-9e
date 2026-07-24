@@ -26,6 +26,7 @@ export const edenRenameNoteMeta: ActionMeta = {
       type: "combobox",
       required: true,
       optionsSource: "eden:notes",
+      allowManualEntry: true,
       dependsOn: "workspaceId",
       placeholder: "Select a note, or paste a note id",
     },
