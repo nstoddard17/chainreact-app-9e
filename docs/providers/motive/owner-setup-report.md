@@ -92,8 +92,8 @@ Required portal configuration (checkbox ✓ + dropdown level):
 | `MOTIVE_CLIENT_ID` | yes | ✓ | ✓ | ✓ | oauth.ts | Motive developer app client id |
 | `MOTIVE_CLIENT_SECRET` | yes | ✓ | ✓ | ✓ | oauth.ts | Motive developer app client secret |
 | `NEXT_PUBLIC_APP_URL` | yes | ✓ | ✓ | ✓ | oauth + webhook URL | already set for the app |
-| `MOTIVE_AUTHORIZE_BASE` | no | opt | opt | — | oauth.ts | e2e override (default `https://gomotive.com`) |
-| `MOTIVE_TOKEN_BASE` | no | opt | opt | — | oauth.ts | e2e override (default `https://gomotive.com`) |
+| `MOTIVE_AUTHORIZE_BASE` | no | opt | opt | — | oauth.ts | e2e override (default `https://account.gomotive.com` — live-corrected 2026-07-24; bare `gomotive.com` 404s the token POST) |
+| `MOTIVE_TOKEN_BASE` | no | opt | opt | — | oauth.ts | e2e override (default `https://account.gomotive.com`) |
 | `MOTIVE_API_BASE` | no | opt | opt | — | api/_request | e2e override (default `https://api.gomotive.com`) |
 | `MOTIVE_WEBHOOK_URL` | no | opt (tunnel) | opt | — | notificationUrl | tunnel origin for local webhook testing |
 | `MOTIVE_FUEL_IMPORT_PATH` | no | opt | opt | opt | fuelPurchases.ts | override the bulk-CSV import path once its exact contract is confirmed live |

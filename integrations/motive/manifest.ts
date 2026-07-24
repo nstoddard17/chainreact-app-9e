@@ -11,9 +11,11 @@ import {
  *
  * Auth model — OAuth 2.0 authorization code, confidential client, NO PKCE,
  * body-auth token exchange, refreshable:
- *   - `authorize`: `https://gomotive.com/oauth/authorize`
- *   - `token`:     `https://gomotive.com/oauth/token` (legacy
- *     `keeptruckin.com/oauth/token` also documented — verified at live cert)
+ *   - `authorize`: `https://account.gomotive.com/oauth/authorize`
+ *   - `token`:     `https://account.gomotive.com/oauth/token`
+ *     (LIVE-CORRECTED 2026-07-24: the docs' bare `gomotive.com` host only
+ *     works for authorize because the browser follows a redirect to
+ *     `account.gomotive.com`; a server-side token POST to it returns 404)
  *   - Access tokens expire after 2 hours (`expires_in: 7200`); refresh tokens
  *     are SINGLE-USE / rotating — `oauth.ts` persists the returned refresh token
  *     on every exchange/refresh (Calendly/QuickBooks rotation-persist shape).

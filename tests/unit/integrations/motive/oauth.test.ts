@@ -58,9 +58,11 @@ const TOKEN_SUCCESS = {
 const USERS_ME = { user: { id: 5, first_name: "Sam", last_name: "Driver", company: { id: 8801, name: "Acme Freight" } } };
 
 describe("buildAuthUrl", () => {
-  it("produces the gomotive authorize URL with NO PKCE params and no secret", () => {
+  it("produces the account.gomotive.com authorize URL with NO PKCE params and no secret", () => {
     const url = new URL(motiveOAuth.buildAuthUrl("signed-state", [...SCOPES], null));
-    expect(url.origin).toBe("https://gomotive.com");
+    // account.gomotive.com is Motive's real OAuth host (live-corrected
+    // 2026-07-24) — bare gomotive.com 404s the server-side token POST.
+    expect(url.origin).toBe("https://account.gomotive.com");
     expect(url.pathname).toBe("/oauth/authorize");
     expect(url.searchParams.get("client_id")).toBe("test-motive-client-id");
     expect(url.searchParams.get("response_type")).toBe("code");
@@ -102,7 +104,7 @@ describe("handleCallback", () => {
     const result = await motiveOAuth.handleCallback("code-1", "state", null, null, {});
 
     const [tokenUrl, tokenInit] = spy.mock.calls[0]!;
-    expect(String(tokenUrl)).toBe("https://gomotive.com/oauth/token");
+    expect(String(tokenUrl)).toBe("https://account.gomotive.com/oauth/token");
     const body = String((tokenInit as { body?: unknown }).body);
     expect(body).toContain("grant_type=authorization_code");
     expect(body).toContain("code=code-1");

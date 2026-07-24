@@ -13,10 +13,16 @@
 - **Type:** OAuth 2.0 **authorization-code** flow, confidential client
   (`client_secret`). **No PKCE** — Motive's docs document no
   `code_challenge`/`code_verifier`. (QuickBooks/Slack non-PKCE posture.)
-- **Authorize URL:** `https://gomotive.com/oauth/authorize`
+- **Authorize URL:** `https://account.gomotive.com/oauth/authorize`
+  (**LIVE-CORRECTED 2026-07-24:** the docs say `gomotive.com`, which only works
+  in the browser because it redirects to `account.gomotive.com` — the real
+  OAuth host. A server-side `POST gomotive.com/oauth/token` returns 404; this
+  broke the first prod connect.)
   `?client_id=…&redirect_uri=…&response_type=code&scope=<space-joined>&state=…`
-- **Token URL:** `https://gomotive.com/oauth/token` (docs also show the legacy
-  `keeptruckin.com/oauth/token`; both hosts are dual-supported — **verify live**).
+- **Token URL:** `https://account.gomotive.com/oauth/token` (**LIVE-VERIFIED
+  2026-07-24:** `gomotive.com/oauth/token` returns **404** — the "dual-supported
+  hosts" claim is wrong for server-side calls; `account.gomotive.com` responds
+  with proper Doorkeeper JSON. Legacy `keeptruckin.com` untested/unused).
   Overridable via `MOTIVE_TOKEN_BASE` / `MOTIVE_AUTHORIZE_BASE` for e2e.
 - **Token exchange:** POST form body `grant_type=authorization_code`, `code`,
   `redirect_uri`, `client_id`, `client_secret` (body-auth; **verify whether

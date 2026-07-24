@@ -43,16 +43,23 @@ import {
  *   - NEXT_PUBLIC_APP_URL — base for the OAuth callback URL.
  *   - MOTIVE_CLIENT_ID / MOTIVE_CLIENT_SECRET — Motive developer-portal keys.
  *   - MOTIVE_AUTHORIZE_BASE / MOTIVE_TOKEN_BASE — e2e overrides (production never
- *     sets these; default `https://gomotive.com`).
+ *     sets these; default `https://account.gomotive.com` — the real OAuth host,
+ *     live-corrected 2026-07-24; bare `gomotive.com` 404s the token POST).
  *   - MOTIVE_API_BASE — company-info read base (default `https://api.gomotive.com`).
  */
 
+// LIVE-CORRECTED 2026-07-24: Motive's OAuth host is `account.gomotive.com`.
+// The docs' `gomotive.com/oauth/authorize` only appears to work because the
+// BROWSER follows a redirect to account.gomotive.com — a server-side
+// `POST gomotive.com/oauth/token` returns 404 (verified live; broke the first
+// prod connect). `POST account.gomotive.com/oauth/token` is the real
+// Doorkeeper endpoint (dummy-cred probe returns a proper `invalid_client`).
 function motiveAuthorizeBase(): string {
-  return process.env.MOTIVE_AUTHORIZE_BASE ?? "https://gomotive.com";
+  return process.env.MOTIVE_AUTHORIZE_BASE ?? "https://account.gomotive.com";
 }
 
 function motiveTokenBase(): string {
-  return process.env.MOTIVE_TOKEN_BASE ?? "https://gomotive.com";
+  return process.env.MOTIVE_TOKEN_BASE ?? "https://account.gomotive.com";
 }
 
 function getRedirectUrl(): string {
