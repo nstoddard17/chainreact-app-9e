@@ -38,6 +38,13 @@ import {
 } from "./types";
 
 const NATIVE_PROVIDER_ID = "native";
+/**
+ * AI-PROVIDER-5 (CS-5) — ChainReact AI is the second connectionless provider
+ * (no manifest, but real metadata). It must appear here for the same reason
+ * `native` does: the planner may never be shown a node the validated registry
+ * would reject, and it must never be BLIND to a node the registry accepts.
+ */
+const AI_PROVIDER_CATALOG_ID = "ai";
 
 // ─── Compact catalog views ───────────────────────────────────────────────────
 
@@ -287,10 +294,16 @@ export function getProviderCatalog(): AiToolResult<ProviderCatalogView> {
       triggers: listTriggerMetasForProvider(m.id).map(toCatalogTrigger),
     }));
 
-    if (withMeta.has(NATIVE_PROVIDER_ID)) {
+    // Connectionless providers have no manifest to iterate, so they are
+    // appended explicitly from their metadata.
+    for (const [id, displayName] of [
+      [NATIVE_PROVIDER_ID, "Native"],
+      [AI_PROVIDER_CATALOG_ID, "ChainReact AI"],
+    ] as const) {
+      if (!withMeta.has(id)) continue;
       entries.push({
-        id: NATIVE_PROVIDER_ID,
-        displayName: "Native",
+        id,
+        displayName,
         capabilities: {
           oauth: false,
           webhookTrigger: false,
@@ -300,8 +313,8 @@ export function getProviderCatalog(): AiToolResult<ProviderCatalogView> {
         isEnabled: true,
         isExperimental: false,
         hasMetadata: true,
-        actions: listActionMetasForProvider(NATIVE_PROVIDER_ID).map(toCatalogAction),
-        triggers: listTriggerMetasForProvider(NATIVE_PROVIDER_ID).map(toCatalogTrigger),
+        actions: listActionMetasForProvider(id).map(toCatalogAction),
+        triggers: listTriggerMetasForProvider(id).map(toCatalogTrigger),
       });
     }
 

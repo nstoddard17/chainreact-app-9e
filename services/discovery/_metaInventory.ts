@@ -22,6 +22,11 @@ import { delayMeta } from "@/integrations/native/actions/delay.meta";
 import { ifThenConditionMeta } from "@/integrations/native/actions/ifThenCondition.meta";
 import { routerMeta } from "@/integrations/native/actions/router.meta";
 
+// ChainReact AI action metadata (AI-PROVIDER-5 CS-5). Connectionless like
+// native — served to the builder by /api/ai/actions, which additionally
+// gates the whole catalog on AI_PROCESSOR_ENABLED.
+import { analyzeDocumentMeta } from "@/integrations/ai/actions/analyzeDocument.meta";
+
 // Native trigger metadata.
 import { manualTriggerMeta } from "@/integrations/native/triggers/manualTrigger.meta";
 import { scheduledTriggerMeta } from "@/integrations/native/triggers/scheduledTrigger.meta";
@@ -452,6 +457,8 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   delayMeta,
   ifThenConditionMeta,
   routerMeta,
+  // ChainReact AI (AI-PROVIDER-5 CS-5).
+  analyzeDocumentMeta,
   // GitHub (Slice 3.0b).
   createIssueMeta,
   createRepositoryMeta,

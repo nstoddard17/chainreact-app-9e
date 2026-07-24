@@ -419,6 +419,11 @@ import { delay as nativeDelay } from "@/integrations/native/actions/delay";
 // emission). Pure handlers; no OAuth; no integration row.
 import { ifThenCondition as nativeIfThenCondition } from "@/integrations/native/actions/ifThenCondition";
 import { router as nativeRouter } from "@/integrations/native/actions/router";
+// AI-PROVIDER-5 (CS-5) — ChainReact AI, the first provider whose actions run
+// a model inside a workflow run. Connectionless like `native` (no OAuth, no
+// manifest, no integration row); billing / gating / routing / ledger all live
+// in services/ai/processor/executeAiAction, never in the handler.
+import { analyzeDocument as aiAnalyzeDocument } from "@/integrations/ai/actions/analyzeDocument";
 // Slice 5.ASANA-1 — 5 Asana task/comment actions (first net-new provider,
 // no V1 code). REST via _shared/asana/api; all writes wrapped in
 // refreshAndRetry (hourly-expiring tokens).
@@ -1017,6 +1022,11 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // route label, else configured defaultRoute, else null. See
   // docs/slices/parity/native-nodes-3-tier-c-control-flow-plan.md §6.
   { provider: "native", type: "router", handler: nativeRouter },
+  // AI-PROVIDER-5 (CS-5) — ChainReact AI: Analyze Document. Five analysis
+  // modes behind one action; every run goes through the shared AI action
+  // pipeline (registry -> flag -> tier -> price -> credit gate -> route ->
+  // model -> strict validation -> ai_cost_events).
+  { provider: "ai", type: "analyze_document", handler: aiAnalyzeDocument },
   // Slice 5.ASANA-1 — Asana first slice (5 actions).
   { provider: "asana", type: "create_task", handler: asanaCreateTask },
   { provider: "asana", type: "update_task", handler: asanaUpdateTask },

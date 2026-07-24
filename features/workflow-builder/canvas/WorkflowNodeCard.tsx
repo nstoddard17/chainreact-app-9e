@@ -13,6 +13,7 @@ import { useBuilderNodeActions } from "./nodeActionsContext";
 import { NodeQuickActions } from "./NodeCardQuickActions";
 import { DIFF_VISUAL, DiffPill } from "./nodeCardDiff";
 import { ChainReactMark } from "@/components/brand/ChainReactMark";
+import { isConnectionlessProvider } from "@/core/integrations/connectionlessProviders";
 
 /**
  * Builder node card (Slice 4.BUILDER-CANVAS-1, restyled in
@@ -405,16 +406,18 @@ function ProviderAvatar({
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = !!iconUrl && !imageFailed;
 
-  // Built-in ("native") nodes — loop, filter, delay, router, manual/schedule
-  // triggers — carry `provider: "native"` and have no integrations-registry
-  // icon. Show the ChainReact brand mark instead of the generic initials
-  // avatar. One branch for the built-in group, not per-provider iconography.
-  if (provider === "native" && !iconUrl) {
+  // Connectionless nodes — the built-in `native` group (loop, filter, delay,
+  // router, manual/schedule triggers) and ChainReact AI (`ai`, AI-PROVIDER-5)
+  // — have no integrations-registry icon, because they have no integration.
+  // Show the ChainReact brand mark instead of the generic initials avatar:
+  // both groups ARE ChainReact. One branch for the whole connectionless
+  // family, not per-provider iconography.
+  if (isConnectionlessProvider(provider) && !iconUrl) {
     return (
       <span
         aria-hidden="true"
         data-testid="provider-icon"
-        data-provider="native"
+        data-provider={provider}
         className="flex h-[22px] w-[22px] shrink-0 items-center justify-center overflow-hidden rounded-[4px]"
         style={{
           background: "var(--builder-panel-2)",

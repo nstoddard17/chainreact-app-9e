@@ -13,6 +13,16 @@
  * OAuth, no scopes, no health checks — a ProviderManifest would be a
  * misleading shape for them. They register directly into
  * services/execution/handlers/_registry.ts under providerId "native".
+ *
+ * Same exception, same reason: `ai` — the ChainReact AI provider
+ * (AI-PROVIDER-4/5). It is connectionless by construction: no OAuth, no
+ * credential, no health check, nothing to connect. An empty manifest would
+ * make it appear on /api/providers and the Apps page as something a user
+ * could "connect", which would be a lie. Its identity lives in
+ * core/integrations/connectionlessProviders.ts and its catalog is served by
+ * app/api/ai/actions. Decision recorded in
+ * docs/slices/phase-5/ai-provider/ai-provider-cs4-builder-contract-outcome.md
+ * (plan open question O2).
  */
 import { readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -20,7 +30,7 @@ import { join, resolve } from "node:path";
 const ROOT = resolve(__dirname, "../..");
 const INTEGRATIONS_DIR = join(ROOT, "integrations");
 
-const NON_PROVIDER_ROOTS: ReadonlySet<string> = new Set(["native"]);
+const NON_PROVIDER_ROOTS: ReadonlySet<string> = new Set(["native", "ai"]);
 
 describe("every provider folder has a manifest.ts", () => {
   it("checks each integrations/<provider>/ for manifest.ts", () => {

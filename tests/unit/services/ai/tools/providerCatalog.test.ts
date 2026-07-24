@@ -42,13 +42,17 @@ function assertNoSecretKeys(value: unknown): void {
 }
 
 describe("getProviderCatalog", () => {
-  it("returns only real registered providers (plus synthetic native), inventing none", () => {
+  it("returns only real registered providers (plus the connectionless ones), inventing none", () => {
     const result = getProviderCatalog();
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
     const realIds = new Set(listProviders().map((m) => m.id));
+    // Connectionless providers have no manifest to enumerate, so they are
+    // appended from their metadata: `native` built-ins + ChainReact AI
+    // (AI-PROVIDER-5). Both are real registered node families.
     realIds.add("native");
+    realIds.add("ai");
 
     expect(result.data.providers.length).toBeGreaterThan(0);
     for (const p of result.data.providers) {

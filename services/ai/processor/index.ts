@@ -52,3 +52,37 @@ export {
   GATEWAY_PROCESS_PATH,
 } from "./requestShapes";
 export { outputJsonSchemaFor, resultValidatorFor } from "./responseSchemas";
+// AI-PROVIDER-5 (CS-5) — Analyze Document orchestration + the extraction
+// validator both actions share.
+export {
+  AiActionRefusedError,
+  AiTransientError,
+  DocumentInputError,
+  ExtractionValidationError,
+} from "./analysisErrors";
+export {
+  blankLowConfidenceRows,
+  coerceSchemaValue,
+  validateExtractedFields,
+  validateExtractedRows,
+  type ExtractionValidation,
+  type ExtractionValidatorOptions,
+  type ValidatedFields,
+  type ValidatedRows,
+} from "./extractionValidator";
+export {
+  MAX_OUTPUT_TOKENS,
+  resolveAnalysisDocument,
+  type ResolveAnalysisDocumentDeps,
+  type ResolveAnalysisDocumentInput,
+  type ResolvedAnalysisDocument,
+} from "./resolveAnalysisDocument";
+export {
+  ANALYZE_DOCUMENT_ACTION_KEY,
+  runDocumentAnalysis,
+  tierForModelQuality,
+  type DocumentAnalysisOutput,
+  type RunDocumentAnalysisConfig,
+  type RunDocumentAnalysisDeps,
+  type RunDocumentAnalysisInput,
+} from "./runDocumentAnalysis";
