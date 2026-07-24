@@ -179,6 +179,27 @@ describe("checkActivationPreconditions — native pseudo-provider", () => {
     expect(result).toEqual({ ok: true });
     expect(mockListActiveByUser).not.toHaveBeenCalled();
   });
+
+  // AI-PROVIDER-ROLLOUT-1 — the live-activation regression, pinned at the
+  // consumer: the first production AI workflow could not be activated
+  // ("Connect ai before activating this workflow.") because this gate's
+  // provider skip-list predated the connectionless `ai` provider.
+  it("activates a manual-trigger + AI-action workflow with NO integrations connected", async () => {
+    const aiWorkflow = makeWorkflow([
+      { ...nativeAction, id: "t1", kind: "trigger" as const, type: "manual.run", config: {} },
+      {
+        id: "ai-1",
+        kind: "action" as const,
+        provider: "ai",
+        type: "analyze_document",
+        config: { file: "text", mode: "summarize" },
+        position: { x: 0, y: 100 },
+      },
+    ]);
+    const result = await checkActivationPreconditions(aiWorkflow, "activate");
+    expect(result).toEqual({ ok: true });
+    expect(mockListActiveByUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("checkActivationPreconditions — resume", () => {

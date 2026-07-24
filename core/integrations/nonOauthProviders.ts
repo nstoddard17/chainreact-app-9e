@@ -25,8 +25,22 @@
  * must still surface as `PROVIDER_UNKNOWN`.
  */
 
-/** The non-OAuth/system pseudo-provider ids. Keep this narrow. */
-export const NON_OAUTH_PROVIDERS: ReadonlySet<string> = new Set(["native"]);
+import { CONNECTIONLESS_PROVIDERS } from "./connectionlessProviders";
+
+/**
+ * The non-OAuth/system pseudo-provider ids. Keep this narrow.
+ *
+ * AI-PROVIDER-ROLLOUT-1 — derived from `CONNECTIONLESS_PROVIDERS`
+ * (`native` + `ai`) instead of a hand-copied `["native"]`. The two lists
+ * describe the same fact — "this provider has no manifest, no OAuth, no
+ * integrations row" — and maintaining them separately is exactly the drift
+ * this module exists to prevent: live activation of the first AI workflow
+ * failed with `INTEGRATION_NOT_CONNECTED: "Connect ai"` because this copy
+ * predated the CS-4 `ai` provider and nothing updated it.
+ */
+export const NON_OAUTH_PROVIDERS: ReadonlySet<string> = new Set(
+  CONNECTIONLESS_PROVIDERS,
+);
 
 /**
  * True when `provider` is a non-OAuth/system pseudo-provider (no manifest, no
