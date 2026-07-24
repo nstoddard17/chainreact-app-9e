@@ -825,6 +825,173 @@ metadata.
 
 ---
 
+## 11d. CS-3 outcome — Runtime mapping action (SHIPPED)
+
+**Status:** implemented. `fleetio:find_linked_vehicle` is registered, test-mode-runnable, and
+covered by 54 new tests. The flagship workflow is now **buildable by hand** once a link row
+exists — but there is still no way for a user to CREATE a link row (that is CS-4), so nothing
+user-visible changed for a user who has never inserted one directly.
+
+### Final action contract
+
+| | |
+|---|---|
+| Key | `fleetio:find_linked_vehicle` |
+| Display name | **Find Linked Fleetio Vehicle** |
+| Category / order | `data`, `displayOrder: 40` (appended after Create Meter Entry — existing orders untouched) |
+| `requiresIntegration` | **`false`** — reads ChainReact's own table, zero provider calls |
+| `riskLevel` | `low`; `isDestructive: false`; `requiresConfirmation: false` |
+| Option resolvers added | **none.** `OptionsResolverContext` unchanged (Q3 still deferred) |
+
+Files: [`findLinkedVehicle.schema.ts`](../../../integrations/fleetio/actions/findLinkedVehicle.schema.ts) ·
+[`.output.ts`](../../../integrations/fleetio/actions/findLinkedVehicle.output.ts) ·
+[`.meta.ts`](../../../integrations/fleetio/actions/findLinkedVehicle.meta.ts) ·
+[`findLinkedVehicle.ts`](../../../integrations/fleetio/actions/findLinkedVehicle.ts).
+Registered exactly once in
+[`_handlerInventory.ts`](../../../services/execution/handlers/_handlerInventory.ts) and
+[`services/discovery/providers/fleetio.ts`](../../../services/discovery/providers/fleetio.ts).
+
+**Input (`.strict()`), exactly as planned in §4.2 — two fields, no more:**
+
+| Field | Label | Widget | Required | Notes |
+|---|---|---|---|---|
+| `sourceProvider` | Telematics system | static `select`, one option (Motive) | yes, **no `defaultValue`** | Qualifies the id NAMESPACE. Not a dispatcher: one code path, one output shape, always a Fleetio answer |
+| `sourceVehicleId` | Vehicle | `text`, mappable | yes, **no `defaultValue`** | Placeholder is literally `{{trigger.vehicleId}}`; manual entry allowed |
+
+`sourceVehicleId` accepts a string OR a number (the canonical resolver preserves an upstream
+value's real type), rejects `NaN`/`±Infinity`, trims, and rejects blanks. Its length bound is
+**reused from `ResourceLinkExternalIdSchema`** (≤256) rather than restated, so the action can
+never be asked to look up an id the table could not have stored. `.strict()` makes an account
+id, link id, Fleetio vehicle id, integration id, resource kind, or target provider a **parse
+error** — not an ignored key.
+
+### Exact lookup key
+
+```
+findActiveLink(
+  input.accountId,        // the workflow's owning account — NEVER from config
+  "vehicle",              // fixed by the action's identity
+  config.sourceProvider,  // "motive"
+  config.sourceVehicleId, // trimmed
+  "fleetio",              // fixed by the action's identity
+)                         // …and the repository adds `archived_at IS NULL`
+```
+
+That is precisely the tuple `account_resource_links_source_unique` enforces. Zero provider HTTP
+calls: the handler imports no API wrapper and not `runFleetioApiCall`.
+
+### Output contract
+
+`{ vehicleId, vehicleName, sourceVehicleId, linkedAt }` — built explicitly from four approved
+DTO keys; the DTO is **never spread**. `vehicleId` ← `target_external_id` (the Fleetio id, shaped
+to drop into Create Meter Entry's Vehicle field); `vehicleName` ← the stored `target_label`
+snapshot (nullable, never invented, never a live Fleetio read); `linkedAt` ← `confirmed_at`.
+
+Deliberately absent, each asserted by test: the database row `id`, `accountId`, `matchBasis`,
+`archivedAt` (always `null` here by construction), `createdAt`/`updatedAt`, both provenance user
+ids, and the source/target provider echoes. **No `found: boolean`** — §4.4's decision stands.
+
+### Unmapped and archived behavior
+
+No active link ⇒ typed `UnmappedVehicleError` (`name: "UnmappedVehicleError"`,
+`code: "UNMAPPED_VEHICLE"`), message:
+
+> `Motive vehicle "<the id the caller supplied>" isn't linked to a Fleetio vehicle yet. Link it in Apps → Vehicle Links, then run this workflow again.`
+
+An **archived** link takes the identical path — the repository's `archived_at IS NULL` predicate
+excludes it, so a removed link reads exactly like one that never existed. A test asserts the two
+messages are **byte-identical**. Never `{success:false}`, never a fabricated vehicle id.
+
+The message names only values already inside the run's own authorized context: the telematics
+system the user chose and the id their own trigger supplied. No label, target, or confirmer from
+any other account can appear, because no other account's row is ever read.
+
+**Honest limitation:** the engine classifies an unrecognized handler `name` as `HANDLER_FAILED`
+(CLAUDE.md rule 8), and `humanizeActionError`'s generic branch deliberately does **not** echo raw
+thrown messages (CR-FAILREASON-1 — they can carry provider text). So today the *specific* "link it
+in Apps → Vehicle Links" wording lives on the thrown error and in server-side step diagnostics; it
+is not yet the string a user reads in run history. Surfacing it there needs a first-class run
+failure code + humanizer branch, which belongs with CS-4 (when the screen it points at actually
+exists). Recorded here rather than implied away.
+
+### Test-mode behavior — verified against the real gate
+
+`decideTestModeBlock("fleetio", "find_linked_vehicle")` returns `{ blocked: false }` — asserted
+against the **real** `testModeGate`, not a restatement of its rules. The same test asserts the
+other three Fleetio actions stay `TEST_MODE_EXTERNAL_ACTION_BLOCKED`. This is the §2.5 property
+paying off: a user can test the flagship workflow end to end up to the Fleetio write, and a
+disconnected Fleetio does not break vehicle resolution (only the later write fails, with the
+existing reconnect error — correct failure attribution).
+
+### Account-isolation evidence
+
+The repository boundary is mocked as a **small in-memory table that actually evaluates the
+account / kind / provider / external-id / archived predicates**, so isolation is proven as
+semantics rather than as recorded filter calls (the CS-1 posture). With account A and account B
+both holding the SAME Motive id `motive-veh-88231` mapped to different Fleetio vehicles:
+
+- A resolves `42` / "Truck 104"; B resolves `907` / "B-Fleet Rig 7".
+- Neither result contains the other's target id, label, confirmer id, or account id.
+- A asking for an id **only B has mapped** produces a failure that is *identical* to asking for an
+  id nobody has mapped — same class, same code, same message modulo the id the caller itself
+  supplied. Existence of B's row is not inferable.
+- A config-supplied `accountId` is a **parse error**, and the repository is never reached.
+- An account with no links at all gets the same unmapped error — no cross-account fallback.
+
+### Tests run (focused — full `npm test` intentionally NOT run, per owner instruction)
+
+| Suite | Result |
+|---|---|
+| [`tests/unit/integrations/fleetio/actions/findLinkedVehicle.test.ts`](../../../tests/unit/integrations/fleetio/actions/findLinkedVehicle.test.ts) (new) + [`findLinkedVehicleMeta.test.ts`](../../../tests/unit/integrations/fleetio/findLinkedVehicleMeta.test.ts) (new) | **54 passed** |
+| All Fleetio + resource-link + matching + discovery-coverage suites (`tests/unit/integrations/fleetio`, `accountResourceLinks` repo + migration, `core/resourceLinks`, `discovery-meta-coverage`) | **26 suites / 353 passed** |
+| `testModeGate`, handler-registry, `option-source-reference-integrity`, `core-purity`, `no-service-role-imports`, `connectionless-provider-source-of-truth`, `connectionlessProviders` | **8 suites / 95 passed** |
+| Credential-paste + manifest + variable-reference group (`credential-ingest-route`, `dispatcher-credential-paste`, fleetio `credentials`/`auth`, `integration-manifests`, 5 `core/workflows` variable suites) | **10 suites / 100 passed** |
+| `resolveValue` + engine | **2 suites / 170 passed** |
+| `npm run typecheck` · `npm run lint` · `npm run lint:structure` · `npm run lint:migrations` | clean (lint: 0 errors, 22 pre-existing max-lines warnings) |
+| Direct `npx eslint` on all 12 touched files | clean |
+
+**Three structure suites were already RED at HEAD `c1288d0b5` and remain red, unchanged:**
+`field-sensitivity-coverage` (3 Linear `relatedTo` fields), `sensitive-output-coverage`
+(`linear:add_comment::body`), `resource-field-discovery-coverage` (6 Linear id fields). Verified
+by re-running them on a stashed tree. CS-3 added **no** new violation to any of them —
+`fleetio:find_linked_vehicle.sourceVehicleId` was momentarily a 7th offender in the last one and
+now carries a documented **UPSTREAM** exemption: the id arrives at runtime from the trigger, and a
+`motive:vehicles` combobox was considered and rejected because it would make a
+`requiresIntegration: false` Fleetio node depend on a connected *Motive* integration to configure.
+
+Catalog counts moved honestly from three actions to four in both
+[`createMeterEntryMeta.test.ts`](../../../tests/unit/integrations/fleetio/createMeterEntryMeta.test.ts)
+and [`updateVehicleStatusMeta.test.ts`](../../../tests/unit/integrations/fleetio/updateVehicleStatusMeta.test.ts).
+A new assertion pins that `find_linked_vehicle` is the **only** Fleetio action with
+`requiresIntegration: false`.
+
+### Focused walkthrough (not the CS-6 flagship)
+
+One test proves the realistic chain without a provider boundary: a Motive-shaped trigger emits
+`vehicleId` → the **real** `resolveStrict` resolves `{{trigger.vehicleId}}` → the **real** handler
+registry dispatches `fleetio:find_linked_vehicle` → account A's Fleetio id `42` comes back with
+zero `fetch` calls → the output maps into `fleetio:create_meter_entry`'s Vehicle field and passes
+that action's **real** strict schema → account B's identical Motive id resolves to `907` →
+archiving the link throws before Create Meter Entry's config can even be resolved → no secret or
+cross-account value appears in any output. The full multi-node execution walkthrough (real engine,
+mocked Fleetio HTTP, one write) remains **CS-6**.
+
+### What remains for CS-4
+
+Unchanged from §9: `/apps/vehicle-links`, its routes and service, and the three states of §4.6
+(Linked · Suggested · Unlinked) with manual pairing and per-row confirm, behind
+`RESOURCE_LINKS_UI` default **OFF**. **CS-4 is the slice that makes CS-3 usable** — until a user
+can create a link, `find_linked_vehicle` will throw `UNMAPPED_VEHICLE` for every vehicle. CS-4
+should also decide whether `UNMAPPED_VEHICLE` earns a first-class run-failure code + humanizer
+branch (see the honest limitation above), since that is when the screen it names exists.
+Owner input on **Q6** (member vs owner/admin write gating) is still outstanding and shapes the
+route guard.
+
+CS-3 added no service, no route, no UI, no option resolver, no migration, and no change to
+`OptionsResolverContext`.
+
+---
+
 ## 12. Hard boundaries — what this slice did NOT change
 
 *(Scope statement for the PLANNING slice, kept as written at the time.)* No source file, test,
@@ -840,6 +1007,12 @@ development Supabase project, applying `20260727000000` (Fleetio credential stor
 Both migrations named in §11b/§11c are now applied and database-validated. Still true and unchanged:
 nothing pushed to the remote branch, nothing deployed, and Fleetio still ships exactly three actions
 as `isExperimental: true`.
+
+**Superseded again by CS-3 (§11d):** Fleetio now ships **four** actions — `find_linked_vehicle`
+joined `get_vehicle`, `update_vehicle_status` and `create_meter_entry`. It remains
+`isExperimental: true`, `actions: true`, no webhook triggers, no polling triggers, and its
+credential-paste contract is untouched. CS-3 added no migration, so the applied-migration list
+above is unchanged. Nothing pushed, nothing deployed.
 
 ---
 

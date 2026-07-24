@@ -88,11 +88,13 @@ describe("fleetio:update_vehicle_status registration + manifest honesty", () => 
     expect(getActionMeta("fleetio:update_vehicle_status")).toBe(fleetioUpdateVehicleStatusMeta);
   });
 
-  // Catalog count updated by FLEETIO-4, which added create_meter_entry.
-  it("fleetio exposes exactly three actions (get_vehicle + update_vehicle_status + create_meter_entry), no triggers, still experimental", () => {
+  // Catalog count updated by FLEETIO-4 (create_meter_entry) and again by
+  // 5.TRUCK-BRIDGE-1 CS-3 (find_linked_vehicle).
+  it("fleetio exposes exactly four actions, no triggers, still experimental", () => {
     const keys = listAllActionMetas().filter((m) => m.provider === "fleetio").map((m) => m.key).sort();
     expect(keys).toEqual([
       "fleetio:create_meter_entry",
+      "fleetio:find_linked_vehicle",
       "fleetio:get_vehicle",
       "fleetio:update_vehicle_status",
     ]);

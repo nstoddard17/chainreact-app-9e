@@ -686,7 +686,7 @@ export const ALL_ACTION_META: ReadonlyArray<ActionMeta> = [
   ...TYPEFORM_ACTION_METAS, // Typeform (TYPEFORM-2) — 2 read actions, displayOrder 10..20.
   ...QUICKBOOKS_ACTION_METAS, // QuickBooks (QUICKBOOKS-1) — 7 actions, displayOrder 10..70.
   ...MOTIVE_ACTION_METAS, // Motive (MOTIVE-1) — 10 fleet actions, displayOrder 10..90.
-  ...FLEETIO_ACTION_METAS, // Fleetio (FLEETIO-2) — 1 action (get_vehicle).
+  ...FLEETIO_ACTION_METAS, // Fleetio (FLEETIO-2..4, TRUCK-BRIDGE-1 CS-3) — 4 actions, displayOrder 10..40.
 ];
 
 export const ALL_TRIGGER_META: ReadonlyArray<TriggerMeta> = [

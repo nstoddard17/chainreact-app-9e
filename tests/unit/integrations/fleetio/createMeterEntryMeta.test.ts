@@ -138,13 +138,16 @@ describe("fleetio:create_meter_entry registration + manifest honesty", () => {
     expect(getActionMeta("fleetio:create_meter_entry")).toBe(fleetioCreateMeterEntryMeta);
   });
 
-  it("fleetio now exposes exactly three actions, no triggers, still experimental", () => {
+  // Count updated honestly by 5.TRUCK-BRIDGE-1 CS-3, which added
+  // find_linked_vehicle (the ONE Fleetio action that calls no provider API).
+  it("fleetio now exposes exactly four actions, no triggers, still experimental", () => {
     const keys = listAllActionMetas()
       .filter((m) => m.provider === "fleetio")
       .map((m) => m.key)
       .sort();
     expect(keys).toEqual([
       "fleetio:create_meter_entry",
+      "fleetio:find_linked_vehicle",
       "fleetio:get_vehicle",
       "fleetio:update_vehicle_status",
     ]);

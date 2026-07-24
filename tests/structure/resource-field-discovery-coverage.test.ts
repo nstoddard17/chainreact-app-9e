@@ -75,6 +75,12 @@ const EXEMPT: Readonly<Record<string, Exemption>> = {
     reason:
       "Fuel-purchase id comes from a New Fuel Purchase trigger or a List Fuel Purchases step; transactional records have no meaningful browse list.",
   },
+  // 5.TRUCK-BRIDGE-1 CS-3 — Find Linked Fleetio Vehicle's source id.
+  "fleetio:find_linked_vehicle.sourceVehicleId": {
+    klass: "UPSTREAM",
+    reason:
+      "The telematics vehicle id arrives at RUNTIME from the trigger ({{trigger.vehicleId}}) — that is the action's whole purpose: one workflow covers the fleet instead of one per truck. A design-time picker would imply the author must name a vehicle in advance, restating the problem this action removes. A motive:vehicles combobox was considered and rejected: it would make a requiresIntegration:false Fleetio node depend on a connected MOTIVE integration, and a picked value is still just the id the trigger already supplies.",
+  },
   "slack:update_message.ts": {
     klass: "UPSTREAM",
     reason:

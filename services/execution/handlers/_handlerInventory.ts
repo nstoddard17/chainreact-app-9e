@@ -465,6 +465,7 @@ import { updateDriver as motiveUpdateDriver } from "@/integrations/motive/action
 import { getVehicle as fleetioGetVehicle } from "@/integrations/fleetio/actions/getVehicle";
 import { updateVehicleStatus as fleetioUpdateVehicleStatus } from "@/integrations/fleetio/actions/updateVehicleStatus";
 import { createMeterEntry as fleetioCreateMeterEntry } from "@/integrations/fleetio/actions/createMeterEntry";
+import { findLinkedVehicle as fleetioFindLinkedVehicle } from "@/integrations/fleetio/actions/findLinkedVehicle";
 import type { ActionHandler } from "./types";
 
 /**
@@ -1067,5 +1068,8 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   // Fleetio (FLEETIO-4) — record an odometer / engine-hours reading (the
   // Motive → Fleetio preventive-maintenance keystone).
   { provider: "fleetio", type: "create_meter_entry", handler: fleetioCreateMeterEntry },
+  // Fleetio (5.TRUCK-BRIDGE-1 CS-3) — resolve a Motive vehicle id to the linked
+  // Fleetio vehicle id. Reads ChainReact's own link table; ZERO provider calls.
+  { provider: "fleetio", type: "find_linked_vehicle", handler: fleetioFindLinkedVehicle },
 ];
 
