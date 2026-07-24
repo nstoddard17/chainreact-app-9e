@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { loadTestEnv } from "./tests/e2e/helpers/testEnv";
+import { resolveMockHermesPort } from "./tests/e2e/helpers/reservePort";
 
 /**
  * 5.DUAL-BUILDER-1 CS-7D — load the LOCAL test environment (.env.test.local:
@@ -168,6 +169,21 @@ const TRELLO_MOCK_BASE = `http://127.0.0.1:${TRELLO_MOCK_PORT}`;
 const E2E_PORT = Number(process.env.E2E_PORT ?? "3001");
 const E2E_BASE_URL = `http://localhost:${E2E_PORT}`;
 
+/**
+ * CS-7G — reserve the per-run mock-Hermes loopback port HERE, at config-load time, before the
+ * webServer.env below is interpolated. This bakes the resolved port into the app process's
+ * CHAINREACT_AI_GATEWAY_URL AND records it on process.env so global-setup binds the mock to the
+ * SAME port — no two runs share one mock server, and the app always points at this run's mock.
+ * An operator can still pin MOCK_HERMES_PORT to force a specific port (resolveMockHermesPort
+ * honors it). `--list` and other non-run invocations tolerate a reservation failure gracefully.
+ */
+let MOCK_HERMES_PORT = Number(process.env.MOCK_HERMES_PORT ?? "0");
+try {
+  MOCK_HERMES_PORT = resolveMockHermesPort(process.env);
+} catch (err) {
+  console.warn(`[e2e] could not reserve a mock-Hermes port at config load: ${(err as Error).message}`);
+}
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -209,7 +225,8 @@ export default defineConfig({
       // checked-in .env and never becomes a production default. The production
       // client still resolves through the same canonical getHermesAgentGatewayConfig().
       HERMES_AGENT_ENABLED: "true",
-      CHAINREACT_AI_GATEWAY_URL: `http://127.0.0.1:${process.env.MOCK_HERMES_PORT ?? "9890"}`,
+      // Per-run loopback mock port reserved above (never a real model provider). E2E-only.
+      CHAINREACT_AI_GATEWAY_URL: `http://127.0.0.1:${MOCK_HERMES_PORT}`,
       CHAINREACT_AI_GATEWAY_TOKEN: "e2e-mock-hermes-token",
       // 5.DUAL-BUILDER-1 CS-7 — the Document Builder stays flag-gated (default
       // OFF) here too, so every OTHER e2e spec runs exactly production's Visual

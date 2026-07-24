@@ -26,8 +26,25 @@ describe("CS-7F mock Hermes gateway", () => {
     it("routes remove/delete prompts to the destructive fixture", () => {
       expect(selectFixture("Remove the existing follow-up step")).toBe("destructive");
     });
+    it("routes split/branch prompts to the branching fixture", () => {
+      expect(selectFixture("Split this workflow based on whether the amount is above 1000")).toBe("branching");
+    });
     it("falls back to prose for an unrecognized prompt", () => {
       expect(selectFixture("hello there")).toBe("prose");
+    });
+    it("matches ONLY the user-goal line, not the surrounding system prompt", () => {
+      // The system prompt legitimately contains 'remove'/'delete' edit-instruction keywords;
+      // the goal line is 'Add ...', so it must route to additive — never destructive.
+      const prompt = [
+        "You can removeEdge / replaceEdge / removeNode as needed.",
+        "User goal (their words): Add a Slack notification when a lead is created",
+      ].join("\n");
+      expect(selectFixture(prompt)).toBe("additive");
+    });
+    it("ambiguity safety: an ambiguous ask never falls through to the destructive fixture", () => {
+      // No remove/delete/split marker → additive default, never destructive.
+      expect(selectFixture("User goal (their words): help me with my workflow")).not.toBe("destructive");
+      expect(selectFixture("User goal (their words): do something useful")).toBe("additive");
     });
   });
 
@@ -40,18 +57,41 @@ describe("CS-7F mock Hermes gateway", () => {
       expect(n.workflowPlan!.notApplied).toBe(true);
       expect(n.workflowPlan!.steps.length).toBe(2);
     });
-    it("edit → updateNodeConfig + addNode operations", () => {
+    it("edit → updateNodeConfig(node_2.text) + addNode(new_ ref) + addEdge to the new_ ref", () => {
       const n = normalizeGatewayResponse(fixtureBody("edit"));
       expect(n.ok).toBe(true);
       if (!n.ok) throw new Error("expected ok");
-      expect(n.mutationOperations!.some((o) => o.op === "updateNodeConfig")).toBe(true);
-      expect(n.mutationOperations!.some((o) => o.op === "addNode")).toBe(true);
+      const ops = n.mutationOperations!;
+      const update = ops.find((o) => o.op === "updateNodeConfig");
+      expect(update).toBeTruthy();
+      // Targets the notification's REAL editable field (text), not a phantom field.
+      expect((update as { nodeId: string }).nodeId).toBe("node_2");
+      expect(Object.keys((update as { config: Record<string, unknown> }).config)).toContain("text");
+      // The added node MUST use the new_ ref prefix, else resolveEditableGraphRefs rejects it.
+      const add = ops.find((o) => o.op === "addNode") as { node: { id: string } } | undefined;
+      expect(add?.node.id.startsWith("new_")).toBe(true);
+      // The addEdge endpoint references that same new_ ref (materialize re-mints it).
+      const edge = ops.find((o) => o.op === "addEdge") as { edge: { to: string } } | undefined;
+      expect(edge?.edge.to).toBe(add?.node.id);
     });
-    it("destructive → removeNode operation", () => {
+    it("destructive → removeNode(node_4 — the removable follow-up tail)", () => {
       const n = normalizeGatewayResponse(fixtureBody("destructive"));
       expect(n.ok).toBe(true);
       if (!n.ok) throw new Error("expected ok");
-      expect(n.mutationOperations!.some((o) => o.op === "removeNode")).toBe(true);
+      const remove = n.mutationOperations!.find((o) => o.op === "removeNode") as
+        | { nodeId: string }
+        | undefined;
+      expect(remove?.nodeId).toBe("node_4");
+    });
+    it("branching → a WorkflowPlan that uses advanced branching (native:if_then_condition)", () => {
+      const n = normalizeGatewayResponse(fixtureBody("branching"));
+      expect(n.ok).toBe(true);
+      if (!n.ok) throw new Error("expected ok");
+      // The plan must survive the REAL validateWorkflowPlan (non-null) and carry the branch step.
+      expect(n.workflowPlan).not.toBeNull();
+      expect(
+        n.workflowPlan!.steps.some((s) => `${s.provider}:${s.type}` === "native:if_then_condition"),
+      ).toBe(true);
     });
     it("prose fixture has NO plan/mutation (safe default)", () => {
       const n = normalizeGatewayResponse(fixtureBody("prose"));

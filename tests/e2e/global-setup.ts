@@ -3,9 +3,10 @@ import { dirname, resolve } from "node:path";
 import { loadTestEnv } from "./helpers/testEnv";
 import {
   startMockHermesServer,
-  MOCK_HERMES_DEFAULT_PORT,
+  waitForMockHermesHealth,
   type MockHermesHandle,
 } from "./helpers/mockHermesServer";
+import { resolveMockHermesPort, mockHermesGatewayUrl } from "./helpers/reservePort";
 import {
   startMockSlackServer,
   type MockSlackHandle,
@@ -243,20 +244,39 @@ export default async function globalSetup(): Promise<void> {
   const e2ePort = Number(process.env.E2E_PORT ?? "3001");
   const appBaseUrl = `http://localhost:${e2ePort}`;
 
-  // CS-7F — mock Hermes AI gateway (loopback) for the Ask React journey. The dev
-  // server's CHAINREACT_AI_GATEWAY_URL (playwright.config webServer.env) points at
-  // this exact loopback port, so all real guidance calls land here — NEVER on a
-  // real model provider. SAFETY: the app's gateway URL MUST be loopback in E2E.
-  const hermesPort = Number(process.env.MOCK_HERMES_PORT ?? String(MOCK_HERMES_DEFAULT_PORT));
-  const configuredGatewayUrl = process.env.CHAINREACT_AI_GATEWAY_URL ?? `http://127.0.0.1:${hermesPort}`;
+  // CS-7F/CS-7G — mock Hermes AI gateway (loopback) for the Ask React journey. The dev
+  // server's CHAINREACT_AI_GATEWAY_URL (playwright.config webServer.env) points at this
+  // exact PER-RUN loopback port (reserved at config-load, see reservePort.ts), so all real
+  // guidance calls land here — NEVER on a real model provider. SAFETY: the app's gateway URL
+  // MUST be loopback in E2E; a missing/colliding mock fails LOUD, never silently.
+  const hermesPort = resolveMockHermesPort(process.env);
+  const configuredGatewayUrl = process.env.CHAINREACT_AI_GATEWAY_URL ?? mockHermesGatewayUrl(hermesPort);
   const gatewayHost = new URL(configuredGatewayUrl).hostname;
   if (!(gatewayHost === "127.0.0.1" || gatewayHost === "localhost")) {
     throw new Error(
       `[e2e safety] CHAINREACT_AI_GATEWAY_URL host "${gatewayHost}" is not loopback — refusing to run the Ask React journey against a non-local model gateway.`,
     );
   }
-  hermesHandle = await startMockHermesServer({ port: hermesPort });
-  console.log(`[e2e] mock Hermes gateway listening at ${hermesHandle.baseUrl}`);
+  try {
+    hermesHandle = await startMockHermesServer({ port: hermesPort });
+  } catch (err) {
+    if ((err as { code?: string }).code === "EADDRINUSE") {
+      throw new Error(
+        `[e2e] mock Hermes port ${hermesPort} is already in use — another CS-7G run may be active. ` +
+          `Let this run pick its own port (unset MOCK_HERMES_PORT) or set a free MOCK_HERMES_PORT.`,
+      );
+    }
+    throw err;
+  }
+  // Await health BEFORE the Next.js journey starts (no request can race the mock's boot).
+  try {
+    await waitForMockHermesHealth(hermesHandle.baseUrl);
+  } catch (err) {
+    await hermesHandle.close(); // clean up the already-started mock on a startup failure
+    hermesHandle = null;
+    throw err;
+  }
+  console.log(`[e2e] mock Hermes gateway listening + healthy at ${hermesHandle.baseUrl}`);
 
   const slackPort = Number(process.env.SLACK_MOCK_PORT ?? "9876");
   slackHandle = await startMockSlackServer({ appBaseUrl, port: slackPort });

@@ -101,3 +101,37 @@ describe("emitDocumentBuilderEvent — flag gate + no-op sink + never throws", (
     expect(() => emitDocumentBuilderEvent("document_guided_stop_completed")).not.toThrow();
   });
 });
+
+// 5.DUAL-BUILDER-1 CS-7G — telemetry safety: the Agent preview events never carry any
+// prompt / workflow / user content, even if a forged caller tries to attach it.
+describe("CS-7G Agent-preview telemetry carries no prompt/workflow/user content", () => {
+  it("preview applied/rejected emit with NO props (name only)", () => {
+    const seen: Array<[DocumentBuilderEventName, DocumentBuilderEventProps]> = [];
+    setDocumentBuilderTelemetrySink((name, props) => seen.push([name, props]));
+    setDocumentBuilderTelemetryEnabled(true);
+    emitDocumentBuilderEvent("document_agent_preview_applied");
+    emitDocumentBuilderEvent("document_agent_preview_rejected");
+    expect(seen).toEqual([
+      ["document_agent_preview_applied", {}],
+      ["document_agent_preview_rejected", {}],
+    ]);
+  });
+
+  it("strips every forbidden category if a caller tries to attach it", () => {
+    // The exact leak categories CS-7G forbids: prompt text, workflow/section titles, route
+    // labels, node ids, account/user ids/emails, provider payloads, config values, secrets.
+    const forbidden = {
+      prompt: "Change the notification message and add a follow-up step",
+      workflow_title: "Sales alerts",
+      section_title: "Lead handling",
+      route: "/workflows/abc-123",
+      nodeId: "n-notif",
+      accountId: "acc_123",
+      userId: "user_456",
+      email: "person@example.com",
+      config: { channel: "C0NOTIFY", text: "secret body" },
+      token: "xoxb-super-secret",
+    } as Record<string, unknown>;
+    expect(sanitizeTelemetryProps(forbidden)).toEqual({});
+  });
+});
