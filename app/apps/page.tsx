@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { isResourceLinksUiEnabled } from "@/services/resourceLinks/flags";
+import { loadVehicleBridgeSummary } from "@/services/resourceLinks/vehicleBridgeSummary";
 import * as integrationsRepo from "@/repositories/integrations";
 import * as notificationsRepo from "@/repositories/notifications";
 import { ensurePersonalAccount } from "@/services/accounts/ensurePersonalAccount";
@@ -9,6 +9,7 @@ import { resolveActiveAccount } from "@/services/accounts/activeAccount";
 import { getRole } from "@/repositories/accountMemberships";
 import { ConnectionStatusBanner } from "@/features/integrations/ConnectionStatusBanner";
 import { AppsDashboard } from "@/features/apps/AppsDashboard";
+import type { AppsBridgeView } from "@/features/apps/AppsBridge";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { applyCredentialRequestNotice } from "@/app/notifications/credentialRequestNotice";
 import {
@@ -107,6 +108,43 @@ export default async function AppsPage({ searchParams }: Props) {
     recentNotifications,
   );
 
+  // APPS-VL-DESIGN-1 — the Motive⇄Fleetio "Bridge" summary + the per-card
+  // Vehicle-links chip. Both gated on the Vehicle-Links surface flag; the bridge
+  // additionally needs at least one of the two fleet apps connected, so it never
+  // advertises a relationship this account can't act on. The one added provider
+  // call (`loadVehicleBridgeSummary` → one Motive list) fires ONLY when BOTH are
+  // connected — the both-connected state is the only one that shows real counts.
+  const flagOn = isResourceLinksUiEnabled();
+  const vehicleLinksHref = flagOn ? "/apps/vehicle-links" : null;
+  const motiveConnected = items.some(
+    (i) => i.providerId === "motive" && i.isConnected,
+  );
+  const fleetioConnected = items.some(
+    (i) => i.providerId === "fleetio" && i.isConnected,
+  );
+  let bridge: AppsBridgeView | null = null;
+  if (flagOn && callerRole !== null && (motiveConnected || fleetioConnected)) {
+    if (motiveConnected && fleetioConnected) {
+      const summary = await loadVehicleBridgeSummary({
+        accountId: ownerAccount.id,
+        actingUserId: user.id,
+      });
+      bridge = {
+        kind: "paired",
+        pairedCount: summary.pairedCount,
+        unpairedCount: summary.unpairedCount,
+        totalCount: summary.totalCount,
+        motiveOk: summary.motiveOk,
+        partialInventory: summary.partialInventory,
+        vehicleLinksHref: "/apps/vehicle-links",
+      };
+    } else if (motiveConnected) {
+      bridge = { kind: "connect", missing: "fleetio", highlightHref: "/apps?highlight=fleetio" };
+    } else {
+      bridge = { kind: "connect", missing: "motive", highlightHref: "/apps?highlight=motive" };
+    }
+  }
+
   return (
     <AppShell
       userEmail={user.email ?? ""}
@@ -116,27 +154,22 @@ export default async function AppsPage({ searchParams }: Props) {
       <main className="flex w-full flex-col gap-6 p-6 sm:p-8">
         <ConnectionStatusBanner searchParams={params} />
         {/*
-         * 5.TRUCK-BRIDGE-1 CS-4 — the entry point the unmapped-vehicle run error
-         * names ("Link it in Apps → Vehicle Links"). Rendered ONLY when
-         * RESOURCE_LINKS_UI is on, so while the flag is off there is no link to a
-         * route that 404s — and when it is on, that error message is actually
-         * followable. Server-rendered here rather than inside AppsDashboard so the
-         * client component needs no flag plumbing.
+         * 5.TRUCK-BRIDGE-1 CS-4 / APPS-VL-DESIGN-1 — the entry point the
+         * unmapped-vehicle run error names ("Link it in Apps → Vehicle Links").
+         * The plain text link was replaced by the richer Bridge panel + the
+         * per-card "Vehicle links" chip (rendered inside AppsDashboard). Both are
+         * gated on `RESOURCE_LINKS_UI` via `vehicleLinksHref`/`bridge` being null
+         * while the flag is off, so nothing ever points at a 404. The run-error
+         * CTA itself links straight to `/apps/vehicle-links`, independent of this
+         * page's affordances.
          */}
-        {isResourceLinksUiEnabled() && (
-          <Link
-            href="/apps/vehicle-links"
-            data-testid="apps-vehicle-links-link"
-            className="self-start text-sm underline underline-offset-4"
-          >
-            Vehicle links — pair Motive vehicles with Fleetio
-          </Link>
-        )}
         <AppsDashboard
           items={items}
           categories={categories}
           accountId={ownerAccount.id}
           highlightProvider={highlightProvider}
+          bridge={bridge}
+          vehicleLinksHref={vehicleLinksHref}
         />
       </main>
     </AppShell>

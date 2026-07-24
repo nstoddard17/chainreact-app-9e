@@ -80,8 +80,8 @@ export function UnlinkedVehiclesList({
   }
 
   return (
-    <div className="flex flex-col gap-3" data-testid="unlinked-list">
-      <ul className="flex flex-col gap-2">
+    <div className="flex flex-col" data-testid="unlinked-list">
+      <ul className="flex flex-col">
         {unlinked.map((vehicle) => {
           const open = openId === vehicle.sourceVehicleId;
           const pending = pendingSourceId === vehicle.sourceVehicleId;
@@ -92,77 +92,104 @@ export function UnlinkedVehiclesList({
             <li
               key={vehicle.sourceVehicleId}
               data-testid="unlinked-row"
-              className="flex flex-col gap-2 rounded border border-border p-3"
+              className="flex gap-4 border-t border-border/60 py-5 first:border-t-0"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm font-medium">{vehicle.label}</span>
-                {canManage ? (
-                  <Button
-                    size="sm"
-                    variant={open ? "ghost" : "outline"}
-                    data-testid="pair-toggle"
-                    onClick={() => {
-                      setSelected(null);
-                      setOpenId(open ? null : vehicle.sourceVehicleId);
-                    }}
-                  >
-                    {open ? "Cancel" : "Link to Fleetio"}
-                  </Button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    Ask an owner or admin to link this vehicle.
-                  </span>
-                )}
-              </div>
+              {/* Hollow gutter dot — an unpaired truck no automation can reach. */}
+              <span
+                aria-hidden
+                className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full ring-[1.5px] ring-inset ring-muted-foreground/50"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-1">
+                  {/* Sentence with a "fill in the blank" for the Fleetio side. */}
+                  <p className="text-base leading-relaxed text-foreground/90">
+                    <span className="font-medium text-foreground">{vehicle.label}</span>{" "}
+                    in Motive is the same truck as{" "}
+                    {selected && open ? (
+                      <span className="font-medium text-primary">{selected.label}</span>
+                    ) : (
+                      <span className="font-medium text-muted-foreground underline decoration-dashed decoration-muted-foreground/50 underline-offset-4">
+                        a Fleetio vehicle you choose
+                      </span>
+                    )}{" "}
+                    in Fleetio.
+                  </p>
+                  <p className="shrink-0 text-right font-mono text-[11px] leading-relaxed text-muted-foreground">
+                    no automation can
+                    <br />
+                    reach this truck yet
+                  </p>
+                </div>
 
-              {open && canManage && (
-                <div className="flex flex-col gap-2">
-                  <FleetioVehiclePicker
-                    accountId={accountId}
-                    disabled={pending}
-                    selectedId={selected?.value ?? null}
-                    onSelect={setSelected}
-                  />
-                  {error && (
-                    <p className="text-xs text-destructive" data-testid="row-error">
-                      {error}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2">
+                {canManage ? (
+                  <div className="mt-2">
                     <Button
                       size="sm"
-                      variant={isConflict ? "destructive" : "default"}
-                      disabled={pending || selected === null}
-                      data-testid={isConflict ? "replace-link" : "confirm-link"}
+                      variant="ghost"
+                      data-testid="pair-toggle"
+                      className="px-2 text-primary hover:text-primary"
                       onClick={() => {
-                        if (!selected) return;
-                        onLink({
-                          source: vehicle,
-                          target: selected,
-                          // The ONLY place replacement is authorized, and only
-                          // after the server already refused once and the user
-                          // pressed a button that says "Replace link".
-                          replaceExisting: isConflict,
-                        });
+                        setSelected(null);
+                        setOpenId(open ? null : vehicle.sourceVehicleId);
                       }}
                     >
-                      {pending ? "Linking…" : isConflict ? "Replace link" : "Link"}
+                      {open ? "Cancel" : "Link to Fleetio"}
                     </Button>
-                    {selected && (
-                      <span className="text-xs text-muted-foreground">
-                        {vehicle.label} ↔ {selected.label}
-                      </span>
-                    )}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Ask an owner or admin to link this vehicle.
+                  </p>
+                )}
+
+                {open && canManage && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <FleetioVehiclePicker
+                      accountId={accountId}
+                      disabled={pending}
+                      selectedId={selected?.value ?? null}
+                      onSelect={setSelected}
+                    />
+                    {error && (
+                      <p
+                        className="max-w-prose border-l-2 border-destructive/50 pl-3 text-sm leading-relaxed text-destructive"
+                        data-testid="row-error"
+                      >
+                        {error}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant={isConflict ? "destructive" : "default"}
+                        disabled={pending || selected === null}
+                        data-testid={isConflict ? "replace-link" : "confirm-link"}
+                        onClick={() => {
+                          if (!selected) return;
+                          onLink({
+                            source: vehicle,
+                            target: selected,
+                            // The ONLY place replacement is authorized, and only
+                            // after the server already refused once and the user
+                            // pressed a button that says "Replace link".
+                            replaceExisting: isConflict,
+                          });
+                        }}
+                      >
+                        {pending ? "Linking…" : isConflict ? "Replace link" : "Pair these two"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </li>
           );
         })}
       </ul>
       {motiveHasMore && (
-        <p className="text-xs text-muted-foreground">
-          Showing the first page of Motive vehicles.
+        <p className="mt-4 max-w-prose text-sm leading-relaxed text-muted-foreground">
+          This is the first page of Motive&apos;s list. A truck further down it — or
+          its match in Fleetio — may not have surfaced yet.
         </p>
       )}
     </div>

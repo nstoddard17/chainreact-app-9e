@@ -134,7 +134,7 @@ export function SuggestedMatches({
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col">
         {suggestions.map((s) => {
           const key = suggestionKey(s);
           const pending = pendingKey === key;
@@ -142,97 +142,129 @@ export function SuggestedMatches({
           const error = rowError?.key === key ? rowError.message : null;
           // An ambiguous row must not be confirmable as-proposed — the user has
           // to name the vehicle themselves.
+          // The Fleetio side of the sentence AND the confirm target: the proposed
+          // vehicle, or (ambiguous) whatever the user has chosen so far — undefined
+          // until an ambiguous row is resolved, which also keeps Confirm disabled.
           const confirmTarget = s.ambiguous ? picked : { value: s.targetVehicleId, label: s.targetLabel };
 
           return (
             <li
               key={key}
               data-testid="suggestion-row"
-              className="flex flex-col gap-2 rounded border border-border p-3"
+              className="flex gap-4 border-t border-border/60 py-5 first:border-t-0"
             >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="flex min-w-0 flex-col">
-                  <span className="text-sm font-medium">
-                    {s.sourceLabel}
-                    <span aria-hidden className="mx-2 text-muted-foreground">
-                      ↔
-                    </span>
-                    {s.targetLabel}
-                  </span>
-                  {/* The evidence, verbatim. Never a score. */}
-                  <span className="text-xs text-muted-foreground" data-testid="suggestion-evidence">
-                    {s.evidence}
+              {/* Proposed = a cyan gutter dot. */}
+              <span
+                aria-hidden
+                className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-primary/70"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-1">
+                  <p className="text-base leading-relaxed text-foreground/90">
+                    {/* `.font-medium` is the row's human identity — never the raw ids. */}
+                    <span className="font-medium text-foreground">{s.sourceLabel}</span> in
+                    Motive is the same truck as{" "}
+                    {confirmTarget ? (
+                      <span className="font-medium text-primary">{confirmTarget.label}</span>
+                    ) : (
+                      <span className="font-medium text-muted-foreground underline decoration-dashed decoration-muted-foreground/50 underline-offset-4">
+                        a Fleetio vehicle you choose
+                      </span>
+                    )}{" "}
+                    in Fleetio.
+                  </p>
+                  {/* Margin: match TYPE + word confidence. Never a percentage. */}
+                  <span className="flex shrink-0 items-center gap-2">
+                    <Badge variant="outline">{TIER_COPY[s.tier]}</Badge>
+                    <Badge variant={s.confidence === "exact" ? "success" : "secondary"}>
+                      {CONFIDENCE_COPY[s.confidence]}
+                    </Badge>
                   </span>
                 </div>
-                <span className="flex items-center gap-2">
-                  <Badge variant="outline">{TIER_COPY[s.tier]}</Badge>
-                  <Badge variant={s.confidence === "exact" ? "success" : "secondary"}>
-                    {CONFIDENCE_COPY[s.confidence]}
-                  </Badge>
-                </span>
+
+                {/* The evidence, verbatim. Never a score. */}
+                <p
+                  className="mt-1.5 max-w-prose text-sm leading-relaxed text-muted-foreground"
+                  data-testid="suggestion-evidence"
+                >
+                  {s.evidence}
+                </p>
+
+                {s.ambiguous && (
+                  <p
+                    className="mt-1.5 max-w-prose text-sm leading-relaxed text-warning-foreground"
+                    data-testid="suggestion-ambiguous"
+                  >
+                    More than one vehicle matches this way, so ChainReact won&apos;t pick for
+                    you. Choose the right Fleetio vehicle to link it.
+                  </p>
+                )}
+
+                {canManage && s.ambiguous && (
+                  <div className="mt-3">
+                    <FleetioVehiclePicker
+                      accountId={accountId}
+                      disabled={pending}
+                      selectedId={picked?.value ?? null}
+                      onSelect={(option) =>
+                        setPickedByKey((current) => {
+                          const next = { ...current };
+                          if (option === null) delete next[key];
+                          else next[key] = option;
+                          return next;
+                        })
+                      }
+                    />
+                  </div>
+                )}
+
+                {error && (
+                  <p
+                    className="mt-2 max-w-prose border-l-2 border-destructive/50 pl-3 text-sm leading-relaxed text-destructive"
+                    data-testid="suggestion-error"
+                  >
+                    {error}
+                  </p>
+                )}
+
+                {canManage ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Button
+                      size="sm"
+                      disabled={pending || confirmTarget === undefined}
+                      data-testid="suggestion-confirm"
+                      onClick={() => {
+                        if (!confirmTarget) return;
+                        onConfirm({
+                          suggestion: s,
+                          targetVehicleId: confirmTarget.value,
+                          targetLabel: confirmTarget.label,
+                        });
+                      }}
+                    >
+                      {pending
+                        ? "Linking…"
+                        : s.ambiguous
+                          ? "Pair the one I chose"
+                          : "Yes, same truck"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={pending}
+                      data-testid="suggestion-dismiss"
+                      className="text-muted-foreground"
+                      onClick={() => onDismiss(s)}
+                    >
+                      Not the same truck
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Ask an owner or admin to confirm or dismiss this match.
+                  </p>
+                )}
               </div>
-
-              {s.ambiguous && (
-                <p className="text-xs text-warning-foreground" data-testid="suggestion-ambiguous">
-                  More than one vehicle matches this way, so ChainReact won&apos;t pick for
-                  you. Choose the right Fleetio vehicle to link it.
-                </p>
-              )}
-
-              {canManage && s.ambiguous && (
-                <FleetioVehiclePicker
-                  accountId={accountId}
-                  disabled={pending}
-                  selectedId={picked?.value ?? null}
-                  onSelect={(option) =>
-                    setPickedByKey((current) => {
-                      const next = { ...current };
-                      if (option === null) delete next[key];
-                      else next[key] = option;
-                      return next;
-                    })
-                  }
-                />
-              )}
-
-              {error && (
-                <p className="text-xs text-destructive" data-testid="suggestion-error">
-                  {error}
-                </p>
-              )}
-
-              {canManage ? (
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    disabled={pending || confirmTarget === undefined}
-                    data-testid="suggestion-confirm"
-                    onClick={() => {
-                      if (!confirmTarget) return;
-                      onConfirm({
-                        suggestion: s,
-                        targetVehicleId: confirmTarget.value,
-                        targetLabel: confirmTarget.label,
-                      });
-                    }}
-                  >
-                    {pending ? "Linking…" : s.ambiguous ? "Link chosen vehicle" : "Confirm"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={pending}
-                    data-testid="suggestion-dismiss"
-                    onClick={() => onDismiss(s)}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Ask an owner or admin to confirm or dismiss this match.
-                </p>
-              )}
             </li>
           );
         })}

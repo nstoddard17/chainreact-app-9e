@@ -96,133 +96,161 @@ export function LinkedVehiclesTable({
   }
 
   return (
-    <ul className="flex flex-col gap-3" data-testid="linked-list">
+    <ul className="flex flex-col" data-testid="linked-list">
       {links.map((link) => {
         const pending = pendingLinkId === link.id;
         const linkHealth = healthById.get(link.id);
         const warnings = (linkHealth?.statuses ?? []).filter(
           (s): s is Exclude<LinkHealthStatus, "ok"> => s !== "ok",
         );
+        const stale = linkHealth?.needsAttention ?? false;
         return (
           <li
             key={link.id}
             data-testid="linked-row"
-            data-health={linkHealth?.needsAttention ? "attention" : "ok"}
-            className="flex flex-col gap-2 rounded border border-border p-3"
+            data-health={stale ? "attention" : "ok"}
+            className="flex gap-4 border-t border-border/60 py-5 first:border-t-0"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex min-w-0 flex-col">
-                <span className="text-sm font-medium">
-                  {link.sourceLabel ?? "Unnamed Motive vehicle"}
-                  <span aria-hidden className="mx-2 text-muted-foreground">
-                    ↔
+            <StatusDot kind={stale ? "attention" : "paired"} />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-1">
+                {/* Document sentence: the two identities are the row. */}
+                <p className="text-base leading-relaxed text-foreground/90">
+                  <span className="font-medium text-foreground">
+                    {link.sourceLabel ?? "Unnamed Motive vehicle"}
+                  </span>{" "}
+                  is{" "}
+                  <span className="font-medium text-primary">
+                    {link.targetLabel ?? "Unnamed Fleetio vehicle"}
                   </span>
-                  {link.targetLabel ?? "Unnamed Fleetio vehicle"}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {MATCH_BASIS_COPY[link.matchBasis] ?? "Linked"}
-                  {" · "}
-                  {link.confirmedByLabel
-                    ? `Confirmed by ${link.confirmedByLabel} on ${formatDate(link.confirmedAt)}`
-                    : `Confirmed on ${formatDate(link.confirmedAt)}`}
-                </span>
+                  .
+                </p>
+                {/* Right margin: provenance, quiet + mono. */}
+                <p className="shrink-0 text-right font-mono text-[11px] leading-relaxed text-muted-foreground">
+                  <span className="block">{MATCH_BASIS_COPY[link.matchBasis] ?? "Linked"}</span>
+                  <span className="block">
+                    {link.confirmedByLabel
+                      ? `Confirmed by ${link.confirmedByLabel} on ${formatDate(link.confirmedAt)}`
+                      : `Confirmed on ${formatDate(link.confirmedAt)}`}
+                  </span>
+                </p>
               </div>
 
-              {canManage &&
-                (confirmingId === link.id ? (
-                  <span className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      Remove this link?
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={pending}
-                      data-testid="confirm-remove"
-                      onClick={() => {
-                        setConfirmingId(null);
-                        onRemove(link.id);
-                      }}
+              {/*
+                Stale-link warnings (CS-5). Rendered as guidance next to the
+                mapping — the mapping itself is NEVER auto-archived or replaced,
+                and the stored names stay visible so the history still reads.
+              */}
+              {warnings.length > 0 && (
+                <ul className="mt-2 flex flex-col gap-1" data-testid="link-health">
+                  {warnings.map((status) => (
+                    <li
+                      key={status}
+                      data-testid={`link-health-${status}`}
+                      className={`max-w-prose text-sm leading-relaxed ${
+                        status.endsWith("_unknown")
+                          ? "text-muted-foreground"
+                          : "text-warning-foreground"
+                      }`}
                     >
-                      {pending ? "Removing…" : "Remove"}
-                    </Button>
+                      {HEALTH_COPY[status]}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {canManage && stale && onRelink && (
+                  <Button
+                    size="sm"
+                    disabled={pending}
+                    data-testid="relink"
+                    onClick={() => onRelink(link)}
+                  >
+                    Re-link this truck
+                  </Button>
+                )}
+                {canManage &&
+                  (confirmingId === link.id ? (
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        Remove this link?
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={pending}
+                        data-testid="confirm-remove"
+                        onClick={() => {
+                          setConfirmingId(null);
+                          onRemove(link.id);
+                        }}
+                      >
+                        {pending ? "Removing…" : "Remove"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={pending}
+                        onClick={() => setConfirmingId(null)}
+                      >
+                        Keep
+                      </Button>
+                    </span>
+                  ) : (
                     <Button
                       size="sm"
                       variant="ghost"
                       disabled={pending}
-                      onClick={() => setConfirmingId(null)}
+                      data-testid="remove-link"
+                      onClick={() => setConfirmingId(link.id)}
+                      className="text-muted-foreground hover:text-destructive"
                     >
-                      Keep
+                      Unpair — send it back to the list
                     </Button>
-                  </span>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    data-testid="remove-link"
-                    onClick={() => setConfirmingId(link.id)}
-                  >
-                    Remove
-                  </Button>
-                ))}
+                  ))}
+              </div>
+
+              {/* Raw ids are SUPPORT detail only — collapsed, never the identity. */}
+              <details className="mt-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer select-none">Details</summary>
+                <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3">
+                  <dt>Motive vehicle id</dt>
+                  <dd className="font-mono">{link.sourceVehicleId}</dd>
+                  <dt>Fleetio vehicle id</dt>
+                  <dd className="font-mono">{link.targetVehicleId}</dd>
+                </dl>
+                <p className="mt-1">
+                  Names are the last ones ChainReact saw. If a vehicle was renamed,
+                  the new name appears the next time its list loads.
+                </p>
+              </details>
             </div>
-
-            {/*
-              Stale-link warnings (CS-5). Rendered as guidance next to the
-              mapping — the mapping itself is NEVER auto-archived or replaced,
-              and the stored names stay visible so the history still reads.
-            */}
-            {warnings.length > 0 && (
-              <ul className="flex flex-col gap-1" data-testid="link-health">
-                {warnings.map((status) => (
-                  <li
-                    key={status}
-                    data-testid={`link-health-${status}`}
-                    className={`text-xs ${
-                      status.endsWith("_unknown") ? "text-muted-foreground" : "text-warning-foreground"
-                    }`}
-                  >
-                    {HEALTH_COPY[status]}
-                  </li>
-                ))}
-                {canManage && onRelink && linkHealth?.needsAttention && (
-                  <li>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pending}
-                      data-testid="relink"
-                      onClick={() => onRelink(link)}
-                    >
-                      Re-link this vehicle
-                    </Button>
-                  </li>
-                )}
-              </ul>
-            )}
-
-            {/* Raw ids are SUPPORT detail only — collapsed, never the identity. */}
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer">Details</summary>
-              <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3">
-                <dt>Motive vehicle id</dt>
-                <dd className="font-mono">{link.sourceVehicleId}</dd>
-                <dt>Fleetio vehicle id</dt>
-                <dd className="font-mono">{link.targetVehicleId}</dd>
-              </dl>
-              <p className="mt-1">
-                Names are the last ones ChainReact saw. If a vehicle was renamed,
-                the new name appears the next time its list loads.
-              </p>
-            </details>
           </li>
         );
       })}
-      <li className="text-xs text-muted-foreground">
+      <li className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
         <Badge variant="outline">Snapshot</Badge> Vehicle names shown here were
         saved when each link was confirmed.
       </li>
     </ul>
+  );
+}
+
+/**
+ * Small status dot in the document's left gutter. Green = paired, amber (pulsing)
+ * = needs attention. Colour is never the sole signal — every row also carries a
+ * word-based state in its margin/health copy.
+ */
+function StatusDot({ kind }: { kind: "paired" | "attention" }) {
+  return (
+    <span
+      aria-hidden
+      className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${
+        kind === "attention"
+          ? "bg-warning motion-safe:animate-pulse"
+          : "bg-success"
+      }`}
+    />
   );
 }

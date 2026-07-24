@@ -67,7 +67,10 @@ export function FleetioVehiclePicker({
   }, [accountId, query]);
 
   return (
-    <div className="flex flex-col gap-2" data-testid="fleetio-vehicle-picker">
+    <div
+      className="flex max-w-lg flex-col gap-2 rounded-lg border border-border bg-card p-2"
+      data-testid="fleetio-vehicle-picker"
+    >
       <Input
         value={query}
         disabled={disabled}
@@ -112,13 +115,15 @@ export function FleetioVehiclePicker({
                   aria-selected={selected}
                   disabled={disabled}
                   onClick={() => onSelect(selected ? null : item)}
-                  className={`w-full rounded px-2 py-1 text-left text-sm ${
-                    selected ? "bg-accent font-medium" : "hover:bg-accent/50"
+                  className={`flex w-full items-baseline justify-between gap-3 rounded px-2.5 py-1.5 text-left text-sm ${
+                    selected
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-foreground/90 hover:bg-accent/50"
                   }`}
                 >
-                  {item.label}
+                  <span className="min-w-0 truncate">{item.label}</span>
                   {item.description ? (
-                    <span className="ml-2 text-xs text-muted-foreground">
+                    <span className="shrink-0 font-mono text-xs text-muted-foreground">
                       {item.description}
                     </span>
                   ) : null}

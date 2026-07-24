@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ConnectButton } from "@/features/integrations/ConnectButton";
 import type { AppCatalogItem } from "@/contracts/apps";
@@ -61,9 +62,22 @@ interface Props {
    * Visual/focus only — Connect/Reconnect stay explicit, gated clicks.
    */
   highlighted?: boolean;
+  /**
+   * APPS-VL-DESIGN-1 — when set, this connected card belongs to the
+   * Motive⇄Fleetio bridge, so it shows an inline "Vehicle links" chip pointing
+   * here. The page passes it only for motive/fleetio when the Vehicle-Links
+   * surface flag is on; null (the default) renders no chip. Purely a navigation
+   * affordance — it opens the existing management screen, which re-authorizes.
+   */
+  vehicleLinksHref?: string | null;
 }
 
-export function AppCard({ app, accountId, highlighted = false }: Props) {
+export function AppCard({
+  app,
+  accountId,
+  highlighted = false,
+  vehicleLinksHref = null,
+}: Props) {
   const router = useRouter();
   const rootRef = useRef<HTMLLIElement | null>(null);
 
@@ -155,6 +169,21 @@ export function AppCard({ app, accountId, highlighted = false }: Props) {
           />
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {/* APPS-VL-DESIGN-1 — inline bridge affordance on the Motive/Fleetio
+              cards: these two apps describe the same trucks, so the card links
+              straight to the pairing screen. Shown only on a connected card when
+              the page supplied an href (flag on + bridge provider). Navigation
+              only; the destination re-authorizes. */}
+          {app.isConnected && vehicleLinksHref && (
+            <Link
+              href={vehicleLinksHref}
+              data-testid="app-card-vehicle-links"
+              title="Pair this app's vehicles with the other side"
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span aria-hidden>⇄</span> Vehicle links
+            </Link>
+          )}
           {!app.isConnected && app.canConnect && (
             <ConnectButton
               provider={app.providerId}

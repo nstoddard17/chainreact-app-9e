@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
   archiveVehicleLink,
@@ -258,14 +258,37 @@ export function VehicleLinksDashboard({
     }
   }
 
+  // Document tally — how much of the visible Motive fleet is paired, and how many
+  // proposals are waiting. Derived from the SAME live client state the sections
+  // render, so it moves the instant a row is confirmed, dismissed, or removed.
+  const pairedCount = links.length;
+  const totalTrucks = links.length + unlinked.length;
+  const waitingCount = suggestions.length;
+
   return (
-    <div className="flex flex-col gap-8" data-testid="vehicle-links-dashboard">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">Vehicle links</h1>
-        <p className="text-sm text-muted-foreground">
-          Pair each Motive vehicle with the same truck in Fleetio once. Workflows
-          then find the right Fleetio vehicle on their own, so one workflow covers
-          the whole fleet instead of one per truck.
+    <div className="flex flex-col gap-2" data-testid="vehicle-links-dashboard">
+      <header className="flex flex-col gap-3 border-b border-border pb-8">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Motive <span aria-hidden>⇄</span> Fleetio
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Vehicle links</h1>
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Each truck exists twice — once in Motive, once in Fleetio. Say which pairs
+          are the same truck, and every workflow finds the right Fleetio vehicle on
+          its own. One workflow covers the fleet instead of one per truck.
+        </p>
+        <p className="text-sm text-muted-foreground" data-testid="vehicle-links-tally">
+          <span className="font-semibold tabular-nums text-foreground">{pairedCount}</span> of{" "}
+          <span className="font-semibold tabular-nums text-foreground">{totalTrucks}</span>{" "}
+          Motive {totalTrucks === 1 ? "truck is" : "trucks are"} paired with Fleetio
+          {waitingCount > 0 && (
+            <>
+              {" "}— and{" "}
+              <span className="font-semibold tabular-nums text-foreground">{waitingCount}</span>{" "}
+              {waitingCount === 1 ? "pairing is" : "pairings are"} waiting for your yes.
+            </>
+          )}
+          {waitingCount === 0 && <>. Nothing is waiting on you.</>}
         </p>
         {!canManage && (
           <p className="text-xs text-muted-foreground" data-testid="view-only-note">
@@ -276,43 +299,20 @@ export function VehicleLinksDashboard({
       </header>
 
       {banner && (
-        <p className="text-sm text-destructive" data-testid="dashboard-error">
+        <p
+          className="mt-4 border-l-2 border-destructive/60 pl-3 text-sm text-destructive"
+          data-testid="dashboard-error"
+        >
           {banner}
         </p>
       )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Linked</h2>
-        <LinkedVehiclesTable
-          links={links}
-          canManage={canManage}
-          pendingLinkId={pendingLinkId}
-          health={health}
-          onRemove={handleRemove}
-          onRelink={handleRelink}
+      <section className="flex flex-col gap-4 pt-10" data-testid="suggested-section">
+        <SectionHeading
+          title="Suggested pairings"
+          hint="never saved without your yes"
+          badge={<Badge variant="outline">Always needs your confirmation</Badge>}
         />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Unlinked Motive vehicles</h2>
-        <UnlinkedVehiclesList
-          accountId={accountId}
-          canManage={canManage}
-          unlinked={unlinked}
-          motiveStatus={motiveStatus}
-          motiveHasMore={motiveHasMore}
-          pendingSourceId={pendingSourceId}
-          conflictSourceId={conflictSourceId}
-          rowError={rowError}
-          onLink={handleLink}
-        />
-      </section>
-
-      <section className="flex flex-col gap-3" data-testid="suggested-section">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          Suggested
-          <Badge variant="outline">Always needs your confirmation</Badge>
-        </h2>
         {initialSuggestionsView ? (
           <SuggestedMatches
             accountId={accountId}
@@ -332,6 +332,69 @@ export function VehicleLinksDashboard({
           </p>
         )}
       </section>
+
+      <section className="flex flex-col gap-4 pt-10">
+        <SectionHeading
+          title="Not yet paired"
+          hint="Motive trucks with no Fleetio counterpart"
+        />
+        <UnlinkedVehiclesList
+          accountId={accountId}
+          canManage={canManage}
+          unlinked={unlinked}
+          motiveStatus={motiveStatus}
+          motiveHasMore={motiveHasMore}
+          pendingSourceId={pendingSourceId}
+          conflictSourceId={conflictSourceId}
+          rowError={rowError}
+          onLink={handleLink}
+        />
+      </section>
+
+      <section className="flex flex-col gap-4 pt-10">
+        <SectionHeading
+          title="Paired"
+          hint="workflows resolve these on their own"
+        />
+        <LinkedVehiclesTable
+          links={links}
+          canManage={canManage}
+          pendingLinkId={pendingLinkId}
+          health={health}
+          onRemove={handleRemove}
+          onRelink={handleRelink}
+        />
+      </section>
+
+      <p className="mt-12 border-t border-border pt-6 text-sm leading-relaxed text-muted-foreground">
+        Labels are the names last seen in each system, not live truth. A truck
+        renamed in Motive keeps its old name here until the list refreshes.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Group header in the document layout — a small mono label with an optional
+ * plain-language hint and status badge. Keeps the section headings visually
+ * subordinate to the sentence rows they introduce.
+ */
+function SectionHeading({
+  title,
+  hint,
+  badge,
+}: {
+  title: string;
+  hint: string;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+        {title}
+      </h2>
+      <span className="text-xs text-muted-foreground/80">{hint}</span>
+      {badge}
     </div>
   );
 }

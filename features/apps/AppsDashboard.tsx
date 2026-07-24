@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import type { AppCatalogItem, AppsCategory } from "@/contracts/apps";
 import { AppCard } from "./AppCard";
+import { AppsBridge, type AppsBridgeView } from "./AppsBridge";
+import { isBridgeProvider } from "./bridgeProviders";
 import { useProviderHighlight } from "./useProviderHighlight";
 import { AppsCategoryNav } from "./AppsCategoryNav";
 import { AppsEmptyState } from "./AppsEmptyState";
@@ -37,6 +39,18 @@ interface Props {
    * auto-starts a connect/reconnect.
    */
   highlightProvider?: string | null;
+  /**
+   * APPS-VL-DESIGN-1 — the Motive⇄Fleetio bridge summary, server-derived. Null
+   * (the default) when the Vehicle-Links flag is off or neither fleet app is
+   * connected ⇒ no bridge renders.
+   */
+  bridge?: AppsBridgeView | null;
+  /**
+   * APPS-VL-DESIGN-1 — `/apps/vehicle-links` when the surface flag is on, else
+   * null. Threaded to the Motive/Fleetio cards for the inline "Vehicle links"
+   * chip.
+   */
+  vehicleLinksHref?: string | null;
 }
 
 export function AppsDashboard({
@@ -44,6 +58,8 @@ export function AppsDashboard({
   categories,
   accountId,
   highlightProvider = null,
+  bridge = null,
+  vehicleLinksHref = null,
 }: Props) {
   const activeHighlight = useProviderHighlight(highlightProvider);
   const [query, setQuery] = useState("");
@@ -103,6 +119,8 @@ export function AppsDashboard({
         <div className="flex min-w-0 flex-1 flex-col gap-6">
           <AppsStatCards items={items} />
 
+          {bridge && <AppsBridge view={bridge} />}
+
           <AppsToolbar
             query={query}
             onQuery={setQuery}
@@ -128,6 +146,11 @@ export function AppsDashboard({
                     app={app}
                     accountId={accountId}
                     highlighted={activeHighlight === app.providerId}
+                    vehicleLinksHref={
+                      vehicleLinksHref && isBridgeProvider(app.providerId)
+                        ? vehicleLinksHref
+                        : null
+                    }
                   />
                 ))}
               </ul>
