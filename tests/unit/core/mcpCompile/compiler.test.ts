@@ -204,6 +204,61 @@ describe("compileFields — mapping table", () => {
     const bad = fields(obj({ n: { type: "number" } }), { n: { format: "date" } });
     expect(bad.diagnostics[0]!.reason).toMatch(/requires a string field/);
   });
+
+  /**
+   * LINEAR-MANUAL-ENTRY-1 — `allowManualEntry` opens a picker to a pasted id, a
+   * vendor-accepted name, or an upstream `{{...}}` token. It is opt-in per field
+   * and only meaningful on the two kinds that compile to a picker widget.
+   */
+  describe("allowManualEntry override", () => {
+    const picker = { optionsSource: "p:things" };
+
+    it("is absent unless the catalog asks for it (default behavior unchanged)", () => {
+      const { fields: f } = fields(obj({ team: { type: "string" } }), { team: picker });
+      expect(f[0]!.meta).toMatchObject({ type: "combobox", optionsSource: "p:things" });
+      expect(f[0]!.meta.allowManualEntry).toBeUndefined();
+    });
+
+    it.each([
+      ["combobox", { team: { type: "string" } }],
+      ["string-array", { team: { type: "array", items: { type: "string" } } }],
+    ])("emits the flag on a %s picker when declared", (expectedType, schema) => {
+      const { fields: f, diagnostics } = fields(obj(schema), {
+        team: { ...picker, allowManualEntry: true },
+      });
+      expect(diagnostics).toEqual([]);
+      expect(f[0]!.meta).toMatchObject({ type: expectedType, allowManualEntry: true });
+    });
+
+    it("fails the compile when declared without an option source", () => {
+      const { fields: f, diagnostics } = fields(obj({ team: { type: "string" } }), {
+        team: { allowManualEntry: true },
+      });
+      // Diagnostic, not silently-dropped meta the ActionMetaSchema would reject.
+      expect(f).toHaveLength(0);
+      expect(diagnostics[0]!.reason).toMatch(/requires `optionsSource`/);
+    });
+
+    it("never lands on a non-picker kind even alongside an option source", () => {
+      // A number field keeps `optionsSource` but is not a combobox/string-array,
+      // so the flag must not ride along (FieldMeta contract would reject it).
+      const { fields: f } = fields(obj({ n: { type: "number" } }), {
+        n: { ...picker, allowManualEntry: true },
+      });
+      expect(f[0]!.meta.type).toBe("number");
+      expect(f[0]!.meta.allowManualEntry).toBeUndefined();
+    });
+
+    it("leaves other fields in the same tool untouched", () => {
+      const { fields: f } = fields(
+        obj({ team: { type: "string" }, title: { type: "string" } }),
+        { team: { ...picker, allowManualEntry: true } },
+      );
+      const byName = new Map(f.map((x) => [x.name, x.meta]));
+      expect(byName.get("team")!.allowManualEntry).toBe(true);
+      expect(byName.get("title")!.allowManualEntry).toBeUndefined();
+    });
+  });
 });
 
 describe("risk classification", () => {

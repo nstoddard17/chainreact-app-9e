@@ -73,22 +73,13 @@ const PICKER_FIELDS = collect();
  * rule above — so an entry is a product decision, not a way to silence a failure.
  */
 const PICKER_ONLY: ReadonlyArray<{ id: string; reason: string }> = [
-  // ── Generated metadata; needs a compiler change, not a metadata edit. ──
-  // Linear's metas are emitted from `integrations/linear/mcp-catalog.ts` by
-  // core/mcpCompile, whose `fieldOverrides` type has no `allowManualEntry` key.
-  // Hand-editing the generated file would be silently reverted on the next
-  // `npm run mcp:import -- generate linear`. Tracked as a follow-up.
-  { id: "linear:find_issues.team", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:find_issues.label", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:find_issues.state", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:create_issue.team", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:create_issue.project", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:create_issue.state", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:create_issue.labels", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:update_issue.team", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:update_issue.project", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:update_issue.state", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
-  { id: "linear:update_issue.labels", reason: "generated-meta: mcpCompile has no allowManualEntry override" },
+  // LINEAR-MANUAL-ENTRY-1 emptied this list: the 11 Linear exemptions were
+  // resolved by teaching core/mcpCompile an `allowManualEntry` field override
+  // and declaring it in `integrations/linear/mcp-catalog.ts`, so the guard now
+  // holds those fields to the same rule as every hand-authored provider.
+  //
+  // Add an entry ONLY for a field that is genuinely, permanently picker-only —
+  // and say why. An entry is a product decision, never a way to quiet a failure.
 ];
 
 const PICKER_ONLY_IDS = new Set(PICKER_ONLY.map((e) => e.id));

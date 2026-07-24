@@ -80,13 +80,24 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         release: { advanced: true }, // live-only field (CS-6): power-user release filter.
         // Closed dropdown for the priority FILTER (rule 17); schema-constrained.
         priority: { enumValues: PRIORITY_LEVELS, description: "Only return issues at this priority level." },
-        // CS-6B/CS-6C resolver-backed pickers (combobox — keeps manual name/ID entry).
-        team: { optionsSource: "linear:teams" },
-        assignee: { optionsSource: "linear:assignees" },
-        label: { optionsSource: "linear:labels" },
+        // CS-6B/CS-6C resolver-backed pickers.
+        //
+        // LINEAR-MANUAL-ENTRY-1 — `allowManualEntry` is what actually keeps the
+        // name/ID path open; the picker alone is CLOSED. Justified per field by
+        // Linear's OWN tool schema (mcp-snapshot.json), quoted below.
+        team: { optionsSource: "linear:teams", allowManualEntry: true }, // "Team name or ID"
+        assignee: {
+          optionsSource: "linear:assignees",
+          allowManualEntry: true,
+          // Linear: "User ID, name, email, or \"me\"". The vendor's description is
+          // lost in compile (nullable anyOf idiom), and `me` is a literal no
+          // assignee list can enumerate — so state it here.
+          description: 'Assignee — pick a user, or type a name, email, or "me".',
+        },
+        label: { optionsSource: "linear:labels", allowManualEntry: true }, // "Label name or ID"
         // CS-6C — State + Project dropdowns, cascade children of Team.
-        state: { optionsSource: "linear:issue_statuses", dependsOn: ["team"] },
-        project: { optionsSource: "linear:projects", dependsOn: ["team"] },
+        state: { optionsSource: "linear:issue_statuses", dependsOn: ["team"], allowManualEntry: true }, // "State type, name, or ID"
+        project: { optionsSource: "linear:projects", dependsOn: ["team"], allowManualEntry: true }, // "Project name, ID, or slug"
       },
     },
     {
@@ -126,22 +137,31 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         priority: { enumValues: PRIORITY_LEVELS, description: "Priority level for the new issue." },
         // Date picker (Linear types dueDate as a bare string); YYYY-MM-DD schema.
         dueDate: { format: "date", description: "Due date (YYYY-MM-DD)." },
-        // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
-        team: { required: true, optionsSource: "linear:teams", description: "Team the issue belongs to — pick one, or type a team name/ID." },
-        assignee: { optionsSource: "linear:assignees" },
+        // CS-6B resolver-backed pickers. LINEAR-MANUAL-ENTRY-1 — the descriptions
+        // below already promised "or type a name/ID"; `allowManualEntry` is what
+        // makes that true in the UI. Vendor schema accepts each free value.
+        team: { required: true, optionsSource: "linear:teams", allowManualEntry: true, description: "Team the issue belongs to — pick one, or type a team name/ID." },
+        assignee: {
+          optionsSource: "linear:assignees",
+          allowManualEntry: true,
+          description: 'Assignee — pick a user, or type a name, email, or "me".',
+        },
         labels: {
           optionsSource: "linear:labels",
+          allowManualEntry: true,
           description: "Labels to apply — pick from the list or type label names/IDs.",
         },
         // CS-6C — State + Project dropdowns, cascade children of Team.
         state: {
           optionsSource: "linear:issue_statuses",
           dependsOn: ["team"],
+          allowManualEntry: true,
           description: "Workflow state — pick a team first, then choose a state (or type a state name/ID).",
         },
         project: {
           optionsSource: "linear:projects",
           dependsOn: ["team"],
+          allowManualEntry: true,
           description: "Project to add the issue to — pick from the list or type a project name/ID.",
         },
         removeBlocks: { omit: true },
@@ -197,22 +217,29 @@ export const linearMcpCatalog: McpCatalog = McpCatalogSchema.parse({
         priority: { enumValues: PRIORITY_LEVELS, description: "Change the issue's priority level." },
         // Date picker (Linear types dueDate as a bare string); YYYY-MM-DD schema.
         dueDate: { format: "date", description: "Due date (YYYY-MM-DD)." },
-        // CS-6B resolver-backed pickers (combobox — keeps manual name/ID entry).
-        team: { optionsSource: "linear:teams", description: "Move the issue to a different team — pick one, or type a team name/ID (optional)." },
-        assignee: { optionsSource: "linear:assignees" },
+        // CS-6B resolver-backed pickers. LINEAR-MANUAL-ENTRY-1 — see create_issue.
+        team: { optionsSource: "linear:teams", allowManualEntry: true, description: "Move the issue to a different team — pick one, or type a team name/ID (optional)." },
+        assignee: {
+          optionsSource: "linear:assignees",
+          allowManualEntry: true,
+          description: 'Reassign the issue — pick a user, or type a name, email, or "me".',
+        },
         labels: {
           optionsSource: "linear:labels",
+          allowManualEntry: true,
           description: "Replace the issue's labels — pick from the list or type label names/IDs. Leave empty to keep existing labels.",
         },
         // CS-6C — State + Project dropdowns, cascade children of Team.
         state: {
           optionsSource: "linear:issue_statuses",
           dependsOn: ["team"],
+          allowManualEntry: true,
           description: "Move the issue to a workflow state — pick a team first, then a state (or type a state name/ID).",
         },
         project: {
           optionsSource: "linear:projects",
           dependsOn: ["team"],
+          allowManualEntry: true,
           description: "Move the issue to a project — pick from the list or type a project name/ID.",
         },
         delegate: { advanced: true },

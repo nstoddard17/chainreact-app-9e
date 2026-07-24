@@ -130,6 +130,18 @@ export function compileFields(
     }
     const kind = kindOrError.kind;
 
+    // `allowManualEntry` only means anything on a picker, and the FieldMeta
+    // contract rejects it anywhere else. Fail the compile rather than emit meta
+    // that would be thrown out by ActionMetaSchema at registration.
+    if (override.allowManualEntry && !override.optionsSource) {
+      diagnostics.push({
+        tool,
+        path,
+        reason: "`allowManualEntry` requires `optionsSource` on the same field",
+      });
+      continue;
+    }
+
     const meta: FieldMeta = buildFieldMeta(name, node, kind, required, override);
     fields.push({ name, required, nullable: node.nullable, kind, meta });
   }
@@ -290,17 +302,30 @@ function buildFieldMeta(
     ...(override.sensitivity ? { sensitivity: override.sensitivity } : {}),
     ...(node.defaultValue !== undefined ? { defaultValue: node.defaultValue } : {}),
     ...(override.optionsSource ? { optionsSource: override.optionsSource } : {}),
+    // Emitted ONLY on the two kinds that compile to a picker widget
+    // (`string` + optionsSource → combobox, `string-array` → chip picker); the
+    // FieldMeta contract rejects the flag on any other type. The loop above
+    // already refuses `allowManualEntry` without `optionsSource`, so this is
+    // narrowing by field KIND, not re-validating the catalog.
+    ...(override.allowManualEntry && override.optionsSource &&
+    (kind.k === "string" || kind.k === "string-array")
+      ? { allowManualEntry: true as const }
+      : {}),
     ...(override.dependsOn ? { dependsOn: override.dependsOn } : {}),
   };
 
   switch (kind.k) {
     case "string":
       // A string field with an option source becomes a COMBOBOX — a picker whose
-      // committed VALUE stays a string (the id/name the runtime schema expects);
-      // the widget adds the dropdown + keeps free-text entry (the name-or-id
-      // manual path). Widget upgrade only (RESOLVERS-3/4); the zod schema stays
-      // `z.string()`. A multiline+optionsSource combination makes no sense, so the
-      // picker wins.
+      // committed VALUE stays a string (the id/name the runtime schema expects).
+      // Widget upgrade only (RESOLVERS-3/4); the zod schema stays `z.string()`.
+      // A multiline+optionsSource combination makes no sense, so the picker wins.
+      //
+      // NOTE (LINEAR-MANUAL-ENTRY-1): this comment used to claim the combobox
+      // "keeps free-text entry (the name-or-id manual path)". It does NOT —
+      // ComboboxField gates typed values AND the variable picker on
+      // `allowManualEntry`, so a picker without it is closed. Catalogs that
+      // need the name-or-id path must declare the override.
       if (override.optionsSource) return { ...base, type: "combobox" } as FieldMeta;
       return { ...base, type: kind.multiline ? "textarea" : "text" } as FieldMeta;
     case "enum":

@@ -33,6 +33,7 @@ export const createIssueMeta: ActionMeta = {
       type: "combobox",
       required: true,
       optionsSource: "linear:teams",
+      allowManualEntry: true,
     },
     {
       name: "cycle",
@@ -88,6 +89,7 @@ export const createIssueMeta: ActionMeta = {
         "team",
       ],
       optionsSource: "linear:projects",
+      allowManualEntry: true,
     },
     {
       name: "state",
@@ -99,13 +101,16 @@ export const createIssueMeta: ActionMeta = {
         "team",
       ],
       optionsSource: "linear:issue_statuses",
+      allowManualEntry: true,
     },
     {
       name: "assignee",
       label: "Assignee",
+      description: "Assignee — pick a user, or type a name, email, or \"me\".",
       type: "combobox",
       required: false,
       optionsSource: "linear:assignees",
+      allowManualEntry: true,
     },
     {
       name: "delegate",
@@ -121,6 +126,7 @@ export const createIssueMeta: ActionMeta = {
       type: "string-array",
       required: false,
       optionsSource: "linear:labels",
+      allowManualEntry: true,
     },
     {
       name: "dueDate",

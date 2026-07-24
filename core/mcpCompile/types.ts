@@ -84,6 +84,22 @@ export const McpCatalogFieldOverrideSchema = z
      * (structure test); catalogs may only set this once the resolver ships.
      */
     optionsSource: z.string().min(1).max(128).optional(),
+    /**
+     * Let the picker ALSO take a value the resolver never returned — a pasted
+     * id, a vendor-accepted name, or an upstream `{{step.field}}` token.
+     *
+     * This is one flag gating three renderer capabilities (ComboboxField /
+     * StringArrayField): the "Use this ID" commit item, the variable-picker
+     * button, and the raw-chip append. Without it the field is picker-ONLY, no
+     * matter what its description says — the defect class PICKER-MANUAL-ENTRY-
+     * AUDIT-1 found across seven hand-authored providers.
+     *
+     * Declare it ONLY when the VENDOR's own tool schema accepts a free value
+     * (e.g. Linear types `team` as "Team name or ID"). Requires `optionsSource`
+     * on the same field — compilation fails otherwise, because the FieldMeta
+     * contract only allows the flag on `combobox` / `string-array`.
+     */
+    allowManualEntry: z.boolean().optional(),
     dependsOn: z.array(z.string().min(1)).max(8).optional(),
     /**
      * Drop an OPTIONAL unsupported field from the generated surface instead

@@ -66,6 +66,7 @@ export const findIssuesMeta: ActionMeta = {
       type: "combobox",
       required: false,
       optionsSource: "linear:teams",
+      allowManualEntry: true,
     },
     {
       name: "state",
@@ -77,6 +78,7 @@ export const findIssuesMeta: ActionMeta = {
         "team",
       ],
       optionsSource: "linear:issue_statuses",
+      allowManualEntry: true,
     },
     {
       name: "cycle",
@@ -92,13 +94,16 @@ export const findIssuesMeta: ActionMeta = {
       type: "combobox",
       required: false,
       optionsSource: "linear:labels",
+      allowManualEntry: true,
     },
     {
       name: "assignee",
       label: "Assignee",
+      description: "Assignee — pick a user, or type a name, email, or \"me\".",
       type: "combobox",
       required: false,
       optionsSource: "linear:assignees",
+      allowManualEntry: true,
     },
     {
       name: "delegate",
@@ -118,6 +123,7 @@ export const findIssuesMeta: ActionMeta = {
         "team",
       ],
       optionsSource: "linear:projects",
+      allowManualEntry: true,
     },
     {
       name: "release",
