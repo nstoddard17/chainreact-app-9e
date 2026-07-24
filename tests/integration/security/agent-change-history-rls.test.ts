@@ -44,6 +44,8 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -180,15 +182,7 @@ describeDb("agent_change_history RLS + constraints — AGENT-CHANGE-HISTORY-1", 
   }
 
   async function sessionClient(email: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await c.auth.signInWithPassword({
-      email,
-      password: passwordByEmail.get(email)!,
-    });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   function anonClient(): SupabaseClient {
@@ -201,6 +195,9 @@ describeDb("agent_change_history RLS + constraints — AGENT-CHANGE-HISTORY-1", 
     admin = createClient(URL!, SERVICE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["agent_change_history", "workflows"]);
 
     const owner = await createTestUser("owner");
     const member = await createTestUser("member");

@@ -22,6 +22,8 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -83,11 +85,8 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
     return data.id;
   }
 
-  async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+  async function sessionClient(email: string, _password: string): Promise<SupabaseClient> {
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   async function seedTemplate(accountId: string, userId: string, name: string): Promise<string> {
@@ -102,6 +101,9 @@ describeDb("workflow_templates foundation RLS + cascade — CS-XT-4", () => {
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["account_billing", "workflow_template_usage_events", "workflow_templates"]);
     const a = await createTestUser("a");
     const b = await createTestUser("b");
     const aAccount = await personalAccountId(a.userId);

@@ -20,6 +20,8 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -64,15 +66,15 @@ describeDb("workflow_folders trash window + RLS — WF-3", () => {
     return sessions[sessions.length - 1]!;
   }
 
-  async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signIn: ${error.message}`);
-    return c;
+  async function sessionClient(email: string, _password: string): Promise<SupabaseClient> {
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["workflow_folders"]);
     await createUser("a");
     await createUser("b");
   });

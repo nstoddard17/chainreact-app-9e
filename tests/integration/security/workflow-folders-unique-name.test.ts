@@ -22,6 +22,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -70,6 +71,9 @@ describeDb("workflow_folders partial UNIQUE sibling-name index — WF-2", () => 
     admin = createClient(URL!, SERVICE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["workflow_folders"]);
     const user = await createTrackedUser(admin, fixtures, "wf-folder-uniq");
     userId = user.userId;
     const { data: acct, error: aErr } = await admin

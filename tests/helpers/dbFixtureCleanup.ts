@@ -177,14 +177,45 @@ export async function cleanupFixtures(
   if (allAccountIds.length > 0) {
     // workflow_folders.parent_folder_id is a SELF-referential RESTRICT FK, so a
     // bulk delete of a nested tree can fail: Postgres enforces RESTRICT per row,
-    // and the parent may be deleted while a child still points at it. Detach the
-    // tree first — then the bulk delete below is order-independent.
-    const { error: detachError } = await admin
-      .from("workflow_folders")
-      .update({ parent_folder_id: null })
-      .in("account_id", allAccountIds)
-      .not("parent_folder_id", "is", null);
-    record("detach workflow_folders.parent_folder_id", detachError?.message);
+    // and the parent may be deleted while a child still points at it.
+    //
+    // Detaching the whole tree to NULL (the previous approach) is NOT safe: it
+    // makes every folder a root sibling at once, and `workflow_folders_unique_
+    // sibling_name_live` forbids two live siblings sharing a name. Any suite that
+    // deliberately creates the same folder name at different depths — which is
+    // exactly what workflow-folders-unique-name asserts — made the detach fail,
+    // and a failed cleanup leaves synthetic rows behind.
+    //
+    // Delete DEEPEST-FIRST instead: repeatedly remove the folders that are not
+    // anyone's parent. That respects RESTRICT without ever violating the sibling
+    // -name index, because no row is re-parented at all.
+    for (let pass = 0; pass < 12; pass += 1) {
+      const { data: remaining, error: listError } = await admin
+        .from("workflow_folders")
+        .select("id, parent_folder_id")
+        .in("account_id", allAccountIds);
+      if (listError) {
+        record("list workflow_folders", listError.message);
+        break;
+      }
+      const rows = (remaining ?? []) as Array<{ id: string; parent_folder_id: string | null }>;
+      if (rows.length === 0) break;
+
+      const parentIds = new Set(
+        rows.map((r) => r.parent_folder_id).filter((v): v is string => v !== null),
+      );
+      const leafIds = rows.map((r) => r.id).filter((id) => !parentIds.has(id));
+      if (leafIds.length === 0) {
+        // Cycle or unexpected shape — surface it rather than looping forever.
+        record("delete workflow_folders (leaves)", "no leaf folders found; possible cycle");
+        break;
+      }
+      const { error: delError } = await admin.from("workflow_folders").delete().in("id", leafIds);
+      if (delError) {
+        record("delete workflow_folders (leaves)", delError.message);
+        break;
+      }
+    }
 
     for (const table of ACCOUNT_RESTRICT_TABLES) {
       const { error } = await admin.from(table).delete().in("account_id", allAccountIds);

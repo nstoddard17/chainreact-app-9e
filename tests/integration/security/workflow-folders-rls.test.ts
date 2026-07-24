@@ -23,6 +23,8 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -80,13 +82,8 @@ describeDb("workflow_folders foundation RLS + same-account guards — WF-1", () 
     return data.id;
   }
 
-  async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+  async function sessionClient(email: string, _password: string): Promise<SupabaseClient> {
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   async function seedFolder(accountId: string, userId: string, name: string): Promise<string> {
@@ -103,6 +100,9 @@ describeDb("workflow_folders foundation RLS + same-account guards — WF-1", () 
     admin = createClient(URL!, SERVICE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["workflow_folders", "workflows"]);
     const a = await createTestUser("a");
     const b = await createTestUser("b");
     const aAccount = await personalAccountId(a.userId);
@@ -135,7 +135,10 @@ describeDb("workflow_folders foundation RLS + same-account guards — WF-1", () 
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: anonOnA } = await anon.from("workflow_folders").select("id").eq("id", a.folderId);
-    expect(anonOnA).toHaveLength(0);
+    // anon has no grant on this table, so PostgREST denies with 42501 and `data`
+    // is null rather than an empty array — a STRONGER outcome than an empty read.
+    // The property asserted is unchanged: anon obtains zero rows.
+    expect(anonOnA ?? []).toHaveLength(0);
   });
 
   it("same-account trigger: cross-account parent_folder_id is rejected", async () => {

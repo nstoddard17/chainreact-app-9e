@@ -23,6 +23,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -158,9 +159,7 @@ describeDb("account_billing Stripe attachment — CS-2", () => {
 
   it("a member CANNOT write the Stripe ids (no client write policy → 0 rows)", async () => {
     const b = accounts[1]!;
-    const supaB = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { error: signInErr } = await supaB.auth.signInWithPassword({ email: b.email, password: b.password });
-    expect(signInErr).toBeNull();
+    const supaB = await signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email: b.email });
 
     const { data, error } = await supaB
       .from("account_billing")

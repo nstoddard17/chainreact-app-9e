@@ -21,6 +21,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -94,14 +95,7 @@ describeDb("4.ACCOUNT-MODEL-10b — account deletion freeze (dev DB)", () => {
 
   /** Anon (RLS-gated) client signed in as the given user. */
   async function sessionClientFor(email: string): Promise<SupabaseClient> {
-    const client = createClient(URL as string, ANON_KEY as string, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const password = passwords.get(email);
-    if (!password) throw new Error(`sessionClientFor: no password for ${email}`);
-    const { error } = await client.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signIn: ${error.message}`);
-    return client;
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   async function setDeletionStatus(

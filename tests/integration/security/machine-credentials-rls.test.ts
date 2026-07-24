@@ -46,6 +46,8 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -112,6 +114,9 @@ describeDb("machine-credential store — RLS + isolation + rotation (live DB)", 
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false } });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["account_machine_credentials", "machine_credential_audit"]);
     A = await createTestUser("a");
     B = await createTestUser("b");
   });
@@ -145,12 +150,7 @@ describeDb("machine-credential store — RLS + isolation + rotation (live DB)", 
   });
 
   it("a member's DIRECT authenticated SELECT is denied (42501) on both tables", async () => {
-    const asUser = createClient(URL!, ANON_KEY!, { auth: { persistSession: false } });
-    const { error: signInErr } = await asUser.auth.signInWithPassword({
-      email: A.email,
-      password: A.password,
-    });
-    expect(signInErr).toBeNull();
+    const asUser = await signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email: A.email });
 
     const cred = await asUser.from("account_machine_credentials").select("*");
     expect(cred.error?.code).toBe("42501");
@@ -175,8 +175,7 @@ describeDb("machine-credential store — RLS + isolation + rotation (live DB)", 
     expect(a).not.toBeNull();
 
     // Even authenticated as B, the Data API denies the table entirely (42501).
-    const asB = createClient(URL!, ANON_KEY!, { auth: { persistSession: false } });
-    await asB.auth.signInWithPassword({ email: B.email, password: B.password });
+    const asB = await signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email: B.email });
     const probe = await asB.from("account_machine_credentials").select("*");
     expect(probe.error?.code).toBe("42501");
   });

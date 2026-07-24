@@ -19,6 +19,8 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -55,21 +57,15 @@ describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => 
   const fixtures = createFixtureTracker();
   let userId = "";
   let email = "";
-  let password = "";
   let personalId = "";
   let teamId = "";
   let wfPersonal = "";
   let wfTeam = "";
 
-  // Authenticated (anon-key + password) session for the seeded user — used to
+  // Authenticated (email-link session) client for the seeded user — used to
   // prove the V2-READY-51 lockdown + the security_invoker-view regression.
   async function sessionClient(): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   async function seedWorkflow(accountId: string, name: string): Promise<string> {
@@ -99,10 +95,12 @@ describeDb("workflow_run_stats account scoping — 4.ACCOUNT-SWITCHER-1", () => 
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["workflow_run_stats", "workflow_runs", "workflows"]);
     const user = await createTrackedUser(admin, fixtures, "wf-runstats");
     userId = user.userId;
     email = user.email;
-    password = user.password;
     const slug = userId.slice(0, 8);
     const { data: pa } = await admin
       .from("accounts").select("id").eq("type", "personal").eq("owner_user_id", userId).single<{ id: string }>();

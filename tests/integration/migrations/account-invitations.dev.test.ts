@@ -20,6 +20,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cleanupFixtures, createFixtureTracker, createTrackedUser } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -84,12 +85,7 @@ describeDb("4.ACCOUNT-MODEL-15 — account_invitations (dev DB)", () => {
   }
 
   async function sessionClientFor(email: string): Promise<SupabaseClient> {
-    const client = createClient(URL as string, ANON_KEY as string, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await client.auth.signInWithPassword({ email, password: passwords.get(email) ?? "" });
-    if (error) throw new Error(`signIn: ${error.message}`);
-    return client;
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   beforeAll(() => {

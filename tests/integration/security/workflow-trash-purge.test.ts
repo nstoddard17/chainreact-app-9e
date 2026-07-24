@@ -23,6 +23,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -61,6 +62,9 @@ describeDb("workflow trash purge invariants — WF-4", () => {
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["task_usage_events", "workflow_folders", "workflows"]);
     const user = await createTrackedUser(admin, fixtures, "wf-purge");
     userId = user.userId;
     const { data: acct } = await admin

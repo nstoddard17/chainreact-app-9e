@@ -45,6 +45,7 @@ import {
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
 import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -182,6 +183,9 @@ describeDb("integrations table — account-membership RLS + no-cleartext-at-rest
     admin = createClient(URL!, SERVICE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["integrations"]);
 
     const a = await createTestUser("a");
     const b = await createTestUser("b");

@@ -36,6 +36,8 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -177,6 +179,9 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
     admin = createClient(URL!, SERVICE_KEY!, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["account_mcp_tokens", "integrations", "workflows"]);
 
     const a = await createTestUser("a");
     const b = await createTestUser("b");
@@ -221,13 +226,8 @@ describeDb("public MCP — account isolation + token revocation (live DB)", () =
     await cleanupFixtures(admin, fixtures);
   });
 
-  async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+  async function sessionClient(email: string, _password: string): Promise<SupabaseClient> {
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   it("member A's DIRECT authenticated SELECT on account_mcp_tokens is denied (42501)", async () => {

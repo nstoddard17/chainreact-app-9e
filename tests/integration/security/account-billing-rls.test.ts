@@ -22,6 +22,8 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
+import { requireTables } from "@/tests/helpers/dbPreflight";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -73,15 +75,15 @@ describeDb("account_billing RLS — Slice 4.ACCOUNT-MODEL-9b", () => {
     return data.id;
   }
 
-  async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+  async function sessionClient(email: string, _password: string): Promise<SupabaseClient> {
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   beforeAll(async () => {
     admin = createClient(URL!, SERVICE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+    // Fail fast if a migration is missing — never create fixtures for a suite
+    // that cannot prove anything (a vacuous green is worse than a red).
+    await requireTables(admin, ["account_billing"]);
     const a = await createTestUser("a");
     const b = await createTestUser("b");
     const aAccount = await personalAccountId(a.userId);
@@ -113,8 +115,18 @@ describeDb("account_billing RLS — Slice 4.ACCOUNT-MODEL-9b", () => {
     expect(bOnA).toHaveLength(0);
 
     const anon = createClient(URL!, ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data: anonOnA } = await anon.from("account_billing").select("account_id").eq("account_id", a.accountId);
-    expect(anonOnA).toHaveLength(0);
+    const { data: anonOnA, error: anonErr } = await anon
+      .from("account_billing")
+      .select("account_id")
+      .eq("account_id", a.accountId);
+    // anon has NO grant on account_billing, so PostgREST denies with 42501 and
+    // `data` is null rather than an empty array — a STRONGER outcome than the
+    // original `toHaveLength(0)` expected. Assert the property (anon obtains no
+    // billing row) while accepting either shape.
+    if (anonErr) {
+      expect(anonErr.code).toBe("42501");
+    }
+    expect(anonOnA ?? []).toHaveLength(0);
   });
 
   it("a member cannot UPDATE their own counters (no write policy → 0 rows affected)", async () => {

@@ -20,6 +20,7 @@ import {
   createFixtureTracker,
   createTrackedUser,
 } from "@/tests/helpers/dbFixtureCleanup";
+import { signedInClient } from "@/tests/helpers/dbSessionClient";
 
 function loadEnvLocal(): void {
   const p = resolve(process.cwd(), ".env.local");
@@ -80,13 +81,8 @@ describeDb("account_memberships RLS — Slice 4.ACCOUNT-MODEL-3", () => {
     return data.id;
   }
 
-  async function sessionClient(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON_KEY!, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await c.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(`signInWithPassword: ${error.message}`);
-    return c;
+  async function sessionClient(email: string, _password: string): Promise<SupabaseClient> {
+    return signedInClient({ url: URL!, anonKey: ANON_KEY!, admin, email });
   }
 
   beforeAll(async () => {
@@ -137,7 +133,15 @@ describeDb("account_memberships RLS — Slice 4.ACCOUNT-MODEL-3", () => {
       .from("account_memberships")
       .select("user_id")
       .eq("user_id", a.userId);
-    expect(error).toBeNull();
-    expect(data).toHaveLength(0);
+
+    // Previously expected `error === null` + zero rows. The real — and STRONGER
+    // — behavior is 42501: the policy calls `is_account_member()`, whose EXECUTE
+    // was revoked from anon by 20260619010000, so anon is rejected before any
+    // row is considered. Assert the property (anon obtains nothing) while
+    // accepting either shape, requiring a permission error when one is given.
+    if (error) {
+      expect(error.code).toBe("42501");
+    }
+    expect(data ?? []).toHaveLength(0);
   });
 });
