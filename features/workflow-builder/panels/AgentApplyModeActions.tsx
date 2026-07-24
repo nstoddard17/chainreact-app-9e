@@ -5,6 +5,8 @@ import type {
   AgentApplyMode,
   AgentApplyModeAvailability,
 } from "@/core/workflows/agentApplyModes";
+import type { DestructivePreviewClassification } from "@/core/workflows/destructivePreview";
+import { DestructiveApplyConfirm } from "./DestructiveApplyConfirm";
 
 /**
  * React Agent apply-mode picker (REACT-AGENT-APPLY-MODES-1) — the right-rail
@@ -26,7 +28,20 @@ export interface AgentApplyModeActionsProps {
   readonly onSelectMode: (mode: AgentApplyMode) => void;
   /** Discard the preview entirely (graph unchanged). */
   readonly onDiscard: () => void;
+  /**
+   * DOC-FINAL-ACCEPTANCE-1 — the shared destructive classification (the SAME value
+   * the center Document preview reads). When `isDestructive`, choosing an APPLYING
+   * mode (apply to draft / apply and test) routes through the shared
+   * `DestructiveApplyConfirm` before `onSelectMode` — same wording, same result
+   * type, same governed apply command. `preview_only` and Discard never confirm.
+   */
+  readonly destructive?: DestructivePreviewClassification | null | undefined;
 }
+
+const APPLYING_MODES: ReadonlySet<AgentApplyMode> = new Set([
+  "apply_to_draft",
+  "apply_and_test",
+]);
 
 /** Visual emphasis per mode: apply-to-draft is primary, apply-and-test secondary, keep tertiary. */
 const MODE_VARIANT: Record<AgentApplyMode, "primary" | "secondary" | "tertiary"> = {
@@ -49,21 +64,48 @@ export function AgentApplyModeActions({
   modes,
   onSelectMode,
   onDiscard,
+  destructive,
 }: AgentApplyModeActionsProps) {
   // The mode awaiting an explicit confirm, or null. Only confirmation-required modes use this.
   const [confirmingMode, setConfirmingMode] = useState<AgentApplyMode | null>(null);
+  // DOC-FINAL-ACCEPTANCE-1 — the applying mode awaiting the shared destructive confirm.
+  const [destructiveMode, setDestructiveMode] = useState<AgentApplyMode | null>(null);
 
   const confirming = confirmingMode
     ? modes.find((m) => m.mode === confirmingMode) ?? null
     : null;
 
+  const isDestructive = destructive?.isDestructive === true;
+
   function handleClick(mode: AgentApplyModeAvailability): void {
     if (!mode.enabled) return;
+    // A destructive proposal takes precedence over the risk confirm for an
+    // applying mode — the removal is the stronger consequence and both share the
+    // one confirmation component. Non-applying modes (Keep as preview) never confirm.
+    if (isDestructive && APPLYING_MODES.has(mode.mode)) {
+      setDestructiveMode(mode.mode);
+      return;
+    }
     if (mode.confirmationRequired) {
       setConfirmingMode(mode.mode);
       return;
     }
     onSelectMode(mode.mode);
+  }
+
+  if (destructiveMode && destructive) {
+    return (
+      <DestructiveApplyConfirm
+        testIdPrefix="agent-apply-mode-destructive"
+        classification={destructive}
+        onCancel={() => setDestructiveMode(null)}
+        onConfirm={() => {
+          const mode = destructiveMode;
+          setDestructiveMode(null);
+          onSelectMode(mode);
+        }}
+      />
+    );
   }
 
   if (confirming) {

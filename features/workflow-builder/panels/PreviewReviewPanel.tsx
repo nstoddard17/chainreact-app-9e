@@ -15,6 +15,7 @@ import type {
   AgentApplyMode,
   AgentApplyModeAvailability,
 } from "@/core/workflows/agentApplyModes";
+import type { DestructivePreviewClassification } from "@/core/workflows/destructivePreview";
 import type { AgentReadinessVerdict } from "@/core/workflows/agentReadiness";
 import { AgentApplyModeActions } from "./AgentApplyModeActions";
 import { AgentReadinessSummary } from "./AgentReadinessSummary";
@@ -60,6 +61,8 @@ export interface PreviewReviewPanelProps {
    */
   readonly applyModes?: readonly AgentApplyModeAvailability[];
   readonly onSelectApplyMode?: (mode: AgentApplyMode) => void;
+  /** DOC-FINAL-ACCEPTANCE-1 — shared destructive classification, forwarded to the apply-mode actions. */
+  readonly destructive?: DestructivePreviewClassification | null;
   /**
    * AGENT-CHANGE-HISTORY-1 — read-only mode for the historical "View diff" drawer: render the same
    * value-level diff WITHOUT the Apply/Discard actions (a past change can't be re-applied from here).
@@ -112,6 +115,7 @@ export function PreviewReviewPanel({
   onDiscard,
   applyModes,
   onSelectApplyMode,
+  destructive,
   hideActions,
 }: PreviewReviewPanelProps) {
   const whyBullets = rationale?.bullets ?? [];
@@ -124,6 +128,7 @@ export function PreviewReviewPanel({
           modes={applyModes}
           onSelectMode={onSelectApplyMode}
           onDiscard={onDiscard}
+          {...(destructive ? { destructive } : {})}
         />
       ) : onApply && onDiscard ? (
         // Legacy / fallback: the single Apply/Discard pair.

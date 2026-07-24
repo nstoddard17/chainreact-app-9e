@@ -32,6 +32,7 @@ import { buildDocumentPreview } from "./documentPreviewProjection";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { WorkflowDefinition } from "@/contracts/workflow";
 import type { ComposerSeed } from "@/features/workflows/composerSeed";
+import type { DestructivePreviewClassification } from "@/core/workflows/destructivePreview";
 import {
   createDocumentIfThenBranch,
   createDocumentRouterBranch,
@@ -121,6 +122,7 @@ export function DocumentView({
   onAskReact,
   canUseAdvancedBranching,
   previewOverlay,
+  previewDestructive,
   onApplyPreview,
   onDiscardPreview,
   notice,
@@ -172,6 +174,14 @@ export function DocumentView({
     | { readonly preview: DraftPreview; readonly proposedDefinition?: WorkflowDefinition | undefined }
     | null
     | undefined;
+  /**
+   * DOC-FINAL-ACCEPTANCE-1 — the shared destructive classification for the
+   * active preview (owned by WorkflowBuilder via `classifyDestructivePreview`,
+   * the SAME value the right-drawer apply flow reads). When destructive, the
+   * center Apply routes through the shared confirmation before the governed
+   * apply. Absent / non-destructive ⇒ the normal one-click Apply.
+   */
+  previewDestructive?: DestructivePreviewClassification | null | undefined;
   onApplyPreview?: (() => void) | undefined;
   onDiscardPreview?: (() => void) | undefined;
   /** CS-2 — transient notice owned by WorkflowBuilder (e.g. branch-pick refusal). */
@@ -1170,6 +1180,7 @@ export function DocumentView({
               model={previewModel}
               onApply={onApplyPreview}
               onDiscard={onDiscardPreview}
+              {...(previewDestructive ? { destructive: previewDestructive } : {})}
               {...(onOpenInVisual ? { onOpenInVisual: () => handoffToVisual(null) } : {})}
             />
           ) : null}

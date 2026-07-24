@@ -1,7 +1,13 @@
 "use client";
 
+import { useRef, useState } from "react";
 import type { DocumentBlock } from "./documentModel";
 import type { DocumentPreviewModel, PreviewNodeStatus } from "./documentPreviewProjection";
+import { DestructiveApplyConfirm } from "../panels/DestructiveApplyConfirm";
+import {
+  describeDestructiveRemoval,
+  type DestructivePreviewClassification,
+} from "@/core/workflows/destructivePreview";
 
 /**
  * Document Builder — React-Agent ghost PREVIEW (5.DUAL-BUILDER-1 / CS-6).
@@ -30,29 +36,62 @@ export function DocumentPreview({
   onApply,
   onDiscard,
   onOpenInVisual,
+  destructive,
 }: {
   model: DocumentPreviewModel;
   onApply: () => void;
   onDiscard: () => void;
   onOpenInVisual?: (() => void) | undefined;
+  /**
+   * DOC-FINAL-ACCEPTANCE-1 — the shared destructive classification for this
+   * proposal (from `classifyDestructivePreview`, owned by WorkflowBuilder). When
+   * `isDestructive`, the primary Apply names the consequence and routes through
+   * the shared confirmation before the governed apply. Absent / non-destructive
+   * ⇒ the normal one-click Apply, unchanged.
+   */
+  destructive?: DestructivePreviewClassification | null | undefined;
 }) {
+  const isDestructive = destructive?.isDestructive === true;
+  // Inline confirmation gate for a destructive apply. Session-only UI state;
+  // never a store, never mutates. Cancel returns focus to the Apply control.
+  const [confirming, setConfirming] = useState(false);
+  const applyRef = useRef<HTMLButtonElement | null>(null);
+  const removalLine = isDestructive && destructive ? describeDestructiveRemoval(destructive) : null;
+
+  const handleApplyClick = () => {
+    if (isDestructive) {
+      setConfirming(true);
+      return;
+    }
+    onApply();
+  };
+
   return (
     <section
       data-testid="document-preview"
       data-preview-kind={model.kind}
+      data-destructive={isDestructive ? "true" : "false"}
       aria-label="React proposal preview"
       className="my-3 overflow-hidden rounded-xl"
-      style={{ border: "1.5px dashed var(--builder-accent)", background: "var(--builder-accent-soft)" }}
+      style={
+        isDestructive
+          ? { border: "1.5px solid var(--builder-danger, #b91c1c)", background: "var(--builder-panel)" }
+          : { border: "1.5px dashed var(--builder-accent)", background: "var(--builder-accent-soft)" }
+      }
     >
       <div
         className="flex flex-wrap items-center gap-2 px-4 py-2.5"
-        style={{ borderBottom: "1px dashed var(--builder-accent)" }}
+        style={{
+          borderBottom: isDestructive
+            ? "1px solid var(--builder-danger, #b91c1c)"
+            : "1px dashed var(--builder-accent)",
+        }}
       >
         <span
           className="builder-mono text-[10px] font-semibold uppercase tracking-[0.1em]"
-          style={{ color: "var(--builder-accent)" }}
+          style={{ color: isDestructive ? "var(--builder-danger, #b91c1c)" : "var(--builder-accent)" }}
         >
-          React proposes
+          {isDestructive ? "React proposes a removal" : "React proposes"}
         </span>
         <span className="text-[13px] font-semibold" style={{ color: "var(--builder-text)" }}>
           {model.title}
@@ -105,37 +144,78 @@ export function DocumentPreview({
           <EditProposal model={model} />
         )}
 
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            type="button"
-            data-testid="document-preview-apply"
-            onClick={onApply}
-            className="inline-flex h-8 items-center rounded-md px-3.5 text-[12.5px] font-semibold"
-            style={{ background: "var(--builder-text)", color: "var(--builder-panel)" }}
+        {isDestructive && removalLine ? (
+          <p
+            data-testid="document-preview-destructive-note"
+            className="mt-2 mb-0 text-[12px] font-medium"
+            style={{ color: "var(--builder-danger, #b91c1c)" }}
           >
-            Apply to draft
-          </button>
-          <button
-            type="button"
-            data-testid="document-preview-reject"
-            onClick={onDiscard}
-            className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium"
-            style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
-          >
-            Reject
-          </button>
-          {onOpenInVisual ? (
+            {removalLine} Review before applying.
+          </p>
+        ) : null}
+
+        {confirming && destructive ? (
+          <div className="mt-3">
+            <DestructiveApplyConfirm
+              testIdPrefix="document-preview-destructive"
+              classification={destructive}
+              onCancel={() => {
+                setConfirming(false);
+                // Return focus to the Apply control (the opener) after Cancel.
+                applyRef.current?.focus();
+              }}
+              onConfirm={() => {
+                setConfirming(false);
+                onApply();
+              }}
+            />
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              ref={applyRef}
+              type="button"
+              data-testid="document-preview-apply"
+              data-destructive={isDestructive ? "true" : "false"}
+              onClick={handleApplyClick}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-3.5 text-[12.5px] font-semibold"
+              style={
+                isDestructive
+                  ? { background: "var(--builder-danger, #b91c1c)", color: "#fff" }
+                  : { background: "var(--builder-text)", color: "var(--builder-panel)" }
+              }
+            >
+              {isDestructive ? (
+                <>
+                  <span aria-hidden>⚠</span>
+                  Apply removal
+                </>
+              ) : (
+                "Apply to draft"
+              )}
+            </button>
             <button
               type="button"
-              data-testid="document-preview-review-visual"
-              onClick={onOpenInVisual}
-              className="ml-auto text-[11.5px] underline"
-              style={{ color: "var(--builder-muted)" }}
+              data-testid="document-preview-reject"
+              onClick={onDiscard}
+              className="inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium"
+              style={{ color: "var(--builder-muted)", border: "1px solid var(--builder-border)" }}
             >
-              Open in Visual Builder
+              Reject
             </button>
-          ) : null}
-        </div>
+            {onOpenInVisual ? (
+              <button
+                type="button"
+                data-testid="document-preview-review-visual"
+                onClick={onOpenInVisual}
+                className="ml-auto text-[11.5px] underline"
+                style={{ color: "var(--builder-muted)" }}
+              >
+                Open in Visual Builder
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
     </section>
   );

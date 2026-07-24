@@ -307,23 +307,26 @@ test.describe("5.DUAL-BUILDER-1 CS-7G — Ask React mutation acceptance (live) @
     await expect(page.getByTestId("builder-header-save-button")).toBeDisabled();
     expect((await readDefinition(page, workflowId)).nodes).toHaveLength(4);
 
-    // Apply through the governed apply-mode action → the EXISTING destructive confirmation appears
-    // (the removed node carries a recipient `channel`, so confirmation is required).
+    // Apply through the governed apply-mode action → the SHARED destructive
+    // confirmation appears (DOC-FINAL-ACCEPTANCE-1: a removal ALWAYS confirms via
+    // the dedicated classifier — the same confirmation the center Document preview
+    // uses — regardless of whether the removed node carried a risk field).
     await page.getByTestId("agent-apply-mode-apply_to_draft").click();
-    const confirm = page.getByTestId("agent-apply-mode-confirm");
+    const confirm = page.getByTestId("agent-apply-mode-destructive-confirm");
     await expect(confirm).toBeVisible();
+    await expect(confirm).toHaveAttribute("role", "alertdialog");
     await shot(page, "06-destructive-confirmation");
 
     // Cancel → mutation-free: node remains, not dirty, no checkpoint, no apply history.
-    await page.getByTestId("agent-apply-mode-confirm-cancel").click();
+    await page.getByTestId("agent-apply-mode-destructive-cancel").click();
     await expect(page.getByTestId("builder-header-save-button")).toBeDisabled();
     expect((await readDefinition(page, workflowId)).nodes).toHaveLength(4);
     expect(await countCheckpoints(workflowId)).toBe(beforeCheckpoints);
 
     // Confirm → removal applies through the governed path.
     await page.getByTestId("agent-apply-mode-apply_to_draft").click();
-    await expect(page.getByTestId("agent-apply-mode-confirm")).toBeVisible();
-    await page.getByTestId("agent-apply-mode-confirm-accept").click();
+    await expect(page.getByTestId("agent-apply-mode-destructive-confirm")).toBeVisible();
+    await page.getByTestId("agent-apply-mode-destructive-accept").click();
 
     await expect(page.getByTestId("builder-header-save-button")).toBeEnabled(); // dirty
     const stillSaved = await readDefinition(page, workflowId);

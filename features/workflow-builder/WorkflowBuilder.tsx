@@ -70,6 +70,7 @@ import { useBuilderReadiness } from "./hooks/useBuilderReadiness";
 import { insertActionAtEdge } from "./utils/insertActionAtEdge";
 import { ValidationSummary } from "./validation/ValidationSummary";
 import type { AgentApplyMode } from "@/core/workflows/agentApplyModes";
+import { useDestructivePreview } from "./hooks/useDestructivePreview";
 import {
   DocumentView,
   readBuilderViewPref,
@@ -845,6 +846,9 @@ export function WorkflowBuilder({
     [handleApplyPreview, handleApplyAndTest, handleKeepAsPreview],
   );
 
+  // DOC-FINAL-ACCEPTANCE-1 — the SINGLE destructive classification for the active
+  // preview, shared by the center Document preview and the right-drawer apply flow.
+  const destructivePreview = useDestructivePreview(pendingNodes, pendingEdges, previewOverlay);
 
   // AI-TEMPLATE-APPLY-CURRENT — apply a React-Agent-suggested official template to the CURRENTLY-OPEN
   // workflow IN PLACE (the primary choice in the template match dialog). It overwrites the current
@@ -1064,6 +1068,7 @@ export function WorkflowBuilder({
               applyModes={applyModeAvailability}
               onSelectApplyMode={handleSelectApplyMode}
               onDiscard={handleDiscardPreview}
+              {...(destructivePreview.isDestructive ? { destructive: destructivePreview } : {})}
             />
           </BuilderRightDrawer>
         ) : drawerVisible ? (
@@ -1119,6 +1124,8 @@ export function WorkflowBuilder({
             // CS-6 — the ephemeral agent preview (owned by useBuilderPreview) +
             // the canonical apply/discard handlers, rendered as a ghost Document.
             previewOverlay={previewOverlay}
+            // DOC-FINAL-ACCEPTANCE-1 — shared destructive classification (center confirm).
+            {...(destructivePreview.isDestructive ? { previewDestructive: destructivePreview } : {})}
             onApplyPreview={handleDocumentApplyPreview}
             onDiscardPreview={handleDocumentDiscardPreview}
             notice={documentNotice}
