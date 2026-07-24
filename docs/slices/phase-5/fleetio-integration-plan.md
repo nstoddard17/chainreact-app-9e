@@ -388,6 +388,108 @@ Originally scoped as 5 writes in one slice; ship them incrementally. **FLEETIO-3
   `vendors`, fuel/meter enums).
 - **Certification (Phase 13):** set a real vehicle's status in a Fleetio sandbox; verify in the UI.
 
+### Slice 3b — **Create Meter Entry** (FLEETIO-4) · the flagship keystone · **M**
+`fleetio:create_meter_entry` — the write that makes *telematics reading → Fleetio preventive
+maintenance* real. **No new resolver was needed** (see the meter-unit finding below).
+
+- **Endpoint (verified against the 2025-05-05 schema):** `POST /meter_entries`
+  (MeterEntries::Create). **Top-level, NOT vehicle-nested** — `/vehicles/{id}/meter_entries` exists
+  but is **GET-only** ("List Vehicle Meter Entries"), so `vehicle_id` travels in the **body**, never
+  in the path.
+- **Request schema.** Required: `vehicle_id` (`Id` = integer ≥ 1), `value` (`number`/`format: float`),
+  `date` (`string`/`format: date-time`, example `2023-03-14T13:46:27-06:00`). Optional: `void`
+  (boolean, default `false`) and `meter_type` (nullable string whose **only** enum member is
+  `"secondary"`). There is **no** unit, meter-id, source, note or reason field. No min/max on `value`;
+  no negative-value allowance.
+- **Response schema.** 201 → `MeterEntry_Created` = `Record` (id, created_at, updated_at) + required
+  `account_id, auto_voided_at, category, meter_type, meterable_id, meterable_type, value, vehicle_id,
+  void, gps_provider, date`, plus optional `vehicle_archived_at, auto_void_reason, is_sample,
+  gps_device_id, source, active_meter_conflicts_caused_count`.
+- **Documented statuses: 201, 401, 422, 500 only.** The endpoint documents **no 400, no 403, no 404
+  and no 409**. (403 and 429 remain possible platform-wide — role gaps and per-account-token
+  throttling — and the shared wrapper maps them; we do not claim the endpoint documents them.)
+- **Lower / duplicate readings.** Fleetio validates sequence: *"Meter Entries must follow the correct
+  sequence, incrementing in value by date. For each entry, Fleetio validates to ensure that the value
+  falls between any entries logged before and/or after."* A lower or out-of-sequence reading therefore
+  surfaces as **422**, never 409. Fleetio does **not** dedupe an identical repeat — posting the same
+  reading twice creates two entries.
+- **Meter unit/type — plan assumption DISPROVEN.** The plan called for a `fleetio:meter_units`
+  resolver and a required Unit field. The schema shows the create request accepts **no unit at all**:
+  the unit is configured at the **Account** level and optionally overridden on the **Vehicle**
+  (`Vehicle.meter_unit` / `secondary_meter_unit`, enum `km|hr|mi`). **No unit field and no
+  `fleetio:meter_units` resolver were shipped** — offering a choice the write cannot carry would be
+  dishonest UI. There is also **no vehicle-meters endpoint**: a vehicle has at most two meters,
+  addressed by the fixed `meter_type` enum rather than by id, so no `fleetio:vehicle_meters` resolver
+  was invented either. What *is* shipped is a required **primary-vs-secondary** choice — that IS
+  behaviour-switching (it decides which PM schedule the reading feeds), so per Q11 it is explicit with
+  **no hidden default**, rendered as a static two-option `select` (options, not an optionsSource).
+- **Reading date — plan assumption DISPROVEN.** The plan assumed an optional date with a visible
+  `defaultValue: now`. The schema lists `date` in the endpoint's **`required`** array and Fleetio does
+  **not** default it server-side. So `readingDate` is **required** in ChainReact too, and the handler
+  never silently generates a timestamp. Product upside: the honest field is also the *correct* one —
+  a reading should be dated when the telematics system took it, not when the workflow happened to run.
+- **Write-safety (unchanged policy, re-proven).** Fleetio publishes **no idempotency key** for meter
+  entries (the 2025-05-05 schema carries `idempotency_key` on **Faults only** — none invented). So:
+  exactly **one** provider call per invocation; the method-aware wrapper **never** auto-replays a POST
+  on 429 / 5xx / timeout / network failure; the engine invokes a handler exactly once. A timeout after
+  transmission is an **unknown outcome** — the typed transient error deliberately does **not** claim
+  that no entry was created. Unlike Update Vehicle Status, a manual re-run here is **not** safe: it
+  may create a duplicate. GET retry behavior is unchanged.
+- **Action contract:** `.strict()` `{ vehicleId, value, meterType, readingDate }`, all four required.
+  `vehicleId` accepts a string **or** a number (the canonical resolver preserves an upstream value's
+  real type) and must normalize to a **positive-integer** id — Fleetio's `vehicle_id` is the numeric
+  `Id` wire type in the body, so this is enforced before any provider call. `value` accepts a number
+  or numeric string; **explicit `0` is valid** and never treated as missing; `NaN`, `±Infinity`,
+  negatives, blanks and non-numeric strings reject pre-flight; decimals are preserved. `MAX_METER_VALUE
+  = 10_000_000` is derived from the wire type — `format: float` is single precision, whose exact-integer
+  ceiling is 2^24 (16,777,216) — and sits far above any real odometer or hour meter. `readingDate` is
+  ISO-8601 with an offset or trailing `Z`. Raw Fleetio request JSON and arbitrary provider fields are
+  rejected (`void`, `vehicle_id`, `date` as input keys all fail).
+- **Bounded output:** `{ meterEntryId, vehicleId, value, meterType, void, readingDate, createdAt }` —
+  built explicitly from the 201 record, never spread. **Two honest discrepancies:** Fleetio returns
+  `value` as a **string** on create even though the request takes a number (kept as the provider's
+  type rather than silently re-cast), and the response `date` is `format: date` (**date-only**) while
+  the request takes a full date-time. **No `meterUnit`** (the response carries none — it would be an
+  invented field) and **no updated-vehicle object** (the response is a Meter Entry; the vehicle's
+  recalculated current meter is not returned and is not fabricated). `meterType` is left exactly as
+  Fleetio reports it — `null` for primary, `"secondary"` for secondary; no invented `"primary"` literal.
+- **Builder:** Setup-only, four required fields in order — Vehicle (`fleetio:vehicles`, reused,
+  `allowManualEntry`) → Meter reading (`number`, help text names Motive) → Meter (static select) →
+  Reading date (`datetime-utc`). **No Advanced section** (the endpoint needs nothing that belongs
+  there); `void` deliberately not surfaced. `riskLevel: "medium"`, not destructive, no confirmation —
+  recoverable because Fleetio exposes `DELETE /meter_entries/{id}` and a void flag.
+- **Readiness:** gaps read `Vehicle` / `Meter reading` / `Meter` / `Reading date`. A valid `0` reading
+  satisfies readiness; whitespace-only ids do not; mapped `{{…}}` values satisfy it without the
+  resolver loading; readiness reads config only, so a picker outage can never erase a typed/mapped id.
+- **Errors:** 401→reconnect-required (no refresh attempt); 403→`FleetioForbiddenError` role guidance,
+  explicitly *not* treated as a bad credential; 404→`FleetioNotFoundError` (undocumented for this
+  endpoint, mapped defensively); 422→bounded (≤200 char) credential-free validation summary that
+  surfaces Fleetio's sequence guidance; 429→typed rate-limit after exactly one write; 5xx/timeout→
+  typed transient after exactly one write; malformed 2xx→`FleetioMalformedResponseError` (never a
+  fabricated meter-entry id, never request values echoed as proof of success). No credential, header,
+  URL or raw body in any message.
+- **Motive mapping path (real, not assumed).** Today's V2 Motive surface exposes a numeric `odometer`
+  on `MOTIVE_FUEL_PURCHASE_OUTPUTS` (get/list/create/update Fuel Purchase) and on the
+  `motive:new_fuel_purchase` trigger payload. **Motive ships no engine-hours output in V2 today** —
+  the secondary-meter path is configurable but has no Motive source yet. **Vehicle-identity warning:
+  a Motive `vehicleId` is NOT a Fleetio vehicle id.** The realistic workflow is therefore: Motive
+  trigger/action → *a step that establishes the Fleetio vehicle id* (a `fleetio:vehicles` pick, a
+  manual/mapped id, or a future lookup) → Create Meter Entry with the reading mapped from Motive. A
+  durable Motive↔Fleetio vehicle mapping table is **future product work**, deliberately NOT hacked
+  into this action; the walkthrough test asserts the Motive vehicle id never reaches Fleetio.
+- **Tests:** 202 Fleetio unit tests pass (20 suites), including 69 new — API wire/method/headers/body
+  + zero + decimal + secondary + no-idempotency-header + malformed + full error matrix + four
+  write-safety single-call proofs; action schema/Q5/account-isolation/one-write/typed-throw; meta,
+  readiness, registry-once, resolver-non-duplication and manifest honesty; and a mock-boundary
+  **flagship walkthrough** driving the real strict resolver + real handler registry against a mocked
+  Fleetio boundary.
+- **Certification (Phase 13):** post a real reading to a sandbox vehicle; confirm the vehicle's
+  current meter advances and a PM reminder recalculates; confirm a lower reading returns 422; confirm
+  whether an identical repeat is deduped (assumed **not**) ; confirm secondary-meter writes land on
+  the hour meter.
+- **Remaining Slice-3 writes → FLEETIO-5+:** Create Issue, Create Fuel Entry, Create Service Entry
+  (resolvers still needed: `issue_labels`, `contacts`, `service_tasks`, `vendors`, fuel enums).
+
 ### Slice 4 — Must-Have polling triggers · **L**
 - **Scope:** 5 polling triggers (inspection submitted, issue created, work order status changed, fuel
   entry created, service reminder due) modeled on Motive's polling pattern: `onActivate` baseline seed

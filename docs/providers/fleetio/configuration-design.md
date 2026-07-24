@@ -34,20 +34,50 @@ than the intended row (identity-match guard).
 | `fleetio:service_tasks` | Service Entry rows | `GET /service_tasks` | row-cell resolver (RESOLVERS-3/4) |
 | `fleetio:vendors` | Fuel/Service Entry | `GET /vendors` | |
 | `fleetio:work_order_statuses` | WO trigger filter | `GET /work_order_statuses` | names are the filterable value |
-| meter units / fuel types | Meter/Fuel Entry | static enums | conditional options |
+| ~~meter units~~ | ~~Meter Entry~~ | — | **CANCELLED (FLEETIO-4)** — `POST /meter_entries` accepts no unit; Fleetio derives it from the Account/Vehicle. No resolver, no field. See the Create Meter Entry matrix |
+| fuel types | Fuel Entry | static enums | conditional options |
 
 ## Node matrices (binding design — Slices 2–5)
 
-### Create Meter Entry (Must)
+### Create Meter Entry — **SHIPPED (FLEETIO-4)**; matrix re-verified against the live 2025-05-05 schema
+`POST /meter_entries` (top-level; `vehicle_id` in the **body**, not the path). Required by Fleetio:
+`vehicle_id`, `value`, `date`. Optional: `void`, `meter_type` (sole enum member `"secondary"`).
+
 | Field | Class | Setup/Advanced | UI |
 |---|---|---|---|
-| Vehicle | static provider resource | Setup, required | `fleetio:vehicles` combobox, manual entry retained |
-| Meter value | dynamic upstream value | Setup, required | number; typically `{{trigger.odometer}}` |
-| Unit | conditional option | Setup, required (Q11 — no silent default) | static enum (mi/km/hr) |
-| Date | derived/defaulted | Setup, `defaultValue: now` (visible) | date picker |
-| Void flag | advanced control | Advanced | boolean |
-| Vehicle id manual | advanced control | Advanced | text |
-Outputs (bounded): `meterEntryId, vehicleId, value, unit, meterDate, createdAt`.
+| Vehicle (`vehicleId`) | static provider resource | Setup, required | `fleetio:vehicles` combobox, `allowManualEntry` retained; mapped ids allowed |
+| Meter reading (`value`) | dynamic upstream value | Setup, required | `number`; help text names Motive; accepts number or numeric string; `0` valid |
+| Meter (`meterType`) | core user decision (behaviour-switching) | Setup, required (Q11 — **no** silent default) | static two-option `select`: Primary meter (odometer / mileage) · Secondary meter (engine hours) |
+| Reading date (`readingDate`) | core user decision | Setup, required | `datetime-utc`; Fleetio requires it and does **not** default it |
+
+Outputs (bounded): `meterEntryId, vehicleId, value, meterType, void, readingDate, createdAt`.
+
+**Corrections to the original (pre-implementation) design — the schema disproved three assumptions:**
+
+1. **No `Unit` field, and no `fleetio:meter_units` resolver.** `POST /meter_entries` accepts **no
+   unit**. Fleetio derives it from the Account setting, optionally overridden per Vehicle
+   (`Vehicle.meter_unit` / `secondary_meter_unit`, enum `km|hr|mi`). Offering a unit choice the write
+   cannot carry would be dishonest UI, so the field and the planned resolver were both dropped. There
+   is likewise no vehicle-meters endpoint (a vehicle has at most two meters, addressed by the fixed
+   `meter_type` enum, not by id), so no `fleetio:vehicle_meters` resolver was invented. **FLEETIO-4
+   added zero new option sources** — Fleetio still registers exactly `fleetio:vehicles` and
+   `fleetio:vehicle_statuses`.
+2. **`Date` is required, not `defaultValue: now`.** Fleetio lists `date` in the endpoint's `required`
+   array and does not fill it server-side, so there is no provider default to defer to and the handler
+   never silently generates a timestamp. Reclassified derived/defaulted → **core user decision**.
+3. **No `Void flag` in Advanced, and no separate "Vehicle id manual" Advanced field.** Recording an
+   entry as void is not a fleet-manager setup decision (rule 4: don't surface a provider field merely
+   because it exists), and manual id entry is already covered by `allowManualEntry` on the Vehicle
+   combobox rather than a duplicate field. The node therefore ships with **no Advanced section at all**.
+
+**Added versus the original design:** the primary-vs-secondary **Meter** choice. It is genuinely
+behaviour-switching — it decides which meter, and therefore which PM schedule, the reading feeds — so
+Q11 requires it be explicit. Fleetio's own wire default (omit ⇒ primary) is deliberately **not**
+inherited as a hidden ChainReact default.
+
+**Vehicle-identity caveat surfaced in the UI:** the Vehicle field's help text states that a Fleetio
+vehicle id is required and that a Motive vehicle id is a different identifier that will not match.
+Automatic Motive↔Fleetio vehicle matching is future product work, not part of this node.
 
 ### Create Issue (Must)
 | Field | Class | Setup/Advanced |

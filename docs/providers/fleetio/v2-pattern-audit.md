@@ -1,8 +1,9 @@
-# Fleetio — V2 Pattern Audit (FLEETIO-1, Slices 0–1)
+# Fleetio — V2 Pattern Audit (FLEETIO-1 … FLEETIO-4)
 
 What existing V2 patterns Fleetio reuses, what it extends, and every intentional divergence.
-Scope of this audit: auth + connection shell (Slice 1). Action/trigger/resolver patterns will be
-appended when Slices 2+ land.
+Scope: auth + connection shell (FLEETIO-1), the read action + resolvers (FLEETIO-2), and the write
+actions — Update Vehicle Status (FLEETIO-3) and Create Meter Entry (FLEETIO-4). Trigger patterns will
+be appended when the polling slice lands.
 
 ## Patterns audited and REUSED verbatim
 
@@ -46,6 +47,8 @@ appended when Slices 2+ land.
 | Field-set validation BEFORE state consume | Token flows consume state first; credential flows shape-check the submitted fields against the manifest first. A malformed set is a client bug/tamper — burning the nonce or probing the provider for it would be wrong. State consumption still precedes the PROVIDER verify call (the replay-relevant ordering, unchanged) |
 | 403 gets its own typed error (`FleetioForbiddenError`) | Fleetio RBAC makes "role gap" a first-class, owner-fixable failure distinct from "dead key" |
 | Method-aware bounded 429 retry in the wrapper | Fleetio advertises `Retry-After` explicitly; Trello's wrapper has no retry. **FLEETIO-3 write-safety:** only idempotent **GET** auto-retries once (≤10s); **writes (PATCH/POST/PUT/DELETE) never auto-replay** — they surface `FleetioRateLimitError` immediately so a mutation is never duplicated (Fleetio has no idempotency key for vehicle updates). Larger GET delays / a second GET 429 also surface the typed error. This is the durable write-safety policy every future Fleetio write inherits |
+| **Re-run safety is per-action, not provider-wide (FLEETIO-4)** | The wrapper policy above stops *automatic* replay for every write, but the consequence of a *human* re-run differs by action and must be stated per action rather than assumed from the provider. `update_vehicle_status` is naturally idempotent (setting the same status twice is a no-op), so a manual retry is safe. `create_meter_entry` is **not**: Fleetio publishes no idempotency key for `POST /meter_entries` (`idempotency_key` exists on **Faults only** in the 2025-05-05 schema — never invented here) and does not dedupe an identical repeat, so a manual retry **may create a duplicate entry**. A timeout after transmission is an **unknown outcome** for both, and neither error message claims the provider made no change. Future Fleetio creates inherit this create-specific caveat; future Fleetio updates inherit the idempotent one |
+| **No resolver invented for a value the write cannot carry (FLEETIO-4)** | The plan called for a `fleetio:meter_units` resolver, but the schema shows `POST /meter_entries` accepts **no unit** — Fleetio derives it from the Account, optionally overridden per Vehicle. A picker for a field the request cannot send would be dishonest UI, so both the field and the resolver were dropped rather than shipped for plan-fidelity. Conversely, primary-vs-secondary IS carried (`meter_type`) and IS behaviour-switching, so it ships as a required static two-option `select` with no hidden default (Q11) — a fixed provider enum earns inline `options`, not an account-aware resolver. Durable rule: **the verified request schema, not the plan, decides which pickers exist** |
 | Proactive health-check cron NOT added | Only Slack has a proactive health cron today (V2-READY-29). Fleetio declares `healthCheckIntervalMs` like every provider and relies on the same reactive machinery (verify-at-connect, 401→reconnect signal). A Fleetio-specific cron with no caller would be dead code — revisit when the provider family gets a generic health cron |
 | Icon is a neutral letterform placeholder | No official brand asset in-repo; `public/integrations/fleetio.svg` is a simple F-mark consistent with the set (Apps/Builder fall back to initials if replaced/removed). Owner may swap in Fleetio's official mark before public visibility |
 

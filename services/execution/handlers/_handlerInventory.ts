@@ -459,6 +459,7 @@ import { updateVehicle as motiveUpdateVehicle } from "@/integrations/motive/acti
 import { updateDriver as motiveUpdateDriver } from "@/integrations/motive/actions/updateDriver";
 import { getVehicle as fleetioGetVehicle } from "@/integrations/fleetio/actions/getVehicle";
 import { updateVehicleStatus as fleetioUpdateVehicleStatus } from "@/integrations/fleetio/actions/updateVehicleStatus";
+import { createMeterEntry as fleetioCreateMeterEntry } from "@/integrations/fleetio/actions/createMeterEntry";
 import type { ActionHandler } from "./types";
 
 /**
@@ -1053,5 +1054,8 @@ export const ALL_HANDLERS: ReadonlyArray<HandlerEntry> = [
   { provider: "fleetio", type: "get_vehicle", handler: fleetioGetVehicle },
   // Fleetio (FLEETIO-3) — first write: set a vehicle's status.
   { provider: "fleetio", type: "update_vehicle_status", handler: fleetioUpdateVehicleStatus },
+  // Fleetio (FLEETIO-4) — record an odometer / engine-hours reading (the
+  // Motive → Fleetio preventive-maintenance keystone).
+  { provider: "fleetio", type: "create_meter_entry", handler: fleetioCreateMeterEntry },
 ];
 
