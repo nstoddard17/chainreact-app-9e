@@ -1,23 +1,31 @@
 /**
- * Document Builder layout cleanup — Agent rail behavior (DOC-RAIL-LAYOUT-1).
+ * Document Builder — React Agent surface contract (DOC-REACT-AGENT-1,
+ * superseding DOC-RAIL-LAYOUT-1's collapsed-rail model).
  *
- * Drives the REAL builder and proves the Document-mode rail contract:
- * entering Document collapses the persistent React Agent rail by default (the
- * Document surface owns the full workspace; its Ask React bar is the one
- * visible AI entry), Visual keeps its existing persisted rail behavior and is
- * never overwritten by Document-mode toggling, every Document Ask React entry
- * (empty state · persistent bar · insertion menu) opens the ONE existing rail
- * and seeds the ONE composer, closing the rail returns the full-width Document
- * without losing composer/conversation state, and none of it mutates, dirties,
- * or saves the workflow. Flag OFF stays byte-identical to today's builder.
+ * Drives the REAL builder and proves: Document mode renders NO vertical React
+ * Agent rail (no spine, no gutter) because the bottom workspace is the single
+ * entry point; Visual keeps its existing persisted rail behavior untouched; the
+ * bottom composer stays available and submitting expands the workspace through
+ * the SAME conversation; collapsing keeps the transcript; switching modes loses
+ * neither the conversation nor a pending proposal; step context reaches the
+ * existing agent flow; and none of it mutates, dirties, or saves the workflow.
+ * Flag OFF stays byte-identical to today's builder.
+ *
+ * The AI network boundary is the only thing mocked — the conversation, the
+ * proposal payloads and the builder stores are all real.
  */
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mockUpdateWorkflow = jest.fn();
 jest.mock("@/lib/api/workflows", () => {
   const actual = jest.requireActual("@/lib/api/workflows");
   return { ...actual, updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args) };
 });
+const mockRequestGuidance = jest.fn();
+jest.mock("@/lib/api/ai/guidance", () => ({
+  __esModule: true,
+  requestWorkflowGuidance: (...args: unknown[]) => mockRequestGuidance(...args),
+}));
 jest.mock("next/navigation", () => ({ useRouter: () => ({ refresh: jest.fn(), push: jest.fn() }) }));
 jest.mock("@xyflow/react", () => {
   const actual = jest.requireActual("@xyflow/react");
@@ -96,47 +104,61 @@ function renderBuilder(opts: {
 }
 
 const rail = () => screen.getByTestId("builder-left-agent-rail");
-const composerEl = (): HTMLTextAreaElement | null =>
-  document.getElementById("workflow-guidance-goal") as HTMLTextAreaElement | null;
+const REPLY = "Here is what I would change.";
+const goalTextOf = (call: number): string =>
+  String((mockRequestGuidance.mock.calls[call]![0] as { goalText: string }).goalText);
 
 beforeEach(() => {
   mockUpdateWorkflow.mockReset();
+  mockRequestGuidance.mockReset();
+  mockRequestGuidance.mockResolvedValue({
+    ok: true,
+    guidanceText: REPLY,
+    workflowPlan: null,
+    previewDraft: null,
+  });
   window.localStorage.clear();
   useGraphSlice.getState().reset();
   useConfigSlice.getState().reset();
   useRunSlice.getState().reset();
 });
 
-describe("Document mode rail default (DOC-RAIL-LAYOUT-1)", () => {
-  it("entering Document mode collapses the persistent Agent rail by default", () => {
+describe("Document mode hides the vertical React Agent rail (DOC-REACT-AGENT-1)", () => {
+  it("renders NO rail in Document mode and no empty gutter, but keeps it in Visual", () => {
     renderBuilder();
-    // Visual (flag on, nothing persisted): rail expanded — existing behavior.
+    // Visual (flag on, nothing persisted): rail present and expanded.
     expect(rail()).toHaveAttribute("data-collapsed", "false");
 
     fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
     expect(screen.getByTestId("document-view")).toBeInTheDocument();
-    expect(rail()).toHaveAttribute("data-collapsed", "true");
+    // Not collapsed — absent entirely (no spine, no reserved column).
+    expect(screen.queryByTestId("builder-left-agent-rail")).toBeNull();
+    expect(screen.queryByTestId("builder-left-agent-rail-expand")).toBeNull();
+    const row = screen.getByTestId("builder-workspace-row");
+    expect(row.querySelector('[data-testid="builder-left-agent-rail"]')).toBeNull();
+
+    // Back to Visual → the rail returns with its own state.
+    fireEvent.click(screen.getByTestId("builder-view-toggle-visual"));
+    expect(rail()).toHaveAttribute("data-collapsed", "false");
   });
 
-  it("a builder that OPENS in Document mode starts with the rail collapsed", () => {
+  it("a builder that OPENS in Document mode renders no rail", () => {
     renderBuilder({ startInDocument: true });
     expect(screen.getByTestId("document-view")).toBeInTheDocument();
-    expect(rail()).toHaveAttribute("data-collapsed", "true");
+    expect(screen.queryByTestId("builder-left-agent-rail")).toBeNull();
   });
 
-  it("Visual rail state is not overwritten by a Document round-trip (default-expanded case)", () => {
+  it("Visual rail behavior + persistence are unchanged by a Document round-trip", () => {
     renderBuilder();
     fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
-    // Open and close the rail while in Document.
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-expand"));
-    expect(rail()).toHaveAttribute("data-collapsed", "false");
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-collapse"));
-    expect(rail()).toHaveAttribute("data-collapsed", "true");
-
     fireEvent.click(screen.getByTestId("builder-view-toggle-visual"));
-    // Visual restored to its own (expanded) state; nothing was persisted over it.
     expect(rail()).toHaveAttribute("data-collapsed", "false");
     expect(window.localStorage.getItem(__LEFT_AGENT_RAIL_STORAGE_KEY__)).toBeNull();
+
+    // An explicit Visual collapse still persists, as before.
+    fireEvent.click(screen.getByTestId("builder-left-agent-rail-collapse"));
+    expect(rail()).toHaveAttribute("data-collapsed", "true");
+    expect(window.localStorage.getItem(__LEFT_AGENT_RAIL_STORAGE_KEY__)).toBe("true");
   });
 
   it("a persisted collapsed Visual preference survives the Document round-trip", () => {
@@ -144,19 +166,9 @@ describe("Document mode rail default (DOC-RAIL-LAYOUT-1)", () => {
     renderBuilder();
     expect(rail()).toHaveAttribute("data-collapsed", "true");
     fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-expand"));
     fireEvent.click(screen.getByTestId("builder-view-toggle-visual"));
     expect(rail()).toHaveAttribute("data-collapsed", "true");
     expect(window.localStorage.getItem(__LEFT_AGENT_RAIL_STORAGE_KEY__)).toBe("true");
-  });
-
-  it("an explicitly opened Document rail collapses again on re-entering Document", () => {
-    renderBuilder({ startInDocument: true });
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-expand"));
-    expect(rail()).toHaveAttribute("data-collapsed", "false");
-    fireEvent.click(screen.getByTestId("builder-view-toggle-visual"));
-    fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
-    expect(rail()).toHaveAttribute("data-collapsed", "true");
   });
 
   it("flag OFF renders today's builder — no Document surface, rail behavior unchanged", () => {
@@ -166,96 +178,112 @@ describe("Document mode rail default (DOC-RAIL-LAYOUT-1)", () => {
     expect(rail()).toHaveAttribute("data-collapsed", "false");
     fireEvent.click(screen.getByTestId("builder-left-agent-rail-collapse"));
     expect(rail()).toHaveAttribute("data-collapsed", "true");
-    // Visual toggling still persists (unchanged legacy behavior).
     expect(window.localStorage.getItem(__LEFT_AGENT_RAIL_STORAGE_KEY__)).toBe("true");
   });
 });
 
-describe("Ask React opens the ONE existing rail (DOC-RAIL-LAYOUT-1)", () => {
-  it("the persistent Ask React bar expands the rail and seeds the one composer", () => {
+describe("the bottom workspace is the ONE agent entry point (DOC-REACT-AGENT-1)", () => {
+  it("keeps the composer available and expands the workspace on submit", async () => {
     renderBuilder({ startInDocument: true });
-    expect(rail()).toHaveAttribute("data-collapsed", "true");
     const nodesBefore = useGraphSlice.getState().pendingNodes;
+    // Compact by default: composer visible, workspace collapsed.
+    expect(screen.getByTestId("document-ask-react-input")).toBeInTheDocument();
+    expect(screen.getByTestId("document-agent-workspace")).toHaveAttribute("data-expanded", "false");
 
     fireEvent.change(screen.getByTestId("document-ask-react-input"), {
       target: { value: "Add a follow-up email step" },
     });
     fireEvent.click(screen.getByTestId("document-ask-react-submit"));
 
-    expect(rail()).toHaveAttribute("data-collapsed", "false");
-    // Exactly ONE rail and ONE composer; the seed landed in it.
+    // Expanded workspace, ONE conversation, request sent through the shared path.
+    expect(screen.getByTestId("document-agent-workspace")).toHaveAttribute("data-expanded", "true");
+    expect(screen.getByTestId("document-agent-transcript")).toBeInTheDocument();
     expect(screen.getAllByTestId("builder-guidance-rail")).toHaveLength(1);
-    expect(screen.getAllByRole("textbox", { name: /message react/i })).toHaveLength(1);
-    expect(composerEl()?.value).toContain("Add a follow-up email step");
+    await waitFor(() => expect(mockRequestGuidance).toHaveBeenCalledTimes(1));
+    expect(goalTextOf(0)).toContain("Add a follow-up email step");
+    // The composer is still there for a follow-up while expanded.
+    expect(screen.getByTestId("document-ask-react-input")).toBeInTheDocument();
     // Nothing mutated, nothing dirty, nothing saved.
     expect(useGraphSlice.getState().pendingNodes).toBe(nodesBefore);
     expect(useGraphSlice.getState().isDirty).toBe(false);
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
-  it("the empty-state Ask React opens the same rail and seeds the same composer", () => {
-    renderBuilder({ definition: blank, startInDocument: true });
-    expect(rail()).toHaveAttribute("data-collapsed", "true");
-    fireEvent.change(screen.getByTestId("document-draft-composer"), {
-      target: { value: "Notify sales when a lead arrives" },
-    });
-    fireEvent.click(screen.getByTestId("document-draft-submit"));
-    expect(rail()).toHaveAttribute("data-collapsed", "false");
-    expect(screen.getAllByTestId("builder-guidance-rail")).toHaveLength(1);
-    expect(composerEl()?.value).toContain("Notify sales when a lead arrives");
-    expect(useGraphSlice.getState().isDirty).toBe(false);
+  it("collapsing returns the compact composer WITHOUT losing the conversation", async () => {
+    renderBuilder({ startInDocument: true });
+    fireEvent.change(screen.getByTestId("document-ask-react-input"), { target: { value: "Explain this" } });
+    fireEvent.click(screen.getByTestId("document-ask-react-submit"));
+    await screen.findByText(REPLY);
+
+    fireEvent.click(screen.getByTestId("document-agent-collapse"));
+    expect(screen.getByTestId("document-agent-workspace")).toHaveAttribute("data-expanded", "false");
+    expect(screen.queryByTestId("document-agent-transcript")).toBeNull();
+    expect(screen.getByTestId("document-ask-react-input")).toBeInTheDocument();
+
+    // Re-opening shows the SAME transcript (no second conversation, no re-send).
+    fireEvent.click(screen.getByTestId("document-agent-expand"));
+    await screen.findByText(REPLY);
+    expect(mockRequestGuidance).toHaveBeenCalledTimes(1);
   });
 
-  it("the insertion-menu Ask React opens the same rail and seeds the same composer", () => {
+  it("switching Visual and Document keeps the conversation and never re-sends", async () => {
+    renderBuilder({ startInDocument: true });
+    fireEvent.change(screen.getByTestId("document-ask-react-input"), { target: { value: "Keep me" } });
+    fireEvent.click(screen.getByTestId("document-ask-react-submit"));
+    await screen.findByText(REPLY);
+
+    // → Visual: the same transcript renders in the rail.
+    fireEvent.click(screen.getByTestId("builder-view-toggle-visual"));
+    expect(rail()).toBeInTheDocument();
+    await screen.findByText(REPLY);
+
+    // → Document: the workspace comes back ALREADY expanded (its state is owned
+    // by the builder too), showing the same transcript, with no second request.
+    fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
+    expect(screen.getByTestId("document-agent-workspace")).toHaveAttribute("data-expanded", "true");
+    await screen.findByText(REPLY);
+    expect(mockRequestGuidance).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByTestId("builder-guidance-rail")).toHaveLength(1);
+  });
+
+  it("the insertion-menu Ask React prefills the ONE bottom composer (never auto-sends)", () => {
     renderBuilder({ startInDocument: true });
     fireEvent.click(screen.getByTestId("document-add-after-b"));
     fireEvent.click(screen.getByTestId("document-add-after-b-askreact"));
-    expect(rail()).toHaveAttribute("data-collapsed", "false");
-    expect(screen.getAllByTestId("builder-guidance-rail")).toHaveLength(1);
-    expect(composerEl()?.value).toContain("at the end of the workflow");
+    const input = screen.getByTestId("document-ask-react-input") as HTMLInputElement;
+    expect(input.value).toContain("at the end of the workflow");
+    expect(mockRequestGuidance).not.toHaveBeenCalled();
     expect(useGraphSlice.getState().isDirty).toBe(false);
-    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 
-  it("closing the rail returns the full-width Document and preserves composer state; reopening restores it", () => {
+  it("passes the focused step as context and scopes the request to it", async () => {
     renderBuilder({ startInDocument: true });
-    fireEvent.change(screen.getByTestId("document-ask-react-input"), {
-      target: { value: "Seeded question" },
-    });
+    // Focus a step through the EXISTING selection control (the step overflow menu).
+    fireEvent.click(screen.getByTestId("document-step-menu-a"));
+    fireEvent.click(screen.getByTestId("document-select-a"));
+    expect(screen.getByTestId("document-agent-context")).toHaveAttribute("data-context-kind", "step");
+
+    fireEvent.change(screen.getByTestId("document-ask-react-input"), { target: { value: "make it shorter" } });
     fireEvent.click(screen.getByTestId("document-ask-react-submit"));
-    expect(rail()).toHaveAttribute("data-collapsed", "false");
-    // Simulate further manual typing in the ONE composer.
-    fireEvent.change(composerEl()!, { target: { value: "Seeded question plus edits" } });
+    await waitFor(() => expect(mockRequestGuidance).toHaveBeenCalledTimes(1));
+    expect(goalTextOf(0)).toContain("Send Channel Message");
+    expect(goalTextOf(0)).toContain("make it shorter");
 
-    const nodesBefore = useGraphSlice.getState().pendingNodes;
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-collapse"));
-    // Full-width Document again (spine only) — and the panel is kept alive.
-    expect(rail()).toHaveAttribute("data-collapsed", "true");
-    expect(screen.getByTestId("document-view")).toBeInTheDocument();
-    expect(composerEl()).not.toBeNull();
-    expect(composerEl()!.value).toBe("Seeded question plus edits");
-
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-expand"));
-    expect(rail()).toHaveAttribute("data-collapsed", "false");
-    expect(composerEl()!.value).toBe("Seeded question plus edits");
-    // Open/close cycles mutate and save nothing.
-    expect(useGraphSlice.getState().pendingNodes).toBe(nodesBefore);
-    expect(useGraphSlice.getState().isDirty).toBe(false);
-    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+    // The context is clearable back to the whole workflow.
+    fireEvent.click(screen.getByTestId("document-agent-context-clear"));
+    expect(screen.getByTestId("document-agent-context")).toHaveAttribute("data-context-kind", "workflow");
   });
 });
 
-describe("panel conflicts stay deterministic (DOC-RAIL-LAYOUT-1)", () => {
-  it("the Whole Workflow map still opens as a right-side sheet with the rail expanded", () => {
+describe("panel conflicts stay deterministic (DOC-REACT-AGENT-1)", () => {
+  it("the Whole Workflow map still opens as a right-side sheet with the workspace expanded", async () => {
     renderBuilder({ startInDocument: true });
-    fireEvent.click(screen.getByTestId("document-ask-react-input"));
     fireEvent.change(screen.getByTestId("document-ask-react-input"), { target: { value: "x" } });
     fireEvent.click(screen.getByTestId("document-ask-react-submit"));
-    expect(rail()).toHaveAttribute("data-collapsed", "false");
+    await waitFor(() => expect(mockRequestGuidance).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByTestId("document-open-map-button"));
     expect(screen.getByTestId("document-whole-workflow-map")).toBeInTheDocument();
-    // Deterministic close.
     fireEvent.click(screen.getByTestId("document-map-close"));
     expect(screen.queryByTestId("document-whole-workflow-map")).toBeNull();
     expect(useGraphSlice.getState().isDirty).toBe(false);
@@ -264,23 +292,19 @@ describe("panel conflicts stay deterministic (DOC-RAIL-LAYOUT-1)", () => {
   it("map → Configure step closes the map before the inspector drawer opens (no overlap)", () => {
     renderBuilder({ startInDocument: true });
     fireEvent.click(screen.getByTestId("document-open-map-button"));
-    const mapRow = screen.getByTestId("document-map-row-a");
-    // "a" is fully configured → the map row navigates (scroll), not inspector;
-    // use the step's own Configure affordance for the inspector path instead.
-    expect(mapRow).toBeInTheDocument();
+    expect(screen.getByTestId("document-map-row-a")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("document-map-close"));
 
     act(() => {
       useConfigSlice.getState().openNode({ nodeId: "a", initialValues: { text: "A" } });
     });
-    // Inspector drawer open; map closed — never both.
     expect(screen.getByTestId("builder-right-drawer")).toBeInTheDocument();
     expect(screen.queryByTestId("document-whole-workflow-map")).toBeNull();
   });
 });
 
-describe("graph/config/undo/preview state across the rail changes (unchanged contract)", () => {
-  it("rail open/close and view switches never touch graph refs, drafts, dirty, or history", () => {
+describe("graph/config/undo/preview state across the agent surface (unchanged contract)", () => {
+  it("expanding/collapsing the workspace and switching views never touch graph refs, drafts, dirty, or history", async () => {
     renderBuilder({ startInDocument: true });
     act(() => {
       useGraphSlice.getState().updateNodeConfig("a", { text: "edited" });
@@ -292,8 +316,10 @@ describe("graph/config/undo/preview state across the rail changes (unchanged con
     const pastLen = g.past.length;
     expect(g.isDirty).toBe(true);
 
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-expand"));
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-collapse"));
+    fireEvent.change(screen.getByTestId("document-ask-react-input"), { target: { value: "hi" } });
+    fireEvent.click(screen.getByTestId("document-ask-react-submit"));
+    await waitFor(() => expect(mockRequestGuidance).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId("document-agent-collapse"));
     fireEvent.click(screen.getByTestId("builder-view-toggle-visual"));
     fireEvent.click(screen.getByTestId("builder-view-toggle-document"));
 
@@ -302,6 +328,67 @@ describe("graph/config/undo/preview state across the rail changes (unchanged con
     expect(after.past.length).toBe(pastLen);
     expect(after.isDirty).toBe(true);
     expect(useConfigSlice.getState().drafts["b"]?.values.text).toBe("draft-edit");
+    expect(mockUpdateWorkflow).not.toHaveBeenCalled();
+  });
+});
+
+describe("agent references reach into the document (DOC-REACT-AGENT-1)", () => {
+  it("a proposal names the affected sentence, and clicking it focuses that sentence", async () => {
+    // A real EDIT proposal through the existing guidance payload → the builder's
+    // existing preview overlay → the Document's existing preview projection.
+    const proposedDefinition = {
+      nodes: [
+        linear.nodes[0]!,
+        { ...linear.nodes[1]!, config: { text: "updated" } },
+        linear.nodes[2]!,
+      ],
+      edges: linear.edges,
+    };
+    mockRequestGuidance.mockResolvedValue({
+      ok: true,
+      guidanceText: "I will update the Slack message.",
+      source: "hermes-agent",
+      workflowPlan: {
+        schemaVersion: 1,
+        title: "Proposed change",
+        summary: "",
+        notApplied: true as const,
+        steps: [
+          { ref: "t", role: "trigger" as const, provider: "hubspot", type: "new_contact", purpose: "" },
+          { ref: "a", role: "action" as const, provider: "slack", type: "send_channel_message", purpose: "" },
+        ],
+      },
+      previewDraft: {
+        title: "Proposed change",
+        summary: "Update the first Slack message",
+        nodes: [
+          { previewId: "t", role: "trigger", provider: "hubspot", type: "new_contact", label: "hubspot:new_contact", purpose: "", notApplied: true },
+          { previewId: "a", role: "action", provider: "slack", type: "send_channel_message", label: "slack:send_channel_message", purpose: "", notApplied: true },
+        ],
+        edges: [{ previewId: "e1", fromPreviewId: "t", toPreviewId: "a", notApplied: true }],
+        notApplied: true,
+      },
+      proposedDefinition,
+    });
+    renderBuilder({ startInDocument: true });
+    fireEvent.change(screen.getByTestId("document-ask-react-input"), {
+      target: { value: "shorten the first Slack message" },
+    });
+    fireEvent.click(screen.getByTestId("document-ask-react-submit"));
+    await waitFor(() => expect(mockRequestGuidance).toHaveBeenCalledTimes(1));
+
+    // The workspace names the sentence that would change — not just prose.
+    const ref = await screen.findByTestId("document-agent-change-a");
+    expect(ref).toHaveAttribute("data-change-status", "changed");
+    expect(screen.getByTestId("document-agent-changes")).toHaveTextContent("Send Channel Message");
+
+    // Clicking it focuses that sentence temporarily, WITHOUT selecting it.
+    fireEvent.click(ref);
+    const block = screen.getByTestId("document-sentence-a").closest("[data-agent-focus]");
+    expect(block).not.toBeNull();
+    expect(block).not.toHaveAttribute("data-document-selected");
+    // Applying stays explicit — nothing was mutated by rendering the proposal.
+    expect(useGraphSlice.getState().pendingNodes.find((n) => n.id === "a")?.config.text).toBe("A");
     expect(mockUpdateWorkflow).not.toHaveBeenCalled();
   });
 });

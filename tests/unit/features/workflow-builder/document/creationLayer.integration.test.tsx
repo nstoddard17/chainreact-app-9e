@@ -129,16 +129,18 @@ describe("empty-state creation", () => {
     expect(screen.getByText("What should this workflow do?")).toBeInTheDocument();
     expect(screen.getByTestId("document-draft-composer")).toBeInTheDocument();
     expect(screen.getByTestId("document-start-with-trigger")).toBeInTheDocument();
-    // DOC-RAIL-LAYOUT-1 — Document mode starts with the Agent rail collapsed
-    // (and a never-expanded rail mounts no panel at all), so the Document's
-    // own composer is the one visible AI entry. Expanding surfaces the ONE
-    // agent state — the left rail — never a second Document conversation.
-    expect(screen.getByTestId("builder-left-agent-rail")).toHaveAttribute(
-      "data-collapsed",
-      "true",
-    );
+    // DOC-REACT-AGENT-1 — Document mode does not render the vertical Agent rail
+    // at all (no spine, no gutter): the bottom workspace is the single React
+    // Agent entry point, and there is never a second conversation.
+    expect(screen.queryByTestId("builder-left-agent-rail")).toBeNull();
+    // The bottom workspace is the one agent surface. Collapsed it shows only the
+    // composer; submitting the empty-state composer opens it, and there is then
+    // exactly ONE conversation — never a second.
+    expect(screen.getByTestId("document-agent-workspace")).toHaveAttribute("data-expanded", "false");
     expect(screen.queryAllByTestId("builder-guidance-rail")).toHaveLength(0);
-    fireEvent.click(screen.getByTestId("builder-left-agent-rail-expand"));
+    fireEvent.change(screen.getByTestId("document-draft-composer"), { target: { value: "Notify sales" } });
+    fireEvent.click(screen.getByTestId("document-draft-submit"));
+    expect(screen.getByTestId("document-agent-workspace")).toHaveAttribute("data-expanded", "true");
     expect(screen.getAllByTestId("builder-guidance-rail")).toHaveLength(1);
   });
 

@@ -13,7 +13,12 @@ import { FinishSetupBanner } from "./FinishSetupBanner";
 import { FinishSetupControls } from "./FinishSetupControls";
 import { WholeWorkflowMap } from "./WholeWorkflowMap";
 import { DocumentEmptyState } from "./DocumentEmptyState";
-import { DocumentAskReactBar } from "./DocumentAskReactBar";
+import { DocumentAgentWorkspace } from "./DocumentAgentWorkspace";
+import {
+  describeProposalChanges,
+  resolveDocumentAgentContext,
+  type DocumentAgentContext,
+} from "./documentAgentContext";
 import { DocumentPreview } from "./DocumentPreview";
 import { DocumentInsertMenu } from "./DocumentInsertMenu";
 import type { DocumentStepMenuItem } from "./DocumentStepMenu";
@@ -26,6 +31,7 @@ import { buildLaneContext } from "./documentBranchContext";
 import { buildDocumentPreview } from "./documentPreviewProjection";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
 import type { WorkflowDefinition } from "@/contracts/workflow";
+import type { ComposerSeed } from "@/features/workflows/composerSeed";
 import {
   createDocumentIfThenBranch,
   createDocumentRouterBranch,
@@ -119,6 +125,14 @@ export function DocumentView({
   onDiscardPreview,
   notice,
   onNotice,
+  agentTranscript,
+  agentBusy,
+  agentHasConversation,
+  agentExpanded,
+  onAgentExpandedChange,
+  onAgentSubmit,
+  onAgentCheckWorkflow,
+  agentSeed,
 }: {
   requiredFieldsByType?: RequiredFieldsByType | undefined;
   summaryFieldsByType?: NodeSummaryFieldsByType | undefined;
@@ -163,6 +177,24 @@ export function DocumentView({
   /** CS-2 — transient notice owned by WorkflowBuilder (e.g. branch-pick refusal). */
   notice?: string | null | undefined;
   onNotice?: ((text: string | null) => void) | undefined;
+  /**
+   * DOC-REACT-AGENT-1 — the SHARED React Agent transcript (the very component the
+   * Visual rail renders, driven by the one `useGuidanceConversation` instance
+   * WorkflowBuilder owns). Rendered inside the bottom workspace; absent → the
+   * workspace shows only its composer.
+   */
+  agentTranscript?: ReactNode | undefined;
+  agentBusy?: boolean | undefined;
+  agentHasConversation?: boolean | undefined;
+  /** Expanded state lives in WorkflowBuilder so a Visual round-trip keeps it. */
+  agentExpanded?: boolean | undefined;
+  onAgentExpandedChange?: ((next: boolean) => void) | undefined;
+  /** Send through the SHARED conversation, with the resolved document context. */
+  onAgentSubmit?: ((prompt: string, context: DocumentAgentContext) => void) | undefined;
+  /** The existing deterministic, local, no-credit "Check workflow" review. */
+  onAgentCheckWorkflow?: (() => void) | undefined;
+  /** The existing keyed/versioned composer seed (empty state / insertion menu). */
+  agentSeed?: ComposerSeed | undefined;
 }) {
   const pendingNodes = useGraphSlice((s) => s.pendingNodes);
   const pendingEdges = useGraphSlice((s) => s.pendingEdges);
@@ -338,6 +370,11 @@ export function DocumentView({
     [previewOverlay, pendingNodes, pendingEdges, requiredFieldsByType, summaryFieldsByType, providerLabels],
   );
 
+  // DOC-REACT-AGENT-1 — what the agent is working on, by the locked priority
+  // (open field → focused sentence → group → whole workflow). Derived from state
+  // the Document ALREADY owns; multi-select is never required.
+  const agentContextInput = { model, stop, presentation: pendingPresentation };
+
   // CS-6 — safe top-level multi-selection (ids of the primary node of each
   // selected top-level block). Session-only UI state; never persisted.
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -363,6 +400,30 @@ export function DocumentView({
       return changed ? next : prev;
     });
   }, [pendingNodes]);
+
+  // DOC-REACT-AGENT-1 — the sentence the AGENT is currently pointing at. Session
+  // -only, TEMPORARY (auto-clears), and deliberately separate from the user's own
+  // multi-selection: an agent reference must never silently change what the user
+  // has selected. It reuses the existing scroll/reveal navigation — no parallel
+  // focus system.
+  const [agentFocusNodeId, setAgentFocusNodeId] = useState<string | null>(null);
+  const agentFocusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (agentFocusTimer.current) clearTimeout(agentFocusTimer.current);
+    },
+    [],
+  );
+  const focusAgentReference = useCallback(
+    (nodeId: string) => {
+      revealSectionForNode(nodeId); // a collapsed group must not hide the target
+      scrollToNode(nodeId);
+      setAgentFocusNodeId(nodeId);
+      if (agentFocusTimer.current) clearTimeout(agentFocusTimer.current);
+      agentFocusTimer.current = setTimeout(() => setAgentFocusNodeId(null), 2600);
+    },
+    [revealSectionForNode, scrollToNode],
+  );
 
   // CS-6 — the top-level blocks (document order) for selection + insertion menus.
   const topLevelBlocks = model.blocks;
@@ -401,10 +462,6 @@ export function DocumentView({
   // bar mint distinct seed versions for the ONE composer.
   const askReactFromEmpty = useCallback(
     (prompt: string) => onAskReact?.(prompt, "document-empty"),
-    [onAskReact],
-  );
-  const askReactFromBar = useCallback(
-    (prompt: string) => onAskReact?.(prompt, "document-bar"),
     [onAskReact],
   );
 
@@ -693,6 +750,39 @@ export function DocumentView({
     [onInsertAtEdge, say],
   );
 
+  const agentContext: DocumentAgentContext = useMemo(
+    () =>
+      resolveDocumentAgentContext({
+        model: agentContextInput.model,
+        stop: agentContextInput.stop
+          ? { nodeId: agentContextInput.stop.nodeId, fieldName: agentContextInput.stop.fieldName }
+          : null,
+        selectedIds,
+        presentation: agentContextInput.presentation,
+      }),
+    [agentContextInput.model, agentContextInput.stop, agentContextInput.presentation, selectedIds],
+  );
+  // Clearing the context releases whichever surface produced it — the open
+  // Guided Stop or the multi-selection — using the existing controls.
+  const clearAgentContext = useCallback(() => {
+    releaseStop();
+    clearSelection();
+  }, [releaseStop, clearSelection]);
+
+  // DOC-REACT-AGENT-1 — the sentences a PENDING proposal touches, read from the
+  // existing preview projection (never from prose, never a second diff format).
+  const proposalChanges = useMemo(
+    () => describeProposalChanges(previewModel, model),
+    [previewModel, model],
+  );
+  const agentStatusMessage = useMemo(() => {
+    if (agentBusy === true) return "React is working on your request.";
+    if (proposalChanges.length > 0) {
+      return `React proposed changes to ${proposalChanges.length} ${proposalChanges.length === 1 ? "step" : "steps"}. Review them in the document.`;
+    }
+    return null;
+  }, [agentBusy, proposalChanges]);
+
   // The active Guided Stop editor, anchored under the block that owns the
   // clicked chip (sentence OR fork). Reused for both so the render stays DRY.
   const renderStopEditor = (nodeId: string): ReactNode =>
@@ -924,11 +1014,15 @@ export function DocumentView({
           ? block.nodeId
           : null;
       const selected = primary !== null && selectedIds.has(primary);
+      // DOC-REACT-AGENT-1 — a TEMPORARY agent highlight, distinct from selection.
+      const agentFocused =
+        agentFocusNodeId !== null && blockContainsNode(block, agentFocusNodeId);
       return (
         <div
           key={`group-${i}`}
           {...(dim ? { "data-document-dimmed": "true" } : {})}
           {...(selected ? { "data-document-selected": "true" } : {})}
+          {...(agentFocused ? { "data-agent-focus": "true" } : {})}
           className="relative transition-opacity motion-reduce:transition-none"
           style={dim ? { opacity: 0.45 } : undefined}
         >
@@ -1001,6 +1095,41 @@ export function DocumentView({
     });
   };
 
+  // DOC-REACT-AGENT-1 — ONE workspace element, rendered in both the empty and
+  // the populated document so the agent is always reachable from the same place.
+  const agentWorkspace = interactive && onAgentSubmit ? (
+    <DocumentAgentWorkspace
+      expanded={agentExpanded === true}
+      onExpandedChange={(next) => onAgentExpandedChange?.(next)}
+      busy={agentBusy === true}
+      hasConversation={agentHasConversation === true}
+      context={agentContext}
+      onClearContext={clearAgentContext}
+      onSubmit={(prompt) => onAgentSubmit(prompt, agentContext)}
+      {...(onAgentCheckWorkflow ? { onCheckWorkflow: onAgentCheckWorkflow } : {})}
+      changes={proposalChanges}
+      onFocusChange={focusAgentReference}
+      {...(proposalChanges.length > 0
+        ? {
+            proposalActions: (
+              <button
+                type="button"
+                data-testid="document-agent-review-changes"
+                onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+                className="crv2-agent-ref"
+              >
+                Review changes
+              </button>
+            ),
+          }
+        : {})}
+      statusMessage={agentStatusMessage}
+      {...(agentSeed ? { seed: agentSeed } : {})}
+    >
+      {agentTranscript}
+    </DocumentAgentWorkspace>
+  ) : null;
+
   return (
     <div
       // CS-7B — `data-document-surface` scopes the warm "paper" token remap
@@ -1058,10 +1187,17 @@ export function DocumentView({
             </>
           ) : null}
           {model.empty ? (
+            <>
             <DocumentEmptyState
               {...(onAskReact ? { onAskReact: askReactFromEmpty } : {})}
               {...(onStartWithTrigger ? { onStartWithTrigger } : {})}
             />
+            {/* DOC-REACT-AGENT-1 — an EMPTY document still needs somewhere for
+                React to answer: the workspace renders here too, so the hero
+                composer's request has a visible reply and follow-ups stay in
+                the same one conversation. */}
+            {agentWorkspace}
+            </>
           ) : (
             <>
               {/* CS-7B — editorial masthead: calm eyebrow + serif workflow title
@@ -1089,7 +1225,7 @@ export function DocumentView({
                 groupBlocksIntoSections(model.blocks, pendingPresentation).rows,
               )}
               {/* CS-6 — persistent, unobtrusive entry to the ONE agent. */}
-              {interactive && onAskReact ? <DocumentAskReactBar onAskReact={askReactFromBar} /> : null}
+              {agentWorkspace}
             </>
           )}
         </div>

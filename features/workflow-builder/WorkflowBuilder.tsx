@@ -40,6 +40,8 @@ import {
 } from "@/core/workflows/advancedBranching";
 import { BuilderGuidanceRail } from "./panels/BuilderGuidanceRail";
 import type { ComposerSeed } from "@/features/workflows/composerSeed";
+import { useGuidanceConversation } from "@/features/workflows/useGuidanceConversation";
+import type { DocumentAgentContext } from "./document/documentAgentContext";
 import {
   emitDocumentBuilderEvent,
   setDocumentBuilderTelemetryEnabled,
@@ -506,10 +508,28 @@ export function WorkflowBuilder({
   const [documentComposerSeed, setDocumentComposerSeed] = useState<ComposerSeed | undefined>(
     undefined,
   );
+  // DOC-REACT-AGENT-1 — THE React Agent conversation. One instance, owned here,
+  // handed to whichever surface is mounted (the Visual left rail or the Document
+  // bottom workspace). Switching modes remounts the PRESENTATION only: the
+  // transcript, the in-flight request and the pending proposal all survive
+  // because the state lives at this level. There is no second agent store.
+  const agentConversation = useGuidanceConversation({
+    accountId: accountId ?? "",
+    workflowId: workflow.id,
+    getCurrentDraft,
+    getCheckReviewContext,
+  });
+  // Expanded state of the Document agent workspace — also owned here so a
+  // Visual round-trip returns to the same expanded workspace.
+  const [agentWorkspaceExpanded, setAgentWorkspaceExpanded] = useState(false);
   const seedVersionRef = useRef(0);
   const handleDocumentAskReact = useCallback(
     (prompt: string, source: "document-empty" | "document-bar" | "document-insert") => {
       setDocumentComposerSeed({ value: prompt, version: ++seedVersionRef.current, source });
+      // DOC-REACT-AGENT-1 — in Document mode the seed lands in the bottom
+      // workspace composer (the single entry point); in Visual it still opens
+      // the rail's composer. Either way it is ONE conversation and never sends.
+      setAgentWorkspaceExpanded(true);
       leftRail.expand();
       // CS-7 telemetry — the SOURCE token only (never the prompt text).
       if (source === "document-empty") {
@@ -518,6 +538,31 @@ export function WorkflowBuilder({
     },
     [leftRail],
   );
+  // DOC-REACT-AGENT-1 — the Document composer sends through the SAME conversation
+  // the rail uses. The resolved document context is prefixed as plain language
+  // (never ids) so React answers about the thing the user is looking at; the
+  // request itself is the existing governed guidance call.
+  const handleDocumentAgentSubmit = useCallback(
+    (prompt: string, context: DocumentAgentContext) => {
+      const scoped =
+        context.kind === "workflow"
+          ? prompt
+          : context.kind === "field"
+            ? `About the “${context.label}” detail: ${prompt}`
+            : `About “${context.label}”: ${prompt}`;
+      void agentConversation.send(scoped);
+    },
+    [agentConversation],
+  );
+  const handleDocumentAgentCheckWorkflow = useCallback(() => {
+    agentConversation.checkWorkflow({
+      accountId: accountId ?? "",
+      workflowId: workflow.id,
+      getCurrentDraft,
+      getCheckReviewContext,
+    });
+  }, [agentConversation, accountId, workflow.id, getCurrentDraft, getCheckReviewContext]);
+
   // Fold the restored anonymous prompt into the versioned channel the first time
   // it arrives, only if no explicit Document seed has been minted yet.
   useEffect(() => {
@@ -792,6 +837,7 @@ export function WorkflowBuilder({
     [handleApplyPreview, handleApplyAndTest, handleKeepAsPreview],
   );
 
+
   // AI-TEMPLATE-APPLY-CURRENT — apply a React-Agent-suggested official template to the CURRENTLY-OPEN
   // workflow IN PLACE (the primary choice in the template match dialog). It overwrites the current
   // draft via the EXISTING replace-from-template route (origin `react_agent`, so the server captures a
@@ -937,7 +983,12 @@ export function WorkflowBuilder({
           />
         </>
       }
-      leftRail={
+      // DOC-REACT-AGENT-1 — in Document mode the bottom agent workspace IS the
+      // React Agent surface, so the vertical rail is not rendered at all (not
+      // merely collapsed): no spine, no gutter, no duplicate entry point. The
+      // conversation itself is unaffected — it lives in `agentConversation`
+      // here, so switching back to Visual re-renders the same transcript.
+      leftRail={documentViewActive ? undefined : (
         <BuilderLeftAgentRail
           isCollapsed={leftRail.isCollapsed}
           onToggle={leftRail.toggle}
@@ -979,10 +1030,11 @@ export function WorkflowBuilder({
             renderCheckSetup={renderCheckSetup}
             {...(documentComposerSeed ? { composerSeed: documentComposerSeed } : {})}
             onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
+            conversation={agentConversation}
           />
           )}
         </BuilderLeftAgentRail>
-      }
+      )}
       rightDrawer={
         viewDiffItem ? (
           // AGENT-CHANGE-HISTORY-1 (View diff) — read-only render of a PAST change's stored, redacted
@@ -1063,6 +1115,40 @@ export function WorkflowBuilder({
             onDiscardPreview={handleDocumentDiscardPreview}
             notice={documentNotice}
             onNotice={setDocumentNotice}
+            // DOC-REACT-AGENT-1 — the bottom workspace renders the SAME agent
+            // transcript the Visual rail renders (one conversation, two
+            // presentations). Its own composer is suppressed: the Document bar
+            // is the single entry point.
+            agentTranscript={
+              !localOnly && guidanceEnabled === true && accountId ? (
+                <BuilderGuidanceRail
+                  workflowId={workflow.id}
+                  accountId={accountId}
+                  guidanceEnabled={guidanceEnabled}
+                  onShowPreview={handleShowPreview}
+                  previewForSetup={previewOverlay?.preview ?? null}
+                  {...(setupFieldsByType ? { setupFieldsByType } : {})}
+                  previewConfig={previewConfig}
+                  previewPrefilledConfig={previewPrefilledConfig}
+                  onPreviewConfigChange={handlePreviewConfigChange}
+                  onApplyPreview={handleApplyPreview}
+                  getCheckReviewContext={getCheckReviewContext}
+                  getCurrentGraphShape={getCurrentGraphShape}
+                  getCurrentDraft={getCurrentDraft}
+                  renderCheckSetup={renderCheckSetup}
+                  onTemplateApplyToCurrent={handleTemplateApplyToCurrent}
+                  conversation={agentConversation}
+                  hideComposer
+                />
+              ) : null
+            }
+            agentBusy={agentConversation.loading}
+            agentHasConversation={agentConversation.messages.length > 0}
+            agentExpanded={agentWorkspaceExpanded}
+            onAgentExpandedChange={setAgentWorkspaceExpanded}
+            onAgentSubmit={handleDocumentAgentSubmit}
+            onAgentCheckWorkflow={handleDocumentAgentCheckWorkflow}
+            {...(documentComposerSeed ? { agentSeed: documentComposerSeed } : {})}
           />
         ) : (
         <WorkflowCanvas

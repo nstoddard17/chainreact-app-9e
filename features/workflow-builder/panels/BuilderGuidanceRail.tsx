@@ -12,6 +12,7 @@ import type {
 import type { CanvasPreviewGraphNode } from "@/core/workflows/canvasPreviewEligibility";
 import { WorkflowGuidancePanel } from "@/features/workflows/WorkflowGuidancePanel";
 import type { ComposerSeed } from "@/features/workflows/composerSeed";
+import type { GuidanceConversation } from "@/features/workflows/useGuidanceConversation";
 import { BuilderPreviewSetupCard } from "./BuilderPreviewSetupCard";
 
 /**
@@ -108,6 +109,19 @@ export interface BuilderGuidanceRailProps {
    * dialog can offer "Apply to current workflow" as the primary choice. Owned by `WorkflowBuilder`.
    */
   readonly onTemplateApplyToCurrent?: (input: { templateId: string; templateName: string }) => Promise<void>;
+  /**
+   * DOC-REACT-AGENT-1 — the SHARED React Agent conversation owned by
+   * `WorkflowBuilder`. Passing it makes this rail one PRESENTATION of the agent
+   * rather than an agent of its own, so the Document workspace shows the same
+   * transcript and a mode switch loses nothing. Absent → the panel owns its own.
+   */
+  readonly conversation?: GuidanceConversation;
+  /**
+   * DOC-REACT-AGENT-1 — suppress the panel's own composer footer. The Document
+   * workspace supplies the composer (the bottom bar is the single entry point
+   * there); the transcript is identical in both surfaces.
+   */
+  readonly hideComposer?: boolean;
 }
 
 export function BuilderGuidanceRail({
@@ -127,6 +141,8 @@ export function BuilderGuidanceRail({
   renderCheckSetup,
   composerSeed,
   onTemplateApplyToCurrent,
+  conversation,
+  hideComposer,
 }: BuilderGuidanceRailProps) {
   // HERMES-AGENT-BUILDER-RAIL-CHAT-AVAILABLE — a SINGLE availability decision with a dev-observable
   // reason. `available` renders the conversational chat; otherwise the "unavailable" note carries a
@@ -161,6 +177,8 @@ export function BuilderGuidanceRail({
             {...(renderCheckSetup ? { renderCheckSetup } : {})}
             {...(composerSeed ? { composerSeed } : {})}
             {...(onTemplateApplyToCurrent ? { onTemplateApplyToCurrent } : {})}
+            {...(conversation ? { conversation } : {})}
+            {...(hideComposer ? { hideComposer } : {})}
             {...(onShowPreview ? { onPreviewToCanvas: onShowPreview } : {})}
             {...(previewForSetup && onPreviewConfigChange && onApplyPreview
               ? {

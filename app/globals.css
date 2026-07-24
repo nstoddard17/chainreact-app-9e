@@ -683,6 +683,187 @@
     color: var(--builder-muted-2);
   }
 
+  /* ---- Bottom React Agent workspace (DOC-REACT-AGENT-1) --------------------
+     ONE agent surface in Document mode: a compact composer anchored below the
+     document that expands UPWARD into a contextual workspace. Capped height +
+     internal scrolling, so a long answer never swallows the document and a
+     short one never permanently shrinks it. */
+  [data-document-surface] .crv2-agent-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: min(46vh, 420px);
+    margin-bottom: 8px;
+    overflow: hidden;
+    border-radius: 16px;
+    background: var(--builder-panel);
+    border: 1.5px solid var(--builder-border);
+    box-shadow: 0 22px 48px -26px rgba(40, 26, 10, 0.45);
+  }
+  [data-document-surface] .crv2-agent-head {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: var(--builder-panel-2);
+    border-bottom: 1px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-agent-mark {
+    display: inline-flex;
+    height: 18px;
+    width: 18px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    font-size: 11px;
+    color: #fff;
+    background: var(--doc-clay);
+  }
+  [data-document-surface] .crv2-agent-body {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px 12px;
+    font-family: var(--font-sans, sans-serif);
+  }
+  /* The shared transcript renders the rail's panel; inside the dock it must not
+     re-draw its own card frame or claim a fixed height. */
+  [data-document-surface] .crv2-agent-body [data-testid="workflow-guidance-panel"] {
+    height: auto;
+    border: 0;
+    background: transparent;
+    padding: 0;
+  }
+  [data-document-surface] .crv2-agent-changes {
+    flex: none;
+    padding: 10px 12px;
+    background: var(--builder-panel-2);
+    border-top: 1px solid var(--builder-border);
+  }
+  [data-document-surface] .crv2-agent-ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 260px;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--builder-text-2);
+    background: var(--builder-panel);
+    border: 1px solid var(--builder-border-strong);
+  }
+  [data-document-surface] .crv2-agent-ref:hover {
+    border-color: var(--doc-clay-border);
+    color: var(--doc-clay);
+  }
+  [data-document-surface] .crv2-agent-ref--static {
+    opacity: 0.75;
+  }
+  [data-document-surface] .crv2-agent-ref-dot {
+    display: inline-block;
+    height: 6px;
+    width: 6px;
+    border-radius: 999px;
+    background: var(--builder-muted);
+  }
+  [data-document-surface] .crv2-agent-ref-dot[data-status="added"] {
+    background: var(--doc-olive);
+  }
+  [data-document-surface] .crv2-agent-ref-dot[data-status="changed"] {
+    background: var(--doc-amber);
+  }
+  [data-document-surface] .crv2-agent-ref-dot[data-status="removed"] {
+    background: var(--doc-clay);
+  }
+  [data-document-surface] .crv2-agent-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 6px 8px;
+    background: var(--builder-panel);
+    border: 1.5px solid var(--builder-border);
+    box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.35);
+  }
+  [data-document-surface] .crv2-agent-context {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 210px;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    padding: 2px 4px 2px 9px;
+    font-family: var(--font-sans, sans-serif);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--doc-clay);
+    background: var(--doc-clay-soft);
+    border: 1px solid var(--doc-clay-border);
+  }
+  [data-document-surface] .crv2-agent-context--whole {
+    padding-right: 9px;
+    color: var(--builder-muted);
+    background: var(--builder-panel-2);
+    border-color: var(--builder-border);
+  }
+  [data-document-surface] .crv2-agent-context-clear {
+    display: inline-flex;
+    height: 15px;
+    width: 15px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 9px;
+    color: inherit;
+  }
+  [data-document-surface] .crv2-agent-context-clear:hover {
+    background: rgba(0, 0, 0, 0.07);
+  }
+  [data-document-surface] .crv2-agent-icon {
+    display: inline-flex;
+    height: 24px;
+    width: 24px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    font-size: 12px;
+    color: var(--builder-muted);
+    background: var(--builder-panel);
+    border: 1px solid var(--builder-border-strong);
+  }
+  [data-document-surface] .crv2-agent-icon:hover {
+    color: var(--builder-text-2);
+    background: var(--builder-panel-2);
+    border-color: var(--builder-muted-2);
+  }
+  /* A sentence the agent is referring to — TEMPORARY, and deliberately distinct
+     from the user's own multi-select (clay spine + tint). */
+  [data-document-surface] [data-agent-focus="true"] {
+    border-radius: 10px;
+    margin-left: -10px;
+    padding-left: 10px;
+    background: color-mix(in srgb, var(--doc-blue-soft) 70%, transparent);
+    box-shadow: inset 3px 0 0 0 var(--doc-blue);
+    transition: background 0.2s ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-document-surface] [data-agent-focus="true"] {
+      transition: none;
+    }
+  }
+  @media (max-width: 640px) {
+    [data-document-surface] .crv2-agent-context {
+      display: none;
+    }
+  }
+
   /* Reusable Document controls (empty-state, Ask React, etc.). */
   [data-document-surface] .crv2-eyebrow {
     font-family: var(--font-mono, ui-monospace, monospace);

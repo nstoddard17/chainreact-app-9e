@@ -1,40 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { WorkflowPlan } from "@/contracts/guidanceSession";
 import type { WorkflowDefinition } from "@/contracts/workflowDefinition";
 import type { DraftPreview } from "@/contracts/workflowPlanPreview";
-import {
-  MAX_GUIDANCE_CONVERSATION_TURNS,
-  MAX_GUIDANCE_CONVERSATION_TURN_TEXT,
-  type GuidanceConversationTurn,
-  type GuidanceOfficialTemplateMatch,
-} from "@/contracts/aiGuidance";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { requestWorkflowGuidance } from "@/lib/api/ai/guidance";
 import { useComposerSeed, type ComposerSeed } from "./composerSeed";
 import {
-  buildAgentReviewGoalText,
-  composeCheckWorkflowReview,
-  looksLikeRawJson,
-  type CheckWorkflowReviewContext,
-  type CheckWorkflowSetupTarget,
+  useGuidanceConversation,
+  type GuidanceChatMessage,
+  type GuidanceConversation,
+} from "./useGuidanceConversation";
+import type {
+  CheckWorkflowReviewContext,
+  CheckWorkflowSetupTarget,
 } from "@/core/workflows/checkWorkflowReview";
 import {
   isPlanMeaningfulCanvasPreview,
   type CanvasPreviewGraphNode,
 } from "@/core/workflows/canvasPreviewEligibility";
-import { stripFencedJsonBlocks } from "@/core/workflows/stripFencedJsonBlocks";
 import {
   CHAT_PLACEHOLDER,
-  CHECK_WORKFLOW_PROMPT,
   MAX_GOAL_LENGTH,
-  UNAVAILABLE_MESSAGE,
-  asRenderablePlan,
-  asRenderablePreview,
-  safeErrorMessage,
   submitOnEnter,
 } from "./guidancePanelShared";
 import { SingleShotGuidancePanel } from "./SingleShotGuidancePanel";
@@ -142,6 +131,23 @@ export interface WorkflowGuidancePanelProps {
    * dialog only offers create-new, unchanged.
    */
   readonly onTemplateApplyToCurrent?: (input: { templateId: string; templateName: string }) => Promise<void>;
+  /**
+   * DOC-REACT-AGENT-1 — conversational-only: the SHARED conversation to render.
+   * `WorkflowBuilder` owns ONE instance (`useGuidanceConversation`) and hands it
+   * to whichever surface is mounted — the Visual left rail or the Document
+   * bottom agent workspace — so switching modes remounts the presentation
+   * WITHOUT losing the transcript, the in-flight request, or the pending
+   * proposal. Absent → the panel creates its own (dashboard / existing tests
+   * unchanged). There is never more than one conversation.
+   */
+  readonly conversation?: GuidanceConversation;
+  /**
+   * DOC-REACT-AGENT-1 — hide this panel's own composer footer (textarea + Send +
+   * Check workflow). The Document workspace supplies those controls itself so
+   * the bottom composer stays the single entry point; the transcript renders
+   * here unchanged. Absent → the composer renders as before.
+   */
+  readonly hideComposer?: boolean;
 }
 
 export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
@@ -152,45 +158,12 @@ export function WorkflowGuidancePanel(props: WorkflowGuidancePanelProps) {
   );
 }
 
-type ChatMessage =
-  | { readonly id: string; readonly role: "user"; readonly text: string }
-  | {
-      readonly id: string;
-      readonly role: "assistant";
-      readonly text: string;
-      readonly plan: WorkflowPlan | null;
-      readonly preview: DraftPreview | null;
-      /** CHECKPOINTS-1 — the user goal/prompt that produced this turn, carried so an Apply can name the checkpoint. */
-      readonly prompt?: string;
-      /** HERMES-AGENT-WORKFLOW-EDITOR — for an EDIT proposal, the validated end-state graph Apply replaces with. */
-      readonly proposedDefinition?: WorkflowDefinition | null;
-      /** HERMES-AGENT-WORKFLOW-EDITOR-LIVE — the draft version the proposal is pinned to (Apply stale guard). */
-      readonly baseGraphVersion?: string | null;
-      // REACT-LIVE-SKELETON — safe, no-secret notes (e.g. an exact catalog gap when no plan could be
-      // built). Rendered as muted lines under the reply.
-      readonly warnings?: readonly string[];
-      readonly officialTemplateMatches?: readonly GuidanceOfficialTemplateMatch[];
-    }
-  // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a LOCAL, deterministic workflow review produced
-  // entirely from builder state (no LLM, no network, no AI credits). Rendered like a React turn but
-  // carries no plan/preview and offers an explicit, opt-in "Ask React for deeper suggestions" follow-up.
-  // `setupTargets` are existing draft nodes with missing required fields (for the inline setup card).
-  | {
-      readonly id: string;
-      readonly role: "review";
-      readonly text: string;
-      readonly setupTargets: readonly CheckWorkflowSetupTarget[];
-    }
-  | { readonly id: string; readonly role: "error"; readonly text: string };
-
-/** Build the sanitized, bounded recent-conversation context from prior plain-text turns. */
-function toRecentTurns(messages: readonly ChatMessage[]): GuidanceConversationTurn[] {
-  return messages
-    .filter((m): m is Extract<ChatMessage, { role: "user" | "assistant" }> => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ role: m.role, text: m.text.slice(0, MAX_GUIDANCE_CONVERSATION_TURN_TEXT) }))
-    .filter((t) => t.text.trim().length > 0)
-    .slice(-MAX_GUIDANCE_CONVERSATION_TURNS);
-}
+/**
+ * DOC-REACT-AGENT-1 — the transcript shape now lives with the SHARED
+ * conversation (see useGuidanceConversation) so every presentation renders the
+ * same messages. Aliased here to keep this file’s reading order intact.
+ */
+type ChatMessage = GuidanceChatMessage;
 
 /** Build the canvas-overlay payload from an assistant turn (carries the edit's proposedDefinition when present). */
 function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan: WorkflowPlan; preview: DraftPreview; proposedDefinition?: WorkflowDefinition; baseGraphVersion?: string; prompt?: string } {
@@ -205,10 +178,25 @@ function toCanvasPayload(m: Extract<ChatMessage, { role: "assistant" }>): { plan
 }
 
 /** Session-scoped conversational rail. In-memory only — never persisted (no durable memory). */
-function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, composerSeed, onTemplateApplyToCurrent }: WorkflowGuidancePanelProps) {
-  const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas, transcriptFooter, getCheckReviewContext, getCurrentGraphShape, getCurrentDraft, renderCheckSetup, composerSeed, onTemplateApplyToCurrent, conversation, hideComposer }: WorkflowGuidancePanelProps) {
+  // DOC-REACT-AGENT-1 — ONE conversation. `WorkflowBuilder` owns it so the
+  // Visual rail and the Document workspace are two presentations of the same
+  // agent; without an injected one the panel owns its own (dashboard / tests).
+  // Both hooks always run (no conditional hook); only one result is used.
+  const ownConversation = useGuidanceConversation({
+    accountId,
+    ...(workflowId ? { workflowId } : {}),
+    ...(getCurrentDraft ? { getCurrentDraft } : {}),
+    ...(getCheckReviewContext ? { getCheckReviewContext } : {}),
+  });
+  const convo = conversation ?? ownConversation;
+  const { messages, input, loading, setInput } = convo;
+  const requestContext = {
+    accountId,
+    ...(workflowId ? { workflowId } : {}),
+    ...(getCurrentDraft ? { getCurrentDraft } : {}),
+    ...(getCheckReviewContext ? { getCheckReviewContext } : {}),
+  };
   // AI-TEMPLATE-APPLY-CURRENT — inside the builder (a workflowId + an apply handler), the template
   // match dialog offers "Apply to current workflow" (in place) as the primary choice. On the dashboard
   // (neither present) the hook falls back to create-new only.
@@ -216,8 +204,6 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
     ...(workflowId ? { currentWorkflowId: workflowId } : {}),
     ...(onTemplateApplyToCurrent ? { onApplyToCurrent: onTemplateApplyToCurrent } : {}),
   });
-  const nextId = useRef(0);
-  const makeId = () => String(nextId.current++);
 
   // 5.DUAL-BUILDER-1 CS-7 — the ONE keyed/versioned composer seed. Each new
   // version is applied at most once: a restore seed fills only an empty composer;
@@ -270,131 +256,27 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
   // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — the "Check workflow" pill runs an INSTANT, LOCAL,
   // deterministic review and appends it to the transcript. It NEVER calls `requestWorkflowGuidance` /
   // the Hermes model gateway / any LLM, never consumes AI credits or tasks, never prefills the composer,
-  // and never opens the validation drawer / mutates / saves / activates / runs / applies anything. The
-  // verdict comes only from the builder's own validation snapshot (`getCheckReviewContext`), so it can't
-  // contradict the header pill / drawer, and the rendered text is composed locally (no raw JSON ever).
+  // and never opens the validation drawer / mutates / saves / activates / runs / applies anything.
+  // DOC-REACT-AGENT-1 — the logic itself now lives on the shared conversation, so the Document
+  // workspace runs the very same review.
   function handleCheckWorkflow(): void {
-    if (loading || !getCheckReviewContext) return;
-    const ctx = getCheckReviewContext();
-    const text = composeCheckWorkflowReview({
-      summary: ctx.summary,
-      blockingIssueCount: ctx.blockingIssueCount,
-      issueMessages: ctx.issueMessages,
-      agentText: null, // deterministic — no model output is ever folded into the default review
-    });
-    setMessages((prev) => [
-      ...prev,
-      { id: makeId(), role: "review", text, setupTargets: ctx.setupTargets },
-    ]);
+    convo.checkWorkflow(requestContext);
   }
 
-  // Only the most recent assistant turn's preview/plan is actionable — a newer preview supersedes the
+  // Only the most recent assistant turn’s preview/plan is actionable — a newer preview supersedes the
   // prior pending one (the older messages stay in the transcript as text).
-  let latestAssistantId: string | null = null;
-  let latestReviewId: string | null = null;
-  for (const m of messages) {
-    if (m.role === "assistant") latestAssistantId = m.id;
-    if (m.role === "review") latestReviewId = m.id;
-  }
+  const latestAssistantId = convo.latestAssistantId;
+  const latestReviewId = convo.latestReviewId;
 
   async function handleSend(): Promise<void> {
-    if (!canSend) return;
-    const goalText = trimmed;
-    // Prior turns (before appending this one) become the sanitized recent-conversation context.
-    const recentTurns = toRecentTurns(messages);
-    // HERMES-AGENT-WORKFLOW-EDITOR — send the CURRENT local draft (stable ids + config + edges) so a
-    // change request ("change it to email", "remove that step") is proposed against what's on the canvas
-    // now, incl. applied unsaved edits. Omitted when there's nothing on the canvas yet.
-    const currentDraft = getCurrentDraft?.();
-    setMessages((prev) => [...prev, { id: makeId(), role: "user", text: goalText }]);
-    setInput("");
-    setLoading(true);
-    try {
-      const res = await requestWorkflowGuidance({
-        accountId,
-        goalText,
-        ...(workflowId ? { workflowId } : {}),
-        ...(recentTurns.length ? { recentTurns } : {}),
-        ...(currentDraft && currentDraft.nodes.length ? { currentDraft } : {}),
-      });
-      if (res.ok) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: makeId(),
-            role: "assistant",
-            // Defensive: strip any fenced JSON/operation block so raw model JSON never renders in the rail.
-            text: stripFencedJsonBlocks(res.guidanceText) || res.guidanceText,
-            plan: asRenderablePlan(res.workflowPlan),
-            preview: asRenderablePreview(res.previewDraft),
-            // CHECKPOINTS-1 — remember the user goal for this turn so an Apply records it on the checkpoint.
-            prompt: goalText,
-            ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
-            ...(res.baseGraphVersion ? { baseGraphVersion: res.baseGraphVersion } : {}),
-            ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
-            ...(res.officialTemplateMatches && res.officialTemplateMatches.length
-              ? { officialTemplateMatches: res.officialTemplateMatches }
-              : {}),
-          },
-        ]);
-      } else {
-        setMessages((prev) => [...prev, { id: makeId(), role: "error", text: safeErrorMessage(res) }]);
-      }
-    } catch {
-      setMessages((prev) => [...prev, { id: makeId(), role: "error", text: UNAVAILABLE_MESSAGE }]);
-    } finally {
-      setLoading(false);
-    }
+    await convo.send();
   }
 
   // BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — the EXPLICIT, opt-in AI follow-up. Distinct from
   // the default Check-workflow review: only THIS action calls the governed `requestWorkflowGuidance`
-  // path (which may use AI credits). It carries de-identified validation context (counts + issue codes)
-  // so the model reasons against the real state, renders as a normal React turn, and guards against a
-  // raw-JSON reply. Never auto-runs — the user taps "Ask React for deeper suggestions".
+  // path (which may use AI credits). Never auto-runs — the user taps the button under a review.
   async function handleAskDeeper(): Promise<void> {
-    if (loading || !getCheckReviewContext) return;
-    const ctx = getCheckReviewContext();
-    const requestGoalText = buildAgentReviewGoalText(CHECK_WORKFLOW_PROMPT, ctx);
-    const recentTurns = toRecentTurns(messages);
-    const currentDraft = getCurrentDraft?.();
-    setLoading(true);
-    try {
-      const res = await requestWorkflowGuidance({
-        accountId,
-        goalText: requestGoalText,
-        ...(currentDraft && currentDraft.nodes.length ? { currentDraft } : {}),
-        ...(workflowId ? { workflowId } : {}),
-        ...(recentTurns.length ? { recentTurns } : {}),
-      });
-      if (res.ok) {
-        // Never surface a raw-JSON dump as the response body, even on the AI path. Strip any fenced
-        // operation/JSON block first, then fall back to neutral copy if a whole-text dump remains.
-        const cleaned = stripFencedJsonBlocks(res.guidanceText) || res.guidanceText;
-        const text = looksLikeRawJson(cleaned)
-          ? "Here are some suggestions based on your current workflow."
-          : cleaned;
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: makeId(),
-            role: "assistant",
-            text,
-            plan: asRenderablePlan(res.workflowPlan),
-            preview: asRenderablePreview(res.previewDraft),
-            ...(res.proposedDefinition ? { proposedDefinition: res.proposedDefinition } : {}),
-            ...(res.baseGraphVersion ? { baseGraphVersion: res.baseGraphVersion } : {}),
-            ...(res.warnings && res.warnings.length ? { warnings: res.warnings } : {}),
-          },
-        ]);
-      } else {
-        setMessages((prev) => [...prev, { id: makeId(), role: "error", text: safeErrorMessage(res) }]);
-      }
-    } catch {
-      setMessages((prev) => [...prev, { id: makeId(), role: "error", text: UNAVAILABLE_MESSAGE }]);
-    } finally {
-      setLoading(false);
-    }
+    await convo.askDeeper(requestContext);
   }
 
   return (
@@ -509,7 +391,18 @@ function ConversationalGuidancePanel({ accountId, workflowId, onPreviewToCanvas,
         {transcriptFooter}
       </div>
 
-      <div className="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+      {/* DOC-REACT-AGENT-1 — the Document workspace supplies its own composer +
+          agent actions (the bottom bar is the single entry point there), so this
+          footer is suppressed rather than duplicated. The transcript above is
+          identical in both surfaces. */}
+      <div
+        className={
+          hideComposer
+            ? "hidden"
+            : "mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800"
+        }
+        {...(hideComposer ? { hidden: true, "aria-hidden": true as const } : {})}
+      >
         {/* BUILDER-AGENT-RAIL-CHECK-WORKFLOW-DETERMINISTIC — a compact agent action directly ABOVE the
             chat input. Clicking runs an INSTANT, LOCAL, deterministic review (no LLM, no AI credits, no
             prefill) and appends it to the transcript. It never opens the validation drawer or blocks
