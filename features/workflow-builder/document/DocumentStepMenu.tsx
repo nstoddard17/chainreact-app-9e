@@ -48,19 +48,32 @@ export function DocumentStepMenu({
   if (items.length === 0) return null;
 
   return (
-    <div ref={rootRef} className="relative" onKeyDown={onKeyDown} onBlur={onBlur}>
+    <div
+      ref={rootRef}
+      className="crv2-step-menu relative"
+      onKeyDown={onKeyDown}
+      onBlur={onBlur}
+    >
       <button
         type="button"
         data-testid={testId}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={ariaLabel}
-        title={ariaLabel}
         onClick={() => setOpen((o) => !o)}
         className="crv2-step-menu-button"
       >
         <span aria-hidden>⋯</span>
       </button>
+      {/* DOC-STEP-CONTROLS-2 — a transient "Options" hint on hover/keyboard
+          focus. It is decorative (the button's aria-label already names the
+          step), and it is dropped while the menu is open so the two never
+          overlap. The word never becomes permanent chrome beside a sentence. */}
+      {open ? null : (
+        <span aria-hidden data-testid={`${testId}-tip`} className="crv2-step-menu-tip">
+          Options
+        </span>
+      )}
       {open ? (
         <div
           role="menu"

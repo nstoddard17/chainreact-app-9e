@@ -35,7 +35,17 @@ Step management must be visible before the pointer arrives:
   the label text and `aria-label` are present at all times.
 
 Hover may change contrast or width. Hover must never be what makes a control
-exist. Both menus share one keyboard model
+exist.
+
+DOC-STEP-CONTROLS-2 tightened the overflow button specifically: at rest it is
+painted with a real 1px boundary and a panel fill (not a bare glyph), so a
+first-time reader can tell a sentence has options before pointing at it. It
+still ranks *below* the sentence content — muted glyph, no accent colour, no
+bold, smaller than a provider pill or a value chip. Three distinct states:
+rest → hover/`:focus-visible` (darker glyph, stronger border) → open
+(`aria-expanded="true"`, clay fill, held for as long as the menu is up). A
+transient "Options" hint appears on hover/focus and is dropped while the menu
+is open; the word never becomes permanent chrome beside a sentence. Both menus share one keyboard model
 (`document/documentMenuKeyboard.ts`: ArrowDown opens, arrows/Home/End rove,
 Escape and blur close), and the Document surface carries a single
 `:focus-visible` ring.

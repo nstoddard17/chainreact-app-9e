@@ -221,6 +221,57 @@ describe("step controls are discoverable without hover", () => {
       expect(button).toHaveAttribute("aria-label", `Actions for ${name}`);
       expect(button).toHaveAttribute("aria-haspopup", "menu");
       expect(isHoverGated(button)).toBe(false);
+      // DOC-STEP-CONTROLS-2 — the trigger and EVERY action carry the same
+      // always-painted treatment (boundary + fill live on this class; the
+      // rendered colours are verified in the browser review, not in jsdom).
+      expect(button).toHaveClass("crv2-step-menu-button");
+      expect(button).toHaveAttribute("aria-expanded", "false");
+    }
+  });
+
+  it("shows an 'Options' hint that is decorative and never permanent chrome", () => {
+    renderDoc();
+    // Present at rest (CSS reveals it on hover/focus only) and hidden from AT —
+    // the button's aria-label already names the step.
+    const tip = screen.getByTestId("document-step-menu-a-tip");
+    expect(tip).toHaveTextContent("Options");
+    expect(tip).toHaveAttribute("aria-hidden", "true");
+    expect(tip).toHaveClass("crv2-step-menu-tip");
+    // The word is not repeated as a visible label beside the sentence: the only
+    // accessible name on the control is the step-scoped one.
+    expect(screen.getByTestId("document-step-menu-a")).toHaveAttribute(
+      "aria-label",
+      "Actions for step 1",
+    );
+    expect(screen.getByTestId("document-step-menu-a")).not.toHaveAttribute("title");
+  });
+
+  it("keeps the button in an open state for as long as its menu is displayed", () => {
+    renderDoc();
+    const button = screen.getByTestId("document-step-menu-a");
+    fireEvent.click(button);
+    // The open treatment is keyed off aria-expanded, so the control stays
+    // visibly active while the menu is on screen.
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("document-step-menu-a-menu")).toBeInTheDocument();
+    // The transient hint steps aside while the menu is open (they'd overlap).
+    expect(screen.queryByTestId("document-step-menu-a-tip")).toBeNull();
+
+    fireEvent.keyDown(screen.getByTestId("document-step-menu-a-menu"), { key: "Escape" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("document-step-menu-a-tip")).toBeInTheDocument();
+  });
+
+  it("reserves a fixed control column so no menu state can reflow the sentence", () => {
+    renderDoc();
+    for (const nodeId of ["t", "a", "b"]) {
+      const sentence = screen.getByTestId(`document-sentence-${nodeId}`);
+      const column = sentence.lastElementChild as HTMLElement;
+      // Same fixed-width column on the trigger and every action → the menu
+      // buttons share one right edge and the sentence never shifts.
+      expect(column.className).toContain("w-7");
+      expect(column.className).toContain("shrink-0");
+      expect(column.querySelector('[data-testid^="document-step-menu-"]')).not.toBeNull();
     }
   });
 
@@ -281,6 +332,30 @@ describe("step overflow menu — keyboard + commands", () => {
 
     fireEvent.click(screen.getByTestId("document-step-menu-a"));
     expect(screen.getByTestId("document-select-a")).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("shows the selected step WITHOUT reopening the menu, and without a rail control", () => {
+    renderDoc();
+    const sentence = () => screen.getByTestId("document-sentence-a");
+    const block = () => sentence().closest("[data-document-selected]");
+    expect(block()).toBeNull();
+
+    fireEvent.click(screen.getByTestId("document-step-menu-a"));
+    fireEvent.click(screen.getByTestId("document-select-a"));
+    // The menu is closed again, and the step itself now reads as selected — the
+    // marker (spine + tint) hangs off this attribute, so the state is visible
+    // on the sentence, not hidden behind reopening the menu.
+    expect(screen.queryByTestId("document-step-menu-a-menu")).toBeNull();
+    expect(block()).not.toBeNull();
+    expect(block()).toContainElement(sentence());
+    // …and the old overlapping rail switch is NOT back: the rail is still empty.
+    const rail = sentence().firstElementChild as HTMLElement;
+    expect(rail.querySelectorAll("button, input, [role='checkbox'], [role='switch']")).toHaveLength(0);
+
+    // Deselecting clears the marker.
+    fireEvent.click(screen.getByTestId("document-step-menu-a"));
+    fireEvent.click(screen.getByTestId("document-select-a"));
+    expect(block()).toBeNull();
   });
 
   it("duplicates a step through the canonical command without saving", async () => {

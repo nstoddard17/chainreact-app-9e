@@ -151,8 +151,10 @@ export function DocumentSentence({
         </p>
       </div>
       {/* Reserved control column — always present (even with no menu) so the
-          sentence width is identical whether or not controls are interactive. */}
-      <div className="mt-0.5 flex w-6 shrink-0 items-start justify-end">
+          sentence width is identical whether or not controls are interactive.
+          DOC-STEP-CONTROLS-2 — sized for the 26px overflow button; the width is
+          fixed, so no state of that button can reflow the sentence. */}
+      <div className="mt-0.5 flex w-7 shrink-0 items-start justify-end">
         {menuItems && menuItems.length > 0 ? (
           <DocumentStepMenu
             testId={`document-step-menu-${block.nodeId}`}
