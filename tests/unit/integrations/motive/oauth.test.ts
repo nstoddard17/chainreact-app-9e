@@ -72,20 +72,27 @@ describe("buildAuthUrl", () => {
     expect(url.toString()).not.toContain("test-motive-client-secret");
   });
 
-  it("requests ALL 14 manifest scope identifiers in the authorize URL, no duplicates", () => {
+  it("requests ALL 11 manifest scope identifiers in the authorize URL, no duplicates", () => {
     const url = new URL(
       motiveOAuth.buildAuthUrl("state", [...motiveManifest.scopes.required], null),
     );
     const scopeParam = url.searchParams.get("scope") ?? "";
     const scopes = scopeParam.split(" ").filter((s) => s.length > 0);
-    // Every required identifier is present, exactly the 14, no duplicates.
+    // Every required identifier is present, exactly the 11 (one per portal
+    // permission row — the portal grants a single read-OR-manage variant per
+    // row), no duplicates.
     expect(scopes.sort()).toEqual([...motiveManifest.scopes.required].sort());
-    expect(scopes).toHaveLength(14);
-    expect(new Set(scopes).size).toBe(14);
+    expect(scopes).toHaveLength(11);
+    expect(new Set(scopes).size).toBe(11);
     // Spot-check the additions that gate webhooks + inspection reports.
     expect(scopes).toContain("company_webhooks.manage");
     expect(scopes).toContain("inspection_reports.read");
     expect(scopes).not.toContain("forms.read");
+    // Read-and-write rows grant ONLY `.manage` — their `.read` must never be
+    // requested (it 403s the whole authorize request).
+    expect(scopes).not.toContain("fuel_purchases.read");
+    expect(scopes).not.toContain("vehicles.read");
+    expect(scopes).not.toContain("users.read");
   });
 });
 

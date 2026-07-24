@@ -46,27 +46,34 @@
   tunnel + set `MOTIVE_WEBHOOK_URL`/`NEXT_PUBLIC_APP_URL` to the tunnel origin, or test
   against the deployed environment).
 
-### OAuth scopes (exact Doorkeeper identifiers — all 14 required)
-Enable the matching portal checkbox for each. The token only receives a scope
-that is BOTH enabled in the portal AND requested by the manifest, so this set is
-mirrored 1:1 in `integrations/motive/manifest.ts`.
+### OAuth scopes (exact Doorkeeper identifiers — all 11 required)
 
-| Scope identifier | Portal checkbox | Used by |
-|---|---|---|
-| `companies.read` | Company Details | connect identity (companyId) |
-| `fuel_purchases.read` | Fuel Purchases (read) | fuel list/get, new_fuel_purchase |
-| `fuel_purchases.manage` | Fuel Purchases (manage) | fuel create/update/delete, bulk import |
-| `vehicles.read` | Vehicles (read) | vehicle picker, new_vehicle |
-| `vehicles.manage` | Vehicles (manage) | create/update vehicle |
-| `users.read` | Drivers and Fleet Managers (read) | driver picker, new_driver |
-| `users.manage` | Drivers and Fleet Managers (manage) | update_driver |
-| `messages.manage` | Messages (manage) | send_message |
-| `company_webhooks.manage` | Company Webhooks (manage) | **all 7 webhook triggers** (POST /v1/company_webhooks) |
-| `inspection_reports.read` | Inspection Reports (read) | new_inspection_report |
-| `hos_logs.hos_violation` | HOS Violations (read) | new_hos_violation |
-| `driver_performance_events.read` | Driver Performance (read) | new_safety_event |
-| `speeding_events.read` | Speeding Events (read) | new_speeding_event |
-| `fault_codes.read` | Fault Codes (read) | new_fault_code |
+**Portal semantics (live-verified 2026-07-24, single-scope authorize bisect):**
+each portal permission row grants EXACTLY ONE scope, chosen by its Read-only /
+Read-and-write dropdown — **"Read and write" REPLACES `.read` with `.manage`**
+(they are never granted together). Requesting any scope the app doesn't hold
+rejects the ENTIRE authorize request with "The requested scope is invalid,
+unknown, or malformed." The manifest therefore requests exactly one scope per
+row, mirrored 1:1 in `integrations/motive/manifest.ts`. Motive labels `.manage`
+as "Read and write", so GETs under a manage-only row are expected to work —
+**verify at Phase 13** (fuel list/get, driver/vehicle pickers, fuel polling,
+`GET /v1/users/me` at connect).
+
+Required portal configuration (checkbox ✓ + dropdown level):
+
+| Portal row | Level | Scope granted | Used by |
+|---|---|---|---|
+| Company Details | Read only | `companies.read` | connect identity (companyId) |
+| Fuel Purchases | **Read and write** | `fuel_purchases.manage` | fuel CRUD, bulk import; list/get + new_fuel_purchase ride manage |
+| Vehicles | **Read and write** | `vehicles.manage` | create/update vehicle; picker + new_vehicle ride manage |
+| Drivers and Fleet Managers | **Read and write** | `users.manage` | update_driver; picker + new_driver ride manage |
+| Messages | **Read and write** | `messages.manage` | send_message |
+| Company Webhooks | **Read and write** | `company_webhooks.manage` | **all 7 webhook triggers** (POST /v1/company_webhooks) — valid identifier despite being absent from Motive's public scope docs |
+| Inspection Reports | **Read only** | `inspection_reports.read` | new_inspection_report — do NOT set Read and write (that swaps in `inspections_reports.manage` and breaks the request) |
+| HOS Violations | Read only | `hos_logs.hos_violation` | new_hos_violation |
+| Driver Performance | Read only | `driver_performance_events.read` | new_safety_event |
+| Speeding Events | Read only | `speeding_events.read` | new_speeding_event |
+| Fault Codes | Read only | `fault_codes.read` | new_fault_code |
 
 > **Do NOT enable Dispatch Forms / Dispatch Form Entries** for inspections —
 > `forms.read` / `form_entries.read` authorize Dispatch Forms, NOT Inspection

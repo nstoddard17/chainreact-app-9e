@@ -52,20 +52,26 @@ export const motiveManifest: ProviderManifest = ProviderManifestSchema.parse({
   tokenScope: "user",
   oauthFlows: ["v2"],
   accountIdField: "companyId",
-  // Exact Doorkeeper scope identifiers (14). Each maps 1:1 to a shipped node —
-  // see docs/providers/motive/owner-setup-report.md. `company_webhooks.manage`
-  // is MANDATORY for the 7 webhook triggers (POST /v1/company_webhooks); the
-  // safety-event reads authorize their triggers. Deliberately NOT requested:
-  // `forms.read` / `form_entries.read` are DISPATCH-FORMS permissions and do
-  // NOT authorize Inspection Reports — `inspection_reports.read` does.
+  // Exact Doorkeeper scope identifiers (11) — one per developer-portal
+  // permission row. LIVE-VERIFIED 2026-07-24 (single-scope authorize bisect
+  // against the real app): each portal row grants EXACTLY ONE variant chosen by
+  // its Read-only / Read-and-write dropdown — "Read and write" REPLACES `.read`
+  // with `.manage` (requesting both 403s the whole authorize request with
+  // "requested scope is invalid"). So `.read` is requested ONLY for rows the
+  // portal keeps at Read only. Motive labels `.manage` as "Read and write" —
+  // GET endpoints under a manage-only row (fuel list/get, driver/vehicle
+  // pickers, fuel-purchase polling) ride the manage scope; verify at Phase 13.
+  // `company_webhooks.manage` is MANDATORY for the 7 webhook triggers
+  // (POST /v1/company_webhooks) — live-verified valid despite being absent from
+  // Motive's public scope docs. Deliberately NOT requested: `forms.read` /
+  // `form_entries.read` are DISPATCH-FORMS permissions and do NOT authorize
+  // Inspection Reports — `inspection_reports.read` does (portal row stays
+  // Read only).
   scopes: {
     required: [
       "companies.read",
-      "fuel_purchases.read",
       "fuel_purchases.manage",
-      "vehicles.read",
       "vehicles.manage",
-      "users.read",
       "users.manage",
       "messages.manage",
       "company_webhooks.manage",

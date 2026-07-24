@@ -51,29 +51,40 @@ Sources: `developer-docs.gomotive.com/docs/oauth-20`,
 
 ## 2. Scopes / permissions
 
-Model: **every GET needs a `*.read` scope; every write (POST/PUT/PATCH/DELETE)
-needs the matching `*.manage` scope.** Motive recommends always enabling
+Docs model: **every GET needs a `*.read` scope; every write (POST/PUT/PATCH/
+DELETE) needs the matching `*.manage` scope.** Motive recommends always enabling
 `companies.read` so a token can be attributed to its organization.
 
-Exact Doorkeeper scope identifiers (14, verified against the developer-portal
-scope picker, 2026-07-17):
+> **CORRECTION (2026-07-24, live-verified against the real developer app via
+> single-scope authorize bisect):** the portal does NOT grant `.read` and
+> `.manage` together. Each portal permission row has ONE checkbox + ONE
+> Read-only / Read-and-write dropdown, and the app is granted EXACTLY ONE scope
+> per row — "Read and write" REPLACES `.read` with `.manage`. Requesting a
+> `.read` for a row set to Read-and-write rejects the ENTIRE authorize request
+> with Doorkeeper's "The requested scope is invalid, unknown, or malformed."
+> The earlier claim of 14 grantable identifiers (read+manage pairs) was wrong.
+> Motive labels `.manage` as "Read and write", implying manage tokens can also
+> GET — Phase 13 must verify GETs (fuel list/get, pickers, fuel polling) work
+> under manage-only scopes. Also live-verified: `company_webhooks.manage` IS a
+> valid identifier even though `developer-docs.gomotive.com` scope docs omit it
+> entirely.
 
-| Scope | Required? | Used by |
+Exact Doorkeeper scope identifiers requested (11 — one per portal row; portal
+row level in parentheses):
+
+| Scope | Portal row (level) | Used by |
 |---|---|---|
-| `companies.read` | required | connect-time company identity + attribution |
-| `fuel_purchases.read` | required | fuel list/get, new-fuel-purchase polling trigger |
-| `fuel_purchases.manage` | required | fuel create/update/delete, bulk CSV import |
-| `vehicles.read` | required | vehicle picker, `new_vehicle` trigger |
-| `vehicles.manage` | required | `create_vehicle`, `update_vehicle` |
-| `users.read` | required | driver picker, `new_driver` trigger |
-| `users.manage` | required | `update_driver` |
-| `messages.manage` | required | `send_message` |
-| `company_webhooks.manage` | required | **all 7 webhook triggers** — `POST /v1/company_webhooks` |
-| `inspection_reports.read` | required | `new_inspection_report` |
-| `hos_logs.hos_violation` | required | `new_hos_violation` |
-| `driver_performance_events.read` | required | `new_safety_event` |
-| `speeding_events.read` | required | `new_speeding_event` |
-| `fault_codes.read` | required | `new_fault_code` |
+| `companies.read` | Company Details (Read only) | connect-time company identity + attribution |
+| `fuel_purchases.manage` | Fuel Purchases (Read and write) | fuel CRUD + bulk CSV import; list/get + polling ride manage |
+| `vehicles.manage` | Vehicles (Read and write) | `create_vehicle`, `update_vehicle`; vehicle picker + `new_vehicle` ride manage |
+| `users.manage` | Drivers and Fleet Managers (Read and write) | `update_driver`; driver picker + `new_driver` ride manage |
+| `messages.manage` | Messages (Read and write) | `send_message` |
+| `company_webhooks.manage` | Company Webhooks (Read and write) | **all 7 webhook triggers** — `POST /v1/company_webhooks` |
+| `inspection_reports.read` | Inspection Reports (Read only) | `new_inspection_report` |
+| `hos_logs.hos_violation` | HOS Violations (Read only) | `new_hos_violation` |
+| `driver_performance_events.read` | Driver Performance (Read only) | `new_safety_event` |
+| `speeding_events.read` | Speeding Events (Read only) | `new_speeding_event` |
+| `fault_codes.read` | Fault Codes (Read only) | `new_fault_code` |
 
 > **CORRECTION (2026-07-17):** an earlier draft mapped inspections to
 > `forms.read` / `form_entries.read` — those are **Dispatch Forms** permissions

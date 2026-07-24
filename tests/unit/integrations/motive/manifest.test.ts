@@ -23,14 +23,15 @@ describe("motive manifest", () => {
   });
 
   // The exact Doorkeeper scope identifiers the shipped nodes require — pinned so
-  // adding/removing a scope forces a deliberate test update.
+  // adding/removing a scope forces a deliberate test update. One scope per
+  // developer-portal permission row: Motive's portal grants EXACTLY ONE variant
+  // per row ("Read and write" REPLACES `.read` with `.manage`), so requesting a
+  // `.read` alongside its `.manage` rejects the whole authorize request
+  // (live-verified 2026-07-24).
   const EXPECTED_SCOPES = [
     "companies.read",
-    "fuel_purchases.read",
     "fuel_purchases.manage",
-    "vehicles.read",
     "vehicles.manage",
-    "users.read",
     "users.manage",
     "messages.manage",
     "company_webhooks.manage",
@@ -41,14 +42,24 @@ describe("motive manifest", () => {
     "fault_codes.read",
   ];
 
-  it("requests EXACTLY the 14 scopes the shipped nodes use, with no duplicates", () => {
+  it("requests EXACTLY the 11 scopes the shipped nodes use, with no duplicates", () => {
     expect([...motiveManifest.scopes.required].sort()).toEqual(
       [...EXPECTED_SCOPES].sort(),
     );
-    expect(motiveManifest.scopes.required).toHaveLength(14);
+    expect(motiveManifest.scopes.required).toHaveLength(11);
     // No duplicates.
-    expect(new Set(motiveManifest.scopes.required).size).toBe(14);
+    expect(new Set(motiveManifest.scopes.required).size).toBe(11);
     expect(motiveManifest.scopes.optional).toEqual([]);
+    // A `.read` must NEVER be requested for a row set to Read-and-write — the
+    // portal grants only the `.manage` variant and the pair 403s the authorize.
+    for (const readWriteRowRead of [
+      "fuel_purchases.read",
+      "vehicles.read",
+      "users.read",
+      "messages.read",
+    ]) {
+      expect(motiveManifest.scopes.required).not.toContain(readWriteRowRead);
+    }
   });
 
   it("covers every shipped capability and excludes non-authorizing / unused scopes", () => {
